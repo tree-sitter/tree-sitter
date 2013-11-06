@@ -66,16 +66,22 @@ namespace tree_sitter {
             return contents[i].second;
         }
         
-        void merge(const TransitionMap<MappedType> &other, std::function<const MappedType *(const MappedType &, const MappedType &)> merge_fn) {
+        void merge(const TransitionMap<MappedType> &other, std::function<mapped_ptr(mapped_ptr, mapped_ptr)> merge_fn) {
             for (pair_type other_pair : other) {
-                pair_type *current_pair = pair_for_key(*other_pair.first);
-                if (current_pair)
-                    current_pair->second = mapped_ptr(merge_fn(*current_pair->second, *other_pair.second));
+                if (pair_type *current_pair = pair_for_key(*other_pair.first))
+                    current_pair->second = merge_fn(current_pair->second, other_pair.second);
                 else
                     add(other_pair.first, other_pair.second);
             }
         }
-        
+
+        TransitionMap<MappedType> map(std::function<mapped_ptr(mapped_ptr)> map_fn) {
+            TransitionMap<MappedType> result;
+            for (pair_type pair : *this)
+                result.add(pair.first, map_fn(pair.second));
+            return result;
+        }
+
     private:
         pair_type * pair_for_key(rules::Rule const &key) {
             for (int i = 0; i < contents.size(); i++) {

@@ -15,6 +15,8 @@ namespace tree_sitter {
             virtual std::string to_string() const = 0;
         };
         
+        typedef std::shared_ptr<const Rule> rule_ptr;
+        
         class Blank : public Rule {
         public:
             Blank();
@@ -45,8 +47,8 @@ namespace tree_sitter {
             bool operator==(const Rule& other) const;
             std::string to_string() const;
         private:
-            std::shared_ptr<const Rule> left;
-            std::shared_ptr<const Rule> right;
+            rule_ptr left;
+            rule_ptr right;
         };
         
         class Seq : public Rule {
@@ -59,8 +61,8 @@ namespace tree_sitter {
             bool operator==(const Rule& other) const;
             std::string to_string() const;
         private:
-            std::shared_ptr<const Rule> left;
-            std::shared_ptr<const Rule> right;
+            rule_ptr left;
+            rule_ptr right;
         };
     }
 }

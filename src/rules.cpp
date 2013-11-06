@@ -6,7 +6,6 @@ using namespace std;
 
 namespace tree_sitter  {
     namespace rules {
-        
         // Constructors
         Blank::Blank() {}
         Symbol::Symbol(int id) : id(id) {};
@@ -28,14 +27,20 @@ namespace tree_sitter  {
         
         TransitionMap<Rule> Choice::transitions() const {
             auto result = left->transitions();
-            result.merge(right->transitions(), [&](const Rule &left, const Rule &right) {
-                return new Choice(left, right);
+            result.merge(right->transitions(), [&](rule_ptr left, rule_ptr right) -> rule_ptr {
+                return rule_ptr(new Choice(left, right));
             });
             return result;
         }
         
         TransitionMap<Rule> Seq::transitions() const {
-            return TransitionMap<Rule>({ left->copy() }, { right->copy() });
+            return left->transitions().map([&](rule_ptr left_rule) -> rule_ptr {
+                if (typeid(*left_rule) == typeid(Blank)) {
+                    return right;
+                } else {
+                    return rule_ptr(new Seq(left_rule, right));
+                }
+            });
         }
         
         // Equality

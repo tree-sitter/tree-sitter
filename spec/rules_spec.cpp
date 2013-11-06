@@ -12,6 +12,7 @@ Describe(Rules) {
         Symbol symbol1 = Symbol(1);
         Symbol symbol2 = Symbol(2);
         Symbol symbol3 = Symbol(3);
+        Symbol symbol4 = Symbol(3);
         
         It(handles_symbols) {
             AssertThat(
@@ -40,6 +41,15 @@ Describe(Rules) {
                 ), TransitionMap<Rule>::elements_equal));
         }
         
+        It(handles_long_sequences) {
+            AssertThat(
+                Seq(Seq(symbol1, symbol2), Seq(symbol3, symbol4)).transitions(),
+                EqualsContainer(TransitionMap<Rule>(
+                    { symbol1.copy() },
+                    { new Seq(symbol2, Seq(symbol3, symbol4)) }
+                ), TransitionMap<Rule>::elements_equal));
+        }
+
         It(handles_choices_with_common_starting_symbols) {
             AssertThat(
                 Choice(
