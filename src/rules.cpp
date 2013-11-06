@@ -1,4 +1,4 @@
-#include "rule.h"
+#include "rules.h"
 #include "spec_helper.h"
 #include "transition_map.h"
 

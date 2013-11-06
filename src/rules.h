@@ -4,9 +4,9 @@
 #include <string>
 
 namespace tree_sitter {
+    template<class value> class TransitionMap;
+
     namespace rules {
-        template<class value> class TransitionMap;
-        
         class Rule {
         public:
             virtual TransitionMap<Rule> transitions() const = 0;

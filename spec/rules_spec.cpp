@@ -1,9 +1,10 @@
-#include "rule.h"
+#include "rules.h"
 #include "transition_map.h"
 #include <igloo/igloo_alt.h>
 
 using namespace std;
 using namespace igloo;
+using namespace tree_sitter;
 using namespace tree_sitter::rules;
 
 Describe(Rules) {
