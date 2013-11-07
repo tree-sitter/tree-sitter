@@ -6,9 +6,11 @@ using namespace std;
 
 namespace tree_sitter  {
     namespace rules {
+
         // Constructors
         Blank::Blank() {}
         Symbol::Symbol(int id) : id(id) {};
+        Char::Char(char value) : value(value) {};
         Seq::Seq(const Rule &left, const Rule &right) : left(left.copy()), right(right.copy()) {};
         Seq::Seq(const Rule *left, const Rule *right) : left(left), right(right) {};
         Seq::Seq(shared_ptr<const Rule> left, shared_ptr<const Rule> right) : left(left), right(right) {};
@@ -24,6 +26,10 @@ namespace tree_sitter  {
         TransitionMap<Rule> Symbol::transitions() const {
             return TransitionMap<Rule>({ copy() }, { new Blank() });
         }
+
+        TransitionMap<Rule> Char::transitions() const {
+            return TransitionMap<Rule>({ copy() }, { new Blank() });
+        }
         
         TransitionMap<Rule> Choice::transitions() const {
             auto result = left->transitions();
@@ -35,11 +41,10 @@ namespace tree_sitter  {
         
         TransitionMap<Rule> Seq::transitions() const {
             return left->transitions().map([&](rule_ptr left_rule) -> rule_ptr {
-                if (typeid(*left_rule) == typeid(Blank)) {
+                if (typeid(*left_rule) == typeid(Blank))
                     return right;
-                } else {
+                else
                     return rule_ptr(new Seq(left_rule, right));
-                }
             });
         }
         
@@ -51,6 +56,11 @@ namespace tree_sitter  {
         bool Symbol::operator==(const Rule &rule) const {
             const Symbol *other = dynamic_cast<const Symbol *>(&rule);
             return (other != NULL) && (other->id == id);
+        }
+        
+        bool Char::operator==(const Rule &rule) const {
+            const Char *other = dynamic_cast<const Char *>(&rule);
+            return (other != NULL) && (other->value == value);
         }
         
         bool Choice::operator==(const Rule &rule) const {
@@ -71,7 +81,11 @@ namespace tree_sitter  {
         Symbol * Symbol::copy() const {
             return new Symbol(id);
         }
-        
+
+        Char * Char::copy() const {
+            return new Char(value);
+        }
+
         Choice * Choice::copy() const {
             return new Choice(left, right);
         }
@@ -86,7 +100,11 @@ namespace tree_sitter  {
         }
 
         string Symbol::to_string() const {
-            return string(std::to_string(id));
+            return std::to_string(id);
+        }
+        
+        string Char::to_string() const {
+            return std::to_string(value);
         }
         
         string Choice::to_string() const {

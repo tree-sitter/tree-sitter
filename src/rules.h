@@ -36,6 +36,17 @@ namespace tree_sitter {
         private:
             int id;
         };
+
+        class Char : public Rule {
+        public:
+            Char(char value);
+            TransitionMap<Rule> transitions() const;
+            Char * copy() const;
+            bool operator==(const Rule& other) const;
+            std::string to_string() const;
+        private:
+            char value;
+        };
         
         class Choice : public Rule {
         public:
