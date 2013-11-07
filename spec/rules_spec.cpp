@@ -1,18 +1,6 @@
+#include "spec_helper.h"
 #include "rules.h"
 #include "transition_map.h"
-#include <igloo/igloo_alt.h>
-
-using namespace std;
-using namespace igloo;
-using namespace tree_sitter;
-
-EqualsContainerConstraint<
-    TransitionMap<rules::Rule>,
-    bool (*)(const TransitionMap<rules::Rule>::pair_type &, const TransitionMap<rules::Rule>::pair_type &)
->
-EqualsTransitionMap(const TransitionMap<rules::Rule> &expected) {
-    return EqualsContainer(expected, TransitionMap<rules::Rule>::elements_equal);
-}
 
 Describe(Rules) {
     Describe(transitions) {

@@ -6,8 +6,6 @@
 #include "rules.h"
 
 namespace tree_sitter {
-    class rules::Rule;
-    
     template<typename MappedType>
     class TransitionMap {
     public:

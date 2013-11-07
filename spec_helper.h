@@ -5,6 +5,10 @@
 #include "transition_map.h"
 #include "rules.h"
 
+using namespace igloo;
+using namespace tree_sitter;
+
+// Assertion helpers for transition maps
 namespace snowhouse {
     template<>
     std::string Stringize(const tree_sitter::TransitionMap<tree_sitter::rules::Rule> &map) {
@@ -17,6 +21,12 @@ namespace snowhouse {
         }
         return result + "]";
     }
+}
+
+typedef TransitionMap<rules::Rule> tmap;
+typedef bool (* tmap_comparator)(const tmap::pair_type &, const tmap::pair_type &);
+EqualsContainerConstraint<tmap, tmap_comparator> EqualsTransitionMap(const tmap &expected) {
+    return EqualsContainer(expected, tmap::elements_equal);
 }
 
 #endif
