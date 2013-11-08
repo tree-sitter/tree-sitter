@@ -7,5 +7,6 @@
 #include "rules/symbol.h"
 #include "rules/choice.h"
 #include "rules/seq.h"
+#include "rules/string.h"
 
 #endif

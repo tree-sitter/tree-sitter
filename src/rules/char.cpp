@@ -21,7 +21,7 @@ namespace tree_sitter  {
         }
         
         string Char::to_string() const {
-            return std::to_string(value);
+            return std::string("'") + &value + "'";
         }
     }
 }

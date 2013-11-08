@@ -67,5 +67,14 @@ Describe(Rules) {
                     { new rules::Choice(symbol2, symbol3) }
                 )));
         }
-    };
+
+        It(handles_strings) {
+            AssertThat(
+                rules::String("bad").transitions(),
+                EqualsTransitionMap(TransitionMap<rules::Rule>(
+                    { new rules::Char('b') },
+                    { new rules::Seq(rules::Char('a'), rules::Char('d')) }
+                )));
+        }
+};
 };

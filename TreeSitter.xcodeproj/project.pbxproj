@@ -12,6 +12,7 @@
 		1213060E182C398300FCF928 /* choice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1213060C182C398300FCF928 /* choice.cpp */; };
 		12130611182C3A1100FCF928 /* blank.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1213060F182C3A1100FCF928 /* blank.cpp */; };
 		12130614182C3A1700FCF928 /* seq.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12130612182C3A1700FCF928 /* seq.cpp */; };
+		12130617182C3D2900FCF928 /* string.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12130615182C3D2900FCF928 /* string.cpp */; };
 		1214930E181E200B008E9BDA /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 121492E9181E200B008E9BDA /* main.cpp */; };
 		1214930F181E200B008E9BDA /* rules_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 121492EA181E200B008E9BDA /* rules_spec.cpp */; };
 /* End PBXBuildFile section */
@@ -41,6 +42,8 @@
 		12130610182C3A1100FCF928 /* blank.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = blank.h; sourceTree = "<group>"; };
 		12130612182C3A1700FCF928 /* seq.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = seq.cpp; sourceTree = "<group>"; };
 		12130613182C3A1700FCF928 /* seq.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = seq.h; sourceTree = "<group>"; };
+		12130615182C3D2900FCF928 /* string.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = string.cpp; sourceTree = "<group>"; };
+		12130616182C3D2900FCF928 /* string.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = string.h; sourceTree = "<group>"; };
 		12149265181E200B008E9BDA /* igloo-tests_CXX_prefix.hxx */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = "igloo-tests_CXX_prefix.hxx"; sourceTree = "<group>"; };
 		12149266181E200B008E9BDA /* igloo-tests_CXX_prefix.hxx.gch */ = {isa = PBXFileReference; lastKnownFileType = file; path = "igloo-tests_CXX_prefix.hxx.gch"; sourceTree = "<group>"; };
 		12149267181E200B008E9BDA /* snowhouse-tests_CXX_prefix.hxx */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = "snowhouse-tests_CXX_prefix.hxx"; sourceTree = "<group>"; };
@@ -144,6 +147,8 @@
 				12130613182C3A1700FCF928 /* seq.h */,
 				12130609182C389100FCF928 /* symbol.cpp */,
 				1213060A182C389100FCF928 /* symbol.h */,
+				12130615182C3D2900FCF928 /* string.cpp */,
+				12130616182C3D2900FCF928 /* string.h */,
 			);
 			path = rules;
 			sourceTree = "<group>";
@@ -438,6 +443,7 @@
 			files = (
 				12130614182C3A1700FCF928 /* seq.cpp in Sources */,
 				1214930F181E200B008E9BDA /* rules_spec.cpp in Sources */,
+				12130617182C3D2900FCF928 /* string.cpp in Sources */,
 				12130611182C3A1100FCF928 /* blank.cpp in Sources */,
 				1213060E182C398300FCF928 /* choice.cpp in Sources */,
 				1214930E181E200B008E9BDA /* main.cpp in Sources */,
