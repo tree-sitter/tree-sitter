@@ -10,7 +10,6 @@ namespace tree_sitter {
         class Rule {
         public:
             virtual TransitionMap<Rule> transitions() const = 0;
-            virtual Rule * copy() const = 0;
             virtual bool operator==(const Rule& other) const = 0;
             virtual std::string to_string() const = 0;
         };
@@ -18,5 +17,7 @@ namespace tree_sitter {
         typedef std::shared_ptr<const Rule> rule_ptr;
     }
 }
+
+std::ostream& operator<<(std::ostream& stream, const tree_sitter::rules::Rule &rule);
 
 #endif

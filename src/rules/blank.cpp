@@ -13,10 +13,6 @@ namespace tree_sitter  {
             return dynamic_cast<const Blank *>(&rule) != NULL;
         }
         
-        Blank * Blank::copy() const {
-            return new Blank();
-        }
-        
         std::string Blank::to_string() const {
             return "blank";
         }

@@ -9,7 +9,6 @@ namespace tree_sitter  {
         public:
             Blank();
             TransitionMap<Rule> transitions() const;
-            Blank * copy() const;
             bool operator==(const Rule& other) const;
             std::string to_string() const;
         };

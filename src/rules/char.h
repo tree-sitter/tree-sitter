@@ -9,12 +9,11 @@ namespace tree_sitter  {
         public:
             Char(char value);
             TransitionMap<Rule> transitions() const;
-            Char * copy() const;
             bool operator==(const Rule& other) const;
             std::string to_string() const;
         private:
             char value;
-        };        
+        };
     }
 }
 

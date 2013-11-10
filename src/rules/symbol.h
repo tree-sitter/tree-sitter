@@ -7,13 +7,14 @@ namespace tree_sitter  {
     namespace rules {
         class Symbol : public Rule {
         public:
-            Symbol(int id);
+            Symbol(const std::string &name);
+            Symbol(const char *name);
             TransitionMap<Rule> transitions() const;
             Symbol * copy() const;
             bool operator==(const Rule& other) const;
             std::string to_string() const;
         private:
-            int id;
+            std::string name;
         };
     }
 }

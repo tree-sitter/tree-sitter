@@ -1,3 +1,4 @@
+.idea
 spec/run.out*
 TreeSitter.xcodeproj/project.xcworkspace
 TreeSitter.xcodeproj/xcuserdata

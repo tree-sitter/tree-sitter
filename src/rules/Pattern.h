@@ -1,15 +1,15 @@
-#ifndef __tree_sitter__string__
-#define __tree_sitter__string__
+#ifndef __tree_sitter_pattern_h_
+#define __tree_sitter_pattern_h_
 
 #include "rule.h"
 
-namespace tree_sitter  {
+namespace tree_sitter {
     namespace rules {
-        class String : public Rule {
+        class Pattern : public Rule {
         public:
-            String(std::string value);
+            Pattern(const char *string);
+            Pattern(const std::string &string);
             TransitionMap<Rule> transitions() const;
-            String * copy() const;
             bool operator==(const Rule& other) const;
             std::string to_string() const;
         private:
@@ -19,3 +19,4 @@ namespace tree_sitter  {
 }
 
 #endif
+

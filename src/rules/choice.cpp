@@ -3,7 +3,6 @@
 
 namespace tree_sitter  {
     namespace rules {
-        Choice::Choice(const Rule &left, const Rule &right) : left(left.copy()), right(right.copy()) {};
         Choice::Choice(rule_ptr left, rule_ptr right) : left(left), right(right) {};
         
         TransitionMap<Rule> Choice::transitions() const {
@@ -19,10 +18,6 @@ namespace tree_sitter  {
             return (other != NULL) && (*other->left == *left) && (*other->right == *right);
         }
 
-        Choice * Choice::copy() const {
-            return new Choice(left, right);
-        }
-        
         std::string Choice::to_string() const {
             return std::string("(choice ") + left->to_string() + " " + right->to_string() + ")";
         }

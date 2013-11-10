@@ -2,13 +2,12 @@
 #include "blank.h"
 #include "transition_map.h"
 
-namespace tree_sitter  {
+namespace tree_sitter {
     namespace rules {
-        Seq::Seq(const Rule &left, const Rule &right) : left(left.copy()), right(right.copy()) {};
         Seq::Seq(rule_ptr left, rule_ptr right) : left(left), right(right) {};
-        
+
         TransitionMap<Rule> Seq::transitions() const {
-            return left->transitions().map([&](rule_ptr left_rule) -> rule_ptr {
+            return left->transitions().map<Rule>([&](rule_ptr left_rule) -> rule_ptr {
                 if (typeid(*left_rule) == typeid(Blank))
                     return right;
                 else
@@ -19,10 +18,6 @@ namespace tree_sitter  {
         bool Seq::operator==(const Rule &rule) const {
             const Seq *other = dynamic_cast<const Seq *>(&rule);
             return (other != NULL) && (*other->left == *left) && (*other->right == *right);
-        }
-        
-        Seq * Seq::copy() const {
-            return new Seq(left, right);
         }
         
         std::string Seq::to_string() const {

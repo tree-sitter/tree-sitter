@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <functional>
+#include <initializer_list>
 #include "rules.h"
 
 namespace tree_sitter {
@@ -13,14 +14,14 @@ namespace tree_sitter {
         typedef std::shared_ptr<const MappedType> mapped_ptr;
         typedef std::pair<rule_ptr, mapped_ptr> pair_type;
         typedef std::vector<pair_type> contents_type;
-        
+
         static bool elements_equal(const pair_type &left, const pair_type &right) {
             return (*left.first == *right.first) && (*left.second == *right.second);
         }
         
         TransitionMap() : contents(contents_type()) {};
         
-        TransitionMap(std::initializer_list<rules::Rule *> keys, std::initializer_list<MappedType *> values) : TransitionMap() {
+        TransitionMap(std::initializer_list<rule_ptr> keys, std::initializer_list<mapped_ptr> values) : TransitionMap() {
             auto value_iter(values.begin());
             for (auto key_iter(keys.begin()); key_iter != keys.end(); ++key_iter) {
                 add(*key_iter, *value_iter);
@@ -36,23 +37,15 @@ namespace tree_sitter {
         const_iterator begin() const { return contents.begin(); }
         const_iterator end() const { return contents.end(); }
         
-        void add(const rules::Rule *on_rule, const MappedType *to_value) {
-            rule_ptr key(on_rule);
-            mapped_ptr value(to_value);
-            contents.push_back(pair_type(key, value));
-        }
-        
-        void add(rule_ptr on_rule, mapped_ptr to_value) {
-            rule_ptr key(on_rule);
-            mapped_ptr value(to_value);
-            contents.push_back(pair_type(key, value));
+        void add(const rule_ptr on_rule, const mapped_ptr to_value) {
+            contents.push_back(pair_type(on_rule, to_value));
         }
         
         size_t size() const {
             return contents.size();
         }
         
-        mapped_ptr operator[](rules::Rule const &on_rule) const {
+        mapped_ptr operator[](rules::Rule const &on_rule) {
             pair_type *pair = pair_for_key(on_rule);
             if (pair)
                 return pair->second;
@@ -73,8 +66,9 @@ namespace tree_sitter {
             }
         }
 
-        TransitionMap<MappedType> map(std::function<mapped_ptr(mapped_ptr)> map_fn) {
-            TransitionMap<MappedType> result;
+        template<typename NewMappedType>
+        TransitionMap<NewMappedType> map(std::function<std::shared_ptr<const NewMappedType>(mapped_ptr)> map_fn) {
+            TransitionMap<NewMappedType> result;
             for (pair_type pair : *this)
                 result.add(pair.first, map_fn(pair.second));
             return result;
@@ -91,6 +85,20 @@ namespace tree_sitter {
         
         contents_type contents;
     };
+    
+    template<typename MappedType>
+    std::ostream& operator<<(std::ostream &stream, const TransitionMap<MappedType> &map) {
+        stream << std::string("[");
+        bool started = false;
+        for (auto pair : map) {
+            if (started) stream << std::string(", ");
+            stream << (pair.first->to_string() + " => " + pair.second->to_string());
+            started = true;
+        }
+        stream << std::string("]");
+        return stream;
+    }
 }
+
 
 #endif

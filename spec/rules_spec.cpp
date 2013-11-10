@@ -3,78 +3,94 @@
 #include "transition_map.h"
 
 Describe(Rules) {
+    Describe(construction) {
+        rules::rule_ptr symbol1 = rules::sym("1");
+        rules::rule_ptr symbol2 = rules::sym("2");
+        rules::rule_ptr symbol3 = rules::sym("3");
+
+        It(constructs_binary_trees) {
+            AssertThat(
+                rules::seq({ symbol1, symbol2, symbol3 })->to_string(),
+                Equals(std::string("(seq 1 (seq 2 3))")));
+
+            AssertThat(
+                rules::choice({ symbol1, symbol2, symbol3 })->to_string(),
+                Equals(std::string("(choice 1 (choice 2 3))")));
+        }
+    };
+    
     Describe(transitions) {
-        rules::Symbol symbol1 = rules::Symbol(1);
-        rules::Symbol symbol2 = rules::Symbol(2);
-        rules::Symbol symbol3 = rules::Symbol(3);
-        rules::Symbol symbol4 = rules::Symbol(3);
-        
+        rules::rule_ptr symbol1 = rules::sym("1");
+        rules::rule_ptr symbol2 = rules::sym("2");
+        rules::rule_ptr symbol3 = rules::sym("3");
+        rules::rule_ptr symbol4 = rules::sym("3");
+        rules::rule_ptr char1 = rules::character('a');
+
         It(handles_symbols) {
             AssertThat(
-                symbol1.transitions(),
+                symbol1->transitions(),
                 EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { symbol1.copy() },
-                    { new rules::Blank() }
+                    { symbol1 },
+                    { rules::blank() }
                 )));
         }
-        
+
         It(handles_characters) {
-            rules::Char char1 = rules::Char('a');
             AssertThat(
-                char1.transitions(),
+                char1->transitions(),
                 EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { char1.copy() },
-                    { new rules::Blank() }
+                    { char1 },
+                    { rules::blank() }
                 )));
         }
 
         It(handles_choices) {
             AssertThat(
-                rules::Choice(symbol1, symbol2).transitions(),
+                rules::choice({ symbol1, symbol2 })->transitions(),
                 EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { symbol1.copy(), symbol2.copy() },
-                    { new rules::Blank(), new rules::Blank() }
+                    { symbol1, symbol2 },
+                    { rules::blank(), rules::blank() }
                 )));
         }
 
         It(handles_sequences) {
             AssertThat(
-                rules::Seq(symbol1, symbol2).transitions(),
+                rules::seq({ symbol1, symbol2 })->transitions(),
                 EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { symbol1.copy() },
-                    { symbol2.copy() }
+                    { symbol1 },
+                    { symbol2 }
                 )));
         }
-        
+
         It(handles_long_sequences) {
             AssertThat(
-                rules::Seq(
-                    rules::Seq(symbol1, symbol2),
-                    rules::Seq(symbol3, symbol4)).transitions(),
+                rules::seq({
+                    rules::seq({ symbol1, symbol2 }),
+                    rules::seq({ symbol3, symbol4 }) })->transitions(),
                 EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { symbol1.copy() },
-                    { new rules::Seq(symbol2, rules::Seq(symbol3, symbol4)) }
+                    { symbol1 },
+                    { rules::seq({ symbol2, symbol3, symbol4 }) }
                 )));
         }
 
         It(handles_choices_with_common_starting_symbols) {
             AssertThat(
-                rules::Choice(
-                    rules::Seq(symbol1, symbol2),
-                    rules::Seq(symbol1, symbol3)).transitions(),
+                rules::choice({
+                    rules::seq({ symbol1, symbol2 }),
+                    rules::seq({ symbol1, symbol3 }) })->transitions(),
                 EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { symbol1.copy() },
-                    { new rules::Choice(symbol2, symbol3) }
+                    { symbol1 },
+                    { rules::choice({ symbol2, symbol3 }) }
                 )));
         }
 
         It(handles_strings) {
             AssertThat(
-                rules::String("bad").transitions(),
+                rules::str("bad")->transitions(),
                 EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { new rules::Char('b') },
-                    { new rules::Seq(rules::Char('a'), rules::Char('d')) }
+                    { rules::character('b') },
+                    { rules::seq({ rules::character('a'), rules::character('d') }) }
                 )));
         }
-};
+    };
 };

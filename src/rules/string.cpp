@@ -8,10 +8,9 @@ namespace tree_sitter  {
         String::String(std::string value) : value(value) {};
         
         TransitionMap<Rule> String::transitions() const {
-            rule_ptr result = rule_ptr(new Char(value[0]));
-            for (int i = 1; i < value.length(); i++) {
+            auto result = rule_ptr(new Char(value[0]));
+            for (int i = 1; i < value.length(); i++)
                 result = rule_ptr(new Seq(result, rule_ptr(new Char(value[i]))));
-            }
             return result->transitions();
         }
         
