@@ -9,16 +9,20 @@ namespace tree_sitter {
     namespace lr {
         class Item {
         public:
-            Item(const std::string &rule_name, rules::rule_ptr rule, int consumed_sym_count);
+            Item(const std::string &rule_name, const rules::rule_ptr rule, int consumed_sym_count);
             TransitionMap<Item> transitions() const;
-        private:
-            std::string rule_name;
-            rules::rule_ptr rule;
-            int consumed_sym_count;
+            std::vector<rules::rule_ptr> next_symbols() const;
+            bool operator==(const Item &other) const;
+
+            const std::string rule_name;
+            const rules::rule_ptr rule;
+            const int consumed_sym_count;
         };
         
         typedef std::shared_ptr<Item> item_ptr;
+        std::ostream& operator<<(std::ostream &stream, const Item &item);
     }
 }
+
 
 #endif

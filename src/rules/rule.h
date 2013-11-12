@@ -15,9 +15,9 @@ namespace tree_sitter {
         };
         
         typedef std::shared_ptr<const Rule> rule_ptr;
+        std::ostream& operator<<(std::ostream& stream, const Rule &rule);
     }
 }
 
-std::ostream& operator<<(std::ostream& stream, const tree_sitter::rules::Rule &rule);
 
 #endif
