@@ -92,7 +92,8 @@ namespace tree_sitter {
         bool started = false;
         for (auto pair : map) {
             if (started) stream << std::string(", ");
-            stream << (pair.first->to_string() + " => " + pair.second->to_string());
+            stream << pair.first->to_string() << std::string(" => ");
+            stream << *pair.second;
             started = true;
         }
         stream << std::string("]");

@@ -11,11 +11,11 @@ Describe(Rules) {
         It(constructs_binary_trees) {
             AssertThat(
                 rules::seq({ symbol1, symbol2, symbol3 })->to_string(),
-                Equals(std::string("(seq 1 (seq 2 3))")));
+                Equals(std::string("(seq (sym '1') (seq (sym '2') (sym '3')))")));
 
             AssertThat(
                 rules::choice({ symbol1, symbol2, symbol3 })->to_string(),
-                Equals(std::string("(choice 1 (choice 2 3))")));
+                Equals(std::string("(choice (sym '1') (choice (sym '2') (sym '3')))")));
         }
     };
     

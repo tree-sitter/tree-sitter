@@ -12,7 +12,7 @@ namespace tree_sitter {
         Grammar(const std::initializer_list<std::string> &rule_names,
                 const std::initializer_list<rules::rule_ptr> &rules);
         rule_map rules;
-        std::string start_rule_name;
+        const std::string start_rule_name;
     };
 }
 

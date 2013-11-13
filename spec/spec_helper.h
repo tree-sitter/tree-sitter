@@ -3,14 +3,15 @@
 
 #include "igloo/igloo_alt.h"
 #include "transition_map.h"
-#include "rule.h"
+
+#include "rules.h"
 #include "item.h"
 #include "item_set.h"
 #include "grammar.h"
 
-using namespace igloo;
 using namespace tree_sitter;
 using namespace std;
+using namespace igloo;
 
 // Assertion helpers for transition maps
 typedef TransitionMap<rules::Rule> rule_tmap;

@@ -8,9 +8,22 @@ namespace tree_sitter {
     namespace lr {
         class ItemSet {
         public:
-            ItemSet(const Item &item, const Grammar &grammar);
+            ItemSet(const std::vector<Item> &items);
+            ItemSet(const std::initializer_list<Item> &items);
+
+            typedef Item value_type;
+            typedef std::vector<Item>::const_iterator const_iterator;
+            const_iterator begin() const;
+            const_iterator end() const;
+            size_t size() const;
+
+            ItemSet closure_in_grammar(Grammar &grammar) const;
             TransitionMap<ItemSet> transitions() const;
+
+            const std::vector<Item> contents;
         };
+        
+        std::ostream& operator<<(std::ostream &stream, const ItemSet &item_set);
     }
 }
 

@@ -13,8 +13,7 @@ namespace tree_sitter  {
             Symbol * copy() const;
             bool operator==(const Rule& other) const;
             std::string to_string() const;
-        private:
-            std::string name;
+            const std::string name;
         };
     }
 }

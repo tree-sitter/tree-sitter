@@ -17,7 +17,7 @@ namespace tree_sitter  {
         }
         
         std::string Symbol::to_string() const {
-            return name;
+            return std::string("(sym '") + name + "')";
         }
     }
 }

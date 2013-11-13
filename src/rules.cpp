@@ -1,11 +1,4 @@
 #include "rules.h"
-#include "blank.h"
-#include "symbol.h"
-#include "choice.h"
-#include "seq.h"
-#include "string.h"
-#include "pattern.h"
-#include "char.h"
 
 namespace tree_sitter {
     namespace rules {

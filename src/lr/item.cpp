@@ -1,4 +1,5 @@
 #include "item.h"
+#include "grammar.h"
 
 using namespace std;
 
@@ -9,16 +10,22 @@ namespace tree_sitter {
             rule(rule),
             consumed_sym_count(consumed_sym_count) {};
         
+        Item Item::at_beginning_of_rule(const std::string &rule_name, Grammar &grammar) {
+            return Item(rule_name, grammar.rules[rule_name], 0);
+        }
+        
         TransitionMap<Item> Item::transitions() const {
             return rule->transitions().map<Item>([&](rules::rule_ptr to_rule) {
                 return item_ptr(new Item(rule_name, to_rule, consumed_sym_count + 1));
             });
         };
         
-        vector<rules::rule_ptr> Item::next_symbols() const {
-            vector<rules::rule_ptr> result;
-            for (auto pair : rule->transitions())
-                result.push_back(pair.second);
+        vector<rules::sym_ptr> Item::next_symbols() const {
+            vector<rules::sym_ptr> result;
+            for (auto pair : rule->transitions()) {
+                shared_ptr<const rules::Symbol> sym = dynamic_pointer_cast<const rules::Symbol>(pair.first);
+                if (sym != nullptr) result.push_back(sym);
+            }
             return result;
         }
     
