@@ -57,6 +57,5 @@ namespace tree_sitter {
             stream << string(")");
             return stream;
         }
-        
     }
 }

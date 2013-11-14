@@ -7,41 +7,31 @@ using namespace tree_sitter::rules;
 namespace test_grammars {
     Grammar arithmetic() {
         return Grammar({
-            "expression",
-            "term",
-            "factor",
-            "number",
-            "variable",
-            "plus",
-            "times",
-            "left_paren",
-            "right_paren"
-        }, {
-            choice({
+            { "expression", choice({
                 seq({
                     sym("term"),
                     sym("plus"),
                     sym("term") }),
-                sym("term") }),
-            choice({
+                sym("term") }) },
+            { "term", choice({
                 seq({
                     sym("factor"),
                     sym("times"),
                     sym("factor") }),
-                sym("factor") }),
-            choice({
+                sym("factor") }) },
+            { "factor", choice({
                 sym("variable"),
                 sym("number"),
                 seq({
                     sym("left_paren"),
                     sym("expression"),
-                    sym("right_paren") }) }),
-            pattern("\\d+"),
-            pattern("\\w+"),
-            str("+"),
-            str("*"),
-            str("("),
-            str(")")
+                    sym("right_paren") }) }) },
+            { "number", pattern("\\d+") },
+            { "variable", pattern("\\w+") },
+            { "plus", str("+") },
+            { "times", str("*") },
+            { "left_paren", str("(") },
+            { "right_paren", str(")") }
         });
     }
 }

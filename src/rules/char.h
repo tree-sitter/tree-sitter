@@ -12,7 +12,7 @@ namespace tree_sitter  {
             bool operator==(const Rule& other) const;
             std::string to_string() const;
         private:
-            char value;
+            const char value;
         };
     }
 }

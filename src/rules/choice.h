@@ -12,8 +12,8 @@ namespace tree_sitter {
             bool operator==(const Rule& other) const;
             std::string to_string() const;
         private:
-            rule_ptr left;
-            rule_ptr right;
+            const rule_ptr left;
+            const rule_ptr right;
         };
     }
 }

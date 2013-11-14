@@ -13,11 +13,11 @@ Describe(item_sets) {
         AssertThat(
                    item_set,
                    EqualsContainer(ItemSet({
-            Item("term", grammar.rules["term"], 0),
-            Item("factor", grammar.rules["factor"], 0),
-            Item("variable", grammar.rules["variable"], 0),
-            Item("number", grammar.rules["number"], 0),
-            Item("left_paren", grammar.rules["left_paren"], 0),
+            Item("term", grammar.rule("term"), 0),
+            Item("factor", grammar.rule("factor"), 0),
+            Item("variable", grammar.rule("variable"), 0),
+            Item("number", grammar.rule("number"), 0),
+            Item("left_paren", grammar.rule("left_paren"), 0),
         })));
     }
 };

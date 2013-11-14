@@ -11,7 +11,7 @@ namespace tree_sitter {
             consumed_sym_count(consumed_sym_count) {};
         
         Item Item::at_beginning_of_rule(const std::string &rule_name, Grammar &grammar) {
-            return Item(rule_name, grammar.rules[rule_name], 0);
+            return Item(rule_name, grammar.rule(rule_name), 0);
         }
         
         TransitionMap<Item> Item::transitions() const {
