@@ -20,7 +20,6 @@
 		1214930F181E200B008E9BDA /* rules_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 121492EA181E200B008E9BDA /* rules_spec.cpp */; };
 		12512093182F307C00C9B56A /* parse_table_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12512092182F307C00C9B56A /* parse_table_spec.cpp */; };
 		1251209B1830145300C9B56A /* rule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1251209A1830145300C9B56A /* rule.cpp */; };
-		1251209D18303CFB00C9B56A /* rules.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1251209C18303CFB00C9B56A /* rules.cpp */; };
 		125120A018307DEC00C9B56A /* parse_table.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1251209E18307DEC00C9B56A /* parse_table.cpp */; };
 		125120A4183083BD00C9B56A /* arithmetic.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 125120A3183083BD00C9B56A /* arithmetic.cpp */; };
 		12D1369D18328C5A005F3369 /* item_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12D1369C18328C5A005F3369 /* item_spec.cpp */; };
@@ -135,13 +134,13 @@
 		121492EA181E200B008E9BDA /* rules_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = rules_spec.cpp; path = spec/rules_spec.cpp; sourceTree = SOURCE_ROOT; };
 		12512092182F307C00C9B56A /* parse_table_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = parse_table_spec.cpp; path = spec/lr/parse_table_spec.cpp; sourceTree = SOURCE_ROOT; };
 		1251209A1830145300C9B56A /* rule.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rule.cpp; sourceTree = "<group>"; };
-		1251209C18303CFB00C9B56A /* rules.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rules.cpp; sourceTree = "<group>"; };
 		1251209E18307DEC00C9B56A /* parse_table.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = parse_table.cpp; sourceTree = "<group>"; };
 		1251209F18307DEC00C9B56A /* parse_table.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = parse_table.h; sourceTree = "<group>"; };
 		125120A218307FFD00C9B56A /* arithmetic.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = arithmetic.h; path = spec/test_grammars/arithmetic.h; sourceTree = SOURCE_ROOT; };
 		125120A3183083BD00C9B56A /* arithmetic.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = arithmetic.cpp; path = spec/test_grammars/arithmetic.cpp; sourceTree = SOURCE_ROOT; };
 		12C344421822F27700B07BE3 /* transition_map.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = transition_map.h; sourceTree = "<group>"; };
 		12D1369C18328C5A005F3369 /* item_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = item_spec.cpp; path = spec/lr/item_spec.cpp; sourceTree = SOURCE_ROOT; };
+		12D1369E18342088005F3369 /* todo.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = todo.md; sourceTree = "<group>"; };
 		12E71794181D02A80051A649 /* specs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = specs; sourceTree = BUILT_PRODUCTS_DIR; };
 		12E71852181D081C0051A649 /* rules.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rules.h; sourceTree = "<group>"; };
 		12F9A64C182DD5FD00FAF50C /* spec_helper.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = spec_helper.cpp; path = spec/spec_helper.cpp; sourceTree = SOURCE_ROOT; };
@@ -422,6 +421,7 @@
 		12E716F9181D010E0051A649 = {
 			isa = PBXGroup;
 			children = (
+				12D1369E18342088005F3369 /* todo.md */,
 				12E71701181D01890051A649 /* src */,
 				12E71796181D02A80051A649 /* spec */,
 				12E71795181D02A80051A649 /* Products */,
@@ -435,7 +435,6 @@
 				12F9A650182DD6BC00FAF50C /* grammar.h */,
 				12130618182C84B700FCF928 /* lr */,
 				12130602182C344400FCF928 /* rules */,
-				1251209C18303CFB00C9B56A /* rules.cpp */,
 				12E71852181D081C0051A649 /* rules.h */,
 				12C344421822F27700B07BE3 /* transition_map.h */,
 			);
@@ -519,7 +518,6 @@
 				125120A4183083BD00C9B56A /* arithmetic.cpp in Sources */,
 				1214930F181E200B008E9BDA /* rules_spec.cpp in Sources */,
 				1213061B182C84DF00FCF928 /* item.cpp in Sources */,
-				1251209D18303CFB00C9B56A /* rules.cpp in Sources */,
 				12130617182C3D2900FCF928 /* string.cpp in Sources */,
 				12130611182C3A1100FCF928 /* blank.cpp in Sources */,
 				12D1369D18328C5A005F3369 /* item_spec.cpp in Sources */,

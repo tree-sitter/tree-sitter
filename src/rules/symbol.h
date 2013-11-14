@@ -8,13 +8,14 @@ namespace tree_sitter  {
         class Symbol : public Rule {
         public:
             Symbol(const std::string &name);
-            Symbol(const char *name);
             TransitionMap<Rule> transitions() const;
-            Symbol * copy() const;
             bool operator==(const Rule& other) const;
             std::string to_string() const;
             const std::string name;
         };
+        
+        typedef std::shared_ptr<const Symbol> sym_ptr;
+        sym_ptr sym(const std::string &name);
     }
 }
 

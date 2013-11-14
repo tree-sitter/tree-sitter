@@ -4,7 +4,10 @@
 namespace tree_sitter {
     namespace rules {
         Pattern::Pattern(const std::string &string) : value(string) {};
-        Pattern::Pattern(const char *string) : value(string) {};
+        
+        pattern_ptr pattern(const std::string &value) {
+            return std::make_shared<Pattern>(value);
+        }
 
         TransitionMap<Rule> Pattern::transitions() const {
             return tree_sitter::TransitionMap<Rule>();

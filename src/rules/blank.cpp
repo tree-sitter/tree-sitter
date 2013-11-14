@@ -5,6 +5,10 @@ namespace tree_sitter  {
     namespace rules {
         Blank::Blank() {}
         
+        blank_ptr blank() {
+            return std::make_shared<Blank>();
+        }
+
         TransitionMap<Rule> Blank::transitions() const {
             return TransitionMap<Rule>();
         }

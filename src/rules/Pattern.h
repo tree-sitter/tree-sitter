@@ -7,7 +7,6 @@ namespace tree_sitter {
     namespace rules {
         class Pattern : public Rule {
         public:
-            Pattern(const char *string);
             Pattern(const std::string &string);
             TransitionMap<Rule> transitions() const;
             bool operator==(const Rule& other) const;
@@ -15,6 +14,9 @@ namespace tree_sitter {
         private:
             const std::string value;
         };
+
+        typedef std::shared_ptr<const Pattern> pattern_ptr;
+        pattern_ptr pattern(const std::string &value);
     }
 }
 

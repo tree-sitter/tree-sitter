@@ -12,6 +12,9 @@ namespace tree_sitter  {
             bool operator==(const Rule& other) const;
             std::string to_string() const;
         };
+        
+        typedef std::shared_ptr<const Blank> blank_ptr;
+        blank_ptr blank();
     }
 }
 

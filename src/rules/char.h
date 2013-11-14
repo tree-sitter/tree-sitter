@@ -14,6 +14,9 @@ namespace tree_sitter  {
         private:
             const char value;
         };
+
+        typedef std::shared_ptr<const Char> char_ptr;
+        char_ptr character(char value);
     }
 }
 

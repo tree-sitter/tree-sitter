@@ -5,10 +5,14 @@ namespace tree_sitter  {
     namespace rules {
         Choice::Choice(rule_ptr left, rule_ptr right) : left(left), right(right) {};
         
+        rule_ptr choice(const std::initializer_list<rule_ptr> &rules) {
+            return build_binary_rule_tree<Choice>(rules);
+        }
+
         TransitionMap<Rule> Choice::transitions() const {
             auto result = left->transitions();
             result.merge(right->transitions(), [&](rule_ptr left, rule_ptr right) -> rule_ptr {
-                return rule_ptr(new Choice(left, right));
+                return choice({ left, right });
             });
             return result;
         }

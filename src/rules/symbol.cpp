@@ -5,10 +5,13 @@
 namespace tree_sitter  {
     namespace rules {
         Symbol::Symbol(const std::string &name) : name(name) {};
-        Symbol::Symbol(const char *name) : name(name) {};
+
+        sym_ptr sym(const std::string &name) {
+            return std::make_shared<Symbol>(name);
+        }
 
         TransitionMap<Rule> Symbol::transitions() const {
-            return TransitionMap<Rule>({ rule_ptr(new Symbol(name)) }, { rule_ptr(new Blank()) });
+            return TransitionMap<Rule>({ sym(name) }, { blank() });
         }
         
         bool Symbol::operator==(const Rule &rule) const {
