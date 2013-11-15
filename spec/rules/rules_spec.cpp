@@ -29,37 +29,34 @@ Describe(Rules) {
         It(handles_symbols) {
             AssertThat(
                 symbol1->transitions(),
-                EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { symbol1 },
-                    { rules::blank() }
-                )));
+                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                    { symbol1, rules::blank() }
+                })));
         }
 
         It(handles_characters) {
             AssertThat(
                 char1->transitions(),
-                EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { char1 },
-                    { rules::blank() }
-                )));
+                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                    { char1, rules::blank() }
+                })));
         }
 
         It(handles_choices) {
             AssertThat(
                 rules::choice({ symbol1, symbol2 })->transitions(),
-                EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { symbol1, symbol2 },
-                    { rules::blank(), rules::blank() }
-                )));
+                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                    { symbol1, rules::blank() },
+                    { symbol2, rules::blank() }
+                })));
         }
 
         It(handles_sequences) {
             AssertThat(
                 rules::seq({ symbol1, symbol2 })->transitions(),
-                EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { symbol1 },
-                    { symbol2 }
-                )));
+                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                    { symbol1, symbol2 }
+                })));
         }
 
         It(handles_long_sequences) {
@@ -70,10 +67,9 @@ Describe(Rules) {
                     symbol3,
                     symbol4
                 })->transitions(),
-                EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { symbol1 },
-                    { rules::seq({ symbol2, symbol3, symbol4 }) }
-                )));
+                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                    { symbol1, rules::seq({ symbol2, symbol3, symbol4 }) }
+                })));
         }
 
         It(handles_choices_with_common_starting_symbols) {
@@ -81,28 +77,29 @@ Describe(Rules) {
                 rules::choice({
                     rules::seq({ symbol1, symbol2 }),
                     rules::seq({ symbol1, symbol3 }) })->transitions(),
-                EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { symbol1 },
-                    { rules::choice({ symbol2, symbol3 }) }
-                )));
+                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                    { symbol1, rules::choice({ symbol2, symbol3 }) }
+                })));
         }
 
         It(handles_strings) {
             AssertThat(
                 rules::str("bad")->transitions(),
-                EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { rules::character('b') },
-                    { rules::seq({ rules::character('a'), rules::character('d') }) }
-                )));
+                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                    {
+                        rules::character('b'),
+                        rules::seq({ rules::character('a'), rules::character('d') })
+                    }
+                })));
         }
 
         It(handles_patterns) {
             AssertThat(
                 rules::pattern("a|b")->transitions(),
-                EqualsTransitionMap(TransitionMap<rules::Rule>(
-                    { rules::character('a'), rules::character('b') },
-                    { rules::blank(), rules::blank() }
-                )));
+                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                    { rules::character('a'), rules::blank() },
+                    { rules::character('b'), rules::blank() }
+                })));
         }
 };
 };

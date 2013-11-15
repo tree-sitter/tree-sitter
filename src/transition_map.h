@@ -21,13 +21,7 @@ namespace tree_sitter {
         
         TransitionMap() : contents(contents_type()) {};
         
-        TransitionMap(std::initializer_list<rule_ptr> keys, std::initializer_list<mapped_ptr> values) : TransitionMap() {
-            auto value_iter(values.begin());
-            for (auto key_iter(keys.begin()); key_iter != keys.end(); ++key_iter) {
-                add(*key_iter, *value_iter);
-                ++value_iter;
-            }
-        }
+        TransitionMap(std::initializer_list<std::pair<rule_ptr, mapped_ptr>> pairs) : contents(pairs) {};
         
         typedef typename contents_type::const_iterator const_iterator;
         typedef typename contents_type::iterator iterator;
@@ -45,7 +39,7 @@ namespace tree_sitter {
             return contents.size();
         }
         
-        mapped_ptr operator[](rules::Rule const &on_rule) {
+        mapped_ptr operator[](rules::Rule const &on_rule) const {
             pair_type *pair = pair_for_key(on_rule);
             if (pair)
                 return pair->second;

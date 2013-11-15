@@ -13,7 +13,7 @@ namespace tree_sitter  {
         }
 
         TransitionMap<Rule> Char::transitions() const {
-            return TransitionMap<Rule>({ character(value) }, { blank() });
+            return TransitionMap<Rule>({{ character(value), blank() }});
         }
 
         bool Char::operator==(const Rule &rule) const {

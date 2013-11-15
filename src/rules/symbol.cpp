@@ -11,7 +11,7 @@ namespace tree_sitter  {
         }
 
         TransitionMap<Rule> Symbol::transitions() const {
-            return TransitionMap<Rule>({ sym(name) }, { blank() });
+            return TransitionMap<Rule>({{ sym(name) , blank() }});
         }
         
         bool Symbol::operator==(const Rule &rule) const {
