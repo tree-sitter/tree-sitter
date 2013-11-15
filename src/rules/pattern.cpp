@@ -32,7 +32,12 @@ namespace tree_sitter {
             }
             
             rule_ptr factor() {
-                return atom();
+                rule_ptr result = atom();
+                if (has_more_input() && (peek() == '+')) {
+                    next();
+                    result = repeat(result);
+                }
+                return result;
             }
             
             rule_ptr atom() {

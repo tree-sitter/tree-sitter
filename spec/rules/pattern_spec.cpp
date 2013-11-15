@@ -60,4 +60,22 @@ Describe(pattern_rules) {
                 character('b')
             })->to_string()));
     }
+    
+    It(parses_repeating_rules) {
+        pattern_ptr rule = pattern("(ab)+(cd)+");
+        AssertThat(
+            rule->to_rule_tree()->to_string(),
+            Equals(
+                seq({
+                    repeat(seq({
+                        character('a'),
+                        character('b')
+                    })),
+                    repeat(seq({
+                        character('c'),
+                        character('d')
+                    })),
+                })->to_string()
+            ));
+    }
 };
