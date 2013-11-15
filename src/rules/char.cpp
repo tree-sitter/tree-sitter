@@ -18,11 +18,11 @@ namespace tree_sitter  {
 
         bool Char::operator==(const Rule &rule) const {
             const Char *other = dynamic_cast<const Char *>(&rule);
-            return (other != nullptr) && (other->value == value);
+            return other && (other->value == value);
         }
 
         string Char::to_string() const {
-            return std::string("'") + &value + "'";
+            return std::string("'") + value + "'";
         }
     }
 }

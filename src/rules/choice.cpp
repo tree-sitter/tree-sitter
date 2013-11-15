@@ -19,7 +19,7 @@ namespace tree_sitter  {
 
         bool Choice::operator==(const Rule &rule) const {
             const Choice *other = dynamic_cast<const Choice *>(&rule);
-            return (other != NULL) && (*other->left == *left) && (*other->right == *right);
+            return other && (*other->left == *left) && (*other->right == *right);
         }
 
         std::string Choice::to_string() const {

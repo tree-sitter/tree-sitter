@@ -11,11 +11,11 @@ Describe(Rules) {
         It(constructs_binary_trees) {
             AssertThat(
                 rules::seq({ symbol1, symbol2, symbol3 })->to_string(),
-                Equals(std::string("(seq (sym '1') (seq (sym '2') (sym '3')))")));
+                Equals(std::string("(seq (seq (sym '1') (sym '2')) (sym '3'))")));
 
             AssertThat(
                 rules::choice({ symbol1, symbol2, symbol3 })->to_string(),
-                Equals(std::string("(choice (sym '1') (choice (sym '2') (sym '3')))")));
+                Equals(std::string("(choice (choice (sym '1') (sym '2')) (sym '3'))")));
         }
     };
     
@@ -65,8 +65,11 @@ Describe(Rules) {
         It(handles_long_sequences) {
             AssertThat(
                 rules::seq({
-                    rules::seq({ symbol1, symbol2 }),
-                    rules::seq({ symbol3, symbol4 }) })->transitions(),
+                    symbol1,
+                    symbol2,
+                    symbol3,
+                    symbol4
+                })->transitions(),
                 EqualsTransitionMap(TransitionMap<rules::Rule>(
                     { symbol1 },
                     { rules::seq({ symbol2, symbol3, symbol4 }) }
@@ -92,5 +95,14 @@ Describe(Rules) {
                     { rules::seq({ rules::character('a'), rules::character('d') }) }
                 )));
         }
-    };
+
+        It(handles_patterns) {
+            AssertThat(
+                rules::pattern("a|b")->transitions(),
+                EqualsTransitionMap(TransitionMap<rules::Rule>(
+                    { rules::character('a'), rules::character('b') },
+                    { rules::blank(), rules::blank() }
+                )));
+        }
+};
 };

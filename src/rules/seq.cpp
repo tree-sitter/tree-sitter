@@ -21,7 +21,7 @@ namespace tree_sitter {
         
         bool Seq::operator==(const Rule &rule) const {
             const Seq *other = dynamic_cast<const Seq *>(&rule);
-            return (other != NULL) && (*other->left == *left) && (*other->right == *right);
+            return other && (*other->left == *left) && (*other->right == *right);
         }
         
         std::string Seq::to_string() const {

@@ -16,7 +16,7 @@ namespace tree_sitter  {
         
         bool Symbol::operator==(const Rule &rule) const {
             const Symbol *other = dynamic_cast<const Symbol *>(&rule);
-            return (other != NULL) && (other->name == name);
+            return other && (other->name == name);
         }
         
         std::string Symbol::to_string() const {

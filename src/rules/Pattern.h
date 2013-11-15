@@ -11,6 +11,7 @@ namespace tree_sitter {
             TransitionMap<Rule> transitions() const;
             bool operator==(const Rule& other) const;
             std::string to_string() const;
+            rule_ptr to_rule_tree() const;
         private:
             const std::string value;
         };
