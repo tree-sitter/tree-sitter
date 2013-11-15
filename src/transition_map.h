@@ -9,18 +9,18 @@
 namespace tree_sitter {
     template<typename MappedType>
     class TransitionMap {
-    public:
         typedef std::shared_ptr<const rules::Rule> rule_ptr;
         typedef std::shared_ptr<const MappedType> mapped_ptr;
         typedef std::pair<rule_ptr, mapped_ptr> pair_type;
         typedef std::vector<pair_type> contents_type;
+
+    public:
 
         static bool elements_equal(const pair_type &left, const pair_type &right) {
             return (*left.first == *right.first) && (*left.second == *right.second);
         }
         
         TransitionMap() : contents(contents_type()) {};
-        
         TransitionMap(std::initializer_list<std::pair<rule_ptr, mapped_ptr>> pairs) : contents(pairs) {};
         
         typedef typename contents_type::const_iterator const_iterator;

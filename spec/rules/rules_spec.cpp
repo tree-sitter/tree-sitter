@@ -101,5 +101,22 @@ Describe(Rules) {
                     { rules::character('b'), rules::blank() }
                 })));
         }
-};
+        
+        It(handles_repeats) {
+            rules::rule_ptr repeat = rules::repeat(rules::str("ab"));
+            AssertThat(
+                repeat->transitions(),
+                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                {
+                    rules::character('a'),
+                    rules::seq({
+                        rules::character('b'),
+                        rules::choice({
+                            repeat,
+                            rules::blank()
+                        })
+                    })
+                }})));
+        }
+    };
 };

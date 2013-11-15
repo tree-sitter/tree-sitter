@@ -9,5 +9,6 @@
 #include "string.h"
 #include "pattern.h"
 #include "char.h"
+#include "repeat.h"
 
 #endif

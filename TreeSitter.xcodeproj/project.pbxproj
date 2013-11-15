@@ -24,6 +24,7 @@
 		125120A4183083BD00C9B56A /* arithmetic.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 125120A3183083BD00C9B56A /* arithmetic.cpp */; };
 		12D1369D18328C5A005F3369 /* item_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12D1369C18328C5A005F3369 /* item_spec.cpp */; };
 		12D136A1183570F5005F3369 /* pattern_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12D136A0183570F5005F3369 /* pattern_spec.cpp */; };
+		12D136A4183678A2005F3369 /* repeat.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12D136A2183678A2005F3369 /* repeat.cpp */; };
 		12F9A64E182DD5FD00FAF50C /* spec_helper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12F9A64C182DD5FD00FAF50C /* spec_helper.cpp */; };
 		12F9A651182DD6BC00FAF50C /* grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12F9A64F182DD6BC00FAF50C /* grammar.cpp */; };
 		27A343CA69E17E0F9EBEDF1C /* pattern.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 27A340F3EEB184C040521323 /* pattern.cpp */; };
@@ -143,6 +144,8 @@
 		12D1369C18328C5A005F3369 /* item_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = item_spec.cpp; path = spec/lr/item_spec.cpp; sourceTree = SOURCE_ROOT; };
 		12D1369E18342088005F3369 /* todo.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = todo.md; sourceTree = "<group>"; };
 		12D136A0183570F5005F3369 /* pattern_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = pattern_spec.cpp; path = spec/rules/pattern_spec.cpp; sourceTree = SOURCE_ROOT; };
+		12D136A2183678A2005F3369 /* repeat.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = repeat.cpp; sourceTree = "<group>"; };
+		12D136A3183678A2005F3369 /* repeat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = repeat.h; sourceTree = "<group>"; };
 		12E71794181D02A80051A649 /* specs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = specs; sourceTree = BUILT_PRODUCTS_DIR; };
 		12E71852181D081C0051A649 /* rules.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rules.h; sourceTree = "<group>"; };
 		12F9A64C182DD5FD00FAF50C /* spec_helper.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = spec_helper.cpp; path = spec/spec_helper.cpp; sourceTree = SOURCE_ROOT; };
@@ -175,6 +178,9 @@
 				1213060D182C398300FCF928 /* choice.h */,
 				27A340F3EEB184C040521323 /* pattern.cpp */,
 				27A3438C4FA59A3882E8493B /* pattern.h */,
+				12D136A2183678A2005F3369 /* repeat.cpp */,
+				12D136A3183678A2005F3369 /* repeat.h */,
+				1251209A1830145300C9B56A /* rule.cpp */,
 				12130607182C374800FCF928 /* rule.h */,
 				12130612182C3A1700FCF928 /* seq.cpp */,
 				12130613182C3A1700FCF928 /* seq.h */,
@@ -182,7 +188,6 @@
 				12130616182C3D2900FCF928 /* string.h */,
 				12130609182C389100FCF928 /* symbol.cpp */,
 				1213060A182C389100FCF928 /* symbol.h */,
-				1251209A1830145300C9B56A /* rule.cpp */,
 			);
 			path = rules;
 			sourceTree = "<group>";
@@ -541,6 +546,7 @@
 				12F9A651182DD6BC00FAF50C /* grammar.cpp in Sources */,
 				12512093182F307C00C9B56A /* parse_table_spec.cpp in Sources */,
 				1213061F182C857100FCF928 /* item_set_spec.cpp in Sources */,
+				12D136A4183678A2005F3369 /* repeat.cpp in Sources */,
 				12130622182C85D300FCF928 /* item_set.cpp in Sources */,
 				12130605182C348F00FCF928 /* char.cpp in Sources */,
 				1213060B182C389100FCF928 /* symbol.cpp in Sources */,

@@ -41,21 +41,25 @@ namespace tree_sitter {
                     case '(':
                         next();
                         result = rule();
-                        if (peek() == ')') {
+                        if (peek() != ')')
+                            error("mismatched parens");
+                        else
                             next();
-                            return result;
-                        } else {
-                            throw std::string("Invalid regex pattern: ") + input;
-                        }
+                        break;
+                    case ')':
+                        error("mismatched parens");
                         break;
                     case '\\':
                         next();
+                        result = character(peek());
+                        next();
+                        break;
                     default:
                         result = character(peek());
                         next();
-                        return result;
                         break;
                 }
+                return result;
             }
             
             void next() {
@@ -68,6 +72,10 @@ namespace tree_sitter {
             
             bool has_more_input() {
                 return position < length;
+            }
+            
+            void error(const char *message) {
+                throw std::string("Invalid regex pattern '") + input + "': " + message;
             }
             
             const std::string input;
