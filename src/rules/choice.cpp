@@ -6,7 +6,10 @@ namespace tree_sitter  {
         Choice::Choice(rule_ptr left, rule_ptr right) : left(left), right(right) {};
         
         rule_ptr choice(const std::initializer_list<rule_ptr> &rules) {
-            return build_binary_rule_tree<Choice>(rules);
+            rule_ptr result;
+            for (auto rule : rules)
+                result = result.get() ? std::make_shared<Choice>(result, rule) : rule;
+            return result;
         }
 
         TransitionMap<Rule> Choice::transitions() const {

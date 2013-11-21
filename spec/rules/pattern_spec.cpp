@@ -15,7 +15,18 @@ Describe(pattern_rules) {
                 character('c')
             })->to_string()));
     };
-    
+
+    It(parses_character_classes) {
+        pattern_ptr rule = pattern("\\w-\\d");
+        AssertThat(
+            rule->to_rule_tree()->to_string(),
+            Equals(seq({
+                char_class(CharClassTypeWord),
+                character('-'),
+                char_class(CharClassTypeDigit)
+            })->to_string()));
+    };
+
     It(parses_choices) {
         pattern_ptr rule = pattern("ab|cd|ef");
         AssertThat(

@@ -12,7 +12,7 @@ namespace tree_sitter {
         class Item {
         public:
             Item(const std::string &rule_name, const rules::rule_ptr rule, int consumed_sym_count);
-            static Item at_beginning_of_rule(const std::string &rule_name, Grammar &grammar);
+            static Item at_beginning_of_rule(const std::string &rule_name, const Grammar &grammar);
 
             TransitionMap<Item> transitions() const;
             std::vector<rules::sym_ptr> next_symbols() const;

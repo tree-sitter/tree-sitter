@@ -56,7 +56,7 @@ namespace tree_sitter {
                         break;
                     case '\\':
                         next();
-                        result = character(peek());
+                        result = escaped_char(peek());
                         next();
                         break;
                     default:
@@ -65,6 +65,21 @@ namespace tree_sitter {
                         break;
                 }
                 return result;
+            }
+            
+            rule_ptr escaped_char(char value) {
+                switch (value) {
+                    case '(':
+                    case ')':
+                        return character(value);
+                    case 'w':
+                        return char_class(CharClassTypeWord);
+                    case 'd':
+                        return char_class(CharClassTypeDigit);
+                    default:
+                        error("unrecognized escape sequence");
+                        return rule_ptr();
+                }
             }
             
             void next() {
@@ -103,7 +118,8 @@ namespace tree_sitter {
         }
         
         bool Pattern::operator ==(tree_sitter::rules::Rule const &other) const {
-            return false;
+            auto pattern = dynamic_cast<const Pattern *>(&other);
+            return pattern && (pattern->value == value);
         }
 
         std::string Pattern::to_string() const {

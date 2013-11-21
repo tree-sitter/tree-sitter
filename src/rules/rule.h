@@ -21,14 +21,6 @@ namespace tree_sitter {
 
         std::ostream& operator<<(std::ostream& stream, const Rule &rule);
         std::ostream& operator<<(std::ostream& stream, const rule_ptr &rule);
-
-        template <typename RuleClass>
-        rule_ptr build_binary_rule_tree(const std::initializer_list<rule_ptr> &rules) {
-            rule_ptr result;
-            for (auto rule : rules)
-                result = result.get() ? std::make_shared<RuleClass>(result, rule) : rule;
-            return result;
-        }
     }
 }
 

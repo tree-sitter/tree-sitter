@@ -14,7 +14,7 @@ namespace tree_sitter  {
         }
         
         bool Blank::operator==(const Rule &rule) const {
-            return dynamic_cast<const Blank *>(&rule) != NULL;
+            return dynamic_cast<const Blank *>(&rule) != nullptr;
         }
         
         std::string Blank::to_string() const {

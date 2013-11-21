@@ -8,16 +8,12 @@ namespace tree_sitter {
     namespace lr {
         ItemSet::ItemSet(const vector<Item> &items) : contents(items) {}
         ItemSet::ItemSet(const initializer_list<Item> &items) : contents(items) {}
-        
-        TransitionMap<ItemSet> ItemSet::transitions() const {
-            return TransitionMap<ItemSet>();
-        }
-        
-        bool vector_contains(vector<Item> items, lr::Item item) {
+
+        static bool vector_contains(vector<Item> items, lr::Item item) {
             return (std::find(items.begin(), items.end(), item) != items.end());
         }
         
-        void add_item(vector<Item> &vector, const Item &item, Grammar &grammar) {
+        static void add_item(vector<Item> &vector, const Item &item, const Grammar &grammar) {
             if (!vector_contains(vector, item)) {
                 vector.push_back(item);
                 for (rules::sym_ptr rule : item.next_symbols()) {
@@ -26,12 +22,51 @@ namespace tree_sitter {
                 }
             }
         }
+        
+        static vector<Item> closure_in_grammar(const Item &item, const Grammar &grammar) {
+            vector<Item> result;
+            add_item(result, item, grammar);
+            return result;
+        }
+        
+        ItemSet::ItemSet(const Item &item, const Grammar &grammar) : contents(closure_in_grammar(item, grammar)) {}
+        
+        TransitionMap<ItemSet> ItemSet::char_transitions(const Grammar &grammar) const {
+            auto result = TransitionMap<ItemSet>();
+            for (auto item : *this) {
+                auto new_set = item.transitions()
+                .where([&](const rules::rule_ptr &on_rule) -> bool {
+                    return typeid(*on_rule) != typeid(rules::Symbol);
+                })
+                .map<ItemSet>([&](const item_ptr &item) -> item_set_ptr {
+                    return std::make_shared<ItemSet>(*item, grammar);
+                });
+                result.merge(new_set, [&](const item_set_ptr left, const item_set_ptr right) -> item_set_ptr {
+                    return left;
+                });
+            }
+            return result;
+        }
 
-        ItemSet ItemSet::closure_in_grammar(Grammar &grammar) const {
-            vector<Item> items;
-            for (Item item : *this)
-                add_item(items, item, grammar);
-            return ItemSet(items);
+        TransitionMap<ItemSet> ItemSet::sym_transitions(const Grammar &grammar) const {
+            auto result = TransitionMap<ItemSet>();
+            for (auto item : *this) {
+                auto new_set = item.transitions()
+                    .where([&](const rules::rule_ptr &on_rule) -> bool {
+                        return typeid(*on_rule) == typeid(rules::Symbol);
+                    })
+                    .map<ItemSet>([&](const item_ptr &item) -> item_set_ptr {
+                        return std::make_shared<ItemSet>(*item, grammar);
+                    });
+                result.merge(new_set, [&](const item_set_ptr left, const item_set_ptr right) -> item_set_ptr {
+                    return left;
+                });
+            }
+            return result;
+        }
+
+        bool ItemSet::operator==(const tree_sitter::lr::ItemSet &other) const {
+            return contents == other.contents;
         }
         
 #pragma mark - container

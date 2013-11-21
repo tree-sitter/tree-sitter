@@ -14,7 +14,6 @@ using namespace std;
 using namespace igloo;
 
 // Assertion helpers for transition maps
-typedef TransitionMap<rules::Rule> rule_tmap;
 typedef bool (* rule_tmap_comparator)(const std::pair<rules::rule_ptr, rules::rule_ptr> &, const std::pair<rules::rule_ptr, rules::rule_ptr> &);
 EqualsContainerConstraint<TransitionMap<rules::Rule>, rule_tmap_comparator> EqualsTransitionMap(const TransitionMap<rules::Rule> &expected);
 

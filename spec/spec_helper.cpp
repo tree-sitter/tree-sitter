@@ -1,6 +1,6 @@
 #include "spec_helper.h"
 
 
-EqualsContainerConstraint<rule_tmap, rule_tmap_comparator> EqualsTransitionMap(const rule_tmap &expected) {
-    return EqualsContainer(expected, rule_tmap::elements_equal);
+EqualsContainerConstraint<TransitionMap<rules::Rule>, rule_tmap_comparator> EqualsTransitionMap(const TransitionMap<rules::Rule> &expected) {
+    return EqualsContainer(expected, TransitionMap<rules::Rule>::elements_equal);
 }

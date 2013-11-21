@@ -5,7 +5,7 @@ namespace tree_sitter {
         rules(rules),
         start_rule_name(rules.begin()->first) {}
 
-    const rules::rule_ptr Grammar::rule(const std::string &name) {
+    const rules::rule_ptr Grammar::rule(const std::string &name) const {
         auto iter = rules.find(name);
         return (iter == rules.end()) ?
             rules::rule_ptr(nullptr) :

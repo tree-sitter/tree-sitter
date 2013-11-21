@@ -7,7 +7,12 @@ namespace tree_sitter {
         Seq::Seq(rule_ptr left, rule_ptr right) : left(left), right(right) {};
 
         rule_ptr seq(const std::initializer_list<rule_ptr> &rules) {
-            return build_binary_rule_tree<Seq>(rules);
+            rule_ptr result;
+            for (auto rule : rules)
+                result = (result.get() && typeid(*result) != typeid(Blank)) ?
+                    std::make_shared<Seq>(result, rule) :
+                    rule;
+            return result;
         }
 
         TransitionMap<Rule> Seq::transitions() const {

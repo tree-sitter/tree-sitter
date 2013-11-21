@@ -42,6 +42,15 @@ Describe(Rules) {
                 })));
         }
 
+        It(handles_character_classes) {
+            auto rule = rules::char_class(rules::CharClassTypeDigit);
+            AssertThat(
+                rule->transitions(),
+                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                    { rule, rules::blank() }
+                })));
+        }
+
         It(handles_choices) {
             AssertThat(
                 rules::choice({ symbol1, symbol2 })->transitions(),
@@ -115,6 +124,18 @@ Describe(Rules) {
                             repeat,
                             rules::blank()
                         })
+                    })
+                }})));
+            
+            repeat = rules::repeat(rules::str("a"));
+            AssertThat(
+                repeat->transitions(),
+                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                {
+                    rules::character('a'),
+                    rules::choice({
+                        repeat,
+                        rules::blank()
                     })
                 }})));
         }

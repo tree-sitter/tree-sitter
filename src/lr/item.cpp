@@ -10,13 +10,13 @@ namespace tree_sitter {
             rule(rule),
             consumed_sym_count(consumed_sym_count) {};
         
-        Item Item::at_beginning_of_rule(const std::string &rule_name, Grammar &grammar) {
+        Item Item::at_beginning_of_rule(const std::string &rule_name, const Grammar &grammar) {
             return Item(rule_name, grammar.rule(rule_name), 0);
         }
         
         TransitionMap<Item> Item::transitions() const {
             return rule->transitions().map<Item>([&](rules::rule_ptr to_rule) {
-                return item_ptr(new Item(rule_name, to_rule, consumed_sym_count + 1));
+                return std::make_shared<Item>(rule_name, to_rule, consumed_sym_count + 1);
             });
         };
         
@@ -24,16 +24,15 @@ namespace tree_sitter {
             vector<rules::sym_ptr> result;
             for (auto pair : rule->transitions()) {
                 shared_ptr<const rules::Symbol> sym = dynamic_pointer_cast<const rules::Symbol>(pair.first);
-                if (sym != nullptr) result.push_back(sym);
+                if (sym) result.push_back(sym);
             }
             return result;
         }
     
         bool Item::operator==(const Item &other) const {
-            return (
-                other.rule_name == rule_name &&
-                other.rule == rule &&
-                other.consumed_sym_count == consumed_sym_count);
+            bool rule_names_eq = other.rule_name == rule_name;
+            bool rules_eq = (*other.rule == *rule);
+            return rule_names_eq && rules_eq;
         }
         
         std::ostream& operator<<(ostream &stream, const Item &item) {

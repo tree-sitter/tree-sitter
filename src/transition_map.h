@@ -60,6 +60,15 @@ namespace tree_sitter {
             }
         }
 
+
+        TransitionMap<MappedType> where(std::function<bool(rule_ptr)> filter_fn) {
+            TransitionMap<MappedType> result;
+            for (pair_type pair : *this)
+                if (filter_fn(pair.first))
+                    result.add(pair.first, pair.second);
+            return result;
+        }
+        
         template<typename NewMappedType>
         TransitionMap<NewMappedType> map(std::function<std::shared_ptr<const NewMappedType>(mapped_ptr)> map_fn) {
             TransitionMap<NewMappedType> result;

@@ -11,7 +11,7 @@ namespace tree_sitter {
 
     public:
         Grammar(const rule_map_init_list &rules);
-        const rules::rule_ptr rule(const std::string &);
+        const rules::rule_ptr rule(const std::string &) const;
         const std::string start_rule_name;
 
     private:

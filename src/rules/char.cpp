@@ -8,7 +8,7 @@ namespace tree_sitter  {
     namespace rules {
         Char::Char(char value) : value(value) {};
         
-        char_ptr character(char value) {
+        rule_ptr character(char value) {
             return std::make_shared<Char>(value);
         }
 
