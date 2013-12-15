@@ -1,5 +1,7 @@
 #include "grammar.h"
 
+using namespace std;
+
 namespace tree_sitter {
     Grammar::Grammar(const rule_map_init_list &rules) :
         rules(rules),
@@ -11,4 +13,13 @@ namespace tree_sitter {
             rules::rule_ptr(nullptr) :
             iter->second;
     }
+    
+    vector<string> Grammar::rule_names() const {
+        vector<string> result;
+        for (auto pair : rules) {
+            result.push_back(pair.first);
+        }
+        return result;
+    }
+    
 }

@@ -19,7 +19,7 @@ Then generate a C function for a ParseTable
 
 For a Parser, the ParseActions can be any of:
     - Accept(symbol)
-    - Shift(symbol)
+    - Shift(state_index)
     - Reduce(symbol, number of child symbols)
     
 # normalize grammars

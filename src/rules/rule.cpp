@@ -1,9 +1,10 @@
 #include "rule.h"
+#include <set>
 
 namespace tree_sitter {
     namespace rules {
-        bool Rule::operator==(const rule_ptr other) const {
-            return true;
+        size_t Rule::hash_code() const {
+            return std::hash<std::string>()(to_string());
         }
 
         std::ostream& operator<<(std::ostream& stream, const Rule &rule)

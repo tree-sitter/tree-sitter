@@ -9,7 +9,7 @@ static item_set_ptr item_set(const std::initializer_list<Item> &items) {
     return item_set_ptr(new ItemSet(items));
 }
 
-Describe_Only(item_sets) {
+Describe(item_sets) {
     Grammar grammar = test_grammars::arithmetic();
     
     It(computes_the_closure_of_an_item_set_under_symbol_expansion) {
@@ -52,5 +52,14 @@ Describe_Only(item_sets) {
                 { char_class(CharClassTypeDigit), item_set({ Item("number", choice({ repeat(char_class(CharClassTypeDigit)), blank() }), 1) }) },
                 { character('('), item_set({ Item("left_paren", blank(), 1) }) }
             }), TransitionMap<ItemSet>::elements_equal));
+    }
+    
+    It(can_be_hashed) {
+        ItemSet set1 = ItemSet(Item::at_beginning_of_rule("factor", grammar), grammar);
+        ItemSet set2 = ItemSet(Item::at_beginning_of_rule("factor", grammar), grammar);
+        AssertThat(std::hash<ItemSet>()(set1), Equals(std::hash<ItemSet>()(set2)));
+
+        ItemSet set3 = ItemSet(Item::at_beginning_of_rule("term", grammar), grammar);
+        AssertThat(std::hash<ItemSet>()(set1), !Equals(std::hash<ItemSet>()(set3)));
     }
 };

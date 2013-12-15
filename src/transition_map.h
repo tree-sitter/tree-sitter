@@ -15,7 +15,6 @@ namespace tree_sitter {
         typedef std::vector<pair_type> contents_type;
 
     public:
-
         static bool elements_equal(const pair_type &left, const pair_type &right) {
             return (*left.first == *right.first) && (*left.second == *right.second);
         }
@@ -72,8 +71,10 @@ namespace tree_sitter {
         template<typename NewMappedType>
         TransitionMap<NewMappedType> map(std::function<std::shared_ptr<const NewMappedType>(mapped_ptr)> map_fn) {
             TransitionMap<NewMappedType> result;
-            for (pair_type pair : *this)
-                result.add(pair.first, map_fn(pair.second));
+            for (pair_type pair : *this) {
+                auto new_value = map_fn(pair.second);
+                result.add(pair.first, new_value);
+            }
             return result;
         }
 

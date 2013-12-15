@@ -1,6 +1,8 @@
 #include "item.h"
 #include "grammar.h"
 
+#include <iostream>
+
 using namespace std;
 
 namespace tree_sitter {
@@ -35,6 +37,10 @@ namespace tree_sitter {
             return rule_names_eq && rules_eq;
         }
         
+        bool Item::is_done() const {
+            return *rule == rules::Blank();
+        }
+        
         std::ostream& operator<<(ostream &stream, const Item &item) {
             stream <<
                 string("(item '") <<
@@ -46,5 +52,4 @@ namespace tree_sitter {
         }
     }
 }
-
 
