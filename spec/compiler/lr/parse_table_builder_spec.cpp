@@ -1,5 +1,4 @@
 #include "spec_helper.h"
-#include "../test_grammars/arithmetic.h"
 #include "parse_table_builder.h"
 #include "parse_table.h"
 

@@ -1,5 +1,4 @@
 #include "spec_helper.h"
-#include "test_grammars/arithmetic.h"
 #include "parse_table_builder.h"
 #include "parse_table.h"
 #include "c_code.h"
@@ -10,7 +9,7 @@ using namespace tree_sitter::lr;
 using namespace tree_sitter;
 
 Describe(code_generation) {
-    string test_parser_dir = src_dir() + "/spec/test_parsers";
+    string test_parser_dir = src_dir() + "/spec/fixtures/parsers";
     
     It(works_for_the_arithmetic_grammar) {
         Grammar grammar = test_grammars::arithmetic();

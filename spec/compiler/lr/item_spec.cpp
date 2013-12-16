@@ -1,5 +1,5 @@
 #include "spec_helper.h"
-#include "../test_grammars/arithmetic.h"
+#include "../../fixtures/grammars/arithmetic.h"
 
 using namespace tree_sitter::lr;
 
