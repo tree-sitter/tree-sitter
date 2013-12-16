@@ -65,77 +65,6 @@
 		1213061D182C857100FCF928 /* item_set_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = item_set_spec.cpp; path = spec/lr/item_set_spec.cpp; sourceTree = SOURCE_ROOT; };
 		12130620182C85D300FCF928 /* item_set.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = item_set.cpp; sourceTree = "<group>"; };
 		12130621182C85D300FCF928 /* item_set.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = item_set.h; sourceTree = "<group>"; };
-		12149265181E200B008E9BDA /* igloo-tests_CXX_prefix.hxx */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = "igloo-tests_CXX_prefix.hxx"; sourceTree = "<group>"; };
-		12149266181E200B008E9BDA /* igloo-tests_CXX_prefix.hxx.gch */ = {isa = PBXFileReference; lastKnownFileType = file; path = "igloo-tests_CXX_prefix.hxx.gch"; sourceTree = "<group>"; };
-		12149267181E200B008E9BDA /* snowhouse-tests_CXX_prefix.hxx */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = "snowhouse-tests_CXX_prefix.hxx"; sourceTree = "<group>"; };
-		12149268181E200B008E9BDA /* snowhouse-tests_CXX_prefix.hxx.gch */ = {isa = PBXFileReference; lastKnownFileType = file; path = "snowhouse-tests_CXX_prefix.hxx.gch"; sourceTree = "<group>"; };
-		1214926B181E200B008E9BDA /* alternativeregistrationaliases.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = alternativeregistrationaliases.h; sourceTree = "<group>"; };
-		1214926C181E200B008E9BDA /* context.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = context.h; sourceTree = "<group>"; };
-		1214926D181E200B008E9BDA /* contextbase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = contextbase.h; sourceTree = "<group>"; };
-		1214926E181E200B008E9BDA /* contextprovider.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = contextprovider.h; sourceTree = "<group>"; };
-		1214926F181E200B008E9BDA /* contextregistry.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = contextregistry.h; sourceTree = "<group>"; };
-		12149270181E200B008E9BDA /* contextrunner.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = contextrunner.h; sourceTree = "<group>"; };
-		12149271181E200B008E9BDA /* core.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = core.h; sourceTree = "<group>"; };
-		12149272181E200B008E9BDA /* defaultregistrationaliases.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = defaultregistrationaliases.h; sourceTree = "<group>"; };
-		12149274181E200B008E9BDA /* coloredconsoletestresultsoutput.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = coloredconsoletestresultsoutput.h; sourceTree = "<group>"; };
-		12149275181E200B008E9BDA /* consoleoutputcolors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = consoleoutputcolors.h; sourceTree = "<group>"; };
-		12149276181E200B008E9BDA /* defaulttestresultsoutput.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = defaulttestresultsoutput.h; sourceTree = "<group>"; };
-		12149277181E200B008E9BDA /* outputters.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = outputters.h; sourceTree = "<group>"; };
-		12149278181E200B008E9BDA /* testresultsoutput.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = testresultsoutput.h; sourceTree = "<group>"; };
-		12149279181E200B008E9BDA /* visualstudiooutput.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = visualstudiooutput.h; sourceTree = "<group>"; };
-		1214927A181E200B008E9BDA /* xmlwriter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xmlwriter.h; sourceTree = "<group>"; };
-		1214927B181E200B008E9BDA /* xunitoutput.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xunitoutput.h; sourceTree = "<group>"; };
-		1214927C181E200B008E9BDA /* registration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = registration.h; sourceTree = "<group>"; };
-		1214927D181E200B008E9BDA /* testlistener.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = testlistener.h; sourceTree = "<group>"; };
-		1214927E181E200B008E9BDA /* testlisteneraggregator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = testlisteneraggregator.h; sourceTree = "<group>"; };
-		12149280181E200B008E9BDA /* minimalprogresstestlistener.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = minimalprogresstestlistener.h; sourceTree = "<group>"; };
-		12149281181E200B008E9BDA /* testlisteners.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = testlisteners.h; sourceTree = "<group>"; };
-		12149282181E200B008E9BDA /* testresult.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = testresult.h; sourceTree = "<group>"; };
-		12149283181E200B008E9BDA /* testresultfactory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = testresultfactory.h; sourceTree = "<group>"; };
-		12149284181E200B008E9BDA /* testresults.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = testresults.h; sourceTree = "<group>"; };
-		12149285181E200B008E9BDA /* testrunner.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = testrunner.h; sourceTree = "<group>"; };
-		12149288181E200B008E9BDA /* choices.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = choices.h; sourceTree = "<group>"; };
-		1214928B181E200B008E9BDA /* assert.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = assert.h; sourceTree = "<group>"; };
-		1214928C181E200B008E9BDA /* assertionexception.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = assertionexception.h; sourceTree = "<group>"; };
-		1214928D181E200B008E9BDA /* assertmacro.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = assertmacro.h; sourceTree = "<group>"; };
-		1214928F181E200B008E9BDA /* constraints.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = constraints.h; sourceTree = "<group>"; };
-		12149290181E200B008E9BDA /* containsconstraint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = containsconstraint.h; sourceTree = "<group>"; };
-		12149291181E200B008E9BDA /* endswithconstraint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = endswithconstraint.h; sourceTree = "<group>"; };
-		12149292181E200B008E9BDA /* equalsconstraint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = equalsconstraint.h; sourceTree = "<group>"; };
-		12149293181E200B008E9BDA /* equalscontainerconstraint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = equalscontainerconstraint.h; sourceTree = "<group>"; };
-		12149294181E200B008E9BDA /* equalswithdeltaconstraint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = equalswithdeltaconstraint.h; sourceTree = "<group>"; };
-		12149296181E200B008E9BDA /* andexpression.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = andexpression.h; sourceTree = "<group>"; };
-		12149297181E200B008E9BDA /* expression.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = expression.h; sourceTree = "<group>"; };
-		12149298181E200B008E9BDA /* expression_fwd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = expression_fwd.h; sourceTree = "<group>"; };
-		12149299181E200B008E9BDA /* notexpression.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notexpression.h; sourceTree = "<group>"; };
-		1214929A181E200B008E9BDA /* orexpression.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = orexpression.h; sourceTree = "<group>"; };
-		1214929B181E200B008E9BDA /* fulfillsconstraint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fulfillsconstraint.h; sourceTree = "<group>"; };
-		1214929C181E200B008E9BDA /* haslengthconstraint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = haslengthconstraint.h; sourceTree = "<group>"; };
-		1214929D181E200B008E9BDA /* isgreaterthanconstraint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = isgreaterthanconstraint.h; sourceTree = "<group>"; };
-		1214929E181E200B008E9BDA /* islessthanconstraint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = islessthanconstraint.h; sourceTree = "<group>"; };
-		1214929F181E200B008E9BDA /* startswithconstraint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = startswithconstraint.h; sourceTree = "<group>"; };
-		121492A0181E200B008E9BDA /* exceptions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = exceptions.h; sourceTree = "<group>"; };
-		121492A2181E200B008E9BDA /* constraintadapter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = constraintadapter.h; sourceTree = "<group>"; };
-		121492A3181E200B008E9BDA /* constraintlist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = constraintlist.h; sourceTree = "<group>"; };
-		121492A4181E200B008E9BDA /* expressionbuilder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = expressionbuilder.h; sourceTree = "<group>"; };
-		121492A5181E200B008E9BDA /* fluent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fluent.h; sourceTree = "<group>"; };
-		121492A7181E200B008E9BDA /* andoperator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = andoperator.h; sourceTree = "<group>"; };
-		121492A9181E200B008E9BDA /* alloperator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = alloperator.h; sourceTree = "<group>"; };
-		121492AA181E200B008E9BDA /* atleastoperator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = atleastoperator.h; sourceTree = "<group>"; };
-		121492AB181E200B008E9BDA /* atmostoperator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = atmostoperator.h; sourceTree = "<group>"; };
-		121492AC181E200B008E9BDA /* collectionconstraintevaluator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = collectionconstraintevaluator.h; sourceTree = "<group>"; };
-		121492AD181E200B008E9BDA /* collectionoperator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = collectionoperator.h; sourceTree = "<group>"; };
-		121492AE181E200B008E9BDA /* exactlyoperator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = exactlyoperator.h; sourceTree = "<group>"; };
-		121492AF181E200B008E9BDA /* noneoperator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = noneoperator.h; sourceTree = "<group>"; };
-		121492B0181E200B008E9BDA /* constraintoperator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = constraintoperator.h; sourceTree = "<group>"; };
-		121492B1181E200B008E9BDA /* notoperator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notoperator.h; sourceTree = "<group>"; };
-		121492B2181E200B008E9BDA /* oroperator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = oroperator.h; sourceTree = "<group>"; };
-		121492B3181E200B008E9BDA /* snowhouse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = snowhouse.h; sourceTree = "<group>"; };
-		121492B4181E200B008E9BDA /* stringize.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stringize.h; sourceTree = "<group>"; };
-		121492B5181E200B008E9BDA /* stringizers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stringizers.h; sourceTree = "<group>"; };
-		121492C4181E200B008E9BDA /* igloo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = igloo.h; sourceTree = "<group>"; };
-		121492C5181E200B008E9BDA /* igloo_alt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = igloo_alt.h; sourceTree = "<group>"; };
-		121492C6181E200B008E9BDA /* igloo_framework.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = igloo_framework.h; sourceTree = "<group>"; };
 		121492E9181E200B008E9BDA /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = spec/main.cpp; sourceTree = SOURCE_ROOT; };
 		121492EA181E200B008E9BDA /* rules_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = rules_spec.cpp; path = spec/rules/rules_spec.cpp; sourceTree = SOURCE_ROOT; };
 		12512092182F307C00C9B56A /* parse_table_builder_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = parse_table_builder_spec.cpp; path = spec/lr/parse_table_builder_spec.cpp; sourceTree = SOURCE_ROOT; };
@@ -232,205 +161,6 @@
 			path = spec/lr;
 			sourceTree = "<group>";
 		};
-		1214925C181E200B008E9BDA /* externals */ = {
-			isa = PBXGroup;
-			children = (
-				1214925D181E200B008E9BDA /* igloo */,
-			);
-			name = externals;
-			path = spec/externals;
-			sourceTree = SOURCE_ROOT;
-		};
-		1214925D181E200B008E9BDA /* igloo */ = {
-			isa = PBXGroup;
-			children = (
-				12149264181E200B008E9BDA /* cotire */,
-				12149269181E200B008E9BDA /* igloo */,
-			);
-			path = igloo;
-			sourceTree = "<group>";
-		};
-		12149264181E200B008E9BDA /* cotire */ = {
-			isa = PBXGroup;
-			children = (
-				12149265181E200B008E9BDA /* igloo-tests_CXX_prefix.hxx */,
-				12149266181E200B008E9BDA /* igloo-tests_CXX_prefix.hxx.gch */,
-				12149267181E200B008E9BDA /* snowhouse-tests_CXX_prefix.hxx */,
-				12149268181E200B008E9BDA /* snowhouse-tests_CXX_prefix.hxx.gch */,
-			);
-			path = cotire;
-			sourceTree = "<group>";
-		};
-		12149269181E200B008E9BDA /* igloo */ = {
-			isa = PBXGroup;
-			children = (
-				1214926A181E200B008E9BDA /* core */,
-				12149286181E200B008E9BDA /* external */,
-				121492C4181E200B008E9BDA /* igloo.h */,
-				121492C5181E200B008E9BDA /* igloo_alt.h */,
-				121492C6181E200B008E9BDA /* igloo_framework.h */,
-			);
-			path = igloo;
-			sourceTree = "<group>";
-		};
-		1214926A181E200B008E9BDA /* core */ = {
-			isa = PBXGroup;
-			children = (
-				1214926B181E200B008E9BDA /* alternativeregistrationaliases.h */,
-				1214926C181E200B008E9BDA /* context.h */,
-				1214926D181E200B008E9BDA /* contextbase.h */,
-				1214926E181E200B008E9BDA /* contextprovider.h */,
-				1214926F181E200B008E9BDA /* contextregistry.h */,
-				12149270181E200B008E9BDA /* contextrunner.h */,
-				12149271181E200B008E9BDA /* core.h */,
-				12149272181E200B008E9BDA /* defaultregistrationaliases.h */,
-				12149273181E200B008E9BDA /* outputters */,
-				1214927C181E200B008E9BDA /* registration.h */,
-				1214927D181E200B008E9BDA /* testlistener.h */,
-				1214927E181E200B008E9BDA /* testlisteneraggregator.h */,
-				1214927F181E200B008E9BDA /* testlisteners */,
-				12149282181E200B008E9BDA /* testresult.h */,
-				12149283181E200B008E9BDA /* testresultfactory.h */,
-				12149284181E200B008E9BDA /* testresults.h */,
-				12149285181E200B008E9BDA /* testrunner.h */,
-			);
-			path = core;
-			sourceTree = "<group>";
-		};
-		12149273181E200B008E9BDA /* outputters */ = {
-			isa = PBXGroup;
-			children = (
-				12149274181E200B008E9BDA /* coloredconsoletestresultsoutput.h */,
-				12149275181E200B008E9BDA /* consoleoutputcolors.h */,
-				12149276181E200B008E9BDA /* defaulttestresultsoutput.h */,
-				12149277181E200B008E9BDA /* outputters.h */,
-				12149278181E200B008E9BDA /* testresultsoutput.h */,
-				12149279181E200B008E9BDA /* visualstudiooutput.h */,
-				1214927A181E200B008E9BDA /* xmlwriter.h */,
-				1214927B181E200B008E9BDA /* xunitoutput.h */,
-			);
-			path = outputters;
-			sourceTree = "<group>";
-		};
-		1214927F181E200B008E9BDA /* testlisteners */ = {
-			isa = PBXGroup;
-			children = (
-				12149280181E200B008E9BDA /* minimalprogresstestlistener.h */,
-				12149281181E200B008E9BDA /* testlisteners.h */,
-			);
-			path = testlisteners;
-			sourceTree = "<group>";
-		};
-		12149286181E200B008E9BDA /* external */ = {
-			isa = PBXGroup;
-			children = (
-				12149287181E200B008E9BDA /* choices */,
-				12149289181E200B008E9BDA /* snowhouse */,
-			);
-			path = external;
-			sourceTree = "<group>";
-		};
-		12149287181E200B008E9BDA /* choices */ = {
-			isa = PBXGroup;
-			children = (
-				12149288181E200B008E9BDA /* choices.h */,
-			);
-			path = choices;
-			sourceTree = "<group>";
-		};
-		12149289181E200B008E9BDA /* snowhouse */ = {
-			isa = PBXGroup;
-			children = (
-				1214928A181E200B008E9BDA /* snowhouse */,
-			);
-			path = snowhouse;
-			sourceTree = "<group>";
-		};
-		1214928A181E200B008E9BDA /* snowhouse */ = {
-			isa = PBXGroup;
-			children = (
-				1214928B181E200B008E9BDA /* assert.h */,
-				1214928C181E200B008E9BDA /* assertionexception.h */,
-				1214928D181E200B008E9BDA /* assertmacro.h */,
-				1214928E181E200B008E9BDA /* constraints */,
-				121492A0181E200B008E9BDA /* exceptions.h */,
-				121492A1181E200B008E9BDA /* fluent */,
-				121492B3181E200B008E9BDA /* snowhouse.h */,
-				121492B4181E200B008E9BDA /* stringize.h */,
-				121492B5181E200B008E9BDA /* stringizers.h */,
-			);
-			path = snowhouse;
-			sourceTree = "<group>";
-		};
-		1214928E181E200B008E9BDA /* constraints */ = {
-			isa = PBXGroup;
-			children = (
-				1214928F181E200B008E9BDA /* constraints.h */,
-				12149290181E200B008E9BDA /* containsconstraint.h */,
-				12149291181E200B008E9BDA /* endswithconstraint.h */,
-				12149292181E200B008E9BDA /* equalsconstraint.h */,
-				12149293181E200B008E9BDA /* equalscontainerconstraint.h */,
-				12149294181E200B008E9BDA /* equalswithdeltaconstraint.h */,
-				12149295181E200B008E9BDA /* expressions */,
-				1214929B181E200B008E9BDA /* fulfillsconstraint.h */,
-				1214929C181E200B008E9BDA /* haslengthconstraint.h */,
-				1214929D181E200B008E9BDA /* isgreaterthanconstraint.h */,
-				1214929E181E200B008E9BDA /* islessthanconstraint.h */,
-				1214929F181E200B008E9BDA /* startswithconstraint.h */,
-			);
-			path = constraints;
-			sourceTree = "<group>";
-		};
-		12149295181E200B008E9BDA /* expressions */ = {
-			isa = PBXGroup;
-			children = (
-				12149296181E200B008E9BDA /* andexpression.h */,
-				12149297181E200B008E9BDA /* expression.h */,
-				12149298181E200B008E9BDA /* expression_fwd.h */,
-				12149299181E200B008E9BDA /* notexpression.h */,
-				1214929A181E200B008E9BDA /* orexpression.h */,
-			);
-			path = expressions;
-			sourceTree = "<group>";
-		};
-		121492A1181E200B008E9BDA /* fluent */ = {
-			isa = PBXGroup;
-			children = (
-				121492A2181E200B008E9BDA /* constraintadapter.h */,
-				121492A3181E200B008E9BDA /* constraintlist.h */,
-				121492A4181E200B008E9BDA /* expressionbuilder.h */,
-				121492A5181E200B008E9BDA /* fluent.h */,
-				121492A6181E200B008E9BDA /* operators */,
-			);
-			path = fluent;
-			sourceTree = "<group>";
-		};
-		121492A6181E200B008E9BDA /* operators */ = {
-			isa = PBXGroup;
-			children = (
-				121492A7181E200B008E9BDA /* andoperator.h */,
-				121492A8181E200B008E9BDA /* collections */,
-				121492B0181E200B008E9BDA /* constraintoperator.h */,
-				121492B1181E200B008E9BDA /* notoperator.h */,
-				121492B2181E200B008E9BDA /* oroperator.h */,
-			);
-			path = operators;
-			sourceTree = "<group>";
-		};
-		121492A8181E200B008E9BDA /* collections */ = {
-			isa = PBXGroup;
-			children = (
-				121492A9181E200B008E9BDA /* alloperator.h */,
-				121492AA181E200B008E9BDA /* atleastoperator.h */,
-				121492AB181E200B008E9BDA /* atmostoperator.h */,
-				121492AC181E200B008E9BDA /* collectionconstraintevaluator.h */,
-				121492AD181E200B008E9BDA /* collectionoperator.h */,
-				121492AE181E200B008E9BDA /* exactlyoperator.h */,
-				121492AF181E200B008E9BDA /* noneoperator.h */,
-			);
-			path = collections;
-			sourceTree = "<group>";
-		};
 		125120A118307FCA00C9B56A /* test_grammars */ = {
 			isa = PBXGroup;
 			children = (
@@ -487,7 +217,6 @@
 			isa = PBXGroup;
 			children = (
 				12FD4063185E75290041A84E /* code_gen_spec.cpp */,
-				1214925C181E200B008E9BDA /* externals */,
 				1213061C182C854F00FCF928 /* lr */,
 				121492E9181E200B008E9BDA /* main.cpp */,
 				12D1369F18357066005F3369 /* rules */,
@@ -662,7 +391,7 @@
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
-					spec/externals/igloo,
+					externals/igloo,
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				ONLY_ACTIVE_ARCH = YES;
@@ -701,7 +430,7 @@
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
-					spec/externals/igloo,
+					externals/igloo,
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				PRODUCT_NAME = "$(TARGET_NAME)";
