@@ -42,8 +42,8 @@ namespace tree_sitter {
         };
         
         class ParseTable {
-            std::vector<ParseState> states;
         public:
+            std::vector<ParseState> states;
             const std::unordered_map<std::string, size_t> symbol_ids;
             const std::vector<std::string> symbol_names;
 
