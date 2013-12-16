@@ -27,3 +27,7 @@ namespace tree_sitter {
         }
     }
 }
+
+string src_dir() {
+    return string(getenv("TREESITTER_SRC_DIR"));
+}

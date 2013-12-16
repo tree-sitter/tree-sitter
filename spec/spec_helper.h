@@ -25,4 +25,6 @@ namespace tree_sitter {
     }
 }
 
+string src_dir();
+
 #endif
