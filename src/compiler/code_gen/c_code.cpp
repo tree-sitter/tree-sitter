@@ -30,21 +30,18 @@ namespace tree_sitter {
         
         string _switch(string condition, string body) {
             return "switch (" + condition + ") {\n" +
-            indent(body) + "\n" +
+            indent(body) +
             "}";
         }
         
         string _case(string value, string body) {
-            return "case " + value + ": {\n" +
-            indent(body) + "\n" +
-            indent("break;") + "\n"
-            "}\n";
+            return "case " + value + ":\n" +
+            indent(body) + "\n";
         }
 
         string _default(string body) {
-            return "default: {\n" +
-            indent(body) + "\n"
-            "}";
+            return "default:\n" +
+            indent(body) + "\n";
         }
         
         class CCodeGenerator {
@@ -99,7 +96,7 @@ namespace tree_sitter {
                 string body = "";
                 for (int i = 0; i < parse_table.states.size(); i++)
                     body += _case(std::to_string(i), switch_on_lookahead(parse_table.states[i]));
-                body += _default("ERROR()");
+                body += _default("ERROR();");
                 return _switch("PARSE_STATE()", body);
             }
             
@@ -114,18 +111,16 @@ namespace tree_sitter {
             
             string parse_function() {
                 return 
-                "TSTree * ts_parse_arithmetic() {\n" +
-                indent("SETUP_PARSER()") + "\n" +
-                "start:\n" +
+                "TSTree ts_parse_arithmetic(const char *input) {\n" +
+                indent("START_PARSER();") + "\n" +
                 indent(switch_on_current_state(parse_table)) + "\n" +
-                "done:\n" +
-                indent("return PARSE_TREE();") + "\n"
+                indent("FINISH_PARSER();") + "\n"
                 "}";
             }
             
             string code() {
                 return 
-                "#include <tree_sitter/runtime.h>\n"
+                "#include \"runtime.h\"\n"
                 "#include <stdlib.h>\n"
                 "\n\n" +
                 symbol_enum() +

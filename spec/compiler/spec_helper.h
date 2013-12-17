@@ -11,7 +11,7 @@
 #include "parse_table.h"
 #include "parse_table_builder.h"
 
-#include "fixtures/grammars/arithmetic.h"
+#include "../fixtures/grammars/arithmetic.h"
 
 
 using namespace tree_sitter;

@@ -1,4 +1,4 @@
-#include <tree_sitter/runtime.h>
+#include "runtime.h"
 #include <stdlib.h>
 
 
@@ -16,354 +16,193 @@ typedef enum {
 } ts_symbol_type;
 
 
-TSTree * ts_parse_arithmetic() {
-    SETUP_PARSER()
-start:
+TSTree ts_parse_arithmetic(const char *input) {
+    START_PARSER();
     switch (PARSE_STATE()) {
-        case 0: {
+        case 0:
             switch (LOOKAHEAD()) {
-                case ts_symbol_type_left_paren: {
+                case ts_symbol_type_left_paren:
                     SHIFT(9);
-                    break;
-                }
-                case ts_symbol_type_variable: {
+                case ts_symbol_type_variable:
                     SHIFT(8);
-                    break;
-                }
-                case ts_symbol_type_factor: {
+                case ts_symbol_type_factor:
                     SHIFT(5);
-                    break;
-                }
-                case ts_symbol_type_number: {
+                case ts_symbol_type_number:
                     SHIFT(8);
-                    break;
-                }
-                case ts_symbol_type_term: {
+                case ts_symbol_type_term:
                     SHIFT(2);
-                    break;
-                }
-                case ts_symbol_type_expression: {
+                case ts_symbol_type_expression:
                     SHIFT(1);
-                    break;
-                }
-                default: {
+                default:
                     ERROR();
-                }
             }
-            break;
-        }
-        case 1: {
+        case 1:
             switch (LOOKAHEAD()) {
-                case ts_symbol_type___END__: {
+                case ts_symbol_type___END__:
                     ACCEPT();
-                    break;
-                }
-                default: {
+                default:
                     ERROR();
-                }
             }
-            break;
-        }
-        case 2: {
+        case 2:
             switch (LOOKAHEAD()) {
-                case ts_symbol_type_plus: {
+                case ts_symbol_type_plus:
                     SHIFT(3);
-                    break;
-                }
-                default: {
+                default:
                     ERROR();
-                }
             }
-            break;
-        }
-        case 3: {
+        case 3:
             switch (LOOKAHEAD()) {
-                case ts_symbol_type_variable: {
+                case ts_symbol_type_variable:
                     SHIFT(8);
-                    break;
-                }
-                case ts_symbol_type_factor: {
+                case ts_symbol_type_factor:
                     SHIFT(5);
-                    break;
-                }
-                case ts_symbol_type_left_paren: {
+                case ts_symbol_type_left_paren:
                     SHIFT(9);
-                    break;
-                }
-                case ts_symbol_type_number: {
+                case ts_symbol_type_number:
                     SHIFT(8);
-                    break;
-                }
-                case ts_symbol_type_term: {
+                case ts_symbol_type_term:
                     SHIFT(4);
-                    break;
-                }
-                default: {
+                default:
                     ERROR();
-                }
             }
-            break;
-        }
-        case 4: {
+        case 4:
             switch (LOOKAHEAD()) {
-                case ts_symbol_type_expression: {
+                case ts_symbol_type_expression:
                     REDUCE(ts_symbol_type_expression, 3);
-                    break;
-                }
-                case ts_symbol_type_term: {
+                case ts_symbol_type_term:
                     REDUCE(ts_symbol_type_expression, 3);
-                    break;
-                }
-                case ts_symbol_type_right_paren: {
+                case ts_symbol_type_right_paren:
                     REDUCE(ts_symbol_type_expression, 3);
-                    break;
-                }
-                case ts_symbol_type_number: {
+                case ts_symbol_type_number:
                     REDUCE(ts_symbol_type_expression, 3);
-                    break;
-                }
-                case ts_symbol_type_factor: {
+                case ts_symbol_type_factor:
                     REDUCE(ts_symbol_type_expression, 3);
-                    break;
-                }
-                case ts_symbol_type_variable: {
+                case ts_symbol_type_variable:
                     REDUCE(ts_symbol_type_expression, 3);
-                    break;
-                }
-                case ts_symbol_type_times: {
+                case ts_symbol_type_times:
                     REDUCE(ts_symbol_type_expression, 3);
-                    break;
-                }
-                case ts_symbol_type_plus: {
+                case ts_symbol_type_plus:
                     REDUCE(ts_symbol_type_expression, 3);
-                    break;
-                }
-                case ts_symbol_type_left_paren: {
+                case ts_symbol_type_left_paren:
                     REDUCE(ts_symbol_type_expression, 3);
-                    break;
-                }
-                default: {
+                default:
                     ERROR();
-                }
             }
-            break;
-        }
-        case 5: {
+        case 5:
             switch (LOOKAHEAD()) {
-                case ts_symbol_type_times: {
+                case ts_symbol_type_times:
                     SHIFT(6);
-                    break;
-                }
-                default: {
+                default:
                     ERROR();
-                }
             }
-            break;
-        }
-        case 6: {
+        case 6:
             switch (LOOKAHEAD()) {
-                case ts_symbol_type_left_paren: {
+                case ts_symbol_type_left_paren:
                     SHIFT(9);
-                    break;
-                }
-                case ts_symbol_type_number: {
+                case ts_symbol_type_number:
                     SHIFT(8);
-                    break;
-                }
-                case ts_symbol_type_variable: {
+                case ts_symbol_type_variable:
                     SHIFT(8);
-                    break;
-                }
-                case ts_symbol_type_factor: {
+                case ts_symbol_type_factor:
                     SHIFT(7);
-                    break;
-                }
-                default: {
+                default:
                     ERROR();
-                }
             }
-            break;
-        }
-        case 7: {
+        case 7:
             switch (LOOKAHEAD()) {
-                case ts_symbol_type_expression: {
+                case ts_symbol_type_expression:
                     REDUCE(ts_symbol_type_term, 3);
-                    break;
-                }
-                case ts_symbol_type_term: {
+                case ts_symbol_type_term:
                     REDUCE(ts_symbol_type_term, 3);
-                    break;
-                }
-                case ts_symbol_type_right_paren: {
+                case ts_symbol_type_right_paren:
                     REDUCE(ts_symbol_type_term, 3);
-                    break;
-                }
-                case ts_symbol_type_number: {
+                case ts_symbol_type_number:
                     REDUCE(ts_symbol_type_term, 3);
-                    break;
-                }
-                case ts_symbol_type_factor: {
+                case ts_symbol_type_factor:
                     REDUCE(ts_symbol_type_term, 3);
-                    break;
-                }
-                case ts_symbol_type_variable: {
+                case ts_symbol_type_variable:
                     REDUCE(ts_symbol_type_term, 3);
-                    break;
-                }
-                case ts_symbol_type_times: {
+                case ts_symbol_type_times:
                     REDUCE(ts_symbol_type_term, 3);
-                    break;
-                }
-                case ts_symbol_type_plus: {
+                case ts_symbol_type_plus:
                     REDUCE(ts_symbol_type_term, 3);
-                    break;
-                }
-                case ts_symbol_type_left_paren: {
+                case ts_symbol_type_left_paren:
                     REDUCE(ts_symbol_type_term, 3);
-                    break;
-                }
-                default: {
+                default:
                     ERROR();
-                }
             }
-            break;
-        }
-        case 8: {
+        case 8:
             switch (LOOKAHEAD()) {
-                case ts_symbol_type_expression: {
+                case ts_symbol_type_expression:
                     REDUCE(ts_symbol_type_factor, 1);
-                    break;
-                }
-                case ts_symbol_type_term: {
+                case ts_symbol_type_term:
                     REDUCE(ts_symbol_type_factor, 1);
-                    break;
-                }
-                case ts_symbol_type_right_paren: {
+                case ts_symbol_type_right_paren:
                     REDUCE(ts_symbol_type_factor, 1);
-                    break;
-                }
-                case ts_symbol_type_number: {
+                case ts_symbol_type_number:
                     REDUCE(ts_symbol_type_factor, 1);
-                    break;
-                }
-                case ts_symbol_type_factor: {
+                case ts_symbol_type_factor:
                     REDUCE(ts_symbol_type_factor, 1);
-                    break;
-                }
-                case ts_symbol_type_variable: {
+                case ts_symbol_type_variable:
                     REDUCE(ts_symbol_type_factor, 1);
-                    break;
-                }
-                case ts_symbol_type_times: {
+                case ts_symbol_type_times:
                     REDUCE(ts_symbol_type_factor, 1);
-                    break;
-                }
-                case ts_symbol_type_plus: {
+                case ts_symbol_type_plus:
                     REDUCE(ts_symbol_type_factor, 1);
-                    break;
-                }
-                case ts_symbol_type_left_paren: {
+                case ts_symbol_type_left_paren:
                     REDUCE(ts_symbol_type_factor, 1);
-                    break;
-                }
-                default: {
+                default:
                     ERROR();
-                }
             }
-            break;
-        }
-        case 9: {
+        case 9:
             switch (LOOKAHEAD()) {
-                case ts_symbol_type_left_paren: {
+                case ts_symbol_type_left_paren:
                     SHIFT(9);
-                    break;
-                }
-                case ts_symbol_type_variable: {
+                case ts_symbol_type_variable:
                     SHIFT(8);
-                    break;
-                }
-                case ts_symbol_type_factor: {
+                case ts_symbol_type_factor:
                     SHIFT(5);
-                    break;
-                }
-                case ts_symbol_type_number: {
+                case ts_symbol_type_number:
                     SHIFT(8);
-                    break;
-                }
-                case ts_symbol_type_term: {
+                case ts_symbol_type_term:
                     SHIFT(2);
-                    break;
-                }
-                case ts_symbol_type_expression: {
+                case ts_symbol_type_expression:
                     SHIFT(10);
-                    break;
-                }
-                default: {
+                default:
                     ERROR();
-                }
             }
-            break;
-        }
-        case 10: {
+        case 10:
             switch (LOOKAHEAD()) {
-                case ts_symbol_type_right_paren: {
+                case ts_symbol_type_right_paren:
                     SHIFT(11);
-                    break;
-                }
-                default: {
+                default:
                     ERROR();
-                }
             }
-            break;
-        }
-        case 11: {
+        case 11:
             switch (LOOKAHEAD()) {
-                case ts_symbol_type_expression: {
+                case ts_symbol_type_expression:
                     REDUCE(ts_symbol_type_factor, 3);
-                    break;
-                }
-                case ts_symbol_type_term: {
+                case ts_symbol_type_term:
                     REDUCE(ts_symbol_type_factor, 3);
-                    break;
-                }
-                case ts_symbol_type_right_paren: {
+                case ts_symbol_type_right_paren:
                     REDUCE(ts_symbol_type_factor, 3);
-                    break;
-                }
-                case ts_symbol_type_number: {
+                case ts_symbol_type_number:
                     REDUCE(ts_symbol_type_factor, 3);
-                    break;
-                }
-                case ts_symbol_type_factor: {
+                case ts_symbol_type_factor:
                     REDUCE(ts_symbol_type_factor, 3);
-                    break;
-                }
-                case ts_symbol_type_variable: {
+                case ts_symbol_type_variable:
                     REDUCE(ts_symbol_type_factor, 3);
-                    break;
-                }
-                case ts_symbol_type_times: {
+                case ts_symbol_type_times:
                     REDUCE(ts_symbol_type_factor, 3);
-                    break;
-                }
-                case ts_symbol_type_plus: {
+                case ts_symbol_type_plus:
                     REDUCE(ts_symbol_type_factor, 3);
-                    break;
-                }
-                case ts_symbol_type_left_paren: {
+                case ts_symbol_type_left_paren:
                     REDUCE(ts_symbol_type_factor, 3);
-                    break;
-                }
-                default: {
+                default:
                     ERROR();
-                }
             }
-            break;
-        }
-        default: {
-            ERROR()
-        }
+        default:
+            ERROR();
     }
-done:
-    return PARSE_TREE();
+    FINISH_PARSER();
 }

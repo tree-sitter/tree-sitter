@@ -16,7 +16,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "12E71793181D02A80051A649"
                BuildableName = "specs"
-               BlueprintName = "specs"
+               BlueprintName = "compiler_specs"
                ReferencedContainer = "container:TreeSitter.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -34,7 +34,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "12E71793181D02A80051A649"
             BuildableName = "specs"
-            BlueprintName = "specs"
+            BlueprintName = "compiler_specs"
             ReferencedContainer = "container:TreeSitter.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -53,7 +53,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "12E71793181D02A80051A649"
             BuildableName = "specs"
-            BlueprintName = "specs"
+            BlueprintName = "compiler_specs"
             ReferencedContainer = "container:TreeSitter.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -78,7 +78,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "12E71793181D02A80051A649"
             BuildableName = "specs"
-            BlueprintName = "specs"
+            BlueprintName = "compiler_specs"
             ReferencedContainer = "container:TreeSitter.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
