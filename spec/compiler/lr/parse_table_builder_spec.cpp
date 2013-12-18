@@ -8,7 +8,7 @@ typedef std::unordered_set<ParseAction> actions;
 
 Describe(ParseTableBuilder_test) {
     Grammar grammar = test_grammars::arithmetic();
-    ParseTable table = ParseTableBuilder::build_table(grammar);
+    ParseTable table = build_tables(grammar);
     
     It(has_the_right_starting_state) {
         AssertThat(table.actions_for(0), Equals(unordered_map<string, actions>({
