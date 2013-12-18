@@ -30,7 +30,7 @@ namespace tree_sitter {
         
         string _switch(string condition, string body) {
             return "switch (" + condition + ") {\n" +
-            indent(body) +
+            indent(body) + "\n"
             "}";
         }
         
@@ -41,29 +41,16 @@ namespace tree_sitter {
 
         string _default(string body) {
             return "default:\n" +
-            indent(body) + "\n";
+            indent(body);
         }
         
         class CCodeGenerator {
             const Grammar grammar;
             const ParseTable parse_table;
-            const unordered_map<string, size_t> symbol_ids;
         public:
-            static unordered_map<string, size_t> get_symbol_ids(vector<string> rule_names) {
-                size_t i = 0;
-                unordered_map<string, size_t> result;
-                for (string name : rule_names) {
-                    result[name] = i;
-                    i++;
-                }
-                result[ParseTable::END_OF_INPUT] = i;
-                return result;
-            }
-            
             CCodeGenerator(const Grammar &grammar, const ParseTable &parse_table) :
                 grammar(grammar),
-                parse_table(parse_table),
-                symbol_ids(get_symbol_ids(grammar.rule_names()))
+                parse_table(parse_table)
                 {}
             
             string symbol_id(string symbol_name) {
