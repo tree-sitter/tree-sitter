@@ -8,20 +8,12 @@
 
 namespace tree_sitter {
     namespace lr {
-        class ItemSet;
-
-        struct ItemSetPointerHasher {
-            std::size_t operator()(const std::shared_ptr<const ItemSet> &item_set) const {
-                return std::hash<ItemSet>()(*item_set);
-            }
-        };
-        
         class ParseTableBuilder {
             const Grammar grammar;
             ParseTable table;
-            std::unordered_map<size_t, size_t> state_indices;
+            std::unordered_map<const ItemSet, size_t> state_indices;
 
-            size_t add_item_set(const std::shared_ptr<const ItemSet> item_set);
+            size_t add_item_set(const ItemSet &item_set);
             long state_index_for_item_set(const ItemSet &item_set) const;
         public:
             ParseTableBuilder(const Grammar &grammar);

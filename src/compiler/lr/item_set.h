@@ -35,7 +35,7 @@ namespace tree_sitter {
 
 namespace std {
     template<>
-    struct hash<tree_sitter::lr::ItemSet> {
+    struct hash<const tree_sitter::lr::ItemSet> {
         size_t operator()(const tree_sitter::lr::ItemSet &item_set) const {
             size_t result = hash<size_t>()(item_set.size());
             for (auto item : item_set)

@@ -17,27 +17,27 @@ namespace tree_sitter {
         ParseTableBuilder::ParseTableBuilder(const Grammar &grammar) :
             grammar(grammar),
             table(ParseTable(grammar.rule_names())),
-            state_indices(unordered_map<size_t, size_t>()) {};
+            state_indices(unordered_map<const ItemSet, size_t>()) {};
 
         void ParseTableBuilder::build() {
             auto item = Item(ParseTable::START, rules::sym(grammar.start_rule_name), 0);
-            auto item_set = std::make_shared<ItemSet>(item, grammar);
+            auto item_set = ItemSet(item, grammar);
             add_item_set(item_set);
         }
         
-        size_t ParseTableBuilder::add_item_set(const shared_ptr<const ItemSet> item_set) {
-            auto state_index = state_index_for_item_set(*item_set);
+        size_t ParseTableBuilder::add_item_set(const ItemSet &item_set) {
+            auto state_index = state_index_for_item_set(item_set);
             if (state_index == NOT_FOUND) {
                 state_index = table.add_state();
-                state_indices[std::hash<ItemSet>()(*item_set)] = state_index;
+                state_indices[item_set] = state_index;
 
-                for (auto transition : item_set->sym_transitions(grammar)) {
+                for (auto transition : item_set.sym_transitions(grammar)) {
                     rules::sym_ptr symbol = static_pointer_cast<const rules::Symbol>(transition.first);
-                    size_t new_state_index = add_item_set(transition.second);
+                    size_t new_state_index = add_item_set(*transition.second);
                     table.add_action(state_index, symbol->name, ParseAction::Shift(new_state_index));
                 }
                 
-                for (Item item : *item_set) {
+                for (Item item : item_set) {
                     if (item.is_done()) {
                         if (item.rule_name == ParseTable::START) {
                             table.add_action(state_index, ParseTable::END_OF_INPUT, ParseAction::Accept());
@@ -52,7 +52,7 @@ namespace tree_sitter {
         }
         
         long ParseTableBuilder::state_index_for_item_set(const ItemSet &item_set) const {
-            auto entry = state_indices.find(std::hash<ItemSet>()(item_set));
+            auto entry = state_indices.find(item_set);
             return (entry == state_indices.end()) ? NOT_FOUND : entry->second;
         }
     }

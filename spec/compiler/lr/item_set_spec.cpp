@@ -56,9 +56,9 @@ Describe(item_sets) {
     It(can_be_hashed) {
         ItemSet set1 = ItemSet(Item::at_beginning_of_rule("factor", grammar), grammar);
         ItemSet set2 = ItemSet(Item::at_beginning_of_rule("factor", grammar), grammar);
-        AssertThat(std::hash<ItemSet>()(set1), Equals(std::hash<ItemSet>()(set2)));
+        AssertThat(std::hash<const ItemSet>()(set1), Equals(std::hash<const ItemSet>()(set2)));
 
         ItemSet set3 = ItemSet(Item::at_beginning_of_rule("term", grammar), grammar);
-        AssertThat(std::hash<ItemSet>()(set1), !Equals(std::hash<ItemSet>()(set3)));
+        AssertThat(std::hash<const ItemSet>()(set1), !Equals(std::hash<const ItemSet>()(set3)));
     }
 };
