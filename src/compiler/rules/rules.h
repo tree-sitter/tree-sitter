@@ -11,5 +11,6 @@
 #include "char.h"
 #include "char_class.h"
 #include "repeat.h"
+#include "rule_visitor.h"
 
 #endif

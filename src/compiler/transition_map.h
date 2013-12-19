@@ -4,7 +4,7 @@
 #include <vector>
 #include <functional>
 #include <initializer_list>
-#include "rules.h"
+#include "rule.h"
 
 namespace tree_sitter {
     template<typename MappedType>

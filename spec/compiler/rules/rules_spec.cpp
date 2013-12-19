@@ -1,5 +1,6 @@
 #include "spec_helper.h"
 #include "rules.h"
+#include "transitions.h"
 #include "transition_map.h"
 
 Describe(Rules) {
@@ -28,7 +29,7 @@ Describe(Rules) {
 
         It(handles_symbols) {
             AssertThat(
-                symbol1->transitions(),
+                rules::transitions(symbol1),
                 EqualsTransitionMap(TransitionMap<rules::Rule>({
                     { symbol1, rules::blank() }
                 })));
@@ -36,7 +37,7 @@ Describe(Rules) {
 
         It(handles_characters) {
             AssertThat(
-                char1->transitions(),
+                rules::transitions(char1),
                 EqualsTransitionMap(TransitionMap<rules::Rule>({
                     { char1, rules::blank() }
                 })));
@@ -45,7 +46,7 @@ Describe(Rules) {
         It(handles_character_classes) {
             auto rule = rules::char_class(rules::CharClassTypeDigit);
             AssertThat(
-                rule->transitions(),
+                rules::transitions(rule),
                 EqualsTransitionMap(TransitionMap<rules::Rule>({
                     { rule, rules::blank() }
                 })));
@@ -53,7 +54,7 @@ Describe(Rules) {
 
         It(handles_choices) {
             AssertThat(
-                rules::choice({ symbol1, symbol2 })->transitions(),
+                rules::transitions(rules::choice({ symbol1, symbol2 })),
                 EqualsTransitionMap(TransitionMap<rules::Rule>({
                     { symbol1, rules::blank() },
                     { symbol2, rules::blank() }
@@ -62,7 +63,7 @@ Describe(Rules) {
 
         It(handles_sequences) {
             AssertThat(
-                rules::seq({ symbol1, symbol2 })->transitions(),
+                rules::transitions(rules::seq({ symbol1, symbol2 })),
                 EqualsTransitionMap(TransitionMap<rules::Rule>({
                     { symbol1, symbol2 }
                 })));
@@ -70,12 +71,12 @@ Describe(Rules) {
 
         It(handles_long_sequences) {
             AssertThat(
-                rules::seq({
+                rules::transitions(rules::seq({
                     symbol1,
                     symbol2,
                     symbol3,
                     symbol4
-                })->transitions(),
+                })),
                 EqualsTransitionMap(TransitionMap<rules::Rule>({
                     { symbol1, rules::seq({ symbol2, symbol3, symbol4 }) }
                 })));
@@ -83,9 +84,10 @@ Describe(Rules) {
 
         It(handles_choices_with_common_starting_symbols) {
             AssertThat(
-                rules::choice({
-                    rules::seq({ symbol1, symbol2 }),
-                    rules::seq({ symbol1, symbol3 }) })->transitions(),
+                rules::transitions(
+                    rules::choice({
+                        rules::seq({ symbol1, symbol2 }),
+                        rules::seq({ symbol1, symbol3 }) })),
                 EqualsTransitionMap(TransitionMap<rules::Rule>({
                     { symbol1, rules::choice({ symbol2, symbol3 }) }
                 })));
@@ -93,7 +95,7 @@ Describe(Rules) {
 
         It(handles_strings) {
             AssertThat(
-                rules::str("bad")->transitions(),
+                rules::transitions(rules::str("bad")),
                 EqualsTransitionMap(TransitionMap<rules::Rule>({
                     {
                         rules::character('b'),
@@ -104,7 +106,7 @@ Describe(Rules) {
 
         It(handles_patterns) {
             AssertThat(
-                rules::pattern("a|b")->transitions(),
+                rules::transitions(rules::pattern("a|b")),
                 EqualsTransitionMap(TransitionMap<rules::Rule>({
                     { rules::character('a'), rules::blank() },
                     { rules::character('b'), rules::blank() }
@@ -114,7 +116,7 @@ Describe(Rules) {
         It(handles_repeats) {
             rules::rule_ptr repeat = rules::repeat(rules::str("ab"));
             AssertThat(
-                repeat->transitions(),
+                rules::transitions(repeat),
                 EqualsTransitionMap(TransitionMap<rules::Rule>({
                 {
                     rules::character('a'),
@@ -129,7 +131,7 @@ Describe(Rules) {
             
             repeat = rules::repeat(rules::str("a"));
             AssertThat(
-                repeat->transitions(),
+                rules::transitions(repeat),
                 EqualsTransitionMap(TransitionMap<rules::Rule>({
                 {
                     rules::character('a'),

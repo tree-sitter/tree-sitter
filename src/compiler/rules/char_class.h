@@ -13,10 +13,10 @@ namespace tree_sitter  {
         class CharClass : public Rule {
         public:
             CharClass(CharClassType type);
-            TransitionMap<Rule> transitions() const;
             bool operator==(const Rule& other) const;
             std::string to_string() const;
-        private:
+            void accept(RuleVisitor &visitor) const;
+
             const CharClassType value;
         };
         

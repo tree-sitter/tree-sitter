@@ -3,6 +3,7 @@
 
 #include <string>
 #include "rule.h"
+#include "symbol.h"
 #include "transition_map.h"
 
 namespace tree_sitter {

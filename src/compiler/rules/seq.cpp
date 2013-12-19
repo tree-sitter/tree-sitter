@@ -1,5 +1,4 @@
-#include "seq.h"
-#include "blank.h"
+#include "rules.h"
 #include "transition_map.h"
 
 namespace tree_sitter {
@@ -15,15 +14,6 @@ namespace tree_sitter {
             return result;
         }
 
-        TransitionMap<Rule> Seq::transitions() const {
-            return left->transitions().map<Rule>([&](rule_ptr left_rule) -> rule_ptr {
-                if (typeid(*left_rule) == typeid(Blank))
-                    return right;
-                else
-                    return seq({ left_rule, right });
-            });
-        }
-        
         bool Seq::operator==(const Rule &rule) const {
             const Seq *other = dynamic_cast<const Seq *>(&rule);
             return other && (*other->left == *left) && (*other->right == *right);
@@ -31,6 +21,10 @@ namespace tree_sitter {
         
         std::string Seq::to_string() const {
             return std::string("(seq ") + left->to_string() + " " + right->to_string() + ")";
+        }
+        
+        void Seq::accept(RuleVisitor &visitor) const {
+            visitor.visit(this);
         }
     }
 }

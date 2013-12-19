@@ -1,5 +1,4 @@
-#include "char.h"
-#include "blank.h"
+#include "rules.h"
 #include "transition_map.h"
 
 using namespace std;
@@ -12,10 +11,6 @@ namespace tree_sitter  {
             return std::make_shared<Char>(value);
         }
 
-        TransitionMap<Rule> Char::transitions() const {
-            return TransitionMap<Rule>({{ character(value), blank() }});
-        }
-
         bool Char::operator==(const Rule &rule) const {
             const Char *other = dynamic_cast<const Char *>(&rule);
             return other && (other->value == value);
@@ -23,6 +18,10 @@ namespace tree_sitter  {
 
         string Char::to_string() const {
             return std::string("'") + value + "'";
+        }
+        
+        void Char::accept(RuleVisitor &visitor) const {
+            visitor.visit(this);
         }
     }
 }

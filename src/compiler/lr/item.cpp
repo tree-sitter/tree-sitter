@@ -1,5 +1,6 @@
 #include "item.h"
 #include "grammar.h"
+#include "transitions.h"
 
 #include <iostream>
 
@@ -17,14 +18,14 @@ namespace tree_sitter {
         }
         
         TransitionMap<Item> Item::transitions() const {
-            return rule->transitions().map<Item>([&](rules::rule_ptr to_rule) {
+            return rules::transitions(rule).map<Item>([&](rules::rule_ptr to_rule) {
                 return std::make_shared<Item>(rule_name, to_rule, consumed_sym_count + 1);
             });
         };
         
         vector<rules::sym_ptr> Item::next_symbols() const {
             vector<rules::sym_ptr> result;
-            for (auto pair : rule->transitions()) {
+            for (auto pair : rules::transitions(rule)) {
                 shared_ptr<const rules::Symbol> sym = dynamic_pointer_cast<const rules::Symbol>(pair.first);
                 if (sym) result.push_back(sym);
             }

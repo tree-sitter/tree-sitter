@@ -8,9 +8,10 @@ namespace tree_sitter  {
         class Symbol : public Rule {
         public:
             Symbol(const std::string &name);
-            TransitionMap<Rule> transitions() const;
             bool operator==(const Rule& other) const;
             std::string to_string() const;
+            void accept(RuleVisitor &visitor) const;
+
             const std::string name;
         };
         

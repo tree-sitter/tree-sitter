@@ -1,6 +1,4 @@
-#include "choice.h"
-#include "seq.h"
-#include "Pattern.h"
+#include "rules.h"
 #include "transition_map.h"
 
 using namespace std;
@@ -108,22 +106,22 @@ namespace tree_sitter {
         pattern_ptr pattern(const std::string &value) {
             return std::make_shared<Pattern>(value);
         }
-
-        TransitionMap<Rule> Pattern::transitions() const {
-            return to_rule_tree()->transitions();
-        }
         
-        rule_ptr Pattern::to_rule_tree() const {
-            return PatternParser(value).rule();
-        }
-        
-        bool Pattern::operator ==(tree_sitter::rules::Rule const &other) const {
+        bool Pattern::operator==(tree_sitter::rules::Rule const &other) const {
             auto pattern = dynamic_cast<const Pattern *>(&other);
             return pattern && (pattern->value == value);
         }
 
         std::string Pattern::to_string() const {
             return value;
+        }
+        
+        void Pattern::accept(RuleVisitor &visitor) const {
+            visitor.visit(this);
+        }
+        
+        rule_ptr Pattern::to_rule_tree() const {
+            return PatternParser(value).rule();
         }
     }
 }

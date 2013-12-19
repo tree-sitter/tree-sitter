@@ -8,10 +8,10 @@ namespace tree_sitter {
         class Choice : public Rule {
         public:
             Choice(rule_ptr left, rule_ptr right);
-            TransitionMap<Rule> transitions() const;
             bool operator==(const Rule& other) const;
             std::string to_string() const;
-        private:
+            void accept(RuleVisitor &visitor) const;
+
             const rule_ptr left;
             const rule_ptr right;
         };

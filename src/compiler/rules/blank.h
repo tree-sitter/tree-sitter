@@ -8,13 +8,12 @@ namespace tree_sitter  {
         class Blank : public Rule {
         public:
             Blank();
-            TransitionMap<Rule> transitions() const;
             bool operator==(const Rule& other) const;
             std::string to_string() const;
+            void accept(RuleVisitor &visitor) const;
         };
         
-        typedef std::shared_ptr<const Blank> blank_ptr;
-        blank_ptr blank();
+        rule_ptr blank();
     }
 }
 

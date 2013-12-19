@@ -3,10 +3,6 @@
 
 namespace tree_sitter {
     namespace rules {
-        size_t Rule::hash_code() const {
-            return std::hash<std::string>()(to_string());
-        }
-
         std::ostream& operator<<(std::ostream& stream, const Rule &rule)
         {
             stream << rule.to_string();
