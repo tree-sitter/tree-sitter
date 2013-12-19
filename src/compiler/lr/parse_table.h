@@ -19,7 +19,6 @@ namespace tree_sitter {
             ParseAction(ParseActionType type, size_t state_index, std::string symbol_name, size_t child_symbol_count);
         public:
             static ParseAction Accept();
-            static ParseAction Advance(size_t state_index);
             static ParseAction Error();
             static ParseAction Shift(size_t state_index);
             static ParseAction Reduce(std::string symbol_name, size_t child_symbol_count);
@@ -43,7 +42,6 @@ namespace tree_sitter {
         public:
             ParseTable(std::vector<std::string> rule_names);
 
-            std::unordered_map<std::string, std::unordered_set<ParseAction>> actions_for(size_t state_index) const;
             size_t add_state();
             void add_action(size_t state_index, std::string symbol_name, ParseAction action);
             

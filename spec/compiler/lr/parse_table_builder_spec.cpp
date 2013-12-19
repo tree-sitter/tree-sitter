@@ -11,7 +11,7 @@ Describe(ParseTableBuilder_test) {
     ParseTable table = build_tables(grammar);
     
     It(has_the_right_starting_state) {
-        AssertThat(table.actions_for(0), Equals(unordered_map<string, actions>({
+        AssertThat(table.states[0].actions, Equals(unordered_map<string, actions>({
             { "expression", actions({ ParseAction::Shift(1) }) },
             { "term", actions({ ParseAction::Shift(2) }) },
             { "factor", actions({ ParseAction::Shift(5) }) },
@@ -22,17 +22,17 @@ Describe(ParseTableBuilder_test) {
     }
     
     It(accepts_when_the_start_symbol_is_reduced) {
-        AssertThat(table.actions_for(1), Equals(unordered_map<string, actions>({
+        AssertThat(table.states[1].actions, Equals(unordered_map<string, actions>({
             { ParseTable::END_OF_INPUT, actions({ ParseAction::Accept() }) }
         })));
     }
     
     It(has_the_right_next_states) {
-        AssertThat(table.actions_for(2), Equals(unordered_map<string, actions>({
+        AssertThat(table.states[2].actions, Equals(unordered_map<string, actions>({
             { "plus", actions({ ParseAction::Shift(3) }) },
         })));
 
-        AssertThat(table.actions_for(3), Equals(unordered_map<string, actions>({
+        AssertThat(table.states[3].actions, Equals(unordered_map<string, actions>({
             { "variable", actions({ ParseAction::Shift(8) }) },
             { "factor", actions({ ParseAction::Shift(5) }) },
             { "left_paren", actions({ ParseAction::Shift(9) }) },

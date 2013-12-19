@@ -64,10 +64,6 @@ namespace tree_sitter {
             states[state_index].actions[sym_name].insert(action);
         }
         
-        unordered_map<string, unordered_set<ParseAction>> ParseTable::actions_for(size_t state_index) const {
-            return states[state_index].actions;
-        }
-        
         const string ParseTable::START = "__START__";
         const string ParseTable::END_OF_INPUT = "__END__";
     }
