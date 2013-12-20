@@ -23,11 +23,11 @@ namespace tree_sitter {
             });
         };
         
-        vector<rules::sym_ptr> Item::next_symbols() const {
-            vector<rules::sym_ptr> result;
+        vector<rules::Symbol> Item::next_symbols() const {
+            vector<rules::Symbol> result;
             for (auto pair : rules::transitions(rule)) {
                 shared_ptr<const rules::Symbol> sym = dynamic_pointer_cast<const rules::Symbol>(pair.first);
-                if (sym) result.push_back(sym);
+                if (sym) result.push_back(*sym);
             }
             return result;
         }

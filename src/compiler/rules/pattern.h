@@ -15,8 +15,7 @@ namespace tree_sitter {
             rule_ptr to_rule_tree() const;
         };
 
-        typedef std::shared_ptr<const Pattern> pattern_ptr;
-        pattern_ptr pattern(const std::string &value);
+        rule_ptr pattern(const std::string &value);
     }
 }
 

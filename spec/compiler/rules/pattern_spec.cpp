@@ -6,9 +6,9 @@ using namespace tree_sitter::rules;
 
 Describe(pattern_rules) {
     It(parses_simple_strings) {
-        pattern_ptr rule = pattern("abc");
+        Pattern rule("abc");
         AssertThat(
-            rule->to_rule_tree()->to_string(),
+            rule.to_rule_tree()->to_string(),
             Equals(seq({
                 character('a'),
                 character('b'),
@@ -17,9 +17,9 @@ Describe(pattern_rules) {
     };
 
     It(parses_character_classes) {
-        pattern_ptr rule = pattern("\\w-\\d");
+        Pattern rule("\\w-\\d");
         AssertThat(
-            rule->to_rule_tree()->to_string(),
+            rule.to_rule_tree()->to_string(),
             Equals(seq({
                 char_class(CharClassTypeWord),
                 character('-'),
@@ -28,9 +28,9 @@ Describe(pattern_rules) {
     };
 
     It(parses_choices) {
-        pattern_ptr rule = pattern("ab|cd|ef");
+        Pattern rule("ab|cd|ef");
         AssertThat(
-            rule->to_rule_tree()->to_string(),
+            rule.to_rule_tree()->to_string(),
             Equals(choice({
                 seq({
                     character('a'),
@@ -48,9 +48,9 @@ Describe(pattern_rules) {
     };
     
     It(parses_choices_in_sequences) {
-        pattern_ptr rule = pattern("(a|b)cd");
+        Pattern rule("(a|b)cd");
         AssertThat(
-            rule->to_rule_tree()->to_string(),
+            rule.to_rule_tree()->to_string(),
             Equals(seq({
                 choice({
                     character('a'),
@@ -62,9 +62,9 @@ Describe(pattern_rules) {
     };
     
     It(parses_special_characters_when_they_are_escaped) {
-        pattern_ptr rule = pattern("a\\(b");
+        Pattern rule("a\\(b");
         AssertThat(
-            rule->to_rule_tree()->to_string(),
+            rule.to_rule_tree()->to_string(),
             Equals(seq({
                 character('a'),
                 character('('),
@@ -73,9 +73,9 @@ Describe(pattern_rules) {
     }
     
     It(parses_repeating_rules) {
-        pattern_ptr rule = pattern("(ab)+(cd)+");
+        Pattern rule("(ab)+(cd)+");
         AssertThat(
-            rule->to_rule_tree()->to_string(),
+            rule.to_rule_tree()->to_string(),
             Equals(
                 seq({
                     repeat(seq({

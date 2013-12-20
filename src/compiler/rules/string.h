@@ -15,8 +15,7 @@ namespace tree_sitter  {
             const std::string value;
         };
         
-        typedef std::shared_ptr<const String> string_ptr;
-        string_ptr str(const std::string &value);
+        rule_ptr str(const std::string &value);
     }
 }
 

@@ -7,15 +7,15 @@ namespace tree_sitter {
     namespace rules {
         class RuleVisitor {
         public:
-            virtual void visit(const Blank *rule) = 0;
-            virtual void visit(const Symbol *rule) = 0;
-            virtual void visit(const Char *rule) = 0;
-            virtual void visit(const CharClass *rule) = 0;
-            virtual void visit(const Choice *rule) = 0;
-            virtual void visit(const Repeat *rule) = 0;
-            virtual void visit(const Seq *rule) = 0;
-            virtual void visit(const String *rule) = 0;
-            virtual void visit(const Pattern *rule) = 0;
+            virtual void visit(const Blank *rule);
+            virtual void visit(const Symbol *rule);
+            virtual void visit(const Char *rule);
+            virtual void visit(const CharClass *rule);
+            virtual void visit(const Choice *rule);
+            virtual void visit(const Repeat *rule);
+            virtual void visit(const Seq *rule);
+            virtual void visit(const String *rule);
+            virtual void visit(const Pattern *rule);
         };
     }
 }

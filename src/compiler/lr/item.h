@@ -16,7 +16,7 @@ namespace tree_sitter {
             static Item at_beginning_of_rule(const std::string &rule_name, const Grammar &grammar);
 
             TransitionMap<Item> transitions() const;
-            std::vector<rules::sym_ptr> next_symbols() const;
+            std::vector<rules::Symbol> next_symbols() const;
             bool operator==(const Item &other) const;
             bool is_done() const;
 

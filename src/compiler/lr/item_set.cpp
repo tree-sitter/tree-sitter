@@ -16,8 +16,8 @@ namespace tree_sitter {
         static void add_item(vector<Item> &vector, const Item &item, const Grammar &grammar) {
             if (!vector_contains(vector, item)) {
                 vector.push_back(item);
-                for (rules::sym_ptr rule : item.next_symbols()) {
-                    Item next_item = Item::at_beginning_of_rule(rule->name, grammar);
+                for (rules::Symbol rule : item.next_symbols()) {
+                    Item next_item = Item::at_beginning_of_rule(rule.name, grammar);
                     add_item(vector, next_item, grammar);
                 }
             }

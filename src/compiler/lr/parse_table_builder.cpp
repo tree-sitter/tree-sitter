@@ -23,7 +23,7 @@ namespace tree_sitter {
             
             void add_shift_actions(const ItemSet &item_set, size_t state_index) {
                 for (auto transition : item_set.sym_transitions(grammar)) {
-                    rules::sym_ptr symbol = static_pointer_cast<const rules::Symbol>(transition.first);
+                    auto symbol = static_pointer_cast<const rules::Symbol>(transition.first);
                     size_t new_state_index = add_item_set(*transition.second);
                     table.add_action(state_index, symbol->name, ParseAction::Shift(new_state_index));
                 }

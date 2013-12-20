@@ -5,7 +5,7 @@ namespace tree_sitter  {
     namespace rules {
         Symbol::Symbol(const std::string &name) : name(name) {};
 
-        sym_ptr sym(const std::string &name) {
+        rule_ptr sym(const std::string &name) {
             return std::make_shared<Symbol>(name);
         }
 

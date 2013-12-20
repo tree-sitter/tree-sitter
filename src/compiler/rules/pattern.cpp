@@ -103,7 +103,7 @@ namespace tree_sitter {
         
         Pattern::Pattern(const std::string &string) : value(string) {};
         
-        pattern_ptr pattern(const std::string &value) {
+        rule_ptr pattern(const std::string &value) {
             return std::make_shared<Pattern>(value);
         }
         

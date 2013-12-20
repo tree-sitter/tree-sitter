@@ -5,7 +5,7 @@ namespace tree_sitter  {
     namespace rules {
         String::String(std::string value) : value(value) {};
         
-        string_ptr str(const std::string &value) {
+        rule_ptr str(const std::string &value) {
             return std::make_shared<String>(value);
         }
 
