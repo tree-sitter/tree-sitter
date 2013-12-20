@@ -21,7 +21,7 @@ namespace tree_sitter  {
             }
         }
         
-        void CharClass::accept(RuleVisitor &visitor) const {
+        void CharClass::accept(Visitor &visitor) const {
             visitor.visit(this);
         }
     }

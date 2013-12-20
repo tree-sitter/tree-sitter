@@ -5,13 +5,13 @@
 
 namespace tree_sitter {
     namespace rules {
-        class RuleVisitor;
+        class Visitor;
 
         class Rule {
         public:
             virtual bool operator==(const Rule& other) const = 0;
             virtual std::string to_string() const = 0;
-            virtual void accept(RuleVisitor &visitor) const = 0;
+            virtual void accept(Visitor &visitor) const = 0;
         };
         
         typedef std::shared_ptr<const Rule> rule_ptr;

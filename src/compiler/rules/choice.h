@@ -10,7 +10,7 @@ namespace tree_sitter {
             Choice(rule_ptr left, rule_ptr right);
             bool operator==(const Rule& other) const;
             std::string to_string() const;
-            void accept(RuleVisitor &visitor) const;
+            void accept(Visitor &visitor) const;
 
             const rule_ptr left;
             const rule_ptr right;

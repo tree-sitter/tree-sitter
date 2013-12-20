@@ -16,7 +16,7 @@ namespace tree_sitter  {
             return string("(sym '") + name + "')";
         }
         
-        void Symbol::accept(RuleVisitor &visitor) const {
+        void Symbol::accept(Visitor &visitor) const {
             visitor.visit(this);
         }
     }

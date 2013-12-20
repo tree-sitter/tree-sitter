@@ -11,7 +11,7 @@ namespace tree_sitter {
             Pattern(const std::string &string);
             bool operator==(const Rule& other) const;
             std::string to_string() const;
-            void accept(RuleVisitor &visitor) const;
+            void accept(Visitor &visitor) const;
             rule_ptr to_rule_tree() const;
         };
     }

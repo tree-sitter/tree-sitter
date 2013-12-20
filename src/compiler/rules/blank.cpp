@@ -13,7 +13,7 @@ namespace tree_sitter  {
             return "blank";
         }
         
-        void Blank::accept(RuleVisitor &visitor) const {
+        void Blank::accept(Visitor &visitor) const {
             visitor.visit(this);
         }
     }

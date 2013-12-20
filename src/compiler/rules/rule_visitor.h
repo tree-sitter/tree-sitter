@@ -5,7 +5,7 @@
 
 namespace tree_sitter {
     namespace rules {
-        class RuleVisitor {
+        class Visitor {
         public:
             virtual void visit(const Blank *rule);
             virtual void visit(const Symbol *rule);

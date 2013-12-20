@@ -16,7 +16,7 @@ namespace tree_sitter {
             return string("(repeat ") + content->to_string() + ")";
         }
         
-        void Repeat::accept(RuleVisitor &visitor) const {
+        void Repeat::accept(Visitor &visitor) const {
             visitor.visit(this);
         }
     }

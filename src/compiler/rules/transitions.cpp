@@ -3,7 +3,7 @@
 
 namespace tree_sitter {
     namespace rules {
-        class TransitionsVisitor : public RuleVisitor {
+        class TransitionsVisitor : public Visitor {
         public:
             TransitionMap<Rule> value;
 

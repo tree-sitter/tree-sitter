@@ -16,7 +16,7 @@ namespace tree_sitter  {
             return string("'") + value + "'";
         }
         
-        void Char::accept(RuleVisitor &visitor) const {
+        void Char::accept(Visitor &visitor) const {
             visitor.visit(this);
         }
     }

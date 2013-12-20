@@ -112,7 +112,7 @@ namespace tree_sitter {
             return value;
         }
         
-        void Pattern::accept(RuleVisitor &visitor) const {
+        void Pattern::accept(Visitor &visitor) const {
             visitor.visit(this);
         }
         
