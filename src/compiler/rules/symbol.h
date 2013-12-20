@@ -13,9 +13,7 @@ namespace tree_sitter  {
             void accept(RuleVisitor &visitor) const;
 
             const std::string name;
-        };
-        
-        rule_ptr sym(const std::string &name);
+        };        
     }
 }
 

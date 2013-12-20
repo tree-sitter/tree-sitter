@@ -1,7 +1,7 @@
 #include "rules.h"
 #include "transition_map.h"
 
-using namespace std;
+using std::string;
 
 namespace tree_sitter {
     namespace rules {
@@ -93,26 +93,22 @@ namespace tree_sitter {
             }
             
             void error(const char *message) {
-                throw std::string("Invalid regex pattern '") + input + "': " + message;
+                throw string("Invalid regex pattern '") + input + "': " + message;
             }
             
-            const std::string input;
+            const string input;
             const size_t length;
             int position;
         };
         
-        Pattern::Pattern(const std::string &string) : value(string) {};
-        
-        rule_ptr pattern(const std::string &value) {
-            return std::make_shared<Pattern>(value);
-        }
+        Pattern::Pattern(const string &string) : value(string) {};
         
         bool Pattern::operator==(tree_sitter::rules::Rule const &other) const {
             auto pattern = dynamic_cast<const Pattern *>(&other);
             return pattern && (pattern->value == value);
         }
 
-        std::string Pattern::to_string() const {
+        string Pattern::to_string() const {
             return value;
         }
         

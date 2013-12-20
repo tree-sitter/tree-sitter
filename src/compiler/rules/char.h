@@ -14,8 +14,6 @@ namespace tree_sitter  {
 
             const char value;
         };
-
-        rule_ptr character(char value);
     }
 }
 

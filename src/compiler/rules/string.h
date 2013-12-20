@@ -14,8 +14,6 @@ namespace tree_sitter  {
 
             const std::string value;
         };
-        
-        rule_ptr str(const std::string &value);
     }
 }
 

@@ -14,8 +14,6 @@ namespace tree_sitter {
             void accept(RuleVisitor &visitor) const;
             rule_ptr to_rule_tree() const;
         };
-
-        rule_ptr pattern(const std::string &value);
     }
 }
 

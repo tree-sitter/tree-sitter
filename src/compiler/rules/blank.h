@@ -12,8 +12,6 @@ namespace tree_sitter  {
             std::string to_string() const;
             void accept(RuleVisitor &visitor) const;
         };
-        
-        rule_ptr blank();
     }
 }
 

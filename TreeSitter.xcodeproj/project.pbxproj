@@ -55,6 +55,7 @@
 		12FD40DF1860064C0041A84E /* tree.c in Sources */ = {isa = PBXBuildFile; fileRef = 12FD40DE1860064C0041A84E /* tree.c */; };
 		12FD40E2186245FE0041A84E /* transitions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12FD40E0186245FE0041A84E /* transitions.cpp */; };
 		12FD40E718639B910041A84E /* rule_visitor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12FD40E618639B910041A84E /* rule_visitor.cpp */; };
+		12FD40E918641FB70041A84E /* rules.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12FD40E818641FB70041A84E /* rules.cpp */; };
 		27A343CA69E17E0F9EBEDF1C /* pattern.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 27A340F3EEB184C040521323 /* pattern.cpp */; };
 /* End PBXBuildFile section */
 
@@ -135,6 +136,7 @@
 		12FD40E1186245FE0041A84E /* transitions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = transitions.h; sourceTree = "<group>"; };
 		12FD40E41862B3530041A84E /* rule_visitor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rule_visitor.h; sourceTree = "<group>"; };
 		12FD40E618639B910041A84E /* rule_visitor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rule_visitor.cpp; sourceTree = "<group>"; };
+		12FD40E818641FB70041A84E /* rules.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rules.cpp; sourceTree = "<group>"; };
 		27A340F3EEB184C040521323 /* pattern.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pattern.cpp; sourceTree = "<group>"; };
 		27A3438C4FA59A3882E8493B /* pattern.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pattern.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -160,11 +162,12 @@
 		12130602182C344400FCF928 /* rules */ = {
 			isa = PBXGroup;
 			children = (
-				12E71852181D081C0051A649 /* rules.h */,
 				1213060F182C3A1100FCF928 /* blank.cpp */,
 				12130610182C3A1100FCF928 /* blank.h */,
 				12130603182C348F00FCF928 /* char.cpp */,
 				12130604182C348F00FCF928 /* char.h */,
+				12F8BE8C183C79B2006CCF99 /* char_class.cpp */,
+				12F8BE8D183C79B2006CCF99 /* char_class.h */,
 				1213060C182C398300FCF928 /* choice.cpp */,
 				1213060D182C398300FCF928 /* choice.h */,
 				27A340F3EEB184C040521323 /* pattern.cpp */,
@@ -173,18 +176,18 @@
 				12D136A3183678A2005F3369 /* repeat.h */,
 				1251209A1830145300C9B56A /* rule.cpp */,
 				12130607182C374800FCF928 /* rule.h */,
+				12FD40E618639B910041A84E /* rule_visitor.cpp */,
+				12FD40E41862B3530041A84E /* rule_visitor.h */,
+				12FD40E818641FB70041A84E /* rules.cpp */,
+				12E71852181D081C0051A649 /* rules.h */,
 				12130612182C3A1700FCF928 /* seq.cpp */,
 				12130613182C3A1700FCF928 /* seq.h */,
 				12130615182C3D2900FCF928 /* string.cpp */,
 				12130616182C3D2900FCF928 /* string.h */,
 				12130609182C389100FCF928 /* symbol.cpp */,
 				1213060A182C389100FCF928 /* symbol.h */,
-				12F8BE8C183C79B2006CCF99 /* char_class.cpp */,
-				12F8BE8D183C79B2006CCF99 /* char_class.h */,
 				12FD40E0186245FE0041A84E /* transitions.cpp */,
 				12FD40E1186245FE0041A84E /* transitions.h */,
-				12FD40E41862B3530041A84E /* rule_visitor.h */,
-				12FD40E618639B910041A84E /* rule_visitor.cpp */,
 			);
 			path = rules;
 			sourceTree = "<group>";
@@ -431,6 +434,7 @@
 				12130611182C3A1100FCF928 /* blank.cpp in Sources */,
 				1213060E182C398300FCF928 /* choice.cpp in Sources */,
 				12F9A64E182DD5FD00FAF50C /* spec_helper.cpp in Sources */,
+				12FD40E918641FB70041A84E /* rules.cpp in Sources */,
 				12FD4061185E68470041A84E /* c_code.cpp in Sources */,
 				12FD40D8185FEEDF0041A84E /* rules_spec.cpp in Sources */,
 				125120A018307DEC00C9B56A /* parse_table.cpp in Sources */,

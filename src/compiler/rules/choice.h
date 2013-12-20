@@ -15,8 +15,6 @@ namespace tree_sitter {
             const rule_ptr left;
             const rule_ptr right;
         };
-        
-        rule_ptr choice(const std::initializer_list<rule_ptr> &rules);
     }
 }
 

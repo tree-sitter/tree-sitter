@@ -19,8 +19,6 @@ namespace tree_sitter  {
 
             const CharClassType value;
         };
-        
-        rule_ptr char_class(CharClassType value);
     }
 }
 

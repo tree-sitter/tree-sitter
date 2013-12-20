@@ -14,8 +14,6 @@ namespace tree_sitter  {
 
             const rule_ptr content;
         };
-        
-        rule_ptr repeat(const rule_ptr content);
     }
 }
 

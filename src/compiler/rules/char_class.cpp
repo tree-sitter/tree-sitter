@@ -1,15 +1,11 @@
 #include "rules.h"
 #include "transition_map.h"
 
-using namespace std;
+using std::string;
 
 namespace tree_sitter  {
     namespace rules {
         CharClass::CharClass(CharClassType value) : value(value) {};
-        
-        rule_ptr char_class(CharClassType type) {
-            return std::make_shared<CharClass>(type);
-        }
         
         bool CharClass::operator==(const Rule &rule) const {
             const CharClass *other = dynamic_cast<const CharClass *>(&rule);

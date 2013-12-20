@@ -13,4 +13,18 @@
 #include "repeat.h"
 #include "rule_visitor.h"
 
+namespace tree_sitter {
+    namespace rules {
+        rule_ptr blank();
+        rule_ptr character(char value);
+        rule_ptr char_class(CharClassType value);
+        rule_ptr choice(const std::initializer_list<rule_ptr> &rules);
+        rule_ptr pattern(const std::string &value);
+        rule_ptr repeat(const rule_ptr content);
+        rule_ptr seq(const std::initializer_list<rule_ptr> &rules);
+        rule_ptr str(const std::string &value);
+        rule_ptr sym(const std::string &name);
+    }
+}
+
 #endif
