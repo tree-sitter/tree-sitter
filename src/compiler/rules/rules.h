@@ -11,7 +11,7 @@
 #include "char.h"
 #include "char_class.h"
 #include "repeat.h"
-#include "rule_visitor.h"
+#include "visitor.h"
 
 namespace tree_sitter {
     namespace rules {
