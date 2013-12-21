@@ -10,12 +10,15 @@ namespace tree_sitter {
     class Grammar;
     
     namespace lr {
+        class Item;
+        typedef std::shared_ptr<const Item> item_ptr;
+
         class Item {
         public:
             Item(const std::string &rule_name, const rules::rule_ptr rule, int consumed_sym_count);
             static Item at_beginning_of_rule(const std::string &rule_name, const Grammar &grammar);
 
-            TransitionMap<Item> transitions() const;
+            transition_map<rules::Rule, Item> transitions() const;
             std::vector<rules::Symbol> next_symbols() const;
             bool operator==(const Item &other) const;
             bool is_done() const;
@@ -25,7 +28,7 @@ namespace tree_sitter {
             const int consumed_sym_count;
         };
         
-        typedef std::shared_ptr<const Item> item_ptr;
+//        typedef std::shared_ptr<const Item> item_ptr;
         std::ostream& operator<<(std::ostream &stream, const Item &item);
         
     }

@@ -5,22 +5,22 @@ namespace tree_sitter {
     namespace rules {
         class TransitionsVisitor : public Visitor {
         public:
-            TransitionMap<Rule> value;
+            transition_map<Rule, Rule> value;
 
             void visit(const Blank *rule) {
-                value = TransitionMap<Rule>();
+                value = transition_map<Rule, Rule>();
             }
 
             void visit(const CharClass *rule) {
-                value = TransitionMap<Rule>({{ char_class(rule->value), blank() }});
+                value = transition_map<Rule, Rule>({{ char_class(rule->value), blank() }});
             }
             
             void visit(const Char *rule) {
-                value = TransitionMap<Rule>({{ character(rule->value), blank() }});
+                value = transition_map<Rule, Rule>({{ character(rule->value), blank() }});
             }
             
             void visit(const Symbol *rule) {
-                value = TransitionMap<Rule>({{ sym(rule->name), blank() }});
+                value = transition_map<Rule, Rule>({{ sym(rule->name), blank() }});
             }
             
             void visit(const Choice *rule) {
@@ -31,7 +31,7 @@ namespace tree_sitter {
             }
 
             void visit(const Seq *rule) {
-                value = transitions(rule->left).map<Rule>([&](rule_ptr left_rule) -> rule_ptr {
+                value = transitions(rule->left).map<Rule>([&](const rule_ptr left_rule) -> rule_ptr {
                     if (typeid(*left_rule) == typeid(Blank))
                         return rule->right;
                     else
@@ -57,7 +57,7 @@ namespace tree_sitter {
             }
         };
         
-        TransitionMap<Rule> transitions(const rule_ptr &rule) {
+        transition_map<Rule, Rule> transitions(const rule_ptr &rule) {
             TransitionsVisitor visitor;
             rule->accept(visitor);
             return visitor.value;

@@ -1,10 +1,6 @@
 #include "spec_helper.h"
 
 
-EqualsContainerConstraint<TransitionMap<rules::Rule>, rule_tmap_comparator> EqualsTransitionMap(const TransitionMap<rules::Rule> &expected) {
-    return EqualsContainer(expected, TransitionMap<rules::Rule>::elements_equal);
-}
-
 namespace tree_sitter {
     namespace lr {
         std::ostream& operator<<(std::ostream &stream, const unordered_map<string, unordered_set<ParseAction>> &map) {

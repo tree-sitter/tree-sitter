@@ -30,7 +30,7 @@ Describe(Rules) {
         It(handles_symbols) {
             AssertThat(
                 rules::transitions(symbol1),
-                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                Equals(transition_map<rules::Rule, rules::Rule>({
                     { symbol1, rules::blank() }
                 })));
         }
@@ -38,7 +38,7 @@ Describe(Rules) {
         It(handles_characters) {
             AssertThat(
                 rules::transitions(char1),
-                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                Equals(transition_map<rules::Rule, rules::Rule>({
                     { char1, rules::blank() }
                 })));
         }
@@ -47,7 +47,7 @@ Describe(Rules) {
             auto rule = rules::char_class(rules::CharClassTypeDigit);
             AssertThat(
                 rules::transitions(rule),
-                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                Equals(transition_map<rules::Rule, rules::Rule>({
                     { rule, rules::blank() }
                 })));
         }
@@ -55,7 +55,7 @@ Describe(Rules) {
         It(handles_choices) {
             AssertThat(
                 rules::transitions(rules::choice({ symbol1, symbol2 })),
-                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                Equals(transition_map<rules::Rule, rules::Rule>({
                     { symbol1, rules::blank() },
                     { symbol2, rules::blank() }
                 })));
@@ -64,7 +64,7 @@ Describe(Rules) {
         It(handles_sequences) {
             AssertThat(
                 rules::transitions(rules::seq({ symbol1, symbol2 })),
-                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                Equals(transition_map<rules::Rule, rules::Rule>({
                     { symbol1, symbol2 }
                 })));
         }
@@ -77,7 +77,7 @@ Describe(Rules) {
                     symbol3,
                     symbol4
                 })),
-                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                Equals(transition_map<rules::Rule, rules::Rule>({
                     { symbol1, rules::seq({ symbol2, symbol3, symbol4 }) }
                 })));
         }
@@ -88,7 +88,7 @@ Describe(Rules) {
                     rules::choice({
                         rules::seq({ symbol1, symbol2 }),
                         rules::seq({ symbol1, symbol3 }) })),
-                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                Equals(transition_map<rules::Rule, rules::Rule>({
                     { symbol1, rules::choice({ symbol2, symbol3 }) }
                 })));
         }
@@ -96,7 +96,7 @@ Describe(Rules) {
         It(handles_strings) {
             AssertThat(
                 rules::transitions(rules::str("bad")),
-                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                Equals(transition_map<rules::Rule, rules::Rule>({
                     {
                         rules::character('b'),
                         rules::seq({ rules::character('a'), rules::character('d') })
@@ -107,7 +107,7 @@ Describe(Rules) {
         It(handles_patterns) {
             AssertThat(
                 rules::transitions(rules::pattern("a|b")),
-                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                Equals(transition_map<rules::Rule, rules::Rule>({
                     { rules::character('a'), rules::blank() },
                     { rules::character('b'), rules::blank() }
                 })));
@@ -117,7 +117,7 @@ Describe(Rules) {
             rules::rule_ptr repeat = rules::repeat(rules::str("ab"));
             AssertThat(
                 rules::transitions(repeat),
-                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                Equals(transition_map<rules::Rule, rules::Rule>({
                 {
                     rules::character('a'),
                     rules::seq({
@@ -132,7 +132,7 @@ Describe(Rules) {
             repeat = rules::repeat(rules::str("a"));
             AssertThat(
                 rules::transitions(repeat),
-                EqualsTransitionMap(TransitionMap<rules::Rule>({
+                Equals(transition_map<rules::Rule, rules::Rule>({
                 {
                     rules::character('a'),
                     rules::choice({

@@ -31,11 +31,11 @@ namespace tree_sitter {
         
         ItemSet::ItemSet(const Item &item, const Grammar &grammar) : contents(closure_in_grammar(item, grammar)) {}
         
-        TransitionMap<ItemSet> ItemSet::char_transitions(const Grammar &grammar) const {
-            auto result = TransitionMap<ItemSet>();
+        transition_map<rules::Rule, ItemSet> ItemSet::char_transitions(const Grammar &grammar) const {
+            transition_map<rules::Rule, ItemSet> result;
             for (auto item : *this) {
                 auto new_set = item.transitions()
-                .where([&](const rules::rule_ptr &on_rule) -> bool {
+                .where([&](rules::rule_ptr on_rule) -> bool {
                     return typeid(*on_rule) != typeid(rules::Symbol);
                 })
                 .map<ItemSet>([&](const item_ptr &item) -> item_set_ptr {
@@ -48,11 +48,11 @@ namespace tree_sitter {
             return result;
         }
 
-        TransitionMap<ItemSet> ItemSet::sym_transitions(const Grammar &grammar) const {
-            auto result = TransitionMap<ItemSet>();
+        transition_map<rules::Rule, ItemSet> ItemSet::sym_transitions(const Grammar &grammar) const {
+            transition_map<rules::Rule, ItemSet> result;
             for (auto item : *this) {
                 auto new_set = item.transitions()
-                    .where([&](const rules::rule_ptr &on_rule) -> bool {
+                    .where([&](rules::rule_ptr on_rule) -> bool {
                         return typeid(*on_rule) == typeid(rules::Symbol);
                     })
                     .map<ItemSet>([&](const item_ptr &item) -> item_set_ptr {

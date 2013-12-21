@@ -33,11 +33,11 @@ Describe(item_sets) {
         
         AssertThat(
             set.sym_transitions(grammar),
-            EqualsContainer(TransitionMap<ItemSet>({
+            Equals(transition_map<rules::Rule, ItemSet>({
                 { sym("variable"), item_set({ Item("factor", blank(), 1) }) },
                 { sym("number"), item_set({ Item("factor", blank(), 1) }) },
                 { sym("left_paren"), std::make_shared<ItemSet>(Item("factor", seq({ sym("expression"), sym("right_paren") }), 1), grammar) },
-            }), TransitionMap<ItemSet>::elements_equal));
+            })));
     }
     
     It(computes_character_transitions) {
@@ -46,11 +46,11 @@ Describe(item_sets) {
 
         AssertThat(
             set.char_transitions(grammar),
-            EqualsContainer(TransitionMap<ItemSet>({
+            Equals(transition_map<rules::Rule, ItemSet>({
                 { char_class(CharClassTypeWord), item_set({ Item("variable", choice({ repeat(char_class(CharClassTypeWord)), blank() }), 1) }) },
                 { char_class(CharClassTypeDigit), item_set({ Item("number", choice({ repeat(char_class(CharClassTypeDigit)), blank() }), 1) }) },
                 { character('('), item_set({ Item("left_paren", blank(), 1) }) }
-            }), TransitionMap<ItemSet>::elements_equal));
+            })));
     }
     
     It(can_be_hashed) {

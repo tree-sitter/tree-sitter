@@ -6,7 +6,7 @@
 
 namespace tree_sitter  {
     namespace rules {
-        TransitionMap<Rule> transitions(const rule_ptr &rule);
+        transition_map<Rule, Rule> transitions(const rule_ptr &rule);
     }
 }
 

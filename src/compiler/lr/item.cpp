@@ -17,8 +17,8 @@ namespace tree_sitter {
             return Item(rule_name, grammar.rule(rule_name), 0);
         }
         
-        TransitionMap<Item> Item::transitions() const {
-            return rules::transitions(rule).map<Item>([&](rules::rule_ptr to_rule) {
+        transition_map<rules::Rule, Item> Item::transitions() const {
+            return rules::transitions(rule).map<Item>([&](rules::rule_ptr to_rule) -> item_ptr {
                 return std::make_shared<Item>(rule_name, to_rule, consumed_sym_count + 1);
             });
         };
