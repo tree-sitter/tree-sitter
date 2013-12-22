@@ -47,8 +47,8 @@ Describe(item_sets) {
         AssertThat(
             set.char_transitions(grammar),
             Equals(transition_map<rules::Rule, ItemSet>({
-                { char_class(CharClassTypeWord), item_set({ Item("variable", choice({ repeat(char_class(CharClassTypeWord)), blank() }), 1) }) },
-                { char_class(CharClassTypeDigit), item_set({ Item("number", choice({ repeat(char_class(CharClassTypeDigit)), blank() }), 1) }) },
+                { character(CharClassWord), item_set({ Item("variable", choice({ repeat(character(CharClassWord)), blank() }), 1) }) },
+                { character(CharClassDigit), item_set({ Item("number", choice({ repeat(character(CharClassDigit)), blank() }), 1) }) },
                 { character('('), item_set({ Item("left_paren", blank(), 1) }) }
             })));
     }

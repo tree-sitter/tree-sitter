@@ -11,12 +11,8 @@ namespace tree_sitter {
                 value = transition_map<Rule, Rule>();
             }
 
-            void visit(const CharClass *rule) {
-                value = transition_map<Rule, Rule>({{ char_class(rule->value), blank() }});
-            }
-            
-            void visit(const Char *rule) {
-                value = transition_map<Rule, Rule>({{ character(rule->value), blank() }});
+            void visit(const Character *rule) {
+                value = transition_map<Rule, Rule>({{ std::make_shared<Character>(*rule), blank() }});
             }
             
             void visit(const Symbol *rule) {

@@ -11,13 +11,13 @@ namespace tree_sitter {
         }
   
         rule_ptr character(char value) {
-            return make_shared<Char>(value);
+            return make_shared<Character>(value);
         }
-        
-        rule_ptr char_class(CharClassType type) {
-            return make_shared<CharClass>(type);
+
+        rule_ptr character(CharClass value) {
+            return make_shared<Character>(value);
         }
-        
+
         rule_ptr choice(const initializer_list<rule_ptr> &rules) {
             rule_ptr result;
             for (auto rule : rules)

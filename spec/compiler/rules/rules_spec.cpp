@@ -44,7 +44,7 @@ Describe(Rules) {
         }
 
         It(handles_character_classes) {
-            auto rule = rules::char_class(rules::CharClassTypeDigit);
+            auto rule = rules::character(CharClassDigit);
             AssertThat(
                 rules::transitions(rule),
                 Equals(transition_map<rules::Rule, rules::Rule>({

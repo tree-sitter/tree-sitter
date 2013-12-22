@@ -2,17 +2,20 @@
 #define __tree_sitter__char__
 
 #include "rule.h"
+#include "char_match.h"
 
 namespace tree_sitter  {
     namespace rules {
-        class Char : public Rule {
+        class Character : public Rule {
         public:
-            Char(char value);
+            Character(char character);
+            Character(CharClass character_class);
+            Character(char min_character, char max_character);
             bool operator==(const Rule& other) const;
             std::string to_string() const;
             void accept(Visitor &visitor) const;
 
-            const char value;
+            const CharMatch value;
         };
     }
 }

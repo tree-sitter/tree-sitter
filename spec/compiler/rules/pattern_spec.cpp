@@ -21,9 +21,9 @@ Describe(pattern_rules) {
         AssertThat(
             rule.to_rule_tree()->to_string(),
             Equals(seq({
-                char_class(CharClassTypeWord),
+                character(CharClassWord),
                 character('-'),
-                char_class(CharClassTypeDigit)
+                character(CharClassDigit)
             })->to_string()));
     };
 

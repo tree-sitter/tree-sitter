@@ -71,9 +71,9 @@ namespace tree_sitter {
                     case ')':
                         return character(value);
                     case 'w':
-                        return char_class(CharClassTypeWord);
+                        return character(CharClassWord);
                     case 'd':
-                        return char_class(CharClassTypeDigit);
+                        return character(CharClassDigit);
                     default:
                         error("unrecognized escape sequence");
                         return rule_ptr();
