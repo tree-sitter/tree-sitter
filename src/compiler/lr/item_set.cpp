@@ -1,8 +1,10 @@
 #include "item_set.h"
 
-#include <iostream>
-
-using namespace std;
+using std::vector;
+using std::initializer_list;
+using std::dynamic_pointer_cast;
+using std::ostream;
+using std::string;
 
 namespace tree_sitter {
     namespace lr {
@@ -31,38 +33,27 @@ namespace tree_sitter {
         
         ItemSet::ItemSet(const Item &item, const Grammar &grammar) : contents(closure_in_grammar(item, grammar)) {}
         
-        transition_map<rules::Rule, ItemSet> ItemSet::char_transitions(const Grammar &grammar) const {
-            transition_map<rules::Rule, ItemSet> result;
-            for (auto item : *this) {
-                auto new_set = item.transitions()
-                .where([&](rules::rule_ptr on_rule) -> bool {
-                    return typeid(*on_rule) != typeid(rules::Symbol);
-                })
-                .map<ItemSet>([&](const item_ptr &item) -> item_set_ptr {
-                    return std::make_shared<ItemSet>(*item, grammar);
-                });
-                result.merge(new_set, [&](const item_set_ptr left, const item_set_ptr right) -> item_set_ptr {
-                    return left;
-                });
+        template<typename RuleClass>
+        static transition_map<RuleClass, ItemSet> transitions(const ItemSet &item_set, const Grammar &grammar) {
+            transition_map<RuleClass, ItemSet> result;
+            for (auto item : item_set) {
+                auto item_transitions = item.transitions();
+                for (auto pair : item_transitions) {
+                    std::shared_ptr<const RuleClass> rule = dynamic_pointer_cast<const RuleClass>(pair.first);
+                    Item item = *pair.second;
+                    if (rule.get() != nullptr)
+                        result.add(rule, std::make_shared<ItemSet>(item, grammar));
+                }
             }
             return result;
         }
 
-        transition_map<rules::Rule, ItemSet> ItemSet::sym_transitions(const Grammar &grammar) const {
-            transition_map<rules::Rule, ItemSet> result;
-            for (auto item : *this) {
-                auto new_set = item.transitions()
-                    .where([&](rules::rule_ptr on_rule) -> bool {
-                        return typeid(*on_rule) == typeid(rules::Symbol);
-                    })
-                    .map<ItemSet>([&](const item_ptr &item) -> item_set_ptr {
-                        return std::make_shared<ItemSet>(*item, grammar);
-                    });
-                result.merge(new_set, [&](const item_set_ptr left, const item_set_ptr right) -> item_set_ptr {
-                    return left;
-                });
-            }
-            return result;
+        transition_map<rules::Character, ItemSet> ItemSet::char_transitions(const Grammar &grammar) const {
+            return transitions<rules::Character>(*this, grammar);
+        }
+        
+        transition_map<rules::Symbol, ItemSet> ItemSet::sym_transitions(const Grammar &grammar) const {
+            return transitions<rules::Symbol>(*this, grammar);
         }
 
         bool ItemSet::operator==(const tree_sitter::lr::ItemSet &other) const {

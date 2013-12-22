@@ -33,7 +33,7 @@ Describe(item_sets) {
         
         AssertThat(
             set.sym_transitions(grammar),
-            Equals(transition_map<rules::Rule, ItemSet>({
+            Equals(transition_map<rules::Symbol, ItemSet>({
                 { sym("variable"), item_set({ Item("factor", blank(), 1) }) },
                 { sym("number"), item_set({ Item("factor", blank(), 1) }) },
                 { sym("left_paren"), std::make_shared<ItemSet>(Item("factor", seq({ sym("expression"), sym("right_paren") }), 1), grammar) },
@@ -46,7 +46,7 @@ Describe(item_sets) {
 
         AssertThat(
             set.char_transitions(grammar),
-            Equals(transition_map<rules::Rule, ItemSet>({
+            Equals(transition_map<rules::Character, ItemSet>({
                 { character(CharClassWord), item_set({ Item("variable", choice({ repeat(character(CharClassWord)), blank() }), 1) }) },
                 { character(CharClassDigit), item_set({ Item("number", choice({ repeat(character(CharClassDigit)), blank() }), 1) }) },
                 { character('('), item_set({ Item("left_paren", blank(), 1) }) }

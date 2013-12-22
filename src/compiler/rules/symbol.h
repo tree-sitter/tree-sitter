@@ -13,7 +13,9 @@ namespace tree_sitter  {
             void accept(Visitor &visitor) const;
 
             const std::string name;
-        };        
+        };
+        
+        typedef std::shared_ptr<const Symbol> sym_ptr;
     }
 }
 

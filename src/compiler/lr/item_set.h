@@ -22,8 +22,8 @@ namespace tree_sitter {
             const_iterator end() const;
             size_t size() const;
 
-            transition_map<rules::Rule, ItemSet> char_transitions(const Grammar &grammar) const;
-            transition_map<rules::Rule, ItemSet> sym_transitions(const Grammar &grammar) const;
+            transition_map<rules::Character, ItemSet> char_transitions(const Grammar &grammar) const;
+            transition_map<rules::Symbol, ItemSet> sym_transitions(const Grammar &grammar) const;
 
             bool operator==(const ItemSet &other) const;
         };
