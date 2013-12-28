@@ -43,3 +43,7 @@ TSState TSParserParseState(const TSParser *parser) {
 TSState TSParserLexState(const TSParser *parser) {
     return 5;
 }
+
+void TSParserSetLexState(const TSParser *parser, TSState lex_state) {
+    
+}

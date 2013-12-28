@@ -1,5 +1,4 @@
 #include "runtime.h"
-#include <stdlib.h>
 #include <ctype.h>
 
 typedef enum {
@@ -14,7 +13,6 @@ typedef enum {
     ts_symbol_left_paren,
     ts_symbol___END__
 } ts_symbol;
-
 
 static void ts_lex(TSParser *parser) {
     START_LEXER();
@@ -135,6 +133,7 @@ TSTree ts_parse_arithmetic(const char *input) {
     START_PARSER();
     switch (PARSE_STATE()) {
         case 0:
+            SET_LEX_STATE(0);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_left_paren:
                     SHIFT(9);
@@ -152,6 +151,7 @@ TSTree ts_parse_arithmetic(const char *input) {
                     PARSE_ERROR();
             }
         case 1:
+            SET_LEX_STATE(12);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol___END__:
                     ACCEPT_INPUT();
@@ -159,6 +159,7 @@ TSTree ts_parse_arithmetic(const char *input) {
                     PARSE_ERROR();
             }
         case 2:
+            SET_LEX_STATE(13);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_plus:
                     SHIFT(3);
@@ -166,6 +167,7 @@ TSTree ts_parse_arithmetic(const char *input) {
                     PARSE_ERROR();
             }
         case 3:
+            SET_LEX_STATE(15);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_variable:
                     SHIFT(8);
@@ -181,11 +183,13 @@ TSTree ts_parse_arithmetic(const char *input) {
                     PARSE_ERROR();
             }
         case 4:
+            SET_LEX_STATE(17);
             switch (LOOKAHEAD_SYM()) {
                 default:
                     REDUCE(ts_symbol_expression, 3);
             }
         case 5:
+            SET_LEX_STATE(18);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_times:
                     SHIFT(6);
@@ -193,6 +197,7 @@ TSTree ts_parse_arithmetic(const char *input) {
                     PARSE_ERROR();
             }
         case 6:
+            SET_LEX_STATE(20);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_left_paren:
                     SHIFT(9);
@@ -206,16 +211,19 @@ TSTree ts_parse_arithmetic(const char *input) {
                     PARSE_ERROR();
             }
         case 7:
+            SET_LEX_STATE(21);
             switch (LOOKAHEAD_SYM()) {
                 default:
                     REDUCE(ts_symbol_term, 3);
             }
         case 8:
+            SET_LEX_STATE(22);
             switch (LOOKAHEAD_SYM()) {
                 default:
                     REDUCE(ts_symbol_factor, 1);
             }
         case 9:
+            SET_LEX_STATE(23);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_left_paren:
                     SHIFT(9);
@@ -233,6 +241,7 @@ TSTree ts_parse_arithmetic(const char *input) {
                     PARSE_ERROR();
             }
         case 10:
+            SET_LEX_STATE(24);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_right_paren:
                     SHIFT(11);
@@ -240,6 +249,7 @@ TSTree ts_parse_arithmetic(const char *input) {
                     PARSE_ERROR();
             }
         case 11:
+            SET_LEX_STATE(26);
             switch (LOOKAHEAD_SYM()) {
                 default:
                     REDUCE(ts_symbol_factor, 3);

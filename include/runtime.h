@@ -36,6 +36,7 @@ void TSParserError(TSParser *parser);
 TSState TSParserParseState(const TSParser *parser);
 TSState TSParserLexState(const TSParser *parser);
 TSSymbol TSParserLookahead(const TSParser *parser);
+void TSParserSetLexState(const TSParser *parser, TSState state);
 
 #pragma mark - DSL
 
@@ -61,6 +62,9 @@ TSSymbol TSParserLookahead(const TSParser *parser);
 
 #define SHIFT(number) \
     { TSParserShift(&parser, number); break; }
+
+#define SET_LEX_STATE(state_index) \
+    { TSParserSetLexState(&parser, state_index); }
 
 #define ADVANCE(state_index) \
     { break; }

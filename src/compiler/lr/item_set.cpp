@@ -61,6 +61,7 @@ namespace tree_sitter {
         }
         
 #pragma mark - container
+        
         ItemSet::const_iterator ItemSet::begin() const {
             return contents.begin();
         }
@@ -74,6 +75,7 @@ namespace tree_sitter {
         }
         
 #pragma mark - printing
+        
         ostream& operator<<(ostream &stream, const ItemSet &item_set) {
             stream << string("(item_set ");
             for (Item item : item_set) {

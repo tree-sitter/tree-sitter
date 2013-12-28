@@ -116,12 +116,14 @@ namespace tree_sitter {
                 }
             }
 
-            string switch_on_lookahead_sym(const ParseState &parse_state) {
+            string code_for_parse_state(const ParseState &parse_state) {
                 string body = "";
                 for (auto pair : parse_state.actions)
                     body += _case(symbol_id(pair.first), code_for_parse_actions(pair.second));
                 body += _default(code_for_parse_actions(parse_state.default_actions));
-                return _switch("LOOKAHEAD_SYM()", body);
+                return
+                    string("SET_LEX_STATE(") + to_string(parse_state.lex_state_index) + ");\n" +
+                    _switch("LOOKAHEAD_SYM()", body);
             }
 
             string switch_on_lookahead_char(const LexState &parse_state) {
@@ -135,7 +137,7 @@ namespace tree_sitter {
             string switch_on_parse_state() {
                 string body = "";
                 for (int i = 0; i < parse_table.states.size(); i++)
-                    body += _case(std::to_string(i), switch_on_lookahead_sym(parse_table.states[i]));
+                    body += _case(std::to_string(i), code_for_parse_state(parse_table.states[i]));
                 body += _default("PARSE_ERROR();");
                 return _switch("PARSE_STATE()", body);
             }
@@ -154,13 +156,12 @@ namespace tree_sitter {
                     result += indent(symbol_id(rule_name)) + ",\n";
                 result += indent(symbol_id(ParseTable::END_OF_INPUT));
                 return result + "\n"
-                "} ts_symbol;\n";
+                "} ts_symbol;";
             }
             
             string includes() {
                 return string(
                     "#include \"runtime.h\"\n"
-                    "#include <stdlib.h>\n"
                     "#include <ctype.h>");
             }
             
