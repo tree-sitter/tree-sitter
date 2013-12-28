@@ -4,8 +4,10 @@
 
 using namespace tree_sitter::rules;
 
-Describe(pattern_rules) {
-    It(parses_simple_strings) {
+START_TEST
+
+describe("parsing pattern rules", []() {
+    it("parses simple strings", [&]() {
         Pattern rule("abc");
         AssertThat(
             rule.to_rule_tree()->to_string(),
@@ -14,9 +16,9 @@ Describe(pattern_rules) {
                 character('b'),
                 character('c')
             })->to_string()));
-    };
+    });
 
-    It(parses_character_classes) {
+    it("parses character classes", []() {
         Pattern rule("\\w-\\d");
         AssertThat(
             rule.to_rule_tree()->to_string(),
@@ -25,9 +27,9 @@ Describe(pattern_rules) {
                 character('-'),
                 character(CharClassDigit)
             })->to_string()));
-    };
+    });
 
-    It(parses_choices) {
+    it("parses choices", []() {
         Pattern rule("ab|cd|ef");
         AssertThat(
             rule.to_rule_tree()->to_string(),
@@ -45,9 +47,9 @@ Describe(pattern_rules) {
                     character('f')
                 })
             })->to_string()));
-    };
+    });
     
-    It(parses_choices_in_sequences) {
+    it("parses choices in sequences", []() {
         Pattern rule("(a|b)cd");
         AssertThat(
             rule.to_rule_tree()->to_string(),
@@ -59,9 +61,9 @@ Describe(pattern_rules) {
                 character('c'),
                 character('d')
             })->to_string()));
-    };
+    });
     
-    It(parses_special_characters_when_they_are_escaped) {
+    it("parses special characters when they are escaped", []() {
         Pattern rule("a\\(b");
         AssertThat(
             rule.to_rule_tree()->to_string(),
@@ -70,9 +72,9 @@ Describe(pattern_rules) {
                 character('('),
                 character('b')
             })->to_string()));
-    }
+    });
     
-    It(parses_repeating_rules) {
+    it("parses repeating rules", []() {
         Pattern rule("(ab)+(cd)+");
         AssertThat(
             rule.to_rule_tree()->to_string(),
@@ -88,5 +90,7 @@ Describe(pattern_rules) {
                     })),
                 })->to_string()
             ));
-    }
-};
+    });
+});
+
+END_TEST

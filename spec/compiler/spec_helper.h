@@ -1,22 +1,22 @@
 #ifndef TreeSitter_SpecHelper_h
 #define TreeSitter_SpecHelper_h
 
-#include "igloo/igloo_alt.h"
+#include "bandit/bandit.h"
 #include "transition_map.h"
-
 #include "rules.h"
 #include "item.h"
 #include "item_set.h"
 #include "grammar.h"
 #include "parse_table.h"
 #include "table_builder.h"
-
 #include "../fixtures/grammars/arithmetic.h"
-
 
 using namespace tree_sitter;
 using namespace std;
-using namespace igloo;
+using namespace bandit;
+
+#define START_TEST go_bandit([]() {
+#define END_TEST });
 
 namespace tree_sitter {
     namespace lr {

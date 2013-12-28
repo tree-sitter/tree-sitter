@@ -1,6 +1,7 @@
-#include <igloo/igloo_alt.h>
+#include "spec_helper.h"
 
 int main(int argc, char *argv[])
 {
-    return igloo::TestRunner::RunAllTests(argc, argv);
+    char *args[] = {nullptr, (char *)"--no-color"};
+    return bandit::run(2, args);
 }

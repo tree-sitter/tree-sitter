@@ -1,3 +1,3 @@
-[submodule "externals/igloo"]
-	path = externals/igloo
-	url = https://github.com/joakimkarlsson/igloo
+[submodule "externals/bandit"]
+	path = externals/bandit
+	url = https://github.com/joakimkarlsson/bandit.git

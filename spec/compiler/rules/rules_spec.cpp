@@ -1,15 +1,15 @@
 #include "spec_helper.h"
-#include "rules.h"
 #include "transitions.h"
-#include "transition_map.h"
 
-Describe(Rules) {
-    Describe(construction) {
+START_TEST
+
+describe("Rules", []() {
+    describe("construction", []() {
         rules::rule_ptr symbol1 = rules::sym("1");
         rules::rule_ptr symbol2 = rules::sym("2");
         rules::rule_ptr symbol3 = rules::sym("3");
 
-        It(constructs_binary_trees) {
+        it("constructs binary trees", [&]() {
             AssertThat(
                 rules::seq({ symbol1, symbol2, symbol3 })->to_string(),
                 Equals(std::string("(seq (seq (sym '1') (sym '2')) (sym '3'))")));
@@ -17,59 +17,59 @@ Describe(Rules) {
             AssertThat(
                 rules::choice({ symbol1, symbol2, symbol3 })->to_string(),
                 Equals(std::string("(choice (choice (sym '1') (sym '2')) (sym '3'))")));
-        }
-    };
+        });
+    });
     
-    Describe(transitions) {
+    describe("transitions", []() {
         rules::rule_ptr symbol1 = rules::sym("1");
         rules::rule_ptr symbol2 = rules::sym("2");
         rules::rule_ptr symbol3 = rules::sym("3");
         rules::rule_ptr symbol4 = rules::sym("3");
         rules::rule_ptr char1 = rules::character('a');
 
-        It(handles_symbols) {
+        it("handles symbols", [&]() {
             AssertThat(
                 rules::transitions(symbol1),
                 Equals(transition_map<rules::Rule, rules::Rule>({
                     { symbol1, rules::blank() }
                 })));
-        }
+        });
 
-        It(handles_characters) {
+        it("handles characters", [&]() {
             AssertThat(
                 rules::transitions(char1),
                 Equals(transition_map<rules::Rule, rules::Rule>({
                     { char1, rules::blank() }
                 })));
-        }
+        });
 
-        It(handles_character_classes) {
+        it("handles character classes", [&]() {
             auto rule = rules::character(CharClassDigit);
             AssertThat(
                 rules::transitions(rule),
                 Equals(transition_map<rules::Rule, rules::Rule>({
                     { rule, rules::blank() }
                 })));
-        }
+        });
 
-        It(handles_choices) {
+        it("handles choices", [&]() {
             AssertThat(
                 rules::transitions(rules::choice({ symbol1, symbol2 })),
                 Equals(transition_map<rules::Rule, rules::Rule>({
                     { symbol1, rules::blank() },
                     { symbol2, rules::blank() }
                 })));
-        }
+        });
 
-        It(handles_sequences) {
+        it("handles sequences", [&]() {
             AssertThat(
                 rules::transitions(rules::seq({ symbol1, symbol2 })),
                 Equals(transition_map<rules::Rule, rules::Rule>({
                     { symbol1, symbol2 }
                 })));
-        }
+        });
 
-        It(handles_long_sequences) {
+        it("handles_long_sequences", [&]() {
             AssertThat(
                 rules::transitions(rules::seq({
                     symbol1,
@@ -80,9 +80,9 @@ Describe(Rules) {
                 Equals(transition_map<rules::Rule, rules::Rule>({
                     { symbol1, rules::seq({ symbol2, symbol3, symbol4 }) }
                 })));
-        }
+        });
 
-        It(handles_choices_with_common_starting_symbols) {
+        it("handles choices with common starting symbols", [&]() {
             AssertThat(
                 rules::transitions(
                     rules::choice({
@@ -91,9 +91,9 @@ Describe(Rules) {
                 Equals(transition_map<rules::Rule, rules::Rule>({
                     { symbol1, rules::choice({ symbol2, symbol3 }) }
                 })));
-        }
+        });
 
-        It(handles_strings) {
+        it("handles strings", [&]() {
             AssertThat(
                 rules::transitions(rules::str("bad")),
                 Equals(transition_map<rules::Rule, rules::Rule>({
@@ -102,18 +102,18 @@ Describe(Rules) {
                         rules::seq({ rules::character('a'), rules::character('d') })
                     }
                 })));
-        }
+        });
 
-        It(handles_patterns) {
+        it("handles patterns", [&]() {
             AssertThat(
                 rules::transitions(rules::pattern("a|b")),
                 Equals(transition_map<rules::Rule, rules::Rule>({
                     { rules::character('a'), rules::blank() },
                     { rules::character('b'), rules::blank() }
                 })));
-        }
+        });
         
-        It(handles_repeats) {
+        it("handles repeats", [&]() {
             rules::rule_ptr repeat = rules::repeat(rules::str("ab"));
             AssertThat(
                 rules::transitions(repeat),
@@ -140,6 +140,8 @@ Describe(Rules) {
                         rules::blank()
                     })
                 }})));
-        }
-    };
-};
+        });
+    });
+});
+
+END_TEST

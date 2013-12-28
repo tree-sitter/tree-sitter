@@ -1,28 +1,27 @@
 #include "spec_helper.h"
-#include "parse_table.h"
-#include "lex_table.h"
-#include "table_builder.h"
+#include <functional>
 
 using namespace tree_sitter::lr;
-
 typedef std::unordered_set<ParseAction> parse_actions;
 typedef std::unordered_set<LexAction> lex_actions;
 
-Describe(TableBuilderSpec) {
+START_TEST
+
+describe("building parse and lex tables", []() {
     Grammar grammar = test_grammars::arithmetic();
     ParseTable table = build_tables(grammar).first;
     LexTable lex_table = build_tables(grammar).second;
     
-    ParseState parse_state(size_t index) {
+    function<ParseState(size_t)> parse_state = [&](size_t index) {
         return table.states[index];
-    }
+    };
     
-    LexState lex_state(size_t parse_state_index) {
+    function<LexState(size_t)> lex_state = [&](size_t parse_state_index) {
         size_t index = table.states[parse_state_index].lex_state_index;
         return lex_table.states[index];
-    }
+    };
     
-    It(has_the_right_starting_state) {
+    it("has the right starting state", [&]() {
         AssertThat(parse_state(0).actions, Equals(unordered_map<string, parse_actions>({
             { "expression", parse_actions({ ParseAction::Shift(1) }) },
             { "term", parse_actions({ ParseAction::Shift(2) }) },
@@ -37,15 +36,15 @@ Describe(TableBuilderSpec) {
             { CharMatchClass(CharClassDigit), lex_actions({ LexAction::Advance(4) }) },
             { CharMatchSpecific('('), lex_actions({ LexAction::Advance(11) }) }
         })));
-    }
+    });
     
-    It(accepts_when_the_start_symbol_is_reduced) {
+    it("accepts when the start symbol is reduced", [&]() {
         AssertThat(parse_state(1).actions, Equals(unordered_map<string, parse_actions>({
             { ParseTable::END_OF_INPUT, parse_actions({ ParseAction::Accept() }) }
         })));
-    }
+    });
     
-    It(has_the_right_next_states) {
+    it("has the right next states", [&]() {
         AssertThat(parse_state(2).actions, Equals(unordered_map<string, parse_actions>({
             { "plus", parse_actions({ ParseAction::Shift(3) }) },
         })));
@@ -57,5 +56,7 @@ Describe(TableBuilderSpec) {
             { "number", parse_actions({ ParseAction::Shift(8) }) },
             { "term", parse_actions({ ParseAction::Shift(4) }) },
         })));
-    }
-};
+    });
+});
+
+END_TEST

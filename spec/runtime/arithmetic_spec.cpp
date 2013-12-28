@@ -1,10 +1,12 @@
-#include <igloo/igloo_alt.h>
+#include "spec_helper.h"
 #include "../fixtures/parsers/arithmetic.c"
 
-using namespace igloo;
+START_TEST
 
-Describe(arithmetic) {
-    It(parses_numbers) {
+describe("arithmetic", []() {
+    it("parses_numbers", [&]() {
         ts_parse_arithmetic("5");
-    };
-};
+    });
+});
+
+END_TEST

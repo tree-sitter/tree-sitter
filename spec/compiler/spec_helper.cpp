@@ -1,6 +1,5 @@
 #include "spec_helper.h"
 
-
 namespace tree_sitter {
     namespace lr {
         template<typename TKey, typename TValue>
