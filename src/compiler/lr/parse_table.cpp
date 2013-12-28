@@ -48,7 +48,11 @@ namespace tree_sitter {
         }
         
         // State
-        ParseState::ParseState() : actions(unordered_map<string, unordered_set<ParseAction>>()) {}
+        ParseState::ParseState() :
+            actions(unordered_map<string, unordered_set<ParseAction>>()),
+            default_actions(unordered_set<ParseAction>()),
+            lex_state_index(-1) 
+            {}
         
         // Table
         ParseTable::ParseTable(vector<string> symbol_names) :
@@ -62,6 +66,10 @@ namespace tree_sitter {
         
         void ParseTable::add_action(size_t state_index, string sym_name, ParseAction action) {
             states[state_index].actions[sym_name].insert(action);
+        }
+
+        void ParseTable::add_default_action(size_t state_index, ParseAction action) {
+            states[state_index].default_actions.insert(action);
         }
         
         const string ParseTable::START = "__START__";

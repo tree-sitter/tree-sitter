@@ -9,7 +9,7 @@
 #include "item_set.h"
 #include "grammar.h"
 #include "parse_table.h"
-#include "parse_table_builder.h"
+#include "table_builder.h"
 
 #include "../fixtures/grammars/arithmetic.h"
 
@@ -21,6 +21,7 @@ using namespace igloo;
 namespace tree_sitter {
     namespace lr {
         std::ostream& operator<<(std::ostream &stream, const unordered_map<string, unordered_set<ParseAction>> &map);
+        std::ostream& operator<<(std::ostream &stream, const unordered_map<CharMatch, unordered_set<LexAction>> &map);
     }
 }
 

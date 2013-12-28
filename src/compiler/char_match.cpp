@@ -10,13 +10,13 @@ namespace tree_sitter {
     }
     
     CharMatch CharMatchClass(CharClass value) {
-        CharMatch result = { .type = CharMatchTypeSpecific };
+        CharMatch result = { .type = CharMatchTypeClass };
         result.value.character = value;
         return result;
     }
     
     CharMatch CharMatchRange(char min, char max) {
-        CharMatch result = { .type = CharMatchTypeSpecific };
+        CharMatch result = { .type = CharMatchTypeRange };
         result.value.range.min_character = min;
         result.value.range.max_character = max;
         return result;

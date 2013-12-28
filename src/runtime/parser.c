@@ -36,7 +36,10 @@ TSSymbol TSParserLookahead(const TSParser *parser) {
     return 1;
 }
 
-TSState TSParserState(const TSParser *parser) {
+TSState TSParserParseState(const TSParser *parser) {
     return 5;
 }
 
+TSState TSParserLexState(const TSParser *parser) {
+    return 5;
+}

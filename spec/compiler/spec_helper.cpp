@@ -3,14 +3,16 @@
 
 namespace tree_sitter {
     namespace lr {
-        std::ostream& operator<<(std::ostream &stream, const unordered_map<string, unordered_set<ParseAction>> &map) {
+        template<typename TKey, typename TValue>
+        std::ostream & stream_map_of_sets(std::ostream &stream, const unordered_map<TKey, unordered_set<TValue>> &map) {
             stream << string("{");
             bool started = false;
             for (auto pair : map) {
                 if (started) stream << string(", ");
-                stream << string("{") << pair.first << string(", [");
+                stream << pair.first;
+                stream << string(" => [");
                 bool started_set = false;
-                for (ParseAction action : pair.second) {
+                for (TValue action : pair.second) {
                     if (started_set) stream << ", ";
                     stream << action;
                     started_set = true;
@@ -18,8 +20,15 @@ namespace tree_sitter {
                 stream << string("]}");
                 started = true;
             }
-            stream << string("}");
             return stream;
+        }
+        
+        std::ostream& operator<<(std::ostream &stream, const unordered_map<string, unordered_set<ParseAction>> &map) {
+            return stream_map_of_sets(stream, map);
+        }
+
+        std::ostream& operator<<(std::ostream &stream, const unordered_map<CharMatch, unordered_set<LexAction>> &map) {
+            return stream_map_of_sets(stream, map);
         }
     }
 }

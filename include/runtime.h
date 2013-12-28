@@ -33,36 +33,59 @@ TSParser TSParserMake(const char *input);
 void TSParserShift(TSParser *parser, TSState state);
 void TSParserReduce(TSParser *parser, TSSymbol symbol, int child_count);
 void TSParserError(TSParser *parser);
-TSState TSParserState(const TSParser *parser);
+TSState TSParserParseState(const TSParser *parser);
+TSState TSParserLexState(const TSParser *parser);
 TSSymbol TSParserLookahead(const TSParser *parser);
 
 #pragma mark - DSL
 
 #define START_PARSER() \
     TSParser parser = TSParserMake(input); \
+    start: \
+    ts_lex(&parser);
+
+#define START_LEXER() \
     start:
 
-#define LOOKAHEAD() \
+#define LOOKAHEAD_SYM() \
     TSParserLookahead(&parser)
 
+#define LOOKAHEAD_CHAR() \
+    'a'
+
 #define PARSE_STATE() \
-    TSParserState(&parser)
+    TSParserParseState(&parser)
+
+#define LEX_STATE() \
+    TSParserLexState(parser)
 
 #define SHIFT(number) \
     { TSParserShift(&parser, number); break; }
 
-#define ACCEPT() \
+#define ADVANCE(state_index) \
+    { break; }
+
+#define ACCEPT_INPUT() \
+    { goto done; }
+
+#define ACCEPT_TOKEN(symbol) \
     { goto done; }
 
 #define REDUCE(symbol, child_count) \
     { TSParserReduce(&parser, symbol, child_count); break; }
 
-#define ERROR() \
+#define PARSE_ERROR() \
     TSParserError(&parser)
+
+#define LEX_ERROR() \
+    TSParserError(parser)
 
 #define FINISH_PARSER() \
     done: \
     return parser.tree;
+
+#define FINISH_LEXER() \
+    done:
 
 #endif
     
