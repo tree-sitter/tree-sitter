@@ -309,9 +309,7 @@
 				12F9A650182DD6BC00FAF50C /* grammar.h */,
 				12130618182C84B700FCF928 /* lr */,
 				12130602182C344400FCF928 /* rules */,
-				12C344421822F27700B07BE3 /* transition_map.h */,
-				12FD40F1186641C00041A84E /* char_match.cpp */,
-				12FD40F2186641C00041A84E /* char_match.h */,
+				12FD40F9186F4EBE0041A84E /* util */,
 			);
 			path = compiler;
 			sourceTree = "<group>";
@@ -360,6 +358,16 @@
 				12FD40D4185FED9A0041A84E /* runtime.h */,
 			);
 			path = include;
+			sourceTree = "<group>";
+		};
+		12FD40F9186F4EBE0041A84E /* util */ = {
+			isa = PBXGroup;
+			children = (
+				12C344421822F27700B07BE3 /* transition_map.h */,
+				12FD40F1186641C00041A84E /* char_match.cpp */,
+				12FD40F2186641C00041A84E /* char_match.h */,
+			);
+			path = util;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
