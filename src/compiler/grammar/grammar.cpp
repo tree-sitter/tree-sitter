@@ -3,7 +3,7 @@
 using namespace std;
 
 namespace tree_sitter {
-    Grammar::Grammar(const rule_map_init_list &rules) :
+    Grammar::Grammar(const std::initializer_list<std::pair<const std::string, rules::rule_ptr>> &rules) :
         rules(rules),
         start_rule_name(rules.begin()->first) {}
 
@@ -21,5 +21,4 @@ namespace tree_sitter {
         }
         return result;
     }
-    
 }

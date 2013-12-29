@@ -11,10 +11,10 @@ namespace tree_sitter {
         }
 
         ostream& operator<<(ostream& stream, const rule_ptr &rule) {
-            if (rule.get() == nullptr)
-                stream << string("<NULL rule>");
+            if (rule.get())
+                stream << *rule;
             else
-                stream << rule->to_string();
+                stream << string("#<null rule>");
             return stream;
         }
     }

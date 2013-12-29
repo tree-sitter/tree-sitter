@@ -18,14 +18,14 @@ namespace tree_sitter {
         }
         
         transition_map<rules::Rule, Item> Item::transitions() const {
-            return rules::transitions(rule).map<Item>([&](rules::rule_ptr to_rule) -> item_ptr {
+            return lr::transitions(rule).map<Item>([&](rules::rule_ptr to_rule) -> item_ptr {
                 return std::make_shared<Item>(rule_name, to_rule, consumed_sym_count + 1);
             });
         };
         
         vector<rules::Symbol> Item::next_symbols() const {
             vector<rules::Symbol> result;
-            for (auto pair : rules::transitions(rule)) {
+            for (auto pair : lr::transitions(rule)) {
                 shared_ptr<const rules::Symbol> sym = dynamic_pointer_cast<const rules::Symbol>(pair.first);
                 if (sym) result.push_back(*sym);
             }

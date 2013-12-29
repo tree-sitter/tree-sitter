@@ -1,9 +1,11 @@
 #include "transitions.h"
 #include "rules.h"
 
+using namespace tree_sitter::rules;
+
 namespace tree_sitter {
-    namespace rules {
-        class TransitionsVisitor : public Visitor {
+    namespace lr {
+        class TransitionsVisitor : public rules::Visitor {
         public:
             transition_map<Rule, Rule> value;
 
@@ -16,7 +18,7 @@ namespace tree_sitter {
             }
             
             void visit(const Symbol *rule) {
-                value = transition_map<Rule, Rule>({{ sym(rule->name), blank() }});
+                value = transition_map<Rule, Rule>({{ std::make_shared<Symbol>(*rule), blank() }});
             }
             
             void visit(const Choice *rule) {
