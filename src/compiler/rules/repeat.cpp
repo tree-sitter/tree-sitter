@@ -12,6 +12,10 @@ namespace tree_sitter {
             return other && (*other->content == *content);
         }
         
+        size_t Repeat::hash_code() const {
+            return typeid(this).hash_code() ^ content->hash_code();
+        }
+        
         string Repeat::to_string() const {
             return string("#<repeat ") + content->to_string() + ">";
         }

@@ -10,6 +10,7 @@ namespace tree_sitter {
         class Rule {
         public:
             virtual bool operator==(const Rule& other) const = 0;
+            virtual size_t hash_code() const = 0;
             virtual std::string to_string() const = 0;
             virtual void accept(Visitor &visitor) const = 0;
         };
@@ -24,7 +25,7 @@ namespace std {
     template<>
     struct hash<tree_sitter::rules::Rule> {
         size_t operator()(const tree_sitter::rules::Rule &rule) {
-            return std::hash<std::string>()(rule.to_string());
+            return rule.hash_code();
         }
     };
 }

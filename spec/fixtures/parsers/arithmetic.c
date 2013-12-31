@@ -63,7 +63,7 @@ static void ts_lex(TSParser *parser) {
             LEX_ERROR();
         case 10:
             if (isdigit(LOOKAHEAD_CHAR()))
-                ADVANCE(6);
+                ADVANCE(8);
             LEX_ERROR();
         case 11:
             ACCEPT_TOKEN(ts_symbol_left_paren);
@@ -81,47 +81,43 @@ static void ts_lex(TSParser *parser) {
             if (isdigit(LOOKAHEAD_CHAR()))
                 ADVANCE(4);
             if (isalnum(LOOKAHEAD_CHAR()))
-                ADVANCE(16);
+                ADVANCE(1);
             LEX_ERROR();
         case 16:
-            if (isalnum(LOOKAHEAD_CHAR()))
-                ADVANCE(2);
-            LEX_ERROR();
-        case 17:
             ACCEPT_TOKEN(ts_symbol_expression);
-        case 18:
+        case 17:
             if (LOOKAHEAD_CHAR() == '*')
-                ADVANCE(19);
+                ADVANCE(18);
             LEX_ERROR();
-        case 19:
+        case 18:
             ACCEPT_TOKEN(ts_symbol_times);
-        case 20:
+        case 19:
             if (LOOKAHEAD_CHAR() == '(')
                 ADVANCE(11);
             if (isdigit(LOOKAHEAD_CHAR()))
                 ADVANCE(4);
             if (isalnum(LOOKAHEAD_CHAR()))
-                ADVANCE(16);
+                ADVANCE(1);
             LEX_ERROR();
-        case 21:
+        case 20:
             ACCEPT_TOKEN(ts_symbol_term);
-        case 22:
+        case 21:
             ACCEPT_TOKEN(ts_symbol_factor);
-        case 23:
+        case 22:
             if (LOOKAHEAD_CHAR() == '(')
                 ADVANCE(11);
             if (isdigit(LOOKAHEAD_CHAR()))
                 ADVANCE(4);
             if (isalnum(LOOKAHEAD_CHAR()))
-                ADVANCE(16);
+                ADVANCE(1);
+            LEX_ERROR();
+        case 23:
+            if (LOOKAHEAD_CHAR() == ')')
+                ADVANCE(24);
             LEX_ERROR();
         case 24:
-            if (LOOKAHEAD_CHAR() == ')')
-                ADVANCE(25);
-            LEX_ERROR();
-        case 25:
             ACCEPT_TOKEN(ts_symbol_right_paren);
-        case 26:
+        case 25:
             ACCEPT_TOKEN(ts_symbol_factor);
         default:
             LEX_ERROR();
@@ -183,13 +179,13 @@ TSTree ts_parse_arithmetic(const char *input) {
                     PARSE_ERROR();
             }
         case 4:
-            SET_LEX_STATE(17);
+            SET_LEX_STATE(16);
             switch (LOOKAHEAD_SYM()) {
                 default:
                     REDUCE(ts_symbol_expression, 3);
             }
         case 5:
-            SET_LEX_STATE(18);
+            SET_LEX_STATE(17);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_times:
                     SHIFT(6);
@@ -197,7 +193,7 @@ TSTree ts_parse_arithmetic(const char *input) {
                     PARSE_ERROR();
             }
         case 6:
-            SET_LEX_STATE(20);
+            SET_LEX_STATE(19);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_left_paren:
                     SHIFT(9);
@@ -211,19 +207,19 @@ TSTree ts_parse_arithmetic(const char *input) {
                     PARSE_ERROR();
             }
         case 7:
-            SET_LEX_STATE(21);
+            SET_LEX_STATE(20);
             switch (LOOKAHEAD_SYM()) {
                 default:
                     REDUCE(ts_symbol_term, 3);
             }
         case 8:
-            SET_LEX_STATE(22);
+            SET_LEX_STATE(21);
             switch (LOOKAHEAD_SYM()) {
                 default:
                     REDUCE(ts_symbol_factor, 1);
             }
         case 9:
-            SET_LEX_STATE(23);
+            SET_LEX_STATE(22);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_left_paren:
                     SHIFT(9);
@@ -241,7 +237,7 @@ TSTree ts_parse_arithmetic(const char *input) {
                     PARSE_ERROR();
             }
         case 10:
-            SET_LEX_STATE(24);
+            SET_LEX_STATE(23);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_right_paren:
                     SHIFT(11);
@@ -249,7 +245,7 @@ TSTree ts_parse_arithmetic(const char *input) {
                     PARSE_ERROR();
             }
         case 11:
-            SET_LEX_STATE(26);
+            SET_LEX_STATE(25);
             switch (LOOKAHEAD_SYM()) {
                 default:
                     REDUCE(ts_symbol_factor, 3);

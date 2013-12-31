@@ -9,6 +9,10 @@ namespace tree_sitter  {
             return dynamic_cast<const Blank *>(&rule) != nullptr;
         }
         
+        size_t Blank::hash_code() const {
+            return typeid(this).hash_code();
+        }
+        
         std::string Blank::to_string() const {
             return "#<blank>";
         }

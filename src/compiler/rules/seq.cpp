@@ -12,6 +12,10 @@ namespace tree_sitter {
             return other && (*other->left == *left) && (*other->right == *right);
         }
         
+        size_t Seq::hash_code() const {
+            return typeid(this).hash_code() ^ left->hash_code() ^ right->hash_code();
+        }
+        
         string Seq::to_string() const {
             return string("#<seq ") + left->to_string() + " " + right->to_string() + ">";
         }

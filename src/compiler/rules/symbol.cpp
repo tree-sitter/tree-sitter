@@ -2,6 +2,7 @@
 #include "transition_map.h"
 
 using std::string;
+using std::hash;
 
 namespace tree_sitter  {
     namespace rules {
@@ -10,6 +11,10 @@ namespace tree_sitter  {
         bool Symbol::operator==(const Rule &rule) const {
             const Symbol *other = dynamic_cast<const Symbol *>(&rule);
             return other && (other->name == name);
+        }
+        
+        size_t Symbol::hash_code() const {
+            return typeid(this).hash_code() ^ hash<string>()(name);
         }
         
         string Symbol::to_string() const {

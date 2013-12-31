@@ -8,8 +8,10 @@ namespace tree_sitter  {
         class Blank : public Rule {
         public:
             Blank();
+            
             bool operator==(const Rule& other) const;
             std::string to_string() const;
+            size_t hash_code() const;
             void accept(Visitor &visitor) const;
         };
     }

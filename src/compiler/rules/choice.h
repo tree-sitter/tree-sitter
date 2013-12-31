@@ -8,7 +8,9 @@ namespace tree_sitter {
         class Choice : public Rule {
         public:
             Choice(rule_ptr left, rule_ptr right);
+
             bool operator==(const Rule& other) const;
+            size_t hash_code() const;
             std::string to_string() const;
             void accept(Visitor &visitor) const;
 

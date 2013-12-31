@@ -11,7 +11,9 @@ namespace tree_sitter  {
             Character(char character);
             Character(CharClass character_class);
             Character(char min_character, char max_character);
+            
             bool operator==(const Rule& other) const;
+            size_t hash_code() const;
             std::string to_string() const;
             void accept(Visitor &visitor) const;
 
