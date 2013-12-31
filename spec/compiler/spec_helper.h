@@ -18,6 +18,34 @@ using namespace bandit;
 #define START_TEST go_bandit([]() {
 #define END_TEST });
 
+namespace std {
+    template<typename T>
+    inline std::ostream& operator<<(std::ostream &stream, const unordered_set<T> &set) {
+        stream << string("#<set: ");
+        bool started = false;
+        for (auto item : set) {
+            if (started) stream << string(", ");
+            stream << item;
+            started = true;
+        }
+        return stream << ">";
+    }
+    
+    template<typename TKey, typename TValue>
+    inline std::ostream& operator<<(std::ostream &stream, const unordered_map<TKey, TValue> &map) {
+        stream << string("#<map: ");
+        bool started = false;
+        for (auto pair : map) {
+            if (started) stream << string(", ");
+            stream << pair.first;
+            stream << string(" => ");
+            stream << pair.second;
+            started = true;
+        }
+        return stream << ">";
+    }
+}
+
 namespace snowhouse {
     template<typename ExpectedType>
     struct EqualsPointerConstraint : Expression<EqualsPointerConstraint<ExpectedType>>
@@ -37,7 +65,7 @@ namespace snowhouse {
     {
         static std::string ToString(const EqualsPointerConstraint<ExpectedType>& constraint) {
             std::ostringstream builder;
-            builder << "equal to pointer " << snowhouse::Stringize(constraint.expected);
+            builder << "pointer to " << snowhouse::Stringize(constraint.expected);
             return builder.str();
         }
     };
@@ -46,13 +74,7 @@ namespace snowhouse {
     inline EqualsPointerConstraint<ExpectedType> EqualsPointer(const ExpectedType& expected) {
         return EqualsPointerConstraint<ExpectedType>(expected);
     }
-}
-
-namespace tree_sitter {
-    namespace lr {
-        std::ostream& operator<<(std::ostream &stream, const unordered_map<string, unordered_set<lr::ParseAction>> &map);
-        std::ostream& operator<<(std::ostream &stream, const unordered_map<CharMatch, unordered_set<lr::LexAction>> &map);
-    }
+    
 }
 
 string src_dir();
