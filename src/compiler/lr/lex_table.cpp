@@ -37,11 +37,11 @@ namespace tree_sitter {
         std::ostream& operator<<(std::ostream &stream, const LexAction &action) {
             switch (action.type) {
                 case LexActionTypeError:
-                    return stream << string("(error)");
+                    return stream << string("#<error>");
                 case LexActionTypeAccept:
-                    return stream << string("(accept ") + action.symbol_name + ")";
+                    return stream << string("#<accept ") + action.symbol_name + ">";
                 case LexActionTypeAdvance:
-                    return stream << string("(advance ") + to_string(action.state_index) + ")";
+                    return stream << string("#<advance ") + to_string(action.state_index) + ">";
             }
         }
         

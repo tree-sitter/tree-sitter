@@ -13,7 +13,7 @@ namespace tree_sitter  {
         }
 
         string Choice::to_string() const {
-            return string("(choice ") + left->to_string() + " " + right->to_string() + ")";
+            return string("#<choice ") + left->to_string() + " " + right->to_string() + ">";
         }
         
         void Choice::accept(Visitor &visitor) const {

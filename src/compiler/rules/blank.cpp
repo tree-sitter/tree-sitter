@@ -10,7 +10,7 @@ namespace tree_sitter  {
         }
         
         std::string Blank::to_string() const {
-            return "blank";
+            return "#<blank>";
         }
         
         void Blank::accept(Visitor &visitor) const {

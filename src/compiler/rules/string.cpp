@@ -13,7 +13,7 @@ namespace tree_sitter  {
         }
                 
         string String::to_string() const {
-            return string("(string '") + value + "')";
+            return string("#<string '") + value + "'>";
         }        
         
         void String::accept(Visitor &visitor) const {

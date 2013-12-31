@@ -13,7 +13,7 @@ namespace tree_sitter  {
         }
         
         string Symbol::to_string() const {
-            return string("(sym '") + name + "')";
+            return string("#<sym '") + name + "'>";
         }
         
         void Symbol::accept(Visitor &visitor) const {

@@ -109,7 +109,7 @@ namespace tree_sitter {
         }
 
         string Pattern::to_string() const {
-            return value;
+            return string("#<pattern '") + value + "'>";
         }
         
         void Pattern::accept(Visitor &visitor) const {

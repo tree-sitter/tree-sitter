@@ -37,13 +37,13 @@ namespace tree_sitter {
         ostream& operator<<(ostream &stream, const ParseAction &action) {
             switch (action.type) {
                 case ParseActionTypeError:
-                    return stream << string("error");
+                    return stream << string("#<error>");
                 case ParseActionTypeAccept:
-                    return stream << string("accept");
+                    return stream << string("#<accept>");
                 case ParseActionTypeShift:
-                    return stream << (string("(shift ") + to_string(action.state_index) + ")");
+                    return stream << (string("#<shift ") + to_string(action.state_index) + ">");
                 case ParseActionTypeReduce:
-                    return stream << (string("(reduce ") + action.symbol_name + ")");
+                    return stream << (string("#<reduce ") + action.symbol_name + ">");
             }
         }
         

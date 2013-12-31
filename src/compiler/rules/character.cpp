@@ -15,7 +15,7 @@ namespace tree_sitter  {
         }
 
         string Character::to_string() const {
-            return CharMatchToString(value);
+            return string("#<char ") + CharMatchToString(value) + ">";
         }
         
         void Character::accept(Visitor &visitor) const {

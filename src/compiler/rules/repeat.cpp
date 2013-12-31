@@ -13,7 +13,7 @@ namespace tree_sitter {
         }
         
         string Repeat::to_string() const {
-            return string("(repeat ") + content->to_string() + ")";
+            return string("#<repeat ") + content->to_string() + ">";
         }
         
         void Repeat::accept(Visitor &visitor) const {

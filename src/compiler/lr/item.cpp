@@ -44,11 +44,11 @@ namespace tree_sitter {
         
         std::ostream& operator<<(ostream &stream, const Item &item) {
             stream <<
-                string("(item '") <<
+                string("#<item '") <<
                 item.rule_name <<
                 string("' ") <<
                 *item.rule <<
-                string(")");
+                string(">");
             return stream;
         }
     }

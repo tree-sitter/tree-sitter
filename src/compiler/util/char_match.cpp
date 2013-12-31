@@ -36,7 +36,7 @@ namespace tree_sitter {
             case CharMatchTypeRange:
                 return (
                     string("'") +
-                    string(&match.value.range.min_character) + "-" +
+                    string(&match.value.range.min_character) + "'-'" +
                     string(&match.value.range.max_character) + "'");
         }
     }

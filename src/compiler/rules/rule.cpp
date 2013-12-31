@@ -14,7 +14,7 @@ namespace tree_sitter {
             if (rule.get())
                 stream << *rule;
             else
-                stream << string("#<null rule>");
+                stream << string("#<null-rule>");
             return stream;
         }
     }
