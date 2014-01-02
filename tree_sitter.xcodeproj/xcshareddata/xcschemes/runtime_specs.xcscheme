@@ -14,10 +14,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "12E71793181D02A80051A649"
-               BuildableName = "compiler_specs"
-               BlueprintName = "compiler_specs"
-               ReferencedContainer = "container:TreeSitter.xcodeproj">
+               BlueprintIdentifier = "12FD40B1185EEB5E0041A84E"
+               BuildableName = "runtime_specs"
+               BlueprintName = "runtime_specs"
+               ReferencedContainer = "container:tree_sitter.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,10 +32,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "12E71793181D02A80051A649"
-            BuildableName = "compiler_specs"
-            BlueprintName = "compiler_specs"
-            ReferencedContainer = "container:TreeSitter.xcodeproj">
+            BlueprintIdentifier = "12FD40B1185EEB5E0041A84E"
+            BuildableName = "runtime_specs"
+            BlueprintName = "runtime_specs"
+            ReferencedContainer = "container:tree_sitter.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
    </TestAction>
@@ -51,19 +51,12 @@
       <BuildableProductRunnable>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "12E71793181D02A80051A649"
-            BuildableName = "compiler_specs"
-            BlueprintName = "compiler_specs"
-            ReferencedContainer = "container:TreeSitter.xcodeproj">
+            BlueprintIdentifier = "12FD40B1185EEB5E0041A84E"
+            BuildableName = "runtime_specs"
+            BlueprintName = "runtime_specs"
+            ReferencedContainer = "container:tree_sitter.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <EnvironmentVariables>
-         <EnvironmentVariable
-            key = "TREESITTER_SRC_DIR"
-            value = "$(SRCROOT)"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-      </EnvironmentVariables>
       <AdditionalOptions>
       </AdditionalOptions>
    </LaunchAction>
@@ -76,10 +69,10 @@
       <BuildableProductRunnable>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "12E71793181D02A80051A649"
-            BuildableName = "compiler_specs"
-            BlueprintName = "compiler_specs"
-            ReferencedContainer = "container:TreeSitter.xcodeproj">
+            BlueprintIdentifier = "12FD40B1185EEB5E0041A84E"
+            BuildableName = "runtime_specs"
+            BlueprintName = "runtime_specs"
+            ReferencedContainer = "container:tree_sitter.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

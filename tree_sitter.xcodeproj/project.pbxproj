@@ -426,7 +426,7 @@
 			attributes = {
 				LastUpgradeCheck = 0500;
 			};
-			buildConfigurationList = 12E716FD181D010E0051A649 /* Build configuration list for PBXProject "TreeSitter" */;
+			buildConfigurationList = 12E716FD181D010E0051A649 /* Build configuration list for PBXProject "tree_sitter" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
@@ -721,7 +721,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		12E716FD181D010E0051A649 /* Build configuration list for PBXProject "TreeSitter" */ = {
+		12E716FD181D010E0051A649 /* Build configuration list for PBXProject "tree_sitter" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				12E716FE181D010E0051A649 /* Debug */,
