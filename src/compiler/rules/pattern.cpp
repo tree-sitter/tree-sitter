@@ -113,6 +113,10 @@ namespace tree_sitter {
             return typeid(this).hash_code() ^ hash<string>()(value);
         }
         
+        rule_ptr Pattern::copy() const {
+            return std::make_shared<Pattern>(*this);
+        }
+        
         string Pattern::to_string() const {
             return string("#<pattern '") + value + "'>";
         }

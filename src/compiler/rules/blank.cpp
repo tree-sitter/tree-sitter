@@ -13,6 +13,10 @@ namespace tree_sitter  {
             return typeid(this).hash_code();
         }
         
+        rule_ptr Blank::copy() const {
+            return std::make_shared<Blank>();
+        }
+        
         std::string Blank::to_string() const {
             return "#<blank>";
         }

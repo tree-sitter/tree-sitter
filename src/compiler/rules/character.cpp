@@ -19,6 +19,10 @@ namespace tree_sitter  {
             return typeid(this).hash_code() ^ hash<string>()(CharMatchToString(value));
         }
 
+        rule_ptr Character::copy() const {
+            return std::make_shared<Character>(*this);
+        }
+
         string Character::to_string() const {
             return string("#<char ") + CharMatchToString(value) + ">";
         }

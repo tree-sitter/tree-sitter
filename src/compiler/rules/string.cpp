@@ -17,6 +17,10 @@ namespace tree_sitter  {
             return typeid(this).hash_code() ^ hash<string>()(value);
         }
         
+        rule_ptr String::copy() const {
+            return std::make_shared<String>(*this);
+        }
+        
         string String::to_string() const {
             return string("#<string '") + value + "'>";
         }        

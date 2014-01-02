@@ -14,11 +14,11 @@ namespace tree_sitter {
             }
 
             void visit(const Character *rule) {
-                value = transition_map<Rule, Rule>({{ std::make_shared<Character>(*rule), blank() }});
+                value = transition_map<Rule, Rule>({{ rule->copy(), blank() }});
             }
             
             void visit(const Symbol *rule) {
-                value = transition_map<Rule, Rule>({{ std::make_shared<Symbol>(*rule), blank() }});
+                value = transition_map<Rule, Rule>({{ rule->copy(), blank() }});
             }
             
             void visit(const Choice *rule) {

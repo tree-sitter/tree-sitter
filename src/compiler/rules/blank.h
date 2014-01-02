@@ -10,8 +10,9 @@ namespace tree_sitter  {
             Blank();
             
             bool operator==(const Rule& other) const;
-            std::string to_string() const;
             size_t hash_code() const;
+            rule_ptr copy() const;
+            std::string to_string() const;
             void accept(Visitor &visitor) const;
         };
     }

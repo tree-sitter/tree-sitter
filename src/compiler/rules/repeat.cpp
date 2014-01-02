@@ -16,6 +16,10 @@ namespace tree_sitter {
             return typeid(this).hash_code() ^ content->hash_code();
         }
         
+        rule_ptr Repeat::copy() const {
+            return std::make_shared<Repeat>(*this);
+        }
+        
         string Repeat::to_string() const {
             return string("#<repeat ") + content->to_string() + ">";
         }

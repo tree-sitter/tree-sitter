@@ -17,6 +17,10 @@ namespace tree_sitter  {
             return typeid(this).hash_code() ^ hash<string>()(name);
         }
         
+        rule_ptr Symbol::copy() const {
+            return std::make_shared<Symbol>(*this);
+        }
+        
         string Symbol::to_string() const {
             return string("#<sym '") + name + "'>";
         }

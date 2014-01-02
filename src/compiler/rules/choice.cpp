@@ -16,6 +16,10 @@ namespace tree_sitter  {
             return typeid(this).hash_code() ^ left->hash_code() ^ right->hash_code();
         }
         
+        rule_ptr Choice::copy() const {
+            return std::make_shared<Choice>(*this);
+        }
+
         string Choice::to_string() const {
             return string("#<choice ") + left->to_string() + " " + right->to_string() + ">";
         }
