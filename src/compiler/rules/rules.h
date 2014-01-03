@@ -4,6 +4,7 @@
 #include "rule.h"
 #include "blank.h"
 #include "symbol.h"
+#include "token.h"
 #include "choice.h"
 #include "seq.h"
 #include "string.h"
@@ -24,6 +25,7 @@ namespace tree_sitter {
         rule_ptr seq(const std::initializer_list<rule_ptr> &rules);
         rule_ptr str(const std::string &value);
         sym_ptr sym(const std::string &name);
+        rule_ptr token(const std::string &name);
     }
 }
 

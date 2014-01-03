@@ -2,13 +2,15 @@
 
 namespace tree_sitter {
     namespace rules {
-        void Visitor::visit(const Blank *rule) {}
-        void Visitor::visit(const Symbol *rule) {}
-        void Visitor::visit(const Character *rule) {}
-        void Visitor::visit(const Choice *rule) {}
-        void Visitor::visit(const Repeat *rule) {}
-        void Visitor::visit(const Seq *rule) {}
-        void Visitor::visit(const String *rule) {}
-        void Visitor::visit(const Pattern *rule) {}
+        void Visitor::default_visit(const Rule *rule) {};
+        void Visitor::visit(const Blank *rule) { default_visit(rule); }
+        void Visitor::visit(const Symbol *rule) { default_visit(rule); }
+        void Visitor::visit(const Character *rule) { default_visit(rule); }
+        void Visitor::visit(const Choice *rule) { default_visit(rule); }
+        void Visitor::visit(const Repeat *rule) { default_visit(rule); }
+        void Visitor::visit(const Seq *rule) { default_visit(rule); }
+        void Visitor::visit(const String *rule) { default_visit(rule); }
+        void Visitor::visit(const Pattern *rule) { default_visit(rule); }
+        void Visitor::visit(const Token *rule) { default_visit(rule); }
     }
 }
