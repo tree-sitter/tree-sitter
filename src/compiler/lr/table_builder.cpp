@@ -11,7 +11,7 @@ namespace tree_sitter {
     namespace lr {
         static int NOT_FOUND = -1;
 
-        class ParseTableBuilder {
+        class TableBuilder {
             const Grammar grammar;
             std::unordered_map<const ItemSet, size_t> parse_state_indices;
             std::unordered_map<const ItemSet, size_t> lex_state_indices;
@@ -92,7 +92,7 @@ namespace tree_sitter {
             
         public:
             
-            ParseTableBuilder(const Grammar &grammar) :
+            TableBuilder(const Grammar &grammar) :
                 grammar(grammar),
                 parse_table(ParseTable(grammar.rule_names())),
                 lex_table(LexTable(grammar.rule_names())),
@@ -109,7 +109,7 @@ namespace tree_sitter {
         };
         
         std::pair<ParseTable, LexTable> build_tables(const tree_sitter::Grammar &grammar) {
-            return ParseTableBuilder(grammar).build();
+            return TableBuilder(grammar).build();
         }
     }
 }
