@@ -1,5 +1,6 @@
 #include "spec_helper.h"
 #include <functional>
+#include "table_builder.h"
 
 using namespace tree_sitter::lr;
 using namespace tree_sitter::rules;

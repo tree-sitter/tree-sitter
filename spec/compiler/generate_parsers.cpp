@@ -3,6 +3,7 @@
 #include "parse_table.h"
 #include "prepare_grammar.h"
 #include "c_code.h"
+#include "../fixtures/grammars/arithmetic.h"
 #include <fstream>
 
 START_TEST

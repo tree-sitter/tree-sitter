@@ -1,6 +1,8 @@
 #include "parse_table.h"
 
-using namespace std;
+using std::string;
+using std::ostream;
+using std::to_string;
 
 namespace tree_sitter {
     namespace lr {
@@ -48,11 +50,7 @@ namespace tree_sitter {
         }
         
         // State
-        ParseState::ParseState() :
-            actions(unordered_map<string, unordered_set<ParseAction>>()),
-            default_actions(unordered_set<ParseAction>()),
-            lex_state_index(-1) 
-            {}
+        ParseState::ParseState() : lex_state_index(-1) {}
         
         // Table
         size_t ParseTable::add_state() {

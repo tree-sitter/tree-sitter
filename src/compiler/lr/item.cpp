@@ -2,29 +2,31 @@
 #include "grammar.h"
 #include "transitions.h"
 
-#include <iostream>
-
-using namespace std;
+using std::string;
+using std::vector;
+using std::dynamic_pointer_cast;
+using std::make_shared;
+using std::ostream;
 
 namespace tree_sitter {
     namespace lr {
-        Item::Item(const std::string &rule_name, const rules::rule_ptr rule, int consumed_sym_count) :
+        Item::Item(const string &rule_name, const rules::rule_ptr rule, int consumed_sym_count) :
             rule_name(rule_name),
             rule(rule),
             consumed_sym_count(consumed_sym_count) {};
         
-        Item Item::at_beginning_of_rule(const std::string &rule_name, const Grammar &grammar) {
+        Item Item::at_beginning_of_rule(const string &rule_name, const Grammar &grammar) {
             return Item(rule_name, grammar.rule(rule_name), 0);
         }
 
-        Item Item::at_beginning_of_token(const std::string &rule_name, const Grammar &grammar) {
+        Item Item::at_beginning_of_token(const string &rule_name, const Grammar &grammar) {
             return Item(rule_name, grammar.rule(rule_name), -1);
         }
 
         transition_map<rules::Rule, Item> Item::transitions() const {
             return lr::transitions(rule).map<Item>([&](rules::rule_ptr to_rule) -> item_ptr {
                 int next_sym_count = (consumed_sym_count == -1) ? -1 : (consumed_sym_count + 1);
-                return std::make_shared<Item>(rule_name, to_rule, next_sym_count);
+                return make_shared<Item>(rule_name, to_rule, next_sym_count);
             });
         };
         
@@ -51,7 +53,7 @@ namespace tree_sitter {
             return false;
         }
         
-        std::ostream& operator<<(ostream &stream, const Item &item) {
+        ostream& operator<<(ostream &stream, const Item &item) {
             return stream <<
                 string("#<item '") <<
                 item.rule_name <<

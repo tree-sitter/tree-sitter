@@ -48,7 +48,6 @@ namespace tree_sitter {
         
         class LexState {
         public:
-            LexState();
             std::unordered_map<CharMatch, std::unordered_set<LexAction>> actions;
             std::unordered_set<LexAction> default_actions;
         };

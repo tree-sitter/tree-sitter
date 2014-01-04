@@ -3,14 +3,9 @@
 
 #include "bandit/bandit.h"
 #include <iostream>
-#include "transition_map.h"
-#include "rules.h"
-#include "item.h"
-#include "item_set.h"
+#include <unordered_set>
+#include <unordered_map>
 #include "grammar.h"
-#include "parse_table.h"
-#include "table_builder.h"
-#include "../fixtures/grammars/arithmetic.h"
 
 using namespace tree_sitter;
 using namespace std;
@@ -21,7 +16,7 @@ using namespace bandit;
 
 namespace std {
     template<typename T>
-    inline std::ostream& operator<<(std::ostream &stream, const unordered_set<T> &set) {
+    inline ostream& operator<<(ostream &stream, const unordered_set<T> &set) {
         stream << string("#<set: ");
         bool started = false;
         for (auto item : set) {
@@ -33,7 +28,7 @@ namespace std {
     }
     
     template<typename TKey, typename TValue>
-    inline std::ostream& operator<<(std::ostream &stream, const unordered_map<TKey, TValue> &map) {
+    inline ostream& operator<<(ostream &stream, const unordered_map<TKey, TValue> &map) {
         stream << string("#<map: ");
         bool started = false;
         for (auto pair : map) {
@@ -64,8 +59,8 @@ namespace snowhouse {
     template<typename ExpectedType>
     struct Stringizer<EqualsPointerConstraint<ExpectedType>>
     {
-        static std::string ToString(const EqualsPointerConstraint<ExpectedType>& constraint) {
-            std::ostringstream builder;
+        static string ToString(const EqualsPointerConstraint<ExpectedType>& constraint) {
+            ostringstream builder;
             builder << "pointer to " << snowhouse::Stringize(constraint.expected);
             return builder.str();
         }

@@ -1,13 +1,10 @@
 #include "table_builder.h"
-#include <unordered_map>
 #include "item_set.h"
 #include "rules.h"
-#include "item_set.h"
 #include "grammar.h"
 
-#include <iostream>
-
-using namespace std;
+using std::pair;
+using std::vector;
 
 namespace tree_sitter {
     namespace lr {
@@ -109,15 +106,15 @@ namespace tree_sitter {
                 grammar(grammar),
                 lex_grammar(lex_grammar) {};
 
-            std::pair<ParseTable, LexTable> build() {
+            pair<ParseTable, LexTable> build() {
                 auto item = Item(ParseTable::START, rules::sym(grammar.start_rule_name), 0);
                 auto item_set = ItemSet(item, grammar);
                 add_parse_state(item_set);
-                return std::pair<ParseTable, LexTable>(parse_table, lex_table);
+                return pair<ParseTable, LexTable>(parse_table, lex_table);
             }
         };
         
-        std::pair<ParseTable, LexTable> build_tables(const Grammar &grammar, const Grammar &lex_grammar) {
+        pair<ParseTable, LexTable> build_tables(const Grammar &grammar, const Grammar &lex_grammar) {
             return TableBuilder(grammar, lex_grammar).build();
         }
     }

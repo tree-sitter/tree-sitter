@@ -1,4 +1,6 @@
 #include "spec_helper.h"
+#include "item.h"
+#include "../../fixtures/grammars/arithmetic.h"
 
 using namespace tree_sitter::lr;
 

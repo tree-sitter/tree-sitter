@@ -45,9 +45,6 @@ namespace tree_sitter {
             }
         }
         
-        // State
-        LexState::LexState() : actions(unordered_map<CharMatch, unordered_set<LexAction>>()) {}
-
         // Table
         size_t LexTable::add_state() {
             states.push_back(LexState());

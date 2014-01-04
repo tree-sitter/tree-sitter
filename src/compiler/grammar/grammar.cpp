@@ -1,18 +1,23 @@
 #include "grammar.h"
 
-using namespace std;
+using std::unordered_map;
+using std::vector;
+using std::string;
+using std::pair;
+using std::initializer_list;
+using std::ostream;
 
 namespace tree_sitter {
-    Grammar::Grammar(const std::initializer_list<std::pair<const std::string, const rules::rule_ptr>> &rules) :
+    Grammar::Grammar(const initializer_list<pair<const string, const rules::rule_ptr>> &rules) :
         rules(rules),
         start_rule_name(rules.begin()->first) {}
     
-    Grammar::Grammar(std::string start_rule_name, const std::unordered_map<std::string, const rules::rule_ptr> &rules) :
+    Grammar::Grammar(std::string start_rule_name, const unordered_map<string, const rules::rule_ptr> &rules) :
         rules(rules),
         start_rule_name(start_rule_name) {}
 
 
-    const rules::rule_ptr Grammar::rule(const std::string &name) const {
+    const rules::rule_ptr Grammar::rule(const string &name) const {
         auto iter = rules.find(name);
         return (iter == rules.end()) ?
             rules::rule_ptr(nullptr) :
@@ -42,7 +47,7 @@ namespace tree_sitter {
         return rules.find(symbol.name) != rules.end();
     }
     
-    std::ostream& operator<<(std::ostream &stream, const Grammar &grammar) {
+    ostream& operator<<(ostream &stream, const Grammar &grammar) {
         stream << string("#<grammar: ");
         bool started = false;
         for (auto pair : grammar.rules) {
