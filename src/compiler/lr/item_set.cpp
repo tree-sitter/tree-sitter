@@ -18,7 +18,7 @@ namespace tree_sitter {
         static void add_item(vector<Item> &vector, const Item &item, const Grammar &grammar) {
             if (!vector_contains(vector, item)) {
                 vector.push_back(item);
-                for (rules::Symbol rule : item.next_symbols()) {
+                for (rules::NonTerminal rule : item.next_symbols()) {
                     Item next_item = Item::at_beginning_of_rule(rule.name, grammar);
                     add_item(vector, next_item, grammar);
                 }
@@ -33,29 +33,17 @@ namespace tree_sitter {
         
         ItemSet::ItemSet(const Item &item, const Grammar &grammar) : contents(closure_in_grammar(item, grammar)) {}
         
-        template<typename RuleClass>
-        static transition_map<RuleClass, ItemSet> transitions(const ItemSet &item_set, const Grammar &grammar) {
-            transition_map<RuleClass, ItemSet> result;
-            for (auto item : item_set) {
+        transition_map<rules::Rule, ItemSet> ItemSet::all_transitions(const Grammar &grammar) const {
+            transition_map<rules::Rule, ItemSet> result;
+            for (auto item : *this) {
                 auto item_transitions = item.transitions();
                 for (auto pair : item_transitions) {
-                    std::shared_ptr<const RuleClass> rule = dynamic_pointer_cast<const RuleClass>(pair.first);
-                    Item item = *pair.second;
-                    if (rule.get() != nullptr)
-                        result.add(rule, std::make_shared<ItemSet>(item, grammar));
+                    result.add(pair.first, std::make_shared<ItemSet>(*pair.second, grammar));
                 }
             }
             return result;
         }
-
-        transition_map<rules::Character, ItemSet> ItemSet::char_transitions(const Grammar &grammar) const {
-            return transitions<rules::Character>(*this, grammar);
-        }
         
-        transition_map<rules::Symbol, ItemSet> ItemSet::sym_transitions(const Grammar &grammar) const {
-            return transitions<rules::Symbol>(*this, grammar);
-        }
-
         bool ItemSet::operator==(const tree_sitter::lr::ItemSet &other) const {
             return contents == other.contents;
         }

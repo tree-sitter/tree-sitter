@@ -59,8 +59,6 @@ namespace tree_sitter {
         
         class ParseTable {
         public:
-            ParseTable(std::vector<std::string> rule_names);
-
             size_t add_state();
             void add_action(size_t state_index, std::string symbol_name, ParseAction action);
             void add_default_action(size_t state_index, ParseAction action);
@@ -68,7 +66,6 @@ namespace tree_sitter {
             static const std::string START;
             static const std::string END_OF_INPUT;
             std::vector<ParseState> states;
-            const std::vector<std::string> symbol_names;
         };
     }
 }

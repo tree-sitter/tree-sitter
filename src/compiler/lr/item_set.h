@@ -21,9 +21,26 @@ namespace tree_sitter {
             const_iterator begin() const;
             const_iterator end() const;
             size_t size() const;
+            
+            transition_map<rules::Rule, ItemSet> all_transitions(const Grammar &grammar) const;
 
-            transition_map<rules::Character, ItemSet> char_transitions(const Grammar &grammar) const;
-            transition_map<rules::Symbol, ItemSet> sym_transitions(const Grammar &grammar) const;
+            template<typename RuleClass>
+            transition_map<RuleClass, ItemSet> transitions(const Grammar &grammar) const {
+                transition_map<RuleClass, ItemSet> result;
+                for (auto transition : all_transitions(grammar)) {
+                    auto rule = std::dynamic_pointer_cast<const RuleClass>(transition.first);
+                    if (rule.get()) result.add(rule, transition.second);
+                }
+                return result;
+            }
+
+            template<typename RuleClass>
+            std::vector<RuleClass> next_inputs(const Grammar &grammar) const {
+                std::vector<RuleClass> result;
+                for (auto pair : transitions<RuleClass>(grammar))
+                    result.push_back(*pair.first);
+                return result;
+            }
 
             bool operator==(const ItemSet &other) const;
         };

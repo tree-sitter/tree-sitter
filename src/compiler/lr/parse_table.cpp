@@ -55,10 +55,6 @@ namespace tree_sitter {
             {}
         
         // Table
-        ParseTable::ParseTable(vector<string> symbol_names) :
-            symbol_names(symbol_names),
-            states(vector<ParseState>()) {};
-        
         size_t ParseTable::add_state() {
             states.push_back(ParseState());
             return states.size() - 1;

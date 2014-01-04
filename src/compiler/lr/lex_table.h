@@ -55,8 +55,6 @@ namespace tree_sitter {
         
         class LexTable {
         public:
-            LexTable(std::vector<std::string> rule_names);
-            
             size_t add_state();
             void add_action(size_t state_index, CharMatch match, LexAction action);
             void add_default_action(size_t state_index, LexAction action);
@@ -64,7 +62,6 @@ namespace tree_sitter {
             static const std::string START;
             static const std::string END_OF_INPUT;
             std::vector<LexState> states;
-            const std::vector<std::string> symbol_names;
         };
     }
 }

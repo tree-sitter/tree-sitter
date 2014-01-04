@@ -16,6 +16,8 @@
 		1213061B182C84DF00FCF928 /* item.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12130619182C84DF00FCF928 /* item.cpp */; };
 		12130622182C85D300FCF928 /* item_set.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12130620182C85D300FCF928 /* item_set.cpp */; };
 		1214930E181E200B008E9BDA /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 121492E9181E200B008E9BDA /* main.cpp */; };
+		121D8B2E187763F3003CF44B /* non_terminal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 121D8B2C187763F3003CF44B /* non_terminal.cpp */; };
+		121D8B2F1877AD1C003CF44B /* non_terminal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 121D8B2C187763F3003CF44B /* non_terminal.cpp */; };
 		1225CC6418765693000D4723 /* prepare_grammar_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1225CC6318765693000D4723 /* prepare_grammar_spec.cpp */; };
 		1225CC6718765737000D4723 /* prepare_grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1225CC6518765737000D4723 /* prepare_grammar.cpp */; };
 		1225CC6A187661C7000D4723 /* extract_tokens.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1225CC68187661C7000D4723 /* extract_tokens.cpp */; };
@@ -50,7 +52,6 @@
 		12FD40CA185EEB5E0041A84E /* rule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1251209A1830145300C9B56A /* rule.cpp */; };
 		12FD40CB185EEB5E0041A84E /* pattern.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 27A340F3EEB184C040521323 /* pattern.cpp */; };
 		12FD40D2185EEB970041A84E /* arithmetic.c in Sources */ = {isa = PBXBuildFile; fileRef = 12FD4065185E7C2F0041A84E /* arithmetic.c */; };
-		12FD40D5185FEEDB0041A84E /* item_set_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1213061D182C857100FCF928 /* item_set_spec.cpp */; };
 		12FD40D6185FEEDB0041A84E /* table_builder_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12512092182F307C00C9B56A /* table_builder_spec.cpp */; };
 		12FD40D7185FEEDB0041A84E /* item_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12D1369C18328C5A005F3369 /* item_spec.cpp */; };
 		12FD40D8185FEEDF0041A84E /* rules_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 121492EA181E200B008E9BDA /* rules_spec.cpp */; };
@@ -108,11 +109,12 @@
 		12130616182C3D2900FCF928 /* string.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = string.h; sourceTree = "<group>"; };
 		12130619182C84DF00FCF928 /* item.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = item.cpp; sourceTree = "<group>"; };
 		1213061A182C84DF00FCF928 /* item.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = item.h; sourceTree = "<group>"; };
-		1213061D182C857100FCF928 /* item_set_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = item_set_spec.cpp; path = spec/compiler/lr/item_set_spec.cpp; sourceTree = SOURCE_ROOT; };
 		12130620182C85D300FCF928 /* item_set.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = item_set.cpp; sourceTree = "<group>"; };
 		12130621182C85D300FCF928 /* item_set.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = item_set.h; sourceTree = "<group>"; };
 		121492E9181E200B008E9BDA /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = spec/main.cpp; sourceTree = SOURCE_ROOT; };
 		121492EA181E200B008E9BDA /* rules_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = rules_spec.cpp; path = spec/compiler/rules/rules_spec.cpp; sourceTree = SOURCE_ROOT; };
+		121D8B2C187763F3003CF44B /* non_terminal.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = non_terminal.cpp; sourceTree = "<group>"; };
+		121D8B2D187763F3003CF44B /* non_terminal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = non_terminal.h; sourceTree = "<group>"; };
 		1225CC6318765693000D4723 /* prepare_grammar_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = prepare_grammar_spec.cpp; sourceTree = "<group>"; };
 		1225CC6518765737000D4723 /* prepare_grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = prepare_grammar.cpp; sourceTree = "<group>"; };
 		1225CC6618765737000D4723 /* prepare_grammar.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = prepare_grammar.h; sourceTree = "<group>"; };
@@ -210,6 +212,8 @@
 				1225CC6F1876AFFF000D4723 /* token.h */,
 				12FD40E618639B910041A84E /* visitor.cpp */,
 				12FD40E41862B3530041A84E /* visitor.h */,
+				121D8B2C187763F3003CF44B /* non_terminal.cpp */,
+				121D8B2D187763F3003CF44B /* non_terminal.h */,
 			);
 			path = rules;
 			sourceTree = "<group>";
@@ -237,7 +241,6 @@
 			isa = PBXGroup;
 			children = (
 				12ED72A6186FC8220089229B /* transitions_spec.cpp */,
-				1213061D182C857100FCF928 /* item_set_spec.cpp */,
 				12512092182F307C00C9B56A /* table_builder_spec.cpp */,
 				12D1369C18328C5A005F3369 /* item_spec.cpp */,
 			);
@@ -483,8 +486,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				12FD40D7185FEEDB0041A84E /* item_spec.cpp in Sources */,
-				12FD40D5185FEEDB0041A84E /* item_set_spec.cpp in Sources */,
 				12130614182C3A1700FCF928 /* seq.cpp in Sources */,
+				121D8B2E187763F3003CF44B /* non_terminal.cpp in Sources */,
 				1225CC6A187661C7000D4723 /* extract_tokens.cpp in Sources */,
 				129D242C183EB1EB00FE9F71 /* table_builder.cpp in Sources */,
 				125120A4183083BD00C9B56A /* arithmetic.cpp in Sources */,
@@ -527,6 +530,7 @@
 				12FD40B3185EEB5E0041A84E /* seq.cpp in Sources */,
 				12FD40B4185EEB5E0041A84E /* table_builder.cpp in Sources */,
 				12FD40B6185EEB5E0041A84E /* arithmetic.cpp in Sources */,
+				121D8B2F1877AD1C003CF44B /* non_terminal.cpp in Sources */,
 				12FD40DD185FF12C0041A84E /* parser.c in Sources */,
 				12FD40B8185EEB5E0041A84E /* item.cpp in Sources */,
 				12FD40B9185EEB5E0041A84E /* string.cpp in Sources */,

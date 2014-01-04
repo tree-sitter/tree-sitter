@@ -11,6 +11,7 @@
 #include "pattern.h"
 #include "character.h"
 #include "repeat.h"
+#include "non_terminal.h"
 #include "visitor.h"
 
 namespace tree_sitter {

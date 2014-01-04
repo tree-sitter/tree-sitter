@@ -49,8 +49,6 @@ namespace tree_sitter {
         LexState::LexState() : actions(unordered_map<CharMatch, unordered_set<LexAction>>()) {}
 
         // Table
-        LexTable::LexTable(vector<string> rule_names) : symbol_names(rule_names) {}
-
         size_t LexTable::add_state() {
             states.push_back(LexState());
             return states.size() - 1;

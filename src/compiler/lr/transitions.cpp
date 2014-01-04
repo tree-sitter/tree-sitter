@@ -10,7 +10,7 @@ namespace tree_sitter {
             transition_map<Rule, Rule> value;
 
             void visit(const Blank *rule) {
-                value = transition_map<Rule, Rule>();
+                value = transition_map<Rule, Rule>({{ blank(), blank() }});
             }
 
             void visit(const Character *rule) {
@@ -20,7 +20,11 @@ namespace tree_sitter {
             void visit(const Symbol *rule) {
                 value = transition_map<Rule, Rule>({{ rule->copy(), blank() }});
             }
-            
+
+            void visit(const Token *rule) {
+                value = transition_map<Rule, Rule>({{ rule->copy(), blank() }});
+            }
+
             void visit(const Choice *rule) {
                 value = transitions(rule->left);
                 value.merge(transitions(rule->right), [&](rule_ptr left, rule_ptr right) -> rule_ptr {
@@ -39,7 +43,7 @@ namespace tree_sitter {
             
             void visit(const Repeat *rule) {
                 value = transitions(rule->content).map<Rule>([&](const rule_ptr &value) -> rule_ptr {
-                    return seq({ value, choice({ repeat(rule->content), blank() }) });
+                    return seq({ value, choice({ rule->copy(), blank() }) });
                 });
             }
             

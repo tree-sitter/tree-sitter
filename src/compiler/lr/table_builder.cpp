@@ -5,6 +5,8 @@
 #include "item_set.h"
 #include "grammar.h"
 
+#include <iostream>
+
 using namespace std;
 
 namespace tree_sitter {
@@ -13,6 +15,7 @@ namespace tree_sitter {
 
         class TableBuilder {
             const Grammar grammar;
+            const Grammar lex_grammar;
             std::unordered_map<const ItemSet, size_t> parse_state_indices;
             std::unordered_map<const ItemSet, size_t> lex_state_indices;
             ParseTable parse_table;
@@ -29,7 +32,7 @@ namespace tree_sitter {
             }
             
             void add_shift_actions(const ItemSet &item_set, size_t state_index) {
-                for (auto transition : item_set.sym_transitions(grammar)) {
+                for (auto transition : item_set.transitions<rules::Symbol>(grammar)) {
                     rules::Symbol symbol = *transition.first;
                     ItemSet item_set = *transition.second;
                     size_t new_state_index = add_parse_state(item_set);
@@ -38,7 +41,7 @@ namespace tree_sitter {
             }
             
             void add_advance_actions(const ItemSet &item_set, size_t state_index) {
-                for (auto transition : item_set.char_transitions(grammar)) {
+                for (auto transition : item_set.transitions<rules::Character>(grammar)) {
                     rules::Character rule = *transition.first;
                     ItemSet item_set = *transition.second;
                     size_t new_state_index = add_lex_state(item_set);
@@ -77,13 +80,21 @@ namespace tree_sitter {
                 return state_index;
             }
             
+            ItemSet lex_item_set_for_parse_item_set(const ItemSet &parse_item_set) {
+                vector<Item> items;
+                for (rules::Token token : parse_item_set.next_inputs<rules::Token>(grammar))
+                    items.push_back(Item::at_beginning_of_token(token.name, lex_grammar));
+                return ItemSet(items);
+            }
+            
             size_t add_parse_state(const ItemSet &item_set) {
                 auto state_index = parse_state_index_for_item_set(item_set);
                 if (state_index == NOT_FOUND) {
                     state_index = parse_table.add_state();
                     parse_state_indices[item_set] = state_index;
 
-                    parse_table.states[state_index].lex_state_index = add_lex_state(item_set);
+                    ItemSet lex_item_set = lex_item_set_for_parse_item_set(item_set);
+                    parse_table.states[state_index].lex_state_index = add_lex_state(lex_item_set);
                     add_shift_actions(item_set, state_index);
                     add_reduce_actions(item_set, state_index);
                 }
@@ -92,13 +103,9 @@ namespace tree_sitter {
             
         public:
             
-            TableBuilder(const Grammar &grammar) :
+            TableBuilder(const Grammar &grammar, const Grammar &lex_grammar) :
                 grammar(grammar),
-                parse_table(ParseTable(grammar.rule_names())),
-                lex_table(LexTable(grammar.rule_names())),
-                parse_state_indices(unordered_map<const ItemSet, size_t>()),
-                lex_state_indices(unordered_map<const ItemSet, size_t>())
-                {};
+                lex_grammar(lex_grammar) {};
 
             std::pair<ParseTable, LexTable> build() {
                 auto item = Item(ParseTable::START, rules::sym(grammar.start_rule_name), 0);
@@ -108,8 +115,8 @@ namespace tree_sitter {
             }
         };
         
-        std::pair<ParseTable, LexTable> build_tables(const tree_sitter::Grammar &grammar) {
-            return TableBuilder(grammar).build();
+        std::pair<ParseTable, LexTable> build_tables(const Grammar &grammar, const Grammar &lex_grammar) {
+            return TableBuilder(grammar, lex_grammar).build();
         }
     }
 }

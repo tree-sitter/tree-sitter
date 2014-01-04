@@ -2,6 +2,11 @@
 
 int main(int argc, char *argv[])
 {
-    char *args[] = {nullptr, (char *)"--no-color"};
-    return bandit::run(2, args);
+    const char *args[] = {
+        "",
+        "--no-color",
+        "--only="
+        "",
+    };
+    return bandit::run(4, const_cast<char **>(args));
 }

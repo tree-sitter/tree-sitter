@@ -10,28 +10,24 @@ namespace test_grammars {
             { "expression", choice({
                 seq({
                     sym("term"),
-                    sym("plus"),
+                    character('+'),
                     sym("term") }),
                 sym("term") }) },
             { "term", choice({
                 seq({
                     sym("factor"),
-                    sym("times"),
+                    character('*'),
                     sym("factor") }),
                 sym("factor") }) },
             { "factor", choice({
                 sym("variable"),
                 sym("number"),
                 seq({
-                    sym("left_paren"),
+                    character('('),
                     sym("expression"),
-                    sym("right_paren") }) }) },
+                    character(')') }) }) },
             { "number", pattern("\\d+") },
             { "variable", pattern("\\w+") },
-            { "plus", str("+") },
-            { "times", str("*") },
-            { "left_paren", str("(") },
-            { "right_paren", str(")") }
         });
     }
 }

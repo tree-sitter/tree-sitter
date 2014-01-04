@@ -7,7 +7,7 @@
 
 namespace tree_sitter {
     namespace code_gen {
-        std::string c_code(const Grammar &grammar, const lr::ParseTable &parse_table, const lr::LexTable &lex_table);
+        std::string c_code(std::vector<std::string> rule_names, const lr::ParseTable &parse_table, const lr::LexTable &lex_table);
     }
 }
 

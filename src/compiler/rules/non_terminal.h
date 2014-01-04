@@ -1,13 +1,13 @@
-#ifndef __tree_sitter__token__
-#define __tree_sitter__token__
+#ifndef __tree_sitter__non_terminal__
+#define __tree_sitter__non_terminal__
 
 #include "symbol.h"
 
 namespace tree_sitter  {
     namespace rules {
-        class Token : public Symbol {
+        class NonTerminal : public Symbol {
         public:
-            Token(const std::string &name);
+            NonTerminal(const std::string &name);
             
             bool operator==(const Rule& other) const;
             rule_ptr copy() const;

@@ -16,17 +16,22 @@ namespace tree_sitter {
         Item Item::at_beginning_of_rule(const std::string &rule_name, const Grammar &grammar) {
             return Item(rule_name, grammar.rule(rule_name), 0);
         }
-        
+
+        Item Item::at_beginning_of_token(const std::string &rule_name, const Grammar &grammar) {
+            return Item(rule_name, grammar.rule(rule_name), -1);
+        }
+
         transition_map<rules::Rule, Item> Item::transitions() const {
             return lr::transitions(rule).map<Item>([&](rules::rule_ptr to_rule) -> item_ptr {
-                return std::make_shared<Item>(rule_name, to_rule, consumed_sym_count + 1);
+                int next_sym_count = (consumed_sym_count == -1) ? -1 : (consumed_sym_count + 1);
+                return std::make_shared<Item>(rule_name, to_rule, next_sym_count);
             });
         };
         
-        vector<rules::Symbol> Item::next_symbols() const {
-            vector<rules::Symbol> result;
+        vector<rules::NonTerminal> Item::next_symbols() const {
+            vector<rules::NonTerminal> result;
             for (auto pair : lr::transitions(rule)) {
-                shared_ptr<const rules::Symbol> sym = dynamic_pointer_cast<const rules::Symbol>(pair.first);
+                auto sym = dynamic_pointer_cast<const rules::NonTerminal>(pair.first);
                 if (sym) result.push_back(*sym);
             }
             return result;
@@ -39,7 +44,10 @@ namespace tree_sitter {
         }
         
         bool Item::is_done() const {
-            return *rule == rules::Blank();
+            for (auto pair : transitions()) {
+                if (*pair.first == rules::Blank()) return true;
+            }
+            return false;
         }
         
         std::ostream& operator<<(ostream &stream, const Item &item) {

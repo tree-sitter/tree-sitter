@@ -2,6 +2,7 @@
 #define TreeSitter_SpecHelper_h
 
 #include "bandit/bandit.h"
+#include <iostream>
 #include "transition_map.h"
 #include "rules.h"
 #include "item.h"

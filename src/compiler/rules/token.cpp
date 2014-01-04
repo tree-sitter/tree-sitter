@@ -6,15 +6,11 @@ using std::hash;
 
 namespace tree_sitter  {
     namespace rules {
-        Token::Token(const std::string &name) : name(name) {};
+        Token::Token(const std::string &name) : Symbol(name) {};
         
         bool Token::operator==(const Rule &rule) const {
             const Token *other = dynamic_cast<const Token *>(&rule);
             return other && (other->name == name);
-        }
-        
-        size_t Token::hash_code() const {
-            return typeid(this).hash_code() ^ hash<string>()(name);
         }
         
         rule_ptr Token::copy() const {

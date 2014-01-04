@@ -51,12 +51,12 @@ namespace tree_sitter {
         }
         
         class CCodeGenerator {
-            const Grammar grammar;
+            const vector<string> rule_names;
             const ParseTable parse_table;
             const LexTable lex_table;
         public:
-            CCodeGenerator(const Grammar &grammar, const ParseTable &parse_table, const LexTable &lex_table) :
-                grammar(grammar),
+            CCodeGenerator(vector<string> rule_names, const ParseTable &parse_table, const LexTable &lex_table) :
+                rule_names(rule_names),
                 parse_table(parse_table),
                 lex_table(lex_table)
                 {}
@@ -152,7 +152,7 @@ namespace tree_sitter {
             
             string symbol_enum() {
                 string result = "typedef enum {\n";
-                for (string rule_name : grammar.rule_names())
+                for (string rule_name : rule_names)
                     result += indent(symbol_id(rule_name)) + ",\n";
                 result += indent(symbol_id(ParseTable::END_OF_INPUT));
                 return result + "\n"
@@ -192,8 +192,8 @@ namespace tree_sitter {
             }
         };
         
-        string c_code(const Grammar &grammar, const ParseTable &parse_table, const LexTable &lex_table) {
-            return CCodeGenerator(grammar, parse_table, lex_table).code();
+        string c_code(const vector<string> rule_names, const ParseTable &parse_table, const LexTable &lex_table) {
+            return CCodeGenerator(rule_names, parse_table, lex_table).code();
         }
     }
 }
