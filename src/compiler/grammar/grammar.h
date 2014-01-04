@@ -15,6 +15,7 @@ namespace tree_sitter {
         const std::string start_rule_name;
         std::vector<std::string> rule_names() const;
         bool operator==(const Grammar &other) const;
+        bool has_definition(const rules::Symbol &symbol) const;
 
         const std::unordered_map<std::string, const rules::rule_ptr> rules;
     };

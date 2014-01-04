@@ -32,7 +32,9 @@ namespace tree_sitter {
             }
             
             void add_shift_actions(const ItemSet &item_set, size_t state_index) {
-                for (auto transition : item_set.transitions<rules::Symbol>(grammar)) {
+                auto x = item_set.sym_transitions(grammar);
+                for (auto transition : x) {
+                    
                     rules::Symbol symbol = *transition.first;
                     ItemSet item_set = *transition.second;
                     size_t new_state_index = add_parse_state(item_set);
@@ -41,7 +43,7 @@ namespace tree_sitter {
             }
             
             void add_advance_actions(const ItemSet &item_set, size_t state_index) {
-                for (auto transition : item_set.transitions<rules::Character>(grammar)) {
+                for (auto transition : item_set.char_transitions(grammar)) {
                     rules::Character rule = *transition.first;
                     ItemSet item_set = *transition.second;
                     size_t new_state_index = add_lex_state(item_set);
@@ -82,8 +84,8 @@ namespace tree_sitter {
             
             ItemSet lex_item_set_for_parse_item_set(const ItemSet &parse_item_set) {
                 vector<Item> items;
-                for (rules::Token token : parse_item_set.next_inputs<rules::Token>(grammar))
-                    items.push_back(Item::at_beginning_of_token(token.name, lex_grammar));
+                for (rules::Symbol symbol : parse_item_set.next_terminal_symbols(grammar))
+                    items.push_back(Item::at_beginning_of_token(symbol.name, lex_grammar));
                 return ItemSet(items);
             }
             

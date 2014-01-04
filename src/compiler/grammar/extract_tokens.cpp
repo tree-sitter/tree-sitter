@@ -19,7 +19,7 @@ namespace tree_sitter {
                 return value;
             } else {
                 string token_name = add_token(rule);
-                return rules::token(token_name);
+                return rules::sym(token_name);
             }
         }
         

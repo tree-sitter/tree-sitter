@@ -3,7 +3,7 @@
 
 #include <string>
 #include "rule.h"
-#include "non_terminal.h"
+#include "symbol.h"
 #include "transition_map.h"
 
 namespace tree_sitter {
@@ -20,7 +20,7 @@ namespace tree_sitter {
             static Item at_beginning_of_token(const std::string &rule_name, const Grammar &grammar);
 
             transition_map<rules::Rule, Item> transitions() const;
-            std::vector<rules::NonTerminal> next_symbols() const;
+            std::vector<rules::Symbol> next_symbols() const;
             bool operator==(const Item &other) const;
             bool is_done() const;
 

@@ -21,10 +21,6 @@ namespace tree_sitter {
                 value = transition_map<Rule, Rule>({{ rule->copy(), blank() }});
             }
 
-            void visit(const Token *rule) {
-                value = transition_map<Rule, Rule>({{ rule->copy(), blank() }});
-            }
-
             void visit(const Choice *rule) {
                 value = transitions(rule->left);
                 value.merge(transitions(rule->right), [&](rule_ptr left, rule_ptr right) -> rule_ptr {

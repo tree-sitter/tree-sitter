@@ -16,7 +16,6 @@ namespace tree_sitter {
             virtual void visit(const Seq *rule);
             virtual void visit(const String *rule);
             virtual void visit(const Pattern *rule);
-            virtual void visit(const Token *rule);
         };
     }
 }

@@ -47,11 +47,7 @@ namespace tree_sitter {
         }
 
         sym_ptr sym(const string &name) {
-            return make_shared<NonTerminal>(name);
-        }
-        
-        rule_ptr token(const std::string &name) {
-            return make_shared<Token>(name);
+            return make_shared<Symbol>(name);
         }
     }
 }

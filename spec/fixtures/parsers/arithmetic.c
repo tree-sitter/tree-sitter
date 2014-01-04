@@ -20,19 +20,19 @@ static void ts_lex(TSParser *parser) {
     START_LEXER();
     switch (LEX_STATE()) {
         case 0:
-            if (isalnum(LOOKAHEAD_CHAR()))
-                ADVANCE(2);
             if (isdigit(LOOKAHEAD_CHAR()))
                 ADVANCE(3);
             if (LOOKAHEAD_CHAR() == '(')
+                ADVANCE(2);
+            if (isalnum(LOOKAHEAD_CHAR()))
                 ADVANCE(1);
             LEX_ERROR();
         case 1:
-            ACCEPT_TOKEN(ts_symbol_2);
-        case 2:
             if (isalnum(LOOKAHEAD_CHAR()))
-                ADVANCE(2);
+                ADVANCE(1);
             ACCEPT_TOKEN(ts_symbol_1);
+        case 2:
+            ACCEPT_TOKEN(ts_symbol_2);
         case 3:
             if (isdigit(LOOKAHEAD_CHAR()))
                 ADVANCE(3);

@@ -11,6 +11,5 @@ namespace tree_sitter {
         void Visitor::visit(const Seq *rule) { default_visit(rule); }
         void Visitor::visit(const String *rule) { default_visit(rule); }
         void Visitor::visit(const Pattern *rule) { default_visit(rule); }
-        void Visitor::visit(const Token *rule) { default_visit(rule); }
     }
 }

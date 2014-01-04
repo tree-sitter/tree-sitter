@@ -14,19 +14,19 @@ describe("building parse and lex tables", []() {
         { "expression", choice({
             seq({
                 sym("term"),
-                token("plus-token"),
+                sym("plus-token"),
                 sym("term") }),
             sym("term") }) },
         { "term", choice({
             sym("variable"),
             sym("number"),
             seq({
-                token("left-paren-token"),
+                sym("left-paren-token"),
                 sym("expression"),
-                token("right-paren-token")
+                sym("right-paren-token")
             }) }) },
-        { "variable", token("variable-token") },
-        { "number", token("number-token") }
+        { "variable", sym("variable-token") },
+        { "number", sym("number-token") }
     });
     
     Grammar lex_grammar({
@@ -64,8 +64,8 @@ describe("building parse and lex tables", []() {
         
         AssertThat(lex_state(0).actions, Equals(unordered_map<CharMatch, lex_actions>({
             { CharMatchSpecific('('), lex_actions({ LexAction::Advance(1) }) },
-            { CharMatchClass(CharClassWord), lex_actions({ LexAction::Advance(2) }) },
-            { CharMatchClass(CharClassDigit), lex_actions({ LexAction::Advance(3) }) },
+            { CharMatchClass(CharClassDigit), lex_actions({ LexAction::Advance(2) }) },
+            { CharMatchClass(CharClassWord), lex_actions({ LexAction::Advance(3) }) },
         })));
     });
     

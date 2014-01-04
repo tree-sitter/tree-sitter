@@ -1,10 +1,12 @@
 #include "item_set.h"
 
 using std::vector;
+using std::set;
 using std::initializer_list;
 using std::dynamic_pointer_cast;
 using std::ostream;
 using std::string;
+using std::make_shared;
 
 namespace tree_sitter {
     namespace lr {
@@ -18,9 +20,11 @@ namespace tree_sitter {
         static void add_item(vector<Item> &vector, const Item &item, const Grammar &grammar) {
             if (!vector_contains(vector, item)) {
                 vector.push_back(item);
-                for (rules::NonTerminal rule : item.next_symbols()) {
-                    Item next_item = Item::at_beginning_of_rule(rule.name, grammar);
-                    add_item(vector, next_item, grammar);
+                for (rules::Symbol rule : item.next_symbols()) {
+                    if (grammar.has_definition(rule)) {
+                        Item next_item = Item::at_beginning_of_rule(rule.name, grammar);
+                        add_item(vector, next_item, grammar);
+                    }
                 }
             }
         }
@@ -33,17 +37,35 @@ namespace tree_sitter {
         
         ItemSet::ItemSet(const Item &item, const Grammar &grammar) : contents(closure_in_grammar(item, grammar)) {}
         
-        transition_map<rules::Rule, ItemSet> ItemSet::all_transitions(const Grammar &grammar) const {
-            transition_map<rules::Rule, ItemSet> result;
-            for (auto item : *this) {
-                auto item_transitions = item.transitions();
-                for (auto pair : item_transitions) {
-                    result.add(pair.first, std::make_shared<ItemSet>(*pair.second, grammar));
+        template<typename RuleClass>
+        transition_map<RuleClass, ItemSet> transitions(const ItemSet *item_set, const Grammar &grammar) {
+            transition_map<RuleClass, ItemSet> result;
+            for (Item item : *item_set) {
+                for (auto transition : item.transitions()) {
+                    auto rule = dynamic_pointer_cast<const RuleClass>(transition.first);
+                    if (rule.get()) result.add(rule, make_shared<ItemSet>(*transition.second, grammar));
                 }
             }
             return result;
         }
-        
+
+        transition_map<rules::Character, ItemSet> ItemSet::char_transitions(const Grammar &grammar) const {
+            return transitions<rules::Character>(this, grammar);
+        }
+
+        transition_map<rules::Symbol, ItemSet> ItemSet::sym_transitions(const Grammar &grammar) const {
+            return transitions<rules::Symbol>(this, grammar);
+        }
+
+        set<rules::Symbol> ItemSet::next_terminal_symbols(const Grammar &grammar) const {
+            set<rules::Symbol> result;
+            for (Item item : *this)
+                for (rules::Symbol symbol : item.next_symbols())
+                    if (!grammar.has_definition(symbol))
+                        result.insert(symbol);
+            return result;
+        }
+
         bool ItemSet::operator==(const tree_sitter::lr::ItemSet &other) const {
             return contents == other.contents;
         }
@@ -66,12 +88,9 @@ namespace tree_sitter {
         
         ostream& operator<<(ostream &stream, const ItemSet &item_set) {
             stream << string("#<item_set ");
-            for (Item item : item_set) {
-                stream << item;
-                stream << string(" ");
-            }
-            stream << string(">");
-            return stream;
+            for (Item item : item_set)
+                stream << item << string(" ");
+            return stream << string(">");
         }
     }
 }

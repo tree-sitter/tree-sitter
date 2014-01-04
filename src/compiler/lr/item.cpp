@@ -28,10 +28,10 @@ namespace tree_sitter {
             });
         };
         
-        vector<rules::NonTerminal> Item::next_symbols() const {
-            vector<rules::NonTerminal> result;
+        vector<rules::Symbol> Item::next_symbols() const {
+            vector<rules::Symbol> result;
             for (auto pair : lr::transitions(rule)) {
-                auto sym = dynamic_pointer_cast<const rules::NonTerminal>(pair.first);
+                auto sym = dynamic_pointer_cast<const rules::Symbol>(pair.first);
                 if (sym) result.push_back(*sym);
             }
             return result;
@@ -40,24 +40,24 @@ namespace tree_sitter {
         bool Item::operator==(const Item &other) const {
             bool rule_names_eq = other.rule_name == rule_name;
             bool rules_eq = (*other.rule == *rule);
-            return rule_names_eq && rules_eq;
+            bool consumed_sym_counts_eq = (other.consumed_sym_count == consumed_sym_count);
+            return rule_names_eq && rules_eq && consumed_sym_counts_eq;
         }
         
         bool Item::is_done() const {
-            for (auto pair : transitions()) {
-                if (*pair.first == rules::Blank()) return true;
-            }
+            for (auto pair : transitions())
+                if (*pair.first == rules::Blank())
+                    return true;
             return false;
         }
         
         std::ostream& operator<<(ostream &stream, const Item &item) {
-            stream <<
+            return stream <<
                 string("#<item '") <<
                 item.rule_name <<
                 string("' ") <<
                 *item.rule <<
                 string(">");
-            return stream;
         }
     }
 }

@@ -25,6 +25,10 @@ namespace tree_sitter  {
             return string("#<sym '") + name + "'>";
         }
         
+        bool Symbol::operator<(const Symbol &other) const {
+            return name < other.name;
+        }
+        
         void Symbol::accept(Visitor &visitor) const {
             visitor.visit(this);
         }

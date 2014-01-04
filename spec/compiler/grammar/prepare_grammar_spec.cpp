@@ -21,11 +21,11 @@ describe("preparing a grammar", []() {
         
         AssertThat(result.first, Equals(Grammar({
             { "rule1", seq({
-                token("1"),
+                sym("1"),
                 seq({
                     sym("rule2"),
                     sym("rule3") }),
-                token("1") }) }
+                sym("1") }) }
         })));
 
         AssertThat(result.second, Equals(Grammar("", {

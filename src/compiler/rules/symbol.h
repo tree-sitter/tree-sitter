@@ -14,6 +14,7 @@ namespace tree_sitter  {
             rule_ptr copy() const;
             std::string to_string() const;
             void accept(Visitor &visitor) const;
+            bool operator<(const Symbol &other) const;
 
             const std::string name;
         };
@@ -21,5 +22,11 @@ namespace tree_sitter  {
         typedef std::shared_ptr<const Symbol> sym_ptr;
     }
 }
+
+namespace std {
+    template<>
+    struct hash<tree_sitter::rules::Symbol> : hash<tree_sitter::rules::Rule> {};
+}
+
 
 #endif

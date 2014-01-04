@@ -38,6 +38,10 @@ namespace tree_sitter {
         return true;
     }
     
+    bool Grammar::has_definition(const rules::Symbol &symbol) const {
+        return rules.find(symbol.name) != rules.end();
+    }
+    
     std::ostream& operator<<(std::ostream &stream, const Grammar &grammar) {
         stream << string("#<grammar: ");
         bool started = false;
