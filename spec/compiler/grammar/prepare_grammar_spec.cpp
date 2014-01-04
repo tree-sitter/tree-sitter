@@ -13,7 +13,10 @@ describe("preparing a grammar", []() {
                 character('b'),
                 seq({
                     sym("rule2"),
-                    sym("rule3") }) }) }
+                    sym("rule3") }),
+                seq({
+                    character('a'),
+                    character('b') }) }) }
         }));
         
         AssertThat(result.first, Equals(Grammar({
@@ -21,7 +24,8 @@ describe("preparing a grammar", []() {
                 token("1"),
                 seq({
                     sym("rule2"),
-                    sym("rule3") }) }) }
+                    sym("rule3") }),
+                token("1") }) }
         })));
 
         AssertThat(result.second, Equals(Grammar("", {

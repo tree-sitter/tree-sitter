@@ -24,6 +24,9 @@ namespace tree_sitter {
         }
         
         string add_token(const rules::rule_ptr &rule) {
+            for (auto pair : tokens) {
+                if (*pair.second == *rule) return pair.first;
+            }
             string name = to_string(tokens.size() + 1);
             tokens.insert({ name, rule });
             return name;
@@ -47,7 +50,8 @@ namespace tree_sitter {
         unordered_map<string, const rules::rule_ptr> rules;
 
         for (auto pair : input_grammar.rules) {
-            rules.insert({ pair.first, extractor.apply(pair.second) });
+            auto new_rule = extractor.apply(pair.second);
+            rules.insert({ pair.first, new_rule });
         }
         
         return { 
