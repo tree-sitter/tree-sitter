@@ -109,6 +109,7 @@
 		12130621182C85D300FCF928 /* item_set.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = item_set.h; sourceTree = "<group>"; };
 		121492E9181E200B008E9BDA /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = spec/main.cpp; sourceTree = SOURCE_ROOT; };
 		121492EA181E200B008E9BDA /* rules_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = rules_spec.cpp; path = spec/compiler/rules/rules_spec.cpp; sourceTree = SOURCE_ROOT; };
+		121D8B3018795CC0003CF44B /* parser.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = parser.h; sourceTree = "<group>"; };
 		1225CC6318765693000D4723 /* prepare_grammar_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = prepare_grammar_spec.cpp; sourceTree = "<group>"; };
 		1225CC6518765737000D4723 /* prepare_grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = prepare_grammar.cpp; sourceTree = "<group>"; };
 		1225CC6618765737000D4723 /* prepare_grammar.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = prepare_grammar.h; sourceTree = "<group>"; };
@@ -142,7 +143,7 @@
 		12FD4063185E75290041A84E /* generate_parsers.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = generate_parsers.cpp; path = spec/compiler/generate_parsers.cpp; sourceTree = SOURCE_ROOT; };
 		12FD4065185E7C2F0041A84E /* arithmetic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = arithmetic.c; path = spec/fixtures/parsers/arithmetic.c; sourceTree = SOURCE_ROOT; };
 		12FD40D1185EEB5E0041A84E /* runtime_specs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = runtime_specs; sourceTree = BUILT_PRODUCTS_DIR; };
-		12FD40D4185FED9A0041A84E /* runtime.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = runtime.h; sourceTree = "<group>"; };
+		12FD40D4185FED9A0041A84E /* document.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = document.h; sourceTree = "<group>"; };
 		12FD40DA185FEF0D0041A84E /* arithmetic_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = arithmetic_spec.cpp; sourceTree = "<group>"; };
 		12FD40DC185FF12C0041A84E /* parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parser.c; sourceTree = "<group>"; };
 		12FD40DE1860064C0041A84E /* tree.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tree.c; sourceTree = "<group>"; };
@@ -390,7 +391,8 @@
 		12FD40D3185FED630041A84E /* include */ = {
 			isa = PBXGroup;
 			children = (
-				12FD40D4185FED9A0041A84E /* runtime.h */,
+				12FD40D4185FED9A0041A84E /* document.h */,
+				121D8B3018795CC0003CF44B /* parser.h */,
 			);
 			path = include;
 			sourceTree = "<group>";

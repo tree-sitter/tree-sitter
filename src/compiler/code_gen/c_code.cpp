@@ -22,6 +22,21 @@ namespace tree_sitter {
                 pos += replace.length();
             }
         }
+
+        string join(vector<string> lines, string separator) {
+            string result;
+            bool started = false;
+            for (auto line : lines) {
+                if (started) result += separator;
+                started = true;
+                result += line;
+            }
+            return result;
+        }
+        
+        string join(vector<string> lines) {
+            return join(lines, "\n");
+        }
         
         string indent(string input) {
             string tab = "    ";
@@ -30,24 +45,32 @@ namespace tree_sitter {
         }
         
         string _switch(string condition, string body) {
-            return "switch (" + condition + ") {\n" +
-            indent(body) + "\n"
-            "}";
+            return join({
+                "switch (" + condition + ") {",
+                indent(body),
+                "}"
+            });
         }
         
         string _case(string value, string body) {
-            return "case " + value + ":\n" +
-            indent(body) + "\n";
+            return join({
+                "case " + value + ":",
+                indent(body), ""
+            });
         }
 
         string _default(string body) {
-            return "default:\n" +
-            indent(body);
+            return join({
+                "default:",
+                indent(body)
+            });
         }
         
         string _if(string condition, string body) {
-            return string("if (") + condition + ")\n" +
-            indent(body) + "\n";
+            return join({
+                "if (" + condition + ")",
+                indent(body), ""
+            });
         }
         
         class CCodeGenerator {
@@ -151,44 +174,56 @@ namespace tree_sitter {
             }
             
             string symbol_enum() {
-                string result = "typedef enum {\n";
+                string result = "enum ts_symbol {\n";
                 for (string rule_name : rule_names)
                     result += indent(symbol_id(rule_name)) + ",\n";
                 result += indent(symbol_id(ParseTable::END_OF_INPUT));
-                return result + "\n"
-                "} ts_symbol;";
+                return result + "\n};";
             }
-            
+
+            string rule_names_list() {
+                string result = "static const char *ts_symbol_names[] = {\n";
+                for (string rule_name : rule_names)
+                    result += indent(string("\"") + rule_name) + "\",\n";
+                result += indent(string("\"") + ParseTable::END_OF_INPUT + "\"");
+                return result + "\n};";
+            }
+
             string includes() {
-                return string(
-                    "#include \"runtime.h\"\n"
-                    "#include <ctype.h>");
+                return join({
+                    "#include \"parser.h\"",
+                    "#include <ctype.h>"
+                });
             }
             
             string parse_function() {
-                return 
-                "TSTree ts_parse_arithmetic(const char *input) {\n" +
-                indent("START_PARSER();") + "\n" +
-                indent(switch_on_parse_state()) + "\n" +
-                indent("FINISH_PARSER();") + "\n"
-                "}";
+                return join({
+                    "TSTree ts_parse_arithmetic(const char *input) {",
+                    indent("START_PARSER();"),
+                    indent(switch_on_parse_state()),
+                    indent("FINISH_PARSER();"),
+                    "}"
+                });
             }
 
             string lex_function() {
-                return 
-                "static void ts_lex(TSParser *parser) {\n" +
-                indent("START_LEXER();") + "\n" +
-                indent(switch_on_lex_state()) + "\n" +
-                indent("FINISH_LEXER();") + "\n"
-                "}";
+                return join({
+                    "static void ts_lex(TSParser *parser) {",
+                    indent("START_LEXER();"),
+                    indent(switch_on_lex_state()),
+                    indent("FINISH_LEXER();"),
+                    "}"
+                });
             }
             
             string code() {
-                return
-                includes() + "\n\n" +
-                symbol_enum() + "\n\n" +
-                lex_function() + "\n\n" +
-                parse_function() + "\n";
+                return join({
+                    includes(),
+                    symbol_enum(),
+                    rule_names_list(),
+                    lex_function(),
+                    parse_function()
+                }, "\n\n") + "\n";
             }
         };
         

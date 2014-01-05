@@ -1,7 +1,7 @@
-#include "runtime.h"
+#include "parser.h"
 #include <ctype.h>
 
-typedef enum {
+enum ts_symbol {
     ts_symbol_expression,
     ts_symbol_term,
     ts_symbol_factor,
@@ -12,7 +12,20 @@ typedef enum {
     ts_symbol_number,
     ts_symbol_variable,
     ts_symbol___END__
-} ts_symbol;
+};
+
+static const char *ts_symbol_names[] = {
+    "expression",
+    "term",
+    "factor",
+    "4",
+    "3",
+    "1",
+    "2",
+    "number",
+    "variable",
+    "__END__"
+};
 
 static void ts_lex(TSParser *parser) {
     START_LEXER();
