@@ -16,7 +16,6 @@ namespace tree_sitter {
         rules(rules),
         start_rule_name(start_rule_name) {}
 
-
     const rules::rule_ptr Grammar::rule(const string &name) const {
         auto iter = rules.find(name);
         return (iter == rules.end()) ?
@@ -38,6 +37,7 @@ namespace tree_sitter {
         for (auto pair : rules) {
             auto other_pair = other.rules.find(pair.first);
             if (other_pair == other.rules.end()) return false;
+            auto orr = other_pair->second->to_string();;
             if (!other_pair->second->operator==(*pair.second)) return false;
         }
         return true;

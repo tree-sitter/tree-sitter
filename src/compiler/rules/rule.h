@@ -13,6 +13,7 @@ namespace tree_sitter {
         class Rule {
         public:
             virtual bool operator==(const Rule& other) const = 0;
+            bool operator!=(const Rule& other) const;
             virtual size_t hash_code() const = 0;
             virtual rule_ptr copy() const = 0;
             virtual std::string to_string() const = 0;

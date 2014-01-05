@@ -34,6 +34,25 @@ describe("preparing a grammar", []() {
                 rules::character('b') }) }
         })));
     });
+    
+    it("turns entire rules into tokens when they contain no symbols", [&]() {
+        auto result = prepare_grammar(Grammar({
+            { "rule1", sym("rule2") },
+            { "rule2", seq({
+                character('a'),
+                character('b') }) }
+        }));
+        
+        AssertThat(result.first, Equals(Grammar({
+            { "rule1", sym("rule2") }
+        })));
+        
+        AssertThat(result.second, Equals(Grammar("", {
+            { "rule2", seq({
+                character('a'),
+                character('b') }) }
+        })));
+    });
 });
 
 END_TEST

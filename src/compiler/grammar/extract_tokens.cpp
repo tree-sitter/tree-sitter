@@ -11,7 +11,21 @@ namespace tree_sitter {
     class TokenExtractor : rules::Visitor {
     public:
         rules::rule_ptr value;
+        size_t anonymous_token_count = 0;
         unordered_map<string, const rules::rule_ptr> tokens;
+
+        rules::rule_ptr initial_apply(string name, const rules::rule_ptr rule) {
+            auto result = apply(rule);
+            auto symbol = std::dynamic_pointer_cast<const rules::Symbol>(result);
+            if (symbol && *symbol != *rule) {
+                tokens.insert({ name, tokens[symbol->name] });
+                tokens.erase(symbol->name);
+                anonymous_token_count--;
+                return rules::rule_ptr();
+            } else {
+                return result;
+            }
+        }
 
         rules::rule_ptr apply(const rules::rule_ptr rule) {
             if (search_for_symbols(rule)) {
@@ -24,10 +38,10 @@ namespace tree_sitter {
         }
         
         string add_token(const rules::rule_ptr &rule) {
-            for (auto pair : tokens) {
-                if (*pair.second == *rule) return pair.first;
-            }
-            string name = to_string(tokens.size() + 1);
+            for (auto pair : tokens)
+                if (*pair.second == *rule)
+                    return pair.first;
+            string name = to_string(++anonymous_token_count);
             tokens.insert({ name, rule });
             return name;
         }
@@ -50,8 +64,10 @@ namespace tree_sitter {
         unordered_map<string, const rules::rule_ptr> rules;
 
         for (auto pair : input_grammar.rules) {
-            auto new_rule = extractor.apply(pair.second);
-            rules.insert({ pair.first, new_rule });
+            string name = pair.first;
+            auto new_rule = extractor.initial_apply(name, pair.second);
+            if (new_rule.get())
+                rules.insert({ name, new_rule });
         }
         
         return { 
