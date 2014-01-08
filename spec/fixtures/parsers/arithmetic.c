@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "document.h"
 #include <ctype.h>
 
 enum ts_symbol {
@@ -74,7 +75,7 @@ static void ts_lex(TSParser *parser) {
     FINISH_LEXER();
 }
 
-TSTree ts_parse_arithmetic(const char *input) {
+static TSTree * ts_parse(const char *input) {
     START_PARSER();
     switch (PARSE_STATE()) {
         case 0:
@@ -203,4 +204,8 @@ TSTree ts_parse_arithmetic(const char *input) {
             PARSE_ERROR();
     }
     FINISH_PARSER();
+}
+
+void TSDocumentSetUp_arithmetic(TSDocument *document) {
+    TSDocumentSetUp(document, ts_parse, ts_symbol_names);
 }

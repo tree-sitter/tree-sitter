@@ -192,13 +192,14 @@ namespace tree_sitter {
             string includes() {
                 return join({
                     "#include \"parser.h\"",
+                    "#include \"document.h\"",
                     "#include <ctype.h>"
                 });
             }
             
             string parse_function() {
                 return join({
-                    "TSTree ts_parse_arithmetic(const char *input) {",
+                    "static TSTree * ts_parse(const char *input) {",
                     indent("START_PARSER();"),
                     indent(switch_on_parse_state()),
                     indent("FINISH_PARSER();"),
@@ -216,13 +217,22 @@ namespace tree_sitter {
                 });
             }
             
+            string setup_function() {
+                return join({
+                    "void TSDocumentSetUp_arithmetic(TSDocument *document) {",
+                    indent("TSDocumentSetUp(document, ts_parse, ts_symbol_names);"),
+                    "}"
+                });
+            }
+            
             string code() {
                 return join({
                     includes(),
                     symbol_enum(),
                     rule_names_list(),
                     lex_function(),
-                    parse_function()
+                    parse_function(),
+                    setup_function(),
                 }, "\n\n") + "\n";
             }
         };

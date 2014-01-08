@@ -5,7 +5,10 @@ START_TEST
 
 describe("arithmetic", []() {
     it("parses_numbers", [&]() {
-        ts_parse_arithmetic("5");
+        TSDocument *document = TSDocumentMake();
+        TSDocumentSetUp_arithmetic(document);
+        TSDocumentSetText(document, "5");
+        printf("%s", TSDocumentToString(document));
     });
 });
 

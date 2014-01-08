@@ -10,22 +10,22 @@ namespace test_grammars {
             { "expression", choice({
                 seq({
                     sym("term"),
-                    character('+'),
+                    str("+"),
                     sym("term") }),
                 sym("term") }) },
             { "term", choice({
                 seq({
                     sym("factor"),
-                    character('*'),
+                    str("*"),
                     sym("factor") }),
                 sym("factor") }) },
             { "factor", choice({
                 sym("variable"),
                 sym("number"),
                 seq({
-                    character('('),
+                    str("("),
                     sym("expression"),
-                    character(')') }) }) },
+                    str(")") }) }) },
             { "number", pattern("\\d+") },
             { "variable", pattern("\\w+") },
         });

@@ -1,7 +1,7 @@
 #ifndef __tree_sitter_parser_h__
 #define __tree_sitter_parser_h__
 
-#include "document.h"
+#include "tree.h"
 #include <stdio.h>
 
 #ifdef __cplusplus
@@ -9,16 +9,12 @@ extern "C" {
 #endif
 
 typedef int TSState;
-typedef struct {
-    TSState state;
-    TSSymbol symbol;
-} TSStackEntry;
-
-typedef struct {
-    TSTree tree;
+typedef struct TSStackEntry TSStackEntry;
+typedef struct TSParser {
+    TSTree *tree;
     const char *input;
     size_t position;
-    TSSymbol lookahead_sym;
+    TSTree *lookahead_node;
     TSState lex_state;
     TSStackEntry *stack;
     size_t stack_size;
@@ -28,31 +24,28 @@ TSParser TSParserMake(const char *input);
 void TSParserShift(TSParser *parser, TSState state);
 void TSParserReduce(TSParser *parser, TSSymbol symbol, int child_count);
 void TSParserError(TSParser *parser);
+void TSParserAcceptInput(TSParser *parser);
 void TSParserAdvance(TSParser *parser, TSState lex_state);
 TSState TSParserParseState(const TSParser *parser);
 TSState TSParserLexState(const TSParser *parser);
 void TSParserSetLexState(TSParser *parser, TSState state);
 char TSParserLookaheadChar(const TSParser *parser);
-TSSymbol TSParserLookaheadSym(const TSParser *parser);
+long TSParserLookaheadSym(const TSParser *parser);
 void TSParserSetLookaheadSym(TSParser *parser, TSSymbol symbol);
 
 #pragma mark - DSL
 
 #define START_PARSER() \
 TSParser p = TSParserMake(input),  *parser = &p; \
-next_state: \
-printf("parse state: %d, lookahead: %s\n", PARSE_STATE(), LOOKAHEAD_SYM_NAME());
+next_state:
     
 #define LOOKAHEAD_SYM_NAME() \
 ts_symbol_names[LOOKAHEAD_SYM()]
 
 #define START_LEXER() \
-if (parser->lookahead_sym > 0) return; \
-next_state: \
-printf("lex state: %d, lookahead: %c\n", LEX_STATE(), LOOKAHEAD_CHAR()); \
-if (LOOKAHEAD_CHAR() == '\0') { \
-  ACCEPT_TOKEN(ts_symbol___END__); \
-} \
+if (LOOKAHEAD_SYM() > 0) return; \
+if (LOOKAHEAD_CHAR() == '\0') { ACCEPT_TOKEN(ts_symbol___END__); } \
+next_state:
 
 #define LOOKAHEAD_SYM() \
 TSParserLookaheadSym(parser)
@@ -76,7 +69,7 @@ TSParserLexState(parser)
 { TSParserAdvance(parser, state_index); goto next_state; }
 
 #define ACCEPT_INPUT() \
-{ goto done; }
+{ TSParserAcceptInput(parser); goto done; }
 
 #define ACCEPT_TOKEN(symbol) \
 { TSParserSetLookaheadSym(parser, symbol); goto done; }
