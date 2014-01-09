@@ -3,6 +3,7 @@
 using std::string;
 using std::ostream;
 using std::to_string;
+using std::unordered_set;
 
 namespace tree_sitter {
     namespace lr {
@@ -51,6 +52,13 @@ namespace tree_sitter {
         
         // State
         ParseState::ParseState() : lex_state_index(-1) {}
+        
+        unordered_set<string> ParseState::expected_inputs() const {
+            unordered_set<string> result;
+            for (auto pair : actions)
+                result.insert(pair.first);
+            return result;
+        }
         
         // Table
         size_t ParseTable::add_state() {

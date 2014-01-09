@@ -2,6 +2,7 @@
 #define __tree_sitter_parser_h__
 
 #include "tree.h"
+#include "parse_config.h"
 #include <stdio.h>
 
 #ifdef __cplusplus
@@ -13,6 +14,7 @@ typedef struct TSStackEntry TSStackEntry;
 typedef struct TSParser {
     TSTree *tree;
     const char *input;
+    char *error_message;
     size_t position;
     TSTree *lookahead_node;
     TSState lex_state;
@@ -23,11 +25,13 @@ typedef struct TSParser {
 TSParser TSParserMake(const char *input);
 void TSParserShift(TSParser *parser, TSState state);
 void TSParserReduce(TSParser *parser, TSSymbol symbol, int child_count);
-void TSParserError(TSParser *parser);
+void TSParserLexError(TSParser *parser, size_t count, const char **expected_inputs);
+void TSParserError(TSParser *parser, size_t count, const char **expected_inputs);
 void TSParserAcceptInput(TSParser *parser);
 void TSParserAdvance(TSParser *parser, TSState lex_state);
 TSState TSParserParseState(const TSParser *parser);
 TSState TSParserLexState(const TSParser *parser);
+TSParseResult TSParserResult(TSParser *parser);
 void TSParserSetLexState(TSParser *parser, TSState state);
 char TSParserLookaheadChar(const TSParser *parser);
 long TSParserLookaheadSym(const TSParser *parser);
@@ -77,19 +81,35 @@ TSParserLexState(parser)
 #define REDUCE(symbol, child_count) \
 { TSParserReduce(parser, symbol, child_count); goto next_state; }
 
-#define PARSE_ERROR() \
-{ TSParserError(parser); goto done; }
+#define PARSE_ERROR(count, inputs) \
+{ \
+static const char *expected_inputs[] = inputs; \
+TSParserError(parser, count, expected_inputs); \
+goto done; \
+}
 
-#define LEX_ERROR() \
-{ TSParserError(parser); goto done; }
+#define LEX_ERROR(count, inputs) \
+{ \
+    static const char *expected_inputs[] = inputs; \
+    TSParserLexError(parser, count, expected_inputs); \
+    goto done; \
+}
+    
+#define EXPECT(...) __VA_ARGS__
 
 #define FINISH_PARSER() \
 done: \
-return parser->tree;
+return TSParserResult(parser);
 
 #define FINISH_LEXER() \
 done:
     
+#define LEX_PANIC() \
+printf("Lex error: unexpected state %ud", LEX_STATE());
+
+#define PARSE_PANIC() \
+printf("Parse error: unexpected state %ud", PARSE_STATE());
+
 #ifdef __cplusplus
 }
 #endif

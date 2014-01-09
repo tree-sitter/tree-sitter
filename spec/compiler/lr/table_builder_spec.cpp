@@ -5,8 +5,8 @@
 using namespace tree_sitter::lr;
 using namespace tree_sitter::rules;
 
-typedef std::unordered_set<ParseAction> parse_actions;
-typedef std::unordered_set<LexAction> lex_actions;
+typedef unordered_set<ParseAction> parse_actions;
+typedef unordered_set<LexAction> lex_actions;
 
 START_TEST
 
@@ -15,27 +15,25 @@ describe("building parse and lex tables", []() {
         { "expression", choice({
             seq({
                 sym("term"),
-                sym("plus-token"),
+                sym("plus"),
                 sym("term") }),
             sym("term") }) },
         { "term", choice({
             sym("variable"),
             sym("number"),
             seq({
-                sym("left-paren-token"),
+                sym("left-paren"),
                 sym("expression"),
-                sym("right-paren-token")
-            }) }) },
-        { "variable", sym("variable-token") },
-        { "number", sym("number-token") }
+                sym("right-paren")
+            }) }) }
     });
     
     Grammar lex_grammar({
-        { "plus-token", character('+') },
-        { "variable-token", pattern("\\w+") },
-        { "number-token", pattern("\\d+") },
-        { "left-paren-token", character('(') },
-        { "right-paren-token", character(')') }
+        { "plus", str("+") },
+        { "variable", pattern("\\w+") },
+        { "number", pattern("\\d+") },
+        { "left-paren", str("(") },
+        { "right-paren", str(")") }
     });
 
     pair<ParseTable, LexTable> tables = build_tables(grammar, lex_grammar);
@@ -58,15 +56,21 @@ describe("building parse and lex tables", []() {
             { "number", parse_actions({ ParseAction::Shift(5) }) },
             { "variable", parse_actions({ ParseAction::Shift(5) }) },
 
-            { "left-paren-token", parse_actions({ ParseAction::Shift(6) }) },
-            { "variable-token", parse_actions({ ParseAction::Shift(9) }) },
-            { "number-token", parse_actions({ ParseAction::Shift(10) }) },
+            { "left-paren", parse_actions({ ParseAction::Shift(6) }) },
+            { "variable", parse_actions({ ParseAction::Shift(9) }) },
+            { "number", parse_actions({ ParseAction::Shift(10) }) },
         })));
         
         AssertThat(lex_state(0).actions, Equals(unordered_map<CharMatch, lex_actions>({
             { CharMatchSpecific('('), lex_actions({ LexAction::Advance(1) }) },
             { CharMatchClass(CharClassDigit), lex_actions({ LexAction::Advance(2) }) },
             { CharMatchClass(CharClassWord), lex_actions({ LexAction::Advance(3) }) },
+        })));
+
+        AssertThat(lex_state(0).expected_inputs(), Equals(unordered_set<CharMatch>({
+            CharMatchSpecific('('),
+            CharMatchClass(CharClassDigit),
+            CharMatchClass(CharClassWord),
         })));
     });
     
@@ -78,7 +82,7 @@ describe("building parse and lex tables", []() {
     
     it("has the right next states", [&]() {
         AssertThat(parse_state(2).actions, Equals(unordered_map<string, parse_actions>({
-            { "plus-token", parse_actions({ ParseAction::Shift(3) }) },
+            { "plus", parse_actions({ ParseAction::Shift(3) }) },
         })));
     });
 });

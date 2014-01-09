@@ -50,6 +50,7 @@ namespace tree_sitter {
         public:
             std::unordered_map<CharMatch, std::unordered_set<LexAction>> actions;
             std::unordered_set<LexAction> default_actions;
+            std::unordered_set<CharMatch> expected_inputs() const;
         };
         
         class LexTable {

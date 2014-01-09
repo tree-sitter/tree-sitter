@@ -45,6 +45,14 @@ namespace tree_sitter {
             }
         }
         
+        // State
+        unordered_set<CharMatch> LexState::expected_inputs() const {
+            unordered_set<CharMatch> result;
+            for (auto pair : actions)
+                result.insert(pair.first);
+            return result;
+        }
+        
         // Table
         size_t LexTable::add_state() {
             states.push_back(LexState());

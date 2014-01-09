@@ -1,5 +1,6 @@
 #include "parser.h"
 #include <stdio.h>
+#include <string.h>
 
 static int INITIAL_STACK_SIZE = 100;
 
@@ -12,6 +13,7 @@ TSParser TSParserMake(const char *input) {
     TSParser result = {
         .tree = NULL,
         .input = input,
+        .error_message = NULL,
         .position = 0,
         .lookahead_node = NULL,
         .lex_state = 0,
@@ -41,8 +43,30 @@ void TSParserReduce(TSParser *parser, TSSymbol symbol, int child_count) {
     parser->lookahead_node = TSTreeMake(symbol, child_count, children);
 }
 
-void TSParserError(TSParser *parser) {
-    
+void TSParserError(TSParser *parser, size_t count, const char **expected_inputs) {
+    char *message = malloc(100 * sizeof(char));
+    char *spot = message;
+    sprintf(message, "Unexpected token '%ld'. Expected: ", TSParserLookaheadSym(parser));
+    spot += strlen(message);
+    for (int i = 0; i < count; i++) {
+        spot += 2;
+        sprintf(spot, "%s", expected_inputs[i]);
+        spot += strlen(expected_inputs[i]);
+    }
+    parser->error_message = message;
+}
+
+void TSParserLexError(TSParser *parser, size_t count, const char **expected_inputs) {
+    char *message = malloc(100 * sizeof(char));
+    char *spot = message;
+    sprintf(message, "Unexpected character '%c'. Expected: ", parser->input[parser->position]);
+    spot += 30;
+    for (int i = 0; i < count; i++) {
+        spot += 2;
+        sprintf(spot, "%s", expected_inputs[i]);
+        spot += strlen(expected_inputs[i]);
+    }
+    parser->error_message = message;
 }
 
 void TSParserAdvance(TSParser *parser, TSState lex_state) {
@@ -79,3 +103,10 @@ void TSParserAcceptInput(TSParser *parser) {
     parser->tree = parser->stack[parser->stack_size - 1].node;
 }
 
+TSParseResult TSParserResult(TSParser *parser) {
+    TSParseResult result = {
+        .tree = parser->tree,
+        .error = { .position = parser->position, .message = parser->error_message }
+    };
+    return result;
+}

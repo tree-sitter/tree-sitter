@@ -1,9 +1,10 @@
 #include "document.h"
 
 struct TSDocument {
-    TSDocumentParseFn *parse_fn;
+    TSParseFn *parse_fn;
     const char **symbol_names;
     const char *text;
+    const char *error_message;
     TSTree *tree;
 };
 
@@ -12,22 +13,26 @@ TSDocument * TSDocumentMake() {
     return result;
 }
 
-void TSDocumentSetUp(TSDocument *document, TSDocumentParseFn fn, const char **symbol_names) {
-    document->parse_fn = fn;
-    document->symbol_names = symbol_names;
+void TSDocumentSetUp(TSDocument *document, TSParseConfig config) {
+    document->parse_fn = config.parse_fn;
+    document->symbol_names = config.symbol_names;
 }
 
 void TSDocumentSetText(TSDocument *document, const char *text) {
     document->text = text;
-    document->tree = document->parse_fn(document->text);
+    TSParseResult result = document->parse_fn(text);
+    document->tree = result.tree;
+    document->error_message = result.error.message;
 }
 
 TSTree * TSDocumentTree(const TSDocument *document) {
     return document->tree;
 }
 
-char * TSDocumentToString(const TSDocument *document) {
-    if (document->tree)
+const char * TSDocumentToString(const TSDocument *document) {
+    if (document->error_message) {
+        return document->error_message;
+    } else if (document->tree)
         return TSTreeToString(document->tree, document->symbol_names);
     else
         return "#<null tree>";

@@ -22,7 +22,7 @@ namespace tree_sitter {
                 pos += replace.length();
             }
         }
-
+        
         string join(vector<string> lines, string separator) {
             string result;
             bool started = false;
@@ -105,10 +105,10 @@ namespace tree_sitter {
                 }
             }
             
-            string code_for_parse_actions(const unordered_set<ParseAction> &actions) {
+            string code_for_parse_actions(const unordered_set<ParseAction> &actions, const unordered_set<string> &expected_inputs) {
                 auto action = actions.begin();
                 if (action == actions.end()) {
-                    return "PARSE_ERROR();";
+                    return parse_error_call(expected_inputs);
                 } else {
                     switch (action->type) {
                         case ParseActionTypeAccept:
@@ -122,11 +122,35 @@ namespace tree_sitter {
                     }
                 }
             }
+            
+            string parse_error_call(const unordered_set<string> &expected_inputs) {
+                string result = "PARSE_ERROR(" + to_string(expected_inputs.size()) + ", EXPECT({";
+                bool started = false;
+                for (auto symbol_name : expected_inputs) {
+                    if (started) result += ", ";
+                    started = true;
+                    result += "\"" + symbol_name + "\"";
+                }
+                result += "}));";
+                return result;
+            }
+            
+            string lex_error_call(const unordered_set<CharMatch> &expected_inputs) {
+                string result = "LEX_ERROR(" + to_string(expected_inputs.size()) + ", EXPECT({";
+                bool started = false;
+                for (auto match : expected_inputs) {
+                    if (started) result += ", ";
+                    started = true;
+                    result += "\"" + CharMatchToString(match) + "\"";
+                }
+                result += "}));";
+                return result;
+            }
 
-            string code_for_lex_actions(const unordered_set<LexAction> &actions) {
+            string code_for_lex_actions(const unordered_set<LexAction> &actions, const unordered_set<CharMatch> &expected_inputs) {
                 auto action = actions.begin();
                 if (action == actions.end()) {
-                    return "LEX_ERROR();";
+                    return lex_error_call(expected_inputs);
                 } else {
                     switch (action->type) {
                         case LexActionTypeAdvance:
@@ -142,8 +166,8 @@ namespace tree_sitter {
             string code_for_parse_state(const ParseState &parse_state) {
                 string body = "";
                 for (auto pair : parse_state.actions)
-                    body += _case(symbol_id(pair.first), code_for_parse_actions(pair.second));
-                body += _default(code_for_parse_actions(parse_state.default_actions));
+                    body += _case(symbol_id(pair.first), code_for_parse_actions(pair.second, parse_state.expected_inputs()));
+                body += _default(code_for_parse_actions(parse_state.default_actions, parse_state.expected_inputs()));
                 return
                     string("SET_LEX_STATE(") + to_string(parse_state.lex_state_index) + ");\n" +
                     _switch("LOOKAHEAD_SYM()", body);
@@ -151,9 +175,10 @@ namespace tree_sitter {
 
             string switch_on_lookahead_char(const LexState &parse_state) {
                 string result = "";
+                auto expected_inputs = parse_state.expected_inputs();
                 for (auto pair : parse_state.actions)
-                    result += _if(condition_for_char_match(pair.first), code_for_lex_actions(pair.second));
-                result += code_for_lex_actions(parse_state.default_actions);
+                    result += _if(condition_for_char_match(pair.first), code_for_lex_actions(pair.second, expected_inputs));
+                result += code_for_lex_actions(parse_state.default_actions, expected_inputs);
                 return result;
             }
 
@@ -161,7 +186,7 @@ namespace tree_sitter {
                 string body = "";
                 for (int i = 0; i < parse_table.states.size(); i++)
                     body += _case(std::to_string(i), code_for_parse_state(parse_table.states[i]));
-                body += _default("PARSE_ERROR();");
+                body += _default("PARSE_PANIC();");
                 return _switch("PARSE_STATE()", body);
             }
 
@@ -169,7 +194,7 @@ namespace tree_sitter {
                 string body = "";
                 for (int i = 0; i < lex_table.states.size(); i++)
                     body += _case(std::to_string(i), switch_on_lookahead_char(lex_table.states[i]));
-                body += _default("LEX_ERROR();");
+                body += _default("LEX_PANIC();");
                 return _switch("LEX_STATE()", body);
             }
             
@@ -192,21 +217,10 @@ namespace tree_sitter {
             string includes() {
                 return join({
                     "#include \"parser.h\"",
-                    "#include \"document.h\"",
                     "#include <ctype.h>"
                 });
             }
             
-            string parse_function() {
-                return join({
-                    "static TSTree * ts_parse(const char *input) {",
-                    indent("START_PARSER();"),
-                    indent(switch_on_parse_state()),
-                    indent("FINISH_PARSER();"),
-                    "}"
-                });
-            }
-
             string lex_function() {
                 return join({
                     "static void ts_lex(TSParser *parser) {",
@@ -217,11 +231,22 @@ namespace tree_sitter {
                 });
             }
             
-            string setup_function() {
+            string parse_function() {
                 return join({
-                    "void TSDocumentSetUp_arithmetic(TSDocument *document) {",
-                    indent("TSDocumentSetUp(document, ts_parse, ts_symbol_names);"),
+                    "static TSParseResult ts_parse(const char *input) {",
+                    indent("START_PARSER();"),
+                    indent(switch_on_parse_state()),
+                    indent("FINISH_PARSER();"),
                     "}"
+                });
+            }
+            
+            string parse_config_struct() {
+                return join({
+                    "TSParseConfig ts_parse_config_arithmetic = {",
+                    indent(".parse_fn = ts_parse,"),
+                    indent(".symbol_names = ts_symbol_names"),
+                    "};"
                 });
             }
             
@@ -232,7 +257,7 @@ namespace tree_sitter {
                     rule_names_list(),
                     lex_function(),
                     parse_function(),
-                    setup_function(),
+                    parse_config_struct(),
                 }, "\n\n") + "\n";
             }
         };

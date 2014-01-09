@@ -1,5 +1,4 @@
 #include "parser.h"
-#include "document.h"
 #include <ctype.h>
 
 enum ts_symbol {
@@ -38,7 +37,7 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(2);
             if (LOOKAHEAD_CHAR() == '(')
                 ADVANCE(1);
-            LEX_ERROR();
+            LEX_ERROR(3, EXPECT({"'('", "<digit>", "<word>"}));
         case 1:
             ACCEPT_TOKEN(ts_symbol_1);
         case 2:
@@ -50,32 +49,32 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(3);
             ACCEPT_TOKEN(ts_symbol_variable);
         case 4:
-            LEX_ERROR();
+            LEX_ERROR(0, EXPECT({}));
         case 5:
             if (LOOKAHEAD_CHAR() == '+')
                 ADVANCE(6);
-            LEX_ERROR();
+            LEX_ERROR(1, EXPECT({"'+'"}));
         case 6:
             ACCEPT_TOKEN(ts_symbol_4);
         case 7:
             if (LOOKAHEAD_CHAR() == '*')
                 ADVANCE(8);
-            LEX_ERROR();
+            LEX_ERROR(1, EXPECT({"'*'"}));
         case 8:
             ACCEPT_TOKEN(ts_symbol_3);
         case 9:
             if (LOOKAHEAD_CHAR() == ')')
                 ADVANCE(10);
-            LEX_ERROR();
+            LEX_ERROR(1, EXPECT({"')'"}));
         case 10:
             ACCEPT_TOKEN(ts_symbol_2);
         default:
-            LEX_ERROR();
+            LEX_PANIC();
     }
     FINISH_LEXER();
 }
 
-static TSTree * ts_parse(const char *input) {
+static TSParseResult ts_parse(const char *input) {
     START_PARSER();
     switch (PARSE_STATE()) {
         case 0:
@@ -94,7 +93,7 @@ static TSTree * ts_parse(const char *input) {
                 case ts_symbol_expression:
                     SHIFT(1);
                 default:
-                    PARSE_ERROR();
+                    PARSE_ERROR(6, EXPECT({"expression", "term", "1", "number", "factor", "variable"}));
             }
         case 1:
             SET_LEX_STATE(4);
@@ -102,7 +101,7 @@ static TSTree * ts_parse(const char *input) {
                 case ts_symbol___END__:
                     ACCEPT_INPUT();
                 default:
-                    PARSE_ERROR();
+                    PARSE_ERROR(1, EXPECT({"__END__"}));
             }
         case 2:
             SET_LEX_STATE(5);
@@ -126,7 +125,7 @@ static TSTree * ts_parse(const char *input) {
                 case ts_symbol_term:
                     SHIFT(4);
                 default:
-                    PARSE_ERROR();
+                    PARSE_ERROR(5, EXPECT({"term", "number", "1", "factor", "variable"}));
             }
         case 4:
             SET_LEX_STATE(4);
@@ -154,7 +153,7 @@ static TSTree * ts_parse(const char *input) {
                 case ts_symbol_factor:
                     SHIFT(7);
                 default:
-                    PARSE_ERROR();
+                    PARSE_ERROR(4, EXPECT({"factor", "variable", "number", "1"}));
             }
         case 7:
             SET_LEX_STATE(4);
@@ -184,7 +183,7 @@ static TSTree * ts_parse(const char *input) {
                 case ts_symbol_expression:
                     SHIFT(10);
                 default:
-                    PARSE_ERROR();
+                    PARSE_ERROR(6, EXPECT({"expression", "term", "1", "number", "factor", "variable"}));
             }
         case 10:
             SET_LEX_STATE(9);
@@ -192,7 +191,7 @@ static TSTree * ts_parse(const char *input) {
                 case ts_symbol_2:
                     SHIFT(11);
                 default:
-                    PARSE_ERROR();
+                    PARSE_ERROR(1, EXPECT({"2"}));
             }
         case 11:
             SET_LEX_STATE(4);
@@ -201,11 +200,12 @@ static TSTree * ts_parse(const char *input) {
                     REDUCE(ts_symbol_factor, 3);
             }
         default:
-            PARSE_ERROR();
+            PARSE_PANIC();
     }
     FINISH_PARSER();
 }
 
-void TSDocumentSetUp_arithmetic(TSDocument *document) {
-    TSDocumentSetUp(document, ts_parse, ts_symbol_names);
-}
+TSParseConfig ts_parse_config_arithmetic = {
+    .parse_fn = ts_parse,
+    .symbol_names = ts_symbol_names
+};

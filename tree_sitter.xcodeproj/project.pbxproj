@@ -139,6 +139,7 @@
 		12EDCF89187B498C005A7A07 /* tree_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = tree_spec.cpp; sourceTree = "<group>"; };
 		12EDCF8B187C6251005A7A07 /* document.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = document.h; sourceTree = "<group>"; };
 		12EDCF8C187C6282005A7A07 /* document.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = document.c; sourceTree = "<group>"; };
+		12EDCF8E187DB33E005A7A07 /* parse_config.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = parse_config.h; sourceTree = "<group>"; };
 		12F9A64C182DD5FD00FAF50C /* spec_helper.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = spec_helper.cpp; path = spec/compiler/spec_helper.cpp; sourceTree = SOURCE_ROOT; };
 		12F9A64D182DD5FD00FAF50C /* spec_helper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = spec_helper.h; path = spec/compiler/spec_helper.h; sourceTree = SOURCE_ROOT; };
 		12F9A64F182DD6BC00FAF50C /* grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = grammar.cpp; path = src/compiler/grammar/grammar.cpp; sourceTree = SOURCE_ROOT; };
@@ -401,6 +402,7 @@
 				12FD40D4185FED9A0041A84E /* tree.h */,
 				121D8B3018795CC0003CF44B /* parser.h */,
 				12EDCF8B187C6251005A7A07 /* document.h */,
+				12EDCF8E187DB33E005A7A07 /* parse_config.h */,
 			);
 			path = include;
 			sourceTree = "<group>";
