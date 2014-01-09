@@ -55,7 +55,7 @@
 		12FD40D8185FEEDF0041A84E /* rules_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 121492EA181E200B008E9BDA /* rules_spec.cpp */; };
 		12FD40D9185FEEDF0041A84E /* pattern_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12D136A0183570F5005F3369 /* pattern_spec.cpp */; };
 		12FD40DB185FEF0D0041A84E /* arithmetic_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12FD40DA185FEF0D0041A84E /* arithmetic_spec.cpp */; };
-		12FD40DD185FF12C0041A84E /* parser.c in Sources */ = {isa = PBXBuildFile; fileRef = 12FD40DC185FF12C0041A84E /* parser.c */; };
+		12FD40DD185FF12C0041A84E /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12FD40DC185FF12C0041A84E /* parser.cpp */; };
 		12FD40DF1860064C0041A84E /* tree.c in Sources */ = {isa = PBXBuildFile; fileRef = 12FD40DE1860064C0041A84E /* tree.c */; };
 		12FD40E2186245FE0041A84E /* transitions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12FD40E0186245FE0041A84E /* transitions.cpp */; };
 		12FD40E718639B910041A84E /* visitor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12FD40E618639B910041A84E /* visitor.cpp */; };
@@ -151,7 +151,7 @@
 		12FD40D1185EEB5E0041A84E /* runtime_specs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = runtime_specs; sourceTree = BUILT_PRODUCTS_DIR; };
 		12FD40D4185FED9A0041A84E /* tree.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tree.h; sourceTree = "<group>"; };
 		12FD40DA185FEF0D0041A84E /* arithmetic_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = arithmetic_spec.cpp; sourceTree = "<group>"; };
-		12FD40DC185FF12C0041A84E /* parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parser.c; sourceTree = "<group>"; };
+		12FD40DC185FF12C0041A84E /* parser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = parser.cpp; sourceTree = "<group>"; };
 		12FD40DE1860064C0041A84E /* tree.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tree.c; sourceTree = "<group>"; };
 		12FD40E0186245FE0041A84E /* transitions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = transitions.cpp; sourceTree = "<group>"; };
 		12FD40E1186245FE0041A84E /* transitions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = transitions.h; sourceTree = "<group>"; };
@@ -358,7 +358,7 @@
 		12FD40AD185EE5440041A84E /* runtime */ = {
 			isa = PBXGroup;
 			children = (
-				12FD40DC185FF12C0041A84E /* parser.c */,
+				12FD40DC185FF12C0041A84E /* parser.cpp */,
 				12FD40DE1860064C0041A84E /* tree.c */,
 				12EDCF8C187C6282005A7A07 /* document.c */,
 			);
@@ -528,7 +528,7 @@
 				12FD40B3185EEB5E0041A84E /* seq.cpp in Sources */,
 				12FD40B4185EEB5E0041A84E /* table_builder.cpp in Sources */,
 				12FD40B6185EEB5E0041A84E /* arithmetic.cpp in Sources */,
-				12FD40DD185FF12C0041A84E /* parser.c in Sources */,
+				12FD40DD185FF12C0041A84E /* parser.cpp in Sources */,
 				12FD40B8185EEB5E0041A84E /* item.cpp in Sources */,
 				12EDCF8A187B498C005A7A07 /* tree_spec.cpp in Sources */,
 				12EDCF8D187C6282005A7A07 /* document.c in Sources */,

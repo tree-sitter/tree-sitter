@@ -6,11 +6,21 @@ extern TSParseConfig ts_parse_config_arithmetic;
 START_TEST
 
 describe("arithmetic", []() {
-    it("parses_numbers", [&]() {
-        TSDocument *document = TSDocumentMake();
+    TSDocument *document;
+    
+    before_each([&]() {
+        document = TSDocumentMake();
         TSDocumentSetUp(document, ts_parse_config_arithmetic);
-        TSDocumentSetText(document, "w");
-        printf("%s", TSDocumentToString(document));
+    });
+    
+    it("parses variables", [&]() {
+        TSDocumentSetText(document, "x");
+        AssertThat(string(TSDocumentToString(document)), Equals("(expression (term (factor (variable))))"));
+    });
+
+    it("parses products of variables", [&]() {
+        TSDocumentSetText(document, "x*y");
+        AssertThat(string(TSDocumentToString(document)), Equals("(expression (term (factor (number)) (factor (number)))"));
     });
 });
 

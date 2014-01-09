@@ -14,7 +14,7 @@ typedef struct TSStackEntry TSStackEntry;
 typedef struct TSParser {
     TSTree *tree;
     const char *input;
-    char *error_message;
+    const char *error_message;
     size_t position;
     TSTree *lookahead_node;
     TSState lex_state;
@@ -47,7 +47,7 @@ next_state:
 ts_symbol_names[LOOKAHEAD_SYM()]
 
 #define START_LEXER() \
-if (LOOKAHEAD_SYM() > 0) return; \
+if (LOOKAHEAD_SYM() >= 0) return; \
 if (LOOKAHEAD_CHAR() == '\0') { ACCEPT_TOKEN(ts_symbol___END__); } \
 next_state:
 

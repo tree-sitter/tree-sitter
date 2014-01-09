@@ -1,6 +1,26 @@
 #include "parser.h"
 #include <stdio.h>
-#include <string.h>
+#include <string>
+
+using std::string;
+using std::to_string;
+
+#define TS_DEBUG_PARSE
+#define TS_DEBUG_LEX
+
+#ifdef TS_DEBUG_LEX
+#define DEBUG_LEX(...) \
+fprintf(stderr, __VA_ARGS__)
+#else
+#define DEBUG_LEX(...)
+#endif
+
+#ifdef TS_DEBUG_PARSE
+#define DEBUG_PARSE(...) \
+fprintf(stderr, __VA_ARGS__)
+#else
+#define DEBUG_PARSE(...)
+#endif
 
 static int INITIAL_STACK_SIZE = 100;
 
@@ -17,13 +37,14 @@ TSParser TSParserMake(const char *input) {
         .position = 0,
         .lookahead_node = NULL,
         .lex_state = 0,
-        .stack = calloc(INITIAL_STACK_SIZE, sizeof(TSStackEntry)),
+        .stack = (TSStackEntry *)calloc(INITIAL_STACK_SIZE, sizeof(TSStackEntry)),
         .stack_size = 0,
     };
     return result;
 }
 
 void TSParserShift(TSParser *parser, TSState parse_state) {
+    DEBUG_PARSE("shift %d \n", parse_state);
     TSStackEntry *entry = (parser->stack + parser->stack_size);
     entry->state = parse_state;
     entry->node = parser->lookahead_node;
@@ -34,42 +55,37 @@ void TSParserShift(TSParser *parser, TSState parse_state) {
 void TSParserReduce(TSParser *parser, TSSymbol symbol, int child_count) {
     parser->stack_size -= child_count;
 
-    TSTree **children = malloc(child_count * sizeof(TSTree *));
+    TSTree **children = (TSTree **)malloc(child_count * sizeof(TSTree *));
     for (int i = 0; i < child_count; i++) {
-        size_t j = parser->stack_size + i;
-        children[i] = parser->stack[j].node;
+        children[i] = parser->stack[parser->stack_size + i].node;
     }
     
     parser->lookahead_node = TSTreeMake(symbol, child_count, children);
+    DEBUG_PARSE("reduce: %ld, state: %u \n", symbol, TSParserParseState(parser));
 }
 
 void TSParserError(TSParser *parser, size_t count, const char **expected_inputs) {
-    char *message = malloc(100 * sizeof(char));
-    char *spot = message;
-    sprintf(message, "Unexpected token '%ld'. Expected: ", TSParserLookaheadSym(parser));
-    spot += strlen(message);
-    for (int i = 0; i < count; i++) {
-        spot += 2;
-        sprintf(spot, "%s", expected_inputs[i]);
-        spot += strlen(expected_inputs[i]);
-    }
-    parser->error_message = message;
+    string result = "Unexpected token " + to_string(TSParserLookaheadSym(parser)) + ". ";
+    result += "Expected tokens:";
+    for (int i = 0; i < count; i++)
+        result += string(" '") + expected_inputs[i] + "'";
+    char *stuff = (char *)malloc(result.size() * sizeof(char));
+    strcpy(stuff, result.c_str());
+    parser->error_message = stuff;
 }
 
 void TSParserLexError(TSParser *parser, size_t count, const char **expected_inputs) {
-    char *message = malloc(100 * sizeof(char));
-    char *spot = message;
-    sprintf(message, "Unexpected character '%c'. Expected: ", parser->input[parser->position]);
-    spot += 30;
-    for (int i = 0; i < count; i++) {
-        spot += 2;
-        sprintf(spot, "%s", expected_inputs[i]);
-        spot += strlen(expected_inputs[i]);
-    }
-    parser->error_message = message;
+    string result = string("Unexpected character '") + TSParserLookaheadChar(parser) + "'. ";
+    result += "Expected characters:";
+    for (int i = 0; i < count; i++)
+        result += string(" ") + expected_inputs[i] + "";
+    char *stuff = (char *)malloc(result.size() * sizeof(char));
+    strcpy(stuff, result.c_str());
+    parser->error_message = stuff;
 }
 
 void TSParserAdvance(TSParser *parser, TSState lex_state) {
+    DEBUG_LEX("character: '%c' \n", TSParserLookaheadChar(parser));
     parser->position++;
     parser->lex_state = lex_state;
 }
@@ -84,6 +100,7 @@ long TSParserLookaheadSym(const TSParser *parser) {
 }
 
 void TSParserSetLookaheadSym(TSParser *parser, TSSymbol symbol) {
+    DEBUG_LEX("token: %ld \n", symbol);
     parser->lookahead_node = TSTreeMake(symbol, 0, NULL);
 }
 
