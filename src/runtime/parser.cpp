@@ -9,15 +9,13 @@ using std::to_string;
 #define TS_DEBUG_LEX
 
 #ifdef TS_DEBUG_LEX
-#define DEBUG_LEX(...) \
-fprintf(stderr, __VA_ARGS__)
+#define DEBUG_LEX(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define DEBUG_LEX(...)
 #endif
 
 #ifdef TS_DEBUG_PARSE
-#define DEBUG_PARSE(...) \
-fprintf(stderr, __VA_ARGS__)
+#define DEBUG_PARSE(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define DEBUG_PARSE(...)
 #endif

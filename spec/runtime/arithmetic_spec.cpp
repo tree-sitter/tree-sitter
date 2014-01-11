@@ -20,7 +20,7 @@ describe("arithmetic", []() {
 
     it("parses products of variables", [&]() {
         TSDocumentSetText(document, "x*y");
-        AssertThat(string(TSDocumentToString(document)), Equals("(expression (term (factor (number)) (factor (number)))"));
+        AssertThat(string(TSDocumentToString(document)), Equals("(expression (term (factor (variable)) (3) (factor (variable))))"));
     });
 });
 
