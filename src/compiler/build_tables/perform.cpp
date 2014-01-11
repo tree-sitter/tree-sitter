@@ -1,5 +1,5 @@
-#include "table_builder.h"
-#include "item_set.h"
+#include "./perform.h"
+#include "./item_set.h"
 #include "rules.h"
 #include "grammar.h"
 
@@ -7,7 +7,7 @@ using std::pair;
 using std::vector;
 
 namespace tree_sitter {
-    namespace lr {
+    namespace build_tables {
         static int NOT_FOUND = -1;
 
         class TableBuilder {
@@ -113,7 +113,7 @@ namespace tree_sitter {
             }
         };
         
-        pair<ParseTable, LexTable> build_tables(const Grammar &grammar, const Grammar &lex_grammar) {
+        pair<ParseTable, LexTable> perform(const Grammar &grammar, const Grammar &lex_grammar) {
             return TableBuilder(grammar, lex_grammar).build();
         }
     }

@@ -1,10 +1,10 @@
-#include "transitions.h"
+#include "rule_transitions.h"
 #include "rules.h"
 
 using namespace tree_sitter::rules;
 
 namespace tree_sitter {
-    namespace lr {
+    namespace build_tables {
         class TransitionsVisitor : public rules::Visitor {
         public:
             transition_map<Rule, Rule> value;
@@ -22,14 +22,14 @@ namespace tree_sitter {
             }
 
             void visit(const Choice *rule) {
-                value = transitions(rule->left);
-                value.merge(transitions(rule->right), [&](rule_ptr left, rule_ptr right) -> rule_ptr {
+                value = rule_transitions(rule->left);
+                value.merge(rule_transitions(rule->right), [&](rule_ptr left, rule_ptr right) -> rule_ptr {
                     return choice({ left, right });
                 });
             }
 
             void visit(const Seq *rule) {
-                value = transitions(rule->left).map<Rule>([&](const rule_ptr left_rule) -> rule_ptr {
+                value = rule_transitions(rule->left).map<Rule>([&](const rule_ptr left_rule) -> rule_ptr {
                     if (typeid(*left_rule) == typeid(Blank))
                         return rule->right;
                     else
@@ -38,7 +38,7 @@ namespace tree_sitter {
             }
             
             void visit(const Repeat *rule) {
-                value = transitions(rule->content).map<Rule>([&](const rule_ptr &value) -> rule_ptr {
+                value = rule_transitions(rule->content).map<Rule>([&](const rule_ptr &value) -> rule_ptr {
                     return seq({ value, choice({ rule->copy(), blank() }) });
                 });
             }
@@ -47,15 +47,15 @@ namespace tree_sitter {
                 rule_ptr result = character(rule->value[0]);
                 for (int i = 1; i < rule->value.length(); i++)
                     result = seq({ result, character(rule->value[i]) });
-                value = transitions(result);
+                value = rule_transitions(result);
             }
             
             void visit(const Pattern *rule) {
-                value = transitions(rule->to_rule_tree());
+                value = rule_transitions(rule->to_rule_tree());
             }
         };
         
-        transition_map<Rule, Rule> transitions(const rule_ptr &rule) {
+        transition_map<Rule, Rule> rule_transitions(const rule_ptr &rule) {
             TransitionsVisitor visitor;
             rule->accept(visitor);
             return visitor.value;

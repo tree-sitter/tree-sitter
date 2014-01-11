@@ -7,8 +7,8 @@
 namespace tree_sitter {
     class Grammar;
     
-    namespace lr {
-        std::pair<ParseTable, LexTable> build_tables(const Grammar &grammar, const Grammar &lex_grammar);
+    namespace build_tables {
+        std::pair<ParseTable, LexTable> perform(const Grammar &grammar, const Grammar &lex_grammar);
     }
 }
 

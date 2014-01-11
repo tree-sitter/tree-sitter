@@ -1,6 +1,5 @@
 #include "spec_helper.h"
 #include "rules.h"
-#include "transition_map.h"
 
 using namespace tree_sitter::rules;
 

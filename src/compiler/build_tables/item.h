@@ -9,7 +9,7 @@
 namespace tree_sitter {
     class Grammar;
     
-    namespace lr {
+    namespace build_tables {
         class Item;
         typedef std::shared_ptr<const Item> item_ptr;
 
@@ -37,8 +37,8 @@ namespace tree_sitter {
 
 namespace std {
     template<>
-    struct hash<tree_sitter::lr::Item> {
-        size_t operator()(const tree_sitter::lr::Item &item) {
+    struct hash<tree_sitter::build_tables::Item> {
+        size_t operator()(const tree_sitter::build_tables::Item &item) {
             return
                 hash<std::string>()(item.rule_name) ^
                 hash<tree_sitter::rules::Rule>()(*item.rule) ^

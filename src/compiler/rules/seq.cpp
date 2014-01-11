@@ -1,5 +1,4 @@
 #include "rules.h"
-#include "transition_map.h"
 
 using std::string;
 

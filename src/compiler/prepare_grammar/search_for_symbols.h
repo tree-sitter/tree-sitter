@@ -4,7 +4,9 @@
 #include "rules.h"
 
 namespace tree_sitter {
-    bool search_for_symbols(const rules::rule_ptr &);
+    namespace prepare_grammar {
+        bool search_for_symbols(const rules::rule_ptr &);
+    }
 }
 
 #endif

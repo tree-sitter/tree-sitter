@@ -1,5 +1,7 @@
 #include "spec_helper.h"
-#include "transitions.h"
+#include "rule_transitions.h"
+
+using build_tables::rule_transitions;
 
 START_TEST
 
@@ -12,7 +14,7 @@ describe("rule transitions", []() {
     
     it("handles symbols", [&]() {
         AssertThat(
-            lr::transitions(symbol1),
+            rule_transitions(symbol1),
             Equals(transition_map<rules::Rule, rules::Rule>({
                 { symbol1, rules::blank() }
             })));
@@ -20,7 +22,7 @@ describe("rule transitions", []() {
     
     it("handles characters", [&]() {
         AssertThat(
-            lr::transitions(char1),
+            rule_transitions(char1),
             Equals(transition_map<rules::Rule, rules::Rule>({
                 { char1, rules::blank() }
             })));
@@ -29,7 +31,7 @@ describe("rule transitions", []() {
     it("handles character classes", [&]() {
         auto rule = rules::character(CharClassDigit);
         AssertThat(
-            lr::transitions(rule),
+            rule_transitions(rule),
             Equals(transition_map<rules::Rule, rules::Rule>({
                 { rule, rules::blank() }
             })));
@@ -37,7 +39,7 @@ describe("rule transitions", []() {
     
     it("handles choices", [&]() {
         AssertThat(
-            lr::transitions(rules::choice({ symbol1, symbol2 })),
+            rule_transitions(rules::choice({ symbol1, symbol2 })),
             Equals(transition_map<rules::Rule, rules::Rule>({
                 { symbol1, rules::blank() },
                 { symbol2, rules::blank() }
@@ -46,7 +48,7 @@ describe("rule transitions", []() {
     
     it("handles sequences", [&]() {
         AssertThat(
-            lr::transitions(rules::seq({ symbol1, symbol2 })),
+            rule_transitions(rules::seq({ symbol1, symbol2 })),
             Equals(transition_map<rules::Rule, rules::Rule>({
                 { symbol1, symbol2 }
             })));
@@ -54,7 +56,7 @@ describe("rule transitions", []() {
     
     it("handles_long_sequences", [&]() {
         AssertThat(
-            lr::transitions(rules::seq({
+            rule_transitions(rules::seq({
                 symbol1,
                 symbol2,
                 symbol3,
@@ -67,7 +69,7 @@ describe("rule transitions", []() {
     
     it("handles choices with common starting symbols", [&]() {
         AssertThat(
-            lr::transitions(
+            rule_transitions(
                 rules::choice({
                     rules::seq({ symbol1, symbol2 }),
                     rules::seq({ symbol1, symbol3 }) })),
@@ -78,7 +80,7 @@ describe("rule transitions", []() {
     
     it("handles strings", [&]() {
         AssertThat(
-            lr::transitions(rules::str("bad")),
+            rule_transitions(rules::str("bad")),
             Equals(transition_map<rules::Rule, rules::Rule>({
                 { rules::character('b'), rules::seq({ rules::character('a'), rules::character('d') })
             }
@@ -87,7 +89,7 @@ describe("rule transitions", []() {
     
     it("handles patterns", [&]() {
         AssertThat(
-            lr::transitions(rules::pattern("a|b")),
+            rule_transitions(rules::pattern("a|b")),
             Equals(transition_map<rules::Rule, rules::Rule>({
                 { rules::character('a'), rules::blank() },
                 { rules::character('b'), rules::blank() }
@@ -97,7 +99,7 @@ describe("rule transitions", []() {
     it("handles repeats", [&]() {
         rules::rule_ptr repeat = rules::repeat(rules::str("ab"));
         AssertThat(
-            lr::transitions(repeat),
+            rule_transitions(repeat),
             Equals(transition_map<rules::Rule, rules::Rule>({
             {
                 rules::character('a'),
@@ -112,7 +114,7 @@ describe("rule transitions", []() {
         
         repeat = rules::repeat(rules::str("a"));
         AssertThat(
-            lr::transitions(repeat),
+            rule_transitions(repeat),
             Equals(transition_map<rules::Rule, rules::Rule>({
             {
                 rules::character('a'),

@@ -5,8 +5,8 @@
 #include "transition_map.h"
 
 namespace tree_sitter  {
-    namespace lr {
-        transition_map<rules::Rule, rules::Rule> transitions(const rules::rule_ptr &rule);
+    namespace build_tables {
+        transition_map<rules::Rule, rules::Rule> rule_transitions(const rules::rule_ptr &rule);
     }
 }
 

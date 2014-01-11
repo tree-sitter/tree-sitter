@@ -1,13 +1,14 @@
 #include "spec_helper.h"
-#include "prepare_grammar.h"
+#include "prepare_grammar/perform.h"
 
 START_TEST
 
 using namespace tree_sitter::rules;
+using tree_sitter::prepare_grammar::perform;
 
 describe("preparing a grammar", []() {
     it("extracts character-based subtrees into a separate grammar", [&]() {
-        pair<Grammar, Grammar> result = prepare_grammar(Grammar({
+        pair<Grammar, Grammar> result = perform(Grammar({
             { "rule1", seq({
                 character('a'),
                 character('b'),
@@ -36,7 +37,7 @@ describe("preparing a grammar", []() {
     });
     
     it("turns entire rules into tokens when they contain no symbols", [&]() {
-        auto result = prepare_grammar(Grammar({
+        auto result = perform(Grammar({
             { "rule1", sym("rule2") },
             { "rule2", seq({
                 character('a'),

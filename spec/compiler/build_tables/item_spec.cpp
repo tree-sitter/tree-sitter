@@ -2,7 +2,7 @@
 #include "item.h"
 #include "../../fixtures/grammars/arithmetic.h"
 
-using namespace tree_sitter::lr;
+using namespace tree_sitter::build_tables;
 
 START_TEST
 

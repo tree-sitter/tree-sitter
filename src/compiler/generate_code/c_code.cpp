@@ -8,10 +8,9 @@ using std::to_string;
 using std::unordered_map;
 using std::unordered_set;
 using std::vector;
-using namespace tree_sitter::lr;
 
 namespace tree_sitter {
-    namespace code_gen {
+    namespace generate_code {
         static void str_replace(string &input, const string &search, const string &replace) {
             size_t pos = 0;
             while (1) {

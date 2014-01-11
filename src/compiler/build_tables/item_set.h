@@ -6,7 +6,7 @@
 #include <set>
 
 namespace tree_sitter {
-    namespace lr {
+    namespace build_tables {
         class ItemSet;
         typedef std::shared_ptr<const ItemSet> item_set_ptr;
 
@@ -37,11 +37,11 @@ namespace tree_sitter {
 
 namespace std {
     template<>
-    struct hash<const tree_sitter::lr::ItemSet> {
-        size_t operator()(const tree_sitter::lr::ItemSet &item_set) const {
+    struct hash<const tree_sitter::build_tables::ItemSet> {
+        size_t operator()(const tree_sitter::build_tables::ItemSet &item_set) const {
             size_t result = hash<size_t>()(item_set.size());
             for (auto item : item_set)
-                result ^= hash<tree_sitter::lr::Item>()(item);
+                result ^= hash<tree_sitter::build_tables::Item>()(item);
             return result;
         }
     };

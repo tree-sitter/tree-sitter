@@ -4,7 +4,9 @@
 #include "grammar.h"
 
 namespace tree_sitter {
-    std::pair<Grammar, Grammar> extract_tokens(const Grammar &);
+    namespace prepare_grammar {
+        std::pair<Grammar, Grammar> extract_tokens(const Grammar &);
+    }
 }
 
 #endif

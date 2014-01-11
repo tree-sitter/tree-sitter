@@ -4,7 +4,9 @@
 #include "grammar.h"
 
 namespace tree_sitter {
-    std::pair<Grammar, Grammar> prepare_grammar(const Grammar &);
+    namespace prepare_grammar {
+        std::pair<Grammar, Grammar> perform(const Grammar &);
+    }
 }
 
 #endif

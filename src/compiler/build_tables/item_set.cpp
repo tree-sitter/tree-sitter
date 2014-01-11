@@ -9,11 +9,11 @@ using std::string;
 using std::make_shared;
 
 namespace tree_sitter {
-    namespace lr {
+    namespace build_tables {
         ItemSet::ItemSet(const vector<Item> &items) : contents(items) {}
         ItemSet::ItemSet(const initializer_list<Item> &items) : contents(items) {}
 
-        static bool vector_contains(vector<Item> items, lr::Item item) {
+        static bool vector_contains(vector<Item> items, build_tables::Item item) {
             return (std::find(items.begin(), items.end(), item) != items.end());
         }
         
@@ -66,7 +66,7 @@ namespace tree_sitter {
             return result;
         }
 
-        bool ItemSet::operator==(const tree_sitter::lr::ItemSet &other) const {
+        bool ItemSet::operator==(const tree_sitter::build_tables::ItemSet &other) const {
             return contents == other.contents;
         }
         

@@ -1,5 +1,5 @@
 #include "spec_helper.h"
-#include "transitions.h"
+#include "rule_transitions.h"
 
 START_TEST
 

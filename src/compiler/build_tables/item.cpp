@@ -1,6 +1,6 @@
 #include "item.h"
 #include "grammar.h"
-#include "transitions.h"
+#include "rule_transitions.h"
 
 using std::string;
 using std::vector;
@@ -9,7 +9,7 @@ using std::make_shared;
 using std::ostream;
 
 namespace tree_sitter {
-    namespace lr {
+    namespace build_tables {
         Item::Item(const string &rule_name, const rules::rule_ptr rule, int consumed_sym_count) :
             rule_name(rule_name),
             rule(rule),
@@ -24,7 +24,7 @@ namespace tree_sitter {
         }
 
         transition_map<rules::Rule, Item> Item::transitions() const {
-            return lr::transitions(rule).map<Item>([&](rules::rule_ptr to_rule) -> item_ptr {
+            return rule_transitions(rule).map<Item>([&](rules::rule_ptr to_rule) -> item_ptr {
                 int next_sym_count = (consumed_sym_count == -1) ? -1 : (consumed_sym_count + 1);
                 return make_shared<Item>(rule_name, to_rule, next_sym_count);
             });
@@ -32,7 +32,7 @@ namespace tree_sitter {
         
         vector<rules::Symbol> Item::next_symbols() const {
             vector<rules::Symbol> result;
-            for (auto pair : lr::transitions(rule)) {
+            for (auto pair : rule_transitions(rule)) {
                 auto sym = dynamic_pointer_cast<const rules::Symbol>(pair.first);
                 if (sym) result.push_back(*sym);
             }
