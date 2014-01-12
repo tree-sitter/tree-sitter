@@ -3,8 +3,8 @@
 
 START_TEST
 
-using namespace tree_sitter::rules;
-using tree_sitter::prepare_grammar::perform;
+using prepare_grammar::perform;
+using namespace rules;
 
 describe("preparing a grammar", []() {
     it("extracts character-based subtrees into a separate grammar", [&]() {

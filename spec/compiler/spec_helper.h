@@ -70,7 +70,6 @@ namespace snowhouse {
     inline EqualsPointerConstraint<ExpectedType> EqualsPointer(const ExpectedType& expected) {
         return EqualsPointerConstraint<ExpectedType>(expected);
     }
-    
 }
 
 string src_dir();

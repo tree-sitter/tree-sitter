@@ -2,7 +2,8 @@
 #include <functional>
 #include "build_tables/perform.h"
 
-using namespace tree_sitter::rules;
+using build_tables::perform;
+using namespace rules;
 
 typedef unordered_set<ParseAction> parse_actions;
 typedef unordered_set<LexAction> lex_actions;
@@ -35,7 +36,7 @@ describe("building parse and lex tables", []() {
         { "right-paren", str(")") }
     });
 
-    pair<ParseTable, LexTable> tables = build_tables::perform(grammar, lex_grammar);
+    pair<ParseTable, LexTable> tables = perform(grammar, lex_grammar);
     ParseTable table = tables.first;
     LexTable lex_table = tables.second;
     

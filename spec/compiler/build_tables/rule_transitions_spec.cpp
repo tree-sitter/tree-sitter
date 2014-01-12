@@ -2,125 +2,126 @@
 #include "rule_transitions.h"
 
 using build_tables::rule_transitions;
+using namespace rules;
 
 START_TEST
 
 describe("rule transitions", []() {
-    rules::rule_ptr symbol1 = rules::sym("1");
-    rules::rule_ptr symbol2 = rules::sym("2");
-    rules::rule_ptr symbol3 = rules::sym("3");
-    rules::rule_ptr symbol4 = rules::sym("4");
-    rules::rule_ptr char1 = rules::character('a');
+    rule_ptr symbol1 = sym("1");
+    rule_ptr symbol2 = sym("2");
+    rule_ptr symbol3 = sym("3");
+    rule_ptr symbol4 = sym("4");
+    rule_ptr char1 = character('a');
     
     it("handles symbols", [&]() {
         AssertThat(
             rule_transitions(symbol1),
-            Equals(transition_map<rules::Rule, rules::Rule>({
-                { symbol1, rules::blank() }
+            Equals(transition_map<Rule, Rule>({
+                { symbol1, blank() }
             })));
     });
     
     it("handles characters", [&]() {
         AssertThat(
             rule_transitions(char1),
-            Equals(transition_map<rules::Rule, rules::Rule>({
-                { char1, rules::blank() }
+            Equals(transition_map<Rule, Rule>({
+                { char1, blank() }
             })));
     });
     
     it("handles character classes", [&]() {
-        auto rule = rules::character(CharClassDigit);
+        auto rule = character(CharClassDigit);
         AssertThat(
             rule_transitions(rule),
-            Equals(transition_map<rules::Rule, rules::Rule>({
-                { rule, rules::blank() }
+            Equals(transition_map<Rule, Rule>({
+                { rule, blank() }
             })));
     });
     
     it("handles choices", [&]() {
         AssertThat(
-            rule_transitions(rules::choice({ symbol1, symbol2 })),
-            Equals(transition_map<rules::Rule, rules::Rule>({
-                { symbol1, rules::blank() },
-                { symbol2, rules::blank() }
+            rule_transitions(choice({ symbol1, symbol2 })),
+            Equals(transition_map<Rule, Rule>({
+                { symbol1, blank() },
+                { symbol2, blank() }
             })));
     });
     
     it("handles sequences", [&]() {
         AssertThat(
-            rule_transitions(rules::seq({ symbol1, symbol2 })),
-            Equals(transition_map<rules::Rule, rules::Rule>({
+            rule_transitions(seq({ symbol1, symbol2 })),
+            Equals(transition_map<Rule, Rule>({
                 { symbol1, symbol2 }
             })));
     });
     
     it("handles_long_sequences", [&]() {
         AssertThat(
-            rule_transitions(rules::seq({
+            rule_transitions(seq({
                 symbol1,
                 symbol2,
                 symbol3,
                 symbol4
             })),
-            Equals(transition_map<rules::Rule, rules::Rule>({
-                { symbol1, rules::seq({ symbol2, symbol3, symbol4 }) }
+            Equals(transition_map<Rule, Rule>({
+                { symbol1, seq({ symbol2, symbol3, symbol4 }) }
             })));
     });
     
     it("handles choices with common starting symbols", [&]() {
         AssertThat(
             rule_transitions(
-                rules::choice({
-                    rules::seq({ symbol1, symbol2 }),
-                    rules::seq({ symbol1, symbol3 }) })),
-            Equals(transition_map<rules::Rule, rules::Rule>({
-                { symbol1, rules::choice({ symbol2, symbol3 }) }
+                choice({
+                    seq({ symbol1, symbol2 }),
+                    seq({ symbol1, symbol3 }) })),
+            Equals(transition_map<Rule, Rule>({
+                { symbol1, choice({ symbol2, symbol3 }) }
             })));
     });
     
     it("handles strings", [&]() {
         AssertThat(
-            rule_transitions(rules::str("bad")),
-            Equals(transition_map<rules::Rule, rules::Rule>({
-                { rules::character('b'), rules::seq({ rules::character('a'), rules::character('d') })
+            rule_transitions(str("bad")),
+            Equals(transition_map<Rule, Rule>({
+                { character('b'), seq({ character('a'), character('d') })
             }
         })));
     });
     
     it("handles patterns", [&]() {
         AssertThat(
-            rule_transitions(rules::pattern("a|b")),
-            Equals(transition_map<rules::Rule, rules::Rule>({
-                { rules::character('a'), rules::blank() },
-                { rules::character('b'), rules::blank() }
+            rule_transitions(pattern("a|b")),
+            Equals(transition_map<Rule, Rule>({
+                { character('a'), blank() },
+                { character('b'), blank() }
             })));
     });
     
     it("handles repeats", [&]() {
-        rules::rule_ptr repeat = rules::repeat(rules::str("ab"));
+        rule_ptr rule = repeat(str("ab"));
         AssertThat(
-            rule_transitions(repeat),
-            Equals(transition_map<rules::Rule, rules::Rule>({
+            rule_transitions(rule),
+            Equals(transition_map<Rule, Rule>({
             {
-                rules::character('a'),
-                rules::seq({
-                    rules::character('b'),
-                    rules::choice({
-                        repeat,
-                        rules::blank()
+                character('a'),
+                seq({
+                    character('b'),
+                    choice({
+                        rule,
+                        blank()
                     })
                 })
             }})));
         
-        repeat = rules::repeat(rules::str("a"));
+        rule = repeat(str("a"));
         AssertThat(
-            rule_transitions(repeat),
-            Equals(transition_map<rules::Rule, rules::Rule>({
+            rule_transitions(rule),
+            Equals(transition_map<Rule, Rule>({
             {
-                rules::character('a'),
-                rules::choice({
-                    repeat,
-                    rules::blank()
+                character('a'),
+                choice({
+                    rule,
+                    blank()
                 })
             }})));
     });

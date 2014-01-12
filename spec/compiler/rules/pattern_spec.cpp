@@ -1,7 +1,7 @@
 #include "spec_helper.h"
 #include "rules.h"
 
-using namespace tree_sitter::rules;
+using namespace rules;
 
 START_TEST
 

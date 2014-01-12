@@ -2,7 +2,7 @@
 #include "rules.h"
 
 using namespace tree_sitter;
-using namespace tree_sitter::rules;
+using namespace rules;
 
 namespace test_grammars {
     Grammar arithmetic() {

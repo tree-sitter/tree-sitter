@@ -1,25 +1,23 @@
 #include "spec_helper.h"
 #include "rule_transitions.h"
 
+using namespace rules;
+
 START_TEST
 
-describe("Rules", []() {
-    rules::rule_ptr symbol1 = rules::sym("1");
-    rules::rule_ptr symbol2 = rules::sym("2");
-    rules::rule_ptr symbol3 = rules::sym("3");
+describe("constructing rules", []() {
+    rule_ptr symbol1 = sym("1");
+    rule_ptr symbol2 = sym("2");
+    rule_ptr symbol3 = sym("3");
     
-    describe("construction", [&]() {
-        it("constructs binary trees", [&]() {
-            AssertThat(
-                rules::seq({ symbol1, symbol2, symbol3 }),
-                EqualsPointer(
-                    rules::seq({ rules::seq({ symbol1, symbol2 }), symbol3 })));
-
-            AssertThat(
-                rules::choice({ symbol1, symbol2, symbol3 }),
-                EqualsPointer(
-                    rules::choice({ rules::choice({ symbol1, symbol2 }), symbol3 })));
-        });
+    it("constructs binary trees", [&]() {
+        AssertThat(
+            seq({ symbol1, symbol2, symbol3 }),
+            EqualsPointer(seq({ seq({ symbol1, symbol2 }), symbol3 })));
+        
+        AssertThat(
+            choice({ symbol1, symbol2, symbol3 }),
+            EqualsPointer(choice({ choice({ symbol1, symbol2 }), symbol3 })));
     });
 });
 
