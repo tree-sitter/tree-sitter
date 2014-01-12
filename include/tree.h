@@ -1,12 +1,12 @@
 #ifndef __tree_sitter_tree_h__
 #define __tree_sitter_tree_h__
-
-#include <stdlib.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
     
+
+#include <stdlib.h>
+
 typedef size_t TSSymbol;
 typedef struct TSTree {
     TSSymbol value;

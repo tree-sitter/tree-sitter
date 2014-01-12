@@ -1,11 +1,10 @@
 #ifndef __tree_sitter_parse_config_h__
 #define __tree_sitter_parse_config_h__
-
-#include "tree.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+    
+#include "tree.h"
 
 typedef enum {
     TSParseErrorTypeNone,
