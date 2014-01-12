@@ -1,4 +1,4 @@
-#include "close_item_set.h"
+#include "item_set_closure.h"
 #include "./next_symbols.h"
 #include "grammar.h"
 #include "item.h"
@@ -22,14 +22,11 @@ namespace tree_sitter {
             }
         }
         
-        static vector<Item> closure_in_grammar(const Item &item, const Grammar &grammar) {
-            vector<Item> result;
-            add_item(result, item, grammar);
-            return result;
-        }
-
-        ItemSet close_item_set(const ItemSet &item_set, const Grammar &grammar) {
-            return ItemSet(closure_in_grammar(*item_set.begin(), grammar));
+        ItemSet item_set_closure(const ItemSet &item_set, const Grammar &grammar) {
+            vector<Item> items;
+            for (Item item : item_set)
+                add_item(items, item, grammar);
+            return ItemSet(items);
         }
     }
 }

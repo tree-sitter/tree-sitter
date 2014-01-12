@@ -1,5 +1,5 @@
 #include "item_set_transitions.h"
-#include "close_item_set.h"
+#include "item_set_closure.h"
 #include "rule_transitions.h"
 
 using std::dynamic_pointer_cast;
@@ -19,7 +19,7 @@ namespace tree_sitter {
             for (Item item : item_set) {
                 for (auto transition : item_transitions(item)) {
                     auto rule = dynamic_pointer_cast<const RuleClass>(transition.first);
-                    auto new_item_set = make_shared<ItemSet>(close_item_set(ItemSet({ *transition.second }), grammar));
+                    auto new_item_set = make_shared<ItemSet>(item_set_closure(ItemSet({ *transition.second }), grammar));
                     if (rule.get()) result.add(rule, new_item_set);
                 }
             }

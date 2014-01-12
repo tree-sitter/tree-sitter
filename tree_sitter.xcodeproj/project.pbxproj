@@ -32,7 +32,7 @@
 		12EDCFB418820519005A7A07 /* compile.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCFAC18820181005A7A07 /* compile.cpp */; };
 		12EDCFBC188205BF005A7A07 /* rule_transitions_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCFB6188205BA005A7A07 /* rule_transitions_spec.cpp */; };
 		12EDCFBD188205BF005A7A07 /* perform_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCFB7188205BA005A7A07 /* perform_spec.cpp */; };
-		12EDCFC018820880005A7A07 /* close_item_set.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCFBE18820880005A7A07 /* close_item_set.cpp */; };
+		12EDCFC018820880005A7A07 /* item_set_closure.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCFBE18820880005A7A07 /* item_set_closure.cpp */; };
 		12EDCFC318820A70005A7A07 /* item_set_transitions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCFC118820A70005A7A07 /* item_set_transitions.cpp */; };
 		12EDCFC61882153D005A7A07 /* next_symbols.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCFC41882153D005A7A07 /* next_symbols.cpp */; };
 		12F9A64E182DD5FD00FAF50C /* spec_helper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12F9A64C182DD5FD00FAF50C /* spec_helper.cpp */; };
@@ -127,8 +127,8 @@
 		12EDCFAD18820181005A7A07 /* compile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = compile.h; sourceTree = "<group>"; };
 		12EDCFB6188205BA005A7A07 /* rule_transitions_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rule_transitions_spec.cpp; sourceTree = "<group>"; };
 		12EDCFB7188205BA005A7A07 /* perform_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = perform_spec.cpp; sourceTree = "<group>"; };
-		12EDCFBE18820880005A7A07 /* close_item_set.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = close_item_set.cpp; sourceTree = "<group>"; };
-		12EDCFBF18820880005A7A07 /* close_item_set.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = close_item_set.h; sourceTree = "<group>"; };
+		12EDCFBE18820880005A7A07 /* item_set_closure.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = item_set_closure.cpp; sourceTree = "<group>"; };
+		12EDCFBF18820880005A7A07 /* item_set_closure.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = item_set_closure.h; sourceTree = "<group>"; };
 		12EDCFC118820A70005A7A07 /* item_set_transitions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = item_set_transitions.cpp; sourceTree = "<group>"; };
 		12EDCFC218820A70005A7A07 /* item_set_transitions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = item_set_transitions.h; sourceTree = "<group>"; };
 		12EDCFC41882153D005A7A07 /* next_symbols.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = next_symbols.cpp; sourceTree = "<group>"; };
@@ -205,12 +205,12 @@
 		12130618182C84B700FCF928 /* build_tables */ = {
 			isa = PBXGroup;
 			children = (
-				12EDCFBE18820880005A7A07 /* close_item_set.cpp */,
-				12EDCFBF18820880005A7A07 /* close_item_set.h */,
 				12EDCFA218820137005A7A07 /* item.cpp */,
 				12EDCFA318820137005A7A07 /* item.h */,
 				12EDCFA018820137005A7A07 /* item_set.cpp */,
 				12EDCFA118820137005A7A07 /* item_set.h */,
+				12EDCFBE18820880005A7A07 /* item_set_closure.cpp */,
+				12EDCFBF18820880005A7A07 /* item_set_closure.h */,
 				12EDCFC118820A70005A7A07 /* item_set_transitions.cpp */,
 				12EDCFC218820A70005A7A07 /* item_set_transitions.h */,
 				12EDCFC41882153D005A7A07 /* next_symbols.cpp */,
@@ -470,7 +470,7 @@
 				12EDCFB31882039A005A7A07 /* rule_transitions.cpp in Sources */,
 				12FD40D9185FEEDF0041A84E /* pattern_spec.cpp in Sources */,
 				12130617182C3D2900FCF928 /* string.cpp in Sources */,
-				12EDCFC018820880005A7A07 /* close_item_set.cpp in Sources */,
+				12EDCFC018820880005A7A07 /* item_set_closure.cpp in Sources */,
 				12EDCFBD188205BF005A7A07 /* perform_spec.cpp in Sources */,
 				12EDCFC61882153D005A7A07 /* next_symbols.cpp in Sources */,
 				12130611182C3A1100FCF928 /* blank.cpp in Sources */,

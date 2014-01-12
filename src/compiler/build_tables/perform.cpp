@@ -1,6 +1,6 @@
 #include "./perform.h"
 #include "item_set.h"
-#include "close_item_set.h"
+#include "item_set_closure.h"
 #include "next_symbols.h"
 #include "item_set_transitions.h"
 #include "rules.h"
@@ -111,7 +111,7 @@ namespace tree_sitter {
 
             pair<ParseTable, LexTable> build() {
                 auto item = Item(ParseTable::START, rules::sym(grammar.start_rule_name), 0);
-                auto item_set = close_item_set(ItemSet({ item }), grammar);
+                auto item_set = item_set_closure(ItemSet({ item }), grammar);
                 add_parse_state(item_set);
                 return pair<ParseTable, LexTable>(parse_table, lex_table);
             }
