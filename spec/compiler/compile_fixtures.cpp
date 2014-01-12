@@ -5,7 +5,7 @@
 
 START_TEST
 
-describe("code generation", []() {
+describe("compiling grammars", []() {
     string test_parser_dir = src_dir() + "/spec/fixtures/parsers";
     
     it("works for the arithmetic grammar", [&]() {

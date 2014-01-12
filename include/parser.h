@@ -12,14 +12,13 @@ extern "C" {
 typedef int TSState;
 typedef struct TSStackEntry TSStackEntry;
 typedef struct TSParser {
-    TSTree *tree;
     const char *input;
-    const char *error_message;
     size_t position;
     TSTree *lookahead_node;
     TSState lex_state;
     TSStackEntry *stack;
     size_t stack_size;
+    TSParseResult result;
 } TSParser;
 
 TSParser TSParserMake(const char *input);

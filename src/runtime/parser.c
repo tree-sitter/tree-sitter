@@ -1,9 +1,5 @@
 #include "parser.h"
 #include <stdio.h>
-#include <string>
-
-using std::string;
-using std::to_string;
 
 #define TS_DEBUG_PARSE
 #define TS_DEBUG_LEX
@@ -29,14 +25,20 @@ struct TSStackEntry {
 
 TSParser TSParserMake(const char *input) {
     TSParser result = {
-        .tree = NULL,
         .input = input,
-        .error_message = NULL,
         .position = 0,
         .lookahead_node = NULL,
         .lex_state = 0,
-        .stack = (TSStackEntry *)calloc(INITIAL_STACK_SIZE, sizeof(TSStackEntry)),
+        .stack = calloc(INITIAL_STACK_SIZE, sizeof(TSStackEntry)),
         .stack_size = 0,
+        .result = {
+            .tree = NULL,
+            .error = {
+                .type = TSParseErrorTypeNone,
+                .expected_inputs = NULL,
+                .expected_input_count = 0
+            },
+        },
     };
     return result;
 }
@@ -53,7 +55,7 @@ void TSParserShift(TSParser *parser, TSState parse_state) {
 void TSParserReduce(TSParser *parser, TSSymbol symbol, int child_count) {
     parser->stack_size -= child_count;
 
-    TSTree **children = (TSTree **)malloc(child_count * sizeof(TSTree *));
+    TSTree **children = malloc(child_count * sizeof(TSTree *));
     for (int i = 0; i < child_count; i++) {
         children[i] = parser->stack[parser->stack_size + i].node;
     }
@@ -63,23 +65,19 @@ void TSParserReduce(TSParser *parser, TSSymbol symbol, int child_count) {
 }
 
 void TSParserError(TSParser *parser, size_t count, const char **expected_inputs) {
-    string result = "Unexpected token " + to_string(TSParserLookaheadSym(parser)) + ". ";
-    result += "Expected tokens:";
-    for (int i = 0; i < count; i++)
-        result += string(" '") + expected_inputs[i] + "'";
-    char *stuff = (char *)malloc(result.size() * sizeof(char));
-    strcpy(stuff, result.c_str());
-    parser->error_message = stuff;
+    TSParseError *error = &parser->result.error;
+    error->type = TSParseErrorTypeSyntactic;
+    error->expected_input_count = count;
+    error->expected_inputs = expected_inputs;
+    error->lookahead_sym = TSParserLookaheadSym(parser);
 }
 
 void TSParserLexError(TSParser *parser, size_t count, const char **expected_inputs) {
-    string result = string("Unexpected character '") + TSParserLookaheadChar(parser) + "'. ";
-    result += "Expected characters:";
-    for (int i = 0; i < count; i++)
-        result += string(" ") + expected_inputs[i] + "";
-    char *stuff = (char *)malloc(result.size() * sizeof(char));
-    strcpy(stuff, result.c_str());
-    parser->error_message = stuff;
+    TSParseError *error = &parser->result.error;
+    error->type = TSParseErrorTypeLexical;
+    error->expected_input_count = count;
+    error->expected_inputs = expected_inputs;
+    error->lookahead_sym = TSParserLookaheadSym(parser);
 }
 
 void TSParserAdvance(TSParser *parser, TSState lex_state) {
@@ -115,13 +113,9 @@ void TSParserSetLexState(TSParser *parser, TSState lex_state) {
 }
 
 void TSParserAcceptInput(TSParser *parser) {
-    parser->tree = parser->stack[parser->stack_size - 1].node;
+    parser->result.tree = parser->stack[parser->stack_size - 1].node;
 }
 
 TSParseResult TSParserResult(TSParser *parser) {
-    TSParseResult result = {
-        .tree = parser->tree,
-        .error = { .position = parser->position, .message = parser->error_message }
-    };
-    return result;
+    return parser->result;
 }

@@ -1,5 +1,5 @@
-#ifndef TreeSitter_SpecHelper_h
-#define TreeSitter_SpecHelper_h
+#ifndef __tree_sitter_spec_helper_h__
+#define __tree_sitter_spec_helper_h__
 
 #include "bandit/bandit.h"
 #include <iostream>

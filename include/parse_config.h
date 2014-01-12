@@ -3,10 +3,25 @@
 
 #include "tree.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum {
+    TSParseErrorTypeNone,
+    TSParseErrorTypeLexical,
+    TSParseErrorTypeSyntactic,
+} TSParseErrorType;
+
 typedef struct {
-    const char *message;
+    TSParseErrorType type;
+    const char **expected_inputs;
+    size_t expected_input_count;
     size_t position;
+    long lookahead_sym;
 } TSParseError;
+
+const char * TSParseErrorToString(const TSParseError *error, const char *input_string, const char **symbol_names);
 
 typedef struct {
     TSParseError error;
@@ -20,4 +35,7 @@ typedef struct {
     const char **symbol_names;
 } TSParseConfig;
 
+#ifdef __cplusplus
+}
+#endif
 #endif

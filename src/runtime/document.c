@@ -4,7 +4,7 @@ struct TSDocument {
     TSParseFn *parse_fn;
     const char **symbol_names;
     const char *text;
-    const char *error_message;
+    TSParseError error;
     TSTree *tree;
 };
 
@@ -22,7 +22,7 @@ void TSDocumentSetText(TSDocument *document, const char *text) {
     document->text = text;
     TSParseResult result = document->parse_fn(text);
     document->tree = result.tree;
-    document->error_message = result.error.message;
+    document->error = result.error;
 }
 
 TSTree * TSDocumentTree(const TSDocument *document) {
@@ -30,10 +30,11 @@ TSTree * TSDocumentTree(const TSDocument *document) {
 }
 
 const char * TSDocumentToString(const TSDocument *document) {
-    if (document->error_message) {
-        return document->error_message;
-    } else if (document->tree)
+    if (document->error.type != TSParseErrorTypeNone) {
+        return TSParseErrorToString(&document->error, document->text, document->symbol_names);
+    } else if (document->tree) {
         return TSTreeToString(document->tree, document->symbol_names);
-    else
+    } else {
         return "#<null tree>";
+    }
 }
