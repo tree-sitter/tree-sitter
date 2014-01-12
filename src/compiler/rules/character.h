@@ -20,8 +20,6 @@ namespace tree_sitter  {
 
             const CharMatch value;
         };
-
-        typedef std::shared_ptr<const Character> char_ptr;
     }
 }
 

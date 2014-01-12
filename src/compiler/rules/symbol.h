@@ -18,8 +18,6 @@ namespace tree_sitter  {
 
             const std::string name;
         };
-        
-        typedef std::shared_ptr<const Symbol> sym_ptr;
     }
 }
 

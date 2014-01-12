@@ -1,10 +1,14 @@
 #include "./perform.h"
-#include "./item_set.h"
+#include "item_set.h"
+#include "close_item_set.h"
+#include "next_symbols.h"
+#include "item_set_transitions.h"
 #include "rules.h"
 #include "grammar.h"
 
 using std::pair;
 using std::vector;
+using std::unordered_map;
 
 namespace tree_sitter {
     namespace build_tables {
@@ -13,8 +17,8 @@ namespace tree_sitter {
         class TableBuilder {
             const Grammar grammar;
             const Grammar lex_grammar;
-            std::unordered_map<const ItemSet, size_t> parse_state_indices;
-            std::unordered_map<const ItemSet, size_t> lex_state_indices;
+            unordered_map<const ItemSet, size_t> parse_state_indices;
+            unordered_map<const ItemSet, size_t> lex_state_indices;
             ParseTable parse_table;
             LexTable lex_table;
             
@@ -29,7 +33,7 @@ namespace tree_sitter {
             }
             
             void add_shift_actions(const ItemSet &item_set, size_t state_index) {
-                auto x = item_set.sym_transitions(grammar);
+                auto x = sym_transitions(item_set, grammar);
                 for (auto transition : x) {
                     rules::Symbol symbol = *transition.first;
                     ItemSet item_set = *transition.second;
@@ -39,7 +43,7 @@ namespace tree_sitter {
             }
             
             void add_advance_actions(const ItemSet &item_set, size_t state_index) {
-                for (auto transition : item_set.char_transitions(grammar)) {
+                for (auto transition : char_transitions(item_set, grammar)) {
                     rules::Character rule = *transition.first;
                     ItemSet item_set = *transition.second;
                     size_t new_state_index = add_lex_state(item_set);
@@ -80,7 +84,7 @@ namespace tree_sitter {
             
             ItemSet lex_item_set_for_parse_item_set(const ItemSet &parse_item_set) {
                 vector<Item> items;
-                for (rules::Symbol symbol : parse_item_set.next_terminal_symbols(grammar))
+                for (rules::Symbol symbol : next_terminals(parse_item_set, grammar))
                     items.push_back(Item::at_beginning_of_token(symbol.name, lex_grammar));
                 return ItemSet(items);
             }
@@ -107,7 +111,7 @@ namespace tree_sitter {
 
             pair<ParseTable, LexTable> build() {
                 auto item = Item(ParseTable::START, rules::sym(grammar.start_rule_name), 0);
-                auto item_set = ItemSet(item, grammar);
+                auto item_set = close_item_set(ItemSet({ item }), grammar);
                 add_parse_state(item_set);
                 return pair<ParseTable, LexTable>(parse_table, lex_table);
             }

@@ -3,15 +3,13 @@
 
 #include <string>
 #include "rule.h"
-#include "symbol.h"
-#include "transition_map.h"
+#include <set>
 
 namespace tree_sitter {
     class Grammar;
     
     namespace build_tables {
         class Item;
-        typedef std::shared_ptr<const Item> item_ptr;
 
         class Item {
         public:
@@ -19,19 +17,16 @@ namespace tree_sitter {
             static Item at_beginning_of_rule(const std::string &rule_name, const Grammar &grammar);
             static Item at_beginning_of_token(const std::string &rule_name, const Grammar &grammar);
 
-            transition_map<rules::Rule, Item> transitions() const;
-            std::vector<rules::Symbol> next_symbols() const;
             bool operator==(const Item &other) const;
             bool is_done() const;
+            int next_sym_count() const;
 
             const std::string rule_name;
             const rules::rule_ptr rule;
             const int consumed_sym_count;
         };
         
-//        typedef std::shared_ptr<const Item> item_ptr;
-        std::ostream& operator<<(std::ostream &stream, const Item &item);
-        
+        std::ostream& operator<<(std::ostream &stream, const Item &item);        
     }
 }
 

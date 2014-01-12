@@ -10,11 +10,11 @@ namespace tree_sitter {
             return make_shared<Blank>();
         }
   
-        char_ptr character(char value) {
+        rule_ptr character(char value) {
             return make_shared<Character>(value);
         }
 
-        char_ptr character(CharClass value) {
+        rule_ptr character(CharClass value) {
             return make_shared<Character>(value);
         }
 
@@ -46,7 +46,7 @@ namespace tree_sitter {
             return make_shared<String>(value);
         }
 
-        sym_ptr sym(const string &name) {
+        rule_ptr sym(const string &name) {
             return make_shared<Symbol>(name);
         }
     }

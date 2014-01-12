@@ -1,5 +1,5 @@
-#ifndef __TreeSitter__parse_table_builder__
-#define __TreeSitter__parse_table_builder__
+#ifndef __TreeSitter__build_tables__
+#define __TreeSitter__build_tables__
 
 #include "parse_table.h"
 #include "lex_table.h"
