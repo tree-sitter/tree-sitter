@@ -18,6 +18,7 @@
 		1251209B1830145300C9B56A /* rule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1251209A1830145300C9B56A /* rule.cpp */; };
 		125120A4183083BD00C9B56A /* arithmetic.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 125120A3183083BD00C9B56A /* arithmetic.cpp */; };
 		12BC470518822B27005AC502 /* parse_config.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12BC470318822A17005AC502 /* parse_config.cpp */; };
+		12BC470718830BC5005AC502 /* next_symbols_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12BC470618830BC5005AC502 /* next_symbols_spec.cpp */; };
 		12D136A4183678A2005F3369 /* repeat.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12D136A2183678A2005F3369 /* repeat.cpp */; };
 		12EDCF8A187B498C005A7A07 /* tree_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCF89187B498C005A7A07 /* tree_spec.cpp */; };
 		12EDCF8D187C6282005A7A07 /* document.c in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCF8C187C6282005A7A07 /* document.c */; };
@@ -95,6 +96,7 @@
 		125120A218307FFD00C9B56A /* arithmetic.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = arithmetic.h; path = spec/fixtures/grammars/arithmetic.h; sourceTree = SOURCE_ROOT; };
 		125120A3183083BD00C9B56A /* arithmetic.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = arithmetic.cpp; path = spec/fixtures/grammars/arithmetic.cpp; sourceTree = SOURCE_ROOT; };
 		12BC470318822A17005AC502 /* parse_config.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = parse_config.cpp; sourceTree = "<group>"; };
+		12BC470618830BC5005AC502 /* next_symbols_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = next_symbols_spec.cpp; sourceTree = "<group>"; };
 		12C344421822F27700B07BE3 /* transition_map.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = transition_map.h; path = ../build_tables/transition_map.h; sourceTree = "<group>"; };
 		12D1369E18342088005F3369 /* todo.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = todo.md; sourceTree = "<group>"; };
 		12D136A0183570F5005F3369 /* pattern_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = pattern_spec.cpp; path = spec/compiler/rules/pattern_spec.cpp; sourceTree = SOURCE_ROOT; };
@@ -229,6 +231,7 @@
 			children = (
 				12EDCFB6188205BA005A7A07 /* rule_transitions_spec.cpp */,
 				12EDCFB7188205BA005A7A07 /* perform_spec.cpp */,
+				12BC470618830BC5005AC502 /* next_symbols_spec.cpp */,
 			);
 			name = build_tables;
 			path = compiler/build_tables;
@@ -497,6 +500,7 @@
 				12EDCFBC188205BF005A7A07 /* rule_transitions_spec.cpp in Sources */,
 				12130605182C348F00FCF928 /* character.cpp in Sources */,
 				12EDCFB418820519005A7A07 /* compile.cpp in Sources */,
+				12BC470718830BC5005AC502 /* next_symbols_spec.cpp in Sources */,
 				1213060B182C389100FCF928 /* symbol.cpp in Sources */,
 				12EDCFB118820395005A7A07 /* item_set.cpp in Sources */,
 				1251209B1830145300C9B56A /* rule.cpp in Sources */,

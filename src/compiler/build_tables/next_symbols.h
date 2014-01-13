@@ -9,6 +9,7 @@ namespace tree_sitter {
     class Grammar;
     
     namespace build_tables {
+        std::set<rules::Symbol> next_terminals(const rules::rule_ptr &rule, const Grammar &grammar);
         std::set<rules::Symbol> next_terminals(const ItemSet &item_set, const Grammar &grammar);
         std::set<rules::Symbol> next_terminals(const Item &item, const Grammar &grammar);
         std::set<rules::Symbol> next_non_terminals(const Item &item, const Grammar &grammar);

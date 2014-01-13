@@ -4,6 +4,7 @@
 #include "bandit/bandit.h"
 #include <iostream>
 #include <unordered_set>
+#include <set>
 #include <unordered_map>
 #include "grammar.h"
 
@@ -26,7 +27,19 @@ namespace std {
         }
         return stream << ">";
     }
-    
+
+    template<typename T>
+    inline ostream& operator<<(ostream &stream, const set<T> &set) {
+        stream << string("#<set: ");
+        bool started = false;
+        for (auto item : set) {
+            if (started) stream << string(", ");
+            stream << item;
+            started = true;
+        }
+        return stream << ">";
+    }
+
     template<typename TKey, typename TValue>
     inline ostream& operator<<(ostream &stream, const unordered_map<TKey, TValue> &map) {
         stream << string("#<map: ");

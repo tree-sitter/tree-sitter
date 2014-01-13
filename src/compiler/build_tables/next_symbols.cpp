@@ -6,28 +6,71 @@
 using std::set;
 using std::vector;
 using std::dynamic_pointer_cast;
+using namespace tree_sitter::rules;
 
 namespace tree_sitter {
-    class Grammar;
-    
     namespace build_tables {
-        template<bool isNonTerminal>
-        set<rules::Symbol> next_symbols(const Item &item, const Grammar &grammar) {
+        class FirstSetVisitor : Visitor {
+            set<Symbol> value;
+            const Grammar grammar;
+            
+            FirstSetVisitor(const Grammar &grammar) : grammar(grammar) {}
+            
+            set<Symbol> set_union(const set<Symbol> &left, const set<Symbol> &right) {
+                set<Symbol> result = left;
+                result.insert(right.begin(), right.end());
+                return result;
+            }
+            
+            void visit(const Symbol *rule) {
+                if (grammar.has_definition(*rule)) {
+                    value = apply(grammar.rule(rule->name), grammar);
+                } else {
+                    value = set<Symbol>({ *rule });
+                }
+            }
+            
+            void visit(const Choice *rule) {
+                value = set_union(apply(rule->left, grammar), apply(rule->right, grammar));
+            }
+            
+            void visit(const Seq *rule) {
+                value = apply(rule->left, grammar);
+            }
+
+        public:
+            static set<Symbol> apply(const rule_ptr rule, const Grammar &grammar) {
+                FirstSetVisitor visitor(grammar);
+                rule->accept(visitor);
+                return visitor.value;
+            }
+        };
+        
+        template<bool isTerminal>
+        set<rules::Symbol> next_symbols(const rules::rule_ptr &rule, const Grammar &grammar) {
             set<rules::Symbol> result;
-            for (auto pair : rule_transitions(item.rule)) {
+            for (auto pair : rule_transitions(rule)) {
                 auto symbol = dynamic_pointer_cast<const rules::Symbol>(pair.first);
-                if (symbol && (grammar.has_definition(*symbol) == isNonTerminal))
+                if (symbol && (grammar.has_definition(*symbol) == !isTerminal))
                     result.insert(*symbol);
             }
             return result;
         }
         
+        set<rules::Symbol> next_terminals(const rules::rule_ptr &rule, const Grammar &grammar) {
+            return FirstSetVisitor::apply(rule, grammar);
+        }
+
+        set<rules::Symbol> next_non_terminals(const rules::rule_ptr &rule, const Grammar &grammar) {
+            return next_symbols<false>(rule, grammar);
+        }
+
         set<rules::Symbol> next_terminals(const Item &item, const Grammar &grammar) {
-            return next_symbols<false>(item, grammar);
+            return next_terminals(item.rule, grammar);
         }
 
         set<rules::Symbol> next_non_terminals(const Item &item, const Grammar &grammar) {
-            return next_symbols<true>(item, grammar);
+            return next_non_terminals(item.rule, grammar);
         }
 
         set<rules::Symbol> next_terminals(const ItemSet &item_set, const Grammar &grammar) {
