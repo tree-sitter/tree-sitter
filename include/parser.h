@@ -99,6 +99,7 @@ static void TSParserReduce(TSParser *parser, TSSymbol symbol, int child_count) {
 static void TSParserError(TSParser *parser, size_t count, const char **expected_inputs) {
     TSParseError *error = &parser->result.error;
     error->type = TSParseErrorTypeSyntactic;
+    error->position = parser->position;
     error->expected_input_count = count;
     error->expected_inputs = expected_inputs;
     error->lookahead_sym = TSParserLookaheadSym(parser);
@@ -107,6 +108,7 @@ static void TSParserError(TSParser *parser, size_t count, const char **expected_
 static void TSParserLexError(TSParser *parser, size_t count, const char **expected_inputs) {
     TSParseError *error = &parser->result.error;
     error->type = TSParseErrorTypeLexical;
+    error->position = parser->position;
     error->expected_input_count = count;
     error->expected_inputs = expected_inputs;
     error->lookahead_sym = TSParserLookaheadSym(parser);

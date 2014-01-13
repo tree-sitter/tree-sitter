@@ -19,7 +19,7 @@ const char * TSParseErrorToString(const TSParseError *error, const char *input_s
     
     result += "Expected: ";
     for (int i = 0; i < error->expected_input_count; i++)
-        result += string(" '") + error->expected_inputs[i] + "'";
+        result += error->expected_inputs[i];
 
     char *stuff = (char *)malloc(result.size() * sizeof(char));
     strcpy(stuff, result.c_str());
