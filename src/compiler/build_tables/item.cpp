@@ -33,6 +33,10 @@ namespace tree_sitter {
             return rule_names_eq && rules_eq && consumed_sym_counts_eq;
         }
         
+        bool Item::operator<(const Item &other) const {
+            return rule_name < other.rule_name;
+        }
+        
         bool Item::is_done() const {
             for (auto pair : rule_transitions(rule))
                 if (*pair.first == rules::Blank())

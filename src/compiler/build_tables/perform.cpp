@@ -1,5 +1,5 @@
 #include "./perform.h"
-#include "item_set.h"
+#include "item.h"
 #include "item_set_closure.h"
 #include "next_symbols.h"
 #include "item_set_transitions.h"
@@ -83,10 +83,10 @@ namespace tree_sitter {
             }
             
             ItemSet lex_item_set_for_parse_item_set(const ItemSet &parse_item_set) {
-                vector<Item> items;
+                ItemSet result;
                 for (rules::Symbol symbol : next_terminals(parse_item_set, grammar))
-                    items.push_back(Item::at_beginning_of_token(symbol.name, lex_grammar));
-                return ItemSet(items);
+                    result.insert(Item::at_beginning_of_token(symbol.name, lex_grammar));
+                return result;
             }
             
             size_t add_parse_state(const ItemSet &item_set) {

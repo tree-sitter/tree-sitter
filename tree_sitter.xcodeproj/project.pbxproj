@@ -27,7 +27,6 @@
 		12EDCF9A1881FCD9005A7A07 /* search_for_symbols.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCF931881FCCA005A7A07 /* search_for_symbols.cpp */; };
 		12EDCFAF18820387005A7A07 /* parse_table.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCF9D18820116005A7A07 /* parse_table.cpp */; };
 		12EDCFB018820392005A7A07 /* item.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCFA218820137005A7A07 /* item.cpp */; };
-		12EDCFB118820395005A7A07 /* item_set.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCFA018820137005A7A07 /* item_set.cpp */; };
 		12EDCFB21882039A005A7A07 /* perform.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCFA418820137005A7A07 /* perform.cpp */; };
 		12EDCFB31882039A005A7A07 /* rule_transitions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCFA618820137005A7A07 /* rule_transitions.cpp */; };
 		12EDCFB418820519005A7A07 /* compile.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCFAC18820181005A7A07 /* compile.cpp */; };
@@ -117,8 +116,6 @@
 		12EDCF9C18820116005A7A07 /* lex_table.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lex_table.h; sourceTree = "<group>"; };
 		12EDCF9D18820116005A7A07 /* parse_table.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = parse_table.cpp; sourceTree = "<group>"; };
 		12EDCF9E18820116005A7A07 /* parse_table.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = parse_table.h; sourceTree = "<group>"; };
-		12EDCFA018820137005A7A07 /* item_set.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = item_set.cpp; path = src/compiler/build_tables/item_set.cpp; sourceTree = SOURCE_ROOT; };
-		12EDCFA118820137005A7A07 /* item_set.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = item_set.h; path = src/compiler/build_tables/item_set.h; sourceTree = SOURCE_ROOT; };
 		12EDCFA218820137005A7A07 /* item.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = item.cpp; path = src/compiler/build_tables/item.cpp; sourceTree = SOURCE_ROOT; };
 		12EDCFA318820137005A7A07 /* item.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = item.h; path = src/compiler/build_tables/item.h; sourceTree = SOURCE_ROOT; };
 		12EDCFA418820137005A7A07 /* perform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = perform.cpp; path = src/compiler/build_tables/perform.cpp; sourceTree = SOURCE_ROOT; };
@@ -209,8 +206,6 @@
 			children = (
 				12EDCFA218820137005A7A07 /* item.cpp */,
 				12EDCFA318820137005A7A07 /* item.h */,
-				12EDCFA018820137005A7A07 /* item_set.cpp */,
-				12EDCFA118820137005A7A07 /* item_set.h */,
 				12EDCFBE18820880005A7A07 /* item_set_closure.cpp */,
 				12EDCFBF18820880005A7A07 /* item_set_closure.h */,
 				12EDCFC118820A70005A7A07 /* item_set_transitions.cpp */,
@@ -502,7 +497,6 @@
 				12EDCFB418820519005A7A07 /* compile.cpp in Sources */,
 				12BC470718830BC5005AC502 /* next_symbols_spec.cpp in Sources */,
 				1213060B182C389100FCF928 /* symbol.cpp in Sources */,
-				12EDCFB118820395005A7A07 /* item_set.cpp in Sources */,
 				1251209B1830145300C9B56A /* rule.cpp in Sources */,
 				27A343CA69E17E0F9EBEDF1C /* pattern.cpp in Sources */,
 			);

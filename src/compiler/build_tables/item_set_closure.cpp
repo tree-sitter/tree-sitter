@@ -8,25 +8,25 @@ using std::vector;
 
 namespace tree_sitter {
     namespace build_tables {
-        static bool vector_contains(vector<Item> items, build_tables::Item item) {
+        static bool contains(ItemSet items, Item item) {
             return (std::find(items.begin(), items.end(), item) != items.end());
         }
         
-        static void add_item(vector<Item> &vector, const Item &item, const Grammar &grammar) {
-            if (!vector_contains(vector, item)) {
-                vector.push_back(item);
+        static void add_item(ItemSet &item_set, const Item &item, const Grammar &grammar) {
+            if (!contains(item_set, item)) {
+                item_set.insert(item);
                 for (rules::Symbol rule : next_non_terminals(item, grammar)) {
                     Item next_item = Item::at_beginning_of_rule(rule.name, grammar);
-                    add_item(vector, next_item, grammar);
+                    add_item(item_set, next_item, grammar);
                 }
             }
         }
         
-        ItemSet item_set_closure(const ItemSet &item_set, const Grammar &grammar) {
-            vector<Item> items;
+        const ItemSet item_set_closure(const ItemSet &item_set, const Grammar &grammar) {
+            ItemSet result;
             for (Item item : item_set)
-                add_item(items, item, grammar);
-            return ItemSet(items);
+                add_item(result, item, grammar);
+            return result;
         }
     }
 }

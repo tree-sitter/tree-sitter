@@ -1,7 +1,7 @@
 #ifndef __tree_sitter__first_terminal__
 #define __tree_sitter__first_terminal__
 
-#include "item_set.h"
+#include "item.h"
 #include "symbol.h"
 #include <set>
 

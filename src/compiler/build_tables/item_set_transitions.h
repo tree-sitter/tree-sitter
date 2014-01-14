@@ -4,7 +4,7 @@
 #include "character.h"
 #include "symbol.h"
 #include "transition_map.h"
-#include "item_set.h"
+#include "item.h"
 
 namespace tree_sitter {
     namespace build_tables {
