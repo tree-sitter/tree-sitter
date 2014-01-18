@@ -7,31 +7,34 @@ using std::make_shared;
 
 namespace tree_sitter {
     namespace build_tables {
-        transition_map<rules::Rule, Item> item_transitions(const Item &item) {
-            return rule_transitions(item.rule).map<Item>([&](rules::rule_ptr to_rule) {
-                return make_shared<Item>(item.rule_name, to_rule, item.next_sym_count());
-            });
-        };
-        
-        template<typename RuleClass>
-        transition_map<RuleClass, ItemSet> transitions(const ItemSet &item_set, const Grammar &grammar) {
-            transition_map<RuleClass, ItemSet> result;
-            for (Item item : item_set) {
-                for (auto transition : item_transitions(item)) {
-                    auto rule = dynamic_pointer_cast<const RuleClass>(transition.first);
-                    auto new_item_set = make_shared<ItemSet>(item_set_closure(ItemSet({ *transition.second }), grammar));
-                    if (rule.get()) result.add(rule, new_item_set);
+        transition_map<rules::Character, LexItemSet> char_transitions(const LexItemSet &item_set, const Grammar &grammar) {
+            transition_map<rules::Character, LexItemSet> result;
+            for (LexItem item : item_set) {
+                for (auto transition : rule_transitions(item.rule)) {
+                    auto new_item = LexItem(item.rule_name, transition.second);
+                    auto rule = dynamic_pointer_cast<const rules::Character>(transition.first);
+                    if (rule.get()) {
+                        auto new_item_set = make_shared<LexItemSet>(LexItemSet({ new_item }));
+                        result.add(rule, new_item_set);
+                    }
                 }
             }
             return result;
         }
         
-        transition_map<rules::Character, ItemSet> char_transitions(const ItemSet &item_set, const Grammar &grammar) {
-            return transitions<rules::Character>(item_set, grammar);
-        }
-        
-        transition_map<rules::Symbol, ItemSet> sym_transitions(const ItemSet &item_set, const Grammar &grammar) {
-            return transitions<rules::Symbol>(item_set, grammar);
+        transition_map<rules::Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set, const Grammar &grammar) {
+            transition_map<rules::Symbol, ParseItemSet> result;
+            for (ParseItem item : item_set) {
+                for (auto transition : rule_transitions(item.rule)) {
+                    auto new_item = ParseItem(item.rule_name, transition.second, item.consumed_sym_count + 1);
+                    auto rule = dynamic_pointer_cast<const rules::Symbol>(transition.first);
+                    if (rule.get()) {
+                        auto new_item_set = make_shared<ParseItemSet>(item_set_closure(ParseItemSet({ new_item }), grammar));
+                        result.add(rule, new_item_set);
+                    }
+                }
+            }
+            return result;
         }
     }
 }

@@ -7,7 +7,7 @@ namespace tree_sitter {
     class Grammar;
     
     namespace build_tables {
-        const ItemSet item_set_closure(const ItemSet &item_set, const Grammar &grammar);
+        const ParseItemSet item_set_closure(const ParseItemSet &item_set, const Grammar &grammar);
     }
 }
 

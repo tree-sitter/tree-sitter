@@ -42,14 +42,6 @@ namespace tree_sitter {
                     add(other_pair.first, other_pair.second);
             }
         }
-
-        transition_map<TKey, TValue> where(std::function<bool(TKeyPtr)> filter_fn) {
-            transition_map<TKey, TValue> result;
-            for (pair_type pair : *this)
-                if (filter_fn(pair.first))
-                    result.add(pair.first, pair.second);
-            return result;
-        }
         
         template<typename NewV>
         transition_map<TKey, NewV> map(std::function<const std::shared_ptr<const NewV>(TValuePtr)> map_fn) {

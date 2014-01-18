@@ -10,25 +10,33 @@ namespace tree_sitter {
     class Grammar;
     
     namespace build_tables {
-        class Item;
-
         class Item {
         public:
-            Item(const std::string &rule_name, const rules::rule_ptr rule, int consumed_sym_count);
-            static Item at_beginning_of_rule(const std::string &rule_name, const Grammar &grammar);
-            static Item at_beginning_of_token(const std::string &rule_name, const Grammar &grammar);
-
-            bool operator==(const Item &other) const;
+            Item(const std::string &rule_name, const rules::rule_ptr rule);
             bool operator<(const Item &other) const;
             bool is_done() const;
-            int next_sym_count() const;
 
             const std::string rule_name;
             const rules::rule_ptr rule;
-            const int consumed_sym_count;
         };
-        
-        typedef std::set<Item> ItemSet;
+
+        class LexItem : public Item {
+        public:
+            LexItem(const std::string &rule_name, const rules::rule_ptr rule);
+            bool operator==(const LexItem &other) const;
+        };
+
+        class ParseItem : public Item {
+        public:
+            ParseItem(const std::string &rule_name, const rules::rule_ptr rule, int consumed_sym_count);
+            bool operator==(const ParseItem &other) const;
+
+            const int consumed_sym_count;
+            const std::string lookahead_sym_name;
+        };
+
+        typedef std::set<ParseItem> ParseItemSet;
+        typedef std::set<LexItem> LexItemSet;
         
         std::ostream& operator<<(std::ostream &stream, const Item &item);        
     }
@@ -36,21 +44,30 @@ namespace tree_sitter {
 
 namespace std {
     template<>
-    struct hash<tree_sitter::build_tables::Item> {
+    struct hash<tree_sitter::build_tables::LexItem> {
         size_t operator()(const tree_sitter::build_tables::Item &item) const {
             return
                 hash<std::string>()(item.rule_name) ^
-                hash<tree_sitter::rules::Rule>()(*item.rule) ^
-                hash<int>()(item.consumed_sym_count);
+            hash<tree_sitter::rules::Rule>()(*item.rule);
         }
     };
 
     template<>
-    struct hash<const tree_sitter::build_tables::ItemSet> {
-        size_t operator()(const tree_sitter::build_tables::ItemSet &item_set) const {
-            size_t result = hash<size_t>()(item_set.size());
-            for (auto item : item_set)
-                result ^= hash<tree_sitter::build_tables::Item>()(item);
+    struct hash<tree_sitter::build_tables::ParseItem> {
+        size_t operator()(const tree_sitter::build_tables::ParseItem &item) const {
+            return
+            hash<std::string>()(item.rule_name) ^
+            hash<tree_sitter::rules::Rule>()(*item.rule) ^
+            hash<size_t>()(item.consumed_sym_count);
+        }
+    };
+    
+    template<typename T>
+    struct hash<const set<T>> {
+        size_t operator()(const set<T> &set) const {
+            size_t result = hash<size_t>()(set.size());
+            for (auto item : set)
+                result ^= hash<T>()(item);
             return result;
         }
     };

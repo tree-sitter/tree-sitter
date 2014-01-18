@@ -65,17 +65,17 @@ namespace tree_sitter {
             return next_symbols<false>(rule, grammar);
         }
 
-        set<rules::Symbol> next_terminals(const Item &item, const Grammar &grammar) {
+        set<rules::Symbol> next_terminals(const ParseItem &item, const Grammar &grammar) {
             return next_terminals(item.rule, grammar);
         }
 
-        set<rules::Symbol> next_non_terminals(const Item &item, const Grammar &grammar) {
+        set<rules::Symbol> next_non_terminals(const ParseItem &item, const Grammar &grammar) {
             return next_non_terminals(item.rule, grammar);
         }
 
-        set<rules::Symbol> next_terminals(const ItemSet &item_set, const Grammar &grammar) {
+        set<rules::Symbol> next_terminals(const ParseItemSet &item_set, const Grammar &grammar) {
             set<rules::Symbol> result;
-            for (Item item : item_set)
+            for (auto item : item_set)
                 for (rules::Symbol symbol : next_terminals(item, grammar))
                     result.insert(symbol);
             return result;
