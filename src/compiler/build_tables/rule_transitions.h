@@ -6,6 +6,7 @@
 
 namespace tree_sitter  {
     namespace build_tables {
+        bool rule_can_be_blank(const rules::rule_ptr &rule);
         transition_map<rules::Rule, rules::Rule> rule_transitions(const rules::rule_ptr &rule);
     }
 }

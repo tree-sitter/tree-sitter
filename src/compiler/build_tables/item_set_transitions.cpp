@@ -26,7 +26,7 @@ namespace tree_sitter {
             transition_map<rules::Symbol, ParseItemSet> result;
             for (ParseItem item : item_set) {
                 for (auto transition : rule_transitions(item.rule)) {
-                    auto new_item = ParseItem(item.rule_name, transition.second, item.consumed_sym_count + 1);
+                    auto new_item = ParseItem(item.rule_name, transition.second, item.consumed_sym_count + 1, item.lookahead_sym_name);
                     auto rule = dynamic_pointer_cast<const rules::Symbol>(transition.first);
                     if (rule.get()) {
                         auto new_item_set = make_shared<ParseItemSet>(item_set_closure(ParseItemSet({ new_item }), grammar));

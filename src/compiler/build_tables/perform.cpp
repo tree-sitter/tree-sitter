@@ -1,7 +1,7 @@
 #include "./perform.h"
 #include "item.h"
 #include "item_set_closure.h"
-#include "next_symbols.h"
+#include "first_set.h"
 #include "item_set_transitions.h"
 #include "rules.h"
 #include "grammar.h"
@@ -84,7 +84,7 @@ namespace tree_sitter {
             
             LexItemSet lex_item_set_for_parse_item_set(const ParseItemSet &parse_item_set) {
                 LexItemSet result;
-                for (rules::Symbol symbol : next_terminals(parse_item_set, grammar))
+                for (rules::Symbol symbol : first_set(parse_item_set, grammar))
                     result.insert(LexItem(symbol.name, lex_grammar.rule(symbol.name)));
                 return result;
             }
@@ -110,7 +110,7 @@ namespace tree_sitter {
                 lex_grammar(lex_grammar) {};
 
             pair<ParseTable, LexTable> build() {
-                auto item = ParseItem(ParseTable::START, rules::sym(grammar.start_rule_name), 0);
+                auto item = ParseItem(ParseTable::START, rules::sym(grammar.start_rule_name), 0, ParseTable::END_OF_INPUT);
                 ParseItemSet item_set = item_set_closure(ParseItemSet({ item }), grammar);
                 add_parse_state(item_set);
                 return pair<ParseTable, LexTable>(parse_table, lex_table);

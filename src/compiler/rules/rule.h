@@ -28,7 +28,7 @@ namespace tree_sitter {
 namespace std {
     template<>
     struct hash<tree_sitter::rules::Rule> {
-        size_t operator()(const tree_sitter::rules::Rule &rule) {
+        size_t operator()(const tree_sitter::rules::Rule &rule) const {
             return rule.hash_code();
         }
     };

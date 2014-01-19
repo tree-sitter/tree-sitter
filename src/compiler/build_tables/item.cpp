@@ -12,10 +12,7 @@ namespace tree_sitter {
             rule(rule) {};
         
         bool Item::is_done() const {
-            for (auto pair : rule_transitions(rule))
-                if (*pair.first == rules::Blank())
-                    return true;
-            return false;
+            return rule_can_be_blank(rule);
         }
         
         ostream& operator<<(ostream &stream, const Item &item) {
@@ -39,10 +36,10 @@ namespace tree_sitter {
             return rule_names_eq && rules_eq;
         }
         
-        ParseItem::ParseItem(const std::string &rule_name, const rules::rule_ptr rule, int consumed_sym_count) :
+        ParseItem::ParseItem(const std::string &rule_name, const rules::rule_ptr rule, int consumed_sym_count, const std::string &lookahead_sym_name) :
             Item(rule_name, rule),
             consumed_sym_count(consumed_sym_count),
-            lookahead_sym_name("") {}
+            lookahead_sym_name(lookahead_sym_name) {}
 
         bool ParseItem::operator==(const ParseItem &other) const {
             bool rule_names_eq = other.rule_name == rule_name;

@@ -1,4 +1,4 @@
-#include "next_symbols.h"
+#include "first_set.h"
 #include "rule_transitions.h"
 #include "grammar.h"
 #include <vector>
@@ -35,7 +35,11 @@ namespace tree_sitter {
             }
             
             void visit(const Seq *rule) {
-                value = apply(rule->left, grammar);
+                if (rule_can_be_blank(rule->left)) {
+                    value = set_union(apply(rule->left, grammar), apply(rule->right, grammar));
+                } else {
+                    value = apply(rule->left, grammar);
+                }
             }
 
         public:
@@ -46,37 +50,14 @@ namespace tree_sitter {
             }
         };
         
-        template<bool isTerminal>
-        set<rules::Symbol> next_symbols(const rules::rule_ptr &rule, const Grammar &grammar) {
-            set<rules::Symbol> result;
-            for (auto pair : rule_transitions(rule)) {
-                auto symbol = dynamic_pointer_cast<const rules::Symbol>(pair.first);
-                if (symbol && (grammar.has_definition(*symbol) == !isTerminal))
-                    result.insert(*symbol);
-            }
-            return result;
-        }
-        
-        set<rules::Symbol> next_terminals(const rules::rule_ptr &rule, const Grammar &grammar) {
+        set<rules::Symbol> first_set(const rules::rule_ptr &rule, const Grammar &grammar) {
             return FirstSetVisitor::apply(rule, grammar);
         }
 
-        set<rules::Symbol> next_non_terminals(const rules::rule_ptr &rule, const Grammar &grammar) {
-            return next_symbols<false>(rule, grammar);
-        }
-
-        set<rules::Symbol> next_terminals(const ParseItem &item, const Grammar &grammar) {
-            return next_terminals(item.rule, grammar);
-        }
-
-        set<rules::Symbol> next_non_terminals(const ParseItem &item, const Grammar &grammar) {
-            return next_non_terminals(item.rule, grammar);
-        }
-
-        set<rules::Symbol> next_terminals(const ParseItemSet &item_set, const Grammar &grammar) {
+        set<rules::Symbol> first_set(const ParseItemSet &item_set, const Grammar &grammar) {
             set<rules::Symbol> result;
             for (auto item : item_set)
-                for (rules::Symbol symbol : next_terminals(item, grammar))
+                for (rules::Symbol symbol : first_set(item.rule, grammar))
                     result.insert(symbol);
             return result;
         }

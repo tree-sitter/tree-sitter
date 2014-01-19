@@ -5,6 +5,10 @@ using namespace tree_sitter::rules;
 
 namespace tree_sitter {
     namespace build_tables {
+        bool is_blank(const rule_ptr &rule) {
+            return typeid(*rule) == typeid(Blank);
+        }
+        
         class TransitionsVisitor : public rules::Visitor {
         public:
             transition_map<Rule, Rule> value;
@@ -30,7 +34,7 @@ namespace tree_sitter {
 
             void visit(const Seq *rule) {
                 value = rule_transitions(rule->left).map<Rule>([&](const rule_ptr left_rule) -> rule_ptr {
-                    if (typeid(*left_rule) == typeid(Blank))
+                    if (is_blank(left_rule))
                         return rule->right;
                     else
                         return seq({ left_rule, rule->right });
@@ -54,6 +58,13 @@ namespace tree_sitter {
                 value = rule_transitions(rule->to_rule_tree());
             }
         };
+        
+        bool rule_can_be_blank(const rule_ptr &rule) {
+            for (auto pair : rule_transitions(rule))
+                if (is_blank(pair.first))
+                    return true;
+            return false;
+        }
         
         transition_map<Rule, Rule> rule_transitions(const rule_ptr &rule) {
             TransitionsVisitor visitor;
