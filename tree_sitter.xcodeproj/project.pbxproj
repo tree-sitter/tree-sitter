@@ -18,6 +18,7 @@
 		1251209B1830145300C9B56A /* rule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1251209A1830145300C9B56A /* rule.cpp */; };
 		125120A4183083BD00C9B56A /* arithmetic.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 125120A3183083BD00C9B56A /* arithmetic.cpp */; };
 		12AB465F188BD03E00DE79DF /* follow_sets.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12AB465D188BD03E00DE79DF /* follow_sets.cpp */; };
+		12AB4661188CB3A300DE79DF /* item_set_closure_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12AB4660188CB3A300DE79DF /* item_set_closure_spec.cpp */; };
 		12BC470518822B27005AC502 /* parse_config.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12BC470318822A17005AC502 /* parse_config.cpp */; };
 		12BC470718830BC5005AC502 /* first_set_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12BC470618830BC5005AC502 /* first_set_spec.cpp */; };
 		12D136A4183678A2005F3369 /* repeat.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12D136A2183678A2005F3369 /* repeat.cpp */; };
@@ -97,6 +98,7 @@
 		125120A3183083BD00C9B56A /* arithmetic.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = arithmetic.cpp; path = spec/fixtures/grammars/arithmetic.cpp; sourceTree = SOURCE_ROOT; };
 		12AB465D188BD03E00DE79DF /* follow_sets.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = follow_sets.cpp; sourceTree = "<group>"; };
 		12AB465E188BD03E00DE79DF /* follow_sets.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = follow_sets.h; sourceTree = "<group>"; };
+		12AB4660188CB3A300DE79DF /* item_set_closure_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = item_set_closure_spec.cpp; sourceTree = "<group>"; };
 		12AB4663188DCB9800DE79DF /* stream_methods.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = stream_methods.h; sourceTree = "<group>"; };
 		12BC470318822A17005AC502 /* parse_config.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = parse_config.cpp; sourceTree = "<group>"; };
 		12BC470618830BC5005AC502 /* first_set_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = first_set_spec.cpp; sourceTree = "<group>"; };
@@ -233,6 +235,7 @@
 				12EDCFB6188205BA005A7A07 /* rule_transitions_spec.cpp */,
 				12EDCFB7188205BA005A7A07 /* perform_spec.cpp */,
 				12BC470618830BC5005AC502 /* first_set_spec.cpp */,
+				12AB4660188CB3A300DE79DF /* item_set_closure_spec.cpp */,
 			);
 			name = build_tables;
 			path = compiler/build_tables;
@@ -492,6 +495,7 @@
 				12F9A64E182DD5FD00FAF50C /* spec_helper.cpp in Sources */,
 				12EDCFB018820392005A7A07 /* item.cpp in Sources */,
 				12FD40F7186A16020041A84E /* lex_table.cpp in Sources */,
+				12AB4661188CB3A300DE79DF /* item_set_closure_spec.cpp in Sources */,
 				12FD40E918641FB70041A84E /* rules.cpp in Sources */,
 				12EDCF981881FCD5005A7A07 /* extract_tokens.cpp in Sources */,
 				12FD4061185E68470041A84E /* c_code.cpp in Sources */,

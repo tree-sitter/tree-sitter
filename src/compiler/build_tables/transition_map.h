@@ -43,6 +43,15 @@ namespace tree_sitter {
             }
         }
         
+        TValuePtr operator[](const TKey &key) const {
+            for (auto pair : *this) {
+                if (*pair.first == key) {
+                    return pair.second;
+                }
+            }
+            return TValuePtr();
+        }
+        
         template<typename NewV>
         transition_map<TKey, NewV> map(std::function<const std::shared_ptr<const NewV>(TValuePtr)> map_fn) {
             transition_map<TKey, NewV> result;

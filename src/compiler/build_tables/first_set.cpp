@@ -53,13 +53,5 @@ namespace tree_sitter {
         set<rules::Symbol> first_set(const rules::rule_ptr &rule, const Grammar &grammar) {
             return FirstSetVisitor::apply(rule, grammar);
         }
-
-        set<rules::Symbol> first_set(const ParseItemSet &item_set, const Grammar &grammar) {
-            set<rules::Symbol> result;
-            for (auto item : item_set)
-                for (rules::Symbol symbol : first_set(item.rule, grammar))
-                    result.insert(symbol);
-            return result;
-        }
     }
 }

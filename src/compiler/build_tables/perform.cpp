@@ -62,13 +62,24 @@ namespace tree_sitter {
             void add_reduce_actions(const ParseItemSet &item_set, size_t state_index) {
                 for (ParseItem item : item_set) {
                     if (item.is_done()) {
-                        if (item.rule_name == ParseTable::START) {
-                            parse_table.add_action(state_index, ParseTable::END_OF_INPUT, ParseAction::Accept());
-                        } else {
-                            parse_table.add_default_action(state_index, ParseAction::Reduce(item.rule_name, item.consumed_sym_count));
-                        }
+                        ParseAction action = (item.rule_name == ParseTable::START) ?
+                            ParseAction::Accept() :
+                            ParseAction::Reduce(item.rule_name, item.consumed_sym_count);
+                        parse_table.add_action(state_index, item.lookahead_sym_name, action);
                     }
                 }
+            }
+            
+            void assign_lex_state(size_t state_index) {
+                ParseState &state = parse_table.states[state_index];
+                LexItemSet item_set;
+                for (auto pair : state.actions) {
+                    auto symbol = rules::Symbol(pair.first);
+                    if (lex_grammar.has_definition(symbol))
+                        item_set.insert(LexItem(symbol.name, lex_grammar.rule(symbol.name)));
+                }
+
+                state.lex_state_index = add_lex_state(item_set);
             }
             
             size_t add_lex_state(const LexItemSet &item_set) {
@@ -82,23 +93,15 @@ namespace tree_sitter {
                 return state_index;
             }
             
-            LexItemSet lex_item_set_for_parse_item_set(const ParseItemSet &parse_item_set) {
-                LexItemSet result;
-                for (rules::Symbol symbol : first_set(parse_item_set, grammar))
-                    result.insert(LexItem(symbol.name, lex_grammar.rule(symbol.name)));
-                return result;
-            }
-            
             size_t add_parse_state(const ParseItemSet &item_set) {
                 auto state_index = parse_state_index_for_item_set(item_set);
                 if (state_index == NOT_FOUND) {
                     state_index = parse_table.add_state();
                     parse_state_indices[item_set] = state_index;
 
-                    LexItemSet lex_item_set = lex_item_set_for_parse_item_set(item_set);
-                    parse_table.states[state_index].lex_state_index = add_lex_state(lex_item_set);
                     add_shift_actions(item_set, state_index);
                     add_reduce_actions(item_set, state_index);
+                    assign_lex_state(state_index);
                 }
                 return state_index;
             }

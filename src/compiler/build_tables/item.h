@@ -13,7 +13,6 @@ namespace tree_sitter {
         class Item {
         public:
             Item(const std::string &rule_name, const rules::rule_ptr rule);
-            bool operator<(const Item &other) const;
             bool is_done() const;
 
             const std::string rule_name;
@@ -23,12 +22,14 @@ namespace tree_sitter {
         class LexItem : public Item {
         public:
             LexItem(const std::string &rule_name, const rules::rule_ptr rule);
+            bool operator<(const LexItem &other) const;
             bool operator==(const LexItem &other) const;
         };
 
         class ParseItem : public Item {
         public:
             ParseItem(const std::string &rule_name, const rules::rule_ptr rule, int consumed_sym_count, const std::string &lookahead_sym_name);
+            bool operator<(const ParseItem &other) const;
             bool operator==(const ParseItem &other) const;
 
             const int consumed_sym_count;
@@ -38,7 +39,8 @@ namespace tree_sitter {
         typedef std::set<ParseItem> ParseItemSet;
         typedef std::set<LexItem> LexItemSet;
         
-        std::ostream& operator<<(std::ostream &stream, const Item &item);        
+        std::ostream& operator<<(std::ostream &stream, const LexItem &item);        
+        std::ostream& operator<<(std::ostream &stream, const ParseItem &item);        
     }
 }
 
@@ -58,7 +60,8 @@ namespace std {
             return
             hash<std::string>()(item.rule_name) ^
             hash<tree_sitter::rules::Rule>()(*item.rule) ^
-            hash<size_t>()(item.consumed_sym_count);
+            hash<size_t>()(item.consumed_sym_count) ^
+            hash<std::string>()(item.lookahead_sym_name);
         }
     };
     
