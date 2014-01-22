@@ -97,6 +97,7 @@
 		125120A3183083BD00C9B56A /* arithmetic.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = arithmetic.cpp; path = spec/fixtures/grammars/arithmetic.cpp; sourceTree = SOURCE_ROOT; };
 		12AB465D188BD03E00DE79DF /* follow_sets.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = follow_sets.cpp; sourceTree = "<group>"; };
 		12AB465E188BD03E00DE79DF /* follow_sets.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = follow_sets.h; sourceTree = "<group>"; };
+		12AB4663188DCB9800DE79DF /* stream_methods.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = stream_methods.h; sourceTree = "<group>"; };
 		12BC470318822A17005AC502 /* parse_config.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = parse_config.cpp; sourceTree = "<group>"; };
 		12BC470618830BC5005AC502 /* first_set_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = first_set_spec.cpp; sourceTree = "<group>"; };
 		12C344421822F27700B07BE3 /* transition_map.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = transition_map.h; path = ../build_tables/transition_map.h; sourceTree = "<group>"; };
@@ -246,6 +247,14 @@
 			path = grammars;
 			sourceTree = "<group>";
 		};
+		12AB4662188DCB7B00DE79DF /* helpers */ = {
+			isa = PBXGroup;
+			children = (
+				12AB4663188DCB9800DE79DF /* stream_methods.h */,
+			);
+			name = helpers;
+			sourceTree = "<group>";
+		};
 		12D1369F18357066005F3369 /* rules */ = {
 			isa = PBXGroup;
 			children = (
@@ -290,6 +299,7 @@
 			children = (
 				12FD40AE185EE6610041A84E /* compiler */,
 				12FD40AF185EE81D0041A84E /* fixtures */,
+				12AB4662188DCB7B00DE79DF /* helpers */,
 				121492E9181E200B008E9BDA /* main.cpp */,
 				12FD40B0185EE97E0041A84E /* runtime */,
 				12F9A64C182DD5FD00FAF50C /* spec_helper.cpp */,

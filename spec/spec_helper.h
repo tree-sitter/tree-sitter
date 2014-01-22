@@ -2,10 +2,8 @@
 #define __tree_sitter_spec_helper_h__
 
 #include "bandit/bandit.h"
+#include "stream_methods.h"
 #include <iostream>
-#include <unordered_set>
-#include <set>
-#include <unordered_map>
 #include "grammar.h"
 
 using namespace tree_sitter;
@@ -14,46 +12,6 @@ using namespace bandit;
 
 #define START_TEST go_bandit([]() {
 #define END_TEST });
-
-namespace std {
-    template<typename T>
-    inline ostream& operator<<(ostream &stream, const unordered_set<T> &set) {
-        stream << string("#<set: ");
-        bool started = false;
-        for (auto item : set) {
-            if (started) stream << string(", ");
-            stream << item;
-            started = true;
-        }
-        return stream << ">";
-    }
-
-    template<typename T>
-    inline ostream& operator<<(ostream &stream, const set<T> &set) {
-        stream << string("#<set: ");
-        bool started = false;
-        for (auto item : set) {
-            if (started) stream << string(", ");
-            stream << item;
-            started = true;
-        }
-        return stream << ">";
-    }
-
-    template<typename TKey, typename TValue>
-    inline ostream& operator<<(ostream &stream, const unordered_map<TKey, TValue> &map) {
-        stream << string("#<map: ");
-        bool started = false;
-        for (auto pair : map) {
-            if (started) stream << string(", ");
-            stream << pair.first;
-            stream << string(" => ");
-            stream << pair.second;
-            started = true;
-        }
-        return stream << ">";
-    }
-}
 
 namespace snowhouse {
     template<typename ExpectedType>
