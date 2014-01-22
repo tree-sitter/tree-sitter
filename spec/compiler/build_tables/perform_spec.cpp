@@ -36,16 +36,22 @@ describe("building parse and lex tables", []() {
         { "right-paren", str(")") }
     });
 
-    pair<ParseTable, LexTable> tables = perform(grammar, lex_grammar);
-    ParseTable table = tables.first;
-    LexTable lex_table = tables.second;
+    
+    ParseTable table;
+    LexTable lex_table;
+    
+    before_each([&]() {
+        pair<ParseTable, LexTable> tables = perform(grammar, lex_grammar);
+        table = tables.first;
+        lex_table = tables.second;
+    });
     
     function<ParseState(size_t)> parse_state = [&](size_t index) {
         return table.states[index];
     };
     
     function<LexState(size_t)> lex_state = [&](size_t parse_state_index) {
-        size_t index = table.states[parse_state_index].lex_state_index;
+        long index = table.states[parse_state_index].lex_state_index;
         return lex_table.states[index];
     };
     
