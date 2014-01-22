@@ -72,11 +72,12 @@ static long TSParserLookaheadSym(const TSParser *parser) {
 }
 
 static TSState TSParserParseState(const TSParser *parser) {
+    if (parser->stack_size == 0) return 0;
     return parser->stack[parser->stack_size - 1].state;
 }
 
 static void TSParserShift(TSParser *parser, TSState parse_state) {
-    DEBUG_PARSE("shift %d \n", parse_state);
+    DEBUG_PARSE("shift: %d \n", parse_state);
     TSStackEntry *entry = (parser->stack + parser->stack_size);
     entry->state = parse_state;
     entry->node = parser->lookahead_node;
@@ -113,6 +114,10 @@ static void TSParserLexError(TSParser *parser, size_t count, const char **expect
     error->expected_inputs = expected_inputs;
     error->lookahead_sym = TSParserLookaheadSym(parser);
 }
+    
+static int TSParserHasError(const TSParser *parser) {
+    return (parser->result.error.type != TSParseErrorTypeNone);
+}
 
 static void TSParserAdvance(TSParser *parser, TSState lex_state) {
     DEBUG_LEX("character: '%c' \n", TSParserLookaheadChar(parser));
@@ -121,7 +126,7 @@ static void TSParserAdvance(TSParser *parser, TSState lex_state) {
 }
 
 static void TSParserSetLookaheadSym(TSParser *parser, TSSymbol symbol) {
-    DEBUG_LEX("token: %ld \n", symbol);
+    DEBUG_LEX("token: %s \n", ts_symbol_names[symbol]);
     parser->lookahead_node = TSTreeMake(symbol, 0, NULL);
 }
 
@@ -136,8 +141,6 @@ TSParser p = TSParserMake(input), *parser = &p; \
 next_state:
 
 #define START_LEXER() \
-if (LOOKAHEAD_SYM() >= 0) return; \
-if (LOOKAHEAD_CHAR() == '\0') { ACCEPT_TOKEN(ts_symbol___END__); } \
 next_state:
 
 #define LOOKAHEAD_SYM() \
@@ -153,7 +156,11 @@ TSParserParseState(parser)
 parser->lex_state
 
 #define SET_LEX_STATE(state_index) \
-{ parser->lex_state = state_index; ts_lex(parser); }
+{ \
+    parser->lex_state = state_index; \
+    if (LOOKAHEAD_SYM() < 0) ts_lex(parser); \
+    if (TSParserHasError(parser)) goto done; \
+}
 
 #define SHIFT(state) \
 { TSParserShift(parser, state); goto next_state; }
