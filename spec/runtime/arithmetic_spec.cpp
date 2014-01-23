@@ -15,12 +15,24 @@ describe("arithmetic", []() {
     
     it("parses variables", [&]() {
         TSDocumentSetText(document, "x");
-        AssertThat(string(TSDocumentToString(document)), Equals("(expression (term (factor (variable))))"));
+        AssertThat(string(TSDocumentToString(document)), Equals(
+            "(expression (term (factor (variable))))"));
     });
 
     it("parses products of variables", [&]() {
         TSDocumentSetText(document, "x*y");
-        AssertThat(string(TSDocumentToString(document)), Equals("(expression (term (factor (variable)) (3) (factor (variable))))"));
+        AssertThat(string(TSDocumentToString(document)), Equals(
+            "(expression (term (factor (variable)) (3) (factor (variable))))"));
+    });
+    
+    it("parses complex trees", [&]() {
+        TSDocumentSetText(document, "x*y+z*a");
+        AssertThat(string(TSDocumentToString(document)), Equals(
+            "(expression (term (factor (variable)) (3) (factor (variable))) (4) (term (factor (variable)) (3) (factor (variable))))"));
+
+        TSDocumentSetText(document, "x*(y+z)");
+        AssertThat(string(TSDocumentToString(document)), Equals(
+            "(expression (term (factor (variable)) (3) (factor (1) (expression (term (factor (variable))) (4) (term (factor (variable)))) (2))))"));
     });
 });
 

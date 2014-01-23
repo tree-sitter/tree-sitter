@@ -24,6 +24,7 @@ extern "C" {
 #endif
     
 static int INITIAL_STACK_SIZE = 100;
+static const char *ts_symbol_names[];
 
 typedef int TSState;
 
@@ -36,6 +37,7 @@ typedef struct {
     const char *input;
     size_t position;
     TSTree *lookahead_node;
+    TSTree *prev_lookahead_node;
     TSState lex_state;
     TSStackEntry *stack;
     size_t stack_size;
@@ -81,7 +83,8 @@ static void TSParserShift(TSParser *parser, TSState parse_state) {
     TSStackEntry *entry = (parser->stack + parser->stack_size);
     entry->state = parse_state;
     entry->node = parser->lookahead_node;
-    parser->lookahead_node = NULL;
+    parser->lookahead_node = parser->prev_lookahead_node;
+    parser->prev_lookahead_node = NULL;
     parser->stack_size++;
 }
 
@@ -93,8 +96,9 @@ static void TSParserReduce(TSParser *parser, TSSymbol symbol, int child_count) {
         children[i] = parser->stack[parser->stack_size + i].node;
     }
     
+    parser->prev_lookahead_node = parser->lookahead_node;
     parser->lookahead_node = TSTreeMake(symbol, child_count, children);
-    DEBUG_PARSE("reduce: %ld, state: %u \n", symbol, TSParserParseState(parser));
+    DEBUG_PARSE("reduce: %s, state: %u \n", ts_symbol_names[symbol], TSParserParseState(parser));
 }
 
 static void TSParserError(TSParser *parser, size_t count, const char **expected_inputs) {
@@ -132,6 +136,7 @@ static void TSParserSetLookaheadSym(TSParser *parser, TSSymbol symbol) {
 
 static void TSParserAcceptInput(TSParser *parser) {
     parser->result.tree = parser->stack[parser->stack_size - 1].node;
+    DEBUG_PARSE("accept \n");
 }
 
 #pragma mark - DSL
