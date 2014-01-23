@@ -87,6 +87,15 @@ namespace tree_sitter {
                 return "ts_symbol_" + symbol_name;
             }
             
+            string character_code(char character) {
+                switch (character) {
+                    case '\0':
+                        return "\\0";
+                    default:
+                        return string() + character;
+                }
+            }
+            
             string condition_for_char_match(const CharMatch &char_match) {
                 auto value = "LOOKAHEAD_CHAR()";
                 switch (char_match.type) {
@@ -98,7 +107,7 @@ namespace tree_sitter {
                                 return string("isalnum(") + value + ")";
                         }
                     case CharMatchTypeSpecific:
-                        return string(value) + " == '" + char_match.value.character + "'";
+                        return string(value) + " == '" + character_code(char_match.value.character) + "'";
                     default:
                         return "";
                 }
@@ -201,16 +210,14 @@ namespace tree_sitter {
                 string result = "enum ts_symbol {\n";
                 for (string rule_name : rule_names)
                     result += indent(symbol_id(rule_name)) + ",\n";
-                result += indent(symbol_id(ParseTable::END_OF_INPUT));
-                return result + "\n};";
+                return result + "};";
             }
 
             string rule_names_list() {
                 string result = "static const char *ts_symbol_names[] = {\n";
                 for (string rule_name : rule_names)
                     result += indent(string("\"") + rule_name) + "\",\n";
-                result += indent(string("\"") + ParseTable::END_OF_INPUT + "\"");
-                return result + "\n};";
+                return result + "};";
             }
 
             string includes() {

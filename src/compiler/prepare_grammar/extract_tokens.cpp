@@ -71,6 +71,8 @@ namespace tree_sitter {
                     rules.insert({ name, new_rule });
             }
             
+            extractor.tokens.insert({ "__END__", rules::character('\0') });
+            
             return { 
                 Grammar(input_grammar.start_rule_name, rules),
                 Grammar("", extractor.tokens)

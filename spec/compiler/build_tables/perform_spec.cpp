@@ -61,7 +61,6 @@ describe("building parse and lex tables", []() {
             { "term", parse_actions({ ParseAction::Shift(2) }) },
             { "number", parse_actions({ ParseAction::Shift(5) }) },
             { "variable", parse_actions({ ParseAction::Shift(5) }) },
-
             { "left-paren", parse_actions({ ParseAction::Shift(6) }) },
             { "variable", parse_actions({ ParseAction::Shift(9) }) },
             { "number", parse_actions({ ParseAction::Shift(10) }) },
@@ -89,6 +88,7 @@ describe("building parse and lex tables", []() {
     it("has the right next states", [&]() {
         AssertThat(parse_state(2).actions, Equals(unordered_map<string, parse_actions>({
             { "plus", parse_actions({ ParseAction::Shift(3) }) },
+            { "__END__", parse_actions({ ParseAction::Reduce("expression", 1) }) },
         })));
     });
 });

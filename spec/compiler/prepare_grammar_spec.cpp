@@ -32,7 +32,8 @@ describe("preparing a grammar", []() {
         AssertThat(result.second, Equals(Grammar("", {
             { "1", rules::seq({
                 rules::character('a'),
-                rules::character('b') }) }
+                rules::character('b') }) },
+            { "__END__", character('\0') },
         })));
     });
     
@@ -51,7 +52,8 @@ describe("preparing a grammar", []() {
         AssertThat(result.second, Equals(Grammar("", {
             { "rule2", seq({
                 character('a'),
-                character('b') }) }
+                character('b') }) },
+            { "__END__", character('\0') },
         })));
     });
 });
