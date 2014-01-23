@@ -10,13 +10,13 @@ namespace test_grammars {
             { "expression", choice({
                 seq({
                     sym("term"),
-                    str("+"),
+                    sym("plus"),
                     sym("term") }),
                 sym("term") }) },
             { "term", choice({
                 seq({
                     sym("factor"),
-                    str("*"),
+                    sym("times"),
                     sym("factor") }),
                 sym("factor") }) },
             { "factor", choice({
@@ -26,6 +26,8 @@ namespace test_grammars {
                     str("("),
                     sym("expression"),
                     str(")") }) }) },
+            { "plus", str("+") },
+            { "times", str("*") },
             { "number", pattern("\\d+") },
             { "variable", pattern("\\w+") },
         });

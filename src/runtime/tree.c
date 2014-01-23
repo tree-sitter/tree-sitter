@@ -37,6 +37,9 @@ int TSTreeEquals(const TSTree *node1, const TSTree *node2) {
 }
 
 char * TSTreeWriteToString(const TSTree *tree, const char **symbol_names, char *string) {
+    if (!tree) {
+        sprintf(string, "#<null tree>");
+    }
     char *result = string;
     const char *name = symbol_names[tree->value];
     sprintf(result, "(%s", name);
@@ -52,7 +55,7 @@ char * TSTreeWriteToString(const TSTree *tree, const char **symbol_names, char *
 }
 
 char * TSTreeToString(const TSTree *tree, const char **symbol_names) {
-    char *string = calloc(100, sizeof(char));
+    char *string = calloc(200, sizeof(char));
     TSTreeWriteToString(tree, symbol_names, string);
     return string;
 }

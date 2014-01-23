@@ -5,10 +5,10 @@ enum ts_symbol {
     ts_symbol_expression,
     ts_symbol_term,
     ts_symbol_factor,
-    ts_symbol_4,
-    ts_symbol_3,
-    ts_symbol_1,
+    ts_symbol_times,
+    ts_symbol_plus,
     ts_symbol_2,
+    ts_symbol_1,
     ts_symbol_number,
     ts_symbol___END__,
     ts_symbol_variable,
@@ -18,10 +18,10 @@ static const char *ts_symbol_names[] = {
     "expression",
     "term",
     "factor",
-    "4",
-    "3",
-    "1",
+    "times",
+    "plus",
     "2",
+    "1",
     "number",
     "__END__",
     "variable",
@@ -37,13 +37,13 @@ static void ts_lex(TSParser *parser) {
         case 1:
             ACCEPT_TOKEN(ts_symbol___END__);
         case 2:
-            if (LOOKAHEAD_CHAR() == '\0')
-                ADVANCE(1);
             if (LOOKAHEAD_CHAR() == '*')
                 ADVANCE(3);
-            LEX_ERROR(2, EXPECT({"'*'", "''"}));
+            if (LOOKAHEAD_CHAR() == '\0')
+                ADVANCE(1);
+            LEX_ERROR(2, EXPECT({"''", "'*'"}));
         case 3:
-            ACCEPT_TOKEN(ts_symbol_3);
+            ACCEPT_TOKEN(ts_symbol_times);
         case 4:
             if (LOOKAHEAD_CHAR() == ')')
                 ADVANCE(5);
@@ -57,15 +57,15 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(5);
             LEX_ERROR(2, EXPECT({"')'", "'*'"}));
         case 7:
-            if (LOOKAHEAD_CHAR() == '+')
-                ADVANCE(8);
             if (LOOKAHEAD_CHAR() == '*')
                 ADVANCE(3);
+            if (LOOKAHEAD_CHAR() == '+')
+                ADVANCE(8);
             if (LOOKAHEAD_CHAR() == ')')
                 ADVANCE(5);
-            LEX_ERROR(3, EXPECT({"')'", "'*'", "'+'"}));
+            LEX_ERROR(3, EXPECT({"')'", "'+'", "'*'"}));
         case 8:
-            ACCEPT_TOKEN(ts_symbol_4);
+            ACCEPT_TOKEN(ts_symbol_plus);
         case 9:
             if (LOOKAHEAD_CHAR() == '+')
                 ADVANCE(8);
@@ -99,19 +99,35 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(11);
             LEX_ERROR(3, EXPECT({"<digit>", "'('", "<word>"}));
         case 15:
-            if (LOOKAHEAD_CHAR() == '\0')
-                ADVANCE(1);
-            if (LOOKAHEAD_CHAR() == '+')
-                ADVANCE(8);
-            LEX_ERROR(2, EXPECT({"'+'", "''"}));
-        case 16:
-            if (LOOKAHEAD_CHAR() == '\0')
-                ADVANCE(1);
             if (LOOKAHEAD_CHAR() == '+')
                 ADVANCE(8);
             if (LOOKAHEAD_CHAR() == '*')
                 ADVANCE(3);
-            LEX_ERROR(3, EXPECT({"'*'", "'+'", "''"}));
+            if (LOOKAHEAD_CHAR() == ')')
+                ADVANCE(5);
+            LEX_ERROR(3, EXPECT({"')'", "'*'", "'+'"}));
+        case 16:
+            if (LOOKAHEAD_CHAR() == '+')
+                ADVANCE(8);
+            if (LOOKAHEAD_CHAR() == '\0')
+                ADVANCE(1);
+            LEX_ERROR(2, EXPECT({"''", "'+'"}));
+        case 17:
+            if (LOOKAHEAD_CHAR() == '*')
+                ADVANCE(3);
+            if (LOOKAHEAD_CHAR() == '+')
+                ADVANCE(8);
+            if (LOOKAHEAD_CHAR() == '\0')
+                ADVANCE(1);
+            LEX_ERROR(3, EXPECT({"''", "'+'", "'*'"}));
+        case 18:
+            if (LOOKAHEAD_CHAR() == '+')
+                ADVANCE(8);
+            if (LOOKAHEAD_CHAR() == '*')
+                ADVANCE(3);
+            if (LOOKAHEAD_CHAR() == '\0')
+                ADVANCE(1);
+            LEX_ERROR(3, EXPECT({"''", "'*'", "'+'"}));
         default:
             LEX_PANIC();
     }
@@ -148,14 +164,14 @@ static TSParseResult ts_parse(const char *input) {
                     PARSE_ERROR(1, EXPECT({"__END__"}));
             }
         case 2:
-            SET_LEX_STATE(15);
+            SET_LEX_STATE(16);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol___END__:
                     REDUCE(ts_symbol_expression, 1);
-                case ts_symbol_4:
+                case ts_symbol_plus:
                     SHIFT(3);
                 default:
-                    PARSE_ERROR(2, EXPECT({"4", "__END__"}));
+                    PARSE_ERROR(2, EXPECT({"plus", "__END__"}));
             }
         case 3:
             SET_LEX_STATE(10);
@@ -184,12 +200,12 @@ static TSParseResult ts_parse(const char *input) {
         case 5:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_times:
+                    REDUCE(ts_symbol_factor, 1);
                 case ts_symbol___END__:
                     REDUCE(ts_symbol_factor, 1);
-                case ts_symbol_3:
-                    REDUCE(ts_symbol_factor, 1);
                 default:
-                    PARSE_ERROR(2, EXPECT({"3", "__END__"}));
+                    PARSE_ERROR(2, EXPECT({"__END__", "times"}));
             }
         case 6:
             SET_LEX_STATE(10);
@@ -214,10 +230,10 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_2:
                     REDUCE(ts_symbol_expression, 1);
-                case ts_symbol_4:
+                case ts_symbol_plus:
                     SHIFT(8);
                 default:
-                    PARSE_ERROR(2, EXPECT({"4", "2"}));
+                    PARSE_ERROR(2, EXPECT({"plus", "2"}));
             }
         case 8:
             SET_LEX_STATE(10);
@@ -246,12 +262,12 @@ static TSParseResult ts_parse(const char *input) {
         case 10:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_3:
+                case ts_symbol_times:
                     REDUCE(ts_symbol_factor, 1);
                 case ts_symbol_2:
                     REDUCE(ts_symbol_factor, 1);
                 default:
-                    PARSE_ERROR(2, EXPECT({"2", "3"}));
+                    PARSE_ERROR(2, EXPECT({"2", "times"}));
             }
         case 11:
             SET_LEX_STATE(10);
@@ -274,14 +290,14 @@ static TSParseResult ts_parse(const char *input) {
         case 12:
             SET_LEX_STATE(7);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_4:
+                case ts_symbol_times:
                     REDUCE(ts_symbol_factor, 1);
-                case ts_symbol_3:
+                case ts_symbol_plus:
                     REDUCE(ts_symbol_factor, 1);
                 case ts_symbol_2:
                     REDUCE(ts_symbol_factor, 1);
                 default:
-                    PARSE_ERROR(3, EXPECT({"2", "3", "4"}));
+                    PARSE_ERROR(3, EXPECT({"2", "plus", "times"}));
             }
         case 13:
             SET_LEX_STATE(10);
@@ -312,26 +328,26 @@ static TSParseResult ts_parse(const char *input) {
         case 15:
             SET_LEX_STATE(7);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_4:
+                case ts_symbol_times:
                     REDUCE(ts_symbol_factor, 3);
-                case ts_symbol_3:
+                case ts_symbol_plus:
                     REDUCE(ts_symbol_factor, 3);
                 case ts_symbol_2:
                     REDUCE(ts_symbol_factor, 3);
                 default:
-                    PARSE_ERROR(3, EXPECT({"2", "3", "4"}));
+                    PARSE_ERROR(3, EXPECT({"2", "plus", "times"}));
             }
         case 16:
-            SET_LEX_STATE(7);
+            SET_LEX_STATE(15);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_4:
+                case ts_symbol_plus:
                     REDUCE(ts_symbol_term, 1);
                 case ts_symbol_2:
                     REDUCE(ts_symbol_term, 1);
-                case ts_symbol_3:
+                case ts_symbol_times:
                     SHIFT(17);
                 default:
-                    PARSE_ERROR(3, EXPECT({"3", "2", "4"}));
+                    PARSE_ERROR(3, EXPECT({"times", "2", "plus"}));
             }
         case 17:
             SET_LEX_STATE(14);
@@ -350,12 +366,12 @@ static TSParseResult ts_parse(const char *input) {
         case 18:
             SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_4:
+                case ts_symbol_plus:
                     REDUCE(ts_symbol_factor, 1);
                 case ts_symbol_2:
                     REDUCE(ts_symbol_factor, 1);
                 default:
-                    PARSE_ERROR(2, EXPECT({"2", "4"}));
+                    PARSE_ERROR(2, EXPECT({"2", "plus"}));
             }
         case 19:
             SET_LEX_STATE(10);
@@ -386,22 +402,22 @@ static TSParseResult ts_parse(const char *input) {
         case 21:
             SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_4:
+                case ts_symbol_plus:
                     REDUCE(ts_symbol_factor, 3);
                 case ts_symbol_2:
                     REDUCE(ts_symbol_factor, 3);
                 default:
-                    PARSE_ERROR(2, EXPECT({"2", "4"}));
+                    PARSE_ERROR(2, EXPECT({"2", "plus"}));
             }
         case 22:
             SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_4:
+                case ts_symbol_plus:
                     REDUCE(ts_symbol_term, 3);
                 case ts_symbol_2:
                     REDUCE(ts_symbol_term, 3);
                 default:
-                    PARSE_ERROR(2, EXPECT({"2", "4"}));
+                    PARSE_ERROR(2, EXPECT({"2", "plus"}));
             }
         case 23:
             SET_LEX_STATE(4);
@@ -414,22 +430,22 @@ static TSParseResult ts_parse(const char *input) {
         case 24:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_3:
+                case ts_symbol_times:
                     REDUCE(ts_symbol_factor, 3);
                 case ts_symbol_2:
                     REDUCE(ts_symbol_factor, 3);
                 default:
-                    PARSE_ERROR(2, EXPECT({"2", "3"}));
+                    PARSE_ERROR(2, EXPECT({"2", "times"}));
             }
         case 25:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_2:
                     REDUCE(ts_symbol_term, 1);
-                case ts_symbol_3:
+                case ts_symbol_times:
                     SHIFT(26);
                 default:
-                    PARSE_ERROR(2, EXPECT({"3", "2"}));
+                    PARSE_ERROR(2, EXPECT({"times", "2"}));
             }
         case 26:
             SET_LEX_STATE(14);
@@ -506,22 +522,22 @@ static TSParseResult ts_parse(const char *input) {
         case 33:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_times:
+                    REDUCE(ts_symbol_factor, 3);
                 case ts_symbol___END__:
                     REDUCE(ts_symbol_factor, 3);
-                case ts_symbol_3:
-                    REDUCE(ts_symbol_factor, 3);
                 default:
-                    PARSE_ERROR(2, EXPECT({"3", "__END__"}));
+                    PARSE_ERROR(2, EXPECT({"__END__", "times"}));
             }
         case 34:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol___END__:
                     REDUCE(ts_symbol_term, 1);
-                case ts_symbol_3:
+                case ts_symbol_times:
                     SHIFT(35);
                 default:
-                    PARSE_ERROR(2, EXPECT({"3", "__END__"}));
+                    PARSE_ERROR(2, EXPECT({"times", "__END__"}));
             }
         case 35:
             SET_LEX_STATE(14);
@@ -588,16 +604,16 @@ static TSParseResult ts_parse(const char *input) {
                     PARSE_ERROR(1, EXPECT({"__END__"}));
             }
         case 41:
-            SET_LEX_STATE(16);
+            SET_LEX_STATE(17);
             switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_times:
+                    REDUCE(ts_symbol_factor, 1);
+                case ts_symbol_plus:
+                    REDUCE(ts_symbol_factor, 1);
                 case ts_symbol___END__:
                     REDUCE(ts_symbol_factor, 1);
-                case ts_symbol_4:
-                    REDUCE(ts_symbol_factor, 1);
-                case ts_symbol_3:
-                    REDUCE(ts_symbol_factor, 1);
                 default:
-                    PARSE_ERROR(3, EXPECT({"3", "4", "__END__"}));
+                    PARSE_ERROR(3, EXPECT({"__END__", "plus", "times"}));
             }
         case 42:
             SET_LEX_STATE(10);
@@ -626,28 +642,28 @@ static TSParseResult ts_parse(const char *input) {
                     PARSE_ERROR(1, EXPECT({"2"}));
             }
         case 44:
-            SET_LEX_STATE(16);
+            SET_LEX_STATE(17);
             switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_times:
+                    REDUCE(ts_symbol_factor, 3);
+                case ts_symbol_plus:
+                    REDUCE(ts_symbol_factor, 3);
                 case ts_symbol___END__:
                     REDUCE(ts_symbol_factor, 3);
-                case ts_symbol_4:
-                    REDUCE(ts_symbol_factor, 3);
-                case ts_symbol_3:
-                    REDUCE(ts_symbol_factor, 3);
                 default:
-                    PARSE_ERROR(3, EXPECT({"3", "4", "__END__"}));
+                    PARSE_ERROR(3, EXPECT({"__END__", "plus", "times"}));
             }
         case 45:
-            SET_LEX_STATE(16);
+            SET_LEX_STATE(18);
             switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_plus:
+                    REDUCE(ts_symbol_term, 1);
                 case ts_symbol___END__:
                     REDUCE(ts_symbol_term, 1);
-                case ts_symbol_4:
-                    REDUCE(ts_symbol_term, 1);
-                case ts_symbol_3:
+                case ts_symbol_times:
                     SHIFT(46);
                 default:
-                    PARSE_ERROR(3, EXPECT({"3", "4", "__END__"}));
+                    PARSE_ERROR(3, EXPECT({"times", "__END__", "plus"}));
             }
         case 46:
             SET_LEX_STATE(14);
@@ -664,14 +680,14 @@ static TSParseResult ts_parse(const char *input) {
                     PARSE_ERROR(4, EXPECT({"variable", "number", "1", "factor"}));
             }
         case 47:
-            SET_LEX_STATE(15);
+            SET_LEX_STATE(16);
             switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_plus:
+                    REDUCE(ts_symbol_factor, 1);
                 case ts_symbol___END__:
                     REDUCE(ts_symbol_factor, 1);
-                case ts_symbol_4:
-                    REDUCE(ts_symbol_factor, 1);
                 default:
-                    PARSE_ERROR(2, EXPECT({"4", "__END__"}));
+                    PARSE_ERROR(2, EXPECT({"__END__", "plus"}));
             }
         case 48:
             SET_LEX_STATE(10);
@@ -700,24 +716,24 @@ static TSParseResult ts_parse(const char *input) {
                     PARSE_ERROR(1, EXPECT({"2"}));
             }
         case 50:
-            SET_LEX_STATE(15);
+            SET_LEX_STATE(16);
             switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_plus:
+                    REDUCE(ts_symbol_factor, 3);
                 case ts_symbol___END__:
                     REDUCE(ts_symbol_factor, 3);
-                case ts_symbol_4:
-                    REDUCE(ts_symbol_factor, 3);
                 default:
-                    PARSE_ERROR(2, EXPECT({"4", "__END__"}));
+                    PARSE_ERROR(2, EXPECT({"__END__", "plus"}));
             }
         case 51:
-            SET_LEX_STATE(15);
+            SET_LEX_STATE(16);
             switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_plus:
+                    REDUCE(ts_symbol_term, 3);
                 case ts_symbol___END__:
                     REDUCE(ts_symbol_term, 3);
-                case ts_symbol_4:
-                    REDUCE(ts_symbol_term, 3);
                 default:
-                    PARSE_ERROR(2, EXPECT({"4", "__END__"}));
+                    PARSE_ERROR(2, EXPECT({"__END__", "plus"}));
             }
         default:
             PARSE_PANIC();
