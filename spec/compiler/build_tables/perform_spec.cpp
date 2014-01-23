@@ -8,6 +8,22 @@ using namespace rules;
 typedef unordered_set<ParseAction> parse_actions;
 typedef unordered_set<LexAction> lex_actions;
 
+static unordered_set<string> keys(const unordered_map<string, parse_actions> &map) {
+    unordered_set<string> result;
+    for (auto pair : map) {
+        result.insert(pair.first);
+    }
+    return result;
+}
+
+static unordered_set<CharMatch> keys(const unordered_map<CharMatch, lex_actions> &map) {
+    unordered_set<CharMatch> result;
+    for (auto pair : map) {
+        result.insert(pair.first);
+    }
+    return result;
+}
+
 START_TEST
 
 describe("building parse and lex tables", []() {
@@ -56,20 +72,18 @@ describe("building parse and lex tables", []() {
     };
     
     it("has the right starting state", [&]() {
-        AssertThat(parse_state(0).actions, Equals(unordered_map<string, parse_actions>({
-            { "expression", parse_actions({ ParseAction::Shift(1) }) },
-            { "term", parse_actions({ ParseAction::Shift(2) }) },
-            { "number", parse_actions({ ParseAction::Shift(5) }) },
-            { "variable", parse_actions({ ParseAction::Shift(5) }) },
-            { "left-paren", parse_actions({ ParseAction::Shift(6) }) },
-            { "variable", parse_actions({ ParseAction::Shift(9) }) },
-            { "number", parse_actions({ ParseAction::Shift(10) }) },
+        AssertThat(keys(parse_state(0).actions), Equals(unordered_set<string>({
+            "expression",
+            "term",
+            "number",
+            "variable",
+            "left-paren",
         })));
         
-        AssertThat(lex_state(0).actions, Equals(unordered_map<CharMatch, lex_actions>({
-            { CharMatchSpecific('('), lex_actions({ LexAction::Advance(1) }) },
-            { CharMatchClass(CharClassDigit), lex_actions({ LexAction::Advance(2) }) },
-            { CharMatchClass(CharClassWord), lex_actions({ LexAction::Advance(3) }) },
+        AssertThat(keys(lex_state(0).actions), Equals(unordered_set<CharMatch>({
+            CharMatchSpecific('('),
+            CharMatchClass(CharClassDigit),
+            CharMatchClass(CharClassWord),
         })));
 
         AssertThat(lex_state(0).expected_inputs(), Equals(unordered_set<CharMatch>({
