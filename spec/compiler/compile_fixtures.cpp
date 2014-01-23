@@ -1,6 +1,6 @@
 #include "spec_helper.h"
 #include "compile.h"
-#include "../fixtures/grammars/arithmetic.h"
+#include "../fixtures/grammars/test_grammars.h"
 #include <fstream>
 
 START_TEST
@@ -10,7 +10,12 @@ describe("compiling grammars", []() {
     
     it("works for the arithmetic grammar", [&]() {
         Grammar grammar = test_grammars::arithmetic();
-        ofstream(test_parser_dir + "/arithmetic.c") << compile(grammar);
+        ofstream(test_parser_dir + "/arithmetic.c") << compile(grammar, "arithmetic");
+    });
+
+    it("works for the json grammar", [&]() {
+        Grammar grammar = test_grammars::json();
+        ofstream(test_parser_dir + "/json.c") << compile(grammar, "json");
     });
 });
 

@@ -6,7 +6,7 @@
 namespace tree_sitter {
     class Grammar;
 
-    std::string compile(const Grammar &grammar);
+    std::string compile(const Grammar &grammar, std::string name);
 }
 
 #endif

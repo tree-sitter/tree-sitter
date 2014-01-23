@@ -6,12 +6,12 @@
 #include "generate_code/c_code.h"
 
 namespace tree_sitter {
-    std::string compile(const Grammar &grammar) {
+    std::string compile(const Grammar &grammar, std::string name) {
         auto grammars = prepare_grammar::perform(grammar);
         auto tables = build_tables::perform(grammars.first, grammars.second);
         auto rule_names = grammars.first.rule_names();
         auto token_names = grammars.second.rule_names();
         rule_names.insert(rule_names.end(), token_names.begin(), token_names.end());
-        return generate_code::c_code(rule_names, tables.first, tables.second);
+        return generate_code::c_code(name, rule_names, tables.first, tables.second);
     }
 }

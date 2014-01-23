@@ -1,4 +1,4 @@
-#include "arithmetic.h"
+#include "test_grammars.h"
 #include "rules.h"
 
 using namespace tree_sitter;

@@ -76,8 +76,10 @@ namespace tree_sitter {
             const vector<string> rule_names;
             const ParseTable parse_table;
             const LexTable lex_table;
+            const string name;
         public:
-            CCodeGenerator(vector<string> rule_names, const ParseTable &parse_table, const LexTable &lex_table) :
+            CCodeGenerator(string name, vector<string> rule_names, const ParseTable &parse_table, const LexTable &lex_table) :
+                name(name),
                 rule_names(rule_names),
                 parse_table(parse_table),
                 lex_table(lex_table)
@@ -91,6 +93,8 @@ namespace tree_sitter {
                 switch (character) {
                     case '\0':
                         return "\\0";
+                    case '"':
+                        return "\\\"";
                     default:
                         return string() + character;
                 }
@@ -143,13 +147,18 @@ namespace tree_sitter {
                 return result;
             }
             
+            string escape_string(string input) {
+                str_replace(input, "\"", "\\\"");
+                return input;
+            }
+            
             string lex_error_call(const unordered_set<CharMatch> &expected_inputs) {
                 string result = "LEX_ERROR(" + to_string(expected_inputs.size()) + ", EXPECT({";
                 bool started = false;
                 for (auto match : expected_inputs) {
                     if (started) result += ", ";
                     started = true;
-                    result += "\"" + CharMatchToString(match) + "\"";
+                    result += "\"" + escape_string(CharMatchToString(match)) + "\"";
                 }
                 result += "}));";
                 return result;
@@ -249,7 +258,7 @@ namespace tree_sitter {
             
             string parse_config_struct() {
                 return join({
-                    "TSParseConfig ts_parse_config_arithmetic = {",
+                    "TSParseConfig ts_parse_config_" + name + " = {",
                     indent(".parse_fn = ts_parse,"),
                     indent(".symbol_names = ts_symbol_names"),
                     "};"
@@ -268,8 +277,8 @@ namespace tree_sitter {
             }
         };
         
-        string c_code(const vector<string> rule_names, const ParseTable &parse_table, const LexTable &lex_table) {
-            return CCodeGenerator(rule_names, parse_table, lex_table).code();
+        string c_code(string name, const vector<string> rule_names, const ParseTable &parse_table, const LexTable &lex_table) {
+            return CCodeGenerator(name, rule_names, parse_table, lex_table).code();
         }
     }
 }
