@@ -83,22 +83,26 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(13);
             LEX_ERROR(1, EXPECT({"<word>"}));
         case 13:
+            if (LOOKAHEAD_CHAR() == '\"')
+                ADVANCE(14);
             if (isalnum(LOOKAHEAD_CHAR()))
                 ADVANCE(13);
-            ACCEPT_TOKEN(ts_symbol_string);
+            LEX_ERROR(2, EXPECT({"<word>", "'\"'"}));
         case 14:
-            if (LOOKAHEAD_CHAR() == '}')
-                ADVANCE(15);
-            LEX_ERROR(1, EXPECT({"'}'"}));
+            ACCEPT_TOKEN(ts_symbol_string);
         case 15:
-            ACCEPT_TOKEN(ts_symbol_7);
+            if (LOOKAHEAD_CHAR() == '}')
+                ADVANCE(16);
+            LEX_ERROR(1, EXPECT({"'}'"}));
         case 16:
-            if (LOOKAHEAD_CHAR() == ':')
-                ADVANCE(17);
-            LEX_ERROR(1, EXPECT({"':'"}));
+            ACCEPT_TOKEN(ts_symbol_7);
         case 17:
-            ACCEPT_TOKEN(ts_symbol_5);
+            if (LOOKAHEAD_CHAR() == ':')
+                ADVANCE(18);
+            LEX_ERROR(1, EXPECT({"':'"}));
         case 18:
+            ACCEPT_TOKEN(ts_symbol_5);
+        case 19:
             if (LOOKAHEAD_CHAR() == '\"')
                 ADVANCE(12);
             LEX_ERROR(1, EXPECT({"'\"'"}));
@@ -204,7 +208,7 @@ static TSParseResult ts_parse(const char *input) {
                     PARSE_ERROR(1, EXPECT({"2"}));
             }
         case 7:
-            SET_LEX_STATE(18);
+            SET_LEX_STATE(19);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_string:
                     SHIFT(8);
@@ -212,7 +216,7 @@ static TSParseResult ts_parse(const char *input) {
                     PARSE_ERROR(1, EXPECT({"string"}));
             }
         case 8:
-            SET_LEX_STATE(16);
+            SET_LEX_STATE(17);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_5:
                     SHIFT(9);
@@ -292,7 +296,7 @@ static TSParseResult ts_parse(const char *input) {
                     PARSE_ERROR(1, EXPECT({"2"}));
             }
         case 15:
-            SET_LEX_STATE(18);
+            SET_LEX_STATE(19);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_string:
                     SHIFT(16);
@@ -300,7 +304,7 @@ static TSParseResult ts_parse(const char *input) {
                     PARSE_ERROR(1, EXPECT({"string"}));
             }
         case 16:
-            SET_LEX_STATE(16);
+            SET_LEX_STATE(17);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_5:
                     SHIFT(17);
@@ -336,7 +340,7 @@ static TSParseResult ts_parse(const char *input) {
                     PARSE_ERROR(1, EXPECT({"6"}));
             }
         case 19:
-            SET_LEX_STATE(14);
+            SET_LEX_STATE(15);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_7:
                     SHIFT(20);
@@ -368,7 +372,7 @@ static TSParseResult ts_parse(const char *input) {
                     PARSE_ERROR(1, EXPECT({"6"}));
             }
         case 23:
-            SET_LEX_STATE(14);
+            SET_LEX_STATE(15);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_7:
                     SHIFT(24);
@@ -408,7 +412,7 @@ static TSParseResult ts_parse(const char *input) {
                     PARSE_ERROR(1, EXPECT({"__END__"}));
             }
         case 28:
-            SET_LEX_STATE(18);
+            SET_LEX_STATE(19);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_string:
                     SHIFT(29);
@@ -416,7 +420,7 @@ static TSParseResult ts_parse(const char *input) {
                     PARSE_ERROR(1, EXPECT({"string"}));
             }
         case 29:
-            SET_LEX_STATE(16);
+            SET_LEX_STATE(17);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_5:
                     SHIFT(30);
@@ -452,7 +456,7 @@ static TSParseResult ts_parse(const char *input) {
                     PARSE_ERROR(1, EXPECT({"6"}));
             }
         case 32:
-            SET_LEX_STATE(14);
+            SET_LEX_STATE(15);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_7:
                     SHIFT(33);

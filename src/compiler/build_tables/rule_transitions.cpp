@@ -13,10 +13,6 @@ namespace tree_sitter {
         public:
             transition_map<Rule, Rule> value;
 
-            void visit(const Blank *rule) {
-                value = transition_map<Rule, Rule>({{ blank(), blank() }});
-            }
-
             void visit(const Character *rule) {
                 value = transition_map<Rule, Rule>({{ rule->copy(), blank() }});
             }
@@ -39,6 +35,11 @@ namespace tree_sitter {
                     else
                         return seq({ left_rule, rule->right });
                 });
+                if (rule_can_be_blank(rule->left)) {
+                    value.merge(rule_transitions(rule->right), [&](rule_ptr left, rule_ptr right) -> rule_ptr {
+                        return choice({ left, right });
+                    });
+                }
             }
             
             void visit(const Repeat *rule) {
@@ -59,15 +60,39 @@ namespace tree_sitter {
             }
         };
         
-        bool rule_can_be_blank(const rule_ptr &rule) {
-            for (auto pair : rule_transitions(rule))
-                if (is_blank(pair.first))
-                    return true;
-            return false;
-        }
-        
         transition_map<Rule, Rule> rule_transitions(const rule_ptr &rule) {
             TransitionsVisitor visitor;
+            rule->accept(visitor);
+            return visitor.value;
+        }
+        
+        class EpsilonVisitor : public rules::Visitor {
+        public:
+            bool value;
+            
+            void default_visit(const Rule *) {
+                value = false;
+            }
+            
+            void visit(const Blank *) {
+                value = true;
+            }
+            
+            void visit(const Choice *rule) {
+                value = rule_can_be_blank(rule->left) || rule_can_be_blank(rule->right);
+            }
+            
+            void visit(const Seq *rule) {
+                value = rule_can_be_blank(rule->left) && rule_can_be_blank(rule->right);
+            }
+            
+            void visit(const Repeat *rule) {
+                value = rule_can_be_blank(rule->content);
+            }
+        };
+        
+        bool rule_can_be_blank(const rule_ptr &rule) {
+            EpsilonVisitor visitor;
             rule->accept(visitor);
             return visitor.value;
         }

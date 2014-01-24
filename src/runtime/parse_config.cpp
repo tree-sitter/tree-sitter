@@ -11,7 +11,7 @@ const char * TSParseErrorToString(const TSParseError *error, const char *input_s
             result = string("Unexpected token ") + symbol_names[error->lookahead_sym] + ". ";
             break;
         case TSParseErrorTypeLexical:
-            result = string("Unexpected character '") + (input_string + error->position) + "'. ";
+            result = string("Unexpected character '") + input_string[error->position] + "'. ";
             break;
         default:
             return EMPTY;

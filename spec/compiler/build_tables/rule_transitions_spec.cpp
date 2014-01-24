@@ -1,8 +1,8 @@
 #include "spec_helper.h"
 #include "rule_transitions.h"
 
-using build_tables::rule_transitions;
 using namespace rules;
+using namespace build_tables;
 
 START_TEST
 
@@ -68,6 +68,22 @@ describe("rule transitions", []() {
             })));
     });
     
+    it("handles sequences whose left sides can be blank", [&]() {
+        AssertThat(
+            rule_transitions(seq({
+                choice({
+                    sym("x"),
+                    blank(),
+                }),
+                seq({
+                    sym("x"),
+                    sym("y")
+                })
+            })), Equals(transition_map<Rule, Rule>({
+                { sym("x"), choice({ seq({ sym("x"), sym("y") }), sym("y"), }) }
+            })));
+    });
+    
     it("handles choices with common starting symbols", [&]() {
         AssertThat(
             rule_transitions(
@@ -124,6 +140,20 @@ describe("rule transitions", []() {
                     blank()
                 })
             }})));
+    });
+});
+
+describe("checking if rules can be blank", [&]() {
+    it("handles sequences", [&]() {
+        rule_ptr rule = seq({
+            choice({
+                str("x"),
+                blank(),
+            }),
+            str("y"),
+        });
+        
+        AssertThat(rule_can_be_blank(rule), Equals(false));
     });
 });
 

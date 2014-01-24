@@ -14,8 +14,13 @@ describe("json", []() {
     });
     
     it("parses strings", [&]() {
-        TSDocumentSetText(document, "\"foo\"");
+        TSDocumentSetText(document, "\"string\"");
         AssertThat(string(TSDocumentToString(document)), Equals("(value (string))"));
+    });
+    
+    it("parses objects", [&]() {
+        TSDocumentSetText(document, "{\"key1\":1}");
+        AssertThat(string(TSDocumentToString(document)), Equals("(value (object (4) (string) (5) (value (number)) (6) (7)))"));
     });
 });
 
