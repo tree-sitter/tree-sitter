@@ -40,6 +40,7 @@ namespace tree_sitter {
         
         bool LexItem::operator<(const LexItem &other) const {
             if (rule_name < other.rule_name) return true;
+            if (rule_name > other.rule_name) return false;
             if (rule->to_string() < other.rule->to_string()) return true;
             return false;
         }
@@ -50,6 +51,7 @@ namespace tree_sitter {
             if (rule->to_string() < other.rule->to_string()) return true;
             if (rule->to_string() > other.rule->to_string()) return false;
             if (consumed_sym_count < other.consumed_sym_count) return true;
+            if (consumed_sym_count > other.consumed_sym_count) return false;
             if (lookahead_sym_name < other.lookahead_sym_name) return true;
             return false;
         }

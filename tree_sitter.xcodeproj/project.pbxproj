@@ -14,7 +14,7 @@
 		12130614182C3A1700FCF928 /* seq.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12130612182C3A1700FCF928 /* seq.cpp */; };
 		12130617182C3D2900FCF928 /* string.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12130615182C3D2900FCF928 /* string.cpp */; };
 		1214930E181E200B008E9BDA /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 121492E9181E200B008E9BDA /* main.cpp */; };
-		1225CC6418765693000D4723 /* prepare_grammar_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1225CC6318765693000D4723 /* prepare_grammar_spec.cpp */; };
+		1225CC6418765693000D4723 /* extract_tokens_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1225CC6318765693000D4723 /* extract_tokens_spec.cpp */; };
 		1251209B1830145300C9B56A /* rule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1251209A1830145300C9B56A /* rule.cpp */; };
 		125120A4183083BD00C9B56A /* arithmetic.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 125120A3183083BD00C9B56A /* arithmetic.cpp */; };
 		12AB465F188BD03E00DE79DF /* follow_sets.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12AB465D188BD03E00DE79DF /* follow_sets.cpp */; };
@@ -25,6 +25,8 @@
 		12E75A971891BD32001B8F10 /* json.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12E75A961891BD32001B8F10 /* json.cpp */; };
 		12E75A9A1891BF57001B8F10 /* json.c in Sources */ = {isa = PBXBuildFile; fileRef = 12E75A981891BF3B001B8F10 /* json.c */; };
 		12E75A9C1891C17D001B8F10 /* json_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12E75A9B1891C17D001B8F10 /* json_spec.cpp */; };
+		12E75AA218930931001B8F10 /* expand_repeats.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12E75AA018930931001B8F10 /* expand_repeats.cpp */; };
+		12E75AA318930982001B8F10 /* expand_repeats_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12E75A9E189308C4001B8F10 /* expand_repeats_spec.cpp */; };
 		12EDCF8A187B498C005A7A07 /* tree_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCF89187B498C005A7A07 /* tree_spec.cpp */; };
 		12EDCF8D187C6282005A7A07 /* document.c in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCF8C187C6282005A7A07 /* document.c */; };
 		12EDCF981881FCD5005A7A07 /* extract_tokens.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12EDCF8F1881FCCA005A7A07 /* extract_tokens.cpp */; };
@@ -95,7 +97,7 @@
 		121492E9181E200B008E9BDA /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = spec/main.cpp; sourceTree = SOURCE_ROOT; };
 		121492EA181E200B008E9BDA /* rules_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = rules_spec.cpp; path = spec/compiler/rules/rules_spec.cpp; sourceTree = SOURCE_ROOT; };
 		121D8B3018795CC0003CF44B /* parser.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = parser.h; sourceTree = "<group>"; };
-		1225CC6318765693000D4723 /* prepare_grammar_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = prepare_grammar_spec.cpp; path = compiler/prepare_grammar_spec.cpp; sourceTree = "<group>"; };
+		1225CC6318765693000D4723 /* extract_tokens_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = extract_tokens_spec.cpp; path = prepare_grammar/extract_tokens_spec.cpp; sourceTree = "<group>"; };
 		1251209A1830145300C9B56A /* rule.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rule.cpp; sourceTree = "<group>"; };
 		125120A218307FFD00C9B56A /* test_grammars.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = test_grammars.h; path = spec/fixtures/grammars/test_grammars.h; sourceTree = SOURCE_ROOT; };
 		125120A3183083BD00C9B56A /* arithmetic.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = arithmetic.cpp; path = spec/fixtures/grammars/arithmetic.cpp; sourceTree = SOURCE_ROOT; };
@@ -115,6 +117,9 @@
 		12E75A961891BD32001B8F10 /* json.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = json.cpp; sourceTree = "<group>"; };
 		12E75A981891BF3B001B8F10 /* json.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = json.c; sourceTree = "<group>"; };
 		12E75A9B1891C17D001B8F10 /* json_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = json_spec.cpp; sourceTree = "<group>"; };
+		12E75A9E189308C4001B8F10 /* expand_repeats_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = expand_repeats_spec.cpp; sourceTree = "<group>"; };
+		12E75AA018930931001B8F10 /* expand_repeats.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = expand_repeats.cpp; path = src/compiler/prepare_grammar/expand_repeats.cpp; sourceTree = SOURCE_ROOT; };
+		12E75AA118930931001B8F10 /* expand_repeats.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = expand_repeats.h; path = src/compiler/prepare_grammar/expand_repeats.h; sourceTree = SOURCE_ROOT; };
 		12EDCF89187B498C005A7A07 /* tree_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = tree_spec.cpp; sourceTree = "<group>"; };
 		12EDCF8B187C6251005A7A07 /* document.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = document.h; sourceTree = "<group>"; };
 		12EDCF8C187C6282005A7A07 /* document.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = document.c; sourceTree = "<group>"; };
@@ -243,8 +248,7 @@
 				12BC470618830BC5005AC502 /* first_set_spec.cpp */,
 				12AB4660188CB3A300DE79DF /* item_set_closure_spec.cpp */,
 			);
-			name = build_tables;
-			path = compiler/build_tables;
+			path = build_tables;
 			sourceTree = "<group>";
 		};
 		125120A118307FCA00C9B56A /* grammars */ = {
@@ -318,9 +322,20 @@
 			path = spec;
 			sourceTree = "<group>";
 		};
+		12E75A9D1892D4F1001B8F10 /* prepare_grammar */ = {
+			isa = PBXGroup;
+			children = (
+				1225CC6318765693000D4723 /* extract_tokens_spec.cpp */,
+				12E75A9E189308C4001B8F10 /* expand_repeats_spec.cpp */,
+			);
+			name = prepare_grammar;
+			sourceTree = "<group>";
+		};
 		12ED72A5186FC6D90089229B /* prepare_grammar */ = {
 			isa = PBXGroup;
 			children = (
+				12E75AA018930931001B8F10 /* expand_repeats.cpp */,
+				12E75AA118930931001B8F10 /* expand_repeats.h */,
 				12EDCF8F1881FCCA005A7A07 /* extract_tokens.cpp */,
 				12EDCF901881FCCA005A7A07 /* extract_tokens.h */,
 				12EDCF911881FCCA005A7A07 /* perform.cpp */,
@@ -384,12 +399,12 @@
 		12FD40AE185EE6610041A84E /* compiler */ = {
 			isa = PBXGroup;
 			children = (
+				12E75A9D1892D4F1001B8F10 /* prepare_grammar */,
 				1213061C182C854F00FCF928 /* build_tables */,
 				12FD4063185E75290041A84E /* compile_fixtures.cpp */,
-				1225CC6318765693000D4723 /* prepare_grammar_spec.cpp */,
 				12D1369F18357066005F3369 /* rules */,
 			);
-			name = compiler;
+			path = compiler;
 			sourceTree = "<group>";
 		};
 		12FD40AF185EE81D0041A84E /* fixtures */ = {
@@ -496,6 +511,7 @@
 				12FD40D9185FEEDF0041A84E /* pattern_spec.cpp in Sources */,
 				12130617182C3D2900FCF928 /* string.cpp in Sources */,
 				12EDCFC018820880005A7A07 /* item_set_closure.cpp in Sources */,
+				12E75AA218930931001B8F10 /* expand_repeats.cpp in Sources */,
 				12EDCFBD188205BF005A7A07 /* perform_spec.cpp in Sources */,
 				12EDCFC61882153D005A7A07 /* first_set.cpp in Sources */,
 				12130611182C3A1100FCF928 /* blank.cpp in Sources */,
@@ -516,7 +532,8 @@
 				1214930E181E200B008E9BDA /* main.cpp in Sources */,
 				12F9A651182DD6BC00FAF50C /* grammar.cpp in Sources */,
 				12D136A4183678A2005F3369 /* repeat.cpp in Sources */,
-				1225CC6418765693000D4723 /* prepare_grammar_spec.cpp in Sources */,
+				12E75AA318930982001B8F10 /* expand_repeats_spec.cpp in Sources */,
+				1225CC6418765693000D4723 /* extract_tokens_spec.cpp in Sources */,
 				12EDCF9A1881FCD9005A7A07 /* search_for_symbols.cpp in Sources */,
 				12FD40F3186641C00041A84E /* char_match.cpp in Sources */,
 				12EDCFB21882039A005A7A07 /* perform.cpp in Sources */,

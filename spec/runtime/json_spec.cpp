@@ -21,6 +21,9 @@ describe("json", []() {
     it("parses objects", [&]() {
         TSDocumentSetText(document, "{\"key1\":1}");
         AssertThat(string(TSDocumentToString(document)), Equals("(value (object (4) (string) (5) (value (number)) (6) (7)))"));
+
+        TSDocumentSetText(document, "{\"key1\":1,\"key2\":2}");
+        AssertThat(string(TSDocumentToString(document)), Equals("(value (object (4) (string) (5) (value (number)) (6) (7)))"));
     });
 });
 
