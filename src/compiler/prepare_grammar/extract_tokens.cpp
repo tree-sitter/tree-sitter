@@ -6,76 +6,77 @@ using std::pair;
 using std::string;
 using std::to_string;
 using std::unordered_map;
+using namespace tree_sitter::rules;
 
 namespace tree_sitter {
     namespace prepare_grammar {
-        class TokenExtractor : rules::Visitor {
+        class TokenExtractor : Visitor {
         public:
-            rules::rule_ptr value;
-            size_t anonymous_token_count = 0;
-            unordered_map<string, const rules::rule_ptr> tokens;
+            rule_ptr value;
+            unordered_map<string, const rule_ptr> tokens;
             
-            rules::rule_ptr initial_apply(string name, const rules::rule_ptr rule) {
-                auto result = apply(rule);
-                auto symbol = std::dynamic_pointer_cast<const rules::Symbol>(result);
-                if (symbol && *symbol != *rule) {
-                    tokens.insert({ name, tokens[symbol->name] });
-                    tokens.erase(symbol->name);
-                    anonymous_token_count--;
-                    return rules::rule_ptr();
+            rule_ptr initial_apply(const rule_ptr rule) {
+                if (!search_for_symbols(rule)) {
+                    return rule_ptr();
                 } else {
-                    return result;
+                    return apply(rule);
                 }
             }
             
-            rules::rule_ptr apply(const rules::rule_ptr rule) {
+            rule_ptr apply(const rule_ptr rule) {
                 if (search_for_symbols(rule)) {
                     rule->accept(*this);
                     return value;
                 } else {
                     string token_name = add_token(rule);
-                    return rules::sym(token_name);
+                    return sym(token_name);
                 }
             }
             
-            string add_token(const rules::rule_ptr &rule) {
+            string add_token(const rule_ptr &rule) {
                 for (auto pair : tokens)
                     if (*pair.second == *rule)
                         return pair.first;
-                string name = to_string(++anonymous_token_count);
+                string name = to_string(tokens.size() + 1);
                 tokens.insert({ name, rule });
                 return name;
             }
             
-            void default_visit(const rules::Rule *rule) {
+            void default_visit(const Rule *rule) {
                 value = rule->copy();
             }
             
-            void visit(const rules::Choice *choice) {
-                value = rules::choice({ apply(choice->left), apply(choice->right) });
+            void visit(const Choice *rule) {
+                value = choice({ apply(rule->left), apply(rule->right) });
             }
             
-            void visit(const rules::Seq *seq) {
-                value = rules::seq({ apply(seq->left), apply(seq->right) });
+            void visit(const Seq *rule) {
+                value = seq({ apply(rule->left), apply(rule->right) });
             }
         };
         
         pair<Grammar, Grammar> extract_tokens(const Grammar &input_grammar) {
             TokenExtractor extractor;
-            unordered_map<string, const rules::rule_ptr> rules;
+            unordered_map<string, const rule_ptr> rules;
+            unordered_map<string, const rule_ptr> tokens;
             
             for (auto pair : input_grammar.rules) {
                 string name = pair.first;
-                auto new_rule = extractor.initial_apply(name, pair.second);
+                rule_ptr rule = pair.second;
+                auto new_rule = extractor.initial_apply(rule);
                 if (new_rule.get())
                     rules.insert({ name, new_rule });
+                else
+                    tokens.insert({ name, rule });
             }
             
-            extractor.tokens.insert({ "__END__", rules::character('\0') });
+            for (auto pair : extractor.tokens)
+                tokens.insert(pair);
+            tokens.insert({ "__END__", character('\0') });
             
             return { 
                 Grammar(input_grammar.start_rule_name, rules),
-                Grammar("", extractor.tokens)
+                Grammar("", tokens)
             };
         }
     }
