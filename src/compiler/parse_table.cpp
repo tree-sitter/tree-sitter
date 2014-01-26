@@ -73,7 +73,4 @@ namespace tree_sitter {
     void ParseTable::add_default_action(size_t state_index, ParseAction action) {
         states[state_index].default_actions.insert(action);
     }
-    
-    const string ParseTable::START = "__START__";
-    const string ParseTable::END_OF_INPUT = "__END__";
 }

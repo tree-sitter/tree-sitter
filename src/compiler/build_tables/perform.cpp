@@ -7,12 +7,15 @@
 #include "grammar.h"
 
 using std::pair;
+using std::string;
 using std::vector;
 using std::unordered_map;
 
 namespace tree_sitter {
     namespace build_tables {
         static int NOT_FOUND = -1;
+        static string START = "__START__";
+        static string END_OF_INPUT = "__END__";
 
         class TableBuilder {
             const Grammar grammar;
@@ -62,7 +65,7 @@ namespace tree_sitter {
             void add_reduce_actions(const ParseItemSet &item_set, size_t state_index) {
                 for (ParseItem item : item_set) {
                     if (item.is_done()) {
-                        ParseAction action = (item.rule_name == ParseTable::START) ?
+                        ParseAction action = (item.rule_name == START) ?
                             ParseAction::Accept() :
                             ParseAction::Reduce(item.rule_name, item.consumed_sym_count);
                         parse_table.add_action(state_index, item.lookahead_sym_name, action);
@@ -75,6 +78,8 @@ namespace tree_sitter {
                 LexItemSet item_set;
                 for (auto pair : state.actions) {
                     auto symbol = rules::Symbol(pair.first);
+                    if (symbol.name == END_OF_INPUT)
+                        item_set.insert(LexItem(symbol.name, rules::character('\0')));
                     if (lex_grammar.has_definition(symbol))
                         item_set.insert(LexItem(symbol.name, lex_grammar.rule(symbol.name)));
                 }
@@ -113,7 +118,7 @@ namespace tree_sitter {
                 lex_grammar(lex_grammar) {};
 
             pair<ParseTable, LexTable> build() {
-                auto item = ParseItem(ParseTable::START, rules::sym(grammar.start_rule_name), 0, ParseTable::END_OF_INPUT);
+                auto item = ParseItem(START, rules::sym(grammar.start_rule_name), 0, END_OF_INPUT);
                 ParseItemSet item_set = item_set_closure(ParseItemSet({ item }), grammar);
                 add_parse_state(item_set);
                 return pair<ParseTable, LexTable>(parse_table, lex_table);

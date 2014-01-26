@@ -72,7 +72,6 @@ namespace tree_sitter {
             
             for (auto pair : extractor.tokens)
                 tokens.insert(pair);
-            tokens.insert({ "__END__", character('\0') });
             
             return { 
                 Grammar(input_grammar.start_rule_name, rules),

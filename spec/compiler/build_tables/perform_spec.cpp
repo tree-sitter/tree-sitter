@@ -95,7 +95,7 @@ describe("building parse and lex tables", []() {
     
     it("accepts when the start symbol is reduced", [&]() {
         AssertThat(parse_state(1).actions, Equals(unordered_map<string, parse_actions>({
-            { ParseTable::END_OF_INPUT, parse_actions({ ParseAction::Accept() }) }
+            { "__END__", parse_actions({ ParseAction::Accept() }) }
         })));
     });
     

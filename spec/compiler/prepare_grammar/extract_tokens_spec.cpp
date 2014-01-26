@@ -33,7 +33,6 @@ describe("preparing a grammar", []() {
             { "1", rules::seq({
                 rules::character('a'),
                 rules::character('b') }) },
-            { "__END__", character('\0') },
         })));
     });
     
@@ -53,7 +52,6 @@ describe("preparing a grammar", []() {
             { "rule2", seq({
                 character('a'),
                 character('b') }) },
-            { "__END__", character('\0') },
         })));
     });
 });
