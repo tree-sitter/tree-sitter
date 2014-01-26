@@ -2,29 +2,29 @@
 #include <ctype.h>
 
 enum ts_symbol {
-    ts_symbol_expression,
     ts_symbol_factor,
-    ts_symbol_term,
-    ts_symbol_1,
-    ts_symbol_2,
-    ts_symbol_times,
     ts_symbol_plus,
     ts_symbol_number,
     ts_symbol___END__,
     ts_symbol_variable,
+    ts_symbol_1,
+    ts_symbol_2,
+    ts_symbol_term,
+    ts_symbol_times,
+    ts_symbol_expression,
 };
 
 static const char *ts_symbol_names[] = {
-    "expression",
     "factor",
-    "term",
-    "1",
-    "2",
-    "times",
     "plus",
     "number",
     "__END__",
     "variable",
+    "1",
+    "2",
+    "term",
+    "times",
+    "expression",
 };
 
 static void ts_lex(TSParser *parser) {

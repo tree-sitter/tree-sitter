@@ -73,14 +73,12 @@ namespace tree_sitter {
         }
         
         class CCodeGenerator {
-            const vector<string> rule_names;
             const ParseTable parse_table;
             const LexTable lex_table;
             const string name;
         public:
-            CCodeGenerator(string name, vector<string> rule_names, const ParseTable &parse_table, const LexTable &lex_table) :
+            CCodeGenerator(string name, const ParseTable &parse_table, const LexTable &lex_table) :
                 name(name),
-                rule_names(rule_names),
                 parse_table(parse_table),
                 lex_table(lex_table)
                 {}
@@ -217,14 +215,14 @@ namespace tree_sitter {
             
             string symbol_enum() {
                 string result = "enum ts_symbol {\n";
-                for (string rule_name : rule_names)
+                for (string rule_name : parse_table.symbol_names)
                     result += indent(symbol_id(rule_name)) + ",\n";
                 return result + "};";
             }
 
             string rule_names_list() {
                 string result = "static const char *ts_symbol_names[] = {\n";
-                for (string rule_name : rule_names)
+                for (string rule_name : parse_table.symbol_names)
                     result += indent(string("\"") + rule_name) + "\",\n";
                 return result + "};";
             }
@@ -277,8 +275,8 @@ namespace tree_sitter {
             }
         };
         
-        string c_code(string name, const vector<string> rule_names, const ParseTable &parse_table, const LexTable &lex_table) {
-            return CCodeGenerator(name, rule_names, parse_table, lex_table).code();
+        string c_code(string name, const ParseTable &parse_table, const LexTable &lex_table) {
+            return CCodeGenerator(name, parse_table, lex_table).code();
         }
     }
 }

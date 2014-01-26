@@ -64,6 +64,7 @@ namespace tree_sitter {
         static const std::string START;
         static const std::string END_OF_INPUT;
         std::vector<ParseState> states;
+        std::unordered_set<std::string> symbol_names;
     };
 }
 
