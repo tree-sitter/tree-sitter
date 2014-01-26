@@ -69,8 +69,4 @@ namespace tree_sitter {
         symbol_names.insert(sym_name);
         states[state_index].actions[sym_name].insert(action);
     }
-    
-    void ParseTable::add_default_action(size_t state_index, ParseAction action) {
-        states[state_index].default_actions.insert(action);
-    }
 }

@@ -182,7 +182,7 @@ namespace tree_sitter {
                 string body = "";
                 for (auto pair : parse_state.actions)
                     body += _case(symbol_id(pair.first), code_for_parse_actions(pair.second, parse_state.expected_inputs()));
-                body += _default(code_for_parse_actions(parse_state.default_actions, parse_state.expected_inputs()));
+                body += _default(parse_error_call(parse_state.expected_inputs()));
                 return
                     string("SET_LEX_STATE(") + to_string(parse_state.lex_state_index) + ");\n" +
                     _switch("LOOKAHEAD_SYM()", body);

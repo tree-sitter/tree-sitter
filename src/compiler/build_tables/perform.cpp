@@ -36,8 +36,7 @@ namespace tree_sitter {
             }
             
             void add_shift_actions(const ParseItemSet &item_set, size_t state_index) {
-                auto x = sym_transitions(item_set, grammar);
-                for (auto transition : x) {
+                for (auto transition : sym_transitions(item_set, grammar)) {
                     rules::Symbol symbol = *transition.first;
                     ParseItemSet item_set = *transition.second;
                     size_t new_state_index = add_parse_state(item_set);

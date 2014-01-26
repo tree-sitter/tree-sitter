@@ -50,7 +50,6 @@ namespace tree_sitter {
     public:
         ParseState();
         std::unordered_map<std::string, std::unordered_set<ParseAction>> actions;
-        std::unordered_set<ParseAction> default_actions;
         std::unordered_set<std::string> expected_inputs() const;
         size_t lex_state_index;
     };
@@ -59,7 +58,6 @@ namespace tree_sitter {
     public:
         size_t add_state();
         void add_action(size_t state_index, std::string symbol_name, ParseAction action);
-        void add_default_action(size_t state_index, ParseAction action);
         
         std::vector<ParseState> states;
         std::unordered_set<std::string> symbol_names;
