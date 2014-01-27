@@ -59,6 +59,25 @@ namespace tree_sitter {
         return result;
     }
     
+    ostream& operator<<(ostream &stream, const ParseState &state) {
+        stream << string("#<parse_state ");
+        bool started1 = false;
+        for (auto pair : state.actions) {
+            if (started1) stream << string(", ");
+            stream << pair.first << string(" => #<set: ");
+            bool started2 = false;
+            for (auto action : pair.second) {
+                if (started2) stream << string(", ");
+                stream << action;
+                started2 = true;
+            }
+            stream << string(">");
+            started1 = true;
+        }
+        stream << string(">");
+        return stream;
+    }
+    
     // Table
     size_t ParseTable::add_state() {
         states.push_back(ParseState());

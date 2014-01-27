@@ -54,6 +54,8 @@ namespace tree_sitter {
         size_t lex_state_index;
     };
     
+    std::ostream& operator<<(std::ostream &stream, const ParseState &state);
+    
     class ParseTable {
     public:
         size_t add_state();

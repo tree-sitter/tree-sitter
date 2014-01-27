@@ -5,6 +5,7 @@
 #include <set>
 #include <unordered_set>
 #include <unordered_map>
+#include <vector>
 
 using std::cout;
 
@@ -14,6 +15,18 @@ namespace std {
         stream << std::string("#<set: ");
         bool started = false;
         for (auto item : set) {
+            if (started) stream << std::string(", ");
+            stream << item;
+            started = true;
+        }
+        return stream << ">";
+    }
+    
+    template<typename T>
+    inline std::ostream& operator<<(std::ostream &stream, const std::vector<T> &vector) {
+        stream << std::string("#<vector: ");
+        bool started = false;
+        for (auto item : vector) {
             if (started) stream << std::string(", ");
             stream << item;
             started = true;
