@@ -16,7 +16,7 @@ namespace tree_sitter  {
             void accept(Visitor &visitor) const;
             bool operator<(const Symbol &other) const;
 
-            const std::string name;
+            std::string name;
         };
     }
 }

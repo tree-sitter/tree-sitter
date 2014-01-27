@@ -5,31 +5,32 @@ using std::to_string;
 using std::unordered_map;
 using std::unordered_set;
 using std::vector;
+using tree_sitter::rules::Symbol;
 
 namespace tree_sitter {
     // Action
-    LexAction::LexAction(LexActionType type, size_t state_index, std::string symbol_name) :
-    type(type),
-    state_index(state_index),
-    symbol_name(symbol_name) {}
+    LexAction::LexAction(LexActionType type, size_t state_index, Symbol symbol) :
+        type(type),
+        state_index(state_index),
+        symbol(symbol) {}
     
     LexAction LexAction::Error() {
-        return LexAction(LexActionTypeError, -1, "");
+        return LexAction(LexActionTypeError, -1, Symbol(""));
     }
     
     LexAction LexAction::Advance(size_t state_index) {
-        return LexAction(LexActionTypeAdvance, state_index, "");
+        return LexAction(LexActionTypeAdvance, state_index, Symbol(""));
     }
     
-    LexAction LexAction::Accept(std::string symbol_name) {
-        return LexAction(LexActionTypeAccept, -1, symbol_name);
+    LexAction LexAction::Accept(Symbol symbol) {
+        return LexAction(LexActionTypeAccept, -1, symbol);
     }
     
     bool LexAction::operator==(const LexAction &other) const {
         return
         (type == other.type) &&
         (state_index == other.state_index) &&
-        (symbol_name == other.symbol_name);
+        (symbol == other.symbol);
     }
     
     std::ostream& operator<<(std::ostream &stream, const LexAction &action) {
@@ -37,7 +38,7 @@ namespace tree_sitter {
             case LexActionTypeError:
                 return stream << string("#<error>");
             case LexActionTypeAccept:
-                return stream << string("#<accept ") + action.symbol_name + ">";
+                return stream << string("#<accept ") + action.symbol.name + ">";
             case LexActionTypeAdvance:
                 return stream << string("#<advance ") + to_string(action.state_index) + ">";
         }

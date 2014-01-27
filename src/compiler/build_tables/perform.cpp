@@ -40,7 +40,7 @@ namespace tree_sitter {
                     rules::Symbol symbol = *transition.first;
                     ParseItemSet item_set = *transition.second;
                     size_t new_state_index = add_parse_state(item_set);
-                    parse_table.add_action(state_index, symbol.name, ParseAction::Shift(new_state_index));
+                    parse_table.add_action(state_index, symbol, ParseAction::Shift(new_state_index));
                 }
             }
             
@@ -56,7 +56,7 @@ namespace tree_sitter {
             void add_accept_token_actions(const LexItemSet &item_set, size_t state_index) {
                 for (LexItem item : item_set) {
                     if (item.is_done()) {
-                        lex_table.add_default_action(state_index, LexAction::Accept(item.rule_name));
+                        lex_table.add_default_action(state_index, LexAction::Accept(item.lhs));
                     }
                 }
             }
@@ -64,10 +64,10 @@ namespace tree_sitter {
             void add_reduce_actions(const ParseItemSet &item_set, size_t state_index) {
                 for (ParseItem item : item_set) {
                     if (item.is_done()) {
-                        ParseAction action = (item.rule_name == START) ?
+                        ParseAction action = (item.lhs.name == START) ?
                             ParseAction::Accept() :
-                            ParseAction::Reduce(item.rule_name, item.consumed_sym_count);
-                        parse_table.add_action(state_index, item.lookahead_sym_name, action);
+                            ParseAction::Reduce(item.lhs, item.consumed_sym_count);
+                        parse_table.add_action(state_index, item.lookahead_sym, action);
                     }
                 }
             }
@@ -75,12 +75,11 @@ namespace tree_sitter {
             void assign_lex_state(size_t state_index) {
                 ParseState &state = parse_table.states[state_index];
                 LexItemSet item_set;
-                for (auto pair : state.actions) {
-                    auto symbol = rules::Symbol(pair.first);
+                for (auto &symbol : state.expected_inputs()) {
                     if (symbol.name == END_OF_INPUT)
-                        item_set.insert(LexItem(symbol.name, rules::character('\0')));
+                        item_set.insert(LexItem(symbol, rules::character('\0')));
                     if (lex_grammar.has_definition(symbol))
-                        item_set.insert(LexItem(symbol.name, lex_grammar.rule(symbol.name)));
+                        item_set.insert(LexItem(symbol, lex_grammar.rule(symbol)));
                 }
 
                 state.lex_state_index = add_lex_state(item_set);

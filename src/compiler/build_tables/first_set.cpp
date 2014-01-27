@@ -24,7 +24,7 @@ namespace tree_sitter {
             
             void visit(const Symbol *rule) {
                 if (grammar.has_definition(*rule)) {
-                    value = apply(grammar.rule(rule->name), grammar);
+                    value = apply(grammar.rule(*rule), grammar);
                 } else {
                     value = set<Symbol>({ *rule });
                 }

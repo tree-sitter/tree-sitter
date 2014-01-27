@@ -3,8 +3,6 @@
 #include "rule_transitions.h"
 #include "grammar.h"
 
-#include "stream_methods.h"
-
 using std::unordered_map;
 using std::set;
 using std::dynamic_pointer_cast;
@@ -22,7 +20,7 @@ namespace tree_sitter {
                 if (symbol && grammar.has_definition(*symbol)) {
                     auto following_non_terminals = first_set(pair.second, grammar);
                     if (rule_can_be_blank(pair.second)) {
-                        following_non_terminals.insert(item.lookahead_sym_name);
+                        following_non_terminals.insert(item.lookahead_sym);
                     }
                     result.insert({ *symbol, following_non_terminals });
                 }

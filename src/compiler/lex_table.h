@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_set>
 #include "char_match.h"
+#include "symbol.h"
 
 namespace tree_sitter {
     typedef enum {
@@ -15,15 +16,15 @@ namespace tree_sitter {
     } LexActionType;
     
     class LexAction {
-        LexAction(LexActionType type, size_t state_index, std::string symbol_name);
+        LexAction(LexActionType type, size_t state_index, rules::Symbol symbol);
     public:
-        static LexAction Accept(std::string symbol_name);
+        static LexAction Accept(rules::Symbol symbol);
         static LexAction Error();
         static LexAction Advance(size_t state_index);
         bool operator==(const LexAction &action) const;
         
         LexActionType type;
-        std::string symbol_name;
+        rules::Symbol symbol;
         size_t state_index;
     };
     
@@ -34,9 +35,8 @@ namespace std {
     template<>
     struct hash<tree_sitter::LexAction> {
         size_t operator()(const tree_sitter::LexAction &action) const {
-            return (
-                    hash<int>()(action.type) ^
-                    hash<string>()(action.symbol_name) ^
+            return (hash<int>()(action.type) ^
+                    hash<tree_sitter::rules::Symbol>()(action.symbol) ^
                     hash<size_t>()(action.state_index));
         }
     };

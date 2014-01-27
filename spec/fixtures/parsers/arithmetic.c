@@ -3,28 +3,28 @@
 
 enum ts_symbol {
     ts_symbol_factor,
-    ts_symbol_plus,
-    ts_symbol_number,
-    ts_symbol___END__,
-    ts_symbol_variable,
     ts_symbol_1,
-    ts_symbol_2,
-    ts_symbol_term,
+    ts_symbol_number,
+    ts_symbol_variable,
     ts_symbol_times,
+    ts_symbol_term,
     ts_symbol_expression,
+    ts_symbol_plus,
+    ts_symbol_2,
+    ts_symbol___END__,
 };
 
 static const char *ts_symbol_names[] = {
     "factor",
-    "plus",
-    "number",
-    "__END__",
-    "variable",
     "1",
-    "2",
-    "term",
+    "number",
+    "variable",
     "times",
+    "term",
     "expression",
+    "plus",
+    "2",
+    "__END__",
 };
 
 static void ts_lex(TSParser *parser) {
@@ -118,18 +118,18 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
                     SHIFT(45);
-                case ts_symbol_variable:
-                    SHIFT(41);
-                case ts_symbol_term:
-                    SHIFT(2);
                 case ts_symbol_1:
                     SHIFT(42);
                 case ts_symbol_number:
                     SHIFT(41);
+                case ts_symbol_variable:
+                    SHIFT(41);
+                case ts_symbol_term:
+                    SHIFT(2);
                 case ts_symbol_expression:
                     SHIFT(1);
                 default:
-                    PARSE_ERROR(6, EXPECT({"expression", "number", "1", "term", "variable", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"expression", "factor", "variable", "number", "1", "term"}));
             }
         case 1:
             SET_LEX_STATE(0);
@@ -152,18 +152,18 @@ static TSParseResult ts_parse(const char *input) {
         case 3:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_factor:
-                    SHIFT(34);
-                case ts_symbol_variable:
-                    SHIFT(5);
                 case ts_symbol_1:
                     SHIFT(6);
                 case ts_symbol_number:
                     SHIFT(5);
+                case ts_symbol_variable:
+                    SHIFT(5);
+                case ts_symbol_factor:
+                    SHIFT(34);
                 case ts_symbol_term:
                     SHIFT(4);
                 default:
-                    PARSE_ERROR(5, EXPECT({"term", "number", "1", "variable", "factor"}));
+                    PARSE_ERROR(5, EXPECT({"term", "factor", "variable", "number", "1"}));
             }
         case 4:
             SET_LEX_STATE(0);
@@ -186,20 +186,20 @@ static TSParseResult ts_parse(const char *input) {
         case 6:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_factor:
-                    SHIFT(16);
                 case ts_symbol_expression:
                     SHIFT(32);
-                case ts_symbol_variable:
-                    SHIFT(12);
-                case ts_symbol_term:
-                    SHIFT(7);
+                case ts_symbol_factor:
+                    SHIFT(16);
                 case ts_symbol_1:
                     SHIFT(13);
                 case ts_symbol_number:
                     SHIFT(12);
+                case ts_symbol_variable:
+                    SHIFT(12);
+                case ts_symbol_term:
+                    SHIFT(7);
                 default:
-                    PARSE_ERROR(6, EXPECT({"number", "1", "term", "variable", "expression", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "number", "factor", "1", "expression"}));
             }
         case 7:
             SET_LEX_STATE(9);
@@ -214,18 +214,18 @@ static TSParseResult ts_parse(const char *input) {
         case 8:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_factor:
-                    SHIFT(25);
-                case ts_symbol_variable:
-                    SHIFT(10);
                 case ts_symbol_1:
                     SHIFT(11);
                 case ts_symbol_number:
                     SHIFT(10);
+                case ts_symbol_variable:
+                    SHIFT(10);
+                case ts_symbol_factor:
+                    SHIFT(25);
                 case ts_symbol_term:
                     SHIFT(9);
                 default:
-                    PARSE_ERROR(5, EXPECT({"term", "number", "1", "variable", "factor"}));
+                    PARSE_ERROR(5, EXPECT({"term", "factor", "variable", "number", "1"}));
             }
         case 9:
             SET_LEX_STATE(4);
@@ -248,20 +248,20 @@ static TSParseResult ts_parse(const char *input) {
         case 11:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_factor:
-                    SHIFT(16);
                 case ts_symbol_expression:
                     SHIFT(23);
-                case ts_symbol_variable:
-                    SHIFT(12);
-                case ts_symbol_term:
-                    SHIFT(7);
+                case ts_symbol_factor:
+                    SHIFT(16);
                 case ts_symbol_1:
                     SHIFT(13);
                 case ts_symbol_number:
                     SHIFT(12);
+                case ts_symbol_variable:
+                    SHIFT(12);
+                case ts_symbol_term:
+                    SHIFT(7);
                 default:
-                    PARSE_ERROR(6, EXPECT({"number", "1", "term", "variable", "expression", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "number", "factor", "1", "expression"}));
             }
         case 12:
             SET_LEX_STATE(7);
@@ -278,20 +278,20 @@ static TSParseResult ts_parse(const char *input) {
         case 13:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_factor:
-                    SHIFT(16);
                 case ts_symbol_expression:
                     SHIFT(14);
-                case ts_symbol_variable:
-                    SHIFT(12);
-                case ts_symbol_term:
-                    SHIFT(7);
+                case ts_symbol_factor:
+                    SHIFT(16);
                 case ts_symbol_1:
                     SHIFT(13);
                 case ts_symbol_number:
                     SHIFT(12);
+                case ts_symbol_variable:
+                    SHIFT(12);
+                case ts_symbol_term:
+                    SHIFT(7);
                 default:
-                    PARSE_ERROR(6, EXPECT({"number", "1", "term", "variable", "expression", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "number", "factor", "1", "expression"}));
             }
         case 14:
             SET_LEX_STATE(4);
@@ -352,20 +352,20 @@ static TSParseResult ts_parse(const char *input) {
         case 19:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_factor:
-                    SHIFT(16);
                 case ts_symbol_expression:
                     SHIFT(20);
-                case ts_symbol_variable:
-                    SHIFT(12);
-                case ts_symbol_term:
-                    SHIFT(7);
+                case ts_symbol_factor:
+                    SHIFT(16);
                 case ts_symbol_1:
                     SHIFT(13);
                 case ts_symbol_number:
                     SHIFT(12);
+                case ts_symbol_variable:
+                    SHIFT(12);
+                case ts_symbol_term:
+                    SHIFT(7);
                 default:
-                    PARSE_ERROR(6, EXPECT({"number", "1", "term", "variable", "expression", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "number", "factor", "1", "expression"}));
             }
         case 20:
             SET_LEX_STATE(4);
@@ -448,20 +448,20 @@ static TSParseResult ts_parse(const char *input) {
         case 28:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_factor:
-                    SHIFT(16);
                 case ts_symbol_expression:
                     SHIFT(29);
-                case ts_symbol_variable:
-                    SHIFT(12);
-                case ts_symbol_term:
-                    SHIFT(7);
+                case ts_symbol_factor:
+                    SHIFT(16);
                 case ts_symbol_1:
                     SHIFT(13);
                 case ts_symbol_number:
                     SHIFT(12);
+                case ts_symbol_variable:
+                    SHIFT(12);
+                case ts_symbol_term:
+                    SHIFT(7);
                 default:
-                    PARSE_ERROR(6, EXPECT({"number", "1", "term", "variable", "expression", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "number", "factor", "1", "expression"}));
             }
         case 29:
             SET_LEX_STATE(4);
@@ -540,20 +540,20 @@ static TSParseResult ts_parse(const char *input) {
         case 37:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_factor:
-                    SHIFT(16);
                 case ts_symbol_expression:
                     SHIFT(38);
-                case ts_symbol_variable:
-                    SHIFT(12);
-                case ts_symbol_term:
-                    SHIFT(7);
+                case ts_symbol_factor:
+                    SHIFT(16);
                 case ts_symbol_1:
                     SHIFT(13);
                 case ts_symbol_number:
                     SHIFT(12);
+                case ts_symbol_variable:
+                    SHIFT(12);
+                case ts_symbol_term:
+                    SHIFT(7);
                 default:
-                    PARSE_ERROR(6, EXPECT({"number", "1", "term", "variable", "expression", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "number", "factor", "1", "expression"}));
             }
         case 38:
             SET_LEX_STATE(4);
@@ -594,20 +594,20 @@ static TSParseResult ts_parse(const char *input) {
         case 42:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_factor:
-                    SHIFT(16);
                 case ts_symbol_expression:
                     SHIFT(43);
-                case ts_symbol_variable:
-                    SHIFT(12);
-                case ts_symbol_term:
-                    SHIFT(7);
+                case ts_symbol_factor:
+                    SHIFT(16);
                 case ts_symbol_1:
                     SHIFT(13);
                 case ts_symbol_number:
                     SHIFT(12);
+                case ts_symbol_variable:
+                    SHIFT(12);
+                case ts_symbol_term:
+                    SHIFT(7);
                 default:
-                    PARSE_ERROR(6, EXPECT({"number", "1", "term", "variable", "expression", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "number", "factor", "1", "expression"}));
             }
         case 43:
             SET_LEX_STATE(4);
@@ -668,20 +668,20 @@ static TSParseResult ts_parse(const char *input) {
         case 48:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_factor:
-                    SHIFT(16);
                 case ts_symbol_expression:
                     SHIFT(49);
-                case ts_symbol_variable:
-                    SHIFT(12);
-                case ts_symbol_term:
-                    SHIFT(7);
+                case ts_symbol_factor:
+                    SHIFT(16);
                 case ts_symbol_1:
                     SHIFT(13);
                 case ts_symbol_number:
                     SHIFT(12);
+                case ts_symbol_variable:
+                    SHIFT(12);
+                case ts_symbol_term:
+                    SHIFT(7);
                 default:
-                    PARSE_ERROR(6, EXPECT({"number", "1", "term", "variable", "expression", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "number", "factor", "1", "expression"}));
             }
         case 49:
             SET_LEX_STATE(4);

@@ -5,6 +5,7 @@
 #include "rule.h"
 #include <set>
 #include <unordered_set>
+#include "symbol.h"
 
 namespace tree_sitter {
     class Grammar;
@@ -12,28 +13,28 @@ namespace tree_sitter {
     namespace build_tables {
         class Item {
         public:
-            Item(const std::string &rule_name, const rules::rule_ptr rule);
+            Item(const rules::Symbol &lhs, const rules::rule_ptr rule);
             bool is_done() const;
 
-            const std::string rule_name;
+            const rules::Symbol lhs;
             const rules::rule_ptr rule;
         };
 
         class LexItem : public Item {
         public:
-            LexItem(const std::string &rule_name, const rules::rule_ptr rule);
+            LexItem(const rules::Symbol &lhs, const rules::rule_ptr rule);
             bool operator<(const LexItem &other) const;
             bool operator==(const LexItem &other) const;
         };
 
         class ParseItem : public Item {
         public:
-            ParseItem(const std::string &rule_name, const rules::rule_ptr rule, int consumed_sym_count, const std::string &lookahead_sym_name);
+            ParseItem(const rules::Symbol &lhs, const rules::rule_ptr rule, int consumed_sym_count, const rules::Symbol &lookahead_sym);
             bool operator<(const ParseItem &other) const;
             bool operator==(const ParseItem &other) const;
 
             const int consumed_sym_count;
-            const std::string lookahead_sym_name;
+            const rules::Symbol lookahead_sym;
         };
 
         typedef std::set<ParseItem> ParseItemSet;
@@ -49,8 +50,8 @@ namespace std {
     struct hash<tree_sitter::build_tables::LexItem> {
         size_t operator()(const tree_sitter::build_tables::Item &item) const {
             return
-                hash<std::string>()(item.rule_name) ^
-            hash<tree_sitter::rules::Rule>()(*item.rule);
+                hash<tree_sitter::rules::Symbol>()(item.lhs) ^
+                hash<tree_sitter::rules::Rule>()(*item.rule);
         }
     };
 
@@ -58,10 +59,10 @@ namespace std {
     struct hash<tree_sitter::build_tables::ParseItem> {
         size_t operator()(const tree_sitter::build_tables::ParseItem &item) const {
             return
-            hash<std::string>()(item.rule_name) ^
+            hash<tree_sitter::rules::Symbol>()(item.lhs) ^
             hash<tree_sitter::rules::Rule>()(*item.rule) ^
             hash<size_t>()(item.consumed_sym_count) ^
-            hash<std::string>()(item.lookahead_sym_name);
+            hash<tree_sitter::rules::Symbol>()(item.lookahead_sym);
         }
     };
     

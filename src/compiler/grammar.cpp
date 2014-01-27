@@ -16,8 +16,8 @@ namespace tree_sitter {
         rules(rules),
         start_rule_name(start_rule_name) {}
 
-    const rules::rule_ptr Grammar::rule(const string &name) const {
-        auto iter = rules.find(name);
+    const rules::rule_ptr Grammar::rule(const rules::Symbol &symbol) const {
+        auto iter = rules.find(symbol.name);
         return (iter == rules.end()) ?
             rules::rule_ptr(nullptr) :
             iter->second;

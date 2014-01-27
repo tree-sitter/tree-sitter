@@ -8,8 +8,8 @@ using namespace rules;
 typedef unordered_set<ParseAction> parse_actions;
 typedef unordered_set<LexAction> lex_actions;
 
-static unordered_set<string> keys(const unordered_map<string, parse_actions> &map) {
-    unordered_set<string> result;
+static unordered_set<Symbol> keys(const unordered_map<Symbol, parse_actions> &map) {
+    unordered_set<Symbol> result;
     for (auto pair : map) {
         result.insert(pair.first);
     }
@@ -51,7 +51,6 @@ describe("building parse and lex tables", []() {
         { "left-paren", str("(") },
         { "right-paren", str(")") }
     });
-
     
     ParseTable table;
     LexTable lex_table;
@@ -72,12 +71,12 @@ describe("building parse and lex tables", []() {
     };
     
     it("has the right starting state", [&]() {
-        AssertThat(keys(parse_state(0).actions), Equals(unordered_set<string>({
-            "expression",
-            "term",
-            "number",
-            "variable",
-            "left-paren",
+        AssertThat(keys(parse_state(0).actions), Equals(unordered_set<Symbol>({
+            Symbol("expression"),
+            Symbol("term"),
+            Symbol("number"),
+            Symbol("variable"),
+            Symbol("left-paren"),
         })));
         
         AssertThat(keys(lex_state(0).actions), Equals(unordered_set<CharMatch>({
@@ -94,15 +93,15 @@ describe("building parse and lex tables", []() {
     });
     
     it("accepts when the start symbol is reduced", [&]() {
-        AssertThat(parse_state(1).actions, Equals(unordered_map<string, parse_actions>({
-            { "__END__", parse_actions({ ParseAction::Accept() }) }
+        AssertThat(parse_state(1).actions, Equals(unordered_map<Symbol, parse_actions>({
+            { Symbol("__END__"), parse_actions({ ParseAction::Accept() }) }
         })));
     });
     
     it("has the right next states", [&]() {
-        AssertThat(parse_state(2).actions, Equals(unordered_map<string, parse_actions>({
-            { "plus", parse_actions({ ParseAction::Shift(3) }) },
-            { "__END__", parse_actions({ ParseAction::Reduce("expression", 1) }) },
+        AssertThat(parse_state(2).actions, Equals(unordered_map<Symbol, parse_actions>({
+            { Symbol("plus"), parse_actions({ ParseAction::Shift(3) }) },
+            { Symbol("__END__"), parse_actions({ ParseAction::Reduce(Symbol("expression"), 1) }) },
         })));
     });
 });

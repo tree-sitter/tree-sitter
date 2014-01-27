@@ -22,7 +22,7 @@ namespace tree_sitter {
                 for (auto transition : rule_transitions(item.rule)) {
                     auto rule = dynamic_pointer_cast<const rules::Character>(transition.first);
                     if (rule.get()) {
-                        auto new_item = LexItem(item.rule_name, transition.second);
+                        auto new_item = LexItem(item.lhs, transition.second);
                         auto new_item_set = LexItemSet({ new_item });
                         item_transitions.add(rule, make_shared<LexItemSet>(new_item_set));
                     }
@@ -43,7 +43,7 @@ namespace tree_sitter {
                 for (auto transition : rule_transitions(item.rule)) {
                     auto rule = dynamic_pointer_cast<const rules::Symbol>(transition.first);
                     if (rule.get()) {
-                        auto new_item = ParseItem(item.rule_name, transition.second, item.consumed_sym_count + 1, item.lookahead_sym_name);
+                        auto new_item = ParseItem(item.lhs, transition.second, item.consumed_sym_count + 1, item.lookahead_sym);
                         auto new_item_set = item_set_closure(ParseItemSet({ new_item }), grammar);
                         item_transitions.add(rule, make_shared<ParseItemSet>(new_item_set));
                     }

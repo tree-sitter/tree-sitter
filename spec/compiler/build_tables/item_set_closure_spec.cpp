@@ -30,22 +30,22 @@ describe("computing closures of item sets", []() {
     
     it("computes the item set closure", [&]() {
         ParseItemSet item_set = item_set_closure(ParseItemSet({
-            ParseItem("E", grammar.rule("E"), 0, "__END__")
+            ParseItem(Symbol("E"), grammar.rule(Symbol("E")), 0, Symbol("__END__"))
         }), grammar);
         AssertThat(item_set, Equals(ParseItemSet({
-            ParseItem("F", grammar.rule("F"), 0, "__END__"),
-            ParseItem("F", grammar.rule("F"), 0, "+"),
-            ParseItem("F", grammar.rule("F"), 0, "*"),
-            ParseItem("T", grammar.rule("T"), 0, "__END__"),
-            ParseItem("T", grammar.rule("T"), 0, "+"),
-            ParseItem("E", grammar.rule("E"), 0, "__END__"),
+            ParseItem(Symbol("F"), grammar.rule(Symbol("F")), 0, Symbol("__END__")),
+            ParseItem(Symbol("F"), grammar.rule(Symbol("F")), 0, Symbol("+")),
+            ParseItem(Symbol("F"), grammar.rule(Symbol("F")), 0, Symbol("*")),
+            ParseItem(Symbol("T"), grammar.rule(Symbol("T")), 0, Symbol("__END__")),
+            ParseItem(Symbol("T"), grammar.rule(Symbol("T")), 0, Symbol("+")),
+            ParseItem(Symbol("E"), grammar.rule(Symbol("E")), 0, Symbol("__END__")),
         })));
 
         ParseItemSet next_item_set = *sym_transitions(item_set, grammar)[rules::Symbol("v")];
         AssertThat(next_item_set, Equals(ParseItemSet({
-            ParseItem("F", rules::blank(), 1, "__END__"),
-            ParseItem("F", rules::blank(), 1, "*"),
-            ParseItem("F", rules::blank(), 1, "+"),
+            ParseItem(Symbol("F"), rules::blank(), 1, Symbol("__END__")),
+            ParseItem(Symbol("F"), rules::blank(), 1, Symbol("*")),
+            ParseItem(Symbol("F"), rules::blank(), 1, Symbol("+")),
         })));
     });
 });

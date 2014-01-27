@@ -83,8 +83,8 @@ namespace tree_sitter {
                 lex_table(lex_table)
                 {}
             
-            string symbol_id(string symbol_name) {
-                return "ts_symbol_" + symbol_name;
+            string symbol_id(rules::Symbol symbol) {
+                return "ts_symbol_" + symbol.name;
             }
             
             string character_code(char character) {
@@ -115,7 +115,7 @@ namespace tree_sitter {
                 }
             }
             
-            string code_for_parse_actions(const unordered_set<ParseAction> &actions, const unordered_set<string> &expected_inputs) {
+            string code_for_parse_actions(const unordered_set<ParseAction> &actions, const unordered_set<rules::Symbol> &expected_inputs) {
                 auto action = actions.begin();
                 if (action == actions.end()) {
                     return parse_error_call(expected_inputs);
@@ -126,20 +126,20 @@ namespace tree_sitter {
                         case ParseActionTypeShift:
                             return "SHIFT(" + to_string(action->state_index) + ");";
                         case ParseActionTypeReduce:
-                            return "REDUCE(" + symbol_id(action->symbol_name) + ", " + std::to_string(action->child_symbol_count) + ");";
+                            return "REDUCE(" + symbol_id(action->symbol) + ", " + std::to_string(action->child_symbol_count) + ");";
                         default:
                             return "";
                     }
                 }
             }
             
-            string parse_error_call(const unordered_set<string> &expected_inputs) {
+            string parse_error_call(const unordered_set<rules::Symbol> &expected_inputs) {
                 string result = "PARSE_ERROR(" + to_string(expected_inputs.size()) + ", EXPECT({";
                 bool started = false;
-                for (auto symbol_name : expected_inputs) {
+                for (auto symbol : expected_inputs) {
                     if (started) result += ", ";
                     started = true;
-                    result += "\"" + symbol_name + "\"";
+                    result += "\"" + symbol.name + "\"";
                 }
                 result += "}));";
                 return result;
@@ -171,7 +171,7 @@ namespace tree_sitter {
                         case LexActionTypeAdvance:
                             return "ADVANCE(" + to_string(action->state_index) + ");";
                         case LexActionTypeAccept:
-                            return "ACCEPT_TOKEN(" + symbol_id(action->symbol_name) + ");";
+                            return "ACCEPT_TOKEN(" + symbol_id(action->symbol) + ");";
                         case LexActionTypeError:
                             return "";
                     }
@@ -215,15 +215,15 @@ namespace tree_sitter {
             
             string symbol_enum() {
                 string result = "enum ts_symbol {\n";
-                for (string rule_name : parse_table.symbol_names)
-                    result += indent(symbol_id(rule_name)) + ",\n";
+                for (auto symbol : parse_table.symbols)
+                    result += indent(symbol_id(symbol)) + ",\n";
                 return result + "};";
             }
 
             string rule_names_list() {
                 string result = "static const char *ts_symbol_names[] = {\n";
-                for (string rule_name : parse_table.symbol_names)
-                    result += indent(string("\"") + rule_name) + "\",\n";
+                for (auto symbol : parse_table.symbols)
+                    result += indent(string("\"") + symbol.name) + "\",\n";
                 return result + "};";
             }
 

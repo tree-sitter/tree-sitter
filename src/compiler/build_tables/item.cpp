@@ -5,11 +5,12 @@
 using std::string;
 using std::to_string;
 using std::ostream;
+using tree_sitter::rules::Symbol;
 
 namespace tree_sitter {
     namespace build_tables {
-        Item::Item(const string &rule_name, const rules::rule_ptr rule) :
-            rule_name(rule_name),
+        Item::Item(const Symbol &lhs, const rules::rule_ptr rule) :
+            lhs(lhs),
             rule(rule) {};
         
         bool Item::is_done() const {
@@ -19,7 +20,7 @@ namespace tree_sitter {
         ostream& operator<<(ostream &stream, const LexItem &item) {
             return stream <<
             string("#<item '") <<
-            item.rule_name <<
+            item.lhs <<
             string("' ") <<
             *item.rule <<
             string(">");
@@ -28,53 +29,53 @@ namespace tree_sitter {
         ostream& operator<<(ostream &stream, const ParseItem &item) {
             return stream <<
             string("#<item '") <<
-            item.rule_name <<
+            item.lhs <<
             string("' ") <<
             *item.rule <<
             string(" ") <<
             to_string(item.consumed_sym_count) <<
             string(" ") <<
-            item.lookahead_sym_name <<
+            item.lookahead_sym <<
             string(">");
         }
         
         bool LexItem::operator<(const LexItem &other) const {
-            if (rule_name < other.rule_name) return true;
-            if (rule_name > other.rule_name) return false;
+            if (lhs < other.lhs) return true;
+            if (other.lhs < lhs) return false;
             if (rule->to_string() < other.rule->to_string()) return true;
             return false;
         }
 
         bool ParseItem::operator<(const ParseItem &other) const {
-            if (rule_name < other.rule_name) return true;
-            if (rule_name > other.rule_name) return false;
+            if (lhs < other.lhs) return true;
+            if (other.lhs < lhs) return false;
             if (rule->to_string() < other.rule->to_string()) return true;
             if (rule->to_string() > other.rule->to_string()) return false;
             if (consumed_sym_count < other.consumed_sym_count) return true;
             if (consumed_sym_count > other.consumed_sym_count) return false;
-            if (lookahead_sym_name < other.lookahead_sym_name) return true;
+            if (lookahead_sym < other.lookahead_sym) return true;
             return false;
         }
 
-        LexItem::LexItem(const std::string &rule_name, const rules::rule_ptr rule) : Item(rule_name, rule) {}
+        LexItem::LexItem(const Symbol &lhs, const rules::rule_ptr rule) : Item(lhs, rule) {}
         
         bool LexItem::operator==(const LexItem &other) const {
-            bool rule_names_eq = other.rule_name == rule_name;
+            bool lhs_eq = other.lhs == lhs;
             bool rules_eq = (*other.rule == *rule);
-            return rule_names_eq && rules_eq;
+            return lhs_eq && rules_eq;
         }
         
-        ParseItem::ParseItem(const std::string &rule_name, const rules::rule_ptr rule, int consumed_sym_count, const std::string &lookahead_sym_name) :
-            Item(rule_name, rule),
+        ParseItem::ParseItem(const Symbol &lhs, const rules::rule_ptr rule, int consumed_sym_count, const rules::Symbol &lookahead_sym) :
+            Item(lhs, rule),
             consumed_sym_count(consumed_sym_count),
-            lookahead_sym_name(lookahead_sym_name) {}
+            lookahead_sym(lookahead_sym) {}
 
         bool ParseItem::operator==(const ParseItem &other) const {
-            bool rule_names_eq = other.rule_name == rule_name;
+            bool lhs_eq = other.lhs == lhs;
             bool rules_eq = (*other.rule == *rule);
             bool consumed_sym_counts_eq = (other.consumed_sym_count == consumed_sym_count);
-            bool lookaheads_eq = other.lookahead_sym_name == lookahead_sym_name;
-            return rule_names_eq && rules_eq && consumed_sym_counts_eq && lookaheads_eq;
+            bool lookaheads_eq = other.lookahead_sym == lookahead_sym;
+            return lhs_eq && rules_eq && consumed_sym_counts_eq && lookaheads_eq;
         }
     }
 }

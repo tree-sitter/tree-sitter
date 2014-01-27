@@ -11,7 +11,7 @@ namespace tree_sitter {
     public:
         Grammar(const rule_map_init_list &rules);
         Grammar(std::string start_rule_name, const std::unordered_map<std::string, const rules::rule_ptr> &rules);
-        const rules::rule_ptr rule(const std::string &) const;
+        const rules::rule_ptr rule(const rules::Symbol &) const;
         const std::string start_rule_name;
         std::vector<std::string> rule_names() const;
         bool operator==(const Grammar &other) const;
