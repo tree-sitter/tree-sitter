@@ -54,6 +54,30 @@ describe("preparing a grammar", []() {
                 character('b') }) },
         })));
     });
+    
+    it("looks inside sequences, choices and repeats", [&]() {
+        auto result = extract_tokens(Grammar({
+            { "rule1", seq({
+                choice({
+                    repeat(choice({ str("stuff"), sym("a") })),
+                    sym("b"),
+                }),
+                sym("c") }) }
+        }));
+        
+        AssertThat(result.first, Equals(Grammar({
+            { "rule1", seq({
+                choice({
+                    repeat(choice({ sym("1"), sym("a") })),
+                    sym("b"),
+                }),
+                sym("c") }) }
+        })));
+        
+        AssertThat(result.second, Equals(Grammar("", {
+            { "1", str("stuff") },
+        })));
+    });
 });
 
 END_TEST

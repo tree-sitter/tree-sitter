@@ -53,6 +53,10 @@ namespace tree_sitter {
             void visit(const Seq *rule) {
                 value = seq({ apply(rule->left), apply(rule->right) });
             }
+            
+            void visit(const Repeat *rule) {
+                value = repeat(apply(rule->content));
+            }
         };
         
         pair<Grammar, Grammar> extract_tokens(const Grammar &input_grammar) {

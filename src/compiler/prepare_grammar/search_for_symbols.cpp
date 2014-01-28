@@ -26,6 +26,10 @@ namespace tree_sitter {
             void visit(const rules::Seq *seq) {
                 value = apply(seq->left) || apply(seq->right);
             }
+            
+            void visit(const rules::Repeat *rule) {
+                value = apply(rule->content);
+            }
         };
         
         bool search_for_symbols(const rules::rule_ptr &rule) {
