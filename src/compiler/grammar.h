@@ -8,16 +8,21 @@
 namespace tree_sitter {
     class Grammar {
         typedef std::initializer_list<std::pair<const std::string, const rules::rule_ptr>> rule_map_init_list;
+        typedef const std::unordered_map<std::string, const rules::rule_ptr> rule_map;
+
     public:
         Grammar(const rule_map_init_list &rules);
-        Grammar(std::string start_rule_name, const std::unordered_map<std::string, const rules::rule_ptr> &rules);
-        const rules::rule_ptr rule(const rules::Symbol &) const;
+        Grammar(std::string start_rule_name, rule_map &rules);
+        Grammar(std::string start_rule_name, rule_map &rules, rule_map &aux_rules);
+
         const std::string start_rule_name;
         std::vector<std::string> rule_names() const;
         bool operator==(const Grammar &other) const;
         bool has_definition(const rules::Symbol &symbol) const;
+        const rules::rule_ptr rule(const rules::Symbol &symbol) const;
 
-        const std::unordered_map<std::string, const rules::rule_ptr> rules;
+        rule_map rules;
+        rule_map aux_rules;
     };
     
     std::ostream& operator<<(std::ostream &stream, const Grammar &grammar);

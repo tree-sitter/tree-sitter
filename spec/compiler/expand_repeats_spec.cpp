@@ -16,16 +16,17 @@ describe("expanding repeat rules in a grammar", []() {
             }) },
         }));
         
-        AssertThat(result, Equals(Grammar({
+        AssertThat(result, Equals(Grammar("rule1", {
             { "rule1", seq({
                 sym("x"),
-                sym("repeat_helper1"),
+                aux_sym("repeat_helper1"),
                 sym("y")
             }) },
+        }, {
             { "repeat_helper1", seq({
                 seq({ sym("a"), sym("b") }),
                 choice({
-                    sym("repeat_helper1") ,
+                    aux_sym("repeat_helper1") ,
                     blank()
                 }),
             }) }

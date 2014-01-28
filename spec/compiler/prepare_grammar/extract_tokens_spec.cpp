@@ -22,15 +22,15 @@ describe("preparing a grammar", []() {
         
         AssertThat(result.first, Equals(Grammar({
             { "rule1", seq({
-                sym("1"),
+                aux_sym("token1"),
                 seq({
                     sym("rule2"),
                     sym("rule3") }),
-                sym("1") }) }
+                aux_sym("token1") }) }
         })));
 
-        AssertThat(result.second, Equals(Grammar("", {
-            { "1", rules::seq({
+        AssertThat(result.second, Equals(Grammar("", {}, {
+            { "token1", rules::seq({
                 rules::character('a'),
                 rules::character('b') }) },
         })));
@@ -68,14 +68,14 @@ describe("preparing a grammar", []() {
         AssertThat(result.first, Equals(Grammar({
             { "rule1", seq({
                 choice({
-                    repeat(choice({ sym("1"), sym("a") })),
+                    repeat(choice({ aux_sym("token1"), sym("a") })),
                     sym("b"),
                 }),
                 sym("c") }) }
         })));
         
-        AssertThat(result.second, Equals(Grammar("", {
-            { "1", str("stuff") },
+        AssertThat(result.second, Equals(Grammar("", {}, {
+            { "token1", str("stuff") },
         })));
     });
 });

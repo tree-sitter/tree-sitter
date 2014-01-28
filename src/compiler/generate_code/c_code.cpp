@@ -84,7 +84,10 @@ namespace tree_sitter {
                 {}
             
             string symbol_id(rules::Symbol symbol) {
-                return "ts_symbol_" + symbol.name;
+                if (symbol.is_auxiliary)
+                    return "ts_aux_" + symbol.name;
+                else
+                    return "ts_symbol_" + symbol.name;
             }
             
             string character_code(char character) {

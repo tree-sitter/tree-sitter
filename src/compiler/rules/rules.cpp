@@ -47,7 +47,11 @@ namespace tree_sitter {
         }
 
         rule_ptr sym(const string &name) {
-            return make_shared<Symbol>(name);
+            return make_shared<Symbol>(name, false);
+        }
+
+        rule_ptr aux_sym(const string &name) {
+            return make_shared<Symbol>(name, true);
         }
     }
 }

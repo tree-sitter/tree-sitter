@@ -8,6 +8,7 @@ namespace tree_sitter  {
         class Symbol : public Rule {
         public:
             Symbol(const std::string &name);
+            Symbol(const std::string &name, bool is_auxiliary);
 
             bool operator==(const Rule& other) const;
             size_t hash_code() const;
@@ -17,6 +18,7 @@ namespace tree_sitter  {
             bool operator<(const Symbol &other) const;
 
             std::string name;
+            bool is_auxiliary;
         };
     }
 }

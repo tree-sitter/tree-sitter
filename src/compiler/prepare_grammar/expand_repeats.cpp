@@ -13,7 +13,7 @@ namespace tree_sitter {
             rule_ptr value;
             unordered_map<string, const rule_ptr> aux_rules;
             
-            rule_ptr apply(const rule_ptr rule) {
+            rule_ptr apply(const rule_ptr &rule) {
                 rule->accept(*this);
                 return value;
             }
@@ -21,7 +21,7 @@ namespace tree_sitter {
             rule_ptr make_repeat_helper(string name, const rule_ptr &rule) {
                 return seq({
                     rule,
-                    choice({ sym(name), blank() })
+                    choice({ aux_sym(name), blank() })
                 });
             }
             
@@ -29,7 +29,7 @@ namespace tree_sitter {
                 rule_ptr inner_rule = apply(rule->content);
                 string helper_rule_name = string("repeat_helper") + to_string(aux_rules.size() + 1);
                 aux_rules.insert({ helper_rule_name, make_repeat_helper(helper_rule_name, inner_rule) });
-                value = sym(helper_rule_name);
+                value = aux_sym(helper_rule_name);
             }
             
             void visit(const Seq *rule) {
@@ -48,11 +48,11 @@ namespace tree_sitter {
         Grammar expand_repeats(const Grammar &grammar) {
             unordered_map<string, const rule_ptr> result;
             RepeatExpander visitor;
+
             for (auto pair : grammar.rules)
                 result.insert({ pair.first, visitor.apply(pair.second) });
-            for (auto pair : visitor.aux_rules)
-                result.insert(pair);
-            return Grammar(grammar.start_rule_name, result);
+
+            return Grammar(grammar.start_rule_name, result, visitor.aux_rules);
         }
     }
 }
