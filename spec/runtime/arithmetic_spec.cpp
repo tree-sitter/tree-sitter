@@ -36,7 +36,7 @@ describe("arithmetic", []() {
 
         TSDocumentSetText(document, "x*(y+z)");
         AssertThat(string(TSDocumentToString(document)), Equals(
-            "(expression (term (factor (variable)) (times) (factor (token1) (expression (term (factor (variable))) (plus) (term (factor (variable)))) (token2))))"));
+            "(expression (term (factor (variable)) (times) (factor (expression (term (factor (variable))) (plus) (term (factor (variable)))))))"));
     });
 });
 

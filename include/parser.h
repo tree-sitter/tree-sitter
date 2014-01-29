@@ -7,6 +7,7 @@ extern "C" {
 #include "tree.h"
 #include "parse_config.h"
 #include <stdio.h>
+#include <string.h>
 
 // #define TS_DEBUG_PARSE
 // #define TS_DEBUG_LEX
@@ -88,16 +89,34 @@ static void TSParserShift(TSParser *parser, TSState parse_state) {
     parser->stack_size++;
 }
 
-static void TSParserReduce(TSParser *parser, TSSymbol symbol, int child_count) {
-    parser->stack_size -= child_count;
+static void TSParserReduce(TSParser *parser, TSSymbol symbol, int immediate_child_count, const int *collapse_flags) {
+    parser->stack_size -= immediate_child_count;
     
-    TSTree **children = malloc(child_count * sizeof(TSTree *));
-    for (int i = 0; i < child_count; i++) {
-        children[i] = parser->stack[parser->stack_size + i].node;
+    int total_child_count = 0;
+    for (int i = 0; i < immediate_child_count; i++) {
+        TSTree *child = parser->stack[parser->stack_size + i].node;
+        if (collapse_flags[i]) {
+            total_child_count += child->child_count;
+        } else {
+            total_child_count++;
+        }
+    }
+    
+    TSTree **children = malloc(total_child_count * sizeof(TSTree *));
+    int n = 0;
+    for (int i = 0; i < immediate_child_count; i++) {
+        TSTree *child = parser->stack[parser->stack_size + i].node;
+        if (collapse_flags[i]) {
+            memcpy(children + n, child->children, (child->child_count * sizeof(TSTree *)));
+            n += child->child_count;
+        } else {
+            children[n] = child;
+            n++;
+        }
     }
     
     parser->prev_lookahead_node = parser->lookahead_node;
-    parser->lookahead_node = TSTreeMake(symbol, child_count, children);
+    parser->lookahead_node = TSTreeMake(symbol, total_child_count, children);
     DEBUG_PARSE("reduce: %s, state: %u \n", ts_symbol_names[symbol], TSParserParseState(parser));
 }
 
@@ -173,8 +192,12 @@ parser->lex_state
 #define ADVANCE(state_index) \
 { TSParserAdvance(parser, state_index); goto next_state; }
 
-#define REDUCE(symbol, child_count) \
-{ TSParserReduce(parser, symbol, child_count); goto next_state; }
+#define REDUCE(symbol, child_count, collapse_flags) \
+{ \
+static const int flags[] = collapse_flags; \
+TSParserReduce(parser, symbol, child_count, flags); \
+goto next_state; \
+}
 
 #define ACCEPT_INPUT() \
 { TSParserAcceptInput(parser); goto done; }
@@ -203,6 +226,7 @@ printf("Lex error: unexpected state %ud", LEX_STATE());
 printf("Parse error: unexpected state %ud", PARSE_STATE());
 
 #define EXPECT(...) __VA_ARGS__
+#define COLLAPSE(...) __VA_ARGS__
 
 #define FINISH_PARSER() \
 done: \

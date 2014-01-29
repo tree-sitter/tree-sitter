@@ -20,7 +20,7 @@ namespace tree_sitter {
                     auto non_terminal = pair.first;
                     auto terminals = pair.second;
                     for (rules::Symbol terminal : terminals) {
-                        auto next_item = ParseItem(non_terminal, grammar.rule(non_terminal), 0, terminal);
+                        auto next_item = ParseItem(non_terminal, grammar.rule(non_terminal), {}, terminal);
                         add_item(item_set, next_item, grammar);
                     }
                 }

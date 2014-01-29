@@ -5,36 +5,36 @@ enum ts_symbol {
     ts_symbol_number,
     ts_symbol_string,
     ts_aux_repeat_helper1,
-    ts_aux_token1,
-    ts_aux_token5,
+    ts_aux_token7,
     ts_symbol_array,
     ts_aux_token4,
+    ts_aux_token5,
     ts_aux_token3,
-    ts_aux_token7,
     ts_aux_token2,
-    ts_symbol___END__,
-    ts_symbol_object,
-    ts_aux_token6,
+    ts_aux_token1,
     ts_aux_repeat_helper2,
+    ts_aux_token6,
     ts_symbol_value,
+    ts_symbol_object,
+    ts_symbol___END__,
 };
 
 static const char *ts_symbol_names[] = {
     "number",
     "string",
     "repeat_helper1",
-    "token1",
-    "token5",
+    "token7",
     "array",
     "token4",
+    "token5",
     "token3",
-    "token7",
     "token2",
-    "__END__",
-    "object",
-    "token6",
+    "token1",
     "repeat_helper2",
+    "token6",
     "value",
+    "object",
+    "__END__",
 };
 
 static void ts_lex(TSParser *parser) {
@@ -129,21 +129,21 @@ static TSParseResult ts_parse(const char *input) {
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
-                    SHIFT(53);
-                case ts_symbol_array:
-                    SHIFT(53);
-                case ts_symbol_string:
-                    SHIFT(53);
+                    SHIFT(81);
                 case ts_aux_token5:
-                    SHIFT(47);
+                    SHIFT(70);
+                case ts_symbol_array:
+                    SHIFT(79);
+                case ts_symbol_object:
+                    SHIFT(78);
                 case ts_aux_token1:
                     SHIFT(2);
-                case ts_symbol_object:
-                    SHIFT(53);
+                case ts_symbol_string:
+                    SHIFT(80);
                 case ts_symbol_value:
                     SHIFT(1);
                 default:
-                    PARSE_ERROR(7, EXPECT({"value", "object", "token1", "token5", "string", "array", "number"}));
+                    PARSE_ERROR(7, EXPECT({"value", "string", "token1", "object", "array", "token5", "number"}));
             }
         case 1:
             SET_LEX_STATE(0);
@@ -157,49 +157,49 @@ static TSParseResult ts_parse(const char *input) {
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
-                    SHIFT(25);
-                case ts_symbol_array:
-                    SHIFT(25);
-                case ts_symbol_string:
-                    SHIFT(25);
+                    SHIFT(36);
                 case ts_aux_token5:
-                    SHIFT(12);
+                    SHIFT(16);
+                case ts_symbol_array:
+                    SHIFT(34);
                 case ts_symbol_object:
-                    SHIFT(25);
+                    SHIFT(33);
+                case ts_symbol_string:
+                    SHIFT(35);
                 case ts_symbol_value:
-                    SHIFT(44);
+                    SHIFT(65);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "value", "object", "token5", "string", "array", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
             }
         case 3:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
-                    SHIFT(25);
-                case ts_symbol_array:
-                    SHIFT(25);
-                case ts_symbol_string:
-                    SHIFT(25);
+                    SHIFT(36);
                 case ts_aux_token5:
-                    SHIFT(12);
+                    SHIFT(16);
+                case ts_symbol_array:
+                    SHIFT(34);
                 case ts_symbol_object:
-                    SHIFT(25);
+                    SHIFT(33);
+                case ts_symbol_string:
+                    SHIFT(35);
                 case ts_symbol_value:
                     SHIFT(4);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "value", "object", "token5", "string", "array", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
             }
         case 4:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    SHIFT(7);
+                    SHIFT(9);
                 case ts_aux_token3:
-                    SHIFT(5);
+                    SHIFT(7);
                 case ts_aux_repeat_helper2:
                     SHIFT(5);
                 default:
@@ -217,533 +217,787 @@ static TSParseResult ts_parse(const char *input) {
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token3:
-                    REDUCE(ts_symbol_array, 4);
+                    REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_array, 4);
+                    REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
                 default:
                     PARSE_ERROR(2, EXPECT({"token2", "token3"}));
             }
         case 7:
-            SET_LEX_STATE(10);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(43);
-                case ts_symbol_array:
-                    SHIFT(43);
-                case ts_symbol_object:
-                    SHIFT(43);
-                case ts_symbol_value:
-                    SHIFT(41);
-                case ts_symbol_string:
-                    SHIFT(43);
-                case ts_aux_token5:
-                    SHIFT(35);
-                case ts_aux_token1:
-                    SHIFT(8);
-                default:
-                    PARSE_ERROR(7, EXPECT({"token1", "token5", "string", "value", "object", "array", "number"}));
-            }
-        case 8:
-            SET_LEX_STATE(10);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(25);
-                case ts_symbol_array:
-                    SHIFT(25);
-                case ts_symbol_string:
-                    SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_symbol_object:
-                    SHIFT(25);
-                case ts_symbol_value:
-                    SHIFT(9);
-                case ts_aux_token1:
-                    SHIFT(3);
-                default:
-                    PARSE_ERROR(7, EXPECT({"token1", "value", "object", "token5", "string", "array", "number"}));
-            }
-        case 9:
-            SET_LEX_STATE(2);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token2:
-                    SHIFT(7);
-                case ts_aux_token3:
-                    SHIFT(10);
-                case ts_aux_repeat_helper2:
-                    SHIFT(10);
-                default:
-                    PARSE_ERROR(3, EXPECT({"repeat_helper2", "token3", "token2"}));
-            }
-        case 10:
             SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token4:
-                    SHIFT(11);
+                    SHIFT(8);
                 default:
                     PARSE_ERROR(1, EXPECT({"token4"}));
             }
+        case 8:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token3:
+                    REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token3"}));
+            }
+        case 9:
+            SET_LEX_STATE(10);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_number:
+                    SHIFT(64);
+                case ts_aux_token5:
+                    SHIFT(51);
+                case ts_symbol_array:
+                    SHIFT(62);
+                case ts_symbol_object:
+                    SHIFT(61);
+                case ts_symbol_string:
+                    SHIFT(63);
+                case ts_symbol_value:
+                    SHIFT(59);
+                case ts_aux_token1:
+                    SHIFT(10);
+                default:
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+            }
+        case 10:
+            SET_LEX_STATE(10);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_number:
+                    SHIFT(36);
+                case ts_aux_token5:
+                    SHIFT(16);
+                case ts_symbol_array:
+                    SHIFT(34);
+                case ts_symbol_object:
+                    SHIFT(33);
+                case ts_symbol_string:
+                    SHIFT(35);
+                case ts_symbol_value:
+                    SHIFT(11);
+                case ts_aux_token1:
+                    SHIFT(3);
+                default:
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+            }
         case 11:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token2:
+                    SHIFT(9);
+                case ts_aux_token3:
+                    SHIFT(14);
+                case ts_aux_repeat_helper2:
+                    SHIFT(12);
+                default:
+                    PARSE_ERROR(3, EXPECT({"repeat_helper2", "token3", "token2"}));
+            }
+        case 12:
+            SET_LEX_STATE(4);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token4:
+                    SHIFT(13);
+                default:
+                    PARSE_ERROR(1, EXPECT({"token4"}));
+            }
+        case 13:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token4:
-                    REDUCE(ts_symbol_array, 4);
+                    REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_array, 4);
+                    REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
                 default:
                     PARSE_ERROR(2, EXPECT({"token2", "token4"}));
             }
-        case 12:
-            SET_LEX_STATE(19);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_string:
-                    SHIFT(13);
-                default:
-                    PARSE_ERROR(1, EXPECT({"string"}));
-            }
-        case 13:
-            SET_LEX_STATE(17);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token6:
-                    SHIFT(14);
-                default:
-                    PARSE_ERROR(1, EXPECT({"token6"}));
-            }
         case 14:
-            SET_LEX_STATE(10);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(25);
-                case ts_symbol_array:
-                    SHIFT(25);
-                case ts_symbol_object:
-                    SHIFT(25);
-                case ts_symbol_value:
-                    SHIFT(15);
-                case ts_symbol_string:
-                    SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_aux_token1:
-                    SHIFT(3);
-                default:
-                    PARSE_ERROR(7, EXPECT({"token1", "token5", "string", "value", "object", "array", "number"}));
-            }
-        case 15:
-            SET_LEX_STATE(2);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token2:
-                    SHIFT(18);
-                case ts_aux_token3:
-                    SHIFT(16);
-                case ts_aux_repeat_helper1:
-                    SHIFT(16);
-                default:
-                    PARSE_ERROR(3, EXPECT({"repeat_helper1", "token3", "token2"}));
-            }
-        case 16:
-            SET_LEX_STATE(7);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token7:
-                    SHIFT(17);
-                default:
-                    PARSE_ERROR(1, EXPECT({"token7"}));
-            }
-        case 17:
-            SET_LEX_STATE(2);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token3:
-                    REDUCE(ts_symbol_object, 6);
-                case ts_aux_token2:
-                    REDUCE(ts_symbol_object, 6);
-                default:
-                    PARSE_ERROR(2, EXPECT({"token2", "token3"}));
-            }
-        case 18:
-            SET_LEX_STATE(19);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_string:
-                    SHIFT(19);
-                default:
-                    PARSE_ERROR(1, EXPECT({"string"}));
-            }
-        case 19:
-            SET_LEX_STATE(17);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token6:
-                    SHIFT(20);
-                default:
-                    PARSE_ERROR(1, EXPECT({"token6"}));
-            }
-        case 20:
-            SET_LEX_STATE(10);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(34);
-                case ts_symbol_array:
-                    SHIFT(34);
-                case ts_symbol_object:
-                    SHIFT(34);
-                case ts_symbol_value:
-                    SHIFT(32);
-                case ts_symbol_string:
-                    SHIFT(34);
-                case ts_aux_token5:
-                    SHIFT(26);
-                case ts_aux_token1:
-                    SHIFT(21);
-                default:
-                    PARSE_ERROR(7, EXPECT({"token1", "token5", "string", "value", "object", "array", "number"}));
-            }
-        case 21:
-            SET_LEX_STATE(10);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(25);
-                case ts_symbol_array:
-                    SHIFT(25);
-                case ts_symbol_string:
-                    SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_symbol_object:
-                    SHIFT(25);
-                case ts_symbol_value:
-                    SHIFT(22);
-                case ts_aux_token1:
-                    SHIFT(3);
-                default:
-                    PARSE_ERROR(7, EXPECT({"token1", "value", "object", "token5", "string", "array", "number"}));
-            }
-        case 22:
-            SET_LEX_STATE(2);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token2:
-                    SHIFT(7);
-                case ts_aux_token3:
-                    SHIFT(23);
-                case ts_aux_repeat_helper2:
-                    SHIFT(23);
-                default:
-                    PARSE_ERROR(3, EXPECT({"repeat_helper2", "token3", "token2"}));
-            }
-        case 23:
             SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token4:
-                    SHIFT(24);
+                    SHIFT(15);
                 default:
                     PARSE_ERROR(1, EXPECT({"token4"}));
             }
-        case 24:
-            SET_LEX_STATE(9);
+        case 15:
+            SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token7:
-                    REDUCE(ts_symbol_array, 4);
+                case ts_aux_token4:
+                    REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_array, 4);
+                    REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
                 default:
-                    PARSE_ERROR(2, EXPECT({"token2", "token7"}));
+                    PARSE_ERROR(2, EXPECT({"token2", "token4"}));
             }
-        case 25:
-            SET_LEX_STATE(2);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token3:
-                    REDUCE(ts_symbol_value, 1);
-                case ts_aux_token2:
-                    REDUCE(ts_symbol_value, 1);
-                default:
-                    PARSE_ERROR(2, EXPECT({"token2", "token3"}));
-            }
-        case 26:
+        case 16:
             SET_LEX_STATE(19);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_string:
-                    SHIFT(27);
+                    SHIFT(17);
                 default:
                     PARSE_ERROR(1, EXPECT({"string"}));
             }
-        case 27:
+        case 17:
             SET_LEX_STATE(17);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token6:
-                    SHIFT(28);
+                    SHIFT(18);
                 default:
                     PARSE_ERROR(1, EXPECT({"token6"}));
             }
-        case 28:
+        case 18:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
-                    SHIFT(25);
-                case ts_symbol_array:
-                    SHIFT(25);
-                case ts_symbol_object:
-                    SHIFT(25);
-                case ts_symbol_value:
-                    SHIFT(29);
-                case ts_symbol_string:
-                    SHIFT(25);
+                    SHIFT(36);
                 case ts_aux_token5:
-                    SHIFT(12);
+                    SHIFT(16);
+                case ts_symbol_array:
+                    SHIFT(34);
+                case ts_symbol_object:
+                    SHIFT(33);
+                case ts_symbol_string:
+                    SHIFT(35);
+                case ts_symbol_value:
+                    SHIFT(19);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "token5", "string", "value", "object", "array", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
             }
-        case 29:
+        case 19:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    SHIFT(18);
+                    SHIFT(24);
                 case ts_aux_token3:
-                    SHIFT(30);
+                    SHIFT(22);
                 case ts_aux_repeat_helper1:
-                    SHIFT(30);
+                    SHIFT(20);
                 default:
                     PARSE_ERROR(3, EXPECT({"repeat_helper1", "token3", "token2"}));
             }
-        case 30:
+        case 20:
             SET_LEX_STATE(7);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token7:
-                    SHIFT(31);
+                    SHIFT(21);
                 default:
                     PARSE_ERROR(1, EXPECT({"token7"}));
             }
-        case 31:
+        case 21:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token3:
+                    REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token3"}));
+            }
+        case 22:
+            SET_LEX_STATE(7);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token7:
+                    SHIFT(23);
+                default:
+                    PARSE_ERROR(1, EXPECT({"token7"}));
+            }
+        case 23:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token3:
+                    REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token3"}));
+            }
+        case 24:
+            SET_LEX_STATE(19);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_string:
+                    SHIFT(25);
+                default:
+                    PARSE_ERROR(1, EXPECT({"string"}));
+            }
+        case 25:
+            SET_LEX_STATE(17);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token6:
+                    SHIFT(26);
+                default:
+                    PARSE_ERROR(1, EXPECT({"token6"}));
+            }
+        case 26:
+            SET_LEX_STATE(10);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_number:
+                    SHIFT(50);
+                case ts_aux_token5:
+                    SHIFT(37);
+                case ts_symbol_array:
+                    SHIFT(48);
+                case ts_symbol_object:
+                    SHIFT(47);
+                case ts_symbol_string:
+                    SHIFT(49);
+                case ts_symbol_value:
+                    SHIFT(45);
+                case ts_aux_token1:
+                    SHIFT(27);
+                default:
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+            }
+        case 27:
+            SET_LEX_STATE(10);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_number:
+                    SHIFT(36);
+                case ts_aux_token5:
+                    SHIFT(16);
+                case ts_symbol_array:
+                    SHIFT(34);
+                case ts_symbol_object:
+                    SHIFT(33);
+                case ts_symbol_string:
+                    SHIFT(35);
+                case ts_symbol_value:
+                    SHIFT(28);
+                case ts_aux_token1:
+                    SHIFT(3);
+                default:
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+            }
+        case 28:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token2:
+                    SHIFT(9);
+                case ts_aux_token3:
+                    SHIFT(31);
+                case ts_aux_repeat_helper2:
+                    SHIFT(29);
+                default:
+                    PARSE_ERROR(3, EXPECT({"repeat_helper2", "token3", "token2"}));
+            }
+        case 29:
+            SET_LEX_STATE(4);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token4:
+                    SHIFT(30);
+                default:
+                    PARSE_ERROR(1, EXPECT({"token4"}));
+            }
+        case 30:
             SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token7:
-                    REDUCE(ts_symbol_object, 6);
+                    REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_object, 6);
+                    REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
                 default:
                     PARSE_ERROR(2, EXPECT({"token2", "token7"}));
+            }
+        case 31:
+            SET_LEX_STATE(4);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token4:
+                    SHIFT(32);
+                default:
+                    PARSE_ERROR(1, EXPECT({"token4"}));
             }
         case 32:
             SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token7:
-                    REDUCE(ts_aux_repeat_helper1, 4);
+                    REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
                 case ts_aux_token2:
-                    SHIFT(18);
-                case ts_aux_repeat_helper1:
-                    SHIFT(33);
-                default:
-                    PARSE_ERROR(3, EXPECT({"repeat_helper1", "token2", "token7"}));
-            }
-        case 33:
-            SET_LEX_STATE(7);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token7:
-                    REDUCE(ts_aux_repeat_helper1, 5);
-                default:
-                    PARSE_ERROR(1, EXPECT({"token7"}));
-            }
-        case 34:
-            SET_LEX_STATE(9);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token7:
-                    REDUCE(ts_symbol_value, 1);
-                case ts_aux_token2:
-                    REDUCE(ts_symbol_value, 1);
+                    REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
                 default:
                     PARSE_ERROR(2, EXPECT({"token2", "token7"}));
             }
+        case 33:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token3:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token3"}));
+            }
+        case 34:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token3:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token3"}));
+            }
         case 35:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token3:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token3"}));
+            }
+        case 36:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token3:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token3"}));
+            }
+        case 37:
             SET_LEX_STATE(19);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_string:
-                    SHIFT(36);
+                    SHIFT(38);
                 default:
                     PARSE_ERROR(1, EXPECT({"string"}));
             }
-        case 36:
+        case 38:
             SET_LEX_STATE(17);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token6:
-                    SHIFT(37);
+                    SHIFT(39);
                 default:
                     PARSE_ERROR(1, EXPECT({"token6"}));
             }
-        case 37:
+        case 39:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
-                    SHIFT(25);
-                case ts_symbol_array:
-                    SHIFT(25);
-                case ts_symbol_object:
-                    SHIFT(25);
-                case ts_symbol_value:
-                    SHIFT(38);
-                case ts_symbol_string:
-                    SHIFT(25);
+                    SHIFT(36);
                 case ts_aux_token5:
-                    SHIFT(12);
+                    SHIFT(16);
+                case ts_symbol_array:
+                    SHIFT(34);
+                case ts_symbol_object:
+                    SHIFT(33);
+                case ts_symbol_string:
+                    SHIFT(35);
+                case ts_symbol_value:
+                    SHIFT(40);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "token5", "string", "value", "object", "array", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
             }
-        case 38:
+        case 40:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    SHIFT(18);
+                    SHIFT(24);
                 case ts_aux_token3:
-                    SHIFT(39);
+                    SHIFT(43);
                 case ts_aux_repeat_helper1:
-                    SHIFT(39);
+                    SHIFT(41);
                 default:
                     PARSE_ERROR(3, EXPECT({"repeat_helper1", "token3", "token2"}));
             }
-        case 39:
+        case 41:
             SET_LEX_STATE(7);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token7:
-                    SHIFT(40);
+                    SHIFT(42);
                 default:
                     PARSE_ERROR(1, EXPECT({"token7"}));
             }
-        case 40:
+        case 42:
+            SET_LEX_STATE(9);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token7:
+                    REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token7"}));
+            }
+        case 43:
+            SET_LEX_STATE(7);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token7:
+                    SHIFT(44);
+                default:
+                    PARSE_ERROR(1, EXPECT({"token7"}));
+            }
+        case 44:
+            SET_LEX_STATE(9);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token7:
+                    REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token7"}));
+            }
+        case 45:
+            SET_LEX_STATE(9);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token2:
+                    SHIFT(24);
+                case ts_aux_token7:
+                    REDUCE(ts_aux_repeat_helper1, 4, COLLAPSE({1, 0, 1, 0}));
+                case ts_aux_repeat_helper1:
+                    SHIFT(46);
+                default:
+                    PARSE_ERROR(3, EXPECT({"repeat_helper1", "token7", "token2"}));
+            }
+        case 46:
+            SET_LEX_STATE(7);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token7:
+                    REDUCE(ts_aux_repeat_helper1, 5, COLLAPSE({1, 0, 1, 0, 1}));
+                default:
+                    PARSE_ERROR(1, EXPECT({"token7"}));
+            }
+        case 47:
+            SET_LEX_STATE(9);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token7:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token7"}));
+            }
+        case 48:
+            SET_LEX_STATE(9);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token7:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token7"}));
+            }
+        case 49:
+            SET_LEX_STATE(9);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token7:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token7"}));
+            }
+        case 50:
+            SET_LEX_STATE(9);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token7:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token7"}));
+            }
+        case 51:
+            SET_LEX_STATE(19);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_string:
+                    SHIFT(52);
+                default:
+                    PARSE_ERROR(1, EXPECT({"string"}));
+            }
+        case 52:
+            SET_LEX_STATE(17);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token6:
+                    SHIFT(53);
+                default:
+                    PARSE_ERROR(1, EXPECT({"token6"}));
+            }
+        case 53:
+            SET_LEX_STATE(10);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_number:
+                    SHIFT(36);
+                case ts_aux_token5:
+                    SHIFT(16);
+                case ts_symbol_array:
+                    SHIFT(34);
+                case ts_symbol_object:
+                    SHIFT(33);
+                case ts_symbol_string:
+                    SHIFT(35);
+                case ts_symbol_value:
+                    SHIFT(54);
+                case ts_aux_token1:
+                    SHIFT(3);
+                default:
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+            }
+        case 54:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token2:
+                    SHIFT(24);
+                case ts_aux_token3:
+                    SHIFT(57);
+                case ts_aux_repeat_helper1:
+                    SHIFT(55);
+                default:
+                    PARSE_ERROR(3, EXPECT({"repeat_helper1", "token3", "token2"}));
+            }
+        case 55:
+            SET_LEX_STATE(7);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token7:
+                    SHIFT(56);
+                default:
+                    PARSE_ERROR(1, EXPECT({"token7"}));
+            }
+        case 56:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token4:
-                    REDUCE(ts_symbol_object, 6);
+                    REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_object, 6);
+                    REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
                 default:
                     PARSE_ERROR(2, EXPECT({"token2", "token4"}));
             }
-        case 41:
+        case 57:
+            SET_LEX_STATE(7);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token7:
+                    SHIFT(58);
+                default:
+                    PARSE_ERROR(1, EXPECT({"token7"}));
+            }
+        case 58:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token4:
-                    REDUCE(ts_aux_repeat_helper2, 2);
+                    REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
                 case ts_aux_token2:
-                    SHIFT(7);
+                    REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token4"}));
+            }
+        case 59:
+            SET_LEX_STATE(6);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token4:
+                    REDUCE(ts_aux_repeat_helper2, 2, COLLAPSE({1, 0}));
+                case ts_aux_token2:
+                    SHIFT(9);
                 case ts_aux_repeat_helper2:
-                    SHIFT(42);
+                    SHIFT(60);
                 default:
                     PARSE_ERROR(3, EXPECT({"repeat_helper2", "token2", "token4"}));
             }
-        case 42:
+        case 60:
             SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token4:
-                    REDUCE(ts_aux_repeat_helper2, 3);
+                    REDUCE(ts_aux_repeat_helper2, 3, COLLAPSE({1, 0, 1}));
                 default:
                     PARSE_ERROR(1, EXPECT({"token4"}));
             }
-        case 43:
+        case 61:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token4:
-                    REDUCE(ts_symbol_value, 1);
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_value, 1);
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
                 default:
                     PARSE_ERROR(2, EXPECT({"token2", "token4"}));
             }
-        case 44:
+        case 62:
+            SET_LEX_STATE(6);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token4:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token4"}));
+            }
+        case 63:
+            SET_LEX_STATE(6);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token4:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token4"}));
+            }
+        case 64:
+            SET_LEX_STATE(6);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token4:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"token2", "token4"}));
+            }
+        case 65:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    SHIFT(7);
+                    SHIFT(9);
                 case ts_aux_token3:
-                    SHIFT(45);
+                    SHIFT(68);
                 case ts_aux_repeat_helper2:
-                    SHIFT(45);
+                    SHIFT(66);
                 default:
                     PARSE_ERROR(3, EXPECT({"repeat_helper2", "token3", "token2"}));
             }
-        case 45:
+        case 66:
             SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token4:
-                    SHIFT(46);
+                    SHIFT(67);
                 default:
                     PARSE_ERROR(1, EXPECT({"token4"}));
             }
-        case 46:
+        case 67:
             SET_LEX_STATE(0);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol___END__:
-                    REDUCE(ts_symbol_array, 4);
+                    REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
                 default:
                     PARSE_ERROR(1, EXPECT({"__END__"}));
             }
-        case 47:
+        case 68:
+            SET_LEX_STATE(4);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token4:
+                    SHIFT(69);
+                default:
+                    PARSE_ERROR(1, EXPECT({"token4"}));
+            }
+        case 69:
+            SET_LEX_STATE(0);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol___END__:
+                    REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
+                default:
+                    PARSE_ERROR(1, EXPECT({"__END__"}));
+            }
+        case 70:
             SET_LEX_STATE(19);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_string:
-                    SHIFT(48);
+                    SHIFT(71);
                 default:
                     PARSE_ERROR(1, EXPECT({"string"}));
             }
-        case 48:
+        case 71:
             SET_LEX_STATE(17);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token6:
-                    SHIFT(49);
+                    SHIFT(72);
                 default:
                     PARSE_ERROR(1, EXPECT({"token6"}));
             }
-        case 49:
+        case 72:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
-                    SHIFT(25);
-                case ts_symbol_array:
-                    SHIFT(25);
-                case ts_symbol_object:
-                    SHIFT(25);
-                case ts_symbol_value:
-                    SHIFT(50);
-                case ts_symbol_string:
-                    SHIFT(25);
+                    SHIFT(36);
                 case ts_aux_token5:
-                    SHIFT(12);
+                    SHIFT(16);
+                case ts_symbol_array:
+                    SHIFT(34);
+                case ts_symbol_object:
+                    SHIFT(33);
+                case ts_symbol_string:
+                    SHIFT(35);
+                case ts_symbol_value:
+                    SHIFT(73);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "token5", "string", "value", "object", "array", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
             }
-        case 50:
+        case 73:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    SHIFT(18);
+                    SHIFT(24);
                 case ts_aux_token3:
-                    SHIFT(51);
+                    SHIFT(76);
                 case ts_aux_repeat_helper1:
-                    SHIFT(51);
+                    SHIFT(74);
                 default:
                     PARSE_ERROR(3, EXPECT({"repeat_helper1", "token3", "token2"}));
             }
-        case 51:
+        case 74:
             SET_LEX_STATE(7);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token7:
-                    SHIFT(52);
+                    SHIFT(75);
                 default:
                     PARSE_ERROR(1, EXPECT({"token7"}));
             }
-        case 52:
+        case 75:
             SET_LEX_STATE(0);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol___END__:
-                    REDUCE(ts_symbol_object, 6);
+                    REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
                 default:
                     PARSE_ERROR(1, EXPECT({"__END__"}));
             }
-        case 53:
+        case 76:
+            SET_LEX_STATE(7);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token7:
+                    SHIFT(77);
+                default:
+                    PARSE_ERROR(1, EXPECT({"token7"}));
+            }
+        case 77:
             SET_LEX_STATE(0);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol___END__:
-                    REDUCE(ts_symbol_value, 1);
+                    REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
+                default:
+                    PARSE_ERROR(1, EXPECT({"__END__"}));
+            }
+        case 78:
+            SET_LEX_STATE(0);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol___END__:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(1, EXPECT({"__END__"}));
+            }
+        case 79:
+            SET_LEX_STATE(0);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol___END__:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(1, EXPECT({"__END__"}));
+            }
+        case 80:
+            SET_LEX_STATE(0);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol___END__:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(1, EXPECT({"__END__"}));
+            }
+        case 81:
+            SET_LEX_STATE(0);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol___END__:
+                    REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
                 default:
                     PARSE_ERROR(1, EXPECT({"__END__"}));
             }

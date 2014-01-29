@@ -101,7 +101,7 @@ describe("building parse and lex tables", []() {
     it("has the right next states", [&]() {
         AssertThat(parse_state(2).actions, Equals(unordered_map<Symbol, parse_actions>({
             { Symbol("plus"), parse_actions({ ParseAction::Shift(3) }) },
-            { Symbol("__END__"), parse_actions({ ParseAction::Reduce(Symbol("expression"), 1) }) },
+            { Symbol("__END__"), parse_actions({ ParseAction::Reduce(Symbol("expression"), { false }) }) },
         })));
     });
 });

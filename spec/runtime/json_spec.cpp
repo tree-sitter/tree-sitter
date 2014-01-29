@@ -20,15 +20,15 @@ describe("json", []() {
     
     it("parses objects", [&]() {
         TSDocumentSetText(document, "{\"key1\":1,\"key2\":2}");
-        AssertThat(string(TSDocumentToString(document)), Equals("(value (object (token5) (string) (token6) (value (number)) (repeat_helper1 (token2) (string) (token6) (value (number))) (token7)))"));
+        AssertThat(string(TSDocumentToString(document)), Equals("(value (object (string) (value (number)) (string) (value (number))))"));
         
         TSDocumentSetText(document, "{\"key1\":1}");
-        AssertThat(string(TSDocumentToString(document)), Equals("(value (object (token5) (string) (token6) (value (number)) (token3) (token7)))"));
+        AssertThat(string(TSDocumentToString(document)), Equals("(value (object (string) (value (number))))"));
     });
     
     it("parses arrays", [&]() {
         TSDocumentSetText(document, "[1,2,3]");
-        AssertThat(string(TSDocumentToString(document)), Equals("(value (array (token1) (value (number)) (repeat_helper2 (token2) (value (number)) (repeat_helper2 (token2) (value (number)))) (token4)))"));
+        AssertThat(string(TSDocumentToString(document)), Equals("(value (array (value (number)) (value (number)) (value (number))))"));
     });
 });
 

@@ -4,37 +4,38 @@ using std::string;
 using std::ostream;
 using std::to_string;
 using std::unordered_set;
+using std::vector;
 using tree_sitter::rules::Symbol;
 
 namespace tree_sitter {
     // Action
-    ParseAction::ParseAction(ParseActionType type, size_t state_index, rules::Symbol symbol, size_t child_symbol_count) :
+    ParseAction::ParseAction(ParseActionType type, size_t state_index, rules::Symbol symbol, const vector<bool> &child_flags) :
         type(type),
         state_index(state_index),
         symbol(symbol),
-        child_symbol_count(child_symbol_count) {};
+        child_flags(child_flags) {};
     
     ParseAction ParseAction::Error() {
-        return ParseAction(ParseActionTypeError, -1, Symbol(""), -1);
+        return ParseAction(ParseActionTypeError, -1, Symbol(""), {});
     }
     
     ParseAction ParseAction::Accept() {
-        return ParseAction(ParseActionTypeAccept, -1, Symbol(""), -1);
+        return ParseAction(ParseActionTypeAccept, -1, Symbol(""), {});
     }
     
     ParseAction ParseAction::Shift(size_t state_index) {
-        return ParseAction(ParseActionTypeShift, state_index, Symbol(""), -1);
+        return ParseAction(ParseActionTypeShift, state_index, Symbol(""), {});
     }
     
-    ParseAction ParseAction::Reduce(Symbol symbol, size_t child_symbol_count) {
-        return ParseAction(ParseActionTypeReduce, -1, symbol, child_symbol_count);
+    ParseAction ParseAction::Reduce(Symbol symbol, const vector<bool> &child_flags) {
+        return ParseAction(ParseActionTypeReduce, -1, symbol, child_flags);
     }
     
     bool ParseAction::operator==(const ParseAction &other) const {
         bool types_eq = type == other.type;
         bool state_indices_eq = state_index == other.state_index;
-        bool child_symbol_counts_eq = child_symbol_count == other.child_symbol_count;
-        return types_eq && state_indices_eq && child_symbol_counts_eq;
+        bool child_flags_eq = child_flags == other.child_flags;
+        return types_eq && state_indices_eq && child_flags_eq;
     }
     
     ostream& operator<<(ostream &stream, const ParseAction &action) {

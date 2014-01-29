@@ -4,27 +4,27 @@
 enum ts_symbol {
     ts_symbol_factor,
     ts_aux_token1,
-    ts_symbol_plus,
     ts_aux_token2,
     ts_symbol_number,
-    ts_symbol_variable,
     ts_symbol_times,
-    ts_symbol_term,
-    ts_symbol_expression,
     ts_symbol___END__,
+    ts_symbol_term,
+    ts_symbol_plus,
+    ts_symbol_expression,
+    ts_symbol_variable,
 };
 
 static const char *ts_symbol_names[] = {
     "factor",
     "token1",
-    "plus",
     "token2",
     "number",
-    "variable",
     "times",
-    "term",
-    "expression",
     "__END__",
+    "term",
+    "plus",
+    "expression",
+    "variable",
 };
 
 static void ts_lex(TSParser *parser) {
@@ -117,19 +117,19 @@ static TSParseResult ts_parse(const char *input) {
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
-                    SHIFT(45);
+                    SHIFT(52);
                 case ts_symbol_number:
-                    SHIFT(41);
+                    SHIFT(48);
                 case ts_symbol_variable:
-                    SHIFT(41);
-                case ts_aux_token1:
-                    SHIFT(42);
+                    SHIFT(47);
                 case ts_symbol_term:
                     SHIFT(2);
+                case ts_aux_token1:
+                    SHIFT(49);
                 case ts_symbol_expression:
                     SHIFT(1);
                 default:
-                    PARSE_ERROR(6, EXPECT({"expression", "term", "token1", "number", "variable", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"expression", "token1", "term", "variable", "number", "factor"}));
             }
         case 1:
             SET_LEX_STATE(0);
@@ -143,7 +143,7 @@ static TSParseResult ts_parse(const char *input) {
             SET_LEX_STATE(14);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol___END__:
-                    REDUCE(ts_symbol_expression, 1);
+                    REDUCE(ts_symbol_expression, 1, COLLAPSE({0}));
                 case ts_symbol_plus:
                     SHIFT(3);
                 default:
@@ -152,24 +152,24 @@ static TSParseResult ts_parse(const char *input) {
         case 3:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(5);
+                case ts_aux_token1:
+                    SHIFT(7);
                 case ts_symbol_factor:
-                    SHIFT(34);
+                    SHIFT(39);
+                case ts_symbol_number:
+                    SHIFT(6);
                 case ts_symbol_variable:
                     SHIFT(5);
-                case ts_aux_token1:
-                    SHIFT(6);
                 case ts_symbol_term:
                     SHIFT(4);
                 default:
-                    PARSE_ERROR(5, EXPECT({"term", "token1", "variable", "factor", "number"}));
+                    PARSE_ERROR(5, EXPECT({"term", "variable", "number", "factor", "token1"}));
             }
         case 4:
             SET_LEX_STATE(0);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol___END__:
-                    REDUCE(ts_symbol_expression, 3);
+                    REDUCE(ts_symbol_expression, 3, COLLAPSE({0, 0, 0}));
                 default:
                     PARSE_ERROR(1, EXPECT({"__END__"}));
             }
@@ -177,211 +177,207 @@ static TSParseResult ts_parse(const char *input) {
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_times:
-                    REDUCE(ts_symbol_factor, 1);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 case ts_symbol___END__:
-                    REDUCE(ts_symbol_factor, 1);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 default:
                     PARSE_ERROR(2, EXPECT({"__END__", "times"}));
             }
         case 6:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_times:
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
+                case ts_symbol___END__:
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"__END__", "times"}));
+            }
+        case 7:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
-                    SHIFT(16);
+                    SHIFT(19);
                 case ts_symbol_expression:
-                    SHIFT(32);
-                case ts_symbol_number:
-                    SHIFT(12);
-                case ts_symbol_variable:
-                    SHIFT(12);
+                    SHIFT(37);
                 case ts_aux_token1:
-                    SHIFT(13);
+                    SHIFT(16);
+                case ts_symbol_number:
+                    SHIFT(15);
+                case ts_symbol_variable:
+                    SHIFT(14);
                 case ts_symbol_term:
-                    SHIFT(7);
+                    SHIFT(8);
                 default:
-                    PARSE_ERROR(6, EXPECT({"term", "token1", "number", "expression", "variable", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "token1", "expression", "number", "factor"}));
             }
-        case 7:
+        case 8:
             SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_expression, 1);
+                    REDUCE(ts_symbol_expression, 1, COLLAPSE({0}));
                 case ts_symbol_plus:
-                    SHIFT(8);
+                    SHIFT(9);
                 default:
                     PARSE_ERROR(2, EXPECT({"plus", "token2"}));
             }
-        case 8:
+        case 9:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(10);
-                case ts_symbol_factor:
-                    SHIFT(25);
-                case ts_symbol_variable:
-                    SHIFT(10);
                 case ts_aux_token1:
+                    SHIFT(13);
+                case ts_symbol_factor:
+                    SHIFT(29);
+                case ts_symbol_number:
+                    SHIFT(12);
+                case ts_symbol_variable:
                     SHIFT(11);
                 case ts_symbol_term:
-                    SHIFT(9);
+                    SHIFT(10);
                 default:
-                    PARSE_ERROR(5, EXPECT({"term", "token1", "variable", "factor", "number"}));
+                    PARSE_ERROR(5, EXPECT({"term", "variable", "number", "factor", "token1"}));
             }
-        case 9:
+        case 10:
             SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_expression, 3);
+                    REDUCE(ts_symbol_expression, 3, COLLAPSE({0, 0, 0}));
                 default:
                     PARSE_ERROR(1, EXPECT({"token2"}));
             }
-        case 10:
+        case 11:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_factor, 1);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 case ts_symbol_times:
-                    REDUCE(ts_symbol_factor, 1);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 default:
                     PARSE_ERROR(2, EXPECT({"times", "token2"}));
             }
-        case 11:
-            SET_LEX_STATE(10);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_factor:
-                    SHIFT(16);
-                case ts_symbol_expression:
-                    SHIFT(23);
-                case ts_symbol_number:
-                    SHIFT(12);
-                case ts_symbol_variable:
-                    SHIFT(12);
-                case ts_aux_token1:
-                    SHIFT(13);
-                case ts_symbol_term:
-                    SHIFT(7);
-                default:
-                    PARSE_ERROR(6, EXPECT({"term", "token1", "number", "expression", "variable", "factor"}));
-            }
         case 12:
-            SET_LEX_STATE(7);
+            SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_factor, 1);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 case ts_symbol_times:
-                    REDUCE(ts_symbol_factor, 1);
-                case ts_symbol_plus:
-                    REDUCE(ts_symbol_factor, 1);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 default:
-                    PARSE_ERROR(3, EXPECT({"plus", "times", "token2"}));
+                    PARSE_ERROR(2, EXPECT({"times", "token2"}));
             }
         case 13:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
-                    SHIFT(16);
+                    SHIFT(19);
                 case ts_symbol_expression:
-                    SHIFT(14);
-                case ts_symbol_number:
-                    SHIFT(12);
-                case ts_symbol_variable:
-                    SHIFT(12);
+                    SHIFT(27);
                 case ts_aux_token1:
-                    SHIFT(13);
+                    SHIFT(16);
+                case ts_symbol_number:
+                    SHIFT(15);
+                case ts_symbol_variable:
+                    SHIFT(14);
                 case ts_symbol_term:
-                    SHIFT(7);
+                    SHIFT(8);
                 default:
-                    PARSE_ERROR(6, EXPECT({"term", "token1", "number", "expression", "variable", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "token1", "expression", "number", "factor"}));
             }
         case 14:
-            SET_LEX_STATE(4);
+            SET_LEX_STATE(7);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    SHIFT(15);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
+                case ts_symbol_times:
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
+                case ts_symbol_plus:
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 default:
-                    PARSE_ERROR(1, EXPECT({"token2"}));
+                    PARSE_ERROR(3, EXPECT({"plus", "times", "token2"}));
             }
         case 15:
             SET_LEX_STATE(7);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_factor, 3);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 case ts_symbol_times:
-                    REDUCE(ts_symbol_factor, 3);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 case ts_symbol_plus:
-                    REDUCE(ts_symbol_factor, 3);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 default:
                     PARSE_ERROR(3, EXPECT({"plus", "times", "token2"}));
             }
         case 16:
-            SET_LEX_STATE(7);
+            SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_plus:
-                    REDUCE(ts_symbol_term, 1);
-                case ts_aux_token2:
-                    REDUCE(ts_symbol_term, 1);
-                case ts_symbol_times:
+                case ts_symbol_factor:
+                    SHIFT(19);
+                case ts_symbol_expression:
                     SHIFT(17);
+                case ts_aux_token1:
+                    SHIFT(16);
+                case ts_symbol_number:
+                    SHIFT(15);
+                case ts_symbol_variable:
+                    SHIFT(14);
+                case ts_symbol_term:
+                    SHIFT(8);
                 default:
-                    PARSE_ERROR(3, EXPECT({"times", "token2", "plus"}));
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "token1", "expression", "number", "factor"}));
             }
         case 17:
-            SET_LEX_STATE(10);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token1:
-                    SHIFT(19);
-                case ts_symbol_number:
-                    SHIFT(18);
-                case ts_symbol_factor:
-                    SHIFT(22);
-                case ts_symbol_variable:
-                    SHIFT(18);
-                default:
-                    PARSE_ERROR(4, EXPECT({"variable", "factor", "number", "token1"}));
-            }
-        case 18:
-            SET_LEX_STATE(9);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token2:
-                    REDUCE(ts_symbol_factor, 1);
-                case ts_symbol_plus:
-                    REDUCE(ts_symbol_factor, 1);
-                default:
-                    PARSE_ERROR(2, EXPECT({"plus", "token2"}));
-            }
-        case 19:
-            SET_LEX_STATE(10);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_factor:
-                    SHIFT(16);
-                case ts_symbol_expression:
-                    SHIFT(20);
-                case ts_symbol_number:
-                    SHIFT(12);
-                case ts_symbol_variable:
-                    SHIFT(12);
-                case ts_aux_token1:
-                    SHIFT(13);
-                case ts_symbol_term:
-                    SHIFT(7);
-                default:
-                    PARSE_ERROR(6, EXPECT({"term", "token1", "number", "expression", "variable", "factor"}));
-            }
-        case 20:
             SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    SHIFT(21);
+                    SHIFT(18);
                 default:
                     PARSE_ERROR(1, EXPECT({"token2"}));
+            }
+        case 18:
+            SET_LEX_STATE(7);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
+                case ts_symbol_times:
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
+                case ts_symbol_plus:
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
+                default:
+                    PARSE_ERROR(3, EXPECT({"plus", "times", "token2"}));
+            }
+        case 19:
+            SET_LEX_STATE(7);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_plus:
+                    REDUCE(ts_symbol_term, 1, COLLAPSE({0}));
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_term, 1, COLLAPSE({0}));
+                case ts_symbol_times:
+                    SHIFT(20);
+                default:
+                    PARSE_ERROR(3, EXPECT({"times", "token2", "plus"}));
+            }
+        case 20:
+            SET_LEX_STATE(10);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token1:
+                    SHIFT(23);
+                case ts_symbol_factor:
+                    SHIFT(26);
+                case ts_symbol_number:
+                    SHIFT(22);
+                case ts_symbol_variable:
+                    SHIFT(21);
+                default:
+                    PARSE_ERROR(4, EXPECT({"variable", "number", "factor", "token1"}));
             }
         case 21:
             SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_factor, 3);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 case ts_symbol_plus:
-                    REDUCE(ts_symbol_factor, 3);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 default:
                     PARSE_ERROR(2, EXPECT({"plus", "token2"}));
             }
@@ -389,101 +385,105 @@ static TSParseResult ts_parse(const char *input) {
             SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_term, 3);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 case ts_symbol_plus:
-                    REDUCE(ts_symbol_term, 3);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 default:
                     PARSE_ERROR(2, EXPECT({"plus", "token2"}));
             }
         case 23:
+            SET_LEX_STATE(10);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_factor:
+                    SHIFT(19);
+                case ts_symbol_expression:
+                    SHIFT(24);
+                case ts_aux_token1:
+                    SHIFT(16);
+                case ts_symbol_number:
+                    SHIFT(15);
+                case ts_symbol_variable:
+                    SHIFT(14);
+                case ts_symbol_term:
+                    SHIFT(8);
+                default:
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "token1", "expression", "number", "factor"}));
+            }
+        case 24:
             SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    SHIFT(24);
+                    SHIFT(25);
                 default:
                     PARSE_ERROR(1, EXPECT({"token2"}));
             }
-        case 24:
-            SET_LEX_STATE(6);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token2:
-                    REDUCE(ts_symbol_factor, 3);
-                case ts_symbol_times:
-                    REDUCE(ts_symbol_factor, 3);
-                default:
-                    PARSE_ERROR(2, EXPECT({"times", "token2"}));
-            }
         case 25:
-            SET_LEX_STATE(6);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_term, 1);
-                case ts_symbol_times:
-                    SHIFT(26);
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
+                case ts_symbol_plus:
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
                 default:
-                    PARSE_ERROR(2, EXPECT({"times", "token2"}));
+                    PARSE_ERROR(2, EXPECT({"plus", "token2"}));
             }
         case 26:
-            SET_LEX_STATE(10);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token1:
-                    SHIFT(28);
-                case ts_symbol_number:
-                    SHIFT(27);
-                case ts_symbol_factor:
-                    SHIFT(31);
-                case ts_symbol_variable:
-                    SHIFT(27);
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_term, 3, COLLAPSE({0, 0, 0}));
+                case ts_symbol_plus:
+                    REDUCE(ts_symbol_term, 3, COLLAPSE({0, 0, 0}));
                 default:
-                    PARSE_ERROR(4, EXPECT({"variable", "factor", "number", "token1"}));
+                    PARSE_ERROR(2, EXPECT({"plus", "token2"}));
             }
         case 27:
             SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_factor, 1);
+                    SHIFT(28);
                 default:
                     PARSE_ERROR(1, EXPECT({"token2"}));
             }
         case 28:
-            SET_LEX_STATE(10);
+            SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_factor:
-                    SHIFT(16);
-                case ts_symbol_expression:
-                    SHIFT(29);
-                case ts_symbol_number:
-                    SHIFT(12);
-                case ts_symbol_variable:
-                    SHIFT(12);
-                case ts_aux_token1:
-                    SHIFT(13);
-                case ts_symbol_term:
-                    SHIFT(7);
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
+                case ts_symbol_times:
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
                 default:
-                    PARSE_ERROR(6, EXPECT({"term", "token1", "number", "expression", "variable", "factor"}));
+                    PARSE_ERROR(2, EXPECT({"times", "token2"}));
             }
         case 29:
-            SET_LEX_STATE(4);
+            SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
+                    REDUCE(ts_symbol_term, 1, COLLAPSE({0}));
+                case ts_symbol_times:
                     SHIFT(30);
                 default:
-                    PARSE_ERROR(1, EXPECT({"token2"}));
+                    PARSE_ERROR(2, EXPECT({"times", "token2"}));
             }
         case 30:
-            SET_LEX_STATE(4);
+            SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token2:
-                    REDUCE(ts_symbol_factor, 3);
+                case ts_aux_token1:
+                    SHIFT(33);
+                case ts_symbol_factor:
+                    SHIFT(36);
+                case ts_symbol_number:
+                    SHIFT(32);
+                case ts_symbol_variable:
+                    SHIFT(31);
                 default:
-                    PARSE_ERROR(1, EXPECT({"token2"}));
+                    PARSE_ERROR(4, EXPECT({"variable", "number", "factor", "token1"}));
             }
         case 31:
             SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    REDUCE(ts_symbol_term, 3);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 default:
                     PARSE_ERROR(1, EXPECT({"token2"}));
             }
@@ -491,223 +491,303 @@ static TSParseResult ts_parse(const char *input) {
             SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    SHIFT(33);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 default:
                     PARSE_ERROR(1, EXPECT({"token2"}));
             }
         case 33:
+            SET_LEX_STATE(10);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_factor:
+                    SHIFT(19);
+                case ts_symbol_expression:
+                    SHIFT(34);
+                case ts_aux_token1:
+                    SHIFT(16);
+                case ts_symbol_number:
+                    SHIFT(15);
+                case ts_symbol_variable:
+                    SHIFT(14);
+                case ts_symbol_term:
+                    SHIFT(8);
+                default:
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "token1", "expression", "number", "factor"}));
+            }
+        case 34:
+            SET_LEX_STATE(4);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token2:
+                    SHIFT(35);
+                default:
+                    PARSE_ERROR(1, EXPECT({"token2"}));
+            }
+        case 35:
+            SET_LEX_STATE(4);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
+                default:
+                    PARSE_ERROR(1, EXPECT({"token2"}));
+            }
+        case 36:
+            SET_LEX_STATE(4);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token2:
+                    REDUCE(ts_symbol_term, 3, COLLAPSE({0, 0, 0}));
+                default:
+                    PARSE_ERROR(1, EXPECT({"token2"}));
+            }
+        case 37:
+            SET_LEX_STATE(4);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token2:
+                    SHIFT(38);
+                default:
+                    PARSE_ERROR(1, EXPECT({"token2"}));
+            }
+        case 38:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_times:
-                    REDUCE(ts_symbol_factor, 3);
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
                 case ts_symbol___END__:
-                    REDUCE(ts_symbol_factor, 3);
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
                 default:
                     PARSE_ERROR(2, EXPECT({"__END__", "times"}));
             }
-        case 34:
+        case 39:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol___END__:
-                    REDUCE(ts_symbol_term, 1);
+                    REDUCE(ts_symbol_term, 1, COLLAPSE({0}));
                 case ts_symbol_times:
-                    SHIFT(35);
+                    SHIFT(40);
                 default:
                     PARSE_ERROR(2, EXPECT({"times", "__END__"}));
             }
-        case 35:
-            SET_LEX_STATE(10);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token1:
-                    SHIFT(37);
-                case ts_symbol_number:
-                    SHIFT(36);
-                case ts_symbol_factor:
-                    SHIFT(40);
-                case ts_symbol_variable:
-                    SHIFT(36);
-                default:
-                    PARSE_ERROR(4, EXPECT({"variable", "factor", "number", "token1"}));
-            }
-        case 36:
-            SET_LEX_STATE(0);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_symbol___END__:
-                    REDUCE(ts_symbol_factor, 1);
-                default:
-                    PARSE_ERROR(1, EXPECT({"__END__"}));
-            }
-        case 37:
-            SET_LEX_STATE(10);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_factor:
-                    SHIFT(16);
-                case ts_symbol_expression:
-                    SHIFT(38);
-                case ts_symbol_number:
-                    SHIFT(12);
-                case ts_symbol_variable:
-                    SHIFT(12);
-                case ts_aux_token1:
-                    SHIFT(13);
-                case ts_symbol_term:
-                    SHIFT(7);
-                default:
-                    PARSE_ERROR(6, EXPECT({"term", "token1", "number", "expression", "variable", "factor"}));
-            }
-        case 38:
-            SET_LEX_STATE(4);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token2:
-                    SHIFT(39);
-                default:
-                    PARSE_ERROR(1, EXPECT({"token2"}));
-            }
-        case 39:
-            SET_LEX_STATE(0);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_symbol___END__:
-                    REDUCE(ts_symbol_factor, 3);
-                default:
-                    PARSE_ERROR(1, EXPECT({"__END__"}));
-            }
         case 40:
-            SET_LEX_STATE(0);
+            SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol___END__:
-                    REDUCE(ts_symbol_term, 3);
+                case ts_aux_token1:
+                    SHIFT(43);
+                case ts_symbol_factor:
+                    SHIFT(46);
+                case ts_symbol_number:
+                    SHIFT(42);
+                case ts_symbol_variable:
+                    SHIFT(41);
                 default:
-                    PARSE_ERROR(1, EXPECT({"__END__"}));
+                    PARSE_ERROR(4, EXPECT({"variable", "number", "factor", "token1"}));
             }
         case 41:
-            SET_LEX_STATE(15);
+            SET_LEX_STATE(0);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_times:
-                    REDUCE(ts_symbol_factor, 1);
-                case ts_symbol_plus:
-                    REDUCE(ts_symbol_factor, 1);
                 case ts_symbol___END__:
-                    REDUCE(ts_symbol_factor, 1);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 default:
-                    PARSE_ERROR(3, EXPECT({"__END__", "plus", "times"}));
+                    PARSE_ERROR(1, EXPECT({"__END__"}));
             }
         case 42:
+            SET_LEX_STATE(0);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol___END__:
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(1, EXPECT({"__END__"}));
+            }
+        case 43:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
-                    SHIFT(16);
+                    SHIFT(19);
                 case ts_symbol_expression:
-                    SHIFT(43);
-                case ts_symbol_number:
-                    SHIFT(12);
-                case ts_symbol_variable:
-                    SHIFT(12);
+                    SHIFT(44);
                 case ts_aux_token1:
-                    SHIFT(13);
+                    SHIFT(16);
+                case ts_symbol_number:
+                    SHIFT(15);
+                case ts_symbol_variable:
+                    SHIFT(14);
                 case ts_symbol_term:
-                    SHIFT(7);
+                    SHIFT(8);
                 default:
-                    PARSE_ERROR(6, EXPECT({"term", "token1", "number", "expression", "variable", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "token1", "expression", "number", "factor"}));
             }
-        case 43:
+        case 44:
             SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    SHIFT(44);
+                    SHIFT(45);
                 default:
                     PARSE_ERROR(1, EXPECT({"token2"}));
             }
-        case 44:
+        case 45:
+            SET_LEX_STATE(0);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol___END__:
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
+                default:
+                    PARSE_ERROR(1, EXPECT({"__END__"}));
+            }
+        case 46:
+            SET_LEX_STATE(0);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol___END__:
+                    REDUCE(ts_symbol_term, 3, COLLAPSE({0, 0, 0}));
+                default:
+                    PARSE_ERROR(1, EXPECT({"__END__"}));
+            }
+        case 47:
             SET_LEX_STATE(15);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_times:
-                    REDUCE(ts_symbol_factor, 3);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 case ts_symbol_plus:
-                    REDUCE(ts_symbol_factor, 3);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 case ts_symbol___END__:
-                    REDUCE(ts_symbol_factor, 3);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 default:
                     PARSE_ERROR(3, EXPECT({"__END__", "plus", "times"}));
             }
-        case 45:
+        case 48:
+            SET_LEX_STATE(15);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_times:
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
+                case ts_symbol_plus:
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
+                case ts_symbol___END__:
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(3, EXPECT({"__END__", "plus", "times"}));
+            }
+        case 49:
+            SET_LEX_STATE(10);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_factor:
+                    SHIFT(19);
+                case ts_symbol_expression:
+                    SHIFT(50);
+                case ts_aux_token1:
+                    SHIFT(16);
+                case ts_symbol_number:
+                    SHIFT(15);
+                case ts_symbol_variable:
+                    SHIFT(14);
+                case ts_symbol_term:
+                    SHIFT(8);
+                default:
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "token1", "expression", "number", "factor"}));
+            }
+        case 50:
+            SET_LEX_STATE(4);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_token2:
+                    SHIFT(51);
+                default:
+                    PARSE_ERROR(1, EXPECT({"token2"}));
+            }
+        case 51:
+            SET_LEX_STATE(15);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_times:
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
+                case ts_symbol_plus:
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
+                case ts_symbol___END__:
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
+                default:
+                    PARSE_ERROR(3, EXPECT({"__END__", "plus", "times"}));
+            }
+        case 52:
             SET_LEX_STATE(15);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_plus:
-                    REDUCE(ts_symbol_term, 1);
+                    REDUCE(ts_symbol_term, 1, COLLAPSE({0}));
                 case ts_symbol___END__:
-                    REDUCE(ts_symbol_term, 1);
+                    REDUCE(ts_symbol_term, 1, COLLAPSE({0}));
                 case ts_symbol_times:
-                    SHIFT(46);
+                    SHIFT(53);
                 default:
                     PARSE_ERROR(3, EXPECT({"times", "__END__", "plus"}));
             }
-        case 46:
+        case 53:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token1:
-                    SHIFT(48);
-                case ts_symbol_number:
-                    SHIFT(47);
+                    SHIFT(56);
                 case ts_symbol_factor:
-                    SHIFT(51);
+                    SHIFT(59);
+                case ts_symbol_number:
+                    SHIFT(55);
                 case ts_symbol_variable:
-                    SHIFT(47);
+                    SHIFT(54);
                 default:
-                    PARSE_ERROR(4, EXPECT({"variable", "factor", "number", "token1"}));
+                    PARSE_ERROR(4, EXPECT({"variable", "number", "factor", "token1"}));
             }
-        case 47:
+        case 54:
             SET_LEX_STATE(14);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_plus:
-                    REDUCE(ts_symbol_factor, 1);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 case ts_symbol___END__:
-                    REDUCE(ts_symbol_factor, 1);
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
                 default:
                     PARSE_ERROR(2, EXPECT({"__END__", "plus"}));
             }
-        case 48:
+        case 55:
+            SET_LEX_STATE(14);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_symbol_plus:
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
+                case ts_symbol___END__:
+                    REDUCE(ts_symbol_factor, 1, COLLAPSE({0}));
+                default:
+                    PARSE_ERROR(2, EXPECT({"__END__", "plus"}));
+            }
+        case 56:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
-                    SHIFT(16);
+                    SHIFT(19);
                 case ts_symbol_expression:
-                    SHIFT(49);
-                case ts_symbol_number:
-                    SHIFT(12);
-                case ts_symbol_variable:
-                    SHIFT(12);
+                    SHIFT(57);
                 case ts_aux_token1:
-                    SHIFT(13);
+                    SHIFT(16);
+                case ts_symbol_number:
+                    SHIFT(15);
+                case ts_symbol_variable:
+                    SHIFT(14);
                 case ts_symbol_term:
-                    SHIFT(7);
+                    SHIFT(8);
                 default:
-                    PARSE_ERROR(6, EXPECT({"term", "token1", "number", "expression", "variable", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"term", "variable", "token1", "expression", "number", "factor"}));
             }
-        case 49:
+        case 57:
             SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token2:
-                    SHIFT(50);
+                    SHIFT(58);
                 default:
                     PARSE_ERROR(1, EXPECT({"token2"}));
             }
-        case 50:
+        case 58:
             SET_LEX_STATE(14);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_plus:
-                    REDUCE(ts_symbol_factor, 3);
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
                 case ts_symbol___END__:
-                    REDUCE(ts_symbol_factor, 3);
+                    REDUCE(ts_symbol_factor, 3, COLLAPSE({1, 0, 1}));
                 default:
                     PARSE_ERROR(2, EXPECT({"__END__", "plus"}));
             }
-        case 51:
+        case 59:
             SET_LEX_STATE(14);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_plus:
-                    REDUCE(ts_symbol_term, 3);
+                    REDUCE(ts_symbol_term, 3, COLLAPSE({0, 0, 0}));
                 case ts_symbol___END__:
-                    REDUCE(ts_symbol_term, 3);
+                    REDUCE(ts_symbol_term, 3, COLLAPSE({0, 0, 0}));
                 default:
                     PARSE_ERROR(2, EXPECT({"__END__", "plus"}));
             }

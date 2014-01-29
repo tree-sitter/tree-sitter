@@ -6,6 +6,7 @@
 #include <set>
 #include <unordered_set>
 #include "symbol.h"
+#include <vector>
 
 namespace tree_sitter {
     class Grammar;
@@ -29,11 +30,11 @@ namespace tree_sitter {
 
         class ParseItem : public Item {
         public:
-            ParseItem(const rules::Symbol &lhs, const rules::rule_ptr rule, int consumed_sym_count, const rules::Symbol &lookahead_sym);
+            ParseItem(const rules::Symbol &lhs, const rules::rule_ptr rule, const std::vector<rules::Symbol> &consumed_symbols, const rules::Symbol &lookahead_sym);
             bool operator<(const ParseItem &other) const;
             bool operator==(const ParseItem &other) const;
 
-            const int consumed_sym_count;
+            const std::vector<rules::Symbol> consumed_symbols;
             const rules::Symbol lookahead_sym;
         };
 
@@ -61,7 +62,7 @@ namespace std {
             return
             hash<tree_sitter::rules::Symbol>()(item.lhs) ^
             hash<tree_sitter::rules::Rule>()(*item.rule) ^
-            hash<size_t>()(item.consumed_sym_count) ^
+            hash<size_t>()(item.consumed_symbols.size()) ^
             hash<tree_sitter::rules::Symbol>()(item.lookahead_sym);
         }
     };

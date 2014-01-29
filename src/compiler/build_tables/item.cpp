@@ -5,6 +5,7 @@
 using std::string;
 using std::to_string;
 using std::ostream;
+using std::vector;
 using tree_sitter::rules::Symbol;
 
 namespace tree_sitter {
@@ -33,7 +34,7 @@ namespace tree_sitter {
             string("' ") <<
             *item.rule <<
             string(" ") <<
-            to_string(item.consumed_sym_count) <<
+            to_string(item.consumed_symbols.size()) <<
             string(" ") <<
             item.lookahead_sym <<
             string(">");
@@ -51,8 +52,8 @@ namespace tree_sitter {
             if (other.lhs < lhs) return false;
             if (rule->to_string() < other.rule->to_string()) return true;
             if (rule->to_string() > other.rule->to_string()) return false;
-            if (consumed_sym_count < other.consumed_sym_count) return true;
-            if (consumed_sym_count > other.consumed_sym_count) return false;
+            if (consumed_symbols < other.consumed_symbols) return true;
+            if (consumed_symbols > other.consumed_symbols) return false;
             if (lookahead_sym < other.lookahead_sym) return true;
             return false;
         }
@@ -65,15 +66,15 @@ namespace tree_sitter {
             return lhs_eq && rules_eq;
         }
         
-        ParseItem::ParseItem(const Symbol &lhs, const rules::rule_ptr rule, int consumed_sym_count, const rules::Symbol &lookahead_sym) :
+        ParseItem::ParseItem(const Symbol &lhs, const rules::rule_ptr rule, const vector<Symbol> &consumed_symbols, const rules::Symbol &lookahead_sym) :
             Item(lhs, rule),
-            consumed_sym_count(consumed_sym_count),
+            consumed_symbols(consumed_symbols),
             lookahead_sym(lookahead_sym) {}
 
         bool ParseItem::operator==(const ParseItem &other) const {
             bool lhs_eq = other.lhs == lhs;
             bool rules_eq = (*other.rule == *rule);
-            bool consumed_sym_counts_eq = (other.consumed_sym_count == consumed_sym_count);
+            bool consumed_sym_counts_eq = (other.consumed_symbols == consumed_symbols);
             bool lookaheads_eq = other.lookahead_sym == lookahead_sym;
             return lhs_eq && rules_eq && consumed_sym_counts_eq && lookaheads_eq;
         }

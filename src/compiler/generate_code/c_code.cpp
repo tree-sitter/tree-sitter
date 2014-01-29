@@ -118,6 +118,17 @@ namespace tree_sitter {
                 }
             }
             
+            string collapse_flags(vector<bool> flags) {
+                string result;
+                bool started = false;
+                for (auto flag : flags) {
+                    if (started) result += ", ";
+                    result += (flag ? "1" : "0");
+                    started = true;
+                }
+                return result;
+            }
+            
             string code_for_parse_actions(const unordered_set<ParseAction> &actions, const unordered_set<rules::Symbol> &expected_inputs) {
                 auto action = actions.begin();
                 if (action == actions.end()) {
@@ -129,7 +140,7 @@ namespace tree_sitter {
                         case ParseActionTypeShift:
                             return "SHIFT(" + to_string(action->state_index) + ");";
                         case ParseActionTypeReduce:
-                            return "REDUCE(" + symbol_id(action->symbol) + ", " + std::to_string(action->child_symbol_count) + ");";
+                            return "REDUCE(" + symbol_id(action->symbol) + ", " + to_string(action->child_flags.size()) + ", COLLAPSE({" + collapse_flags(action->child_flags) + "}));";
                         default:
                             return "";
                     }
