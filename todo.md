@@ -1,6 +1,17 @@
 TODO
 ====
 
-- prevent auxiliary tokens from appearing in AST
+## correct batch parsing
+- generate correct lexers in the presence of 'overlapping' transition
+  rules (e.g. transitions on 'a' and on \w).
+- add support for character-range rules (e.g. [0-9])
+- add support for negation rules, (only exposed through regex patterns)
 - add comments to generated C code giving an example string for each token
-- get generated JSON parser working
+- change the meaning of 'repeat' from 1-or-more to 0-or-more
+- fix any memory leaks
+- add special lexical behavior for indentation-aware languages
+
+## node.js wrapper
+- add simple selector engine for trees
+
+## incremental parsing
