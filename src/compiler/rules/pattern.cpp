@@ -38,6 +38,18 @@ namespace tree_sitter {
                 return result;
             }
             
+            rule_ptr char_set() {
+                bool is_affirmative = true;
+                if (peek() == '^') {
+                    next();
+                    is_affirmative = false;
+                }
+                std::vector<CharacterMatch> matches;
+                while (has_more_input() && (peek() != ']'))
+                    matches.push_back(single_char());
+                return character(matches, is_affirmative);
+            }
+            
             rule_ptr atom() {
                 rule_ptr result;
                 switch (peek()) {
@@ -49,34 +61,52 @@ namespace tree_sitter {
                         else
                             next();
                         break;
+                    case '[':
+                        next();
+                        result = char_set();
+                        if (peek() != ']')
+                            error("mismatched square brackets");
+                        else
+                            next();
+                        break;
                     case ')':
                         error("mismatched parens");
                         break;
-                    case '\\':
-                        next();
-                        result = escaped_char(peek());
-                        next();
-                        break;
                     default:
-                        result = character(peek());
-                        next();
-                        break;
+                        result = character({ single_char() }, true);
                 }
                 return result;
             }
             
-            rule_ptr escaped_char(char value) {
+            CharacterMatch single_char() {
+                CharacterMatch value('\0');
+                switch (peek()) {
+                    case '\\':
+                        next();
+                        value = escaped_char(peek());
+                        next();
+                        break;
+                    default:
+                        value = peek();
+                        next();
+                        return value;
+                }
+                return value;
+            }
+            
+            CharacterMatch escaped_char(char value) {
                 switch (value) {
+                    case '\\':
                     case '(':
                     case ')':
-                        return character(value);
+                        return value;
                     case 'w':
-                        return character(CharClassWord);
+                        return CharClassWord;
                     case 'd':
-                        return character(CharClassDigit);
+                        return CharClassDigit;
                     default:
                         error("unrecognized escape sequence");
-                        return rule_ptr();
+                        return '\0';
                 }
             }
             

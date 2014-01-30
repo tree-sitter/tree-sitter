@@ -2,39 +2,39 @@
 #include <ctype.h>
 
 enum ts_symbol {
-    ts_symbol_array,
-    ts_aux_token6,
-    ts_aux_repeat_helper2,
-    ts_aux_token5,
     ts_symbol_string,
-    ts_symbol_value,
-    ts_symbol_object,
-    ts_aux_token4,
-    ts_aux_token7,
-    ts_symbol_number,
-    ts_aux_token2,
-    ts_aux_token3,
-    ts_aux_token1,
     ts_aux_repeat_helper1,
+    ts_aux_token5,
+    ts_aux_repeat_helper2,
+    ts_symbol_object,
+    ts_aux_token6,
+    ts_aux_token7,
+    ts_aux_token4,
+    ts_aux_token1,
+    ts_symbol_array,
     ts_symbol___END__,
+    ts_symbol_value,
+    ts_symbol_number,
+    ts_aux_token3,
+    ts_aux_token2,
 };
 
 static const char *ts_symbol_names[] = {
-    "array",
-    "token6",
-    "repeat_helper2",
-    "token5",
     "string",
-    "value",
-    "object",
-    "token4",
-    "token7",
-    "number",
-    "token2",
-    "token3",
-    "token1",
     "repeat_helper1",
+    "token5",
+    "repeat_helper2",
+    "object",
+    "token6",
+    "token7",
+    "token4",
+    "token1",
+    "array",
     "__END__",
+    "value",
+    "number",
+    "token3",
+    "token2",
 };
 
 static void ts_lex(TSParser *parser) {
@@ -77,29 +77,29 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(3);
             LEX_ERROR(2, EXPECT({"'}'", "','"}));
         case 10:
+            if (LOOKAHEAD_CHAR() == '{')
+                ADVANCE(16);
             if (LOOKAHEAD_CHAR() == '[')
                 ADVANCE(15);
             if (LOOKAHEAD_CHAR() == '\"')
                 ADVANCE(12);
-            if (LOOKAHEAD_CHAR() == '{')
-                ADVANCE(16);
             if (isdigit(LOOKAHEAD_CHAR()))
                 ADVANCE(11);
-            LEX_ERROR(4, EXPECT({"'['", "'\"'", "'{'", "<digit>"}));
+            LEX_ERROR(4, EXPECT({"'{'", "'['", "'\"'", "<digit>"}));
         case 11:
             if (isdigit(LOOKAHEAD_CHAR()))
                 ADVANCE(11);
             ACCEPT_TOKEN(ts_symbol_number);
         case 12:
-            if (isalnum(LOOKAHEAD_CHAR()))
+            if (!(LOOKAHEAD_CHAR() == '\"'))
                 ADVANCE(13);
-            LEX_ERROR(1, EXPECT({"<word>"}));
+            LEX_ERROR(1, EXPECT({"'\"'"}));
         case 13:
             if (LOOKAHEAD_CHAR() == '\"')
                 ADVANCE(14);
-            if (isalnum(LOOKAHEAD_CHAR()))
+            if (!(LOOKAHEAD_CHAR() == '\"'))
                 ADVANCE(13);
-            LEX_ERROR(2, EXPECT({"'\"'", "<word>"}));
+            LEX_ERROR(1, EXPECT({"'\"'"}));
         case 14:
             ACCEPT_TOKEN(ts_symbol_string);
         case 15:
@@ -788,14 +788,14 @@ static TSParseResult ts_parse(const char *input) {
         case 59:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token2:
-                    SHIFT(9);
                 case ts_aux_token4:
                     REDUCE(ts_aux_repeat_helper2, 2, COLLAPSE({1, 0}));
+                case ts_aux_token2:
+                    SHIFT(9);
                 case ts_aux_repeat_helper2:
                     SHIFT(60);
                 default:
-                    PARSE_ERROR(3, EXPECT({"repeat_helper2", "token4", "token2"}));
+                    PARSE_ERROR(3, EXPECT({"repeat_helper2", "token2", "token4"}));
             }
         case 60:
             SET_LEX_STATE(4);

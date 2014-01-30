@@ -35,7 +35,7 @@ namespace test_grammars {
                 str("]"), }) },
             { "string", seq({
                 str("\""),
-                pattern("\\w+"),
+                repeat(pattern("[^\"]")),
                 str("\"") }) },
             { "number", pattern("\\d+") }
         });

@@ -48,6 +48,41 @@ describe("parsing pattern rules", []() {
             })));
     });
     
+    it("parses character sets", []() {
+        Pattern rule("[abc]");
+        AssertThat(
+            rule.to_rule_tree(),
+            EqualsPointer(character({ 'a', 'b', 'c' }, true)));
+    });
+    
+    it("parses negated characters", []() {
+        Pattern rule("[^a\\d]");
+        AssertThat(
+            rule.to_rule_tree(),
+            EqualsPointer(character({ 'a', CharClassDigit }, false)));
+    });
+    
+    it("parses backslashes", []() {
+        Pattern rule("\\\\");
+        AssertThat(
+            rule.to_rule_tree(),
+            EqualsPointer(character('\\')));
+    });
+    
+    it("parses character groups in sequences", []() {
+        Pattern rule("\"([^\"]|\\\\\")+\"");
+        AssertThat(
+            rule.to_rule_tree(),
+            EqualsPointer(seq({
+                character('"'),
+                repeat(choice({
+                    character({ '"' }, false),
+                    seq({ character('\\'), character('"') })
+                })),
+                character('"')
+            })));
+    });
+    
     it("parses choices in sequences", []() {
         Pattern rule("(a|b)cd");
         AssertThat(

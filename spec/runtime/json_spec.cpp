@@ -14,7 +14,7 @@ describe("json", []() {
     });
     
     it("parses strings", [&]() {
-        TSDocumentSetText(document, "\"string\"");
+        TSDocumentSetText(document, "\"this is a string\"");
         AssertThat(string(TSDocumentToString(document)), Equals("(value (string))"));
     });
     
