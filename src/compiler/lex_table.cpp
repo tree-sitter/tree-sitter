@@ -45,8 +45,8 @@ namespace tree_sitter {
     }
     
     // State
-    unordered_set<CharMatch> LexState::expected_inputs() const {
-        unordered_set<CharMatch> result;
+    unordered_set<rules::Character> LexState::expected_inputs() const {
+        unordered_set<rules::Character> result;
         for (auto pair : actions)
             result.insert(pair.first);
         return result;
@@ -58,7 +58,7 @@ namespace tree_sitter {
         return states.size() - 1;
     }
     
-    void LexTable::add_action(size_t state_index, CharMatch match, LexAction action) {
+    void LexTable::add_action(size_t state_index, rules::Character match, LexAction action) {
         states[state_index].actions[match].insert(action);
     }
     

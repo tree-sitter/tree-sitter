@@ -1,4 +1,5 @@
 #include "rules.h"
+#include <unordered_map>
 
 using std::string;
 using std::hash;

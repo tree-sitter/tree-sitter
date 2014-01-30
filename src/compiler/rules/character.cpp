@@ -5,17 +5,64 @@ using std::hash;
 
 namespace tree_sitter  {
     namespace rules {
-        Character::Character(char value) : value(CharMatchSpecific(value)) {};
-        Character::Character(CharClass value) : value(CharMatchClass(value)) {};
-        Character::Character(char min, char max) : value(CharMatchRange(min, max)) {};
+        CharacterMatch::CharacterMatch(char character) : type(CharacterMatchTypeSpecific) { value.character = character; }
+        CharacterMatch::CharacterMatch(CharacterClass klass) : type(CharacterMatchTypeClass) { value.character_class = klass; }
+        CharacterMatch::CharacterMatch(std::pair<char, char> bounds) : type(CharacterMatchTypeRange) {
+            value.range.min_character = bounds.first;
+            value.range.max_character = bounds.second;
+        }
+        
+        Character::Character(char character) : matches({ CharacterMatch(character) }), sign(true) {}
+        Character::Character(CharacterClass char_class) : matches({ CharacterMatch(char_class) }), sign(true) {}
+        Character::Character(const std::vector<CharacterMatch> &matches, bool sign) : matches(matches), sign(sign) {}
+        
+        bool CharacterMatch::operator==(const CharacterMatch &right) const {
+            if (type != right.type)
+                return false;
+            switch (type) {
+                case CharacterMatchTypeClass:
+                    return (value.character_class == right.value.character_class);
+                case CharacterMatchTypeSpecific:
+                    return (value.character == right.value.character);
+                case CharacterMatchTypeRange:
+                    return (value.range.min_character == right.value.range.min_character &&
+                            value.range.max_character == right.value.range.max_character);
+            }
+        }
+        
+        string CharacterMatch::to_string() const {
+            switch (type) {
+                case CharacterMatchTypeClass:
+                    switch (value.character_class) {
+                        case CharClassDigit:
+                            return "<digit>";
+                        case CharClassWord:
+                            return "<word>";
+                    }
+                case CharacterMatchTypeSpecific:
+                    return (value.character == '\0') ?
+                        "<EOF>" :
+                        string("'") + value.character + "'";
+                case CharacterMatchTypeRange:
+                    return (string("'") +
+                            value.range.min_character + "'-'" +
+                            value.range.max_character + "'");
+            }
+        }
+
         
         bool Character::operator==(const Rule &rule) const {
             const Character *other = dynamic_cast<const Character *>(&rule);
-            return other && (other->value == value);
+            if (!other) return false;
+            auto size = matches.size();
+            if (other->matches.size() != size) return false;
+            for (int i = 0; i < size; i++)
+                if (!(matches[i] == other->matches[i])) return false;
+            return true;
         }
-
+        
         size_t Character::hash_code() const {
-            return typeid(this).hash_code() ^ hash<string>()(CharMatchToString(value));
+            return typeid(this).hash_code() ^ hash<string>()(to_string());
         }
 
         rule_ptr Character::copy() const {
@@ -23,7 +70,10 @@ namespace tree_sitter  {
         }
 
         string Character::to_string() const {
-            return string("#<char ") + CharMatchToString(value) + ">";
+            string prefix("#<char");
+            for (auto &match : matches)
+                prefix += " " + match.to_string();
+            return prefix + ">";
         }
         
         void Character::accept(Visitor &visitor) const {

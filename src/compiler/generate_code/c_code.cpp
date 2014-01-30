@@ -101,21 +101,31 @@ namespace tree_sitter {
                 }
             }
             
-            string condition_for_char_match(const CharMatch &char_match) {
+            string condition_for_character_match(const rules::CharacterMatch &match) {
                 auto value = "LOOKAHEAD_CHAR()";
-                switch (char_match.type) {
-                    case CharMatchTypeClass:
-                        switch (char_match.value.character_class) {
-                            case CharClassDigit:
+                switch (match.type) {
+                    case rules::CharacterMatchTypeClass:
+                        switch (match.value.character_class) {
+                            case rules::CharClassDigit:
                                 return string("isdigit(") + value + ")";
-                            case CharClassWord:
+                            case rules::CharClassWord:
                                 return string("isalnum(") + value + ")";
                         }
-                    case CharMatchTypeSpecific:
-                        return string(value) + " == '" + character_code(char_match.value.character) + "'";
+                    case rules::CharacterMatchTypeSpecific:
+                        return string(value) + " == '" + character_code(match.value.character) + "'";
                     default:
                         return "";
                 }
+            }
+            
+            string condition_for_character_rule(const rules::Character &rule) {
+                vector<string> parts;
+                for (auto &match : rule.matches) {
+                    parts.push_back(condition_for_character_match(match));
+                }
+                string result = join(parts, " || ");
+                if (!rule.sign) result = "!(" + result + ")";
+                return result;
             }
             
             string collapse_flags(vector<bool> flags) {
@@ -164,19 +174,24 @@ namespace tree_sitter {
                 return input;
             }
             
-            string lex_error_call(const unordered_set<CharMatch> &expected_inputs) {
-                string result = "LEX_ERROR(" + to_string(expected_inputs.size()) + ", EXPECT({";
+            string lex_error_call(const unordered_set<rules::Character> &expected_inputs) {
+                unordered_set<rules::CharacterMatch> expected_matches;
+                for (auto &rule : expected_inputs)
+                    for (auto &match : rule.matches)
+                        expected_matches.insert(match);
+                
+                string result = "LEX_ERROR(" + to_string(expected_matches.size()) + ", EXPECT({";
                 bool started = false;
-                for (auto match : expected_inputs) {
+                for (auto match : expected_matches) {
                     if (started) result += ", ";
                     started = true;
-                    result += "\"" + escape_string(CharMatchToString(match)) + "\"";
+                    result += "\"" + escape_string(match.to_string()) + "\"";
                 }
                 result += "}));";
                 return result;
             }
 
-            string code_for_lex_actions(const unordered_set<LexAction> &actions, const unordered_set<CharMatch> &expected_inputs) {
+            string code_for_lex_actions(const unordered_set<LexAction> &actions, const unordered_set<rules::Character> &expected_inputs) {
                 auto action = actions.begin();
                 if (action == actions.end()) {
                     return lex_error_call(expected_inputs);
@@ -206,7 +221,7 @@ namespace tree_sitter {
                 string result = "";
                 auto expected_inputs = parse_state.expected_inputs();
                 for (auto pair : parse_state.actions)
-                    result += _if(condition_for_char_match(pair.first), code_for_lex_actions(pair.second, expected_inputs));
+                    result += _if(condition_for_character_rule(pair.first), code_for_lex_actions(pair.second, expected_inputs));
                 result += code_for_lex_actions(parse_state.default_actions, expected_inputs);
                 return result;
             }

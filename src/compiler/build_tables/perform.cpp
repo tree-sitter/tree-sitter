@@ -49,7 +49,7 @@ namespace tree_sitter {
                     rules::Character rule = *transition.first;
                     LexItemSet item_set = *transition.second;
                     size_t new_state_index = add_lex_state(item_set);
-                    lex_table.add_action(state_index, rule.value, LexAction::Advance(new_state_index));
+                    lex_table.add_action(state_index, rule, LexAction::Advance(new_state_index));
                 }
             }
             

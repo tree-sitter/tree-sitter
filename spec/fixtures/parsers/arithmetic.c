@@ -3,28 +3,28 @@
 
 enum ts_symbol {
     ts_symbol_factor,
-    ts_aux_token1,
     ts_aux_token2,
-    ts_symbol_number,
     ts_symbol_times,
-    ts_symbol___END__,
+    ts_aux_token1,
+    ts_symbol_variable,
     ts_symbol_term,
     ts_symbol_plus,
     ts_symbol_expression,
-    ts_symbol_variable,
+    ts_symbol_number,
+    ts_symbol___END__,
 };
 
 static const char *ts_symbol_names[] = {
     "factor",
-    "token1",
     "token2",
-    "number",
     "times",
-    "__END__",
+    "token1",
+    "variable",
     "term",
     "plus",
     "expression",
-    "variable",
+    "number",
+    "__END__",
 };
 
 static void ts_lex(TSParser *parser) {
@@ -33,7 +33,7 @@ static void ts_lex(TSParser *parser) {
         case 0:
             if (LOOKAHEAD_CHAR() == '\0')
                 ADVANCE(1);
-            LEX_ERROR(1, EXPECT({"''"}));
+            LEX_ERROR(1, EXPECT({"<EOF>"}));
         case 1:
             ACCEPT_TOKEN(ts_symbol___END__);
         case 2:
@@ -41,7 +41,7 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(3);
             if (LOOKAHEAD_CHAR() == '\0')
                 ADVANCE(1);
-            LEX_ERROR(2, EXPECT({"''", "'*'"}));
+            LEX_ERROR(2, EXPECT({"'*'", "<EOF>"}));
         case 3:
             ACCEPT_TOKEN(ts_symbol_times);
         case 4:
@@ -55,7 +55,7 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(5);
             if (LOOKAHEAD_CHAR() == '*')
                 ADVANCE(3);
-            LEX_ERROR(2, EXPECT({"'*'", "')'"}));
+            LEX_ERROR(2, EXPECT({"')'", "'*'"}));
         case 7:
             if (LOOKAHEAD_CHAR() == ')')
                 ADVANCE(5);
@@ -63,7 +63,7 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(3);
             if (LOOKAHEAD_CHAR() == '+')
                 ADVANCE(8);
-            LEX_ERROR(3, EXPECT({"'+'", "'*'", "')'"}));
+            LEX_ERROR(3, EXPECT({"')'", "'*'", "'+'"}));
         case 8:
             ACCEPT_TOKEN(ts_symbol_plus);
         case 9:
@@ -71,15 +71,15 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(5);
             if (LOOKAHEAD_CHAR() == '+')
                 ADVANCE(8);
-            LEX_ERROR(2, EXPECT({"'+'", "')'"}));
+            LEX_ERROR(2, EXPECT({"')'", "'+'"}));
         case 10:
-            if (isalnum(LOOKAHEAD_CHAR()))
-                ADVANCE(13);
             if (LOOKAHEAD_CHAR() == '(')
                 ADVANCE(12);
+            if (isalnum(LOOKAHEAD_CHAR()))
+                ADVANCE(13);
             if (isdigit(LOOKAHEAD_CHAR()))
                 ADVANCE(11);
-            LEX_ERROR(3, EXPECT({"<digit>", "'('", "<word>"}));
+            LEX_ERROR(3, EXPECT({"<word>", "'('", "<digit>"}));
         case 11:
             if (isdigit(LOOKAHEAD_CHAR()))
                 ADVANCE(11);
@@ -95,7 +95,7 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(8);
             if (LOOKAHEAD_CHAR() == '\0')
                 ADVANCE(1);
-            LEX_ERROR(2, EXPECT({"''", "'+'"}));
+            LEX_ERROR(2, EXPECT({"'+'", "<EOF>"}));
         case 15:
             if (LOOKAHEAD_CHAR() == '*')
                 ADVANCE(3);
@@ -103,7 +103,7 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(8);
             if (LOOKAHEAD_CHAR() == '\0')
                 ADVANCE(1);
-            LEX_ERROR(3, EXPECT({"''", "'+'", "'*'"}));
+            LEX_ERROR(3, EXPECT({"'*'", "'+'", "<EOF>"}));
         default:
             LEX_PANIC();
     }
@@ -118,18 +118,18 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
                     SHIFT(52);
-                case ts_symbol_number:
-                    SHIFT(48);
                 case ts_symbol_variable:
                     SHIFT(47);
-                case ts_symbol_term:
-                    SHIFT(2);
                 case ts_aux_token1:
                     SHIFT(49);
+                case ts_symbol_number:
+                    SHIFT(48);
+                case ts_symbol_term:
+                    SHIFT(2);
                 case ts_symbol_expression:
                     SHIFT(1);
                 default:
-                    PARSE_ERROR(6, EXPECT({"expression", "token1", "term", "variable", "number", "factor"}));
+                    PARSE_ERROR(6, EXPECT({"expression", "variable", "token1", "term", "number", "factor"}));
             }
         case 1:
             SET_LEX_STATE(0);
@@ -198,14 +198,14 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
                     SHIFT(19);
-                case ts_symbol_expression:
-                    SHIFT(37);
+                case ts_symbol_variable:
+                    SHIFT(14);
                 case ts_aux_token1:
                     SHIFT(16);
                 case ts_symbol_number:
                     SHIFT(15);
-                case ts_symbol_variable:
-                    SHIFT(14);
+                case ts_symbol_expression:
+                    SHIFT(37);
                 case ts_symbol_term:
                     SHIFT(8);
                 default:
@@ -270,14 +270,14 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
                     SHIFT(19);
-                case ts_symbol_expression:
-                    SHIFT(27);
+                case ts_symbol_variable:
+                    SHIFT(14);
                 case ts_aux_token1:
                     SHIFT(16);
                 case ts_symbol_number:
                     SHIFT(15);
-                case ts_symbol_variable:
-                    SHIFT(14);
+                case ts_symbol_expression:
+                    SHIFT(27);
                 case ts_symbol_term:
                     SHIFT(8);
                 default:
@@ -312,14 +312,14 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
                     SHIFT(19);
-                case ts_symbol_expression:
-                    SHIFT(17);
+                case ts_symbol_variable:
+                    SHIFT(14);
                 case ts_aux_token1:
                     SHIFT(16);
                 case ts_symbol_number:
                     SHIFT(15);
-                case ts_symbol_variable:
-                    SHIFT(14);
+                case ts_symbol_expression:
+                    SHIFT(17);
                 case ts_symbol_term:
                     SHIFT(8);
                 default:
@@ -396,14 +396,14 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
                     SHIFT(19);
-                case ts_symbol_expression:
-                    SHIFT(24);
+                case ts_symbol_variable:
+                    SHIFT(14);
                 case ts_aux_token1:
                     SHIFT(16);
                 case ts_symbol_number:
                     SHIFT(15);
-                case ts_symbol_variable:
-                    SHIFT(14);
+                case ts_symbol_expression:
+                    SHIFT(24);
                 case ts_symbol_term:
                     SHIFT(8);
                 default:
@@ -500,14 +500,14 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
                     SHIFT(19);
-                case ts_symbol_expression:
-                    SHIFT(34);
+                case ts_symbol_variable:
+                    SHIFT(14);
                 case ts_aux_token1:
                     SHIFT(16);
                 case ts_symbol_number:
                     SHIFT(15);
-                case ts_symbol_variable:
-                    SHIFT(14);
+                case ts_symbol_expression:
+                    SHIFT(34);
                 case ts_symbol_term:
                     SHIFT(8);
                 default:
@@ -600,14 +600,14 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
                     SHIFT(19);
-                case ts_symbol_expression:
-                    SHIFT(44);
+                case ts_symbol_variable:
+                    SHIFT(14);
                 case ts_aux_token1:
                     SHIFT(16);
                 case ts_symbol_number:
                     SHIFT(15);
-                case ts_symbol_variable:
-                    SHIFT(14);
+                case ts_symbol_expression:
+                    SHIFT(44);
                 case ts_symbol_term:
                     SHIFT(8);
                 default:
@@ -666,14 +666,14 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
                     SHIFT(19);
-                case ts_symbol_expression:
-                    SHIFT(50);
+                case ts_symbol_variable:
+                    SHIFT(14);
                 case ts_aux_token1:
                     SHIFT(16);
                 case ts_symbol_number:
                     SHIFT(15);
-                case ts_symbol_variable:
-                    SHIFT(14);
+                case ts_symbol_expression:
+                    SHIFT(50);
                 case ts_symbol_term:
                     SHIFT(8);
                 default:
@@ -750,14 +750,14 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_factor:
                     SHIFT(19);
-                case ts_symbol_expression:
-                    SHIFT(57);
+                case ts_symbol_variable:
+                    SHIFT(14);
                 case ts_aux_token1:
                     SHIFT(16);
                 case ts_symbol_number:
                     SHIFT(15);
-                case ts_symbol_variable:
-                    SHIFT(14);
+                case ts_symbol_expression:
+                    SHIFT(57);
                 case ts_symbol_term:
                     SHIFT(8);
                 default:

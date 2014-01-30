@@ -15,3 +15,7 @@ TODO
 - add simple selector engine for trees
 
 ## incremental parsing
+
+## chores
+- figure out why Symbol and Character can't have const member variables
+  (unordered_map seems to require mutability of key objects)

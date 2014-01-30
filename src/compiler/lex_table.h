@@ -5,8 +5,8 @@
 #include <vector>
 #include <string>
 #include <unordered_set>
-#include "char_match.h"
 #include "symbol.h"
+#include "character.h"
 
 namespace tree_sitter {
     typedef enum {
@@ -45,15 +45,15 @@ namespace std {
 namespace tree_sitter {
     class LexState {
     public:
-        std::unordered_map<CharMatch, std::unordered_set<LexAction>> actions;
+        std::unordered_map<rules::Character, std::unordered_set<LexAction>> actions;
         std::unordered_set<LexAction> default_actions;
-        std::unordered_set<CharMatch> expected_inputs() const;
+        std::unordered_set<rules::Character> expected_inputs() const;
     };
     
     class LexTable {
     public:
         size_t add_state();
-        void add_action(size_t state_index, CharMatch match, LexAction action);
+        void add_action(size_t state_index, rules::Character rule, LexAction action);
         void add_default_action(size_t state_index, LexAction action);
         
         std::vector<LexState> states;

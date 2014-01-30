@@ -14,8 +14,12 @@ namespace tree_sitter {
             return make_shared<Character>(value);
         }
 
-        rule_ptr character(CharClass value) {
+        rule_ptr character(CharacterClass value) {
             return make_shared<Character>(value);
+        }
+        
+        rule_ptr character(const std::vector<CharacterMatch> &matches, bool is_affirmative) {
+            return make_shared<Character>(matches, is_affirmative);
         }
 
         rule_ptr choice(const initializer_list<rule_ptr> &rules) {
