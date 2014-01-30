@@ -141,6 +141,28 @@ describe("rule transitions", []() {
                 })
             }})));
     });
+
+    describe("regression tests (somewhat redundant, should maybe be deleted later)", []() {
+        it("handles sequences that start with repeating characters", [&]() {
+            auto rule = seq({
+                choice({
+                    repeat(character({ '"' }, false)),
+                    blank(),
+                }),
+                character('"'),
+            });
+            
+            AssertThat(rule_transitions(rule), Equals(transition_map<Rule, Rule>({
+                { character({ '"' }, false), seq({
+                    choice({
+                        repeat(character({ '"' }, false)),
+                        blank(),
+                    }),
+                    character('"'), }) },
+                { character('"'), blank() },
+            })));
+        });
+    });
 });
 
 describe("checking if rules can be blank", [&]() {

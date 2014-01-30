@@ -54,6 +54,7 @@ namespace tree_sitter  {
         bool Character::operator==(const Rule &rule) const {
             const Character *other = dynamic_cast<const Character *>(&rule);
             if (!other) return false;
+            if (other->sign != sign) return false;
             auto size = matches.size();
             if (other->matches.size() != size) return false;
             for (int i = 0; i < size; i++)
@@ -71,6 +72,7 @@ namespace tree_sitter  {
 
         string Character::to_string() const {
             string prefix("#<char");
+            if (!sign) prefix += " (not)";
             for (auto &match : matches)
                 prefix += " " + match.to_string();
             return prefix + ">";
