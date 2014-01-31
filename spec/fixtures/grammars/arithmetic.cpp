@@ -29,7 +29,7 @@ namespace test_grammars {
             { "plus", str("+") },
             { "times", str("*") },
             { "number", pattern("\\d+") },
-            { "variable", pattern("\\w+") },
+            { "variable", pattern("[a-zA-Z]+") },
         });
     }
 }

@@ -55,6 +55,13 @@ describe("parsing pattern rules", []() {
             EqualsPointer(character({ 'a', 'b', 'c' }, true)));
     });
     
+    it("parses character ranges", []() {
+        Pattern rule("[12a-dA-D3]");
+        AssertThat(
+            rule.to_rule_tree(),
+            EqualsPointer(character({ '1', '2', CharacterMatch({'a', 'd'}), CharacterMatch({ 'A', 'D' }), '3' }, true)));
+    });
+    
     it("parses negated characters", []() {
         Pattern rule("[^a\\d]");
         AssertThat(

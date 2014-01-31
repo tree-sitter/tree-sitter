@@ -102,28 +102,30 @@ namespace tree_sitter {
             }
             
             string condition_for_character_match(const rules::CharacterMatch &match) {
-                auto value = "LOOKAHEAD_CHAR()";
+                string lookahead("LOOKAHEAD_CHAR()");
+                auto value = match.value;
                 switch (match.type) {
                     case rules::CharacterMatchTypeClass:
-                        switch (match.value.character_class) {
+                        switch (value.character_class) {
                             case rules::CharClassDigit:
-                                return string("isdigit(") + value + ")";
+                                return string("isdigit(") + lookahead + ")";
                             case rules::CharClassWord:
-                                return string("isalnum(") + value + ")";
+                                return string("isalnum(") + lookahead + ")";
                         }
                     case rules::CharacterMatchTypeSpecific:
-                        return string(value) + " == '" + character_code(match.value.character) + "'";
-                    default:
-                        return "";
+                        return lookahead + " == '" + character_code(value.character) + "'";
+                    case rules::CharacterMatchTypeRange:
+                        return string("'") + value.range.min_character + string("' <= ") + lookahead + 
+                            " && " + lookahead + " <= '" + value.range.max_character + "'";
                 }
             }
             
             string condition_for_character_rule(const rules::Character &rule) {
                 vector<string> parts;
                 for (auto &match : rule.matches) {
-                    parts.push_back(condition_for_character_match(match));
+                    parts.push_back("(" + condition_for_character_match(match) + ")");
                 }
-                string result = join(parts, " || ");
+                string result = join(parts, " ||\n    ");
                 if (!rule.sign) result = "!(" + result + ")";
                 return result;
             }

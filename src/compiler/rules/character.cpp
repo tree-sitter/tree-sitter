@@ -7,7 +7,7 @@ namespace tree_sitter  {
     namespace rules {
         CharacterMatch::CharacterMatch(char character) : type(CharacterMatchTypeSpecific) { value.character = character; }
         CharacterMatch::CharacterMatch(CharacterClass klass) : type(CharacterMatchTypeClass) { value.character_class = klass; }
-        CharacterMatch::CharacterMatch(std::pair<char, char> bounds) : type(CharacterMatchTypeRange) {
+        CharacterMatch::CharacterMatch(const std::pair<char, char> bounds) : type(CharacterMatchTypeRange) {
             value.range.min_character = bounds.first;
             value.range.max_character = bounds.second;
         }

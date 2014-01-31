@@ -87,9 +87,15 @@ namespace tree_sitter {
                         next();
                         break;
                     default:
-                        value = peek();
+                        char first_char = peek();
                         next();
-                        return value;
+                        if (peek() == '-') {
+                            next();
+                            value = CharacterMatch({ first_char, peek() });
+                            next();
+                        } else {
+                            value = first_char;
+                        }
                 }
                 return value;
             }

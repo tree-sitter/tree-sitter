@@ -18,6 +18,12 @@ describe("arithmetic", []() {
         AssertThat(string(TSDocumentToString(document)), Equals(
             "(expression (term (factor (variable))))"));
     });
+    
+    it("parses numbers", [&]() {
+        TSDocumentSetText(document, "5");
+        AssertThat(string(TSDocumentToString(document)), Equals(
+            "(expression (term (factor (number))))"));
+    });
 
     it("parses products of variables", [&]() {
         TSDocumentSetText(document, "x+y");

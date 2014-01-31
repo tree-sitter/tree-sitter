@@ -30,7 +30,7 @@ namespace tree_sitter  {
             } value;
             
             CharacterMatch(char);
-            CharacterMatch(std::pair<char, char>);
+            CharacterMatch(const std::pair<char, char>);
             CharacterMatch(CharacterClass);
             bool operator==(const CharacterMatch &) const;
             std::string to_string() const;
