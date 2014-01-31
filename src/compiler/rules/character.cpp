@@ -49,19 +49,21 @@ namespace tree_sitter  {
                             value.range.max_character + "'");
             }
         }
-
         
         bool Character::operator==(const Rule &rule) const {
             const Character *other = dynamic_cast<const Character *>(&rule);
-            if (!other) return false;
-            if (other->sign != sign) return false;
-            auto size = matches.size();
-            if (other->matches.size() != size) return false;
-            for (int i = 0; i < size; i++)
-                if (!(matches[i] == other->matches[i])) return false;
-            return true;
+            return other && this->operator==(*other);
         }
         
+        bool Character::operator==(const Character &other) const {
+            if (other.sign != sign) return false;
+            auto size = matches.size();
+            if (other.matches.size() != size) return false;
+            for (int i = 0; i < size; i++)
+                if (!(matches[i] == other.matches[i])) return false;
+            return true;
+        }
+
         size_t Character::hash_code() const {
             return typeid(this).hash_code() ^ hash<string>()(to_string());
         }

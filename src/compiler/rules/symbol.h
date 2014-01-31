@@ -11,6 +11,8 @@ namespace tree_sitter  {
             Symbol(const std::string &name, bool is_auxiliary);
 
             bool operator==(const Rule& other) const;
+            bool operator==(const Symbol &other) const;
+            
             size_t hash_code() const;
             rule_ptr copy() const;
             std::string to_string() const;

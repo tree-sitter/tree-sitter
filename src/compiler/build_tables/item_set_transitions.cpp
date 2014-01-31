@@ -44,7 +44,7 @@ namespace tree_sitter {
                     auto rule = dynamic_pointer_cast<const rules::Symbol>(transition.first);
                     if (rule.get()) {
                         auto consumed_symbols = item.consumed_symbols;
-                        consumed_symbols.push_back(*rule);
+                        consumed_symbols.push_back(rule->is_auxiliary);
                         auto new_item = ParseItem(item.lhs, transition.second, consumed_symbols, item.lookahead_sym);
                         auto new_item_set = item_set_closure(ParseItemSet({ new_item }), grammar);
                         item_transitions.add(rule, make_shared<ParseItemSet>(new_item_set));

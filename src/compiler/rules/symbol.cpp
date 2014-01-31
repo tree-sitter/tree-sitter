@@ -11,9 +11,13 @@ namespace tree_sitter  {
 
         bool Symbol::operator==(const Rule &rule) const {
             const Symbol *other = dynamic_cast<const Symbol *>(&rule);
-            return other && (other->name == name) && (other->is_auxiliary == is_auxiliary);
+            return other && this->operator==(*other);
         }
-        
+
+        bool Symbol::operator==(const Symbol &other) const {
+            return (other.name == name) && (other.is_auxiliary == is_auxiliary);
+        }
+
         size_t Symbol::hash_code() const {
             return typeid(this).hash_code() ^ hash<string>()(name) ^ hash<bool>()(is_auxiliary);
         }

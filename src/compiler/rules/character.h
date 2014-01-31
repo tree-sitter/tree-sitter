@@ -44,6 +44,7 @@ namespace tree_sitter  {
             Character(const std::vector<CharacterMatch> &matches, bool sign);
             
             bool operator==(const Rule& other) const;
+            bool operator==(const Character& other) const;
             size_t hash_code() const;
             rule_ptr copy() const;
             std::string to_string() const;

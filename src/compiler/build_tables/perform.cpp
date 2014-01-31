@@ -61,20 +61,12 @@ namespace tree_sitter {
                 }
             }
             
-            static vector<bool> reduce_flags(const vector<rules::Symbol> &child_symbols) {
-                vector<bool> result;
-                for (auto symbol : child_symbols) {
-                    result.push_back(symbol.is_auxiliary);
-                }
-                return result;
-            }
-
             void add_reduce_actions(const ParseItemSet &item_set, size_t state_index) {
                 for (ParseItem item : item_set) {
                     if (item.is_done()) {
                         ParseAction action = (item.lhs.name == START) ?
                             ParseAction::Accept() :
-                            ParseAction::Reduce(item.lhs, reduce_flags(item.consumed_symbols));
+                            ParseAction::Reduce(item.lhs, item.consumed_symbols);
                         parse_table.add_action(state_index, item.lookahead_sym, action);
                     }
                 }
