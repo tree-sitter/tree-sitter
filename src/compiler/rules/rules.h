@@ -17,8 +17,8 @@ namespace tree_sitter {
         rule_ptr blank();
         rule_ptr character(char value);
         rule_ptr character(CharacterClass value);
-        rule_ptr character(const std::vector<CharacterMatch> &matches);
-        rule_ptr character(const std::vector<CharacterMatch> &matches, bool);
+        rule_ptr character(const std::unordered_set<CharacterMatch> &matches);
+        rule_ptr character(const std::unordered_set<CharacterMatch> &matches, bool);
         
         rule_ptr choice(const std::initializer_list<rule_ptr> &rules);
         rule_ptr pattern(const std::string &value);

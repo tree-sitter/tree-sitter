@@ -27,7 +27,7 @@ namespace tree_sitter {
                         item_transitions.add(rule, make_shared<LexItemSet>(new_item_set));
                     }
                 }
-                
+
                 result.merge(item_transitions, [](shared_ptr<const LexItemSet> left, shared_ptr<const LexItemSet> right) -> shared_ptr<const LexItemSet> {
                     return make_shared<LexItemSet>(merge_sets(*left, *right));
                 });

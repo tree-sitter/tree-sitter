@@ -18,7 +18,7 @@ namespace tree_sitter {
             return make_shared<Character>(value);
         }
         
-        rule_ptr character(const std::vector<CharacterMatch> &matches, bool is_affirmative) {
+        rule_ptr character(const std::unordered_set<CharacterMatch> &matches, bool is_affirmative) {
             return make_shared<Character>(matches, is_affirmative);
         }
 

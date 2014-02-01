@@ -44,9 +44,9 @@ namespace tree_sitter {
                     next();
                     is_affirmative = false;
                 }
-                std::vector<CharacterMatch> matches;
+                std::unordered_set<CharacterMatch> matches;
                 while (has_more_input() && (peek() != ']'))
-                    matches.push_back(single_char());
+                    matches.insert(single_char());
                 return character(matches, is_affirmative);
             }
             

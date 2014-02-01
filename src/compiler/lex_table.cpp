@@ -4,7 +4,6 @@ using std::string;
 using std::to_string;
 using std::unordered_map;
 using std::unordered_set;
-using std::vector;
 using tree_sitter::rules::Symbol;
 
 namespace tree_sitter {

@@ -2,39 +2,39 @@
 #include <ctype.h>
 
 enum ts_symbol {
-    ts_aux_token6,
-    ts_symbol_number,
+    ts_symbol_string,
     ts_symbol_array,
-    ts_symbol___END__,
+    ts_aux_token3,
     ts_symbol_object,
     ts_aux_repeat_helper1,
+    ts_aux_token6,
+    ts_symbol_number,
     ts_aux_token7,
     ts_aux_token5,
-    ts_symbol_string,
     ts_aux_token4,
-    ts_aux_token1,
-    ts_aux_token3,
+    ts_symbol___END__,
+    ts_aux_token2,
     ts_aux_repeat_helper2,
     ts_symbol_value,
-    ts_aux_token2,
+    ts_aux_token1,
 };
 
 static const char *ts_symbol_names[] = {
-    "token6",
-    "number",
+    "string",
     "array",
-    "__END__",
+    "token3",
     "object",
     "repeat_helper1",
+    "token6",
+    "number",
     "token7",
     "token5",
-    "string",
     "token4",
-    "token1",
-    "token3",
+    "__END__",
+    "token2",
     "repeat_helper2",
     "value",
-    "token2",
+    "token1",
 };
 
 static void ts_lex(TSParser *parser) {
@@ -130,20 +130,20 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
                     SHIFT(53);
-                case ts_aux_token5:
-                    SHIFT(47);
-                case ts_symbol_array:
-                    SHIFT(53);
                 case ts_symbol_string:
+                    SHIFT(53);
+                case ts_symbol_array:
                     SHIFT(53);
                 case ts_symbol_object:
                     SHIFT(53);
+                case ts_aux_token5:
+                    SHIFT(47);
                 case ts_aux_token1:
                     SHIFT(2);
                 case ts_symbol_value:
                     SHIFT(1);
                 default:
-                    PARSE_ERROR(7, EXPECT({"value", "token1", "string", "object", "array", "token5", "number"}));
+                    PARSE_ERROR(7, EXPECT({"value", "token1", "array", "string", "token5", "object", "number"}));
             }
         case 1:
             SET_LEX_STATE(0);
@@ -158,40 +158,40 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
                     SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_symbol_array:
-                    SHIFT(25);
                 case ts_symbol_string:
                     SHIFT(25);
+                case ts_aux_token5:
+                    SHIFT(12);
                 case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_value:
                     SHIFT(44);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "array", "string", "object", "token5", "number"}));
             }
         case 3:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
                     SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_symbol_array:
-                    SHIFT(25);
                 case ts_symbol_string:
                     SHIFT(25);
+                case ts_aux_token5:
+                    SHIFT(12);
                 case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_value:
                     SHIFT(4);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "array", "string", "object", "token5", "number"}));
             }
         case 4:
             SET_LEX_STATE(2);
@@ -228,40 +228,40 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
                     SHIFT(43);
-                case ts_aux_token5:
-                    SHIFT(35);
-                case ts_symbol_array:
-                    SHIFT(43);
                 case ts_symbol_string:
                     SHIFT(43);
+                case ts_aux_token5:
+                    SHIFT(35);
                 case ts_symbol_object:
+                    SHIFT(43);
+                case ts_symbol_array:
                     SHIFT(43);
                 case ts_symbol_value:
                     SHIFT(41);
                 case ts_aux_token1:
                     SHIFT(8);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "array", "string", "object", "token5", "number"}));
             }
         case 8:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
                     SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_symbol_array:
-                    SHIFT(25);
                 case ts_symbol_string:
                     SHIFT(25);
+                case ts_aux_token5:
+                    SHIFT(12);
                 case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_value:
                     SHIFT(9);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "array", "string", "object", "token5", "number"}));
             }
         case 9:
             SET_LEX_STATE(2);
@@ -314,20 +314,20 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
                     SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_symbol_array:
-                    SHIFT(25);
                 case ts_symbol_string:
                     SHIFT(25);
+                case ts_aux_token5:
+                    SHIFT(12);
                 case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_value:
                     SHIFT(15);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "array", "string", "object", "token5", "number"}));
             }
         case 15:
             SET_LEX_STATE(2);
@@ -380,40 +380,40 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
                     SHIFT(34);
-                case ts_aux_token5:
-                    SHIFT(26);
-                case ts_symbol_array:
-                    SHIFT(34);
                 case ts_symbol_string:
                     SHIFT(34);
+                case ts_aux_token5:
+                    SHIFT(26);
                 case ts_symbol_object:
+                    SHIFT(34);
+                case ts_symbol_array:
                     SHIFT(34);
                 case ts_symbol_value:
                     SHIFT(32);
                 case ts_aux_token1:
                     SHIFT(21);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "array", "string", "object", "token5", "number"}));
             }
         case 21:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
                     SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_symbol_array:
-                    SHIFT(25);
                 case ts_symbol_string:
                     SHIFT(25);
+                case ts_aux_token5:
+                    SHIFT(12);
                 case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_value:
                     SHIFT(22);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "array", "string", "object", "token5", "number"}));
             }
         case 22:
             SET_LEX_STATE(2);
@@ -476,20 +476,20 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
                     SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_symbol_array:
-                    SHIFT(25);
                 case ts_symbol_string:
                     SHIFT(25);
+                case ts_aux_token5:
+                    SHIFT(12);
                 case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_value:
                     SHIFT(29);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "array", "string", "object", "token5", "number"}));
             }
         case 29:
             SET_LEX_STATE(2);
@@ -572,20 +572,20 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
                     SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_symbol_array:
-                    SHIFT(25);
                 case ts_symbol_string:
                     SHIFT(25);
+                case ts_aux_token5:
+                    SHIFT(12);
                 case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_value:
                     SHIFT(38);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "array", "string", "object", "token5", "number"}));
             }
         case 38:
             SET_LEX_STATE(2);
@@ -696,20 +696,20 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_number:
                     SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_symbol_array:
-                    SHIFT(25);
                 case ts_symbol_string:
                     SHIFT(25);
+                case ts_aux_token5:
+                    SHIFT(12);
                 case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_value:
                     SHIFT(50);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
-                    PARSE_ERROR(7, EXPECT({"token1", "value", "string", "object", "array", "token5", "number"}));
+                    PARSE_ERROR(7, EXPECT({"token1", "value", "array", "string", "object", "token5", "number"}));
             }
         case 50:
             SET_LEX_STATE(2);

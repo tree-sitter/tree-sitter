@@ -12,10 +12,6 @@ namespace tree_sitter  {
             value.range.max_character = bounds.second;
         }
         
-        Character::Character(char character) : matches({ CharacterMatch(character) }), sign(true) {}
-        Character::Character(CharacterClass char_class) : matches({ CharacterMatch(char_class) }), sign(true) {}
-        Character::Character(const std::vector<CharacterMatch> &matches, bool sign) : matches(matches), sign(sign) {}
-        
         bool CharacterMatch::operator==(const CharacterMatch &right) const {
             if (type != right.type)
                 return false;
@@ -50,6 +46,10 @@ namespace tree_sitter  {
             }
         }
         
+        Character::Character(char character) : matches({ CharacterMatch(character) }), sign(true) {}
+        Character::Character(CharacterClass char_class) : matches({ CharacterMatch(char_class) }), sign(true) {}
+        Character::Character(const std::unordered_set<CharacterMatch> &matches, bool sign) : matches(matches), sign(sign) {}
+        
         bool Character::operator==(const Rule &rule) const {
             const Character *other = dynamic_cast<const Character *>(&rule);
             return other && this->operator==(*other);
@@ -57,10 +57,7 @@ namespace tree_sitter  {
         
         bool Character::operator==(const Character &other) const {
             if (other.sign != sign) return false;
-            auto size = matches.size();
-            if (other.matches.size() != size) return false;
-            for (int i = 0; i < size; i++)
-                if (!(matches[i] == other.matches[i])) return false;
+            if (other.matches != matches) return false;
             return true;
         }
 
