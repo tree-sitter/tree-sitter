@@ -13,7 +13,7 @@ namespace tree_sitter {
         public:
             transition_map<Rule, Rule> value;
 
-            void visit(const Character *rule) {
+            void visit(const CharacterSet *rule) {
                 value = transition_map<Rule, Rule>({{ rule->copy(), blank() }});
             }
             

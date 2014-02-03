@@ -11,15 +11,15 @@ namespace tree_sitter {
         }
   
         rule_ptr character(char value) {
-            return make_shared<Character>(value);
+            return make_shared<CharacterSet>(value);
         }
 
         rule_ptr character(CharacterClass value) {
-            return make_shared<Character>(value);
+            return make_shared<CharacterSet>(value);
         }
         
-        rule_ptr character(const std::unordered_set<CharacterMatch> &matches, bool is_affirmative) {
-            return make_shared<Character>(matches, is_affirmative);
+        rule_ptr character(const std::unordered_set<CharacterRange> &matches, bool is_affirmative) {
+            return make_shared<CharacterSet>(matches, is_affirmative);
         }
 
         rule_ptr choice(const initializer_list<rule_ptr> &rules) {

@@ -5,79 +5,79 @@ using std::hash;
 
 namespace tree_sitter  {
     namespace rules {
-        CharacterMatch::CharacterMatch(char character) : type(CharacterMatchTypeSpecific) { value.character = character; }
-        CharacterMatch::CharacterMatch(CharacterClass klass) : type(CharacterMatchTypeClass) { value.character_class = klass; }
-        CharacterMatch::CharacterMatch(const std::pair<char, char> bounds) : type(CharacterMatchTypeRange) {
+        CharacterRange::CharacterRange(char character) : type(CharacterRangeTypeSpecific) { value.character = character; }
+        CharacterRange::CharacterRange(CharacterClass klass) : type(CharacterRangeTypeClass) { value.character_class = klass; }
+        CharacterRange::CharacterRange(const std::pair<char, char> bounds) : type(CharacterRangeTypeRange) {
             value.range.min_character = bounds.first;
             value.range.max_character = bounds.second;
         }
         
-        bool CharacterMatch::operator==(const CharacterMatch &right) const {
+        bool CharacterRange::operator==(const CharacterRange &right) const {
             if (type != right.type)
                 return false;
             switch (type) {
-                case CharacterMatchTypeClass:
+                case CharacterRangeTypeClass:
                     return (value.character_class == right.value.character_class);
-                case CharacterMatchTypeSpecific:
+                case CharacterRangeTypeSpecific:
                     return (value.character == right.value.character);
-                case CharacterMatchTypeRange:
+                case CharacterRangeTypeRange:
                     return (value.range.min_character == right.value.range.min_character &&
                             value.range.max_character == right.value.range.max_character);
             }
         }
         
-        string CharacterMatch::to_string() const {
+        string CharacterRange::to_string() const {
             switch (type) {
-                case CharacterMatchTypeClass:
+                case CharacterRangeTypeClass:
                     switch (value.character_class) {
                         case CharClassDigit:
                             return "<digit>";
                         case CharClassWord:
                             return "<word>";
                     }
-                case CharacterMatchTypeSpecific:
+                case CharacterRangeTypeSpecific:
                     return (value.character == '\0') ?
                         "<EOF>" :
                         string("'") + value.character + "'";
-                case CharacterMatchTypeRange:
+                case CharacterRangeTypeRange:
                     return (string("'") +
                             value.range.min_character + "'-'" +
                             value.range.max_character + "'");
             }
         }
         
-        Character::Character(char character) : matches({ CharacterMatch(character) }), sign(true) {}
-        Character::Character(CharacterClass char_class) : matches({ CharacterMatch(char_class) }), sign(true) {}
-        Character::Character(const std::unordered_set<CharacterMatch> &matches, bool sign) : matches(matches), sign(sign) {}
+        CharacterSet::CharacterSet(char character) : ranges({ CharacterRange(character) }), sign(true) {}
+        CharacterSet::CharacterSet(CharacterClass char_class) : ranges({ CharacterRange(char_class) }), sign(true) {}
+        CharacterSet::CharacterSet(const std::unordered_set<CharacterRange> &ranges, bool sign) : ranges(ranges), sign(sign) {}
         
-        bool Character::operator==(const Rule &rule) const {
-            const Character *other = dynamic_cast<const Character *>(&rule);
+        bool CharacterSet::operator==(const Rule &rule) const {
+            const CharacterSet *other = dynamic_cast<const CharacterSet *>(&rule);
             return other && this->operator==(*other);
         }
         
-        bool Character::operator==(const Character &other) const {
+        bool CharacterSet::operator==(const CharacterSet &other) const {
             if (other.sign != sign) return false;
-            if (other.matches != matches) return false;
+            if (other.ranges != ranges) return false;
             return true;
         }
 
-        size_t Character::hash_code() const {
+        size_t CharacterSet::hash_code() const {
             return typeid(this).hash_code() ^ hash<string>()(to_string());
         }
 
-        rule_ptr Character::copy() const {
-            return std::make_shared<Character>(*this);
+        rule_ptr CharacterSet::copy() const {
+            return std::make_shared<CharacterSet>(*this);
         }
 
-        string Character::to_string() const {
+        string CharacterSet::to_string() const {
             string prefix("#<char");
             if (!sign) prefix += " (not)";
-            for (auto &match : matches)
-                prefix += " " + match.to_string();
+            for (auto &range : ranges)
+                prefix += " " + range.to_string();
             return prefix + ">";
         }
         
-        void Character::accept(Visitor &visitor) const {
+        void CharacterSet::accept(Visitor &visitor) const {
             visitor.visit(this);
         }
     }

@@ -45,15 +45,15 @@ namespace std {
 namespace tree_sitter {
     class LexState {
     public:
-        std::unordered_map<rules::Character, std::unordered_set<LexAction>> actions;
+        std::unordered_map<rules::CharacterSet, std::unordered_set<LexAction>> actions;
         std::unordered_set<LexAction> default_actions;
-        std::unordered_set<rules::Character> expected_inputs() const;
+        std::unordered_set<rules::CharacterSet> expected_inputs() const;
     };
     
     class LexTable {
     public:
         size_t add_state();
-        void add_action(size_t state_index, rules::Character rule, LexAction action);
+        void add_action(size_t state_index, rules::CharacterSet rule, LexAction action);
         void add_default_action(size_t state_index, LexAction action);
         
         std::vector<LexState> states;

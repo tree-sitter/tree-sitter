@@ -7,6 +7,8 @@ using std::make_shared;
 using std::shared_ptr;
 
 namespace tree_sitter {
+    using rules::CharacterSet;
+    
     namespace build_tables {
         template<typename T>
         static std::set<T> merge_sets(const std::set<T> &left, const std::set<T> &right) {
@@ -15,12 +17,12 @@ namespace tree_sitter {
             return result;
         }
             
-        transition_map<rules::Character, LexItemSet> char_transitions(const LexItemSet &item_set, const Grammar &grammar) {
-            transition_map<rules::Character, LexItemSet> result;
+        transition_map<CharacterSet, LexItemSet> char_transitions(const LexItemSet &item_set, const Grammar &grammar) {
+            transition_map<CharacterSet, LexItemSet> result;
             for (LexItem item : item_set) {
-                transition_map<rules::Character, LexItemSet> item_transitions;
+                transition_map<CharacterSet, LexItemSet> item_transitions;
                 for (auto transition : rule_transitions(item.rule)) {
-                    auto rule = dynamic_pointer_cast<const rules::Character>(transition.first);
+                    auto rule = dynamic_pointer_cast<const CharacterSet>(transition.first);
                     if (rule.get()) {
                         auto new_item = LexItem(item.lhs, transition.second);
                         auto new_item_set = LexItemSet({ new_item });

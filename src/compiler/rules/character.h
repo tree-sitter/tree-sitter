@@ -12,13 +12,13 @@ namespace tree_sitter  {
         } CharacterClass;
         
         typedef enum {
-            CharacterMatchTypeSpecific,
-            CharacterMatchTypeClass,
-            CharacterMatchTypeRange,
-        } CharacterMatchType;
+            CharacterRangeTypeSpecific,
+            CharacterRangeTypeClass,
+            CharacterRangeTypeRange,
+        } CharacterRangeType;
         
-        struct CharacterMatch {
-            CharacterMatchType type;
+        struct CharacterRange {
+            CharacterRangeType type;
             union {
                 CharacterClass character_class;
                 char character;
@@ -28,10 +28,10 @@ namespace tree_sitter  {
                 } range;
             } value;
             
-            CharacterMatch(char);
-            CharacterMatch(const std::pair<char, char>);
-            CharacterMatch(CharacterClass);
-            bool operator==(const CharacterMatch &) const;
+            CharacterRange(char);
+            CharacterRange(const std::pair<char, char>);
+            CharacterRange(CharacterClass);
+            bool operator==(const CharacterRange &) const;
             std::string to_string() const;
         };
     }
@@ -39,17 +39,17 @@ namespace tree_sitter  {
 
 namespace std {
     template<>
-    struct hash<tree_sitter::rules::CharacterMatch> {
-        size_t operator()(const tree_sitter::rules::CharacterMatch &match) const {
+    struct hash<tree_sitter::rules::CharacterRange> {
+        size_t operator()(const tree_sitter::rules::CharacterRange &match) const {
             auto type = match.type;
             auto result = hash<short int>()(type);
             switch (type) {
-                case tree_sitter::rules::CharacterMatchTypeClass:
+                case tree_sitter::rules::CharacterRangeTypeClass:
                     result ^= hash<short int>()(match.value.character_class);
-                case tree_sitter::rules::CharacterMatchTypeRange:
+                case tree_sitter::rules::CharacterRangeTypeRange:
                     result ^= hash<char>()(match.value.range.min_character);
                     result ^= hash<char>()(match.value.range.max_character);
-                case tree_sitter::rules::CharacterMatchTypeSpecific:
+                case tree_sitter::rules::CharacterRangeTypeSpecific:
                     result ^= hash<char>()(match.value.character);
             }
             return result;
@@ -60,21 +60,21 @@ namespace std {
 namespace tree_sitter  {
     namespace rules {
 
-        class Character : public Rule {
+        class CharacterSet : public Rule {
         public:
-            Character(char character);
-            Character(CharacterClass character_class);
-            Character(char min_character, char max_character);
-            Character(const std::unordered_set<CharacterMatch> &matches, bool sign);
+            CharacterSet(char character);
+            CharacterSet(CharacterClass character_class);
+            CharacterSet(char min_character, char max_character);
+            CharacterSet(const std::unordered_set<CharacterRange> &matches, bool sign);
             
             bool operator==(const Rule& other) const;
-            bool operator==(const Character& other) const;
+            bool operator==(const CharacterSet& other) const;
             size_t hash_code() const;
             rule_ptr copy() const;
             std::string to_string() const;
             void accept(Visitor &visitor) const;
 
-            std::unordered_set<CharacterMatch> matches;
+            std::unordered_set<CharacterRange> ranges;
             bool sign;
         };
     }
@@ -82,7 +82,7 @@ namespace tree_sitter  {
 
 namespace std {
     template<>
-    struct hash<tree_sitter::rules::Character> : hash<tree_sitter::rules::Rule> {};
+    struct hash<tree_sitter::rules::CharacterSet> : hash<tree_sitter::rules::Rule> {};
 }
 
 #endif

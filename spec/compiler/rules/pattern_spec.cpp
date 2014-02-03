@@ -59,7 +59,7 @@ describe("parsing pattern rules", []() {
         Pattern rule("[12a-dA-D3]");
         AssertThat(
             rule.to_rule_tree(),
-            EqualsPointer(character({ '1', '2', CharacterMatch({'a', 'd'}), CharacterMatch({ 'A', 'D' }), '3' }, true)));
+            EqualsPointer(character({ '1', '2', CharacterRange({'a', 'd'}), CharacterRange({ 'A', 'D' }), '3' }, true)));
     });
     
     it("parses negated characters", []() {

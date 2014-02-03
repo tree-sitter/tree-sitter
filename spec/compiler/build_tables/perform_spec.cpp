@@ -16,8 +16,8 @@ static unordered_set<Symbol> keys(const unordered_map<Symbol, parse_actions> &ma
     return result;
 }
 
-static unordered_set<Character> keys(const unordered_map<Character, lex_actions> &map) {
-    unordered_set<Character> result;
+static unordered_set<CharacterSet> keys(const unordered_map<CharacterSet, lex_actions> &map) {
+    unordered_set<CharacterSet> result;
     for (auto pair : map) {
         result.insert(pair.first);
     }
@@ -79,16 +79,16 @@ describe("building parse and lex tables", []() {
             Symbol("left-paren"),
         })));
         
-        AssertThat(keys(lex_state(0).actions), Equals(unordered_set<Character>({
-            Character('('),
-            Character(CharClassDigit),
-            Character(CharClassWord),
+        AssertThat(keys(lex_state(0).actions), Equals(unordered_set<CharacterSet>({
+            CharacterSet('('),
+            CharacterSet(CharClassDigit),
+            CharacterSet(CharClassWord),
         })));
 
-        AssertThat(lex_state(0).expected_inputs(), Equals(unordered_set<Character>({
-            Character('('),
-            Character(CharClassDigit),
-            Character(CharClassWord),
+        AssertThat(lex_state(0).expected_inputs(), Equals(unordered_set<CharacterSet>({
+            CharacterSet('('),
+            CharacterSet(CharClassDigit),
+            CharacterSet(CharClassWord),
         })));
     });
     

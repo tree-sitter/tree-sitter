@@ -101,28 +101,28 @@ namespace tree_sitter {
                 }
             }
             
-            string condition_for_character_match(const rules::CharacterMatch &match) {
+            string condition_for_character_match(const rules::CharacterRange &match) {
                 string lookahead("LOOKAHEAD_CHAR()");
                 auto value = match.value;
                 switch (match.type) {
-                    case rules::CharacterMatchTypeClass:
+                    case rules::CharacterRangeTypeClass:
                         switch (value.character_class) {
                             case rules::CharClassDigit:
                                 return string("isdigit(") + lookahead + ")";
                             case rules::CharClassWord:
                                 return string("isalnum(") + lookahead + ")";
                         }
-                    case rules::CharacterMatchTypeSpecific:
+                    case rules::CharacterRangeTypeSpecific:
                         return lookahead + " == '" + character_code(value.character) + "'";
-                    case rules::CharacterMatchTypeRange:
+                    case rules::CharacterRangeTypeRange:
                         return string("'") + value.range.min_character + string("' <= ") + lookahead + 
                             " && " + lookahead + " <= '" + value.range.max_character + "'";
                 }
             }
             
-            string condition_for_character_rule(const rules::Character &rule) {
+            string condition_for_character_rule(const rules::CharacterSet &rule) {
                 vector<string> parts;
-                for (auto &match : rule.matches) {
+                for (auto &match : rule.ranges) {
                     parts.push_back("(" + condition_for_character_match(match) + ")");
                 }
                 string result = join(parts, " ||\n    ");
@@ -176,10 +176,10 @@ namespace tree_sitter {
                 return input;
             }
             
-            string lex_error_call(const unordered_set<rules::Character> &expected_inputs) {
-                unordered_set<rules::CharacterMatch> expected_matches;
+            string lex_error_call(const unordered_set<rules::CharacterSet> &expected_inputs) {
+                unordered_set<rules::CharacterRange> expected_matches;
                 for (auto &rule : expected_inputs)
-                    for (auto &match : rule.matches)
+                    for (auto &match : rule.ranges)
                         expected_matches.insert(match);
                 
                 string result = "LEX_ERROR(" + to_string(expected_matches.size()) + ", EXPECT({";
@@ -193,7 +193,7 @@ namespace tree_sitter {
                 return result;
             }
 
-            string code_for_lex_actions(const unordered_set<LexAction> &actions, const unordered_set<rules::Character> &expected_inputs) {
+            string code_for_lex_actions(const unordered_set<LexAction> &actions, const unordered_set<rules::CharacterSet> &expected_inputs) {
                 auto action = actions.begin();
                 if (action == actions.end()) {
                     return lex_error_call(expected_inputs);

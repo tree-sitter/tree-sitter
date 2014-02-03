@@ -5,6 +5,7 @@ using std::to_string;
 using std::unordered_map;
 using std::unordered_set;
 using tree_sitter::rules::Symbol;
+using tree_sitter::rules::CharacterSet;
 
 namespace tree_sitter {
     // Action
@@ -44,8 +45,8 @@ namespace tree_sitter {
     }
     
     // State
-    unordered_set<rules::Character> LexState::expected_inputs() const {
-        unordered_set<rules::Character> result;
+    unordered_set<CharacterSet> LexState::expected_inputs() const {
+        unordered_set<CharacterSet> result;
         for (auto pair : actions)
             result.insert(pair.first);
         return result;
@@ -57,7 +58,7 @@ namespace tree_sitter {
         return states.size() - 1;
     }
     
-    void LexTable::add_action(size_t state_index, rules::Character match, LexAction action) {
+    void LexTable::add_action(size_t state_index, CharacterSet match, LexAction action) {
         states[state_index].actions[match].insert(action);
     }
     

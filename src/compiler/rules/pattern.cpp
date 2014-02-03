@@ -44,7 +44,7 @@ namespace tree_sitter {
                     next();
                     is_affirmative = false;
                 }
-                std::unordered_set<CharacterMatch> matches;
+                std::unordered_set<CharacterRange> matches;
                 while (has_more_input() && (peek() != ']'))
                     matches.insert(single_char());
                 return character(matches, is_affirmative);
@@ -78,8 +78,8 @@ namespace tree_sitter {
                 return result;
             }
             
-            CharacterMatch single_char() {
-                CharacterMatch value('\0');
+            CharacterRange single_char() {
+                CharacterRange value('\0');
                 switch (peek()) {
                     case '\\':
                         next();
@@ -91,7 +91,7 @@ namespace tree_sitter {
                         next();
                         if (peek() == '-') {
                             next();
-                            value = CharacterMatch({ first_char, peek() });
+                            value = CharacterRange({ first_char, peek() });
                             next();
                         } else {
                             value = first_char;
@@ -100,7 +100,7 @@ namespace tree_sitter {
                 return value;
             }
             
-            CharacterMatch escaped_char(char value) {
+            CharacterRange escaped_char(char value) {
                 switch (value) {
                     case '\\':
                     case '(':

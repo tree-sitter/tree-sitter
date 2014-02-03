@@ -10,7 +10,7 @@ namespace tree_sitter {
             virtual void default_visit(const Rule *rule);
             virtual void visit(const Blank *rule);
             virtual void visit(const Symbol *rule);
-            virtual void visit(const Character *rule);
+            virtual void visit(const CharacterSet *rule);
             virtual void visit(const Choice *rule);
             virtual void visit(const Repeat *rule);
             virtual void visit(const Seq *rule);
