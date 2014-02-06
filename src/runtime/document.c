@@ -30,7 +30,7 @@ TSTree * TSDocumentTree(const TSDocument *document) {
 }
 
 const char * TSDocumentToString(const TSDocument *document) {
-    if (document->error.type != TSParseErrorTypeNone) {
+    if (document->error.expected_inputs != NULL) {
         return TSParseErrorToString(&document->error, document->text, document->symbol_names);
     } else {
         return TSTreeToString(document->tree, document->symbol_names);

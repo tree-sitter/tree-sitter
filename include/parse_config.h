@@ -6,14 +6,7 @@ extern "C" {
     
 #include "tree.h"
 
-typedef enum {
-    TSParseErrorTypeNone,
-    TSParseErrorTypeLexical,
-    TSParseErrorTypeSyntactic,
-} TSParseErrorType;
-
 typedef struct {
-    TSParseErrorType type;
     const char **expected_inputs;
     size_t expected_input_count;
     size_t position;

@@ -142,32 +142,16 @@ namespace tree_sitter {
             
             string code_for_parse_actions(const unordered_set<ParseAction> &actions, const unordered_set<rules::Symbol> &expected_inputs) {
                 auto action = actions.begin();
-                if (action == actions.end()) {
-                    return parse_error_call(expected_inputs);
-                } else {
-                    switch (action->type) {
-                        case ParseActionTypeAccept:
-                            return "ACCEPT_INPUT();";
-                        case ParseActionTypeShift:
-                            return "SHIFT(" + to_string(action->state_index) + ");";
-                        case ParseActionTypeReduce:
-                            return "REDUCE(" + symbol_id(action->symbol) + ", " + to_string(action->child_flags.size()) + ", COLLAPSE({" + collapse_flags(action->child_flags) + "}));";
-                        default:
-                            return "";
-                    }
+                switch (action->type) {
+                    case ParseActionTypeAccept:
+                        return "ACCEPT_INPUT();";
+                    case ParseActionTypeShift:
+                        return "SHIFT(" + to_string(action->state_index) + ");";
+                    case ParseActionTypeReduce:
+                        return "REDUCE(" + symbol_id(action->symbol) + ", " + to_string(action->child_flags.size()) + ", COLLAPSE({" + collapse_flags(action->child_flags) + "}));";
+                    default:
+                        return "";
                 }
-            }
-            
-            string parse_error_call(const unordered_set<rules::Symbol> &expected_inputs) {
-                string result = "PARSE_ERROR(" + to_string(expected_inputs.size()) + ", EXPECT({";
-                bool started = false;
-                for (auto symbol : expected_inputs) {
-                    if (started) result += ", ";
-                    started = true;
-                    result += "\"" + symbol.name + "\"";
-                }
-                result += "}));";
-                return result;
             }
             
             string escape_string(string input) {
@@ -211,7 +195,7 @@ namespace tree_sitter {
                 string body = "";
                 for (auto pair : parse_state.actions)
                     body += _case(symbol_id(pair.first), code_for_parse_actions(pair.second, parse_state.expected_inputs()));
-                body += _default(parse_error_call(parse_state.expected_inputs()));
+                body += _default("PARSE_PANIC();");
                 return
                     string("SET_LEX_STATE(") + to_string(parse_state.lex_state_index) + ");\n" +
                     _switch("LOOKAHEAD_SYM()", body);

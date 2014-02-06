@@ -56,7 +56,6 @@ static TSParser TSParserMake(const char *input) {
         .result = {
             .tree = NULL,
             .error = {
-                .type = TSParseErrorTypeNone,
                 .expected_inputs = NULL,
                 .expected_input_count = 0
             },
@@ -122,16 +121,6 @@ static void TSParserReduce(TSParser *parser, TSSymbol symbol, int immediate_chil
 
 static void TSParserError(TSParser *parser, size_t count, const char **expected_inputs) {
     TSParseError *error = &parser->result.error;
-    error->type = TSParseErrorTypeSyntactic;
-    error->position = parser->position;
-    error->expected_input_count = count;
-    error->expected_inputs = expected_inputs;
-    error->lookahead_sym = TSParserLookaheadSym(parser);
-}
-
-static void TSParserLexError(TSParser *parser, size_t count, const char **expected_inputs) {
-    TSParseError *error = &parser->result.error;
-    error->type = TSParseErrorTypeLexical;
     error->position = parser->position;
     error->expected_input_count = count;
     error->expected_inputs = expected_inputs;
@@ -139,7 +128,7 @@ static void TSParserLexError(TSParser *parser, size_t count, const char **expect
 }
     
 static int TSParserHasError(const TSParser *parser) {
-    return (parser->result.error.type != TSParseErrorTypeNone);
+    return (parser->result.error.expected_inputs != NULL);
 }
 
 static void TSParserAdvance(TSParser *parser, TSState lex_state) {
@@ -205,17 +194,10 @@ goto next_state; \
 #define ACCEPT_TOKEN(symbol) \
 { TSParserSetLookaheadSym(parser, symbol); goto done; }
 
-#define PARSE_ERROR(count, inputs) \
-{ \
-static const char *expected_inputs[] = inputs; \
-TSParserError(parser, count, expected_inputs); \
-goto done; \
-}
-
 #define LEX_ERROR(count, inputs) \
 { \
 static const char *expected_inputs[] = inputs; \
-TSParserLexError(parser, count, expected_inputs); \
+TSParserError(parser, count, expected_inputs); \
 goto done; \
 }
 
