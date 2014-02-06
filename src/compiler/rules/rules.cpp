@@ -3,6 +3,7 @@
 using std::make_shared;
 using std::string;
 using std::initializer_list;
+using std::set;
 
 namespace tree_sitter {
     namespace rules {
@@ -11,15 +12,16 @@ namespace tree_sitter {
         }
   
         rule_ptr character(char value) {
-            return make_shared<CharacterSet>(value);
+            set<CharacterRange> ranges = { value };
+            return make_shared<CharacterSet>(ranges);
         }
 
-        rule_ptr character(CharacterClass value) {
-            return make_shared<CharacterSet>(value);
+        rule_ptr character(const set<CharacterRange> &ranges) {
+            return make_shared<CharacterSet>(ranges);
         }
-        
-        rule_ptr character(const std::unordered_set<CharacterRange> &matches, bool is_affirmative) {
-            return make_shared<CharacterSet>(matches, is_affirmative);
+
+        rule_ptr character(const set<CharacterRange> &ranges, bool sign) {
+            return make_shared<CharacterSet>(ranges, sign);
         }
 
         rule_ptr choice(const initializer_list<rule_ptr> &rules) {

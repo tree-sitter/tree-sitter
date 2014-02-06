@@ -8,6 +8,8 @@ using std::to_string;
 using std::unordered_map;
 using std::unordered_set;
 using std::vector;
+using std::set;
+using std::pair;
 
 namespace tree_sitter {
     namespace generate_code {
@@ -101,33 +103,30 @@ namespace tree_sitter {
                 }
             }
             
-            string condition_for_character_match(const rules::CharacterRange &match) {
+            string condition_for_character_range(const rules::CharacterRange &range) {
                 string lookahead("LOOKAHEAD_CHAR()");
-                auto value = match.value;
-                switch (match.type) {
-                    case rules::CharacterRangeTypeClass:
-                        switch (value.character_class) {
-                            case rules::CharClassDigit:
-                                return string("isdigit(") + lookahead + ")";
-                            case rules::CharClassWord:
-                                return string("isalnum(") + lookahead + ")";
-                        }
-                    case rules::CharacterRangeTypeSpecific:
-                        return lookahead + " == '" + character_code(value.character) + "'";
-                    case rules::CharacterRangeTypeRange:
-                        return string("'") + value.range.min_character + string("' <= ") + lookahead + 
-                            " && " + lookahead + " <= '" + value.range.max_character + "'";
+                if (range.min == range.max) {
+                    return lookahead + " == '" + character_code(range.min) + "'";
+                } else {
+                    return string("'") + range.min + string("' <= ") + lookahead + 
+                    " && " + lookahead + " <= '" + range.max + "'";
                 }
+            }
+            
+            string condition_for_character_set(const rules::CharacterSet &set) {
+                vector<string> parts;
+                for (auto &match : set.ranges)
+                    parts.push_back("(" + condition_for_character_range(match) + ")");
+                return join(parts, " ||\n    ");
             }
             
             string condition_for_character_rule(const rules::CharacterSet &rule) {
                 vector<string> parts;
-                for (auto &match : rule.ranges) {
-                    parts.push_back("(" + condition_for_character_match(match) + ")");
-                }
-                string result = join(parts, " ||\n    ");
-                if (!rule.sign) result = "!(" + result + ")";
-                return result;
+                pair<rules::CharacterSet, bool> representation = rule.most_compact_representation();
+                if (representation.second)
+                    return condition_for_character_set(representation.first);
+                else
+                    return "!(" + condition_for_character_set(rule.complement()) + ")";
             }
             
             string collapse_flags(vector<bool> flags) {
@@ -177,17 +176,16 @@ namespace tree_sitter {
             }
             
             string lex_error_call(const unordered_set<rules::CharacterSet> &expected_inputs) {
-                unordered_set<rules::CharacterRange> expected_matches;
+                rules::CharacterSet expected_set;
                 for (auto &rule : expected_inputs)
-                    for (auto &match : rule.ranges)
-                        expected_matches.insert(match);
+                    expected_set.union_with(rule);
                 
-                string result = "LEX_ERROR(" + to_string(expected_matches.size()) + ", EXPECT({";
+                string result = "LEX_ERROR(" + to_string(expected_set.ranges.size()) + ", EXPECT({";
                 bool started = false;
-                for (auto match : expected_matches) {
+                for (auto &ranges : expected_set.ranges) {
                     if (started) result += ", ";
                     started = true;
-                    result += "\"" + escape_string(match.to_string()) + "\"";
+                    result += "\"" + escape_string(ranges.to_string()) + "\"";
                 }
                 result += "}));";
                 return result;

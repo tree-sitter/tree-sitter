@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_set>
 #include "symbol.h"
-#include "character.h"
+#include "character_set.h"
 
 namespace tree_sitter {
     typedef enum {

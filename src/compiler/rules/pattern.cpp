@@ -2,6 +2,7 @@
 
 using std::string;
 using std::hash;
+using std::set;
 
 namespace tree_sitter {
     namespace rules {
@@ -38,18 +39,6 @@ namespace tree_sitter {
                 return result;
             }
             
-            rule_ptr char_set() {
-                bool is_affirmative = true;
-                if (peek() == '^') {
-                    next();
-                    is_affirmative = false;
-                }
-                std::unordered_set<CharacterRange> matches;
-                while (has_more_input() && (peek() != ']'))
-                    matches.insert(single_char());
-                return character(matches, is_affirmative);
-            }
-            
             rule_ptr atom() {
                 rule_ptr result;
                 switch (peek()) {
@@ -63,7 +52,7 @@ namespace tree_sitter {
                         break;
                     case '[':
                         next();
-                        result = char_set();
+                        result = char_set().copy();
                         if (peek() != ']')
                             error("mismatched square brackets");
                         else
@@ -73,13 +62,25 @@ namespace tree_sitter {
                         error("mismatched parens");
                         break;
                     default:
-                        result = character({ single_char() }, true);
+                        result = single_char().copy();
                 }
                 return result;
             }
             
-            CharacterRange single_char() {
-                CharacterRange value('\0');
+            CharacterSet char_set() {
+                bool is_affirmative = true;
+                if (peek() == '^') {
+                    next();
+                    is_affirmative = false;
+                }
+                CharacterSet result;
+                while (has_more_input() && (peek() != ']'))
+                    result.union_with(single_char());
+                return is_affirmative ? result : result.complement();
+            }
+            
+            CharacterSet single_char() {
+                CharacterSet value({ '\0' });
                 switch (peek()) {
                     case '\\':
                         next();
@@ -91,28 +92,28 @@ namespace tree_sitter {
                         next();
                         if (peek() == '-') {
                             next();
-                            value = CharacterRange({ first_char, peek() });
+                            value = CharacterSet({ {first_char, peek()} }, true);
                             next();
                         } else {
-                            value = first_char;
+                            value = CharacterSet({ first_char });
                         }
                 }
                 return value;
             }
             
-            CharacterRange escaped_char(char value) {
+            CharacterSet escaped_char(char value) {
                 switch (value) {
                     case '\\':
                     case '(':
                     case ')':
-                        return value;
+                        return CharacterSet({ value });
                     case 'w':
-                        return CharClassWord;
+                        return CharacterSet({{'a', 'z'}, {'A', 'Z'}}, true);
                     case 'd':
-                        return CharClassDigit;
+                        return CharacterSet({{'0', '9'}}, true);
                     default:
                         error("unrecognized escape sequence");
-                        return '\0';
+                        return CharacterSet();
                 }
             }
             

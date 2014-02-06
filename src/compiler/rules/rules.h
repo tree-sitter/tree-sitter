@@ -8,7 +8,7 @@
 #include "seq.h"
 #include "string.h"
 #include "pattern.h"
-#include "character.h"
+#include "character_set.h"
 #include "repeat.h"
 #include "visitor.h"
 
@@ -16,9 +16,8 @@ namespace tree_sitter {
     namespace rules {
         rule_ptr blank();
         rule_ptr character(char value);
-        rule_ptr character(CharacterClass value);
-        rule_ptr character(const std::unordered_set<CharacterRange> &matches);
-        rule_ptr character(const std::unordered_set<CharacterRange> &matches, bool);
+        rule_ptr character(const std::set<CharacterRange> &matches);
+        rule_ptr character(const std::set<CharacterRange> &matches, bool);
         
         rule_ptr choice(const std::initializer_list<rule_ptr> &rules);
         rule_ptr pattern(const std::string &value);

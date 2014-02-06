@@ -22,9 +22,9 @@ describe("parsing pattern rules", []() {
         AssertThat(
             rule.to_rule_tree(),
             EqualsPointer(seq({
-                character(CharClassWord),
+                character({ {'a', 'z'}, {'A', 'Z'} }),
                 character('-'),
-                character(CharClassDigit)
+                character({ {'0', '9'} })
             })));
     });
 
@@ -49,24 +49,24 @@ describe("parsing pattern rules", []() {
     });
     
     it("parses character sets", []() {
-        Pattern rule("[abc]");
+        Pattern rule("[aAeE]");
         AssertThat(
             rule.to_rule_tree(),
-            EqualsPointer(character({ 'a', 'b', 'c' }, true)));
+            EqualsPointer(character({ 'a', 'A', 'e', 'E' })));
     });
     
     it("parses character ranges", []() {
         Pattern rule("[12a-dA-D3]");
         AssertThat(
             rule.to_rule_tree(),
-            EqualsPointer(character({ '1', '2', CharacterRange({'a', 'd'}), CharacterRange({ 'A', 'D' }), '3' }, true)));
+            EqualsPointer(character({ {'1', '3'}, {'a', 'd'}, { 'A', 'D' }, })));
     });
     
     it("parses negated characters", []() {
         Pattern rule("[^a\\d]");
         AssertThat(
             rule.to_rule_tree(),
-            EqualsPointer(character({ 'a', CharClassDigit }, false)));
+            EqualsPointer(character({ {'a'}, {'0', '9'} }, false)));
     });
     
     it("parses backslashes", []() {

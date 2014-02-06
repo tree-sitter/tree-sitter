@@ -1,7 +1,7 @@
 #ifndef __tree_sitter__item_set_transitions__
 #define __tree_sitter__item_set_transitions__
 
-#include "character.h"
+#include "character_set.h"
 #include "symbol.h"
 #include "transition_map.h"
 #include "item.h"

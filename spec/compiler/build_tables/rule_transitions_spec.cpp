@@ -29,15 +29,6 @@ describe("rule transitions", []() {
             })));
     });
     
-    it("handles character classes", [&]() {
-        auto rule = character(CharClassDigit);
-        AssertThat(
-            rule_transitions(rule),
-            Equals(transition_map<Rule, Rule>({
-                { rule, blank() }
-            })));
-    });
-    
     it("handles choices", [&]() {
         AssertThat(
             rule_transitions(choice({ symbol1, symbol2 })),
