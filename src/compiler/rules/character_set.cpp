@@ -6,10 +6,13 @@ using std::set;
 
 namespace tree_sitter  {
     namespace rules {
-        char MAX_CHAR = -1;
+        const char MAX_CHAR = '\xff';
         
         CharacterRange::CharacterRange(char value) : min(value), max(value) {}
-        CharacterRange::CharacterRange(char min, char max) : min(min), max(max) {}
+        CharacterRange::CharacterRange(char min, char max) :
+            min(min),
+            max(max)
+        {}
         
         bool CharacterRange::operator==(const CharacterRange &other) const {
             return min == other.min && max == other.max;
@@ -25,34 +28,40 @@ namespace tree_sitter  {
         string escape_character(char input) {
             switch (input) {
                 case '\0':
-                    return "\\0";
+                    return "<EOF>";
+                case MAX_CHAR:
+                    return "<MAX>";
                 default:
                     return string() + input;
             }
         }
         
+        int CharacterRange::max_int() const {
+            return max == MAX_CHAR ? 255 : (int)max;
+        }
+        
+        int CharacterRange::min_int() const {
+            return (int)min;
+        }
+        
         bool CharacterRange::is_adjacent(const CharacterRange &other) const {
             return
-            (min <= other.min && max >= (other.min - 1)) || 
-            (min <= (other.max + 1) && max >= other.max);
+            (min_int() <= other.min_int() && max_int() >= (other.min_int() - 1)) || 
+            (min_int() <= (other.max_int() + 1) && max_int() >= other.max_int());
         }
         
         void CharacterRange::add_range(const CharacterRange &other) {
             if (other.min < min) min = other.min;
-            if (other.max > max) max = other.max;
+            if (other.max_int() > max_int()) max = other.max;
         }
         
         string CharacterRange::to_string() const {
-            if (min == max) {
+            if (min == 0 && max == MAX_CHAR)
+                return "<ANY>";
+            if (min == max)
                 return escape_character(min);
-            } else {
-                if (min ==  0)
-                    return string("<-") + max;
-                else if (max == MAX_CHAR)
-                    return string() + min + "->";
-                else
-                    return string() + min + "-" + max;
-            }
+            else
+                return string() + escape_character(min) + "-" + escape_character(max);
         }
         
         CharacterSet::CharacterSet() : ranges({}) {}

@@ -38,12 +38,23 @@ describe("character sets", []() {
             CharacterSet set({ {'a', 'r'} }, true);
             set.union_with(CharacterSet({ {'s', 'z'} }, true));
             AssertThat(set, Equals(CharacterSet({ {'a', 'z'} }, true)));
+
+            set = CharacterSet({ 'c' });
+            auto c = set.complement();
+            set.union_with(c);
+            AssertThat(set, Equals(CharacterSet({ {0, -1} }, true)));
         });
         
         it("works when the result becomes a continuous range", []() {
             CharacterSet set({ {'a', 'd'}, {'f', 'z'} }, true);
             set.union_with(CharacterSet({ {'d', 'f'} }, true));
             AssertThat(set, Equals(CharacterSet({ {'a', 'z'} }, true)));
+        });
+        
+        it("does nothing for the set of all characters", []() {
+            CharacterSet set({ {'\0', '\xff'} }, true);
+            set.union_with(CharacterSet({ 'a' }));
+            AssertThat(set, Equals(CharacterSet({ {'\0', '\xff'} }, true)));
         });
     });
 });

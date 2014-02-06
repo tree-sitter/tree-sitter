@@ -12,6 +12,9 @@ namespace tree_sitter  {
             
             CharacterRange(char);
             CharacterRange(char, char);
+            
+            int max_int() const;
+            int min_int() const;
 
             bool operator==(const CharacterRange &) const;
             bool operator<(const CharacterRange &) const;
