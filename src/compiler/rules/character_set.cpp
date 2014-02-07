@@ -3,6 +3,7 @@
 using std::string;
 using std::hash;
 using std::set;
+using std::pair;
 
 namespace tree_sitter  {
     namespace rules {
@@ -36,23 +37,12 @@ namespace tree_sitter  {
             }
         }
         
-        int CharacterRange::max_int() const {
-            return max == MAX_CHAR ? 255 : (int)max;
+        int max_int(const CharacterRange &range) {
+            return range.max == MAX_CHAR ? 255 : (int)range.max;
         }
         
-        int CharacterRange::min_int() const {
-            return (int)min;
-        }
-        
-        bool CharacterRange::is_adjacent(const CharacterRange &other) const {
-            return
-            (min_int() <= other.min_int() && max_int() >= (other.min_int() - 1)) || 
-            (min_int() <= (other.max_int() + 1) && max_int() >= other.max_int());
-        }
-        
-        void CharacterRange::add_range(const CharacterRange &other) {
-            if (other.min < min) min = other.min;
-            if (other.max_int() > max_int()) max = other.max;
+        int min_int(const CharacterRange &range) {
+            return (int)range.min;
         }
         
         string CharacterRange::to_string() const {
@@ -101,7 +91,7 @@ namespace tree_sitter  {
                 result.insert(CharacterRange(current_char, MAX_CHAR));
             return CharacterSet(result);
         }
-        
+                
         std::pair<CharacterSet, bool> CharacterSet::most_compact_representation() const {
             auto first_range = *ranges.begin();
             if (first_range.min == 0 && first_range.max > 0) {
@@ -113,10 +103,26 @@ namespace tree_sitter  {
         
         void add_range(CharacterSet *self, CharacterRange new_range) {
             set<CharacterRange> new_ranges;
+
             for (auto range : self->ranges) {
-                if (range.is_adjacent(new_range)) {
-                    new_range.add_range(range);
-                } else {
+                auto new_min = min_int(new_range);
+                auto new_max = max_int(new_range);
+                bool is_adjacent = false;
+
+                if (min_int(range) < new_min) {
+                    if (max_int(range) >= new_min - 1) {
+                        is_adjacent = true;
+                        new_range.min = range.min;
+                    }
+                }
+                if (max_int(range) > new_max) {
+                    if (min_int(range) <= new_max + 1) {
+                        is_adjacent = true;
+                        new_range.max = range.max;
+                    }
+                }
+                
+                if (!is_adjacent) {
                     new_ranges.insert(range);
                 }
             }
@@ -124,9 +130,41 @@ namespace tree_sitter  {
             self->ranges = new_ranges;
         }
         
-        void CharacterSet::union_with(const CharacterSet &other) {
+        void remove_range(CharacterSet *self, CharacterRange new_range) {
+            set<CharacterRange> new_ranges;
+            auto new_min = min_int(new_range);
+            auto new_max = max_int(new_range);
+
+            for (auto range : self->ranges) {
+                if (new_min <= min_int(range)) {
+                    if (new_max < min_int(range)) {
+                        new_ranges.insert(range);
+                    } else if (new_max <= max_int(range)) {
+                        new_ranges.insert(CharacterRange(new_max + 1, range.max));
+                    }
+                } else if (new_min <= max_int(range)) {
+                    if (new_max < max_int(range)) {
+                        new_ranges.insert(CharacterRange(range.min, new_min - 1));
+                        new_ranges.insert(CharacterRange(new_max + 1, range.max));
+                    } else {
+                        new_ranges.insert(CharacterRange(range.min, new_min - 1));
+                    }
+                } else {
+                    new_ranges.insert(range);
+                }
+            }
+            self->ranges = new_ranges;
+        }
+        
+        void CharacterSet::add_set(const CharacterSet &other) {
             for (auto &other_range : other.ranges) {
                 add_range(this, other_range);
+            }
+        }
+        
+        void CharacterSet::remove_set(const CharacterSet &other) {
+            for (auto &other_range : other.ranges) {
+                remove_range(this, other_range);
             }
         }
         

@@ -4,36 +4,36 @@
 enum ts_symbol {
     ts_aux_token6,
     ts_symbol_number,
-    ts_symbol_string,
-    ts_symbol_array,
-    ts_symbol_value,
-    ts_aux_token5,
-    ts_aux_repeat_helper1,
-    ts_aux_repeat_helper2,
-    ts_aux_token4,
-    ts_aux_token3,
-    ts_aux_token1,
     ts_symbol_object,
-    ts_aux_token2,
+    ts_aux_token5,
     ts_aux_token7,
+    ts_aux_token4,
+    ts_aux_repeat_helper2,
+    ts_aux_token1,
+    ts_aux_token3,
+    ts_symbol_value,
+    ts_symbol_string,
+    ts_aux_token2,
+    ts_symbol_array,
+    ts_aux_repeat_helper1,
     ts_symbol___END__,
 };
 
 static const char *ts_symbol_names[] = {
     "token6",
     "number",
-    "string",
-    "array",
-    "value",
-    "token5",
-    "repeat_helper1",
-    "repeat_helper2",
-    "token4",
-    "token3",
-    "token1",
     "object",
-    "token2",
+    "token5",
     "token7",
+    "token4",
+    "repeat_helper2",
+    "token1",
+    "token3",
+    "value",
+    "string",
+    "token2",
+    "array",
+    "repeat_helper1",
     "__END__",
 };
 
@@ -79,10 +79,10 @@ static void ts_lex(TSParser *parser) {
         case 10:
             if ((LOOKAHEAD_CHAR() == '{'))
                 ADVANCE(16);
-            if ((LOOKAHEAD_CHAR() == '\"'))
-                ADVANCE(12);
             if ((LOOKAHEAD_CHAR() == '['))
                 ADVANCE(15);
+            if ((LOOKAHEAD_CHAR() == '\"'))
+                ADVANCE(12);
             if (('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9'))
                 ADVANCE(11);
             LEX_ERROR(4, EXPECT({"\"", "0-9", "[", "{"}));
@@ -128,13 +128,13 @@ static TSParseResult ts_parse(const char *input) {
         case 0:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(53);
                 case ts_symbol_string:
                     SHIFT(53);
                 case ts_symbol_array:
                     SHIFT(53);
                 case ts_symbol_object:
+                    SHIFT(53);
+                case ts_symbol_number:
                     SHIFT(53);
                 case ts_aux_token5:
                     SHIFT(47);
@@ -156,13 +156,13 @@ static TSParseResult ts_parse(const char *input) {
         case 2:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(25);
                 case ts_symbol_string:
                     SHIFT(25);
                 case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_number:
                     SHIFT(25);
                 case ts_aux_token5:
                     SHIFT(12);
@@ -176,13 +176,13 @@ static TSParseResult ts_parse(const char *input) {
         case 3:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(25);
                 case ts_symbol_string:
                     SHIFT(25);
                 case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_number:
                     SHIFT(25);
                 case ts_aux_token5:
                     SHIFT(12);
@@ -226,18 +226,18 @@ static TSParseResult ts_parse(const char *input) {
         case 7:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(43);
                 case ts_symbol_string:
-                    SHIFT(43);
-                case ts_aux_token5:
-                    SHIFT(35);
-                case ts_symbol_object:
                     SHIFT(43);
                 case ts_symbol_array:
                     SHIFT(43);
                 case ts_symbol_value:
                     SHIFT(41);
+                case ts_symbol_object:
+                    SHIFT(43);
+                case ts_symbol_number:
+                    SHIFT(43);
+                case ts_aux_token5:
+                    SHIFT(35);
                 case ts_aux_token1:
                     SHIFT(8);
                 default:
@@ -246,13 +246,13 @@ static TSParseResult ts_parse(const char *input) {
         case 8:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(25);
                 case ts_symbol_string:
                     SHIFT(25);
                 case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_number:
                     SHIFT(25);
                 case ts_aux_token5:
                     SHIFT(12);
@@ -312,18 +312,18 @@ static TSParseResult ts_parse(const char *input) {
         case 14:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(25);
                 case ts_symbol_string:
-                    SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_symbol_object:
                     SHIFT(25);
                 case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_value:
                     SHIFT(15);
+                case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_number:
+                    SHIFT(25);
+                case ts_aux_token5:
+                    SHIFT(12);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
@@ -378,18 +378,18 @@ static TSParseResult ts_parse(const char *input) {
         case 20:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(34);
                 case ts_symbol_string:
-                    SHIFT(34);
-                case ts_aux_token5:
-                    SHIFT(26);
-                case ts_symbol_object:
                     SHIFT(34);
                 case ts_symbol_array:
                     SHIFT(34);
                 case ts_symbol_value:
                     SHIFT(32);
+                case ts_symbol_object:
+                    SHIFT(34);
+                case ts_symbol_number:
+                    SHIFT(34);
+                case ts_aux_token5:
+                    SHIFT(26);
                 case ts_aux_token1:
                     SHIFT(21);
                 default:
@@ -398,13 +398,13 @@ static TSParseResult ts_parse(const char *input) {
         case 21:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(25);
                 case ts_symbol_string:
                     SHIFT(25);
                 case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_number:
                     SHIFT(25);
                 case ts_aux_token5:
                     SHIFT(12);
@@ -474,18 +474,18 @@ static TSParseResult ts_parse(const char *input) {
         case 28:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(25);
                 case ts_symbol_string:
-                    SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_symbol_object:
                     SHIFT(25);
                 case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_value:
                     SHIFT(29);
+                case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_number:
+                    SHIFT(25);
+                case ts_aux_token5:
+                    SHIFT(12);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
@@ -524,10 +524,10 @@ static TSParseResult ts_parse(const char *input) {
         case 32:
             SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token7:
-                    REDUCE(ts_aux_repeat_helper1, 4, COLLAPSE({1, 0, 1, 0}));
                 case ts_aux_token2:
                     SHIFT(18);
+                case ts_aux_token7:
+                    REDUCE(ts_aux_repeat_helper1, 4, COLLAPSE({1, 0, 1, 0}));
                 case ts_aux_repeat_helper1:
                     SHIFT(33);
                 default:
@@ -570,18 +570,18 @@ static TSParseResult ts_parse(const char *input) {
         case 37:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(25);
                 case ts_symbol_string:
-                    SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_symbol_object:
                     SHIFT(25);
                 case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_value:
                     SHIFT(38);
+                case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_number:
+                    SHIFT(25);
+                case ts_aux_token5:
+                    SHIFT(12);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:
@@ -620,10 +620,10 @@ static TSParseResult ts_parse(const char *input) {
         case 41:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_token2:
-                    SHIFT(7);
                 case ts_aux_token4:
                     REDUCE(ts_aux_repeat_helper2, 2, COLLAPSE({1, 0}));
+                case ts_aux_token2:
+                    SHIFT(7);
                 case ts_aux_repeat_helper2:
                     SHIFT(42);
                 default:
@@ -694,18 +694,18 @@ static TSParseResult ts_parse(const char *input) {
         case 49:
             SET_LEX_STATE(10);
             switch (LOOKAHEAD_SYM()) {
-                case ts_symbol_number:
-                    SHIFT(25);
                 case ts_symbol_string:
-                    SHIFT(25);
-                case ts_aux_token5:
-                    SHIFT(12);
-                case ts_symbol_object:
                     SHIFT(25);
                 case ts_symbol_array:
                     SHIFT(25);
                 case ts_symbol_value:
                     SHIFT(50);
+                case ts_symbol_object:
+                    SHIFT(25);
+                case ts_symbol_number:
+                    SHIFT(25);
+                case ts_aux_token5:
+                    SHIFT(12);
                 case ts_aux_token1:
                     SHIFT(3);
                 default:

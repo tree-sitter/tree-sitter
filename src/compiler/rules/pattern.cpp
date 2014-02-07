@@ -75,7 +75,7 @@ namespace tree_sitter {
                 }
                 CharacterSet result;
                 while (has_more_input() && (peek() != ']'))
-                    result.union_with(single_char());
+                    result.add_set(single_char());
                 return is_affirmative ? result : result.complement();
             }
             

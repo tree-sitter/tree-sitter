@@ -9,19 +9,10 @@ namespace tree_sitter  {
         struct CharacterRange {
             char min;
             char max;
-            
             CharacterRange(char);
             CharacterRange(char, char);
-            
-            int max_int() const;
-            int min_int() const;
-
             bool operator==(const CharacterRange &) const;
             bool operator<(const CharacterRange &) const;
-            bool is_adjacent(const CharacterRange &) const;
-            
-            void add_range(const CharacterRange &);
-            
             std::string to_string() const;
         };
     }
@@ -45,8 +36,10 @@ namespace tree_sitter  {
             CharacterSet(const std::set<CharacterRange> &ranges, bool);
             
             CharacterSet complement() const;
-            void union_with(const CharacterSet &other);
             std::pair<CharacterSet, bool> most_compact_representation() const;
+
+            void add_set(const CharacterSet &other);
+            void remove_set(const CharacterSet &other);
             
             bool operator==(const Rule& other) const;
             size_t hash_code() const;

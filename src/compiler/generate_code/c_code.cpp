@@ -162,14 +162,14 @@ namespace tree_sitter {
             string lex_error_call(const unordered_set<rules::CharacterSet> &expected_inputs) {
                 rules::CharacterSet expected_set;
                 for (auto &rule : expected_inputs)
-                    expected_set.union_with(rule);
+                    expected_set.add_set(rule);
                 
                 string result = "LEX_ERROR(" + to_string(expected_set.ranges.size()) + ", EXPECT({";
                 bool started = false;
-                for (auto &ranges : expected_set.ranges) {
+                for (auto &range : expected_set.ranges) {
                     if (started) result += ", ";
                     started = true;
-                    result += "\"" + escape_string(ranges.to_string()) + "\"";
+                    result += "\"" + escape_string(range.to_string()) + "\"";
                 }
                 result += "}));";
                 return result;
