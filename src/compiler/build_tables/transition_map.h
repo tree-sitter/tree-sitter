@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <functional>
-#include <initializer_list>
 #include "rule.h"
 
 namespace tree_sitter {
@@ -17,7 +16,7 @@ namespace tree_sitter {
     public:
         
         transition_map() : contents(contents_type()) {};
-        transition_map(std::initializer_list<pair_type> pairs) : contents(pairs) {};
+        transition_map(std::vector<pair_type> pairs) : contents(pairs) {};
         
         bool operator==(const transition_map<TKey, TValue> &other) const {
             if (size() != other.size()) return false;

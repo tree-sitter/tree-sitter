@@ -11,6 +11,7 @@
 #include "character_set.h"
 #include "repeat.h"
 #include "visitor.h"
+#include <vector>
 
 namespace tree_sitter {
     namespace rules {
@@ -19,10 +20,10 @@ namespace tree_sitter {
         rule_ptr character(const std::set<CharacterRange> &matches);
         rule_ptr character(const std::set<CharacterRange> &matches, bool);
         
-        rule_ptr choice(const std::initializer_list<rule_ptr> &rules);
+        rule_ptr choice(const std::vector<rule_ptr> &rules);
         rule_ptr pattern(const std::string &value);
         rule_ptr repeat(const rule_ptr content);
-        rule_ptr seq(const std::initializer_list<rule_ptr> &rules);
+        rule_ptr seq(const std::vector<rule_ptr> &rules);
         rule_ptr str(const std::string &value);
         rule_ptr sym(const std::string &name);
         rule_ptr aux_sym(const std::string &name);
