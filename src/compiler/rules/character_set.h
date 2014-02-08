@@ -36,10 +36,11 @@ namespace tree_sitter  {
             CharacterSet(const std::set<CharacterRange> &ranges, bool);
             
             CharacterSet complement() const;
+            CharacterSet intersect(const CharacterSet &) const;
             std::pair<CharacterSet, bool> most_compact_representation() const;
 
             void add_set(const CharacterSet &other);
-            void remove_set(const CharacterSet &other);
+            CharacterSet remove_set(const CharacterSet &other);
             
             bool operator==(const Rule& other) const;
             size_t hash_code() const;

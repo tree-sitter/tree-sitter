@@ -80,16 +80,9 @@ namespace tree_sitter  {
         }
         
         CharacterSet CharacterSet::complement() const {
-            set<CharacterRange> result;
-            char current_char = 0;
-            for (auto &range : ranges) {
-                if (range.min != 0)
-                    result.insert(CharacterRange(current_char, range.min - 1));
-                current_char = range.max + 1;
-            }
-            if (current_char != 0)
-                result.insert(CharacterRange(current_char, MAX_CHAR));
-            return CharacterSet(result);
+            CharacterSet result({ {0, MAX_CHAR} }, true);
+            result.remove_set(*this);
+            return result;
         }
                 
         std::pair<CharacterSet, bool> CharacterSet::most_compact_representation() const {
@@ -130,7 +123,8 @@ namespace tree_sitter  {
             self->ranges = new_ranges;
         }
         
-        void remove_range(CharacterSet *self, CharacterRange new_range) {
+        CharacterSet remove_range(CharacterSet *self, CharacterRange new_range) {
+            CharacterSet removed_set;
             set<CharacterRange> new_ranges;
             auto new_min = min_int(new_range);
             auto new_max = max_int(new_range);
@@ -141,19 +135,23 @@ namespace tree_sitter  {
                         new_ranges.insert(range);
                     } else if (new_max <= max_int(range)) {
                         new_ranges.insert(CharacterRange(new_max + 1, range.max));
+                        add_range(&removed_set, CharacterRange(range.min, new_max));
                     }
                 } else if (new_min <= max_int(range)) {
                     if (new_max < max_int(range)) {
                         new_ranges.insert(CharacterRange(range.min, new_min - 1));
                         new_ranges.insert(CharacterRange(new_max + 1, range.max));
+                        add_range(&removed_set, new_range);
                     } else {
                         new_ranges.insert(CharacterRange(range.min, new_min - 1));
+                        add_range(&removed_set, CharacterRange(new_min, range.max));
                     }
                 } else {
                     new_ranges.insert(range);
                 }
             }
             self->ranges = new_ranges;
+            return removed_set;
         }
         
         void CharacterSet::add_set(const CharacterSet &other) {
@@ -162,10 +160,18 @@ namespace tree_sitter  {
             }
         }
         
-        void CharacterSet::remove_set(const CharacterSet &other) {
+        CharacterSet CharacterSet::remove_set(const CharacterSet &other) {
+            CharacterSet result;
             for (auto &other_range : other.ranges) {
-                remove_range(this, other_range);
+                auto removed_set = remove_range(this, other_range);
+                result.add_set(removed_set);
             }
+            return result;
+        }
+        
+        CharacterSet CharacterSet::intersect(const CharacterSet &set) const {
+            CharacterSet copy = *this;
+            return copy.remove_set(set);
         }
         
         void CharacterSet::accept(Visitor &visitor) const {
