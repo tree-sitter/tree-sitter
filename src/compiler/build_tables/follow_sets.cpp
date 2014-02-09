@@ -15,14 +15,14 @@ namespace tree_sitter {
         unordered_map<Symbol, set<Symbol>> follow_sets(const ParseItem &item, const Grammar &grammar) {
             unordered_map<Symbol, set<Symbol>> result;
 
-            for (auto pair : rule_transitions(item.rule)) {
-                auto symbol = dynamic_pointer_cast<const rules::Symbol>(pair.first);
-                if (symbol && grammar.has_definition(*symbol)) {
+            for (auto pair : sym_transitions(item.rule)) {
+                auto symbol = *pair.first;
+                if (grammar.has_definition(symbol)) {
                     auto following_non_terminals = first_set(pair.second, grammar);
                     if (rule_can_be_blank(pair.second)) {
                         following_non_terminals.insert(item.lookahead_sym);
                     }
-                    result.insert({ *symbol, following_non_terminals });
+                    result.insert({ symbol, following_non_terminals });
                 }
             }
             

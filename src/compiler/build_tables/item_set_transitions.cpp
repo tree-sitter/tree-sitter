@@ -21,13 +21,11 @@ namespace tree_sitter {
             transition_map<CharacterSet, LexItemSet> result;
             for (LexItem item : item_set) {
                 transition_map<CharacterSet, LexItemSet> item_transitions;
-                for (auto transition : rule_transitions(item.rule)) {
-                    auto rule = dynamic_pointer_cast<const CharacterSet>(transition.first);
-                    if (rule.get()) {
-                        auto new_item = LexItem(item.lhs, transition.second);
-                        auto new_item_set = LexItemSet({ new_item });
-                        item_transitions.add(rule, make_shared<LexItemSet>(new_item_set));
-                    }
+                for (auto transition : char_transitions(item.rule)) {
+                    auto rule = transition.first;
+                    auto new_item = LexItem(item.lhs, transition.second);
+                    auto new_item_set = LexItemSet({ new_item });
+                    item_transitions.add(rule, make_shared<LexItemSet>(new_item_set));
                 }
 
                 result.merge(item_transitions, [](shared_ptr<const LexItemSet> left, shared_ptr<const LexItemSet> right) -> shared_ptr<const LexItemSet> {
@@ -42,15 +40,13 @@ namespace tree_sitter {
             transition_map<rules::Symbol, ParseItemSet> result;
             for (ParseItem item : item_set) {
                 transition_map<rules::Symbol, ParseItemSet> item_transitions;
-                for (auto transition : rule_transitions(item.rule)) {
-                    auto rule = dynamic_pointer_cast<const rules::Symbol>(transition.first);
-                    if (rule.get()) {
-                        auto consumed_symbols = item.consumed_symbols;
-                        consumed_symbols.push_back(rule->is_auxiliary);
-                        auto new_item = ParseItem(item.lhs, transition.second, consumed_symbols, item.lookahead_sym);
-                        auto new_item_set = item_set_closure(ParseItemSet({ new_item }), grammar);
-                        item_transitions.add(rule, make_shared<ParseItemSet>(new_item_set));
-                    }
+                for (auto transition : sym_transitions(item.rule)) {
+                    auto rule = transition.first;
+                    auto consumed_symbols = item.consumed_symbols;
+                    consumed_symbols.push_back(rule->is_auxiliary);
+                    auto new_item = ParseItem(item.lhs, transition.second, consumed_symbols, item.lookahead_sym);
+                    auto new_item_set = item_set_closure(ParseItemSet({ new_item }), grammar);
+                    item_transitions.add(rule, make_shared<ParseItemSet>(new_item_set));
                 }
 
                 result.merge(item_transitions, [](shared_ptr<const ParseItemSet> left, shared_ptr<const ParseItemSet> right) -> shared_ptr<const ParseItemSet> {

@@ -50,6 +50,8 @@ namespace tree_sitter  {
             
             std::set<CharacterRange> ranges;
         };
+        
+        typedef std::shared_ptr<const CharacterSet> char_ptr;
     }
 }
 

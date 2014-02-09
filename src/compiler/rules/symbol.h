@@ -22,6 +22,8 @@ namespace tree_sitter  {
             std::string name;
             bool is_auxiliary;
         };
+        
+        typedef std::shared_ptr<const Symbol> sym_ptr;
     }
 }
 

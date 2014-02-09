@@ -7,32 +7,24 @@ using namespace build_tables;
 START_TEST
 
 describe("rule transitions", []() {
-    rule_ptr symbol1 = sym("1");
-    rule_ptr symbol2 = sym("2");
-    rule_ptr symbol3 = sym("3");
-    rule_ptr symbol4 = sym("4");
-    rule_ptr char1 = character('a');
+    auto symbol1 = sym("1");
+    auto symbol2 = sym("2");
+    auto symbol3 = sym("3");
+    auto symbol4 = sym("4");
+    auto char1 = character({ 'a' });
     
     it("handles symbols", [&]() {
         AssertThat(
-            rule_transitions(symbol1),
-            Equals(transition_map<Rule, Rule>({
+            sym_transitions(symbol1),
+            Equals(transition_map<Symbol, Rule>({
                 { symbol1, blank() }
-            })));
-    });
-    
-    it("handles characters", [&]() {
-        AssertThat(
-            rule_transitions(char1),
-            Equals(transition_map<Rule, Rule>({
-                { char1, blank() }
             })));
     });
     
     it("handles choices", [&]() {
         AssertThat(
-            rule_transitions(choice({ symbol1, symbol2 })),
-            Equals(transition_map<Rule, Rule>({
+            sym_transitions(choice({ symbol1, symbol2 })),
+            Equals(transition_map<Symbol, Rule>({
                 { symbol1, blank() },
                 { symbol2, blank() }
             })));
@@ -40,77 +32,84 @@ describe("rule transitions", []() {
     
     it("handles sequences", [&]() {
         AssertThat(
-            rule_transitions(seq({ symbol1, symbol2 })),
-            Equals(transition_map<Rule, Rule>({
+            sym_transitions(seq({ symbol1, symbol2 })),
+            Equals(transition_map<Symbol, Rule>({
                 { symbol1, symbol2 }
             })));
     });
     
-    it("handles_long_sequences", [&]() {
+    it("handles long sequences", [&]() {
         AssertThat(
-            rule_transitions(seq({
+            sym_transitions(seq({
                 symbol1,
                 symbol2,
                 symbol3,
                 symbol4
             })),
-            Equals(transition_map<Rule, Rule>({
+            Equals(transition_map<Symbol, Rule>({
                 { symbol1, seq({ symbol2, symbol3, symbol4 }) }
             })));
     });
     
     it("handles sequences whose left sides can be blank", [&]() {
         AssertThat(
-            rule_transitions(seq({
+            sym_transitions(seq({
                 choice({
-                    sym("x"),
+                    symbol1,
                     blank(),
                 }),
                 seq({
-                    sym("x"),
-                    sym("y")
+                    symbol1,
+                    symbol2
                 })
-            })), Equals(transition_map<Rule, Rule>({
-                { sym("x"), choice({ seq({ sym("x"), sym("y") }), sym("y"), }) }
+            })), Equals(transition_map<Symbol, Rule>({
+                { symbol1, choice({ seq({ symbol1, symbol2 }), symbol2, }) }
             })));
     });
     
     it("handles choices with common starting symbols", [&]() {
         AssertThat(
-            rule_transitions(
+            sym_transitions(
                 choice({
                     seq({ symbol1, symbol2 }),
                     seq({ symbol1, symbol3 }) })),
-            Equals(transition_map<Rule, Rule>({
+            Equals(transition_map<Symbol, Rule>({
                 { symbol1, choice({ symbol2, symbol3 }) }
+            })));
+    });
+    
+    it("handles characters", [&]() {
+        AssertThat(
+            char_transitions(char1),
+            Equals(transition_map<CharacterSet, Rule>({
+                { char1, blank() }
             })));
     });
     
     it("handles strings", [&]() {
         AssertThat(
-            rule_transitions(str("bad")),
-            Equals(transition_map<Rule, Rule>({
-                { character('b'), seq({ character('a'), character('d') })
-            }
-        })));
+            char_transitions(str("bad")),
+            Equals(transition_map<CharacterSet, Rule>({
+                { character({ 'b' }, true), seq({ character('a'), character('d') }) }
+            })));
     });
     
     it("handles patterns", [&]() {
         AssertThat(
-            rule_transitions(pattern("a|b")),
-            Equals(transition_map<Rule, Rule>({
-                { character('a'), blank() },
-                { character('b'), blank() }
+            char_transitions(pattern("a|b")),
+            Equals(transition_map<CharacterSet, Rule>({
+                { character({ 'a' }, true), blank() },
+                { character({ 'b' }, true), blank() }
             })));
     });
     
     it("handles repeats", [&]() {
         rule_ptr rule = repeat(str("ab"));
         AssertThat(
-            rule_transitions(rule),
-            Equals(transition_map<Rule, Rule>({
+            char_transitions(rule),
+            Equals(transition_map<CharacterSet, Rule>({
             {
-                character('a'),
+                character({ 'a' }, true),
                 seq({
                     character('b'),
                     choice({
@@ -122,10 +121,10 @@ describe("rule transitions", []() {
         
         rule = repeat(str("a"));
         AssertThat(
-            rule_transitions(rule),
-            Equals(transition_map<Rule, Rule>({
+            char_transitions(rule),
+            Equals(transition_map<CharacterSet, Rule>({
             {
-                character('a'),
+                character({ 'a' }, true),
                 choice({
                     rule,
                     blank()
@@ -143,14 +142,14 @@ describe("rule transitions", []() {
                 character('"'),
             });
             
-            AssertThat(rule_transitions(rule), Equals(transition_map<Rule, Rule>({
+            AssertThat(char_transitions(rule), Equals(transition_map<CharacterSet, Rule>({
                 { character({ '"' }, false), seq({
                     choice({
                         repeat(character({ '"' }, false)),
                         blank(),
                     }),
                     character('"'), }) },
-                { character('"'), blank() },
+                { character({ '"' }, true), blank() },
             })));
         });
     });

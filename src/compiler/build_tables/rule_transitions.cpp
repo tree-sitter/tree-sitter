@@ -9,41 +9,55 @@ namespace tree_sitter {
             return typeid(*rule) == typeid(Blank);
         }
         
+        template<typename T>
         class TransitionsVisitor : public rules::Visitor {
         public:
-            transition_map<Rule, Rule> value;
+            transition_map<T, Rule> value;
+            
+            static transition_map<T, Rule> transitions(const rule_ptr rule) {
+                TransitionsVisitor<T> visitor;
+                rule->accept(visitor);
+                return visitor.value;
+            }
+            
+            void visit_atom(const Rule *rule) {
+                auto atom = dynamic_cast<const T *>(rule);
+                if (atom) {
+                    value = transition_map<T, Rule>({{ std::make_shared<const T>(*atom), blank() }});
+                }
+            }
 
             void visit(const CharacterSet *rule) {
-                value = transition_map<Rule, Rule>({{ rule->copy(), blank() }});
+                visit_atom(rule);
             }
             
             void visit(const Symbol *rule) {
-                value = transition_map<Rule, Rule>({{ rule->copy(), blank() }});
+                visit_atom(rule);
             }
 
             void visit(const Choice *rule) {
-                value = rule_transitions(rule->left);
-                value.merge(rule_transitions(rule->right), [&](rule_ptr left, rule_ptr right) -> rule_ptr {
+                value = transitions(rule->left);
+                value.merge(transitions(rule->right), [&](rule_ptr left, rule_ptr right) -> rule_ptr {
                     return choice({ left, right });
                 });
             }
 
             void visit(const Seq *rule) {
-                value = rule_transitions(rule->left).map<Rule>([&](const rule_ptr left_rule) -> rule_ptr {
+                value = transitions(rule->left).template map<Rule>([&](const rule_ptr left_rule) -> rule_ptr {
                     if (is_blank(left_rule))
                         return rule->right;
                     else
                         return seq({ left_rule, rule->right });
                 });
                 if (rule_can_be_blank(rule->left)) {
-                    value.merge(rule_transitions(rule->right), [&](rule_ptr left, rule_ptr right) -> rule_ptr {
+                    value.merge(transitions(rule->right), [&](rule_ptr left, rule_ptr right) -> rule_ptr {
                         return choice({ left, right });
                     });
                 }
             }
             
             void visit(const Repeat *rule) {
-                value = rule_transitions(rule->content).map<Rule>([&](const rule_ptr &value) -> rule_ptr {
+                value = transitions(rule->content).template map<Rule>([&](const rule_ptr &value) -> rule_ptr {
                     return seq({ value, choice({ rule->copy(), blank() }) });
                 });
             }
@@ -52,20 +66,22 @@ namespace tree_sitter {
                 rule_ptr result = character(rule->value[0]);
                 for (int i = 1; i < rule->value.length(); i++)
                     result = seq({ result, character(rule->value[i]) });
-                value = rule_transitions(result);
+                value = transitions(result);
             }
             
             void visit(const Pattern *rule) {
-                value = rule_transitions(rule->to_rule_tree());
+                value = transitions(rule->to_rule_tree());
             }
         };
         
-        transition_map<Rule, Rule> rule_transitions(const rule_ptr &rule) {
-            TransitionsVisitor visitor;
-            rule->accept(visitor);
-            return visitor.value;
+        transition_map<CharacterSet, Rule> char_transitions(const rule_ptr &rule) {
+            return TransitionsVisitor<CharacterSet>::transitions(rule);
         }
-        
+
+        transition_map<Symbol, Rule> sym_transitions(const rule_ptr &rule) {
+            return TransitionsVisitor<Symbol>::transitions(rule);
+        }
+
         class EpsilonVisitor : public rules::Visitor {
         public:
             bool value;
