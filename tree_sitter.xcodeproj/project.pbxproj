@@ -101,6 +101,7 @@
 		125120A218307FFD00C9B56A /* test_grammars.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = test_grammars.h; path = spec/fixtures/grammars/test_grammars.h; sourceTree = SOURCE_ROOT; };
 		125120A3183083BD00C9B56A /* arithmetic.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = arithmetic.cpp; path = spec/fixtures/grammars/arithmetic.cpp; sourceTree = SOURCE_ROOT; };
 		12661BF318A1505A00A259FB /* character_set_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = character_set_spec.cpp; sourceTree = SOURCE_ROOT; };
+		127528AF18A6F9C6006B682B /* merge_transitions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = merge_transitions.h; sourceTree = "<group>"; };
 		12AB465D188BD03E00DE79DF /* follow_sets.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = follow_sets.cpp; sourceTree = "<group>"; };
 		12AB465E188BD03E00DE79DF /* follow_sets.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = follow_sets.h; sourceTree = "<group>"; };
 		12AB4660188CB3A300DE79DF /* item_set_closure_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = item_set_closure_spec.cpp; sourceTree = "<group>"; };
@@ -228,6 +229,7 @@
 				12EDCFBF18820880005A7A07 /* item_set_closure.h */,
 				12EDCFC118820A70005A7A07 /* item_set_transitions.cpp */,
 				12EDCFC218820A70005A7A07 /* item_set_transitions.h */,
+				127528AF18A6F9C6006B682B /* merge_transitions.h */,
 				12EDCFA418820137005A7A07 /* perform.cpp */,
 				12EDCFA518820137005A7A07 /* perform.h */,
 				12EDCFA618820137005A7A07 /* rule_transitions.cpp */,

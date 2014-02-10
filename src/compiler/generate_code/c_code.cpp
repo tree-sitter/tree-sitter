@@ -98,6 +98,8 @@ namespace tree_sitter {
                         return "\\0";
                     case '"':
                         return "\\\"";
+                    case '\\':
+                        return "\\\\";
                     default:
                         return string() + character;
                 }
@@ -108,16 +110,20 @@ namespace tree_sitter {
                 if (range.min == range.max) {
                     return lookahead + " == '" + character_code(range.min) + "'";
                 } else {
-                    return string("'") + range.min + string("' <= ") + lookahead + 
-                    " && " + lookahead + " <= '" + range.max + "'";
+                    return string("'") + character_code(range.min) + string("' <= ") + lookahead + 
+                    " && " + lookahead + " <= '" + character_code(range.max) + "'";
                 }
             }
             
             string condition_for_character_set(const rules::CharacterSet &set) {
                 vector<string> parts;
-                for (auto &match : set.ranges)
-                    parts.push_back("(" + condition_for_character_range(match) + ")");
-                return join(parts, " ||\n    ");
+                if (set.ranges.size() == 1) {
+                    return condition_for_character_range(*set.ranges.begin());
+                } else {
+                    for (auto &match : set.ranges)
+                        parts.push_back("(" + condition_for_character_range(match) + ")");
+                    return join(parts, " ||\n    ");
+                }
             }
             
             string condition_for_character_rule(const rules::CharacterSet &rule) {

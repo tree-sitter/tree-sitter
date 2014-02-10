@@ -1,5 +1,6 @@
 #include "rule_transitions.h"
 #include "rules.h"
+#include "merge_transitions.h"
 
 using namespace tree_sitter::rules;
 
@@ -9,6 +10,23 @@ namespace tree_sitter {
             return typeid(*rule) == typeid(Blank);
         }
         
+        template<typename T>
+        transition_map<T, Rule> merge_transitions(const transition_map<T, Rule> &left, const transition_map<T, Rule> &right);
+        
+        template<>
+        transition_map<CharacterSet, Rule> merge_transitions(const transition_map<CharacterSet, Rule> &left, const transition_map<CharacterSet, Rule> &right) {
+            return merge_char_transitions<Rule>(left, right, [](rule_ptr left, rule_ptr right) -> rule_ptr {
+                return choice({ left, right });
+            });
+        }
+
+        template<>
+        transition_map<Symbol, Rule> merge_transitions(const transition_map<Symbol, Rule> &left, const transition_map<Symbol, Rule> &right) {
+            return merge_sym_transitions<Rule>(left, right, [](rule_ptr left, rule_ptr right) -> rule_ptr {
+                return choice({ left, right });
+            });
+        }
+
         template<typename T>
         class TransitionsVisitor : public rules::Visitor {
         public:
@@ -23,7 +41,7 @@ namespace tree_sitter {
             void visit_atom(const Rule *rule) {
                 auto atom = dynamic_cast<const T *>(rule);
                 if (atom) {
-                    value = transition_map<T, Rule>({{ std::make_shared<const T>(*atom), blank() }});
+                    value = transition_map<T, Rule>({{ std::make_shared<T>(*atom), blank() }});
                 }
             }
 
@@ -37,9 +55,7 @@ namespace tree_sitter {
 
             void visit(const Choice *rule) {
                 value = transitions(rule->left);
-                value.merge(transitions(rule->right), [&](rule_ptr left, rule_ptr right) -> rule_ptr {
-                    return choice({ left, right });
-                });
+                value = merge_transitions<T>(transitions(rule->left), transitions(rule->right));
             }
 
             void visit(const Seq *rule) {
@@ -50,9 +66,7 @@ namespace tree_sitter {
                         return seq({ left_rule, rule->right });
                 });
                 if (rule_can_be_blank(rule->left)) {
-                    value.merge(transitions(rule->right), [&](rule_ptr left, rule_ptr right) -> rule_ptr {
-                        return choice({ left, right });
-                    });
+                    value = merge_transitions<T>(value, transitions(rule->right));
                 }
             }
             

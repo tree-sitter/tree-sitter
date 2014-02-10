@@ -38,6 +38,7 @@ namespace tree_sitter  {
             CharacterSet complement() const;
             CharacterSet intersect(const CharacterSet &) const;
             std::pair<CharacterSet, bool> most_compact_representation() const;
+            bool is_empty() const;
 
             void add_set(const CharacterSet &other);
             CharacterSet remove_set(const CharacterSet &other);
@@ -51,7 +52,7 @@ namespace tree_sitter  {
             std::set<CharacterRange> ranges;
         };
         
-        typedef std::shared_ptr<const CharacterSet> char_ptr;
+        typedef std::shared_ptr<CharacterSet> char_ptr;
     }
 }
 

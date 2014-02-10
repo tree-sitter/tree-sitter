@@ -154,6 +154,10 @@ namespace tree_sitter  {
             return removed_set;
         }
         
+        bool CharacterSet::is_empty() const {
+            return ranges.empty();
+        }
+        
         void CharacterSet::add_set(const CharacterSet &other) {
             for (auto &other_range : other.ranges) {
                 add_range(this, other_range);

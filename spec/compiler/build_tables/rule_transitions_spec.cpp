@@ -30,6 +30,22 @@ describe("rule transitions", []() {
             })));
     });
     
+    it("handles choices between overlapping character sets", [&]() {
+        AssertThat(
+            char_transitions(choice({
+                seq({
+                    character({ {'a', 's'} }),
+                    sym("x") }),
+                seq({
+                    character({ { 'm', 'z' } }),
+                    sym("y") }) })),
+            Equals(transition_map<CharacterSet, Rule>({
+                { character({ {'a','l'} }), sym("x") },
+                { character({ {'m','s'} }), choice({ sym("x"), sym("y") }) },
+                { character({ {'t','z'} }), sym("y") },
+            })));
+    });
+    
     it("handles sequences", [&]() {
         AssertThat(
             sym_transitions(seq({ symbol1, symbol2 })),

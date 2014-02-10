@@ -8,7 +8,7 @@ namespace tree_sitter {
         class Visitor;
         class Rule;
 
-        typedef std::shared_ptr<const Rule> rule_ptr;
+        typedef std::shared_ptr<Rule> rule_ptr;
 
         class Rule {
         public:

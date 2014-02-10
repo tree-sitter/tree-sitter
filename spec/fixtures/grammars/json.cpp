@@ -33,7 +33,13 @@ namespace test_grammars {
                 str("["),
                 comma_sep(sym("value")),
                 str("]"), }) },
-            { "string", pattern("\"[^\"]+\"") },
+            { "string", seq({
+                character('"'),
+                repeat(choice({
+                    pattern("[^\"]"),
+                    str("\\\""),
+                })),
+                character('"') }) },
             { "number", pattern("\\d+") }
         });
     }
