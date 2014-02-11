@@ -43,16 +43,6 @@ namespace tree_sitter {
             return TValuePtr();
         }
         
-        template<typename NewV>
-        transition_map<TKey, NewV> map(std::function<const std::shared_ptr<NewV>(TValuePtr)> map_fn) {
-            transition_map<TKey, NewV> result;
-            for (pair_type pair : *this) {
-                auto new_value = map_fn(pair.second);
-                result.add(pair.first, new_value);
-            }
-            return result;
-        }
-
 #pragma mark - Container
 
         typedef typename contents_type::const_iterator const_iterator;

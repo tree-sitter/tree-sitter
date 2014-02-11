@@ -26,6 +26,14 @@ namespace tree_sitter {
                 return choice({ left, right });
             });
         }
+        
+        template<typename T>
+        transition_map<T, Rule> map_transitions(const transition_map<T, Rule> &initial, std::function<const rule_ptr(rule_ptr)> map_fn) {
+            transition_map<T, Rule> result;
+            for (auto &pair : initial)
+                result.add(pair.first, map_fn(pair.second));
+            return result;
+        }
 
         template<typename T>
         class TransitionsVisitor : public rules::Visitor {
@@ -59,7 +67,7 @@ namespace tree_sitter {
             }
 
             void visit(const Seq *rule) {
-                value = transitions(rule->left).template map<Rule>([&](const rule_ptr left_rule) -> rule_ptr {
+                value = map_transitions(transitions(rule->left), [&](const rule_ptr left_rule) -> rule_ptr {
                     if (is_blank(left_rule))
                         return rule->right;
                     else
@@ -71,7 +79,7 @@ namespace tree_sitter {
             }
             
             void visit(const Repeat *rule) {
-                value = transitions(rule->content).template map<Rule>([&](const rule_ptr &value) -> rule_ptr {
+                value = map_transitions(transitions(rule->content), [&](const rule_ptr &value) -> rule_ptr {
                     return seq({ value, choice({ rule->copy(), blank() }) });
                 });
             }
