@@ -14,8 +14,8 @@ using std::unordered_map;
 namespace tree_sitter {
     namespace build_tables {
         static int NOT_FOUND = -1;
-        static string START = "__START__";
-        static string END_OF_INPUT = "__END__";
+        static rules::Symbol START("start", true);
+        static rules::Symbol END_OF_INPUT("end", true);
 
         class TableBuilder {
             const Grammar grammar;
@@ -64,7 +64,7 @@ namespace tree_sitter {
             void add_reduce_actions(const ParseItemSet &item_set, size_t state_index) {
                 for (ParseItem item : item_set) {
                     if (item.is_done()) {
-                        ParseAction action = (item.lhs.name == START) ?
+                        ParseAction action = (item.lhs == START) ?
                             ParseAction::Accept() :
                             ParseAction::Reduce(item.lhs, item.consumed_symbols);
                         parse_table.add_action(state_index, item.lookahead_sym, action);
@@ -76,7 +76,7 @@ namespace tree_sitter {
                 ParseState &state = parse_table.states[state_index];
                 LexItemSet item_set;
                 for (auto &symbol : state.expected_inputs()) {
-                    if (symbol.name == END_OF_INPUT)
+                    if (symbol == END_OF_INPUT)
                         item_set.insert(LexItem(symbol, rules::character('\0')));
                     if (lex_grammar.has_definition(symbol))
                         item_set.insert(LexItem(symbol, lex_grammar.rule(symbol)));

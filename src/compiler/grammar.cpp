@@ -1,6 +1,5 @@
 #include "grammar.h"
 
-using std::unordered_map;
 using std::vector;
 using std::string;
 using std::pair;
@@ -12,7 +11,7 @@ namespace tree_sitter {
         rules(rules),
         start_rule_name(rules.begin()->first) {}
     
-    Grammar::Grammar(std::string start_rule_name, const unordered_map<string, const rules::rule_ptr> &rules) :
+    Grammar::Grammar(std::string start_rule_name, rule_map &rules) :
         rules(rules),
         start_rule_name(start_rule_name) {}
 

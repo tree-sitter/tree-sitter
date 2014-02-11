@@ -77,19 +77,6 @@ describe("building parse and lex tables", []() {
             CharacterSet({ {'a', 'z'}, {'A', 'Z'} }, true),
         })));
     });
-    
-    it("accepts when the start symbol is reduced", [&]() {
-        AssertThat(parse_state(1).actions, Equals(map<Symbol, parse_actions>({
-            { Symbol("__END__"), parse_actions({ ParseAction::Accept() }) }
-        })));
-    });
-    
-    it("has the right next states", [&]() {
-        AssertThat(parse_state(2).actions, Equals(map<Symbol, parse_actions>({
-            { Symbol("plus"), parse_actions({ ParseAction::Shift(3) }) },
-            { Symbol("__END__"), parse_actions({ ParseAction::Reduce(Symbol("expression"), { false }) }) },
-        })));
-    });
 });
 
 END_TEST
