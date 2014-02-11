@@ -16,7 +16,7 @@ namespace tree_sitter {
             map<Symbol, set<Symbol>> result;
 
             for (auto pair : sym_transitions(item.rule)) {
-                auto symbol = *pair.first;
+                auto symbol = pair.first;
                 if (grammar.has_definition(symbol)) {
                     auto following_non_terminals = first_set(pair.second, grammar);
                     if (rule_can_be_blank(pair.second)) {

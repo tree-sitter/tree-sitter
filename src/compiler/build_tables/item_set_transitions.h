@@ -3,13 +3,13 @@
 
 #include "character_set.h"
 #include "symbol.h"
-#include "transition_map.h"
 #include "item.h"
+#include <map>
 
 namespace tree_sitter {
     namespace build_tables {
-        transition_map<rules::CharacterSet, LexItemSet> char_transitions(const LexItemSet &item_set, const Grammar &grammar);
-        transition_map<rules::Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set, const Grammar &grammar);
+        std::map<rules::CharacterSet, LexItemSet> char_transitions(const LexItemSet &item_set, const Grammar &grammar);
+        std::map<rules::Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set, const Grammar &grammar);
     }
 }
 

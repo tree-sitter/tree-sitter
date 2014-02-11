@@ -108,7 +108,6 @@
 		12AB4663188DCB9800DE79DF /* stream_methods.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = stream_methods.h; sourceTree = "<group>"; };
 		12BC470318822A17005AC502 /* parse_config.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = parse_config.cpp; sourceTree = "<group>"; };
 		12BC470618830BC5005AC502 /* first_set_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = first_set_spec.cpp; sourceTree = "<group>"; };
-		12C344421822F27700B07BE3 /* transition_map.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = transition_map.h; path = ../build_tables/transition_map.h; sourceTree = "<group>"; };
 		12D1369E18342088005F3369 /* todo.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = todo.md; sourceTree = "<group>"; };
 		12D136A0183570F5005F3369 /* pattern_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = pattern_spec.cpp; path = spec/compiler/rules/pattern_spec.cpp; sourceTree = SOURCE_ROOT; };
 		12D136A2183678A2005F3369 /* repeat.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = repeat.cpp; sourceTree = "<group>"; };
@@ -234,7 +233,6 @@
 				12EDCFA518820137005A7A07 /* perform.h */,
 				12EDCFA618820137005A7A07 /* rule_transitions.cpp */,
 				12EDCFA718820137005A7A07 /* rule_transitions.h */,
-				12C344421822F27700B07BE3 /* transition_map.h */,
 			);
 			path = build_tables;
 			sourceTree = "<group>";

@@ -36,8 +36,8 @@ namespace tree_sitter {
             
             void add_shift_actions(const ParseItemSet &item_set, size_t state_index) {
                 for (auto transition : sym_transitions(item_set, grammar)) {
-                    rules::Symbol symbol = *transition.first;
-                    ParseItemSet item_set = *transition.second;
+                    rules::Symbol symbol = transition.first;
+                    ParseItemSet item_set = transition.second;
                     size_t new_state_index = add_parse_state(item_set);
                     parse_table.add_action(state_index, symbol, ParseAction::Shift(new_state_index));
                 }
@@ -45,8 +45,8 @@ namespace tree_sitter {
             
             void add_advance_actions(const LexItemSet &item_set, size_t state_index) {
                 for (auto transition : char_transitions(item_set, grammar)) {
-                    rules::CharacterSet rule = *transition.first;
-                    LexItemSet item_set = *transition.second;
+                    rules::CharacterSet rule = transition.first;
+                    LexItemSet item_set = transition.second;
                     size_t new_state_index = add_lex_state(item_set);
                     lex_table.add_action(state_index, rule, LexAction::Advance(new_state_index));
                 }

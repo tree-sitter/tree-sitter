@@ -3,6 +3,7 @@
 #include "merge_transitions.h"
 
 using namespace tree_sitter::rules;
+using std::map;
 
 namespace tree_sitter {
     namespace build_tables {
@@ -11,36 +12,38 @@ namespace tree_sitter {
         }
         
         template<typename T>
-        transition_map<T, Rule> merge_transitions(const transition_map<T, Rule> &left, const transition_map<T, Rule> &right);
+        map<T, rule_ptr> merge_transitions(const map<T, rule_ptr> &left, const map<T, rule_ptr> &right);
         
         template<>
-        transition_map<CharacterSet, Rule> merge_transitions(const transition_map<CharacterSet, Rule> &left, const transition_map<CharacterSet, Rule> &right) {
-            return merge_char_transitions<Rule>(left, right, [](rule_ptr left, rule_ptr right) -> rule_ptr {
+        map<CharacterSet, rule_ptr> merge_transitions(const map<CharacterSet, rule_ptr> &left, const map<CharacterSet, rule_ptr> &right) {
+            auto transitions = merge_char_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) -> rule_ptr {
                 return choice({ left, right });
             });
+            return *static_cast<map<CharacterSet, rule_ptr> *>(&transitions);
         }
 
         template<>
-        transition_map<Symbol, Rule> merge_transitions(const transition_map<Symbol, Rule> &left, const transition_map<Symbol, Rule> &right) {
-            return merge_sym_transitions<Rule>(left, right, [](rule_ptr left, rule_ptr right) -> rule_ptr {
+        map<Symbol, rule_ptr> merge_transitions(const map<Symbol, rule_ptr> &left, const map<Symbol, rule_ptr> &right) {
+            auto transitions = merge_sym_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) -> rule_ptr {
                 return choice({ left, right });
             });
+            return *static_cast<map<Symbol, rule_ptr> *>(&transitions);
         }
         
         template<typename T>
-        transition_map<T, Rule> map_transitions(const transition_map<T, Rule> &initial, std::function<const rule_ptr(rule_ptr)> map_fn) {
-            transition_map<T, Rule> result;
+        map<T, rule_ptr> map_transitions(const map<T, rule_ptr> &initial, std::function<const rule_ptr(rule_ptr)> map_fn) {
+            map<T, rule_ptr> result;
             for (auto &pair : initial)
-                result.add(pair.first, map_fn(pair.second));
+                result.insert({ pair.first, map_fn(pair.second) });
             return result;
         }
 
         template<typename T>
         class TransitionsVisitor : public rules::Visitor {
         public:
-            transition_map<T, Rule> value;
+            map<T, rule_ptr> value;
             
-            static transition_map<T, Rule> transitions(const rule_ptr rule) {
+            static map<T, rule_ptr> transitions(const rule_ptr rule) {
                 TransitionsVisitor<T> visitor;
                 rule->accept(visitor);
                 return visitor.value;
@@ -49,7 +52,8 @@ namespace tree_sitter {
             void visit_atom(const Rule *rule) {
                 auto atom = dynamic_cast<const T *>(rule);
                 if (atom) {
-                    value = transition_map<T, Rule>({{ std::make_shared<T>(*atom), blank() }});
+                    value = map<T, rule_ptr>();
+                    value.insert({ *atom, blank() });
                 }
             }
 
@@ -96,11 +100,11 @@ namespace tree_sitter {
             }
         };
         
-        transition_map<CharacterSet, Rule> char_transitions(const rule_ptr &rule) {
+        map<CharacterSet, rule_ptr> char_transitions(const rule_ptr &rule) {
             return TransitionsVisitor<CharacterSet>::transitions(rule);
         }
 
-        transition_map<Symbol, Rule> sym_transitions(const rule_ptr &rule) {
+        map<Symbol, rule_ptr> sym_transitions(const rule_ptr &rule) {
             return TransitionsVisitor<Symbol>::transitions(rule);
         }
 

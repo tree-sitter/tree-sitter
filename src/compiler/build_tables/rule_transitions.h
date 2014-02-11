@@ -3,13 +3,13 @@
 
 #include "character_set.h"
 #include "symbol.h"
-#include "transition_map.h"
+#include <map>
 
 namespace tree_sitter  {
     namespace build_tables {
         bool rule_can_be_blank(const rules::rule_ptr &rule);
-        transition_map<rules::CharacterSet, rules::Rule> char_transitions(const rules::rule_ptr &rule);
-        transition_map<rules::Symbol, rules::Rule> sym_transitions(const rules::rule_ptr &rule);
+        std::map<rules::CharacterSet, rules::rule_ptr> char_transitions(const rules::rule_ptr &rule);
+        std::map<rules::Symbol, rules::rule_ptr> sym_transitions(const rules::rule_ptr &rule);
     }
 }
 

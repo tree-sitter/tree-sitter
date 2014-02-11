@@ -41,8 +41,7 @@ describe("computing closures of item sets", []() {
             ParseItem(Symbol("E"), grammar.rule(Symbol("E")), {}, Symbol("__END__")),
         })));
 
-        auto sym1 = rules::Symbol("v");
-        ParseItemSet next_item_set = *sym_transitions(item_set, grammar)[sym1];
+        ParseItemSet next_item_set = sym_transitions(item_set, grammar)[Symbol("v")];
         AssertThat(next_item_set, Equals(ParseItemSet({
             ParseItem(Symbol("F"), rules::blank(), { false }, Symbol("__END__")),
             ParseItem(Symbol("F"), rules::blank(), { false }, Symbol("*")),

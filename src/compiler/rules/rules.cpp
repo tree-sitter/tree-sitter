@@ -11,16 +11,16 @@ namespace tree_sitter {
             return make_shared<Blank>();
         }
   
-        char_ptr character(char value) {
+        rule_ptr character(char value) {
             set<CharacterRange> ranges = { value };
             return make_shared<CharacterSet>(ranges);
         }
 
-        char_ptr character(const set<CharacterRange> &ranges) {
+        rule_ptr character(const set<CharacterRange> &ranges) {
             return make_shared<CharacterSet>(ranges);
         }
 
-        char_ptr character(const set<CharacterRange> &ranges, bool sign) {
+        rule_ptr character(const set<CharacterRange> &ranges, bool sign) {
             return make_shared<CharacterSet>(ranges, sign);
         }
 
@@ -52,7 +52,7 @@ namespace tree_sitter {
             return make_shared<String>(value);
         }
 
-        sym_ptr sym(const string &name) {
+        rule_ptr sym(const string &name) {
             return make_shared<Symbol>(name, false);
         }
 
