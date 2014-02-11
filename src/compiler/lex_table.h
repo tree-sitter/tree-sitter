@@ -1,7 +1,6 @@
 #ifndef __TreeSitter__lex_table__
 #define __TreeSitter__lex_table__
 
-#include <unordered_map>
 #include <vector>
 #include <string>
 #include <set>

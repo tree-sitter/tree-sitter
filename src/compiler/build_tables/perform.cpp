@@ -1,7 +1,6 @@
 #include "./perform.h"
 #include "item.h"
 #include "item_set_closure.h"
-#include "first_set.h"
 #include "item_set_transitions.h"
 #include "rules.h"
 #include "grammar.h"
@@ -9,7 +8,7 @@
 using std::pair;
 using std::string;
 using std::vector;
-using std::unordered_map;
+using std::map;
 
 namespace tree_sitter {
     namespace build_tables {
@@ -20,8 +19,8 @@ namespace tree_sitter {
         class TableBuilder {
             const Grammar grammar;
             const Grammar lex_grammar;
-            unordered_map<const ParseItemSet, size_t> parse_state_indices;
-            unordered_map<const LexItemSet, size_t> lex_state_indices;
+            map<const ParseItemSet, size_t> parse_state_indices;
+            map<const LexItemSet, size_t> lex_state_indices;
             ParseTable parse_table;
             LexTable lex_table;
             

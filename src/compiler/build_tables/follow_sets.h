@@ -4,13 +4,13 @@
 #include "item.h"
 #include "symbol.h"
 #include <set>
-#include <unordered_map>
+#include <map>
 
 namespace tree_sitter {
     class Grammar;
     
     namespace build_tables {
-        std::unordered_map<rules::Symbol, std::set<rules::Symbol>> follow_sets(const ParseItem &item, const Grammar &grammar);
+        std::map<rules::Symbol, std::set<rules::Symbol>> follow_sets(const ParseItem &item, const Grammar &grammar);
     }
 }
 
