@@ -64,6 +64,10 @@ namespace tree_sitter  {
             return other && (ranges == other->ranges);
         }
         
+        bool CharacterSet::operator<(const CharacterSet &other) const {
+            return ranges < other.ranges;
+        }
+        
         size_t CharacterSet::hash_code() const {
             return typeid(this).hash_code() ^ hash<string>()(to_string());
         }

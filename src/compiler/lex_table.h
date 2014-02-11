@@ -4,7 +4,8 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
-#include <unordered_set>
+#include <set>
+#include <map>
 #include "symbol.h"
 #include "character_set.h"
 
@@ -22,6 +23,7 @@ namespace tree_sitter {
         static LexAction Error();
         static LexAction Advance(size_t state_index);
         bool operator==(const LexAction &action) const;
+        bool operator<(const LexAction &action) const;
         
         LexActionType type;
         rules::Symbol symbol;
@@ -45,9 +47,9 @@ namespace std {
 namespace tree_sitter {
     class LexState {
     public:
-        std::unordered_map<rules::CharacterSet, std::unordered_set<LexAction>> actions;
-        std::unordered_set<LexAction> default_actions;
-        std::unordered_set<rules::CharacterSet> expected_inputs() const;
+        std::map<rules::CharacterSet, std::set<LexAction>> actions;
+        std::set<LexAction> default_actions;
+        std::set<rules::CharacterSet> expected_inputs() const;
     };
     
     class LexTable {

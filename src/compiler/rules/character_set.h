@@ -44,6 +44,7 @@ namespace tree_sitter  {
             CharacterSet remove_set(const CharacterSet &other);
             
             bool operator==(const Rule& other) const;
+            bool operator<(const CharacterSet &) const;
             size_t hash_code() const;
             rule_ptr copy() const;
             std::string to_string() const;

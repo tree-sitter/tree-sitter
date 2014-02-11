@@ -3,7 +3,7 @@
 using std::string;
 using std::ostream;
 using std::to_string;
-using std::unordered_set;
+using std::set;
 using std::vector;
 using tree_sitter::rules::Symbol;
 
@@ -38,6 +38,14 @@ namespace tree_sitter {
         return types_eq && state_indices_eq && child_flags_eq;
     }
     
+    bool ParseAction::operator<(const ParseAction &other) const {
+        if (type < other.type) return true;
+        if (type > other.type) return false;
+        if (state_index < other.state_index) return true;
+        if (state_index > other.state_index) return false;
+        return (child_flags < other.child_flags);
+    }
+    
     ostream& operator<<(ostream &stream, const ParseAction &action) {
         switch (action.type) {
             case ParseActionTypeError:
@@ -54,8 +62,8 @@ namespace tree_sitter {
     // State
     ParseState::ParseState() : lex_state_index(-1) {}
     
-    unordered_set<rules::Symbol> ParseState::expected_inputs() const {
-        unordered_set<rules::Symbol> result;
+    set<rules::Symbol> ParseState::expected_inputs() const {
+        set<rules::Symbol> result;
         for (auto pair : actions)
             result.insert(pair.first);
         return result;

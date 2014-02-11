@@ -1,9 +1,9 @@
 #ifndef __TreeSitter__parse_table__
 #define __TreeSitter__parse_table__
 
-#include <unordered_map>
+#include <map>
 #include <vector>
-#include <unordered_set>
+#include <set>
 #include "symbol.h"
 
 namespace tree_sitter {
@@ -22,6 +22,7 @@ namespace tree_sitter {
         static ParseAction Shift(size_t state_index);
         static ParseAction Reduce(rules::Symbol symbol, const std::vector<bool> &child_flags);
         bool operator==(const ParseAction &action) const;
+        bool operator<(const ParseAction &action) const;
         
         ParseActionType type;
         std::vector<bool> child_flags;
@@ -49,8 +50,8 @@ namespace tree_sitter {
     class ParseState {
     public:
         ParseState();
-        std::unordered_map<rules::Symbol, std::unordered_set<ParseAction>> actions;
-        std::unordered_set<rules::Symbol> expected_inputs() const;
+        std::map<rules::Symbol, std::set<ParseAction>> actions;
+        std::set<rules::Symbol> expected_inputs() const;
         size_t lex_state_index;
     };
     
@@ -62,7 +63,7 @@ namespace tree_sitter {
         void add_action(size_t state_index, rules::Symbol symbol, ParseAction action);
         
         std::vector<ParseState> states;
-        std::unordered_set<rules::Symbol> symbols;
+        std::set<rules::Symbol> symbols;
     };
 }
 

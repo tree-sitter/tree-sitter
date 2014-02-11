@@ -1,12 +1,11 @@
 #include "c_code.h"
 #include <vector>
-#include <unordered_map>
-#include <unordered_set>
+#include <map>
+#include <set>
 
 using std::string;
 using std::to_string;
-using std::unordered_map;
-using std::unordered_set;
+using std::map;
 using std::vector;
 using std::set;
 using std::pair;
@@ -146,7 +145,7 @@ namespace tree_sitter {
                 return result;
             }
             
-            string code_for_parse_actions(const unordered_set<ParseAction> &actions, const unordered_set<rules::Symbol> &expected_inputs) {
+            string code_for_parse_actions(const set<ParseAction> &actions, const set<rules::Symbol> &expected_inputs) {
                 auto action = actions.begin();
                 switch (action->type) {
                     case ParseActionTypeAccept:
@@ -165,7 +164,7 @@ namespace tree_sitter {
                 return input;
             }
             
-            string lex_error_call(const unordered_set<rules::CharacterSet> &expected_inputs) {
+            string lex_error_call(const set<rules::CharacterSet> &expected_inputs) {
                 rules::CharacterSet expected_set;
                 for (auto &rule : expected_inputs)
                     expected_set.add_set(rule);
@@ -181,7 +180,7 @@ namespace tree_sitter {
                 return result;
             }
 
-            string code_for_lex_actions(const unordered_set<LexAction> &actions, const unordered_set<rules::CharacterSet> &expected_inputs) {
+            string code_for_lex_actions(const set<LexAction> &actions, const set<rules::CharacterSet> &expected_inputs) {
                 auto action = actions.begin();
                 if (action == actions.end()) {
                     return lex_error_call(expected_inputs);

@@ -2,8 +2,8 @@
 
 using std::string;
 using std::to_string;
-using std::unordered_map;
-using std::unordered_set;
+using std::map;
+using std::set;
 using tree_sitter::rules::Symbol;
 using tree_sitter::rules::CharacterSet;
 
@@ -33,6 +33,14 @@ namespace tree_sitter {
         (symbol == other.symbol);
     }
     
+    bool LexAction::operator<(const LexAction &other) const {
+        if (type < other.type) return true;
+        if (type > other.type) return false;
+        if (state_index < other.state_index) return true;
+        if (state_index > other.state_index) return false;
+        return (symbol < other.symbol);
+    }
+    
     std::ostream& operator<<(std::ostream &stream, const LexAction &action) {
         switch (action.type) {
             case LexActionTypeError:
@@ -45,8 +53,8 @@ namespace tree_sitter {
     }
     
     // State
-    unordered_set<CharacterSet> LexState::expected_inputs() const {
-        unordered_set<CharacterSet> result;
+    set<CharacterSet> LexState::expected_inputs() const {
+        set<CharacterSet> result;
         for (auto pair : actions)
             result.insert(pair.first);
         return result;

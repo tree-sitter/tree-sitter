@@ -33,9 +33,9 @@ namespace tree_sitter  {
         }
         
         bool Symbol::operator<(const Symbol &other) const {
-            if (name < other.name) return true;
-            if (other.name < name) return false;
-            return is_auxiliary < other.is_auxiliary;
+            if (is_auxiliary < other.is_auxiliary) return true;
+            if (is_auxiliary > other.is_auxiliary) return false;
+            return (name < other.name);
         }
         
         void Symbol::accept(Visitor &visitor) const {

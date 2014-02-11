@@ -5,11 +5,11 @@
 using build_tables::perform;
 using namespace rules;
 
-typedef unordered_set<ParseAction> parse_actions;
-typedef unordered_set<LexAction> lex_actions;
+typedef set<ParseAction> parse_actions;
+typedef set<LexAction> lex_actions;
 
-static unordered_set<Symbol> keys(const unordered_map<Symbol, parse_actions> &map) {
-    unordered_set<Symbol> result;
+static set<Symbol> keys(const map<Symbol, parse_actions> &map) {
+    set<Symbol> result;
     for (auto pair : map) {
         result.insert(pair.first);
     }
@@ -63,7 +63,7 @@ describe("building parse and lex tables", []() {
     };
     
     it("has the right starting state", [&]() {
-        AssertThat(keys(parse_state(0).actions), Equals(unordered_set<Symbol>({
+        AssertThat(keys(parse_state(0).actions), Equals(set<Symbol>({
             Symbol("expression"),
             Symbol("term"),
             Symbol("number"),
@@ -71,7 +71,7 @@ describe("building parse and lex tables", []() {
             Symbol("left-paren"),
         })));
         
-        AssertThat(lex_state(0).expected_inputs(), Equals(unordered_set<CharacterSet>({
+        AssertThat(lex_state(0).expected_inputs(), Equals(set<CharacterSet>({
             CharacterSet({ '(' }, true),
             CharacterSet({ {'0', '9'} }, true),
             CharacterSet({ {'a', 'z'}, {'A', 'Z'} }, true),
@@ -79,13 +79,13 @@ describe("building parse and lex tables", []() {
     });
     
     it("accepts when the start symbol is reduced", [&]() {
-        AssertThat(parse_state(1).actions, Equals(unordered_map<Symbol, parse_actions>({
+        AssertThat(parse_state(1).actions, Equals(map<Symbol, parse_actions>({
             { Symbol("__END__"), parse_actions({ ParseAction::Accept() }) }
         })));
     });
     
     it("has the right next states", [&]() {
-        AssertThat(parse_state(2).actions, Equals(unordered_map<Symbol, parse_actions>({
+        AssertThat(parse_state(2).actions, Equals(map<Symbol, parse_actions>({
             { Symbol("plus"), parse_actions({ ParseAction::Shift(3) }) },
             { Symbol("__END__"), parse_actions({ ParseAction::Reduce(Symbol("expression"), { false }) }) },
         })));
