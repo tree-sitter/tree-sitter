@@ -1,6 +1,6 @@
 #include "item.h"
 #include "grammar.h"
-#include "rule_transitions.h"
+#include "rule_can_be_blank.h"
 
 using std::string;
 using std::to_string;

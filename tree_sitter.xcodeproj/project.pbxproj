@@ -18,6 +18,8 @@
 		1251209B1830145300C9B56A /* rule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1251209A1830145300C9B56A /* rule.cpp */; };
 		125120A4183083BD00C9B56A /* arithmetic.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 125120A3183083BD00C9B56A /* arithmetic.cpp */; };
 		12661BF418A1505A00A259FB /* character_set_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12661BF318A1505A00A259FB /* character_set_spec.cpp */; };
+		127528B318AACAAA006B682B /* rule_can_be_blank.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 127528B118AACAAA006B682B /* rule_can_be_blank.cpp */; };
+		127528B518AACB70006B682B /* rule_can_be_blank_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 127528B418AACB70006B682B /* rule_can_be_blank_spec.cpp */; };
 		12AB465F188BD03E00DE79DF /* follow_sets.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12AB465D188BD03E00DE79DF /* follow_sets.cpp */; };
 		12AB4661188CB3A300DE79DF /* item_set_closure_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12AB4660188CB3A300DE79DF /* item_set_closure_spec.cpp */; };
 		12BC470518822B27005AC502 /* parse_config.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12BC470318822A17005AC502 /* parse_config.cpp */; };
@@ -102,6 +104,9 @@
 		125120A3183083BD00C9B56A /* arithmetic.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = arithmetic.cpp; path = spec/fixtures/grammars/arithmetic.cpp; sourceTree = SOURCE_ROOT; };
 		12661BF318A1505A00A259FB /* character_set_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = character_set_spec.cpp; sourceTree = SOURCE_ROOT; };
 		127528AF18A6F9C6006B682B /* merge_transitions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = merge_transitions.h; sourceTree = "<group>"; };
+		127528B118AACAAA006B682B /* rule_can_be_blank.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rule_can_be_blank.cpp; sourceTree = "<group>"; };
+		127528B218AACAAA006B682B /* rule_can_be_blank.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rule_can_be_blank.h; sourceTree = "<group>"; };
+		127528B418AACB70006B682B /* rule_can_be_blank_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rule_can_be_blank_spec.cpp; sourceTree = "<group>"; };
 		12AB465D188BD03E00DE79DF /* follow_sets.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = follow_sets.cpp; sourceTree = "<group>"; };
 		12AB465E188BD03E00DE79DF /* follow_sets.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = follow_sets.h; sourceTree = "<group>"; };
 		12AB4660188CB3A300DE79DF /* item_set_closure_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = item_set_closure_spec.cpp; sourceTree = "<group>"; };
@@ -233,6 +238,8 @@
 				12EDCFA518820137005A7A07 /* perform.h */,
 				12EDCFA618820137005A7A07 /* rule_transitions.cpp */,
 				12EDCFA718820137005A7A07 /* rule_transitions.h */,
+				127528B118AACAAA006B682B /* rule_can_be_blank.cpp */,
+				127528B218AACAAA006B682B /* rule_can_be_blank.h */,
 			);
 			path = build_tables;
 			sourceTree = "<group>";
@@ -244,6 +251,7 @@
 				12EDCFB7188205BA005A7A07 /* perform_spec.cpp */,
 				12BC470618830BC5005AC502 /* first_set_spec.cpp */,
 				12AB4660188CB3A300DE79DF /* item_set_closure_spec.cpp */,
+				127528B418AACB70006B682B /* rule_can_be_blank_spec.cpp */,
 			);
 			path = build_tables;
 			sourceTree = "<group>";
@@ -504,6 +512,7 @@
 				12130611182C3A1100FCF928 /* blank.cpp in Sources */,
 				12AB465F188BD03E00DE79DF /* follow_sets.cpp in Sources */,
 				1213060E182C398300FCF928 /* choice.cpp in Sources */,
+				127528B318AACAAA006B682B /* rule_can_be_blank.cpp in Sources */,
 				12F9A64E182DD5FD00FAF50C /* spec_helper.cpp in Sources */,
 				12EDCFB018820392005A7A07 /* item.cpp in Sources */,
 				12FD40F7186A16020041A84E /* lex_table.cpp in Sources */,
@@ -530,6 +539,7 @@
 				12EDCFB418820519005A7A07 /* compile.cpp in Sources */,
 				12BC470718830BC5005AC502 /* first_set_spec.cpp in Sources */,
 				1213060B182C389100FCF928 /* symbol.cpp in Sources */,
+				127528B518AACB70006B682B /* rule_can_be_blank_spec.cpp in Sources */,
 				1251209B1830145300C9B56A /* rule.cpp in Sources */,
 				27A343CA69E17E0F9EBEDF1C /* pattern.cpp in Sources */,
 			);

@@ -1,5 +1,6 @@
-#include "rule_transitions.h"
 #include "rules.h"
+#include "rule_transitions.h"
+#include "rule_can_be_blank.h"
 #include "merge_transitions.h"
 
 using namespace tree_sitter::rules;
@@ -106,37 +107,6 @@ namespace tree_sitter {
 
         map<Symbol, rule_ptr> sym_transitions(const rule_ptr &rule) {
             return TransitionsVisitor<Symbol>::transitions(rule);
-        }
-
-        class EpsilonVisitor : public rules::Visitor {
-        public:
-            bool value;
-            
-            void default_visit(const Rule *) {
-                value = false;
-            }
-            
-            void visit(const Blank *) {
-                value = true;
-            }
-            
-            void visit(const Choice *rule) {
-                value = rule_can_be_blank(rule->left) || rule_can_be_blank(rule->right);
-            }
-            
-            void visit(const Seq *rule) {
-                value = rule_can_be_blank(rule->left) && rule_can_be_blank(rule->right);
-            }
-            
-            void visit(const Repeat *rule) {
-                value = rule_can_be_blank(rule->content);
-            }
-        };
-        
-        bool rule_can_be_blank(const rule_ptr &rule) {
-            EpsilonVisitor visitor;
-            rule->accept(visitor);
-            return visitor.value;
         }
     }
 }

@@ -1,6 +1,7 @@
 #include "follow_sets.h"
 #include "first_set.h"
 #include "rule_transitions.h"
+#include "rule_can_be_blank.h"
 #include "grammar.h"
 
 using std::map;

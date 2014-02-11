@@ -1,5 +1,4 @@
 #include "spec_helper.h"
-#include "rule_transitions.h"
 
 using namespace rules;
 

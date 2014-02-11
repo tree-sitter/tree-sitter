@@ -182,18 +182,5 @@ describe("rule transitions", []() {
     });
 });
 
-describe("checking if rules can be blank", [&]() {
-    it("handles sequences", [&]() {
-        rule_ptr rule = seq({
-            choice({
-                str("x"),
-                blank(),
-            }),
-            str("y"),
-        });
-        
-        AssertThat(rule_can_be_blank(rule), Equals(false));
-    });
-});
 
 END_TEST
