@@ -232,7 +232,7 @@ static TSParseResult ts_parse(const char *input) {
         case 5:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_repeat_helper2:
+                case ts_aux_repeat_helper1:
                     SHIFT(6);
                 case ts_aux_token2:
                     SHIFT(8);
@@ -290,12 +290,12 @@ static TSParseResult ts_parse(const char *input) {
         case 10:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_repeat_helper2:
+                case ts_aux_repeat_helper1:
                     SHIFT(11);
                 case ts_aux_token2:
                     SHIFT(8);
                 case ts_aux_token4:
-                    REDUCE(ts_aux_repeat_helper2, 2, COLLAPSE({1, 0}));
+                    REDUCE(ts_aux_repeat_helper1, 2, COLLAPSE({1, 0}));
                 default:
                     PARSE_PANIC();
             }
@@ -303,7 +303,7 @@ static TSParseResult ts_parse(const char *input) {
             SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token4:
-                    REDUCE(ts_aux_repeat_helper2, 3, COLLAPSE({1, 0, 1}));
+                    REDUCE(ts_aux_repeat_helper1, 3, COLLAPSE({1, 0, 1}));
                 default:
                     PARSE_PANIC();
             }
@@ -330,7 +330,7 @@ static TSParseResult ts_parse(const char *input) {
         case 13:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_repeat_helper2:
+                case ts_aux_repeat_helper1:
                     SHIFT(14);
                 case ts_aux_token2:
                     SHIFT(8);
@@ -380,7 +380,7 @@ static TSParseResult ts_parse(const char *input) {
         case 17:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_repeat_helper2:
+                case ts_aux_repeat_helper1:
                     SHIFT(18);
                 case ts_aux_token2:
                     SHIFT(8);
@@ -446,7 +446,7 @@ static TSParseResult ts_parse(const char *input) {
         case 23:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_repeat_helper1:
+                case ts_aux_repeat_helper2:
                     SHIFT(24);
                 case ts_aux_token2:
                     SHIFT(26);
@@ -522,12 +522,12 @@ static TSParseResult ts_parse(const char *input) {
         case 30:
             SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_repeat_helper1:
+                case ts_aux_repeat_helper2:
                     SHIFT(31);
                 case ts_aux_token2:
                     SHIFT(26);
                 case ts_aux_token7:
-                    REDUCE(ts_aux_repeat_helper1, 4, COLLAPSE({1, 0, 1, 0}));
+                    REDUCE(ts_aux_repeat_helper2, 4, COLLAPSE({1, 0, 1, 0}));
                 default:
                     PARSE_PANIC();
             }
@@ -535,7 +535,7 @@ static TSParseResult ts_parse(const char *input) {
             SET_LEX_STATE(7);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_token7:
-                    REDUCE(ts_aux_repeat_helper1, 5, COLLAPSE({1, 0, 1, 0, 1}));
+                    REDUCE(ts_aux_repeat_helper2, 5, COLLAPSE({1, 0, 1, 0, 1}));
                 default:
                     PARSE_PANIC();
             }
@@ -562,7 +562,7 @@ static TSParseResult ts_parse(const char *input) {
         case 33:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_repeat_helper2:
+                case ts_aux_repeat_helper1:
                     SHIFT(34);
                 case ts_aux_token2:
                     SHIFT(8);
@@ -628,7 +628,7 @@ static TSParseResult ts_parse(const char *input) {
         case 39:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_repeat_helper1:
+                case ts_aux_repeat_helper2:
                     SHIFT(40);
                 case ts_aux_token2:
                     SHIFT(26);
@@ -694,7 +694,7 @@ static TSParseResult ts_parse(const char *input) {
         case 45:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_repeat_helper1:
+                case ts_aux_repeat_helper2:
                     SHIFT(46);
                 case ts_aux_token2:
                     SHIFT(26);
@@ -760,7 +760,7 @@ static TSParseResult ts_parse(const char *input) {
         case 51:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_repeat_helper1:
+                case ts_aux_repeat_helper2:
                     SHIFT(52);
                 case ts_aux_token2:
                     SHIFT(26);

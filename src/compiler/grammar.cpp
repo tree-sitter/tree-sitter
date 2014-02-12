@@ -11,11 +11,11 @@ namespace tree_sitter {
         rules(rules),
         start_rule_name(rules.begin()->first) {}
     
-    Grammar::Grammar(std::string start_rule_name, rule_map &rules) :
+    Grammar::Grammar(std::string start_rule_name, const rule_map &rules) :
         rules(rules),
         start_rule_name(start_rule_name) {}
 
-    Grammar::Grammar(std::string start_rule_name, rule_map &rules, rule_map &aux_rules) :
+    Grammar::Grammar(std::string start_rule_name, const rule_map &rules, const rule_map &aux_rules) :
         rules(rules),
         aux_rules(aux_rules),
         start_rule_name(start_rule_name) {}

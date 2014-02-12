@@ -1,11 +1,11 @@
 #include "extract_tokens.h"
 #include "search_for_symbols.h"
-#include <unordered_map>
+#include <map>
 
 using std::pair;
 using std::string;
 using std::to_string;
-using std::unordered_map;
+using std::map;
 using namespace tree_sitter::rules;
 
 namespace tree_sitter {
@@ -13,7 +13,7 @@ namespace tree_sitter {
         class TokenExtractor : Visitor {
         public:
             rule_ptr value;
-            unordered_map<string, const rule_ptr> tokens;
+            map<const string, const rule_ptr> tokens;
             
             rule_ptr initial_apply(const rule_ptr rule) {
                 if (!search_for_symbols(rule)) {
@@ -61,9 +61,9 @@ namespace tree_sitter {
         
         pair<Grammar, Grammar> extract_tokens(const Grammar &input_grammar) {
             TokenExtractor extractor;
-            unordered_map<string, const rule_ptr> rules;
-            unordered_map<string, const rule_ptr> aux_rules;
-            unordered_map<string, const rule_ptr> tokens;
+            map<const string, const rule_ptr> rules;
+            map<const string, const rule_ptr> aux_rules;
+            map<const string, const rule_ptr> tokens;
             
             for (auto pair : input_grammar.rules) {
                 string name = pair.first;

@@ -1,9 +1,9 @@
 #include "expand_repeats.h"
-#include <unordered_map>
+#include <map>
 
 using std::string;
 using std::to_string;
-using std::unordered_map;
+using std::map;
 using namespace tree_sitter::rules;
 
 namespace tree_sitter {
@@ -11,7 +11,7 @@ namespace tree_sitter {
         class RepeatExpander : rules::Visitor {
         public:
             rule_ptr value;
-            unordered_map<string, const rule_ptr> aux_rules;
+            map<const string, const rule_ptr> aux_rules;
             
             rule_ptr apply(const rule_ptr &rule) {
                 rule->accept(*this);
@@ -46,7 +46,7 @@ namespace tree_sitter {
         };
         
         Grammar expand_repeats(const Grammar &grammar) {
-            unordered_map<string, const rule_ptr> result;
+            map<const string, const rule_ptr> result;
             RepeatExpander visitor;
 
             for (auto pair : grammar.rules)

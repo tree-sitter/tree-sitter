@@ -29,7 +29,7 @@ describe("preparing a grammar", []() {
                 aux_sym("token1") }) }
         })));
         
-        AssertThat(result.second, Equals(Grammar("", {}, {
+        AssertThat(result.second, Equals(Grammar("", map<const string, const rule_ptr>(), {
             { "token1", rules::seq({
                 rules::character('a'),
                 rules::character('b') }) },
@@ -98,7 +98,7 @@ describe("preparing a grammar", []() {
             }) },
         })));
         
-        AssertThat(result.second, Equals(Grammar("", {}, {
+        AssertThat(result.second, Equals(Grammar("", map<const string, const rule_ptr>(), {
             { "token1", repeat(seq({ str("a"), str("b") })) },
         })));
     });
