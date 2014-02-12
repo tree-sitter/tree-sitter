@@ -6,7 +6,6 @@
 
 using std::map;
 using std::set;
-using std::dynamic_pointer_cast;
 using tree_sitter::rules::Symbol;
 
 namespace tree_sitter {

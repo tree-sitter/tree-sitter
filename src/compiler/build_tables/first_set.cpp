@@ -1,11 +1,8 @@
 #include "first_set.h"
 #include "rule_can_be_blank.h"
 #include "grammar.h"
-#include <vector>
 
 using std::set;
-using std::vector;
-using std::dynamic_pointer_cast;
 using namespace tree_sitter::rules;
 
 namespace tree_sitter {

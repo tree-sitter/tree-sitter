@@ -1,7 +1,6 @@
 #ifndef __tree_sitter__first_set__
 #define __tree_sitter__first_set__
 
-#include "item.h"
 #include "symbol.h"
 #include <set>
 

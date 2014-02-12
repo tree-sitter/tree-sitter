@@ -7,7 +7,6 @@
 
 using std::pair;
 using std::string;
-using std::vector;
 using std::map;
 
 namespace tree_sitter {

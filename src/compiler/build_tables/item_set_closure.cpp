@@ -2,10 +2,6 @@
 #include "./follow_sets.h"
 #include "grammar.h"
 #include "item.h"
-#include <vector>
-
-using std::set;
-using std::vector;
 
 namespace tree_sitter {
     namespace build_tables {

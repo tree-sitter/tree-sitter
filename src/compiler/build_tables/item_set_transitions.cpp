@@ -3,8 +3,6 @@
 #include "rule_transitions.h"
 #include "merge_transitions.h"
 
-using std::make_shared;
-using std::shared_ptr;
 using std::map;
 
 namespace tree_sitter {
