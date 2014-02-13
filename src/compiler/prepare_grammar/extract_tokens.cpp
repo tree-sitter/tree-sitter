@@ -24,7 +24,7 @@ namespace tree_sitter {
             }
             
             rule_ptr apply(const rule_ptr rule) {
-                if (search_for_symbols(rule)) {
+                if (search_for_symbols(rule) || rule->operator==(Blank())) {
                     rule->accept(*this);
                     return value;
                 } else {

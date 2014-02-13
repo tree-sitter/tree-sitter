@@ -102,6 +102,18 @@ describe("preparing a grammar", []() {
             { "token1", repeat(seq({ str("a"), str("b") })) },
         })));
     });
+    
+    it("does not extract blanks into tokens", [&]() {
+        pair<Grammar, Grammar> result = perform(Grammar({
+            { "rule1", choice({ sym("rule2"), blank() }) },
+        }));
+        
+        AssertThat(result.first, Equals(Grammar("rule1", {
+            { "rule1", choice({ sym("rule2"), blank() }) },
+        })));
+        
+        AssertThat(result.second, Equals(Grammar("", map<const string, const rule_ptr>())));
+    });
 });
 
 END_TEST
