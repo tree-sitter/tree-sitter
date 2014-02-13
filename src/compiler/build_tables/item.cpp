@@ -21,18 +21,18 @@ namespace tree_sitter {
         
         ostream& operator<<(ostream &stream, const LexItem &item) {
             return stream <<
-            string("#<item '") <<
+            string("#<item ") <<
             item.lhs <<
-            string("' ") <<
+            string(" ") <<
             *item.rule <<
             string(">");
         }
         
         ostream& operator<<(ostream &stream, const ParseItem &item) {
             return stream <<
-            string("#<item '") <<
+            string("#<item ") <<
             item.lhs <<
-            string("' ") <<
+            string(" ") <<
             *item.rule <<
             string(" ") <<
             to_string(item.consumed_symbols.size()) <<
