@@ -14,6 +14,12 @@ describe("json", []() {
     });
     
     it("parses strings", [&]() {
+        TSDocumentSetText(document, "\"\"");
+        AssertThat(string(TSDocumentToString(document)), Equals("(value (string))"));
+
+        TSDocumentSetText(document, "\"simple-string\"");
+        AssertThat(string(TSDocumentToString(document)), Equals("(value (string))"));
+
         TSDocumentSetText(document, "\"this is a \\\"string\\\" within a string\"");
         AssertThat(string(TSDocumentToString(document)), Equals("(value (string))"));
     });

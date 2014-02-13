@@ -26,7 +26,7 @@ namespace tree_sitter  {
             }
             
             void visit(const Repeat *rule) {
-                value = rule_can_be_blank(rule->content);
+                value = true;
             }
         };
         

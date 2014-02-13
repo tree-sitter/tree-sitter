@@ -84,11 +84,13 @@ static void ts_lex(TSParser *parser) {
             if (!((LOOKAHEAD_CHAR() == '\"') ||
                 (LOOKAHEAD_CHAR() == '\\')))
                 ADVANCE(11);
+            if (LOOKAHEAD_CHAR() == '\"')
+                ADVANCE(12);
             if (LOOKAHEAD_CHAR() == '\\')
                 ADVANCE(13);
             if (']' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '\\')
                 ADVANCE(15);
-            LEX_ERROR(2, EXPECT({"<EOF>-!", "#-<MAX>"}));
+            LEX_ERROR(1, EXPECT({"<ANY>"}));
         case 11:
             if (!((LOOKAHEAD_CHAR() == '\"') ||
                 (LOOKAHEAD_CHAR() == '\\')))
