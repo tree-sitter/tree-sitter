@@ -46,13 +46,16 @@ namespace tree_sitter {
         };
         
         Grammar expand_repeats(const Grammar &grammar) {
-            map<const string, const rule_ptr> result;
+            map<const string, const rule_ptr> rules;
+            map<const string, const rule_ptr> aux_rules(grammar.aux_rules);
             RepeatExpander visitor;
 
             for (auto pair : grammar.rules)
-                result.insert({ pair.first, visitor.apply(pair.second) });
+                rules.insert({ pair.first, visitor.apply(pair.second) });
+            
+            aux_rules.insert(visitor.aux_rules.begin(), visitor.aux_rules.end());
 
-            return Grammar(grammar.start_rule_name, result, visitor.aux_rules);
+            return Grammar(grammar.start_rule_name, rules, aux_rules);
         }
     }
 }

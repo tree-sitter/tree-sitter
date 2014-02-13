@@ -62,13 +62,14 @@ namespace tree_sitter {
         pair<Grammar, Grammar> extract_tokens(const Grammar &input_grammar) {
             TokenExtractor extractor;
             map<const string, const rule_ptr> rules;
-            map<const string, const rule_ptr> aux_rules;
             map<const string, const rule_ptr> tokens;
+            map<const string, const rule_ptr> aux_rules;
+            map<const string, const rule_ptr> aux_tokens;
             
             for (auto pair : input_grammar.rules) {
                 string name = pair.first;
                 rule_ptr rule = pair.second;
-                auto new_rule = extractor.initial_apply(rule);
+                rule_ptr new_rule = extractor.initial_apply(rule);
                 if (new_rule.get())
                     rules.insert({ name, new_rule });
                 else
@@ -78,16 +79,18 @@ namespace tree_sitter {
             for (auto pair : input_grammar.aux_rules) {
                 string name = pair.first;
                 rule_ptr rule = pair.second;
-                auto new_rule = extractor.initial_apply(rule);
+                rule_ptr new_rule = extractor.initial_apply(rule);
                 if (new_rule.get())
                     aux_rules.insert({ name, new_rule });
                 else
-                    tokens.insert({ name, rule });
+                    aux_tokens.insert({ name, rule });
             }
-
+            
+            aux_tokens.insert(extractor.tokens.begin(), extractor.tokens.end());
+            
             return { 
-                Grammar(input_grammar.start_rule_name, rules),
-                Grammar("", tokens, extractor.tokens)
+                Grammar(input_grammar.start_rule_name, rules, aux_rules),
+                Grammar("", tokens, aux_tokens)
             };
         }
     }
