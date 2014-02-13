@@ -4,6 +4,9 @@
 #include "item.h"
 
 namespace tree_sitter {
+    using std::set;
+    using rules::Symbol;
+    
     namespace build_tables {
         static bool contains(ParseItemSet items, ParseItem item) {
             return (std::find(items.begin(), items.end(), item) != items.end());
@@ -13,10 +16,10 @@ namespace tree_sitter {
             if (!contains(item_set, item)) {
                 item_set.insert(item);
                 for (auto pair : follow_sets(item, grammar)) {
-                    auto non_terminal = pair.first;
-                    auto terminals = pair.second;
-                    for (rules::Symbol terminal : terminals) {
-                        auto next_item = ParseItem(non_terminal, grammar.rule(non_terminal), {}, terminal);
+                    Symbol non_terminal = pair.first;
+                    set<Symbol> terminals = pair.second;
+                    for (auto &terminal : terminals) {
+                        ParseItem next_item(non_terminal, grammar.rule(non_terminal), {}, terminal);
                         add_item(item_set, next_item, grammar);
                     }
                 }

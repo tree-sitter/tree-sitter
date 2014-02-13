@@ -2,13 +2,13 @@
 #include "grammar.h"
 #include "rule_can_be_blank.h"
 
-using std::string;
-using std::to_string;
-using std::ostream;
-using std::vector;
-using tree_sitter::rules::Symbol;
-
 namespace tree_sitter {
+    using std::string;
+    using std::to_string;
+    using std::ostream;
+    using std::vector;
+    using rules::Symbol;
+
     namespace build_tables {
         Item::Item(const Symbol &lhs, const rules::rule_ptr rule) :
             lhs(lhs),

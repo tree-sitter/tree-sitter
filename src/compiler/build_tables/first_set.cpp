@@ -2,10 +2,11 @@
 #include "rule_can_be_blank.h"
 #include "grammar.h"
 
-using std::set;
-using namespace tree_sitter::rules;
 
 namespace tree_sitter {
+    using std::set;
+    using namespace rules;
+
     namespace build_tables {
         class FirstSetVisitor : Visitor {
             set<Symbol> value;

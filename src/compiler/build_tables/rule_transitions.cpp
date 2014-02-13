@@ -3,10 +3,10 @@
 #include "rule_can_be_blank.h"
 #include "merge_transitions.h"
 
-using namespace tree_sitter::rules;
-using std::map;
-
 namespace tree_sitter {
+    using std::map;
+    using namespace rules;
+
     namespace build_tables {
         bool is_blank(const rule_ptr &rule) {
             return typeid(*rule) == typeid(Blank);

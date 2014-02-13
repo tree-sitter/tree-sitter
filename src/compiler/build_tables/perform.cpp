@@ -5,11 +5,11 @@
 #include "rules.h"
 #include "grammar.h"
 
-using std::pair;
-using std::string;
-using std::map;
-
 namespace tree_sitter {
+    using std::pair;
+    using std::string;
+    using std::map;
+
     namespace build_tables {
         static int NOT_FOUND = -1;
         static rules::Symbol START("start", true);
