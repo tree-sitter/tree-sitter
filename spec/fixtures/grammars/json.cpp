@@ -8,31 +8,31 @@ static rule_ptr comma_sep(const rule_ptr &rule) {
     return seq({
         rule,
         choice({
-            repeat(seq({ str(","), rule })),
-            blank()
-        })
+            repeat(seq({ aux_sym("comma"), rule })),
+            blank(),
+        }),
     });
 }
 
 namespace test_grammars {
     Grammar json() {
-        return Grammar({
+        return Grammar("value", {
             { "value", choice({
                 sym("object"),
                 sym("array"),
                 sym("string"), 
                 sym("number") }) },
             { "object", seq({
-                str("{"),
+                aux_sym("left_brace"),
                 comma_sep(seq({
                     sym("string"),
-                    str(":"),
+                    aux_sym("colon"),
                     sym("value") })),
-                str("}"), }) },
+                aux_sym("right_brace"), }) },
             { "array", seq({
-                str("["),
+                aux_sym("left_bracket"),
                 comma_sep(sym("value")),
-                str("]"), }) },
+                aux_sym("right_bracket"), }) },
             { "string", seq({
                 character('"'),
                 repeat(choice({
@@ -41,6 +41,13 @@ namespace test_grammars {
                 })),
                 character('"') }) },
             { "number", pattern("\\d+") }
+        }, {
+            { "comma", str(",") },
+            { "colon", str(":") },
+            { "left_bracket", str("[") },
+            { "right_bracket", str("]") },
+            { "left_brace", str("{") },
+            { "right_brace", str("}") },
         });
     }
 }
