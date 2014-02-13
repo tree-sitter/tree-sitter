@@ -1,15 +1,14 @@
 #include "parse_table.h"
 
-using std::string;
-using std::ostream;
-using std::to_string;
-using std::set;
-using std::vector;
-using tree_sitter::rules::Symbol;
-
 namespace tree_sitter {
-    // Action
-    ParseAction::ParseAction(ParseActionType type, size_t state_index, rules::Symbol symbol, const vector<bool> &child_flags) :
+    using std::string;
+    using std::ostream;
+    using std::to_string;
+    using std::set;
+    using std::vector;
+    using rules::Symbol;
+    
+    ParseAction::ParseAction(ParseActionType type, size_t state_index, Symbol symbol, const vector<bool> &child_flags) :
         type(type),
         state_index(state_index),
         symbol(symbol),
@@ -59,11 +58,10 @@ namespace tree_sitter {
         }
     }
     
-    // State
     ParseState::ParseState() : lex_state_index(-1) {}
     
-    set<rules::Symbol> ParseState::expected_inputs() const {
-        set<rules::Symbol> result;
+    set<Symbol> ParseState::expected_inputs() const {
+        set<Symbol> result;
         for (auto pair : actions)
             result.insert(pair.first);
         return result;
@@ -88,13 +86,12 @@ namespace tree_sitter {
         return stream;
     }
     
-    // Table
     size_t ParseTable::add_state() {
         states.push_back(ParseState());
         return states.size() - 1;
     }
     
-    void ParseTable::add_action(size_t state_index, rules::Symbol symbol, ParseAction action) {
+    void ParseTable::add_action(size_t state_index, Symbol symbol, ParseAction action) {
         symbols.insert(symbol);
         states[state_index].actions[symbol].insert(action);
     }

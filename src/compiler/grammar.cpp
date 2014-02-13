@@ -1,12 +1,12 @@
 #include "grammar.h"
 
-using std::vector;
-using std::string;
-using std::pair;
-using std::initializer_list;
-using std::ostream;
-
 namespace tree_sitter {
+    using std::vector;
+    using std::string;
+    using std::pair;
+    using std::initializer_list;
+    using std::ostream;
+    
     Grammar::Grammar(const initializer_list<pair<const string, const rules::rule_ptr>> &rules) :
         rules(rules),
         start_rule_name(rules.begin()->first) {}

@@ -3,14 +3,14 @@
 #include <map>
 #include <set>
 
-using std::string;
-using std::to_string;
-using std::map;
-using std::vector;
-using std::set;
-using std::pair;
-
 namespace tree_sitter {
+    using std::string;
+    using std::to_string;
+    using std::map;
+    using std::vector;
+    using std::set;
+    using std::pair;
+    
     namespace generate_code {
         static void str_replace(string &input, const string &search, const string &replace) {
             size_t pos = 0;

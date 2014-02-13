@@ -1,14 +1,13 @@
 #include "lex_table.h"
 
-using std::string;
-using std::to_string;
-using std::map;
-using std::set;
-using tree_sitter::rules::Symbol;
-using tree_sitter::rules::CharacterSet;
-
 namespace tree_sitter {
-    // Action
+    using std::string;
+    using std::to_string;
+    using std::map;
+    using std::set;
+    using rules::Symbol;
+    using rules::CharacterSet;
+    
     LexAction::LexAction(LexActionType type, size_t state_index, Symbol symbol) :
         type(type),
         state_index(state_index),
@@ -52,15 +51,13 @@ namespace tree_sitter {
         }
     }
     
-    // State
     set<CharacterSet> LexState::expected_inputs() const {
         set<CharacterSet> result;
-        for (auto pair : actions)
+        for (auto &pair : actions)
             result.insert(pair.first);
         return result;
     }
     
-    // Table
     size_t LexTable::add_state() {
         states.push_back(LexState());
         return states.size() - 1;

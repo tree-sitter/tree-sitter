@@ -2,13 +2,13 @@
 #include "search_for_symbols.h"
 #include <map>
 
-using std::pair;
-using std::string;
-using std::to_string;
-using std::map;
-using namespace tree_sitter::rules;
-
 namespace tree_sitter {
+    using std::pair;
+    using std::string;
+    using std::to_string;
+    using std::map;
+    using namespace rules;
+
     namespace prepare_grammar {
         class TokenExtractor : Visitor {
         public:

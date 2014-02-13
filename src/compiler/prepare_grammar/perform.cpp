@@ -2,9 +2,9 @@
 #include "./extract_tokens.h"
 #include "./expand_repeats.h"
 
-using std::pair;
-
 namespace tree_sitter {
+    using std::pair;
+    
     namespace prepare_grammar {
         pair<Grammar, Grammar> perform(const Grammar &input_grammar) {
             auto grammars = prepare_grammar::extract_tokens(input_grammar);

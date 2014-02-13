@@ -48,7 +48,7 @@ namespace tree_sitter {
             }
         };
         
-        set<rules::Symbol> first_set(const rules::rule_ptr &rule, const Grammar &grammar) {
+        set<Symbol> first_set(const rule_ptr &rule, const Grammar &grammar) {
             return FirstSetVisitor::apply(rule, grammar);
         }
     }

@@ -9,11 +9,13 @@ namespace tree_sitter {
     using std::pair;
     using std::string;
     using std::map;
+    using rules::Symbol;
+    using rules::CharacterSet;
 
     namespace build_tables {
         static int NOT_FOUND = -1;
-        static rules::Symbol START("start", true);
-        static rules::Symbol END_OF_INPUT("end", true);
+        static Symbol START("start", true);
+        static Symbol END_OF_INPUT("end", true);
 
         class TableBuilder {
             const Grammar grammar;
@@ -35,7 +37,7 @@ namespace tree_sitter {
             
             void add_shift_actions(const ParseItemSet &item_set, size_t state_index) {
                 for (auto transition : sym_transitions(item_set, grammar)) {
-                    rules::Symbol symbol = transition.first;
+                    Symbol symbol = transition.first;
                     ParseItemSet item_set = transition.second;
                     size_t new_state_index = add_parse_state(item_set);
                     parse_table.add_action(state_index, symbol, ParseAction::Shift(new_state_index));
@@ -44,7 +46,7 @@ namespace tree_sitter {
             
             void add_advance_actions(const LexItemSet &item_set, size_t state_index) {
                 for (auto transition : char_transitions(item_set, grammar)) {
-                    rules::CharacterSet rule = transition.first;
+                    CharacterSet rule = transition.first;
                     LexItemSet item_set = transition.second;
                     size_t new_state_index = add_lex_state(item_set);
                     lex_table.add_action(state_index, rule, LexAction::Advance(new_state_index));

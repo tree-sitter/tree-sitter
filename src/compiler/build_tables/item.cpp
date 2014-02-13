@@ -8,9 +8,10 @@ namespace tree_sitter {
     using std::ostream;
     using std::vector;
     using rules::Symbol;
+    using rules::rule_ptr;
 
     namespace build_tables {
-        Item::Item(const Symbol &lhs, const rules::rule_ptr rule) :
+        Item::Item(const Symbol &lhs, const rule_ptr rule) :
             lhs(lhs),
             rule(rule) {};
         
@@ -58,7 +59,7 @@ namespace tree_sitter {
             return false;
         }
 
-        LexItem::LexItem(const Symbol &lhs, const rules::rule_ptr rule) : Item(lhs, rule) {}
+        LexItem::LexItem(const Symbol &lhs, const rule_ptr rule) : Item(lhs, rule) {}
         
         bool LexItem::operator==(const LexItem &other) const {
             bool lhs_eq = other.lhs == lhs;
@@ -66,7 +67,7 @@ namespace tree_sitter {
             return lhs_eq && rules_eq;
         }
         
-        ParseItem::ParseItem(const Symbol &lhs, const rules::rule_ptr rule, const vector<bool> &consumed_symbols, const rules::Symbol &lookahead_sym) :
+        ParseItem::ParseItem(const Symbol &lhs, const rule_ptr rule, const vector<bool> &consumed_symbols, const Symbol &lookahead_sym) :
             Item(lhs, rule),
             consumed_symbols(consumed_symbols),
             lookahead_sym(lookahead_sym) {}

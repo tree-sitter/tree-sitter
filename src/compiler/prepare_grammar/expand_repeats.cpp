@@ -1,12 +1,12 @@
 #include "expand_repeats.h"
 #include <map>
 
-using std::string;
-using std::to_string;
-using std::map;
-using namespace tree_sitter::rules;
-
 namespace tree_sitter {
+    using std::string;
+    using std::to_string;
+    using std::map;
+    using namespace rules;
+
     namespace prepare_grammar {
         class RepeatExpander : rules::Visitor {
         public:
