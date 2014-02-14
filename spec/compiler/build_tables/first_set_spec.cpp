@@ -10,39 +10,60 @@ using namespace rules;
 START_TEST
 
 describe("computing FIRST sets", []() {
-    Grammar grammar({
-        { "A", choice({
-            seq({
-                sym("B"),
-                sym("x"),
-                sym("B") }),
-            sym("B") }) },
-        { "B", choice({
-            seq({
-                sym("y"),
-                sym("z"),
-                sym("y") }),
-            sym("y") }) },
-        { "C", seq({
-            choice({
-                sym("x"),
-                blank() }),
-            sym("y") }) }
-    });
-    
-    describe("for a rule starting with a non-terminal B", [&]() {
-        it("includes FIRST(B)", [&]() {
-            auto terminals = first_set(grammar.rules.find("A")->second, grammar);
-            AssertThat(terminals, Equals(set<Symbol>({
+    const Grammar null_grammar({{ "something", blank() }});
+
+    describe("for a sequence AB", [&]() {
+        it("ignores B when A cannot be blank", [&]() {
+            auto rule = seq({ sym("x"), sym("y") });
+            
+            AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
+                Symbol("x"),
+            })));
+        });
+
+        it("includes FIRST(B) when A can be blank", [&]() {
+            auto rule = seq({
+                choice({
+                    sym("x"),
+                    blank() }),
+                sym("y") });
+            
+            AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
+                Symbol("x"),
                 Symbol("y")
             })));
         });
-    });
-
-    describe("for a sequence xy", [&]() {
-        it("includes FIRST(y) when x can be blank", [&]() {
-            auto terminals = first_set(grammar.rules.find("C")->second, grammar);
-            AssertThat(terminals, Equals(set<Symbol>({
+        
+        it("includes FIRST(A's right hand side) when A is a non-terminal", [&]() {
+            auto rule = choice({
+                seq({
+                    sym("A"),
+                    sym("x"),
+                    sym("A") }),
+                sym("A") });
+            
+            Grammar grammar({
+                { "A", choice({
+                    seq({
+                        sym("y"),
+                        sym("z"),
+                        sym("y") }),
+                    sym("y") }) }
+            });
+            
+            AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
+                Symbol("y")
+            })));
+        });
+        
+        it("includes FIRST(B) when A is a non-terminal and its expansion can be blank", [&]() {
+            Grammar grammar({{ "A", choice({ sym("x"), blank() }) }});
+            
+            auto rule = seq({
+                sym("A"),
+                sym("y") });
+            
+            AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
                 Symbol("x"),
                 Symbol("y")
             })));

@@ -8,8 +8,8 @@ namespace tree_sitter {
     using rules::Symbol;
     
     namespace build_tables {
-        static bool contains(ParseItemSet items, ParseItem item) {
-            return (std::find(items.begin(), items.end(), item) != items.end());
+        static bool contains(const ParseItemSet &items, const ParseItem &item) {
+            return items.size() > 0 && (std::find(items.begin(), items.end(), item) != items.end());
         }
         
         static void add_item(ParseItemSet &item_set, const ParseItem &item, const Grammar &grammar) {
