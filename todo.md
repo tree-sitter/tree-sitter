@@ -2,8 +2,8 @@ TODO
 ====
 
 ## correct batch parsing
+- allow spaces between symbols by default
 - add comments to generated C code giving an example string for each token
-- change the meaning of 'repeat' from 1-or-more to 0-or-more
 - fix any memory leaks
 - add special lexical behavior for indentation-aware languages
 

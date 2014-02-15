@@ -5,12 +5,12 @@ using namespace tree_sitter;
 using namespace rules;
 
 static rule_ptr comma_sep(const rule_ptr &rule) {
-    return seq({
-        rule,
-        choice({
+    return choice({
+        seq({
+            rule,
             repeat(seq({ aux_sym("comma"), rule })),
-            blank(),
         }),
+        blank(),
     });
 }
 

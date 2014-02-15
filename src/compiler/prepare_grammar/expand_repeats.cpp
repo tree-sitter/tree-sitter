@@ -19,9 +19,12 @@ namespace tree_sitter {
             }
             
             rule_ptr make_repeat_helper(string name, const rule_ptr &rule) {
-                return seq({
-                    rule,
-                    choice({ aux_sym(name), blank() })
+                return choice({
+                    seq({
+                        rule,
+                        aux_sym(name),
+                    }),
+                    blank(),
                 });
             }
             

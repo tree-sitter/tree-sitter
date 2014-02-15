@@ -32,15 +32,9 @@ namespace tree_sitter {
                 value = set_union(apply(rule->left, grammar), apply(rule->right, grammar));
             }
             
-            bool can_be_blank(const rule_ptr &rule) {
-                if (rule_can_be_blank(rule)) return true;
-                auto symbol = std::dynamic_pointer_cast<const Symbol>(rule);
-                return (symbol.get() && grammar.has_definition(*symbol) && rule_can_be_blank(grammar.rule(*symbol)));
-            }
-            
             void visit(const Seq *rule) {
                 value = apply(rule->left, grammar);
-                if (can_be_blank(rule->left)) {
+                if (rule_can_be_blank(rule->left, grammar)) {
                     value = set_union(value, apply(rule->right, grammar));
                 }
             }

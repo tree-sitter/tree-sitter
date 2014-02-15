@@ -9,8 +9,8 @@ extern "C" {
 #include <stdio.h>
 #include <string.h>
 
-// #define TS_DEBUG_PARSE
-// #define TS_DEBUG_LEX
+//#define TS_DEBUG_PARSE
+//#define TS_DEBUG_LEX
     
 #ifdef TS_DEBUG_LEX
 #define DEBUG_LEX(...) fprintf(stderr, __VA_ARGS__)

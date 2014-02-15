@@ -5,6 +5,8 @@
 #include "rules.h"
 #include "grammar.h"
 
+#include "stream_methods.h"
+
 namespace tree_sitter {
     using std::pair;
     using std::string;
@@ -107,6 +109,22 @@ namespace tree_sitter {
                     assign_lex_state(state_index);
                 }
                 return state_index;
+            }
+            
+            // TODO - remove
+            void dump_item_sets() {
+                std::vector<const ParseItemSet *> item_sets(parse_state_indices.size());
+                for (auto &pair : parse_state_indices)
+                    item_sets[pair.second] = &pair.first;
+                
+                for (int i = 0; i < item_sets.size(); i++) {
+                    std:cout << "\n\n" << i;
+                    for (auto &item : *item_sets[i]) {
+                        cout << "\n" << item.lhs;
+                        cout << "\n  " << item.rule;
+                        cout << "\n  " << item.lookahead_sym.name;
+                    }
+                }
             }
             
         public:

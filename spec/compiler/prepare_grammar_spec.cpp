@@ -105,12 +105,12 @@ describe("preparing a grammar", []() {
                     sym("y")
                 }) },
             }, {
-                { "repeat_helper1", seq({
-                    seq({ sym("a"), sym("b") }),
-                    choice({ 
+                { "repeat_helper1", choice({
+                    seq({
+                        seq({ sym("a"), sym("b") }),
                         aux_sym("repeat_helper1"),
-                        blank(),
                     }),
+                    blank(),
                 }) }
             })));
         });
