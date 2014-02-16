@@ -9,7 +9,7 @@ namespace tree_sitter  {
         
         bool String::operator==(const Rule &rule) const {
             const String *other = dynamic_cast<const String *>(&rule);
-            return (other != NULL) && (other->value == value);
+            return other && (other->value == value);
         }
                 
         size_t String::hash_code() const {
