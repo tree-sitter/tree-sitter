@@ -9,7 +9,7 @@ namespace tree_sitter  {
         }
         
         size_t Blank::hash_code() const {
-            return typeid(this).hash_code();
+            return 0;
         }
         
         rule_ptr Blank::copy() const {

@@ -12,7 +12,7 @@ namespace tree_sitter {
         }
         
         size_t Repeat::hash_code() const {
-            return typeid(this).hash_code() ^ content->hash_code();
+            return content->hash_code();
         }
         
         rule_ptr Repeat::copy() const {

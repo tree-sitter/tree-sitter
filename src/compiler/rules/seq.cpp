@@ -12,7 +12,7 @@ namespace tree_sitter {
         }
         
         size_t Seq::hash_code() const {
-            return typeid(this).hash_code() ^ left->hash_code() ^ right->hash_code();
+            return left->hash_code() ^ right->hash_code();
         }
         
         rule_ptr Seq::copy() const {

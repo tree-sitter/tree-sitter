@@ -51,7 +51,7 @@ namespace std {
         size_t operator()(const tree_sitter::build_tables::Item &item) const {
             return
                 hash<tree_sitter::rules::Symbol>()(item.lhs) ^
-                hash<tree_sitter::rules::Rule>()(*item.rule);
+                hash<tree_sitter::rules::rule_ptr>()(item.rule);
         }
     };
 
@@ -60,7 +60,7 @@ namespace std {
         size_t operator()(const tree_sitter::build_tables::ParseItem &item) const {
             return
             hash<string>()(item.lhs.name) ^
-            hash<tree_sitter::rules::Rule>()(*item.rule) ^
+            hash<tree_sitter::rules::rule_ptr>()(item.rule) ^
             hash<size_t>()(item.consumed_symbols.size()) ^
             hash<string>()(item.lookahead_sym.name);
         }

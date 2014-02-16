@@ -146,7 +146,7 @@ namespace tree_sitter {
         }
         
         size_t Pattern::hash_code() const {
-            return typeid(this).hash_code() ^ hash<string>()(value);
+            return hash<string>()(value);
         }
         
         rule_ptr Pattern::copy() const {

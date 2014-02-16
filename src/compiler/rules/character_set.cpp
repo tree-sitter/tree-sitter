@@ -69,7 +69,12 @@ namespace tree_sitter  {
         }
         
         size_t CharacterSet::hash_code() const {
-            return typeid(this).hash_code() ^ hash<string>()(to_string());
+            size_t result = std::hash<size_t>()(ranges.size());
+            for (auto &range : ranges) {
+                result ^= std::hash<char>()(range.min);
+                result ^= std::hash<char>()(range.max);
+            }
+            return result;
         }
 
         rule_ptr CharacterSet::copy() const {

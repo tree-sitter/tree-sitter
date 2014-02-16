@@ -2,6 +2,7 @@
 #define __tree_sitter__sym__
 
 #include "rule.h"
+#include <map>
 
 namespace tree_sitter  {
     namespace rules {
@@ -27,7 +28,11 @@ namespace tree_sitter  {
 
 namespace std {
     template<>
-    struct hash<tree_sitter::rules::Symbol> : hash<tree_sitter::rules::Rule> {};
+    struct hash<tree_sitter::rules::Symbol> {
+        size_t operator()(const tree_sitter::rules::Symbol &rule) const {
+            return rule.hash_code();
+        }
+    };
 }
 
 

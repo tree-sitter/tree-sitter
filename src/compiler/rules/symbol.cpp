@@ -18,7 +18,7 @@ namespace tree_sitter  {
         }
 
         size_t Symbol::hash_code() const {
-            return typeid(this).hash_code() ^ hash<string>()(name) ^ hash<bool>()(is_auxiliary);
+            return hash<string>()(name) ^ hash<bool>()(is_auxiliary);
         }
         
         rule_ptr Symbol::copy() const {

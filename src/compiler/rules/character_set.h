@@ -57,7 +57,11 @@ namespace tree_sitter  {
 
 namespace std {
     template<>
-    struct hash<tree_sitter::rules::CharacterSet> : hash<tree_sitter::rules::Rule> {};
+    struct hash<tree_sitter::rules::CharacterSet> {
+        size_t operator()(const tree_sitter::rules::CharacterSet &rule) const {
+            return rule.hash_code();
+        }
+    };
 }
 
 #endif
