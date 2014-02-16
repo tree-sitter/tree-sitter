@@ -1,5 +1,4 @@
 #include "parser.h"
-#include <ctype.h>
 
 enum ts_symbol {
     ts_symbol_expression,

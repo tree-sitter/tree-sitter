@@ -246,10 +246,7 @@ namespace tree_sitter {
             }
 
             string includes() {
-                return join({
-                    "#include \"parser.h\"",
-                    "#include <ctype.h>"
-                });
+                return "#include \"parser.h\"";
             }
             
             string lex_function() {
