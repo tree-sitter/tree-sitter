@@ -1,11 +1,11 @@
-#ifndef __tree_sitter_parser_h__
-#define __tree_sitter_parser_h__
+#ifndef tree_sitter_parser_h
+#define tree_sitter_parser_h
+
 #ifdef __cplusplus
 extern "C" {
 #endif
     
-#include "tree.h"
-#include "parse_config.h"
+#include "runtime.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -23,7 +23,7 @@ extern "C" {
 #else
 #define DEBUG_PARSE(...)
 #endif
-    
+
 static int INITIAL_STACK_SIZE = 100;
 static const char *ts_symbol_names[];
 
@@ -220,4 +220,5 @@ done:
 #ifdef __cplusplus
 }
 #endif
+
 #endif

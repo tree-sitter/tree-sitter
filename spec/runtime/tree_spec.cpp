@@ -1,5 +1,5 @@
 #include "spec_helper.h"
-#include "tree.h"
+#include "runtime.h"
 
 START_TEST
 

@@ -1,4 +1,4 @@
-#include "document.h"
+#include "runtime.h"
 
 struct TSDocument {
     TSParseFn *parse_fn;
