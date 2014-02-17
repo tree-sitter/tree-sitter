@@ -1,20 +1,22 @@
-#include "test_grammars.h"
+#ifndef tree_sitter__grammars__json_h
+#define tree_sitter__grammars__json_h
+
 #include "tree_sitter/compiler.h"
 
-using namespace tree_sitter;
-using namespace rules;
-
-static rule_ptr comma_sep(const rule_ptr &rule) {
-    return choice({
-        seq({
-            rule,
-            repeat(seq({ aux_sym("comma"), rule })),
-        }),
-        blank(),
-    });
-}
-
 namespace test_grammars {
+    using tree_sitter::Grammar;
+    using namespace tree_sitter::rules;
+    
+    static rule_ptr comma_sep(const rule_ptr &rule) {
+        return choice({
+            seq({
+                rule,
+                repeat(seq({ aux_sym("comma"), rule })),
+            }),
+            blank(),
+        });
+    }
+    
     Grammar json() {
         return Grammar("value", {
             { "value", choice({
@@ -51,3 +53,5 @@ namespace test_grammars {
         });
     }
 }
+
+#endif

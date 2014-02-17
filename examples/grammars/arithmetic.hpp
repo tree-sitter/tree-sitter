@@ -1,10 +1,12 @@
-#include "test_grammars.h"
+#ifndef tree_sitter__grammars__arithmetic_h
+#define tree_sitter__grammars__arithmetic_h
+
 #include "tree_sitter/compiler.h"
 
-using namespace tree_sitter;
-using namespace rules;
-
 namespace test_grammars {
+    using tree_sitter::Grammar;
+    using namespace tree_sitter::rules;
+    
     Grammar arithmetic() {
         return Grammar("expression", {
             { "expression", choice({
@@ -33,3 +35,5 @@ namespace test_grammars {
         });
     }
 }
+
+#endif
