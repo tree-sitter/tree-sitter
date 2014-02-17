@@ -1,10 +1,14 @@
 #include "search_for_symbols.h"
+#include "rules/visitor.h"
+#include "choice.h"
+#include "seq.h"
+#include "repeat.h"
 
 namespace tree_sitter {
     using namespace rules;
     
     namespace prepare_grammar {
-        class SymbolSearcher :  Visitor {
+        class SymbolSearcher :  rules::Visitor {
         public:
             bool value;
             

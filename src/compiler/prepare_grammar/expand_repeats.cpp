@@ -1,10 +1,17 @@
 #include "expand_repeats.h"
 #include <map>
+#include "rules/visitor.h"
+#include "rules/seq.h"
+#include "rules/symbol.h"
+#include "rules/choice.h"
+#include "rules/blank.h"
+#include "rules/repeat.h"
 
 namespace tree_sitter {
     using std::string;
     using std::to_string;
     using std::map;
+    using std::make_shared;
     using namespace rules;
 
     namespace prepare_grammar {
@@ -19,28 +26,24 @@ namespace tree_sitter {
             }
             
             rule_ptr make_repeat_helper(string name, const rule_ptr &rule) {
-                return choice({
-                    seq({
-                        rule,
-                        aux_sym(name),
-                    }),
-                    blank(),
-                });
+                return Choice::Build({
+                    Seq::Build({ rule, make_shared<Symbol>(name, true) }),
+                    make_shared<Blank>() });
             }
             
             void visit(const Repeat *rule) {
                 rule_ptr inner_rule = apply(rule->content);
                 string helper_rule_name = string("repeat_helper") + to_string(aux_rules.size() + 1);
                 aux_rules.insert({ helper_rule_name, make_repeat_helper(helper_rule_name, inner_rule) });
-                value = aux_sym(helper_rule_name);
+                value = make_shared<Symbol>(helper_rule_name, true);
             }
             
             void visit(const Seq *rule) {
-                value = seq({ apply(rule->left), apply(rule->right) });
+                value = Seq::Build({ apply(rule->left), apply(rule->right) });
             }
 
             void visit(const Choice *rule) {
-                value = choice({ apply(rule->left), apply(rule->right) });
+                value = Choice::Build({ apply(rule->left), apply(rule->right) });
             }
 
             void default_visit(const Rule *rule) {

@@ -2,8 +2,7 @@
 #include "item.h"
 #include "item_set_closure.h"
 #include "item_set_transitions.h"
-#include "rules.h"
-#include "grammar.h"
+#include "compiler.h"
 
 #include "stream_methods.h"
 
@@ -11,6 +10,7 @@ namespace tree_sitter {
     using std::pair;
     using std::string;
     using std::map;
+    using std::make_shared;
     using rules::Symbol;
     using rules::CharacterSet;
 
@@ -79,7 +79,7 @@ namespace tree_sitter {
                 LexItemSet item_set;
                 for (auto &symbol : state.expected_inputs()) {
                     if (symbol == END_OF_INPUT)
-                        item_set.insert(LexItem(symbol, rules::character('\0')));
+                        item_set.insert(LexItem(symbol, make_shared<CharacterSet>(std::set<rules::CharacterRange>{ '\0' })));
                     if (lex_grammar.has_definition(symbol))
                         item_set.insert(LexItem(symbol, lex_grammar.rule(symbol)));
                 }
@@ -134,7 +134,7 @@ namespace tree_sitter {
                 lex_grammar(lex_grammar) {};
 
             pair<ParseTable, LexTable> build() {
-                auto item = ParseItem(START, rules::sym(grammar.start_rule_name), {}, END_OF_INPUT);
+                auto item = ParseItem(START, make_shared<Symbol>(grammar.start_rule_name), {}, END_OF_INPUT);
                 ParseItemSet item_set = item_set_closure(ParseItemSet({ item }), grammar);
                 add_parse_state(item_set);
                 return pair<ParseTable, LexTable>(parse_table, lex_table);

@@ -1,7 +1,9 @@
 #include "first_set.h"
+#include "compiler.h"
 #include "rule_can_be_blank.h"
-#include "grammar.h"
-
+#include "rules/visitor.h"
+#include "rules/seq.h"
+#include "rules/choice.h"
 
 namespace tree_sitter {
     using std::set;

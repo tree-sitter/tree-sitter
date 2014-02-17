@@ -1,6 +1,4 @@
-#include "compile.h"
-
-#include "grammar.h"
+#include "compiler.h"
 #include "prepare_grammar/perform.h"
 #include "build_tables/perform.h"
 #include "generate_code/c_code.h"

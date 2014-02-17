@@ -1,12 +1,12 @@
 #include "test_grammars.h"
-#include "rules.h"
+#include "compiler.h"
 
 using namespace tree_sitter;
 using namespace rules;
 
 namespace test_grammars {
     Grammar arithmetic() {
-        return Grammar({
+        return Grammar("expression", {
             { "expression", choice({
                 seq({
                     sym("term"),

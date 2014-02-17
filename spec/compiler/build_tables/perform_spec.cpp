@@ -19,7 +19,7 @@ static set<Symbol> keys(const map<Symbol, parse_actions> &map) {
 START_TEST
 
 describe("building parse and lex tables", []() {
-    Grammar grammar({
+    Grammar grammar("expression", {
         { "expression", choice({
             seq({
                 sym("term"),
@@ -36,7 +36,7 @@ describe("building parse and lex tables", []() {
             }) }) }
     });
     
-    Grammar lex_grammar({
+    Grammar lex_grammar("", {
         { "plus", str("+") },
         { "variable", pattern("\\w+") },
         { "number", pattern("\\d+") },
@@ -72,9 +72,9 @@ describe("building parse and lex tables", []() {
         })));
         
         AssertThat(lex_state(0).expected_inputs(), Equals(set<CharacterSet>({
-            CharacterSet({ '(' }, true),
-            CharacterSet({ {'0', '9'} }, true),
-            CharacterSet({ {'a', 'z'}, {'A', 'Z'} }, true),
+            CharacterSet({ '(' }),
+            CharacterSet({ CharacterRange('0', '9') }),
+            CharacterSet({ {'a', 'z'}, {'A', 'Z'} }),
         })));
     });
 });

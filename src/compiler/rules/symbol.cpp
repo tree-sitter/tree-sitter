@@ -1,4 +1,5 @@
-#include "rules.h"
+#include "symbol.h"
+#include "visitor.h"
 
 using std::string;
 using std::hash;

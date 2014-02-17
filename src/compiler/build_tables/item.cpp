@@ -1,5 +1,5 @@
 #include "item.h"
-#include "grammar.h"
+#include "compiler.h"
 #include "rule_can_be_blank.h"
 
 namespace tree_sitter {

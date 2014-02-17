@@ -1,34 +1,38 @@
-#include "rules.h"
-
-using std::make_shared;
-using std::string;
-using std::set;
-using std::vector;
+#include "compiler.h"
+#include "rule.h"
+#include "blank.h"
+#include "symbol.h"
+#include "choice.h"
+#include "seq.h"
+#include "string.h"
+#include "pattern.h"
+#include "character_set.h"
+#include "repeat.h"
 
 namespace tree_sitter {
+    using std::make_shared;
+    using std::string;
+    using std::set;
+    using std::vector;
+    
     namespace rules {
         rule_ptr blank() {
             return make_shared<Blank>();
         }
   
-        rule_ptr character(char value) {
-            set<CharacterRange> ranges = { value };
-            return make_shared<CharacterSet>(ranges);
-        }
-
         rule_ptr character(const set<CharacterRange> &ranges) {
             return make_shared<CharacterSet>(ranges);
         }
 
         rule_ptr character(const set<CharacterRange> &ranges, bool sign) {
-            return make_shared<CharacterSet>(ranges, sign);
+            if (sign)
+                return character(ranges);
+            else
+                return CharacterSet(ranges).complement().copy();
         }
 
         rule_ptr choice(const vector<rule_ptr> &rules) {
-            rule_ptr result;
-            for (auto rule : rules)
-                result = result.get() ? make_shared<Choice>(result, rule) : rule;
-            return result;
+            return Choice::Build(rules);
         }
         
         rule_ptr pattern(const string &value) {
@@ -40,12 +44,7 @@ namespace tree_sitter {
         }
         
         rule_ptr seq(const vector<rule_ptr> &rules) {
-            rule_ptr result = blank();
-            for (auto rule : rules)
-                result = (typeid(*result) != typeid(Blank)) ?
-                    make_shared<Seq>(result, rule) :
-                    rule;
-            return result;
+            return Seq::Build(rules);
         }
 
         rule_ptr str(const string &value) {

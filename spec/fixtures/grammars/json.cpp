@@ -1,5 +1,5 @@
 #include "test_grammars.h"
-#include "rules.h"
+#include "compiler.h"
 
 using namespace tree_sitter;
 using namespace rules;
@@ -34,12 +34,12 @@ namespace test_grammars {
                 comma_sep(sym("value")),
                 aux_sym("right_bracket"), }) },
             { "string", seq({
-                character('"'),
+                character({ '"' }),
                 repeat(choice({
                     pattern("[^\"]"),
                     str("\\\""),
                 })),
-                character('"') }) },
+                character({ '"' }) }) },
             { "number", pattern("\\d+") }
         }, {
             { "comma", str(",") },

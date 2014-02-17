@@ -1,11 +1,18 @@
-#include "rules.h"
-
-using std::string;
-using std::hash;
-using std::set;
+#include "pattern.h"
+#include "visitor.h"
+#include "choice.h"
+#include "seq.h"
+#include "repeat.h"
+#include "character_set.h"
+#include <set>
 
 namespace tree_sitter {
     namespace rules {
+        using std::string;
+        using std::hash;
+        using std::make_shared;
+        using std::set;
+        
         class PatternParser {
         public:
             PatternParser(const string &input) :
@@ -17,7 +24,7 @@ namespace tree_sitter {
                 auto result = term();
                 while (has_more_input() && peek() == '|') {
                     next();
-                    result = choice({ result, term() });
+                    result = make_shared<Choice>(result, term());
                 }
                 return result;
             }
@@ -26,7 +33,7 @@ namespace tree_sitter {
             rule_ptr term() {
                 rule_ptr result = factor();
                 while (has_more_input() && (peek() != '|') && (peek() != ')'))
-                    result = seq({ result, factor() });
+                    result = Seq::Build({ result, factor() });
                 return result;
             }
             
@@ -34,7 +41,7 @@ namespace tree_sitter {
                 rule_ptr result = atom();
                 if (has_more_input() && (peek() == '+')) {
                     next();
-                    result = repeat(result);
+                    result = make_shared<Repeat>(result);
                 }
                 return result;
             }
@@ -92,7 +99,7 @@ namespace tree_sitter {
                         next();
                         if (peek() == '-') {
                             next();
-                            value = CharacterSet({ {first_char, peek()} }, true);
+                            value = CharacterSet({ CharacterRange(first_char, peek()) });
                             next();
                         } else {
                             value = CharacterSet({ first_char });
@@ -108,9 +115,9 @@ namespace tree_sitter {
                     case ')':
                         return CharacterSet({ value });
                     case 'w':
-                        return CharacterSet({{'a', 'z'}, {'A', 'Z'}}, true);
+                        return CharacterSet({{'a', 'z'}, {'A', 'Z'}});
                     case 'd':
-                        return CharacterSet({{'0', '9'}}, true);
+                        return CharacterSet({CharacterRange('0', '9')});
                     default:
                         error("unrecognized escape sequence");
                         return CharacterSet();

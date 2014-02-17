@@ -1,10 +1,9 @@
-#ifndef __TreeSitter__item__
-#define __TreeSitter__item__
+#ifndef __tree_sitter__item__
+#define __tree_sitter__item__
 
-#include <string>
-#include "rule.h"
-#include <set>
 #include "symbol.h"
+#include <string>
+#include <set>
 #include <vector>
 
 namespace tree_sitter {
@@ -76,6 +75,5 @@ namespace std {
         }
     };
 }
-
 
 #endif

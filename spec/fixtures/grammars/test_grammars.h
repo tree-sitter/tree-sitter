@@ -1,7 +1,7 @@
 #ifndef TreeSitter_test_grammars_h
 #define TreeSitter_test_grammars_h
 
-#include "grammar.h"
+#include "compiler.h"
 
 namespace test_grammars {
     tree_sitter::Grammar arithmetic();

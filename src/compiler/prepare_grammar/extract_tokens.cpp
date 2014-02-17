@@ -1,12 +1,20 @@
 #include "extract_tokens.h"
 #include "search_for_symbols.h"
 #include <map>
+#include "compiler.h"
+#include "rules/visitor.h"
+#include "rules/seq.h"
+#include "rules/choice.h"
+#include "rules/repeat.h"
+#include "rules/blank.h"
+#include "rules/symbol.h"
 
 namespace tree_sitter {
     using std::pair;
     using std::string;
     using std::to_string;
     using std::map;
+    using std::make_shared;
     using namespace rules;
 
     namespace prepare_grammar {
@@ -29,7 +37,7 @@ namespace tree_sitter {
                     return value;
                 } else {
                     string token_name = add_token(rule);
-                    return aux_sym(token_name);
+                    return make_shared<Symbol>(token_name, true);
                 }
             }
             
@@ -47,15 +55,15 @@ namespace tree_sitter {
             }
             
             void visit(const Choice *rule) {
-                value = choice({ apply(rule->left), apply(rule->right) });
+                value = Choice::Build({ apply(rule->left), apply(rule->right) });
             }
             
             void visit(const Seq *rule) {
-                value = seq({ apply(rule->left), apply(rule->right) });
+                value = Seq::Build({ apply(rule->left), apply(rule->right) });
             }
             
             void visit(const Repeat *rule) {
-                value = repeat(apply(rule->content));
+                value = make_shared<Repeat>(apply(rule->content));
             }
         };
         

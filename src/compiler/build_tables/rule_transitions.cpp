@@ -1,10 +1,19 @@
-#include "rules.h"
 #include "rule_transitions.h"
 #include "rule_can_be_blank.h"
 #include "merge_transitions.h"
+#include "rules/blank.h"
+#include "rules/choice.h"
+#include "rules/seq.h"
+#include "rules/string.h"
+#include "rules/repeat.h"
+#include "rules/pattern.h"
+#include "rules/visitor.h"
+#include "rules/character_set.h"
 
 namespace tree_sitter {
     using std::map;
+    using std::set;
+    using std::make_shared;
     using namespace rules;
 
     namespace build_tables {
@@ -18,7 +27,7 @@ namespace tree_sitter {
         template<>
         map<CharacterSet, rule_ptr> merge_transitions(const map<CharacterSet, rule_ptr> &left, const map<CharacterSet, rule_ptr> &right) {
             auto transitions = merge_char_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) -> rule_ptr {
-                return choice({ left, right });
+                return make_shared<Choice>(left, right);
             });
             return *static_cast<map<CharacterSet, rule_ptr> *>(&transitions);
         }
@@ -26,7 +35,7 @@ namespace tree_sitter {
         template<>
         map<Symbol, rule_ptr> merge_transitions(const map<Symbol, rule_ptr> &left, const map<Symbol, rule_ptr> &right) {
             auto transitions = merge_sym_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) -> rule_ptr {
-                return choice({ left, right });
+                return make_shared<Choice>(left, right);
             });
             return *static_cast<map<Symbol, rule_ptr> *>(&transitions);
         }
@@ -54,7 +63,7 @@ namespace tree_sitter {
                 auto atom = dynamic_cast<const T *>(rule);
                 if (atom) {
                     value = map<T, rule_ptr>();
-                    value.insert({ *atom, blank() });
+                    value.insert({ *atom, make_shared<Blank>() });
                 }
             }
 
@@ -72,11 +81,8 @@ namespace tree_sitter {
             }
 
             void visit(const Seq *rule) {
-                value = map_transitions(transitions(rule->left), [&](const rule_ptr left_rule) -> rule_ptr {
-                    if (is_blank(left_rule))
-                        return rule->right;
-                    else
-                        return seq({ left_rule, rule->right });
+                value = map_transitions(transitions(rule->left), [&](const rule_ptr left_rule) {
+                    return Seq::Build({ left_rule, rule->right });
                 });
                 if (rule_can_be_blank(rule->left)) {
                     value = merge_transitions<T>(value, transitions(rule->right));
@@ -84,15 +90,17 @@ namespace tree_sitter {
             }
             
             void visit(const Repeat *rule) {
-                value = map_transitions(transitions(rule->content), [&](const rule_ptr &value) -> rule_ptr {
-                    return seq({ value, choice({ rule->copy(), blank() }) });
+                value = map_transitions(transitions(rule->content), [&](const rule_ptr &value) {
+                    return Seq::Build({
+                        value,
+                        make_shared<Choice>(rule->copy(), make_shared<Blank>()) });
                 });
             }
             
             void visit(const String *rule) {
-                rule_ptr result = character(rule->value[0]);
-                for (int i = 1; i < rule->value.length(); i++)
-                    result = seq({ result, character(rule->value[i]) });
+                rule_ptr result = make_shared<Blank>();
+                for (char val : rule->value)
+                    result = Seq::Build({ result, make_shared<CharacterSet>(set<CharacterRange>({ val })) });
                 value = transitions(result);
             }
             

@@ -1,7 +1,6 @@
 #ifndef __tree_sitter__code_generator__
 #define __tree_sitter__code_generator__
 
-#include "grammar.h"
 #include "parse_table.h"
 #include "lex_table.h"
 

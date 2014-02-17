@@ -1,7 +1,7 @@
 #ifndef __tree_sitter__expand_repeats__
 #define __tree_sitter__expand_repeats__
 
-#include "grammar.h"
+#include "compiler.h"
 
 namespace tree_sitter {
     namespace prepare_grammar {

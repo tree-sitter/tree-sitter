@@ -1,8 +1,6 @@
 #include "spec_helper.h"
 #include "build_tables/item_set_closure.h"
 #include "build_tables/item_set_transitions.h"
-#include "grammar.h"
-#include "rules.h"
 
 using namespace build_tables;
 using namespace rules;
@@ -10,7 +8,7 @@ using namespace rules;
 START_TEST
 
 describe("computing closures of item sets", []() {
-    Grammar grammar({
+    Grammar grammar("E", {
         { "E", choice({
             seq({
                 sym("T"),

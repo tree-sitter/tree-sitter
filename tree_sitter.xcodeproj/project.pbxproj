@@ -15,6 +15,7 @@
 		12130617182C3D2900FCF928 /* string.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12130615182C3D2900FCF928 /* string.cpp */; };
 		1214930E181E200B008E9BDA /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 121492E9181E200B008E9BDA /* main.cpp */; };
 		1225CC6418765693000D4723 /* prepare_grammar_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1225CC6318765693000D4723 /* prepare_grammar_spec.cpp */; };
+		1236A7C518B287DC00593ABB /* character_range.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1236A7C318B287DC00593ABB /* character_range.cpp */; };
 		1251209B1830145300C9B56A /* rule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1251209A1830145300C9B56A /* rule.cpp */; };
 		125120A4183083BD00C9B56A /* arithmetic.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 125120A3183083BD00C9B56A /* arithmetic.cpp */; };
 		12661BF418A1505A00A259FB /* character_set_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12661BF318A1505A00A259FB /* character_set_spec.cpp */; };
@@ -83,8 +84,7 @@
 
 /* Begin PBXFileReference section */
 		12130603182C348F00FCF928 /* character_set.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = character_set.cpp; sourceTree = "<group>"; };
-		12130604182C348F00FCF928 /* character_set.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = character_set.h; sourceTree = "<group>"; };
-		12130607182C374800FCF928 /* rule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rule.h; sourceTree = "<group>"; };
+		12130604182C348F00FCF928 /* character_set.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = character_set.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		12130609182C389100FCF928 /* symbol.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = symbol.cpp; sourceTree = "<group>"; };
 		1213060A182C389100FCF928 /* symbol.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = symbol.h; sourceTree = "<group>"; };
 		1213060C182C398300FCF928 /* choice.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = choice.cpp; sourceTree = "<group>"; };
@@ -99,16 +99,18 @@
 		121492EA181E200B008E9BDA /* rules_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = rules_spec.cpp; path = spec/compiler/rules/rules_spec.cpp; sourceTree = SOURCE_ROOT; };
 		121D8B3018795CC0003CF44B /* parser.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = parser.h; sourceTree = "<group>"; };
 		1225CC6318765693000D4723 /* prepare_grammar_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = prepare_grammar_spec.cpp; sourceTree = "<group>"; };
+		1236A7C318B287DC00593ABB /* character_range.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = character_range.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		1236A7C918B2A79F00593ABB /* rule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rule.h; sourceTree = "<group>"; };
 		1251209A1830145300C9B56A /* rule.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rule.cpp; sourceTree = "<group>"; };
-		125120A218307FFD00C9B56A /* test_grammars.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = test_grammars.h; path = spec/fixtures/grammars/test_grammars.h; sourceTree = SOURCE_ROOT; };
-		125120A3183083BD00C9B56A /* arithmetic.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = arithmetic.cpp; path = spec/fixtures/grammars/arithmetic.cpp; sourceTree = SOURCE_ROOT; };
+		125120A218307FFD00C9B56A /* test_grammars.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = test_grammars.h; path = spec/fixtures/grammars/test_grammars.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		125120A3183083BD00C9B56A /* arithmetic.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = arithmetic.cpp; path = spec/fixtures/grammars/arithmetic.cpp; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		12661BF318A1505A00A259FB /* character_set_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = character_set_spec.cpp; sourceTree = SOURCE_ROOT; };
 		127528AF18A6F9C6006B682B /* merge_transitions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = merge_transitions.h; sourceTree = "<group>"; };
-		127528B118AACAAA006B682B /* rule_can_be_blank.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rule_can_be_blank.cpp; sourceTree = "<group>"; };
-		127528B218AACAAA006B682B /* rule_can_be_blank.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rule_can_be_blank.h; sourceTree = "<group>"; };
+		127528B118AACAAA006B682B /* rule_can_be_blank.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = rule_can_be_blank.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		127528B218AACAAA006B682B /* rule_can_be_blank.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = rule_can_be_blank.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		127528B418AACB70006B682B /* rule_can_be_blank_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rule_can_be_blank_spec.cpp; sourceTree = "<group>"; };
 		127528B918B041B6006B682B /* runtime.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = runtime.h; sourceTree = "<group>"; };
-		12AB465D188BD03E00DE79DF /* follow_sets.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = follow_sets.cpp; sourceTree = "<group>"; };
+		12AB465D188BD03E00DE79DF /* follow_sets.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = follow_sets.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		12AB465E188BD03E00DE79DF /* follow_sets.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = follow_sets.h; sourceTree = "<group>"; };
 		12AB4660188CB3A300DE79DF /* item_set_closure_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = item_set_closure_spec.cpp; sourceTree = "<group>"; };
 		12AB4663188DCB9800DE79DF /* stream_methods.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = stream_methods.h; sourceTree = "<group>"; };
@@ -119,15 +121,15 @@
 		12D136A2183678A2005F3369 /* repeat.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = repeat.cpp; sourceTree = "<group>"; };
 		12D136A3183678A2005F3369 /* repeat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = repeat.h; sourceTree = "<group>"; };
 		12E71794181D02A80051A649 /* compiler_specs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = compiler_specs; sourceTree = BUILT_PRODUCTS_DIR; };
-		12E71852181D081C0051A649 /* rules.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = rules.h; path = src/compiler/rules/rules.h; sourceTree = SOURCE_ROOT; };
-		12E75A961891BD32001B8F10 /* json.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = json.cpp; sourceTree = "<group>"; };
+		12E71852181D081C0051A649 /* compiler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = compiler.h; path = include/compiler.h; sourceTree = SOURCE_ROOT; };
+		12E75A961891BD32001B8F10 /* json.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = json.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		12E75A981891BF3B001B8F10 /* json.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = json.c; sourceTree = "<group>"; };
 		12E75A9B1891C17D001B8F10 /* json_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = json_spec.cpp; sourceTree = "<group>"; };
 		12E75AA018930931001B8F10 /* expand_repeats.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = expand_repeats.cpp; path = src/compiler/prepare_grammar/expand_repeats.cpp; sourceTree = SOURCE_ROOT; };
-		12E75AA118930931001B8F10 /* expand_repeats.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = expand_repeats.h; path = src/compiler/prepare_grammar/expand_repeats.h; sourceTree = SOURCE_ROOT; };
+		12E75AA118930931001B8F10 /* expand_repeats.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = expand_repeats.h; path = src/compiler/prepare_grammar/expand_repeats.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		12EDCF89187B498C005A7A07 /* tree_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = tree_spec.cpp; sourceTree = "<group>"; };
 		12EDCF8C187C6282005A7A07 /* document.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = document.c; sourceTree = "<group>"; };
-		12EDCF8F1881FCCA005A7A07 /* extract_tokens.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = extract_tokens.cpp; path = src/compiler/prepare_grammar/extract_tokens.cpp; sourceTree = SOURCE_ROOT; };
+		12EDCF8F1881FCCA005A7A07 /* extract_tokens.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = extract_tokens.cpp; path = src/compiler/prepare_grammar/extract_tokens.cpp; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		12EDCF901881FCCA005A7A07 /* extract_tokens.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = extract_tokens.h; path = src/compiler/prepare_grammar/extract_tokens.h; sourceTree = SOURCE_ROOT; };
 		12EDCF911881FCCA005A7A07 /* perform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = perform.cpp; path = src/compiler/prepare_grammar/perform.cpp; sourceTree = SOURCE_ROOT; };
 		12EDCF921881FCCA005A7A07 /* perform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = perform.h; path = src/compiler/prepare_grammar/perform.h; sourceTree = SOURCE_ROOT; };
@@ -136,26 +138,24 @@
 		12EDCF9C18820116005A7A07 /* lex_table.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lex_table.h; sourceTree = "<group>"; };
 		12EDCF9D18820116005A7A07 /* parse_table.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = parse_table.cpp; sourceTree = "<group>"; };
 		12EDCF9E18820116005A7A07 /* parse_table.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = parse_table.h; sourceTree = "<group>"; };
-		12EDCFA218820137005A7A07 /* item.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = item.cpp; path = src/compiler/build_tables/item.cpp; sourceTree = SOURCE_ROOT; };
+		12EDCFA218820137005A7A07 /* item.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = item.cpp; path = src/compiler/build_tables/item.cpp; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		12EDCFA318820137005A7A07 /* item.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = item.h; path = src/compiler/build_tables/item.h; sourceTree = SOURCE_ROOT; };
-		12EDCFA418820137005A7A07 /* perform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = perform.cpp; path = src/compiler/build_tables/perform.cpp; sourceTree = SOURCE_ROOT; };
+		12EDCFA418820137005A7A07 /* perform.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = perform.cpp; path = src/compiler/build_tables/perform.cpp; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		12EDCFA518820137005A7A07 /* perform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = perform.h; path = src/compiler/build_tables/perform.h; sourceTree = SOURCE_ROOT; };
 		12EDCFA618820137005A7A07 /* rule_transitions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = rule_transitions.cpp; path = src/compiler/build_tables/rule_transitions.cpp; sourceTree = SOURCE_ROOT; };
 		12EDCFA718820137005A7A07 /* rule_transitions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = rule_transitions.h; path = src/compiler/build_tables/rule_transitions.h; sourceTree = SOURCE_ROOT; };
-		12EDCFAC18820181005A7A07 /* compile.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compile.cpp; sourceTree = "<group>"; };
-		12EDCFAD18820181005A7A07 /* compile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = compile.h; sourceTree = "<group>"; };
+		12EDCFAC18820181005A7A07 /* compile.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = compile.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		12EDCFB6188205BA005A7A07 /* rule_transitions_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rule_transitions_spec.cpp; sourceTree = "<group>"; };
 		12EDCFB7188205BA005A7A07 /* perform_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = perform_spec.cpp; sourceTree = "<group>"; };
-		12EDCFBE18820880005A7A07 /* item_set_closure.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = item_set_closure.cpp; sourceTree = "<group>"; };
+		12EDCFBE18820880005A7A07 /* item_set_closure.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = item_set_closure.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		12EDCFBF18820880005A7A07 /* item_set_closure.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = item_set_closure.h; sourceTree = "<group>"; };
 		12EDCFC118820A70005A7A07 /* item_set_transitions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = item_set_transitions.cpp; sourceTree = "<group>"; };
 		12EDCFC218820A70005A7A07 /* item_set_transitions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = item_set_transitions.h; sourceTree = "<group>"; };
-		12EDCFC41882153D005A7A07 /* first_set.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = first_set.cpp; sourceTree = "<group>"; };
+		12EDCFC41882153D005A7A07 /* first_set.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = first_set.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		12EDCFC51882153D005A7A07 /* first_set.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = first_set.h; sourceTree = "<group>"; };
 		12F9A64C182DD5FD00FAF50C /* spec_helper.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = spec_helper.cpp; path = spec/spec_helper.cpp; sourceTree = SOURCE_ROOT; };
-		12F9A64D182DD5FD00FAF50C /* spec_helper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = spec_helper.h; path = spec/spec_helper.h; sourceTree = SOURCE_ROOT; };
-		12F9A64F182DD6BC00FAF50C /* grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = grammar.cpp; path = src/compiler/grammar.cpp; sourceTree = SOURCE_ROOT; };
-		12F9A650182DD6BC00FAF50C /* grammar.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = grammar.h; path = src/compiler/grammar.h; sourceTree = SOURCE_ROOT; };
+		12F9A64D182DD5FD00FAF50C /* spec_helper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = spec_helper.h; path = spec/spec_helper.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		12F9A64F182DD6BC00FAF50C /* grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = grammar.cpp; path = src/compiler/grammar.cpp; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		12FD405F185E68470041A84E /* c_code.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = c_code.cpp; path = src/compiler/generate_code/c_code.cpp; sourceTree = SOURCE_ROOT; };
 		12FD4060185E68470041A84E /* c_code.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; name = c_code.h; path = src/compiler/generate_code/c_code.h; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
 		12FD4063185E75290041A84E /* compile_fixtures.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; name = compile_fixtures.cpp; path = spec/compiler/compile_fixtures.cpp; sourceTree = SOURCE_ROOT; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
@@ -165,7 +165,7 @@
 		12FD40DE1860064C0041A84E /* tree.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tree.c; sourceTree = "<group>"; };
 		12FD40E41862B3530041A84E /* visitor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = visitor.h; sourceTree = "<group>"; };
 		12FD40E618639B910041A84E /* visitor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = visitor.cpp; sourceTree = "<group>"; };
-		12FD40E818641FB70041A84E /* rules.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rules.cpp; sourceTree = "<group>"; };
+		12FD40E818641FB70041A84E /* rules.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = rules.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		12FD40F5186A16020041A84E /* lex_table.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = lex_table.cpp; sourceTree = "<group>"; };
 		27A340F3EEB184C040521323 /* pattern.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pattern.cpp; sourceTree = "<group>"; };
 		27A3438C4FA59A3882E8493B /* pattern.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pattern.h; sourceTree = "<group>"; };
@@ -194,6 +194,7 @@
 			children = (
 				1213060F182C3A1100FCF928 /* blank.cpp */,
 				12130610182C3A1100FCF928 /* blank.h */,
+				1236A7C318B287DC00593ABB /* character_range.cpp */,
 				12130603182C348F00FCF928 /* character_set.cpp */,
 				12130604182C348F00FCF928 /* character_set.h */,
 				1213060C182C398300FCF928 /* choice.cpp */,
@@ -203,9 +204,8 @@
 				12D136A2183678A2005F3369 /* repeat.cpp */,
 				12D136A3183678A2005F3369 /* repeat.h */,
 				1251209A1830145300C9B56A /* rule.cpp */,
-				12130607182C374800FCF928 /* rule.h */,
+				1236A7C918B2A79F00593ABB /* rule.h */,
 				12FD40E818641FB70041A84E /* rules.cpp */,
-				12E71852181D081C0051A649 /* rules.h */,
 				12130612182C3A1700FCF928 /* seq.cpp */,
 				12130613182C3A1700FCF928 /* seq.h */,
 				12130615182C3D2900FCF928 /* string.cpp */,
@@ -234,10 +234,10 @@
 				127528AF18A6F9C6006B682B /* merge_transitions.h */,
 				12EDCFA418820137005A7A07 /* perform.cpp */,
 				12EDCFA518820137005A7A07 /* perform.h */,
-				12EDCFA618820137005A7A07 /* rule_transitions.cpp */,
-				12EDCFA718820137005A7A07 /* rule_transitions.h */,
 				127528B118AACAAA006B682B /* rule_can_be_blank.cpp */,
 				127528B218AACAAA006B682B /* rule_can_be_blank.h */,
+				12EDCFA618820137005A7A07 /* rule_transitions.cpp */,
+				12EDCFA718820137005A7A07 /* rule_transitions.h */,
 			);
 			path = build_tables;
 			sourceTree = "<group>";
@@ -365,10 +365,8 @@
 			children = (
 				12130618182C84B700FCF928 /* build_tables */,
 				12EDCFAC18820181005A7A07 /* compile.cpp */,
-				12EDCFAD18820181005A7A07 /* compile.h */,
 				12FD4067185E8AF40041A84E /* generate_code */,
 				12F9A64F182DD6BC00FAF50C /* grammar.cpp */,
-				12F9A650182DD6BC00FAF50C /* grammar.h */,
 				12FD40F5186A16020041A84E /* lex_table.cpp */,
 				12EDCF9C18820116005A7A07 /* lex_table.h */,
 				12EDCF9D18820116005A7A07 /* parse_table.cpp */,
@@ -422,6 +420,7 @@
 		12FD40D3185FED630041A84E /* include */ = {
 			isa = PBXGroup;
 			children = (
+				12E71852181D081C0051A649 /* compiler.h */,
 				121D8B3018795CC0003CF44B /* parser.h */,
 				127528B918B041B6006B682B /* runtime.h */,
 			);
@@ -536,6 +535,7 @@
 				12BC470718830BC5005AC502 /* first_set_spec.cpp in Sources */,
 				1213060B182C389100FCF928 /* symbol.cpp in Sources */,
 				127528B518AACB70006B682B /* rule_can_be_blank_spec.cpp in Sources */,
+				1236A7C518B287DC00593ABB /* character_range.cpp in Sources */,
 				1251209B1830145300C9B56A /* rule.cpp in Sources */,
 				27A343CA69E17E0F9EBEDF1C /* pattern.cpp in Sources */,
 			);

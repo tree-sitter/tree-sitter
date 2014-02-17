@@ -1,40 +1,35 @@
-#include "grammar.h"
+#include "compiler.h"
+#include "symbol.h"
 
 namespace tree_sitter {
     using std::vector;
     using std::string;
     using std::pair;
     using std::initializer_list;
+    using std::map;
     using std::ostream;
+    using rules::rule_ptr;
+    using rules::Symbol;
     
-    Grammar::Grammar(const initializer_list<pair<const string, const rules::rule_ptr>> &rules) :
-        rules(rules),
-        start_rule_name(rules.begin()->first) {}
-    
-    Grammar::Grammar(std::string start_rule_name, const rule_map &rules) :
+    Grammar::Grammar(std::string start_rule_name,
+                     const std::map<const std::string, const rule_ptr> &rules) :
         rules(rules),
         start_rule_name(start_rule_name) {}
 
-    Grammar::Grammar(std::string start_rule_name, const rule_map &rules, const rule_map &aux_rules) :
+    Grammar::Grammar(std::string start_rule_name,
+                     const map<const string, const rule_ptr> &rules,
+                     const map<const string, const rule_ptr> &aux_rules) :
         rules(rules),
         aux_rules(aux_rules),
         start_rule_name(start_rule_name) {}
 
-    const rules::rule_ptr Grammar::rule(const rules::Symbol &symbol) const {
+    const rule_ptr Grammar::rule(const Symbol &symbol) const {
         auto map = symbol.is_auxiliary ? aux_rules : rules;
         auto iter = map.find(symbol.name);
         if (iter != map.end())
             return iter->second;
         else
-            return rules::rule_ptr();
-    }
-    
-    vector<string> Grammar::rule_names() const {
-        vector<string> result;
-        for (auto pair : rules) {
-            result.push_back(pair.first);
-        }
-        return result;
+            return rule_ptr();
     }
     
     bool Grammar::operator==(const Grammar &other) const {
@@ -56,7 +51,7 @@ namespace tree_sitter {
         return true;
     }
     
-    bool Grammar::has_definition(const rules::Symbol &symbol) const {
+    bool Grammar::has_definition(const Symbol &symbol) const {
         return rule(symbol).get() != nullptr;
     }
     

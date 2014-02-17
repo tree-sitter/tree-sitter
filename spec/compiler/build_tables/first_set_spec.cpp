@@ -1,7 +1,5 @@
 #include "spec_helper.h"
 #include "build_tables/first_set.h"
-#include "grammar.h"
-#include "rules.h"
 
 using std::set;
 using namespace build_tables;
@@ -10,7 +8,7 @@ using namespace rules;
 START_TEST
 
 describe("computing FIRST sets", []() {
-    const Grammar null_grammar({{ "something", blank() }});
+    const Grammar null_grammar("", {{ "something", blank() }});
 
     describe("for a sequence AB", [&]() {
         it("ignores B when A cannot be blank", [&]() {
@@ -42,7 +40,7 @@ describe("computing FIRST sets", []() {
                     sym("A") }),
                 sym("A") });
             
-            Grammar grammar({
+            Grammar grammar("A", {
                 { "A", choice({
                     seq({
                         sym("y"),
@@ -57,7 +55,7 @@ describe("computing FIRST sets", []() {
         });
         
         it("includes FIRST(B) when A is a non-terminal and its expansion can be blank", [&]() {
-            Grammar grammar({{ "A", choice({ sym("x"), blank() }) }});
+            Grammar grammar("A", {{ "A", choice({ sym("x"), blank() }) }});
             
             auto rule = seq({
                 sym("A"),

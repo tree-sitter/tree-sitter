@@ -1,5 +1,6 @@
 #include "spec_helper.h"
-#include "rules.h"
+#include "pattern.h"
+#include "character_set.h"
 
 using namespace rules;
 
@@ -11,9 +12,9 @@ describe("parsing pattern rules", []() {
         AssertThat(
             rule.to_rule_tree(),
             EqualsPointer(seq({
-                character('a'),
-                character('b'),
-                character('c')
+                character({ 'a' }),
+                character({ 'b' }),
+                character({ 'c' })
             })));
     });
 
@@ -23,7 +24,7 @@ describe("parsing pattern rules", []() {
             rule.to_rule_tree(),
             EqualsPointer(seq({
                 character({ {'a', 'z'}, {'A', 'Z'} }),
-                character('-'),
+                character({ '-' }),
                 character({ {'0', '9'} })
             })));
     });
@@ -34,16 +35,16 @@ describe("parsing pattern rules", []() {
             rule.to_rule_tree(),
             EqualsPointer(choice({
                 seq({
-                    character('a'),
-                    character('b'),
+                    character({ 'a' }),
+                    character({ 'b' }),
                 }),
                 seq({
-                    character('c'),
-                    character('d')
+                    character({ 'c' }),
+                    character({ 'd' })
                 }),
                 seq({
-                    character('e'),
-                    character('f')
+                    character({ 'e' }),
+                    character({ 'f' })
                 })
             })));
     });
@@ -73,7 +74,7 @@ describe("parsing pattern rules", []() {
         Pattern rule("\\\\");
         AssertThat(
             rule.to_rule_tree(),
-            EqualsPointer(character('\\')));
+            EqualsPointer(character({ '\\' })));
     });
     
     it("parses character groups in sequences", []() {
@@ -81,12 +82,12 @@ describe("parsing pattern rules", []() {
         AssertThat(
             rule.to_rule_tree(),
             EqualsPointer(seq({
-                character('"'),
+                character({ '"' }),
                 repeat(choice({
                     character({ '"' }, false),
-                    seq({ character('\\'), character('"') })
+                    seq({ character({ '\\' }), character({ '"' }) })
                 })),
-                character('"')
+                character({ '"' })
             })));
     });
     
@@ -96,11 +97,11 @@ describe("parsing pattern rules", []() {
             rule.to_rule_tree(),
             EqualsPointer(seq({
                 choice({
-                    character('a'),
-                    character('b'),
+                    character({ 'a' }),
+                    character({ 'b' }),
                 }),
-                character('c'),
-                character('d')
+                character({ 'c' }),
+                character({ 'd' })
             })));
     });
     
@@ -109,9 +110,9 @@ describe("parsing pattern rules", []() {
         AssertThat(
             rule.to_rule_tree(),
             EqualsPointer(seq({
-                character('a'),
-                character('('),
-                character('b')
+                character({ 'a' }),
+                character({ '(' }),
+                character({ 'b' })
             })));
     });
     
@@ -122,12 +123,12 @@ describe("parsing pattern rules", []() {
             EqualsPointer(
                 seq({
                     repeat(seq({
-                        character('a'),
-                        character('b')
+                        character({ 'a' }),
+                        character({ 'b' })
                     })),
                     repeat(seq({
-                        character('c'),
-                        character('d')
+                        character({ 'c' }),
+                        character({ 'd' })
                     })),
                 })
             ));

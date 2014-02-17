@@ -1,6 +1,6 @@
 #include "item_set_closure.h"
+#include "compiler.h"
 #include "./follow_sets.h"
-#include "grammar.h"
 #include "item.h"
 
 namespace tree_sitter {

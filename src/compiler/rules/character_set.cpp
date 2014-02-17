@@ -1,42 +1,16 @@
-#include "rules.h"
+#include "character_set.h"
+#include "visitor.h"
 
 using std::string;
 using std::hash;
 using std::set;
 using std::pair;
+using std::initializer_list;
 
 namespace tree_sitter  {
     namespace rules {
-        const char MAX_CHAR = '\xff';
-        
-        CharacterRange::CharacterRange(char value) : min(value), max(value) {}
-        CharacterRange::CharacterRange(char min, char max) :
-            min(min),
-            max(max)
-        {}
-        
-        bool CharacterRange::operator==(const CharacterRange &other) const {
-            return min == other.min && max == other.max;
-        }
+        static const char MAX_CHAR = '\xff';
 
-        bool CharacterRange::operator<(const CharacterRange &other) const {
-            if (min < other.min) return true;
-            if (min > other.min) return false;
-            if (max < other.max) return true;
-            return false;
-        }
-
-        string escape_character(char input) {
-            switch (input) {
-                case '\0':
-                    return "<EOF>";
-                case MAX_CHAR:
-                    return "<MAX>";
-                default:
-                    return string() + input;
-            }
-        }
-        
         int max_int(const CharacterRange &range) {
             return range.max == MAX_CHAR ? 255 : (int)range.max;
         }
@@ -45,19 +19,9 @@ namespace tree_sitter  {
             return (int)range.min;
         }
         
-        string CharacterRange::to_string() const {
-            if (min == 0 && max == MAX_CHAR)
-                return "<ANY>";
-            if (min == max)
-                return escape_character(min);
-            else
-                return string() + escape_character(min) + "-" + escape_character(max);
-        }
-        
         CharacterSet::CharacterSet() : ranges({}) {}
         CharacterSet::CharacterSet(const set<CharacterRange> &ranges) : ranges(ranges) {}
-        CharacterSet::CharacterSet(const set<CharacterRange> &ranges, bool sign) :
-            ranges(sign ? ranges : CharacterSet(ranges).complement().ranges) {}
+        CharacterSet::CharacterSet(const initializer_list<CharacterRange> &ranges) : ranges(ranges) {}
         
         bool CharacterSet::operator==(const Rule &rule) const {
             const CharacterSet *other = dynamic_cast<const CharacterSet *>(&rule);
@@ -89,7 +53,7 @@ namespace tree_sitter  {
         }
         
         CharacterSet CharacterSet::complement() const {
-            CharacterSet result({ {0, MAX_CHAR} }, true);
+            CharacterSet result({ {0, MAX_CHAR} });
             result.remove_set(*this);
             return result;
         }

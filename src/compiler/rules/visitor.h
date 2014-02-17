@@ -1,10 +1,18 @@
 #ifndef __tree_sitter__rule_visitor__
 #define __tree_sitter__rule_visitor__
 
-#include "rules.h"
-
 namespace tree_sitter {
     namespace rules {
+        class Rule;
+        class Blank;
+        class Symbol;
+        class CharacterSet;
+        class Choice;
+        class Repeat;
+        class Seq;
+        class String;
+        class Pattern;
+        
         class Visitor {
         public:
             virtual void default_visit(const Rule *rule);

@@ -1,5 +1,4 @@
 #include "spec_helper.h"
-#include "compile.h"
 #include "../fixtures/grammars/test_grammars.h"
 #include <fstream>
 

@@ -4,7 +4,7 @@
 #include "bandit/bandit.h"
 #include "stream_methods.h"
 #include <iostream>
-#include "grammar.h"
+#include "compiler.h"
 
 using namespace tree_sitter;
 using namespace std;

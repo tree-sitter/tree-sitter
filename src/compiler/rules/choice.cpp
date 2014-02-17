@@ -1,10 +1,20 @@
-#include "rules.h"
-
-using std::string;
+#include "choice.h"
+#include "visitor.h"
 
 namespace tree_sitter  {
+    using std::string;
+    using std::make_shared;
+    using std::vector;
+    
     namespace rules {
         Choice::Choice(rule_ptr left, rule_ptr right) : left(left), right(right) {};
+        
+        rule_ptr Choice::Build(const vector<rule_ptr> &rules) {
+            rule_ptr result;
+            for (auto rule : rules)
+                result = result.get() ? make_shared<Choice>(result, rule) : rule;
+            return result;
+        }
         
         bool Choice::operator==(const Rule &rule) const {
             const Choice *other = dynamic_cast<const Choice *>(&rule);

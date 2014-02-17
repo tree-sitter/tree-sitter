@@ -90,7 +90,7 @@ describe("rule transitions", []() {
     
     it("handles characters", [&]() {
         AssertThat(
-            char_transitions(character('1')),
+            char_transitions(character({ '1' })),
             Equals(rule_map<CharacterSet>({
                 { CharacterSet({ '1' }), blank() }
             })));
@@ -100,7 +100,7 @@ describe("rule transitions", []() {
         AssertThat(
             char_transitions(str("bad")),
             Equals(rule_map<CharacterSet>({
-                { CharacterSet({ 'b' }, true), seq({ character('a'), character('d') }) }
+                { CharacterSet({ 'b' }), seq({ character({ 'a' }), character({ 'd' }) }) }
             })));
     });
     
@@ -124,9 +124,9 @@ describe("rule transitions", []() {
                     character({ { 'm', 'z' } }),
                     sym("y") }) })),
             Equals(rule_map<CharacterSet>({
-                { CharacterSet({ {'a','l'} }, true), sym("x") },
-                { CharacterSet({ {'m','s'} }, true), choice({ sym("x"), sym("y") }) },
-                { CharacterSet({ {'t','z'} }, true), sym("y") },
+                { CharacterSet({ {'a','l'} }), sym("x") },
+                { CharacterSet({ {'m','s'} }), choice({ sym("x"), sym("y") }) },
+                { CharacterSet({ {'t','z'} }), sym("y") },
             })));
     });
 
@@ -138,7 +138,7 @@ describe("rule transitions", []() {
                 {
                     CharacterSet({ 'a' }),
                     seq({
-                        character('b'),
+                        character({ 'b' }),
                         choice({
                             rule,
                             blank()
@@ -166,17 +166,17 @@ describe("rule transitions", []() {
                     repeat(character({ '"' }, false)),
                     blank(),
                 }),
-                character('"'),
+                character({ '"' }),
             });
             
             AssertThat(char_transitions(rule), Equals(rule_map<CharacterSet>({
-                { CharacterSet({ '"' }, false), seq({
+                { CharacterSet({ '"' }).complement(), seq({
                     choice({
                         repeat(character({ '"' }, false)),
                         blank(),
                     }),
-                    character('"'), }) },
-                { CharacterSet({ '"' }, true), blank() },
+                    character({ '"' }), }) },
+                { CharacterSet({ '"' }), blank() },
             })));
         });
     });
