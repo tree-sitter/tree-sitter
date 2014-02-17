@@ -1,5 +1,5 @@
 #include "item_set_closure.h"
-#include "compiler.h"
+#include "tree_sitter/compiler.h"
 #include "./follow_sets.h"
 #include "item.h"
 

@@ -2,7 +2,7 @@
 #include "first_set.h"
 #include "rule_transitions.h"
 #include "rule_can_be_blank.h"
-#include "compiler.h"
+#include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
     using std::set;

@@ -1,7 +1,7 @@
 #ifndef __tree_sitter__rule_can_be_blank__
 #define __tree_sitter__rule_can_be_blank__
 
-#include "compiler.h"
+#include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
     namespace build_tables {

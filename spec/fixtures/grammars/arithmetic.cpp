@@ -1,5 +1,5 @@
 #include "test_grammars.h"
-#include "compiler.h"
+#include "tree_sitter/compiler.h"
 
 using namespace tree_sitter;
 using namespace rules;

@@ -1,4 +1,4 @@
-#include "parser.h"
+#include "tree_sitter/parser.h"
 
 enum ts_symbol {
     ts_symbol_array,

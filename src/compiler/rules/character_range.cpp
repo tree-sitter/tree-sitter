@@ -1,4 +1,4 @@
-#include "compiler.h"
+#include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
     using std::string;

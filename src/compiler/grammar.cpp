@@ -1,4 +1,4 @@
-#include "compiler.h"
+#include "tree_sitter/compiler.h"
 #include "symbol.h"
 
 namespace tree_sitter {

@@ -246,7 +246,7 @@ namespace tree_sitter {
             }
 
             string includes() {
-                return "#include \"parser.h\"";
+                return "#include \"tree_sitter/parser.h\"";
             }
             
             string lex_function() {

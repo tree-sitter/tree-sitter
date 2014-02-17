@@ -1,4 +1,4 @@
-#include "compiler.h"
+#include "tree_sitter/compiler.h"
 #include "rule.h"
 #include "blank.h"
 #include "symbol.h"

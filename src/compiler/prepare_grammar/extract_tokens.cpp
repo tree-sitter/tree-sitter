@@ -1,7 +1,7 @@
 #include "extract_tokens.h"
 #include "search_for_symbols.h"
 #include <map>
-#include "compiler.h"
+#include "tree_sitter/compiler.h"
 #include "rules/visitor.h"
 #include "rules/seq.h"
 #include "rules/choice.h"

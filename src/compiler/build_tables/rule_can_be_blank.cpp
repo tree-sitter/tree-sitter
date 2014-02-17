@@ -1,5 +1,5 @@
 #include "rule_can_be_blank.h"
-#include "compiler.h"
+#include "tree_sitter/compiler.h"
 #include "rules/symbol.h"
 #include "rules/visitor.h"
 #include "rules/seq.h"

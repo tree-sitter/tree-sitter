@@ -2,7 +2,7 @@
 #include "item.h"
 #include "item_set_closure.h"
 #include "item_set_transitions.h"
-#include "compiler.h"
+#include "tree_sitter/compiler.h"
 
 #include "stream_methods.h"
 

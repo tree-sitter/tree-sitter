@@ -5,7 +5,7 @@
 extern "C" {
 #endif
     
-#include "runtime.h"
+#include "./runtime.h"
 #include <stdio.h>
 #include <string.h>
 

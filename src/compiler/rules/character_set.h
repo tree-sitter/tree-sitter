@@ -1,7 +1,7 @@
 #ifndef __tree_sitter__character_set__
 #define __tree_sitter__character_set__
 
-#include "compiler.h"
+#include "tree_sitter/compiler.h"
 #include "rule.h"
 #include <set>
 #include <initializer_list>

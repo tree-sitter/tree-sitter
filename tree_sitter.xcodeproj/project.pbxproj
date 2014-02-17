@@ -122,7 +122,7 @@
 		12D136A2183678A2005F3369 /* repeat.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = repeat.cpp; sourceTree = "<group>"; };
 		12D136A3183678A2005F3369 /* repeat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = repeat.h; sourceTree = "<group>"; };
 		12E71794181D02A80051A649 /* compiler_specs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = compiler_specs; sourceTree = BUILT_PRODUCTS_DIR; };
-		12E71852181D081C0051A649 /* compiler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = compiler.h; path = include/compiler.h; sourceTree = SOURCE_ROOT; };
+		12E71852181D081C0051A649 /* compiler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = compiler.h; path = include/tree_sitter/compiler.h; sourceTree = SOURCE_ROOT; };
 		12E75A961891BD32001B8F10 /* json.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = json.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		12E75A981891BF3B001B8F10 /* json.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = json.c; sourceTree = "<group>"; };
 		12E75A9B1891C17D001B8F10 /* json_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = json_spec.cpp; sourceTree = "<group>"; };
@@ -246,21 +246,31 @@
 		1213061C182C854F00FCF928 /* build_tables */ = {
 			isa = PBXGroup;
 			children = (
-				12EDCFB6188205BA005A7A07 /* rule_transitions_spec.cpp */,
-				12EDCFB7188205BA005A7A07 /* perform_spec.cpp */,
 				12BC470618830BC5005AC502 /* first_set_spec.cpp */,
 				12AB4660188CB3A300DE79DF /* item_set_closure_spec.cpp */,
+				12EDCFB7188205BA005A7A07 /* perform_spec.cpp */,
 				127528B418AACB70006B682B /* rule_can_be_blank_spec.cpp */,
+				12EDCFB6188205BA005A7A07 /* rule_transitions_spec.cpp */,
 			);
 			path = build_tables;
+			sourceTree = "<group>";
+		};
+		1236A7CB18B2ACA700593ABB /* tree_sitter */ = {
+			isa = PBXGroup;
+			children = (
+				12E71852181D081C0051A649 /* compiler.h */,
+				121D8B3018795CC0003CF44B /* parser.h */,
+				127528B918B041B6006B682B /* runtime.h */,
+			);
+			path = tree_sitter;
 			sourceTree = "<group>";
 		};
 		125120A118307FCA00C9B56A /* grammars */ = {
 			isa = PBXGroup;
 			children = (
-				125120A218307FFD00C9B56A /* test_grammars.h */,
 				125120A3183083BD00C9B56A /* arithmetic.cpp */,
 				12E75A961891BD32001B8F10 /* json.cpp */,
+				125120A218307FFD00C9B56A /* test_grammars.h */,
 			);
 			path = grammars;
 			sourceTree = "<group>";
@@ -268,8 +278,8 @@
 		12AB4662188DCB7B00DE79DF /* helpers */ = {
 			isa = PBXGroup;
 			children = (
-				12AB4663188DCB9800DE79DF /* stream_methods.h */,
 				1236A7CA18B2ABB900593ABB /* equals_pointer.h */,
+				12AB4663188DCB9800DE79DF /* stream_methods.h */,
 			);
 			path = helpers;
 			sourceTree = "<group>";
@@ -277,9 +287,9 @@
 		12D1369F18357066005F3369 /* rules */ = {
 			isa = PBXGroup;
 			children = (
-				121492EA181E200B008E9BDA /* rules_spec.cpp */,
-				12D136A0183570F5005F3369 /* pattern_spec.cpp */,
 				12661BF318A1505A00A259FB /* character_set_spec.cpp */,
+				12D136A0183570F5005F3369 /* pattern_spec.cpp */,
+				121492EA181E200B008E9BDA /* rules_spec.cpp */,
 			);
 			name = rules;
 			path = compiler/rules;
@@ -347,8 +357,8 @@
 		12FD4062185E74DF0041A84E /* parsers */ = {
 			isa = PBXGroup;
 			children = (
-				12E75A981891BF3B001B8F10 /* json.c */,
 				12FD4065185E7C2F0041A84E /* arithmetic.c */,
+				12E75A981891BF3B001B8F10 /* json.c */,
 			);
 			path = parsers;
 			sourceTree = "<group>";
@@ -382,9 +392,9 @@
 		12FD40AD185EE5440041A84E /* runtime */ = {
 			isa = PBXGroup;
 			children = (
-				12FD40DE1860064C0041A84E /* tree.c */,
 				12EDCF8C187C6282005A7A07 /* document.c */,
 				12BC470318822A17005AC502 /* error.cpp */,
+				12FD40DE1860064C0041A84E /* tree.c */,
 			);
 			path = runtime;
 			sourceTree = "<group>";
@@ -413,8 +423,8 @@
 			isa = PBXGroup;
 			children = (
 				12FD40DA185FEF0D0041A84E /* arithmetic_spec.cpp */,
-				12EDCF89187B498C005A7A07 /* tree_spec.cpp */,
 				12E75A9B1891C17D001B8F10 /* json_spec.cpp */,
+				12EDCF89187B498C005A7A07 /* tree_spec.cpp */,
 			);
 			path = runtime;
 			sourceTree = "<group>";
@@ -422,9 +432,7 @@
 		12FD40D3185FED630041A84E /* include */ = {
 			isa = PBXGroup;
 			children = (
-				12E71852181D081C0051A649 /* compiler.h */,
-				121D8B3018795CC0003CF44B /* parser.h */,
-				127528B918B041B6006B682B /* runtime.h */,
+				1236A7CB18B2ACA700593ABB /* tree_sitter */,
 			);
 			path = include;
 			sourceTree = "<group>";
@@ -632,6 +640,7 @@
 					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
 					externals/igloo,
 					externals/bandit,
+					include,
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				ONLY_ACTIVE_ARCH = YES;
@@ -672,6 +681,7 @@
 					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
 					externals/igloo,
 					externals/bandit,
+					include,
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				PRODUCT_NAME = "$(TARGET_NAME)";
