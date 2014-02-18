@@ -1,2 +1,5 @@
+language: cpp
+compiler:
+    - clang
 install: git submodule update --init
 script: "make test"
