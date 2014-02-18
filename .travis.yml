@@ -1,0 +1,2 @@
+install: git submodule update --init
+script: "make test"
