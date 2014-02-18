@@ -1,8 +1,8 @@
 .PHONY: all clean test debug valgrind
 
 ### install configuration ###
-CPP       = c++
-CC        = cc
+CXX       ?= clang++
+CC        ?= clang
 RM        ?= rm -f
 MKDIR     ?= $(INSTALL) -d
 SYMLINK   ?= ln -s
@@ -28,13 +28,13 @@ all: $(LIB_FILE)
 	$(CC) $(CFLAGS) -Iinclude -Isrc/runtime -c $< -o $@
 
 %.o: %.cpp
-	$(CPP) $(CPPFLAGS) -Iinclude -Isrc/compiler -Isrc/runtime -Iexternals/bandit -Ispec -c $< -o $@
+	$(CXX) $(CPPFLAGS) -Iinclude -Isrc/compiler -Isrc/runtime -Iexternals/bandit -Ispec -c $< -o $@
 
 test: $(TEST_BIN)
 	./$<
 
 $(TEST_BIN): $(TEST_OBJECTS) $(SRC_OBJECTS)
-	$(CPP) $(CPPFLAGS) $(TEST_OBJECTS) $(SRC_OBJECTS) -o $@
+	$(CXX) $(CPPFLAGS) $(TEST_OBJECTS) $(SRC_OBJECTS) -o $@
 
 debug: $(TEST_BIN)
 	gdb $<
