@@ -4,7 +4,7 @@
 #include <map>
 #include <vector>
 #include <set>
-#include "symbol.h"
+#include "rules/symbol.h"
 
 namespace tree_sitter {
     typedef enum {
@@ -25,9 +25,9 @@ namespace tree_sitter {
         bool operator<(const ParseAction &action) const;
         
         ParseActionType type;
-        std::vector<bool> child_flags;
         rules::Symbol symbol;
         size_t state_index;
+        std::vector<bool> child_flags;
     };
 
     std::ostream& operator<<(std::ostream &stream, const ParseAction &item);

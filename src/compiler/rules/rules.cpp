@@ -1,13 +1,13 @@
 #include "tree_sitter/compiler.h"
-#include "rule.h"
-#include "blank.h"
-#include "symbol.h"
-#include "choice.h"
-#include "seq.h"
-#include "string.h"
-#include "pattern.h"
-#include "character_set.h"
-#include "repeat.h"
+#include "./rule.h"
+#include "./blank.h"
+#include "./symbol.h"
+#include "./choice.h"
+#include "./seq.h"
+#include "./string.h"
+#include "./pattern.h"
+#include "./character_set.h"
+#include "./repeat.h"
 
 namespace tree_sitter {
     using std::make_shared;

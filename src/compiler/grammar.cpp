@@ -1,5 +1,5 @@
 #include "tree_sitter/compiler.h"
-#include "symbol.h"
+#include "rules/symbol.h"
 
 namespace tree_sitter {
     using std::vector;
@@ -13,15 +13,15 @@ namespace tree_sitter {
     
     Grammar::Grammar(std::string start_rule_name,
                      const std::map<const std::string, const rule_ptr> &rules) :
-        rules(rules),
-        start_rule_name(start_rule_name) {}
+        start_rule_name(start_rule_name), 
+        rules(rules) {}
 
     Grammar::Grammar(std::string start_rule_name,
                      const map<const string, const rule_ptr> &rules,
                      const map<const string, const rule_ptr> &aux_rules) :
+        start_rule_name(start_rule_name),
         rules(rules),
-        aux_rules(aux_rules),
-        start_rule_name(start_rule_name) {}
+        aux_rules(aux_rules) {}
 
     const rule_ptr Grammar::rule(const Symbol &symbol) const {
         auto map = symbol.is_auxiliary ? aux_rules : rules;

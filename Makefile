@@ -1,48 +1,40 @@
-.PHONY: all clean install install-dev test test-c test-scm valgrind
+.PHONY: all clean test debug valgrind
 
 ### install configuration ###
 CPP       = c++
+CC        = cc
 RM        ?= rm -f
-INSTALL   ?= install
 MKDIR     ?= $(INSTALL) -d
 SYMLINK   ?= ln -s
 
-PREFIX    ?= /usr/local
-BINDIR    ?= $(PREFIX)/bin
-LIBDIR    ?= $(PREFIX)/lib
-SOLIBDIR  ?= $(PREFIX)/lib
-INCDIR    ?= $(PREFIX)/include
-MODDIR    ?= $(PREFIX)/share
-BINMODDIR ?= $(PREFIX)/lib
-MANDIR    ?= $(PREFIX)/share/man/man1
-
 ### library configuration ###
-LIB_NAME    = tree_sitter
-DIR         = $(shell pwd)
-HEADERS     = $(wildcard include/*.h)
-SOURCES     = $(wildcard src/*.cpp)
-TESTS       = $(wildcard spec/*.cpp)
-OBJECTS     = $(foreach file, $(C_SOURCES), $(basename $(file)).o)
-LIB_FILE    = lib$(LIB_NAME)$(SO)
-TEST_BIN    = spec/run.out
+LIB_NAME     = tree_sitter
+DIR          = $(shell pwd)
+SOURCES      = $(shell find src -name '*.cpp' -or -name '*.c')
+TESTS        = $(shell find spec -name '*.cpp') $(shell find examples -name '*.c')
+SRC_OBJECTS  = $(foreach file, $(SOURCES), $(basename $(file)).o)
+TEST_OBJECTS = $(foreach file, $(TESTS), $(basename $(file)).o)
+LIB_FILE     = lib$(LIB_NAME)$(SO)
+TEST_BIN     = spec/run.out
 
 ### build configuration ###
-CFLAGS ?= -Wall -std=c++11 -stdlib=libc++ -g -m64
+CFLAGS ?= -Wall -g -m64
+CPPFLAGS ?= -Wall -std=c++11 -stdlib=libc++ -g -m64
 
 ### targets ###
 all: $(LIB_FILE)
 
-src/%.o: src/%.cpp
-	$(CPP) $(CFLAGS) -c $< -o $@
+%.o: %.c
+	$(CC) $(CFLAGS) -Iinclude -Isrc/runtime -c $< -o $@
+
+%.o: %.cpp
+	$(CPP) $(CPPFLAGS) -Iinclude -Isrc/compiler -Isrc/runtime -Iexternals/bandit -Ispec -c $< -o $@
 
 test: $(TEST_BIN)
 	./$<
 
-$(TEST_BIN): $(TESTS) $(SOURCES)
-	$(CPP) $(CFLAGS) -Ispec/externals/igloo -Isrc -L. $^ -o $@
-
-# $(TEST_BIN): $(LIB_FILE) $(C_TESTS)
-	# $(CPP) $(CFLAGS) -Ispec/externals/igloo -Isrc -L. -l$(LIB_NAME) test/c/_runner.cc -o $@
+$(TEST_BIN): $(TEST_OBJECTS) $(SRC_OBJECTS)
+	$(CPP) $(CPPFLAGS) $(TEST_OBJECTS) $(SRC_OBJECTS) -o $@
 
 debug: $(TEST_BIN)
 	gdb $<
@@ -51,5 +43,4 @@ valgrind: $(TEST_BIN)
 	valgrind --track-origins=yes $(TEST_BIN)
 
 clean:
-	$(RM) $(OBJECTS) $(LIB_FILE) $(TEST_BIN)
-
+	$(RM) $(SRC_OBJECTS) $(TEST_OBJECTS) $(LIB_FILE) $(TEST_BIN)

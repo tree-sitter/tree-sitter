@@ -1,5 +1,4 @@
 #include "spec_helper.h"
-#include "runtime.h"
 
 extern TSParseConfig ts_parse_config_json;
 

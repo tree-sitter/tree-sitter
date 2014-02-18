@@ -1,5 +1,5 @@
 #include "spec_helper.h"
-#include "rule_can_be_blank.h"
+#include "build_tables/rule_can_be_blank.h"
 
 using namespace rules;
 using build_tables::rule_can_be_blank;

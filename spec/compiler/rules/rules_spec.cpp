@@ -1,5 +1,5 @@
 #include "spec_helper.h"
-#include "rule.h"
+#include "rules/rule.h"
 
 using namespace rules;
 

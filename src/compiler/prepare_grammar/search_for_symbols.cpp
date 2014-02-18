@@ -1,8 +1,8 @@
 #include "search_for_symbols.h"
 #include "rules/visitor.h"
-#include "choice.h"
-#include "seq.h"
-#include "repeat.h"
+#include "rules/choice.h"
+#include "rules/seq.h"
+#include "rules/repeat.h"
 
 namespace tree_sitter {
     using namespace rules;

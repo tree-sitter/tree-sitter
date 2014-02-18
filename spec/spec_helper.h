@@ -5,6 +5,7 @@
 #include "helpers/stream_methods.h"
 #include "helpers/equals_pointer.h"
 #include "tree_sitter/compiler.h"
+#include "tree_sitter/runtime.h"
 
 using namespace tree_sitter;
 using namespace std;

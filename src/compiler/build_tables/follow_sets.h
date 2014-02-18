@@ -2,7 +2,7 @@
 #define __tree_sitter__follow_sets__
 
 #include "item.h"
-#include "symbol.h"
+#include "rules/symbol.h"
 #include <set>
 #include <map>
 

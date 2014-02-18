@@ -10,8 +10,8 @@ namespace tree_sitter {
     
     LexAction::LexAction(LexActionType type, size_t state_index, Symbol symbol) :
         type(type),
-        state_index(state_index),
-        symbol(symbol) {}
+        symbol(symbol),
+        state_index(state_index) {}
     
     LexAction LexAction::Error() {
         return LexAction(LexActionTypeError, -1, Symbol(""));

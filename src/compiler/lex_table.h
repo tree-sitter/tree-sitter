@@ -5,8 +5,8 @@
 #include <string>
 #include <set>
 #include <map>
-#include "symbol.h"
-#include "character_set.h"
+#include "rules/symbol.h"
+#include "rules/character_set.h"
 
 namespace tree_sitter {
     typedef enum {

@@ -1,7 +1,7 @@
 #ifndef __tree_sitter__item__
 #define __tree_sitter__item__
 
-#include "symbol.h"
+#include "rules/symbol.h"
 #include <string>
 #include <set>
 #include <vector>

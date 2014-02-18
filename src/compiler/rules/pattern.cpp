@@ -17,8 +17,8 @@ namespace tree_sitter {
         public:
             PatternParser(const string &input) :
                 input(input),
-                position(0),
-                length(input.length()) {}
+                length(input.length()),
+                position(0) {}
             
             rule_ptr rule() {
                 auto result = term();

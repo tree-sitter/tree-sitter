@@ -1,4 +1,4 @@
-#include "runtime.h"
+#include "tree_sitter/runtime.h"
 #include <string>
 
 using std::string;

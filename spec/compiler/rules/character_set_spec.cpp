@@ -1,5 +1,5 @@
 #include "spec_helper.h"
-#include "character_set.h"
+#include "rules/character_set.h"
 
 using namespace rules;
 

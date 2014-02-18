@@ -59,7 +59,7 @@
       </BuildableProductRunnable>
       <EnvironmentVariables>
          <EnvironmentVariable
-            key = "TREESITTER_SRC_DIR"
+            key = "TREESITTER_DIR"
             value = "$(SRCROOT)"
             isEnabled = "YES">
          </EnvironmentVariable>

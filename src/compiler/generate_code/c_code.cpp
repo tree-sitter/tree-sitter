@@ -74,9 +74,9 @@ namespace tree_sitter {
         }
         
         class CCodeGenerator {
+            const string name;
             const ParseTable parse_table;
             const LexTable lex_table;
-            const string name;
         public:
             CCodeGenerator(string name, const ParseTable &parse_table, const LexTable &lex_table) :
                 name(name),

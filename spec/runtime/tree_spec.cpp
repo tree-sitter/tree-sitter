@@ -1,5 +1,4 @@
 #include "spec_helper.h"
-#include "runtime.h"
 
 START_TEST
 

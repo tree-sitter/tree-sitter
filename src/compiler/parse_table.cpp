@@ -10,8 +10,8 @@ namespace tree_sitter {
     
     ParseAction::ParseAction(ParseActionType type, size_t state_index, Symbol symbol, const vector<bool> &child_flags) :
         type(type),
-        state_index(state_index),
         symbol(symbol),
+        state_index(state_index),
         child_flags(child_flags) {};
     
     ParseAction ParseAction::Error() {
