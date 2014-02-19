@@ -2,6 +2,7 @@
 #include "tree_sitter/compiler.h"
 #include "./follow_sets.h"
 #include "item.h"
+#include <algorithm>
 
 namespace tree_sitter {
     using std::set;

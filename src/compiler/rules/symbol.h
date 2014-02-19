@@ -2,7 +2,7 @@
 #define __tree_sitter__sym__
 
 #include "rule.h"
-#include <map>
+#include <utility>
 
 namespace tree_sitter  {
     namespace rules {

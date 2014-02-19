@@ -5,6 +5,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <memory>
 
 namespace tree_sitter {
     namespace rules {

@@ -1,5 +1,6 @@
 #include "tree_sitter/runtime.h"
 #include <string>
+#include "string.h"
 
 using std::string;
 

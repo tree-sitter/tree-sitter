@@ -2,6 +2,7 @@
 #define __TreeSitter__rule__
 
 #include <string>
+#include <memory>
 
 namespace tree_sitter {
     namespace rules {
