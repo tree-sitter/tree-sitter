@@ -8,6 +8,7 @@ extern "C" {
 #include "./runtime.h"
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 //#define TS_DEBUG_PARSE
 //#define TS_DEBUG_LEX
@@ -147,6 +148,11 @@ static void TSParserAcceptInput(TSParser *parser) {
     DEBUG_PARSE("accept \n");
 }
 
+static void TSParserSkipWhitespace(TSParser *parser) {
+    while (isspace(parser->input[parser->position]))
+        parser->position++;
+}
+
 #pragma mark - DSL
 
 #define START_PARSER() \
@@ -154,6 +160,7 @@ TSParser p = TSParserMake(input), *parser = &p; \
 next_state:
 
 #define START_LEXER() \
+TSParserSkipWhitespace(parser); \
 next_state:
 
 #define LOOKAHEAD_SYM() \

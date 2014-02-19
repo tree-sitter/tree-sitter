@@ -27,10 +27,10 @@ describe("json", []() {
         TSDocumentSetText(document, "{}");
         AssertThat(string(TSDocumentToString(document)), Equals("(value (object))"));
 
-        TSDocumentSetText(document, "{\"key1\":1}");
+        TSDocumentSetText(document, "{ \"key1\": 1 }");
         AssertThat(string(TSDocumentToString(document)), Equals("(value (object (string) (value (number))))"));
 
-        TSDocumentSetText(document, "{\"key1\":1,\"key2\":2}");
+        TSDocumentSetText(document, "{\"key1\": 1, \"key2\": 2 }");
         AssertThat(string(TSDocumentToString(document)), Equals("(value (object (string) (value (number)) (string) (value (number))))"));
     });
     
@@ -41,7 +41,7 @@ describe("json", []() {
         TSDocumentSetText(document, "[5]");
         AssertThat(string(TSDocumentToString(document)), Equals("(value (array (value (number))))"));
 
-        TSDocumentSetText(document, "[1,2,3]");
+        TSDocumentSetText(document, "[1, 2, 3]");
         AssertThat(string(TSDocumentToString(document)), Equals("(value (array (value (number)) (value (number)) (value (number))))"));
     });
 });

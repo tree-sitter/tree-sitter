@@ -2,7 +2,6 @@ TODO
 ====
 
 ## batch parsing
-- make it easy to make whitespace-separated sequence rules
 - add comments to generated C code describing the generated tokens (regexp pattern)
 - fix any memory leaks
 - add special lexical behavior for indentation-aware languages
