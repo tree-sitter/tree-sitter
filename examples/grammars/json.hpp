@@ -11,7 +11,7 @@ namespace test_grammars {
         return choice({
             seq({
                 rule,
-                repeat(seq({ aux_sym("comma"), rule })),
+                repeat(seq({ _sym("comma"), rule })),
             }),
             blank(),
         });
@@ -25,16 +25,16 @@ namespace test_grammars {
                 sym("string"), 
                 sym("number") }) },
             { "object", seq({
-                aux_sym("left_brace"),
+                _sym("left_brace"),
                 comma_sep(seq({
                     sym("string"),
-                    aux_sym("colon"),
+                    _sym("colon"),
                     sym("value") })),
-                aux_sym("right_brace"), }) },
+                _sym("right_brace"), }) },
             { "array", seq({
-                aux_sym("left_bracket"),
+                _sym("left_bracket"),
                 comma_sep(sym("value")),
-                aux_sym("right_bracket"), }) },
+                _sym("right_bracket"), }) },
             { "string", seq({
                 character({ '"' }),
                 repeat(choice({
@@ -42,8 +42,7 @@ namespace test_grammars {
                     str("\\\""),
                 })),
                 character({ '"' }) }) },
-            { "number", pattern("\\d+") }
-        }, {
+            { "number", pattern("\\d+") },
             { "comma", str(",") },
             { "colon", str(":") },
             { "left_bracket", str("[") },

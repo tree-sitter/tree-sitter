@@ -1,13 +1,14 @@
 #include "symbol.h"
 #include "visitor.h"
+#include <map>
 
 using std::string;
 using std::hash;
 
 namespace tree_sitter  {
     namespace rules {
-        Symbol::Symbol(const std::string &name) : name(name), is_auxiliary(false) {};
-        Symbol::Symbol(const std::string &name, bool is_auxiliary) : name(name), is_auxiliary(is_auxiliary) {};
+        Symbol::Symbol(const std::string &name) : name(name), type(SymbolTypeNormal) {};
+        Symbol::Symbol(const std::string &name, SymbolType type) : name(name), type(type) {};
 
         bool Symbol::operator==(const Rule &rule) const {
             const Symbol *other = dynamic_cast<const Symbol *>(&rule);
@@ -15,11 +16,11 @@ namespace tree_sitter  {
         }
 
         bool Symbol::operator==(const Symbol &other) const {
-            return (other.name == name) && (other.is_auxiliary == is_auxiliary);
+            return (other.name == name) && (other.type == type);
         }
 
         size_t Symbol::hash_code() const {
-            return hash<string>()(name) ^ hash<bool>()(is_auxiliary);
+            return hash<string>()(name) ^ hash<short int>()(type);
         }
         
         rule_ptr Symbol::copy() const {
@@ -27,15 +28,28 @@ namespace tree_sitter  {
         }
         
         string Symbol::to_string() const {
-            return is_auxiliary ?
-                string("#<aux_sym '") + name + "'>" :
-                string("#<sym '") + name + "'>";
+            switch (type) {
+                case SymbolTypeNormal:
+                    return string("#<sym '") + name + "'>";
+                case SymbolTypeHidden:
+                    return string("#<hidden_sym '") + name + "'>";
+                case SymbolTypeAuxiliary:
+                    return string("#<aux_sym '") + name + "'>";
+            }
         }
         
         bool Symbol::operator<(const Symbol &other) const {
-            if (is_auxiliary < other.is_auxiliary) return true;
-            if (is_auxiliary > other.is_auxiliary) return false;
+            if (type < other.type) return true;
+            if (type > other.type) return false;
             return (name < other.name);
+        }
+        
+        bool Symbol::is_auxiliary() const {
+            return type == SymbolTypeAuxiliary;
+        }
+
+        bool Symbol::is_hidden() const {
+            return (type == SymbolTypeHidden || type == SymbolTypeAuxiliary);
         }
         
         void Symbol::accept(Visitor &visitor) const {

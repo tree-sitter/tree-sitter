@@ -1,5 +1,6 @@
 #include "spec_helper.h"
 #include "prepare_grammar/perform.h"
+#include "rules/symbol.h"
 
 START_TEST
 
@@ -23,11 +24,11 @@ describe("preparing a grammar", []() {
             
             AssertThat(result.first, Equals(Grammar("rule1", {
                 { "rule1", seq({
-                    aux_sym("token1"),
+                    make_shared<Symbol>("token1", SymbolTypeAuxiliary),
                     seq({
                         sym("rule2"),
                         sym("rule3") }),
-                    aux_sym("token1") }) }
+                    make_shared<Symbol>("token1", SymbolTypeAuxiliary) }) }
             })));
             
             AssertThat(result.second, Equals(Grammar("", map<const string, const rule_ptr>(), {
@@ -101,14 +102,14 @@ describe("preparing a grammar", []() {
             AssertThat(result, Equals(Grammar("rule1", {
                 { "rule1", seq({
                     sym("x"),
-                    aux_sym("repeat_helper1"),
+                    make_shared<Symbol>("repeat_helper1", SymbolTypeAuxiliary),
                     sym("y")
                 }) },
             }, {
                 { "repeat_helper1", choice({
                     seq({
                         seq({ sym("a"), sym("b") }),
-                        aux_sym("repeat_helper1"),
+                        make_shared<Symbol>("repeat_helper1", SymbolTypeAuxiliary),
                     }),
                     blank(),
                 }) }
@@ -127,7 +128,7 @@ describe("preparing a grammar", []() {
             AssertThat(result.first, Equals(Grammar("rule1", {
                 { "rule1", seq({
                     sym("x"),
-                    aux_sym("token1"),
+                    make_shared<Symbol>("token1", SymbolTypeAuxiliary),
                     sym("y")
                 }) },
             })));

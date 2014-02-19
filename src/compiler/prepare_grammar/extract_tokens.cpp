@@ -37,7 +37,7 @@ namespace tree_sitter {
                     return value;
                 } else {
                     string token_name = add_token(rule);
-                    return make_shared<Symbol>(token_name, true);
+                    return make_shared<Symbol>(token_name, SymbolTypeAuxiliary);
                 }
             }
             

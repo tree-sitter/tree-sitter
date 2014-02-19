@@ -47,7 +47,7 @@ namespace tree_sitter {
         rule_ptr seq(const std::vector<rule_ptr> &rules);
         rule_ptr str(const std::string &value);
         rule_ptr sym(const std::string &name);
-        rule_ptr aux_sym(const std::string &name);
+        rule_ptr _sym(const std::string &name);
     }
 }
 

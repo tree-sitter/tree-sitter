@@ -52,11 +52,11 @@ namespace tree_sitter {
         }
 
         rule_ptr sym(const string &name) {
-            return make_shared<Symbol>(name, false);
+            return make_shared<Symbol>(name);
         }
 
-        rule_ptr aux_sym(const string &name) {
-            return make_shared<Symbol>(name, true);
+        rule_ptr _sym(const string &name) {
+            return make_shared<Symbol>(name, SymbolTypeHidden);
         }
     }
 }

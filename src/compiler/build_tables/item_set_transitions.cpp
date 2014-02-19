@@ -24,7 +24,7 @@ namespace tree_sitter {
             for (auto transition : sym_transitions(item.rule)) {
                 Symbol rule = transition.first;
                 auto consumed_symbols = item.consumed_symbols;
-                consumed_symbols.push_back(rule.is_auxiliary);
+                consumed_symbols.push_back(rule.is_hidden());
                 ParseItem new_item(item.lhs, transition.second, consumed_symbols, item.lookahead_sym);
                 result.insert({ rule, item_set_closure(ParseItemSet({ new_item }), grammar) });
             }

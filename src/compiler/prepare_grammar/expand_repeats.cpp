@@ -27,7 +27,7 @@ namespace tree_sitter {
             
             rule_ptr make_repeat_helper(string name, const rule_ptr &rule) {
                 return Choice::Build({
-                    Seq::Build({ rule, make_shared<Symbol>(name, true) }),
+                    Seq::Build({ rule, make_shared<Symbol>(name, SymbolTypeAuxiliary) }),
                     make_shared<Blank>() });
             }
             
@@ -35,7 +35,7 @@ namespace tree_sitter {
                 rule_ptr inner_rule = apply(rule->content);
                 string helper_rule_name = string("repeat_helper") + to_string(aux_rules.size() + 1);
                 aux_rules.insert({ helper_rule_name, make_repeat_helper(helper_rule_name, inner_rule) });
-                value = make_shared<Symbol>(helper_rule_name, true);
+                value = make_shared<Symbol>(helper_rule_name, SymbolTypeAuxiliary);
             }
             
             void visit(const Seq *rule) {

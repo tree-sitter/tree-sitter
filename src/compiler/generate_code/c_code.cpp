@@ -85,7 +85,7 @@ namespace tree_sitter {
                 {}
             
             string symbol_id(rules::Symbol symbol) {
-                if (symbol.is_auxiliary)
+                if (symbol.is_auxiliary())
                     return "ts_aux_" + symbol.name;
                 else
                     return "ts_symbol_" + symbol.name;

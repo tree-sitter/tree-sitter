@@ -24,7 +24,7 @@ namespace tree_sitter {
         aux_rules(aux_rules) {}
 
     const rule_ptr Grammar::rule(const Symbol &symbol) const {
-        auto map = symbol.is_auxiliary ? aux_rules : rules;
+        auto map = symbol.is_auxiliary() ? aux_rules : rules;
         auto iter = map.find(symbol.name);
         if (iter != map.end())
             return iter->second;

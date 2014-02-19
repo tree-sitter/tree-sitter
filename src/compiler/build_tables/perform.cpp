@@ -14,8 +14,8 @@ namespace tree_sitter {
 
     namespace build_tables {
         static int NOT_FOUND = -1;
-        static Symbol START("start", true);
-        static Symbol END_OF_INPUT("end", true);
+        static Symbol START("start", rules::SymbolTypeAuxiliary);
+        static Symbol END_OF_INPUT("end", rules::SymbolTypeAuxiliary);
 
         class TableBuilder {
             const Grammar grammar;

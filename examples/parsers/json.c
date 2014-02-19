@@ -6,15 +6,15 @@ enum ts_symbol {
     ts_symbol_object,
     ts_symbol_string,
     ts_symbol_value,
-    ts_aux_colon,
-    ts_aux_comma,
+    ts_symbol_colon,
+    ts_symbol_comma,
+    ts_symbol_left_brace,
+    ts_symbol_left_bracket,
+    ts_symbol_right_brace,
+    ts_symbol_right_bracket,
     ts_aux_end,
-    ts_aux_left_brace,
-    ts_aux_left_bracket,
     ts_aux_repeat_helper1,
     ts_aux_repeat_helper2,
-    ts_aux_right_brace,
-    ts_aux_right_bracket,
 };
 
 static const char *ts_symbol_names[] = {
@@ -25,13 +25,13 @@ static const char *ts_symbol_names[] = {
     "value",
     "colon",
     "comma",
-    "end",
     "left_brace",
     "left_bracket",
-    "repeat_helper1",
-    "repeat_helper2",
     "right_brace",
     "right_bracket",
+    "end",
+    "repeat_helper1",
+    "repeat_helper2",
 };
 
 static void ts_lex(TSParser *parser) {
@@ -50,9 +50,9 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(4);
             LEX_ERROR(2, EXPECT({",", "}"}));
         case 3:
-            ACCEPT_TOKEN(ts_aux_comma);
+            ACCEPT_TOKEN(ts_symbol_comma);
         case 4:
-            ACCEPT_TOKEN(ts_aux_right_brace);
+            ACCEPT_TOKEN(ts_symbol_right_brace);
         case 5:
             if (LOOKAHEAD_CHAR() == '}')
                 ADVANCE(4);
@@ -64,7 +64,7 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(7);
             LEX_ERROR(2, EXPECT({",", "]"}));
         case 7:
-            ACCEPT_TOKEN(ts_aux_right_bracket);
+            ACCEPT_TOKEN(ts_symbol_right_bracket);
         case 8:
             if (LOOKAHEAD_CHAR() == ']')
                 ADVANCE(7);
@@ -136,15 +136,15 @@ static void ts_lex(TSParser *parser) {
                 ADVANCE(16);
             ACCEPT_TOKEN(ts_symbol_number);
         case 17:
-            ACCEPT_TOKEN(ts_aux_left_bracket);
+            ACCEPT_TOKEN(ts_symbol_left_bracket);
         case 18:
-            ACCEPT_TOKEN(ts_aux_left_brace);
+            ACCEPT_TOKEN(ts_symbol_left_brace);
         case 19:
             if (LOOKAHEAD_CHAR() == ':')
                 ADVANCE(20);
             LEX_ERROR(1, EXPECT({":"}));
         case 20:
-            ACCEPT_TOKEN(ts_aux_colon);
+            ACCEPT_TOKEN(ts_symbol_colon);
         case 21:
             if (LOOKAHEAD_CHAR() == '\"')
                 ADVANCE(10);
@@ -189,9 +189,9 @@ static TSParseResult ts_parse(const char *input) {
                     SHIFT(1);
                 case ts_symbol_value:
                     SHIFT(2);
-                case ts_aux_left_brace:
+                case ts_symbol_left_brace:
                     SHIFT(3);
-                case ts_aux_left_bracket:
+                case ts_symbol_left_bracket:
                     SHIFT(44);
                 default:
                     PARSE_PANIC();
@@ -217,7 +217,7 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_string:
                     SHIFT(4);
-                case ts_aux_right_brace:
+                case ts_symbol_right_brace:
                     SHIFT(43);
                 default:
                     PARSE_PANIC();
@@ -225,7 +225,7 @@ static TSParseResult ts_parse(const char *input) {
         case 4:
             SET_LEX_STATE(19);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_colon:
+                case ts_symbol_colon:
                     SHIFT(5);
                 default:
                     PARSE_PANIC();
@@ -243,9 +243,9 @@ static TSParseResult ts_parse(const char *input) {
                     SHIFT(6);
                 case ts_symbol_value:
                     SHIFT(7);
-                case ts_aux_left_brace:
+                case ts_symbol_left_brace:
                     SHIFT(13);
-                case ts_aux_left_bracket:
+                case ts_symbol_left_bracket:
                     SHIFT(19);
                 default:
                     PARSE_PANIC();
@@ -253,9 +253,9 @@ static TSParseResult ts_parse(const char *input) {
         case 6:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
-                case ts_aux_right_brace:
+                case ts_symbol_right_brace:
                     REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
                 default:
                     PARSE_PANIC();
@@ -263,12 +263,12 @@ static TSParseResult ts_parse(const char *input) {
         case 7:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     SHIFT(8);
+                case ts_symbol_right_brace:
+                    REDUCE(ts_aux_repeat_helper2, 0, COLLAPSE({}));
                 case ts_aux_repeat_helper2:
                     SHIFT(41);
-                case ts_aux_right_brace:
-                    REDUCE(ts_aux_repeat_helper2, 0, COLLAPSE({}));
                 default:
                     PARSE_PANIC();
             }
@@ -283,7 +283,7 @@ static TSParseResult ts_parse(const char *input) {
         case 9:
             SET_LEX_STATE(19);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_colon:
+                case ts_symbol_colon:
                     SHIFT(10);
                 default:
                     PARSE_PANIC();
@@ -301,9 +301,9 @@ static TSParseResult ts_parse(const char *input) {
                     SHIFT(6);
                 case ts_symbol_value:
                     SHIFT(11);
-                case ts_aux_left_brace:
+                case ts_symbol_left_brace:
                     SHIFT(13);
-                case ts_aux_left_bracket:
+                case ts_symbol_left_bracket:
                     SHIFT(19);
                 default:
                     PARSE_PANIC();
@@ -311,19 +311,19 @@ static TSParseResult ts_parse(const char *input) {
         case 11:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     SHIFT(8);
+                case ts_symbol_right_brace:
+                    REDUCE(ts_aux_repeat_helper2, 0, COLLAPSE({}));
                 case ts_aux_repeat_helper2:
                     SHIFT(12);
-                case ts_aux_right_brace:
-                    REDUCE(ts_aux_repeat_helper2, 0, COLLAPSE({}));
                 default:
                     PARSE_PANIC();
             }
         case 12:
             SET_LEX_STATE(5);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_right_brace:
+                case ts_symbol_right_brace:
                     REDUCE(ts_aux_repeat_helper2, 5, COLLAPSE({1, 0, 1, 0, 1}));
                 default:
                     PARSE_PANIC();
@@ -333,7 +333,7 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_string:
                     SHIFT(14);
-                case ts_aux_right_brace:
+                case ts_symbol_right_brace:
                     SHIFT(40);
                 default:
                     PARSE_PANIC();
@@ -341,7 +341,7 @@ static TSParseResult ts_parse(const char *input) {
         case 14:
             SET_LEX_STATE(19);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_colon:
+                case ts_symbol_colon:
                     SHIFT(15);
                 default:
                     PARSE_PANIC();
@@ -359,9 +359,9 @@ static TSParseResult ts_parse(const char *input) {
                     SHIFT(6);
                 case ts_symbol_value:
                     SHIFT(16);
-                case ts_aux_left_brace:
+                case ts_symbol_left_brace:
                     SHIFT(13);
-                case ts_aux_left_bracket:
+                case ts_symbol_left_bracket:
                     SHIFT(19);
                 default:
                     PARSE_PANIC();
@@ -369,19 +369,19 @@ static TSParseResult ts_parse(const char *input) {
         case 16:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     SHIFT(8);
+                case ts_symbol_right_brace:
+                    REDUCE(ts_aux_repeat_helper2, 0, COLLAPSE({}));
                 case ts_aux_repeat_helper2:
                     SHIFT(17);
-                case ts_aux_right_brace:
-                    REDUCE(ts_aux_repeat_helper2, 0, COLLAPSE({}));
                 default:
                     PARSE_PANIC();
             }
         case 17:
             SET_LEX_STATE(5);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_right_brace:
+                case ts_symbol_right_brace:
                     SHIFT(18);
                 default:
                     PARSE_PANIC();
@@ -389,9 +389,9 @@ static TSParseResult ts_parse(const char *input) {
         case 18:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
-                case ts_aux_right_brace:
+                case ts_symbol_right_brace:
                     REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
                 default:
                     PARSE_PANIC();
@@ -409,11 +409,11 @@ static TSParseResult ts_parse(const char *input) {
                     SHIFT(20);
                 case ts_symbol_value:
                     SHIFT(21);
-                case ts_aux_left_brace:
+                case ts_symbol_left_brace:
                     SHIFT(25);
-                case ts_aux_left_bracket:
+                case ts_symbol_left_bracket:
                     SHIFT(32);
-                case ts_aux_right_bracket:
+                case ts_symbol_right_bracket:
                     SHIFT(39);
                 default:
                     PARSE_PANIC();
@@ -421,9 +421,9 @@ static TSParseResult ts_parse(const char *input) {
         case 20:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
-                case ts_aux_right_bracket:
+                case ts_symbol_right_bracket:
                     REDUCE(ts_symbol_value, 1, COLLAPSE({0}));
                 default:
                     PARSE_PANIC();
@@ -431,12 +431,12 @@ static TSParseResult ts_parse(const char *input) {
         case 21:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     SHIFT(22);
+                case ts_symbol_right_bracket:
+                    REDUCE(ts_aux_repeat_helper1, 0, COLLAPSE({}));
                 case ts_aux_repeat_helper1:
                     SHIFT(37);
-                case ts_aux_right_bracket:
-                    REDUCE(ts_aux_repeat_helper1, 0, COLLAPSE({}));
                 default:
                     PARSE_PANIC();
             }
@@ -453,9 +453,9 @@ static TSParseResult ts_parse(const char *input) {
                     SHIFT(20);
                 case ts_symbol_value:
                     SHIFT(23);
-                case ts_aux_left_brace:
+                case ts_symbol_left_brace:
                     SHIFT(25);
-                case ts_aux_left_bracket:
+                case ts_symbol_left_bracket:
                     SHIFT(32);
                 default:
                     PARSE_PANIC();
@@ -463,19 +463,19 @@ static TSParseResult ts_parse(const char *input) {
         case 23:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     SHIFT(22);
+                case ts_symbol_right_bracket:
+                    REDUCE(ts_aux_repeat_helper1, 0, COLLAPSE({}));
                 case ts_aux_repeat_helper1:
                     SHIFT(24);
-                case ts_aux_right_bracket:
-                    REDUCE(ts_aux_repeat_helper1, 0, COLLAPSE({}));
                 default:
                     PARSE_PANIC();
             }
         case 24:
             SET_LEX_STATE(8);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_right_bracket:
+                case ts_symbol_right_bracket:
                     REDUCE(ts_aux_repeat_helper1, 3, COLLAPSE({1, 0, 1}));
                 default:
                     PARSE_PANIC();
@@ -485,7 +485,7 @@ static TSParseResult ts_parse(const char *input) {
             switch (LOOKAHEAD_SYM()) {
                 case ts_symbol_string:
                     SHIFT(26);
-                case ts_aux_right_brace:
+                case ts_symbol_right_brace:
                     SHIFT(31);
                 default:
                     PARSE_PANIC();
@@ -493,7 +493,7 @@ static TSParseResult ts_parse(const char *input) {
         case 26:
             SET_LEX_STATE(19);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_colon:
+                case ts_symbol_colon:
                     SHIFT(27);
                 default:
                     PARSE_PANIC();
@@ -511,9 +511,9 @@ static TSParseResult ts_parse(const char *input) {
                     SHIFT(6);
                 case ts_symbol_value:
                     SHIFT(28);
-                case ts_aux_left_brace:
+                case ts_symbol_left_brace:
                     SHIFT(13);
-                case ts_aux_left_bracket:
+                case ts_symbol_left_bracket:
                     SHIFT(19);
                 default:
                     PARSE_PANIC();
@@ -521,19 +521,19 @@ static TSParseResult ts_parse(const char *input) {
         case 28:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     SHIFT(8);
+                case ts_symbol_right_brace:
+                    REDUCE(ts_aux_repeat_helper2, 0, COLLAPSE({}));
                 case ts_aux_repeat_helper2:
                     SHIFT(29);
-                case ts_aux_right_brace:
-                    REDUCE(ts_aux_repeat_helper2, 0, COLLAPSE({}));
                 default:
                     PARSE_PANIC();
             }
         case 29:
             SET_LEX_STATE(5);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_right_brace:
+                case ts_symbol_right_brace:
                     SHIFT(30);
                 default:
                     PARSE_PANIC();
@@ -541,9 +541,9 @@ static TSParseResult ts_parse(const char *input) {
         case 30:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
-                case ts_aux_right_bracket:
+                case ts_symbol_right_bracket:
                     REDUCE(ts_symbol_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}));
                 default:
                     PARSE_PANIC();
@@ -551,9 +551,9 @@ static TSParseResult ts_parse(const char *input) {
         case 31:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     REDUCE(ts_symbol_object, 2, COLLAPSE({1, 1}));
-                case ts_aux_right_bracket:
+                case ts_symbol_right_bracket:
                     REDUCE(ts_symbol_object, 2, COLLAPSE({1, 1}));
                 default:
                     PARSE_PANIC();
@@ -571,11 +571,11 @@ static TSParseResult ts_parse(const char *input) {
                     SHIFT(20);
                 case ts_symbol_value:
                     SHIFT(33);
-                case ts_aux_left_brace:
+                case ts_symbol_left_brace:
                     SHIFT(25);
-                case ts_aux_left_bracket:
+                case ts_symbol_left_bracket:
                     SHIFT(32);
-                case ts_aux_right_bracket:
+                case ts_symbol_right_bracket:
                     SHIFT(36);
                 default:
                     PARSE_PANIC();
@@ -583,19 +583,19 @@ static TSParseResult ts_parse(const char *input) {
         case 33:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     SHIFT(22);
+                case ts_symbol_right_bracket:
+                    REDUCE(ts_aux_repeat_helper1, 0, COLLAPSE({}));
                 case ts_aux_repeat_helper1:
                     SHIFT(34);
-                case ts_aux_right_bracket:
-                    REDUCE(ts_aux_repeat_helper1, 0, COLLAPSE({}));
                 default:
                     PARSE_PANIC();
             }
         case 34:
             SET_LEX_STATE(8);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_right_bracket:
+                case ts_symbol_right_bracket:
                     SHIFT(35);
                 default:
                     PARSE_PANIC();
@@ -603,9 +603,9 @@ static TSParseResult ts_parse(const char *input) {
         case 35:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
-                case ts_aux_right_bracket:
+                case ts_symbol_right_bracket:
                     REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
                 default:
                     PARSE_PANIC();
@@ -613,9 +613,9 @@ static TSParseResult ts_parse(const char *input) {
         case 36:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     REDUCE(ts_symbol_array, 2, COLLAPSE({1, 1}));
-                case ts_aux_right_bracket:
+                case ts_symbol_right_bracket:
                     REDUCE(ts_symbol_array, 2, COLLAPSE({1, 1}));
                 default:
                     PARSE_PANIC();
@@ -623,7 +623,7 @@ static TSParseResult ts_parse(const char *input) {
         case 37:
             SET_LEX_STATE(8);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_right_bracket:
+                case ts_symbol_right_bracket:
                     SHIFT(38);
                 default:
                     PARSE_PANIC();
@@ -631,9 +631,9 @@ static TSParseResult ts_parse(const char *input) {
         case 38:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
-                case ts_aux_right_brace:
+                case ts_symbol_right_brace:
                     REDUCE(ts_symbol_array, 4, COLLAPSE({1, 0, 1, 1}));
                 default:
                     PARSE_PANIC();
@@ -641,9 +641,9 @@ static TSParseResult ts_parse(const char *input) {
         case 39:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     REDUCE(ts_symbol_array, 2, COLLAPSE({1, 1}));
-                case ts_aux_right_brace:
+                case ts_symbol_right_brace:
                     REDUCE(ts_symbol_array, 2, COLLAPSE({1, 1}));
                 default:
                     PARSE_PANIC();
@@ -651,9 +651,9 @@ static TSParseResult ts_parse(const char *input) {
         case 40:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     REDUCE(ts_symbol_object, 2, COLLAPSE({1, 1}));
-                case ts_aux_right_brace:
+                case ts_symbol_right_brace:
                     REDUCE(ts_symbol_object, 2, COLLAPSE({1, 1}));
                 default:
                     PARSE_PANIC();
@@ -661,7 +661,7 @@ static TSParseResult ts_parse(const char *input) {
         case 41:
             SET_LEX_STATE(5);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_right_brace:
+                case ts_symbol_right_brace:
                     SHIFT(42);
                 default:
                     PARSE_PANIC();
@@ -695,11 +695,11 @@ static TSParseResult ts_parse(const char *input) {
                     SHIFT(20);
                 case ts_symbol_value:
                     SHIFT(45);
-                case ts_aux_left_brace:
+                case ts_symbol_left_brace:
                     SHIFT(25);
-                case ts_aux_left_bracket:
+                case ts_symbol_left_bracket:
                     SHIFT(32);
-                case ts_aux_right_bracket:
+                case ts_symbol_right_bracket:
                     SHIFT(48);
                 default:
                     PARSE_PANIC();
@@ -707,19 +707,19 @@ static TSParseResult ts_parse(const char *input) {
         case 45:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_comma:
+                case ts_symbol_comma:
                     SHIFT(22);
+                case ts_symbol_right_bracket:
+                    REDUCE(ts_aux_repeat_helper1, 0, COLLAPSE({}));
                 case ts_aux_repeat_helper1:
                     SHIFT(46);
-                case ts_aux_right_bracket:
-                    REDUCE(ts_aux_repeat_helper1, 0, COLLAPSE({}));
                 default:
                     PARSE_PANIC();
             }
         case 46:
             SET_LEX_STATE(8);
             switch (LOOKAHEAD_SYM()) {
-                case ts_aux_right_bracket:
+                case ts_symbol_right_bracket:
                     SHIFT(47);
                 default:
                     PARSE_PANIC();
