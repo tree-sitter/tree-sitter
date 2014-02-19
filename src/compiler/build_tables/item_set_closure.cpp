@@ -2,6 +2,7 @@
 #include "tree_sitter/compiler.h"
 #include "./follow_sets.h"
 #include "item.h"
+#include "prepared_grammar.h"
 #include <algorithm>
 
 namespace tree_sitter {
@@ -13,7 +14,7 @@ namespace tree_sitter {
             return items.size() > 0 && (std::find(items.begin(), items.end(), item) != items.end());
         }
         
-        static void add_item(ParseItemSet &item_set, const ParseItem &item, const Grammar &grammar) {
+        static void add_item(ParseItemSet &item_set, const ParseItem &item, const PreparedGrammar &grammar) {
             if (!contains(item_set, item)) {
                 item_set.insert(item);
                 for (auto pair : follow_sets(item, grammar)) {
@@ -27,7 +28,7 @@ namespace tree_sitter {
             }
         }
 
-        const ParseItemSet item_set_closure(const ParseItemSet &item_set, const Grammar &grammar) {
+        const ParseItemSet item_set_closure(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
             ParseItemSet result;
             for (ParseItem item : item_set)
                 add_item(result, item, grammar);

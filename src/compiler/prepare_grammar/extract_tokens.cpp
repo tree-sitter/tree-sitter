@@ -1,13 +1,14 @@
 #include "extract_tokens.h"
 #include "search_for_symbols.h"
-#include <map>
 #include "tree_sitter/compiler.h"
+#include "prepared_grammar.h"
 #include "rules/visitor.h"
 #include "rules/seq.h"
 #include "rules/choice.h"
 #include "rules/repeat.h"
 #include "rules/blank.h"
 #include "rules/symbol.h"
+#include <map>
 
 namespace tree_sitter {
     using std::pair;
@@ -67,7 +68,7 @@ namespace tree_sitter {
             }
         };
         
-        pair<Grammar, Grammar> extract_tokens(const Grammar &input_grammar) {
+        pair<PreparedGrammar, PreparedGrammar> extract_tokens(const PreparedGrammar &input_grammar) {
             TokenExtractor extractor;
             map<const string, const rule_ptr> rules;
             map<const string, const rule_ptr> tokens;
@@ -97,8 +98,8 @@ namespace tree_sitter {
             aux_tokens.insert(extractor.tokens.begin(), extractor.tokens.end());
             
             return { 
-                Grammar(input_grammar.start_rule_name, rules, aux_rules),
-                Grammar("", tokens, aux_tokens)
+                PreparedGrammar(input_grammar.start_rule_name, rules, aux_rules),
+                PreparedGrammar("", tokens, aux_tokens)
             };
         }
     }

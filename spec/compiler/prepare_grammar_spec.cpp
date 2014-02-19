@@ -1,4 +1,5 @@
 #include "spec_helper.h"
+#include "prepared_grammar.h"
 #include "prepare_grammar/perform.h"
 #include "rules/symbol.h"
 
@@ -10,7 +11,7 @@ using prepare_grammar::perform;
 describe("preparing a grammar", []() {
     describe("extracting tokens", []() {
         it("moves sub-rules that don't contain symbols into a separate 'lexical' grammar", [&]() {
-            pair<Grammar, Grammar> result = perform(Grammar("rule1", {
+            pair<PreparedGrammar, PreparedGrammar> result = perform(Grammar("rule1", {
                 { "rule1", seq({
                     character({ 'a' }),
                     character({ 'b' }),
@@ -22,16 +23,16 @@ describe("preparing a grammar", []() {
                         character({ 'b' }) }) }) }
             }));
             
-            AssertThat(result.first, Equals(Grammar("rule1", {
+            AssertThat(result.first, Equals(PreparedGrammar("rule1", {
                 { "rule1", seq({
                     make_shared<Symbol>("token1", SymbolTypeAuxiliary),
                     seq({
                         sym("rule2"),
                         sym("rule3") }),
                     make_shared<Symbol>("token1", SymbolTypeAuxiliary) }) }
-            })));
+            }, {})));
             
-            AssertThat(result.second, Equals(Grammar("", map<const string, const rule_ptr>(), {
+            AssertThat(result.second, Equals(PreparedGrammar("", {}, {
                 { "token1", rules::seq({
                     rules::character({ 'a' }),
                     rules::character({ 'b' }) }) },
@@ -46,52 +47,33 @@ describe("preparing a grammar", []() {
                     character({ 'b' }) }) }
             }));
             
-            AssertThat(result.first, Equals(Grammar("rule1", {
+            AssertThat(result.first, Equals(PreparedGrammar("rule1", {
                 { "rule1", sym("rule2") }
-            })));
+            }, {})));
             
-            AssertThat(result.second, Equals(Grammar("", {
+            AssertThat(result.second, Equals(PreparedGrammar("", {
                 { "rule2", seq({
                     character({ 'a' }),
                     character({ 'b' }) }) },
-            })));
-        });
-        
-        it("moves parts of auxiliary rules into auxiliary lexical rules", []() {
-            auto result = perform(Grammar("rule1", map<const string, const rule_ptr>(), {
-                { "rule1", sym("rule2") },
-                { "rule2", seq({
-                    character({ 'a' }),
-                    character({ 'b' }) }) }
-            }));
-
-            AssertThat(result.first, Equals(Grammar("rule1", map<const string, const rule_ptr>(), {
-                { "rule1", sym("rule2") }
-            })));
-            
-            AssertThat(result.second, Equals(Grammar("", map<const string, const rule_ptr>(), {
-                { "rule2", seq({
-                    character({ 'a' }),
-                    character({ 'b' }) }) },
-            })));
+            }, {})));
         });
         
         it("does not extract blanks into tokens", [&]() {
-            pair<Grammar, Grammar> result = perform(Grammar("rule1", {
+            pair<PreparedGrammar, PreparedGrammar> result = perform(Grammar("rule1", {
                 { "rule1", choice({ sym("rule2"), blank() }) },
             }));
             
-            AssertThat(result.first, Equals(Grammar("rule1", {
+            AssertThat(result.first, Equals(PreparedGrammar("rule1", {
                 { "rule1", choice({ sym("rule2"), blank() }) },
-            })));
+            }, {})));
             
-            AssertThat(result.second, Equals(Grammar("", map<const string, const rule_ptr>())));
+            AssertThat(result.second, Equals(PreparedGrammar("", {}, {})));
         });
     });
 
     describe("expanding repeats", []() {
         it("replaces repeat rules with pairs of recursive rules", [&]() {
-            Grammar result = perform(Grammar("rule1", {
+            PreparedGrammar result = perform(Grammar("rule1", {
                 { "rule1", seq({
                     sym("x"),
                     repeat(seq({ sym("a"), sym("b") })),
@@ -99,7 +81,7 @@ describe("preparing a grammar", []() {
                 }) },
             })).first;
             
-            AssertThat(result, Equals(Grammar("rule1", {
+            AssertThat(result, Equals(PreparedGrammar("rule1", {
                 { "rule1", seq({
                     sym("x"),
                     make_shared<Symbol>("repeat_helper1", SymbolTypeAuxiliary),
@@ -117,7 +99,7 @@ describe("preparing a grammar", []() {
         });
         
         it("does not replace repeat rules that can be moved into the lexical grammar", [&]() {
-            pair<Grammar, Grammar> result = perform(Grammar("rule1", {
+            pair<PreparedGrammar, PreparedGrammar> result = perform(Grammar("rule1", {
                 { "rule1", seq({
                     sym("x"),
                     repeat(seq({ str("a"), str("b") })),
@@ -125,15 +107,15 @@ describe("preparing a grammar", []() {
                 }) },
             }));
             
-            AssertThat(result.first, Equals(Grammar("rule1", {
+            AssertThat(result.first, Equals(PreparedGrammar("rule1", {
                 { "rule1", seq({
                     sym("x"),
                     make_shared<Symbol>("token1", SymbolTypeAuxiliary),
                     sym("y")
                 }) },
-            })));
+            }, {})));
             
-            AssertThat(result.second, Equals(Grammar("", map<const string, const rule_ptr>(), {
+            AssertThat(result.second, Equals(PreparedGrammar("", {}, {
                 { "token1", repeat(seq({ str("a"), str("b") })) },
             })));
         });

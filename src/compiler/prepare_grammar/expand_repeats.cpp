@@ -1,11 +1,12 @@
 #include "expand_repeats.h"
-#include <map>
+#include "prepared_grammar.h"
 #include "rules/visitor.h"
 #include "rules/seq.h"
 #include "rules/symbol.h"
 #include "rules/choice.h"
 #include "rules/blank.h"
 #include "rules/repeat.h"
+#include <map>
 
 namespace tree_sitter {
     using std::string;
@@ -51,7 +52,7 @@ namespace tree_sitter {
             }
         };
         
-        Grammar expand_repeats(const Grammar &grammar) {
+        PreparedGrammar expand_repeats(const PreparedGrammar &grammar) {
             map<const string, const rule_ptr> rules;
             map<const string, const rule_ptr> aux_rules(grammar.aux_rules);
             RepeatExpander visitor;
@@ -61,7 +62,7 @@ namespace tree_sitter {
             
             aux_rules.insert(visitor.aux_rules.begin(), visitor.aux_rules.end());
 
-            return Grammar(grammar.start_rule_name, rules, aux_rules);
+            return PreparedGrammar(grammar.start_rule_name, rules, aux_rules);
         }
     }
 }

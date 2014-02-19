@@ -1,5 +1,6 @@
 #include "first_set.h"
 #include "tree_sitter/compiler.h"
+#include "prepared_grammar.h"
 #include "rule_can_be_blank.h"
 #include "rules/visitor.h"
 #include "rules/seq.h"
@@ -12,9 +13,9 @@ namespace tree_sitter {
     namespace build_tables {
         class FirstSetVisitor : Visitor {
             set<Symbol> value;
-            const Grammar grammar;
+            const PreparedGrammar grammar;
             
-            FirstSetVisitor(const Grammar &grammar) : grammar(grammar) {}
+            FirstSetVisitor(const PreparedGrammar &grammar) : grammar(grammar) {}
             
             set<Symbol> set_union(const set<Symbol> &left, const set<Symbol> &right) {
                 set<Symbol> result = left;
@@ -42,14 +43,14 @@ namespace tree_sitter {
             }
 
         public:
-            static set<Symbol> apply(const rule_ptr rule, const Grammar &grammar) {
+            static set<Symbol> apply(const rule_ptr rule, const PreparedGrammar &grammar) {
                 FirstSetVisitor visitor(grammar);
                 rule->accept(visitor);
                 return visitor.value;
             }
         };
         
-        set<Symbol> first_set(const rule_ptr &rule, const Grammar &grammar) {
+        set<Symbol> first_set(const rule_ptr &rule, const PreparedGrammar &grammar) {
             return FirstSetVisitor::apply(rule, grammar);
         }
     }

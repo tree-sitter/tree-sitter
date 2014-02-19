@@ -4,10 +4,10 @@
 #include "item.h"
 
 namespace tree_sitter {
-    class Grammar;
+    class PreparedGrammar;
     
     namespace build_tables {
-        const ParseItemSet item_set_closure(const ParseItemSet &item_set, const Grammar &grammar);
+        const ParseItemSet item_set_closure(const ParseItemSet &item_set, const PreparedGrammar &grammar);
     }
 }
 

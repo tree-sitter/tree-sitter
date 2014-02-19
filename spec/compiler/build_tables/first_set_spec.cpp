@@ -1,4 +1,5 @@
 #include "spec_helper.h"
+#include "prepared_grammar.h"
 #include "build_tables/first_set.h"
 
 using std::set;
@@ -8,7 +9,7 @@ using namespace rules;
 START_TEST
 
 describe("computing FIRST sets", []() {
-    const Grammar null_grammar("", {{ "something", blank() }});
+    const PreparedGrammar null_grammar("", {}, {});
 
     describe("for a sequence AB", [&]() {
         it("ignores B when A cannot be blank", [&]() {

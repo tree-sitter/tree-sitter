@@ -1,4 +1,5 @@
 #include "spec_helper.h"
+#include "prepared_grammar.h"
 #include "build_tables/item_set_closure.h"
 #include "build_tables/item_set_transitions.h"
 
@@ -8,7 +9,7 @@ using namespace rules;
 START_TEST
 
 describe("computing closures of item sets", []() {
-    Grammar grammar("E", {
+    PreparedGrammar grammar("E", {
         { "E", choice({
             seq({
                 sym("T"),
@@ -24,7 +25,7 @@ describe("computing closures of item sets", []() {
         { "F", choice({
                  sym("v"),
                  sym("n") }) }
-    });
+    }, {});
     
     it("computes the item set closure", [&]() {
         ParseItemSet item_set = item_set_closure(ParseItemSet({

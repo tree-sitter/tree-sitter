@@ -4,9 +4,11 @@
 #include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
+    class PreparedGrammar;
+    
     namespace build_tables {
         bool rule_can_be_blank(const rules::rule_ptr &rule);
-        bool rule_can_be_blank(const rules::rule_ptr &rule, const Grammar &grammar);
+        bool rule_can_be_blank(const rules::rule_ptr &rule, const PreparedGrammar &grammar);
     }
 }
 

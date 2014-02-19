@@ -5,9 +5,10 @@
 
 namespace tree_sitter {
     class Grammar;
+    class PreparedGrammar;
     
     namespace prepare_grammar {
-        std::pair<Grammar, Grammar> perform(const Grammar &);
+        std::pair<PreparedGrammar, PreparedGrammar> perform(const Grammar &);
     }
 }
 

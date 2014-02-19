@@ -2,6 +2,7 @@
 #include "prepare_grammar/perform.h"
 #include "build_tables/perform.h"
 #include "generate_code/c_code.h"
+#include "prepared_grammar.h"
 
 namespace tree_sitter {
     std::string compile(const Grammar &grammar, std::string name) {

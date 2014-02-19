@@ -19,7 +19,7 @@ namespace tree_sitter {
             return result;
         }
             
-        map<Symbol, ParseItemSet> sym_transitions(const ParseItem &item, const Grammar &grammar) {
+        map<Symbol, ParseItemSet> sym_transitions(const ParseItem &item, const PreparedGrammar &grammar) {
             map<Symbol, ParseItemSet> result;
             for (auto transition : sym_transitions(item.rule)) {
                 Symbol rule = transition.first;
@@ -38,7 +38,7 @@ namespace tree_sitter {
             return result;
         }
         
-        map<CharacterSet, LexItemSet> char_transitions(const LexItemSet &item_set, const Grammar &grammar) {
+        map<CharacterSet, LexItemSet> char_transitions(const LexItemSet &item_set, const PreparedGrammar &grammar) {
             map<CharacterSet, LexItemSet> result;
             for (const LexItem &item : item_set) {
                 map<CharacterSet, LexItemSet> item_transitions = char_transitions(item);
@@ -49,7 +49,7 @@ namespace tree_sitter {
             return result;
         }
 
-        map<Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set, const Grammar &grammar) {
+        map<Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
             map<Symbol, ParseItemSet> result;
             for (const ParseItem &item : item_set) {
                 map<Symbol, ParseItemSet> item_transitions = sym_transitions(item, grammar);

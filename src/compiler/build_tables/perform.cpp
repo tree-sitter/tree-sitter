@@ -1,4 +1,5 @@
 #include "./perform.h"
+#include "prepared_grammar.h"
 #include "item.h"
 #include "item_set_closure.h"
 #include "item_set_transitions.h"
@@ -18,8 +19,8 @@ namespace tree_sitter {
         static Symbol END_OF_INPUT("end", rules::SymbolTypeAuxiliary);
 
         class TableBuilder {
-            const Grammar grammar;
-            const Grammar lex_grammar;
+            const PreparedGrammar grammar;
+            const PreparedGrammar lex_grammar;
             map<const ParseItemSet, size_t> parse_state_indices;
             map<const LexItemSet, size_t> lex_state_indices;
             ParseTable parse_table;
@@ -126,7 +127,7 @@ namespace tree_sitter {
             
         public:
             
-            TableBuilder(const Grammar &grammar, const Grammar &lex_grammar) :
+            TableBuilder(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar) :
                 grammar(grammar),
                 lex_grammar(lex_grammar) {};
 
@@ -138,7 +139,7 @@ namespace tree_sitter {
             }
         };
         
-        pair<ParseTable, LexTable> perform(const Grammar &grammar, const Grammar &lex_grammar) {
+        pair<ParseTable, LexTable> perform(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar) {
             return TableBuilder(grammar, lex_grammar).build();
         }
     }

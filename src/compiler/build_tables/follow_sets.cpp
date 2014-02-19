@@ -2,7 +2,7 @@
 #include "first_set.h"
 #include "rule_transitions.h"
 #include "rule_can_be_blank.h"
-#include "tree_sitter/compiler.h"
+#include "prepared_grammar.h"
 
 namespace tree_sitter {
     using std::set;
@@ -10,10 +10,8 @@ namespace tree_sitter {
     using rules::Symbol;
     using rules::rule_ptr;
 
-    class Grammar;
-    
     namespace build_tables {
-        map<Symbol, set<Symbol>> follow_sets(const ParseItem &item, const Grammar &grammar) {
+        map<Symbol, set<Symbol>> follow_sets(const ParseItem &item, const PreparedGrammar &grammar) {
             map<Symbol, set<Symbol>> result;
 
             for (auto &pair : sym_transitions(item.rule)) {

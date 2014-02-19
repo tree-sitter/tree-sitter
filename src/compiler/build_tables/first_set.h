@@ -5,10 +5,10 @@
 #include <set>
 
 namespace tree_sitter {
-    class Grammar;
+    class PreparedGrammar;
     
     namespace build_tables {
-        std::set<rules::Symbol> first_set(const rules::rule_ptr &rule, const Grammar &grammar);
+        std::set<rules::Symbol> first_set(const rules::rule_ptr &rule, const PreparedGrammar &grammar);
     }
 }
 

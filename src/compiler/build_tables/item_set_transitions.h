@@ -5,14 +5,15 @@
 #include <map>
 
 namespace tree_sitter {
+    class PreparedGrammar;
     namespace rules {
         class CharacterSet;
         class Symbol;
     }
-
+    
     namespace build_tables {
-        std::map<rules::CharacterSet, LexItemSet> char_transitions(const LexItemSet &item_set, const Grammar &grammar);
-        std::map<rules::Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set, const Grammar &grammar);
+        std::map<rules::CharacterSet, LexItemSet> char_transitions(const LexItemSet &item_set, const PreparedGrammar &grammar);
+        std::map<rules::Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set, const PreparedGrammar &grammar);
     }
 }
 

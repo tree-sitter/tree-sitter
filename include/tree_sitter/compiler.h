@@ -53,18 +53,11 @@ namespace tree_sitter {
 
 namespace tree_sitter {
     class Grammar {
-        typedef std::map<const std::string, const rules::rule_ptr> rule_map;
     public:
-        Grammar(std::string start_rule_name, const rule_map &rules);
-        Grammar(std::string start_rule_name, const rule_map &rules, const rule_map &aux_rules);
-        
+        Grammar(std::string start_rule_name, const std::map<const std::string, const rules::rule_ptr> &rules);
         bool operator==(const Grammar &other) const;
-        bool has_definition(const rules::Symbol &symbol) const;
-        const rules::rule_ptr rule(const rules::Symbol &symbol) const;
-        
         const std::string start_rule_name;
-        const rule_map rules;
-        const rule_map aux_rules;
+        const std::map<const std::string, const rules::rule_ptr> rules;
     };
     
     std::ostream& operator<<(std::ostream &stream, const Grammar &grammar);

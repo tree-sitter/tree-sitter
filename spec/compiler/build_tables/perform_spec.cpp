@@ -1,6 +1,7 @@
 #include "spec_helper.h"
-#include <functional>
+#include "prepared_grammar.h"
 #include "build_tables/perform.h"
+#include <functional>
 
 using build_tables::perform;
 using namespace rules;
@@ -19,7 +20,7 @@ static set<Symbol> keys(const map<Symbol, parse_actions> &map) {
 START_TEST
 
 describe("building parse and lex tables", []() {
-    Grammar grammar("expression", {
+    PreparedGrammar grammar("expression", {
         { "expression", choice({
             seq({
                 sym("term"),
@@ -34,15 +35,15 @@ describe("building parse and lex tables", []() {
                 sym("expression"),
                 sym("right-paren")
             }) }) }
-    });
+    }, {});
     
-    Grammar lex_grammar("", {
+    PreparedGrammar lex_grammar("", {
         { "plus", str("+") },
         { "variable", pattern("\\w+") },
         { "number", pattern("\\d+") },
         { "left-paren", str("(") },
         { "right-paren", str(")") }
-    });
+    }, {});
     
     ParseTable table;
     LexTable lex_table;

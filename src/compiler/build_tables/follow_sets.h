@@ -7,10 +7,10 @@
 #include <map>
 
 namespace tree_sitter {
-    class Grammar;
+    class PreparedGrammar;
     
     namespace build_tables {
-        std::map<rules::Symbol, std::set<rules::Symbol>> follow_sets(const ParseItem &item, const Grammar &grammar);
+        std::map<rules::Symbol, std::set<rules::Symbol>> follow_sets(const ParseItem &item, const PreparedGrammar &grammar);
     }
 }
 

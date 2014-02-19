@@ -4,10 +4,10 @@
 #include <utility>
 
 namespace tree_sitter {
-    class Grammar;
+    class PreparedGrammar;
     
     namespace prepare_grammar {
-        std::pair<Grammar, Grammar> extract_tokens(const Grammar &);
+        std::pair<PreparedGrammar, PreparedGrammar> extract_tokens(const PreparedGrammar &);
     }
 }
 
