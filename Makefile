@@ -19,7 +19,7 @@ TEST_BIN     = spec/run.out
 
 ### build configuration ###
 CFLAGS ?= -Wall -g -m64
-CPPFLAGS ?= -Wall -std=c++11 -stdlib=libc++ -g -m64
+CPPFLAGS ?= -Wall -std=c++11 -g -m64
 
 ### targets ###
 all: $(LIB_FILE)
