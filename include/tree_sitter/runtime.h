@@ -50,7 +50,6 @@ void TSDocumentSetUp(TSDocument *document, TSParseConfig config);
 void TSDocumentSetText(TSDocument *document, const char *text);
 TSTree * TSDocumentTree(const TSDocument *document);
 const char * TSDocumentToString(const TSDocument *document);
-
     
 #ifdef __cplusplus
 }

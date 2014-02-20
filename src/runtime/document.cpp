@@ -9,8 +9,7 @@ struct TSDocument {
 };
 
 TSDocument * TSDocumentMake() {
-    TSDocument *result = malloc(sizeof(TSDocument));
-    return result;
+    return new TSDocument();
 }
 
 void TSDocumentSetUp(TSDocument *document, TSParseConfig config) {
@@ -19,8 +18,8 @@ void TSDocumentSetUp(TSDocument *document, TSParseConfig config) {
 }
 
 void TSDocumentSetText(TSDocument *document, const char *text) {
-    document->text = text;
     TSParseResult result = document->parse_fn(text);
+    document->text = text;
     document->tree = result.tree;
     document->error = result.error;
 }

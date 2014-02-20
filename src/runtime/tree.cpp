@@ -1,12 +1,15 @@
 #include "tree_sitter/runtime.h"
-#include <stdio.h>
+#include <string>
 #include <string.h>
 
+using std::string;
+
 TSTree * TSTreeMake(TSSymbol value, size_t child_count, TSTree **children) {
-    TSTree *result = malloc(sizeof(TSTree));
+    TSTree *result = new TSTree();
     result->value = value;
     result->child_count = child_count;
     result->children = children;
+    result->ref_count = 0;
     for (int i = 0; i < child_count; i++)
         TSTreeRetain(children[i]);
     return result;
@@ -36,26 +39,17 @@ int TSTreeEquals(const TSTree *node1, const TSTree *node2) {
     return 1;
 }
 
-char * TSTreeWriteToString(const TSTree *tree, const char **symbol_names, char *string) {
-    if (!tree) {
-        sprintf(string, "#<null tree>");
-    }
-    char *result = string;
-    const char *name = symbol_names[tree->value];
-    sprintf(result, "(%s", name);
-    result += strlen(name) + 1;
-    for (int i = 0; i < tree->child_count; i++) {
-        result[0] = ' ';
-        result++;
-        result = TSTreeWriteToString(tree->children[i], symbol_names, result);
-    }
-    result[0] = ')';
-    result++;
-    return result;
+static string __tree_to_string(const TSTree *tree, const char **symbol_names) {
+    if (!tree) return "#<null-tree>";
+    string result = string("(") + symbol_names[tree->value];
+    for (int i = 0; i < tree->child_count; i++)
+        result += " " + __tree_to_string(tree->children[i], symbol_names);
+    return result + ")";
 }
 
 char * TSTreeToString(const TSTree *tree, const char **symbol_names) {
-    char *string = calloc(200, sizeof(char));
-    TSTreeWriteToString(tree, symbol_names, string);
-    return string;
+    string value(__tree_to_string(tree, symbol_names));
+    char *result = (char *)malloc(value.size());
+    strcpy(result, value.c_str());
+    return result;
 }
