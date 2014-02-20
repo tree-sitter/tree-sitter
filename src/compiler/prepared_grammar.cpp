@@ -36,21 +36,13 @@ namespace tree_sitter {
     }
 
     bool PreparedGrammar::operator==(const PreparedGrammar &other) const {
-        if (other.start_rule_name != start_rule_name) return false;
-        if (other.rules.size() != rules.size()) return false;
+        if (!Grammar::operator==(other)) return false;
         if (other.aux_rules.size() != aux_rules.size()) return false;
-        
-        for (auto pair : rules) {
-            auto other_pair = other.rules.find(pair.first);
-            if (other_pair == other.rules.end()) return false;
-            if (!other_pair->second->operator==(*pair.second)) return false;
-        }
         for (auto pair : aux_rules) {
             auto other_pair = other.aux_rules.find(pair.first);
             if (other_pair == other.aux_rules.end()) return false;
             if (!other_pair->second->operator==(*pair.second)) return false;
         }
-        
         return true;
     }
     
