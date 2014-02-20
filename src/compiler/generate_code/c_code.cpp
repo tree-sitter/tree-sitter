@@ -86,9 +86,9 @@ namespace tree_sitter {
             
             string symbol_id(rules::Symbol symbol) {
                 if (symbol.is_auxiliary())
-                    return "ts_aux_" + symbol.name;
+                    return "ts_aux_sym_" + symbol.name;
                 else
-                    return "ts_symbol_" + symbol.name;
+                    return "ts_sym_" + symbol.name;
             }
             
             string character_code(char character) {
@@ -232,14 +232,14 @@ namespace tree_sitter {
             }
             
             string symbol_enum() {
-                string result = "enum ts_symbol {\n";
+                string result = "enum {\n";
                 for (auto symbol : parse_table.symbols)
                     result += indent(symbol_id(symbol)) + ",\n";
                 return result + "};";
             }
 
             string rule_names_list() {
-                string result = "static const char *ts_symbol_names[] = {\n";
+                string result = "SYMBOL_NAMES {\n";
                 for (auto symbol : parse_table.symbols)
                     result += indent(string("\"") + symbol.name) + "\",\n";
                 return result + "};";
@@ -251,7 +251,7 @@ namespace tree_sitter {
             
             string lex_function() {
                 return join({
-                    "static void ts_lex(TSParser *parser) {",
+                    "LEX_FN() {",
                     indent("START_LEXER();"),
                     indent(switch_on_lex_state()),
                     indent("FINISH_LEXER();"),
@@ -261,7 +261,7 @@ namespace tree_sitter {
             
             string parse_function() {
                 return join({
-                    "static TSParseResult ts_parse(const char *input) {",
+                    "PARSE_FN() {",
                     indent("START_PARSER();"),
                     indent(switch_on_parse_state()),
                     indent("FINISH_PARSER();"),
@@ -270,12 +270,7 @@ namespace tree_sitter {
             }
             
             string parse_config_struct() {
-                return join({
-                    "TSParseConfig ts_parse_config_" + name + " = {",
-                    indent(".parse_fn = ts_parse,"),
-                    indent(".symbol_names = ts_symbol_names"),
-                    "};"
-                });
+                return "EXPORT_PARSER(ts_parse_config_" + name + ");";
             }
             
             string code() {

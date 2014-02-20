@@ -28,31 +28,31 @@ extern "C" {
 static int INITIAL_STACK_SIZE = 100;
 static const char *ts_symbol_names[];
 
-typedef int TSState;
+typedef int ts_state;
 
 typedef struct {
-    TSState state;
-    TSTree *node;
-} TSStackEntry;
+    ts_state state;
+    ts_tree *node;
+} ts_stack_entry;
 
 typedef struct {
     const char *input;
     size_t position;
-    TSTree *lookahead_node;
-    TSTree *prev_lookahead_node;
-    TSState lex_state;
-    TSStackEntry *stack;
+    ts_tree *lookahead_node;
+    ts_tree *prev_lookahead_node;
+    ts_state lex_state;
+    ts_stack_entry *stack;
     size_t stack_size;
-    TSParseResult result;
-} TSParser;
+    ts_parse_result result;
+} ts_parser;
 
-static TSParser TSParserMake(const char *input) {
-    TSParser result = {
+static ts_parser TSParserMake(const char *input) {
+    ts_parser result = {
         .input = input,
         .position = 0,
         .lookahead_node = NULL,
         .lex_state = 0,
-        .stack = calloc(INITIAL_STACK_SIZE, sizeof(TSStackEntry)),
+        .stack = calloc(INITIAL_STACK_SIZE, sizeof(ts_stack_entry)),
         .stack_size = 0,
         .result = {
             .tree = NULL,
@@ -65,23 +65,23 @@ static TSParser TSParserMake(const char *input) {
     return result;
 }
 
-static char TSParserLookaheadChar(const TSParser *parser) {
+static char TSParserLookaheadChar(const ts_parser *parser) {
     return parser->input[parser->position];
 }
 
-static long TSParserLookaheadSym(const TSParser *parser) {
-    TSTree *node = parser->lookahead_node;
+static long TSParserLookaheadSym(const ts_parser *parser) {
+    ts_tree *node = parser->lookahead_node;
     return node ? node->value : -1;
 }
 
-static TSState TSParserParseState(const TSParser *parser) {
+static ts_state TSParserParseState(const ts_parser *parser) {
     if (parser->stack_size == 0) return 0;
     return parser->stack[parser->stack_size - 1].state;
 }
 
-static void TSParserShift(TSParser *parser, TSState parse_state) {
+static void TSParserShift(ts_parser *parser, ts_state parse_state) {
     DEBUG_PARSE("shift: %d \n", parse_state);
-    TSStackEntry *entry = (parser->stack + parser->stack_size);
+    ts_stack_entry *entry = (parser->stack + parser->stack_size);
     entry->state = parse_state;
     entry->node = parser->lookahead_node;
     parser->lookahead_node = parser->prev_lookahead_node;
@@ -89,12 +89,12 @@ static void TSParserShift(TSParser *parser, TSState parse_state) {
     parser->stack_size++;
 }
 
-static void TSParserReduce(TSParser *parser, TSSymbol symbol, int immediate_child_count, const int *collapse_flags) {
+static void TSParserReduce(ts_parser *parser, ts_symbol symbol, int immediate_child_count, const int *collapse_flags) {
     parser->stack_size -= immediate_child_count;
     
     int total_child_count = 0;
     for (int i = 0; i < immediate_child_count; i++) {
-        TSTree *child = parser->stack[parser->stack_size + i].node;
+        ts_tree *child = parser->stack[parser->stack_size + i].node;
         if (collapse_flags[i]) {
             total_child_count += child->child_count;
         } else {
@@ -102,12 +102,12 @@ static void TSParserReduce(TSParser *parser, TSSymbol symbol, int immediate_chil
         }
     }
     
-    TSTree **children = malloc(total_child_count * sizeof(TSTree *));
+    ts_tree **children = malloc(total_child_count * sizeof(ts_tree *));
     int n = 0;
     for (int i = 0; i < immediate_child_count; i++) {
-        TSTree *child = parser->stack[parser->stack_size + i].node;
+        ts_tree *child = parser->stack[parser->stack_size + i].node;
         if (collapse_flags[i]) {
-            memcpy(children + n, child->children, (child->child_count * sizeof(TSTree *)));
+            memcpy(children + n, child->children, (child->child_count * sizeof(ts_tree *)));
             n += child->child_count;
         } else {
             children[n] = child;
@@ -116,47 +116,62 @@ static void TSParserReduce(TSParser *parser, TSSymbol symbol, int immediate_chil
     }
     
     parser->prev_lookahead_node = parser->lookahead_node;
-    parser->lookahead_node = TSTreeMake(symbol, total_child_count, children);
+    parser->lookahead_node = ts_tree_make(symbol, total_child_count, children);
     DEBUG_PARSE("reduce: %s, state: %u \n", ts_symbol_names[symbol], TSParserParseState(parser));
 }
 
-static void TSParserError(TSParser *parser, size_t count, const char **expected_inputs) {
-    TSParseError *error = &parser->result.error;
+static void TSParserError(ts_parser *parser, size_t count, const char **expected_inputs) {
+    ts_error *error = &parser->result.error;
     error->position = parser->position;
     error->expected_input_count = count;
     error->expected_inputs = expected_inputs;
     error->lookahead_sym = TSParserLookaheadSym(parser);
 }
     
-static int TSParserHasError(const TSParser *parser) {
+static int TSParserHasError(const ts_parser *parser) {
     return (parser->result.error.expected_inputs != NULL);
 }
 
-static void TSParserAdvance(TSParser *parser, TSState lex_state) {
+static void TSParserAdvance(ts_parser *parser, ts_state lex_state) {
     DEBUG_LEX("character: '%c' \n", TSParserLookaheadChar(parser));
     parser->position++;
     parser->lex_state = lex_state;
 }
 
-static void TSParserSetLookaheadSym(TSParser *parser, TSSymbol symbol) {
+static void TSParserSetLookaheadSym(ts_parser *parser, ts_symbol symbol) {
     DEBUG_LEX("token: %s \n", ts_symbol_names[symbol]);
-    parser->lookahead_node = TSTreeMake(symbol, 0, NULL);
+    parser->lookahead_node = ts_tree_make(symbol, 0, NULL);
 }
 
-static void TSParserAcceptInput(TSParser *parser) {
+static void TSParserAcceptInput(ts_parser *parser) {
     parser->result.tree = parser->stack[parser->stack_size - 1].node;
     DEBUG_PARSE("accept \n");
 }
 
-static void TSParserSkipWhitespace(TSParser *parser) {
+static void TSParserSkipWhitespace(ts_parser *parser) {
     while (isspace(parser->input[parser->position]))
         parser->position++;
 }
 
 #pragma mark - DSL
 
+#define LEX_FN() \
+static void ts_lex(ts_parser *parser)
+    
+#define PARSE_FN() \
+static ts_parse_result ts_parse(const char *input)
+    
+#define SYMBOL_NAMES \
+static const char *ts_symbol_names[] =
+
+#define EXPORT_PARSER(name) \
+ts_parse_config name = { \
+    .parse_fn = ts_parse, \
+    .symbol_names = ts_symbol_names \
+};
+
 #define START_PARSER() \
-TSParser p = TSParserMake(input), *parser = &p; \
+ts_parser p = TSParserMake(input), *parser = &p; \
 next_state:
 
 #define START_LEXER() \

@@ -1,46 +1,46 @@
 #include "spec_helper.h"
 
-extern TSParseConfig ts_parse_config_arithmetic;
+extern ts_parse_config ts_parse_config_arithmetic;
 
 START_TEST
 
 describe("arithmetic", []() {
-    TSDocument *document;
+    ts_document *document;
     
     before_each([&]() {
-        document = TSDocumentMake();
-        TSDocumentSetUp(document, ts_parse_config_arithmetic);
+        document = ts_document_make();
+        ts_document_set_parser(document, ts_parse_config_arithmetic);
     });
     
     it("parses variables", [&]() {
-        TSDocumentSetText(document, "x");
-        AssertThat(string(TSDocumentToString(document)), Equals(
+        ts_document_set_text(document, "x");
+        AssertThat(string(ts_document_string(document)), Equals(
             "(expression (term (factor (variable))))"));
     });
     
     it("parses numbers", [&]() {
-        TSDocumentSetText(document, "5");
-        AssertThat(string(TSDocumentToString(document)), Equals(
+        ts_document_set_text(document, "5");
+        AssertThat(string(ts_document_string(document)), Equals(
             "(expression (term (factor (number))))"));
     });
 
     it("parses products of variables", [&]() {
-        TSDocumentSetText(document, "x + y");
-        AssertThat(string(TSDocumentToString(document)), Equals(
+        ts_document_set_text(document, "x + y");
+        AssertThat(string(ts_document_string(document)), Equals(
             "(expression (term (factor (variable))) (plus) (term (factor (variable))))"));
         
-        TSDocumentSetText(document, "x * y");
-        AssertThat(string(TSDocumentToString(document)), Equals(
+        ts_document_set_text(document, "x * y");
+        AssertThat(string(ts_document_string(document)), Equals(
             "(expression (term (factor (variable)) (times) (factor (variable))))"));
     });
     
     it("parses complex trees", [&]() {
-        TSDocumentSetText(document, "x * y + z * a");
-        AssertThat(string(TSDocumentToString(document)), Equals(
+        ts_document_set_text(document, "x * y + z * a");
+        AssertThat(string(ts_document_string(document)), Equals(
             "(expression (term (factor (variable)) (times) (factor (variable))) (plus) (term (factor (variable)) (times) (factor (variable))))"));
 
-        TSDocumentSetText(document, "x * (y + z)");
-        AssertThat(string(TSDocumentToString(document)), Equals(
+        ts_document_set_text(document, "x * (y + z)");
+        AssertThat(string(ts_document_string(document)), Equals(
             "(expression (term (factor (variable)) (times) (factor (expression (term (factor (variable))) (plus) (term (factor (variable)))))))"));
     });
 });

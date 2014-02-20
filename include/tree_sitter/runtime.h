@@ -12,44 +12,44 @@ typedef struct {
     size_t expected_input_count;
     size_t position;
     long lookahead_sym;
-} TSParseError;
+} ts_error;
 
-const char * TSParseErrorToString(const TSParseError *error, const char *input_string, const char **symbol_names);
+const char * ts_error_string(const ts_error *error, const char *input_string, const char **symbol_names);
 
-typedef size_t TSSymbol;
+typedef size_t ts_symbol;
     
-typedef struct TSTree {
-    TSSymbol value;
-    struct TSTree **children;
+typedef struct ts_tree {
+    ts_symbol value;
+    struct ts_tree **children;
     size_t child_count;
     size_t ref_count;
-} TSTree;
+} ts_tree;
 
-TSTree * TSTreeMake(TSSymbol value, size_t child_count, TSTree **children);
-void TSTreeRetain(TSTree *tree);
-void TSTreeRelease(TSTree *tree);
-int TSTreeEquals(const TSTree *tree1, const TSTree *tree2);
-char * TSTreeToString(const TSTree *tree, const char **names);
-
-typedef struct {
-    TSParseError error;
-    TSTree *tree;
-} TSParseResult;
-
-typedef TSParseResult TSParseFn(const char *);
+ts_tree * ts_tree_make(ts_symbol value, size_t child_count, ts_tree **children);
+void ts_tree_retain(ts_tree *tree);
+void ts_tree_release(ts_tree *tree);
+int ts_tree_equals(const ts_tree *tree1, const ts_tree *tree2);
+char * ts_tree_string(const ts_tree *tree, const char **names);
 
 typedef struct {
-    TSParseFn *parse_fn;
+    ts_error error;
+    ts_tree *tree;
+} ts_parse_result;
+
+typedef ts_parse_result ts_parse_fn(const char *);
+
+typedef struct {
+    ts_parse_fn *parse_fn;
     const char **symbol_names;
-} TSParseConfig;
+} ts_parse_config;
 
-typedef struct TSDocument TSDocument;
+typedef struct ts_document ts_document;
 
-TSDocument * TSDocumentMake();
-void TSDocumentSetUp(TSDocument *document, TSParseConfig config);
-void TSDocumentSetText(TSDocument *document, const char *text);
-TSTree * TSDocumentTree(const TSDocument *document);
-const char * TSDocumentToString(const TSDocument *document);
+ts_document * ts_document_make();
+void ts_document_set_parser(ts_document *document, ts_parse_config config);
+void ts_document_set_text(ts_document *document, const char *text);
+ts_tree * ts_document_tree(const ts_document *document);
+const char * ts_document_string(const ts_document *document);
     
 #ifdef __cplusplus
 }
