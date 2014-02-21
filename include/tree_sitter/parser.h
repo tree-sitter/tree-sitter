@@ -46,7 +46,7 @@ typedef struct {
     ts_parse_result result;
 } ts_parser;
 
-static ts_parser TSParserMake(const char *input) {
+static ts_parser ts_parser_make(const char *input) {
     ts_parser result = {
         .input = input,
         .position = 0,
@@ -65,21 +65,21 @@ static ts_parser TSParserMake(const char *input) {
     return result;
 }
 
-static char TSParserLookaheadChar(const ts_parser *parser) {
+static char ts_parser_lookahead_char(const ts_parser *parser) {
     return parser->input[parser->position];
 }
 
-static long TSParserLookaheadSym(const ts_parser *parser) {
+static long ts_parser_lookahead_sym(const ts_parser *parser) {
     ts_tree *node = parser->lookahead_node;
     return node ? node->value : -1;
 }
 
-static ts_state TSParserParseState(const ts_parser *parser) {
+static ts_state ts_parser_parse_state(const ts_parser *parser) {
     if (parser->stack_size == 0) return 0;
     return parser->stack[parser->stack_size - 1].state;
 }
 
-static void TSParserShift(ts_parser *parser, ts_state parse_state) {
+static void ts_parser_shift(ts_parser *parser, ts_state parse_state) {
     DEBUG_PARSE("shift: %d \n", parse_state);
     ts_stack_entry *entry = (parser->stack + parser->stack_size);
     entry->state = parse_state;
@@ -89,7 +89,7 @@ static void TSParserShift(ts_parser *parser, ts_state parse_state) {
     parser->stack_size++;
 }
 
-static void TSParserReduce(ts_parser *parser, ts_symbol symbol, int immediate_child_count, const int *collapse_flags) {
+static void ts_parser_reduce(ts_parser *parser, ts_symbol symbol, int immediate_child_count, const int *collapse_flags) {
     parser->stack_size -= immediate_child_count;
     
     int total_child_count = 0;
@@ -117,38 +117,38 @@ static void TSParserReduce(ts_parser *parser, ts_symbol symbol, int immediate_ch
     
     parser->prev_lookahead_node = parser->lookahead_node;
     parser->lookahead_node = ts_tree_make(symbol, total_child_count, children);
-    DEBUG_PARSE("reduce: %s, state: %u \n", ts_symbol_names[symbol], TSParserParseState(parser));
+    DEBUG_PARSE("reduce: %s, state: %u \n", ts_symbol_names[symbol], ts_parser_parse_state(parser));
 }
 
-static void TSParserError(ts_parser *parser, size_t count, const char **expected_inputs) {
+static void ts_parser_set_error(ts_parser *parser, size_t count, const char **expected_inputs) {
     ts_error *error = &parser->result.error;
     error->position = parser->position;
-    error->lookahead_char = TSParserLookaheadChar(parser);
+    error->lookahead_char = ts_parser_lookahead_char(parser);
     error->expected_input_count = count;
     error->expected_inputs = expected_inputs;
 }
     
-static int TSParserHasError(const ts_parser *parser) {
+static int ts_parser_has_error(const ts_parser *parser) {
     return (parser->result.error.expected_inputs != NULL);
 }
 
-static void TSParserAdvance(ts_parser *parser, ts_state lex_state) {
-    DEBUG_LEX("character: '%c' \n", TSParserLookaheadChar(parser));
+static void ts_parser_advance(ts_parser *parser, ts_state lex_state) {
+    DEBUG_LEX("character: '%c' \n", ts_parser_lookahead_char(parser));
     parser->position++;
     parser->lex_state = lex_state;
 }
 
-static void TSParserSetLookaheadSym(ts_parser *parser, ts_symbol symbol) {
+static void ts_parser_set_lookahead_sym(ts_parser *parser, ts_symbol symbol) {
     DEBUG_LEX("token: %s \n", ts_symbol_names[symbol]);
     parser->lookahead_node = ts_tree_make(symbol, 0, NULL);
 }
 
-static void TSParserAcceptInput(ts_parser *parser) {
+static void ts_parser_accept_input(ts_parser *parser) {
     parser->result.tree = parser->stack[parser->stack_size - 1].node;
     DEBUG_PARSE("accept \n");
 }
 
-static void TSParserSkipWhitespace(ts_parser *parser) {
+static void ts_parser_skip_whitespace(ts_parser *parser) {
     while (isspace(parser->input[parser->position]))
         parser->position++;
 }
@@ -171,21 +171,21 @@ ts_parse_config name = { \
 };
 
 #define START_PARSER() \
-ts_parser p = TSParserMake(input), *parser = &p; \
+ts_parser p = ts_parser_make(input), *parser = &p; \
 next_state:
 
 #define START_LEXER() \
-TSParserSkipWhitespace(parser); \
+ts_parser_skip_whitespace(parser); \
 next_state:
 
 #define LOOKAHEAD_SYM() \
-TSParserLookaheadSym(parser)
+ts_parser_lookahead_sym(parser)
 
 #define LOOKAHEAD_CHAR() \
-TSParserLookaheadChar(parser)
+ts_parser_lookahead_char(parser)
 
 #define PARSE_STATE() \
-TSParserParseState(parser)
+ts_parser_parse_state(parser)
 
 #define LEX_STATE() \
 parser->lex_state
@@ -194,32 +194,32 @@ parser->lex_state
 { \
     parser->lex_state = state_index; \
     if (LOOKAHEAD_SYM() < 0) ts_lex(parser); \
-    if (TSParserHasError(parser)) goto done; \
+    if (ts_parser_has_error(parser)) goto done; \
 }
 
 #define SHIFT(state) \
-{ TSParserShift(parser, state); goto next_state; }
+{ ts_parser_shift(parser, state); goto next_state; }
 
 #define ADVANCE(state_index) \
-{ TSParserAdvance(parser, state_index); goto next_state; }
+{ ts_parser_advance(parser, state_index); goto next_state; }
 
 #define REDUCE(symbol, child_count, collapse_flags) \
 { \
 static const int flags[] = collapse_flags; \
-TSParserReduce(parser, symbol, child_count, flags); \
+ts_parser_reduce(parser, symbol, child_count, flags); \
 goto next_state; \
 }
 
 #define ACCEPT_INPUT() \
-{ TSParserAcceptInput(parser); goto done; }
+{ ts_parser_accept_input(parser); goto done; }
 
 #define ACCEPT_TOKEN(symbol) \
-{ TSParserSetLookaheadSym(parser, symbol); goto done; }
+{ ts_parser_set_lookahead_sym(parser, symbol); goto done; }
 
 #define LEX_ERROR(count, inputs) \
 { \
 static const char *expected_inputs[] = inputs; \
-TSParserError(parser, count, expected_inputs); \
+ts_parser_set_error(parser, count, expected_inputs); \
 goto done; \
 }
 
