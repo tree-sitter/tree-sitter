@@ -1,8 +1,8 @@
 #ifndef __tree_sitter__character_set__
 #define __tree_sitter__character_set__
 
-#include "tree_sitter/compiler.h"
 #include "rule.h"
+#include "./character_range.h"
 #include <set>
 #include <initializer_list>
 

@@ -1,4 +1,5 @@
-#include "tree_sitter/compiler.h"
+#include "character_range.h"
+#include <string>
 
 namespace tree_sitter {
     using std::string;

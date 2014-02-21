@@ -36,12 +36,12 @@ namespace test_grammars {
                 comma_sep(sym("value")),
                 _sym("right_bracket"), }) },
             { "string", seq({
-                character({ '"' }),
+                str("\""),
                 repeat(choice({
                     pattern("[^\"]"),
                     str("\\\""),
                 })),
-                character({ '"' }) }) },
+                str("\"") }) },
             { "number", pattern("\\d+") },
             { "comma", str(",") },
             { "colon", str(":") },

@@ -105,6 +105,7 @@
 		1236A7CE18B3CC4800593ABB /* .travis.yml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = .travis.yml; sourceTree = "<group>"; };
 		1236A7D018B554C800593ABB /* prepared_grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = prepared_grammar.cpp; sourceTree = "<group>"; };
 		1236A7D118B554C800593ABB /* prepared_grammar.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = prepared_grammar.h; sourceTree = "<group>"; };
+		1236A7D418B72EB400593ABB /* character_range.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = character_range.h; sourceTree = "<group>"; };
 		1251209A1830145300C9B56A /* rule.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rule.cpp; sourceTree = "<group>"; };
 		125120A3183083BD00C9B56A /* arithmetic.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; lineEnding = 0; path = arithmetic.hpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		12661BF318A1505A00A259FB /* character_set_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = character_set_spec.cpp; path = spec/compiler/rules/character_set_spec.cpp; sourceTree = SOURCE_ROOT; };
@@ -198,6 +199,7 @@
 				1213060F182C3A1100FCF928 /* blank.cpp */,
 				12130610182C3A1100FCF928 /* blank.h */,
 				1236A7C318B287DC00593ABB /* character_range.cpp */,
+				1236A7D418B72EB400593ABB /* character_range.h */,
 				12130603182C348F00FCF928 /* character_set.cpp */,
 				12130604182C348F00FCF928 /* character_set.h */,
 				1213060C182C398300FCF928 /* choice.cpp */,
