@@ -9,14 +9,13 @@
 namespace tree_sitter {
     namespace rules {
         class Rule;
-        class Symbol;
         typedef std::shared_ptr<Rule> rule_ptr;
         
         std::ostream& operator<<(std::ostream& stream, const rule_ptr &rule);
         
         rule_ptr blank();
         rule_ptr choice(const std::vector<rule_ptr> &rules);
-        rule_ptr repeat(const rule_ptr content);
+        rule_ptr repeat(const rule_ptr &content);
         rule_ptr seq(const std::vector<rule_ptr> &rules);
         rule_ptr sym(const std::string &name);
         rule_ptr _sym(const std::string &name);

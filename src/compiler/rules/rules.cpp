@@ -24,20 +24,12 @@ namespace tree_sitter {
             return Choice::Build(rules);
         }
         
-        rule_ptr pattern(const string &value) {
-            return make_shared<Pattern>(value);
-        }
-        
-        rule_ptr repeat(const rule_ptr content) {
+        rule_ptr repeat(const rule_ptr &content) {
             return std::make_shared<Repeat>(content);
         }
         
         rule_ptr seq(const vector<rule_ptr> &rules) {
             return Seq::Build(rules);
-        }
-
-        rule_ptr str(const string &value) {
-            return make_shared<String>(value);
         }
 
         rule_ptr sym(const string &name) {
@@ -46,6 +38,14 @@ namespace tree_sitter {
 
         rule_ptr _sym(const string &name) {
             return make_shared<Symbol>(name, SymbolTypeHidden);
+        }
+
+        rule_ptr pattern(const string &value) {
+            return make_shared<Pattern>(value);
+        }
+        
+        rule_ptr str(const string &value) {
+            return make_shared<String>(value);
         }
     }
 }
