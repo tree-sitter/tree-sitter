@@ -123,9 +123,9 @@ static void TSParserReduce(ts_parser *parser, ts_symbol symbol, int immediate_ch
 static void TSParserError(ts_parser *parser, size_t count, const char **expected_inputs) {
     ts_error *error = &parser->result.error;
     error->position = parser->position;
+    error->lookahead_char = TSParserLookaheadChar(parser);
     error->expected_input_count = count;
     error->expected_inputs = expected_inputs;
-    error->lookahead_sym = TSParserLookaheadSym(parser);
 }
     
 static int TSParserHasError(const ts_parser *parser) {

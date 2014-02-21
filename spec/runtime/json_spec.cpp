@@ -12,6 +12,10 @@ describe("json", []() {
         ts_document_set_parser(document, ts_parse_config_json);
     });
     
+    after_each([&]() {
+        ts_document_free(document);
+    });
+    
     it("parses strings", [&]() {
         ts_document_set_text(document, "\"\"");
         AssertThat(string(ts_document_string(document)), Equals("(value (string))"));

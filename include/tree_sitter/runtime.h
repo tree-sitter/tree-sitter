@@ -6,15 +6,15 @@ extern "C" {
 #endif
     
 #include <stdlib.h>
-    
+
 typedef struct {
-    const char **expected_inputs;
-    size_t expected_input_count;
     size_t position;
-    long lookahead_sym;
+    char lookahead_char;
+    size_t expected_input_count;
+    const char **expected_inputs;
 } ts_error;
 
-const char * ts_error_string(const ts_error *error, const char *input_string, const char **symbol_names);
+const char * ts_error_string(const ts_error *error);
 
 typedef size_t ts_symbol;
     
@@ -46,6 +46,7 @@ typedef struct {
 typedef struct ts_document ts_document;
 
 ts_document * ts_document_make();
+void ts_document_free(ts_document *);
 void ts_document_set_parser(ts_document *document, ts_parse_config config);
 void ts_document_set_text(ts_document *document, const char *text);
 ts_tree * ts_document_tree(const ts_document *document);
