@@ -2,6 +2,7 @@
 #define __tree_sitter_character_range_h__
 
 #include <map>
+#include <string>
 
 namespace tree_sitter {
     namespace rules {

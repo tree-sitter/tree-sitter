@@ -4,8 +4,6 @@
 CXX       ?= clang++
 CC        ?= clang
 RM        ?= rm -f
-MKDIR     ?= $(INSTALL) -d
-SYMLINK   ?= ln -s
 
 ### library configuration ###
 LIB_NAME     = tree_sitter
