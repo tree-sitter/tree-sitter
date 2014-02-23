@@ -10,17 +10,14 @@ using prepare_grammar::perform;
 
 describe("preparing a grammar", []() {
     describe("extracting tokens", []() {
-        it("moves sub-rules that don't contain symbols into a separate 'lexical' grammar", [&]() {
+        it("moves strings and patterns into a separate 'lexical' grammar", [&]() {
             pair<PreparedGrammar, PreparedGrammar> result = perform(Grammar("rule1", {
                 { "rule1", seq({
-                    character({ 'a' }),
-                    character({ 'b' }),
+                    str("ab"),
                     seq({
                         sym("rule2"),
                         sym("rule3") }),
-                    seq({
-                        character({ 'a' }),
-                        character({ 'b' }) }) }) }
+                    str("ab") }) }
             }));
             
             AssertThat(result.first, Equals(PreparedGrammar("rule1", {
@@ -33,18 +30,14 @@ describe("preparing a grammar", []() {
             }, {})));
             
             AssertThat(result.second, Equals(PreparedGrammar("", {}, {
-                { "token1", rules::seq({
-                    rules::character({ 'a' }),
-                    rules::character({ 'b' }) }) },
+                { "token1", str("ab") },
             })));
         });
         
         it("moves entire rules into the lexical grammar when possible, preserving their names", [&]() {
             auto result = perform(Grammar("rule1", {
                 { "rule1", sym("rule2") },
-                { "rule2", seq({
-                    character({ 'a' }),
-                    character({ 'b' }) }) }
+                { "rule2", pattern("a|b") }
             }));
             
             AssertThat(result.first, Equals(PreparedGrammar("rule1", {
@@ -52,9 +45,7 @@ describe("preparing a grammar", []() {
             }, {})));
             
             AssertThat(result.second, Equals(PreparedGrammar("", {
-                { "rule2", seq({
-                    character({ 'a' }),
-                    character({ 'b' }) }) },
+                { "rule2", pattern("a|b") },
             }, {})));
         });
         
@@ -95,28 +86,6 @@ describe("preparing a grammar", []() {
                     }),
                     blank(),
                 }) }
-            })));
-        });
-        
-        it("does not replace repeat rules that can be moved into the lexical grammar", [&]() {
-            pair<PreparedGrammar, PreparedGrammar> result = perform(Grammar("rule1", {
-                { "rule1", seq({
-                    sym("x"),
-                    repeat(seq({ str("a"), str("b") })),
-                    sym("y")
-                }) },
-            }));
-            
-            AssertThat(result.first, Equals(PreparedGrammar("rule1", {
-                { "rule1", seq({
-                    sym("x"),
-                    make_shared<Symbol>("token1", SymbolTypeAuxiliary),
-                    sym("y")
-                }) },
-            }, {})));
-            
-            AssertThat(result.second, Equals(PreparedGrammar("", {}, {
-                { "token1", repeat(seq({ str("a"), str("b") })) },
             })));
         });
     });

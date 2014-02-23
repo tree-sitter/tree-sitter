@@ -35,13 +35,7 @@ namespace test_grammars {
                 _sym("left_bracket"),
                 comma_sep(sym("value")),
                 _sym("right_bracket"), }) },
-            { "string", seq({
-                str("\""),
-                repeat(choice({
-                    pattern("[^\"]"),
-                    str("\\\""),
-                })),
-                str("\"") }) },
+            { "string", pattern("\"([^\"]|\\\\\")+\"") },
             { "number", pattern("\\d+") },
             { "comma", str(",") },
             { "colon", str(":") },

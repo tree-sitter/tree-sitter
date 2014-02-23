@@ -1,5 +1,4 @@
 #include "extract_tokens.h"
-#include "search_for_symbols.h"
 #include "tree_sitter/compiler.h"
 #include "prepared_grammar.h"
 #include "rules/visitor.h"
@@ -17,15 +16,38 @@ namespace tree_sitter {
     using std::map;
     using std::make_shared;
     using namespace rules;
-
+    
     namespace prepare_grammar {
+        class TokenChecker : public Visitor {
+        public:
+            bool value;
+            
+            void default_visit(const Rule *rule) {
+                value = false;
+            }
+            
+            void visit(const String *rule) {
+                value = true;
+            }
+
+            void visit(const Pattern *rule) {
+                value = true;
+            }
+        };
+        
+        bool is_token(const rule_ptr &rule) {
+            TokenChecker checker;
+            rule->accept(checker);
+            return checker.value;
+        }
+        
         class TokenExtractor : Visitor {
         public:
             rule_ptr value;
             map<const string, const rule_ptr> tokens;
             
             rule_ptr initial_apply(const rule_ptr rule) {
-                if (!search_for_symbols(rule)) {
+                if (is_token(rule)) {
                     return rule_ptr();
                 } else {
                     return apply(rule);
@@ -33,7 +55,7 @@ namespace tree_sitter {
             }
             
             rule_ptr apply(const rule_ptr rule) {
-                if (search_for_symbols(rule) || rule->operator==(Blank())) {
+                if (!is_token(rule) || rule->operator==(Blank())) {
                     rule->accept(*this);
                     return value;
                 } else {
