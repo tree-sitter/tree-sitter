@@ -11,11 +11,10 @@ namespace tree_sitter {
     using namespace rules;
 
     namespace build_tables {
-        class FirstSetVisitor : Visitor {
-            set<Symbol> value;
+        class FirstSet : public RuleFn<set<Symbol>> {
             const PreparedGrammar grammar;
-            
-            FirstSetVisitor(const PreparedGrammar &grammar) : grammar(grammar) {}
+        public:
+            FirstSet(const PreparedGrammar &grammar) : grammar(grammar) {}
             
             set<Symbol> set_union(const set<Symbol> &left, const set<Symbol> &right) {
                 set<Symbol> result = left;
@@ -25,33 +24,27 @@ namespace tree_sitter {
             
             void visit(const Symbol *rule) {
                 if (grammar.has_definition(*rule)) {
-                    value = apply(grammar.rule(*rule), grammar);
+                    value = apply(grammar.rule(*rule));
                 } else {
                     value = set<Symbol>({ *rule });
                 }
             }
             
             void visit(const Choice *rule) {
-                value = set_union(apply(rule->left, grammar), apply(rule->right, grammar));
+                value = set_union(apply(rule->left), apply(rule->right));
             }
             
             void visit(const Seq *rule) {
-                value = apply(rule->left, grammar);
+                auto result = apply(rule->left);
                 if (rule_can_be_blank(rule->left, grammar)) {
-                    value = set_union(value, apply(rule->right, grammar));
+                    result = set_union(result, apply(rule->right));
                 }
-            }
-
-        public:
-            static set<Symbol> apply(const rule_ptr rule, const PreparedGrammar &grammar) {
-                FirstSetVisitor visitor(grammar);
-                rule->accept(visitor);
-                return visitor.value;
+                value = result;
             }
         };
         
         set<Symbol> first_set(const rule_ptr &rule, const PreparedGrammar &grammar) {
-            return FirstSetVisitor::apply(rule, grammar);
+            return FirstSet(grammar).apply(rule);
         }
     }
 }

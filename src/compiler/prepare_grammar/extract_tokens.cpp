@@ -7,6 +7,8 @@
 #include "rules/repeat.h"
 #include "rules/blank.h"
 #include "rules/symbol.h"
+#include "rules/string.h"
+#include "rules/pattern.h"
 #include <map>
 
 namespace tree_sitter {
@@ -18,10 +20,7 @@ namespace tree_sitter {
     using namespace rules;
     
     namespace prepare_grammar {
-        class TokenChecker : public Visitor {
-        public:
-            bool value;
-            
+        class IsToken : public RuleFn<bool> {
             void default_visit(const Rule *rule) {
                 value = false;
             }
@@ -34,36 +33,8 @@ namespace tree_sitter {
                 value = true;
             }
         };
-        
-        bool is_token(const rule_ptr &rule) {
-            TokenChecker checker;
-            rule->accept(checker);
-            return checker.value;
-        }
-        
-        class TokenExtractor : Visitor {
-        public:
-            rule_ptr value;
-            map<const string, const rule_ptr> tokens;
-            
-            rule_ptr initial_apply(const rule_ptr rule) {
-                if (is_token(rule)) {
-                    return rule_ptr();
-                } else {
-                    return apply(rule);
-                }
-            }
-            
-            rule_ptr apply(const rule_ptr rule) {
-                if (!is_token(rule) || rule->operator==(Blank())) {
-                    rule->accept(*this);
-                    return value;
-                } else {
-                    string token_name = add_token(rule);
-                    return make_shared<Symbol>(token_name, SymbolTypeAuxiliary);
-                }
-            }
-            
+
+        class TokenExtractor : public RuleFn<rule_ptr> {
             string add_token(const rule_ptr &rule) {
                 for (auto pair : tokens)
                     if (*pair.second == *rule)
@@ -72,9 +43,14 @@ namespace tree_sitter {
                 tokens.insert({ name, rule });
                 return name;
             }
-            
+           
             void default_visit(const Rule *rule) {
-                value = rule->copy();
+                auto result = rule->copy();
+                if (IsToken().apply(result)) {
+                    value = make_shared<Symbol>(add_token(result), SymbolTypeAuxiliary);
+                } else {
+                    value = result;
+                }
             }
             
             void visit(const Choice *rule) {
@@ -88,33 +64,31 @@ namespace tree_sitter {
             void visit(const Repeat *rule) {
                 value = make_shared<Repeat>(apply(rule->content));
             }
+
+        public:
+            map<const string, const rule_ptr> tokens;
         };
         
         pair<PreparedGrammar, PreparedGrammar> extract_tokens(const PreparedGrammar &input_grammar) {
+            map<const string, const rule_ptr> rules, tokens, aux_rules, aux_tokens;
             TokenExtractor extractor;
-            map<const string, const rule_ptr> rules;
-            map<const string, const rule_ptr> tokens;
-            map<const string, const rule_ptr> aux_rules;
-            map<const string, const rule_ptr> aux_tokens;
             
-            for (auto pair : input_grammar.rules) {
+            for (auto &pair : input_grammar.rules) {
                 string name = pair.first;
                 rule_ptr rule = pair.second;
-                rule_ptr new_rule = extractor.initial_apply(rule);
-                if (new_rule.get())
-                    rules.insert({ name, new_rule });
-                else
+                if (IsToken().apply(rule))
                     tokens.insert({ name, rule });
+                else
+                    rules.insert({ name, extractor.apply(rule) });
             }
 
-            for (auto pair : input_grammar.aux_rules) {
+            for (auto &pair : input_grammar.aux_rules) {
                 string name = pair.first;
                 rule_ptr rule = pair.second;
-                rule_ptr new_rule = extractor.initial_apply(rule);
-                if (new_rule.get())
-                    aux_rules.insert({ name, new_rule });
-                else
+                if (IsToken().apply(rule))
                     aux_tokens.insert({ name, rule });
+                else
+                    aux_rules.insert({ name, extractor.apply(rule) });
             }
             
             aux_tokens.insert(extractor.tokens.begin(), extractor.tokens.end());

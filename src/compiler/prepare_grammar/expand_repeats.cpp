@@ -16,16 +16,7 @@ namespace tree_sitter {
     using namespace rules;
 
     namespace prepare_grammar {
-        class RepeatExpander : rules::Visitor {
-        public:
-            rule_ptr value;
-            map<const string, const rule_ptr> aux_rules;
-            
-            rule_ptr apply(const rule_ptr &rule) {
-                rule->accept(*this);
-                return value;
-            }
-            
+        class ExpandRepeats : public RuleFn<rule_ptr> {
             rule_ptr make_repeat_helper(string name, const rule_ptr &rule) {
                 return Choice::Build({
                     Seq::Build({ rule, make_shared<Symbol>(name, SymbolTypeAuxiliary) }),
@@ -50,17 +41,19 @@ namespace tree_sitter {
             void default_visit(const Rule *rule) {
                 value = rule->copy();
             }
+
+        public:
+            map<const string, const rule_ptr> aux_rules;
         };
         
         PreparedGrammar expand_repeats(const PreparedGrammar &grammar) {
-            map<const string, const rule_ptr> rules;
-            map<const string, const rule_ptr> aux_rules(grammar.aux_rules);
-            RepeatExpander visitor;
+            map<const string, const rule_ptr> rules, aux_rules(grammar.aux_rules);
+            ExpandRepeats expander;
 
-            for (auto pair : grammar.rules)
-                rules.insert({ pair.first, visitor.apply(pair.second) });
+            for (auto &pair : grammar.rules)
+                rules.insert({ pair.first, expander.apply(pair.second) });
             
-            aux_rules.insert(visitor.aux_rules.begin(), visitor.aux_rules.end());
+            aux_rules.insert(expander.aux_rules.begin(), expander.aux_rules.end());
 
             return PreparedGrammar(grammar.start_rule_name, rules, aux_rules);
         }

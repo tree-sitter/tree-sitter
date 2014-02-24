@@ -1,9 +1,10 @@
 #ifndef __tree_sitter__rule_visitor__
 #define __tree_sitter__rule_visitor__
 
+#include "./rule.h"
+
 namespace tree_sitter {
     namespace rules {
-        class Rule;
         class Blank;
         class Symbol;
         class CharacterSet;
@@ -24,6 +25,18 @@ namespace tree_sitter {
             virtual void visit(const Seq *rule);
             virtual void visit(const String *rule);
             virtual void visit(const Pattern *rule);
+        };
+        
+        template<typename T>
+        class RuleFn : public Visitor {
+        protected:
+            T value;
+        public:
+            T apply(const rule_ptr &rule) {
+                value = T();
+                rule->accept(*this);
+                return value;
+            }
         };
     }
 }

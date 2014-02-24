@@ -11,41 +11,47 @@ namespace tree_sitter  {
     using namespace rules;
 
     namespace build_tables {
-        class EpsilonVisitor : public rules::Visitor {
-        public:
-            bool value;
-            
+        class CanBeBlank : public RuleFn<bool> {
+        protected:
             void default_visit(const Rule *) {
                 value = false;
             }
             
-            void visit(const Blank *) {
+            virtual void visit(const Blank *) {
                 value = true;
             }
             
-            void visit(const Choice *rule) {
-                value = rule_can_be_blank(rule->left) || rule_can_be_blank(rule->right);
-            }
-            
-            void visit(const Seq *rule) {
-                value = rule_can_be_blank(rule->left) && rule_can_be_blank(rule->right);
-            }
-            
-            void visit(const Repeat *rule) {
+            virtual void visit(const Repeat *rule) {
                 value = true;
+            }
+
+            virtual void visit(const Choice *rule) {
+                value = apply(rule->left) || apply(rule->right);
+            }
+            
+            virtual void visit(const Seq *rule) {
+                value = apply(rule->left) && apply(rule->right);
+            }
+        };
+        
+        class CanBeBlankRecursive : public CanBeBlank {
+            const PreparedGrammar grammar;
+            using CanBeBlank::visit;
+
+        public:
+            CanBeBlankRecursive(const PreparedGrammar &grammar) : grammar(grammar) {}
+
+            void visit(const Symbol *rule) {
+                value = grammar.has_definition(*rule) && apply(grammar.rule(*rule));
             }
         };
         
         bool rule_can_be_blank(const rule_ptr &rule) {
-            EpsilonVisitor visitor;
-            rule->accept(visitor);
-            return visitor.value;
+            return CanBeBlank().apply(rule);
         }
         
         bool rule_can_be_blank(const rule_ptr &rule, const PreparedGrammar &grammar) {
-            if (rule_can_be_blank(rule)) return true;
-            auto symbol = std::dynamic_pointer_cast<const Symbol>(rule);
-            return (symbol.get() && grammar.has_definition(*symbol) && rule_can_be_blank(grammar.rule(*symbol), grammar));
+            return CanBeBlankRecursive(grammar).apply(rule);
         }
     }
 }
