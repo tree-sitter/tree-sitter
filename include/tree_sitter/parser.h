@@ -123,7 +123,8 @@ static void ts_parser_reduce(ts_parser *parser, ts_symbol symbol, int immediate_
 
 static void ts_parser_advance(ts_parser *parser, ts_state lex_state) {
     DEBUG_LEX("character: '%c' \n", ts_parser_lookahead_char(parser));
-    parser->position++;
+    if (ts_parser_lookahead_char(parser) != '\0')
+        parser->position++;
     parser->lex_state = lex_state;
 }
 
@@ -174,9 +175,6 @@ ts_parser p = ts_parser_make(input), *parser = &p; \
 next_state:
 
 #define START_LEXER() \
-if (ts_parser_lookahead_char(parser) == '\0') { \
-    ACCEPT_TOKEN(ts_aux_sym_end) \
-} \
 ts_parser_skip_whitespace(parser); \
 next_state:
 

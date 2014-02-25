@@ -30,81 +30,93 @@ LEX_FN() {
     START_LEXER();
     switch (LEX_STATE()) {
         case 0:
+            if (LOOKAHEAD_CHAR() == '\0')
+                ADVANCE(1);
             LEX_ERROR();
         case 1:
-            if (LOOKAHEAD_CHAR() == '+')
-                ADVANCE(2);
-            LEX_ERROR();
+            ACCEPT_TOKEN(ts_aux_sym_end);
         case 2:
-            ACCEPT_TOKEN(ts_sym_plus);
-        case 3:
-            if (LOOKAHEAD_CHAR() == ')')
-                ADVANCE(4);
-            LEX_ERROR();
-        case 4:
-            ACCEPT_TOKEN(ts_aux_sym_token2);
-        case 5:
-            if (LOOKAHEAD_CHAR() == ')')
-                ADVANCE(4);
+            if (LOOKAHEAD_CHAR() == '\0')
+                ADVANCE(1);
             if (LOOKAHEAD_CHAR() == '+')
-                ADVANCE(2);
+                ADVANCE(3);
             LEX_ERROR();
+        case 3:
+            ACCEPT_TOKEN(ts_sym_plus);
+        case 4:
+            if (LOOKAHEAD_CHAR() == ')')
+                ADVANCE(5);
+            LEX_ERROR();
+        case 5:
+            ACCEPT_TOKEN(ts_aux_sym_token2);
         case 6:
             if (LOOKAHEAD_CHAR() == ')')
-                ADVANCE(4);
-            if (LOOKAHEAD_CHAR() == '*')
-                ADVANCE(7);
+                ADVANCE(5);
             if (LOOKAHEAD_CHAR() == '+')
-                ADVANCE(2);
+                ADVANCE(3);
             LEX_ERROR();
         case 7:
-            ACCEPT_TOKEN(ts_sym_times);
-        case 8:
-            if (LOOKAHEAD_CHAR() == '(')
-                ADVANCE(9);
-            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
-                ADVANCE(10);
-            if (('A' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'Z') ||
-                ('a' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'z'))
-                ADVANCE(11);
-            LEX_ERROR();
-        case 9:
-            ACCEPT_TOKEN(ts_aux_sym_token1);
-        case 10:
-            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
-                ADVANCE(10);
-            ACCEPT_TOKEN(ts_sym_number);
-        case 11:
-            if (('A' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'Z') ||
-                ('a' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'z'))
-                ADVANCE(11);
-            ACCEPT_TOKEN(ts_sym_variable);
-        case 12:
             if (LOOKAHEAD_CHAR() == ')')
-                ADVANCE(4);
+                ADVANCE(5);
             if (LOOKAHEAD_CHAR() == '*')
-                ADVANCE(7);
-            LEX_ERROR();
-        case 13:
-            if (LOOKAHEAD_CHAR() == '*')
-                ADVANCE(7);
+                ADVANCE(8);
             if (LOOKAHEAD_CHAR() == '+')
-                ADVANCE(2);
+                ADVANCE(3);
+            LEX_ERROR();
+        case 8:
+            ACCEPT_TOKEN(ts_sym_times);
+        case 9:
+            if (LOOKAHEAD_CHAR() == '(')
+                ADVANCE(10);
+            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+                ADVANCE(11);
+            if (('A' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'Z') ||
+                ('a' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'z'))
+                ADVANCE(12);
+            LEX_ERROR();
+        case 10:
+            ACCEPT_TOKEN(ts_aux_sym_token1);
+        case 11:
+            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+                ADVANCE(11);
+            ACCEPT_TOKEN(ts_sym_number);
+        case 12:
+            if (('A' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'Z') ||
+                ('a' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'z'))
+                ADVANCE(12);
+            ACCEPT_TOKEN(ts_sym_variable);
+        case 13:
+            if (LOOKAHEAD_CHAR() == ')')
+                ADVANCE(5);
+            if (LOOKAHEAD_CHAR() == '*')
+                ADVANCE(8);
             LEX_ERROR();
         case 14:
+            if (LOOKAHEAD_CHAR() == '\0')
+                ADVANCE(1);
             if (LOOKAHEAD_CHAR() == '*')
-                ADVANCE(7);
+                ADVANCE(8);
+            if (LOOKAHEAD_CHAR() == '+')
+                ADVANCE(3);
+            LEX_ERROR();
+        case 15:
+            if (LOOKAHEAD_CHAR() == '\0')
+                ADVANCE(1);
+            if (LOOKAHEAD_CHAR() == '*')
+                ADVANCE(8);
             LEX_ERROR();
         case ts_lex_state_error:
+            if (LOOKAHEAD_CHAR() == '\0')
+                ADVANCE(1);
             if (LOOKAHEAD_CHAR() == '*')
-                ADVANCE(7);
+                ADVANCE(8);
             if (LOOKAHEAD_CHAR() == '+')
-                ADVANCE(2);
+                ADVANCE(3);
             if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
-                ADVANCE(10);
+                ADVANCE(11);
             if (('A' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'Z') ||
                 ('a' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'z'))
-                ADVANCE(11);
+                ADVANCE(12);
             LEX_ERROR();
         default:
             LEX_PANIC();
@@ -116,7 +128,7 @@ PARSE_FN() {
     START_PARSER();
     switch (PARSE_STATE()) {
         case 0:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_expression:
                     SHIFT(1);
@@ -142,7 +154,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_end}));
             }
         case 2:
-            SET_LEX_STATE(13);
+            SET_LEX_STATE(14);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_plus:
                     REDUCE(ts_sym_term, 1, COLLAPSE({0}));
@@ -154,7 +166,7 @@ PARSE_FN() {
                     PARSE_ERROR(3, EXPECT({ts_sym_plus, ts_sym_times, ts_aux_sym_end}));
             }
         case 3:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_factor:
                     SHIFT(4);
@@ -168,7 +180,7 @@ PARSE_FN() {
                     PARSE_ERROR(4, EXPECT({ts_sym_factor, ts_sym_number, ts_sym_variable, ts_aux_sym_token1}));
             }
         case 4:
-            SET_LEX_STATE(1);
+            SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_plus:
                     REDUCE(ts_sym_term, 3, COLLAPSE({0, 0, 0}));
@@ -178,7 +190,7 @@ PARSE_FN() {
                     PARSE_ERROR(2, EXPECT({ts_sym_plus, ts_aux_sym_end}));
             }
         case 5:
-            SET_LEX_STATE(1);
+            SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_plus:
                     REDUCE(ts_sym_factor, 1, COLLAPSE({0}));
@@ -188,7 +200,7 @@ PARSE_FN() {
                     PARSE_ERROR(2, EXPECT({ts_sym_plus, ts_aux_sym_end}));
             }
         case 6:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_expression:
                     SHIFT(7);
@@ -206,7 +218,7 @@ PARSE_FN() {
                     PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
             }
         case 7:
-            SET_LEX_STATE(3);
+            SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_token2:
                     SHIFT(8);
@@ -214,7 +226,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_token2}));
             }
         case 8:
-            SET_LEX_STATE(1);
+            SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_plus:
                     REDUCE(ts_sym_factor, 3, COLLAPSE({1, 0, 1}));
@@ -224,7 +236,7 @@ PARSE_FN() {
                     PARSE_ERROR(2, EXPECT({ts_sym_plus, ts_aux_sym_end}));
             }
         case 9:
-            SET_LEX_STATE(6);
+            SET_LEX_STATE(7);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_plus:
                     REDUCE(ts_sym_term, 1, COLLAPSE({0}));
@@ -236,7 +248,7 @@ PARSE_FN() {
                     PARSE_ERROR(3, EXPECT({ts_sym_plus, ts_sym_times, ts_aux_sym_token2}));
             }
         case 10:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_factor:
                     SHIFT(11);
@@ -250,7 +262,7 @@ PARSE_FN() {
                     PARSE_ERROR(4, EXPECT({ts_sym_factor, ts_sym_number, ts_sym_variable, ts_aux_sym_token1}));
             }
         case 11:
-            SET_LEX_STATE(5);
+            SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_plus:
                     REDUCE(ts_sym_term, 3, COLLAPSE({0, 0, 0}));
@@ -260,7 +272,7 @@ PARSE_FN() {
                     PARSE_ERROR(2, EXPECT({ts_sym_plus, ts_aux_sym_token2}));
             }
         case 12:
-            SET_LEX_STATE(5);
+            SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_plus:
                     REDUCE(ts_sym_factor, 1, COLLAPSE({0}));
@@ -270,7 +282,7 @@ PARSE_FN() {
                     PARSE_ERROR(2, EXPECT({ts_sym_plus, ts_aux_sym_token2}));
             }
         case 13:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_expression:
                     SHIFT(14);
@@ -288,7 +300,7 @@ PARSE_FN() {
                     PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
             }
         case 14:
-            SET_LEX_STATE(3);
+            SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_token2:
                     SHIFT(15);
@@ -296,7 +308,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_token2}));
             }
         case 15:
-            SET_LEX_STATE(5);
+            SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_plus:
                     REDUCE(ts_sym_factor, 3, COLLAPSE({1, 0, 1}));
@@ -306,7 +318,7 @@ PARSE_FN() {
                     PARSE_ERROR(2, EXPECT({ts_sym_plus, ts_aux_sym_token2}));
             }
         case 16:
-            SET_LEX_STATE(6);
+            SET_LEX_STATE(7);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_plus:
                     REDUCE(ts_sym_factor, 1, COLLAPSE({0}));
@@ -318,7 +330,7 @@ PARSE_FN() {
                     PARSE_ERROR(3, EXPECT({ts_sym_plus, ts_sym_times, ts_aux_sym_token2}));
             }
         case 17:
-            SET_LEX_STATE(5);
+            SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_plus:
                     SHIFT(18);
@@ -328,7 +340,7 @@ PARSE_FN() {
                     PARSE_ERROR(2, EXPECT({ts_sym_plus, ts_aux_sym_token2}));
             }
         case 18:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_factor:
                     SHIFT(19);
@@ -344,7 +356,7 @@ PARSE_FN() {
                     PARSE_ERROR(5, EXPECT({ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
             }
         case 19:
-            SET_LEX_STATE(12);
+            SET_LEX_STATE(13);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_times:
                     SHIFT(20);
@@ -354,7 +366,7 @@ PARSE_FN() {
                     PARSE_ERROR(2, EXPECT({ts_sym_times, ts_aux_sym_token2}));
             }
         case 20:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_factor:
                     SHIFT(21);
@@ -368,7 +380,7 @@ PARSE_FN() {
                     PARSE_ERROR(4, EXPECT({ts_sym_factor, ts_sym_number, ts_sym_variable, ts_aux_sym_token1}));
             }
         case 21:
-            SET_LEX_STATE(3);
+            SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_token2:
                     REDUCE(ts_sym_term, 3, COLLAPSE({0, 0, 0}));
@@ -376,7 +388,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_token2}));
             }
         case 22:
-            SET_LEX_STATE(3);
+            SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_token2:
                     REDUCE(ts_sym_factor, 1, COLLAPSE({0}));
@@ -384,7 +396,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_token2}));
             }
         case 23:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_expression:
                     SHIFT(24);
@@ -402,7 +414,7 @@ PARSE_FN() {
                     PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
             }
         case 24:
-            SET_LEX_STATE(3);
+            SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_token2:
                     SHIFT(25);
@@ -410,7 +422,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_token2}));
             }
         case 25:
-            SET_LEX_STATE(3);
+            SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_token2:
                     REDUCE(ts_sym_factor, 3, COLLAPSE({1, 0, 1}));
@@ -418,7 +430,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_token2}));
             }
         case 26:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_expression:
                     SHIFT(27);
@@ -436,7 +448,7 @@ PARSE_FN() {
                     PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
             }
         case 27:
-            SET_LEX_STATE(3);
+            SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_token2:
                     SHIFT(28);
@@ -444,7 +456,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_token2}));
             }
         case 28:
-            SET_LEX_STATE(6);
+            SET_LEX_STATE(7);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_plus:
                     REDUCE(ts_sym_factor, 3, COLLAPSE({1, 0, 1}));
@@ -456,7 +468,7 @@ PARSE_FN() {
                     PARSE_ERROR(3, EXPECT({ts_sym_plus, ts_sym_times, ts_aux_sym_token2}));
             }
         case 29:
-            SET_LEX_STATE(12);
+            SET_LEX_STATE(13);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_times:
                     REDUCE(ts_sym_factor, 1, COLLAPSE({0}));
@@ -466,7 +478,7 @@ PARSE_FN() {
                     PARSE_ERROR(2, EXPECT({ts_sym_times, ts_aux_sym_token2}));
             }
         case 30:
-            SET_LEX_STATE(3);
+            SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_token2:
                     REDUCE(ts_sym_expression, 3, COLLAPSE({0, 0, 0}));
@@ -474,7 +486,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_token2}));
             }
         case 31:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_expression:
                     SHIFT(32);
@@ -492,7 +504,7 @@ PARSE_FN() {
                     PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
             }
         case 32:
-            SET_LEX_STATE(3);
+            SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_token2:
                     SHIFT(33);
@@ -500,7 +512,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_token2}));
             }
         case 33:
-            SET_LEX_STATE(12);
+            SET_LEX_STATE(13);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_times:
                     REDUCE(ts_sym_factor, 3, COLLAPSE({1, 0, 1}));
@@ -510,7 +522,7 @@ PARSE_FN() {
                     PARSE_ERROR(2, EXPECT({ts_sym_times, ts_aux_sym_token2}));
             }
         case 34:
-            SET_LEX_STATE(13);
+            SET_LEX_STATE(14);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_plus:
                     REDUCE(ts_sym_factor, 1, COLLAPSE({0}));
@@ -522,7 +534,7 @@ PARSE_FN() {
                     PARSE_ERROR(3, EXPECT({ts_sym_plus, ts_sym_times, ts_aux_sym_end}));
             }
         case 35:
-            SET_LEX_STATE(1);
+            SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_plus:
                     SHIFT(36);
@@ -532,7 +544,7 @@ PARSE_FN() {
                     PARSE_ERROR(2, EXPECT({ts_sym_plus, ts_aux_sym_end}));
             }
         case 36:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_factor:
                     SHIFT(37);
@@ -548,7 +560,7 @@ PARSE_FN() {
                     PARSE_ERROR(5, EXPECT({ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
             }
         case 37:
-            SET_LEX_STATE(14);
+            SET_LEX_STATE(15);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_times:
                     SHIFT(38);
@@ -558,7 +570,7 @@ PARSE_FN() {
                     PARSE_ERROR(2, EXPECT({ts_sym_times, ts_aux_sym_end}));
             }
         case 38:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_factor:
                     SHIFT(39);
@@ -588,7 +600,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_end}));
             }
         case 41:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_expression:
                     SHIFT(42);
@@ -606,7 +618,7 @@ PARSE_FN() {
                     PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
             }
         case 42:
-            SET_LEX_STATE(3);
+            SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_token2:
                     SHIFT(43);
@@ -622,7 +634,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_end}));
             }
         case 44:
-            SET_LEX_STATE(14);
+            SET_LEX_STATE(15);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_times:
                     REDUCE(ts_sym_factor, 1, COLLAPSE({0}));
@@ -640,7 +652,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_end}));
             }
         case 46:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_expression:
                     SHIFT(47);
@@ -658,7 +670,7 @@ PARSE_FN() {
                     PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
             }
         case 47:
-            SET_LEX_STATE(3);
+            SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_token2:
                     SHIFT(48);
@@ -666,7 +678,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_token2}));
             }
         case 48:
-            SET_LEX_STATE(14);
+            SET_LEX_STATE(15);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_times:
                     REDUCE(ts_sym_factor, 3, COLLAPSE({1, 0, 1}));
@@ -676,7 +688,7 @@ PARSE_FN() {
                     PARSE_ERROR(2, EXPECT({ts_sym_times, ts_aux_sym_end}));
             }
         case 49:
-            SET_LEX_STATE(8);
+            SET_LEX_STATE(9);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_expression:
                     SHIFT(50);
@@ -694,7 +706,7 @@ PARSE_FN() {
                     PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
             }
         case 50:
-            SET_LEX_STATE(3);
+            SET_LEX_STATE(4);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_token2:
                     SHIFT(51);
@@ -702,7 +714,7 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_token2}));
             }
         case 51:
-            SET_LEX_STATE(13);
+            SET_LEX_STATE(14);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_plus:
                     REDUCE(ts_sym_factor, 3, COLLAPSE({1, 0, 1}));
