@@ -2,6 +2,11 @@ TODO
 ====
 
 ## batch parsing
+- error handling: keep going when errors are encountered and put error nodes into the AST
+- more example grammars:
+  - go
+  - javascript
+  - ruby
 - add comments to generated C code describing the generated tokens (regexp pattern)
 - fix any memory leaks
 - add special lexical behavior for indentation-aware languages

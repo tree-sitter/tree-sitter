@@ -51,13 +51,17 @@ namespace tree_sitter {
         std::set<rules::CharacterSet> expected_inputs() const;
     };
     
+    typedef long int LexStateId;
+    
     class LexTable {
     public:
-        size_t add_state();
-        void add_action(size_t state_index, rules::CharacterSet rule, LexAction action);
-        void add_default_action(size_t state_index, LexAction action);
+        static const LexStateId ERROR_STATE_ID;
+        LexStateId add_state();
+        void add_action(LexStateId state_id, rules::CharacterSet rule, LexAction action);
+        void add_default_action(LexStateId state_id, LexAction action);
         
         std::vector<LexState> states;
+        LexState error_state;
     };
 }
 

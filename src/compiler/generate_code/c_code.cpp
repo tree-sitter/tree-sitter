@@ -164,17 +164,13 @@ namespace tree_sitter {
                 return input;
             }
             
-            string lex_error_call(const set<rules::CharacterSet> &expected_inputs) {
-                rules::CharacterSet expected_set;
-                for (auto &rule : expected_inputs)
-                    expected_set.add_set(rule);
-                
-                string result = "LEX_ERROR(" + to_string(expected_set.ranges.size()) + ", EXPECT({";
+            string parse_error_call(const set<rules::Symbol> &expected_inputs) {
+                string result = "PARSE_ERROR(" + to_string(expected_inputs.size()) + ", EXPECT({";
                 bool started = false;
-                for (auto &range : expected_set.ranges) {
+                for (auto &symbol : expected_inputs) {
                     if (started) result += ", ";
                     started = true;
-                    result += "\"" + escape_string(range.to_string()) + "\"";
+                    result += symbol_id(symbol);
                 }
                 result += "}));";
                 return result;
@@ -183,7 +179,7 @@ namespace tree_sitter {
             string code_for_lex_actions(const set<LexAction> &actions, const set<rules::CharacterSet> &expected_inputs) {
                 auto action = actions.begin();
                 if (action == actions.end()) {
-                    return lex_error_call(expected_inputs);
+                    return "LEX_ERROR();";
                 } else {
                     switch (action->type) {
                         case LexActionTypeAdvance:
@@ -198,11 +194,12 @@ namespace tree_sitter {
 
             string code_for_parse_state(const ParseState &parse_state) {
                 string body = "";
+                auto expected_inputs = parse_state.expected_inputs();
                 for (auto pair : parse_state.actions)
-                    body += _case(symbol_id(pair.first), code_for_parse_actions(pair.second, parse_state.expected_inputs()));
-                body += _default("PARSE_PANIC();");
+                    body += _case(symbol_id(pair.first), code_for_parse_actions(pair.second, expected_inputs));
+                body += _default(parse_error_call(expected_inputs));
                 return
-                    string("SET_LEX_STATE(") + to_string(parse_state.lex_state_index) + ");\n" +
+                    string("SET_LEX_STATE(") + to_string(parse_state.lex_state_id) + ");\n" +
                     _switch("LOOKAHEAD_SYM()", body);
             }
 
@@ -227,6 +224,7 @@ namespace tree_sitter {
                 string body = "";
                 for (int i = 0; i < lex_table.states.size(); i++)
                     body += _case(std::to_string(i), switch_on_lookahead_char(lex_table.states[i]));
+                body += _case("ts_lex_state_error", switch_on_lookahead_char(lex_table.error_state));
                 body += _default("LEX_PANIC();");
                 return _switch("LEX_STATE()", body);
             }

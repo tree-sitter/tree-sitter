@@ -3,8 +3,9 @@
 struct ts_document {
     ts_parse_fn *parse_fn;
     const char **symbol_names;
-    ts_error error;
-    ts_tree *tree;
+    const ts_tree *tree;
+    size_t error_count;
+    ts_tree **errors;
 };
 
 ts_document * ts_document_make() {
@@ -21,18 +22,18 @@ void ts_document_set_parser(ts_document *document, ts_parse_config config) {
 }
 
 void ts_document_set_text(ts_document *document, const char *text) {
-    ts_parse_result result = document->parse_fn(text);
-    document->tree = result.tree;
-    document->error = result.error;
+    const ts_tree * result = document->parse_fn(text);
+    document->tree = result;
+    document->errors = NULL;
 }
 
-ts_tree * ts_document_tree(const ts_document *document) {
+const ts_tree * ts_document_tree(const ts_document *document) {
     return document->tree;
 }
 
 const char * ts_document_string(const ts_document *document) {
-    if (document->error.expected_inputs != NULL) {
-        return ts_error_string(&document->error);
+    if (document->error_count > 0) {
+        return ts_tree_error_string(document->errors[0], document->symbol_names);
     } else {
         return ts_tree_string(document->tree, document->symbol_names);
     }

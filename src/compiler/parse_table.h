@@ -5,6 +5,7 @@
 #include <vector>
 #include <set>
 #include "rules/symbol.h"
+#include "./lex_table.h"
 
 namespace tree_sitter {
     typedef enum {
@@ -52,15 +53,17 @@ namespace tree_sitter {
         ParseState();
         std::map<rules::Symbol, std::set<ParseAction>> actions;
         std::set<rules::Symbol> expected_inputs() const;
-        size_t lex_state_index;
+        LexStateId lex_state_id;
     };
+    
+    typedef unsigned long int ParseStateId;
     
     std::ostream& operator<<(std::ostream &stream, const ParseState &state);
     
     class ParseTable {
     public:
         size_t add_state();
-        void add_action(size_t state_index, rules::Symbol symbol, ParseAction action);
+        void add_action(ParseStateId state_id, rules::Symbol symbol, ParseAction action);
         
         std::vector<ParseState> states;
         std::set<rules::Symbol> symbols;

@@ -59,7 +59,7 @@ describe("building parse and lex tables", []() {
     };
     
     function<LexState(size_t)> lex_state = [&](size_t parse_state_index) {
-        long index = table.states[parse_state_index].lex_state_index;
+        long index = table.states[parse_state_index].lex_state_id;
         return lex_table.states[index];
     };
     

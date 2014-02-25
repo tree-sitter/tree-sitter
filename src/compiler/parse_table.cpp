@@ -58,7 +58,7 @@ namespace tree_sitter {
         }
     }
     
-    ParseState::ParseState() : lex_state_index(-1) {}
+    ParseState::ParseState() : lex_state_id(-1) {}
     
     set<Symbol> ParseState::expected_inputs() const {
         set<Symbol> result;
@@ -86,13 +86,13 @@ namespace tree_sitter {
         return stream;
     }
     
-    size_t ParseTable::add_state() {
+    ParseStateId ParseTable::add_state() {
         states.push_back(ParseState());
         return states.size() - 1;
     }
     
-    void ParseTable::add_action(size_t state_index, Symbol symbol, ParseAction action) {
+    void ParseTable::add_action(ParseStateId id, Symbol symbol, ParseAction action) {
         symbols.insert(symbol);
-        states[state_index].actions[symbol].insert(action);
+        states[id].actions[symbol].insert(action);
     }
 }

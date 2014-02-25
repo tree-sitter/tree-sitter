@@ -14,105 +14,111 @@ namespace tree_sitter {
     using rules::CharacterSet;
 
     namespace build_tables {
-        static int NOT_FOUND = -1;
+        static int NOT_FOUND = -2;
         static Symbol START("start", rules::SymbolTypeAuxiliary);
         static Symbol END_OF_INPUT("end", rules::SymbolTypeAuxiliary);
 
         class TableBuilder {
             const PreparedGrammar grammar;
             const PreparedGrammar lex_grammar;
-            map<const ParseItemSet, size_t> parse_state_indices;
-            map<const LexItemSet, size_t> lex_state_indices;
+            map<const ParseItemSet, ParseStateId> parse_state_ids;
+            map<const LexItemSet, LexStateId> lex_state_ids;
             ParseTable parse_table;
             LexTable lex_table;
             
-            long parse_state_index_for_item_set(const ParseItemSet &item_set) const {
-                auto entry = parse_state_indices.find(item_set);
-                return (entry == parse_state_indices.end()) ? NOT_FOUND : entry->second;
+            long parse_state_id_for_item_set(const ParseItemSet &item_set) const {
+                auto entry = parse_state_ids.find(item_set);
+                return (entry == parse_state_ids.end()) ? NOT_FOUND : entry->second;
             }
 
-            long lex_state_index_for_item_set(const LexItemSet &item_set) const {
-                auto entry = lex_state_indices.find(item_set);
-                return (entry == lex_state_indices.end()) ? NOT_FOUND : entry->second;
+            long lex_state_id_for_item_set(const LexItemSet &item_set) const {
+                auto entry = lex_state_ids.find(item_set);
+                return (entry == lex_state_ids.end()) ? NOT_FOUND : entry->second;
             }
             
-            void add_shift_actions(const ParseItemSet &item_set, size_t state_index) {
+            void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (auto transition : sym_transitions(item_set, grammar)) {
                     Symbol symbol = transition.first;
                     ParseItemSet item_set = transition.second;
-                    size_t new_state_index = add_parse_state(item_set);
-                    parse_table.add_action(state_index, symbol, ParseAction::Shift(new_state_index));
+                    ParseStateId new_state_id = add_parse_state(item_set);
+                    parse_table.add_action(state_id, symbol, ParseAction::Shift(new_state_id));
                 }
             }
             
-            void add_advance_actions(const LexItemSet &item_set, size_t state_index) {
+            void add_advance_actions(const LexItemSet &item_set, LexStateId state_id) {
                 for (auto transition : char_transitions(item_set, grammar)) {
                     CharacterSet rule = transition.first;
                     LexItemSet item_set = transition.second;
-                    size_t new_state_index = add_lex_state(item_set);
-                    lex_table.add_action(state_index, rule, LexAction::Advance(new_state_index));
+                    LexStateId new_state_id = add_lex_state(item_set);
+                    lex_table.add_action(state_id, rule, LexAction::Advance(new_state_id));
                 }
             }
             
-            void add_accept_token_actions(const LexItemSet &item_set, size_t state_index) {
+            void add_accept_token_actions(const LexItemSet &item_set, LexStateId state_id) {
                 for (LexItem item : item_set) {
                     if (item.is_done()) {
-                        lex_table.add_default_action(state_index, LexAction::Accept(item.lhs));
+                        lex_table.add_default_action(state_id, LexAction::Accept(item.lhs));
                     }
                 }
             }
             
-            void add_reduce_actions(const ParseItemSet &item_set, size_t state_index) {
+            void add_reduce_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (ParseItem item : item_set) {
                     if (item.is_done()) {
                         ParseAction action = (item.lhs == START) ?
                             ParseAction::Accept() :
                             ParseAction::Reduce(item.lhs, item.consumed_symbols);
-                        parse_table.add_action(state_index, item.lookahead_sym, action);
+                        parse_table.add_action(state_id, item.lookahead_sym, action);
                     }
                 }
             }
             
-            void assign_lex_state(size_t state_index) {
-                ParseState &state = parse_table.states[state_index];
+            void assign_lex_state(ParseStateId state_id) {
+                ParseState &state = parse_table.states[state_id];
                 LexItemSet item_set;
                 for (auto &symbol : state.expected_inputs()) {
-                    if (symbol == END_OF_INPUT)
-                        item_set.insert(LexItem(symbol, make_shared<CharacterSet>(std::set<rules::CharacterRange>{ '\0' })));
                     if (lex_grammar.has_definition(symbol))
                         item_set.insert(LexItem(symbol, lex_grammar.rule(symbol)));
                 }
 
-                state.lex_state_index = add_lex_state(item_set);
+                state.lex_state_id = add_lex_state(item_set);
             }
             
-            size_t add_lex_state(const LexItemSet &item_set) {
-                auto state_index = lex_state_index_for_item_set(item_set);
-                if (state_index == NOT_FOUND) {
-                    state_index = lex_table.add_state();
-                    lex_state_indices[item_set] = state_index;
-                    add_advance_actions(item_set, state_index);
-                    add_accept_token_actions(item_set, state_index);
+            LexStateId add_lex_state(const LexItemSet &item_set) {
+                auto state_id = lex_state_id_for_item_set(item_set);
+                if (state_id == NOT_FOUND) {
+                    state_id = lex_table.add_state();
+                    lex_state_ids[item_set] = state_id;
+                    add_advance_actions(item_set, state_id);
+                    add_accept_token_actions(item_set, state_id);
                 }
-                return state_index;
+                return state_id;
             }
             
-            size_t add_parse_state(const ParseItemSet &item_set) {
-                auto state_index = parse_state_index_for_item_set(item_set);
-                if (state_index == NOT_FOUND) {
-                    state_index = parse_table.add_state();
-                    parse_state_indices[item_set] = state_index;
+            ParseStateId add_parse_state(const ParseItemSet &item_set) {
+                auto state_id = parse_state_id_for_item_set(item_set);
+                if (state_id == NOT_FOUND) {
+                    state_id = parse_table.add_state();
+                    parse_state_ids[item_set] = state_id;
 
-                    add_shift_actions(item_set, state_index);
-                    add_reduce_actions(item_set, state_index);
-                    assign_lex_state(state_index);
+                    add_shift_actions(item_set, state_id);
+                    add_reduce_actions(item_set, state_id);
+                    assign_lex_state(state_id);
                 }
-                return state_index;
+                return state_id;
+            }
+            
+            void add_error_lex_state() {
+                LexItemSet error_item_set;
+                for (auto &pair : lex_grammar.rules)
+                    error_item_set.insert(LexItem(pair.first, pair.second));
+                add_advance_actions(error_item_set, LexTable::ERROR_STATE_ID);
+                add_accept_token_actions(error_item_set, LexTable::ERROR_STATE_ID);
             }
             
 //            void dump_item_sets() {
-//                std::vector<const ParseItemSet *> item_sets(parse_state_indices.size());
-//                for (auto &pair : parse_state_indices)
+//                std::vector<const ParseItemSet *> item_sets(parse_state_ids.size());
+//                for (auto &pair : parse_state_ids)
 //                    item_sets[pair.second] = &pair.first;
 //                
 //                for (int i = 0; i < item_sets.size(); i++) {
@@ -135,6 +141,7 @@ namespace tree_sitter {
                 auto item = ParseItem(START, make_shared<Symbol>(grammar.start_rule_name), {}, END_OF_INPUT);
                 ParseItemSet item_set = item_set_closure(ParseItemSet({ item }), grammar);
                 add_parse_state(item_set);
+                add_error_lex_state();
                 return pair<ParseTable, LexTable>(parse_table, lex_table);
             }
         };

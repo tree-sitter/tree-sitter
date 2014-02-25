@@ -58,16 +58,25 @@ namespace tree_sitter {
         return result;
     }
     
-    size_t LexTable::add_state() {
+    LexStateId LexTable::add_state() {
         states.push_back(LexState());
         return states.size() - 1;
     }
     
-    void LexTable::add_action(size_t state_index, CharacterSet match, LexAction action) {
-        states[state_index].actions[match].insert(action);
+    LexState & state(LexTable *table, LexStateId id) {
+        if (id < 0)
+            return table->error_state;
+        else
+            return table->states[id];
     }
     
-    void LexTable::add_default_action(size_t state_index, LexAction action) {
-        states[state_index].default_actions.insert(action);
+    void LexTable::add_action(LexStateId id, CharacterSet match, LexAction action) {
+        state(this, id).actions[match].insert(action);
     }
+    
+    void LexTable::add_default_action(LexStateId id, LexAction action) {
+        state(this, id).default_actions.insert(action);
+    }
+    
+    const LexStateId LexTable::ERROR_STATE_ID = -1;
 }
