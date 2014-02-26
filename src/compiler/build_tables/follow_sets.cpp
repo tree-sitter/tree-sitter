@@ -18,10 +18,10 @@ namespace tree_sitter {
                 Symbol symbol = pair.first;
                 rule_ptr next_rule = pair.second;
                 if (grammar.has_definition(symbol)) {
-                    set<Symbol> following_non_terminals = first_set(next_rule, grammar);
+                    set<Symbol> following_terminals = first_set(next_rule, grammar);
                     if (rule_can_be_blank(next_rule, grammar))
-                        following_non_terminals.insert(item.lookahead_sym);
-                    result.insert({ symbol, following_non_terminals });
+                        following_terminals.insert(item.lookahead_sym);
+                    result.insert({ symbol, following_terminals });
                 }
             }
             

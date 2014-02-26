@@ -7,6 +7,13 @@
 
 namespace tree_sitter {
     namespace build_tables {
+        
+        /*
+         *  Merges two transition maps with symbol keys. If both maps
+         *  contain values for the same symbol, the new value for that
+         *  symbol will be computed by merging the two previous values
+         *  using the given function.
+         */
         template<typename T>
         std::map<rules::Symbol, T>
         merge_sym_transitions(const std::map<rules::Symbol, T> &left,
@@ -30,6 +37,12 @@ namespace tree_sitter {
             return result;
         }
         
+        /*
+         *  Merges two transition maps with character set keys. If the
+         *  two maps contain values for overlapping character sets, the
+         *  new value for the two sets' intersection will be computed by
+         *  merging the two previous values using the given function.
+         */
         template<typename T>
         std::map<rules::CharacterSet, T>
         merge_char_transitions(const std::map<rules::CharacterSet, T> &left,

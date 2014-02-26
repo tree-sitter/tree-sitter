@@ -17,7 +17,7 @@ namespace tree_sitter {
         static void add_item(ParseItemSet &item_set, const ParseItem &item, const PreparedGrammar &grammar) {
             if (!contains(item_set, item)) {
                 item_set.insert(item);
-                for (auto pair : follow_sets(item, grammar)) {
+                for (auto &pair : follow_sets(item, grammar)) {
                     Symbol non_terminal = pair.first;
                     set<Symbol> terminals = pair.second;
                     for (auto &terminal : terminals) {
