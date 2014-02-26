@@ -33,6 +33,7 @@ ts_tree * ts_tree_make_node(ts_symbol symbol, size_t child_count, ts_tree **chil
 
 ts_tree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, const ts_symbol *expected_inputs) {
     ts_tree *result = new ts_tree();
+    result->symbol = ts_symbol_error;
     result->data.error = {
         .lookahead_char = lookahead_char,
         .expected_input_count = expected_input_count,
@@ -84,6 +85,7 @@ size_t ts_tree_child_count(const ts_tree *tree) {
 
 static string __tree_to_string(const ts_tree *tree, const char **symbol_names) {
     if (!tree) return "#<null-tree>";
+    if (tree->symbol == ts_symbol_error) return "(ERROR)";
     string result = string("(") + symbol_names[tree->symbol];
     for (int i = 0; i < tree->data.children.count; i++)
         result += " " + __tree_to_string(tree->data.children.contents[i], symbol_names);

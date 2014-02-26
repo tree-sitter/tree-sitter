@@ -48,6 +48,16 @@ describe("json", []() {
         ts_document_set_text(doc, "[1, 2, 3]");
         AssertThat(string(ts_document_string(doc)), Equals("(value (array (value (number)) (value (number)) (value (number))))"));
     });
+    
+    describe("errors", [&]() {
+        it("reports errors in the top-level node", [&]() {
+            ts_document_set_text(doc, "[");
+            AssertThat(string(ts_document_string(doc)), Equals("(ERROR)"));
+
+            ts_document_set_text(doc, "{ \"key1\": 1, ");
+            AssertThat(string(ts_document_string(doc)), Equals("(ERROR)"));
+        });
+    });
 });
 
 END_TEST

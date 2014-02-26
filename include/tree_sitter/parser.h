@@ -45,7 +45,6 @@ typedef struct {
     ts_state lex_state;
     ts_stack_entry *stack;
     size_t stack_size;
-    ts_tree *result;
 } ts_parser;
 
 static void ts_lex(ts_parser *parser);
@@ -58,7 +57,6 @@ static ts_parser ts_parser_make(const char *input) {
         .lex_state = 0,
         .stack = calloc(INITIAL_STACK_SIZE, sizeof(ts_stack_entry)),
         .stack_size = 0,
-        .result = NULL,
     };
     return result;
 }
@@ -123,7 +121,7 @@ static void ts_parser_reduce(ts_parser *parser, ts_symbol symbol, int immediate_
 
 static void ts_parser_advance(ts_parser *parser, ts_state lex_state) {
     DEBUG_LEX("character: '%c' \n", ts_parser_lookahead_char(parser));
-    if (ts_parser_lookahead_char(parser) != '\0')
+    if (ts_parser_lookahead_char(parser))
         parser->position++;
     parser->lex_state = lex_state;
 }
@@ -143,14 +141,11 @@ static void ts_parser_skip_whitespace(ts_parser *parser) {
         parser->position++;
 }
  
-static void ts_parser_handle_error(ts_parser *parser, size_t count, const ts_symbol *expected_symbols) {
-    if (parser->error_mode) {
-        parser->lex_state = ts_lex_state_error;
-        ts_lex(parser);
-    } else {
-        parser->error_mode = 1;
-        parser->lookahead_node = ts_tree_make_error(ts_parser_lookahead_char(parser), count, expected_symbols);
-    }
+static int ts_parser_handle_error(ts_parser *parser, size_t count, const ts_symbol *expected_symbols) {
+    parser->error_mode = 1;
+    ts_tree *error = ts_tree_make_error(ts_parser_lookahead_char(parser), count, expected_symbols);
+    parser->stack[0].node = error;
+    return 0;
 }
 
 #pragma mark - DSL
@@ -220,9 +215,12 @@ goto next_state; \
     
 #define PARSE_ERROR(count, inputs) \
 { \
-static const ts_symbol expected_inputs[] = inputs; \
-ts_parser_handle_error(parser, count, expected_inputs); \
-goto next_state; \
+    static const ts_symbol expected_inputs[] = inputs; \
+    if (ts_parser_handle_error(parser, count, expected_inputs)) { \
+        goto next_state; \
+    } else { \
+        goto done; \
+    } \
 }
 
 #define LEX_PANIC() \
