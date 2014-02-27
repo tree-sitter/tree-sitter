@@ -33,7 +33,7 @@ namespace test_grammars {
                 _sym("right_brace"), }) },
             { "array", seq({
                 _sym("left_bracket"),
-                comma_sep(sym("value")),
+                comma_sep(err(sym("value"))),
                 _sym("right_bracket"), }) },
             { "string", pattern("\"([^\"]|\\\\\")+\"") },
             { "number", pattern("\\d+") },

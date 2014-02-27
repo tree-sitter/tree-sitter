@@ -42,8 +42,16 @@ static const ts_symbol * ts_recover(ts_state state, ts_state *to_state, size_t *
             RECOVER(47, 2, EXPECT({ts_sym_comma, ts_sym_right_brace}));
         case 13:
             RECOVER(44, 2, EXPECT({ts_sym_comma, ts_sym_right_brace}));
+        case 19:
+            RECOVER(21, 2, EXPECT({ts_sym_comma, ts_sym_right_bracket}));
+        case 22:
+            RECOVER(23, 2, EXPECT({ts_sym_comma, ts_sym_right_bracket}));
         case 25:
             RECOVER(32, 2, EXPECT({ts_sym_comma, ts_sym_right_brace}));
+        case 35:
+            RECOVER(36, 2, EXPECT({ts_sym_comma, ts_sym_right_bracket}));
+        case 55:
+            RECOVER(56, 2, EXPECT({ts_sym_comma, ts_sym_right_bracket}));
         default:
             RECOVER(0, 0, EXPECT({}));
     }
@@ -468,8 +476,10 @@ PARSE_FN() {
                     SHIFT(35);
                 case ts_sym_right_bracket:
                     SHIFT(42);
+                case ts_builtin_sym_error:
+                    SHIFT(21);
                 default:
-                    PARSE_ERROR(8, EXPECT({ts_sym_array, ts_sym_number, ts_sym_object, ts_sym_string, ts_sym_value, ts_sym_left_brace, ts_sym_left_bracket, ts_sym_right_bracket}));
+                    PARSE_ERROR(9, EXPECT({ts_sym_array, ts_sym_number, ts_sym_object, ts_sym_string, ts_sym_value, ts_sym_left_brace, ts_sym_left_bracket, ts_sym_right_bracket, ts_builtin_sym_error}));
             }
         case 20:
             SET_LEX_STATE(6);
@@ -510,8 +520,10 @@ PARSE_FN() {
                     SHIFT(25);
                 case ts_sym_left_bracket:
                     SHIFT(35);
+                case ts_builtin_sym_error:
+                    SHIFT(23);
                 default:
-                    PARSE_ERROR(7, EXPECT({ts_sym_array, ts_sym_number, ts_sym_object, ts_sym_string, ts_sym_value, ts_sym_left_brace, ts_sym_left_bracket}));
+                    PARSE_ERROR(8, EXPECT({ts_sym_array, ts_sym_number, ts_sym_object, ts_sym_string, ts_sym_value, ts_sym_left_brace, ts_sym_left_bracket, ts_builtin_sym_error}));
             }
         case 23:
             SET_LEX_STATE(6);
@@ -662,8 +674,10 @@ PARSE_FN() {
                     SHIFT(35);
                 case ts_sym_right_bracket:
                     SHIFT(39);
+                case ts_builtin_sym_error:
+                    SHIFT(36);
                 default:
-                    PARSE_ERROR(8, EXPECT({ts_sym_array, ts_sym_number, ts_sym_object, ts_sym_string, ts_sym_value, ts_sym_left_brace, ts_sym_left_bracket, ts_sym_right_bracket}));
+                    PARSE_ERROR(9, EXPECT({ts_sym_array, ts_sym_number, ts_sym_object, ts_sym_string, ts_sym_value, ts_sym_left_brace, ts_sym_left_bracket, ts_sym_right_bracket, ts_builtin_sym_error}));
             }
         case 36:
             SET_LEX_STATE(6);
@@ -864,8 +878,10 @@ PARSE_FN() {
                     SHIFT(35);
                 case ts_sym_right_bracket:
                     SHIFT(59);
+                case ts_builtin_sym_error:
+                    SHIFT(56);
                 default:
-                    PARSE_ERROR(8, EXPECT({ts_sym_array, ts_sym_number, ts_sym_object, ts_sym_string, ts_sym_value, ts_sym_left_brace, ts_sym_left_bracket, ts_sym_right_bracket}));
+                    PARSE_ERROR(9, EXPECT({ts_sym_array, ts_sym_number, ts_sym_object, ts_sym_string, ts_sym_value, ts_sym_left_brace, ts_sym_left_bracket, ts_sym_right_bracket, ts_builtin_sym_error}));
             }
         case 56:
             SET_LEX_STATE(6);

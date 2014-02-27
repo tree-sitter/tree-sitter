@@ -2,7 +2,6 @@ TODO
 ====
 
 ## batch parsing
-- error handling: keep going when errors are encountered and put error nodes into the AST
 - more example grammars:
   - go
   - javascript
