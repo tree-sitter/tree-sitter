@@ -7,8 +7,6 @@
 #include "rules/built_in_symbols.h"
 #include "first_set.h"
 
-#include "stream_methods.h"
-
 namespace tree_sitter {
     using std::pair;
     using std::string;

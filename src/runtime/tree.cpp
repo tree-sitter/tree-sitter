@@ -49,7 +49,7 @@ void ts_tree_release(ts_tree *tree) {
         ts_tree **children = tree->data.children.contents;
         for (int i = 0; i < ts_tree_child_count(tree); i++)
             ts_tree_release(children[i]);
-//        free(children);
+        free(children);
         free(tree);
     }
 }

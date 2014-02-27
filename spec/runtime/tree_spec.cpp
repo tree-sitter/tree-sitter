@@ -1,5 +1,12 @@
 #include "spec_helper.h"
 
+static ts_tree ** tree_array(vector<ts_tree *> trees) {
+    ts_tree ** result = (ts_tree **)calloc(trees.size(), sizeof(ts_tree *));
+    for (int i = 0; i < trees.size(); i++)
+        result[i] = trees[i];
+    return result;
+}
+
 START_TEST
 
 enum { cat, dog, pig };
@@ -23,7 +30,7 @@ describe("trees", []() {
             ts_tree *tree2 = ts_tree_make_leaf(cat);
             AssertThat(ts_tree_equals(tree1, tree2), Equals(1));
             
-            ts_tree *parent2 = ts_tree_make_node(dog, 1, &tree2);
+            ts_tree *parent2 = ts_tree_make_node(dog, 1, tree_array({ tree2 }));
             AssertThat(ts_tree_equals(parent1, parent2), Equals(1));
             
             ts_tree_release(tree2);
@@ -34,10 +41,10 @@ describe("trees", []() {
             ts_tree *different_tree = ts_tree_make_leaf(pig);
             AssertThat(ts_tree_equals(tree1, different_tree), Equals(0));
             
-            ts_tree *different_parent = ts_tree_make_node(dog, 1, &different_tree);
+            ts_tree *different_parent = ts_tree_make_node(dog, 1, tree_array({ different_tree }));
             AssertThat(ts_tree_equals(parent1, different_parent), Equals(0));
             
-            ts_tree *parent_with_same_type = ts_tree_make_node(cat, 1, &different_parent);
+            ts_tree *parent_with_same_type = ts_tree_make_node(cat, 1, tree_array({ different_parent }));
             AssertThat(ts_tree_equals(parent_with_same_type, tree1), Equals(0));
             AssertThat(ts_tree_equals(tree1, parent_with_same_type), Equals(0));
             
