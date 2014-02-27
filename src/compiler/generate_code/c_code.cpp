@@ -253,7 +253,6 @@ namespace tree_sitter {
                     "LEX_FN() {",
                     indent("START_LEXER();"),
                     indent(switch_on_lex_state()),
-                    indent("FINISH_LEXER();"),
                     "}"
                 });
             }

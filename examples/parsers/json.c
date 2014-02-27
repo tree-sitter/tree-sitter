@@ -217,7 +217,6 @@ LEX_FN() {
         default:
             LEX_PANIC();
     }
-    FINISH_LEXER();
 }
 
 PARSE_FN() {
