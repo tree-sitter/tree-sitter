@@ -115,7 +115,9 @@ namespace tree_sitter {
             void add_error_lex_state() {
                 LexItemSet error_item_set;
                 for (auto &pair : lex_grammar.rules)
-                    error_item_set.insert(LexItem(pair.first, pair.second));
+                    error_item_set.insert(LexItem(Symbol(pair.first), pair.second));
+                for (auto &pair : lex_grammar.aux_rules)
+                    error_item_set.insert(LexItem(Symbol(pair.first, rules::SymbolTypeAuxiliary), pair.second));
                 add_advance_actions(error_item_set, LexTable::ERROR_STATE_ID);
                 add_accept_token_actions(error_item_set, LexTable::ERROR_STATE_ID);
             }

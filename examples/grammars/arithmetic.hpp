@@ -26,7 +26,7 @@ namespace test_grammars {
                 sym("number"),
                 seq({
                     str("("),
-                    sym("expression"),
+                    err(sym("expression")),
                     str(")") }) }) },
             { "plus", str("+") },
             { "times", str("*") },

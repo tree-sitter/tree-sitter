@@ -26,6 +26,22 @@ SYMBOL_NAMES {
 
 static const ts_symbol * ts_recover(ts_state state, ts_state *to_state, size_t *count) {
     switch (state) {
+        case 6:
+            RECOVER(7, 1, EXPECT({ts_aux_sym_token2}));
+        case 13:
+            RECOVER(14, 1, EXPECT({ts_aux_sym_token2}));
+        case 23:
+            RECOVER(24, 1, EXPECT({ts_aux_sym_token2}));
+        case 26:
+            RECOVER(27, 1, EXPECT({ts_aux_sym_token2}));
+        case 31:
+            RECOVER(32, 1, EXPECT({ts_aux_sym_token2}));
+        case 41:
+            RECOVER(42, 1, EXPECT({ts_aux_sym_token2}));
+        case 46:
+            RECOVER(47, 1, EXPECT({ts_aux_sym_token2}));
+        case 49:
+            RECOVER(50, 1, EXPECT({ts_aux_sym_token2}));
         default:
             RECOVER(0, 0, EXPECT({}));
     }
@@ -101,6 +117,10 @@ LEX_FN() {
                 ADVANCE(7);
             LEX_ERROR();
         case ts_lex_state_error:
+            if (LOOKAHEAD_CHAR() == '(')
+                ADVANCE(9);
+            if (LOOKAHEAD_CHAR() == ')')
+                ADVANCE(4);
             if (LOOKAHEAD_CHAR() == '*')
                 ADVANCE(7);
             if (LOOKAHEAD_CHAR() == '+')
@@ -206,8 +226,10 @@ PARSE_FN() {
                     SHIFT(16);
                 case ts_aux_sym_token1:
                     SHIFT(26);
+                case ts_builtin_sym_error:
+                    SHIFT(7);
                 default:
-                    PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
+                    PARSE_ERROR(7, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1, ts_builtin_sym_error}));
             }
         case 7:
             SET_LEX_STATE(3);
@@ -288,8 +310,10 @@ PARSE_FN() {
                     SHIFT(16);
                 case ts_aux_sym_token1:
                     SHIFT(26);
+                case ts_builtin_sym_error:
+                    SHIFT(14);
                 default:
-                    PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
+                    PARSE_ERROR(7, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1, ts_builtin_sym_error}));
             }
         case 14:
             SET_LEX_STATE(3);
@@ -402,8 +426,10 @@ PARSE_FN() {
                     SHIFT(16);
                 case ts_aux_sym_token1:
                     SHIFT(26);
+                case ts_builtin_sym_error:
+                    SHIFT(24);
                 default:
-                    PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
+                    PARSE_ERROR(7, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1, ts_builtin_sym_error}));
             }
         case 24:
             SET_LEX_STATE(3);
@@ -436,8 +462,10 @@ PARSE_FN() {
                     SHIFT(16);
                 case ts_aux_sym_token1:
                     SHIFT(26);
+                case ts_builtin_sym_error:
+                    SHIFT(27);
                 default:
-                    PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
+                    PARSE_ERROR(7, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1, ts_builtin_sym_error}));
             }
         case 27:
             SET_LEX_STATE(3);
@@ -492,8 +520,10 @@ PARSE_FN() {
                     SHIFT(16);
                 case ts_aux_sym_token1:
                     SHIFT(26);
+                case ts_builtin_sym_error:
+                    SHIFT(32);
                 default:
-                    PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
+                    PARSE_ERROR(7, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1, ts_builtin_sym_error}));
             }
         case 32:
             SET_LEX_STATE(3);
@@ -606,8 +636,10 @@ PARSE_FN() {
                     SHIFT(16);
                 case ts_aux_sym_token1:
                     SHIFT(26);
+                case ts_builtin_sym_error:
+                    SHIFT(42);
                 default:
-                    PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
+                    PARSE_ERROR(7, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1, ts_builtin_sym_error}));
             }
         case 42:
             SET_LEX_STATE(3);
@@ -658,8 +690,10 @@ PARSE_FN() {
                     SHIFT(16);
                 case ts_aux_sym_token1:
                     SHIFT(26);
+                case ts_builtin_sym_error:
+                    SHIFT(47);
                 default:
-                    PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
+                    PARSE_ERROR(7, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1, ts_builtin_sym_error}));
             }
         case 47:
             SET_LEX_STATE(3);
@@ -694,8 +728,10 @@ PARSE_FN() {
                     SHIFT(16);
                 case ts_aux_sym_token1:
                     SHIFT(26);
+                case ts_builtin_sym_error:
+                    SHIFT(50);
                 default:
-                    PARSE_ERROR(6, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1}));
+                    PARSE_ERROR(7, EXPECT({ts_sym_expression, ts_sym_factor, ts_sym_number, ts_sym_term, ts_sym_variable, ts_aux_sym_token1, ts_builtin_sym_error}));
             }
         case 50:
             SET_LEX_STATE(3);
