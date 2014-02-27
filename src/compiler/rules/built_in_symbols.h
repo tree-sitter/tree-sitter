@@ -6,6 +6,8 @@
 namespace tree_sitter {
     namespace rules {
         extern const Symbol ERROR;
+        extern const Symbol START;
+        extern const Symbol END_OF_INPUT;
     }
 }
 

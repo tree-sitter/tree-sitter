@@ -197,6 +197,10 @@ next_state:
 
 #define START_LEXER() \
 ts_parser_skip_whitespace(parser); \
+if (!ts_parser_lookahead_char(parser)) { \
+    parser->lookahead_node = ts_tree_make_leaf(ts_builtin_sym_end); \
+    return; \
+} \
 next_state:
 
 #define LOOKAHEAD_SYM() \

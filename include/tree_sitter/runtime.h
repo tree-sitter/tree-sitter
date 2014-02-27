@@ -9,6 +9,7 @@ extern "C" {
 
 typedef int ts_symbol;
 static const ts_symbol ts_builtin_sym_error = -1;
+static const ts_symbol ts_builtin_sym_end = -2;
     
 typedef struct ts_tree {
     ts_symbol symbol;

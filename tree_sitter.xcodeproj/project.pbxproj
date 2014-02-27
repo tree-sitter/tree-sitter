@@ -103,6 +103,7 @@
 		122587B018BDD79600A68B84 /* follow_sets_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = follow_sets_spec.cpp; sourceTree = "<group>"; };
 		122587B218BEE2C600A68B84 /* helpers.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = helpers.cpp; sourceTree = "<group>"; };
 		122587B318BEE2C600A68B84 /* helpers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = helpers.h; sourceTree = "<group>"; };
+		122587B518BF19CA00A68B84 /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README.md; sourceTree = "<group>"; };
 		1225CC6318765693000D4723 /* prepare_grammar_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = prepare_grammar_spec.cpp; sourceTree = "<group>"; };
 		1236A7C318B287DC00593ABB /* character_range.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = character_range.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		1236A7C918B2A79F00593ABB /* rule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rule.h; sourceTree = "<group>"; };
@@ -312,6 +313,7 @@
 				12FD40D3185FED630041A84E /* include */,
 				1236A7CC18B2B4F000593ABB /* Makefile */,
 				12E71795181D02A80051A649 /* Products */,
+				122587B518BF19CA00A68B84 /* README.md */,
 				12E71796181D02A80051A649 /* spec */,
 				12E71701181D01890051A649 /* src */,
 				12D1369E18342088005F3369 /* todo.md */,

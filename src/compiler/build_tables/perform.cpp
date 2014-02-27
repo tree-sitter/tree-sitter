@@ -17,9 +17,6 @@ namespace tree_sitter {
 
     namespace build_tables {
         const int NOT_FOUND = -2;
-        const Symbol START("start", rules::SymbolTypeAuxiliary);
-        const Symbol END_OF_INPUT("end", rules::SymbolTypeAuxiliary);
-        const LexItem EOF_ITEM(END_OF_INPUT, make_shared<CharacterSet>(std::set<rules::CharacterRange>{ '\0' }));
 
         class TableBuilder {
             const PreparedGrammar grammar;
@@ -72,7 +69,7 @@ namespace tree_sitter {
             void add_reduce_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (ParseItem item : item_set) {
                     if (item.is_done()) {
-                        ParseAction action = (item.lhs == START) ?
+                        ParseAction action = (item.lhs == rules::START) ?
                             ParseAction::Accept() :
                             ParseAction::Reduce(item.lhs, item.consumed_symbols);
                         parse_table.add_action(state_id, item.lookahead_sym, action);
@@ -86,8 +83,6 @@ namespace tree_sitter {
                 for (auto &symbol : state.expected_inputs()) {
                     if (lex_grammar.has_definition(symbol))
                         item_set.insert(LexItem(symbol, lex_grammar.rule(symbol)));
-                    else if (symbol == END_OF_INPUT)
-                        item_set.insert(EOF_ITEM);
                 }
 
                 state.lex_state_id = add_lex_state(item_set);
@@ -121,7 +116,6 @@ namespace tree_sitter {
                 LexItemSet error_item_set;
                 for (auto &pair : lex_grammar.rules)
                     error_item_set.insert(LexItem(pair.first, pair.second));
-                error_item_set.insert(EOF_ITEM);
                 add_advance_actions(error_item_set, LexTable::ERROR_STATE_ID);
                 add_accept_token_actions(error_item_set, LexTable::ERROR_STATE_ID);
             }
@@ -148,7 +142,7 @@ namespace tree_sitter {
                 lex_grammar(lex_grammar) {};
 
             pair<ParseTable, LexTable> build() {
-                ParseItem item(START, make_shared<Symbol>(grammar.start_rule_name), {}, END_OF_INPUT);
+                ParseItem item(rules::START, make_shared<Symbol>(grammar.start_rule_name), {}, rules::END_OF_INPUT);
                 ParseItemSet item_set = item_set_closure(ParseItemSet({ item }), grammar);
                 add_parse_state(item_set);
                 add_error_lex_state();

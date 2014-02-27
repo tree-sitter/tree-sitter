@@ -59,7 +59,7 @@ namespace tree_sitter {
                     if (symbol == rules::ERROR)
                         return "ts_builtin_sym_error";
                     else
-                        return "unexpected_built_in_sym!";
+                        return "ts_builtin_sym_end";
                 } else if (symbol.is_auxiliary())
                     return "ts_aux_sym_" + symbol.name;
                 else
