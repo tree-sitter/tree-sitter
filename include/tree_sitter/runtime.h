@@ -50,7 +50,7 @@ typedef struct ts_document ts_document;
 ts_document * ts_document_make();
 void ts_document_free(ts_document *);
 void ts_document_set_parser(ts_document *document, ts_parse_config config);
-void ts_document_set_text(ts_document *document, const char *text);
+void ts_document_set_input_string(ts_document *document, const char *text);
 const ts_tree * ts_document_tree(const ts_document *document);
 const char * ts_document_string(const ts_document *document);
     

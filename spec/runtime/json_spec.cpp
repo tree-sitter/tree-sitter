@@ -17,54 +17,54 @@ describe("json", []() {
     });
     
     it("parses strings", [&]() {
-        ts_document_set_text(doc, "\"\"");
+        ts_document_set_input_string(doc, "\"\"");
         AssertThat(string(ts_document_string(doc)), Equals("(value (string))"));
 
-        ts_document_set_text(doc, "\"simple-string\"");
+        ts_document_set_input_string(doc, "\"simple-string\"");
         AssertThat(string(ts_document_string(doc)), Equals("(value (string))"));
 
-        ts_document_set_text(doc, "\"this is a \\\"string\\\" within a string\"");
+        ts_document_set_input_string(doc, "\"this is a \\\"string\\\" within a string\"");
         AssertThat(string(ts_document_string(doc)), Equals("(value (string))"));
     });
     
     it("parses objects", [&]() {
-        ts_document_set_text(doc, "{}");
+        ts_document_set_input_string(doc, "{}");
         AssertThat(string(ts_document_string(doc)), Equals("(value (object))"));
 
-        ts_document_set_text(doc, "{ \"key1\": 1 }");
+        ts_document_set_input_string(doc, "{ \"key1\": 1 }");
         AssertThat(string(ts_document_string(doc)), Equals("(value (object (string) (value (number))))"));
 
-        ts_document_set_text(doc, "{\"key1\": 1, \"key2\": 2 }");
+        ts_document_set_input_string(doc, "{\"key1\": 1, \"key2\": 2 }");
         AssertThat(string(ts_document_string(doc)), Equals("(value (object (string) (value (number)) (string) (value (number))))"));
     });
     
     it("parses arrays", [&]() {
-        ts_document_set_text(doc, "[]");
+        ts_document_set_input_string(doc, "[]");
         AssertThat(string(ts_document_string(doc)), Equals("(value (array))"));
 
-        ts_document_set_text(doc, "[5]");
+        ts_document_set_input_string(doc, "[5]");
         AssertThat(string(ts_document_string(doc)), Equals("(value (array (value (number))))"));
 
-        ts_document_set_text(doc, "[1, 2, 3]");
+        ts_document_set_input_string(doc, "[1, 2, 3]");
         AssertThat(string(ts_document_string(doc)), Equals("(value (array (value (number)) (value (number)) (value (number))))"));
     });
     
     describe("errors", [&]() {
         it("reports errors in the top-level node", [&]() {
-            ts_document_set_text(doc, "[");
+            ts_document_set_input_string(doc, "[");
             AssertThat(string(ts_document_string(doc)), Equals("(ERROR)"));
         });
         
         it("reports errors inside of arrays and objects", [&]() {
-            ts_document_set_text(doc, "{ \"key1\": 1, 5 }");
+            ts_document_set_input_string(doc, "{ \"key1\": 1, 5 }");
             AssertThat(string(ts_document_string(doc)), Equals("(value (object (string) (value (number)) (ERROR)))"));
 
-            ts_document_set_text(doc, "[1,,2]");
+            ts_document_set_input_string(doc, "[1,,2]");
             AssertThat(string(ts_document_string(doc)), Equals("(value (array (value (number)) (ERROR) (value (number))))"));
         });
         
         it("reports errors in nested objects", [&]() {
-            ts_document_set_text(doc, "{ \"key1\": { \"key2\": 1, 2 }, [, \"key3\": 3 }");
+            ts_document_set_input_string(doc, "{ \"key1\": { \"key2\": 1, 2 }, [, \"key3\": 3 }");
             AssertThat(string(ts_document_string(doc)), Equals("(value (object (string) (value (object (string) (value (number)) (ERROR))) (ERROR) (string) (value (number))))"));
         });
     });

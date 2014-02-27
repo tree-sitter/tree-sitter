@@ -17,45 +17,45 @@ describe("arithmetic", []() {
     });
     
     it("parses variables", [&]() {
-        ts_document_set_text(doc, "x");
+        ts_document_set_input_string(doc, "x");
         AssertThat(string(ts_document_string(doc)), Equals(
             "(expression (term (factor (variable))))"));
     });
     
     it("parses numbers", [&]() {
-        ts_document_set_text(doc, "5");
+        ts_document_set_input_string(doc, "5");
         AssertThat(string(ts_document_string(doc)), Equals(
             "(expression (term (factor (number))))"));
     });
 
     it("parses products of variables", [&]() {
-        ts_document_set_text(doc, "x + y");
+        ts_document_set_input_string(doc, "x + y");
         AssertThat(string(ts_document_string(doc)), Equals(
             "(expression (term (factor (variable))) (plus) (term (factor (variable))))"));
         
-        ts_document_set_text(doc, "x * y");
+        ts_document_set_input_string(doc, "x * y");
         AssertThat(string(ts_document_string(doc)), Equals(
             "(expression (term (factor (variable)) (times) (factor (variable))))"));
     });
     
     it("parses complex trees", [&]() {
-        ts_document_set_text(doc, "x * y + z * a");
+        ts_document_set_input_string(doc, "x * y + z * a");
         AssertThat(string(ts_document_string(doc)), Equals(
             "(expression (term (factor (variable)) (times) (factor (variable))) (plus) (term (factor (variable)) (times) (factor (variable))))"));
 
-        ts_document_set_text(doc, "x * (y + z)");
+        ts_document_set_input_string(doc, "x * (y + z)");
         AssertThat(string(ts_document_string(doc)), Equals(
             "(expression (term (factor (variable)) (times) (factor (expression (term (factor (variable))) (plus) (term (factor (variable)))))))"));
     });
     
     describe("error recovery", [&]() {
         it("recovers from errors at the top level", [&]() {
-            ts_document_set_text(doc, "x * * y");
+            ts_document_set_input_string(doc, "x * * y");
             AssertThat(string(ts_document_string(doc)), Equals("(ERROR)"));
         });
         
         it("recovers from errors in parenthesized expressions", [&]() {
-            ts_document_set_text(doc, "x + (y * + z) * 5");
+            ts_document_set_input_string(doc, "x + (y * + z) * 5");
             AssertThat(string(ts_document_string(doc)), Equals(
                 "(expression (term (factor (variable))) (plus) (term (factor (ERROR)) (times) (factor (number))))"));
         });

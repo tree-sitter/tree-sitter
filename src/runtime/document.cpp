@@ -21,7 +21,7 @@ void ts_document_set_parser(ts_document *document, ts_parse_config config) {
     document->symbol_names = config.symbol_names;
 }
 
-void ts_document_set_text(ts_document *document, const char *text) {
+void ts_document_set_input_string(ts_document *document, const char *text) {
     const ts_tree * result = document->parse_fn(text);
     document->tree = result;
     document->errors = NULL;
