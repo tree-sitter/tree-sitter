@@ -2,6 +2,7 @@
 #define __tree_sitter__first_set__
 
 #include "rules/symbol.h"
+#include "item.h"
 #include <set>
 
 namespace tree_sitter {
@@ -20,7 +21,7 @@ namespace tree_sitter {
          *  Returns the set of terminal symbols that can appear at
          *  the beginning of any item in the given set.
          */
-//        std::set<rules::Symbol> first_set(const ParseItemSet &item_set, const PreparedGrammar &grammar);
+        std::set<rules::Symbol> first_set(const ParseItemSet &item_set, const PreparedGrammar &grammar);
     }
 }
 

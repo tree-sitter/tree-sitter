@@ -35,6 +35,8 @@ namespace tree_sitter  {
                     return string("#<hidden_sym '") + name + "'>";
                 case SymbolTypeAuxiliary:
                     return string("#<aux_sym '") + name + "'>";
+                case SymbolTypeBuiltIn:
+                    return string("#<builtin_sym '") + name + "'>";
             }
         }
         
@@ -42,6 +44,10 @@ namespace tree_sitter  {
             if (type < other.type) return true;
             if (type > other.type) return false;
             return (name < other.name);
+        }
+        
+        bool Symbol::is_built_in() const {
+            return type == SymbolTypeBuiltIn;
         }
         
         bool Symbol::is_auxiliary() const {

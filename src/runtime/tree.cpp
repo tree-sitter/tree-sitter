@@ -5,8 +5,6 @@
 using std::string;
 using std::to_string;
 
-const ts_symbol ts_symbol_error = -1;
-
 ts_tree * ts_tree_make_leaf(ts_symbol symbol) {
     ts_tree *result = new ts_tree();
     result->ref_count = 0;
@@ -33,7 +31,7 @@ ts_tree * ts_tree_make_node(ts_symbol symbol, size_t child_count, ts_tree **chil
 
 ts_tree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, const ts_symbol *expected_inputs) {
     ts_tree *result = new ts_tree();
-    result->symbol = ts_symbol_error;
+    result->symbol = ts_builtin_sym_error;
     result->data.error = {
         .lookahead_char = lookahead_char,
         .expected_input_count = expected_input_count,
@@ -58,7 +56,7 @@ void ts_tree_release(ts_tree *tree) {
 
 int ts_tree_equals(const ts_tree *node1, const ts_tree *node2) {
     if (node1->symbol != node2->symbol) return 0;
-    if (node1->symbol == ts_symbol_error) {
+    if (node1->symbol == ts_builtin_sym_error) {
         // check error equality
     } else {
         if (node1->data.children.count != node2->data.children.count)
@@ -74,18 +72,18 @@ int ts_tree_equals(const ts_tree *node1, const ts_tree *node2) {
 }
 
 ts_tree ** ts_tree_children(const ts_tree *tree) {
-    if (tree->symbol == ts_symbol_error) return NULL;
+    if (tree->symbol == ts_builtin_sym_error) return NULL;
     return tree->data.children.contents;
 }
 
 size_t ts_tree_child_count(const ts_tree *tree) {
-    if (tree->symbol == ts_symbol_error) return 0;
+    if (tree->symbol == ts_builtin_sym_error) return 0;
     return tree->data.children.count;
 }
 
 static string __tree_to_string(const ts_tree *tree, const char **symbol_names) {
     if (!tree) return "#<null-tree>";
-    if (tree->symbol == ts_symbol_error) return "(ERROR)";
+    if (tree->symbol == ts_builtin_sym_error) return "(ERROR)";
     string result = string("(") + symbol_names[tree->symbol];
     for (int i = 0; i < tree->data.children.count; i++)
         result += " " + __tree_to_string(tree->data.children.contents[i], symbol_names);

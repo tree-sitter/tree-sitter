@@ -11,16 +11,16 @@ namespace tree_sitter {
     using namespace rules;
 
     namespace build_tables {
+        set<Symbol> set_union(const set<Symbol> &left, const set<Symbol> &right) {
+            set<Symbol> result = left;
+            result.insert(right.begin(), right.end());
+            return result;
+        }
+
         class FirstSet : public RuleFn<set<Symbol>> {
             const PreparedGrammar grammar;
         public:
             FirstSet(const PreparedGrammar &grammar) : grammar(grammar) {}
-            
-            set<Symbol> set_union(const set<Symbol> &left, const set<Symbol> &right) {
-                set<Symbol> result = left;
-                result.insert(right.begin(), right.end());
-                return result;
-            }
             
             void visit(const Symbol *rule) {
                 if (grammar.has_definition(*rule)) {
@@ -45,6 +45,16 @@ namespace tree_sitter {
         
         set<Symbol> first_set(const rule_ptr &rule, const PreparedGrammar &grammar) {
             return FirstSet(grammar).apply(rule);
+        }
+        
+        set<Symbol> first_set(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
+            set<Symbol> result;
+            for (auto &item : item_set) {
+                result = set_union(result, first_set(item.rule, grammar));
+                if (rule_can_be_blank(item.rule, grammar))
+                    result.insert(item.lookahead_sym);
+            }
+            return result;
         }
     }
 }

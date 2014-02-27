@@ -21,6 +21,7 @@ namespace tree_sitter {
         rule_ptr _sym(const std::string &name);
         rule_ptr pattern(const std::string &value);
         rule_ptr str(const std::string &value);
+        rule_ptr err(const rule_ptr &rule);
     }
 
     class Grammar {

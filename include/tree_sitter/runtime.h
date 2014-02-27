@@ -8,7 +8,7 @@ extern "C" {
 #include <stdlib.h>
 
 typedef int ts_symbol;
-extern const ts_symbol ts_symbol_error;
+static const ts_symbol ts_builtin_sym_error = -1;
     
 typedef struct ts_tree {
     ts_symbol symbol;

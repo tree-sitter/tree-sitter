@@ -26,6 +26,13 @@ SYMBOL_NAMES {
     "token2",
 };
 
+static const ts_symbol * ts_recover(ts_state state, ts_state *to_state, size_t *count) {
+    switch (state) {
+        default:
+            RECOVER(0, 0, EXPECT({}));
+    }
+}
+
 LEX_FN() {
     START_LEXER();
     switch (LEX_STATE()) {

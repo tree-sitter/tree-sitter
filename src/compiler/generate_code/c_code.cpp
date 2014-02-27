@@ -2,6 +2,7 @@
 #include <vector>
 #include <map>
 #include <set>
+#include "built_in_symbols.h"
 
 namespace tree_sitter {
     using std::string;
@@ -85,7 +86,12 @@ namespace tree_sitter {
                 {}
             
             string symbol_id(rules::Symbol symbol) {
-                if (symbol.is_auxiliary())
+                if (symbol.is_built_in()) {
+                    if (symbol == rules::ERROR)
+                        return "ts_builtin_sym_error";
+                    else
+                        return "unexpected_built_in_sym!";
+                } else if (symbol.is_auxiliary())
                     return "ts_aux_sym_" + symbol.name;
                 else
                     return "ts_sym_" + symbol.name;
@@ -232,19 +238,50 @@ namespace tree_sitter {
             string symbol_enum() {
                 string result = "enum {\n";
                 for (auto symbol : parse_table.symbols)
-                    result += indent(symbol_id(symbol)) + ",\n";
+                    if (!symbol.is_built_in())
+                        result += indent(symbol_id(symbol)) + ",\n";
                 return result + "};";
             }
 
             string rule_names_list() {
                 string result = "SYMBOL_NAMES {\n";
                 for (auto symbol : parse_table.symbols)
-                    result += indent(string("\"") + symbol.name) + "\",\n";
+                    if (!symbol.is_built_in())
+                        result += indent(string("\"") + symbol.name) + "\",\n";
                 return result + "};";
             }
 
             string includes() {
                 return "#include \"tree_sitter/parser.h\"";
+            }
+            
+            string recover_case(ParseStateId state, set<rules::Symbol> symbols) {
+                string result = "RECOVER(" + to_string(state) + ", " + to_string(symbols.size()) + ", EXPECT({";
+                bool started = false;
+                for (auto &symbol : symbols) {
+                    if (started) {
+                        result += ", ";
+                    }
+                    result += symbol_id(symbol);
+                    started = true;
+                }
+                return result + "}));";
+            }
+            
+            string recover_function() {
+                string cases;
+                for (auto &pair : parse_table.error_table) {
+                    auto pair_for_state = pair.second;
+                    cases += _case(to_string(pair.first), recover_case(pair_for_state.first, pair_for_state.second));
+                }
+                cases += _default(recover_case(0, set<rules::Symbol>()));
+                
+                string body = _switch("state", cases);
+                return join({
+                    "static const ts_symbol * ts_recover(ts_state state, ts_state *to_state, size_t *count) {",
+                    indent(body),
+                    "}"
+                });
             }
             
             string lex_function() {
@@ -276,6 +313,7 @@ namespace tree_sitter {
                     includes(),
                     symbol_enum(),
                     rule_names_list(),
+                    recover_function(),
                     lex_function(),
                     parse_function(),
                     parse_config_struct(),

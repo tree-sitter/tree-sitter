@@ -48,6 +48,7 @@ typedef struct {
 } ts_parser;
 
 static void ts_lex(ts_parser *parser);
+static const ts_symbol * ts_recover(ts_state state, ts_state *to_state, size_t *count);
 
 static ts_parser ts_parser_make(const char *input) {
     ts_parser result = {
@@ -67,22 +68,26 @@ static char ts_parser_lookahead_char(const ts_parser *parser) {
 
 static ts_symbol ts_parser_lookahead_sym(const ts_parser *parser) {
     ts_tree *node = parser->lookahead_node;
-    return node ? node->symbol : ts_symbol_error;
+    return node ? node->symbol : ts_builtin_sym_error;
 }
 
 static ts_state ts_parser_parse_state(const ts_parser *parser) {
     if (parser->stack_size == 0) return 0;
     return parser->stack[parser->stack_size - 1].state;
 }
+    
+static void ts_parser_push(ts_parser *parser, ts_state state, ts_tree *node) {
+    ts_stack_entry *entry = (parser->stack + parser->stack_size);
+    entry->state = state;
+    entry->node = node;
+    parser->stack_size++;
+}
 
 static void ts_parser_shift(ts_parser *parser, ts_state parse_state) {
     DEBUG_PARSE("shift: %d \n", parse_state);
-    ts_stack_entry *entry = (parser->stack + parser->stack_size);
-    entry->state = parse_state;
-    entry->node = parser->lookahead_node;
+    ts_parser_push(parser, parse_state, parser->lookahead_node);
     parser->lookahead_node = parser->prev_lookahead_node;
     parser->prev_lookahead_node = NULL;
-    parser->stack_size++;
 }
 
 static void ts_parser_reduce(ts_parser *parser, ts_symbol symbol, int immediate_child_count, const int *collapse_flags) {
@@ -144,8 +149,29 @@ static void ts_parser_skip_whitespace(ts_parser *parser) {
 static int ts_parser_handle_error(ts_parser *parser, size_t count, const ts_symbol *expected_symbols) {
     parser->error_mode = 1;
     ts_tree *error = ts_tree_make_error(ts_parser_lookahead_char(parser), count, expected_symbols);
-    parser->stack[0].node = error;
-    return 0;
+    while (1) {
+        parser->lookahead_node = NULL;
+        parser->lex_state = ts_lex_state_error;
+        ts_lex(parser);
+        
+        for (long i = parser->stack_size - 1; i >= 0; i--) {
+            ts_state state = parser->stack[i].state;
+            ts_state to_state;
+            size_t count;
+            const ts_symbol *symbols = ts_recover(state, &to_state, &count);
+            for (int j = 0; j < count; j++) {
+                if (symbols[j] == ts_parser_lookahead_sym(parser)) {
+                    parser->stack_size = i + 1;
+                    ts_parser_push(parser, to_state, error);
+                    return 1;
+                }
+            }
+        }
+        if (!ts_parser_lookahead_char(parser)) {
+            parser->stack[0].node = error;
+            return 0;
+        }
+    }
 }
 
 #pragma mark - DSL
@@ -228,6 +254,14 @@ printf("Lex error: unexpected state %d", LEX_STATE());
     
 #define PARSE_PANIC() \
 printf("Parse error: unexpected state %d", PARSE_STATE());
+
+#define RECOVER(new_state, symbol_count, values) \
+{ \
+    *count = symbol_count; \
+    *to_state = new_state; \
+    static ts_symbol symbols[] = values; \
+    return symbols; \
+}
 
 #define EXPECT(...) __VA_ARGS__
 #define COLLAPSE(...) __VA_ARGS__

@@ -4,6 +4,10 @@
 #include "item_set_closure.h"
 #include "item_set_transitions.h"
 #include "tree_sitter/compiler.h"
+#include "rules/built_in_symbols.h"
+#include "first_set.h"
+
+#include "stream_methods.h"
 
 namespace tree_sitter {
     using std::pair;
@@ -43,6 +47,10 @@ namespace tree_sitter {
                     ParseItemSet item_set = transition.second;
                     ParseStateId new_state_id = add_parse_state(item_set);
                     parse_table.add_action(state_id, symbol, ParseAction::Shift(new_state_id));
+                    
+                    if (symbol == rules::ERROR) {
+                        parse_table.error_table.insert({ state_id, { new_state_id, first_set(transition.second, grammar) } });
+                    }
                 }
             }
             
@@ -119,7 +127,7 @@ namespace tree_sitter {
                 add_advance_actions(error_item_set, LexTable::ERROR_STATE_ID);
                 add_accept_token_actions(error_item_set, LexTable::ERROR_STATE_ID);
             }
-            
+
 //            void dump_item_sets() {
 //                std::vector<const ParseItemSet *> item_sets(parse_state_ids.size());
 //                for (auto &pair : parse_state_ids)
@@ -134,7 +142,7 @@ namespace tree_sitter {
 //                    }
 //                }
 //            }
-            
+    
         public:
             
             TableBuilder(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar) :

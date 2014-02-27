@@ -26,10 +26,10 @@ namespace test_grammars {
                 sym("number") }) },
             { "object", seq({
                 _sym("left_brace"),
-                comma_sep(seq({
+                comma_sep(err(seq({
                     sym("string"),
                     _sym("colon"),
-                    sym("value") })),
+                    sym("value") }))),
                 _sym("right_brace"), }) },
             { "array", seq({
                 _sym("left_bracket"),

@@ -8,6 +8,7 @@
 #include "./pattern.h"
 #include "./character_set.h"
 #include "./repeat.h"
+#include "./built_in_symbols.h"
 
 namespace tree_sitter {
     using std::make_shared;
@@ -46,6 +47,10 @@ namespace tree_sitter {
         
         rule_ptr str(const string &value) {
             return make_shared<String>(value);
+        }
+        
+        rule_ptr err(const rule_ptr &rule) {
+            return choice({ rule, ERROR.copy() });
         }
     }
 }

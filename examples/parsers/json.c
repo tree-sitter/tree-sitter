@@ -34,6 +34,21 @@ SYMBOL_NAMES {
     "repeat_helper2",
 };
 
+static const ts_symbol * ts_recover(ts_state state, ts_state *to_state, size_t *count) {
+    switch (state) {
+        case 3:
+            RECOVER(52, 2, EXPECT({ts_sym_comma, ts_sym_right_brace}));
+        case 8:
+            RECOVER(47, 2, EXPECT({ts_sym_comma, ts_sym_right_brace}));
+        case 13:
+            RECOVER(44, 2, EXPECT({ts_sym_comma, ts_sym_right_brace}));
+        case 25:
+            RECOVER(32, 2, EXPECT({ts_sym_comma, ts_sym_right_brace}));
+        default:
+            RECOVER(0, 0, EXPECT({}));
+    }
+}
+
 LEX_FN() {
     START_LEXER();
     switch (LEX_STATE()) {
@@ -224,7 +239,7 @@ PARSE_FN() {
                 case ts_sym_left_brace:
                     SHIFT(3);
                 case ts_sym_left_bracket:
-                    SHIFT(44);
+                    SHIFT(55);
                 default:
                     PARSE_ERROR(7, EXPECT({ts_sym_array, ts_sym_number, ts_sym_object, ts_sym_string, ts_sym_value, ts_sym_left_brace, ts_sym_left_bracket}));
             }
@@ -250,9 +265,11 @@ PARSE_FN() {
                 case ts_sym_string:
                     SHIFT(4);
                 case ts_sym_right_brace:
-                    SHIFT(43);
+                    SHIFT(51);
+                case ts_builtin_sym_error:
+                    SHIFT(52);
                 default:
-                    PARSE_ERROR(2, EXPECT({ts_sym_string, ts_sym_right_brace}));
+                    PARSE_ERROR(3, EXPECT({ts_sym_string, ts_sym_right_brace, ts_builtin_sym_error}));
             }
         case 4:
             SET_LEX_STATE(19);
@@ -300,7 +317,7 @@ PARSE_FN() {
                 case ts_sym_right_brace:
                     REDUCE(ts_aux_sym_repeat_helper2, 0, COLLAPSE({}));
                 case ts_aux_sym_repeat_helper2:
-                    SHIFT(41);
+                    SHIFT(49);
                 default:
                     PARSE_ERROR(3, EXPECT({ts_sym_comma, ts_sym_right_brace, ts_aux_sym_repeat_helper2}));
             }
@@ -309,8 +326,10 @@ PARSE_FN() {
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_string:
                     SHIFT(9);
+                case ts_builtin_sym_error:
+                    SHIFT(47);
                 default:
-                    PARSE_ERROR(1, EXPECT({ts_sym_string}));
+                    PARSE_ERROR(2, EXPECT({ts_sym_string, ts_builtin_sym_error}));
             }
         case 9:
             SET_LEX_STATE(19);
@@ -366,9 +385,11 @@ PARSE_FN() {
                 case ts_sym_string:
                     SHIFT(14);
                 case ts_sym_right_brace:
-                    SHIFT(40);
+                    SHIFT(43);
+                case ts_builtin_sym_error:
+                    SHIFT(44);
                 default:
-                    PARSE_ERROR(2, EXPECT({ts_sym_string, ts_sym_right_brace}));
+                    PARSE_ERROR(3, EXPECT({ts_sym_string, ts_sym_right_brace, ts_builtin_sym_error}));
             }
         case 14:
             SET_LEX_STATE(19);
@@ -444,9 +465,9 @@ PARSE_FN() {
                 case ts_sym_left_brace:
                     SHIFT(25);
                 case ts_sym_left_bracket:
-                    SHIFT(32);
+                    SHIFT(35);
                 case ts_sym_right_bracket:
-                    SHIFT(39);
+                    SHIFT(42);
                 default:
                     PARSE_ERROR(8, EXPECT({ts_sym_array, ts_sym_number, ts_sym_object, ts_sym_string, ts_sym_value, ts_sym_left_brace, ts_sym_left_bracket, ts_sym_right_bracket}));
             }
@@ -468,7 +489,7 @@ PARSE_FN() {
                 case ts_sym_right_bracket:
                     REDUCE(ts_aux_sym_repeat_helper1, 0, COLLAPSE({}));
                 case ts_aux_sym_repeat_helper1:
-                    SHIFT(37);
+                    SHIFT(40);
                 default:
                     PARSE_ERROR(3, EXPECT({ts_sym_comma, ts_sym_right_bracket, ts_aux_sym_repeat_helper1}));
             }
@@ -488,7 +509,7 @@ PARSE_FN() {
                 case ts_sym_left_brace:
                     SHIFT(25);
                 case ts_sym_left_bracket:
-                    SHIFT(32);
+                    SHIFT(35);
                 default:
                     PARSE_ERROR(7, EXPECT({ts_sym_array, ts_sym_number, ts_sym_object, ts_sym_string, ts_sym_value, ts_sym_left_brace, ts_sym_left_bracket}));
             }
@@ -519,8 +540,10 @@ PARSE_FN() {
                     SHIFT(26);
                 case ts_sym_right_brace:
                     SHIFT(31);
+                case ts_builtin_sym_error:
+                    SHIFT(32);
                 default:
-                    PARSE_ERROR(2, EXPECT({ts_sym_string, ts_sym_right_brace}));
+                    PARSE_ERROR(3, EXPECT({ts_sym_string, ts_sym_right_brace, ts_builtin_sym_error}));
             }
         case 26:
             SET_LEX_STATE(19);
@@ -591,6 +614,36 @@ PARSE_FN() {
                     PARSE_ERROR(2, EXPECT({ts_sym_comma, ts_sym_right_bracket}));
             }
         case 32:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_sym_comma:
+                    SHIFT(8);
+                case ts_sym_right_brace:
+                    REDUCE(ts_aux_sym_repeat_helper2, 0, COLLAPSE({}));
+                case ts_aux_sym_repeat_helper2:
+                    SHIFT(33);
+                default:
+                    PARSE_ERROR(3, EXPECT({ts_sym_comma, ts_sym_right_brace, ts_aux_sym_repeat_helper2}));
+            }
+        case 33:
+            SET_LEX_STATE(5);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_sym_right_brace:
+                    SHIFT(34);
+                default:
+                    PARSE_ERROR(1, EXPECT({ts_sym_right_brace}));
+            }
+        case 34:
+            SET_LEX_STATE(6);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_sym_comma:
+                    REDUCE(ts_sym_object, 4, COLLAPSE({1, 0, 1, 1}));
+                case ts_sym_right_bracket:
+                    REDUCE(ts_sym_object, 4, COLLAPSE({1, 0, 1, 1}));
+                default:
+                    PARSE_ERROR(2, EXPECT({ts_sym_comma, ts_sym_right_bracket}));
+            }
+        case 35:
             SET_LEX_STATE(22);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_array:
@@ -602,17 +655,17 @@ PARSE_FN() {
                 case ts_sym_string:
                     SHIFT(20);
                 case ts_sym_value:
-                    SHIFT(33);
+                    SHIFT(36);
                 case ts_sym_left_brace:
                     SHIFT(25);
                 case ts_sym_left_bracket:
-                    SHIFT(32);
+                    SHIFT(35);
                 case ts_sym_right_bracket:
-                    SHIFT(36);
+                    SHIFT(39);
                 default:
                     PARSE_ERROR(8, EXPECT({ts_sym_array, ts_sym_number, ts_sym_object, ts_sym_string, ts_sym_value, ts_sym_left_brace, ts_sym_left_bracket, ts_sym_right_bracket}));
             }
-        case 33:
+        case 36:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_comma:
@@ -620,37 +673,9 @@ PARSE_FN() {
                 case ts_sym_right_bracket:
                     REDUCE(ts_aux_sym_repeat_helper1, 0, COLLAPSE({}));
                 case ts_aux_sym_repeat_helper1:
-                    SHIFT(34);
+                    SHIFT(37);
                 default:
                     PARSE_ERROR(3, EXPECT({ts_sym_comma, ts_sym_right_bracket, ts_aux_sym_repeat_helper1}));
-            }
-        case 34:
-            SET_LEX_STATE(8);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_sym_right_bracket:
-                    SHIFT(35);
-                default:
-                    PARSE_ERROR(1, EXPECT({ts_sym_right_bracket}));
-            }
-        case 35:
-            SET_LEX_STATE(6);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_sym_comma:
-                    REDUCE(ts_sym_array, 4, COLLAPSE({1, 0, 1, 1}));
-                case ts_sym_right_bracket:
-                    REDUCE(ts_sym_array, 4, COLLAPSE({1, 0, 1, 1}));
-                default:
-                    PARSE_ERROR(2, EXPECT({ts_sym_comma, ts_sym_right_bracket}));
-            }
-        case 36:
-            SET_LEX_STATE(6);
-            switch (LOOKAHEAD_SYM()) {
-                case ts_sym_comma:
-                    REDUCE(ts_sym_array, 2, COLLAPSE({1, 1}));
-                case ts_sym_right_bracket:
-                    REDUCE(ts_sym_array, 2, COLLAPSE({1, 1}));
-                default:
-                    PARSE_ERROR(2, EXPECT({ts_sym_comma, ts_sym_right_bracket}));
             }
         case 37:
             SET_LEX_STATE(8);
@@ -661,26 +686,54 @@ PARSE_FN() {
                     PARSE_ERROR(1, EXPECT({ts_sym_right_bracket}));
             }
         case 38:
-            SET_LEX_STATE(2);
+            SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_comma:
                     REDUCE(ts_sym_array, 4, COLLAPSE({1, 0, 1, 1}));
-                case ts_sym_right_brace:
+                case ts_sym_right_bracket:
                     REDUCE(ts_sym_array, 4, COLLAPSE({1, 0, 1, 1}));
                 default:
-                    PARSE_ERROR(2, EXPECT({ts_sym_comma, ts_sym_right_brace}));
+                    PARSE_ERROR(2, EXPECT({ts_sym_comma, ts_sym_right_bracket}));
             }
         case 39:
-            SET_LEX_STATE(2);
+            SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_comma:
                     REDUCE(ts_sym_array, 2, COLLAPSE({1, 1}));
-                case ts_sym_right_brace:
+                case ts_sym_right_bracket:
                     REDUCE(ts_sym_array, 2, COLLAPSE({1, 1}));
                 default:
-                    PARSE_ERROR(2, EXPECT({ts_sym_comma, ts_sym_right_brace}));
+                    PARSE_ERROR(2, EXPECT({ts_sym_comma, ts_sym_right_bracket}));
             }
         case 40:
+            SET_LEX_STATE(8);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_sym_right_bracket:
+                    SHIFT(41);
+                default:
+                    PARSE_ERROR(1, EXPECT({ts_sym_right_bracket}));
+            }
+        case 41:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_sym_comma:
+                    REDUCE(ts_sym_array, 4, COLLAPSE({1, 0, 1, 1}));
+                case ts_sym_right_brace:
+                    REDUCE(ts_sym_array, 4, COLLAPSE({1, 0, 1, 1}));
+                default:
+                    PARSE_ERROR(2, EXPECT({ts_sym_comma, ts_sym_right_brace}));
+            }
+        case 42:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_sym_comma:
+                    REDUCE(ts_sym_array, 2, COLLAPSE({1, 1}));
+                case ts_sym_right_brace:
+                    REDUCE(ts_sym_array, 2, COLLAPSE({1, 1}));
+                default:
+                    PARSE_ERROR(2, EXPECT({ts_sym_comma, ts_sym_right_brace}));
+            }
+        case 43:
             SET_LEX_STATE(2);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_comma:
@@ -690,15 +743,65 @@ PARSE_FN() {
                 default:
                     PARSE_ERROR(2, EXPECT({ts_sym_comma, ts_sym_right_brace}));
             }
-        case 41:
+        case 44:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_sym_comma:
+                    SHIFT(8);
+                case ts_sym_right_brace:
+                    REDUCE(ts_aux_sym_repeat_helper2, 0, COLLAPSE({}));
+                case ts_aux_sym_repeat_helper2:
+                    SHIFT(45);
+                default:
+                    PARSE_ERROR(3, EXPECT({ts_sym_comma, ts_sym_right_brace, ts_aux_sym_repeat_helper2}));
+            }
+        case 45:
             SET_LEX_STATE(5);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_right_brace:
-                    SHIFT(42);
+                    SHIFT(46);
                 default:
                     PARSE_ERROR(1, EXPECT({ts_sym_right_brace}));
             }
-        case 42:
+        case 46:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_sym_comma:
+                    REDUCE(ts_sym_object, 4, COLLAPSE({1, 0, 1, 1}));
+                case ts_sym_right_brace:
+                    REDUCE(ts_sym_object, 4, COLLAPSE({1, 0, 1, 1}));
+                default:
+                    PARSE_ERROR(2, EXPECT({ts_sym_comma, ts_sym_right_brace}));
+            }
+        case 47:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_sym_comma:
+                    SHIFT(8);
+                case ts_sym_right_brace:
+                    REDUCE(ts_aux_sym_repeat_helper2, 0, COLLAPSE({}));
+                case ts_aux_sym_repeat_helper2:
+                    SHIFT(48);
+                default:
+                    PARSE_ERROR(3, EXPECT({ts_sym_comma, ts_sym_right_brace, ts_aux_sym_repeat_helper2}));
+            }
+        case 48:
+            SET_LEX_STATE(5);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_sym_right_brace:
+                    REDUCE(ts_aux_sym_repeat_helper2, 3, COLLAPSE({1, 0, 1}));
+                default:
+                    PARSE_ERROR(1, EXPECT({ts_sym_right_brace}));
+            }
+        case 49:
+            SET_LEX_STATE(5);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_sym_right_brace:
+                    SHIFT(50);
+                default:
+                    PARSE_ERROR(1, EXPECT({ts_sym_right_brace}));
+            }
+        case 50:
             SET_LEX_STATE(0);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_end:
@@ -706,7 +809,7 @@ PARSE_FN() {
                 default:
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_end}));
             }
-        case 43:
+        case 51:
             SET_LEX_STATE(0);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_end:
@@ -714,7 +817,35 @@ PARSE_FN() {
                 default:
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_end}));
             }
-        case 44:
+        case 52:
+            SET_LEX_STATE(2);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_sym_comma:
+                    SHIFT(8);
+                case ts_sym_right_brace:
+                    REDUCE(ts_aux_sym_repeat_helper2, 0, COLLAPSE({}));
+                case ts_aux_sym_repeat_helper2:
+                    SHIFT(53);
+                default:
+                    PARSE_ERROR(3, EXPECT({ts_sym_comma, ts_sym_right_brace, ts_aux_sym_repeat_helper2}));
+            }
+        case 53:
+            SET_LEX_STATE(5);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_sym_right_brace:
+                    SHIFT(54);
+                default:
+                    PARSE_ERROR(1, EXPECT({ts_sym_right_brace}));
+            }
+        case 54:
+            SET_LEX_STATE(0);
+            switch (LOOKAHEAD_SYM()) {
+                case ts_aux_sym_end:
+                    REDUCE(ts_sym_object, 4, COLLAPSE({1, 0, 1, 1}));
+                default:
+                    PARSE_ERROR(1, EXPECT({ts_aux_sym_end}));
+            }
+        case 55:
             SET_LEX_STATE(22);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_array:
@@ -726,17 +857,17 @@ PARSE_FN() {
                 case ts_sym_string:
                     SHIFT(20);
                 case ts_sym_value:
-                    SHIFT(45);
+                    SHIFT(56);
                 case ts_sym_left_brace:
                     SHIFT(25);
                 case ts_sym_left_bracket:
-                    SHIFT(32);
+                    SHIFT(35);
                 case ts_sym_right_bracket:
-                    SHIFT(48);
+                    SHIFT(59);
                 default:
                     PARSE_ERROR(8, EXPECT({ts_sym_array, ts_sym_number, ts_sym_object, ts_sym_string, ts_sym_value, ts_sym_left_brace, ts_sym_left_bracket, ts_sym_right_bracket}));
             }
-        case 45:
+        case 56:
             SET_LEX_STATE(6);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_comma:
@@ -744,19 +875,19 @@ PARSE_FN() {
                 case ts_sym_right_bracket:
                     REDUCE(ts_aux_sym_repeat_helper1, 0, COLLAPSE({}));
                 case ts_aux_sym_repeat_helper1:
-                    SHIFT(46);
+                    SHIFT(57);
                 default:
                     PARSE_ERROR(3, EXPECT({ts_sym_comma, ts_sym_right_bracket, ts_aux_sym_repeat_helper1}));
             }
-        case 46:
+        case 57:
             SET_LEX_STATE(8);
             switch (LOOKAHEAD_SYM()) {
                 case ts_sym_right_bracket:
-                    SHIFT(47);
+                    SHIFT(58);
                 default:
                     PARSE_ERROR(1, EXPECT({ts_sym_right_bracket}));
             }
-        case 47:
+        case 58:
             SET_LEX_STATE(0);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_end:
@@ -764,7 +895,7 @@ PARSE_FN() {
                 default:
                     PARSE_ERROR(1, EXPECT({ts_aux_sym_end}));
             }
-        case 48:
+        case 59:
             SET_LEX_STATE(0);
             switch (LOOKAHEAD_SYM()) {
                 case ts_aux_sym_end:

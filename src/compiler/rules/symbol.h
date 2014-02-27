@@ -9,7 +9,8 @@ namespace tree_sitter  {
         typedef enum {
             SymbolTypeNormal,
             SymbolTypeHidden,
-            SymbolTypeAuxiliary
+            SymbolTypeAuxiliary,
+            SymbolTypeBuiltIn
         } SymbolType; 
         
         class Symbol : public Rule {
@@ -26,6 +27,7 @@ namespace tree_sitter  {
             void accept(Visitor &visitor) const;
             bool operator<(const Symbol &other) const;
 
+            bool is_built_in() const;
             bool is_hidden() const;
             bool is_auxiliary() const;
 

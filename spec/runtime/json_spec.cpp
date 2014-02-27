@@ -53,9 +53,11 @@ describe("json", []() {
         it("reports errors in the top-level node", [&]() {
             ts_document_set_text(doc, "[");
             AssertThat(string(ts_document_string(doc)), Equals("(ERROR)"));
-
-            ts_document_set_text(doc, "{ \"key1\": 1, ");
-            AssertThat(string(ts_document_string(doc)), Equals("(ERROR)"));
+        });
+        
+        it("reports errors inside of nested objects", [&]() {
+            ts_document_set_text(doc, "{ \"key1\": 1, 5 }");
+            AssertThat(string(ts_document_string(doc)), Equals("(value (object (string) (value (number)) (ERROR)))"));
         });
     });
 });
