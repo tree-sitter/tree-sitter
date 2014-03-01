@@ -49,6 +49,29 @@ describe("json", []() {
         AssertThat(string(ts_document_string(doc)), Equals("(value (array (value (number)) (value (number)) (value (number))))"));
     });
     
+    describe("tracking the positions of AST nodes", [&]() {
+        it("records the widths and offsets of nodes", [&]() {
+            ts_document_set_input_string(doc, "  [12, 5]");
+            
+            const ts_tree *tree = ts_document_tree(doc);
+            const ts_tree *array = ts_tree_children(tree)[0];
+            const ts_tree *number1 = ts_tree_children(array)[0];
+            const ts_tree *number2 = ts_tree_children(array)[1];
+
+            AssertThat(number1->offset, Equals(0));
+            AssertThat(number1->size, Equals(2));
+
+            AssertThat(number2->offset, Equals(1));
+            AssertThat(number2->size, Equals(1));
+
+            AssertThat(array->offset, Equals(2));
+            AssertThat(array->size, Equals(7));
+            
+            AssertThat(tree->offset, Equals(2));
+            AssertThat(tree->size, Equals(7));
+        });
+    });
+    
     describe("errors", [&]() {
         it("reports errors in the top-level node", [&]() {
             ts_document_set_input_string(doc, "[");

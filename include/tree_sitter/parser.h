@@ -39,6 +39,8 @@ typedef struct {
 typedef struct {
     const char *input;
     size_t position;
+    size_t token_end_position;
+    size_t token_start_position;
     ts_tree *lookahead_node;
     ts_tree *prev_lookahead_node;
     ts_state lex_state;
@@ -52,6 +54,8 @@ static const ts_symbol * ts_recover(ts_state state, ts_state *to_state, size_t *
 static ts_parser ts_parser_make(const char *input) {
     ts_parser result = {
         .input = input,
+        .token_start_position = 0,
+        .token_end_position = 0,
         .position = 0,
         .lookahead_node = NULL,
         .prev_lookahead_node = NULL,
@@ -106,9 +110,17 @@ static void ts_parser_reduce(ts_parser *parser, ts_symbol symbol, int immediate_
     }
     
     int child_index = 0;
+    size_t size = 0, offset = 0;
     ts_tree **children = malloc(child_count * sizeof(ts_tree *));
     for (int i = 0; i < immediate_child_count; i++) {
         ts_tree *child = parser->stack[new_stack_size + i].node;
+        if (i == 0) {
+            offset = child->offset;
+            size = child->size;
+        } else {
+            size += child->offset + child->size;
+        }
+
         if (collapse_flags[i]) {
             size_t grandchild_count = ts_tree_child_count(child);
             memcpy(children + child_index, ts_tree_children(child), (grandchild_count * sizeof(ts_tree *)));
@@ -120,7 +132,7 @@ static void ts_parser_reduce(ts_parser *parser, ts_symbol symbol, int immediate_
     }
     
     parser->prev_lookahead_node = parser->lookahead_node;
-    parser->lookahead_node = ts_tree_make_node(symbol, child_count, children);
+    parser->lookahead_node = ts_tree_make_node(symbol, child_count, children, size, offset);
     ts_parser_shrink_stack(parser, new_stack_size);
     DEBUG_PARSE("reduce: %s, state: %u \n", ts_symbol_names[symbol], ts_parser_parse_state(parser));
 }
@@ -134,7 +146,10 @@ static void ts_parser_advance(ts_parser *parser, ts_state lex_state) {
 
 static void ts_parser_set_lookahead_sym(ts_parser *parser, ts_symbol symbol) {
     DEBUG_LEX("token: %s \n", ts_symbol_names[symbol]);
-    parser->lookahead_node = ts_tree_make_leaf(symbol, 0, 0);
+    size_t size = parser->position - parser->token_start_position;
+    size_t offset = parser->token_start_position - parser->token_end_position;
+    parser->lookahead_node = ts_tree_make_leaf(symbol, size, offset);
+    parser->token_end_position = parser->position;
 }
 
 static ts_tree * ts_parser_tree(ts_parser *parser) {
@@ -145,6 +160,7 @@ static ts_tree * ts_parser_tree(ts_parser *parser) {
 static void ts_parser_skip_whitespace(ts_parser *parser) {
     while (isspace(ts_parser_lookahead_char(parser)))
         parser->position++;
+    parser->token_start_position = parser->position;
 }
  
 static int ts_parser_handle_error(ts_parser *parser, size_t count, const ts_symbol *expected_symbols) {

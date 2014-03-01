@@ -9,6 +9,8 @@ static ts_tree * ts_tree_make(ts_symbol symbol, size_t size, size_t offset) {
     ts_tree *result = (ts_tree *)malloc(sizeof(ts_tree));
     result->ref_count = 1;
     result->symbol = symbol;
+    result->size = size;
+    result->offset = offset;
     return result;
 }
 
@@ -18,10 +20,10 @@ ts_tree * ts_tree_make_leaf(ts_symbol symbol, size_t size, size_t offset) {
     return result;
 }
 
-ts_tree * ts_tree_make_node(ts_symbol symbol, size_t child_count, ts_tree **children) {
+ts_tree * ts_tree_make_node(ts_symbol symbol, size_t child_count, ts_tree **children, size_t size, size_t offset) {
     for (int i = 0; i < child_count; i++)
         ts_tree_retain(children[i]);
-    ts_tree *result = ts_tree_make(symbol, 0, 0);
+    ts_tree *result = ts_tree_make(symbol, size, offset);
     result->data.children = { .count = child_count, .contents = children };
     return result;
 }
