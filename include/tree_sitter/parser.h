@@ -119,9 +119,9 @@ static void ts_parser_reduce(ts_parser *parser, ts_symbol symbol, int immediate_
         }
     }
     
-    ts_parser_shrink_stack(parser, new_stack_size);
     parser->prev_lookahead_node = parser->lookahead_node;
     parser->lookahead_node = ts_tree_make_node(symbol, child_count, children);
+    ts_parser_shrink_stack(parser, new_stack_size);
     DEBUG_PARSE("reduce: %s, state: %u \n", ts_symbol_names[symbol], ts_parser_parse_state(parser));
 }
 
@@ -134,7 +134,7 @@ static void ts_parser_advance(ts_parser *parser, ts_state lex_state) {
 
 static void ts_parser_set_lookahead_sym(ts_parser *parser, ts_symbol symbol) {
     DEBUG_LEX("token: %s \n", ts_symbol_names[symbol]);
-    parser->lookahead_node = ts_tree_make_leaf(symbol);
+    parser->lookahead_node = ts_tree_make_leaf(symbol, 0, 0);
 }
 
 static ts_tree * ts_parser_tree(ts_parser *parser) {
@@ -148,9 +148,10 @@ static void ts_parser_skip_whitespace(ts_parser *parser) {
 }
  
 static int ts_parser_handle_error(ts_parser *parser, size_t count, const ts_symbol *expected_symbols) {
-    ts_tree *error = ts_tree_make_error(ts_parser_lookahead_char(parser), count, expected_symbols);
+    ts_tree *error = ts_tree_make_error(ts_parser_lookahead_char(parser), count, expected_symbols, 0, 0);
 
     while (1) {
+        ts_tree_release(parser->lookahead_node);
         parser->lookahead_node = NULL;
         parser->lex_state = ts_lex_state_error;
         ts_lex(parser);
@@ -199,7 +200,7 @@ next_state:
 #define START_LEXER() \
 ts_parser_skip_whitespace(parser); \
 if (!ts_parser_lookahead_char(parser)) { \
-    parser->lookahead_node = ts_tree_make_leaf(ts_builtin_sym_end); \
+    parser->lookahead_node = ts_tree_make_leaf(ts_builtin_sym_end, 0, 0); \
     return; \
 } \
 next_state:

@@ -5,36 +5,33 @@
 using std::string;
 using std::to_string;
 
-ts_tree * ts_tree_make_leaf(ts_symbol symbol) {
-    ts_tree *result = new ts_tree();
-    result->ref_count = 0;
+static ts_tree * ts_tree_make(ts_symbol symbol, size_t size, size_t offset) {
+    ts_tree *result = (ts_tree *)malloc(sizeof(ts_tree));
+    result->ref_count = 1;
     result->symbol = symbol;
-    result->data.children = {
-        .count = 0,
-        .contents = NULL
-    };
+    return result;
+}
+
+ts_tree * ts_tree_make_leaf(ts_symbol symbol, size_t size, size_t offset) {
+    ts_tree *result = ts_tree_make(symbol, size, offset);
+    result->data.children = { .count = 0, .contents = NULL };
     return result;
 }
 
 ts_tree * ts_tree_make_node(ts_symbol symbol, size_t child_count, ts_tree **children) {
-    ts_tree *result = new ts_tree();
-    result->ref_count = 0;
-    result->symbol = symbol;
-    result->data.children = {
-        .count = child_count,
-        .contents = children
-    };
     for (int i = 0; i < child_count; i++)
         ts_tree_retain(children[i]);
+    ts_tree *result = ts_tree_make(symbol, 0, 0);
+    result->data.children = { .count = child_count, .contents = children };
     return result;
 }
 
-ts_tree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, const ts_symbol *expected_inputs) {
-    ts_tree *result = new ts_tree();
-    result->symbol = ts_builtin_sym_error;
+ts_tree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, const ts_symbol *expected_inputs, size_t size, size_t offset) {
+    ts_tree *result = ts_tree_make(ts_builtin_sym_error, size, offset);
     result->data.error = {
         .lookahead_char = lookahead_char,
         .expected_input_count = expected_input_count,
+        .expected_inputs = expected_inputs
     };
     return result;
 }
@@ -46,10 +43,12 @@ void ts_tree_retain(ts_tree *tree) {
 void ts_tree_release(ts_tree *tree) {
     tree->ref_count--;
     if (tree->ref_count == 0) {
-        ts_tree **children = tree->data.children.contents;
-        for (int i = 0; i < ts_tree_child_count(tree); i++)
-            ts_tree_release(children[i]);
-        free(children);
+        ts_tree **children = ts_tree_children(tree);
+        if (children) {
+            for (int i = 0; i < ts_tree_child_count(tree); i++)
+                ts_tree_release(children[i]);
+            free(children);
+        }
         free(tree);
     }
 }

@@ -38,7 +38,7 @@ debug: $(TEST_BIN)
 	gdb $<
 
 valgrind: $(TEST_BIN)
-	valgrind --track-origins=yes $(TEST_BIN)
+	valgrind --track-origins=yes --dsymutil=yes $(TEST_BIN)
 
 clean:
 	$(RM) $(SRC_OBJECTS) $(TEST_OBJECTS) $(LIB_FILE) $(TEST_BIN)

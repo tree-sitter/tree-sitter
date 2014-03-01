@@ -16,8 +16,8 @@ describe("trees", []() {
     ts_tree *tree1, *parent1;
     
     before_each([&]() {
-        tree1 = ts_tree_make_leaf(cat);
-        parent1 = ts_tree_make_node(dog, 1, &tree1);
+        tree1 = ts_tree_make_leaf(cat, 0, 0);
+        parent1 = ts_tree_make_node(dog, 1, tree_array({ tree1 }));
     });
     
     after_each([&]() {
@@ -27,7 +27,7 @@ describe("trees", []() {
 
     describe("equality", [&]() {
         it("returns true for identical trees", [&]() {
-            ts_tree *tree2 = ts_tree_make_leaf(cat);
+            ts_tree *tree2 = ts_tree_make_leaf(cat, 0, 0);
             AssertThat(ts_tree_equals(tree1, tree2), Equals(1));
             
             ts_tree *parent2 = ts_tree_make_node(dog, 1, tree_array({ tree2 }));
@@ -38,7 +38,7 @@ describe("trees", []() {
         });
         
         it("returns false for different trees", [&]() {
-            ts_tree *different_tree = ts_tree_make_leaf(pig);
+            ts_tree *different_tree = ts_tree_make_leaf(pig, 0, 0);
             AssertThat(ts_tree_equals(tree1, different_tree), Equals(0));
             
             ts_tree *different_parent = ts_tree_make_node(dog, 1, tree_array({ different_tree }));
