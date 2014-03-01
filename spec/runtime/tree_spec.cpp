@@ -37,20 +37,19 @@ describe("trees", []() {
             ts_tree_release(parent2);
         });
         
-        it("returns false for different trees", [&]() {
-            ts_tree *different_tree = ts_tree_make_leaf(pig, 0, 0);
-            AssertThat(ts_tree_equals(tree1, different_tree), Equals(0));
-            
-            ts_tree *different_parent = ts_tree_make_node(dog, 1, tree_array({ different_tree }));
-            AssertThat(ts_tree_equals(parent1, different_parent), Equals(0));
-            
-            ts_tree *parent_with_same_type = ts_tree_make_node(cat, 1, tree_array({ different_parent }));
-            AssertThat(ts_tree_equals(parent_with_same_type, tree1), Equals(0));
-            AssertThat(ts_tree_equals(tree1, parent_with_same_type), Equals(0));
-            
-            ts_tree_release(different_tree);
-            ts_tree_release(different_parent);
-            ts_tree_release(parent_with_same_type);
+        it("returns false for trees with different symbols", [&]() {
+            ts_tree *tree2 = ts_tree_make_leaf(pig, 0, 0);
+            AssertThat(ts_tree_equals(tree1, tree2), Equals(0));
+            ts_tree_release(tree2);
+        });
+        
+        it("returns false for trees with different children", [&]() {
+            ts_tree *tree2 = ts_tree_make_leaf(pig, 0, 0);
+            ts_tree *parent2 = ts_tree_make_node(dog, 1, tree_array({ tree2 }));
+            AssertThat(ts_tree_equals(parent2, parent1), Equals(0));
+            AssertThat(ts_tree_equals(parent1, parent2), Equals(0));
+            ts_tree_release(tree2);
+            ts_tree_release(parent2);
         });
     });
     
