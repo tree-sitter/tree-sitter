@@ -1,11 +1,10 @@
 #include "tree_sitter/runtime.h"
+#include <string.h>
 
 struct ts_document {
-    ts_parse_fn *parse_fn;
-    const char **symbol_names;
+    ts_parse_config parse_config;
     const ts_tree *tree;
     size_t error_count;
-    ts_tree **errors;
 };
 
 ts_document * ts_document_make() {
@@ -17,14 +16,7 @@ void ts_document_free(ts_document *document) {
 }
 
 void ts_document_set_parser(ts_document *document, ts_parse_config config) {
-    document->parse_fn = config.parse_fn;
-    document->symbol_names = config.symbol_names;
-}
-
-void ts_document_set_input_string(ts_document *document, const char *text) {
-    const ts_tree * result = document->parse_fn(text);
-    document->tree = result;
-    document->errors = NULL;
+    document->parse_config = config;
 }
 
 const ts_tree * ts_document_tree(const ts_document *document) {
@@ -32,9 +24,44 @@ const ts_tree * ts_document_tree(const ts_document *document) {
 }
 
 const char * ts_document_string(const ts_document *document) {
-    if (document->error_count > 0) {
-        return ts_tree_error_string(document->errors[0], document->symbol_names);
-    } else {
-        return ts_tree_string(document->tree, document->symbol_names);
-    }
+    return ts_tree_string(document->tree, document->parse_config.symbol_names);
+}
+
+void ts_document_set_input(ts_document *document, ts_input input) {
+    document->tree = document->parse_config.parse_fn(input);
+}
+
+typedef struct {
+    const char *string;
+    size_t position;
+    size_t length;
+} ts_string_input_data;
+
+const char * ts_string_input_read(void *d) {
+    ts_string_input_data *data = (ts_string_input_data *)d;
+    return data->string + data->position;
+}
+
+int ts_string_input_seek(void *d, size_t position) {
+    ts_string_input_data *data = (ts_string_input_data *)d;
+    data->position = position;
+    return (position < data->length);
+}
+
+ts_input ts_string_input_make(const char *string) {
+    ts_string_input_data *data = new ts_string_input_data();
+    data->string = string;
+    data->position = 0;
+    data->length = strlen(string);
+    ts_input input = {
+        .data = (void *)data,
+        .read_fn = ts_string_input_read,
+        .seek_fn = ts_string_input_seek,
+        .release_fn = free,
+    };
+    return input;
+}
+
+void ts_document_set_input_string(ts_document *document, const char *text) {
+    ts_document_set_input(document, ts_string_input_make(text));
 }

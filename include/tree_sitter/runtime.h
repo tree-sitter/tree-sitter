@@ -40,10 +40,15 @@ char * ts_tree_error_string(const ts_tree *tree, const char **names);
 size_t ts_tree_child_count(const ts_tree *tree);
 ts_tree ** ts_tree_children(const ts_tree *tree);
 
-typedef const ts_tree * ts_parse_fn(const char *);
+typedef struct {
+    void *data;
+    const char * (* read_fn)(void *data);
+    int (* seek_fn)(void *data, size_t position);
+    void (* release_fn)(void *data);
+} ts_input;
 
 typedef struct {
-    ts_parse_fn *parse_fn;
+    const ts_tree * (* parse_fn)(ts_input);
     const char **symbol_names;
 } ts_parse_config;
 
@@ -51,10 +56,11 @@ typedef struct ts_document ts_document;
 
 ts_document * ts_document_make();
 void ts_document_free(ts_document *);
-void ts_document_set_parser(ts_document *document, ts_parse_config config);
-void ts_document_set_input_string(ts_document *document, const char *text);
-const ts_tree * ts_document_tree(const ts_document *document);
-const char * ts_document_string(const ts_document *document);
+void ts_document_set_parser(ts_document *, ts_parse_config);
+void ts_document_set_input(ts_document *, ts_input input);
+void ts_document_set_input_string(ts_document *, const char *text);
+const ts_tree * ts_document_tree(const ts_document *);
+const char * ts_document_string(const ts_document *);
     
 #ifdef __cplusplus
 }

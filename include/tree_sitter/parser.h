@@ -37,7 +37,8 @@ typedef struct {
 } ts_stack_entry;
 
 typedef struct {
-    const char *input;
+    ts_input input;
+    const char *current_chunk;
     size_t position;
     size_t token_end_position;
     size_t token_start_position;
@@ -51,12 +52,13 @@ typedef struct {
 static void ts_lex(ts_parser *parser);
 static const ts_symbol * ts_recover(ts_state state, ts_state *to_state, size_t *count);
 
-static ts_parser ts_parser_make(const char *input) {
+static ts_parser ts_parser_make(ts_input input) {
     ts_parser result = {
         .input = input,
         .token_start_position = 0,
         .token_end_position = 0,
         .position = 0,
+        .current_chunk = input.read_fn(input.data),
         .lookahead_node = NULL,
         .prev_lookahead_node = NULL,
         .lex_state = 0,
@@ -67,7 +69,7 @@ static ts_parser ts_parser_make(const char *input) {
 }
 
 static char ts_parser_lookahead_char(const ts_parser *parser) {
-    return parser->input[parser->position];
+    return parser->current_chunk[parser->position];
 }
 
 static ts_symbol ts_parser_lookahead_sym(const ts_parser *parser) {
@@ -136,14 +138,22 @@ static void ts_parser_reduce(ts_parser *parser, ts_symbol symbol, int immediate_
     ts_parser_shrink_stack(parser, new_stack_size);
     DEBUG_PARSE("reduce: %s, state: %u \n", ts_symbol_names[symbol], ts_parser_parse_state(parser));
 }
-
-static void ts_parser_advance(ts_parser *parser, ts_state lex_state) {
-    DEBUG_LEX("character: '%c' \n", ts_parser_lookahead_char(parser));
-    if (ts_parser_lookahead_char(parser))
+    
+static void ts_parser_advance(ts_parser *parser) {
+    if (parser->current_chunk && parser->current_chunk[parser->position]) {
         parser->position++;
-    parser->lex_state = lex_state;
+    } else {
+        parser->current_chunk = parser->input.read_fn(parser->input.data);
+        parser->position = 0;
+    }
 }
 
+static void ts_parser_advance_to_state(ts_parser *parser, ts_state lex_state) {
+    DEBUG_LEX("character: '%c' \n", ts_parser_lookahead_char(parser));
+    ts_parser_advance(parser);
+    parser->lex_state = lex_state;
+}
+    
 static void ts_parser_set_lookahead_sym(ts_parser *parser, ts_symbol symbol) {
     DEBUG_LEX("token: %s \n", ts_symbol_names[symbol]);
     size_t size = parser->position - parser->token_start_position;
@@ -159,7 +169,7 @@ static ts_tree * ts_parser_tree(ts_parser *parser) {
 
 static void ts_parser_skip_whitespace(ts_parser *parser) {
     while (isspace(ts_parser_lookahead_char(parser)))
-        parser->position++;
+        ts_parser_advance(parser);
     parser->token_start_position = parser->position;
 }
  
@@ -198,7 +208,7 @@ static int ts_parser_handle_error(ts_parser *parser, size_t count, const ts_symb
 static void ts_lex(ts_parser *parser)
     
 #define PARSE_FN() \
-static const ts_tree * ts_parse(const char *input)
+static const ts_tree * ts_parse(ts_input input)
     
 #define SYMBOL_NAMES \
 static const char *ts_symbol_names[] =
@@ -243,7 +253,7 @@ parser->lex_state
 { ts_parser_shift(parser, state); goto next_state; }
 
 #define ADVANCE(state_index) \
-{ ts_parser_advance(parser, state_index); goto next_state; }
+{ ts_parser_advance_to_state(parser, state_index); goto next_state; }
 
 #define REDUCE(symbol, child_count, collapse_flags) \
 { \
