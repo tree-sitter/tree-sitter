@@ -43,8 +43,8 @@
 		123E851F18C315F0002BF4FB /* string.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12130615182C3D2900FCF928 /* string.cpp */; };
 		123E852018C315F0002BF4FB /* symbol.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12130609182C389100FCF928 /* symbol.cpp */; };
 		123E852118C315F0002BF4FB /* visitor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12FD40E618639B910041A84E /* visitor.cpp */; };
-		123E852218C3193A002BF4FB /* liblibtree_sitter.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 123E84FD18C31596002BF4FB /* liblibtree_sitter.a */; };
-		123E852518C319B9002BF4FB /* liblibtree_sitter.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 123E84FD18C31596002BF4FB /* liblibtree_sitter.a */; };
+		123E852218C3193A002BF4FB /* libtree_sitter.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 123E84FD18C31596002BF4FB /* libtree_sitter.a */; };
+		123E852518C319B9002BF4FB /* libtree_sitter.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 123E84FD18C31596002BF4FB /* libtree_sitter.a */; };
 		12661BF418A1505A00A259FB /* character_set_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12661BF318A1505A00A259FB /* character_set_spec.cpp */; };
 		127528B518AACB70006B682B /* rule_can_be_blank_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 127528B418AACB70006B682B /* rule_can_be_blank_spec.cpp */; };
 		12AB4661188CB3A300DE79DF /* item_set_closure_spec.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 12AB4660188CB3A300DE79DF /* item_set_closure_spec.cpp */; };
@@ -132,7 +132,7 @@
 		1236A7D018B554C800593ABB /* prepared_grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = prepared_grammar.cpp; sourceTree = "<group>"; };
 		1236A7D118B554C800593ABB /* prepared_grammar.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = prepared_grammar.h; sourceTree = "<group>"; };
 		1236A7D418B72EB400593ABB /* character_range.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = character_range.h; sourceTree = "<group>"; };
-		123E84FD18C31596002BF4FB /* liblibtree_sitter.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = liblibtree_sitter.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		123E84FD18C31596002BF4FB /* libtree_sitter.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libtree_sitter.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		1251209A1830145300C9B56A /* rule.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rule.cpp; sourceTree = "<group>"; };
 		125120A3183083BD00C9B56A /* arithmetic.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; lineEnding = 0; path = arithmetic.hpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
 		12661BF318A1505A00A259FB /* character_set_spec.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = character_set_spec.cpp; path = spec/compiler/rules/character_set_spec.cpp; sourceTree = SOURCE_ROOT; };
@@ -211,7 +211,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				123E852218C3193A002BF4FB /* liblibtree_sitter.a in Frameworks */,
+				123E852218C3193A002BF4FB /* libtree_sitter.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -219,7 +219,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				123E852518C319B9002BF4FB /* liblibtree_sitter.a in Frameworks */,
+				123E852518C319B9002BF4FB /* libtree_sitter.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -363,7 +363,7 @@
 			children = (
 				12E71794181D02A80051A649 /* compiler_specs */,
 				12FD40D1185EEB5E0041A84E /* runtime_specs */,
-				123E84FD18C31596002BF4FB /* liblibtree_sitter.a */,
+				123E84FD18C31596002BF4FB /* libtree_sitter.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -494,9 +494,9 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		123E84FC18C31596002BF4FB /* libtree_sitter */ = {
+		123E84FC18C31596002BF4FB /* tree_sitter */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 123E850018C31597002BF4FB /* Build configuration list for PBXNativeTarget "libtree_sitter" */;
+			buildConfigurationList = 123E850018C31597002BF4FB /* Build configuration list for PBXNativeTarget "tree_sitter" */;
 			buildPhases = (
 				123E84F918C31596002BF4FB /* Sources */,
 				123E84FA18C31596002BF4FB /* Frameworks */,
@@ -506,9 +506,9 @@
 			);
 			dependencies = (
 			);
-			name = libtree_sitter;
+			name = tree_sitter;
 			productName = libtree_sitter;
-			productReference = 123E84FD18C31596002BF4FB /* liblibtree_sitter.a */;
+			productReference = 123E84FD18C31596002BF4FB /* libtree_sitter.a */;
 			productType = "com.apple.product-type.library.static";
 		};
 		12E71793181D02A80051A649 /* compiler_specs */ = {
@@ -567,7 +567,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				123E84FC18C31596002BF4FB /* libtree_sitter */,
+				123E84FC18C31596002BF4FB /* tree_sitter */,
 				12E71793181D02A80051A649 /* compiler_specs */,
 				12FD40B1185EEB5E0041A84E /* runtime_specs */,
 			);
@@ -653,12 +653,12 @@
 /* Begin PBXTargetDependency section */
 		123E852718C319CA002BF4FB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 123E84FC18C31596002BF4FB /* libtree_sitter */;
+			target = 123E84FC18C31596002BF4FB /* tree_sitter */;
 			targetProxy = 123E852618C319CA002BF4FB /* PBXContainerItemProxy */;
 		};
 		123E852918C319D0002BF4FB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 123E84FC18C31596002BF4FB /* libtree_sitter */;
+			target = 123E84FC18C31596002BF4FB /* tree_sitter */;
 			targetProxy = 123E852818C319D0002BF4FB /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -952,7 +952,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		123E850018C31597002BF4FB /* Build configuration list for PBXNativeTarget "libtree_sitter" */ = {
+		123E850018C31597002BF4FB /* Build configuration list for PBXNativeTarget "tree_sitter" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				123E84FE18C31597002BF4FB /* Debug */,
