@@ -1,4 +1,4 @@
-#include "./perform.h"
+#include "build_tables.h"
 #include "prepared_grammar.h"
 #include "item.h"
 #include "item_set_closure.h"
@@ -152,7 +152,7 @@ namespace tree_sitter {
             }
         };
         
-        pair<ParseTable, LexTable> perform(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar) {
+        pair<ParseTable, LexTable> build_tables(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar) {
             return TableBuilder(grammar, lex_grammar).build();
         }
     }

@@ -8,7 +8,7 @@ namespace tree_sitter {
     class PreparedGrammar;
     
     namespace prepare_grammar {
-        std::pair<PreparedGrammar, PreparedGrammar> perform(const Grammar &);
+        std::pair<PreparedGrammar, PreparedGrammar> prepare_grammar(const Grammar &);
     }
 }
 

@@ -1,17 +1,17 @@
 #include "spec_helper.h"
 #include "prepared_grammar.h"
-#include "prepare_grammar/perform.h"
+#include "prepare_grammar/prepare_grammar.h"
 #include "rules/symbol.h"
 
 START_TEST
 
 using namespace rules;
-using prepare_grammar::perform;
+using prepare_grammar::prepare_grammar;
 
 describe("preparing a grammar", []() {
     describe("extracting tokens", []() {
         it("moves strings and patterns into a separate 'lexical' grammar", [&]() {
-            pair<PreparedGrammar, PreparedGrammar> result = perform(Grammar("rule1", {
+            pair<PreparedGrammar, PreparedGrammar> result = prepare_grammar(Grammar("rule1", {
                 { "rule1", seq({
                     str("ab"),
                     seq({
@@ -35,7 +35,7 @@ describe("preparing a grammar", []() {
         });
         
         it("moves entire rules into the lexical grammar when possible, preserving their names", [&]() {
-            auto result = perform(Grammar("rule1", {
+            auto result = prepare_grammar(Grammar("rule1", {
                 { "rule1", sym("rule2") },
                 { "rule2", pattern("a|b") }
             }));
@@ -50,7 +50,7 @@ describe("preparing a grammar", []() {
         });
         
         it("does not extract blanks into tokens", [&]() {
-            pair<PreparedGrammar, PreparedGrammar> result = perform(Grammar("rule1", {
+            pair<PreparedGrammar, PreparedGrammar> result = prepare_grammar(Grammar("rule1", {
                 { "rule1", choice({ sym("rule2"), blank() }) },
             }));
             
@@ -64,7 +64,7 @@ describe("preparing a grammar", []() {
 
     describe("expanding repeats", []() {
         it("replaces repeat rules with pairs of recursive rules", [&]() {
-            PreparedGrammar result = perform(Grammar("rule1", {
+            PreparedGrammar result = prepare_grammar(Grammar("rule1", {
                 { "rule1", seq({
                     sym("x"),
                     repeat(seq({ sym("a"), sym("b") })),

@@ -1,10 +1,10 @@
 #include "spec_helper.h"
 #include "prepared_grammar.h"
-#include "build_tables/perform.h"
+#include "build_tables/build_tables.h"
 #include <functional>
 
-using build_tables::perform;
 using namespace rules;
+using build_tables::build_tables;
 
 typedef set<ParseAction> parse_actions;
 typedef set<LexAction> lex_actions;
@@ -49,7 +49,7 @@ describe("building parse and lex tables", []() {
     LexTable lex_table;
     
     before_each([&]() {
-        pair<ParseTable, LexTable> tables = perform(grammar, lex_grammar);
+        pair<ParseTable, LexTable> tables = build_tables::build_tables(grammar, lex_grammar);
         table = tables.first;
         lex_table = tables.second;
     });

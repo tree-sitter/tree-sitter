@@ -1,13 +1,13 @@
+#include "prepare_grammar.h"
 #include "prepared_grammar.h"
-#include "./perform.h"
-#include "./extract_tokens.h"
-#include "./expand_repeats.h"
+#include "extract_tokens.h"
+#include "expand_repeats.h"
 
 namespace tree_sitter {
     using std::pair;
     
     namespace prepare_grammar {
-        pair<PreparedGrammar, PreparedGrammar> perform(const Grammar &input_grammar) {
+        pair<PreparedGrammar, PreparedGrammar> prepare_grammar(const Grammar &input_grammar) {
             auto grammars = prepare_grammar::extract_tokens(input_grammar);
             auto rule_grammar = expand_repeats(grammars.first);
             auto lex_grammar = grammars.second;
