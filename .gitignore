@@ -1,4 +1,4 @@
 .idea
 spec/run.out*
-*.xcodeproj/project.xcworkspace
-*.xcodeproj/xcuserdata
+*.xcodeproj
+*.xcodeproj
