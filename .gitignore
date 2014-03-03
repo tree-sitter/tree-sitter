@@ -1,4 +1,10 @@
 .idea
+
+gyp-mac-tool
+Makefile
+*.Makefile
+*.target.mk
+*.xcodeproj
+
 spec/run.out*
-*.xcodeproj
-*.xcodeproj
+out

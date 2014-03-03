@@ -20,6 +20,7 @@
         'include',
         'externals/bandit',
         'src/compiler',
+        'spec',
       ],
       'sources': [
         '<!@(ls spec/*.h spec/*.cpp)',
@@ -35,6 +36,7 @@
         'include',
         'externals/bandit',
         'src/runtime',
+        'spec',
 
         # TODO - make separate spec helpers for runtime and compiler specs
         'src/compiler',
