@@ -49,10 +49,12 @@
     },
   ],
   'target_defaults': {
+    'cflags_cc': [
+      '-std=c++0x',
+    ],
     'xcode_settings': {
       'ALWAYS_SEARCH_USER_PATHS': 'NO',
       'CLANG_CXX_LANGUAGE_STANDARD': 'c++0x',
-      'CLANG_CXX_LIBRARY': 'libc++',
     },
   },
 }
