@@ -11,6 +11,28 @@
       'sources': [
         '<!@(find include src -name "*.h" -or -name "*.cpp")',
       ],
+      "conditions": [
+        ['OS == "mac"', {
+          'xcode_settings': {
+            'MACOSX_DEPLOYMENT_TARGET': '10.7',
+            'GCC_ENABLE_CPP_RTTI': 'YES',
+            'GCC_ENABLE_CPP_EXCEPTIONS': 'NO',
+          },
+          'direct_dependent_settings': {
+            'include_dirs': [
+              'include',
+            ],
+            'conditions': [
+              ['OS == "mac"', {
+                'xcode_settings': {
+                  'CLANG_CXX_LIBRARY': 'libc++',
+                  'MACOSX_DEPLOYMENT_TARGET': '10.7',
+                }
+              }]
+            ],
+          }
+        }],
+      ],
     },
     {
       'target_name': 'compiler_specs',
@@ -52,9 +74,14 @@
     'cflags_cc': [
       '-std=c++0x',
     ],
-    'xcode_settings': {
-      'ALWAYS_SEARCH_USER_PATHS': 'NO',
-      'CLANG_CXX_LANGUAGE_STANDARD': 'c++0x',
-    },
+    "conditions": [
+      ['OS == "mac"', {
+        'xcode_settings': {
+          'ALWAYS_SEARCH_USER_PATHS': 'NO',
+          'CLANG_CXX_LANGUAGE_STANDARD': 'c++0x',
+          'CLANG_CXX_LIBRARY': 'libc++',
+        }
+      }],
+    ],
   },
 }
