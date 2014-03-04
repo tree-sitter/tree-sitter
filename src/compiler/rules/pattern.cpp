@@ -52,21 +52,25 @@ namespace tree_sitter {
                     case '(':
                         next();
                         result = rule();
-                        if (peek() != ')')
-                            error("mismatched parens");
-                        else
-                            next();
+                        if (has_error()) return result;
+                        if (peek() != ')') {
+                            error = "mismatched parens";
+                            return result;
+                        }
+                        next();
                         break;
                     case '[':
                         next();
                         result = char_set().copy();
-                        if (peek() != ']')
-                            error("mismatched square brackets");
-                        else
-                            next();
+                        if (has_error()) return result;
+                        if (peek() != ']') {
+                            error = "mismatched square brackets";
+                            return result;
+                        }
+                        next();
                         break;
                     case ')':
-                        error("mismatched parens");
+                        error = "mismatched parens";
                         break;
                     default:
                         result = single_char().copy();
@@ -87,11 +91,12 @@ namespace tree_sitter {
             }
             
             CharacterSet single_char() {
-                CharacterSet value({ '\0' });
+                CharacterSet value;
                 switch (peek()) {
                     case '\\':
                         next();
                         value = escaped_char(peek());
+                        if (has_error()) return value;
                         next();
                         break;
                     default:
@@ -119,7 +124,7 @@ namespace tree_sitter {
                     case 'd':
                         return CharacterSet({CharacterRange('0', '9')});
                     default:
-                        error("unrecognized escape sequence");
+                        error = "unrecognized escape sequence";
                         return CharacterSet();
                 }
             }
@@ -136,10 +141,11 @@ namespace tree_sitter {
                 return position < length;
             }
             
-            void error(const char *message) {
-                throw string("Invalid regex pattern '") + input + "': " + message;
+            bool has_error() {
+                return error != "";
             }
             
+            string error;
             const string input;
             const size_t length;
             int position;
