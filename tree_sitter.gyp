@@ -11,35 +11,33 @@
       'sources': [
         '<!@(find include src -name "*.h" -or -name "*.cpp")',
       ],
-      "conditions": [
-        ['OS == "mac"', {
-          'xcode_settings': {
-            'MACOSX_DEPLOYMENT_TARGET': '10.7',
-            'GCC_ENABLE_CPP_RTTI': 'YES',
-            'GCC_ENABLE_CPP_EXCEPTIONS': 'NO',
-          },
-          'direct_dependent_settings': {
-            'include_dirs': [
-              'include',
-            ],
-            'conditions': [
-              ['OS == "mac"', {
-                'xcode_settings': {
-                  'CLANG_CXX_LIBRARY': 'libc++',
-                  'MACOSX_DEPLOYMENT_TARGET': '10.7',
-                }
-              }]
-            ],
-          }
-        }],
+      'cflags_cc': [
+        '-stdlib=libc++',
       ],
+      'xcode_settings': {
+        'CLANG_CXX_LIBRARY': 'libc++',
+        'GCC_ENABLE_CPP_RTTI': 'YES',
+        'GCC_ENABLE_CPP_EXCEPTIONS': 'NO',
+        'MACOSX_DEPLOYMENT_TARGET': '10.7',
+      },
+      'direct_dependent_settings': {
+        'include_dirs': ['include'],
+        'cflags_cc': [
+          '-stdlib=libc++',
+        ],
+        'xcode_settings': {
+          'CLANG_CXX_LIBRARY': 'libc++',
+
+          # TODO - why don't specs build with this?
+          # 'MACOSX_DEPLOYMENT_TARGET': '10.7',
+        },
+      }
     },
     {
       'target_name': 'compiler_specs',
       'type': 'executable',
       'dependencies': ['tree_sitter'],
       'include_dirs': [
-        'include',
         'externals/bandit',
         'src/compiler',
         'spec',
@@ -55,7 +53,6 @@
       'type': 'executable',
       'dependencies': ['tree_sitter'],
       'include_dirs': [
-        'include',
         'externals/bandit',
         'src/runtime',
         'spec',
@@ -72,16 +69,11 @@
   ],
   'target_defaults': {
     'cflags_cc': [
-      '-std=c++0x',
+      '-std=c++11',
     ],
-    "conditions": [
-      ['OS == "mac"', {
-        'xcode_settings': {
-          'ALWAYS_SEARCH_USER_PATHS': 'NO',
-          'CLANG_CXX_LANGUAGE_STANDARD': 'c++0x',
-          'CLANG_CXX_LIBRARY': 'libc++',
-        }
-      }],
-    ],
-  },
+    'xcode_settings': {
+      'ALWAYS_SEARCH_USER_PATHS': 'NO',
+      'CLANG_CXX_LANGUAGE_STANDARD': 'c++11',
+    },
+  }
 }
