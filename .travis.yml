@@ -1,5 +1,5 @@
 language: cpp
 compiler:
     - clang
-install: script/bootstrap.sh
-script: script/ci.sh
+install: script/configure.sh
+script: script/test.sh
