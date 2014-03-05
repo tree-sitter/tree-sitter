@@ -11,6 +11,10 @@
       'sources': [
         '<!@(find include src -name "*.h" -or -name "*.cpp")',
       ],
+      'cflags': [
+        '-Wall',
+        '-Wextra'
+      ],
       'cflags_cc': [
         '-stdlib=libc++',
       ],
@@ -74,6 +78,12 @@
     'xcode_settings': {
       'ALWAYS_SEARCH_USER_PATHS': 'NO',
       'CLANG_CXX_LANGUAGE_STANDARD': 'c++11',
+      'WARNING_CFLAGS': [
+        '-Wall',
+        '-Wendif-labels',
+        '-W',
+        '-Wno-unused-parameter',
+      ],
     },
   }
 }

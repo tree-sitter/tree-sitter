@@ -148,7 +148,7 @@ namespace tree_sitter {
             string error;
             const string input;
             const size_t length;
-            int position;
+            size_t position;
         };
         
         Pattern::Pattern(const string &string) : value(string) {};

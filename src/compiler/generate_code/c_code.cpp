@@ -184,7 +184,7 @@ namespace tree_sitter {
 
             string switch_on_parse_state() {
                 string body = "";
-                for (int i = 0; i < parse_table.states.size(); i++)
+                for (size_t i = 0; i < parse_table.states.size(); i++)
                     body += _case(std::to_string(i), code_for_parse_state(parse_table.states[i]));
                 body += _default("PARSE_PANIC();");
                 return _switch("PARSE_STATE()", body);
@@ -192,7 +192,7 @@ namespace tree_sitter {
 
             string switch_on_lex_state() {
                 string body = "";
-                for (int i = 0; i < lex_table.states.size(); i++)
+                for (size_t i = 0; i < lex_table.states.size(); i++)
                     body += _case(std::to_string(i), switch_on_lookahead_char(lex_table.states[i]));
                 body += _case("ts_lex_state_error", switch_on_lookahead_char(lex_table.error_state));
                 body += _default("LEX_PANIC();");
