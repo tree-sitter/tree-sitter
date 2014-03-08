@@ -4,7 +4,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
+
 #include "./runtime.h"
 #include <stdio.h>
 #include <string.h>
@@ -18,7 +18,7 @@ extern "C" {
 #else
 #define DEBUG_LEX(...)
 #endif
-    
+
 #ifdef TS_DEBUG_PARSE
 #define DEBUG_PARSE(...) fprintf(stderr, __VA_ARGS__)
 #else
@@ -27,7 +27,7 @@ extern "C" {
 
 static int INITIAL_STACK_SIZE = 100;
 static const char *ts_symbol_names[];
-    
+
 typedef int ts_state;
 static const ts_state ts_lex_state_error = -1;
 
@@ -81,7 +81,7 @@ static ts_state ts_parser_parse_state(const ts_parser *parser) {
     if (parser->stack_size == 0) return 0;
     return parser->stack[parser->stack_size - 1].state;
 }
-    
+
 static void ts_parser_push(ts_parser *parser, ts_state state, ts_tree *node) {
     ts_stack_entry *entry = (parser->stack + parser->stack_size);
     entry->state = state;
@@ -95,7 +95,7 @@ static void ts_parser_shift(ts_parser *parser, ts_state parse_state) {
     parser->lookahead_node = parser->prev_lookahead_node;
     parser->prev_lookahead_node = NULL;
 }
-    
+
 static void ts_parser_shrink_stack(ts_parser *parser, size_t new_size) {
     for (size_t i = new_size; i < parser->stack_size; i++)
         ts_tree_release(parser->stack[i].node);
@@ -104,13 +104,13 @@ static void ts_parser_shrink_stack(ts_parser *parser, size_t new_size) {
 
 static void ts_parser_reduce(ts_parser *parser, ts_symbol symbol, int immediate_child_count, const int *collapse_flags) {
     size_t new_stack_size = parser->stack_size - immediate_child_count;
-    
+
     int child_count = 0;
     for (int i = 0; i < immediate_child_count; i++) {
         ts_tree *child = parser->stack[new_stack_size + i].node;
         child_count += collapse_flags[i] ? ts_tree_child_count(child) : 1;
     }
-    
+
     int child_index = 0;
     size_t size = 0, offset = 0;
     ts_tree **children = malloc(child_count * sizeof(ts_tree *));
@@ -132,13 +132,13 @@ static void ts_parser_reduce(ts_parser *parser, ts_symbol symbol, int immediate_
             child_index++;
         }
     }
-    
+
     parser->prev_lookahead_node = parser->lookahead_node;
     parser->lookahead_node = ts_tree_make_node(symbol, child_count, children, size, offset);
     ts_parser_shrink_stack(parser, new_stack_size);
     DEBUG_PARSE("reduce: %s, state: %u \n", ts_symbol_names[symbol], ts_parser_parse_state(parser));
 }
-    
+
 static void ts_parser_advance(ts_parser *parser) {
     if (parser->current_chunk && parser->current_chunk[parser->position]) {
         parser->position++;
@@ -153,7 +153,7 @@ static void ts_parser_advance_to_state(ts_parser *parser, ts_state lex_state) {
     ts_parser_advance(parser);
     parser->lex_state = lex_state;
 }
-    
+
 static void ts_parser_set_lookahead_sym(ts_parser *parser, ts_symbol symbol) {
     DEBUG_LEX("token: %s \n", ts_symbol_names[symbol]);
     size_t size = parser->position - parser->token_start_position;
@@ -172,7 +172,7 @@ static void ts_parser_skip_whitespace(ts_parser *parser) {
         ts_parser_advance(parser);
     parser->token_start_position = parser->position;
 }
- 
+
 static int ts_parser_handle_error(ts_parser *parser, size_t count, const ts_symbol *expected_symbols) {
     ts_tree *error = ts_tree_make_error(ts_parser_lookahead_char(parser), count, expected_symbols, 0, 0);
 
@@ -181,12 +181,12 @@ static int ts_parser_handle_error(ts_parser *parser, size_t count, const ts_symb
         parser->lookahead_node = NULL;
         parser->lex_state = ts_lex_state_error;
         ts_lex(parser);
-        
+
         for (long i = parser->stack_size - 1; i >= 0; i--) {
             size_t count;
             ts_state to_state;
             const ts_symbol *symbols = ts_recover(parser->stack[i].state, &to_state, &count);
-            for (int j = 0; j < count; j++) {
+            for (size_t j = 0; j < count; j++) {
                 if (symbols[j] == ts_parser_lookahead_sym(parser)) {
                     ts_parser_shrink_stack(parser, i + 1);
                     ts_parser_push(parser, to_state, error);
@@ -206,10 +206,10 @@ static int ts_parser_handle_error(ts_parser *parser, size_t count, const ts_symb
 
 #define LEX_FN() \
 static void ts_lex(ts_parser *parser)
-    
+
 #define PARSE_FN() \
 static const ts_tree * ts_parse(ts_input input)
-    
+
 #define SYMBOL_NAMES \
 static const char *ts_symbol_names[] =
 
@@ -270,7 +270,7 @@ parser->lex_state
 
 #define LEX_ERROR() \
 { ts_parser_set_lookahead_sym(parser, ts_builtin_sym_error); return; }
-    
+
 #define PARSE_ERROR(count, inputs) \
 { \
     static const ts_symbol expected_inputs[] = inputs; \
@@ -282,7 +282,7 @@ parser->lex_state
 
 #define LEX_PANIC() \
 printf("Lex error: unexpected state %d", LEX_STATE());
-    
+
 #define PARSE_PANIC() \
 printf("Parse error: unexpected state %d", PARSE_STATE());
 
