@@ -1,4 +1,4 @@
-#include "spec_helper.h"
+#include "runtime_spec_helper.h"
 
 extern ts_parse_config ts_parse_config_arithmetic;
 

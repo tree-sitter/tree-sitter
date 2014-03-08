@@ -1,4 +1,4 @@
-#include "spec_helper.h"
+#include "compiler_spec_helper.h"
 #include "prepared_grammar.h"
 #include "build_tables/follow_sets.h"
 

@@ -1,18 +1,15 @@
-#include "spec_helper.h"
-#include "rules/character_set.h"
-
-string src_dir() {
-    const char * dir = getenv("TREESITTER_DIR");
-    if (!dir) dir = getenv("PWD");
-    return dir;
-}
+#include "character_set_helpers.h"
+#include <memory>
 
 namespace tree_sitter {
+    using std::make_shared;
+    using std::set;
+    
     namespace rules {
         rule_ptr character(const set<CharacterRange> &ranges) {
             return make_shared<CharacterSet>(ranges);
         }
-        
+
         rule_ptr character(const set<CharacterRange> &ranges, bool sign) {
             if (sign)
                 return character(ranges);

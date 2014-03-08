@@ -46,10 +46,9 @@
       'include_dirs': [
         'externals/bandit',
         'src/compiler',
-        'spec',
+        'spec/compiler',
       ],
       'sources': [
-        '<!@(ls spec/*.h spec/*.cpp)',
         '<!@(find spec/compiler -name "*.h" -or -name "*.cpp")',
         '<!@(find examples/grammars -name "*.hpp")',
       ],
@@ -62,13 +61,9 @@
       'include_dirs': [
         'externals/bandit',
         'src/runtime',
-        'spec',
-
-        # TODO - make separate spec helpers for runtime and compiler specs
-        'src/compiler',
+        'spec/runtime',
       ],
       'sources': [
-        '<!@(ls spec/*.h spec/*.cpp)',
         '<!@(find spec/runtime -name "*.h" -or -name "*.cpp")',
         '<!@(find examples/parsers -name "*.c")',
       ],

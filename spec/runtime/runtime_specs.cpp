@@ -1,4 +1,4 @@
-#include "spec_helper.h"
+#include "runtime_spec_helper.h"
 
 int main(int argc, char *argv[])
 {

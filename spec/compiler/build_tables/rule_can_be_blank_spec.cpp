@@ -1,4 +1,4 @@
-#include "spec_helper.h"
+#include "compiler_spec_helper.h"
 #include "build_tables/rule_can_be_blank.h"
 
 using namespace rules;
