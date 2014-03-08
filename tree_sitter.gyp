@@ -1,5 +1,6 @@
 {
   'targets': [
+
     {
       'target_name': 'tree_sitter',
       'type': 'static_library',
@@ -11,32 +12,33 @@
       'sources': [
         '<!@(find include src -name "*.h" -or -name "*.cpp")',
       ],
-      'cflags': [
-        '-Wall',
-        '-Wextra'
-      ],
-      'cflags_cc': [
-        '-stdlib=libc++',
-      ],
       'xcode_settings': {
-        'CLANG_CXX_LIBRARY': 'libc++',
         'GCC_ENABLE_CPP_RTTI': 'YES',
         'GCC_ENABLE_CPP_EXCEPTIONS': 'NO',
-        'MACOSX_DEPLOYMENT_TARGET': '10.7',
       },
       'direct_dependent_settings': {
         'include_dirs': ['include'],
-        'cflags_cc': [
-          '-stdlib=libc++',
-        ],
-        'xcode_settings': {
-          'CLANG_CXX_LIBRARY': 'libc++',
+      },
 
-          # TODO - why don't specs build with this?
-          # 'MACOSX_DEPLOYMENT_TARGET': '10.7',
-        },
-      }
+      # Mac OS has an old version of libstdc++ that doesn't support c++11.
+      # libc++ is only present on 10.7 and later.
+      'conditions': [
+        ['OS == "mac"', {
+          'cflags_cc': [ '-stdlib=libc++' ],
+          'xcode_settings': {
+            'CLANG_CXX_LIBRARY': 'libc++',
+            'MACOSX_DEPLOYMENT_TARGET': '10.7',
+          },
+          'direct_dependent_settings': {
+            'cflags_cc': [ '-stdlib=libc++' ],
+            'xcode_settings': {
+              'CLANG_CXX_LIBRARY': 'libc++',
+            },
+          },
+        }]
+      ],
     },
+
     {
       'target_name': 'compiler_specs',
       'type': 'executable',
@@ -52,6 +54,7 @@
         '<!@(find examples/grammars -name "*.hpp")',
       ],
     },
+
     {
       'target_name': 'runtime_specs',
       'type': 'executable',
@@ -71,18 +74,23 @@
       ],
     },
   ],
+
   'target_defaults': {
+    'cflags': [
+      '-Wall',
+      '-Wextra',
+      '-Wno-unused-parameter'
+    ],
     'cflags_cc': [
       '-std=c++11',
     ],
     'xcode_settings': {
-      'ALWAYS_SEARCH_USER_PATHS': 'NO',
       'CLANG_CXX_LANGUAGE_STANDARD': 'c++11',
+      'ALWAYS_SEARCH_USER_PATHS': 'NO',
       'WARNING_CFLAGS': [
         '-Wall',
-        '-Wendif-labels',
-        '-W',
-        '-Wno-unused-parameter',
+        '-Wextra',
+        '-Wno-unused-parameter'
       ],
     },
   }
