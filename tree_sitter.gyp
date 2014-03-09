@@ -10,7 +10,7 @@
         'src/runtime',
       ],
       'sources': [
-        '<!@(find include src -name "*.h" -or -name "*.cpp")',
+        '<!@(find include src -name "*.h" -or -name "*.cpp" -or -name "*.c")',
       ],
       'xcode_settings': {
         'GCC_ENABLE_CPP_RTTI': 'YES',

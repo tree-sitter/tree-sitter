@@ -1,9 +1,6 @@
 #include "tree_sitter/runtime.h"
-#include <string>
 #include <string.h>
-
-using std::string;
-using std::to_string;
+#include <stdio.h>
 
 static ts_tree * ts_tree_make(ts_symbol symbol, size_t size, size_t offset) {
     ts_tree *result = (ts_tree *)malloc(sizeof(ts_tree));
@@ -16,7 +13,8 @@ static ts_tree * ts_tree_make(ts_symbol symbol, size_t size, size_t offset) {
 
 ts_tree * ts_tree_make_leaf(ts_symbol symbol, size_t size, size_t offset) {
     ts_tree *result = ts_tree_make(symbol, size, offset);
-    result->data.children = { .count = 0, .contents = NULL };
+    result->data.children.count = 0;
+    result->data.children.contents = NULL;
     return result;
 }
 
@@ -24,17 +22,16 @@ ts_tree * ts_tree_make_node(ts_symbol symbol, size_t child_count, ts_tree **chil
     for (size_t i = 0; i < child_count; i++)
         ts_tree_retain(children[i]);
     ts_tree *result = ts_tree_make(symbol, size, offset);
-    result->data.children = { .count = child_count, .contents = children };
+    result->data.children.count = child_count;
+    result->data.children.contents = children;
     return result;
 }
 
 ts_tree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, const ts_symbol *expected_inputs, size_t size, size_t offset) {
     ts_tree *result = ts_tree_make(ts_builtin_sym_error, size, offset);
-    result->data.error = {
-        .lookahead_char = lookahead_char,
-        .expected_input_count = expected_input_count,
-        .expected_inputs = expected_inputs
-    };
+    result->data.error.lookahead_char = lookahead_char;
+    result->data.error.expected_input_count = expected_input_count;
+    result->data.error.expected_inputs = expected_inputs;
     return result;
 }
 
@@ -82,30 +79,36 @@ size_t ts_tree_child_count(const ts_tree *tree) {
     return tree->data.children.count;
 }
 
-static string __tree_to_string(const ts_tree *tree, const char **symbol_names) {
-    if (!tree) return "#<null-tree>";
-    if (tree->symbol == ts_builtin_sym_error) return "(ERROR)";
-    string result = string("(") + symbol_names[tree->symbol];
-    for (size_t i = 0; i < tree->data.children.count; i++)
-        result += " " + __tree_to_string(tree->data.children.contents[i], symbol_names);
-    return result + ")";
+static const char *NULL_TREE_STRING = "(NULL)";
+static const char *ERROR_TREE_STRING = "(ERROR)";
+
+static size_t tree_write_to_string(const ts_tree *tree, const char **symbol_names, char *string, size_t limit) {
+    if (!tree)
+        return snprintf(string, limit, "%s", NULL_TREE_STRING);
+    if (tree->symbol == ts_builtin_sym_error)
+        return snprintf(string, limit, "%s", ERROR_TREE_STRING);
+    
+    size_t result = snprintf(string, limit, "(%s", symbol_names[tree->symbol]);
+    char *cursor = string + result;
+    for (size_t i = 0; i < tree->data.children.count; i++) {
+        ts_tree *child = tree->data.children.contents[i];
+        result += snprintf(cursor, limit, " ");
+        result += tree_write_to_string(child, symbol_names, cursor + 1, limit);
+        cursor = (limit > 0) ? string + result : string;
+    }
+    
+    return result + snprintf(cursor, limit, ")");
 }
 
+static char SCRATCH_STRING[1];
+
 char * ts_tree_string(const ts_tree *tree, const char **symbol_names) {
-    string value(__tree_to_string(tree, symbol_names));
-    char *result = (char *)malloc(value.size());
-    strcpy(result, value.c_str());
+    size_t size = tree_write_to_string(tree, symbol_names, SCRATCH_STRING, 0) + 1;
+    char *result = malloc(size * sizeof(char));
+    tree_write_to_string(tree, symbol_names, result, size);
     return result;
 }
 
 char * ts_tree_error_string(const ts_tree *tree, const char **symbol_names) {
-    string result = string("Unexpected character '") + tree->data.error.lookahead_char + "'. Expected:";
-    for (size_t i = 0; i < tree->data.error.expected_input_count; i++) {
-        ts_symbol symbol = tree->data.error.expected_inputs[i];
-        result += string(" ") + symbol_names[symbol];
-    }
-    
-    char *stuff = (char *)malloc(result.size() * sizeof(char));
-    strcpy(stuff, result.c_str());
-    return stuff;
+    return NULL;
 }

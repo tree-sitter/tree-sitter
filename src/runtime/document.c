@@ -8,11 +8,11 @@ struct ts_document {
 };
 
 ts_document * ts_document_make() {
-    return new ts_document();
+    return malloc(sizeof(ts_document));
 }
 
 void ts_document_free(ts_document *document) {
-    delete document;
+    free(document);
 }
 
 void ts_document_set_parser(ts_document *document, ts_parse_config config) {
@@ -49,7 +49,7 @@ int ts_string_input_seek(void *d, size_t position) {
 }
 
 ts_input ts_string_input_make(const char *string) {
-    ts_string_input_data *data = new ts_string_input_data();
+    ts_string_input_data *data = malloc(sizeof(ts_string_input_data));
     data->string = string;
     data->position = 0;
     data->length = strlen(string);
