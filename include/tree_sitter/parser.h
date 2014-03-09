@@ -39,6 +39,7 @@ typedef struct {
 typedef struct {
     ts_input input;
     const char *current_chunk;
+    size_t current_chunk_end;
     size_t position;
     size_t token_end_position;
     size_t token_start_position;
@@ -53,12 +54,15 @@ static void ts_lex(ts_parser *parser);
 static const ts_symbol * ts_recover(ts_state state, ts_state *to_state, size_t *count);
 
 static ts_parser ts_parser_make(ts_input input) {
+    size_t bytes_read = 0;
+    const char *chunk = input.read_fn(input.data, &bytes_read);
     ts_parser result = {
         .input = input,
         .token_start_position = 0,
         .token_end_position = 0,
         .position = 0,
-        .current_chunk = input.read_fn(input.data),
+        .current_chunk = chunk,
+        .current_chunk_end = bytes_read,
         .lookahead_node = NULL,
         .prev_lookahead_node = NULL,
         .lex_state = 0,
@@ -140,11 +144,12 @@ static void ts_parser_reduce(ts_parser *parser, ts_symbol symbol, int immediate_
 }
 
 static void ts_parser_advance(ts_parser *parser) {
-    if (parser->current_chunk && parser->current_chunk[parser->position]) {
+    if (parser->position < parser->current_chunk_end) {
         parser->position++;
     } else {
-        parser->current_chunk = parser->input.read_fn(parser->input.data);
-        parser->position = 0;
+        size_t bytes_read = 0;
+        parser->current_chunk = parser->input.read_fn(parser->input.data, &bytes_read);
+        parser->current_chunk_end += bytes_read;
     }
 }
 

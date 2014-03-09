@@ -4,13 +4,13 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-    
+
 #include <stdlib.h>
 
 typedef int ts_symbol;
 static const ts_symbol ts_builtin_sym_error = -1;
 static const ts_symbol ts_builtin_sym_end = -2;
-    
+
 typedef struct ts_tree {
     ts_symbol symbol;
     size_t ref_count;
@@ -42,7 +42,7 @@ ts_tree ** ts_tree_children(const ts_tree *tree);
 
 typedef struct {
     void *data;
-    const char * (* read_fn)(void *data);
+    const char * (* read_fn)(void *data, size_t *bytes_read);
     int (* seek_fn)(void *data, size_t position);
     void (* release_fn)(void *data);
 } ts_input;
@@ -61,7 +61,7 @@ void ts_document_set_input(ts_document *, ts_input input);
 void ts_document_set_input_string(ts_document *, const char *text);
 const ts_tree * ts_document_tree(const ts_document *);
 const char * ts_document_string(const ts_document *);
-    
+
 #ifdef __cplusplus
 }
 #endif
