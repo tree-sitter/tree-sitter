@@ -6,8 +6,8 @@
       'type': 'static_library',
       'include_dirs': [
         'include',
-        'src/compiler',
-        'src/runtime',
+        'src',
+        'src',
       ],
       'sources': [
         '<!@(find include src -name "*.h" -or -name "*.cpp" -or -name "*.c")',
