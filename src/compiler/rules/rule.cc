@@ -4,7 +4,7 @@
 namespace tree_sitter {
     using std::ostream;
     using std::string;
-    
+
     namespace rules {
         bool Rule::operator!=(const Rule &other) const {
             return !this->operator==(other);

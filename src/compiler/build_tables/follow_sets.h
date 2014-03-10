@@ -17,7 +17,8 @@ namespace tree_sitter {
          *  item. The values are the sets of terminals which can appear immediately
          *  after the corresponding non-terminals.
          */
-        std::map<rules::Symbol, std::set<rules::Symbol>> follow_sets(const ParseItem &item, const PreparedGrammar &grammar);
+        std::map<rules::Symbol, std::set<rules::Symbol>>
+        follow_sets(const ParseItem &item, const PreparedGrammar &grammar);
 
     }
 }

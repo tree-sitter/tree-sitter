@@ -17,7 +17,10 @@ namespace tree_sitter {
     } ParseActionType;
 
     class ParseAction {
-        ParseAction(ParseActionType type, size_t state_index, rules::Symbol symbol, const std::vector<bool> &child_flags);
+        ParseAction(ParseActionType type,
+                    size_t state_index,
+                    rules::Symbol symbol,
+                    const std::vector<bool> &child_flags);
     public:
         static ParseAction Accept();
         static ParseAction Error();

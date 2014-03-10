@@ -11,7 +11,8 @@ namespace tree_sitter {
     using rules::rule_ptr;
 
     namespace build_tables {
-        map<Symbol, set<Symbol>> follow_sets(const ParseItem &item, const PreparedGrammar &grammar) {
+        map<Symbol, set<Symbol>> follow_sets(const ParseItem &item,
+                                             const PreparedGrammar &grammar) {
             map<Symbol, set<Symbol>> result;
 
             for (auto &pair : sym_transitions(item.rule)) {

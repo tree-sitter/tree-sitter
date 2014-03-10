@@ -4,7 +4,7 @@
 
 namespace tree_sitter {
     using std::string;
-    
+
     namespace rules {
         Repeat::Repeat(const rule_ptr content) : content(content) {}
 

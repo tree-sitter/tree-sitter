@@ -123,7 +123,8 @@ namespace tree_sitter {
                 return result;
             }
 
-            string code_for_parse_actions(const set<ParseAction> &actions, const set<rules::Symbol> &expected_inputs) {
+            string code_for_parse_actions(const set<ParseAction> &actions,
+                                          const set<rules::Symbol> &expected_inputs) {
                 auto action = actions.begin();
                 switch (action->type) {
                     case ParseActionTypeAccept:
@@ -131,7 +132,10 @@ namespace tree_sitter {
                     case ParseActionTypeShift:
                         return "SHIFT(" + to_string(action->state_index) + ");";
                     case ParseActionTypeReduce:
-                        return "REDUCE(" + symbol_id(action->symbol) + ", " + to_string(action->child_flags.size()) + ", COLLAPSE({" + collapse_flags(action->child_flags) + "}));";
+                        return "REDUCE(" +
+                            symbol_id(action->symbol) + ", " +
+                            to_string(action->child_flags.size()) + ", " +
+                            "COLLAPSE({" + collapse_flags(action->child_flags) + "}));";
                     default:
                         return "";
                 }
@@ -149,7 +153,8 @@ namespace tree_sitter {
                 return result;
             }
 
-            string code_for_lex_actions(const set<LexAction> &actions, const set<rules::CharacterSet> &expected_inputs) {
+            string code_for_lex_actions(const set<LexAction> &actions,
+                                        const set<rules::CharacterSet> &expected_inputs) {
                 auto action = actions.begin();
                 if (action == actions.end()) {
                     return "LEX_ERROR();";
@@ -169,7 +174,8 @@ namespace tree_sitter {
                 string body = "";
                 auto expected_inputs = parse_state.expected_inputs();
                 for (auto pair : parse_state.actions)
-                    body += _case(symbol_id(pair.first), code_for_parse_actions(pair.second, expected_inputs));
+                    body += _case(symbol_id(pair.first),
+                                  code_for_parse_actions(pair.second, expected_inputs));
                 body += _default(parse_error_call(expected_inputs));
                 return
                     string("SET_LEX_STATE(") + to_string(parse_state.lex_state_id) + ");\n" +
@@ -180,7 +186,8 @@ namespace tree_sitter {
                 string result = "";
                 auto expected_inputs = parse_state.expected_inputs();
                 for (auto pair : parse_state.actions)
-                    result += _if(condition_for_character_rule(pair.first), code_for_lex_actions(pair.second, expected_inputs));
+                    result += _if(condition_for_character_rule(pair.first),
+                                  code_for_lex_actions(pair.second, expected_inputs));
                 result += code_for_lex_actions(parse_state.default_actions, expected_inputs);
                 return result;
             }
@@ -223,7 +230,9 @@ namespace tree_sitter {
             }
 
             string recover_case(ParseStateId state, set<rules::Symbol> symbols) {
-                string result = "RECOVER(" + to_string(state) + ", " + to_string(symbols.size()) + ", EXPECT({";
+                string result = "RECOVER(" +
+                    to_string(state) + ", " +
+                    to_string(symbols.size()) + ", EXPECT({";
                 bool started = false;
                 for (auto &symbol : symbols) {
                     if (started) {
@@ -239,13 +248,15 @@ namespace tree_sitter {
                 string cases;
                 for (auto &pair : parse_table.error_table) {
                     auto pair_for_state = pair.second;
-                    cases += _case(to_string(pair.first), recover_case(pair_for_state.first, pair_for_state.second));
+                    cases += _case(to_string(pair.first),
+                                   recover_case(pair_for_state.first, pair_for_state.second));
                 }
                 cases += _default(recover_case(0, set<rules::Symbol>()));
 
                 string body = _switch("state", cases);
                 return join({
-                    "static const ts_symbol * ts_recover(ts_state state, ts_state *to_state, size_t *count) {",
+                    "static const ts_symbol * "
+                    "ts_recover(ts_state state, ts_state *to_state, size_t *count) {",
                     indent(body),
                     "}"
                 });

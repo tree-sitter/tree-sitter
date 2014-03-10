@@ -46,7 +46,10 @@ namespace tree_sitter {
                     parse_table.add_action(state_id, symbol, ParseAction::Shift(new_state_id));
 
                     if (symbol == rules::ERROR) {
-                        parse_table.error_table.insert({ state_id, { new_state_id, first_set(transition.second, grammar) } });
+                        parse_table.error_table.insert({
+                            state_id,
+                            { new_state_id, first_set(transition.second, grammar) }
+                        });
                     }
                 }
             }
@@ -116,10 +119,14 @@ namespace tree_sitter {
 
             void add_error_lex_state() {
                 LexItemSet error_item_set;
-                for (auto &pair : lex_grammar.rules)
-                    error_item_set.insert(LexItem(Symbol(pair.first), pair.second));
-                for (auto &pair : lex_grammar.aux_rules)
-                    error_item_set.insert(LexItem(Symbol(pair.first, rules::SymbolTypeAuxiliary), pair.second));
+                for (auto &pair : lex_grammar.rules) {
+                    LexItem item(Symbol(pair.first, rules::SymbolTypeNormal), pair.second);
+                    error_item_set.insert(item);
+                }
+                for (auto &pair : lex_grammar.aux_rules) {
+                    LexItem item(Symbol(pair.first, rules::SymbolTypeAuxiliary), pair.second);
+                    error_item_set.insert(item);
+                }
                 add_advance_actions(error_item_set, LexTable::ERROR_STATE_ID);
                 add_accept_token_actions(error_item_set, LexTable::ERROR_STATE_ID);
             }
@@ -146,7 +153,8 @@ namespace tree_sitter {
                 lex_grammar(lex_grammar) {}
 
             pair<ParseTable, LexTable> build() {
-                ParseItem item(rules::START, make_shared<Symbol>(grammar.start_rule_name), {}, rules::END_OF_INPUT);
+                auto start_symbol = make_shared<Symbol>(grammar.start_rule_name);
+                ParseItem item(rules::START, start_symbol, {}, rules::END_OF_INPUT);
                 ParseItemSet item_set = item_set_closure(ParseItemSet({ item }), grammar);
                 add_parse_state(item_set);
                 add_error_lex_state();
@@ -154,7 +162,8 @@ namespace tree_sitter {
             }
         };
 
-        pair<ParseTable, LexTable> build_tables(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar) {
+        pair<ParseTable, LexTable> build_tables(const PreparedGrammar &grammar,
+                                                const PreparedGrammar &lex_grammar) {
             return TableBuilder(grammar, lex_grammar).build();
         }
     }

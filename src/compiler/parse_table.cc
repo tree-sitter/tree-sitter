@@ -9,7 +9,10 @@ namespace tree_sitter {
     using std::vector;
     using rules::Symbol;
 
-    ParseAction::ParseAction(ParseActionType type, size_t state_index, Symbol symbol, const vector<bool> &child_flags) :
+    ParseAction::ParseAction(ParseActionType type,
+                             size_t state_index,
+                             Symbol symbol,
+                             const vector<bool> &child_flags) :
         type(type),
         symbol(symbol),
         state_index(state_index),

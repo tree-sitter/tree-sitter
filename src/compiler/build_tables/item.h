@@ -28,7 +28,10 @@ namespace tree_sitter {
 
         class ParseItem : public Item {
         public:
-            ParseItem(const rules::Symbol &lhs, const rules::rule_ptr rule, const std::vector<bool> &consumed_symbols, const rules::Symbol &lookahead_sym);
+            ParseItem(const rules::Symbol &lhs,
+                      const rules::rule_ptr rule,
+                      const std::vector<bool> &consumed_symbols,
+                      const rules::Symbol &lookahead_sym);
             bool operator<(const ParseItem &other) const;
             bool operator==(const ParseItem &other) const;
 

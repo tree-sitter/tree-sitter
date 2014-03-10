@@ -5,7 +5,7 @@
 namespace tree_sitter  {
     using std::string;
     using std::hash;
-    
+
     namespace rules {
         String::String(string value) : value(value) {}
 

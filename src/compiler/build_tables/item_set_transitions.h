@@ -12,8 +12,11 @@ namespace tree_sitter {
     }
 
     namespace build_tables {
-        std::map<rules::CharacterSet, LexItemSet> char_transitions(const LexItemSet &item_set, const PreparedGrammar &grammar);
-        std::map<rules::Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set, const PreparedGrammar &grammar);
+        std::map<rules::CharacterSet, LexItemSet>
+        char_transitions(const LexItemSet &item_set, const PreparedGrammar &grammar);
+
+        std::map<rules::Symbol, ParseItemSet>
+        sym_transitions(const ParseItemSet &item_set, const PreparedGrammar &grammar);
     }
 }
 

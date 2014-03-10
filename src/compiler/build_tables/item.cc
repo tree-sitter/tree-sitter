@@ -67,7 +67,10 @@ namespace tree_sitter {
             return lhs_eq && rules_eq;
         }
 
-        ParseItem::ParseItem(const Symbol &lhs, const rule_ptr rule, const vector<bool> &consumed_symbols, const Symbol &lookahead_sym) :
+        ParseItem::ParseItem(const Symbol &lhs,
+                             const rule_ptr rule,
+                             const vector<bool> &consumed_symbols,
+                             const Symbol &lookahead_sym) :
             Item(lhs, rule),
             consumed_symbols(consumed_symbols),
             lookahead_sym(lookahead_sym) {}

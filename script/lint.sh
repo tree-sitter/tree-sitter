@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
-filters=-whitespace,-readability/namespace,-legal/copyright
 cpplint=externals/cpplint.py
 
-find src/compiler -type f | xargs $cpplint --root=src --filter=$filters 2>&1
+find src/compiler -type f | xargs $cpplint \
+  --root=src \
+  --linelength=110 \
+  --filter=-readability/namespace,-legal/copyright \
+  2>&1

@@ -6,7 +6,7 @@
 namespace tree_sitter  {
     using std::string;
     using std::hash;
-    
+
     namespace rules {
         Symbol::Symbol(const std::string &name) : name(name), type(SymbolTypeNormal) {}
         Symbol::Symbol(const std::string &name, SymbolType type) : name(name), type(type) {}
