@@ -9,7 +9,7 @@
         'src',
       ],
       'sources': [
-        '<!@(find include src -name "*.h" -or -name "*.cpp" -or -name "*.c")',
+        '<!@(find include src -name "*.h" -or -name "*.cc" -or -name "*.c")',
       ],
       'xcode_settings': {
         'GCC_ENABLE_CPP_RTTI': 'YES',
@@ -49,7 +49,7 @@
         'spec/compiler',
       ],
       'sources': [
-        '<!@(find spec/compiler -name "*.h" -or -name "*.cpp")',
+        '<!@(find spec/compiler -name "*.h" -or -name "*.cc")',
         '<!@(find examples/grammars -name "*.hpp")',
       ],
     },
@@ -65,7 +65,7 @@
         'spec/runtime',
       ],
       'sources': [
-        '<!@(find spec/runtime -name "*.h" -or -name "*.cpp")',
+        '<!@(find spec/runtime -name "*.h" -or -name "*.cc")',
         '<!@(find examples/parsers -name "*.c")',
       ],
     },
