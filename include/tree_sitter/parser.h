@@ -38,11 +38,15 @@ typedef struct {
 
 typedef struct {
     ts_input input;
-    const char *current_chunk;
-    size_t current_chunk_end;
-    size_t position;
+
+    const char *chunk;
+    size_t chunk_start;
+    size_t chunk_size;
+    size_t position_in_chunk;
+    
     size_t token_end_position;
     size_t token_start_position;
+
     ts_tree *lookahead_node;
     ts_tree *prev_lookahead_node;
     ts_state lex_state;
@@ -60,9 +64,12 @@ static ts_parser ts_parser_make(ts_input input) {
         .input = input,
         .token_start_position = 0,
         .token_end_position = 0,
-        .position = 0,
-        .current_chunk = chunk,
-        .current_chunk_end = bytes_read,
+
+        .chunk = chunk,
+        .chunk_size = bytes_read,
+        .chunk_start = 0,
+        .position_in_chunk = 0,
+
         .lookahead_node = NULL,
         .prev_lookahead_node = NULL,
         .lex_state = 0,
@@ -71,9 +78,13 @@ static ts_parser ts_parser_make(ts_input input) {
     };
     return result;
 }
+    
+static size_t ts_parser_position(const ts_parser *parser) {
+    return parser->chunk_start + parser->position_in_chunk;
+}
 
 static char ts_parser_lookahead_char(const ts_parser *parser) {
-    return parser->current_chunk[parser->position];
+    return parser->chunk[parser->position_in_chunk];
 }
 
 static ts_symbol ts_parser_lookahead_sym(const ts_parser *parser) {
@@ -143,13 +154,19 @@ static void ts_parser_reduce(ts_parser *parser, ts_symbol symbol, int immediate_
     DEBUG_PARSE("reduce: %s, state: %u \n", ts_symbol_names[symbol], ts_parser_parse_state(parser));
 }
 
+static const char empty_chunk[1] = { '\0' };
+
 static void ts_parser_advance(ts_parser *parser) {
-    if (parser->position < parser->current_chunk_end) {
-        parser->position++;
+    if (parser->position_in_chunk < parser->chunk_size - 1) {
+        parser->position_in_chunk++;
     } else {
-        size_t bytes_read = 0;
-        parser->current_chunk = parser->input.read_fn(parser->input.data, &bytes_read);
-        parser->current_chunk_end += bytes_read;
+        parser->chunk_start += parser->chunk_size;
+        parser->chunk = parser->input.read_fn(parser->input.data, &parser->chunk_size);
+        if (parser->chunk_size == 0) {
+            parser->chunk = empty_chunk;
+            parser->chunk_size = 1;
+        }
+        parser->position_in_chunk = 0;
     }
 }
 
@@ -161,10 +178,11 @@ static void ts_parser_advance_to_state(ts_parser *parser, ts_state lex_state) {
 
 static void ts_parser_set_lookahead_sym(ts_parser *parser, ts_symbol symbol) {
     DEBUG_LEX("token: %s \n", ts_symbol_names[symbol]);
-    size_t size = parser->position - parser->token_start_position;
+    size_t position = ts_parser_position(parser);
+    size_t size = position - parser->token_start_position;
     size_t offset = parser->token_start_position - parser->token_end_position;
     parser->lookahead_node = ts_tree_make_leaf(symbol, size, offset);
-    parser->token_end_position = parser->position;
+    parser->token_end_position = position;
 }
 
 static ts_tree * ts_parser_tree(ts_parser *parser) {
@@ -175,7 +193,7 @@ static ts_tree * ts_parser_tree(ts_parser *parser) {
 static void ts_parser_skip_whitespace(ts_parser *parser) {
     while (isspace(ts_parser_lookahead_char(parser)))
         ts_parser_advance(parser);
-    parser->token_start_position = parser->position;
+    parser->token_start_position = ts_parser_position(parser);
 }
 
 static int ts_parser_handle_error(ts_parser *parser, size_t count, const ts_symbol *expected_symbols) {

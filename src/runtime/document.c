@@ -39,8 +39,14 @@ typedef struct {
 
 const char * ts_string_input_read(void *d, size_t *bytes_read) {
     ts_string_input_data *data = (ts_string_input_data *)d;
-    *bytes_read = data->length;
-    return data->string + data->position;
+    if (data->position >= data->length) {
+        *bytes_read = 0;
+        return "";
+    }
+    size_t previous_position = data->position;
+    data->position = data->length;
+    *bytes_read = data->position - previous_position;
+    return data->string + previous_position;
 }
 
 int ts_string_input_seek(void *d, size_t position) {

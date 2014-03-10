@@ -9,7 +9,7 @@
 
 namespace tree_sitter {
     class PreparedGrammar : public Grammar {
-    public:
+    public: 
         PreparedGrammar(std::string start_rule_name,
                         const std::map<const std::string, const rules::rule_ptr> &rules,
                         const std::map<const std::string, const rules::rule_ptr> &aux_rules);
