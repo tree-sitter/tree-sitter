@@ -51,7 +51,7 @@ namespace tree_sitter {
         std::set<rules::CharacterSet> expected_inputs() const;
     };
 
-    typedef long int LexStateId;
+    typedef int64_t LexStateId;
 
     class LexTable {
     public:

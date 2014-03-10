@@ -21,7 +21,7 @@ namespace tree_sitter  {
         }
 
         size_t Symbol::hash_code() const {
-            return hash<string>()(name) ^ hash<short int>()(type);
+            return hash<string>()(name) ^ hash<int16_t>()(type);
         }
 
         rule_ptr Symbol::copy() const {

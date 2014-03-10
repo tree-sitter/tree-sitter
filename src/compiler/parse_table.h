@@ -57,13 +57,13 @@ namespace tree_sitter {
         LexStateId lex_state_id;
     };
 
-    typedef unsigned long int ParseStateId;
+    typedef uint64_t ParseStateId;
 
     std::ostream& operator<<(std::ostream &stream, const ParseState &state);
 
     class ParseTable {
     public:
-        size_t add_state();
+        uint64_t add_state();
         void add_action(ParseStateId state_id, rules::Symbol symbol, ParseAction action);
 
         std::vector<ParseState> states;
