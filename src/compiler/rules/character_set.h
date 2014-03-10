@@ -13,8 +13,8 @@ namespace tree_sitter  {
         class CharacterSet : public Rule {
         public:
             CharacterSet();
-            CharacterSet(const std::set<CharacterRange> &ranges);
-            CharacterSet(const std::initializer_list<CharacterRange> &ranges);
+            explicit CharacterSet(const std::set<CharacterRange> &ranges);
+            explicit CharacterSet(const std::initializer_list<CharacterRange> &ranges);
 
             bool operator==(const Rule& other) const;
             bool operator<(const CharacterSet &) const;

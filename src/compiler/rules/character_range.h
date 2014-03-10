@@ -9,6 +9,7 @@ namespace tree_sitter {
         struct CharacterRange {
             char min;
             char max;
+            // IMPLICIT_CONSTRUCTORS
             CharacterRange(char value);
             CharacterRange(char min, char max);
             bool operator==(const CharacterRange &other) const;

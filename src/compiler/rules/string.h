@@ -8,7 +8,7 @@ namespace tree_sitter  {
     namespace rules {
         class String : public Rule {
         public:
-            String(std::string value);
+            explicit String(std::string value);
 
             bool operator==(const Rule& other) const;
             size_t hash_code() const;

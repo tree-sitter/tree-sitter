@@ -16,7 +16,7 @@ namespace tree_sitter  {
 
         class Symbol : public Rule {
         public:
-            Symbol(const std::string &name);
+            explicit Symbol(const std::string &name);
             Symbol(const std::string &name, SymbolType type);
 
             bool operator==(const Rule& other) const;

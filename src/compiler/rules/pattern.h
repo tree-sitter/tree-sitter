@@ -9,7 +9,7 @@ namespace tree_sitter {
         class Pattern : public Rule {
             const std::string value;
         public:
-            Pattern(const std::string &string);
+            explicit Pattern(const std::string &string);
 
             bool operator==(const Rule& other) const;
             size_t hash_code() const;

@@ -37,7 +37,7 @@ namespace tree_sitter  {
             using CanBeBlank::visit;
 
         public:
-            CanBeBlankRecursive(const PreparedGrammar &grammar) : grammar(grammar) {}
+            explicit CanBeBlankRecursive(const PreparedGrammar &grammar) : grammar(grammar) {}
 
             void visit(const rules::Symbol *rule) {
                 value = grammar.has_definition(*rule) && apply(grammar.rule(*rule));

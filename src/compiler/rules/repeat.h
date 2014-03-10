@@ -8,7 +8,7 @@ namespace tree_sitter  {
     namespace rules {
         class Repeat : public Rule {
         public:
-            Repeat(rule_ptr content);
+            explicit Repeat(rule_ptr content);
 
             bool operator==(const Rule& other) const;
             size_t hash_code() const;

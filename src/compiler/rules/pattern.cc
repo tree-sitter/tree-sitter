@@ -16,7 +16,7 @@ namespace tree_sitter {
 
         class PatternParser {
         public:
-            PatternParser(const string &input) :
+            explicit PatternParser(const string &input) :
                 input(input),
                 length(input.length()),
                 position(0) {}
