@@ -14,11 +14,11 @@ namespace tree_sitter  {
         static const char MAX_CHAR = '\xff';
 
         int max_int(const CharacterRange &range) {
-            return range.max == MAX_CHAR ? 255 : (int)range.max;
+            return range.max == MAX_CHAR ? 255 : static_cast<int>(range.max);
         }
 
         int min_int(const CharacterRange &range) {
-            return (int)range.min;
+            return static_cast<int>(range.min);
         }
 
         CharacterSet::CharacterSet() : ranges({}) {}
