@@ -21,19 +21,19 @@ namespace tree_sitter {
             const Seq *other = dynamic_cast<const Seq *>(&rule);
             return other && (*other->left == *left) && (*other->right == *right);
         }
-        
+
         size_t Seq::hash_code() const {
             return left->hash_code() ^ right->hash_code();
         }
-        
+
         rule_ptr Seq::copy() const {
             return std::make_shared<Seq>(*this);
         }
-        
+
         string Seq::to_string() const {
             return string("#<seq ") + left->to_string() + " " + right->to_string() + ">";
         }
-        
+
         void Seq::accept(Visitor &visitor) const {
             visitor.visit(this);
         }

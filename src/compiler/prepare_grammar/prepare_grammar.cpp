@@ -5,7 +5,7 @@
 
 namespace tree_sitter {
     using std::pair;
-    
+
     namespace prepare_grammar {
         pair<PreparedGrammar, PreparedGrammar> prepare_grammar(const Grammar &input_grammar) {
             auto grammars = prepare_grammar::extract_tokens(input_grammar);

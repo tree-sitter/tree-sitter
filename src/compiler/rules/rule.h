@@ -20,7 +20,7 @@ namespace tree_sitter {
             virtual std::string to_string() const = 0;
             virtual void accept(Visitor &visitor) const = 0;
         };
-        
+
         std::ostream& operator<<(std::ostream& stream, const Rule &rule);
         std::ostream& operator<<(std::ostream& stream, const rule_ptr &rule);
     }

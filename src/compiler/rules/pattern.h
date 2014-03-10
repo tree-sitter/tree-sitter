@@ -15,7 +15,7 @@ namespace tree_sitter {
             rule_ptr copy() const;
             std::string to_string() const;
             void accept(Visitor &visitor) const;
-            
+
             rule_ptr to_rule_tree() const;
         };
     }

@@ -87,7 +87,7 @@ static size_t tree_write_to_string(const ts_tree *tree, const char **symbol_name
         return snprintf(string, limit, "%s", NULL_TREE_STRING);
     if (tree->symbol == ts_builtin_sym_error)
         return snprintf(string, limit, "%s", ERROR_TREE_STRING);
-    
+
     size_t result = snprintf(string, limit, "(%s", symbol_names[tree->symbol]);
     char *cursor = string + result;
     for (size_t i = 0; i < tree->data.children.count; i++) {
@@ -96,7 +96,7 @@ static size_t tree_write_to_string(const ts_tree *tree, const char **symbol_name
         result += tree_write_to_string(child, symbol_names, cursor + 1, limit);
         cursor = (limit > 0) ? string + result : string;
     }
-    
+
     return result + snprintf(cursor, limit, ")");
 }
 

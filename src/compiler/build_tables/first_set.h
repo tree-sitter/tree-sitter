@@ -7,7 +7,7 @@
 
 namespace tree_sitter {
     class PreparedGrammar;
-    
+
     namespace build_tables {
 
         /*

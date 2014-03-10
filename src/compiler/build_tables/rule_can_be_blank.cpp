@@ -16,11 +16,11 @@ namespace tree_sitter  {
             void default_visit(const Rule *) {
                 value = false;
             }
-            
+
             virtual void visit(const Blank *) {
                 value = true;
             }
-            
+
             virtual void visit(const Repeat *rule) {
                 value = true;
             }
@@ -28,12 +28,12 @@ namespace tree_sitter  {
             virtual void visit(const Choice *rule) {
                 value = apply(rule->left) || apply(rule->right);
             }
-            
+
             virtual void visit(const Seq *rule) {
                 value = apply(rule->left) && apply(rule->right);
             }
         };
-        
+
         class CanBeBlankRecursive : public CanBeBlank {
             const PreparedGrammar grammar;
             using CanBeBlank::visit;
@@ -45,11 +45,11 @@ namespace tree_sitter  {
                 value = grammar.has_definition(*rule) && apply(grammar.rule(*rule));
             }
         };
-        
+
         bool rule_can_be_blank(const rule_ptr &rule) {
             return CanBeBlank().apply(rule);
         }
-        
+
         bool rule_can_be_blank(const rule_ptr &rule, const PreparedGrammar &grammar) {
             return CanBeBlankRecursive(grammar).apply(rule);
         }

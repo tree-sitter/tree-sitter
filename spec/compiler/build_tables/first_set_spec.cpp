@@ -14,7 +14,7 @@ describe("computing FIRST sets", []() {
     describe("for a sequence AB", [&]() {
         it("ignores B when A cannot be blank", [&]() {
             auto rule = seq({ sym("x"), sym("y") });
-            
+
             AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
                 Symbol("x"),
             })));
@@ -26,13 +26,13 @@ describe("computing FIRST sets", []() {
                     sym("x"),
                     blank() }),
                 sym("y") });
-            
+
             AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
                 Symbol("x"),
                 Symbol("y")
             })));
         });
-        
+
         it("includes FIRST(A's right hand side) when A is a non-terminal", [&]() {
             auto rule = choice({
                 seq({
@@ -40,7 +40,7 @@ describe("computing FIRST sets", []() {
                     sym("x"),
                     sym("A") }),
                 sym("A") });
-            
+
             Grammar grammar("A", {
                 { "A", choice({
                     seq({
@@ -49,19 +49,19 @@ describe("computing FIRST sets", []() {
                         sym("y") }),
                     sym("y") }) }
             });
-            
+
             AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
                 Symbol("y")
             })));
         });
-        
+
         it("includes FIRST(B) when A is a non-terminal and its expansion can be blank", [&]() {
             Grammar grammar("A", {{ "A", choice({ sym("x"), blank() }) }});
-            
+
             auto rule = seq({
                 sym("A"),
                 sym("y") });
-            
+
             AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
                 Symbol("x"),
                 Symbol("y")

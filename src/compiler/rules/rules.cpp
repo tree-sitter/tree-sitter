@@ -15,20 +15,20 @@ namespace tree_sitter {
     using std::string;
     using std::set;
     using std::vector;
-    
+
     namespace rules {
         rule_ptr blank() {
             return make_shared<Blank>();
         }
-  
+
         rule_ptr choice(const vector<rule_ptr> &rules) {
             return Choice::Build(rules);
         }
-        
+
         rule_ptr repeat(const rule_ptr &content) {
             return std::make_shared<Repeat>(content);
         }
-        
+
         rule_ptr seq(const vector<rule_ptr> &rules) {
             return Seq::Build(rules);
         }
@@ -44,11 +44,11 @@ namespace tree_sitter {
         rule_ptr pattern(const string &value) {
             return make_shared<Pattern>(value);
         }
-        
+
         rule_ptr str(const string &value) {
             return make_shared<String>(value);
         }
-        
+
         rule_ptr err(const rule_ptr &rule) {
             return choice({ rule, ERROR.copy() });
         }

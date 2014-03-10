@@ -13,35 +13,35 @@ describe("computing FOLLOW sets", []() {
         { "A", sym("a") },
         { "B", sym("b") },
     }, {});
-    
+
     it("all of the starting non-terminals for the item, and their following terminals", [&]() {
         ParseItem item(Symbol("C"), choice({
             seq({ sym("A"), choice({ sym("x"), sym("y") }) }),
             seq({ sym("B"), sym("z") }),
         }), {}, Symbol("w"));
-        
+
         AssertThat(follow_sets(item, grammar), Equals(map<Symbol, set<Symbol>>({
             { Symbol("A"), set<Symbol>({ Symbol("x"), Symbol("y") }) },
             { Symbol("B"), set<Symbol>({ Symbol("z") }) },
         })));
     });
-    
+
     it("does not include terminals at the beginning of the item", [&]() {
         ParseItem item(Symbol("C"), choice({
             seq({ sym("A"), choice({ sym("x"), sym("y") }) }),
             seq({ sym("x"), sym("y") }),
         }), {}, Symbol("w"));
-        
+
         AssertThat(follow_sets(item, grammar), Equals(map<Symbol, set<Symbol>>({
             { Symbol("A"), set<Symbol>({ Symbol("x"), Symbol("y") }) },
         })));
     });
-    
+
     it("includes the item's lookahead terminal if the rule after the non-terminal might be blank", [&]() {
         ParseItem item(Symbol("C"), choice({
             seq({ sym("A"), choice({ sym("x"), blank() }) }),
         }), {}, Symbol("w"));
-        
+
         AssertThat(follow_sets(item, grammar), Equals(map<Symbol, set<Symbol>>({
             { Symbol("A"), set<Symbol>({ Symbol("x"), Symbol("w") }) },
         })));

@@ -22,14 +22,14 @@ namespace tree_sitter {
                     Seq::Build({ rule, make_shared<Symbol>(name, SymbolTypeAuxiliary) }),
                     make_shared<Blank>() });
             }
-            
+
             void visit(const Repeat *rule) {
                 rule_ptr inner_rule = apply(rule->content);
                 string helper_rule_name = string("repeat_helper") + to_string(aux_rules.size() + 1);
                 aux_rules.insert({ helper_rule_name, make_repeat_helper(helper_rule_name, inner_rule) });
                 value = make_shared<Symbol>(helper_rule_name, SymbolTypeAuxiliary);
             }
-            
+
             void visit(const Seq *rule) {
                 value = Seq::Build({ apply(rule->left), apply(rule->right) });
             }
@@ -45,14 +45,14 @@ namespace tree_sitter {
         public:
             map<const string, const rule_ptr> aux_rules;
         };
-        
+
         PreparedGrammar expand_repeats(const PreparedGrammar &grammar) {
             map<const string, const rule_ptr> rules, aux_rules(grammar.aux_rules);
             ExpandRepeats expander;
 
             for (auto &pair : grammar.rules)
                 rules.insert({ pair.first, expander.apply(pair.second) });
-            
+
             aux_rules.insert(expander.aux_rules.begin(), expander.aux_rules.end());
 
             return PreparedGrammar(grammar.start_rule_name, rules, aux_rules);

@@ -4,7 +4,7 @@
 namespace tree_sitter {
     using std::make_shared;
     using std::set;
-    
+
     namespace rules {
         rule_ptr character(const set<CharacterRange> &ranges) {
             return make_shared<CharacterSet>(ranges);

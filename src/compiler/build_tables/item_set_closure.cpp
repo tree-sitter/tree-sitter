@@ -8,12 +8,12 @@
 namespace tree_sitter {
     using std::set;
     using rules::Symbol;
-    
+
     namespace build_tables {
         static bool contains(const ParseItemSet &items, const ParseItem &item) {
             return items.size() > 0 && (std::find(items.begin(), items.end(), item) != items.end());
         }
-        
+
         static void add_item(ParseItemSet &item_set, const ParseItem &item, const PreparedGrammar &grammar) {
             if (!contains(item_set, item)) {
                 item_set.insert(item);

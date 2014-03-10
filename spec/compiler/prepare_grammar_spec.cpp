@@ -19,7 +19,7 @@ describe("preparing a grammar", []() {
                         sym("rule3") }),
                     str("ab") }) }
             }));
-            
+
             AssertThat(result.first, Equals(PreparedGrammar("rule1", {
                 { "rule1", seq({
                     make_shared<Symbol>("token1", SymbolTypeAuxiliary),
@@ -28,36 +28,36 @@ describe("preparing a grammar", []() {
                         sym("rule3") }),
                     make_shared<Symbol>("token1", SymbolTypeAuxiliary) }) }
             }, {})));
-            
+
             AssertThat(result.second, Equals(PreparedGrammar("", {}, {
                 { "token1", str("ab") },
             })));
         });
-        
+
         it("moves entire rules into the lexical grammar when possible, preserving their names", [&]() {
             auto result = prepare_grammar(Grammar("rule1", {
                 { "rule1", sym("rule2") },
                 { "rule2", pattern("a|b") }
             }));
-            
+
             AssertThat(result.first, Equals(PreparedGrammar("rule1", {
                 { "rule1", sym("rule2") }
             }, {})));
-            
+
             AssertThat(result.second, Equals(PreparedGrammar("", {
                 { "rule2", pattern("a|b") },
             }, {})));
         });
-        
+
         it("does not extract blanks into tokens", [&]() {
             pair<PreparedGrammar, PreparedGrammar> result = prepare_grammar(Grammar("rule1", {
                 { "rule1", choice({ sym("rule2"), blank() }) },
             }));
-            
+
             AssertThat(result.first, Equals(PreparedGrammar("rule1", {
                 { "rule1", choice({ sym("rule2"), blank() }) },
             }, {})));
-            
+
             AssertThat(result.second, Equals(PreparedGrammar("", {}, {})));
         });
     });
@@ -71,7 +71,7 @@ describe("preparing a grammar", []() {
                     sym("y")
                 }) },
             })).first;
-            
+
             AssertThat(result, Equals(PreparedGrammar("rule1", {
                 { "rule1", seq({
                     sym("x"),

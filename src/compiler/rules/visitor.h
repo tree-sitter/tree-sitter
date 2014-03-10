@@ -13,7 +13,7 @@ namespace tree_sitter {
         class Seq;
         class String;
         class Pattern;
-        
+
         class Visitor {
         public:
             virtual void default_visit(const Rule *rule);
@@ -26,7 +26,7 @@ namespace tree_sitter {
             virtual void visit(const String *rule);
             virtual void visit(const Pattern *rule);
         };
-        
+
         template<typename T>
         class RuleFn : public Visitor {
         protected:

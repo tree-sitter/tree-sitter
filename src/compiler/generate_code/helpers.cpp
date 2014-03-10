@@ -12,7 +12,7 @@ namespace tree_sitter {
                 pos += replace.length();
             }
         }
-        
+
         string join(vector<string> lines, string separator) {
             string result;
             bool started = false;
@@ -23,17 +23,17 @@ namespace tree_sitter {
             }
             return result;
         }
-        
+
         string join(vector<string> lines) {
             return join(lines, "\n");
         }
-        
+
         string indent(string input) {
             string tab = "    ";
             str_replace(input, "\n", "\n" + tab);
             return tab + input;
         }
-        
+
         string escape_string(string input) {
             str_replace(input, "\"", "\\\"");
             return input;

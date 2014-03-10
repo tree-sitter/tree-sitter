@@ -25,7 +25,7 @@ namespace tree_sitter {
             map<const LexItemSet, LexStateId> lex_state_ids;
             ParseTable parse_table;
             LexTable lex_table;
-            
+
             long parse_state_id_for_item_set(const ParseItemSet &item_set) const {
                 auto entry = parse_state_ids.find(item_set);
                 return (entry == parse_state_ids.end()) ? NOT_FOUND : entry->second;
@@ -35,20 +35,20 @@ namespace tree_sitter {
                 auto entry = lex_state_ids.find(item_set);
                 return (entry == lex_state_ids.end()) ? NOT_FOUND : entry->second;
             }
-            
+
             void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (auto transition : sym_transitions(item_set, grammar)) {
                     Symbol symbol = transition.first;
                     ParseItemSet item_set = transition.second;
                     ParseStateId new_state_id = add_parse_state(item_set);
                     parse_table.add_action(state_id, symbol, ParseAction::Shift(new_state_id));
-                    
+
                     if (symbol == rules::ERROR) {
                         parse_table.error_table.insert({ state_id, { new_state_id, first_set(transition.second, grammar) } });
                     }
                 }
             }
-            
+
             void add_advance_actions(const LexItemSet &item_set, LexStateId state_id) {
                 for (auto transition : char_transitions(item_set, grammar)) {
                     CharacterSet rule = transition.first;
@@ -57,7 +57,7 @@ namespace tree_sitter {
                     lex_table.add_action(state_id, rule, LexAction::Advance(new_state_id));
                 }
             }
-            
+
             void add_accept_token_actions(const LexItemSet &item_set, LexStateId state_id) {
                 for (LexItem item : item_set) {
                     if (item.is_done()) {
@@ -65,7 +65,7 @@ namespace tree_sitter {
                     }
                 }
             }
-            
+
             void add_reduce_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (ParseItem item : item_set) {
                     if (item.is_done()) {
@@ -76,7 +76,7 @@ namespace tree_sitter {
                     }
                 }
             }
-            
+
             void assign_lex_state(ParseStateId state_id) {
                 ParseState &state = parse_table.states[state_id];
                 LexItemSet item_set;
@@ -87,7 +87,7 @@ namespace tree_sitter {
 
                 state.lex_state_id = add_lex_state(item_set);
             }
-            
+
             LexStateId add_lex_state(const LexItemSet &item_set) {
                 auto state_id = lex_state_id_for_item_set(item_set);
                 if (state_id == NOT_FOUND) {
@@ -98,7 +98,7 @@ namespace tree_sitter {
                 }
                 return state_id;
             }
-            
+
             ParseStateId add_parse_state(const ParseItemSet &item_set) {
                 auto state_id = parse_state_id_for_item_set(item_set);
                 if (state_id == NOT_FOUND) {
@@ -111,7 +111,7 @@ namespace tree_sitter {
                 }
                 return state_id;
             }
-            
+
             void add_error_lex_state() {
                 LexItemSet error_item_set;
                 for (auto &pair : lex_grammar.rules)
@@ -126,7 +126,7 @@ namespace tree_sitter {
 //                std::vector<const ParseItemSet *> item_sets(parse_state_ids.size());
 //                for (auto &pair : parse_state_ids)
 //                    item_sets[pair.second] = &pair.first;
-//                
+//
 //                for (int i = 0; i < item_sets.size(); i++) {
 //                    std:cout << "\n\n" << i;
 //                    for (auto &item : *item_sets[i]) {
@@ -136,9 +136,9 @@ namespace tree_sitter {
 //                    }
 //                }
 //            }
-    
+
         public:
-            
+
             TableBuilder(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar) :
                 grammar(grammar),
                 lex_grammar(lex_grammar) {};
@@ -151,7 +151,7 @@ namespace tree_sitter {
                 return pair<ParseTable, LexTable>(parse_table, lex_table);
             }
         };
-        
+
         pair<ParseTable, LexTable> build_tables(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar) {
             return TableBuilder(grammar, lex_grammar).build();
         }

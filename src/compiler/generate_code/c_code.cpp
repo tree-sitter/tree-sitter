@@ -12,7 +12,7 @@ namespace tree_sitter {
     using std::vector;
     using std::set;
     using std::pair;
-    
+
     namespace generate_code {
         string _switch(string condition, string body) {
             return join({
@@ -21,7 +21,7 @@ namespace tree_sitter {
                 "}"
             });
         }
-        
+
         string _case(string value, string body) {
             return join({
                 "case " + value + ":",
@@ -35,14 +35,14 @@ namespace tree_sitter {
                 indent(body)
             });
         }
-        
+
         string _if(string condition, string body) {
             return join({
                 "if (" + condition + ")",
                 indent(body), ""
             });
         }
-        
+
         class CCodeGenerator {
             const string name;
             const ParseTable parse_table;
@@ -53,7 +53,7 @@ namespace tree_sitter {
                 parse_table(parse_table),
                 lex_table(lex_table)
                 {}
-            
+
             string symbol_id(rules::Symbol symbol) {
                 if (symbol.is_built_in()) {
                     if (symbol == rules::ERROR)
@@ -65,7 +65,7 @@ namespace tree_sitter {
                 else
                     return "ts_sym_" + symbol.name;
             }
-            
+
             string character_code(char character) {
                 switch (character) {
                     case '\0':
@@ -78,17 +78,17 @@ namespace tree_sitter {
                         return string() + character;
                 }
             }
-            
+
             string condition_for_character_range(const rules::CharacterRange &range) {
                 string lookahead("LOOKAHEAD_CHAR()");
                 if (range.min == range.max) {
                     return lookahead + " == '" + character_code(range.min) + "'";
                 } else {
-                    return string("'") + character_code(range.min) + string("' <= ") + lookahead + 
+                    return string("'") + character_code(range.min) + string("' <= ") + lookahead +
                     " && " + lookahead + " <= '" + character_code(range.max) + "'";
                 }
             }
-            
+
             string condition_for_character_set(const rules::CharacterSet &set) {
                 vector<string> parts;
                 if (set.ranges.size() == 1) {
@@ -99,7 +99,7 @@ namespace tree_sitter {
                     return join(parts, " ||\n    ");
                 }
             }
-            
+
             string condition_for_character_rule(const rules::CharacterSet &rule) {
                 vector<string> parts;
                 pair<rules::CharacterSet, bool> representation = rule.most_compact_representation();
@@ -108,7 +108,7 @@ namespace tree_sitter {
                 else
                     return "!(" + condition_for_character_set(rule.complement()) + ")";
             }
-            
+
             string collapse_flags(vector<bool> flags) {
                 string result;
                 bool started = false;
@@ -119,7 +119,7 @@ namespace tree_sitter {
                 }
                 return result;
             }
-            
+
             string code_for_parse_actions(const set<ParseAction> &actions, const set<rules::Symbol> &expected_inputs) {
                 auto action = actions.begin();
                 switch (action->type) {
@@ -133,7 +133,7 @@ namespace tree_sitter {
                         return "";
                 }
             }
-            
+
             string parse_error_call(const set<rules::Symbol> &expected_inputs) {
                 string result = "PARSE_ERROR(" + to_string(expected_inputs.size()) + ", EXPECT({";
                 bool started = false;
@@ -198,7 +198,7 @@ namespace tree_sitter {
                 body += _default("LEX_PANIC();");
                 return _switch("LEX_STATE()", body);
             }
-            
+
             string symbol_enum() {
                 string result = "enum {\n";
                 for (auto symbol : parse_table.symbols)
@@ -218,7 +218,7 @@ namespace tree_sitter {
             string includes() {
                 return "#include \"tree_sitter/parser.h\"";
             }
-            
+
             string recover_case(ParseStateId state, set<rules::Symbol> symbols) {
                 string result = "RECOVER(" + to_string(state) + ", " + to_string(symbols.size()) + ", EXPECT({";
                 bool started = false;
@@ -231,7 +231,7 @@ namespace tree_sitter {
                 }
                 return result + "}));";
             }
-            
+
             string recover_function() {
                 string cases;
                 for (auto &pair : parse_table.error_table) {
@@ -239,7 +239,7 @@ namespace tree_sitter {
                     cases += _case(to_string(pair.first), recover_case(pair_for_state.first, pair_for_state.second));
                 }
                 cases += _default(recover_case(0, set<rules::Symbol>()));
-                
+
                 string body = _switch("state", cases);
                 return join({
                     "static const ts_symbol * ts_recover(ts_state state, ts_state *to_state, size_t *count) {",
@@ -247,7 +247,7 @@ namespace tree_sitter {
                     "}"
                 });
             }
-            
+
             string lex_function() {
                 return join({
                     "LEX_FN() {",
@@ -256,7 +256,7 @@ namespace tree_sitter {
                     "}"
                 });
             }
-            
+
             string parse_function() {
                 return join({
                     "PARSE_FN() {",
@@ -266,11 +266,11 @@ namespace tree_sitter {
                     "}"
                 });
             }
-            
+
             string parse_config_struct() {
                 return "EXPORT_PARSER(ts_parse_config_" + name + ");";
             }
-            
+
             string code() {
                 return join({
                     includes(),
@@ -283,7 +283,7 @@ namespace tree_sitter {
                 }, "\n\n") + "\n";
             }
         };
-        
+
         string c_code(string name, const ParseTable &parse_table, const LexTable &lex_table) {
             return CCodeGenerator(name, parse_table, lex_table).code();
         }

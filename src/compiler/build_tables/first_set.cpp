@@ -21,7 +21,7 @@ namespace tree_sitter {
             const PreparedGrammar grammar;
         public:
             FirstSet(const PreparedGrammar &grammar) : grammar(grammar) {}
-            
+
             void visit(const Symbol *rule) {
                 if (grammar.has_definition(*rule)) {
                     value = apply(grammar.rule(*rule));
@@ -29,11 +29,11 @@ namespace tree_sitter {
                     value = set<Symbol>({ *rule });
                 }
             }
-            
+
             void visit(const Choice *rule) {
                 value = set_union(apply(rule->left), apply(rule->right));
             }
-            
+
             void visit(const Seq *rule) {
                 auto result = apply(rule->left);
                 if (rule_can_be_blank(rule->left, grammar)) {
@@ -42,11 +42,11 @@ namespace tree_sitter {
                 value = result;
             }
         };
-        
+
         set<Symbol> first_set(const rule_ptr &rule, const PreparedGrammar &grammar) {
             return FirstSet(grammar).apply(rule);
         }
-        
+
         set<Symbol> first_set(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
             set<Symbol> result;
             for (auto &item : item_set) {

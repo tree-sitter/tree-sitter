@@ -15,7 +15,7 @@ namespace tree_sitter {
                                      const map<const string, const rule_ptr> &aux_rules) :
         Grammar(start_rule_name, rules),
         aux_rules(aux_rules) {}
-    
+
     PreparedGrammar::PreparedGrammar(std::string start_rule_name,
                                      const initializer_list<pair<const string, const rule_ptr>> &rules,
                                      const initializer_list<pair<const string, const rule_ptr>> &aux_rules) :
@@ -45,14 +45,14 @@ namespace tree_sitter {
         }
         return true;
     }
-    
+
     bool PreparedGrammar::has_definition(const Symbol &symbol) const {
         return rule(symbol).get() != nullptr;
     }
-    
+
     ostream& operator<<(ostream &stream, const PreparedGrammar &grammar) {
         stream << string("#<grammar");
-        
+
         stream << string(" rules: {");
         bool started = false;
         for (auto pair : grammar.rules) {
@@ -63,7 +63,7 @@ namespace tree_sitter {
             started = true;
         }
         stream << string("}");
-        
+
         stream << string(" aux_rules: {");
         started = false;
         for (auto pair : grammar.aux_rules) {
@@ -74,7 +74,7 @@ namespace tree_sitter {
             started = true;
         }
         stream << string("}");
-        
+
         return stream << string(">");
     }
 }

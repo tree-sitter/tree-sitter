@@ -16,7 +16,7 @@ public:
         }
         return true;
     }
-    
+
     rule_map(const initializer_list<pair<const K, rule_ptr>> &list) : map<K, rule_ptr>(list) {}
 };
 
@@ -30,7 +30,7 @@ describe("rule transitions", []() {
                 { Symbol("1"), blank() }
             })));
     });
-    
+
     it("handles choices", [&]() {
         AssertThat(
             sym_transitions(choice({ sym("1"), sym("2") })),
@@ -39,7 +39,7 @@ describe("rule transitions", []() {
                 { Symbol("2"), blank() }
             })));
     });
-    
+
     it("handles sequences", [&]() {
         AssertThat(
             sym_transitions(seq({ sym("1"), sym("2") })),
@@ -47,7 +47,7 @@ describe("rule transitions", []() {
                 { Symbol("1"), sym("2") }
             })));
     });
-    
+
     it("handles long sequences", [&]() {
         AssertThat(
             sym_transitions(seq({
@@ -60,7 +60,7 @@ describe("rule transitions", []() {
                 { Symbol("1"), seq({ sym("2"), sym("3"), sym("4") }) }
             })));
     });
-    
+
     it("handles sequences whose left sides can be blank", [&]() {
         AssertThat(
             sym_transitions(seq({
@@ -76,7 +76,7 @@ describe("rule transitions", []() {
                 { Symbol("1"), choice({ seq({ sym("1"), sym("2") }), sym("2"), }) }
             })));
     });
-    
+
     it("handles choices with common starting symbols", [&]() {
         AssertThat(
             sym_transitions(
@@ -87,7 +87,7 @@ describe("rule transitions", []() {
                 { Symbol("1"), choice({ sym("2"), sym("3") }) }
             })));
     });
-    
+
     it("handles characters", [&]() {
         AssertThat(
             char_transitions(character({ '1' })),
@@ -95,7 +95,7 @@ describe("rule transitions", []() {
                 { CharacterSet({ '1' }), blank() }
             })));
     });
-    
+
     it("handles strings", [&]() {
         AssertThat(
             char_transitions(str("bad")),
@@ -103,7 +103,7 @@ describe("rule transitions", []() {
                 { CharacterSet({ 'b' }), seq({ character({ 'a' }), character({ 'd' }) }) }
             })));
     });
-    
+
     it("handles patterns", [&]() {
         AssertThat(
             char_transitions(pattern("a|b")),
@@ -112,8 +112,8 @@ describe("rule transitions", []() {
                 { CharacterSet({ 'b' }), blank() }
             })));
     });
-    
-    
+
+
     it("handles choices between overlapping character sets", [&]() {
         AssertThat(
             char_transitions(choice({
@@ -145,7 +145,7 @@ describe("rule transitions", []() {
                         })
                     })
                 }})));
-        
+
         rule = repeat(str("a"));
         AssertThat(
             char_transitions(rule),
@@ -168,7 +168,7 @@ describe("rule transitions", []() {
                 }),
                 character({ '"' }),
             });
-            
+
             AssertThat(char_transitions(rule), Equals(rule_map<CharacterSet>({
                 { CharacterSet({ '"' }).complement(), seq({
                     choice({

@@ -8,7 +8,7 @@ namespace tree_sitter  {
         class Blank : public Rule {
         public:
             Blank();
-            
+
             bool operator==(const Rule& other) const;
             size_t hash_code() const;
             rule_ptr copy() const;

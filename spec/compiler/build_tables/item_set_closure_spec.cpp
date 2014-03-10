@@ -26,7 +26,7 @@ describe("computing closures of item sets", []() {
                  sym("v"),
                  sym("n") }) }
     }, {});
-    
+
     it("computes the item set closure", [&]() {
         ParseItemSet item_set = item_set_closure(ParseItemSet({
             ParseItem(Symbol("E"), grammar.rule(Symbol("E")), {}, Symbol("__END__"))

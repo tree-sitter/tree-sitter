@@ -15,7 +15,7 @@ describe("checking if rules can be blank", [&]() {
             }),
             str("y"),
         });
-        
+
         AssertThat(rule_can_be_blank(rule), Equals(false));
     });
 });

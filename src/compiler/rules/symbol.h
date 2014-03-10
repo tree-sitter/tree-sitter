@@ -11,8 +11,8 @@ namespace tree_sitter  {
             SymbolTypeHidden,
             SymbolTypeAuxiliary,
             SymbolTypeBuiltIn
-        } SymbolType; 
-        
+        } SymbolType;
+
         class Symbol : public Rule {
         public:
             Symbol(const std::string &name);
@@ -20,7 +20,7 @@ namespace tree_sitter  {
 
             bool operator==(const Rule& other) const;
             bool operator==(const Symbol &other) const;
-            
+
             size_t hash_code() const;
             rule_ptr copy() const;
             std::string to_string() const;

@@ -8,9 +8,9 @@
 
 namespace tree_sitter {
     class PreparedGrammar;
-    
+
     namespace build_tables {
-        
+
         /*
          *  Returns a map of non-terminal symbols to sets of terminal symbols.
          *  The keys are the non-terminals which may appear first in the given

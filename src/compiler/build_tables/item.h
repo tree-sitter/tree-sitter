@@ -8,7 +8,7 @@
 
 namespace tree_sitter {
     class Grammar;
-    
+
     namespace build_tables {
         class Item {
         public:
@@ -38,9 +38,9 @@ namespace tree_sitter {
 
         typedef std::set<ParseItem> ParseItemSet;
         typedef std::set<LexItem> LexItemSet;
-        
-        std::ostream& operator<<(std::ostream &stream, const LexItem &item);        
-        std::ostream& operator<<(std::ostream &stream, const ParseItem &item);        
+
+        std::ostream& operator<<(std::ostream &stream, const LexItem &item);
+        std::ostream& operator<<(std::ostream &stream, const ParseItem &item);
     }
 }
 
@@ -64,7 +64,7 @@ namespace std {
             hash<string>()(item.lookahead_sym.name);
         }
     };
-    
+
     template<typename T>
     struct hash<const set<T>> {
         size_t operator()(const set<T> &set) const {

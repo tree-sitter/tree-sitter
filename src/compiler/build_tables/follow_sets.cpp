@@ -24,7 +24,7 @@ namespace tree_sitter {
                     result.insert({ symbol, following_terminals });
                 }
             }
-            
+
             return result;
         }
     }

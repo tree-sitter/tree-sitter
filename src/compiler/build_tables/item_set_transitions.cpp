@@ -8,7 +8,7 @@ namespace tree_sitter {
     using std::set;
     using rules::CharacterSet;
     using rules::Symbol;
-    
+
     namespace build_tables {
         map<CharacterSet, LexItemSet> char_transitions(const LexItem &item) {
             map<CharacterSet, LexItemSet> result;
@@ -18,7 +18,7 @@ namespace tree_sitter {
             }
             return result;
         }
-            
+
         map<Symbol, ParseItemSet> sym_transitions(const ParseItem &item, const PreparedGrammar &grammar) {
             map<Symbol, ParseItemSet> result;
             for (auto transition : sym_transitions(item.rule)) {
@@ -30,14 +30,14 @@ namespace tree_sitter {
             }
             return result;
         }
-        
+
         template<typename T>
         static set<T> merge_sets(const set<T> &left, const set<T> &right) {
             set<T> result = left;
             result.insert(right.begin(), right.end());
             return result;
         }
-        
+
         map<CharacterSet, LexItemSet> char_transitions(const LexItemSet &item_set, const PreparedGrammar &grammar) {
             map<CharacterSet, LexItemSet> result;
             for (const LexItem &item : item_set) {

@@ -14,11 +14,11 @@ namespace tree_sitter {
         Item::Item(const Symbol &lhs, const rule_ptr rule) :
             lhs(lhs),
             rule(rule) {};
-        
+
         bool Item::is_done() const {
             return rule_can_be_blank(rule);
         }
-        
+
         ostream& operator<<(ostream &stream, const LexItem &item) {
             return stream <<
             string("#<item ") <<
@@ -27,7 +27,7 @@ namespace tree_sitter {
             *item.rule <<
             string(">");
         }
-        
+
         ostream& operator<<(ostream &stream, const ParseItem &item) {
             return stream <<
             string("#<item ") <<
@@ -40,7 +40,7 @@ namespace tree_sitter {
             item.lookahead_sym <<
             string(">");
         }
-        
+
         bool LexItem::operator<(const LexItem &other) const {
             if (lhs < other.lhs) return true;
             if (other.lhs < lhs) return false;
@@ -60,13 +60,13 @@ namespace tree_sitter {
         }
 
         LexItem::LexItem(const Symbol &lhs, const rule_ptr rule) : Item(lhs, rule) {}
-        
+
         bool LexItem::operator==(const LexItem &other) const {
             bool lhs_eq = other.lhs == lhs;
             bool rules_eq = (*other.rule == *rule);
             return lhs_eq && rules_eq;
         }
-        
+
         ParseItem::ParseItem(const Symbol &lhs, const rule_ptr rule, const vector<bool> &consumed_symbols, const Symbol &lookahead_sym) :
             Item(lhs, rule),
             consumed_symbols(consumed_symbols),

@@ -48,35 +48,35 @@ describe("parsing pattern rules", []() {
                 })
             })));
     });
-    
+
     it("parses character sets", []() {
         Pattern rule("[aAeE]");
         AssertThat(
             rule.to_rule_tree(),
             EqualsPointer(character({ 'a', 'A', 'e', 'E' })));
     });
-    
+
     it("parses character ranges", []() {
         Pattern rule("[12a-dA-D3]");
         AssertThat(
             rule.to_rule_tree(),
             EqualsPointer(character({ {'1', '3'}, {'a', 'd'}, { 'A', 'D' }, })));
     });
-    
+
     it("parses negated characters", []() {
         Pattern rule("[^a\\d]");
         AssertThat(
             rule.to_rule_tree(),
             EqualsPointer(character({ {'a'}, {'0', '9'} }, false)));
     });
-    
+
     it("parses backslashes", []() {
         Pattern rule("\\\\");
         AssertThat(
             rule.to_rule_tree(),
             EqualsPointer(character({ '\\' })));
     });
-    
+
     it("parses character groups in sequences", []() {
         Pattern rule("\"([^\"]|\\\\\")+\"");
         AssertThat(
@@ -90,7 +90,7 @@ describe("parsing pattern rules", []() {
                 character({ '"' })
             })));
     });
-    
+
     it("parses choices in sequences", []() {
         Pattern rule("(a|b)cd");
         AssertThat(
@@ -104,7 +104,7 @@ describe("parsing pattern rules", []() {
                 character({ 'd' })
             })));
     });
-    
+
     it("parses special characters when they are escaped", []() {
         Pattern rule("a\\(b");
         AssertThat(
@@ -115,7 +115,7 @@ describe("parsing pattern rules", []() {
                 character({ 'b' })
             })));
     });
-    
+
     it("parses repeating rules", []() {
         Pattern rule("(ab)+(cd)+");
         AssertThat(

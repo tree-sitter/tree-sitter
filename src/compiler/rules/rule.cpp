@@ -9,7 +9,7 @@ namespace tree_sitter {
         bool Rule::operator!=(const Rule &other) const {
             return !this->operator==(other);
         }
-        
+
         ostream& operator<<(ostream& stream, const Rule &rule) {
             return stream << rule.to_string();
         }

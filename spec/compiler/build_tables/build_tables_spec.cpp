@@ -36,7 +36,7 @@ describe("building parse and lex tables", []() {
                 sym("right-paren")
             }) }) }
     }, {});
-    
+
     PreparedGrammar lex_grammar("", {
         { "plus", str("+") },
         { "variable", pattern("\\w+") },
@@ -44,25 +44,25 @@ describe("building parse and lex tables", []() {
         { "left-paren", str("(") },
         { "right-paren", str(")") }
     }, {});
-    
+
     ParseTable table;
     LexTable lex_table;
-    
+
     before_each([&]() {
         pair<ParseTable, LexTable> tables = build_tables::build_tables(grammar, lex_grammar);
         table = tables.first;
         lex_table = tables.second;
     });
-    
+
     function<ParseState(size_t)> parse_state = [&](size_t index) {
         return table.states[index];
     };
-    
+
     function<LexState(size_t)> lex_state = [&](size_t parse_state_index) {
         long index = table.states[parse_state_index].lex_state_id;
         return lex_table.states[index];
     };
-    
+
     it("has the right starting state", [&]() {
         AssertThat(keys(parse_state(0).actions), Equals(set<Symbol>({
             Symbol("expression"),
@@ -71,7 +71,7 @@ describe("building parse and lex tables", []() {
             Symbol("variable"),
             Symbol("left-paren"),
         })));
-        
+
         AssertThat(lex_state(0).expected_inputs(), Equals(set<CharacterSet>({
             CharacterSet({ '(' }),
             CharacterSet({ CharacterRange('0', '9') }),

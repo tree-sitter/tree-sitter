@@ -18,13 +18,13 @@ namespace tree_sitter {
     using std::map;
     using std::make_shared;
     using namespace rules;
-    
+
     namespace prepare_grammar {
         class IsToken : public RuleFn<bool> {
             void default_visit(const Rule *rule) {
                 value = false;
             }
-            
+
             void visit(const String *rule) {
                 value = true;
             }
@@ -43,7 +43,7 @@ namespace tree_sitter {
                 tokens.insert({ name, rule });
                 return name;
             }
-           
+
             void default_visit(const Rule *rule) {
                 auto result = rule->copy();
                 if (IsToken().apply(result)) {
@@ -52,15 +52,15 @@ namespace tree_sitter {
                     value = result;
                 }
             }
-            
+
             void visit(const Choice *rule) {
                 value = Choice::Build({ apply(rule->left), apply(rule->right) });
             }
-            
+
             void visit(const Seq *rule) {
                 value = Seq::Build({ apply(rule->left), apply(rule->right) });
             }
-            
+
             void visit(const Repeat *rule) {
                 value = make_shared<Repeat>(apply(rule->content));
             }
@@ -68,11 +68,11 @@ namespace tree_sitter {
         public:
             map<const string, const rule_ptr> tokens;
         };
-        
+
         pair<PreparedGrammar, PreparedGrammar> extract_tokens(const PreparedGrammar &input_grammar) {
             map<const string, const rule_ptr> rules, tokens, aux_rules, aux_tokens;
             TokenExtractor extractor;
-            
+
             for (auto &pair : input_grammar.rules) {
                 string name = pair.first;
                 rule_ptr rule = pair.second;
@@ -90,10 +90,10 @@ namespace tree_sitter {
                 else
                     aux_rules.insert({ name, extractor.apply(rule) });
             }
-            
+
             aux_tokens.insert(extractor.tokens.begin(), extractor.tokens.end());
-            
-            return { 
+
+            return {
                 PreparedGrammar(input_grammar.start_rule_name, rules, aux_rules),
                 PreparedGrammar("", tokens, aux_tokens)
             };

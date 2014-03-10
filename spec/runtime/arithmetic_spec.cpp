@@ -6,22 +6,22 @@ START_TEST
 
 describe("arithmetic", []() {
     ts_document *doc;
-    
+
     before_each([&]() {
         doc = ts_document_make();
         ts_document_set_parser(doc, ts_parse_config_arithmetic);
     });
-    
+
     after_each([&]() {
         ts_document_free(doc);
     });
-    
+
     it("parses variables", [&]() {
         ts_document_set_input_string(doc, "x");
         AssertThat(string(ts_document_string(doc)), Equals(
             "(expression (term (factor (variable))))"));
     });
-    
+
     it("parses numbers", [&]() {
         ts_document_set_input_string(doc, "5");
         AssertThat(string(ts_document_string(doc)), Equals(
@@ -32,12 +32,12 @@ describe("arithmetic", []() {
         ts_document_set_input_string(doc, "x + y");
         AssertThat(string(ts_document_string(doc)), Equals(
             "(expression (term (factor (variable))) (plus) (term (factor (variable))))"));
-        
+
         ts_document_set_input_string(doc, "x * y");
         AssertThat(string(ts_document_string(doc)), Equals(
             "(expression (term (factor (variable)) (times) (factor (variable))))"));
     });
-    
+
     it("parses complex trees", [&]() {
         ts_document_set_input_string(doc, "x * y + z * a");
         AssertThat(string(ts_document_string(doc)), Equals(
@@ -47,13 +47,13 @@ describe("arithmetic", []() {
         AssertThat(string(ts_document_string(doc)), Equals(
             "(expression (term (factor (variable)) (times) (factor (expression (term (factor (variable))) (plus) (term (factor (variable)))))))"));
     });
-    
+
     describe("error recovery", [&]() {
         it("recovers from errors at the top level", [&]() {
             ts_document_set_input_string(doc, "x * * y");
             AssertThat(string(ts_document_string(doc)), Equals("(ERROR)"));
         });
-        
+
         it("recovers from errors in parenthesized expressions", [&]() {
             ts_document_set_input_string(doc, "x + (y * + z) * 5");
             AssertThat(string(ts_document_string(doc)), Equals(

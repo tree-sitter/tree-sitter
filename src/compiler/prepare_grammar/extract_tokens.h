@@ -5,7 +5,7 @@
 
 namespace tree_sitter {
     class PreparedGrammar;
-    
+
     namespace prepare_grammar {
         std::pair<PreparedGrammar, PreparedGrammar> extract_tokens(const PreparedGrammar &);
     }

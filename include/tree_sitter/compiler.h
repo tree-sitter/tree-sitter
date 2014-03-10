@@ -10,9 +10,9 @@ namespace tree_sitter {
     namespace rules {
         class Rule;
         typedef std::shared_ptr<Rule> rule_ptr;
-        
+
         std::ostream& operator<<(std::ostream& stream, const rule_ptr &rule);
-        
+
         rule_ptr blank();
         rule_ptr choice(const std::vector<rule_ptr> &rules);
         rule_ptr repeat(const rule_ptr &content);
@@ -31,7 +31,7 @@ namespace tree_sitter {
         const std::string start_rule_name;
         const std::map<const std::string, const rules::rule_ptr> rules;
     };
-    
+
     std::ostream& operator<<(std::ostream &stream, const Grammar &grammar);
 
     std::string compile(const Grammar &grammar, std::string name);

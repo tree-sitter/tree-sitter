@@ -5,7 +5,7 @@
 
 namespace tree_sitter {
     class PreparedGrammar;
-    
+
     namespace prepare_grammar {
         PreparedGrammar expand_repeats(const PreparedGrammar &);
     }

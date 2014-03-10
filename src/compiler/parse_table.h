@@ -14,7 +14,7 @@ namespace tree_sitter {
         ParseActionTypeShift,
         ParseActionTypeReduce,
     } ParseActionType;
-    
+
     class ParseAction {
         ParseAction(ParseActionType type, size_t state_index, rules::Symbol symbol, const std::vector<bool> &child_flags);
     public:
@@ -24,7 +24,7 @@ namespace tree_sitter {
         static ParseAction Reduce(rules::Symbol symbol, const std::vector<bool> &child_flags);
         bool operator==(const ParseAction &action) const;
         bool operator<(const ParseAction &action) const;
-        
+
         ParseActionType type;
         rules::Symbol symbol;
         size_t state_index;
@@ -33,7 +33,7 @@ namespace tree_sitter {
 
     std::ostream& operator<<(std::ostream &stream, const ParseAction &item);
 }
-        
+
 namespace std {
     template<>
     struct hash<tree_sitter::ParseAction> {
@@ -55,16 +55,16 @@ namespace tree_sitter {
         std::set<rules::Symbol> expected_inputs() const;
         LexStateId lex_state_id;
     };
-    
+
     typedef unsigned long int ParseStateId;
-    
+
     std::ostream& operator<<(std::ostream &stream, const ParseState &state);
-    
+
     class ParseTable {
     public:
         size_t add_state();
         void add_action(ParseStateId state_id, rules::Symbol symbol, ParseAction action);
-        
+
         std::vector<ParseState> states;
         std::set<rules::Symbol> symbols;
         std::map<ParseStateId, std::pair<ParseStateId, std::set<rules::Symbol>>> error_table;

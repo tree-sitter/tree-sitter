@@ -7,7 +7,7 @@
 
 namespace tree_sitter {
     namespace build_tables {
-        
+
         /*
          *  Merges two transition maps with symbol keys. If both maps
          *  contain values for the same symbol, the new value for that
@@ -36,7 +36,7 @@ namespace tree_sitter {
             }
             return result;
         }
-        
+
         /*
          *  Merges two transition maps with character set keys. If the
          *  two maps contain values for overlapping character sets, the
