@@ -1,6 +1,7 @@
 #ifndef COMPILER_RULES_REPEAT_H_
 #define COMPILER_RULES_REPEAT_H_
 
+#include <string>
 #include "compiler/rules/rule.h"
 
 namespace tree_sitter  {

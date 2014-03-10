@@ -1,4 +1,5 @@
 #include "compiler/rules/seq.h"
+#include <string>
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/blank.h"
 

@@ -2,8 +2,9 @@
 #define COMPILER_PARSE_TABLE_H_
 
 #include <map>
-#include <vector>
 #include <set>
+#include <utility>
+#include <vector>
 #include "compiler/lex_table.h"
 #include "compiler/rules/symbol.h"
 

@@ -1,4 +1,6 @@
 #include "compiler/rules/character_set.h"
+#include <string>
+#include <utility>
 #include "compiler/rules/visitor.h"
 
 using std::string;

@@ -1,5 +1,6 @@
 #include "compiler/prepare_grammar/extract_tokens.h"
 #include <map>
+#include <string>
 #include "tree_sitter/compiler.h"
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/visitor.h"
@@ -17,24 +18,24 @@ namespace tree_sitter {
     using std::to_string;
     using std::map;
     using std::make_shared;
-    using namespace rules;
+    using rules::rule_ptr;
 
     namespace prepare_grammar {
-        class IsToken : public RuleFn<bool> {
-            void default_visit(const Rule *rule) {
+        class IsToken : public rules::RuleFn<bool> {
+            void default_visit(const rules::Rule *rule) {
                 value = false;
             }
 
-            void visit(const String *rule) {
+            void visit(const rules::String *rule) {
                 value = true;
             }
 
-            void visit(const Pattern *rule) {
+            void visit(const rules::Pattern *rule) {
                 value = true;
             }
         };
 
-        class TokenExtractor : public RuleFn<rule_ptr> {
+        class TokenExtractor : public rules::RuleFn<rule_ptr> {
             string add_token(const rule_ptr &rule) {
                 for (auto pair : tokens)
                     if (*pair.second == *rule)
@@ -44,25 +45,25 @@ namespace tree_sitter {
                 return name;
             }
 
-            void default_visit(const Rule *rule) {
+            void default_visit(const rules::Rule *rule) {
                 auto result = rule->copy();
                 if (IsToken().apply(result)) {
-                    value = make_shared<Symbol>(add_token(result), SymbolTypeAuxiliary);
+                    value = make_shared<rules::Symbol>(add_token(result), rules::SymbolTypeAuxiliary);
                 } else {
                     value = result;
                 }
             }
 
-            void visit(const Choice *rule) {
-                value = Choice::Build({ apply(rule->left), apply(rule->right) });
+            void visit(const rules::Choice *rule) {
+                value = rules::Choice::Build({ apply(rule->left), apply(rule->right) });
             }
 
-            void visit(const Seq *rule) {
-                value = Seq::Build({ apply(rule->left), apply(rule->right) });
+            void visit(const rules::Seq *rule) {
+                value = rules::Seq::Build({ apply(rule->left), apply(rule->right) });
             }
 
-            void visit(const Repeat *rule) {
-                value = make_shared<Repeat>(apply(rule->content));
+            void visit(const rules::Repeat *rule) {
+                value = make_shared<rules::Repeat>(apply(rule->content));
             }
 
         public:

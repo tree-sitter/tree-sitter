@@ -1,6 +1,7 @@
 #ifndef COMPILER_RULES_SYMBOL_H_
 #define COMPILER_RULES_SYMBOL_H_
 
+#include <string>
 #include <utility>
 #include "compiler/rules/rule.h"
 

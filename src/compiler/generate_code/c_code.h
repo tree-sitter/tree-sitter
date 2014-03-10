@@ -1,6 +1,7 @@
 #ifndef COMPILER_GENERATE_CODE_C_CODE_H_
 #define COMPILER_GENERATE_CODE_C_CODE_H_
 
+#include <string>
 #include "compiler/parse_table.h"
 #include "compiler/lex_table.h"
 

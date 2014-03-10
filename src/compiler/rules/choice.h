@@ -1,6 +1,7 @@
 #ifndef COMPILER_RULES_CHOICE_H_
 #define COMPILER_RULES_CHOICE_H_
 
+#include <string>
 #include <vector>
 #include "compiler/rules/rule.h"
 

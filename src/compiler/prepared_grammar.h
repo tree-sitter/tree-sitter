@@ -1,6 +1,9 @@
 #ifndef COMPILER_PREPARED_GRAMMAR_H_
 #define COMPILER_PREPARED_GRAMMAR_H_
 
+#include <map>
+#include <string>
+#include <utility>
 #include "tree_sitter/compiler.h"
 #include "compiler/rules/symbol.h"
 

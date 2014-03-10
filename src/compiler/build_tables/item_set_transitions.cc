@@ -1,4 +1,5 @@
 #include "compiler/build_tables/item_set_transitions.h"
+#include <set>
 #include "compiler/build_tables/item_set_closure.h"
 #include "compiler/build_tables/rule_transitions.h"
 #include "compiler/build_tables/merge_transitions.h"

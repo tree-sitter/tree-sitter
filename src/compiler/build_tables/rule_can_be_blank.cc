@@ -8,28 +8,26 @@
 #include "compiler/rules/blank.h"
 
 namespace tree_sitter  {
-    using namespace rules;
-
     namespace build_tables {
-        class CanBeBlank : public RuleFn<bool> {
+        class CanBeBlank : public rules::RuleFn<bool> {
         protected:
-            void default_visit(const Rule *) {
+            void default_visit(const rules::Rule *) {
                 value = false;
             }
 
-            virtual void visit(const Blank *) {
+            virtual void visit(const rules::Blank *) {
                 value = true;
             }
 
-            virtual void visit(const Repeat *rule) {
+            virtual void visit(const rules::Repeat *rule) {
                 value = true;
             }
 
-            virtual void visit(const Choice *rule) {
+            virtual void visit(const rules::Choice *rule) {
                 value = apply(rule->left) || apply(rule->right);
             }
 
-            virtual void visit(const Seq *rule) {
+            virtual void visit(const rules::Seq *rule) {
                 value = apply(rule->left) && apply(rule->right);
             }
         };
@@ -41,16 +39,16 @@ namespace tree_sitter  {
         public:
             CanBeBlankRecursive(const PreparedGrammar &grammar) : grammar(grammar) {}
 
-            void visit(const Symbol *rule) {
+            void visit(const rules::Symbol *rule) {
                 value = grammar.has_definition(*rule) && apply(grammar.rule(*rule));
             }
         };
 
-        bool rule_can_be_blank(const rule_ptr &rule) {
+        bool rule_can_be_blank(const rules::rule_ptr &rule) {
             return CanBeBlank().apply(rule);
         }
 
-        bool rule_can_be_blank(const rule_ptr &rule, const PreparedGrammar &grammar) {
+        bool rule_can_be_blank(const rules::rule_ptr &rule, const PreparedGrammar &grammar) {
             return CanBeBlankRecursive(grammar).apply(rule);
         }
     }

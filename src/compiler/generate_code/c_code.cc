@@ -1,6 +1,8 @@
 #include <map>
-#include <vector>
 #include <set>
+#include <string>
+#include <utility>
+#include <vector>
 #include "compiler/generate_code/c_code.h"
 #include "compiler/generate_code/helpers.h"
 #include "compiler/rules/built_in_symbols.h"

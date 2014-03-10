@@ -3,6 +3,8 @@
 
 #include <initializer_list>
 #include <set>
+#include <string>
+#include <utility>
 #include "compiler/rules/rule.h"
 #include "compiler/rules/character_range.h"
 

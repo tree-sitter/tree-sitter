@@ -1,4 +1,5 @@
 #include "compiler/rules/repeat.h"
+#include <string>
 #include "compiler/rules/visitor.h"
 
 namespace tree_sitter {

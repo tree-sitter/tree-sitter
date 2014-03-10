@@ -1,4 +1,5 @@
 #include "compiler/rules/string.h"
+#include <string>
 #include "compiler/rules/visitor.h"
 
 namespace tree_sitter  {

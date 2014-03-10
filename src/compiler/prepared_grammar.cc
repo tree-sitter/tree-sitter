@@ -1,4 +1,7 @@
 #include "compiler/prepared_grammar.h"
+#include <map>
+#include <string>
+#include <utility>
 #include "compiler/rules/symbol.h"
 
 namespace tree_sitter {

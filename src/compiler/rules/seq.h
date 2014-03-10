@@ -1,6 +1,7 @@
 #ifndef COMPILER_RULES_SEQ_H_
 #define COMPILER_RULES_SEQ_H_
 
+#include <string>
 #include <vector>
 #include "compiler/rules/rule.h"
 

@@ -1,4 +1,5 @@
 #include "compiler/build_tables/rule_transitions.h"
+#include <set>
 #include "compiler/build_tables/rule_can_be_blank.h"
 #include "compiler/build_tables/merge_transitions.h"
 #include "compiler/rules/blank.h"
@@ -14,7 +15,9 @@ namespace tree_sitter {
     using std::map;
     using std::set;
     using std::make_shared;
-    using namespace rules;
+    using rules::rule_ptr;
+    using rules::Symbol;
+    using rules::CharacterSet;
 
     namespace build_tables {
         template<typename T>
@@ -23,7 +26,7 @@ namespace tree_sitter {
         template<>
         map<CharacterSet, rule_ptr> merge_transitions(const map<CharacterSet, rule_ptr> &left, const map<CharacterSet, rule_ptr> &right) {
             auto transitions = merge_char_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) {
-                return make_shared<Choice>(left, right);
+                return make_shared<rules::Choice>(left, right);
             });
             return *static_cast<map<CharacterSet, rule_ptr> *>(&transitions);
         }
@@ -31,7 +34,7 @@ namespace tree_sitter {
         template<>
         map<Symbol, rule_ptr> merge_transitions(const map<Symbol, rule_ptr> &left, const map<Symbol, rule_ptr> &right) {
             auto transitions = merge_sym_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) {
-                return make_shared<Choice>(left, right);
+                return make_shared<rules::Choice>(left, right);
             });
             return *static_cast<map<Symbol, rule_ptr> *>(&transitions);
         }
@@ -45,11 +48,11 @@ namespace tree_sitter {
         }
 
         template<typename T>
-        class RuleTransitions : public RuleFn<map<T, rule_ptr>> {
-            void visit_atom(const Rule *rule) {
+        class RuleTransitions : public rules::RuleFn<map<T, rule_ptr>> {
+            void visit_atom(const rules::Rule *rule) {
                 auto atom = dynamic_cast<const T *>(rule);
                 if (atom)
-                    this->value = map<T, rule_ptr>({{ *atom, make_shared<Blank>() }});
+                    this->value = map<T, rule_ptr>({{ *atom, make_shared<rules::Blank>() }});
             }
 
             void visit(const CharacterSet *rule) {
@@ -60,34 +63,34 @@ namespace tree_sitter {
                 visit_atom(rule);
             }
 
-            void visit(const Choice *rule) {
+            void visit(const rules::Choice *rule) {
                 this->value = merge_transitions<T>(this->apply(rule->left),
                                                    this->apply(rule->right));
             }
 
-            void visit(const Seq *rule) {
+            void visit(const rules::Seq *rule) {
                 auto result = map_transitions(this->apply(rule->left), [&](const rule_ptr left_rule) {
-                    return Seq::Build({ left_rule, rule->right });
+                    return rules::Seq::Build({ left_rule, rule->right });
                 });
                 if (rule_can_be_blank(rule->left))
                     result = merge_transitions<T>(result, this->apply(rule->right));
                 this->value = result;
             }
 
-            void visit(const Repeat *rule) {
+            void visit(const rules::Repeat *rule) {
                 this->value = map_transitions(this->apply(rule->content), [&](const rule_ptr &value) {
-                    return Seq::Build({ value, make_shared<Choice>(rule->copy(), make_shared<Blank>()) });
+                    return rules::Seq::Build({ value, make_shared<rules::Choice>(rule->copy(), make_shared<rules::Blank>()) });
                 });
             }
 
-            void visit(const String *rule) {
-                rule_ptr result = make_shared<Blank>();
+            void visit(const rules::String *rule) {
+                rule_ptr result = make_shared<rules::Blank>();
                 for (char val : rule->value)
-                    result = Seq::Build({ result, make_shared<CharacterSet>(set<CharacterRange>({ val })) });
+                    result = rules::Seq::Build({ result, make_shared<CharacterSet>(set<rules::CharacterRange>({ val })) });
                 this->value = this->apply(result);
             }
 
-            void visit(const Pattern *rule) {
+            void visit(const rules::Pattern *rule) {
                 this->value = this->apply(rule->to_rule_tree());
             }
         };

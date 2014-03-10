@@ -1,4 +1,5 @@
 #include "compiler/parse_table.h"
+#include <string>
 
 namespace tree_sitter {
     using std::string;
