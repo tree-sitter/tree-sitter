@@ -1,5 +1,5 @@
-#ifndef __TreeSitter__build_tables__
-#define __TreeSitter__build_tables__
+#ifndef COMPILER_BUILD_TABLES_BUILD_TABLES_H_
+#define COMPILER_BUILD_TABLES_BUILD_TABLES_H_
 
 #include <utility>
 #include "compiler/parse_table.h"
@@ -13,4 +13,4 @@ namespace tree_sitter {
     }
 }
 
-#endif
+#endif  // COMPILER_BUILD_TABLES_BUILD_TABLES_H_

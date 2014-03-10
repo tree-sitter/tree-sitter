@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__follow_sets__
-#define __tree_sitter__follow_sets__
+#ifndef COMPILER_BUILD_TABLES_FOLLOW_SETS_H_
+#define COMPILER_BUILD_TABLES_FOLLOW_SETS_H_
 
 #include <set>
 #include <map>
@@ -22,4 +22,4 @@ namespace tree_sitter {
     }
 }
 
-#endif
+#endif  // COMPILER_BUILD_TABLES_FOLLOW_SETS_H_

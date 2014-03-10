@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__built_in_symbols__
-#define __tree_sitter__built_in_symbols__
+#ifndef COMPILER_RULES_BUILT_IN_SYMBOLS_H_
+#define COMPILER_RULES_BUILT_IN_SYMBOLS_H_
 
 #include "compiler/rules/symbol.h"
 
@@ -11,4 +11,4 @@ namespace tree_sitter {
     }
 }
 
-#endif
+#endif  // COMPILER_RULES_BUILT_IN_SYMBOLS_H_

@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__rule_visitor__
-#define __tree_sitter__rule_visitor__
+#ifndef COMPILER_RULES_VISITOR_H_
+#define COMPILER_RULES_VISITOR_H_
 
 #include "compiler/rules/rule.h"
 
@@ -41,4 +41,4 @@ namespace tree_sitter {
     }
 }
 
-#endif
+#endif  // COMPILER_RULES_VISITOR_H_

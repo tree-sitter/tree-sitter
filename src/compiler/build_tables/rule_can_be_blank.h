@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__rule_can_be_blank__
-#define __tree_sitter__rule_can_be_blank__
+#ifndef COMPILER_BUILD_TABLES_RULE_CAN_BE_BLANK_H_
+#define COMPILER_BUILD_TABLES_RULE_CAN_BE_BLANK_H_
 
 #include "tree_sitter/compiler.h"
 
@@ -12,4 +12,4 @@ namespace tree_sitter {
     }
 }
 
-#endif
+#endif  // COMPILER_BUILD_TABLES_RULE_CAN_BE_BLANK_H_

@@ -1,5 +1,5 @@
-#ifndef __TreeSitter__rule__
-#define __TreeSitter__rule__
+#ifndef COMPILER_RULES_RULE_H_
+#define COMPILER_RULES_RULE_H_
 
 #include <string>
 #include <memory>
@@ -35,4 +35,4 @@ namespace std {
     };
 }
 
-#endif
+#endif  // COMPILER_RULES_RULE_H_

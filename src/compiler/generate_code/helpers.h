@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__helpers__
-#define __tree_sitter__helpers__
+#ifndef COMPILER_GENERATE_CODE_HELPERS_H_
+#define COMPILER_GENERATE_CODE_HELPERS_H_
 
 #include <string>
 #include <vector>
@@ -16,4 +16,4 @@ namespace tree_sitter {
     }
 }
 
-#endif
+#endif  // COMPILER_GENERATE_CODE_HELPERS_H_

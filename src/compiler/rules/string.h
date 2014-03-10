@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__string__
-#define __tree_sitter__string__
+#ifndef COMPILER_RULES_STRING_H_
+#define COMPILER_RULES_STRING_H_
 
 #include "compiler/rules/rule.h"
 
@@ -20,4 +20,4 @@ namespace tree_sitter  {
     }
 }
 
-#endif
+#endif  // COMPILER_RULES_STRING_H_

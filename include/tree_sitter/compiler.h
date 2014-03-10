@@ -1,5 +1,5 @@
-#ifndef tree_sitter_compiler_h
-#define tree_sitter_compiler_h
+#ifndef TREE_SITTER_COMPILER_H_
+#define TREE_SITTER_COMPILER_H_
 
 #include <vector>
 #include <map>
@@ -37,4 +37,4 @@ namespace tree_sitter {
     std::string compile(const Grammar &grammar, std::string name);
 }
 
-#endif
+#endif  // TREE_SITTER_COMPILER_H_

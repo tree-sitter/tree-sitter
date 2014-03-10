@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__first_set__
-#define __tree_sitter__first_set__
+#ifndef COMPILER_BUILD_TABLES_FIRST_SET_H_
+#define COMPILER_BUILD_TABLES_FIRST_SET_H_
 
 #include <set>
 #include "compiler/build_tables/item.h"
@@ -25,4 +25,4 @@ namespace tree_sitter {
     }
 }
 
-#endif
+#endif  // COMPILER_BUILD_TABLES_FIRST_SET_H_

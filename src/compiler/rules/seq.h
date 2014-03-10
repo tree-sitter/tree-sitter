@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__seq__
-#define __tree_sitter__seq__
+#ifndef COMPILER_RULES_SEQ_H_
+#define COMPILER_RULES_SEQ_H_
 
 #include <vector>
 #include "compiler/rules/rule.h"
@@ -23,4 +23,4 @@ namespace tree_sitter  {
     }
 }
 
-#endif
+#endif  // COMPILER_RULES_SEQ_H_

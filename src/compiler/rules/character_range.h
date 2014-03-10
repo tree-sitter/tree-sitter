@@ -1,5 +1,5 @@
-#ifndef __tree_sitter_character_range_h__
-#define __tree_sitter_character_range_h__
+#ifndef COMPILER_RULES_CHARACTER_RANGE_H_
+#define COMPILER_RULES_CHARACTER_RANGE_H_
 
 #include <map>
 #include <string>
@@ -9,10 +9,10 @@ namespace tree_sitter {
         struct CharacterRange {
             char min;
             char max;
-            CharacterRange(char);
-            CharacterRange(char, char);
-            bool operator==(const CharacterRange &) const;
-            bool operator<(const CharacterRange &) const;
+            CharacterRange(char value);
+            CharacterRange(char min, char max);
+            bool operator==(const CharacterRange &other) const;
+            bool operator<(const CharacterRange &others) const;
             std::string to_string() const;
         };
     }
@@ -27,4 +27,4 @@ namespace std {
     };
 }
 
-#endif
+#endif  // COMPILER_RULES_CHARACTER_RANGE_H_

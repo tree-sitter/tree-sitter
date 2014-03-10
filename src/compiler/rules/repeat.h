@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__repeat__
-#define __tree_sitter__repeat__
+#ifndef COMPILER_RULES_REPEAT_H_
+#define COMPILER_RULES_REPEAT_H_
 
 #include "compiler/rules/rule.h"
 
@@ -20,4 +20,4 @@ namespace tree_sitter  {
     }
 }
 
-#endif
+#endif  // COMPILER_RULES_REPEAT_H_

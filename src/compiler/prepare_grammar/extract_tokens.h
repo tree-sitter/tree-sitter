@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__extract_tokens__
-#define __tree_sitter__extract_tokens__
+#ifndef COMPILER_PREPARE_GRAMMAR_EXTRACT_TOKENS_H_
+#define COMPILER_PREPARE_GRAMMAR_EXTRACT_TOKENS_H_
 
 #include <utility>
 
@@ -11,4 +11,4 @@ namespace tree_sitter {
     }
 }
 
-#endif
+#endif  // COMPILER_PREPARE_GRAMMAR_EXTRACT_TOKENS_H_

@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__expand_repeats__
-#define __tree_sitter__expand_repeats__
+#ifndef COMPILER_PREPARE_GRAMMAR_EXPAND_REPEATS_H_
+#define COMPILER_PREPARE_GRAMMAR_EXPAND_REPEATS_H_
 
 #include "tree_sitter/compiler.h"
 
@@ -11,4 +11,4 @@ namespace tree_sitter {
     }
 }
 
-#endif
+#endif  // COMPILER_PREPARE_GRAMMAR_EXPAND_REPEATS_H_

@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__prepared_grammar__
-#define __tree_sitter__prepared_grammar__
+#ifndef COMPILER_PREPARED_GRAMMAR_H_
+#define COMPILER_PREPARED_GRAMMAR_H_
 
 #include "tree_sitter/compiler.h"
 #include "compiler/rules/symbol.h"
@@ -27,4 +27,4 @@ namespace tree_sitter {
     std::string compile(const Grammar &grammar, std::string name);
 }
 
-#endif
+#endif  // COMPILER_PREPARED_GRAMMAR_H_

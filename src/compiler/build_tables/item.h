@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__item__
-#define __tree_sitter__item__
+#ifndef COMPILER_BUILD_TABLES_ITEM_H_
+#define COMPILER_BUILD_TABLES_ITEM_H_
 
 #include <set>
 #include <string>
@@ -76,4 +76,4 @@ namespace std {
     };
 }
 
-#endif
+#endif  // COMPILER_BUILD_TABLES_ITEM_H_

@@ -1,5 +1,5 @@
-#ifndef __tree_sitter_pattern_h_
-#define __tree_sitter_pattern_h_
+#ifndef COMPILER_RULES_PATTERN_H_
+#define COMPILER_RULES_PATTERN_H_
 
 #include "compiler/rules/rule.h"
 
@@ -21,5 +21,5 @@ namespace tree_sitter {
     }
 }
 
-#endif
+#endif  // COMPILER_RULES_PATTERN_H_
 

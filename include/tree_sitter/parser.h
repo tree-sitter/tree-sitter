@@ -1,14 +1,14 @@
-#ifndef tree_sitter_parser_h
-#define tree_sitter_parser_h
+#ifndef TREE_SITTER_PARSER_H_
+#define TREE_SITTER_PARSER_H_
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "./runtime.h"
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include "tree_sitter/runtime.h"
 
 //#define TS_DEBUG_PARSE
 //#define TS_DEBUG_LEX
@@ -310,4 +310,4 @@ return ts_parser_tree(parser);
 }
 #endif
 
-#endif
+#endif  // TREE_SITTER_PARSER_H_

@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__character_set__
-#define __tree_sitter__character_set__
+#ifndef COMPILER_RULES_CHARACTER_SET_H_
+#define COMPILER_RULES_CHARACTER_SET_H_
 
 #include <initializer_list>
 #include <set>
@@ -42,4 +42,4 @@ namespace std {
     };
 }
 
-#endif
+#endif  // COMPILER_RULES_CHARACTER_SET_H_

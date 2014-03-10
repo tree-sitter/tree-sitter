@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__close_item_set__
-#define __tree_sitter__close_item_set__
+#ifndef COMPILER_BUILD_TABLES_ITEM_SET_CLOSURE_H_
+#define COMPILER_BUILD_TABLES_ITEM_SET_CLOSURE_H_
 
 #include "compiler/build_tables/item.h"
 
@@ -11,4 +11,4 @@ namespace tree_sitter {
     }
 }
 
-#endif
+#endif  // COMPILER_BUILD_TABLES_ITEM_SET_CLOSURE_H_

@@ -1,5 +1,5 @@
-#ifndef __TreeSitter__parse_table__
-#define __TreeSitter__parse_table__
+#ifndef COMPILER_PARSE_TABLE_H_
+#define COMPILER_PARSE_TABLE_H_
 
 #include <map>
 #include <vector>
@@ -71,4 +71,4 @@ namespace tree_sitter {
     };
 }
 
-#endif
+#endif  // COMPILER_PARSE_TABLE_H_

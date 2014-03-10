@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__item_set_transitions__
-#define __tree_sitter__item_set_transitions__
+#ifndef COMPILER_BUILD_TABLES_ITEM_SET_TRANSITIONS_H_
+#define COMPILER_BUILD_TABLES_ITEM_SET_TRANSITIONS_H_
 
 #include <map>
 #include "compiler/build_tables/item.h"
@@ -17,4 +17,4 @@ namespace tree_sitter {
     }
 }
 
-#endif
+#endif  // COMPILER_BUILD_TABLES_ITEM_SET_TRANSITIONS_H_

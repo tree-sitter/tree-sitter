@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__transitions__
-#define __tree_sitter__transitions__
+#ifndef COMPILER_BUILD_TABLES_RULE_TRANSITIONS_H_
+#define COMPILER_BUILD_TABLES_RULE_TRANSITIONS_H_
 
 #include <map>
 #include "compiler/rules/character_set.h"
@@ -12,4 +12,4 @@ namespace tree_sitter  {
     }
 }
 
-#endif
+#endif  // COMPILER_BUILD_TABLES_RULE_TRANSITIONS_H_

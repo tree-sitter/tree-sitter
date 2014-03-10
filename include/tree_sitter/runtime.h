@@ -1,5 +1,5 @@
-#ifndef tree_sitter_runtime_h
-#define tree_sitter_runtime_h
+#ifndef TREE_SITTER_RUNTIME_H_
+#define TREE_SITTER_RUNTIME_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,15 +55,15 @@ typedef struct {
 typedef struct ts_document ts_document;
 
 ts_document * ts_document_make();
-void ts_document_free(ts_document *);
-void ts_document_set_parser(ts_document *, ts_parse_config);
-void ts_document_set_input(ts_document *, ts_input input);
-void ts_document_set_input_string(ts_document *, const char *text);
-const ts_tree * ts_document_tree(const ts_document *);
-const char * ts_document_string(const ts_document *);
+void ts_document_free(ts_document *doc);
+void ts_document_set_parser(ts_document *doc, ts_parse_config parser);
+void ts_document_set_input(ts_document *doc, ts_input input);
+void ts_document_set_input_string(ts_document *doc, const char *text);
+const ts_tree * ts_document_tree(const ts_document *doc);
+const char * ts_document_string(const ts_document *doc);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif  // TREE_SITTER_RUNTIME_H_

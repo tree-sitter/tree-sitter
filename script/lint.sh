@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-find src -type f | xargs externals/cpplint.py \
-  --root=src \
-  --filter=-whitespace,-readability/namespace,-legal/copyright \
-  2>&1
+filters=-whitespace,-readability/namespace,-legal/copyright
+cpplint=externals/cpplint.py
+
+find src -type f | xargs $cpplint --root=src --filter=$filters 2>&1
+find include -type f | xargs $cpplint --root=include --filter=$filters 2>&1

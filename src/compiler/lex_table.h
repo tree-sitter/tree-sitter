@@ -1,5 +1,5 @@
-#ifndef __TreeSitter__lex_table__
-#define __TreeSitter__lex_table__
+#ifndef COMPILER_LEX_TABLE_H_
+#define COMPILER_LEX_TABLE_H_
 
 #include <map>
 #include <vector>
@@ -65,4 +65,4 @@ namespace tree_sitter {
     };
 }
 
-#endif
+#endif  // COMPILER_LEX_TABLE_H_

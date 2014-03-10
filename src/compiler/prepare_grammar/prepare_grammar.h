@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__prepare_grammar__
-#define __tree_sitter__prepare_grammar__
+#ifndef COMPILER_PREPARE_GRAMMAR_PREPARE_GRAMMAR_H_
+#define COMPILER_PREPARE_GRAMMAR_PREPARE_GRAMMAR_H_
 
 #include <utility>
 
@@ -12,4 +12,4 @@ namespace tree_sitter {
     }
 }
 
-#endif
+#endif  // COMPILER_PREPARE_GRAMMAR_PREPARE_GRAMMAR_H_

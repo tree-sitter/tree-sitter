@@ -1,5 +1,5 @@
-#ifndef __tree_sitter__sym__
-#define __tree_sitter__sym__
+#ifndef COMPILER_RULES_SYMBOL_H_
+#define COMPILER_RULES_SYMBOL_H_
 
 #include <utility>
 #include "compiler/rules/rule.h"
@@ -46,5 +46,4 @@ namespace std {
     };
 }
 
-
-#endif
+#endif  // COMPILER_RULES_SYMBOL_H_
