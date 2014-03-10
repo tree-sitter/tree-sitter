@@ -151,8 +151,8 @@ namespace tree_sitter  {
             return copy.remove_set(set);
         }
 
-        void CharacterSet::accept(Visitor &visitor) const {
-            visitor.visit(this);
+        void CharacterSet::accept(Visitor *visitor) const {
+            visitor->visit(this);
         }
     }
 }

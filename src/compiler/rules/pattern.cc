@@ -170,8 +170,8 @@ namespace tree_sitter {
             return string("#<pattern '") + value + "'>";
         }
 
-        void Pattern::accept(Visitor &visitor) const {
-            visitor.visit(this);
+        void Pattern::accept(Visitor *visitor) const {
+            visitor->visit(this);
         }
 
         rule_ptr Pattern::to_rule_tree() const {

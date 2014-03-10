@@ -21,8 +21,8 @@ namespace tree_sitter  {
             return "#<blank>";
         }
 
-        void Blank::accept(Visitor &visitor) const {
-            visitor.visit(this);
+        void Blank::accept(Visitor *visitor) const {
+            visitor->visit(this);
         }
     }
 }

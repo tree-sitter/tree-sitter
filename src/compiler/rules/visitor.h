@@ -34,7 +34,7 @@ namespace tree_sitter {
         public:
             T apply(const rule_ptr &rule) {
                 value = T();
-                rule->accept(*this);
+                rule->accept(this);
                 return value;
             }
         };

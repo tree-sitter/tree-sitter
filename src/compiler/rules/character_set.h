@@ -19,7 +19,7 @@ namespace tree_sitter  {
             size_t hash_code() const;
             rule_ptr copy() const;
             std::string to_string() const;
-            void accept(Visitor &visitor) const;
+            void accept(Visitor *visitor) const;
 
             void add_set(const CharacterSet &other);
             CharacterSet remove_set(const CharacterSet &other);

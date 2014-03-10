@@ -58,8 +58,8 @@ namespace tree_sitter  {
             return (type == SymbolTypeHidden || type == SymbolTypeAuxiliary);
         }
 
-        void Symbol::accept(Visitor &visitor) const {
-            visitor.visit(this);
+        void Symbol::accept(Visitor *visitor) const {
+            visitor->visit(this);
         }
     }
 }

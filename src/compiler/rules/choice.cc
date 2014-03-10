@@ -33,8 +33,8 @@ namespace tree_sitter  {
             return string("#<choice ") + left->to_string() + " " + right->to_string() + ">";
         }
 
-        void Choice::accept(Visitor &visitor) const {
-            visitor.visit(this);
+        void Choice::accept(Visitor *visitor) const {
+            visitor->visit(this);
         }
     }
 }

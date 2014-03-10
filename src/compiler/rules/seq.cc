@@ -34,8 +34,8 @@ namespace tree_sitter {
             return string("#<seq ") + left->to_string() + " " + right->to_string() + ">";
         }
 
-        void Seq::accept(Visitor &visitor) const {
-            visitor.visit(this);
+        void Seq::accept(Visitor *visitor) const {
+            visitor->visit(this);
         }
     }
 }

@@ -18,7 +18,7 @@ namespace tree_sitter {
             virtual size_t hash_code() const = 0;
             virtual rule_ptr copy() const = 0;
             virtual std::string to_string() const = 0;
-            virtual void accept(Visitor &visitor) const = 0;
+            virtual void accept(Visitor *visitor) const = 0;
         };
 
         std::ostream& operator<<(std::ostream& stream, const Rule &rule);

@@ -25,8 +25,8 @@ namespace tree_sitter  {
             return string("#<string '") + value + "'>";
         }
 
-        void String::accept(Visitor &visitor) const {
-            visitor.visit(this);
+        void String::accept(Visitor *visitor) const {
+            visitor->visit(this);
         }
     }
 }

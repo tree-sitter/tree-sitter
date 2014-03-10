@@ -10,13 +10,13 @@ namespace tree_sitter {
     using rules::Symbol;
 
     namespace build_tables {
-        static bool contains(const ParseItemSet &items, const ParseItem &item) {
-            return items.size() > 0 && (std::find(items.begin(), items.end(), item) != items.end());
+        static bool contains(const ParseItemSet *items, const ParseItem &item) {
+            return items->size() > 0 && (std::find(items->begin(), items->end(), item) != items->end());
         }
 
-        static void add_item(ParseItemSet &item_set, const ParseItem &item, const PreparedGrammar &grammar) {
+        static void add_item(ParseItemSet *item_set, const ParseItem &item, const PreparedGrammar &grammar) {
             if (!contains(item_set, item)) {
-                item_set.insert(item);
+                item_set->insert(item);
                 for (auto &pair : follow_sets(item, grammar)) {
                     Symbol non_terminal = pair.first;
                     set<Symbol> terminals = pair.second;
@@ -31,7 +31,7 @@ namespace tree_sitter {
         const ParseItemSet item_set_closure(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
             ParseItemSet result;
             for (ParseItem item : item_set)
-                add_item(result, item, grammar);
+                add_item(&result, item, grammar);
             return result;
         }
     }

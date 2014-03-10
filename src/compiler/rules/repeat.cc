@@ -24,8 +24,8 @@ namespace tree_sitter {
             return string("#<repeat ") + content->to_string() + ">";
         }
 
-        void Repeat::accept(Visitor &visitor) const {
-            visitor.visit(this);
+        void Repeat::accept(Visitor *visitor) const {
+            visitor->visit(this);
         }
     }
 }
