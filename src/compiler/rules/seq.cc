@@ -8,7 +8,7 @@ namespace tree_sitter {
     using std::vector;
 
     namespace rules {
-        Seq::Seq(rule_ptr left, rule_ptr right) : left(left), right(right) {};
+        Seq::Seq(rule_ptr left, rule_ptr right) : left(left), right(right) {}
 
         rule_ptr Seq::Build(const std::vector<rule_ptr> &rules) {
             rule_ptr result = make_shared<Blank>();

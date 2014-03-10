@@ -7,8 +7,8 @@ namespace tree_sitter  {
     using std::hash;
     
     namespace rules {
-        Symbol::Symbol(const std::string &name) : name(name), type(SymbolTypeNormal) {};
-        Symbol::Symbol(const std::string &name, SymbolType type) : name(name), type(type) {};
+        Symbol::Symbol(const std::string &name) : name(name), type(SymbolTypeNormal) {}
+        Symbol::Symbol(const std::string &name, SymbolType type) : name(name), type(type) {}
 
         bool Symbol::operator==(const Rule &rule) const {
             const Symbol *other = dynamic_cast<const Symbol *>(&rule);

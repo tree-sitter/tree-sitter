@@ -60,10 +60,11 @@ namespace tree_sitter {
                         return "ts_builtin_sym_error";
                     else
                         return "ts_builtin_sym_end";
-                } else if (symbol.is_auxiliary())
+                } else if (symbol.is_auxiliary()) {
                     return "ts_aux_sym_" + symbol.name;
-                else
+                } else {
                     return "ts_sym_" + symbol.name;
+                }
             }
 
             string character_code(char character) {

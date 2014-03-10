@@ -13,7 +13,7 @@ namespace tree_sitter {
     namespace build_tables {
         Item::Item(const Symbol &lhs, const rule_ptr rule) :
             lhs(lhs),
-            rule(rule) {};
+            rule(rule) {}
 
         bool Item::is_done() const {
             return rule_can_be_blank(rule);

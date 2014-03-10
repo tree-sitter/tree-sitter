@@ -6,7 +6,7 @@ namespace tree_sitter  {
     using std::hash;
     
     namespace rules {
-        String::String(string value) : value(value) {};
+        String::String(string value) : value(value) {}
 
         bool String::operator==(const Rule &rule) const {
             const String *other = dynamic_cast<const String *>(&rule);

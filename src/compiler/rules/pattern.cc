@@ -151,7 +151,7 @@ namespace tree_sitter {
             size_t position;
         };
 
-        Pattern::Pattern(const string &string) : value(string) {};
+        Pattern::Pattern(const string &string) : value(string) {}
 
         bool Pattern::operator==(tree_sitter::rules::Rule const &other) const {
             auto pattern = dynamic_cast<const Pattern *>(&other);

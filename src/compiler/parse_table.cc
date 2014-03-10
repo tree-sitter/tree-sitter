@@ -12,7 +12,7 @@ namespace tree_sitter {
         type(type),
         symbol(symbol),
         state_index(state_index),
-        child_flags(child_flags) {};
+        child_flags(child_flags) {}
 
     ParseAction ParseAction::Error() {
         return ParseAction(ParseActionTypeError, -1, Symbol(""), {});

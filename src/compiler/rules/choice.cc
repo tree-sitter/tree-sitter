@@ -7,7 +7,7 @@ namespace tree_sitter  {
     using std::vector;
 
     namespace rules {
-        Choice::Choice(rule_ptr left, rule_ptr right) : left(left), right(right) {};
+        Choice::Choice(rule_ptr left, rule_ptr right) : left(left), right(right) {}
 
         rule_ptr Choice::Build(const vector<rule_ptr> &rules) {
             rule_ptr result;
