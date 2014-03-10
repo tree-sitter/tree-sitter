@@ -62,50 +62,50 @@ describe("character sets", []() {
 
     describe("computing differences", []() {
         it("works for disjoint sets", []() {
-            CharacterSet set1({ {'a','z'} });
-            set1.remove_set(CharacterSet({ {'A','Z'} }));
+            CharacterSet set1({ {'a', 'z'} });
+            set1.remove_set(CharacterSet({ {'A', 'Z'} }));
             AssertThat(set1, Equals(CharacterSet({ {'a', 'z'} })));
         });
 
         it("works when one set spans the other", []() {
             CharacterSet set1({ {'a','z'} });
-            set1.remove_set(CharacterSet({ {'d','s'} }));
+            set1.remove_set(CharacterSet({ {'d', 's'} }));
             AssertThat(set1, Equals(CharacterSet({ {'a', 'c'}, {'t', 'z'} })));
         });
 
         it("works for sets that overlap", []() {
             CharacterSet set1({ {'a','s'} });
-            set1.remove_set(CharacterSet({ {'m','z'} }));
+            set1.remove_set(CharacterSet({ {'m', 'z'} }));
             AssertThat(set1, Equals(CharacterSet({ {'a', 'l'} })));
 
             CharacterSet set2({ {'m','z'} });
-            set2.remove_set(CharacterSet({ {'a','s'} }));
+            set2.remove_set(CharacterSet({ {'a', 's'} }));
             AssertThat(set2, Equals(CharacterSet({ {'t', 'z'} })));
         });
 
         it("works for sets with multiple ranges", []() {
-            CharacterSet set1({ {'a','d'}, {'m', 'z'} });
-            set1.remove_set(CharacterSet({ {'c','o'}, {'s','x'} }));
-            AssertThat(set1, Equals(CharacterSet({ {'a', 'b'}, {'p','r'}, {'y','z'} })));
+            CharacterSet set1({ {'a', 'd'}, {'m', 'z'} });
+            set1.remove_set(CharacterSet({ {'c', 'o'}, {'s', 'x'} }));
+            AssertThat(set1, Equals(CharacterSet({ {'a', 'b'}, {'p', 'r'}, {'y', 'z'} })));
         });
     });
 
     describe("computing intersections", []() {
         it("returns an empty set for disjoint sets", []() {
-            CharacterSet set1({ {'a','d'} });
-            CharacterSet set2({ {'e','x'} });
+            CharacterSet set1({ {'a', 'd'} });
+            CharacterSet set2({ {'e', 'x'} });
             AssertThat(set1.intersect(set2), Equals(CharacterSet()));
         });
 
         it("works for sets with a single overlapping range", []() {
-            CharacterSet set1({ {'a','e'} });
-            CharacterSet set2({ {'c','x'} });
+            CharacterSet set1({ {'a', 'e'} });
+            CharacterSet set2({ {'c', 'x'} });
             AssertThat(set1.intersect(set2), Equals(CharacterSet({ {'c', 'e'} })));
         });
 
         it("works for sets with two overlapping ranges", []() {
-            CharacterSet set1({ {'a','e'}, {'w','z'} });
-            CharacterSet set2({ {'c','y'} });
+            CharacterSet set1({ {'a', 'e'}, {'w', 'z'} });
+            CharacterSet set2({ {'c', 'y'} });
             AssertThat(set1.intersect(set2), Equals(CharacterSet({ {'c', 'e'}, {'w', 'y'} })));
         });
     });

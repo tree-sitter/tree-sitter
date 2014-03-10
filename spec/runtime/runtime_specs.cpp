@@ -1,7 +1,6 @@
 #include "runtime_spec_helper.h"
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     const char *args[] = {
         "",
         "--no-color",
