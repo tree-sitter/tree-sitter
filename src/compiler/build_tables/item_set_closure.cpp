@@ -1,9 +1,9 @@
-#include "item_set_closure.h"
-#include "tree_sitter/compiler.h"
-#include "./follow_sets.h"
-#include "item.h"
-#include "prepared_grammar.h"
+#include "compiler/build_tables/item_set_closure.h"
 #include <algorithm>
+#include "tree_sitter/compiler.h"
+#include "compiler/build_tables/follow_sets.h"
+#include "compiler/build_tables/item.h"
+#include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {
     using std::set;

@@ -1,10 +1,10 @@
 #ifndef __tree_sitter__item__
 #define __tree_sitter__item__
 
-#include "rules/symbol.h"
-#include <string>
 #include <set>
+#include <string>
 #include <vector>
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
     class Grammar;

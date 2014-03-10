@@ -1,15 +1,15 @@
-#include "extract_tokens.h"
-#include "tree_sitter/compiler.h"
-#include "prepared_grammar.h"
-#include "rules/visitor.h"
-#include "rules/seq.h"
-#include "rules/choice.h"
-#include "rules/repeat.h"
-#include "rules/blank.h"
-#include "rules/symbol.h"
-#include "rules/string.h"
-#include "rules/pattern.h"
+#include "compiler/prepare_grammar/extract_tokens.h"
 #include <map>
+#include "tree_sitter/compiler.h"
+#include "compiler/prepared_grammar.h"
+#include "compiler/rules/visitor.h"
+#include "compiler/rules/seq.h"
+#include "compiler/rules/choice.h"
+#include "compiler/rules/repeat.h"
+#include "compiler/rules/blank.h"
+#include "compiler/rules/symbol.h"
+#include "compiler/rules/string.h"
+#include "compiler/rules/pattern.h"
 
 namespace tree_sitter {
     using std::pair;

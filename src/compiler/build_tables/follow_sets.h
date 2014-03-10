@@ -1,10 +1,10 @@
 #ifndef __tree_sitter__follow_sets__
 #define __tree_sitter__follow_sets__
 
-#include "item.h"
-#include "rules/symbol.h"
 #include <set>
 #include <map>
+#include "compiler/build_tables/item.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
     class PreparedGrammar;

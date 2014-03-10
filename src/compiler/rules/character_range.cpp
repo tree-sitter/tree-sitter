@@ -1,4 +1,4 @@
-#include "character_range.h"
+#include "compiler/rules/character_range.h"
 #include <string>
 
 namespace tree_sitter {

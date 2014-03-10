@@ -1,8 +1,9 @@
 #ifndef __TreeSitter__build_tables__
 #define __TreeSitter__build_tables__
 
-#include "parse_table.h"
-#include "lex_table.h"
+#include <utility>
+#include "compiler/parse_table.h"
+#include "compiler/lex_table.h"
 
 namespace tree_sitter {
     class PreparedGrammar;

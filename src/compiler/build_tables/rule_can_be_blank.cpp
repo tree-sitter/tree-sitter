@@ -1,11 +1,11 @@
-#include "rule_can_be_blank.h"
+#include "compiler/build_tables/rule_can_be_blank.h"
 #include "tree_sitter/compiler.h"
-#include "prepared_grammar.h"
-#include "rules/symbol.h"
-#include "rules/visitor.h"
-#include "rules/seq.h"
-#include "rules/choice.h"
-#include "rules/blank.h"
+#include "compiler/prepared_grammar.h"
+#include "compiler/rules/symbol.h"
+#include "compiler/rules/visitor.h"
+#include "compiler/rules/seq.h"
+#include "compiler/rules/choice.h"
+#include "compiler/rules/blank.h"
 
 namespace tree_sitter  {
     using namespace rules;

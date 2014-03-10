@@ -1,5 +1,5 @@
 #include "compiler_spec_helper.h"
-#include "rules/rule.h"
+#include "compiler/rules/rule.h"
 
 using namespace rules;
 

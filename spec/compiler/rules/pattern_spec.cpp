@@ -1,6 +1,6 @@
 #include "compiler_spec_helper.h"
-#include "rules/pattern.h"
-#include "rules/character_set.h"
+#include "compiler/rules/pattern.h"
+#include "compiler/rules/character_set.h"
 
 using namespace rules;
 

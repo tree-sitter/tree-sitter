@@ -4,8 +4,8 @@
 #include <map>
 #include <vector>
 #include <set>
-#include "rules/symbol.h"
-#include "./lex_table.h"
+#include "compiler/lex_table.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
     typedef enum {

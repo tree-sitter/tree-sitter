@@ -1,10 +1,10 @@
-#include "string.h"
-#include "visitor.h"
-
-using std::string;
-using std::hash;
+#include "compiler/rules/string.h"
+#include "compiler/rules/visitor.h"
 
 namespace tree_sitter  {
+    using std::string;
+    using std::hash;
+    
     namespace rules {
         String::String(string value) : value(value) {};
 

@@ -1,11 +1,13 @@
-#include "build_tables.h"
-#include "prepared_grammar.h"
-#include "item.h"
-#include "item_set_closure.h"
-#include "item_set_transitions.h"
-#include "tree_sitter/compiler.h"
-#include "rules/built_in_symbols.h"
-#include "first_set.h"
+#include "compiler/build_tables/build_tables.h"
+#include <string>
+#include <utility>
+#include <map>
+#include "compiler/prepared_grammar.h"
+#include "compiler/rules/built_in_symbols.h"
+#include "compiler/build_tables/item.h"
+#include "compiler/build_tables/item_set_closure.h"
+#include "compiler/build_tables/item_set_transitions.h"
+#include "compiler/build_tables/first_set.h"
 
 namespace tree_sitter {
     using std::pair;
@@ -26,12 +28,12 @@ namespace tree_sitter {
             ParseTable parse_table;
             LexTable lex_table;
 
-            long parse_state_id_for_item_set(const ParseItemSet &item_set) const {
+            int64_t parse_state_id_for_item_set(const ParseItemSet &item_set) const {
                 auto entry = parse_state_ids.find(item_set);
                 return (entry == parse_state_ids.end()) ? NOT_FOUND : entry->second;
             }
 
-            long lex_state_id_for_item_set(const LexItemSet &item_set) const {
+            int64_t lex_state_id_for_item_set(const LexItemSet &item_set) const {
                 auto entry = lex_state_ids.find(item_set);
                 return (entry == lex_state_ids.end()) ? NOT_FOUND : entry->second;
             }
@@ -141,7 +143,7 @@ namespace tree_sitter {
 
             TableBuilder(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar) :
                 grammar(grammar),
-                lex_grammar(lex_grammar) {};
+                lex_grammar(lex_grammar) {}
 
             pair<ParseTable, LexTable> build() {
                 ParseItem item(rules::START, make_shared<Symbol>(grammar.start_rule_name), {}, rules::END_OF_INPUT);

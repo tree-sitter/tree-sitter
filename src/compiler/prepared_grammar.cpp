@@ -1,5 +1,5 @@
-#include "prepared_grammar.h"
-#include "rules/symbol.h"
+#include "compiler/prepared_grammar.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
     using std::string;

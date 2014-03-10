@@ -1,5 +1,5 @@
-#include "blank.h"
-#include "visitor.h"
+#include "compiler/rules/blank.h"
+#include "compiler/rules/visitor.h"
 
 namespace tree_sitter  {
     namespace rules {

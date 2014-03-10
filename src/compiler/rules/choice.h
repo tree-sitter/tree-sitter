@@ -1,8 +1,8 @@
 #ifndef __tree_sitter__choice__
 #define __tree_sitter__choice__
 
-#include "rule.h"
 #include <vector>
+#include "compiler/rules/rule.h"
 
 namespace tree_sitter {
     namespace rules {

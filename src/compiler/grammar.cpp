@@ -1,5 +1,5 @@
 #include "tree_sitter/compiler.h"
-#include "rules/rule.h"
+#include "compiler/rules/rule.h"
 
 namespace tree_sitter {
     using std::string;

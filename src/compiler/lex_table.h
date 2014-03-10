@@ -1,12 +1,12 @@
 #ifndef __TreeSitter__lex_table__
 #define __TreeSitter__lex_table__
 
-#include <vector>
-#include <string>
-#include <set>
 #include <map>
-#include "rules/symbol.h"
-#include "rules/character_set.h"
+#include <vector>
+#include <set>
+#include <string>
+#include "compiler/rules/symbol.h"
+#include "compiler/rules/character_set.h"
 
 namespace tree_sitter {
     typedef enum {

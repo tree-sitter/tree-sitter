@@ -1,5 +1,5 @@
-#include "character_set.h"
-#include "visitor.h"
+#include "compiler/rules/character_set.h"
+#include "compiler/rules/visitor.h"
 
 using std::string;
 using std::hash;

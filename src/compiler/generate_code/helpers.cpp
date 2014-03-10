@@ -1,4 +1,4 @@
-#include "./helpers.h"
+#include "compiler/generate_code/helpers.h"
 
 namespace tree_sitter {
     namespace generate_code {

@@ -1,8 +1,8 @@
 #ifndef __tree_sitter__item_set_transitions__
 #define __tree_sitter__item_set_transitions__
 
-#include "item.h"
 #include <map>
+#include "compiler/build_tables/item.h"
 
 namespace tree_sitter {
     class PreparedGrammar;

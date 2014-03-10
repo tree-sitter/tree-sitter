@@ -2,7 +2,7 @@
 #define __tree_sitter__prepared_grammar__
 
 #include "tree_sitter/compiler.h"
-#include "rules/symbol.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
     class PreparedGrammar : public Grammar {

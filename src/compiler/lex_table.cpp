@@ -1,4 +1,4 @@
-#include "lex_table.h"
+#include "compiler/lex_table.h"
 
 namespace tree_sitter {
     using std::string;

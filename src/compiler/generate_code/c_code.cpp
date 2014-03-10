@@ -1,9 +1,9 @@
-#include "c_code.h"
-#include <vector>
 #include <map>
+#include <vector>
 #include <set>
-#include "rules/built_in_symbols.h"
-#include "./helpers.h"
+#include "compiler/generate_code/c_code.h"
+#include "compiler/generate_code/helpers.h"
+#include "compiler/rules/built_in_symbols.h"
 
 namespace tree_sitter {
     using std::string;

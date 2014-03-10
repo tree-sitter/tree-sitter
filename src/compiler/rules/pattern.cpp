@@ -1,10 +1,10 @@
-#include "pattern.h"
-#include "visitor.h"
-#include "choice.h"
-#include "seq.h"
-#include "repeat.h"
-#include "character_set.h"
+#include "compiler/rules/pattern.h"
 #include <set>
+#include "compiler/rules/visitor.h"
+#include "compiler/rules/choice.h"
+#include "compiler/rules/seq.h"
+#include "compiler/rules/repeat.h"
+#include "compiler/rules/character_set.h"
 
 namespace tree_sitter {
     namespace rules {

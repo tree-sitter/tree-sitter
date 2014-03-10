@@ -1,9 +1,9 @@
-#include "repeat.h"
-#include "visitor.h"
-
-using std::string;
+#include "compiler/rules/repeat.h"
+#include "compiler/rules/visitor.h"
 
 namespace tree_sitter {
+    using std::string;
+    
     namespace rules {
         Repeat::Repeat(const rule_ptr content) : content(content) {}
 

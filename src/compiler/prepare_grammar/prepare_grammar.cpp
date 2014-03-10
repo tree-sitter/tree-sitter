@@ -1,7 +1,7 @@
-#include "prepare_grammar.h"
-#include "prepared_grammar.h"
-#include "extract_tokens.h"
-#include "expand_repeats.h"
+#include "compiler/prepare_grammar/prepare_grammar.h"
+#include "compiler/prepared_grammar.h"
+#include "compiler/prepare_grammar/extract_tokens.h"
+#include "compiler/prepare_grammar/expand_repeats.h"
 
 namespace tree_sitter {
     using std::pair;

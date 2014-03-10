@@ -1,10 +1,10 @@
 #ifndef __tree_sitter__character_set__
 #define __tree_sitter__character_set__
 
-#include "rule.h"
-#include "./character_range.h"
-#include <set>
 #include <initializer_list>
+#include <set>
+#include "compiler/rules/rule.h"
+#include "compiler/rules/character_range.h"
 
 namespace tree_sitter  {
     namespace rules {

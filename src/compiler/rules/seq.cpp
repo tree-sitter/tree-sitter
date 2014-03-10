@@ -1,6 +1,6 @@
-#include "seq.h"
-#include "visitor.h"
-#include "blank.h"
+#include "compiler/rules/seq.h"
+#include "compiler/rules/visitor.h"
+#include "compiler/rules/blank.h"
 
 namespace tree_sitter {
     using std::make_shared;

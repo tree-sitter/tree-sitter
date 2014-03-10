@@ -1,9 +1,9 @@
 #ifndef __tree_sitter__first_set__
 #define __tree_sitter__first_set__
 
-#include "rules/symbol.h"
-#include "item.h"
 #include <set>
+#include "compiler/build_tables/item.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
     class PreparedGrammar;

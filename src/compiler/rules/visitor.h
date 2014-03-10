@@ -1,7 +1,7 @@
 #ifndef __tree_sitter__rule_visitor__
 #define __tree_sitter__rule_visitor__
 
-#include "./rule.h"
+#include "compiler/rules/rule.h"
 
 namespace tree_sitter {
     namespace rules {

@@ -1,7 +1,7 @@
 #ifndef __tree_sitter_pattern_h_
 #define __tree_sitter_pattern_h_
 
-#include "rule.h"
+#include "compiler/rules/rule.h"
 
 namespace tree_sitter {
     namespace rules {

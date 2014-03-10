@@ -1,8 +1,8 @@
-#include "follow_sets.h"
-#include "first_set.h"
-#include "rule_transitions.h"
-#include "rule_can_be_blank.h"
-#include "prepared_grammar.h"
+#include "compiler/build_tables/follow_sets.h"
+#include "compiler/build_tables/first_set.h"
+#include "compiler/build_tables/rule_transitions.h"
+#include "compiler/build_tables/rule_can_be_blank.h"
+#include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {
     using std::set;

@@ -1,6 +1,6 @@
-#include "item.h"
+#include "compiler/build_tables/item.h"
+#include "compiler/build_tables/rule_can_be_blank.h"
 #include "tree_sitter/compiler.h"
-#include "rule_can_be_blank.h"
 
 namespace tree_sitter {
     using std::string;

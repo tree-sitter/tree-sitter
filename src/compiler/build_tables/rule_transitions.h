@@ -1,9 +1,9 @@
 #ifndef __tree_sitter__transitions__
 #define __tree_sitter__transitions__
 
-#include "rules/character_set.h"
-#include "rules/symbol.h"
 #include <map>
+#include "compiler/rules/character_set.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter  {
     namespace build_tables {

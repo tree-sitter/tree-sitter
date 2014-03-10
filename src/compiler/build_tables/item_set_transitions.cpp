@@ -1,7 +1,7 @@
-#include "item_set_transitions.h"
-#include "item_set_closure.h"
-#include "rule_transitions.h"
-#include "merge_transitions.h"
+#include "compiler/build_tables/item_set_transitions.h"
+#include "compiler/build_tables/item_set_closure.h"
+#include "compiler/build_tables/rule_transitions.h"
+#include "compiler/build_tables/merge_transitions.h"
 
 namespace tree_sitter {
     using std::map;

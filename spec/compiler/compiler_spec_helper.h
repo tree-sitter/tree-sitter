@@ -6,7 +6,7 @@
 #include "helpers/equals_pointer.h"
 #include "helpers/character_set_helpers.h"
 #include "tree_sitter/compiler.h"
-#include "rules/character_set.h"
+#include "compiler/rules/character_set.h"
 
 using namespace tree_sitter;
 using namespace std;

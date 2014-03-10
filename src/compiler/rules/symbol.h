@@ -1,8 +1,8 @@
 #ifndef __tree_sitter__sym__
 #define __tree_sitter__sym__
 
-#include "rule.h"
 #include <utility>
+#include "compiler/rules/rule.h"
 
 namespace tree_sitter  {
     namespace rules {

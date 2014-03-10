@@ -1,7 +1,7 @@
 #ifndef __tree_sitter__close_item_set__
 #define __tree_sitter__close_item_set__
 
-#include "item.h"
+#include "compiler/build_tables/item.h"
 
 namespace tree_sitter {
     class PreparedGrammar;

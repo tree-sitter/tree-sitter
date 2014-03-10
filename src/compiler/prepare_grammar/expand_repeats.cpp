@@ -1,12 +1,12 @@
-#include "expand_repeats.h"
-#include "prepared_grammar.h"
-#include "rules/visitor.h"
-#include "rules/seq.h"
-#include "rules/symbol.h"
-#include "rules/choice.h"
-#include "rules/blank.h"
-#include "rules/repeat.h"
+#include "compiler/prepare_grammar/expand_repeats.h"
 #include <map>
+#include "compiler/prepared_grammar.h"
+#include "compiler/rules/visitor.h"
+#include "compiler/rules/seq.h"
+#include "compiler/rules/symbol.h"
+#include "compiler/rules/choice.h"
+#include "compiler/rules/blank.h"
+#include "compiler/rules/repeat.h"
 
 namespace tree_sitter {
     using std::string;

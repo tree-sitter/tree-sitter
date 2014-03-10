@@ -1,5 +1,5 @@
-#include "choice.h"
-#include "visitor.h"
+#include "compiler/rules/choice.h"
+#include "compiler/rules/visitor.h"
 
 namespace tree_sitter  {
     using std::string;
