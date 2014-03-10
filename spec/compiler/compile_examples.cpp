@@ -1,6 +1,6 @@
 #include "compiler_spec_helper.h"
-#include "../../examples/grammars/json.hpp"
-#include "../../examples/grammars/arithmetic.hpp"
+#include "grammars/json.hpp"
+#include "grammars/arithmetic.hpp"
 #include <fstream>
 
 static string src_dir() {

@@ -7,7 +7,6 @@
       'include_dirs': [
         'include',
         'src',
-        'src',
       ],
       'sources': [
         '<!@(find include src -name "*.h" -or -name "*.cpp" -or -name "*.c")',
@@ -44,8 +43,9 @@
       'type': 'executable',
       'dependencies': ['tree_sitter'],
       'include_dirs': [
+        'src',
         'externals/bandit',
-        'src/compiler',
+        'examples',
         'spec/compiler',
       ],
       'sources': [
@@ -59,8 +59,9 @@
       'type': 'executable',
       'dependencies': ['tree_sitter'],
       'include_dirs': [
+        'src',
         'externals/bandit',
-        'src/runtime',
+        'examples',
         'spec/runtime',
       ],
       'sources': [

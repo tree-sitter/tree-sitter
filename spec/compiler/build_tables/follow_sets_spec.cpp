@@ -1,6 +1,6 @@
 #include "compiler_spec_helper.h"
-#include "prepared_grammar.h"
-#include "build_tables/follow_sets.h"
+#include "compiler/prepared_grammar.h"
+#include "compiler/build_tables/follow_sets.h"
 
 using std::set;
 using namespace build_tables;

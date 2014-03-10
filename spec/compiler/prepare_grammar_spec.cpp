@@ -1,6 +1,6 @@
 #include "compiler_spec_helper.h"
-#include "prepared_grammar.h"
-#include "prepare_grammar/prepare_grammar.h"
+#include "compiler/prepared_grammar.h"
+#include "compiler/prepare_grammar/prepare_grammar.h"
 #include "compiler/rules/symbol.h"
 
 START_TEST

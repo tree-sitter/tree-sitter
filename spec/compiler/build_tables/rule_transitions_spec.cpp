@@ -1,5 +1,5 @@
 #include "compiler_spec_helper.h"
-#include "build_tables/rule_transitions.h"
+#include "compiler/build_tables/rule_transitions.h"
 
 using namespace rules;
 using namespace build_tables;

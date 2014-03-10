@@ -1,6 +1,6 @@
 #include "compiler_spec_helper.h"
-#include "prepared_grammar.h"
-#include "build_tables/build_tables.h"
+#include "compiler/prepared_grammar.h"
+#include "compiler/build_tables/build_tables.h"
 #include <functional>
 
 using namespace rules;

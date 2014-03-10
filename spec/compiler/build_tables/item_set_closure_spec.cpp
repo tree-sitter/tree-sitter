@@ -1,7 +1,7 @@
 #include "compiler_spec_helper.h"
-#include "prepared_grammar.h"
-#include "build_tables/item_set_closure.h"
-#include "build_tables/item_set_transitions.h"
+#include "compiler/prepared_grammar.h"
+#include "compiler/build_tables/item_set_closure.h"
+#include "compiler/build_tables/item_set_transitions.h"
 
 using namespace build_tables;
 using namespace rules;
