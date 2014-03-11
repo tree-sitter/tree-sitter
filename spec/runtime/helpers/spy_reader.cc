@@ -15,13 +15,13 @@ static const char * spy_read(void *data, size_t *bytes_read) {
 }
 
 static int spy_seek(void *data, size_t position) {
-    SpyReader *reader = static_cast<SpyReader *>(data); 
+    SpyReader *reader = static_cast<SpyReader *>(data);
     reader->position = position;
     return 0;
 }
 
 static void spy_release(void *data) {
-    SpyReader *reader = static_cast<SpyReader *>(data); 
+    SpyReader *reader = static_cast<SpyReader *>(data);
     delete reader;
 }
 

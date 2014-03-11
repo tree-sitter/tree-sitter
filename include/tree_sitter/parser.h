@@ -38,12 +38,11 @@ typedef struct {
 
 typedef struct {
     ts_input input;
-
     const char *chunk;
     size_t chunk_start;
     size_t chunk_size;
     size_t position_in_chunk;
-    
+
     size_t token_end_position;
     size_t token_start_position;
 
@@ -56,19 +55,18 @@ typedef struct {
 
 static void ts_lex(ts_parser *parser);
 static const ts_symbol * ts_recover(ts_state state, ts_state *to_state, size_t *count);
+static void ts_parser_advance(ts_parser *);
 
 static ts_parser ts_parser_make(ts_input input) {
-    size_t bytes_read = 0;
-    const char *chunk = input.read_fn(input.data, &bytes_read);
     ts_parser result = {
         .input = input,
+        .chunk = NULL,
+        .chunk_start = 0,
+        .chunk_size = 0,
+        .position_in_chunk = 0,
+
         .token_start_position = 0,
         .token_end_position = 0,
-
-        .chunk = chunk,
-        .chunk_size = bytes_read,
-        .chunk_start = 0,
-        .position_in_chunk = 0,
 
         .lookahead_node = NULL,
         .prev_lookahead_node = NULL,
@@ -76,9 +74,11 @@ static ts_parser ts_parser_make(ts_input input) {
         .stack = calloc(INITIAL_STACK_SIZE, sizeof(ts_stack_entry)),
         .stack_size = 0,
     };
+
+    ts_parser_advance(&result);
     return result;
 }
-    
+
 static size_t ts_parser_position(const ts_parser *parser) {
     return parser->chunk_start + parser->position_in_chunk;
 }
@@ -157,7 +157,7 @@ static void ts_parser_reduce(ts_parser *parser, ts_symbol symbol, int immediate_
 static const char empty_chunk[1] = { '\0' };
 
 static void ts_parser_advance(ts_parser *parser) {
-    if (parser->position_in_chunk < parser->chunk_size - 1) {
+    if (parser->position_in_chunk + 1 < parser->chunk_size) {
         parser->position_in_chunk++;
     } else {
         parser->chunk_start += parser->chunk_size;
