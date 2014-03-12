@@ -14,7 +14,7 @@ describe("computing FOLLOW sets", []() {
         { "B", sym("b") },
     }, {});
 
-    it("all of the starting non-terminals for the item, and their following terminals", [&]() {
+    it("includes all of the starting non-terminals for the item, and their following terminals", [&]() {
         ParseItem item(Symbol("C"), choice({
             seq({ sym("A"), choice({ sym("x"), sym("y") }) }),
             seq({ sym("B"), sym("z") }),
