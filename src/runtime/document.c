@@ -4,6 +4,7 @@
 struct ts_document {
     ts_parse_config parse_config;
     const ts_tree *tree;
+    ts_input input;
     size_t error_count;
 };
 
@@ -28,7 +29,13 @@ const char * ts_document_string(const ts_document *document) {
 }
 
 void ts_document_set_input(ts_document *document, ts_input input) {
+    document->input = input;
     document->tree = document->parse_config.parse_fn(input);
+}
+
+void ts_document_edit(ts_document *document, size_t position, size_t bytes_removed, size_t bytes_inserted) {
+    document->input.seek_fn(document->input.data, 0);
+    document->tree = document->parse_config.parse_fn(document->input);
 }
 
 typedef struct {

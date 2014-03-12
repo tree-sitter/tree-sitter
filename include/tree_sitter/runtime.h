@@ -59,6 +59,8 @@ void ts_document_free(ts_document *doc);
 void ts_document_set_parser(ts_document *doc, ts_parse_config parser);
 void ts_document_set_input(ts_document *doc, ts_input input);
 void ts_document_set_input_string(ts_document *doc, const char *text);
+void ts_document_edit(ts_document *doc, size_t position, size_t deleted_bytes, size_t inserted_bytes);
+
 const ts_tree * ts_document_tree(const ts_document *doc);
 const char * ts_document_string(const ts_document *doc);
 
