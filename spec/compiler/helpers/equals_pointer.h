@@ -1,5 +1,5 @@
-#ifndef tree_sitter_equals_pointer_h
-#define tree_sitter_equals_pointer_h
+#ifndef HELPERS_EQUALS_POINTER_H_
+#define HELPERS_EQUALS_POINTER_H_
 
 #include <string>
 
@@ -35,4 +35,4 @@ namespace snowhouse {
     }
 }
 
-#endif
+#endif  // HELPERS_EQUALS_POINTER_H_

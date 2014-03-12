@@ -58,17 +58,17 @@ describe("json", []() {
             const ts_tree *number1 = ts_tree_children(array)[0];
             const ts_tree *number2 = ts_tree_children(array)[1];
 
-            AssertThat(number1->offset, Equals(0));
-            AssertThat(number1->size, Equals(2));
+            AssertThat(number1->offset, Equals<size_t>(0));
+            AssertThat(number1->size, Equals<size_t>(2));
 
-            AssertThat(number2->offset, Equals(1));
-            AssertThat(number2->size, Equals(1));
+            AssertThat(number2->offset, Equals<size_t>(1));
+            AssertThat(number2->size, Equals<size_t>(1));
 
-            AssertThat(array->offset, Equals(2));
-            AssertThat(array->size, Equals(7));
+            AssertThat(array->offset, Equals<size_t>(2));
+            AssertThat(array->size, Equals<size_t>(7));
 
-            AssertThat(tree->offset, Equals(2));
-            AssertThat(tree->size, Equals(7));
+            AssertThat(tree->offset, Equals<size_t>(2));
+            AssertThat(tree->size, Equals<size_t>(7));
         });
     });
 
