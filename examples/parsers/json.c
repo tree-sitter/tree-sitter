@@ -32,7 +32,7 @@ SYMBOL_NAMES {
     "repeat_helper2",
 };
 
-static const ts_symbol * ts_recover(ts_state state, ts_state *to_state, size_t *count) {
+RECOVER_FN() {
     switch (state) {
         case 3:
             RECOVER(52, 2, EXPECT({ts_sym_comma, ts_sym_right_brace}));

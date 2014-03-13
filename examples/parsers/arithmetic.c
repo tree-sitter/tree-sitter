@@ -24,7 +24,7 @@ SYMBOL_NAMES {
     "token2",
 };
 
-static const ts_symbol * ts_recover(ts_state state, ts_state *to_state, size_t *count) {
+RECOVER_FN() {
     switch (state) {
         case 6:
             RECOVER(7, 1, EXPECT({ts_aux_sym_token2}));

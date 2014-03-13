@@ -2,7 +2,7 @@
 #include <string.h>
 
 struct ts_document {
-    ts_parse_config parse_config;
+    ts_parser parser;
     const ts_tree *tree;
     ts_input input;
     size_t error_count;
@@ -16,8 +16,8 @@ void ts_document_free(ts_document *document) {
     free(document);
 }
 
-void ts_document_set_parser(ts_document *document, ts_parse_config config) {
-    document->parse_config = config;
+void ts_document_set_parser(ts_document *document, ts_parser parser) {
+    document->parser = parser;
 }
 
 const ts_tree * ts_document_tree(const ts_document *document) {
@@ -25,17 +25,17 @@ const ts_tree * ts_document_tree(const ts_document *document) {
 }
 
 const char * ts_document_string(const ts_document *document) {
-    return ts_tree_string(document->tree, document->parse_config.symbol_names);
+    return ts_tree_string(document->tree, document->parser.symbol_names);
 }
 
 void ts_document_set_input(ts_document *document, ts_input input) {
     document->input = input;
-    document->tree = document->parse_config.parse_fn(input);
+    document->tree = ts_parser_parse(&document->parser, input);
 }
 
 void ts_document_edit(ts_document *document, size_t position, size_t bytes_removed, size_t bytes_inserted) {
     document->input.seek_fn(document->input.data, 0);
-    document->tree = document->parse_config.parse_fn(document->input);
+    document->tree = ts_parser_parse(&document->parser, document->input);
 }
 
 typedef struct {

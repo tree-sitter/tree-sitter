@@ -253,11 +253,9 @@ namespace tree_sitter {
                 }
                 cases += _default(recover_case(0, set<rules::Symbol>()));
 
-                string body = _switch("state", cases);
                 return join({
-                    "static const ts_symbol * "
-                    "ts_recover(ts_state state, ts_state *to_state, size_t *count) {",
-                    indent(body),
+                    "RECOVER_FN() {",
+                    indent(_switch("state", cases)),
                     "}"
                 });
             }

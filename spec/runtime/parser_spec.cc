@@ -1,8 +1,8 @@
 #include "runtime_spec_helper.h"
 #include "helpers/spy_reader.h"
 
-extern ts_parse_config ts_parse_config_json;
-
+extern "C" ts_parser ts_parse_config_json();
+    
 START_TEST
 
 describe("parsing", [&]() {
@@ -11,7 +11,7 @@ describe("parsing", [&]() {
 
     before_each([&]() {
         doc = ts_document_make();
-        ts_document_set_parser(doc, ts_parse_config_json);
+        ts_document_set_parser(doc, ts_parse_config_json());
 
         reader = new SpyReader("{ \"key\": [1, 2] }", 5);
         ts_document_set_input(doc, reader->input);
@@ -31,7 +31,7 @@ describe("parsing", [&]() {
                         "(value (number)) "
                         "(value (number))))))"));
     });
-    
+
     it("reads the entire input", [&]() {
         AssertThat(reader->chunks_read, Equals(vector<string>({
             "{ \"ke",
@@ -63,7 +63,7 @@ describe("parsing", [&]() {
                         "(value (number))))"
             ));
         });
-        
+
         it_skip("re-reads only the changed portion of the input", [&]() {
             AssertThat(reader->chunks_read, Equals(vector<string>({
                 ""
