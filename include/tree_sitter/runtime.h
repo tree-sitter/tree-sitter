@@ -53,7 +53,7 @@ typedef struct {
         const char **symbol_names;
         void *data;
     } ts_parser;
-    
+
     const ts_tree * ts_parser_parse(ts_parser *, ts_input);
     void ts_parser_free(ts_parser *);
 

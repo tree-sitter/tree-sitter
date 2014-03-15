@@ -2,7 +2,7 @@
 #include "helpers/spy_reader.h"
 
 extern "C" ts_parser ts_parser_json();
-    
+
 START_TEST
 
 describe("parsing", [&]() {

@@ -254,7 +254,7 @@ typedef struct {
     ts_lexer lexer;
     ts_stack stack;
     ts_tree *lookahead;
-    ts_tree *previous_lookahead;
+    ts_tree *next_lookahead;
 } ts_lr_parser;
 
 static ts_lr_parser * ts_lr_parser_make() {
@@ -267,7 +267,7 @@ static ts_lr_parser * ts_lr_parser_make() {
 static void ts_lr_parser_reset(ts_lr_parser *parser) {
     ts_stack_shrink(&parser->stack, 0);
     parser->lookahead = NULL;
-    parser->previous_lookahead = NULL;
+    parser->next_lookahead = NULL;
     parser->lexer = ts_lexer_make();
 }
 
@@ -278,13 +278,13 @@ static ts_symbol ts_lr_parser_lookahead_sym(const ts_lr_parser *parser) {
 
 static void ts_lr_parser_shift(ts_lr_parser *parser, state_id parse_state) {
     ts_stack_push(&parser->stack, parse_state, parser->lookahead);
-    parser->lookahead = parser->previous_lookahead;
-    parser->previous_lookahead = NULL;
+    parser->lookahead = parser->next_lookahead;
+    parser->next_lookahead = NULL;
 }
 
 static void ts_lr_parser_reduce(ts_lr_parser *parser, ts_symbol symbol, int immediate_child_count, const int *collapse_flags) {
     ts_tree *lookahead = ts_stack_reduce(&parser->stack, symbol, immediate_child_count, collapse_flags);
-    parser->previous_lookahead = parser->lookahead;
+    parser->next_lookahead = parser->lookahead;
     parser->lookahead = lookahead;
 }
 
@@ -294,7 +294,15 @@ static int ts_lr_parser_handle_error(ts_lr_parser *parser, size_t count, const t
     for (;;) {
         ts_tree_release(parser->lookahead);
         parser->lookahead = ts_lex(&parser->lexer, ts_lex_state_error);
+        if (parser->lookahead->symbol == ts_builtin_sym_end) {
+            parser->stack.entries[0].node = error;
+            return 0;
+        }
 
+        /*
+         *  Unwind the stack, looking for a state in which this token
+         *  may appear after an error.
+         */
         for (long i = parser->stack.size - 1; i >= 0; i--) {
             size_t count;
             state_id to_state;
@@ -306,11 +314,6 @@ static int ts_lr_parser_handle_error(ts_lr_parser *parser, size_t count, const t
                     return 1;
                 }
             }
-        }
-
-        if (!ts_lexer_lookahead_char(&parser->lexer)) {
-            parser->stack.entries[0].node = error;
-            return 0;
         }
     }
 }
