@@ -30,12 +30,11 @@ const char * ts_document_string(const ts_document *document) {
 
 void ts_document_set_input(ts_document *document, ts_input input) {
     document->input = input;
-    document->tree = ts_parser_parse(&document->parser, input);
+    document->tree = ts_parser_parse(&document->parser, input, NULL);
 }
 
-void ts_document_edit(ts_document *document, size_t position, size_t bytes_removed, size_t bytes_inserted) {
-    document->input.seek_fn(document->input.data, 0);
-    document->tree = ts_parser_parse(&document->parser, document->input);
+void ts_document_edit(ts_document *document, ts_input_edit edit) {
+    document->tree = ts_parser_parse(&document->parser, document->input, &edit);
 }
 
 typedef struct {

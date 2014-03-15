@@ -33,7 +33,7 @@ extern "C" {
 
 #define PARSE_FN() \
 static const ts_tree * \
-ts_parse(void *data, ts_input input)
+ts_parse(void *data, ts_input input, ts_input_edit *edit)
 
 #define LEX_FN() \
 static ts_tree * \
@@ -59,9 +59,7 @@ ts_parser constructor_name() { \
 
 #define START_PARSER() \
 ts_lr_parser *parser = (ts_lr_parser *)data; \
-ts_lr_parser_reset(parser); \
-parser->lexer.input = input; \
-ts_lexer_advance(&parser->lexer); \
+ts_lr_parser_initialize(parser, input, edit); \
 next_state:
 
 #define LOOKAHEAD_SYM() \
@@ -264,11 +262,15 @@ static ts_lr_parser * ts_lr_parser_make() {
     return result;
 }
 
-static void ts_lr_parser_reset(ts_lr_parser *parser) {
+static void ts_lr_parser_initialize(ts_lr_parser *parser, ts_input input, ts_input_edit *edit) {
     ts_stack_shrink(&parser->stack, 0);
     parser->lookahead = NULL;
     parser->next_lookahead = NULL;
+
+    input.seek_fn(input.data, 0);
     parser->lexer = ts_lexer_make();
+    parser->lexer.input = input;
+    ts_lexer_advance(&parser->lexer);
 }
 
 static ts_symbol ts_lr_parser_lookahead_sym(const ts_lr_parser *parser) {
@@ -283,9 +285,8 @@ static void ts_lr_parser_shift(ts_lr_parser *parser, state_id parse_state) {
 }
 
 static void ts_lr_parser_reduce(ts_lr_parser *parser, ts_symbol symbol, int immediate_child_count, const int *collapse_flags) {
-    ts_tree *lookahead = ts_stack_reduce(&parser->stack, symbol, immediate_child_count, collapse_flags);
     parser->next_lookahead = parser->lookahead;
-    parser->lookahead = lookahead;
+    parser->lookahead = ts_stack_reduce(&parser->stack, symbol, immediate_child_count, collapse_flags);
 }
 
 static int ts_lr_parser_handle_error(ts_lr_parser *parser, size_t count, const ts_symbol *expected_symbols) {

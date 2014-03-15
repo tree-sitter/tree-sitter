@@ -13,6 +13,7 @@ typedef struct {
 } ts_stack;
 
 static int INITIAL_STACK_SIZE = 100;
+static int INITIAL_STATE = 0;
 
 ts_stack ts_stack_make() {
     ts_stack result = {
@@ -23,7 +24,7 @@ ts_stack ts_stack_make() {
 }
 
 state_id ts_stack_top_state(const ts_stack *stack) {
-    if (stack->size == 0) return 0;
+    if (stack->size == 0) return INITIAL_STATE;
     return stack->entries[stack->size - 1].state;
 }
 

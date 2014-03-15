@@ -48,14 +48,20 @@ typedef struct {
 } ts_input;
 
     typedef struct {
-        const ts_tree * (* parse_fn)(void *data, ts_input input);
-        void (* free_fn)(void *data);
-        const char **symbol_names;
-        void *data;
-    } ts_parser;
+        size_t position;
+        size_t bytes_inserted;
+        size_t bytes_removed;
+    } ts_input_edit;
 
-    const ts_tree * ts_parser_parse(ts_parser *, ts_input);
-    void ts_parser_free(ts_parser *);
+typedef struct {
+    const ts_tree * (* parse_fn)(void *data, ts_input input, ts_input_edit *edit);
+    void (* free_fn)(void *data);
+    const char **symbol_names;
+    void *data;
+} ts_parser;
+
+const ts_tree * ts_parser_parse(ts_parser *, ts_input, ts_input_edit *edit);
+void ts_parser_free(ts_parser *);
 
 typedef struct ts_document ts_document;
 
@@ -64,7 +70,7 @@ void ts_document_free(ts_document *doc);
 void ts_document_set_parser(ts_document *doc, ts_parser parser);
 void ts_document_set_input(ts_document *doc, ts_input input);
 void ts_document_set_input_string(ts_document *doc, const char *text);
-void ts_document_edit(ts_document *doc, size_t position, size_t deleted_bytes, size_t inserted_bytes);
+void ts_document_edit(ts_document *doc, ts_input_edit edit);
 
 const ts_tree * ts_document_tree(const ts_document *doc);
 const char * ts_document_string(const ts_document *doc);

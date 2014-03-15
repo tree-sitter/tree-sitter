@@ -48,7 +48,11 @@ describe("parsing", [&]() {
             string inserted_text(", \"key2\": 4 ");
 
             reader->content.insert(position, inserted_text);
-            ts_document_edit(doc, position, 0, inserted_text.length());
+            ts_document_edit(doc, {
+                .position = position,
+                .bytes_removed = 0,
+                .bytes_inserted = inserted_text.length()
+            });
         });
 
         it("updates the parse tree", [&]() {
@@ -64,7 +68,7 @@ describe("parsing", [&]() {
             ));
         });
 
-        it_skip("re-reads only the changed portion of the input", [&]() {
+        it("re-reads only the changed portion of the input", [&]() {
             AssertThat(reader->chunks_read, Equals(vector<string>({
                 ""
             })));
