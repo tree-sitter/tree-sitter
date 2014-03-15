@@ -279,8 +279,8 @@ namespace tree_sitter {
                 });
             }
 
-            string parse_config_struct() {
-                return "EXPORT_PARSER(ts_parse_config_" + name + ");";
+            string parser_export() {
+                return "EXPORT_PARSER(ts_parser_" + name + ");";
             }
 
             string code() {
@@ -291,7 +291,7 @@ namespace tree_sitter {
                     recover_function(),
                     lex_function(),
                     parse_function(),
-                    parse_config_struct(),
+                    parser_export(),
                 }, "\n\n") + "\n";
             }
         };

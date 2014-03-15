@@ -1,6 +1,6 @@
 #include "runtime_spec_helper.h"
 
-extern "C" ts_parser ts_parse_config_json();
+extern "C" ts_parser ts_parser_json();
 
 START_TEST
 
@@ -9,7 +9,7 @@ describe("json", []() {
 
     before_each([&]() {
         doc = ts_document_make();
-        ts_document_set_parser(doc, ts_parse_config_json());
+        ts_document_set_parser(doc, ts_parser_json());
     });
 
     after_each([&]() {

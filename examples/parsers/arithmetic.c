@@ -759,4 +759,4 @@ PARSE_FN() {
     FINISH_PARSER();
 }
 
-EXPORT_PARSER(ts_parse_config_arithmetic);
+EXPORT_PARSER(ts_parser_arithmetic);

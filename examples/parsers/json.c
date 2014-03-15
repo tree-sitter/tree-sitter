@@ -916,4 +916,4 @@ PARSE_FN() {
     FINISH_PARSER();
 }
 
-EXPORT_PARSER(ts_parse_config_json);
+EXPORT_PARSER(ts_parser_json);

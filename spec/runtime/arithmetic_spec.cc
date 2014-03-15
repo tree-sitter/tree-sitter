@@ -1,6 +1,6 @@
 #include "runtime_spec_helper.h"
 
-extern "C" ts_parser ts_parse_config_arithmetic();
+extern "C" ts_parser ts_parser_arithmetic();
 
 START_TEST
 
@@ -9,8 +9,7 @@ describe("arithmetic", []() {
 
     before_each([&]() {
         doc = ts_document_make();
-        ts_parser parser = ts_parse_config_arithmetic();
-        ts_document_set_parser(doc, parser);
+        ts_document_set_parser(doc, ts_parser_arithmetic());
     });
 
     after_each([&]() {
