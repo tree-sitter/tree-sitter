@@ -123,19 +123,20 @@ namespace tree_sitter {
                 return result;
             }
 
-            string code_for_parse_actions(const set<ParseAction> &actions,
-                                          const set<rules::Symbol> &expected_inputs) {
+            string code_for_parse_actions(const rules::Symbol &symbol, const set<ParseAction> &actions) {
+                string sym_id = symbol_id(symbol);
                 auto action = actions.begin();
                 switch (action->type) {
                     case ParseActionTypeAccept:
-                        return "ACCEPT_INPUT();";
+                        return "ACCEPT_INPUT(" + sym_id + ")";
                     case ParseActionTypeShift:
-                        return "SHIFT(" + to_string(action->state_index) + ");";
+                        return "SHIFT(" + sym_id + ", " + to_string(action->state_index) + ")";
                     case ParseActionTypeReduce:
                         return "REDUCE(" +
+                            sym_id + ", " +
                             symbol_id(action->symbol) + ", " +
                             to_string(action->child_flags.size()) + ", " +
-                            "COLLAPSE({" + collapse_flags(action->child_flags) + "}));";
+                            "COLLAPSE({" + collapse_flags(action->child_flags) + "}))";
                     default:
                         return "";
                 }
@@ -170,18 +171,6 @@ namespace tree_sitter {
                 }
             }
 
-            string code_for_parse_state(const ParseState &parse_state) {
-                string body = "";
-                auto expected_inputs = parse_state.expected_inputs();
-                for (auto pair : parse_state.actions)
-                    body += _case(symbol_id(pair.first),
-                                  code_for_parse_actions(pair.second, expected_inputs));
-                body += _default(parse_error_call(expected_inputs));
-                return
-                    string("SET_LEX_STATE(") + to_string(parse_state.lex_state_id) + ");\n" +
-                    _switch("LOOKAHEAD_SYM()", body);
-            }
-
             string switch_on_lookahead_char(const LexState &parse_state) {
                 string result = "";
                 auto expected_inputs = parse_state.expected_inputs();
@@ -190,14 +179,6 @@ namespace tree_sitter {
                                   code_for_lex_actions(pair.second, expected_inputs));
                 result += code_for_lex_actions(parse_state.default_actions, expected_inputs);
                 return result;
-            }
-
-            string switch_on_parse_state() {
-                string body = "";
-                for (size_t i = 0; i < parse_table.states.size(); i++)
-                    body += _case(std::to_string(i), code_for_parse_state(parse_table.states[i]));
-                body += _default("PARSE_PANIC();");
-                return _switch("PARSE_STATE()", body);
             }
 
             string switch_on_lex_state() {
@@ -218,7 +199,7 @@ namespace tree_sitter {
             }
 
             string rule_names_list() {
-                string result = "SYMBOL_NAMES {\n";
+                string result = "SYMBOL_NAMES = {\n";
                 for (auto symbol : parse_table.symbols)
                     if (!symbol.is_built_in())
                         result += indent(string("\"") + symbol.name) + "\",\n";
@@ -269,12 +250,37 @@ namespace tree_sitter {
                 });
             }
 
-            string parse_function() {
+            template<typename T>
+            vector<string> map_to_string(const vector<T> &inputs, std::function<string(T)> f) {
+                vector<string> result;
+                for (auto &item : inputs)
+                    result.push_back(f(item));
+                return result;
+            }
+
+            string parse_table_row_for_state(const ParseState &state) {
+                string result("SET_LEX_STATE(" + to_string(state.lex_state_id) + ");");
+                for (auto &pair : state.actions) {
+                    result += "\n" + code_for_parse_actions(pair.first, pair.second);
+                }
+                return result;
+            }
+
+            string parse_table_function() {
+                size_t state_id = 0;
                 return join({
-                    "PARSE_FN() {",
-                    indent("START_PARSER();"),
-                    indent(switch_on_parse_state()),
-                    indent("FINISH_PARSER();"),
+                    "PARSE_TABLE() {",
+                    indent(join({
+                        "START_TABLE(" + to_string(parse_table.states.size()) + ")",
+                        join(map_to_string<ParseState>(parse_table.states, [&](ParseState state) -> string {
+                            return join({
+                                "STATE(" + to_string(state_id++) + ", " + to_string(parse_table.symbols.size()) + ");",
+                                parse_table_row_for_state(state),
+                                "END_STATE();"
+                            });
+                        }), "\n\n"),
+                        "END_TABLE();",
+                    }, "\n\n")),
                     "}"
                 });
             }
@@ -288,9 +294,10 @@ namespace tree_sitter {
                     includes(),
                     symbol_enum(),
                     rule_names_list(),
-                    recover_function(),
+//                    recover_function(),
+//                    parse_function(),
                     lex_function(),
-                    parse_function(),
+                    parse_table_function(),
                     parser_export(),
                 }, "\n\n") + "\n";
             }

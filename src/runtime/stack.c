@@ -28,7 +28,7 @@ state_id ts_stack_top_state(const ts_stack *stack) {
     return stack->entries[stack->size - 1].state;
 }
 
-ts_tree * ts_stack_root(ts_stack *stack) {
+ts_tree * ts_stack_root(const ts_stack *stack) {
     return stack->entries[0].node;
 }
 

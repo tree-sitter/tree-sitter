@@ -68,7 +68,7 @@ describe("parsing", [&]() {
             ));
         });
 
-        it("re-reads only the changed portion of the input", [&]() {
+        it_skip("re-reads only the changed portion of the input", [&]() {
             AssertThat(reader->chunks_read, Equals(vector<string>({
                 ""
             })));

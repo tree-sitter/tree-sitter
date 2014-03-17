@@ -31,23 +31,45 @@ extern "C" {
 #define DEBUG_PARSE(...)
 #endif
 
-#define PARSE_FN() \
-static const ts_tree * \
-ts_parse(void *data, ts_input input, ts_input_edit *edit)
+#define PARSE_TABLE() \
+static size_t ts_symbol_count; \
+static const state_id * ts_lex_states; \
+static const ts_parse_action ** ts_parse_actions; \
+static void ts_init_parse_table()
+
+#define START_TABLE(num_states) \
+static int done = 0; \
+if (!done) { \
+    static const ts_parse_action *parse_actions[num_states]; \
+    static state_id lex_states[num_states]; \
+    ts_parse_actions = parse_actions; \
+    ts_lex_states = lex_states; \
+    done = 1; \
+    state_id state;
+
+#define END_TABLE() }
+#define END_STATE() }
+
+#define STATE(state_val, num_symbols) \
+state = state_val; \
+if (1) { \
+    ts_symbol_count = num_symbols; \
+    static ts_parse_action actions_for_state[num_symbols]; \
+    parse_actions[state] = actions_for_state;
+
+#define SET_LEX_STATE(lex_state_val) \
+lex_states[state] = lex_state_val
 
 #define LEX_FN() \
 static ts_tree * \
 ts_lex(ts_lexer *lexer, state_id lex_state)
 
-#define RECOVER_FN() \
-static const ts_symbol * \
-ts_recover(state_id state, state_id *to_state, size_t *count)
-
 #define SYMBOL_NAMES \
-static const char *ts_symbol_names[] =
+static const char *ts_symbol_names[]
 
 #define EXPORT_PARSER(constructor_name) \
 ts_parser constructor_name() { \
+    ts_init_parse_table(); \
     ts_parser result = { \
         .parse_fn = ts_parse, \
         .symbol_names = ts_symbol_names, \
@@ -57,37 +79,21 @@ ts_parser constructor_name() { \
     return result; \
 }
 
-#define START_PARSER() \
-ts_lr_parser *parser = (ts_lr_parser *)data; \
-ts_lr_parser_initialize(parser, input, edit); \
-next_state:
+#define SHIFT(on_symbol, to_state_value) \
+actions_for_state[on_symbol].type = ts_parse_action_type_shift; \
+actions_for_state[on_symbol].data.to_state = to_state_value;
 
-#define LOOKAHEAD_SYM() \
-ts_lr_parser_lookahead_sym(parser)
+#define REDUCE(on_symbol, symbol_val, child_count_val, collapse_flags_val) \
+do { \
+    static const int collapse_flags[child_count_val] = collapse_flags_val; \
+    actions_for_state[on_symbol].type = ts_parse_action_type_reduce; \
+    actions_for_state[on_symbol].data.symbol = symbol_val; \
+    actions_for_state[on_symbol].data.child_count = child_count_val; \
+    actions_for_state[on_symbol].data.collapse_flags = collapse_flags; \
+} while(0);
 
-#define PARSE_STATE() \
-ts_stack_top_state(&parser->stack)
-
-#define SET_LEX_STATE(state_index) \
-{ if (!parser->lookahead) parser->lookahead = ts_lex(&parser->lexer, state_index); }
-
-#define SHIFT(state) \
-{ \
-    DEBUG_PARSE("shift: %d \n", state); \
-    ts_lr_parser_shift(parser, state); \
-    goto next_state; \
-}
-
-#define REDUCE(symbol, child_count, collapse_flags) \
-{ \
-    static const int flags[] = collapse_flags; \
-    ts_lr_parser_reduce(parser, symbol, child_count, flags); \
-    DEBUG_PARSE("reduce: %s, state: %u \n", ts_symbol_names[symbol], ts_stack_state(stack)); \
-    goto next_state; \
-}
-
-#define ACCEPT_INPUT() \
-goto done;
+#define ACCEPT_INPUT(on_symbol) \
+actions_for_state[on_symbol].type = ts_parse_action_type_accept; \
 
 #define PARSE_ERROR(count, inputs) \
 { \
@@ -97,11 +103,6 @@ goto done;
     else \
         goto done; \
 }
-
-#define FINISH_PARSER() \
-done: \
-DEBUG_PARSE("accept \n"); \
-return ts_stack_root(&parser->stack);
 
 #define START_LEXER() \
 ts_lexer_skip_whitespace(lexer); \
@@ -135,18 +136,6 @@ return ts_lexer_build_node(lexer, ts_builtin_sym_error);
 #define LEX_PANIC() \
 { DEBUG_LEX("Lex error: unexpected state %d", LEX_STATE()); return NULL; }
 
-#define PARSE_PANIC() \
-{ DEBUG_PARSE("Parse error: unexpected state %d", PARSE_STATE()); }
-
-#define RECOVER(new_state, symbol_count, values) \
-{ \
-    *count = symbol_count; \
-    *to_state = new_state; \
-    static ts_symbol symbols[] = values; \
-    return symbols; \
-}
-
-#define EXPECT(...) __VA_ARGS__
 #define COLLAPSE(...) __VA_ARGS__
 
 
@@ -163,7 +152,7 @@ typedef struct {
 } ts_stack;
 
 ts_stack ts_stack_make();
-ts_tree * ts_stack_root(ts_stack *stack);
+ts_tree * ts_stack_root(const ts_stack *stack);
 ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child_count, const int *collapse_flags);
 void ts_stack_shrink(ts_stack *stack, size_t new_size);
 void ts_stack_push(ts_stack *stack, state_id state, ts_tree *node);
@@ -203,9 +192,8 @@ static char ts_lexer_lookahead_char(const ts_lexer *lexer) {
     return lexer->chunk[lexer->position_in_chunk];
 }
 
-static const char empty_chunk[1] = "";
-
 static void ts_lexer_advance(ts_lexer *lexer) {
+    static const char empty_chunk[1] = "";
     if (lexer->position_in_chunk + 1 < lexer->chunk_size) {
         lexer->position_in_chunk++;
     } else {
@@ -237,12 +225,34 @@ static const state_id ts_lex_state_error = -1;
 
 
 /*
- *  Forward declarations
- *  The file including this header should define these functions
+ *  Parse Table components
  */
-PARSE_FN();
+typedef enum {
+    ts_parse_action_type_error,
+    ts_parse_action_type_shift,
+    ts_parse_action_type_reduce,
+    ts_parse_action_type_accept,
+} ts_parse_action_type;
+
+typedef struct {
+    ts_parse_action_type type;
+    union {
+        state_id to_state;
+        struct {
+            ts_symbol symbol;
+            int child_count;
+            const int *collapse_flags;
+        };
+    } data;
+} ts_parse_action;
+
+
+/*
+ *  Forward declarations
+ *  The file including this header should use these macros to provide definitions.
+ */
 LEX_FN();
-RECOVER_FN();
+PARSE_TABLE();
 
 
 /*
@@ -273,11 +283,6 @@ static void ts_lr_parser_initialize(ts_lr_parser *parser, ts_input input, ts_inp
     ts_lexer_advance(&parser->lexer);
 }
 
-static ts_symbol ts_lr_parser_lookahead_sym(const ts_lr_parser *parser) {
-    ts_tree *node = parser->lookahead;
-    return node ? node->symbol : ts_builtin_sym_error;
-}
-
 static void ts_lr_parser_shift(ts_lr_parser *parser, state_id parse_state) {
     ts_stack_push(&parser->stack, parse_state, parser->lookahead);
     parser->lookahead = parser->next_lookahead;
@@ -289,7 +294,25 @@ static void ts_lr_parser_reduce(ts_lr_parser *parser, ts_symbol symbol, int imme
     parser->lookahead = ts_stack_reduce(&parser->stack, symbol, immediate_child_count, collapse_flags);
 }
 
-static int ts_lr_parser_handle_error(ts_lr_parser *parser, size_t count, const ts_symbol *expected_symbols) {
+static ts_symbol * ts_lr_parser_expected_symbols(ts_lr_parser *parser, size_t *count) {
+    *count = 0;
+    const ts_parse_action *actions = ts_parse_actions[ts_stack_top_state(&parser->stack)];
+    for (size_t i = 0; i < ts_symbol_count; i++)
+        if (actions[i].type != ts_parse_action_type_error)
+            ++(*count);
+
+    size_t n = 0;
+    ts_symbol *result = malloc(*count * sizeof(*result));
+    for (size_t i = 0; i < ts_symbol_count; i++)
+        if (actions[i].type != ts_parse_action_type_error)
+            result[n++] = i;
+
+    return result;
+}
+
+static int ts_lr_parser_handle_error(ts_lr_parser *parser) {
+    size_t count = 0;
+    ts_symbol *expected_symbols = ts_lr_parser_expected_symbols(parser, &count);
     ts_tree *error = ts_tree_make_error(ts_lexer_lookahead_char(&parser->lexer), count, expected_symbols, 0, 0);
 
     for (;;) {
@@ -305,18 +328,45 @@ static int ts_lr_parser_handle_error(ts_lr_parser *parser, size_t count, const t
          *  may appear after an error.
          */
         for (long i = parser->stack.size - 1; i >= 0; i--) {
-            size_t count;
-            state_id to_state;
-            const ts_symbol *symbols = ts_recover(parser->stack.entries[i].state, &to_state, &count);
-            for (size_t j = 0; j < count; j++) {
-                if (symbols[j] == ts_lr_parser_lookahead_sym(parser)) {
+            state_id stack_state = parser->stack.entries[i].state;
+            ts_parse_action action_on_error = ts_parse_actions[stack_state][ts_builtin_sym_error];
+            if (action_on_error.type == ts_parse_action_type_shift) {
+                state_id state_after_error = action_on_error.data.to_state;
+                if (ts_parse_actions[state_after_error][parser->lookahead->symbol].type != ts_parse_action_type_error) {
                     ts_stack_shrink(&parser->stack, i + 1);
-                    ts_stack_push(&parser->stack, to_state, error);
+                    ts_stack_push(&parser->stack, state_after_error, error);
                     return 1;
                 }
             }
         }
     }
+}
+
+static const ts_tree * ts_parse(void *data, ts_input input, ts_input_edit *edit) {
+    int done = 0;
+    ts_lr_parser *parser = (ts_lr_parser *)data;
+    ts_lr_parser_initialize(parser, input, edit);
+    while (!done) {
+        state_id state = ts_stack_top_state(&parser->stack);
+        if (!parser->lookahead)
+            parser->lookahead = ts_lex(&parser->lexer, ts_lex_states[state]);
+        ts_parse_action action = ts_parse_actions[state][parser->lookahead->symbol];
+        switch (action.type) {
+            case ts_parse_action_type_shift:
+                ts_lr_parser_shift(parser, action.data.to_state);
+                break;
+            case ts_parse_action_type_reduce:
+                ts_lr_parser_reduce(parser, action.data.symbol, action.data.child_count, action.data.collapse_flags);
+                break;
+            case ts_parse_action_type_accept:
+                done = 1;
+                break;
+            case ts_parse_action_type_error:
+                done = !ts_lr_parser_handle_error(parser);
+                break;
+        }
+    }
+    return ts_stack_root(&parser->stack);
 }
 
 #ifdef __cplusplus
