@@ -1,5 +1,7 @@
 #include "tree_sitter/parser.h"
 
+#define TS_SYMBOL_COUNT 15
+
 enum {
     ts_sym_array,
     ts_sym_number,
@@ -199,7 +201,7 @@ LEX_FN() {
 PARSE_TABLE() {
     START_TABLE(60)
     
-    STATE(0, 15);
+    STATE(0);
     SET_LEX_STATE(8);
     SHIFT(ts_sym_array, 1)
     SHIFT(ts_sym_number, 1)
@@ -210,29 +212,29 @@ PARSE_TABLE() {
     SHIFT(ts_sym_left_bracket, 55)
     END_STATE();
     
-    STATE(1, 15);
+    STATE(1);
     SET_LEX_STATE(0);
     REDUCE(ts_builtin_sym_end, ts_sym_value, 1, COLLAPSE({0}))
     END_STATE();
     
-    STATE(2, 15);
+    STATE(2);
     SET_LEX_STATE(0);
     ACCEPT_INPUT(ts_builtin_sym_end)
     END_STATE();
     
-    STATE(3, 15);
+    STATE(3);
     SET_LEX_STATE(20);
     SHIFT(ts_sym_string, 4)
     SHIFT(ts_sym_right_brace, 51)
     SHIFT(ts_builtin_sym_error, 52)
     END_STATE();
     
-    STATE(4, 15);
+    STATE(4);
     SET_LEX_STATE(18);
     SHIFT(ts_sym_colon, 5)
     END_STATE();
     
-    STATE(5, 15);
+    STATE(5);
     SET_LEX_STATE(8);
     SHIFT(ts_sym_array, 6)
     SHIFT(ts_sym_number, 6)
@@ -243,31 +245,31 @@ PARSE_TABLE() {
     SHIFT(ts_sym_left_bracket, 19)
     END_STATE();
     
-    STATE(6, 15);
+    STATE(6);
     SET_LEX_STATE(1);
     REDUCE(ts_sym_comma, ts_sym_value, 1, COLLAPSE({0}))
     REDUCE(ts_sym_right_brace, ts_sym_value, 1, COLLAPSE({0}))
     END_STATE();
     
-    STATE(7, 15);
+    STATE(7);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
     REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
     SHIFT(ts_aux_sym_repeat_helper2, 49)
     END_STATE();
     
-    STATE(8, 15);
+    STATE(8);
     SET_LEX_STATE(22);
     SHIFT(ts_sym_string, 9)
     SHIFT(ts_builtin_sym_error, 47)
     END_STATE();
     
-    STATE(9, 15);
+    STATE(9);
     SET_LEX_STATE(18);
     SHIFT(ts_sym_colon, 10)
     END_STATE();
     
-    STATE(10, 15);
+    STATE(10);
     SET_LEX_STATE(8);
     SHIFT(ts_sym_array, 6)
     SHIFT(ts_sym_number, 6)
@@ -278,31 +280,31 @@ PARSE_TABLE() {
     SHIFT(ts_sym_left_bracket, 19)
     END_STATE();
     
-    STATE(11, 15);
+    STATE(11);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
     REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
     SHIFT(ts_aux_sym_repeat_helper2, 12)
     END_STATE();
     
-    STATE(12, 15);
+    STATE(12);
     SET_LEX_STATE(4);
     REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 5, COLLAPSE({1, 0, 1, 0, 1}))
     END_STATE();
     
-    STATE(13, 15);
+    STATE(13);
     SET_LEX_STATE(20);
     SHIFT(ts_sym_string, 14)
     SHIFT(ts_sym_right_brace, 43)
     SHIFT(ts_builtin_sym_error, 44)
     END_STATE();
     
-    STATE(14, 15);
+    STATE(14);
     SET_LEX_STATE(18);
     SHIFT(ts_sym_colon, 15)
     END_STATE();
     
-    STATE(15, 15);
+    STATE(15);
     SET_LEX_STATE(8);
     SHIFT(ts_sym_array, 6)
     SHIFT(ts_sym_number, 6)
@@ -313,25 +315,25 @@ PARSE_TABLE() {
     SHIFT(ts_sym_left_bracket, 19)
     END_STATE();
     
-    STATE(16, 15);
+    STATE(16);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
     REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
     SHIFT(ts_aux_sym_repeat_helper2, 17)
     END_STATE();
     
-    STATE(17, 15);
+    STATE(17);
     SET_LEX_STATE(4);
     SHIFT(ts_sym_right_brace, 18)
     END_STATE();
     
-    STATE(18, 15);
+    STATE(18);
     SET_LEX_STATE(1);
     REDUCE(ts_sym_comma, ts_sym_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}))
     REDUCE(ts_sym_right_brace, ts_sym_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}))
     END_STATE();
     
-    STATE(19, 15);
+    STATE(19);
     SET_LEX_STATE(21);
     SHIFT(ts_sym_array, 20)
     SHIFT(ts_sym_number, 20)
@@ -344,20 +346,20 @@ PARSE_TABLE() {
     SHIFT(ts_builtin_sym_error, 21)
     END_STATE();
     
-    STATE(20, 15);
+    STATE(20);
     SET_LEX_STATE(5);
     REDUCE(ts_sym_comma, ts_sym_value, 1, COLLAPSE({0}))
     REDUCE(ts_sym_right_bracket, ts_sym_value, 1, COLLAPSE({0}))
     END_STATE();
     
-    STATE(21, 15);
+    STATE(21);
     SET_LEX_STATE(5);
     SHIFT(ts_sym_comma, 22)
     REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
     SHIFT(ts_aux_sym_repeat_helper1, 40)
     END_STATE();
     
-    STATE(22, 15);
+    STATE(22);
     SET_LEX_STATE(8);
     SHIFT(ts_sym_array, 20)
     SHIFT(ts_sym_number, 20)
@@ -369,31 +371,31 @@ PARSE_TABLE() {
     SHIFT(ts_builtin_sym_error, 23)
     END_STATE();
     
-    STATE(23, 15);
+    STATE(23);
     SET_LEX_STATE(5);
     SHIFT(ts_sym_comma, 22)
     REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
     SHIFT(ts_aux_sym_repeat_helper1, 24)
     END_STATE();
     
-    STATE(24, 15);
+    STATE(24);
     SET_LEX_STATE(7);
     REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper1, 3, COLLAPSE({1, 0, 1}))
     END_STATE();
     
-    STATE(25, 15);
+    STATE(25);
     SET_LEX_STATE(20);
     SHIFT(ts_sym_string, 26)
     SHIFT(ts_sym_right_brace, 31)
     SHIFT(ts_builtin_sym_error, 32)
     END_STATE();
     
-    STATE(26, 15);
+    STATE(26);
     SET_LEX_STATE(18);
     SHIFT(ts_sym_colon, 27)
     END_STATE();
     
-    STATE(27, 15);
+    STATE(27);
     SET_LEX_STATE(8);
     SHIFT(ts_sym_array, 6)
     SHIFT(ts_sym_number, 6)
@@ -404,49 +406,49 @@ PARSE_TABLE() {
     SHIFT(ts_sym_left_bracket, 19)
     END_STATE();
     
-    STATE(28, 15);
+    STATE(28);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
     REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
     SHIFT(ts_aux_sym_repeat_helper2, 29)
     END_STATE();
     
-    STATE(29, 15);
+    STATE(29);
     SET_LEX_STATE(4);
     SHIFT(ts_sym_right_brace, 30)
     END_STATE();
     
-    STATE(30, 15);
+    STATE(30);
     SET_LEX_STATE(5);
     REDUCE(ts_sym_comma, ts_sym_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}))
     REDUCE(ts_sym_right_bracket, ts_sym_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}))
     END_STATE();
     
-    STATE(31, 15);
+    STATE(31);
     SET_LEX_STATE(5);
     REDUCE(ts_sym_comma, ts_sym_object, 2, COLLAPSE({1, 1}))
     REDUCE(ts_sym_right_bracket, ts_sym_object, 2, COLLAPSE({1, 1}))
     END_STATE();
     
-    STATE(32, 15);
+    STATE(32);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
     REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
     SHIFT(ts_aux_sym_repeat_helper2, 33)
     END_STATE();
     
-    STATE(33, 15);
+    STATE(33);
     SET_LEX_STATE(4);
     SHIFT(ts_sym_right_brace, 34)
     END_STATE();
     
-    STATE(34, 15);
+    STATE(34);
     SET_LEX_STATE(5);
     REDUCE(ts_sym_comma, ts_sym_object, 4, COLLAPSE({1, 0, 1, 1}))
     REDUCE(ts_sym_right_bracket, ts_sym_object, 4, COLLAPSE({1, 0, 1, 1}))
     END_STATE();
     
-    STATE(35, 15);
+    STATE(35);
     SET_LEX_STATE(21);
     SHIFT(ts_sym_array, 20)
     SHIFT(ts_sym_number, 20)
@@ -459,116 +461,116 @@ PARSE_TABLE() {
     SHIFT(ts_builtin_sym_error, 36)
     END_STATE();
     
-    STATE(36, 15);
+    STATE(36);
     SET_LEX_STATE(5);
     SHIFT(ts_sym_comma, 22)
     REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
     SHIFT(ts_aux_sym_repeat_helper1, 37)
     END_STATE();
     
-    STATE(37, 15);
+    STATE(37);
     SET_LEX_STATE(7);
     SHIFT(ts_sym_right_bracket, 38)
     END_STATE();
     
-    STATE(38, 15);
+    STATE(38);
     SET_LEX_STATE(5);
     REDUCE(ts_sym_comma, ts_sym_array, 4, COLLAPSE({1, 0, 1, 1}))
     REDUCE(ts_sym_right_bracket, ts_sym_array, 4, COLLAPSE({1, 0, 1, 1}))
     END_STATE();
     
-    STATE(39, 15);
+    STATE(39);
     SET_LEX_STATE(5);
     REDUCE(ts_sym_comma, ts_sym_array, 2, COLLAPSE({1, 1}))
     REDUCE(ts_sym_right_bracket, ts_sym_array, 2, COLLAPSE({1, 1}))
     END_STATE();
     
-    STATE(40, 15);
+    STATE(40);
     SET_LEX_STATE(7);
     SHIFT(ts_sym_right_bracket, 41)
     END_STATE();
     
-    STATE(41, 15);
+    STATE(41);
     SET_LEX_STATE(1);
     REDUCE(ts_sym_comma, ts_sym_array, 4, COLLAPSE({1, 0, 1, 1}))
     REDUCE(ts_sym_right_brace, ts_sym_array, 4, COLLAPSE({1, 0, 1, 1}))
     END_STATE();
     
-    STATE(42, 15);
+    STATE(42);
     SET_LEX_STATE(1);
     REDUCE(ts_sym_comma, ts_sym_array, 2, COLLAPSE({1, 1}))
     REDUCE(ts_sym_right_brace, ts_sym_array, 2, COLLAPSE({1, 1}))
     END_STATE();
     
-    STATE(43, 15);
+    STATE(43);
     SET_LEX_STATE(1);
     REDUCE(ts_sym_comma, ts_sym_object, 2, COLLAPSE({1, 1}))
     REDUCE(ts_sym_right_brace, ts_sym_object, 2, COLLAPSE({1, 1}))
     END_STATE();
     
-    STATE(44, 15);
+    STATE(44);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
     REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
     SHIFT(ts_aux_sym_repeat_helper2, 45)
     END_STATE();
     
-    STATE(45, 15);
+    STATE(45);
     SET_LEX_STATE(4);
     SHIFT(ts_sym_right_brace, 46)
     END_STATE();
     
-    STATE(46, 15);
+    STATE(46);
     SET_LEX_STATE(1);
     REDUCE(ts_sym_comma, ts_sym_object, 4, COLLAPSE({1, 0, 1, 1}))
     REDUCE(ts_sym_right_brace, ts_sym_object, 4, COLLAPSE({1, 0, 1, 1}))
     END_STATE();
     
-    STATE(47, 15);
+    STATE(47);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
     REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
     SHIFT(ts_aux_sym_repeat_helper2, 48)
     END_STATE();
     
-    STATE(48, 15);
+    STATE(48);
     SET_LEX_STATE(4);
     REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 3, COLLAPSE({1, 0, 1}))
     END_STATE();
     
-    STATE(49, 15);
+    STATE(49);
     SET_LEX_STATE(4);
     SHIFT(ts_sym_right_brace, 50)
     END_STATE();
     
-    STATE(50, 15);
+    STATE(50);
     SET_LEX_STATE(0);
     REDUCE(ts_builtin_sym_end, ts_sym_object, 6, COLLAPSE({1, 0, 1, 0, 1, 1}))
     END_STATE();
     
-    STATE(51, 15);
+    STATE(51);
     SET_LEX_STATE(0);
     REDUCE(ts_builtin_sym_end, ts_sym_object, 2, COLLAPSE({1, 1}))
     END_STATE();
     
-    STATE(52, 15);
+    STATE(52);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
     REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
     SHIFT(ts_aux_sym_repeat_helper2, 53)
     END_STATE();
     
-    STATE(53, 15);
+    STATE(53);
     SET_LEX_STATE(4);
     SHIFT(ts_sym_right_brace, 54)
     END_STATE();
     
-    STATE(54, 15);
+    STATE(54);
     SET_LEX_STATE(0);
     REDUCE(ts_builtin_sym_end, ts_sym_object, 4, COLLAPSE({1, 0, 1, 1}))
     END_STATE();
     
-    STATE(55, 15);
+    STATE(55);
     SET_LEX_STATE(21);
     SHIFT(ts_sym_array, 20)
     SHIFT(ts_sym_number, 20)
@@ -581,24 +583,24 @@ PARSE_TABLE() {
     SHIFT(ts_builtin_sym_error, 56)
     END_STATE();
     
-    STATE(56, 15);
+    STATE(56);
     SET_LEX_STATE(5);
     SHIFT(ts_sym_comma, 22)
     REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
     SHIFT(ts_aux_sym_repeat_helper1, 57)
     END_STATE();
     
-    STATE(57, 15);
+    STATE(57);
     SET_LEX_STATE(7);
     SHIFT(ts_sym_right_bracket, 58)
     END_STATE();
     
-    STATE(58, 15);
+    STATE(58);
     SET_LEX_STATE(0);
     REDUCE(ts_builtin_sym_end, ts_sym_array, 4, COLLAPSE({1, 0, 1, 1}))
     END_STATE();
     
-    STATE(59, 15);
+    STATE(59);
     SET_LEX_STATE(0);
     REDUCE(ts_builtin_sym_end, ts_sym_array, 2, COLLAPSE({1, 1}))
     END_STATE();

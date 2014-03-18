@@ -38,6 +38,7 @@ static const ts_parse_action ** ts_parse_actions; \
 static void ts_init_parse_table()
 
 #define START_TABLE(num_states) \
+ts_symbol_count = TS_SYMBOL_COUNT; \
 static int done = 0; \
 if (!done) { \
     static const ts_parse_action *parse_actions[num_states]; \
@@ -50,11 +51,11 @@ if (!done) { \
 #define END_TABLE() }
 #define END_STATE() }
 
-#define STATE(state_val, num_symbols) \
+#define STATE(state_val) \
 state = state_val; \
 if (1) { \
-    ts_symbol_count = num_symbols; \
-    static ts_parse_action actions_for_state[num_symbols]; \
+    static ts_parse_action actions_for_state_array[TS_SYMBOL_COUNT + 2]; \
+    ts_parse_action *actions_for_state = actions_for_state_array + 2; \
     parse_actions[state] = actions_for_state;
 
 #define SET_LEX_STATE(lex_state_val) \
@@ -80,29 +81,24 @@ ts_parser constructor_name() { \
 }
 
 #define SHIFT(on_symbol, to_state_value) \
-actions_for_state[on_symbol].type = ts_parse_action_type_shift; \
-actions_for_state[on_symbol].data.to_state = to_state_value;
+actions_for_state[on_symbol] = (ts_parse_action) { \
+    .type = ts_parse_action_type_shift, \
+    .data = { .to_state = to_state_value } \
+};
 
 #define REDUCE(on_symbol, symbol_val, child_count_val, collapse_flags_val) \
 do { \
     static const int collapse_flags[child_count_val] = collapse_flags_val; \
-    actions_for_state[on_symbol].type = ts_parse_action_type_reduce; \
-    actions_for_state[on_symbol].data.symbol = symbol_val; \
-    actions_for_state[on_symbol].data.child_count = child_count_val; \
-    actions_for_state[on_symbol].data.collapse_flags = collapse_flags; \
+    actions_for_state[on_symbol] = (ts_parse_action) { \
+        .type = ts_parse_action_type_reduce, \
+        .data = { .symbol = symbol_val, .child_count = child_count_val, .collapse_flags = collapse_flags } \
+    }; \
 } while(0);
 
 #define ACCEPT_INPUT(on_symbol) \
-actions_for_state[on_symbol].type = ts_parse_action_type_accept; \
-
-#define PARSE_ERROR(count, inputs) \
-{ \
-    static const ts_symbol expected_inputs[] = inputs; \
-    if (ts_lr_parser_handle_error(parser, count, expected_inputs)) \
-        goto next_state; \
-    else \
-        goto done; \
-}
+actions_for_state[on_symbol] = (ts_parse_action) { \
+    .type = ts_parse_action_type_accept, \
+};
 
 #define START_LEXER() \
 ts_lexer_skip_whitespace(lexer); \

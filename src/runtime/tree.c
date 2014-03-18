@@ -79,10 +79,10 @@ size_t ts_tree_child_count(const ts_tree *tree) {
     return tree->data.children.count;
 }
 
-static const char *NULL_TREE_STRING = "(NULL)";
-static const char *ERROR_TREE_STRING = "(ERROR)";
-
 static size_t tree_write_to_string(const ts_tree *tree, const char **symbol_names, char *string, size_t limit) {
+    static const char *NULL_TREE_STRING = "(NULL)";
+    static const char *ERROR_TREE_STRING = "(ERROR)";
+    
     if (!tree)
         return snprintf(string, limit, "%s", NULL_TREE_STRING);
     if (tree->symbol == ts_builtin_sym_error)

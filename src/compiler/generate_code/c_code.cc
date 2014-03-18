@@ -189,6 +189,10 @@ namespace tree_sitter {
                 body += _default("LEX_PANIC();");
                 return _switch("LEX_STATE()", body);
             }
+            
+            string symbol_count() {
+                return "#define TS_SYMBOL_COUNT " + to_string(parse_table.symbols.size());
+            }
 
             string symbol_enum() {
                 string result = "enum {\n";
@@ -274,7 +278,7 @@ namespace tree_sitter {
                         "START_TABLE(" + to_string(parse_table.states.size()) + ")",
                         join(map_to_string<ParseState>(parse_table.states, [&](ParseState state) -> string {
                             return join({
-                                "STATE(" + to_string(state_id++) + ", " + to_string(parse_table.symbols.size()) + ");",
+                                "STATE(" + to_string(state_id++) + ");",
                                 parse_table_row_for_state(state),
                                 "END_STATE();"
                             });
@@ -292,10 +296,9 @@ namespace tree_sitter {
             string code() {
                 return join({
                     includes(),
+                    symbol_count(),
                     symbol_enum(),
                     rule_names_list(),
-//                    recover_function(),
-//                    parse_function(),
                     lex_function(),
                     parse_table_function(),
                     parser_export(),
