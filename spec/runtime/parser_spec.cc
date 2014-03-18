@@ -41,7 +41,7 @@ describe("parsing", [&]() {
     describe("modifying the input", [&]() {
         before_each([&]() {
             size_t position(string("{ \"key\": [1, 2]").length());
-            string inserted_text(", \"key2\": 4 ");
+            string inserted_text(", \"key2\": 4");
 
             reader->content.insert(position, inserted_text);
             ts_document_edit(doc, {
@@ -64,10 +64,9 @@ describe("parsing", [&]() {
             ));
         });
 
-        it_skip("re-reads only the changed portion of the input", [&]() {
-            AssertThat(reader->chunks_read, Equals(vector<string>({
-                ""
-            })));
+        it("re-reads only the changed portion of the input", [&]() {
+            AssertThat(reader->strings_read.size(), Equals<size_t>(2));
+            AssertThat(reader->strings_read[1], Equals("\"key2\": 4 }"));
         });
     });
 });

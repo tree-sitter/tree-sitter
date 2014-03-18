@@ -153,6 +153,7 @@ ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child
 void ts_stack_shrink(ts_stack *stack, size_t new_size);
 void ts_stack_push(ts_stack *stack, state_id state, ts_tree *node);
 state_id ts_stack_top_state(const ts_stack *stack);
+ts_tree * ts_stack_top_node(const ts_stack *stack);
 
 
 /*
@@ -267,13 +268,37 @@ static ts_lr_parser * ts_lr_parser_make() {
     result->stack = ts_stack_make();
     return result;
 }
+    
+static size_t ts_lr_parser_breakdown_stack(ts_lr_parser *parser, ts_input_edit *edit) {
+    if (parser->stack.size == 0) return 0;
+    
+    ts_tree *node = ts_stack_top_node(&parser->stack);
+    parser->stack.size--;
+    state_id parse_state = 0;
+    
+    size_t position = 0;
+    size_t child_count;
+    ts_tree ** children = ts_tree_children(node, &child_count);
+    for (size_t i = 0; i < child_count; i++) {
+        ts_tree *child = children[i];
+
+        position += child->offset + child->size;
+        ts_tree_retain(child);
+        ts_stack_push(&parser->stack, parse_state, child);
+        parse_state = ts_parse_actions[parse_state][child->symbol].data.to_state;
+    }
+    
+    ts_tree_release(node);
+    return position;
+}
 
 static void ts_lr_parser_initialize(ts_lr_parser *parser, ts_input input, ts_input_edit *edit) {
-    ts_stack_shrink(&parser->stack, 0);
     parser->lookahead = NULL;
     parser->next_lookahead = NULL;
 
-    input.seek_fn(input.data, 0);
+    size_t position = ts_lr_parser_breakdown_stack(parser, edit);
+    input.seek_fn(input.data, position);
+
     parser->lexer = ts_lexer_make();
     parser->lexer.input = input;
     ts_lexer_advance(&parser->lexer);

@@ -28,6 +28,11 @@ state_id ts_stack_top_state(const ts_stack *stack) {
     return stack->entries[stack->size - 1].state;
 }
 
+ts_tree * ts_stack_top_node(const ts_stack *stack) {
+    if (stack->size == 0) return NULL;
+    return stack->entries[stack->size - 1].node;
+}
+
 ts_tree * ts_stack_root(const ts_stack *stack) {
     return stack->entries[0].node;
 }
