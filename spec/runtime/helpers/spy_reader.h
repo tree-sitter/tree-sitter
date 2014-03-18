@@ -13,7 +13,7 @@ public:
     size_t position;
     size_t chunk_size;
     ts_input input;
-    std::vector<std::string> chunks_read;
+    std::vector<std::string> strings_read;
 };
 
 #endif  // HELPERS_SPY_READER_H_

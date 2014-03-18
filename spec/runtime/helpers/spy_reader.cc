@@ -8,7 +8,7 @@ static const char * spy_read(void *data, size_t *bytes_read) {
     size_t size = std::min(reader->chunk_size,
                            reader->content.length() - reader->position);
     const char *result = reader->content.data() + reader->position;
-    reader->chunks_read.push_back(string(result, size));
+    reader->strings_read.back() += string(result, size);
     reader->position += size;
     *bytes_read = size;
     return result;
@@ -16,6 +16,7 @@ static const char * spy_read(void *data, size_t *bytes_read) {
 
 static int spy_seek(void *data, size_t position) {
     SpyReader *reader = static_cast<SpyReader *>(data);
+    reader->strings_read.push_back("");
     reader->position = position;
     return 0;
 }

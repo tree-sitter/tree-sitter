@@ -33,12 +33,8 @@ describe("parsing", [&]() {
     });
 
     it("reads the entire input", [&]() {
-        AssertThat(reader->chunks_read, Equals(vector<string>({
-            "{ \"ke",
-            "y\": [",
-            "1, 2]",
-            " }",
-            ""
+        AssertThat(reader->strings_read, Equals(vector<string>({
+            "{ \"key\": [1, 2] }"
         })));
     });
 
