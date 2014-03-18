@@ -42,12 +42,11 @@ void ts_tree_retain(ts_tree *tree) {
 void ts_tree_release(ts_tree *tree) {
     tree->ref_count--;
     if (tree->ref_count == 0) {
-        ts_tree **children = ts_tree_children(tree);
-        if (children) {
-            for (size_t i = 0; i < ts_tree_child_count(tree); i++)
-                ts_tree_release(children[i]);
-            free(children);
-        }
+        size_t count;
+        ts_tree **children = ts_tree_children(tree, &count);
+        for (size_t i = 0; i < count; i++)
+            ts_tree_release(children[i]);
+        free(children);
         free(tree);
     }
 }
@@ -69,14 +68,13 @@ int ts_tree_equals(const ts_tree *node1, const ts_tree *node2) {
     return 1;
 }
 
-ts_tree ** ts_tree_children(const ts_tree *tree) {
-    if (tree->symbol == ts_builtin_sym_error) return NULL;
+ts_tree ** ts_tree_children(const ts_tree *tree, size_t *count) {
+    if (tree->symbol == ts_builtin_sym_error) {
+        if (count) *count = 0;
+        return NULL;
+    }
+    if (count) *count = tree->data.children.count;
     return tree->data.children.contents;
-}
-
-size_t ts_tree_child_count(const ts_tree *tree) {
-    if (tree->symbol == ts_builtin_sym_error) return 0;
-    return tree->data.children.count;
 }
 
 static size_t tree_write_to_string(const ts_tree *tree, const char **symbol_names, char *string, size_t limit) {

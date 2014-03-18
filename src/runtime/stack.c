@@ -50,7 +50,13 @@ ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child
     int child_count = 0;
     for (int i = 0; i < immediate_child_count; i++) {
         ts_tree *child = stack->entries[new_stack_size + i].node;
-        child_count += collapse_flags[i] ? ts_tree_child_count(child) : 1;
+        if (collapse_flags[i]) {
+            size_t grandchild_count;
+            ts_tree_children(child, &grandchild_count);
+            child_count += grandchild_count;
+        } else {
+            child_count++;
+        }
     }
 
     int child_index = 0;
@@ -66,11 +72,12 @@ ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child
         }
 
         if (collapse_flags[i]) {
-            size_t grandchild_count = ts_tree_child_count(child);
-            memcpy(children + child_index, ts_tree_children(child), (grandchild_count * sizeof(ts_tree *)));
+            size_t grandchild_count;
+            ts_tree ** grandchildren = ts_tree_children(child, &grandchild_count);
+            memcpy(children + child_index, grandchildren, (grandchild_count * sizeof(ts_tree *)));
             child_index += grandchild_count;
         } else {
-            memcpy(children + child_index, &child, sizeof(ts_tree *));
+            children[child_index] = child;
             child_index++;
         }
     }
