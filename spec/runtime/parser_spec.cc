@@ -5,7 +5,7 @@ extern "C" ts_parser ts_parser_json();
 
 START_TEST
 
-describe("parsing", [&]() {
+describe("incremental parsing", [&]() {
     ts_document *doc;
     SpyReader *reader;
 
@@ -66,7 +66,7 @@ describe("parsing", [&]() {
 
         it("re-reads only the changed portion of the input", [&]() {
             AssertThat(reader->strings_read.size(), Equals<size_t>(2));
-            AssertThat(reader->strings_read[1], Equals("\"key2\": 4 }"));
+            AssertThat(reader->strings_read[1], Equals(", \"key2\": 4 }"));
         });
     });
 });

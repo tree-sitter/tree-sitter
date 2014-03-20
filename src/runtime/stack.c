@@ -49,26 +49,14 @@ void ts_stack_shrink(ts_stack *stack, size_t new_size) {
     stack->size = new_size;
 }
 
-ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child_count, const int *collapse_flags) {
-    size_t new_stack_size = stack->size - immediate_child_count;
+ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int child_count, const int *collapse_flags) {
+    size_t new_stack_size = stack->size - child_count;
 
-    int child_count = 0;
-    for (int i = 0; i < immediate_child_count; i++) {
-        ts_tree *child = stack->entries[new_stack_size + i].node;
-        if (collapse_flags[i]) {
-            size_t grandchild_count;
-            ts_tree_children(child, &grandchild_count);
-            child_count += grandchild_count;
-        } else {
-            child_count++;
-        }
-    }
-
-    int child_index = 0;
     size_t size = 0, offset = 0;
     ts_tree **children = malloc(child_count * sizeof(ts_tree *));
-    for (int i = 0; i < immediate_child_count; i++) {
+    for (int i = 0; i < child_count; i++) {
         ts_tree *child = stack->entries[new_stack_size + i].node;
+        child->is_hidden = collapse_flags[i];
         if (i == 0) {
             offset = child->offset;
             size = child->size;
@@ -76,15 +64,7 @@ ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child
             size += child->offset + child->size;
         }
 
-        if (collapse_flags[i]) {
-            size_t grandchild_count;
-            ts_tree ** grandchildren = ts_tree_children(child, &grandchild_count);
-            memcpy(children + child_index, grandchildren, (grandchild_count * sizeof(ts_tree *)));
-            child_index += grandchild_count;
-        } else {
-            children[child_index] = child;
-            child_index++;
-        }
+        children[i] = child;
     }
 
     ts_tree *lookahead = ts_tree_make_node(symbol, child_count, children, size, offset);

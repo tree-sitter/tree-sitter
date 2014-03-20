@@ -37,6 +37,10 @@ void ts_document_edit(ts_document *document, ts_input_edit edit) {
     document->tree = ts_parser_parse(&document->parser, document->input, &edit);
 }
 
+const char * ts_document_symbol_name(const ts_document *document, const ts_tree *tree) {
+    return document->parser.symbol_names[tree->symbol];
+}
+
 typedef struct {
     const char *string;
     size_t position;

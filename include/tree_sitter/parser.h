@@ -269,30 +269,44 @@ static ts_lr_parser * ts_lr_parser_make() {
     return result;
 }
     
+//    static const char * ts_symbol_names[];
+//    static void dump_stack(ts_lr_parser *parser) {
+//        for (size_t i = 0; i < parser->stack.size; i++) {
+//            printf("\n%ld %s", i, ts_symbol_names[parser->stack.entries[i].node->symbol]);
+//        }
+//    }
+    
 static size_t ts_lr_parser_breakdown_stack(ts_lr_parser *parser, ts_input_edit *edit) {
     if (parser->stack.size == 0) return 0;
     
     ts_tree *node = ts_stack_top_node(&parser->stack);
-    parser->stack.size--;
-    state_id parse_state = 0;
-    
-    size_t position = 0;
+    size_t left_position = 0;
+    size_t right_position = node->offset + node->size;
     size_t child_count;
     ts_tree ** children = ts_tree_children(node, &child_count);
-    for (size_t i = 0; i < child_count; i++) {
-        ts_tree *child = children[i];
 
-        position += child->offset + child->size;
-        ts_tree_retain(child);
-        ts_stack_push(&parser->stack, parse_state, child);
-        parse_state = ts_parse_actions[parse_state][child->symbol].data.to_state;
+    while (right_position > edit->position || children) {
+        parser->stack.size--;
+        ts_tree *child;
+        for (size_t i = 0; i < child_count; i++) {
+            child = children[i];
+            right_position = left_position + child->offset + child->size;
+            ts_tree_retain(child);
+            state_id parse_state = ts_parse_actions[ts_stack_top_state(&parser->stack)][child->symbol].data.to_state;
+            ts_stack_push(&parser->stack, parse_state, child);
+            if (right_position >= edit->position) break;
+            left_position = right_position;
+        }
+        ts_tree_release(node);
+        node = child;
+        children = ts_tree_children(node, &child_count);
     }
     
-    ts_tree_release(node);
-    return position;
+    return right_position;
 }
 
 static void ts_lr_parser_initialize(ts_lr_parser *parser, ts_input input, ts_input_edit *edit) {
+    if (!edit) ts_stack_shrink(&parser->stack, 0);
     parser->lookahead = NULL;
     parser->next_lookahead = NULL;
 

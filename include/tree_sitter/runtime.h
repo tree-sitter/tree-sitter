@@ -16,6 +16,7 @@ typedef struct ts_tree {
     size_t ref_count;
     size_t offset;
     size_t size;
+    short int is_hidden;
     union {
         struct {
             size_t count;
@@ -73,6 +74,7 @@ void ts_document_edit(ts_document *doc, ts_input_edit edit);
 
 const ts_tree * ts_document_tree(const ts_document *doc);
 const char * ts_document_string(const ts_document *doc);
+const char * ts_document_symbol_name(const ts_document *document, const ts_tree *tree);
 
 #ifdef __cplusplus
 }
