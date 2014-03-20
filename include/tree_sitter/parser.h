@@ -269,13 +269,6 @@ static ts_lr_parser * ts_lr_parser_make() {
     return result;
 }
     
-//    static const char * ts_symbol_names[];
-//    static void dump_stack(ts_lr_parser *parser) {
-//        for (size_t i = 0; i < parser->stack.size; i++) {
-//            printf("\n%ld %s", i, ts_symbol_names[parser->stack.entries[i].node->symbol]);
-//        }
-//    }
-    
 static size_t ts_lr_parser_breakdown_stack(ts_lr_parser *parser, ts_input_edit *edit) {
     if (parser->stack.size == 0) return 0;
     
