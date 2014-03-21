@@ -49,6 +49,15 @@ void ts_stack_shrink(ts_stack *stack, size_t new_size) {
     stack->size = new_size;
 }
 
+size_t ts_stack_right_position(const ts_stack *stack) {
+    size_t result = 0;
+    for (size_t i = 0; i < stack->size; i++) {
+        ts_tree *node = stack->entries[i].node;
+        result += node->offset + node->size;
+    }
+    return result;
+}
+
 ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int child_count, const int *collapse_flags) {
     size_t new_stack_size = stack->size - child_count;
 
@@ -71,3 +80,4 @@ ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int child_count, co
     ts_stack_shrink(stack, new_stack_size);
     return lookahead;
 }
+
