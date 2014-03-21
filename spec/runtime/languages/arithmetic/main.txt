@@ -1,0 +1,54 @@
+====================
+parses numbers
+===================
+5
+---
+(expression (term (factor (number))))
+
+===================
+parses variables
+===================
+x
+---
+(expression (term (factor (variable))))
+
+===================
+parses products
+===================
+x * x
+---
+(expression (term
+    (factor (variable))
+    (times)
+    (factor (variable))))
+
+===================
+parses sums
+===================
+x + x
+---
+(expression
+    (term (factor (variable)))
+    (plus)
+    (term (factor (variable))))
+
+====================
+parses complex trees
+====================
+x * y + z * a
+---
+(expression
+    (term (factor (variable)) (times) (factor (variable)))
+    (plus)
+    (term (factor (variable)) (times) (factor (variable))))
+
+=================================
+handles parenthesized expressions
+=================================
+x * (y + z)
+---
+(expression
+    (term (factor (variable))
+    (times)
+    (factor (expression (term (factor (variable))) (plus) (term (factor (variable)))))))
+

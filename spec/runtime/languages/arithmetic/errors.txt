@@ -1,0 +1,16 @@
+=====================================================
+recovers from errors at the top level
+=====================================================
+x * * y
+---
+(ERROR)
+
+=====================================================
+recovers from errors inside parenthesized expressions
+=====================================================
+x + (y * + z) * 5
+---
+(expression
+    (term (factor (variable)))
+    (plus)
+    (term (factor (ERROR)) (times) (factor (number))))

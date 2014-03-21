@@ -1,0 +1,44 @@
+====================
+parses empty objects
+====================
+{}
+---
+(value (object))
+
+===================
+parses empty arrays
+===================
+[]
+---
+(value (array))
+
+===================
+parses arrays
+===================
+[
+    1, 2, 3,
+    { "stuff": "good" }
+]
+---
+(value (array
+    (value (number))
+    (value (number))
+    (value (number))
+    (value (object
+        (string) (value (string))
+    ))
+))
+
+===================
+parses long objects
+===================
+{
+	"key1": "value1",
+	"key2": 1
+}
+---
+(value (object
+	(string) (value (string))
+	(string) (value (number))
+))
+

@@ -277,7 +277,7 @@ static size_t ts_lr_parser_breakdown_stack(ts_lr_parser *parser, ts_input_edit *
     ts_tree *node;
     size_t position = 0;
     size_t child_count = 0;
-    
+
     for (;;) {
         node = ts_stack_top_node(stack);
         if (!node) break;
