@@ -71,7 +71,7 @@ int ts_tree_equals(const ts_tree *node1, const ts_tree *node2) {
 }
 
 ts_tree ** ts_tree_children(const ts_tree *tree, size_t *count) {
-    if (tree->symbol == ts_builtin_sym_error) {
+    if (!tree || tree->symbol == ts_builtin_sym_error) {
         if (count) *count = 0;
         return NULL;
     }
@@ -82,13 +82,13 @@ ts_tree ** ts_tree_children(const ts_tree *tree, size_t *count) {
 static size_t tree_write_to_string(const ts_tree *tree, const char **symbol_names, char *string, size_t limit, int is_beginning) {
     char *cursor = string;
     char **destination = (limit > 0) ? &cursor : &string;
-    
+
     if (!tree)
         return snprintf(*destination, limit, "(NULL)");
 
     if (!tree->is_hidden && !is_beginning)
         cursor += snprintf(*destination, limit, " ");
-        
+
     if (tree->symbol == ts_builtin_sym_error) {
         cursor += snprintf(*destination, limit, "(ERROR)");
         return cursor - string;
@@ -104,7 +104,7 @@ static size_t tree_write_to_string(const ts_tree *tree, const char **symbol_name
 
     if (!tree->is_hidden)
         cursor += snprintf(*destination, limit, ")");
-    
+
     return cursor - string;
 }
 

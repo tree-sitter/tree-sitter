@@ -268,34 +268,45 @@ static ts_lr_parser * ts_lr_parser_make() {
     result->stack = ts_stack_make();
     return result;
 }
-    
-static size_t ts_lr_parser_breakdown_stack(ts_lr_parser *parser, ts_input_edit *edit) {
-    if (parser->stack.size == 0) return 0;
-    
-    ts_tree *node = ts_stack_top_node(&parser->stack);
-    size_t left_position = 0;
-    size_t right_position = node->offset + node->size;
-    size_t child_count;
-    ts_tree ** children = ts_tree_children(node, &child_count);
 
-    while (right_position > edit->position || children) {
-        parser->stack.size--;
-        ts_tree *child;
-        for (size_t i = 0; i < child_count; i++) {
-            child = children[i];
-            right_position = left_position + child->offset + child->size;
-            ts_tree_retain(child);
-            state_id parse_state = ts_parse_actions[ts_stack_top_state(&parser->stack)][child->symbol].data.to_state;
-            ts_stack_push(&parser->stack, parse_state, child);
-            if (right_position >= edit->position) break;
-            left_position = right_position;
-        }
-        ts_tree_release(node);
-        node = child;
-        children = ts_tree_children(node, &child_count);
-    }
+static size_t ts_lr_parser_breakdown_stack(ts_lr_parser *parser, ts_input_edit *edit) {
+    if (!edit) return 0;
+
+    ts_tree *node;
+    size_t position;
     
-    return right_position;
+    for (;;) {
+        node = ts_stack_top_node(&parser->stack);
+        if (!node) break;
+
+        position = 0;
+        for (size_t i = 0; i < parser->stack.size; i++) {
+            ts_tree *node = parser->stack.entries[i].node;
+            position += node->offset + node->size;
+        }
+        
+        size_t child_count = 0;
+        ts_tree **children = ts_tree_children(node, &child_count);
+
+        if (position <= edit->position && !children) break;
+
+        parser->stack.size--;
+        position -= (node->offset + node->size);
+
+        for (size_t i = 0; i < child_count && position < edit->position; i++) {
+            ts_tree *child = children[i];
+
+            state_id state = ts_stack_top_state(&parser->stack);
+            state_id next_state = ts_parse_actions[state][child->symbol].data.to_state;
+            ts_stack_push(&parser->stack, next_state, child);
+            ts_tree_retain(child);
+            position += child->offset + child->size;
+        }
+
+        ts_tree_release(node);
+    }
+
+    return position;
 }
 
 static void ts_lr_parser_initialize(ts_lr_parser *parser, ts_input input, ts_input_edit *edit) {

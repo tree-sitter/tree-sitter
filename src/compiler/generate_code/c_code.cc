@@ -189,7 +189,7 @@ namespace tree_sitter {
                 body += _default("LEX_PANIC();");
                 return _switch("LEX_STATE()", body);
             }
-            
+
             string symbol_count() {
                 return "#define TS_SYMBOL_COUNT " + to_string(parse_table.symbols.size());
             }

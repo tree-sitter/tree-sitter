@@ -38,7 +38,7 @@ describe("incremental parsing", [&]() {
         })));
     });
 
-    describe("modifying the input", [&]() {
+    describe("modifying the end of the input", [&]() {
         before_each([&]() {
             size_t position(string("{ \"key\": [1, 2]").length());
             string inserted_text(", \"key2\": 4");
@@ -69,6 +69,39 @@ describe("incremental parsing", [&]() {
             AssertThat(reader->strings_read[1], Equals(", \"key2\": 4 }"));
         });
     });
+
+    describe("modifying the beginning of the input", [&]() {
+        before_each([&]() {
+            size_t position(string("{ ").length());
+            string inserted_text("\"key2\": 4, ");
+
+            reader->content.insert(position, inserted_text);
+            ts_document_edit(doc, {
+                .position = position,
+                .bytes_removed = 0,
+                .bytes_inserted = inserted_text.length()
+            });
+        });
+
+        it("2 updates the parse tree", [&]() {
+            AssertThat(string(ts_document_string(doc)), Equals(
+                "(value "
+                    "(object "
+                        "(string) "
+                        "(value (number)) "
+                        "(string) "
+                        "(value (array "
+                            "(value (number)) "
+                            "(value (number))))))"
+            ));
+        });
+
+        it_skip("re-reads only the changed portion of the input", [&]() {
+            AssertThat(reader->strings_read.size(), Equals<size_t>(2));
+            AssertThat(reader->strings_read[1], Equals("\"key2\": 4, "));
+        });
+    });
+
 });
 
 END_TEST
