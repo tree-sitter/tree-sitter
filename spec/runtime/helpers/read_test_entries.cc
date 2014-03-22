@@ -15,17 +15,16 @@ using std::regex_replace;
 
 static string trim_output(const string &input) {
     string result(input);
-    result = regex_replace(result, regex("^[\\s]+"), "");
-    result = regex_replace(result, regex("[\\s]+$"), "");
-    result = regex_replace(result, regex("\\)\\s+\\)"), "))");
-    result = regex_replace(result, regex("\\s+"), " ");
+    result = regex_replace(result, regex("[\n\t ]+", std::regex_constants::extended), string(" "));
+    result = regex_replace(result, regex("^ ", std::regex_constants::extended), string(""));
+    result = regex_replace(result, regex(" $", std::regex_constants::extended), string(""));
+    result = regex_replace(result, regex("\\) \\)", std::regex_constants::extended), string("))"));
     return result;
 }
 
 static vector<TestEntry> get_test_entries_from_string(string content) {
-    regex header_pattern("===+\n"  "([^=]+)\n"  "===+\n");
-    regex separator_pattern("---+");
-
+    regex header_pattern("===+\n"  "([^=]+)\n"  "===+", std::regex_constants::extended);
+    regex separator_pattern("---+", std::regex_constants::extended);
     vector<string> descriptions;
     vector<string> bodies;
 
