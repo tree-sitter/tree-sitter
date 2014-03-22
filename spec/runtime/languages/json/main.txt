@@ -16,14 +16,18 @@ parses empty arrays
 parses arrays
 ===================
 [
-    1, 2, 3,
+    333,
+    null,
+    true,
+    false,
     { "stuff": "good" }
 ]
 ---
 (value (array
     (value (number))
-    (value (number))
-    (value (number))
+    (value (null))
+    (value (true))
+    (value (false))
     (value (object
         (string) (value (string))
     ))

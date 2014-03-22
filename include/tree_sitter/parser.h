@@ -351,7 +351,11 @@ static int ts_lr_parser_handle_error(ts_lr_parser *parser) {
 
     for (;;) {
         ts_tree_release(parser->lookahead);
+        size_t position = ts_lexer_position(&parser->lexer);
         parser->lookahead = ts_lex(&parser->lexer, ts_lex_state_error);
+        if (ts_lexer_position(&parser->lexer) == position)
+            ts_lexer_advance(&parser->lexer);
+
         if (parser->lookahead->symbol == ts_builtin_sym_end) {
             parser->stack.entries[0].node = error;
             return 0;

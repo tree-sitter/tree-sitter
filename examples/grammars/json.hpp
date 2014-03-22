@@ -23,7 +23,10 @@ namespace test_grammars {
                 sym("object"),
                 sym("array"),
                 sym("string"), 
-                sym("number") }) },
+                sym("number"),
+                sym("true"),
+                sym("false"),
+                sym("null"), }) },
             { "object", seq({
                 _sym("left_brace"),
                 comma_sep(err(seq({
@@ -43,6 +46,9 @@ namespace test_grammars {
             { "right_bracket", str("]") },
             { "left_brace", str("{") },
             { "right_brace", str("}") },
+            { "null", str("null") },
+            { "true", str("true") },
+            { "false", str("false") },
         });
     }
 }
