@@ -77,7 +77,7 @@ static vector<string> list_directory(string dir_name) {
 }
 
 static string src_dir() {
-    const char * dir = getenv("TREESITTER_DIR");
+    const char *dir = getenv("TREESITTER_DIR");
     if (!dir) dir = getenv("PWD");
     return dir;
 }
@@ -90,9 +90,8 @@ vector<TestEntry> test_entries_for_language(string language) {
     for (string &filename : filenames) {
         ifstream file(filename);
         std::string content((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
-        for (TestEntry entry : get_test_entries_from_string(content)) {
+        for (TestEntry &entry : get_test_entries_from_string(content))
             result.push_back(entry);
-        }
     }
 
     return result;

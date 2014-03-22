@@ -15,7 +15,7 @@ barf
 ==========================================
 recovers from errors inside arrays
 ==========================================
-[1,,2]
+[1, , 2]
 ---
 (value (array
     (value (number))
@@ -25,7 +25,7 @@ recovers from errors inside arrays
 ==========================================
 recovers from errors inside objects
 ==========================================
-{ "key1": 1, 5 }
+{ "key1": 1, oops }
 ---
 (value (object (string) (value (number)) (ERROR)))
 
