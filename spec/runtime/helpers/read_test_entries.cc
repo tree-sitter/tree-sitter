@@ -23,7 +23,7 @@ static string trim_output(const string &input) {
 }
 
 static vector<TestEntry> get_test_entries_from_string(string content) {
-    regex header_pattern("===+\n([\\w ]+)\n===+");
+    regex header_pattern("===+\n"  "([^=]+)\n"  "===+\n");
     regex separator_pattern("---+");
 
     vector<string> descriptions;
