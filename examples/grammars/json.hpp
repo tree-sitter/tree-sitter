@@ -39,7 +39,7 @@ namespace test_grammars {
                 comma_sep(err(sym("value"))),
                 _sym("right_bracket"), }) },
             { "string", pattern("\"([^\"]|\\\\\")+\"") },
-            { "number", pattern("\\d+") },
+            { "number", pattern("\\d+(.\\d+)?") },
             { "comma", str(",") },
             { "colon", str(":") },
             { "left_bracket", str("[") },

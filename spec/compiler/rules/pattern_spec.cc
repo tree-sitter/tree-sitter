@@ -78,7 +78,7 @@ describe("parsing pattern rules", []() {
     });
 
     it("parses character groups in sequences", []() {
-        Pattern rule("\"([^\"]|\\\\\")+\"");
+        Pattern rule("\"([^\"]|\\\\\")*\"");
         AssertThat(
             rule.to_rule_tree(),
             EqualsPointer(seq({
@@ -122,17 +122,40 @@ describe("parsing pattern rules", []() {
             rule.to_rule_tree(),
             EqualsPointer(
                 seq({
-                    repeat(seq({
-                        character({ 'a' }),
-                        character({ 'b' })
-                    })),
-                    repeat(seq({
-                        character({ 'c' }),
-                        character({ 'd' })
-                    })),
+                    seq({
+                        seq({ character({ 'a' }), character({ 'b' }) }),
+                        repeat(seq({ character({ 'a' }), character({ 'b' }) })),
+                    }),
+                    seq({
+                        seq({ character({ 'c' }), character({ 'd' }) }),
+                        repeat(seq({ character({ 'c' }), character({ 'd' }) })),
+                    }),
+                })
+            ));
+
+        Pattern rule2("(ab)*(cd)*");
+        AssertThat(
+            rule2.to_rule_tree(),
+            EqualsPointer(
+                seq({
+                    repeat(seq({ character({ 'a' }), character({ 'b' }) })),
+                    repeat(seq({ character({ 'c' }), character({ 'd' }) })),
                 })
             ));
     });
+
+    it("parses optional rules", []() {
+        Pattern rule("a(bc)?");
+        AssertThat(
+            rule.to_rule_tree(),
+            EqualsPointer(seq({
+                character({ 'a' }),
+                choice({
+                    seq({ character({ 'b' }), character({ 'c' }) }),
+                    blank()
+                })
+            })));
+   });
 });
 
 END_TEST

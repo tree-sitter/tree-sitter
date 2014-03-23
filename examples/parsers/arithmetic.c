@@ -66,32 +66,41 @@ LEX_FN() {
                 ADVANCE(10);
             if (('A' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'Z') ||
                 ('a' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'z'))
-                ADVANCE(11);
+                ADVANCE(12);
             LEX_ERROR();
         case 9:
             ACCEPT_TOKEN(ts_aux_sym_token1);
         case 10:
             if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
-                ADVANCE(10);
+                ADVANCE(11);
             ACCEPT_TOKEN(ts_sym_number);
         case 11:
+            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+                ADVANCE(11);
+            ACCEPT_TOKEN(ts_sym_number);
+        case 12:
             if (('A' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'Z') ||
                 ('a' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'z'))
-                ADVANCE(11);
+                ADVANCE(13);
             ACCEPT_TOKEN(ts_sym_variable);
-        case 12:
+        case 13:
+            if (('A' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'Z') ||
+                ('a' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'z'))
+                ADVANCE(13);
+            ACCEPT_TOKEN(ts_sym_variable);
+        case 14:
             if (LOOKAHEAD_CHAR() == ')')
                 ADVANCE(4);
             if (LOOKAHEAD_CHAR() == '*')
                 ADVANCE(7);
             LEX_ERROR();
-        case 13:
+        case 15:
             if (LOOKAHEAD_CHAR() == '*')
                 ADVANCE(7);
             if (LOOKAHEAD_CHAR() == '+')
                 ADVANCE(2);
             LEX_ERROR();
-        case 14:
+        case 16:
             if (LOOKAHEAD_CHAR() == '*')
                 ADVANCE(7);
             LEX_ERROR();
@@ -108,7 +117,7 @@ LEX_FN() {
                 ADVANCE(10);
             if (('A' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'Z') ||
                 ('a' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'z'))
-                ADVANCE(11);
+                ADVANCE(12);
             LEX_ERROR();
         default:
             LEX_PANIC();
@@ -134,7 +143,7 @@ PARSE_TABLE() {
     END_STATE();
     
     STATE(2);
-    SET_LEX_STATE(13);
+    SET_LEX_STATE(15);
     REDUCE(ts_sym_plus, ts_sym_term, 1, COLLAPSE({0}))
     SHIFT(ts_sym_times, 3)
     REDUCE(ts_builtin_sym_end, ts_sym_term, 1, COLLAPSE({0}))
@@ -254,7 +263,7 @@ PARSE_TABLE() {
     END_STATE();
     
     STATE(19);
-    SET_LEX_STATE(12);
+    SET_LEX_STATE(14);
     SHIFT(ts_sym_times, 20)
     REDUCE(ts_aux_sym_token2, ts_sym_term, 1, COLLAPSE({0}))
     END_STATE();
@@ -322,7 +331,7 @@ PARSE_TABLE() {
     END_STATE();
     
     STATE(29);
-    SET_LEX_STATE(12);
+    SET_LEX_STATE(14);
     REDUCE(ts_sym_times, ts_sym_factor, 1, COLLAPSE({0}))
     REDUCE(ts_aux_sym_token2, ts_sym_factor, 1, COLLAPSE({0}))
     END_STATE();
@@ -349,13 +358,13 @@ PARSE_TABLE() {
     END_STATE();
     
     STATE(33);
-    SET_LEX_STATE(12);
+    SET_LEX_STATE(14);
     REDUCE(ts_sym_times, ts_sym_factor, 3, COLLAPSE({1, 0, 1}))
     REDUCE(ts_aux_sym_token2, ts_sym_factor, 3, COLLAPSE({1, 0, 1}))
     END_STATE();
     
     STATE(34);
-    SET_LEX_STATE(13);
+    SET_LEX_STATE(15);
     REDUCE(ts_sym_plus, ts_sym_factor, 1, COLLAPSE({0}))
     REDUCE(ts_sym_times, ts_sym_factor, 1, COLLAPSE({0}))
     REDUCE(ts_builtin_sym_end, ts_sym_factor, 1, COLLAPSE({0}))
@@ -377,7 +386,7 @@ PARSE_TABLE() {
     END_STATE();
     
     STATE(37);
-    SET_LEX_STATE(14);
+    SET_LEX_STATE(16);
     SHIFT(ts_sym_times, 38)
     REDUCE(ts_builtin_sym_end, ts_sym_term, 1, COLLAPSE({0}))
     END_STATE();
@@ -422,7 +431,7 @@ PARSE_TABLE() {
     END_STATE();
     
     STATE(44);
-    SET_LEX_STATE(14);
+    SET_LEX_STATE(16);
     REDUCE(ts_sym_times, ts_sym_factor, 1, COLLAPSE({0}))
     REDUCE(ts_builtin_sym_end, ts_sym_factor, 1, COLLAPSE({0}))
     END_STATE();
@@ -449,7 +458,7 @@ PARSE_TABLE() {
     END_STATE();
     
     STATE(48);
-    SET_LEX_STATE(14);
+    SET_LEX_STATE(16);
     REDUCE(ts_sym_times, ts_sym_factor, 3, COLLAPSE({1, 0, 1}))
     REDUCE(ts_builtin_sym_end, ts_sym_factor, 3, COLLAPSE({1, 0, 1}))
     END_STATE();
@@ -471,7 +480,7 @@ PARSE_TABLE() {
     END_STATE();
     
     STATE(51);
-    SET_LEX_STATE(13);
+    SET_LEX_STATE(15);
     REDUCE(ts_sym_plus, ts_sym_factor, 3, COLLAPSE({1, 0, 1}))
     REDUCE(ts_sym_times, ts_sym_factor, 3, COLLAPSE({1, 0, 1}))
     REDUCE(ts_builtin_sym_end, ts_sym_factor, 3, COLLAPSE({1, 0, 1}))

@@ -18,6 +18,11 @@ describe("checking if rules can be blank", [&]() {
 
         AssertThat(rule_can_be_blank(rule), Equals(false));
     });
+
+    it("returns true for repeats", [&]() {
+        rule_ptr rule = repeat(str("x"));
+        AssertThat(rule_can_be_blank(rule), Equals(true));
+    });
 });
 
 END_TEST

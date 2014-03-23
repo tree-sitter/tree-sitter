@@ -6,6 +6,7 @@
 #include "compiler/rules/seq.h"
 #include "compiler/rules/repeat.h"
 #include "compiler/rules/character_set.h"
+#include "compiler/rules/blank.h"
 
 namespace tree_sitter {
     namespace rules {
@@ -40,9 +41,21 @@ namespace tree_sitter {
 
             rule_ptr factor() {
                 rule_ptr result = atom();
-                if (has_more_input() && (peek() == '+')) {
-                    next();
-                    result = make_shared<Repeat>(result);
+                if (has_more_input()) {
+                    switch (peek()) {
+                        case '*':
+                            next();
+                            result = make_shared<Repeat>(result);
+                            break;
+                        case '+':
+                            next();
+                            result = make_shared<Seq>(result, make_shared<Repeat>(result));
+                            break;
+                        case '?':
+                            next();
+                            result = make_shared<Choice>(result, make_shared<Blank>());
+                            break;
+                    }
                 }
                 return result;
             }

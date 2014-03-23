@@ -130,6 +130,10 @@ describe("rule transitions", []() {
             })));
     });
 
+    it("handles blanks", [&]() {
+        AssertThat(char_transitions(blank()), Equals(rule_map<CharacterSet>({})));
+    });
+
     it("handles repeats", [&]() {
         rule_ptr rule = repeat(str("ab"));
         AssertThat(

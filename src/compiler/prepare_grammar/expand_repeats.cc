@@ -15,31 +15,37 @@ namespace tree_sitter {
     using std::map;
     using std::make_shared;
     using rules::rule_ptr;
+    using rules::Blank;
+    using rules::Choice;
+    using rules::Repeat;
+    using rules::Rule;
+    using rules::Seq;
+    using rules::Symbol;
 
     namespace prepare_grammar {
         class ExpandRepeats : public rules::RuleFn<rule_ptr> {
             rule_ptr make_repeat_helper(string name, const rule_ptr &rule) {
-                return rules::Choice::Build({
-                    rules::Seq::Build({ rule, make_shared<rules::Symbol>(name, rules::SymbolTypeAuxiliary) }),
-                    make_shared<rules::Blank>() });
+                return Choice::Build({
+                    Seq::Build({ rule, make_shared<Symbol>(name, rules::SymbolTypeAuxiliary) }),
+                    make_shared<Blank>() });
             }
 
-            void visit(const rules::Repeat *rule) {
+            void visit(const Repeat *rule) {
                 rule_ptr inner_rule = apply(rule->content);
                 string helper_rule_name = string("repeat_helper") + to_string(aux_rules.size() + 1);
                 aux_rules.insert({ helper_rule_name, make_repeat_helper(helper_rule_name, inner_rule) });
-                value = make_shared<rules::Symbol>(helper_rule_name, rules::SymbolTypeAuxiliary);
+                value = make_shared<Symbol>(helper_rule_name, rules::SymbolTypeAuxiliary);
             }
 
-            void visit(const rules::Seq *rule) {
-                value = rules::Seq::Build({ apply(rule->left), apply(rule->right) });
+            void visit(const Seq *rule) {
+                value = Seq::Build({ apply(rule->left), apply(rule->right) });
             }
 
-            void visit(const rules::Choice *rule) {
-                value = rules::Choice::Build({ apply(rule->left), apply(rule->right) });
+            void visit(const Choice *rule) {
+                value = Choice::Build({ apply(rule->left), apply(rule->right) });
             }
 
-            void default_visit(const rules::Rule *rule) {
+            void default_visit(const Rule *rule) {
                 value = rule->copy();
             }
 
