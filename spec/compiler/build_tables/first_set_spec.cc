@@ -9,7 +9,7 @@ using namespace rules;
 START_TEST
 
 describe("computing FIRST sets", []() {
-    const PreparedGrammar null_grammar("", {}, {});
+    const PreparedGrammar null_grammar({}, {});
 
     describe("for a sequence AB", [&]() {
         it("ignores B when A cannot be blank", [&]() {
@@ -41,7 +41,7 @@ describe("computing FIRST sets", []() {
                     sym("A") }),
                 sym("A") });
 
-            Grammar grammar("A", {
+            Grammar grammar({
                 { "A", choice({
                     seq({
                         sym("y"),
@@ -56,7 +56,7 @@ describe("computing FIRST sets", []() {
         });
 
         it("includes FIRST(B) when A is a non-terminal and its expansion can be blank", [&]() {
-            Grammar grammar("A", {{ "A", choice({ sym("x"), blank() }) }});
+            Grammar grammar({{ "A", choice({ sym("x"), blank() }) }});
 
             auto rule = seq({
                 sym("A"),

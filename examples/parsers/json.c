@@ -387,8 +387,8 @@ PARSE_TABLE() {
     STATE(7);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
-    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
-    SHIFT(ts_aux_sym_repeat_helper2, 49)
+    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
+    SHIFT(ts_aux_sym_repeat_helper1, 49)
     END_STATE();
     
     STATE(8);
@@ -419,13 +419,13 @@ PARSE_TABLE() {
     STATE(11);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
-    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
-    SHIFT(ts_aux_sym_repeat_helper2, 12)
+    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
+    SHIFT(ts_aux_sym_repeat_helper1, 12)
     END_STATE();
     
     STATE(12);
     SET_LEX_STATE(4);
-    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 5, COLLAPSE({1, 0, 1, 0, 1}))
+    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper1, 5, COLLAPSE({1, 0, 1, 0, 1}))
     END_STATE();
     
     STATE(13);
@@ -457,8 +457,8 @@ PARSE_TABLE() {
     STATE(16);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
-    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
-    SHIFT(ts_aux_sym_repeat_helper2, 17)
+    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
+    SHIFT(ts_aux_sym_repeat_helper1, 17)
     END_STATE();
     
     STATE(17);
@@ -497,8 +497,8 @@ PARSE_TABLE() {
     STATE(21);
     SET_LEX_STATE(5);
     SHIFT(ts_sym_comma, 22)
-    REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
-    SHIFT(ts_aux_sym_repeat_helper1, 40)
+    REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
+    SHIFT(ts_aux_sym_repeat_helper2, 40)
     END_STATE();
     
     STATE(22);
@@ -519,13 +519,13 @@ PARSE_TABLE() {
     STATE(23);
     SET_LEX_STATE(5);
     SHIFT(ts_sym_comma, 22)
-    REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
-    SHIFT(ts_aux_sym_repeat_helper1, 24)
+    REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
+    SHIFT(ts_aux_sym_repeat_helper2, 24)
     END_STATE();
     
     STATE(24);
     SET_LEX_STATE(7);
-    REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper1, 3, COLLAPSE({1, 0, 1}))
+    REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper2, 3, COLLAPSE({1, 0, 1}))
     END_STATE();
     
     STATE(25);
@@ -557,8 +557,8 @@ PARSE_TABLE() {
     STATE(28);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
-    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
-    SHIFT(ts_aux_sym_repeat_helper2, 29)
+    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
+    SHIFT(ts_aux_sym_repeat_helper1, 29)
     END_STATE();
     
     STATE(29);
@@ -581,8 +581,8 @@ PARSE_TABLE() {
     STATE(32);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
-    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
-    SHIFT(ts_aux_sym_repeat_helper2, 33)
+    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
+    SHIFT(ts_aux_sym_repeat_helper1, 33)
     END_STATE();
     
     STATE(33);
@@ -615,8 +615,8 @@ PARSE_TABLE() {
     STATE(36);
     SET_LEX_STATE(5);
     SHIFT(ts_sym_comma, 22)
-    REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
-    SHIFT(ts_aux_sym_repeat_helper1, 37)
+    REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
+    SHIFT(ts_aux_sym_repeat_helper2, 37)
     END_STATE();
     
     STATE(37);
@@ -662,8 +662,8 @@ PARSE_TABLE() {
     STATE(44);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
-    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
-    SHIFT(ts_aux_sym_repeat_helper2, 45)
+    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
+    SHIFT(ts_aux_sym_repeat_helper1, 45)
     END_STATE();
     
     STATE(45);
@@ -680,13 +680,13 @@ PARSE_TABLE() {
     STATE(47);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
-    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
-    SHIFT(ts_aux_sym_repeat_helper2, 48)
+    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
+    SHIFT(ts_aux_sym_repeat_helper1, 48)
     END_STATE();
     
     STATE(48);
     SET_LEX_STATE(4);
-    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 3, COLLAPSE({1, 0, 1}))
+    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper1, 3, COLLAPSE({1, 0, 1}))
     END_STATE();
     
     STATE(49);
@@ -707,8 +707,8 @@ PARSE_TABLE() {
     STATE(52);
     SET_LEX_STATE(1);
     SHIFT(ts_sym_comma, 8)
-    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
-    SHIFT(ts_aux_sym_repeat_helper2, 53)
+    REDUCE(ts_sym_right_brace, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
+    SHIFT(ts_aux_sym_repeat_helper1, 53)
     END_STATE();
     
     STATE(53);
@@ -740,8 +740,8 @@ PARSE_TABLE() {
     STATE(56);
     SET_LEX_STATE(5);
     SHIFT(ts_sym_comma, 22)
-    REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper1, 0, COLLAPSE({}))
-    SHIFT(ts_aux_sym_repeat_helper1, 57)
+    REDUCE(ts_sym_right_bracket, ts_aux_sym_repeat_helper2, 0, COLLAPSE({}))
+    SHIFT(ts_aux_sym_repeat_helper2, 57)
     END_STATE();
     
     STATE(57);

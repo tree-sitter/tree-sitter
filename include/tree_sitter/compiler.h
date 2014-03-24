@@ -2,7 +2,6 @@
 #define TREE_SITTER_COMPILER_H_
 
 #include <vector>
-#include <map>
 #include <string>
 #include <memory>
 
@@ -26,10 +25,11 @@ namespace tree_sitter {
 
     class Grammar {
     public:
-        Grammar(std::string start_rule_name, const std::map<const std::string, const rules::rule_ptr> &rules);
+        Grammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules);
         bool operator==(const Grammar &other) const;
-        const std::string start_rule_name;
-        const std::map<const std::string, const rules::rule_ptr> rules;
+        std::string start_rule_name() const;
+        const rules::rule_ptr rule(const std::string &name) const;
+        const std::vector<std::pair<std::string, rules::rule_ptr>> rules;
     };
 
     std::ostream& operator<<(std::ostream &stream, const Grammar &grammar);

@@ -1,5 +1,5 @@
 #include "compiler/prepare_grammar/extract_tokens.h"
-#include <map>
+#include <vector>
 #include <string>
 #include "tree_sitter/compiler.h"
 #include "compiler/prepared_grammar.h"
@@ -16,7 +16,7 @@ namespace tree_sitter {
     using std::pair;
     using std::string;
     using std::to_string;
-    using std::map;
+    using std::vector;
     using std::make_shared;
     using rules::rule_ptr;
 
@@ -41,7 +41,7 @@ namespace tree_sitter {
                     if (*pair.second == *rule)
                         return pair.first;
                 string name = "token" + to_string(tokens.size() + 1);
-                tokens.insert({ name, rule });
+                tokens.push_back({ name, rule });
                 return name;
             }
 
@@ -67,36 +67,36 @@ namespace tree_sitter {
             }
 
         public:
-            map<const string, const rule_ptr> tokens;
+            vector<pair<string, const rules::rule_ptr>> tokens;
         };
 
         pair<PreparedGrammar, PreparedGrammar> extract_tokens(const PreparedGrammar &input_grammar) {
-            map<const string, const rule_ptr> rules, tokens, aux_rules, aux_tokens;
+            vector<pair<string, rules::rule_ptr>> rules, tokens, aux_rules, aux_tokens;
             TokenExtractor extractor;
 
             for (auto &pair : input_grammar.rules) {
                 string name = pair.first;
                 rule_ptr rule = pair.second;
                 if (IsToken().apply(rule))
-                    tokens.insert({ name, rule });
+                    tokens.push_back({ name, rule });
                 else
-                    rules.insert({ name, extractor.apply(rule) });
+                    rules.push_back({ name, extractor.apply(rule) });
             }
 
             for (auto &pair : input_grammar.aux_rules) {
                 string name = pair.first;
                 rule_ptr rule = pair.second;
                 if (IsToken().apply(rule))
-                    aux_tokens.insert({ name, rule });
+                    aux_tokens.push_back({ name, rule });
                 else
-                    aux_rules.insert({ name, extractor.apply(rule) });
+                    aux_rules.push_back({ name, extractor.apply(rule) });
             }
 
-            aux_tokens.insert(extractor.tokens.begin(), extractor.tokens.end());
+            aux_tokens.insert(aux_tokens.end(), extractor.tokens.begin(), extractor.tokens.end());
 
             return {
-                PreparedGrammar(input_grammar.start_rule_name, rules, aux_rules),
-                PreparedGrammar("", tokens, aux_tokens)
+                PreparedGrammar(rules, aux_rules),
+                PreparedGrammar(tokens, aux_tokens)
             };
         }
     }

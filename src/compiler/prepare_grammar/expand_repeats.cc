@@ -1,5 +1,5 @@
 #include "compiler/prepare_grammar/expand_repeats.h"
-#include <map>
+#include <vector>
 #include <string>
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/visitor.h"
@@ -11,8 +11,9 @@
 
 namespace tree_sitter {
     using std::string;
+    using std::vector;
+    using std::pair;
     using std::to_string;
-    using std::map;
     using std::make_shared;
     using rules::rule_ptr;
     using rules::Blank;
@@ -33,7 +34,7 @@ namespace tree_sitter {
             void visit(const Repeat *rule) {
                 rule_ptr inner_rule = apply(rule->content);
                 string helper_rule_name = string("repeat_helper") + to_string(aux_rules.size() + 1);
-                aux_rules.insert({ helper_rule_name, make_repeat_helper(helper_rule_name, inner_rule) });
+                aux_rules.push_back({ helper_rule_name, make_repeat_helper(helper_rule_name, inner_rule) });
                 value = make_shared<Symbol>(helper_rule_name, rules::SymbolTypeAuxiliary);
             }
 
@@ -50,19 +51,19 @@ namespace tree_sitter {
             }
 
         public:
-            map<const string, const rule_ptr> aux_rules;
+            vector<pair<string, const rules::rule_ptr>> aux_rules;
         };
 
         PreparedGrammar expand_repeats(const PreparedGrammar &grammar) {
-            map<const string, const rule_ptr> rules, aux_rules(grammar.aux_rules);
+            vector<pair<string, rules::rule_ptr>> rules, aux_rules(grammar.aux_rules);
             ExpandRepeats expander;
 
             for (auto &pair : grammar.rules)
-                rules.insert({ pair.first, expander.apply(pair.second) });
+                rules.push_back({ pair.first, expander.apply(pair.second) });
 
-            aux_rules.insert(expander.aux_rules.begin(), expander.aux_rules.end());
+            aux_rules.insert(aux_rules.end(), expander.aux_rules.begin(), expander.aux_rules.end());
 
-            return PreparedGrammar(grammar.start_rule_name, rules, aux_rules);
+            return PreparedGrammar(rules, aux_rules);
         }
     }
 }

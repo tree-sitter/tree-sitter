@@ -9,7 +9,7 @@ using namespace rules;
 START_TEST
 
 describe("computing closures of item sets", []() {
-    PreparedGrammar grammar("E", {
+    PreparedGrammar grammar({
         { "E", choice({
             seq({
                 sym("T"),

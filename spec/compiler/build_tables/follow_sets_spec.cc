@@ -9,7 +9,7 @@ using namespace rules;
 START_TEST
 
 describe("computing FOLLOW sets", []() {
-    const PreparedGrammar grammar("", {
+    const PreparedGrammar grammar({
         { "A", sym("a") },
         { "B", sym("b") },
     }, {});

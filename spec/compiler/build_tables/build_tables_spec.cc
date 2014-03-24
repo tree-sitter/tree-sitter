@@ -20,7 +20,7 @@ static set<Symbol> keys(const map<Symbol, parse_actions> &map) {
 START_TEST
 
 describe("building parse and lex tables", []() {
-    PreparedGrammar grammar("expression", {
+    PreparedGrammar grammar({
         { "expression", choice({
             seq({
                 sym("term"),
@@ -37,7 +37,7 @@ describe("building parse and lex tables", []() {
             }) }) }
     }, {});
 
-    PreparedGrammar lex_grammar("", {
+    PreparedGrammar lex_grammar({
         { "plus", str("+") },
         { "variable", pattern("\\w+") },
         { "number", pattern("\\d+") },

@@ -153,7 +153,7 @@ namespace tree_sitter {
                 lex_grammar(lex_grammar) {}
 
             pair<ParseTable, LexTable> build() {
-                auto start_symbol = make_shared<Symbol>(grammar.start_rule_name);
+                auto start_symbol = make_shared<Symbol>(grammar.start_rule_name());
                 ParseItem item(rules::START, start_symbol, {}, rules::END_OF_INPUT);
                 ParseItemSet item_set = item_set_closure(ParseItemSet({ item }), grammar);
                 add_parse_state(item_set);

@@ -15,7 +15,7 @@ namespace tree_sitter {
         }
 
         Grammar json() {
-            return Grammar("value", {
+            return Grammar({
                 { "value", choice({
                     sym("object"),
                     sym("array"),

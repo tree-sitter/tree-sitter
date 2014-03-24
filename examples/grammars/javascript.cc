@@ -15,7 +15,7 @@ namespace tree_sitter {
         }
 
         Grammar javascript() {
-            return Grammar("program", {
+            return Grammar({
                 { "program", repeat(sym("statement")) },
                 { "terminator", choice({ str(";"), str("\n") }) },
                 { "statement", choice({

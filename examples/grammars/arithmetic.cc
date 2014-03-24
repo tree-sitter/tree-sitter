@@ -5,7 +5,7 @@ namespace tree_sitter {
         using namespace tree_sitter::rules;
 
         Grammar arithmetic() {
-            return Grammar("expression", {
+            return Grammar({
                 { "expression", choice({
                     seq({
                         sym("term"),
