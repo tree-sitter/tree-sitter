@@ -49,8 +49,7 @@
         'spec/compiler',
       ],
       'sources': [
-        '<!@(find spec/compiler -name "*.h" -or -name "*.cc")',
-        '<!@(find examples/grammars -name "*.hpp")',
+        '<!@(find spec/compiler examples/grammars -name "*.h" -or -name "*.cc")',
       ],
     },
 

@@ -1,6 +1,5 @@
 #include "compiler_spec_helper.h"
-#include "grammars/json.hpp"
-#include "grammars/arithmetic.hpp"
+#include "helpers/example_grammars.h"
 #include <fstream>
 
 static string src_dir() {
@@ -15,12 +14,12 @@ describe("compiling the example grammars", []() {
     string example_parser_dir = src_dir() + "/examples/parsers/";
 
     it("compiles the arithmetic grammar", [&]() {
-        Grammar grammar = test_grammars::arithmetic();
+        Grammar grammar = examples::arithmetic();
         ofstream(example_parser_dir + "arithmetic.c") << compile(grammar, "arithmetic");
     });
 
     it("compiles the json grammar", [&]() {
-        Grammar grammar = test_grammars::json();
+        Grammar grammar = examples::json();
         ofstream(example_parser_dir + "json.c") << compile(grammar, "json");
     });
 });
