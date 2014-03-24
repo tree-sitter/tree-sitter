@@ -1,5 +1,4 @@
 #include "compiler_spec_helper.h"
-#include "helpers/example_grammars.h"
 #include <fstream>
 
 static string src_dir() {
@@ -8,20 +7,26 @@ static string src_dir() {
     return dir;
 }
 
+namespace tree_sitter {
+    namespace examples {
+        Grammar arithmetic();
+        Grammar json();
+    }
+}
+
 START_TEST
 
 describe("compiling the example grammars", []() {
     string example_parser_dir = src_dir() + "/examples/parsers/";
 
-    it("compiles the arithmetic grammar", [&]() {
-        Grammar grammar = examples::arithmetic();
-        ofstream(example_parser_dir + "arithmetic.c") << compile(grammar, "arithmetic");
-    });
-
-    it("compiles the json grammar", [&]() {
-        Grammar grammar = examples::json();
-        ofstream(example_parser_dir + "json.c") << compile(grammar, "json");
-    });
+    auto compile_grammar = [&](Grammar grammar, string language) {
+        it(("compiles the " + language + " grammar").c_str(), [&]() {
+            ofstream(example_parser_dir + language + ".c") << compile(grammar, language);
+        });
+    };
+    
+    compile_grammar(examples::arithmetic(), "arithmetic");
+    compile_grammar(examples::json(), "json");
 });
 
 END_TEST
