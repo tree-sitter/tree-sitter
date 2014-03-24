@@ -44,13 +44,6 @@ namespace tree_sitter {
                     ParseItemSet item_set = transition.second;
                     ParseStateId new_state_id = add_parse_state(item_set);
                     parse_table.add_action(state_id, symbol, ParseAction::Shift(new_state_id));
-
-                    if (symbol == rules::ERROR) {
-                        parse_table.error_table.insert({
-                            state_id,
-                            { new_state_id, first_set(transition.second, grammar) }
-                        });
-                    }
                 }
             }
 

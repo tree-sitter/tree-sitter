@@ -71,7 +71,6 @@ namespace tree_sitter {
 
         std::vector<ParseState> states;
         std::set<rules::Symbol> symbols;
-        std::map<ParseStateId, std::pair<ParseStateId, std::set<rules::Symbol>>> error_table;
     };
 }
 

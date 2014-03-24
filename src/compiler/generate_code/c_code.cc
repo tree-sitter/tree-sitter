@@ -216,37 +216,6 @@ namespace tree_sitter {
                 return "#include \"tree_sitter/parser.h\"";
             }
 
-            string recover_case(ParseStateId state, set<rules::Symbol> symbols) {
-                string result = "RECOVER(" +
-                    to_string(state) + ", " +
-                    to_string(symbols.size()) + ", EXPECT({";
-                bool started = false;
-                for (auto &symbol : symbols) {
-                    if (started) {
-                        result += ", ";
-                    }
-                    result += symbol_id(symbol);
-                    started = true;
-                }
-                return result + "}));";
-            }
-
-            string recover_function() {
-                string cases;
-                for (auto &pair : parse_table.error_table) {
-                    auto pair_for_state = pair.second;
-                    cases += _case(to_string(pair.first),
-                                   recover_case(pair_for_state.first, pair_for_state.second));
-                }
-                cases += _default(recover_case(0, set<rules::Symbol>()));
-
-                return join({
-                    "RECOVER_FN() {",
-                    indent(_switch("state", cases)),
-                    "}"
-                });
-            }
-
             string lex_function() {
                 return join({
                     "LEX_FN() {",
