@@ -283,7 +283,7 @@ static size_t ts_lr_parser_breakdown_stack(ts_lr_parser *parser, ts_input_edit *
         if (!node) break;
 
         position = ts_stack_right_position(stack);
-        ts_tree **children = ts_tree_children(node, &child_count);
+        ts_tree **children = ts_tree_immediate_children(node, &child_count);
         if (position <= edit->position && !children) break;
 
         stack->size--;

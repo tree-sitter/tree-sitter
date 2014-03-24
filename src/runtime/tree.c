@@ -7,7 +7,6 @@ struct ts_tree {
     size_t ref_count;
     size_t offset;
     size_t size;
-    int is_hidden;
     union {
         struct {
             size_t count;
@@ -26,7 +25,6 @@ static ts_tree * ts_tree_make(ts_symbol symbol, size_t size, size_t offset) {
     ts_tree *result = malloc(sizeof(ts_tree));
     *result = (ts_tree) {
         .ref_count = 1,
-        .is_hidden = 0,
         .symbol = symbol,
         .size = size,
         .offset = offset,
@@ -37,15 +35,18 @@ static ts_tree * ts_tree_make(ts_symbol symbol, size_t size, size_t offset) {
 ts_tree * ts_tree_make_leaf(ts_symbol symbol, size_t size, size_t offset) {
     ts_tree *result = ts_tree_make(symbol, size, offset);
     result->data.children.count = 0;
+    result->data.children.immediate_count = 0;
     result->data.children.contents = NULL;
     return result;
 }
 
-ts_tree * ts_tree_make_node(ts_symbol symbol, size_t child_count, ts_tree **children, size_t size, size_t offset) {
-    for (size_t i = 0; i < child_count; i++)
-        ts_tree_retain(children[i]);
+ts_tree * ts_tree_make_node(ts_symbol symbol, size_t child_count, size_t immediate_child_count, ts_tree **children, size_t size, size_t offset) {
+    ts_tree **immediate_children = children + child_count;
+    for (size_t i = 0; i < immediate_child_count; i++)
+        ts_tree_retain(immediate_children[i]);
     ts_tree *result = ts_tree_make(symbol, size, offset);
     result->data.children.count = child_count;
+    result->data.children.immediate_count = immediate_child_count;
     result->data.children.contents = children;
     return result;
 }
@@ -78,18 +79,23 @@ size_t ts_tree_total_size(const ts_tree *tree) {
     return ts_tree_offset(tree) + ts_tree_size(tree);
 }
 
-void ts_tree_hide(ts_tree *tree, int hide) {
-    tree->is_hidden = hide;
+ts_tree ** ts_tree_immediate_children(const ts_tree *tree, size_t *count) {
+    if (!tree || tree->symbol == ts_builtin_sym_error) {
+        if (count) *count = 0;
+        return NULL;
+    }
+    if (count) *count = tree->data.children.immediate_count;
+    return tree->data.children.contents + tree->data.children.count;
 }
 
 void ts_tree_release(ts_tree *tree) {
     tree->ref_count--;
     if (tree->ref_count == 0) {
         size_t count;
-        ts_tree **children = ts_tree_children(tree, &count);
+        ts_tree **children = ts_tree_immediate_children(tree, &count);
         for (size_t i = 0; i < count; i++)
             ts_tree_release(children[i]);
-        free(children);
+        free(tree->data.children.contents);
         free(tree);
     }
 }
@@ -99,14 +105,12 @@ int ts_tree_equals(const ts_tree *node1, const ts_tree *node2) {
     if (node1->symbol == ts_builtin_sym_error) {
         // check error equality
     } else {
-        if (node1->data.children.count != node2->data.children.count)
-            return 0;
-        for (size_t i = 0; i < node1->data.children.count; i++) {
-            ts_tree *child1 = node1->data.children.contents[i];
-            ts_tree *child2 = node2->data.children.contents[i];
-            if (!ts_tree_equals(child1, child2))
-                return 0;
-        }
+        size_t count1, count2;
+        ts_tree **children1 = ts_tree_children(node1, &count1);
+        ts_tree **children2 = ts_tree_children(node2, &count2);
+        if (count1 != count2) return 0;        
+        for (size_t i = 0; i < count1; i++)
+            if (!ts_tree_equals(children1[i], children2[i])) return 0;
     }
     return 1;
 }
@@ -120,40 +124,32 @@ ts_tree ** ts_tree_children(const ts_tree *tree, size_t *count) {
     return tree->data.children.contents;
 }
 
-static size_t tree_write_to_string(const ts_tree *tree, const char **symbol_names, char *string, size_t limit, int is_beginning) {
+static size_t tree_write_to_string(const ts_tree *tree, const char **symbol_names, char *string, size_t limit) {
     char *cursor = string;
     char **destination = (limit > 0) ? &cursor : &string;
 
     if (!tree)
         return snprintf(*destination, limit, "(NULL)");
+    if (tree->symbol == ts_builtin_sym_error)
+        return snprintf(*destination, limit, "(ERROR)");
 
-    if (!tree->is_hidden && !is_beginning)
+    cursor += snprintf(*destination, limit, "(%s", symbol_names[tree->symbol]);
+    size_t count;
+    ts_tree **children = ts_tree_children(tree, &count);
+    for (size_t i = 0; i < count; i++) {
         cursor += snprintf(*destination, limit, " ");
-
-    if (tree->symbol == ts_builtin_sym_error) {
-        cursor += snprintf(*destination, limit, "(ERROR)");
-        return cursor - string;
+        cursor += tree_write_to_string(children[i], symbol_names, *destination, limit);
     }
-
-    if (!tree->is_hidden)
-        cursor += snprintf(*destination, limit, "(%s", symbol_names[tree->symbol]);
-
-    for (size_t i = 0; i < tree->data.children.count; i++) {
-        ts_tree *child = tree->data.children.contents[i];
-        cursor += tree_write_to_string(child, symbol_names, *destination, limit, 0);
-    }
-
-    if (!tree->is_hidden)
-        cursor += snprintf(*destination, limit, ")");
-
+    cursor += snprintf(*destination, limit, ")");
+    
     return cursor - string;
 }
 
 char * ts_tree_string(const ts_tree *tree, const char **symbol_names) {
-    static char SCRATCH_STRING[100];
-    size_t size = tree_write_to_string(tree, symbol_names, SCRATCH_STRING, 0, 1) + 1;
+    static char SCRATCH_STRING[1];
+    size_t size = tree_write_to_string(tree, symbol_names, SCRATCH_STRING, 0) + 1;
     char *result = malloc(size * sizeof(char));
-    tree_write_to_string(tree, symbol_names, result, size, 1);
+    tree_write_to_string(tree, symbol_names, result, size);
     return result;
 }
 
