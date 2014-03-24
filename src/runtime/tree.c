@@ -2,10 +2,31 @@
 #include <string.h>
 #include <stdio.h>
 
+struct ts_tree {
+    ts_symbol symbol;
+    size_t ref_count;
+    size_t offset;
+    size_t size;
+    int is_hidden;
+    union {
+        struct {
+            size_t count;
+            size_t immediate_count;
+            struct ts_tree **contents;
+        } children;
+        struct {
+            char lookahead_char;
+            size_t expected_input_count;
+            const ts_symbol *expected_inputs;
+        } error;
+    } data;
+};
+
 static ts_tree * ts_tree_make(ts_symbol symbol, size_t size, size_t offset) {
     ts_tree *result = malloc(sizeof(ts_tree));
     *result = (ts_tree) {
         .ref_count = 1,
+        .is_hidden = 0,
         .symbol = symbol,
         .size = size,
         .offset = offset,
@@ -37,8 +58,28 @@ ts_tree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, c
     return result;
 }
 
+ts_symbol ts_tree_symbol(const ts_tree *tree) {
+    return tree->symbol;
+}
+
 void ts_tree_retain(ts_tree *tree) {
     tree->ref_count++;
+}
+
+size_t ts_tree_offset(const ts_tree *tree) {
+    return tree->offset;
+}
+
+size_t ts_tree_size(const ts_tree *tree) {
+    return tree->size;
+}
+
+size_t ts_tree_total_size(const ts_tree *tree) {
+    return ts_tree_offset(tree) + ts_tree_size(tree);
+}
+
+void ts_tree_hide(ts_tree *tree, int hide) {
+    tree->is_hidden = hide;
 }
 
 void ts_tree_release(ts_tree *tree) {

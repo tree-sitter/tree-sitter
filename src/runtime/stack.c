@@ -53,7 +53,7 @@ size_t ts_stack_right_position(const ts_stack *stack) {
     size_t result = 0;
     for (size_t i = 0; i < stack->size; i++) {
         ts_tree *node = stack->entries[i].node;
-        result += node->offset + node->size;
+        result += ts_tree_total_size(node);
     }
     return result;
 }
@@ -65,12 +65,12 @@ ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int child_count, co
     ts_tree **children = malloc(child_count * sizeof(ts_tree *));
     for (int i = 0; i < child_count; i++) {
         ts_tree *child = stack->entries[new_stack_size + i].node;
-        child->is_hidden = collapse_flags[i];
+        ts_tree_hide(child, collapse_flags[i]);
         if (i == 0) {
-            offset = child->offset;
-            size = child->size;
+            offset = ts_tree_offset(child);
+            size = ts_tree_size(child);
         } else {
-            size += child->offset + child->size;
+            size += ts_tree_total_size(child);
         }
 
         children[i] = child;
