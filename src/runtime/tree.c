@@ -108,7 +108,7 @@ int ts_tree_equals(const ts_tree *node1, const ts_tree *node2) {
         size_t count1, count2;
         ts_tree **children1 = ts_tree_children(node1, &count1);
         ts_tree **children2 = ts_tree_children(node2, &count2);
-        if (count1 != count2) return 0;        
+        if (count1 != count2) return 0;
         for (size_t i = 0; i < count1; i++)
             if (!ts_tree_equals(children1[i], children2[i])) return 0;
     }
@@ -141,7 +141,7 @@ static size_t tree_write_to_string(const ts_tree *tree, const char **symbol_name
         cursor += tree_write_to_string(children[i], symbol_names, *destination, limit);
     }
     cursor += snprintf(*destination, limit, ")");
-    
+
     return cursor - string;
 }
 

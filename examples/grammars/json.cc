@@ -3,7 +3,7 @@
 namespace tree_sitter {
     namespace examples {
         using namespace tree_sitter::rules;
-        
+
         static rule_ptr comma_sep(const rule_ptr &rule) {
             return choice({
                 seq({
@@ -13,13 +13,13 @@ namespace tree_sitter {
                 blank(),
             });
         }
-        
+
         Grammar json() {
             return Grammar("value", {
                 { "value", choice({
                     sym("object"),
                     sym("array"),
-                    sym("string"), 
+                    sym("string"),
                     sym("number"),
                     sym("true"),
                     sym("false"),

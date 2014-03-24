@@ -10,6 +10,7 @@ static string src_dir() {
 namespace tree_sitter {
     namespace examples {
         Grammar arithmetic();
+        Grammar javascript();
         Grammar json();
     }
 }
@@ -24,9 +25,10 @@ describe("compiling the example grammars", []() {
             ofstream(example_parser_dir + language + ".c") << compile(grammar, language);
         });
     };
-    
+
     compile_grammar(examples::arithmetic(), "arithmetic");
     compile_grammar(examples::json(), "json");
+    compile_grammar(examples::javascript(), "javascript");
 });
 
 END_TEST

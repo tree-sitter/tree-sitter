@@ -61,7 +61,7 @@ size_t ts_stack_right_position(const ts_stack *stack) {
 ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child_count, const int *collapse_flags) {
     size_t new_stack_size = stack->size - immediate_child_count;
     size_t size = 0, offset = 0;
-        
+
     int child_count = 0;
     for (int i = 0; i < immediate_child_count; i++) {
         ts_tree *child = stack->entries[new_stack_size + i].node;
@@ -84,7 +84,7 @@ ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child
     size_t child_index = 0;
     ts_tree **children = malloc((child_count + immediate_child_count) * sizeof(ts_tree *));
     ts_tree **immediate_children = children + child_count;
-    
+
     for (int i = 0; i < immediate_child_count; i++) {
         ts_tree *child = stack->entries[new_stack_size + i].node;
         immediate_children[i] = child;

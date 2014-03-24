@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-find src spec include -type f | xargs perl -pi -e 's/ +$//'
+find src spec include examples/grammars -type f | xargs perl -pi -e 's/ +$//'

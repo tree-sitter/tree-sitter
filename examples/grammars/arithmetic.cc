@@ -3,7 +3,7 @@
 namespace tree_sitter {
     namespace examples {
         using namespace tree_sitter::rules;
-        
+
         Grammar arithmetic() {
             return Grammar("expression", {
                 { "expression", choice({

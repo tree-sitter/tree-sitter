@@ -1,0 +1,20 @@
+==========================================
+parses multiple statements
+==========================================
+var x = {};
+{};
+---
+(program
+    (statement (assignment (identifier) (expression (literal (object)))))
+    (statement (expression (literal (object)))))
+
+==========================================
+parses if statements
+==========================================
+if (1) { var x = 2; }
+---
+(program
+    (statement (if
+        (expression (literal (number)))
+        (block (statement (assignment (identifier) (expression (literal (number)))))))))
+

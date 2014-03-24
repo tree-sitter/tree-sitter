@@ -75,6 +75,8 @@ namespace tree_sitter {
                         return "\\0";
                     case '"':
                         return "\\\"";
+                    case '\n':
+                        return "\\n";
                     case '\\':
                         return "\\\\";
                     default:

@@ -1,6 +1,7 @@
 #include "runtime_spec_helper.h"
 #include "helpers/read_test_entries.h"
 
+extern "C" ts_parser ts_parser_javascript();
 extern "C" ts_parser ts_parser_json();
 extern "C" ts_parser ts_parser_arithmetic();
 
@@ -40,6 +41,14 @@ describe("Languages", [&]() {
         });
 
         run_tests_for_language("arithmetic");
+    });
+
+    describe("javascript", [&]() {
+        before_each([&]() {
+            ts_document_set_parser(doc, ts_parser_javascript());
+        });
+
+        run_tests_for_language("javascript");
     });
 });
 
