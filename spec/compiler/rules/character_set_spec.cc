@@ -67,7 +67,7 @@ describe("character sets", []() {
             AssertThat(set1, Equals(CharacterSet({ {'a', 'z'} })));
         });
 
-        it("works when one set spans the other", []() {
+        it("works when one set is a proper subset of the other", []() {
             CharacterSet set1({ {'a','z'} });
             set1.remove_set(CharacterSet({ {'d', 's'} }));
             AssertThat(set1, Equals(CharacterSet({ {'a', 'c'}, {'t', 'z'} })));
@@ -95,24 +95,28 @@ describe("character sets", []() {
             CharacterSet set1({ {'a', 'd'} });
             CharacterSet set2({ {'e', 'x'} });
             AssertThat(set1.intersect(set2), Equals(CharacterSet()));
+            AssertThat(set2.intersect(set1), Equals(set1.intersect(set2)));
         });
 
-        it("works for sets with a single overlapping range", []() {
+        it("works when one range overlaps another", []() {
             CharacterSet set1({ {'a', 'e'} });
             CharacterSet set2({ {'c', 'x'} });
             AssertThat(set1.intersect(set2), Equals(CharacterSet({ {'c', 'e'} })));
+            AssertThat(set2.intersect(set1), Equals(set1.intersect(set2)));
         });
 
-        it("works for sets with two overlapping ranges", []() {
+        it("works when one range overlaps two other ranges", []() {
             CharacterSet set1({ {'a', 'e'}, {'w', 'z'} });
             CharacterSet set2({ {'c', 'y'} });
             AssertThat(set1.intersect(set2), Equals(CharacterSet({ {'c', 'e'}, {'w', 'y'} })));
+            AssertThat(set2.intersect(set1), Equals(set1.intersect(set2)));
         });
 
-        it("works for some sets", []() {
-            CharacterSet set1({ {'i', 'i'} });
-            CharacterSet set2({ {'a', 'z'} });
+        it("works when one range is a proper subset of another", []() {
+            CharacterSet set1({ {'a', 'z'} });
+            CharacterSet set2({ {'i', 'i'} });
             AssertThat(set1.intersect(set2), Equals(CharacterSet({ {'i', 'i'} })));
+            AssertThat(set2.intersect(set1), Equals(set1.intersect(set2)));
         });
     });
 });
