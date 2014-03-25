@@ -37,10 +37,6 @@ namespace tree_sitter {
             return make_shared<Symbol>(name);
         }
 
-        rule_ptr _sym(const string &name) {
-            return make_shared<Symbol>(name, SymbolTypeHidden);
-        }
-
         rule_ptr pattern(const string &value) {
             return make_shared<Pattern>(value);
         }

@@ -9,7 +9,6 @@ namespace tree_sitter  {
     namespace rules {
         typedef enum {
             SymbolTypeNormal,
-            SymbolTypeHidden,
             SymbolTypeAuxiliary,
             SymbolTypeBuiltIn
         } SymbolType;

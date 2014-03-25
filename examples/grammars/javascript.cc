@@ -17,15 +17,15 @@ namespace tree_sitter {
         Grammar javascript() {
             return Grammar({
                 { "program", repeat(sym("statement")) },
-                { "terminator", choice({
+                { "_terminator", choice({
                     str(";"),
                     str("\n") }) },
                 { "statement", choice({
                     sym("if_statement"),
-                    seq({ sym("assignment"), _sym("terminator") }),
-                    seq({ sym("expression"), _sym("terminator") }) }) },
+                    seq({ sym("assignment"), sym("_terminator") }),
+                    seq({ sym("expression"), sym("_terminator") }) }) },
                 { "if_statement", seq({
-                    _sym("IF"),
+                    sym("_IF"),
                     str("("),
                     sym("expression"),
                     str(")"),
@@ -35,7 +35,7 @@ namespace tree_sitter {
                     repeat(sym("statement")),
                     str("}") }) },
                 { "assignment", seq({
-                    _sym("VAR"),
+                    sym("_VAR"),
                     sym("identifier"),
                     str("="),
                     sym("expression") })},
@@ -61,8 +61,8 @@ namespace tree_sitter {
                     str("["),
                     comma_sep(err(sym("expression"))),
                     str("]") }) },
-                { "VAR", str("var") },
-                { "IF", str("if") },
+                { "_VAR", str("var") },
+                { "_IF", str("if") },
                 { "string", pattern("\"([^\"]|\\\\\")+\"") },
                 { "identifier", pattern("[\\w_$]+") },
                 { "number", pattern("\\d+(.\\d+)?") },

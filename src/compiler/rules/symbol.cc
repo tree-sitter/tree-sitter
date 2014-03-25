@@ -32,8 +32,6 @@ namespace tree_sitter  {
             switch (type) {
                 case SymbolTypeNormal:
                     return string("#<sym '") + name + "'>";
-                case SymbolTypeHidden:
-                    return string("#<hidden_sym '") + name + "'>";
                 case SymbolTypeAuxiliary:
                     return string("#<aux_sym '") + name + "'>";
                 case SymbolTypeBuiltIn:
@@ -56,7 +54,7 @@ namespace tree_sitter  {
         }
 
         bool Symbol::is_hidden() const {
-            return (type == SymbolTypeHidden || type == SymbolTypeAuxiliary);
+            return (name.front() == '_' || type == SymbolTypeAuxiliary);
         }
 
         void Symbol::accept(Visitor *visitor) const {

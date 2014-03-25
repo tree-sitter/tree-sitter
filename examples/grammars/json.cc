@@ -8,7 +8,7 @@ namespace tree_sitter {
             return choice({
                 seq({
                     rule,
-                    repeat(seq({ _sym("comma"), rule })),
+                    repeat(seq({ str(","), rule })),
                 }),
                 blank(),
             });
@@ -25,24 +25,18 @@ namespace tree_sitter {
                     sym("false"),
                     sym("null"), }) },
                 { "object", seq({
-                    _sym("left_brace"),
+                    str("{"),
                     comma_sep(err(seq({
                         sym("string"),
-                        _sym("colon"),
+                        str(":"),
                         sym("value") }))),
-                    _sym("right_brace"), }) },
+                    str("}"), }) },
                 { "array", seq({
-                    _sym("left_bracket"),
+                    str("["),
                     comma_sep(err(sym("value"))),
-                    _sym("right_bracket"), }) },
+                    str("]"), }) },
                 { "string", pattern("\"([^\"]|\\\\\")+\"") },
                 { "number", pattern("\\d+(.\\d+)?") },
-                { "comma", str(",") },
-                { "colon", str(":") },
-                { "left_bracket", str("[") },
-                { "right_bracket", str("]") },
-                { "left_brace", str("{") },
-                { "right_brace", str("}") },
                 { "null", str("null") },
                 { "true", str("true") },
                 { "false", str("false") },
