@@ -114,17 +114,6 @@ namespace tree_sitter {
                     return "!(" + condition_for_character_set(rule.complement()) + ")";
             }
 
-            string collapse_flags(vector<bool> flags) {
-                string result;
-                bool started = false;
-                for (auto flag : flags) {
-                    if (started) result += ", ";
-                    result += (flag ? "1" : "0");
-                    started = true;
-                }
-                return result;
-            }
-
             string code_for_parse_actions(const rules::Symbol &symbol, const ParseAction &action) {
                 string sym_id = symbol_id(symbol);
                 switch (action.type) {
@@ -136,8 +125,7 @@ namespace tree_sitter {
                         return "REDUCE(" +
                             sym_id + ", " +
                             symbol_id(action.symbol) + ", " +
-                            to_string(action.child_flags.size()) + ", " +
-                            "COLLAPSE({" + collapse_flags(action.child_flags) + "}))";
+                            to_string(action.child_flags.size()) + ")";
                     default:
                         return "";
                 }
@@ -206,6 +194,14 @@ namespace tree_sitter {
                         result += indent(string("\"") + symbol.name) + "\",\n";
                 return result + "};";
             }
+            
+            string hidden_symbol_flags() {
+                string result = "HIDDEN_SYMBOL_FLAGS = {\n";
+                for (auto &symbol : parse_table.symbols)
+                    if (!symbol.is_built_in())
+                        result += indent(symbol.is_hidden() ? "1" : "0") + ",\n";
+                return result + "};";
+            }
 
             string includes() {
                 return "#include \"tree_sitter/parser.h\"";
@@ -265,6 +261,7 @@ namespace tree_sitter {
                     symbol_count(),
                     symbol_enum(),
                     rule_names_list(),
+                    hidden_symbol_flags(),
                     lex_function(),
                     parse_table_function(),
                     parser_export(),
