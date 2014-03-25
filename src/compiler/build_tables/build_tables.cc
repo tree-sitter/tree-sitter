@@ -59,7 +59,13 @@ namespace tree_sitter {
             void add_accept_token_actions(const LexItemSet &item_set, LexStateId state_id) {
                 for (LexItem item : item_set) {
                     if (item.is_done()) {
-                        lex_table.add_default_action(state_id, LexAction::Accept(item.lhs));
+                        const Symbol &new_symbol = item.lhs;
+                        auto &action = lex_table.states[state_id].default_action;
+                        if (action.type == LexActionTypeAccept) {
+                            const Symbol &old_symbol = action.symbol;
+                            if (lex_grammar.index_of(new_symbol) >= lex_grammar.index_of(old_symbol)) continue;
+                        }
+                        lex_table.add_default_action(state_id, LexAction::Accept(new_symbol));
                     }
                 }
             }

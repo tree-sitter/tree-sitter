@@ -8,6 +8,8 @@ namespace tree_sitter {
     using rules::Symbol;
     using rules::CharacterSet;
 
+    LexAction::LexAction() : LexAction(LexActionTypeError, -1, Symbol("")) {}
+
     LexAction::LexAction(LexActionType type, size_t state_index, Symbol symbol) :
         type(type),
         symbol(symbol),
@@ -71,11 +73,11 @@ namespace tree_sitter {
     }
 
     void LexTable::add_action(LexStateId id, CharacterSet match, LexAction action) {
-        state(this, id).actions[match].insert(action);
+        state(this, id).actions[match] = action;
     }
 
     void LexTable::add_default_action(LexStateId id, LexAction action) {
-        state(this, id).default_actions.insert(action);
+        state(this, id).default_action = action;
     }
 
     const LexStateId LexTable::ERROR_STATE_ID = -1;

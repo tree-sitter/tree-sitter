@@ -125,20 +125,19 @@ namespace tree_sitter {
                 return result;
             }
 
-            string code_for_parse_actions(const rules::Symbol &symbol, const set<ParseAction> &actions) {
+            string code_for_parse_actions(const rules::Symbol &symbol, const ParseAction &action) {
                 string sym_id = symbol_id(symbol);
-                auto action = actions.begin();
-                switch (action->type) {
+                switch (action.type) {
                     case ParseActionTypeAccept:
                         return "ACCEPT_INPUT(" + sym_id + ")";
                     case ParseActionTypeShift:
-                        return "SHIFT(" + sym_id + ", " + to_string(action->state_index) + ")";
+                        return "SHIFT(" + sym_id + ", " + to_string(action.state_index) + ")";
                     case ParseActionTypeReduce:
                         return "REDUCE(" +
                             sym_id + ", " +
-                            symbol_id(action->symbol) + ", " +
-                            to_string(action->child_flags.size()) + ", " +
-                            "COLLAPSE({" + collapse_flags(action->child_flags) + "}))";
+                            symbol_id(action.symbol) + ", " +
+                            to_string(action.child_flags.size()) + ", " +
+                            "COLLAPSE({" + collapse_flags(action.child_flags) + "}))";
                     default:
                         return "";
                 }
@@ -156,20 +155,15 @@ namespace tree_sitter {
                 return result;
             }
 
-            string code_for_lex_actions(const set<LexAction> &actions,
+            string code_for_lex_actions(const LexAction &action,
                                         const set<rules::CharacterSet> &expected_inputs) {
-                auto action = actions.begin();
-                if (action == actions.end()) {
-                    return "LEX_ERROR();";
-                } else {
-                    switch (action->type) {
-                        case LexActionTypeAdvance:
-                            return "ADVANCE(" + to_string(action->state_index) + ");";
-                        case LexActionTypeAccept:
-                            return "ACCEPT_TOKEN(" + symbol_id(action->symbol) + ");";
-                        case LexActionTypeError:
-                            return "";
-                    }
+                switch (action.type) {
+                    case LexActionTypeAdvance:
+                        return "ADVANCE(" + to_string(action.state_index) + ");";
+                    case LexActionTypeAccept:
+                        return "ACCEPT_TOKEN(" + symbol_id(action.symbol) + ");";
+                    case LexActionTypeError:
+                        return "LEX_ERROR();";
                 }
             }
 
@@ -177,9 +171,10 @@ namespace tree_sitter {
                 string result = "";
                 auto expected_inputs = parse_state.expected_inputs();
                 for (auto pair : parse_state.actions)
-                    result += _if(condition_for_character_rule(pair.first),
-                                  code_for_lex_actions(pair.second, expected_inputs));
-                result += code_for_lex_actions(parse_state.default_actions, expected_inputs);
+                    if (!pair.first.is_empty())
+                        result += _if(condition_for_character_rule(pair.first),
+                                      code_for_lex_actions(pair.second, expected_inputs));
+                result += code_for_lex_actions(parse_state.default_action, expected_inputs);
                 return result;
             }
 

@@ -10,8 +10,8 @@
 
 namespace tree_sitter {
     typedef enum {
-        ParseActionTypeAccept,
         ParseActionTypeError,
+        ParseActionTypeAccept,
         ParseActionTypeShift,
         ParseActionTypeReduce,
     } ParseActionType;
@@ -55,7 +55,7 @@ namespace tree_sitter {
     class ParseState {
     public:
         ParseState();
-        std::map<rules::Symbol, std::set<ParseAction>> actions;
+        std::map<rules::Symbol, ParseAction> actions;
         std::set<rules::Symbol> expected_inputs() const;
         LexStateId lex_state_id;
     };

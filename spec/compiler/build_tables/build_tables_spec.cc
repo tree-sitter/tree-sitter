@@ -6,10 +6,7 @@
 using namespace rules;
 using build_tables::build_tables;
 
-typedef set<ParseAction> parse_actions;
-typedef set<LexAction> lex_actions;
-
-static set<Symbol> keys(const map<Symbol, parse_actions> &map) {
+static set<Symbol> keys(const map<Symbol, ParseAction> &map) {
     set<Symbol> result;
     for (auto pair : map) {
         result.insert(pair.first);

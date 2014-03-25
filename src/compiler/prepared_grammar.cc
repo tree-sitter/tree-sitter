@@ -44,6 +44,15 @@ namespace tree_sitter {
         return rule(symbol).get() != nullptr;
     }
 
+    size_t PreparedGrammar::index_of(const rules::Symbol &symbol) const {
+        for (size_t i = 0; i < rules.size(); i++) {
+            if (rules[i].first == symbol.name) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     ostream& operator<<(ostream &stream, const PreparedGrammar &grammar) {
         stream << string("#<grammar");
 

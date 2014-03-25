@@ -21,7 +21,7 @@ namespace tree_sitter {
 
         return true;
     }
-    
+
     string Grammar::start_rule_name() const {
         return rules.front().first;
     }

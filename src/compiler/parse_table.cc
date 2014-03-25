@@ -73,18 +73,11 @@ namespace tree_sitter {
 
     ostream& operator<<(ostream &stream, const ParseState &state) {
         stream << string("#<parse_state ");
-        bool started1 = false;
+        bool started = false;
         for (auto pair : state.actions) {
-            if (started1) stream << string(", ");
-            stream << pair.first << string(" => #<set: ");
-            bool started2 = false;
-            for (auto action : pair.second) {
-                if (started2) stream << string(", ");
-                stream << action;
-                started2 = true;
-            }
-            stream << string(">");
-            started1 = true;
+            if (started) stream << string(", ");
+            stream << pair.first << string(" => ") << pair.second;
+            started = true;
         }
         stream << string(">");
         return stream;
@@ -97,6 +90,6 @@ namespace tree_sitter {
 
     void ParseTable::add_action(ParseStateId id, Symbol symbol, ParseAction action) {
         symbols.insert(symbol);
-        states[id].actions[symbol].insert(action);
+        states[id].actions.insert({ symbol, action });
     }
 }

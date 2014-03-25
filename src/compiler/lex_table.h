@@ -10,14 +10,15 @@
 
 namespace tree_sitter {
     typedef enum {
-        LexActionTypeAccept,
         LexActionTypeError,
+        LexActionTypeAccept,
         LexActionTypeAdvance
     } LexActionType;
 
     class LexAction {
         LexAction(LexActionType type, size_t state_index, rules::Symbol symbol);
     public:
+        LexAction();
         static LexAction Accept(rules::Symbol symbol);
         static LexAction Error();
         static LexAction Advance(size_t state_index);
@@ -46,8 +47,8 @@ namespace std {
 namespace tree_sitter {
     class LexState {
     public:
-        std::map<rules::CharacterSet, std::set<LexAction>> actions;
-        std::set<LexAction> default_actions;
+        std::map<rules::CharacterSet, LexAction> actions;
+        LexAction default_action;
         std::set<rules::CharacterSet> expected_inputs() const;
     };
 

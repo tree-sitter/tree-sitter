@@ -17,6 +17,7 @@ namespace tree_sitter {
         bool operator==(const PreparedGrammar &other) const;
         bool has_definition(const rules::Symbol &symbol) const;
         const rules::rule_ptr rule(const rules::Symbol &symbol) const;
+        size_t index_of(const rules::Symbol &symbol) const;
 
         const std::vector<std::pair<std::string, rules::rule_ptr>> aux_rules;
     };
