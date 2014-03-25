@@ -111,6 +111,8 @@ namespace tree_sitter  {
                     } else if (new_max <= max_int(range)) {
                         new_ranges.insert(CharacterRange(new_max + 1, range.max));
                         add_range(&removed_set, CharacterRange(range.min, new_max));
+                    } else {
+                        add_range(&removed_set, range);
                     }
                 } else if (new_min <= max_int(range)) {
                     if (new_max < max_int(range)) {

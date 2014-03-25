@@ -108,6 +108,12 @@ describe("character sets", []() {
             CharacterSet set2({ {'c', 'y'} });
             AssertThat(set1.intersect(set2), Equals(CharacterSet({ {'c', 'e'}, {'w', 'y'} })));
         });
+
+        it("works for some sets", []() {
+            CharacterSet set1({ {'i', 'i'} });
+            CharacterSet set2({ {'a', 'z'} });
+            AssertThat(set1.intersect(set2), Equals(CharacterSet({ {'i', 'i'} })));
+        });
     });
 });
 
