@@ -36,7 +36,7 @@ namespace tree_sitter {
         };
 
         class TokenExtractor : public rules::RuleFn<rule_ptr> {
-            string add_token(const rule_ptr &rule) {
+            string add_token(rule_ptr rule) {
                 for (auto pair : tokens)
                     if (*pair.second == *rule)
                         return pair.first;
@@ -67,7 +67,7 @@ namespace tree_sitter {
             }
 
         public:
-            vector<pair<string, const rules::rule_ptr>> tokens;
+            vector<pair<string, rules::rule_ptr>> tokens;
         };
 
         pair<PreparedGrammar, PreparedGrammar> extract_tokens(const PreparedGrammar &input_grammar) {

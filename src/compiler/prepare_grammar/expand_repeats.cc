@@ -51,7 +51,7 @@ namespace tree_sitter {
             }
 
         public:
-            vector<pair<string, const rules::rule_ptr>> aux_rules;
+            vector<pair<string, rules::rule_ptr>> aux_rules;
         };
 
         PreparedGrammar expand_repeats(const PreparedGrammar &grammar) {
