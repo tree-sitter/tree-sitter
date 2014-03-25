@@ -17,30 +17,31 @@ namespace tree_sitter {
         Grammar javascript() {
             return Grammar({
                 { "program", repeat(sym("statement")) },
-                { "terminator", choice({ str(";"), str("\n") }) },
+                { "terminator", choice({
+                    str(";"),
+                    str("\n") }) },
                 { "statement", choice({
-                    sym("if"),
-                    seq({ sym("expression"), _sym("terminator") }),
-                    seq({ sym("assignment"), _sym("terminator") }) }) },
-                { "if", seq({
-                    str("if"),
+                    sym("if_statement"),
+                    seq({ sym("assignment"), _sym("terminator") }),
+                    seq({ sym("expression"), _sym("terminator") }) }) },
+                { "if_statement", seq({
+                    _sym("IF"),
                     str("("),
                     sym("expression"),
                     str(")"),
-                    sym("block")
-                }) },
-                { "block", seq({
+                    sym("statement_block") }) },
+                { "statement_block", seq({
                     str("{"),
                     repeat(sym("statement")),
-                    str("}")
-                }) },
+                    str("}") }) },
                 { "assignment", seq({
-                    str("var"),
+                    _sym("VAR"),
                     sym("identifier"),
                     str("="),
                     sym("expression") })},
                 { "expression", choice({
-                    sym("literal") }) },
+                    sym("literal"),
+                    sym("identifier") }) },
                 { "literal", choice({
                     sym("object"),
                     sym("array"),
@@ -60,6 +61,8 @@ namespace tree_sitter {
                     str("["),
                     comma_sep(err(sym("expression"))),
                     str("]") }) },
+                { "VAR", str("var") },
+                { "IF", str("if") },
                 { "string", pattern("\"([^\"]|\\\\\")+\"") },
                 { "identifier", pattern("[\\w_$]+") },
                 { "number", pattern("\\d+(.\\d+)?") },
