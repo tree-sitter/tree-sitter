@@ -24,14 +24,11 @@ parses arrays
 ]
 ---
 (value (array
-    (value (number))
-    (value (null))
-    (value (true))
-    (value (false))
-    (value (object
-        (string) (value (string))
-    ))
-))
+    (number)
+    (null)
+    (true)
+    (false)
+    (object (string) (string))))
 
 ====================
 parses empty objects
@@ -49,7 +46,7 @@ parses long objects
 }
 ---
 (value (object
-	(string) (value (string))
-	(string) (value (number))
+	(string) (string)
+	(string) (number)
 ))
 

@@ -18,16 +18,16 @@ recovers from errors inside arrays
 [1, , 2]
 ---
 (value (array
-    (value (number))
+    (number)
     (ERROR)
-    (value (number))))
+    (number)))
 
 ==========================================
 recovers from errors inside objects
 ==========================================
 { "key1": 1, oops }
 ---
-(value (object (string) (value (number)) (ERROR)))
+(value (object (string) (number) (ERROR)))
 
 ==========================================
 recovers from errors inside nested objects
@@ -35,6 +35,6 @@ recovers from errors inside nested objects
 { "key1": { "key2": 1, 2 }, [, "key3": 3 }
 ---
 (value (object
-    (string) (value (object (string) (value (number)) (ERROR)))
+    (string) (object (string) (number) (ERROR))
     (ERROR)
-    (string) (value (number))))
+    (string) (number)))

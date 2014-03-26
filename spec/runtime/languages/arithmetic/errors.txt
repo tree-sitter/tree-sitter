@@ -11,6 +11,6 @@ recovers from errors inside parenthesized expressions
 x + (y * + z) * 5
 ---
 (expression
-    (term (factor (variable)))
+    (variable)
     (plus)
-    (term (factor (ERROR)) (times) (factor (number))))
+    (term (factor (ERROR)) (times) (number)))

@@ -60,28 +60,22 @@ size_t ts_stack_right_position(const ts_stack *stack) {
 
 ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child_count, const int *hidden_symbol_flags) {
     size_t new_stack_size = stack->size - immediate_child_count;
-    size_t size = 0, offset = 0;
+    int flags[immediate_child_count];
 
     int child_count = 0;
     for (int i = 0; i < immediate_child_count; i++) {
         ts_tree *child = stack->entries[new_stack_size + i].node;
-        if (i == 0) {
-            offset = ts_tree_offset(child);
-            size = ts_tree_size(child);
-        } else {
-            size += ts_tree_offset(child) + ts_tree_size(child);
-        }
-
-        if (hidden_symbol_flags[ts_tree_symbol(child)]) {
-            size_t grandchild_count;
-            ts_tree_children(child, &grandchild_count);
-            child_count += grandchild_count;
-        } else {
-            child_count++;
-        }
+        size_t grandchild_count;
+        ts_tree **grandchildren = ts_tree_children(child, &grandchild_count);
+        flags[i] = (
+            hidden_symbol_flags[ts_tree_symbol(child)] ||
+            (grandchild_count == 1 && ts_tree_size(child) == ts_tree_size(grandchildren[0]))
+        );
+        child_count += (flags[i]) ? grandchild_count : 1;
     }
 
     size_t child_index = 0;
+    size_t size = 0, offset = 0;
     ts_tree **children = malloc((child_count + immediate_child_count) * sizeof(ts_tree *));
     ts_tree **immediate_children = children + child_count;
 
@@ -89,7 +83,14 @@ ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child
         ts_tree *child = stack->entries[new_stack_size + i].node;
         immediate_children[i] = child;
 
-        if (hidden_symbol_flags[ts_tree_symbol(child)]) {
+        if (i == 0) {
+            offset = ts_tree_offset(child);
+            size = ts_tree_size(child);
+        } else {
+            size += ts_tree_offset(child) + ts_tree_size(child);
+        }
+
+        if (flags[i]) {
             size_t grandchild_count;
             ts_tree ** grandchildren = ts_tree_children(child, &grandchild_count);
             memcpy(children + child_index, grandchildren, (grandchild_count * sizeof(ts_tree *)));

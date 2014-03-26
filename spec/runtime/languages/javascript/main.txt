@@ -5,8 +5,8 @@ var x = {};
 {};
 ---
 (program
-    (statement (assignment (identifier) (expression (literal (object)))))
-    (statement (expression (literal (object)))))
+    (statement (assignment (identifier) (object)))
+    (statement (object)))
 
 ==========================================
 parses if statements
@@ -16,9 +16,9 @@ if (theCondition) {
 }
 ---
 (program
-    (statement (if_statement
-        (expression (identifier))
-        (statement_block (statement (assignment (identifier) (expression (literal (number)))))))))
+    (if_statement
+        (identifier)
+        (statement_block (statement (assignment (identifier) (number))))))
 
 ==========================================
 parses if-else statements
@@ -29,9 +29,8 @@ if (theCondition) {
     var x = 4;
 }
 ---
-(program (statement
-    (if_statement
-        (expression (identifier))
-        (statement_block (statement (assignment (identifier) (expression (literal (number))))))
-        (statement_block (statement (assignment (identifier) (expression (literal (number)))))))))
+(program (if_statement
+    (identifier)
+    (statement_block (statement (assignment (identifier) (number))))
+    (statement_block (statement (assignment (identifier) (number))))))
 

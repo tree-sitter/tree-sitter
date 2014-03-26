@@ -3,14 +3,14 @@ parses numbers
 ===================
 5
 ---
-(expression (term (factor (number))))
+(expression (number))
 
 ===================
 parses variables
 ===================
 x
 ---
-(expression (term (factor (variable))))
+(expression (variable))
 
 ===================
 parses products
@@ -18,9 +18,9 @@ parses products
 x * x
 ---
 (expression (term
-    (factor (variable))
+    (variable)
     (times)
-    (factor (variable))))
+    (variable)))
 
 ===================
 parses sums
@@ -28,9 +28,9 @@ parses sums
 x + x
 ---
 (expression
-    (term (factor (variable)))
+    (variable)
     (plus)
-    (term (factor (variable))))
+    (variable))
 
 ====================
 parses complex trees
@@ -38,17 +38,17 @@ parses complex trees
 x * y + z * a
 ---
 (expression
-    (term (factor (variable)) (times) (factor (variable)))
+    (term (variable) (times) (variable))
     (plus)
-    (term (factor (variable)) (times) (factor (variable))))
+    (term (variable) (times) (variable)))
 
 =================================
 handles parenthesized expressions
 =================================
 x * (y + z)
 ---
-(expression
-    (term (factor (variable))
+(expression (term
+    (variable)
     (times)
-    (factor (expression (term (factor (variable))) (plus) (term (factor (variable)))))))
+    (factor (expression (variable) (plus) (variable)))))
 
