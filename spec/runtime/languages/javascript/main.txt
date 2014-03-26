@@ -11,12 +11,27 @@ var x = {};
 ==========================================
 parses if statements
 ==========================================
-if (duh) {
+if (theCondition) {
     var x = 2;
 }
 ---
 (program
     (statement (if_statement
         (expression (identifier))
+        (statement_block (statement (assignment (identifier) (expression (literal (number)))))))))
+
+==========================================
+parses if-else statements
+==========================================
+if (theCondition) {
+    var x = 2;
+} else {
+    var x = 4;
+}
+---
+(program (statement
+    (if_statement
+        (expression (identifier))
+        (statement_block (statement (assignment (identifier) (expression (literal (number))))))
         (statement_block (statement (assignment (identifier) (expression (literal (number)))))))))
 

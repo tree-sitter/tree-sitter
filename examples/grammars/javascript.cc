@@ -4,6 +4,10 @@ namespace tree_sitter {
     namespace examples {
         using namespace tree_sitter::rules;
 
+        static rule_ptr optional(const rule_ptr &rule) {
+            return choice({ rule, blank() });
+        }
+        
         static rule_ptr comma_sep(const rule_ptr &element) {
             return choice({
                 seq({
@@ -25,17 +29,20 @@ namespace tree_sitter {
                     seq({ sym("assignment"), sym("_terminator") }),
                     seq({ sym("expression"), sym("_terminator") }) }) },
                 { "if_statement", seq({
-                    sym("_IF"),
+                    sym("_if"),
                     str("("),
                     sym("expression"),
                     str(")"),
-                    sym("statement_block") }) },
+                    sym("statement_block"),
+                    optional(seq({
+                        sym("_else"),
+                        sym("statement_block") })) }) },
                 { "statement_block", seq({
                     str("{"),
                     repeat(sym("statement")),
                     str("}") }) },
                 { "assignment", seq({
-                    sym("_VAR"),
+                    sym("_var"),
                     sym("identifier"),
                     str("="),
                     sym("expression") })},
@@ -61,8 +68,9 @@ namespace tree_sitter {
                     str("["),
                     comma_sep(err(sym("expression"))),
                     str("]") }) },
-                { "_VAR", str("var") },
-                { "_IF", str("if") },
+                { "_var", str("var") },
+                { "_if", str("if") },
+                { "_else", str("else") }, 
                 { "string", pattern("\"([^\"]|\\\\\")+\"") },
                 { "identifier", pattern("[\\w_$]+") },
                 { "number", pattern("\\d+(.\\d+)?") },
