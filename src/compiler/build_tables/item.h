@@ -1,7 +1,7 @@
 #ifndef COMPILER_BUILD_TABLES_ITEM_H_
 #define COMPILER_BUILD_TABLES_ITEM_H_
 
-#include <set>
+#include <unordered_set>
 #include <string>
 #include <vector>
 #include "compiler/rules/symbol.h"
@@ -22,7 +22,6 @@ namespace tree_sitter {
         class LexItem : public Item {
         public:
             LexItem(const rules::Symbol &lhs, const rules::rule_ptr rule);
-            bool operator<(const LexItem &other) const;
             bool operator==(const LexItem &other) const;
         };
 
@@ -32,15 +31,14 @@ namespace tree_sitter {
                       const rules::rule_ptr rule,
                       const std::vector<bool> &consumed_symbols,
                       const rules::Symbol &lookahead_sym);
-            bool operator<(const ParseItem &other) const;
             bool operator==(const ParseItem &other) const;
 
             const std::vector<bool> consumed_symbols;
             const rules::Symbol lookahead_sym;
         };
 
-        typedef std::set<ParseItem> ParseItemSet;
-        typedef std::set<LexItem> LexItemSet;
+        typedef std::unordered_set<ParseItem> ParseItemSet;
+        typedef std::unordered_set<LexItem> LexItemSet;
 
         std::ostream& operator<<(std::ostream &stream, const LexItem &item);
         std::ostream& operator<<(std::ostream &stream, const ParseItem &item);
@@ -69,8 +67,8 @@ namespace std {
     };
 
     template<typename T>
-    struct hash<const set<T>> {
-        size_t operator()(const set<T> &set) const {
+    struct hash<const unordered_set<T>> {
+        size_t operator()(const unordered_set<T> &set) const {
             size_t result = hash<size_t>()(set.size());
             for (auto item : set)
                 result ^= hash<T>()(item);

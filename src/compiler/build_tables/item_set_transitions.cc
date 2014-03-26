@@ -1,12 +1,12 @@
 #include "compiler/build_tables/item_set_transitions.h"
-#include <set>
+#include <unordered_set>
 #include "compiler/build_tables/item_set_closure.h"
 #include "compiler/build_tables/rule_transitions.h"
 #include "compiler/build_tables/merge_transitions.h"
 
 namespace tree_sitter {
     using std::map;
-    using std::set;
+    using std::unordered_set;
     using rules::CharacterSet;
     using rules::Symbol;
 
@@ -35,8 +35,8 @@ namespace tree_sitter {
         }
 
         template<typename T>
-        static set<T> merge_sets(const set<T> &left, const set<T> &right) {
-            set<T> result = left;
+        static unordered_set<T> merge_sets(const unordered_set<T> &left, const unordered_set<T> &right) {
+            unordered_set<T> result = left;
             result.insert(right.begin(), right.end());
             return result;
         }

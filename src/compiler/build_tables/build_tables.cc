@@ -1,7 +1,7 @@
 #include "compiler/build_tables/build_tables.h"
 #include <string>
 #include <utility>
-#include <map>
+#include <unordered_map>
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/build_tables/item.h"
@@ -12,7 +12,7 @@
 namespace tree_sitter {
     using std::pair;
     using std::string;
-    using std::map;
+    using std::unordered_map;
     using std::make_shared;
     using rules::Symbol;
     using rules::CharacterSet;
@@ -23,8 +23,8 @@ namespace tree_sitter {
         class TableBuilder {
             const PreparedGrammar grammar;
             const PreparedGrammar lex_grammar;
-            map<const ParseItemSet, ParseStateId> parse_state_ids;
-            map<const LexItemSet, LexStateId> lex_state_ids;
+            unordered_map<const ParseItemSet, ParseStateId> parse_state_ids;
+            unordered_map<const LexItemSet, LexStateId> lex_state_ids;
             ParseTable parse_table;
             LexTable lex_table;
 

@@ -41,24 +41,6 @@ namespace tree_sitter {
             string(">");
         }
 
-        bool LexItem::operator<(const LexItem &other) const {
-            if (lhs < other.lhs) return true;
-            if (other.lhs < lhs) return false;
-            if (rule->to_string() < other.rule->to_string()) return true;
-            return false;
-        }
-
-        bool ParseItem::operator<(const ParseItem &other) const {
-            if (lhs < other.lhs) return true;
-            if (other.lhs < lhs) return false;
-            if (rule->to_string() < other.rule->to_string()) return true;
-            if (rule->to_string() > other.rule->to_string()) return false;
-            if (consumed_symbols < other.consumed_symbols) return true;
-            if (consumed_symbols > other.consumed_symbols) return false;
-            if (lookahead_sym < other.lookahead_sym) return true;
-            return false;
-        }
-
         LexItem::LexItem(const Symbol &lhs, const rule_ptr rule) : Item(lhs, rule) {}
 
         bool LexItem::operator==(const LexItem &other) const {
