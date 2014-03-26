@@ -35,95 +35,95 @@ HIDDEN_SYMBOLS(11) = {
 
 LEX_FN() {
     START_LEXER();
-    switch (LEX_STATE()) {
+    switch (lex_state) {
         case 0:
             LEX_ERROR();
         case 1:
-            if (LOOKAHEAD_CHAR() == '+')
+            if (lookahead == '+')
                 ADVANCE(2);
             LEX_ERROR();
         case 2:
             ACCEPT_TOKEN(ts_sym_plus);
         case 3:
-            if (LOOKAHEAD_CHAR() == ')')
+            if (lookahead == ')')
                 ADVANCE(4);
             LEX_ERROR();
         case 4:
             ACCEPT_TOKEN(ts_aux_sym_token2);
         case 5:
-            if (LOOKAHEAD_CHAR() == ')')
+            if (lookahead == ')')
                 ADVANCE(4);
-            if (LOOKAHEAD_CHAR() == '+')
+            if (lookahead == '+')
                 ADVANCE(2);
             LEX_ERROR();
         case 6:
-            if (LOOKAHEAD_CHAR() == ')')
+            if (lookahead == ')')
                 ADVANCE(4);
-            if (LOOKAHEAD_CHAR() == '*')
+            if (lookahead == '*')
                 ADVANCE(7);
-            if (LOOKAHEAD_CHAR() == '+')
+            if (lookahead == '+')
                 ADVANCE(2);
             LEX_ERROR();
         case 7:
             ACCEPT_TOKEN(ts_sym_times);
         case 8:
-            if (LOOKAHEAD_CHAR() == '(')
+            if (lookahead == '(')
                 ADVANCE(9);
-            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+            if ('0' <= lookahead && lookahead <= '9')
                 ADVANCE(10);
-            if (('A' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'Z') ||
-                ('a' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'z'))
+            if (('A' <= lookahead && lookahead <= 'Z') ||
+                ('a' <= lookahead && lookahead <= 'z'))
                 ADVANCE(12);
             LEX_ERROR();
         case 9:
             ACCEPT_TOKEN(ts_aux_sym_token1);
         case 10:
-            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+            if ('0' <= lookahead && lookahead <= '9')
                 ADVANCE(11);
             ACCEPT_TOKEN(ts_sym_number);
         case 11:
-            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+            if ('0' <= lookahead && lookahead <= '9')
                 ADVANCE(11);
             ACCEPT_TOKEN(ts_sym_number);
         case 12:
-            if (('A' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'Z') ||
-                ('a' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'z'))
+            if (('A' <= lookahead && lookahead <= 'Z') ||
+                ('a' <= lookahead && lookahead <= 'z'))
                 ADVANCE(13);
             ACCEPT_TOKEN(ts_sym_variable);
         case 13:
-            if (('A' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'Z') ||
-                ('a' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'z'))
+            if (('A' <= lookahead && lookahead <= 'Z') ||
+                ('a' <= lookahead && lookahead <= 'z'))
                 ADVANCE(13);
             ACCEPT_TOKEN(ts_sym_variable);
         case 14:
-            if (LOOKAHEAD_CHAR() == ')')
+            if (lookahead == ')')
                 ADVANCE(4);
-            if (LOOKAHEAD_CHAR() == '*')
+            if (lookahead == '*')
                 ADVANCE(7);
             LEX_ERROR();
         case 15:
-            if (LOOKAHEAD_CHAR() == '*')
+            if (lookahead == '*')
                 ADVANCE(7);
-            if (LOOKAHEAD_CHAR() == '+')
+            if (lookahead == '+')
                 ADVANCE(2);
             LEX_ERROR();
         case 16:
-            if (LOOKAHEAD_CHAR() == '*')
+            if (lookahead == '*')
                 ADVANCE(7);
             LEX_ERROR();
         case ts_lex_state_error:
-            if (LOOKAHEAD_CHAR() == '(')
+            if (lookahead == '(')
                 ADVANCE(9);
-            if (LOOKAHEAD_CHAR() == ')')
+            if (lookahead == ')')
                 ADVANCE(4);
-            if (LOOKAHEAD_CHAR() == '*')
+            if (lookahead == '*')
                 ADVANCE(7);
-            if (LOOKAHEAD_CHAR() == '+')
+            if (lookahead == '+')
                 ADVANCE(2);
-            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+            if ('0' <= lookahead && lookahead <= '9')
                 ADVANCE(10);
-            if (('A' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'Z') ||
-                ('a' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= 'z'))
+            if (('A' <= lookahead && lookahead <= 'Z') ||
+                ('a' <= lookahead && lookahead <= 'z'))
                 ADVANCE(12);
             LEX_ERROR();
         default:

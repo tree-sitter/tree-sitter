@@ -31,81 +31,58 @@ extern "C" {
 #define DEBUG_PARSE(...)
 #endif
 
+#define SYMBOL_NAMES \
+static const char *ts_symbol_names[]
+    
+#define HIDDEN_SYMBOLS(num_symbols) \
+static const int hidden_symbol_flags[num_symbols]
+    
 #define LEX_STATES(num_states) \
 static state_id ts_lex_states[num_states]
+
+#define LEX_FN() \
+static ts_tree * ts_lex(ts_lexer *lexer, state_id lex_state)
+
+#define START_LEXER() \
+char lookahead; \
+ts_lexer_skip_whitespace(lexer); \
+if (!ts_lexer_lookahead_char(lexer)) return ts_tree_make_leaf(ts_builtin_sym_end, 0, 0); \
+next_state: \
+lookahead = ts_lexer_lookahead_char(lexer);
+    
+#define ADVANCE(state_index) \
+{ ts_lexer_advance(lexer); lex_state = state_index; goto next_state; }
+    
+#define ACCEPT_TOKEN(symbol) \
+{ DEBUG_LEX("token: %s \n", ts_symbol_names[symbol]); return ts_lexer_build_node(lexer, symbol); }
+    
+#define LEX_ERROR() \
+{ return ts_lexer_build_node(lexer, ts_builtin_sym_error); }
+    
+#define LEX_PANIC() \
+{ DEBUG_LEX("Lex error: unexpected state %d", LEX_STATE()); return NULL; }
 
 #define PARSE_TABLE(num_states, num_symbols) \
 static const ts_parse_action ts_parse_actions[num_states][num_symbols]
 
-#define LEX_FN() \
-static ts_tree * \
-ts_lex(ts_lexer *lexer, state_id lex_state)
-
-#define SYMBOL_NAMES \
-static const char *ts_symbol_names[]
-
-#define HIDDEN_SYMBOLS(num_symbols) \
-static const int hidden_symbol_flags[num_symbols]
-
 #define EXPORT_PARSER(constructor_name) \
 ts_parser constructor_name() { \
-    ts_parser result = { \
+    return (ts_parser){ \
         .parse_fn = ts_parse, \
         .symbol_names = ts_symbol_names, \
         .data = ts_lr_parser_make(TS_SYMBOL_COUNT, (const ts_parse_action *)ts_parse_actions, ts_lex_states, hidden_symbol_flags), \
         .free_fn = NULL \
     }; \
-    return result; \
 }
 
 #define SHIFT(to_state_value) \
-(ts_parse_action) { \
-    .type = ts_parse_action_type_shift, \
-    .data = { .to_state = to_state_value } \
-}
+(ts_parse_action){ .type = ts_parse_action_type_shift, .data = { .to_state = to_state_value } }
 
 #define REDUCE(symbol_val, child_count_val) \
-(ts_parse_action) { \
-    .type = ts_parse_action_type_reduce, \
-    .data = { .symbol = symbol_val, .child_count = child_count_val } \
-}
+(ts_parse_action){ .type = ts_parse_action_type_reduce, .data = { .symbol = symbol_val, .child_count = child_count_val } }
 
 #define ACCEPT_INPUT() \
-(ts_parse_action) { \
-    .type = ts_parse_action_type_accept, \
-}
-
-#define START_LEXER() \
-ts_lexer_skip_whitespace(lexer); \
-if (!ts_lexer_lookahead_char(lexer)) { \
-    return ts_tree_make_leaf(ts_builtin_sym_end, 0, 0); \
-} \
-next_state:
-
-#define LEX_STATE() \
-lex_state
-
-#define LOOKAHEAD_CHAR() \
-ts_lexer_lookahead_char(lexer)
-
-#define ADVANCE(state_index) \
-{ \
-    ts_lexer_advance(lexer); \
-    lex_state = state_index; \
-    goto next_state; \
-}
-
-#define ACCEPT_TOKEN(symbol) \
-{ \
-    DEBUG_LEX("token: %s \n", ts_symbol_names[symbol]); \
-    return ts_lexer_build_node(lexer, symbol); \
-}
-
-#define LEX_ERROR() \
-return ts_lexer_build_node(lexer, ts_builtin_sym_error);
-
-#define LEX_PANIC() \
-{ DEBUG_LEX("Lex error: unexpected state %d", LEX_STATE()); return NULL; }
+(ts_parse_action){ .type = ts_parse_action_type_accept }
 
 
 /*

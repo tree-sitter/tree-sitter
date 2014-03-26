@@ -100,7 +100,7 @@ namespace tree_sitter {
             }
 
             string condition_for_character_range(const rules::CharacterRange &range) {
-                string lookahead("LOOKAHEAD_CHAR()");
+                string lookahead("lookahead");
                 if (range.min == range.max) {
                     return lookahead + " == '" + character_code(range.min) + "'";
                 } else {
@@ -173,7 +173,7 @@ namespace tree_sitter {
                     body += _case(std::to_string(i), switch_on_lookahead_char(lex_table.states[i]));
                 body += _case("ts_lex_state_error", switch_on_lookahead_char(lex_table.error_state));
                 body += _default("LEX_PANIC();");
-                return _switch("LEX_STATE()", body);
+                return _switch("lex_state", body);
             }
 
             string symbol_count() {

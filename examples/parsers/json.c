@@ -55,13 +55,13 @@ HIDDEN_SYMBOLS(18) = {
 
 LEX_FN() {
     START_LEXER();
-    switch (LEX_STATE()) {
+    switch (lex_state) {
         case 0:
             LEX_ERROR();
         case 1:
-            if (LOOKAHEAD_CHAR() == ',')
+            if (lookahead == ',')
                 ADVANCE(2);
-            if (LOOKAHEAD_CHAR() == '}')
+            if (lookahead == '}')
                 ADVANCE(3);
             LEX_ERROR();
         case 2:
@@ -69,194 +69,194 @@ LEX_FN() {
         case 3:
             ACCEPT_TOKEN(ts_aux_sym_token4);
         case 4:
-            if (LOOKAHEAD_CHAR() == '}')
+            if (lookahead == '}')
                 ADVANCE(3);
             LEX_ERROR();
         case 5:
-            if (LOOKAHEAD_CHAR() == ',')
+            if (lookahead == ',')
                 ADVANCE(2);
-            if (LOOKAHEAD_CHAR() == ']')
+            if (lookahead == ']')
                 ADVANCE(6);
             LEX_ERROR();
         case 6:
             ACCEPT_TOKEN(ts_aux_sym_token6);
         case 7:
-            if (LOOKAHEAD_CHAR() == ']')
+            if (lookahead == ']')
                 ADVANCE(6);
             LEX_ERROR();
         case 8:
-            if (LOOKAHEAD_CHAR() == '\"')
+            if (lookahead == '\"')
                 ADVANCE(9);
-            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+            if ('0' <= lookahead && lookahead <= '9')
                 ADVANCE(19);
-            if (LOOKAHEAD_CHAR() == '[')
+            if (lookahead == '[')
                 ADVANCE(24);
-            if (LOOKAHEAD_CHAR() == 'f')
+            if (lookahead == 'f')
                 ADVANCE(25);
-            if (LOOKAHEAD_CHAR() == 'n')
+            if (lookahead == 'n')
                 ADVANCE(30);
-            if (LOOKAHEAD_CHAR() == 't')
+            if (lookahead == 't')
                 ADVANCE(34);
-            if (LOOKAHEAD_CHAR() == '{')
+            if (lookahead == '{')
                 ADVANCE(38);
             LEX_ERROR();
         case 9:
-            if (!((LOOKAHEAD_CHAR() == '\"') ||
-                (LOOKAHEAD_CHAR() == '\\')))
+            if (!((lookahead == '\"') ||
+                (lookahead == '\\')))
                 ADVANCE(10);
-            if (LOOKAHEAD_CHAR() == '\\')
+            if (lookahead == '\\')
                 ADVANCE(16);
-            if (']' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '\\')
+            if (']' <= lookahead && lookahead <= '\\')
                 ADVANCE(18);
             LEX_ERROR();
         case 10:
-            if (!((LOOKAHEAD_CHAR() == '\"') ||
-                (LOOKAHEAD_CHAR() == '\\')))
+            if (!((lookahead == '\"') ||
+                (lookahead == '\\')))
                 ADVANCE(11);
-            if (LOOKAHEAD_CHAR() == '\"')
+            if (lookahead == '\"')
                 ADVANCE(12);
-            if (LOOKAHEAD_CHAR() == '\\')
+            if (lookahead == '\\')
                 ADVANCE(13);
-            if (']' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '\\')
+            if (']' <= lookahead && lookahead <= '\\')
                 ADVANCE(15);
             LEX_ERROR();
         case 11:
-            if (!((LOOKAHEAD_CHAR() == '\"') ||
-                (LOOKAHEAD_CHAR() == '\\')))
+            if (!((lookahead == '\"') ||
+                (lookahead == '\\')))
                 ADVANCE(11);
-            if (LOOKAHEAD_CHAR() == '\"')
+            if (lookahead == '\"')
                 ADVANCE(12);
-            if (LOOKAHEAD_CHAR() == '\\')
+            if (lookahead == '\\')
                 ADVANCE(13);
-            if (']' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '\\')
+            if (']' <= lookahead && lookahead <= '\\')
                 ADVANCE(15);
             LEX_ERROR();
         case 12:
             ACCEPT_TOKEN(ts_sym_string);
         case 13:
-            if (!((LOOKAHEAD_CHAR() == '\"') ||
-                (LOOKAHEAD_CHAR() == '\\')))
+            if (!((lookahead == '\"') ||
+                (lookahead == '\\')))
                 ADVANCE(11);
-            if (LOOKAHEAD_CHAR() == '\"')
+            if (lookahead == '\"')
                 ADVANCE(14);
-            if ('#' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '\"')
+            if ('#' <= lookahead && lookahead <= '\"')
                 ADVANCE(11);
-            if (LOOKAHEAD_CHAR() == '\\')
+            if (lookahead == '\\')
                 ADVANCE(13);
-            if (']' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '\\')
+            if (']' <= lookahead && lookahead <= '\\')
                 ADVANCE(15);
             LEX_ERROR();
         case 14:
-            if (!((LOOKAHEAD_CHAR() == '\"') ||
-                (LOOKAHEAD_CHAR() == '\\')))
+            if (!((lookahead == '\"') ||
+                (lookahead == '\\')))
                 ADVANCE(11);
-            if (LOOKAHEAD_CHAR() == '\"')
+            if (lookahead == '\"')
                 ADVANCE(12);
-            if (LOOKAHEAD_CHAR() == '\\')
+            if (lookahead == '\\')
                 ADVANCE(13);
-            if (']' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '\\')
+            if (']' <= lookahead && lookahead <= '\\')
                 ADVANCE(15);
             ACCEPT_TOKEN(ts_sym_string);
         case 15:
-            if (LOOKAHEAD_CHAR() == '\"')
+            if (lookahead == '\"')
                 ADVANCE(11);
             LEX_ERROR();
         case 16:
-            if (!((LOOKAHEAD_CHAR() == '\"') ||
-                (LOOKAHEAD_CHAR() == '\\')))
+            if (!((lookahead == '\"') ||
+                (lookahead == '\\')))
                 ADVANCE(11);
-            if (LOOKAHEAD_CHAR() == '\"')
+            if (lookahead == '\"')
                 ADVANCE(17);
-            if ('#' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '\"')
+            if ('#' <= lookahead && lookahead <= '\"')
                 ADVANCE(10);
-            if (LOOKAHEAD_CHAR() == '\\')
+            if (lookahead == '\\')
                 ADVANCE(13);
-            if (']' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '\\')
+            if (']' <= lookahead && lookahead <= '\\')
                 ADVANCE(15);
             LEX_ERROR();
         case 17:
-            if (!((LOOKAHEAD_CHAR() == '\"') ||
-                (LOOKAHEAD_CHAR() == '\\')))
+            if (!((lookahead == '\"') ||
+                (lookahead == '\\')))
                 ADVANCE(11);
-            if (LOOKAHEAD_CHAR() == '\"')
+            if (lookahead == '\"')
                 ADVANCE(12);
-            if (LOOKAHEAD_CHAR() == '\\')
+            if (lookahead == '\\')
                 ADVANCE(13);
-            if (']' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '\\')
+            if (']' <= lookahead && lookahead <= '\\')
                 ADVANCE(15);
             ACCEPT_TOKEN(ts_sym_string);
         case 18:
-            if (LOOKAHEAD_CHAR() == '\"')
+            if (lookahead == '\"')
                 ADVANCE(10);
             LEX_ERROR();
         case 19:
-            if (LOOKAHEAD_CHAR() == '.')
+            if (lookahead == '.')
                 ADVANCE(20);
-            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+            if ('0' <= lookahead && lookahead <= '9')
                 ADVANCE(23);
             ACCEPT_TOKEN(ts_sym_number);
         case 20:
-            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+            if ('0' <= lookahead && lookahead <= '9')
                 ADVANCE(21);
             LEX_ERROR();
         case 21:
-            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+            if ('0' <= lookahead && lookahead <= '9')
                 ADVANCE(22);
             ACCEPT_TOKEN(ts_sym_number);
         case 22:
-            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+            if ('0' <= lookahead && lookahead <= '9')
                 ADVANCE(22);
             ACCEPT_TOKEN(ts_sym_number);
         case 23:
-            if (LOOKAHEAD_CHAR() == '.')
+            if (lookahead == '.')
                 ADVANCE(20);
-            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+            if ('0' <= lookahead && lookahead <= '9')
                 ADVANCE(23);
             ACCEPT_TOKEN(ts_sym_number);
         case 24:
             ACCEPT_TOKEN(ts_aux_sym_token5);
         case 25:
-            if (LOOKAHEAD_CHAR() == 'a')
+            if (lookahead == 'a')
                 ADVANCE(26);
             LEX_ERROR();
         case 26:
-            if (LOOKAHEAD_CHAR() == 'l')
+            if (lookahead == 'l')
                 ADVANCE(27);
             LEX_ERROR();
         case 27:
-            if (LOOKAHEAD_CHAR() == 's')
+            if (lookahead == 's')
                 ADVANCE(28);
             LEX_ERROR();
         case 28:
-            if (LOOKAHEAD_CHAR() == 'e')
+            if (lookahead == 'e')
                 ADVANCE(29);
             LEX_ERROR();
         case 29:
             ACCEPT_TOKEN(ts_sym_false);
         case 30:
-            if (LOOKAHEAD_CHAR() == 'u')
+            if (lookahead == 'u')
                 ADVANCE(31);
             LEX_ERROR();
         case 31:
-            if (LOOKAHEAD_CHAR() == 'l')
+            if (lookahead == 'l')
                 ADVANCE(32);
             LEX_ERROR();
         case 32:
-            if (LOOKAHEAD_CHAR() == 'l')
+            if (lookahead == 'l')
                 ADVANCE(33);
             LEX_ERROR();
         case 33:
             ACCEPT_TOKEN(ts_sym_null);
         case 34:
-            if (LOOKAHEAD_CHAR() == 'r')
+            if (lookahead == 'r')
                 ADVANCE(35);
             LEX_ERROR();
         case 35:
-            if (LOOKAHEAD_CHAR() == 'u')
+            if (lookahead == 'u')
                 ADVANCE(36);
             LEX_ERROR();
         case 36:
-            if (LOOKAHEAD_CHAR() == 'e')
+            if (lookahead == 'e')
                 ADVANCE(37);
             LEX_ERROR();
         case 37:
@@ -264,61 +264,61 @@ LEX_FN() {
         case 38:
             ACCEPT_TOKEN(ts_aux_sym_token1);
         case 39:
-            if (LOOKAHEAD_CHAR() == ':')
+            if (lookahead == ':')
                 ADVANCE(40);
             LEX_ERROR();
         case 40:
             ACCEPT_TOKEN(ts_aux_sym_token2);
         case 41:
-            if (LOOKAHEAD_CHAR() == '\"')
+            if (lookahead == '\"')
                 ADVANCE(9);
-            if (LOOKAHEAD_CHAR() == '}')
+            if (lookahead == '}')
                 ADVANCE(3);
             LEX_ERROR();
         case 42:
-            if (LOOKAHEAD_CHAR() == '\"')
+            if (lookahead == '\"')
                 ADVANCE(9);
-            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+            if ('0' <= lookahead && lookahead <= '9')
                 ADVANCE(19);
-            if (LOOKAHEAD_CHAR() == '[')
+            if (lookahead == '[')
                 ADVANCE(24);
-            if (LOOKAHEAD_CHAR() == ']')
+            if (lookahead == ']')
                 ADVANCE(6);
-            if (LOOKAHEAD_CHAR() == 'f')
+            if (lookahead == 'f')
                 ADVANCE(25);
-            if (LOOKAHEAD_CHAR() == 'n')
+            if (lookahead == 'n')
                 ADVANCE(30);
-            if (LOOKAHEAD_CHAR() == 't')
+            if (lookahead == 't')
                 ADVANCE(34);
-            if (LOOKAHEAD_CHAR() == '{')
+            if (lookahead == '{')
                 ADVANCE(38);
             LEX_ERROR();
         case 43:
-            if (LOOKAHEAD_CHAR() == '\"')
+            if (lookahead == '\"')
                 ADVANCE(9);
             LEX_ERROR();
         case ts_lex_state_error:
-            if (LOOKAHEAD_CHAR() == '\"')
+            if (lookahead == '\"')
                 ADVANCE(9);
-            if (LOOKAHEAD_CHAR() == ',')
+            if (lookahead == ',')
                 ADVANCE(2);
-            if ('0' <= LOOKAHEAD_CHAR() && LOOKAHEAD_CHAR() <= '9')
+            if ('0' <= lookahead && lookahead <= '9')
                 ADVANCE(19);
-            if (LOOKAHEAD_CHAR() == ':')
+            if (lookahead == ':')
                 ADVANCE(40);
-            if (LOOKAHEAD_CHAR() == '[')
+            if (lookahead == '[')
                 ADVANCE(24);
-            if (LOOKAHEAD_CHAR() == ']')
+            if (lookahead == ']')
                 ADVANCE(6);
-            if (LOOKAHEAD_CHAR() == 'f')
+            if (lookahead == 'f')
                 ADVANCE(25);
-            if (LOOKAHEAD_CHAR() == 'n')
+            if (lookahead == 'n')
                 ADVANCE(30);
-            if (LOOKAHEAD_CHAR() == 't')
+            if (lookahead == 't')
                 ADVANCE(34);
-            if (LOOKAHEAD_CHAR() == '{')
+            if (lookahead == '{')
                 ADVANCE(38);
-            if (LOOKAHEAD_CHAR() == '}')
+            if (lookahead == '}')
                 ADVANCE(3);
             LEX_ERROR();
         default:
