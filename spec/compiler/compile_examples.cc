@@ -22,7 +22,9 @@ describe("compiling the example grammars", []() {
 
     auto compile_grammar = [&](Grammar grammar, string language) {
         it(("compiles the " + language + " grammar").c_str(), [&]() {
-            ofstream(example_parser_dir + language + ".c") << compile(grammar, language);
+            ofstream file(example_parser_dir + language + ".c");
+            file << compile(grammar, language);
+            file.close();
         });
     };
 

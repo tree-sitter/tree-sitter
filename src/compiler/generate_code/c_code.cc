@@ -59,7 +59,7 @@ namespace tree_sitter {
             string code() {
                 return join({
                     includes(),
-                    symbol_count(),
+                    state_and_symbol_counts(),
                     symbol_enum(),
                     rule_names_list(),
                     hidden_symbols_list(),
@@ -73,10 +73,9 @@ namespace tree_sitter {
         private:
             string symbol_id(rules::Symbol symbol) {
                 if (symbol.is_built_in()) {
-                    if (symbol == rules::ERROR)
-                        return "ts_builtin_sym_error";
-                    else
-                        return "ts_builtin_sym_end";
+                    return (symbol == rules::ERROR) ?
+                        "ts_builtin_sym_error" :
+                        "ts_builtin_sym_end";
                 } else if (symbol.is_auxiliary()) {
                     return "ts_aux_sym_" + symbol.name;
                 } else {
@@ -176,8 +175,11 @@ namespace tree_sitter {
                 return _switch("lex_state", body);
             }
 
-            string symbol_count() {
-                return "#define TS_SYMBOL_COUNT " + to_string(parse_table.symbols.size());
+            string state_and_symbol_counts() {
+                return join({
+                    "STATE_COUNT = " + to_string(parse_table.states.size()) + ";",
+                    "SYMBOL_COUNT = " + to_string(parse_table.symbols.size()) + ";"
+                });
             }
 
             string symbol_enum() {
@@ -201,7 +203,7 @@ namespace tree_sitter {
             }
             
             string hidden_symbols_list() {
-                string result = "HIDDEN_SYMBOLS(" + to_string(parse_table.symbols.size()) + ") = {";
+                string result = "HIDDEN_SYMBOLS = {";
                 for (auto &symbol : parse_table.symbols)
                     if (symbol.is_hidden())
                         result += indent("\n[" + symbol_id(symbol) + "] = 1,");
@@ -232,7 +234,7 @@ namespace tree_sitter {
             string lex_states_list() {
                 size_t state_id = 0;
                 return join({
-                    "LEX_STATES(" + to_string(parse_table.states.size()) + ") = {",
+                    "LEX_STATES = {",
                     indent(join(map_to_string<ParseState>(parse_table.states, [&](ParseState state) {
                         return "[" + to_string(state_id++) + "] = " + to_string(state.lex_state_id) + ",";
                     }))),
@@ -243,7 +245,7 @@ namespace tree_sitter {
             string parse_table_array() {
                 size_t state_id = 0;
                 return join({
-                    "PARSE_TABLE(" + to_string(parse_table.states.size()) + ", " + to_string(parse_table.symbols.size()) + ") = {",
+                    "PARSE_TABLE = {",
                     indent(join(map_to_string<ParseState>(parse_table.states, [&](ParseState state) {
                         string result = "[" + to_string(state_id++) + "] = {";
                         for (auto &pair : state.actions)

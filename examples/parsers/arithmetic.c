@@ -1,6 +1,7 @@
 #include "tree_sitter/parser.h"
 
-#define TS_SYMBOL_COUNT 11
+STATE_COUNT = 52;
+SYMBOL_COUNT = 11;
 
 enum {
     ts_sym_expression = 2,
@@ -28,7 +29,7 @@ SYMBOL_NAMES = {
     "token2",
 };
 
-HIDDEN_SYMBOLS(11) = {    
+HIDDEN_SYMBOLS = {    
     [ts_aux_sym_token1] = 1,    
     [ts_aux_sym_token2] = 1,
 };
@@ -131,7 +132,7 @@ LEX_FN() {
     }
 }
 
-LEX_STATES(52) = {
+LEX_STATES = {
     [0] = 8,
     [1] = 0,
     [2] = 15,
@@ -186,7 +187,7 @@ LEX_STATES(52) = {
     [51] = 15,
 };
 
-PARSE_TABLE(52, 11) = {
+PARSE_TABLE = {
     [0] = {    
         [ts_sym_expression] = SHIFT(1),    
         [ts_sym_factor] = SHIFT(2),    

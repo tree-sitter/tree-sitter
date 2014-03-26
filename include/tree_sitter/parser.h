@@ -31,14 +31,20 @@ extern "C" {
 #define DEBUG_PARSE(...)
 #endif
 
+#define SYMBOL_COUNT \
+static const size_t ts_symbol_count
+
+#define STATE_COUNT \
+static const size_t ts_state_count
+
 #define SYMBOL_NAMES \
-static const char *ts_symbol_names[]
+static const char *ts_symbol_names[ts_symbol_count]
     
-#define HIDDEN_SYMBOLS(num_symbols) \
-static const int hidden_symbol_flags[num_symbols]
+#define HIDDEN_SYMBOLS \
+static const int hidden_symbol_flags[ts_symbol_count]
     
-#define LEX_STATES(num_states) \
-static state_id ts_lex_states[num_states]
+#define LEX_STATES \
+static state_id ts_lex_states[ts_state_count]
 
 #define LEX_FN() \
 static ts_tree * ts_lex(ts_lexer *lexer, state_id lex_state)
@@ -62,15 +68,15 @@ lookahead = ts_lexer_lookahead_char(lexer);
 #define LEX_PANIC() \
 { DEBUG_LEX("Lex error: unexpected state %d", LEX_STATE()); return NULL; }
 
-#define PARSE_TABLE(num_states, num_symbols) \
-static const ts_parse_action ts_parse_actions[num_states][num_symbols]
+#define PARSE_TABLE \
+static const ts_parse_action ts_parse_actions[ts_state_count][ts_symbol_count]
 
 #define EXPORT_PARSER(constructor_name) \
 ts_parser constructor_name() { \
     return (ts_parser){ \
         .parse_fn = ts_parse, \
         .symbol_names = ts_symbol_names, \
-        .data = ts_lr_parser_make(TS_SYMBOL_COUNT, (const ts_parse_action *)ts_parse_actions, ts_lex_states, hidden_symbol_flags), \
+        .data = ts_lr_parser_make(ts_symbol_count, (const ts_parse_action *)ts_parse_actions, ts_lex_states, hidden_symbol_flags), \
         .free_fn = NULL \
     }; \
 }
