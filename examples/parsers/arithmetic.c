@@ -3,18 +3,20 @@
 #define TS_SYMBOL_COUNT 11
 
 enum {
-    ts_sym_expression,
-    ts_sym_factor,
-    ts_sym_number,
-    ts_sym_plus,
-    ts_sym_term,
-    ts_sym_times,
-    ts_sym_variable,
-    ts_aux_sym_token1,
-    ts_aux_sym_token2,
+    ts_sym_expression = 2,
+    ts_sym_factor = 3,
+    ts_sym_number = 4,
+    ts_sym_plus = 5,
+    ts_sym_term = 6,
+    ts_sym_times = 7,
+    ts_sym_variable = 8,
+    ts_aux_sym_token1 = 9,
+    ts_aux_sym_token2 = 10,
 };
 
 SYMBOL_NAMES = {
+    "error",
+    "end",
     "expression",
     "factor",
     "number",
@@ -26,16 +28,9 @@ SYMBOL_NAMES = {
     "token2",
 };
 
-HIDDEN_SYMBOL_FLAGS = {
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    1,
-    1,
+HIDDEN_SYMBOLS(11) = {    
+    [ts_aux_sym_token1] = 1,    
+    [ts_aux_sym_token2] = 1,
 };
 
 LEX_FN() {
@@ -136,369 +131,368 @@ LEX_FN() {
     }
 }
 
-PARSE_TABLE() {
-    START_TABLE(52)
+LEX_STATES(52) = {
+    [0] = 8,
+    [1] = 0,
+    [2] = 15,
+    [3] = 8,
+    [4] = 1,
+    [5] = 1,
+    [6] = 8,
+    [7] = 3,
+    [8] = 1,
+    [9] = 6,
+    [10] = 8,
+    [11] = 5,
+    [12] = 5,
+    [13] = 8,
+    [14] = 3,
+    [15] = 5,
+    [16] = 6,
+    [17] = 5,
+    [18] = 8,
+    [19] = 14,
+    [20] = 8,
+    [21] = 3,
+    [22] = 3,
+    [23] = 8,
+    [24] = 3,
+    [25] = 3,
+    [26] = 8,
+    [27] = 3,
+    [28] = 6,
+    [29] = 14,
+    [30] = 3,
+    [31] = 8,
+    [32] = 3,
+    [33] = 14,
+    [34] = 15,
+    [35] = 1,
+    [36] = 8,
+    [37] = 16,
+    [38] = 8,
+    [39] = 0,
+    [40] = 0,
+    [41] = 8,
+    [42] = 3,
+    [43] = 0,
+    [44] = 16,
+    [45] = 0,
+    [46] = 8,
+    [47] = 3,
+    [48] = 16,
+    [49] = 8,
+    [50] = 3,
+    [51] = 15,
+};
+
+PARSE_TABLE(52, 11) = {
+    [0] = {    
+        [ts_sym_expression] = SHIFT(1),    
+        [ts_sym_factor] = SHIFT(2),    
+        [ts_sym_number] = SHIFT(34),    
+        [ts_sym_term] = SHIFT(35),    
+        [ts_sym_variable] = SHIFT(34),    
+        [ts_aux_sym_token1] = SHIFT(49),
+    },
     
-    STATE(0);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_expression, 1)
-    SHIFT(ts_sym_factor, 2)
-    SHIFT(ts_sym_number, 34)
-    SHIFT(ts_sym_term, 35)
-    SHIFT(ts_sym_variable, 34)
-    SHIFT(ts_aux_sym_token1, 49)
-    END_STATE();
+    [1] = {    
+        [ts_builtin_sym_end] = ACCEPT_INPUT(),
+    },
     
-    STATE(1);
-    SET_LEX_STATE(0);
-    ACCEPT_INPUT(ts_builtin_sym_end)
-    END_STATE();
+    [2] = {    
+        [ts_sym_plus] = REDUCE(ts_sym_term, 1),    
+        [ts_sym_times] = SHIFT(3),    
+        [ts_builtin_sym_end] = REDUCE(ts_sym_term, 1),
+    },
     
-    STATE(2);
-    SET_LEX_STATE(15);
-    REDUCE(ts_sym_plus, ts_sym_term, 1)
-    SHIFT(ts_sym_times, 3)
-    REDUCE(ts_builtin_sym_end, ts_sym_term, 1)
-    END_STATE();
+    [3] = {    
+        [ts_sym_factor] = SHIFT(4),    
+        [ts_sym_number] = SHIFT(5),    
+        [ts_sym_variable] = SHIFT(5),    
+        [ts_aux_sym_token1] = SHIFT(6),
+    },
     
-    STATE(3);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_factor, 4)
-    SHIFT(ts_sym_number, 5)
-    SHIFT(ts_sym_variable, 5)
-    SHIFT(ts_aux_sym_token1, 6)
-    END_STATE();
+    [4] = {    
+        [ts_sym_plus] = REDUCE(ts_sym_term, 3),    
+        [ts_builtin_sym_end] = REDUCE(ts_sym_term, 3),
+    },
     
-    STATE(4);
-    SET_LEX_STATE(1);
-    REDUCE(ts_sym_plus, ts_sym_term, 3)
-    REDUCE(ts_builtin_sym_end, ts_sym_term, 3)
-    END_STATE();
+    [5] = {    
+        [ts_sym_plus] = REDUCE(ts_sym_factor, 1),    
+        [ts_builtin_sym_end] = REDUCE(ts_sym_factor, 1),
+    },
     
-    STATE(5);
-    SET_LEX_STATE(1);
-    REDUCE(ts_sym_plus, ts_sym_factor, 1)
-    REDUCE(ts_builtin_sym_end, ts_sym_factor, 1)
-    END_STATE();
+    [6] = {    
+        [ts_sym_expression] = SHIFT(7),    
+        [ts_sym_factor] = SHIFT(9),    
+        [ts_sym_number] = SHIFT(16),    
+        [ts_sym_term] = SHIFT(17),    
+        [ts_sym_variable] = SHIFT(16),    
+        [ts_aux_sym_token1] = SHIFT(26),    
+        [ts_builtin_sym_error] = SHIFT(7),
+    },
     
-    STATE(6);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_expression, 7)
-    SHIFT(ts_sym_factor, 9)
-    SHIFT(ts_sym_number, 16)
-    SHIFT(ts_sym_term, 17)
-    SHIFT(ts_sym_variable, 16)
-    SHIFT(ts_aux_sym_token1, 26)
-    SHIFT(ts_builtin_sym_error, 7)
-    END_STATE();
+    [7] = {    
+        [ts_aux_sym_token2] = SHIFT(8),
+    },
     
-    STATE(7);
-    SET_LEX_STATE(3);
-    SHIFT(ts_aux_sym_token2, 8)
-    END_STATE();
+    [8] = {    
+        [ts_sym_plus] = REDUCE(ts_sym_factor, 3),    
+        [ts_builtin_sym_end] = REDUCE(ts_sym_factor, 3),
+    },
     
-    STATE(8);
-    SET_LEX_STATE(1);
-    REDUCE(ts_sym_plus, ts_sym_factor, 3)
-    REDUCE(ts_builtin_sym_end, ts_sym_factor, 3)
-    END_STATE();
+    [9] = {    
+        [ts_sym_plus] = REDUCE(ts_sym_term, 1),    
+        [ts_sym_times] = SHIFT(10),    
+        [ts_aux_sym_token2] = REDUCE(ts_sym_term, 1),
+    },
     
-    STATE(9);
-    SET_LEX_STATE(6);
-    REDUCE(ts_sym_plus, ts_sym_term, 1)
-    SHIFT(ts_sym_times, 10)
-    REDUCE(ts_aux_sym_token2, ts_sym_term, 1)
-    END_STATE();
+    [10] = {    
+        [ts_sym_factor] = SHIFT(11),    
+        [ts_sym_number] = SHIFT(12),    
+        [ts_sym_variable] = SHIFT(12),    
+        [ts_aux_sym_token1] = SHIFT(13),
+    },
     
-    STATE(10);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_factor, 11)
-    SHIFT(ts_sym_number, 12)
-    SHIFT(ts_sym_variable, 12)
-    SHIFT(ts_aux_sym_token1, 13)
-    END_STATE();
+    [11] = {    
+        [ts_sym_plus] = REDUCE(ts_sym_term, 3),    
+        [ts_aux_sym_token2] = REDUCE(ts_sym_term, 3),
+    },
     
-    STATE(11);
-    SET_LEX_STATE(5);
-    REDUCE(ts_sym_plus, ts_sym_term, 3)
-    REDUCE(ts_aux_sym_token2, ts_sym_term, 3)
-    END_STATE();
+    [12] = {    
+        [ts_sym_plus] = REDUCE(ts_sym_factor, 1),    
+        [ts_aux_sym_token2] = REDUCE(ts_sym_factor, 1),
+    },
     
-    STATE(12);
-    SET_LEX_STATE(5);
-    REDUCE(ts_sym_plus, ts_sym_factor, 1)
-    REDUCE(ts_aux_sym_token2, ts_sym_factor, 1)
-    END_STATE();
+    [13] = {    
+        [ts_sym_expression] = SHIFT(14),    
+        [ts_sym_factor] = SHIFT(9),    
+        [ts_sym_number] = SHIFT(16),    
+        [ts_sym_term] = SHIFT(17),    
+        [ts_sym_variable] = SHIFT(16),    
+        [ts_aux_sym_token1] = SHIFT(26),    
+        [ts_builtin_sym_error] = SHIFT(14),
+    },
     
-    STATE(13);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_expression, 14)
-    SHIFT(ts_sym_factor, 9)
-    SHIFT(ts_sym_number, 16)
-    SHIFT(ts_sym_term, 17)
-    SHIFT(ts_sym_variable, 16)
-    SHIFT(ts_aux_sym_token1, 26)
-    SHIFT(ts_builtin_sym_error, 14)
-    END_STATE();
+    [14] = {    
+        [ts_aux_sym_token2] = SHIFT(15),
+    },
     
-    STATE(14);
-    SET_LEX_STATE(3);
-    SHIFT(ts_aux_sym_token2, 15)
-    END_STATE();
+    [15] = {    
+        [ts_sym_plus] = REDUCE(ts_sym_factor, 3),    
+        [ts_aux_sym_token2] = REDUCE(ts_sym_factor, 3),
+    },
     
-    STATE(15);
-    SET_LEX_STATE(5);
-    REDUCE(ts_sym_plus, ts_sym_factor, 3)
-    REDUCE(ts_aux_sym_token2, ts_sym_factor, 3)
-    END_STATE();
+    [16] = {    
+        [ts_sym_plus] = REDUCE(ts_sym_factor, 1),    
+        [ts_sym_times] = REDUCE(ts_sym_factor, 1),    
+        [ts_aux_sym_token2] = REDUCE(ts_sym_factor, 1),
+    },
     
-    STATE(16);
-    SET_LEX_STATE(6);
-    REDUCE(ts_sym_plus, ts_sym_factor, 1)
-    REDUCE(ts_sym_times, ts_sym_factor, 1)
-    REDUCE(ts_aux_sym_token2, ts_sym_factor, 1)
-    END_STATE();
+    [17] = {    
+        [ts_sym_plus] = SHIFT(18),    
+        [ts_aux_sym_token2] = REDUCE(ts_sym_expression, 1),
+    },
     
-    STATE(17);
-    SET_LEX_STATE(5);
-    SHIFT(ts_sym_plus, 18)
-    REDUCE(ts_aux_sym_token2, ts_sym_expression, 1)
-    END_STATE();
+    [18] = {    
+        [ts_sym_factor] = SHIFT(19),    
+        [ts_sym_number] = SHIFT(29),    
+        [ts_sym_term] = SHIFT(30),    
+        [ts_sym_variable] = SHIFT(29),    
+        [ts_aux_sym_token1] = SHIFT(31),
+    },
     
-    STATE(18);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_factor, 19)
-    SHIFT(ts_sym_number, 29)
-    SHIFT(ts_sym_term, 30)
-    SHIFT(ts_sym_variable, 29)
-    SHIFT(ts_aux_sym_token1, 31)
-    END_STATE();
+    [19] = {    
+        [ts_sym_times] = SHIFT(20),    
+        [ts_aux_sym_token2] = REDUCE(ts_sym_term, 1),
+    },
     
-    STATE(19);
-    SET_LEX_STATE(14);
-    SHIFT(ts_sym_times, 20)
-    REDUCE(ts_aux_sym_token2, ts_sym_term, 1)
-    END_STATE();
+    [20] = {    
+        [ts_sym_factor] = SHIFT(21),    
+        [ts_sym_number] = SHIFT(22),    
+        [ts_sym_variable] = SHIFT(22),    
+        [ts_aux_sym_token1] = SHIFT(23),
+    },
     
-    STATE(20);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_factor, 21)
-    SHIFT(ts_sym_number, 22)
-    SHIFT(ts_sym_variable, 22)
-    SHIFT(ts_aux_sym_token1, 23)
-    END_STATE();
+    [21] = {    
+        [ts_aux_sym_token2] = REDUCE(ts_sym_term, 3),
+    },
     
-    STATE(21);
-    SET_LEX_STATE(3);
-    REDUCE(ts_aux_sym_token2, ts_sym_term, 3)
-    END_STATE();
+    [22] = {    
+        [ts_aux_sym_token2] = REDUCE(ts_sym_factor, 1),
+    },
     
-    STATE(22);
-    SET_LEX_STATE(3);
-    REDUCE(ts_aux_sym_token2, ts_sym_factor, 1)
-    END_STATE();
+    [23] = {    
+        [ts_sym_expression] = SHIFT(24),    
+        [ts_sym_factor] = SHIFT(9),    
+        [ts_sym_number] = SHIFT(16),    
+        [ts_sym_term] = SHIFT(17),    
+        [ts_sym_variable] = SHIFT(16),    
+        [ts_aux_sym_token1] = SHIFT(26),    
+        [ts_builtin_sym_error] = SHIFT(24),
+    },
     
-    STATE(23);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_expression, 24)
-    SHIFT(ts_sym_factor, 9)
-    SHIFT(ts_sym_number, 16)
-    SHIFT(ts_sym_term, 17)
-    SHIFT(ts_sym_variable, 16)
-    SHIFT(ts_aux_sym_token1, 26)
-    SHIFT(ts_builtin_sym_error, 24)
-    END_STATE();
+    [24] = {    
+        [ts_aux_sym_token2] = SHIFT(25),
+    },
     
-    STATE(24);
-    SET_LEX_STATE(3);
-    SHIFT(ts_aux_sym_token2, 25)
-    END_STATE();
+    [25] = {    
+        [ts_aux_sym_token2] = REDUCE(ts_sym_factor, 3),
+    },
     
-    STATE(25);
-    SET_LEX_STATE(3);
-    REDUCE(ts_aux_sym_token2, ts_sym_factor, 3)
-    END_STATE();
+    [26] = {    
+        [ts_sym_expression] = SHIFT(27),    
+        [ts_sym_factor] = SHIFT(9),    
+        [ts_sym_number] = SHIFT(16),    
+        [ts_sym_term] = SHIFT(17),    
+        [ts_sym_variable] = SHIFT(16),    
+        [ts_aux_sym_token1] = SHIFT(26),    
+        [ts_builtin_sym_error] = SHIFT(27),
+    },
     
-    STATE(26);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_expression, 27)
-    SHIFT(ts_sym_factor, 9)
-    SHIFT(ts_sym_number, 16)
-    SHIFT(ts_sym_term, 17)
-    SHIFT(ts_sym_variable, 16)
-    SHIFT(ts_aux_sym_token1, 26)
-    SHIFT(ts_builtin_sym_error, 27)
-    END_STATE();
+    [27] = {    
+        [ts_aux_sym_token2] = SHIFT(28),
+    },
     
-    STATE(27);
-    SET_LEX_STATE(3);
-    SHIFT(ts_aux_sym_token2, 28)
-    END_STATE();
+    [28] = {    
+        [ts_sym_plus] = REDUCE(ts_sym_factor, 3),    
+        [ts_sym_times] = REDUCE(ts_sym_factor, 3),    
+        [ts_aux_sym_token2] = REDUCE(ts_sym_factor, 3),
+    },
     
-    STATE(28);
-    SET_LEX_STATE(6);
-    REDUCE(ts_sym_plus, ts_sym_factor, 3)
-    REDUCE(ts_sym_times, ts_sym_factor, 3)
-    REDUCE(ts_aux_sym_token2, ts_sym_factor, 3)
-    END_STATE();
+    [29] = {    
+        [ts_sym_times] = REDUCE(ts_sym_factor, 1),    
+        [ts_aux_sym_token2] = REDUCE(ts_sym_factor, 1),
+    },
     
-    STATE(29);
-    SET_LEX_STATE(14);
-    REDUCE(ts_sym_times, ts_sym_factor, 1)
-    REDUCE(ts_aux_sym_token2, ts_sym_factor, 1)
-    END_STATE();
+    [30] = {    
+        [ts_aux_sym_token2] = REDUCE(ts_sym_expression, 3),
+    },
     
-    STATE(30);
-    SET_LEX_STATE(3);
-    REDUCE(ts_aux_sym_token2, ts_sym_expression, 3)
-    END_STATE();
+    [31] = {    
+        [ts_sym_expression] = SHIFT(32),    
+        [ts_sym_factor] = SHIFT(9),    
+        [ts_sym_number] = SHIFT(16),    
+        [ts_sym_term] = SHIFT(17),    
+        [ts_sym_variable] = SHIFT(16),    
+        [ts_aux_sym_token1] = SHIFT(26),    
+        [ts_builtin_sym_error] = SHIFT(32),
+    },
     
-    STATE(31);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_expression, 32)
-    SHIFT(ts_sym_factor, 9)
-    SHIFT(ts_sym_number, 16)
-    SHIFT(ts_sym_term, 17)
-    SHIFT(ts_sym_variable, 16)
-    SHIFT(ts_aux_sym_token1, 26)
-    SHIFT(ts_builtin_sym_error, 32)
-    END_STATE();
+    [32] = {    
+        [ts_aux_sym_token2] = SHIFT(33),
+    },
     
-    STATE(32);
-    SET_LEX_STATE(3);
-    SHIFT(ts_aux_sym_token2, 33)
-    END_STATE();
+    [33] = {    
+        [ts_sym_times] = REDUCE(ts_sym_factor, 3),    
+        [ts_aux_sym_token2] = REDUCE(ts_sym_factor, 3),
+    },
     
-    STATE(33);
-    SET_LEX_STATE(14);
-    REDUCE(ts_sym_times, ts_sym_factor, 3)
-    REDUCE(ts_aux_sym_token2, ts_sym_factor, 3)
-    END_STATE();
+    [34] = {    
+        [ts_sym_plus] = REDUCE(ts_sym_factor, 1),    
+        [ts_sym_times] = REDUCE(ts_sym_factor, 1),    
+        [ts_builtin_sym_end] = REDUCE(ts_sym_factor, 1),
+    },
     
-    STATE(34);
-    SET_LEX_STATE(15);
-    REDUCE(ts_sym_plus, ts_sym_factor, 1)
-    REDUCE(ts_sym_times, ts_sym_factor, 1)
-    REDUCE(ts_builtin_sym_end, ts_sym_factor, 1)
-    END_STATE();
+    [35] = {    
+        [ts_sym_plus] = SHIFT(36),    
+        [ts_builtin_sym_end] = REDUCE(ts_sym_expression, 1),
+    },
     
-    STATE(35);
-    SET_LEX_STATE(1);
-    SHIFT(ts_sym_plus, 36)
-    REDUCE(ts_builtin_sym_end, ts_sym_expression, 1)
-    END_STATE();
+    [36] = {    
+        [ts_sym_factor] = SHIFT(37),    
+        [ts_sym_number] = SHIFT(44),    
+        [ts_sym_term] = SHIFT(45),    
+        [ts_sym_variable] = SHIFT(44),    
+        [ts_aux_sym_token1] = SHIFT(46),
+    },
     
-    STATE(36);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_factor, 37)
-    SHIFT(ts_sym_number, 44)
-    SHIFT(ts_sym_term, 45)
-    SHIFT(ts_sym_variable, 44)
-    SHIFT(ts_aux_sym_token1, 46)
-    END_STATE();
+    [37] = {    
+        [ts_sym_times] = SHIFT(38),    
+        [ts_builtin_sym_end] = REDUCE(ts_sym_term, 1),
+    },
     
-    STATE(37);
-    SET_LEX_STATE(16);
-    SHIFT(ts_sym_times, 38)
-    REDUCE(ts_builtin_sym_end, ts_sym_term, 1)
-    END_STATE();
+    [38] = {    
+        [ts_sym_factor] = SHIFT(39),    
+        [ts_sym_number] = SHIFT(40),    
+        [ts_sym_variable] = SHIFT(40),    
+        [ts_aux_sym_token1] = SHIFT(41),
+    },
     
-    STATE(38);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_factor, 39)
-    SHIFT(ts_sym_number, 40)
-    SHIFT(ts_sym_variable, 40)
-    SHIFT(ts_aux_sym_token1, 41)
-    END_STATE();
+    [39] = {    
+        [ts_builtin_sym_end] = REDUCE(ts_sym_term, 3),
+    },
     
-    STATE(39);
-    SET_LEX_STATE(0);
-    REDUCE(ts_builtin_sym_end, ts_sym_term, 3)
-    END_STATE();
+    [40] = {    
+        [ts_builtin_sym_end] = REDUCE(ts_sym_factor, 1),
+    },
     
-    STATE(40);
-    SET_LEX_STATE(0);
-    REDUCE(ts_builtin_sym_end, ts_sym_factor, 1)
-    END_STATE();
+    [41] = {    
+        [ts_sym_expression] = SHIFT(42),    
+        [ts_sym_factor] = SHIFT(9),    
+        [ts_sym_number] = SHIFT(16),    
+        [ts_sym_term] = SHIFT(17),    
+        [ts_sym_variable] = SHIFT(16),    
+        [ts_aux_sym_token1] = SHIFT(26),    
+        [ts_builtin_sym_error] = SHIFT(42),
+    },
     
-    STATE(41);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_expression, 42)
-    SHIFT(ts_sym_factor, 9)
-    SHIFT(ts_sym_number, 16)
-    SHIFT(ts_sym_term, 17)
-    SHIFT(ts_sym_variable, 16)
-    SHIFT(ts_aux_sym_token1, 26)
-    SHIFT(ts_builtin_sym_error, 42)
-    END_STATE();
+    [42] = {    
+        [ts_aux_sym_token2] = SHIFT(43),
+    },
     
-    STATE(42);
-    SET_LEX_STATE(3);
-    SHIFT(ts_aux_sym_token2, 43)
-    END_STATE();
+    [43] = {    
+        [ts_builtin_sym_end] = REDUCE(ts_sym_factor, 3),
+    },
     
-    STATE(43);
-    SET_LEX_STATE(0);
-    REDUCE(ts_builtin_sym_end, ts_sym_factor, 3)
-    END_STATE();
+    [44] = {    
+        [ts_sym_times] = REDUCE(ts_sym_factor, 1),    
+        [ts_builtin_sym_end] = REDUCE(ts_sym_factor, 1),
+    },
     
-    STATE(44);
-    SET_LEX_STATE(16);
-    REDUCE(ts_sym_times, ts_sym_factor, 1)
-    REDUCE(ts_builtin_sym_end, ts_sym_factor, 1)
-    END_STATE();
+    [45] = {    
+        [ts_builtin_sym_end] = REDUCE(ts_sym_expression, 3),
+    },
     
-    STATE(45);
-    SET_LEX_STATE(0);
-    REDUCE(ts_builtin_sym_end, ts_sym_expression, 3)
-    END_STATE();
+    [46] = {    
+        [ts_sym_expression] = SHIFT(47),    
+        [ts_sym_factor] = SHIFT(9),    
+        [ts_sym_number] = SHIFT(16),    
+        [ts_sym_term] = SHIFT(17),    
+        [ts_sym_variable] = SHIFT(16),    
+        [ts_aux_sym_token1] = SHIFT(26),    
+        [ts_builtin_sym_error] = SHIFT(47),
+    },
     
-    STATE(46);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_expression, 47)
-    SHIFT(ts_sym_factor, 9)
-    SHIFT(ts_sym_number, 16)
-    SHIFT(ts_sym_term, 17)
-    SHIFT(ts_sym_variable, 16)
-    SHIFT(ts_aux_sym_token1, 26)
-    SHIFT(ts_builtin_sym_error, 47)
-    END_STATE();
+    [47] = {    
+        [ts_aux_sym_token2] = SHIFT(48),
+    },
     
-    STATE(47);
-    SET_LEX_STATE(3);
-    SHIFT(ts_aux_sym_token2, 48)
-    END_STATE();
+    [48] = {    
+        [ts_sym_times] = REDUCE(ts_sym_factor, 3),    
+        [ts_builtin_sym_end] = REDUCE(ts_sym_factor, 3),
+    },
     
-    STATE(48);
-    SET_LEX_STATE(16);
-    REDUCE(ts_sym_times, ts_sym_factor, 3)
-    REDUCE(ts_builtin_sym_end, ts_sym_factor, 3)
-    END_STATE();
+    [49] = {    
+        [ts_sym_expression] = SHIFT(50),    
+        [ts_sym_factor] = SHIFT(9),    
+        [ts_sym_number] = SHIFT(16),    
+        [ts_sym_term] = SHIFT(17),    
+        [ts_sym_variable] = SHIFT(16),    
+        [ts_aux_sym_token1] = SHIFT(26),    
+        [ts_builtin_sym_error] = SHIFT(50),
+    },
     
-    STATE(49);
-    SET_LEX_STATE(8);
-    SHIFT(ts_sym_expression, 50)
-    SHIFT(ts_sym_factor, 9)
-    SHIFT(ts_sym_number, 16)
-    SHIFT(ts_sym_term, 17)
-    SHIFT(ts_sym_variable, 16)
-    SHIFT(ts_aux_sym_token1, 26)
-    SHIFT(ts_builtin_sym_error, 50)
-    END_STATE();
+    [50] = {    
+        [ts_aux_sym_token2] = SHIFT(51),
+    },
     
-    STATE(50);
-    SET_LEX_STATE(3);
-    SHIFT(ts_aux_sym_token2, 51)
-    END_STATE();
-    
-    STATE(51);
-    SET_LEX_STATE(15);
-    REDUCE(ts_sym_plus, ts_sym_factor, 3)
-    REDUCE(ts_sym_times, ts_sym_factor, 3)
-    REDUCE(ts_builtin_sym_end, ts_sym_factor, 3)
-    END_STATE();
-    
-    END_TABLE();
-}
+    [51] = {    
+        [ts_sym_plus] = REDUCE(ts_sym_factor, 3),    
+        [ts_sym_times] = REDUCE(ts_sym_factor, 3),    
+        [ts_builtin_sym_end] = REDUCE(ts_sym_factor, 3),
+    },
+};
 
 EXPORT_PARSER(ts_parser_arithmetic);

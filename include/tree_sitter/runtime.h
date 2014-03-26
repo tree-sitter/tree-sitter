@@ -8,8 +8,8 @@ extern "C" {
 #include <stdlib.h>
 
 typedef int ts_symbol;
-static const ts_symbol ts_builtin_sym_error = -1;
-static const ts_symbol ts_builtin_sym_end = -2;
+static const ts_symbol ts_builtin_sym_error = 0;
+static const ts_symbol ts_builtin_sym_end = 1;
 
 typedef struct ts_tree ts_tree;
 ts_tree * ts_tree_make_leaf(ts_symbol symbol, size_t size, size_t offset);

@@ -55,7 +55,22 @@ namespace tree_sitter {
                 parse_table(parse_table),
                 lex_table(lex_table)
                 {}
-
+            
+            string code() {
+                return join({
+                    includes(),
+                    symbol_count(),
+                    symbol_enum(),
+                    rule_names_list(),
+                    hidden_symbols_list(),
+                    lex_function(),
+                    lex_states_list(),
+                    parse_table_array(),
+                    parser_export(),
+                }, "\n\n") + "\n";
+            }
+            
+        private:
             string symbol_id(rules::Symbol symbol) {
                 if (symbol.is_built_in()) {
                     if (symbol == rules::ERROR)
@@ -114,33 +129,19 @@ namespace tree_sitter {
                     return "!(" + condition_for_character_set(rule.complement()) + ")";
             }
 
-            string code_for_parse_actions(const rules::Symbol &symbol, const ParseAction &action) {
-                string sym_id = symbol_id(symbol);
+            string code_for_parse_action(const ParseAction &action) {
                 switch (action.type) {
                     case ParseActionTypeAccept:
-                        return "ACCEPT_INPUT(" + sym_id + ")";
+                        return "ACCEPT_INPUT()";
                     case ParseActionTypeShift:
-                        return "SHIFT(" + sym_id + ", " + to_string(action.state_index) + ")";
+                        return "SHIFT(" + to_string(action.state_index) + ")";
                     case ParseActionTypeReduce:
                         return "REDUCE(" +
-                            sym_id + ", " +
                             symbol_id(action.symbol) + ", " +
                             to_string(action.child_flags.size()) + ")";
                     default:
                         return "";
                 }
-            }
-
-            string parse_error_call(const set<rules::Symbol> &expected_inputs) {
-                string result = "PARSE_ERROR(" + to_string(expected_inputs.size()) + ", EXPECT({";
-                bool started = false;
-                for (auto &symbol : expected_inputs) {
-                    if (started) result += ", ";
-                    started = true;
-                    result += symbol_id(symbol);
-                }
-                result += "}));";
-                return result;
             }
 
             string code_for_lex_actions(const LexAction &action,
@@ -181,26 +182,30 @@ namespace tree_sitter {
 
             string symbol_enum() {
                 string result = "enum {\n";
+                size_t index = 2;
                 for (auto symbol : parse_table.symbols)
                     if (!symbol.is_built_in())
-                        result += indent(symbol_id(symbol)) + ",\n";
+                        result += indent(symbol_id(symbol)) + " = " + to_string(index++) + ",\n";
                 return result + "};";
             }
 
             string rule_names_list() {
                 string result = "SYMBOL_NAMES = {\n";
+                result += indent(string("\"") + "error") + "\",\n";
+                result += indent(string("\"") + "end") + "\",\n";
+
                 for (auto symbol : parse_table.symbols)
                     if (!symbol.is_built_in())
                         result += indent(string("\"") + symbol.name) + "\",\n";
                 return result + "};";
             }
             
-            string hidden_symbol_flags() {
-                string result = "HIDDEN_SYMBOL_FLAGS = {\n";
+            string hidden_symbols_list() {
+                string result = "HIDDEN_SYMBOLS(" + to_string(parse_table.symbols.size()) + ") = {";
                 for (auto &symbol : parse_table.symbols)
-                    if (!symbol.is_built_in())
-                        result += indent(symbol.is_hidden() ? "1" : "0") + ",\n";
-                return result + "};";
+                    if (symbol.is_hidden())
+                        result += indent("\n[" + symbol_id(symbol) + "] = 1,");
+                return result + "\n};";
             }
 
             string includes() {
@@ -224,48 +229,33 @@ namespace tree_sitter {
                 return result;
             }
 
-            string parse_table_row_for_state(const ParseState &state) {
-                string result("SET_LEX_STATE(" + to_string(state.lex_state_id) + ");");
-                for (auto &pair : state.actions) {
-                    result += "\n" + code_for_parse_actions(pair.first, pair.second);
-                }
-                return result;
-            }
-
-            string parse_table_function() {
+            string lex_states_list() {
                 size_t state_id = 0;
                 return join({
-                    "PARSE_TABLE() {",
-                    indent(join({
-                        "START_TABLE(" + to_string(parse_table.states.size()) + ")",
-                        join(map_to_string<ParseState>(parse_table.states, [&](ParseState state) -> string {
-                            return join({
-                                "STATE(" + to_string(state_id++) + ");",
-                                parse_table_row_for_state(state),
-                                "END_STATE();"
-                            });
-                        }), "\n\n"),
-                        "END_TABLE();",
-                    }, "\n\n")),
-                    "}"
+                    "LEX_STATES(" + to_string(parse_table.states.size()) + ") = {",
+                    indent(join(map_to_string<ParseState>(parse_table.states, [&](ParseState state) {
+                        return "[" + to_string(state_id++) + "] = " + to_string(state.lex_state_id) + ",";
+                    }))),
+                    "};"
+                });
+            }
+
+            string parse_table_array() {
+                size_t state_id = 0;
+                return join({
+                    "PARSE_TABLE(" + to_string(parse_table.states.size()) + ", " + to_string(parse_table.symbols.size()) + ") = {",
+                    indent(join(map_to_string<ParseState>(parse_table.states, [&](ParseState state) {
+                        string result = "[" + to_string(state_id++) + "] = {";
+                        for (auto &pair : state.actions)
+                            result += indent("\n[" + symbol_id(pair.first) + "] = " + code_for_parse_action(pair.second) + ",");
+                        return result + "\n},";
+                    }), "\n\n")),
+                    "};"
                 });
             }
 
             string parser_export() {
                 return "EXPORT_PARSER(ts_parser_" + name + ");";
-            }
-
-            string code() {
-                return join({
-                    includes(),
-                    symbol_count(),
-                    symbol_enum(),
-                    rule_names_list(),
-                    hidden_symbol_flags(),
-                    lex_function(),
-                    parse_table_function(),
-                    parser_export(),
-                }, "\n\n") + "\n";
             }
         };
 

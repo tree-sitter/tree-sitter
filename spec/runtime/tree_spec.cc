@@ -9,8 +9,8 @@ static ts_tree ** tree_array(vector<ts_tree *> trees) {
 
 START_TEST
 
-enum { cat, dog, pig };
-static const char *names[] = { "cat", "dog", "pig" };
+enum { cat = 2, dog = 3, pig = 4 };
+static const char *names[] = { "error", "end", "cat", "dog", "pig" };
 
 describe("trees", []() {
     ts_tree *tree1, *parent1;
