@@ -7,7 +7,7 @@ extern "C" {
 
 #include <stdlib.h>
 
-typedef int ts_symbol;
+typedef unsigned int ts_symbol;
 static const ts_symbol ts_builtin_sym_error = 0;
 static const ts_symbol ts_builtin_sym_end = 1;
 
