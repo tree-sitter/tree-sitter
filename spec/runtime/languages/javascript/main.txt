@@ -34,3 +34,37 @@ if (theCondition) {
     (statement_block (statement (assignment (identifier) (number))))
     (statement_block (statement (assignment (identifier) (number))))))
 
+==============================================
+parses if-else statements with many conditions
+==============================================
+if (conditionA) {
+    var x = 2;
+} else if (conditionB)
+    var x = 4;
+else {
+    var x = 8;
+}
+---
+(program (if_statement
+    (identifier)
+    (statement_block (statement (assignment (identifier) (number))))
+    (if_statement 
+        (identifier)
+        (statement (assignment (identifier) (number)))
+        (statement_block (statement (assignment (identifier) (number)))))))
+
+==========================================
+parses named functions
+==========================================
+function doThis(argA, argB) {
+    var x = argA;
+};
+
+doThis(5, 6);
+---
+(program 
+    (statement (function_expression
+        (identifier)
+        (formal_parameters (identifier) (identifier))
+        (statement_block (statement (assignment (identifier) (identifier))))))
+    (statement (function_call (identifier) (number) (number))))

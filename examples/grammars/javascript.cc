@@ -25,6 +25,7 @@ namespace tree_sitter {
                     str(";"),
                     str("\n") }) },
                 { "statement", choice({
+                    sym("statement_block"),
                     sym("if_statement"),
                     seq({ sym("assignment"), sym("_terminator") }),
                     seq({ sym("expression"), sym("_terminator") }) }) },
@@ -33,10 +34,10 @@ namespace tree_sitter {
                     str("("),
                     sym("expression"),
                     str(")"),
-                    sym("statement_block"),
+                    sym("statement"),
                     optional(seq({
                         sym("_else"),
-                        sym("statement_block") })) }) },
+                        sym("statement") })) }) },
                 { "statement_block", seq({
                     str("{"),
                     repeat(sym("statement")),
@@ -47,8 +48,24 @@ namespace tree_sitter {
                     str("="),
                     sym("expression") })},
                 { "expression", choice({
+                    sym("function_expression"),
+                    sym("function_call"),
                     sym("literal"),
                     sym("identifier") }) },
+                { "function_expression", seq({
+                    sym("_function"),
+                    sym("identifier"),
+                    sym("formal_parameters"),
+                    sym("statement_block") }) },
+                { "function_call", seq({
+                    sym("identifier"),
+                    str("("),
+                    comma_sep(sym("expression")),
+                    str(")") }) }, 
+                { "formal_parameters", seq({
+                    str("("),
+                    comma_sep(sym("identifier")),
+                    str(")") })}, 
                 { "literal", choice({
                     sym("object"),
                     sym("array"),
@@ -68,9 +85,12 @@ namespace tree_sitter {
                     str("["),
                     comma_sep(err(sym("expression"))),
                     str("]") }) },
+
                 { "_var", str("var") },
                 { "_if", str("if") },
+                { "_function", str("function") },
                 { "_else", str("else") }, 
+
                 { "string", pattern("\"([^\"]|\\\\\")+\"") },
                 { "identifier", pattern("[\\w_$]+") },
                 { "number", pattern("\\d+(.\\d+)?") },

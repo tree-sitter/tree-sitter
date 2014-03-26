@@ -5,7 +5,7 @@ int main(int argc, char *argv[]) {
         "",
         "--no-color",
         "--only="
-        ""
+        "compiles the javascript grammar"
     };
     return bandit::run(4, const_cast<char **>(args));
 }
