@@ -2,59 +2,60 @@
 parses multiple statements
 ==========================================
 var x = {};
-{};
+firstFunction(x);
+secondFunction(x);
 ---
 (program
     (statement (assignment (identifier) (object)))
-    (statement (object)))
+    (statement (function_call (identifier) (identifier)))
+    (statement (function_call (identifier) (identifier))))
 
 ==========================================
 parses if statements
 ==========================================
-if (theCondition) {
-    var x = 2;
+if (isReady()) {
+    console.log(theData);
 }
 ---
 (program
     (if_statement
-        (identifier)
-        (statement_block (statement (assignment (identifier) (number))))))
+        (function_call (identifier))
+        (statement_block (statement (function_call (property_access (identifier) (identifier)) (identifier))))))
 
 ==========================================
 parses if-else statements
 ==========================================
 if (theCondition) {
-    var x = 2;
+    firstFunction();
 } else {
-    var x = 4;
+    secondFunction();
 }
 ---
 (program (if_statement
     (identifier)
-    (statement_block (statement (assignment (identifier) (number))))
-    (statement_block (statement (assignment (identifier) (number))))))
+    (statement_block (statement (function_call (identifier))))
+    (statement_block (statement (function_call (identifier))))))
 
-==============================================
-parses if-else statements with many conditions
-==============================================
-if (conditionA) {
-    var x = 2;
-} else if (conditionB)
-    var x = 4;
+==================================================
+parses if-else statements with multiple conditions
+==================================================
+if (firstValue) {
+    firstFunction();
+} else if (secondValue)
+    secondFunction();
 else {
-    var x = 8;
+    thirdFunction();
 }
 ---
-(program (if_statement
-    (identifier)
-    (statement_block (statement (assignment (identifier) (number))))
-    (if_statement 
-        (identifier)
-        (statement (assignment (identifier) (number)))
-        (statement_block (statement (assignment (identifier) (number)))))))
+(program
+    (if_statement (identifier)
+        (statement_block (statement (function_call (identifier))))
+        (if_statement (identifier)
+            (statement (function_call (identifier)))
+            (statement_block (statement (function_call (identifier)))))))
 
 ==========================================
-parses named functions
+parses function expressions and calls
 ==========================================
 var x = {
     theMethod: function(argA, argB) {
