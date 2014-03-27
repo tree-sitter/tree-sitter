@@ -1,4 +1,5 @@
 #include "compiler/build_tables/rule_can_be_blank.h"
+#include <set>
 #include "tree_sitter/compiler.h"
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/symbol.h"
@@ -8,6 +9,8 @@
 #include "compiler/rules/blank.h"
 
 namespace tree_sitter  {
+    using std::set;
+    
     namespace build_tables {
         class CanBeBlank : public rules::RuleFn<bool> {
         protected:
@@ -34,13 +37,17 @@ namespace tree_sitter  {
 
         class CanBeBlankRecursive : public CanBeBlank {
             const PreparedGrammar grammar;
+            set<rules::Symbol> visited_symbols;            
             using CanBeBlank::visit;
 
         public:
             explicit CanBeBlankRecursive(const PreparedGrammar &grammar) : grammar(grammar) {}
 
             void visit(const rules::Symbol *rule) {
-                value = grammar.has_definition(*rule) && apply(grammar.rule(*rule));
+                if (visited_symbols.find(*rule) == visited_symbols.end()) {
+                    visited_symbols.insert(*rule);
+                    value = grammar.has_definition(*rule) && apply(grammar.rule(*rule));
+                }
             }
         };
 

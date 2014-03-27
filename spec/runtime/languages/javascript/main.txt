@@ -56,15 +56,21 @@ else {
 ==========================================
 parses named functions
 ==========================================
-function doThis(argA, argB) {
-    var x = argA;
+var x = {
+    theMethod: function(argA, argB) {
+        var x = argA;
+    }
 };
 
-doThis(5, 6);
+x.theMethod(5, 6);
 ---
 (program 
-    (statement (function_expression
+    (statement (assignment
         (identifier)
-        (formal_parameters (identifier) (identifier))
-        (statement_block (statement (assignment (identifier) (identifier))))))
-    (statement (function_call (identifier) (number) (number))))
+        (object (identifier) (function_expression
+            (formal_parameters (identifier) (identifier))
+            (statement_block (statement (assignment (identifier) (identifier))))))))
+    (statement (function_call
+        (property_access (identifier) (identifier))
+        (number) (number))))
+

@@ -21,9 +21,6 @@ namespace tree_sitter {
         Grammar javascript() {
             return Grammar({
                 { "program", repeat(sym("statement")) },
-                { "_terminator", choice({
-                    str(";"),
-                    str("\n") }) },
                 { "statement", choice({
                     sym("statement_block"),
                     sym("if_statement"),
@@ -50,18 +47,23 @@ namespace tree_sitter {
                 { "expression", choice({
                     sym("function_expression"),
                     sym("function_call"),
+                    sym("property_access"),
                     sym("literal"),
                     sym("identifier") }) },
                 { "function_expression", seq({
                     sym("_function"),
-                    sym("identifier"),
+                    optional(sym("identifier")),
                     sym("formal_parameters"),
                     sym("statement_block") }) },
                 { "function_call", seq({
-                    sym("identifier"),
+                    sym("expression"),
                     str("("),
                     comma_sep(sym("expression")),
                     str(")") }) }, 
+                { "property_access", seq({
+                    sym("expression"),
+                    str("."),
+                    sym("identifier") }) },
                 { "formal_parameters", seq({
                     str("("),
                     comma_sep(sym("identifier")),
@@ -77,7 +79,7 @@ namespace tree_sitter {
                 { "object", seq({
                     str("{"),
                     comma_sep(err(seq({
-                        sym("string"),
+                        choice({ sym("string"), sym("identifier") }),
                         str(":"),
                         sym("expression") }))),
                     str("}"), }) },
@@ -86,6 +88,9 @@ namespace tree_sitter {
                     comma_sep(err(sym("expression"))),
                     str("]") }) },
 
+                { "_terminator", choice({
+                    str(";"),
+                    str("\n") }) },
                 { "_var", str("var") },
                 { "_if", str("if") },
                 { "_function", str("function") },
