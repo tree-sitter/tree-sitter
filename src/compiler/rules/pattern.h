@@ -7,7 +7,6 @@
 namespace tree_sitter {
     namespace rules {
         class Pattern : public Rule {
-            const std::string value;
         public:
             explicit Pattern(const std::string &string);
 
@@ -17,6 +16,7 @@ namespace tree_sitter {
             std::string to_string() const;
             void accept(Visitor *visitor) const;
 
+            const std::string value;
             rule_ptr to_rule_tree() const;
         };
     }

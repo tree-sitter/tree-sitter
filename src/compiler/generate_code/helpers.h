@@ -5,14 +5,11 @@
 #include <vector>
 
 namespace tree_sitter {
-    using std::string;
-    using std::vector;
-
     namespace generate_code {
-        string indent(string input);
-        string join(vector<string> lines, string separator);
-        string join(vector<string> lines);
-        string escape_string(string input);
+        std::string indent(std::string input);
+        std::string join(std::vector<std::string> lines, std::string separator);
+        std::string join(std::vector<std::string> lines);
+        std::string character_code(char character);
     }
 }
 

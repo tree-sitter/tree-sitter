@@ -16,17 +16,17 @@ enum {
 };
 
 SYMBOL_NAMES = {
-    "error",
-    "end",
-    "expression",
-    "factor",
-    "number",
-    "plus",
-    "term",
-    "times",
-    "variable",
-    "token1",
-    "token2",
+    [ts_sym_expression] = "expression",
+    [ts_sym_factor] = "factor",
+    [ts_sym_number] = "number",
+    [ts_sym_plus] = "plus",
+    [ts_sym_term] = "term",
+    [ts_sym_times] = "times",
+    [ts_sym_variable] = "variable",
+    [ts_aux_sym_token1] = "'('",
+    [ts_aux_sym_token2] = "')'",
+    [ts_builtin_sym_end] = "end",
+    [ts_builtin_sym_error] = "error",
 };
 
 HIDDEN_SYMBOLS = {    

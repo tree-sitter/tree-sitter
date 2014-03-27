@@ -49,11 +49,16 @@ namespace tree_sitter {
             const string name;
             const ParseTable parse_table;
             const LexTable lex_table;
+            const map<rules::Symbol, string> symbol_names;
         public:
-            CCodeGenerator(string name, const ParseTable &parse_table, const LexTable &lex_table) :
+            CCodeGenerator(string name,
+                           const ParseTable &parse_table,
+                           const LexTable &lex_table,
+                           const map<rules::Symbol, string> &symbol_names) :
                 name(name),
                 parse_table(parse_table),
-                lex_table(lex_table)
+                lex_table(lex_table),
+                symbol_names(symbol_names)
                 {}
             
             string code() {
@@ -61,7 +66,7 @@ namespace tree_sitter {
                     includes(),
                     state_and_symbol_counts(),
                     symbol_enum(),
-                    rule_names_list(),
+                    symbol_names_list(),
                     hidden_symbols_list(),
                     lex_function(),
                     lex_states_list(),
@@ -80,21 +85,6 @@ namespace tree_sitter {
                     return "ts_aux_sym_" + symbol.name;
                 } else {
                     return "ts_sym_" + symbol.name;
-                }
-            }
-
-            string character_code(char character) {
-                switch (character) {
-                    case '\0':
-                        return "\\0";
-                    case '"':
-                        return "\\\"";
-                    case '\n':
-                        return "\\n";
-                    case '\\':
-                        return "\\\\";
-                    default:
-                        return string() + character;
                 }
             }
 
@@ -191,14 +181,14 @@ namespace tree_sitter {
                 return result + "};";
             }
 
-            string rule_names_list() {
-                string result = "SYMBOL_NAMES = {\n";
-                result += indent(string("\"") + "error") + "\",\n";
-                result += indent(string("\"") + "end") + "\",\n";
+            string symbol_names_list() {
+                set<rules::Symbol> symbols(parse_table.symbols);
+                symbols.insert(rules::Symbol("end", rules::SymbolTypeBuiltIn));
+                symbols.insert(rules::Symbol("error", rules::SymbolTypeBuiltIn));
 
+                string result = "SYMBOL_NAMES = {\n";
                 for (auto symbol : parse_table.symbols)
-                    if (!symbol.is_built_in())
-                        result += indent(string("\"") + symbol.name) + "\",\n";
+                    result += indent("[" + symbol_id(symbol) + "] = \"" + symbol_names.find(symbol)->second) + "\",\n";
                 return result + "};";
             }
             
@@ -261,8 +251,11 @@ namespace tree_sitter {
             }
         };
 
-        string c_code(string name, const ParseTable &parse_table, const LexTable &lex_table) {
-            return CCodeGenerator(name, parse_table, lex_table).code();
+        string c_code(string name,
+                      const ParseTable &parse_table,
+                      const LexTable &lex_table,
+                      const map<rules::Symbol, string> &symbol_names) {
+            return CCodeGenerator(name, parse_table, lex_table, symbol_names).code();
         }
     }
 }
