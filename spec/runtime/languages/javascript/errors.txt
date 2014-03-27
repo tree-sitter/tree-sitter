@@ -1,0 +1,14 @@
+==========================================
+recovers from errors in if statements
+==========================================
+stuff();
+if (*nonsense*) {
+    *more-nonsense*;
+}
+moreStuff();
+---
+(program
+    (statement (function_call (identifier)))
+    (if_statement (ERROR)
+        (statement_block (ERROR)))
+    (statement (function_call (identifier))))

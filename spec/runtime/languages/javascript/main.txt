@@ -18,8 +18,7 @@ if (isReady()) {
 }
 ---
 (program
-    (if_statement
-        (function_call (identifier))
+    (if_statement (function_call (identifier))
         (statement_block (statement (function_call (property_access (identifier) (identifier)) (identifier))))))
 
 ==========================================

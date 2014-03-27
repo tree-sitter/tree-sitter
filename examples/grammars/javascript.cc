@@ -29,7 +29,7 @@ namespace tree_sitter {
                 { "if_statement", seq({
                     sym("_if"),
                     str("("),
-                    sym("expression"),
+                    err(sym("expression")),
                     str(")"),
                     sym("statement"),
                     optional(seq({
@@ -37,7 +37,7 @@ namespace tree_sitter {
                         sym("statement") })) }) },
                 { "statement_block", seq({
                     str("{"),
-                    repeat(sym("statement")),
+                    err(repeat(sym("statement"))),
                     str("}") }) },
                 { "assignment", seq({
                     sym("_var"),
@@ -95,13 +95,13 @@ namespace tree_sitter {
                 { "_if", str("if") },
                 { "_function", str("function") },
                 { "_else", str("else") }, 
+                { "null", str("null") },
+                { "true", str("true") },
+                { "false", str("false") },
 
                 { "string", pattern("\"([^\"]|\\\\\")+\"") },
                 { "identifier", pattern("[\\w_$]+") },
                 { "number", pattern("\\d+(.\\d+)?") },
-                { "null", str("null") },
-                { "true", str("true") },
-                { "false", str("false") },
             });
         }
     }
