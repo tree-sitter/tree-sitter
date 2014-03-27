@@ -2,7 +2,6 @@
 #include <string.h>
 
 typedef int state_id;
-static const state_id ts_lex_state_error = -1;
 
 typedef struct {
     size_t size;
