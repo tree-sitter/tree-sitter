@@ -34,14 +34,6 @@ namespace tree_sitter {
         (symbol == other.symbol);
     }
 
-    bool LexAction::operator<(const LexAction &other) const {
-        if (type < other.type) return true;
-        if (type > other.type) return false;
-        if (state_index < other.state_index) return true;
-        if (state_index > other.state_index) return false;
-        return (symbol < other.symbol);
-    }
-
     std::ostream& operator<<(std::ostream &stream, const LexAction &action) {
         switch (action.type) {
             case LexActionTypeError:

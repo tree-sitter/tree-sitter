@@ -29,11 +29,11 @@ namespace tree_sitter {
         public:
             ParseItem(const rules::Symbol &lhs,
                       const rules::rule_ptr rule,
-                      const std::vector<bool> &consumed_symbols,
+                      const size_t consumed_symbol_count,
                       const rules::Symbol &lookahead_sym);
             bool operator==(const ParseItem &other) const;
 
-            const std::vector<bool> consumed_symbols;
+            const size_t consumed_symbol_count;
             const rules::Symbol lookahead_sym;
         };
 
@@ -61,7 +61,7 @@ namespace std {
             return
             hash<string>()(item.lhs.name) ^
             hash<tree_sitter::rules::rule_ptr>()(item.rule) ^
-            hash<size_t>()(item.consumed_symbols.size()) ^
+            hash<size_t>()(item.consumed_symbol_count) ^
             hash<string>()(item.lookahead_sym.name);
         }
     };

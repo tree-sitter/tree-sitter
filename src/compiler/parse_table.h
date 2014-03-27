@@ -20,19 +20,18 @@ namespace tree_sitter {
         ParseAction(ParseActionType type,
                     size_t state_index,
                     rules::Symbol symbol,
-                    const std::vector<bool> &child_flags);
+                    size_t consumed_symbol_count);
     public:
         static ParseAction Accept();
         static ParseAction Error();
         static ParseAction Shift(size_t state_index);
-        static ParseAction Reduce(rules::Symbol symbol, const std::vector<bool> &child_flags);
+        static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count);
         bool operator==(const ParseAction &action) const;
-        bool operator<(const ParseAction &action) const;
 
         ParseActionType type;
         rules::Symbol symbol;
         size_t state_index;
-        std::vector<bool> child_flags;
+        size_t consumed_symbol_count;
     };
 
     std::ostream& operator<<(std::ostream &stream, const ParseAction &item);
@@ -46,7 +45,7 @@ namespace std {
                     hash<int>()(action.type) ^
                     hash<tree_sitter::rules::Symbol>()(action.symbol) ^
                     hash<size_t>()(action.state_index) ^
-                    hash<size_t>()(action.child_flags.size()));
+                    hash<size_t>()(action.consumed_symbol_count));
         }
     };
 }

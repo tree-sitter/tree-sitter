@@ -26,9 +26,7 @@ namespace tree_sitter {
             map<Symbol, ParseItemSet> result;
             for (auto transition : sym_transitions(item.rule)) {
                 Symbol rule = transition.first;
-                auto consumed_symbols = item.consumed_symbols;
-                consumed_symbols.push_back(rule.is_hidden());
-                ParseItem new_item(item.lhs, transition.second, consumed_symbols, item.lookahead_sym);
+                ParseItem new_item(item.lhs, transition.second, item.consumed_symbol_count + 1, item.lookahead_sym);
                 result.insert({ rule, item_set_closure(ParseItemSet({ new_item }), grammar) });
             }
             return result;

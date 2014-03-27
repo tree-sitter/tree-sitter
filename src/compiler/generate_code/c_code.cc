@@ -137,7 +137,7 @@ namespace tree_sitter {
                     case ParseActionTypeReduce:
                         return "REDUCE(" +
                             symbol_id(action.symbol) + ", " +
-                            to_string(action.child_flags.size()) + ")";
+                            to_string(action.consumed_symbol_count) + ")";
                     default:
                         return "";
                 }

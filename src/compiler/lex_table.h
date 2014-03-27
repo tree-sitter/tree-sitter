@@ -23,7 +23,6 @@ namespace tree_sitter {
         static LexAction Error();
         static LexAction Advance(size_t state_index);
         bool operator==(const LexAction &action) const;
-        bool operator<(const LexAction &action) const;
 
         LexActionType type;
         rules::Symbol symbol;

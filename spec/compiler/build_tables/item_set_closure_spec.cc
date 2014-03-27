@@ -29,22 +29,23 @@ describe("computing closures of item sets", []() {
 
     it("computes the item set closure", [&]() {
         ParseItemSet item_set = item_set_closure(ParseItemSet({
-            ParseItem(Symbol("E"), grammar.rule(Symbol("E")), {}, Symbol("__END__"))
+            ParseItem(Symbol("E"), grammar.rule(Symbol("E")), 0, Symbol("__END__"))
         }), grammar);
+        
         AssertThat(item_set, Equals(ParseItemSet({
-            ParseItem(Symbol("F"), grammar.rule(Symbol("F")), {}, Symbol("__END__")),
-            ParseItem(Symbol("F"), grammar.rule(Symbol("F")), {}, Symbol("+")),
-            ParseItem(Symbol("F"), grammar.rule(Symbol("F")), {}, Symbol("*")),
-            ParseItem(Symbol("T"), grammar.rule(Symbol("T")), {}, Symbol("__END__")),
-            ParseItem(Symbol("T"), grammar.rule(Symbol("T")), {}, Symbol("+")),
-            ParseItem(Symbol("E"), grammar.rule(Symbol("E")), {}, Symbol("__END__")),
+            ParseItem(Symbol("F"), grammar.rule(Symbol("F")), 0, Symbol("__END__")),
+            ParseItem(Symbol("F"), grammar.rule(Symbol("F")), 0, Symbol("+")),
+            ParseItem(Symbol("F"), grammar.rule(Symbol("F")), 0, Symbol("*")),
+            ParseItem(Symbol("T"), grammar.rule(Symbol("T")), 0, Symbol("__END__")),
+            ParseItem(Symbol("T"), grammar.rule(Symbol("T")), 0, Symbol("+")),
+            ParseItem(Symbol("E"), grammar.rule(Symbol("E")), 0, Symbol("__END__")),
         })));
 
         ParseItemSet next_item_set = sym_transitions(item_set, grammar)[Symbol("v")];
         AssertThat(next_item_set, Equals(ParseItemSet({
-            ParseItem(Symbol("F"), rules::blank(), { false }, Symbol("__END__")),
-            ParseItem(Symbol("F"), rules::blank(), { false }, Symbol("*")),
-            ParseItem(Symbol("F"), rules::blank(), { false }, Symbol("+")),
+            ParseItem(Symbol("F"), rules::blank(), 1, Symbol("__END__")),
+            ParseItem(Symbol("F"), rules::blank(), 1, Symbol("*")),
+            ParseItem(Symbol("F"), rules::blank(), 1, Symbol("+")),
         })));
     });
 });

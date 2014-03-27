@@ -35,7 +35,7 @@ namespace tree_sitter {
             string(" ") <<
             *item.rule <<
             string(" ") <<
-            to_string(item.consumed_symbols.size()) <<
+            to_string(item.consumed_symbol_count) <<
             string(" ") <<
             item.lookahead_sym <<
             string(">");
@@ -51,16 +51,16 @@ namespace tree_sitter {
 
         ParseItem::ParseItem(const Symbol &lhs,
                              const rule_ptr rule,
-                             const vector<bool> &consumed_symbols,
+                             size_t consumed_symbol_count,
                              const Symbol &lookahead_sym) :
             Item(lhs, rule),
-            consumed_symbols(consumed_symbols),
+            consumed_symbol_count(consumed_symbol_count),
             lookahead_sym(lookahead_sym) {}
 
         bool ParseItem::operator==(const ParseItem &other) const {
             bool lhs_eq = other.lhs == lhs;
             bool rules_eq = (*other.rule == *rule);
-            bool consumed_sym_counts_eq = (other.consumed_symbols == consumed_symbols);
+            bool consumed_sym_counts_eq = (other.consumed_symbol_count == consumed_symbol_count);
             bool lookaheads_eq = other.lookahead_sym == lookahead_sym;
             return lhs_eq && rules_eq && consumed_sym_counts_eq && lookaheads_eq;
         }

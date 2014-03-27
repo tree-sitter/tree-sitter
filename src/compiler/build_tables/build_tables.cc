@@ -75,7 +75,7 @@ namespace tree_sitter {
                     if (item.is_done()) {
                         ParseAction action = (item.lhs == rules::START) ?
                             ParseAction::Accept() :
-                            ParseAction::Reduce(item.lhs, item.consumed_symbols);
+                            ParseAction::Reduce(item.lhs, item.consumed_symbol_count);
                         parse_table.add_action(state_id, item.lookahead_sym, action);
                     }
                 }

@@ -12,11 +12,11 @@ namespace tree_sitter {
     ParseAction::ParseAction(ParseActionType type,
                              size_t state_index,
                              Symbol symbol,
-                             const vector<bool> &child_flags) :
+                             size_t consumed_symbol_count) :
         type(type),
         symbol(symbol),
         state_index(state_index),
-        child_flags(child_flags) {}
+        consumed_symbol_count(consumed_symbol_count) {}
 
     ParseAction ParseAction::Error() {
         return ParseAction(ParseActionTypeError, -1, Symbol(""), {});
@@ -30,23 +30,15 @@ namespace tree_sitter {
         return ParseAction(ParseActionTypeShift, state_index, Symbol(""), {});
     }
 
-    ParseAction ParseAction::Reduce(Symbol symbol, const vector<bool> &child_flags) {
-        return ParseAction(ParseActionTypeReduce, -1, symbol, child_flags);
+    ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count) {
+        return ParseAction(ParseActionTypeReduce, -1, symbol, consumed_symbol_count);
     }
 
     bool ParseAction::operator==(const ParseAction &other) const {
         bool types_eq = type == other.type;
         bool state_indices_eq = state_index == other.state_index;
-        bool child_flags_eq = child_flags == other.child_flags;
-        return types_eq && state_indices_eq && child_flags_eq;
-    }
-
-    bool ParseAction::operator<(const ParseAction &other) const {
-        if (type < other.type) return true;
-        if (type > other.type) return false;
-        if (state_index < other.state_index) return true;
-        if (state_index > other.state_index) return false;
-        return (child_flags < other.child_flags);
+        bool consumed_symbol_counts_eq = consumed_symbol_count == other.consumed_symbol_count;
+        return types_eq && state_indices_eq && consumed_symbol_counts_eq;
     }
 
     ostream& operator<<(ostream &stream, const ParseAction &action) {
