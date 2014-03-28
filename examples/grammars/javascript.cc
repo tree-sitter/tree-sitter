@@ -28,7 +28,7 @@ namespace tree_sitter {
                     sym("var_declaration"),
                     sym("expression_statement") }) },
                 { "expression_statement", seq({
-                    sym("expression"),
+                    err(sym("expression")),
                     sym("_terminator") }) },
                 { "for_statement", seq({
                     sym("_for"),
@@ -38,7 +38,7 @@ namespace tree_sitter {
                         sym("expression_statement"),
                     }),
                     sym("expression_statement"),
-                    sym("expression"),
+                    err(sym("expression")),
                     str(")"),
                     sym("statement") }) },
                 { "if_statement", seq({

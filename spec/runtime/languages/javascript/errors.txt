@@ -10,5 +10,24 @@ moreStuff();
 (program
     (expression_statement (function_call (identifier)))
     (if_statement (ERROR)
-        (statement_block (ERROR)))
+        (statement_block (expression_statement (ERROR))))
     (expression_statement (function_call (identifier))))
+
+==========================================
+recovers from errors in for loops
+==========================================
+stuff();
+for (var i = 0; *nonsense*; *what*) {
+    *more-nonsense*;
+}
+moreStuff();
+---
+(program
+    (expression_statement (function_call (identifier)))
+    (for_statement
+        (var_declaration (assignment (identifier) (number)))
+        (expression_statement (ERROR))
+        (ERROR)
+        (statement_block (expression_statement (ERROR))))
+    (expression_statement (function_call (identifier))))
+
