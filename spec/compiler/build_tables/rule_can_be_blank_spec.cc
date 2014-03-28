@@ -15,7 +15,7 @@ describe("checking if rules can be blank", [&]() {
         AssertThat(rule_can_be_blank(str("x")), IsFalse());
         AssertThat(rule_can_be_blank(pattern("x")), IsFalse());
     });
-    
+
     it("returns true for blanks", [&]() {
         AssertThat(rule_can_be_blank(blank()), IsTrue());
     });
@@ -23,7 +23,7 @@ describe("checking if rules can be blank", [&]() {
     it("returns true for repeats", [&]() {
         AssertThat(rule_can_be_blank(repeat(str("x"))), IsTrue());
     });
-    
+
     it("returns true for choices iff one or more sides can be blank", [&]() {
         rule = choice({ sym("x"), blank() });
         AssertThat(rule_can_be_blank(rule), IsTrue());
@@ -34,7 +34,7 @@ describe("checking if rules can be blank", [&]() {
         rule = choice({ sym("x"), sym("y") });
         AssertThat(rule_can_be_blank(rule), IsFalse());
     });
-    
+
     it("returns true for sequences iff both sides can be blank", [&]() {
         rule = seq({ blank(), str("x") });
         AssertThat(rule_can_be_blank(rule), IsFalse());
@@ -45,7 +45,7 @@ describe("checking if rules can be blank", [&]() {
         rule = seq({ blank(), choice({ sym("x"), blank() }) });
         AssertThat(rule_can_be_blank(rule), IsTrue());
     });
-    
+
     describe("checking recursively (by expanding non-terminals)", [&]() {
         PreparedGrammar grammar({
             { "A", choice({
@@ -55,12 +55,12 @@ describe("checking if rules can be blank", [&]() {
                 seq({ sym("B"), sym("y") }),
                 sym("z") }) },
         }, {});
-        
+
         it("terminates for left-recursive rules that can be blank", [&]() {
             rule = sym("A");
             AssertThat(rule_can_be_blank(rule, grammar), IsTrue());
         });
-        
+
         it("terminates for left-recursive rules that can't be blank", [&]() {
             rule = sym("B");
             AssertThat(rule_can_be_blank(rule, grammar), IsFalse());

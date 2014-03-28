@@ -11,13 +11,13 @@ namespace tree_sitter {
         using std::map;
         using std::set;
         using std::string;
-        
+
         class TokenName : public rules::RuleFn<string> {
         protected:
             virtual void visit(const rules::Pattern *rule) {
                 value = "/" + util::escape_string(rule->value) + "/";
             }
-            
+
             virtual void visit(const rules::String *rule) {
                 value = "'" + util::escape_string(rule->value) + "'";
             }

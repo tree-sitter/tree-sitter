@@ -31,7 +31,7 @@ describe("computing closures of item sets", []() {
         ParseItemSet item_set = item_set_closure(ParseItemSet({
             ParseItem(Symbol("E"), grammar.rule(Symbol("E")), 0, Symbol("__END__"))
         }), grammar);
-        
+
         AssertThat(item_set, Equals(ParseItemSet({
             ParseItem(Symbol("F"), grammar.rule(Symbol("F")), 0, Symbol("__END__")),
             ParseItem(Symbol("F"), grammar.rule(Symbol("F")), 0, Symbol("+")),

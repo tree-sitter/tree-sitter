@@ -73,7 +73,7 @@ namespace tree_sitter {
             void add_reduce_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (ParseItem item : item_set) {
                     if (item.is_done()) {
-                        ParseAction action = (item.lhs == rules::START) ?
+                        ParseAction action = (item.lhs == rules::START()) ?
                             ParseAction::Accept() :
                             ParseAction::Reduce(item.lhs, item.consumed_symbol_count);
                         parse_table.add_action(state_id, item.lookahead_sym, action);
@@ -153,7 +153,7 @@ namespace tree_sitter {
 
             pair<ParseTable, LexTable> build() {
                 auto start_symbol = make_shared<Symbol>(grammar.start_rule_name());
-                ParseItem item(rules::START, start_symbol, {}, rules::END_OF_INPUT);
+                ParseItem item(rules::START(), start_symbol, {}, rules::END_OF_INPUT());
                 ParseItemSet item_set = item_set_closure(ParseItemSet({ item }), grammar);
                 add_parse_state(item_set);
                 add_error_lex_state();

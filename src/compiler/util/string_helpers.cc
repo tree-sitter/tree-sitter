@@ -2,7 +2,7 @@
 
 namespace tree_sitter {
     using std::string;
-    
+
     namespace util {
         void str_replace(string *input, const string &search, const string &replace) {
             size_t pos = 0;
@@ -14,7 +14,7 @@ namespace tree_sitter {
                 pos += replace.length();
             }
         }
-        
+
         string escape_string(string input) {
             str_replace(&input, "\"", "\\\"");
             str_replace(&input, "\n", "\\n");

@@ -10,7 +10,7 @@
 
 namespace tree_sitter  {
     using std::set;
-    
+
     namespace build_tables {
         class CanBeBlank : public rules::RuleFn<bool> {
         protected:
@@ -37,7 +37,7 @@ namespace tree_sitter  {
 
         class CanBeBlankRecursive : public CanBeBlank {
             const PreparedGrammar grammar;
-            set<rules::Symbol> visited_symbols;            
+            set<rules::Symbol> visited_symbols;
             using CanBeBlank::visit;
 
         public:

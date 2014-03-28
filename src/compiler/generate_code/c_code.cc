@@ -60,7 +60,7 @@ namespace tree_sitter {
                 lex_table(lex_table),
                 symbol_names(symbol_names)
                 {}
-            
+
             string code() {
                 return join({
                     includes(),
@@ -74,11 +74,11 @@ namespace tree_sitter {
                     parser_export(),
                 }, "\n\n") + "\n";
             }
-            
+
         private:
             string symbol_id(rules::Symbol symbol) {
                 if (symbol.is_built_in()) {
-                    return (symbol == rules::ERROR) ?
+                    return (symbol == rules::ERROR()) ?
                         "ts_builtin_sym_error" :
                         "ts_builtin_sym_end";
                 } else if (symbol.is_auxiliary()) {
@@ -183,15 +183,15 @@ namespace tree_sitter {
 
             string symbol_names_list() {
                 set<rules::Symbol> symbols(parse_table.symbols);
-                symbols.insert(rules::Symbol("end", rules::SymbolTypeBuiltIn));
-                symbols.insert(rules::Symbol("error", rules::SymbolTypeBuiltIn));
+                symbols.insert(rules::END_OF_INPUT());
+                symbols.insert(rules::ERROR());
 
                 string result = "SYMBOL_NAMES = {\n";
                 for (auto symbol : parse_table.symbols)
                     result += indent("[" + symbol_id(symbol) + "] = \"" + symbol_names.find(symbol)->second) + "\",\n";
                 return result + "};";
             }
-            
+
             string hidden_symbols_list() {
                 string result = "HIDDEN_SYMBOLS = {";
                 for (auto &symbol : parse_table.symbols)

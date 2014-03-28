@@ -46,7 +46,7 @@ namespace std {
         }
         return stream << ">";
     }
-    
+
     template<typename TKey, typename TValue>
     inline std::ostream& operator<<(std::ostream &stream, const std::map<TKey, TValue> &map) {
         stream << std::string("#<map: ");
@@ -60,7 +60,7 @@ namespace std {
         }
         return stream << ">";
     }
-    
+
     template<typename TKey, typename TValue>
     inline std::ostream& operator<<(std::ostream &stream, const std::unordered_map<TKey, TValue> &map) {
         stream << std::string("#<map: ");

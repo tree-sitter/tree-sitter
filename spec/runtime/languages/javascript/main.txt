@@ -77,7 +77,7 @@ var x = {
 
 x.theMethod(5, 6);
 ---
-(program 
+(program
     (var_declaration (assignment
         (identifier)
         (object (identifier) (function_expression

@@ -14,7 +14,7 @@ describe("assigning user-visible names to symbols", [&]() {
         { "some_generated_string_name", str("the-string") },
         { "some_generated_pattern_name", pattern("the-pattern") },
     });
-    
+
     describe("for symbols that are not in the lexical grammar (syntactic rules)", [&]() {
         it("uses the symbol's normal name", [&]() {
             auto symbol = Symbol("some_syntactic_symbol");
@@ -23,7 +23,7 @@ describe("assigning user-visible names to symbols", [&]() {
             })));
         });
     });
-    
+
     describe("for symbols that are in the lexical grammar", [&]() {
         it("uses symbols' normal names when they are given by the user", [&]() {
             auto symbol = Symbol("some_given_name");
@@ -31,14 +31,14 @@ describe("assigning user-visible names to symbols", [&]() {
                 { symbol, "some_given_name" }
             })));
         });
-        
+
         it("assigns names to string rules based on their string value", [&]() {
             auto symbol = Symbol("some_generated_string_name", rules::SymbolTypeAuxiliary);
             AssertThat(name_symbols::name_symbols({ symbol }, lexical_grammar), Equals(map<Symbol, string>({
                 { symbol, "'the-string'" }
             })));
         });
-        
+
         it("assigns names to pattern rules based on their pattern value", [&]() {
             auto symbol = Symbol("some_generated_pattern_name", rules::SymbolTypeAuxiliary);
             AssertThat(name_symbols::name_symbols({ symbol }, lexical_grammar), Equals(map<Symbol, string>({

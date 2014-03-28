@@ -4,7 +4,7 @@
 namespace tree_sitter {
     using std::string;
     using std::vector;
-    
+
     namespace generate_code {
         string join(vector<string> lines, string separator) {
             string result;
@@ -26,7 +26,7 @@ namespace tree_sitter {
             util::str_replace(&input, "\n", "\n" + tab);
             return tab + input;
         }
-        
+
         string character_code(char character) {
             switch (character) {
                 case '\0':

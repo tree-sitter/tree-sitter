@@ -39,10 +39,10 @@ static const size_t ts_state_count
 
 #define SYMBOL_NAMES \
 static const char *ts_symbol_names[ts_symbol_count]
-    
+
 #define HIDDEN_SYMBOLS \
 static const int hidden_symbol_flags[ts_symbol_count]
-    
+
 #define LEX_STATES \
 static state_id ts_lex_states[ts_state_count]
 
@@ -55,16 +55,16 @@ ts_lexer_skip_whitespace(lexer); \
 if (!ts_lexer_lookahead_char(lexer)) return ts_tree_make_leaf(ts_builtin_sym_end, 0, 0); \
 next_state: \
 lookahead = ts_lexer_lookahead_char(lexer);
-    
+
 #define ADVANCE(state_index) \
 { ts_lexer_advance(lexer); lex_state = state_index; goto next_state; }
-    
+
 #define ACCEPT_TOKEN(symbol) \
 { DEBUG_LEX("token: %s \n", ts_symbol_names[symbol]); return ts_lexer_build_node(lexer, symbol); }
-    
+
 #define LEX_ERROR() \
 { return ts_lexer_build_node(lexer, ts_builtin_sym_error); }
-    
+
 #define LEX_PANIC() \
 { DEBUG_LEX("Lex error: unexpected state %d", LEX_STATE()); return NULL; }
 
@@ -73,7 +73,7 @@ static const ts_parse_action ts_parse_actions[ts_state_count][ts_symbol_count]
 
 #define EXPORT_PARSER(constructor_name) \
 ts_parser constructor_name() { \
-    return (ts_parser){ \
+            return (ts_parser){ \
         .parse_fn = ts_parse, \
         .symbol_names = ts_symbol_names, \
         .data = ts_lr_parser_make(ts_symbol_count, (const ts_parse_action *)ts_parse_actions, ts_lex_states, hidden_symbol_flags), \
@@ -199,7 +199,7 @@ typedef struct {
         };
     } data;
 } ts_parse_action;
-    
+
 
 /*
  *  Forward declarations
@@ -232,7 +232,7 @@ static ts_lr_parser * ts_lr_parser_make(size_t symbol_count, const ts_parse_acti
     result->hidden_symbol_flags = hidden_symbol_flags;
     return result;
 }
-    
+
 static const ts_parse_action * ts_lr_parser_table_actions(ts_lr_parser *parser, state_id state) {
     return parser->parse_table + (state * parser->symbol_count);
 }

@@ -7,12 +7,10 @@ static string src_dir() {
     return dir;
 }
 
-namespace tree_sitter {
-    namespace examples {
-        Grammar arithmetic();
-        Grammar javascript();
-        Grammar json();
-    }
+namespace tree_sitter_examples {
+    extern const Grammar arithmetic;
+    extern const Grammar javascript;
+    extern const Grammar json;
 }
 
 START_TEST
@@ -20,7 +18,7 @@ START_TEST
 describe("compiling the example grammars", []() {
     string example_parser_dir = src_dir() + "/examples/parsers/";
 
-    auto compile_grammar = [&](Grammar grammar, string language) {
+    auto compile_grammar = [&](const Grammar &grammar, string language) {
         it(("compiles the " + language + " grammar").c_str(), [&]() {
             ofstream file(example_parser_dir + language + ".c");
             file << compile(grammar, language);
@@ -28,9 +26,9 @@ describe("compiling the example grammars", []() {
         });
     };
 
-    compile_grammar(examples::arithmetic(), "arithmetic");
-    compile_grammar(examples::json(), "json");
-    compile_grammar(examples::javascript(), "javascript");
+    compile_grammar(tree_sitter_examples::arithmetic, "arithmetic");
+    compile_grammar(tree_sitter_examples::json, "json");
+    compile_grammar(tree_sitter_examples::javascript, "javascript");
 });
 
 END_TEST

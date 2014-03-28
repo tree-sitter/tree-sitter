@@ -46,7 +46,7 @@ namespace tree_sitter {
         }
 
         rule_ptr err(const rule_ptr &rule) {
-            return choice({ rule, ERROR.copy() });
+            return choice({ rule, ERROR().copy() });
         }
     }
 }

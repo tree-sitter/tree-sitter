@@ -68,7 +68,7 @@ describe("computing FIRST sets", []() {
             })));
         });
     });
-    
+
     describe("when there are left-recursive rules", [&]() {
         it("terminates", [&]() {
             Grammar grammar({
@@ -77,7 +77,7 @@ describe("computing FIRST sets", []() {
                     sym("y"),
                 }) },
             });
-            
+
             AssertThat(first_set(sym("expression"), grammar), Equals(set<Symbol>({
                 Symbol("y")
             })));

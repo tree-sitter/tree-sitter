@@ -26,7 +26,7 @@ namespace tree_sitter {
             void visit(const Symbol *rule) {
                 if (visited_symbols.find(*rule) == visited_symbols.end()) {
                     visited_symbols.insert(*rule);
-                    
+
                     if (grammar.has_definition(*rule)) {
                         value = apply(grammar.rule(*rule));
                     } else {
