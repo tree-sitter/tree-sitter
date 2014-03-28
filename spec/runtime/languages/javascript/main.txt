@@ -6,9 +6,9 @@ firstFunction(x);
 secondFunction(x);
 ---
 (program
-    (statement (assignment (identifier) (object)))
-    (statement (function_call (identifier) (identifier)))
-    (statement (function_call (identifier) (identifier))))
+    (var_declaration (assignment (identifier) (object)))
+    (expression_statement (function_call (identifier) (identifier)))
+    (expression_statement (function_call (identifier) (identifier))))
 
 ==========================================
 parses if statements
@@ -19,7 +19,7 @@ if (isReady()) {
 ---
 (program
     (if_statement (function_call (identifier))
-        (statement_block (statement (function_call (property_access (identifier) (identifier)) (identifier))))))
+        (statement_block (expression_statement (function_call (property_access (identifier) (identifier)) (identifier))))))
 
 ==========================================
 parses if-else statements
@@ -32,8 +32,8 @@ if (theCondition) {
 ---
 (program (if_statement
     (identifier)
-    (statement_block (statement (function_call (identifier))))
-    (statement_block (statement (function_call (identifier))))))
+    (statement_block (expression_statement (function_call (identifier))))
+    (statement_block (expression_statement (function_call (identifier))))))
 
 ==================================================
 parses if-else statements with multiple conditions
@@ -48,10 +48,23 @@ else {
 ---
 (program
     (if_statement (identifier)
-        (statement_block (statement (function_call (identifier))))
+        (statement_block (expression_statement (function_call (identifier))))
         (if_statement (identifier)
-            (statement (function_call (identifier)))
-            (statement_block (statement (function_call (identifier)))))))
+            (expression_statement (function_call (identifier)))
+            (statement_block (expression_statement (function_call (identifier)))))))
+
+==========================================
+parses for loops
+==========================================
+for (var i = 1; someCondition(i); i = next()) {
+    doSomething();
+}
+---
+(program (for_statement
+    (var_declaration (assignment (identifier) (number)))
+    (expression_statement (function_call (identifier) (identifier)))
+    (assignment (identifier) (function_call (identifier)))
+    (statement_block (expression_statement (function_call (identifier))))))
 
 ==========================================
 parses function expressions and calls
@@ -65,12 +78,12 @@ var x = {
 x.theMethod(5, 6);
 ---
 (program 
-    (statement (assignment
+    (var_declaration (assignment
         (identifier)
         (object (identifier) (function_expression
             (formal_parameters (identifier) (identifier))
-            (statement_block (statement (assignment (identifier) (identifier))))))))
-    (statement (function_call
+            (statement_block (var_declaration (assignment (identifier) (identifier))))))))
+    (expression_statement (function_call
         (property_access (identifier) (identifier))
         (number) (number))))
 

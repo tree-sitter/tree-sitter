@@ -24,8 +24,23 @@ namespace tree_sitter {
                 { "statement", choice({
                     sym("statement_block"),
                     sym("if_statement"),
-                    seq({ sym("assignment"), sym("_terminator") }),
-                    seq({ sym("expression"), sym("_terminator") }) }) },
+                    sym("for_statement"),
+                    sym("var_declaration"),
+                    sym("expression_statement") }) },
+                { "expression_statement", seq({
+                    sym("expression"),
+                    sym("_terminator") }) },
+                { "for_statement", seq({
+                    sym("_for"),
+                    str("("),
+                    choice({
+                        sym("var_declaration"),
+                        sym("expression_statement"),
+                    }),
+                    sym("expression_statement"),
+                    sym("expression"),
+                    str(")"),
+                    sym("statement") }) },
                 { "if_statement", seq({
                     sym("_if"),
                     str("("),
@@ -39,8 +54,13 @@ namespace tree_sitter {
                     str("{"),
                     err(repeat(sym("statement"))),
                     str("}") }) },
-                { "assignment", seq({
+                { "var_declaration", seq({
                     sym("_var"),
+                    choice({
+                        sym("assignment"),
+                        sym("identifier") }),
+                    sym("_terminator") }) },
+                { "assignment", seq({
                     sym("identifier"),
                     str("="),
                     sym("expression") })},
@@ -48,6 +68,7 @@ namespace tree_sitter {
                     sym("function_expression"),
                     sym("function_call"),
                     sym("property_access"),
+                    sym("assignment"),
                     sym("literal"),
                     sym("identifier") }) },
                 { "function_expression", seq({
@@ -92,6 +113,7 @@ namespace tree_sitter {
                     str(";"),
                     str("\n") }) },
                 { "_var", str("var") },
+                { "_for", str("for") },
                 { "_if", str("if") },
                 { "_function", str("function") },
                 { "_else", str("else") }, 
