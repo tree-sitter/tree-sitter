@@ -23,7 +23,7 @@ describe("parsing pattern rules", []() {
         AssertThat(
             rule.to_rule_tree(),
             EqualsPointer(seq({
-                character({ {'a', 'z'}, {'A', 'Z'} }),
+                character({ {'a', 'z'}, {'A', 'Z'}, {'0', '9'} }),
                 character({ '-' }),
                 character({ {'0', '9'} })
             })));

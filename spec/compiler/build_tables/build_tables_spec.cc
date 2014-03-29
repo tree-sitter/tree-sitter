@@ -36,7 +36,7 @@ describe("building parse and lex tables", []() {
 
     PreparedGrammar lex_grammar({
         { "plus", str("+") },
-        { "variable", pattern("\\w+") },
+        { "variable", pattern("\\a+") },
         { "number", pattern("\\d+") },
         { "left-paren", str("(") },
         { "right-paren", str(")") }
@@ -71,7 +71,7 @@ describe("building parse and lex tables", []() {
 
         AssertThat(lex_state(0).expected_inputs(), Equals(set<CharacterSet>({
             CharacterSet({ '(' }),
-            CharacterSet({ CharacterRange('0', '9') }),
+            CharacterSet({ {'0', '9'} }),
             CharacterSet({ {'a', 'z'}, {'A', 'Z'} }),
         })));
     });

@@ -123,7 +123,7 @@ namespace tree_sitter_examples {
         { "false", str("false") },
 
         { "string", pattern("\"([^\"]|\\\\\")+\"") },
-        { "identifier", pattern("[\\w_$]+") },
+        { "identifier", pattern("\\a[\\w_$]*") },
         { "number", pattern("\\d+(.\\d+)?") },
     });
 }

@@ -133,10 +133,12 @@ namespace tree_sitter {
                     case '(':
                     case ')':
                         return CharacterSet({ value });
+                    case 'a':
+                        return CharacterSet({ {'a', 'z'}, {'A', 'Z'} });
                     case 'w':
-                        return CharacterSet({{'a', 'z'}, {'A', 'Z'}});
+                        return CharacterSet({ {'a', 'z'}, {'A', 'Z'}, {'0', '9'}});
                     case 'd':
-                        return CharacterSet({CharacterRange('0', '9')});
+                        return CharacterSet({ {'0', '9'} });
                     default:
                         error = "unrecognized escape sequence";
                         return CharacterSet();
