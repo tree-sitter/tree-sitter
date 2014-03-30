@@ -4,11 +4,11 @@ namespace tree_sitter_examples {
     using tree_sitter::Grammar;
     using namespace tree_sitter::rules;
 
-    static rule_ptr optional(const rule_ptr &rule) {
+    static rule_ptr optional(rule_ptr rule) {
         return choice({ rule, blank() });
     }
 
-    static rule_ptr comma_sep(const rule_ptr &element) {
+    static rule_ptr comma_sep(rule_ptr element) {
         return choice({
             seq({ element, repeat(seq({ str(","), element })) }),
             blank(),

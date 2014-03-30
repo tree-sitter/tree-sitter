@@ -4,7 +4,7 @@ namespace tree_sitter_examples {
     using tree_sitter::Grammar;
     using namespace tree_sitter::rules;
 
-    static rule_ptr comma_sep(const rule_ptr &rule) {
+    static rule_ptr comma_sep(rule_ptr rule) {
         return choice({
             seq({ rule, repeat(seq({ str(","), rule })) }),
             blank(),

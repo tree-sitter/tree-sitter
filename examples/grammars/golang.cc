@@ -8,7 +8,7 @@ namespace tree_sitter_examples {
         return seq({ element, repeat(seq({ str(","), element })) });
     }
     
-    static rule_ptr comma_sep(const rule_ptr &element) {
+    static rule_ptr comma_sep(rule_ptr element) {
         return choice({ comma_sep1(element), blank() });
     }
     
