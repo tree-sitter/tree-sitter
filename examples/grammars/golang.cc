@@ -7,11 +7,11 @@ namespace tree_sitter_examples {
     static rule_ptr comma_sep1(rule_ptr element) {
         return seq({ element, repeat(seq({ str(","), element })) });
     }
-    
+
     static rule_ptr comma_sep(rule_ptr element) {
         return choice({ comma_sep1(element), blank() });
     }
-    
+
     static rule_ptr in_parens(rule_ptr rule) {
         return seq({ str("("), rule, str(")") });
     }
@@ -19,7 +19,7 @@ namespace tree_sitter_examples {
     static rule_ptr in_braces(rule_ptr rule) {
         return seq({ str("{"), rule, str("}") });
     }
-    
+
     extern const Grammar golang({
         { "program", seq({
             sym("package_directive"),

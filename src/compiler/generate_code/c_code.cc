@@ -193,11 +193,11 @@ namespace tree_sitter {
             }
 
             string hidden_symbols_list() {
-                string result = "HIDDEN_SYMBOLS = {";
+                string result = "HIDDEN_SYMBOLS = {\n";
                 for (auto &symbol : parse_table.symbols)
                     if (symbol.is_hidden())
-                        result += indent("\n[" + symbol_id(symbol) + "] = 1,");
-                return result + "\n};";
+                        result += indent("[" + symbol_id(symbol) + "] = 1,") + "\n";
+                return result + "};";
             }
 
             string includes() {
@@ -240,7 +240,7 @@ namespace tree_sitter {
                         string result = "[" + to_string(state_id++) + "] = {\n";
                         for (auto &pair : state.actions)
                             result += indent("[" + symbol_id(pair.first) + "] = " + code_for_parse_action(pair.second) + ",") + "\n";
-                        return result + "},\n";
+                        return result + "},";
                     }), "\n")),
                     "};"
                 });

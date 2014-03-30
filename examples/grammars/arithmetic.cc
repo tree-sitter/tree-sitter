@@ -4,7 +4,7 @@ namespace tree_sitter_examples {
     using tree_sitter::Grammar;
     using namespace tree_sitter::rules;
     using std::string;
-    
+
     static rule_ptr infix_op(string op, string rule_name) {
         return choice({
             seq({
