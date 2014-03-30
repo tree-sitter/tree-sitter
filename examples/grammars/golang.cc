@@ -4,13 +4,22 @@ namespace tree_sitter_examples {
     using tree_sitter::Grammar;
     using namespace tree_sitter::rules;
 
+    static rule_ptr comma_sep1(rule_ptr element) {
+        return seq({ element, repeat(seq({ str(","), element })) });
+    }
+    
     static rule_ptr comma_sep(const rule_ptr &element) {
-        return choice({
-            seq({ element, repeat(seq({ str(","), element })) }),
-            blank(),
-        });
+        return choice({ comma_sep1(element), blank() });
+    }
+    
+    static rule_ptr in_parens(rule_ptr rule) {
+        return seq({ str("("), rule, str(")") });
     }
 
+    static rule_ptr in_braces(rule_ptr rule) {
+        return seq({ str("{"), rule, str("}") });
+    }
+    
     extern const Grammar golang({
         { "program", seq({
             sym("package_directive"),
@@ -22,14 +31,8 @@ namespace tree_sitter_examples {
         { "imports_block", seq({
             sym("_import"),
             choice({
-                seq({
-                    str("("),
-                    err(repeat(sym("package_import"))),
-                    str(")")
-                }),
-                sym("package_import")
-            })
-        }) },
+                in_parens(err(repeat(sym("package_import")))),
+                sym("package_import") }) }) },
         { "package_import", sym("string") },
         { "declaration", seq({
             choice({
@@ -47,21 +50,15 @@ namespace tree_sitter_examples {
             sym("_var"),
             sym("var_name"),
             str("="),
-            sym("expression"),
-        }) },
+            sym("expression") }) },
         { "func_declaration", seq({
             sym("_func"),
             sym("var_name"),
             sym("_func_signature"),
-            sym("statement_block"),
-        }) },
-        { "statement_block", seq({
-            str("{"),
-            str("}"),
-        }) },
+            sym("statement_block") }) },
+        { "statement_block", in_braces(blank()) },
         { "expression", choice({
-            sym("number"),
-        }) },
+            sym("number") }) },
         { "type_expression", choice({
             sym("pointer_type"),
             sym("slice_type"),
@@ -86,37 +83,26 @@ namespace tree_sitter_examples {
             sym("type_expression") }) },
         { "struct_type", seq({
             sym("_struct"),
-            str("{"),
-            repeat(seq({
+            in_braces(repeat(seq({
                 sym("var_name"),
-                sym("type_expression") })),
-            str("}") }) },
+                sym("type_expression") }))) }) },
         { "interface_type", seq({
             sym("_interface"),
-            str("{"),
-            repeat(seq({
+            in_braces(repeat(seq({
                 sym("var_name"),
-                sym("_func_signature") })),
-            str("}") }) },
+                sym("_func_signature") }))) }) },
 
         // Value expressions
         { "_func_signature", seq({
-            str("("),
-            comma_sep(seq({
-                comma_sep(sym("var_name")),
-                sym("type_expression"),
-            })),
-            str(")"),
+            in_parens(comma_sep(seq({
+                comma_sep1(sym("var_name")),
+                sym("type_expression") }))),
             choice({
-                seq({
-                    str("("),
-                    choice({
-                        comma_sep(seq({ sym("var_name"), sym("type_name") })),
-                        comma_sep(sym("type_name")),
-                    }),
-                    str(")") }),
+                in_parens(choice({
+                    comma_sep1(seq({ sym("var_name"), sym("type_name") })),
+                    comma_sep1(sym("type_name")) })),
                 sym("type_name"),
-                blank() })}) },
+                blank() }) }) },
 
         // Keywords
         { "_map", str("map") },
