@@ -237,11 +237,11 @@ namespace tree_sitter {
                 return join({
                     "PARSE_TABLE = {",
                     indent(join(map_to_string<ParseState>(parse_table.states, [&](ParseState state) {
-                        string result = "[" + to_string(state_id++) + "] = {";
+                        string result = "[" + to_string(state_id++) + "] = {\n";
                         for (auto &pair : state.actions)
-                            result += indent("\n[" + symbol_id(pair.first) + "] = " + code_for_parse_action(pair.second) + ",");
-                        return result + "\n},";
-                    }), "\n\n")),
+                            result += indent("[" + symbol_id(pair.first) + "] = " + code_for_parse_action(pair.second) + ",") + "\n";
+                        return result + "},\n";
+                    }), "\n")),
                     "};"
                 });
             }

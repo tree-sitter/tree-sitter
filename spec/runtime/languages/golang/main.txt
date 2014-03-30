@@ -16,7 +16,7 @@ func z() {}
 ==========================================
 parses complex types
 ==========================================
-package trivial
+package main
 
 type x *struct {
     field1 []int64
@@ -37,6 +37,7 @@ type x *struct {
 parses functions arguments
 ============================================
 package main
+
 func oneArg(arg1 interface{}) {}
 func argsOfSameType(arg1, arg2 string) {}
 func argsOfDifferentTypes() (arg1 string, arg2 int64) {}
@@ -51,6 +52,7 @@ func argsOfDifferentTypes() (arg1 string, arg2 int64) {}
 parses functions with unnamed return values
 ============================================
 package main
+
 func oneReturnValue() string {}
 func multipleReturnValues() (string, int64, error) {}
 ---
@@ -65,6 +67,7 @@ func multipleReturnValues() (string, int64, error) {}
 parses functions with named return values
 ============================================
 package main
+
 func oneReturnValue() (result string) {}
 func multipleReturnValues() (result string, count int64, err error) {}
 ---
