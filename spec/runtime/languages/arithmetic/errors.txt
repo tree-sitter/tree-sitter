@@ -10,7 +10,8 @@ recovers from errors inside parenthesized expressions
 =====================================================
 x + (y * + z) * 5
 ---
-(expression
+(expression (sum
     (variable)
-    (plus)
-    (term (factor (ERROR)) (times) (number)))
+    (product
+        (grouping (ERROR))
+        (number))))

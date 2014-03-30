@@ -17,9 +17,8 @@ parses products
 ===================
 x * x
 ---
-(expression (term
+(expression (product
     (variable)
-    (times)
     (variable)))
 
 ===================
@@ -27,28 +26,28 @@ parses sums
 ===================
 x + x
 ---
-(expression
+(expression (sum
     (variable)
-    (plus)
-    (variable))
+    (variable)))
 
 ====================
 parses complex trees
 ====================
-x * y + z * a
+x * y + z / a
 ---
-(expression
-    (term (variable) (times) (variable))
-    (plus)
-    (term (variable) (times) (variable)))
+(expression (sum
+    (product (variable) (variable))
+    (quotient (variable) (variable))))
 
-=================================
-handles parenthesized expressions
-=================================
-x * (y + z)
+============================
+parses exponents
+============================
+x + y * z^(a + b)
 ---
-(expression (term
+(expression (sum
     (variable)
-    (times)
-    (factor (expression (variable) (plus) (variable)))))
-
+    (product
+        (variable)
+        (exponent
+            (variable)
+            (grouping (sum (variable) (variable)))))))
