@@ -113,7 +113,6 @@ describe("rule transitions", []() {
             })));
     });
 
-
     it("handles choices between overlapping character sets", [&]() {
         AssertThat(
             char_transitions(choice({
@@ -128,6 +127,35 @@ describe("rule transitions", []() {
                 { CharacterSet({ {'m','s'} }), choice({ sym("x"), sym("y") }) },
                 { CharacterSet({ {'t','z'} }), sym("y") },
             })));
+    });
+
+    it("handles choices between a subset and a superset of characters", [&]() {
+        AssertThat(
+            char_transitions(choice({
+                seq({
+                    character({ {'a', 'c'} }),
+                    sym("x") }),
+                seq({
+                    character({ { 'a', 'z' } }),
+                    sym("y") }) })),
+            Equals(rule_map<CharacterSet>({
+                { CharacterSet({ {'a', 'c'} }), choice({ sym("x"), sym("y") }) },
+                { CharacterSet({ {'d', 'z'} }), sym("y") },
+            })));
+        
+        AssertThat(
+            char_transitions(choice({
+                seq({
+                    character({ { 'a', 'z' } }),
+                    sym("x") }),
+                seq({
+                    character({ {'a', 'c'} }),
+                    sym("y") }) })),
+            Equals(rule_map<CharacterSet>({
+                { CharacterSet({ {'a', 'c'} }), choice({ sym("x"), sym("y") }) },
+                { CharacterSet({ {'d', 'z'} }), sym("x") },
+            })));
+
     });
 
     it("handles blanks", [&]() {

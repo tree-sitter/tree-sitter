@@ -49,19 +49,25 @@ namespace tree_sitter {
                                const std::map<rules::CharacterSet, T> &right,
                                std::function<T(T, T)> merge_fn) {
             std::map<rules::CharacterSet, T> result(left);
-            for (auto &pair : right) {
-                auto rule = pair.first;
+            for (auto &new_pair : right) {
+                rules::CharacterSet new_rule = new_pair.first;
+                T new_value = new_pair.second;
+                
                 for (auto &existing_pair : left) {
-                    auto existing_rule = existing_pair.first;
-                    auto intersection = existing_rule.remove_set(rule);
+                    rules::CharacterSet existing_rule = existing_pair.first;
+                    T existing_value = existing_pair.second;
+                    
+                    rules::CharacterSet intersection = existing_rule.remove_set(new_rule);
                     if (!intersection.is_empty()) {
                         result.erase(existing_pair.first);
-                        result.insert({ existing_rule, existing_pair.second });
-                        rule.remove_set(intersection);
-                        result.insert({ intersection, merge_fn(existing_pair.second, pair.second) });
+                        if (!existing_rule.is_empty())
+                            result.insert({ existing_rule, existing_value });
+                        result.insert({ intersection, merge_fn(existing_value, new_value) });
+                        new_rule.remove_set(intersection);
                     }
                 }
-                result.insert({ rule, pair.second });
+                if (!new_rule.is_empty())
+                    result.insert({ new_rule, new_pair.second });
             }
             return result;
         }

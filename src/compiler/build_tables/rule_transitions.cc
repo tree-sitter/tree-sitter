@@ -26,19 +26,17 @@ namespace tree_sitter {
         template<>
         map<CharacterSet, rule_ptr>
         merge_transitions(const map<CharacterSet, rule_ptr> &left, const map<CharacterSet, rule_ptr> &right) {
-            auto transitions = merge_char_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) {
+            return merge_char_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) {
                 return make_shared<rules::Choice>(left, right);
             });
-            return *static_cast<map<CharacterSet, rule_ptr> *>(&transitions);
         }
 
         template<>
         map<Symbol, rule_ptr>
         merge_transitions(const map<Symbol, rule_ptr> &left, const map<Symbol, rule_ptr> &right) {
-            auto transitions = merge_sym_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) {
+            return merge_sym_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) {
                 return make_shared<rules::Choice>(left, right);
             });
-            return *static_cast<map<Symbol, rule_ptr> *>(&transitions);
         }
 
         template<typename T>
