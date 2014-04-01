@@ -18,13 +18,13 @@ namespace tree_sitter {
         public:
             virtual void default_visit(const Rule *rule);
             virtual void visit(const Blank *rule);
-            virtual void visit(const Symbol *rule);
             virtual void visit(const CharacterSet *rule);
             virtual void visit(const Choice *rule);
+            virtual void visit(const Pattern *rule);
             virtual void visit(const Repeat *rule);
             virtual void visit(const Seq *rule);
             virtual void visit(const String *rule);
-            virtual void visit(const Pattern *rule);
+            virtual void visit(const Symbol *rule);
         };
 
         template<typename T>
@@ -37,6 +37,13 @@ namespace tree_sitter {
                 rule->accept(this);
                 return value;
             }
+        };
+        
+        class IdentityRuleFn : public RuleFn<rule_ptr> {
+            virtual void default_visit(const Rule *rule);
+            virtual void visit(const Seq *rule);
+            virtual void visit(const Choice *rule);
+            virtual void visit(const Repeat *rule);
         };
     }
 }

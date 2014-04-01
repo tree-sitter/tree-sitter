@@ -24,7 +24,7 @@ namespace tree_sitter {
     using rules::Symbol;
 
     namespace prepare_grammar {
-        class ExpandRepeats : public rules::RuleFn<rule_ptr> {
+        class ExpandRepeats : public rules::IdentityRuleFn {
             rule_ptr make_repeat_helper(string name, const rule_ptr &rule) {
                 return Choice::Build({
                     Seq::Build({ rule, make_shared<Symbol>(name, rules::SymbolTypeAuxiliary) }),
@@ -36,18 +36,6 @@ namespace tree_sitter {
                 string helper_rule_name = string("repeat_helper") + to_string(aux_rules.size() + 1);
                 aux_rules.push_back({ helper_rule_name, make_repeat_helper(helper_rule_name, inner_rule) });
                 value = make_shared<Symbol>(helper_rule_name, rules::SymbolTypeAuxiliary);
-            }
-
-            void visit(const Seq *rule) {
-                value = Seq::Build({ apply(rule->left), apply(rule->right) });
-            }
-
-            void visit(const Choice *rule) {
-                value = Choice::Build({ apply(rule->left), apply(rule->right) });
-            }
-
-            void default_visit(const Rule *rule) {
-                value = rule->copy();
             }
 
         public:

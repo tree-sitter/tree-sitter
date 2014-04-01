@@ -18,19 +18,19 @@ namespace tree_sitter  {
                 value = false;
             }
 
-            virtual void visit(const rules::Blank *) {
+            void visit(const rules::Blank *) {
                 value = true;
             }
 
-            virtual void visit(const rules::Repeat *rule) {
+            void visit(const rules::Repeat *rule) {
                 value = true;
             }
 
-            virtual void visit(const rules::Choice *rule) {
+            void visit(const rules::Choice *rule) {
                 value = apply(rule->left) || apply(rule->right);
             }
 
-            virtual void visit(const rules::Seq *rule) {
+            void visit(const rules::Seq *rule) {
                 value = apply(rule->left) && apply(rule->right);
             }
         };

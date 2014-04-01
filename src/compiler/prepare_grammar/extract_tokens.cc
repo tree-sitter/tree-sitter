@@ -35,7 +35,7 @@ namespace tree_sitter {
             }
         };
 
-        class TokenExtractor : public rules::RuleFn<rule_ptr> {
+        class TokenExtractor : public rules::IdentityRuleFn {
             string add_token(rule_ptr rule) {
                 for (auto pair : tokens)
                     if (*pair.second == *rule)
@@ -54,18 +54,6 @@ namespace tree_sitter {
                 }
             }
 
-            void visit(const rules::Choice *rule) {
-                value = rules::Choice::Build({ apply(rule->left), apply(rule->right) });
-            }
-
-            void visit(const rules::Seq *rule) {
-                value = rules::Seq::Build({ apply(rule->left), apply(rule->right) });
-            }
-
-            void visit(const rules::Repeat *rule) {
-                value = make_shared<rules::Repeat>(apply(rule->content));
-            }
-
         public:
             vector<pair<string, rules::rule_ptr>> tokens;
         };
@@ -74,7 +62,7 @@ namespace tree_sitter {
             vector<pair<string, rules::rule_ptr>> rules, tokens, aux_rules, aux_tokens;
             TokenExtractor extractor;
 
-            for (auto &pair : input_grammar.rules) {
+            for (auto &pair : input_grammar.rules) {    
                 string name = pair.first;
                 rule_ptr rule = pair.second;
                 if (IsToken().apply(rule))
