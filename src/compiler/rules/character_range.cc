@@ -6,10 +6,10 @@ namespace tree_sitter {
     using std::string;
 
     namespace rules {
-        static const char MAX_CHAR = '\xff';
+        static const unsigned char MAX_CHAR = -1;
 
-        CharacterRange::CharacterRange(char value) : min(value), max(value) {}
-        CharacterRange::CharacterRange(char min, char max) : min(min),  max(max) {}
+        CharacterRange::CharacterRange(unsigned char value) : min(value), max(value) {}
+        CharacterRange::CharacterRange(unsigned char min, unsigned char max) : min(min),  max(max) {}
 
         bool CharacterRange::operator==(const CharacterRange &other) const {
             return min == other.min && max == other.max;
@@ -22,14 +22,14 @@ namespace tree_sitter {
             return false;
         }
 
-        string escape_character(char input) {
+        string escape_character(unsigned char input) {
             switch (input) {
                 case '\0':
                     return "<EOF>";
                 case MAX_CHAR:
                     return "<MAX>";
                 default:
-                    return string() + input;
+                    return string() + char(input);
             }
         }
 

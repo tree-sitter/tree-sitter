@@ -6,7 +6,7 @@ using namespace rules;
 START_TEST
 
 describe("character sets", []() {
-    char max_char = 255;
+    unsigned char max_char = 255;
 
     describe("computing the complement", [&]() {
         it("works for the set containing only the null character", [&]() {

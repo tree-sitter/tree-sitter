@@ -11,15 +11,7 @@ using std::initializer_list;
 
 namespace tree_sitter  {
     namespace rules {
-        static const char MAX_CHAR = '\xff';
-
-        int max_int(const CharacterRange &range) {
-            return range.max == MAX_CHAR ? 255 : static_cast<int>(range.max);
-        }
-
-        int min_int(const CharacterRange &range) {
-            return static_cast<int>(range.min);
-        }
+        static const unsigned char MAX_CHAR = -1;
 
         CharacterSet::CharacterSet() : ranges({}) {}
         CharacterSet::CharacterSet(const set<CharacterRange> &ranges) : ranges(ranges) {}
@@ -37,8 +29,8 @@ namespace tree_sitter  {
         size_t CharacterSet::hash_code() const {
             size_t result = std::hash<size_t>()(ranges.size());
             for (auto &range : ranges) {
-                result ^= std::hash<char>()(range.min);
-                result ^= std::hash<char>()(range.max);
+                result ^= std::hash<unsigned char>()(range.min);
+                result ^= std::hash<unsigned char>()(range.max);
             }
             return result;
         }
@@ -69,59 +61,47 @@ namespace tree_sitter  {
             }
         }
 
-        void add_range(CharacterSet *self, CharacterRange new_range) {
+        void add_range(CharacterSet *self, CharacterRange addition) {
             set<CharacterRange> new_ranges;
-
             for (auto range : self->ranges) {
-                auto new_min = min_int(new_range);
-                auto new_max = max_int(new_range);
                 bool is_adjacent = false;
-
-                if (min_int(range) < new_min) {
-                    if (max_int(range) >= new_min - 1) {
-                        is_adjacent = true;
-                        new_range.min = range.min;
-                    }
+                if (range.min < addition.min && range.max >= addition.min - 1) {
+                    is_adjacent = true;
+                    addition.min = range.min;
                 }
-                if (max_int(range) > new_max) {
-                    if (min_int(range) <= new_max + 1) {
-                        is_adjacent = true;
-                        new_range.max = range.max;
-                    }
+                if (range.max > addition.max && range.min <= addition.max + 1) {
+                    is_adjacent = true;
+                    addition.max = range.max;
                 }
-
                 if (!is_adjacent) {
                     new_ranges.insert(range);
                 }
             }
-            new_ranges.insert(new_range);
+            new_ranges.insert(addition);
             self->ranges = new_ranges;
         }
 
         CharacterSet remove_range(CharacterSet *self, CharacterRange range_to_remove) {
             CharacterSet removed_set;
             set<CharacterRange> new_ranges;
-            auto min_to_remove = min_int(range_to_remove);
-            auto max_to_remove = max_int(range_to_remove);
-
             for (auto range : self->ranges) {
-                if (min_to_remove <= min_int(range)) {
-                    if (max_to_remove < min_int(range)) {
+                if (range_to_remove.min <= range.min) {
+                    if (range_to_remove.max < range.min) {
                         new_ranges.insert(range);
-                    } else if (max_to_remove < max_int(range)) {
-                        new_ranges.insert(CharacterRange(max_to_remove + 1, range.max));
-                        add_range(&removed_set, CharacterRange(range.min, max_to_remove));
+                    } else if (range_to_remove.max < range.max) {
+                        new_ranges.insert(CharacterRange(range_to_remove.max + 1, range.max));
+                        add_range(&removed_set, CharacterRange(range.min, range_to_remove.max));
                     } else {
                         add_range(&removed_set, range);
                     }
-                } else if (min_to_remove <= max_int(range)) {
-                    if (max_to_remove < max_int(range)) {
-                        new_ranges.insert(CharacterRange(range.min, min_to_remove - 1));
-                        new_ranges.insert(CharacterRange(max_to_remove + 1, range.max));
+                } else if (range_to_remove.min <= range.max) {
+                    if (range_to_remove.max < range.max) {
+                        new_ranges.insert(CharacterRange(range.min, range_to_remove.min - 1));
+                        new_ranges.insert(CharacterRange(range_to_remove.max + 1, range.max));
                         add_range(&removed_set, range_to_remove);
                     } else {
-                        new_ranges.insert(CharacterRange(range.min, min_to_remove - 1));
-                        add_range(&removed_set, CharacterRange(min_to_remove, range.max));
+                        new_ranges.insert(CharacterRange(range.min, range_to_remove.min - 1));
+                        add_range(&removed_set, CharacterRange(range_to_remove.min, range.max));
                     }
                 } else {
                     new_ranges.insert(range);

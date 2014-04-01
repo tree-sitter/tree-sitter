@@ -7,11 +7,13 @@
 namespace tree_sitter {
     namespace rules {
         struct CharacterRange {
-            char min;
-            char max;
+            unsigned char min;
+            unsigned char max;
+
             // IMPLICIT_CONSTRUCTORS
-            CharacterRange(char value);
-            CharacterRange(char min, char max);
+            CharacterRange(unsigned char value);
+            CharacterRange(unsigned char min, unsigned char max);
+
             bool operator==(const CharacterRange &other) const;
             bool operator<(const CharacterRange &others) const;
             std::string to_string() const;
@@ -23,7 +25,7 @@ namespace std {
     template<>
     struct hash<tree_sitter::rules::CharacterRange> {
         size_t operator()(const tree_sitter::rules::CharacterRange &range) const {
-            return (hash<char>()(range.min) ^ hash<char>()(range.max));
+            return (hash<unsigned char>()(range.min) ^ hash<unsigned char>()(range.max));
         }
     };
 }
