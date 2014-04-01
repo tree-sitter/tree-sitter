@@ -98,30 +98,30 @@ namespace tree_sitter  {
             self->ranges = new_ranges;
         }
 
-        CharacterSet remove_range(CharacterSet *self, CharacterRange new_range) {
+        CharacterSet remove_range(CharacterSet *self, CharacterRange range_to_remove) {
             CharacterSet removed_set;
             set<CharacterRange> new_ranges;
-            auto new_min = min_int(new_range);
-            auto new_max = max_int(new_range);
+            auto min_to_remove = min_int(range_to_remove);
+            auto max_to_remove = max_int(range_to_remove);
 
             for (auto range : self->ranges) {
-                if (new_min <= min_int(range)) {
-                    if (new_max < min_int(range)) {
+                if (min_to_remove <= min_int(range)) {
+                    if (max_to_remove < min_int(range)) {
                         new_ranges.insert(range);
-                    } else if (new_max <= max_int(range)) {
-                        new_ranges.insert(CharacterRange(new_max + 1, range.max));
-                        add_range(&removed_set, CharacterRange(range.min, new_max));
+                    } else if (max_to_remove < max_int(range)) {
+                        new_ranges.insert(CharacterRange(max_to_remove + 1, range.max));
+                        add_range(&removed_set, CharacterRange(range.min, max_to_remove));
                     } else {
                         add_range(&removed_set, range);
                     }
-                } else if (new_min <= max_int(range)) {
-                    if (new_max < max_int(range)) {
-                        new_ranges.insert(CharacterRange(range.min, new_min - 1));
-                        new_ranges.insert(CharacterRange(new_max + 1, range.max));
-                        add_range(&removed_set, new_range);
+                } else if (min_to_remove <= max_int(range)) {
+                    if (max_to_remove < max_int(range)) {
+                        new_ranges.insert(CharacterRange(range.min, min_to_remove - 1));
+                        new_ranges.insert(CharacterRange(max_to_remove + 1, range.max));
+                        add_range(&removed_set, range_to_remove);
                     } else {
-                        new_ranges.insert(CharacterRange(range.min, new_min - 1));
-                        add_range(&removed_set, CharacterRange(new_min, range.max));
+                        new_ranges.insert(CharacterRange(range.min, min_to_remove - 1));
+                        add_range(&removed_set, CharacterRange(min_to_remove, range.max));
                     }
                 } else {
                     new_ranges.insert(range);
