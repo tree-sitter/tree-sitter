@@ -12,8 +12,6 @@
 #include "compiler/build_tables/item_set_transitions.h"
 #include "compiler/build_tables/first_set.h"
 
-#include "stream_methods.h"
-
 namespace tree_sitter {
     using std::pair;
     using std::string;
@@ -23,8 +21,6 @@ namespace tree_sitter {
     using rules::CharacterSet;
 
     namespace build_tables {
-        const int NOT_FOUND = -2;
-
         class TableBuilder {
             const PreparedGrammar grammar;
             const PreparedGrammar lex_grammar;
@@ -32,16 +28,6 @@ namespace tree_sitter {
             unordered_map<const LexItemSet, LexStateId> lex_state_ids;
             ParseTable parse_table;
             LexTable lex_table;
-
-            int64_t parse_state_id_for_item_set(const ParseItemSet &item_set) const {
-                auto entry = parse_state_ids.find(item_set);
-                return (entry == parse_state_ids.end()) ? NOT_FOUND : entry->second;
-            }
-
-            int64_t lex_state_id_for_item_set(const LexItemSet &item_set) const {
-                auto entry = lex_state_ids.find(item_set);
-                return (entry == lex_state_ids.end()) ? NOT_FOUND : entry->second;
-            }
 
             void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (auto transition : sym_transitions(item_set, grammar)) {
@@ -116,28 +102,31 @@ namespace tree_sitter {
             }
             
             LexStateId add_lex_state(const LexItemSet &item_set) {
-                auto state_id = lex_state_id_for_item_set(item_set);
-                if (state_id == NOT_FOUND) {
-                    state_id = lex_table.add_state();
+                auto pair = lex_state_ids.find(item_set);
+                if (pair == lex_state_ids.end()) {
+                    LexStateId state_id = lex_table.add_state();
                     lex_state_ids[item_set] = state_id;
                     add_token_start(item_set, state_id);
                     add_advance_actions(item_set, state_id);
                     add_accept_token_actions(item_set, state_id);
+                    return state_id;
+                } else {
+                    return pair->second;
                 }
-                return state_id;
             }
 
             ParseStateId add_parse_state(const ParseItemSet &item_set) {
-                auto state_id = parse_state_id_for_item_set(item_set);
-                if (state_id == NOT_FOUND) {
-                    state_id = parse_table.add_state();
+                auto pair = parse_state_ids.find(item_set);
+                if (pair == parse_state_ids.end()) {
+                    ParseStateId state_id = parse_table.add_state();
                     parse_state_ids[item_set] = state_id;
-
                     add_shift_actions(item_set, state_id);
                     add_reduce_actions(item_set, state_id);
                     assign_lex_state(state_id);
+                    return state_id;
+                } else {
+                    return pair->second;
                 }
-                return state_id;
             }
 
             void add_error_lex_state() {
@@ -154,21 +143,6 @@ namespace tree_sitter {
                 add_advance_actions(error_item_set, LexTable::ERROR_STATE_ID);
                 add_accept_token_actions(error_item_set, LexTable::ERROR_STATE_ID);
             }
-
-//            void dump_item_sets() {
-//                std::vector<const ParseItemSet *> item_sets(parse_state_ids.size());
-//                for (auto &pair : parse_state_ids)
-//                    item_sets[pair.second] = &pair.first;
-//
-//                for (int i = 0; i < item_sets.size(); i++) {
-//                    std:cout << "\n\n" << i;
-//                    for (auto &item : *item_sets[i]) {
-//                        cout << "\n" << item.lhs;
-//                        cout << "\n  " << item.rule;
-//                        cout << "\n  " << item.lookahead_sym.name;
-//                    }
-//                }
-//            }
 
         public:
 
