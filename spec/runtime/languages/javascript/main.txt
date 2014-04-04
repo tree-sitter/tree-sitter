@@ -2,7 +2,7 @@
 parses multiple statements
 ==========================================
 var x = {}
-firstFunction(x);
+firstFunction(x)
 secondFunction(x);
 ---
 (program
@@ -14,7 +14,7 @@ secondFunction(x);
 parses if statements
 ==========================================
 if (isReady()) {
-    console.log(theData);
+    console.log(theData)
 }
 ---
 (program

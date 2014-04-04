@@ -58,7 +58,7 @@ namespace tree_sitter {
 
     set<Symbol> ParseState::expected_inputs() const {
         set<Symbol> result;
-        for (auto pair : actions)
+        for (auto &pair : actions)
             result.insert(pair.first);
         return result;
     }

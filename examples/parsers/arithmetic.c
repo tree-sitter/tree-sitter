@@ -79,9 +79,8 @@ LEX_FN() {
             ACCEPT_TOKEN(ts_builtin_sym_end);
         case 2:
             START_TOKEN();
-            if (lookahead == '\0')
-                ADVANCE(1);
-            if (('\t' <= lookahead && lookahead <= '\n') ||
+            if ((lookahead == '\t') ||
+                (lookahead == '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
                 ADVANCE(2);
@@ -92,8 +91,6 @@ LEX_FN() {
             ACCEPT_TOKEN(ts_aux_sym_token2);
         case 4:
             START_TOKEN();
-            if (lookahead == '\0')
-                ADVANCE(1);
             if (('\t' <= lookahead && lookahead <= '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
@@ -111,8 +108,6 @@ LEX_FN() {
             ACCEPT_TOKEN(ts_aux_sym_token4);
         case 7:
             START_TOKEN();
-            if (lookahead == '\0')
-                ADVANCE(1);
             if (('\t' <= lookahead && lookahead <= '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
@@ -134,8 +129,6 @@ LEX_FN() {
             ACCEPT_TOKEN(ts_aux_sym_token6);
         case 10:
             START_TOKEN();
-            if (lookahead == '\0')
-                ADVANCE(1);
             if (('\t' <= lookahead && lookahead <= '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
@@ -157,8 +150,6 @@ LEX_FN() {
             ACCEPT_TOKEN(ts_aux_sym_token7);
         case 12:
             START_TOKEN();
-            if (lookahead == '\0')
-                ADVANCE(1);
             if (('\t' <= lookahead && lookahead <= '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
@@ -186,8 +177,6 @@ LEX_FN() {
             ACCEPT_TOKEN(ts_sym_variable);
         case 16:
             START_TOKEN();
-            if (lookahead == '\0')
-                ADVANCE(1);
             if (('\t' <= lookahead && lookahead <= '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
@@ -203,8 +192,6 @@ LEX_FN() {
             LEX_ERROR();
         case 17:
             START_TOKEN();
-            if (lookahead == '\0')
-                ADVANCE(1);
             if (('\t' <= lookahead && lookahead <= '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
@@ -216,8 +203,6 @@ LEX_FN() {
             LEX_ERROR();
         case 18:
             START_TOKEN();
-            if (lookahead == '\0')
-                ADVANCE(1);
             if (('\t' <= lookahead && lookahead <= '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
@@ -231,8 +216,6 @@ LEX_FN() {
             LEX_ERROR();
         case 19:
             START_TOKEN();
-            if (lookahead == '\0')
-                ADVANCE(1);
             if (('\t' <= lookahead && lookahead <= '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
@@ -565,7 +548,7 @@ PARSE_TABLE = {
     [1] = {
         [ts_aux_sym_token3] = SHIFT(2),
         [ts_aux_sym_token4] = SHIFT(100),
-        [ts_builtin_sym_end] = REDUCE(ts_sym_sum, 1),
+        [ts_builtin_sym_end] = REDUCE(ts_sym_difference, 1),
     },
     [2] = {
         [ts_sym__operand1] = SHIFT(3),
@@ -633,7 +616,7 @@ PARSE_TABLE = {
         [ts_builtin_sym_error] = SHIFT(78),
     },
     [12] = {
-        [ts_aux_sym_token2] = REDUCE(ts_sym_sum, 1),
+        [ts_aux_sym_token2] = REDUCE(ts_sym_difference, 1),
         [ts_aux_sym_token3] = SHIFT(13),
         [ts_aux_sym_token4] = SHIFT(76),
     },
@@ -653,7 +636,7 @@ PARSE_TABLE = {
         [ts_aux_sym_token2] = REDUCE(ts_sym_sum, 3),
     },
     [15] = {
-        [ts_aux_sym_token2] = REDUCE(ts_sym_product, 1),
+        [ts_aux_sym_token2] = REDUCE(ts_sym_quotient, 1),
         [ts_aux_sym_token5] = SHIFT(16),
         [ts_aux_sym_token6] = SHIFT(61),
     },
@@ -704,7 +687,7 @@ PARSE_TABLE = {
     },
     [23] = {
         [ts_aux_sym_token2] = REDUCE(ts_sym_quotient, 1),
-        [ts_aux_sym_token3] = REDUCE(ts_sym_product, 1),
+        [ts_aux_sym_token3] = REDUCE(ts_sym_quotient, 1),
         [ts_aux_sym_token4] = REDUCE(ts_sym_quotient, 1),
         [ts_aux_sym_token5] = SHIFT(24),
         [ts_aux_sym_token6] = SHIFT(52),
@@ -1224,7 +1207,7 @@ PARSE_TABLE = {
         [ts_builtin_sym_end] = REDUCE(ts_sym_difference, 3),
     },
     [102] = {
-        [ts_aux_sym_token3] = REDUCE(ts_sym_quotient, 1),
+        [ts_aux_sym_token3] = REDUCE(ts_sym_product, 1),
         [ts_aux_sym_token4] = REDUCE(ts_sym_product, 1),
         [ts_aux_sym_token5] = SHIFT(103),
         [ts_aux_sym_token6] = SHIFT(117),

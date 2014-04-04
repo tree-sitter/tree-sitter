@@ -88,11 +88,12 @@ namespace tree_sitter {
             
             LexItemSet lex_item_set_for_parse_state(const ParseState &state) {
                 LexItemSet result;
-                for (auto &symbol : state.expected_inputs())
-                    if (lex_grammar.has_definition(symbol)) {
+                for (auto &symbol : state.expected_inputs()) {
+                    if (lex_grammar.has_definition(symbol))
                         result.insert(LexItem(symbol, after_separators(lex_grammar.rule(symbol))));
-                    }
-                result.insert(LexItem(rules::END_OF_INPUT(), after_separators(CharacterSet({ 0 }).copy())));
+                    if (symbol == rules::END_OF_INPUT())
+                        result.insert(LexItem(symbol, after_separators(CharacterSet({ 0 }).copy())));
+                }
                 return result;
             }
 
