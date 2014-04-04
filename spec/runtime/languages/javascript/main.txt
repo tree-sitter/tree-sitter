@@ -87,3 +87,35 @@ x.theMethod(5, 6);
         (property_access (identifier) (identifier))
         (number) (number))))
 
+===========================================
+parses switch statements
+===========================================
+switch(x) {
+    case "hello":
+        print("one");
+        break;
+    case z():
+        print("two");
+        break;
+    default:
+        print("three");
+}
+---
+(program
+    (switch_statement (identifier)
+        (switch_case
+            (string)
+            (expression_statement (function_call (identifier) (string)))
+            (break_statement))
+        (switch_case
+            (function_call (identifier))
+            (expression_statement (function_call (identifier) (string)))
+            (break_statement))
+        (switch_case
+            (expression_statement (function_call (identifier) (string))))))
+
+
+
+
+
+
