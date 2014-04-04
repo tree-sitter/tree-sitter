@@ -84,10 +84,10 @@ describe("computing FIRST sets", []() {
             })));
         });
     });
-    
+
     it("ignores metadata rules", [&]() {
         auto rule = make_shared<Metadata>(sym("x"), MetadataValue(1));
-        
+
         AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
             Symbol("x"),
         })));

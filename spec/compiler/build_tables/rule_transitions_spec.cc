@@ -142,7 +142,7 @@ describe("rule transitions", []() {
                 { CharacterSet({ {'a', 'c'} }), choice({ sym("x"), sym("y") }) },
                 { CharacterSet({ {'d', 'z'} }), sym("y") },
             })));
-        
+
         AssertThat(
             char_transitions(choice({
                 seq({

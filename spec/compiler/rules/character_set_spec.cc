@@ -41,7 +41,7 @@ describe("character sets", []() {
             set.add_set(CharacterSet({ CharacterRange('s', 'z') }));
             AssertThat(set, Equals(CharacterSet({ {'a', 'z'} })));
         });
-        
+
         it("becomes the complete set when the complement is added", [&]() {
             CharacterSet set({ 'c' });
             auto complement = set.complement();
@@ -64,7 +64,7 @@ describe("character sets", []() {
 
     describe("subtracting sets", []() {
         CharacterSet intersection;
-        
+
         it("works for disjoint sets", [&]() {
             CharacterSet set1({ {'a', 'z'} });
             intersection = set1.remove_set(CharacterSet({ {'A', 'Z'} }));
@@ -85,7 +85,7 @@ describe("character sets", []() {
             AssertThat(set1, Equals(CharacterSet({ {'a', 'l'} })));
             AssertThat(intersection, Equals(CharacterSet({ {'m', 's'} })));
         });
-        
+
         it("works for a set that overlaps the left side", [&]() {
             CharacterSet set2({ {'m','z'} });
             intersection = set2.remove_set(CharacterSet({ {'a', 's'} }));

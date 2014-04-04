@@ -19,11 +19,11 @@ namespace tree_sitter {
         bool Item::is_done() const {
             return rule_can_be_blank(rule);
         }
-        
+
         bool Item::has_metadata(rules::MetadataValue value) const {
             return check_metadata(rule, value);
         }
-        
+
         ostream& operator<<(ostream &stream, const LexItem &item) {
             return stream <<
             string("#<item ") <<

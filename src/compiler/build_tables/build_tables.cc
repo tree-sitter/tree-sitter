@@ -47,7 +47,7 @@ namespace tree_sitter {
                     lex_table.add_action(state_id, rule, LexAction::Advance(new_state_id));
                 }
             }
-            
+
             void add_token_start(const LexItemSet &item_set, LexStateId state_id) {
                 for (auto &item : item_set)
                     if (item.has_metadata(rules::START_TOKEN))
@@ -78,14 +78,14 @@ namespace tree_sitter {
                     }
                 }
             }
-            
+
             rules::rule_ptr after_separators(rules::rule_ptr rule) {
                 return rules::Seq::Build({
                     make_shared<rules::Repeat>(CharacterSet({ ' ', '\t', '\n', '\r' }).copy()),
                     make_shared<rules::Metadata>(rule, rules::START_TOKEN)
                 });
             }
-            
+
             LexItemSet lex_item_set_for_parse_state(const ParseState &state) {
                 LexItemSet result;
                 for (auto &symbol : state.expected_inputs()) {
@@ -101,7 +101,7 @@ namespace tree_sitter {
                 ParseState &state = parse_table.states[state_id];
                 state.lex_state_id = add_lex_state(lex_item_set_for_parse_state(state));
             }
-            
+
             LexStateId add_lex_state(const LexItemSet &item_set) {
                 auto pair = lex_state_ids.find(item_set);
                 if (pair == lex_state_ids.end()) {

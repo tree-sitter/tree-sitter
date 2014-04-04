@@ -52,14 +52,14 @@ namespace tree_sitter {
             for (auto &new_pair : right) {
                 rules::CharacterSet new_char_set = new_pair.first;
                 T new_value = new_pair.second;
-                
+
                 std::map<rules::CharacterSet, T> pairs_to_insert;
-                
+
                 auto iter = result.begin();
                 while (iter != result.end()) {
                     rules::CharacterSet char_set = iter->first;
                     T value = iter->second;
-                    
+
                     rules::CharacterSet intersection = char_set.remove_set(new_char_set);
                     if (!intersection.is_empty()) {
                         new_char_set.remove_set(intersection);
@@ -71,9 +71,9 @@ namespace tree_sitter {
                         ++iter;
                     }
                 }
-                
+
                 result.insert(pairs_to_insert.begin(), pairs_to_insert.end());
-                
+
                 if (!new_char_set.is_empty())
                     result.insert({ new_char_set, new_pair.second });
             }

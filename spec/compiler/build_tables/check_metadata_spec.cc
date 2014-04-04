@@ -19,12 +19,12 @@ describe("checking if rules have metadata", []() {
         auto rule = make_shared<Metadata>(sym("x"), MetadataValue(1 << 2));
         AssertThat(check_metadata(rule, value), IsFalse());
     });
-    
+
     it("returns false for a non-metadata rule", [&]() {
         auto rule = sym("x");
         AssertThat(check_metadata(rule, value), IsFalse());
     });
-    
+
     it("returns true for a compatible metadata rule preceded by rules that can be blank", [&]() {
         auto rule = seq({
             repeat(sym("x")),
@@ -33,13 +33,13 @@ describe("checking if rules have metadata", []() {
 
         AssertThat(check_metadata(rule, value), IsTrue());
     });
-    
+
     it("returns true for a choice including a compatible metadata rule", [&]() {
         auto rule = choice({
             sym("x"),
             make_shared<Metadata>(sym("x"), MetadataValue(value | 1)),
         });
-        
+
         AssertThat(check_metadata(rule, value), IsTrue());
     });
 

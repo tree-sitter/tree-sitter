@@ -53,7 +53,7 @@ static ts_tree * ts_lex(ts_lexer *lexer, state_id lex_state)
 char lookahead; \
 next_state: \
 lookahead = ts_lexer_lookahead_char(lexer);
-    
+
 #define START_TOKEN() \
 ts_lexer_start_token(lexer);
 
@@ -164,7 +164,7 @@ static void ts_lexer_advance(ts_lexer *lexer) {
 
 static void ts_lexer_start_token(ts_lexer *lexer) {
     lexer->token_start_position = ts_lexer_position(lexer);
-}    
+}
 
 static ts_tree * ts_lexer_build_node(ts_lexer *lexer, ts_symbol symbol) {
     size_t current_position = ts_lexer_position(lexer);

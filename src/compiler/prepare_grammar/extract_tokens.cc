@@ -62,7 +62,7 @@ namespace tree_sitter {
             vector<pair<string, rules::rule_ptr>> rules, tokens, aux_rules, aux_tokens;
             TokenExtractor extractor;
 
-            for (auto &pair : input_grammar.rules) {    
+            for (auto &pair : input_grammar.rules) {
                 string name = pair.first;
                 rule_ptr rule = pair.second;
                 if (IsToken().apply(rule))

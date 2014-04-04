@@ -22,11 +22,11 @@ namespace tree_sitter {
         void Visitor::visit(const Seq *rule) { default_visit(rule); }
         void Visitor::visit(const String *rule) { default_visit(rule); }
         void Visitor::visit(const Symbol *rule) { default_visit(rule); }
-        
+
         void IdentityRuleFn::default_visit(const Rule *rule) {
             value = rule->copy();
         }
-        
+
         void IdentityRuleFn::visit(const Choice *rule) {
             value = Choice::Build({ apply(rule->left), apply(rule->right) });
         }

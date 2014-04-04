@@ -34,7 +34,7 @@ namespace tree_sitter  {
             void visit(const rules::Seq *rule) {
                 value = apply(rule->left) && apply(rule->right);
             }
-            
+
             void visit(const rules::Metadata *rule) {
                 value = apply(rule->rule);
             }

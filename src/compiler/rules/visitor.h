@@ -40,7 +40,7 @@ namespace tree_sitter {
                 return value;
             }
         };
-        
+
         class IdentityRuleFn : public RuleFn<rule_ptr> {
             virtual void default_visit(const Rule *rule);
             virtual void visit(const Choice *rule);

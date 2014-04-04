@@ -15,7 +15,7 @@ describe("item set transitions", []() {
             LexItemSet set1({
                 LexItem(Symbol("A"), pattern("[a-f]")),
                 LexItem(Symbol("B"), pattern("[e-x]")) });
-            
+
             AssertThat(char_transitions(set1, grammar), Equals(map<CharacterSet, LexItemSet>({
                 { CharacterSet({ {'a', 'd'} }), LexItemSet({
                     LexItem(Symbol("A"), blank()) }) },

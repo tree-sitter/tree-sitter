@@ -35,7 +35,7 @@ namespace tree_sitter {
                     }
                 }
             }
-            
+
             void visit(const rules::Metadata *rule) {
                 value = apply(rule->rule);
             }

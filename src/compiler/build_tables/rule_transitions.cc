@@ -88,7 +88,7 @@ namespace tree_sitter {
                     return rules::Seq::Build({ value, rule->copy() });
                 });
             }
-            
+
             void visit(const rules::Metadata *rule) {
                 this->value = this->apply(rule->rule);
             }
