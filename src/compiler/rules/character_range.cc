@@ -26,6 +26,12 @@ namespace tree_sitter {
             switch (input) {
                 case '\0':
                     return "<EOF>";
+                case '\n':
+                    return "\\n";
+                case '\r':
+                    return "\\r";
+                case '\t':
+                    return "\\t";
                 case MAX_CHAR:
                     return "<MAX>";
                 default:

@@ -1,7 +1,7 @@
 ==========================================
 parses multiple statements
 ==========================================
-var x = {};
+var x = {}
 firstFunction(x);
 secondFunction(x);
 ---

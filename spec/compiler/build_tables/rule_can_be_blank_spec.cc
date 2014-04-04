@@ -1,5 +1,6 @@
 #include "compiler_spec_helper.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
+#include "compiler/rules/metadata.h"
 #include "compiler/prepared_grammar.h"
 
 using namespace rules;
@@ -44,6 +45,14 @@ describe("checking if rules can be blank", [&]() {
 
         rule = seq({ blank(), choice({ sym("x"), blank() }) });
         AssertThat(rule_can_be_blank(rule), IsTrue());
+    });
+    
+    it("ignores metadata rules", [&]() {
+        rule = make_shared<rules::Metadata>(blank(), rules::MetadataValue(0));
+        AssertThat(rule_can_be_blank(rule), IsTrue());
+
+        rule = make_shared<rules::Metadata>(sym("one"), rules::MetadataValue(0));
+        AssertThat(rule_can_be_blank(rule), IsFalse());
     });
 
     describe("checking recursively (by expanding non-terminals)", [&]() {

@@ -49,6 +49,7 @@ namespace tree_sitter {
         std::map<rules::CharacterSet, LexAction> actions;
         LexAction default_action;
         std::set<rules::CharacterSet> expected_inputs() const;
+        bool is_token_start;
     };
 
     typedef int64_t LexStateId;
@@ -59,6 +60,7 @@ namespace tree_sitter {
         LexStateId add_state();
         void add_action(LexStateId state_id, rules::CharacterSet rule, LexAction action);
         void add_default_action(LexStateId state_id, LexAction action);
+        LexState & state(LexStateId state_id);
 
         std::vector<LexState> states;
         LexState error_state;

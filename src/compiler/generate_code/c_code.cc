@@ -145,22 +145,24 @@ namespace tree_sitter {
                 }
             }
 
-            string switch_on_lookahead_char(const LexState &parse_state) {
+            string code_for_lex_state(const LexState &lex_state) {
                 string result = "";
-                auto expected_inputs = parse_state.expected_inputs();
-                for (auto pair : parse_state.actions)
+                auto expected_inputs = lex_state.expected_inputs();
+                if (lex_state.is_token_start)
+                    result += "START_TOKEN();" "\n";
+                for (auto pair : lex_state.actions)
                     if (!pair.first.is_empty())
                         result += _if(condition_for_character_rule(pair.first),
                                       code_for_lex_actions(pair.second, expected_inputs));
-                result += code_for_lex_actions(parse_state.default_action, expected_inputs);
+                result += code_for_lex_actions(lex_state.default_action, expected_inputs);
                 return result;
             }
 
             string switch_on_lex_state() {
                 string body = "";
                 for (size_t i = 0; i < lex_table.states.size(); i++)
-                    body += _case(std::to_string(i), switch_on_lookahead_char(lex_table.states[i]));
-                body += _case("ts_lex_state_error", switch_on_lookahead_char(lex_table.error_state));
+                    body += _case(std::to_string(i), code_for_lex_state(lex_table.states[i]));
+                body += _case("ts_lex_state_error", code_for_lex_state(lex_table.error_state));
                 body += _default("LEX_PANIC();");
                 return _switch("lex_state", body);
             }

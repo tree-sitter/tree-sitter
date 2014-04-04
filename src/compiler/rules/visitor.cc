@@ -6,6 +6,7 @@
 #include "compiler/rules/choice.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/string.h"
+#include "compiler/rules/metadata.h"
 #include "compiler/rules/pattern.h"
 #include "compiler/rules/repeat.h"
 
@@ -15,6 +16,7 @@ namespace tree_sitter {
         void Visitor::visit(const Blank *rule) { default_visit(rule); }
         void Visitor::visit(const CharacterSet *rule) { default_visit(rule); }
         void Visitor::visit(const Choice *rule) { default_visit(rule); }
+        void Visitor::visit(const Metadata *rule) { default_visit(rule); }
         void Visitor::visit(const Pattern *rule) { default_visit(rule); }
         void Visitor::visit(const Repeat *rule) { default_visit(rule); }
         void Visitor::visit(const Seq *rule) { default_visit(rule); }
@@ -35,6 +37,10 @@ namespace tree_sitter {
 
         void IdentityRuleFn::visit(const Repeat *rule) {
             value = std::make_shared<Repeat>(apply(rule->content));
+        }
+
+        void IdentityRuleFn::visit(const Metadata *rule) {
+            value = std::make_shared<Metadata>(apply(rule->rule), rule->value);
         }
     }
 }

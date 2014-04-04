@@ -7,6 +7,7 @@
 #include "compiler/rules/seq.h"
 #include "compiler/rules/choice.h"
 #include "compiler/rules/blank.h"
+#include "compiler/rules/metadata.h"
 
 namespace tree_sitter  {
     using std::set;
@@ -32,6 +33,10 @@ namespace tree_sitter  {
 
             void visit(const rules::Seq *rule) {
                 value = apply(rule->left) && apply(rule->right);
+            }
+            
+            void visit(const rules::Metadata *rule) {
+                value = apply(rule->rule);
             }
         };
 

@@ -7,6 +7,7 @@
 #include "compiler/rules/repeat.h"
 #include "compiler/rules/character_set.h"
 #include "compiler/rules/blank.h"
+#include "compiler/util/string_helpers.h"
 
 namespace tree_sitter {
     namespace rules {
@@ -183,7 +184,7 @@ namespace tree_sitter {
         }
 
         string Pattern::to_string() const {
-            return string("#<pattern '") + value + "'>";
+            return string("#<pattern '") + util::escape_string(value) + "'>";
         }
 
         void Pattern::accept(Visitor *visitor) const {

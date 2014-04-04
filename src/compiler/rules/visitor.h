@@ -13,6 +13,7 @@ namespace tree_sitter {
         class Seq;
         class String;
         class Pattern;
+        class Metadata;
 
         class Visitor {
         public:
@@ -20,6 +21,7 @@ namespace tree_sitter {
             virtual void visit(const Blank *rule);
             virtual void visit(const CharacterSet *rule);
             virtual void visit(const Choice *rule);
+            virtual void visit(const Metadata *rule);
             virtual void visit(const Pattern *rule);
             virtual void visit(const Repeat *rule);
             virtual void visit(const Seq *rule);
@@ -41,8 +43,9 @@ namespace tree_sitter {
         
         class IdentityRuleFn : public RuleFn<rule_ptr> {
             virtual void default_visit(const Rule *rule);
-            virtual void visit(const Seq *rule);
             virtual void visit(const Choice *rule);
+            virtual void visit(const Metadata *rule);
+            virtual void visit(const Seq *rule);
             virtual void visit(const Repeat *rule);
         };
     }

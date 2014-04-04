@@ -50,24 +50,32 @@ namespace tree_sitter {
                                std::function<T(T, T)> merge_fn) {
             std::map<rules::CharacterSet, T> result(left);
             for (auto &new_pair : right) {
-                rules::CharacterSet new_rule = new_pair.first;
+                rules::CharacterSet new_char_set = new_pair.first;
                 T new_value = new_pair.second;
                 
-                for (auto &existing_pair : left) {
-                    rules::CharacterSet existing_rule = existing_pair.first;
-                    T existing_value = existing_pair.second;
+                std::map<rules::CharacterSet, T> pairs_to_insert;
+                
+                auto iter = result.begin();
+                while (iter != result.end()) {
+                    rules::CharacterSet char_set = iter->first;
+                    T value = iter->second;
                     
-                    rules::CharacterSet intersection = existing_rule.remove_set(new_rule);
+                    rules::CharacterSet intersection = char_set.remove_set(new_char_set);
                     if (!intersection.is_empty()) {
-                        result.erase(existing_pair.first);
-                        if (!existing_rule.is_empty())
-                            result.insert({ existing_rule, existing_value });
-                        result.insert({ intersection, merge_fn(existing_value, new_value) });
-                        new_rule.remove_set(intersection);
+                        new_char_set.remove_set(intersection);
+                        if (!char_set.is_empty())
+                            pairs_to_insert.insert({ char_set, value });
+                        pairs_to_insert.insert({ intersection, merge_fn(value, new_value) });
+                        result.erase(iter++);
+                    } else {
+                        ++iter;
                     }
                 }
-                if (!new_rule.is_empty())
-                    result.insert({ new_rule, new_pair.second });
+                
+                result.insert(pairs_to_insert.begin(), pairs_to_insert.end());
+                
+                if (!new_char_set.is_empty())
+                    result.insert({ new_char_set, new_pair.second });
             }
             return result;
         }

@@ -112,7 +112,7 @@ namespace tree_sitter_examples {
             str("]") }) },
 
         // Keywords
-        { "_terminator", choice({ str(";"), str("\n") }) },
+        { "_terminator", pattern("[;\n]") },
         { "_var", str("var") },
         { "_for", str("for") },
         { "_if", str("if") },

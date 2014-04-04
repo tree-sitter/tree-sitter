@@ -171,10 +171,7 @@ describe("rule transitions", []() {
                     CharacterSet({ 'a' }),
                     seq({
                         character({ 'b' }),
-                        choice({
-                            rule,
-                            blank()
-                        })
+                        rule,
                     })
                 }})));
 
@@ -182,13 +179,8 @@ describe("rule transitions", []() {
         AssertThat(
             char_transitions(rule),
             Equals(rule_map<CharacterSet>({
-            {
-                CharacterSet({ 'a' }),
-                choice({
-                    rule,
-                    blank()
-                })
-            }})));
+                { CharacterSet({ 'a' }), rule }
+            })));
     });
 
     describe("regression tests (somewhat redundant, should maybe be deleted later)", []() {
@@ -203,10 +195,7 @@ describe("rule transitions", []() {
 
             AssertThat(char_transitions(rule), Equals(rule_map<CharacterSet>({
                 { CharacterSet({ '"' }).complement(), seq({
-                    choice({
-                        repeat(character({ '"' }, false)),
-                        blank(),
-                    }),
+                    repeat(character({ '"' }, false)),
                     character({ '"' }), }) },
                 { CharacterSet({ '"' }), blank() },
             })));

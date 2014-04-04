@@ -51,10 +51,11 @@ static ts_tree * ts_lex(ts_lexer *lexer, state_id lex_state)
 
 #define START_LEXER() \
 char lookahead; \
-ts_lexer_skip_whitespace(lexer); \
-if (!ts_lexer_lookahead_char(lexer)) return ts_tree_make_leaf(ts_builtin_sym_end, 0, 0); \
 next_state: \
 lookahead = ts_lexer_lookahead_char(lexer);
+    
+#define START_TOKEN() \
+ts_lexer_start_token(lexer);
 
 #define ADVANCE(state_index) \
 { ts_lexer_advance(lexer); lex_state = state_index; goto next_state; }
@@ -73,7 +74,7 @@ static const ts_parse_action ts_parse_actions[ts_state_count][ts_symbol_count]
 
 #define EXPORT_PARSER(constructor_name) \
 ts_parser constructor_name() { \
-            return (ts_parser){ \
+    return (ts_parser) { \
         .parse_fn = ts_parse, \
         .symbol_names = ts_symbol_names, \
         .data = ts_lr_parser_make(ts_symbol_count, (const ts_parse_action *)ts_parse_actions, ts_lex_states, hidden_symbol_flags), \
@@ -161,18 +162,16 @@ static void ts_lexer_advance(ts_lexer *lexer) {
     }
 }
 
+static void ts_lexer_start_token(ts_lexer *lexer) {
+    lexer->token_start_position = ts_lexer_position(lexer);
+}    
+
 static ts_tree * ts_lexer_build_node(ts_lexer *lexer, ts_symbol symbol) {
     size_t current_position = ts_lexer_position(lexer);
     size_t size = current_position - lexer->token_start_position;
     size_t offset = lexer->token_start_position - lexer->token_end_position;
     lexer->token_end_position = current_position;
     return ts_tree_make_leaf(symbol, size, offset);
-}
-
-static void ts_lexer_skip_whitespace(ts_lexer *lexer) {
-    while (isspace(ts_lexer_lookahead_char(lexer)))
-        ts_lexer_advance(lexer);
-    lexer->token_start_position = ts_lexer_position(lexer);
 }
 
 static const state_id ts_lex_state_error = -1;

@@ -7,6 +7,7 @@
 #include "compiler/rules/seq.h"
 #include "compiler/rules/string.h"
 #include "compiler/rules/repeat.h"
+#include "compiler/rules/metadata.h"
 #include "compiler/rules/pattern.h"
 #include "compiler/rules/character_set.h"
 #include "compiler/rules/visitor.h"
@@ -65,26 +66,31 @@ namespace tree_sitter {
             }
 
             void visit(const rules::Choice *rule) {
-                this->value = merge_transitions<T>(this->apply(rule->left),
-                                                   this->apply(rule->right));
+                auto left_transitions = this->apply(rule->left);
+                auto right_transitions = this->apply(rule->right);
+                this->value = merge_transitions<T>(left_transitions,
+                                                   right_transitions);
             }
 
             void visit(const rules::Seq *rule) {
                 auto result = map_transitions(this->apply(rule->left), [&](const rule_ptr left_rule) {
                     return rules::Seq::Build({ left_rule, rule->right });
                 });
-                if (rule_can_be_blank(rule->left))
-                    result = merge_transitions<T>(result, this->apply(rule->right));
+                if (rule_can_be_blank(rule->left)) {
+                    auto right_transitions = this->apply(rule->right);
+                    result = merge_transitions<T>(result, right_transitions);
+                }
                 this->value = result;
             }
 
             void visit(const rules::Repeat *rule) {
                 this->value = map_transitions(this->apply(rule->content), [&](const rule_ptr &value) {
-                    return rules::Seq::Build({
-                        value,
-                        make_shared<rules::Choice>(rule->copy(), make_shared<rules::Blank>())
-                    });
+                    return rules::Seq::Build({ value, rule->copy() });
                 });
+            }
+            
+            void visit(const rules::Metadata *rule) {
+                this->value = this->apply(rule->rule);
             }
 
             void visit(const rules::String *rule) {

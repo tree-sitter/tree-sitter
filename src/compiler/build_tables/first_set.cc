@@ -2,6 +2,7 @@
 #include "tree_sitter/compiler.h"
 #include "compiler/prepared_grammar.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
+#include "compiler/rules/metadata.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/choice.h"
@@ -33,6 +34,10 @@ namespace tree_sitter {
                         value = set<Symbol>({ *rule });
                     }
                 }
+            }
+            
+            void visit(const rules::Metadata *rule) {
+                value = apply(rule->rule);
             }
 
             void visit(const rules::Choice *rule) {

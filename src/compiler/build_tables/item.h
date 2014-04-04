@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include "compiler/rules/symbol.h"
+#include "compiler/rules/metadata.h"
 
 namespace tree_sitter {
     class Grammar;
@@ -12,23 +13,24 @@ namespace tree_sitter {
     namespace build_tables {
         class Item {
         public:
-            Item(const rules::Symbol &lhs, const rules::rule_ptr rule);
+            Item(const rules::Symbol &lhs, rules::rule_ptr rule);
             bool is_done() const;
+            bool has_metadata(rules::MetadataValue) const;
 
-            const rules::Symbol lhs;
-            const rules::rule_ptr rule;
+            rules::Symbol lhs;
+            rules::rule_ptr rule;
         };
 
         class LexItem : public Item {
         public:
-            LexItem(const rules::Symbol &lhs, const rules::rule_ptr rule);
+            LexItem(const rules::Symbol &lhs, rules::rule_ptr rule);
             bool operator==(const LexItem &other) const;
         };
 
         class ParseItem : public Item {
         public:
             ParseItem(const rules::Symbol &lhs,
-                      const rules::rule_ptr rule,
+                      rules::rule_ptr rule,
                       const size_t consumed_symbol_count,
                       const rules::Symbol &lookahead_sym);
             bool operator==(const ParseItem &other) const;

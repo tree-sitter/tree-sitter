@@ -4,10 +4,15 @@
 #include <unordered_map>
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
+#include "compiler/rules/metadata.h"
+#include "compiler/rules/repeat.h"
+#include "compiler/rules/seq.h"
 #include "compiler/build_tables/item.h"
 #include "compiler/build_tables/item_set_closure.h"
 #include "compiler/build_tables/item_set_transitions.h"
 #include "compiler/build_tables/first_set.h"
+
+#include "stream_methods.h"
 
 namespace tree_sitter {
     using std::pair;
@@ -48,12 +53,19 @@ namespace tree_sitter {
             }
 
             void add_advance_actions(const LexItemSet &item_set, LexStateId state_id) {
-                for (auto transition : char_transitions(item_set, grammar)) {
+                auto transitions = char_transitions(item_set, grammar);
+                for (auto transition : transitions) {
                     CharacterSet rule = transition.first;
-                    LexItemSet item_set = transition.second;
-                    LexStateId new_state_id = add_lex_state(item_set);
+                    LexItemSet new_item_set = transition.second;
+                    LexStateId new_state_id = add_lex_state(new_item_set);
                     lex_table.add_action(state_id, rule, LexAction::Advance(new_state_id));
                 }
+            }
+            
+            void add_token_start(const LexItemSet &item_set, LexStateId state_id) {
+                for (auto &item : item_set)
+                    if (item.has_metadata(rules::START_TOKEN))
+                        lex_table.state(state_id).is_token_start = true;
             }
 
             void add_accept_token_actions(const LexItemSet &item_set, LexStateId state_id) {
@@ -80,23 +92,35 @@ namespace tree_sitter {
                     }
                 }
             }
+            
+            rules::rule_ptr after_separators(rules::rule_ptr rule) {
+                return rules::Seq::Build({
+                    make_shared<rules::Repeat>(CharacterSet({ ' ', '\t', '\n', '\r' }).copy()),
+                    make_shared<rules::Metadata>(rule, rules::START_TOKEN)
+                });
+            }
+            
+            LexItemSet lex_item_set_for_parse_state(const ParseState &state) {
+                LexItemSet result;
+                for (auto &symbol : state.expected_inputs())
+                    if (lex_grammar.has_definition(symbol)) {
+                        result.insert(LexItem(symbol, after_separators(lex_grammar.rule(symbol))));
+                    }
+                result.insert(LexItem(rules::END_OF_INPUT(), after_separators(CharacterSet({ 0 }).copy())));
+                return result;
+            }
 
             void assign_lex_state(ParseStateId state_id) {
                 ParseState &state = parse_table.states[state_id];
-                LexItemSet item_set;
-                for (auto &symbol : state.expected_inputs()) {
-                    if (lex_grammar.has_definition(symbol))
-                        item_set.insert(LexItem(symbol, lex_grammar.rule(symbol)));
-                }
-
-                state.lex_state_id = add_lex_state(item_set);
+                state.lex_state_id = add_lex_state(lex_item_set_for_parse_state(state));
             }
-
+            
             LexStateId add_lex_state(const LexItemSet &item_set) {
                 auto state_id = lex_state_id_for_item_set(item_set);
                 if (state_id == NOT_FOUND) {
                     state_id = lex_table.add_state();
                     lex_state_ids[item_set] = state_id;
+                    add_token_start(item_set, state_id);
                     add_advance_actions(item_set, state_id);
                     add_accept_token_actions(item_set, state_id);
                 }
@@ -119,13 +143,14 @@ namespace tree_sitter {
             void add_error_lex_state() {
                 LexItemSet error_item_set;
                 for (auto &pair : lex_grammar.rules) {
-                    LexItem item(Symbol(pair.first, rules::SymbolTypeNormal), pair.second);
+                    LexItem item(Symbol(pair.first, rules::SymbolTypeNormal), after_separators(pair.second));
                     error_item_set.insert(item);
                 }
                 for (auto &pair : lex_grammar.aux_rules) {
-                    LexItem item(Symbol(pair.first, rules::SymbolTypeAuxiliary), pair.second);
+                    LexItem item(Symbol(pair.first, rules::SymbolTypeAuxiliary), after_separators(pair.second));
                     error_item_set.insert(item);
                 }
+                error_item_set.insert(LexItem(rules::END_OF_INPUT(), after_separators(CharacterSet({ 0 }).copy())));
                 add_advance_actions(error_item_set, LexTable::ERROR_STATE_ID);
                 add_accept_token_actions(error_item_set, LexTable::ERROR_STATE_ID);
             }

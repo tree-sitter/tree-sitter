@@ -1,6 +1,7 @@
 #include "compiler_spec_helper.h"
 #include "compiler/prepared_grammar.h"
 #include "compiler/build_tables/first_set.h"
+#include "compiler/rules/metadata.h"
 
 using std::set;
 using namespace build_tables;
@@ -82,6 +83,14 @@ describe("computing FIRST sets", []() {
                 Symbol("y")
             })));
         });
+    });
+    
+    it("ignores metadata rules", [&]() {
+        auto rule = make_shared<Metadata>(sym("x"), MetadataValue(1));
+        
+        AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
+            Symbol("x"),
+        })));
     });
 });
 
