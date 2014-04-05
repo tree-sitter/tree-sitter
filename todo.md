@@ -2,8 +2,6 @@ TODO
 ====
 
 # flexibility of lexer
-- allow for tokens that contain characters in the separator character set
-  (e.g. newlines in golang and javascript)
 - make separator character set configurable, not hard-coded to whitespace
 - add special lexical behavior for indentation-aware languages
 - add helpers for constructing rules involving infix, prefix, and postfix operators
