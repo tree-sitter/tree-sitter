@@ -11,62 +11,6 @@ secondFunction(x);
     (expression_statement (function_call (identifier) (identifier))))
 
 ==========================================
-parses if statements
-==========================================
-if (isReady()) {
-    console.log(theData)
-}
----
-(program
-    (if_statement (function_call (identifier))
-        (statement_block (expression_statement (function_call (property_access (identifier) (identifier)) (identifier))))))
-
-==========================================
-parses if-else statements
-==========================================
-if (theCondition) {
-    firstFunction();
-} else {
-    secondFunction();
-}
----
-(program (if_statement
-    (identifier)
-    (statement_block (expression_statement (function_call (identifier))))
-    (statement_block (expression_statement (function_call (identifier))))))
-
-==================================================
-parses if-else statements with multiple conditions
-==================================================
-if (firstValue) {
-    firstFunction();
-} else if (secondValue)
-    secondFunction();
-else {
-    thirdFunction();
-}
----
-(program
-    (if_statement (identifier)
-        (statement_block (expression_statement (function_call (identifier))))
-        (if_statement (identifier)
-            (expression_statement (function_call (identifier)))
-            (statement_block (expression_statement (function_call (identifier)))))))
-
-==========================================
-parses for loops
-==========================================
-for (var i = 1; someCondition(i); i = next()) {
-    doSomething();
-}
----
-(program (for_statement
-    (var_declaration (assignment (identifier) (number)))
-    (expression_statement (function_call (identifier) (identifier)))
-    (assignment (identifier) (function_call (identifier)))
-    (statement_block (expression_statement (function_call (identifier))))))
-
-==========================================
 parses function expressions and calls
 ==========================================
 var x = {
@@ -87,35 +31,32 @@ x.theMethod(5, 6);
         (property_access (identifier) (identifier))
         (number) (number))))
 
-===========================================
-parses switch statements
-===========================================
-switch(x) {
-    case "hello":
-        print("one");
-        break;
-    case z():
-        print("two");
-        break;
-    default:
-        print("three");
-}
+==========================================
+parses property access with dot notation
+==========================================
+object.property = "the-value";
+print(object.property);
 ---
 (program
-    (switch_statement (identifier)
-        (switch_case
-            (string)
-            (expression_statement (function_call (identifier) (string)))
-            (break_statement))
-        (switch_case
-            (function_call (identifier))
-            (expression_statement (function_call (identifier) (string)))
-            (break_statement))
-        (switch_case
-            (expression_statement (function_call (identifier) (string))))))
+    (expression_statement (assignment
+        (property_access (identifier) (identifier))
+        (string)))
+    (expression_statement (function_call
+        (identifier)
+        (property_access (identifier) (identifier)))))
 
-
-
-
+===========================================
+parses dynamic property access
+==========================================
+object[propertName()] = propertyValue();
+print(object[propertyName()]);
+---
+(program
+    (expression_statement (assignment
+        (property_access (identifier) (function_call (identifier)))
+        (function_call (identifier))))
+    (expression_statement (function_call
+        (identifier)
+        (property_access (identifier) (function_call (identifier))))))
 
 

@@ -12,6 +12,10 @@ namespace tree_sitter_examples {
         return seq({ str("{"), rule, str("}") });
     }
 
+    static rule_ptr in_brackets(rule_ptr rule) {
+        return seq({ str("["), rule, str("]") });
+    }
+
     static rule_ptr comma_sep(rule_ptr element) {
         return choice({
             seq({ element, repeat(seq({ str(","), element })) }),
@@ -90,7 +94,10 @@ namespace tree_sitter_examples {
 
         // Expressions
         { "assignment", seq({
-            sym("identifier"),
+            choice({
+                sym("identifier"),
+                sym("property_access"),
+            }),
             str("="),
             sym("expression") })},
         { "function_expression", seq({
@@ -105,8 +112,11 @@ namespace tree_sitter_examples {
             str(")") }) },
         { "property_access", seq({
             sym("expression"),
-            str("."),
-            sym("identifier") }) },
+            choice({
+                seq({
+                    str("."),
+                    sym("identifier") }),
+                in_brackets(sym("expression")) }) }) },
         { "formal_parameters", seq({
             str("("),
             comma_sep(sym("identifier")),
