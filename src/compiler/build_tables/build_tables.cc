@@ -15,6 +15,7 @@
 namespace tree_sitter {
     using std::pair;
     using std::string;
+    using std::map;
     using std::unordered_map;
     using std::make_shared;
     using rules::Symbol;
@@ -50,7 +51,7 @@ namespace tree_sitter {
 
             void add_token_start(const LexItemSet &item_set, LexStateId state_id) {
                 for (auto &item : item_set)
-                    if (item.has_metadata(rules::START_TOKEN))
+                    if (item.get_metadata(rules::START_TOKEN))
                         lex_table.state(state_id).is_token_start = true;
             }
 
@@ -82,7 +83,7 @@ namespace tree_sitter {
             rules::rule_ptr after_separators(rules::rule_ptr rule) {
                 return rules::Seq::Build({
                     make_shared<rules::Repeat>(CharacterSet({ ' ', '\t', '\n', '\r' }).copy()),
-                    make_shared<rules::Metadata>(rule, rules::START_TOKEN)
+                    make_shared<rules::Metadata>(rule, map<rules::MetadataKey, int>({ {rules::START_TOKEN, 1} }))
                 });
             }
 

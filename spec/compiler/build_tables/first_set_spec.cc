@@ -86,7 +86,7 @@ describe("computing FIRST sets", []() {
     });
 
     it("ignores metadata rules", [&]() {
-        auto rule = make_shared<Metadata>(sym("x"), MetadataValue(1));
+        auto rule = make_shared<Metadata>(sym("x"), map<rules::MetadataKey, int>());
 
         AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
             Symbol("x"),

@@ -2,18 +2,19 @@
 #define COMPILER_RULES_METADATA_H_
 
 #include <string>
+#include <map>
 #include "compiler/rules/rule.h"
 
 namespace tree_sitter  {
     namespace rules {
         typedef enum {
-            NONE = 0,
-            START_TOKEN = 1,
-        } MetadataValue;
+            START_TOKEN,
+            PRECEDENCE
+        } MetadataKey;
 
         class Metadata : public Rule {
         public:
-            Metadata(rule_ptr rule, MetadataValue value);
+            Metadata(rule_ptr rule, std::map<MetadataKey, int> value);
 
             bool operator==(const Rule& other) const;
             size_t hash_code() const;
@@ -22,7 +23,7 @@ namespace tree_sitter  {
             void accept(Visitor *visitor) const;
 
             const rule_ptr rule;
-            const MetadataValue value;
+            const std::map<MetadataKey, int> value;
         };
     }
 }

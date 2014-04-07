@@ -1,6 +1,6 @@
 #include "compiler/build_tables/item.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
-#include "compiler/build_tables/check_metadata.h"
+#include "compiler/build_tables/get_metadata.h"
 #include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
@@ -20,8 +20,8 @@ namespace tree_sitter {
             return rule_can_be_blank(rule);
         }
 
-        bool Item::has_metadata(rules::MetadataValue value) const {
-            return check_metadata(rule, value);
+        int Item::get_metadata(rules::MetadataKey key) const {
+            return build_tables::get_metadata(rule, key);
         }
 
         ostream& operator<<(ostream &stream, const LexItem &item) {

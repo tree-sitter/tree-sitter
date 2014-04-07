@@ -6,9 +6,10 @@
 namespace tree_sitter  {
     using std::hash;
     using std::make_shared;
+    using std::map;
 
     namespace rules {
-        Metadata::Metadata(rule_ptr rule, MetadataValue value) : rule(rule), value(value) {}
+        Metadata::Metadata(rule_ptr rule, map<MetadataKey, int> values) : rule(rule), value(values) {}
 
         bool Metadata::operator==(const Rule &rule) const {
             auto other = dynamic_cast<const Metadata *>(&rule);
@@ -16,7 +17,12 @@ namespace tree_sitter  {
         }
 
         size_t Metadata::hash_code() const {
-            return hash<int>()(value);
+            size_t result = hash<size_t>()(value.size());
+            for (auto &pair : value) {
+                result ^= hash<int>()(pair.first);
+                result ^= hash<int>()(pair.second);
+            }
+            return result;
         }
 
         rule_ptr Metadata::copy() const {

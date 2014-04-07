@@ -6,7 +6,7 @@
 
 namespace tree_sitter {
     namespace build_tables {
-        bool check_metadata(const rules::rule_ptr &rule, rules::MetadataValue value);
+        int get_metadata(const rules::rule_ptr &rule, rules::MetadataKey key);
     }
 }
 

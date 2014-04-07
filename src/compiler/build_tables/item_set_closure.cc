@@ -25,7 +25,7 @@ namespace tree_sitter {
                     Symbol non_terminal = pair.first;
                     set<Symbol> terminals = pair.second;
                     for (auto &terminal : terminals) {
-                        ParseItem next_item(non_terminal, grammar.rule(non_terminal), {}, terminal);
+                        ParseItem next_item(non_terminal, grammar.rule(non_terminal), 0, terminal);
                         add_item(item_set, next_item, grammar);
                     }
                 }

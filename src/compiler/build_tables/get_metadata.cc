@@ -1,4 +1,4 @@
-#include "check_metadata.h"
+#include "get_metadata.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/choice.h"
 #include "compiler/rules/repeat.h"
@@ -7,10 +7,11 @@
 
 namespace tree_sitter {
     namespace build_tables {
-        class HasMetadata : public rules::RuleFn<bool> {
-            rules::MetadataValue metadata_value;
+        class GetMetadata : public rules::RuleFn<int> {
+            rules::MetadataKey metadata_key;
         public:
-            HasMetadata(rules::MetadataValue value) : metadata_value(value) {}
+            GetMetadata(rules::MetadataKey key) :
+                metadata_key(key) {}
 
             void visit(const rules::Choice *rule) {
                 value = apply(rule->left) || apply(rule->right);
@@ -21,19 +22,21 @@ namespace tree_sitter {
             }
 
             void visit(const rules::Seq *rule) {
-                bool result = apply(rule->left);
-                if (rule_can_be_blank(rule->left))
-                    result = result || apply(rule->right);
+                int result = apply(rule->left);
+                if (rule_can_be_blank(rule->left) && result == 0)
+                    result = apply(rule->right);
                 value = result;
             }
 
             void visit(const rules::Metadata *rule) {
-                value = rule->value & metadata_value;
+                auto pair = rule->value.find(metadata_key);
+                if (pair != rule->value.end())
+                    value = pair->second;
             }
         };
 
-        bool check_metadata(const rules::rule_ptr &rule, rules::MetadataValue value) {
-            return HasMetadata(value).apply(rule);
+        int get_metadata(const rules::rule_ptr &rule, rules::MetadataKey key) {
+            return GetMetadata(key).apply(rule);
         }
     }
 }

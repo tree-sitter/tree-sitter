@@ -15,7 +15,7 @@ namespace tree_sitter {
         public:
             Item(const rules::Symbol &lhs, rules::rule_ptr rule);
             bool is_done() const;
-            bool has_metadata(rules::MetadataValue) const;
+            int get_metadata(rules::MetadataKey) const;
 
             rules::Symbol lhs;
             rules::rule_ptr rule;
