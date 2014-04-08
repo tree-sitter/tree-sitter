@@ -31,9 +31,16 @@ namespace tree_sitter {
         const std::vector<std::pair<std::string, rules::rule_ptr>> rules;
     };
 
-    std::ostream& operator<<(std::ostream &stream, const Grammar &grammar);
+    struct Conflict {
+        Conflict(std::string description);
+        std::string description;
+        bool operator==(const Conflict &other) const;
+    };
 
-    std::string compile(const Grammar &grammar, std::string name);
+    std::ostream& operator<<(std::ostream &stream, const Grammar &grammar);
+    std::ostream& operator<<(std::ostream &stream, const Conflict &conflict);
+
+    std::pair<std::string, std::vector<Conflict>> compile(const Grammar &grammar, std::string name);
 }
 
 #endif  // TREE_SITTER_COMPILER_H_

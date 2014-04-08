@@ -23,8 +23,6 @@ namespace tree_sitter {
     };
 
     std::ostream& operator<<(std::ostream &stream, const PreparedGrammar &grammar);
-
-    std::string compile(const Grammar &grammar, std::string name);
 }
 
 #endif  // COMPILER_PREPARED_GRAMMAR_H_

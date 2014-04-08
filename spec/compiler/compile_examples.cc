@@ -1,6 +1,8 @@
 #include "compiler_spec_helper.h"
 #include <fstream>
 
+#include "stream_methods.h"
+
 static string src_dir() {
     const char * dir = getenv("TREESITTER_DIR");
     if (!dir) dir = getenv("PWD");
@@ -22,7 +24,11 @@ describe("compiling the example grammars", []() {
     auto compile_grammar = [&](const Grammar &grammar, string language) {
         it(("compiles the " + language + " grammar").c_str(), [&]() {
             ofstream file(example_parser_dir + language + ".c");
-            file << compile(grammar, language);
+            auto result = compile(grammar, language);
+
+//            cout << "\n conflicts for " << language << "\n:" << result.second;
+
+            file << result.first;
             file.close();
         });
     };

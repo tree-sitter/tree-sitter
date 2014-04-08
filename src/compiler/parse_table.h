@@ -11,9 +11,9 @@
 namespace tree_sitter {
     typedef enum {
         ParseActionTypeError,
-        ParseActionTypeAccept,
         ParseActionTypeShift,
         ParseActionTypeReduce,
+        ParseActionTypeAccept,
     } ParseActionType;
 
     class ParseAction {
@@ -22,6 +22,7 @@ namespace tree_sitter {
                     rules::Symbol symbol,
                     size_t consumed_symbol_count);
     public:
+        ParseAction();
         static ParseAction Accept();
         static ParseAction Error();
         static ParseAction Shift(size_t state_index);

@@ -7,6 +7,7 @@
 #include "compiler/rules/metadata.h"
 #include "compiler/rules/repeat.h"
 #include "compiler/rules/seq.h"
+#include "compiler/build_tables/conflict_manager.h"
 #include "compiler/build_tables/item.h"
 #include "compiler/build_tables/item_set_closure.h"
 #include "compiler/build_tables/item_set_transitions.h"
@@ -16,6 +17,7 @@ namespace tree_sitter {
     using std::pair;
     using std::string;
     using std::map;
+    using std::vector;
     using std::unordered_map;
     using std::make_shared;
     using rules::Symbol;
@@ -25,10 +27,9 @@ namespace tree_sitter {
         class TableBuilder {
             const PreparedGrammar grammar;
             const PreparedGrammar lex_grammar;
+            ConflictManager conflict_manager;
             unordered_map<const ParseItemSet, ParseStateId> parse_state_ids;
             unordered_map<const LexItemSet, LexStateId> lex_state_ids;
-            ParseTable parse_table;
-            LexTable lex_table;
 
             void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (auto transition : sym_transitions(item_set, grammar)) {
@@ -58,13 +59,10 @@ namespace tree_sitter {
             void add_accept_token_actions(const LexItemSet &item_set, LexStateId state_id) {
                 for (LexItem item : item_set) {
                     if (item.is_done()) {
-                        const Symbol &new_symbol = item.lhs;
-                        auto &action = lex_table.states[state_id].default_action;
-                        if (action.type == LexActionTypeAccept) {
-                            const Symbol &old_symbol = action.symbol;
-                            if (lex_grammar.index_of(new_symbol) >= lex_grammar.index_of(old_symbol)) continue;
-                        }
-                        lex_table.add_default_action(state_id, LexAction::Accept(new_symbol));
+                        auto current_action = lex_table.state(state_id).default_action;
+                        auto new_action = LexAction::Accept(item.lhs);
+                        auto action = conflict_manager.resolve_lex_action(current_action, new_action);
+                        lex_table.add_default_action(state_id, action);
                     }
                 }
             }
@@ -147,24 +145,31 @@ namespace tree_sitter {
             }
 
         public:
-
             TableBuilder(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar) :
                 grammar(grammar),
-                lex_grammar(lex_grammar) {}
+                lex_grammar(lex_grammar),
+                conflict_manager(ConflictManager(grammar, lex_grammar))
+                {}
 
-            pair<ParseTable, LexTable> build() {
+            void build() {
                 auto start_symbol = make_shared<Symbol>(grammar.start_rule_name());
                 ParseItem item(rules::START(), start_symbol, {}, rules::END_OF_INPUT());
                 ParseItemSet item_set = item_set_closure(ParseItemSet({ item }), grammar);
                 add_parse_state(item_set);
                 add_error_lex_state();
-                return pair<ParseTable, LexTable>(parse_table, lex_table);
             }
+
+            vector<Conflict> conflicts;
+            ParseTable parse_table;
+            LexTable lex_table;
         };
 
-        pair<ParseTable, LexTable> build_tables(const PreparedGrammar &grammar,
+        pair<pair<ParseTable, LexTable>, vector<Conflict>>
+        build_tables(const PreparedGrammar &grammar,
                                                 const PreparedGrammar &lex_grammar) {
-            return TableBuilder(grammar, lex_grammar).build();
+            TableBuilder builder(grammar, lex_grammar);
+            builder.build();
+            return { { builder.parse_table, builder.lex_table }, builder.conflicts };
         }
     }
 }

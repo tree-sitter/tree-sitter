@@ -18,6 +18,8 @@ namespace tree_sitter {
         state_index(state_index),
         consumed_symbol_count(consumed_symbol_count) {}
 
+    ParseAction::ParseAction() : ParseAction(ParseActionTypeError, -1, Symbol(""), {}) {}
+
     ParseAction ParseAction::Error() {
         return ParseAction(ParseActionTypeError, -1, Symbol(""), {});
     }
