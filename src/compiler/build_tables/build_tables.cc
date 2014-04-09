@@ -32,11 +32,17 @@ namespace tree_sitter {
             unordered_map<const LexItemSet, LexStateId> lex_state_ids;
 
             void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
-                for (auto transition : sym_transitions(item_set, grammar)) {
-                    Symbol symbol = transition.first;
-                    ParseItemSet item_set = transition.second;
-                    ParseStateId new_state_id = add_parse_state(item_set);
-                    parse_table.add_action(state_id, symbol, ParseAction::Shift(new_state_id));
+                for (auto &transition : sym_transitions(item_set, grammar)) {
+                    const Symbol &symbol = transition.first;
+                    const ParseItemSet &item_set = transition.second;
+                    
+                    auto current_actions = parse_table.states[state_id].actions;
+                    auto current_action = current_actions.find(symbol);
+                    if (current_action == current_actions.end() ||
+                        conflict_manager.resolve_parse_action(symbol, current_action->second, ParseAction::Shift(0))) {
+                        ParseStateId new_state_id = add_parse_state(item_set);
+                        parse_table.add_action(state_id, symbol, ParseAction::Shift(new_state_id));
+                    }
                 }
             }
 
@@ -61,8 +67,8 @@ namespace tree_sitter {
                     if (item.is_done()) {
                         auto current_action = lex_table.state(state_id).default_action;
                         auto new_action = LexAction::Accept(item.lhs);
-                        auto action = conflict_manager.resolve_lex_action(current_action, new_action);
-                        lex_table.add_default_action(state_id, action);
+                        if (conflict_manager.resolve_lex_action(current_action, new_action))
+                            lex_table.add_default_action(state_id, new_action);
                     }
                 }
             }
@@ -73,7 +79,11 @@ namespace tree_sitter {
                         ParseAction action = (item.lhs == rules::START()) ?
                             ParseAction::Accept() :
                             ParseAction::Reduce(item.lhs, item.consumed_symbol_count);
-                        parse_table.add_action(state_id, item.lookahead_sym, action);
+                        auto current_actions = parse_table.states[state_id].actions;
+                        auto current_action = current_actions.find(item.lookahead_sym);
+                        if (current_action == current_actions.end() ||
+                            conflict_manager.resolve_parse_action(item.lookahead_sym, current_action->second, action))
+                            parse_table.add_action(state_id, item.lookahead_sym, action);
                     }
                 }
             }
@@ -145,10 +155,12 @@ namespace tree_sitter {
             }
 
         public:
-            TableBuilder(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar) :
+            TableBuilder(const PreparedGrammar &grammar,
+                         const PreparedGrammar &lex_grammar,
+                         const map<Symbol, string> &rule_names) :
                 grammar(grammar),
                 lex_grammar(lex_grammar),
-                conflict_manager(ConflictManager(grammar, lex_grammar))
+                conflict_manager(ConflictManager(grammar, lex_grammar, rule_names))
                 {}
 
             void build() {
@@ -159,17 +171,21 @@ namespace tree_sitter {
                 add_error_lex_state();
             }
 
-            vector<Conflict> conflicts;
+            const vector<Conflict> & conflicts() {
+                return conflict_manager.conflicts();
+            };
+            
             ParseTable parse_table;
             LexTable lex_table;
         };
 
         pair<pair<ParseTable, LexTable>, vector<Conflict>>
         build_tables(const PreparedGrammar &grammar,
-                                                const PreparedGrammar &lex_grammar) {
-            TableBuilder builder(grammar, lex_grammar);
+                     const PreparedGrammar &lex_grammar,
+                     const map<Symbol, string> &rule_names) {
+            TableBuilder builder(grammar, lex_grammar, rule_names);
             builder.build();
-            return { { builder.parse_table, builder.lex_table }, builder.conflicts };
+            return { { builder.parse_table, builder.lex_table }, builder.conflicts() };
         }
     }
 }

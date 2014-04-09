@@ -107,8 +107,8 @@ SYMBOL_NAMES = {
     [ts_aux_sym_token7] = "'['",
     [ts_aux_sym_token8] = "']'",
     [ts_aux_sym_token9] = "','",
-    [ts_builtin_sym_end] = "end",
-    [ts_builtin_sym_error] = "error",
+    [ts_builtin_sym_end] = "EOF",
+    [ts_builtin_sym_error] = "ERROR",
 };
 
 HIDDEN_SYMBOLS = {
@@ -1047,6 +1047,7 @@ LEX_FN() {
                 ADVANCE(20);
             ACCEPT_TOKEN(ts_sym__var);
         case ts_lex_state_error:
+            START_TOKEN();
             if (lookahead == '\0')
                 ADVANCE(1);
             if (('\t' <= lookahead && lookahead <= '\n') ||

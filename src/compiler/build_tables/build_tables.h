@@ -12,7 +12,9 @@ namespace tree_sitter {
 
     namespace build_tables {
         std::pair<std::pair<ParseTable, LexTable>, std::vector<Conflict>>
-        build_tables(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar);
+        build_tables(const PreparedGrammar &grammar, 
+                     const PreparedGrammar &lex_grammar,
+                     const std::map<rules::Symbol, std::string> &rule_names);
     }
 }
 

@@ -15,13 +15,15 @@ namespace tree_sitter {
         PreparedGrammar &syntax_grammar = grammars.first;
         PreparedGrammar &lexical_grammar = grammars.second;
 
-        auto table_build_result = build_tables::build_tables(syntax_grammar, lexical_grammar);
+        auto symbol_names = name_symbols::name_symbols(syntax_grammar, lexical_grammar);
+
+        auto table_build_result = build_tables::build_tables(syntax_grammar, lexical_grammar, symbol_names);
         auto tables = table_build_result.first;
         auto conflicts = table_build_result.second;
+        
         ParseTable &parse_table = tables.first;
         LexTable &lex_table = tables.second;
 
-        auto symbol_names = name_symbols::name_symbols(parse_table.symbols, lexical_grammar);
         return { generate_code::c_code(name, parse_table, lex_table, symbol_names), conflicts };
     }
 }

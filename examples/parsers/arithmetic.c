@@ -45,8 +45,8 @@ SYMBOL_NAMES = {
     [ts_aux_sym_token5] = "'*'",
     [ts_aux_sym_token6] = "'/'",
     [ts_aux_sym_token7] = "'^'",
-    [ts_builtin_sym_end] = "end",
-    [ts_builtin_sym_error] = "error",
+    [ts_builtin_sym_end] = "EOF",
+    [ts_builtin_sym_error] = "ERROR",
 };
 
 HIDDEN_SYMBOLS = {
@@ -361,6 +361,7 @@ LEX_FN() {
                 ADVANCE(11);
             LEX_ERROR();
         case ts_lex_state_error:
+            START_TOKEN();
             if (lookahead == '\0')
                 ADVANCE(1);
             if (('\t' <= lookahead && lookahead <= '\n') ||
@@ -568,7 +569,7 @@ PARSE_TABLE = {
     [4] = {
         [ts_aux_sym_token5] = SHIFT(5),
         [ts_aux_sym_token6] = SHIFT(85),
-        [ts_builtin_sym_end] = REDUCE(ts_sym_quotient, 1),
+        [ts_builtin_sym_end] = REDUCE(ts_sym_product, 1),
     },
     [5] = {
         [ts_sym__operand2] = SHIFT(6),
@@ -636,7 +637,7 @@ PARSE_TABLE = {
         [ts_aux_sym_token2] = REDUCE(ts_sym_sum, 3),
     },
     [15] = {
-        [ts_aux_sym_token2] = REDUCE(ts_sym_quotient, 1),
+        [ts_aux_sym_token2] = REDUCE(ts_sym_product, 1),
         [ts_aux_sym_token5] = SHIFT(16),
         [ts_aux_sym_token6] = SHIFT(61),
     },
@@ -686,9 +687,9 @@ PARSE_TABLE = {
         [ts_builtin_sym_error] = SHIFT(54),
     },
     [23] = {
-        [ts_aux_sym_token2] = REDUCE(ts_sym_quotient, 1),
-        [ts_aux_sym_token3] = REDUCE(ts_sym_quotient, 1),
-        [ts_aux_sym_token4] = REDUCE(ts_sym_quotient, 1),
+        [ts_aux_sym_token2] = REDUCE(ts_sym_product, 1),
+        [ts_aux_sym_token3] = REDUCE(ts_sym_product, 1),
+        [ts_aux_sym_token4] = REDUCE(ts_sym_product, 1),
         [ts_aux_sym_token5] = SHIFT(24),
         [ts_aux_sym_token6] = SHIFT(52),
     },
