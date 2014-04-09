@@ -1,7 +1,7 @@
 #include "tree_sitter/parser.h"
 
-STATE_COUNT = 134;
-SYMBOL_COUNT = 21;
+#define STATE_COUNT 134
+#define SYMBOL_COUNT 21
 
 enum {
     ts_sym__operand1 = 2,
@@ -549,7 +549,7 @@ PARSE_TABLE = {
     [1] = {
         [ts_aux_sym_token3] = SHIFT(2),
         [ts_aux_sym_token4] = SHIFT(100),
-        [ts_builtin_sym_end] = REDUCE(ts_sym_sum, 1),
+        [ts_builtin_sym_end] = REDUCE(ts_sym_difference, 1),
     },
     [2] = {
         [ts_sym__operand1] = SHIFT(3),
@@ -617,7 +617,7 @@ PARSE_TABLE = {
         [ts_builtin_sym_error] = SHIFT(78),
     },
     [12] = {
-        [ts_aux_sym_token2] = REDUCE(ts_sym_sum, 1),
+        [ts_aux_sym_token2] = REDUCE(ts_sym_difference, 1),
         [ts_aux_sym_token3] = SHIFT(13),
         [ts_aux_sym_token4] = SHIFT(76),
     },
@@ -689,7 +689,7 @@ PARSE_TABLE = {
     [23] = {
         [ts_aux_sym_token2] = REDUCE(ts_sym_product, 1),
         [ts_aux_sym_token3] = REDUCE(ts_sym_product, 1),
-        [ts_aux_sym_token4] = REDUCE(ts_sym_product, 1),
+        [ts_aux_sym_token4] = REDUCE(ts_sym_quotient, 1),
         [ts_aux_sym_token5] = SHIFT(24),
         [ts_aux_sym_token6] = SHIFT(52),
     },
@@ -1209,10 +1209,10 @@ PARSE_TABLE = {
     },
     [102] = {
         [ts_aux_sym_token3] = REDUCE(ts_sym_quotient, 1),
-        [ts_aux_sym_token4] = REDUCE(ts_sym_quotient, 1),
+        [ts_aux_sym_token4] = REDUCE(ts_sym_product, 1),
         [ts_aux_sym_token5] = SHIFT(103),
         [ts_aux_sym_token6] = SHIFT(117),
-        [ts_builtin_sym_end] = REDUCE(ts_sym_quotient, 1),
+        [ts_builtin_sym_end] = REDUCE(ts_sym_product, 1),
     },
     [103] = {
         [ts_sym__operand2] = SHIFT(104),

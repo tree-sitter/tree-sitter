@@ -1,7 +1,7 @@
 #include "tree_sitter/parser.h"
 
-STATE_COUNT = 196;
-SYMBOL_COUNT = 52;
+#define STATE_COUNT 196
+#define SYMBOL_COUNT 52
 
 enum {
     ts_sym__func = 2,

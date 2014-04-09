@@ -171,8 +171,8 @@ namespace tree_sitter {
 
             string state_and_symbol_counts() {
                 return join({
-                    "STATE_COUNT = " + to_string(parse_table.states.size()) + ";",
-                    "SYMBOL_COUNT = " + to_string(parse_table.symbols.size()) + ";"
+                    "#define STATE_COUNT " + to_string(parse_table.states.size()),
+                    "#define SYMBOL_COUNT " + to_string(parse_table.symbols.size())
                 });
             }
 

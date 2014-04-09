@@ -31,20 +31,14 @@ extern "C" {
 #define DEBUG_PARSE(...)
 #endif
 
-#define SYMBOL_COUNT \
-static const size_t ts_symbol_count
-
-#define STATE_COUNT \
-static const size_t ts_state_count
-
 #define SYMBOL_NAMES \
-static const char *ts_symbol_names[ts_symbol_count]
+static const char *ts_symbol_names[SYMBOL_COUNT]
 
 #define HIDDEN_SYMBOLS \
-static const int hidden_symbol_flags[ts_symbol_count]
+static const int hidden_symbol_flags[SYMBOL_COUNT]
 
 #define LEX_STATES \
-static state_id ts_lex_states[ts_state_count]
+static state_id ts_lex_states[STATE_COUNT]
 
 #define LEX_FN() \
 static ts_tree * ts_lex(ts_lexer *lexer, state_id lex_state)
@@ -70,26 +64,26 @@ ts_lexer_start_token(lexer);
 { DEBUG_LEX("Lex error: unexpected state %d", LEX_STATE()); return NULL; }
 
 #define PARSE_TABLE \
-static const ts_parse_action ts_parse_actions[ts_state_count][ts_symbol_count]
+static const ts_parse_action ts_parse_actions[STATE_COUNT][SYMBOL_COUNT]
 
 #define EXPORT_PARSER(constructor_name) \
 ts_parser constructor_name() { \
     return (ts_parser) { \
         .parse_fn = ts_parse, \
         .symbol_names = ts_symbol_names, \
-        .data = ts_lr_parser_make(ts_symbol_count, (const ts_parse_action *)ts_parse_actions, ts_lex_states, hidden_symbol_flags), \
+        .data = ts_lr_parser_make(SYMBOL_COUNT, (const ts_parse_action *)ts_parse_actions, ts_lex_states, hidden_symbol_flags), \
         .free_fn = NULL \
     }; \
 }
 
 #define SHIFT(to_state_value) \
-(ts_parse_action){ .type = ts_parse_action_type_shift, .data = { .to_state = to_state_value } }
+{ .type = ts_parse_action_type_shift, .data = { .to_state = to_state_value } }
 
 #define REDUCE(symbol_val, child_count_val) \
-(ts_parse_action){ .type = ts_parse_action_type_reduce, .data = { .symbol = symbol_val, .child_count = child_count_val } }
+{ .type = ts_parse_action_type_reduce, .data = { .symbol = symbol_val, .child_count = child_count_val } }
 
 #define ACCEPT_INPUT() \
-(ts_parse_action){ .type = ts_parse_action_type_accept }
+{ .type = ts_parse_action_type_accept }
 
 
 /*
@@ -174,7 +168,7 @@ static ts_tree * ts_lexer_build_node(ts_lexer *lexer, ts_symbol symbol) {
     return ts_tree_make_leaf(symbol, size, offset);
 }
 
-static const state_id ts_lex_state_error = -1;
+#define ts_lex_state_error -1
 
 
 /*
