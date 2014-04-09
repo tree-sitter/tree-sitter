@@ -31,11 +31,11 @@ namespace tree_sitter {
                     make_shared<Blank>() });
             }
 
-            void visit(const Repeat *rule) {
+            rule_ptr apply_to(const Repeat *rule) {
                 rule_ptr inner_rule = apply(rule->content);
                 string helper_rule_name = string("repeat_helper") + to_string(aux_rules.size() + 1);
                 aux_rules.push_back({ helper_rule_name, make_repeat_helper(helper_rule_name, inner_rule) });
-                value = make_shared<Symbol>(helper_rule_name, rules::SymbolTypeAuxiliary);
+                return make_shared<Symbol>(helper_rule_name, rules::SymbolTypeAuxiliary);
             }
 
         public:

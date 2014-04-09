@@ -22,16 +22,12 @@ namespace tree_sitter {
 
     namespace prepare_grammar {
         class IsToken : public rules::RuleFn<bool> {
-            void default_visit(const rules::Rule *rule) {
-                value = false;
+            bool apply_to(const rules::String *rule) {
+                return true;
             }
 
-            void visit(const rules::String *rule) {
-                value = true;
-            }
-
-            void visit(const rules::Pattern *rule) {
-                value = true;
+            bool apply_to(const rules::Pattern *rule) {
+                return true;
             }
         };
 
@@ -45,12 +41,12 @@ namespace tree_sitter {
                 return name;
             }
 
-            void default_visit(const rules::Rule *rule) {
+            rule_ptr default_apply(const rules::Rule *rule) {
                 auto result = rule->copy();
                 if (IsToken().apply(result)) {
-                    value = make_shared<rules::Symbol>(add_token(result), rules::SymbolTypeAuxiliary);
+                    return make_shared<rules::Symbol>(add_token(result), rules::SymbolTypeAuxiliary);
                 } else {
-                    value = result;
+                    return result;
                 }
             }
 

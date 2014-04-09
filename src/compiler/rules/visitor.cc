@@ -12,35 +12,24 @@
 
 namespace tree_sitter {
     namespace rules {
-        void Visitor::default_visit(const Rule *rule) {}
-        void Visitor::visit(const Blank *rule) { default_visit(rule); }
-        void Visitor::visit(const CharacterSet *rule) { default_visit(rule); }
-        void Visitor::visit(const Choice *rule) { default_visit(rule); }
-        void Visitor::visit(const Metadata *rule) { default_visit(rule); }
-        void Visitor::visit(const Pattern *rule) { default_visit(rule); }
-        void Visitor::visit(const Repeat *rule) { default_visit(rule); }
-        void Visitor::visit(const Seq *rule) { default_visit(rule); }
-        void Visitor::visit(const String *rule) { default_visit(rule); }
-        void Visitor::visit(const Symbol *rule) { default_visit(rule); }
-
-        void IdentityRuleFn::default_visit(const Rule *rule) {
-            value = rule->copy();
+        rule_ptr IdentityRuleFn::default_apply(const Rule *rule) {
+            return rule->copy();
         }
 
-        void IdentityRuleFn::visit(const Choice *rule) {
-            value = Choice::Build({ apply(rule->left), apply(rule->right) });
+        rule_ptr IdentityRuleFn::apply_to(const Choice *rule) {
+            return Choice::Build({ apply(rule->left), apply(rule->right) });
         }
 
-        void IdentityRuleFn::visit(const Seq *rule) {
-            value = Seq::Build({ apply(rule->left), apply(rule->right) });
+        rule_ptr IdentityRuleFn::apply_to(const Seq *rule) {
+            return Seq::Build({ apply(rule->left), apply(rule->right) });
         }
 
-        void IdentityRuleFn::visit(const Repeat *rule) {
-            value = std::make_shared<Repeat>(apply(rule->content));
+        rule_ptr IdentityRuleFn::apply_to(const Repeat *rule) {
+            return std::make_shared<Repeat>(apply(rule->content));
         }
 
-        void IdentityRuleFn::visit(const Metadata *rule) {
-            value = std::make_shared<Metadata>(apply(rule->rule), rule->value);
+        rule_ptr IdentityRuleFn::apply_to(const Metadata *rule) {
+            return std::make_shared<Metadata>(apply(rule->rule), rule->value);
         }
     }
 }

@@ -22,7 +22,8 @@ namespace tree_sitter {
 
     namespace build_tables {
         template<typename T>
-        map<T, rule_ptr> merge_transitions(const map<T, rule_ptr> &left, const map<T, rule_ptr> &right);
+        map<T, rule_ptr>
+        merge_transitions(const map<T, rule_ptr> &left, const map<T, rule_ptr> &right);
 
         template<>
         map<CharacterSet, rule_ptr>
@@ -51,28 +52,29 @@ namespace tree_sitter {
 
         template<typename T>
         class RuleTransitions : public rules::RuleFn<map<T, rule_ptr>> {
-            void visit_atom(const rules::Rule *rule) {
+            map<T, rule_ptr> apply_to_atom(const rules::Rule *rule) {
                 auto atom = dynamic_cast<const T *>(rule);
                 if (atom)
-                    this->value = map<T, rule_ptr>({{ *atom, make_shared<rules::Blank>() }});
+                    return map<T, rule_ptr>({{ *atom, make_shared<rules::Blank>() }});
+                else
+                    return map<T, rule_ptr>();
             }
 
-            void visit(const CharacterSet *rule) {
-                visit_atom(rule);
+            map<T, rule_ptr> apply_to(const CharacterSet *rule) {
+                return apply_to_atom(rule);
             }
 
-            void visit(const Symbol *rule) {
-                visit_atom(rule);
+            map<T, rule_ptr> apply_to(const Symbol *rule) {
+                return apply_to_atom(rule);
             }
 
-            void visit(const rules::Choice *rule) {
+            map<T, rule_ptr> apply_to(const rules::Choice *rule) {
                 auto left_transitions = this->apply(rule->left);
                 auto right_transitions = this->apply(rule->right);
-                this->value = merge_transitions<T>(left_transitions,
-                                                   right_transitions);
+                return merge_transitions<T>(left_transitions, right_transitions);
             }
 
-            void visit(const rules::Seq *rule) {
+            map<T, rule_ptr> apply_to(const rules::Seq *rule) {
                 auto result = map_transitions(this->apply(rule->left), [&](const rule_ptr left_rule) {
                     return rules::Seq::Build({ left_rule, rule->right });
                 });
@@ -80,31 +82,31 @@ namespace tree_sitter {
                     auto right_transitions = this->apply(rule->right);
                     result = merge_transitions<T>(result, right_transitions);
                 }
-                this->value = result;
+                return result;
             }
 
-            void visit(const rules::Repeat *rule) {
-                this->value = map_transitions(this->apply(rule->content), [&](const rule_ptr &value) {
+            map<T, rule_ptr> apply_to(const rules::Repeat *rule) {
+                return map_transitions(this->apply(rule->content), [&](const rule_ptr &value) {
                     return rules::Seq::Build({ value, rule->copy() });
                 });
             }
 
-            void visit(const rules::Metadata *rule) {
-                this->value = this->apply(rule->rule);
+            map<T, rule_ptr> apply_to(const rules::Metadata *rule) {
+                return this->apply(rule->rule);
             }
-
-            void visit(const rules::String *rule) {
+            
+            map<T, rule_ptr> apply_to(const rules::String *rule) {
                 rule_ptr result = make_shared<rules::Blank>();
                 for (char val : rule->value)
                     result = rules::Seq::Build({
                         result,
                         make_shared<CharacterSet>(set<rules::CharacterRange>({ val }))
                     });
-                this->value = this->apply(result);
+                return this->apply(result);
             }
 
-            void visit(const rules::Pattern *rule) {
-                this->value = this->apply(rule->to_rule_tree());
+            map<T, rule_ptr> apply_to(const rules::Pattern *rule) {
+                return this->apply(rule->to_rule_tree());
             }
         };
 

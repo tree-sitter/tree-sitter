@@ -15,28 +15,24 @@ namespace tree_sitter  {
     namespace build_tables {
         class CanBeBlank : public rules::RuleFn<bool> {
         protected:
-            void default_visit(const rules::Rule *) {
-                value = false;
+            bool apply_to(const rules::Blank *) {
+                return true;
             }
 
-            void visit(const rules::Blank *) {
-                value = true;
+            bool apply_to(const rules::Repeat *rule) {
+                return true;
             }
 
-            void visit(const rules::Repeat *rule) {
-                value = true;
+            bool apply_to(const rules::Choice *rule) {
+                return apply(rule->left) || apply(rule->right);
             }
 
-            void visit(const rules::Choice *rule) {
-                value = apply(rule->left) || apply(rule->right);
+            bool apply_to(const rules::Seq *rule) {
+                return apply(rule->left) && apply(rule->right);
             }
 
-            void visit(const rules::Seq *rule) {
-                value = apply(rule->left) && apply(rule->right);
-            }
-
-            void visit(const rules::Metadata *rule) {
-                value = apply(rule->rule);
+            bool apply_to(const rules::Metadata *rule) {
+                return apply(rule->rule);
             }
         };
 
@@ -46,12 +42,15 @@ namespace tree_sitter  {
             using CanBeBlank::visit;
 
         public:
+            using CanBeBlank::apply_to;
             explicit CanBeBlankRecursive(const PreparedGrammar &grammar) : grammar(grammar) {}
 
-            void visit(const rules::Symbol *rule) {
+            bool apply_to(const rules::Symbol *rule) {
                 if (visited_symbols.find(*rule) == visited_symbols.end()) {
                     visited_symbols.insert(*rule);
-                    value = grammar.has_definition(*rule) && apply(grammar.rule(*rule));
+                    return grammar.has_definition(*rule) && apply(grammar.rule(*rule));
+                } else {
+                    return false;
                 }
             }
         };

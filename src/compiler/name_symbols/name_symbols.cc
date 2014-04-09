@@ -18,12 +18,12 @@ namespace tree_sitter {
 
         class TokenName : public rules::RuleFn<string> {
         protected:
-            virtual void visit(const rules::Pattern *rule) {
-                value = "/" + util::escape_string(rule->value) + "/";
+            string apply_to(const rules::Pattern *rule) {
+                return "/" + util::escape_string(rule->value) + "/";
             }
 
-            virtual void visit(const rules::String *rule) {
-                value = "'" + util::escape_string(rule->value) + "'";
+            string apply_to(const rules::String *rule) {
+                return "'" + util::escape_string(rule->value) + "'";
             }
         };
 

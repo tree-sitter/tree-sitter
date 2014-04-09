@@ -24,32 +24,35 @@ namespace tree_sitter {
         public:
             explicit FirstSet(const PreparedGrammar &grammar) : grammar(grammar) {}
 
-            void visit(const Symbol *rule) {
+            set<Symbol> apply_to(const Symbol *rule) {
                 if (visited_symbols.find(*rule) == visited_symbols.end()) {
                     visited_symbols.insert(*rule);
 
                     if (grammar.has_definition(*rule)) {
-                        value = apply(grammar.rule(*rule));
+                        return apply(grammar.rule(*rule));
                     } else {
-                        value = set<Symbol>({ *rule });
+                        return set<Symbol>({ *rule });
                     }
+                } else {
+                    return set<Symbol>();
                 }
             }
 
-            void visit(const rules::Metadata *rule) {
-                value = apply(rule->rule);
+            set<Symbol> apply_to(const rules::Metadata *rule) {
+                return apply(rule->rule);
             }
 
-            void visit(const rules::Choice *rule) {
-                value = set_union(apply(rule->left), apply(rule->right));
+            set<Symbol> apply_to(const rules::Choice *rule) {
+                return set_union(apply(rule->left), apply(rule->right));
             }
 
-            void visit(const rules::Seq *rule) {
+            set<Symbol> apply_to(const rules::Seq *rule) {
                 auto result = apply(rule->left);
                 if (rule_can_be_blank(rule->left, grammar)) {
-                    result = set_union(result, apply(rule->right));
+                    return set_union(result, apply(rule->right));
+                } else {
+                    return result;
                 }
-                value = result;
             }
         };
 

@@ -13,25 +13,27 @@ namespace tree_sitter {
             GetMetadata(rules::MetadataKey key) :
                 metadata_key(key) {}
 
-            void visit(const rules::Choice *rule) {
-                value = apply(rule->left) || apply(rule->right);
+            int apply_to(const rules::Choice *rule) {
+                return apply(rule->left) || apply(rule->right);
             }
 
-            void visit(const rules::Repeat *rule) {
-                value = apply(rule->content);
+            int apply_to(const rules::Repeat *rule) {
+                return apply(rule->content);
             }
 
-            void visit(const rules::Seq *rule) {
+            int apply_to(const rules::Seq *rule) {
                 int result = apply(rule->left);
                 if (rule_can_be_blank(rule->left) && result == 0)
                     result = apply(rule->right);
-                value = result;
+                return result;
             }
 
-            void visit(const rules::Metadata *rule) {
+            int apply_to(const rules::Metadata *rule) {
                 auto pair = rule->value.find(metadata_key);
                 if (pair != rule->value.end())
-                    value = pair->second;
+                    return pair->second;
+                else
+                    return 0;
             }
         };
 
