@@ -18,7 +18,11 @@ namespace tree_sitter {
         state_index(state_index),
         consumed_symbol_count(consumed_symbol_count) {}
 
-    ParseAction::ParseAction() : ParseAction(ParseActionTypeError, -1, Symbol(""), {}) {}
+    ParseAction::ParseAction() :
+        type(ParseActionTypeError),
+        symbol(Symbol("")),
+        state_index(-1),
+        consumed_symbol_count(0) {}
 
     ParseAction ParseAction::Error() {
         return ParseAction(ParseActionTypeError, -1, Symbol(""), {});
@@ -53,6 +57,8 @@ namespace tree_sitter {
                 return stream << (string("#<shift ") + to_string(action.state_index) + ">");
             case ParseActionTypeReduce:
                 return stream << (string("#<reduce ") + action.symbol.name + ">");
+            default:
+                return stream;
         }
     }
 

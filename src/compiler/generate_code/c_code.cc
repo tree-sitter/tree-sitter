@@ -142,6 +142,8 @@ namespace tree_sitter {
                         return "ACCEPT_TOKEN(" + symbol_id(action.symbol) + ");";
                     case LexActionTypeError:
                         return "LEX_ERROR();";
+                    default:
+                        return "";
                 }
             }
 

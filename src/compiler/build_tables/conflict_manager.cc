@@ -23,9 +23,8 @@ namespace tree_sitter {
                 }
                 case ParseActionTypeAccept:
                     return "accept";
-                case ParseActionTypeError:
+                default:
                     return "error";
-                    break;
             }
         }
 

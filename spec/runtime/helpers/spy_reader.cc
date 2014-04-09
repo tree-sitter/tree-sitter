@@ -31,8 +31,8 @@ SpyReader::SpyReader(string content, size_t chunk_size) :
     position(0),
     chunk_size(chunk_size),
     input({
-        .read_fn = spy_read,
-        .seek_fn = spy_seek,
-        .release_fn = spy_release,
-        .data = this
+        this,
+        spy_read,
+        spy_seek,
+        spy_release,
     }) {}

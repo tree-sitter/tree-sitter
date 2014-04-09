@@ -39,11 +39,7 @@ describe("incremental parsing", [&]() {
             string inserted_text(", \"key2\": 4");
 
             reader->content.insert(position, inserted_text);
-            ts_document_edit(doc, {
-                .position = position,
-                .bytes_removed = 0,
-                .bytes_inserted = inserted_text.length()
-            });
+            ts_document_edit(doc, { position, 0, inserted_text.length() });
         });
 
         it("updates the parse tree", [&]() {
@@ -63,11 +59,7 @@ describe("incremental parsing", [&]() {
             string inserted_text("\"key2\": 4, ");
 
             reader->content.insert(position, inserted_text);
-            ts_document_edit(doc, {
-                .position = position,
-                .bytes_removed = 0,
-                .bytes_inserted = inserted_text.length()
-            });
+            ts_document_edit(doc, { position, 0, inserted_text.length() });
         });
 
         it("2 updates the parse tree", [&]() {

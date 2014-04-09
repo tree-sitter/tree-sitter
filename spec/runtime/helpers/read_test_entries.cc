@@ -48,9 +48,9 @@ static vector<TestEntry> get_test_entries_from_string(string content) {
         std::smatch matches;
         regex_search(body, matches, separator_pattern);
         result.push_back({
-            .description = descriptions[i],
-            .input = body.substr(0, matches.position()),
-            .tree_string = trim_output(body.substr(matches.position() + matches[0].length()))
+            descriptions[i],
+            body.substr(0, matches.position()),
+            trim_output(body.substr(matches.position() + matches[0].length()))
         });
     }
 

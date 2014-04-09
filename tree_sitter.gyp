@@ -77,8 +77,11 @@
       '-Wextra',
       '-Wno-unused-parameter'
     ],
+    'cflags_c': [
+      '-std=c99'
+    ],
     'cflags_cc': [
-      '-std=c++11',
+      '-std=c++0x',
     ],
     'xcode_settings': {
       'CLANG_CXX_LANGUAGE_STANDARD': 'c++11',

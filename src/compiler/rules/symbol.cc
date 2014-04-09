@@ -36,6 +36,8 @@ namespace tree_sitter  {
                     return string("#<aux_sym '") + name + "'>";
                 case SymbolTypeBuiltIn:
                     return string("#<builtin_sym '") + name + "'>";
+                default:
+                    return "";
             }
         }
 

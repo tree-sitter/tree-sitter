@@ -8,7 +8,10 @@ namespace tree_sitter {
     using rules::Symbol;
     using rules::CharacterSet;
 
-    LexAction::LexAction() : LexAction(LexActionTypeError, -1, Symbol("")) {}
+    LexAction::LexAction() :
+        type(LexActionTypeError),
+        symbol(Symbol("")),
+        state_index(-1) {}
 
     LexAction::LexAction(LexActionType type, size_t state_index, Symbol symbol) :
         type(type),
@@ -42,6 +45,8 @@ namespace tree_sitter {
                 return stream << string("#<accept ") + action.symbol.name + ">";
             case LexActionTypeAdvance:
                 return stream << string("#<advance ") + to_string(action.state_index) + ">";
+            default:
+                return stream;
         }
     }
 
