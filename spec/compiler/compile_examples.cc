@@ -1,8 +1,6 @@
 #include "compiler_spec_helper.h"
 #include <fstream>
 
-#include "stream_methods.h"
-
 static string src_dir() {
     const char * dir = getenv("TREESITTER_DIR");
     if (!dir) dir = getenv("PWD");
