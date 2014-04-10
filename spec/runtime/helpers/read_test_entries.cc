@@ -2,36 +2,52 @@
 #include <string>
 #include <fstream>
 #include <streambuf>
-#include <regex>
 #include <dirent.h>
+
+#ifdef USE_BOOST_REGEX
+
+#include "boost/regex.hpp"
+using boost::regex;
+using boost::regex_search;
+using boost::regex_replace;
+using boost::smatch;
+using boost::regex_constants::extended;
+
+#else
+
+#include <regex>
+using std::regex;
+using std::regex_search;
+using std::regex_replace;
+using std::smatch;
+using std::regex_constants::extended;
+
+#endif
 
 using std::string;
 using std::vector;
 using std::ifstream;
 using std::istreambuf_iterator;
-using std::regex;
-using std::regex_search;
-using std::regex_replace;
 
 static string trim_output(const string &input) {
     string result(input);
-    result = regex_replace(result, regex("[\n\t ]+", std::regex_constants::extended), string(" "));
-    result = regex_replace(result, regex("^ ", std::regex_constants::extended), string(""));
-    result = regex_replace(result, regex(" $", std::regex_constants::extended), string(""));
-    result = regex_replace(result, regex("\\) \\)", std::regex_constants::extended), string("))"));
+    result = regex_replace(result, regex("[\n\t ]+", extended), string(" "));
+    result = regex_replace(result, regex("^ ", extended), string(""));
+    result = regex_replace(result, regex(" $", extended), string(""));
+    result = regex_replace(result, regex("\\) \\)", extended), string("))"));
     return result;
 }
 
 static vector<TestEntry> get_test_entries_from_string(string content) {
-    regex header_pattern("===+\n"  "([^=]+)\n"  "===+", std::regex_constants::extended);
-    regex separator_pattern("---+", std::regex_constants::extended);
+    regex header_pattern("===+\n"  "([^=]+)\n"  "===+", extended);
+    regex separator_pattern("---+", extended);
     vector<string> descriptions;
     vector<string> bodies;
 
     for (;;) {
-        std::smatch matches;
-        regex_search(content, matches, header_pattern);
-        if (matches.empty()) break;
+        smatch matches;
+        if (!regex_search(content, matches, header_pattern) || matches.empty())
+            break;
 
         string description = matches[1].str();
         descriptions.push_back(description);
@@ -45,13 +61,14 @@ static vector<TestEntry> get_test_entries_from_string(string content) {
 	vector<TestEntry> result;
     for (size_t i = 0; i < descriptions.size(); i++) {
         string body = bodies[i];
-        std::smatch matches;
-        regex_search(body, matches, separator_pattern);
-        result.push_back({
-            descriptions[i],
-            body.substr(0, matches.position()),
-            trim_output(body.substr(matches.position() + matches[0].length()))
-        });
+        smatch matches;
+        if (regex_search(body, matches, separator_pattern)) {
+            result.push_back({
+                descriptions[i],
+                body.substr(0, matches.position()),
+                trim_output(body.substr(matches.position() + matches[0].length()))
+            });
+        }
     }
 
 	return result;
