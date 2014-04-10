@@ -35,6 +35,7 @@ namespace tree_sitter {
         Conflict(std::string description);
         std::string description;
         bool operator==(const Conflict &other) const;
+        bool operator<(const Conflict &other) const;
     };
 
     std::ostream& operator<<(std::ostream &stream, const Grammar &grammar);

@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <set>
 #include "tree_sitter/compiler.h"
 #include "compiler/parse_table.h"
 #include "compiler/prepared_grammar.h"
@@ -14,7 +15,7 @@ namespace tree_sitter {
             const PreparedGrammar parse_grammar;
             const PreparedGrammar lex_grammar;
             const std::map<rules::Symbol, std::string> rule_names;
-            std::vector<Conflict> conflicts_;
+            std::set<Conflict> conflicts_;
 
         public:
             ConflictManager(const PreparedGrammar &parse_grammar,
@@ -28,7 +29,7 @@ namespace tree_sitter {
                                       const ParseAction &new_action);
 
             void record_conflict(const rules::Symbol &symbol, const ParseAction &left, const ParseAction &right);
-            const std::vector<Conflict> & conflicts() const;
+            const std::vector<Conflict> conflicts() const;
         };
     }
 }

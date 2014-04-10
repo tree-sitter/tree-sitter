@@ -24,7 +24,7 @@ describe("compiling the example grammars", []() {
             ofstream file(example_parser_dir + language + ".c");
             auto result = compile(grammar, language);
 
-//            cout << "\n conflicts for " << language << "\n:" << result.second;
+//            cout << "\n\nconflicts for " << language << ":\n" << result.second;
 
             file << result.first;
             file.close();

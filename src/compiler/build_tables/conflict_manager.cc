@@ -2,6 +2,7 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <set>
 
 namespace tree_sitter {
     namespace build_tables {
@@ -29,7 +30,7 @@ namespace tree_sitter {
         }
 
         void ConflictManager::record_conflict(const rules::Symbol &symbol, const ParseAction &left, const ParseAction &right) {
-            conflicts_.push_back(Conflict(rule_names.find(symbol)->second + ": " + message_for_action(left, rule_names) + " / " + message_for_action(right, rule_names)));
+            conflicts_.insert(Conflict(rule_names.find(symbol)->second + ": " + message_for_action(left, rule_names) + " / " + message_for_action(right, rule_names)));
         }
 
         ConflictManager::ConflictManager(const PreparedGrammar &parse_grammar,
@@ -92,8 +93,10 @@ namespace tree_sitter {
             return false;
         }
 
-        const vector<Conflict> & ConflictManager::conflicts() const {
-            return conflicts_;
+        const vector<Conflict> ConflictManager::conflicts() const {
+            vector<Conflict> result;
+            result.insert(result.end(), conflicts_.begin(), conflicts_.end());
+            return result;
         }
     }
 }

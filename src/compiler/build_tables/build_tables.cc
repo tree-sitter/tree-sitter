@@ -171,7 +171,7 @@ namespace tree_sitter {
                 add_error_lex_state();
             }
 
-            const vector<Conflict> & conflicts() {
+            const vector<Conflict> conflicts() {
                 return conflict_manager.conflicts();
             };
             

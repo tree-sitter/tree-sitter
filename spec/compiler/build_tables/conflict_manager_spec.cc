@@ -71,8 +71,9 @@ describe("resolving parse conflicts", []() {
                 manager->resolve_parse_action(sym1, ParseAction::Reduce(sym2, 1), ParseAction::Shift(2));
                 manager->resolve_parse_action(sym1, ParseAction::Shift(2), ParseAction::Reduce(sym2, 1));
 
-                AssertThat(manager->conflicts()[0], Equals(Conflict("rule1: shift / reduce rule2")));
-                AssertThat(manager->conflicts()[1], Equals(Conflict("rule1: shift / reduce rule2")));
+                AssertThat(manager->conflicts(), Equals(vector<Conflict>({
+                    Conflict("rule1: shift / reduce rule2")
+                })));
             });
 
             it("favors the shift", [&]() {
@@ -89,8 +90,10 @@ describe("resolving parse conflicts", []() {
                 manager->resolve_parse_action(sym1, ParseAction::Reduce(sym2, 1), ParseAction::Reduce(sym1, 1));
                 manager->resolve_parse_action(sym1, ParseAction::Reduce(sym1, 1), ParseAction::Reduce(sym2, 1));
                 
-                AssertThat(manager->conflicts()[0], Equals(Conflict("rule1: reduce rule2 / reduce rule1")));
-                AssertThat(manager->conflicts()[1], Equals(Conflict("rule1: reduce rule1 / reduce rule2")));
+                AssertThat(manager->conflicts(), Equals(vector<Conflict>({
+                    Conflict("rule1: reduce rule2 / reduce rule1"),
+                    Conflict("rule1: reduce rule1 / reduce rule2")
+                })));
             });
             
             it("favors the symbol listed earlier in the grammar", [&]() {
