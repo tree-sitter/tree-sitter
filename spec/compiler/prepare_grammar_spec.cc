@@ -68,24 +68,36 @@ describe("preparing a grammar", []() {
                 { "rule1", seq({
                     sym("x"),
                     repeat(seq({ sym("a"), sym("b") })),
+                    repeat(sym("a")),
                     sym("y")
                 }) },
+                { "rule2", repeat(sym("b")) },
             })).first;
 
             AssertThat(result, Equals(PreparedGrammar({
                 { "rule1", seq({
                     sym("x"),
-                    make_shared<Symbol>("repeat_helper1", SymbolTypeAuxiliary),
-                    sym("y")
-                }) },
+                    make_shared<Symbol>("rule1_repeat1", SymbolTypeAuxiliary),
+                    make_shared<Symbol>("rule1_repeat2", SymbolTypeAuxiliary),
+                    sym("y") }) },
+                { "rule2", make_shared<Symbol>("rule2_repeat1", SymbolTypeAuxiliary) },
             }, {
-                { "repeat_helper1", choice({
+                { "rule1_repeat1", choice({
                     seq({
                         seq({ sym("a"), sym("b") }),
-                        make_shared<Symbol>("repeat_helper1", SymbolTypeAuxiliary),
+                        make_shared<Symbol>("rule1_repeat1", SymbolTypeAuxiliary),
                     }),
-                    blank(),
-                }) }
+                    blank() }) },
+                { "rule1_repeat2", choice({
+                    seq({
+                        sym("a"),
+                        make_shared<Symbol>("rule1_repeat2", SymbolTypeAuxiliary) }),
+                    blank() }) },
+                { "rule2_repeat1", choice({
+                    seq({
+                        sym("b"),
+                        make_shared<Symbol>("rule2_repeat1", SymbolTypeAuxiliary) }),
+                    blank() }) }
             })));
         });
     });

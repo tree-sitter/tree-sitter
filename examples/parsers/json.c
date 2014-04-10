@@ -12,8 +12,8 @@ enum {
     ts_sym_string = 7,
     ts_sym_true = 8,
     ts_sym_value = 9,
-    ts_aux_sym_repeat_helper1 = 10,
-    ts_aux_sym_repeat_helper2 = 11,
+    ts_aux_sym_array_repeat1 = 10,
+    ts_aux_sym_object_repeat1 = 11,
     ts_aux_sym_token1 = 12,
     ts_aux_sym_token2 = 13,
     ts_aux_sym_token3 = 14,
@@ -31,8 +31,8 @@ SYMBOL_NAMES = {
     [ts_sym_string] = "string",
     [ts_sym_true] = "true",
     [ts_sym_value] = "value",
-    [ts_aux_sym_repeat_helper1] = "repeat_helper1",
-    [ts_aux_sym_repeat_helper2] = "repeat_helper2",
+    [ts_aux_sym_array_repeat1] = "array_repeat1",
+    [ts_aux_sym_object_repeat1] = "object_repeat1",
     [ts_aux_sym_token1] = "'{'",
     [ts_aux_sym_token2] = "':'",
     [ts_aux_sym_token3] = "','",
@@ -44,8 +44,8 @@ SYMBOL_NAMES = {
 };
 
 HIDDEN_SYMBOLS = {
-    [ts_aux_sym_repeat_helper1] = 1,
-    [ts_aux_sym_repeat_helper2] = 1,
+    [ts_aux_sym_array_repeat1] = 1,
+    [ts_aux_sym_object_repeat1] = 1,
     [ts_aux_sym_token1] = 1,
     [ts_aux_sym_token2] = 1,
     [ts_aux_sym_token3] = 1,
@@ -468,9 +468,9 @@ PARSE_TABLE = {
         [ts_aux_sym_token4] = REDUCE(ts_sym_value, 1),
     },
     [7] = {
-        [ts_aux_sym_repeat_helper1] = SHIFT(8),
+        [ts_aux_sym_object_repeat1] = SHIFT(8),
         [ts_aux_sym_token3] = SHIFT(10),
-        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_repeat_helper1, 0),
+        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_object_repeat1, 0),
     },
     [8] = {
         [ts_aux_sym_token4] = SHIFT(9),
@@ -498,12 +498,12 @@ PARSE_TABLE = {
         [ts_aux_sym_token5] = SHIFT(21),
     },
     [13] = {
-        [ts_aux_sym_repeat_helper1] = SHIFT(14),
+        [ts_aux_sym_object_repeat1] = SHIFT(14),
         [ts_aux_sym_token3] = SHIFT(10),
-        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_repeat_helper1, 0),
+        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_object_repeat1, 0),
     },
     [14] = {
-        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_repeat_helper1, 5),
+        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_object_repeat1, 5),
     },
     [15] = {
         [ts_sym_string] = SHIFT(16),
@@ -526,9 +526,9 @@ PARSE_TABLE = {
         [ts_aux_sym_token5] = SHIFT(21),
     },
     [18] = {
-        [ts_aux_sym_repeat_helper1] = SHIFT(19),
+        [ts_aux_sym_object_repeat1] = SHIFT(19),
         [ts_aux_sym_token3] = SHIFT(10),
-        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_repeat_helper1, 0),
+        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_object_repeat1, 0),
     },
     [19] = {
         [ts_aux_sym_token4] = SHIFT(20),
@@ -556,9 +556,9 @@ PARSE_TABLE = {
         [ts_aux_sym_token6] = REDUCE(ts_sym_value, 1),
     },
     [23] = {
-        [ts_aux_sym_repeat_helper2] = SHIFT(24),
+        [ts_aux_sym_array_repeat1] = SHIFT(24),
         [ts_aux_sym_token3] = SHIFT(26),
-        [ts_aux_sym_token6] = REDUCE(ts_aux_sym_repeat_helper2, 0),
+        [ts_aux_sym_token6] = REDUCE(ts_aux_sym_array_repeat1, 0),
     },
     [24] = {
         [ts_aux_sym_token6] = SHIFT(25),
@@ -581,12 +581,12 @@ PARSE_TABLE = {
         [ts_builtin_sym_error] = SHIFT(27),
     },
     [27] = {
-        [ts_aux_sym_repeat_helper2] = SHIFT(28),
+        [ts_aux_sym_array_repeat1] = SHIFT(28),
         [ts_aux_sym_token3] = SHIFT(26),
-        [ts_aux_sym_token6] = REDUCE(ts_aux_sym_repeat_helper2, 0),
+        [ts_aux_sym_token6] = REDUCE(ts_aux_sym_array_repeat1, 0),
     },
     [28] = {
-        [ts_aux_sym_token6] = REDUCE(ts_aux_sym_repeat_helper2, 3),
+        [ts_aux_sym_token6] = REDUCE(ts_aux_sym_array_repeat1, 3),
     },
     [29] = {
         [ts_sym_string] = SHIFT(30),
@@ -609,9 +609,9 @@ PARSE_TABLE = {
         [ts_aux_sym_token5] = SHIFT(21),
     },
     [32] = {
-        [ts_aux_sym_repeat_helper1] = SHIFT(33),
+        [ts_aux_sym_object_repeat1] = SHIFT(33),
         [ts_aux_sym_token3] = SHIFT(10),
-        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_repeat_helper1, 0),
+        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_object_repeat1, 0),
     },
     [33] = {
         [ts_aux_sym_token4] = SHIFT(34),
@@ -625,9 +625,9 @@ PARSE_TABLE = {
         [ts_aux_sym_token6] = REDUCE(ts_sym_object, 2),
     },
     [36] = {
-        [ts_aux_sym_repeat_helper1] = SHIFT(37),
+        [ts_aux_sym_object_repeat1] = SHIFT(37),
         [ts_aux_sym_token3] = SHIFT(10),
-        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_repeat_helper1, 0),
+        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_object_repeat1, 0),
     },
     [37] = {
         [ts_aux_sym_token4] = SHIFT(38),
@@ -651,9 +651,9 @@ PARSE_TABLE = {
         [ts_builtin_sym_error] = SHIFT(40),
     },
     [40] = {
-        [ts_aux_sym_repeat_helper2] = SHIFT(41),
+        [ts_aux_sym_array_repeat1] = SHIFT(41),
         [ts_aux_sym_token3] = SHIFT(26),
-        [ts_aux_sym_token6] = REDUCE(ts_aux_sym_repeat_helper2, 0),
+        [ts_aux_sym_token6] = REDUCE(ts_aux_sym_array_repeat1, 0),
     },
     [41] = {
         [ts_aux_sym_token6] = SHIFT(42),
@@ -675,9 +675,9 @@ PARSE_TABLE = {
         [ts_aux_sym_token4] = REDUCE(ts_sym_object, 2),
     },
     [46] = {
-        [ts_aux_sym_repeat_helper1] = SHIFT(47),
+        [ts_aux_sym_object_repeat1] = SHIFT(47),
         [ts_aux_sym_token3] = SHIFT(10),
-        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_repeat_helper1, 0),
+        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_object_repeat1, 0),
     },
     [47] = {
         [ts_aux_sym_token4] = SHIFT(48),
@@ -687,20 +687,20 @@ PARSE_TABLE = {
         [ts_aux_sym_token4] = REDUCE(ts_sym_object, 4),
     },
     [49] = {
-        [ts_aux_sym_repeat_helper1] = SHIFT(50),
+        [ts_aux_sym_object_repeat1] = SHIFT(50),
         [ts_aux_sym_token3] = SHIFT(10),
-        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_repeat_helper1, 0),
+        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_object_repeat1, 0),
     },
     [50] = {
-        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_repeat_helper1, 3),
+        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_object_repeat1, 3),
     },
     [51] = {
         [ts_builtin_sym_end] = REDUCE(ts_sym_object, 2),
     },
     [52] = {
-        [ts_aux_sym_repeat_helper1] = SHIFT(53),
+        [ts_aux_sym_object_repeat1] = SHIFT(53),
         [ts_aux_sym_token3] = SHIFT(10),
-        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_repeat_helper1, 0),
+        [ts_aux_sym_token4] = REDUCE(ts_aux_sym_object_repeat1, 0),
     },
     [53] = {
         [ts_aux_sym_token4] = SHIFT(54),
@@ -723,9 +723,9 @@ PARSE_TABLE = {
         [ts_builtin_sym_error] = SHIFT(56),
     },
     [56] = {
-        [ts_aux_sym_repeat_helper2] = SHIFT(57),
+        [ts_aux_sym_array_repeat1] = SHIFT(57),
         [ts_aux_sym_token3] = SHIFT(26),
-        [ts_aux_sym_token6] = REDUCE(ts_aux_sym_repeat_helper2, 0),
+        [ts_aux_sym_token6] = REDUCE(ts_aux_sym_array_repeat1, 0),
     },
     [57] = {
         [ts_aux_sym_token6] = SHIFT(58),

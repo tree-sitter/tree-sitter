@@ -25,31 +25,36 @@ namespace tree_sitter {
 
     namespace prepare_grammar {
         class ExpandRepeats : public rules::IdentityRuleFn {
-            rule_ptr make_repeat_helper(string name, const rule_ptr &rule) {
-                return Choice::Build({
-                    Seq::Build({ rule, make_shared<Symbol>(name, rules::SymbolTypeAuxiliary) }),
-                    make_shared<Blank>() });
-            }
-
+            string rule_name;
+            
             rule_ptr apply_to(const Repeat *rule) {
                 rule_ptr inner_rule = apply(rule->content);
-                string helper_rule_name = string("repeat_helper") + to_string(aux_rules.size() + 1);
-                aux_rules.push_back({ helper_rule_name, make_repeat_helper(helper_rule_name, inner_rule) });
-                return make_shared<Symbol>(helper_rule_name, rules::SymbolTypeAuxiliary);
+                string helper_rule_name = rule_name + string("_repeat") + to_string(aux_rules.size() + 1);
+                rule_ptr repeat_symbol = make_shared<Symbol>(helper_rule_name, rules::SymbolTypeAuxiliary);
+                aux_rules.push_back({
+                    helper_rule_name,
+                    Choice::Build({
+                        Seq::Build({ inner_rule, repeat_symbol }),
+                        make_shared<Blank>()
+                    })
+                });
+                return repeat_symbol;
             }
 
         public:
+            ExpandRepeats(string rule_name) : rule_name(rule_name) {}
+            
             vector<pair<string, rules::rule_ptr>> aux_rules;
         };
 
         PreparedGrammar expand_repeats(const PreparedGrammar &grammar) {
             vector<pair<string, rules::rule_ptr>> rules, aux_rules(grammar.aux_rules);
-            ExpandRepeats expander;
 
-            for (auto &pair : grammar.rules)
+            for (auto &pair : grammar.rules) {
+                ExpandRepeats expander(pair.first);
                 rules.push_back({ pair.first, expander.apply(pair.second) });
-
-            aux_rules.insert(aux_rules.end(), expander.aux_rules.begin(), expander.aux_rules.end());
+                aux_rules.insert(aux_rules.end(), expander.aux_rules.begin(), expander.aux_rules.end());
+            }
 
             return PreparedGrammar(rules, aux_rules);
         }

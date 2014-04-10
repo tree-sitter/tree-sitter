@@ -687,9 +687,9 @@ PARSE_TABLE = {
         [ts_builtin_sym_error] = SHIFT(54),
     },
     [23] = {
-        [ts_aux_sym_token2] = REDUCE(ts_sym_product, 1),
-        [ts_aux_sym_token3] = REDUCE(ts_sym_product, 1),
-        [ts_aux_sym_token4] = REDUCE(ts_sym_quotient, 1),
+        [ts_aux_sym_token2] = REDUCE(ts_sym_quotient, 1),
+        [ts_aux_sym_token3] = REDUCE(ts_sym_quotient, 1),
+        [ts_aux_sym_token4] = REDUCE(ts_sym_product, 1),
         [ts_aux_sym_token5] = SHIFT(24),
         [ts_aux_sym_token6] = SHIFT(52),
     },
@@ -1209,10 +1209,10 @@ PARSE_TABLE = {
     },
     [102] = {
         [ts_aux_sym_token3] = REDUCE(ts_sym_quotient, 1),
-        [ts_aux_sym_token4] = REDUCE(ts_sym_product, 1),
+        [ts_aux_sym_token4] = REDUCE(ts_sym_quotient, 1),
         [ts_aux_sym_token5] = SHIFT(103),
         [ts_aux_sym_token6] = SHIFT(117),
-        [ts_builtin_sym_end] = REDUCE(ts_sym_product, 1),
+        [ts_builtin_sym_end] = REDUCE(ts_sym_quotient, 1),
     },
     [103] = {
         [ts_sym__operand2] = SHIFT(104),
