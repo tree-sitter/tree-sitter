@@ -63,6 +63,15 @@
         'examples',
         'spec/runtime',
       ],
+      'variables': {
+        'USE_BOOST_REGEX%': 'false',
+      },
+      'conditions': [
+        ['USE_BOOST_REGEX != "false"', {
+          'defines': ['USE_BOOST_REGEX'],
+          'libraries': ['-lboost_regex'],
+        }]
+      ],
       'sources': [
         '<!@(find spec/runtime -name "*.h" -or -name "*.cc")',
         '<!@(find examples/parsers -name "*.c")',

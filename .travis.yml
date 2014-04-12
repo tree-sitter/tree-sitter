@@ -3,7 +3,5 @@ compiler:
     - gcc
 before_install:
   - sudo apt-get install libboost-regex1.48-dev
-env:
-  - CXXFLAGS='-D USE_BOOST_REGEX' LDFLAGS='-lboost_regex'
-install: script/configure.sh
+install: script/configure.sh -D USE_BOOST_REGEX
 script: script/test.sh
