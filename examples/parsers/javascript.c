@@ -2686,6 +2686,9 @@ LEX_STATES = {
     [603] = 140,
 };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+
 PARSE_TABLE = {
     [0] = {
         [ts_sym__break] = SHIFT(1),
@@ -8842,5 +8845,7 @@ PARSE_TABLE = {
         [ts_builtin_sym_end] = REDUCE(ts_sym_program, 1),
     },
 };
+
+#pragma GCC diagnostic pop
 
 EXPORT_PARSER(ts_parser_javascript);

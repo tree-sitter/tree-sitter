@@ -530,6 +530,9 @@ LEX_STATES = {
     [133] = 26,
 };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+
 PARSE_TABLE = {
     [0] = {
         [ts_sym__operand1] = SHIFT(1),
@@ -549,7 +552,7 @@ PARSE_TABLE = {
     [1] = {
         [ts_aux_sym_token3] = SHIFT(2),
         [ts_aux_sym_token4] = SHIFT(100),
-        [ts_builtin_sym_end] = REDUCE(ts_sym_difference, 1),
+        [ts_builtin_sym_end] = REDUCE(ts_sym_sum, 1),
     },
     [2] = {
         [ts_sym__operand1] = SHIFT(3),
@@ -569,7 +572,7 @@ PARSE_TABLE = {
     [4] = {
         [ts_aux_sym_token5] = SHIFT(5),
         [ts_aux_sym_token6] = SHIFT(85),
-        [ts_builtin_sym_end] = REDUCE(ts_sym_product, 1),
+        [ts_builtin_sym_end] = REDUCE(ts_sym_quotient, 1),
     },
     [5] = {
         [ts_sym__operand2] = SHIFT(6),
@@ -617,7 +620,7 @@ PARSE_TABLE = {
         [ts_builtin_sym_error] = SHIFT(78),
     },
     [12] = {
-        [ts_aux_sym_token2] = REDUCE(ts_sym_difference, 1),
+        [ts_aux_sym_token2] = REDUCE(ts_sym_sum, 1),
         [ts_aux_sym_token3] = SHIFT(13),
         [ts_aux_sym_token4] = SHIFT(76),
     },
@@ -687,9 +690,9 @@ PARSE_TABLE = {
         [ts_builtin_sym_error] = SHIFT(54),
     },
     [23] = {
-        [ts_aux_sym_token2] = REDUCE(ts_sym_quotient, 1),
+        [ts_aux_sym_token2] = REDUCE(ts_sym_product, 1),
         [ts_aux_sym_token3] = REDUCE(ts_sym_quotient, 1),
-        [ts_aux_sym_token4] = REDUCE(ts_sym_product, 1),
+        [ts_aux_sym_token4] = REDUCE(ts_sym_quotient, 1),
         [ts_aux_sym_token5] = SHIFT(24),
         [ts_aux_sym_token6] = SHIFT(52),
     },
@@ -1208,11 +1211,11 @@ PARSE_TABLE = {
         [ts_builtin_sym_end] = REDUCE(ts_sym_difference, 3),
     },
     [102] = {
-        [ts_aux_sym_token3] = REDUCE(ts_sym_quotient, 1),
+        [ts_aux_sym_token3] = REDUCE(ts_sym_product, 1),
         [ts_aux_sym_token4] = REDUCE(ts_sym_quotient, 1),
         [ts_aux_sym_token5] = SHIFT(103),
         [ts_aux_sym_token6] = SHIFT(117),
-        [ts_builtin_sym_end] = REDUCE(ts_sym_quotient, 1),
+        [ts_builtin_sym_end] = REDUCE(ts_sym_product, 1),
     },
     [103] = {
         [ts_sym__operand2] = SHIFT(104),
@@ -1434,5 +1437,7 @@ PARSE_TABLE = {
         [ts_builtin_sym_end] = REDUCE(ts_sym_grouping, 3),
     },
 };
+
+#pragma GCC diagnostic pop
 
 EXPORT_PARSER(ts_parser_arithmetic);

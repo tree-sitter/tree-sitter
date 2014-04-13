@@ -9,13 +9,6 @@ extern "C" {
 #include <stdio.h>
 #include "tree_sitter/runtime.h"
 
-/*
- *  Parsing DSL Macros
- *
- *  Generated parser use these macros. They prevent the code generator
- *  from having too much knowledge of the runtime types and functions.
- */
-
 //#define TS_DEBUG_PARSE
 //#define TS_DEBUG_LEX
 

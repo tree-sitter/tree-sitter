@@ -239,6 +239,9 @@ namespace tree_sitter {
             string parse_table_array() {
                 size_t state_id = 0;
                 return join({
+                    "#pragma GCC diagnostic push",
+                    "#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"",
+                    "",
                     "PARSE_TABLE = {",
                     indent(join(map_to_string<ParseState>(parse_table.states, [&](ParseState state) {
                         string result = "[" + to_string(state_id++) + "] = {\n";
@@ -246,7 +249,9 @@ namespace tree_sitter {
                             result += indent("[" + symbol_id(pair.first) + "] = " + code_for_parse_action(pair.second) + ",") + "\n";
                         return result + "},";
                     }), "\n")),
-                    "};"
+                    "};",
+                    "",
+                    "#pragma GCC diagnostic pop"
                 });
             }
 

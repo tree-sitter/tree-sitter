@@ -424,6 +424,9 @@ LEX_STATES = {
     [59] = 0,
 };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+
 PARSE_TABLE = {
     [0] = {
         [ts_sym_array] = SHIFT(1),
@@ -737,5 +740,7 @@ PARSE_TABLE = {
         [ts_builtin_sym_end] = REDUCE(ts_sym_array, 2),
     },
 };
+
+#pragma GCC diagnostic pop
 
 EXPORT_PARSER(ts_parser_json);

@@ -1304,6 +1304,9 @@ LEX_STATES = {
     [195] = 75,
 };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+
 PARSE_TABLE = {
     [0] = {
         [ts_sym__package] = SHIFT(1),
@@ -2428,5 +2431,7 @@ PARSE_TABLE = {
         [ts_builtin_sym_end] = ACCEPT_INPUT(),
     },
 };
+
+#pragma GCC diagnostic pop
 
 EXPORT_PARSER(ts_parser_golang);
