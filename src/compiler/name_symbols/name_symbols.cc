@@ -42,7 +42,7 @@ namespace tree_sitter {
                     Symbol(pair.first, SymbolTypeAuxiliary),
                     TokenName().apply(pair.second)
                 });
-            
+
             result.insert({ rules::END_OF_INPUT(), "EOF" });
             result.insert({ rules::ERROR(), "ERROR" });
 

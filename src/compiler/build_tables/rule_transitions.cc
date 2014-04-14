@@ -94,7 +94,7 @@ namespace tree_sitter {
             map<T, rule_ptr> apply_to(const rules::Metadata *rule) {
                 return this->apply(rule->rule);
             }
-            
+
             map<T, rule_ptr> apply_to(const rules::String *rule) {
                 rule_ptr result = make_shared<rules::Blank>();
                 for (char val : rule->value)

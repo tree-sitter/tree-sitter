@@ -20,7 +20,7 @@ namespace tree_sitter {
         auto table_build_result = build_tables::build_tables(syntax_grammar, lexical_grammar, symbol_names);
         auto tables = table_build_result.first;
         auto conflicts = table_build_result.second;
-        
+
         ParseTable &parse_table = tables.first;
         LexTable &lex_table = tables.second;
 

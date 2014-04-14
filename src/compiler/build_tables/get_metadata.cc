@@ -1,4 +1,4 @@
-#include "get_metadata.h"
+#include "compiler/build_tables/get_metadata.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/choice.h"
 #include "compiler/rules/repeat.h"

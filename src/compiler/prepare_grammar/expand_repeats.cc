@@ -1,6 +1,7 @@
 #include "compiler/prepare_grammar/expand_repeats.h"
 #include <vector>
 #include <string>
+#include <utility>
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
@@ -26,7 +27,7 @@ namespace tree_sitter {
     namespace prepare_grammar {
         class ExpandRepeats : public rules::IdentityRuleFn {
             string rule_name;
-            
+
             rule_ptr apply_to(const Repeat *rule) {
                 rule_ptr inner_rule = apply(rule->content);
                 string helper_rule_name = rule_name + string("_repeat") + to_string(aux_rules.size() + 1);
@@ -43,7 +44,7 @@ namespace tree_sitter {
 
         public:
             ExpandRepeats(string rule_name) : rule_name(rule_name) {}
-            
+
             vector<pair<string, rules::rule_ptr>> aux_rules;
         };
 

@@ -35,7 +35,7 @@ namespace tree_sitter {
                 case MAX_CHAR:
                     return "<MAX>";
                 default:
-                    return string() + char(input);
+                    return string() + static_cast<char>(input);
             }
         }
 

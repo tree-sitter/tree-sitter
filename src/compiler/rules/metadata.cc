@@ -1,7 +1,7 @@
 #include "compiler/rules/metadata.h"
 #include <string>
-#include "compiler/rules/visitor.h"
 #include <map>
+#include "compiler/rules/visitor.h"
 
 namespace tree_sitter  {
     using std::hash;

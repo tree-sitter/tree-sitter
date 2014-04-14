@@ -15,7 +15,7 @@ describe("assigning user-visible names to symbols", [&]() {
             make_shared<Symbol>("some_generated_string_name", SymbolTypeAuxiliary),
             make_shared<Symbol>("some_generated_pattern_name", SymbolTypeAuxiliary), }) },
     }, {});
-    
+
     PreparedGrammar lexical_grammar({
         { "some_given_name", str("the-string") },
     }, {
@@ -24,7 +24,7 @@ describe("assigning user-visible names to symbols", [&]() {
     });
 
     map<Symbol, string> result = name_symbols::name_symbols(syntactic_grammar, lexical_grammar);
-    
+
     describe("for symbols that are not in the lexical grammar (syntactic rules)", [&]() {
         it("uses the symbol's normal name", [&]() {
             auto symbol = Symbol("some_syntactic_symbol");
@@ -48,7 +48,7 @@ describe("assigning user-visible names to symbols", [&]() {
             AssertThat(result[symbol], Equals("/the-pattern/"));
         });
     });
-    
+
     it("assigns names to the built-in symbols", [&]() {
         AssertThat(result[rules::END_OF_INPUT()], Equals("EOF"));
         AssertThat(result[rules::ERROR()], Equals("ERROR"));

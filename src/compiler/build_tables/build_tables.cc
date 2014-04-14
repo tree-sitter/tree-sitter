@@ -1,6 +1,7 @@
 #include "compiler/build_tables/build_tables.h"
 #include <string>
 #include <utility>
+#include <map>
 #include <unordered_map>
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
@@ -35,7 +36,7 @@ namespace tree_sitter {
                 for (auto &transition : sym_transitions(item_set, grammar)) {
                     const Symbol &symbol = transition.first;
                     const ParseItemSet &item_set = transition.second;
-                    
+
                     auto current_actions = parse_table.states[state_id].actions;
                     auto current_action = current_actions.find(symbol);
                     if (current_action == current_actions.end() ||
@@ -174,7 +175,7 @@ namespace tree_sitter {
             const vector<Conflict> conflicts() {
                 return conflict_manager.conflicts();
             };
-            
+
             ParseTable parse_table;
             LexTable lex_table;
         };

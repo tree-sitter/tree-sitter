@@ -46,7 +46,7 @@ namespace tree_sitter {
                                                    const ParseAction &new_action) {
             if (new_action.type < old_action.type)
                 return !resolve_parse_action(symbol, new_action, old_action);
-            
+
             switch (old_action.type) {
                 case ParseActionTypeError:
                     return true;
@@ -88,9 +88,9 @@ namespace tree_sitter {
                         size_t new_index = lex_grammar.index_of(new_action.symbol);
                         return (new_index < old_index);
                     }
-                default:;
+                default:
+                    return false;
             }
-            return false;
         }
 
         const vector<Conflict> ConflictManager::conflicts() const {

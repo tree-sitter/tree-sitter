@@ -89,17 +89,17 @@ describe("resolving parse conflicts", []() {
             it("records a conflict", [&]() {
                 manager->resolve_parse_action(sym1, ParseAction::Reduce(sym2, 1), ParseAction::Reduce(sym1, 1));
                 manager->resolve_parse_action(sym1, ParseAction::Reduce(sym1, 1), ParseAction::Reduce(sym2, 1));
-                
+
                 AssertThat(manager->conflicts(), Equals(vector<Conflict>({
                     Conflict("rule1: reduce rule2 / reduce rule1"),
                     Conflict("rule1: reduce rule1 / reduce rule2")
                 })));
             });
-            
+
             it("favors the symbol listed earlier in the grammar", [&]() {
                 should_update = manager->resolve_parse_action(sym1, ParseAction::Reduce(sym2, 1), ParseAction::Reduce(sym1, 1));
                 AssertThat(should_update, IsTrue());
-                
+
                 should_update = manager->resolve_parse_action(sym1, ParseAction::Reduce(sym1, 1), ParseAction::Reduce(sym2, 1));
                 AssertThat(should_update, IsFalse());
             });

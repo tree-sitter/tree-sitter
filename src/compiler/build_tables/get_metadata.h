@@ -1,5 +1,5 @@
-#ifndef COMPILER_BUILD_TABLES_CHECK_METADATA_
-#define COMPILER_BUILD_TABLES_CHECK_METADATA_
+#ifndef COMPILER_BUILD_TABLES_GET_METADATA_H_
+#define COMPILER_BUILD_TABLES_GET_METADATA_H_
 
 #include "compiler/rules/rule.h"
 #include "compiler/rules/metadata.h"
@@ -10,4 +10,4 @@ namespace tree_sitter {
     }
 }
 
-#endif  // COMPILER_BUILD_TABLES_CHECK_METADATA_
+#endif  // COMPILER_BUILD_TABLES_GET_METADATA_H_

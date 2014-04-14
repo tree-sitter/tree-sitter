@@ -3,6 +3,8 @@
 
 #include <utility>
 #include <vector>
+#include <string>
+#include <map>
 #include "tree_sitter/compiler.h"
 #include "compiler/parse_table.h"
 #include "compiler/lex_table.h"
@@ -12,7 +14,7 @@ namespace tree_sitter {
 
     namespace build_tables {
         std::pair<std::pair<ParseTable, LexTable>, std::vector<Conflict>>
-        build_tables(const PreparedGrammar &grammar, 
+        build_tables(const PreparedGrammar &grammar,
                      const PreparedGrammar &lex_grammar,
                      const std::map<rules::Symbol, std::string> &rule_names);
     }

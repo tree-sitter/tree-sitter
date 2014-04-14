@@ -36,7 +36,7 @@ namespace tree_sitter {
                 rule->accept(this);
                 return value_;
             }
-            
+
         protected:
             virtual T default_apply(const Rule *rule) { return T(); }
             virtual T apply_to(const Blank *rule) { return default_apply((const Rule *)rule); }
@@ -58,7 +58,7 @@ namespace tree_sitter {
             void visit(const Seq *rule) { value_ = apply_to(rule); }
             void visit(const String *rule) { value_ = apply_to(rule); }
             void visit(const Symbol *rule) { value_ = apply_to(rule); }
-            
+
         private:
             T value_;
         };

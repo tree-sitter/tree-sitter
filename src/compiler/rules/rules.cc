@@ -1,3 +1,6 @@
+#include <vector>
+#include <set>
+#include <string>
 #include "tree_sitter/compiler.h"
 #include "compiler/rules/rule.h"
 #include "compiler/rules/blank.h"
