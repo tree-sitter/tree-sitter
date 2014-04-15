@@ -20,10 +20,6 @@ namespace tree_sitter {
             return rule_can_be_blank(rule);
         }
 
-        int Item::get_metadata(rules::MetadataKey key) const {
-            return build_tables::get_metadata(rule, key);
-        }
-
         ostream& operator<<(ostream &stream, const LexItem &item) {
             return stream <<
             string("#<item ") <<
@@ -53,6 +49,10 @@ namespace tree_sitter {
             bool rules_eq = (*other.rule == *rule);
             return lhs_eq && rules_eq;
         }
+        
+        bool LexItem::is_token_start() const {
+            return get_metadata(rule, rules::START_TOKEN) != 0;
+        }
 
         ParseItem::ParseItem(const Symbol &lhs,
                              const rule_ptr rule,
@@ -68,6 +68,10 @@ namespace tree_sitter {
             bool consumed_sym_counts_eq = (other.consumed_symbol_count == consumed_symbol_count);
             bool lookaheads_eq = other.lookahead_sym == lookahead_sym;
             return lhs_eq && rules_eq && consumed_sym_counts_eq && lookaheads_eq;
+        }
+        
+        int ParseItem::precedence() const {
+            return get_metadata(rule, rules::PRECEDENCE);
         }
     }
 }

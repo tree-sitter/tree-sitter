@@ -19,6 +19,7 @@ namespace tree_sitter {
     using rules::rule_ptr;
     using rules::Symbol;
     using rules::CharacterSet;
+    using rules::Metadata;
 
     namespace build_tables {
         template<typename T>
@@ -92,7 +93,9 @@ namespace tree_sitter {
             }
 
             map<T, rule_ptr> apply_to(const rules::Metadata *rule) {
-                return this->apply(rule->rule);
+                return map_transitions(this->apply(rule->rule), [&](const rule_ptr &to_rule) {
+                    return make_shared<Metadata>(to_rule, rule->value);
+                });
             }
 
             map<T, rule_ptr> apply_to(const rules::String *rule) {

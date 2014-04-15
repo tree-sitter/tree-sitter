@@ -4,7 +4,7 @@
 #include <utility>
 #include <vector>
 #include "compiler/generate_code/c_code.h"
-#include "compiler/generate_code/helpers.h"
+#include "compiler/util/string_helpers.h"
 #include "compiler/rules/built_in_symbols.h"
 
 namespace tree_sitter {
@@ -14,6 +14,9 @@ namespace tree_sitter {
     using std::vector;
     using std::set;
     using std::pair;
+    using util::join;
+    using util::indent;
+    using util::character_code;
 
     namespace generate_code {
         string _switch(string condition, string body) {

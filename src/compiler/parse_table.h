@@ -20,19 +20,21 @@ namespace tree_sitter {
         ParseAction(ParseActionType type,
                     size_t state_index,
                     rules::Symbol symbol,
-                    size_t consumed_symbol_count);
+                    size_t consumed_symbol_count,
+                    std::set<int> precedence_values);
     public:
         ParseAction();
         static ParseAction Accept();
         static ParseAction Error();
-        static ParseAction Shift(size_t state_index);
-        static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count);
+        static ParseAction Shift(size_t state_index, std::set<int> precedence_values);
+        static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count, int precedence);
         bool operator==(const ParseAction &action) const;
 
         ParseActionType type;
         rules::Symbol symbol;
         size_t state_index;
         size_t consumed_symbol_count;
+        std::set<int> precedence_values;
     };
 
     std::ostream& operator<<(std::ostream &stream, const ParseAction &item);

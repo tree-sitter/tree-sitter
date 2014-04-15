@@ -1,5 +1,6 @@
 #include "compiler_spec_helper.h"
 #include "compiler/build_tables/rule_transitions.h"
+#include "compiler/rules/metadata.h"
 
 using namespace rules;
 using namespace build_tables;
@@ -180,6 +181,19 @@ describe("rule transitions", []() {
             char_transitions(rule),
             Equals(rule_map<CharacterSet>({
                 { CharacterSet({ 'a' }), rule }
+            })));
+    });
+    
+    it("preserves metadata", [&]() {
+        map<MetadataKey, int> metadata_value({
+            { PRECEDENCE, 5 }
+        });
+        
+        rule_ptr rule = make_shared<Metadata>(seq({ sym("x"), sym("y") }), metadata_value);
+        AssertThat(
+            sym_transitions(rule),
+            Equals(rule_map<Symbol>({
+                { Symbol("x"), make_shared<Metadata>(sym("y"), metadata_value)},
             })));
     });
 

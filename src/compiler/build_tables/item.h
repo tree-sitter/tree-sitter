@@ -15,7 +15,6 @@ namespace tree_sitter {
         public:
             Item(const rules::Symbol &lhs, rules::rule_ptr rule);
             bool is_done() const;
-            int get_metadata(rules::MetadataKey) const;
 
             rules::Symbol lhs;
             rules::rule_ptr rule;
@@ -25,6 +24,7 @@ namespace tree_sitter {
         public:
             LexItem(const rules::Symbol &lhs, rules::rule_ptr rule);
             bool operator==(const LexItem &other) const;
+            bool is_token_start() const;
         };
 
         class ParseItem : public Item {
@@ -34,6 +34,7 @@ namespace tree_sitter {
                       const size_t consumed_symbol_count,
                       const rules::Symbol &lookahead_sym);
             bool operator==(const ParseItem &other) const;
+            int precedence() const;
 
             const size_t consumed_symbol_count;
             const rules::Symbol lookahead_sym;

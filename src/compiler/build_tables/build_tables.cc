@@ -2,11 +2,13 @@
 #include <string>
 #include <utility>
 #include <map>
+#include <set>
 #include <unordered_map>
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/rules/repeat.h"
+#include "compiler/rules/blank.h"
 #include "compiler/rules/seq.h"
 #include "compiler/build_tables/conflict_manager.h"
 #include "compiler/build_tables/item.h"
@@ -19,6 +21,7 @@ namespace tree_sitter {
     using std::string;
     using std::map;
     using std::vector;
+    using std::set;
     using std::unordered_map;
     using std::make_shared;
     using rules::Symbol;
@@ -32,17 +35,27 @@ namespace tree_sitter {
             unordered_map<const ParseItemSet, ParseStateId> parse_state_ids;
             unordered_map<const LexItemSet, LexStateId> lex_state_ids;
 
+            set<int> precedence_values_for_item_set(const ParseItemSet &item_set) {
+                set<int> result;
+                for (const auto &item : item_set)
+                    if (item.consumed_symbol_count > 0)
+                        result.insert(item.precedence());
+                return result;
+            }
+            
             void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (auto &transition : sym_transitions(item_set, grammar)) {
                     const Symbol &symbol = transition.first;
                     const ParseItemSet &item_set = transition.second;
+                    set<int> precedence_values = precedence_values_for_item_set(item_set);
 
                     auto current_actions = parse_table.states[state_id].actions;
                     auto current_action = current_actions.find(symbol);
+                    
                     if (current_action == current_actions.end() ||
-                        conflict_manager.resolve_parse_action(symbol, current_action->second, ParseAction::Shift(0))) {
+                        conflict_manager.resolve_parse_action(symbol, current_action->second, ParseAction::Shift(0, precedence_values))) {
                         ParseStateId new_state_id = add_parse_state(item_set);
-                        parse_table.add_action(state_id, symbol, ParseAction::Shift(new_state_id));
+                        parse_table.add_action(state_id, symbol, ParseAction::Shift(new_state_id, precedence_values));
                     }
                 }
             }
@@ -59,7 +72,7 @@ namespace tree_sitter {
 
             void add_token_start(const LexItemSet &item_set, LexStateId state_id) {
                 for (auto &item : item_set)
-                    if (item.get_metadata(rules::START_TOKEN))
+                    if (item.is_token_start())
                         lex_table.state(state_id).is_token_start = true;
             }
 
@@ -79,12 +92,14 @@ namespace tree_sitter {
                     if (item.is_done()) {
                         ParseAction action = (item.lhs == rules::START()) ?
                             ParseAction::Accept() :
-                            ParseAction::Reduce(item.lhs, item.consumed_symbol_count);
+                            ParseAction::Reduce(item.lhs, item.consumed_symbol_count, item.precedence());
                         auto current_actions = parse_table.states[state_id].actions;
                         auto current_action = current_actions.find(item.lookahead_sym);
+                        
                         if (current_action == current_actions.end() ||
-                            conflict_manager.resolve_parse_action(item.lookahead_sym, current_action->second, action))
+                            conflict_manager.resolve_parse_action(item.lookahead_sym, current_action->second, action)) {
                             parse_table.add_action(state_id, item.lookahead_sym, action);
+                        }
                     }
                 }
             }
@@ -92,7 +107,10 @@ namespace tree_sitter {
             rules::rule_ptr after_separators(rules::rule_ptr rule) {
                 return rules::Seq::Build({
                     make_shared<rules::Repeat>(CharacterSet({ ' ', '\t', '\n', '\r' }).copy()),
-                    make_shared<rules::Metadata>(rule, map<rules::MetadataKey, int>({ {rules::START_TOKEN, 1} }))
+                    make_shared<rules::Metadata>(make_shared<rules::Blank>(), map<rules::MetadataKey, int>({
+                        {rules::START_TOKEN, 1},
+                    })),
+                    rule
                 });
             }
 

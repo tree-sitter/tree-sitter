@@ -30,14 +30,14 @@ x + x
     (variable)
     (variable)))
 
-====================
-parses complex trees
-====================
-x * y + z / a
+===============================================
+binds multiplication more tightly than addition
+===============================================
+a * b + c * d
 ---
 (expression (sum
     (product (variable) (variable))
-    (quotient (variable) (variable))))
+    (product (variable) (variable))))
 
 ============================
 parses exponents
@@ -50,4 +50,4 @@ x + y * z^(a + b)
         (variable)
         (exponent
             (variable)
-            (grouping (sum (variable) (variable)))))))
+            (group (sum (variable) (variable)))))))

@@ -12,6 +12,4 @@ x + (y * + z) * 5
 ---
 (expression (sum
     (variable)
-    (product
-        (grouping (ERROR))
-        (number))))
+    (product (group (ERROR)) (number))))

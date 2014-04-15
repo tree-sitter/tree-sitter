@@ -12,11 +12,13 @@ namespace tree_sitter {
     ParseAction::ParseAction(ParseActionType type,
                              size_t state_index,
                              Symbol symbol,
-                             size_t consumed_symbol_count) :
+                             size_t consumed_symbol_count,
+                             set<int> precedence_values) :
         type(type),
         symbol(symbol),
         state_index(state_index),
-        consumed_symbol_count(consumed_symbol_count) {}
+        consumed_symbol_count(consumed_symbol_count),
+        precedence_values(precedence_values) {}
 
     ParseAction::ParseAction() :
         type(ParseActionTypeError),
@@ -25,19 +27,19 @@ namespace tree_sitter {
         consumed_symbol_count(0) {}
 
     ParseAction ParseAction::Error() {
-        return ParseAction(ParseActionTypeError, -1, Symbol(""), {});
+        return ParseAction(ParseActionTypeError, -1, Symbol(""), 0, { 0 });
     }
 
     ParseAction ParseAction::Accept() {
-        return ParseAction(ParseActionTypeAccept, -1, Symbol(""), {});
+        return ParseAction(ParseActionTypeAccept, -1, Symbol(""), 0, { 0 });
     }
 
-    ParseAction ParseAction::Shift(size_t state_index) {
-        return ParseAction(ParseActionTypeShift, state_index, Symbol(""), {});
+    ParseAction ParseAction::Shift(size_t state_index, set<int> precedence_values) {
+        return ParseAction(ParseActionTypeShift, state_index, Symbol(""), 0, precedence_values);
     }
 
-    ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count) {
-        return ParseAction(ParseActionTypeReduce, -1, symbol, consumed_symbol_count);
+    ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count, int precedence) {
+        return ParseAction(ParseActionTypeReduce, -1, symbol, consumed_symbol_count, { precedence });
     }
 
     bool ParseAction::operator==(const ParseAction &other) const {
@@ -90,6 +92,6 @@ namespace tree_sitter {
 
     void ParseTable::add_action(ParseStateId id, Symbol symbol, ParseAction action) {
         symbols.insert(symbol);
-        states[id].actions.insert({ symbol, action });
+        states[id].actions[symbol] = action;
     }
 }

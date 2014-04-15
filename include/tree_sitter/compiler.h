@@ -20,6 +20,7 @@ namespace tree_sitter {
         rule_ptr pattern(const std::string &value);
         rule_ptr str(const std::string &value);
         rule_ptr err(const rule_ptr &rule);
+        rule_ptr prec(int precedence, rule_ptr rule);
     }
 
     class Grammar {

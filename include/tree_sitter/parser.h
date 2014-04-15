@@ -55,7 +55,7 @@ ts_lexer_start_token(lexer);
 { return ts_lexer_build_node(lexer, ts_builtin_sym_error); }
 
 #define LEX_PANIC() \
-{ DEBUG_LEX("\nLex error: unexpected state %d", lex_state); return NULL; }
+{ DEBUG_LEX("LEX ERROR: unexpected state %d", lex_state); return NULL; }
 
 #define PARSE_TABLE \
 static const ts_parse_action ts_parse_actions[STATE_COUNT][SYMBOL_COUNT]

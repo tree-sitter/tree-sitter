@@ -5,38 +5,33 @@ namespace tree_sitter_examples {
     using namespace tree_sitter::rules;
     using std::string;
 
-    static rule_ptr infix_op(string op, string rule_name) {
-        return choice({
-            seq({
-                sym(rule_name),
-                str(op),
-                sym(rule_name) }),
-            sym(rule_name) });
+    static rule_ptr infix_op(string op, int precedence) {
+        return prec(precedence, seq({
+            sym("expression"),
+            str(op),
+            sym("expression") }));
     }
 
     extern const Grammar arithmetic({
         { "expression", choice({
             sym("sum"),
-            sym("difference") }) },
-        { "_operand1", choice({
+            sym("difference"),
             sym("product"),
-            sym("quotient") }) },
-        { "_operand2", choice({
-            sym("exponent") }) },
-        { "_operand3", choice({
+            sym("quotient"),
+            sym("exponent"),
+            sym("group"),
             sym("number"),
-            sym("variable"),
-            sym("grouping") }) },
-        { "grouping", seq({
+            sym("variable") }) },
+
+        { "sum", infix_op("+", 1) },
+        { "difference", infix_op("-", 1) },
+        { "product", infix_op("*", 2) },
+        { "quotient", infix_op("/", 2) },
+        { "exponent", infix_op("^", 3) },
+        { "group", seq({
             str("("),
             err(sym("expression")),
             str(")") }) },
-
-        { "sum", infix_op("+", "_operand1") },
-        { "difference", infix_op("-", "_operand1") },
-        { "product", infix_op("*", "_operand2") },
-        { "quotient", infix_op("/", "_operand2") },
-        { "exponent", infix_op("^", "_operand3") },
 
         { "number", pattern("\\d+") },
         { "variable", pattern("\\a[\\w_]*") },

@@ -1,4 +1,5 @@
 #include <vector>
+#include <map>
 #include <set>
 #include <string>
 #include "tree_sitter/compiler.h"
@@ -8,6 +9,7 @@
 #include "compiler/rules/choice.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/string.h"
+#include "compiler/rules/metadata.h"
 #include "compiler/rules/pattern.h"
 #include "compiler/rules/character_set.h"
 #include "compiler/rules/repeat.h"
@@ -18,6 +20,7 @@ namespace tree_sitter {
     using std::string;
     using std::set;
     using std::vector;
+    using std::map;
 
     namespace rules {
         rule_ptr blank() {
@@ -50,6 +53,12 @@ namespace tree_sitter {
 
         rule_ptr err(const rule_ptr &rule) {
             return choice({ rule, ERROR().copy() });
+        }
+
+        rule_ptr prec(int precedence, rule_ptr rule) {
+            return std::make_shared<Metadata>(rule, map<MetadataKey, int>({
+                { PRECEDENCE, precedence }
+            }));
         }
     }
 }

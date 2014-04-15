@@ -10,8 +10,7 @@ namespace tree_sitter {
         class GetMetadata : public rules::RuleFn<int> {
             rules::MetadataKey metadata_key;
         public:
-            GetMetadata(rules::MetadataKey key) :
-                metadata_key(key) {}
+            GetMetadata(rules::MetadataKey key) : metadata_key(key) {}
 
             int apply_to(const rules::Choice *rule) {
                 return apply(rule->left) || apply(rule->right);

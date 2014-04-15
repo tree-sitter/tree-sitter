@@ -59,49 +59,117 @@ describe("resolving parse conflicts", []() {
         Symbol sym2("rule2");
 
         it("favors non-errors over parse errors", [&]() {
-            should_update = manager->resolve_parse_action(sym1, ParseAction::Error(), ParseAction::Shift(2));
+            should_update = manager->resolve_parse_action(sym1, ParseAction::Error(), ParseAction::Shift(2, { 0 }));
             AssertThat(should_update, IsTrue());
 
-            should_update = manager->resolve_parse_action(sym1, ParseAction::Shift(2), ParseAction::Error());
+            should_update = manager->resolve_parse_action(sym1, ParseAction::Shift(2, { 0 }), ParseAction::Error());
             AssertThat(should_update, IsFalse());
         });
 
         describe("shift/reduce conflicts", [&]() {
-            it("records a conflict", [&]() {
-                manager->resolve_parse_action(sym1, ParseAction::Reduce(sym2, 1), ParseAction::Shift(2));
-                manager->resolve_parse_action(sym1, ParseAction::Shift(2), ParseAction::Reduce(sym2, 1));
-
-                AssertThat(manager->conflicts(), Equals(vector<Conflict>({
-                    Conflict("rule1: shift / reduce rule2")
-                })));
+            describe("when the shift has higher precedence", [&]() {
+                ParseAction shift = ParseAction::Shift(2, { 3 });
+                ParseAction reduce = ParseAction::Reduce(sym2, 1, 1);
+                
+                it("does not record a conflict", [&]() {
+                    manager->resolve_parse_action(sym1, shift, reduce);
+                    manager->resolve_parse_action(sym1, reduce, shift);
+                    AssertThat(manager->conflicts(), IsEmpty());
+                });
+                
+                it("favors the shift", [&]() {
+                    AssertThat(manager->resolve_parse_action(sym1, shift, reduce), IsFalse());
+                    AssertThat(manager->resolve_parse_action(sym1, reduce, shift), IsTrue());
+                });
             });
+            
+            describe("when the reduce has higher precedence", [&]() {
+                ParseAction shift = ParseAction::Shift(2, { 1 });
+                ParseAction reduce = ParseAction::Reduce(sym2, 1, 3);
+                
+                it("does not record a conflict", [&]() {
+                    manager->resolve_parse_action(sym1, reduce, shift);
+                    manager->resolve_parse_action(sym1, shift, reduce);
+                    AssertThat(manager->conflicts(), IsEmpty());
+                });
+                
+                it("favors the reduce", [&]() {
+                    AssertThat(manager->resolve_parse_action(sym1, reduce, shift), IsFalse());
+                    AssertThat(manager->resolve_parse_action(sym1, shift, reduce), IsTrue());
+                });
+            });
+            
+            describe("when the precedences are equal", [&]() {
+                ParseAction shift = ParseAction::Shift(2, { 0 });
+                ParseAction reduce = ParseAction::Reduce(sym2, 1, 0);
 
-            it("favors the shift", [&]() {
-                should_update = manager->resolve_parse_action(sym1, ParseAction::Reduce(sym2, 1), ParseAction::Shift(2));
-                AssertThat(should_update, IsTrue());
-
-                should_update = manager->resolve_parse_action(sym1, ParseAction::Shift(2), ParseAction::Reduce(sym2, 1));
-                AssertThat(should_update, IsFalse());
+                it("records a conflict", [&]() {
+                    manager->resolve_parse_action(sym1, reduce, shift);
+                    manager->resolve_parse_action(sym1, shift, reduce);
+                    AssertThat(manager->conflicts(), Equals(vector<Conflict>({
+                        Conflict("rule1: shift (precedence 0) / reduce rule2 (precedence 0)")
+                    })));
+                });
+                
+                it("favors the shift", [&]() {
+                    AssertThat(manager->resolve_parse_action(sym1, shift, reduce), IsFalse());
+                    AssertThat(manager->resolve_parse_action(sym1, reduce, shift), IsTrue());
+                });
+            });
+            
+            describe("when the shift has conflicting precedences compared to the reduce", [&]() {
+                ParseAction shift = ParseAction::Shift(2, { 0, 1, 3 });
+                ParseAction reduce = ParseAction::Reduce(sym2, 1, 2);
+                
+                it("records a conflict", [&]() {
+                    manager->resolve_parse_action(sym1, reduce, shift);
+                    manager->resolve_parse_action(sym1, shift, reduce);
+                    AssertThat(manager->conflicts(), Equals(vector<Conflict>({
+                        Conflict("rule1: shift (precedence 0, 1, 3) / reduce rule2 (precedence 2)")
+                    })));
+                });
+                
+                it("favors the shift", [&]() {
+                    AssertThat(manager->resolve_parse_action(sym1, shift, reduce), IsFalse());
+                    AssertThat(manager->resolve_parse_action(sym1, reduce, shift), IsTrue());
+                });
             });
         });
 
         describe("reduce/reduce conflicts", [&]() {
-            it("records a conflict", [&]() {
-                manager->resolve_parse_action(sym1, ParseAction::Reduce(sym2, 1), ParseAction::Reduce(sym1, 1));
-                manager->resolve_parse_action(sym1, ParseAction::Reduce(sym1, 1), ParseAction::Reduce(sym2, 1));
-
-                AssertThat(manager->conflicts(), Equals(vector<Conflict>({
-                    Conflict("rule1: reduce rule2 / reduce rule1"),
-                    Conflict("rule1: reduce rule1 / reduce rule2")
-                })));
+            describe("when one action has higher precedence", [&]() {
+                ParseAction left = ParseAction::Reduce(sym2, 1, 0);
+                ParseAction right = ParseAction::Reduce(sym2, 1, 3);
+                
+                it("favors that action", [&]() {
+                    AssertThat(manager->resolve_parse_action(sym1, left, right), IsTrue());
+                    AssertThat(manager->resolve_parse_action(sym1, right, left), IsFalse());
+                });
+                
+                it("does not record a conflict", [&]() {
+                    manager->resolve_parse_action(sym1, left, right);
+                    manager->resolve_parse_action(sym1, right, left);
+                    AssertThat(manager->conflicts(), IsEmpty());
+                });
             });
+            
+            describe("when the actions have the same precedence", [&]() {
+                ParseAction left = ParseAction::Reduce(sym1, 1, 0);
+                ParseAction right = ParseAction::Reduce(sym2, 1, 0);
+                
+                it("favors the symbol listed earlier in the grammar", [&]() {
+                    AssertThat(manager->resolve_parse_action(sym1, right, left), IsTrue());
+                    AssertThat(manager->resolve_parse_action(sym1, left, right), IsFalse());
+                });
 
-            it("favors the symbol listed earlier in the grammar", [&]() {
-                should_update = manager->resolve_parse_action(sym1, ParseAction::Reduce(sym2, 1), ParseAction::Reduce(sym1, 1));
-                AssertThat(should_update, IsTrue());
-
-                should_update = manager->resolve_parse_action(sym1, ParseAction::Reduce(sym1, 1), ParseAction::Reduce(sym2, 1));
-                AssertThat(should_update, IsFalse());
+                it("records a conflict", [&]() {
+                    manager->resolve_parse_action(sym1, left, right);
+                    manager->resolve_parse_action(sym1, right, left);
+                    AssertThat(manager->conflicts(), Equals(vector<Conflict>({
+                        Conflict("rule1: reduce rule2 (precedence 0) / reduce rule1 (precedence 0)"),
+                        Conflict("rule1: reduce rule1 (precedence 0) / reduce rule2 (precedence 0)")
+                    })));
+                });
             });
         });
     });
