@@ -13,19 +13,19 @@ extern "C" {
 //#define TS_DEBUG_LEX
 
 #ifdef TS_DEBUG_LEX
-#define DEBUG_LEX(...) fprintf(stderr, __VA_ARGS__)
+#define DEBUG_LEX(...) fprintf(stderr, "\n" __VA_ARGS__)
 #else
 #define DEBUG_LEX(...)
 #endif
 
 #ifdef TS_DEBUG_PARSE
-#define DEBUG_PARSE(...) fprintf(stderr, __VA_ARGS__)
+#define DEBUG_PARSE(...) fprintf(stderr, "\n" __VA_ARGS__)
 #else
 #define DEBUG_PARSE(...)
 #endif
 
 #define SYMBOL_NAMES \
-static const char *ts_symbol_names[SYMBOL_COUNT]
+static const char *ts_symbol_names[]
 
 #define HIDDEN_SYMBOLS \
 static const int hidden_symbol_flags[SYMBOL_COUNT]
@@ -39,22 +39,23 @@ static ts_tree * ts_lex(ts_lexer *lexer, state_id lex_state)
 #define START_LEXER() \
 char lookahead; \
 next_state: \
-lookahead = ts_lexer_lookahead_char(lexer);
+lookahead = ts_lexer_lookahead_char(lexer); \
+DEBUG_LEX("CHAR '%c'", lookahead);
 
 #define START_TOKEN() \
 ts_lexer_start_token(lexer);
 
 #define ADVANCE(state_index) \
-{ ts_lexer_advance(lexer); lex_state = state_index; goto next_state; }
+{ DEBUG_LEX("ADVANCE %d", state_index); ts_lexer_advance(lexer); lex_state = state_index; goto next_state; }
 
 #define ACCEPT_TOKEN(symbol) \
-{ DEBUG_LEX("token: %s \n", ts_symbol_names[symbol]); return ts_lexer_build_node(lexer, symbol); }
+{ DEBUG_LEX("TOKEN %s", ts_symbol_names[symbol]); return ts_lexer_build_node(lexer, symbol); }
 
 #define LEX_ERROR() \
 { return ts_lexer_build_node(lexer, ts_builtin_sym_error); }
 
 #define LEX_PANIC() \
-{ DEBUG_LEX("Lex error: unexpected state %d", LEX_STATE()); return NULL; }
+{ DEBUG_LEX("\nLex error: unexpected state %d", lex_state); return NULL; }
 
 #define PARSE_TABLE \
 static const ts_parse_action ts_parse_actions[STATE_COUNT][SYMBOL_COUNT]
@@ -192,6 +193,7 @@ typedef struct {
  *  The file including this header should use these macros to provide definitions.
  */
 LEX_FN();
+SYMBOL_NAMES;
 
 
 /*
@@ -342,17 +344,22 @@ static const ts_tree * ts_parse(void *data, ts_input input, ts_input_edit *edit)
         if (!parser->lookahead)
             parser->lookahead = ts_lex(&parser->lexer, parser->lex_states[state]);
         ts_parse_action action = ts_lr_parser_table_actions(parser, state)[ts_tree_symbol(parser->lookahead)];
+        DEBUG_PARSE("LOOKAHEAD %s", ts_symbol_names[ts_tree_symbol(parser->lookahead)]);
         switch (action.type) {
             case ts_parse_action_type_shift:
+                DEBUG_PARSE("SHIFT %d", action.data.to_state);
                 ts_lr_parser_shift(parser, action.data.to_state);
                 break;
             case ts_parse_action_type_reduce:
+                DEBUG_PARSE("REDUCE %s %d", ts_symbol_names[action.data.symbol], action.data.child_count);
                 ts_lr_parser_reduce(parser, action.data.symbol, action.data.child_count);
                 break;
             case ts_parse_action_type_accept:
+                DEBUG_PARSE("ACCEPT");
                 done = 1;
                 break;
             case ts_parse_action_type_error:
+                DEBUG_PARSE("ERROR");
                 done = !ts_lr_parser_handle_error(parser);
                 break;
         }
