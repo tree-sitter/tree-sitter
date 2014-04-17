@@ -5,7 +5,7 @@ set -e
 git submodule update --init
 externals/gyp/gyp tree_sitter.gyp --depth . --format=make $@
 
-if [ $1 == "-h" ]; then
+if [ "$1" == "-h" ]; then
   cat <<-HELP
 
 Variables:
