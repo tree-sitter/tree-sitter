@@ -97,7 +97,7 @@ namespace tree_sitter {
             result.insert(result.end(), conflicts_.begin(), conflicts_.end());
             return result;
         }
-        
+
         string precedence_string(const ParseAction &action) {
             string precedences = "(precedence ";
             bool started = false;
@@ -108,7 +108,7 @@ namespace tree_sitter {
             }
             return precedences + ")";
         }
-        
+
         string message_for_action(const ParseAction &action, const map<Symbol, string> &rule_names) {
             switch (action.type) {
                 case ParseActionTypeShift:
@@ -126,7 +126,7 @@ namespace tree_sitter {
                     return "error";
             }
         }
-        
+
         void ConflictManager::record_conflict(const rules::Symbol &symbol,
                                               const ParseAction &left,
                                               const ParseAction &right) {

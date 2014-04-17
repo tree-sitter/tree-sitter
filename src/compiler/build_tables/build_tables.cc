@@ -42,7 +42,7 @@ namespace tree_sitter {
                         result.insert(item.precedence());
                 return result;
             }
-            
+
             void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (auto &transition : sym_transitions(item_set, grammar)) {
                     const Symbol &symbol = transition.first;
@@ -51,7 +51,7 @@ namespace tree_sitter {
 
                     auto current_actions = parse_table.states[state_id].actions;
                     auto current_action = current_actions.find(symbol);
-                    
+
                     if (current_action == current_actions.end() ||
                         conflict_manager.resolve_parse_action(symbol, current_action->second, ParseAction::Shift(0, precedence_values))) {
                         ParseStateId new_state_id = add_parse_state(item_set);
@@ -95,7 +95,7 @@ namespace tree_sitter {
                             ParseAction::Reduce(item.lhs, item.consumed_symbol_count, item.precedence());
                         auto current_actions = parse_table.states[state_id].actions;
                         auto current_action = current_actions.find(item.lookahead_sym);
-                        
+
                         if (current_action == current_actions.end() ||
                             conflict_manager.resolve_parse_action(item.lookahead_sym, current_action->second, action)) {
                             parse_table.add_action(state_id, item.lookahead_sym, action);

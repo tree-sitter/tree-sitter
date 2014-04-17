@@ -183,12 +183,12 @@ describe("rule transitions", []() {
                 { CharacterSet({ 'a' }), rule }
             })));
     });
-    
+
     it("preserves metadata", [&]() {
         map<MetadataKey, int> metadata_value({
             { PRECEDENCE, 5 }
         });
-        
+
         rule_ptr rule = make_shared<Metadata>(seq({ sym("x"), sym("y") }), metadata_value);
         AssertThat(
             sym_transitions(rule),

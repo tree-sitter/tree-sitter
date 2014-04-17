@@ -23,7 +23,7 @@ namespace tree_sitter {
             str_replace(&input, "\n", "\\n");
             return input;
         }
-        
+
         string join(vector<string> lines, string separator) {
             string result;
             bool started = false;
@@ -38,13 +38,13 @@ namespace tree_sitter {
         string join(vector<string> lines) {
             return join(lines, "\n");
         }
-        
+
         string indent(string input) {
             string tab = "    ";
             util::str_replace(&input, "\n", "\n" + tab);
             return tab + input;
         }
-        
+
         string character_code(char character) {
             switch (character) {
                 case '\0':

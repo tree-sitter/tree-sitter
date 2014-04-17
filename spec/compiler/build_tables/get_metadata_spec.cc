@@ -33,49 +33,6 @@ describe("getting metadata for rules", []() {
             AssertThat(get_metadata(rule, key1), Equals(0));
         });
     });
-
-    it("works for metadata rules preceded by other rules that can be blank", [&]() {
-        auto rule = seq({
-            repeat(sym("x")),
-            make_shared<Metadata>(sym("x"), map<MetadataKey, int>({
-                { key1, 1 },
-                { key2, 2 },
-            })),
-        });
-
-        AssertThat(get_metadata(rule, key2), Equals(2));
-    });
-
-    it("works for choices containing metadata rule", [&]() {
-        auto rule = choice({
-            sym("x"),
-            make_shared<Metadata>(sym("x"), map<MetadataKey, int>({
-                { key1, 1 },
-                { key2, 2 },
-            })),
-        });
-
-        AssertThat(get_metadata(rule, key2), Equals(1));
-    });
-
-    it("works for repetitions containing metadata rules", [&]() {
-        auto rule = repeat(make_shared<Metadata>(sym("x"), map<MetadataKey, int>({
-            { key1, 1 },
-            { key2, 2 },
-        })));
-        AssertThat(get_metadata(rule, key2), Equals(2));
-    });
-
-    it("returns 0 for metadata rules preceded by rules that can't be blank", [&]() {
-        auto rule = seq({
-            sym("x"),
-            make_shared<Metadata>(sym("y"), map<MetadataKey, int>({
-                { key1, 1 },
-                { key2, 2 },
-            })),
-        });
-        AssertThat(get_metadata(rule, key2), Equals(0));
-    });
 });
 
 END_TEST

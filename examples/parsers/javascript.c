@@ -661,7 +661,6 @@ LEX_FN() {
                 ADVANCE(53);
             LEX_ERROR();
         case 52:
-            START_TOKEN();
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))

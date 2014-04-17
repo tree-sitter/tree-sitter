@@ -3,7 +3,7 @@
 
 #include <set>
 #include <map>
-#include "compiler/build_tables/item.h"
+#include "compiler/build_tables/parse_item.h"
 #include "compiler/rules/symbol.h"
 
 namespace tree_sitter {

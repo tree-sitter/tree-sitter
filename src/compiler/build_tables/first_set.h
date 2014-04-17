@@ -2,7 +2,7 @@
 #define COMPILER_BUILD_TABLES_FIRST_SET_H_
 
 #include <set>
-#include "compiler/build_tables/item.h"
+#include "compiler/build_tables/parse_item.h"
 #include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
