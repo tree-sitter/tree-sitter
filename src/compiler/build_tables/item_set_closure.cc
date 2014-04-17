@@ -21,10 +21,10 @@ namespace tree_sitter {
                              const PreparedGrammar &grammar) {
             if (!contains(item_set, item)) {
                 item_set->insert(item);
-                for (auto &pair : follow_sets(item, grammar)) {
-                    Symbol non_terminal = pair.first;
-                    set<Symbol> terminals = pair.second;
-                    for (auto &terminal : terminals) {
+                for (const auto &pair : follow_sets(item, grammar)) {
+                    const Symbol &non_terminal = pair.first;
+                    const set<Symbol> &terminals = pair.second;
+                    for (const auto &terminal : terminals) {
                         ParseItem next_item(non_terminal, grammar.rule(non_terminal), 0, terminal);
                         add_item(item_set, next_item, grammar);
                     }
@@ -35,7 +35,7 @@ namespace tree_sitter {
         const ParseItemSet item_set_closure(const ParseItemSet &item_set,
                                             const PreparedGrammar &grammar) {
             ParseItemSet result;
-            for (ParseItem item : item_set)
+            for (const ParseItem &item : item_set)
                 add_item(&result, item, grammar);
             return result;
         }
