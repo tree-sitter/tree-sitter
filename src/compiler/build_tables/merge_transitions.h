@@ -17,7 +17,7 @@ namespace tree_sitter {
         template<typename T>
         void merge_sym_transitions(std::map<rules::ISymbol, T> &left,
                                    const std::map<rules::ISymbol, T> &right,
-                                   std::function<T(T, T)> merge_fn) {
+                                   std::function<T(const T &, const T &)> merge_fn) {
             for (auto &pair : right) {
                 auto rule = pair.first;
                 bool merged = false;
@@ -26,6 +26,8 @@ namespace tree_sitter {
                     if (existing_rule == rule) {
                         existing_pair.second = merge_fn(existing_pair.second, pair.second);
                         merged = true;
+                        break;
+                    } else if (rule < existing_rule) {
                         break;
                     }
                 }
@@ -43,7 +45,7 @@ namespace tree_sitter {
         template<typename T>
         void merge_char_transitions(std::map<rules::CharacterSet, T> &left,
                                     const std::map<rules::CharacterSet, T> &right,
-                                    std::function<T(T, T)> merge_fn) {
+                                    std::function<T(const T &, const T &)> merge_fn) {
             for (auto &new_pair : right) {
                 rules::CharacterSet new_char_set = new_pair.first;
                 T new_value = new_pair.second;

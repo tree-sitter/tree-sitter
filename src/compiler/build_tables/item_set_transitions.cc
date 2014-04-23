@@ -12,27 +12,6 @@ namespace tree_sitter {
     using rules::ISymbol;
 
     namespace build_tables {
-        map<CharacterSet, LexItemSet>
-        char_transitions(const LexItem &item) {
-            map<CharacterSet, LexItemSet> result;
-            for (auto &transition : char_transitions(item.rule)) {
-                LexItem next_item(item.lhs, transition.second);
-                result.insert({ transition.first, LexItemSet({ next_item }) });
-            }
-            return result;
-        }
-
-        map<ISymbol, ParseItemSet>
-        sym_transitions(const ParseItem &item, const PreparedGrammar &grammar) {
-            map<ISymbol, ParseItemSet> result;
-            for (auto transition : sym_transitions(item.rule)) {
-                ISymbol rule = transition.first;
-                ParseItem new_item(item.lhs, transition.second, item.consumed_symbol_count + 1, item.lookahead_sym);
-                result.insert({ rule, item_set_closure(ParseItemSet({ new_item }), grammar) });
-            }
-            return result;
-        }
-
         template<typename T>
         static unordered_set<T> merge_sets(const unordered_set<T> &left, const unordered_set<T> &right) {
             unordered_set<T> result = left;
@@ -44,11 +23,16 @@ namespace tree_sitter {
         char_transitions(const LexItemSet &item_set, const PreparedGrammar &grammar) {
             map<CharacterSet, LexItemSet> result;
             for (const LexItem &item : item_set) {
-                map<CharacterSet, LexItemSet> item_transitions = char_transitions(item);
-                merge_char_transitions<LexItemSet>(result,
-                                                   item_transitions,
-                                                   [](LexItemSet left, LexItemSet right) {
-                    return merge_sets(left, right);
+                map<CharacterSet, LexItemSet> item_transitions;
+                for (auto &transition : char_transitions(item.rule)) {
+                    LexItem next_item(item.lhs, transition.second);
+                    item_transitions.insert({
+                        transition.first,
+                        LexItemSet({ next_item })
+                    });
+                }
+                merge_char_transitions<LexItemSet>(result, item_transitions, [](const LexItemSet &l, const LexItemSet &r) {
+                    return merge_sets(l, r);
                 });
             }
             return result;
@@ -58,11 +42,16 @@ namespace tree_sitter {
         sym_transitions(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
             map<ISymbol, ParseItemSet> result;
             for (const ParseItem &item : item_set) {
-                map<ISymbol, ParseItemSet> item_transitions = sym_transitions(item, grammar);
-                merge_sym_transitions<ParseItemSet>(result,
-                                                    item_transitions,
-                                                    [&](ParseItemSet left, ParseItemSet right) {
-                    return merge_sets(left, right);
+                map<ISymbol, ParseItemSet> item_transitions;
+                for (auto &transition : sym_transitions(item.rule)) {
+                    ParseItem new_item(item.lhs, transition.second, item.consumed_symbol_count + 1, item.lookahead_sym);
+                    item_transitions.insert({
+                        transition.first,
+                        item_set_closure(new_item, grammar)
+                    });
+                }
+                merge_sym_transitions<ParseItemSet>(result, item_transitions, [&](const ParseItemSet &l, const ParseItemSet &r) {
+                    return merge_sets(l, r);
                 });
             }
             return result;

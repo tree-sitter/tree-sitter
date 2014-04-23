@@ -32,11 +32,10 @@ namespace tree_sitter {
             }
         }
 
-        const ParseItemSet item_set_closure(const ParseItemSet &item_set,
+        const ParseItemSet item_set_closure(const ParseItem &item,
                                             const PreparedGrammar &grammar) {
             ParseItemSet result;
-            for (const ParseItem &item : item_set)
-                add_item(&result, item, grammar);
+            add_item(&result, item, grammar);
             return result;
         }
     }

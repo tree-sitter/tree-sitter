@@ -185,7 +185,7 @@ namespace tree_sitter {
             void build() {
                 auto start_symbol = make_shared<ISymbol>(0);
                 ParseItem item(rules::START(), start_symbol, {}, rules::END_OF_INPUT());
-                ParseItemSet item_set = item_set_closure(ParseItemSet({ item }), grammar);
+                ParseItemSet item_set = item_set_closure(item, grammar);
                 add_parse_state(item_set);
                 add_error_lex_state();
             }
