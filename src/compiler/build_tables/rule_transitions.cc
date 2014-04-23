@@ -41,12 +41,9 @@ namespace tree_sitter {
         }
 
         template<typename T>
-        map<T, rule_ptr>
-        map_transitions(const map<T, rule_ptr> &initial, std::function<const rule_ptr(rule_ptr)> map_fn) {
-            map<T, rule_ptr> result;
-            for (auto &pair : initial)
-                result.insert({ pair.first, map_fn(pair.second) });
-            return result;
+        void transform_transitions(map<T, rule_ptr> &transitions, std::function<const rule_ptr(rule_ptr)> fn) {
+            for (auto &pair : transitions)
+                pair.second = fn(pair.second);
         }
 
         template<typename T>
@@ -74,7 +71,8 @@ namespace tree_sitter {
             }
 
             map<T, rule_ptr> apply_to(const rules::Seq *rule) {
-                auto result = map_transitions(this->apply(rule->left), [&](const rule_ptr left_rule) {
+                auto result = this->apply(rule->left);
+                transform_transitions(result, [&](const rule_ptr &left_rule) {
                     return rules::Seq::Build({ left_rule, rule->right });
                 });
                 if (rule_can_be_blank(rule->left)) {
@@ -84,15 +82,19 @@ namespace tree_sitter {
             }
 
             map<T, rule_ptr> apply_to(const rules::Repeat *rule) {
-                return map_transitions(this->apply(rule->content), [&](const rule_ptr &value) {
+                auto result = this->apply(rule->content);
+                transform_transitions(result, [&](const rule_ptr &value) {
                     return rules::Seq::Build({ value, rule->copy() });
                 });
+                return result;
             }
 
             map<T, rule_ptr> apply_to(const rules::Metadata *rule) {
-                return map_transitions(this->apply(rule->rule), [&](const rule_ptr &to_rule) {
+                auto result = this->apply(rule->rule);
+                transform_transitions(result, [&](const rule_ptr &to_rule) {
                     return make_shared<Metadata>(to_rule, rule->value);
                 });
+                return result;
             }
 
             map<T, rule_ptr> apply_to(const rules::String *rule) {
