@@ -20,13 +20,13 @@ namespace tree_sitter {
         Grammar(grammar),
         aux_rules({}) {}
 
-    const rule_ptr PreparedGrammar::rule(const ISymbol &symbol) const {
+    const rule_ptr & PreparedGrammar::rule(const ISymbol &symbol) const {
         return symbol.is_auxiliary() ?
             aux_rules[symbol.index].second : 
             rules[symbol.index].second;
     }
     
-    string PreparedGrammar::rule_name(const ISymbol &symbol) const {
+    const string & PreparedGrammar::rule_name(const ISymbol &symbol) const {
         return symbol.is_auxiliary() ?
             aux_rules[symbol.index].first : 
             rules[symbol.index].first;

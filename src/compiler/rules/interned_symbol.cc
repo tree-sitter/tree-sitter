@@ -23,7 +23,7 @@ namespace tree_sitter  {
         }
         
         size_t ISymbol::hash_code() const {
-            return hash<size_t>()(index) ^ hash<int16_t>()(options);
+            return hash<int>()(index) ^ hash<int16_t>()(options);
         }
         
         rule_ptr ISymbol::copy() const {

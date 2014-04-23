@@ -17,11 +17,11 @@ namespace tree_sitter {
             lookahead_sym(lookahead_sym) {}
 
         bool ParseItem::operator==(const ParseItem &other) const {
-            bool lhs_eq = other.lhs == lhs;
-            bool rules_eq = (*other.rule == *rule);
-            bool consumed_sym_counts_eq = (other.consumed_symbol_count == consumed_symbol_count);
-            bool lookaheads_eq = other.lookahead_sym == lookahead_sym;
-            return lhs_eq && rules_eq && consumed_sym_counts_eq && lookaheads_eq;
+            return
+                (other.lhs == lhs) &&
+                (other.consumed_symbol_count == consumed_symbol_count) &&
+                (other.lookahead_sym == lookahead_sym) &&
+                (other.rule->operator==(*rule));
         }
 
         int ParseItem::precedence() const {

@@ -15,9 +15,7 @@ namespace tree_sitter {
             Item(lhs, rule) {}
 
         bool LexItem::operator==(const LexItem &other) const {
-            bool lhs_eq = other.lhs == lhs;
-            bool rules_eq = (*other.rule == *rule);
-            return lhs_eq && rules_eq;
+            return (other.lhs == lhs) && other.rule->operator==(*rule);
         }
 
         bool LexItem::is_token_start() const {

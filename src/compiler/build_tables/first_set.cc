@@ -20,10 +20,10 @@ namespace tree_sitter {
         }
 
         class FirstSet : public rules::RuleFn<set<ISymbol>> {
-            const PreparedGrammar grammar;
+            const PreparedGrammar *grammar;
             set<ISymbol> visited_symbols;
         public:
-            explicit FirstSet(const PreparedGrammar &grammar) : grammar(grammar) {}
+            explicit FirstSet(const PreparedGrammar *grammar) : grammar(grammar) {}
 
             set<ISymbol> apply_to(const ISymbol *rule) {
                 if (visited_symbols.find(*rule) == visited_symbols.end()) {
@@ -32,7 +32,7 @@ namespace tree_sitter {
                     if (rule->is_token()) {
                         return set<ISymbol>({ *rule });
                     } else {
-                        return apply(grammar.rule(*rule));
+                        return apply(grammar->rule(*rule));
                     }
                 } else {
                     return set<ISymbol>();
@@ -49,7 +49,7 @@ namespace tree_sitter {
 
             set<ISymbol> apply_to(const rules::Seq *rule) {
                 auto result = apply(rule->left);
-                if (rule_can_be_blank(rule->left, grammar)) {
+                if (rule_can_be_blank(rule->left, *grammar)) {
                     return set_union(result, apply(rule->right));
                 } else {
                     return result;
@@ -58,7 +58,7 @@ namespace tree_sitter {
         };
 
         set<ISymbol> first_set(const rules::rule_ptr &rule, const PreparedGrammar &grammar) {
-            return FirstSet(grammar).apply(rule);
+            return FirstSet(&grammar).apply(rule);
         }
 
         set<ISymbol> first_set(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
