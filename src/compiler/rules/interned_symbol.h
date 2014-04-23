@@ -15,7 +15,8 @@ namespace tree_sitter  {
             explicit ISymbol(int index);
             ISymbol(int index, SymbolOption options);
             
-            bool operator==(const Rule& other) const;
+            bool operator==(const ISymbol &other) const;
+            bool operator==(const Rule &other) const;
             
             size_t hash_code() const;
             rule_ptr copy() const;

@@ -17,9 +17,13 @@ namespace tree_sitter  {
             index(index),
             options(options) {}
         
+        bool ISymbol::operator==(const ISymbol &other) const {
+            return (other.index == index) && (other.options == options);
+        }
+
         bool ISymbol::operator==(const Rule &rule) const {
             const ISymbol *other = dynamic_cast<const ISymbol *>(&rule);
-            return other && (other->index == index) && (other->options == options);
+            return other && this->operator==(*other);
         }
         
         size_t ISymbol::hash_code() const {
