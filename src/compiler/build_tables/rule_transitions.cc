@@ -24,21 +24,18 @@ namespace tree_sitter {
 
     namespace build_tables {
         template<typename T>
-        map<T, rule_ptr>
-        merge_transitions(const map<T, rule_ptr> &left, const map<T, rule_ptr> &right);
+        void merge_transitions(map<T, rule_ptr> &left, const map<T, rule_ptr> &right);
 
         template<>
-        map<CharacterSet, rule_ptr>
-        merge_transitions(const map<CharacterSet, rule_ptr> &left, const map<CharacterSet, rule_ptr> &right) {
-            return merge_char_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) {
+        void merge_transitions(map<CharacterSet, rule_ptr> &left, const map<CharacterSet, rule_ptr> &right) {
+            merge_char_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) {
                 return make_shared<rules::Choice>(left, right);
             });
         }
 
         template<>
-        map<ISymbol, rule_ptr>
-        merge_transitions(const map<ISymbol, rule_ptr> &left, const map<ISymbol, rule_ptr> &right) {
-            return merge_sym_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) {
+        void merge_transitions(map<ISymbol, rule_ptr> &left, const map<ISymbol, rule_ptr> &right) {
+            merge_sym_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) {
                 return make_shared<rules::Choice>(left, right);
             });
         }
@@ -71,9 +68,9 @@ namespace tree_sitter {
             }
 
             map<T, rule_ptr> apply_to(const rules::Choice *rule) {
-                auto left_transitions = this->apply(rule->left);
-                auto right_transitions = this->apply(rule->right);
-                return merge_transitions<T>(left_transitions, right_transitions);
+                auto result = this->apply(rule->left);
+                merge_transitions<T>(result, this->apply(rule->right));
+                return result;
             }
 
             map<T, rule_ptr> apply_to(const rules::Seq *rule) {
@@ -81,8 +78,7 @@ namespace tree_sitter {
                     return rules::Seq::Build({ left_rule, rule->right });
                 });
                 if (rule_can_be_blank(rule->left)) {
-                    auto right_transitions = this->apply(rule->right);
-                    result = merge_transitions<T>(result, right_transitions);
+                    merge_transitions<T>(result, this->apply(rule->right));
                 }
                 return result;
             }

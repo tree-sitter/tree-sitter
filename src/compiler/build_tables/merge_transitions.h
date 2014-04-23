@@ -15,15 +15,13 @@ namespace tree_sitter {
          *  using the given function.
          */
         template<typename T>
-        std::map<rules::ISymbol, T>
-        merge_sym_transitions(const std::map<rules::ISymbol, T> &left,
-                              const std::map<rules::ISymbol, T> &right,
-                              std::function<T(T, T)> merge_fn) {
-            std::map<rules::ISymbol, T> result(left);
+        void merge_sym_transitions(std::map<rules::ISymbol, T> &left,
+                                   const std::map<rules::ISymbol, T> &right,
+                                   std::function<T(T, T)> merge_fn) {
             for (auto &pair : right) {
                 auto rule = pair.first;
                 bool merged = false;
-                for (auto &existing_pair : result) {
+                for (auto &existing_pair : left) {
                     auto existing_rule = existing_pair.first;
                     if (existing_rule == rule) {
                         existing_pair.second = merge_fn(existing_pair.second, pair.second);
@@ -32,9 +30,8 @@ namespace tree_sitter {
                     }
                 }
                 if (!merged)
-                    result.insert({ pair.first, pair.second });
+                    left.insert({ pair.first, pair.second });
             }
-            return result;
         }
 
         /*
@@ -44,19 +41,17 @@ namespace tree_sitter {
          *  merging the two previous values using the given function.
          */
         template<typename T>
-        std::map<rules::CharacterSet, T>
-        merge_char_transitions(const std::map<rules::CharacterSet, T> &left,
-                               const std::map<rules::CharacterSet, T> &right,
-                               std::function<T(T, T)> merge_fn) {
-            std::map<rules::CharacterSet, T> result(left);
+        void merge_char_transitions(std::map<rules::CharacterSet, T> &left,
+                                    const std::map<rules::CharacterSet, T> &right,
+                                    std::function<T(T, T)> merge_fn) {
             for (auto &new_pair : right) {
                 rules::CharacterSet new_char_set = new_pair.first;
                 T new_value = new_pair.second;
 
                 std::map<rules::CharacterSet, T> pairs_to_insert;
 
-                auto iter = result.begin();
-                while (iter != result.end()) {
+                auto iter = left.begin();
+                while (iter != left.end()) {
                     rules::CharacterSet char_set = iter->first;
                     T value = iter->second;
 
@@ -66,18 +61,17 @@ namespace tree_sitter {
                         if (!char_set.is_empty())
                             pairs_to_insert.insert({ char_set, value });
                         pairs_to_insert.insert({ intersection, merge_fn(value, new_value) });
-                        result.erase(iter++);
+                        left.erase(iter++);
                     } else {
                         ++iter;
                     }
                 }
 
-                result.insert(pairs_to_insert.begin(), pairs_to_insert.end());
+                left.insert(pairs_to_insert.begin(), pairs_to_insert.end());
 
                 if (!new_char_set.is_empty())
-                    result.insert({ new_char_set, new_pair.second });
+                    left.insert({ new_char_set, new_pair.second });
             }
-            return result;
         }
     }
 }

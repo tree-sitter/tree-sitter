@@ -45,9 +45,9 @@ namespace tree_sitter {
             map<CharacterSet, LexItemSet> result;
             for (const LexItem &item : item_set) {
                 map<CharacterSet, LexItemSet> item_transitions = char_transitions(item);
-                result = merge_char_transitions<LexItemSet>(result,
-                                                            item_transitions,
-                                                            [](LexItemSet left, LexItemSet right) {
+                merge_char_transitions<LexItemSet>(result,
+                                                   item_transitions,
+                                                   [](LexItemSet left, LexItemSet right) {
                     return merge_sets(left, right);
                 });
             }
@@ -59,9 +59,9 @@ namespace tree_sitter {
             map<ISymbol, ParseItemSet> result;
             for (const ParseItem &item : item_set) {
                 map<ISymbol, ParseItemSet> item_transitions = sym_transitions(item, grammar);
-                result = merge_sym_transitions<ParseItemSet>(result,
-                                                             item_transitions,
-                                                             [&](ParseItemSet left, ParseItemSet right) {
+                merge_sym_transitions<ParseItemSet>(result,
+                                                    item_transitions,
+                                                    [&](ParseItemSet left, ParseItemSet right) {
                     return merge_sets(left, right);
                 });
             }

@@ -9,8 +9,11 @@ START_TEST
 describe("merging character set transitions", []() {
     typedef map<CharacterSet, int> int_map;
 
-    auto bitwise = [](int l, int r) -> int {
-        return l | r;
+    auto merge_result = [&](int_map left, int_map right) -> int_map {
+        merge_char_transitions<int>(left, right, [](int l, int r) -> int {
+            return l | r;
+        });
+        return left;
     };
 
     describe("when none of the transitions intersect", [&]() {
@@ -26,7 +29,7 @@ describe("merging character set transitions", []() {
                 { CharacterSet({ '\t' }), 16 },
             });
 
-            AssertThat(merge_char_transitions<int>(map1, map2, bitwise), Equals(int_map({
+            AssertThat(merge_result(map1, map2), Equals(int_map({
                 { CharacterSet({ 'a', 'c' }), 1 },
                 { CharacterSet({ 'x', 'y' }), 2 },
                 { CharacterSet({ '1', '9' }), 4 },
@@ -34,7 +37,7 @@ describe("merging character set transitions", []() {
                 { CharacterSet({ '\t' }), 16 },
             })));
 
-            AssertThat(merge_char_transitions<int>(map2, map1, bitwise), Equals(merge_char_transitions<int>(map1, map2, bitwise)));
+            AssertThat(merge_result(map2, map1), Equals(merge_result(map1, map2)));
         });
     });
 
@@ -50,14 +53,14 @@ describe("merging character set transitions", []() {
                 { CharacterSet({ '3' }), 8 },
             });
 
-            AssertThat(merge_char_transitions<int>(map1, map2, bitwise), Equals(int_map({
+            AssertThat(merge_result(map1, map2), Equals(int_map({
                 { CharacterSet({ {'a', 'b'}, {'d', 'f'},  {'A', 'F'} }), 1 },
                 { CharacterSet({ {'c'} }), 5 },
                 { CharacterSet({ {'0', '2'}, {'4', '9'} }), 2 },
                 { CharacterSet({ '3' }), 10 },
             })));
 
-            AssertThat(merge_char_transitions<int>(map2, map1, bitwise), Equals(merge_char_transitions<int>(map1, map2, bitwise)));
+            AssertThat(merge_result(map2, map1), Equals(merge_result(map1, map2)));
         });
     });
 
@@ -72,12 +75,12 @@ describe("merging character set transitions", []() {
                 { CharacterSet({ 'c' }), 4 },
             });
 
-            AssertThat(merge_char_transitions<int>(map1, map2, bitwise), Equals(int_map({
+            AssertThat(merge_result(map1, map2), Equals(int_map({
                 { CharacterSet({ 'a' }), 3 },
                 { CharacterSet({ 'c' }), 5 },
             })));
 
-            AssertThat(merge_char_transitions<int>(map2, map1, bitwise), Equals(merge_char_transitions<int>(map1, map2, bitwise)));
+            AssertThat(merge_result(map2, map1), Equals(merge_result(map1, map2)));
         });
     });
 });
