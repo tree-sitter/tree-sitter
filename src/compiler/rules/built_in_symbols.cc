@@ -2,8 +2,8 @@
 
 namespace tree_sitter {
     namespace rules {
-        Symbol ERROR() { return Symbol("error", SymbolTypeBuiltIn); }
-        Symbol START() { return Symbol("start", SymbolTypeBuiltIn); }
-        Symbol END_OF_INPUT() { return Symbol("end", SymbolTypeBuiltIn); }
+        ISymbol END_OF_INPUT() { return ISymbol(-1, SymbolOptionToken); }
+        ISymbol ERROR() { return ISymbol(-2, SymbolOptionToken); }
+        ISymbol START() { return ISymbol(-3); }
     }
 }

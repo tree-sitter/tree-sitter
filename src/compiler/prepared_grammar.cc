@@ -2,14 +2,14 @@
 #include <vector>
 #include <string>
 #include <utility>
-#include "compiler/rules/symbol.h"
+#include "compiler/rules/interned_symbol.h"
 
 namespace tree_sitter {
     using std::string;
     using std::pair;
     using std::ostream;
     using rules::rule_ptr;
-    using rules::Symbol;
+    using rules::ISymbol;
 
     PreparedGrammar::PreparedGrammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
                                      const std::vector<std::pair<std::string, rules::rule_ptr>> &aux_rules) :
@@ -20,12 +20,16 @@ namespace tree_sitter {
         Grammar(grammar),
         aux_rules({}) {}
 
-    const rule_ptr PreparedGrammar::rule(const Symbol &symbol) const {
-        auto rule_set = symbol.is_auxiliary() ? aux_rules : rules;
-        for (auto &pair : rule_set)
-            if (pair.first == symbol.name)
-                return pair.second;
-        return rule_ptr();
+    const rule_ptr PreparedGrammar::rule(const ISymbol &symbol) const {
+        return symbol.is_auxiliary() ?
+            aux_rules[symbol.index].second : 
+            rules[symbol.index].second;
+    }
+    
+    string PreparedGrammar::rule_name(const ISymbol &symbol) const {
+        return symbol.is_auxiliary() ?
+            aux_rules[symbol.index].first : 
+            rules[symbol.index].first;
     }
 
     bool PreparedGrammar::operator==(const PreparedGrammar &other) const {
@@ -38,19 +42,6 @@ namespace tree_sitter {
             if (!other_pair.second->operator==(*pair.second)) return false;
         }
         return true;
-    }
-
-    bool PreparedGrammar::has_definition(const Symbol &symbol) const {
-        return rule(symbol).get() != nullptr;
-    }
-
-    size_t PreparedGrammar::index_of(const rules::Symbol &symbol) const {
-        for (size_t i = 0; i < rules.size(); i++) {
-            if (rules[i].first == symbol.name) {
-                return i;
-            }
-        }
-        return -1;
     }
 
     ostream& operator<<(ostream &stream, const PreparedGrammar &grammar) {

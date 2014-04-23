@@ -1,32 +1,33 @@
 #include "compiler/lex_table.h"
+#include "compiler/rules/interned_symbol.h"
 
 namespace tree_sitter {
     using std::string;
     using std::to_string;
     using std::map;
     using std::set;
-    using rules::Symbol;
+    using rules::ISymbol;
     using rules::CharacterSet;
 
     LexAction::LexAction() :
         type(LexActionTypeError),
-        symbol(Symbol("")),
+        symbol(ISymbol(-1)),
         state_index(-1) {}
 
-    LexAction::LexAction(LexActionType type, size_t state_index, Symbol symbol) :
+    LexAction::LexAction(LexActionType type, size_t state_index, ISymbol symbol) :
         type(type),
         symbol(symbol),
         state_index(state_index) {}
 
     LexAction LexAction::Error() {
-        return LexAction(LexActionTypeError, -1, Symbol(""));
+        return LexAction(LexActionTypeError, -1, ISymbol(-1));
     }
 
     LexAction LexAction::Advance(size_t state_index) {
-        return LexAction(LexActionTypeAdvance, state_index, Symbol(""));
+        return LexAction(LexActionTypeAdvance, state_index, ISymbol(-1));
     }
 
-    LexAction LexAction::Accept(Symbol symbol) {
+    LexAction LexAction::Accept(ISymbol symbol) {
         return LexAction(LexActionTypeAccept, -1, symbol);
     }
 
@@ -42,7 +43,7 @@ namespace tree_sitter {
             case LexActionTypeError:
                 return stream << string("#<error>");
             case LexActionTypeAccept:
-                return stream << string("#<accept ") + action.symbol.name + ">";
+                return stream << string("#<accept ") + to_string(action.symbol.index) + ">";
             case LexActionTypeAdvance:
                 return stream << string("#<advance ") + to_string(action.state_index) + ">";
             default:

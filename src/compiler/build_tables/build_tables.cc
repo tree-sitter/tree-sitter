@@ -10,6 +10,7 @@
 #include "compiler/rules/repeat.h"
 #include "compiler/rules/blank.h"
 #include "compiler/rules/seq.h"
+#include "compiler/rules/interned_symbol.h"
 #include "compiler/build_tables/conflict_manager.h"
 #include "compiler/build_tables/item.h"
 #include "compiler/build_tables/item_set_closure.h"
@@ -24,7 +25,7 @@ namespace tree_sitter {
     using std::set;
     using std::unordered_map;
     using std::make_shared;
-    using rules::Symbol;
+    using rules::ISymbol;
     using rules::CharacterSet;
 
     namespace build_tables {
@@ -45,7 +46,7 @@ namespace tree_sitter {
 
             void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (auto &transition : sym_transitions(item_set, grammar)) {
-                    const Symbol &symbol = transition.first;
+                    const ISymbol &symbol = transition.first;
                     const ParseItemSet &item_set = transition.second;
                     set<int> precedence_values = precedence_values_for_item_set(item_set);
 
@@ -117,7 +118,7 @@ namespace tree_sitter {
             LexItemSet lex_item_set_for_parse_state(const ParseState &state) {
                 LexItemSet result;
                 for (auto &symbol : state.expected_inputs()) {
-                    if (lex_grammar.has_definition(symbol))
+                    if (symbol.is_token() && !symbol.is_built_in())
                         result.insert(LexItem(symbol, after_separators(lex_grammar.rule(symbol))));
                     if (symbol == rules::END_OF_INPUT())
                         result.insert(LexItem(symbol, after_separators(CharacterSet({ 0 }).copy())));
@@ -160,12 +161,12 @@ namespace tree_sitter {
 
             void add_error_lex_state() {
                 LexItemSet error_item_set;
-                for (auto &pair : lex_grammar.rules) {
-                    LexItem item(Symbol(pair.first, rules::SymbolTypeNormal), after_separators(pair.second));
+                for (size_t i = 0; i < lex_grammar.rules.size(); i++) {
+                    LexItem item(ISymbol(i, rules::SymbolOptionToken), after_separators(lex_grammar.rules[i].second));
                     error_item_set.insert(item);
                 }
-                for (auto &pair : lex_grammar.aux_rules) {
-                    LexItem item(Symbol(pair.first, rules::SymbolTypeAuxiliary), after_separators(pair.second));
+                for (size_t i = 0; i < lex_grammar.aux_rules.size(); i++) {
+                    LexItem item(ISymbol(i, rules::SymbolOption(rules::SymbolOptionToken|rules::SymbolOptionAuxiliary)), after_separators(lex_grammar.aux_rules[i].second));
                     error_item_set.insert(item);
                 }
                 error_item_set.insert(LexItem(rules::END_OF_INPUT(), after_separators(CharacterSet({ 0 }).copy())));
@@ -175,15 +176,14 @@ namespace tree_sitter {
 
         public:
             TableBuilder(const PreparedGrammar &grammar,
-                         const PreparedGrammar &lex_grammar,
-                         const map<Symbol, string> &rule_names) :
+                         const PreparedGrammar &lex_grammar) :
                 grammar(grammar),
                 lex_grammar(lex_grammar),
-                conflict_manager(ConflictManager(grammar, lex_grammar, rule_names))
+                conflict_manager(ConflictManager(grammar, lex_grammar))
                 {}
 
             void build() {
-                auto start_symbol = make_shared<Symbol>(grammar.start_rule_name());
+                auto start_symbol = make_shared<ISymbol>(0);
                 ParseItem item(rules::START(), start_symbol, {}, rules::END_OF_INPUT());
                 ParseItemSet item_set = item_set_closure(ParseItemSet({ item }), grammar);
                 add_parse_state(item_set);
@@ -200,9 +200,8 @@ namespace tree_sitter {
 
         pair<pair<ParseTable, LexTable>, vector<Conflict>>
         build_tables(const PreparedGrammar &grammar,
-                     const PreparedGrammar &lex_grammar,
-                     const map<Symbol, string> &rule_names) {
-            TableBuilder builder(grammar, lex_grammar, rule_names);
+                     const PreparedGrammar &lex_grammar) {
+            TableBuilder builder(grammar, lex_grammar);
             builder.build();
             return { { builder.parse_table, builder.lex_table }, builder.conflicts() };
         }

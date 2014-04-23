@@ -6,6 +6,8 @@
 #include "compiler/generate_code/c_code.h"
 #include "compiler/util/string_helpers.h"
 #include "compiler/rules/built_in_symbols.h"
+#include "compiler/prepared_grammar.h"
+#include "compiler/generate_code/token_description.h"
 
 namespace tree_sitter {
     using std::string;
@@ -52,17 +54,19 @@ namespace tree_sitter {
             const string name;
             const ParseTable parse_table;
             const LexTable lex_table;
-            const map<rules::Symbol, string> symbol_names;
+            const PreparedGrammar syntax_grammar;
+            const PreparedGrammar lexical_grammar;
         public:
             CCodeGenerator(string name,
                            const ParseTable &parse_table,
                            const LexTable &lex_table,
-                           const map<rules::Symbol, string> &symbol_names) :
+                           const PreparedGrammar &syntax_grammar,
+                           const PreparedGrammar &lexical_grammar) :
                 name(name),
                 parse_table(parse_table),
                 lex_table(lex_table),
-                symbol_names(symbol_names)
-                {}
+                syntax_grammar(syntax_grammar),
+                lexical_grammar(lexical_grammar) {}
 
             string code() {
                 return join({
@@ -79,15 +83,33 @@ namespace tree_sitter {
             }
 
         private:
-            string symbol_id(rules::Symbol symbol) {
+            
+            const PreparedGrammar & grammar_for_symbol(const rules::ISymbol &symbol) {
+                return symbol.is_token() ? lexical_grammar : syntax_grammar;
+            }
+            
+            string symbol_id(const rules::ISymbol &symbol) {
                 if (symbol.is_built_in()) {
                     return (symbol == rules::ERROR()) ?
                         "ts_builtin_sym_error" :
                         "ts_builtin_sym_end";
-                } else if (symbol.is_auxiliary()) {
-                    return "ts_aux_sym_" + symbol.name;
                 } else {
-                    return "ts_sym_" + symbol.name;
+                    string name = grammar_for_symbol(symbol).rule_name(symbol);
+                    if (symbol.is_auxiliary())
+                        return "ts_aux_sym_" + name;
+                    else
+                        return "ts_sym_" + name;
+                }
+            }
+            
+            string symbol_name(const rules::ISymbol &symbol) {
+                if (symbol.is_built_in()) {
+                    return (symbol == rules::ERROR()) ? "error" : "end";
+                } else if (symbol.is_token() && symbol.is_auxiliary()) {
+                    return token_description(grammar_for_symbol(symbol).rule(symbol));
+                } else {
+                    string name = grammar_for_symbol(symbol).rule_name(symbol);
+                    return name;
                 }
             }
 
@@ -189,20 +211,20 @@ namespace tree_sitter {
             }
 
             string symbol_names_list() {
-                set<rules::Symbol> symbols(parse_table.symbols);
+                set<rules::ISymbol> symbols(parse_table.symbols);
                 symbols.insert(rules::END_OF_INPUT());
                 symbols.insert(rules::ERROR());
 
                 string result = "SYMBOL_NAMES = {\n";
                 for (auto symbol : parse_table.symbols)
-                    result += indent("[" + symbol_id(symbol) + "] = \"" + symbol_names.find(symbol)->second) + "\",\n";
+                    result += indent("[" + symbol_id(symbol) + "] = \"" + symbol_name(symbol)) + "\",\n";
                 return result + "};";
             }
 
             string hidden_symbols_list() {
                 string result = "HIDDEN_SYMBOLS = {\n";
                 for (auto &symbol : parse_table.symbols)
-                    if (symbol.is_hidden())
+                    if (!symbol.is_built_in() && (symbol.is_auxiliary() || grammar_for_symbol(symbol).rule_name(symbol)[0] == '_'))
                         result += indent("[" + symbol_id(symbol) + "] = 1,") + "\n";
                 return result + "};";
             }
@@ -266,8 +288,9 @@ namespace tree_sitter {
         string c_code(string name,
                       const ParseTable &parse_table,
                       const LexTable &lex_table,
-                      const map<rules::Symbol, string> &symbol_names) {
-            return CCodeGenerator(name, parse_table, lex_table, symbol_names).code();
+                      const PreparedGrammar &syntax_grammar,
+                      const PreparedGrammar &lexical_grammar) {
+            return CCodeGenerator(name, parse_table, lex_table, syntax_grammar, lexical_grammar).code();
         }
     }
 }

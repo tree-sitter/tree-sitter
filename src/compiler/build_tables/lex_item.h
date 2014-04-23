@@ -9,7 +9,7 @@ namespace tree_sitter {
     namespace build_tables {
         class LexItem : public Item {
         public:
-            LexItem(const rules::Symbol &lhs, rules::rule_ptr rule);
+            LexItem(const rules::ISymbol &lhs, rules::rule_ptr rule);
             bool operator==(const LexItem &other) const;
             bool is_token_start() const;
         };
@@ -25,7 +25,7 @@ namespace std {
     struct hash<tree_sitter::build_tables::LexItem> {
         size_t operator()(const tree_sitter::build_tables::Item &item) const {
             return
-            hash<tree_sitter::rules::Symbol>()(item.lhs) ^
+            hash<tree_sitter::rules::ISymbol>()(item.lhs) ^
             hash<tree_sitter::rules::rule_ptr>()(item.rule);
         }
     };

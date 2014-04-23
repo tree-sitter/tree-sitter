@@ -8,7 +8,7 @@
 
 namespace tree_sitter {
     using std::set;
-    using rules::Symbol;
+    using rules::ISymbol;
 
     namespace build_tables {
         static bool contains(const ParseItemSet *items, const ParseItem &item) {
@@ -22,8 +22,8 @@ namespace tree_sitter {
             if (!contains(item_set, item)) {
                 item_set->insert(item);
                 for (const auto &pair : follow_sets(item, grammar)) {
-                    const Symbol &non_terminal = pair.first;
-                    const set<Symbol> &terminals = pair.second;
+                    const ISymbol &non_terminal = pair.first;
+                    const set<ISymbol> &terminals = pair.second;
                     for (const auto &terminal : terminals) {
                         ParseItem next_item(non_terminal, grammar.rule(non_terminal), 0, terminal);
                         add_item(item_set, next_item, grammar);

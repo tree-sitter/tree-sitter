@@ -8,10 +8,10 @@ namespace tree_sitter {
     using std::ostream;
 
     namespace build_tables {
-        ParseItem::ParseItem(const rules::Symbol &lhs,
+        ParseItem::ParseItem(const rules::ISymbol &lhs,
                              const rules::rule_ptr rule,
                              size_t consumed_symbol_count,
-                             const rules::Symbol &lookahead_sym) :
+                             const rules::ISymbol &lookahead_sym) :
             Item(lhs, rule),
             consumed_symbol_count(consumed_symbol_count),
             lookahead_sym(lookahead_sym) {}

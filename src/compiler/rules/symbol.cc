@@ -8,8 +8,7 @@ namespace tree_sitter  {
     using std::hash;
 
     namespace rules {
-        Symbol::Symbol(const std::string &name) : name(name), type(SymbolTypeNormal) {}
-        Symbol::Symbol(const std::string &name, SymbolType type) : name(name), type(type) {}
+        Symbol::Symbol(const std::string &name) : name(name) {}
 
         bool Symbol::operator==(const Rule &rule) const {
             const Symbol *other = dynamic_cast<const Symbol *>(&rule);
@@ -17,11 +16,11 @@ namespace tree_sitter  {
         }
 
         bool Symbol::operator==(const Symbol &other) const {
-            return (other.name == name) && (other.type == type);
+            return other.name == name;
         }
 
         size_t Symbol::hash_code() const {
-            return hash<string>()(name) ^ hash<int16_t>()(type);
+            return hash<string>()(name);
         }
 
         rule_ptr Symbol::copy() const {
@@ -29,34 +28,11 @@ namespace tree_sitter  {
         }
 
         string Symbol::to_string() const {
-            switch (type) {
-                case SymbolTypeNormal:
-                    return string("#<sym '") + name + "'>";
-                case SymbolTypeAuxiliary:
-                    return string("#<aux_sym '") + name + "'>";
-                case SymbolTypeBuiltIn:
-                    return string("#<builtin_sym '") + name + "'>";
-                default:
-                    return "";
-            }
+            return string("#<sym '") + name + "'>";
         }
 
         bool Symbol::operator<(const Symbol &other) const {
-            if (type < other.type) return true;
-            if (type > other.type) return false;
-            return (name < other.name);
-        }
-
-        bool Symbol::is_built_in() const {
-            return type == SymbolTypeBuiltIn;
-        }
-
-        bool Symbol::is_auxiliary() const {
-            return type == SymbolTypeAuxiliary;
-        }
-
-        bool Symbol::is_hidden() const {
-            return (name.front() == '_' || type == SymbolTypeAuxiliary);
+            return name < other.name;
         }
 
         void Symbol::accept(Visitor *visitor) const {

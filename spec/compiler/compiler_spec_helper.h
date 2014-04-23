@@ -4,7 +4,7 @@
 #include "bandit/bandit.h"
 #include "helpers/stream_methods.h"
 #include "helpers/equals_pointer.h"
-#include "helpers/character_set_helpers.h"
+#include "helpers/rule_helpers.h"
 #include "tree_sitter/compiler.h"
 
 using namespace tree_sitter;

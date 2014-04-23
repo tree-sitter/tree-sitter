@@ -16,7 +16,7 @@ namespace tree_sitter {
         std::map<rules::CharacterSet, LexItemSet>
         char_transitions(const LexItemSet &item_set, const PreparedGrammar &grammar);
 
-        std::map<rules::Symbol, ParseItemSet>
+        std::map<rules::ISymbol, ParseItemSet>
         sym_transitions(const ParseItemSet &item_set, const PreparedGrammar &grammar);
     }
 }

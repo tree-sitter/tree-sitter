@@ -7,11 +7,11 @@ namespace tree_sitter {
     using std::to_string;
     using std::set;
     using std::vector;
-    using rules::Symbol;
+    using rules::ISymbol;
 
     ParseAction::ParseAction(ParseActionType type,
                              size_t state_index,
-                             Symbol symbol,
+                             ISymbol symbol,
                              size_t consumed_symbol_count,
                              set<int> precedence_values) :
         type(type),
@@ -22,23 +22,23 @@ namespace tree_sitter {
 
     ParseAction::ParseAction() :
         type(ParseActionTypeError),
-        symbol(Symbol("")),
+        symbol(ISymbol(-1)),
         state_index(-1),
         consumed_symbol_count(0) {}
 
     ParseAction ParseAction::Error() {
-        return ParseAction(ParseActionTypeError, -1, Symbol(""), 0, { 0 });
+        return ParseAction(ParseActionTypeError, -1, ISymbol(-1), 0, { 0 });
     }
 
     ParseAction ParseAction::Accept() {
-        return ParseAction(ParseActionTypeAccept, -1, Symbol(""), 0, { 0 });
+        return ParseAction(ParseActionTypeAccept, -1, ISymbol(-1), 0, { 0 });
     }
 
     ParseAction ParseAction::Shift(size_t state_index, set<int> precedence_values) {
-        return ParseAction(ParseActionTypeShift, state_index, Symbol(""), 0, precedence_values);
+        return ParseAction(ParseActionTypeShift, state_index, ISymbol(-1), 0, precedence_values);
     }
 
-    ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count, int precedence) {
+    ParseAction ParseAction::Reduce(ISymbol symbol, size_t consumed_symbol_count, int precedence) {
         return ParseAction(ParseActionTypeReduce, -1, symbol, consumed_symbol_count, { precedence });
     }
 
@@ -58,7 +58,7 @@ namespace tree_sitter {
             case ParseActionTypeShift:
                 return stream << (string("#<shift ") + to_string(action.state_index) + ">");
             case ParseActionTypeReduce:
-                return stream << (string("#<reduce ") + action.symbol.name + ">");
+                return stream << (string("#<reduce ") + to_string(action.symbol.index) + ">");
             default:
                 return stream;
         }
@@ -66,8 +66,8 @@ namespace tree_sitter {
 
     ParseState::ParseState() : lex_state_id(-1) {}
 
-    set<Symbol> ParseState::expected_inputs() const {
-        set<Symbol> result;
+    set<ISymbol> ParseState::expected_inputs() const {
+        set<ISymbol> result;
         for (auto &pair : actions)
             result.insert(pair.first);
         return result;
@@ -90,7 +90,7 @@ namespace tree_sitter {
         return states.size() - 1;
     }
 
-    void ParseTable::add_action(ParseStateId id, Symbol symbol, ParseAction action) {
+    void ParseTable::add_action(ParseStateId id, ISymbol symbol, ParseAction action) {
         symbols.insert(symbol);
         states[id].actions[symbol] = action;
     }

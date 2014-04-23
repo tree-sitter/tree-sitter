@@ -6,7 +6,7 @@
 #include <utility>
 #include <vector>
 #include "compiler/lex_table.h"
-#include "compiler/rules/symbol.h"
+#include "compiler/rules/interned_symbol.h"
 
 namespace tree_sitter {
     typedef enum {
@@ -19,7 +19,7 @@ namespace tree_sitter {
     class ParseAction {
         ParseAction(ParseActionType type,
                     size_t state_index,
-                    rules::Symbol symbol,
+                    rules::ISymbol symbol,
                     size_t consumed_symbol_count,
                     std::set<int> precedence_values);
     public:
@@ -27,11 +27,11 @@ namespace tree_sitter {
         static ParseAction Accept();
         static ParseAction Error();
         static ParseAction Shift(size_t state_index, std::set<int> precedence_values);
-        static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count, int precedence);
+        static ParseAction Reduce(rules::ISymbol symbol, size_t consumed_symbol_count, int precedence);
         bool operator==(const ParseAction &action) const;
 
         ParseActionType type;
-        rules::Symbol symbol;
+        rules::ISymbol symbol;
         size_t state_index;
         size_t consumed_symbol_count;
         std::set<int> precedence_values;
@@ -46,7 +46,7 @@ namespace std {
         size_t operator()(const tree_sitter::ParseAction &action) const {
             return (
                     hash<int>()(action.type) ^
-                    hash<tree_sitter::rules::Symbol>()(action.symbol) ^
+                    hash<tree_sitter::rules::ISymbol>()(action.symbol) ^
                     hash<size_t>()(action.state_index) ^
                     hash<size_t>()(action.consumed_symbol_count));
         }
@@ -57,8 +57,8 @@ namespace tree_sitter {
     class ParseState {
     public:
         ParseState();
-        std::map<rules::Symbol, ParseAction> actions;
-        std::set<rules::Symbol> expected_inputs() const;
+        std::map<rules::ISymbol, ParseAction> actions;
+        std::set<rules::ISymbol> expected_inputs() const;
         LexStateId lex_state_id;
     };
 
@@ -69,10 +69,10 @@ namespace tree_sitter {
     class ParseTable {
     public:
         uint64_t add_state();
-        void add_action(ParseStateId state_id, rules::Symbol symbol, ParseAction action);
+        void add_action(ParseStateId state_id, rules::ISymbol symbol, ParseAction action);
 
         std::vector<ParseState> states;
-        std::set<rules::Symbol> symbols;
+        std::set<rules::ISymbol> symbols;
     };
 }
 

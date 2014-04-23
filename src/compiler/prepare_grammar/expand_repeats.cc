@@ -22,7 +22,7 @@ namespace tree_sitter {
     using rules::Repeat;
     using rules::Rule;
     using rules::Seq;
-    using rules::Symbol;
+    using rules::ISymbol;
 
     namespace prepare_grammar {
         class ExpandRepeats : public rules::IdentityRuleFn {
@@ -30,8 +30,9 @@ namespace tree_sitter {
 
             rule_ptr apply_to(const Repeat *rule) {
                 rule_ptr inner_rule = apply(rule->content);
-                string helper_rule_name = rule_name + string("_repeat") + to_string(aux_rules.size() + 1);
-                rule_ptr repeat_symbol = make_shared<Symbol>(helper_rule_name, rules::SymbolTypeAuxiliary);
+                size_t index = aux_rules.size();
+                string helper_rule_name = rule_name + string("_repeat") + to_string(index);
+                rule_ptr repeat_symbol = make_shared<ISymbol>(offset + index, rules::SymbolOptionAuxiliary);
                 aux_rules.push_back({
                     helper_rule_name,
                     Choice::Build({
@@ -43,8 +44,9 @@ namespace tree_sitter {
             }
 
         public:
-            ExpandRepeats(string rule_name) : rule_name(rule_name) {}
+            ExpandRepeats(string rule_name, size_t offset) : rule_name(rule_name), offset(offset) {}
 
+            size_t offset;
             vector<pair<string, rules::rule_ptr>> aux_rules;
         };
 
@@ -52,7 +54,7 @@ namespace tree_sitter {
             vector<pair<string, rules::rule_ptr>> rules, aux_rules(grammar.aux_rules);
 
             for (auto &pair : grammar.rules) {
-                ExpandRepeats expander(pair.first);
+                ExpandRepeats expander(pair.first, aux_rules.size());
                 rules.push_back({ pair.first, expander.apply(pair.second) });
                 aux_rules.insert(aux_rules.end(), expander.aux_rules.begin(), expander.aux_rules.end());
             }

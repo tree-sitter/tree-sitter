@@ -15,14 +15,11 @@ namespace tree_sitter {
         using std::vector;
 
         ConflictManager::ConflictManager(const PreparedGrammar &parse_grammar,
-                                         const PreparedGrammar &lex_grammar,
-                                         const map<Symbol, string> &rule_names) :
+                                         const PreparedGrammar &lex_grammar) :
             parse_grammar(parse_grammar),
-            lex_grammar(lex_grammar),
-            rule_names(rule_names)
-            {}
+            lex_grammar(lex_grammar) {}
 
-        bool ConflictManager::resolve_parse_action(const rules::Symbol &symbol,
+        bool ConflictManager::resolve_parse_action(const rules::ISymbol &symbol,
                                                    const ParseAction &old_action,
                                                    const ParseAction &new_action) {
             if (new_action.type < old_action.type)
@@ -63,9 +60,7 @@ namespace tree_sitter {
                                 return false;
                             } else {
                                 record_conflict(symbol, old_action, new_action);
-                                size_t old_index = parse_grammar.index_of(old_action.symbol);
-                                size_t new_index = parse_grammar.index_of(new_action.symbol);
-                                return new_index < old_index;
+                                return new_action.symbol.index < old_action.symbol.index;
                             }
                         }
                         default:
@@ -83,9 +78,7 @@ namespace tree_sitter {
                     return true;
                 case LexActionTypeAccept:
                     if (new_action.type == LexActionTypeAccept) {
-                        size_t old_index = lex_grammar.index_of(old_action.symbol);
-                        size_t new_index = lex_grammar.index_of(new_action.symbol);
-                        return (new_index < old_index);
+                        return new_action.symbol.index < old_action.symbol.index;
                     }
                 default:
                     return false;
@@ -109,16 +102,16 @@ namespace tree_sitter {
             return precedences + ")";
         }
 
-        string message_for_action(const ParseAction &action, const map<Symbol, string> &rule_names) {
+        string message_for_action(const ParseAction &action, const PreparedGrammar &parse_grammar) {
             switch (action.type) {
                 case ParseActionTypeShift:
                     return "shift " + precedence_string(action);
                 case ParseActionTypeReduce: {
-                    auto pair = rule_names.find(action.symbol);
-                    if (pair == rule_names.end())
-                        return "ERROR " + action.symbol.name;
+                    string name = parse_grammar.rule_name(action.symbol);
+                    if (name == "")
+                        return "ERROR" + to_string(action.symbol.index);
                     else
-                        return "reduce " + pair->second + " " + precedence_string(action);
+                        return "reduce " + name + " " + precedence_string(action);
                 }
                 case ParseActionTypeAccept:
                     return "accept";
@@ -127,12 +120,15 @@ namespace tree_sitter {
             }
         }
 
-        void ConflictManager::record_conflict(const rules::Symbol &symbol,
+        void ConflictManager::record_conflict(const rules::ISymbol &symbol,
                                               const ParseAction &left,
                                               const ParseAction &right) {
-            conflicts_.insert(Conflict(rule_names.find(symbol)->second + ": " +
-                                       message_for_action(left, rule_names) + " / " +
-                                       message_for_action(right, rule_names)));
+            string name = symbol.is_token() ?
+                lex_grammar.rule_name(symbol) :
+                parse_grammar.rule_name(symbol);
+            conflicts_.insert(Conflict(name + ": " +
+                                       message_for_action(left, parse_grammar) + " / " +
+                                       message_for_action(right, parse_grammar)));
         }
     }
 }

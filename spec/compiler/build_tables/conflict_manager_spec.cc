@@ -21,12 +21,7 @@ describe("resolving parse conflicts", []() {
     }, {});
 
     before_each([&]() {
-        manager = new ConflictManager(parse_grammar, lex_grammar, {
-            { Symbol("rule1"), "rule1" },
-            { Symbol("rule2"), "rule2" },
-            { Symbol("token1"), "token1" },
-            { Symbol("token2"), "token2" },
-        });
+        manager = new ConflictManager(parse_grammar, lex_grammar);
     });
 
     after_each([&]() {
@@ -34,8 +29,8 @@ describe("resolving parse conflicts", []() {
     });
 
     describe("lexical conflicts", [&]() {
-        Symbol sym1("token1");
-        Symbol sym2("token2");
+        ISymbol sym1(1, SymbolOptionToken);
+        ISymbol sym2(2, SymbolOptionToken);
 
         it("favors non-errors over lexical errors", [&]() {
             should_update = manager->resolve_lex_action(LexAction::Error(), LexAction::Advance(2));
@@ -55,8 +50,8 @@ describe("resolving parse conflicts", []() {
     });
 
     describe("syntactic conflicts", [&]() {
-        Symbol sym1("rule1");
-        Symbol sym2("rule2");
+        ISymbol sym1(0);
+        ISymbol sym2(1);
 
         it("favors non-errors over parse errors", [&]() {
             should_update = manager->resolve_parse_action(sym1, ParseAction::Error(), ParseAction::Shift(2, { 0 }));

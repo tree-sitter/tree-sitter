@@ -6,47 +6,48 @@
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/choice.h"
+#include "compiler/rules/interned_symbol.h"
 
 namespace tree_sitter {
     using std::set;
-    using rules::Symbol;
+    using rules::ISymbol;
 
     namespace build_tables {
-        set<Symbol> set_union(const set<Symbol> &left, const set<Symbol> &right) {
-            set<Symbol> result = left;
+        set<ISymbol> set_union(const set<ISymbol> &left, const set<ISymbol> &right) {
+            set<ISymbol> result = left;
             result.insert(right.begin(), right.end());
             return result;
         }
 
-        class FirstSet : public rules::RuleFn<set<Symbol>> {
+        class FirstSet : public rules::RuleFn<set<ISymbol>> {
             const PreparedGrammar grammar;
-            set<Symbol> visited_symbols;
+            set<ISymbol> visited_symbols;
         public:
             explicit FirstSet(const PreparedGrammar &grammar) : grammar(grammar) {}
 
-            set<Symbol> apply_to(const Symbol *rule) {
+            set<ISymbol> apply_to(const ISymbol *rule) {
                 if (visited_symbols.find(*rule) == visited_symbols.end()) {
                     visited_symbols.insert(*rule);
 
-                    if (grammar.has_definition(*rule)) {
-                        return apply(grammar.rule(*rule));
+                    if (rule->is_token()) {
+                        return set<ISymbol>({ *rule });
                     } else {
-                        return set<Symbol>({ *rule });
+                        return apply(grammar.rule(*rule));
                     }
                 } else {
-                    return set<Symbol>();
+                    return set<ISymbol>();
                 }
             }
 
-            set<Symbol> apply_to(const rules::Metadata *rule) {
+            set<ISymbol> apply_to(const rules::Metadata *rule) {
                 return apply(rule->rule);
             }
 
-            set<Symbol> apply_to(const rules::Choice *rule) {
+            set<ISymbol> apply_to(const rules::Choice *rule) {
                 return set_union(apply(rule->left), apply(rule->right));
             }
 
-            set<Symbol> apply_to(const rules::Seq *rule) {
+            set<ISymbol> apply_to(const rules::Seq *rule) {
                 auto result = apply(rule->left);
                 if (rule_can_be_blank(rule->left, grammar)) {
                     return set_union(result, apply(rule->right));
@@ -56,12 +57,12 @@ namespace tree_sitter {
             }
         };
 
-        set<Symbol> first_set(const rules::rule_ptr &rule, const PreparedGrammar &grammar) {
+        set<ISymbol> first_set(const rules::rule_ptr &rule, const PreparedGrammar &grammar) {
             return FirstSet(grammar).apply(rule);
         }
 
-        set<Symbol> first_set(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
-            set<Symbol> result;
+        set<ISymbol> first_set(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
+            set<ISymbol> result;
             for (auto &item : item_set) {
                 result = set_union(result, first_set(item.rule, grammar));
                 if (rule_can_be_blank(item.rule, grammar))

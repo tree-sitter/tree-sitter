@@ -5,7 +5,7 @@
 #include <vector>
 #include <set>
 #include <string>
-#include "compiler/rules/symbol.h"
+#include "compiler/rules/interned_symbol.h"
 #include "compiler/rules/character_set.h"
 
 namespace tree_sitter {
@@ -16,16 +16,16 @@ namespace tree_sitter {
     } LexActionType;
 
     class LexAction {
-        LexAction(LexActionType type, size_t state_index, rules::Symbol symbol);
+        LexAction(LexActionType type, size_t state_index, rules::ISymbol symbol);
     public:
         LexAction();
-        static LexAction Accept(rules::Symbol symbol);
+        static LexAction Accept(rules::ISymbol symbol);
         static LexAction Error();
         static LexAction Advance(size_t state_index);
         bool operator==(const LexAction &action) const;
 
         LexActionType type;
-        rules::Symbol symbol;
+        rules::ISymbol symbol;
         size_t state_index;
     };
 
@@ -37,7 +37,7 @@ namespace std {
     struct hash<tree_sitter::LexAction> {
         size_t operator()(const tree_sitter::LexAction &action) const {
             return (hash<int>()(action.type) ^
-                    hash<tree_sitter::rules::Symbol>()(action.symbol) ^
+                    hash<tree_sitter::rules::ISymbol>()(action.symbol) ^
                     hash<size_t>()(action.state_index));
         }
     };

@@ -3,12 +3,13 @@
 #include "compiler/build_tables/item_set_closure.h"
 #include "compiler/build_tables/rule_transitions.h"
 #include "compiler/build_tables/merge_transitions.h"
+#include "compiler/rules/interned_symbol.h"
 
 namespace tree_sitter {
     using std::map;
     using std::unordered_set;
     using rules::CharacterSet;
-    using rules::Symbol;
+    using rules::ISymbol;
 
     namespace build_tables {
         map<CharacterSet, LexItemSet>
@@ -21,11 +22,11 @@ namespace tree_sitter {
             return result;
         }
 
-        map<Symbol, ParseItemSet>
+        map<ISymbol, ParseItemSet>
         sym_transitions(const ParseItem &item, const PreparedGrammar &grammar) {
-            map<Symbol, ParseItemSet> result;
+            map<ISymbol, ParseItemSet> result;
             for (auto transition : sym_transitions(item.rule)) {
-                Symbol rule = transition.first;
+                ISymbol rule = transition.first;
                 ParseItem new_item(item.lhs, transition.second, item.consumed_symbol_count + 1, item.lookahead_sym);
                 result.insert({ rule, item_set_closure(ParseItemSet({ new_item }), grammar) });
             }
@@ -53,11 +54,11 @@ namespace tree_sitter {
             return result;
         }
 
-        map<Symbol, ParseItemSet>
+        map<ISymbol, ParseItemSet>
         sym_transitions(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
-            map<Symbol, ParseItemSet> result;
+            map<ISymbol, ParseItemSet> result;
             for (const ParseItem &item : item_set) {
-                map<Symbol, ParseItemSet> item_transitions = sym_transitions(item, grammar);
+                map<ISymbol, ParseItemSet> item_transitions = sym_transitions(item, grammar);
                 result = merge_sym_transitions<ParseItemSet>(result,
                                                              item_transitions,
                                                              [&](ParseItemSet left, ParseItemSet right) {

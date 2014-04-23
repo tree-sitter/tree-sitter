@@ -7,16 +7,9 @@
 
 namespace tree_sitter  {
     namespace rules {
-        typedef enum {
-            SymbolTypeNormal,
-            SymbolTypeAuxiliary,
-            SymbolTypeBuiltIn
-        } SymbolType;
-
         class Symbol : public Rule {
         public:
             explicit Symbol(const std::string &name);
-            Symbol(const std::string &name, SymbolType type);
 
             bool operator==(const Rule& other) const;
             bool operator==(const Symbol &other) const;
@@ -27,12 +20,7 @@ namespace tree_sitter  {
             void accept(Visitor *visitor) const;
             bool operator<(const Symbol &other) const;
 
-            bool is_built_in() const;
-            bool is_hidden() const;
-            bool is_auxiliary() const;
-
             std::string name;
-            SymbolType type;
         };
     }
 }

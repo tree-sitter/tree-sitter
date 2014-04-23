@@ -13,17 +13,17 @@ describe("item set transitions", []() {
     describe("when two items in the set have transitions on the same character", [&]() {
         it("merges the transitions by computing the union of the two item sets", [&]() {
             LexItemSet set1({
-                LexItem(Symbol("A"), pattern("[a-f]")),
-                LexItem(Symbol("B"), pattern("[e-x]")) });
+                LexItem(ISymbol(1), pattern("[a-f]")),
+                LexItem(ISymbol(2), pattern("[e-x]")) });
 
             AssertThat(char_transitions(set1, grammar), Equals(map<CharacterSet, LexItemSet>({
                 { CharacterSet({ {'a', 'd'} }), LexItemSet({
-                    LexItem(Symbol("A"), blank()) }) },
+                    LexItem(ISymbol(1), blank()) }) },
                 { CharacterSet({ {'e', 'f'} }), LexItemSet({
-                    LexItem(Symbol("A"), blank()),
-                    LexItem(Symbol("B"), blank()) }) },
+                    LexItem(ISymbol(1), blank()),
+                    LexItem(ISymbol(2), blank()) }) },
                 { CharacterSet({ {'g', 'x'} }), LexItemSet({
-                    LexItem(Symbol("B"), blank()) }) },
+                    LexItem(ISymbol(2), blank()) }) },
             })));
         });
     });

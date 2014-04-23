@@ -3,7 +3,7 @@
 
 #include <unordered_set>
 #include <string>
-#include "compiler/rules/symbol.h"
+#include "compiler/rules/interned_symbol.h"
 #include "compiler/build_tables/item.h"
 #include "compiler/rules/metadata.h"
 
@@ -11,15 +11,15 @@ namespace tree_sitter {
     namespace build_tables {
         class ParseItem : public Item {
         public:
-            ParseItem(const rules::Symbol &lhs,
+            ParseItem(const rules::ISymbol &lhs,
                       rules::rule_ptr rule,
                       const size_t consumed_symbol_count,
-                      const rules::Symbol &lookahead_sym);
+                      const rules::ISymbol &lookahead_sym);
             bool operator==(const ParseItem &other) const;
             int precedence() const;
 
             const size_t consumed_symbol_count;
-            const rules::Symbol lookahead_sym;
+            const rules::ISymbol lookahead_sym;
         };
 
         std::ostream& operator<<(std::ostream &stream, const ParseItem &item);
@@ -33,10 +33,10 @@ namespace std {
     struct hash<tree_sitter::build_tables::ParseItem> {
         size_t operator()(const tree_sitter::build_tables::ParseItem &item) const {
             return
-            hash<string>()(item.lhs.name) ^
+            hash<tree_sitter::rules::ISymbol>()(item.lhs) ^
             hash<tree_sitter::rules::rule_ptr>()(item.rule) ^
             hash<size_t>()(item.consumed_symbol_count) ^
-            hash<string>()(item.lookahead_sym.name);
+            hash<tree_sitter::rules::ISymbol>()(item.lookahead_sym);
         }
     };
 

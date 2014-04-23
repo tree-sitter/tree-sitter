@@ -14,58 +14,60 @@ describe("computing FIRST sets", []() {
 
     describe("for a sequence AB", [&]() {
         it("ignores B when A cannot be blank", [&]() {
-            auto rule = seq({ sym("x"), sym("y") });
+            auto rule = seq({ i_token(0), i_token(1) });
 
-            AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
-                Symbol("x"),
+            AssertThat(first_set(rule, null_grammar), Equals(set<ISymbol>({
+                ISymbol(0, SymbolOptionToken),
             })));
         });
 
         it("includes FIRST(B) when A can be blank", [&]() {
             auto rule = seq({
                 choice({
-                    sym("x"),
+                    i_token(0),
                     blank() }),
-                sym("y") });
+                i_token(1) });
 
-            AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
-                Symbol("x"),
-                Symbol("y")
+            AssertThat(first_set(rule, null_grammar), Equals(set<ISymbol>({
+                ISymbol(0, SymbolOptionToken),
+                ISymbol(1, SymbolOptionToken)
             })));
         });
 
         it("includes FIRST(A's right hand side) when A is a non-terminal", [&]() {
             auto rule = choice({
                 seq({
-                    sym("A"),
-                    sym("x"),
-                    sym("A") }),
-                sym("A") });
-
+                    i_token(0),
+                    i_token(1) }),
+                i_sym(0) });
+            
             Grammar grammar({
-                { "A", choice({
-                    seq({
-                        sym("y"),
-                        sym("z"),
-                        sym("y") }),
-                    sym("y") }) }
+                { "rule0", seq({
+                    i_token(2),
+                    i_token(3),
+                    i_token(4) }) }
             });
-
-            AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
-                Symbol("y")
+            
+            AssertThat(first_set(rule, grammar), Equals(set<ISymbol>({
+                ISymbol(0, SymbolOptionToken),
+                ISymbol(2, SymbolOptionToken),
             })));
         });
 
         it("includes FIRST(B) when A is a non-terminal and its expansion can be blank", [&]() {
-            Grammar grammar({{ "A", choice({ sym("x"), blank() }) }});
-
             auto rule = seq({
-                sym("A"),
-                sym("y") });
+                i_sym(0),
+                i_token(1) });
+            
+            Grammar grammar({
+                { "rule0", choice({
+                    i_token(0),
+                    blank() }) }
+            });
 
-            AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
-                Symbol("x"),
-                Symbol("y")
+            AssertThat(first_set(rule, grammar), Equals(set<ISymbol>({
+                ISymbol(0, SymbolOptionToken),
+                ISymbol(1, SymbolOptionToken),
             })));
         });
     });
@@ -73,23 +75,25 @@ describe("computing FIRST sets", []() {
     describe("when there are left-recursive rules", [&]() {
         it("terminates", [&]() {
             Grammar grammar({
-                { "expression", choice({
-                    seq({ sym("expression"), sym("x") }),
-                    sym("y"),
+                { "rule0", choice({
+                    seq({ i_sym(0), i_token(10) }),
+                    i_token(11),
                 }) },
             });
+            
+            auto rule = i_sym(0);
 
-            AssertThat(first_set(sym("expression"), grammar), Equals(set<Symbol>({
-                Symbol("y")
+            AssertThat(first_set(rule, grammar), Equals(set<ISymbol>({
+                ISymbol(11, SymbolOptionToken)
             })));
         });
     });
 
     it("ignores metadata rules", [&]() {
-        auto rule = make_shared<Metadata>(sym("x"), map<rules::MetadataKey, int>());
+        auto rule = make_shared<Metadata>(i_token(3), map<rules::MetadataKey, int>());
 
-        AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
-            Symbol("x"),
+        AssertThat(first_set(rule, null_grammar), Equals(set<ISymbol>({
+            ISymbol(3, SymbolOptionToken),
         })));
     });
 });

@@ -38,17 +38,17 @@ namespace tree_sitter  {
 
         class CanBeBlankRecursive : public CanBeBlank {
             const PreparedGrammar grammar;
-            set<rules::Symbol> visited_symbols;
+            set<rules::ISymbol> visited_symbols;
             using CanBeBlank::visit;
 
         public:
             using CanBeBlank::apply_to;
             explicit CanBeBlankRecursive(const PreparedGrammar &grammar) : grammar(grammar) {}
 
-            bool apply_to(const rules::Symbol *rule) {
+            bool apply_to(const rules::ISymbol *rule) {
                 if (visited_symbols.find(*rule) == visited_symbols.end()) {
                     visited_symbols.insert(*rule);
-                    return grammar.has_definition(*rule) && apply(grammar.rule(*rule));
+                    return !rule->is_token() && apply(grammar.rule(*rule));
                 } else {
                     return false;
                 }

@@ -12,38 +12,46 @@ describe("computing FOLLOW sets", []() {
     const PreparedGrammar grammar({
         { "A", sym("a") },
         { "B", sym("b") },
+        { "C", choice({ i_sym(0), i_sym(1) }) },
     }, {});
 
     it("includes all of the starting non-terminals for the item, and their following terminals", [&]() {
-        ParseItem item(Symbol("C"), choice({
-            seq({ sym("A"), choice({ sym("x"), sym("y") }) }),
-            seq({ sym("B"), sym("z") }),
-        }), {}, Symbol("w"));
+        ParseItem item(ISymbol(2), choice({
+            seq({ i_sym(0), choice({ i_token(0), i_token(1) }) }),
+            seq({ i_sym(1), i_token(2) }),
+        }), 0, ISymbol(10, SymbolOptionToken));
 
-        AssertThat(follow_sets(item, grammar), Equals(map<Symbol, set<Symbol>>({
-            { Symbol("A"), set<Symbol>({ Symbol("x"), Symbol("y") }) },
-            { Symbol("B"), set<Symbol>({ Symbol("z") }) },
+        AssertThat(follow_sets(item, grammar), Equals(map<ISymbol, set<ISymbol>>({
+            { ISymbol(0), set<ISymbol>({
+                ISymbol(0, SymbolOptionToken),
+                ISymbol(1, SymbolOptionToken) }) },
+            { ISymbol(1), set<ISymbol>({
+                ISymbol(2, SymbolOptionToken) }) },
         })));
     });
 
     it("does not include terminals at the beginning of the item", [&]() {
-        ParseItem item(Symbol("C"), choice({
-            seq({ sym("A"), choice({ sym("x"), sym("y") }) }),
-            seq({ sym("x"), sym("y") }),
-        }), {}, Symbol("w"));
+        ParseItem item(ISymbol(2), choice({
+            seq({ i_sym(0), choice({ i_token(0), i_token(1) }) }),
+            seq({ i_token(2), i_token(3) }),
+        }), 0, ISymbol(10, SymbolOptionToken));
 
-        AssertThat(follow_sets(item, grammar), Equals(map<Symbol, set<Symbol>>({
-            { Symbol("A"), set<Symbol>({ Symbol("x"), Symbol("y") }) },
+        AssertThat(follow_sets(item, grammar), Equals(map<ISymbol, set<ISymbol>>({
+            { ISymbol(0), set<ISymbol>({
+                ISymbol(0, SymbolOptionToken),
+                ISymbol(1, SymbolOptionToken) }) },
         })));
     });
 
     it("includes the item's lookahead terminal if the rule after the non-terminal might be blank", [&]() {
-        ParseItem item(Symbol("C"), choice({
-            seq({ sym("A"), choice({ sym("x"), blank() }) }),
-        }), {}, Symbol("w"));
+        ParseItem item(ISymbol(2), choice({
+            seq({ i_sym(0), choice({ i_token(0), blank() }) }),
+        }), 0, ISymbol(10, SymbolOptionToken));
 
-        AssertThat(follow_sets(item, grammar), Equals(map<Symbol, set<Symbol>>({
-            { Symbol("A"), set<Symbol>({ Symbol("x"), Symbol("w") }) },
+        AssertThat(follow_sets(item, grammar), Equals(map<ISymbol, set<ISymbol>>({
+            { ISymbol(0), set<ISymbol>({
+                ISymbol(0, SymbolOptionToken),
+                ISymbol(10, SymbolOptionToken) }) },
         })));
     });
 });

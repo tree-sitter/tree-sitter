@@ -11,7 +11,7 @@ namespace tree_sitter {
     using std::vector;
 
     namespace build_tables {
-        LexItem::LexItem(const rules::Symbol &lhs, const rules::rule_ptr rule) :
+        LexItem::LexItem(const rules::ISymbol &lhs, const rules::rule_ptr rule) :
             Item(lhs, rule) {}
 
         bool LexItem::operator==(const LexItem &other) const {
