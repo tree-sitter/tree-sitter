@@ -1,0 +1,9 @@
+==========================================
+parses ternary expressions
+==========================================
+print(isDone() ? stuff : otherStuff);
+---
+(program (expression_statement
+    (function_call
+        (identifier)
+        (ternary (function_call (identifier)) (identifier) (identifier)))))

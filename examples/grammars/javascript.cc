@@ -19,12 +19,13 @@ namespace tree_sitter_examples {
     static rule_ptr comma_sep(rule_ptr element) {
         return choice({
             seq({ element, repeat(seq({ str(","), element })) }),
-            blank(),
-        });
+            blank() });
     }
 
     extern const Grammar javascript({
         { "program", repeat(sym("statement")) },
+
+        // Statements
         { "statement", choice({
             sym("statement_block"),
             sym("if_statement"),
@@ -33,8 +34,6 @@ namespace tree_sitter_examples {
             sym("break_statement"),
             sym("var_declaration"),
             sym("expression_statement") }) },
-
-        // Statements
         { "statement_block", in_braces(err(repeat(sym("statement")))) },
         { "for_statement", seq({
             sym("_for"),
@@ -53,9 +52,9 @@ namespace tree_sitter_examples {
             err(sym("expression")),
             str(")"),
             sym("statement"),
-            optional(seq({
+            optional(prec(1, seq({
                 sym("_else"),
-                sym("statement") })) }) },
+                sym("statement") }))) }) },
         { "switch_statement", seq({
             sym("_switch"),
             str("("),
@@ -84,22 +83,28 @@ namespace tree_sitter_examples {
         { "expression_statement", seq({
             err(sym("expression")),
             sym("_terminator") }) },
+
+        // Expressions
         { "expression", choice({
             sym("function_expression"),
             sym("function_call"),
             sym("property_access"),
             sym("assignment"),
+            sym("ternary"),
             sym("literal"),
             sym("identifier") }) },
-
-        // Expressions
-        { "assignment", seq({
+        { "ternary", seq({
+            sym("expression"),
+            str("?"),
+            sym("expression"),
+            str(":"),
+            sym("expression") }) },
+        { "assignment", prec(-1, seq({
             choice({
                 sym("identifier"),
-                sym("property_access"),
-            }),
+                sym("property_access") }),
             str("="),
-            sym("expression") })},
+            sym("expression") })) },
         { "function_expression", seq({
             sym("_function"),
             optional(sym("identifier")),

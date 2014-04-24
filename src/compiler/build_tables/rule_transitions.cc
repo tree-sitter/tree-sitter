@@ -1,5 +1,4 @@
 #include "compiler/build_tables/rule_transitions.h"
-#include <set>
 #include "compiler/build_tables/rule_can_be_blank.h"
 #include "compiler/build_tables/merge_transitions.h"
 #include "compiler/rules/blank.h"
@@ -15,12 +14,10 @@
 
 namespace tree_sitter {
     using std::map;
-    using std::set;
     using std::make_shared;
     using rules::rule_ptr;
     using rules::ISymbol;
     using rules::CharacterSet;
-    using rules::Metadata;
 
     namespace build_tables {
         template<typename T>
@@ -29,14 +26,14 @@ namespace tree_sitter {
         template<>
         void merge_transitions(map<CharacterSet, rule_ptr> &left, const map<CharacterSet, rule_ptr> &right) {
             merge_char_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) {
-                return make_shared<rules::Choice>(left, right);
+                return rules::Choice::Build({ left, right });
             });
         }
 
         template<>
         void merge_transitions(map<ISymbol, rule_ptr> &left, const map<ISymbol, rule_ptr> &right) {
             merge_sym_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) {
-                return make_shared<rules::Choice>(left, right);
+                return rules::Choice::Build({ left, right });
             });
         }
 
@@ -92,7 +89,7 @@ namespace tree_sitter {
             map<T, rule_ptr> apply_to(const rules::Metadata *rule) {
                 auto result = this->apply(rule->rule);
                 transform_transitions(result, [&](const rule_ptr &to_rule) {
-                    return make_shared<Metadata>(to_rule, rule->value);
+                    return make_shared<rules::Metadata>(to_rule, rule->value);
                 });
                 return result;
             }
@@ -102,7 +99,7 @@ namespace tree_sitter {
                 for (char val : rule->value)
                     result = rules::Seq::Build({
                         result,
-                        make_shared<CharacterSet>(set<rules::CharacterRange>({ val }))
+                        CharacterSet({ val }).copy()
                     });
                 return this->apply(result);
             }
