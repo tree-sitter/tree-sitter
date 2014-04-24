@@ -7,3 +7,15 @@ print(isDone() ? stuff : otherStuff);
     (function_call
         (identifier)
         (ternary (function_call (identifier)) (identifier) (identifier)))))
+
+==========================================
+parses mathematical operators
+==========================================
+a + b * c - d / e
+---
+(program (expression_statement
+    (math_op
+        (identifier)
+        (math_op
+            (math_op (identifier) (identifier))
+            (math_op (identifier) (identifier))))))

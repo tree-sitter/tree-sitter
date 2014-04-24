@@ -21,6 +21,13 @@ namespace tree_sitter_examples {
             seq({ element, repeat(seq({ str(","), element })) }),
             blank() });
     }
+    
+    static rule_ptr infix(int precedence, std::string op) {
+        return prec(precedence, seq({
+            sym("expression"),
+            str(op),
+            sym("expression") }));
+    }
 
     extern const Grammar javascript({
         { "program", repeat(sym("statement")) },
@@ -92,7 +99,14 @@ namespace tree_sitter_examples {
             sym("assignment"),
             sym("ternary"),
             sym("literal"),
+            sym("math_op"),
+            sym("literal"),
             sym("identifier") }) },
+        { "math_op", choice({
+            infix(2, "*"),
+            infix(2, "/"),
+            infix(1, "+"),
+            infix(1, "-") }) },
         { "ternary", seq({
             sym("expression"),
             str("?"),
