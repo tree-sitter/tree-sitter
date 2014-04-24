@@ -87,6 +87,10 @@ namespace tree_sitter {
                     case ')':
                         error = "mismatched parens";
                         break;
+                    case '.':
+                        result = CharacterSet({ '\n' }).complement().copy();
+                        next();
+                        break;
                     default:
                         result = single_char().copy();
                 }
@@ -130,10 +134,6 @@ namespace tree_sitter {
 
             CharacterSet escaped_char(char value) {
                 switch (value) {
-                    case '\\':
-                    case '(':
-                    case ')':
-                        return CharacterSet({ value });
                     case 'a':
                         return CharacterSet({ {'a', 'z'}, {'A', 'Z'} });
                     case 'w':
@@ -141,8 +141,7 @@ namespace tree_sitter {
                     case 'd':
                         return CharacterSet({ {'0', '9'} });
                     default:
-                        error = "unrecognized escape sequence";
-                        return CharacterSet();
+                        return CharacterSet({ value });
                 }
             }
 

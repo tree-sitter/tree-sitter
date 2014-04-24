@@ -119,6 +119,6 @@ namespace tree_sitter_examples {
         { "var_name", sym("_identifier") },
         { "type_name", sym("_identifier") },
         { "_identifier", pattern("\\a[\\w_]*") },
-        { "number", pattern("\\d+(.\\d+)?") },
+        { "number", pattern("\\d+(\\.\\d+)?") },
     });
 }

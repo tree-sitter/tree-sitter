@@ -32,7 +32,7 @@ namespace tree_sitter_examples {
             comma_sep(err(sym("value"))),
             str("]"), }) },
         { "string", pattern("\"([^\"]|\\\\\")+\"") },
-        { "number", pattern("\\d+(.\\d+)?") },
+        { "number", pattern("\\d+(\\.\\d+)?") },
         { "null", str("null") },
         { "true", str("true") },
         { "false", str("false") },

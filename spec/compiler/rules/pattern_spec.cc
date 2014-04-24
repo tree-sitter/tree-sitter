@@ -6,7 +6,7 @@ using namespace rules;
 
 START_TEST
 
-describe("parsing pattern rules", []() {
+describe("parsing regex pattern rules", []() {
     it("parses simple strings", [&]() {
         Pattern rule("abc");
         AssertThat(
@@ -16,6 +16,13 @@ describe("parsing pattern rules", []() {
                 character({ 'b' }),
                 character({ 'c' })
             })));
+    });
+    
+    it("parses wildcard '.' characters", [&]() {
+        Pattern rule(".");
+        AssertThat(
+            rule.to_rule_tree(),
+            EqualsPointer(CharacterSet({'\n'}).complement().copy()));
     });
 
     it("parses character classes", []() {
@@ -114,6 +121,15 @@ describe("parsing pattern rules", []() {
                 character({ '(' }),
                 character({ 'b' })
             })));
+        
+        Pattern rule2("a\\.");
+        AssertThat(
+            rule2.to_rule_tree(),
+            EqualsPointer(seq({
+                character({ 'a' }),
+                character({ '.' }),
+            })));
+
     });
 
     it("parses repeating rules", []() {

@@ -179,6 +179,6 @@ namespace tree_sitter_examples {
         { "_terminator", pattern("[;\n]") },
         { "string", pattern("\"([^\"]|\\\\\")+\"") },
         { "identifier", pattern("\\a[\\w_$]*") },
-        { "number", pattern("\\d+(.\\d+)?") },
+        { "number", pattern("\\d+(\\.\\d+)?") },
     });
 }
