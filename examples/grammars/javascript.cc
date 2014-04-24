@@ -34,6 +34,7 @@ namespace tree_sitter_examples {
 
         // Statements
         { "statement", choice({
+            sym("comment"),
             sym("statement_block"),
             sym("if_statement"),
             sym("switch_statement"),
@@ -176,6 +177,7 @@ namespace tree_sitter_examples {
         { "true", str("true") },
         { "false", str("false") },
 
+        { "comment", pattern("//[^\n]*") },
         { "_terminator", pattern("[;\n]") },
         { "string", pattern("\"([^\"]|\\\\\")+\"") },
         { "identifier", pattern("\\a[\\w_$]*") },

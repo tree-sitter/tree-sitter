@@ -59,4 +59,13 @@ print(object[propertyName()]);
         (identifier)
         (property_access (identifier) (function_call (identifier))))))
 
-
+==========================================
+parses comments
+==========================================
+// this is another comment
+stuff(); // this is a comment
+---
+(program
+    (comment)
+    (expression_statement (function_call (identifier)))
+    (comment))
