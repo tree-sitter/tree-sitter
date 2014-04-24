@@ -128,7 +128,7 @@ namespace tree_sitter_examples {
         { "function_call", seq({
             sym("expression"),
             str("("),
-            comma_sep(sym("expression")),
+            comma_sep(err(sym("expression"))),
             str(")") }) },
         { "property_access", seq({
             sym("expression"),

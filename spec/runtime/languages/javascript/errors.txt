@@ -1,4 +1,11 @@
 ==========================================
+recovers from errors in function calls
+==========================================
+stuff(|||);
+---
+(program (expression_statement (function_call (identifier) (ERROR))))
+
+==========================================
 recovers from errors in if statements
 ==========================================
 stuff();
