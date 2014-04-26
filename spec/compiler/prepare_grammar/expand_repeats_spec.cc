@@ -13,7 +13,7 @@ describe("expanding repeat rules in a grammar", []() {
         PreparedGrammar grammar({
             { "rule0", repeat(i_token(0)) },
         }, {});
-        
+
         AssertThat(expand_repeats(grammar), Equals(PreparedGrammar({
             { "rule0", i_aux_sym(0) },
         }, {
@@ -24,12 +24,12 @@ describe("expanding repeat rules in a grammar", []() {
                 blank() }) },
         })));
     });
-    
+
     it("replaces repeats inside of sequences", [&]() {
         PreparedGrammar grammar({
             { "rule0", seq({ i_token(10), repeat(i_token(11)) }) },
         }, {});
-        
+
         AssertThat(expand_repeats(grammar), Equals(PreparedGrammar({
             { "rule0", seq({ i_token(10), i_aux_sym(0) }) },
         }, {
@@ -38,12 +38,12 @@ describe("expanding repeat rules in a grammar", []() {
                 blank() }) },
         })));
     });
-    
+
     it("replaces repeats inside of choices", [&]() {
         PreparedGrammar grammar({
             { "rule0", choice({ i_token(10), repeat(i_token(11)) }) },
         }, {});
-        
+
         AssertThat(expand_repeats(grammar), Equals(PreparedGrammar({
             { "rule0", choice({ i_token(10), i_aux_sym(0) }) },
         }, {
@@ -52,12 +52,12 @@ describe("expanding repeat rules in a grammar", []() {
                 blank() }) },
         })));
     });
-    
+
     it("can replace multiple repeats in the same rule", [&]() {
         PreparedGrammar grammar({
             { "rule0", seq({ repeat(i_token(10)), repeat(i_token(11)) }) },
         }, {});
-        
+
         AssertThat(expand_repeats(grammar), Equals(PreparedGrammar({
             { "rule0", seq({ i_aux_sym(0), i_aux_sym(1) }) },
         }, {
@@ -73,13 +73,13 @@ describe("expanding repeat rules in a grammar", []() {
                 blank() }) },
         })));
     });
-    
+
     it("can replace repeats in multiple rules", [&]() {
         PreparedGrammar grammar({
             { "rule0", repeat(i_token(10)) },
             { "rule1", repeat(i_token(11)) },
         }, {});
-        
+
         AssertThat(expand_repeats(grammar), Equals(PreparedGrammar({
             { "rule0", i_aux_sym(0) },
             { "rule1", i_aux_sym(1) },

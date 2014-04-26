@@ -17,7 +17,7 @@ describe("parsing regex pattern rules", []() {
                 character({ 'c' })
             })));
     });
-    
+
     it("parses wildcard '.' characters", [&]() {
         Pattern rule(".");
         AssertThat(
@@ -121,7 +121,7 @@ describe("parsing regex pattern rules", []() {
                 character({ '(' }),
                 character({ 'b' })
             })));
-        
+
         Pattern rule2("a\\.");
         AssertThat(
             rule2.to_rule_tree(),

@@ -6,18 +6,18 @@
 
 namespace tree_sitter {
     using std::string;
-    
+
     namespace generate_code {
         class TokenDescription : public rules::RuleFn<string> {
             string apply_to(const rules::Pattern *rule) {
                 return "/" + rule->value + "/";
             }
-            
+
             string apply_to(const rules::String *rule) {
                 return "'" + rule->value + "'";
             }
         };
-        
+
         std::string token_description(const rules::rule_ptr &rule) {
             return TokenDescription().apply(rule);
         }

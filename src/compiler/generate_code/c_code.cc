@@ -83,11 +83,11 @@ namespace tree_sitter {
             }
 
         private:
-            
+
             const PreparedGrammar & grammar_for_symbol(const rules::ISymbol &symbol) {
                 return symbol.is_token() ? lexical_grammar : syntax_grammar;
             }
-            
+
             string symbol_id(const rules::ISymbol &symbol) {
                 if (symbol.is_built_in()) {
                     return (symbol == rules::ERROR()) ?
@@ -101,7 +101,7 @@ namespace tree_sitter {
                         return "ts_sym_" + name;
                 }
             }
-            
+
             string symbol_name(const rules::ISymbol &symbol) {
                 if (symbol.is_built_in()) {
                     return (symbol == rules::ERROR()) ? "error" : "end";

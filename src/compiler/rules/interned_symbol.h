@@ -9,25 +9,25 @@ namespace tree_sitter  {
             SymbolOptionToken = 1 << 0,
             SymbolOptionAuxiliary = 1 << 1,
         } SymbolOption;
-        
+
         class ISymbol : public Rule {
         public:
             explicit ISymbol(int index);
             ISymbol(int index, SymbolOption options);
-            
+
             bool operator==(const ISymbol &other) const;
             bool operator==(const Rule &other) const;
-            
+
             size_t hash_code() const;
             rule_ptr copy() const;
             std::string to_string() const;
             void accept(Visitor *visitor) const;
             bool operator<(const ISymbol &other) const;
-            
+
             bool is_token() const;
             bool is_built_in() const;
             bool is_auxiliary() const;
-            
+
             int index;
             SymbolOption options;
         };

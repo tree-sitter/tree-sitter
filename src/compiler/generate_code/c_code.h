@@ -8,7 +8,7 @@
 
 namespace tree_sitter {
     class PreparedGrammar;
-    
+
     namespace generate_code {
         std::string c_code(std::string name,
                            const ParseTable &parse_table,

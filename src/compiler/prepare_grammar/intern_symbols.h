@@ -7,7 +7,7 @@
 namespace tree_sitter {
     class Grammar;
     class PreparedGrammar;
-    
+
     class GrammarError {
         std::string rule_name;
     public:

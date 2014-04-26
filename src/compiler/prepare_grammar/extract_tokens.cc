@@ -29,20 +29,20 @@ namespace tree_sitter {
             bool apply_to(const rules::String *rule) { return true; }
             bool apply_to(const rules::Pattern *rule) { return true; }
         };
-        
+
         class SymbolInliner : public rules::IdentityRuleFn {
             map<ISymbol, ISymbol> replacements;
             using rules::IdentityRuleFn::apply_to;
-            
+
             int new_index_for_symbol(const ISymbol &symbol) {
                 int result = symbol.index;
                 for (const auto &pair : replacements)
-                    if (pair.first.index < symbol.index && 
+                    if (pair.first.index < symbol.index &&
                         pair.first.is_auxiliary() == symbol.is_auxiliary())
                         result--;
                 return result;
             }
-            
+
             rule_ptr apply_to(const ISymbol *rule) {
                 auto replacement_pair = replacements.find(*rule);
                 if (replacement_pair != replacements.end())
@@ -52,7 +52,7 @@ namespace tree_sitter {
                 else
                     return make_shared<ISymbol>(new_index_for_symbol(*rule), rule->options);
             }
-            
+
         public:
             SymbolInliner(const map<ISymbol, ISymbol> &replacements, size_t rule_count, size_t aux_rule_count) :
                 replacements(replacements)
@@ -78,7 +78,7 @@ namespace tree_sitter {
                     return result;
                 }
             }
-            
+
         public:
             vector<pair<string, rule_ptr>> tokens;
         };

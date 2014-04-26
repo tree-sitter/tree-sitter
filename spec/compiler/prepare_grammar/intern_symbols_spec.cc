@@ -18,7 +18,7 @@ describe("interning symbols in a grammar", []() {
         });
 
         auto result = intern_symbols(grammar);
-        
+
         AssertThat((bool)result.second, IsFalse());
         AssertThat(result.first, Equals(PreparedGrammar({
             { "x", choice({ i_sym(1), i_sym(2) }) },
@@ -26,15 +26,15 @@ describe("interning symbols in a grammar", []() {
             { "z", str("stuff") },
         }, {})));
     });
-    
+
     describe("when there are symbols that reference undefined rules", [&]() {
         it("returns an error", []() {
             Grammar grammar({
                 { "x", sym("y") },
             });
-            
+
             auto result = intern_symbols(grammar);
-            
+
             AssertThat(result.second->message(), Equals("Undefined rule 'y'"));
         });
     });
