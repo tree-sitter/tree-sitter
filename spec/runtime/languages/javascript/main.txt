@@ -69,3 +69,58 @@ stuff(); // this is a comment
     (comment)
     (expression_statement (function_call (identifier)))
     (comment))
+
+======================================
+parses real code
+=====================================
+  _.each = _.forEach = function(obj, iterator, context) {
+    if (obj == null) return obj;
+    if (obj.length === obj.length) {
+      for (var i = 0; i < length; i = i + 1) {
+        if (iterator.call(context, obj[i], i, obj) === breaker) return;
+      }
+    } else {
+      var keys = _.keys(obj);
+      for (var i = 0; i < length; i = i + 1) {
+        if (iterator.call(context, obj[keys[i]], keys[i], obj) === breaker) return;
+      }
+    }
+    return obj;
+  };
+
+
+---
+(program (expression_statement
+    (assignment
+        (property_access (identifier) (identifier))
+        (assignment (property_access (identifier) (identifier))
+            (function_expression
+                (formal_parameters (identifier) (identifier) (identifier))
+                (statement_block
+                    (if_statement (bool_op (identifier) (null)) (return_statement (identifier)))
+                    (if_statement
+                        (property_access (bool_op (property_access (identifier) (identifier)) (identifier)) (identifier))
+                        (statement_block
+                            (for_statement
+                                (var_declaration (assignment (identifier) (number)))
+                                (expression_statement (bool_op (identifier) (identifier)))
+                                (assignment (identifier) (math_op (identifier) (number)))
+                                (statement_block
+                                    (if_statement
+                                        (bool_op (function_call (property_access (identifier) (identifier)) (identifier) (property_access (identifier) (identifier)) (identifier) (identifier)) (identifier))
+                                        (return_statement)))))
+                        (statement_block
+                            (var_declaration (assignment (identifier) (function_call (property_access (identifier) (identifier)) (identifier))))
+                            (for_statement
+                                (var_declaration (assignment (identifier) (number)))
+                                (expression_statement (bool_op (identifier) (identifier)))
+                                (assignment (identifier) (math_op (identifier) (number)))
+                                (statement_block
+                                    (if_statement
+                                        (bool_op (function_call
+                                            (property_access (identifier) (identifier))
+                                            (identifier)
+                                            (property_access (identifier) (property_access (identifier) (identifier)))
+                                            (property_access (identifier) (identifier)) (identifier)) (identifier))
+                                        (return_statement))))))
+                    (return_statement (identifier))))))))

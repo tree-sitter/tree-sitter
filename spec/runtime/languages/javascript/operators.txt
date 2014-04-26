@@ -19,3 +19,14 @@ a + b * c - d / e
         (math_op
             (math_op (identifier) (identifier))
             (math_op (identifier) (identifier))))))
+
+==========================================
+parses boolean operators
+=========================================
+!a || !(b && c)
+---
+(program (expression_statement
+    (bool_op
+        (bool_op (identifier))
+        (bool_op
+            (expression (bool_op (identifier) (identifier)))))))
