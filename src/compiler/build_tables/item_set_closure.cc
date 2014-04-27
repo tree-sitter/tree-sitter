@@ -9,33 +9,28 @@
 namespace tree_sitter {
     using std::set;
     using rules::ISymbol;
+    using std::vector;
 
     namespace build_tables {
-        static bool contains(const ParseItemSet *items, const ParseItem &item) {
-            if (items->empty()) return false;
-            return (std::find(items->begin(), items->end(), item) != items->end());
-        }
-
-        static void add_item(ParseItemSet *item_set,
-                             const ParseItem &item,
-                             const PreparedGrammar &grammar) {
-            if (!contains(item_set, item)) {
-                item_set->insert(item);
-                for (const auto &pair : follow_sets(item, grammar)) {
-                    const ISymbol &non_terminal = pair.first;
-                    const set<ISymbol> &terminals = pair.second;
-                    for (const auto &terminal : terminals) {
-                        ParseItem next_item(non_terminal, grammar.rule(non_terminal), 0, terminal);
-                        add_item(item_set, next_item, grammar);
-                    }
-                }
-            }
-        }
-
         const ParseItemSet item_set_closure(const ParseItem &item,
                                             const PreparedGrammar &grammar) {
             ParseItemSet result;
-            add_item(&result, item, grammar);
+            vector<ParseItem> items_to_add = { item };
+            while (!items_to_add.empty()) {
+                const ParseItem &item = items_to_add.back();
+                items_to_add.pop_back();
+                auto insertion_result = result.insert(item);
+                if (insertion_result.second) {
+                    result.insert(item);
+                    for (const auto &pair : follow_sets(item, grammar)) {
+                        const ISymbol &non_terminal = pair.first;
+                        const set<ISymbol> &terminals = pair.second;
+                        for (const auto &terminal : terminals) {
+                            items_to_add.push_back(ParseItem(non_terminal, grammar.rule(non_terminal), 0, terminal));
+                        }
+                    }
+                }
+            }
             return result;
         }
     }
