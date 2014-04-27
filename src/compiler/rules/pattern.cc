@@ -15,6 +15,7 @@ namespace tree_sitter {
         using std::hash;
         using std::make_shared;
         using std::set;
+        using std::vector;
 
         class PatternParser {
         public:
@@ -24,12 +25,12 @@ namespace tree_sitter {
                 position(0) {}
 
             rule_ptr rule() {
-                auto result = term();
+                vector<rule_ptr> choices = { term() };
                 while (has_more_input() && peek() == '|') {
                     next();
-                    result = make_shared<Choice>(result, term());
+                    choices.push_back(term());
                 }
-                return result;
+                return (choices.size() > 1) ? Choice::Build(choices) : choices.front();
             }
 
         private:
@@ -54,7 +55,7 @@ namespace tree_sitter {
                             break;
                         case '?':
                             next();
-                            result = make_shared<Choice>(result, make_shared<Blank>());
+                            result = Choice::Build({ result, make_shared<Blank>() });
                             break;
                     }
                 }

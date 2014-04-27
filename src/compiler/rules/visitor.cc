@@ -11,13 +11,18 @@
 #include "compiler/rules/repeat.h"
 
 namespace tree_sitter {
+    using std::vector;
+    
     namespace rules {
         rule_ptr IdentityRuleFn::default_apply(const Rule *rule) {
             return rule->copy();
         }
 
         rule_ptr IdentityRuleFn::apply_to(const Choice *rule) {
-            return Choice::Build({ apply(rule->left), apply(rule->right) });
+            vector<rule_ptr> rules;
+            for (const auto &el : rule->elements)
+                rules.push_back(apply(el));
+            return Choice::Build(rules);
         }
 
         rule_ptr IdentityRuleFn::apply_to(const Seq *rule) {

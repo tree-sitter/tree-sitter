@@ -9,7 +9,7 @@ namespace tree_sitter {
     namespace rules {
         class Choice : public Rule {
         public:
-            Choice(rule_ptr left, rule_ptr right);
+            Choice(const std::vector<rule_ptr> &elements);
             static rule_ptr Build(const std::vector<rule_ptr> &rules);
 
             bool operator==(const Rule& other) const;
@@ -18,8 +18,7 @@ namespace tree_sitter {
             std::string to_string() const;
             void accept(Visitor *visitor) const;
 
-            const rule_ptr left;
-            const rule_ptr right;
+            const std::vector<rule_ptr> elements;
         };
     }
 }

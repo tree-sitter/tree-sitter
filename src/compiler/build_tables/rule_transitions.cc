@@ -62,8 +62,9 @@ namespace tree_sitter {
             }
 
             map<T, rule_ptr> apply_to(const rules::Choice *rule) {
-                auto result = this->apply(rule->left);
-                merge_transitions<T>(result, this->apply(rule->right));
+                map<T, rule_ptr> result;
+                for (const auto &el : rule->elements)
+                    merge_transitions<T>(result, this->apply(el));
                 return result;
             }
 

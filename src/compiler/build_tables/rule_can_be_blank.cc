@@ -24,7 +24,9 @@ namespace tree_sitter  {
             }
 
             bool apply_to(const rules::Choice *rule) {
-                return apply(rule->left) || apply(rule->right);
+                for (const auto &element : rule->elements)
+                    if (apply(element)) return true;
+                return false;
             }
 
             bool apply_to(const rules::Seq *rule) {

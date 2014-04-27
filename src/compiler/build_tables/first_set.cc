@@ -13,12 +13,6 @@ namespace tree_sitter {
     using rules::ISymbol;
 
     namespace build_tables {
-        set<ISymbol> set_union(const set<ISymbol> &left, const set<ISymbol> &right) {
-            set<ISymbol> result = left;
-            result.insert(right.begin(), right.end());
-            return result;
-        }
-
         class FirstSet : public rules::RuleFn<set<ISymbol>> {
             const PreparedGrammar *grammar;
             set<ISymbol> visited_symbols;
@@ -26,14 +20,11 @@ namespace tree_sitter {
             explicit FirstSet(const PreparedGrammar *grammar) : grammar(grammar) {}
 
             set<ISymbol> apply_to(const ISymbol *rule) {
-                if (visited_symbols.find(*rule) == visited_symbols.end()) {
-                    visited_symbols.insert(*rule);
-
-                    if (rule->is_token()) {
-                        return set<ISymbol>({ *rule });
-                    } else {
-                        return apply(grammar->rule(*rule));
-                    }
+                auto insertion_result = visited_symbols.insert(*rule);
+                if (insertion_result.second) {
+                    return (rule->is_token()) ?
+                        set<ISymbol>({ *rule }) :
+                        apply(grammar->rule(*rule));
                 } else {
                     return set<ISymbol>();
                 }
@@ -44,16 +35,21 @@ namespace tree_sitter {
             }
 
             set<ISymbol> apply_to(const rules::Choice *rule) {
-                return set_union(apply(rule->left), apply(rule->right));
+                set<ISymbol> result;
+                for (const auto &el : rule->elements) {
+                    auto &&next_syms = apply(el);
+                    result.insert(next_syms.begin(), next_syms.end());
+                }
+                return result;
             }
 
             set<ISymbol> apply_to(const rules::Seq *rule) {
-                auto result = apply(rule->left);
+                auto &&result = apply(rule->left);
                 if (rule_can_be_blank(rule->left, *grammar)) {
-                    return set_union(result, apply(rule->right));
-                } else {
-                    return result;
+                    auto &&right_symbols = apply(rule->right);
+                    result.insert(right_symbols.begin(), right_symbols.end());
                 }
+                return result;
             }
         };
 
@@ -64,7 +60,8 @@ namespace tree_sitter {
         set<ISymbol> first_set(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
             set<ISymbol> result;
             for (auto &item : item_set) {
-                result = set_union(result, first_set(item.rule, grammar));
+                auto &&rule_set = first_set(item.rule, grammar);
+                result.insert(rule_set.begin(), rule_set.end());
                 if (rule_can_be_blank(item.rule, grammar))
                     result.insert(item.lookahead_sym);
             }
