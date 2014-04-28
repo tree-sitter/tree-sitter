@@ -1,24 +1,9 @@
 #include "tree_sitter/compiler.h"
+#include "helpers.h"
 
 namespace tree_sitter_examples {
     using tree_sitter::Grammar;
     using namespace tree_sitter::rules;
-
-    static rule_ptr comma_sep1(rule_ptr element) {
-        return seq({ element, repeat(seq({ str(","), element })) });
-    }
-
-    static rule_ptr comma_sep(rule_ptr element) {
-        return choice({ comma_sep1(element), blank() });
-    }
-
-    static rule_ptr in_parens(rule_ptr rule) {
-        return seq({ str("("), rule, str(")") });
-    }
-
-    static rule_ptr in_braces(rule_ptr rule) {
-        return seq({ str("{"), rule, str("}") });
-    }
 
     extern const Grammar golang({
         { "program", seq({
@@ -57,8 +42,6 @@ namespace tree_sitter_examples {
             sym("_func_signature"),
             sym("statement_block") }) },
         { "statement_block", in_braces(blank()) },
-        { "expression", choice({
-            sym("number") }) },
         { "type_expression", choice({
             sym("pointer_type"),
             sym("slice_type"),
@@ -93,6 +76,26 @@ namespace tree_sitter_examples {
                 sym("_func_signature") }))) }) },
 
         // Value expressions
+        { "expression", choice({
+            sym("math_op"),
+            sym("bool_op"),
+            sym("number"),
+            sym("var_name") }) },
+        { "math_op", choice({
+            infix(2, "*"),
+            infix(2, "/"),
+            infix(1, "+"),
+            infix(1, "-") }) },
+        { "bool_op", choice({
+            infix(3, "&&"),
+            infix(2, "||"),
+            infix(2, "==="),
+            infix(2, "=="),
+            infix(2, "<="),
+            infix(4, "<"),
+            infix(2, ">="),
+            infix(2, ">"),
+            prefix(4, "!") }) },
         { "_func_signature", seq({
             in_parens(comma_sep(seq({
                 comma_sep1(sym("var_name")),

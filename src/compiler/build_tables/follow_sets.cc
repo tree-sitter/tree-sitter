@@ -12,9 +12,8 @@ namespace tree_sitter {
 
     namespace build_tables {
         map<ISymbol, set<ISymbol>> follow_sets(const ParseItem &item,
-                                             const PreparedGrammar &grammar) {
+                                               const PreparedGrammar &grammar) {
             map<ISymbol, set<ISymbol>> result;
-
             for (auto &pair : sym_transitions(item.rule)) {
                 ISymbol symbol = pair.first;
                 rule_ptr next_rule = pair.second;

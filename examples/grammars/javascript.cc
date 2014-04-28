@@ -1,43 +1,9 @@
 #include "tree_sitter/compiler.h"
+#include "helpers.h"
 
 namespace tree_sitter_examples {
     using tree_sitter::Grammar;
     using namespace tree_sitter::rules;
-
-    static rule_ptr optional(rule_ptr rule) {
-        return choice({ rule, blank() });
-    }
-
-    static rule_ptr in_parens(rule_ptr rule) {
-        return seq({ str("("), rule, str(")") });
-    }
-
-    static rule_ptr in_braces(rule_ptr rule) {
-        return seq({ str("{"), rule, str("}") });
-    }
-
-    static rule_ptr in_brackets(rule_ptr rule) {
-        return seq({ str("["), rule, str("]") });
-    }
-
-    static rule_ptr comma_sep(rule_ptr element) {
-        return choice({
-            seq({ element, repeat(seq({ str(","), element })) }),
-            blank() });
-    }
-
-    static rule_ptr infix(int precedence, std::string op) {
-        return prec(precedence, seq({
-            sym("expression"),
-            str(op),
-            sym("expression") }));
-    }
-
-    static rule_ptr prefix(int precedence, std::string op) {
-        return prec(precedence, seq({
-            str(op),
-            sym("expression") }));
-    }
 
     extern const Grammar javascript({
         { "program", repeat(sym("statement")) },
@@ -73,9 +39,7 @@ namespace tree_sitter_examples {
                 sym("statement") }))) }) },
         { "switch_statement", seq({
             sym("_switch"),
-            str("("),
-            err(sym("expression")),
-            str(")"),
+            in_parens(err(sym("expression"))),
             in_braces(repeat(sym("switch_case"))) }) },
         { "switch_case", seq({
             choice({
@@ -113,7 +77,6 @@ namespace tree_sitter_examples {
             sym("property_access"),
             sym("assignment"),
             sym("ternary"),
-            sym("literal"),
             sym("math_op"),
             sym("bool_op"),
             sym("literal"),

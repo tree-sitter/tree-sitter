@@ -1,15 +1,9 @@
 #include "tree_sitter/compiler.h"
+#include "helpers.h"
 
 namespace tree_sitter_examples {
     using tree_sitter::Grammar;
     using namespace tree_sitter::rules;
-
-    static rule_ptr comma_sep(rule_ptr rule) {
-        return choice({
-            seq({ rule, repeat(seq({ str(","), rule })) }),
-            blank(),
-        });
-    }
 
     extern const Grammar json({
         { "value", choice({
@@ -20,17 +14,11 @@ namespace tree_sitter_examples {
             sym("true"),
             sym("false"),
             sym("null"), }) },
-        { "object", seq({
-            str("{"),
-            comma_sep(err(seq({
-                sym("string"),
-                str(":"),
-                sym("value") }))),
-            str("}"), }) },
-        { "array", seq({
-            str("["),
-            comma_sep(err(sym("value"))),
-            str("]"), }) },
+        { "object", in_braces(comma_sep(err(seq({
+            sym("string"),
+            str(":"),
+            sym("value") })))) },
+        { "array", in_brackets(comma_sep(err(sym("value")))) },
         { "string", pattern("\"([^\"]|\\\\\")+\"") },
         { "number", pattern("\\d+(\\.\\d+)?") },
         { "null", str("null") },
