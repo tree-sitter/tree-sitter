@@ -13,11 +13,15 @@ namespace tree_sitter {
     }
 
     namespace build_tables {
+        class SymTransitions {
+        public:
+            std::map<rules::ISymbol, ParseItemSet>
+            operator()(const ParseItemSet &item_set, const PreparedGrammar &grammar);
+            std::map<rules::rule_ptr, std::map<rules::ISymbol, ParseItemSet>> transitions_cache;
+        };
+
         std::map<rules::CharacterSet, LexItemSet>
         char_transitions(const LexItemSet &item_set, const PreparedGrammar &grammar);
-
-        std::map<rules::ISymbol, ParseItemSet>
-        sym_transitions(const ParseItemSet &item_set, const PreparedGrammar &grammar);
     }
 }
 

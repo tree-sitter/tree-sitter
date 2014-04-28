@@ -194,6 +194,7 @@ namespace tree_sitter {
                 return conflict_manager.conflicts();
             };
 
+            SymTransitions sym_transitions;
             ParseTable parse_table;
             LexTable lex_table;
         };

@@ -18,8 +18,8 @@ namespace tree_sitter {
             bool operator==(const ParseItem &other) const;
             int precedence() const;
 
-            const size_t consumed_symbol_count;
-            const rules::ISymbol lookahead_sym;
+            size_t consumed_symbol_count;
+            rules::ISymbol lookahead_sym;
         };
 
         std::ostream& operator<<(std::ostream &stream, const ParseItem &item);
