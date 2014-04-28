@@ -26,7 +26,8 @@ namespace tree_sitter {
                         const ISymbol &non_terminal = pair.first;
                         const set<ISymbol> &terminals = pair.second;
                         for (const auto &terminal : terminals) {
-                            items_to_add.push_back(ParseItem(non_terminal, grammar.rule(non_terminal), 0, terminal));
+                            ParseItem next_item(non_terminal, grammar.rule(non_terminal), 0, terminal);
+                            items_to_add.push_back(next_item);
                         }
                     }
                 }
