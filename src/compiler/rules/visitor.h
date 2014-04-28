@@ -28,6 +28,7 @@ namespace tree_sitter {
             virtual void visit(const String *rule) = 0;
             virtual void visit(const Symbol *rule) = 0;
             virtual void visit(const ISymbol *rule) = 0;
+            virtual ~Visitor();
         };
 
         template<typename T>

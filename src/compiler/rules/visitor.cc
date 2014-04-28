@@ -12,8 +12,10 @@
 
 namespace tree_sitter {
     using std::vector;
-    
+
     namespace rules {
+        Visitor::~Visitor() {}
+
         rule_ptr IdentityRuleFn::default_apply(const Rule *rule) {
             return rule->copy();
         }
