@@ -21,7 +21,6 @@ namespace tree_sitter {
                 items_to_add.pop_back();
                 auto insertion_result = result.insert(item);
                 if (insertion_result.second) {
-                    result.insert(item);
                     for (const auto &pair : follow_sets(item, grammar)) {
                         const ISymbol &non_terminal = pair.first;
                         const set<ISymbol> &terminals = pair.second;
