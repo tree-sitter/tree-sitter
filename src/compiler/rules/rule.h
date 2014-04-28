@@ -19,6 +19,7 @@ namespace tree_sitter {
             virtual rule_ptr copy() const = 0;
             virtual std::string to_string() const = 0;
             virtual void accept(Visitor *visitor) const = 0;
+            virtual ~Rule();
         };
 
         std::ostream& operator<<(std::ostream& stream, const Rule &rule);

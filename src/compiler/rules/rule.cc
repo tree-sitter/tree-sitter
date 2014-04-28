@@ -21,5 +21,7 @@ namespace tree_sitter {
                 stream << string("#<null-rule>");
             return stream;
         }
+
+        Rule::~Rule() {}
     }
 }
