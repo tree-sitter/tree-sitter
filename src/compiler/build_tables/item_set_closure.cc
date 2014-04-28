@@ -17,7 +17,7 @@ namespace tree_sitter {
             ParseItemSet result;
             vector<ParseItem> items_to_add = { item };
             while (!items_to_add.empty()) {
-                const ParseItem &item = items_to_add.back();
+                ParseItem item = items_to_add.back();
                 items_to_add.pop_back();
                 auto insertion_result = result.insert(item);
                 if (insertion_result.second) {
