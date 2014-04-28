@@ -3,7 +3,7 @@
 set -e
 
 make compiler_specs
-out/Default/compiler_specs
+time out/Default/compiler_specs
 
 make runtime_specs
-out/Default/runtime_specs
+time out/Default/runtime_specs
