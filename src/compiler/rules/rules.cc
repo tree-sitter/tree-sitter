@@ -5,7 +5,7 @@
 #include "tree_sitter/compiler.h"
 #include "compiler/rules/rule.h"
 #include "compiler/rules/blank.h"
-#include "compiler/rules/symbol.h"
+#include "compiler/rules/named_symbol.h"
 #include "compiler/rules/choice.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/string.h"
@@ -40,7 +40,7 @@ namespace tree_sitter {
         }
 
         rule_ptr sym(const string &name) {
-            return make_shared<Symbol>(name);
+            return make_shared<NamedSymbol>(name);
         }
 
         rule_ptr pattern(const string &value) {

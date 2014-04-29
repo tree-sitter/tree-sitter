@@ -1,6 +1,6 @@
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
-#include "compiler/rules/symbol.h"
+#include "compiler/rules/interned_symbol.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/visitor.h"

@@ -1,7 +1,6 @@
 #include "compiler_spec_helper.h"
 #include "compiler/prepared_grammar.h"
 #include "compiler/prepare_grammar/expand_repeats.h"
-#include "compiler/rules/symbol.h"
 
 START_TEST
 

@@ -3,7 +3,7 @@
 #include "tree_sitter/compiler.h"
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/visitor.h"
-#include "compiler/rules/symbol.h"
+#include "compiler/rules/named_symbol.h"
 #include "compiler/rules/interned_symbol.h"
 
 namespace tree_sitter {
@@ -32,7 +32,7 @@ namespace tree_sitter {
                 return -1;
             }
 
-            rule_ptr apply_to(const rules::Symbol *rule)  {
+            rule_ptr apply_to(const rules::NamedSymbol *rule)  {
                 long index = index_of(rule->name);
                 if (index == -1)
                     missing_rule_name = rule->name;

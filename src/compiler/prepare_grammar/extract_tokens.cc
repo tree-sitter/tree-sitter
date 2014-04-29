@@ -9,7 +9,7 @@
 #include "compiler/rules/choice.h"
 #include "compiler/rules/repeat.h"
 #include "compiler/rules/blank.h"
-#include "compiler/rules/symbol.h"
+#include "compiler/rules/interned_symbol.h"
 #include "compiler/rules/string.h"
 #include "compiler/rules/pattern.h"
 

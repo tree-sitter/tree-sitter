@@ -7,7 +7,6 @@
 
 namespace tree_sitter {
     namespace build_tables {
-        using rules::Symbol;
         using std::string;
         using std::to_string;
         using std::map;

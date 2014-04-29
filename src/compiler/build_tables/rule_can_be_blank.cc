@@ -2,7 +2,7 @@
 #include <set>
 #include "tree_sitter/compiler.h"
 #include "compiler/prepared_grammar.h"
-#include "compiler/rules/symbol.h"
+#include "compiler/rules/interned_symbol.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/choice.h"

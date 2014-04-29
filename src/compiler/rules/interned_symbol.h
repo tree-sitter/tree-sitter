@@ -1,7 +1,7 @@
 #ifndef COMPILER_RULES_INTERNED_SYMBOL_H_
 #define COMPILER_RULES_INTERNED_SYMBOL_H_
 
-#include "compiler/rules/symbol.h"
+#include "compiler/rules/rule.h"
 
 namespace tree_sitter  {
     namespace rules {

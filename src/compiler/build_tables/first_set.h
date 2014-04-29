@@ -3,7 +3,7 @@
 
 #include <set>
 #include "compiler/build_tables/parse_item.h"
-#include "compiler/rules/symbol.h"
+#include "compiler/rules/interned_symbol.h"
 
 namespace tree_sitter {
     class PreparedGrammar;
