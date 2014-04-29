@@ -21,7 +21,7 @@ namespace tree_sitter {
                 (other.lhs == lhs) &&
                 (other.consumed_symbol_count == consumed_symbol_count) &&
                 (other.lookahead_sym == lookahead_sym) &&
-                (other.rule->operator==(*rule));
+                (other.rule == rule || other.rule->operator==(*rule));
         }
 
         int ParseItem::precedence() const {
