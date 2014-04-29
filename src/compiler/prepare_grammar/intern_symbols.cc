@@ -4,7 +4,7 @@
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/named_symbol.h"
-#include "compiler/rules/interned_symbol.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
     using std::string;
@@ -12,7 +12,6 @@ namespace tree_sitter {
     using std::vector;
     using std::pair;
     using std::make_shared;
-    using std::exception;
 
     GrammarError::GrammarError(string rule_name) : rule_name(rule_name) {}
 
@@ -36,7 +35,7 @@ namespace tree_sitter {
                 long index = index_of(rule->name);
                 if (index == -1)
                     missing_rule_name = rule->name;
-                return make_shared<rules::ISymbol>(index);
+                return make_shared<rules::Symbol>(index);
             }
 
         public:

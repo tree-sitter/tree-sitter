@@ -7,7 +7,7 @@
 #include "compiler/rules/string.h"
 #include "compiler/rules/repeat.h"
 #include "compiler/rules/metadata.h"
-#include "compiler/rules/interned_symbol.h"
+#include "compiler/rules/symbol.h"
 #include "compiler/rules/pattern.h"
 #include "compiler/rules/character_set.h"
 #include "compiler/rules/visitor.h"
@@ -16,7 +16,7 @@ namespace tree_sitter {
     using std::map;
     using std::make_shared;
     using rules::rule_ptr;
-    using rules::ISymbol;
+    using rules::Symbol;
     using rules::CharacterSet;
 
     namespace build_tables {
@@ -31,7 +31,7 @@ namespace tree_sitter {
         }
 
         template<>
-        void merge_transitions(map<ISymbol, rule_ptr> &left, const map<ISymbol, rule_ptr> &right) {
+        void merge_transitions(map<Symbol, rule_ptr> &left, const map<Symbol, rule_ptr> &right) {
             merge_sym_transitions<rule_ptr>(left, right, [](rule_ptr left, rule_ptr right) {
                 return rules::Choice::Build({ left, right });
             });
@@ -57,7 +57,7 @@ namespace tree_sitter {
                 return apply_to_atom(rule);
             }
 
-            map<T, rule_ptr> apply_to(const ISymbol *rule) {
+            map<T, rule_ptr> apply_to(const Symbol *rule) {
                 return apply_to_atom(rule);
             }
 
@@ -114,8 +114,8 @@ namespace tree_sitter {
             return RuleTransitions<CharacterSet>().apply(rule);
         }
 
-        map<ISymbol, rule_ptr> sym_transitions(const rule_ptr &rule) {
-            return RuleTransitions<ISymbol>().apply(rule);
+        map<Symbol, rule_ptr> sym_transitions(const rule_ptr &rule) {
+            return RuleTransitions<Symbol>().apply(rule);
         }
     }
 }

@@ -3,7 +3,7 @@
 
 #include <map>
 #include "compiler/rules/character_set.h"
-#include "compiler/rules/interned_symbol.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
     namespace build_tables {
@@ -15,8 +15,8 @@ namespace tree_sitter {
          *  using the given function.
          */
         template<typename T>
-        void merge_sym_transitions(std::map<rules::ISymbol, T> &left,
-                                   const std::map<rules::ISymbol, T> &right,
+        void merge_sym_transitions(std::map<rules::Symbol, T> &left,
+                                   const std::map<rules::Symbol, T> &right,
                                    std::function<T(T &, const T &)> merge_fn) {
             for (auto &pair : right) {
                 auto rule = pair.first;

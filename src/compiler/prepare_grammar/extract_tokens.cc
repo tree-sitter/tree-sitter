@@ -9,7 +9,7 @@
 #include "compiler/rules/choice.h"
 #include "compiler/rules/repeat.h"
 #include "compiler/rules/blank.h"
-#include "compiler/rules/interned_symbol.h"
+#include "compiler/rules/symbol.h"
 #include "compiler/rules/string.h"
 #include "compiler/rules/pattern.h"
 
@@ -21,7 +21,7 @@ namespace tree_sitter {
     using std::vector;
     using std::make_shared;
     using rules::rule_ptr;
-    using rules::ISymbol;
+    using rules::Symbol;
     using std::dynamic_pointer_cast;
 
     namespace prepare_grammar {
@@ -31,10 +31,10 @@ namespace tree_sitter {
         };
 
         class SymbolInliner : public rules::IdentityRuleFn {
-            map<ISymbol, ISymbol> replacements;
+            map<Symbol, Symbol> replacements;
             using rules::IdentityRuleFn::apply_to;
 
-            int new_index_for_symbol(const ISymbol &symbol) {
+            int new_index_for_symbol(const Symbol &symbol) {
                 int result = symbol.index;
                 for (const auto &pair : replacements)
                     if (pair.first.index < symbol.index &&
@@ -43,18 +43,18 @@ namespace tree_sitter {
                 return result;
             }
 
-            rule_ptr apply_to(const ISymbol *rule) {
+            rule_ptr apply_to(const Symbol *rule) {
                 auto replacement_pair = replacements.find(*rule);
                 if (replacement_pair != replacements.end())
                     return replacement_pair->second.copy();
                 else if (rule->is_built_in())
                     return rule->copy();
                 else
-                    return make_shared<ISymbol>(new_index_for_symbol(*rule), rule->options);
+                    return make_shared<Symbol>(new_index_for_symbol(*rule), rule->options);
             }
 
         public:
-            SymbolInliner(const map<ISymbol, ISymbol> &replacements, size_t rule_count, size_t aux_rule_count) :
+            SymbolInliner(const map<Symbol, Symbol> &replacements, size_t rule_count, size_t aux_rule_count) :
                 replacements(replacements)
                 {}
         };
@@ -73,7 +73,7 @@ namespace tree_sitter {
                 auto result = rule->copy();
                 if (IsToken().apply(result)) {
                     size_t index = add_token(result);
-                    return make_shared<rules::ISymbol>(index, rules::SymbolOption(rules::SymbolOptionToken|rules::SymbolOptionAuxiliary));
+                    return make_shared<rules::Symbol>(index, rules::SymbolOption(rules::SymbolOptionToken|rules::SymbolOptionAuxiliary));
                 } else {
                     return result;
                 }
@@ -86,15 +86,15 @@ namespace tree_sitter {
         pair<PreparedGrammar, PreparedGrammar> extract_tokens(const PreparedGrammar &input_grammar) {
             vector<pair<string, rule_ptr>> rules, tokens, aux_rules, aux_tokens;
             TokenExtractor extractor;
-            map<ISymbol, ISymbol> symbol_replacements;
+            map<Symbol, Symbol> symbol_replacements;
 
             for (size_t i = 0; i < input_grammar.rules.size(); i++) {
                 auto pair = input_grammar.rules[i];
                 if (IsToken().apply(pair.second)) {
                     tokens.push_back(pair);
                     symbol_replacements.insert({
-                        ISymbol(i),
-                        ISymbol(tokens.size() - 1, rules::SymbolOption(rules::SymbolOptionToken))
+                        Symbol(i),
+                        Symbol(tokens.size() - 1, rules::SymbolOption(rules::SymbolOptionToken))
                     });
                 } else {
                     rules.push_back({ pair.first, extractor.apply(pair.second) });
@@ -106,8 +106,8 @@ namespace tree_sitter {
                 if (IsToken().apply(pair.second)) {
                     aux_tokens.push_back(pair);
                     symbol_replacements.insert({
-                        ISymbol(i, rules::SymbolOptionAuxiliary),
-                        ISymbol(aux_tokens.size() - 1, rules::SymbolOption(rules::SymbolOptionAuxiliary|rules::SymbolOptionToken))
+                        Symbol(i, rules::SymbolOptionAuxiliary),
+                        Symbol(aux_tokens.size() - 1, rules::SymbolOption(rules::SymbolOptionAuxiliary|rules::SymbolOptionToken))
                     });
                 } else {
                     aux_rules.push_back({ pair.first, extractor.apply(pair.second) });

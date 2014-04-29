@@ -4,7 +4,7 @@
 #include <set>
 #include <map>
 #include "compiler/build_tables/parse_item.h"
-#include "compiler/rules/interned_symbol.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
     class PreparedGrammar;
@@ -17,7 +17,7 @@ namespace tree_sitter {
          *  item. The values are the sets of terminals which can appear immediately
          *  after the corresponding non-terminals.
          */
-        std::map<rules::ISymbol, std::set<rules::ISymbol>>
+        std::map<rules::Symbol, std::set<rules::Symbol>>
         follow_sets(const ParseItem &item, const PreparedGrammar &grammar);
 
     }

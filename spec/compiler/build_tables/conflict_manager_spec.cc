@@ -29,8 +29,8 @@ describe("resolving parse conflicts", []() {
     });
 
     describe("lexical conflicts", [&]() {
-        ISymbol sym1(1, SymbolOptionToken);
-        ISymbol sym2(2, SymbolOptionToken);
+        Symbol sym1(1, SymbolOptionToken);
+        Symbol sym2(2, SymbolOptionToken);
 
         it("favors non-errors over lexical errors", [&]() {
             should_update = manager->resolve_lex_action(LexAction::Error(), LexAction::Advance(2));
@@ -50,8 +50,8 @@ describe("resolving parse conflicts", []() {
     });
 
     describe("syntactic conflicts", [&]() {
-        ISymbol sym1(0);
-        ISymbol sym2(1);
+        Symbol sym1(0);
+        Symbol sym2(1);
 
         it("favors non-errors over parse errors", [&]() {
             should_update = manager->resolve_parse_action(sym1, ParseAction::Error(), ParseAction::Shift(2, { 0 }));

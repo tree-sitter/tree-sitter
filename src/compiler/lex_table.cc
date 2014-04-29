@@ -1,33 +1,33 @@
 #include "compiler/lex_table.h"
-#include "compiler/rules/interned_symbol.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
     using std::string;
     using std::to_string;
     using std::map;
     using std::set;
-    using rules::ISymbol;
+    using rules::Symbol;
     using rules::CharacterSet;
 
     LexAction::LexAction() :
         type(LexActionTypeError),
-        symbol(ISymbol(-1)),
+        symbol(Symbol(-1)),
         state_index(-1) {}
 
-    LexAction::LexAction(LexActionType type, size_t state_index, ISymbol symbol) :
+    LexAction::LexAction(LexActionType type, size_t state_index, Symbol symbol) :
         type(type),
         symbol(symbol),
         state_index(state_index) {}
 
     LexAction LexAction::Error() {
-        return LexAction(LexActionTypeError, -1, ISymbol(-1));
+        return LexAction(LexActionTypeError, -1, Symbol(-1));
     }
 
     LexAction LexAction::Advance(size_t state_index) {
-        return LexAction(LexActionTypeAdvance, state_index, ISymbol(-1));
+        return LexAction(LexActionTypeAdvance, state_index, Symbol(-1));
     }
 
-    LexAction LexAction::Accept(ISymbol symbol) {
+    LexAction LexAction::Accept(Symbol symbol) {
         return LexAction(LexActionTypeAccept, -1, symbol);
     }
 

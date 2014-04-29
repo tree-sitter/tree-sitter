@@ -1,6 +1,6 @@
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
-#include "compiler/rules/interned_symbol.h"
+#include "compiler/rules/symbol.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/visitor.h"
@@ -11,7 +11,7 @@ namespace tree_sitter {
     using std::vector;
 
     namespace build_tables {
-        LexItem::LexItem(const rules::ISymbol &lhs, const rules::rule_ptr rule) :
+        LexItem::LexItem(const rules::Symbol &lhs, const rules::rule_ptr rule) :
             Item(lhs, rule) {}
 
         bool LexItem::operator==(const LexItem &other) const {

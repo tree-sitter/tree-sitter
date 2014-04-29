@@ -12,7 +12,7 @@ namespace tree_sitter {
         class Repeat;
         class Seq;
         class String;
-        class ISymbol;
+        class Symbol;
         class Pattern;
         class Metadata;
 
@@ -27,7 +27,7 @@ namespace tree_sitter {
             virtual void visit(const Seq *rule) = 0;
             virtual void visit(const String *rule) = 0;
             virtual void visit(const NamedSymbol *rule) = 0;
-            virtual void visit(const ISymbol *rule) = 0;
+            virtual void visit(const Symbol *rule) = 0;
             virtual ~Visitor();
         };
 
@@ -51,7 +51,7 @@ namespace tree_sitter {
             virtual T apply_to(const Seq *rule) { return default_apply((const Rule *)rule); }
             virtual T apply_to(const String *rule) { return default_apply((const Rule *)rule); }
             virtual T apply_to(const NamedSymbol *rule) { return default_apply((const Rule *)rule); }
-            virtual T apply_to(const ISymbol *rule) { return default_apply((const Rule *)rule); }
+            virtual T apply_to(const Symbol *rule) { return default_apply((const Rule *)rule); }
 
             void visit(const Blank *rule) { value_ = apply_to(rule); }
             void visit(const CharacterSet *rule) { value_ = apply_to(rule); }
@@ -62,7 +62,7 @@ namespace tree_sitter {
             void visit(const Seq *rule) { value_ = apply_to(rule); }
             void visit(const String *rule) { value_ = apply_to(rule); }
             void visit(const NamedSymbol *rule) { value_ = apply_to(rule); }
-            void visit(const ISymbol *rule) { value_ = apply_to(rule); }
+            void visit(const Symbol *rule) { value_ = apply_to(rule); }
 
         private:
             T value_;

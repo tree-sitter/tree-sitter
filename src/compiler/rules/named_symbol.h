@@ -1,8 +1,7 @@
-#ifndef COMPILER_RULES_SYMBOL_H_
-#define COMPILER_RULES_SYMBOL_H_
+#ifndef COMPILER_RULES_NAMED_SYMBOL_H_
+#define COMPILER_RULES_NAMED_SYMBOL_H_
 
 #include <string>
-#include <utility>
 #include "compiler/rules/rule.h"
 
 namespace tree_sitter  {
@@ -22,4 +21,4 @@ namespace tree_sitter  {
     }
 }
 
-#endif  // COMPILER_RULES_SYMBOL_H_
+#endif  // COMPILER_RULES_NAMED_SYMBOL_H_

@@ -16,8 +16,8 @@ describe("computing FIRST sets", []() {
         it("ignores B when A cannot be blank", [&]() {
             auto rule = seq({ i_token(0), i_token(1) });
 
-            AssertThat(first_set(rule, null_grammar), Equals(set<ISymbol>({
-                ISymbol(0, SymbolOptionToken),
+            AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
+                Symbol(0, SymbolOptionToken),
             })));
         });
 
@@ -28,9 +28,9 @@ describe("computing FIRST sets", []() {
                     blank() }),
                 i_token(1) });
 
-            AssertThat(first_set(rule, null_grammar), Equals(set<ISymbol>({
-                ISymbol(0, SymbolOptionToken),
-                ISymbol(1, SymbolOptionToken)
+            AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
+                Symbol(0, SymbolOptionToken),
+                Symbol(1, SymbolOptionToken)
             })));
         });
 
@@ -48,9 +48,9 @@ describe("computing FIRST sets", []() {
                     i_token(4) }) }
             });
 
-            AssertThat(first_set(rule, grammar), Equals(set<ISymbol>({
-                ISymbol(0, SymbolOptionToken),
-                ISymbol(2, SymbolOptionToken),
+            AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
+                Symbol(0, SymbolOptionToken),
+                Symbol(2, SymbolOptionToken),
             })));
         });
 
@@ -65,9 +65,9 @@ describe("computing FIRST sets", []() {
                     blank() }) }
             });
 
-            AssertThat(first_set(rule, grammar), Equals(set<ISymbol>({
-                ISymbol(0, SymbolOptionToken),
-                ISymbol(1, SymbolOptionToken),
+            AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
+                Symbol(0, SymbolOptionToken),
+                Symbol(1, SymbolOptionToken),
             })));
         });
     });
@@ -83,8 +83,8 @@ describe("computing FIRST sets", []() {
 
             auto rule = i_sym(0);
 
-            AssertThat(first_set(rule, grammar), Equals(set<ISymbol>({
-                ISymbol(11, SymbolOptionToken)
+            AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
+                Symbol(11, SymbolOptionToken)
             })));
         });
     });
@@ -92,8 +92,8 @@ describe("computing FIRST sets", []() {
     it("ignores metadata rules", [&]() {
         auto rule = make_shared<Metadata>(i_token(3), map<rules::MetadataKey, int>());
 
-        AssertThat(first_set(rule, null_grammar), Equals(set<ISymbol>({
-            ISymbol(3, SymbolOptionToken),
+        AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
+            Symbol(3, SymbolOptionToken),
         })));
     });
 });

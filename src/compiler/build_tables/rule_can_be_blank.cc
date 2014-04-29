@@ -2,7 +2,7 @@
 #include <set>
 #include "tree_sitter/compiler.h"
 #include "compiler/prepared_grammar.h"
-#include "compiler/rules/interned_symbol.h"
+#include "compiler/rules/symbol.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/choice.h"
@@ -40,14 +40,14 @@ namespace tree_sitter  {
 
         class CanBeBlankRecursive : public CanBeBlank {
             const PreparedGrammar *grammar;
-            set<rules::ISymbol> visited_symbols;
+            set<rules::Symbol> visited_symbols;
             using CanBeBlank::visit;
 
         public:
             using CanBeBlank::apply_to;
             explicit CanBeBlankRecursive(const PreparedGrammar *grammar) : grammar(grammar) {}
 
-            bool apply_to(const rules::ISymbol *rule) {
+            bool apply_to(const rules::Symbol *rule) {
                 if (visited_symbols.find(*rule) == visited_symbols.end()) {
                     visited_symbols.insert(*rule);
                     return !rule->is_token() && apply(grammar->rule(*rule));

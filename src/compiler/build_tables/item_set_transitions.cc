@@ -4,14 +4,14 @@
 #include "compiler/build_tables/item_set_closure.h"
 #include "compiler/build_tables/rule_transitions.h"
 #include "compiler/build_tables/merge_transitions.h"
-#include "compiler/rules/interned_symbol.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
     using std::map;
     using std::vector;
     using std::unordered_set;
     using rules::CharacterSet;
-    using rules::ISymbol;
+    using rules::Symbol;
 
     namespace build_tables {
         template<typename T>
@@ -20,13 +20,13 @@ namespace tree_sitter {
             return left;
         }
 
-        const ISymbol placeholder_lookahead = ISymbol(-100);
-        const ISymbol placeholder_lhs = ISymbol(-101);
+        const Symbol placeholder_lookahead = Symbol(-100);
+        const Symbol placeholder_lhs = Symbol(-101);
 
-        static map<ISymbol, ParseItemSet> sym_transitions_for_rule(SymTransitions *self, const rules::rule_ptr &rule, const PreparedGrammar &grammar) {
+        static map<Symbol, ParseItemSet> sym_transitions_for_rule(SymTransitions *self, const rules::rule_ptr &rule, const PreparedGrammar &grammar) {
             auto pair = self->transitions_cache.find(rule);
             if (pair != self->transitions_cache.end()) return pair->second;
-            map<ISymbol, ParseItemSet> result;
+            map<Symbol, ParseItemSet> result;
             for (auto &transition : sym_transitions(rule)) {
                 ParseItem new_item(placeholder_lhs, transition.second, 1, placeholder_lookahead);
                 result.insert({
@@ -38,7 +38,7 @@ namespace tree_sitter {
             return result;
         }
 
-        static map<ISymbol, ParseItemSet> sym_transitions_for_item(SymTransitions *self, const ParseItem &item, const PreparedGrammar &grammar) {
+        static map<Symbol, ParseItemSet> sym_transitions_for_item(SymTransitions *self, const ParseItem &item, const PreparedGrammar &grammar) {
             auto result = sym_transitions_for_rule(self, item.rule, grammar);
             for (auto &pair : result) {
                 vector<ParseItem> new_items;
@@ -70,9 +70,9 @@ namespace tree_sitter {
             return result;
         }
 
-        map<ISymbol, ParseItemSet>
+        map<Symbol, ParseItemSet>
         SymTransitions::operator()(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
-            map<ISymbol, ParseItemSet> result;
+            map<Symbol, ParseItemSet> result;
             for (const ParseItem &item : item_set)
                 merge_sym_transitions<ParseItemSet>(result,
                                                     sym_transitions_for_item(this, item, grammar),

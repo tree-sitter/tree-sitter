@@ -6,36 +6,36 @@
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/choice.h"
-#include "compiler/rules/interned_symbol.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
     using std::set;
-    using rules::ISymbol;
+    using rules::Symbol;
 
     namespace build_tables {
-        class FirstSet : public rules::RuleFn<set<ISymbol>> {
+        class FirstSet : public rules::RuleFn<set<Symbol>> {
             const PreparedGrammar *grammar;
-            set<ISymbol> visited_symbols;
+            set<Symbol> visited_symbols;
         public:
             explicit FirstSet(const PreparedGrammar *grammar) : grammar(grammar) {}
 
-            set<ISymbol> apply_to(const ISymbol *rule) {
+            set<Symbol> apply_to(const Symbol *rule) {
                 auto insertion_result = visited_symbols.insert(*rule);
                 if (insertion_result.second) {
                     return (rule->is_token()) ?
-                        set<ISymbol>({ *rule }) :
+                        set<Symbol>({ *rule }) :
                         apply(grammar->rule(*rule));
                 } else {
-                    return set<ISymbol>();
+                    return set<Symbol>();
                 }
             }
 
-            set<ISymbol> apply_to(const rules::Metadata *rule) {
+            set<Symbol> apply_to(const rules::Metadata *rule) {
                 return apply(rule->rule);
             }
 
-            set<ISymbol> apply_to(const rules::Choice *rule) {
-                set<ISymbol> result;
+            set<Symbol> apply_to(const rules::Choice *rule) {
+                set<Symbol> result;
                 for (const auto &el : rule->elements) {
                     auto &&next_syms = apply(el);
                     result.insert(next_syms.begin(), next_syms.end());
@@ -43,7 +43,7 @@ namespace tree_sitter {
                 return result;
             }
 
-            set<ISymbol> apply_to(const rules::Seq *rule) {
+            set<Symbol> apply_to(const rules::Seq *rule) {
                 auto &&result = apply(rule->left);
                 if (rule_can_be_blank(rule->left, *grammar)) {
                     auto &&right_symbols = apply(rule->right);
@@ -53,12 +53,12 @@ namespace tree_sitter {
             }
         };
 
-        set<ISymbol> first_set(const rules::rule_ptr &rule, const PreparedGrammar &grammar) {
+        set<Symbol> first_set(const rules::rule_ptr &rule, const PreparedGrammar &grammar) {
             return FirstSet(&grammar).apply(rule);
         }
 
-        set<ISymbol> first_set(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
-            set<ISymbol> result;
+        set<Symbol> first_set(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
+            set<Symbol> result;
             for (auto &item : item_set) {
                 auto &&rule_set = first_set(item.rule, grammar);
                 result.insert(rule_set.begin(), rule_set.end());

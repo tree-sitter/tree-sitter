@@ -5,7 +5,7 @@
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
-#include "compiler/rules/interned_symbol.h"
+#include "compiler/rules/symbol.h"
 #include "compiler/rules/choice.h"
 #include "compiler/rules/blank.h"
 #include "compiler/rules/repeat.h"
@@ -22,7 +22,7 @@ namespace tree_sitter {
     using rules::Repeat;
     using rules::Rule;
     using rules::Seq;
-    using rules::ISymbol;
+    using rules::Symbol;
 
     namespace prepare_grammar {
         class ExpandRepeats : public rules::IdentityRuleFn {
@@ -32,7 +32,7 @@ namespace tree_sitter {
                 rule_ptr inner_rule = apply(rule->content);
                 size_t index = aux_rules.size();
                 string helper_rule_name = rule_name + string("_repeat") + to_string(index);
-                rule_ptr repeat_symbol = make_shared<ISymbol>(offset + index, rules::SymbolOptionAuxiliary);
+                rule_ptr repeat_symbol = make_shared<Symbol>(offset + index, rules::SymbolOptionAuxiliary);
                 aux_rules.push_back({
                     helper_rule_name,
                     Choice::Build({

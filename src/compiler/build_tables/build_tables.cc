@@ -10,7 +10,7 @@
 #include "compiler/rules/repeat.h"
 #include "compiler/rules/blank.h"
 #include "compiler/rules/seq.h"
-#include "compiler/rules/interned_symbol.h"
+#include "compiler/rules/symbol.h"
 #include "compiler/build_tables/conflict_manager.h"
 #include "compiler/build_tables/item.h"
 #include "compiler/build_tables/item_set_closure.h"
@@ -25,7 +25,7 @@ namespace tree_sitter {
     using std::set;
     using std::unordered_map;
     using std::make_shared;
-    using rules::ISymbol;
+    using rules::Symbol;
     using rules::CharacterSet;
 
     namespace build_tables {
@@ -46,7 +46,7 @@ namespace tree_sitter {
 
             void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (auto &transition : sym_transitions(item_set, grammar)) {
-                    const ISymbol &symbol = transition.first;
+                    const Symbol &symbol = transition.first;
                     const ParseItemSet &item_set = transition.second;
                     set<int> precedence_values = precedence_values_for_item_set(item_set);
 
@@ -162,11 +162,11 @@ namespace tree_sitter {
             void add_error_lex_state() {
                 LexItemSet error_item_set;
                 for (size_t i = 0; i < lex_grammar.rules.size(); i++) {
-                    LexItem item(ISymbol(i, rules::SymbolOptionToken), after_separators(lex_grammar.rules[i].second));
+                    LexItem item(Symbol(i, rules::SymbolOptionToken), after_separators(lex_grammar.rules[i].second));
                     error_item_set.insert(item);
                 }
                 for (size_t i = 0; i < lex_grammar.aux_rules.size(); i++) {
-                    LexItem item(ISymbol(i, rules::SymbolOption(rules::SymbolOptionToken|rules::SymbolOptionAuxiliary)), after_separators(lex_grammar.aux_rules[i].second));
+                    LexItem item(Symbol(i, rules::SymbolOption(rules::SymbolOptionToken|rules::SymbolOptionAuxiliary)), after_separators(lex_grammar.aux_rules[i].second));
                     error_item_set.insert(item);
                 }
                 error_item_set.insert(LexItem(rules::END_OF_INPUT(), after_separators(CharacterSet({ 0 }).copy())));
@@ -183,7 +183,7 @@ namespace tree_sitter {
                 {}
 
             void build() {
-                auto start_symbol = make_shared<ISymbol>(0);
+                auto start_symbol = make_shared<Symbol>(0);
                 ParseItem item(rules::START(), start_symbol, {}, rules::END_OF_INPUT());
                 ParseItemSet item_set = item_set_closure(item, grammar);
                 add_parse_state(item_set);

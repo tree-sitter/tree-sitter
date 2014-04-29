@@ -1,5 +1,5 @@
-#ifndef COMPILER_RULES_INTERNED_SYMBOL_H_
-#define COMPILER_RULES_INTERNED_SYMBOL_H_
+#ifndef COMPILER_RULES_SYMBOL_H_
+#define COMPILER_RULES_SYMBOL_H_
 
 #include "compiler/rules/rule.h"
 
@@ -10,20 +10,20 @@ namespace tree_sitter  {
             SymbolOptionAuxiliary = 1 << 1,
         } SymbolOption;
 
-        class ISymbol : public Rule {
+        class Symbol : public Rule {
         public:
-            explicit ISymbol(int index);
-            ISymbol(int index, SymbolOption options);
+            explicit Symbol(int index);
+            Symbol(int index, SymbolOption options);
 
-            bool operator==(const ISymbol &other) const;
+            bool operator==(const Symbol &other) const;
             bool operator==(const Rule &other) const;
 
             size_t hash_code() const;
             rule_ptr copy() const;
             std::string to_string() const;
             void accept(Visitor *visitor) const;
-            bool operator<(const ISymbol &other) const;
 
+            bool operator<(const Symbol &other) const;
             bool is_token() const;
             bool is_built_in() const;
             bool is_auxiliary() const;
@@ -36,11 +36,11 @@ namespace tree_sitter  {
 
 namespace std {
     template<>
-    struct hash<tree_sitter::rules::ISymbol> {
-        size_t operator()(const tree_sitter::rules::ISymbol &rule) const {
+    struct hash<tree_sitter::rules::Symbol> {
+        size_t operator()(const tree_sitter::rules::Symbol &rule) const {
             return rule.hash_code();
         }
     };
 }
 
-#endif  // COMPILER_RULES_INTERNED_SYMBOL_H_
+#endif  // COMPILER_RULES_SYMBOL_H_

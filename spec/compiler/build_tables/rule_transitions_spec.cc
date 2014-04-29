@@ -27,25 +27,25 @@ describe("rule transitions", []() {
     it("handles symbols", [&]() {
         AssertThat(
             sym_transitions(i_sym(1)),
-            Equals(rule_map<ISymbol>({
-                { ISymbol(1), blank() }
+            Equals(rule_map<Symbol>({
+                { Symbol(1), blank() }
             })));
     });
 
     it("handles choices", [&]() {
         AssertThat(
             sym_transitions(choice({ i_sym(1), i_sym(2) })),
-            Equals(rule_map<ISymbol>({
-                { ISymbol(1), blank() },
-                { ISymbol(2), blank() }
+            Equals(rule_map<Symbol>({
+                { Symbol(1), blank() },
+                { Symbol(2), blank() }
             })));
     });
 
     it("handles sequences", [&]() {
         AssertThat(
             sym_transitions(seq({ i_sym(1), i_sym(2) })),
-            Equals(rule_map<ISymbol>({
-                { ISymbol(1), i_sym(2) }
+            Equals(rule_map<Symbol>({
+                { Symbol(1), i_sym(2) }
             })));
     });
 
@@ -57,8 +57,8 @@ describe("rule transitions", []() {
                 i_sym(3),
                 i_sym(4)
             })),
-            Equals(rule_map<ISymbol>({
-                { ISymbol(1), seq({ i_sym(2), i_sym(3), i_sym(4) }) }
+            Equals(rule_map<Symbol>({
+                { Symbol(1), seq({ i_sym(2), i_sym(3), i_sym(4) }) }
             })));
     });
 
@@ -73,8 +73,8 @@ describe("rule transitions", []() {
                     i_sym(1),
                     i_sym(2)
                 })
-            })), Equals(rule_map<ISymbol>({
-                { ISymbol(1), choice({ seq({ i_sym(1), i_sym(2) }), i_sym(2), }) }
+            })), Equals(rule_map<Symbol>({
+                { Symbol(1), choice({ seq({ i_sym(1), i_sym(2) }), i_sym(2), }) }
             })));
     });
 
@@ -84,8 +84,8 @@ describe("rule transitions", []() {
                 choice({
                     seq({ i_sym(1), i_sym(2) }),
                     seq({ i_sym(1), i_sym(3) }) })),
-            Equals(rule_map<ISymbol>({
-                { ISymbol(1), choice({ i_sym(2), i_sym(3) }) }
+            Equals(rule_map<Symbol>({
+                { Symbol(1), choice({ i_sym(2), i_sym(3) }) }
             })));
     });
 
@@ -192,8 +192,8 @@ describe("rule transitions", []() {
         rule_ptr rule = make_shared<Metadata>(seq({ i_sym(1), i_sym(2) }), metadata_value);
         AssertThat(
             sym_transitions(rule),
-            Equals(rule_map<ISymbol>({
-                { ISymbol(1), make_shared<Metadata>(i_sym(2), metadata_value)},
+            Equals(rule_map<Symbol>({
+                { Symbol(1), make_shared<Metadata>(i_sym(2), metadata_value)},
             })));
     });
 

@@ -15,9 +15,9 @@ namespace tree_sitter {
     namespace build_tables {
         class SymTransitions {
         public:
-            std::map<rules::ISymbol, ParseItemSet>
+            std::map<rules::Symbol, ParseItemSet>
             operator()(const ParseItemSet &item_set, const PreparedGrammar &grammar);
-            std::map<rules::rule_ptr, std::map<rules::ISymbol, ParseItemSet>> transitions_cache;
+            std::map<rules::rule_ptr, std::map<rules::Symbol, ParseItemSet>> transitions_cache;
         };
 
         std::map<rules::CharacterSet, LexItemSet>

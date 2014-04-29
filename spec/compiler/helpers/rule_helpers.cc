@@ -1,6 +1,6 @@
 #include "rule_helpers.h"
 #include <memory>
-#include "compiler/rules/interned_symbol.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
     using std::make_shared;
@@ -19,19 +19,19 @@ namespace tree_sitter {
         }
 
         rule_ptr i_sym(size_t index) {
-            return make_shared<rules::ISymbol>(index);
+            return make_shared<rules::Symbol>(index);
         }
 
         rule_ptr i_aux_sym(size_t index) {
-            return make_shared<rules::ISymbol>(index, SymbolOptionAuxiliary);
+            return make_shared<rules::Symbol>(index, SymbolOptionAuxiliary);
         }
 
         rule_ptr i_token(size_t index) {
-            return make_shared<rules::ISymbol>(index, SymbolOptionToken);
+            return make_shared<rules::Symbol>(index, SymbolOptionToken);
         }
 
         rule_ptr i_aux_token(size_t index) {
-            return make_shared<rules::ISymbol>(index, SymbolOption(SymbolOptionAuxiliary|SymbolOptionToken));
+            return make_shared<rules::Symbol>(index, SymbolOption(SymbolOptionAuxiliary|SymbolOptionToken));
         }
     }
 }

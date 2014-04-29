@@ -8,7 +8,7 @@
 
 namespace tree_sitter {
     using std::set;
-    using rules::ISymbol;
+    using rules::Symbol;
     using std::vector;
 
     namespace build_tables {
@@ -22,8 +22,8 @@ namespace tree_sitter {
                 auto insertion_result = result.insert(item);
                 if (insertion_result.second) {
                     for (const auto &pair : follow_sets(item, grammar)) {
-                        const ISymbol &non_terminal = pair.first;
-                        const set<ISymbol> &terminals = pair.second;
+                        const Symbol &non_terminal = pair.first;
+                        const set<Symbol> &terminals = pair.second;
                         for (const auto &terminal : terminals) {
                             ParseItem next_item(non_terminal, grammar.rule(non_terminal), 0, terminal);
                             items_to_add.push_back(next_item);

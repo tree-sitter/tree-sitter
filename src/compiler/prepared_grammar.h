@@ -5,7 +5,7 @@
 #include <string>
 #include <utility>
 #include "tree_sitter/compiler.h"
-#include "compiler/rules/interned_symbol.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
     class PreparedGrammar : public Grammar {
@@ -15,8 +15,8 @@ namespace tree_sitter {
         PreparedGrammar(const Grammar &grammar);
 
         bool operator==(const PreparedGrammar &other) const;
-        const std::string & rule_name(const rules::ISymbol &symbol) const;
-        const rules::rule_ptr & rule(const rules::ISymbol &symbol) const;
+        const std::string & rule_name(const rules::Symbol &symbol) const;
+        const rules::rule_ptr & rule(const rules::Symbol &symbol) const;
 
         const std::vector<std::pair<std::string, rules::rule_ptr>> aux_rules;
     };

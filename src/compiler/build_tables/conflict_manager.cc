@@ -18,7 +18,7 @@ namespace tree_sitter {
             parse_grammar(parse_grammar),
             lex_grammar(lex_grammar) {}
 
-        bool ConflictManager::resolve_parse_action(const rules::ISymbol &symbol,
+        bool ConflictManager::resolve_parse_action(const rules::Symbol &symbol,
                                                    const ParseAction &old_action,
                                                    const ParseAction &new_action) {
             if (new_action.type < old_action.type)
@@ -119,7 +119,7 @@ namespace tree_sitter {
             }
         }
 
-        void ConflictManager::record_conflict(const rules::ISymbol &symbol,
+        void ConflictManager::record_conflict(const rules::Symbol &symbol,
                                               const ParseAction &left,
                                               const ParseAction &right) {
             string name = symbol.is_token() ?
