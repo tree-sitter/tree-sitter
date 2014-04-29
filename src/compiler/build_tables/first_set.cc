@@ -16,6 +16,7 @@ namespace tree_sitter {
         class FirstSet : public rules::RuleFn<set<Symbol>> {
             const PreparedGrammar *grammar;
             set<Symbol> visited_symbols;
+
         public:
             explicit FirstSet(const PreparedGrammar *grammar) : grammar(grammar) {}
 

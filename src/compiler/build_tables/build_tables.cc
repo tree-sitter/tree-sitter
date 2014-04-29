@@ -192,7 +192,7 @@ namespace tree_sitter {
 
             const vector<Conflict> conflicts() {
                 return conflict_manager.conflicts();
-            };
+            }
 
             SymTransitions sym_transitions;
             ParseTable parse_table;

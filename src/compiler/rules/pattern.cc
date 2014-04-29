@@ -1,6 +1,7 @@
 #include "compiler/rules/pattern.h"
 #include <set>
 #include <string>
+#include <vector>
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/choice.h"
 #include "compiler/rules/seq.h"

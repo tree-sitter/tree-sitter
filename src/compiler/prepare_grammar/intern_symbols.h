@@ -11,7 +11,7 @@ namespace tree_sitter {
     class GrammarError {
         std::string rule_name;
     public:
-        GrammarError(std::string rule_name);
+        explicit GrammarError(std::string rule_name);
         std::string message() const;
     };
 

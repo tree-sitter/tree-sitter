@@ -41,12 +41,12 @@ describe("computing FIRST sets", []() {
                     i_token(1) }),
                 i_sym(0) });
 
-            Grammar grammar({
+            PreparedGrammar grammar({
                 { "rule0", seq({
                     i_token(2),
                     i_token(3),
                     i_token(4) }) }
-            });
+            }, {});
 
             AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
                 Symbol(0, SymbolOptionToken),
@@ -59,11 +59,11 @@ describe("computing FIRST sets", []() {
                 i_sym(0),
                 i_token(1) });
 
-            Grammar grammar({
+            PreparedGrammar grammar({
                 { "rule0", choice({
                     i_token(0),
                     blank() }) }
-            });
+            }, {});
 
             AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
                 Symbol(0, SymbolOptionToken),
@@ -74,12 +74,12 @@ describe("computing FIRST sets", []() {
 
     describe("when there are left-recursive rules", [&]() {
         it("terminates", [&]() {
-            Grammar grammar({
+            PreparedGrammar grammar({
                 { "rule0", choice({
                     seq({ i_sym(0), i_token(10) }),
                     i_token(11),
                 }) },
-            });
+            }, {});
 
             auto rule = i_sym(0);
 

@@ -56,6 +56,7 @@ namespace tree_sitter {
             const LexTable lex_table;
             const PreparedGrammar syntax_grammar;
             const PreparedGrammar lexical_grammar;
+
         public:
             CCodeGenerator(string name,
                            const ParseTable &parse_table,
@@ -83,7 +84,6 @@ namespace tree_sitter {
             }
 
         private:
-
             const PreparedGrammar & grammar_for_symbol(const rules::Symbol &symbol) {
                 return symbol.is_token() ? lexical_grammar : syntax_grammar;
             }

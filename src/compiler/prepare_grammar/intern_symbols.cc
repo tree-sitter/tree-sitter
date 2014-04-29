@@ -1,5 +1,6 @@
 #include "compiler/prepare_grammar/intern_symbols.h"
 #include <memory>
+#include <vector>
 #include "tree_sitter/compiler.h"
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/visitor.h"
@@ -24,7 +25,7 @@ namespace tree_sitter {
             const Grammar grammar;
             using rules::IdentityRuleFn::apply_to;
 
-            long index_of(string rule_name) {
+            int index_of(string rule_name) {
                 for (size_t i = 0; i < grammar.rules.size(); i++)
                     if (grammar.rules[i].first == rule_name)
                         return i;
@@ -32,14 +33,14 @@ namespace tree_sitter {
             }
 
             rule_ptr apply_to(const rules::NamedSymbol *rule)  {
-                long index = index_of(rule->name);
+                int index = index_of(rule->name);
                 if (index == -1)
                     missing_rule_name = rule->name;
                 return make_shared<rules::Symbol>(index);
             }
 
         public:
-            InternSymbols(const Grammar &grammar) : grammar(grammar) {}
+            explicit InternSymbols(const Grammar &grammar) : grammar(grammar) {}
 
             string missing_rule_name;
         };
@@ -52,13 +53,13 @@ namespace tree_sitter {
                 auto new_rule = interner.apply(pair.second);
                 if (!interner.missing_rule_name.empty())
                     return {
-                        PreparedGrammar(rules),
+                        PreparedGrammar({}, {}),
                         new GrammarError(interner.missing_rule_name)
                     };
                 rules.push_back({ pair.first, new_rule });
             }
 
-            return { PreparedGrammar(rules), nullptr };
+            return { PreparedGrammar(rules, {}), nullptr };
         }
     }
 }

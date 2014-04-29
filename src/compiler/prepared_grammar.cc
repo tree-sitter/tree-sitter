@@ -16,10 +16,6 @@ namespace tree_sitter {
         Grammar(rules),
         aux_rules(aux_rules) {}
 
-    PreparedGrammar::PreparedGrammar(const Grammar &grammar) :
-        Grammar(grammar),
-        aux_rules({}) {}
-
     const rule_ptr & PreparedGrammar::rule(const Symbol &symbol) const {
         return symbol.is_auxiliary() ?
             aux_rules[symbol.index].second :

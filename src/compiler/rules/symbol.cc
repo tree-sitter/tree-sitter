@@ -1,6 +1,6 @@
 #include "compiler/rules/symbol.h"
-#include <map>
 #include <string>
+#include <map>
 #include "compiler/rules/visitor.h"
 
 namespace tree_sitter  {

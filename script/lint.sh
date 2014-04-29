@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 
-cpplint=externals/cpplint.py
-
-find src/compiler -type f | xargs $cpplint \
+externals/cpplint.py \
   --root=src \
   --linelength=110 \
-  --filter=-readability/namespace,-legal/copyright \
+  --filter=-legal/copyright,-readability/namespace,-whitespace/indent,-whitespace/line_length \
+  $(find src/compiler -type f) \
   2>&1

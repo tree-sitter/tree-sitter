@@ -1,6 +1,6 @@
 #include "compiler/build_tables/item_set_closure.h"
-#include <algorithm>
 #include <set>
+#include <vector>
 #include "tree_sitter/compiler.h"
 #include "compiler/build_tables/follow_sets.h"
 #include "compiler/build_tables/item.h"

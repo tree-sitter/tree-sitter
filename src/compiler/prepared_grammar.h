@@ -12,7 +12,6 @@ namespace tree_sitter {
     public:
         PreparedGrammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
                         const std::vector<std::pair<std::string, rules::rule_ptr>> &aux_rules);
-        PreparedGrammar(const Grammar &grammar);
 
         bool operator==(const PreparedGrammar &other) const;
         const std::string & rule_name(const rules::Symbol &symbol) const;

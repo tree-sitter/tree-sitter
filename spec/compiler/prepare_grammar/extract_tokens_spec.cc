@@ -37,9 +37,9 @@ describe("extracting tokens from a grammar", []() {
     });
 
     it("does not extract blanks into tokens", [&]() {
-        pair<PreparedGrammar, PreparedGrammar> result = extract_tokens(Grammar({
+        pair<PreparedGrammar, PreparedGrammar> result = extract_tokens(PreparedGrammar({
             { "rule1", choice({ i_sym(0), blank() }) },
-        }));
+        }, {}));
 
         AssertThat(result.first, Equals(PreparedGrammar({
             { "rule1", choice({ i_sym(0), blank() }) },

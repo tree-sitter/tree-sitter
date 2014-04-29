@@ -13,7 +13,7 @@ namespace tree_sitter {
                 }
 
             public:
-                GetMetadata(rules::MetadataKey key) : metadata_key(key) {}
+                explicit GetMetadata(rules::MetadataKey key) : metadata_key(key) {}
             };
 
             return GetMetadata(key).apply(rule);
