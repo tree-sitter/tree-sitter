@@ -16,10 +16,10 @@ namespace tree_sitter {
     } LexActionType;
 
     class LexAction {
-        LexAction(LexActionType type, size_t state_index, rules::Symbol symbol);
+        LexAction(LexActionType type, size_t state_index, rules::Symbol symbol, int precedence);
     public:
         LexAction();
-        static LexAction Accept(rules::Symbol symbol);
+        static LexAction Accept(rules::Symbol symbol, int precedence);
         static LexAction Error();
         static LexAction Advance(size_t state_index);
         bool operator==(const LexAction &action) const;
@@ -27,6 +27,7 @@ namespace tree_sitter {
         LexActionType type;
         rules::Symbol symbol;
         size_t state_index;
+        int precedence;
     };
 
     std::ostream& operator<<(std::ostream &stream, const LexAction &item);

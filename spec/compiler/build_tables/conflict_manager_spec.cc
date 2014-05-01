@@ -18,6 +18,7 @@ describe("resolving parse conflicts", []() {
     PreparedGrammar lex_grammar({
         { "token1", pattern("[a-c]") },
         { "token2", pattern("[b-d]") },
+        { "token3", keyword("stuff") },
     }, {});
 
     before_each([&]() {
@@ -29,8 +30,9 @@ describe("resolving parse conflicts", []() {
     });
 
     describe("lexical conflicts", [&]() {
-        Symbol sym1(1, SymbolOptionToken);
-        Symbol sym2(2, SymbolOptionToken);
+        Symbol sym1(0, SymbolOptionToken);
+        Symbol sym2(1, SymbolOptionToken);
+        Symbol sym3(2, SymbolOptionToken);
 
         it("favors non-errors over lexical errors", [&]() {
             should_update = manager->resolve_lex_action(LexAction::Error(), LexAction::Advance(2));
@@ -40,12 +42,26 @@ describe("resolving parse conflicts", []() {
             AssertThat(should_update, IsFalse());
         });
 
-        it("prefers tokens that are listed earlier in the grammar", [&]() {
-            should_update = manager->resolve_lex_action(LexAction::Accept(sym1), LexAction::Accept(sym2));
-            AssertThat(should_update, IsFalse());
-
-            should_update = manager->resolve_lex_action(LexAction::Accept(sym2), LexAction::Accept(sym1));
-            AssertThat(should_update, IsTrue());
+        describe("accept-token/accept-token conflicts", [&]() {
+            describe("when one token has a higher precedence than the other", [&]() {
+                it("prefers the token with the higher precedence", [&]() {
+                    should_update = manager->resolve_lex_action(LexAction::Accept(sym3, 2), LexAction::Accept(sym2, 0));
+                    AssertThat(should_update, IsFalse());
+                    
+                    should_update = manager->resolve_lex_action(LexAction::Accept(sym2, 0), LexAction::Accept(sym3, 2));
+                    AssertThat(should_update, IsTrue());
+                });
+            });
+            
+            describe("when both tokens have the same precedence", [&]() {
+                it("prefers the token listed earlier in the grammar", [&]() {
+                    should_update = manager->resolve_lex_action(LexAction::Accept(sym1, 0), LexAction::Accept(sym2, 0));
+                    AssertThat(should_update, IsFalse());
+                    
+                    should_update = manager->resolve_lex_action(LexAction::Accept(sym2, 0), LexAction::Accept(sym1, 0));
+                    AssertThat(should_update, IsTrue());
+                });
+            });
         });
     });
 

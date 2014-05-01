@@ -76,7 +76,11 @@ namespace tree_sitter {
                 case LexActionTypeError:
                     return true;
                 case LexActionTypeAccept:
-                    if (new_action.type == LexActionTypeAccept) {
+                    if (new_action.precedence > old_action.precedence) {
+                        return true;
+                    } else if (new_action.precedence < old_action.precedence) {
+                        return false;
+                    } else {
                         return new_action.symbol.index < old_action.symbol.index;
                     }
                 default:

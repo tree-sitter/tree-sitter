@@ -14,21 +14,22 @@ namespace tree_sitter {
         symbol(Symbol(-1)),
         state_index(-1) {}
 
-    LexAction::LexAction(LexActionType type, size_t state_index, Symbol symbol) :
+    LexAction::LexAction(LexActionType type, size_t state_index, Symbol symbol, int precedence) :
         type(type),
         symbol(symbol),
-        state_index(state_index) {}
+        state_index(state_index),
+        precedence(precedence) {}
 
     LexAction LexAction::Error() {
-        return LexAction(LexActionTypeError, -1, Symbol(-1));
+        return LexAction(LexActionTypeError, -1, Symbol(-1), 0);
     }
 
     LexAction LexAction::Advance(size_t state_index) {
-        return LexAction(LexActionTypeAdvance, state_index, Symbol(-1));
+        return LexAction(LexActionTypeAdvance, state_index, Symbol(-1), 0);
     }
 
-    LexAction LexAction::Accept(Symbol symbol) {
-        return LexAction(LexActionTypeAccept, -1, symbol);
+    LexAction LexAction::Accept(Symbol symbol, int precedence) {
+        return LexAction(LexActionTypeAccept, -1, symbol, precedence);
     }
 
     bool LexAction::operator==(const LexAction &other) const {

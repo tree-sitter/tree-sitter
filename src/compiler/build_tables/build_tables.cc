@@ -81,7 +81,7 @@ namespace tree_sitter {
                 for (LexItem item : item_set) {
                     if (item.is_done()) {
                         auto current_action = lex_table.state(state_id).default_action;
-                        auto new_action = LexAction::Accept(item.lhs);
+                        auto new_action = LexAction::Accept(item.lhs, item.precedence());
                         if (conflict_manager.resolve_lex_action(current_action, new_action))
                             lex_table.add_default_action(state_id, new_action);
                     }

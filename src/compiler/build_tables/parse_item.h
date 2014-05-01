@@ -5,7 +5,6 @@
 #include <string>
 #include "compiler/rules/symbol.h"
 #include "compiler/build_tables/item.h"
-#include "compiler/rules/metadata.h"
 
 namespace tree_sitter {
     namespace build_tables {
@@ -16,7 +15,6 @@ namespace tree_sitter {
                       const size_t consumed_symbol_count,
                       const rules::Symbol &lookahead_sym);
             bool operator==(const ParseItem &other) const;
-            int precedence() const;
 
             size_t consumed_symbol_count;
             rules::Symbol lookahead_sym;

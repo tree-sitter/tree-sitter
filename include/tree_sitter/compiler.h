@@ -19,6 +19,7 @@ namespace tree_sitter {
         rule_ptr sym(const std::string &name);
         rule_ptr pattern(const std::string &value);
         rule_ptr str(const std::string &value);
+        rule_ptr keyword(const std::string &value);
         rule_ptr err(const rule_ptr &rule);
         rule_ptr prec(int precedence, rule_ptr rule);
         rule_ptr token(rule_ptr rule);

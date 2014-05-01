@@ -10,6 +10,7 @@ namespace tree_sitter {
         public:
             Item(const rules::Symbol &lhs, rules::rule_ptr rule);
             bool is_done() const;
+            int precedence() const;
 
             rules::Symbol lhs;
             rules::rule_ptr rule;

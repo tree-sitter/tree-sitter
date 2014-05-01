@@ -1,5 +1,4 @@
 #include "compiler/build_tables/parse_item.h"
-#include "compiler/build_tables/get_metadata.h"
 #include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
@@ -22,10 +21,6 @@ namespace tree_sitter {
                 (other.consumed_symbol_count == consumed_symbol_count) &&
                 (other.lookahead_sym == lookahead_sym) &&
                 (other.rule == rule || other.rule->operator==(*rule));
-        }
-
-        int ParseItem::precedence() const {
-            return get_metadata(rule, rules::PRECEDENCE);
         }
 
         ostream& operator<<(ostream &stream, const ParseItem &item) {

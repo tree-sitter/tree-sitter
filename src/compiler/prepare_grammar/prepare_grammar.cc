@@ -11,7 +11,7 @@ namespace tree_sitter {
         pair<PreparedGrammar, PreparedGrammar> prepare_grammar(const Grammar &input_grammar) {
             auto interned = intern_symbols(input_grammar);
             if (interned.second) {
-                printf("Error!");
+                printf("Error! %s", interned.second->message().c_str());
                 exit(1);
             }
             auto grammars = extract_tokens(interned.first);
