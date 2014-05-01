@@ -8,8 +8,7 @@ namespace tree_sitter {
                 rules::MetadataKey metadata_key;
 
                 int apply_to(const rules::Metadata *rule) {
-                    auto pair = rule->value.find(metadata_key);
-                    return (pair != rule->value.end()) ? pair->second : 0;
+                    return rule->value_for(metadata_key);
                 }
 
             public:

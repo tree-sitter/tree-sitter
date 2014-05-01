@@ -34,14 +34,14 @@ describe("syntactic item set transitions", [&]() {
         { "A", blank() },
         { "B", i_token(21) },
     }, {});
-    
+
     it("computes the closure of the new item sets", [&]() {
         ParseItemSet set1({
             ParseItem(Symbol(0), seq({ i_token(22), i_sym(1) }), 3, Symbol(23, SymbolOptionToken)),
         });
-        
+
         SymTransitions sym_transitions;
-        
+
         AssertThat(sym_transitions(set1, grammar), Equals(map<Symbol, ParseItemSet>({
             { Symbol(22, SymbolOptionToken), ParseItemSet({
                 ParseItem(Symbol(0), i_sym(1), 4, Symbol(23, SymbolOptionToken)),

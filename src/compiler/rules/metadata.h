@@ -9,7 +9,8 @@ namespace tree_sitter  {
     namespace rules {
         typedef enum {
             START_TOKEN,
-            PRECEDENCE
+            PRECEDENCE,
+            IS_TOKEN,
         } MetadataKey;
 
         class Metadata : public Rule {
@@ -21,6 +22,7 @@ namespace tree_sitter  {
             rule_ptr copy() const;
             std::string to_string() const;
             void accept(Visitor *visitor) const;
+            int value_for(MetadataKey key) const;
 
             const rule_ptr rule;
             const std::map<MetadataKey, int> value;

@@ -36,6 +36,22 @@ describe("extracting tokens from a grammar", []() {
         })));
     });
 
+    it("moves other rules marked as tokens into the lexical grammar", [&]() {
+        pair<PreparedGrammar, PreparedGrammar> result = extract_tokens(PreparedGrammar({
+            { "rule0", seq({
+                token(choice({ str("a"), str("b") })),
+                i_sym(0) }) }
+        }, {}));
+
+        AssertThat(result.first, Equals(PreparedGrammar({
+            { "rule0", seq({ i_aux_token(0), i_sym(0) }) }
+        }, {})));
+
+        AssertThat(result.second, Equals(PreparedGrammar({}, {
+            { "token0", token(choice({ str("a"), str("b") })) },
+        })));
+    });
+
     it("does not extract blanks into tokens", [&]() {
         pair<PreparedGrammar, PreparedGrammar> result = extract_tokens(PreparedGrammar({
             { "rule1", choice({ i_sym(0), blank() }) },
@@ -66,6 +82,7 @@ describe("extracting tokens from a grammar", []() {
         auto result = extract_tokens(PreparedGrammar({
             { "rule0", i_sym(1) },
             { "rule1", pattern("a|b") },
+            { "rule2", token(seq({ str("a"), str("b") })) },
         }, {}));
 
         AssertThat(result.first, Equals(PreparedGrammar({
@@ -74,6 +91,7 @@ describe("extracting tokens from a grammar", []() {
 
         AssertThat(result.second, Equals(PreparedGrammar({
             { "rule1", pattern("a|b") },
+            { "rule2", token(seq({ str("a"), str("b") })) },
         }, {})));
     });
 

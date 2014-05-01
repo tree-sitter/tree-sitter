@@ -23,6 +23,10 @@ namespace tree_sitter {
     using std::map;
 
     namespace rules {
+        static rule_ptr metadata(rule_ptr rule, map<MetadataKey, int> values) {
+            return std::make_shared<Metadata>(rule, values);
+        }
+
         rule_ptr blank() {
             return make_shared<Blank>();
         }
@@ -56,9 +60,11 @@ namespace tree_sitter {
         }
 
         rule_ptr prec(int precedence, rule_ptr rule) {
-            return std::make_shared<Metadata>(rule, map<MetadataKey, int>({
-                { PRECEDENCE, precedence }
-            }));
+            return metadata(rule, { { PRECEDENCE, precedence } });
+        }
+
+        rule_ptr token(rule_ptr rule) {
+            return metadata(rule, { { IS_TOKEN, 1 } });
         }
     }
 }

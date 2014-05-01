@@ -26,7 +26,14 @@ namespace tree_sitter  {
         }
 
         rule_ptr Metadata::copy() const {
-            return make_shared<Metadata>(rule, value);
+            return make_shared<Metadata>(rule->copy(), value);
+        }
+
+        int Metadata::value_for(MetadataKey key) const {
+            auto pair = value.find(key);
+            return (pair != value.end()) ?
+                pair->second :
+                0;
         }
 
         std::string Metadata::to_string() const {

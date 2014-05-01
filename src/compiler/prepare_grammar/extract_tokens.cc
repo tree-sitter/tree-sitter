@@ -11,6 +11,7 @@
 #include "compiler/rules/blank.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/string.h"
+#include "compiler/rules/metadata.h"
 #include "compiler/rules/pattern.h"
 
 namespace tree_sitter {
@@ -28,6 +29,7 @@ namespace tree_sitter {
         class IsToken : public rules::RuleFn<bool> {
             bool apply_to(const rules::String *rule) { return true; }
             bool apply_to(const rules::Pattern *rule) { return true; }
+            bool apply_to(const rules::Metadata *rule) { return rule->value_for(rules::IS_TOKEN); }
         };
 
         class SymbolInliner : public rules::IdentityRuleFn {
@@ -69,13 +71,25 @@ namespace tree_sitter {
                 return index;
             }
 
+            rule_ptr apply_to_token(const rules::rule_ptr rule) {
+                size_t index = add_token(rule);
+                return make_shared<rules::Symbol>(index, rules::SymbolOption(rules::SymbolOptionToken|rules::SymbolOptionAuxiliary));
+            }
+
             rule_ptr default_apply(const rules::Rule *rule) {
                 auto result = rule->copy();
                 if (IsToken().apply(result)) {
-                    size_t index = add_token(result);
-                    return make_shared<rules::Symbol>(index, rules::SymbolOption(rules::SymbolOptionToken|rules::SymbolOptionAuxiliary));
+                    return apply_to_token(result);
                 } else {
                     return result;
+                }
+            }
+
+            rule_ptr apply_to(const rules::Metadata *rule) {
+                if (rule->value_for(rules::IS_TOKEN)) {
+                    return apply_to_token(rule->copy());
+                } else {
+                    return make_shared<rules::Metadata>(apply(rule->rule), rule->value);
                 }
             }
 
