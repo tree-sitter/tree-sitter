@@ -1,4 +1,23 @@
 ==========================================
+parses literals
+==========================================
+theFunction(
+    100.0,
+    200,
+    /the-regex/,
+    'the-single-quoted-string',
+    "the-double-quoted-string"
+);
+---
+(program (expression_statement (function_call
+    (identifier)
+    (number)
+    (number)
+    (regex)
+    (string)
+    (string))))
+
+==========================================
 parses multiple statements
 ==========================================
 var x = {}

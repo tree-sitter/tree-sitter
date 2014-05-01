@@ -79,7 +79,14 @@ namespace tree_sitter_examples {
             sym("ternary"),
             sym("math_op"),
             sym("bool_op"),
-            sym("literal"),
+            sym("object"),
+            sym("array"),
+            sym("regex"),
+            sym("string"),
+            sym("number"),
+            sym("true"),
+            sym("false"),
+            sym("null"),
             sym("identifier"),
             in_parens(sym("expression")) }) },
         { "math_op", choice({
@@ -125,14 +132,6 @@ namespace tree_sitter_examples {
                     sym("identifier") }),
                 in_brackets(sym("expression")) }) }) },
         { "formal_parameters", in_parens(comma_sep(sym("identifier"))) },
-        { "literal", choice({
-            sym("object"),
-            sym("array"),
-            sym("string"),
-            sym("number"),
-            sym("true"),
-            sym("false"),
-            sym("null"), }) },
 
         // Literals
         { "object", in_braces(comma_sep(err(seq({
@@ -159,7 +158,19 @@ namespace tree_sitter_examples {
 
         { "comment", pattern("//[^\n]*") },
         { "_terminator", pattern("[;\n]") },
-        { "string", pattern("\"([^\"]|\\\\\")+\"") },
+        { "regex", token(seq({
+            str("/"),
+            pattern("([^/]|\\\\/)+"),
+            str("/") })) },
+        { "string", token(choice({
+            seq({
+                str("\""),
+                pattern("([^\"]|\\\\\")+"),
+                str("\"") }),
+            seq({
+                str("'"),
+                pattern("([^\']|\\\\\')+"),
+                str("'") }) })) },
         { "identifier", pattern("[\\a_$][\\w_$]*") },
         { "number", pattern("\\d+(\\.\\d+)?") },
     });
