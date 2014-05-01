@@ -30,7 +30,7 @@ namespace tree_sitter_examples {
             sym("expression_statement") }) },
         { "statement_block", in_braces(err(repeat(sym("statement")))) },
         { "for_statement", seq({
-            sym("_for"),
+            keyword("for"),
             in_parens(seq({
                 choice({
                     sym("var_declaration"),
@@ -39,29 +39,29 @@ namespace tree_sitter_examples {
                 err(sym("expression")) })),
             sym("statement") }) },
         { "if_statement", seq({
-            sym("_if"),
+            keyword("if"),
             in_parens(err(sym("expression"))),
             sym("statement"),
             optional(prec(1, seq({
-                sym("_else"),
+                keyword("else"),
                 sym("statement") }))) }) },
         { "switch_statement", seq({
-            sym("_switch"),
+            keyword("switch"),
             in_parens(err(sym("expression"))),
             in_braces(repeat(sym("switch_case"))) }) },
         { "switch_case", seq({
             choice({
                 seq({
-                    sym("_case"),
+                    keyword("case"),
                     sym("expression") }),
-                sym("_default") }),
+                keyword("default") }),
             str(":"),
             repeat(sym("statement")) }) },
         { "break_statement", seq({
-            sym("_break"),
+            keyword("break"),
             sym("_terminator") }) },
         { "var_declaration", seq({
-            sym("_var"),
+            keyword("var"),
             choice({
                 sym("assignment"),
                 sym("identifier") }),
@@ -70,11 +70,11 @@ namespace tree_sitter_examples {
             err(sym("expression")),
             sym("_terminator") }) },
         { "return_statement", seq({
-            sym("_return"),
+            keyword("return"),
             optional(sym("expression")),
             sym("_terminator") }) },
         { "delete_statement", seq({
-            sym("_delete"),
+            keyword("delete"),
             sym("property_access"),
             sym("_terminator") }) },
 
@@ -125,7 +125,7 @@ namespace tree_sitter_examples {
             str("="),
             sym("expression") })) },
         { "function_expression", seq({
-            sym("_function"),
+            keyword("function"),
             optional(sym("identifier")),
             sym("formal_parameters"),
             sym("statement_block") }) },
@@ -142,29 +142,12 @@ namespace tree_sitter_examples {
         { "formal_parameters", in_parens(comma_sep(sym("identifier"))) },
 
         // Literals
+        { "comment", pattern("//[^\n]*") },
         { "object", in_braces(comma_sep(err(seq({
                 choice({ sym("string"), sym("identifier") }),
                 str(":"),
                 sym("expression") })))) },
         { "array", in_brackets(comma_sep(err(sym("expression")))) },
-
-        // Keywords
-        { "_delete", str("delete") },
-        { "_return", str("return") },
-        { "_break", str("break") },
-        { "_case", str("case") },
-        { "_default", str("default") },
-        { "_else", str("else") },
-        { "_for", str("for") },
-        { "_function", str("function") },
-        { "_if", str("if") },
-        { "_switch", str("switch") },
-        { "_var", str("var") },
-        { "null", str("null") },
-        { "true", str("true") },
-        { "false", str("false") },
-
-        { "comment", pattern("//[^\n]*") },
         { "_terminator", pattern("[;\n]") },
         { "regex", token(delimited("/")) },
         { "string", token(choice({
@@ -172,5 +155,8 @@ namespace tree_sitter_examples {
             delimited("'") })) },
         { "identifier", pattern("[\\a_$][\\w_$]*") },
         { "number", pattern("\\d+(\\.\\d+)?") },
+        { "null", keyword("null") },
+        { "true", keyword("true") },
+        { "false", keyword("false") },
     });
 }
