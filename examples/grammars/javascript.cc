@@ -5,6 +5,14 @@ namespace tree_sitter_examples {
     using tree_sitter::Grammar;
     using namespace tree_sitter::rules;
 
+    static rule_ptr delimited(std::string delimiter) {
+        return seq({
+            str(delimiter),
+            pattern("([^" + delimiter + "]|\\\\" + delimiter + ")+"),
+            str(delimiter)
+        });
+    }
+
     extern const Grammar javascript({
         { "program", repeat(sym("statement")) },
 
@@ -158,19 +166,10 @@ namespace tree_sitter_examples {
 
         { "comment", pattern("//[^\n]*") },
         { "_terminator", pattern("[;\n]") },
-        { "regex", token(seq({
-            str("/"),
-            pattern("([^/]|\\\\/)+"),
-            str("/") })) },
+        { "regex", token(delimited("/")) },
         { "string", token(choice({
-            seq({
-                str("\""),
-                pattern("([^\"]|\\\\\")+"),
-                str("\"") }),
-            seq({
-                str("'"),
-                pattern("([^\']|\\\\\')+"),
-                str("'") }) })) },
+            delimited("\""),
+            delimited("'") })) },
         { "identifier", pattern("[\\a_$][\\w_$]*") },
         { "number", pattern("\\d+(\\.\\d+)?") },
     });
