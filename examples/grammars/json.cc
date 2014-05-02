@@ -21,8 +21,8 @@ namespace tree_sitter_examples {
         { "array", in_brackets(comma_sep(err(sym("value")))) },
         { "string", pattern("\"([^\"]|\\\\\")+\"") },
         { "number", pattern("\\d+(\\.\\d+)?") },
-        { "null", str("null") },
-        { "true", str("true") },
-        { "false", str("false") },
+        { "null", keyword("null") },
+        { "true", keyword("true") },
+        { "false", keyword("false") },
     });
 }

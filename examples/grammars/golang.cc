@@ -11,10 +11,10 @@ namespace tree_sitter_examples {
             repeat(sym("imports_block")),
             repeat(sym("declaration")) }) },
         { "package_directive", seq({
-            sym("_package"),
+            keyword("package"),
             sym("package_name") }) },
         { "imports_block", seq({
-            sym("_import"),
+            keyword("import"),
             choice({
                 in_parens(err(repeat(sym("package_import")))),
                 sym("package_import") }) }) },
@@ -28,16 +28,16 @@ namespace tree_sitter_examples {
 
         // Declarations
         { "type_declaration", seq({
-            sym("_type"),
+            keyword("type"),
             sym("type_name"),
             sym("type_expression") }) },
         { "var_declaration", seq({
-            sym("_var"),
+            keyword("var"),
             sym("var_name"),
             str("="),
             sym("expression") }) },
         { "func_declaration", seq({
-            sym("_func"),
+            keyword("func"),
             sym("var_name"),
             sym("_func_signature"),
             sym("statement_block") }) },
@@ -55,7 +55,7 @@ namespace tree_sitter_examples {
             str("*"),
             sym("type_expression") }) },
         { "map_type", seq({
-            sym("_map"),
+            keyword("map"),
             str("["),
             sym("type_expression"),
             str("]"),
@@ -65,12 +65,12 @@ namespace tree_sitter_examples {
             str("]"),
             sym("type_expression") }) },
         { "struct_type", seq({
-            sym("_struct"),
+            keyword("struct"),
             in_braces(repeat(seq({
                 sym("var_name"),
                 sym("type_expression") }))) }) },
         { "interface_type", seq({
-            sym("_interface"),
+            keyword("interface"),
             in_braces(repeat(seq({
                 sym("var_name"),
                 sym("_func_signature") }))) }) },
@@ -82,20 +82,19 @@ namespace tree_sitter_examples {
             sym("number"),
             sym("var_name") }) },
         { "math_op", choice({
-            infix(2, "*"),
-            infix(2, "/"),
-            infix(1, "+"),
-            infix(1, "-") }) },
+            infix_op("*", "expression", 2),
+            infix_op("/", "expression", 2),
+            infix_op("+", "expression", 1),
+            infix_op("-", "expression", 1) }) },
         { "bool_op", choice({
-            infix(3, "&&"),
-            infix(2, "||"),
-            infix(2, "==="),
-            infix(2, "=="),
-            infix(2, "<="),
-            infix(4, "<"),
-            infix(2, ">="),
-            infix(2, ">"),
-            prefix(4, "!") }) },
+            infix_op("||", "expression", 1),
+            infix_op("&&", "expression", 2),
+            infix_op("==", "expression", 3),
+            infix_op("<=", "expression", 3),
+            infix_op("<", "expression", 3),
+            infix_op(">=", "expression", 3),
+            infix_op(">", "expression", 3),
+            prefix_op("!", "expression", 4) }) },
         { "_func_signature", seq({
             in_parens(comma_sep(seq({
                 comma_sep1(sym("var_name")),
@@ -106,16 +105,6 @@ namespace tree_sitter_examples {
                     comma_sep1(sym("type_name")) })),
                 sym("type_name"),
                 blank() }) }) },
-
-        // Keywords
-        { "_map", str("map") },
-        { "_interface", str("interface") },
-        { "_struct", str("struct") },
-        { "_package", str("package") },
-        { "_import", str("import") },
-        { "_var", str("var") },
-        { "_func", str("func") },
-        { "_type", str("type") },
 
         { "string", pattern("\"([^\"]|\\\\\")+\"") },
         { "package_name", sym("_identifier") },

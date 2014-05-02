@@ -16,11 +16,11 @@ namespace tree_sitter_examples {
             sym("number"),
             sym("variable") }) },
 
-        { "sum", infix(1, "+") },
-        { "difference", infix(1, "-") },
-        { "product", infix(2, "*") },
-        { "quotient", infix(2, "/") },
-        { "exponent", infix(3, "^") },
+        { "sum", infix_op("+", "expression", 1) },
+        { "difference", infix_op("-", "expression", 1) },
+        { "product", infix_op("*", "expression", 2) },
+        { "quotient", infix_op("/", "expression", 2) },
+        { "exponent", infix_op("^", "expression", 3) },
         { "group", in_parens(err(sym("expression"))) },
 
         { "number", pattern("\\d+") },

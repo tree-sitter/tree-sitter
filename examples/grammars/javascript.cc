@@ -5,14 +5,6 @@ namespace tree_sitter_examples {
     using tree_sitter::Grammar;
     using namespace tree_sitter::rules;
 
-    static rule_ptr delimited(std::string delimiter) {
-        return seq({
-            str(delimiter),
-            pattern("([^" + delimiter + "]|\\\\" + delimiter + ")+"),
-            str(delimiter)
-        });
-    }
-
     extern const Grammar javascript({
         { "program", repeat(sym("statement")) },
 
@@ -98,20 +90,20 @@ namespace tree_sitter_examples {
             sym("identifier"),
             in_parens(sym("expression")) }) },
         { "math_op", choice({
-            infix(2, "*"),
-            infix(2, "/"),
-            infix(1, "+"),
-            infix(1, "-") }) },
+            infix_op("*", "expression", 2),
+            infix_op("/", "expression", 2),
+            infix_op("+", "expression", 1),
+            infix_op("-", "expression", 1) }) },
         { "bool_op", choice({
-            infix(3, "&&"),
-            infix(2, "||"),
-            infix(2, "==="),
-            infix(2, "=="),
-            infix(2, "<="),
-            infix(4, "<"),
-            infix(2, ">="),
-            infix(2, ">"),
-            prefix(4, "!") }) },
+            infix_op("||", "expression", 1),
+            infix_op("&&", "expression", 2),
+            infix_op("===", "expression", 3),
+            infix_op("==", "expression", 3),
+            infix_op("<=", "expression", 3),
+            infix_op("<", "expression", 3),
+            infix_op(">=", "expression", 3),
+            infix_op(">", "expression", 3),
+            prefix_op("!", "expression", 4) }) },
         { "ternary", seq({
             sym("expression"),
             str("?"),

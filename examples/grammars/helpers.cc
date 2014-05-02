@@ -27,16 +27,24 @@ namespace tree_sitter_examples {
         return seq({ str("["), rule, str("]") });
     }
 
-    rule_ptr infix(int precedence, std::string op) {
+    rule_ptr infix_op(std::string op, std::string rule_name, int precedence) {
         return prec(precedence, seq({
-            sym("expression"),
+            sym(rule_name),
             str(op),
-            sym("expression") }));
+            sym(rule_name) }));
     }
 
-    rule_ptr prefix(int precedence, std::string op) {
+    rule_ptr prefix_op(std::string op, std::string rule_name, int precedence) {
         return prec(precedence, seq({
             str(op),
-            sym("expression") }));
+            sym(rule_name) }));
+    }
+    
+    rule_ptr delimited(std::string delimiter) {
+        return seq({
+            str(delimiter),
+            pattern("([^" + delimiter + "]|\\\\" + delimiter + ")+"),
+            str(delimiter)
+        });
     }
 }
