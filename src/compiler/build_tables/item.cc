@@ -13,7 +13,7 @@ namespace tree_sitter {
         bool Item::is_done() const {
             return rule_can_be_blank(rule);
         }
-        
+
         int Item::precedence() const {
             return get_metadata(rule, rules::PRECEDENCE);
         }

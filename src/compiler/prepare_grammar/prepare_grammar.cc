@@ -5,18 +5,22 @@
 #include "compiler/prepare_grammar/intern_symbols.h"
 
 namespace tree_sitter {
-    using std::pair;
+    using std::tuple;
 
     namespace prepare_grammar {
-        pair<PreparedGrammar, PreparedGrammar> prepare_grammar(const Grammar &input_grammar) {
-            auto interned = intern_symbols(input_grammar);
-            if (interned.second) {
-                printf("Error! %s", interned.second->message().c_str());
-                exit(1);
-            }
-            auto grammars = extract_tokens(interned.first);
-            const auto &rule_grammar = expand_repeats(grammars.first);
-            const auto &lex_grammar = grammars.second;
+        tuple<PreparedGrammar, PreparedGrammar, const GrammarError *>
+        prepare_grammar(const Grammar &input_grammar) {
+            auto result = intern_symbols(input_grammar);
+            const PreparedGrammar &grammar = result.first;
+            const GrammarError *error = result.second;
+
+            if (error)
+                return { PreparedGrammar({}, {}), PreparedGrammar({}, {}), error };
+
+            auto grammars = extract_tokens(grammar);
+            const PreparedGrammar &rule_grammar = expand_repeats(grammars.first);
+            const PreparedGrammar &lex_grammar = grammars.second;
+
             return { rule_grammar, lex_grammar };
         }
     }

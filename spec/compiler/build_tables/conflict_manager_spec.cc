@@ -47,17 +47,17 @@ describe("resolving parse conflicts", []() {
                 it("prefers the token with the higher precedence", [&]() {
                     should_update = manager->resolve_lex_action(LexAction::Accept(sym3, 2), LexAction::Accept(sym2, 0));
                     AssertThat(should_update, IsFalse());
-                    
+
                     should_update = manager->resolve_lex_action(LexAction::Accept(sym2, 0), LexAction::Accept(sym3, 2));
                     AssertThat(should_update, IsTrue());
                 });
             });
-            
+
             describe("when both tokens have the same precedence", [&]() {
                 it("prefers the token listed earlier in the grammar", [&]() {
                     should_update = manager->resolve_lex_action(LexAction::Accept(sym1, 0), LexAction::Accept(sym2, 0));
                     AssertThat(should_update, IsFalse());
-                    
+
                     should_update = manager->resolve_lex_action(LexAction::Accept(sym2, 0), LexAction::Accept(sym1, 0));
                     AssertThat(should_update, IsTrue());
                 });

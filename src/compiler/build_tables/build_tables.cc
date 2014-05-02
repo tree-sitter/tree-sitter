@@ -18,7 +18,7 @@
 #include "compiler/build_tables/first_set.h"
 
 namespace tree_sitter {
-    using std::pair;
+    using std::tuple;
     using std::string;
     using std::map;
     using std::vector;
@@ -199,12 +199,12 @@ namespace tree_sitter {
             LexTable lex_table;
         };
 
-        pair<pair<ParseTable, LexTable>, vector<Conflict>>
+        tuple<ParseTable, LexTable, vector<Conflict>>
         build_tables(const PreparedGrammar &grammar,
                      const PreparedGrammar &lex_grammar) {
             TableBuilder builder(grammar, lex_grammar);
             builder.build();
-            return { { builder.parse_table, builder.lex_table }, builder.conflicts() };
+            return { builder.parse_table, builder.lex_table, builder.conflicts() };
         }
     }
 }

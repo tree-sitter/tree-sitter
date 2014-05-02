@@ -5,22 +5,27 @@
 #include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {
-    using std::pair;
+    using std::tuple;
     using std::string;
     using std::vector;
+    using std::get;
 
-    pair<string, vector<Conflict>> compile(const Grammar &grammar, std::string name) {
-        auto grammars = prepare_grammar::prepare_grammar(grammar);
-        PreparedGrammar &syntax_grammar = grammars.first;
-        PreparedGrammar &lexical_grammar = grammars.second;
+    tuple<string, vector<Conflict>, const GrammarError *>
+    compile(const Grammar &grammar, std::string name) {
+        auto prepare_grammar_result = prepare_grammar::prepare_grammar(grammar);
+        const PreparedGrammar &syntax_grammar = get<0>(prepare_grammar_result);
+        const PreparedGrammar &lexical_grammar = get<1>(prepare_grammar_result);
+        const GrammarError *error = get<2>(prepare_grammar_result);
+
+        if (error) return { "", vector<Conflict>(), error };
 
         auto table_build_result = build_tables::build_tables(syntax_grammar, lexical_grammar);
-        auto tables = table_build_result.first;
-        auto conflicts = table_build_result.second;
+        const ParseTable &parse_table = get<0>(table_build_result);
+        const LexTable &lex_table = get<1>(table_build_result);
+        const vector<Conflict> &conflicts = get<2>(table_build_result);
 
-        ParseTable &parse_table = tables.first;
-        LexTable &lex_table = tables.second;
+        string code = generate_code::c_code(name, parse_table, lex_table, syntax_grammar, lexical_grammar);
 
-        return { generate_code::c_code(name, parse_table, lex_table, syntax_grammar, lexical_grammar), conflicts };
+        return { code, conflicts, nullptr };
     }
 }

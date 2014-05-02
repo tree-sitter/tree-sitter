@@ -39,7 +39,7 @@ namespace tree_sitter_examples {
             str(op),
             sym(rule_name) }));
     }
-    
+
     rule_ptr delimited(std::string delimiter) {
         return seq({
             str(delimiter),

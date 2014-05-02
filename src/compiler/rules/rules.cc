@@ -58,7 +58,7 @@ namespace tree_sitter {
         rule_ptr keyword(const string &value) {
             return metadata(make_shared<String>(value), { { PRECEDENCE, 100}, { IS_TOKEN, 1 } });
         }
-        
+
         rule_ptr err(const rule_ptr &rule) {
             return choice({ rule, ERROR().copy() });
         }

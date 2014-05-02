@@ -22,11 +22,16 @@ describe("compiling the example grammars", []() {
     auto compile_grammar = [&](const Grammar &grammar, string language) {
         it(("compiles the " + language + " grammar").c_str(), [&]() {
             ofstream file(example_parser_dir + language + ".c");
+
             auto result = compile(grammar, language);
+            string code = get<0>(result);
+            vector<Conflict> conflicts = get<1>(result);
+            const GrammarError *error = get<2>(result);
 
-//            cout << "\n\nconflicts for " << language << ":\n" << result.second;
+            AssertThat(error, Equals((GrammarError *)nullptr));
+//            cout << "\n\nconflicts for " << language << ":\n" << get<1>(result);
 
-            file << result.first;
+            file << get<0>(result);
             file.close();
         });
     };

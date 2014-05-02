@@ -39,4 +39,15 @@ namespace tree_sitter {
         }
         return stream << string("}>");
     }
+
+    GrammarError::GrammarError(GrammarErrorType type, std::string message) :
+        type(type),
+        message(message) {}
+
+    ostream& operator<<(ostream &stream, const GrammarError *error) {
+        if (error)
+            return stream << (string("#<grammar-error '") + error->message + "'>");
+        else
+            return stream << string("#<null>");
+    }
 }

@@ -13,7 +13,7 @@ namespace tree_sitter {
     class PreparedGrammar;
 
     namespace build_tables {
-        std::pair<std::pair<ParseTable, LexTable>, std::vector<Conflict>>
+        std::tuple<ParseTable, LexTable, std::vector<Conflict>>
         build_tables(const PreparedGrammar &grammar,
                      const PreparedGrammar &lex_grammar);
     }

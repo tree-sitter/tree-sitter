@@ -5,10 +5,12 @@
 
 namespace tree_sitter {
     class Grammar;
+    class GrammarError;
     class PreparedGrammar;
 
     namespace prepare_grammar {
-        std::pair<PreparedGrammar, PreparedGrammar> prepare_grammar(const Grammar &);
+        std::tuple<PreparedGrammar, PreparedGrammar, const GrammarError *>
+        prepare_grammar(const Grammar &);
     }
 }
 

@@ -35,7 +35,7 @@ describe("interning symbols in a grammar", []() {
 
             auto result = intern_symbols(grammar);
 
-            AssertThat(result.second->message(), Equals("Undefined rule 'y'"));
+            AssertThat(result.second->message, Equals("Undefined rule 'y'"));
         });
     });
 });

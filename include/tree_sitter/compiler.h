@@ -41,10 +41,24 @@ namespace tree_sitter {
         bool operator<(const Conflict &other) const;
     };
 
+    enum GrammarErrorType {
+        GrammarErrorTypeRegex,
+        GrammarErrorTypeUndefinedSymbol
+    };
+
+    class GrammarError {
+    public:
+        GrammarError(GrammarErrorType type, std::string message);
+        GrammarErrorType type;
+        std::string message;
+    };
+
     std::ostream& operator<<(std::ostream &stream, const Grammar &grammar);
     std::ostream& operator<<(std::ostream &stream, const Conflict &conflict);
+    std::ostream& operator<<(std::ostream &stream, const GrammarError *error);
 
-    std::pair<std::string, std::vector<Conflict>> compile(const Grammar &grammar, std::string name);
+    std::tuple<std::string, std::vector<Conflict>, const GrammarError *>
+    compile(const Grammar &grammar, std::string name);
 }
 
 #endif  // TREE_SITTER_COMPILER_H_

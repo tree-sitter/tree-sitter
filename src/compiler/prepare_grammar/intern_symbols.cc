@@ -14,12 +14,6 @@ namespace tree_sitter {
     using std::pair;
     using std::make_shared;
 
-    GrammarError::GrammarError(string rule_name) : rule_name(rule_name) {}
-
-    string GrammarError::message() const {
-        return "Undefined rule '" + rule_name + "'";
-    }
-
     namespace prepare_grammar {
         class InternSymbols : public rules::IdentityRuleFn {
             const Grammar grammar;
@@ -54,7 +48,8 @@ namespace tree_sitter {
                 if (!interner.missing_rule_name.empty())
                     return {
                         PreparedGrammar({}, {}),
-                        new GrammarError(interner.missing_rule_name)
+                        new GrammarError(GrammarErrorTypeUndefinedSymbol,
+                                         "Undefined rule '" + interner.missing_rule_name + "'")
                     };
                 rules.push_back({ pair.first, new_rule });
             }
