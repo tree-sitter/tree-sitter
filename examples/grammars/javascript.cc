@@ -90,6 +90,8 @@ namespace tree_sitter_examples {
             sym("identifier"),
             in_parens(sym("expression")) }) },
         { "math_op", choice({
+            prefix_op("+", "expression", 3),
+            prefix_op("-", "expression", 3),
             infix_op("*", "expression", 2),
             infix_op("/", "expression", 2),
             infix_op("+", "expression", 1),

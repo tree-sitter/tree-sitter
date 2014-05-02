@@ -11,14 +11,14 @@ print(isDone() ? stuff : otherStuff);
 ==========================================
 parses mathematical operators
 ==========================================
-a + b * c - d / e
+-a + b * c - d / +e
 ---
 (program (expression_statement
     (math_op
-        (identifier)
+        (math_op (identifier))
         (math_op
             (math_op (identifier) (identifier))
-            (math_op (identifier) (identifier))))))
+            (math_op (identifier) (math_op (identifier)))))))
 
 ==========================================
 parses boolean operators
