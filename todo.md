@@ -2,9 +2,6 @@ TODO
 ====
 
 * Complete javascript and golang grammars
-* Add `token` helper that allows user to specify structure of tokens using
-  rules other than strings and patterns
-* Allow language keywords to be specified inline, not as separate named rules.
 * Make separator character set configurable, not hard-coded to whitespace
 * Add special lexical behavior for indentation-aware languages
 * Return a useful error when grammar contains invalid regex patterns
