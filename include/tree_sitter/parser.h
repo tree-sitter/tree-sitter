@@ -182,7 +182,6 @@ typedef struct {
         struct {
             ts_symbol symbol;
             int child_count;
-            const int *collapse_flags;
         };
     } data;
 } ts_parse_action;
