@@ -16,26 +16,19 @@ namespace tree_sitter {
 
     namespace prepare_grammar {
         class InternSymbols : public rules::IdentityRuleFn {
-            const Grammar grammar;
             using rules::IdentityRuleFn::apply_to;
 
-            int index_of(string rule_name) {
-                for (size_t i = 0; i < grammar.rules.size(); i++)
-                    if (grammar.rules[i].first == rule_name)
-                        return i;
-                return -1;
-            }
-
             rule_ptr apply_to(const rules::NamedSymbol *rule)  {
-                int index = index_of(rule->name);
-                if (index == -1)
-                    missing_rule_name = rule->name;
-                return make_shared<rules::Symbol>(index);
+                for (size_t i = 0; i < grammar.rules.size(); i++)
+                    if (grammar.rules[i].first == rule->name)
+                        return make_shared<rules::Symbol>(i);
+                missing_rule_name = rule->name;
+                return rule_ptr();
             }
 
         public:
             explicit InternSymbols(const Grammar &grammar) : grammar(grammar) {}
-
+            const Grammar grammar;
             string missing_rule_name;
         };
 
