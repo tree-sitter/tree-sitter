@@ -14,6 +14,7 @@ namespace tree_sitter_examples {
     rule_ptr in_brackets(rule_ptr rule);
     rule_ptr infix_op(std::string op, std::string rule_name, int precedence);
     rule_ptr prefix_op(std::string op, std::string rule_name, int precedence);
+    rule_ptr postfix_op(std::string op, std::string rule_name, int precedence);
     rule_ptr delimited(std::string delimiter);
 }
 

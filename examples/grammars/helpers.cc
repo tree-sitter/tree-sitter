@@ -40,6 +40,12 @@ namespace tree_sitter_examples {
             sym(rule_name) }));
     }
 
+    rule_ptr postfix_op(std::string op, std::string rule_name, int precedence) {
+        return prec(precedence, seq({
+            sym(rule_name),
+            str(op) }));
+    }
+
     rule_ptr delimited(std::string delimiter) {
         return seq({
             str(delimiter),

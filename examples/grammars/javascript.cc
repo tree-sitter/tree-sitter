@@ -54,9 +54,11 @@ namespace tree_sitter_examples {
             sym("_terminator") }) },
         { "var_declaration", seq({
             keyword("var"),
-            choice({
-                sym("assignment"),
-                sym("identifier") }),
+            comma_sep(seq({
+                optional(sym("comment")),
+                choice({
+                    sym("assignment"),
+                    sym("identifier") }) })),
             sym("_terminator") }) },
         { "expression_statement", seq({
             err(sym("expression")),
@@ -74,6 +76,7 @@ namespace tree_sitter_examples {
         { "expression", choice({
             sym("function_expression"),
             sym("function_call"),
+            sym("constructor_call"),
             sym("property_access"),
             sym("assignment"),
             sym("ternary"),
@@ -90,10 +93,17 @@ namespace tree_sitter_examples {
             sym("identifier"),
             in_parens(sym("expression")) }) },
         { "math_op", choice({
+            prefix_op("++", "expression", 3),
+            prefix_op("--", "expression", 3),
+            postfix_op("++", "expression", 3),
+            postfix_op("--", "expression", 3),
             prefix_op("+", "expression", 3),
             prefix_op("-", "expression", 3),
             infix_op("*", "expression", 2),
             infix_op("/", "expression", 2),
+            infix_op("&", "expression", 2),
+            infix_op("|", "expression", 2),
+            infix_op("^", "expression", 2),
             infix_op("+", "expression", 1),
             infix_op("-", "expression", 1) }) },
         { "bool_op", choice({
@@ -101,6 +111,8 @@ namespace tree_sitter_examples {
             infix_op("&&", "expression", 2),
             infix_op("===", "expression", 3),
             infix_op("==", "expression", 3),
+            infix_op("!==", "expression", 3),
+            infix_op("!=", "expression", 3),
             infix_op("<=", "expression", 3),
             infix_op("<", "expression", 3),
             infix_op(">=", "expression", 3),
@@ -126,6 +138,9 @@ namespace tree_sitter_examples {
         { "function_call", seq({
             sym("expression"),
             in_parens(comma_sep(err(sym("expression")))) }) },
+        { "constructor_call", seq({
+            keyword("new"),
+            sym("function_call") }) },
         { "property_access", seq({
             sym("expression"),
             choice({
@@ -136,12 +151,20 @@ namespace tree_sitter_examples {
         { "formal_parameters", in_parens(comma_sep(sym("identifier"))) },
 
         // Literals
-        { "comment", pattern("//[^\n]*") },
+        { "comment", token(choice({
+            seq({
+                str("/*"),
+                repeat(pattern("[^*]|(*[^/])")),
+                str("*/") }),
+            pattern("//[^\n]*") })) },
         { "object", in_braces(comma_sep(err(seq({
-                choice({ sym("string"), sym("identifier") }),
-                str(":"),
-                sym("expression") })))) },
-        { "array", in_brackets(comma_sep(err(sym("expression")))) },
+            optional(sym("comment")),
+            choice({ sym("string"), sym("identifier") }),
+            str(":"),
+            sym("expression") })))) },
+        { "array", in_brackets(comma_sep(err(seq({
+            optional(sym("comment")),
+            sym("expression") })))) },
         { "_terminator", pattern("[;\n]") },
         { "regex", token(delimited("/")) },
         { "string", token(choice({
