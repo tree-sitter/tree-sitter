@@ -6,6 +6,7 @@
 
 namespace tree_sitter {
     using std::tuple;
+    using std::make_tuple;
 
     namespace prepare_grammar {
         tuple<PreparedGrammar, PreparedGrammar, const GrammarError *>
@@ -15,13 +16,13 @@ namespace tree_sitter {
             const GrammarError *error = result.second;
 
             if (error)
-                return { PreparedGrammar({}, {}), PreparedGrammar({}, {}), error };
+                return make_tuple(PreparedGrammar({}, {}), PreparedGrammar({}, {}), error);
 
             auto grammars = extract_tokens(grammar);
             const PreparedGrammar &rule_grammar = expand_repeats(grammars.first);
             const PreparedGrammar &lex_grammar = grammars.second;
 
-            return { rule_grammar, lex_grammar };
+            return make_tuple(rule_grammar, lex_grammar, nullptr);
         }
     }
 }

@@ -27,6 +27,7 @@ namespace tree_sitter {
     using std::make_shared;
     using rules::Symbol;
     using rules::CharacterSet;
+    using std::make_tuple;
 
     namespace build_tables {
         class TableBuilder {
@@ -204,7 +205,7 @@ namespace tree_sitter {
                      const PreparedGrammar &lex_grammar) {
             TableBuilder builder(grammar, lex_grammar);
             builder.build();
-            return { builder.parse_table, builder.lex_table, builder.conflicts() };
+            return make_tuple(builder.parse_table, builder.lex_table, builder.conflicts());
         }
     }
 }

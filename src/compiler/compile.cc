@@ -9,6 +9,7 @@ namespace tree_sitter {
     using std::string;
     using std::vector;
     using std::get;
+    using std::make_tuple;
 
     tuple<string, vector<Conflict>, const GrammarError *>
     compile(const Grammar &grammar, std::string name) {
@@ -17,7 +18,8 @@ namespace tree_sitter {
         const PreparedGrammar &lexical_grammar = get<1>(prepare_grammar_result);
         const GrammarError *error = get<2>(prepare_grammar_result);
 
-        if (error) return { "", vector<Conflict>(), error };
+        if (error)
+            return make_tuple("", vector<Conflict>(), error);
 
         auto table_build_result = build_tables::build_tables(syntax_grammar, lexical_grammar);
         const ParseTable &parse_table = get<0>(table_build_result);
@@ -26,6 +28,6 @@ namespace tree_sitter {
 
         string code = generate_code::c_code(name, parse_table, lex_table, syntax_grammar, lexical_grammar);
 
-        return { code, conflicts, nullptr };
+        return make_tuple(code, conflicts, nullptr);
     }
 }
