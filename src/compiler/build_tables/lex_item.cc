@@ -21,15 +21,16 @@ namespace tree_sitter {
         bool LexItem::is_token_start() const {
             class IsTokenStart : public rules::RuleFn<bool> {
                 bool apply_to(const rules::Seq *rule) {
-                    bool result = apply(rule->left);
-                    if (!result && rule_can_be_blank(rule->left))
-                        result = apply(rule->right);
-                    return result;
+                    if (apply(rule->left))
+                        return true;
+                    else if (rule_can_be_blank(rule->left))
+                        return apply(rule->right);
+                    else
+                        return false;
                 }
 
                 bool apply_to(const rules::Metadata *rule) {
-                    auto pair = rule->value.find(rules::START_TOKEN);
-                    return (pair != rule->value.end()) && pair->second;
+                    return rule->value_for(rules::START_TOKEN);
                 }
             };
 

@@ -9,7 +9,8 @@ namespace tree_sitter {
     class ParseTable;
 
     namespace build_tables {
-        LexTable build_lex_table(ParseTable *parse_table, const PreparedGrammar &lex_grammar);
+        LexTable
+        build_lex_table(ParseTable *parse_table, const PreparedGrammar &lex_grammar);
     }
 }
 
