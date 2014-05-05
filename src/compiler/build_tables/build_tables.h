@@ -3,8 +3,6 @@
 
 #include <utility>
 #include <vector>
-#include <string>
-#include <map>
 #include "tree_sitter/compiler.h"
 #include "compiler/parse_table.h"
 #include "compiler/lex_table.h"

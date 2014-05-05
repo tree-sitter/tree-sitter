@@ -1,5 +1,5 @@
-#ifndef COMPILER_BUILD_TABLES_CONFLICT_MANAGER_H_
-#define COMPILER_BUILD_TABLES_CONFLICT_MANAGER_H_
+#ifndef COMPILER_BUILD_TABLES_PARSE_CONFLICT_MANAGER_H_
+#define COMPILER_BUILD_TABLES_PARSE_CONFLICT_MANAGER_H_
 
 #include <vector>
 #include <map>
@@ -12,17 +12,14 @@
 
 namespace tree_sitter {
     namespace build_tables {
-        class ConflictManager {
+        class ParseConflictManager {
             const PreparedGrammar parse_grammar;
             const PreparedGrammar lex_grammar;
             std::set<Conflict> conflicts_;
 
         public:
-            ConflictManager(const PreparedGrammar &parse_grammar,
-                            const PreparedGrammar &lex_grammar);
-
-            bool resolve_lex_action(const LexAction &old_action,
-                                    const LexAction &new_action);
+            ParseConflictManager(const PreparedGrammar &parse_grammar,
+                                 const PreparedGrammar &lex_grammar);
             bool resolve_parse_action(const rules::Symbol &symbol,
                                       const ParseAction &old_action,
                                       const ParseAction &new_action);
@@ -33,4 +30,4 @@ namespace tree_sitter {
     }
 }
 
-#endif  // COMPILER_BUILD_TABLES_CONFLICT_MANAGER_H_
+#endif  // COMPILER_BUILD_TABLES_PARSE_CONFLICT_MANAGER_H_

@@ -1,5 +1,6 @@
 #include "compiler_spec_helper.h"
-#include "compiler/build_tables/conflict_manager.h"
+#include "compiler/build_tables/parse_conflict_manager.h"
+#include "compiler/build_tables/lex_conflict_manager.h"
 
 using namespace rules;
 using namespace build_tables;
@@ -8,7 +9,6 @@ START_TEST
 
 describe("resolving parse conflicts", []() {
     bool should_update;
-    ConflictManager *manager;
 
     PreparedGrammar parse_grammar({
         { "rule1", seq({ sym("rule2"), sym("token2") }) },
@@ -21,18 +21,21 @@ describe("resolving parse conflicts", []() {
         { "token3", keyword("stuff") },
     }, {});
 
-    before_each([&]() {
-        manager = new ConflictManager(parse_grammar, lex_grammar);
-    });
-
-    after_each([&]() {
-        delete manager;
-    });
-
     describe("lexical conflicts", [&]() {
         Symbol sym1(0, SymbolOptionToken);
         Symbol sym2(1, SymbolOptionToken);
         Symbol sym3(2, SymbolOptionToken);
+
+        LexConflictManager *manager;
+
+
+        before_each([&]() {
+            manager = new LexConflictManager(lex_grammar);
+        });
+
+        after_each([&]() {
+            delete manager;
+        });
 
         it("favors non-errors over lexical errors", [&]() {
             should_update = manager->resolve_lex_action(LexAction::Error(), LexAction::Advance(2));
@@ -68,6 +71,15 @@ describe("resolving parse conflicts", []() {
     describe("syntactic conflicts", [&]() {
         Symbol sym1(0);
         Symbol sym2(1);
+        ParseConflictManager *manager;
+
+        before_each([&]() {
+            manager = new ParseConflictManager(parse_grammar, lex_grammar);
+        });
+
+        after_each([&]() {
+            delete manager;
+        });
 
         it("favors non-errors over parse errors", [&]() {
             should_update = manager->resolve_parse_action(sym1, ParseAction::Error(), ParseAction::Shift(2, { 0 }));

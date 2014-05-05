@@ -1,4 +1,4 @@
-#include "compiler/build_tables/conflict_manager.h"
+#include "compiler/build_tables/parse_conflict_manager.h"
 #include <vector>
 #include <map>
 #include <string>
@@ -13,12 +13,12 @@ namespace tree_sitter {
         using std::set;
         using std::vector;
 
-        ConflictManager::ConflictManager(const PreparedGrammar &parse_grammar,
-                                         const PreparedGrammar &lex_grammar) :
+        ParseConflictManager::ParseConflictManager(const PreparedGrammar &parse_grammar,
+                                                   const PreparedGrammar &lex_grammar) :
             parse_grammar(parse_grammar),
             lex_grammar(lex_grammar) {}
 
-        bool ConflictManager::resolve_parse_action(const rules::Symbol &symbol,
+        bool ParseConflictManager::resolve_parse_action(const rules::Symbol &symbol,
                                                    const ParseAction &old_action,
                                                    const ParseAction &new_action) {
             if (new_action.type < old_action.type)
@@ -70,25 +70,7 @@ namespace tree_sitter {
             }
         }
 
-        bool ConflictManager::resolve_lex_action(const LexAction &old_action,
-                                                 const LexAction &new_action) {
-            switch (old_action.type) {
-                case LexActionTypeError:
-                    return true;
-                case LexActionTypeAccept:
-                    if (new_action.precedence > old_action.precedence) {
-                        return true;
-                    } else if (new_action.precedence < old_action.precedence) {
-                        return false;
-                    } else {
-                        return new_action.symbol.index < old_action.symbol.index;
-                    }
-                default:
-                    return false;
-            }
-        }
-
-        const vector<Conflict> ConflictManager::conflicts() const {
+        const vector<Conflict> ParseConflictManager::conflicts() const {
             vector<Conflict> result;
             result.insert(result.end(), conflicts_.begin(), conflicts_.end());
             return result;
@@ -123,7 +105,7 @@ namespace tree_sitter {
             }
         }
 
-        void ConflictManager::record_conflict(const rules::Symbol &symbol,
+        void ParseConflictManager::record_conflict(const rules::Symbol &symbol,
                                               const ParseAction &left,
                                               const ParseAction &right) {
             string name = symbol.is_token() ?
