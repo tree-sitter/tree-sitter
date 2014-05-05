@@ -28,7 +28,6 @@ describe("resolving parse conflicts", []() {
 
         LexConflictManager *manager;
 
-
         before_each([&]() {
             manager = new LexConflictManager(lex_grammar);
         });
