@@ -111,6 +111,20 @@ describe("extracting tokens from a grammar", []() {
             { "rule0", str("ab") },
         }, {})));
     });
+
+    it("updates the grammar's ubiquitous_tokens", [&]() {
+        auto result = extract_tokens(PreparedGrammar({
+            { "rule0", str("ab") },
+            { "rule1", i_sym(0) },
+            { "rule2", i_sym(1) },
+        }, {}, PreparedGrammarOptions({
+            { Symbol(0) }
+        })));
+
+        AssertThat(result.first.options.ubiquitous_tokens, Equals(vector<Symbol>({
+            { Symbol(0, SymbolOptionToken) }
+        })));
+    });
 });
 
 END_TEST

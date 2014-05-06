@@ -46,16 +46,20 @@ namespace tree_sitter {
             }
 
             rule_ptr apply_to(const Symbol *rule) {
-                auto replacement_pair = replacements.find(*rule);
-                if (replacement_pair != replacements.end())
-                    return replacement_pair->second.copy();
-                else if (rule->is_built_in())
-                    return rule->copy();
-                else
-                    return make_shared<Symbol>(new_index_for_symbol(*rule), rule->options);
+                return replace_symbol(*rule).copy();
             }
 
         public:
+            Symbol replace_symbol(const Symbol &rule) {
+                auto replacement_pair = replacements.find(rule);
+                if (replacement_pair != replacements.end())
+                    return replacement_pair->second;
+                else if (rule.is_built_in())
+                    return rule;
+                else
+                    return Symbol(new_index_for_symbol(rule), rule.options);
+            }
+
             SymbolInliner(const map<Symbol, Symbol> &replacements, size_t rule_count, size_t aux_rule_count) :
                 replacements(replacements)
                 {}
@@ -131,13 +135,21 @@ namespace tree_sitter {
             aux_tokens.insert(aux_tokens.end(), extractor.tokens.begin(), extractor.tokens.end());
 
             SymbolInliner inliner(symbol_replacements, input_grammar.rules.size(), input_grammar.aux_rules.size());
+
+            vector<Symbol> ubiquitous_tokens;
             for (auto &pair : rules)
                 pair.second = inliner.apply(pair.second);
             for (auto &pair : aux_rules)
                 pair.second = inliner.apply(pair.second);
+            for (auto &symbol : input_grammar.options.ubiquitous_tokens) {
+                ubiquitous_tokens.push_back(inliner.replace_symbol(symbol));
+            }
+
+            PreparedGrammarOptions parse_options(input_grammar.options);
+            parse_options.ubiquitous_tokens = ubiquitous_tokens;
 
             return {
-                PreparedGrammar(rules, aux_rules),
+                PreparedGrammar(rules, aux_rules, parse_options),
                 PreparedGrammar(tokens, aux_tokens)
             };
         }

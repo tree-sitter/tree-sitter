@@ -7,7 +7,12 @@ namespace tree_sitter {
     using rules::rule_ptr;
 
     Grammar::Grammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules) :
-        rules(rules) {}
+        rules(rules),
+        options({}) {}
+
+    Grammar::Grammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules, GrammarOptions options) :
+        rules(rules),
+        options(options) {}
 
     bool Grammar::operator==(const Grammar &other) const {
         if (other.rules.size() != rules.size()) return false;

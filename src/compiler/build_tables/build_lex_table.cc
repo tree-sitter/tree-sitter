@@ -30,7 +30,7 @@ namespace tree_sitter {
             LexConflictManager conflict_manager;
             unordered_map<const LexItemSet, LexStateId> lex_state_ids;
             LexTable lex_table;
-            
+
             LexItemSet build_lex_item_set(const set<Symbol> &symbols) {
                 LexItemSet result;
                 for (const auto &symbol : symbols) {
@@ -43,7 +43,7 @@ namespace tree_sitter {
                 }
                 return result;
             }
-            
+
             LexStateId add_lex_state(const LexItemSet &item_set) {
                 auto pair = lex_state_ids.find(item_set);
                 if (pair == lex_state_ids.end()) {
@@ -57,7 +57,7 @@ namespace tree_sitter {
                     return pair->second;
                 }
             }
-            
+
             void add_error_lex_state() {
                 LexItemSet item_set = build_lex_item_set(parse_table->symbols);
                 add_advance_actions(item_set, LexTable::ERROR_STATE_ID);
@@ -84,7 +84,7 @@ namespace tree_sitter {
                     }
                 }
             }
-            
+
             void add_token_start(const LexItemSet &item_set, LexStateId state_id) {
                 for (const auto &item : item_set)
                     if (item.is_token_start())

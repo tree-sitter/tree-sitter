@@ -97,14 +97,25 @@ print(object[propertyName()]);
 ==========================================
 parses comments
 ==========================================
-// this is another comment
-stuff(); // this is a comment
-/* this is a third comment */
+var thing = {
+
+    // this is a property.
+    // its value is a function.
+    key: function(x /* this is a parameter */) {
+
+        // this is a statement
+        doStuff();
+    }
+};
 ---
-(program
+(program (var_declaration (assignment (identifier) (object
     (comment)
-    (expression_statement (function_call (identifier))) (comment)
-    (comment))
+    (comment)
+    (identifier) (function_expression
+        (formal_parameters (identifier) (comment))
+        (statement_block
+            (comment)
+            (expression_statement (function_call (identifier)))))))))
 
 ======================================
 parses real code

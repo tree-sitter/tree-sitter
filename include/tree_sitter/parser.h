@@ -30,6 +30,9 @@ static const char *ts_symbol_names[]
 #define HIDDEN_SYMBOLS \
 static const int hidden_symbol_flags[SYMBOL_COUNT]
 
+#define UBIQUITOUS_SYMBOLS \
+static const int ubiquitous_symbol_flags[SYMBOL_COUNT]
+
 #define LEX_STATES \
 static state_id ts_lex_states[STATE_COUNT]
 
@@ -64,9 +67,15 @@ static const ts_parse_action ts_parse_actions[STATE_COUNT][SYMBOL_COUNT]
 ts_parser constructor_name() { \
     return (ts_parser) { \
         .parse_fn = ts_parse, \
+        .free_fn = NULL, \
         .symbol_names = ts_symbol_names, \
-        .data = ts_lr_parser_make(SYMBOL_COUNT, (const ts_parse_action *)ts_parse_actions, ts_lex_states, hidden_symbol_flags), \
-        .free_fn = NULL \
+        .data = ts_lr_parser_make( \
+            SYMBOL_COUNT, \
+            (const ts_parse_action *)ts_parse_actions, \
+            ts_lex_states, \
+            hidden_symbol_flags, \
+            ubiquitous_symbol_flags \
+        ) \
     }; \
 }
 
@@ -94,7 +103,7 @@ typedef struct {
 
 ts_stack ts_stack_make();
 ts_tree * ts_stack_root(const ts_stack *stack);
-ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child_count, const int *collapse_flags);
+ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child_count, const int *hidden_symbol_flags, const int *ubiquitous_symbol_flags);
 void ts_stack_shrink(ts_stack *stack, size_t new_size);
 void ts_stack_push(ts_stack *stack, state_id state, ts_tree *node);
 state_id ts_stack_top_state(const ts_stack *stack);
@@ -202,6 +211,7 @@ typedef struct {
     ts_lexer lexer;
     ts_stack stack;
     const int *hidden_symbol_flags;
+    const int *ubiquitous_symbol_flags;
     ts_tree *lookahead;
     ts_tree *next_lookahead;
     const ts_parse_action *parse_table;
@@ -209,7 +219,12 @@ typedef struct {
     size_t symbol_count;
 } ts_lr_parser;
 
-static ts_lr_parser * ts_lr_parser_make(size_t symbol_count, const ts_parse_action *parse_table, const state_id *lex_states, const int *hidden_symbol_flags) {
+static ts_lr_parser *
+ts_lr_parser_make(size_t symbol_count,
+                  const ts_parse_action *parse_table,
+                  const state_id *lex_states,
+                  const int *hidden_symbol_flags,
+                  const int *ubiquitous_symbol_flags) {
     ts_lr_parser *result = malloc(sizeof(ts_lr_parser));
     result->lexer = ts_lexer_make();
     result->stack = ts_stack_make();
@@ -217,6 +232,7 @@ static ts_lr_parser * ts_lr_parser_make(size_t symbol_count, const ts_parse_acti
     result->parse_table = parse_table;
     result->lex_states = lex_states;
     result->hidden_symbol_flags = hidden_symbol_flags;
+    result->ubiquitous_symbol_flags = ubiquitous_symbol_flags;
     return result;
 }
 
@@ -279,7 +295,7 @@ static void ts_lr_parser_shift(ts_lr_parser *parser, state_id parse_state) {
 
 static void ts_lr_parser_reduce(ts_lr_parser *parser, ts_symbol symbol, int child_count) {
     parser->next_lookahead = parser->lookahead;
-    parser->lookahead = ts_stack_reduce(&parser->stack, symbol, child_count, parser->hidden_symbol_flags);
+    parser->lookahead = ts_stack_reduce(&parser->stack, symbol, child_count, parser->hidden_symbol_flags, parser->ubiquitous_symbol_flags);
 }
 
 static ts_symbol * ts_lr_parser_expected_symbols(ts_lr_parser *parser, size_t *count) {

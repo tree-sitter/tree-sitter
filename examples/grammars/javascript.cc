@@ -10,7 +10,6 @@ namespace tree_sitter_examples {
 
         // Statements
         { "statement", choice({
-            sym("comment"),
             sym("statement_block"),
             sym("if_statement"),
             sym("switch_statement"),
@@ -158,13 +157,10 @@ namespace tree_sitter_examples {
                 str("*/") }),
             pattern("//[^\n]*") })) },
         { "object", in_braces(comma_sep(err(seq({
-            optional(sym("comment")),
             choice({ sym("string"), sym("identifier") }),
             str(":"),
             sym("expression") })))) },
-        { "array", in_brackets(comma_sep(err(seq({
-            optional(sym("comment")),
-            sym("expression") })))) },
+        { "array", in_brackets(comma_sep(err(sym("expression")))) },
         { "_terminator", pattern("[;\n]") },
         { "regex", token(delimited("/")) },
         { "string", token(choice({
@@ -175,5 +171,8 @@ namespace tree_sitter_examples {
         { "null", keyword("null") },
         { "true", keyword("true") },
         { "false", keyword("false") },
+    }, {
+        // ubiquitous_tokens
+        { "comment" }
     });
 }

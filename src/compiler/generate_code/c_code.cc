@@ -75,6 +75,7 @@ namespace tree_sitter {
                     state_and_symbol_counts(),
                     symbol_enum(),
                     symbol_names_list(),
+                    ubiquitous_symbols_list(),
                     hidden_symbols_list(),
                     lex_function(),
                     lex_states_list(),
@@ -218,6 +219,13 @@ namespace tree_sitter {
                 string result = "SYMBOL_NAMES = {\n";
                 for (auto symbol : parse_table.symbols)
                     result += indent("[" + symbol_id(symbol) + "] = \"" + symbol_name(symbol)) + "\",\n";
+                return result + "};";
+            }
+
+            string ubiquitous_symbols_list() {
+                string result = "UBIQUITOUS_SYMBOLS = {\n";
+                for (auto &symbol : syntax_grammar.options.ubiquitous_tokens)
+                    result += indent("[" + symbol_id(symbol) + "] = 1,") + "\n";
                 return result + "};";
             }
 

@@ -14,7 +14,15 @@ namespace tree_sitter {
     PreparedGrammar::PreparedGrammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
                                      const std::vector<std::pair<std::string, rules::rule_ptr>> &aux_rules) :
         Grammar(rules),
-        aux_rules(aux_rules) {}
+        aux_rules(aux_rules),
+        options({}) {}
+
+    PreparedGrammar::PreparedGrammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
+                                     const std::vector<std::pair<std::string, rules::rule_ptr>> &aux_rules,
+                                     PreparedGrammarOptions options) :
+        Grammar(rules),
+        aux_rules(aux_rules),
+        options(options) {}
 
     const rule_ptr & PreparedGrammar::rule(const Symbol &symbol) const {
         return symbol.is_auxiliary() ?

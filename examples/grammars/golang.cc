@@ -3,6 +3,7 @@
 
 namespace tree_sitter_examples {
     using tree_sitter::Grammar;
+    using tree_sitter::GrammarOptions;
     using namespace tree_sitter::rules;
 
     extern const Grammar golang({
@@ -112,5 +113,8 @@ namespace tree_sitter_examples {
         { "type_name", sym("_identifier") },
         { "_identifier", pattern("\\a[\\w_]*") },
         { "number", pattern("\\d+(\\.\\d+)?") },
-    });
+        { "comment", pattern("//[^\n]*") },
+    }, GrammarOptions({
+        { "comment" },
+    }));
 }

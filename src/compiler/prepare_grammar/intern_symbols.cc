@@ -19,18 +19,31 @@ namespace tree_sitter {
             using rules::IdentityRuleFn::apply_to;
 
             rule_ptr apply_to(const rules::NamedSymbol *rule)  {
-                for (size_t i = 0; i < grammar.rules.size(); i++)
-                    if (grammar.rules[i].first == rule->name)
-                        return make_shared<rules::Symbol>(i);
-                missing_rule_name = rule->name;
-                return rule_ptr();
+                auto result = symbol_for_rule_name(rule->name);
+                if (!result.get()) missing_rule_name = rule->name;
+                return result;
             }
 
         public:
+            std::shared_ptr<rules::Symbol> symbol_for_rule_name(string rule_name) {
+                for (size_t i = 0; i < grammar.rules.size(); i++)
+                    if (grammar.rules[i].first == rule_name)
+                        return make_shared<rules::Symbol>(i);
+                return nullptr;
+            }
+
             explicit InternSymbols(const Grammar &grammar) : grammar(grammar) {}
             const Grammar grammar;
             string missing_rule_name;
         };
+
+        pair<PreparedGrammar, const GrammarError *> missing_rule_error(string rule_name) {
+            return {
+                PreparedGrammar({}, {}),
+                new GrammarError(GrammarErrorTypeUndefinedSymbol,
+                                 "Undefined rule '" + rule_name + "'")
+            };
+        }
 
         pair<PreparedGrammar, const GrammarError *> intern_symbols(const Grammar &grammar) {
             InternSymbols interner(grammar);
@@ -39,15 +52,22 @@ namespace tree_sitter {
             for (auto &pair : grammar.rules) {
                 auto new_rule = interner.apply(pair.second);
                 if (!interner.missing_rule_name.empty())
-                    return {
-                        PreparedGrammar({}, {}),
-                        new GrammarError(GrammarErrorTypeUndefinedSymbol,
-                                         "Undefined rule '" + interner.missing_rule_name + "'")
-                    };
+                    return missing_rule_error(interner.missing_rule_name);
                 rules.push_back({ pair.first, new_rule });
             }
 
-            return { PreparedGrammar(rules, {}), nullptr };
+            vector<rules::Symbol> ubiquitous_tokens;
+            for (auto &name : grammar.options.ubiquitous_tokens) {
+                auto token = interner.symbol_for_rule_name(name);
+                if (!token.get())
+                    return missing_rule_error(name);
+                ubiquitous_tokens.push_back(*token);
+            }
+
+            return {
+                PreparedGrammar(rules, {}, PreparedGrammarOptions({ ubiquitous_tokens })),
+                nullptr
+            };
         }
     }
 }

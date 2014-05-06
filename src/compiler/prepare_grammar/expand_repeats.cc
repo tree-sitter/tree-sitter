@@ -59,7 +59,7 @@ namespace tree_sitter {
                 aux_rules.insert(aux_rules.end(), expander.aux_rules.begin(), expander.aux_rules.end());
             }
 
-            return PreparedGrammar(rules, aux_rules);
+            return PreparedGrammar(rules, aux_rules, grammar.options);
         }
     }
 }

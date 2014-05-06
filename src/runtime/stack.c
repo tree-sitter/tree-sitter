@@ -57,51 +57,70 @@ size_t ts_stack_right_position(const ts_stack *stack) {
     return result;
 }
 
-ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child_count, const int *hidden_symbol_flags) {
-    size_t new_stack_size = stack->size - immediate_child_count;
-    int flags[immediate_child_count];
+ts_tree * ts_stack_reduce(ts_stack *stack,
+                          ts_symbol symbol,
+                          int immediate_child_count,
+                          const int *hidden_symbol_flags,
+                          const int *ubiquitous_symbol_flags) {
 
+    // First, walk down the stack to determine which symbols will be reduced.
+    // The child node count is known ahead of time, but some of the
+    // nodes at the top of the stack might be hidden nodes, in which
+    // case we 'collapse' them. Some may also be ubiquitous tokens,
+    // which don't count towards the child node count.
+    static int collapse_flags[100];
     int child_count = 0;
     for (int i = 0; i < immediate_child_count; i++) {
-        ts_tree *child = stack->entries[new_stack_size + i].node;
+        ts_tree *child = stack->entries[stack->size - 1 - i].node;
         size_t grandchild_count;
         ts_tree **grandchildren = ts_tree_children(child, &grandchild_count);
-        flags[i] = (
-            hidden_symbol_flags[ts_tree_symbol(child)] ||
+        ts_symbol symbol = ts_tree_symbol(child);
+
+        if (ubiquitous_symbol_flags[symbol])
+            immediate_child_count++;
+
+        collapse_flags[i] = (
+            hidden_symbol_flags[symbol] ||
             (grandchild_count == 1 && ts_tree_size(child) == ts_tree_size(grandchildren[0]))
         );
-        child_count += (flags[i]) ? grandchild_count : 1;
+
+        child_count += (collapse_flags[i]) ? grandchild_count : 1;
     }
 
-    size_t child_index = 0;
+    // Walk down the stack again, building up the array of children.
+    // Though we collapse the hidden child nodes, we also need to
+    // keep track of the actual immediate children so that we can
+    // later collapse the stack again when the document is edited.
+    // We store the children and immediate children in the same array,
+    // to reduce allocations.
     size_t size = 0, offset = 0;
+    size_t child_index = child_count;
     ts_tree **children = malloc((child_count + immediate_child_count) * sizeof(ts_tree *));
     ts_tree **immediate_children = children + child_count;
 
     for (int i = 0; i < immediate_child_count; i++) {
-        ts_tree *child = stack->entries[new_stack_size + i].node;
-        immediate_children[i] = child;
+        ts_tree *child = stack->entries[stack->size - 1 - i].node;
+        immediate_children[immediate_child_count - 1 - i] = child;
 
-        if (i == 0) {
-            offset = ts_tree_offset(child);
-            size = ts_tree_size(child);
+        if (collapse_flags[i]) {
+            size_t grandchild_count;
+            ts_tree **grandchildren = ts_tree_children(child, &grandchild_count);
+            child_index -= grandchild_count;
+            memcpy(children + child_index, grandchildren, (grandchild_count * sizeof(ts_tree *)));
         } else {
-            size += ts_tree_offset(child) + ts_tree_size(child);
+            child_index--;
+            children[child_index] = child;
         }
 
-        if (flags[i]) {
-            size_t grandchild_count;
-            ts_tree ** grandchildren = ts_tree_children(child, &grandchild_count);
-            memcpy(children + child_index, grandchildren, (grandchild_count * sizeof(ts_tree *)));
-            child_index += grandchild_count;
+        if (child_index == 0) {
+            offset += ts_tree_offset(child);
+            size += ts_tree_size(child);
         } else {
-            children[child_index] = child;
-            child_index++;
+            size += ts_tree_offset(child) + ts_tree_size(child);
         }
     }
 
     ts_tree *lookahead = ts_tree_make_node(symbol, child_count, immediate_child_count, children, size, offset);
-    ts_stack_shrink(stack, new_stack_size);
+    ts_stack_shrink(stack, stack->size - immediate_child_count);
     return lookahead;
 }
-

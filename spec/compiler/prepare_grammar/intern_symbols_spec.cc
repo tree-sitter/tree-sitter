@@ -19,7 +19,7 @@ describe("interning symbols in a grammar", []() {
 
         auto result = intern_symbols(grammar);
 
-        AssertThat((bool)result.second, IsFalse());
+        AssertThat(result.second, Equals((GrammarError *)nullptr));
         AssertThat(result.first, Equals(PreparedGrammar({
             { "x", choice({ i_sym(1), i_sym(2) }) },
             { "y", i_sym(2) },
@@ -37,6 +37,23 @@ describe("interning symbols in a grammar", []() {
 
             AssertThat(result.second->message, Equals("Undefined rule 'y'"));
         });
+    });
+
+    it("translates the grammar's optional 'ubiquitous_tokens' to numerical symbols", [&]() {
+        Grammar grammar({
+            { "x", choice({ sym("y"), sym("z") }) },
+            { "y", sym("z") },
+            { "z", str("stuff") }
+        }, {
+            { "z" }
+        });
+
+        auto result = intern_symbols(grammar);
+
+        AssertThat(result.second, Equals((GrammarError *)nullptr));
+        AssertThat(result.first.options.ubiquitous_tokens, Equals(vector<Symbol>({
+            Symbol(2)
+        })));
     });
 });
 
