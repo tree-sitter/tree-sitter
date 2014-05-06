@@ -25,7 +25,10 @@ describe("building parse tables", []() {
         auto result = build_parse_table(parse_grammar, lex_grammar);
         
         AssertThat(result.first.states[0].actions, Equals(map<Symbol, ParseAction>({
+            // start item
             { Symbol(0), ParseAction::Shift(1, { 0 }) },
+            
+            // expanded from the item set closure of the start item
             { Symbol(1), ParseAction::Shift(2, { 0 }) },
             { Symbol(2), ParseAction::Shift(2, { 0 }) },
             { Symbol(0, SymbolOptionToken), ParseAction::Shift(3, { 0 }) },
@@ -45,7 +48,7 @@ describe("building parse tables", []() {
         auto result = build_parse_table(parse_grammar, lex_grammar);
         
         AssertThat(result.first.states[2].actions, Equals(map<Symbol, ParseAction>({
-            { END_OF_INPUT(), ParseAction::Reduce(Symbol(1), 1, 0) },
+            { END_OF_INPUT(), ParseAction::Reduce(Symbol(0), 1, 0) },
         })));
     });
 });

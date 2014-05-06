@@ -44,9 +44,10 @@ namespace tree_sitter {
 
     bool ParseAction::operator==(const ParseAction &other) const {
         bool types_eq = type == other.type;
+        bool symbols_eq = symbol == other.symbol;
         bool state_indices_eq = state_index == other.state_index;
         bool consumed_symbol_counts_eq = consumed_symbol_count == other.consumed_symbol_count;
-        return types_eq && state_indices_eq && consumed_symbol_counts_eq;
+        return types_eq && symbols_eq && state_indices_eq && consumed_symbol_counts_eq;
     }
 
     ostream& operator<<(ostream &stream, const ParseAction &action) {
@@ -58,7 +59,7 @@ namespace tree_sitter {
             case ParseActionTypeShift:
                 return stream << (string("#<shift ") + to_string(action.state_index) + ">");
             case ParseActionTypeReduce:
-                return stream << (string("#<reduce ") + to_string(action.symbol.index) + ">");
+                return stream << (string("#<reduce sym") + to_string(action.symbol.index) + " " + to_string(action.consumed_symbol_count) + ">");
             default:
                 return stream;
         }
