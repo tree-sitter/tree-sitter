@@ -92,7 +92,7 @@ ts_parser constructor_name() { \
 /*
  *  Stack
  */
-typedef int state_id;
+typedef short state_id;
 typedef struct {
     size_t size;
     struct {
@@ -187,10 +187,10 @@ typedef enum {
 typedef struct {
     ts_parse_action_type type;
     union {
-        state_id to_state;
+        int to_state;
         struct {
             ts_symbol symbol;
-            int child_count;
+            unsigned short child_count;
         };
     } data;
 } ts_parse_action;
