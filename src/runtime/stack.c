@@ -71,20 +71,21 @@ ts_tree * ts_stack_reduce(ts_stack *stack,
     static int collapse_flags[100];
     int child_count = 0;
     for (int i = 0; i < immediate_child_count; i++) {
-        ts_tree *child = stack->entries[stack->size - 1 - i].node;
+        size_t stack_index = stack->size - 1 - i;
+        ts_tree *child = stack->entries[stack_index].node;
         size_t grandchild_count;
         ts_tree **grandchildren = ts_tree_children(child, &grandchild_count);
-        ts_symbol symbol = ts_tree_symbol(child);
-
-        if (ubiquitous_symbol_flags[symbol])
-            immediate_child_count++;
+        ts_symbol child_symbol = ts_tree_symbol(child);
 
         collapse_flags[i] = (
-            hidden_symbol_flags[symbol] ||
+            hidden_symbol_flags[child_symbol] ||
             (grandchild_count == 1 && ts_tree_size(child) == ts_tree_size(grandchildren[0]))
         );
 
-        child_count += (collapse_flags[i]) ? grandchild_count : 1;
+        child_count += collapse_flags[i] ? grandchild_count : 1;
+
+        if (ubiquitous_symbol_flags[child_symbol])
+            immediate_child_count++;
     }
 
     // Walk down the stack again, building up the array of children.

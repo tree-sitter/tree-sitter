@@ -241,18 +241,17 @@ static const ts_parse_action * ts_lr_parser_table_actions(ts_lr_parser *parser, 
 }
 
 static size_t ts_lr_parser_breakdown_stack(ts_lr_parser *parser, ts_input_edit *edit) {
-    ts_stack *stack = &parser->stack;
     if (!edit) return 0;
 
-    ts_tree *node;
+    ts_stack *stack = &parser->stack;
     size_t position = 0;
-    size_t child_count = 0;
 
     for (;;) {
-        node = ts_stack_top_node(stack);
+        ts_tree *node = ts_stack_top_node(stack);
         if (!node) break;
 
         position = ts_stack_right_position(stack);
+        size_t child_count;
         ts_tree **children = ts_tree_immediate_children(node, &child_count);
         if (position <= edit->position && !children) break;
 
@@ -307,7 +306,7 @@ static ts_symbol * ts_lr_parser_expected_symbols(ts_lr_parser *parser, size_t *c
 
     size_t n = 0;
     ts_symbol *result = malloc(*count * sizeof(*result));
-    for (size_t i = 0; i < parser->symbol_count; i++)
+    for (ts_symbol i = 0; i < parser->symbol_count; i++)
         if (actions[i].type != ts_parse_action_type_error)
             result[n++] = i;
 
@@ -352,9 +351,10 @@ static int ts_lr_parser_handle_error(ts_lr_parser *parser) {
 }
 
 static const ts_tree * ts_parse(void *data, ts_input input, ts_input_edit *edit) {
-    int done = 0;
     ts_lr_parser *parser = (ts_lr_parser *)data;
     ts_lr_parser_initialize(parser, input, edit);
+
+    int done = 0;
     while (!done) {
         ts_state_id state = ts_stack_top_state(&parser->stack);
         if (!parser->lookahead)
@@ -380,6 +380,7 @@ static const ts_tree * ts_parse(void *data, ts_input input, ts_input_edit *edit)
                 break;
         }
     }
+
     return ts_stack_root(&parser->stack);
 }
 
