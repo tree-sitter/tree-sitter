@@ -102,6 +102,10 @@ namespace tree_sitter {
                         return "ts_sym_" + name;
                 }
             }
+            
+            string lex_state_index(size_t i) {
+                return to_string(i + 1);
+            }
 
             string symbol_name(const rules::Symbol &symbol) {
                 if (symbol.is_built_in()) {
@@ -163,7 +167,7 @@ namespace tree_sitter {
                                         const set<rules::CharacterSet> &expected_inputs) {
                 switch (action.type) {
                     case LexActionTypeAdvance:
-                        return "ADVANCE(" + to_string(action.state_index) + ");";
+                        return "ADVANCE(" + lex_state_index(action.state_index) + ");";
                     case LexActionTypeAccept:
                         return "ACCEPT_TOKEN(" + symbol_id(action.symbol) + ");";
                     case LexActionTypeError:
@@ -189,7 +193,7 @@ namespace tree_sitter {
             string switch_on_lex_state() {
                 string body = "";
                 for (size_t i = 0; i < lex_table.states.size(); i++)
-                    body += _case(std::to_string(i), code_for_lex_state(lex_table.states[i]));
+                    body += _case(lex_state_index(i), code_for_lex_state(lex_table.states[i]));
                 body += _case("ts_lex_state_error", code_for_lex_state(lex_table.error_state));
                 body += _default("LEX_PANIC();");
                 return _switch("lex_state", body);
@@ -268,7 +272,7 @@ namespace tree_sitter {
                 return join({
                     "LEX_STATES = {",
                     indent(join(map_to_string<ParseState>(parse_table.states, [&](ParseState state) {
-                        return "[" + to_string(state_id++) + "] = " + to_string(state.lex_state_id) + ",";
+                        return "[" + to_string(state_id++) + "] = " + lex_state_index(state.lex_state_id) + ",";
                     }))),
                     "};"
                 });

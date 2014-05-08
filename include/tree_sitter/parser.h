@@ -34,10 +34,10 @@ static const int hidden_symbol_flags[SYMBOL_COUNT]
 static const int ubiquitous_symbol_flags[SYMBOL_COUNT]
 
 #define LEX_STATES \
-static state_id ts_lex_states[STATE_COUNT]
+static ts_state_id ts_lex_states[STATE_COUNT]
 
 #define LEX_FN() \
-static ts_tree * ts_lex(ts_lexer *lexer, state_id lex_state)
+static ts_tree * ts_lex(ts_lexer *lexer, ts_state_id lex_state)
 
 #define START_LEXER() \
 char lookahead; \
@@ -92,12 +92,12 @@ ts_parser constructor_name() { \
 /*
  *  Stack
  */
-typedef short state_id;
+typedef unsigned short ts_state_id;
 typedef struct {
     size_t size;
     struct {
         ts_tree *node;
-        state_id state;
+        ts_state_id state;
     } *entries;
 } ts_stack;
 
@@ -105,8 +105,8 @@ ts_stack ts_stack_make();
 ts_tree * ts_stack_root(const ts_stack *stack);
 ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child_count, const int *hidden_symbol_flags, const int *ubiquitous_symbol_flags);
 void ts_stack_shrink(ts_stack *stack, size_t new_size);
-void ts_stack_push(ts_stack *stack, state_id state, ts_tree *node);
-state_id ts_stack_top_state(const ts_stack *stack);
+void ts_stack_push(ts_stack *stack, ts_state_id state, ts_tree *node);
+ts_state_id ts_stack_top_state(const ts_stack *stack);
 ts_tree * ts_stack_top_node(const ts_stack *stack);
 size_t ts_stack_right_position(const ts_stack *stack);
 
@@ -171,7 +171,7 @@ static ts_tree * ts_lexer_build_node(ts_lexer *lexer, ts_symbol symbol) {
     return ts_tree_make_leaf(symbol, size, offset);
 }
 
-#define ts_lex_state_error -1
+#define ts_lex_state_error 0
 
 
 /*
@@ -187,7 +187,7 @@ typedef enum {
 typedef struct {
     ts_parse_action_type type;
     union {
-        int to_state;
+        ts_state_id to_state;
         struct {
             ts_symbol symbol;
             unsigned short child_count;
@@ -215,14 +215,14 @@ typedef struct {
     ts_tree *lookahead;
     ts_tree *next_lookahead;
     const ts_parse_action *parse_table;
-    const state_id *lex_states;
+    const ts_state_id *lex_states;
     size_t symbol_count;
 } ts_lr_parser;
 
 static ts_lr_parser *
 ts_lr_parser_make(size_t symbol_count,
                   const ts_parse_action *parse_table,
-                  const state_id *lex_states,
+                  const ts_state_id *lex_states,
                   const int *hidden_symbol_flags,
                   const int *ubiquitous_symbol_flags) {
     ts_lr_parser *result = malloc(sizeof(ts_lr_parser));
@@ -236,7 +236,7 @@ ts_lr_parser_make(size_t symbol_count,
     return result;
 }
 
-static const ts_parse_action * ts_lr_parser_table_actions(ts_lr_parser *parser, state_id state) {
+static const ts_parse_action * ts_lr_parser_table_actions(ts_lr_parser *parser, ts_state_id state) {
     return parser->parse_table + (state * parser->symbol_count);
 }
 
@@ -261,8 +261,8 @@ static size_t ts_lr_parser_breakdown_stack(ts_lr_parser *parser, ts_input_edit *
 
         for (size_t i = 0; i < child_count && position < edit->position; i++) {
             ts_tree *child = children[i];
-            state_id state = ts_stack_top_state(stack);
-            state_id next_state = ts_lr_parser_table_actions(parser, state)[ts_tree_symbol(child)].data.to_state;
+            ts_state_id state = ts_stack_top_state(stack);
+            ts_state_id next_state = ts_lr_parser_table_actions(parser, state)[ts_tree_symbol(child)].data.to_state;
             ts_stack_push(stack, next_state, child);
             ts_tree_retain(child);
             position += ts_tree_total_size(child);
@@ -287,7 +287,7 @@ static void ts_lr_parser_initialize(ts_lr_parser *parser, ts_input input, ts_inp
     ts_lexer_advance(&parser->lexer);
 }
 
-static void ts_lr_parser_shift(ts_lr_parser *parser, state_id parse_state) {
+static void ts_lr_parser_shift(ts_lr_parser *parser, ts_state_id parse_state) {
     ts_stack_push(&parser->stack, parse_state, parser->lookahead);
     parser->lookahead = parser->next_lookahead;
     parser->next_lookahead = NULL;
@@ -335,11 +335,12 @@ static int ts_lr_parser_handle_error(ts_lr_parser *parser) {
          *  Unwind the stack, looking for a state in which this token
          *  may appear after an error.
          */
-        for (long i = parser->stack.size - 1; i >= 0; i--) {
-            state_id stack_state = parser->stack.entries[i].state;
+        for (size_t j = 0; j < parser->stack.size; j++) {
+            size_t i = parser->stack.size - 1 - j;
+            ts_state_id stack_state = parser->stack.entries[i].state;
             ts_parse_action action_on_error = ts_lr_parser_table_actions(parser, stack_state)[ts_builtin_sym_error];
             if (action_on_error.type == ts_parse_action_type_shift) {
-                state_id state_after_error = action_on_error.data.to_state;
+                ts_state_id state_after_error = action_on_error.data.to_state;
                 if (ts_lr_parser_table_actions(parser, state_after_error)[ts_tree_symbol(parser->lookahead)].type != ts_parse_action_type_error) {
                     ts_stack_shrink(&parser->stack, i + 1);
                     ts_stack_push(&parser->stack, state_after_error, error);
@@ -355,7 +356,7 @@ static const ts_tree * ts_parse(void *data, ts_input input, ts_input_edit *edit)
     ts_lr_parser *parser = (ts_lr_parser *)data;
     ts_lr_parser_initialize(parser, input, edit);
     while (!done) {
-        state_id state = ts_stack_top_state(&parser->stack);
+        ts_state_id state = ts_stack_top_state(&parser->stack);
         if (!parser->lookahead)
             parser->lookahead = ts_lex(&parser->lexer, parser->lex_states[state]);
         ts_parse_action action = ts_lr_parser_table_actions(parser, state)[ts_tree_symbol(parser->lookahead)];
