@@ -4,22 +4,22 @@
 #define SYMBOL_COUNT 18
 
 enum {
-    ts_sym_expression = 2,
-    ts_sym_sum = 3,
-    ts_sym_difference = 4,
-    ts_sym_product = 5,
-    ts_sym_quotient = 6,
-    ts_sym_exponent = 7,
-    ts_sym_group = 8,
-    ts_sym_number = 9,
-    ts_sym_variable = 10,
-    ts_aux_sym_token0 = 11,
-    ts_aux_sym_token1 = 12,
-    ts_aux_sym_token2 = 13,
-    ts_aux_sym_token3 = 14,
-    ts_aux_sym_token4 = 15,
-    ts_aux_sym_token5 = 16,
-    ts_aux_sym_token6 = 17,
+    ts_sym_expression = ts_start_sym,
+    ts_sym_sum,
+    ts_sym_difference,
+    ts_sym_product,
+    ts_sym_quotient,
+    ts_sym_exponent,
+    ts_sym_group,
+    ts_sym_number,
+    ts_sym_variable,
+    ts_aux_sym_token0,
+    ts_aux_sym_token1,
+    ts_aux_sym_token2,
+    ts_aux_sym_token3,
+    ts_aux_sym_token4,
+    ts_aux_sym_token5,
+    ts_aux_sym_token6,
 };
 
 SYMBOL_NAMES = {

@@ -204,10 +204,15 @@ namespace tree_sitter {
 
             string symbol_enum() {
                 string result = "enum {\n";
-                size_t index = 2;
+                bool at_start = true;
                 for (auto symbol : parse_table.symbols)
-                    if (!symbol.is_built_in())
-                        result += indent(symbol_id(symbol)) + " = " + to_string(index++) + ",\n";
+                    if (!symbol.is_built_in()) {
+                        if (at_start)
+                            result += indent(symbol_id(symbol)) + " = ts_start_sym,\n";
+                        else
+                            result += indent(symbol_id(symbol)) + ",\n";
+                        at_start = false;
+                    }
                 return result + "};";
             }
 

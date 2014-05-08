@@ -10,6 +10,7 @@ extern "C" {
 typedef unsigned short ts_symbol;
 #define ts_builtin_sym_error 0
 #define ts_builtin_sym_end 1
+#define ts_start_sym 2
 
 typedef struct ts_tree ts_tree;
 ts_tree * ts_tree_make_leaf(ts_symbol symbol, size_t size, size_t offset);
