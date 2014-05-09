@@ -97,6 +97,8 @@ print(object[propertyName()]);
 ==========================================
 parses comments
 ==========================================
+// this is the beginning of the script.
+// here we go.
 var thing = {
 
     // this is a property.
@@ -108,14 +110,17 @@ var thing = {
     }
 };
 ---
-(program (var_declaration (assignment (identifier) (object
+(program
     (comment)
     (comment)
-    (identifier) (function_expression
-        (formal_parameters (identifier) (comment))
-        (statement_block
-            (comment)
-            (expression_statement (function_call (identifier)))))))))
+    (var_declaration (assignment (identifier) (object
+        (comment)
+        (comment)
+        (identifier) (function_expression
+            (formal_parameters (identifier) (comment))
+            (statement_block
+                (comment)
+                (expression_statement (function_call (identifier)))))))))
 
 ======================================
 parses real code

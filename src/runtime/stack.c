@@ -32,10 +32,6 @@ ts_tree * ts_stack_top_node(const ts_stack *stack) {
     return stack->entries[stack->size - 1].node;
 }
 
-ts_tree * ts_stack_root(const ts_stack *stack) {
-    return stack->entries[0].node;
-}
-
 void ts_stack_push(ts_stack *stack, state_id state, ts_tree *node) {
     stack->entries[stack->size].state = state;
     stack->entries[stack->size].node = node;
@@ -59,7 +55,7 @@ size_t ts_stack_right_position(const ts_stack *stack) {
 
 ts_tree * ts_stack_reduce(ts_stack *stack,
                           ts_symbol symbol,
-                          int immediate_child_count,
+                          size_t immediate_child_count,
                           const int *hidden_symbol_flags,
                           const int *ubiquitous_symbol_flags) {
 
@@ -70,7 +66,7 @@ ts_tree * ts_stack_reduce(ts_stack *stack,
     // which don't count towards the child node count.
     static int collapse_flags[100];
     int child_count = 0;
-    for (int i = 0; i < immediate_child_count; i++) {
+    for (size_t i = 0; i < immediate_child_count; i++) {
         size_t stack_index = stack->size - 1 - i;
         ts_tree *child = stack->entries[stack_index].node;
         size_t grandchild_count;
@@ -84,7 +80,7 @@ ts_tree * ts_stack_reduce(ts_stack *stack,
 
         child_count += collapse_flags[i] ? grandchild_count : 1;
 
-        if (ubiquitous_symbol_flags[child_symbol])
+        if (ubiquitous_symbol_flags && ubiquitous_symbol_flags[child_symbol])
             immediate_child_count++;
     }
 
@@ -99,7 +95,7 @@ ts_tree * ts_stack_reduce(ts_stack *stack,
     ts_tree **children = malloc((child_count + immediate_child_count) * sizeof(ts_tree *));
     ts_tree **immediate_children = children + child_count;
 
-    for (int i = 0; i < immediate_child_count; i++) {
+    for (size_t i = 0; i < immediate_child_count; i++) {
         ts_tree *child = stack->entries[stack->size - 1 - i].node;
         immediate_children[immediate_child_count - 1 - i] = child;
 

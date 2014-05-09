@@ -102,8 +102,7 @@ typedef struct {
 } ts_stack;
 
 ts_stack ts_stack_make();
-ts_tree * ts_stack_root(const ts_stack *stack);
-ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, int immediate_child_count, const int *hidden_symbol_flags, const int *ubiquitous_symbol_flags);
+ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, size_t immediate_child_count, const int *hidden_symbol_flags, const int *ubiquitous_symbol_flags);
 void ts_stack_shrink(ts_stack *stack, size_t new_size);
 void ts_stack_push(ts_stack *stack, ts_state_id state, ts_tree *node);
 ts_state_id ts_stack_top_state(const ts_stack *stack);
@@ -292,7 +291,7 @@ static void ts_lr_parser_shift(ts_lr_parser *parser, ts_state_id parse_state) {
     parser->next_lookahead = NULL;
 }
 
-static void ts_lr_parser_reduce(ts_lr_parser *parser, ts_symbol symbol, int child_count) {
+static void ts_lr_parser_reduce(ts_lr_parser *parser, ts_symbol symbol, size_t child_count) {
     parser->next_lookahead = parser->lookahead;
     parser->lookahead = ts_stack_reduce(&parser->stack, symbol, child_count, parser->hidden_symbol_flags, parser->ubiquitous_symbol_flags);
 }
@@ -326,7 +325,7 @@ static int ts_lr_parser_handle_error(ts_lr_parser *parser) {
             ts_lexer_advance(&parser->lexer);
 
         if (ts_tree_symbol(parser->lookahead) == ts_builtin_sym_end) {
-            parser->stack.entries[0].node = error;
+            ts_stack_push(&parser->stack, 0, error);
             return 0;
         }
 
@@ -348,6 +347,29 @@ static int ts_lr_parser_handle_error(ts_lr_parser *parser) {
             }
         }
     }
+}
+    
+static ts_tree * ts_lr_parser_tree_root(ts_lr_parser *parser) {
+    ts_stack *stack = &parser->stack;
+    ts_tree *top_node = ts_stack_top_node(stack);
+    if (stack->size <= 1)
+        return top_node;
+    
+    size_t immediate_child_count;
+    ts_tree **immedate_children = ts_tree_immediate_children(top_node, &immediate_child_count);
+
+    stack->size--;
+    for (size_t i = 0; i < immediate_child_count; i++) {
+        ts_tree *child = immedate_children[i];
+        ts_tree_retain(child);
+        ts_state_id state = ts_stack_top_state(stack);
+        ts_state_id next_state = ts_lr_parser_table_actions(parser, state)[ts_tree_symbol(child)].data.to_state;
+        ts_stack_push(stack, next_state, child);
+    }
+    
+    ts_tree *new_node = ts_stack_reduce(stack, ts_tree_symbol(top_node), stack->size, parser->hidden_symbol_flags, NULL);
+    ts_tree_release(top_node);
+    return new_node;
 }
 
 static const ts_tree * ts_parse(void *data, ts_input input, ts_input_edit *edit) {
@@ -381,7 +403,7 @@ static const ts_tree * ts_parse(void *data, ts_input input, ts_input_edit *edit)
         }
     }
 
-    return ts_stack_root(&parser->stack);
+    return ts_lr_parser_tree_root(parser);
 }
 
 #ifdef __cplusplus
