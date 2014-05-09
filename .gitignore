@@ -7,4 +7,5 @@ Makefile
 *.xcodeproj
 
 spec/run.out*
+externals/cpplint.py
 out
