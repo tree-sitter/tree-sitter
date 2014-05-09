@@ -3,6 +3,7 @@
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/pattern.h"
 #include "compiler/rules/string.h"
+#include "compiler/rules/metadata.h"
 
 namespace tree_sitter {
     using std::string;
@@ -15,6 +16,10 @@ namespace tree_sitter {
 
             string apply_to(const rules::String *rule) {
                 return "'" + rule->value + "'";
+            }
+
+            string apply_to(const rules::Metadata *rule) {
+                return apply(rule->rule);
             }
         };
 
