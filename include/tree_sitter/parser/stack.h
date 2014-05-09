@@ -4,6 +4,7 @@
 #include "tree_sitter/runtime.h"
 
 typedef unsigned short ts_state_id;
+
 typedef struct {
     size_t size;
     struct {

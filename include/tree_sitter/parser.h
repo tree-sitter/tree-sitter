@@ -7,11 +7,12 @@ extern "C" {
 
 //#define TS_DEBUG_PARSE
 //#define TS_DEBUG_LEX
-    
+
 #include "tree_sitter/runtime.h"
 #include "tree_sitter/parser/lexer.h"
+#include "tree_sitter/parser/stack.h"
 #include "tree_sitter/parser/lr_parser.h"
-    
+
 #define SYMBOL_NAMES \
 static const char *ts_symbol_names[]
 
@@ -61,26 +62,26 @@ static const ts_parse_action ts_parse_actions[STATE_COUNT][SYMBOL_COUNT]
 
 #define ACCEPT_INPUT() \
 { .type = ts_parse_action_type_accept }
-    
+
 #ifdef TS_DEBUG_LEX
 #include <stdio.h>
 #define DEBUG_LEX(...) fprintf(stderr, "\n" __VA_ARGS__)
 #else
 #define DEBUG_LEX(...)
 #endif
-    
+
 #ifdef TS_DEBUG_PARSE
 #include <stdio.h>
 #define DEBUG_PARSE(...) fprintf(stderr, "\n" __VA_ARGS__)
 #else
 #define DEBUG_PARSE(...)
 #endif
-    
-static const ts_tree * 
+
+static const ts_tree *
 ts_parse(void *data, ts_input input, ts_input_edit *edit) {
     ts_lr_parser *parser = (ts_lr_parser *)data;
     ts_lr_parser_initialize(parser, input, edit);
-    
+
     int done = 0;
     while (!done) {
         ts_parse_action action = ts_lr_parser_next_action(parser);
@@ -104,7 +105,7 @@ ts_parse(void *data, ts_input input, ts_input_edit *edit) {
                 break;
         }
     }
-    
+
     return ts_lr_parser_tree_root(parser);
 }
 
@@ -124,7 +125,7 @@ ts_parser constructor_name() { \
         ), \
     }; \
 }
-    
+
 #ifdef __cplusplus
 }
 #endif

@@ -102,7 +102,7 @@ namespace tree_sitter {
                         return "ts_sym_" + name;
                 }
             }
-            
+
             string lex_state_index(size_t i) {
                 return to_string(i + 1);
             }
