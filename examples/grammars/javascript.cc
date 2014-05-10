@@ -12,7 +12,9 @@ namespace tree_sitter_examples {
         { "statement", choice({
             sym("statement_block"),
             sym("if_statement"),
+            sym("try_statement"),
             sym("switch_statement"),
+            sym("while_statement"),
             sym("for_statement"),
             sym("break_statement"),
             sym("var_declaration"),
@@ -36,6 +38,16 @@ namespace tree_sitter_examples {
             optional(prec(1, seq({
                 keyword("else"),
                 sym("statement") }))) }) },
+        { "while_statement", seq({
+            keyword("while"),
+            in_parens(err(sym("expression"))),
+            sym("statement") }) },
+        { "try_statement", seq({
+            keyword("try"),
+            sym("statement"),
+            keyword("catch"),
+            in_parens(err(sym("identifier"))),
+            sym("statement") }) },
         { "switch_statement", seq({
             keyword("switch"),
             in_parens(err(sym("expression"))),

@@ -54,6 +54,31 @@ for (var i = 1; someCondition(i); i = next()) {
     (assignment (identifier) (function_call (identifier)))
     (statement_block (expression_statement (function_call (identifier))))))
 
+==========================================
+parses while loops
+==========================================
+while (someCondition(i)) {
+    doSomething();
+}
+---
+(program (while_statement
+    (function_call (identifier) (identifier))
+    (statement_block (expression_statement (function_call (identifier))))))
+
+==========================================
+parses try/catch statements
+==========================================
+try {
+    doSomething();
+} catch (e) {
+    logError(e);
+}
+---
+(program (try_statement
+    (statement_block (expression_statement (function_call (identifier))))
+    (identifier)
+    (statement_block (expression_statement (function_call (identifier) (identifier))))))
+
 ===========================================
 parses switch statements
 ===========================================
