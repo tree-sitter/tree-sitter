@@ -35,6 +35,7 @@ namespace tree_sitter {
                     ParseStateId state_id = parse_table.add_state();
                     parse_state_ids[item_set] = state_id;
                     add_shift_actions(item_set, state_id);
+                    add_ubiquitous_token_actions(item_set, state_id);
                     add_reduce_actions(item_set, state_id);
                     return state_id;
                 } else {
@@ -56,7 +57,9 @@ namespace tree_sitter {
                         parse_table.add_action(state_id, symbol, ParseAction::Shift(new_state_id, precedence_values));
                     }
                 }
-
+            }
+            
+            void add_ubiquitous_token_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (const Symbol &symbol : grammar.options.ubiquitous_tokens) {
                     auto &actions = parse_table.states[state_id].actions;
                     if (actions.find(symbol) == actions.end())
