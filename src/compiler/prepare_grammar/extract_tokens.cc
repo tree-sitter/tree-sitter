@@ -5,10 +5,6 @@
 #include "tree_sitter/compiler.h"
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/visitor.h"
-#include "compiler/rules/seq.h"
-#include "compiler/rules/choice.h"
-#include "compiler/rules/repeat.h"
-#include "compiler/rules/blank.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/string.h"
 #include "compiler/rules/metadata.h"
@@ -23,7 +19,6 @@ namespace tree_sitter {
     using std::make_shared;
     using rules::rule_ptr;
     using rules::Symbol;
-    using std::dynamic_pointer_cast;
 
     namespace prepare_grammar {
         class IsToken : public rules::RuleFn<bool> {
@@ -51,49 +46,46 @@ namespace tree_sitter {
 
         public:
             Symbol replace_symbol(const Symbol &rule) {
+                if (rule.is_built_in()) return rule;
                 auto replacement_pair = replacements.find(rule);
                 if (replacement_pair != replacements.end())
                     return replacement_pair->second;
-                else if (rule.is_built_in())
-                    return rule;
                 else
                     return Symbol(new_index_for_symbol(rule), rule.options);
             }
 
-            SymbolInliner(const map<Symbol, Symbol> &replacements, size_t rule_count, size_t aux_rule_count) :
-                replacements(replacements)
-                {}
+            SymbolInliner(const map<Symbol, Symbol> &replacements) : replacements(replacements) {}
         };
+        
+        const rules::SymbolOption SymbolOptionAuxToken = rules::SymbolOption(rules::SymbolOptionToken|rules::SymbolOptionAuxiliary);
 
         class TokenExtractor : public rules::IdentityRuleFn {
-            size_t add_token(rule_ptr rule) {
+            rule_ptr apply_to_token(const rules::Rule *rule) {
+                auto result = rule->copy();
                 for (size_t i = 0; i < tokens.size(); i++)
                     if (tokens[i].second->operator==(*rule))
-                        return i;
+                        return make_shared<Symbol>(i, SymbolOptionAuxToken);
                 size_t index = tokens.size();
-                tokens.push_back({ "token" + to_string(index), rule });
-                return index;
-            }
+                tokens.push_back({ "token" + to_string(index), result });
+                return make_shared<Symbol>(index, SymbolOptionAuxToken);
 
-            rule_ptr apply_to_token(const rules::rule_ptr rule) {
-                size_t index = add_token(rule);
-                return make_shared<rules::Symbol>(index, rules::SymbolOption(rules::SymbolOptionToken|rules::SymbolOptionAuxiliary));
             }
-
+            
             rule_ptr default_apply(const rules::Rule *rule) {
                 auto result = rule->copy();
-                if (IsToken().apply(result)) {
-                    return apply_to_token(result);
+                if (IsToken().apply(rule->copy())) {
+                    return apply_to_token(rule);
                 } else {
                     return result;
                 }
             }
-
+            
             rule_ptr apply_to(const rules::Metadata *rule) {
-                if (rule->value_for(rules::IS_TOKEN)) {
-                    return apply_to_token(rule->copy());
+                auto result = rule->copy();
+                if (IsToken().apply(rule->copy())) {
+                    return apply_to_token(rule);
                 } else {
-                    return make_shared<rules::Metadata>(apply(rule->rule), rule->value);
+                    return rules::IdentityRuleFn::apply_to(rule);
                 }
             }
 
@@ -103,6 +95,8 @@ namespace tree_sitter {
 
         pair<PreparedGrammar, PreparedGrammar> extract_tokens(const PreparedGrammar &input_grammar) {
             vector<pair<string, rule_ptr>> rules, tokens, aux_rules, aux_tokens;
+            vector<Symbol> ubiquitous_tokens;
+
             TokenExtractor extractor;
             map<Symbol, Symbol> symbol_replacements;
 
@@ -112,7 +106,7 @@ namespace tree_sitter {
                     tokens.push_back(pair);
                     symbol_replacements.insert({
                         Symbol(i),
-                        Symbol(tokens.size() - 1, rules::SymbolOption(rules::SymbolOptionToken))
+                        Symbol(tokens.size() - 1, rules::SymbolOptionToken)
                     });
                 } else {
                     rules.push_back({ pair.first, extractor.apply(pair.second) });
@@ -134,16 +128,13 @@ namespace tree_sitter {
 
             aux_tokens.insert(aux_tokens.end(), extractor.tokens.begin(), extractor.tokens.end());
 
-            SymbolInliner inliner(symbol_replacements, input_grammar.rules.size(), input_grammar.aux_rules.size());
-
-            vector<Symbol> ubiquitous_tokens;
+            SymbolInliner inliner(symbol_replacements);
             for (auto &pair : rules)
                 pair.second = inliner.apply(pair.second);
             for (auto &pair : aux_rules)
                 pair.second = inliner.apply(pair.second);
-            for (auto &symbol : input_grammar.options.ubiquitous_tokens) {
+            for (auto &symbol : input_grammar.options.ubiquitous_tokens)
                 ubiquitous_tokens.push_back(inliner.replace_symbol(symbol));
-            }
 
             PreparedGrammarOptions parse_options(input_grammar.options);
             parse_options.ubiquitous_tokens = ubiquitous_tokens;
