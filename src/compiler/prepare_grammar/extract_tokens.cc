@@ -9,6 +9,7 @@
 #include "compiler/rules/string.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/rules/pattern.h"
+#include "compiler/prepare_grammar/token_description.h"
 
 namespace tree_sitter {
     using std::pair;
@@ -60,13 +61,13 @@ namespace tree_sitter {
         const rules::SymbolOption SymbolOptionAuxToken = rules::SymbolOption(rules::SymbolOptionToken|rules::SymbolOptionAuxiliary);
 
         class TokenExtractor : public rules::IdentityRuleFn {
-            rule_ptr apply_to_token(const rules::Rule *rule) {
-                auto result = rule->copy();
+            rule_ptr apply_to_token(const rules::Rule *input) {
+                auto rule = input->copy();
                 for (size_t i = 0; i < tokens.size(); i++)
                     if (tokens[i].second->operator==(*rule))
                         return make_shared<Symbol>(i, SymbolOptionAuxToken);
                 size_t index = tokens.size();
-                tokens.push_back({ "token" + to_string(index), result });
+                tokens.push_back({ token_description(rule), rule });
                 return make_shared<Symbol>(index, SymbolOptionAuxToken);
 
             }

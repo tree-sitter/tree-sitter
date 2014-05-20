@@ -5,8 +5,6 @@
 #include "compiler/prepare_grammar/expand_tokens.h"
 #include "compiler/prepare_grammar/intern_symbols.h"
 
-#include "stream_methods.h"
-
 namespace tree_sitter {
     using std::tuple;
     using std::make_tuple;

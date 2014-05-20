@@ -7,7 +7,6 @@
 #include "compiler/util/string_helpers.h"
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/prepared_grammar.h"
-#include "compiler/generate_code/token_description.h"
 
 namespace tree_sitter {
     using std::string;
@@ -56,6 +55,7 @@ namespace tree_sitter {
             const LexTable lex_table;
             const PreparedGrammar syntax_grammar;
             const PreparedGrammar lexical_grammar;
+            map<string, string> sanitized_names;
 
         public:
             CCodeGenerator(string name,
@@ -88,6 +88,40 @@ namespace tree_sitter {
             const PreparedGrammar & grammar_for_symbol(const rules::Symbol &symbol) {
                 return symbol.is_token() ? lexical_grammar : syntax_grammar;
             }
+            
+            string sanitize_name(string name) {
+                auto existing = sanitized_names.find(name);
+                if (existing != sanitized_names.end())
+                    return existing->second;
+
+                string stripped_name;
+                for (char c : name) {
+                    if (('a' <= c && c <= 'z') ||
+                        ('A' <= c && c <= 'Z') ||
+                        ('0' <= c && c <= '9') ||
+                        (c == '_')) {
+                        stripped_name += c;
+                    }
+                }
+
+                for (size_t extra_number = 0;; extra_number++) {
+                    string suffix = extra_number ? to_string(extra_number) : "";
+                    string unique_name = stripped_name + suffix;
+                    if (unique_name == "")
+                        continue;
+                    if (!has_sanitized_name(unique_name)) {
+                        sanitized_names.insert({ name, unique_name });
+                        return unique_name;
+                    }
+                }
+            }
+            
+            bool has_sanitized_name(string name) {
+                for (auto &pair : sanitized_names)
+                    if (pair.second == name)
+                        return true;
+                return false;
+            }
 
             string symbol_id(const rules::Symbol &symbol) {
                 if (symbol.is_built_in()) {
@@ -95,7 +129,7 @@ namespace tree_sitter {
                         "ts_builtin_sym_error" :
                         "ts_builtin_sym_end";
                 } else {
-                    string name = grammar_for_symbol(symbol).rule_name(symbol);
+                    string name = sanitize_name(grammar_for_symbol(symbol).rule_name(symbol));
                     if (symbol.is_auxiliary())
                         return "ts_aux_sym_" + name;
                     else
@@ -111,7 +145,7 @@ namespace tree_sitter {
                 if (symbol.is_built_in()) {
                     return (symbol == rules::ERROR()) ? "error" : "end";
                 } else if (symbol.is_token() && symbol.is_auxiliary()) {
-                    return token_description(grammar_for_symbol(symbol).rule(symbol));
+                    return grammar_for_symbol(symbol).rule_name(symbol);
                 } else {
                     return grammar_for_symbol(symbol).rule_name(symbol);
                 }

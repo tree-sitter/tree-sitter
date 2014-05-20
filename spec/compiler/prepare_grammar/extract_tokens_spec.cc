@@ -18,7 +18,7 @@ describe("extracting tokens from a grammar", []() {
         }, {})));
 
         AssertThat(result.second, Equals(PreparedGrammar({}, {
-            { "token0", str("ab") },
+            { "'ab'", str("ab") },
         })));
     });
 
@@ -32,14 +32,14 @@ describe("extracting tokens from a grammar", []() {
         }, {})));
 
         AssertThat(result.second, Equals(PreparedGrammar({}, {
-            { "token0", pattern("a+") },
+            { "/a+/", pattern("a+") },
         })));
     });
 
     it("moves other rules marked as tokens into the lexical grammar", [&]() {
         pair<PreparedGrammar, PreparedGrammar> result = extract_tokens(PreparedGrammar({
             { "rule_A", seq({
-                token(choice({ str("a"), str("b") })),
+                token(seq({ pattern("."), choice({ str("a"), str("b") }) })),
                 i_sym(0) }) }
         }, {}));
 
@@ -48,7 +48,7 @@ describe("extracting tokens from a grammar", []() {
         }, {})));
 
         AssertThat(result.second, Equals(PreparedGrammar({}, {
-            { "token0", token(choice({ str("a"), str("b") })) },
+            { "(seq /./ (choice 'a' 'b'))", token(seq({ pattern("."), choice({ str("a"), str("b") }) })) },
         })));
     });
 
@@ -74,7 +74,7 @@ describe("extracting tokens from a grammar", []() {
         }, {})));
 
         AssertThat(result.second, Equals(PreparedGrammar({}, {
-            { "token0", str("ab") },
+            { "'ab'", str("ab") },
         })));
     });
 
@@ -88,7 +88,7 @@ describe("extracting tokens from a grammar", []() {
         })));
         
         AssertThat(result.second, Equals(PreparedGrammar({}, {
-            { "token0", str("ab") },
+            { "'ab'", str("ab") },
         })));
     });
 
