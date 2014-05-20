@@ -113,8 +113,7 @@ namespace tree_sitter {
                 } else if (symbol.is_token() && symbol.is_auxiliary()) {
                     return token_description(grammar_for_symbol(symbol).rule(symbol));
                 } else {
-                    string name = grammar_for_symbol(symbol).rule_name(symbol);
-                    return name;
+                    return grammar_for_symbol(symbol).rule_name(symbol);
                 }
             }
 

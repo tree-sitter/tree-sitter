@@ -11,6 +11,7 @@ namespace tree_sitter  {
             START_TOKEN,
             PRECEDENCE,
             IS_TOKEN,
+            DESCRIPTION,
         } MetadataKey;
 
         class Metadata : public Rule {

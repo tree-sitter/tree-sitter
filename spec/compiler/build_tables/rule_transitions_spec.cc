@@ -97,23 +97,6 @@ describe("rule transitions", []() {
             })));
     });
 
-    it("handles strings", [&]() {
-        AssertThat(
-            char_transitions(str("bad")),
-            Equals(rule_map<CharacterSet>({
-                { CharacterSet({ 'b' }), seq({ character({ 'a' }), character({ 'd' }) }) }
-            })));
-    });
-
-    it("handles patterns", [&]() {
-        AssertThat(
-            char_transitions(pattern("a|b")),
-            Equals(rule_map<CharacterSet>({
-                { CharacterSet({ 'a' }), blank() },
-                { CharacterSet({ 'b' }), blank() }
-            })));
-    });
-
     it("handles choices between overlapping character sets", [&]() {
         AssertThat(
             char_transitions(choice({
@@ -164,7 +147,7 @@ describe("rule transitions", []() {
     });
 
     it("handles repeats", [&]() {
-        rule_ptr rule = repeat(str("ab"));
+        rule_ptr rule = repeat(seq({ character({ 'a' }), character({ 'b' }) }));
         AssertThat(
             char_transitions(rule),
             Equals(rule_map<CharacterSet>({
@@ -176,7 +159,7 @@ describe("rule transitions", []() {
                     })
                 }})));
 
-        rule = repeat(str("a"));
+        rule = repeat(character({ 'a' }));
         AssertThat(
             char_transitions(rule),
             Equals(rule_map<CharacterSet>({

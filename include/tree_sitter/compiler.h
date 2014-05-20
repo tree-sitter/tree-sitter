@@ -55,6 +55,7 @@ namespace tree_sitter {
     class GrammarError {
     public:
         GrammarError(GrammarErrorType type, std::string message);
+        bool operator==(const GrammarError &other) const;
         GrammarErrorType type;
         std::string message;
     };

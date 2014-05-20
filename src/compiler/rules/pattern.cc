@@ -1,173 +1,12 @@
 #include "compiler/rules/pattern.h"
-#include <set>
 #include <string>
-#include <vector>
 #include "compiler/rules/visitor.h"
-#include "compiler/rules/choice.h"
-#include "compiler/rules/seq.h"
-#include "compiler/rules/repeat.h"
-#include "compiler/rules/character_set.h"
-#include "compiler/rules/blank.h"
 #include "compiler/util/string_helpers.h"
 
 namespace tree_sitter {
     namespace rules {
         using std::string;
         using std::hash;
-        using std::make_shared;
-        using std::set;
-        using std::vector;
-
-        class PatternParser {
-        public:
-            explicit PatternParser(const string &input) :
-                input(input),
-                length(input.length()),
-                position(0) {}
-
-            rule_ptr rule() {
-                vector<rule_ptr> choices = { term() };
-                while (has_more_input() && peek() == '|') {
-                    next();
-                    choices.push_back(term());
-                }
-                return (choices.size() > 1) ? Choice::Build(choices) : choices.front();
-            }
-
-        private:
-            rule_ptr term() {
-                rule_ptr result = factor();
-                while (has_more_input() && (peek() != '|') && (peek() != ')'))
-                    result = Seq::Build({ result, factor() });
-                return result;
-            }
-
-            rule_ptr factor() {
-                rule_ptr result = atom();
-                if (has_more_input()) {
-                    switch (peek()) {
-                        case '*':
-                            next();
-                            result = make_shared<Repeat>(result);
-                            break;
-                        case '+':
-                            next();
-                            result = make_shared<Seq>(result, make_shared<Repeat>(result));
-                            break;
-                        case '?':
-                            next();
-                            result = Choice::Build({ result, make_shared<Blank>() });
-                            break;
-                    }
-                }
-                return result;
-            }
-
-            rule_ptr atom() {
-                rule_ptr result;
-                switch (peek()) {
-                    case '(':
-                        next();
-                        result = rule();
-                        if (has_error()) return result;
-                        if (peek() != ')') {
-                            error = "mismatched parens";
-                            return result;
-                        }
-                        next();
-                        break;
-                    case '[':
-                        next();
-                        result = char_set().copy();
-                        if (has_error()) return result;
-                        if (peek() != ']') {
-                            error = "mismatched square brackets";
-                            return result;
-                        }
-                        next();
-                        break;
-                    case ')':
-                        error = "mismatched parens";
-                        break;
-                    case '.':
-                        result = CharacterSet({ '\n' }).complement().copy();
-                        next();
-                        break;
-                    default:
-                        result = single_char().copy();
-                }
-                return result;
-            }
-
-            CharacterSet char_set() {
-                bool is_affirmative = true;
-                if (peek() == '^') {
-                    next();
-                    is_affirmative = false;
-                }
-                CharacterSet result;
-                while (has_more_input() && (peek() != ']'))
-                    result.add_set(single_char());
-                return is_affirmative ? result : result.complement();
-            }
-
-            CharacterSet single_char() {
-                CharacterSet value;
-                switch (peek()) {
-                    case '\\':
-                        next();
-                        value = escaped_char(peek());
-                        if (has_error()) return value;
-                        next();
-                        break;
-                    default:
-                        char first_char = peek();
-                        next();
-                        if (peek() == '-') {
-                            next();
-                            value = CharacterSet({ CharacterRange(first_char, peek()) });
-                            next();
-                        } else {
-                            value = CharacterSet({ first_char });
-                        }
-                }
-                return value;
-            }
-
-            CharacterSet escaped_char(char value) {
-                switch (value) {
-                    case 'a':
-                        return CharacterSet({ {'a', 'z'}, {'A', 'Z'} });
-                    case 'w':
-                        return CharacterSet({ {'a', 'z'}, {'A', 'Z'}, {'0', '9'}});
-                    case 'd':
-                        return CharacterSet({ {'0', '9'} });
-                    default:
-                        return CharacterSet({ value });
-                }
-            }
-
-            void next() {
-                position++;
-            }
-
-            char peek() {
-                return input[position];
-            }
-
-            bool has_more_input() {
-                return position < length;
-            }
-
-            bool has_error() {
-                return error != "";
-            }
-
-            string error;
-            const string input;
-            const size_t length;
-            size_t position;
-        };
 
         Pattern::Pattern(const string &string) : value(string) {}
 
@@ -190,10 +29,6 @@ namespace tree_sitter {
 
         void Pattern::accept(Visitor *visitor) const {
             visitor->visit(this);
-        }
-
-        rule_ptr Pattern::to_rule_tree() const {
-            return PatternParser(value).rule();
         }
     }
 }

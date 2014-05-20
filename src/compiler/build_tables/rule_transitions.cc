@@ -94,20 +94,6 @@ namespace tree_sitter {
                 });
                 return result;
             }
-
-            map<T, rule_ptr> apply_to(const rules::String *rule) {
-                rule_ptr result = make_shared<rules::Blank>();
-                for (char val : rule->value)
-                    result = rules::Seq::Build({
-                        result,
-                        CharacterSet({ val }).copy()
-                    });
-                return this->apply(result);
-            }
-
-            map<T, rule_ptr> apply_to(const rules::Pattern *rule) {
-                return this->apply(rule->to_rule_tree());
-            }
         };
 
         map<CharacterSet, rule_ptr> char_transitions(const rule_ptr &rule) {

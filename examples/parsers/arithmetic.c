@@ -34,13 +34,13 @@ SYMBOL_NAMES = {
     [ts_builtin_sym_end] = "end",
     [ts_sym_number] = "number",
     [ts_sym_variable] = "variable",
-    [ts_aux_sym_token0] = "'+'",
-    [ts_aux_sym_token1] = "'-'",
-    [ts_aux_sym_token2] = "'*'",
-    [ts_aux_sym_token3] = "'/'",
-    [ts_aux_sym_token4] = "'^'",
-    [ts_aux_sym_token5] = "'('",
-    [ts_aux_sym_token6] = "')'",
+    [ts_aux_sym_token0] = "",
+    [ts_aux_sym_token1] = "",
+    [ts_aux_sym_token2] = "",
+    [ts_aux_sym_token3] = "",
+    [ts_aux_sym_token4] = "",
+    [ts_aux_sym_token5] = "",
+    [ts_aux_sym_token6] = "",
 };
 
 UBIQUITOUS_SYMBOLS = {

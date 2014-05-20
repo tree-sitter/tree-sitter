@@ -5,6 +5,7 @@
 namespace tree_sitter {
     using std::make_shared;
     using std::set;
+    using std::map;
 
     namespace rules {
         rule_ptr character(const set<CharacterRange> &ranges) {
@@ -32,6 +33,10 @@ namespace tree_sitter {
 
         rule_ptr i_aux_token(size_t index) {
             return make_shared<rules::Symbol>(index, SymbolOption(SymbolOptionAuxiliary|SymbolOptionToken));
+        }
+        
+        rule_ptr metadata(rule_ptr rule, map<MetadataKey, int> values) {
+            return make_shared<Metadata>(rule, values);
         }
     }
 }

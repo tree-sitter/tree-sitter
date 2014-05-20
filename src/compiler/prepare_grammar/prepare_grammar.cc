@@ -2,7 +2,10 @@
 #include "compiler/prepared_grammar.h"
 #include "compiler/prepare_grammar/extract_tokens.h"
 #include "compiler/prepare_grammar/expand_repeats.h"
+#include "compiler/prepare_grammar/expand_tokens.h"
 #include "compiler/prepare_grammar/intern_symbols.h"
+
+#include "stream_methods.h"
 
 namespace tree_sitter {
     using std::tuple;
@@ -16,12 +19,17 @@ namespace tree_sitter {
             const GrammarError *error = result.second;
 
             if (error)
-                return make_tuple(PreparedGrammar({}, {}), PreparedGrammar({}, {}), error);
+                return make_tuple(PreparedGrammar(), PreparedGrammar(), error);
 
             auto grammars = extract_tokens(grammar);
             const PreparedGrammar &rule_grammar = expand_repeats(grammars.first);
-            const PreparedGrammar &lex_grammar = grammars.second;
-
+            auto expand_tokens_result = expand_tokens(grammars.second);
+            const PreparedGrammar &lex_grammar = expand_tokens_result.first;
+            error = expand_tokens_result.second;
+            
+            if (error)
+                return make_tuple(PreparedGrammar(), PreparedGrammar(), error);
+            
             return make_tuple(rule_grammar, lex_grammar, nullptr);
         }
     }

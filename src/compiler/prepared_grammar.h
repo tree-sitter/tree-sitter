@@ -14,6 +14,7 @@ namespace tree_sitter {
 
     class PreparedGrammar : public Grammar {
     public:
+        PreparedGrammar();
         PreparedGrammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
                         const std::vector<std::pair<std::string, rules::rule_ptr>> &aux_rules);
         PreparedGrammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
