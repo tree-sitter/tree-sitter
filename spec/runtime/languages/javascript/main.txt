@@ -5,6 +5,8 @@ theFunction(
     100.0,
     200,
     /the-regex/,
+    '',
+    "",
     'the-single-quoted-string',
     "the-double-quoted-string"
 );
@@ -14,6 +16,8 @@ theFunction(
     (number)
     (number)
     (regex)
+    (string)
+    (string)
     (string)
     (string))))
 

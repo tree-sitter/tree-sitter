@@ -81,6 +81,7 @@ namespace tree_sitter_examples {
             sym("math_op"),
             sym("bool_op"),
             sym("number"),
+            sym("string"),
             sym("var_name") }) },
         { "math_op", choice({
             infix_op("*", "expression", 2),
@@ -107,7 +108,7 @@ namespace tree_sitter_examples {
                 sym("type_name"),
                 blank() }) }) },
 
-        { "string", pattern("\"([^\"]|\\\\\")+\"") },
+        { "string", delimited("\"") },
         { "package_name", sym("_identifier") },
         { "var_name", sym("_identifier") },
         { "type_name", sym("_identifier") },

@@ -4,13 +4,13 @@ parses trivial programs
 package trivial
 
 type x int64
-var y = 0
+var y = ""
 func z() {}
 ---
 (program
     (package_directive (package_name))
     (type_declaration (type_name) (type_name))
-    (var_declaration (var_name) (number))
+    (var_declaration (var_name) (string))
     (func_declaration (var_name) (statement_block)))
 
 ==========================================

@@ -47,10 +47,12 @@ namespace tree_sitter_examples {
     }
 
     rule_ptr delimited(std::string delimiter) {
-        return seq({
+        return token(seq({
             str(delimiter),
-            pattern("([^" + delimiter + "]|\\\\" + delimiter + ")+"),
+            repeat(choice({
+                pattern("[^" + delimiter + "]"),
+                seq({ str("\\"), str(delimiter) }) })),
             str(delimiter)
-        });
+        }));
     }
 }
