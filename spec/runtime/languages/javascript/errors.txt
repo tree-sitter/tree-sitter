@@ -3,7 +3,7 @@ recovers from errors in function calls
 ==========================================
 stuff(|||);
 ---
-(program (expression_statement (function_call (identifier) (ERROR))))
+(program (expression_statement (function_call (identifier) (ERROR '|'))))
 
 ==========================================
 recovers from errors in if statements
@@ -16,8 +16,8 @@ moreStuff();
 ---
 (program
     (expression_statement (function_call (identifier)))
-    (if_statement (ERROR)
-        (statement_block (expression_statement (ERROR))))
+    (if_statement (ERROR '*')
+        (statement_block (expression_statement (ERROR '*'))))
     (expression_statement (function_call (identifier))))
 
 ==========================================
@@ -33,8 +33,8 @@ moreStuff();
     (expression_statement (function_call (identifier)))
     (for_statement
         (var_declaration (assignment (identifier) (number)))
-        (expression_statement (ERROR))
-        (ERROR)
-        (statement_block (expression_statement (ERROR))))
+        (expression_statement (ERROR '*'))
+        (ERROR '*')
+        (statement_block (expression_statement (ERROR '*'))))
     (expression_statement (function_call (identifier))))
 

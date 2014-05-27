@@ -191,6 +191,8 @@ ts_lr_parser_tree_root(ts_lr_parser *parser) {
     ts_tree *top_node = ts_stack_top_node(stack);
     if (stack->size <= 1)
         return top_node;
+    if (ts_tree_symbol(top_node) == ts_builtin_sym_error)
+        return top_node;
 
     size_t immediate_child_count;
     ts_tree **immedate_children = ts_tree_immediate_children(top_node, &immediate_child_count);

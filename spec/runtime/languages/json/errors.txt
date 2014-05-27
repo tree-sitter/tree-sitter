@@ -3,14 +3,14 @@ recovers from top-level errors
 ==========================================
 [}
 ---
-(ERROR)
+(ERROR '}')
 
 ==========================================
 recovers from unexpected tokens
 ==========================================
 barf
 ---
-(ERROR)
+(ERROR 'b')
 
 ==========================================
 recovers from errors inside arrays
@@ -19,7 +19,7 @@ recovers from errors inside arrays
 ---
 (value (array
     (number)
-    (ERROR)
+    (ERROR <EOF>)
     (number)))
 
 ==========================================
@@ -27,7 +27,7 @@ recovers from errors inside objects
 ==========================================
 { "key1": 1, oops }
 ---
-(value (object (string) (number) (ERROR)))
+(value (object (string) (number) (ERROR 'o')))
 
 ==========================================
 recovers from errors inside nested objects
@@ -35,6 +35,6 @@ recovers from errors inside nested objects
 { "key1": { "key2": 1, 2 }, [, "key3": 3 }
 ---
 (value (object
-    (string) (object (string) (number) (ERROR))
-    (ERROR)
+    (string) (object (string) (number) (ERROR '2'))
+    (ERROR '[')
     (string) (number)))

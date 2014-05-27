@@ -124,14 +124,27 @@ ts_tree ** ts_tree_children(const ts_tree *tree, size_t *count) {
     return tree->data.children.contents;
 }
 
+static size_t write_lookahead_to_string(char *string, size_t limit, char lookahead) {
+    switch (lookahead) {
+        case '\0':
+            return snprintf(string, limit, "<EOF>");
+        default:
+            return snprintf(string, limit, "'%c'", lookahead);
+    }
+}
+
 static size_t tree_write_to_string(const ts_tree *tree, const char **symbol_names, char *string, size_t limit) {
     char *cursor = string;
     char **destination = (limit > 0) ? &cursor : &string;
 
     if (!tree)
         return snprintf(*destination, limit, "(NULL)");
-    if (tree->symbol == ts_builtin_sym_error)
-        return snprintf(*destination, limit, "(ERROR)");
+    if (tree->symbol == ts_builtin_sym_error) {
+        cursor += snprintf(*destination, limit, "(ERROR ");
+        cursor += write_lookahead_to_string(*destination, limit, tree->data.error.lookahead_char);
+        cursor += snprintf(*destination, limit, ")");
+        return cursor - string;
+    }
 
     cursor += snprintf(*destination, limit, "(%s", symbol_names[tree->symbol]);
     size_t count;
