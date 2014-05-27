@@ -65,11 +65,9 @@ namespace tree_sitter_examples {
             sym("_terminator") }) },
         { "var_declaration", seq({
             keyword("var"),
-            comma_sep(seq({
-                optional(sym("comment")),
-                choice({
-                    sym("assignment"),
-                    sym("identifier") }) })),
+            comma_sep(err(choice({
+                sym("assignment"),
+                sym("identifier") }))),
             sym("_terminator") }) },
         { "expression_statement", seq({
             err(sym("expression")),
