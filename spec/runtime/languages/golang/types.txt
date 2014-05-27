@@ -1,0 +1,65 @@
+==========================================
+parses complex types
+==========================================
+package main
+
+type x *struct {
+    field1 []int64
+    field2 map[string]interface{
+        DoStuff()
+    }
+}
+---
+(program
+    (package_directive (package_name))
+    (type_declaration
+        (type_name)
+        (pointer_type (struct_type
+            (var_name) (slice_type (type_name))
+            (var_name) (map_type (type_name) (interface_type (var_name)))))))
+
+============================================
+parses functions arguments
+============================================
+package main
+
+func oneArg(arg1 interface{}) {}
+func argsOfSameType(arg1, arg2 string) {}
+func argsOfDifferentTypes() (arg1 string, arg2 int64) {}
+---
+(program
+    (package_directive (package_name))
+    (func_declaration (var_name) (var_name) (interface_type) (statement_block))
+    (func_declaration (var_name) (var_name) (var_name) (type_name) (statement_block))
+    (func_declaration (var_name) (var_name) (type_name) (var_name) (type_name) (statement_block)))
+
+============================================
+parses functions with unnamed return values
+============================================
+package main
+
+func oneReturnValue() string {}
+func multipleReturnValues() (string, int64, error) {}
+---
+(program
+    (package_directive (package_name))
+    (func_declaration (var_name) (type_name)
+        (statement_block))
+    (func_declaration (var_name) (type_name) (type_name) (type_name)
+        (statement_block)))
+
+============================================
+parses functions with named return values
+============================================
+package main
+
+func oneReturnValue() (result string) {}
+func multipleReturnValues() (result string, count int64, err error) {}
+---
+(program
+    (package_directive (package_name))
+    (func_declaration (var_name) (var_name) (type_name)
+        (statement_block))
+    (func_declaration (var_name) (var_name) (type_name) (var_name) (type_name) (var_name) (type_name)
+        (statement_block)))
+
