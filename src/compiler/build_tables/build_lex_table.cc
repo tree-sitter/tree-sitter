@@ -49,8 +49,8 @@ namespace tree_sitter {
                 if (pair == lex_state_ids.end()) {
                     LexStateId state_id = lex_table.add_state();
                     lex_state_ids[item_set] = state_id;
-                    add_advance_actions(item_set, state_id);
                     add_accept_token_actions(item_set, state_id);
+                    add_advance_actions(item_set, state_id);
                     add_token_start(item_set, state_id);
                     return state_id;
                 } else {
@@ -60,8 +60,8 @@ namespace tree_sitter {
 
             void add_error_lex_state() {
                 LexItemSet item_set = build_lex_item_set(parse_table->symbols);
-                add_advance_actions(item_set, LexTable::ERROR_STATE_ID);
                 add_accept_token_actions(item_set, LexTable::ERROR_STATE_ID);
+                add_advance_actions(item_set, LexTable::ERROR_STATE_ID);
             }
 
             void add_advance_actions(const LexItemSet &item_set, LexStateId state_id) {
@@ -70,7 +70,7 @@ namespace tree_sitter {
                     CharacterSet rule = transition.first;
                     LexItemSet new_item_set = transition.second;
                     LexStateId new_state_id = add_lex_state(new_item_set);
-                    lex_table.add_action(state_id, rule, LexAction::Advance(new_state_id));
+                    lex_table.state(state_id).actions[rule] = LexAction::Advance(new_state_id);
                 }
             }
 
@@ -80,7 +80,7 @@ namespace tree_sitter {
                         auto current_action = lex_table.state(state_id).default_action;
                         auto new_action = LexAction::Accept(item.lhs, item.precedence());
                         if (conflict_manager.resolve_lex_action(current_action, new_action))
-                            lex_table.add_default_action(state_id, new_action);
+                            lex_table.state(state_id).default_action = new_action;
                     }
                 }
             }

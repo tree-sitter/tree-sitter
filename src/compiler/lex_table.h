@@ -59,8 +59,6 @@ namespace tree_sitter {
     public:
         static const LexStateId ERROR_STATE_ID;
         LexStateId add_state();
-        void add_action(LexStateId state_id, rules::CharacterSet rule, LexAction action);
-        void add_default_action(LexStateId state_id, LexAction action);
         LexState & state(LexStateId state_id);
 
         std::vector<LexState> states;

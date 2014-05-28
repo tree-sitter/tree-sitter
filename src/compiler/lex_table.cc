@@ -71,13 +71,5 @@ namespace tree_sitter {
             return states[id];
     }
 
-    void LexTable::add_action(LexStateId id, CharacterSet match, LexAction action) {
-        state(id).actions[match] = action;
-    }
-
-    void LexTable::add_default_action(LexStateId id, LexAction action) {
-        state(id).default_action = action;
-    }
-
     const LexStateId LexTable::ERROR_STATE_ID = -1;
 }
