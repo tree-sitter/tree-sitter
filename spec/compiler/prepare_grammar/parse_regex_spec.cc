@@ -7,7 +7,13 @@ using namespace rules;
 using prepare_grammar::parse_regex;
 
 describe("parsing regex patterns", []() {
-    vector<tuple<string, string, rule_ptr>> valid_inputs = {
+    struct ValidInputRow {
+        string description;
+        string pattern;
+        rule_ptr rule;
+    };
+    
+    vector<ValidInputRow> valid_inputs = {
         {
             "character sets",
             "[aAeE]",
@@ -157,7 +163,13 @@ describe("parsing regex patterns", []() {
         }
     };
 
-    vector<tuple<string, string, const char *>> invalid_inputs = {
+    struct InvalidInputRow {
+        string description;
+        string pattern;
+        const char *message;
+    };
+
+    vector<InvalidInputRow> invalid_inputs = {
         {
             "mismatched open parens",
             "(a",
@@ -190,26 +202,18 @@ describe("parsing regex patterns", []() {
         },
     };
 
-    for (auto &triple : valid_inputs) {
-        string description = get<0>(triple);
-        string regex = get<1>(triple);
-        rule_ptr rule = get<2>(triple);
-
-        it(("parses " + description).c_str(), [&]() {
-            auto result = parse_regex(regex);
-            AssertThat(result.first, EqualsPointer(rule));
+    for (auto &row : valid_inputs) {
+        it(("parses " + row.description).c_str(), [&]() {
+            auto result = parse_regex(row.pattern);
+            AssertThat(result.first, EqualsPointer(row.rule));
         });
     }
 
-    for (auto &triple : invalid_inputs) {
-        string description = get<0>(triple);
-        string regex = get<1>(triple);
-        const char *expected_message = get<2>(triple);
-
-        it(("handles invalid regexes with " + description).c_str(), [&]() {
-            auto result = parse_regex(regex);
+    for (auto &row : invalid_inputs) {
+        it(("handles invalid regexes with " + row.description).c_str(), [&]() {
+            auto result = parse_regex(row.pattern);
             AssertThat(result.second, !Equals((const GrammarError *)nullptr));
-            AssertThat(result.second->message, Contains(expected_message));
+            AssertThat(result.second->message, Contains(row.message));
         });
     }
 });
