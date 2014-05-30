@@ -5,7 +5,7 @@
 
 namespace tree_sitter {
     class PreparedGrammar;
-    
+
     namespace prepare_grammar {
         std::pair<PreparedGrammar, const GrammarError *>
         expand_tokens(const PreparedGrammar &);

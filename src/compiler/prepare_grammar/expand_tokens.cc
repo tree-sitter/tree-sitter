@@ -19,7 +19,7 @@ namespace tree_sitter {
     using rules::rule_ptr;
     using rules::String;
     using rules::Pattern;
-    
+
     namespace prepare_grammar {
         class ExpandTokens : public rules::IdentityRuleFn {
             using rules::IdentityRuleFn::apply_to;
@@ -30,38 +30,38 @@ namespace tree_sitter {
                     elements.push_back(rules::CharacterSet({ val }).copy());
                 return rules::Seq::Build(elements);
             }
-            
+
             rule_ptr apply_to(const Pattern *rule) {
                 auto pair = parse_regex(rule->value);
                 if (!error)
                     error = pair.second;
                 return pair.first;
             }
-            
+
         public:
             const GrammarError *error;
             ExpandTokens() : error(nullptr) {}
         };
-        
+
         pair<PreparedGrammar, const GrammarError *>
         expand_tokens(const PreparedGrammar &grammar) {
             vector<pair<string, rule_ptr>> rules, aux_rules;
             ExpandTokens expander;
-            
+
             for (auto &pair : grammar.rules) {
                 auto rule = expander.apply(pair.second);
                 if (expander.error)
                     return { PreparedGrammar(), expander.error };
                 rules.push_back({ pair.first, rule });
             }
-            
+
             for (auto &pair : grammar.aux_rules) {
                 auto rule = expander.apply(pair.second);
                 if (expander.error)
                     return { PreparedGrammar(), expander.error };
                 aux_rules.push_back({ pair.first, rule });
             }
-            
+
             return { PreparedGrammar(rules, aux_rules, grammar.options), nullptr };
         }
     }

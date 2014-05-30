@@ -1,5 +1,6 @@
 #include "compiler/build_tables/get_metadata.h"
 #include "compiler/rules/visitor.h"
+#include "compiler/rules/seq.h"
 
 namespace tree_sitter {
     namespace build_tables {
@@ -9,6 +10,13 @@ namespace tree_sitter {
 
                 int apply_to(const rules::Metadata *rule) {
                     return rule->value_for(metadata_key);
+                }
+
+                // TODO -
+                // Remove this. It is currently needed to make the rule generated
+                // by `LexTableBuilder::after_separators` have the right precedence.
+                int apply_to(const rules::Seq *rule) {
+                    return apply(rule->left);
                 }
 
             public:

@@ -8,7 +8,7 @@ using namespace build_tables;
 START_TEST
 
 describe("resolving parse conflicts", []() {
-    bool should_update;
+    bool update;
 
     PreparedGrammar parse_grammar({
         { "rule1", seq({ sym("rule2"), sym("token2") }) },
@@ -37,31 +37,67 @@ describe("resolving parse conflicts", []() {
         });
 
         it("favors non-errors over lexical errors", [&]() {
-            should_update = manager->resolve_lex_action(LexAction::Error(), LexAction::Advance(2));
-            AssertThat(should_update, IsTrue());
+            update = manager->resolve_lex_action(LexAction::Error(), LexAction::Advance(2, {0}));
+            AssertThat(update, IsTrue());
 
-            should_update = manager->resolve_lex_action(LexAction::Advance(2), LexAction::Error());
-            AssertThat(should_update, IsFalse());
+            update = manager->resolve_lex_action(LexAction::Advance(2, {0}), LexAction::Error());
+            AssertThat(update, IsFalse());
+        });
+
+        describe("accept-token/advance conflicts", [&]() {
+            describe("when the the accept-token has higher precedence", [&]() {
+                it("prefers the accept", [&]() {
+                    update = manager->resolve_lex_action(LexAction::Accept(sym3, 0), LexAction::Advance(1, { -1 }));
+                    AssertThat(update, IsFalse());
+
+                    update = manager->resolve_lex_action(LexAction::Advance(1, { -1 }), LexAction::Accept(sym3, 2));
+                    AssertThat(update, IsTrue());
+                });
+            });
+
+            describe("when the the actions have the same precedence", [&]() {
+                it("prefers the advance", [&]() {
+                    update = manager->resolve_lex_action(LexAction::Accept(sym3, 0), LexAction::Advance(1, { 0 }));
+                    AssertThat(update, IsTrue());
+
+                    update = manager->resolve_lex_action(LexAction::Advance(1, { 0 }), LexAction::Accept(sym3, 0));
+                    AssertThat(update, IsFalse());
+                });
+            });
+
+            describe("when the advance has conflicting precedences compared to the accept", [&]() {
+                it("prefers the advance", [&]() {
+                    update = manager->resolve_lex_action(LexAction::Accept(sym3, 0), LexAction::Advance(1, { -2, 2 }));
+                    AssertThat(update, IsTrue());
+
+                    update = manager->resolve_lex_action(LexAction::Advance(1, { -2, 2 }), LexAction::Accept(sym3, 0));
+                    AssertThat(update, IsFalse());
+                });
+
+                it_skip("records a conflict", [&]() {
+                    manager->resolve_lex_action(LexAction::Accept(sym3, 0), LexAction::Advance(1, { -2, 2 }));
+                });
+            });
         });
 
         describe("accept-token/accept-token conflicts", [&]() {
             describe("when one token has a higher precedence than the other", [&]() {
                 it("prefers the token with the higher precedence", [&]() {
-                    should_update = manager->resolve_lex_action(LexAction::Accept(sym3, 2), LexAction::Accept(sym2, 0));
-                    AssertThat(should_update, IsFalse());
+                    update = manager->resolve_lex_action(LexAction::Accept(sym3, 2), LexAction::Accept(sym2, 0));
+                    AssertThat(update, IsFalse());
 
-                    should_update = manager->resolve_lex_action(LexAction::Accept(sym2, 0), LexAction::Accept(sym3, 2));
-                    AssertThat(should_update, IsTrue());
+                    update = manager->resolve_lex_action(LexAction::Accept(sym2, 0), LexAction::Accept(sym3, 2));
+                    AssertThat(update, IsTrue());
                 });
             });
 
             describe("when both tokens have the same precedence", [&]() {
                 it("prefers the token listed earlier in the grammar", [&]() {
-                    should_update = manager->resolve_lex_action(LexAction::Accept(sym1, 0), LexAction::Accept(sym2, 0));
-                    AssertThat(should_update, IsFalse());
+                    update = manager->resolve_lex_action(LexAction::Accept(sym1, 0), LexAction::Accept(sym2, 0));
+                    AssertThat(update, IsFalse());
 
-                    should_update = manager->resolve_lex_action(LexAction::Accept(sym2, 0), LexAction::Accept(sym1, 0));
-                    AssertThat(should_update, IsTrue());
+                    update = manager->resolve_lex_action(LexAction::Accept(sym2, 0), LexAction::Accept(sym1, 0));
+                    AssertThat(update, IsTrue());
                 });
             });
         });
@@ -81,11 +117,11 @@ describe("resolving parse conflicts", []() {
         });
 
         it("favors non-errors over parse errors", [&]() {
-            should_update = manager->resolve_parse_action(sym1, ParseAction::Error(), ParseAction::Shift(2, { 0 }));
-            AssertThat(should_update, IsTrue());
+            update = manager->resolve_parse_action(sym1, ParseAction::Error(), ParseAction::Shift(2, { 0 }));
+            AssertThat(update, IsTrue());
 
-            should_update = manager->resolve_parse_action(sym1, ParseAction::Shift(2, { 0 }), ParseAction::Error());
-            AssertThat(should_update, IsFalse());
+            update = manager->resolve_parse_action(sym1, ParseAction::Shift(2, { 0 }), ParseAction::Error());
+            AssertThat(update, IsFalse());
         });
 
         describe("shift/reduce conflicts", [&]() {

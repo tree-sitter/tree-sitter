@@ -82,11 +82,11 @@ describe("extracting tokens from a grammar", []() {
         pair<PreparedGrammar, PreparedGrammar> result = extract_tokens(PreparedGrammar({}, {
             { "rule_A", seq({ str("ab"), i_sym(0) }) }
         }));
-        
+
         AssertThat(result.first, Equals(PreparedGrammar({}, {
             { "rule_A", seq({ i_aux_token(0), i_sym(0) }) }
         })));
-        
+
         AssertThat(result.second, Equals(PreparedGrammar({}, {
             { "'ab'", str("ab") },
         })));
@@ -99,34 +99,34 @@ describe("extracting tokens from a grammar", []() {
                 { "rule_B", pattern("a|b") },
                 { "rule_C", token(seq({ str("a"), str("b") })) },
             }, {}));
-            
+
             AssertThat(result.first, Equals(PreparedGrammar({
                 { "rule_A", i_token(0) }
             }, {})));
-            
+
             AssertThat(result.second, Equals(PreparedGrammar({
                 { "rule_B", pattern("a|b") },
                 { "rule_C", token(seq({ str("a"), str("b") })) },
             }, {})));
         });
-        
+
         it("updates symbols whose indices need to change due to deleted rules", [&]() {
             auto result = extract_tokens(PreparedGrammar({
                 { "rule_A", str("ab") },
                 { "rule_B", i_sym(0) },
                 { "rule_C", i_sym(1) },
             }, {}));
-            
+
             AssertThat(result.first, Equals(PreparedGrammar({
                 { "rule_B", i_token(0) },
                 { "rule_C", i_sym(0) },
             }, {})));
-            
+
             AssertThat(result.second, Equals(PreparedGrammar({
                 { "rule_A", str("ab") },
             }, {})));
         });
-        
+
         it("updates the grammar's ubiquitous_tokens", [&]() {
             auto result = extract_tokens(PreparedGrammar({
                 { "rule_A", str("ab") },
@@ -135,24 +135,24 @@ describe("extracting tokens from a grammar", []() {
             }, {}, PreparedGrammarOptions({
                 { Symbol(0) }
             })));
-            
+
             AssertThat(result.first.options.ubiquitous_tokens, Equals(vector<Symbol>({
                 { Symbol(0, SymbolOptionToken) }
             })));
         });
-        
+
         it("extracts entire auxiliary rules", [&]() {
             auto result = extract_tokens(PreparedGrammar({}, {
                 { "rule_A", str("ab") },
                 { "rule_B", i_aux_sym(0) },
                 { "rule_C", i_aux_sym(1) },
             }));
-            
+
             AssertThat(result.first, Equals(PreparedGrammar({}, {
                 { "rule_B", i_aux_token(0) },
                 { "rule_C", i_aux_sym(0) },
             })));
-            
+
             AssertThat(result.second, Equals(PreparedGrammar({}, {
                 { "rule_A", str("ab") },
             })));

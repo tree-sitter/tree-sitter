@@ -25,11 +25,11 @@ namespace tree_sitter {
             string apply_to(const rules::Metadata *rule) {
                 return apply(rule->rule);
             }
-            
+
             string apply_to(const rules::Seq *rule) {
                 return "(seq " + apply(rule->left) + " " + apply(rule->right) + ")";
             }
-            
+
             string apply_to(const rules::Choice *rule) {
                 string result = "(choice";
                 for (auto &element : rule->elements)

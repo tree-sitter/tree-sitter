@@ -15,9 +15,9 @@ describe("expanding token rules", []() {
                 pattern("x*"),
                 i_sym(11) }) },
         }, {});
-        
+
         auto result = expand_tokens(grammar);
-        
+
         AssertThat(result.second, Equals((const GrammarError *)nullptr));
         AssertThat(result.first, Equals(PreparedGrammar({
             { "rule_A", seq({
@@ -26,7 +26,7 @@ describe("expanding token rules", []() {
                 i_sym(11) }) },
         }, {})));
     });
-    
+
     it("replaces string rules with a sequence of characters", [&]() {
         PreparedGrammar grammar({
             { "rule_A", seq({
@@ -34,9 +34,9 @@ describe("expanding token rules", []() {
                 str("xyz"),
                 i_sym(11) }) },
         }, {});
-        
+
         auto result = expand_tokens(grammar);
-        
+
         AssertThat(result.second, Equals((const GrammarError *)nullptr));
         AssertThat(result.first, Equals(PreparedGrammar({
             { "rule_A", seq({
@@ -45,7 +45,7 @@ describe("expanding token rules", []() {
                 i_sym(11) }) },
         }, {})));
     });
-    
+
     it("returns an error when the grammar contains an invalid regex", [&]() {
         PreparedGrammar grammar({
             { "rule_A", seq({
@@ -53,7 +53,7 @@ describe("expanding token rules", []() {
                 str("xyz"),
                 pattern("[") }) },
         }, {});
-        
+
         auto result = expand_tokens(grammar);
 
         AssertThat(result.second, EqualsPointer(new GrammarError(GrammarErrorTypeRegex, "unmatched open paren")));

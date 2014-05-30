@@ -70,7 +70,9 @@ namespace tree_sitter {
                     CharacterSet rule = transition.first;
                     LexItemSet new_item_set = transition.second;
                     LexStateId new_state_id = add_lex_state(new_item_set);
-                    lex_table.state(state_id).actions[rule] = LexAction::Advance(new_state_id);
+                    auto action = LexAction::Advance(new_state_id, precedence_values_for_item_set(new_item_set));
+                    if (conflict_manager.resolve_lex_action(lex_table.state(state_id).default_action, action))
+                        lex_table.state(state_id).actions[rule] = action;
                 }
             }
 
@@ -93,12 +95,22 @@ namespace tree_sitter {
 
             rules::rule_ptr after_separators(rules::rule_ptr rule) {
                 return rules::Seq::Build({
-                    make_shared<rules::Repeat>(CharacterSet({ ' ', '\t', '\n', '\r' }).copy()),
-                    make_shared<rules::Metadata>(make_shared<rules::Blank>(), map<rules::MetadataKey, int>({
+                    make_shared<rules::Metadata>(rules::Seq::Build({
+                        make_shared<rules::Repeat>(CharacterSet({ ' ', '\t', '\n', '\r' }).copy()),
+                        make_shared<rules::Blank>(),
+                    }), map<rules::MetadataKey, int>({
                         {rules::START_TOKEN, 1},
+                        {rules::PRECEDENCE, -1},
                     })),
-                    rule
+                    rule,
                 });
+            }
+
+            set<int> precedence_values_for_item_set(const LexItemSet &item_set) const {
+                set<int> result;
+                for (const auto &item : item_set)
+                    result.insert(item.precedence());
+                return result;
             }
 
         public:

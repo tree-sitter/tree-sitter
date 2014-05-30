@@ -58,7 +58,7 @@ namespace tree_sitter {
                     }
                 }
             }
-            
+
             void add_ubiquitous_token_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (const Symbol &symbol : grammar.options.ubiquitous_tokens) {
                     auto &actions = parse_table.states[state_id].actions;

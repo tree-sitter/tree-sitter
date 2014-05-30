@@ -48,7 +48,7 @@ namespace tree_sitter {
     GrammarError::GrammarError(GrammarErrorType type, std::string message) :
         type(type),
         message(message) {}
-    
+
     bool GrammarError::operator==(const GrammarError &other) const {
         return type == other.type && message == other.message;
     }

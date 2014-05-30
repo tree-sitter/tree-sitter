@@ -24,10 +24,10 @@ namespace tree_sitter {
             auto expand_tokens_result = expand_tokens(grammars.second);
             const PreparedGrammar &lex_grammar = expand_tokens_result.first;
             error = expand_tokens_result.second;
-            
+
             if (error)
                 return make_tuple(PreparedGrammar(), PreparedGrammar(), error);
-            
+
             return make_tuple(rule_grammar, lex_grammar, nullptr);
         }
     }

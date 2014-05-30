@@ -57,7 +57,7 @@ namespace tree_sitter {
 
             SymbolInliner(const map<Symbol, Symbol> &replacements) : replacements(replacements) {}
         };
-        
+
         const rules::SymbolOption SymbolOptionAuxToken = rules::SymbolOption(rules::SymbolOptionToken|rules::SymbolOptionAuxiliary);
 
         class TokenExtractor : public rules::IdentityRuleFn {
@@ -71,7 +71,7 @@ namespace tree_sitter {
                 return make_shared<Symbol>(index, SymbolOptionAuxToken);
 
             }
-            
+
             rule_ptr default_apply(const rules::Rule *rule) {
                 auto result = rule->copy();
                 if (IsToken().apply(rule->copy())) {
@@ -80,7 +80,7 @@ namespace tree_sitter {
                     return result;
                 }
             }
-            
+
             rule_ptr apply_to(const rules::Metadata *rule) {
                 auto result = rule->copy();
                 if (IsToken().apply(rule->copy())) {

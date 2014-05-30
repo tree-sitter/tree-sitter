@@ -18,17 +18,45 @@ namespace tree_sitter {
 
         bool LexConflictManager::resolve_lex_action(const LexAction &old_action,
                                                     const LexAction &new_action) {
+            if (new_action.type < old_action.type)
+                return !resolve_lex_action(new_action, old_action);
+
             switch (old_action.type) {
                 case LexActionTypeError:
                     return true;
-                case LexActionTypeAccept:
-                    if (new_action.precedence > old_action.precedence) {
-                        return true;
-                    } else if (new_action.precedence < old_action.precedence) {
-                        return false;
-                    } else {
-                        return new_action.symbol.index < old_action.symbol.index;
+                case LexActionTypeAccept: {
+                    int old_precedence = *old_action.precedence_values.begin();
+                    switch (new_action.type) {
+                        case LexActionTypeAccept: {
+                            int new_precedence = *new_action.precedence_values.begin();
+                            if (new_precedence > old_precedence) {
+                                return true;
+                            } else if (new_precedence < old_precedence) {
+                                return false;
+                            } else {
+                                return new_action.symbol.index < old_action.symbol.index;
+                            }
+                        }
+                        case LexActionTypeAdvance: {
+//                            int min_precedence = *new_action.precedence_values.begin();
+                            int max_precedence = *new_action.precedence_values.rbegin();
+                            if (max_precedence > old_precedence) {
+//                                if (min_precedence < old_precedence)
+                                return true;
+                            } else if (max_precedence < old_precedence) {
+                                return false;
+                            } else {
+                                return true;
+                            }
+
+                            return false;
+                        }
+                        default:
+                            return false;
                     }
+
+                    return true;
+                }
                 default:
                     return false;
             }

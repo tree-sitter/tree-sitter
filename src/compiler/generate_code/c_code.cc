@@ -88,7 +88,7 @@ namespace tree_sitter {
             const PreparedGrammar & grammar_for_symbol(const rules::Symbol &symbol) {
                 return symbol.is_token() ? lexical_grammar : syntax_grammar;
             }
-            
+
             string sanitize_name(string name) {
                 auto existing = sanitized_names.find(name);
                 if (existing != sanitized_names.end())
@@ -115,7 +115,7 @@ namespace tree_sitter {
                     }
                 }
             }
-            
+
             bool has_sanitized_name(string name) {
                 for (auto &pair : sanitized_names)
                     if (pair.second == name)

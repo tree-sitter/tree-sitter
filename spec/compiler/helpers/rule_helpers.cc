@@ -34,7 +34,7 @@ namespace tree_sitter {
         rule_ptr i_aux_token(size_t index) {
             return make_shared<rules::Symbol>(index, SymbolOption(SymbolOptionAuxiliary|SymbolOptionToken));
         }
-        
+
         rule_ptr metadata(rule_ptr rule, map<MetadataKey, int> values) {
             return make_shared<Metadata>(rule, values);
         }

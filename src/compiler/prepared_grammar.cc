@@ -10,7 +10,7 @@ namespace tree_sitter {
     using std::ostream;
     using rules::rule_ptr;
     using rules::Symbol;
-    
+
     PreparedGrammar::PreparedGrammar() : Grammar({}), aux_rules({}), options({}) {}
 
     PreparedGrammar::PreparedGrammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,

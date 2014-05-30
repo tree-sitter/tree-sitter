@@ -6,6 +6,10 @@ namespace tree_sitter_examples {
     using tree_sitter::GrammarOptions;
     using namespace tree_sitter::rules;
 
+    static rule_ptr terminated(rule_ptr rule) {
+        return seq({ rule, sym("_terminator") });
+    }
+
     extern const Grammar golang({
         { "program", seq({
             sym("package_directive"),
@@ -20,28 +24,26 @@ namespace tree_sitter_examples {
                 in_parens(err(repeat(sym("package_import")))),
                 sym("package_import") }) }) },
         { "package_import", sym("string") },
-        { "declaration", seq({
-            choice({
-                sym("type_declaration"),
-                sym("var_declaration"),
-                sym("func_declaration") }),
-            blank() }) },
+        { "declaration", choice({
+            sym("type_declaration"),
+            sym("var_declaration"),
+            sym("func_declaration") }) },
 
         // Declarations
-        { "type_declaration", seq({
+        { "type_declaration", terminated(seq({
             keyword("type"),
             sym("type_name"),
-            sym("type_expression") }) },
-        { "var_declaration", seq({
+            sym("type_expression") })) },
+        { "var_declaration", terminated(seq({
             keyword("var"),
             sym("var_name"),
             str("="),
-            sym("expression") }) },
-        { "func_declaration", seq({
+            sym("expression") })) },
+        { "func_declaration", terminated(seq({
             keyword("func"),
             sym("var_name"),
             sym("_func_signature"),
-            sym("statement_block") }) },
+            sym("statement_block") })) },
         { "statement_block", in_braces(blank()) },
         { "type_expression", choice({
             sym("pointer_type"),
@@ -107,6 +109,10 @@ namespace tree_sitter_examples {
                     comma_sep1(sym("type_name")) })),
                 sym("type_name"),
                 blank() }) }) },
+
+        { "_terminator", token(choice({
+            str("\n"),
+            str(";") })) },
 
         { "string", delimited("\"") },
         { "package_name", sym("_identifier") },

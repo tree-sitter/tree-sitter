@@ -13,13 +13,13 @@ describe("parsing regex patterns", []() {
             "[aAeE]",
             character({ 'a', 'A', 'e', 'E' })
         },
-        
+
         {
             "'.' characters as wildcards",
             ".",
             CharacterSet({'\n'}).complement().copy()
         },
-        
+
         {
             "character classes",
             "\\w-\\d",
@@ -28,7 +28,7 @@ describe("parsing regex patterns", []() {
                 character({ '-' }),
                 character({ {'0', '9'} }) })
         },
-        
+
         {
             "choices",
             "ab|cd|ef",
@@ -47,7 +47,7 @@ describe("parsing regex patterns", []() {
                 })
             })
         },
-        
+
         {
             "simple sequences",
             "abc",
@@ -56,25 +56,25 @@ describe("parsing regex patterns", []() {
                 character({ 'b' }),
                 character({ 'c' }) })
         },
-        
+
         {
             "character ranges",
             "[12a-dA-D3]",
             character({ {'1', '3'}, {'a', 'd'}, { 'A', 'D' }, })
         },
-        
+
         {
             "negated characters",
             "[^a\\d]",
             character({ {'a'}, {'0', '9'} }, false)
         },
-        
+
         {
             "backslashes",
             "\\\\",
             character({ '\\' })
         },
-        
+
         {
             "character groups in sequences",
             "x([^x]|\\\\x)*x",
@@ -87,7 +87,7 @@ describe("parsing regex patterns", []() {
                 character({ 'x' })
             })
         },
-        
+
         {
             "choices in sequences",
             "(a|b)cd",
@@ -100,7 +100,7 @@ describe("parsing regex patterns", []() {
                 character({ 'd' })
             })
         },
-        
+
         {
             "escaped parentheses",
             "a\\(b",
@@ -110,7 +110,7 @@ describe("parsing regex patterns", []() {
                 character({ 'b' })
             })
         },
-        
+
         {
             "escaped periods",
             "a\\.",
@@ -119,7 +119,7 @@ describe("parsing regex patterns", []() {
                 character({ '.' })
             })
         },
-        
+
         {
             "plus repeats",
             "(ab)+(cd)+",
@@ -134,7 +134,7 @@ describe("parsing regex patterns", []() {
                 }),
             })
         },
-        
+
         {
             "asterix repeats",
             "(ab)*(cd)*",
@@ -143,7 +143,7 @@ describe("parsing regex patterns", []() {
                 repeat(seq({ character({ 'c' }), character({ 'd' }) })),
             })
         },
-        
+
         {
             "optional rules",
             "a(bc)?",
@@ -156,7 +156,7 @@ describe("parsing regex patterns", []() {
             })
         }
     };
-    
+
     vector<tuple<string, string, const char *>> invalid_inputs = {
         {
             "mismatched open parens",
@@ -189,23 +189,23 @@ describe("parsing regex patterns", []() {
             "unmatched close square bracket",
         },
     };
-    
+
     for (auto &triple : valid_inputs) {
         string description = get<0>(triple);
         string regex = get<1>(triple);
         rule_ptr rule = get<2>(triple);
-        
+
         it(("parses " + description).c_str(), [&]() {
             auto result = parse_regex(regex);
             AssertThat(result.first, EqualsPointer(rule));
         });
     }
-    
+
     for (auto &triple : invalid_inputs) {
         string description = get<0>(triple);
         string regex = get<1>(triple);
         const char *expected_message = get<2>(triple);
-        
+
         it(("handles invalid regexes with " + description).c_str(), [&]() {
             auto result = parse_regex(regex);
             AssertThat(result.second, !Equals((const GrammarError *)nullptr));

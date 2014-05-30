@@ -31,6 +31,7 @@ static ts_state_id ts_lex_states[STATE_COUNT]
 static ts_tree * ts_lex(ts_lexer *lexer, ts_state_id lex_state)
 
 #define START_LEXER() \
+DEBUG_LEX("LEX %d", lex_state); \
 char lookahead; \
 next_state: \
 lookahead = ts_lexer_lookahead_char(lexer); \
@@ -46,7 +47,7 @@ ts_lexer_start_token(lexer);
 { DEBUG_LEX("TOKEN %s", ts_symbol_names[symbol]); return ts_lexer_build_node(lexer, symbol); }
 
 #define LEX_ERROR() \
-{ return ts_lexer_build_node(lexer, ts_builtin_sym_error); }
+{ DEBUG_LEX("ERROR"); return ts_lexer_build_node(lexer, ts_builtin_sym_error); }
 
 #define LEX_PANIC() \
 { DEBUG_LEX("LEX ERROR: unexpected state %d", lex_state); return NULL; }

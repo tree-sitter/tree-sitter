@@ -21,7 +21,7 @@ namespace tree_sitter {
     using rules::Repeat;
     using rules::CharacterRange;
     using rules::blank;
-    
+
     namespace prepare_grammar {
         class PatternParser {
         public:
@@ -29,7 +29,7 @@ namespace tree_sitter {
                 input(input),
                 length(input.length()),
                 position(0) {}
-            
+
             pair<rule_ptr, const GrammarError *> rule(bool nested) {
                 vector<rule_ptr> choices = {};
                 do {
@@ -47,7 +47,7 @@ namespace tree_sitter {
                 auto rule = (choices.size() > 1) ? make_shared<Choice>(choices) : choices.front();
                 return { rule, nullptr };
             }
-            
+
         private:
             pair<rule_ptr, const GrammarError *> term(bool nested) {
                 rule_ptr result = blank();
@@ -63,7 +63,7 @@ namespace tree_sitter {
                 } while (has_more_input());
                 return { result, nullptr };
             }
-            
+
             pair<rule_ptr, const GrammarError *> factor() {
                 auto pair = atom();
                 if (pair.second)
@@ -87,7 +87,7 @@ namespace tree_sitter {
                 }
                 return { result, nullptr };
             }
-            
+
             pair<rule_ptr, const GrammarError *> atom() {
                 switch (peek()) {
                     case '(': {
@@ -103,7 +103,7 @@ namespace tree_sitter {
                     case '[': {
                         next();
                         auto pair = char_set();
-                        if (pair.second) 
+                        if (pair.second)
                             return { blank(), pair.second };
                         if (peek() != ']')
                             return error("unmatched open square bracket");
@@ -122,13 +122,13 @@ namespace tree_sitter {
                     }
                     default: {
                         auto pair = single_char();
-                        if (pair.second) 
+                        if (pair.second)
                             return { blank(), pair.second };
                         return { pair.first.copy(), nullptr };
                     }
                 }
             }
-            
+
             pair<CharacterSet, const GrammarError *> char_set() {
                 bool is_affirmative = true;
                 if (peek() == '^') {
@@ -146,7 +146,7 @@ namespace tree_sitter {
                     result = result.complement();
                 return { result, nullptr };
             }
-            
+
             pair<CharacterSet, const GrammarError *> single_char() {
                 CharacterSet value;
                 switch (peek()) {
@@ -168,7 +168,7 @@ namespace tree_sitter {
                 }
                 return { value, nullptr };
             }
-            
+
             CharacterSet escaped_char(char value) {
                 switch (value) {
                     case 'a':
@@ -181,23 +181,23 @@ namespace tree_sitter {
                         return CharacterSet({ value });
                 }
             }
-            
+
             void next() {
                 position++;
             }
-            
+
             char peek() {
                 return input[position];
             }
-            
+
             bool has_more_input() {
                 return position < length;
             }
-            
+
             pair<rule_ptr, const GrammarError *> error(string msg) {
                 return { blank(), new GrammarError(GrammarErrorTypeRegex, msg) };
             }
-            
+
             const string input;
             const size_t length;
             size_t position;

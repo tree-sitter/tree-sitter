@@ -80,6 +80,16 @@ try {
     (statement_block (expression_statement (function_call (identifier) (identifier))))))
 
 ===========================================
+parses indented code after blocks
+===========================================
+  function x() {}
+  return z;
+---
+(program
+    (expression_statement
+        (function_expression (identifier) (formal_parameters) (statement_block)))
+    (return_statement (identifier)))
+===========================================
 parses switch statements
 ===========================================
 switch(x) {
