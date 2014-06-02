@@ -81,7 +81,6 @@ ts_tree * ts_stack_reduce(ts_stack *stack,
     // later collapse the stack again when the document is edited.
     // We store the children and immediate children in the same array,
     // to reduce allocations.
-    size_t size = 0, offset = 0;
     size_t child_index = child_count;
     ts_tree **children = malloc((child_count + immediate_child_count) * sizeof(ts_tree *));
     ts_tree **immediate_children = children + child_count;
@@ -99,16 +98,9 @@ ts_tree * ts_stack_reduce(ts_stack *stack,
             child_index--;
             children[child_index] = child;
         }
-
-        if (child_index == 0) {
-            offset += ts_tree_offset(child);
-            size += ts_tree_size(child);
-        } else {
-            size += ts_tree_offset(child) + ts_tree_size(child);
-        }
     }
 
-    ts_tree *lookahead = ts_tree_make_node(symbol, child_count, immediate_child_count, children, size, offset);
+    ts_tree *lookahead = ts_tree_make_node(symbol, child_count, immediate_child_count, children);
     ts_stack_shrink(stack, stack->size - immediate_child_count);
     return lookahead;
 }

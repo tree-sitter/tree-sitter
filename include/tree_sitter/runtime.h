@@ -14,7 +14,7 @@ typedef unsigned short ts_symbol;
 
 typedef struct ts_tree ts_tree;
 ts_tree * ts_tree_make_leaf(ts_symbol symbol, size_t size, size_t offset);
-ts_tree * ts_tree_make_node(ts_symbol symbol, size_t child_count, size_t immediate_child_count, ts_tree **children, size_t size, size_t offset);
+ts_tree * ts_tree_make_node(ts_symbol symbol, size_t child_count, size_t immediate_child_count, ts_tree **children);
 ts_tree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, const ts_symbol *expected_inputs, size_t size, size_t offset);
 void ts_tree_retain(ts_tree *tree);
 void ts_tree_release(ts_tree *tree);

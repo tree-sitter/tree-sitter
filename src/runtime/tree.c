@@ -40,10 +40,19 @@ ts_tree * ts_tree_make_leaf(ts_symbol symbol, size_t size, size_t offset) {
     return result;
 }
 
-ts_tree * ts_tree_make_node(ts_symbol symbol, size_t child_count, size_t immediate_child_count, ts_tree **children, size_t size, size_t offset) {
+ts_tree * ts_tree_make_node(ts_symbol symbol, size_t child_count, size_t immediate_child_count, ts_tree **children) {
     ts_tree **immediate_children = children + child_count;
-    for (size_t i = 0; i < immediate_child_count; i++)
-        ts_tree_retain(immediate_children[i]);
+    size_t size, offset;
+    for (size_t i = 0; i < immediate_child_count; i++) {
+        ts_tree *child = immediate_children[i];
+        ts_tree_retain(child);
+        if (i == 0) {
+            offset = ts_tree_offset(child);
+            size = ts_tree_size(child);
+        } else {
+            size += ts_tree_offset(child) + ts_tree_size(child);
+        }
+    }
     ts_tree *result = ts_tree_make(symbol, size, offset);
     result->data.children.count = child_count;
     result->data.children.immediate_count = immediate_child_count;
