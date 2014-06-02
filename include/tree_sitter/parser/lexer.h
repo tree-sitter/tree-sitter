@@ -13,6 +13,7 @@ typedef struct {
     size_t position_in_chunk;
     size_t token_end_position;
     size_t token_start_position;
+    int reached_end;
 } ts_lexer;
 
 static ts_lexer ts_lexer_make() {
@@ -23,6 +24,7 @@ static ts_lexer ts_lexer_make() {
         .position_in_chunk = 0,
         .token_start_position = 0,
         .token_end_position = 0,
+        .reached_end = 0,
     };
     return result;
 }
@@ -35,7 +37,7 @@ static char ts_lexer_lookahead_char(const ts_lexer *lexer) {
     return lexer->chunk[lexer->position_in_chunk];
 }
 
-static void ts_lexer_advance(ts_lexer *lexer) {
+static int ts_lexer_advance(ts_lexer *lexer) {
     static const char empty_chunk[1] = "";
     if (lexer->position_in_chunk + 1 < lexer->chunk_size) {
         lexer->position_in_chunk++;
@@ -43,11 +45,15 @@ static void ts_lexer_advance(ts_lexer *lexer) {
         lexer->chunk_start += lexer->chunk_size;
         lexer->chunk = lexer->input.read_fn(lexer->input.data, &lexer->chunk_size);
         if (lexer->chunk_size == 0) {
+            if (lexer->reached_end)
+                return 0;
             lexer->chunk = empty_chunk;
             lexer->chunk_size = 1;
+            lexer->reached_end = 1;
         }
         lexer->position_in_chunk = 0;
     }
+    return 1;
 }
 
 static void ts_lexer_start_token(ts_lexer *lexer) {

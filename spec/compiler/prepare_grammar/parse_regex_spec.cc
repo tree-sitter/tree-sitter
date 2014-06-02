@@ -12,7 +12,7 @@ describe("parsing regex patterns", []() {
         string pattern;
         rule_ptr rule;
     };
-    
+
     vector<ValidInputRow> valid_inputs = {
         {
             "character sets",

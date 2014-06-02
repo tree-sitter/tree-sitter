@@ -157,10 +157,12 @@ ts_lr_parser_handle_error(ts_lr_parser *parser) {
         ts_tree_release(parser->lookahead);
         size_t position = ts_lexer_position(&parser->lexer);
         parser->lookahead = parser->config.lex_fn(&parser->lexer, ts_lex_state_error);
-        if (ts_lexer_position(&parser->lexer) == position)
-            ts_lexer_advance(&parser->lexer);
 
-        if (ts_tree_symbol(parser->lookahead) == ts_builtin_sym_end) {
+        int at_end = 0;
+        if (ts_lexer_position(&parser->lexer) == position)
+            at_end = !ts_lexer_advance(&parser->lexer);
+
+        if (at_end || ts_tree_symbol(parser->lookahead) == ts_builtin_sym_end) {
             ts_stack_push(&parser->stack, 0, error);
             return 0;
         }
