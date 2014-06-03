@@ -1,12 +1,5 @@
 #include "runtime_spec_helper.h"
 
-static ts_tree ** tree_array(vector<ts_tree *> trees) {
-    ts_tree ** result = (ts_tree **)calloc(trees.size(), sizeof(ts_tree *));
-    for (size_t i = 0; i < trees.size(); i++)
-        result[i] = trees[i];
-    return result;
-}
-
 START_TEST
 
 enum {

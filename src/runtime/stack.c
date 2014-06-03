@@ -13,6 +13,11 @@ ts_stack ts_stack_make() {
     return result;
 }
 
+void ts_stack_delete(ts_stack *stack) {
+    ts_stack_shrink(stack, 0);
+    free(stack->entries);
+}
+
 ts_state_id ts_stack_top_state(const ts_stack *stack) {
     if (stack->size == 0) return INITIAL_STATE;
     return stack->entries[stack->size - 1].state;
@@ -27,6 +32,7 @@ void ts_stack_push(ts_stack *stack, ts_state_id state, ts_tree *node) {
     stack->entries[stack->size].state = state;
     stack->entries[stack->size].node = node;
     stack->size++;
+    ts_tree_retain(node);
 }
 
 void ts_stack_shrink(ts_stack *stack, size_t new_size) {
