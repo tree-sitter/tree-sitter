@@ -17,15 +17,14 @@ typedef struct {
 } ts_lexer;
 
 static inline ts_lexer ts_lexer_make() {
-    ts_lexer result = {
-        .chunk = NULL,
-        .chunk_start = 0,
-        .chunk_size = 0,
-        .position_in_chunk = 0,
-        .token_start_position = 0,
-        .token_end_position = 0,
-        .reached_end = 0,
-    };
+    ts_lexer result;
+    result.chunk = NULL;
+    result.chunk_start = 0;
+    result.chunk_size = 0;
+    result.position_in_chunk = 0;
+    result.token_start_position = 0;
+    result.token_end_position = 0;
+    result.reached_end = 0;
     return result;
 }
 

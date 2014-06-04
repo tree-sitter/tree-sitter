@@ -3,17 +3,8 @@
 
 START_TEST
 
-enum {
-    sym1 = 101,
-    sym2 = 102,
-    hidden_sym = 103,
-};
-
-int hidden_symbols[] = {
-    [sym1] = 0,
-    [sym2] = 0,
-    [hidden_sym] = 1,
-};
+enum { sym1, sym2, hidden_sym };
+int hidden_symbols[] = { 0, 0, 1 };
 
 describe("stacks", [&]() {
     ts_stack stack;

@@ -8,13 +8,7 @@ enum {
     pig = 4,
 };
 
-static const char *names[] = {
-    [ts_builtin_sym_error] = "error",
-    [ts_builtin_sym_end] = "end",
-    [cat] = "cat",
-    [dog] = "dog",
-    [pig] = "pig",
-};
+static const char *names[] = { "error", "end", "cat", "dog", "pig" };
 
 describe("trees", []() {
     ts_tree *tree1, *tree2, *parent1;
