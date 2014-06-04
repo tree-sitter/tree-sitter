@@ -217,5 +217,7 @@ ts_tree * ts_lr_parser_parse(ts_lr_parser *parser, const char **symbol_names) {
                 return NULL;
             else
                 return get_tree_root(parser);
+        default:
+            return NULL;
     }
 }
