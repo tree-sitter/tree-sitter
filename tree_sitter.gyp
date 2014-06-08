@@ -73,7 +73,7 @@
         }]
       ],
       'sources': [
-        '<!@(find spec/runtime -name "*.h" -or -name "*.cc")',
+        '<!@(find spec/runtime -name "*.h" -or -name "*.cc" -or -name "*.c")',
         '<!@(find examples/parsers -name "*.c")',
         '<!@(find spec/runtime/languages -name "*.txt")',
       ],
