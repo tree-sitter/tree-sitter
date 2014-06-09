@@ -21,11 +21,6 @@ static int spy_seek(void *data, size_t position) {
     return 0;
 }
 
-static void spy_release(void *data) {
-    SpyReader *reader = static_cast<SpyReader *>(data);
-    delete reader;
-}
-
 SpyReader::SpyReader(string content, size_t chunk_size) :
     content(content),
     position(0),
@@ -34,5 +29,5 @@ SpyReader::SpyReader(string content, size_t chunk_size) :
         this,
         spy_read,
         spy_seek,
-        spy_release,
+        nullptr,
     }) {}

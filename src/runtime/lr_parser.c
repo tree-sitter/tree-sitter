@@ -176,6 +176,14 @@ ts_lr_parser * ts_lr_parser_make(size_t symbol_count,
     return result;
 }
 
+void ts_lr_parser_free(void *data) {
+    ts_lr_parser *parser = (ts_lr_parser *)data;
+    if (parser->lookahead) ts_tree_release(parser->lookahead);
+    if (parser->next_lookahead) ts_tree_release(parser->next_lookahead);
+    ts_stack_delete(&parser->stack);
+    free(parser);
+}
+
 void ts_lr_parser_initialize(ts_lr_parser *parser, ts_input input, ts_input_edit *edit) {
     if (!edit) ts_stack_shrink(&parser->stack, 0);
     parser->lookahead = NULL;

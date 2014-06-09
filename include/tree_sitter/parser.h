@@ -75,7 +75,7 @@ static const ts_tree * ts_parse(void *data, ts_input input, ts_input_edit *edit)
 ts_parser constructor_name() { \
     return (ts_parser) { \
         .parse_fn = ts_parse, \
-        .free_fn = NULL, \
+        .free_fn = ts_lr_parser_free, \
         .symbol_names = ts_symbol_names, \
         .data = ts_lr_parser_make( \
             SYMBOL_COUNT, \

@@ -19,12 +19,12 @@ describe("Languages", [&]() {
         ts_document_free(doc);
     });
 
-    auto run_tests_for_language = [&](string language, ts_parser parser) {
+    auto run_tests_for_language = [&](string language, ts_parser (parser_constructor)()) {
         describe(language.c_str(), [&]() {
             before_each([&]() {
-                ts_document_set_parser(doc, parser);
+                ts_document_set_parser(doc, parser_constructor());
             });
-
+            
             for (auto &entry : test_entries_for_language(language)) {
                 it(entry.description.c_str(), [&]() {
                     ts_document_set_input_string(doc, entry.input.c_str());
@@ -34,10 +34,10 @@ describe("Languages", [&]() {
         });
     };
 
-    run_tests_for_language("json", ts_parser_json());
-    run_tests_for_language("arithmetic", ts_parser_arithmetic());
-    run_tests_for_language("javascript", ts_parser_javascript());
-    run_tests_for_language("golang", ts_parser_golang());
+    run_tests_for_language("json", ts_parser_json);
+    run_tests_for_language("arithmetic", ts_parser_arithmetic);
+    run_tests_for_language("javascript", ts_parser_javascript);
+    run_tests_for_language("golang", ts_parser_golang);
 });
 
 END_TEST

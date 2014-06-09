@@ -13,6 +13,10 @@ ts_document * ts_document_make() {
 }
 
 void ts_document_free(ts_document *document) {
+    if (document->parser.free_fn)
+        document->parser.free_fn(document->parser.data);
+    if (document->input.release_fn)
+        document->input.release_fn(document->input.data);
     free(document);
 }
 
