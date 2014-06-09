@@ -42,7 +42,7 @@ ts_tree * ts_tree_make_leaf(ts_symbol symbol, size_t size, size_t offset) {
 
 ts_tree * ts_tree_make_node(ts_symbol symbol, size_t child_count, size_t immediate_child_count, ts_tree **children) {
     ts_tree **immediate_children = children + child_count;
-    size_t size, offset;
+    size_t size = 0, offset = 0;
     for (size_t i = 0; i < immediate_child_count; i++) {
         ts_tree *child = immediate_children[i];
         ts_tree_retain(child);
