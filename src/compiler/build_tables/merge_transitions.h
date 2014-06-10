@@ -17,14 +17,14 @@ namespace tree_sitter {
         template<typename T>
         void merge_sym_transitions(std::map<rules::Symbol, T> *left,
                                    const std::map<rules::Symbol, T> &right,
-                                   std::function<T(T *, const T *)> merge_fn) {
+                                   std::function<void(T *, const T *)> merge_fn) {
             for (auto &pair : right) {
                 auto rule = pair.first;
                 bool merged = false;
                 for (auto &existing_pair : *left) {
                     auto existing_rule = existing_pair.first;
                     if (existing_rule == rule) {
-                        existing_pair.second = merge_fn(&existing_pair.second, &pair.second);
+                        merge_fn(&existing_pair.second, &pair.second);
                         merged = true;
                         break;
                     } else if (rule < existing_rule) {
@@ -45,7 +45,7 @@ namespace tree_sitter {
         template<typename T>
         void merge_char_transitions(std::map<rules::CharacterSet, T> *left,
                                     const std::map<rules::CharacterSet, T> &right,
-                                    std::function<T(T *, const T *)> merge_fn) {
+                                    std::function<void(T *, const T *)> merge_fn) {
             for (auto &new_pair : right) {
                 rules::CharacterSet new_char_set = new_pair.first;
                 T new_value = new_pair.second;
@@ -62,7 +62,8 @@ namespace tree_sitter {
                         new_char_set.remove_set(intersection);
                         if (!char_set.is_empty())
                             pairs_to_insert.insert({ char_set, value });
-                        pairs_to_insert.insert({ intersection, merge_fn(&value, &new_value) });
+                        merge_fn(&value, &new_value);
+                        pairs_to_insert.insert({ intersection, value });
                         left->erase(iter++);
                     } else {
                         ++iter;

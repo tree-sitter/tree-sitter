@@ -15,9 +15,8 @@ namespace tree_sitter {
 
     namespace build_tables {
         template<typename T>
-        static unordered_set<T> merge_sets(unordered_set<T> *left, const unordered_set<T> *right) {
+        static void merge_sets(unordered_set<T> *left, const unordered_set<T> *right) {
             left->insert(right->begin(), right->end());
-            return *left;
         }
 
         const Symbol placeholder_lookahead = Symbol(-100);
@@ -76,8 +75,8 @@ namespace tree_sitter {
             for (const ParseItem &item : item_set)
                 merge_sym_transitions<ParseItemSet>(&result,
                                                     sym_transitions_for_item(this, item, grammar),
-                                                    [&](ParseItemSet *l, const ParseItemSet *r) {
-                                                        return merge_sets(l, r);
+                                                    [](ParseItemSet *l, const ParseItemSet *r) {
+                                                        merge_sets(l, r);
                                                     });
             return result;
         }
@@ -94,8 +93,8 @@ namespace tree_sitter {
                         LexItemSet({ next_item })
                     });
                 }
-                merge_char_transitions<LexItemSet>(&result, item_transitions, [](LexItemSet *l, const LexItemSet *r) -> LexItemSet {
-                    return merge_sets(l, r);
+                merge_char_transitions<LexItemSet>(&result, item_transitions, [](LexItemSet *l, const LexItemSet *r) {
+                    merge_sets(l, r);
                 });
             }
             return result;
