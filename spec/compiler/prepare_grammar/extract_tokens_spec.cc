@@ -132,11 +132,9 @@ describe("extracting tokens from a grammar", []() {
                 { "rule_A", str("ab") },
                 { "rule_B", i_sym(0) },
                 { "rule_C", i_sym(1) },
-            }, {}, PreparedGrammarOptions({
-                { Symbol(0) }
-            })));
+            }, {}).ubiquitous_tokens({ Symbol(0) }));
 
-            AssertThat(result.first.options.ubiquitous_tokens, Equals(vector<Symbol>({
+            AssertThat(result.first.ubiquitous_tokens(), Equals(vector<Symbol>({
                 { Symbol(0, SymbolOptionToken) }
             })));
         });

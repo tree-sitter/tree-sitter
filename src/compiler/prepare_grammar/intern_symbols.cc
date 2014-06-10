@@ -65,7 +65,7 @@ namespace tree_sitter {
             }
 
             return {
-                PreparedGrammar(rules, {}, PreparedGrammarOptions({ ubiquitous_tokens })),
+                PreparedGrammar(rules, {}).ubiquitous_tokens(ubiquitous_tokens),
                 nullptr
             };
         }

@@ -49,7 +49,7 @@ describe("interning symbols in a grammar", []() {
         auto result = intern_symbols(grammar);
 
         AssertThat(result.second, Equals((GrammarError *)nullptr));
-        AssertThat(result.first.options.ubiquitous_tokens, Equals(vector<Symbol>({
+        AssertThat(result.first.ubiquitous_tokens(), Equals(vector<Symbol>({
             Symbol(2)
         })));
     });

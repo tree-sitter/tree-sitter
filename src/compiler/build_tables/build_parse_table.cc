@@ -60,7 +60,7 @@ namespace tree_sitter {
             }
 
             void add_ubiquitous_token_actions(const ParseItemSet &item_set, ParseStateId state_id) {
-                for (const Symbol &symbol : grammar.options.ubiquitous_tokens) {
+                for (const Symbol &symbol : grammar.ubiquitous_tokens()) {
                     auto &actions = parse_table.states[state_id].actions;
                     if (actions.find(symbol) == actions.end())
                         parse_table.add_action(state_id, symbol, ParseAction::Shift(state_id, { 0 }));

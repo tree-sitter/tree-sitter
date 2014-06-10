@@ -55,14 +55,16 @@ namespace tree_sitter {
                 rules.push_back({ pair.first, rule });
             }
 
-            for (auto &pair : grammar.aux_rules) {
+            for (auto &pair : grammar.aux_rules()) {
                 auto rule = expander.apply(pair.second);
                 if (expander.error)
                     return { PreparedGrammar(), expander.error };
                 aux_rules.push_back({ pair.first, rule });
             }
 
-            return { PreparedGrammar(rules, aux_rules, grammar.options), nullptr };
+            return {
+                PreparedGrammar(rules, aux_rules).ubiquitous_tokens(grammar.ubiquitous_tokens()),
+                nullptr };
         }
     }
 }

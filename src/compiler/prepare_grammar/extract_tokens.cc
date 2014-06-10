@@ -113,8 +113,8 @@ namespace tree_sitter {
                 }
             }
 
-            for (size_t i = 0; i < input_grammar.aux_rules.size(); i++) {
-                auto pair = input_grammar.aux_rules[i];
+            for (size_t i = 0; i < input_grammar.aux_rules().size(); i++) {
+                auto pair = input_grammar.aux_rules()[i];
                 if (IsToken().apply(pair.second)) {
                     aux_tokens.push_back(pair);
                     symbol_replacements.insert({
@@ -133,14 +133,11 @@ namespace tree_sitter {
                 pair.second = inliner.apply(pair.second);
             for (auto &pair : aux_rules)
                 pair.second = inliner.apply(pair.second);
-            for (auto &symbol : input_grammar.options.ubiquitous_tokens)
+            for (auto &symbol : input_grammar.ubiquitous_tokens())
                 ubiquitous_tokens.push_back(inliner.replace_symbol(symbol));
 
-            PreparedGrammarOptions parse_options(input_grammar.options);
-            parse_options.ubiquitous_tokens = ubiquitous_tokens;
-
             return {
-                PreparedGrammar(rules, aux_rules, parse_options),
+                PreparedGrammar(rules, aux_rules).ubiquitous_tokens(ubiquitous_tokens),
                 PreparedGrammar(tokens, aux_tokens)
             };
         }

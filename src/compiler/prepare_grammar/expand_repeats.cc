@@ -51,7 +51,7 @@ namespace tree_sitter {
         };
 
         PreparedGrammar expand_repeats(const PreparedGrammar &grammar) {
-            vector<pair<string, rules::rule_ptr>> rules, aux_rules(grammar.aux_rules);
+            vector<pair<string, rules::rule_ptr>> rules, aux_rules(grammar.aux_rules());
 
             for (auto &pair : grammar.rules()) {
                 ExpandRepeats expander(pair.first, aux_rules.size());
@@ -59,7 +59,8 @@ namespace tree_sitter {
                 aux_rules.insert(aux_rules.end(), expander.aux_rules.begin(), expander.aux_rules.end());
             }
 
-            return PreparedGrammar(rules, aux_rules, grammar.options);
+            return PreparedGrammar(rules, aux_rules).
+                ubiquitous_tokens(grammar.ubiquitous_tokens());
         }
     }
 }

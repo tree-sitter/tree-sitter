@@ -266,7 +266,7 @@ namespace tree_sitter {
 
             string ubiquitous_symbols_list() {
                 string result = "UBIQUITOUS_SYMBOLS = {\n";
-                for (auto &symbol : syntax_grammar.options.ubiquitous_tokens)
+                for (auto &symbol : syntax_grammar.ubiquitous_tokens())
                     result += indent("[" + symbol_id(symbol) + "] = 1,") + "\n";
                 return result + "};";
             }

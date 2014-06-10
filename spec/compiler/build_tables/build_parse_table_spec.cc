@@ -10,14 +10,11 @@ using namespace build_tables;
 START_TEST
 
 describe("building parse tables", []() {
-    PreparedGrammar parse_grammar({
+    auto parse_grammar = PreparedGrammar({
         { "rule0", choice({ i_sym(1), i_sym(2) }) },
         { "rule1", i_token(0) },
         { "rule2", i_token(1) },
-    }, {}, PreparedGrammarOptions({
-        // ubiquitous_tokens
-        { Symbol(2, SymbolOptionToken) }
-    }));
+    }, {}).ubiquitous_tokens({ Symbol(2, SymbolOptionToken) });
 
     PreparedGrammar lex_grammar({
         { "token0", pattern("[a-c]") },
