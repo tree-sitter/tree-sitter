@@ -29,9 +29,9 @@ func argsOfDifferentTypes() (arg1 string, arg2 int64) {}
 ---
 (program
     (package_directive (package_name))
-    (func_declaration (var_name) (var_name) (interface_type) (statement_block))
-    (func_declaration (var_name) (var_name) (var_name) (type_name) (statement_block))
-    (func_declaration (var_name) (var_name) (type_name) (var_name) (type_name) (statement_block)))
+    (func_declaration (var_name) (var_name) (interface_type) (block_statement))
+    (func_declaration (var_name) (var_name) (var_name) (type_name) (block_statement))
+    (func_declaration (var_name) (var_name) (type_name) (var_name) (type_name) (block_statement)))
 
 ============================================
 parses functions with unnamed return values
@@ -44,9 +44,9 @@ func multipleReturnValues() (string, int64, error) {}
 (program
     (package_directive (package_name))
     (func_declaration (var_name) (type_name)
-        (statement_block))
+        (block_statement))
     (func_declaration (var_name) (type_name) (type_name) (type_name)
-        (statement_block)))
+        (block_statement)))
 
 ============================================
 parses functions with named return values
@@ -59,7 +59,7 @@ func multipleReturnValues() (result string, count int64, err error) {}
 (program
     (package_directive (package_name))
     (func_declaration (var_name) (var_name) (type_name)
-        (statement_block))
+        (block_statement))
     (func_declaration (var_name) (var_name) (type_name) (var_name) (type_name) (var_name) (type_name)
-        (statement_block)))
+        (block_statement)))
 

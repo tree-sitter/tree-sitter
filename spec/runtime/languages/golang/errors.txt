@@ -8,5 +8,5 @@ package trivial
 ---
 (program
     (package_directive (package_name))
-    (func_declaration (var_name) (statement_block))
-    (func_declaration (var_name) (statement_block)))
+    (func_declaration (var_name) (block_statement))
+    (func_declaration (var_name) (block_statement)))

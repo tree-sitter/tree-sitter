@@ -46,8 +46,8 @@ namespace tree_sitter_examples {
             keyword("func"),
             sym("var_name"),
             sym("_func_signature"),
-            sym("statement_block") })) },
-        { "statement_block", in_braces(err(repeat(sym("statement")))) },
+            sym("block_statement") })) },
+        { "block_statement", in_braces(err(repeat(sym("statement")))) },
         { "type_expression", choice({
             sym("pointer_type"),
             sym("slice_type"),
@@ -81,10 +81,24 @@ namespace tree_sitter_examples {
         // Statements
         { "statement", choice({
             sym("expression_statement"),
-            sym("return_statement") }) },
+            sym("return_statement"),
+            sym("declaration_statement"),
+            sym("if_statement") }) },
         { "return_statement", seq({
             keyword("return"),
             comma_sep(sym("expression")) }) },
+        { "declaration_statement", choice({
+            sym("var_declaration"),
+            seq({ comma_sep(sym("var_name")), str(":="), sym("expression") }) }) },
+        { "if_statement", seq({
+            keyword("if"),
+            sym("expression"),
+            sym("block_statement"),
+            optional(seq({
+                keyword("else"),
+                choice({
+                    sym("if_statement"),
+                    sym("block_statement") }) })) }) },
         { "expression_statement", terminated(sym("expression")) },
 
         // Value expressions

@@ -11,7 +11,7 @@ func z() {}
     (package_directive (package_name))
     (type_declaration (type_name) (type_name))
     (var_declaration (var_name) (string))
-    (func_declaration (var_name) (statement_block)))
+    (func_declaration (var_name) (block_statement)))
 
 ==========================================
 parses var declarations
@@ -40,4 +40,4 @@ func main() {
 (program
     (package_directive (package_name))
     (var_declaration (var_name) (expression (number) (comment)))
-    (func_declaration (var_name) (statement_block (comment))))
+    (func_declaration (var_name) (block_statement (comment))))

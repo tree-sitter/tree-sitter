@@ -11,9 +11,54 @@ func helper() {
     return 1, two, "three"
 }
 ---
-(program
-    (package_directive (package_name))
-    (func_declaration (var_name) (statement_block
+(program (package_directive (package_name))
+    (func_declaration (var_name) (block_statement
         (return_statement)))
-    (func_declaration (var_name) (statement_block
+    (func_declaration (var_name) (block_statement
         (return_statement (number) (var_name) (string)))))
+
+============================================
+parses variable declaration statements
+============================================
+package main
+
+func main() {
+    x, y := stuff()
+    var z = 10
+    println(x, y, z)
+}
+---
+(program (package_directive (package_name))
+    (func_declaration (var_name) (block_statement
+        (declaration_statement (var_name) (var_name) (call_expression (var_name)))
+        (var_declaration (var_name) (number))
+        (expression_statement (call_expression (var_name) (var_name) (var_name) (var_name))))))
+
+============================================
+parses if statements
+============================================
+package main
+
+func main() {
+    if condition1() {
+    }
+    
+    if condition2() {
+    } else {
+    }
+    
+    if condition3() {
+    } else if condition4() {
+    }
+}
+---
+(program (package_directive (package_name))
+    (func_declaration (var_name) (block_statement
+        (if_statement (call_expression (var_name))
+            (block_statement))
+        (if_statement (call_expression (var_name))
+            (block_statement) (block_statement))
+        (if_statement (call_expression (var_name))
+            (block_statement)
+            (if_statement (call_expression (var_name))
+                (block_statement))))))
