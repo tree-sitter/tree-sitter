@@ -1,6 +1,7 @@
 #include "compiler/prepare_grammar/parse_regex.h"
 #include <string>
 #include <utility>
+#include <vector>
 #include "compiler/rules/choice.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/repeat.h"

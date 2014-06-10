@@ -69,7 +69,6 @@ namespace tree_sitter {
                 size_t index = tokens.size();
                 tokens.push_back({ token_description(rule), rule });
                 return make_shared<Symbol>(index, SymbolOptionAuxToken);
-
             }
 
             rule_ptr default_apply(const rules::Rule *rule) {

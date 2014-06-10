@@ -37,7 +37,7 @@ static ts_tree * ts_lex(ts_lexer *lexer, ts_state_id lex_state)
 #else
 #define DEBUG_LEX(...)
 #endif
-    
+
 #define START_LEXER() \
 DEBUG_LEX("LEX %d", lex_state); \
 char lookahead; \

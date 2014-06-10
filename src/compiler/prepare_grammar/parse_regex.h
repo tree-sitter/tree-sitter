@@ -1,9 +1,9 @@
 #ifndef COMPILER_PREPARE_GRAMMAR_PARSE_REGEX_H_
 #define COMPILER_PREPARE_GRAMMAR_PARSE_REGEX_H_
 
-#include "tree_sitter/compiler.h"
 #include <string>
 #include <utility>
+#include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
     namespace prepare_grammar {
@@ -11,6 +11,5 @@ namespace tree_sitter {
         parse_regex(const std::string &);
     }
 }
-
 
 #endif  // COMPILER_PREPARE_GRAMMAR_PARSE_REGEX_H_

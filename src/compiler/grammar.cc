@@ -56,7 +56,7 @@ namespace tree_sitter {
         else
             return stream << string("#<null>");
     }
-    
+
     const vector<string> & Grammar::ubiquitous_tokens() const {
         return ubiquitous_tokens_;
     }
@@ -65,7 +65,7 @@ namespace tree_sitter {
         ubiquitous_tokens_ = ubiquitous_tokens;
         return *this;
     }
-    
+
     const vector<pair<string, rule_ptr>> & Grammar::rules() const {
         return rules_;
     }

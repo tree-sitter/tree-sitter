@@ -1,6 +1,7 @@
 #ifndef COMPILER_PREPARE_GRAMMAR_EXPAND_TOKENS_H_
 #define COMPILER_PREPARE_GRAMMAR_EXPAND_TOKENS_H_
 
+#include <utility>
 #include "tree_sitter/compiler.h"
 
 namespace tree_sitter {

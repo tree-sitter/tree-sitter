@@ -27,12 +27,12 @@ describe("trees", []() {
         ts_tree_release(tree2);
         ts_tree_release(parent1);
     });
-    
+
     describe("making a parent node", [&]() {
         it("computes its offset and size based on its child nodes", [&]() {
             AssertThat(ts_tree_size(parent1), Equals(9));
         });
-        
+
         it("computes its offset based on its first child", [&]() {
             AssertThat(ts_tree_offset(parent1), Equals(2));
         });

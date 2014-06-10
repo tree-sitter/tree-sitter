@@ -4,7 +4,6 @@
 #include "compiler/rules/pattern.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/choice.h"
-#include "compiler/rules/seq.h"
 #include "compiler/rules/string.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/util/string_helpers.h"

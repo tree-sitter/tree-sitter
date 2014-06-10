@@ -89,7 +89,7 @@ static vector<string> list_directory(string dir_name) {
 		if (name != "." && name != "..")
 			result.push_back(dir_name + "/" + name);
 	}
-    
+
     closedir(dir);
 	return result;
 }

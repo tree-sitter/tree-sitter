@@ -11,6 +11,6 @@ fi
 $CPPLINT \
   --root=src \
   --linelength=110 \
-  --filter=-legal/copyright,-readability/namespace,-whitespace/indent,-whitespace/line_length \
+  --filter=-legal/copyright,-readability/namespace,-whitespace/indent,-whitespace/line_length,-readability/todo \
   $(find src/compiler -type f) \
   2>&1
