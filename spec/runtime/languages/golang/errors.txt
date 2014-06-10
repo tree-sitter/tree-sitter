@@ -1,0 +1,12 @@
+==========================================
+handles indented code after blocks
+=========================================
+package trivial
+
+  func one() {}
+    func two() {}
+---
+(program
+    (package_directive (package_name))
+    (func_declaration (var_name) (statement_block))
+    (func_declaration (var_name) (statement_block)))

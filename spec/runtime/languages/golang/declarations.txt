@@ -1,5 +1,5 @@
 ==========================================
-parses trivial programs
+parses simple declarations
 ==========================================
 package trivial
 
@@ -18,24 +18,13 @@ parses comments
 ==========================================
 package trivial
 
+var x = 1 // on package
+
 func main() {
-    // do stuff
+    // in function
 }
 ---
 (program
     (package_directive (package_name))
-    (func_declaration (var_name) (statement_block
-        (comment))))
-
-==========================================
-handles indented code after blocks
-=========================================
-package trivial
-
-  func one() {}
-  func two() {}
----
-(program
-    (package_directive (package_name))
-    (func_declaration (var_name) (statement_block))
-    (func_declaration (var_name) (statement_block)))
+    (var_declaration (var_name) (expression (number) (comment)))
+    (func_declaration (var_name) (statement_block (comment))))

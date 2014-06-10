@@ -1,0 +1,19 @@
+============================================
+parses return statements
+============================================
+package main
+
+func main() {
+    return
+}
+
+func helper() {
+    return 1, two, "three"
+}
+---
+(program
+    (package_directive (package_name))
+    (func_declaration (var_name) (statement_block
+        (return_statement)))
+    (func_declaration (var_name) (statement_block
+        (return_statement (number) (var_name) (string)))))
