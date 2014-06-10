@@ -1,0 +1,52 @@
+==========================================
+parses function calls
+==========================================
+package main
+
+func main() {
+    println("1", 2)
+    println()
+}
+---
+(program
+    (package_directive (package_name))
+    (func_declaration (var_name) (statement_block
+        (expression_statement (call_expression (var_name) (string) (number)))
+        (expression_statement (call_expression (var_name))))))
+
+============================================
+parses selector expressions
+============================================
+package main
+
+func main() {
+    x.SomeMethod(x.SomeField, x.OtherField.NestedField);
+}
+---
+(program
+    (package_directive (package_name))
+    (func_declaration (var_name) (statement_block
+        (expression_statement (call_expression
+            (selector_expression (var_name) (var_name))
+            (selector_expression (var_name) (var_name))
+            (selector_expression (selector_expression (var_name) (var_name)) (var_name)))))))
+
+============================================
+parses return statements
+============================================
+package main
+
+func main() {
+    return
+}
+
+func helper() {
+    return 1, two, "three"
+}
+---
+(program
+    (package_directive (package_name))
+    (func_declaration (var_name) (statement_block
+        (return_statement)))
+    (func_declaration (var_name) (statement_block
+        (return_statement (number) (var_name) (string)))))

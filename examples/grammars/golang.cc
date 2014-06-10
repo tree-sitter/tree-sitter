@@ -43,7 +43,7 @@ namespace tree_sitter_examples {
             sym("var_name"),
             sym("_func_signature"),
             sym("statement_block") })) },
-        { "statement_block", in_braces(blank()) },
+        { "statement_block", in_braces(err(repeat(sym("statement")))) },
         { "type_expression", choice({
             sym("pointer_type"),
             sym("slice_type"),
@@ -58,13 +58,10 @@ namespace tree_sitter_examples {
             sym("type_expression") }) },
         { "map_type", seq({
             keyword("map"),
-            str("["),
-            sym("type_expression"),
-            str("]"),
+            in_brackets(sym("type_expression")),
             sym("type_expression") }) },
         { "slice_type", seq({
-            str("["),
-            str("]"),
+            in_brackets(blank()),
             sym("type_expression") }) },
         { "struct_type", seq({
             keyword("struct"),
@@ -77,12 +74,30 @@ namespace tree_sitter_examples {
                 sym("var_name"),
                 sym("_func_signature") }))) }) },
 
+        // Statements
+        { "statement", choice({
+            sym("expression_statement"),
+            sym("return_statement") }) },
+        { "return_statement", seq({
+            keyword("return"),
+            comma_sep(sym("expression")) }) },
+        { "expression_statement", terminated(sym("expression")) },
+
         // Value expressions
         { "expression", choice({
+            sym("call_expression"),
+            sym("selector_expression"),
             sym("math_op"),
             sym("bool_op"),
             sym("number"),
             sym("string"),
+            sym("var_name") }) },
+        { "call_expression", seq({
+            sym("expression"),
+            in_parens(comma_sep(sym("expression"))) }) },
+        { "selector_expression", seq({
+            sym("expression"),
+            str("."),
             sym("var_name") }) },
         { "math_op", choice({
             infix_op("*", "expression", 2),

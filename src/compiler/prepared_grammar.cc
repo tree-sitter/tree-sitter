@@ -37,7 +37,7 @@ namespace tree_sitter {
 
     bool PreparedGrammar::operator==(const PreparedGrammar &other) const {
         if (other.rules_.size() != rules_.size()) return false;
-        
+
         for (size_t i = 0; i < rules_.size(); i++) {
             auto &pair = rules_[i];
             auto &other_pair = other.rules_[i];
@@ -56,7 +56,7 @@ namespace tree_sitter {
 
         return true;
     }
-    
+
     const vector<pair<string, rule_ptr>> & PreparedGrammar::rules() const {
         return rules_;
     }
@@ -64,16 +64,16 @@ namespace tree_sitter {
     const vector<pair<string, rule_ptr>> & PreparedGrammar::aux_rules() const {
         return aux_rules_;
     }
-    
+
     const vector<Symbol> & PreparedGrammar::ubiquitous_tokens() const {
         return ubiquitous_tokens_;
     }
-    
+
     const PreparedGrammar & PreparedGrammar::ubiquitous_tokens(const vector<Symbol> &ubiquitous_tokens) {
         ubiquitous_tokens_ = ubiquitous_tokens;
         return *this;
     }
-    
+
     ostream& operator<<(ostream &stream, const PreparedGrammar &grammar) {
         stream << string("#<grammar");
 
