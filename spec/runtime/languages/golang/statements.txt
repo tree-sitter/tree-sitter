@@ -62,3 +62,25 @@ func main() {
             (block_statement)
             (if_statement (call_expression (var_name))
                 (block_statement))))))
+
+=============================================
+parses range statements
+=============================================
+package main
+
+func main() {
+    for k := range theMap() {
+        println(k)
+    }
+
+    for k, v := range theMap() {
+        println(k, v)
+    }
+}
+---
+(program (package_directive (package_name))
+    (func_declaration (var_name) (block_statement
+        (range_statement (var_name) (call_expression (var_name)) (block_statement
+            (expression_statement (call_expression (var_name) (var_name)))))
+        (range_statement (var_name) (var_name) (call_expression (var_name)) (block_statement
+            (expression_statement (call_expression (var_name) (var_name) (var_name))))))))

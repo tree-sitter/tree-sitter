@@ -83,6 +83,7 @@ namespace tree_sitter_examples {
             sym("expression_statement"),
             sym("return_statement"),
             sym("declaration_statement"),
+            sym("range_statement"),
             sym("if_statement") }) },
         { "return_statement", seq({
             keyword("return"),
@@ -90,6 +91,14 @@ namespace tree_sitter_examples {
         { "declaration_statement", choice({
             sym("var_declaration"),
             seq({ comma_sep(sym("var_name")), str(":="), sym("expression") }) }) },
+        { "range_statement", seq({
+            keyword("for"),
+            sym("var_name"),
+            optional(seq({ str(","), sym("var_name") })),
+            str(":="),
+            keyword("range"),
+            sym("expression"),
+            sym("block_statement") }) },
         { "if_statement", seq({
             keyword("if"),
             sym("expression"),
