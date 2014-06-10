@@ -25,19 +25,20 @@ namespace tree_sitter {
         rule_ptr token(rule_ptr rule);
     }
 
-    struct GrammarOptions {
-        std::vector<std::string> ubiquitous_tokens;
-    };
-
     class Grammar {
+    protected:
+        std::vector<std::string> ubiquitous_tokens_;
+        const std::vector<std::pair<std::string, rules::rule_ptr>> rules_;
+
     public:
         Grammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules);
-        Grammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules, GrammarOptions options);
         bool operator==(const Grammar &other) const;
         std::string start_rule_name() const;
         const rules::rule_ptr rule(const std::string &name) const;
-        const std::vector<std::pair<std::string, rules::rule_ptr>> rules;
-        const GrammarOptions options;
+
+        const std::vector<std::string> & ubiquitous_tokens() const;
+        const Grammar & ubiquitous_tokens(const std::vector<std::string> &ubiquitous_tokens);
+        const std::vector<std::pair<std::string, rules::rule_ptr>> & rules() const;
     };
 
     struct Conflict {

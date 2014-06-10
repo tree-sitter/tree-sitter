@@ -48,7 +48,7 @@ namespace tree_sitter {
             vector<pair<string, rule_ptr>> rules, aux_rules;
             ExpandTokens expander;
 
-            for (auto &pair : grammar.rules) {
+            for (auto &pair : grammar.rules()) {
                 auto rule = expander.apply(pair.second);
                 if (expander.error)
                     return { PreparedGrammar(), expander.error };

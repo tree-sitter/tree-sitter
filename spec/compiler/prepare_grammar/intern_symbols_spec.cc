@@ -40,13 +40,11 @@ describe("interning symbols in a grammar", []() {
     });
 
     it("translates the grammar's optional 'ubiquitous_tokens' to numerical symbols", [&]() {
-        Grammar grammar({
+        auto grammar = Grammar({
             { "x", choice({ sym("y"), sym("z") }) },
             { "y", sym("z") },
             { "z", str("stuff") }
-        }, {
-            { "z" }
-        });
+        }).ubiquitous_tokens({ "z" });
 
         auto result = intern_symbols(grammar);
 

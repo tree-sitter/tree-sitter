@@ -53,7 +53,7 @@ namespace tree_sitter {
         PreparedGrammar expand_repeats(const PreparedGrammar &grammar) {
             vector<pair<string, rules::rule_ptr>> rules, aux_rules(grammar.aux_rules);
 
-            for (auto &pair : grammar.rules) {
+            for (auto &pair : grammar.rules()) {
                 ExpandRepeats expander(pair.first, aux_rules.size());
                 rules.push_back({ pair.first, expander.apply(pair.second) });
                 aux_rules.insert(aux_rules.end(), expander.aux_rules.begin(), expander.aux_rules.end());

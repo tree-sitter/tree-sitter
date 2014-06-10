@@ -5,7 +5,7 @@ namespace tree_sitter_examples {
     using tree_sitter::Grammar;
     using namespace tree_sitter::rules;
 
-    extern const Grammar javascript({
+    extern const Grammar javascript = Grammar({
         { "program", repeat(sym("statement")) },
 
         // Statements
@@ -181,8 +181,5 @@ namespace tree_sitter_examples {
         { "null", keyword("null") },
         { "true", keyword("true") },
         { "false", keyword("false") },
-    }, {
-        // ubiquitous_tokens
-        { "comment" }
-    });
+    }).ubiquitous_tokens({ "comment" });
 }

@@ -26,8 +26,8 @@ namespace tree_sitter {
 
         public:
             std::shared_ptr<rules::Symbol> symbol_for_rule_name(string rule_name) {
-                for (size_t i = 0; i < grammar.rules.size(); i++)
-                    if (grammar.rules[i].first == rule_name)
+                for (size_t i = 0; i < grammar.rules().size(); i++)
+                    if (grammar.rules()[i].first == rule_name)
                         return make_shared<rules::Symbol>(i);
                 return nullptr;
             }
@@ -49,7 +49,7 @@ namespace tree_sitter {
             InternSymbols interner(grammar);
             vector<pair<string, rule_ptr>> rules;
 
-            for (auto &pair : grammar.rules) {
+            for (auto &pair : grammar.rules()) {
                 auto new_rule = interner.apply(pair.second);
                 if (!interner.missing_rule_name.empty())
                     return missing_rule_error(interner.missing_rule_name);
@@ -57,7 +57,7 @@ namespace tree_sitter {
             }
 
             vector<rules::Symbol> ubiquitous_tokens;
-            for (auto &name : grammar.options.ubiquitous_tokens) {
+            for (auto &name : grammar.ubiquitous_tokens()) {
                 auto token = interner.symbol_for_rule_name(name);
                 if (!token.get())
                     return missing_rule_error(name);

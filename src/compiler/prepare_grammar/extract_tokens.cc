@@ -101,8 +101,8 @@ namespace tree_sitter {
             TokenExtractor extractor;
             map<Symbol, Symbol> symbol_replacements;
 
-            for (size_t i = 0; i < input_grammar.rules.size(); i++) {
-                auto pair = input_grammar.rules[i];
+            for (size_t i = 0; i < input_grammar.rules().size(); i++) {
+                auto pair = input_grammar.rules()[i];
                 if (IsToken().apply(pair.second)) {
                     tokens.push_back(pair);
                     symbol_replacements.insert({

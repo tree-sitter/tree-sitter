@@ -3,14 +3,13 @@
 
 namespace tree_sitter_examples {
     using tree_sitter::Grammar;
-    using tree_sitter::GrammarOptions;
     using namespace tree_sitter::rules;
 
     static rule_ptr terminated(rule_ptr rule) {
         return seq({ rule, sym("_terminator") });
     }
 
-    extern const Grammar golang({
+    extern const Grammar golang = Grammar({
         { "program", seq({
             sym("package_directive"),
             repeat(sym("imports_block")),
@@ -121,7 +120,5 @@ namespace tree_sitter_examples {
         { "_identifier", pattern("\\a[\\w_]*") },
         { "number", pattern("\\d+(\\.\\d+)?") },
         { "comment", pattern("//[^\n]*") },
-    }, GrammarOptions({
-        { "comment" },
-    }));
+    }).ubiquitous_tokens({ "comment" });
 }

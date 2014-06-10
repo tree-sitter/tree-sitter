@@ -29,13 +29,13 @@ namespace tree_sitter {
     const rule_ptr & PreparedGrammar::rule(const Symbol &symbol) const {
         return symbol.is_auxiliary() ?
             aux_rules[symbol.index].second :
-            rules[symbol.index].second;
+            rules_[symbol.index].second;
     }
 
     const string & PreparedGrammar::rule_name(const Symbol &symbol) const {
         return symbol.is_auxiliary() ?
             aux_rules[symbol.index].first :
-            rules[symbol.index].first;
+            rules_[symbol.index].first;
     }
 
     bool PreparedGrammar::operator==(const PreparedGrammar &other) const {
@@ -55,7 +55,7 @@ namespace tree_sitter {
 
         stream << string(" rules: {");
         bool started = false;
-        for (auto pair : grammar.rules) {
+        for (auto pair : grammar.rules()) {
             if (started) stream << string(", ");
             stream << pair.first;
             stream << string(" => ");
