@@ -24,11 +24,13 @@ describe("Languages", [&]() {
             before_each([&]() {
                 ts_document_set_parser(doc, parser_constructor());
             });
-            
+
             for (auto &entry : test_entries_for_language(language)) {
                 it(entry.description.c_str(), [&]() {
                     ts_document_set_input_string(doc, entry.input.c_str());
-                    AssertThat(ts_document_string(doc), Equals(entry.tree_string.c_str()));
+                    auto doc_string = ts_document_string(doc);
+                    AssertThat(doc_string, Equals(entry.tree_string.c_str()));
+                    free((void *)doc_string);
                 });
             }
         });

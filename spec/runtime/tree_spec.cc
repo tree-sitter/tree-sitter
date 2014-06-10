@@ -79,8 +79,13 @@ describe("trees", []() {
 
     describe("serialization", [&]() {
         it("returns a readable string", [&]() {
-            AssertThat(string(ts_tree_string(tree1, names)), Equals("(cat)"));
-            AssertThat(string(ts_tree_string(parent1, names)), Equals("(dog (cat) (cat))"));
+            auto string1 = ts_tree_string(tree1, names);
+            AssertThat(string(string1), Equals("(cat)"));
+            free(string1);
+
+            auto string2 = ts_tree_string(parent1, names);
+            AssertThat(string(string2), Equals("(dog (cat) (cat))"));
+            free(string2);
         });
     });
 });
