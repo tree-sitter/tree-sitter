@@ -18,7 +18,7 @@ describe("stacks", [&]() {
     });
 
     it("starts out empty", [&]() {
-        AssertThat(stack.size, Equals(0));
+        AssertThat(stack.size, Equals<size_t>(0));
         AssertThat(ts_stack_top_state(&stack), Equals(0));
         AssertThat(ts_stack_top_node(&stack), Equals((ts_tree *)nullptr));
     });
@@ -36,7 +36,7 @@ describe("stacks", [&]() {
         });
 
         it("adds the symbol to the stack", [&]() {
-            AssertThat(stack.size, Equals(1));
+            AssertThat(stack.size, Equals<size_t>(1));
             AssertThat(ts_stack_top_state(&stack), Equals(5));
             AssertThat(ts_stack_top_node(&stack), Equals(node1));
         });
@@ -64,9 +64,9 @@ describe("stacks", [&]() {
         });
 
         it("pops the given number of nodes off the stack", [&]() {
-            AssertThat(stack.size, Equals(4));
+            AssertThat(stack.size, Equals<size_t>(4));
             ts_stack_reduce(&stack, sym2, 3, hidden_symbols, nullptr);
-            AssertThat(stack.size, Equals(1));
+            AssertThat(stack.size, Equals<size_t>(1));
         });
 
         it("returns a node with the given symbol", [&]() {
@@ -85,7 +85,7 @@ describe("stacks", [&]() {
             size_t immediate_child_count;
             ts_tree **immediate_children = ts_tree_immediate_children(node, &immediate_child_count);
 
-            AssertThat(immediate_child_count, Equals(3));
+            AssertThat(immediate_child_count, Equals<size_t>(3));
             for (size_t i = 0; i < 3; i++)
                 AssertThat(immediate_children[i], Equals(expected_children[i]));
         });
@@ -100,7 +100,7 @@ describe("stacks", [&]() {
             size_t child_count;
             ts_tree **children = ts_tree_children(node, &child_count);
 
-            AssertThat(child_count, Equals(2));
+            AssertThat(child_count, Equals<size_t>(2));
             for (size_t i = 0; i < 2; i++)
                 AssertThat(children[i], Equals(expected_children[i]));
         });
@@ -139,7 +139,7 @@ describe("stacks", [&]() {
                 size_t child_count;
                 ts_tree **children = ts_tree_children(node, &child_count);
 
-                AssertThat(child_count, Equals(4));
+                AssertThat(child_count, Equals<size_t>(4));
                 for (size_t i = 0; i < 4; i++)
                     AssertThat(children[i], Equals(expected_children[i]));
             });

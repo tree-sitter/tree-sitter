@@ -30,11 +30,11 @@ describe("trees", []() {
 
     describe("making a parent node", [&]() {
         it("computes its offset and size based on its child nodes", [&]() {
-            AssertThat(ts_tree_size(parent1), Equals(9));
+            AssertThat(ts_tree_size(parent1), Equals<size_t>(9));
         });
 
         it("computes its offset based on its first child", [&]() {
-            AssertThat(ts_tree_offset(parent1), Equals(2));
+            AssertThat(ts_tree_offset(parent1), Equals<size_t>(2));
         });
     });
 
