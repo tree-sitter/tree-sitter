@@ -27,8 +27,8 @@ namespace tree_sitter {
 
     class Grammar {
     protected:
-        std::vector<std::string> ubiquitous_tokens_;
         const std::vector<std::pair<std::string, rules::rule_ptr>> rules_;
+        std::vector<std::string> ubiquitous_tokens_;
 
     public:
         Grammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules);
