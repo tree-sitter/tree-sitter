@@ -36,8 +36,12 @@ namespace tree_sitter_examples {
         { "var_declaration", terminated(seq({
             keyword("var"),
             sym("var_name"),
-            str("="),
-            sym("expression") })) },
+            choice({
+                seq({
+                    optional(sym("type_expression")),
+                    str("="),
+                    sym("expression") }),
+                sym("type_expression") }) })) },
         { "func_declaration", terminated(seq({
             keyword("func"),
             sym("var_name"),

@@ -14,6 +14,19 @@ func z() {}
     (func_declaration (var_name) (statement_block)))
 
 ==========================================
+parses var declarations
+==========================================
+package trivial
+
+var X struct { Y int64 }
+var Z = ""
+---
+(program
+    (package_directive (package_name))
+    (var_declaration (var_name) (struct_type (var_name) (type_name)))
+    (var_declaration (var_name) (string)))
+
+==========================================
 parses comments
 ==========================================
 package trivial
