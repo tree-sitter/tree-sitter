@@ -1,4 +1,54 @@
 ==========================================
+parses function calls
+==========================================
+x.theMethod(5, 6);
+---
+(program (expression_statement (function_call
+    (property_access (identifier) (identifier))
+    (number) (number))))
+
+==========================================
+parses constructor calls
+==========================================
+var x = new Node(5, new Node(3, null));
+---
+(program (var_declaration
+    (assignment (identifier)
+        (constructor_call (function_call (identifier)
+            (number)
+            (constructor_call (function_call (identifier)
+                (number)
+                (null))))))))
+
+==========================================
+parses property access with dot notation
+==========================================
+object.property = "the-value";
+print(object.property);
+---
+(program
+    (expression_statement (assignment
+        (property_access (identifier) (identifier))
+        (string)))
+    (expression_statement (function_call
+        (identifier)
+        (property_access (identifier) (identifier)))))
+
+===========================================
+parses dynamic property access
+==========================================
+object[propertName()] = propertyValue();
+print(object[propertyName()]);
+---
+(program
+    (expression_statement (assignment
+        (property_access (identifier) (function_call (identifier)))
+        (function_call (identifier))))
+    (expression_statement (function_call
+        (identifier)
+        (property_access (identifier) (function_call (identifier))))))
+
+==========================================
 parses ternary expressions
 ==========================================
 print(isDone() ? stuff : otherStuff);

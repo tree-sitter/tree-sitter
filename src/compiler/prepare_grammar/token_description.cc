@@ -14,11 +14,11 @@ namespace tree_sitter {
     namespace prepare_grammar {
         class TokenDescription : public rules::RuleFn<string> {
             string apply_to(const rules::Pattern *rule) {
-                return "/" + rule->value + "/";
+                return "/" + util::escape_string(rule->value) + "/";
             }
 
             string apply_to(const rules::String *rule) {
-                return "'" + rule->value + "'";
+                return "'" + util::escape_string(rule->value) + "'";
             }
 
             string apply_to(const rules::Metadata *rule) {

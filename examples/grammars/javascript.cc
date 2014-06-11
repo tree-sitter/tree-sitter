@@ -5,6 +5,12 @@ namespace tree_sitter_examples {
     using tree_sitter::Grammar;
     using namespace tree_sitter::rules;
 
+    static rule_ptr terminated(rule_ptr rule) {
+        return seq({ rule, prec(-1, token(choice({
+            str("\n"),
+            str(";") }))) });
+    }
+
     extern const Grammar javascript = Grammar({
         { "program", repeat(sym("statement")) },
 
@@ -66,26 +72,19 @@ namespace tree_sitter_examples {
                 keyword("default") }),
             str(":"),
             repeat(sym("statement")) }) },
-        { "break_statement", seq({
-            keyword("break"),
-            sym("_terminator") }) },
-        { "var_declaration", seq({
+        { "break_statement", terminated(keyword("break")) },
+        { "var_declaration", terminated(seq({
             keyword("var"),
             comma_sep(err(choice({
                 sym("assignment"),
-                sym("identifier") }))),
-            sym("_terminator") }) },
-        { "expression_statement", seq({
-            err(sym("expression")),
-            sym("_terminator") }) },
-        { "return_statement", seq({
+                sym("identifier") }))) })) },
+        { "expression_statement", terminated(err(sym("expression"))) },
+        { "return_statement", terminated(seq({
             keyword("return"),
-            optional(sym("expression")),
-            sym("_terminator") }) },
-        { "delete_statement", seq({
+            optional(sym("expression")) })) },
+        { "delete_statement", terminated(seq({
             keyword("delete"),
-            sym("property_access"),
-            sym("_terminator") }) },
+            sym("property_access") })) },
 
         // Expressions
         { "expression", choice({
@@ -183,8 +182,7 @@ namespace tree_sitter_examples {
             str(":"),
             sym("expression") })))) },
         { "array", in_brackets(comma_sep(err(sym("expression")))) },
-        { "_terminator", pattern("[;\n]") },
-        { "regex", token(delimited("/")) },
+        { "regex", token(seq({ delimited("/"), optional(str("g")) })) },
         { "string", token(choice({
             delimited("\""),
             delimited("'") })) },

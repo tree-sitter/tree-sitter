@@ -23,6 +23,27 @@ namespace tree_sitter {
             str_replace(&input, "\n", "\\n");
             return input;
         }
+        
+        string escape_char(char character) {
+            switch (character) {
+                case '\0':
+                    return "\\0";
+                case '"':
+                    return "\\\"";
+                case '\'':
+                    return "\\'";
+                case '\n':
+                    return "\\n";
+                case '\r':
+                    return "\\r";
+                case '\t':
+                    return "\\t";
+                case '\\':
+                    return "\\\\";
+                default:
+                    return string() + character;
+            }
+        }
 
         string join(vector<string> lines, string separator) {
             string result;
@@ -43,27 +64,6 @@ namespace tree_sitter {
             string tab = "    ";
             util::str_replace(&input, "\n", "\n" + tab);
             return tab + input;
-        }
-
-        string character_code(char character) {
-            switch (character) {
-                case '\0':
-                    return "\\0";
-                case '"':
-                    return "\\\"";
-                case '\'':
-                    return "\\'";
-                case '\n':
-                    return "\\n";
-                case '\r':
-                    return "\\r";
-                case '\t':
-                    return "\\t";
-                case '\\':
-                    return "\\\\";
-                default:
-                    return string() + character;
-            }
         }
     }
 }

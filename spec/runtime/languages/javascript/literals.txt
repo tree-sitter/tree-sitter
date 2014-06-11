@@ -1,0 +1,83 @@
+==========================================
+parses regexes
+==========================================
+theFunction(/regex1/, /regex2/g);
+---
+(program (expression_statement (function_call (identifier)
+    (regex) (regex))))
+
+==========================================
+parses numbers
+==========================================
+theFunction(100.0, 200);
+---
+(program (expression_statement (function_call (identifier)
+    (number) (number))))
+
+==========================================
+parses strings
+==========================================
+theFunction('', "", 'single-quoted-string', "double-quoted-string");
+---
+(program (expression_statement (function_call (identifier)
+    (string) (string) (string) (string))))
+
+==========================================
+parses multiple statements
+==========================================
+var x = {}, z, i = 0;
+firstFunction(x)
+secondFunction(x);
+---
+(program
+    (var_declaration
+        (assignment (identifier) (object))
+        (identifier)
+        (assignment (identifier) (number)))
+    (expression_statement (function_call (identifier) (identifier)))
+    (expression_statement (function_call (identifier) (identifier))))
+
+==========================================
+parses function expressions
+==========================================
+var x = {
+    theMethod: function(argA, argB) {
+        var x = argA;
+    }
+};
+---
+(program
+    (var_declaration (assignment
+        (identifier)
+        (object (identifier) (function_expression
+            (formal_parameters (identifier) (identifier))
+            (statement_block (var_declaration (assignment (identifier) (identifier)))))))))
+
+==========================================
+parses comments
+==========================================
+// this is the beginning of the script.
+// here we go.
+var thing = {
+
+    // this is a property.
+    // its value is a function.
+    key: function(x /* this is a parameter */) {
+
+        // this is a statement
+        doStuff();
+    }
+};
+---
+(program
+    (comment)
+    (comment)
+    (var_declaration (assignment (identifier) (object
+        (comment)
+        (comment)
+        (identifier) (function_expression
+            (formal_parameters (identifier) (comment))
+            (statement_block
+                (comment)
+                (expression_statement (function_call (identifier)))))))))
+

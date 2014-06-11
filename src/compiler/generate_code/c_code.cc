@@ -17,7 +17,7 @@ namespace tree_sitter {
     using std::pair;
     using util::join;
     using util::indent;
-    using util::character_code;
+    using util::escape_char;
 
     namespace generate_code {
         string _switch(string condition, string body) {
@@ -154,10 +154,10 @@ namespace tree_sitter {
             string condition_for_character_range(const rules::CharacterRange &range) {
                 string lookahead("lookahead");
                 if (range.min == range.max) {
-                    return lookahead + " == '" + character_code(range.min) + "'";
+                    return lookahead + " == '" + escape_char(range.min) + "'";
                 } else {
-                    return string("'") + character_code(range.min) + string("' <= ") + lookahead +
-                    " && " + lookahead + " <= '" + character_code(range.max) + "'";
+                    return string("'") + escape_char(range.min) + string("' <= ") + lookahead +
+                    " && " + lookahead + " <= '" + escape_char(range.max) + "'";
                 }
             }
 
