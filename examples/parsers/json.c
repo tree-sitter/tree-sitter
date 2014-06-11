@@ -322,7 +322,6 @@ LEX_FN() {
                 ADVANCE(27);
             LEX_ERROR();
         case ts_lex_state_error:
-            START_TOKEN();
             if (lookahead == '\0')
                 ADVANCE(25);
             if (('\t' <= lookahead && lookahead <= '\n') ||

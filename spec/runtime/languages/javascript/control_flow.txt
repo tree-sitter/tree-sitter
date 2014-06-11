@@ -73,11 +73,22 @@ try {
 } catch (e) {
     logError(e);
 }
+
+try {
+    doSomething();
+} finally {
+    logError();
+}
 ---
-(program (try_statement
-    (statement_block (expression_statement (function_call (identifier))))
-    (identifier)
-    (statement_block (expression_statement (function_call (identifier) (identifier))))))
+(program
+    (try_statement
+        (statement_block (expression_statement (function_call (identifier))))
+        (catch_clause (identifier)
+            (statement_block (expression_statement (function_call (identifier) (identifier))))))
+    (try_statement
+        (statement_block (expression_statement (function_call (identifier))))
+        (finally_clause
+            (statement_block (expression_statement (function_call (identifier)))))))
 
 ===========================================
 parses indented code after blocks

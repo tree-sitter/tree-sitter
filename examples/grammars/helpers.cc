@@ -30,20 +30,20 @@ namespace tree_sitter_examples {
     rule_ptr infix_op(std::string op, std::string rule_name, int precedence) {
         return prec(precedence, seq({
             sym(rule_name),
-            str(op),
+            keyword(op),
             sym(rule_name) }));
     }
 
     rule_ptr prefix_op(std::string op, std::string rule_name, int precedence) {
         return prec(precedence, seq({
-            str(op),
+            keyword(op),
             sym(rule_name) }));
     }
 
     rule_ptr postfix_op(std::string op, std::string rule_name, int precedence) {
         return prec(precedence, seq({
             sym(rule_name),
-            str(op) }));
+            keyword(op) }));
     }
 
     rule_ptr delimited(std::string delimiter) {

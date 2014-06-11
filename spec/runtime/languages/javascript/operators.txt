@@ -30,3 +30,20 @@ parses boolean operators
         (bool_op (identifier))
         (bool_op
             (expression (bool_op (identifier) (identifier)))))))
+
+===========================================
+parses the type operators
+===========================================
+print((x instanceof Array) || (typeof x == "string"))
+---
+(program (expression_statement (function_call (identifier)
+    (bool_op
+        (expression (instanceof_expression (identifier) (identifier)))
+        (expression (typeof_expression (bool_op (identifier) (string))))))))
+
+============================================
+parses the 'in' operator
+===========================================
+print(x in y)
+---
+(program (expression_statement (function_call (identifier) (in_expression (identifier) (identifier)))))

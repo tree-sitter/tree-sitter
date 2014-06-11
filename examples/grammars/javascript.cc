@@ -45,8 +45,14 @@ namespace tree_sitter_examples {
         { "try_statement", seq({
             keyword("try"),
             sym("statement"),
+            optional(sym("catch_clause")),
+            optional(sym("finally_clause")) }) },
+        { "catch_clause", seq({
             keyword("catch"),
             in_parens(err(sym("identifier"))),
+            sym("statement") }) },
+        { "finally_clause", seq({
+            keyword("finally"),
             sym("statement") }) },
         { "switch_statement", seq({
             keyword("switch"),
@@ -100,7 +106,13 @@ namespace tree_sitter_examples {
             sym("false"),
             sym("null"),
             sym("identifier"),
+            sym("in_expression"),
+            sym("instanceof_expression"),
+            sym("typeof_expression"),
             in_parens(sym("expression")) }) },
+        { "in_expression", infix_op("in", "expression", 3) },
+        { "instanceof_expression", infix_op("instanceof", "expression", 3) },
+        { "typeof_expression", prefix_op("typeof", "expression", 3) },
         { "math_op", choice({
             prefix_op("++", "expression", 3),
             prefix_op("--", "expression", 3),

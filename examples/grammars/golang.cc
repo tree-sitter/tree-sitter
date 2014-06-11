@@ -58,7 +58,7 @@ namespace tree_sitter_examples {
 
         // Type expressions
         { "pointer_type", seq({
-            str("*"),
+            keyword("*"),
             sym("type_expression") }) },
         { "map_type", seq({
             keyword("map"),
