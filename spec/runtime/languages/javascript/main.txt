@@ -153,7 +153,7 @@ _.each = _.forEach = function(obj, iterator, context) {
                 (statement_block
                     (if_statement (bool_op (identifier) (null)) (return_statement (identifier)))
                     (if_statement
-                        (property_access (bool_op (property_access (identifier) (identifier)) (identifier)) (identifier))
+                        (bool_op (property_access (identifier) (identifier)) (property_access (identifier) (identifier)))
                         (statement_block
                             (for_statement
                                 (var_declaration (assignment (identifier) (number)))

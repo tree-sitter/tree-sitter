@@ -100,6 +100,7 @@ parses indented code after blocks
     (expression_statement
         (function_expression (identifier) (formal_parameters) (statement_block)))
     (return_statement (identifier)))
+
 ===========================================
 parses switch statements
 ===========================================
@@ -126,3 +127,4 @@ switch(x) {
             (break_statement))
         (switch_case
             (expression_statement (function_call (identifier) (string))))))
+

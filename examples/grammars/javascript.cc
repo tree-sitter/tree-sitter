@@ -164,11 +164,11 @@ namespace tree_sitter_examples {
             sym("function_call") }) },
         { "property_access", seq({
             sym("expression"),
-            choice({
+            prec(10, choice({
                 seq({
                     str("."),
                     sym("identifier") }),
-                in_brackets(sym("expression")) }) }) },
+                in_brackets(sym("expression")) })) }) },
         { "formal_parameters", in_parens(comma_sep(sym("identifier"))) },
 
         // Literals
