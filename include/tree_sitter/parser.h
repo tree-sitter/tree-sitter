@@ -49,16 +49,29 @@ DEBUG_LEX("CHAR '%c'", lookahead);
 ts_lexer_start_token(lexer);
 
 #define ADVANCE(state_index) \
-{ DEBUG_LEX("ADVANCE %d", state_index); ts_lexer_advance(lexer); lex_state = state_index; goto next_state; }
+{ \
+    DEBUG_LEX("ADVANCE %d", state_index); \
+    if (!ts_lexer_advance(lexer)) ACCEPT_TOKEN(ts_builtin_sym_end); \
+    lex_state = state_index; goto next_state; \
+}
 
 #define ACCEPT_TOKEN(symbol) \
-{ DEBUG_LEX("TOKEN %s", ts_symbol_names[symbol]); return ts_lexer_build_node(lexer, symbol); }
+{ \
+    DEBUG_LEX("TOKEN %s", ts_symbol_names[symbol]); \
+    return ts_lexer_build_node(lexer, symbol); \
+}
 
 #define LEX_ERROR() \
-{ DEBUG_LEX("ERROR"); return ts_lexer_build_node(lexer, ts_builtin_sym_error); }
+{ \
+    DEBUG_LEX("ERROR"); \
+    return ts_lexer_build_node(lexer, ts_builtin_sym_error); \
+}
 
 #define LEX_PANIC() \
-{ DEBUG_LEX("LEX ERROR: unexpected state %d", lex_state); return NULL; }
+{ \
+    DEBUG_LEX("LEX ERROR: unexpected state %d", lex_state); \
+    return NULL; \
+}
 
 SYMBOL_NAMES;
 
