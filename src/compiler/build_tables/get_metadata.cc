@@ -9,7 +9,8 @@ namespace tree_sitter {
                 rules::MetadataKey metadata_key;
 
                 int apply_to(const rules::Metadata *rule) {
-                    return rule->value_for(metadata_key);
+                    int result = rule->value_for(metadata_key);
+                    return (result != 0) ? result : apply(rule->rule);
                 }
 
                 // TODO -

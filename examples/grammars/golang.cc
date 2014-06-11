@@ -161,6 +161,9 @@ namespace tree_sitter_examples {
         { "type_name", sym("_identifier") },
         { "_identifier", pattern("\\a[\\w_]*") },
         { "number", pattern("\\d+(\\.\\d+)?") },
-        { "comment", pattern("//[^\n]*") },
+        
+        // TODO - make it clear how this number relates to the
+        // precedence used by the `keyword` helper.
+        { "comment", token(prec(1000, pattern("//[^\n]*"))) },
     }).ubiquitous_tokens({ "comment" });
 }

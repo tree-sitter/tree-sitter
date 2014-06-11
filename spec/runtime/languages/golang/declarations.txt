@@ -31,7 +31,7 @@ parses comments
 ==========================================
 package trivial
 
-var x = 1 // on package
+var x = 1 // on variable
 
 func main() {
     // in function

@@ -10,12 +10,15 @@ START_TEST
 describe("getting metadata for rules", []() {
     MetadataKey key1 = MetadataKey(100);
     MetadataKey key2 = MetadataKey(101);
+    rule_ptr rule;
 
     describe("when given a metadata rule", [&]() {
-        auto rule = make_shared<Metadata>(sym("x"), map<MetadataKey, int>({
-            { key1, 1 },
-            { key2, 2 },
-        }));
+        before_each([&]() {
+            rule = make_shared<Metadata>(sym("x"), map<MetadataKey, int>({
+                { key1, 1 },
+                { key2, 2 },
+            }));
+        });
 
         it("returns the value for the given key", [&]() {
             AssertThat(get_metadata(rule, key1), Equals(1));
@@ -23,7 +26,17 @@ describe("getting metadata for rules", []() {
         });
 
         it("returns 0 if the rule does not have the key", [&]() {
-            AssertThat(get_metadata(rule, MetadataKey(3)), Equals(0));
+            AssertThat(get_metadata(rule, MetadataKey(0)), Equals(0));
+        });
+        
+        describe("when the rule contains another metadata rule", [&]() {
+            it("also gets metadata from the inner metadata rule", [&]() {
+                rule = make_shared<Metadata>(make_shared<Metadata>(sym("x"), map<MetadataKey, int>({
+                    { key1, 1 }
+                })), map<MetadataKey, int>());
+                
+                AssertThat(get_metadata(rule, key1), Equals(1));
+            });
         });
     });
 
