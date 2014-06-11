@@ -74,9 +74,10 @@ ts_symbol * expected_symbols(ts_lr_parser *parser, size_t *count) {
 
 int handle_error(ts_lr_parser *parser) {
     size_t count = 0;
+    const ts_symbol *inputs = expected_symbols(parser, &count);
     ts_tree *error = ts_tree_make_error(ts_lexer_lookahead_char(&parser->lexer),
                                         count,
-                                        expected_symbols(parser, &count),
+                                        inputs,
                                         0,
                                         0);
 
