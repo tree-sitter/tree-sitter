@@ -23,6 +23,8 @@ namespace tree_sitter {
     using std::map;
 
     namespace rules {
+        static const int KEYWORD_PRECEDENCE = 100;
+        
         static rule_ptr metadata(rule_ptr rule, map<MetadataKey, int> values) {
             return std::make_shared<Metadata>(rule, values);
         }
@@ -56,7 +58,11 @@ namespace tree_sitter {
         }
 
         rule_ptr keyword(const string &value) {
-            return metadata(make_shared<String>(value), { { PRECEDENCE, 100}, { IS_TOKEN, 1 } });
+            return token(prec(KEYWORD_PRECEDENCE, str(value)));
+        }
+
+        rule_ptr keypattern(const string &value) {
+            return token(prec(KEYWORD_PRECEDENCE, pattern(value)));
         }
 
         rule_ptr err(const rule_ptr &rule) {
@@ -64,11 +70,11 @@ namespace tree_sitter {
         }
 
         rule_ptr prec(int precedence, rule_ptr rule) {
-            return metadata(rule, { { PRECEDENCE, precedence } });
+            return metadata(rule, {{ PRECEDENCE, precedence }});
         }
 
         rule_ptr token(rule_ptr rule) {
-            return metadata(rule, { { IS_TOKEN, 1 } });
+            return metadata(rule, {{ IS_TOKEN, 1 }});
         }
     }
 }
