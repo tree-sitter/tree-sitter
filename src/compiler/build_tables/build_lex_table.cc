@@ -95,13 +95,13 @@ namespace tree_sitter {
 
             rules::rule_ptr after_separators(rules::rule_ptr rule) {
                 return rules::Seq::Build({
-                    make_shared<rules::Metadata>(rules::Seq::Build({
-                        make_shared<rules::Repeat>(CharacterSet({ ' ', '\t', '\n', '\r' }).copy()),
-                        make_shared<rules::Blank>(),
-                    }), map<rules::MetadataKey, int>({
-                        {rules::START_TOKEN, 1},
-                        {rules::PRECEDENCE, -1},
-                    })),
+                    make_shared<rules::Metadata>(
+                        make_shared<rules::Repeat>(
+                            CharacterSet({ ' ', '\t', '\n', '\r' }).copy()),
+                        map<rules::MetadataKey, int>({
+                            {rules::START_TOKEN, 1},
+                            {rules::PRECEDENCE, -1},
+                        })),
                     rule,
                 });
             }
