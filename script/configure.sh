@@ -2,7 +2,7 @@
 
 set -e
 
-git submodule update --init
+git submodule update --init --recursive
 externals/gyp/gyp tree_sitter.gyp --depth . --format=make $@
 
 if [ "$1" == "-h" ]; then
