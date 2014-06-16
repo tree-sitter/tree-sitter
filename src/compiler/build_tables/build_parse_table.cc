@@ -46,14 +46,14 @@ namespace tree_sitter {
             void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
                 for (const auto &transition : sym_transitions(item_set, grammar)) {
                     const Symbol &symbol = transition.first;
-                    const ParseItemSet &item_set = transition.second;
+                    const ParseItemSet &next_item_set = transition.second;
                     auto &actions = parse_table.states[state_id].actions;
                     auto current_action = actions.find(symbol);
 
-                    set<int> precedence_values = precedence_values_for_item_set(item_set);
+                    set<int> precedence_values = precedence_values_for_item_set(next_item_set);
                     if (current_action == actions.end() ||
                         conflict_manager.resolve_parse_action(symbol, current_action->second, ParseAction::Shift(0, precedence_values))) {
-                        ParseStateId new_state_id = add_parse_state(item_set);
+                        ParseStateId new_state_id = add_parse_state(next_item_set);
                         parse_table.add_action(state_id, symbol, ParseAction::Shift(new_state_id, precedence_values));
                     }
                 }
@@ -68,17 +68,22 @@ namespace tree_sitter {
             }
 
             void add_reduce_actions(const ParseItemSet &item_set, ParseStateId state_id) {
-                for (const ParseItem &item : item_set) {
+                for (const auto &pair : item_set) {
+                    const ParseItem &item = pair.first;
+                    const set<Symbol> &lookahead_symbols = pair.second;
+                    
                     if (item.is_done()) {
                         ParseAction action = (item.lhs == rules::START()) ?
                             ParseAction::Accept() :
                             ParseAction::Reduce(item.lhs, item.consumed_symbol_count, item.precedence());
-                        auto current_actions = parse_table.states[state_id].actions;
-                        auto current_action = current_actions.find(item.lookahead_sym);
-
-                        if (current_action == current_actions.end() ||
-                            conflict_manager.resolve_parse_action(item.lookahead_sym, current_action->second, action)) {
-                            parse_table.add_action(state_id, item.lookahead_sym, action);
+                        
+                        for (auto &lookahead_sym : lookahead_symbols) {
+                            auto current_actions = parse_table.states[state_id].actions;
+                            auto current_action = current_actions.find(lookahead_sym);
+                            if (current_action == current_actions.end() ||
+                                conflict_manager.resolve_parse_action(lookahead_sym, current_action->second, action)) {
+                                parse_table.add_action(state_id, lookahead_sym, action);
+                            }
                         }
                     }
                 }
@@ -86,9 +91,11 @@ namespace tree_sitter {
 
             set<int> precedence_values_for_item_set(const ParseItemSet &item_set) {
                 set<int> result;
-                for (const auto &item : item_set)
+                for (const auto &pair : item_set) {
+                    const ParseItem &item = pair.first;
                     if (item.consumed_symbol_count > 0)
                         result.insert(item.precedence());
+                }
                 return result;
             }
 
@@ -98,8 +105,8 @@ namespace tree_sitter {
                 conflict_manager(ParseConflictManager(grammar, lex_grammar)) {}
 
             pair<ParseTable, vector<Conflict>> build() {
-                ParseItem start_item(rules::START(), make_shared<Symbol>(0), 0, rules::END_OF_INPUT());
-                add_parse_state(item_set_closure(start_item, grammar));
+                ParseItem start_item(rules::START(), make_shared<Symbol>(0), 0);
+                add_parse_state(item_set_closure(start_item, { rules::END_OF_INPUT() }, grammar));
                 return { parse_table, conflict_manager.conflicts() };
             }
         };

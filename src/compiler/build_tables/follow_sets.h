@@ -18,7 +18,7 @@ namespace tree_sitter {
          *  after the corresponding non-terminals.
          */
         std::map<rules::Symbol, std::set<rules::Symbol>>
-        follow_sets(const ParseItem &item, const PreparedGrammar &grammar);
+        follow_sets(const ParseItem &item, const std::set<rules::Symbol> &lookahead_symbols, const PreparedGrammar &grammar);
 
     }
 }

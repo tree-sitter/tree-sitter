@@ -19,9 +19,9 @@ describe("computing FOLLOW sets", []() {
         ParseItem item(Symbol(2), choice({
             seq({ i_sym(0), choice({ i_token(0), i_token(1) }) }),
             seq({ i_sym(1), i_token(2) }),
-        }), 0, Symbol(10, SymbolOptionToken));
+        }), 0);
 
-        AssertThat(follow_sets(item, grammar), Equals(map<Symbol, set<Symbol>>({
+        AssertThat(follow_sets(item, { Symbol(10, SymbolOptionToken) }, grammar), Equals(map<Symbol, set<Symbol>>({
             { Symbol(0), set<Symbol>({
                 Symbol(0, SymbolOptionToken),
                 Symbol(1, SymbolOptionToken) }) },
@@ -34,21 +34,21 @@ describe("computing FOLLOW sets", []() {
         ParseItem item(Symbol(2), choice({
             seq({ i_sym(0), choice({ i_token(0), i_token(1) }) }),
             seq({ i_token(2), i_token(3) }),
-        }), 0, Symbol(10, SymbolOptionToken));
+        }), 0);
 
-        AssertThat(follow_sets(item, grammar), Equals(map<Symbol, set<Symbol>>({
+        AssertThat(follow_sets(item, { Symbol(10, SymbolOptionToken) }, grammar), Equals(map<Symbol, set<Symbol>>({
             { Symbol(0), set<Symbol>({
                 Symbol(0, SymbolOptionToken),
                 Symbol(1, SymbolOptionToken) }) },
         })));
     });
 
-    it("includes the item's lookahead terminal if the rule after the non-terminal might be blank", [&]() {
+    it("includes the item's lookahead symbol if the rule after the non-terminal might be blank", [&]() {
         ParseItem item(Symbol(2), choice({
             seq({ i_sym(0), choice({ i_token(0), blank() }) }),
-        }), 0, Symbol(10, SymbolOptionToken));
+        }), 0);
 
-        AssertThat(follow_sets(item, grammar), Equals(map<Symbol, set<Symbol>>({
+        AssertThat(follow_sets(item, { Symbol(10, SymbolOptionToken) }, grammar), Equals(map<Symbol, set<Symbol>>({
             { Symbol(0), set<Symbol>({
                 Symbol(0, SymbolOptionToken),
                 Symbol(10, SymbolOptionToken) }) },

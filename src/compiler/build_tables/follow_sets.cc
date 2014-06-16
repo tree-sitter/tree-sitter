@@ -12,7 +12,8 @@ namespace tree_sitter {
 
     namespace build_tables {
         map<Symbol, set<Symbol>> follow_sets(const ParseItem &item,
-                                               const PreparedGrammar &grammar) {
+                                             const set<Symbol> &lookahead_symbols,
+                                             const PreparedGrammar &grammar) {
             map<Symbol, set<Symbol>> result;
             for (auto &pair : sym_transitions(item.rule)) {
                 Symbol symbol = pair.first;
@@ -20,7 +21,7 @@ namespace tree_sitter {
                 if (!symbol.is_token() && !symbol.is_built_in()) {
                     set<Symbol> following_terminals = first_set(next_rule, grammar);
                     if (rule_can_be_blank(next_rule, grammar))
-                        following_terminals.insert(item.lookahead_sym);
+                        following_terminals.insert(lookahead_symbols.begin(), lookahead_symbols.end());
                     result.insert({ symbol, following_terminals });
                 }
             }

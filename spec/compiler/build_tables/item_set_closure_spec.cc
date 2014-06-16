@@ -19,13 +19,13 @@ describe("computing closures of item sets", []() {
     }, {});
 
     it("adds items at the beginnings of referenced rules", [&]() {
-        ParseItemSet item_set = item_set_closure(
-            ParseItem(Symbol(0), grammar.rule(Symbol(0)), 0, Symbol(10, SymbolOptionToken)),
-            grammar);
+        ParseItemSet item_set = item_set_closure(ParseItem(Symbol(0), grammar.rule(Symbol(0)), 0),
+                                                 { Symbol(10, SymbolOptionToken) },
+                                                 grammar);
 
         AssertThat(item_set, Equals(ParseItemSet({
-            ParseItem(Symbol(1), grammar.rule(Symbol(1)), 0, Symbol(11, SymbolOptionToken)),
-            ParseItem(Symbol(0), grammar.rule(Symbol(0)), 0, Symbol(10, SymbolOptionToken)),
+            { ParseItem(Symbol(1), grammar.rule(Symbol(1)), 0), { Symbol(11, SymbolOptionToken) } },
+            { ParseItem(Symbol(0), grammar.rule(Symbol(0)), 0), { Symbol(10, SymbolOptionToken) } },
         })));
     });
 });

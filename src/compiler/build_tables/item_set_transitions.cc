@@ -1,6 +1,5 @@
 #include "compiler/build_tables/item_set_transitions.h"
-#include <unordered_set>
-#include <vector>
+#include <set>
 #include "compiler/build_tables/item_set_closure.h"
 #include "compiler/build_tables/rule_transitions.h"
 #include "compiler/build_tables/merge_transitions.h"
@@ -8,76 +7,34 @@
 
 namespace tree_sitter {
     using std::map;
-    using std::vector;
-    using std::unordered_set;
+    using std::set;
     using rules::CharacterSet;
     using rules::Symbol;
 
     namespace build_tables {
-        template<typename T>
-        static void merge_sets(unordered_set<T> *left, const unordered_set<T> *right) {
-            left->insert(right->begin(), right->end());
-        }
-
-        const Symbol placeholder_lookahead = Symbol(-100);
-        const Symbol placeholder_lhs = Symbol(-101);
-
-        static map<Symbol, ParseItemSet> sym_transitions_for_rule(SymTransitions *self, const rules::rule_ptr &rule, const PreparedGrammar &grammar) {
-            auto pair = self->transitions_cache.find(rule);
-            if (pair != self->transitions_cache.end()) return pair->second;
-            map<Symbol, ParseItemSet> result;
-            for (auto &transition : sym_transitions(rule)) {
-                ParseItem new_item(placeholder_lhs, transition.second, 1, placeholder_lookahead);
-                result.insert({
-                    transition.first,
-                    item_set_closure(new_item, grammar)
-                });
-            }
-            self->transitions_cache.insert({ rule, result });
-            return result;
-        }
-
-        static map<Symbol, ParseItemSet> sym_transitions_for_item(SymTransitions *self, const ParseItem &item, const PreparedGrammar &grammar) {
-            auto result = sym_transitions_for_rule(self, item.rule, grammar);
-            for (auto &pair : result) {
-                vector<ParseItem> new_items;
-                auto &items = pair.second;
-                for (auto iter = items.begin(), end = items.end(); iter != end;) {
-                    ParseItem new_item(*iter);
-                    bool changed = false;
-                    if (new_item.consumed_symbol_count > 0) {
-                        new_item.consumed_symbol_count = item.consumed_symbol_count + 1;
-                        changed = true;
-                    }
-                    if (new_item.lookahead_sym == placeholder_lookahead) {
-                        new_item.lookahead_sym = item.lookahead_sym;
-                        changed = true;
-                    }
-                    if (new_item.lhs == placeholder_lhs) {
-                        new_item.lhs = item.lhs;
-                        changed = true;
-                    }
-                    if (changed) {
-                        iter = pair.second.erase(iter);
-                        new_items.push_back(new_item);
-                    } else {
-                        ++iter;
-                    }
-                }
-                pair.second.insert(new_items.begin(), new_items.end());
-            }
-            return result;
-        }
-
         map<Symbol, ParseItemSet>
         SymTransitions::operator()(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
             map<Symbol, ParseItemSet> result;
-            for (const ParseItem &item : item_set)
-                merge_sym_transitions<ParseItemSet>(&result,
-                                                    sym_transitions_for_item(this, item, grammar),
-                                                    [](ParseItemSet *l, const ParseItemSet *r) {
-                                                        merge_sets(l, r);
+
+            for (const auto &pair : item_set) {
+                const ParseItem &item = pair.first;
+                const set<Symbol> &lookahead_symbols = pair.second;
+                map<Symbol, ParseItemSet> result_for_item;
+                for (auto &transition : sym_transitions(item.rule)) {
+                    ParseItem new_item(item.lhs, transition.second, item.consumed_symbol_count + 1);
+                    result_for_item.insert({
+                        transition.first,
+                        item_set_closure(new_item, lookahead_symbols, grammar)
+                    });
+                }
+                
+                merge_sym_transitions<ParseItemSet>(&result, result_for_item,
+                                                    [](ParseItemSet *left, const ParseItemSet *right) {
+                                                        for (auto &pair : *right)
+                                                            left->operator[](pair.first).insert(pair.second.begin(), pair.second.end());
                                                     });
+            }
+            
             return result;
         }
 
@@ -93,9 +50,10 @@ namespace tree_sitter {
                         LexItemSet({ next_item })
                     });
                 }
-                merge_char_transitions<LexItemSet>(&result, item_transitions, [](LexItemSet *l, const LexItemSet *r) {
-                    merge_sets(l, r);
-                });
+                merge_char_transitions<LexItemSet>(&result, item_transitions,
+                                                   [](LexItemSet *left, const LexItemSet *right) {
+                                                       left->insert(right->begin(), right->end());
+                                                   });
             }
             return result;
         }
