@@ -57,18 +57,5 @@ namespace tree_sitter {
         set<Symbol> first_set(const rules::rule_ptr &rule, const PreparedGrammar &grammar) {
             return FirstSet(&grammar).apply(rule);
         }
-
-        set<Symbol> first_set(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
-            set<Symbol> result;
-            for (const auto &pair : item_set) {
-                const auto &item = pair.first;
-                const auto &lookahead_symbols = pair.second;
-                const auto &rule_set = first_set(item.rule, grammar);
-                result.insert(rule_set.begin(), rule_set.end());
-                if (rule_can_be_blank(item.rule, grammar))
-                    result.insert(lookahead_symbols.begin(), lookahead_symbols.end());
-            }
-            return result;
-        }
     }
 }
