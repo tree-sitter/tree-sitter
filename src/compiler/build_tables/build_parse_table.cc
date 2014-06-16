@@ -26,7 +26,6 @@ namespace tree_sitter {
             const PreparedGrammar grammar;
             ParseConflictManager conflict_manager;
             unordered_map<const ParseItemSet, ParseStateId> parse_state_ids;
-            SymTransitions sym_transitions;
             ParseTable parse_table;
 
             ParseStateId add_parse_state(const ParseItemSet &item_set) {
