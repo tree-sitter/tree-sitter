@@ -62,41 +62,138 @@ namespace tree_sitter {
             }
 
         private:
-            void _switch(string condition, function<void()> body) {
-                line("switch (" + condition + ") {");
-                indent(body);
+            void includes() {
+                add("#include \"tree_sitter/parser.h\"");
+                line();
+            }
+
+            void state_and_symbol_counts() {
+                line("#define STATE_COUNT " + to_string(parse_table.states.size()));
+                line("#define SYMBOL_COUNT " + to_string(parse_table.symbols.size()));
+                line();
+            }
+
+            void symbol_enum() {
+                line("enum {");
+                indent([&]() {
+                    bool at_start = true;
+                    for (auto symbol : parse_table.symbols)
+                        if (!symbol.is_built_in()) {
+                            if (at_start)
+                                line(symbol_id(symbol) + " = ts_start_sym,");
+                            else
+                                line(symbol_id(symbol) + ",");
+                            at_start = false;
+                        }
+                });
+                line("};");
+                line();
+            }
+
+            void symbol_names_list() {
+                set<rules::Symbol> symbols(parse_table.symbols);
+                symbols.insert(rules::END_OF_INPUT());
+                symbols.insert(rules::ERROR());
+
+                line("SYMBOL_NAMES = {");
+                indent([&]() {
+                    for (auto symbol : parse_table.symbols)
+                        line("[" + symbol_id(symbol) + "] = \"" + symbol_name(symbol) + "\",");
+                });
+                line("};");
+                line();
+            }
+
+            void ubiquitous_symbols_list() {
+                line("UBIQUITOUS_SYMBOLS = {");
+                indent([&]() {
+                    for (auto &symbol : syntax_grammar.ubiquitous_tokens())
+                        line("[" + symbol_id(symbol) + "] = 1,");
+                });
+                line("};");
+                line();
+            }
+
+            void hidden_symbols_list() {
+                line("HIDDEN_SYMBOLS = {");
+                indent([&]() {
+                    for (auto &symbol : parse_table.symbols)
+                        if (!symbol.is_built_in() && (symbol.is_auxiliary() || grammar_for_symbol(symbol).rule_name(symbol)[0] == '_'))
+                            line("[" + symbol_id(symbol) + "] = 1,");
+                });
+                line("};");
+                line();
+            }
+
+            void lex_function() {
+                line("LEX_FN() {");
+                indent([&]() {
+                    line("START_LEXER();");
+                    switch_on_lex_state();
+                });
                 line("}");
+                line();
             }
 
-            void _case(string value, function<void()> body) {
-                line("case " + value + ":");
-                indent(body);
+            void lex_states_list() {
+                line("LEX_STATES = {");
+                indent([&]() {
+                    size_t state_id = 0;
+                    for (auto &state : parse_table.states)
+                        line("[" + to_string(state_id++) + "] = " + lex_state_index(state.lex_state_id) + ",");
+                });
+                line("};");
+                line();
             }
 
-            void _default(function<void()> body) {
-                line("default:");
-                indent(body);
+            void parse_table_array() {
+                size_t state_id = 0;
+                line("#pragma GCC diagnostic push");
+                line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
+                line();
+                line("PARSE_TABLE = {");
+
+                indent([&]() {
+                    for (auto &state : parse_table.states) {
+                        line("[" + to_string(state_id++) + "] = {");
+                        indent([&]() {
+                            for (auto &pair : state.actions) {
+                                line("[" + symbol_id(pair.first) + "] = ");
+                                code_for_parse_action(pair.second);
+                                add(",");
+                            }
+                        });
+                        line("},");
+                    }
+                });
+
+                line("};");
+                line();
+                line("#pragma GCC diagnostic pop");
+                line();
             }
 
-            void _if(function<void()> condition, function<void()> body) {
-                line("if (");
-                indent(condition);
-                add(")");
-                indent(body);
-            }
-
-            void indent(function<void()> body) {
-                indent(body, 1);
-            }
-
-            void indent(function<void()> body, size_t n) {
-                indent_level += n;
-                body();
-                indent_level -= n;
+            void parser_export() {
+                line("EXPORT_PARSER(ts_parser_" + name + ");");
+                line();
             }
 
             const PreparedGrammar & grammar_for_symbol(const rules::Symbol &symbol) {
                 return symbol.is_token() ? lexical_grammar : syntax_grammar;
+            }
+
+            string symbol_id(const rules::Symbol &symbol) {
+                if (symbol.is_built_in()) {
+                    return (symbol == rules::ERROR()) ?
+                        "ts_builtin_sym_error" :
+                        "ts_builtin_sym_end";
+                } else {
+                    string name = sanitize_name(grammar_for_symbol(symbol).rule_name(symbol));
+                    if (symbol.is_auxiliary())
+                        return "ts_aux_sym_" + name;
+                    else
+                        return "ts_sym_" + name;
+                }
             }
 
             string sanitize_name(string name) {
@@ -131,20 +228,6 @@ namespace tree_sitter {
                     if (pair.second == name)
                         return true;
                 return false;
-            }
-
-            string symbol_id(const rules::Symbol &symbol) {
-                if (symbol.is_built_in()) {
-                    return (symbol == rules::ERROR()) ?
-                        "ts_builtin_sym_error" :
-                        "ts_builtin_sym_end";
-                } else {
-                    string name = sanitize_name(grammar_for_symbol(symbol).rule_name(symbol));
-                    if (symbol.is_auxiliary())
-                        return "ts_aux_sym_" + name;
-                    else
-                        return "ts_sym_" + name;
-                }
             }
 
             string lex_state_index(size_t i) {
@@ -218,7 +301,7 @@ namespace tree_sitter {
             }
 
             void code_for_lex_actions(const LexAction &action,
-                                        const set<rules::CharacterSet> &expected_inputs) {
+                                      const set<rules::CharacterSet> &expected_inputs) {
                 switch (action.type) {
                     case LexActionTypeAdvance:
                         line("ADVANCE(" + lex_state_index(action.state_index) + ");");
@@ -259,120 +342,27 @@ namespace tree_sitter {
                 });
             }
 
-            void state_and_symbol_counts() {
-                line("#define STATE_COUNT " + to_string(parse_table.states.size()));
-                line("#define SYMBOL_COUNT " + to_string(parse_table.symbols.size()));
-                line();
-            }
-
-            void symbol_enum() {
-                line("enum {");
-                indent([&]() {
-                    bool at_start = true;
-                    for (auto symbol : parse_table.symbols)
-                        if (!symbol.is_built_in()) {
-                            if (at_start)
-                                line(symbol_id(symbol) + " = ts_start_sym,");
-                            else
-                                line(symbol_id(symbol) + ",");
-                            at_start = false;
-                        }
-                });
-                line("};");
-                line();
-            }
-
-            void symbol_names_list() {
-                set<rules::Symbol> symbols(parse_table.symbols);
-                symbols.insert(rules::END_OF_INPUT());
-                symbols.insert(rules::ERROR());
-
-                line("SYMBOL_NAMES = {");
-                indent([&]() {
-                    for (auto symbol : parse_table.symbols)
-                        line("[" + symbol_id(symbol) + "] = \"" + symbol_name(symbol) + "\",");
-                });
-                line("};");
-                line();
-            }
-
-            void ubiquitous_symbols_list() {
-                line("UBIQUITOUS_SYMBOLS = {");
-                indent([&]() {
-                    for (auto &symbol : syntax_grammar.ubiquitous_tokens())
-                        line("[" + symbol_id(symbol) + "] = 1,");
-                });
-                line("};");
-                line();
-            }
-
-            void hidden_symbols_list() {
-                line("HIDDEN_SYMBOLS = {");
-                indent([&]() {
-                    for (auto &symbol : parse_table.symbols)
-                        if (!symbol.is_built_in() && (symbol.is_auxiliary() || grammar_for_symbol(symbol).rule_name(symbol)[0] == '_'))
-                            line("[" + symbol_id(symbol) + "] = 1,");
-                });
-                line("};");
-                line();
-            }
-
-            void includes() {
-                add("#include \"tree_sitter/parser.h\"");
-                line();
-            }
-
-            void lex_function() {
-                line("LEX_FN() {");
-                indent([&]() {
-                    line("START_LEXER();");
-                    switch_on_lex_state();
-                });
+            void _switch(string condition, function<void()> body) {
+                line("switch (" + condition + ") {");
+                indent(body);
                 line("}");
-                line();
             }
 
-            void lex_states_list() {
-                line("LEX_STATES = {");
-                indent([&]() {
-                    size_t state_id = 0;
-                    for (auto &state : parse_table.states)
-                        line("[" + to_string(state_id++) + "] = " + lex_state_index(state.lex_state_id) + ",");
-                });
-                line("};");
-                line();
+            void _case(string value, function<void()> body) {
+                line("case " + value + ":");
+                indent(body);
             }
 
-            void parse_table_array() {
-                size_t state_id = 0;
-                line("#pragma GCC diagnostic push");
-                line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
-                line();
-                line("PARSE_TABLE = {");
-
-                indent([&]() {
-                    for (auto &state : parse_table.states) {
-                        line("[" + to_string(state_id++) + "] = {");
-                        indent([&]() {
-                            for (auto &pair : state.actions) {
-                                line("[" + symbol_id(pair.first) + "] = ");
-                                code_for_parse_action(pair.second);
-                                add(",");
-                            }
-                        });
-                        line("},");
-                    }
-                });
-
-                line("};");
-                line();
-                line("#pragma GCC diagnostic pop");
-                line();
+            void _default(function<void()> body) {
+                line("default:");
+                indent(body);
             }
 
-            void parser_export() {
-                line("EXPORT_PARSER(ts_parser_" + name + ");");
-                line();
+            void _if(function<void()> condition, function<void()> body) {
+                line("if (");
+                indent(condition);
+                add(")");
+                indent(body);
             }
 
             void line() {
@@ -391,6 +381,16 @@ namespace tree_sitter {
 
             void add(string input) {
                 buffer += input;
+            }
+
+            void indent(function<void()> body) {
+                indent(body, 1);
+            }
+
+            void indent(function<void()> body, size_t n) {
+                indent_level += n;
+                body();
+                indent_level -= n;
             }
         };
 
