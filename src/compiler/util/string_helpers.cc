@@ -23,7 +23,7 @@ namespace tree_sitter {
             str_replace(&input, "\n", "\\n");
             return input;
         }
-        
+
         string escape_char(char character) {
             switch (character) {
                 case '\0':
@@ -43,27 +43,6 @@ namespace tree_sitter {
                 default:
                     return string() + character;
             }
-        }
-
-        string join(vector<string> lines, string separator) {
-            string result;
-            bool started = false;
-            for (auto line : lines) {
-                if (started) result += separator;
-                started = true;
-                result += line;
-            }
-            return result;
-        }
-
-        string join(vector<string> lines) {
-            return join(lines, "\n");
-        }
-
-        string indent(string input) {
-            string tab = "    ";
-            util::str_replace(&input, "\n", "\n" + tab);
-            return tab + input;
         }
     }
 }
