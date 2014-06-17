@@ -15,7 +15,7 @@ namespace tree_sitter {
                              size_t consumed_symbol_count) :
             Item(lhs, rule),
             consumed_symbol_count(consumed_symbol_count) {}
-        
+
         bool ParseItem::operator==(const ParseItem &other) const {
             return
                 (lhs == other.lhs) &&

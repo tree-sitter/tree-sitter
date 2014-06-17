@@ -42,11 +42,11 @@ package main
 func main() {
     if condition1() {
     }
-    
+
     if condition2() {
     } else {
     }
-    
+
     if condition3() {
     } else if condition4() {
     }

@@ -28,13 +28,13 @@ describe("getting metadata for rules", []() {
         it("returns 0 if the rule does not have the key", [&]() {
             AssertThat(get_metadata(rule, MetadataKey(0)), Equals(0));
         });
-        
+
         describe("when the rule contains another metadata rule", [&]() {
             it("also gets metadata from the inner metadata rule", [&]() {
                 rule = make_shared<Metadata>(make_shared<Metadata>(sym("x"), map<MetadataKey, int>({
                     { key1, 1 }
                 })), map<MetadataKey, int>());
-                
+
                 AssertThat(get_metadata(rule, key1), Equals(1));
             });
         });

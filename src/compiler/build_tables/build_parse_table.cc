@@ -70,12 +70,12 @@ namespace tree_sitter {
                 for (const auto &pair : item_set) {
                     const ParseItem &item = pair.first;
                     const set<Symbol> &lookahead_symbols = pair.second;
-                    
+
                     if (item.is_done()) {
                         ParseAction action = (item.lhs == rules::START()) ?
                             ParseAction::Accept() :
                             ParseAction::Reduce(item.lhs, item.consumed_symbol_count, item.precedence());
-                        
+
                         for (auto &lookahead_sym : lookahead_symbols) {
                             auto current_actions = parse_table.states[state_id].actions;
                             auto current_action = current_actions.find(lookahead_sym);

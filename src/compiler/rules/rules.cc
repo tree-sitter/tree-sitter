@@ -24,7 +24,7 @@ namespace tree_sitter {
 
     namespace rules {
         static const int KEYWORD_PRECEDENCE = 100;
-        
+
         static rule_ptr metadata(rule_ptr rule, map<MetadataKey, int> values) {
             return std::make_shared<Metadata>(rule, values);
         }

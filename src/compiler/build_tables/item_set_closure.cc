@@ -27,32 +27,32 @@ namespace tree_sitter {
                 ParseItem item = items_to_process.back().first;
                 set<Symbol> new_lookahead_symbols = items_to_process.back().second;
                 items_to_process.pop_back();
-                
+
                 set<Symbol> &lookahead_symbols = result[item];
                 size_t previous_size = lookahead_symbols.size();
                 lookahead_symbols.insert(new_lookahead_symbols.begin(), new_lookahead_symbols.end());
 
                 if (lookahead_symbols.size() == previous_size)
                     continue;
-                
+
                 for (const auto &pair : sym_transitions(item.rule)) {
                     const Symbol &symbol = pair.first;
                     const rule_ptr &next_rule = pair.second;
-                    
+
                     if (symbol.is_token() || symbol.is_built_in())
                         continue;
-                    
+
                     set<Symbol> next_lookahead_symbols = first_set(next_rule, grammar);
                     if (rule_can_be_blank(next_rule, grammar))
                         next_lookahead_symbols.insert(lookahead_symbols.begin(), lookahead_symbols.end());
-                    
+
                     items_to_process.push_back({
                         ParseItem(symbol, grammar.rule(symbol), 0),
                         next_lookahead_symbols
                     });
                 }
             }
-            
+
             return result;
         }
     }
