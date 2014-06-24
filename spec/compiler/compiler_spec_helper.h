@@ -2,9 +2,9 @@
 #define __tree_sitter_compiler_spec_helper_h__
 
 #include "bandit/bandit.h"
-#include "helpers/stream_methods.h"
-#include "helpers/equals_pointer.h"
-#include "helpers/rule_helpers.h"
+#include "compiler/helpers/stream_methods.h"
+#include "compiler/helpers/equals_pointer.h"
+#include "compiler/helpers/rule_helpers.h"
 #include "tree_sitter/compiler.h"
 
 using namespace tree_sitter;

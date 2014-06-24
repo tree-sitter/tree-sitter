@@ -1,4 +1,4 @@
-#include "helpers/dummy_parser.h"
+#include "runtime/helpers/dummy_parser.h"
 
 const ts_parse_action parse_table[3][5] = {
     [0] = {

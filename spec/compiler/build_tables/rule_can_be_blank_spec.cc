@@ -1,4 +1,4 @@
-#include "compiler_spec_helper.h"
+#include "compiler/compiler_spec_helper.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/prepared_grammar.h"

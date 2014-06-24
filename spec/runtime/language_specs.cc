@@ -1,5 +1,5 @@
-#include "runtime_spec_helper.h"
-#include "helpers/read_test_entries.h"
+#include "runtime/runtime_spec_helper.h"
+#include "runtime/helpers/read_test_entries.h"
 
 extern "C" ts_parser ts_parser_javascript();
 extern "C" ts_parser ts_parser_json();

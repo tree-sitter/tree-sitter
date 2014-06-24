@@ -1,4 +1,4 @@
-#include "compiler_spec_helper.h"
+#include "compiler/compiler_spec_helper.h"
 #include "compiler/build_tables/build_parse_table.h"
 #include "compiler/parse_table.h"
 #include "compiler/prepared_grammar.h"

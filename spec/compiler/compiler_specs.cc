@@ -1,4 +1,4 @@
-#include "compiler_spec_helper.h"
+#include "compiler/compiler_spec_helper.h"
 
 int main(int argc, char *argv[]) {
     const char *args[] = {

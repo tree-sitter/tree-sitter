@@ -1,6 +1,6 @@
-#include "runtime_spec_helper.h"
-#include "helpers/spy_reader.h"
-#include "helpers/dummy_parser.h"
+#include "runtime/runtime_spec_helper.h"
+#include "runtime/helpers/spy_reader.h"
+#include "runtime/helpers/dummy_parser.h"
 #include "tree_sitter/parser/lr_parser.h"
 
 ts_tree *lex_fn_node_to_return;

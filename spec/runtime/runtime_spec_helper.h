@@ -3,7 +3,7 @@
 
 #include "bandit/bandit.h"
 #include "tree_sitter/runtime.h"
-#include "helpers/tree_helpers.h"
+#include "runtime/helpers/tree_helpers.h"
 
 using namespace std;
 using namespace bandit;

@@ -1,4 +1,4 @@
-#include "compiler_spec_helper.h"
+#include "compiler/compiler_spec_helper.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/build_tables/get_metadata.h"
 

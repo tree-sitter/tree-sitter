@@ -1,4 +1,4 @@
-#include "compiler_spec_helper.h"
+#include "compiler/compiler_spec_helper.h"
 #include "compiler/build_tables/parse_conflict_manager.h"
 #include "compiler/build_tables/lex_conflict_manager.h"
 

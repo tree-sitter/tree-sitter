@@ -1,5 +1,5 @@
-#include "runtime_spec_helper.h"
-#include "helpers/spy_reader.h"
+#include "runtime/runtime_spec_helper.h"
+#include "runtime/helpers/spy_reader.h"
 
 extern "C" ts_parser ts_parser_json();
 

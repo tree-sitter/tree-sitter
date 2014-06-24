@@ -1,4 +1,4 @@
-#include "runtime_spec_helper.h"
+#include "runtime/runtime_spec_helper.h"
 
 extern "C" ts_parser ts_parser_json();
 

@@ -44,9 +44,9 @@
       'dependencies': ['tree_sitter'],
       'include_dirs': [
         'src',
-        'externals/bandit',
         'examples',
-        'spec/compiler',
+        'spec',
+        'externals/bandit',
       ],
       'sources': [
         '<!@(find spec/compiler examples/grammars -name "*.h" -or -name "*.cc")',
@@ -59,9 +59,9 @@
       'dependencies': ['tree_sitter'],
       'include_dirs': [
         'src',
-        'externals/bandit',
         'examples',
-        'spec/runtime',
+        'spec',
+        'externals/bandit',
       ],
       'variables': {
         'USE_BOOST_REGEX%': 'false',

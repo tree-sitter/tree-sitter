@@ -1,4 +1,4 @@
-#include "compiler_spec_helper.h"
+#include "compiler/compiler_spec_helper.h"
 #include "compiler/build_tables/item_set_transitions.h"
 #include "compiler/prepared_grammar.h"
 
