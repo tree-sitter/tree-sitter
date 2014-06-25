@@ -75,6 +75,11 @@ namespace std {
         }
         return stream << ">";
     }
+
+    template<typename T1, typename T2>
+    inline std::ostream& operator<<(std::ostream &stream, const std::pair<T1, T2> &pair) {
+        return stream << "{" << pair.first << ", " << pair.second << "}";
+    }
 }
 
 #endif
