@@ -4,13 +4,13 @@
 #include <utility>
 #include <string>
 #include "tree_sitter/compiler.h"
+#include "compiler/prepare_grammar/interned_grammar.h"
 
 namespace tree_sitter {
     class Grammar;
-    class PreparedGrammar;
 
     namespace prepare_grammar {
-        std::pair<PreparedGrammar, const GrammarError *> intern_symbols(const Grammar &);
+        std::pair<InternedGrammar, const GrammarError *> intern_symbols(const Grammar &);
     }
 }
 

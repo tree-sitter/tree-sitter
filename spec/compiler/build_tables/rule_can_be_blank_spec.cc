@@ -56,14 +56,14 @@ describe("checking if rules can be blank", [&]() {
     });
 
     describe("checking recursively (by expanding non-terminals)", [&]() {
-        PreparedGrammar grammar({
+        SyntaxGrammar grammar({
             { "A", choice({
                 seq({ i_sym(0), i_token(11) }),
                 blank() }) },
             { "B", choice({
                 seq({ i_sym(1), i_token(12) }),
                 i_token(13) }) },
-        }, {});
+        }, {}, {});
 
         it("terminates for left-recursive rules that can be blank", [&]() {
             rule = i_sym(0);

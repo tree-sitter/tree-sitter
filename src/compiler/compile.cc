@@ -14,8 +14,8 @@ namespace tree_sitter {
     tuple<string, vector<Conflict>, const GrammarError *>
     compile(const Grammar &grammar, std::string name) {
         auto prepare_grammar_result = prepare_grammar::prepare_grammar(grammar);
-        const PreparedGrammar &syntax_grammar = get<0>(prepare_grammar_result);
-        const PreparedGrammar &lexical_grammar = get<1>(prepare_grammar_result);
+        const SyntaxGrammar &syntax_grammar = get<0>(prepare_grammar_result);
+        const LexicalGrammar &lexical_grammar = get<1>(prepare_grammar_result);
         const GrammarError *error = get<2>(prepare_grammar_result);
 
         if (error)

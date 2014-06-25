@@ -4,6 +4,7 @@
 #include "compiler/build_tables/rule_transitions.h"
 #include "compiler/build_tables/merge_transitions.h"
 #include "compiler/rules/symbol.h"
+#include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {
     using std::map;
@@ -13,7 +14,7 @@ namespace tree_sitter {
 
     namespace build_tables {
         map<Symbol, ParseItemSet>
-        sym_transitions(const ParseItemSet &item_set, const PreparedGrammar &grammar) {
+        sym_transitions(const ParseItemSet &item_set, const SyntaxGrammar &grammar) {
             map<Symbol, ParseItemSet> result;
             for (const auto &pair : item_set) {
                 const ParseItem &item = pair.first;
@@ -31,7 +32,7 @@ namespace tree_sitter {
         }
 
         map<CharacterSet, LexItemSet>
-        char_transitions(const LexItemSet &item_set, const PreparedGrammar &grammar) {
+        char_transitions(const LexItemSet &item_set) {
             map<CharacterSet, LexItemSet> result;
             for (const LexItem &item : item_set) {
                 for (auto &transition : char_transitions(item.rule)) {

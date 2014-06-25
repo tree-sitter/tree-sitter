@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 #include "tree_sitter/compiler.h"
+#include "compiler/prepare_grammar/interned_grammar.h"
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/named_symbol.h"
@@ -37,15 +38,16 @@ namespace tree_sitter {
             string missing_rule_name;
         };
 
-        pair<PreparedGrammar, const GrammarError *> missing_rule_error(string rule_name) {
+        pair<InternedGrammar, const GrammarError *> missing_rule_error(string rule_name) {
+            InternedGrammar grammar;
             return {
-                PreparedGrammar({}, {}),
+                grammar,
                 new GrammarError(GrammarErrorTypeUndefinedSymbol,
                                  "Undefined rule '" + rule_name + "'")
             };
         }
 
-        pair<PreparedGrammar, const GrammarError *> intern_symbols(const Grammar &grammar) {
+        pair<InternedGrammar, const GrammarError *> intern_symbols(const Grammar &grammar) {
             InternSymbols interner(grammar);
             vector<pair<string, rule_ptr>> rules;
 
@@ -64,10 +66,12 @@ namespace tree_sitter {
                 ubiquitous_tokens.push_back(*token);
             }
 
-            return {
-                PreparedGrammar(rules, {}).ubiquitous_tokens(ubiquitous_tokens),
-                nullptr
-            };
+            InternedGrammar result;
+            result.rules = rules;
+            result.ubiquitous_tokens = ubiquitous_tokens;
+            result.separators = grammar.separators();
+
+            return { result, nullptr };
         }
     }
 }

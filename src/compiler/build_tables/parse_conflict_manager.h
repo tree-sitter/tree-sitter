@@ -13,13 +13,13 @@
 namespace tree_sitter {
     namespace build_tables {
         class ParseConflictManager {
-            const PreparedGrammar parse_grammar;
-            const PreparedGrammar lex_grammar;
+            const SyntaxGrammar parse_grammar;
+            const LexicalGrammar lex_grammar;
             std::set<Conflict> conflicts_;
 
         public:
-            ParseConflictManager(const PreparedGrammar &parse_grammar,
-                                 const PreparedGrammar &lex_grammar);
+            ParseConflictManager(const SyntaxGrammar &parse_grammar,
+                                 const LexicalGrammar &lex_grammar);
             bool resolve_parse_action(const rules::Symbol &symbol,
                                       const ParseAction &old_action,
                                       const ParseAction &new_action);

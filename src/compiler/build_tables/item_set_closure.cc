@@ -19,7 +19,7 @@ namespace tree_sitter {
     namespace build_tables {
         const ParseItemSet item_set_closure(const ParseItem &starting_item,
                                             const set<Symbol> &starting_lookahead_symbols,
-                                            const PreparedGrammar &grammar) {
+                                            const SyntaxGrammar &grammar) {
             ParseItemSet result;
 
             vector<pair<ParseItem, set<Symbol>>> items_to_process = {{starting_item, starting_lookahead_symbols}};

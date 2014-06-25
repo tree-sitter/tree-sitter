@@ -14,11 +14,11 @@ namespace tree_sitter {
 
     namespace build_tables {
         class FirstSet : public rules::RuleFn<set<Symbol>> {
-            const PreparedGrammar *grammar;
+            const SyntaxGrammar *grammar;
             set<Symbol> visited_symbols;
 
         public:
-            explicit FirstSet(const PreparedGrammar *grammar) : grammar(grammar) {}
+            explicit FirstSet(const SyntaxGrammar *grammar) : grammar(grammar) {}
 
             set<Symbol> apply_to(const Symbol *rule) {
                 auto insertion_result = visited_symbols.insert(*rule);
@@ -54,7 +54,7 @@ namespace tree_sitter {
             }
         };
 
-        set<Symbol> first_set(const rules::rule_ptr &rule, const PreparedGrammar &grammar) {
+        set<Symbol> first_set(const rules::rule_ptr &rule, const SyntaxGrammar &grammar) {
             return FirstSet(&grammar).apply(rule);
         }
     }

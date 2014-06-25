@@ -1,6 +1,7 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/build_tables/parse_conflict_manager.h"
 #include "compiler/build_tables/lex_conflict_manager.h"
+#include "compiler/prepared_grammar.h"
 
 using namespace rules;
 using namespace build_tables;
@@ -10,16 +11,16 @@ START_TEST
 describe("resolving parse conflicts", []() {
     bool update;
 
-    PreparedGrammar parse_grammar({
+    SyntaxGrammar parse_grammar({
         { "rule1", seq({ sym("rule2"), sym("token2") }) },
         { "rule2", sym("token1") },
-    }, {});
+    }, {}, {});
 
-    PreparedGrammar lex_grammar({
+    LexicalGrammar lex_grammar({
         { "token1", pattern("[a-c]") },
         { "token2", pattern("[b-d]") },
         { "token3", keyword("stuff") },
-    }, {});
+    }, {}, {});
 
     describe("lexical conflicts", [&]() {
         Symbol sym1(0, SymbolOptionToken);

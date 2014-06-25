@@ -7,11 +7,12 @@
 #include "compiler/parse_table.h"
 
 namespace tree_sitter {
-    class PreparedGrammar;
+    class SyntaxGrammar;
+    class LexicalGrammar;
 
     namespace build_tables {
         std::pair<ParseTable, std::vector<Conflict>>
-        build_parse_table(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar);
+        build_parse_table(const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar);
     }
 }
 

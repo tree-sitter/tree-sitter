@@ -25,7 +25,7 @@ namespace tree_sitter {
 
     namespace build_tables {
         class LexTableBuilder {
-            const PreparedGrammar lex_grammar;
+            const LexicalGrammar lex_grammar;
             ParseTable *parse_table;
             LexConflictManager conflict_manager;
             unordered_map<const LexItemSet, LexStateId> lex_state_ids;
@@ -65,7 +65,7 @@ namespace tree_sitter {
             }
 
             void add_advance_actions(const LexItemSet &item_set, LexStateId state_id) {
-                auto transitions = char_transitions(item_set, lex_grammar);
+                auto transitions = char_transitions(item_set);
                 for (const auto &transition : transitions) {
                     CharacterSet rule = transition.first;
                     LexItemSet new_item_set = transition.second;
@@ -114,7 +114,7 @@ namespace tree_sitter {
             }
 
         public:
-            LexTableBuilder(ParseTable *parse_table, const PreparedGrammar &lex_grammar) :
+            LexTableBuilder(ParseTable *parse_table, const LexicalGrammar &lex_grammar) :
                 lex_grammar(lex_grammar),
                 parse_table(parse_table),
                 conflict_manager(LexConflictManager(lex_grammar)) {}
@@ -129,7 +129,7 @@ namespace tree_sitter {
             }
         };
 
-        LexTable build_lex_table(ParseTable *parse_table, const PreparedGrammar &lex_grammar) {
+        LexTable build_lex_table(ParseTable *parse_table, const LexicalGrammar &lex_grammar) {
             return LexTableBuilder(parse_table, lex_grammar).build();
         }
     }

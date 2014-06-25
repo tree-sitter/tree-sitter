@@ -10,7 +10,7 @@ using namespace rules;
 START_TEST
 
 describe("computing FIRST sets", []() {
-    const PreparedGrammar null_grammar({}, {});
+    const SyntaxGrammar null_grammar;
 
     describe("for a sequence AB", [&]() {
         it("ignores B when A cannot be blank", [&]() {
@@ -41,12 +41,12 @@ describe("computing FIRST sets", []() {
                     i_token(1) }),
                 i_sym(0) });
 
-            PreparedGrammar grammar({
+            SyntaxGrammar grammar({
                 { "rule0", seq({
                     i_token(2),
                     i_token(3),
                     i_token(4) }) }
-            }, {});
+            }, {}, {});
 
             AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
                 Symbol(0, SymbolOptionToken),
@@ -59,11 +59,11 @@ describe("computing FIRST sets", []() {
                 i_sym(0),
                 i_token(1) });
 
-            PreparedGrammar grammar({
+            SyntaxGrammar grammar({
                 { "rule0", choice({
                     i_token(0),
                     blank() }) }
-            }, {});
+            }, {}, {});
 
             AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
                 Symbol(0, SymbolOptionToken),
@@ -74,12 +74,12 @@ describe("computing FIRST sets", []() {
 
     describe("when there are left-recursive rules", [&]() {
         it("terminates", [&]() {
-            PreparedGrammar grammar({
+            SyntaxGrammar grammar({
                 { "rule0", choice({
                     seq({ i_sym(0), i_token(10) }),
                     i_token(11),
                 }) },
-            }, {});
+            }, {}, {});
 
             auto rule = i_sym(0);
 

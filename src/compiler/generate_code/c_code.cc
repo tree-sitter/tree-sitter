@@ -27,16 +27,16 @@ namespace tree_sitter {
             const string name;
             const ParseTable parse_table;
             const LexTable lex_table;
-            const PreparedGrammar syntax_grammar;
-            const PreparedGrammar lexical_grammar;
+            const SyntaxGrammar syntax_grammar;
+            const LexicalGrammar lexical_grammar;
             map<string, string> sanitized_names;
 
         public:
             CCodeGenerator(string name,
                            const ParseTable &parse_table,
                            const LexTable &lex_table,
-                           const PreparedGrammar &syntax_grammar,
-                           const PreparedGrammar &lexical_grammar) :
+                           const SyntaxGrammar &syntax_grammar,
+                           const LexicalGrammar &lexical_grammar) :
                 indent_level(0),
                 name(name),
                 parse_table(parse_table),
@@ -107,7 +107,7 @@ namespace tree_sitter {
             void ubiquitous_symbols_list() {
                 line("UBIQUITOUS_SYMBOLS = {");
                 indent([&]() {
-                    for (auto &symbol : syntax_grammar.ubiquitous_tokens())
+                    for (auto &symbol : syntax_grammar.ubiquitous_tokens)
                         line("[" + symbol_id(symbol) + "] = 1,");
                 });
                 line("};");
@@ -118,7 +118,7 @@ namespace tree_sitter {
                 line("HIDDEN_SYMBOLS = {");
                 indent([&]() {
                     for (auto &symbol : parse_table.symbols)
-                        if (!symbol.is_built_in() && (symbol.is_auxiliary() || grammar_for_symbol(symbol).rule_name(symbol)[0] == '_'))
+                        if (!symbol.is_built_in() && (symbol.is_auxiliary() || rule_name(symbol)[0] == '_'))
                             line("[" + symbol_id(symbol) + "] = 1,");
                 });
                 line("};");
@@ -178,8 +178,10 @@ namespace tree_sitter {
                 line();
             }
 
-            const PreparedGrammar & grammar_for_symbol(const rules::Symbol &symbol) {
-                return symbol.is_token() ? lexical_grammar : syntax_grammar;
+            string rule_name(const rules::Symbol &symbol) {
+                return symbol.is_token() ?
+                    lexical_grammar.rule_name(symbol) :
+                    syntax_grammar.rule_name(symbol);
             }
 
             string symbol_id(const rules::Symbol &symbol) {
@@ -188,7 +190,7 @@ namespace tree_sitter {
                         "ts_builtin_sym_error" :
                         "ts_builtin_sym_end";
                 } else {
-                    string name = sanitize_name(grammar_for_symbol(symbol).rule_name(symbol));
+                    string name = sanitize_name(rule_name(symbol));
                     if (symbol.is_auxiliary())
                         return "ts_aux_sym_" + name;
                     else
@@ -238,9 +240,9 @@ namespace tree_sitter {
                 if (symbol.is_built_in()) {
                     return (symbol == rules::ERROR()) ? "error" : "end";
                 } else if (symbol.is_token() && symbol.is_auxiliary()) {
-                    return grammar_for_symbol(symbol).rule_name(symbol);
+                    return rule_name(symbol);
                 } else {
-                    return grammar_for_symbol(symbol).rule_name(symbol);
+                    return rule_name(symbol);
                 }
             }
 
@@ -397,8 +399,8 @@ namespace tree_sitter {
         string c_code(string name,
                       const ParseTable &parse_table,
                       const LexTable &lex_table,
-                      const PreparedGrammar &syntax_grammar,
-                      const PreparedGrammar &lexical_grammar) {
+                      const SyntaxGrammar &syntax_grammar,
+                      const LexicalGrammar &lexical_grammar) {
             return CCodeGenerator(name, parse_table, lex_table, syntax_grammar, lexical_grammar).code();
         }
     }

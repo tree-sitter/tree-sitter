@@ -62,8 +62,17 @@ namespace tree_sitter {
         return ubiquitous_tokens_;
     }
 
-    const Grammar & Grammar::ubiquitous_tokens(const vector<string> &ubiquitous_tokens) {
+    Grammar & Grammar::ubiquitous_tokens(const vector<string> &ubiquitous_tokens) {
         ubiquitous_tokens_ = ubiquitous_tokens;
+        return *this;
+    }
+
+    const vector<char> & Grammar::separators() const {
+        return separators_;
+    }
+
+    Grammar & Grammar::separators(const vector<char> &separators) {
+        separators_ = separators;
         return *this;
     }
 

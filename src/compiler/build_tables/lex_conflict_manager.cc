@@ -4,6 +4,7 @@
 #include <string>
 #include <set>
 #include "compiler/util/string_helpers.h"
+#include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {
     namespace build_tables {
@@ -13,7 +14,7 @@ namespace tree_sitter {
         using std::set;
         using std::vector;
 
-        LexConflictManager::LexConflictManager(const PreparedGrammar &grammar) :
+        LexConflictManager::LexConflictManager(const LexicalGrammar &grammar) :
             grammar(grammar) {}
 
         bool LexConflictManager::resolve_lex_action(const LexAction &old_action,

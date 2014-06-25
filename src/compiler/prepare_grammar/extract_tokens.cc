@@ -9,6 +9,7 @@
 #include "compiler/rules/string.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/rules/pattern.h"
+#include "compiler/prepare_grammar/interned_grammar.h"
 #include "compiler/prepare_grammar/token_description.h"
 
 namespace tree_sitter {
@@ -93,15 +94,15 @@ namespace tree_sitter {
             vector<pair<string, rule_ptr>> tokens;
         };
 
-        pair<PreparedGrammar, PreparedGrammar> extract_tokens(const PreparedGrammar &input_grammar) {
+        pair<SyntaxGrammar, LexicalGrammar> extract_tokens(const InternedGrammar &input_grammar) {
             vector<pair<string, rule_ptr>> rules, tokens, aux_rules, aux_tokens;
             vector<Symbol> ubiquitous_tokens;
 
             TokenExtractor extractor;
             map<Symbol, Symbol> symbol_replacements;
 
-            for (size_t i = 0; i < input_grammar.rules().size(); i++) {
-                auto pair = input_grammar.rules()[i];
+            for (size_t i = 0; i < input_grammar.rules.size(); i++) {
+                auto pair = input_grammar.rules[i];
                 if (IsToken().apply(pair.second)) {
                     tokens.push_back(pair);
                     symbol_replacements.insert({
@@ -113,32 +114,17 @@ namespace tree_sitter {
                 }
             }
 
-            for (size_t i = 0; i < input_grammar.aux_rules().size(); i++) {
-                auto pair = input_grammar.aux_rules()[i];
-                if (IsToken().apply(pair.second)) {
-                    aux_tokens.push_back(pair);
-                    symbol_replacements.insert({
-                        Symbol(i, rules::SymbolOptionAuxiliary),
-                        Symbol(aux_tokens.size() - 1, rules::SymbolOption(rules::SymbolOptionAuxiliary|rules::SymbolOptionToken))
-                    });
-                } else {
-                    aux_rules.push_back({ pair.first, extractor.apply(pair.second) });
-                }
-            }
-
             aux_tokens.insert(aux_tokens.end(), extractor.tokens.begin(), extractor.tokens.end());
 
             SymbolInliner inliner(symbol_replacements);
             for (auto &pair : rules)
                 pair.second = inliner.apply(pair.second);
-            for (auto &pair : aux_rules)
-                pair.second = inliner.apply(pair.second);
-            for (auto &symbol : input_grammar.ubiquitous_tokens())
+            for (auto &symbol : input_grammar.ubiquitous_tokens)
                 ubiquitous_tokens.push_back(inliner.replace_symbol(symbol));
 
             return {
-                PreparedGrammar(rules, aux_rules).ubiquitous_tokens(ubiquitous_tokens),
-                PreparedGrammar(tokens, aux_tokens)
+                SyntaxGrammar(rules, aux_rules, ubiquitous_tokens),
+                LexicalGrammar(tokens, aux_tokens, {}),
             };
         }
     }

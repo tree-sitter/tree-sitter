@@ -6,17 +6,17 @@
 #include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
-    class PreparedGrammar;
+    class SyntaxGrammar;
 
     namespace build_tables {
 
         /*
          *  Returns the set of terminal symbols that can appear at
          *  the beginning of a string derivable from a given rule,
-         *  in a given gramamr.
+         *  in a given grammar.
          */
         std::set<rules::Symbol>
-        first_set(const rules::rule_ptr &rule, const PreparedGrammar &grammar);
+        first_set(const rules::rule_ptr &rule, const SyntaxGrammar &grammar);
     }
 }
 

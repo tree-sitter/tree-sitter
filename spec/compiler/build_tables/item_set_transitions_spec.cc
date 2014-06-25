@@ -8,15 +8,13 @@ using namespace build_tables;
 START_TEST
 
 describe("lexical item set transitions", []() {
-    PreparedGrammar grammar({}, {});
-
     describe("when two items in the set have transitions on the same character", [&]() {
         it("merges the transitions by computing the union of the two item sets", [&]() {
             LexItemSet set1({
                 LexItem(Symbol(1), character({ {'a', 'f'} })),
                 LexItem(Symbol(2), character({ {'e', 'x'} })) });
 
-            AssertThat(char_transitions(set1, grammar), Equals(map<CharacterSet, LexItemSet>({
+            AssertThat(char_transitions(set1), Equals(map<CharacterSet, LexItemSet>({
                 { CharacterSet({ {'a', 'd'} }), LexItemSet({
                     LexItem(Symbol(1), blank()) }) },
                 { CharacterSet({ {'e', 'f'} }), LexItemSet({
@@ -30,10 +28,10 @@ describe("lexical item set transitions", []() {
 });
 
 describe("syntactic item set transitions", [&]() {
-    PreparedGrammar grammar({
+    SyntaxGrammar grammar({
         { "A", blank() },
         { "B", i_token(21) },
-    }, {});
+    }, {}, {});
 
     it("computes the closure of the new item sets", [&]() {
         ParseItemSet set1({

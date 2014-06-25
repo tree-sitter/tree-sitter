@@ -6,7 +6,7 @@
 #include "compiler/build_tables/parse_item.h"
 
 namespace tree_sitter {
-    class PreparedGrammar;
+    class SyntaxGrammar;
     namespace rules {
         class CharacterSet;
         class Symbol;
@@ -14,10 +14,10 @@ namespace tree_sitter {
 
     namespace build_tables {
         std::map<rules::Symbol, ParseItemSet>
-        sym_transitions(const ParseItemSet &item_set, const PreparedGrammar &grammar);
+        sym_transitions(const ParseItemSet &item_set, const SyntaxGrammar &grammar);
 
         std::map<rules::CharacterSet, LexItemSet>
-        char_transitions(const LexItemSet &item_set, const PreparedGrammar &grammar);
+        char_transitions(const LexItemSet &item_set);
     }
 }
 

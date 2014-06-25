@@ -8,10 +8,10 @@
 namespace tree_sitter {
     namespace build_tables {
         class LexConflictManager {
-            const PreparedGrammar grammar;
+            const LexicalGrammar grammar;
 
         public:
-            explicit LexConflictManager(const PreparedGrammar &grammar);
+            explicit LexConflictManager(const LexicalGrammar &grammar);
             bool resolve_lex_action(const LexAction &old_action,
                                     const LexAction &new_action);
         };

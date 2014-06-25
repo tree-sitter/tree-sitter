@@ -23,7 +23,7 @@ namespace tree_sitter {
 
     namespace build_tables {
         class ParseTableBuilder {
-            const PreparedGrammar grammar;
+            const SyntaxGrammar grammar;
             ParseConflictManager conflict_manager;
             unordered_map<const ParseItemSet, ParseStateId> parse_state_ids;
             ParseTable parse_table;
@@ -59,7 +59,7 @@ namespace tree_sitter {
             }
 
             void add_ubiquitous_token_actions(const ParseItemSet &item_set, ParseStateId state_id) {
-                for (const Symbol &symbol : grammar.ubiquitous_tokens()) {
+                for (const Symbol &symbol : grammar.ubiquitous_tokens) {
                     auto &actions = parse_table.states[state_id].actions;
                     if (actions.find(symbol) == actions.end())
                         parse_table.add_action(state_id, symbol, ParseAction::Shift(state_id, { 0 }));
@@ -99,7 +99,7 @@ namespace tree_sitter {
             }
 
         public:
-            ParseTableBuilder(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar) :
+            ParseTableBuilder(const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar) :
                 grammar(grammar),
                 conflict_manager(ParseConflictManager(grammar, lex_grammar)) {}
 
@@ -111,7 +111,7 @@ namespace tree_sitter {
         };
 
         pair<ParseTable, vector<Conflict>>
-        build_parse_table(const PreparedGrammar &grammar, const PreparedGrammar &lex_grammar) {
+        build_parse_table(const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar) {
             return ParseTableBuilder(grammar, lex_grammar).build();
         }
     }

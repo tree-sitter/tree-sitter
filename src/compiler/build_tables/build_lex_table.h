@@ -5,12 +5,11 @@
 #include "compiler/lex_table.h"
 
 namespace tree_sitter {
-    class PreparedGrammar;
+    class LexicalGrammar;
     class ParseTable;
 
     namespace build_tables {
-        LexTable
-        build_lex_table(ParseTable *parse_table, const PreparedGrammar &lex_grammar);
+        LexTable build_lex_table(ParseTable *parse_table, const LexicalGrammar &lex_grammar);
     }
 }
 

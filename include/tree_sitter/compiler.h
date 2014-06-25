@@ -30,6 +30,7 @@ namespace tree_sitter {
     protected:
         const std::vector<std::pair<std::string, rules::rule_ptr>> rules_;
         std::vector<std::string> ubiquitous_tokens_;
+        std::vector<char> separators_;
 
     public:
         Grammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules);
@@ -37,9 +38,11 @@ namespace tree_sitter {
         std::string start_rule_name() const;
         const rules::rule_ptr rule(const std::string &name) const;
 
-        const std::vector<std::string> & ubiquitous_tokens() const;
-        const Grammar & ubiquitous_tokens(const std::vector<std::string> &ubiquitous_tokens);
         const std::vector<std::pair<std::string, rules::rule_ptr>> & rules() const;
+        const std::vector<std::string> & ubiquitous_tokens() const;
+        Grammar & ubiquitous_tokens(const std::vector<std::string> &ubiquitous_tokens);
+        const std::vector<char> & separators() const;
+        Grammar & separators(const std::vector<char> &separators);
     };
 
     struct Conflict {

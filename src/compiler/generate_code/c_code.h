@@ -7,14 +7,15 @@
 #include "compiler/lex_table.h"
 
 namespace tree_sitter {
-    class PreparedGrammar;
+    class SyntaxGrammar;
+    class LexicalGrammar;
 
     namespace generate_code {
         std::string c_code(std::string name,
                            const ParseTable &parse_table,
                            const LexTable &lex_table,
-                           const PreparedGrammar &syntax_grammar,
-                           const PreparedGrammar &lexical_grammar);
+                           const SyntaxGrammar &syntax_grammar,
+                           const LexicalGrammar &lexical_grammar);
     }
 }
 

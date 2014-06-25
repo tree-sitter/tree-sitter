@@ -3,6 +3,7 @@
 #include "compiler/prepare_grammar/intern_symbols.h"
 #include "compiler/rules/named_symbol.h"
 #include "compiler/rules/symbol.h"
+#include "compiler/helpers/containers.h"
 
 START_TEST
 
@@ -20,11 +21,11 @@ describe("interning symbols in a grammar", []() {
         auto result = intern_symbols(grammar);
 
         AssertThat(result.second, Equals((GrammarError *)nullptr));
-        AssertThat(result.first, Equals(PreparedGrammar({
+        AssertThat(result.first.rules, Equals(rule_list({
             { "x", choice({ i_sym(1), i_sym(2) }) },
             { "y", i_sym(2) },
             { "z", str("stuff") },
-        }, {})));
+        })));
     });
 
     describe("when there are symbols that reference undefined rules", [&]() {
@@ -49,9 +50,19 @@ describe("interning symbols in a grammar", []() {
         auto result = intern_symbols(grammar);
 
         AssertThat(result.second, Equals((GrammarError *)nullptr));
-        AssertThat(result.first.ubiquitous_tokens(), Equals(vector<Symbol>({
+        AssertThat(result.first.ubiquitous_tokens, Equals(vector<Symbol>({
             Symbol(2)
         })));
+    });
+
+    it("preserves the grammar's separator character set", [&]() {
+        auto grammar = Grammar({
+            { "z", str("stuff") }
+        }).separators({ 'x', 'y' });
+
+        auto result = intern_symbols(grammar);
+
+        AssertThat(result.first.separators, Equals(vector<char>({ 'x', 'y' })))
     });
 });
 

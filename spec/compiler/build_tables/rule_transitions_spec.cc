@@ -1,25 +1,10 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/build_tables/rule_transitions.h"
 #include "compiler/rules/metadata.h"
+#include "compiler/helpers/containers.h"
 
 using namespace rules;
 using namespace build_tables;
-
-template<typename K>
-class rule_map : public map<K, rule_ptr> {
-public:
-    bool operator==(const map<K, rule_ptr> &other) const {
-        if (this->size() != other.size()) return false;
-        for (const auto &pair : *this) {
-            auto other_pair = other.find(pair.first);
-            if (other_pair == other.end()) return false;
-            if (!pair.second->operator==(*other_pair->second)) return false;
-        }
-        return true;
-    }
-
-    rule_map(const initializer_list<pair<const K, rule_ptr>> &list) : map<K, rule_ptr>(list) {}
-};
 
 START_TEST
 

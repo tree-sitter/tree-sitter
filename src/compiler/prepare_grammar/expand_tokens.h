@@ -5,11 +5,11 @@
 #include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
-    class PreparedGrammar;
+    class LexicalGrammar;
 
     namespace prepare_grammar {
-        std::pair<PreparedGrammar, const GrammarError *>
-        expand_tokens(const PreparedGrammar &);
+        std::pair<LexicalGrammar, const GrammarError *>
+        expand_tokens(const LexicalGrammar &);
     }
 }
 

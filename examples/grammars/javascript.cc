@@ -191,5 +191,7 @@ namespace tree_sitter_examples {
         { "null", keyword("null") },
         { "true", keyword("true") },
         { "false", keyword("false") },
-    }).ubiquitous_tokens({ "comment" });
+    })
+        .ubiquitous_tokens({ "comment" })
+        .separators({ ' ', '\t', '\r' });
 }

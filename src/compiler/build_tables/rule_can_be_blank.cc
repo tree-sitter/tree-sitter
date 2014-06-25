@@ -39,13 +39,13 @@ namespace tree_sitter  {
         };
 
         class CanBeBlankRecursive : public CanBeBlank {
-            const PreparedGrammar *grammar;
+            const SyntaxGrammar *grammar;
             set<rules::Symbol> visited_symbols;
             using CanBeBlank::visit;
 
         public:
             using CanBeBlank::apply_to;
-            explicit CanBeBlankRecursive(const PreparedGrammar *grammar) : grammar(grammar) {}
+            explicit CanBeBlankRecursive(const SyntaxGrammar *grammar) : grammar(grammar) {}
 
             bool apply_to(const rules::Symbol *rule) {
                 if (visited_symbols.find(*rule) == visited_symbols.end()) {
@@ -61,7 +61,7 @@ namespace tree_sitter  {
             return CanBeBlank().apply(rule);
         }
 
-        bool rule_can_be_blank(const rules::rule_ptr &rule, const PreparedGrammar &grammar) {
+        bool rule_can_be_blank(const rules::rule_ptr &rule, const SyntaxGrammar &grammar) {
             return CanBeBlankRecursive(&grammar).apply(rule);
         }
     }

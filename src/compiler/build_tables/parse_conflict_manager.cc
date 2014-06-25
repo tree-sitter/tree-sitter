@@ -4,6 +4,7 @@
 #include <string>
 #include <set>
 #include "compiler/util/string_helpers.h"
+#include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {
     namespace build_tables {
@@ -13,8 +14,8 @@ namespace tree_sitter {
         using std::set;
         using std::vector;
 
-        ParseConflictManager::ParseConflictManager(const PreparedGrammar &parse_grammar,
-                                                   const PreparedGrammar &lex_grammar) :
+        ParseConflictManager::ParseConflictManager(const SyntaxGrammar &parse_grammar,
+                                                   const LexicalGrammar &lex_grammar) :
             parse_grammar(parse_grammar),
             lex_grammar(lex_grammar) {}
 
@@ -87,7 +88,7 @@ namespace tree_sitter {
             return precedences + ")";
         }
 
-        string message_for_action(const ParseAction &action, const PreparedGrammar &parse_grammar) {
+        string message_for_action(const ParseAction &action, const SyntaxGrammar &parse_grammar) {
             switch (action.type) {
                 case ParseActionTypeShift:
                     return "shift " + precedence_string(action);
