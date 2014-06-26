@@ -34,8 +34,8 @@ namespace tree_sitter {
                     ParseStateId state_id = parse_table.add_state();
                     parse_state_ids[item_set] = state_id;
                     add_shift_actions(item_set, state_id);
-                    add_ubiquitous_token_actions(item_set, state_id);
                     add_reduce_actions(item_set, state_id);
+                    add_ubiquitous_token_actions(item_set, state_id);
                     return state_id;
                 } else {
                     return pair->second;

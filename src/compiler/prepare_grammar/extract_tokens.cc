@@ -124,7 +124,7 @@ namespace tree_sitter {
 
             return {
                 SyntaxGrammar(rules, aux_rules, ubiquitous_tokens),
-                LexicalGrammar(tokens, aux_tokens, {}),
+                LexicalGrammar(tokens, aux_tokens, input_grammar.separators),
             };
         }
     }

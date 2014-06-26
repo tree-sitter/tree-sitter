@@ -93,11 +93,17 @@ namespace tree_sitter {
                         lex_table.state(state_id).is_token_start = true;
             }
 
+            CharacterSet separator_set() const {
+                set<rules::CharacterRange> ranges;
+                for (char c : lex_grammar.separators)
+                    ranges.insert(c);
+                return CharacterSet(ranges);
+            }
+
             rules::rule_ptr after_separators(rules::rule_ptr rule) {
                 return rules::Seq::Build({
                     make_shared<rules::Metadata>(
-                        make_shared<rules::Repeat>(
-                            CharacterSet({ ' ', '\t', '\n', '\r' }).copy()),
+                        make_shared<rules::Repeat>(separator_set().copy()),
                         map<rules::MetadataKey, int>({
                             {rules::START_TOKEN, 1},
                             {rules::PRECEDENCE, -1},

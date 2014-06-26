@@ -10,7 +10,8 @@ namespace tree_sitter {
 
     Grammar::Grammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules) :
         rules_(rules),
-        ubiquitous_tokens_({}) {}
+        ubiquitous_tokens_({}),
+        separators_({ ' ', '\r', '\t', '\n' }) {}
 
     bool Grammar::operator==(const Grammar &other) const {
         if (other.rules_.size() != rules_.size()) return false;

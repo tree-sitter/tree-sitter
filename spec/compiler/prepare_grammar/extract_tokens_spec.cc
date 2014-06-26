@@ -107,6 +107,18 @@ describe("extracting tokens from a grammar", []() {
         })))
     });
 
+    it("preserves the separator characters in the lexical grammar", [&]() {
+        pair<SyntaxGrammar, LexicalGrammar> result = extract_tokens(InternedGrammar{
+            {
+                { "rule_A", str("ab") },
+            },
+            {},
+            { 'x', 'y', 'z' }
+        });
+
+        AssertThat(result.second.separators, Equals(vector<char>({ 'x', 'y', 'z' })));
+    });
+
     describe("when an entire rule can be extracted", [&]() {
         it("moves the rule the lexical grammar when possible and updates referencing symbols", [&]() {
             auto result = extract_tokens(InternedGrammar{
