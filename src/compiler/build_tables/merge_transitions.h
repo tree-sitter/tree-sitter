@@ -16,24 +16,18 @@ namespace tree_sitter {
          */
         template<typename T>
         void merge_sym_transitions(std::map<rules::Symbol, T> *left,
-                                   const std::map<rules::Symbol, T> &right,
+                                   const std::pair<rules::Symbol, T> &new_pair,
                                    std::function<void(T *, const T *)> merge_fn) {
-            for (auto &pair : right) {
-                auto rule = pair.first;
-                bool merged = false;
-                for (auto &existing_pair : *left) {
-                    auto existing_rule = existing_pair.first;
-                    if (existing_rule == rule) {
-                        merge_fn(&existing_pair.second, &pair.second);
-                        merged = true;
-                        break;
-                    } else if (rule < existing_rule) {
-                        break;
-                    }
+            auto new_symbol = new_pair.first;
+            for (auto &existing_pair : *left) {
+                auto existing_symbol = existing_pair.first;
+                if (new_symbol < existing_symbol) break;
+                if (existing_symbol == new_symbol) {
+                    merge_fn(&existing_pair.second, &new_pair.second);
+                    return;
                 }
-                if (!merged)
-                    left->insert({ pair.first, pair.second });
             }
+            left->insert(new_pair);
         }
 
         /*
@@ -44,37 +38,35 @@ namespace tree_sitter {
          */
         template<typename T>
         void merge_char_transitions(std::map<rules::CharacterSet, T> *left,
-                                    const std::map<rules::CharacterSet, T> &right,
+                                    const std::pair<rules::CharacterSet, T> &new_pair,
                                     std::function<void(T *, const T *)> merge_fn) {
-            for (auto &new_pair : right) {
-                rules::CharacterSet new_char_set = new_pair.first;
-                T new_value = new_pair.second;
+            rules::CharacterSet new_char_set = new_pair.first;
+            T new_value = new_pair.second;
 
-                std::map<rules::CharacterSet, T> pairs_to_insert;
+            std::map<rules::CharacterSet, T> pairs_to_insert;
 
-                auto iter = left->begin();
-                while (iter != left->end()) {
-                    rules::CharacterSet char_set = iter->first;
-                    T value = iter->second;
+            auto iter = left->begin();
+            while (iter != left->end()) {
+                rules::CharacterSet char_set = iter->first;
+                T value = iter->second;
 
-                    rules::CharacterSet intersection = char_set.remove_set(new_char_set);
-                    if (!intersection.is_empty()) {
-                        new_char_set.remove_set(intersection);
-                        if (!char_set.is_empty())
-                            pairs_to_insert.insert({ char_set, value });
-                        merge_fn(&value, &new_value);
-                        pairs_to_insert.insert({ intersection, value });
-                        left->erase(iter++);
-                    } else {
-                        ++iter;
-                    }
+                rules::CharacterSet intersection = char_set.remove_set(new_char_set);
+                if (!intersection.is_empty()) {
+                    new_char_set.remove_set(intersection);
+                    if (!char_set.is_empty())
+                        pairs_to_insert.insert({ char_set, value });
+                    merge_fn(&value, &new_value);
+                    pairs_to_insert.insert({ intersection, value });
+                    left->erase(iter++);
+                } else {
+                    ++iter;
                 }
-
-                left->insert(pairs_to_insert.begin(), pairs_to_insert.end());
-
-                if (!new_char_set.is_empty())
-                    left->insert({ new_char_set, new_pair.second });
             }
+
+            left->insert(pairs_to_insert.begin(), pairs_to_insert.end());
+
+            if (!new_char_set.is_empty())
+                left->insert({ new_char_set, new_pair.second });
         }
     }
 }

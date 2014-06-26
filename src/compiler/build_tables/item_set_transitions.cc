@@ -21,7 +21,7 @@ namespace tree_sitter {
                 const set<Symbol> &lookahead_symbols = pair.second;
                 for (auto &transition : sym_transitions(item.rule)) {
                     ParseItem new_item(item.lhs, transition.second, item.consumed_symbol_count + 1);
-                    merge_sym_transitions<ParseItemSet>(&result, {{ transition.first, item_set_closure(new_item, lookahead_symbols, grammar) }},
+                    merge_sym_transitions<ParseItemSet>(&result, { transition.first, item_set_closure(new_item, lookahead_symbols, grammar) },
                                                         [](ParseItemSet *left, const ParseItemSet *right) {
                                                             for (auto &pair : *right)
                                                                 left->operator[](pair.first).insert(pair.second.begin(), pair.second.end());
@@ -37,7 +37,7 @@ namespace tree_sitter {
             for (const LexItem &item : item_set) {
                 for (auto &transition : char_transitions(item.rule)) {
                     LexItem next_item(item.lhs, transition.second);
-                    merge_char_transitions<LexItemSet>(&result, {{ transition.first, LexItemSet({ next_item }) }},
+                    merge_char_transitions<LexItemSet>(&result, { transition.first, LexItemSet({ next_item }) },
                                                        [](LexItemSet *left, const LexItemSet *right) {
                                                            left->insert(right->begin(), right->end());
                                                        });
