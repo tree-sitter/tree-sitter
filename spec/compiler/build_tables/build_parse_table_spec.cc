@@ -35,7 +35,7 @@ describe("building parse tables", []() {
             { Symbol(1, SymbolOptionToken), ParseAction::Shift(4, { 0 }) },
 
             // for the ubiquitous_token 'token2'
-            { Symbol(2, SymbolOptionToken), ParseAction::Shift(0, { 0 }) },
+            { Symbol(2, SymbolOptionToken), ParseAction::ShiftExtra() },
         })));
     });
 
@@ -46,7 +46,7 @@ describe("building parse tables", []() {
             { END_OF_INPUT(), ParseAction::Accept() },
 
             // for the ubiquitous_token 'token2'
-            { Symbol(2, SymbolOptionToken), ParseAction::Shift(1, { 0 }) },
+            { Symbol(2, SymbolOptionToken), ParseAction::ShiftExtra() },
         })));
     });
 
@@ -57,7 +57,7 @@ describe("building parse tables", []() {
             { END_OF_INPUT(), ParseAction::Reduce(Symbol(0), 1, 0) },
 
             // for the ubiquitous_token 'token2'
-            { Symbol(2, SymbolOptionToken), ParseAction::Shift(2, { 0 }) },
+            { Symbol(2, SymbolOptionToken), ParseAction::ShiftExtra() },
         })));
     });
 });

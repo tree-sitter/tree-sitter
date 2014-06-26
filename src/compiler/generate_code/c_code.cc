@@ -51,7 +51,6 @@ namespace tree_sitter {
                 state_and_symbol_counts();
                 symbol_enum();
                 symbol_names_list();
-                ubiquitous_symbols_list();
                 hidden_symbols_list();
                 lex_function();
                 lex_states_list();
@@ -99,16 +98,6 @@ namespace tree_sitter {
                 indent([&]() {
                     for (auto symbol : parse_table.symbols)
                         line("[" + symbol_id(symbol) + "] = \"" + symbol_name(symbol) + "\",");
-                });
-                line("};");
-                line();
-            }
-
-            void ubiquitous_symbols_list() {
-                line("UBIQUITOUS_SYMBOLS = {");
-                indent([&]() {
-                    for (auto &symbol : syntax_grammar.ubiquitous_tokens)
-                        line("[" + symbol_id(symbol) + "] = 1,");
                 });
                 line("};");
                 line();
@@ -292,6 +281,9 @@ namespace tree_sitter {
                         break;
                     case ParseActionTypeShift:
                         add("SHIFT(" + to_string(action.state_index) + ")");
+                        break;
+                    case ParseActionTypeShiftExtra:
+                        add("SHIFT_EXTRA()");
                         break;
                     case ParseActionTypeReduce:
                         add("REDUCE(" +

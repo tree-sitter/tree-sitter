@@ -43,9 +43,6 @@ SYMBOL_NAMES = {
     [ts_aux_sym_7] = "')'",
 };
 
-UBIQUITOUS_SYMBOLS = {
-};
-
 HIDDEN_SYMBOLS = {
     [ts_aux_sym_1] = 1,
     [ts_aux_sym_2] = 1,

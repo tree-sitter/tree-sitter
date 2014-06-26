@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 //#define TS_DEBUG_PARSE
-//#define TS_DEBUG_LEX
+// #define TS_DEBUG_LEX
 
 #include "tree_sitter/runtime.h"
 #include "tree_sitter/parser/lexer.h"
@@ -18,9 +18,6 @@ static const char *ts_symbol_names[]
 
 #define HIDDEN_SYMBOLS \
 static const int hidden_symbol_flags[SYMBOL_COUNT]
-
-#define UBIQUITOUS_SYMBOLS \
-static const int ubiquitous_symbol_flags[SYMBOL_COUNT]
 
 #define LEX_STATES \
 static ts_state_id ts_lex_states[STATE_COUNT]
@@ -79,7 +76,7 @@ static const ts_tree * ts_parse(void *data, ts_input input, ts_input_edit *edit)
     ts_lr_parser *parser = (ts_lr_parser *)data;
     ts_lr_parser_initialize(parser, input, edit);
     for (;;) {
-        ts_tree *tree = ts_lr_parser_parse(parser, ts_symbol_names);
+        const ts_tree *tree = ts_lr_parser_parse(parser, ts_symbol_names);
         if (tree) return tree;
     }
 }
@@ -95,8 +92,7 @@ ts_parser constructor_name() { \
             (const ts_parse_action *)ts_parse_actions, \
             ts_lex_states, \
             ts_lex, \
-            hidden_symbol_flags, \
-            ubiquitous_symbol_flags \
+            hidden_symbol_flags \
         ), \
     }; \
 }

@@ -1,4 +1,5 @@
 #include "tree_sitter/parser/lr_parser.h"
+#include "runtime/tree.h"
 
 /*
  *  Private
@@ -8,7 +9,8 @@ static const ts_parse_action * actions_for_state(ts_lr_parser *parser, ts_state_
     return parser->config.parse_table + (state * parser->config.symbol_count);
 }
 
-void shift(ts_lr_parser *parser, ts_state_id parse_state) {
+void shift(ts_lr_parser *parser, ts_state_id parse_state, int is_extra) {
+    parser->lookahead->is_extra = is_extra;
     ts_stack_push(&parser->stack, parse_state, parser->lookahead);
     parser->lookahead = parser->next_lookahead;
     parser->next_lookahead = NULL;
@@ -20,7 +22,7 @@ void reduce(ts_lr_parser *parser, ts_symbol symbol, size_t child_count) {
                                         symbol,
                                         child_count,
                                         parser->config.hidden_symbol_flags,
-                                        parser->config.ubiquitous_symbol_flags);
+                                        1);
 }
 
 static size_t breakdown_stack(ts_lr_parser *parser, ts_input_edit *edit) {
@@ -129,6 +131,7 @@ ts_tree * get_tree_root(ts_lr_parser *parser) {
     stack->size--;
     for (size_t i = 0; i < immediate_child_count; i++) {
         ts_tree *child = immedate_children[i];
+        child->is_extra = 0;
         ts_tree_retain(child);
         ts_state_id state = ts_stack_top_state(stack);
         ts_state_id next_state = actions_for_state(parser, state)[ts_tree_symbol(child)].data.to_state;
@@ -136,10 +139,10 @@ ts_tree * get_tree_root(ts_lr_parser *parser) {
     }
 
     ts_tree *new_node = ts_stack_reduce(stack,
-                                        ts_tree_symbol(top_node),
+                                        top_node->symbol,
                                         stack->size,
                                         parser->config.hidden_symbol_flags,
-                                        NULL);
+                                        0);
     ts_tree_release(top_node);
     return new_node;
 }
@@ -159,8 +162,7 @@ ts_lr_parser * ts_lr_parser_make(size_t symbol_count,
                                  const ts_parse_action *parse_table,
                                  const ts_state_id *lex_states,
                                  ts_tree * (* lex_fn)(ts_lexer *, ts_state_id),
-                                 const int *hidden_symbol_flags,
-                                 const int *ubiquitous_symbol_flags) {
+                                 const int *hidden_symbol_flags) {
     ts_lr_parser *result = malloc(sizeof(ts_lr_parser));
     *result = (ts_lr_parser) {
         .lexer = ts_lexer_make(),
@@ -171,7 +173,6 @@ ts_lr_parser * ts_lr_parser_make(size_t symbol_count,
             .lex_states = lex_states,
             .lex_fn = lex_fn,
             .hidden_symbol_flags = hidden_symbol_flags,
-            .ubiquitous_symbol_flags = ubiquitous_symbol_flags,
         },
     };
     return result;
@@ -198,6 +199,8 @@ void ts_lr_parser_initialize(ts_lr_parser *parser, ts_input input, ts_input_edit
     ts_lexer_advance(&parser->lexer);
 }
 
+/* #define TS_DEBUG_PARSE */
+
 #ifdef TS_DEBUG_PARSE
 #include <stdio.h>
 #define DEBUG_PARSE(...) fprintf(stderr, "\n" __VA_ARGS__)
@@ -211,7 +214,11 @@ ts_tree * ts_lr_parser_parse(ts_lr_parser *parser, const char **symbol_names) {
     switch (action.type) {
         case ts_parse_action_type_shift:
             DEBUG_PARSE("SHIFT %d", action.data.to_state);
-            shift(parser, action.data.to_state);
+            shift(parser, action.data.to_state, 0);
+            return NULL;
+        case ts_parse_action_type_shift_extra:
+            DEBUG_PARSE("SHIFT EXTRA");
+            shift(parser, ts_stack_top_state(&parser->stack), 1);
             return NULL;
         case ts_parse_action_type_reduce:
             DEBUG_PARSE("REDUCE %s %d", symbol_names[action.data.symbol], action.data.child_count);

@@ -6,9 +6,9 @@ namespace tree_sitter_examples {
     using namespace tree_sitter::rules;
 
     static rule_ptr terminated(rule_ptr rule) {
-        return seq({ rule, prec(-1, token(choice({
-            str("\n"),
-            str(";") }))) });
+        return seq({ rule, choice({
+            sym("_line_break"),
+            str(";") }) });
     }
 
     extern const Grammar javascript = Grammar({
@@ -186,12 +186,13 @@ namespace tree_sitter_examples {
         { "string", token(choice({
             delimited("\""),
             delimited("'") })) },
+        { "_line_break", str("\n") },
         { "identifier", pattern("[\\a_$][\\w_$]*") },
         { "number", pattern("\\d+(\\.\\d+)?") },
         { "null", keyword("null") },
         { "true", keyword("true") },
         { "false", keyword("false") },
     })
-        .ubiquitous_tokens({ "comment" })
+        .ubiquitous_tokens({ "comment", "_line_break" })
         .separators({ ' ', '\t', '\r' });
 }

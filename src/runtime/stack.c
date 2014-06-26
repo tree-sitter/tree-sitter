@@ -1,5 +1,6 @@
 #include "tree_sitter/runtime.h"
 #include "tree_sitter/parser/stack.h"
+#include "runtime/tree.h"
 #include <string.h>
 
 static size_t INITIAL_STACK_SIZE = 100;
@@ -54,12 +55,12 @@ ts_tree * ts_stack_reduce(ts_stack *stack,
                           ts_symbol symbol,
                           size_t immediate_child_count,
                           const int *hidden_symbol_flags,
-                          const int *ubiquitous_symbol_flags) {
+                          int gather_extra) {
 
     // First, walk down the stack to determine which symbols will be reduced.
     // The child node count is known ahead of time, but some of the
     // nodes at the top of the stack might be hidden nodes, in which
-    // case we 'collapse' them. Some may also be ubiquitous tokens,
+    // case we 'collapse' them. Some may also be extra tokens,
     // which don't count towards the child node count.
     static int collapse_flags[100];
     int child_count = 0;
@@ -77,7 +78,7 @@ ts_tree * ts_stack_reduce(ts_stack *stack,
 
         child_count += collapse_flags[i] ? grandchild_count : 1;
 
-        if (ubiquitous_symbol_flags && ubiquitous_symbol_flags[child_symbol])
+        if (gather_extra && child->is_extra)
             immediate_child_count++;
     }
 

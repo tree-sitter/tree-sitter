@@ -25,8 +25,7 @@ describe("LR Parsers", [&]() {
                                    (const ts_parse_action *)dummy_parser.parse_table,
                                    dummy_parser.lex_states,
                                    fake_lex,
-                                   dummy_parser.hidden_symbols,
-                                   nullptr);
+                                   dummy_parser.hidden_symbols);
     });
 
     after_each([&]() {

@@ -62,6 +62,7 @@ print(isDone() ? stuff : otherStuff);
 parses mathematical operators
 ==========================================
 -a + b * c - d / +e
+
 ---
 (program (expression_statement
     (math_op
@@ -74,6 +75,7 @@ parses mathematical operators
 parses boolean operators
 =========================================
 !a || !(b && c)
+
 ---
 (program (expression_statement
     (bool_op
@@ -85,6 +87,7 @@ parses boolean operators
 parses the type operators
 ===========================================
 print((x instanceof Array) || (typeof x == "string"))
+
 ---
 (program (expression_statement (function_call (identifier)
     (bool_op
@@ -95,6 +98,7 @@ print((x instanceof Array) || (typeof x == "string"))
 parses the 'in' operator
 ===========================================
 print(x in y)
+
 ---
 (program (expression_statement (function_call
     (identifier)
@@ -104,6 +108,7 @@ print(x in y)
 parses property access and operators
 ============================================
 print(x.y.z && a.b.c)
+
 ---
 (program (expression_statement (function_call (identifier)
     (bool_op

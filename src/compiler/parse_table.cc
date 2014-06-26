@@ -38,6 +38,10 @@ namespace tree_sitter {
         return ParseAction(ParseActionTypeShift, state_index, Symbol(-1), 0, precedence_values);
     }
 
+    ParseAction ParseAction::ShiftExtra() {
+        return ParseAction(ParseActionTypeShiftExtra, -1, Symbol(-1), 0, set<int>({}));
+    }
+
     ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count, int precedence) {
         return ParseAction(ParseActionTypeReduce, -1, symbol, consumed_symbol_count, { precedence });
     }
@@ -58,6 +62,8 @@ namespace tree_sitter {
                 return stream << string("#<accept>");
             case ParseActionTypeShift:
                 return stream << (string("#<shift ") + to_string(action.state_index) + ">");
+            case ParseActionTypeShiftExtra:
+                return stream << string("#<shift_extra");
             case ParseActionTypeReduce:
                 return stream << (string("#<reduce sym") + to_string(action.symbol.index) + " " + to_string(action.consumed_symbol_count) + ">");
             default:

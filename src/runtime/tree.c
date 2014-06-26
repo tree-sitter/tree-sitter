@@ -1,25 +1,7 @@
 #include "tree_sitter/runtime.h"
 #include <string.h>
 #include <stdio.h>
-
-struct ts_tree {
-    ts_symbol symbol;
-    size_t ref_count;
-    size_t offset;
-    size_t size;
-    union {
-        struct {
-            size_t count;
-            size_t immediate_count;
-            struct ts_tree **contents;
-        } children;
-        struct {
-            char lookahead_char;
-            size_t expected_input_count;
-            const ts_symbol *expected_inputs;
-        } error;
-    } data;
-};
+#include "runtime/tree.h"
 
 static ts_tree * ts_tree_make(ts_symbol symbol, size_t size, size_t offset) {
     ts_tree *result = malloc(sizeof(ts_tree));
