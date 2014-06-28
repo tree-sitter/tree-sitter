@@ -26,7 +26,7 @@ namespace tree_sitter {
         template<>
         void merge_transitions(map<CharacterSet, rule_ptr> *left, const map<CharacterSet, rule_ptr> &right) {
             for (auto &pair : right)
-                merge_char_transitions<rule_ptr>(left, pair, [](rule_ptr *left, const rule_ptr *right) {
+                merge_char_transition<rule_ptr>(left, pair, [](rule_ptr *left, const rule_ptr *right) {
                     *left = rules::Choice::Build({ *left, *right });
                 });
         }
@@ -34,7 +34,7 @@ namespace tree_sitter {
         template<>
         void merge_transitions(map<Symbol, rule_ptr> *left, const map<Symbol, rule_ptr> &right) {
             for (auto &pair : right)
-                merge_sym_transitions<rule_ptr>(left, pair, [](rule_ptr *left, const rule_ptr *right) {
+                merge_sym_transition<rule_ptr>(left, pair, [](rule_ptr *left, const rule_ptr *right) {
                     *left = rules::Choice::Build({ *left, *right });
                 });
         }

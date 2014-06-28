@@ -10,7 +10,7 @@ describe("merging character set transitions", []() {
     typedef map<CharacterSet, int> int_map;
 
     auto do_merge = [&](int_map *left, const pair<CharacterSet, int> &new_pair) {
-        merge_char_transitions<int>(left, new_pair, [](int *l, const int *r) {
+        merge_char_transition<int>(left, new_pair, [](int *l, const int *r) {
             *l = *l | *r;
         });
     };

@@ -9,15 +9,15 @@ namespace tree_sitter {
     namespace build_tables {
 
         /*
-         *  Merges two transition maps with symbol keys. If both maps
-         *  contain values for the same symbol, the new value for that
-         *  symbol will be computed by merging the two previous values
+         *  Merges a new transition into a map with symbol keys.
+         *  If the symbol already exists in the map, the new value for that
+         *  symbol will be computed by merging the old and new values
          *  using the given function.
          */
         template<typename T>
-        void merge_sym_transitions(std::map<rules::Symbol, T> *left,
-                                   const std::pair<rules::Symbol, T> &new_pair,
-                                   std::function<void(T *, const T *)> merge_fn) {
+        void merge_sym_transition(std::map<rules::Symbol, T> *left,
+                                  const std::pair<rules::Symbol, T> &new_pair,
+                                  std::function<void(T *, const T *)> merge_fn) {
             auto new_symbol = new_pair.first;
             for (auto &existing_pair : *left) {
                 auto existing_symbol = existing_pair.first;
@@ -34,12 +34,12 @@ namespace tree_sitter {
          *  Merges two transition maps with character set keys. If the
          *  two maps contain values for overlapping character sets, the
          *  new value for the two sets' intersection will be computed by
-         *  merging the two previous values using the given function.
+         *  merging the old and new values using the given function.
          */
         template<typename T>
-        void merge_char_transitions(std::map<rules::CharacterSet, T> *left,
-                                    const std::pair<rules::CharacterSet, T> &new_pair,
-                                    std::function<void(T *, const T *)> merge_fn) {
+        void merge_char_transition(std::map<rules::CharacterSet, T> *left,
+                                   const std::pair<rules::CharacterSet, T> &new_pair,
+                                   std::function<void(T *, const T *)> merge_fn) {
             rules::CharacterSet new_char_set = new_pair.first;
             T new_value = new_pair.second;
 
