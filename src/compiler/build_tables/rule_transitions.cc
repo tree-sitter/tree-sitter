@@ -40,12 +40,6 @@ namespace tree_sitter {
         }
 
         template<typename T>
-        void transform_transitions(map<T, rule_ptr> *transitions, std::function<const rule_ptr(rule_ptr)> fn) {
-            for (auto &pair : *transitions)
-                pair.second = fn(pair.second);
-        }
-
-        template<typename T>
         class RuleTransitions : public rules::RuleFn<map<T, rule_ptr>> {
             map<T, rule_ptr> apply_to_atom(const rules::Rule *rule) {
                 auto atom = dynamic_cast<const T *>(rule);
@@ -72,28 +66,24 @@ namespace tree_sitter {
 
             map<T, rule_ptr> apply_to(const rules::Seq *rule) {
                 auto result = this->apply(rule->left);
-                transform_transitions(&result, [&](const rule_ptr &left_rule) {
-                    return rules::Seq::Build({ left_rule, rule->right });
-                });
-                if (rule_can_be_blank(rule->left)) {
+                for (auto &pair : result)
+                    pair.second = rules::Seq::Build({ pair.second, rule->right });
+                if (rule_can_be_blank(rule->left))
                     merge_transitions<T>(&result, this->apply(rule->right));
-                }
                 return result;
             }
 
             map<T, rule_ptr> apply_to(const rules::Repeat *rule) {
                 auto result = this->apply(rule->content);
-                transform_transitions(&result, [&](const rule_ptr &value) {
-                    return rules::Seq::Build({ value, rule->copy() });
-                });
+                for (auto &pair : result)
+                    pair.second = rules::Seq::Build({ pair.second, rule->copy() });
                 return result;
             }
 
             map<T, rule_ptr> apply_to(const rules::Metadata *rule) {
                 auto result = this->apply(rule->rule);
-                transform_transitions(&result, [&](const rule_ptr &to_rule) {
-                    return make_shared<rules::Metadata>(to_rule, rule->value);
-                });
+                for (auto &pair : result)
+                    pair.second = make_shared<rules::Metadata>(pair.second, rule->value);
                 return result;
             }
         };
