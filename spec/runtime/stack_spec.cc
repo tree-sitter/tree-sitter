@@ -53,12 +53,12 @@ describe("stacks", [&]() {
                 ts_tree_make_leaf(sym1, 5, 1),
             });
 
-            for (ts_state_id i = 0; i < 4; i++)
+            for (TSStateId i = 0; i < 4; i++)
                 ts_stack_push(&stack, 10 + i, nodes[i]);
         });
 
         after_each([&]() {
-            for (ts_state_id i = 0; i < 4; i++)
+            for (TSStateId i = 0; i < 4; i++)
                 ts_tree_release(nodes[i]);
             free(nodes);
         });
@@ -120,7 +120,7 @@ describe("stacks", [&]() {
             });
 
             after_each([&]() {
-                for (ts_state_id i = 0; i < 2; i++)
+                for (TSStateId i = 0; i < 2; i++)
                     ts_tree_release(grandchildren[i]);
                 free(grandchildren);
                 ts_tree_release(hidden_node);

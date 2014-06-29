@@ -17,7 +17,7 @@ const ts_parse_action parse_table[3][5] = {
     },
 };
 
-const ts_state_id lex_states[3] = {
+const TSStateId lex_states[3] = {
     [0] = 100,
     [1] = 101,
     [2] = 102,

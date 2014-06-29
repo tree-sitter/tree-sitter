@@ -4,7 +4,7 @@
 #include <string.h>
 
 static size_t INITIAL_STACK_SIZE = 100;
-static ts_state_id INITIAL_STATE = 0;
+static TSStateId INITIAL_STATE = 0;
 
 ts_stack ts_stack_make() {
     ts_stack result = {
@@ -19,7 +19,7 @@ void ts_stack_delete(ts_stack *stack) {
     free(stack->entries);
 }
 
-ts_state_id ts_stack_top_state(const ts_stack *stack) {
+TSStateId ts_stack_top_state(const ts_stack *stack) {
     if (stack->size == 0) return INITIAL_STATE;
     return stack->entries[stack->size - 1].state;
 }
@@ -29,7 +29,7 @@ TSTree * ts_stack_top_node(const ts_stack *stack) {
     return stack->entries[stack->size - 1].node;
 }
 
-void ts_stack_push(ts_stack *stack, ts_state_id state, TSTree *node) {
+void ts_stack_push(ts_stack *stack, TSStateId state, TSTree *node) {
     stack->entries[stack->size].state = state;
     stack->entries[stack->size].node = node;
     stack->size++;

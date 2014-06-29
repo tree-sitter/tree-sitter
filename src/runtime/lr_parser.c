@@ -5,11 +5,11 @@
  *  Private
  */
 
-static const ts_parse_action * actions_for_state(ts_lr_parser *parser, ts_state_id state) {
+static const ts_parse_action * actions_for_state(ts_lr_parser *parser, TSStateId state) {
     return parser->config.parse_table + (state * parser->config.symbol_count);
 }
 
-void shift(ts_lr_parser *parser, ts_state_id parse_state, int is_extra) {
+void shift(ts_lr_parser *parser, TSStateId parse_state, int is_extra) {
     parser->lookahead->is_extra = is_extra;
     ts_stack_push(&parser->stack, parse_state, parser->lookahead);
     parser->lookahead = parser->next_lookahead;
@@ -45,8 +45,8 @@ static size_t breakdown_stack(ts_lr_parser *parser, ts_input_edit *edit) {
 
         for (size_t i = 0; i < child_count && position < edit->position; i++) {
             TSTree *child = children[i];
-            ts_state_id state = ts_stack_top_state(stack);
-            ts_state_id next_state = actions_for_state(parser, state)[ts_tree_symbol(child)].data.to_state;
+            TSStateId state = ts_stack_top_state(stack);
+            TSStateId next_state = actions_for_state(parser, state)[ts_tree_symbol(child)].data.to_state;
             ts_stack_push(stack, next_state, child);
             ts_tree_retain(child);
             position += ts_tree_total_size(child);
@@ -103,10 +103,10 @@ int handle_error(ts_lr_parser *parser) {
          */
         for (size_t j = 0; j < parser->stack.size; j++) {
             size_t i = parser->stack.size - 1 - j;
-            ts_state_id stack_state = parser->stack.entries[i].state;
+            TSStateId stack_state = parser->stack.entries[i].state;
             ts_parse_action action_on_error = actions_for_state(parser, stack_state)[ts_builtin_sym_error];
             if (action_on_error.type == ts_parse_action_type_shift) {
-                ts_state_id state_after_error = action_on_error.data.to_state;
+                TSStateId state_after_error = action_on_error.data.to_state;
                 if (actions_for_state(parser, state_after_error)[ts_tree_symbol(parser->lookahead)].type != ts_parse_action_type_error) {
                     ts_stack_shrink(&parser->stack, i + 1);
                     ts_stack_push(&parser->stack, state_after_error, error);
@@ -133,8 +133,8 @@ TSTree * get_tree_root(ts_lr_parser *parser) {
         TSTree *child = immedate_children[i];
         child->is_extra = 0;
         ts_tree_retain(child);
-        ts_state_id state = ts_stack_top_state(stack);
-        ts_state_id next_state = actions_for_state(parser, state)[ts_tree_symbol(child)].data.to_state;
+        TSStateId state = ts_stack_top_state(stack);
+        TSStateId next_state = actions_for_state(parser, state)[ts_tree_symbol(child)].data.to_state;
         ts_stack_push(stack, next_state, child);
     }
 
@@ -148,7 +148,7 @@ TSTree * get_tree_root(ts_lr_parser *parser) {
 }
 
 ts_parse_action get_next_action(ts_lr_parser *parser) {
-    ts_state_id state = ts_stack_top_state(&parser->stack);
+    TSStateId state = ts_stack_top_state(&parser->stack);
     if (!parser->lookahead)
         parser->lookahead = parser->config.lex_fn(&parser->lexer, parser->config.lex_states[state]);
     return actions_for_state(parser, state)[ts_tree_symbol(parser->lookahead)];
@@ -160,8 +160,8 @@ ts_parse_action get_next_action(ts_lr_parser *parser) {
 
 ts_lr_parser * ts_lr_parser_make(size_t symbol_count,
                                  const ts_parse_action *parse_table,
-                                 const ts_state_id *lex_states,
-                                 TSTree * (* lex_fn)(ts_lexer *, ts_state_id),
+                                 const TSStateId *lex_states,
+                                 TSTree * (* lex_fn)(ts_lexer *, TSStateId),
                                  const int *hidden_symbol_flags) {
     ts_lr_parser *result = malloc(sizeof(ts_lr_parser));
     *result = (ts_lr_parser) {

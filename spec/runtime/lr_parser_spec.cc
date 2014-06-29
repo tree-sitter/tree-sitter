@@ -4,10 +4,10 @@
 #include "tree_sitter/parser/lr_parser.h"
 
 TSTree *lex_fn_node_to_return;
-ts_state_id lex_fn_state_received;
+TSStateId lex_fn_state_received;
 ts_lexer *lex_fn_lexer_received;
 
-TSTree * fake_lex(ts_lexer *lexer, ts_state_id state_id) {
+TSTree * fake_lex(ts_lexer *lexer, TSStateId state_id) {
     lex_fn_lexer_received = lexer;
     lex_fn_state_received = state_id;
     return lex_fn_node_to_return;

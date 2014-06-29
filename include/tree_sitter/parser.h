@@ -20,13 +20,13 @@ static const char *ts_symbol_names[]
 static const int hidden_symbol_flags[SYMBOL_COUNT]
 
 #define LEX_STATES \
-static ts_state_id ts_lex_states[STATE_COUNT]
+static TSStateId ts_lex_states[STATE_COUNT]
 
 #define PARSE_TABLE \
 static const ts_parse_action ts_parse_actions[STATE_COUNT][SYMBOL_COUNT]
 
 #define LEX_FN() \
-static TSTree * ts_lex(ts_lexer *lexer, ts_state_id lex_state)
+static TSTree * ts_lex(ts_lexer *lexer, TSStateId lex_state)
 
 #ifdef TS_DEBUG_LEX
 #include <stdio.h>
