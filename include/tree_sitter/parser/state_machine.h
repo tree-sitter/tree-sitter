@@ -51,16 +51,17 @@ typedef struct {
         const TSStateId *lex_states;
         TSTree * (* lex_fn)(TSLexer *, TSStateId);
     } config;
-} ts_lr_parser;
+} TSStateMachine;
 
-ts_lr_parser * ts_lr_parser_make(size_t symbol_count,
-                                 const TSParseAction *parse_table,
-                                 const TSStateId *lex_states,
-                                 TSTree * (* lex_fn)(TSLexer *, TSStateId),
-                                 const int *hidden_symbol_flags);
-void ts_lr_parser_free(void *data);
-void ts_lr_parser_initialize(ts_lr_parser *parser, TSInput input, TSInputEdit *edit);
-TSTree * ts_lr_parser_parse(ts_lr_parser *parser, const char **symbol_names);
+TSStateMachine * ts_state_machine_make(
+    size_t symbol_count,
+    const TSParseAction *parse_table,
+    const TSStateId *lex_states,
+    TSTree * (* lex_fn)(TSLexer *, TSStateId),
+    const int *hidden_symbol_flags);
+void ts_state_machine_free(void *data);
+void ts_state_machine_initialize(TSStateMachine *, TSInput, TSInputEdit *);
+TSTree * ts_state_machine_parse(TSStateMachine *, const char **symbol_names);
 
 #ifdef __cplusplus
 }

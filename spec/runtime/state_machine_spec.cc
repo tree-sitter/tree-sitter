@@ -1,7 +1,7 @@
 #include "runtime/runtime_spec_helper.h"
 #include "runtime/helpers/spy_reader.h"
 #include "runtime/helpers/dummy_parser.h"
-#include "tree_sitter/parser/lr_parser.h"
+#include "tree_sitter/parser/state_machine.h"
 
 TSTree *lex_fn_node_to_return;
 TSStateId lex_fn_state_received;
@@ -16,12 +16,12 @@ TSTree * fake_lex(TSLexer *lexer, TSStateId state_id) {
 START_TEST
 
 describe("LR Parsers", [&]() {
-    ts_lr_parser *parser;
+    TSStateMachine *parser;
     SpyReader *reader;
 
     before_each([&]() {
         reader = new SpyReader("some structured text", 5);
-        parser = ts_lr_parser_make(dummy_parser.symbol_count,
+        parser = ts_state_machine_make(dummy_parser.symbol_count,
                                    (const TSParseAction *)dummy_parser.parse_table,
                                    dummy_parser.lex_states,
                                    fake_lex,
@@ -34,12 +34,12 @@ describe("LR Parsers", [&]() {
 
     describe("when starting at the beginning of the input (edit is NULL)", [&]() {
         before_each([&]() {
-            ts_lr_parser_initialize(parser, reader->input, nullptr);
+            ts_state_machine_initialize(parser, reader->input, nullptr);
         });
 
         it("runs the lexer with the lex state corresponding to the initial state", [&]() {
             lex_fn_node_to_return = ts_tree_make_leaf(dummy_sym2, 5, 1);
-            ts_lr_parser_parse(parser, nullptr);
+            ts_state_machine_parse(parser, nullptr);
             AssertThat(lex_fn_state_received, Equals(100));
         });
 
@@ -49,12 +49,12 @@ describe("LR Parsers", [&]() {
             });
 
             it("advances to the state specified in the action", [&]() {
-                ts_lr_parser_parse(parser, nullptr);
+                ts_state_machine_parse(parser, nullptr);
                 AssertThat(ts_stack_top_state(&parser->stack), Equals(12));
             });
 
             it("continues parsing (returns NULL)", [&]() {
-                auto result = ts_lr_parser_parse(parser, nullptr);
+                auto result = ts_state_machine_parse(parser, nullptr);
                 AssertThat(result, Equals((TSTree *)nullptr));
             });
         });
@@ -65,7 +65,7 @@ describe("LR Parsers", [&]() {
             });
 
             it("ends the parse, returning an error tree", [&]() {
-                auto result = ts_lr_parser_parse(parser, nullptr);
+                auto result = ts_state_machine_parse(parser, nullptr);
                 AssertThat(ts_tree_symbol(result), Equals(ts_builtin_sym_error));
             });
         });

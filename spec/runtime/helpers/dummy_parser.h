@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-#include "tree_sitter/parser/lr_parser.h"
+#include "tree_sitter/parser/state_machine.h"
 
 enum {
     dummy_sym1 = 2,

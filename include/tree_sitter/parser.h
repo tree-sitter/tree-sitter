@@ -11,7 +11,7 @@ extern "C" {
 #include "tree_sitter/runtime.h"
 #include "tree_sitter/parser/lexer.h"
 #include "tree_sitter/parser/stack.h"
-#include "tree_sitter/parser/lr_parser.h"
+#include "tree_sitter/parser/state_machine.h"
 
 #define SYMBOL_NAMES \
 static const char *ts_symbol_names[]
@@ -73,10 +73,10 @@ ts_lexer_start_token(lexer);
 SYMBOL_NAMES;
 
 static const TSTree * ts_parse(void *data, TSInput input, TSInputEdit *edit) {
-    ts_lr_parser *parser = (ts_lr_parser *)data;
-    ts_lr_parser_initialize(parser, input, edit);
+    TSStateMachine *parser = (TSStateMachine *)data;
+    ts_state_machine_initialize(parser, input, edit);
     for (;;) {
-        const TSTree *tree = ts_lr_parser_parse(parser, ts_symbol_names);
+        const TSTree *tree = ts_state_machine_parse(parser, ts_symbol_names);
         if (tree) return tree;
     }
 }
@@ -85,9 +85,9 @@ static const TSTree * ts_parse(void *data, TSInput input, TSInputEdit *edit) {
 TSParser constructor_name() { \
     return (TSParser) { \
         .parse_fn = ts_parse, \
-        .free_fn = ts_lr_parser_free, \
+        .free_fn = ts_state_machine_free, \
         .symbol_names = ts_symbol_names, \
-        .data = ts_lr_parser_make( \
+        .data = ts_state_machine_make( \
             SYMBOL_COUNT, \
             (const TSParseAction *)ts_parse_actions, \
             ts_lex_states, \
