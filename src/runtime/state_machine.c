@@ -62,13 +62,13 @@ TSSymbol * expected_symbols(TSStateMachine *machine, size_t *count) {
     *count = 0;
     const TSParseAction *actions = actions_for_state(machine, ts_stack_top_state(&machine->stack));
     for (size_t i = 0; i < machine->config.symbol_count; i++)
-        if (actions[i].type != ts_parse_action_type_error)
+        if (actions[i].type != TSParseActionTypeError)
             ++(*count);
 
     size_t n = 0;
     TSSymbol *result = malloc(*count * sizeof(*result));
     for (TSSymbol i = 0; i < machine->config.symbol_count; i++)
-        if (actions[i].type != ts_parse_action_type_error)
+        if (actions[i].type != TSParseActionTypeError)
             result[n++] = i;
 
     return result;
@@ -105,9 +105,9 @@ int handle_error(TSStateMachine *machine) {
             size_t i = machine->stack.size - 1 - j;
             TSStateId stack_state = machine->stack.entries[i].state;
             TSParseAction action_on_error = actions_for_state(machine, stack_state)[ts_builtin_sym_error];
-            if (action_on_error.type == ts_parse_action_type_shift) {
+            if (action_on_error.type == TSParseActionTypeShift) {
                 TSStateId state_after_error = action_on_error.data.to_state;
-                if (actions_for_state(machine, state_after_error)[ts_tree_symbol(machine->lookahead)].type != ts_parse_action_type_error) {
+                if (actions_for_state(machine, state_after_error)[ts_tree_symbol(machine->lookahead)].type != TSParseActionTypeError) {
                     ts_stack_shrink(&machine->stack, i + 1);
                     ts_stack_push(&machine->stack, state_after_error, error);
                     return 1;
@@ -199,8 +199,6 @@ void ts_state_machine_initialize(TSStateMachine *machine, TSInput input, TSInput
     ts_lexer_advance(&machine->lexer);
 }
 
-/* #define TS_DEBUG_PARSE */
-
 #ifdef TS_DEBUG_PARSE
 #include <stdio.h>
 #define DEBUG_PARSE(...) fprintf(stderr, "\n" __VA_ARGS__)
@@ -212,22 +210,22 @@ TSTree * ts_state_machine_parse(TSStateMachine *machine, const char **symbol_nam
     TSParseAction action = get_next_action(machine);
     DEBUG_PARSE("LOOKAHEAD %s", symbol_names[ts_tree_symbol(machine->lookahead)]);
     switch (action.type) {
-        case ts_parse_action_type_shift:
+        case TSParseActionTypeShift:
             DEBUG_PARSE("SHIFT %d", action.data.to_state);
             shift(machine, action.data.to_state, 0);
             return NULL;
-        case ts_parse_action_type_shift_extra:
+        case TSParseActionTypeShiftExtra:
             DEBUG_PARSE("SHIFT EXTRA");
             shift(machine, ts_stack_top_state(&machine->stack), 1);
             return NULL;
-        case ts_parse_action_type_reduce:
+        case TSParseActionTypeReduce:
             DEBUG_PARSE("REDUCE %s %d", symbol_names[action.data.symbol], action.data.child_count);
             reduce(machine, action.data.symbol, action.data.child_count);
             return NULL;
-        case ts_parse_action_type_accept:
+        case TSParseActionTypeAccept:
             DEBUG_PARSE("ACCEPT");
             return get_tree_root(machine);
-        case ts_parse_action_type_error:
+        case TSParseActionTypeError:
             DEBUG_PARSE("ERROR");
             if (handle_error(machine))
                 return NULL;

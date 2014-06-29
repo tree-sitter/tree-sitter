@@ -48,9 +48,6 @@ typedef struct {
     void *data;
 } TSParser;
 
-const TSTree * ts_parser_parse(TSParser *, TSInput, TSInputEdit *edit);
-void ts_parser_free(TSParser *);
-
 typedef struct TSDocument TSDocument;
 TSDocument * ts_document_make();
 void ts_document_free(TSDocument *doc);

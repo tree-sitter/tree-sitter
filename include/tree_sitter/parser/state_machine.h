@@ -9,11 +9,11 @@ extern "C" {
 #include "tree_sitter/parser/lexer.h"
 
 typedef enum {
-    ts_parse_action_type_error,
-    ts_parse_action_type_shift,
-    ts_parse_action_type_shift_extra,
-    ts_parse_action_type_reduce,
-    ts_parse_action_type_accept,
+    TSParseActionTypeError,
+    TSParseActionTypeShift,
+    TSParseActionTypeShiftExtra,
+    TSParseActionTypeReduce,
+    TSParseActionTypeAccept,
 } TSParseActionType;
 
 typedef struct {
@@ -28,16 +28,16 @@ typedef struct {
 } TSParseAction;
 
 #define SHIFT(to_state_value) \
-{ .type = ts_parse_action_type_shift, .data = { .to_state = to_state_value } }
+{ .type = TSParseActionTypeShift, .data = { .to_state = to_state_value } }
 
 #define SHIFT_EXTRA() \
-{ .type = ts_parse_action_type_shift_extra }
+{ .type = TSParseActionTypeShiftExtra }
 
 #define REDUCE(symbol_val, child_count_val) \
-{ .type = ts_parse_action_type_reduce, .data = { .symbol = symbol_val, .child_count = child_count_val } }
+{ .type = TSParseActionTypeReduce, .data = { .symbol = symbol_val, .child_count = child_count_val } }
 
 #define ACCEPT_INPUT() \
-{ .type = ts_parse_action_type_accept }
+{ .type = TSParseActionTypeAccept }
 
 typedef struct {
     TSLexer lexer;
