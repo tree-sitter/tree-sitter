@@ -25,7 +25,7 @@ void reduce(ts_lr_parser *parser, TSSymbol symbol, size_t child_count) {
                                         1);
 }
 
-static size_t breakdown_stack(ts_lr_parser *parser, ts_input_edit *edit) {
+static size_t breakdown_stack(ts_lr_parser *parser, TSInputEdit *edit) {
     if (!edit) return 0;
 
     ts_stack *stack = &parser->stack;
@@ -186,7 +186,7 @@ void ts_lr_parser_free(void *data) {
     free(parser);
 }
 
-void ts_lr_parser_initialize(ts_lr_parser *parser, TSInput input, ts_input_edit *edit) {
+void ts_lr_parser_initialize(ts_lr_parser *parser, TSInput input, TSInputEdit *edit) {
     if (!edit) ts_stack_shrink(&parser->stack, 0);
     parser->lookahead = NULL;
     parser->next_lookahead = NULL;

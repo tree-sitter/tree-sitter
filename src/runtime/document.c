@@ -37,7 +37,7 @@ void ts_document_set_input(TSDocument *document, TSInput input) {
     document->tree = document->parser.parse_fn(document->parser.data, input, NULL);
 }
 
-void ts_document_edit(TSDocument *document, ts_input_edit edit) {
+void ts_document_edit(TSDocument *document, TSInputEdit edit) {
     document->tree = document->parser.parse_fn(document->parser.data, document->input, &edit);
 }
 
