@@ -33,7 +33,7 @@ typedef struct {
     const char * (* read_fn)(void *data, size_t *bytes_read);
     int (* seek_fn)(void *data, size_t position);
     void (* release_fn)(void *data);
-} ts_input;
+} TSInput;
 
 typedef struct {
     size_t position;
@@ -42,20 +42,20 @@ typedef struct {
 } ts_input_edit;
 
 typedef struct {
-    const TSTree * (* parse_fn)(void *data, ts_input input, ts_input_edit *edit);
+    const TSTree * (* parse_fn)(void *data, TSInput input, ts_input_edit *edit);
     void (* free_fn)(void *data);
     const char **symbol_names;
     void *data;
 } ts_parser;
 
-const TSTree * ts_parser_parse(ts_parser *, ts_input, ts_input_edit *edit);
+const TSTree * ts_parser_parse(ts_parser *, TSInput, ts_input_edit *edit);
 void ts_parser_free(ts_parser *);
 
 typedef struct TSDocument TSDocument;
 TSDocument * ts_document_make();
 void ts_document_free(TSDocument *doc);
 void ts_document_set_parser(TSDocument *doc, ts_parser parser);
-void ts_document_set_input(TSDocument *doc, ts_input input);
+void ts_document_set_input(TSDocument *doc, TSInput input);
 void ts_document_set_input_string(TSDocument *doc, const char *text);
 void ts_document_edit(TSDocument *doc, ts_input_edit edit);
 const TSTree * ts_document_tree(const TSDocument *doc);

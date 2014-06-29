@@ -6,7 +6,7 @@
 #define ts_lex_state_error 0
 
 typedef struct {
-    ts_input input;
+    TSInput input;
     const char *chunk;
     size_t chunk_start;
     size_t chunk_size;

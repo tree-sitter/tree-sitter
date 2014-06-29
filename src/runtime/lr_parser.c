@@ -186,7 +186,7 @@ void ts_lr_parser_free(void *data) {
     free(parser);
 }
 
-void ts_lr_parser_initialize(ts_lr_parser *parser, ts_input input, ts_input_edit *edit) {
+void ts_lr_parser_initialize(ts_lr_parser *parser, TSInput input, ts_input_edit *edit) {
     if (!edit) ts_stack_shrink(&parser->stack, 0);
     parser->lookahead = NULL;
     parser->next_lookahead = NULL;

@@ -72,7 +72,7 @@ ts_lexer_start_token(lexer);
 
 SYMBOL_NAMES;
 
-static const TSTree * ts_parse(void *data, ts_input input, ts_input_edit *edit) {
+static const TSTree * ts_parse(void *data, TSInput input, ts_input_edit *edit) {
     ts_lr_parser *parser = (ts_lr_parser *)data;
     ts_lr_parser_initialize(parser, input, edit);
     for (;;) {

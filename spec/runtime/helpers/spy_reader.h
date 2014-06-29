@@ -12,7 +12,7 @@ public:
     std::string content;
     size_t position;
     size_t chunk_size;
-    ts_input input;
+    TSInput input;
     std::vector<std::string> strings_read;
 };
 

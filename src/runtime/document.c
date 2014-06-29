@@ -4,7 +4,7 @@
 struct TSDocument {
     ts_parser parser;
     const TSTree *tree;
-    ts_input input;
+    TSInput input;
     size_t error_count;
 };
 
@@ -32,7 +32,7 @@ const char * ts_document_string(const TSDocument *document) {
     return ts_tree_string(document->tree, document->parser.symbol_names);
 }
 
-void ts_document_set_input(TSDocument *document, ts_input input) {
+void ts_document_set_input(TSDocument *document, TSInput input) {
     document->input = input;
     document->tree = document->parser.parse_fn(document->parser.data, input, NULL);
 }
@@ -69,12 +69,12 @@ int ts_string_input_seek(void *d, size_t position) {
     return (position < data->length);
 }
 
-ts_input ts_string_input_make(const char *string) {
+TSInput ts_string_input_make(const char *string) {
     ts_string_input_data *data = malloc(sizeof(ts_string_input_data));
     data->string = string;
     data->position = 0;
     data->length = strlen(string);
-    ts_input input = {
+    TSInput input = {
         .data = (void *)data,
         .read_fn = ts_string_input_read,
         .seek_fn = ts_string_input_seek,

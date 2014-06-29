@@ -59,7 +59,7 @@ ts_lr_parser * ts_lr_parser_make(size_t symbol_count,
                                  TSTree * (* lex_fn)(ts_lexer *, TSStateId),
                                  const int *hidden_symbol_flags);
 void ts_lr_parser_free(void *data);
-void ts_lr_parser_initialize(ts_lr_parser *parser, ts_input input, ts_input_edit *edit);
+void ts_lr_parser_initialize(ts_lr_parser *parser, TSInput input, ts_input_edit *edit);
 TSTree * ts_lr_parser_parse(ts_lr_parser *parser, const char **symbol_names);
 
 #ifdef __cplusplus
