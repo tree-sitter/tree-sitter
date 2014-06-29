@@ -5,7 +5,7 @@
  *  Private
  */
 
-static const ts_parse_action * actions_for_state(ts_lr_parser *parser, TSStateId state) {
+static const TSParseAction * actions_for_state(ts_lr_parser *parser, TSStateId state) {
     return parser->config.parse_table + (state * parser->config.symbol_count);
 }
 
@@ -60,7 +60,7 @@ static size_t breakdown_stack(ts_lr_parser *parser, TSInputEdit *edit) {
 
 TSSymbol * expected_symbols(ts_lr_parser *parser, size_t *count) {
     *count = 0;
-    const ts_parse_action *actions = actions_for_state(parser, ts_stack_top_state(&parser->stack));
+    const TSParseAction *actions = actions_for_state(parser, ts_stack_top_state(&parser->stack));
     for (size_t i = 0; i < parser->config.symbol_count; i++)
         if (actions[i].type != ts_parse_action_type_error)
             ++(*count);
@@ -104,7 +104,7 @@ int handle_error(ts_lr_parser *parser) {
         for (size_t j = 0; j < parser->stack.size; j++) {
             size_t i = parser->stack.size - 1 - j;
             TSStateId stack_state = parser->stack.entries[i].state;
-            ts_parse_action action_on_error = actions_for_state(parser, stack_state)[ts_builtin_sym_error];
+            TSParseAction action_on_error = actions_for_state(parser, stack_state)[ts_builtin_sym_error];
             if (action_on_error.type == ts_parse_action_type_shift) {
                 TSStateId state_after_error = action_on_error.data.to_state;
                 if (actions_for_state(parser, state_after_error)[ts_tree_symbol(parser->lookahead)].type != ts_parse_action_type_error) {
@@ -147,7 +147,7 @@ TSTree * get_tree_root(ts_lr_parser *parser) {
     return new_node;
 }
 
-ts_parse_action get_next_action(ts_lr_parser *parser) {
+TSParseAction get_next_action(ts_lr_parser *parser) {
     TSStateId state = ts_stack_top_state(&parser->stack);
     if (!parser->lookahead)
         parser->lookahead = parser->config.lex_fn(&parser->lexer, parser->config.lex_states[state]);
@@ -159,7 +159,7 @@ ts_parse_action get_next_action(ts_lr_parser *parser) {
  */
 
 ts_lr_parser * ts_lr_parser_make(size_t symbol_count,
-                                 const ts_parse_action *parse_table,
+                                 const TSParseAction *parse_table,
                                  const TSStateId *lex_states,
                                  TSTree * (* lex_fn)(TSLexer *, TSStateId),
                                  const int *hidden_symbol_flags) {
@@ -209,7 +209,7 @@ void ts_lr_parser_initialize(ts_lr_parser *parser, TSInput input, TSInputEdit *e
 #endif
 
 TSTree * ts_lr_parser_parse(ts_lr_parser *parser, const char **symbol_names) {
-    ts_parse_action action = get_next_action(parser);
+    TSParseAction action = get_next_action(parser);
     DEBUG_PARSE("LOOKAHEAD %s", symbol_names[ts_tree_symbol(parser->lookahead)]);
     switch (action.type) {
         case ts_parse_action_type_shift:

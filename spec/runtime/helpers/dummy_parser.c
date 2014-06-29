@@ -1,6 +1,6 @@
 #include "runtime/helpers/dummy_parser.h"
 
-const ts_parse_action parse_table[3][5] = {
+const TSParseAction parse_table[3][5] = {
     [0] = {
         [dummy_sym2] = SHIFT(12),
         [dummy_sym3] = SHIFT(12),
@@ -32,7 +32,7 @@ const int hidden_symbols[5] = {
 struct test_parser dummy_parser = {
     .state_count = 3,
     .symbol_count = 5,
-    .parse_table = (const ts_parse_action **)parse_table,
+    .parse_table = (const TSParseAction **)parse_table,
     .lex_states = lex_states,
     .hidden_symbols = hidden_symbols,
 };

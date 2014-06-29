@@ -23,7 +23,7 @@ static const int hidden_symbol_flags[SYMBOL_COUNT]
 static TSStateId ts_lex_states[STATE_COUNT]
 
 #define PARSE_TABLE \
-static const ts_parse_action ts_parse_actions[STATE_COUNT][SYMBOL_COUNT]
+static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT]
 
 #define LEX_FN() \
 static TSTree * ts_lex(TSLexer *lexer, TSStateId lex_state)
@@ -89,7 +89,7 @@ TSParser constructor_name() { \
         .symbol_names = ts_symbol_names, \
         .data = ts_lr_parser_make( \
             SYMBOL_COUNT, \
-            (const ts_parse_action *)ts_parse_actions, \
+            (const TSParseAction *)ts_parse_actions, \
             ts_lex_states, \
             ts_lex, \
             hidden_symbol_flags \

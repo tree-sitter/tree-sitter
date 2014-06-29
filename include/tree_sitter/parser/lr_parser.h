@@ -14,10 +14,10 @@ typedef enum {
     ts_parse_action_type_shift_extra,
     ts_parse_action_type_reduce,
     ts_parse_action_type_accept,
-} ts_parse_action_type;
+} TSParseActionType;
 
 typedef struct {
-    ts_parse_action_type type;
+    TSParseActionType type;
     union {
         TSStateId to_state;
         struct {
@@ -25,7 +25,7 @@ typedef struct {
             unsigned short child_count;
         };
     } data;
-} ts_parse_action;
+} TSParseAction;
 
 #define SHIFT(to_state_value) \
 { .type = ts_parse_action_type_shift, .data = { .to_state = to_state_value } }
@@ -47,14 +47,14 @@ typedef struct {
     struct {
         size_t symbol_count;
         const int *hidden_symbol_flags;
-        const ts_parse_action *parse_table;
+        const TSParseAction *parse_table;
         const TSStateId *lex_states;
         TSTree * (* lex_fn)(TSLexer *, TSStateId);
     } config;
 } ts_lr_parser;
 
 ts_lr_parser * ts_lr_parser_make(size_t symbol_count,
-                                 const ts_parse_action *parse_table,
+                                 const TSParseAction *parse_table,
                                  const TSStateId *lex_states,
                                  TSTree * (* lex_fn)(TSLexer *, TSStateId),
                                  const int *hidden_symbol_flags);

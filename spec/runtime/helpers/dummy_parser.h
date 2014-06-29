@@ -16,7 +16,7 @@ enum {
 struct test_parser {
     size_t state_count;
     size_t symbol_count;
-    const ts_parse_action **parse_table;
+    const TSParseAction **parse_table;
     const TSStateId *lex_states;
     const int *hidden_symbols;
 };

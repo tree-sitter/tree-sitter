@@ -22,7 +22,7 @@ describe("LR Parsers", [&]() {
     before_each([&]() {
         reader = new SpyReader("some structured text", 5);
         parser = ts_lr_parser_make(dummy_parser.symbol_count,
-                                   (const ts_parse_action *)dummy_parser.parse_table,
+                                   (const TSParseAction *)dummy_parser.parse_table,
                                    dummy_parser.lex_states,
                                    fake_lex,
                                    dummy_parser.hidden_symbols);
