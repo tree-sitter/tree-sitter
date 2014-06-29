@@ -4,7 +4,7 @@
 #include "tree_sitter/runtime.h"
 
 struct TSTree {
-    ts_symbol symbol;
+    TSSymbol symbol;
     size_t ref_count;
     size_t offset;
     size_t size;
@@ -18,7 +18,7 @@ struct TSTree {
         struct {
             char lookahead_char;
             size_t expected_input_count;
-            const ts_symbol *expected_inputs;
+            const TSSymbol *expected_inputs;
         } error;
     } data;
 };

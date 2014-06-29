@@ -21,7 +21,7 @@ typedef struct {
     union {
         TSStateId to_state;
         struct {
-            ts_symbol symbol;
+            TSSymbol symbol;
             unsigned short child_count;
         };
     } data;

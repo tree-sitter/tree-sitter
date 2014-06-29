@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "runtime/tree.h"
 
-static TSTree * ts_tree_make(ts_symbol symbol, size_t size, size_t offset) {
+static TSTree * ts_tree_make(TSSymbol symbol, size_t size, size_t offset) {
     TSTree *result = malloc(sizeof(TSTree));
     *result = (TSTree) {
         .ref_count = 1,
@@ -14,7 +14,7 @@ static TSTree * ts_tree_make(ts_symbol symbol, size_t size, size_t offset) {
     return result;
 }
 
-TSTree * ts_tree_make_leaf(ts_symbol symbol, size_t size, size_t offset) {
+TSTree * ts_tree_make_leaf(TSSymbol symbol, size_t size, size_t offset) {
     TSTree *result = ts_tree_make(symbol, size, offset);
     result->data.children.count = 0;
     result->data.children.immediate_count = 0;
@@ -22,7 +22,7 @@ TSTree * ts_tree_make_leaf(ts_symbol symbol, size_t size, size_t offset) {
     return result;
 }
 
-TSTree * ts_tree_make_node(ts_symbol symbol, size_t child_count, size_t immediate_child_count, TSTree **children) {
+TSTree * ts_tree_make_node(TSSymbol symbol, size_t child_count, size_t immediate_child_count, TSTree **children) {
     TSTree **immediate_children = children + child_count;
     size_t size = 0, offset = 0;
     for (size_t i = 0; i < immediate_child_count; i++) {
@@ -42,7 +42,7 @@ TSTree * ts_tree_make_node(ts_symbol symbol, size_t child_count, size_t immediat
     return result;
 }
 
-TSTree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, const ts_symbol *expected_inputs, size_t size, size_t offset) {
+TSTree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, const TSSymbol *expected_inputs, size_t size, size_t offset) {
     TSTree *result = ts_tree_make(ts_builtin_sym_error, size, offset);
     result->data.error.lookahead_char = lookahead_char;
     result->data.error.expected_input_count = expected_input_count;
@@ -50,7 +50,7 @@ TSTree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, co
     return result;
 }
 
-ts_symbol ts_tree_symbol(const TSTree *tree) {
+TSSymbol ts_tree_symbol(const TSTree *tree) {
     return tree->symbol;
 }
 

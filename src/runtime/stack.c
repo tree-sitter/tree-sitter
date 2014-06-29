@@ -52,7 +52,7 @@ size_t ts_stack_right_position(const ts_stack *stack) {
 }
 
 TSTree * ts_stack_reduce(ts_stack *stack,
-                          ts_symbol symbol,
+                          TSSymbol symbol,
                           size_t immediate_child_count,
                           const int *hidden_symbol_flags,
                           int gather_extra) {
@@ -69,7 +69,7 @@ TSTree * ts_stack_reduce(ts_stack *stack,
         TSTree *child = stack->entries[stack_index].node;
         size_t grandchild_count;
         TSTree **grandchildren = ts_tree_children(child, &grandchild_count);
-        ts_symbol child_symbol = ts_tree_symbol(child);
+        TSSymbol child_symbol = ts_tree_symbol(child);
 
         collapse_flags[i] = (
             hidden_symbol_flags[child_symbol] ||

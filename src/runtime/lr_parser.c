@@ -16,7 +16,7 @@ void shift(ts_lr_parser *parser, TSStateId parse_state, int is_extra) {
     parser->next_lookahead = NULL;
 }
 
-void reduce(ts_lr_parser *parser, ts_symbol symbol, size_t child_count) {
+void reduce(ts_lr_parser *parser, TSSymbol symbol, size_t child_count) {
     parser->next_lookahead = parser->lookahead;
     parser->lookahead = ts_stack_reduce(&parser->stack,
                                         symbol,
@@ -58,7 +58,7 @@ static size_t breakdown_stack(ts_lr_parser *parser, ts_input_edit *edit) {
     return position;
 }
 
-ts_symbol * expected_symbols(ts_lr_parser *parser, size_t *count) {
+TSSymbol * expected_symbols(ts_lr_parser *parser, size_t *count) {
     *count = 0;
     const ts_parse_action *actions = actions_for_state(parser, ts_stack_top_state(&parser->stack));
     for (size_t i = 0; i < parser->config.symbol_count; i++)
@@ -66,8 +66,8 @@ ts_symbol * expected_symbols(ts_lr_parser *parser, size_t *count) {
             ++(*count);
 
     size_t n = 0;
-    ts_symbol *result = malloc(*count * sizeof(*result));
-    for (ts_symbol i = 0; i < parser->config.symbol_count; i++)
+    TSSymbol *result = malloc(*count * sizeof(*result));
+    for (TSSymbol i = 0; i < parser->config.symbol_count; i++)
         if (actions[i].type != ts_parse_action_type_error)
             result[n++] = i;
 
@@ -76,7 +76,7 @@ ts_symbol * expected_symbols(ts_lr_parser *parser, size_t *count) {
 
 int handle_error(ts_lr_parser *parser) {
     size_t count = 0;
-    const ts_symbol *inputs = expected_symbols(parser, &count);
+    const TSSymbol *inputs = expected_symbols(parser, &count);
     TSTree *error = ts_tree_make_error(ts_lexer_lookahead_char(&parser->lexer),
                                         count,
                                         inputs,

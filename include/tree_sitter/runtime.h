@@ -7,15 +7,15 @@ extern "C" {
 
 #include <stdlib.h>
 
-typedef unsigned short ts_symbol;
+typedef unsigned short TSSymbol;
 #define ts_builtin_sym_error 0
 #define ts_builtin_sym_end 1
 #define ts_start_sym 2
 
 typedef struct TSTree TSTree;
-TSTree * ts_tree_make_leaf(ts_symbol symbol, size_t size, size_t offset);
-TSTree * ts_tree_make_node(ts_symbol symbol, size_t child_count, size_t immediate_child_count, TSTree **children);
-TSTree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, const ts_symbol *expected_inputs, size_t size, size_t offset);
+TSTree * ts_tree_make_leaf(TSSymbol symbol, size_t size, size_t offset);
+TSTree * ts_tree_make_node(TSSymbol symbol, size_t child_count, size_t immediate_child_count, TSTree **children);
+TSTree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, const TSSymbol *expected_inputs, size_t size, size_t offset);
 void ts_tree_retain(TSTree *tree);
 void ts_tree_release(TSTree *tree);
 int ts_tree_equals(const TSTree *tree1, const TSTree *tree2);
@@ -26,7 +26,7 @@ TSTree ** ts_tree_immediate_children(const TSTree *tree, size_t *count);
 size_t ts_tree_size(const TSTree *tree);
 size_t ts_tree_offset(const TSTree *tree);
 size_t ts_tree_total_size(const TSTree *tree);
-ts_symbol ts_tree_symbol(const TSTree *tree);
+TSSymbol ts_tree_symbol(const TSTree *tree);
 
 typedef struct {
     void *data;

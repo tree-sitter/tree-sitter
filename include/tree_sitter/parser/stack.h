@@ -20,7 +20,7 @@ typedef struct {
 
 ts_stack ts_stack_make();
 void ts_stack_delete(ts_stack *);
-TSTree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, size_t immediate_child_count, const int *hidden_symbol_flags, int gather_extras);
+TSTree * ts_stack_reduce(ts_stack *stack, TSSymbol symbol, size_t immediate_child_count, const int *hidden_symbol_flags, int gather_extras);
 void ts_stack_shrink(ts_stack *stack, size_t new_size);
 void ts_stack_push(ts_stack *stack, TSStateId state, TSTree *node);
 TSStateId ts_stack_top_state(const ts_stack *stack);
