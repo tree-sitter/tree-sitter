@@ -3,7 +3,7 @@
 
 struct TSDocument {
     ts_parser parser;
-    const ts_tree *tree;
+    const TSTree *tree;
     ts_input input;
     size_t error_count;
 };
@@ -24,7 +24,7 @@ void ts_document_set_parser(TSDocument *document, ts_parser parser) {
     document->parser = parser;
 }
 
-const ts_tree * ts_document_tree(const TSDocument *document) {
+const TSTree * ts_document_tree(const TSDocument *document) {
     return document->tree;
 }
 
@@ -41,7 +41,7 @@ void ts_document_edit(TSDocument *document, ts_input_edit edit) {
     document->tree = document->parser.parse_fn(document->parser.data, document->input, &edit);
 }
 
-const char * ts_document_symbol_name(const TSDocument *document, const ts_tree *tree) {
+const char * ts_document_symbol_name(const TSDocument *document, const TSTree *tree) {
     return document->parser.symbol_names[ts_tree_symbol(tree)];
 }
 

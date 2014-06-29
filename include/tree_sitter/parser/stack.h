@@ -12,7 +12,7 @@ typedef unsigned short ts_state_id;
 typedef struct {
     size_t size;
     struct {
-        ts_tree *node;
+        TSTree *node;
         ts_state_id state;
         int is_extra;
     } *entries;
@@ -20,11 +20,11 @@ typedef struct {
 
 ts_stack ts_stack_make();
 void ts_stack_delete(ts_stack *);
-ts_tree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, size_t immediate_child_count, const int *hidden_symbol_flags, int gather_extras);
+TSTree * ts_stack_reduce(ts_stack *stack, ts_symbol symbol, size_t immediate_child_count, const int *hidden_symbol_flags, int gather_extras);
 void ts_stack_shrink(ts_stack *stack, size_t new_size);
-void ts_stack_push(ts_stack *stack, ts_state_id state, ts_tree *node);
+void ts_stack_push(ts_stack *stack, ts_state_id state, TSTree *node);
 ts_state_id ts_stack_top_state(const ts_stack *stack);
-ts_tree * ts_stack_top_node(const ts_stack *stack);
+TSTree * ts_stack_top_node(const ts_stack *stack);
 size_t ts_stack_right_position(const ts_stack *stack);
 
 #ifdef __cplusplus

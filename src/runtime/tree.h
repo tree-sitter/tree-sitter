@@ -3,7 +3,7 @@
 
 #include "tree_sitter/runtime.h"
 
-struct ts_tree {
+struct TSTree {
     ts_symbol symbol;
     size_t ref_count;
     size_t offset;
@@ -13,7 +13,7 @@ struct ts_tree {
         struct {
             size_t count;
             size_t immediate_count;
-            struct ts_tree **contents;
+            struct TSTree **contents;
         } children;
         struct {
             char lookahead_char;

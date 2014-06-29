@@ -3,11 +3,11 @@
 #include "runtime/helpers/dummy_parser.h"
 #include "tree_sitter/parser/lr_parser.h"
 
-ts_tree *lex_fn_node_to_return;
+TSTree *lex_fn_node_to_return;
 ts_state_id lex_fn_state_received;
 ts_lexer *lex_fn_lexer_received;
 
-ts_tree * fake_lex(ts_lexer *lexer, ts_state_id state_id) {
+TSTree * fake_lex(ts_lexer *lexer, ts_state_id state_id) {
     lex_fn_lexer_received = lexer;
     lex_fn_state_received = state_id;
     return lex_fn_node_to_return;
@@ -55,7 +55,7 @@ describe("LR Parsers", [&]() {
 
             it("continues parsing (returns NULL)", [&]() {
                 auto result = ts_lr_parser_parse(parser, nullptr);
-                AssertThat(result, Equals((ts_tree *)nullptr));
+                AssertThat(result, Equals((TSTree *)nullptr));
             });
         });
 

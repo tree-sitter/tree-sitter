@@ -59,7 +59,7 @@ static inline void ts_lexer_start_token(ts_lexer *lexer) {
     lexer->token_start_position = ts_lexer_position(lexer);
 }
 
-static inline ts_tree * ts_lexer_build_node(ts_lexer *lexer, ts_symbol symbol) {
+static inline TSTree * ts_lexer_build_node(ts_lexer *lexer, ts_symbol symbol) {
     size_t current_position = ts_lexer_position(lexer);
     size_t size = current_position - lexer->token_start_position;
     size_t offset = lexer->token_start_position - lexer->token_end_position;

@@ -12,21 +12,21 @@ typedef unsigned short ts_symbol;
 #define ts_builtin_sym_end 1
 #define ts_start_sym 2
 
-typedef struct ts_tree ts_tree;
-ts_tree * ts_tree_make_leaf(ts_symbol symbol, size_t size, size_t offset);
-ts_tree * ts_tree_make_node(ts_symbol symbol, size_t child_count, size_t immediate_child_count, ts_tree **children);
-ts_tree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, const ts_symbol *expected_inputs, size_t size, size_t offset);
-void ts_tree_retain(ts_tree *tree);
-void ts_tree_release(ts_tree *tree);
-int ts_tree_equals(const ts_tree *tree1, const ts_tree *tree2);
-char * ts_tree_string(const ts_tree *tree, const char **names);
-char * ts_tree_error_string(const ts_tree *tree, const char **names);
-ts_tree ** ts_tree_children(const ts_tree *tree, size_t *count);
-ts_tree ** ts_tree_immediate_children(const ts_tree *tree, size_t *count);
-size_t ts_tree_size(const ts_tree *tree);
-size_t ts_tree_offset(const ts_tree *tree);
-size_t ts_tree_total_size(const ts_tree *tree);
-ts_symbol ts_tree_symbol(const ts_tree *tree);
+typedef struct TSTree TSTree;
+TSTree * ts_tree_make_leaf(ts_symbol symbol, size_t size, size_t offset);
+TSTree * ts_tree_make_node(ts_symbol symbol, size_t child_count, size_t immediate_child_count, TSTree **children);
+TSTree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, const ts_symbol *expected_inputs, size_t size, size_t offset);
+void ts_tree_retain(TSTree *tree);
+void ts_tree_release(TSTree *tree);
+int ts_tree_equals(const TSTree *tree1, const TSTree *tree2);
+char * ts_tree_string(const TSTree *tree, const char **names);
+char * ts_tree_error_string(const TSTree *tree, const char **names);
+TSTree ** ts_tree_children(const TSTree *tree, size_t *count);
+TSTree ** ts_tree_immediate_children(const TSTree *tree, size_t *count);
+size_t ts_tree_size(const TSTree *tree);
+size_t ts_tree_offset(const TSTree *tree);
+size_t ts_tree_total_size(const TSTree *tree);
+ts_symbol ts_tree_symbol(const TSTree *tree);
 
 typedef struct {
     void *data;
@@ -42,13 +42,13 @@ typedef struct {
 } ts_input_edit;
 
 typedef struct {
-    const ts_tree * (* parse_fn)(void *data, ts_input input, ts_input_edit *edit);
+    const TSTree * (* parse_fn)(void *data, ts_input input, ts_input_edit *edit);
     void (* free_fn)(void *data);
     const char **symbol_names;
     void *data;
 } ts_parser;
 
-const ts_tree * ts_parser_parse(ts_parser *, ts_input, ts_input_edit *edit);
+const TSTree * ts_parser_parse(ts_parser *, ts_input, ts_input_edit *edit);
 void ts_parser_free(ts_parser *);
 
 typedef struct TSDocument TSDocument;
@@ -58,9 +58,9 @@ void ts_document_set_parser(TSDocument *doc, ts_parser parser);
 void ts_document_set_input(TSDocument *doc, ts_input input);
 void ts_document_set_input_string(TSDocument *doc, const char *text);
 void ts_document_edit(TSDocument *doc, ts_input_edit edit);
-const ts_tree * ts_document_tree(const TSDocument *doc);
+const TSTree * ts_document_tree(const TSDocument *doc);
 const char * ts_document_string(const TSDocument *doc);
-const char * ts_document_symbol_name(const TSDocument *document, const ts_tree *tree);
+const char * ts_document_symbol_name(const TSDocument *document, const TSTree *tree);
 
 #ifdef __cplusplus
 }

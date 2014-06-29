@@ -26,7 +26,7 @@ static ts_state_id ts_lex_states[STATE_COUNT]
 static const ts_parse_action ts_parse_actions[STATE_COUNT][SYMBOL_COUNT]
 
 #define LEX_FN() \
-static ts_tree * ts_lex(ts_lexer *lexer, ts_state_id lex_state)
+static TSTree * ts_lex(ts_lexer *lexer, ts_state_id lex_state)
 
 #ifdef TS_DEBUG_LEX
 #include <stdio.h>
@@ -72,11 +72,11 @@ ts_lexer_start_token(lexer);
 
 SYMBOL_NAMES;
 
-static const ts_tree * ts_parse(void *data, ts_input input, ts_input_edit *edit) {
+static const TSTree * ts_parse(void *data, ts_input input, ts_input_edit *edit) {
     ts_lr_parser *parser = (ts_lr_parser *)data;
     ts_lr_parser_initialize(parser, input, edit);
     for (;;) {
-        const ts_tree *tree = ts_lr_parser_parse(parser, ts_symbol_names);
+        const TSTree *tree = ts_lr_parser_parse(parser, ts_symbol_names);
         if (tree) return tree;
     }
 }

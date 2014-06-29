@@ -5,6 +5,6 @@
 
 #include <vector>
 
-ts_tree ** tree_array(std::vector<ts_tree *> trees);
+TSTree ** tree_array(std::vector<TSTree *> trees);
 
 #endif  // HELPERS_TREE_HELPERS_H_

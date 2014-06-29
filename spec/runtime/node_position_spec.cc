@@ -19,10 +19,10 @@ describe("tracking the positions of AST nodes", []() {
     it("records the widths and offsets of nodes", [&]() {
         ts_document_set_input_string(doc, "  [12, 5]");
 
-        const ts_tree *tree = ts_document_tree(doc);
-        const ts_tree *array = ts_tree_children(tree, NULL)[0];
-        const ts_tree *number1 = ts_tree_children(array, NULL)[0];
-        const ts_tree *number2 = ts_tree_children(array, NULL)[1];
+        const TSTree *tree = ts_document_tree(doc);
+        const TSTree *array = ts_tree_children(tree, NULL)[0];
+        const TSTree *number1 = ts_tree_children(array, NULL)[0];
+        const TSTree *number2 = ts_tree_children(array, NULL)[1];
 
         AssertThat(ts_document_symbol_name(doc, array), Equals("array"));
         AssertThat(ts_document_symbol_name(doc, number1), Equals("number"));

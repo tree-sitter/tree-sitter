@@ -20,11 +20,11 @@ describe("stacks", [&]() {
     it("starts out empty", [&]() {
         AssertThat(stack.size, Equals<size_t>(0));
         AssertThat(ts_stack_top_state(&stack), Equals(0));
-        AssertThat(ts_stack_top_node(&stack), Equals((ts_tree *)nullptr));
+        AssertThat(ts_stack_top_node(&stack), Equals((TSTree *)nullptr));
     });
 
     describe("pushing a symbol", [&]() {
-        ts_tree *node1;
+        TSTree *node1;
 
         before_each([&]() {
             node1 = ts_tree_make_leaf(sym1, 5, 1);
@@ -43,7 +43,7 @@ describe("stacks", [&]() {
     });
 
     describe("reducing a symbol", [&]() {
-        ts_tree **nodes;
+        TSTree **nodes;
 
         before_each([&]() {
             nodes = tree_array({
@@ -70,20 +70,20 @@ describe("stacks", [&]() {
         });
 
         it("returns a node with the given symbol", [&]() {
-            ts_tree *node = ts_stack_reduce(&stack, sym2, 3, hidden_symbols, 0);
+            TSTree *node = ts_stack_reduce(&stack, sym2, 3, hidden_symbols, 0);
             AssertThat(ts_tree_symbol(node), Equals(sym2));
         });
 
         it("makes all of the removed nodes immediate children of the new node", [&]() {
-            ts_tree *expected_children[3] = {
+            TSTree *expected_children[3] = {
                 stack.entries[1].node,
                 stack.entries[2].node,
                 stack.entries[3].node,
             };
 
-            ts_tree *node = ts_stack_reduce(&stack, sym2, 3, hidden_symbols, 0);
+            TSTree *node = ts_stack_reduce(&stack, sym2, 3, hidden_symbols, 0);
             size_t immediate_child_count;
-            ts_tree **immediate_children = ts_tree_immediate_children(node, &immediate_child_count);
+            TSTree **immediate_children = ts_tree_immediate_children(node, &immediate_child_count);
 
             AssertThat(immediate_child_count, Equals<size_t>(3));
             for (size_t i = 0; i < 3; i++)
@@ -91,14 +91,14 @@ describe("stacks", [&]() {
         });
 
         it("removes any hidden nodes from its regular list of children", [&]() {
-            ts_tree *expected_children[2] = {
+            TSTree *expected_children[2] = {
                 stack.entries[1].node,
                 stack.entries[3].node,
             };
 
-            ts_tree *node = ts_stack_reduce(&stack, sym2, 3, hidden_symbols, 0);
+            TSTree *node = ts_stack_reduce(&stack, sym2, 3, hidden_symbols, 0);
             size_t child_count;
-            ts_tree **children = ts_tree_children(node, &child_count);
+            TSTree **children = ts_tree_children(node, &child_count);
 
             AssertThat(child_count, Equals<size_t>(2));
             for (size_t i = 0; i < 2; i++)
@@ -106,8 +106,8 @@ describe("stacks", [&]() {
         });
 
         describe("when there are hidden nodes with children of their own", [&]() {
-            ts_tree **grandchildren;
-            ts_tree *hidden_node;
+            TSTree **grandchildren;
+            TSTree *hidden_node;
 
             before_each([&]() {
                 grandchildren = tree_array({
@@ -127,9 +127,9 @@ describe("stacks", [&]() {
             });
 
             it("makes those child nodes children of the new node", [&]() {
-                ts_tree *node = ts_stack_reduce(&stack, sym2, 4, hidden_symbols, 0);
+                TSTree *node = ts_stack_reduce(&stack, sym2, 4, hidden_symbols, 0);
 
-                ts_tree *expected_children[4] = {
+                TSTree *expected_children[4] = {
                     stack.entries[1].node,
                     stack.entries[3].node,
                     grandchildren[0],
@@ -137,7 +137,7 @@ describe("stacks", [&]() {
                 };
 
                 size_t child_count;
-                ts_tree **children = ts_tree_children(node, &child_count);
+                TSTree **children = ts_tree_children(node, &child_count);
 
                 AssertThat(child_count, Equals<size_t>(4));
                 for (size_t i = 0; i < 4; i++)

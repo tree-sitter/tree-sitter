@@ -11,7 +11,7 @@ enum {
 static const char *names[] = { "error", "end", "cat", "dog", "pig" };
 
 describe("trees", []() {
-    ts_tree *tree1, *tree2, *parent1;
+    TSTree *tree1, *tree2, *parent1;
 
     before_each([&]() {
         tree1 = ts_tree_make_leaf(cat, 5, 2);
@@ -40,12 +40,12 @@ describe("trees", []() {
 
     describe("equality", [&]() {
         it("returns true for identical trees", [&]() {
-            ts_tree *tree1_copy = ts_tree_make_leaf(cat, 5, 2);
+            TSTree *tree1_copy = ts_tree_make_leaf(cat, 5, 2);
             AssertThat(ts_tree_equals(tree1, tree1_copy), Equals(1));
-            ts_tree *tree2_copy = ts_tree_make_leaf(cat, 3, 1);
+            TSTree *tree2_copy = ts_tree_make_leaf(cat, 3, 1);
             AssertThat(ts_tree_equals(tree2, tree2_copy), Equals(1));
 
-            ts_tree *parent2 = ts_tree_make_node(dog, 2, 2, tree_array({
+            TSTree *parent2 = ts_tree_make_node(dog, 2, 2, tree_array({
                 tree1_copy, tree2_copy,
                 tree1_copy, tree2_copy,
             }));
@@ -57,14 +57,14 @@ describe("trees", []() {
         });
 
         it("returns false for trees with different symbols", [&]() {
-            ts_tree *different_tree = ts_tree_make_leaf(pig, 0, 0);
+            TSTree *different_tree = ts_tree_make_leaf(pig, 0, 0);
             AssertThat(ts_tree_equals(tree1, different_tree), Equals(0));
             ts_tree_release(different_tree);
         });
 
         it("returns false for trees with different children", [&]() {
-            ts_tree *different_tree = ts_tree_make_leaf(pig, 0, 0);
-            ts_tree *different_parent = ts_tree_make_node(dog, 2, 2, tree_array({
+            TSTree *different_tree = ts_tree_make_leaf(pig, 0, 0);
+            TSTree *different_parent = ts_tree_make_node(dog, 2, 2, tree_array({
                 different_tree, different_tree,
                 tree2, tree2,
             }));
