@@ -9,7 +9,7 @@ extern "C" ts_parser ts_parser_golang();
 START_TEST
 
 describe("Languages", [&]() {
-    ts_document *doc;
+    TSDocument *doc;
 
     before_each([&]() {
         doc = ts_document_make();

@@ -5,7 +5,7 @@ extern "C" ts_parser ts_parser_json();
 START_TEST
 
 describe("tracking the positions of AST nodes", []() {
-    ts_document *doc;
+    TSDocument *doc;
 
     before_each([&]() {
         doc = ts_document_make();

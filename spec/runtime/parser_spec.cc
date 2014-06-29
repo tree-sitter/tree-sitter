@@ -6,7 +6,7 @@ extern "C" ts_parser ts_parser_json();
 START_TEST
 
 describe("incremental parsing", [&]() {
-    ts_document *doc;
+    TSDocument *doc;
     SpyReader *reader;
 
     before_each([&]() {

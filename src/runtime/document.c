@@ -1,18 +1,18 @@
 #include "tree_sitter/runtime.h"
 #include <string.h>
 
-struct ts_document {
+struct TSDocument {
     ts_parser parser;
     const ts_tree *tree;
     ts_input input;
     size_t error_count;
 };
 
-ts_document * ts_document_make() {
-    return malloc(sizeof(ts_document));
+TSDocument * ts_document_make() {
+    return malloc(sizeof(TSDocument));
 }
 
-void ts_document_free(ts_document *document) {
+void ts_document_free(TSDocument *document) {
     if (document->parser.free_fn)
         document->parser.free_fn(document->parser.data);
     if (document->input.release_fn)
@@ -20,28 +20,28 @@ void ts_document_free(ts_document *document) {
     free(document);
 }
 
-void ts_document_set_parser(ts_document *document, ts_parser parser) {
+void ts_document_set_parser(TSDocument *document, ts_parser parser) {
     document->parser = parser;
 }
 
-const ts_tree * ts_document_tree(const ts_document *document) {
+const ts_tree * ts_document_tree(const TSDocument *document) {
     return document->tree;
 }
 
-const char * ts_document_string(const ts_document *document) {
+const char * ts_document_string(const TSDocument *document) {
     return ts_tree_string(document->tree, document->parser.symbol_names);
 }
 
-void ts_document_set_input(ts_document *document, ts_input input) {
+void ts_document_set_input(TSDocument *document, ts_input input) {
     document->input = input;
     document->tree = document->parser.parse_fn(document->parser.data, input, NULL);
 }
 
-void ts_document_edit(ts_document *document, ts_input_edit edit) {
+void ts_document_edit(TSDocument *document, ts_input_edit edit) {
     document->tree = document->parser.parse_fn(document->parser.data, document->input, &edit);
 }
 
-const char * ts_document_symbol_name(const ts_document *document, const ts_tree *tree) {
+const char * ts_document_symbol_name(const TSDocument *document, const ts_tree *tree) {
     return document->parser.symbol_names[ts_tree_symbol(tree)];
 }
 
@@ -83,6 +83,6 @@ ts_input ts_string_input_make(const char *string) {
     return input;
 }
 
-void ts_document_set_input_string(ts_document *document, const char *text) {
+void ts_document_set_input_string(TSDocument *document, const char *text) {
     ts_document_set_input(document, ts_string_input_make(text));
 }
