@@ -49,10 +49,10 @@ typedef struct {
     const char *string;
     size_t position;
     size_t length;
-} ts_string_input_data;
+} TSStringInput;
 
 const char * ts_string_input_read(void *d, size_t *bytes_read) {
-    ts_string_input_data *data = (ts_string_input_data *)d;
+    TSStringInput *data = (TSStringInput *)d;
     if (data->position >= data->length) {
         *bytes_read = 0;
         return "";
@@ -64,13 +64,13 @@ const char * ts_string_input_read(void *d, size_t *bytes_read) {
 }
 
 int ts_string_input_seek(void *d, size_t position) {
-    ts_string_input_data *data = (ts_string_input_data *)d;
+    TSStringInput *data = (TSStringInput *)d;
     data->position = position;
     return (position < data->length);
 }
 
 TSInput ts_string_input_make(const char *string) {
-    ts_string_input_data *data = malloc(sizeof(ts_string_input_data));
+    TSStringInput *data = malloc(sizeof(TSStringInput));
     data->string = string;
     data->position = 0;
     data->length = strlen(string);
