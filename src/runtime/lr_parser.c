@@ -28,7 +28,7 @@ void reduce(ts_lr_parser *parser, TSSymbol symbol, size_t child_count) {
 static size_t breakdown_stack(ts_lr_parser *parser, TSInputEdit *edit) {
     if (!edit) return 0;
 
-    ts_stack *stack = &parser->stack;
+    TSStack *stack = &parser->stack;
     size_t position = 0;
 
     for (;;) {
@@ -118,7 +118,7 @@ int handle_error(ts_lr_parser *parser) {
 }
 
 TSTree * get_tree_root(ts_lr_parser *parser) {
-    ts_stack *stack = &parser->stack;
+    TSStack *stack = &parser->stack;
     TSTree *top_node = ts_stack_top_node(stack);
     if (stack->size <= 1)
         return top_node;

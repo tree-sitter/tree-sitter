@@ -41,7 +41,7 @@ typedef struct {
 
 typedef struct {
     TSLexer lexer;
-    ts_stack stack;
+    TSStack stack;
     TSTree *lookahead;
     TSTree *next_lookahead;
     struct {

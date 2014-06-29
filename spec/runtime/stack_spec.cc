@@ -7,7 +7,7 @@ enum { sym1, sym2, hidden_sym };
 int hidden_symbols[] = { 0, 0, 1 };
 
 describe("stacks", [&]() {
-    ts_stack stack;
+    TSStack stack;
 
     before_each([&]() {
         stack = ts_stack_make();
