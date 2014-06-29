@@ -40,7 +40,7 @@ typedef struct {
 { .type = ts_parse_action_type_accept }
 
 typedef struct {
-    ts_lexer lexer;
+    TSLexer lexer;
     ts_stack stack;
     TSTree *lookahead;
     TSTree *next_lookahead;
@@ -49,14 +49,14 @@ typedef struct {
         const int *hidden_symbol_flags;
         const ts_parse_action *parse_table;
         const TSStateId *lex_states;
-        TSTree * (* lex_fn)(ts_lexer *, TSStateId);
+        TSTree * (* lex_fn)(TSLexer *, TSStateId);
     } config;
 } ts_lr_parser;
 
 ts_lr_parser * ts_lr_parser_make(size_t symbol_count,
                                  const ts_parse_action *parse_table,
                                  const TSStateId *lex_states,
-                                 TSTree * (* lex_fn)(ts_lexer *, TSStateId),
+                                 TSTree * (* lex_fn)(TSLexer *, TSStateId),
                                  const int *hidden_symbol_flags);
 void ts_lr_parser_free(void *data);
 void ts_lr_parser_initialize(ts_lr_parser *parser, TSInput input, TSInputEdit *edit);

@@ -46,15 +46,15 @@ typedef struct {
     void (* free_fn)(void *data);
     const char **symbol_names;
     void *data;
-} ts_parser;
+} TSParser;
 
-const TSTree * ts_parser_parse(ts_parser *, TSInput, TSInputEdit *edit);
-void ts_parser_free(ts_parser *);
+const TSTree * ts_parser_parse(TSParser *, TSInput, TSInputEdit *edit);
+void ts_parser_free(TSParser *);
 
 typedef struct TSDocument TSDocument;
 TSDocument * ts_document_make();
 void ts_document_free(TSDocument *doc);
-void ts_document_set_parser(TSDocument *doc, ts_parser parser);
+void ts_document_set_parser(TSDocument *doc, TSParser parser);
 void ts_document_set_input(TSDocument *doc, TSInput input);
 void ts_document_set_input_string(TSDocument *doc, const char *text);
 void ts_document_edit(TSDocument *doc, TSInputEdit edit);

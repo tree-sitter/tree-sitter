@@ -26,7 +26,7 @@ static TSStateId ts_lex_states[STATE_COUNT]
 static const ts_parse_action ts_parse_actions[STATE_COUNT][SYMBOL_COUNT]
 
 #define LEX_FN() \
-static TSTree * ts_lex(ts_lexer *lexer, TSStateId lex_state)
+static TSTree * ts_lex(TSLexer *lexer, TSStateId lex_state)
 
 #ifdef TS_DEBUG_LEX
 #include <stdio.h>
@@ -82,8 +82,8 @@ static const TSTree * ts_parse(void *data, TSInput input, TSInputEdit *edit) {
 }
 
 #define EXPORT_PARSER(constructor_name) \
-ts_parser constructor_name() { \
-    return (ts_parser) { \
+TSParser constructor_name() { \
+    return (TSParser) { \
         .parse_fn = ts_parse, \
         .free_fn = ts_lr_parser_free, \
         .symbol_names = ts_symbol_names, \

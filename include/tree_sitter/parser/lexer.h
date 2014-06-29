@@ -14,10 +14,10 @@ typedef struct {
     size_t token_end_position;
     size_t token_start_position;
     int reached_end;
-} ts_lexer;
+} TSLexer;
 
-static inline ts_lexer ts_lexer_make() {
-    ts_lexer result;
+static inline TSLexer ts_lexer_make() {
+    TSLexer result;
     result.chunk = NULL;
     result.chunk_start = 0;
     result.chunk_size = 0;
@@ -28,15 +28,15 @@ static inline ts_lexer ts_lexer_make() {
     return result;
 }
 
-static inline size_t ts_lexer_position(const ts_lexer *lexer) {
+static inline size_t ts_lexer_position(const TSLexer *lexer) {
     return lexer->chunk_start + lexer->position_in_chunk;
 }
 
-static inline char ts_lexer_lookahead_char(const ts_lexer *lexer) {
+static inline char ts_lexer_lookahead_char(const TSLexer *lexer) {
     return lexer->chunk[lexer->position_in_chunk];
 }
 
-static inline int ts_lexer_advance(ts_lexer *lexer) {
+static inline int ts_lexer_advance(TSLexer *lexer) {
     static const char *empty_chunk = "";
     if (lexer->position_in_chunk + 1 < lexer->chunk_size) {
         lexer->position_in_chunk++;
@@ -55,11 +55,11 @@ static inline int ts_lexer_advance(ts_lexer *lexer) {
     return 1;
 }
 
-static inline void ts_lexer_start_token(ts_lexer *lexer) {
+static inline void ts_lexer_start_token(TSLexer *lexer) {
     lexer->token_start_position = ts_lexer_position(lexer);
 }
 
-static inline TSTree * ts_lexer_build_node(ts_lexer *lexer, TSSymbol symbol) {
+static inline TSTree * ts_lexer_build_node(TSLexer *lexer, TSSymbol symbol) {
     size_t current_position = ts_lexer_position(lexer);
     size_t size = current_position - lexer->token_start_position;
     size_t offset = lexer->token_start_position - lexer->token_end_position;

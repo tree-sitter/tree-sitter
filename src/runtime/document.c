@@ -2,7 +2,7 @@
 #include <string.h>
 
 struct TSDocument {
-    ts_parser parser;
+    TSParser parser;
     const TSTree *tree;
     TSInput input;
     size_t error_count;
@@ -20,7 +20,7 @@ void ts_document_free(TSDocument *document) {
     free(document);
 }
 
-void ts_document_set_parser(TSDocument *document, ts_parser parser) {
+void ts_document_set_parser(TSDocument *document, TSParser parser) {
     document->parser = parser;
 }
 

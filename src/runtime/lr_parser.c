@@ -161,7 +161,7 @@ ts_parse_action get_next_action(ts_lr_parser *parser) {
 ts_lr_parser * ts_lr_parser_make(size_t symbol_count,
                                  const ts_parse_action *parse_table,
                                  const TSStateId *lex_states,
-                                 TSTree * (* lex_fn)(ts_lexer *, TSStateId),
+                                 TSTree * (* lex_fn)(TSLexer *, TSStateId),
                                  const int *hidden_symbol_flags) {
     ts_lr_parser *result = malloc(sizeof(ts_lr_parser));
     *result = (ts_lr_parser) {

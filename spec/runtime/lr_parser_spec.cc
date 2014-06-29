@@ -5,9 +5,9 @@
 
 TSTree *lex_fn_node_to_return;
 TSStateId lex_fn_state_received;
-ts_lexer *lex_fn_lexer_received;
+TSLexer *lex_fn_lexer_received;
 
-TSTree * fake_lex(ts_lexer *lexer, TSStateId state_id) {
+TSTree * fake_lex(TSLexer *lexer, TSStateId state_id) {
     lex_fn_lexer_received = lexer;
     lex_fn_state_received = state_id;
     return lex_fn_node_to_return;
