@@ -1,10 +1,9 @@
-#include "compiler/prepare_grammar/prepare_grammar.h"
-#include "compiler/prepared_grammar.h"
-#include "compiler/prepare_grammar/extract_tokens.h"
 #include "compiler/prepare_grammar/expand_repeats.h"
 #include "compiler/prepare_grammar/expand_tokens.h"
+#include "compiler/prepare_grammar/extract_tokens.h"
 #include "compiler/prepare_grammar/intern_symbols.h"
 #include "compiler/prepare_grammar/interned_grammar.h"
+#include "compiler/prepare_grammar/prepare_grammar.h"
 #include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {

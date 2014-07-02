@@ -13,8 +13,6 @@
 #include "compiler/build_tables/item_set_transitions.h"
 #include "compiler/build_tables/first_set.h"
 
-#include <iostream>
-
 namespace tree_sitter {
     using std::pair;
     using std::string;
@@ -99,8 +97,7 @@ namespace tree_sitter {
                 auto current_action = current_actions.find(symbol);
                 return (
                     current_action == current_actions.end() ||
-                    conflict_manager.resolve_parse_action(symbol, current_action->second, action)
-                );
+                    conflict_manager.resolve_parse_action(symbol, current_action->second, action));
             }
 
             set<int> precedence_values_for_item_set(const ParseItemSet &item_set) {

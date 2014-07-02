@@ -293,7 +293,7 @@ namespace tree_sitter {
                     case ParseActionTypeReduceExtra:
                         add("REDUCE_EXTRA(" + symbol_id(action.symbol) + ")");
                         break;
-                    default:;
+                    default: {}
                 }
             }
 
@@ -309,7 +309,7 @@ namespace tree_sitter {
                     case LexActionTypeError:
                         line("LEX_ERROR();");
                         break;
-                    default:;
+                    default: {}
                 }
             }
 

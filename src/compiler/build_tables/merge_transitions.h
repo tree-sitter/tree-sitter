@@ -2,6 +2,7 @@
 #define COMPILER_BUILD_TABLES_MERGE_TRANSITIONS_H_
 
 #include <map>
+#include <utility>
 #include "compiler/rules/character_set.h"
 #include "compiler/rules/symbol.h"
 
