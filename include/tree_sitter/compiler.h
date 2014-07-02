@@ -2,6 +2,7 @@
 #define TREE_SITTER_COMPILER_H_
 
 #include <vector>
+#include <set>
 #include <string>
 #include <memory>
 
@@ -29,8 +30,8 @@ namespace tree_sitter {
     class Grammar {
     protected:
         const std::vector<std::pair<std::string, rules::rule_ptr>> rules_;
-        std::vector<std::string> ubiquitous_tokens_;
-        std::vector<char> separators_;
+        std::set<std::string> ubiquitous_tokens_;
+        std::set<char> separators_;
 
     public:
         Grammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules);
@@ -39,10 +40,10 @@ namespace tree_sitter {
         const rules::rule_ptr rule(const std::string &name) const;
 
         const std::vector<std::pair<std::string, rules::rule_ptr>> & rules() const;
-        const std::vector<std::string> & ubiquitous_tokens() const;
-        Grammar & ubiquitous_tokens(const std::vector<std::string> &ubiquitous_tokens);
-        const std::vector<char> & separators() const;
-        Grammar & separators(const std::vector<char> &separators);
+        const std::set<std::string> & ubiquitous_tokens() const;
+        Grammar & ubiquitous_tokens(const std::set<std::string> &ubiquitous_tokens);
+        const std::set<char> & separators() const;
+        Grammar & separators(const std::set<char> &separators);
     };
 
     struct Conflict {

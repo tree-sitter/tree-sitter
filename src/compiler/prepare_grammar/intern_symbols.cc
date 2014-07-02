@@ -1,6 +1,7 @@
 #include "compiler/prepare_grammar/intern_symbols.h"
 #include <memory>
 #include <vector>
+#include <set>
 #include "tree_sitter/compiler.h"
 #include "compiler/prepare_grammar/interned_grammar.h"
 #include "compiler/prepared_grammar.h"
@@ -12,6 +13,7 @@ namespace tree_sitter {
     using std::string;
     using rules::rule_ptr;
     using std::vector;
+    using std::set;
     using std::pair;
     using std::make_shared;
 
@@ -58,12 +60,12 @@ namespace tree_sitter {
                 rules.push_back({ pair.first, new_rule });
             }
 
-            vector<rules::Symbol> ubiquitous_tokens;
+            set<rules::Symbol> ubiquitous_tokens;
             for (auto &name : grammar.ubiquitous_tokens()) {
                 auto token = interner.symbol_for_rule_name(name);
                 if (!token.get())
                     return missing_rule_error(name);
-                ubiquitous_tokens.push_back(*token);
+                ubiquitous_tokens.insert(*token);
             }
 
             InternedGrammar result;

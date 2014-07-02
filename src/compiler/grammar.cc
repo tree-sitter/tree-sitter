@@ -2,9 +2,10 @@
 #include "compiler/rules/rule.h"
 
 namespace tree_sitter {
-    using std::string;
     using std::ostream;
     using std::pair;
+    using std::set;
+    using std::string;
     using std::vector;
     using rules::rule_ptr;
 
@@ -59,20 +60,20 @@ namespace tree_sitter {
             return stream << string("#<null>");
     }
 
-    const vector<string> & Grammar::ubiquitous_tokens() const {
+    const set<string> & Grammar::ubiquitous_tokens() const {
         return ubiquitous_tokens_;
     }
 
-    Grammar & Grammar::ubiquitous_tokens(const vector<string> &ubiquitous_tokens) {
+    Grammar & Grammar::ubiquitous_tokens(const set<string> &ubiquitous_tokens) {
         ubiquitous_tokens_ = ubiquitous_tokens;
         return *this;
     }
 
-    const vector<char> & Grammar::separators() const {
+    const set<char> & Grammar::separators() const {
         return separators_;
     }
 
-    Grammar & Grammar::separators(const vector<char> &separators) {
+    Grammar & Grammar::separators(const set<char> &separators) {
         separators_ = separators;
         return *this;
     }

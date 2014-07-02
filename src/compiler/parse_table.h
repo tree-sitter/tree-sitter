@@ -14,6 +14,7 @@ namespace tree_sitter {
         ParseActionTypeShift,
         ParseActionTypeShiftExtra,
         ParseActionTypeReduce,
+        ParseActionTypeReduceExtra,
         ParseActionTypeAccept,
     } ParseActionType;
 
@@ -28,8 +29,9 @@ namespace tree_sitter {
         static ParseAction Accept();
         static ParseAction Error();
         static ParseAction Shift(size_t state_index, std::set<int> precedence_values);
-        static ParseAction ShiftExtra();
         static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count, int precedence);
+        static ParseAction ShiftExtra();
+        static ParseAction ReduceExtra(rules::Symbol symbol);
         bool operator==(const ParseAction &action) const;
 
         ParseActionType type;

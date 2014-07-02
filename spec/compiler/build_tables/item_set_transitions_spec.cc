@@ -31,7 +31,7 @@ describe("syntactic item set transitions", [&]() {
     SyntaxGrammar grammar({
         { "A", blank() },
         { "B", i_token(21) },
-    }, {}, {});
+    }, {}, set<Symbol>());
 
     it("computes the closure of the new item sets", [&]() {
         ParseItemSet set1({

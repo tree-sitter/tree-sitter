@@ -13,6 +13,7 @@ typedef enum {
     TSParseActionTypeShift,
     TSParseActionTypeShiftExtra,
     TSParseActionTypeReduce,
+    TSParseActionTypeReduceExtra,
     TSParseActionTypeAccept,
 } TSParseActionType;
 
@@ -32,6 +33,9 @@ typedef struct {
 
 #define SHIFT_EXTRA() \
 { .type = TSParseActionTypeShiftExtra }
+
+#define REDUCE_EXTRA(symbol_val) \
+{ .type = TSParseActionTypeReduceExtra, .data = { .symbol = symbol_val } }
 
 #define REDUCE(symbol_val, child_count_val) \
 { .type = TSParseActionTypeReduce, .data = { .symbol = symbol_val, .child_count = child_count_val } }

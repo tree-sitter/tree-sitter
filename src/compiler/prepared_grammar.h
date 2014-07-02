@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <set>
 #include <utility>
 #include "tree_sitter/compiler.h"
 #include "compiler/rules/symbol.h"
@@ -27,10 +28,13 @@ namespace tree_sitter {
         SyntaxGrammar();
         SyntaxGrammar(
             const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
+            const std::vector<std::pair<std::string, rules::rule_ptr>> &aux_rules);
+        SyntaxGrammar(
+            const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
             const std::vector<std::pair<std::string, rules::rule_ptr>> &aux_rules,
-            const std::vector<rules::Symbol> &ubiquitous_tokens);
+            const std::set<rules::Symbol> &ubiquitous_tokens);
 
-        std::vector<rules::Symbol> ubiquitous_tokens;
+        std::set<rules::Symbol> ubiquitous_tokens;
     };
 
     class LexicalGrammar : public PreparedGrammar {
@@ -38,10 +42,13 @@ namespace tree_sitter {
         LexicalGrammar();
         LexicalGrammar(
             const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
+            const std::vector<std::pair<std::string, rules::rule_ptr>> &aux_rules);
+        LexicalGrammar(
+            const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
             const std::vector<std::pair<std::string, rules::rule_ptr>> &aux_rules,
-            const std::vector<char> &separators);
+            const std::set<char> &separators);
 
-        std::vector<char> separators;
+        std::set<char> separators;
     };
 }
 

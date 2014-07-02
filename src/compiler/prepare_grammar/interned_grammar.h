@@ -3,6 +3,7 @@
 
 #include <utility>
 #include <vector>
+#include <set>
 #include <string>
 #include "tree_sitter/compiler.h"
 #include "compiler/rules/symbol.h"
@@ -12,8 +13,8 @@ namespace tree_sitter {
         class InternedGrammar {
         public:
             std::vector<std::pair<std::string, rules::rule_ptr>> rules;
-            std::vector<rules::Symbol> ubiquitous_tokens;
-            std::vector<char> separators;
+            std::set<rules::Symbol> ubiquitous_tokens;
+            std::set<char> separators;
         };
     }
 }

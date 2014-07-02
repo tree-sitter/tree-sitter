@@ -24,7 +24,7 @@ moreStuff();
 recovers from errors in for loops
 ==========================================
 stuff();
-for (var i = 0; *nonsense*; *what*) {
+for (var i = 0; *nonsense*; i++) {
     *more-nonsense*;
 }
 moreStuff();
@@ -34,7 +34,7 @@ moreStuff();
     (for_statement
         (var_declaration (assignment (identifier) (number)))
         (expression_statement (ERROR '*'))
-        (ERROR '*')
+        (math_op (identifier))
         (statement_block (expression_statement (ERROR '*'))))
     (expression_statement (function_call (identifier))))
 

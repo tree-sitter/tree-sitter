@@ -14,13 +14,13 @@ describe("resolving parse conflicts", []() {
     SyntaxGrammar parse_grammar({
         { "rule1", seq({ sym("rule2"), sym("token2") }) },
         { "rule2", sym("token1") },
-    }, {}, {});
+    }, {}, set<rules::Symbol>());
 
     LexicalGrammar lex_grammar({
         { "token1", pattern("[a-c]") },
         { "token2", pattern("[b-d]") },
         { "token3", keyword("stuff") },
-    }, {}, {});
+    }, {}, set<char>());
 
     describe("lexical conflicts", [&]() {
         Symbol sym1(0, SymbolOptionToken);

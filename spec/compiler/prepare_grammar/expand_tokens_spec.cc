@@ -15,7 +15,7 @@ describe("expanding token rules", []() {
                 i_sym(10),
                 pattern("x*"),
                 i_sym(11) }) },
-        }, {}, {});
+        }, {});
 
         auto result = expand_tokens(grammar);
 
@@ -34,7 +34,7 @@ describe("expanding token rules", []() {
                 i_sym(10),
                 str("xyz"),
                 i_sym(11) }) },
-        }, {}, {});
+        }, {});
 
         auto result = expand_tokens(grammar);
 
@@ -53,7 +53,7 @@ describe("expanding token rules", []() {
                 pattern("("),
                 str("xyz"),
                 pattern("[") }) },
-        }, {}, {});
+        }, {});
 
         auto result = expand_tokens(grammar);
 

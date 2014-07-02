@@ -46,7 +46,7 @@ describe("computing FIRST sets", []() {
                     i_token(2),
                     i_token(3),
                     i_token(4) }) }
-            }, {}, {});
+            }, {});
 
             AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
                 Symbol(0, SymbolOptionToken),
@@ -63,7 +63,7 @@ describe("computing FIRST sets", []() {
                 { "rule0", choice({
                     i_token(0),
                     blank() }) }
-            }, {}, {});
+            }, {});
 
             AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
                 Symbol(0, SymbolOptionToken),
@@ -79,7 +79,7 @@ describe("computing FIRST sets", []() {
                     seq({ i_sym(0), i_token(10) }),
                     i_token(11),
                 }) },
-            }, {}, {});
+            }, {});
 
             auto rule = i_sym(0);
 

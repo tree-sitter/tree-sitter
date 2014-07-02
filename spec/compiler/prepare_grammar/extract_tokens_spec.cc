@@ -17,8 +17,8 @@ describe("extracting tokens from a grammar", []() {
             {
                 { "rule_A", seq({ str("ab"), i_sym(0) }) }
             },
-            {},
-            {}
+            set<Symbol>(),
+            set<char>()
         });
 
         AssertThat(result.first.rules, Equals(rule_list({
@@ -36,8 +36,8 @@ describe("extracting tokens from a grammar", []() {
             {
                 { "rule_A", seq({ pattern("a+"), i_sym(0) }) }
             },
-            {},
-            {}
+            set<Symbol>(),
+            set<char>()
         });
 
         AssertThat(result.first.rules, Equals(rule_list({
@@ -57,8 +57,8 @@ describe("extracting tokens from a grammar", []() {
                     token(seq({ pattern("."), choice({ str("a"), str("b") }) })),
                     i_sym(0) }) }
             },
-            {},
-            {}
+            set<Symbol>(),
+            set<char>()
         });
 
         AssertThat(result.first.rules, Equals(rule_list({
@@ -76,8 +76,8 @@ describe("extracting tokens from a grammar", []() {
             {
                 { "rule_A", choice({ i_sym(0), blank() }) },
             },
-            {},
-            {}
+            set<Symbol>(),
+            set<char>()
         });
 
         AssertThat(result.first.rules, Equals(rule_list({
@@ -93,8 +93,8 @@ describe("extracting tokens from a grammar", []() {
             {
                 { "rule_A", seq({ str("ab"), i_sym(0), str("ab") }) },
             },
-            {},
-            {}
+            set<Symbol>(),
+            set<char>()
         });
 
         AssertThat(result.first.rules, Equals(rule_list({
@@ -112,11 +112,11 @@ describe("extracting tokens from a grammar", []() {
             {
                 { "rule_A", str("ab") },
             },
-            {},
+            set<Symbol>(),
             { 'x', 'y', 'z' }
         });
 
-        AssertThat(result.second.separators, Equals(vector<char>({ 'x', 'y', 'z' })));
+        AssertThat(result.second.separators, Equals(set<char>({ 'x', 'y', 'z' })));
     });
 
     describe("when an entire rule can be extracted", [&]() {
@@ -127,8 +127,8 @@ describe("extracting tokens from a grammar", []() {
                     { "rule_B", pattern("a|b") },
                     { "rule_C", token(seq({ str("a"), str("b") })) },
                 },
-                {},
-                {}
+                set<Symbol>(),
+                set<char>()
             });
 
             AssertThat(result.first.rules, Equals(rule_list({
@@ -149,8 +149,8 @@ describe("extracting tokens from a grammar", []() {
                     { "rule_B", i_sym(0) },
                     { "rule_C", i_sym(1) },
                 },
-                {},
-                {}
+                set<Symbol>(),
+                set<char>()
             });
 
             AssertThat(result.first.rules, Equals(rule_list({
@@ -172,10 +172,10 @@ describe("extracting tokens from a grammar", []() {
                     { "rule_C", i_sym(1) },
                 },
                 { Symbol(0) },
-                {}
+                set<char>()
             });
 
-            AssertThat(result.first.ubiquitous_tokens, Equals(vector<Symbol>({
+            AssertThat(result.first.ubiquitous_tokens, Equals(set<Symbol>({
                 { Symbol(0, SymbolOptionToken) }
             })));
         });

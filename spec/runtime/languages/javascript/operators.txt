@@ -34,6 +34,18 @@ print(object.property);
         (identifier)
         (property_access (identifier) (identifier)))))
 
+==========================================
+parses property access across lines
+==========================================
+object
+  .someProperty
+  .otherProperty
+---
+(program (expression_statement
+    (property_access
+        (property_access (identifier) (identifier))
+        (identifier))))
+
 ===========================================
 parses dynamic property access
 ==========================================

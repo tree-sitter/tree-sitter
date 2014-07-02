@@ -19,7 +19,7 @@ describe("building parse tables", []() {
     LexicalGrammar lex_grammar({
         { "token0", pattern("[a-c]") },
         { "token1", pattern("[b-d]") },
-    }, {}, {});
+    }, {});
 
     it("first looks for the start rule and its item set closure", [&]() {
         auto result = build_parse_table(parse_grammar, lex_grammar);

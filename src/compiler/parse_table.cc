@@ -39,7 +39,11 @@ namespace tree_sitter {
     }
 
     ParseAction ParseAction::ShiftExtra() {
-        return ParseAction(ParseActionTypeShiftExtra, -1, Symbol(-1), 0, set<int>({}));
+        return ParseAction(ParseActionTypeShiftExtra, -1, Symbol(-1), 0, { 0 });
+    }
+
+    ParseAction ParseAction::ReduceExtra(Symbol symbol) {
+        return ParseAction(ParseActionTypeReduceExtra, -1, symbol, 0, { 0 });
     }
 
     ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count, int precedence) {

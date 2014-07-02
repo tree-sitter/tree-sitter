@@ -5,7 +5,6 @@
 extern "C" {
 #endif
 
-//#define TS_DEBUG_PARSE
 // #define TS_DEBUG_LEX
 
 #include "tree_sitter/runtime.h"

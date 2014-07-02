@@ -1,6 +1,7 @@
 #include "compiler/prepare_grammar/extract_tokens.h"
 #include <map>
 #include <vector>
+#include <set>
 #include <string>
 #include "tree_sitter/compiler.h"
 #include "compiler/prepared_grammar.h"
@@ -18,6 +19,7 @@ namespace tree_sitter {
     using std::map;
     using std::to_string;
     using std::vector;
+    using std::set;
     using std::make_shared;
     using rules::rule_ptr;
     using rules::Symbol;
@@ -96,7 +98,7 @@ namespace tree_sitter {
 
         pair<SyntaxGrammar, LexicalGrammar> extract_tokens(const InternedGrammar &input_grammar) {
             vector<pair<string, rule_ptr>> rules, tokens, aux_rules, aux_tokens;
-            vector<Symbol> ubiquitous_tokens;
+            set<Symbol> ubiquitous_tokens;
 
             TokenExtractor extractor;
             map<Symbol, Symbol> symbol_replacements;
@@ -120,7 +122,7 @@ namespace tree_sitter {
             for (auto &pair : rules)
                 pair.second = inliner.apply(pair.second);
             for (auto &symbol : input_grammar.ubiquitous_tokens)
-                ubiquitous_tokens.push_back(inliner.replace_symbol(symbol));
+                ubiquitous_tokens.insert(inliner.replace_symbol(symbol));
 
             return {
                 SyntaxGrammar(rules, aux_rules, ubiquitous_tokens),

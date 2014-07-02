@@ -8,6 +8,7 @@ namespace tree_sitter {
     using std::string;
     using std::pair;
     using std::vector;
+    using std::set;
 
     const rules::rule_ptr & PreparedGrammar::rule(const rules::Symbol &symbol) const {
         return symbol.is_auxiliary() ?
@@ -25,6 +26,16 @@ namespace tree_sitter {
     SyntaxGrammar::SyntaxGrammar() {}
     LexicalGrammar::LexicalGrammar() {}
 
+    SyntaxGrammar::SyntaxGrammar(
+        const vector<pair<string, rules::rule_ptr>> &rules,
+        const vector<pair<string, rules::rule_ptr>> &aux_rules) :
+        PreparedGrammar(rules, aux_rules) {}
+
+    LexicalGrammar::LexicalGrammar(
+        const vector<pair<string, rules::rule_ptr>> &rules,
+        const vector<pair<string, rules::rule_ptr>> &aux_rules) :
+        PreparedGrammar(rules, aux_rules) {}
+
     PreparedGrammar::PreparedGrammar(
         const vector<pair<string, rules::rule_ptr>> &rules,
         const vector<pair<string, rules::rule_ptr>> &aux_rules) :
@@ -34,14 +45,14 @@ namespace tree_sitter {
     SyntaxGrammar::SyntaxGrammar(
         const vector<pair<string, rules::rule_ptr>> &rules,
         const vector<pair<string, rules::rule_ptr>> &aux_rules,
-        const vector<rules::Symbol> &ubiquitous_tokens) :
+        const set<rules::Symbol> &ubiquitous_tokens) :
         PreparedGrammar(rules, aux_rules),
         ubiquitous_tokens(ubiquitous_tokens) {}
 
     LexicalGrammar::LexicalGrammar(
         const vector<pair<string, rules::rule_ptr>> &rules,
         const vector<pair<string, rules::rule_ptr>> &aux_rules,
-        const vector<char> &separators) :
+        const set<char> &separators) :
         PreparedGrammar(rules, aux_rules),
         separators(separators) {}
 }

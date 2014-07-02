@@ -290,6 +290,9 @@ namespace tree_sitter {
                             symbol_id(action.symbol) + ", " +
                             to_string(action.consumed_symbol_count) + ")");
                         break;
+                    case ParseActionTypeReduceExtra:
+                        add("REDUCE_EXTRA(" + symbol_id(action.symbol) + ")");
+                        break;
                     default:;
                 }
             }

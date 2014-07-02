@@ -51,14 +51,14 @@ namespace tree_sitter {
             for (auto &pair : grammar.rules) {
                 auto rule = expander.apply(pair.second);
                 if (expander.error)
-                    return { LexicalGrammar({}, {}, {}), expander.error };
+                    return { LexicalGrammar(), expander.error };
                 rules.push_back({ pair.first, rule });
             }
 
             for (auto &pair : grammar.aux_rules) {
                 auto rule = expander.apply(pair.second);
                 if (expander.error)
-                    return { LexicalGrammar({}, {}, {}), expander.error };
+                    return { LexicalGrammar(), expander.error };
                 aux_rules.push_back({ pair.first, rule });
             }
 

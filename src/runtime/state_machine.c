@@ -9,20 +9,37 @@ static const TSParseAction * actions_for_state(TSStateMachine *machine, TSStateI
     return machine->config.parse_table + (state * machine->config.symbol_count);
 }
 
-void shift(TSStateMachine *machine, TSStateId parse_state, int is_extra) {
-    machine->lookahead->is_extra = is_extra;
+void shift(TSStateMachine *machine, TSStateId parse_state) {
+    if (machine->lookahead->is_extra)
+        parse_state = ts_stack_top_state(&machine->stack);
     ts_stack_push(&machine->stack, parse_state, machine->lookahead);
     machine->lookahead = machine->next_lookahead;
     machine->next_lookahead = NULL;
 }
 
+void shift_extra(TSStateMachine *machine) {
+    machine->lookahead->is_extra = 1;
+    shift(machine, 0);
+}
+
 void reduce(TSStateMachine *machine, TSSymbol symbol, size_t child_count) {
     machine->next_lookahead = machine->lookahead;
-    machine->lookahead = ts_stack_reduce(&machine->stack,
-                                        symbol,
-                                        child_count,
-                                        machine->config.hidden_symbol_flags,
-                                        1);
+    machine->lookahead = ts_stack_reduce(
+        &machine->stack,
+        symbol,
+        child_count,
+        machine->config.hidden_symbol_flags, 1);
+}
+
+int reduce_extra(TSStateMachine *machine, TSSymbol symbol) {
+    TSTree *top_node = ts_stack_top_node(&machine->stack);
+    if (top_node->symbol == symbol && !top_node->is_extra) {
+        reduce(machine, symbol, 1);
+        machine->lookahead->is_extra = 1;
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
 static size_t breakdown_stack(TSStateMachine *machine, TSInputEdit *edit) {
@@ -199,6 +216,8 @@ void ts_state_machine_initialize(TSStateMachine *machine, TSInput input, TSInput
     ts_lexer_advance(&machine->lexer);
 }
 
+// #define TS_DEBUG_PARSE
+
 #ifdef TS_DEBUG_PARSE
 #include <stdio.h>
 #define DEBUG_PARSE(...) fprintf(stderr, "\n" __VA_ARGS__)
@@ -212,26 +231,33 @@ TSTree * ts_state_machine_parse(TSStateMachine *machine, const char **symbol_nam
     switch (action.type) {
         case TSParseActionTypeShift:
             DEBUG_PARSE("SHIFT %d", action.data.to_state);
-            shift(machine, action.data.to_state, 0);
+            shift(machine, action.data.to_state);
             return NULL;
         case TSParseActionTypeShiftExtra:
             DEBUG_PARSE("SHIFT EXTRA");
-            shift(machine, ts_stack_top_state(&machine->stack), 1);
+            shift_extra(machine);
             return NULL;
         case TSParseActionTypeReduce:
             DEBUG_PARSE("REDUCE %s %d", symbol_names[action.data.symbol], action.data.child_count);
             reduce(machine, action.data.symbol, action.data.child_count);
             return NULL;
+        case TSParseActionTypeReduceExtra:
+            if (!reduce_extra(machine, action.data.symbol))
+                goto error;
+            DEBUG_PARSE("REDUCE EXTRA");
+            return NULL;
         case TSParseActionTypeAccept:
             DEBUG_PARSE("ACCEPT");
             return get_tree_root(machine);
         case TSParseActionTypeError:
-            DEBUG_PARSE("ERROR");
-            if (handle_error(machine))
-                return NULL;
-            else
-                return get_tree_root(machine);
+            goto error;
         default:
             return NULL;
     }
+error:
+    DEBUG_PARSE("ERROR");
+    if (handle_error(machine))
+        return NULL;
+    else
+        return get_tree_root(machine);
 }
