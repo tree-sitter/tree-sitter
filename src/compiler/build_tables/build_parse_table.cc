@@ -39,42 +39,10 @@ namespace tree_sitter {
                     parse_state_ids[item_set] = state_id;
                     add_reduce_actions(item_set, state_id);
                     add_shift_actions(item_set, state_id);
-                    add_ubiquitous_token_actions(item_set, state_id);
+                    add_ubiquitous_token_actions(state_id);
                     return state_id;
                 } else {
                     return pair->second;
-                }
-            }
-
-            void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
-                map<Symbol, size_t> shifts;
-
-                for (const auto &transition : sym_transitions(item_set, grammar)) {
-                    const Symbol &symbol = transition.first;
-                    const ParseItemSet &next_item_set = transition.second;
-
-                    ParseAction new_action = ParseAction::Shift(0, precedence_values_for_item_set(next_item_set));
-                    if (should_add_action(state_id, symbol, new_action)) {
-                        ParseStateId new_state_id = add_parse_state(next_item_set);
-                        new_action.state_index = new_state_id;
-                        parse_table.add_action(state_id, symbol, new_action);
-
-                        shifts.insert({ symbol, new_state_id });
-                    }
-                }
-
-                for (auto &pair : shifts) {
-                    const Symbol &shift_symbol = pair.first;
-                    size_t new_state_id = pair.second;
-
-                    if (grammar.ubiquitous_tokens.find(shift_symbol) != grammar.ubiquitous_tokens.end()) {
-                        for (const auto &pair : parse_table.states[state_id].actions) {
-                            const Symbol &lookahead_sym = pair.first;
-                            ParseAction action = ParseAction::ReduceExtra(shift_symbol);
-                            if (should_add_action(new_state_id, lookahead_sym, action))
-                                parse_table.add_action(new_state_id, lookahead_sym, action);
-                        }
-                    }
                 }
             }
 
@@ -94,21 +62,36 @@ namespace tree_sitter {
                 }
             }
 
-            void add_ubiquitous_token_actions(const ParseItemSet &item_set, ParseStateId state_id) {
-                for (const Symbol &symbol : grammar.ubiquitous_tokens) {
-                    auto &actions = parse_table.states[state_id].actions;
-                    if (actions.find(symbol) == actions.end())
-                        parse_table.add_action(state_id, symbol, ParseAction::ShiftExtra());
+            void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
+                for (const auto &transition : sym_transitions(item_set, grammar)) {
+                    const Symbol &symbol = transition.first;
+                    const ParseItemSet &next_item_set = transition.second;
+
+                    ParseAction new_action = ParseAction::Shift(0, precedence_values_for_item_set(next_item_set));
+                    if (should_add_action(state_id, symbol, new_action)) {
+                        ParseStateId new_state_id = add_parse_state(next_item_set);
+                        new_action.state_index = new_state_id;
+                        parse_table.add_action(state_id, symbol, new_action);
+                    }
                 }
             }
 
-            set<Symbol> first_set_for_item_set(const ParseItemSet &item_set) {
-                set<Symbol> result;
-                for (const auto &pair : item_set) {
-                    auto new_set = first_set(pair.first.rule, grammar);
-                    result.insert(new_set.begin(), new_set.end());
+            void add_ubiquitous_token_actions(ParseStateId state_id) {
+                auto &actions = parse_table.states[state_id].actions;
+                for (const Symbol &symbol : grammar.ubiquitous_tokens) {
+                    const auto &action = actions.find(symbol);
+                    if (action != actions.end() && action->second.type == ParseActionTypeShift) {
+                        size_t new_state_id = action->second.state_index;
+                        for (const auto &pair : actions) {
+                            const Symbol &lookahead_sym = pair.first;
+                            ParseAction action = ParseAction::ReduceExtra(symbol);
+                            if (should_add_action(new_state_id, lookahead_sym, action))
+                                parse_table.add_action(new_state_id, lookahead_sym, action);
+                        }
+                    } else if (actions.find(symbol) == actions.end()) {
+                        parse_table.add_action(state_id, symbol, ParseAction::ShiftExtra());
+                    }
                 }
-                return result;
             }
 
             bool should_add_action(size_t state_id, const Symbol &symbol, const ParseAction &action) {
