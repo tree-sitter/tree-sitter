@@ -68,8 +68,10 @@ namespace tree_sitter {
                 return stream << (string("#<shift ") + to_string(action.state_index) + ">");
             case ParseActionTypeShiftExtra:
                 return stream << string("#<shift_extra");
+            case ParseActionTypeReduceExtra:
+                return stream << ("#<reduce_extra sym" + to_string(action.symbol.index) + ">");
             case ParseActionTypeReduce:
-                return stream << (string("#<reduce sym") + to_string(action.symbol.index) + " " + to_string(action.consumed_symbol_count) + ">");
+                return stream << ("#<reduce sym" + to_string(action.symbol.index) + " " + to_string(action.consumed_symbol_count) + ">");
             default:
                 return stream;
         }
