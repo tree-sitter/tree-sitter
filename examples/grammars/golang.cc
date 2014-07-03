@@ -6,7 +6,9 @@ namespace tree_sitter_examples {
     using namespace tree_sitter::rules;
 
     static rule_ptr terminated(rule_ptr rule) {
-        return seq({ rule, sym("_terminator") });
+        return seq({ rule, choice({
+            sym("_line_break"),
+            str(";") }) });
     }
 
     extern const Grammar golang = Grammar({
@@ -85,12 +87,15 @@ namespace tree_sitter_examples {
             sym("declaration_statement"),
             sym("range_statement"),
             sym("if_statement") }) },
-        { "return_statement", seq({
+        { "return_statement", terminated(seq({
             keyword("return"),
-            comma_sep(sym("expression")) }) },
+            comma_sep(sym("expression")) })) },
         { "declaration_statement", choice({
             sym("var_declaration"),
-            seq({ comma_sep(sym("var_name")), str(":="), sym("expression") }) }) },
+            terminated(seq({
+                comma_sep(sym("var_name")),
+                str(":="),
+                sym("expression") })) }) },
         { "range_statement", seq({
             keyword("for"),
             sym("var_name"),
@@ -151,9 +156,7 @@ namespace tree_sitter_examples {
                 sym("type_name"),
                 blank() }) }) },
 
-        { "_terminator", token(choice({
-            str("\n"),
-            str(";") })) },
+        { "_line_break", str("\n") },
 
         { "string", delimited("\"") },
         { "package_name", sym("_identifier") },
@@ -162,5 +165,7 @@ namespace tree_sitter_examples {
         { "_identifier", pattern("\\a[\\w_]*") },
         { "number", pattern("\\d+(\\.\\d+)?") },
         { "comment", keypattern("//[^\n]*") },
-    }).ubiquitous_tokens({ "comment" });
+    })
+    .ubiquitous_tokens({ "comment", "_line_break" })
+    .separators({ ' ', '\t', '\r' });
 }
