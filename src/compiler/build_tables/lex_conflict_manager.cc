@@ -39,18 +39,7 @@ namespace tree_sitter {
                             }
                         }
                         case LexActionTypeAdvance: {
-//                            int min_precedence = *new_action.precedence_values.begin();
-                            int max_precedence = *new_action.precedence_values.rbegin();
-                            if (max_precedence > old_precedence) {
-//                                if (min_precedence < old_precedence)
-                                return true;
-                            } else if (max_precedence < old_precedence) {
-                                return false;
-                            } else {
-                                return true;
-                            }
-
-                            return false;
+                           return true;
                         }
                         default:
                             return false;

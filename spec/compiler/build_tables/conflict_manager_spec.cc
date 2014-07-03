@@ -46,38 +46,12 @@ describe("resolving parse conflicts", []() {
         });
 
         describe("accept-token/advance conflicts", [&]() {
-            describe("when the the accept-token has higher precedence", [&]() {
-                it("prefers the accept", [&]() {
-                    update = manager->resolve_lex_action(LexAction::Accept(sym3, 0), LexAction::Advance(1, { -1 }));
-                    AssertThat(update, IsFalse());
+            it("prefers the advance", [&]() {
+                update = manager->resolve_lex_action(LexAction::Accept(sym3, 3), LexAction::Advance(1, { 0 }));
+                AssertThat(update, IsTrue());
 
-                    update = manager->resolve_lex_action(LexAction::Advance(1, { -1 }), LexAction::Accept(sym3, 2));
-                    AssertThat(update, IsTrue());
-                });
-            });
-
-            describe("when the the actions have the same precedence", [&]() {
-                it("prefers the advance", [&]() {
-                    update = manager->resolve_lex_action(LexAction::Accept(sym3, 0), LexAction::Advance(1, { 0 }));
-                    AssertThat(update, IsTrue());
-
-                    update = manager->resolve_lex_action(LexAction::Advance(1, { 0 }), LexAction::Accept(sym3, 0));
-                    AssertThat(update, IsFalse());
-                });
-            });
-
-            describe("when the advance has conflicting precedences compared to the accept", [&]() {
-                it("prefers the advance", [&]() {
-                    update = manager->resolve_lex_action(LexAction::Accept(sym3, 0), LexAction::Advance(1, { -2, 2 }));
-                    AssertThat(update, IsTrue());
-
-                    update = manager->resolve_lex_action(LexAction::Advance(1, { -2, 2 }), LexAction::Accept(sym3, 0));
-                    AssertThat(update, IsFalse());
-                });
-
-                it_skip("records a conflict", [&]() {
-                    manager->resolve_lex_action(LexAction::Accept(sym3, 0), LexAction::Advance(1, { -2, 2 }));
-                });
+                update = manager->resolve_lex_action(LexAction::Advance(1, { 0 }), LexAction::Accept(sym3, 3));
+                AssertThat(update, IsFalse());
             });
         });
 

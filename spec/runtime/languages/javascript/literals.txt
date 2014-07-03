@@ -81,3 +81,11 @@ var thing = {
                 (comment)
                 (expression_statement (function_call (identifier)))))))))
 
+==========================================
+parses comments within expressions
+==========================================
+y // comment
+  * z;
+---
+(program
+  (expression_statement (math_op (expression (identifier) (comment)) (identifier))))
