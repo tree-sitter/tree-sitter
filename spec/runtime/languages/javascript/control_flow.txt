@@ -91,6 +91,14 @@ try {
             (statement_block (expression_statement (function_call (identifier)))))))
 
 ===========================================
+parses throw statements
+===========================================
+throw new Error("wtf");
+---
+(program
+  (throw_statement (constructor_call (function_call (identifier) (string)))))
+
+===========================================
 parses indented code after blocks
 ===========================================
   function x() {}

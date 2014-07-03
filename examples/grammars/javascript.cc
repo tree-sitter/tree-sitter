@@ -24,6 +24,7 @@ namespace tree_sitter_examples {
             sym("for_statement"),
             sym("break_statement"),
             sym("var_declaration"),
+            sym("throw_statement"),
             sym("return_statement"),
             sym("delete_statement"),
             sym("expression_statement") }) },
@@ -37,6 +38,9 @@ namespace tree_sitter_examples {
                 sym("expression_statement"),
                 err(sym("expression")) })),
             sym("statement") }) },
+        { "throw_statement", terminated(seq({
+            keyword("throw"),
+            sym("expression") })) },
         { "if_statement", seq({
             keyword("if"),
             in_parens(err(sym("expression"))),
