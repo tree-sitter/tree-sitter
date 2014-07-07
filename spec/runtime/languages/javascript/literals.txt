@@ -23,21 +23,6 @@ theFunction('', "", 'single-quoted-string', "double-quoted-string");
     (string) (string) (string) (string))))
 
 ==========================================
-parses multiple statements
-==========================================
-var x = {}, z, i = 0;
-firstFunction(x)
-secondFunction(x);
----
-(program
-    (var_declaration
-        (assignment (identifier) (object))
-        (identifier)
-        (assignment (identifier) (number)))
-    (expression_statement (function_call (identifier) (identifier)))
-    (expression_statement (function_call (identifier) (identifier))))
-
-==========================================
 parses function expressions
 ==========================================
 var x = {
@@ -47,11 +32,11 @@ var x = {
 };
 ---
 (program
-    (var_declaration (assignment
+    (var_declaration
         (identifier)
         (object (identifier) (function_expression
             (formal_parameters (identifier) (identifier))
-            (statement_block (var_declaration (assignment (identifier) (identifier)))))))))
+            (statement_block (var_declaration (identifier) (identifier)))))))
 
 ==========================================
 parses comments
@@ -72,14 +57,14 @@ var thing = {
 (program
     (comment)
     (comment)
-    (var_declaration (assignment (identifier) (object
+    (var_declaration (identifier) (object
         (comment)
         (comment)
         (identifier) (function_expression
             (formal_parameters (identifier) (comment))
             (statement_block
                 (comment)
-                (expression_statement (function_call (identifier)))))))))
+                (expression_statement (function_call (identifier))))))))
 
 ==========================================
 parses comments within expressions

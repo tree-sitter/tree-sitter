@@ -13,12 +13,12 @@ parses constructor calls
 var x = new Node(5, new Node(3, null));
 ---
 (program (var_declaration
-    (assignment (identifier)
+    (identifier)
+    (constructor_call (function_call (identifier)
+        (number)
         (constructor_call (function_call (identifier)
             (number)
-            (constructor_call (function_call (identifier)
-                (number)
-                (null))))))))
+            (null)))))))
 
 ==========================================
 parses property access with dot notation
@@ -115,6 +115,20 @@ print(x in y)
 (program (expression_statement (function_call
     (identifier)
     (in_expression (identifier) (identifier)))))
+
+============================================
+parses assignment operators
+============================================
+x += 1;
+x -= 1;
+x *= 2;
+x /= 2;
+---
+(program
+    (expression_statement (assignment (identifier) (number)))
+    (expression_statement (assignment (identifier) (number)))
+    (expression_statement (assignment (identifier) (number)))
+    (expression_statement (assignment (identifier) (number))))
 
 ============================================
 parses property access and operators

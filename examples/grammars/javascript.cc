@@ -22,6 +22,7 @@ namespace tree_sitter_examples {
             sym("switch_statement"),
             sym("while_statement"),
             sym("for_statement"),
+            sym("for_in_statement"),
             sym("break_statement"),
             sym("var_declaration"),
             sym("throw_statement"),
@@ -31,12 +32,20 @@ namespace tree_sitter_examples {
         { "statement_block", in_braces(err(repeat(sym("statement")))) },
         { "for_statement", seq({
             keyword("for"),
-            in_parens(seq({
+            in_parens(err(seq({
                 choice({
                     sym("var_declaration"),
                     sym("expression_statement") }),
                 sym("expression_statement"),
-                err(sym("expression")) })),
+                sym("expression") }))),
+            sym("statement") }) },
+        { "for_in_statement", seq({
+            keyword("for"),
+            in_parens(err(seq({
+                optional(keyword("var")),
+                sym("identifier"),
+                keyword("in"),
+                sym("expression") }))),
             sym("statement") }) },
         { "throw_statement", terminated(seq({
             keyword("throw"),
@@ -79,9 +88,11 @@ namespace tree_sitter_examples {
         { "break_statement", terminated(keyword("break")) },
         { "var_declaration", terminated(seq({
             keyword("var"),
-            comma_sep(err(choice({
-                sym("assignment"),
-                sym("identifier") }))) })) },
+            comma_sep(err(seq({
+                sym("identifier"),
+                optional(seq({
+                    str("="),
+                    sym("expression") })) }))) })) },
         { "expression_statement", terminated(err(sym("expression"))) },
         { "return_statement", terminated(seq({
             keyword("return"),
@@ -152,7 +163,12 @@ namespace tree_sitter_examples {
             choice({
                 sym("identifier"),
                 sym("property_access") }),
-            str("="),
+            choice({
+                str("="),
+                str("+="),
+                str("-="),
+                str("*="),
+                str("/=") }),
             sym("expression") })) },
         { "function_expression", seq({
             keyword("function"),

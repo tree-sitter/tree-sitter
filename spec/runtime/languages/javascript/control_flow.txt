@@ -1,4 +1,19 @@
 ==========================================
+parses multiple statements
+==========================================
+var x = {}, z, i = 0;
+firstFunction(x)
+secondFunction(x);
+---
+(program
+    (var_declaration
+        (identifier) (object)
+        (identifier)
+        (identifier) (number))
+    (expression_statement (function_call (identifier) (identifier)))
+    (expression_statement (function_call (identifier) (identifier))))
+
+==========================================
 js parses if statements
 ==========================================
 if (isReady()) {
@@ -49,10 +64,26 @@ for (var i = 1; someCondition(i); i = next()) {
 }
 ---
 (program (for_statement
-    (var_declaration (assignment (identifier) (number)))
+    (var_declaration (identifier) (number))
     (expression_statement (function_call (identifier) (identifier)))
     (assignment (identifier) (function_call (identifier)))
     (statement_block (expression_statement (function_call (identifier))))))
+
+==========================================
+parses for-in loops
+==========================================
+for (var key in someObject)
+    doSomething();
+for (key in someObject)
+    doSomethingElse();
+---
+(program
+    (for_in_statement
+        (identifier) (identifier)
+        (expression_statement (function_call (identifier))))
+    (for_in_statement
+        (identifier) (identifier)
+        (expression_statement (function_call (identifier)))))
 
 ==========================================
 parses while loops

@@ -32,7 +32,7 @@ moreStuff();
 (program
     (expression_statement (function_call (identifier)))
     (for_statement
-        (var_declaration (assignment (identifier) (number)))
+        (var_declaration (identifier) (number))
         (expression_statement (ERROR '*'))
         (math_op (identifier))
         (statement_block (expression_statement (ERROR '*'))))
