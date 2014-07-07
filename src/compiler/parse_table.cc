@@ -10,7 +10,7 @@ namespace tree_sitter {
     using rules::Symbol;
 
     ParseAction::ParseAction(ParseActionType type,
-                             size_t state_index,
+                             ParseStateId state_index,
                              Symbol symbol,
                              size_t consumed_symbol_count,
                              set<int> precedence_values) :
@@ -34,20 +34,20 @@ namespace tree_sitter {
         return ParseAction(ParseActionTypeAccept, -1, Symbol(-1), 0, { 0 });
     }
 
-    ParseAction ParseAction::Shift(size_t state_index, set<int> precedence_values) {
+    ParseAction ParseAction::Shift(ParseStateId state_index, set<int> precedence_values) {
         return ParseAction(ParseActionTypeShift, state_index, Symbol(-1), 0, precedence_values);
     }
 
     ParseAction ParseAction::ShiftExtra() {
-        return ParseAction(ParseActionTypeShiftExtra, -1, Symbol(-1), 0, { 0 });
+        return ParseAction(ParseActionTypeShiftExtra, 0, Symbol(-1), 0, { 0 });
     }
 
     ParseAction ParseAction::ReduceExtra(Symbol symbol) {
-        return ParseAction(ParseActionTypeReduceExtra, -1, symbol, 0, { 0 });
+        return ParseAction(ParseActionTypeReduceExtra, 0, symbol, 0, { 0 });
     }
 
     ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count, int precedence) {
-        return ParseAction(ParseActionTypeReduce, -1, symbol, consumed_symbol_count, { precedence });
+        return ParseAction(ParseActionTypeReduce, 0, symbol, consumed_symbol_count, { precedence });
     }
 
     bool ParseAction::operator==(const ParseAction &other) const {

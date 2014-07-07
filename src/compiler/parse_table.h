@@ -9,6 +9,8 @@
 #include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
+    typedef uint64_t ParseStateId;
+
     typedef enum {
         ParseActionTypeError,
         ParseActionTypeShift,
@@ -20,7 +22,7 @@ namespace tree_sitter {
 
     class ParseAction {
         ParseAction(ParseActionType type,
-                    size_t state_index,
+                    ParseStateId state_index,
                     rules::Symbol symbol,
                     size_t consumed_symbol_count,
                     std::set<int> precedence_values);
@@ -28,7 +30,7 @@ namespace tree_sitter {
         ParseAction();
         static ParseAction Accept();
         static ParseAction Error();
-        static ParseAction Shift(size_t state_index, std::set<int> precedence_values);
+        static ParseAction Shift(ParseStateId state_index, std::set<int> precedence_values);
         static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count, int precedence);
         static ParseAction ShiftExtra();
         static ParseAction ReduceExtra(rules::Symbol symbol);
@@ -36,7 +38,7 @@ namespace tree_sitter {
 
         ParseActionType type;
         rules::Symbol symbol;
-        size_t state_index;
+        ParseStateId state_index;
         size_t consumed_symbol_count;
         std::set<int> precedence_values;
     };
@@ -66,13 +68,11 @@ namespace tree_sitter {
         LexStateId lex_state_id;
     };
 
-    typedef uint64_t ParseStateId;
-
     std::ostream& operator<<(std::ostream &stream, const ParseState &state);
 
     class ParseTable {
     public:
-        uint64_t add_state();
+        ParseStateId add_state();
         void add_action(ParseStateId state_id, rules::Symbol symbol, ParseAction action);
 
         std::vector<ParseState> states;

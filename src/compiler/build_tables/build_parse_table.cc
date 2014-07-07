@@ -92,7 +92,7 @@ namespace tree_sitter {
                 }
             }
 
-            bool should_add_action(size_t state_id, const Symbol &symbol, const ParseAction &action) {
+            bool should_add_action(ParseStateId state_id, const Symbol &symbol, const ParseAction &action) {
                 auto current_actions = parse_table.states[state_id].actions;
                 auto current_action = current_actions.find(symbol);
                 return (
