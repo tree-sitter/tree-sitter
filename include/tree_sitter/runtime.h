@@ -41,17 +41,12 @@ typedef struct {
     size_t bytes_removed;
 } TSInputEdit;
 
-typedef struct {
-    const TSTree * (* parse_fn)(void *data, TSInput input, TSInputEdit *edit);
-    void (* free_fn)(void *data);
-    const char **symbol_names;
-    void *data;
-} TSParser;
+typedef struct TSParser TSParser;
 
 typedef struct TSDocument TSDocument;
 TSDocument * ts_document_make();
 void ts_document_free(TSDocument *doc);
-void ts_document_set_parser(TSDocument *doc, TSParser parser);
+void ts_document_set_parser(TSDocument *doc, TSParser *parser);
 void ts_document_set_input(TSDocument *doc, TSInput input);
 void ts_document_set_input_string(TSDocument *doc, const char *text);
 void ts_document_edit(TSDocument *doc, TSInputEdit edit);

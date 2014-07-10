@@ -1,8 +1,9 @@
 #include "tree_sitter/runtime.h"
+#include "tree_sitter/parser.h"
 #include <string.h>
 
 struct TSDocument {
-    TSParser parser;
+    TSParser *parser;
     const TSTree *tree;
     TSInput input;
     size_t error_count;
@@ -13,14 +14,13 @@ TSDocument * ts_document_make() {
 }
 
 void ts_document_free(TSDocument *document) {
-    if (document->parser.free_fn)
-        document->parser.free_fn(document->parser.data);
+    ts_parser_free(document->parser);
     if (document->input.release_fn)
         document->input.release_fn(document->input.data);
     free(document);
 }
 
-void ts_document_set_parser(TSDocument *document, TSParser parser) {
+void ts_document_set_parser(TSDocument *document, TSParser *parser) {
     document->parser = parser;
 }
 
@@ -29,20 +29,20 @@ const TSTree * ts_document_tree(const TSDocument *document) {
 }
 
 const char * ts_document_string(const TSDocument *document) {
-    return ts_tree_string(document->tree, document->parser.symbol_names);
+    return ts_tree_string(document->tree, ts_parser_config(document->parser).symbol_names);
 }
 
 void ts_document_set_input(TSDocument *document, TSInput input) {
     document->input = input;
-    document->tree = document->parser.parse_fn(document->parser.data, input, NULL);
+    document->tree = ts_parser_parse(document->parser, document->input, NULL);
 }
 
 void ts_document_edit(TSDocument *document, TSInputEdit edit) {
-    document->tree = document->parser.parse_fn(document->parser.data, document->input, &edit);
+    document->tree = ts_parser_parse(document->parser, document->input, &edit);
 }
 
 const char * ts_document_symbol_name(const TSDocument *document, const TSTree *tree) {
-    return document->parser.symbol_names[ts_tree_symbol(tree)];
+    return ts_parser_config(document->parser).symbol_names[ts_tree_symbol(tree)];
 }
 
 typedef struct {

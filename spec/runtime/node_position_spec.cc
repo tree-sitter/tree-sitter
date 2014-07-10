@@ -1,6 +1,6 @@
 #include "runtime/runtime_spec_helper.h"
 
-extern "C" TSParser ts_parser_json();
+extern "C" TSParser * ts_parser_json();
 
 START_TEST
 

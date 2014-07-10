@@ -1,5 +1,5 @@
 #include "runtime/runtime_spec_helper.h"
-#include "tree_sitter/parser/stack.h"
+#include "tree_sitter/parser.h"
 
 START_TEST
 

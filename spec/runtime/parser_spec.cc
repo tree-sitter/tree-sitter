@@ -1,78 +1,76 @@
 #include "runtime/runtime_spec_helper.h"
 #include "runtime/helpers/spy_reader.h"
+#include "runtime/helpers/dummy_parser.h"
+#include "tree_sitter/parser.h"
 
-extern "C" TSParser ts_parser_json();
+TSTree *lex_fn_node_to_return;
+TSStateId lex_fn_state_received;
+TSParser *lex_fn_parser_received;
+
+TSTree * fake_lex(TSParser *parser, TSStateId state_id) {
+    lex_fn_parser_received = parser;
+    lex_fn_state_received = state_id;
+    return lex_fn_node_to_return;
+}
 
 START_TEST
 
-describe("incremental parsing", [&]() {
-    TSDocument *doc;
+describe("LR Parsers", [&]() {
+    TSParser *parser;
     SpyReader *reader;
 
     before_each([&]() {
-        doc = ts_document_make();
-        ts_document_set_parser(doc, ts_parser_json());
+        TSParserConfig config = dummy_parser;
+        config.lex_fn = fake_lex;
 
-        reader = new SpyReader("{ \"key\": [1, 2] }", 5);
-        ts_document_set_input(doc, reader->input);
+        parser = ts_parser_make(config);
+
+        reader = new SpyReader("some structured text", 5);
     });
 
     after_each([&]() {
-        ts_document_free(doc);
+        ts_parser_free(parser);
         delete reader;
     });
 
-    it("parses the input", [&]() {
-        AssertThat(string(ts_document_string(doc)), Equals(
-            "(value (object (string) (array (number) (number))))"));
-    });
-
-    it("reads the entire input", [&]() {
-        AssertThat(reader->strings_read, Equals(vector<string>({
-            "{ \"key\": [1, 2] }"
-        })));
-    });
-
-    describe("modifying the end of the input", [&]() {
+    describe("when starting at the beginning of the input (edit is NULL)", [&]() {
         before_each([&]() {
-            size_t position(string("{ \"key\": [1, 2]").length());
-            string inserted_text(", \"key2\": 4");
-
-            reader->content.insert(position, inserted_text);
-            ts_document_edit(doc, { position, 0, inserted_text.length() });
+            ts_parser_start(parser, reader->input, nullptr);
         });
 
-        it("updates the parse tree", [&]() {
-            AssertThat(string(ts_document_string(doc)), Equals(
-                "(value (object (string) (array (number) (number)) (string) (number)))"));
+        it("runs the lexer with the lex state corresponding to the initial state", [&]() {
+            lex_fn_node_to_return = ts_tree_make_leaf(dummy_sym2, 5, 1);
+            ts_parser_step(parser);
+            AssertThat(lex_fn_state_received, Equals(100));
         });
 
-        it("re-reads only the changed portion of the input", [&]() {
-            AssertThat(reader->strings_read.size(), Equals<size_t>(2));
-            AssertThat(reader->strings_read[1], Equals(", \"key2\": 4 }"));
+        describe("when the returned symbol indicates a shift action", [&]() {
+            before_each([&]() {
+                lex_fn_node_to_return = ts_tree_make_leaf(dummy_sym2, 5, 1);
+            });
+
+            it("advances to the state specified in the action", [&]() {
+                ts_parser_step(parser);
+                AssertThat(ts_stack_top_state(&parser->stack), Equals(12));
+            });
+
+            it("continues parsing (returns NULL)", [&]() {
+                auto result = ts_parser_step(parser);
+                AssertThat(result, Equals((TSTree *)nullptr));
+            });
+        });
+
+        describe("when the returned symbol indicates an error", [&]() {
+            before_each([&]() {
+                lex_fn_node_to_return = ts_tree_make_leaf(dummy_sym1, 5, 1);
+            });
+
+            it("ends the parse, returning an error tree", [&]() {
+                auto result = ts_parser_step(parser);
+                AssertThat(ts_tree_symbol(result), Equals(ts_builtin_sym_error));
+            });
         });
     });
-
-    describe("modifying the beginning of the input", [&]() {
-        before_each([&]() {
-            size_t position(string("{ ").length());
-            string inserted_text("\"key2\": 4, ");
-
-            reader->content.insert(position, inserted_text);
-            ts_document_edit(doc, { position, 0, inserted_text.length() });
-        });
-
-        it("2 updates the parse tree", [&]() {
-            AssertThat(string(ts_document_string(doc)), Equals(
-                "(value (object (string) (number) (string) (array (number) (number))))"));
-        });
-
-        it_skip("re-reads only the changed portion of the input", [&]() {
-            AssertThat(reader->strings_read.size(), Equals<size_t>(2));
-            AssertThat(reader->strings_read[1], Equals("\"key2\": 4, "));
-        });
-    });
-
 });
 
 END_TEST

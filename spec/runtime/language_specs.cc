@@ -1,10 +1,10 @@
 #include "runtime/runtime_spec_helper.h"
 #include "runtime/helpers/read_test_entries.h"
 
-extern "C" TSParser ts_parser_javascript();
-extern "C" TSParser ts_parser_json();
-extern "C" TSParser ts_parser_arithmetic();
-extern "C" TSParser ts_parser_golang();
+extern "C" TSParser * ts_parser_javascript();
+extern "C" TSParser * ts_parser_json();
+extern "C" TSParser * ts_parser_arithmetic();
+extern "C" TSParser * ts_parser_golang();
 
 START_TEST
 
@@ -19,7 +19,7 @@ describe("Languages", [&]() {
         ts_document_free(doc);
     });
 
-    auto run_tests_for_language = [&](string language, TSParser (parser_constructor)()) {
+    auto run_tests_for_language = [&](string language, TSParser * (parser_constructor)()) {
         describe(language.c_str(), [&]() {
             before_each([&]() {
                 ts_document_set_parser(doc, parser_constructor());

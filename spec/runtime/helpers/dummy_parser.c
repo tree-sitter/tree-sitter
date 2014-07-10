@@ -1,4 +1,5 @@
 #include "runtime/helpers/dummy_parser.h"
+#include "tree_sitter/parser.h"
 
 const TSParseAction parse_table[3][5] = {
     [0] = {
@@ -29,10 +30,9 @@ const int hidden_symbols[5] = {
     [dummy_sym3] = 1,
 };
 
-struct test_parser dummy_parser = {
-    .state_count = 3,
+TSParserConfig dummy_parser = {
     .symbol_count = 5,
-    .parse_table = (const TSParseAction **)parse_table,
+    .parse_table = (const TSParseAction *)parse_table,
     .lex_states = lex_states,
-    .hidden_symbols = hidden_symbols,
+    .hidden_symbol_flags = hidden_symbols,
 };
