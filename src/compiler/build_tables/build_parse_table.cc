@@ -75,19 +75,21 @@ namespace tree_sitter {
             }
 
             void add_ubiquitous_token_actions(ParseStateId state_id) {
-                auto &actions = parse_table.states[state_id].actions;
-                for (const Symbol &symbol : grammar.ubiquitous_tokens) {
-                    const auto &action = actions.find(symbol);
-                    if (action != actions.end() && action->second.type == ParseActionTypeShift) {
-                        size_t new_state_id = action->second.state_index;
+                const map<Symbol, ParseAction> &actions = parse_table.states[state_id].actions;
+
+                for (const Symbol &ubiquitous_symbol : grammar.ubiquitous_tokens) {
+                    const auto &pair_for_symbol = actions.find(ubiquitous_symbol);
+
+                    if (pair_for_symbol == actions.end()) {
+                        parse_table.add_action(state_id, ubiquitous_symbol, ParseAction::ShiftExtra());
+                    } else if (pair_for_symbol->second.type == ParseActionTypeShift) {
+                        size_t shift_state_id = pair_for_symbol->second.state_index;
                         for (const auto &pair : actions) {
                             const Symbol &lookahead_sym = pair.first;
-                            ParseAction action = ParseAction::ReduceExtra(symbol);
-                            if (should_add_action(new_state_id, lookahead_sym, action))
-                                parse_table.add_action(new_state_id, lookahead_sym, action);
+                            ParseAction reduce_extra = ParseAction::ReduceExtra(ubiquitous_symbol);
+                            if (should_add_action(shift_state_id, lookahead_sym, reduce_extra))
+                                parse_table.add_action(shift_state_id, lookahead_sym, reduce_extra);
                         }
-                    } else if (actions.find(symbol) == actions.end()) {
-                        parse_table.add_action(state_id, symbol, ParseAction::ShiftExtra());
                     }
                 }
             }
