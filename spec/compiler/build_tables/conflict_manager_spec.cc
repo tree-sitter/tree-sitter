@@ -154,12 +154,12 @@ describe("resolving parse conflicts", []() {
                     it("records a conflict", [&]() {
                         manager->resolve_parse_action(rules::ERROR(), reduce, shift);
                         AssertThat(manager->conflicts()[0], Equals(
-                            Conflict("rule1: shift (precedence 0) / reduce ERROR (precedence 0)")
+                            Conflict("ERROR: shift (precedence 0) / reduce rule2 (precedence 0)")
                         ));
 
                         manager->resolve_parse_action(rules::END_OF_INPUT(), reduce, shift);
                         AssertThat(manager->conflicts()[1], Equals(
-                            Conflict("rule1: shift (precedence 0) / reduce EOF (precedence 0)")
+                            Conflict("END_OF_INPUT: shift (precedence 0) / reduce rule2 (precedence 0)")
                         ));
                     });
                 });
