@@ -28,6 +28,7 @@ namespace tree_sitter {
             const SyntaxGrammar grammar;
             ParseConflictManager conflict_manager;
             unordered_map<const ParseItemSet, ParseStateId> parse_state_ids;
+            vector<pair<ParseItemSet, ParseStateId>> item_sets_to_process;
             ParseTable parse_table;
 
             ParseStateId add_parse_state(const ParseItemSet &item_set) {
@@ -35,9 +36,7 @@ namespace tree_sitter {
                 if (pair == parse_state_ids.end()) {
                     ParseStateId state_id = parse_table.add_state();
                     parse_state_ids[item_set] = state_id;
-                    add_reduce_actions(item_set, state_id);
-                    add_shift_actions(item_set, state_id);
-                    add_ubiquitous_token_actions(state_id);
+                    item_sets_to_process.push_back({ item_set, state_id });
                     return state_id;
                 } else {
                     return pair->second;
@@ -74,15 +73,22 @@ namespace tree_sitter {
                 }
             }
 
-            void add_ubiquitous_token_actions(ParseStateId state_id) {
+            void add_shift_extra_actions(ParseStateId state_id) {
                 const map<Symbol, ParseAction> &actions = parse_table.states[state_id].actions;
+                for (const Symbol &ubiquitous_symbol : grammar.ubiquitous_tokens) {
+                    const auto &pair_for_symbol = actions.find(ubiquitous_symbol);
+                    if (pair_for_symbol == actions.end()) {
+                        parse_table.add_action(state_id, ubiquitous_symbol, ParseAction::ShiftExtra());
+                    }
+                }
+            }
 
+            void add_reduce_extra_actions(ParseStateId state_id) {
+                const map<Symbol, ParseAction> &actions = parse_table.states[state_id].actions;
                 for (const Symbol &ubiquitous_symbol : grammar.ubiquitous_tokens) {
                     const auto &pair_for_symbol = actions.find(ubiquitous_symbol);
 
-                    if (pair_for_symbol == actions.end()) {
-                        parse_table.add_action(state_id, ubiquitous_symbol, ParseAction::ShiftExtra());
-                    } else if (pair_for_symbol->second.type == ParseActionTypeShift) {
+                    if (pair_for_symbol != actions.end() && pair_for_symbol->second.type == ParseActionTypeShift) {
                         size_t shift_state_id = pair_for_symbol->second.state_index;
                         for (const auto &pair : actions) {
                             const Symbol &lookahead_sym = pair.first;
@@ -120,6 +126,21 @@ namespace tree_sitter {
             pair<ParseTable, vector<Conflict>> build() {
                 ParseItem start_item(rules::START(), make_shared<Symbol>(0), 0);
                 add_parse_state(item_set_closure(start_item, { rules::END_OF_INPUT() }, grammar));
+
+                while (!item_sets_to_process.empty()) {
+                    auto pair = item_sets_to_process.back();
+                    ParseItemSet &item_set = pair.first;
+                    ParseStateId &state_id = pair.second;
+                    item_sets_to_process.pop_back();
+
+                    add_reduce_actions(item_set, state_id);
+                    add_shift_actions(item_set, state_id);
+                    add_shift_extra_actions(state_id);
+                }
+
+                for (ParseStateId state_id = 0; state_id < parse_table.states.size(); state_id++)
+                    add_reduce_extra_actions(state_id);
+
                 return { parse_table, conflict_manager.conflicts() };
             }
         };
