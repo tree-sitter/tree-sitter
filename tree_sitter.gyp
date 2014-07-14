@@ -11,6 +11,7 @@
       'sources': [
         '<!@(find include src -name "*.h" -or -name "*.cc" -or -name "*.c")',
       ],
+      'cflags_cc!': [ '-fno-rtti' ],
       'xcode_settings': {
         'GCC_ENABLE_CPP_RTTI': 'YES',
         'GCC_ENABLE_CPP_EXCEPTIONS': 'NO',
