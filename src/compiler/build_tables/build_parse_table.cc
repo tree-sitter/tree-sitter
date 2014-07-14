@@ -127,6 +127,8 @@ namespace tree_sitter {
                 ParseItem start_item(rules::START(), make_shared<Symbol>(0), 0);
                 add_parse_state(item_set_closure(start_item, { rules::END_OF_INPUT() }, grammar));
 
+                parse_table.symbols.insert(rules::ERROR());
+
                 while (!item_sets_to_process.empty()) {
                     auto pair = item_sets_to_process.back();
                     ParseItemSet &item_set = pair.first;

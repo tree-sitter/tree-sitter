@@ -39,6 +39,11 @@ describe("building parse tables", []() {
         })));
     });
 
+    it("ensures that the built-in 'ERROR' symbol is in the symbol set", [&]() {
+        auto result = build_parse_table(parse_grammar, lex_grammar);
+        AssertThat(result.first.symbols, Contains(rules::ERROR()));
+    });
+
     it("accepts the input when EOF occurs after the start rule", [&]() {
         auto result = build_parse_table(parse_grammar, lex_grammar);
 
