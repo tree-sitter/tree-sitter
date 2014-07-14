@@ -23,9 +23,11 @@ namespace tree_sitter {
             bool resolve_parse_action(const rules::Symbol &symbol,
                                       const ParseAction &old_action,
                                       const ParseAction &new_action);
-
-            void record_conflict(const rules::Symbol &symbol, const ParseAction &left, const ParseAction &right);
             const std::vector<Conflict> conflicts() const;
+
+        private:
+            std::string symbol_name(const rules::Symbol &symbol);
+            void record_conflict(const rules::Symbol &symbol, const ParseAction &left, const ParseAction &right);
         };
     }
 }

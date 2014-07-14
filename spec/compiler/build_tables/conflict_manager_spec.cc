@@ -1,4 +1,5 @@
 #include "compiler/compiler_spec_helper.h"
+#include "compiler/rules/built_in_symbols.h"
 #include "compiler/build_tables/parse_conflict_manager.h"
 #include "compiler/build_tables/lex_conflict_manager.h"
 #include "compiler/prepared_grammar.h"
@@ -147,6 +148,20 @@ describe("resolving parse conflicts", []() {
                 it("favors the shift", [&]() {
                     AssertThat(manager->resolve_parse_action(sym1, shift, reduce), IsFalse());
                     AssertThat(manager->resolve_parse_action(sym1, reduce, shift), IsTrue());
+                });
+
+                describe("when the symbols is a built-in symbol", [&]() {
+                    it("records a conflict", [&]() {
+                        manager->resolve_parse_action(rules::ERROR(), reduce, shift);
+                        AssertThat(manager->conflicts()[0], Equals(
+                            Conflict("rule1: shift (precedence 0) / reduce ERROR (precedence 0)")
+                        ));
+
+                        manager->resolve_parse_action(rules::END_OF_INPUT(), reduce, shift);
+                        AssertThat(manager->conflicts()[1], Equals(
+                            Conflict("rule1: shift (precedence 0) / reduce EOF (precedence 0)")
+                        ));
+                    });
                 });
             });
 

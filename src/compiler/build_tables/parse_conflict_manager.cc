@@ -4,6 +4,7 @@
 #include <string>
 #include <set>
 #include "compiler/util/string_helpers.h"
+#include "compiler/rules/built_in_symbols.h"
 #include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {
@@ -106,13 +107,26 @@ namespace tree_sitter {
             }
         }
 
+        string ParseConflictManager::symbol_name(const rules::Symbol &symbol) {
+            if (symbol.is_built_in()) {
+                if (symbol == rules::ERROR())
+                    return "ERROR";
+                else if (symbol == rules::END_OF_INPUT())
+                    return "END_OF_INPUT";
+                else
+                return "";
+            }
+
+            if (symbol.is_token())
+                return lex_grammar.rule_name(symbol);
+            else
+                return parse_grammar.rule_name(symbol);
+        }
+
         void ParseConflictManager::record_conflict(const rules::Symbol &symbol,
                                               const ParseAction &left,
                                               const ParseAction &right) {
-            string name = symbol.is_token() ?
-                lex_grammar.rule_name(symbol) :
-                parse_grammar.rule_name(symbol);
-            conflicts_.insert(Conflict(name + ": " +
+            conflicts_.insert(Conflict(symbol_name(symbol) + ": " +
                                        message_for_action(left, parse_grammar) + " / " +
                                        message_for_action(right, parse_grammar)));
         }
