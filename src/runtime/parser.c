@@ -173,32 +173,17 @@ int ts_parser_handle_error(TSParser *parser) {
 
 TSTree * ts_parser_tree_root(TSParser *parser) {
     TSStack *stack = &parser->stack;
-    TSTree *top_node = ts_stack_top_node(stack);
-    if (stack->size <= 1)
-        return top_node;
-    if (ts_tree_symbol(top_node) == ts_builtin_sym_error)
-        return top_node;
-
-    size_t immediate_child_count;
-    TSTree **immedate_children = ts_tree_immediate_children(top_node, &immediate_child_count);
-
-    stack->size--;
-    for (size_t i = 0; i < immediate_child_count; i++) {
-        TSTree *child = immedate_children[i];
-        child->is_extra = 0;
-        ts_tree_retain(child);
-        TSStateId state = ts_stack_top_state(stack);
-        TSStateId next_state = actions_for_state(parser->config, state)[ts_tree_symbol(child)].data.to_state;
-        ts_stack_push(stack, next_state, child);
+    size_t node_count = 0;
+    for (size_t i = 0; i < stack->size; i++) {
+        TSTree *node = stack->entries[i].node;
+        if (!parser->config.hidden_symbol_flags[node->symbol])
+            node_count++;
     }
 
-    TSTree *new_node = ts_stack_reduce(stack,
-                                        top_node->symbol,
-                                        stack->size,
-                                        parser->config.hidden_symbol_flags,
-                                        0);
-    ts_tree_release(top_node);
-    return new_node;
+    if (node_count > 1)
+        return ts_stack_reduce(stack, 2, stack->size, parser->config.hidden_symbol_flags, 0);
+    else
+        return ts_stack_top_node(stack);
 }
 
 TSParseAction ts_parser_next_action(TSParser *parser) {

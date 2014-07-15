@@ -39,7 +39,7 @@ var x = {
             (statement_block (var_declaration (identifier) (identifier)))))))
 
 ==========================================
-parses comments
+parses comments z
 ==========================================
 // this is the beginning of the script.
 // here we go.

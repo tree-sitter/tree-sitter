@@ -3,7 +3,7 @@ recovers from top-level errors
 ==========================================
 [}
 ---
-(ERROR '}')
+(value (ERROR <EOF>) (ERROR '}'))
 
 ==========================================
 recovers from unexpected tokens
