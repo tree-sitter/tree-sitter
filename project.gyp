@@ -49,6 +49,9 @@
         'spec',
         'externals/bandit',
       ],
+      'cflags': [
+        '-Wno-unknown-pragmas',
+      ],
       'sources': [
         '<!@(find spec/compiler examples/grammars -name "*.h" -or -name "*.cc")',
       ],
@@ -72,6 +75,9 @@
           'defines': ['USE_BOOST_REGEX'],
           'libraries': ['-lboost_regex'],
         }]
+      ],
+      'cflags': [
+        '-Wno-unknown-pragmas',
       ],
       'sources': [
         '<!@(find spec/runtime -name "*.h" -or -name "*.cc" -or -name "*.c")',
