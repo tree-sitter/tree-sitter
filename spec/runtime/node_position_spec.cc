@@ -1,4 +1,5 @@
 #include "runtime/runtime_spec_helper.h"
+#include "runtime/tree.h"
 
 extern "C" TSParser * ts_parser_json();
 
@@ -28,17 +29,17 @@ describe("tracking the positions of AST nodes", []() {
         AssertThat(ts_document_symbol_name(doc, number1), Equals("number"));
         AssertThat(ts_document_symbol_name(doc, number2), Equals("number"));
 
-        AssertThat(ts_tree_offset(number1), Equals<size_t>(0));
-        AssertThat(ts_tree_size(number1), Equals<size_t>(2));
+        AssertThat(number1->offset, Equals<size_t>(0));
+        AssertThat(number1->size, Equals<size_t>(2));
 
-        AssertThat(ts_tree_offset(number2), Equals<size_t>(1));
-        AssertThat(ts_tree_size(number2), Equals<size_t>(1));
+        AssertThat(number2->offset, Equals<size_t>(1));
+        AssertThat(number2->size, Equals<size_t>(1));
 
-        AssertThat(ts_tree_offset(array), Equals<size_t>(2));
-        AssertThat(ts_tree_size(array), Equals<size_t>(7));
+        AssertThat(array->offset, Equals<size_t>(2));
+        AssertThat(array->size, Equals<size_t>(7));
 
-        AssertThat(ts_tree_offset(tree), Equals<size_t>(2));
-        AssertThat(ts_tree_size(tree), Equals<size_t>(7));
+        AssertThat(tree->offset, Equals<size_t>(2));
+        AssertThat(tree->size, Equals<size_t>(7));
     });
 });
 

@@ -32,7 +32,7 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
         for (size_t i = 0; i < child_count && position < edit->position; i++) {
             TSTree *child = children[i];
             TSStateId state = ts_stack_top_state(stack);
-            TSStateId next_state = actions_for_state(parser->config, state)[ts_tree_symbol(child)].data.to_state;
+            TSStateId next_state = actions_for_state(parser->config, state)[child->symbol].data.to_state;
             ts_stack_push(stack, next_state, child);
             ts_tree_retain(child);
             position += ts_tree_total_size(child);
@@ -146,7 +146,7 @@ int ts_parser_handle_error(TSParser *parser) {
         if (ts_lexer_position(&parser->lexer) == position)
             at_end = !ts_lexer_advance(&parser->lexer);
 
-        if (at_end || ts_tree_symbol(parser->lookahead) == ts_builtin_sym_end) {
+        if (at_end || parser->lookahead->symbol == ts_builtin_sym_end) {
             ts_stack_push(&parser->stack, 0, error);
             return 0;
         }
@@ -161,7 +161,7 @@ int ts_parser_handle_error(TSParser *parser) {
             TSParseAction action_on_error = actions_for_state(parser->config, stack_state)[ts_builtin_sym_error];
             if (action_on_error.type == TSParseActionTypeShift) {
                 TSStateId state_after_error = action_on_error.data.to_state;
-                if (actions_for_state(parser->config, state_after_error)[ts_tree_symbol(parser->lookahead)].type != TSParseActionTypeError) {
+                if (actions_for_state(parser->config, state_after_error)[parser->lookahead->symbol].type != TSParseActionTypeError) {
                     ts_stack_shrink(&parser->stack, i + 1);
                     ts_stack_push(&parser->stack, state_after_error, error);
                     return 1;
@@ -190,7 +190,7 @@ TSParseAction ts_parser_next_action(TSParser *parser) {
     TSStateId state = ts_stack_top_state(&parser->stack);
     if (!parser->lookahead)
         parser->lookahead = parser->config.lex_fn(parser, parser->config.lex_states[state]);
-    return actions_for_state(parser->config, state)[ts_tree_symbol(parser->lookahead)];
+    return actions_for_state(parser->config, state)[parser->lookahead->symbol];
 }
 
 #define DEBUG_PARSE(...) \
@@ -198,7 +198,7 @@ if (parser->debug) { fprintf(stderr, "\n" __VA_ARGS__); }
 
 TSTree * ts_parser_step(TSParser *parser) {
     TSParseAction action = ts_parser_next_action(parser);
-    DEBUG_PARSE("LOOKAHEAD %s", parser->config.symbol_names[ts_tree_symbol(parser->lookahead)]);
+    DEBUG_PARSE("LOOKAHEAD %s", parser->config.symbol_names[parser->lookahead->symbol]);
     switch (action.type) {
         case TSParseActionTypeShift:
             DEBUG_PARSE("SHIFT %d", action.data.to_state);

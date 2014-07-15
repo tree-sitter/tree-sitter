@@ -1,6 +1,7 @@
 #include "runtime/runtime_spec_helper.h"
 #include "runtime/helpers/spy_reader.h"
 #include "runtime/helpers/dummy_parser.h"
+#include "runtime/tree.h"
 #include "tree_sitter/parser.h"
 
 TSTree *lex_fn_node_to_return;
@@ -67,7 +68,7 @@ describe("LR Parsers", [&]() {
 
             it("ends the parse, returning an error tree", [&]() {
                 auto result = ts_parser_step(parser);
-                AssertThat(ts_tree_symbol(result), Equals(ts_builtin_sym_error));
+                AssertThat(result->symbol, Equals(ts_builtin_sym_error));
             });
         });
     });

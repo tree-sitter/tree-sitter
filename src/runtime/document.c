@@ -1,5 +1,6 @@
 #include "tree_sitter/runtime.h"
 #include "tree_sitter/parser.h"
+#include "runtime/tree.h"
 #include <string.h>
 
 struct TSDocument {
@@ -42,7 +43,7 @@ void ts_document_edit(TSDocument *document, TSInputEdit edit) {
 }
 
 const char * ts_document_symbol_name(const TSDocument *document, const TSTree *tree) {
-    return ts_parser_config(document->parser).symbol_names[ts_tree_symbol(tree)];
+    return ts_parser_config(document->parser).symbol_names[tree->symbol];
 }
 
 typedef struct {

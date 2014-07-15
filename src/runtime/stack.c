@@ -69,11 +69,11 @@ TSTree * ts_stack_reduce(TSStack *stack,
         TSTree *child = stack->entries[stack_index].node;
         size_t grandchild_count;
         TSTree **grandchildren = ts_tree_children(child, &grandchild_count);
-        TSSymbol child_symbol = ts_tree_symbol(child);
+        TSSymbol child_symbol = child->symbol;
 
         collapse_flags[i] = (
             hidden_symbol_flags[child_symbol] ||
-            (grandchild_count == 1 && ts_tree_size(child) == ts_tree_size(grandchildren[0]))
+            (grandchild_count == 1 && child->size == grandchildren[0]->size)
         );
 
         child_count += collapse_flags[i] ? grandchild_count : 1;

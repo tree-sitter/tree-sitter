@@ -1,4 +1,5 @@
 #include "runtime/runtime_spec_helper.h"
+#include "runtime/tree.h"
 
 START_TEST
 
@@ -30,11 +31,11 @@ describe("trees", []() {
 
     describe("making a parent node", [&]() {
         it("computes its offset and size based on its child nodes", [&]() {
-            AssertThat(ts_tree_size(parent1), Equals<size_t>(9));
+            AssertThat(parent1->size, Equals<size_t>(9));
         });
 
         it("computes its offset based on its first child", [&]() {
-            AssertThat(ts_tree_offset(parent1), Equals<size_t>(2));
+            AssertThat(parent1->offset, Equals<size_t>(2));
         });
     });
 

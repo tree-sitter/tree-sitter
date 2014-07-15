@@ -29,10 +29,10 @@ TSTree * ts_tree_make_node(TSSymbol symbol, size_t child_count, size_t immediate
         TSTree *child = immediate_children[i];
         ts_tree_retain(child);
         if (i == 0) {
-            offset = ts_tree_offset(child);
-            size = ts_tree_size(child);
+            offset = child->offset;
+            size = child->size;
         } else {
-            size += ts_tree_offset(child) + ts_tree_size(child);
+            size += child->offset + child->size;
         }
     }
     TSTree *result = ts_tree_make(symbol, size, offset);
@@ -50,33 +50,8 @@ TSTree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, co
     return result;
 }
 
-TSSymbol ts_tree_symbol(const TSTree *tree) {
-    return tree->symbol;
-}
-
 void ts_tree_retain(TSTree *tree) {
     tree->ref_count++;
-}
-
-size_t ts_tree_offset(const TSTree *tree) {
-    return tree->offset;
-}
-
-size_t ts_tree_size(const TSTree *tree) {
-    return tree->size;
-}
-
-size_t ts_tree_total_size(const TSTree *tree) {
-    return ts_tree_offset(tree) + ts_tree_size(tree);
-}
-
-TSTree ** ts_tree_immediate_children(const TSTree *tree, size_t *count) {
-    if (!tree || tree->symbol == ts_builtin_sym_error) {
-        if (count) *count = 0;
-        return NULL;
-    }
-    if (count) *count = tree->data.children.immediate_count;
-    return tree->data.children.contents + tree->data.children.count;
 }
 
 void ts_tree_release(TSTree *tree) {
@@ -89,6 +64,19 @@ void ts_tree_release(TSTree *tree) {
         free(tree->data.children.contents);
         free(tree);
     }
+}
+
+size_t ts_tree_total_size(const TSTree *tree) {
+    return tree->offset + tree->size;
+}
+
+TSTree ** ts_tree_immediate_children(const TSTree *tree, size_t *count) {
+    if (!tree || tree->symbol == ts_builtin_sym_error) {
+        if (count) *count = 0;
+        return NULL;
+    }
+    if (count) *count = tree->data.children.immediate_count;
+    return tree->data.children.contents + tree->data.children.count;
 }
 
 int ts_tree_equals(const TSTree *node1, const TSTree *node2) {
@@ -155,8 +143,4 @@ char * ts_tree_string(const TSTree *tree, const char **symbol_names) {
     char *result = malloc(size * sizeof(char));
     tree_write_to_string(tree, symbol_names, result, size);
     return result;
-}
-
-char * ts_tree_error_string(const TSTree *tree, const char **symbol_names) {
-    return NULL;
 }

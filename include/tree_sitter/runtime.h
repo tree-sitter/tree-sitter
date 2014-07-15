@@ -23,10 +23,7 @@ char * ts_tree_string(const TSTree *tree, const char **names);
 char * ts_tree_error_string(const TSTree *tree, const char **names);
 TSTree ** ts_tree_children(const TSTree *tree, size_t *count);
 TSTree ** ts_tree_immediate_children(const TSTree *tree, size_t *count);
-size_t ts_tree_size(const TSTree *tree);
-size_t ts_tree_offset(const TSTree *tree);
 size_t ts_tree_total_size(const TSTree *tree);
-TSSymbol ts_tree_symbol(const TSTree *tree);
 
 typedef struct {
     void *data;

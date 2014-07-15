@@ -1,4 +1,5 @@
 #include "runtime/runtime_spec_helper.h"
+#include "runtime/tree.h"
 #include "tree_sitter/parser.h"
 
 START_TEST
@@ -71,7 +72,7 @@ describe("stacks", [&]() {
 
         it("returns a node with the given symbol", [&]() {
             TSTree *node = ts_stack_reduce(&stack, sym2, 3, hidden_symbols, 0);
-            AssertThat(ts_tree_symbol(node), Equals(sym2));
+            AssertThat(node->symbol, Equals(sym2));
         });
 
         it("makes all of the removed nodes immediate children of the new node", [&]() {
