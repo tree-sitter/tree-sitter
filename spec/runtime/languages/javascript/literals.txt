@@ -39,7 +39,7 @@ var x = {
             (statement_block (var_declaration (identifier) (identifier)))))))
 
 ==========================================
-parses comments z
+parses comments
 ==========================================
 // this is the beginning of the script.
 // here we go.
@@ -57,14 +57,14 @@ var thing = {
 (program
     (comment)
     (comment)
-    (var_declaration (identifier) (object
+    (program (var_declaration (identifier) (object
         (comment)
         (comment)
         (identifier) (function_expression
             (formal_parameters (identifier) (comment))
             (statement_block
                 (comment)
-                (expression_statement (function_call (identifier))))))))
+                (expression_statement (function_call (identifier)))))))))
 
 ==========================================
 parses comments within expressions

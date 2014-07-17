@@ -33,11 +33,11 @@ int ts_lexer_advance(TSLexer *lexer) {
     return 1;
 }
 
-TSTree * ts_lexer_build_node(TSLexer *lexer, TSSymbol symbol) {
+TSTree * ts_lexer_build_node(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
     size_t current_position = ts_lexer_position(lexer);
     size_t size = current_position - lexer->token_start_position;
     size_t offset = lexer->token_start_position - lexer->token_end_position;
     lexer->token_end_position = current_position;
-    return ts_tree_make_leaf(symbol, size, offset);
+    return ts_tree_make_leaf(symbol, size, offset, is_hidden);
 }
 

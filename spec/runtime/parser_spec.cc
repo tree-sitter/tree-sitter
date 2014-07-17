@@ -40,14 +40,14 @@ describe("LR Parsers", [&]() {
         });
 
         it("runs the lexer with the lex state corresponding to the initial state", [&]() {
-            lex_fn_node_to_return = ts_tree_make_leaf(dummy_sym2, 5, 1);
+            lex_fn_node_to_return = ts_tree_make_leaf(dummy_sym2, 5, 1, 0);
             ts_parser_step(parser);
             AssertThat(lex_fn_state_received, Equals(100));
         });
 
         describe("when the returned symbol indicates a shift action", [&]() {
             before_each([&]() {
-                lex_fn_node_to_return = ts_tree_make_leaf(dummy_sym2, 5, 1);
+                lex_fn_node_to_return = ts_tree_make_leaf(dummy_sym2, 5, 1, 0);
             });
 
             it("advances to the state specified in the action", [&]() {
@@ -63,7 +63,7 @@ describe("LR Parsers", [&]() {
 
         describe("when the returned symbol indicates an error", [&]() {
             before_each([&]() {
-                lex_fn_node_to_return = ts_tree_make_leaf(dummy_sym1, 5, 1);
+                lex_fn_node_to_return = ts_tree_make_leaf(dummy_sym1, 5, 1, 0);
             });
 
             it("ends the parse, returning an error tree", [&]() {

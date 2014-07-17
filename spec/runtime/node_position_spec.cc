@@ -21,9 +21,9 @@ describe("tracking the positions of AST nodes", []() {
         ts_document_set_input_string(doc, "  [12, 5]");
 
         const TSTree *tree = ts_document_tree(doc);
-        const TSTree *array = ts_tree_children(tree, NULL)[0];
-        const TSTree *number1 = ts_tree_children(array, NULL)[0];
-        const TSTree *number2 = ts_tree_children(array, NULL)[1];
+        const TSTree *array = tree->children[0];
+        const TSTree *number1 = array->children[1]->children[0];
+        const TSTree *number2 = array->children[2]->children[1]->children[0];
 
         AssertThat(ts_document_symbol_name(doc, array), Equals("array"));
         AssertThat(ts_document_symbol_name(doc, number1), Equals("number"));

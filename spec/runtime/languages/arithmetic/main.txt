@@ -3,51 +3,47 @@ parses numbers
 ===================
 5
 ---
-(expression (number))
+(number)
 
 ===================
 parses variables
 ===================
 x
 ---
-(expression (variable))
+(variable)
 
 ===================
 parses products
 ===================
 x * x
 ---
-(expression (product
-    (variable)
-    (variable)))
+(product (variable) (variable))
 
 ===================
 parses sums
 ===================
 x + x
 ---
-(expression (sum
-    (variable)
-    (variable)))
+(sum (variable) (variable))
 
 ===============================================
 binds multiplication more tightly than addition
 ===============================================
 a * b + c * d
 ---
-(expression (sum
+(sum
     (product (variable) (variable))
-    (product (variable) (variable))))
+    (product (variable) (variable)))
 
 ============================
 parses exponents
 ============================
 x + y * z^(a + b)
 ---
-(expression (sum
+(sum
     (variable)
     (product
         (variable)
         (exponent
             (variable)
-            (group (sum (variable) (variable)))))))
+            (group (sum (variable) (variable))))))

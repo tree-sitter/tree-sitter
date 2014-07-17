@@ -17,24 +17,24 @@ recovers from errors inside arrays
 ==========================================
 [1, , 2]
 ---
-(value (array
+(array
     (number)
     (ERROR <EOF>)
-    (number)))
+    (number))
 
 ==========================================
 recovers from errors inside objects
 ==========================================
 { "key1": 1, oops }
 ---
-(value (object (string) (number) (ERROR 'o')))
+(object (string) (number) (ERROR 'o'))
 
 ==========================================
 recovers from errors inside nested objects
 ==========================================
 { "key1": { "key2": 1, 2 }, [, "key3": 3 }
 ---
-(value (object
+(object
     (string) (object (string) (number) (ERROR '2'))
     (ERROR '[')
-    (string) (number)))
+    (string) (number))

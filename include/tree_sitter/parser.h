@@ -24,7 +24,7 @@ typedef struct {
 
 TSLexer ts_lexer_make();
 int ts_lexer_advance(TSLexer *lexer);
-TSTree * ts_lexer_build_node(TSLexer *lexer, TSSymbol symbol);
+TSTree * ts_lexer_build_node(TSLexer *lexer, TSSymbol symbol, int is_hidden);
 
 static inline size_t ts_lexer_position(const TSLexer *lexer) {
     return lexer->chunk_start + lexer->position_in_chunk;
@@ -141,13 +141,13 @@ ts_lexer_start_token(&parser->lexer);
 #define ACCEPT_TOKEN(symbol) \
 { \
     DEBUG_LEX("TOKEN %s", ts_symbol_names[symbol]); \
-    return ts_lexer_build_node(&parser->lexer, symbol); \
+    return ts_lexer_build_node(&parser->lexer, symbol, ts_hidden_symbol_flags[symbol]); \
 }
 
 #define LEX_ERROR() \
 { \
     DEBUG_LEX("ERROR"); \
-    return ts_lexer_build_node(&parser->lexer, ts_builtin_sym_error); \
+    return ts_lexer_build_node(&parser->lexer, ts_builtin_sym_error, 0); \
 }
 
 #define LEX_PANIC() \
@@ -170,7 +170,6 @@ ts_lexer_start_token(&parser->lexer);
 
 #define ACCEPT_INPUT() \
 { .type = TSParseActionTypeAccept }
-
 
 #define EXPORT_PARSER(constructor_name) \
 TSParser * constructor_name() { \

@@ -24,7 +24,7 @@ describe("incremental parsing", [&]() {
 
     it("parses the input", [&]() {
         AssertThat(string(ts_document_string(doc)), Equals(
-            "(value (object (string) (array (number) (number))))"));
+            "(object (string) (array (number) (number)))"));
     });
 
     it("reads the entire input", [&]() {
@@ -44,7 +44,7 @@ describe("incremental parsing", [&]() {
 
         it("updates the parse tree", [&]() {
             AssertThat(string(ts_document_string(doc)), Equals(
-                "(value (object (string) (array (number) (number)) (string) (number)))"));
+                "(object (string) (array (number) (number)) (string) (number))"));
         });
 
         it("re-reads only the changed portion of the input", [&]() {
@@ -64,7 +64,7 @@ describe("incremental parsing", [&]() {
 
         it("2 updates the parse tree", [&]() {
             AssertThat(string(ts_document_string(doc)), Equals(
-                "(value (object (string) (number) (string) (array (number) (number))))"));
+                "(object (string) (number) (string) (array (number) (number)))"));
         });
 
         it_skip("re-reads only the changed portion of the input", [&]() {

@@ -3,14 +3,14 @@ parses floating point numbers
 =============================
 3.14
 ---
-(value (number))
+(number)
 
 ===================
 parses empty arrays
 ===================
 []
 ---
-(value (array))
+(array)
 
 ===================
 parses arrays
@@ -23,19 +23,19 @@ parses arrays
     { "stuff": "good" }
 ]
 ---
-(value (array
+(array
     (number)
     (null)
     (true)
     (false)
-    (object (string) (string))))
+    (object (string) (string)))
 
 ====================
 parses empty objects
 ====================
 {}
 ---
-(value (object))
+(object)
 
 ===================
 parses long objects
@@ -45,8 +45,7 @@ parses long objects
 	"key2": 1
 }
 ---
-(value (object
+(object
 	(string) (string)
-	(string) (number)
-))
+	(string) (number))
 

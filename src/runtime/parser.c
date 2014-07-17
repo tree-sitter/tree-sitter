@@ -23,7 +23,7 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
 
         position = ts_stack_right_position(stack);
         size_t child_count;
-        TSTree **children = ts_tree_immediate_children(node, &child_count);
+        TSTree **children = ts_tree_children(node, &child_count);
         if (position <= edit->position && !children) break;
 
         stack->size--;
@@ -96,7 +96,7 @@ void ts_parser_start(TSParser *parser, TSInput input, TSInputEdit *edit) {
 }
 
 void ts_parser_shift(TSParser *parser, TSStateId parse_state) {
-    if (parser->lookahead->is_extra)
+    if (ts_tree_is_extra(parser->lookahead))
         parse_state = ts_stack_top_state(&parser->stack);
     ts_stack_push(&parser->stack, parse_state, parser->lookahead);
     parser->lookahead = parser->next_lookahead;
@@ -104,7 +104,7 @@ void ts_parser_shift(TSParser *parser, TSStateId parse_state) {
 }
 
 void ts_parser_shift_extra(TSParser *parser) {
-    parser->lookahead->is_extra = 1;
+    ts_tree_set_extra(parser->lookahead);
     ts_parser_shift(parser, 0);
 }
 
@@ -119,9 +119,9 @@ void ts_parser_reduce(TSParser *parser, TSSymbol symbol, size_t child_count) {
 
 int ts_parser_reduce_extra(TSParser *parser, TSSymbol symbol) {
     TSTree *top_node = ts_stack_top_node(&parser->stack);
-    if (top_node->symbol == symbol && !top_node->is_extra) {
+    if (top_node->symbol == symbol && !ts_tree_is_extra(top_node)) {
         ts_parser_reduce(parser, symbol, 1);
-        parser->lookahead->is_extra = 1;
+        ts_tree_set_extra(parser->lookahead);
         return 1;
     } else {
         return 0;

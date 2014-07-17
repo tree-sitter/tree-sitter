@@ -5,22 +5,37 @@
 
 struct TSTree {
     TSSymbol symbol;
+    TSTreeOptions options;
     size_t ref_count;
     size_t offset;
     size_t size;
-    int is_extra;
     union {
         struct {
-            size_t count;
-            size_t immediate_count;
-            struct TSTree **contents;
-        } children;
+            size_t child_count;
+            struct TSTree **children;
+        };
         struct {
-            char lookahead_char;
             size_t expected_input_count;
             const TSSymbol *expected_inputs;
-        } error;
-    } data;
+            char lookahead_char;
+        };
+    };
 };
+
+static inline int ts_tree_is_extra(const TSTree *tree) {
+    return (tree->options & TSTreeOptionsExtra);
+}
+
+static inline int ts_tree_is_visible(const TSTree *tree) {
+    return !(tree->options & TSTreeOptionsHidden);
+}
+
+static inline void ts_tree_set_extra(TSTree *tree) {
+    tree->options = (TSTreeOptions)(tree->options | TSTreeOptionsExtra);
+}
+
+static inline int ts_tree_is_wrapper(const TSTree *tree) {
+    return (tree->options & TSTreeOptionsWrapper);
+}
 
 #endif  // RUNTIME_TREE_H_

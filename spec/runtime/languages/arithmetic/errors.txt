@@ -10,6 +10,6 @@ recovers from errors inside parenthesized expressions
 =====================================================
 x + (y * + z) * 5
 ---
-(expression (sum
+(sum
     (variable)
-    (product (group (ERROR '+')) (number))))
+    (product (group (ERROR '+')) (number)))
