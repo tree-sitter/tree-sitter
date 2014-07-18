@@ -8,6 +8,8 @@ extern "C" {
 #include <stdio.h>
 #include "tree_sitter/runtime.h"
 
+typedef struct TSTree TSTree;
+
 #define ts_lex_state_error 0
 
 typedef struct {

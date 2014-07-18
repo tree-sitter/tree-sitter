@@ -1,6 +1,7 @@
 #include "tree_sitter/runtime.h"
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
+#include "runtime/node.h"
 #include <string.h>
 
 struct TSDocument {
@@ -11,11 +12,16 @@ struct TSDocument {
 };
 
 TSDocument * ts_document_make() {
-    return malloc(sizeof(TSDocument));
+    TSDocument *document = malloc(sizeof(TSDocument));
+    *document = (TSDocument) {
+        .input = (TSInput) {}
+    };
+    return document;
 }
 
 void ts_document_free(TSDocument *document) {
-    ts_parser_free(document->parser);
+    if (document->parser)
+        ts_parser_free(document->parser);
     if (document->input.release_fn)
         document->input.release_fn(document->input.data);
     free(document);
@@ -86,4 +92,30 @@ TSInput ts_string_input_make(const char *string) {
 
 void ts_document_set_input_string(TSDocument *document, const char *text) {
     ts_document_set_input(document, ts_string_input_make(text));
+}
+
+TSNode * ts_document_root_node(const TSDocument *document) {
+    const TSTree *tree = document->tree;
+    size_t position = 0;
+    while (ts_tree_is_wrapper(tree)) {
+        position = tree->offset;
+        tree = tree->children[0];
+    }
+
+    TSNode *result = malloc(sizeof(TSNode));
+    *result = (TSNode) {
+        .ref_count = 1,
+        .position = position,
+        .content = tree,
+        .parent = NULL,
+        .config = &document->parser->config,
+    };
+    return result;
+}
+
+TSNode * ts_document_get_node(const TSDocument *document, size_t pos) {
+    TSNode *root = ts_document_root_node(document);
+    TSNode *result = ts_node_leaf_at_pos(root, pos);
+    ts_node_release(root);
+    return result;
 }

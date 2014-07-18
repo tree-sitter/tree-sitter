@@ -1,6 +1,6 @@
-#include "tree_sitter/runtime.h"
 #include <string.h>
 #include <stdio.h>
+#include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 
 static TSTree * ts_tree_make(TSSymbol symbol, size_t size, size_t offset, int is_hidden) {

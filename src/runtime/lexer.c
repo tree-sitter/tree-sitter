@@ -1,5 +1,5 @@
-#include "tree_sitter/runtime.h"
 #include "tree_sitter/parser.h"
+#include "runtime/tree.h"
 
 TSLexer ts_lexer_make() {
     return (TSLexer) {

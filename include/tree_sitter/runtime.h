@@ -7,30 +7,6 @@ extern "C" {
 
 #include <stdlib.h>
 
-typedef unsigned short TSSymbol;
-#define ts_builtin_sym_error 0
-#define ts_builtin_sym_end 1
-#define ts_start_sym 2
-
-typedef struct TSTree TSTree;
-
-typedef enum {
-    TSTreeOptionsHidden = 1,
-    TSTreeOptionsExtra = 2,
-    TSTreeOptionsWrapper = 4,
-} TSTreeOptions;
-
-TSTree * ts_tree_make_leaf(TSSymbol symbol, size_t size, size_t offset, int is_hidden);
-TSTree * ts_tree_make_node(TSSymbol symbol, size_t child_count, TSTree **children, int is_hidden);
-TSTree * ts_tree_make_error(char lookahead_char, size_t expected_input_count, const TSSymbol *expected_inputs, size_t size, size_t offset);
-void ts_tree_retain(TSTree *tree);
-void ts_tree_release(TSTree *tree);
-int ts_tree_equals(const TSTree *tree1, const TSTree *tree2);
-char * ts_tree_string(const TSTree *tree, const char **names);
-char * ts_tree_error_string(const TSTree *tree, const char **names);
-TSTree ** ts_tree_children(const TSTree *tree, size_t *count);
-size_t ts_tree_total_size(const TSTree *tree);
-
 typedef struct {
     void *data;
     const char * (* read_fn)(void *data, size_t *bytes_read);
@@ -44,18 +20,38 @@ typedef struct {
     size_t bytes_removed;
 } TSInputEdit;
 
-typedef struct TSParser TSParser;
+typedef unsigned short TSSymbol;
 
+typedef struct TSNode TSNode;
+typedef struct TSParser TSParser;
 typedef struct TSDocument TSDocument;
+
+size_t ts_node_pos(const TSNode *);
+size_t ts_node_size(const TSNode *);
+TSSymbol ts_node_sym(const TSNode *);
+const char * ts_node_name(const TSNode *);
+TSNode * ts_node_child(TSNode *, size_t);
+TSNode * ts_node_leaf_at_pos(TSNode *, size_t);
+TSNode * ts_node_parent(TSNode *node);
+TSNode * ts_node_next(TSNode *node);
+TSNode * ts_node_prev(TSNode *node);
+void ts_node_retain(TSNode *node);
+void ts_node_release(TSNode *node);
+const char * ts_node_string(const TSNode *);
+
 TSDocument * ts_document_make();
 void ts_document_free(TSDocument *doc);
 void ts_document_set_parser(TSDocument *doc, TSParser *parser);
 void ts_document_set_input(TSDocument *doc, TSInput input);
 void ts_document_set_input_string(TSDocument *doc, const char *text);
 void ts_document_edit(TSDocument *doc, TSInputEdit edit);
-const TSTree * ts_document_tree(const TSDocument *doc);
 const char * ts_document_string(const TSDocument *doc);
-const char * ts_document_symbol_name(const TSDocument *document, const TSTree *tree);
+TSNode * ts_document_get_node(const TSDocument *document, size_t position);
+TSNode * ts_document_root_node(const TSDocument *document);
+
+#define ts_builtin_sym_error 0
+#define ts_builtin_sym_end 1
+#define ts_start_sym 2
 
 #ifdef __cplusplus
 }
