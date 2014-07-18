@@ -23,6 +23,7 @@ struct TSTree {
         struct {
             size_t child_count;
             struct TSTree **children;
+            size_t visible_child_count;
         };
         struct {
             size_t expected_input_count;
@@ -31,6 +32,11 @@ struct TSTree {
         };
     };
 };
+
+typedef struct {
+    TSTree *tree;
+    size_t position;
+} TSChildWithPosition;
 
 static inline int ts_tree_is_extra(const TSTree *tree) {
     return (tree->options & TSTreeOptionsExtra);
@@ -46,6 +52,23 @@ static inline void ts_tree_set_extra(TSTree *tree) {
 
 static inline int ts_tree_is_wrapper(const TSTree *tree) {
     return (tree->options & TSTreeOptionsWrapper);
+}
+
+static inline size_t ts_tree_visible_child_count(const TSTree *tree) {
+    if (tree->symbol == ts_builtin_sym_error)
+        return 0;
+    else
+        return tree->visible_child_count;
+}
+
+static inline TSChildWithPosition * ts_tree_visible_children(const TSTree *tree, size_t *count) {
+    if (tree->symbol == ts_builtin_sym_error || tree->visible_child_count == 0) {
+        if (count) *count = 0;
+        return NULL;
+    } else {
+        if (count) *count = tree->visible_child_count;
+        return (TSChildWithPosition *)(tree + 1);
+    }
 }
 
 TSTree * ts_tree_make_leaf(TSSymbol symbol, size_t size, size_t offset, int is_hidden);

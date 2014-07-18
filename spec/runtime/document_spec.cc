@@ -86,6 +86,8 @@ describe("incremental parsing", [&]() {
         ts_document_set_input_string(doc, "  [12, 5, 345]");
 
         TSNode *array = ts_document_root_node(doc);
+        AssertThat(ts_node_string(array), Equals("(array (number) (number) (number))"));
+
         TSNode *number1 = ts_node_child(array, 0);
         TSNode *number2 = ts_node_child(array, 1);
         TSNode *number3 = ts_node_child(array, 2);
@@ -93,6 +95,7 @@ describe("incremental parsing", [&]() {
         AssertThat(ts_node_name(array), Equals("array"));
         AssertThat(ts_node_name(number1), Equals("number"));
         AssertThat(ts_node_name(number2), Equals("number"));
+        AssertThat(ts_node_name(number3), Equals("number"));
 
         AssertThat(ts_node_pos(array), Equals<size_t>(2));
         AssertThat(ts_node_size(array), Equals<size_t>(12));

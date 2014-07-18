@@ -95,22 +95,7 @@ void ts_document_set_input_string(TSDocument *document, const char *text) {
 }
 
 TSNode * ts_document_root_node(const TSDocument *document) {
-    const TSTree *tree = document->tree;
-    size_t position = 0;
-    while (ts_tree_is_wrapper(tree)) {
-        position = tree->offset;
-        tree = tree->children[0];
-    }
-
-    TSNode *result = malloc(sizeof(TSNode));
-    *result = (TSNode) {
-        .ref_count = 1,
-        .position = position,
-        .content = tree,
-        .parent = NULL,
-        .config = &document->parser->config,
-    };
-    return result;
+    return ts_node_make_root(document->tree, &document->parser->config);
 }
 
 TSNode * ts_document_get_node(const TSDocument *document, size_t pos) {

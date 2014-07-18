@@ -23,7 +23,7 @@ TSTree * ts_tree_make_leaf(TSSymbol symbol, size_t size, size_t offset, int is_h
 }
 
 TSTree * ts_tree_make_node(TSSymbol symbol, size_t child_count, TSTree **children, int is_hidden) {
-    size_t size = 0, offset = 0;
+    size_t size = 0, offset = 0, visible_child_count = 0;
     for (size_t i = 0; i < child_count; i++) {
         TSTree *child = children[i];
         ts_tree_retain(child);
@@ -33,14 +33,55 @@ TSTree * ts_tree_make_node(TSSymbol symbol, size_t child_count, TSTree **childre
         } else {
             size += child->offset + child->size;
         }
+
+        if (ts_tree_is_visible(child))
+            visible_child_count++;
+        else
+            visible_child_count += ts_tree_visible_child_count(child);
     }
 
-    TSTree *result = ts_tree_make(symbol, size, offset, is_hidden);
-    result->child_count = child_count;
-    result->children = children;
-
+    TSTreeOptions options = 0;
+    if (is_hidden)
+        options |= TSTreeOptionsHidden;
     if (child_count == 1 && (ts_tree_is_visible(children[0]) || ts_tree_is_wrapper(children[0])))
-        result->options |= (TSTreeOptionsWrapper | TSTreeOptionsHidden);
+        options |= (TSTreeOptionsWrapper | TSTreeOptionsHidden);
+
+    TSTree *result = malloc(sizeof(TSTree) + (visible_child_count * sizeof(TSChildWithPosition)));
+    *result = (TSTree) {
+        .ref_count = 1,
+        .symbol = symbol,
+        .size = size,
+        .offset = offset,
+        .options = options,
+        .children = children,
+        .child_count = child_count,
+        .visible_child_count = visible_child_count,
+    };
+
+    TSChildWithPosition *visible_children = ts_tree_visible_children(result, NULL);
+
+    for (size_t i = 0, visible_i = 0, child_position = 0; i < child_count; i++) {
+        TSTree *child = children[i];
+        if (ts_tree_is_visible(child)) {
+            visible_children[visible_i] = (TSChildWithPosition) {
+                .tree = child,
+                .position = child_position
+            }; 
+            visible_i++;
+        } else {
+            size_t granchild_count = 0;
+            TSChildWithPosition *grandchildren = ts_tree_visible_children(child, &granchild_count);
+            for (size_t j = 0; j < granchild_count; j++) {
+                visible_children[visible_i] = (TSChildWithPosition) {
+                    .tree = grandchildren[j].tree,
+                    .position = grandchildren[j].position + child_position
+                };
+                visible_i++;
+            }
+        }
+
+        child_position += child->offset + child->size;
+    }
 
     return result;
 }
