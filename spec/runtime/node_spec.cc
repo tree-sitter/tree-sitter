@@ -1,52 +1,72 @@
 #include "runtime/runtime_spec_helper.h"
 
-extern "C" TSParser * ts_parser_arithmetic();
+extern "C" TSParser * ts_parser_json();
 
 START_TEST
 
 describe("Node", []() {
     TSDocument *document;
+    TSNode *root;
 
     before_each([&]() {
         document = ts_document_make();
-        ts_document_set_parser(document, ts_parser_arithmetic());
+        ts_document_set_parser(document, ts_parser_json());
+
+        ts_document_set_input_string(document, "  [12, 5, 345]");
+        root = ts_document_root_node(document);
+        AssertThat(ts_node_string(root), Equals("(array (number) (number) (number))"));
     });
 
     after_each([&]() {
         ts_document_free(document);
+        ts_node_release(root);
     });
 
-    describe("getting the nth child node", [&]() {
-        TSNode *root;
+    it("knows its position and size", [&]() {
+        TSNode *number1 = ts_node_child(root, 0);
+        TSNode *number2 = ts_node_child(root, 1);
+        TSNode *number3 = ts_node_child(root, 2);
 
-        describe("when the child has more than n visible children", [&]() {
-            before_each([&]() {
-                ts_document_set_input_string(document, "x + 1");
-                root = ts_document_root_node(document);
+        AssertThat(ts_node_name(root), Equals("array"));
+        AssertThat(ts_node_name(number1), Equals("number"));
+        AssertThat(ts_node_name(number2), Equals("number"));
+        AssertThat(ts_node_name(number3), Equals("number"));
 
-                AssertThat(ts_node_name(root), Equals("sum"));
-                AssertThat(ts_node_string(root), Equals("(sum (variable) (number))"));
-            });
+        AssertThat(ts_node_pos(root), Equals<size_t>(2));
+        AssertThat(ts_node_size(root), Equals<size_t>(12));
 
-            after_each([&]() {
-                ts_node_release(root);
-            });
+        AssertThat(ts_node_pos(number1), Equals<size_t>(3));
+        AssertThat(ts_node_size(number1), Equals<size_t>(2));
 
-            it("returns the nth child", [&]() {
-                TSNode *child1 = ts_node_child(root, 0);
-                AssertThat(ts_node_name(child1), Equals("variable"));
+        AssertThat(ts_node_pos(number2), Equals<size_t>(7));
+        AssertThat(ts_node_size(number2), Equals<size_t>(1));
 
-                TSNode *child2 = ts_node_child(root, 1);
-                AssertThat(ts_node_name(child2), Equals("number"));
+        AssertThat(ts_node_pos(number3), Equals<size_t>(10));
+        AssertThat(ts_node_size(number3), Equals<size_t>(3));
 
-                ts_node_release(child1);
-                ts_node_release(child2);
-            });
-        });
+        ts_node_release(number1);
+        ts_node_release(number2);
+        ts_node_release(number3);
     });
 
-    it("gets the first token", [&]() {
-        // ts_document_get_node(document, 0);
+    it("can retrieve its parent node", [&]() {
+        TSNode *number2 = ts_node_child(root, 1);
+        AssertThat(ts_node_parent(number2), Equals(root));
+
+        ts_node_release(number2);
+    });
+
+    it("can retrieve its sibling nodes", [&]() {
+        TSNode *number1 = ts_node_child(root, 0);
+        TSNode *number2 = ts_node_child(root, 1);
+        TSNode *number3 = ts_node_child(root, 2);
+
+        AssertThat(ts_node_eq(ts_node_next_sibling(number2), number3), IsTrue());
+        AssertThat(ts_node_eq(ts_node_prev_sibling(number2), number1), IsTrue());
+
+        ts_node_release(number1);
+        ts_node_release(number2);
+        ts_node_release(number3);
     });
 });
 

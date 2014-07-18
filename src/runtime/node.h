@@ -12,7 +12,7 @@ struct TSNode {
     TSParserConfig *config;
 };
 
-TSNode * ts_node_make(const TSTree *tree, TSNode *parent, size_t start_position, TSParserConfig *config);
+TSNode * ts_node_make(const TSTree *tree, TSNode *parent, size_t index, size_t start_position, TSParserConfig *config);
 TSNode * ts_node_make_root(const TSTree *tree, TSParserConfig *config);
 
 #endif

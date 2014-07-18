@@ -33,11 +33,12 @@ const char * ts_node_name(const TSNode *);
 TSNode * ts_node_child(TSNode *, size_t);
 TSNode * ts_node_leaf_at_pos(TSNode *, size_t);
 TSNode * ts_node_parent(TSNode *node);
-TSNode * ts_node_next(TSNode *node);
-TSNode * ts_node_prev(TSNode *node);
+TSNode * ts_node_next_sibling(TSNode *node);
+TSNode * ts_node_prev_sibling(TSNode *node);
 void ts_node_retain(TSNode *node);
 void ts_node_release(TSNode *node);
 const char * ts_node_string(const TSNode *);
+int ts_node_eq(const TSNode *, const TSNode *);
 
 TSDocument * ts_document_make();
 void ts_document_free(TSDocument *doc);
