@@ -4,4 +4,4 @@ compiler:
 before_install:
   - sudo apt-get install libboost-regex1.48-dev
 install: script/configure.sh -D USE_BOOST_REGEX
-script: script/test.sh
+script: script/test_all.sh
