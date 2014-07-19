@@ -28,6 +28,8 @@ void ts_document_free(TSDocument *document) {
 }
 
 void ts_document_set_parser(TSDocument *document, TSParser *parser) {
+    if (document->parser)
+        ts_parser_free(document->parser);
     document->parser = parser;
 }
 
@@ -95,7 +97,7 @@ void ts_document_set_input_string(TSDocument *document, const char *text) {
 }
 
 TSNode * ts_document_root_node(const TSDocument *document) {
-    return ts_node_make_root(document->tree, &document->parser->config);
+    return ts_node_make_root(document->tree, document->parser->config.symbol_names);
 }
 
 TSNode * ts_document_get_node(const TSDocument *document, size_t pos) {
