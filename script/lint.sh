@@ -10,7 +10,7 @@ fi
 
 $CPPLINT \
   --root=src \
-  --linelength=110 \
-  --filter=-legal/copyright,-whitespace/indent,-whitespace/line_length,-readability/todo \
+  --linelength=85 \
+  --filter=-legal/copyright,-readability/todo \
   $(find src/compiler -type f) \
   2>&1
