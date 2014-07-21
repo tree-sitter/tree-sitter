@@ -5,12 +5,12 @@
 #include "runtime/tree.h"
 
 struct TSNode {
-    size_t ref_count;
-    size_t start_position;
-    size_t index;
-    const TSTree *content;
-    struct TSNode *parent;
-    const char **names;
+  size_t ref_count;
+  size_t start_position;
+  size_t index;
+  const TSTree *content;
+  struct TSNode *parent;
+  const char **names;
 };
 
 TSNode * ts_node_make(const TSTree *tree, TSNode *parent, size_t index, size_t start_position, const char **names);

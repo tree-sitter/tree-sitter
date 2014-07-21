@@ -8,16 +8,16 @@ extern "C" {
 #include <stdlib.h>
 
 typedef struct {
-    void *data;
-    const char * (* read_fn)(void *data, size_t *bytes_read);
-    int (* seek_fn)(void *data, size_t position);
-    void (* release_fn)(void *data);
+  void *data;
+  const char * (* read_fn)(void *data, size_t *bytes_read);
+  int (* seek_fn)(void *data, size_t position);
+  void (* release_fn)(void *data);
 } TSInput;
 
 typedef struct {
-    size_t position;
-    size_t bytes_inserted;
-    size_t bytes_removed;
+  size_t position;
+  size_t bytes_inserted;
+  size_t bytes_removed;
 } TSInputEdit;
 
 typedef unsigned short TSSymbol;
