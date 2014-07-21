@@ -11,11 +11,9 @@ struct TSDocument {
   size_t error_count;
 };
 
-TSDocument * ts_document_make() {
+TSDocument *ts_document_make() {
   TSDocument *document = malloc(sizeof(TSDocument));
-  *document = (TSDocument) {
-    .input = (TSInput) {}
-  };
+  *document = (TSDocument) { .input = (TSInput) {} };
   return document;
 }
 
@@ -33,12 +31,13 @@ void ts_document_set_parser(TSDocument *document, TSParser *parser) {
   document->parser = parser;
 }
 
-const TSTree * ts_document_tree(const TSDocument *document) {
+const TSTree *ts_document_tree(const TSDocument *document) {
   return document->tree;
 }
 
-const char * ts_document_string(const TSDocument *document) {
-  return ts_tree_string(document->tree, ts_parser_config(document->parser).symbol_names);
+const char *ts_document_string(const TSDocument *document) {
+  return ts_tree_string(document->tree,
+                        ts_parser_config(document->parser).symbol_names);
 }
 
 void ts_document_set_input(TSDocument *document, TSInput input) {
@@ -50,7 +49,8 @@ void ts_document_edit(TSDocument *document, TSInputEdit edit) {
   document->tree = ts_parser_parse(document->parser, document->input, &edit);
 }
 
-const char * ts_document_symbol_name(const TSDocument *document, const TSTree *tree) {
+const char *ts_document_symbol_name(const TSDocument *document,
+                                    const TSTree *tree) {
   return ts_parser_config(document->parser).symbol_names[tree->symbol];
 }
 
@@ -60,7 +60,7 @@ typedef struct {
   size_t length;
 } TSStringInput;
 
-const char * ts_string_input_read(void *d, size_t *bytes_read) {
+const char *ts_string_input_read(void *d, size_t *bytes_read) {
   TSStringInput *data = (TSStringInput *)d;
   if (data->position >= data->length) {
     *bytes_read = 0;
@@ -83,24 +83,22 @@ TSInput ts_string_input_make(const char *string) {
   data->string = string;
   data->position = 0;
   data->length = strlen(string);
-  TSInput input = {
-    .data = (void *)data,
-    .read_fn = ts_string_input_read,
-    .seek_fn = ts_string_input_seek,
-    .release_fn = free,
-  };
-  return input;
+  return (TSInput) { .data = (void *)data,
+                     .read_fn = ts_string_input_read,
+                     .seek_fn = ts_string_input_seek,
+                     .release_fn = free };
 }
 
 void ts_document_set_input_string(TSDocument *document, const char *text) {
   ts_document_set_input(document, ts_string_input_make(text));
 }
 
-TSNode * ts_document_root_node(const TSDocument *document) {
-  return ts_node_make_root(document->tree, document->parser->config.symbol_names);
+TSNode *ts_document_root_node(const TSDocument *document) {
+  return ts_node_make_root(document->tree,
+                           document->parser->config.symbol_names);
 }
 
-TSNode * ts_document_get_node(const TSDocument *document, size_t pos) {
+TSNode *ts_document_get_node(const TSDocument *document, size_t pos) {
   TSNode *root = ts_document_root_node(document);
   TSNode *result = ts_node_leaf_at_pos(root, pos);
   ts_node_release(root);

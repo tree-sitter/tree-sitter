@@ -26,7 +26,7 @@ typedef struct {
 
 TSLexer ts_lexer_make();
 int ts_lexer_advance(TSLexer *lexer);
-TSTree * ts_lexer_build_node(TSLexer *lexer, TSSymbol symbol, int is_hidden);
+TSTree *ts_lexer_build_node(TSLexer *lexer, TSSymbol symbol, int is_hidden);
 
 static inline size_t ts_lexer_position(const TSLexer *lexer) {
   return lexer->chunk_start + lexer->position_in_chunk;
@@ -53,11 +53,13 @@ typedef struct {
 
 TSStack ts_stack_make();
 void ts_stack_delete(TSStack *);
-TSTree * ts_stack_reduce(TSStack *stack, TSSymbol symbol, size_t immediate_child_count, const int *hidden_symbol_flags, int gather_extras);
+TSTree *ts_stack_reduce(TSStack *stack, TSSymbol symbol,
+                        size_t immediate_child_count,
+                        const int *hidden_symbol_flags, int gather_extras);
 void ts_stack_shrink(TSStack *stack, size_t new_size);
 void ts_stack_push(TSStack *stack, TSStateId state, TSTree *node);
 TSStateId ts_stack_top_state(const TSStack *stack);
-TSTree * ts_stack_top_node(const TSStack *stack);
+TSTree *ts_stack_top_node(const TSStack *stack);
 size_t ts_stack_right_position(const TSStack *stack);
 
 typedef enum {
@@ -86,7 +88,7 @@ typedef struct {
   const int *hidden_symbol_flags;
   const TSParseAction *parse_table;
   const TSStateId *lex_states;
-  TSTree * (* lex_fn)(TSParser *, TSStateId);
+  TSTree *(*lex_fn)(TSParser *, TSStateId);
 } TSParserConfig;
 
 struct TSParser {
@@ -98,91 +100,99 @@ struct TSParser {
   TSParserConfig config;
 };
 
-TSParser * ts_parser_make(TSParserConfig);
+TSParser *ts_parser_make(TSParserConfig);
 void ts_parser_free(TSParser *);
 TSParserConfig ts_parser_config(TSParser *);
-const TSTree * ts_parser_parse(TSParser *parser, TSInput input, TSInputEdit *edit);
+const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
+                              TSInputEdit *edit);
 void ts_parser_start(TSParser *parser, TSInput input, TSInputEdit *edit);
-TSTree * ts_parser_step(TSParser *parser);
+TSTree *ts_parser_step(TSParser *parser);
 
-#define SYMBOL_NAMES \
-  static const char *ts_symbol_names[]
+#define SYMBOL_NAMES static const char *ts_symbol_names[]
 
-#define HIDDEN_SYMBOLS \
-  static const int ts_hidden_symbol_flags[SYMBOL_COUNT]
+#define HIDDEN_SYMBOLS static const int ts_hidden_symbol_flags[SYMBOL_COUNT]
 
-#define LEX_STATES \
-  static TSStateId ts_lex_states[STATE_COUNT]
+#define LEX_STATES static TSStateId ts_lex_states[STATE_COUNT]
 
 #define PARSE_TABLE \
   static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT]
 
-#define LEX_FN() \
-  static TSTree * ts_lex(TSParser *parser, TSStateId lex_state)
+#define LEX_FN() static TSTree *ts_lex(TSParser *parser, TSStateId lex_state)
 
-#define DEBUG_LEX(...) \
-  if (parser->lexer.debug) { fprintf(stderr, "\n" __VA_ARGS__); }
+#define DEBUG_LEX(...)                 \
+  if (parser->lexer.debug) {           \
+    fprintf(stderr, "\n" __VA_ARGS__); \
+  }
 
-#define START_LEXER() \
-  DEBUG_LEX("LEX %d", lex_state); \
-  char lookahead; \
-  next_state: \
+#define START_LEXER()                                  \
+  DEBUG_LEX("LEX %d", lex_state);                      \
+  char lookahead;                                      \
+  next_state:                                          \
   lookahead = ts_lexer_lookahead_char(&parser->lexer); \
   DEBUG_LEX("CHAR '%c'", lookahead);
 
-#define START_TOKEN() \
-  ts_lexer_start_token(&parser->lexer);
+#define START_TOKEN() ts_lexer_start_token(&parser->lexer);
 
-#define ADVANCE(state_index) \
-  { \
-    DEBUG_LEX("ADVANCE %d", state_index); \
-    if (!ts_lexer_advance(&parser->lexer)) ACCEPT_TOKEN(ts_builtin_sym_end); \
-    lex_state = state_index; goto next_state; \
+#define ADVANCE(state_index)               \
+  {                                        \
+    DEBUG_LEX("ADVANCE %d", state_index);  \
+    if (!ts_lexer_advance(&parser->lexer)) \
+      ACCEPT_TOKEN(ts_builtin_sym_end);    \
+    lex_state = state_index;               \
+    goto next_state;                       \
   }
 
-#define ACCEPT_TOKEN(symbol) \
-  { \
-    DEBUG_LEX("TOKEN %s", ts_symbol_names[symbol]); \
-    return ts_lexer_build_node(&parser->lexer, symbol, ts_hidden_symbol_flags[symbol]); \
+#define ACCEPT_TOKEN(symbol)                                    \
+  {                                                             \
+    DEBUG_LEX("TOKEN %s", ts_symbol_names[symbol]);             \
+    return ts_lexer_build_node(&parser->lexer, symbol,          \
+                               ts_hidden_symbol_flags[symbol]); \
   }
 
-#define LEX_ERROR() \
-  { \
-    DEBUG_LEX("ERROR"); \
+#define LEX_ERROR()                                                      \
+  {                                                                      \
+    DEBUG_LEX("ERROR");                                                  \
     return ts_lexer_build_node(&parser->lexer, ts_builtin_sym_error, 0); \
   }
 
-#define LEX_PANIC() \
-  { \
+#define LEX_PANIC()                                         \
+  {                                                         \
     DEBUG_LEX("LEX ERROR: unexpected state %d", lex_state); \
-    return NULL; \
+    return NULL;                                            \
   }
 
-#define SHIFT(to_state_value) \
-  { .type = TSParseActionTypeShift, .data = { .to_state = to_state_value } }
+#define SHIFT(to_state_value)                                              \
+  {                                                                        \
+    .type = TSParseActionTypeShift, .data = { .to_state = to_state_value } \
+  }
 
 #define SHIFT_EXTRA() \
   { .type = TSParseActionTypeShiftExtra }
 
-#define REDUCE_EXTRA(symbol_val) \
-  { .type = TSParseActionTypeReduceExtra, .data = { .symbol = symbol_val } }
+#define REDUCE_EXTRA(symbol_val)                                           \
+  {                                                                        \
+    .type = TSParseActionTypeReduceExtra, .data = { .symbol = symbol_val } \
+  }
 
-#define REDUCE(symbol_val, child_count_val) \
-  { .type = TSParseActionTypeReduce, .data = { .symbol = symbol_val, .child_count = child_count_val } }
+#define REDUCE(symbol_val, child_count_val)                          \
+  {                                                                  \
+    .type = TSParseActionTypeReduce,                                 \
+    .data = { .symbol = symbol_val, .child_count = child_count_val } \
+  }
 
 #define ACCEPT_INPUT() \
   { .type = TSParseActionTypeAccept }
 
-#define EXPORT_PARSER(constructor_name) \
-  TSParser * constructor_name() { \
-    return ts_parser_make((TSParserConfig) { \
-      .symbol_count = SYMBOL_COUNT, \
-      .hidden_symbol_flags = ts_hidden_symbol_flags, \
+#define EXPORT_PARSER(constructor_name)                       \
+  TSParser *constructor_name() {                              \
+    return ts_parser_make((TSParserConfig) {                  \
+      .symbol_count = SYMBOL_COUNT,                           \
+      .hidden_symbol_flags = ts_hidden_symbol_flags,          \
       .parse_table = (const TSParseAction *)ts_parse_actions, \
-      .lex_states = ts_lex_states, \
-      .symbol_names =  ts_symbol_names, \
-      .lex_fn = ts_lex, \
-    }); \
+      .lex_states = ts_lex_states,                            \
+      .symbol_names = ts_symbol_names,                        \
+      .lex_fn = ts_lex,                                       \
+    });                                                       \
   }
 
 #ifdef __cplusplus

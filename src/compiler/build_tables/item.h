@@ -5,17 +5,19 @@
 #include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
-    namespace build_tables {
-        class Item {
-        public:
-            Item(const rules::Symbol &lhs, rules::rule_ptr rule);
-            bool is_done() const;
-            int precedence() const;
+namespace build_tables {
 
-            rules::Symbol lhs;
-            rules::rule_ptr rule;
-        };
-    }
-}
+class Item {
+ public:
+  Item(const rules::Symbol &lhs, rules::rule_ptr rule);
+  bool is_done() const;
+  int precedence() const;
+
+  rules::Symbol lhs;
+  rules::rule_ptr rule;
+};
+
+}  // namespace build_tables
+}  // namespace tree_sitter
 
 #endif  // COMPILER_BUILD_TABLES_ITEM_H_

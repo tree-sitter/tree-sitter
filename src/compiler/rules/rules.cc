@@ -16,65 +16,55 @@
 #include "compiler/rules/built_in_symbols.h"
 
 namespace tree_sitter {
-    using std::make_shared;
-    using std::string;
-    using std::set;
-    using std::vector;
-    using std::map;
+namespace rules {
 
-    namespace rules {
-        static const int KEYWORD_PRECEDENCE = 100;
+using std::make_shared;
+using std::string;
+using std::set;
+using std::vector;
+using std::map;
 
-        static rule_ptr metadata(rule_ptr rule, map<MetadataKey, int> values) {
-            return std::make_shared<Metadata>(rule, values);
-        }
+static const int KEYWORD_PRECEDENCE = 100;
 
-        rule_ptr blank() {
-            return make_shared<Blank>();
-        }
-
-        rule_ptr choice(const vector<rule_ptr> &rules) {
-            return Choice::Build(rules);
-        }
-
-        rule_ptr repeat(const rule_ptr &content) {
-            return std::make_shared<Repeat>(content);
-        }
-
-        rule_ptr seq(const vector<rule_ptr> &rules) {
-            return Seq::Build(rules);
-        }
-
-        rule_ptr sym(const string &name) {
-            return make_shared<NamedSymbol>(name);
-        }
-
-        rule_ptr pattern(const string &value) {
-            return make_shared<Pattern>(value);
-        }
-
-        rule_ptr str(const string &value) {
-            return make_shared<String>(value);
-        }
-
-        rule_ptr keyword(const string &value) {
-            return token(prec(KEYWORD_PRECEDENCE, str(value)));
-        }
-
-        rule_ptr keypattern(const string &value) {
-            return token(prec(KEYWORD_PRECEDENCE, pattern(value)));
-        }
-
-        rule_ptr err(const rule_ptr &rule) {
-            return choice({ rule, ERROR().copy() });
-        }
-
-        rule_ptr prec(int precedence, rule_ptr rule) {
-            return metadata(rule, {{ PRECEDENCE, precedence }});
-        }
-
-        rule_ptr token(rule_ptr rule) {
-            return metadata(rule, {{ IS_TOKEN, 1 }});
-        }
-    }
+static rule_ptr metadata(rule_ptr rule, map<MetadataKey, int> values) {
+  return std::make_shared<Metadata>(rule, values);
 }
+
+rule_ptr blank() { return make_shared<Blank>(); }
+
+rule_ptr choice(const vector<rule_ptr> &rules) { return Choice::Build(rules); }
+
+rule_ptr repeat(const rule_ptr &content) {
+  return std::make_shared<Repeat>(content);
+}
+
+rule_ptr seq(const vector<rule_ptr> &rules) { return Seq::Build(rules); }
+
+rule_ptr sym(const string &name) { return make_shared<NamedSymbol>(name); }
+
+rule_ptr pattern(const string &value) { return make_shared<Pattern>(value); }
+
+rule_ptr str(const string &value) { return make_shared<String>(value); }
+
+rule_ptr keyword(const string &value) {
+  return token(prec(KEYWORD_PRECEDENCE, str(value)));
+}
+
+rule_ptr keypattern(const string &value) {
+  return token(prec(KEYWORD_PRECEDENCE, pattern(value)));
+}
+
+rule_ptr err(const rule_ptr &rule) {
+  return choice({ rule, ERROR().copy() });
+}
+
+rule_ptr prec(int precedence, rule_ptr rule) {
+  return metadata(rule, { { PRECEDENCE, precedence } });
+}
+
+rule_ptr token(rule_ptr rule) {
+  return metadata(rule, { { IS_TOKEN, 1 } });
+}
+
+}  // namespace rules
+}  // namespace tree_sitter

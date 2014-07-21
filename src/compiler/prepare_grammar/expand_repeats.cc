@@ -11,55 +11,57 @@
 #include "compiler/rules/repeat.h"
 
 namespace tree_sitter {
-    using std::string;
-    using std::vector;
-    using std::pair;
-    using std::to_string;
-    using std::make_shared;
-    using rules::rule_ptr;
-    using rules::Blank;
-    using rules::Choice;
-    using rules::Repeat;
-    using rules::Rule;
-    using rules::Seq;
-    using rules::Symbol;
+namespace prepare_grammar {
 
-    namespace prepare_grammar {
-        class ExpandRepeats : public rules::IdentityRuleFn {
-            string rule_name;
+using std::string;
+using std::vector;
+using std::pair;
+using std::to_string;
+using std::make_shared;
+using rules::rule_ptr;
+using rules::Blank;
+using rules::Choice;
+using rules::Repeat;
+using rules::Rule;
+using rules::Seq;
+using rules::Symbol;
 
-            rule_ptr apply_to(const Repeat *rule) {
-                rule_ptr inner_rule = apply(rule->content);
-                size_t index = aux_rules.size();
-                string helper_rule_name = rule_name + string("_repeat") + to_string(index);
-                rule_ptr repeat_symbol = make_shared<Symbol>(offset + index, rules::SymbolOptionAuxiliary);
-                aux_rules.push_back({
-                    helper_rule_name,
-                    Choice::Build({
-                        Seq::Build({ inner_rule, repeat_symbol }),
-                        make_shared<Blank>()
-                    })
-                });
-                return repeat_symbol;
-            }
+class ExpandRepeats : public rules::IdentityRuleFn {
+  string rule_name;
 
-        public:
-            ExpandRepeats(string rule_name, size_t offset) : rule_name(rule_name), offset(offset) {}
+  rule_ptr apply_to(const Repeat *rule) {
+    rule_ptr inner_rule = apply(rule->content);
+    size_t index = aux_rules.size();
+    string helper_rule_name = rule_name + string("_repeat") + to_string(index);
+    rule_ptr repeat_symbol =
+        make_shared<Symbol>(offset + index, rules::SymbolOptionAuxiliary);
+    aux_rules.push_back(
+        { helper_rule_name,
+          Choice::Build({ Seq::Build({ inner_rule, repeat_symbol }),
+                          make_shared<Blank>() }) });
+    return repeat_symbol;
+  }
 
-            size_t offset;
-            vector<pair<string, rules::rule_ptr>> aux_rules;
-        };
+ public:
+  ExpandRepeats(string rule_name, size_t offset)
+      : rule_name(rule_name), offset(offset) {}
 
-        SyntaxGrammar expand_repeats(const SyntaxGrammar &grammar) {
-            vector<pair<string, rules::rule_ptr>> rules, aux_rules(grammar.aux_rules);
+  size_t offset;
+  vector<pair<string, rules::rule_ptr> > aux_rules;
+};
 
-            for (auto &pair : grammar.rules) {
-                ExpandRepeats expander(pair.first, aux_rules.size());
-                rules.push_back({ pair.first, expander.apply(pair.second) });
-                aux_rules.insert(aux_rules.end(), expander.aux_rules.begin(), expander.aux_rules.end());
-            }
+SyntaxGrammar expand_repeats(const SyntaxGrammar &grammar) {
+  vector<pair<string, rules::rule_ptr> > rules, aux_rules(grammar.aux_rules);
 
-            return SyntaxGrammar(rules, aux_rules, grammar.ubiquitous_tokens);
-        }
-    }
+  for (auto &pair : grammar.rules) {
+    ExpandRepeats expander(pair.first, aux_rules.size());
+    rules.push_back({ pair.first, expander.apply(pair.second) });
+    aux_rules.insert(aux_rules.end(), expander.aux_rules.begin(),
+                     expander.aux_rules.end());
+  }
+
+  return SyntaxGrammar(rules, aux_rules, grammar.ubiquitous_tokens);
 }
+
+}  // namespace prepare_grammar
+}  // namespace tree_sitter

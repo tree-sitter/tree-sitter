@@ -4,21 +4,23 @@
 #include <string>
 #include "compiler/rules/rule.h"
 
-namespace tree_sitter  {
-    namespace rules {
-        class String : public Rule {
-        public:
-            explicit String(std::string value);
+namespace tree_sitter {
+namespace rules {
 
-            bool operator==(const Rule& other) const;
-            size_t hash_code() const;
-            rule_ptr copy() const;
-            std::string to_string() const;
-            void accept(Visitor *visitor) const;
+class String : public Rule {
+ public:
+  explicit String(std::string value);
 
-            const std::string value;
-        };
-    }
-}
+  bool operator==(const Rule &other) const;
+  size_t hash_code() const;
+  rule_ptr copy() const;
+  std::string to_string() const;
+  void accept(Visitor *visitor) const;
+
+  const std::string value;
+};
+
+}  // namespace rules
+}  // namespace tree_sitter
 
 #endif  // COMPILER_RULES_STRING_H_

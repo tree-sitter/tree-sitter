@@ -9,60 +9,59 @@
 #include "compiler/rules/blank.h"
 #include "compiler/rules/metadata.h"
 
-namespace tree_sitter  {
-    using std::set;
+namespace tree_sitter {
+namespace build_tables {
 
-    namespace build_tables {
-        class CanBeBlank : public rules::RuleFn<bool> {
-        protected:
-            bool apply_to(const rules::Blank *) {
-                return true;
-            }
+using std::set;
 
-            bool apply_to(const rules::Repeat *rule) {
-                return true;
-            }
+class CanBeBlank : public rules::RuleFn<bool> {
+ protected:
+  bool apply_to(const rules::Blank *) { return true; }
 
-            bool apply_to(const rules::Choice *rule) {
-                for (const auto &element : rule->elements)
-                    if (apply(element)) return true;
-                return false;
-            }
+  bool apply_to(const rules::Repeat *rule) { return true; }
 
-            bool apply_to(const rules::Seq *rule) {
-                return apply(rule->left) && apply(rule->right);
-            }
+  bool apply_to(const rules::Choice *rule) {
+    for (const auto &element : rule->elements)
+      if (apply(element))
+        return true;
+    return false;
+  }
 
-            bool apply_to(const rules::Metadata *rule) {
-                return apply(rule->rule);
-            }
-        };
+  bool apply_to(const rules::Seq *rule) {
+    return apply(rule->left) && apply(rule->right);
+  }
 
-        class CanBeBlankRecursive : public CanBeBlank {
-            const SyntaxGrammar *grammar;
-            set<rules::Symbol> visited_symbols;
-            using CanBeBlank::visit;
+  bool apply_to(const rules::Metadata *rule) { return apply(rule->rule); }
+};
 
-        public:
-            using CanBeBlank::apply_to;
-            explicit CanBeBlankRecursive(const SyntaxGrammar *grammar) : grammar(grammar) {}
+class CanBeBlankRecursive : public CanBeBlank {
+  const SyntaxGrammar *grammar;
+  set<rules::Symbol> visited_symbols;
+  using CanBeBlank::visit;
 
-            bool apply_to(const rules::Symbol *rule) {
-                if (visited_symbols.find(*rule) == visited_symbols.end()) {
-                    visited_symbols.insert(*rule);
-                    return !rule->is_token() && apply(grammar->rule(*rule));
-                } else {
-                    return false;
-                }
-            }
-        };
+ public:
+  using CanBeBlank::apply_to;
+  explicit CanBeBlankRecursive(const SyntaxGrammar *grammar)
+      : grammar(grammar) {}
 
-        bool rule_can_be_blank(const rules::rule_ptr &rule) {
-            return CanBeBlank().apply(rule);
-        }
-
-        bool rule_can_be_blank(const rules::rule_ptr &rule, const SyntaxGrammar &grammar) {
-            return CanBeBlankRecursive(&grammar).apply(rule);
-        }
+  bool apply_to(const rules::Symbol *rule) {
+    if (visited_symbols.find(*rule) == visited_symbols.end()) {
+      visited_symbols.insert(*rule);
+      return !rule->is_token() && apply(grammar->rule(*rule));
+    } else {
+      return false;
     }
+  }
+};
+
+bool rule_can_be_blank(const rules::rule_ptr &rule) {
+  return CanBeBlank().apply(rule);
 }
+
+bool rule_can_be_blank(const rules::rule_ptr &rule,
+                       const SyntaxGrammar &grammar) {
+  return CanBeBlankRecursive(&grammar).apply(rule);
+}
+
+}  // namespace build_tables
+}  // namespace tree_sitter

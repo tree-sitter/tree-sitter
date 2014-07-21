@@ -9,53 +9,55 @@
 #include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
-    using std::set;
-    using rules::Symbol;
+namespace build_tables {
 
-    namespace build_tables {
-        class FirstSet : public rules::RuleFn<set<Symbol>> {
-            const SyntaxGrammar *grammar;
-            set<Symbol> visited_symbols;
+using std::set;
+using rules::Symbol;
 
-        public:
-            explicit FirstSet(const SyntaxGrammar *grammar) : grammar(grammar) {}
+class FirstSet : public rules::RuleFn<set<Symbol> > {
+  const SyntaxGrammar *grammar;
+  set<Symbol> visited_symbols;
 
-            set<Symbol> apply_to(const Symbol *rule) {
-                auto insertion_result = visited_symbols.insert(*rule);
-                if (insertion_result.second) {
-                    return (rule->is_token()) ?
-                        set<Symbol>({ *rule }) :
-                        apply(grammar->rule(*rule));
-                } else {
-                    return set<Symbol>();
-                }
-            }
+ public:
+  explicit FirstSet(const SyntaxGrammar *grammar) : grammar(grammar) {}
 
-            set<Symbol> apply_to(const rules::Metadata *rule) {
-                return apply(rule->rule);
-            }
-
-            set<Symbol> apply_to(const rules::Choice *rule) {
-                set<Symbol> result;
-                for (const auto &el : rule->elements) {
-                    auto &&next_syms = apply(el);
-                    result.insert(next_syms.begin(), next_syms.end());
-                }
-                return result;
-            }
-
-            set<Symbol> apply_to(const rules::Seq *rule) {
-                auto &&result = apply(rule->left);
-                if (rule_can_be_blank(rule->left, *grammar)) {
-                    auto &&right_symbols = apply(rule->right);
-                    result.insert(right_symbols.begin(), right_symbols.end());
-                }
-                return result;
-            }
-        };
-
-        set<Symbol> first_set(const rules::rule_ptr &rule, const SyntaxGrammar &grammar) {
-            return FirstSet(&grammar).apply(rule);
-        }
+  set<Symbol> apply_to(const Symbol *rule) {
+    auto insertion_result = visited_symbols.insert(*rule);
+    if (insertion_result.second) {
+      return (rule->is_token()) ? set<Symbol>({ *rule })
+                                : apply(grammar->rule(*rule));
+    } else {
+      return set<Symbol>();
     }
+  }
+
+  set<Symbol> apply_to(const rules::Metadata *rule) {
+    return apply(rule->rule);
+  }
+
+  set<Symbol> apply_to(const rules::Choice *rule) {
+    set<Symbol> result;
+    for (const auto &el : rule->elements) {
+      auto &&next_syms = apply(el);
+      result.insert(next_syms.begin(), next_syms.end());
+    }
+    return result;
+  }
+
+  set<Symbol> apply_to(const rules::Seq *rule) {
+    auto &&result = apply(rule->left);
+    if (rule_can_be_blank(rule->left, *grammar)) {
+      auto &&right_symbols = apply(rule->right);
+      result.insert(right_symbols.begin(), right_symbols.end());
+    }
+    return result;
+  }
+};
+
+set<Symbol> first_set(const rules::rule_ptr &rule,
+                      const SyntaxGrammar &grammar) {
+  return FirstSet(&grammar).apply(rule);
 }
+
+}  // namespace build_tables
+}  // namespace tree_sitter

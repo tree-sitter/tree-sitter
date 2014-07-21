@@ -8,40 +8,44 @@
 #include "compiler/rules/rule.h"
 #include "compiler/rules/character_range.h"
 
-namespace tree_sitter  {
-    namespace rules {
-        class CharacterSet : public Rule {
-        public:
-            CharacterSet();
-            explicit CharacterSet(const std::set<CharacterRange> &ranges);
-            explicit CharacterSet(const std::initializer_list<CharacterRange> &ranges);
+namespace tree_sitter {
+namespace rules {
 
-            bool operator==(const Rule& other) const;
-            bool operator<(const CharacterSet &) const;
-            size_t hash_code() const;
-            rule_ptr copy() const;
-            std::string to_string() const;
-            void accept(Visitor *visitor) const;
+class CharacterSet : public Rule {
+ public:
+  CharacterSet();
+  explicit CharacterSet(const std::set<CharacterRange> &ranges);
+  explicit CharacterSet(const std::initializer_list<CharacterRange> &ranges);
 
-            void add_set(const CharacterSet &other);
-            CharacterSet remove_set(const CharacterSet &other);
-            CharacterSet complement() const;
-            CharacterSet intersect(const CharacterSet &) const;
-            std::pair<CharacterSet, bool> most_compact_representation() const;
-            bool is_empty() const;
+  bool operator==(const Rule &other) const;
+  bool operator<(const CharacterSet &) const;
+  size_t hash_code() const;
+  rule_ptr copy() const;
+  std::string to_string() const;
+  void accept(Visitor *visitor) const;
 
-            std::set<CharacterRange> ranges;
-        };
-    }
-}
+  void add_set(const CharacterSet &other);
+  CharacterSet remove_set(const CharacterSet &other);
+  CharacterSet complement() const;
+  CharacterSet intersect(const CharacterSet &) const;
+  std::pair<CharacterSet, bool> most_compact_representation() const;
+  bool is_empty() const;
+
+  std::set<CharacterRange> ranges;
+};
+
+}  // namespace rules
+}  // namespace tree_sitter
 
 namespace std {
-    template<>
-    struct hash<tree_sitter::rules::CharacterSet> {
-        size_t operator()(const tree_sitter::rules::CharacterSet &rule) const {
-            return rule.hash_code();
-        }
-    };
-}
+
+template <>
+struct hash<tree_sitter::rules::CharacterSet> {
+  size_t operator()(const tree_sitter::rules::CharacterSet &rule) const {
+    return rule.hash_code();
+  }
+};
+
+}  // namespace std
 
 #endif  // COMPILER_RULES_CHARACTER_SET_H_

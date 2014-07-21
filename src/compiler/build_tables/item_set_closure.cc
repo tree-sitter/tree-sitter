@@ -10,50 +10,56 @@
 #include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {
-    using std::set;
-    using std::vector;
-    using std::pair;
-    using rules::Symbol;
-    using rules::rule_ptr;
+namespace build_tables {
 
-    namespace build_tables {
-        const ParseItemSet item_set_closure(const ParseItem &starting_item,
-                                            const set<Symbol> &starting_lookahead_symbols,
-                                            const SyntaxGrammar &grammar) {
-            ParseItemSet result;
+using std::set;
+using std::vector;
+using std::pair;
+using rules::Symbol;
+using rules::rule_ptr;
 
-            vector<pair<ParseItem, set<Symbol>>> items_to_process = {{starting_item, starting_lookahead_symbols}};
-            while (!items_to_process.empty()) {
-                ParseItem item = items_to_process.back().first;
-                set<Symbol> new_lookahead_symbols = items_to_process.back().second;
-                items_to_process.pop_back();
+const ParseItemSet item_set_closure(
+    const ParseItem &starting_item,
+    const set<Symbol> &starting_lookahead_symbols,
+    const SyntaxGrammar &grammar) {
+  ParseItemSet result;
 
-                set<Symbol> &lookahead_symbols = result[item];
-                size_t previous_size = lookahead_symbols.size();
-                lookahead_symbols.insert(new_lookahead_symbols.begin(), new_lookahead_symbols.end());
+  vector<pair<ParseItem, set<Symbol>>> items_to_process = {
+    { starting_item, starting_lookahead_symbols }
+  };
 
-                if (lookahead_symbols.size() == previous_size)
-                    continue;
+  while (!items_to_process.empty()) {
+    ParseItem item = items_to_process.back().first;
+    set<Symbol> new_lookahead_symbols = items_to_process.back().second;
+    items_to_process.pop_back();
 
-                for (const auto &pair : sym_transitions(item.rule)) {
-                    const Symbol &symbol = pair.first;
-                    const rule_ptr &next_rule = pair.second;
+    set<Symbol> &lookahead_symbols = result[item];
+    size_t previous_size = lookahead_symbols.size();
+    lookahead_symbols.insert(new_lookahead_symbols.begin(),
+                             new_lookahead_symbols.end());
 
-                    if (symbol.is_token() || symbol.is_built_in())
-                        continue;
+    if (lookahead_symbols.size() == previous_size)
+      continue;
 
-                    set<Symbol> next_lookahead_symbols = first_set(next_rule, grammar);
-                    if (rule_can_be_blank(next_rule, grammar))
-                        next_lookahead_symbols.insert(lookahead_symbols.begin(), lookahead_symbols.end());
+    for (const auto &pair : sym_transitions(item.rule)) {
+      const Symbol &symbol = pair.first;
+      const rule_ptr &next_rule = pair.second;
 
-                    items_to_process.push_back({
-                        ParseItem(symbol, grammar.rule(symbol), 0),
-                        next_lookahead_symbols
-                    });
-                }
-            }
+      if (symbol.is_token() || symbol.is_built_in())
+        continue;
 
-            return result;
-        }
+      set<Symbol> next_lookahead_symbols = first_set(next_rule, grammar);
+      if (rule_can_be_blank(next_rule, grammar))
+        next_lookahead_symbols.insert(lookahead_symbols.begin(),
+                                      lookahead_symbols.end());
+
+      items_to_process.push_back({ ParseItem(symbol, grammar.rule(symbol), 0),
+                                   next_lookahead_symbols });
     }
+  }
+
+  return result;
 }
+
+}  // namespace build_tables
+}  // namespace tree_sitter

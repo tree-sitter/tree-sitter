@@ -7,24 +7,28 @@
  *  Private
  */
 
-static const TSParseAction * actions_for_state(TSParserConfig config, TSStateId state) {
+static const TSParseAction *actions_for_state(TSParserConfig config,
+                                              TSStateId state) {
   return config.parse_table + (state * config.symbol_count);
 }
 
 static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
-  if (!edit) return 0;
+  if (!edit)
+    return 0;
 
   TSStack *stack = &parser->stack;
   size_t position = 0;
 
   for (;;) {
     TSTree *node = ts_stack_top_node(stack);
-    if (!node) break;
+    if (!node)
+      break;
 
     position = ts_stack_right_position(stack);
     size_t child_count;
     TSTree **children = ts_tree_children(node, &child_count);
-    if (position <= edit->position && !children) break;
+    if (position <= edit->position && !children)
+      break;
 
     stack->size--;
     position -= ts_tree_total_size(node);
@@ -32,7 +36,8 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
     for (size_t i = 0; i < child_count && position < edit->position; i++) {
       TSTree *child = children[i];
       TSStateId state = ts_stack_top_state(stack);
-      TSStateId next_state = actions_for_state(parser->config, state)[child->symbol].data.to_state;
+      TSStateId next_state =
+          actions_for_state(parser->config, state)[child->symbol].data.to_state;
       ts_stack_push(stack, next_state, child);
       ts_tree_retain(child);
       position += ts_tree_total_size(child);
@@ -44,9 +49,10 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
   return position;
 }
 
-static TSSymbol * expected_symbols(TSParser *parser, size_t *count) {
+static TSSymbol *expected_symbols(TSParser *parser, size_t *count) {
   *count = 0;
-  const TSParseAction *actions = actions_for_state(parser->config, ts_stack_top_state(&parser->stack));
+  const TSParseAction *actions =
+      actions_for_state(parser->config, ts_stack_top_state(&parser->stack));
   for (size_t i = 0; i < parser->config.symbol_count; i++)
     if (actions[i].type != TSParseActionTypeError)
       (*count)++;
@@ -64,26 +70,27 @@ static TSSymbol * expected_symbols(TSParser *parser, size_t *count) {
  *  Public
  */
 
-TSParser * ts_parser_make(TSParserConfig config) {
+TSParser *ts_parser_make(TSParserConfig config) {
   TSParser *result = malloc(sizeof(*result));
-  *result = (TSParser) {
-    .lexer = ts_lexer_make(),
-    .stack = ts_stack_make(),
-    .debug = 0,
-    .config = config,
-  };
+  *result = (TSParser) { .lexer = ts_lexer_make(),
+                         .stack = ts_stack_make(),
+                         .debug = 0,
+                         .config = config, };
   return result;
 }
 
 void ts_parser_free(TSParser *parser) {
-  if (parser->lookahead) ts_tree_release(parser->lookahead);
-  if (parser->next_lookahead) ts_tree_release(parser->next_lookahead);
+  if (parser->lookahead)
+    ts_tree_release(parser->lookahead);
+  if (parser->next_lookahead)
+    ts_tree_release(parser->next_lookahead);
   ts_stack_delete(&parser->stack);
   free(parser);
 }
 
 void ts_parser_start(TSParser *parser, TSInput input, TSInputEdit *edit) {
-  if (!edit) ts_stack_shrink(&parser->stack, 0);
+  if (!edit)
+    ts_stack_shrink(&parser->stack, 0);
   parser->lookahead = NULL;
   parser->next_lookahead = NULL;
 
@@ -110,11 +117,8 @@ void ts_parser_shift_extra(TSParser *parser) {
 
 void ts_parser_reduce(TSParser *parser, TSSymbol symbol, size_t child_count) {
   parser->next_lookahead = parser->lookahead;
-  parser->lookahead = ts_stack_reduce(
-      &parser->stack,
-      symbol,
-      child_count,
-      parser->config.hidden_symbol_flags, 1);
+  parser->lookahead = ts_stack_reduce(&parser->stack, symbol, child_count,
+                                      parser->config.hidden_symbol_flags, 1);
 }
 
 int ts_parser_reduce_extra(TSParser *parser, TSSymbol symbol) {
@@ -131,12 +135,8 @@ int ts_parser_reduce_extra(TSParser *parser, TSSymbol symbol) {
 int ts_parser_handle_error(TSParser *parser) {
   size_t count = 0;
   const TSSymbol *inputs = expected_symbols(parser, &count);
-  TSTree *error = ts_tree_make_error(
-      ts_lexer_lookahead_char(&parser->lexer),
-      count,
-      inputs,
-      0,
-      0);
+  TSTree *error = ts_tree_make_error(ts_lexer_lookahead_char(&parser->lexer),
+                                     count, inputs, 0, 0);
 
   for (;;) {
     ts_tree_release(parser->lookahead);
@@ -159,10 +159,13 @@ int ts_parser_handle_error(TSParser *parser) {
     for (size_t j = 0; j < parser->stack.size; j++) {
       size_t i = parser->stack.size - 1 - j;
       TSStateId stack_state = parser->stack.entries[i].state;
-      TSParseAction action_on_error = actions_for_state(parser->config, stack_state)[ts_builtin_sym_error];
+      TSParseAction action_on_error =
+          actions_for_state(parser->config, stack_state)[ts_builtin_sym_error];
       if (action_on_error.type == TSParseActionTypeShift) {
         TSStateId state_after_error = action_on_error.data.to_state;
-        if (actions_for_state(parser->config, state_after_error)[parser->lookahead->symbol].type != TSParseActionTypeError) {
+        if (actions_for_state(parser->config,
+                              state_after_error)[parser->lookahead->symbol]
+                .type != TSParseActionTypeError) {
           ts_stack_shrink(&parser->stack, i + 1);
           ts_stack_push(&parser->stack, state_after_error, error);
           return 1;
@@ -172,7 +175,7 @@ int ts_parser_handle_error(TSParser *parser) {
   }
 }
 
-TSTree * ts_parser_tree_root(TSParser *parser) {
+TSTree *ts_parser_tree_root(TSParser *parser) {
   TSStack *stack = &parser->stack;
   size_t node_count = 0;
   for (size_t i = 0; i < stack->size; i++) {
@@ -182,7 +185,8 @@ TSTree * ts_parser_tree_root(TSParser *parser) {
   }
 
   if (node_count > 1)
-    return ts_stack_reduce(stack, 2, stack->size, parser->config.hidden_symbol_flags, 0);
+    return ts_stack_reduce(stack, 2, stack->size,
+                           parser->config.hidden_symbol_flags, 0);
   else
     return ts_stack_top_node(stack);
 }
@@ -190,16 +194,20 @@ TSTree * ts_parser_tree_root(TSParser *parser) {
 TSParseAction ts_parser_next_action(TSParser *parser) {
   TSStateId state = ts_stack_top_state(&parser->stack);
   if (!parser->lookahead)
-    parser->lookahead = parser->config.lex_fn(parser, parser->config.lex_states[state]);
+    parser->lookahead =
+        parser->config.lex_fn(parser, parser->config.lex_states[state]);
   return actions_for_state(parser->config, state)[parser->lookahead->symbol];
 }
 
-#define DEBUG_PARSE(...) \
-  if (parser->debug) { fprintf(stderr, "\n" __VA_ARGS__); }
+#define DEBUG_PARSE(...)               \
+  if (parser->debug) {                 \
+    fprintf(stderr, "\n" __VA_ARGS__); \
+  }
 
-TSTree * ts_parser_step(TSParser *parser) {
+TSTree *ts_parser_step(TSParser *parser) {
   TSParseAction action = ts_parser_next_action(parser);
-  DEBUG_PARSE("LOOKAHEAD %s", parser->config.symbol_names[parser->lookahead->symbol]);
+  DEBUG_PARSE("LOOKAHEAD %s",
+              parser->config.symbol_names[parser->lookahead->symbol]);
   switch (action.type) {
     case TSParseActionTypeShift:
       DEBUG_PARSE("SHIFT %d", action.data.to_state);
@@ -210,7 +218,9 @@ TSTree * ts_parser_step(TSParser *parser) {
       ts_parser_shift_extra(parser);
       return NULL;
     case TSParseActionTypeReduce:
-      DEBUG_PARSE("REDUCE %s %d", parser->config.symbol_names[action.data.symbol], action.data.child_count);
+      DEBUG_PARSE("REDUCE %s %d",
+                  parser->config.symbol_names[action.data.symbol],
+                  action.data.child_count);
       ts_parser_reduce(parser, action.data.symbol, action.data.child_count);
       return NULL;
     case TSParseActionTypeReduceExtra:
@@ -235,15 +245,15 @@ error:
     return NULL;
 }
 
-const TSTree * ts_parser_parse(TSParser *parser, TSInput input, TSInputEdit *edit) {
+const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
+                              TSInputEdit *edit) {
   ts_parser_start(parser, input, edit);
 
   for (;;) {
     const TSTree *tree = ts_parser_step(parser);
-    if (tree) return tree;
+    if (tree)
+      return tree;
   }
 }
 
-TSParserConfig ts_parser_config(TSParser *parser) {
-  return parser->config;
-}
+TSParserConfig ts_parser_config(TSParser *parser) { return parser->config; }

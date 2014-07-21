@@ -2,32 +2,26 @@
 #include <string>
 #include "compiler/rules/visitor.h"
 
-namespace tree_sitter  {
-    using std::string;
-    using std::hash;
+namespace tree_sitter {
+namespace rules {
 
-    namespace rules {
-        String::String(string value) : value(value) {}
+using std::string;
+using std::hash;
 
-        bool String::operator==(const Rule &rule) const {
-            const String *other = dynamic_cast<const String *>(&rule);
-            return other && (other->value == value);
-        }
+String::String(string value) : value(value) {}
 
-        size_t String::hash_code() const {
-            return hash<string>()(value);
-        }
-
-        rule_ptr String::copy() const {
-            return std::make_shared<String>(*this);
-        }
-
-        string String::to_string() const {
-            return string("#<string '") + value + "'>";
-        }
-
-        void String::accept(Visitor *visitor) const {
-            visitor->visit(this);
-        }
-    }
+bool String::operator==(const Rule &rule) const {
+  const String *other = dynamic_cast<const String *>(&rule);
+  return other && (other->value == value);
 }
+
+size_t String::hash_code() const { return hash<string>()(value); }
+
+rule_ptr String::copy() const { return std::make_shared<String>(*this); }
+
+string String::to_string() const { return string("#<string '") + value + "'>"; }
+
+void String::accept(Visitor *visitor) const { visitor->visit(this); }
+
+}  // namespace rules
+}  // namespace tree_sitter

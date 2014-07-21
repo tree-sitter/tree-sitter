@@ -12,60 +12,59 @@
 #include "compiler/prepare_grammar/parse_regex.h"
 
 namespace tree_sitter {
-    using std::string;
-    using std::vector;
-    using std::pair;
-    using std::make_shared;
-    using rules::rule_ptr;
-    using rules::String;
-    using rules::Pattern;
+namespace prepare_grammar {
 
-    namespace prepare_grammar {
-        class ExpandTokens : public rules::IdentityRuleFn {
-            using rules::IdentityRuleFn::apply_to;
+using std::string;
+using std::vector;
+using std::pair;
+using std::make_shared;
+using rules::rule_ptr;
+using rules::String;
+using rules::Pattern;
 
-            rule_ptr apply_to(const String *rule) {
-                vector<rule_ptr> elements;
-                for (char val : rule->value)
-                    elements.push_back(rules::CharacterSet({ val }).copy());
-                return rules::Seq::Build(elements);
-            }
+class ExpandTokens : public rules::IdentityRuleFn {
+  using rules::IdentityRuleFn::apply_to;
 
-            rule_ptr apply_to(const Pattern *rule) {
-                auto pair = parse_regex(rule->value);
-                if (!error)
-                    error = pair.second;
-                return pair.first;
-            }
+  rule_ptr apply_to(const String *rule) {
+    vector<rule_ptr> elements;
+    for (char val : rule->value)
+      elements.push_back(rules::CharacterSet({ val }).copy());
+    return rules::Seq::Build(elements);
+  }
 
-        public:
-            const GrammarError *error;
-            ExpandTokens() : error(nullptr) {}
-        };
+  rule_ptr apply_to(const Pattern *rule) {
+    auto pair = parse_regex(rule->value);
+    if (!error)
+      error = pair.second;
+    return pair.first;
+  }
 
-        pair<LexicalGrammar, const GrammarError *>
-        expand_tokens(const LexicalGrammar &grammar) {
-            vector<pair<string, rule_ptr>> rules, aux_rules;
-            ExpandTokens expander;
+ public:
+  const GrammarError *error;
+  ExpandTokens() : error(nullptr) {}
+};
 
-            for (auto &pair : grammar.rules) {
-                auto rule = expander.apply(pair.second);
-                if (expander.error)
-                    return { LexicalGrammar(), expander.error };
-                rules.push_back({ pair.first, rule });
-            }
+pair<LexicalGrammar, const GrammarError *> expand_tokens(
+    const LexicalGrammar &grammar) {
+  vector<pair<string, rule_ptr> > rules, aux_rules;
+  ExpandTokens expander;
 
-            for (auto &pair : grammar.aux_rules) {
-                auto rule = expander.apply(pair.second);
-                if (expander.error)
-                    return { LexicalGrammar(), expander.error };
-                aux_rules.push_back({ pair.first, rule });
-            }
+  for (auto &pair : grammar.rules) {
+    auto rule = expander.apply(pair.second);
+    if (expander.error)
+      return { LexicalGrammar(), expander.error };
+    rules.push_back({ pair.first, rule });
+  }
 
-            return {
-                LexicalGrammar(rules, aux_rules, grammar.separators),
-                nullptr,
-            };
-        }
-    }
+  for (auto &pair : grammar.aux_rules) {
+    auto rule = expander.apply(pair.second);
+    if (expander.error)
+      return { LexicalGrammar(), expander.error };
+    aux_rules.push_back({ pair.first, rule });
+  }
+
+  return { LexicalGrammar(rules, aux_rules, grammar.separators), nullptr, };
 }
+
+}  // namespace prepare_grammar
+}  // namespace tree_sitter

@@ -9,36 +9,36 @@
 #include "compiler/util/string_helpers.h"
 
 namespace tree_sitter {
-    using std::string;
+namespace prepare_grammar {
 
-    namespace prepare_grammar {
-        class TokenDescription : public rules::RuleFn<string> {
-            string apply_to(const rules::Pattern *rule) {
-                return "/" + util::escape_string(rule->value) + "/";
-            }
+using std::string;
 
-            string apply_to(const rules::String *rule) {
-                return "'" + util::escape_string(rule->value) + "'";
-            }
+class TokenDescription : public rules::RuleFn<string> {
+  string apply_to(const rules::Pattern *rule) {
+    return "/" + util::escape_string(rule->value) + "/";
+  }
 
-            string apply_to(const rules::Metadata *rule) {
-                return apply(rule->rule);
-            }
+  string apply_to(const rules::String *rule) {
+    return "'" + util::escape_string(rule->value) + "'";
+  }
 
-            string apply_to(const rules::Seq *rule) {
-                return "(seq " + apply(rule->left) + " " + apply(rule->right) + ")";
-            }
+  string apply_to(const rules::Metadata *rule) { return apply(rule->rule); }
 
-            string apply_to(const rules::Choice *rule) {
-                string result = "(choice";
-                for (auto &element : rule->elements)
-                    result += " " + apply(element);
-                return result + ")";
-            }
-        };
+  string apply_to(const rules::Seq *rule) {
+    return "(seq " + apply(rule->left) + " " + apply(rule->right) + ")";
+  }
 
-        std::string token_description(const rules::rule_ptr &rule) {
-            return TokenDescription().apply(rule);
-        }
-    }
+  string apply_to(const rules::Choice *rule) {
+    string result = "(choice";
+    for (auto &element : rule->elements)
+      result += " " + apply(element);
+    return result + ")";
+  }
+};
+
+std::string token_description(const rules::rule_ptr &rule) {
+  return TokenDescription().apply(rule);
 }
+
+}  // namespace prepare_grammar
+}  // namespace tree_sitter

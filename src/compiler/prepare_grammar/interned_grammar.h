@@ -9,14 +9,16 @@
 #include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
-    namespace prepare_grammar {
-        class InternedGrammar {
-        public:
-            std::vector<std::pair<std::string, rules::rule_ptr>> rules;
-            std::set<rules::Symbol> ubiquitous_tokens;
-            std::set<char> separators;
-        };
-    }
-}
+namespace prepare_grammar {
+
+class InternedGrammar {
+ public:
+  std::vector<std::pair<std::string, rules::rule_ptr> > rules;
+  std::set<rules::Symbol> ubiquitous_tokens;
+  std::set<char> separators;
+};
+
+}  // namespace prepare_grammar
+}  // namespace tree_sitter
 
 #endif  // COMPILER_PREPARE_GRAMMAR_INTERNED_GRAMMAR_H_

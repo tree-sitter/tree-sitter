@@ -9,47 +9,49 @@
 #include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
-    class PreparedGrammar {
-    public:
-        PreparedGrammar();
-        PreparedGrammar(
-            const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
-            const std::vector<std::pair<std::string, rules::rule_ptr>> &aux_rules);
 
-        const std::vector<std::pair<std::string, rules::rule_ptr>> rules;
-        const std::vector<std::pair<std::string, rules::rule_ptr>> aux_rules;
+class PreparedGrammar {
+ public:
+  PreparedGrammar();
+  PreparedGrammar(
+      const std::vector<std::pair<std::string, rules::rule_ptr> > &rules,
+      const std::vector<std::pair<std::string, rules::rule_ptr> > &aux_rules);
 
-        const std::string & rule_name(const rules::Symbol &symbol) const;
-        const rules::rule_ptr & rule(const rules::Symbol &symbol) const;
-    };
+  const std::vector<std::pair<std::string, rules::rule_ptr> > rules;
+  const std::vector<std::pair<std::string, rules::rule_ptr> > aux_rules;
 
-    class SyntaxGrammar : public PreparedGrammar {
-    public:
-        SyntaxGrammar();
-        SyntaxGrammar(
-            const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
-            const std::vector<std::pair<std::string, rules::rule_ptr>> &aux_rules);
-        SyntaxGrammar(
-            const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
-            const std::vector<std::pair<std::string, rules::rule_ptr>> &aux_rules,
-            const std::set<rules::Symbol> &ubiquitous_tokens);
+  const std::string &rule_name(const rules::Symbol &symbol) const;
+  const rules::rule_ptr &rule(const rules::Symbol &symbol) const;
+};
 
-        std::set<rules::Symbol> ubiquitous_tokens;
-    };
+class SyntaxGrammar : public PreparedGrammar {
+ public:
+  SyntaxGrammar();
+  SyntaxGrammar(
+      const std::vector<std::pair<std::string, rules::rule_ptr> > &rules,
+      const std::vector<std::pair<std::string, rules::rule_ptr> > &aux_rules);
+  SyntaxGrammar(
+      const std::vector<std::pair<std::string, rules::rule_ptr> > &rules,
+      const std::vector<std::pair<std::string, rules::rule_ptr> > &aux_rules,
+      const std::set<rules::Symbol> &ubiquitous_tokens);
 
-    class LexicalGrammar : public PreparedGrammar {
-    public:
-        LexicalGrammar();
-        LexicalGrammar(
-            const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
-            const std::vector<std::pair<std::string, rules::rule_ptr>> &aux_rules);
-        LexicalGrammar(
-            const std::vector<std::pair<std::string, rules::rule_ptr>> &rules,
-            const std::vector<std::pair<std::string, rules::rule_ptr>> &aux_rules,
-            const std::set<char> &separators);
+  std::set<rules::Symbol> ubiquitous_tokens;
+};
 
-        std::set<char> separators;
-    };
-}
+class LexicalGrammar : public PreparedGrammar {
+ public:
+  LexicalGrammar();
+  LexicalGrammar(
+      const std::vector<std::pair<std::string, rules::rule_ptr> > &rules,
+      const std::vector<std::pair<std::string, rules::rule_ptr> > &aux_rules);
+  LexicalGrammar(
+      const std::vector<std::pair<std::string, rules::rule_ptr> > &rules,
+      const std::vector<std::pair<std::string, rules::rule_ptr> > &aux_rules,
+      const std::set<char> &separators);
+
+  std::set<char> separators;
+};
+
+}  // namespace tree_sitter
 
 #endif  // COMPILER_PREPARED_GRAMMAR_H_

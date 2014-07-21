@@ -11,25 +11,28 @@
 #include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {
-    namespace build_tables {
-        class ParseConflictManager {
-            const SyntaxGrammar parse_grammar;
-            const LexicalGrammar lex_grammar;
-            std::set<Conflict> conflicts_;
+namespace build_tables {
 
-        public:
-            ParseConflictManager(const SyntaxGrammar &parse_grammar,
-                                 const LexicalGrammar &lex_grammar);
-            bool resolve_parse_action(const rules::Symbol &symbol,
-                                      const ParseAction &old_action,
-                                      const ParseAction &new_action);
-            const std::vector<Conflict> conflicts() const;
+class ParseConflictManager {
+  const SyntaxGrammar parse_grammar;
+  const LexicalGrammar lex_grammar;
+  std::set<Conflict> conflicts_;
 
-        private:
-            std::string symbol_name(const rules::Symbol &symbol);
-            void record_conflict(const rules::Symbol &symbol, const ParseAction &left, const ParseAction &right);
-        };
-    }
-}
+ public:
+  ParseConflictManager(const SyntaxGrammar &parse_grammar,
+                       const LexicalGrammar &lex_grammar);
+  bool resolve_parse_action(const rules::Symbol &symbol,
+                            const ParseAction &old_action,
+                            const ParseAction &new_action);
+  const std::vector<Conflict> conflicts() const;
+
+ private:
+  std::string symbol_name(const rules::Symbol &symbol);
+  void record_conflict(const rules::Symbol &symbol, const ParseAction &left,
+                       const ParseAction &right);
+};
+
+}  // namespace build_tables
+}  // namespace tree_sitter
 
 #endif  // COMPILER_BUILD_TABLES_PARSE_CONFLICT_MANAGER_H_

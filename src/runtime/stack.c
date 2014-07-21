@@ -8,8 +8,7 @@ static TSStateId INITIAL_STATE = 0;
 
 TSStack ts_stack_make() {
   TSStack result = {
-    .entries = calloc(INITIAL_STACK_SIZE, sizeof(*result.entries)),
-    .size = 0,
+    .entries = calloc(INITIAL_STACK_SIZE, sizeof(*result.entries)), .size = 0,
   };
   return result;
 }
@@ -25,7 +24,7 @@ TSStateId ts_stack_top_state(const TSStack *stack) {
   return stack->entries[stack->size - 1].state;
 }
 
-TSTree * ts_stack_top_node(const TSStack *stack) {
+TSTree *ts_stack_top_node(const TSStack *stack) {
   if (stack->size == 0)
     return NULL;
   return stack->entries[stack->size - 1].node;
@@ -53,11 +52,8 @@ size_t ts_stack_right_position(const TSStack *stack) {
   return result;
 }
 
-TSTree * ts_stack_reduce(TSStack *stack,
-    TSSymbol symbol,
-    size_t child_count,
-    const int *hidden_symbol_flags,
-    int dont_count_extras) {
+TSTree *ts_stack_reduce(TSStack *stack, TSSymbol symbol, size_t child_count,
+                        const int *hidden_symbol_flags, int dont_count_extras) {
 
   // First, walk down the stack to determine which symbols will be reduced.
   // The child node count is known ahead of time, but some children may be
@@ -73,11 +69,8 @@ TSTree * ts_stack_reduce(TSStack *stack,
   for (size_t i = 0; i < child_count; i++)
     children[i] = stack->entries[start_index + i].node;
 
-  TSTree *lookahead = ts_tree_make_node(
-      symbol,
-      child_count,
-      children,
-      hidden_symbol_flags[symbol]);
+  TSTree *lookahead = ts_tree_make_node(symbol, child_count, children,
+                                        hidden_symbol_flags[symbol]);
 
   ts_stack_shrink(stack, stack->size - child_count);
   return lookahead;

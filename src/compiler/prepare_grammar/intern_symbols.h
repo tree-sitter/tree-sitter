@@ -7,11 +7,15 @@
 #include "compiler/prepare_grammar/interned_grammar.h"
 
 namespace tree_sitter {
-    class Grammar;
 
-    namespace prepare_grammar {
-        std::pair<InternedGrammar, const GrammarError *> intern_symbols(const Grammar &);
-    }
-}
+class Grammar;
+
+namespace prepare_grammar {
+
+std::pair<InternedGrammar, const GrammarError *> intern_symbols(
+    const Grammar &);
+
+}  // namespace prepare_grammar
+}  // namespace tree_sitter
 
 #endif  // COMPILER_PREPARE_GRAMMAR_INTERN_SYMBOLS_H_

@@ -13,7 +13,8 @@ struct TSNode {
   const char **names;
 };
 
-TSNode * ts_node_make(const TSTree *tree, TSNode *parent, size_t index, size_t start_position, const char **names);
-TSNode * ts_node_make_root(const TSTree *tree, const char **names);
+TSNode *ts_node_make(const TSTree *tree, TSNode *parent, size_t index,
+                     size_t start_position, const char **names);
+TSNode *ts_node_make_root(const TSTree *tree, const char **names);
 
 #endif

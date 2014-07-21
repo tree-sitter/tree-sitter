@@ -4,21 +4,23 @@
 #include <string>
 #include "compiler/rules/rule.h"
 
-namespace tree_sitter  {
-    namespace rules {
-        class NamedSymbol : public Rule {
-        public:
-            explicit NamedSymbol(const std::string &name);
+namespace tree_sitter {
+namespace rules {
 
-            bool operator==(const Rule& other) const;
-            size_t hash_code() const;
-            rule_ptr copy() const;
-            std::string to_string() const;
-            void accept(Visitor *visitor) const;
+class NamedSymbol : public Rule {
+ public:
+  explicit NamedSymbol(const std::string &name);
 
-            std::string name;
-        };
-    }
-}
+  bool operator==(const Rule &other) const;
+  size_t hash_code() const;
+  rule_ptr copy() const;
+  std::string to_string() const;
+  void accept(Visitor *visitor) const;
+
+  std::string name;
+};
+
+}  // namespace rules
+}  // namespace tree_sitter
 
 #endif  // COMPILER_RULES_NAMED_SYMBOL_H_
