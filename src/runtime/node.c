@@ -65,6 +65,12 @@ TSNode * ts_node_next_sibling(TSNode *child) {
     return ts_node_child(child->parent, child->index + 1);
 }
 
+size_t ts_node_child_count(const TSNode *parent) {
+    size_t result;
+    ts_tree_visible_children(parent->content, &result);
+    return result;
+}
+
 TSNode * ts_node_child(TSNode *parent, size_t index) {
     size_t child_count;
     TSChildWithPosition *children = ts_tree_visible_children(parent->content, &child_count);
