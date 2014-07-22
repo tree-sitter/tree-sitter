@@ -8,9 +8,7 @@ if [[ ! -f $CPPLINT ]]; then
   chmod +x $CPPLINT
 fi
 
-$CPPLINT \
-  --root=src \
-  --linelength=85 \
-  --filter=-legal/copyright,-readability/todo \
-  $(find src/compiler -type f) \
-  2>&1
+FILTERS='--filter=-legal/copyright,-readability/todo'
+
+$CPPLINT --root=include $FILTERS include/tree_sitter/compiler.h 2>&1
+$CPPLINT --root=src $FILTERS $(find src/compiler -type f) 2>&1

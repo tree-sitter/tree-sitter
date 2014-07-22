@@ -1,17 +1,18 @@
 #ifndef TREE_SITTER_COMPILER_H_
 #define TREE_SITTER_COMPILER_H_
 
-#include <vector>
+#include <memory>
 #include <set>
 #include <string>
-#include <memory>
+#include <utility>
+#include <vector>
 
 namespace tree_sitter {
+
 namespace rules {
+
 class Rule;
 typedef std::shared_ptr<Rule> rule_ptr;
-
-std::ostream &operator<<(std::ostream &stream, const rule_ptr &rule);
 
 rule_ptr blank();
 rule_ptr choice(const std::vector<rule_ptr> &rules);
@@ -25,10 +26,12 @@ rule_ptr keypattern(const std::string &value);
 rule_ptr err(const rule_ptr &rule);
 rule_ptr prec(int precedence, rule_ptr rule);
 rule_ptr token(rule_ptr rule);
-}
+
+std::ostream &operator<<(std::ostream &stream, const rules::rule_ptr &rule);
+
+}  // namespace rules
 
 class Grammar {
- protected:
   const std::vector<std::pair<std::string, rules::rule_ptr> > rules_;
   std::set<std::string> ubiquitous_tokens_;
   std::set<char> separators_;
@@ -38,7 +41,6 @@ class Grammar {
   bool operator==(const Grammar &other) const;
   std::string start_rule_name() const;
   const rules::rule_ptr rule(const std::string &name) const;
-
   const std::vector<std::pair<std::string, rules::rule_ptr> > &rules() const;
   const std::set<std::string> &ubiquitous_tokens() const;
   Grammar &ubiquitous_tokens(const std::set<std::string> &ubiquitous_tokens);
@@ -47,7 +49,7 @@ class Grammar {
 };
 
 struct Conflict {
-  Conflict(std::string description);
+  explicit Conflict(std::string description);
   std::string description;
   bool operator==(const Conflict &other) const;
   bool operator<(const Conflict &other) const;
@@ -66,12 +68,13 @@ class GrammarError {
   std::string message;
 };
 
+std::tuple<std::string, std::vector<Conflict>, const GrammarError *> compile(
+    const Grammar &grammar, std::string name);
+
 std::ostream &operator<<(std::ostream &stream, const Grammar &grammar);
 std::ostream &operator<<(std::ostream &stream, const Conflict &conflict);
 std::ostream &operator<<(std::ostream &stream, const GrammarError *error);
 
-std::tuple<std::string, std::vector<Conflict>, const GrammarError *> compile(
-    const Grammar &grammar, std::string name);
-}
+}  // namespace tree_sitter
 
 #endif  // TREE_SITTER_COMPILER_H_
