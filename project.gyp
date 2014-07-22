@@ -2,14 +2,14 @@
   'targets': [
 
     {
-      'target_name': 'tree_sitter',
+      'target_name': 'compiler',
       'type': 'static_library',
       'include_dirs': [
         'include',
         'src',
       ],
       'sources': [
-        '<!@(find include src -name "*.h" -or -name "*.cc" -or -name "*.c")',
+        '<!@(find include src/compiler -name "*.h" -or -name "*.cc")',
       ],
       'cflags_cc!': [ '-fno-rtti' ],
       'xcode_settings': {
@@ -40,9 +40,24 @@
     },
 
     {
+      'target_name': 'runtime',
+      'type': 'static_library',
+      'include_dirs': [
+        'include',
+        'src',
+      ],
+      'sources': [
+        '<!@(find include src/runtime -name "*.h" -or -name "*.c")',
+      ],
+      'direct_dependent_settings': {
+        'include_dirs': ['include'],
+      },
+    },
+
+    {
       'target_name': 'compiler_specs',
       'type': 'executable',
-      'dependencies': ['tree_sitter'],
+      'dependencies': ['compiler'],
       'include_dirs': [
         'src',
         'examples',
@@ -60,7 +75,7 @@
     {
       'target_name': 'runtime_specs',
       'type': 'executable',
-      'dependencies': ['tree_sitter'],
+      'dependencies': ['runtime'],
       'include_dirs': [
         'src',
         'examples',
@@ -85,6 +100,7 @@
         '<!@(find spec/runtime/languages -name "*.txt")',
       ],
     },
+
   ],
 
   'target_defaults': {
