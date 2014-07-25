@@ -4,6 +4,7 @@ set -e
 
 git submodule update --init --recursive
 externals/gyp/gyp project.gyp --depth . --format=make $@
+externals/gyp/gyp tests.gyp --depth . --format=make $@
 
 if [ "$1" == "-h" ]; then
   cat <<-HELP
