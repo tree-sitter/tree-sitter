@@ -135,9 +135,9 @@ class ParseTableBuilder {
         conflict_manager(ParseConflictManager(grammar, lex_grammar)) {}
 
   pair<ParseTable, vector<Conflict> > build() {
-    auto start_symbol = grammar.rules.empty() ?
-        make_shared<Symbol>(0, rules::SymbolOptionToken) :
-        make_shared<Symbol>(0);
+    auto start_symbol = grammar.rules.empty()
+                            ? make_shared<Symbol>(0, rules::SymbolOptionToken)
+                            : make_shared<Symbol>(0);
     ParseItem start_item(rules::START(), start_symbol, 0);
     add_parse_state(
         item_set_closure(start_item, { rules::END_OF_INPUT() }, grammar));

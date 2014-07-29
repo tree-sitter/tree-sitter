@@ -8,12 +8,15 @@ struct TSDocument {
   TSParser *parser;
   const TSTree *tree;
   TSInput input;
-  size_t error_count;
 };
 
 TSDocument *ts_document_make() {
   TSDocument *document = malloc(sizeof(TSDocument));
-  *document = (TSDocument) { .input = (TSInput) {} };
+  *document = (TSDocument) {
+    .input = (TSInput) { .data = NULL, .read_fn = NULL, .seek_fn = NULL },
+    .parser = NULL,
+    .tree = NULL
+  };
   return document;
 }
 
