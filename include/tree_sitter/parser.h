@@ -154,7 +154,7 @@ struct TSLanguage {
   { .type = TSParseActionTypeAccept }
 
 #define EXPORT_LANGUAGE(language_name)                          \
-  static TSLanguage language = (TSLanguage) {                   \
+  static TSLanguage language = {                                \
     .symbol_count = SYMBOL_COUNT,                               \
     .hidden_symbol_flags = ts_hidden_symbol_flags,              \
     .parse_table = (const TSParseAction *)ts_parse_actions,     \
