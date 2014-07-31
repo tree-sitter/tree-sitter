@@ -20,10 +20,12 @@ START_TEST
 describe("LR Parsers", [&]() {
     TSParser parser;
     SpyReader *reader;
+    TSLanguage language;
 
     before_each([&]() {
-        dummy_language->lex_fn = fake_lex;
-        parser = ts_parser_make(dummy_language);
+        language = *dummy_language();
+        language.lex_fn = fake_lex;
+        parser = ts_parser_make(&language);
 
         reader = new SpyReader("some structured text", 5);
     });

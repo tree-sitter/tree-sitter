@@ -14,7 +14,7 @@ enum {
     dummy_sym3 = 4,
 };
 
-extern TSLanguage *dummy_language;
+const TSLanguage * dummy_language();
 
 #ifdef __cplusplus
 }

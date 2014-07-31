@@ -1,6 +1,6 @@
 #include "runtime/runtime_spec_helper.h"
 
-extern "C" TSLanguage * ts_language_json;
+extern "C" TSLanguage * ts_language_json();
 
 START_TEST
 
@@ -10,7 +10,7 @@ describe("Node", []() {
 
     before_each([&]() {
         document = ts_document_make();
-        ts_document_set_language(document, ts_language_json);
+        ts_document_set_language(document, ts_language_json());
 
         ts_document_set_input_string(document, "  [12, 5, 345]");
         root = ts_document_root_node(document);

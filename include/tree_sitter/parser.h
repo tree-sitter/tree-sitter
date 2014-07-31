@@ -163,7 +163,9 @@ struct TSLanguage {
     .lex_fn = ts_lex,                                           \
   };                                                            \
                                                                 \
-  const TSLanguage *language_name = &language;
+  const TSLanguage * language_name() {                          \
+    return &language;                                           \
+  }
 
 #ifdef __cplusplus
 }

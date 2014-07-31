@@ -2,7 +2,7 @@
 #include "runtime/helpers/spy_reader.h"
 #include "runtime/tree.h"
 
-extern "C" const TSLanguage * ts_language_json;
+extern "C" const TSLanguage * ts_language_json();
 
 START_TEST
 
@@ -11,7 +11,7 @@ describe("incremental parsing", [&]() {
 
     before_each([&]() {
         doc = ts_document_make();
-        ts_document_set_language(doc, ts_language_json);
+        ts_document_set_language(doc, ts_language_json());
     });
 
     after_each([&]() {

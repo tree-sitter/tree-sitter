@@ -37,4 +37,6 @@ static TSLanguage language = {
     .hidden_symbol_flags = hidden_symbols,
 };
 
-TSLanguage *dummy_language = &language;
+const TSLanguage * dummy_language() {
+  return &language;
+}
