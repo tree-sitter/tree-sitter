@@ -23,8 +23,8 @@ typedef struct TSLexer {
   size_t token_start_position;
   int reached_end;
 
-  TSTree * (* accept_fn)(struct TSLexer *, TSSymbol, int);
-  int (* advance_fn)(struct TSLexer *);
+  TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, int);
+  int (*advance_fn)(struct TSLexer *);
 } TSLexer;
 
 static inline size_t ts_lexer_position(const TSLexer *lexer) {
@@ -43,7 +43,8 @@ static inline int ts_lexer_advance(TSLexer *lexer) {
   return lexer->advance_fn(lexer);
 }
 
-static inline TSTree *ts_lexer_accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
+static inline TSTree *ts_lexer_accept(TSLexer *lexer, TSSymbol symbol,
+                                      int is_hidden) {
   return lexer->accept_fn(lexer, symbol, is_hidden);
 }
 
@@ -90,38 +91,37 @@ struct TSLanguage {
 #define LEX_FN() static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state)
 
 #define DEBUG_LEX(...)                 \
-  if (lexer->debug) {           \
+  if (lexer->debug) {                  \
     fprintf(stderr, "\n" __VA_ARGS__); \
   }
 
-#define START_LEXER()                                  \
-  DEBUG_LEX("LEX %d", lex_state);                      \
-  char lookahead;                                      \
-  next_state:                                          \
+#define START_LEXER()                         \
+  DEBUG_LEX("LEX %d", lex_state);             \
+  char lookahead;                             \
+  next_state:                                 \
   lookahead = ts_lexer_lookahead_char(lexer); \
   DEBUG_LEX("CHAR '%c'", lookahead);
 
 #define START_TOKEN() ts_lexer_start_token(lexer);
 
-#define ADVANCE(state_index)               \
-  {                                        \
-    DEBUG_LEX("ADVANCE %d", state_index);  \
-    if (!ts_lexer_advance(lexer)) \
-      ACCEPT_TOKEN(ts_builtin_sym_end);    \
-    lex_state = state_index;               \
-    goto next_state;                       \
+#define ADVANCE(state_index)              \
+  {                                       \
+    DEBUG_LEX("ADVANCE %d", state_index); \
+    if (!ts_lexer_advance(lexer))         \
+      ACCEPT_TOKEN(ts_builtin_sym_end);   \
+    lex_state = state_index;              \
+    goto next_state;                      \
   }
 
-#define ACCEPT_TOKEN(symbol)                                    \
-  {                                                             \
-    DEBUG_LEX("TOKEN %s", ts_symbol_names[symbol]);             \
-    return ts_lexer_accept(lexer, symbol,          \
-                               ts_hidden_symbol_flags[symbol]); \
+#define ACCEPT_TOKEN(symbol)                                               \
+  {                                                                        \
+    DEBUG_LEX("TOKEN %s", ts_symbol_names[symbol]);                        \
+    return ts_lexer_accept(lexer, symbol, ts_hidden_symbol_flags[symbol]); \
   }
 
-#define LEX_ERROR()                                                      \
-  {                                                                      \
-    DEBUG_LEX("ERROR");                                                  \
+#define LEX_ERROR()                                         \
+  {                                                         \
+    DEBUG_LEX("ERROR");                                     \
     return ts_lexer_accept(lexer, ts_builtin_sym_error, 0); \
   }
 
@@ -153,19 +153,17 @@ struct TSLanguage {
 #define ACCEPT_INPUT() \
   { .type = TSParseActionTypeAccept }
 
-#define EXPORT_LANGUAGE(language_name)                          \
-  static TSLanguage language = {                                \
-    .symbol_count = SYMBOL_COUNT,                               \
-    .hidden_symbol_flags = ts_hidden_symbol_flags,              \
-    .parse_table = (const TSParseAction *)ts_parse_actions,     \
-    .lex_states = ts_lex_states,                                \
-    .symbol_names = ts_symbol_names,                            \
-    .lex_fn = ts_lex,                                           \
-  };                                                            \
-                                                                \
-  const TSLanguage * language_name() {                          \
-    return &language;                                           \
-  }
+#define EXPORT_LANGUAGE(language_name)                      \
+  static TSLanguage language = {                            \
+    .symbol_count = SYMBOL_COUNT,                           \
+    .hidden_symbol_flags = ts_hidden_symbol_flags,          \
+    .parse_table = (const TSParseAction *)ts_parse_actions, \
+    .lex_states = ts_lex_states,                            \
+    .symbol_names = ts_symbol_names,                        \
+    .lex_fn = ts_lex,                                       \
+  };                                                        \
+                                                            \
+  const TSLanguage *language_name() { return &language; }
 
 #ifdef __cplusplus
 }

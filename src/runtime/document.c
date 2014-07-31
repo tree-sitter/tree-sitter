@@ -27,7 +27,8 @@ void ts_document_free(TSDocument *document) {
   free(document);
 }
 
-void ts_document_set_language(TSDocument *document, const TSLanguage *language) {
+void ts_document_set_language(TSDocument *document,
+                              const TSLanguage *language) {
   ts_parser_destroy(&document->parser);
   document->parser = ts_parser_make(language);
 }
@@ -37,7 +38,8 @@ const TSTree *ts_document_tree(const TSDocument *document) {
 }
 
 const char *ts_document_string(const TSDocument *document) {
-  return ts_tree_string(document->tree, document->parser.language->symbol_names);
+  return ts_tree_string(document->tree,
+                        document->parser.language->symbol_names);
 }
 
 void ts_document_set_input(TSDocument *document, TSInput input) {
@@ -94,7 +96,8 @@ void ts_document_set_input_string(TSDocument *document, const char *text) {
 }
 
 TSNode *ts_document_root_node(const TSDocument *document) {
-  return ts_node_make_root(document->tree, document->parser.language->symbol_names);
+  return ts_node_make_root(document->tree,
+                           document->parser.language->symbol_names);
 }
 
 TSNode *ts_document_get_node(const TSDocument *document, size_t pos) {

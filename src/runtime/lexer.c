@@ -20,7 +20,7 @@ static int advance(TSLexer *lexer) {
   return 1;
 }
 
-static TSTree * accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
+static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
   size_t current_position = ts_lexer_position(lexer);
   size_t size = current_position - lexer->token_start_position;
   size_t offset = lexer->token_start_position - lexer->token_end_position;
@@ -38,6 +38,5 @@ TSLexer ts_lexer_make() {
                      .token_end_position = 0,
                      .reached_end = 0,
                      .advance_fn = advance,
-                     .accept_fn = accept,
-  };
+                     .accept_fn = accept, };
 }

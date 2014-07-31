@@ -39,8 +39,8 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
     for (size_t i = 0; i < child_count && position < edit->position; i++) {
       TSTree *child = children[i];
       TSStateId state = ts_stack_top_state(stack);
-      TSStateId next_state =
-          actions_for_state(parser->language, state)[child->symbol].data.to_state;
+      TSStateId next_state = actions_for_state(
+          parser->language, state)[child->symbol].data.to_state;
       ts_stack_push(stack, next_state, child);
       ts_tree_retain(child);
       position += ts_tree_total_size(child);
@@ -141,7 +141,8 @@ int ts_parser_handle_error(TSParser *parser) {
   for (;;) {
     ts_tree_release(parser->lookahead);
     size_t position = ts_lexer_position(&parser->lexer);
-    parser->lookahead = parser->language->lex_fn(&parser->lexer, ts_lex_state_error);
+    parser->lookahead =
+        parser->language->lex_fn(&parser->lexer, ts_lex_state_error);
 
     int at_end = 0;
     if (ts_lexer_position(&parser->lexer) == position)
@@ -159,8 +160,8 @@ int ts_parser_handle_error(TSParser *parser) {
     for (size_t j = 0; j < parser->stack.size; j++) {
       size_t i = parser->stack.size - 1 - j;
       TSStateId stack_state = parser->stack.entries[i].state;
-      TSParseAction action_on_error =
-          actions_for_state(parser->language, stack_state)[ts_builtin_sym_error];
+      TSParseAction action_on_error = actions_for_state(
+          parser->language, stack_state)[ts_builtin_sym_error];
       if (action_on_error.type == TSParseActionTypeShift) {
         TSStateId state_after_error = action_on_error.data.to_state;
         if (actions_for_state(parser->language,
@@ -194,8 +195,8 @@ TSTree *ts_parser_tree_root(TSParser *parser) {
 TSParseAction ts_parser_next_action(TSParser *parser) {
   TSStateId state = ts_stack_top_state(&parser->stack);
   if (!parser->lookahead)
-    parser->lookahead =
-        parser->language->lex_fn(&parser->lexer, parser->language->lex_states[state]);
+    parser->lookahead = parser->language->lex_fn(
+        &parser->lexer, parser->language->lex_states[state]);
   return actions_for_state(parser->language, state)[parser->lookahead->symbol];
 }
 
