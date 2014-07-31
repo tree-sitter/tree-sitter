@@ -163,7 +163,7 @@ class CCodeGenerator {
   }
 
   void parser_export() {
-    line("EXPORT_PARSER(ts_parser_" + name + ");");
+    line("EXPORT_LANGUAGE(ts_language_" + name + ");");
     line();
   }
 

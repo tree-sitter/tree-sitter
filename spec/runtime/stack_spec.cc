@@ -1,6 +1,6 @@
 #include "runtime/runtime_spec_helper.h"
 #include "runtime/tree.h"
-#include "tree_sitter/parser.h"
+#include "runtime/stack.h"
 
 START_TEST
 

@@ -736,4 +736,4 @@ PARSE_TABLE = {
 
 #pragma GCC diagnostic pop
 
-EXPORT_PARSER(ts_parser_json);
+EXPORT_LANGUAGE(ts_language_json);

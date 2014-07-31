@@ -1,7 +1,6 @@
-#include "tree_sitter/runtime.h"
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
-#include <string.h>
+#include "runtime/stack.h"
 
 static size_t INITIAL_STACK_SIZE = 100;
 static TSStateId INITIAL_STATE = 0;

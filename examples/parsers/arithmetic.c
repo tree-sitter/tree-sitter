@@ -549,4 +549,4 @@ PARSE_TABLE = {
 
 #pragma GCC diagnostic pop
 
-EXPORT_PARSER(ts_parser_arithmetic);
+EXPORT_LANGUAGE(ts_language_arithmetic);

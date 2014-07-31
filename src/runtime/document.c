@@ -2,10 +2,11 @@
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 #include "runtime/node.h"
+#include "runtime/parser.h"
 #include <string.h>
 
 struct TSDocument {
-  TSParser *parser;
+  TSParser parser;
   const TSTree *tree;
   TSInput input;
 };
@@ -14,24 +15,21 @@ TSDocument *ts_document_make() {
   TSDocument *document = malloc(sizeof(TSDocument));
   *document = (TSDocument) {
     .input = (TSInput) { .data = NULL, .read_fn = NULL, .seek_fn = NULL },
-    .parser = NULL,
     .tree = NULL
   };
   return document;
 }
 
 void ts_document_free(TSDocument *document) {
-  if (document->parser)
-    ts_parser_free(document->parser);
+  ts_parser_destroy(&document->parser);
   if (document->input.release_fn)
     document->input.release_fn(document->input.data);
   free(document);
 }
 
-void ts_document_set_parser(TSDocument *document, TSParser *parser) {
-  if (document->parser)
-    ts_parser_free(document->parser);
-  document->parser = parser;
+void ts_document_set_language(TSDocument *document, const TSLanguage *language) {
+  ts_parser_destroy(&document->parser);
+  document->parser = ts_parser_make(language);
 }
 
 const TSTree *ts_document_tree(const TSDocument *document) {
@@ -39,22 +37,21 @@ const TSTree *ts_document_tree(const TSDocument *document) {
 }
 
 const char *ts_document_string(const TSDocument *document) {
-  return ts_tree_string(document->tree,
-                        ts_parser_config(document->parser).symbol_names);
+  return ts_tree_string(document->tree, document->parser.language->symbol_names);
 }
 
 void ts_document_set_input(TSDocument *document, TSInput input) {
   document->input = input;
-  document->tree = ts_parser_parse(document->parser, document->input, NULL);
+  document->tree = ts_parser_parse(&document->parser, document->input, NULL);
 }
 
 void ts_document_edit(TSDocument *document, TSInputEdit edit) {
-  document->tree = ts_parser_parse(document->parser, document->input, &edit);
+  document->tree = ts_parser_parse(&document->parser, document->input, &edit);
 }
 
 const char *ts_document_symbol_name(const TSDocument *document,
                                     const TSTree *tree) {
-  return ts_parser_config(document->parser).symbol_names[tree->symbol];
+  return document->parser.language->symbol_names[tree->symbol];
 }
 
 typedef struct {
@@ -97,8 +94,7 @@ void ts_document_set_input_string(TSDocument *document, const char *text) {
 }
 
 TSNode *ts_document_root_node(const TSDocument *document) {
-  return ts_node_make_root(document->tree,
-                           document->parser->config.symbol_names);
+  return ts_node_make_root(document->tree, document->parser.language->symbol_names);
 }
 
 TSNode *ts_document_get_node(const TSDocument *document, size_t pos) {

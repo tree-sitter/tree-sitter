@@ -21,11 +21,9 @@ typedef struct {
 } TSInputEdit;
 
 typedef unsigned short TSSymbol;
+typedef struct TSLanguage TSLanguage;
 
 typedef struct TSNode TSNode;
-typedef struct TSParser TSParser;
-typedef struct TSDocument TSDocument;
-
 size_t ts_node_pos(const TSNode *);
 size_t ts_node_size(const TSNode *);
 TSSymbol ts_node_sym(const TSNode *);
@@ -41,14 +39,15 @@ void ts_node_retain(TSNode *node);
 void ts_node_release(TSNode *node);
 int ts_node_eq(const TSNode *, const TSNode *);
 
+typedef struct TSDocument TSDocument;
 TSDocument *ts_document_make();
-void ts_document_free(TSDocument *doc);
-void ts_document_set_parser(TSDocument *doc, TSParser *parser);
-void ts_document_set_input(TSDocument *doc, TSInput input);
-void ts_document_set_input_string(TSDocument *doc, const char *text);
-void ts_document_edit(TSDocument *doc, TSInputEdit edit);
-const char *ts_document_string(const TSDocument *doc);
-TSNode *ts_document_root_node(const TSDocument *document);
+void ts_document_free(TSDocument *);
+void ts_document_set_language(TSDocument *, const TSLanguage *);
+void ts_document_set_input(TSDocument *, TSInput);
+void ts_document_set_input_string(TSDocument *, const char *);
+void ts_document_edit(TSDocument *, TSInputEdit);
+const char *ts_document_string(const TSDocument *);
+TSNode *ts_document_root_node(const TSDocument *);
 
 #define ts_builtin_sym_error 0
 #define ts_builtin_sym_end 1

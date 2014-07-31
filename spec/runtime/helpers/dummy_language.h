@@ -1,5 +1,5 @@
-#ifndef HELPERS_DUMMY_PARSER_H_
-#define HELPERS_DUMMY_PARSER_H_
+#ifndef HELPERS_DUMMY_LANGUAGE_H_
+#define HELPERS_DUMMY_LANGUAGE_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,10 +14,10 @@ enum {
     dummy_sym3 = 4,
 };
 
-extern TSParserConfig dummy_parser;
+extern TSLanguage *dummy_language;
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // HELPERS_DUMMY_PARSER_H_
+#endif  // HELPERS_DUMMY_LANGUAGE_H_

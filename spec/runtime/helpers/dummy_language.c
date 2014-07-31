@@ -1,4 +1,4 @@
-#include "runtime/helpers/dummy_parser.h"
+#include "runtime/helpers/dummy_language.h"
 #include "tree_sitter/parser.h"
 
 const TSParseAction parse_table[3][5] = {
@@ -30,9 +30,11 @@ const int hidden_symbols[5] = {
     [dummy_sym3] = 1,
 };
 
-TSParserConfig dummy_parser = {
+static TSLanguage language = {
     .symbol_count = 5,
     .parse_table = (const TSParseAction *)parse_table,
     .lex_states = lex_states,
     .hidden_symbol_flags = hidden_symbols,
 };
+
+TSLanguage *dummy_language = &language;

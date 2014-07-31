@@ -77412,4 +77412,4 @@ PARSE_TABLE = {
 
 #pragma GCC diagnostic pop
 
-EXPORT_PARSER(ts_parser_javascript);
+EXPORT_LANGUAGE(ts_language_javascript);
