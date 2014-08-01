@@ -31,6 +31,8 @@ void ts_document_set_language(TSDocument *document,
                               const TSLanguage *language) {
   ts_parser_destroy(&document->parser);
   document->parser = ts_parser_make(language);
+  if (document->input.read_fn)
+    document->tree = ts_parser_parse(&document->parser, document->input, NULL);
 }
 
 const TSTree *ts_document_tree(const TSDocument *document) {
@@ -44,7 +46,8 @@ const char *ts_document_string(const TSDocument *document) {
 
 void ts_document_set_input(TSDocument *document, TSInput input) {
   document->input = input;
-  document->tree = ts_parser_parse(&document->parser, document->input, NULL);
+  if (document->parser.language)
+    document->tree = ts_parser_parse(&document->parser, document->input, NULL);
 }
 
 void ts_document_edit(TSDocument *document, TSInputEdit edit) {
@@ -96,8 +99,11 @@ void ts_document_set_input_string(TSDocument *document, const char *text) {
 }
 
 TSNode *ts_document_root_node(const TSDocument *document) {
-  return ts_node_make_root(document->tree,
-                           document->parser.language->symbol_names);
+  if (document->tree)
+    return ts_node_make_root(document->tree,
+                             document->parser.language->symbol_names);
+  else
+    return NULL;
 }
 
 TSNode *ts_document_get_node(const TSDocument *document, size_t pos) {
