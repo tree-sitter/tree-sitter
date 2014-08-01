@@ -6,12 +6,12 @@ static int advance(TSLexer *lexer) {
   if (lexer->position_in_chunk + 1 < lexer->chunk_size) {
     lexer->position_in_chunk++;
   } else {
+    if (lexer->reached_end)
+      return 0;
+
     lexer->chunk_start += lexer->chunk_size;
     lexer->chunk = lexer->input.read_fn(lexer->input.data, &lexer->chunk_size);
     lexer->position_in_chunk = 0;
-    if (lexer->reached_end) {
-      return 0;
-    }
     if (lexer->chunk_size == 0) {
       lexer->reached_end = 1;
       lexer->chunk = empty_chunk;
