@@ -127,6 +127,16 @@ describe("parsing regex patterns", []() {
         },
 
         {
+            "escaped characters",
+            "\\t\\n\\r",
+            seq({
+                character({ '\t' }),
+                character({ '\n' }),
+                character({ '\r' }),
+            })
+        },
+
+        {
             "plus repeats",
             "(ab)+(cd)+",
             seq({

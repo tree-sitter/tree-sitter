@@ -174,6 +174,12 @@ class PatternParser {
         return CharacterSet({ { 'a', 'z' }, { 'A', 'Z' }, { '0', '9' } });
       case 'd':
         return CharacterSet({ { '0', '9' } });
+      case 't':
+        return CharacterSet({ '\t' });
+      case 'n':
+        return CharacterSet({ '\n' });
+      case 'r':
+        return CharacterSet({ '\r' });
       default:
         return CharacterSet({ value });
     }
