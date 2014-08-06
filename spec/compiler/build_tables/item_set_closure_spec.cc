@@ -9,25 +9,25 @@ using namespace rules;
 START_TEST
 
 describe("computing closures of item sets", []() {
-    SyntaxGrammar grammar({
-        { "E", seq({
-            i_sym(1),
-            i_token(11) }) },
-        { "T", seq({
-            i_token(12),
-            i_token(13) }) },
-    }, {});
+  SyntaxGrammar grammar({
+      { "E", seq({
+          i_sym(1),
+          i_token(11) }) },
+      { "T", seq({
+          i_token(12),
+          i_token(13) }) },
+  }, {});
 
-    it("adds items at the beginnings of referenced rules", [&]() {
-        ParseItemSet item_set = item_set_closure(ParseItem(Symbol(0), grammar.rule(Symbol(0)), 0),
-                                                 { Symbol(10, SymbolOptionToken) },
-                                                 grammar);
+  it("adds items at the beginnings of referenced rules", [&]() {
+    ParseItemSet item_set = item_set_closure(ParseItem(Symbol(0), grammar.rule(Symbol(0)), 0),
+                                             { Symbol(10, SymbolOptionToken) },
+                                             grammar);
 
-        AssertThat(item_set, Equals(ParseItemSet({
-            { ParseItem(Symbol(1), grammar.rule(Symbol(1)), 0), { Symbol(11, SymbolOptionToken) } },
-            { ParseItem(Symbol(0), grammar.rule(Symbol(0)), 0), { Symbol(10, SymbolOptionToken) } },
-        })));
-    });
+    AssertThat(item_set, Equals(ParseItemSet({
+        { ParseItem(Symbol(1), grammar.rule(Symbol(1)), 0), { Symbol(11, SymbolOptionToken) } },
+        { ParseItem(Symbol(0), grammar.rule(Symbol(0)), 0), { Symbol(10, SymbolOptionToken) } },
+    })));
+  });
 });
 
 END_TEST

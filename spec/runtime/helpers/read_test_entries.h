@@ -5,7 +5,7 @@
 #include <vector>
 
 struct TestEntry {
-    std::string description;
+  std::string description;
 	std::string input;
 	std::string tree_string;
 };

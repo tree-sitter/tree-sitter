@@ -12,174 +12,174 @@ using prepare_grammar::extract_tokens;
 using prepare_grammar::InternedGrammar;
 
 describe("extracting tokens from a grammar", []() {
-    it("moves string rules into the lexical grammar", [&]() {
-        pair<SyntaxGrammar, LexicalGrammar> result = extract_tokens(InternedGrammar{
-            {
-                { "rule_A", seq({ str("ab"), i_sym(0) }) }
-            },
-            set<Symbol>(),
-            set<char>()
-        });
-
-        AssertThat(result.first.rules, Equals(rule_list({
-            { "rule_A", seq({ i_aux_token(0), i_sym(0) }) }
-        })));
-        AssertThat(result.first.aux_rules, IsEmpty())
-        AssertThat(result.second.rules, IsEmpty())
-        AssertThat(result.second.aux_rules, Equals(rule_list({
-            { "'ab'", str("ab") },
-        })));
+  it("moves string rules into the lexical grammar", [&]() {
+    pair<SyntaxGrammar, LexicalGrammar> result = extract_tokens(InternedGrammar{
+        {
+            { "rule_A", seq({ str("ab"), i_sym(0) }) }
+        },
+        set<Symbol>(),
+        set<char>()
     });
 
-    it("moves pattern rules into the lexical grammar", [&]() {
-        pair<SyntaxGrammar, LexicalGrammar> result = extract_tokens(InternedGrammar{
-            {
-                { "rule_A", seq({ pattern("a+"), i_sym(0) }) }
-            },
-            set<Symbol>(),
-            set<char>()
-        });
+    AssertThat(result.first.rules, Equals(rule_list({
+        { "rule_A", seq({ i_aux_token(0), i_sym(0) }) }
+    })));
+    AssertThat(result.first.aux_rules, IsEmpty())
+    AssertThat(result.second.rules, IsEmpty())
+    AssertThat(result.second.aux_rules, Equals(rule_list({
+        { "'ab'", str("ab") },
+    })));
+  });
 
-        AssertThat(result.first.rules, Equals(rule_list({
-            { "rule_A", seq({ i_aux_token(0), i_sym(0) }) }
-        })));
-        AssertThat(result.first.aux_rules, IsEmpty())
-        AssertThat(result.second.rules, IsEmpty())
-        AssertThat(result.second.aux_rules, Equals(rule_list({
-            { "/a+/", pattern("a+") },
-        })));
+  it("moves pattern rules into the lexical grammar", [&]() {
+    pair<SyntaxGrammar, LexicalGrammar> result = extract_tokens(InternedGrammar{
+        {
+            { "rule_A", seq({ pattern("a+"), i_sym(0) }) }
+        },
+        set<Symbol>(),
+        set<char>()
     });
 
-    it("moves other rules marked as tokens into the lexical grammar", [&]() {
-        pair<SyntaxGrammar, LexicalGrammar> result = extract_tokens(InternedGrammar{
-            {
-                { "rule_A", seq({
-                    token(seq({ pattern("."), choice({ str("a"), str("b") }) })),
-                    i_sym(0) }) }
-            },
-            set<Symbol>(),
-            set<char>()
-        });
+    AssertThat(result.first.rules, Equals(rule_list({
+        { "rule_A", seq({ i_aux_token(0), i_sym(0) }) }
+    })));
+    AssertThat(result.first.aux_rules, IsEmpty())
+    AssertThat(result.second.rules, IsEmpty())
+    AssertThat(result.second.aux_rules, Equals(rule_list({
+        { "/a+/", pattern("a+") },
+    })));
+  });
 
-        AssertThat(result.first.rules, Equals(rule_list({
-            { "rule_A", seq({ i_aux_token(0), i_sym(0) }) }
-        })));
-        AssertThat(result.first.aux_rules, IsEmpty())
-        AssertThat(result.second.rules, IsEmpty())
-        AssertThat(result.second.aux_rules, Equals(rule_list({
-            { "(seq /./ (choice 'a' 'b'))", token(seq({ pattern("."), choice({ str("a"), str("b") }) })) },
-        })));
+  it("moves other rules marked as tokens into the lexical grammar", [&]() {
+    pair<SyntaxGrammar, LexicalGrammar> result = extract_tokens(InternedGrammar{
+        {
+            { "rule_A", seq({
+                token(seq({ pattern("."), choice({ str("a"), str("b") }) })),
+                i_sym(0) }) }
+        },
+        set<Symbol>(),
+        set<char>()
     });
 
-    it("does not extract blanks", [&]() {
-        pair<SyntaxGrammar, LexicalGrammar> result = extract_tokens(InternedGrammar{
-            {
-                { "rule_A", choice({ i_sym(0), blank() }) },
-            },
-            set<Symbol>(),
-            set<char>()
-        });
+    AssertThat(result.first.rules, Equals(rule_list({
+        { "rule_A", seq({ i_aux_token(0), i_sym(0) }) }
+    })));
+    AssertThat(result.first.aux_rules, IsEmpty())
+    AssertThat(result.second.rules, IsEmpty())
+    AssertThat(result.second.aux_rules, Equals(rule_list({
+        { "(seq /./ (choice 'a' 'b'))", token(seq({ pattern("."), choice({ str("a"), str("b") }) })) },
+    })));
+  });
 
-        AssertThat(result.first.rules, Equals(rule_list({
+  it("does not extract blanks", [&]() {
+    pair<SyntaxGrammar, LexicalGrammar> result = extract_tokens(InternedGrammar{
+        {
             { "rule_A", choice({ i_sym(0), blank() }) },
-        })));
-        AssertThat(result.first.aux_rules, IsEmpty())
-        AssertThat(result.second.rules, IsEmpty())
-        AssertThat(result.second.aux_rules, IsEmpty())
+        },
+        set<Symbol>(),
+        set<char>()
     });
 
-    it("does not create duplicate tokens in the lexical grammar", [&]() {
-        pair<SyntaxGrammar, LexicalGrammar> result = extract_tokens(InternedGrammar{
-            {
-                { "rule_A", seq({ str("ab"), i_sym(0), str("ab") }) },
-            },
-            set<Symbol>(),
-            set<char>()
-        });
+    AssertThat(result.first.rules, Equals(rule_list({
+        { "rule_A", choice({ i_sym(0), blank() }) },
+    })));
+    AssertThat(result.first.aux_rules, IsEmpty())
+    AssertThat(result.second.rules, IsEmpty())
+    AssertThat(result.second.aux_rules, IsEmpty())
+  });
 
-        AssertThat(result.first.rules, Equals(rule_list({
-            { "rule_A", seq({ i_aux_token(0), i_sym(0), i_aux_token(0) }) }
-        })));
-        AssertThat(result.first.aux_rules, IsEmpty())
-        AssertThat(result.second.rules, IsEmpty())
-        AssertThat(result.second.aux_rules, Equals(rule_list({
-            { "'ab'", str("ab") },
-        })))
+  it("does not create duplicate tokens in the lexical grammar", [&]() {
+    pair<SyntaxGrammar, LexicalGrammar> result = extract_tokens(InternedGrammar{
+        {
+            { "rule_A", seq({ str("ab"), i_sym(0), str("ab") }) },
+        },
+        set<Symbol>(),
+        set<char>()
     });
 
-    it("preserves the separator characters in the lexical grammar", [&]() {
-        pair<SyntaxGrammar, LexicalGrammar> result = extract_tokens(InternedGrammar{
-            {
-                { "rule_A", str("ab") },
-            },
-            set<Symbol>(),
-            { 'x', 'y', 'z' }
-        });
+    AssertThat(result.first.rules, Equals(rule_list({
+        { "rule_A", seq({ i_aux_token(0), i_sym(0), i_aux_token(0) }) }
+    })));
+    AssertThat(result.first.aux_rules, IsEmpty())
+    AssertThat(result.second.rules, IsEmpty())
+    AssertThat(result.second.aux_rules, Equals(rule_list({
+        { "'ab'", str("ab") },
+    })))
+  });
 
-        AssertThat(result.second.separators, Equals(set<char>({ 'x', 'y', 'z' })));
+  it("preserves the separator characters in the lexical grammar", [&]() {
+    pair<SyntaxGrammar, LexicalGrammar> result = extract_tokens(InternedGrammar{
+        {
+            { "rule_A", str("ab") },
+        },
+        set<Symbol>(),
+        { 'x', 'y', 'z' }
     });
 
-    describe("when an entire rule can be extracted", [&]() {
-        it("moves the rule the lexical grammar when possible and updates referencing symbols", [&]() {
-            auto result = extract_tokens(InternedGrammar{
-                {
-                    { "rule_A", i_sym(1) },
-                    { "rule_B", pattern("a|b") },
-                    { "rule_C", token(seq({ str("a"), str("b") })) },
-                },
-                set<Symbol>(),
-                set<char>()
-            });
+    AssertThat(result.second.separators, Equals(set<char>({ 'x', 'y', 'z' })));
+  });
 
-            AssertThat(result.first.rules, Equals(rule_list({
-                { "rule_A", i_token(0) }
-            })));
-            AssertThat(result.first.aux_rules, IsEmpty());
-            AssertThat(result.second.rules, Equals(rule_list({
-                { "rule_B", pattern("a|b") },
-                { "rule_C", token(seq({ str("a"), str("b") })) },
-            })));
-            AssertThat(result.second.aux_rules, IsEmpty());
-        });
+  describe("when an entire rule can be extracted", [&]() {
+    it("moves the rule the lexical grammar when possible and updates referencing symbols", [&]() {
+      auto result = extract_tokens(InternedGrammar{
+          {
+              { "rule_A", i_sym(1) },
+              { "rule_B", pattern("a|b") },
+              { "rule_C", token(seq({ str("a"), str("b") })) },
+          },
+          set<Symbol>(),
+          set<char>()
+      });
 
-        it("updates symbols whose indices need to change due to deleted rules", [&]() {
-            auto result = extract_tokens(InternedGrammar{
-                {
-                    { "rule_A", str("ab") },
-                    { "rule_B", i_sym(0) },
-                    { "rule_C", i_sym(1) },
-                },
-                set<Symbol>(),
-                set<char>()
-            });
-
-            AssertThat(result.first.rules, Equals(rule_list({
-                { "rule_B", i_token(0) },
-                { "rule_C", i_sym(0) },
-            })));
-            AssertThat(result.first.aux_rules, IsEmpty());
-            AssertThat(result.second.rules, Equals(rule_list({
-                { "rule_A", str("ab") },
-            })));
-            AssertThat(result.second.aux_rules, IsEmpty());
-        });
-
-        it("updates the grammar's ubiquitous_tokens", [&]() {
-            auto result = extract_tokens(InternedGrammar{
-                {
-                    { "rule_A", str("ab") },
-                    { "rule_B", i_sym(0) },
-                    { "rule_C", i_sym(1) },
-                },
-                { Symbol(0) },
-                set<char>()
-            });
-
-            AssertThat(result.first.ubiquitous_tokens, Equals(set<Symbol>({
-                { Symbol(0, SymbolOptionToken) }
-            })));
-        });
+      AssertThat(result.first.rules, Equals(rule_list({
+          { "rule_A", i_token(0) }
+      })));
+      AssertThat(result.first.aux_rules, IsEmpty());
+      AssertThat(result.second.rules, Equals(rule_list({
+          { "rule_B", pattern("a|b") },
+          { "rule_C", token(seq({ str("a"), str("b") })) },
+      })));
+      AssertThat(result.second.aux_rules, IsEmpty());
     });
+
+    it("updates symbols whose indices need to change due to deleted rules", [&]() {
+      auto result = extract_tokens(InternedGrammar{
+          {
+              { "rule_A", str("ab") },
+              { "rule_B", i_sym(0) },
+              { "rule_C", i_sym(1) },
+          },
+          set<Symbol>(),
+          set<char>()
+      });
+
+      AssertThat(result.first.rules, Equals(rule_list({
+          { "rule_B", i_token(0) },
+          { "rule_C", i_sym(0) },
+      })));
+      AssertThat(result.first.aux_rules, IsEmpty());
+      AssertThat(result.second.rules, Equals(rule_list({
+          { "rule_A", str("ab") },
+      })));
+      AssertThat(result.second.aux_rules, IsEmpty());
+    });
+
+    it("updates the grammar's ubiquitous_tokens", [&]() {
+      auto result = extract_tokens(InternedGrammar{
+          {
+              { "rule_A", str("ab") },
+              { "rule_B", i_sym(0) },
+              { "rule_C", i_sym(1) },
+          },
+          { Symbol(0) },
+          set<char>()
+      });
+
+      AssertThat(result.first.ubiquitous_tokens, Equals(set<Symbol>({
+          { Symbol(0, SymbolOptionToken) }
+      })));
+    });
+  });
 });
 
 END_TEST
