@@ -299,7 +299,7 @@ LEX_FN() {
     switch (lex_state) {
         case 1:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -1333,7 +1333,7 @@ LEX_FN() {
             ACCEPT_TOKEN(ts_aux_sym_1);
         case 111:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -7381,7 +7381,7 @@ LEX_FN() {
             LEX_ERROR();
         case 318:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -7464,7 +7464,7 @@ LEX_FN() {
             LEX_ERROR();
         case 319:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -7529,7 +7529,7 @@ LEX_FN() {
             LEX_ERROR();
         case 320:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -7612,7 +7612,7 @@ LEX_FN() {
             LEX_ERROR();
         case 321:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -7676,7 +7676,7 @@ LEX_FN() {
             LEX_ERROR();
         case 322:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -7760,7 +7760,7 @@ LEX_FN() {
             LEX_ERROR();
         case 323:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -7826,7 +7826,7 @@ LEX_FN() {
             LEX_ERROR();
         case 324:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -7910,7 +7910,7 @@ LEX_FN() {
             LEX_ERROR();
         case 325:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -7975,7 +7975,7 @@ LEX_FN() {
             LEX_ERROR();
         case 326:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -8060,7 +8060,7 @@ LEX_FN() {
             LEX_ERROR();
         case 327:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -8127,7 +8127,7 @@ LEX_FN() {
             LEX_ERROR();
         case 328:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -8212,7 +8212,7 @@ LEX_FN() {
             LEX_ERROR();
         case 329:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -8275,7 +8275,7 @@ LEX_FN() {
             LEX_ERROR();
         case 330:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -8358,7 +8358,7 @@ LEX_FN() {
             LEX_ERROR();
         case 331:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -8423,7 +8423,7 @@ LEX_FN() {
             LEX_ERROR();
         case 332:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -8506,7 +8506,7 @@ LEX_FN() {
             LEX_ERROR();
         case 333:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -8570,7 +8570,7 @@ LEX_FN() {
             LEX_ERROR();
         case 334:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -8654,7 +8654,7 @@ LEX_FN() {
             LEX_ERROR();
         case 335:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -8720,7 +8720,7 @@ LEX_FN() {
             LEX_ERROR();
         case 336:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -8804,7 +8804,7 @@ LEX_FN() {
             LEX_ERROR();
         case 337:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -8868,7 +8868,7 @@ LEX_FN() {
             LEX_ERROR();
         case 338:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -8952,7 +8952,7 @@ LEX_FN() {
             LEX_ERROR();
         case 339:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -9018,7 +9018,7 @@ LEX_FN() {
             LEX_ERROR();
         case 340:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -9102,7 +9102,7 @@ LEX_FN() {
             LEX_ERROR();
         case 341:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||
@@ -9197,7 +9197,7 @@ LEX_FN() {
             LEX_ERROR();
         case ts_lex_state_error:
             START_TOKEN();
-            if (lookahead == '\0')
+            if (lookahead == 0)
                 ADVANCE(2);
             if ((lookahead == '\t') ||
                 (lookahead == '\r') ||

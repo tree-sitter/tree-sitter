@@ -232,11 +232,10 @@ class CCodeGenerator {
   string condition_for_character_range(const rules::CharacterRange &range) {
     string lookahead("lookahead");
     if (range.min == range.max) {
-      return lookahead + " == '" + escape_char(range.min) + "'";
+      return lookahead + " == " + escape_char(range.min);
     } else {
-      return string("'") + escape_char(range.min) + string("' <= ") +
-             lookahead + " && " + lookahead + " <= '" + escape_char(range.max) +
-             "'";
+      return escape_char(range.min) + string(" <= ") + lookahead + " && " +
+          lookahead + " <= " + escape_char(range.max);
     }
   }
 

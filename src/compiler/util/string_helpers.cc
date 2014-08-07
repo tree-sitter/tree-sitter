@@ -1,5 +1,6 @@
 #include "compiler/util/string_helpers.h"
 #include <vector>
+#include <stdio.h>
 
 namespace tree_sitter {
 namespace util {
@@ -28,22 +29,26 @@ string escape_string(string input) {
 
 string escape_char(char character) {
   switch (character) {
-    case '\0':
-      return "\\0";
     case '"':
-      return "\\\"";
+      return "'\\\"'";
     case '\'':
-      return "\\'";
+      return "'\\''";
     case '\n':
-      return "\\n";
+      return "'\\n'";
     case '\r':
-      return "\\r";
+      return "'\\r'";
     case '\t':
-      return "\\t";
+      return "'\\t'";
     case '\\':
-      return "\\\\";
+      return "'\\\\'";
     default:
-      return string() + character;
+      if (character >= ' ' && character <= '~') {
+        return string("'") + character + "'";
+      } else {
+        char buffer[5];
+        sprintf(buffer, "%d", int(character));
+        return string(buffer);
+      }
   }
 }
 
