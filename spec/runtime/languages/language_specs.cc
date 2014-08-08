@@ -28,7 +28,7 @@ describe("Languages", [&]() {
       for (auto &entry : test_entries_for_language(language_name)) {
         it(entry.description.c_str(), [&]() {
           ts_document_set_input_string(doc, entry.input.c_str());
-          auto doc_string = ts_document_string(doc);
+          auto doc_string = ts_node_string(ts_document_root_node(doc));
           AssertThat(doc_string, Equals(entry.tree_string.c_str()));
           free((void *)doc_string);
         });

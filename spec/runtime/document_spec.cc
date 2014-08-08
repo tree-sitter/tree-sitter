@@ -40,10 +40,8 @@ describe("Document", [&]() {
         });
 
         it("parses the document", [&]() {
-          TSNode *node = ts_document_root_node(doc);
-          AssertThat(string(ts_node_string(node)), Equals(
+          AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
               "(object (string) (array (number) (number)))"));
-          ts_node_release(node);
         });
       });
     });
@@ -63,7 +61,7 @@ describe("Document", [&]() {
     });
 
     it("parses the input", [&]() {
-      AssertThat(string(ts_document_string(doc)), Equals(
+      AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
           "(object (string) (array (number) (number)))"));
     });
 
@@ -83,7 +81,7 @@ describe("Document", [&]() {
       });
 
       it("updates the parse tree", [&]() {
-        AssertThat(string(ts_document_string(doc)), Equals(
+        AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
             "(object (string) (array (number) (number)) (string) (number))"));
       });
 
@@ -103,7 +101,7 @@ describe("Document", [&]() {
       });
 
       it("updates the parse tree", [&]() {
-        AssertThat(string(ts_document_string(doc)), Equals(
+        AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
             "(object (string) (number) (string) (array (number) (number)))"));
       });
 

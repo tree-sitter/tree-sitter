@@ -19,7 +19,6 @@ describe("Node", []() {
 
   after_each([&]() {
     ts_document_free(document);
-    ts_node_release(root);
   });
 
   describe("child_count", [&]() {

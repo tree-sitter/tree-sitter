@@ -235,7 +235,7 @@ class CCodeGenerator {
       return lookahead + " == " + escape_char(range.min);
     } else {
       return escape_char(range.min) + string(" <= ") + lookahead + " && " +
-          lookahead + " <= " + escape_char(range.max);
+             lookahead + " <= " + escape_char(range.max);
     }
   }
 
