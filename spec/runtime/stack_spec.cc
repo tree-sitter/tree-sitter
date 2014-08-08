@@ -66,12 +66,12 @@ describe("stacks", [&]() {
 
     it("pops the given number of nodes off the stack", [&]() {
       AssertThat(stack.size, Equals<size_t>(4));
-      ts_stack_reduce(&stack, sym2, 3, hidden_symbols, 0);
+      ts_stack_reduce(&stack, sym2, 3, hidden_symbols);
       AssertThat(stack.size, Equals<size_t>(1));
     });
 
     it("returns a node with the given symbol", [&]() {
-      TSTree *node = ts_stack_reduce(&stack, sym2, 3, hidden_symbols, 0);
+      TSTree *node = ts_stack_reduce(&stack, sym2, 3, hidden_symbols);
       AssertThat(node->symbol, Equals(sym2));
     });
 
@@ -82,7 +82,7 @@ describe("stacks", [&]() {
           stack.entries[3].node,
       };
 
-      TSTree *node = ts_stack_reduce(&stack, sym2, 3, hidden_symbols, 0);
+      TSTree *node = ts_stack_reduce(&stack, sym2, 3, hidden_symbols);
       size_t child_count;
       TSTree **children = ts_tree_children(node, &child_count);
 

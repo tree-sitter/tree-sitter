@@ -118,7 +118,7 @@ void ts_parser_shift_extra(TSParser *parser) {
 void ts_parser_reduce(TSParser *parser, TSSymbol symbol, size_t child_count) {
   parser->next_lookahead = parser->lookahead;
   parser->lookahead = ts_stack_reduce(&parser->stack, symbol, child_count,
-                                      parser->language->hidden_symbol_flags, 1);
+                                      parser->language->hidden_symbol_flags);
 }
 
 int ts_parser_reduce_extra(TSParser *parser, TSSymbol symbol) {
@@ -177,19 +177,7 @@ int ts_parser_handle_error(TSParser *parser) {
 }
 
 TSTree *ts_parser_tree_root(TSParser *parser) {
-  TSStack *stack = &parser->stack;
-  size_t node_count = 0;
-  for (size_t i = 0; i < stack->size; i++) {
-    TSTree *node = stack->entries[i].node;
-    if (!parser->language->hidden_symbol_flags[node->symbol])
-      node_count++;
-  }
-
-  if (node_count > 1)
-    return ts_stack_reduce(stack, 2, stack->size,
-                           parser->language->hidden_symbol_flags, 0);
-  else
-    return ts_stack_top_node(stack);
+  return ts_stack_top_node(&parser->stack);
 }
 
 TSParseAction ts_parser_next_action(TSParser *parser) {
