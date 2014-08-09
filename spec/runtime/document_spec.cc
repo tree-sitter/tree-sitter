@@ -41,7 +41,7 @@ describe("Document", [&]() {
 
         it("parses the document", [&]() {
           AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
-              "(object (string) (array (number) (number)))"));
+              "(DOCUMENT (object (string) (array (number) (number))))"));
         });
       });
     });
@@ -62,7 +62,7 @@ describe("Document", [&]() {
 
     it("parses the input", [&]() {
       AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
-          "(object (string) (array (number) (number)))"));
+          "(DOCUMENT (object (string) (array (number) (number))))"));
     });
 
     it("reads the entire input", [&]() {
@@ -82,7 +82,7 @@ describe("Document", [&]() {
 
       it("updates the parse tree", [&]() {
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
-            "(object (string) (array (number) (number)) (string) (number))"));
+            "(DOCUMENT (object (string) (array (number) (number)) (string) (number)))"));
       });
 
       it("re-reads only the changed portion of the input", [&]() {
@@ -102,7 +102,7 @@ describe("Document", [&]() {
 
       it("updates the parse tree", [&]() {
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
-            "(object (string) (number) (string) (array (number) (number)))"));
+            "(DOCUMENT (object (string) (number) (string) (array (number) (number))))"));
       });
 
       it_skip("re-reads only the changed portion of the input", [&]() {

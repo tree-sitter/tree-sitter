@@ -9,6 +9,7 @@ namespace rules {
 Symbol ERROR();
 Symbol START();
 Symbol END_OF_INPUT();
+Symbol DOCUMENT();
 
 }  // namespace rules
 }  // namespace tree_sitter

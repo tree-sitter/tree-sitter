@@ -1,10 +1,10 @@
 #include "tree_sitter/parser.h"
 
 #define STATE_COUNT 60
-#define SYMBOL_COUNT 18
+#define SYMBOL_COUNT 19
 
 enum {
-    ts_sym_value = ts_start_sym,
+    ts_sym_value = ts_builtin_sym_start,
     ts_sym_object,
     ts_sym_array,
     ts_sym_string,
@@ -23,6 +23,7 @@ enum {
 };
 
 SYMBOL_NAMES = {
+    [ts_builtin_sym_document] = "DOCUMENT",
     [ts_sym_value] = "value",
     [ts_sym_object] = "object",
     [ts_sym_array] = "array",
@@ -319,6 +320,7 @@ LEX_FN() {
                 ADVANCE(27);
             LEX_ERROR();
         case ts_lex_state_error:
+            START_TOKEN();
             if (lookahead == 0)
                 ADVANCE(25);
             if (('\t' <= lookahead && lookahead <= '\n') ||

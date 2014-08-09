@@ -39,7 +39,7 @@ var x = {
             (statement_block (var_declaration (identifier) (identifier)))))))
 
 ==========================================
-parses comments. TODO - leading comments
+parses comments
 ==========================================
 // this is the beginning of the script.
 // here we go.
@@ -54,6 +54,8 @@ var thing = {
     }
 };
 ---
+(comment)
+(comment)
 (program
     (var_declaration (identifier) (object
         (comment)

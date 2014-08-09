@@ -1,10 +1,10 @@
 #include "tree_sitter/parser.h"
 
 #define STATE_COUNT 32
-#define SYMBOL_COUNT 18
+#define SYMBOL_COUNT 19
 
 enum {
-    ts_sym_expression = ts_start_sym,
+    ts_sym_expression = ts_builtin_sym_start,
     ts_sym_sum,
     ts_sym_difference,
     ts_sym_product,
@@ -23,6 +23,7 @@ enum {
 };
 
 SYMBOL_NAMES = {
+    [ts_builtin_sym_document] = "DOCUMENT",
     [ts_sym_expression] = "expression",
     [ts_sym_sum] = "sum",
     [ts_sym_difference] = "difference",

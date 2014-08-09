@@ -1,10 +1,10 @@
 #include "tree_sitter/parser.h"
 
 #define STATE_COUNT 2212
-#define SYMBOL_COUNT 109
+#define SYMBOL_COUNT 110
 
 enum {
-    ts_sym_program = ts_start_sym,
+    ts_sym_program = ts_builtin_sym_start,
     ts_sym_statement,
     ts_sym_statement_block,
     ts_sym_for_statement,
@@ -114,6 +114,7 @@ enum {
 };
 
 SYMBOL_NAMES = {
+    [ts_builtin_sym_document] = "DOCUMENT",
     [ts_sym_program] = "program",
     [ts_sym_statement] = "statement",
     [ts_sym_statement_block] = "statement_block",

@@ -29,7 +29,7 @@ describe("Languages", [&]() {
         it(entry.description.c_str(), [&]() {
           ts_document_set_input_string(doc, entry.input.c_str());
           auto doc_string = ts_node_string(ts_document_root_node(doc));
-          AssertThat(doc_string, Equals(entry.tree_string.c_str()));
+          AssertThat(doc_string, Equals(("(DOCUMENT " + entry.tree_string + ")").c_str()));
           free((void *)doc_string);
         });
       }

@@ -177,7 +177,15 @@ int ts_parser_handle_error(TSParser *parser) {
 }
 
 TSTree *ts_parser_tree_root(TSParser *parser) {
-  return ts_stack_top_node(&parser->stack);
+  TSStack *stack = &parser->stack;
+  if (stack->size == 0)
+    return NULL;
+
+  TSTree *tree = ts_stack_reduce(stack, ts_builtin_sym_document,
+      stack->size, parser->language->hidden_symbol_flags);
+  tree->options = 0;
+  ts_stack_push(stack, 0, tree);
+  return tree;
 }
 
 TSParseAction ts_parser_next_action(TSParser *parser) {

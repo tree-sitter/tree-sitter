@@ -77,7 +77,7 @@ class CCodeGenerator {
       for (auto symbol : parse_table.symbols)
         if (!symbol.is_built_in()) {
           if (at_start)
-            line(symbol_id(symbol) + " = ts_start_sym,");
+            line(symbol_id(symbol) + " = ts_builtin_sym_start,");
           else
             line(symbol_id(symbol) + ",");
           at_start = false;
@@ -88,10 +88,6 @@ class CCodeGenerator {
   }
 
   void symbol_names_list() {
-    set<rules::Symbol> symbols(parse_table.symbols);
-    symbols.insert(rules::END_OF_INPUT());
-    symbols.insert(rules::ERROR());
-
     line("SYMBOL_NAMES = {");
     indent([&]() {
       for (auto symbol : parse_table.symbols)
@@ -174,8 +170,12 @@ class CCodeGenerator {
 
   string symbol_id(const rules::Symbol &symbol) {
     if (symbol.is_built_in()) {
-      return (symbol == rules::ERROR()) ? "ts_builtin_sym_error"
-                                        : "ts_builtin_sym_end";
+      if (symbol == rules::ERROR())
+        return "ts_builtin_sym_error";
+      else if (symbol == rules::END_OF_INPUT())
+        return "ts_builtin_sym_end";
+      else
+        return "ts_builtin_sym_document";
     } else {
       string name = sanitize_name(rule_name(symbol));
       if (symbol.is_auxiliary())
@@ -221,7 +221,12 @@ class CCodeGenerator {
 
   string symbol_name(const rules::Symbol &symbol) {
     if (symbol.is_built_in()) {
-      return (symbol == rules::ERROR()) ? "error" : "end";
+      if (symbol == rules::ERROR())
+        return "error";
+      else if (symbol == rules::END_OF_INPUT())
+        return "end";
+      else
+        return "DOCUMENT";
     } else if (symbol.is_token() && symbol.is_auxiliary()) {
       return rule_name(symbol);
     } else {

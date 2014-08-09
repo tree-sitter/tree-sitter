@@ -143,6 +143,7 @@ class ParseTableBuilder {
         item_set_closure(start_item, { rules::END_OF_INPUT() }, grammar));
 
     parse_table.symbols.insert(rules::ERROR());
+    parse_table.symbols.insert(rules::DOCUMENT());
 
     while (!item_sets_to_process.empty()) {
       auto pair = item_sets_to_process.back();
