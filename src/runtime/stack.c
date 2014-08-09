@@ -50,28 +50,3 @@ size_t ts_stack_right_position(const TSStack *stack) {
   }
   return result;
 }
-
-TSTree *ts_stack_reduce(TSStack *stack, TSSymbol symbol, size_t child_count,
-                        const int *hidden_symbol_flags) {
-
-  // First, walk down the stack to determine which symbols will be reduced.
-  // The child node count is known ahead of time, but some children may be
-  // ubiquitous tokens, which don't count.
-  for (size_t i = 0; i < child_count; i++) {
-    if (child_count == stack->size)
-      break;
-    TSTree *child = stack->entries[stack->size - 1 - i].node;
-    if (ts_tree_is_extra(child))
-      child_count++;
-  }
-
-  size_t start_index = stack->size - child_count;
-  TSTree **children = calloc(child_count, sizeof(TSTree *));
-  for (size_t i = 0; i < child_count; i++)
-    children[i] = stack->entries[start_index + i].node;
-
-  TSTree *lookahead = ts_tree_make_node(symbol, child_count, children,
-                                        hidden_symbol_flags[symbol]);
-  ts_stack_shrink(stack, stack->size - child_count);
-  return lookahead;
-}

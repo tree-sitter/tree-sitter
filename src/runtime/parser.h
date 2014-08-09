@@ -18,10 +18,7 @@ typedef struct {
 
 TSParser ts_parser_make(const TSLanguage *);
 void ts_parser_destroy(TSParser *);
-const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
-                              TSInputEdit *edit);
-void ts_parser_start(TSParser *parser, TSInput input, TSInputEdit *edit);
-TSTree *ts_parser_step(TSParser *parser);
+const TSTree *ts_parser_parse(TSParser *, TSInput, TSInputEdit *);
 
 #ifdef __cplusplus
 }

@@ -18,7 +18,6 @@ typedef struct {
 
 TSStack ts_stack_make();
 void ts_stack_delete(TSStack *);
-TSTree *ts_stack_reduce(TSStack *, TSSymbol, size_t, const int *hidden_symbols);
 void ts_stack_shrink(TSStack *stack, size_t new_size);
 void ts_stack_push(TSStack *stack, TSStateId state, TSTree *node);
 TSStateId ts_stack_top_state(const TSStack *stack);
