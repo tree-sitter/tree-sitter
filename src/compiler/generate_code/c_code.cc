@@ -11,6 +11,7 @@
 
 namespace tree_sitter {
 namespace generate_code {
+
 using std::string;
 using std::to_string;
 using std::function;
