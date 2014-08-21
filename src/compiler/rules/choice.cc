@@ -14,8 +14,27 @@ using std::dynamic_pointer_cast;
 
 Choice::Choice(const vector<rule_ptr> &elements) : elements(elements) {}
 
-rule_ptr Choice::Build(const vector<rule_ptr> &elements) {
-  return make_shared<Choice>(elements);
+void add_choice_element(vector<rule_ptr> *vec, const rule_ptr new_rule) {
+  auto choice = dynamic_pointer_cast<const Choice>(new_rule);
+  if (choice.get()) {
+    for (auto &child : choice->elements)
+      add_choice_element(vec, child);
+  } else {
+    for (auto &el : *vec)
+      if (el->operator==(*new_rule))
+        return;
+    vec->push_back(new_rule);
+  }
+}
+
+rule_ptr Choice::Build(const vector<rule_ptr> &inputs) {
+  vector<rule_ptr> elements;
+  for (auto &el : inputs)
+    add_choice_element(&elements, el);
+  if (elements.size() == 1)
+    return elements.front();
+  else
+    return make_shared<Choice>(elements);
 }
 
 bool Choice::operator==(const Rule &rule) const {
