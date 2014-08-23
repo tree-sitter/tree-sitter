@@ -1,6 +1,5 @@
 #include "compiler/util/string_helpers.h"
 #include <vector>
-#include <stdio.h>
 
 namespace tree_sitter {
 namespace util {
@@ -46,7 +45,7 @@ string escape_char(char character) {
         return string("'") + character + "'";
       } else {
         char buffer[5];
-        sprintf(buffer, "%d", int(character));
+        snprintf(buffer, sizeof(buffer), "%d", static_cast<int>(character));
         return string(buffer);
       }
   }

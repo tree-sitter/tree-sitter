@@ -60,7 +60,7 @@ class SymbolInliner : public rules::IdentityRuleFn {
       return Symbol(new_index_for_symbol(rule), rule.options);
   }
 
-  SymbolInliner(const map<Symbol, Symbol> &replacements)
+  explicit SymbolInliner(const map<Symbol, Symbol> &replacements)
       : replacements(replacements) {}
 };
 

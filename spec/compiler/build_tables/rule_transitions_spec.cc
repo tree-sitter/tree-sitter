@@ -101,15 +101,15 @@ describe("char_transitions", []() {
     AssertThat(
         char_transitions(choice({
             seq({
-                character({ {'a', 's'} }),
+                character({ 'a', 'b', 'c', 'd'  }),
                 sym("x") }),
             seq({
-                character({ { 'm', 'z' } }),
+                character({ 'c', 'd', 'e', 'f' }),
                 sym("y") }) })),
         Equals(rule_map<CharacterSet>({
-            { CharacterSet().include('a','l'), sym("x") },
-            { CharacterSet().include('m','s'), choice({ sym("x"), sym("y") }) },
-            { CharacterSet().include('t','z'), sym("y") },
+            { CharacterSet().include('a', 'b'), sym("x") },
+            { CharacterSet().include('c', 'd'), choice({ sym("x"), sym("y") }) },
+            { CharacterSet().include('e', 'f'), sym("y") },
         })));
   });
 
@@ -143,27 +143,27 @@ describe("char_transitions", []() {
     AssertThat(
         char_transitions(choice({
             seq({
-                character({ {'a', 'c'} }),
+                character({ 'b', 'c', 'd' }),
                 sym("x") }),
             seq({
-                character({ { 'a', 'z' } }),
+                character({ 'a', 'b', 'c', 'd', 'e', 'f' }),
                 sym("y") }) })),
         Equals(rule_map<CharacterSet>({
-            { CharacterSet().include('a', 'c'), choice({ sym("x"), sym("y") }) },
-            { CharacterSet().include('d', 'z'), sym("y") },
+            { CharacterSet().include('b', 'd'), choice({ sym("x"), sym("y") }) },
+            { CharacterSet().include('a').include('e', 'f'), sym("y") },
         })));
 
     AssertThat(
         char_transitions(choice({
             seq({
-                character({ { 'a', 'z' } }),
+                character({ 'a', 'b', 'c', 'd', 'e', 'f' }),
                 sym("x") }),
             seq({
-                character({ {'a', 'c'} }),
+                character({ 'b', 'c', 'd' }),
                 sym("y") }) })),
         Equals(rule_map<CharacterSet>({
-            { CharacterSet().include('a', 'c'), choice({ sym("x"), sym("y") }) },
-            { CharacterSet().include('d', 'z'), sym("x") },
+            { CharacterSet().include('b', 'd'), choice({ sym("x"), sym("y") }) },
+            { CharacterSet().include('a').include('e', 'f'), sym("x") },
         })));
   });
 

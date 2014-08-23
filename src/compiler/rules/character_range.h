@@ -8,33 +8,18 @@ namespace tree_sitter {
 namespace rules {
 
 struct CharacterRange {
-  unsigned char min;
-  unsigned char max;
+  uint32_t min;
+  uint32_t max;
 
-  // IMPLICIT_CONSTRUCTORS
-  CharacterRange(unsigned char value);
-  CharacterRange(unsigned char min, unsigned char max);
+  explicit CharacterRange(uint32_t value);
+  explicit CharacterRange(uint32_t min, uint32_t max);
 
   bool operator==(const CharacterRange &other) const;
   bool operator<(const CharacterRange &others) const;
   std::string to_string() const;
 };
 
-std::ostream &operator<<(std::ostream &stream, const CharacterRange &rule);
-
 }  // namespace rules
 }  // namespace tree_sitter
-
-namespace std {
-
-template <>
-struct hash<tree_sitter::rules::CharacterRange> {
-  size_t operator()(const tree_sitter::rules::CharacterRange &range) const {
-    return (hash<unsigned char>()(range.min) ^
-            hash<unsigned char>()(range.max));
-  }
-};
-
-}  // namespace std
 
 #endif  // COMPILER_RULES_CHARACTER_RANGE_H_

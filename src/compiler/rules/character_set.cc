@@ -12,13 +12,14 @@ using std::hash;
 using std::set;
 using std::vector;
 
-static void add_range(set<uint32_t> *characters, CharacterRange range) {
-  for (uint32_t c = range.min; c <= range.max; c++)
+static void add_range(set<uint32_t> *characters, uint32_t min, uint32_t max) {
+  for (uint32_t c = min; c <= max; c++)
     characters->insert(c);
 }
 
-static void remove_range(set<uint32_t> *characters, CharacterRange range) {
-  for (uint32_t c = range.min; c <= range.max; c++)
+static void remove_range(set<uint32_t> *characters, uint32_t min,
+                         uint32_t max) {
+  for (uint32_t c = min; c <= max; c++)
     characters->erase(c);
 }
 
@@ -53,9 +54,9 @@ static vector<CharacterRange> consolidate_ranges(const set<uint32_t> &chars) {
       if (last.min < last.max && last.max == (c - 1))
         last.max = c;
       else
-        result.push_back(c);
+        result.push_back(CharacterRange(c));
     } else {
-      result.push_back(c);
+      result.push_back(CharacterRange(c));
     }
   }
   return result;
@@ -124,17 +125,17 @@ CharacterSet &CharacterSet::include_all() {
 
 CharacterSet &CharacterSet::include(uint32_t min, uint32_t max) {
   if (includes_all)
-    remove_range(&excluded_chars, CharacterRange(min, max));
+    remove_range(&excluded_chars, min, max);
   else
-    add_range(&included_chars, CharacterRange(min, max));
+    add_range(&included_chars, min, max);
   return *this;
 }
 
 CharacterSet &CharacterSet::exclude(uint32_t min, uint32_t max) {
   if (includes_all)
-    add_range(&excluded_chars, CharacterRange(min, max));
+    add_range(&excluded_chars, min, max);
   else
-    remove_range(&included_chars, CharacterRange(min, max));
+    remove_range(&included_chars, min, max);
   return *this;
 }
 

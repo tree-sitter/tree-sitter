@@ -22,7 +22,6 @@ using rules::Seq;
 using rules::Blank;
 using rules::Choice;
 using rules::Repeat;
-using rules::CharacterRange;
 using rules::blank;
 
 class PatternParser {

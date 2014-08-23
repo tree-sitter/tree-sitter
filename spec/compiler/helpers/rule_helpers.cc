@@ -8,19 +8,19 @@ namespace tree_sitter {
   using std::map;
 
   namespace rules {
-    rule_ptr character(const set<CharacterRange> &ranges) {
+    rule_ptr character(const set<uint32_t> &ranges) {
       return character(ranges, true);
     }
 
-    rule_ptr character(const set<CharacterRange> &ranges, bool sign) {
+    rule_ptr character(const set<uint32_t> &chars, bool sign) {
       CharacterSet result;
       if (sign) {
-        for (auto &range : ranges)
-          result.include(range.min, range.max);
+        for (uint32_t c : chars)
+          result.include(c);
       } else {
         result.include_all();
-        for (auto &range : ranges)
-          result.exclude(range.min, range.max);
+        for (uint32_t c : chars)
+          result.exclude(c);
       }
       return result.copy();
     }

@@ -8,8 +8,8 @@
 namespace tree_sitter {
   namespace rules {
     rule_ptr metadata(rule_ptr, std::map<MetadataKey, int>);
-    rule_ptr character(const std::set<CharacterRange> &ranges);
-    rule_ptr character(const std::set<CharacterRange> &ranges, bool sign);
+    rule_ptr character(const std::set<uint32_t> &);
+    rule_ptr character(const std::set<uint32_t> &, bool sign);
     rule_ptr i_sym(size_t index);
     rule_ptr i_aux_sym(size_t index);
     rule_ptr i_token(size_t index);

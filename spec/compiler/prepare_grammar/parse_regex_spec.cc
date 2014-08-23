@@ -30,9 +30,15 @@ describe("parse_regex", []() {
           "character classes",
           "\\w-\\d",
           seq({
-              character({ {'a', 'z'}, {'A', 'Z'}, {'0', '9'} }),
+              character({
+                'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+                'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+                'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+                'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+              }),
               character({ '-' }),
-              character({ {'0', '9'} }) })
+              character({ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' }) })
       },
 
       {
@@ -66,13 +72,16 @@ describe("parse_regex", []() {
       {
           "character ranges",
           "[12a-dA-D3]",
-          character({ {'1', '3'}, {'a', 'd'}, { 'A', 'D' }, })
+          character({
+              '1', '2', '3',
+              'a', 'b', 'c', 'd',
+              'A', 'B', 'C', 'D' })
       },
 
       {
           "negated characters",
           "[^a\\d]",
-          character({ {'a'}, {'0', '9'} }, false)
+          character({ 'a', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' }, false)
       },
 
       {

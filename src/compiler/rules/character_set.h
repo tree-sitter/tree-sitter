@@ -1,8 +1,8 @@
 #ifndef COMPILER_RULES_CHARACTER_SET_H_
 #define COMPILER_RULES_CHARACTER_SET_H_
 
-#include <set>
 #include <stdint.h>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
