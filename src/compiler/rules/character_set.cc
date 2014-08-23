@@ -43,10 +43,10 @@ rule_ptr CharacterSet::copy() const {
 }
 
 string CharacterSet::to_string() const {
-  string result("#<char {");
+  string result("(char");
   for (auto &range : ranges)
     result += " " + range.to_string();
-  return result + " }>";
+  return result + ")";
 }
 
 CharacterSet CharacterSet::complement() const {

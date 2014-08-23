@@ -39,8 +39,8 @@ bool LexItem::is_token_start() const {
 }
 
 ostream &operator<<(ostream &stream, const LexItem &item) {
-  return stream << string("#<item ") << item.lhs << string(" ") << *item.rule
-                << string(">");
+  return stream << string("(item ") << item.lhs << string(" ") << *item.rule
+                << string(")");
 }
 
 }  // namespace build_tables

@@ -21,9 +21,7 @@ rule_ptr NamedSymbol::copy() const {
   return std::make_shared<NamedSymbol>(*this);
 }
 
-string NamedSymbol::to_string() const {
-  return string("#<sym '") + name + "'>";
-}
+string NamedSymbol::to_string() const { return string("(sym '") + name + "')"; }
 
 void NamedSymbol::accept(Visitor *visitor) const { visitor->visit(this); }
 

@@ -60,10 +60,10 @@ size_t Choice::hash_code() const {
 rule_ptr Choice::copy() const { return std::make_shared<Choice>(*this); }
 
 string Choice::to_string() const {
-  string result = "#<choice";
+  string result = "(choice";
   for (const auto &element : elements)
     result += " " + element->to_string();
-  return result + ">";
+  return result + ")";
 }
 
 void Choice::accept(Visitor *visitor) const { visitor->visit(this); }

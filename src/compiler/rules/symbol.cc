@@ -33,7 +33,7 @@ rule_ptr Symbol::copy() const { return std::make_shared<Symbol>(*this); }
 string Symbol::to_string() const {
   string name = (options & SymbolOptionAuxiliary) ? "aux_" : "";
   name += (options & SymbolOptionToken) ? "token" : "sym";
-  return "#<" + name + " " + std::to_string(index) + ">";
+  return "(" + name + " " + std::to_string(index) + ")";
 }
 
 bool Symbol::operator<(const Symbol &other) const {

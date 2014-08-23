@@ -37,7 +37,7 @@ int Metadata::value_for(MetadataKey key) const {
 }
 
 std::string Metadata::to_string() const {
-  return "#<metadata " + rule->to_string() + ">";
+  return "(metadata " + rule->to_string() + ")";
 }
 
 void Metadata::accept(Visitor *visitor) const { visitor->visit(this); }

@@ -19,7 +19,7 @@ ostream &operator<<(ostream &stream, const rule_ptr &rule) {
   if (rule.get())
     stream << *rule;
   else
-    stream << string("#<null-rule>");
+    stream << string("(null-rule)");
   return stream;
 }
 

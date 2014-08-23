@@ -19,7 +19,7 @@ size_t Repeat::hash_code() const { return content->hash_code(); }
 rule_ptr Repeat::copy() const { return std::make_shared<Repeat>(*this); }
 
 string Repeat::to_string() const {
-  return string("#<repeat ") + content->to_string() + ">";
+  return string("(repeat ") + content->to_string() + ")";
 }
 
 void Repeat::accept(Visitor *visitor) const { visitor->visit(this); }

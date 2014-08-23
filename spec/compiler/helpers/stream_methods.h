@@ -14,43 +14,43 @@ namespace std {
 
 template<typename T>
 inline std::ostream& operator<<(std::ostream &stream, const std::vector<T> &vector) {
-  stream << std::string("#<vector: ");
+  stream << std::string("(vector: ");
   bool started = false;
   for (auto item : vector) {
     if (started) stream << std::string(", ");
     stream << item;
     started = true;
   }
-  return stream << ">";
+  return stream << ")";
 }
 
 template<typename T>
 inline std::ostream& operator<<(std::ostream &stream, const std::set<T> &set) {
-  stream << std::string("#<set: ");
+  stream << std::string("(set: ");
   bool started = false;
   for (auto item : set) {
     if (started) stream << std::string(", ");
     stream << item;
     started = true;
   }
-  return stream << ">";
+  return stream << ")";
 }
 
 template<typename T>
 inline std::ostream& operator<<(std::ostream &stream, const std::unordered_set<T> &set) {
-  stream << std::string("#<set: ");
+  stream << std::string("(set: ");
   bool started = false;
   for (auto item : set) {
     if (started) stream << std::string(", ");
     stream << item;
     started = true;
   }
-  return stream << ">";
+  return stream << ")";
 }
 
 template<typename TKey, typename TValue>
 inline std::ostream& operator<<(std::ostream &stream, const std::map<TKey, TValue> &map) {
-  stream << std::string("#<map: ");
+  stream << std::string("(map: ");
   bool started = false;
   for (auto pair : map) {
     if (started) stream << std::string(", ");
@@ -59,12 +59,12 @@ inline std::ostream& operator<<(std::ostream &stream, const std::map<TKey, TValu
     stream << pair.second;
     started = true;
   }
-  return stream << ">";
+  return stream << ")";
 }
 
 template<typename TKey, typename TValue>
 inline std::ostream& operator<<(std::ostream &stream, const std::unordered_map<TKey, TValue> &map) {
-  stream << std::string("#<map: ");
+  stream << std::string("(map: ");
   bool started = false;
   for (auto pair : map) {
     if (started) stream << std::string(", ");
@@ -73,7 +73,7 @@ inline std::ostream& operator<<(std::ostream &stream, const std::unordered_map<T
     stream << pair.second;
     started = true;
   }
-  return stream << ">";
+  return stream << ")";
 }
 
 template<typename T1, typename T2>

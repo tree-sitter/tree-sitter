@@ -22,8 +22,8 @@ bool ParseItem::operator==(const ParseItem &other) const {
 }
 
 ostream &operator<<(ostream &stream, const ParseItem &item) {
-  return stream << string("#<item ") << item.lhs << string(" ") << *item.rule
-                << string(">");
+  return stream << string("(item ") << item.lhs << string(" ") << *item.rule
+                << string(")");
 }
 
 }  // namespace build_tables

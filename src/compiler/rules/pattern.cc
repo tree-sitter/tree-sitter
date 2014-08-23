@@ -21,7 +21,7 @@ size_t Pattern::hash_code() const { return hash<string>()(value); }
 rule_ptr Pattern::copy() const { return std::make_shared<Pattern>(*this); }
 
 string Pattern::to_string() const {
-  return string("#<pattern '") + util::escape_string(value) + "'>";
+  return string("(pattern '") + util::escape_string(value) + "')";
 }
 
 void Pattern::accept(Visitor *visitor) const { visitor->visit(this); }
