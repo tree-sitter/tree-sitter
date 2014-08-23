@@ -1,6 +1,7 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/build_tables/item_set_transitions.h"
 #include "compiler/prepared_grammar.h"
+#include "compiler/helpers/rule_helpers.h"
 
 using namespace rules;
 using namespace build_tables;
@@ -11,16 +12,16 @@ describe("lexical item set transitions", []() {
   describe("when two items in the set have transitions on the same character", [&]() {
     it("merges the transitions by computing the union of the two item sets", [&]() {
       LexItemSet set1({
-          LexItem(Symbol(1), character({ {'a', 'f'} })),
-          LexItem(Symbol(2), character({ {'e', 'x'} })) });
+          LexItem(Symbol(1), CharacterSet().include('a', 'f').copy()),
+          LexItem(Symbol(2), CharacterSet().include('e', 'x').copy()) });
 
       AssertThat(char_transitions(set1), Equals(map<CharacterSet, LexItemSet>({
-          { CharacterSet({ {'a', 'd'} }), LexItemSet({
+          { CharacterSet().include('a', 'd'), LexItemSet({
               LexItem(Symbol(1), blank()) }) },
-          { CharacterSet({ {'e', 'f'} }), LexItemSet({
+          { CharacterSet().include('e', 'f'), LexItemSet({
               LexItem(Symbol(1), blank()),
               LexItem(Symbol(2), blank()) }) },
-          { CharacterSet({ {'g', 'x'} }), LexItemSet({
+          { CharacterSet().include('g', 'x'), LexItemSet({
               LexItem(Symbol(2), blank()) }) },
       })));
     });

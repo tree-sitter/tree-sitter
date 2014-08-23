@@ -245,12 +245,13 @@ class CCodeGenerator {
     }
   }
 
-  void condition_for_character_set(const rules::CharacterSet &set) {
-    if (set.ranges.size() == 1) {
-      add(condition_for_character_range(*set.ranges.begin()));
+  void condition_for_character_ranges(
+      const vector<rules::CharacterRange> &ranges) {
+    if (ranges.size() == 1) {
+      add(condition_for_character_range(*ranges.begin()));
     } else {
       bool first = true;
-      for (auto &match : set.ranges) {
+      for (auto &match : ranges) {
         string part = "(" + condition_for_character_range(match) + ")";
         if (first) {
           add(part);
@@ -263,15 +264,13 @@ class CCodeGenerator {
     }
   }
 
-  void condition_for_character_rule(const rules::CharacterSet &rule) {
-    pair<rules::CharacterSet, bool> representation =
-        rule.most_compact_representation();
-    if (representation.second) {
-      condition_for_character_set(representation.first);
-    } else {
+  void condition_for_character_set(const rules::CharacterSet &rule) {
+    if (rule.includes_all) {
       add("!(");
-      condition_for_character_set(rule.complement());
+      condition_for_character_ranges(rule.excluded_ranges());
       add(")");
+    } else {
+      condition_for_character_ranges(rule.included_ranges());
     }
   }
 
@@ -319,7 +318,7 @@ class CCodeGenerator {
       line("START_TOKEN();");
     for (auto pair : lex_state.actions)
       if (!pair.first.is_empty())
-        _if([&]() { condition_for_character_rule(pair.first); },
+        _if([&]() { condition_for_character_set(pair.first); },
             [&]() { code_for_lex_actions(pair.second, expected_inputs); });
     code_for_lex_actions(lex_state.default_action, expected_inputs);
   }

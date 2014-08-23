@@ -318,7 +318,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -368,33 +369,33 @@ LEX_FN() {
         case 4:
             ACCEPT_TOKEN(ts_aux_sym_28);
         case 5:
-            if (!((lookahead == '\"') ||
-                (lookahead == '\\')))
-                ADVANCE(5);
             if (lookahead == '\"')
                 ADVANCE(6);
             if (lookahead == '\\')
                 ADVANCE(7);
+            if (!((lookahead == '\"') ||
+                (lookahead == '\\')))
+                ADVANCE(5);
             LEX_ERROR();
         case 6:
             ACCEPT_TOKEN(ts_sym_string);
         case 7:
-            if (!((lookahead == '\"') ||
-                (lookahead == '\\')))
-                ADVANCE(5);
             if (lookahead == '\"')
                 ADVANCE(8);
             if (lookahead == '\\')
                 ADVANCE(7);
-            LEX_ERROR();
-        case 8:
             if (!((lookahead == '\"') ||
                 (lookahead == '\\')))
                 ADVANCE(5);
+            LEX_ERROR();
+        case 8:
             if (lookahead == '\"')
                 ADVANCE(6);
             if (lookahead == '\\')
                 ADVANCE(7);
+            if (!((lookahead == '\"') ||
+                (lookahead == '\\')))
+                ADVANCE(5);
             ACCEPT_TOKEN(ts_sym_string);
         case 9:
             if ((lookahead == '$') ||
@@ -405,31 +406,31 @@ LEX_FN() {
                 ADVANCE(9);
             ACCEPT_TOKEN(ts_sym_identifier);
         case 10:
-            if (!((lookahead == '\'') ||
-                (lookahead == '\\')))
-                ADVANCE(10);
             if (lookahead == '\'')
                 ADVANCE(6);
             if (lookahead == '\\')
                 ADVANCE(11);
-            LEX_ERROR();
-        case 11:
             if (!((lookahead == '\'') ||
                 (lookahead == '\\')))
                 ADVANCE(10);
+            LEX_ERROR();
+        case 11:
             if (lookahead == '\'')
                 ADVANCE(12);
             if (lookahead == '\\')
                 ADVANCE(11);
-            LEX_ERROR();
-        case 12:
             if (!((lookahead == '\'') ||
                 (lookahead == '\\')))
                 ADVANCE(10);
+            LEX_ERROR();
+        case 12:
             if (lookahead == '\'')
                 ADVANCE(6);
             if (lookahead == '\\')
                 ADVANCE(11);
+            if (!((lookahead == '\'') ||
+                (lookahead == '\\')))
+                ADVANCE(10);
             ACCEPT_TOKEN(ts_sym_string);
         case 13:
             ACCEPT_TOKEN(ts_aux_sym_3);
@@ -446,170 +447,170 @@ LEX_FN() {
         case 17:
             ACCEPT_TOKEN(ts_aux_sym_10);
         case 18:
+            if (lookahead == '*')
+                ADVANCE(19);
+            if (lookahead == '/')
+                ADVANCE(31);
+            if (lookahead == '\\')
+                ADVANCE(34);
+            if (!((lookahead == '*') ||
+                (lookahead == '/') ||
+                (lookahead == '\\')))
+                ADVANCE(38);
+            LEX_ERROR();
+        case 19:
+            if (lookahead == '*')
+                ADVANCE(20);
+            if (lookahead == '/')
+                ADVANCE(25);
+            if (lookahead == '\\')
+                ADVANCE(23);
             if (!((lookahead == '*') ||
                 (lookahead == '/') ||
                 (lookahead == '\\')))
                 ADVANCE(19);
-            if (lookahead == '*')
-                ADVANCE(25);
-            if (lookahead == '/')
-                ADVANCE(36);
-            if (lookahead == '\\')
-                ADVANCE(22);
-            LEX_ERROR();
-        case 19:
-            if (!((lookahead == '/') ||
-                (lookahead == '\\')))
-                ADVANCE(19);
-            if (lookahead == '/')
-                ADVANCE(20);
-            if (lookahead == '\\')
-                ADVANCE(22);
             LEX_ERROR();
         case 20:
-            if (lookahead == 'g')
+            if (lookahead == '/')
                 ADVANCE(21);
-            ACCEPT_TOKEN(ts_sym_regex);
-        case 21:
-            ACCEPT_TOKEN(ts_sym_regex);
-        case 22:
+            if (lookahead == '\\')
+                ADVANCE(23);
             if (!((lookahead == '/') ||
                 (lookahead == '\\')))
                 ADVANCE(19);
-            if (lookahead == '/')
-                ADVANCE(23);
-            if (lookahead == '\\')
-                ADVANCE(22);
             LEX_ERROR();
+        case 21:
+            if (lookahead == 'g')
+                ADVANCE(22);
+            ACCEPT_TOKEN(ts_sym_comment);
+        case 22:
+            ACCEPT_TOKEN(ts_sym_regex);
         case 23:
-            if (!((lookahead == '/') ||
+            if (lookahead == '*')
+                ADVANCE(20);
+            if (lookahead == '/')
+                ADVANCE(24);
+            if (lookahead == '\\')
+                ADVANCE(23);
+            if (!((lookahead == '*') ||
+                (lookahead == '/') ||
+                (lookahead == '\\')))
+                ADVANCE(19);
+            LEX_ERROR();
+        case 24:
+            if (lookahead == '*')
+                ADVANCE(20);
+            if (lookahead == '/')
+                ADVANCE(25);
+            if (lookahead == '\\')
+                ADVANCE(23);
+            if (lookahead == 'g')
+                ADVANCE(30);
+            if (!((lookahead == '*') ||
+                (lookahead == '/') ||
                 (lookahead == '\\') ||
                 (lookahead == 'g')))
                 ADVANCE(19);
-            if (lookahead == '/')
-                ADVANCE(20);
-            if (lookahead == '\\')
-                ADVANCE(22);
-            if (lookahead == 'g')
-                ADVANCE(24);
-            ACCEPT_TOKEN(ts_sym_regex);
-        case 24:
-            if (!((lookahead == '/') ||
-                (lookahead == '\\')))
-                ADVANCE(19);
-            if (lookahead == '/')
-                ADVANCE(20);
-            if (lookahead == '\\')
-                ADVANCE(22);
             ACCEPT_TOKEN(ts_sym_regex);
         case 25:
-            if (!((lookahead == '*') ||
-                (lookahead == '/') ||
-                (lookahead == '\\')))
-                ADVANCE(25);
             if (lookahead == '*')
                 ADVANCE(26);
-            if (lookahead == '/')
-                ADVANCE(30);
-            if (lookahead == '\\')
+            if (lookahead == 'g')
+                ADVANCE(29);
+            if (!((lookahead == '*') ||
+                (lookahead == 'g')))
                 ADVANCE(28);
-            LEX_ERROR();
+            ACCEPT_TOKEN(ts_sym_regex);
         case 26:
-            if (!((lookahead == '/') ||
-                (lookahead == '\\')))
-                ADVANCE(25);
             if (lookahead == '/')
                 ADVANCE(27);
-            if (lookahead == '\\')
+            if (!(lookahead == '/'))
                 ADVANCE(28);
             LEX_ERROR();
         case 27:
-            if (lookahead == 'g')
-                ADVANCE(21);
             ACCEPT_TOKEN(ts_sym_comment);
         case 28:
-            if (!((lookahead == '*') ||
-                (lookahead == '/') ||
-                (lookahead == '\\')))
-                ADVANCE(25);
             if (lookahead == '*')
                 ADVANCE(26);
-            if (lookahead == '/')
-                ADVANCE(29);
-            if (lookahead == '\\')
+            if (!(lookahead == '*'))
                 ADVANCE(28);
             LEX_ERROR();
         case 29:
-            if (!((lookahead == '*') ||
-                (lookahead == '/') ||
-                (lookahead == '\\') ||
-                (lookahead == 'g')))
-                ADVANCE(25);
             if (lookahead == '*')
                 ADVANCE(26);
-            if (lookahead == '/')
-                ADVANCE(30);
-            if (lookahead == '\\')
+            if (!(lookahead == '*'))
                 ADVANCE(28);
-            if (lookahead == 'g')
-                ADVANCE(35);
             ACCEPT_TOKEN(ts_sym_regex);
         case 30:
-            if (!((lookahead == '*') ||
-                (lookahead == 'g')))
-                ADVANCE(31);
             if (lookahead == '*')
-                ADVANCE(32);
-            if (lookahead == 'g')
-                ADVANCE(34);
-            ACCEPT_TOKEN(ts_sym_regex);
-        case 31:
-            if (!(lookahead == '*'))
-                ADVANCE(31);
-            if (lookahead == '*')
-                ADVANCE(32);
-            LEX_ERROR();
-        case 32:
-            if (!(lookahead == '/'))
-                ADVANCE(31);
+                ADVANCE(20);
             if (lookahead == '/')
-                ADVANCE(33);
-            LEX_ERROR();
-        case 33:
-            ACCEPT_TOKEN(ts_sym_comment);
-        case 34:
-            if (!(lookahead == '*'))
-                ADVANCE(31);
-            if (lookahead == '*')
-                ADVANCE(32);
-            ACCEPT_TOKEN(ts_sym_regex);
-        case 35:
+                ADVANCE(25);
+            if (lookahead == '\\')
+                ADVANCE(23);
             if (!((lookahead == '*') ||
                 (lookahead == '/') ||
                 (lookahead == '\\')))
-                ADVANCE(25);
-            if (lookahead == '*')
-                ADVANCE(26);
-            if (lookahead == '/')
-                ADVANCE(30);
-            if (lookahead == '\\')
-                ADVANCE(28);
+                ADVANCE(19);
             ACCEPT_TOKEN(ts_sym_regex);
-        case 36:
+        case 31:
+            if (lookahead == 'g')
+                ADVANCE(32);
             if (!((lookahead == '\n') ||
                 (lookahead == 'g')))
-                ADVANCE(37);
-            if (lookahead == 'g')
+                ADVANCE(33);
+            ACCEPT_TOKEN(ts_sym_comment);
+        case 32:
+            if (!(lookahead == '\n'))
+                ADVANCE(33);
+            ACCEPT_TOKEN(ts_sym_comment);
+        case 33:
+            if (!(lookahead == '\n'))
+                ADVANCE(33);
+            ACCEPT_TOKEN(ts_sym_comment);
+        case 34:
+            if (lookahead == '/')
+                ADVANCE(35);
+            if (lookahead == '\\')
+                ADVANCE(34);
+            if (!((lookahead == '/') ||
+                (lookahead == '\\')))
                 ADVANCE(38);
-            ACCEPT_TOKEN(ts_sym_comment);
+            LEX_ERROR();
+        case 35:
+            if (lookahead == '/')
+                ADVANCE(36);
+            if (lookahead == '\\')
+                ADVANCE(34);
+            if (lookahead == 'g')
+                ADVANCE(37);
+            if (!((lookahead == '/') ||
+                (lookahead == '\\') ||
+                (lookahead == 'g')))
+                ADVANCE(38);
+            ACCEPT_TOKEN(ts_sym_regex);
+        case 36:
+            if (lookahead == 'g')
+                ADVANCE(22);
+            ACCEPT_TOKEN(ts_sym_regex);
         case 37:
-            if (!(lookahead == '\n'))
-                ADVANCE(37);
-            ACCEPT_TOKEN(ts_sym_comment);
+            if (lookahead == '/')
+                ADVANCE(36);
+            if (lookahead == '\\')
+                ADVANCE(34);
+            if (!((lookahead == '/') ||
+                (lookahead == '\\')))
+                ADVANCE(38);
+            ACCEPT_TOKEN(ts_sym_regex);
         case 38:
-            if (!(lookahead == '\n'))
-                ADVANCE(37);
-            ACCEPT_TOKEN(ts_sym_comment);
+            if (lookahead == '/')
+                ADVANCE(36);
+            if (lookahead == '\\')
+                ADVANCE(34);
+            if (!((lookahead == '/') ||
+                (lookahead == '\\')))
+                ADVANCE(38);
+            LEX_ERROR();
         case 39:
             if (lookahead == '.')
                 ADVANCE(40);
@@ -832,7 +833,8 @@ LEX_FN() {
                 ('0' <= lookahead && lookahead <= '9') ||
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
-                ('a' <= lookahead && lookahead <= 'b') ||
+                (lookahead == 'a') ||
+                (lookahead == 'b') ||
                 ('d' <= lookahead && lookahead <= 'z'))
                 ADVANCE(9);
             if (lookahead == 'c')
@@ -1073,7 +1075,8 @@ LEX_FN() {
                 ('0' <= lookahead && lookahead <= '9') ||
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
-                ('a' <= lookahead && lookahead <= 'b') ||
+                (lookahead == 'a') ||
+                (lookahead == 'b') ||
                 ('d' <= lookahead && lookahead <= 'z'))
                 ADVANCE(9);
             if (lookahead == 'c')
@@ -1347,9 +1350,9 @@ LEX_FN() {
             LEX_ERROR();
         case 112:
             if (lookahead == '*')
-                ADVANCE(31);
+                ADVANCE(28);
             if (lookahead == '/')
-                ADVANCE(37);
+                ADVANCE(33);
             LEX_ERROR();
         case 113:
             START_TOKEN();
@@ -1416,9 +1419,9 @@ LEX_FN() {
             ACCEPT_TOKEN(ts_aux_sym_34);
         case 121:
             if (lookahead == '*')
-                ADVANCE(31);
+                ADVANCE(28);
             if (lookahead == '/')
-                ADVANCE(37);
+                ADVANCE(33);
             ACCEPT_TOKEN(ts_aux_sym_14);
         case 122:
             ACCEPT_TOKEN(ts_aux_sym_5);
@@ -1559,9 +1562,9 @@ LEX_FN() {
             ACCEPT_TOKEN(ts_aux_sym_31);
         case 151:
             if (lookahead == '*')
-                ADVANCE(31);
+                ADVANCE(28);
             if (lookahead == '/')
-                ADVANCE(37);
+                ADVANCE(33);
             if (lookahead == '=')
                 ADVANCE(152);
             ACCEPT_TOKEN(ts_aux_sym_14);
@@ -1602,7 +1605,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -1779,7 +1783,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -2588,7 +2593,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -2658,28 +2664,28 @@ LEX_FN() {
                 ADVANCE(115);
             ACCEPT_TOKEN(ts_aux_sym_28);
         case 194:
+            if (lookahead == '*')
+                ADVANCE(19);
+            if (lookahead == '/')
+                ADVANCE(31);
+            if (lookahead == '=')
+                ADVANCE(195);
+            if (lookahead == '\\')
+                ADVANCE(34);
             if (!((lookahead == '*') ||
                 (lookahead == '/') ||
                 (lookahead == '=') ||
                 (lookahead == '\\')))
-                ADVANCE(19);
-            if (lookahead == '*')
-                ADVANCE(25);
-            if (lookahead == '/')
-                ADVANCE(36);
-            if (lookahead == '=')
-                ADVANCE(195);
-            if (lookahead == '\\')
-                ADVANCE(22);
+                ADVANCE(38);
             ACCEPT_TOKEN(ts_aux_sym_14);
         case 195:
+            if (lookahead == '/')
+                ADVANCE(36);
+            if (lookahead == '\\')
+                ADVANCE(34);
             if (!((lookahead == '/') ||
                 (lookahead == '\\')))
-                ADVANCE(19);
-            if (lookahead == '/')
-                ADVANCE(20);
-            if (lookahead == '\\')
-                ADVANCE(22);
+                ADVANCE(38);
             ACCEPT_TOKEN(ts_aux_sym_33);
         case 196:
             if ((lookahead == '$') ||
@@ -2743,7 +2749,8 @@ LEX_FN() {
                 ('0' <= lookahead && lookahead <= '9') ||
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
-                ('a' <= lookahead && lookahead <= 'b') ||
+                (lookahead == 'a') ||
+                (lookahead == 'b') ||
                 ('d' <= lookahead && lookahead <= 'z'))
                 ADVANCE(9);
             if (lookahead == 'c')
@@ -2808,7 +2815,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -2991,7 +2999,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -3059,16 +3068,16 @@ LEX_FN() {
                 ADVANCE(156);
             LEX_ERROR();
         case 212:
+            if (lookahead == '*')
+                ADVANCE(19);
+            if (lookahead == '/')
+                ADVANCE(31);
+            if (lookahead == '\\')
+                ADVANCE(34);
             if (!((lookahead == '*') ||
                 (lookahead == '/') ||
                 (lookahead == '\\')))
-                ADVANCE(19);
-            if (lookahead == '*')
-                ADVANCE(25);
-            if (lookahead == '/')
-                ADVANCE(36);
-            if (lookahead == '\\')
-                ADVANCE(22);
+                ADVANCE(38);
             ACCEPT_TOKEN(ts_aux_sym_14);
         case 213:
             START_TOKEN();
@@ -3194,7 +3203,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -3333,7 +3343,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -3513,7 +3524,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -3597,7 +3609,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -3663,7 +3676,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -3747,7 +3761,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -3822,7 +3837,8 @@ LEX_FN() {
                 ('0' <= lookahead && lookahead <= '9') ||
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
-                ('a' <= lookahead && lookahead <= 'b') ||
+                (lookahead == 'a') ||
+                (lookahead == 'b') ||
                 ('d' <= lookahead && lookahead <= 'z'))
                 ADVANCE(9);
             if (lookahead == 'c')
@@ -3945,7 +3961,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -4029,7 +4046,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -4095,7 +4113,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -4178,7 +4197,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -4284,7 +4304,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -4369,7 +4390,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -4436,7 +4458,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -4731,7 +4754,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 ('a' <= lookahead && lookahead <= 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 's') ||
                 ('u' <= lookahead && lookahead <= 'z'))
@@ -4810,7 +4834,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 ('a' <= lookahead && lookahead <= 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 's') ||
                 ('u' <= lookahead && lookahead <= 'z'))
@@ -4984,7 +5009,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -5048,7 +5074,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -5132,7 +5159,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -5198,7 +5226,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -5281,7 +5310,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -5346,7 +5376,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -5431,7 +5462,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -5498,7 +5530,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -5583,7 +5616,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -5648,7 +5682,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -5733,7 +5768,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -5800,7 +5836,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -5886,7 +5923,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -5971,7 +6009,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -6055,7 +6094,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -6121,7 +6161,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -6204,7 +6245,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -6269,7 +6311,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -6354,7 +6397,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -6421,7 +6465,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -6508,7 +6553,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -6571,7 +6617,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -6654,7 +6701,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -6719,7 +6767,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -6801,7 +6850,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -6865,7 +6915,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -6949,7 +7000,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -7015,7 +7067,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -7099,7 +7152,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -7163,7 +7217,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -7247,7 +7302,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -7313,7 +7369,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -7400,7 +7457,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -7483,7 +7541,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -7548,7 +7607,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -7630,7 +7690,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -7694,7 +7755,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -7778,7 +7840,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -7844,7 +7907,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -7927,7 +7991,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -7992,7 +8057,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -8077,7 +8143,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -8144,7 +8211,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -8231,7 +8299,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -8294,7 +8363,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -8377,7 +8447,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -8442,7 +8513,8 @@ LEX_FN() {
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
                 (lookahead == 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -8524,7 +8596,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -8588,7 +8661,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -8672,7 +8746,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -8738,7 +8813,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -8822,7 +8898,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -8886,7 +8963,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -8970,7 +9048,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -9036,7 +9115,8 @@ LEX_FN() {
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
                 (lookahead == 'c') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -9119,7 +9199,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||
@@ -9214,7 +9295,8 @@ LEX_FN() {
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
                 (lookahead == 'a') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'm') ||
                 ('o' <= lookahead && lookahead <= 'q') ||
                 (lookahead == 'u') ||

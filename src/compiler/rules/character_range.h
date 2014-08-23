@@ -20,6 +20,8 @@ struct CharacterRange {
   std::string to_string() const;
 };
 
+std::ostream &operator<<(std::ostream &stream, const CharacterRange &rule);
+
 }  // namespace rules
 }  // namespace tree_sitter
 

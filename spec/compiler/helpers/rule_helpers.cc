@@ -9,14 +9,20 @@ namespace tree_sitter {
 
   namespace rules {
     rule_ptr character(const set<CharacterRange> &ranges) {
-      return make_shared<CharacterSet>(ranges);
+      return character(ranges, true);
     }
 
     rule_ptr character(const set<CharacterRange> &ranges, bool sign) {
-      if (sign)
-        return character(ranges);
-      else
-        return CharacterSet(ranges).complement().copy();
+      CharacterSet result;
+      if (sign) {
+        for (auto &range : ranges)
+          result.include(range.min, range.max);
+      } else {
+        result.include_all();
+        for (auto &range : ranges)
+          result.exclude(range.min, range.max);
+      }
+      return result.copy();
     }
 
     rule_ptr i_sym(size_t index) {

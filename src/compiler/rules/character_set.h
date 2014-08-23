@@ -1,10 +1,11 @@
 #ifndef COMPILER_RULES_CHARACTER_SET_H_
 #define COMPILER_RULES_CHARACTER_SET_H_
 
-#include <initializer_list>
 #include <set>
+#include <stdint.h>
 #include <string>
 #include <utility>
+#include <vector>
 #include "compiler/rules/rule.h"
 #include "compiler/rules/character_range.h"
 
@@ -14,8 +15,12 @@ namespace rules {
 class CharacterSet : public Rule {
  public:
   CharacterSet();
-  explicit CharacterSet(const std::set<CharacterRange> &ranges);
-  explicit CharacterSet(const std::initializer_list<CharacterRange> &ranges);
+
+  CharacterSet &include_all();
+  CharacterSet &include(uint32_t c);
+  CharacterSet &include(uint32_t min, uint32_t max);
+  CharacterSet &exclude(uint32_t c);
+  CharacterSet &exclude(uint32_t min, uint32_t max);
 
   bool operator==(const Rule &other) const;
   bool operator<(const CharacterSet &) const;
@@ -26,12 +31,14 @@ class CharacterSet : public Rule {
 
   void add_set(const CharacterSet &other);
   CharacterSet remove_set(const CharacterSet &other);
-  CharacterSet complement() const;
-  CharacterSet intersect(const CharacterSet &) const;
-  std::pair<CharacterSet, bool> most_compact_representation() const;
   bool is_empty() const;
 
-  std::set<CharacterRange> ranges;
+  std::vector<CharacterRange> included_ranges() const;
+  std::vector<CharacterRange> excluded_ranges() const;
+
+  bool includes_all;
+  std::set<uint32_t> included_chars;
+  std::set<uint32_t> excluded_chars;
 };
 
 }  // namespace rules

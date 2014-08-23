@@ -38,8 +38,8 @@ class LexTableBuilder {
       if (symbol == rules::ERROR())
         continue;
       else if (symbol == rules::END_OF_INPUT())
-        result.insert(
-            LexItem(symbol, after_separators(CharacterSet({ 0 }).copy())));
+        result.insert(LexItem(
+            symbol, after_separators(CharacterSet().include(0).copy())));
       else if (symbol.is_token())
         result.insert(
             LexItem(symbol, after_separators(lex_grammar.rule(symbol))));
@@ -52,9 +52,11 @@ class LexTableBuilder {
     if (pair == lex_state_ids.end()) {
       LexStateId state_id = lex_table.add_state();
       lex_state_ids[item_set] = state_id;
+
       add_accept_token_actions(item_set, state_id);
       add_advance_actions(item_set, state_id);
       add_token_start(item_set, state_id);
+
       return state_id;
     } else {
       return pair->second;
@@ -100,10 +102,10 @@ class LexTableBuilder {
   }
 
   CharacterSet separator_set() const {
-    set<rules::CharacterRange> ranges;
+    CharacterSet result;
     for (char c : lex_grammar.separators)
-      ranges.insert(c);
-    return CharacterSet(ranges);
+      result.include(c);
+    return result;
   }
 
   rules::rule_ptr after_separators(rules::rule_ptr rule) {

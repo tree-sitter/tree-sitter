@@ -6,7 +6,7 @@ START_TEST
 using namespace rules;
 using prepare_grammar::parse_regex;
 
-describe("parsing regex patterns", []() {
+describe("parse_regex", []() {
   struct ValidInputRow {
     string description;
     string pattern;
@@ -23,7 +23,7 @@ describe("parsing regex patterns", []() {
       {
           "'.' characters as wildcards",
           ".",
-          CharacterSet({'\n'}).complement().copy()
+          character({ '\n' }, false)
       },
 
       {
@@ -170,6 +170,19 @@ describe("parsing regex patterns", []() {
                   blank()
               })
           })
+      },
+
+      {
+          "choices containing negated character classes",
+          "/([^/]|(\\\\/))*/",
+          seq({
+              character({ '/' }),
+              repeat(choice({
+                  character({ '/' }, false),
+                  seq({ character({ '\\' }), character({ '/' }) }),
+              })),
+              character({ '/' }),
+          }),
       }
   };
 

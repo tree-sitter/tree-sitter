@@ -442,33 +442,33 @@ LEX_FN() {
                 ADVANCE(3);
             LEX_ERROR();
         case 36:
-            if (!((lookahead == '\"') ||
-                (lookahead == '\\')))
-                ADVANCE(36);
             if (lookahead == '\"')
                 ADVANCE(37);
             if (lookahead == '\\')
                 ADVANCE(38);
+            if (!((lookahead == '\"') ||
+                (lookahead == '\\')))
+                ADVANCE(36);
             LEX_ERROR();
         case 37:
             ACCEPT_TOKEN(ts_sym_string);
         case 38:
-            if (!((lookahead == '\"') ||
-                (lookahead == '\\')))
-                ADVANCE(36);
             if (lookahead == '\"')
                 ADVANCE(39);
             if (lookahead == '\\')
                 ADVANCE(38);
-            LEX_ERROR();
-        case 39:
             if (!((lookahead == '\"') ||
                 (lookahead == '\\')))
                 ADVANCE(36);
+            LEX_ERROR();
+        case 39:
             if (lookahead == '\"')
                 ADVANCE(37);
             if (lookahead == '\\')
                 ADVANCE(38);
+            if (!((lookahead == '\"') ||
+                (lookahead == '\\')))
+                ADVANCE(36);
             ACCEPT_TOKEN(ts_sym_string);
         case 40:
             ACCEPT_TOKEN(ts_aux_sym_1);
@@ -644,7 +644,8 @@ LEX_FN() {
             if (('0' <= lookahead && lookahead <= '9') ||
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
-                ('a' <= lookahead && lookahead <= 'b') ||
+                (lookahead == 'a') ||
+                (lookahead == 'b') ||
                 ('d' <= lookahead && lookahead <= 'z'))
                 ADVANCE(33);
             if (lookahead == 'c')
@@ -727,7 +728,8 @@ LEX_FN() {
             if (('0' <= lookahead && lookahead <= '9') ||
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
-                ('a' <= lookahead && lookahead <= 'b') ||
+                (lookahead == 'a') ||
+                (lookahead == 'b') ||
                 ('d' <= lookahead && lookahead <= 'z'))
                 ADVANCE(33);
             if (lookahead == 'c')
@@ -940,7 +942,8 @@ LEX_FN() {
                 ADVANCE(88);
             if (('A' <= lookahead && lookahead <= 'Z') ||
                 ('a' <= lookahead && lookahead <= 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'q') ||
                 ('s' <= lookahead && lookahead <= 'u') ||
                 ('w' <= lookahead && lookahead <= 'z'))
@@ -1310,7 +1313,8 @@ LEX_FN() {
                 ADVANCE(88);
             if (('A' <= lookahead && lookahead <= 'Z') ||
                 ('a' <= lookahead && lookahead <= 'd') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'q') ||
                 ('s' <= lookahead && lookahead <= 'u') ||
                 ('w' <= lookahead && lookahead <= 'z'))
@@ -1542,7 +1546,8 @@ LEX_FN() {
                 ADVANCE(115);
             if (('A' <= lookahead && lookahead <= 'Z') ||
                 ('a' <= lookahead && lookahead <= 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'q') ||
                 ('s' <= lookahead && lookahead <= 'u') ||
                 ('w' <= lookahead && lookahead <= 'z'))
@@ -1617,7 +1622,8 @@ LEX_FN() {
                 ADVANCE(82);
             if (('A' <= lookahead && lookahead <= 'Z') ||
                 ('a' <= lookahead && lookahead <= 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'q') ||
                 ('s' <= lookahead && lookahead <= 'u') ||
                 ('w' <= lookahead && lookahead <= 'z'))
@@ -1703,7 +1709,8 @@ LEX_FN() {
                 ADVANCE(145);
             if (('A' <= lookahead && lookahead <= 'Z') ||
                 ('a' <= lookahead && lookahead <= 'e') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'q') ||
                 ('s' <= lookahead && lookahead <= 'u') ||
                 ('w' <= lookahead && lookahead <= 'z'))
@@ -1850,9 +1857,11 @@ LEX_FN() {
                 ADVANCE(115);
             if (('A' <= lookahead && lookahead <= 'Z') ||
                 ('a' <= lookahead && lookahead <= 'd') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'l') ||
-                ('n' <= lookahead && lookahead <= 'o') ||
+                (lookahead == 'n') ||
+                (lookahead == 'o') ||
                 (lookahead == 'q') ||
                 (lookahead == 'u') ||
                 ('w' <= lookahead && lookahead <= 'z'))
@@ -1917,7 +1926,8 @@ LEX_FN() {
             if (('0' <= lookahead && lookahead <= '9') ||
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
-                ('a' <= lookahead && lookahead <= 'b') ||
+                (lookahead == 'a') ||
+                (lookahead == 'b') ||
                 ('d' <= lookahead && lookahead <= 'z'))
                 ADVANCE(33);
             if (lookahead == 'c')
@@ -2005,7 +2015,8 @@ LEX_FN() {
             if (('0' <= lookahead && lookahead <= '9') ||
                 ('A' <= lookahead && lookahead <= 'Z') ||
                 (lookahead == '_') ||
-                ('a' <= lookahead && lookahead <= 'b') ||
+                (lookahead == 'a') ||
+                (lookahead == 'b') ||
                 ('d' <= lookahead && lookahead <= 'z'))
                 ADVANCE(33);
             if (lookahead == 'c')
@@ -2189,9 +2200,11 @@ LEX_FN() {
                 ADVANCE(115);
             if (('A' <= lookahead && lookahead <= 'Z') ||
                 ('a' <= lookahead && lookahead <= 'd') ||
-                ('g' <= lookahead && lookahead <= 'h') ||
+                (lookahead == 'g') ||
+                (lookahead == 'h') ||
                 ('j' <= lookahead && lookahead <= 'l') ||
-                ('n' <= lookahead && lookahead <= 'o') ||
+                (lookahead == 'n') ||
+                (lookahead == 'o') ||
                 (lookahead == 'q') ||
                 (lookahead == 'u') ||
                 ('w' <= lookahead && lookahead <= 'z'))

@@ -115,7 +115,7 @@ class PatternParser {
       case ']': { return error("unmatched close square bracket"); }
       case '.': {
         next();
-        return { CharacterSet({ '\n' }).complement().copy(), nullptr };
+        return { CharacterSet().include_all().exclude('\n').copy(), nullptr };
       }
       default: {
         auto pair = single_char();
@@ -127,20 +127,24 @@ class PatternParser {
   }
 
   pair<CharacterSet, const GrammarError *> char_set() {
+    CharacterSet result;
     bool is_affirmative = true;
     if (peek() == '^') {
       next();
       is_affirmative = false;
+      result.include_all();
     }
-    CharacterSet result;
+
     while (has_more_input() && (peek() != ']')) {
       auto pair = single_char();
       if (pair.second)
         return { CharacterSet(), pair.second };
-      result.add_set(pair.first);
+      if (is_affirmative)
+        result.add_set(pair.first);
+      else
+        result.remove_set(pair.first);
     }
-    if (!is_affirmative)
-      result = result.complement();
+
     return { result, nullptr };
   }
 
@@ -157,10 +161,10 @@ class PatternParser {
         next();
         if (peek() == '-') {
           next();
-          value = CharacterSet({ CharacterRange(first_char, peek()) });
+          value = CharacterSet().include(first_char, peek());
           next();
         } else {
-          value = CharacterSet({ first_char });
+          value = CharacterSet().include(first_char);
         }
     }
     return { value, nullptr };
@@ -169,19 +173,20 @@ class PatternParser {
   CharacterSet escaped_char(char value) {
     switch (value) {
       case 'a':
-        return CharacterSet({ { 'a', 'z' }, { 'A', 'Z' } });
+        return CharacterSet().include('a', 'z').include('A', 'Z');
       case 'w':
-        return CharacterSet({ { 'a', 'z' }, { 'A', 'Z' }, { '0', '9' } });
+        return CharacterSet().include('a', 'z').include('A', 'Z').include('0',
+                                                                          '9');
       case 'd':
-        return CharacterSet({ { '0', '9' } });
+        return CharacterSet().include('0', '9');
       case 't':
-        return CharacterSet({ '\t' });
+        return CharacterSet().include('\t');
       case 'n':
-        return CharacterSet({ '\n' });
+        return CharacterSet().include('\n');
       case 'r':
-        return CharacterSet({ '\r' });
+        return CharacterSet().include('\r');
       default:
-        return CharacterSet({ value });
+        return CharacterSet().include(value);
     }
   }
 

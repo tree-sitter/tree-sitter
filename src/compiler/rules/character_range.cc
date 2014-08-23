@@ -5,6 +5,7 @@
 namespace tree_sitter {
 namespace rules {
 
+using std::ostream;
 using std::string;
 
 static const unsigned char MAX_CHAR = -1;
@@ -51,6 +52,10 @@ string CharacterRange::to_string() const {
     return escape_character(min);
   else
     return string() + escape_character(min) + "-" + escape_character(max);
+}
+
+ostream &operator<<(ostream &stream, const CharacterRange &range) {
+  return stream << range.to_string();
 }
 
 }  // namespace rules

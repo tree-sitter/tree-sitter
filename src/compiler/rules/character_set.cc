@@ -1,6 +1,7 @@
 #include "compiler/rules/character_set.h"
 #include <string>
 #include <utility>
+#include <vector>
 #include "compiler/rules/visitor.h"
 
 namespace tree_sitter {
@@ -9,32 +10,87 @@ namespace rules {
 using std::string;
 using std::hash;
 using std::set;
-using std::pair;
-using std::initializer_list;
+using std::vector;
 
-static const unsigned char MAX_CHAR = -1;
+static void add_range(set<uint32_t> *characters, CharacterRange range) {
+  for (uint32_t c = range.min; c <= range.max; c++)
+    characters->insert(c);
+}
 
-CharacterSet::CharacterSet() : ranges({}) {}
-CharacterSet::CharacterSet(const set<CharacterRange> &ranges)
-    : ranges(ranges) {}
-CharacterSet::CharacterSet(const initializer_list<CharacterRange> &ranges)
-    : ranges(ranges) {}
+static void remove_range(set<uint32_t> *characters, CharacterRange range) {
+  for (uint32_t c = range.min; c <= range.max; c++)
+    characters->erase(c);
+}
+
+static set<uint32_t> remove_chars(set<uint32_t> *left,
+                                  const set<uint32_t> &right) {
+  set<uint32_t> result;
+  for (uint32_t c : right) {
+    if (left->erase(c))
+      result.insert(c);
+  }
+  return result;
+}
+
+static set<uint32_t> add_chars(set<uint32_t> *left,
+                               const set<uint32_t> &right) {
+  set<uint32_t> result;
+  for (uint32_t c : right)
+    if (left->insert(c).second)
+      result.insert(c);
+  return result;
+}
+
+static vector<CharacterRange> consolidate_ranges(const set<uint32_t> &chars) {
+  vector<CharacterRange> result;
+  for (uint32_t c : chars) {
+    size_t size = result.size();
+    if (size >= 2 && result[size - 2].max == (c - 2)) {
+      result.pop_back();
+      result.back().max = c;
+    } else if (size >= 1) {
+      CharacterRange &last = result.back();
+      if (last.min < last.max && last.max == (c - 1))
+        last.max = c;
+      else
+        result.push_back(c);
+    } else {
+      result.push_back(c);
+    }
+  }
+  return result;
+}
+
+CharacterSet::CharacterSet()
+    : includes_all(false), included_chars({}), excluded_chars({}) {}
 
 bool CharacterSet::operator==(const Rule &rule) const {
   const CharacterSet *other = dynamic_cast<const CharacterSet *>(&rule);
-  return other && (ranges == other->ranges);
+  return other && (includes_all == other->includes_all) &&
+         (included_chars == other->included_chars) &&
+         (excluded_chars == other->excluded_chars);
 }
 
 bool CharacterSet::operator<(const CharacterSet &other) const {
-  return ranges < other.ranges;
+  if (!includes_all && other.includes_all)
+    return true;
+  if (includes_all && !other.includes_all)
+    return false;
+  if (included_chars < other.included_chars)
+    return true;
+  if (other.included_chars < included_chars)
+    return false;
+  return excluded_chars < other.excluded_chars;
 }
 
 size_t CharacterSet::hash_code() const {
-  size_t result = std::hash<size_t>()(ranges.size());
-  for (auto &range : ranges) {
-    result ^= std::hash<unsigned char>()(range.min);
-    result ^= std::hash<unsigned char>()(range.max);
-  }
+  size_t result = hash<bool>()(includes_all);
+  result ^= hash<size_t>()(included_chars.size());
+  for (auto &c : included_chars)
+    result ^= hash<uint32_t>()(c);
+  result ^= hash<size_t>()(excluded_chars.size());
+  for (auto &c : excluded_chars)
+    result ^= hash<uint32_t>()(c);
   return result;
 }
 
@@ -44,97 +100,88 @@ rule_ptr CharacterSet::copy() const {
 
 string CharacterSet::to_string() const {
   string result("(char");
-  for (auto &range : ranges)
-    result += " " + range.to_string();
+  if (includes_all)
+    result += " include_all";
+  if (!included_chars.empty()) {
+    result += " (include";
+    for (auto r : included_ranges())
+      result += string(" ") + r.to_string();
+    result += ")";
+  }
+  if (!excluded_chars.empty()) {
+    result += " (exclude";
+    for (auto r : excluded_ranges())
+      result += string(" ") + r.to_string();
+    result += ")";
+  }
   return result + ")";
 }
 
-CharacterSet CharacterSet::complement() const {
-  CharacterSet result({ { 0, MAX_CHAR } });
-  result.remove_set(*this);
-  return result;
+CharacterSet &CharacterSet::include_all() {
+  includes_all = true;
+  return *this;
 }
 
-std::pair<CharacterSet, bool> CharacterSet::most_compact_representation()
-    const {
-  auto first_range = *ranges.begin();
-  if (first_range.min == 0 && first_range.max > 0) {
-    return { this->complement(), false };
-  } else {
-    return { *this, true };
-  }
+CharacterSet &CharacterSet::include(uint32_t min, uint32_t max) {
+  if (includes_all)
+    remove_range(&excluded_chars, CharacterRange(min, max));
+  else
+    add_range(&included_chars, CharacterRange(min, max));
+  return *this;
 }
 
-void add_range(CharacterSet *self, CharacterRange addition) {
-  set<CharacterRange> new_ranges;
-  for (auto range : self->ranges) {
-    bool is_adjacent = false;
-    if (range.min < addition.min && range.max >= addition.min - 1) {
-      is_adjacent = true;
-      addition.min = range.min;
-    }
-    if (range.max > addition.max && range.min <= addition.max + 1) {
-      is_adjacent = true;
-      addition.max = range.max;
-    }
-    if (!is_adjacent) {
-      new_ranges.insert(range);
-    }
-  }
-  new_ranges.insert(addition);
-  self->ranges = new_ranges;
+CharacterSet &CharacterSet::exclude(uint32_t min, uint32_t max) {
+  if (includes_all)
+    add_range(&excluded_chars, CharacterRange(min, max));
+  else
+    remove_range(&included_chars, CharacterRange(min, max));
+  return *this;
 }
 
-CharacterSet remove_range(CharacterSet *self, CharacterRange range_to_remove) {
-  CharacterSet removed_set;
-  set<CharacterRange> new_ranges;
-  for (auto range : self->ranges) {
-    if (range_to_remove.min <= range.min) {
-      if (range_to_remove.max < range.min) {
-        new_ranges.insert(range);
-      } else if (range_to_remove.max < range.max) {
-        new_ranges.insert(CharacterRange(range_to_remove.max + 1, range.max));
-        add_range(&removed_set, CharacterRange(range.min, range_to_remove.max));
-      } else {
-        add_range(&removed_set, range);
-      }
-    } else if (range_to_remove.min <= range.max) {
-      if (range_to_remove.max < range.max) {
-        new_ranges.insert(CharacterRange(range.min, range_to_remove.min - 1));
-        new_ranges.insert(CharacterRange(range_to_remove.max + 1, range.max));
-        add_range(&removed_set, range_to_remove);
-      } else {
-        new_ranges.insert(CharacterRange(range.min, range_to_remove.min - 1));
-        add_range(&removed_set, CharacterRange(range_to_remove.min, range.max));
-      }
-    } else {
-      new_ranges.insert(range);
-    }
-  }
-  self->ranges = new_ranges;
-  return removed_set;
-}
+CharacterSet &CharacterSet::include(uint32_t c) { return include(c, c); }
 
-bool CharacterSet::is_empty() const { return ranges.empty(); }
+CharacterSet &CharacterSet::exclude(uint32_t c) { return exclude(c, c); }
+
+bool CharacterSet::is_empty() const {
+  return !includes_all && included_chars.empty();
+}
 
 void CharacterSet::add_set(const CharacterSet &other) {
-  for (auto &other_range : other.ranges) {
-    add_range(this, other_range);
-  }
+  for (uint32_t c : other.included_chars)
+    included_chars.insert(c);
 }
 
 CharacterSet CharacterSet::remove_set(const CharacterSet &other) {
   CharacterSet result;
-  for (auto &other_range : other.ranges) {
-    auto removed_set = remove_range(this, other_range);
-    result.add_set(removed_set);
+  if (includes_all) {
+    if (other.includes_all) {
+      result.includes_all = true;
+      result.excluded_chars = excluded_chars;
+      included_chars = add_chars(&result.excluded_chars, other.excluded_chars);
+      excluded_chars = {};
+      includes_all = false;
+    } else {
+      result.included_chars = add_chars(&excluded_chars, other.included_chars);
+    }
+  } else {
+    if (other.includes_all) {
+      result.included_chars = included_chars;
+      included_chars =
+          remove_chars(&result.included_chars, other.excluded_chars);
+    } else {
+      result.included_chars =
+          remove_chars(&included_chars, other.included_chars);
+    }
   }
   return result;
 }
 
-CharacterSet CharacterSet::intersect(const CharacterSet &set) const {
-  CharacterSet copy = *this;
-  return copy.remove_set(set);
+vector<CharacterRange> CharacterSet::included_ranges() const {
+  return consolidate_ranges(included_chars);
+}
+
+vector<CharacterRange> CharacterSet::excluded_ranges() const {
+  return consolidate_ranges(excluded_chars);
 }
 
 void CharacterSet::accept(Visitor *visitor) const { visitor->visit(this); }

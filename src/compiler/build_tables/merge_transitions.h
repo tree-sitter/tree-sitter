@@ -68,7 +68,7 @@ void merge_char_transition(std::map<rules::CharacterSet, T> *left,
   left->insert(pairs_to_insert.begin(), pairs_to_insert.end());
 
   if (!new_char_set.is_empty())
-    left->insert({ new_char_set, new_pair.second });
+    left->insert({ new_char_set, new_value });
 }
 
 }  // namespace build_tables

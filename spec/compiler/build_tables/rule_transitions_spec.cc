@@ -8,7 +8,7 @@ using namespace build_tables;
 
 START_TEST
 
-describe("rule transitions", []() {
+describe("sym_transitions", []() {
   it("handles symbols", [&]() {
     AssertThat(
         sym_transitions(i_sym(1)),
@@ -74,11 +74,26 @@ describe("rule transitions", []() {
         })));
   });
 
+  it("preserves metadata", [&]() {
+    map<MetadataKey, int> metadata_value({
+        { PRECEDENCE, 5 }
+    });
+
+    rule_ptr rule = make_shared<Metadata>(seq({ i_sym(1), i_sym(2) }), metadata_value);
+    AssertThat(
+        sym_transitions(rule),
+        Equals(rule_map<Symbol>({
+            { Symbol(1), make_shared<Metadata>(i_sym(2), metadata_value)},
+        })));
+  });
+});
+
+describe("char_transitions", []() {
   it("handles characters", [&]() {
     AssertThat(
         char_transitions(character({ '1' })),
         Equals(rule_map<CharacterSet>({
-            { CharacterSet({ '1' }), blank() }
+            { CharacterSet().include('1'), blank() }
         })));
   });
 
@@ -92,9 +107,35 @@ describe("rule transitions", []() {
                 character({ { 'm', 'z' } }),
                 sym("y") }) })),
         Equals(rule_map<CharacterSet>({
-            { CharacterSet({ {'a','l'} }), sym("x") },
-            { CharacterSet({ {'m','s'} }), choice({ sym("x"), sym("y") }) },
-            { CharacterSet({ {'t','z'} }), sym("y") },
+            { CharacterSet().include('a','l'), sym("x") },
+            { CharacterSet().include('m','s'), choice({ sym("x"), sym("y") }) },
+            { CharacterSet().include('t','z'), sym("y") },
+        })));
+  });
+
+  it("handles choices between whitelisted and blacklisted character sets", [&]() {
+    AssertThat(
+        char_transitions(seq({
+            choice({
+                character({ '/' }, false),
+                seq({
+                    character({ '\\' }),
+                    character({ '/' }) }) }),
+            character({ '/' }) })),
+
+        Equals(rule_map<CharacterSet>({
+            { CharacterSet()
+                  .include_all()
+                  .exclude('/')
+                  .exclude('\\'),
+              character({ '/' }) },
+            { CharacterSet()
+                  .include('\\'),
+              seq({
+                  choice({
+                      blank(),
+                      character({ '/' }) }),
+                  character({ '/' }) }) },
         })));
   });
 
@@ -108,8 +149,8 @@ describe("rule transitions", []() {
                 character({ { 'a', 'z' } }),
                 sym("y") }) })),
         Equals(rule_map<CharacterSet>({
-            { CharacterSet({ {'a', 'c'} }), choice({ sym("x"), sym("y") }) },
-            { CharacterSet({ {'d', 'z'} }), sym("y") },
+            { CharacterSet().include('a', 'c'), choice({ sym("x"), sym("y") }) },
+            { CharacterSet().include('d', 'z'), sym("y") },
         })));
 
     AssertThat(
@@ -121,10 +162,9 @@ describe("rule transitions", []() {
                 character({ {'a', 'c'} }),
                 sym("y") }) })),
         Equals(rule_map<CharacterSet>({
-            { CharacterSet({ {'a', 'c'} }), choice({ sym("x"), sym("y") }) },
-            { CharacterSet({ {'d', 'z'} }), sym("x") },
+            { CharacterSet().include('a', 'c'), choice({ sym("x"), sym("y") }) },
+            { CharacterSet().include('d', 'z'), sym("x") },
         })));
-
   });
 
   it("handles blanks", [&]() {
@@ -137,7 +177,7 @@ describe("rule transitions", []() {
         char_transitions(rule),
         Equals(rule_map<CharacterSet>({
             {
-                CharacterSet({ 'a' }),
+                CharacterSet().include('a'),
                 seq({
                     character({ 'b' }),
                     rule,
@@ -148,40 +188,8 @@ describe("rule transitions", []() {
     AssertThat(
         char_transitions(rule),
         Equals(rule_map<CharacterSet>({
-            { CharacterSet({ 'a' }), rule }
+            { CharacterSet().include('a'), rule }
         })));
-  });
-
-  it("preserves metadata", [&]() {
-    map<MetadataKey, int> metadata_value({
-        { PRECEDENCE, 5 }
-    });
-
-    rule_ptr rule = make_shared<Metadata>(seq({ i_sym(1), i_sym(2) }), metadata_value);
-    AssertThat(
-        sym_transitions(rule),
-        Equals(rule_map<Symbol>({
-            { Symbol(1), make_shared<Metadata>(i_sym(2), metadata_value)},
-        })));
-  });
-
-  describe("regression tests (somewhat redundant, should maybe be deleted later)", []() {
-    it("handles sequences that start with repeating characters", [&]() {
-      auto rule = seq({
-          choice({
-              repeat(character({ '"' }, false)),
-              blank(),
-          }),
-          character({ '"' }),
-      });
-
-      AssertThat(char_transitions(rule), Equals(rule_map<CharacterSet>({
-          { CharacterSet({ '"' }).complement(), seq({
-              repeat(character({ '"' }, false)),
-              character({ '"' }), }) },
-          { CharacterSet({ '"' }), blank() },
-      })));
-    });
   });
 });
 

@@ -44,7 +44,7 @@ class rule_list : public vector<pair<string, rule_ptr>> {
       return true;
   }
 
-  rule_list(const initializer_list<pair<string, rule_ptr>> &list) : 
+  rule_list(const initializer_list<pair<string, rule_ptr>> &list) :
       vector<pair<string, rule_ptr>>(list) {}
 };
 

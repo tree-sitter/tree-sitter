@@ -28,7 +28,7 @@ class ExpandTokens : public rules::IdentityRuleFn {
   rule_ptr apply_to(const String *rule) {
     vector<rule_ptr> elements;
     for (char val : rule->value)
-      elements.push_back(rules::CharacterSet({ val }).copy());
+      elements.push_back(rules::CharacterSet().include(val).copy());
     return rules::Seq::Build(elements);
   }
 

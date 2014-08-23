@@ -71,7 +71,7 @@ describe("expanding repeat rules in a grammar", []() {
     AssertThat(match.rules, Equals(rule_list({
         { "rule0", seq({ i_aux_sym(0), i_aux_sym(1) }) },
     })));
-    
+
     AssertThat(match.aux_rules, Equals(rule_list({
         { "rule0_repeat0", choice({
             seq({

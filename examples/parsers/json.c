@@ -60,7 +60,8 @@ LEX_FN() {
     switch (lex_state) {
         case 1:
             START_TOKEN();
-            if (('\t' <= lookahead && lookahead <= '\n') ||
+            if ((lookahead == '\t') ||
+                (lookahead == '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
                 ADVANCE(1);
@@ -80,33 +81,33 @@ LEX_FN() {
                 ADVANCE(23);
             LEX_ERROR();
         case 2:
-            if (!((lookahead == '\"') ||
-                (lookahead == '\\')))
-                ADVANCE(2);
             if (lookahead == '\"')
                 ADVANCE(3);
             if (lookahead == '\\')
                 ADVANCE(4);
+            if (!((lookahead == '\"') ||
+                (lookahead == '\\')))
+                ADVANCE(2);
             LEX_ERROR();
         case 3:
             ACCEPT_TOKEN(ts_sym_string);
         case 4:
-            if (!((lookahead == '\"') ||
-                (lookahead == '\\')))
-                ADVANCE(2);
             if (lookahead == '\"')
                 ADVANCE(5);
             if (lookahead == '\\')
                 ADVANCE(4);
-            LEX_ERROR();
-        case 5:
             if (!((lookahead == '\"') ||
                 (lookahead == '\\')))
                 ADVANCE(2);
+            LEX_ERROR();
+        case 5:
             if (lookahead == '\"')
                 ADVANCE(3);
             if (lookahead == '\\')
                 ADVANCE(4);
+            if (!((lookahead == '\"') ||
+                (lookahead == '\\')))
+                ADVANCE(2);
             ACCEPT_TOKEN(ts_sym_string);
         case 6:
             if (lookahead == '.')
@@ -186,7 +187,8 @@ LEX_FN() {
             ACCEPT_TOKEN(ts_builtin_sym_end);
         case 26:
             START_TOKEN();
-            if (('\t' <= lookahead && lookahead <= '\n') ||
+            if ((lookahead == '\t') ||
+                (lookahead == '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
                 ADVANCE(26);
@@ -199,7 +201,8 @@ LEX_FN() {
             ACCEPT_TOKEN(ts_aux_sym_4);
         case 28:
             START_TOKEN();
-            if (('\t' <= lookahead && lookahead <= '\n') ||
+            if ((lookahead == '\t') ||
+                (lookahead == '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
                 ADVANCE(28);
@@ -224,7 +227,8 @@ LEX_FN() {
             ACCEPT_TOKEN(ts_aux_sym_6);
         case 30:
             START_TOKEN();
-            if (('\t' <= lookahead && lookahead <= '\n') ||
+            if ((lookahead == '\t') ||
+                (lookahead == '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
                 ADVANCE(30);
@@ -247,7 +251,8 @@ LEX_FN() {
             LEX_ERROR();
         case 33:
             START_TOKEN();
-            if (('\t' <= lookahead && lookahead <= '\n') ||
+            if ((lookahead == '\t') ||
+                (lookahead == '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
                 ADVANCE(33);
@@ -292,7 +297,8 @@ LEX_FN() {
             START_TOKEN();
             if (lookahead == 0)
                 ADVANCE(25);
-            if (('\t' <= lookahead && lookahead <= '\n') ||
+            if ((lookahead == '\t') ||
+                (lookahead == '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
                 ADVANCE(38);
@@ -320,9 +326,11 @@ LEX_FN() {
                 ADVANCE(27);
             LEX_ERROR();
         case ts_lex_state_error:
+            START_TOKEN();
             if (lookahead == 0)
                 ADVANCE(25);
-            if (('\t' <= lookahead && lookahead <= '\n') ||
+            if ((lookahead == '\t') ||
+                (lookahead == '\n') ||
                 (lookahead == '\r') ||
                 (lookahead == ' '))
                 ADVANCE(38);

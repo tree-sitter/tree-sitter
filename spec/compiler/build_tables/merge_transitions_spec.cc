@@ -6,7 +6,7 @@ using namespace build_tables;
 
 START_TEST
 
-describe("merging character set transitions", []() {
+describe("merge_char_transitions", []() {
   typedef map<CharacterSet, int> int_map;
 
   auto do_merge = [&](int_map *left, const pair<CharacterSet, int> &new_pair) {
@@ -18,20 +18,20 @@ describe("merging character set transitions", []() {
   describe("when none of the transitions intersect", [&]() {
     it("returns the union of the two sets of transitions", [&]() {
       int_map map({
-          { CharacterSet({ 'a', 'c' }), 1 },
-          { CharacterSet({ 'x', 'y' }), 2 },
-          { CharacterSet({ '1', '9' }), 4 },
+          { CharacterSet().include('a').include('c'), 1 },
+          { CharacterSet().include('x').include('y'), 2 },
+          { CharacterSet().include('1').include('9'), 4 },
       });
 
-      do_merge(&map, { CharacterSet({ ' ' }), 8 });
-      do_merge(&map, { CharacterSet({ '\t' }), 16 });
+      do_merge(&map, { CharacterSet().include(' '), 8 });
+      do_merge(&map, { CharacterSet().include('\t'), 16 });
 
       AssertThat(map, Equals(int_map({
-          { CharacterSet({ 'a', 'c' }), 1 },
-          { CharacterSet({ 'x', 'y' }), 2 },
-          { CharacterSet({ '1', '9' }), 4 },
-          { CharacterSet({ ' ' }), 8 },
-          { CharacterSet({ '\t' }), 16 },
+          { CharacterSet().include('a').include('c'), 1 },
+          { CharacterSet().include('x').include('y'), 2 },
+          { CharacterSet().include('1').include('9'), 4 },
+          { CharacterSet().include(' '), 8 },
+          { CharacterSet().include('\t'), 16 },
       })));
     });
   });
@@ -39,18 +39,33 @@ describe("merging character set transitions", []() {
   describe("when transitions intersect", [&]() {
     it("merges the intersecting transitions using the provided function", [&]() {
       int_map map({
-          { CharacterSet({ {'a', 'f'}, {'A', 'F'} }), 1 },
-          { CharacterSet({ {'0', '9'} }), 2 },
+          { CharacterSet().include('a', 'f').include('A', 'F'), 1 },
+          { CharacterSet().include('0', '9'), 2 },
       });
 
-      do_merge(&map, { CharacterSet({ 'c' }), 4 });
-      do_merge(&map, { CharacterSet({ '3' }), 8 });
+      do_merge(&map, { CharacterSet().include('c'), 4 });
+      do_merge(&map, { CharacterSet().include('3'), 8 });
 
       AssertThat(map, Equals(int_map({
-          { CharacterSet({ {'a', 'b'}, {'d', 'f'},  {'A', 'F'} }), 1 },
-          { CharacterSet({ {'c'} }), 5 },
-          { CharacterSet({ {'0', '2'}, {'4', '9'} }), 2 },
-          { CharacterSet({ '3' }), 10 },
+          {
+              CharacterSet()
+                .include('a', 'b')
+                .include('d', 'f')
+                .include('A', 'F'),
+              1
+          },
+          {
+              CharacterSet().include('c'),
+              5
+          },
+          {
+              CharacterSet().include('0', '2').include('4', '9'),
+              2
+          },
+          {
+              CharacterSet().include('3'),
+              10
+          },
       })));
     });
   });
@@ -58,15 +73,15 @@ describe("merging character set transitions", []() {
   describe("when two of the right transitions intersect the same left transition", [&]() {
     it("splits the left-hand transition correctly", [&]() {
       int_map map1({
-          { CharacterSet({ 'a', 'c' }), 1 },
+          { CharacterSet().include('a').include('c'), 1 },
       });
 
-      do_merge(&map1, { CharacterSet({ 'a' }), 2 });
-      do_merge(&map1, { CharacterSet({ 'c' }), 4 });
+      do_merge(&map1, { CharacterSet().include('a'), 2 });
+      do_merge(&map1, { CharacterSet().include('c'), 4 });
 
       AssertThat(map1, Equals(int_map({
-          { CharacterSet({ 'a' }), 3 },
-          { CharacterSet({ 'c' }), 5 },
+          { CharacterSet().include('a'), 3 },
+          { CharacterSet().include('c'), 5 },
       })));
     });
   });
