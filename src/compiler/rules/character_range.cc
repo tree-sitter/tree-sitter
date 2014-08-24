@@ -8,8 +8,8 @@ namespace rules {
 using std::ostream;
 using std::string;
 
-CharacterRange::CharacterRange(unsigned char value) : min(value), max(value) {}
-CharacterRange::CharacterRange(unsigned char min, unsigned char max)
+CharacterRange::CharacterRange(uint32_t value) : min(value), max(value) {}
+CharacterRange::CharacterRange(uint32_t min, uint32_t max)
     : min(min), max(max) {}
 
 bool CharacterRange::operator==(const CharacterRange &other) const {
