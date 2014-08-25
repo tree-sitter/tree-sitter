@@ -12,9 +12,13 @@ describe("Node", []() {
     document = ts_document_make();
     ts_document_set_language(document, ts_language_json());
 
-    ts_document_set_input_string(document, "  [12, 5, 345]");
+    ts_document_set_input_string(document, "  [123, false, {\"x\": null}]");
     root = ts_document_root_node(document);
-    AssertThat(ts_node_string(root), Equals("(DOCUMENT (array (number) (number) (number)))"));
+    AssertThat(ts_node_string(root), Equals(
+        "(DOCUMENT (array "
+          "(number) "
+          "(false) "
+          "(object (string) (null))))"));
   });
 
   after_each([&]() {
@@ -33,45 +37,45 @@ describe("Node", []() {
 
   describe("child(i)", [&]() {
     it("returns the child node at the given index", [&]() {
-      TSNode *array = ts_node_child(root, 0);
-      TSNode *number1 = ts_node_child(array, 0);
-      TSNode *number2 = ts_node_child(array, 1);
-      TSNode *number3 = ts_node_child(array, 2);
+      TSNode *parent = ts_node_child(root, 0);
+      TSNode *child1 = ts_node_child(parent, 0);
+      TSNode *child2 = ts_node_child(parent, 1);
+      TSNode *child3 = ts_node_child(parent, 2);
 
-      AssertThat(ts_node_name(array), Equals("array"));
-      AssertThat(ts_node_name(number1), Equals("number"));
-      AssertThat(ts_node_name(number2), Equals("number"));
-      AssertThat(ts_node_name(number3), Equals("number"));
+      AssertThat(ts_node_name(parent), Equals("array"));
+      AssertThat(ts_node_name(child1), Equals("number"));
+      AssertThat(ts_node_name(child2), Equals("false"));
+      AssertThat(ts_node_name(child3), Equals("object"));
 
-      AssertThat(ts_node_pos(array), Equals<size_t>(2));
-      AssertThat(ts_node_size(array), Equals<size_t>(12));
+      AssertThat(ts_node_pos(parent), Equals<size_t>(2));
+      AssertThat(ts_node_size(parent), Equals<size_t>(25));
 
-      AssertThat(ts_node_pos(number1), Equals<size_t>(3));
-      AssertThat(ts_node_size(number1), Equals<size_t>(2));
+      AssertThat(ts_node_pos(child1), Equals<size_t>(3));
+      AssertThat(ts_node_size(child1), Equals<size_t>(3));
 
-      AssertThat(ts_node_pos(number2), Equals<size_t>(7));
-      AssertThat(ts_node_size(number2), Equals<size_t>(1));
+      AssertThat(ts_node_pos(child2), Equals<size_t>(8));
+      AssertThat(ts_node_size(child2), Equals<size_t>(5));
 
-      AssertThat(ts_node_pos(number3), Equals<size_t>(10));
-      AssertThat(ts_node_size(number3), Equals<size_t>(3));
+      AssertThat(ts_node_pos(child3), Equals<size_t>(15));
+      AssertThat(ts_node_size(child3), Equals<size_t>(11));
 
-      ts_node_release(array);
-      ts_node_release(number1);
-      ts_node_release(number2);
-      ts_node_release(number3);
+      ts_node_release(parent);
+      ts_node_release(child1);
+      ts_node_release(child2);
+      ts_node_release(child3);
     });
   });
 
   describe("parent", [&]() {
     it("returns the node's parent node", [&]() {
       TSNode *array = ts_node_child(root, 0);
-      TSNode *number = ts_node_child(array, 1);
+      TSNode *child1 = ts_node_child(array, 1);
 
-      AssertThat(ts_node_parent(number), Equals(array));
+      AssertThat(ts_node_parent(child1), Equals(array));
       AssertThat(ts_node_parent(array), Equals(root));
 
       ts_node_release(array);
-      ts_node_release(number);
+      ts_node_release(child1);
     });
 
     it("returns null if the node has no parent", [&]() {
@@ -104,36 +108,36 @@ describe("Node", []() {
   describe("find_for_range", [&]() {
     describe("when there is a leaf node that spans the given range exactly", [&]() {
       it("returns that leaf node", [&]() {
-        TSNode *number = ts_node_find_for_range(root, 10, 12);
-        AssertThat(ts_node_name(number), Equals("number"));
-        AssertThat(ts_node_size(number), Equals<size_t>(3));
-        AssertThat(ts_node_pos(number), Equals<size_t>(10));
-        ts_node_release(number);
+        TSNode *leaf = ts_node_find_for_range(root, 16, 18);
+        AssertThat(ts_node_name(leaf), Equals("string"));
+        AssertThat(ts_node_size(leaf), Equals<size_t>(3));
+        AssertThat(ts_node_pos(leaf), Equals<size_t>(16));
+        ts_node_release(leaf);
       });
     });
 
     describe("when there is a leaf node that extends beyond the given range", [&]() {
       it("returns that leaf node", [&]() {
-        TSNode *number = ts_node_find_for_range(root, 10, 11);
-        AssertThat(ts_node_name(number), Equals("number"));
-        AssertThat(ts_node_size(number), Equals<size_t>(3));
-        AssertThat(ts_node_pos(number), Equals<size_t>(10));
-        ts_node_release(number);
+        TSNode *leaf = ts_node_find_for_range(root, 16, 17);
+        AssertThat(ts_node_name(leaf), Equals("string"));
+        AssertThat(ts_node_size(leaf), Equals<size_t>(3));
+        AssertThat(ts_node_pos(leaf), Equals<size_t>(16));
+        ts_node_release(leaf);
 
-        number = ts_node_find_for_range(root, 11, 12);
-        AssertThat(ts_node_name(number), Equals("number"));
-        AssertThat(ts_node_size(number), Equals<size_t>(3));
-        AssertThat(ts_node_pos(number), Equals<size_t>(10));
-        ts_node_release(number);
+        leaf = ts_node_find_for_range(root, 17, 18);
+        AssertThat(ts_node_name(leaf), Equals("string"));
+        AssertThat(ts_node_size(leaf), Equals<size_t>(3));
+        AssertThat(ts_node_pos(leaf), Equals<size_t>(16));
+        ts_node_release(leaf);
       });
     });
 
     describe("when there is no leaf node that spans the given range", [&]() {
       it("returns the smallest node that does span the range", [&]() {
-        TSNode *node = ts_node_find_for_range(root, 6, 7);
-        AssertThat(ts_node_name(node), Equals("array"));
-        AssertThat(ts_node_pos(node), Equals<size_t>(2));
-        AssertThat(ts_node_size(node), Equals<size_t>(12));
+        TSNode *node = ts_node_find_for_range(root, 16, 19);
+        AssertThat(ts_node_name(node), Equals("object"));
+        AssertThat(ts_node_size(node), Equals<size_t>(11));
+        AssertThat(ts_node_pos(node), Equals<size_t>(15));
         ts_node_release(node);
       });
     });
@@ -141,9 +145,10 @@ describe("Node", []() {
 
   describe("find_for_pos", [&]() {
     it("finds the smallest node that spans the given position", [&]() {
-      TSNode *node = ts_node_find_for_pos(root, 6);
-      AssertThat(ts_node_name(node), Equals("array"));
-      AssertThat(ts_node_pos(node), Equals<size_t>(2));
+      TSNode *node = ts_node_find_for_pos(root, 10);
+      AssertThat(ts_node_name(node), Equals("false"));
+      AssertThat(ts_node_pos(node), Equals<size_t>(8));
+      AssertThat(ts_node_size(node), Equals<size_t>(5));
       ts_node_release(node);
     });
   });

@@ -89,12 +89,14 @@ TSNode *ts_node_find_for_range(TSNode *parent, size_t min, size_t max) {
       ts_tree_visible_children(parent->content, &child_count);
   for (size_t i = 0; i < child_count; i++) {
     TSChildWithPosition child = children[i];
-    size_t child_left = child.position + child.tree->offset;
+    size_t child_left =
+        parent->start_position + child.position + child.tree->offset;
     if (child_left > min)
       break;
-    if (child_left + child.tree->size >= max) {
+    if (child_left + child.tree->size > max) {
       TSNode *node =
-          ts_node_make(child.tree, parent, i, child.position, parent->names);
+          ts_node_make(child.tree, parent, i,
+                       parent->start_position + child.position, parent->names);
       TSNode *result = ts_node_find_for_range(node, min, max);
       ts_node_release(node);
       return result;
