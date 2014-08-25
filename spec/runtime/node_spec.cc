@@ -73,6 +73,10 @@ describe("Node", []() {
       ts_node_release(array);
       ts_node_release(number);
     });
+
+    it("returns null if the node has no parent", [&]() {
+      AssertThat(ts_node_parent(root), Equals<TSNode *>(nullptr));
+    });
   });
 
   describe("next_sibling and prev_sibling", [&]() {
@@ -89,6 +93,11 @@ describe("Node", []() {
       ts_node_release(number1);
       ts_node_release(number2);
       ts_node_release(number3);
+    });
+
+    it("returns null when the node has no parent", [&]() {
+      AssertThat(ts_node_next_sibling(root), Equals<TSNode *>(nullptr));
+      AssertThat(ts_node_prev_sibling(root), Equals<TSNode *>(nullptr));
     });
   });
 

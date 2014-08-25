@@ -53,11 +53,17 @@ const char *ts_node_string(const TSNode *node) {
 TSNode *ts_node_parent(TSNode *child) { return child->parent; }
 
 TSNode *ts_node_prev_sibling(TSNode *child) {
-  return ts_node_child(child->parent, child->index - 1);
+  if (child->parent)
+    return ts_node_child(child->parent, child->index - 1);
+  else
+    return NULL;
 }
 
 TSNode *ts_node_next_sibling(TSNode *child) {
-  return ts_node_child(child->parent, child->index + 1);
+  if (child->parent)
+    return ts_node_child(child->parent, child->index + 1);
+  else
+    return NULL;
 }
 
 size_t ts_node_child_count(const TSNode *parent) {
