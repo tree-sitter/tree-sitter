@@ -77,19 +77,19 @@ TSNode *ts_node_child(TSNode *parent, size_t index) {
                       parent->names);
 }
 
-TSNode *ts_node_find_pos(TSNode *parent, size_t position) {
+TSNode *ts_node_find_for_range(TSNode *parent, size_t min, size_t max) {
   size_t child_count;
   TSChildWithPosition *children =
       ts_tree_visible_children(parent->content, &child_count);
   for (size_t i = 0; i < child_count; i++) {
     TSChildWithPosition child = children[i];
     size_t child_left = child.position + child.tree->offset;
-    if (child_left > position)
+    if (child_left > min)
       break;
-    if (child_left + child.tree->size > position) {
+    if (child_left + child.tree->size >= max) {
       TSNode *node =
           ts_node_make(child.tree, parent, i, child.position, parent->names);
-      TSNode *result = ts_node_find_pos(node, position);
+      TSNode *result = ts_node_find_for_range(node, min, max);
       ts_node_release(node);
       return result;
     }
@@ -97,4 +97,8 @@ TSNode *ts_node_find_pos(TSNode *parent, size_t position) {
 
   ts_node_retain(parent);
   return parent;
+}
+
+TSNode *ts_node_find_for_pos(TSNode *parent, size_t position) {
+  return ts_node_find_for_range(parent, position, position);
 }
