@@ -29,7 +29,7 @@ size_t ts_node_size(const TSNode *);
 TSSymbol ts_node_sym(const TSNode *);
 TSNode *ts_node_child(TSNode *, size_t);
 size_t ts_node_child_count(const TSNode *);
-TSNode *ts_node_leaf_at_pos(TSNode *, size_t);
+TSNode *ts_node_find_pos(TSNode *, size_t);
 TSNode *ts_node_parent(TSNode *node);
 TSNode *ts_node_next_sibling(TSNode *node);
 TSNode *ts_node_prev_sibling(TSNode *node);

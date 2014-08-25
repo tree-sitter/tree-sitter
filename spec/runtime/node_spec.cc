@@ -92,10 +92,10 @@ describe("Node", []() {
     });
   });
 
-  describe("leaf_at_pos", [&]() {
+  describe("find_pos", [&]() {
     it("can retrieve the leaf node at a given position", [&]() {
-      TSNode *number1 = ts_node_leaf_at_pos(root, 3);
-      TSNode *number2 = ts_node_leaf_at_pos(root, 7);
+      TSNode *number1 = ts_node_find_pos(root, 3);
+      TSNode *number2 = ts_node_find_pos(root, 7);
 
       AssertThat(ts_node_name(number1), Equals("number"));
       AssertThat(ts_node_size(number1), Equals<size_t>(2));
@@ -108,7 +108,7 @@ describe("Node", []() {
     });
 
     it("returns higher-level nodes when no leaf is at the given position", [&]() {
-      TSNode *node = ts_node_leaf_at_pos(root, 6);
+      TSNode *node = ts_node_find_pos(root, 6);
 
       AssertThat(ts_node_name(node), Equals("array"));
 

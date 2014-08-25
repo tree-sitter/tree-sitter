@@ -77,7 +77,7 @@ TSNode *ts_node_child(TSNode *parent, size_t index) {
                       parent->names);
 }
 
-TSNode *ts_node_leaf_at_pos(TSNode *parent, size_t position) {
+TSNode *ts_node_find_pos(TSNode *parent, size_t position) {
   size_t child_count;
   TSChildWithPosition *children =
       ts_tree_visible_children(parent->content, &child_count);
@@ -89,7 +89,7 @@ TSNode *ts_node_leaf_at_pos(TSNode *parent, size_t position) {
     if (child_left + child.tree->size > position) {
       TSNode *node =
           ts_node_make(child.tree, parent, i, child.position, parent->names);
-      TSNode *result = ts_node_leaf_at_pos(node, position);
+      TSNode *result = ts_node_find_pos(node, position);
       ts_node_release(node);
       return result;
     }
