@@ -125,12 +125,6 @@ struct TSLanguage {
     return NULL;        \
   }
 
-#define LEX_PANIC()                                         \
-  {                                                         \
-    DEBUG_LEX("LEX ERROR: unexpected state %d", lex_state); \
-    return NULL;                                            \
-  }
-
 #define SHIFT(to_state_value)                                              \
   {                                                                        \
     .type = TSParseActionTypeShift, .data = { .to_state = to_state_value } \

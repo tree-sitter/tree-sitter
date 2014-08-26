@@ -9374,7 +9374,7 @@ LEX_FN() {
                 ADVANCE(156);
             LEX_ERROR();
         default:
-            LEX_PANIC();
+            LEX_ERROR();
     }
 }
 

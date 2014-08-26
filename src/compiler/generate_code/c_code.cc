@@ -330,7 +330,7 @@ class CCodeGenerator {
               [&]() { code_for_lex_state(lex_table.states[i]); });
       _case("ts_lex_state_error",
             [&]() { code_for_lex_state(lex_table.error_state); });
-      _default([&]() { line("LEX_PANIC();"); });
+      _default([&]() { line("LEX_ERROR();"); });
     });
   }
 
