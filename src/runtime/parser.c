@@ -191,9 +191,10 @@ void ts_parser_destroy(TSParser *parser) {
   ts_stack_delete(&parser->stack);
 }
 
-#define DEBUG_PARSE(...)               \
-  if (parser->debug) {                 \
-    fprintf(stderr, "\n" __VA_ARGS__); \
+#define DEBUG_PARSE(...)          \
+  if (parser->debug) {            \
+    fprintf(stderr, __VA_ARGS__); \
+    fprintf(stderr, "\n");        \
   }
 
 const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
