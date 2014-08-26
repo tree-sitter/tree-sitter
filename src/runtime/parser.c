@@ -48,21 +48,22 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
   return position;
 }
 
-static TSSymbol *expected_symbols(TSParser *parser, size_t *count) {
-  *count = 0;
+static TSTree *build_error_node(TSParser *parser) {
+  size_t expected_symbol_count = 0;
   const TSParseAction *actions =
       actions_for_state(parser->language, ts_stack_top_state(&parser->stack));
   for (size_t i = 0; i < parser->language->symbol_count; i++)
     if (actions[i].type != TSParseActionTypeError)
-      (*count)++;
+      expected_symbol_count++;
 
   size_t n = 0;
-  TSSymbol *result = malloc(*count * sizeof(*result));
+  TSSymbol *expected_symbols = malloc(expected_symbol_count * sizeof(TSSymbol *));
   for (TSSymbol i = 0; i < parser->language->symbol_count; i++)
     if (actions[i].type != TSParseActionTypeError)
-      result[n++] = i;
+      expected_symbols[n++] = i;
 
-  return result;
+  return ts_tree_make_error(ts_lexer_lookahead_char(&parser->lexer),
+      expected_symbol_count, expected_symbols, 0, 0);
 }
 
 static void shift(TSParser *parser, TSStateId parse_state) {
@@ -115,19 +116,24 @@ static int reduce_extra(TSParser *parser, TSSymbol symbol) {
 }
 
 static int handle_error(TSParser *parser) {
-  size_t count = 0;
-  const TSSymbol *inputs = expected_symbols(parser, &count);
-  TSTree *error = ts_tree_make_error(ts_lexer_lookahead_char(&parser->lexer),
-                                     count, inputs, 0, 0);
+  TSTree *error = build_error_node(parser);
 
+  /*
+   *  Run the lexer until it produces a token that allows for
+   *  error recovery.
+   */
   for (;;) {
     ts_tree_release(parser->lookahead);
-    size_t position = ts_lexer_position(&parser->lexer);
+    size_t prev_position = ts_lexer_position(&parser->lexer);
     parser->lookahead =
         parser->language->lex_fn(&parser->lexer, ts_lex_state_error);
 
+    /*
+     *  If no characters are consumed, advance the lexer to the next
+     *  character.
+     */
     int at_end = 0;
-    if (ts_lexer_position(&parser->lexer) == position)
+    if (ts_lexer_position(&parser->lexer) == prev_position)
       at_end = !ts_lexer_advance(&parser->lexer);
 
     if (at_end || parser->lookahead->symbol == ts_builtin_sym_end) {
@@ -136,19 +142,20 @@ static int handle_error(TSParser *parser) {
     }
 
     /*
-     *  Unwind the stack, looking for a state in which this token
-     *  may appear after an error.
+     *  Unwind the parse stack until a state is found in which an error is
+     *  expected and the current lookahead token is expected afterwards.
      */
-    for (size_t j = 0; j < parser->stack.size; j++) {
-      size_t i = parser->stack.size - 1 - j;
-      TSStateId stack_state = parser->stack.entries[i].state;
-      TSParseAction action_on_error = actions_for_state(
-          parser->language, stack_state)[ts_builtin_sym_error];
+    for (size_t i = parser->stack.size - 1; i + 1 > 0; i--) {
+      TSStateId state = parser->stack.entries[i].state;
+      TSParseAction action_on_error =
+          actions_for_state(parser->language, state)[ts_builtin_sym_error];
+
       if (action_on_error.type == TSParseActionTypeShift) {
         TSStateId state_after_error = action_on_error.data.to_state;
-        if (actions_for_state(parser->language,
-                              state_after_error)[parser->lookahead->symbol]
-                .type != TSParseActionTypeError) {
+        TSParseAction action_after_error = actions_for_state(
+            parser->language, state_after_error)[parser->lookahead->symbol];
+
+        if (action_after_error.type != TSParseActionTypeError) {
           ts_stack_shrink(&parser->stack, i + 1);
           ts_stack_push(&parser->stack, state_after_error, error);
           return 1;
