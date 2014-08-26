@@ -83,9 +83,11 @@ static void reduce(TSParser *parser, TSSymbol symbol, size_t child_count) {
   TSStack *stack = &parser->stack;
   parser->next_lookahead = parser->lookahead;
 
-  // Walk down the stack to determine which symbols will be reduced.
-  // The child node count is known ahead of time, but some children
-  // may be ubiquitous tokens, which don't count.
+  /*
+   *  Walk down the stack to determine which symbols will be reduced.
+   *  The child node count is known ahead of time, but some children
+   *  may be ubiquitous tokens, which don't count.
+   */
   for (size_t i = 0; i < child_count; i++) {
     if (child_count == stack->size)
       break;
