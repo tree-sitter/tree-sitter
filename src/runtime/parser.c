@@ -117,6 +117,14 @@ static int reduce_extra(TSParser *parser, TSSymbol symbol) {
   }
 }
 
+static void lex(TSParser *parser, TSStateId lex_state) {
+  parser->lookahead = parser->language->lex_fn(
+      &parser->lexer, lex_state);
+  if (!parser->lookahead) {
+    parser->lookahead = build_error_node(parser);
+  }
+}
+
 static int handle_error(TSParser *parser) {
   TSTree *error = build_error_node(parser);
 
@@ -127,8 +135,7 @@ static int handle_error(TSParser *parser) {
   for (;;) {
     ts_tree_release(parser->lookahead);
     size_t prev_position = ts_lexer_position(&parser->lexer);
-    parser->lookahead =
-        parser->language->lex_fn(&parser->lexer, ts_lex_state_error);
+    lex(parser, ts_lex_state_error);
 
     /*
      *  If no characters are consumed, advance the lexer to the next
@@ -169,7 +176,7 @@ static int handle_error(TSParser *parser) {
 
 static TSTree *get_root(TSParser *parser) {
   if (parser->stack.size == 0)
-    return NULL;
+    ts_stack_push(&parser->stack, 0, build_error_node(parser));
 
   reduce(parser, ts_builtin_sym_document, parser->stack.size);
   parser->lookahead->options = 0;
@@ -180,8 +187,7 @@ static TSTree *get_root(TSParser *parser) {
 static TSParseAction next_action(TSParser *parser) {
   TSStateId state = ts_stack_top_state(&parser->stack);
   if (!parser->lookahead)
-    parser->lookahead = parser->language->lex_fn(
-        &parser->lexer, parser->language->lex_states[state]);
+    lex(parser, parser->language->lex_states[state]);
   return actions_for_state(parser->language, state)[parser->lookahead->symbol];
 }
 

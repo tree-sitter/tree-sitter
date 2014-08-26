@@ -119,10 +119,10 @@ struct TSLanguage {
     return ts_lexer_accept(lexer, symbol, ts_hidden_symbol_flags[symbol]); \
   }
 
-#define LEX_ERROR()                                         \
-  {                                                         \
-    DEBUG_LEX("ERROR");                                     \
-    return ts_lexer_accept(lexer, ts_builtin_sym_error, 0); \
+#define LEX_ERROR()     \
+  {                     \
+    DEBUG_LEX("ERROR"); \
+    return NULL;        \
   }
 
 #define LEX_PANIC()                                         \
