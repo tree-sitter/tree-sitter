@@ -11,15 +11,13 @@ enum {
 
 static const char *names[] = { "error", "end", "cat", "dog", "pig" };
 
-describe("trees", []() {
+describe("Tree", []() {
   TSTree *tree1, *tree2, *parent1;
 
   before_each([&]() {
     tree1 = ts_tree_make_leaf(cat, 5, 2, 0);
     tree2 = ts_tree_make_leaf(cat, 3, 1, 0);
-    parent1 = ts_tree_make_node(dog, 2, tree_array({
-        tree1, tree2, // children
-    }), 0);
+    parent1 = ts_tree_make_node(dog, 2, tree_array({ tree1, tree2, }), 0);
   });
 
   after_each([&]() {
@@ -77,13 +75,37 @@ describe("trees", []() {
 
   describe("serialization", [&]() {
     it("returns a readable string", [&]() {
-      auto string1 = ts_tree_string(tree1, names);
+      char *string1 = ts_tree_string(tree1, names);
       AssertThat(string(string1), Equals("(cat)"));
       free(string1);
 
-      auto string2 = ts_tree_string(parent1, names);
+      char *string2 = ts_tree_string(parent1, names);
       AssertThat(string(string2), Equals("(dog (cat) (cat))"));
       free(string2);
+    });
+
+    it("hides invisible nodes", [&]() {
+      tree2->options = TSTreeOptionsHidden;
+
+      char *string1 = ts_tree_string(parent1, names);
+      AssertThat(string(string1), Equals("(dog (cat))"));
+      free(string1);
+    });
+
+    describe("when the root node is not visible", [&]() {
+      it("still serializes it", [&]() {
+        parent1->options = TSTreeOptionsHidden;
+
+        char *string1 = ts_tree_string(parent1, names);
+        AssertThat(string(string1), Equals("(dog (cat) (cat))"));
+        free(string1);
+
+        tree1->options = TSTreeOptionsHidden;
+
+        char *string2 = ts_tree_string(tree1, names);
+        AssertThat(string(string2), Equals("(cat)"));
+        free(string2);
+      });
     });
   });
 });

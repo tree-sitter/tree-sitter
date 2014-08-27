@@ -161,26 +161,22 @@ static size_t tree_write_to_string(const TSTree *tree,
   if (visible && !is_root)
     cursor += snprintf(*writer, limit, " ");
 
-  if (!tree)
-    return snprintf(*writer, limit, "(NULL)");
-  if (tree->symbol == ts_builtin_sym_error) {
+  if (!tree) {
+    cursor += snprintf(*writer, limit, "(NULL)");
+  } else if (tree->symbol == ts_builtin_sym_error) {
     cursor += snprintf(*writer, limit, "(ERROR ");
     cursor += write_lookahead_to_string(*writer, limit, tree->lookahead_char);
     cursor += snprintf(*writer, limit, ")");
-    return cursor - string;
+  } else {
+    if (visible || is_root)
+      cursor += snprintf(*writer, limit, "(%s", symbol_names[tree->symbol]);
+    for (size_t i = 0; i < tree->child_count; i++) {
+      TSTree *child = tree->children[i];
+      cursor += tree_write_to_string(child, symbol_names, *writer, limit, 0);
+    }
+    if (visible || is_root)
+      cursor += snprintf(*writer, limit, ")");
   }
-
-  if (visible) {
-    cursor += snprintf(*writer, limit, "(%s", symbol_names[tree->symbol]);
-    is_root = 0;
-  }
-
-  for (size_t i = 0; i < tree->child_count; i++)
-    cursor += tree_write_to_string(tree->children[i], symbol_names, *writer,
-                                   limit, is_root);
-
-  if (visible)
-    cursor += snprintf(*writer, limit, ")");
 
   return cursor - string;
 }
