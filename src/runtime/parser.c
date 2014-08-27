@@ -245,12 +245,8 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
         break;
 
       case TSParseActionTypeReduceExtra:
-        if (!reduce_extra(parser, action.data.symbol)) {
-          DEBUG_PARSE("ERROR");
-          if (!handle_error(parser))
-            return get_root(parser);
-        }
         DEBUG_PARSE("REDUCE EXTRA");
+        reduce_extra(parser, action.data.symbol);
         break;
 
       case TSParseActionTypeAccept:
