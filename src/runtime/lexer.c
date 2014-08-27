@@ -2,18 +2,17 @@
 #include "runtime/tree.h"
 
 static int advance(TSLexer *lexer) {
-  static const char *empty_chunk = "";
+  static const char empty_chunk[2] = { '\0', '\0' };
   if (lexer->position_in_chunk + 1 < lexer->chunk_size) {
     lexer->position_in_chunk++;
   } else {
-    if (lexer->reached_end)
+    if (lexer->chunk == empty_chunk)
       return 0;
 
     lexer->chunk_start += lexer->chunk_size;
     lexer->chunk = lexer->input.read_fn(lexer->input.data, &lexer->chunk_size);
     lexer->position_in_chunk = 0;
     if (lexer->chunk_size == 0) {
-      lexer->reached_end = 1;
       lexer->chunk = empty_chunk;
     }
   }
@@ -36,7 +35,6 @@ TSLexer ts_lexer_make() {
                      .position_in_chunk = 0,
                      .token_start_position = 0,
                      .token_end_position = 0,
-                     .reached_end = 0,
                      .advance_fn = advance,
                      .accept_fn = accept, };
 }

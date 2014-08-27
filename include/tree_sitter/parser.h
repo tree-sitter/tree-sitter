@@ -21,7 +21,6 @@ typedef struct TSLexer {
   size_t position_in_chunk;
   size_t token_end_position;
   size_t token_start_position;
-  int reached_end;
 
   TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, int);
   int (*advance_fn)(struct TSLexer *);
@@ -46,6 +45,10 @@ static inline int ts_lexer_advance(TSLexer *lexer) {
 static inline TSTree *ts_lexer_accept(TSLexer *lexer, TSSymbol symbol,
                                       int is_hidden) {
   return lexer->accept_fn(lexer, symbol, is_hidden);
+}
+
+static inline int ts_lexer_is_done(const TSLexer *lexer) {
+  return lexer->chunk_size == 0 && lexer->position_in_chunk > 0;
 }
 
 typedef unsigned short TSStateId;
@@ -108,8 +111,11 @@ struct TSLanguage {
 #define ADVANCE(state_index)              \
   {                                       \
     DEBUG_LEX("ADVANCE %d", state_index); \
-    if (!ts_lexer_advance(lexer))         \
-      ACCEPT_TOKEN(ts_builtin_sym_end);   \
+    if (ts_lexer_is_done(lexer)) {        \
+      DEBUG_LEX("END_OF_INPUT");          \
+      return NULL;                        \
+    }                                     \
+    ts_lexer_advance(lexer);              \
     lex_state = state_index;              \
     goto next_state;                      \
   }
