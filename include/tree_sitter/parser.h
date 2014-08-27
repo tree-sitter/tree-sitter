@@ -90,9 +90,10 @@ struct TSLanguage {
 
 #define LEX_FN() static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state)
 
-#define DEBUG_LEX(...)                 \
-  if (lexer->debug) {                  \
-    fprintf(stderr, "\n" __VA_ARGS__); \
+#define DEBUG_LEX(...)            \
+  if (lexer->debug) {             \
+    fprintf(stderr, __VA_ARGS__); \
+    fprintf(stderr, "\n");        \
   }
 
 #define START_LEXER()                         \
