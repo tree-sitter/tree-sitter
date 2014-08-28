@@ -26,13 +26,58 @@ describe("Tree", []() {
     ts_tree_release(parent1);
   });
 
-  describe("making a parent node", [&]() {
+  describe("building a parent node", [&]() {
     it("computes its size based on its child nodes", [&]() {
       AssertThat(parent1->size, Equals<size_t>(9));
     });
 
-    it("computes its offset based on its first child", [&]() {
-      AssertThat(parent1->offset, Equals<size_t>(2));
+    it("computes its padding based on its first child", [&]() {
+      AssertThat(parent1->padding, Equals<size_t>(2));
+    });
+
+    it("computes the offset of each child node", [&]() {
+      size_t count;
+      TSTreeChild *children = ts_tree_visible_children(parent1, &count);
+
+      AssertThat(count, Equals<size_t>(2));
+      AssertThat(children[0].tree, Equals(tree1));
+      AssertThat(children[0].offset, Equals<size_t>(0));
+      AssertThat(children[1].tree, Equals(tree2));
+      AssertThat(children[1].offset, Equals<size_t>(
+          tree1->size + tree2->padding));
+    });
+
+    describe("when one of the child nodes is hidden", [&]() {
+      TSTree *grandparent, *tree3;
+
+      before_each([&]() {
+        parent1->options = TSTreeOptionsHidden;
+        tree3 = ts_tree_make_leaf(cat, 8, 5, 0);
+        grandparent = ts_tree_make_node(pig, 2, tree_array({
+            parent1,
+            tree3,
+        }), 0);
+      });
+
+      after_each([&]() {
+        ts_tree_release(tree3);
+        ts_tree_release(grandparent);
+      });
+
+      it("claims the hidden node's children as its own", [&]() {
+        size_t count;
+        TSTreeChild *children = ts_tree_visible_children(grandparent, &count);
+
+        AssertThat(count, Equals<size_t>(3));
+        AssertThat(children[0].tree, Equals(tree1));
+        AssertThat(children[0].offset, Equals<size_t>(0));
+        AssertThat(children[1].tree, Equals(tree2));
+        AssertThat(children[1].offset, Equals<size_t>(
+            tree1->size + tree2->padding));
+        AssertThat(children[2].tree, Equals(tree3));
+        AssertThat(children[2].offset, Equals<size_t>(
+            tree1->size + tree2->padding + tree2->size + tree3->padding));
+      });
     });
   });
 

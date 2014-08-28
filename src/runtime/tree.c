@@ -3,20 +3,30 @@
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 
-static TSTree *ts_tree_make(TSSymbol symbol, size_t size, size_t offset,
+static TSTree *ts_tree_make(TSSymbol symbol, size_t size, size_t padding,
                             int is_hidden) {
   TSTree *result = malloc(sizeof(TSTree));
   *result = (TSTree) { .ref_count = 1,
                        .symbol = symbol,
                        .size = size,
-                       .offset = offset,
+                       .padding = padding,
                        .options = is_hidden ? TSTreeOptionsHidden : 0, };
   return result;
 }
 
-TSTree *ts_tree_make_leaf(TSSymbol symbol, size_t size, size_t offset,
+TSTree *ts_tree_make_error(char lookahead_char, size_t expected_input_count,
+                           const TSSymbol *expected_inputs, size_t size,
+                           size_t padding) {
+  TSTree *result = ts_tree_make(ts_builtin_sym_error, size, padding, 0);
+  result->lookahead_char = lookahead_char;
+  result->expected_input_count = expected_input_count;
+  result->expected_inputs = expected_inputs;
+  return result;
+}
+
+TSTree *ts_tree_make_leaf(TSSymbol symbol, size_t size, size_t padding,
                           int is_hidden) {
-  TSTree *result = ts_tree_make(symbol, size, offset, is_hidden);
+  TSTree *result = ts_tree_make(symbol, size, padding, is_hidden);
   result->child_count = 0;
   result->children = NULL;
   return result;
@@ -24,15 +34,18 @@ TSTree *ts_tree_make_leaf(TSSymbol symbol, size_t size, size_t offset,
 
 TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
                           TSTree **children, int is_hidden) {
-  size_t size = 0, offset = 0, visible_child_count = 0;
+  /*
+   *  Determine size, padding and visible child count based on child nodes.
+   */
+  size_t size = 0, padding = 0, visible_child_count = 0;
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
     ts_tree_retain(child);
     if (i == 0) {
-      offset = child->offset;
+      padding = child->padding;
       size = child->size;
     } else {
-      size += child->offset + child->size;
+      size += child->padding + child->size;
     }
 
     if (ts_tree_is_visible(child))
@@ -41,6 +54,9 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
       visible_child_count += ts_tree_visible_child_count(child);
   }
 
+  /*
+   *  Mark tree as hidden if it wraps a single child node.
+   */
   TSTreeOptions options = 0;
   if (is_hidden)
     options |= TSTreeOptionsHidden;
@@ -48,53 +64,47 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
       (ts_tree_is_visible(children[0]) || ts_tree_is_wrapper(children[0])))
     options |= (TSTreeOptionsWrapper | TSTreeOptionsHidden);
 
-  TSTree *result = malloc(sizeof(TSTree) +
-                          (visible_child_count * sizeof(TSChildWithPosition)));
+  TSTree *result =
+      malloc(sizeof(TSTree) + (visible_child_count * sizeof(TSTreeChild)));
   *result = (TSTree) { .ref_count = 1,
                        .symbol = symbol,
                        .size = size,
-                       .offset = offset,
+                       .padding = padding,
                        .options = options };
 
   result->children = children;
   result->child_count = child_count;
   result->visible_child_count = visible_child_count;
 
-  TSChildWithPosition *visible_children =
-      ts_tree_visible_children(result, NULL);
-
-  for (size_t i = 0, visible_i = 0, child_position = 0; i < child_count; i++) {
+  /*
+   *  Associate a relative offset with each of the visible child nodes, so
+   *  that their positions can be queried without dealing with the hidden child
+   *  nodes.
+   */
+  TSTreeChild *visible_children = ts_tree_visible_children(result, NULL);
+  for (size_t i = 0, vis_i = 0, offset = 0; i < child_count; i++) {
     TSTree *child = children[i];
+
+    if (i > 0)
+      offset += child->padding;
+
     if (ts_tree_is_visible(child)) {
-      visible_children[visible_i] =
-          (TSChildWithPosition) { .tree = child, .position = child_position };
-      visible_i++;
+      visible_children[vis_i].tree = child;
+      visible_children[vis_i].offset = offset;
+      vis_i++;
     } else {
-      size_t granchild_count = 0;
-      TSChildWithPosition *grandchildren =
-          ts_tree_visible_children(child, &granchild_count);
-      for (size_t j = 0; j < granchild_count; j++) {
-        visible_children[visible_i] = (TSChildWithPosition) {
-          .tree = grandchildren[j].tree,
-          .position = grandchildren[j].position + child_position
-        };
-        visible_i++;
+      size_t n = 0;
+      TSTreeChild *grandchildren = ts_tree_visible_children(child, &n);
+      for (size_t j = 0; j < n; j++) {
+        visible_children[vis_i].tree = grandchildren[j].tree;
+        visible_children[vis_i].offset = offset + grandchildren[j].offset;
+        vis_i++;
       }
     }
 
-    child_position += child->offset + child->size;
+    offset += child->size;
   }
 
-  return result;
-}
-
-TSTree *ts_tree_make_error(char lookahead_char, size_t expected_input_count,
-                           const TSSymbol *expected_inputs, size_t size,
-                           size_t offset) {
-  TSTree *result = ts_tree_make(ts_builtin_sym_error, size, offset, 0);
-  result->lookahead_char = lookahead_char;
-  result->expected_input_count = expected_input_count;
-  result->expected_inputs = expected_inputs;
   return result;
 }
 
@@ -113,7 +123,7 @@ void ts_tree_release(TSTree *tree) {
 }
 
 size_t ts_tree_total_size(const TSTree *tree) {
-  return tree->offset + tree->size;
+  return tree->padding + tree->size;
 }
 
 int ts_tree_equals(const TSTree *node1, const TSTree *node2) {

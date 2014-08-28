@@ -2,7 +2,7 @@
 #include "runtime/tree.h"
 
 TSNode *ts_node_make(const TSTree *tree, TSNode *parent, size_t index,
-                     size_t start_position, const char **names) {
+                     size_t position, const char **names) {
   if (parent)
     ts_node_retain(parent);
   TSNode *result = malloc(sizeof(TSNode));
@@ -10,15 +10,13 @@ TSNode *ts_node_make(const TSTree *tree, TSNode *parent, size_t index,
                        .parent = parent,
                        .index = index,
                        .content = tree,
-                       .start_position = start_position,
+                       .position = position,
                        .names = names, };
   return result;
 }
 
 TSNode *ts_node_make_root(const TSTree *tree, const char **names) {
-  while (ts_tree_is_wrapper(tree))
-    tree = tree->children[0];
-  return ts_node_make(tree, NULL, 0, 0, names);
+  return ts_node_make(tree, NULL, 0, tree->padding, names);
 }
 
 void ts_node_retain(TSNode *node) { node->ref_count++; }
@@ -33,7 +31,7 @@ void ts_node_release(TSNode *node) {
 }
 
 size_t ts_node_pos(const TSNode *node) {
-  return node->start_position + node->content->offset;
+  return node->position;
 }
 
 size_t ts_node_size(const TSNode *node) { return node->content->size; }
@@ -72,31 +70,26 @@ size_t ts_node_child_count(const TSNode *parent) {
   return result;
 }
 
-TSNode *ts_node_child(TSNode *parent, size_t index) {
-  size_t child_count;
-  TSChildWithPosition *children =
-      ts_tree_visible_children(parent->content, &child_count);
-  if (child_count <= index)
+TSNode *ts_node_child(TSNode *parent, size_t i) {
+  size_t count;
+  TSTreeChild *children = ts_tree_visible_children(parent->content, &count);
+  if (i >= count)
     return NULL;
-  size_t position = parent->start_position + children[index].position;
-  return ts_node_make(children[index].tree, parent, index, position,
-                      parent->names);
+  size_t child_pos = parent->position + children[i].offset;
+  return ts_node_make(children[i].tree, parent, i, child_pos, parent->names);
 }
 
 TSNode *ts_node_find_for_range(TSNode *parent, size_t min, size_t max) {
-  size_t child_count;
-  TSChildWithPosition *children =
-      ts_tree_visible_children(parent->content, &child_count);
-  for (size_t i = 0; i < child_count; i++) {
-    TSChildWithPosition child = children[i];
-    size_t child_left =
-        parent->start_position + child.position + child.tree->offset;
-    if (child_left > min)
+  size_t count;
+  TSTreeChild *children = ts_tree_visible_children(parent->content, &count);
+  for (size_t i = 0; i < count; i++) {
+    TSTreeChild child = children[i];
+    size_t child_pos = parent->position + child.offset;
+    if (child_pos > min)
       break;
-    if (child_left + child.tree->size > max) {
+    if (child_pos + child.tree->size > max) {
       TSNode *node =
-          ts_node_make(child.tree, parent, i,
-                       parent->start_position + child.position, parent->names);
+          ts_node_make(child.tree, parent, i, child_pos, parent->names);
       TSNode *result = ts_node_find_for_range(node, min, max);
       ts_node_release(node);
       return result;
