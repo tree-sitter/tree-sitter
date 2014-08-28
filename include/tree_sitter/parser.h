@@ -95,12 +95,12 @@ struct TSLanguage {
 
 #define DEBUG_LEX(...)            \
   if (lexer->debug) {             \
-    fprintf(stderr, __VA_ARGS__); \
+    fprintf(stderr, "LEX " __VA_ARGS__); \
     fprintf(stderr, "\n");        \
   }
 
 #define START_LEXER()                         \
-  DEBUG_LEX("LEX %d", lex_state);             \
+  DEBUG_LEX("START %d", lex_state);             \
   char lookahead;                             \
   next_state:                                 \
   lookahead = ts_lexer_lookahead_char(lexer); \
@@ -112,7 +112,7 @@ struct TSLanguage {
   {                                       \
     DEBUG_LEX("ADVANCE %d", state_index); \
     if (ts_lexer_is_done(lexer)) {        \
-      DEBUG_LEX("END_OF_INPUT");          \
+      DEBUG_LEX("END");          \
       return NULL;                        \
     }                                     \
     ts_lexer_advance(lexer);              \

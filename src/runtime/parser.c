@@ -6,6 +6,12 @@
 #include "runtime/stack.h"
 #include "runtime/parser.h"
 
+#define DEBUG_PARSE(...)          \
+  if (parser->debug) {            \
+    fprintf(stderr, "PARSE " __VA_ARGS__); \
+    fprintf(stderr, "\n");        \
+  }
+
 static const TSParseAction *actions_for_state(const TSLanguage *language,
                                               TSStateId state) {
   return language->parse_table + (state * language->symbol_count);
@@ -144,6 +150,7 @@ static int handle_error(TSParser *parser) {
             parser->language, state_after_error)[parser->lookahead->symbol];
 
         if (action_after_error.type != TSParseActionTypeError) {
+          DEBUG_PARSE("RECOVER %u", state_after_error);
           ts_stack_shrink(&parser->stack, i + 1);
           ts_stack_push(&parser->stack, state_after_error, error);
           ts_tree_release(error);
@@ -200,12 +207,6 @@ void ts_parser_destroy(TSParser *parser) {
   ts_stack_delete(&parser->stack);
 }
 
-#define DEBUG_PARSE(...)          \
-  if (parser->debug) {            \
-    fprintf(stderr, __VA_ARGS__); \
-    fprintf(stderr, "\n");        \
-  }
-
 const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
                               TSInputEdit *edit) {
   if (!edit)
@@ -252,6 +253,7 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
         return get_root(parser);
 
       case TSParseActionTypeError:
+        DEBUG_PARSE("ERROR");
         if (!handle_error(parser))
           return get_root(parser);
         break;
