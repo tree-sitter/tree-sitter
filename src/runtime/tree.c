@@ -55,6 +55,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
                        .size = size,
                        .offset = offset,
                        .options = options };
+
   result->children = children;
   result->child_count = child_count;
   result->visible_child_count = visible_child_count;
