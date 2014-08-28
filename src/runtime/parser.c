@@ -6,10 +6,10 @@
 #include "runtime/stack.h"
 #include "runtime/parser.h"
 
-#define DEBUG_PARSE(...)          \
-  if (parser->debug) {            \
+#define DEBUG_PARSE(...)                   \
+  if (parser->debug) {                     \
     fprintf(stderr, "PARSE " __VA_ARGS__); \
-    fprintf(stderr, "\n");        \
+    fprintf(stderr, "\n");                 \
   }
 
 static const TSParseAction *actions_for_state(const TSLanguage *language,

@@ -9,9 +9,7 @@ struct TSDocument {
   TSNode *node;
 };
 
-TSDocument *ts_document_make() {
-  return calloc(sizeof(TSDocument), 1);
-}
+TSDocument *ts_document_make() { return calloc(sizeof(TSDocument), 1); }
 
 void ts_document_free(TSDocument *document) {
   ts_parser_destroy(&document->parser);
