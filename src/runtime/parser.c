@@ -136,6 +136,21 @@ static int handle_error(TSParser *parser) {
   for (;;) {
 
     /*
+     *  If there is no state in the stack for which we can recover with the
+     *  current lookahead token, advance to the next token. If no characters
+     *  were consumed, advance the lexer to the next character.
+     */
+    size_t prev_position = ts_lexer_position(&parser->lexer);
+    lex(parser, ts_lex_state_error);
+    if (ts_lexer_position(&parser->lexer) == prev_position)
+      if (!ts_lexer_advance(&parser->lexer)) {
+        DEBUG_PARSE("FAIL TO RECOVER");
+        ts_stack_push(&parser->stack, 0, error);
+        ts_tree_release(error);
+        return 0;
+      }
+
+    /*
      *  Unwind the parse stack until a state is found in which an error is
      *  expected and the current lookahead token is expected afterwards.
      */
@@ -158,20 +173,6 @@ static int handle_error(TSParser *parser) {
         }
       }
     }
-
-    /*
-     *  If there is no state in the stack for which we can recover with the
-     *  current lookahead token, advance to the next token. If no characters
-     *  were consumed, advance the lexer to the next character.
-     */
-    size_t prev_position = ts_lexer_position(&parser->lexer);
-    lex(parser, ts_lex_state_error);
-    if (ts_lexer_position(&parser->lexer) == prev_position)
-      if (!ts_lexer_advance(&parser->lexer)) {
-        ts_stack_push(&parser->stack, 0, error);
-        ts_tree_release(error);
-        return 0;
-      }
   }
 }
 
@@ -227,8 +228,13 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
 
     switch (action.type) {
       case TSParseActionTypeShift:
-        DEBUG_PARSE("SHIFT %d", action.data.to_state);
-        shift(parser, action.data.to_state);
+        if (parser->lookahead->symbol == ts_builtin_sym_error) {
+          if (!handle_error(parser))
+            return get_root(parser);
+        } else {
+          DEBUG_PARSE("SHIFT %d", action.data.to_state);
+          shift(parser, action.data.to_state);
+        }
         break;
 
       case TSParseActionTypeShiftExtra:
