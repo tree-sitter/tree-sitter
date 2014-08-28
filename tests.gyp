@@ -49,7 +49,7 @@
     'cflags': [
       '-Wall',
       '-Wextra',
-      '-Wno-unused-parameter'
+      '-Wno-unused-parameter',
       '-Wno-unknown-pragmas',
     ],
     'cflags_c': [
