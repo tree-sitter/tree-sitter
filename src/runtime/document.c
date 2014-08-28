@@ -10,9 +10,7 @@ struct TSDocument {
 };
 
 TSDocument *ts_document_make() {
-  TSDocument *document = malloc(sizeof(TSDocument));
-  *document = (TSDocument) {};
-  return document;
+  return calloc(sizeof(TSDocument), 1);
 }
 
 void ts_document_free(TSDocument *document) {
