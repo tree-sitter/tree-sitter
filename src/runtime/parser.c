@@ -132,6 +132,7 @@ static void lex(TSParser *parser, TSStateId lex_state) {
 static int handle_error(TSParser *parser) {
   TSTree *error = parser->lookahead;
   ts_tree_retain(error);
+  size_t start_position = ts_lexer_position(&parser->lexer);
 
   for (;;) {
 
@@ -166,6 +167,7 @@ static int handle_error(TSParser *parser) {
 
         if (action_after_error.type != TSParseActionTypeError) {
           DEBUG_PARSE("RECOVER %u", state_after_error);
+          error->size = ts_lexer_position(&parser->lexer) - start_position + 1;
           ts_stack_shrink(&parser->stack, i + 1);
           ts_stack_push(&parser->stack, state_after_error, error);
           ts_tree_release(error);

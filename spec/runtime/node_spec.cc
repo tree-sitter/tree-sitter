@@ -152,6 +152,28 @@ describe("Node", []() {
       ts_node_release(node);
     });
   });
+
+  describe("error nodes", [&]() {
+    before_each([&]() {
+      ts_document_set_input_string(document, "  [123, total nonsense, true]");
+      AssertThat(ts_node_string(ts_document_root_node(document)), Equals(
+          "(DOCUMENT (array (number) (ERROR 'o') (true)))"));
+
+      root = ts_document_root_node(document);
+    });
+
+    it("computes their size and position correctly", [&]() {
+      TSNode *array = ts_node_child(root, 0);
+      TSNode *error = ts_node_child(array, 1);
+
+      AssertThat(ts_node_name(error), Equals("error"));
+      AssertThat(ts_node_pos(error), Equals(string("  [123,").length()))
+      AssertThat(ts_node_size(error), Equals(string(" total nonsense").length()))
+
+      ts_node_release(array);
+      ts_node_release(error);
+    });
+  });
 });
 
 END_TEST

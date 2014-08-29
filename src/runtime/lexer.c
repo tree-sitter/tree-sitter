@@ -1,3 +1,4 @@
+#include "runtime/lexer.h"
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 
