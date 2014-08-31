@@ -2,15 +2,13 @@
 #include "runtime/tree.h"
 #include "runtime/stack.h"
 
-static size_t INITIAL_STACK_SIZE = 100;
+static size_t INITIAL_SIZE = 100;
 static TSStateId INITIAL_STATE = 0;
 
 TSStack ts_stack_make() {
-  TSStack result = { .size = 0,
-                     .capacity = INITIAL_STACK_SIZE,
-                     .entries =
-                         calloc(INITIAL_STACK_SIZE, sizeof(*result.entries)), };
-  return result;
+  return (TSStack) { .size = 0,
+                     .capacity = INITIAL_SIZE,
+                     .entries = malloc(INITIAL_SIZE * sizeof(TSStackEntry)) };
 }
 
 void ts_stack_delete(TSStack *stack) {

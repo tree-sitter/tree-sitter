@@ -34,8 +34,10 @@ TSTree *ts_tree_make_leaf(TSSymbol symbol, size_t size, size_t padding,
 
 TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
                           TSTree **children, int is_hidden) {
+
   /*
-   *  Determine size, padding and visible child count based on child nodes.
+   *  Determine the new node's size, padding and visible child count based on
+   *  the given child nodes.
    */
   size_t size = 0, padding = 0, visible_child_count = 0;
   for (size_t i = 0; i < child_count; i++) {
@@ -55,7 +57,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   }
 
   /*
-   *  Mark tree as hidden if it wraps a single child node.
+   *  Mark the tree as hidden if it wraps a single child node.
    */
   TSTreeOptions options = 0;
   if (is_hidden)
@@ -64,6 +66,10 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
       (ts_tree_is_visible(children[0]) || ts_tree_is_wrapper(children[0])))
     options |= (TSTreeOptionsWrapper | TSTreeOptionsHidden);
 
+  /*
+   *  Store the visible child array adjacent to the tree itself. This avoids
+   *  performing a second allocation and storing an additional pointer.
+   */
   TSTree *result =
       malloc(sizeof(TSTree) + (visible_child_count * sizeof(TSTreeChild)));
   *result = (TSTree) { .ref_count = 1,
@@ -77,9 +83,8 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   result->visible_child_count = visible_child_count;
 
   /*
-   *  Associate a relative offset with each of the visible child nodes, so
-   *  that their positions can be queried without dealing with the hidden child
-   *  nodes.
+   *  Associate a relative offset with each of the visible child nodes, so that
+   *  their positions can be queried without using the hidden child nodes.
    */
   TSTreeChild *visible_children = ts_tree_visible_children(result, NULL);
   for (size_t i = 0, vis_i = 0, offset = 0; i < child_count; i++) {
@@ -193,9 +198,13 @@ static size_t tree_write_to_string(const TSTree *tree,
 }
 
 char *ts_tree_string(const TSTree *tree, const char **symbol_names) {
-  static char SCRATCH_STRING[1];
-  size_t size =
-      tree_write_to_string(tree, symbol_names, SCRATCH_STRING, 0, 1) + 1;
+
+  /*
+   *  Determine how long the string will need to be up front so that
+   *  the right amount of memory can be allocated.
+   */
+  static char SCRATCH[1];
+  size_t size = tree_write_to_string(tree, symbol_names, SCRATCH, 0, 1) + 1;
   char *result = malloc(size * sizeof(char));
   tree_write_to_string(tree, symbol_names, result, size, 1);
   return result;

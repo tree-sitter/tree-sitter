@@ -3,20 +3,21 @@
 #include "runtime/tree.h"
 
 static int advance(TSLexer *lexer) {
-  static const char empty_chunk[2] = { '\0', '\0' };
   if (lexer->position_in_chunk + 1 < lexer->chunk_size) {
     lexer->position_in_chunk++;
-  } else {
-    if (lexer->chunk == empty_chunk)
-      return 0;
-
-    lexer->chunk_start += lexer->chunk_size;
-    lexer->chunk = lexer->input.read_fn(lexer->input.data, &lexer->chunk_size);
-    lexer->position_in_chunk = 0;
-    if (lexer->chunk_size == 0) {
-      lexer->chunk = empty_chunk;
-    }
+    return 1;
   }
+
+  static const char *empty_chunk = "";
+  if (lexer->chunk == empty_chunk)
+    return 0;
+
+  lexer->chunk_start += lexer->chunk_size;
+  lexer->chunk = lexer->input.read_fn(lexer->input.data, &lexer->chunk_size);
+  lexer->position_in_chunk = 0;
+  if (lexer->chunk_size == 0)
+    lexer->chunk = empty_chunk;
+
   return 1;
 }
 
@@ -28,6 +29,11 @@ static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
   return ts_tree_make_leaf(symbol, size, padding, is_hidden);
 }
 
+/*
+ *  The `advance` and `accept` methods are stored as fields on the Lexer so
+ *  that generated parsers can call them without needing to be linked against
+ *  this library.
+ */
 TSLexer ts_lexer_make() {
   return (TSLexer) { .chunk = NULL,
                      .debug = 0,
