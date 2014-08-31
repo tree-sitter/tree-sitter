@@ -55,18 +55,8 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
 }
 
 static TSTree *build_error_node(TSParser *parser) {
-  TSStateId state = ts_stack_top_state(&parser->stack);
   unsigned char lookahead = ts_lexer_lookahead_char(&parser->lexer);
-  TSSymbol *expected_symbols =
-      malloc(parser->language->symbol_count * sizeof(TSSymbol *));
-
-  size_t count = 0;
-  const TSParseAction *actions = actions_for_state(parser->language, state);
-  for (TSSymbol i = 0; i < parser->language->symbol_count; i++)
-    if (actions[i].type != TSParseActionTypeError)
-      expected_symbols[count++] = i;
-
-  return ts_tree_make_error(lookahead, count, expected_symbols, 0, 0);
+  return ts_tree_make_error(0, 0, lookahead);
 }
 
 static void shift(TSParser *parser, TSStateId parse_state) {

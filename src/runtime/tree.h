@@ -19,18 +19,10 @@ struct TSTree {
   size_t ref_count;
   size_t padding;
   size_t size;
-  union {
-    struct {
-      size_t child_count;
-      struct TSTree **children;
-      size_t visible_child_count;
-    };
-    struct {
-      size_t expected_input_count;
-      const TSSymbol *expected_inputs;
-      char lookahead_char;
-    };
-  };
+  char lookahead_char;
+  size_t child_count;
+  size_t visible_child_count;
+  struct TSTree **children;
 };
 
 typedef struct {
@@ -78,9 +70,7 @@ TSTree *ts_tree_make_leaf(TSSymbol symbol, size_t size, size_t padding,
                           int is_hidden);
 TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
                           TSTree **children, int is_hidden);
-TSTree *ts_tree_make_error(char lookahead_char, size_t expected_input_count,
-                           const TSSymbol *expected_inputs, size_t size,
-                           size_t padding);
+TSTree *ts_tree_make_error(size_t size, size_t padding, char lookahead_char);
 void ts_tree_retain(TSTree *tree);
 void ts_tree_release(TSTree *tree);
 int ts_tree_equals(const TSTree *tree1, const TSTree *tree2);
