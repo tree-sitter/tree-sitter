@@ -110,8 +110,15 @@ static void reduce(TSParser *parser, TSSymbol symbol, size_t child_count) {
 }
 
 static int reduce_extra(TSParser *parser, TSSymbol symbol) {
-  TSTree *top_node = ts_stack_top_node(&parser->stack);
-  if (top_node->symbol == symbol && !ts_tree_is_extra(top_node)) {
+  TSTree *last_node = NULL;
+  TS_STACK_FROM_TOP(parser->stack, entry, i) {
+    if (!ts_tree_is_extra(entry->node)) {
+      last_node = entry->node;
+      break;
+    }
+  }
+
+  if (last_node && last_node->symbol == symbol) {
     reduce(parser, symbol, 1);
     ts_tree_set_extra(parser->lookahead);
     return 1;
@@ -137,27 +144,12 @@ static int handle_error(TSParser *parser) {
   for (;;) {
 
     /*
-     *  If there is no state in the stack for which we can recover with the
-     *  current lookahead token, advance to the next token. If no characters
-     *  were consumed, advance the lexer to the next character.
-     */
-    size_t prev_position = ts_lexer_position(&parser->lexer);
-    lex(parser, ts_lex_state_error);
-    if (ts_lexer_position(&parser->lexer) == prev_position)
-      if (!ts_lexer_advance(&parser->lexer)) {
-        DEBUG_PARSE("FAIL TO RECOVER");
-        ts_stack_push(&parser->stack, 0, error);
-        ts_tree_release(error);
-        return 0;
-      }
-
-    /*
      *  Unwind the parse stack until a state is found in which an error is
      *  expected and the current lookahead token is expected afterwards.
      */
     size_t error_start_pos = last_token_end;
-    for (size_t i = parser->stack.size - 1; i + 1 > 0; i--) {
-      TSStateId state = parser->stack.entries[i].state;
+    TS_STACK_FROM_TOP(parser->stack, entry, i) {
+      TSStateId state = entry->state;
       TSParseAction action_on_error =
           actions_for_state(parser->language, state)[ts_builtin_sym_error];
 
@@ -168,7 +160,8 @@ static int handle_error(TSParser *parser) {
 
         if (action_after_error.type != TSParseActionTypeError) {
           DEBUG_PARSE("RECOVER %u", state_after_error);
-          error->size = ts_lexer_position(&parser->lexer) - error_start_pos - 1;
+          size_t current_position = ts_lexer_position(&parser->lexer);
+          error->size = current_position - 1 - error_start_pos;
           ts_stack_shrink(&parser->stack, i + 1);
           ts_stack_push(&parser->stack, state_after_error, error);
           ts_tree_release(error);
@@ -176,9 +169,25 @@ static int handle_error(TSParser *parser) {
         }
       }
 
-      TSTree *removed_tree = parser->stack.entries[i].node;
+      TSTree *removed_tree = entry->node;
       error_start_pos -= ts_tree_total_size(removed_tree);
     }
+
+    /*
+     *  If there is no state in the stack for which we can recover with the
+     *  current lookahead token, advance to the next token. If no characters
+     *  were consumed, advance the lexer to the next character.
+     */
+    size_t prev_position = ts_lexer_position(&parser->lexer);
+    lex(parser, ts_lex_state_error);
+    parser->lookahead->padding = 0;
+    if (ts_lexer_position(&parser->lexer) == prev_position)
+      if (!ts_lexer_advance(&parser->lexer)) {
+        DEBUG_PARSE("FAIL TO RECOVER");
+        ts_stack_push(&parser->stack, 0, error);
+        ts_tree_release(error);
+        return 0;
+      }
   }
 }
 
@@ -256,8 +265,12 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
         break;
 
       case TSParseActionTypeReduceExtra:
+        if (!reduce_extra(parser, action.data.symbol)) {
+          DEBUG_PARSE("ERROR");
+          if (!handle_error(parser))
+            return get_root(parser);
+        }
         DEBUG_PARSE("REDUCE EXTRA");
-        reduce_extra(parser, action.data.symbol);
         break;
 
       case TSParseActionTypeAccept:

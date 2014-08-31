@@ -2,6 +2,7 @@
 #include "runtime/helpers/spy_reader.h"
 
 extern "C" const TSLanguage * ts_language_json();
+extern "C" const TSLanguage * ts_language_javascript();
 
 START_TEST
 
@@ -116,13 +117,13 @@ describe("Document", [&]() {
   describe("parsing", [&]() {
     TSNode *root;
 
-    describe("error handling", [&]() {
+    describe("handling errors", [&]() {
       before_each([&]() {
         ts_document_set_language(doc, ts_language_json());
       });
 
       describe("when the error occurs at the beginning of a token", [&]() {
-        it("computes the error node's size and position correctly 1", [&]() {
+        it("computes the error node's size and position correctly", [&]() {
           ts_document_set_input_string(doc, "  [123, @@@@@, true]");
           AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
               "(DOCUMENT (array (number) (ERROR '@') (true)))"));
@@ -130,37 +131,47 @@ describe("Document", [&]() {
           root = ts_document_root_node(doc);
           TSNode *array = ts_node_child(root, 0);
           TSNode *error = ts_node_child(array, 1);
+          TSNode *last = ts_node_child(array, 2);
 
           AssertThat(ts_node_name(error), Equals("error"));
           AssertThat(ts_node_pos(error), Equals(string("  [123,").length()))
           AssertThat(ts_node_size(error), Equals(string(" @@@@@").length()))
 
+          AssertThat(ts_node_name(last), Equals("true"));
+          AssertThat(ts_node_pos(last), Equals(string("  [123, @@@@@, ").length()))
+
+          ts_node_release(last);
           ts_node_release(error);
           ts_node_release(array);
         });
       });
 
       describe("when the error occurs in the middle of a token", [&]() {
-        it("computes the error node's size and position correctly 2", [&]() {
-          ts_document_set_input_string(doc, "  [123, total nonsense, true]");
+        it("computes the error node's size and position correctly", [&]() {
+          ts_document_set_input_string(doc, "  [123, faaaaalse, true]");
           AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
-              "(DOCUMENT (array (number) (ERROR 'o') (true)))"));
+              "(DOCUMENT (array (number) (ERROR 'a') (true)))"));
 
           root = ts_document_root_node(doc);
           TSNode *array = ts_node_child(root, 0);
           TSNode *error = ts_node_child(array, 1);
+          TSNode *last = ts_node_child(array, 2);
 
           AssertThat(ts_node_name(error), Equals("error"));
           AssertThat(ts_node_pos(error), Equals(string("  [123,").length()))
-          AssertThat(ts_node_size(error), Equals(string(" total nonsense").length()))
+          AssertThat(ts_node_size(error), Equals(string(" faaaaalse").length()))
 
+          AssertThat(ts_node_name(last), Equals("true"));
+          AssertThat(ts_node_pos(last), Equals(string("  [123, faaaaalse, ").length()))
+
+          ts_node_release(last);
           ts_node_release(error);
           ts_node_release(array);
         });
       });
 
       describe("when the error occurs after one or more tokens", [&]() {
-        it("computes the error node's size and position correctly 3", [&]() {
+        it("computes the error node's size and position correctly", [&]() {
           ts_document_set_input_string(doc, "  [123, true false, true]");
           AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
               "(DOCUMENT (array (number) (ERROR 'f') (true)))"));
@@ -168,13 +179,87 @@ describe("Document", [&]() {
           root = ts_document_root_node(doc);
           TSNode *array = ts_node_child(root, 0);
           TSNode *error = ts_node_child(array, 1);
+          TSNode *last = ts_node_child(array, 2);
 
           AssertThat(ts_node_name(error), Equals("error"));
           AssertThat(ts_node_pos(error), Equals(string("  [123,").length()))
           AssertThat(ts_node_size(error), Equals(string(" true false").length()))
 
+          AssertThat(ts_node_name(last), Equals("true"));
+          AssertThat(ts_node_pos(last), Equals(string("  [123, true false, ").length()))
+
+          ts_node_release(last);
           ts_node_release(error);
           ts_node_release(array);
+        });
+      });
+
+      describe("when the error is an empty string", [&]() {
+        it("computes the error node's size and position correctly", [&]() {
+          ts_document_set_input_string(doc, "  [123, , true]");
+          AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
+              "(DOCUMENT (array (number) (ERROR ',') (true)))"));
+
+          root = ts_document_root_node(doc);
+          TSNode *array = ts_node_child(root, 0);
+          TSNode *error = ts_node_child(array, 1);
+          TSNode *last = ts_node_child(array, 2);
+
+          AssertThat(ts_node_name(error), Equals("error"));
+          AssertThat(ts_node_pos(error), Equals(string("  [123,").length()))
+          AssertThat(ts_node_size(error), Equals(string(" ").length()))
+
+          AssertThat(ts_node_name(last), Equals("true"));
+          AssertThat(ts_node_pos(last), Equals(string("  [123, , ").length()))
+
+          ts_node_release(last);
+          ts_node_release(error);
+          ts_node_release(array);
+        });
+      });
+    });
+
+    describe("handling ubiquitous tokens", [&]() {
+
+      // In the javascript example grammar, ASI works by using newlines as
+      // terminators in statements, but also as ubiquitous tokens.
+      before_each([&]() {
+        ts_document_set_language(doc, ts_language_javascript());
+      });
+
+      describe("when the token appears as part of a grammar rule", [&]() {
+        it("is incorporated into the tree", [&]() {
+          ts_document_set_input_string(doc, "fn()\n");
+          AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
+              "(DOCUMENT (program (expression_statement (function_call (identifier)))))"));
+        });
+      });
+
+      describe("when the token appears somewhere else", [&]() {
+        it("is incorporated into the tree", [&]() {
+          ts_document_set_input_string(doc,
+            "fn()\n"
+            "  .otherFn();");
+          AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
+              "(DOCUMENT (program "
+                "(expression_statement (function_call "
+                  "(property_access (function_call (identifier)) (identifier))))))"));
+        });
+
+        describe("when several ubiquitous tokens appear in a row", [&]() {
+          it("is incorporated into the tree", [&]() {
+            ts_document_set_input_string(doc,
+              "fn()\n\n"
+              "// This is a comment"
+              "\n\n"
+              ".otherFn();");
+            AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
+                "(DOCUMENT (program "
+                  "(expression_statement (function_call "
+                    "(property_access (function_call (identifier)) "
+                      "(comment) "
+                      "(identifier))))))"));
+          });
         });
       });
     });

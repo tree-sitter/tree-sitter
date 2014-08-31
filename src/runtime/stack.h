@@ -8,13 +8,14 @@ extern "C" {
 #include "tree_sitter/parser.h"
 
 typedef struct {
+  TSTree *node;
+  TSStateId state;
+} TSStackEntry;
+
+typedef struct {
   size_t size;
   size_t capacity;
-  struct {
-    TSTree *node;
-    TSStateId state;
-    int is_extra;
-  } *entries;
+  TSStackEntry *entries;
 } TSStack;
 
 TSStack ts_stack_make();
@@ -24,6 +25,11 @@ void ts_stack_push(TSStack *stack, TSStateId state, TSTree *node);
 TSStateId ts_stack_top_state(const TSStack *stack);
 TSTree *ts_stack_top_node(const TSStack *stack);
 size_t ts_stack_right_position(const TSStack *stack);
+
+#define TS_STACK_FROM_TOP(stack, entry, index)               \
+  size_t index = stack.size - 1;                             \
+  for (TSStackEntry *entry = stack.entries + stack.size - 1; \
+       entry >= stack.entries; entry-- && index--)
 
 #ifdef __cplusplus
 }
