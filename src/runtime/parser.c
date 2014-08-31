@@ -121,9 +121,6 @@ static void lex(TSParser *parser, TSStateId lex_state) {
   if (parser->lookahead)
     ts_tree_release(parser->lookahead);
   parser->lookahead = parser->language->lex_fn(&parser->lexer, lex_state);
-  if (!parser->lookahead) {
-    parser->lookahead = build_error_node(parser);
-  }
 }
 
 static int handle_error(TSParser *parser) {
@@ -137,7 +134,7 @@ static int handle_error(TSParser *parser) {
      *  Unwind the parse stack until a state is found in which an error is
      *  expected and the current lookahead token is expected afterwards.
      */
-    size_t error_start_pos = last_token_end;
+    size_t error_start = last_token_end;
     TS_STACK_FROM_TOP(parser->stack, entry, i) {
       TSStateId state = entry->state;
       TSParseAction action_on_error =
@@ -150,8 +147,7 @@ static int handle_error(TSParser *parser) {
 
         if (action_after_error.type != TSParseActionTypeError) {
           DEBUG_PARSE("RECOVER %u", state_after_error);
-          size_t current_position = ts_lexer_position(&parser->lexer);
-          error->size = current_position - 1 - error_start_pos;
+          error->size += ts_lexer_position(&parser->lexer) - 1 - error_start;
           ts_stack_shrink(&parser->stack, i + 1);
           ts_stack_push(&parser->stack, state_after_error, error);
           ts_tree_release(error);
@@ -160,7 +156,7 @@ static int handle_error(TSParser *parser) {
       }
 
       TSTree *removed_tree = entry->node;
-      error_start_pos -= ts_tree_total_size(removed_tree);
+      error_start -= ts_tree_total_size(removed_tree);
     }
 
     /*

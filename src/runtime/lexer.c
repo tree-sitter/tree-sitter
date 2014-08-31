@@ -26,7 +26,9 @@ static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
   size_t size = current_position - lexer->token_start_position;
   size_t padding = lexer->token_start_position - lexer->token_end_position;
   lexer->token_end_position = current_position;
-  return ts_tree_make_leaf(symbol, size, padding, is_hidden);
+  return (symbol == ts_builtin_sym_error)
+             ? ts_tree_make_error(size, padding, ts_lexer_lookahead_char(lexer))
+             : ts_tree_make_leaf(symbol, size, padding, is_hidden);
 }
 
 /*

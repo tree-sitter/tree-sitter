@@ -134,8 +134,8 @@ describe("Document", [&]() {
           TSNode *last = ts_node_child(array, 2);
 
           AssertThat(ts_node_name(error), Equals("error"));
-          AssertThat(ts_node_pos(error), Equals(string("  [123,").length()))
-          AssertThat(ts_node_size(error), Equals(string(" @@@@@").length()))
+          AssertThat(ts_node_pos(error), Equals(string("  [123, ").length()))
+          AssertThat(ts_node_size(error), Equals(string("@@@@@").length()))
 
           AssertThat(ts_node_name(last), Equals("true"));
           AssertThat(ts_node_pos(last), Equals(string("  [123, @@@@@, ").length()))
@@ -158,8 +158,8 @@ describe("Document", [&]() {
           TSNode *last = ts_node_child(array, 2);
 
           AssertThat(ts_node_name(error), Equals("error"));
-          AssertThat(ts_node_pos(error), Equals(string("  [123,").length()))
-          AssertThat(ts_node_size(error), Equals(string(" faaaaalse").length()))
+          AssertThat(ts_node_pos(error), Equals(string("  [123, ").length()))
+          AssertThat(ts_node_size(error), Equals(string("faaaaalse").length()))
 
           AssertThat(ts_node_name(last), Equals("true"));
           AssertThat(ts_node_pos(last), Equals(string("  [123, faaaaalse, ").length()))
@@ -182,8 +182,8 @@ describe("Document", [&]() {
           TSNode *last = ts_node_child(array, 2);
 
           AssertThat(ts_node_name(error), Equals("error"));
-          AssertThat(ts_node_pos(error), Equals(string("  [123,").length()))
-          AssertThat(ts_node_size(error), Equals(string(" true false").length()))
+          AssertThat(ts_node_pos(error), Equals(string("  [123, ").length()))
+          AssertThat(ts_node_size(error), Equals(string("true false").length()))
 
           AssertThat(ts_node_name(last), Equals("true"));
           AssertThat(ts_node_pos(last), Equals(string("  [123, true false, ").length()))
@@ -206,8 +206,8 @@ describe("Document", [&]() {
           TSNode *last = ts_node_child(array, 2);
 
           AssertThat(ts_node_name(error), Equals("error"));
-          AssertThat(ts_node_pos(error), Equals(string("  [123,").length()))
-          AssertThat(ts_node_size(error), Equals(string(" ").length()))
+          AssertThat(ts_node_pos(error), Equals(string("  [123, ").length()))
+          AssertThat(ts_node_size(error), Equals<size_t>(0))
 
           AssertThat(ts_node_name(last), Equals("true"));
           AssertThat(ts_node_pos(last), Equals(string("  [123, , ").length()))

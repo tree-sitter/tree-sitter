@@ -108,16 +108,16 @@ struct TSLanguage {
 
 #define START_TOKEN() ts_lexer_start_token(lexer);
 
-#define ADVANCE(state_index)              \
-  {                                       \
-    DEBUG_LEX("ADVANCE %d", state_index); \
-    if (ts_lexer_is_done(lexer)) {        \
-      DEBUG_LEX("END");                   \
-      return NULL;                        \
-    }                                     \
-    ts_lexer_advance(lexer);              \
-    lex_state = state_index;              \
-    goto next_state;                      \
+#define ADVANCE(state_index)                                  \
+  {                                                           \
+    DEBUG_LEX("ADVANCE %d", state_index);                     \
+    if (ts_lexer_is_done(lexer)) {                            \
+      DEBUG_LEX("END");                                       \
+      return ts_lexer_accept(lexer, ts_builtin_sym_error, 0); \
+    }                                                         \
+    ts_lexer_advance(lexer);                                  \
+    lex_state = state_index;                                  \
+    goto next_state;                                          \
   }
 
 #define ACCEPT_TOKEN(symbol)                                               \
@@ -126,10 +126,10 @@ struct TSLanguage {
     return ts_lexer_accept(lexer, symbol, ts_hidden_symbol_flags[symbol]); \
   }
 
-#define LEX_ERROR()     \
-  {                     \
-    DEBUG_LEX("ERROR"); \
-    return NULL;        \
+#define LEX_ERROR()                                         \
+  {                                                         \
+    DEBUG_LEX("ERROR");                                     \
+    return ts_lexer_accept(lexer, ts_builtin_sym_error, 0); \
   }
 
 #define SHIFT(to_state_value)                                              \
