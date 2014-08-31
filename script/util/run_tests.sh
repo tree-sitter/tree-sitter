@@ -55,7 +55,8 @@ function run_tests {
       --suppressions=./etc/valgrind.supp \
       --dsymutil=yes \
       $cmd \
-      $args
+      $args 2>&1 | \
+      grep --color -E '\w+_specs?.cc:\d+|$'
 
   elif [[ -n $debug ]]; then
     if which -s gdb; then
