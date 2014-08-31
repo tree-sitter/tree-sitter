@@ -122,7 +122,7 @@ describe("Document", [&]() {
       });
 
       describe("when the error occurs at the beginning of a token", [&]() {
-        it("computes the error node's size and position correctly", [&]() {
+        it("computes the error node's size and position correctly 1", [&]() {
           ts_document_set_input_string(doc, "  [123, @@@@@, true]");
           AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
               "(DOCUMENT (array (number) (ERROR '@') (true)))"));
@@ -137,12 +137,11 @@ describe("Document", [&]() {
 
           ts_node_release(error);
           ts_node_release(array);
-          ts_node_release(error);
         });
       });
 
       describe("when the error occurs in the middle of a token", [&]() {
-        it("computes the error node's size and position correctly", [&]() {
+        it("computes the error node's size and position correctly 2", [&]() {
           ts_document_set_input_string(doc, "  [123, total nonsense, true]");
           AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
               "(DOCUMENT (array (number) (ERROR 'o') (true)))"));
@@ -157,12 +156,11 @@ describe("Document", [&]() {
 
           ts_node_release(error);
           ts_node_release(array);
-          ts_node_release(error);
         });
       });
 
       describe("when the error occurs after one or more tokens", [&]() {
-        it("computes the error node's size and position correctly", [&]() {
+        it("computes the error node's size and position correctly 3", [&]() {
           ts_document_set_input_string(doc, "  [123, true false, true]");
           AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
               "(DOCUMENT (array (number) (ERROR 'f') (true)))"));
@@ -177,7 +175,6 @@ describe("Document", [&]() {
 
           ts_node_release(error);
           ts_node_release(array);
-          ts_node_release(error);
         });
       });
     });
