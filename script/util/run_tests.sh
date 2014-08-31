@@ -14,61 +14,64 @@ OPTIONS
 
   -v  run tests with verbose output
 
-  -f  focus tests to those containing the substring
+  -f  run only tests whose description contain the given string
 
 EOF
 }
 
 function run_tests {
-  local debug
-  local args
-  local valgrind
+  local mode=normal
+  local args=()
   local target=$1
   local cmd="out/Default/${target}"
   shift
 
-  while getopts "hdgvf:" option; do
+  while getopts "df:ghv" option; do
     case ${option} in
       h)
         usage
         exit
         ;;
       d)
-        debug=true
-        ;;
-      f)
-        args="$args --only='${OPTARG}'"
-        ;;
-      v)
-        args="$args --reporter=spec"
+        mode=debug
         ;;
       g)
-        valgrind=true
+        mode=valgrind
+        ;;
+      f)
+        args+=("--only=${OPTARG}")
+        ;;
+      v)
+        args+=("--reporter=spec")
         ;;
     esac
   done
 
   make $target
+  args=${args:-""}
 
-  if [[ -n $valgrind ]]; then
-    eval valgrind \
-      --suppressions=./etc/valgrind.supp \
-      --dsymutil=yes \
-      $cmd \
-      $args 2>&1 | \
-      grep --color -E '\w+_specs?.cc:\d+|$'
+  case ${mode} in
+    valgrind)
+      valgrind \
+        --suppressions=./etc/valgrind.supp \
+        --dsymutil=yes \
+        $cmd "${args[@]}" 2>&1 | \
+        grep --color -E '\w+_specs?.cc:\d+|$'
+      ;;
 
-  elif [[ -n $debug ]]; then
-    if which -s gdb; then
-      eval gdb $cmd -- $args
-    elif which -s lldb; then
-      eval lldb $cmd -- $args
-    else
-      echo "No debugger found"
-      exit 1
-    fi
+    debug)
+      if which -s gdb; then
+        gdb $cmd -- "${args[@]}"
+      elif which -s lldb; then
+        lldb $cmd -- "${args[@]}"
+      else
+        echo "No debugger found"
+        exit 1
+      fi
+      ;;
 
-  else
-    eval time $cmd $args
-  fi
+    normal)
+      time $cmd "${args[@]}"
+      ;;
+  esac
 }
