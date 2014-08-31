@@ -8,6 +8,7 @@ static TSStateId INITIAL_STATE = 0;
 TSStack ts_stack_make() {
   TSStack result = {
     .entries = calloc(INITIAL_STACK_SIZE, sizeof(*result.entries)), .size = 0,
+    .capacity = INITIAL_STACK_SIZE,
   };
   return result;
 }
@@ -30,6 +31,10 @@ TSTree *ts_stack_top_node(const TSStack *stack) {
 }
 
 void ts_stack_push(TSStack *stack, TSStateId state, TSTree *node) {
+  if (stack->size == stack->capacity) {
+    stack->capacity *= 2;
+    stack->entries = realloc(stack->entries, stack->capacity * sizeof(*stack->entries));
+  }
   stack->entries[stack->size].state = state;
   stack->entries[stack->size].node = node;
   stack->size++;

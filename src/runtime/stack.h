@@ -9,6 +9,7 @@ extern "C" {
 
 typedef struct {
   size_t size;
+  size_t capacity;
   struct {
     TSTree *node;
     TSStateId state;
