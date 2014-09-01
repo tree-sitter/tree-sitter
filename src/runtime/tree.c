@@ -1,29 +1,30 @@
 #include <string.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 
-TSTree *ts_tree_make_leaf(TSSymbol s, size_t size, size_t padding, int hidden) {
+TSTree *ts_tree_make_leaf(TSSymbol sym, size_t size, size_t padding, bool is_hidden) {
   TSTree *result = malloc(sizeof(TSTree));
   *result = (TSTree) { .ref_count = 1,
-                       .symbol = s,
+                       .symbol = sym,
                        .size = size,
                        .child_count = 0,
                        .children = NULL,
                        .lookahead_char = 0,
                        .padding = padding,
-                       .options = hidden ? TSTreeOptionsHidden : 0, };
+                       .options = is_hidden ? TSTreeOptionsHidden : 0, };
   return result;
 }
 
 TSTree *ts_tree_make_error(size_t size, size_t padding, char lookahead_char) {
-  TSTree *result = ts_tree_make_leaf(ts_builtin_sym_error, size, padding, 0);
+  TSTree *result = ts_tree_make_leaf(ts_builtin_sym_error, size, padding, false);
   result->lookahead_char = lookahead_char;
   return result;
 }
 
 TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
-                          TSTree **children, int is_hidden) {
+                          TSTree **children, bool is_hidden) {
 
   /*
    *  Determine the new node's size, padding and visible child count based on
@@ -33,6 +34,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
     ts_tree_retain(child);
+
     if (i == 0) {
       padding = child->padding;
       size = child->size;
@@ -43,7 +45,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
     if (ts_tree_is_visible(child))
       visible_child_count++;
     else
-      visible_child_count += ts_tree_visible_child_count(child);
+      visible_child_count += child->visible_child_count;
   }
 
   /*
@@ -136,14 +138,15 @@ int ts_tree_equals(const TSTree *node1, const TSTree *node2) {
 }
 
 TSTree **ts_tree_children(const TSTree *tree, size_t *count) {
-  if (!tree || tree->symbol == ts_builtin_sym_error) {
-    if (count)
-      *count = 0;
-    return NULL;
-  }
   if (count)
     *count = tree->child_count;
   return tree->children;
+}
+
+TSTreeChild *ts_tree_visible_children(const TSTree *tree, size_t *count) {
+  if (count)
+    *count = tree->visible_child_count;
+  return (TSTreeChild *)(tree + 1);
 }
 
 static size_t write_lookahead_to_string(char *string, size_t limit,
@@ -159,29 +162,32 @@ static size_t write_lookahead_to_string(char *string, size_t limit,
 static size_t tree_write_to_string(const TSTree *tree,
                                    const char **symbol_names, char *string,
                                    size_t limit, int is_root) {
+  if (!tree)
+    return snprintf(string, limit, "(NULL)");
+
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
-  int visible = ts_tree_is_visible(tree);
+  int visible = ts_tree_is_visible(tree) || is_root;
 
   if (visible && !is_root)
     cursor += snprintf(*writer, limit, " ");
 
-  if (!tree) {
-    cursor += snprintf(*writer, limit, "(NULL)");
-  } else if (tree->symbol == ts_builtin_sym_error) {
-    cursor += snprintf(*writer, limit, "(ERROR ");
-    cursor += write_lookahead_to_string(*writer, limit, tree->lookahead_char);
-    cursor += snprintf(*writer, limit, ")");
-  } else {
-    if (visible || is_root)
+  if (visible) {
+    if (tree->symbol == ts_builtin_sym_error) {
+      cursor += snprintf(*writer, limit, "(ERROR ");
+      cursor += write_lookahead_to_string(*writer, limit, tree->lookahead_char);
+    } else {
       cursor += snprintf(*writer, limit, "(%s", symbol_names[tree->symbol]);
-    for (size_t i = 0; i < tree->child_count; i++) {
-      TSTree *child = tree->children[i];
-      cursor += tree_write_to_string(child, symbol_names, *writer, limit, 0);
     }
-    if (visible || is_root)
-      cursor += snprintf(*writer, limit, ")");
   }
+
+  for (size_t i = 0; i < tree->child_count; i++) {
+    TSTree *child = tree->children[i];
+    cursor += tree_write_to_string(child, symbol_names, *writer, limit, 0);
+  }
+
+  if (visible)
+    cursor += snprintf(*writer, limit, ")");
 
   return cursor - string;
 }
@@ -189,12 +195,13 @@ static size_t tree_write_to_string(const TSTree *tree,
 char *ts_tree_string(const TSTree *tree, const char **symbol_names) {
 
   /*
-   *  Determine how long the string will need to be up front so that
-   *  the right amount of memory can be allocated.
+   *  Determine the length of the string first, so that the right amount of
+   *  memory can be allocated.
    */
   static char SCRATCH[1];
   size_t size = tree_write_to_string(tree, symbol_names, SCRATCH, 0, 1) + 1;
   char *result = malloc(size * sizeof(char));
+
   tree_write_to_string(tree, symbol_names, result, size, 1);
   return result;
 }
