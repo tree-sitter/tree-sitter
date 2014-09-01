@@ -12,9 +12,9 @@
     fprintf(stderr, "\n");                 \
   }
 
-static const TSParseAction *actions_for_state(const TSLanguage *language,
-                                              TSStateId state) {
-  return language->parse_table + (state * language->symbol_count);
+static TSParseAction action_for(const TSLanguage *lang, TSStateId state,
+                                TSSymbol sym) {
+  return (lang->parse_table + (state * lang->symbol_count))[sym];
 }
 
 static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
@@ -41,8 +41,8 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
     for (size_t i = 0; i < child_count && position < edit->position; i++) {
       TSTree *child = children[i];
       TSStateId state = ts_stack_top_state(stack);
-      TSStateId next_state = actions_for_state(
-          parser->language, state)[child->symbol].data.to_state;
+      TSStateId next_state =
+          action_for(parser->language, state, child->symbol).data.to_state;
       ts_stack_push(stack, next_state, child);
       ts_tree_retain(child);
       position += ts_tree_total_size(child);
@@ -52,11 +52,6 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
   }
 
   return position;
-}
-
-static TSTree *build_error_node(TSParser *parser) {
-  unsigned char lookahead = ts_lexer_lookahead_char(&parser->lexer);
-  return ts_tree_make_error(0, 0, lookahead);
 }
 
 static void shift(TSParser *parser, TSStateId parse_state) {
@@ -136,14 +131,13 @@ static int handle_error(TSParser *parser) {
      */
     size_t error_start = last_token_end;
     TS_STACK_FROM_TOP(parser->stack, entry, i) {
-      TSStateId state = entry->state;
       TSParseAction action_on_error =
-          actions_for_state(parser->language, state)[ts_builtin_sym_error];
+          action_for(parser->language, entry->state, ts_builtin_sym_error);
 
       if (action_on_error.type == TSParseActionTypeShift) {
         TSStateId state_after_error = action_on_error.data.to_state;
-        TSParseAction action_after_error = actions_for_state(
-            parser->language, state_after_error)[parser->lookahead->symbol];
+        TSParseAction action_after_error = action_for(
+            parser->language, state_after_error, parser->lookahead->symbol);
 
         if (action_after_error.type != TSParseActionTypeError) {
           DEBUG_PARSE("RECOVER %u", state_after_error);
@@ -179,7 +173,7 @@ static int handle_error(TSParser *parser) {
 
 static TSTree *get_root(TSParser *parser) {
   if (parser->stack.size == 0)
-    ts_stack_push(&parser->stack, 0, build_error_node(parser));
+    ts_stack_push(&parser->stack, 0, ts_tree_make_error(0, 0, 0));
 
   reduce(parser, ts_builtin_sym_document, parser->stack.size);
   parser->lookahead->options = 0;
@@ -191,7 +185,7 @@ static TSParseAction next_action(TSParser *parser) {
   TSStateId state = ts_stack_top_state(&parser->stack);
   if (!parser->lookahead)
     lex(parser, parser->language->lex_states[state]);
-  return actions_for_state(parser->language, state)[parser->lookahead->symbol];
+  return action_for(parser->language, state, parser->lookahead->symbol);
 }
 
 TSParser ts_parser_make(const TSLanguage *language) {
