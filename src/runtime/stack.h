@@ -29,7 +29,7 @@ TSTree **ts_stack_pop_extras(TSStack *, size_t *);
 
 #define TS_STACK_FROM_TOP(stack, entry, index)               \
   size_t index = stack.size - 1;                             \
-  (void)index;                                               \
+  (void) index;                                              \
   for (TSStackEntry *entry = stack.entries + stack.size - 1; \
        entry >= stack.entries; entry-- && index--)
 

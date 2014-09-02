@@ -38,14 +38,22 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
     stack->size--;
     position -= node->size;
 
+    DEBUG_PARSE("BREAKDOWN %s %u", parser->language->symbol_names[node->symbol],
+                ts_stack_top_state(stack));
+
     for (size_t i = 0; i < child_count && position < edit->position; i++) {
       TSTree *child = children[i];
       TSStateId state = ts_stack_top_state(stack);
-      TSStateId next_state =
-          action_for(parser->language, state, child->symbol).data.to_state;
+      TSParseAction action = action_for(parser->language, state, child->symbol);
+      TSStateId next_state = (action.type == TSParseActionTypeShift)
+                                 ? action.data.to_state
+                                 : state;
       ts_stack_push(stack, next_state, child);
       ts_tree_retain(child);
       position += child->size;
+
+      DEBUG_PARSE("PUT_BACK %s %u",
+                  parser->language->symbol_names[child->symbol], next_state);
     }
 
     ts_tree_release(node);
@@ -71,9 +79,6 @@ static void reduce(TSParser *parser, TSSymbol symbol, size_t child_count) {
   TSStack *stack = &parser->stack;
   parser->next_lookahead = parser->lookahead;
 
-  /* size_t trailing_extra_count; */
-  /* TSTree **trailing_extras = ts_stack_pop_extras(stack, &trailing_extra_count); */
-
   /*
    *  Walk down the stack to determine which symbols will be reduced.
    *  The child node count is known ahead of time, but some children
@@ -93,15 +98,6 @@ static void reduce(TSParser *parser, TSSymbol symbol, size_t child_count) {
   int hidden = parser->language->hidden_symbol_flags[symbol];
   parser->lookahead = ts_tree_make_node(symbol, child_count, children, hidden);
   ts_stack_shrink(stack, stack->size - child_count);
-
-  /* TSStateId state = ts_stack_top_state(stack); */
-  /* if (trailing_extras) { */
-    /* for (size_t i = 0; i < trailing_extra_count; i++) { */
-      /* ts_stack_push(&parser->stack, state, trailing_extras[i]); */
-      /* ts_tree_release(trailing_extras[i]); */
-    /* } */
-    /* free(trailing_extras); */
-  /* } */
 }
 
 static int reduce_extra(TSParser *parser, TSSymbol symbol) {
@@ -169,8 +165,8 @@ static int handle_error(TSParser *parser) {
           DEBUG_PARSE("RECOVER %u", state_after_error);
           ts_stack_shrink(&parser->stack, i + 1);
           error->size = ts_lexer_position(&parser->lexer) -
-              parser->lookahead->size -
-              ts_stack_right_position(&parser->stack);
+                        parser->lookahead->size -
+                        ts_stack_right_position(&parser->stack);
           ts_stack_push(&parser->stack, state_after_error, error);
           ts_tree_release(error);
           return 1;

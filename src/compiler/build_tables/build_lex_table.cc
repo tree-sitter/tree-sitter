@@ -38,11 +38,9 @@ class LexTableBuilder {
       if (symbol == rules::ERROR())
         continue;
       else if (symbol == rules::END_OF_INPUT())
-        result.insert(LexItem(
-            symbol, CharacterSet().include(0).copy()));
+        result.insert(LexItem(symbol, CharacterSet().include(0).copy()));
       else if (symbol.is_token())
-        result.insert(
-            LexItem(symbol, lex_grammar.rule(symbol)));
+        result.insert(LexItem(symbol, lex_grammar.rule(symbol)));
     }
     return result;
   }

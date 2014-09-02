@@ -63,13 +63,16 @@ describe("Document", [&]() {
     });
   });
 
-  describe_skip("edit", [&]() {
+  describe("edit", [&]() {
     SpyReader *reader;
 
     before_each([&]() {
       reader = new SpyReader("{ \"key\": [1, 2] }", 5);
       ts_document_set_language(doc, ts_language_json());
       ts_document_set_input(doc, reader->input);
+
+      AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
+          "(DOCUMENT (object (string) (array (number) (number))))"));
     });
 
     after_each([&]() {
@@ -87,7 +90,7 @@ describe("Document", [&]() {
 
       it("updates the parse tree", [&]() {
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
-            "(DOCUMENT (object (string) (array (number) (number)) (string) (number)))"));
+            "(DOCUMENT (object (string) (array (number) (number)) (string) (value (number))))"));
       });
 
       it("re-reads only the changed portion of the input", [&]() {

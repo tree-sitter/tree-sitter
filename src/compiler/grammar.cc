@@ -12,8 +12,7 @@ using rules::rule_ptr;
 
 Grammar::Grammar(
     const std::vector<std::pair<std::string, rules::rule_ptr> > &rules)
-    : rules_(rules),
-      ubiquitous_tokens_({}) {}
+    : rules_(rules), ubiquitous_tokens_({}) {}
 
 bool Grammar::operator==(const Grammar &other) const {
   if (other.rules_.size() != rules_.size())
