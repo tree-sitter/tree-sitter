@@ -15,6 +15,7 @@ class InternedGrammar {
  public:
   std::vector<std::pair<std::string, rules::rule_ptr> > rules;
   std::set<rules::Symbol> ubiquitous_tokens;
+  std::set<char> separators;
 };
 
 }  // namespace prepare_grammar

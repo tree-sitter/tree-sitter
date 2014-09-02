@@ -54,6 +54,16 @@ describe("interning symbols in a grammar", []() {
         Symbol(2)
     })));
   });
+
+  it("preserves the grammar's separator character set", [&]() {
+    auto grammar = Grammar({
+        { "z", str("stuff") }
+    }).separators({ 'x', 'y' });
+
+    auto result = intern_symbols(grammar);
+
+    AssertThat(result.first.separators, Equals(set<char>({ 'x', 'y' })))
+  });
 });
 
 END_TEST

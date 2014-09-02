@@ -20,6 +20,7 @@ typedef struct TSLexer {
   size_t chunk_size;
   size_t position_in_chunk;
   size_t token_end_position;
+  size_t token_start_position;
 
   TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, int);
   int (*advance_fn)(struct TSLexer *);
@@ -31,6 +32,10 @@ static inline size_t ts_lexer_position(const TSLexer *lexer) {
 
 static inline char ts_lexer_lookahead_char(const TSLexer *lexer) {
   return lexer->chunk[lexer->position_in_chunk];
+}
+
+static inline void ts_lexer_start_token(TSLexer *lexer) {
+  lexer->token_start_position = ts_lexer_position(lexer);
 }
 
 static inline int ts_lexer_advance(TSLexer *lexer) {
@@ -100,6 +105,8 @@ struct TSLanguage {
   next_state:                                 \
   lookahead = ts_lexer_lookahead_char(lexer); \
   DEBUG_LEX("CHAR '%c'", lookahead);
+
+#define START_TOKEN() ts_lexer_start_token(lexer);
 
 #define ADVANCE(state_index)                                  \
   {                                                           \

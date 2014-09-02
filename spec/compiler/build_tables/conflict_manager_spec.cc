@@ -21,7 +21,7 @@ describe("resolving parse conflicts", []() {
       { "token1", pattern("[a-c]") },
       { "token2", pattern("[b-d]") },
       { "token3", keyword("stuff") },
-  }, {});
+  }, {}, set<char>());
 
   describe("lexical conflicts", [&]() {
     Symbol sym1(0, SymbolOptionToken);

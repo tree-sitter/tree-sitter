@@ -36,24 +36,16 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
       break;
 
     stack->size--;
-    position -= node->size;
-
-    DEBUG_PARSE("BREAKDOWN %s %u", parser->language->symbol_names[node->symbol],
-                ts_stack_top_state(stack));
+    position -= ts_tree_total_size(node);
 
     for (size_t i = 0; i < child_count && position < edit->position; i++) {
       TSTree *child = children[i];
       TSStateId state = ts_stack_top_state(stack);
-      TSParseAction action = action_for(parser->language, state, child->symbol);
-      TSStateId next_state = (action.type == TSParseActionTypeShift)
-                                 ? action.data.to_state
-                                 : state;
+      TSStateId next_state =
+          action_for(parser->language, state, child->symbol).data.to_state;
       ts_stack_push(stack, next_state, child);
       ts_tree_retain(child);
-      position += child->size;
-
-      DEBUG_PARSE("PUT_BACK %s %u",
-                  parser->language->symbol_names[child->symbol], next_state);
+      position += ts_tree_total_size(child);
     }
 
     ts_tree_release(node);
@@ -84,7 +76,9 @@ static void reduce(TSParser *parser, TSSymbol symbol, size_t child_count) {
    *  The child node count is known ahead of time, but some children
    *  may be ubiquitous tokens, which don't count.
    */
-  for (size_t i = 0; i < child_count && child_count < stack->size; i++) {
+  for (size_t i = 0; i < child_count; i++) {
+    if (child_count == stack->size)
+      break;
     TSTree *child = stack->entries[stack->size - 1 - i].node;
     if (ts_tree_is_extra(child))
       child_count++;
@@ -127,30 +121,15 @@ static void lex(TSParser *parser, TSStateId lex_state) {
 static int handle_error(TSParser *parser) {
   TSTree *error = parser->lookahead;
   ts_tree_retain(error);
+  size_t last_token_end = parser->lexer.token_end_position;
 
   for (;;) {
-
-    /*
-     *  If there is no state in the stack for which we can recover with the
-     *  current lookahead token, advance to the next token. If no characters
-     *  were consumed, advance the lexer to the next character.
-     */
-    size_t prev_position = ts_lexer_position(&parser->lexer);
-    lex(parser, ts_lex_state_error);
-    if (ts_lexer_position(&parser->lexer) == prev_position) {
-      parser->lexer.token_end_position++;
-      if (!ts_lexer_advance(&parser->lexer)) {
-        DEBUG_PARSE("FAIL TO RECOVER");
-        ts_stack_push(&parser->stack, 0, error);
-        ts_tree_release(error);
-        return 0;
-      }
-    }
 
     /*
      *  Unwind the parse stack until a state is found in which an error is
      *  expected and the current lookahead token is expected afterwards.
      */
+    size_t error_start = last_token_end;
     TS_STACK_FROM_TOP(parser->stack, entry, i) {
       TSParseAction action_on_error =
           action_for(parser->language, entry->state, ts_builtin_sym_error);
@@ -160,25 +139,41 @@ static int handle_error(TSParser *parser) {
         TSParseAction action_after_error = action_for(
             parser->language, state_after_error, parser->lookahead->symbol);
 
-        if (action_after_error.type == TSParseActionTypeShift ||
-            action_after_error.type == TSParseActionTypeReduce) {
+        if (action_after_error.type != TSParseActionTypeError) {
           DEBUG_PARSE("RECOVER %u", state_after_error);
+          error->size += ts_lexer_position(&parser->lexer) - 1 - error_start;
           ts_stack_shrink(&parser->stack, i + 1);
-          error->size = ts_lexer_position(&parser->lexer) -
-                        parser->lookahead->size -
-                        ts_stack_right_position(&parser->stack);
           ts_stack_push(&parser->stack, state_after_error, error);
           ts_tree_release(error);
           return 1;
         }
       }
+
+      TSTree *removed_tree = entry->node;
+      error_start -= ts_tree_total_size(removed_tree);
     }
+
+    /*
+     *  If there is no state in the stack for which we can recover with the
+     *  current lookahead token, advance to the next token. If no characters
+     *  were consumed, advance the lexer to the next character.
+     */
+    size_t prev_position = ts_lexer_position(&parser->lexer);
+    lex(parser, ts_lex_state_error);
+    parser->lookahead->padding = 0;
+    if (ts_lexer_position(&parser->lexer) == prev_position)
+      if (!ts_lexer_advance(&parser->lexer)) {
+        DEBUG_PARSE("FAIL TO RECOVER");
+        ts_stack_push(&parser->stack, 0, error);
+        ts_tree_release(error);
+        return 0;
+      }
   }
 }
 
 static TSTree *get_root(TSParser *parser) {
   if (parser->stack.size == 0)
-    ts_stack_push(&parser->stack, 0, ts_tree_make_error(0, 0));
+    ts_stack_push(&parser->stack, 0, ts_tree_make_error(0, 0, 0));
 
   reduce(parser, ts_builtin_sym_document, parser->stack.size);
   parser->lookahead->options = 0;

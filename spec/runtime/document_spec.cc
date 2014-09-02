@@ -1,9 +1,6 @@
 #include "runtime/runtime_spec_helper.h"
 #include "runtime/helpers/spy_reader.h"
 
-#include "runtime/tree.h"
-#include "runtime/node.h"
-
 extern "C" const TSLanguage * ts_language_json();
 extern "C" const TSLanguage * ts_language_javascript();
 
@@ -90,7 +87,7 @@ describe("Document", [&]() {
 
       it("updates the parse tree", [&]() {
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
-            "(DOCUMENT (object (string) (array (number) (number)) (string) (value (number))))"));
+            "(DOCUMENT (object (string) (array (number) (number)) (string) (number)))"));
       });
 
       it("re-reads only the changed portion of the input", [&]() {

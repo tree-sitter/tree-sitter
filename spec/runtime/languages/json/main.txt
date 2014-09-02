@@ -3,7 +3,7 @@ parses floating point numbers
 =============================
 3.14
 ---
-(value (number))
+(number)
 
 ===================
 parses empty arrays
@@ -28,7 +28,7 @@ parses arrays
     (null)
     (true)
     (false)
-    (object (string) (value (string))))
+    (object (string) (string)))
 
 ====================
 parses empty objects
@@ -47,5 +47,5 @@ parses long objects
 ---
 (object
 	(string) (string)
-	(string) (value (number)))
+	(string) (number))
 

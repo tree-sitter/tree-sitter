@@ -6,7 +6,7 @@ namespace tree_sitter_examples {
 using tree_sitter::Grammar;
 using namespace tree_sitter::rules;
 
-extern const Grammar json = Grammar({
+extern const Grammar json({
     { "value", choice({
         sym("object"),
         sym("array"),
@@ -25,7 +25,6 @@ extern const Grammar json = Grammar({
     { "null", keyword("null") },
     { "true", keyword("true") },
     { "false", keyword("false") },
-    { "_whitespace", pattern("[\\s\n]+") },
-}).ubiquitous_tokens({ "_whitespace" });
+});
 
 }  // namespace tree_sitter_examples

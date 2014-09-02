@@ -12,6 +12,7 @@ class LexItem : public Item {
  public:
   LexItem(const rules::Symbol &lhs, rules::rule_ptr rule);
   bool operator==(const LexItem &other) const;
+  bool is_token_start() const;
 };
 
 std::ostream &operator<<(std::ostream &stream, const LexItem &item);

@@ -34,6 +34,7 @@ std::ostream &operator<<(std::ostream &stream, const rules::rule_ptr &rule);
 class Grammar {
   const std::vector<std::pair<std::string, rules::rule_ptr> > rules_;
   std::set<std::string> ubiquitous_tokens_;
+  std::set<char> separators_;
 
  public:
   Grammar(const std::vector<std::pair<std::string, rules::rule_ptr> > &rules);
@@ -43,6 +44,8 @@ class Grammar {
   const std::vector<std::pair<std::string, rules::rule_ptr> > &rules() const;
   const std::set<std::string> &ubiquitous_tokens() const;
   Grammar &ubiquitous_tokens(const std::set<std::string> &ubiquitous_tokens);
+  const std::set<char> &separators() const;
+  Grammar &separators(const std::set<char> &separators);
 };
 
 struct Conflict {

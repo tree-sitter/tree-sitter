@@ -19,6 +19,25 @@ bool LexItem::operator==(const LexItem &other) const {
   return (other.lhs == lhs) && other.rule->operator==(*rule);
 }
 
+bool LexItem::is_token_start() const {
+  class IsTokenStart : public rules::RuleFn<bool> {
+    bool apply_to(const rules::Seq *rule) {
+      if (apply(rule->left))
+        return true;
+      else if (rule_can_be_blank(rule->left))
+        return apply(rule->right);
+      else
+        return false;
+    }
+
+    bool apply_to(const rules::Metadata *rule) {
+      return rule->value_for(rules::START_TOKEN);
+    }
+  };
+
+  return IsTokenStart().apply(rule);
+}
+
 ostream &operator<<(ostream &stream, const LexItem &item) {
   return stream << string("(item ") << item.lhs << string(" ") << *item.rule
                 << string(")");

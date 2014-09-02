@@ -26,15 +26,20 @@ PreparedGrammar::PreparedGrammar() {}
 SyntaxGrammar::SyntaxGrammar() {}
 LexicalGrammar::LexicalGrammar() {}
 
-PreparedGrammar::PreparedGrammar(
-    const vector<pair<string, rules::rule_ptr> > &rules,
-    const vector<pair<string, rules::rule_ptr> > &aux_rules)
-    : rules(rules), aux_rules(aux_rules) {}
-
 SyntaxGrammar::SyntaxGrammar(
     const vector<pair<string, rules::rule_ptr> > &rules,
     const vector<pair<string, rules::rule_ptr> > &aux_rules)
     : PreparedGrammar(rules, aux_rules) {}
+
+LexicalGrammar::LexicalGrammar(
+    const vector<pair<string, rules::rule_ptr> > &rules,
+    const vector<pair<string, rules::rule_ptr> > &aux_rules)
+    : PreparedGrammar(rules, aux_rules) {}
+
+PreparedGrammar::PreparedGrammar(
+    const vector<pair<string, rules::rule_ptr> > &rules,
+    const vector<pair<string, rules::rule_ptr> > &aux_rules)
+    : rules(rules), aux_rules(aux_rules) {}
 
 SyntaxGrammar::SyntaxGrammar(
     const vector<pair<string, rules::rule_ptr> > &rules,
@@ -44,7 +49,8 @@ SyntaxGrammar::SyntaxGrammar(
 
 LexicalGrammar::LexicalGrammar(
     const vector<pair<string, rules::rule_ptr> > &rules,
-    const vector<pair<string, rules::rule_ptr> > &aux_rules)
-    : PreparedGrammar(rules, aux_rules) {}
+    const vector<pair<string, rules::rule_ptr> > &aux_rules,
+    const set<char> &separators)
+    : PreparedGrammar(rules, aux_rules), separators(separators) {}
 
 }  // namespace tree_sitter

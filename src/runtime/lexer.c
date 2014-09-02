@@ -23,11 +23,12 @@ static int advance(TSLexer *lexer) {
 
 static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
   size_t current_position = ts_lexer_position(lexer);
-  size_t size = current_position - lexer->token_end_position;
+  size_t size = current_position - lexer->token_start_position;
+  size_t padding = lexer->token_start_position - lexer->token_end_position;
   lexer->token_end_position = current_position;
   return (symbol == ts_builtin_sym_error)
-             ? ts_tree_make_error(size, ts_lexer_lookahead_char(lexer))
-             : ts_tree_make_leaf(symbol, size, is_hidden);
+             ? ts_tree_make_error(size, padding, ts_lexer_lookahead_char(lexer))
+             : ts_tree_make_leaf(symbol, size, padding, is_hidden);
 }
 
 /*
@@ -41,6 +42,7 @@ TSLexer ts_lexer_make() {
                      .chunk_start = 0,
                      .chunk_size = 0,
                      .position_in_chunk = 0,
+                     .token_start_position = 0,
                      .token_end_position = 0,
                      .advance_fn = advance,
                      .accept_fn = accept, };

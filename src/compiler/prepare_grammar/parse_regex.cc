@@ -178,8 +178,6 @@ class PatternParser {
                                                                           '9');
       case 'd':
         return CharacterSet().include('0', '9');
-      case 's':
-        return CharacterSet().include(' ').include('\t').include('\r');
       case 't':
         return CharacterSet().include('\t');
       case 'n':

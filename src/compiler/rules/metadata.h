@@ -9,6 +9,7 @@ namespace tree_sitter {
 namespace rules {
 
 typedef enum {
+  START_TOKEN,
   PRECEDENCE,
   IS_TOKEN,
   DESCRIPTION,
