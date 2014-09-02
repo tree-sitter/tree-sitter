@@ -50,7 +50,26 @@ size_t ts_stack_right_position(const TSStack *stack) {
   size_t result = 0;
   for (size_t i = 0; i < stack->size; i++) {
     TSTree *node = stack->entries[i].node;
-    result += ts_tree_total_size(node);
+    result += node->size;
   }
+  return result;
+}
+
+TSTree **ts_stack_pop_extras(TSStack *stack, size_t *count) {
+  size_t first = stack->size;
+  while (first > 0 && ts_tree_is_extra(stack->entries[first - 1].node))
+    first--;
+
+  *count = (stack->size - first);
+  if (*count == 0)
+    return NULL;
+
+  TSTree **result = malloc(*count * sizeof(TSTree *));
+  for (size_t i = 0; i < *count; i++) {
+    result[i] = stack->entries[first + i].node;
+    ts_tree_retain(result[i]);
+  }
+
+  ts_stack_shrink(stack, first - 1);
   return result;
 }

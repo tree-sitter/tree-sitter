@@ -6,7 +6,7 @@ namespace tree_sitter_examples {
 using tree_sitter::Grammar;
 using namespace tree_sitter::rules;
 
-extern const Grammar arithmetic({
+extern const Grammar arithmetic = Grammar({
     { "expression", choice({
       sym("sum"),
       sym("difference"),
@@ -26,6 +26,7 @@ extern const Grammar arithmetic({
 
     { "number", pattern("\\d+") },
     { "variable", pattern("\\a[\\w_]*") },
-});
+    { "_whitespace", pattern("[\\s\n]+") },
+}).ubiquitous_tokens({ "_whitespace" });
 
 }  // namespace tree_sitter_examples

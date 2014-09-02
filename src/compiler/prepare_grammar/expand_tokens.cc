@@ -63,7 +63,7 @@ pair<LexicalGrammar, const GrammarError *> expand_tokens(
     aux_rules.push_back({ pair.first, rule });
   }
 
-  return { LexicalGrammar(rules, aux_rules, grammar.separators), nullptr, };
+  return { LexicalGrammar(rules, aux_rules), nullptr, };
 }
 
 }  // namespace prepare_grammar

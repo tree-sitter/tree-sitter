@@ -27,7 +27,7 @@ describe("stacks", [&]() {
     TSTree *node1;
 
     before_each([&]() {
-      node1 = ts_tree_make_leaf(sym1, 5, 1, 0);
+      node1 = ts_tree_make_leaf(sym1, 5, 0);
       ts_stack_push(&stack, 5, node1);
     });
 

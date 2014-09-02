@@ -3,7 +3,7 @@ recovers from errors at the top level
 =====================================================
 x * * y
 ---
-(variable) (ERROR '*')
+(expression (variable)) (ERROR '*')
 
 =====================================================
 recovers from errors inside parenthesized expressions
@@ -11,5 +11,5 @@ recovers from errors inside parenthesized expressions
 x + (y * + z) * 5
 ---
 (sum
-    (variable)
-    (product (group (ERROR '+')) (number)))
+    (expression (variable))
+    (product (group (ERROR '+')) (expression (number))))

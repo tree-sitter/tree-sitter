@@ -129,7 +129,7 @@ pair<SyntaxGrammar, LexicalGrammar> extract_tokens(
     ubiquitous_tokens.insert(inliner.replace_symbol(symbol));
 
   return { SyntaxGrammar(rules, aux_rules, ubiquitous_tokens),
-           LexicalGrammar(tokens, aux_tokens, input_grammar.separators), };
+           LexicalGrammar(tokens, aux_tokens), };
 }
 
 }  // namespace prepare_grammar

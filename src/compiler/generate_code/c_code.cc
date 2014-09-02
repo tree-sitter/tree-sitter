@@ -314,8 +314,6 @@ class CCodeGenerator {
 
   void code_for_lex_state(const LexState &lex_state) {
     auto expected_inputs = lex_state.expected_inputs();
-    if (lex_state.is_token_start)
-      line("START_TOKEN();");
     for (auto pair : lex_state.actions)
       if (!pair.first.is_empty())
         _if([&]() { condition_for_character_set(pair.first); },

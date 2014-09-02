@@ -37,4 +37,4 @@ recovers from errors inside nested objects
 (object
     (string) (object (string) (number) (ERROR '2'))
     (ERROR '[')
-    (string) (number))
+    (string) (value (number)))

@@ -39,10 +39,10 @@ class LexTableBuilder {
         continue;
       else if (symbol == rules::END_OF_INPUT())
         result.insert(LexItem(
-            symbol, after_separators(CharacterSet().include(0).copy())));
+            symbol, CharacterSet().include(0).copy()));
       else if (symbol.is_token())
         result.insert(
-            LexItem(symbol, after_separators(lex_grammar.rule(symbol))));
+            LexItem(symbol, lex_grammar.rule(symbol)));
     }
     return result;
   }
@@ -55,7 +55,6 @@ class LexTableBuilder {
 
       add_accept_token_actions(item_set, state_id);
       add_advance_actions(item_set, state_id);
-      add_token_start(item_set, state_id);
 
       return state_id;
     } else {
@@ -93,28 +92,6 @@ class LexTableBuilder {
           lex_table.state(state_id).default_action = new_action;
       }
     }
-  }
-
-  void add_token_start(const LexItemSet &item_set, LexStateId state_id) {
-    for (const auto &item : item_set)
-      if (item.is_token_start())
-        lex_table.state(state_id).is_token_start = true;
-  }
-
-  CharacterSet separator_set() const {
-    CharacterSet result;
-    for (char c : lex_grammar.separators)
-      result.include(c);
-    return result;
-  }
-
-  rules::rule_ptr after_separators(rules::rule_ptr rule) {
-    return rules::Seq::Build(
-        { make_shared<rules::Metadata>(
-              make_shared<rules::Repeat>(separator_set().copy()),
-              map<rules::MetadataKey, int>(
-                  { { rules::START_TOKEN, 1 }, { rules::PRECEDENCE, -1 }, })),
-          rule, });
   }
 
   set<int> precedence_values_for_item_set(const LexItemSet &item_set) const {

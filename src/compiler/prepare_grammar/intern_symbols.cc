@@ -72,7 +72,6 @@ pair<InternedGrammar, const GrammarError *> intern_symbols(
   InternedGrammar result;
   result.rules = rules;
   result.ubiquitous_tokens = ubiquitous_tokens;
-  result.separators = grammar.separators();
 
   return { result, nullptr };
 }

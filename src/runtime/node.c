@@ -16,7 +16,7 @@ TSNode *ts_node_make(const TSTree *tree, TSNode *parent, size_t index,
 }
 
 TSNode *ts_node_make_root(const TSTree *tree, const char **names) {
-  return ts_node_make(tree, NULL, 0, tree->padding, names);
+  return ts_node_make(tree, NULL, 0, 0, names);
 }
 
 void ts_node_retain(TSNode *node) { node->ref_count++; }

@@ -25,6 +25,7 @@ void ts_stack_push(TSStack *stack, TSStateId state, TSTree *node);
 TSStateId ts_stack_top_state(const TSStack *stack);
 TSTree *ts_stack_top_node(const TSStack *stack);
 size_t ts_stack_right_position(const TSStack *stack);
+TSTree **ts_stack_pop_extras(TSStack *, size_t *);
 
 #define TS_STACK_FROM_TOP(stack, entry, index)               \
   size_t index = stack.size - 1;                             \

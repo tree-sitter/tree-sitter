@@ -68,7 +68,7 @@ print(isDone() ? stuff : otherStuff);
 (program (expression_statement
     (function_call
         (identifier)
-        (ternary (function_call (identifier)) (identifier) (identifier)))))
+        (ternary (function_call (identifier)) (expression (identifier)) (identifier)))))
 
 ==========================================
 parses mathematical operators
@@ -78,10 +78,10 @@ parses mathematical operators
 ---
 (program (expression_statement
     (math_op
-        (math_op (identifier))
+        (math_op (expression (identifier)))
         (math_op
-            (math_op (identifier) (identifier))
-            (math_op (identifier) (math_op (identifier)))))))
+            (math_op (expression (identifier)) (expression (identifier)))
+            (math_op (expression (identifier)) (math_op (identifier)))))))
 
 ==========================================
 parses boolean operators
@@ -91,9 +91,9 @@ parses boolean operators
 ---
 (program (expression_statement
     (bool_op
-        (bool_op (identifier))
+        (bool_op (expression (identifier)))
         (bool_op
-            (expression (bool_op (identifier) (identifier)))))))
+            (expression (bool_op (expression (identifier)) (identifier)))))))
 
 ===========================================
 parses the type operators
@@ -103,8 +103,8 @@ print((x instanceof Array) || (typeof x == "string"))
 ---
 (program (expression_statement (function_call (identifier)
     (bool_op
-        (expression (instanceof_expression (identifier) (identifier)))
-        (expression (typeof_expression (bool_op (identifier) (string))))))))
+        (expression (instanceof_expression (expression (identifier)) (identifier)))
+        (expression (typeof_expression (bool_op (expression (identifier)) (string))))))))
 
 ============================================
 parses the 'in' operator
@@ -114,7 +114,7 @@ print(x in y)
 ---
 (program (expression_statement (function_call
     (identifier)
-    (in_expression (identifier) (identifier)))))
+    (in_expression (expression (identifier)) (identifier)))))
 
 ============================================
 parses assignment operators

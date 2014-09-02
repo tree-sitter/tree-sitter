@@ -158,6 +158,7 @@ extern const Grammar golang = Grammar({
           blank() }) }) },
 
     { "_line_break", str("\n") },
+    { "_whitespace", pattern("\\s+") },
 
     { "string", delimited("\"") },
     { "package_name", sym("_identifier") },
@@ -167,7 +168,6 @@ extern const Grammar golang = Grammar({
     { "number", pattern("\\d+(\\.\\d+)?") },
     { "comment", keypattern("//[^\n]*") },
 })
-    .ubiquitous_tokens({ "comment", "_line_break" })
-    .separators({ ' ', '\t', '\r' });
+    .ubiquitous_tokens({ "comment", "_whitespace", "_line_break" });
 
 }  // namespace tree_sitter_examples

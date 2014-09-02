@@ -57,7 +57,6 @@ class LexState {
   std::map<rules::CharacterSet, LexAction> actions;
   LexAction default_action;
   std::set<rules::CharacterSet> expected_inputs() const;
-  bool is_token_start;
 };
 
 typedef int64_t LexStateId;

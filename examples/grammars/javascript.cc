@@ -208,13 +208,13 @@ extern const Grammar javascript = Grammar({
           delimited("\""),
           delimited("'") })) },
     { "_line_break", str("\n") },
+    { "_whitespace", pattern("\\s+") },
     { "identifier", pattern("[\\a_$][\\w_$]*") },
     { "number", pattern("\\d+(\\.\\d+)?") },
     { "null", keyword("null") },
     { "true", keyword("true") },
     { "false", keyword("false") },
 })
-    .ubiquitous_tokens({ "comment", "_line_break" })
-    .separators({ ' ', '\t', '\r' });
+    .ubiquitous_tokens({ "comment", "_whitespace", "_line_break" });
 
 }  // namespace tree_sitter_examples
