@@ -64,9 +64,10 @@ describe("Document", [&]() {
     SpyReader *reader;
 
     before_each([&]() {
-      reader = new SpyReader("{ \"key\": [1, 2] }", 5);
+      reader = new SpyReader("{ \"key\": [1, 2] }", 3);
       ts_document_set_language(doc, ts_language_json());
       ts_document_set_input(doc, reader->input);
+      reader->clear();
 
       AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
           "(DOCUMENT (object (string) (array (number) (number))))"));
@@ -86,42 +87,53 @@ describe("Document", [&]() {
       ts_document_edit(doc, { position, length, 0 });
     };
 
-    describe("inserting tokens near the end of the input", [&]() {
-      it("updates the parse tree", [&]() {
+    describe("inserting new tokens near the end of the input", [&]() {
+      before_each([&]() {
         insert_text(
-            string("{ \"key\": [1, 2]").length(),
+            strlen("{ \"key\": [1, 2]"),
             ", \"key2\": 4");
+      });
 
+      it("updates the parse tree", [&]() {
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
             "(DOCUMENT (object (string) (array (number) (number)) (string) (number)))"));
       });
 
       it("re-reads only the changed portion of the input", [&]() {
-        insert_text(
-            string("{ \"key\": [1, 2]").length(),
-            ", \"key2\": 4");
-
-        AssertThat(reader->strings_read.size(), Equals<size_t>(2));
-        AssertThat(reader->strings_read[1], Equals(", \"key2\": 4 }"));
+        AssertThat(reader->strings_read, Equals(vector<string>({ "], \"key2\": 4 }" })));
       });
     });
 
-    describe("inserting text into an existing token", [&]() {
+    describe("inserting text into the middle of an existing token", [&]() {
       it("updates the parse three", [&]() {
-        insert_text(
-            string("{ \"key").length(),
-            "12345");
+        insert_text(strlen("{ \"key"), "123");
 
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
             "(DOCUMENT (object (string) (array (number) (number))))"));
+        TSNode *node = ts_node_find_for_pos(ts_document_root_node(doc), 3);
+        AssertThat(ts_node_name(node), Equals("string"));
+        AssertThat(ts_node_size(node), Equals(strlen("\"key123\"")));
+        ts_node_release(node);
+      });
+    });
+
+    describe("appending text to the end of an existing token", [&]() {
+      it("updates the parse three", [&]() {
+        insert_text(strlen("{ \"key\": [1"), "001");
+
+        AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
+            "(DOCUMENT (object (string) (array (number) (number))))"));
+
+        TSNode *node = ts_node_find_for_pos(ts_document_root_node(doc), strlen("{ \"key\": ["));
+        AssertThat(ts_node_name(node), Equals("number"));
+        AssertThat(ts_node_size(node), Equals(strlen("1001")));
+        ts_node_release(node);
       });
     });
 
     describe("deleting an important part of a token", [&]() {
       it("updates the parse tree, creating an error", [&]() {
-        delete_text(
-            string("{ \"key").length(),
-            1);
+        delete_text(strlen("{ \"key"), 1);
 
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
             "(DOCUMENT (end))"));
@@ -129,22 +141,19 @@ describe("Document", [&]() {
     });
 
     describe("inserting tokens near the beginning of the input", [&]() {
-      it("updates the parse tree", [&]() {
+      before_each([&]() {
         insert_text(
-            string("{ ").length(),
+            strlen("{ "),
             "\"key2\": 4, ");
+      });
 
+      it("updates the parse tree", [&]() {
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
             "(DOCUMENT (object (string) (number) (string) (array (number) (number))))"));
       });
 
       it_skip("re-reads only the changed portion of the input", [&]() {
-        insert_text(
-            string("{ ").length(),
-            "\"key2\": 4, ");
-
-        AssertThat(reader->strings_read.size(), Equals<size_t>(2));
-        AssertThat(reader->strings_read[1], Equals("\"key2\": 4, "));
+        AssertThat(reader->strings_read, Equals(vector<string>({ "\"key2\": 4, " })));
       });
     });
   });

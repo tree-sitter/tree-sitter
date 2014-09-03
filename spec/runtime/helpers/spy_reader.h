@@ -9,6 +9,8 @@ class SpyReader {
  public:
   SpyReader(std::string content, size_t chunk_size);
 
+  void clear();
+
   std::string content;
   size_t position;
   size_t chunk_size;

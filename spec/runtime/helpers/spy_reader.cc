@@ -31,3 +31,7 @@ SpyReader::SpyReader(string content, size_t chunk_size) :
         spy_seek,
         nullptr,
     }) {}
+
+void SpyReader::clear() {
+  strings_read.clear();
+}

@@ -32,7 +32,7 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
     position = ts_stack_right_position(stack);
     size_t child_count;
     TSTree **children = ts_tree_children(node, &child_count);
-    if (position <= edit->position && !children)
+    if (position < edit->position && !children)
       break;
 
     stack->size--;
