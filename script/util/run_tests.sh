@@ -23,7 +23,7 @@ function run_tests {
   local mode=normal
   local args=()
   local target=$1
-  local cmd="out/Default/${target}"
+  local cmd="out/Debug/${target}"
   shift
 
   while getopts "df:ghv" option; do
@@ -47,7 +47,7 @@ function run_tests {
     esac
   done
 
-  make $target
+  BUILDTYPE=Debug make $target
   args=${args:-""}
 
   case ${mode} in

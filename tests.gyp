@@ -46,7 +46,12 @@
   ],
 
   'target_defaults': {
+    'default_configuration': 'Debug',
+    'configurations': {'Debug': {}},
+
     'cflags': [
+      '-g',
+      '-O0',
       '-Wall',
       '-Wextra',
       '-Wno-unused-parameter',
@@ -58,6 +63,7 @@
     'cflags_cc': [
       '-std=c++0x',
     ],
+
     'xcode_settings': {
       'CLANG_CXX_LANGUAGE_STANDARD': 'c++11',
       'ALWAYS_SEARCH_USER_PATHS': 'NO',

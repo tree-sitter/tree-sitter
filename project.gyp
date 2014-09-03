@@ -2,6 +2,7 @@
   'targets': [
     {
       'target_name': 'compiler',
+
       'type': 'static_library',
       'include_dirs': [
         'include',
@@ -117,11 +118,26 @@
   ],
 
   'target_defaults': {
+    'default_configuration': 'Release',
+    'configurations': {
+      'Debug': {
+        'cflags': [ '-g', '-O0' ],
+        'xcode_settings': {
+          'GCC_OPTIMIZATION_LEVEL': '0',
+        },
+      },
+      'Release': {
+        'cflags': [ '-O2', '-fno-strict-aliasing' ],
+        'cflags!': [ '-O3', '-fstrict-aliasing' ],
+      },
+    },
+
     'cflags': [
       '-Wall',
       '-Wextra',
       '-Wno-unused-parameter'
     ],
+
     'xcode_settings': {
       'ALWAYS_SEARCH_USER_PATHS': 'NO',
       'WARNING_CFLAGS': [
