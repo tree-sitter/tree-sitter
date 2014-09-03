@@ -37,6 +37,9 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
 
     stack->size--;
     position -= ts_tree_total_size(node);
+    DEBUG_PARSE("BREAKDOWN %s %u",
+        parser->language->symbol_names[node->symbol],
+        ts_stack_top_state(stack));
 
     for (size_t i = 0; i < child_count && position < edit->position; i++) {
       TSTree *child = children[i];
@@ -46,11 +49,15 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
       ts_stack_push(stack, next_state, child);
       ts_tree_retain(child);
       position += ts_tree_total_size(child);
+      DEBUG_PARSE("PUT_BACK %s %u",
+          parser->language->symbol_names[child->symbol],
+          next_state);
     }
 
     ts_tree_release(node);
   }
 
+  DEBUG_PARSE("RESUME %lu", position);
   return position;
 }
 
