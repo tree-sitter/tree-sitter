@@ -44,8 +44,10 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
     for (size_t i = 0; i < child_count && position < edit->position; i++) {
       TSTree *child = children[i];
       TSStateId state = ts_stack_top_state(stack);
-      TSStateId next_state =
-          action_for(parser->language, state, child->symbol).data.to_state;
+      TSParseAction action = action_for(parser->language, state, child->symbol);
+      TSStateId next_state = action.type == TSParseActionTypeShift ?
+          action.data.to_state :
+          state;
       ts_stack_push(stack, next_state, child);
       ts_tree_retain(child);
       position += ts_tree_total_size(child);

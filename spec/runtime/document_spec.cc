@@ -131,6 +131,26 @@ describe("Document", [&]() {
       });
     });
 
+    describe("editing text inside a node containing a ubiquitous token", [&]() {
+      before_each([&]() {
+        ts_document_set_language(doc, ts_language_javascript());
+
+        delete reader;
+        reader = new SpyReader("{\nx;\n}", 3);
+
+        ts_document_set_input(doc, reader->input);
+        AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
+            "(DOCUMENT (program (statement_block (expression_statement (identifier)))))"));
+
+      });
+
+      it("updates the parse tree", [&]() {
+        insert_text(strlen("{\nx"), "y");
+        AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
+            "(DOCUMENT (program (statement_block (expression_statement (identifier)))))"));
+      });
+    });
+
     describe("deleting an important part of a token", [&]() {
       it("updates the parse tree, creating an error", [&]() {
         delete_text(strlen("{ \"key"), 1);
