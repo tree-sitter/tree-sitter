@@ -47,10 +47,6 @@ static inline TSTree *ts_lexer_accept(TSLexer *lexer, TSSymbol symbol,
   return lexer->accept_fn(lexer, symbol, is_hidden);
 }
 
-static inline int ts_lexer_is_done(const TSLexer *lexer) {
-  return lexer->chunk_size == 0 && lexer->position_in_chunk > 0;
-}
-
 typedef unsigned short TSStateId;
 
 typedef enum {
@@ -111,11 +107,10 @@ struct TSLanguage {
 #define ADVANCE(state_index)                                  \
   {                                                           \
     DEBUG_LEX("ADVANCE %d", state_index);                     \
-    if (ts_lexer_is_done(lexer)) {                            \
+    if (!ts_lexer_advance(lexer)) {                           \
       DEBUG_LEX("END");                                       \
-      return ts_lexer_accept(lexer, ts_builtin_sym_error, 0); \
+      return ts_lexer_accept(lexer, ts_builtin_sym_end, 0); \
     }                                                         \
-    ts_lexer_advance(lexer);                                  \
     lex_state = state_index;                                  \
     goto next_state;                                          \
   }

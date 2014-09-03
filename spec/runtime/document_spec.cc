@@ -76,41 +76,73 @@ describe("Document", [&]() {
       delete reader;
     });
 
-    describe("modifying the end of the input", [&]() {
-      before_each([&]() {
-        size_t position(string("{ \"key\": [1, 2]").length());
-        string inserted_text(", \"key2\": 4");
+    auto insert_text = [&](size_t position, string text) {
+      reader->content.insert(position, text);
+      ts_document_edit(doc, { position, 0, text.length() });
+    };
 
-        reader->content.insert(position, inserted_text);
-        ts_document_edit(doc, { position, 0, inserted_text.length() });
-      });
+    auto delete_text = [&](size_t position, size_t length) {
+      reader->content.erase(position, length);
+      ts_document_edit(doc, { position, length, 0 });
+    };
 
+    describe("inserting tokens near the end of the input", [&]() {
       it("updates the parse tree", [&]() {
+        insert_text(
+            string("{ \"key\": [1, 2]").length(),
+            ", \"key2\": 4");
+
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
             "(DOCUMENT (object (string) (array (number) (number)) (string) (number)))"));
       });
 
       it("re-reads only the changed portion of the input", [&]() {
+        insert_text(
+            string("{ \"key\": [1, 2]").length(),
+            ", \"key2\": 4");
+
         AssertThat(reader->strings_read.size(), Equals<size_t>(2));
         AssertThat(reader->strings_read[1], Equals(", \"key2\": 4 }"));
       });
     });
 
-    describe("modifying the beginning of the input", [&]() {
-      before_each([&]() {
-        size_t position(string("{ ").length());
-        string inserted_text("\"key2\": 4, ");
+    describe("inserting text into an existing token", [&]() {
+      it("updates the parse three", [&]() {
+        insert_text(
+            string("{ \"key").length(),
+            "12345");
 
-        reader->content.insert(position, inserted_text);
-        ts_document_edit(doc, { position, 0, inserted_text.length() });
+        AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
+            "(DOCUMENT (object (string) (array (number) (number))))"));
       });
+    });
 
+    describe("deleting an important part of a token", [&]() {
+      it("updates the parse tree, creating an error", [&]() {
+        delete_text(
+            string("{ \"key").length(),
+            1);
+
+        AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
+            "(DOCUMENT (end))"));
+      });
+    });
+
+    describe("inserting tokens near the beginning of the input", [&]() {
       it("updates the parse tree", [&]() {
+        insert_text(
+            string("{ ").length(),
+            "\"key2\": 4, ");
+
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
             "(DOCUMENT (object (string) (number) (string) (array (number) (number))))"));
       });
 
       it_skip("re-reads only the changed portion of the input", [&]() {
+        insert_text(
+            string("{ ").length(),
+            "\"key2\": 4, ");
+
         AssertThat(reader->strings_read.size(), Equals<size_t>(2));
         AssertThat(reader->strings_read[1], Equals("\"key2\": 4, "));
       });
