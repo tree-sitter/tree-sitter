@@ -18,18 +18,19 @@ static TSParseAction action_for(const TSLanguage *lang, TSStateId state,
 }
 
 static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
-  if (!edit)
+  if (!edit) {
+    ts_stack_shrink(&parser->stack, 0);
     return 0;
+  }
 
   TSStack *stack = &parser->stack;
-  size_t position = 0;
+  size_t position = ts_stack_right_position(stack);
 
   for (;;) {
     TSTree *node = ts_stack_top_node(stack);
     if (!node)
       break;
 
-    position = ts_stack_right_position(stack);
     size_t child_count;
     TSTree **children = ts_tree_children(node, &child_count);
     if (position < edit->position && !children)
@@ -37,23 +38,20 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
 
     stack->size--;
     position -= ts_tree_total_size(node);
-    DEBUG_PARSE("BREAKDOWN %s %u",
-        parser->language->symbol_names[node->symbol],
-        ts_stack_top_state(stack));
+    DEBUG_PARSE("BREAKDOWN %s %u", parser->language->symbol_names[node->symbol],
+                ts_stack_top_state(stack));
 
     for (size_t i = 0; i < child_count && position < edit->position; i++) {
       TSTree *child = children[i];
       TSStateId state = ts_stack_top_state(stack);
       TSParseAction action = action_for(parser->language, state, child->symbol);
-      TSStateId next_state = action.type == TSParseActionTypeShift ?
-          action.data.to_state :
-          state;
+      TSStateId next_state =
+          action.type == TSParseActionTypeShift ? action.data.to_state : state;
       ts_stack_push(stack, next_state, child);
       ts_tree_retain(child);
       position += ts_tree_total_size(child);
       DEBUG_PARSE("PUT_BACK %s %u",
-          parser->language->symbol_names[child->symbol],
-          next_state);
+                  parser->language->symbol_names[child->symbol], next_state);
     }
 
     ts_tree_release(node);
@@ -214,9 +212,6 @@ void ts_parser_destroy(TSParser *parser) {
 
 const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
                               TSInputEdit *edit) {
-  if (!edit)
-    ts_stack_shrink(&parser->stack, 0);
-
   parser->lookahead = NULL;
   parser->next_lookahead = NULL;
   parser->lexer = ts_lexer_make();

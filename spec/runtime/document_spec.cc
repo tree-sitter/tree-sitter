@@ -3,6 +3,7 @@
 
 extern "C" const TSLanguage * ts_language_json();
 extern "C" const TSLanguage * ts_language_javascript();
+extern "C" const TSLanguage * ts_language_arithmetic();
 
 START_TEST
 
@@ -64,18 +65,18 @@ describe("Document", [&]() {
     SpyReader *reader;
 
     before_each([&]() {
-      reader = new SpyReader("{ \"key\": [1, 2] }", 3);
-      ts_document_set_language(doc, ts_language_json());
-      ts_document_set_input(doc, reader->input);
-      reader->clear();
-
-      AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
-          "(DOCUMENT (object (string) (array (number) (number))))"));
+      ts_document_set_language(doc, ts_language_arithmetic());
     });
 
     after_each([&]() {
       delete reader;
     });
+
+    auto set_text = [&](const char *text) {
+      reader = new SpyReader(text, 3);
+      ts_document_set_input(doc, reader->input);
+      reader->clear();
+    };
 
     auto insert_text = [&](size_t position, string text) {
       reader->content.insert(position, text);
@@ -89,87 +90,116 @@ describe("Document", [&]() {
 
     describe("inserting new tokens near the end of the input", [&]() {
       before_each([&]() {
-        insert_text(
-            strlen("{ \"key\": [1, 2]"),
-            ", \"key2\": 4");
+        set_text("x ^ (100 + abc)");
+        AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
+            "(DOCUMENT (exponent "
+              "(variable) "
+              "(group (sum (number) (variable)))))"));
+
+        insert_text(strlen("x ^ (100 + abc"), " * 5");
       });
 
       it("updates the parse tree", [&]() {
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
-            "(DOCUMENT (object (string) (array (number) (number)) (string) (number)))"));
+            "(DOCUMENT (exponent "
+              "(variable) " 
+              "(group (sum (number) (product (variable) (number))))))"));
       });
 
       it("re-reads only the changed portion of the input", [&]() {
-        AssertThat(reader->strings_read, Equals(vector<string>({ "], \"key2\": 4 }" })));
+        AssertThat(reader->strings_read, Equals(vector<string>({ " abc * 5)" })));
       });
     });
 
     describe("inserting text into the middle of an existing token", [&]() {
-      it("updates the parse three", [&]() {
-        insert_text(strlen("{ \"key"), "123");
-
+      before_each([&]() {
+        set_text("abc * 123");
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
-            "(DOCUMENT (object (string) (array (number) (number))))"));
-        TSNode *node = ts_node_find_for_pos(ts_document_root_node(doc), 3);
-        AssertThat(ts_node_name(node), Equals("string"));
-        AssertThat(ts_node_size(node), Equals(strlen("\"key123\"")));
+            "(DOCUMENT (product (variable) (number)))"));
+
+        insert_text(strlen("ab"), "XYZ");
+      });
+
+      it("updates the parse three", [&]() {
+        AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
+            "(DOCUMENT (product (variable) (number)))"));
+
+        TSNode *node = ts_node_find_for_pos(ts_document_root_node(doc), 1);
+        AssertThat(ts_node_name(node), Equals("variable"));
+        AssertThat(ts_node_size(node), Equals(strlen("abXYZc")));
         ts_node_release(node);
       });
     });
 
     describe("appending text to the end of an existing token", [&]() {
-      it("updates the parse three", [&]() {
-        insert_text(strlen("{ \"key\": [1"), "001");
-
+      before_each([&]() {
+        set_text("abc * 123");
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
-            "(DOCUMENT (object (string) (array (number) (number))))"));
+            "(DOCUMENT (product (variable) (number)))"));
 
-        TSNode *node = ts_node_find_for_pos(ts_document_root_node(doc), strlen("{ \"key\": ["));
-        AssertThat(ts_node_name(node), Equals("number"));
-        AssertThat(ts_node_size(node), Equals(strlen("1001")));
+        insert_text(strlen("abc"), "XYZ");
+      });
+
+      it("updates the parse three", [&]() {
+        AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
+            "(DOCUMENT (product (variable) (number)))"));
+
+        TSNode *node = ts_node_find_for_pos(ts_document_root_node(doc), 1);
+        AssertThat(ts_node_name(node), Equals("variable"));
+        AssertThat(ts_node_size(node), Equals(strlen("abcXYZ")));
         ts_node_release(node);
       });
     });
 
     describe("editing text inside a node containing a ubiquitous token", [&]() {
       before_each([&]() {
-        ts_document_set_language(doc, ts_language_javascript());
+        set_text("123 *\n"
+            "# a-comment\n"
+            "abc");
 
-        delete reader;
-        reader = new SpyReader("{\nx;\n}", 3);
-
-        ts_document_set_input(doc, reader->input);
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
-            "(DOCUMENT (program (statement_block (expression_statement (identifier)))))"));
+            "(DOCUMENT (product (number) (comment) (variable)))"));
 
+        insert_text(
+            strlen("123 *\n"
+                "# a-comment\n"
+                "abc"),
+            "XYZ");
       });
 
       it("updates the parse tree", [&]() {
-        insert_text(strlen("{\nx"), "y");
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
-            "(DOCUMENT (program (statement_block (expression_statement (identifier)))))"));
+            "(DOCUMENT (product (number) (comment) (variable)))"));
       });
     });
 
-    describe("deleting an important part of a token", [&]() {
-      it("updates the parse tree, creating an error", [&]() {
-        delete_text(strlen("{ \"key"), 1);
-
+    describe("deleting an important token", [&]() {
+      before_each([&]() {
+        set_text("123 * 456");
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
-            "(DOCUMENT (end))"));
+            "(DOCUMENT (product (number) (number)))"));
+
+        delete_text(strlen("123 "), 2);
+      });
+
+      it("updates the parse tree, creating an error", [&]() {
+        AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
+            "(DOCUMENT (number) (ERROR '4'))"));
       });
     });
 
     describe("inserting tokens near the beginning of the input", [&]() {
       before_each([&]() {
-        insert_text(
-            strlen("{ "),
-            "\"key2\": 4, ");
+        set_text("123 * 456");
+        AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
+            "(DOCUMENT (product (number) (number)))"));
+
+        insert_text(strlen("123"), " + 5 ");
       });
 
       it("updates the parse tree", [&]() {
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
-            "(DOCUMENT (object (string) (number) (string) (array (number) (number))))"));
+            "(DOCUMENT (sum (number) (product (number) (number))))"));
       });
 
       it_skip("re-reads only the changed portion of the input", [&]() {
