@@ -104,15 +104,15 @@ struct TSLanguage {
 
 #define START_TOKEN() ts_lexer_start_token(lexer);
 
-#define ADVANCE(state_index)                                  \
-  {                                                           \
-    DEBUG_LEX("ADVANCE %d", state_index);                     \
-    if (!ts_lexer_advance(lexer)) {                           \
-      DEBUG_LEX("END");                                       \
+#define ADVANCE(state_index)                                \
+  {                                                         \
+    DEBUG_LEX("ADVANCE %d", state_index);                   \
+    if (!ts_lexer_advance(lexer)) {                         \
+      DEBUG_LEX("END");                                     \
       return ts_lexer_accept(lexer, ts_builtin_sym_end, 0); \
-    }                                                         \
-    lex_state = state_index;                                  \
-    goto next_state;                                          \
+    }                                                       \
+    lex_state = state_index;                                \
+    goto next_state;                                        \
   }
 
 #define ACCEPT_TOKEN(symbol)                                               \

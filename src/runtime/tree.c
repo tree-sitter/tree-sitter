@@ -4,7 +4,8 @@
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 
-TSTree *ts_tree_make_leaf(TSSymbol sym, size_t size, size_t padding, bool is_hidden) {
+TSTree *ts_tree_make_leaf(TSSymbol sym, size_t size, size_t padding,
+                          bool is_hidden) {
   TSTree *result = malloc(sizeof(TSTree));
   *result = (TSTree) { .ref_count = 1,
                        .symbol = sym,
@@ -18,7 +19,8 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, size_t size, size_t padding, bool is_hid
 }
 
 TSTree *ts_tree_make_error(size_t size, size_t padding, char lookahead_char) {
-  TSTree *result = ts_tree_make_leaf(ts_builtin_sym_error, size, padding, false);
+  TSTree *result =
+      ts_tree_make_leaf(ts_builtin_sym_error, size, padding, false);
   result->lookahead_char = lookahead_char;
   return result;
 }
