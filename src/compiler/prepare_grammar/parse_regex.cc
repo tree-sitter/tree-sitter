@@ -174,8 +174,11 @@ class PatternParser {
       case 'a':
         return CharacterSet().include('a', 'z').include('A', 'Z');
       case 'w':
-        return CharacterSet().include('a', 'z').include('A', 'Z').include('0',
-                                                                          '9');
+        return CharacterSet()
+            .include('a', 'z')
+            .include('A', 'Z')
+            .include('0', '9')
+            .include('_');
       case 'd':
         return CharacterSet().include('0', '9');
       case 't':
