@@ -89,7 +89,7 @@ class CCodeGenerator {
   }
 
   void symbol_names_list() {
-    line("SYMBOL_NAMES = {");
+    line("static const char *ts_symbol_names[] = {");
     indent([&]() {
       for (auto symbol : parse_table.symbols)
         line("[" + symbol_id(symbol) + "] = \"" + symbol_name(symbol) + "\",");
@@ -99,7 +99,7 @@ class CCodeGenerator {
   }
 
   void hidden_symbols_list() {
-    line("HIDDEN_SYMBOLS = {");
+    line("static const int ts_hidden_symbol_flags[SYMBOL_COUNT] = {");
     indent([&]() {
       for (auto &symbol : parse_table.symbols)
         if (!symbol.is_built_in() &&
@@ -111,7 +111,7 @@ class CCodeGenerator {
   }
 
   void lex_function() {
-    line("LEX_FN() {");
+    line("static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {");
     indent([&]() {
       line("START_LEXER();");
       switch_on_lex_state();
@@ -121,7 +121,7 @@ class CCodeGenerator {
   }
 
   void lex_states_list() {
-    line("LEX_STATES = {");
+    line("static TSStateId ts_lex_states[STATE_COUNT] = {");
     indent([&]() {
       size_t state_id = 0;
       for (auto &state : parse_table.states)
@@ -137,7 +137,7 @@ class CCodeGenerator {
     line("#pragma GCC diagnostic push");
     line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
     line();
-    line("PARSE_TABLE = {");
+    line("static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {");
 
     indent([&]() {
       for (auto &state : parse_table.states) {

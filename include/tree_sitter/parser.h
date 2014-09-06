@@ -78,17 +78,6 @@ struct TSLanguage {
   TSTree *(*lex_fn)(TSLexer *, TSStateId);
 };
 
-#define SYMBOL_NAMES static const char *ts_symbol_names[]
-
-#define HIDDEN_SYMBOLS static const int ts_hidden_symbol_flags[SYMBOL_COUNT]
-
-#define LEX_STATES static TSStateId ts_lex_states[STATE_COUNT]
-
-#define PARSE_TABLE \
-  static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT]
-
-#define LEX_FN() static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state)
-
 #define DEBUG_LEX(...)                   \
   if (lexer->debug) {                    \
     fprintf(stderr, "LEX " __VA_ARGS__); \

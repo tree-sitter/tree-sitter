@@ -113,7 +113,7 @@ enum {
     ts_aux_sym_36,
 };
 
-SYMBOL_NAMES = {
+static const char *ts_symbol_names[] = {
     [ts_builtin_sym_document] = "DOCUMENT",
     [ts_sym_program] = "program",
     [ts_sym_statement] = "statement",
@@ -226,7 +226,7 @@ SYMBOL_NAMES = {
     [ts_aux_sym_36] = "']'",
 };
 
-HIDDEN_SYMBOLS = {
+static const int ts_hidden_symbol_flags[SYMBOL_COUNT] = {
     [ts_sym__line_break] = 1,
     [ts_aux_sym_program_repeat0] = 1,
     [ts_aux_sym_statement_block_repeat0] = 1,
@@ -295,7 +295,7 @@ HIDDEN_SYMBOLS = {
     [ts_aux_sym_36] = 1,
 };
 
-LEX_FN() {
+static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
     START_LEXER();
     switch (lex_state) {
         case 1:
@@ -9378,7 +9378,7 @@ LEX_FN() {
     }
 }
 
-LEX_STATES = {
+static TSStateId ts_lex_states[STATE_COUNT] = {
     [0] = 1,
     [1] = 111,
     [2] = 1,
@@ -11596,7 +11596,7 @@ LEX_STATES = {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 
-PARSE_TABLE = {
+static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
     [0] = {
         [ts_sym_program] = SHIFT(1),
         [ts_sym_statement] = SHIFT(2),
