@@ -51,7 +51,7 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
       ts_stack_push(stack, next_state, child);
       position += ts_tree_total_size(child);
 
-      DEBUG_PARSE("PUT_BACK %s %u",
+      DEBUG_PARSE("PUT BACK %s %u",
                   parser->language->symbol_names[child->symbol], next_state);
     }
 
@@ -167,6 +167,7 @@ static int handle_error(TSParser *parser) {
      *  were consumed, advance the lexer to the next character.
      */
     size_t prev_position = ts_lexer_position(&parser->lexer);
+    DEBUG_PARSE("LEX AGAIN");
     lex(parser, ts_lex_state_error);
     parser->lookahead->padding = 0;
     if (ts_lexer_position(&parser->lexer) == prev_position)
