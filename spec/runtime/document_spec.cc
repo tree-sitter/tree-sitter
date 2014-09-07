@@ -291,6 +291,7 @@ describe("Document", [&]() {
       describe("when the error is an empty string", [&]() {
         it("computes the error node's size and position correctly", [&]() {
           ts_document_set_input_string(doc, "  [123, , true]");
+
           AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
               "(DOCUMENT (array (number) (ERROR ',') (true)))"));
 

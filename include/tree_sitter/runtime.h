@@ -47,6 +47,7 @@ void ts_document_set_language(TSDocument *, const TSLanguage *);
 void ts_document_set_input(TSDocument *, TSInput);
 void ts_document_set_input_string(TSDocument *, const char *);
 void ts_document_edit(TSDocument *, TSInputEdit);
+void ts_document_set_debug(TSDocument *, int);
 TSNode *ts_document_root_node(const TSDocument *);
 
 #define ts_builtin_sym_error 0
