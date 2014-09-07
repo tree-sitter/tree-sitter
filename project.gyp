@@ -33,6 +33,7 @@
         'src/compiler/prepare_grammar/expand_tokens.cc',
         'src/compiler/prepare_grammar/extract_tokens.cc',
         'src/compiler/prepare_grammar/intern_symbols.cc',
+        'src/compiler/prepare_grammar/is_token.cc',
         'src/compiler/prepare_grammar/parse_regex.cc',
         'src/compiler/prepare_grammar/prepare_grammar.cc',
         'src/compiler/prepare_grammar/token_description.cc',

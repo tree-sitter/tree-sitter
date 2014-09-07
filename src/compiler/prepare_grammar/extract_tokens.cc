@@ -12,6 +12,7 @@
 #include "compiler/rules/pattern.h"
 #include "compiler/prepare_grammar/interned_grammar.h"
 #include "compiler/prepare_grammar/token_description.h"
+#include "compiler/prepare_grammar/is_token.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {
@@ -26,13 +27,6 @@ using std::make_shared;
 using rules::rule_ptr;
 using rules::Symbol;
 
-class IsToken : public rules::RuleFn<bool> {
-  bool apply_to(const rules::String *rule) { return true; }
-  bool apply_to(const rules::Pattern *rule) { return true; }
-  bool apply_to(const rules::Metadata *rule) {
-    return rule->value_for(rules::IS_TOKEN);
-  }
-};
 
 class SymbolInliner : public rules::IdentityRuleFn {
   map<Symbol, Symbol> replacements;
@@ -64,10 +58,10 @@ class SymbolInliner : public rules::IdentityRuleFn {
       : replacements(replacements) {}
 };
 
-const rules::SymbolOption SymbolOptionAuxToken = rules::SymbolOption(
-    rules::SymbolOptionToken | rules::SymbolOptionAuxiliary);
-
 class TokenExtractor : public rules::IdentityRuleFn {
+  const rules::SymbolOption SymbolOptionAuxToken = rules::SymbolOption(
+      rules::SymbolOptionToken | rules::SymbolOptionAuxiliary);
+
   rule_ptr apply_to_token(const rules::Rule *input) {
     auto rule = input->copy();
     for (size_t i = 0; i < tokens.size(); i++)
@@ -80,7 +74,7 @@ class TokenExtractor : public rules::IdentityRuleFn {
 
   rule_ptr default_apply(const rules::Rule *rule) {
     auto result = rule->copy();
-    if (IsToken().apply(rule->copy())) {
+    if (is_token(rule->copy())) {
       return apply_to_token(rule);
     } else {
       return result;
@@ -89,7 +83,7 @@ class TokenExtractor : public rules::IdentityRuleFn {
 
   rule_ptr apply_to(const rules::Metadata *rule) {
     auto result = rule->copy();
-    if (IsToken().apply(rule->copy())) {
+    if (is_token(rule->copy())) {
       return apply_to_token(rule);
     } else {
       return rules::IdentityRuleFn::apply_to(rule);
@@ -110,7 +104,7 @@ pair<SyntaxGrammar, LexicalGrammar> extract_tokens(
 
   for (size_t i = 0; i < input_grammar.rules.size(); i++) {
     auto pair = input_grammar.rules[i];
-    if (IsToken().apply(pair.second)) {
+    if (is_token(pair.second)) {
       tokens.push_back(pair);
       symbol_replacements.insert(
           { Symbol(i), Symbol(tokens.size() - 1, rules::SymbolOptionToken) });
