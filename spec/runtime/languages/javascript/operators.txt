@@ -3,22 +3,22 @@ parses function calls
 ==========================================
 x.theMethod(5, 6);
 ---
-(program (expression_statement (function_call
+(expression_statement (function_call
     (property_access (identifier) (identifier))
-    (number) (number))))
+    (number) (number)))
 
 ==========================================
 parses constructor calls
 ==========================================
 var x = new Node(5, new Node(3, null));
 ---
-(program (var_declaration
+(var_declaration
     (identifier)
     (constructor_call (function_call (identifier)
         (number)
         (constructor_call (function_call (identifier)
             (number)
-            (null)))))))
+            (null))))))
 
 ==========================================
 parses property access with dot notation
@@ -41,10 +41,10 @@ object
   .someProperty
   .otherProperty
 ---
-(program (expression_statement
+(expression_statement
     (property_access
         (property_access (identifier) (identifier))
-        (identifier))))
+        (identifier)))
 
 ===========================================
 parses dynamic property access
@@ -65,10 +65,10 @@ parses ternary expressions
 ==========================================
 print(isDone() ? stuff : otherStuff);
 ---
-(program (expression_statement
+(expression_statement
     (function_call
         (identifier)
-        (ternary (function_call (identifier)) (identifier) (identifier)))))
+        (ternary (function_call (identifier)) (identifier) (identifier))))
 
 ==========================================
 parses mathematical operators
@@ -76,12 +76,12 @@ parses mathematical operators
 -a + b * c - d / +e
 
 ---
-(program (expression_statement
+(expression_statement
     (math_op
         (math_op (identifier))
         (math_op
             (math_op (identifier) (identifier))
-            (math_op (identifier) (math_op (identifier)))))))
+            (math_op (identifier) (math_op (identifier))))))
 
 ==========================================
 parses boolean operators
@@ -89,11 +89,11 @@ parses boolean operators
 !a || !(b && c)
 
 ---
-(program (expression_statement
+(expression_statement
     (bool_op
         (bool_op (identifier))
         (bool_op
-            (expression (bool_op (identifier) (identifier)))))))
+            (expression (bool_op (identifier) (identifier))))))
 
 ===========================================
 parses the type operators
@@ -101,10 +101,10 @@ parses the type operators
 print((x instanceof Array) || (typeof x == "string"))
 
 ---
-(program (expression_statement (function_call (identifier)
+(expression_statement (function_call (identifier)
     (bool_op
         (expression (instanceof_expression (identifier) (identifier)))
-        (expression (typeof_expression (bool_op (identifier) (string))))))))
+        (expression (typeof_expression (bool_op (identifier) (string)))))))
 
 ============================================
 parses the 'in' operator
@@ -112,9 +112,9 @@ parses the 'in' operator
 print(x in y)
 
 ---
-(program (expression_statement (function_call
+(expression_statement (function_call
     (identifier)
-    (in_expression (identifier) (identifier)))))
+    (in_expression (identifier) (identifier))))
 
 ============================================
 parses assignment operators
@@ -136,7 +136,7 @@ parses property access and operators
 print(x.y.z && a.b.c)
 
 ---
-(program (expression_statement (function_call (identifier)
+(expression_statement (function_call (identifier)
     (bool_op
         (property_access (property_access (identifier) (identifier)) (identifier))
-        (property_access (property_access (identifier) (identifier)) (identifier))))))
+        (property_access (property_access (identifier) (identifier)) (identifier)))))

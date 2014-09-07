@@ -20,9 +20,8 @@ if (isReady()) {
     console.log(theData)
 }
 ---
-(program
-    (if_statement (function_call (identifier))
-        (statement_block (expression_statement (function_call (property_access (identifier) (identifier)) (identifier))))))
+(if_statement (function_call (identifier))
+    (statement_block (expression_statement (function_call (property_access (identifier) (identifier)) (identifier)))))
 
 ==========================================
 parses if-else statements
@@ -33,10 +32,10 @@ if (theCondition) {
     secondFunction();
 }
 ---
-(program (if_statement
+(if_statement
     (identifier)
     (statement_block (expression_statement (function_call (identifier))))
-    (statement_block (expression_statement (function_call (identifier))))))
+    (statement_block (expression_statement (function_call (identifier)))))
 
 ==================================================
 parses if-else statements with multiple conditions
@@ -49,12 +48,11 @@ else {
     thirdFunction();
 }
 ---
-(program
+(if_statement (identifier)
+    (statement_block (expression_statement (function_call (identifier))))
     (if_statement (identifier)
-        (statement_block (expression_statement (function_call (identifier))))
-        (if_statement (identifier)
-            (expression_statement (function_call (identifier)))
-            (statement_block (expression_statement (function_call (identifier)))))))
+        (expression_statement (function_call (identifier)))
+        (statement_block (expression_statement (function_call (identifier))))))
 
 ==========================================
 parses for loops
@@ -63,11 +61,11 @@ for (var i = 1; someCondition(i); i = next()) {
     doSomething();
 }
 ---
-(program (for_statement
+(for_statement
     (var_declaration (identifier) (number))
     (expression_statement (function_call (identifier) (identifier)))
     (assignment (identifier) (function_call (identifier)))
-    (statement_block (expression_statement (function_call (identifier))))))
+    (statement_block (expression_statement (function_call (identifier)))))
 
 ==========================================
 parses for-in loops
@@ -92,9 +90,9 @@ while (someCondition(i)) {
     doSomething();
 }
 ---
-(program (while_statement
+(while_statement
     (function_call (identifier) (identifier))
-    (statement_block (expression_statement (function_call (identifier))))))
+    (statement_block (expression_statement (function_call (identifier)))))
 
 ==========================================
 parses try/catch statements
@@ -126,8 +124,7 @@ parses throw statements
 ===========================================
 throw new Error("wtf");
 ---
-(program
-  (throw_statement (constructor_call (function_call (identifier) (string)))))
+(throw_statement (constructor_call (function_call (identifier) (string))))
 
 ===========================================
 parses indented code after blocks
@@ -154,16 +151,14 @@ switch(x) {
         print("three");
 }
 ---
-(program
-    (switch_statement (identifier)
-        (switch_case
-            (string)
-            (expression_statement (function_call (identifier) (string)))
-            (break_statement))
-        (switch_case
-            (function_call (identifier))
-            (expression_statement (function_call (identifier) (string)))
-            (break_statement))
-        (switch_case
-            (expression_statement (function_call (identifier) (string))))))
-
+(switch_statement (identifier)
+    (switch_case
+        (string)
+        (expression_statement (function_call (identifier) (string)))
+        (break_statement))
+    (switch_case
+        (function_call (identifier))
+        (expression_statement (function_call (identifier) (string)))
+        (break_statement))
+    (switch_case
+        (expression_statement (function_call (identifier) (string)))))

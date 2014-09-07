@@ -326,7 +326,7 @@ describe("Document", [&]() {
         it("is incorporated into the tree", [&]() {
           ts_document_set_input_string(doc, "fn()\n");
           AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
-              "(DOCUMENT (program (expression_statement (function_call (identifier)))))"));
+              "(DOCUMENT (expression_statement (function_call (identifier))))"));
         });
       });
 
@@ -336,9 +336,9 @@ describe("Document", [&]() {
             "fn()\n"
             "  .otherFn();");
           AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
-              "(DOCUMENT (program "
+              "(DOCUMENT "
                 "(expression_statement (function_call "
-                  "(property_access (function_call (identifier)) (identifier))))))"));
+                  "(property_access (function_call (identifier)) (identifier)))))"));
         });
 
         describe("when several ubiquitous tokens appear in a row", [&]() {
@@ -349,11 +349,11 @@ describe("Document", [&]() {
               "\n\n"
               ".otherFn();");
             AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
-                "(DOCUMENT (program "
+                "(DOCUMENT "
                   "(expression_statement (function_call "
                     "(property_access (function_call (identifier)) "
                       "(comment) "
-                      "(identifier))))))"));
+                      "(identifier)))))"));
           });
         });
       });

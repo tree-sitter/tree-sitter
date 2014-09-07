@@ -8,7 +8,7 @@ START_TEST
 using namespace rules;
 using prepare_grammar::expand_repeats;
 
-describe("expanding repeat rules in a grammar", []() {
+describe("expand_repeats", []() {
   it("replaces repeat rules with pairs of recursive rules", [&]() {
     SyntaxGrammar grammar({
         { "rule0", repeat(i_token(0)) },
@@ -17,29 +17,35 @@ describe("expanding repeat rules in a grammar", []() {
     auto match = expand_repeats(grammar);
 
     AssertThat(match.rules, Equals(rule_list({
-        { "rule0", i_aux_sym(0) },
+        { "rule0", choice({ i_aux_sym(0), blank() }) },
     })));
 
     AssertThat(match.aux_rules, Equals(rule_list({
-        { "rule0_repeat0", choice({ seq({ i_token(0), i_aux_sym(0) }), blank() }) },
+        { "rule0_repeat0", seq({
+            i_token(0),
+            choice({ i_aux_sym(0), blank() }) }) },
     })));
   });
 
   it("replaces repeats inside of sequences", [&]() {
     SyntaxGrammar grammar({
-        { "rule0", seq({ i_token(10), repeat(i_token(11)) }) },
+        { "rule0", seq({
+            i_token(10),
+            repeat(i_token(11)) }) },
     }, {}, set<Symbol>());
 
     auto match = expand_repeats(grammar);
 
     AssertThat(match.rules, Equals(rule_list({
-        { "rule0", seq({ i_token(10), i_aux_sym(0) }) },
+        { "rule0", seq({
+            i_token(10),
+            choice({ i_aux_sym(0), blank() }) }) },
     })));
 
     AssertThat(match.aux_rules, Equals(rule_list({
-        { "rule0_repeat0", choice({
-            seq({ i_token(11), i_aux_sym(0) }),
-            blank() }) },
+        { "rule0_repeat0", seq({
+            i_token(11),
+            choice({ i_aux_sym(0), blank() }) }) },
     })));
   });
 
@@ -51,38 +57,38 @@ describe("expanding repeat rules in a grammar", []() {
     auto match = expand_repeats(grammar);
 
     AssertThat(match.rules, Equals(rule_list({
-        { "rule0", choice({ i_token(10), i_aux_sym(0) }) },
+        { "rule0", choice({ i_token(10), i_aux_sym(0), blank() }) },
     })));
 
     AssertThat(match.aux_rules, Equals(rule_list({
-        { "rule0_repeat0", choice({
-            seq({ i_token(11), i_aux_sym(0) }),
-            blank() }) },
+        { "rule0_repeat0", seq({
+            i_token(11),
+            choice({ i_aux_sym(0), blank() }) }) },
     })));
   });
 
   it("can replace multiple repeats in the same rule", [&]() {
     SyntaxGrammar grammar({
-        { "rule0", seq({ repeat(i_token(10)), repeat(i_token(11)) }) },
+        { "rule0", seq({
+            repeat(i_token(10)),
+            repeat(i_token(11)) }) },
     }, {}, set<Symbol>());
 
     auto match = expand_repeats(grammar);
 
     AssertThat(match.rules, Equals(rule_list({
-        { "rule0", seq({ i_aux_sym(0), i_aux_sym(1) }) },
+        { "rule0", seq({ 
+            choice({ i_aux_sym(0), blank() }),
+            choice({ i_aux_sym(1), blank() }) }) },
     })));
 
     AssertThat(match.aux_rules, Equals(rule_list({
-        { "rule0_repeat0", choice({
-            seq({
-                i_token(10),
-                i_aux_sym(0) }),
-            blank() }) },
-        { "rule0_repeat1", choice({
-            seq({
-                i_token(11),
-                i_aux_sym(1) }),
-            blank() }) },
+        { "rule0_repeat0", seq({
+            i_token(10),
+            choice({ i_aux_sym(0), blank() }) }) },
+        { "rule0_repeat1", seq({
+            i_token(11),
+            choice({ i_aux_sym(1), blank() }) }) },
     })));
   });
 
@@ -95,17 +101,17 @@ describe("expanding repeat rules in a grammar", []() {
     auto match = expand_repeats(grammar);
 
     AssertThat(match.rules, Equals(rule_list({
-        { "rule0", i_aux_sym(0) },
-        { "rule1", i_aux_sym(1) },
+        { "rule0", choice({ i_aux_sym(0), blank() }) },
+        { "rule1", choice({ i_aux_sym(1), blank() }) },
     })));
 
     AssertThat(match.aux_rules, Equals(rule_list({
-        { "rule0_repeat0", choice({
-            seq({ i_token(10), i_aux_sym(0) }),
-            blank() }) },
-        { "rule1_repeat0", choice({
-            seq({ i_token(11), i_aux_sym(1) }),
-            blank() }) },
+        { "rule0_repeat0", seq({
+            i_token(10),
+            choice({ i_aux_sym(0), blank() }) }) },
+        { "rule1_repeat0", seq({
+            i_token(11),
+            choice({ i_aux_sym(1), blank() }) }) },
     })));
   });
 });

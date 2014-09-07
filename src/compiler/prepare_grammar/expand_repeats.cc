@@ -35,11 +35,11 @@ class ExpandRepeats : public rules::IdentityRuleFn {
     string helper_rule_name = rule_name + string("_repeat") + to_string(index);
     rule_ptr repeat_symbol =
         make_shared<Symbol>(offset + index, rules::SymbolOptionAuxiliary);
-    aux_rules.push_back(
-        { helper_rule_name,
-          Choice::Build({ Seq::Build({ inner_rule, repeat_symbol }),
-                          make_shared<Blank>() }) });
-    return repeat_symbol;
+    aux_rules.push_back({
+        helper_rule_name,
+        Seq::Build({ inner_rule, Choice::Build({ repeat_symbol, make_shared<Blank>() }) })
+    });
+    return Choice::Build({ repeat_symbol, make_shared<Blank>() });
   }
 
  public:

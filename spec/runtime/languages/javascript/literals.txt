@@ -3,24 +3,24 @@ parses regexes
 ==========================================
 theFunction(/regex1/, /regex2/g);
 ---
-(program (expression_statement (function_call (identifier)
-    (regex) (regex))))
+(expression_statement (function_call (identifier)
+    (regex) (regex)))
 
 ==========================================
 parses numbers
 ==========================================
 theFunction(100.0, 200);
 ---
-(program (expression_statement (function_call (identifier)
-    (number) (number))))
+(expression_statement (function_call (identifier)
+    (number) (number)))
 
 ==========================================
 parses strings
 ==========================================
 theFunction('', "", 'single-quoted-string', "double-quoted-string");
 ---
-(program (expression_statement (function_call (identifier)
-    (string) (string) (string) (string))))
+(expression_statement (function_call (identifier)
+    (string) (string) (string) (string)))
 
 ==========================================
 parses function expressions
@@ -31,12 +31,11 @@ var x = {
     }
 };
 ---
-(program
-    (var_declaration
-        (identifier)
-        (object (identifier) (function_expression
-            (formal_parameters (identifier) (identifier))
-            (statement_block (var_declaration (identifier) (identifier)))))))
+(var_declaration
+    (identifier)
+    (object (identifier) (function_expression
+        (formal_parameters (identifier) (identifier))
+        (statement_block (var_declaration (identifier) (identifier))))))
 
 ==========================================
 parses comments
@@ -56,15 +55,14 @@ var thing = {
 ---
 (comment)
 (comment)
-(program
-    (var_declaration (identifier) (object
-        (comment)
-        (comment)
-        (identifier) (function_expression
-            (formal_parameters (identifier) (comment))
-            (statement_block
-                (comment)
-                (expression_statement (function_call (identifier))))))))
+(var_declaration (identifier) (object
+    (comment)
+    (comment)
+    (identifier) (function_expression
+        (formal_parameters (identifier) (comment))
+        (statement_block
+            (comment)
+            (expression_statement (function_call (identifier)))))))
 
 ==========================================
 parses comments within expressions
@@ -72,5 +70,4 @@ parses comments within expressions
 y // comment
   * z;
 ---
-(program
-  (expression_statement (math_op (expression (identifier) (comment)) (identifier))))
+(expression_statement (math_op (expression (identifier) (comment)) (identifier)))
