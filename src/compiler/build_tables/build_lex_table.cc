@@ -3,10 +3,12 @@
 #include <utility>
 #include <map>
 #include <set>
+#include <vector>
 #include <unordered_map>
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/rules/metadata.h"
+#include "compiler/rules/choice.h"
 #include "compiler/rules/repeat.h"
 #include "compiler/rules/blank.h"
 #include "compiler/rules/seq.h"
@@ -22,6 +24,8 @@ using std::map;
 using std::unordered_map;
 using std::set;
 using std::make_shared;
+using std::vector;
+using std::dynamic_pointer_cast;
 using rules::Symbol;
 using rules::CharacterSet;
 
@@ -101,17 +105,24 @@ class LexTableBuilder {
         lex_table.state(state_id).is_token_start = true;
   }
 
-  CharacterSet separator_set() const {
-    CharacterSet result;
-    for (char c : lex_grammar.separators)
-      result.include(c);
-    return result;
+  // TODO - remove this hack. right now, nested repeats cause
+  // item sets which are equivalent to appear unequal.
+  rules::rule_ptr separators() const {
+    std::vector<rules::rule_ptr> separators;
+    for (auto &rule : lex_grammar.separators) {
+      auto repeat = dynamic_pointer_cast<const rules::Repeat>(rule);
+      if (repeat.get())
+        separators.push_back(repeat->content);
+      else
+        separators.push_back(rule);
+    }
+    return rules::repeat(rules::choice(separators));
   }
 
   rules::rule_ptr after_separators(rules::rule_ptr rule) {
     return rules::Seq::Build(
         { make_shared<rules::Metadata>(
-              make_shared<rules::Repeat>(separator_set().copy()),
+              separators(),
               map<rules::MetadataKey, int>(
                   { { rules::START_TOKEN, 1 }, { rules::PRECEDENCE, -1 }, })),
           rule, });

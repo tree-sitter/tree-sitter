@@ -28,6 +28,9 @@ extern const Grammar arithmetic = Grammar({
     { "variable", pattern("\\a[\\w_]*") },
 
     { "comment", pattern("#.*") },
-}).ubiquitous_tokens({ "comment" });
+}).ubiquitous_tokens({
+    sym("comment"),
+    pattern("\\s"),
+});
 
 }  // namespace tree_sitter_examples

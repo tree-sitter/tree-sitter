@@ -213,8 +213,10 @@ extern const Grammar javascript = Grammar({
     { "null", keyword("null") },
     { "true", keyword("true") },
     { "false", keyword("false") },
-})
-    .ubiquitous_tokens({ "comment", "_line_break" })
-    .separators({ ' ', '\t', '\r' });
+}).ubiquitous_tokens({
+    sym("comment"),
+    sym("_line_break"),
+    pattern("[ \t\r]"),
+});
 
 }  // namespace tree_sitter_examples

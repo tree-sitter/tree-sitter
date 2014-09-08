@@ -46,7 +46,8 @@ class ExpandTokens : public rules::IdentityRuleFn {
 
 pair<LexicalGrammar, const GrammarError *> expand_tokens(
     const LexicalGrammar &grammar) {
-  vector<pair<string, rule_ptr> > rules, aux_rules;
+  vector<pair<string, rule_ptr>> rules, aux_rules;
+  vector<rule_ptr> separators;
   ExpandTokens expander;
 
   for (auto &pair : grammar.rules) {
@@ -63,7 +64,14 @@ pair<LexicalGrammar, const GrammarError *> expand_tokens(
     aux_rules.push_back({ pair.first, rule });
   }
 
-  return { LexicalGrammar(rules, aux_rules, grammar.separators), nullptr, };
+  for (auto &sep : grammar.separators) {
+    auto rule = expander.apply(sep);
+    if (expander.error)
+      return { LexicalGrammar(), expander.error };
+    separators.push_back(rule);
+  }
+
+  return { LexicalGrammar(rules, aux_rules, separators), nullptr, };
 }
 
 }  // namespace prepare_grammar

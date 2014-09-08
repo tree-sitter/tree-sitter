@@ -137,7 +137,9 @@ class CCodeGenerator {
     line("#pragma GCC diagnostic push");
     line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
     line();
-    line("static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {");
+    line(
+        "static const TSParseAction "
+        "ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {");
 
     indent([&]() {
       for (auto &state : parse_table.states) {

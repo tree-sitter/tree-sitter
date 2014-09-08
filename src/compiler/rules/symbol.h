@@ -12,6 +12,8 @@ typedef enum {
   SymbolOptionAuxiliary = 1 << 1,
 } SymbolOption;
 
+extern SymbolOption SymbolOptionAuxToken;
+
 class Symbol : public Rule {
  public:
   explicit Symbol(int index);

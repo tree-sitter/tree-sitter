@@ -10,7 +10,6 @@
 #include "compiler/rules/string.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/rules/pattern.h"
-#include "compiler/prepare_grammar/interned_grammar.h"
 #include "compiler/prepare_grammar/token_description.h"
 #include "compiler/prepare_grammar/is_token.h"
 
@@ -18,15 +17,27 @@ namespace tree_sitter {
 namespace prepare_grammar {
 
 using std::pair;
+using std::tuple;
 using std::string;
 using std::map;
 using std::to_string;
 using std::vector;
 using std::set;
 using std::make_shared;
+using std::dynamic_pointer_cast;
 using rules::rule_ptr;
 using rules::Symbol;
+using rules::SymbolOptionToken;
+using rules::SymbolOptionAuxToken;
 
+class UsedSymbols : public rules::IdentityRuleFn {
+  set<Symbol> used_symbols_;
+
+  rules::rule_ptr apply(rules::Symbol *sym) {
+    used_symbols_.insert(*sym);
+    return sym->copy();
+  }
+};
 
 class SymbolInliner : public rules::IdentityRuleFn {
   map<Symbol, Symbol> replacements;
@@ -59,8 +70,6 @@ class SymbolInliner : public rules::IdentityRuleFn {
 };
 
 class TokenExtractor : public rules::IdentityRuleFn {
-  const rules::SymbolOption SymbolOptionAuxToken = rules::SymbolOption(
-      rules::SymbolOptionToken | rules::SymbolOptionAuxiliary);
 
   rule_ptr apply_to_token(const rules::Rule *input) {
     auto rule = input->copy();
@@ -91,23 +100,28 @@ class TokenExtractor : public rules::IdentityRuleFn {
   }
 
  public:
-  vector<pair<string, rule_ptr> > tokens;
+  vector<pair<string, rule_ptr>> tokens;
 };
 
-pair<SyntaxGrammar, LexicalGrammar> extract_tokens(
-    const InternedGrammar &input_grammar) {
-  vector<pair<string, rule_ptr> > rules, tokens, aux_rules, aux_tokens;
-  set<Symbol> ubiquitous_tokens;
+static const GrammarError *ubiq_token_err(const string &msg) {
+  return new GrammarError(GrammarErrorTypeInvalidUbiquitousToken, msg);
+}
 
-  TokenExtractor extractor;
+tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
+    const Grammar &grammar) {
+  vector<pair<string, rule_ptr>> rules, tokens, aux_rules, aux_tokens;
+  vector<rule_ptr> separators;
+  set<Symbol> ubiquitous_tokens;
   map<Symbol, Symbol> symbol_replacements;
 
-  for (size_t i = 0; i < input_grammar.rules.size(); i++) {
-    auto pair = input_grammar.rules[i];
+  TokenExtractor extractor;
+
+  for (size_t i = 0; i < grammar.rules().size(); i++) {
+    auto pair = grammar.rules()[i];
     if (is_token(pair.second)) {
       tokens.push_back(pair);
       symbol_replacements.insert(
-          { Symbol(i), Symbol(tokens.size() - 1, rules::SymbolOptionToken) });
+          { Symbol(i), Symbol(tokens.size() - 1, SymbolOptionToken) });
     } else {
       rules.push_back({ pair.first, extractor.apply(pair.second) });
     }
@@ -119,11 +133,27 @@ pair<SyntaxGrammar, LexicalGrammar> extract_tokens(
   SymbolInliner inliner(symbol_replacements);
   for (auto &pair : rules)
     pair.second = inliner.apply(pair.second);
-  for (auto &symbol : input_grammar.ubiquitous_tokens)
-    ubiquitous_tokens.insert(inliner.replace_symbol(symbol));
+
+  for (auto rule : grammar.ubiquitous_tokens()) {
+    if (is_token(rule)) {
+      separators.push_back(rule);
+    } else {
+      auto sym = dynamic_pointer_cast<const Symbol>(extractor.apply(rule));
+      if (!sym.get())
+        return { SyntaxGrammar(), LexicalGrammar(),
+                 ubiq_token_err("Not a token: " + rule->to_string()) };
+
+      Symbol symbol = inliner.replace_symbol(*sym);
+      if (!symbol.is_token())
+        return { SyntaxGrammar(), LexicalGrammar(),
+                 ubiq_token_err("Not a token: " + symbol.to_string()) };
+
+      ubiquitous_tokens.insert(symbol);
+    }
+  }
 
   return { SyntaxGrammar(rules, aux_rules, ubiquitous_tokens),
-           LexicalGrammar(tokens, aux_tokens, input_grammar.separators), };
+           LexicalGrammar(tokens, aux_tokens, separators), nullptr };
 }
 
 }  // namespace prepare_grammar

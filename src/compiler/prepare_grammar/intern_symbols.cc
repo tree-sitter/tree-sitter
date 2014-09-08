@@ -3,7 +3,6 @@
 #include <vector>
 #include <set>
 #include "tree_sitter/compiler.h"
-#include "compiler/prepare_grammar/interned_grammar.h"
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/named_symbol.h"
@@ -42,15 +41,13 @@ class InternSymbols : public rules::IdentityRuleFn {
   string missing_rule_name;
 };
 
-pair<InternedGrammar, const GrammarError *> missing_rule_error(
-    string rule_name) {
-  InternedGrammar grammar;
-  return { grammar, new GrammarError(GrammarErrorTypeUndefinedSymbol,
-                                     "Undefined rule '" + rule_name + "'") };
+pair<Grammar, const GrammarError *> missing_rule_error(string rule_name) {
+  return { Grammar({}),
+           new GrammarError(GrammarErrorTypeUndefinedSymbol,
+                            "Undefined rule '" + rule_name + "'") };
 }
 
-pair<InternedGrammar, const GrammarError *> intern_symbols(
-    const Grammar &grammar) {
+pair<Grammar, const GrammarError *> intern_symbols(const Grammar &grammar) {
   InternSymbols interner(grammar);
   vector<pair<string, rule_ptr> > rules;
 
@@ -61,20 +58,15 @@ pair<InternedGrammar, const GrammarError *> intern_symbols(
     rules.push_back({ pair.first, new_rule });
   }
 
-  set<rules::Symbol> ubiquitous_tokens;
-  for (auto &name : grammar.ubiquitous_tokens()) {
-    auto token = interner.symbol_for_rule_name(name);
-    if (!token.get())
-      return missing_rule_error(name);
-    ubiquitous_tokens.insert(*token);
+  set<rules::rule_ptr> ubiquitous_tokens;
+  for (auto &rule : grammar.ubiquitous_tokens()) {
+    auto new_rule = interner.apply(rule);
+    if (!interner.missing_rule_name.empty())
+      return missing_rule_error(interner.missing_rule_name);
+    ubiquitous_tokens.insert(new_rule);
   }
 
-  InternedGrammar result;
-  result.rules = rules;
-  result.ubiquitous_tokens = ubiquitous_tokens;
-  result.separators = grammar.separators();
-
-  return { result, nullptr };
+  return { Grammar(rules).ubiquitous_tokens(ubiquitous_tokens), nullptr };
 }
 
 }  // namespace prepare_grammar

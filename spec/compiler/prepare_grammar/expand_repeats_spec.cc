@@ -77,7 +77,7 @@ describe("expand_repeats", []() {
     auto match = expand_repeats(grammar);
 
     AssertThat(match.rules, Equals(rule_list({
-        { "rule0", seq({ 
+        { "rule0", seq({
             choice({ i_aux_sym(0), blank() }),
             choice({ i_aux_sym(1), blank() }) }) },
     })));

@@ -47,9 +47,9 @@ class LexicalGrammar : public PreparedGrammar {
   LexicalGrammar(
       const std::vector<std::pair<std::string, rules::rule_ptr> > &rules,
       const std::vector<std::pair<std::string, rules::rule_ptr> > &aux_rules,
-      const std::set<char> &separators);
+      const std::vector<rules::rule_ptr> &separators);
 
-  std::set<char> separators;
+  std::vector<rules::rule_ptr> separators;
 };
 
 }  // namespace tree_sitter

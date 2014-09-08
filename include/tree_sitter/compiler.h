@@ -33,8 +33,7 @@ std::ostream &operator<<(std::ostream &stream, const rules::rule_ptr &rule);
 
 class Grammar {
   const std::vector<std::pair<std::string, rules::rule_ptr> > rules_;
-  std::set<std::string> ubiquitous_tokens_;
-  std::set<char> separators_;
+  std::set<rules::rule_ptr> ubiquitous_tokens_;
 
  public:
   Grammar(const std::vector<std::pair<std::string, rules::rule_ptr> > &rules);
@@ -42,10 +41,9 @@ class Grammar {
   std::string start_rule_name() const;
   const rules::rule_ptr rule(const std::string &name) const;
   const std::vector<std::pair<std::string, rules::rule_ptr> > &rules() const;
-  const std::set<std::string> &ubiquitous_tokens() const;
-  Grammar &ubiquitous_tokens(const std::set<std::string> &ubiquitous_tokens);
-  const std::set<char> &separators() const;
-  Grammar &separators(const std::set<char> &separators);
+  const std::set<rules::rule_ptr> &ubiquitous_tokens() const;
+  Grammar &ubiquitous_tokens(
+      const std::set<rules::rule_ptr> &ubiquitous_tokens);
 };
 
 struct Conflict {
@@ -57,7 +55,8 @@ struct Conflict {
 
 enum GrammarErrorType {
   GrammarErrorTypeRegex,
-  GrammarErrorTypeUndefinedSymbol
+  GrammarErrorTypeUndefinedSymbol,
+  GrammarErrorTypeInvalidUbiquitousToken
 };
 
 class GrammarError {

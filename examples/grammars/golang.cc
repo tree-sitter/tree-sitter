@@ -166,8 +166,10 @@ extern const Grammar golang = Grammar({
     { "_identifier", pattern("\\a[\\w_]*") },
     { "number", pattern("\\d+(\\.\\d+)?") },
     { "comment", keypattern("//[^\n]*") },
-})
-    .ubiquitous_tokens({ "comment", "_line_break" })
-    .separators({ ' ', '\t', '\r' });
+}).ubiquitous_tokens({
+    sym("comment"),
+    sym("_line_break"),
+    pattern("[ \t\r]"),
+});
 
 }  // namespace tree_sitter_examples

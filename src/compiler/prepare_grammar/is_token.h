@@ -12,4 +12,3 @@ bool is_token(const rules::rule_ptr &);
 }  // namespace tree_sitter
 
 #endif  // COMPILER_PREPARE_GRAMMAR_IS_TOKEN_H_
-

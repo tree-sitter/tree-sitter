@@ -12,9 +12,7 @@ using rules::rule_ptr;
 
 Grammar::Grammar(
     const std::vector<std::pair<std::string, rules::rule_ptr> > &rules)
-    : rules_(rules),
-      ubiquitous_tokens_({}),
-      separators_({ ' ', '\r', '\t', '\n' }) {}
+    : rules_(rules), ubiquitous_tokens_({}) {}
 
 bool Grammar::operator==(const Grammar &other) const {
   if (other.rules_.size() != rules_.size())
@@ -63,19 +61,12 @@ ostream &operator<<(ostream &stream, const GrammarError *error) {
     return stream << string("#<null>");
 }
 
-const set<string> &Grammar::ubiquitous_tokens() const {
+const set<rule_ptr> &Grammar::ubiquitous_tokens() const {
   return ubiquitous_tokens_;
 }
 
-Grammar &Grammar::ubiquitous_tokens(const set<string> &ubiquitous_tokens) {
+Grammar &Grammar::ubiquitous_tokens(const set<rule_ptr> &ubiquitous_tokens) {
   ubiquitous_tokens_ = ubiquitous_tokens;
-  return *this;
-}
-
-const set<char> &Grammar::separators() const { return separators_; }
-
-Grammar &Grammar::separators(const set<char> &separators) {
-  separators_ = separators;
   return *this;
 }
 

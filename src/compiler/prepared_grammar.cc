@@ -50,7 +50,7 @@ SyntaxGrammar::SyntaxGrammar(
 LexicalGrammar::LexicalGrammar(
     const vector<pair<string, rules::rule_ptr> > &rules,
     const vector<pair<string, rules::rule_ptr> > &aux_rules,
-    const set<char> &separators)
+    const vector<rules::rule_ptr> &separators)
     : PreparedGrammar(rules, aux_rules), separators(separators) {}
 
 }  // namespace tree_sitter

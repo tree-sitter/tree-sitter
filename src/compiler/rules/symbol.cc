@@ -10,6 +10,9 @@ using std::string;
 using std::to_string;
 using std::hash;
 
+SymbolOption SymbolOptionAuxToken =
+    SymbolOption(SymbolOptionToken | SymbolOptionAuxiliary);
+
 Symbol::Symbol(int index) : index(index), options(SymbolOption(0)) {}
 
 Symbol::Symbol(int index, SymbolOption options)

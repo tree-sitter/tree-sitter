@@ -21,7 +21,7 @@ describe("interning symbols in a grammar", []() {
     auto result = intern_symbols(grammar);
 
     AssertThat(result.second, Equals((GrammarError *)nullptr));
-    AssertThat(result.first.rules, Equals(rule_list({
+    AssertThat(result.first.rules(), Equals(rule_list({
         { "x", choice({ i_sym(1), i_sym(2) }) },
         { "y", i_sym(2) },
         { "z", str("stuff") },
@@ -45,24 +45,13 @@ describe("interning symbols in a grammar", []() {
         { "x", choice({ sym("y"), sym("z") }) },
         { "y", sym("z") },
         { "z", str("stuff") }
-    }).ubiquitous_tokens({ "z" });
+    }).ubiquitous_tokens({ sym("z") });
 
     auto result = intern_symbols(grammar);
 
     AssertThat(result.second, Equals((GrammarError *)nullptr));
-    AssertThat(result.first.ubiquitous_tokens, Equals(set<Symbol>({
-        Symbol(2)
-    })));
-  });
-
-  it("preserves the grammar's separator character set", [&]() {
-    auto grammar = Grammar({
-        { "z", str("stuff") }
-    }).separators({ 'x', 'y' });
-
-    auto result = intern_symbols(grammar);
-
-    AssertThat(result.first.separators, Equals(set<char>({ 'x', 'y' })))
+    AssertThat(result.first.ubiquitous_tokens().size(), Equals<size_t>(1));
+    AssertThat(*result.first.ubiquitous_tokens().begin(), EqualsPointer(i_sym(2)));
   });
 });
 

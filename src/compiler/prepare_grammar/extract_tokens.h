@@ -2,17 +2,18 @@
 #define COMPILER_PREPARE_GRAMMAR_EXTRACT_TOKENS_H_
 
 #include <utility>
-#include "compiler/prepare_grammar/interned_grammar.h"
+#include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
 
+class Grammar;
 class SyntaxGrammar;
 class LexicalGrammar;
 
 namespace prepare_grammar {
 
-std::pair<SyntaxGrammar, LexicalGrammar> extract_tokens(
-    const InternedGrammar &);
+std::tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
+    const Grammar &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

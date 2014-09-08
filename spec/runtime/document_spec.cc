@@ -102,7 +102,7 @@ describe("Document", [&]() {
       it("updates the parse tree", [&]() {
         AssertThat(string(ts_node_string(ts_document_root_node(doc))), Equals(
             "(DOCUMENT (exponent "
-              "(variable) " 
+              "(variable) "
               "(group (sum (number) (product (variable) (number))))))"));
       });
 
