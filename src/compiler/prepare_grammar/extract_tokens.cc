@@ -24,6 +24,7 @@ using std::to_string;
 using std::vector;
 using std::set;
 using std::make_shared;
+using std::make_tuple;
 using std::dynamic_pointer_cast;
 using rules::rule_ptr;
 using rules::Symbol;
@@ -140,20 +141,20 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
     } else {
       auto sym = dynamic_pointer_cast<const Symbol>(extractor.apply(rule));
       if (!sym.get())
-        return { SyntaxGrammar(), LexicalGrammar(),
-                 ubiq_token_err("Not a token: " + rule->to_string()) };
+        return make_tuple(SyntaxGrammar(), LexicalGrammar(),
+                 ubiq_token_err("Not a token: " + rule->to_string()));
 
       Symbol symbol = inliner.replace_symbol(*sym);
       if (!symbol.is_token())
-        return { SyntaxGrammar(), LexicalGrammar(),
-                 ubiq_token_err("Not a token: " + symbol.to_string()) };
+        return make_tuple(SyntaxGrammar(), LexicalGrammar(),
+                 ubiq_token_err("Not a token: " + symbol.to_string()));
 
       ubiquitous_tokens.insert(symbol);
     }
   }
 
-  return { SyntaxGrammar(rules, aux_rules, ubiquitous_tokens),
-           LexicalGrammar(tokens, aux_tokens, separators), nullptr };
+  return make_tuple(SyntaxGrammar(rules, aux_rules, ubiquitous_tokens),
+           LexicalGrammar(tokens, aux_tokens, separators), nullptr);
 }
 
 }  // namespace prepare_grammar
