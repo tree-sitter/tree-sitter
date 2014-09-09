@@ -8,8 +8,7 @@
 namespace tree_sitter {
 namespace prepare_grammar {
 
-std::pair<rules::rule_ptr, const GrammarError *> parse_regex(
-    const std::string &);
+std::pair<rules::rule_ptr, const GrammarError *> parse_regex(const std::string &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

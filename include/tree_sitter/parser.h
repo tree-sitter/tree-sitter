@@ -138,16 +138,15 @@ struct TSLanguage {
 #define ACCEPT_INPUT() \
   { .type = TSParseActionTypeAccept }
 
-#define EXPORT_LANGUAGE(language_name)                      \
-  static TSLanguage language = {                            \
-    .symbol_count = SYMBOL_COUNT,                           \
-    .hidden_symbol_flags = ts_hidden_symbol_flags,          \
-    .parse_table = (const TSParseAction *)ts_parse_actions, \
-    .lex_states = ts_lex_states,                            \
-    .symbol_names = ts_symbol_names,                        \
-    .lex_fn = ts_lex,                                       \
-  };                                                        \
-                                                            \
+#define EXPORT_LANGUAGE(language_name)                                          \
+  static TSLanguage language = { .symbol_count = SYMBOL_COUNT,                  \
+                                 .hidden_symbol_flags = ts_hidden_symbol_flags, \
+                                 .parse_table =                                 \
+                                     (const TSParseAction *)ts_parse_actions,   \
+                                 .lex_states = ts_lex_states,                   \
+                                 .symbol_names = ts_symbol_names,               \
+                                 .lex_fn = ts_lex, };                           \
+                                                                                \
   const TSLanguage *language_name() { return &language; }
 
 #ifdef __cplusplus

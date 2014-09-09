@@ -54,8 +54,7 @@ class FirstSet : public rules::RuleFn<set<Symbol> > {
   }
 };
 
-set<Symbol> first_set(const rules::rule_ptr &rule,
-                      const SyntaxGrammar &grammar) {
+set<Symbol> first_set(const rules::rule_ptr &rule, const SyntaxGrammar &grammar) {
   return FirstSet(&grammar).apply(rule);
 }
 

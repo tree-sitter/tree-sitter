@@ -19,8 +19,7 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, size_t size, size_t padding,
 }
 
 TSTree *ts_tree_make_error(size_t size, size_t padding, char lookahead_char) {
-  TSTree *result =
-      ts_tree_make_leaf(ts_builtin_sym_error, size, padding, false);
+  TSTree *result = ts_tree_make_leaf(ts_builtin_sym_error, size, padding, false);
   result->lookahead_char = lookahead_char;
   return result;
 }
@@ -161,9 +160,8 @@ static size_t write_lookahead_to_string(char *string, size_t limit,
   }
 }
 
-static size_t tree_write_to_string(const TSTree *tree,
-                                   const char **symbol_names, char *string,
-                                   size_t limit, int is_root) {
+static size_t tree_write_to_string(const TSTree *tree, const char **symbol_names,
+                                   char *string, size_t limit, int is_root) {
   if (!tree)
     return snprintf(string, limit, "(NULL)");
 

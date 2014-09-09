@@ -37,9 +37,8 @@ class ExpandRepeats : public rules::IdentityRuleFn {
         make_shared<Symbol>(offset + index, rules::SymbolOptionAuxiliary);
     aux_rules.push_back(
         { helper_rule_name,
-          Seq::Build(
-              { inner_rule,
-                Choice::Build({ repeat_symbol, make_shared<Blank>() }) }) });
+          Seq::Build({ inner_rule, Choice::Build({ repeat_symbol,
+                                                   make_shared<Blank>() }) }) });
     return Choice::Build({ repeat_symbol, make_shared<Blank>() });
   }
 

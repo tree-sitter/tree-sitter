@@ -10,8 +10,7 @@ using std::string;
 using std::vector;
 using rules::rule_ptr;
 
-Grammar::Grammar(
-    const std::vector<std::pair<std::string, rules::rule_ptr> > &rules)
+Grammar::Grammar(const std::vector<std::pair<std::string, rules::rule_ptr> > &rules)
     : rules_(rules), ubiquitous_tokens_({}) {}
 
 bool Grammar::operator==(const Grammar &other) const {

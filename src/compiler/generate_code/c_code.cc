@@ -247,8 +247,7 @@ class CCodeGenerator {
     }
   }
 
-  void condition_for_character_ranges(
-      const vector<rules::CharacterRange> &ranges) {
+  void condition_for_character_ranges(const vector<rules::CharacterRange> &ranges) {
     if (ranges.size() == 1) {
       add(condition_for_character_range(*ranges.begin()));
     } else {

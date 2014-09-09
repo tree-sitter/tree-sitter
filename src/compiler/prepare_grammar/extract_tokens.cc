@@ -91,8 +91,8 @@ class TokenExtractor : public rules::IdentityRuleFn {
   vector<pair<string, rule_ptr>> tokens;
 };
 
-static tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *>
-ubiq_token_err(const rule_ptr rule) {
+static tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> ubiq_token_err(
+    const rule_ptr rule) {
   return make_tuple(SyntaxGrammar(), LexicalGrammar(),
                     new GrammarError(GrammarErrorTypeInvalidUbiquitousToken,
                                      "Not a token: " + rule->to_string()));

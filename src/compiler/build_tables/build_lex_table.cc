@@ -87,8 +87,7 @@ class LexTableBuilder {
     }
   }
 
-  void add_accept_token_actions(const LexItemSet &item_set,
-                                LexStateId state_id) {
+  void add_accept_token_actions(const LexItemSet &item_set, LexStateId state_id) {
     for (const LexItem &item : item_set) {
       if (item.is_done()) {
         auto current_action = lex_table.state(state_id).default_action;

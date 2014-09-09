@@ -17,8 +17,7 @@ static void add_range(set<uint32_t> *characters, uint32_t min, uint32_t max) {
     characters->insert(c);
 }
 
-static void remove_range(set<uint32_t> *characters, uint32_t min,
-                         uint32_t max) {
+static void remove_range(set<uint32_t> *characters, uint32_t min, uint32_t max) {
   for (uint32_t c = min; c <= max; c++)
     characters->erase(c);
 }
@@ -33,8 +32,7 @@ static set<uint32_t> remove_chars(set<uint32_t> *left,
   return result;
 }
 
-static set<uint32_t> add_chars(set<uint32_t> *left,
-                               const set<uint32_t> &right) {
+static set<uint32_t> add_chars(set<uint32_t> *left, const set<uint32_t> &right) {
   set<uint32_t> result;
   for (uint32_t c : right)
     if (left->insert(c).second)

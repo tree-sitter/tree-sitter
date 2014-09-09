@@ -25,7 +25,7 @@ PenaltyBreakBeforeFirstCallParameter: 1
 PenaltyBreakComment: 60
 PenaltyBreakString: 1000
 PenaltyBreakFirstLessLess: 120
-PenaltyExcessCharacter: 1000000
+PenaltyExcessCharacter: 20
 PenaltyReturnTypeOnItsOwnLine: 200
 PointerBindsToType: true
 SpacesBeforeTrailingComments: 2

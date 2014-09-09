@@ -100,8 +100,7 @@ class ParseTableBuilder {
         size_t shift_state_id = pair_for_symbol->second.state_index;
         for (const auto &pair : actions) {
           const Symbol &lookahead_sym = pair.first;
-          ParseAction reduce_extra =
-              ParseAction::ReduceExtra(ubiquitous_symbol);
+          ParseAction reduce_extra = ParseAction::ReduceExtra(ubiquitous_symbol);
           if (should_add_action(shift_state_id, lookahead_sym, reduce_extra))
             parse_table.add_action(shift_state_id, lookahead_sym, reduce_extra);
         }

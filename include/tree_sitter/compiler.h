@@ -32,18 +32,17 @@ std::ostream &operator<<(std::ostream &stream, const rules::rule_ptr &rule);
 }  // namespace rules
 
 class Grammar {
-  const std::vector<std::pair<std::string, rules::rule_ptr> > rules_;
+  const std::vector<std::pair<std::string, rules::rule_ptr>> rules_;
   std::set<rules::rule_ptr> ubiquitous_tokens_;
 
  public:
-  Grammar(const std::vector<std::pair<std::string, rules::rule_ptr> > &rules);
-  bool operator==(const Grammar &other) const;
+  explicit Grammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &);
+  bool operator==(const Grammar &) const;
   std::string start_rule_name() const;
-  const rules::rule_ptr rule(const std::string &name) const;
-  const std::vector<std::pair<std::string, rules::rule_ptr> > &rules() const;
+  const rules::rule_ptr rule(const std::string &) const;
+  const std::vector<std::pair<std::string, rules::rule_ptr>> &rules() const;
   const std::set<rules::rule_ptr> &ubiquitous_tokens() const;
-  Grammar &ubiquitous_tokens(
-      const std::set<rules::rule_ptr> &ubiquitous_tokens);
+  Grammar &ubiquitous_tokens(const std::set<rules::rule_ptr> &);
 };
 
 struct Conflict {

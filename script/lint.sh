@@ -10,5 +10,5 @@ fi
 
 FILTERS='--filter=-legal/copyright,-readability/todo'
 
-$CPPLINT --root=include $FILTERS include/tree_sitter/compiler.h 2>&1
-$CPPLINT --root=src $FILTERS $(find src/compiler -type f) 2>&1
+$CPPLINT --linelength=90 --root=include $FILTERS include/tree_sitter/compiler.h 2>&1
+$CPPLINT --linelength=90 --root=src $FILTERS $(find src/compiler -type f) 2>&1

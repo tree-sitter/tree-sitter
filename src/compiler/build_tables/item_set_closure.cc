@@ -18,10 +18,9 @@ using std::pair;
 using rules::Symbol;
 using rules::rule_ptr;
 
-const ParseItemSet item_set_closure(
-    const ParseItem &starting_item,
-    const set<Symbol> &starting_lookahead_symbols,
-    const SyntaxGrammar &grammar) {
+const ParseItemSet item_set_closure(const ParseItem &starting_item,
+                                    const set<Symbol> &starting_lookahead_symbols,
+                                    const SyntaxGrammar &grammar) {
   ParseItemSet result;
 
   vector<pair<ParseItem, set<Symbol>>> items_to_process = {

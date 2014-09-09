@@ -42,9 +42,8 @@ class InternSymbols : public rules::IdentityRuleFn {
 };
 
 pair<Grammar, const GrammarError *> missing_rule_error(string rule_name) {
-  return { Grammar({}),
-           new GrammarError(GrammarErrorTypeUndefinedSymbol,
-                            "Undefined rule '" + rule_name + "'") };
+  return { Grammar({}), new GrammarError(GrammarErrorTypeUndefinedSymbol,
+                                         "Undefined rule '" + rule_name + "'") };
 }
 
 pair<Grammar, const GrammarError *> intern_symbols(const Grammar &grammar) {

@@ -32,8 +32,7 @@ static void reparse(TSDocument *document, TSInputEdit *edit) {
   }
 }
 
-void ts_document_set_language(TSDocument *document,
-                              const TSLanguage *language) {
+void ts_document_set_language(TSDocument *document, const TSLanguage *language) {
   ts_parser_destroy(&document->parser);
   document->parser = ts_parser_make(language);
   document->parser.debug = document->debug;

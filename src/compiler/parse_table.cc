@@ -59,8 +59,7 @@ bool ParseAction::operator==(const ParseAction &other) const {
   bool state_indices_eq = state_index == other.state_index;
   bool consumed_symbol_counts_eq =
       consumed_symbol_count == other.consumed_symbol_count;
-  return types_eq && symbols_eq && state_indices_eq &&
-         consumed_symbol_counts_eq;
+  return types_eq && symbols_eq && state_indices_eq && consumed_symbol_counts_eq;
 }
 
 ostream &operator<<(ostream &stream, const ParseAction &action) {
@@ -112,8 +111,7 @@ ParseStateId ParseTable::add_state() {
   return states.size() - 1;
 }
 
-void ParseTable::add_action(ParseStateId id, Symbol symbol,
-                            ParseAction action) {
+void ParseTable::add_action(ParseStateId id, Symbol symbol, ParseAction action) {
   symbols.insert(symbol);
   states[id].actions[symbol] = action;
 }
