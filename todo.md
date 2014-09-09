@@ -4,11 +4,12 @@ TODO
 Backlog
 -------
 
-* Fix inconsistent generation of START_TOKEN call in lexer error state
-* Complete the golang grammar
 * Handle UTF8 strings
-* Implement the remainder of the incremental parsing algorithm: reuse parse tree after the edit
+* Implement assertions in regexps ('^', '$', etc)
 * Make parse error handling more robust
+* Create C and go grammars
+* Implement the remainder of the incremental parsing algorithm: reuse parse tree after the edit
+* Expand the AST Node querying API (`closest(node_name)`, `find(node_name)`, etc)
 * Add special lexical behavior for indentation-aware languages
 * Speed up grammar compilation
 
