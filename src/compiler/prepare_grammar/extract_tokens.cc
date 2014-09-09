@@ -16,29 +16,19 @@
 namespace tree_sitter {
 namespace prepare_grammar {
 
-using std::pair;
-using std::tuple;
-using std::string;
-using std::map;
-using std::to_string;
-using std::vector;
-using std::set;
+using std::dynamic_pointer_cast;
 using std::make_shared;
 using std::make_tuple;
-using std::dynamic_pointer_cast;
+using std::map;
+using std::pair;
+using std::set;
+using std::string;
+using std::tuple;
+using std::vector;
 using rules::rule_ptr;
 using rules::Symbol;
 using rules::SymbolOptionToken;
 using rules::SymbolOptionAuxToken;
-
-class UsedSymbols : public rules::IdentityRuleFn {
-  set<Symbol> used_symbols_;
-
-  rules::rule_ptr apply(rules::Symbol *sym) {
-    used_symbols_.insert(*sym);
-    return sym->copy();
-  }
-};
 
 class SymbolInliner : public rules::IdentityRuleFn {
   map<Symbol, Symbol> replacements;
@@ -71,7 +61,6 @@ class SymbolInliner : public rules::IdentityRuleFn {
 };
 
 class TokenExtractor : public rules::IdentityRuleFn {
-
   rule_ptr apply_to_token(const rules::Rule *input) {
     auto rule = input->copy();
     for (size_t i = 0; i < tokens.size(); i++)
