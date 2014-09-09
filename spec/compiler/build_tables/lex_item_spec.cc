@@ -8,7 +8,7 @@ using namespace build_tables;
 
 START_TEST
 
-describe("lex items", []() {
+describe("LexItem", []() {
   describe("determining if an item is the start of a token", [&]() {
     Symbol sym(1);
     rule_ptr token_start = make_shared<Metadata>(str("a"), map<MetadataKey, int>({

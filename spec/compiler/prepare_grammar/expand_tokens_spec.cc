@@ -8,7 +8,7 @@ START_TEST
 using namespace rules;
 using prepare_grammar::expand_tokens;
 
-describe("expanding token rules", []() {
+describe("expand_tokens", []() {
   it("replaces regex patterns with their expansion", [&]() {
     LexicalGrammar grammar({
         { "rule_A", seq({

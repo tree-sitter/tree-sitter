@@ -8,7 +8,7 @@ using build_tables::rule_can_be_blank;
 
 START_TEST
 
-describe("checking if rules can be blank", [&]() {
+describe("rule_can_be_blank", [&]() {
   rule_ptr rule;
 
   it("returns false for basic rules", [&]() {

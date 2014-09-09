@@ -8,7 +8,7 @@ using namespace build_tables;
 
 START_TEST
 
-describe("lexical item set transitions", []() {
+describe("char_transitions(LexItemSet)", []() {
   describe("when two items in the set have transitions on the same character", [&]() {
     it("merges the transitions by computing the union of the two item sets", [&]() {
       LexItemSet set1({
@@ -41,7 +41,7 @@ describe("lexical item set transitions", []() {
   });
 });
 
-describe("syntactic item set transitions", [&]() {
+describe("sym_transitions(ParseItemSet, SyntaxGrammar)", [&]() {
   SyntaxGrammar grammar({
       { "A", blank() },
       { "B", i_token(21) },

@@ -9,7 +9,7 @@ using namespace build_tables;
 
 START_TEST
 
-describe("building parse tables", []() {
+describe("build_parse_table", []() {
   SyntaxGrammar parse_grammar({
       { "rule0", choice({ i_sym(1), i_sym(2) }) },
       { "rule1", i_token(0) },

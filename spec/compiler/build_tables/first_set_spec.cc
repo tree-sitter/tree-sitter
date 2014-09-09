@@ -8,7 +8,7 @@ using namespace rules;
 
 START_TEST
 
-describe("computing FIRST sets", []() {
+describe("first_set", []() {
   const SyntaxGrammar null_grammar;
 
   describe("for a sequence AB", [&]() {

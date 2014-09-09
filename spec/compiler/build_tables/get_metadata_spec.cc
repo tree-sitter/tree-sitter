@@ -7,7 +7,7 @@ using namespace build_tables;
 
 START_TEST
 
-describe("getting metadata for rules", []() {
+describe("get_metadata", []() {
   MetadataKey key1 = MetadataKey(100);
   MetadataKey key2 = MetadataKey(101);
   rule_ptr rule;

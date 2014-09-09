@@ -8,7 +8,7 @@ using namespace rules;
 
 START_TEST
 
-describe("computing closures of item sets", []() {
+describe("item_set_closure", []() {
   SyntaxGrammar grammar({
       { "E", seq({
           i_sym(1),

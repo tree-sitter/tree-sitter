@@ -10,7 +10,7 @@ START_TEST
 using namespace rules;
 using prepare_grammar::intern_symbols;
 
-describe("interning symbols in a grammar", []() {
+describe("intern_symbols", []() {
   it("replaces named symbols with numerically-indexed symbols", [&]() {
     Grammar grammar({
         { "x", choice({ sym("y"), sym("z") }) },

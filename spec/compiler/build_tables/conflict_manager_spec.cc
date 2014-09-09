@@ -23,7 +23,7 @@ describe("resolving parse conflicts", []() {
       { "token3", keyword("stuff") },
   }, {}, {});
 
-  describe("lexical conflicts", [&]() {
+  describe("LexConflictManager", [&]() {
     Symbol sym1(0, SymbolOptionToken);
     Symbol sym2(1, SymbolOptionToken);
     Symbol sym3(2, SymbolOptionToken);
@@ -79,7 +79,7 @@ describe("resolving parse conflicts", []() {
     });
   });
 
-  describe("syntactic conflicts", [&]() {
+  describe("ParseConflictManager", [&]() {
     Symbol sym1(0);
     Symbol sym2(1);
     ParseConflictManager *manager;

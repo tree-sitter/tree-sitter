@@ -131,7 +131,7 @@ describe("extract_tokens", []() {
     });
   });
 
-  describe("handling ubiquitous tokens!", [&]() {
+  describe("handling ubiquitous tokens", [&]() {
     describe("ubiquitous tokens that are not symbols", [&]() {
       it("adds them to the lexical grammar's separators", [&]() {
         auto result = extract_tokens(Grammar({
