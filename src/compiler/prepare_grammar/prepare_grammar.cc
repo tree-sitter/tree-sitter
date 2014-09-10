@@ -21,7 +21,7 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
   if (error)
     return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
 
-  // Separate grammar into lexical and syntactic components 
+  // Separate grammar into lexical and syntactic components
   auto extract_result = extract_tokens(intern_result.first);
   error = get<2>(extract_result);
   if (error)
