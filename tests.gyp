@@ -8,12 +8,12 @@
       ],
       'include_dirs': [
         'src',
-        'examples',
         'spec',
         'externals/bandit',
       ],
       'sources': [
-        '<!@(find spec/compiler examples/grammars -name "*.cc")',
+        '<!@(find spec/compiler -name "*.cc")',
+        '<!@(find spec/fixtures/grammars -name "*.cc")',
       ],
     },
 
@@ -30,8 +30,8 @@
         'externals/bandit',
       ],
       'sources': [
-        '<!@(find spec/runtime -name "*.cc" -or -name "*.c")',
-        '<!@(find examples/parsers -name "*.c")',
+        '<!@(find spec/runtime -name "*.cc")',
+        '<!@(find spec/fixtures/parsers -name "*.c")',
       ],
       'variables': {
         'USE_BOOST_REGEX%': 'false',
