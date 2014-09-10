@@ -14,25 +14,30 @@ using std::make_tuple;
 
 tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
     const Grammar &input_grammar) {
-  auto result = intern_symbols(input_grammar);
-  const Grammar &grammar = result.first;
-  const GrammarError *error = result.second;
+
+  // Convert all string-based `NamedSymbols` into numerical `Symbols`
+  auto intern_result = intern_symbols(input_grammar);
+  const GrammarError *error = intern_result.second;
   if (error)
     return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
 
-  auto grammars = extract_tokens(grammar);
-  const SyntaxGrammar &rule_grammar = expand_repeats(get<0>(grammars));
-  error = get<2>(grammars);
+  // Separate grammar into lexical and syntactic components 
+  auto extract_result = extract_tokens(intern_result.first);
+  error = get<2>(extract_result);
   if (error)
     return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
 
-  auto expand_tokens_result = expand_tokens(get<1>(grammars));
+  // Replace `Repeat` rules with pairs of recursive rules
+  const SyntaxGrammar &syntax_grammar = expand_repeats(get<0>(extract_result));
+
+  // Expand `String` and `Pattern` rules into full rule trees
+  auto expand_tokens_result = expand_tokens(get<1>(extract_result));
   const LexicalGrammar &lex_grammar = expand_tokens_result.first;
   error = expand_tokens_result.second;
   if (error)
     return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
 
-  return make_tuple(rule_grammar, lex_grammar, nullptr);
+  return make_tuple(syntax_grammar, lex_grammar, nullptr);
 }
 
 }  // namespace prepare_grammar
