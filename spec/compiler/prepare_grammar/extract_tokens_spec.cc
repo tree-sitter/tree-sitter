@@ -214,7 +214,9 @@ describe("extract_tokens", []() {
         }).ubiquitous_tokens({ i_sym(1) }));
 
         AssertThat(get<2>(result), !Equals<const GrammarError *>(nullptr));
-        AssertThat(get<2>(result), EqualsPointer(new GrammarError(GrammarErrorTypeInvalidUbiquitousToken, "Not a token: (sym 1)")));
+        AssertThat(get<2>(result), EqualsPointer(
+            new GrammarError(GrammarErrorTypeInvalidUbiquitousToken,
+                             "Not a token: rule_B")));
       });
     });
 
@@ -226,7 +228,9 @@ describe("extract_tokens", []() {
         }).ubiquitous_tokens({ choice({ i_sym(1), blank() }) }));
 
         AssertThat(get<2>(result), !Equals<const GrammarError *>(nullptr));
-        AssertThat(get<2>(result), EqualsPointer(new GrammarError(GrammarErrorTypeInvalidUbiquitousToken, "Not a token: (choice (sym 1) (blank))")));
+        AssertThat(get<2>(result), EqualsPointer(
+            new GrammarError(GrammarErrorTypeInvalidUbiquitousToken,
+                             "Not a token: (choice (sym 1) (blank))")));
       });
     });
   });

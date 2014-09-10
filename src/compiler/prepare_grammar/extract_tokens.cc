@@ -92,10 +92,10 @@ class TokenExtractor : public rules::IdentityRuleFn {
 };
 
 static tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> ubiq_token_err(
-    const rule_ptr rule) {
+    const string &msg) {
   return make_tuple(SyntaxGrammar(), LexicalGrammar(),
                     new GrammarError(GrammarErrorTypeInvalidUbiquitousToken,
-                                     "Not a token: " + rule->to_string()));
+                                     "Not a token: " + msg));
 }
 
 tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
@@ -128,11 +128,11 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
     } else {
       auto sym = dynamic_pointer_cast<const Symbol>(extractor.apply(rule));
       if (!sym.get())
-        return ubiq_token_err(rule);
+        return ubiq_token_err(rule->to_string());
 
       Symbol symbol = symbol_replacer.replace_symbol(*sym);
       if (!symbol.is_token())
-        return ubiq_token_err(rule);
+        return ubiq_token_err(rules[symbol.index].first);
 
       ubiquitous_tokens.insert(symbol);
     }
