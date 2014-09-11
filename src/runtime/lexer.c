@@ -37,13 +37,18 @@ static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
  *  this library.
  */
 TSLexer ts_lexer_make() {
-  return (TSLexer) { .chunk = NULL,
-                     .debug = 0,
-                     .chunk_start = 0,
-                     .chunk_size = 0,
-                     .position_in_chunk = 0,
-                     .token_start_position = 0,
-                     .token_end_position = 0,
-                     .advance_fn = advance,
-                     .accept_fn = accept, };
+  TSLexer result = (TSLexer) { .debug = 0,
+                               .advance_fn = advance,
+                               .accept_fn = accept, };
+  ts_lexer_reset(&result);
+  return result;
+}
+
+void ts_lexer_reset(TSLexer *lexer) {
+  lexer->chunk = NULL;
+  lexer->chunk_start = 0;
+  lexer->chunk_size = 0;
+  lexer->position_in_chunk = 0;
+  lexer->token_start_position = 0;
+  lexer->token_end_position = 0;
 }

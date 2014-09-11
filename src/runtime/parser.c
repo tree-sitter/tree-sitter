@@ -216,7 +216,7 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
                               TSInputEdit *edit) {
   parser->lookahead = NULL;
   parser->next_lookahead = NULL;
-  parser->lexer = ts_lexer_make();
+  ts_lexer_reset(&parser->lexer);
   parser->lexer.input = input;
 
   input.seek_fn(input.data, breakdown_stack(parser, edit));

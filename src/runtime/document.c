@@ -35,13 +35,17 @@ static void reparse(TSDocument *document, TSInputEdit *edit) {
 void ts_document_set_language(TSDocument *document, const TSLanguage *language) {
   ts_parser_destroy(&document->parser);
   document->parser = ts_parser_make(language);
-  document->parser.debug = document->debug;
+  ts_document_set_debug(document, document->debug);
   reparse(document, NULL);
 }
 
 void ts_document_set_debug(TSDocument *document, int debug) {
   document->debug = debug;
   document->parser.debug = debug;
+  if (debug > 1)
+    document->parser.lexer.debug = 1;
+  else
+    document->parser.lexer.debug = 0;
 }
 
 void ts_document_set_input(TSDocument *document, TSInput input) {
