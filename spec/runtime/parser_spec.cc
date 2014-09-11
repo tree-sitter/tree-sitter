@@ -320,6 +320,31 @@ describe("Parser", [&]() {
       });
     });
   });
+
+  describe("lexing", [&]() {
+    before_each([&]() {
+      ts_document_set_language(doc, ts_language_arithmetic());
+    });
+
+    describe("handling tokens containing wildcard patterns (e.g. comments)", [&]() {
+      it("terminates them at the end of the document", [&]() {
+        ts_document_set_language(doc, ts_language_arithmetic());
+
+        set_text("x # this is a comment");
+
+        AssertThat(ts_node_string(root), Equals("(DOCUMENT "
+            "(expression (variable) (comment)))"));
+
+        TSNode *expression = ts_node_child(root, 0);
+        TSNode *comment = ts_node_child(expression, 1);
+
+        AssertThat(ts_node_size(comment), Equals(strlen("# this is a comment")));
+
+        ts_node_release(expression);
+        ts_node_release(comment);
+      });
+    });
+  });
 });
 
 END_TEST

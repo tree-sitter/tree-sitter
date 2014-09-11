@@ -261,7 +261,8 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(4);
             LEX_ERROR();
         case 4:
-            if (!(lookahead == '\n'))
+            if (!((lookahead == 0) ||
+                (lookahead == '\n')))
                 ADVANCE(4);
             ACCEPT_TOKEN(ts_sym_comment);
         case 5:
@@ -446,7 +447,8 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(37);
             if (lookahead == '\\')
                 ADVANCE(38);
-            if (!((lookahead == '\"') ||
+            if (!((lookahead == 0) ||
+                (lookahead == '\"') ||
                 (lookahead == '\\')))
                 ADVANCE(36);
             LEX_ERROR();
@@ -457,7 +459,8 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(39);
             if (lookahead == '\\')
                 ADVANCE(38);
-            if (!((lookahead == '\"') ||
+            if (!((lookahead == 0) ||
+                (lookahead == '\"') ||
                 (lookahead == '\\')))
                 ADVANCE(36);
             LEX_ERROR();
@@ -466,7 +469,8 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(37);
             if (lookahead == '\\')
                 ADVANCE(38);
-            if (!((lookahead == '\"') ||
+            if (!((lookahead == 0) ||
+                (lookahead == '\"') ||
                 (lookahead == '\\')))
                 ADVANCE(36);
             ACCEPT_TOKEN(ts_sym_string);

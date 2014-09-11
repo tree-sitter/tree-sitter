@@ -96,10 +96,7 @@ struct TSLanguage {
 #define ADVANCE(state_index)                                \
   {                                                         \
     DEBUG_LEX("ADVANCE %d", state_index);                   \
-    if (!ts_lexer_advance(lexer)) {                         \
-      DEBUG_LEX("END");                                     \
-      return ts_lexer_accept(lexer, ts_builtin_sym_end, 0); \
-    }                                                       \
+    ts_lexer_advance(lexer);                                \
     lex_state = state_index;                                \
     goto next_state;                                        \
   }

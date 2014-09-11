@@ -25,7 +25,7 @@ extern const Grammar arithmetic = Grammar({
     { "group", in_parens(err(sym("expression"))) },
 
     { "number", pattern("\\d+") },
-    { "variable", pattern("\\a[\\w_]*") },
+    { "variable", pattern("\\a[\\w]*") },
 
     { "comment", pattern("#.*") },
 }).ubiquitous_tokens({

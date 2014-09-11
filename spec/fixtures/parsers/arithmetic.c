@@ -77,7 +77,8 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(5);
             LEX_ERROR();
         case 2:
-            if (!(lookahead == '\n'))
+            if (!((lookahead == 0) ||
+                (lookahead == '\n')))
                 ADVANCE(2);
             ACCEPT_TOKEN(ts_sym_comment);
         case 3:

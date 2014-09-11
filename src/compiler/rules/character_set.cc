@@ -87,6 +87,7 @@ size_t CharacterSet::hash_code() const {
   result ^= hash<size_t>()(included_chars.size());
   for (auto &c : included_chars)
     result ^= hash<uint32_t>()(c);
+  result <<= 1;
   result ^= hash<size_t>()(excluded_chars.size());
   for (auto &c : excluded_chars)
     result ^= hash<uint32_t>()(c);
@@ -118,6 +119,8 @@ string CharacterSet::to_string() const {
 
 CharacterSet &CharacterSet::include_all() {
   includes_all = true;
+  included_chars = {};
+  excluded_chars = { 0 };
   return *this;
 }
 

@@ -85,7 +85,8 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(3);
             if (lookahead == '\\')
                 ADVANCE(4);
-            if (!((lookahead == '\"') ||
+            if (!((lookahead == 0) ||
+                (lookahead == '\"') ||
                 (lookahead == '\\')))
                 ADVANCE(2);
             LEX_ERROR();
@@ -96,7 +97,8 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(5);
             if (lookahead == '\\')
                 ADVANCE(4);
-            if (!((lookahead == '\"') ||
+            if (!((lookahead == 0) ||
+                (lookahead == '\"') ||
                 (lookahead == '\\')))
                 ADVANCE(2);
             LEX_ERROR();
@@ -105,7 +107,8 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(3);
             if (lookahead == '\\')
                 ADVANCE(4);
-            if (!((lookahead == '\"') ||
+            if (!((lookahead == 0) ||
+                (lookahead == '\"') ||
                 (lookahead == '\\')))
                 ADVANCE(2);
             ACCEPT_TOKEN(ts_sym_string);
