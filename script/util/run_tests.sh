@@ -53,7 +53,7 @@ function run_tests {
   case ${mode} in
     valgrind)
       valgrind \
-        --suppressions=./etc/valgrind.supp \
+        --suppressions=./script/util/valgrind.supp \
         --dsymutil=yes \
         $cmd "${args[@]}" 2>&1 | \
         grep --color -E '\w+_specs?.cc:\d+|$'
