@@ -19,7 +19,7 @@ extern const Grammar golang;
 START_TEST
 
 describe("compiling the example grammars", []() {
-  string example_parser_dir = src_dir() + "/examples/parsers/";
+  string example_parser_dir = src_dir() + "/spec/fixtures/parsers/";
 
   auto compile_grammar = [&](const Grammar &grammar, string language) {
     it(("compiles the " + language + " grammar").c_str(), [&]() {
