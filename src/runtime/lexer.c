@@ -1,22 +1,35 @@
 #include "runtime/lexer.h"
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
+#include "utf8proc.h"
 
 static int advance(TSLexer *lexer) {
-  if (lexer->position_in_chunk + 1 < lexer->chunk_size) {
-    lexer->position_in_chunk++;
-    return 1;
+  static const char *empty_chunk = "";
+
+  lexer->lookahead = 0;
+
+  if (lexer->chunk == empty_chunk) {
+    lexer->lookahead_size = 0;
+    return 0;
   }
 
-  static const char *empty_chunk = "";
-  if (lexer->chunk == empty_chunk)
-    return 0;
+  if (lexer->position_in_chunk + 1 >= lexer->chunk_size) {
+    lexer->lookahead_size = 0;
+    lexer->position_in_chunk = 0;
+    lexer->chunk_start += lexer->chunk_size;
+    lexer->chunk = lexer->input.read_fn(lexer->input.data, &lexer->chunk_size);
+  }
 
-  lexer->chunk_start += lexer->chunk_size;
-  lexer->chunk = lexer->input.read_fn(lexer->input.data, &lexer->chunk_size);
-  lexer->position_in_chunk = 0;
-  if (lexer->chunk_size == 0)
+  if (lexer->chunk_size == 0) {
+    lexer->lookahead_size = 0;
     lexer->chunk = empty_chunk;
+  } else {
+    lexer->position_in_chunk += lexer->lookahead_size;
+    lexer->lookahead_size = utf8proc_iterate(
+        (const uint8_t *)lexer->chunk + lexer->position_in_chunk,
+        lexer->chunk_size - lexer->position_in_chunk,
+        &lexer->lookahead);
+  }
 
   return 1;
 }
@@ -51,4 +64,6 @@ void ts_lexer_reset(TSLexer *lexer) {
   lexer->position_in_chunk = 0;
   lexer->token_start_position = 0;
   lexer->token_end_position = 0;
+  lexer->lookahead = 0;
+  lexer->lookahead_size = 0;
 }
