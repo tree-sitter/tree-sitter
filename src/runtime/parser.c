@@ -5,6 +5,7 @@
 #include "runtime/lexer.h"
 #include "runtime/stack.h"
 #include "runtime/parser.h"
+#include "runtime/length.h"
 
 #define DEBUG_PARSE(...)                   \
   if (parser->debug) {                     \
@@ -17,14 +18,14 @@ static TSParseAction action_for(const TSLanguage *lang, TSStateId state,
   return (lang->parse_table + (state * lang->symbol_count))[sym];
 }
 
-static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
+static TSLength breakdown_stack(TSParser *parser, TSInputEdit *edit) {
   if (!edit) {
     ts_stack_shrink(&parser->stack, 0);
-    return 0;
+    return (TSLength) {};
   }
 
   TSStack *stack = &parser->stack;
-  size_t position = ts_stack_right_position(stack);
+  TSLength position = ts_stack_right_position(stack);
 
   for (;;) {
     TSTree *node = ts_stack_top_node(stack);
@@ -33,23 +34,23 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
 
     size_t child_count;
     TSTree **children = ts_tree_children(node, &child_count);
-    if (position < edit->position && !children)
+    if (position.chars < edit->position && !children)
       break;
 
     stack->size--;
-    position -= ts_tree_total_size(node);
+    position = ts_length_sub(position, ts_tree_total_size(node));
 
     DEBUG_PARSE("POP %s %u", parser->language->symbol_names[node->symbol],
                 ts_stack_top_state(stack));
 
-    for (size_t i = 0; i < child_count && position < edit->position; i++) {
+    for (size_t i = 0; i < child_count && position.chars < edit->position; i++) {
       TSTree *child = children[i];
       TSStateId state = ts_stack_top_state(stack);
       TSParseAction action = action_for(parser->language, state, child->symbol);
       TSStateId next_state =
           action.type == TSParseActionTypeShift ? action.data.to_state : state;
       ts_stack_push(stack, next_state, child);
-      position += ts_tree_total_size(child);
+      position = ts_length_add(position, ts_tree_total_size(child));
 
       DEBUG_PARSE("PUT BACK %s %u",
                   parser->language->symbol_names[child->symbol], next_state);
@@ -58,7 +59,7 @@ static size_t breakdown_stack(TSParser *parser, TSInputEdit *edit) {
     ts_tree_release(node);
   }
 
-  DEBUG_PARSE("RESUME %lu", position);
+  DEBUG_PARSE("RESUME %lu", position.bytes);
   return position;
 }
 
@@ -129,7 +130,6 @@ static void lex(TSParser *parser, TSStateId lex_state) {
 static int handle_error(TSParser *parser) {
   TSTree *error = parser->lookahead;
   ts_tree_retain(error);
-  size_t last_token_end = parser->lexer.token_end_position;
 
   for (;;) {
 
@@ -137,7 +137,6 @@ static int handle_error(TSParser *parser) {
      *  Unwind the parse stack until a state is found in which an error is
      *  expected and the current lookahead token is expected afterwards.
      */
-    size_t error_start = last_token_end;
     TS_STACK_FROM_TOP(parser->stack, entry, i) {
       TSParseAction action_on_error =
           action_for(parser->language, entry->state, ts_builtin_sym_error);
@@ -149,16 +148,17 @@ static int handle_error(TSParser *parser) {
 
         if (action_after_error.type != TSParseActionTypeError) {
           DEBUG_PARSE("RECOVER %u", state_after_error);
-          error->size += ts_lexer_position(&parser->lexer) - 1 - error_start;
           ts_stack_shrink(&parser->stack, i + 1);
+          error->size = ts_length_sub(
+              ts_length_sub(
+                parser->lexer.token_start_position,
+                ts_stack_right_position(&parser->stack)),
+              error->padding);
           ts_stack_push(&parser->stack, state_after_error, error);
           ts_tree_release(error);
           return 1;
         }
       }
-
-      TSTree *removed_tree = entry->node;
-      error_start -= ts_tree_total_size(removed_tree);
     }
 
     /*
@@ -166,11 +166,11 @@ static int handle_error(TSParser *parser) {
      *  current lookahead token, advance to the next token. If no characters
      *  were consumed, advance the lexer to the next character.
      */
-    size_t prev_position = ts_lexer_position(&parser->lexer);
+    TSLength prev_position = parser->lexer.current_position;
     DEBUG_PARSE("LEX AGAIN");
     lex(parser, ts_lex_state_error);
-    parser->lookahead->padding = 0;
-    if (ts_lexer_position(&parser->lexer) == prev_position)
+    parser->lookahead->padding = ts_length_zero();
+    if (ts_length_eq(parser->lexer.current_position, prev_position))
       if (!ts_lexer_advance(&parser->lexer)) {
         DEBUG_PARSE("FAIL TO RECOVER");
         ts_stack_push(&parser->stack, 0, error);
@@ -182,7 +182,7 @@ static int handle_error(TSParser *parser) {
 
 static TSTree *get_root(TSParser *parser) {
   if (parser->stack.size == 0)
-    ts_stack_push(&parser->stack, 0, ts_tree_make_error(0, 0, 0));
+    ts_stack_push(&parser->stack, 0, ts_tree_make_error(ts_length_zero(), ts_length_zero(), 0));
 
   reduce(parser, ts_builtin_sym_document, parser->stack.size);
   parser->lookahead->options = 0;

@@ -8,9 +8,14 @@ extern "C" {
 #include <stdlib.h>
 
 typedef struct {
+  size_t bytes;
+  size_t chars;
+} TSLength;
+
+typedef struct {
   void *data;
   const char *(*read_fn)(void *data, size_t *bytes_read);
-  int (*seek_fn)(void *data, size_t position);
+  int (*seek_fn)(void *data, TSLength position);
   void (*release_fn)(void *data);
 } TSInput;
 
@@ -24,8 +29,8 @@ typedef unsigned short TSSymbol;
 typedef struct TSLanguage TSLanguage;
 
 typedef struct TSNode TSNode;
-size_t ts_node_pos(const TSNode *);
-size_t ts_node_size(const TSNode *);
+TSLength ts_node_pos(const TSNode *);
+TSLength ts_node_size(const TSNode *);
 TSSymbol ts_node_sym(const TSNode *);
 TSNode *ts_node_child(TSNode *, size_t);
 size_t ts_node_child_count(const TSNode *);

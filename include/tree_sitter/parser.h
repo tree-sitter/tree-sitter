@@ -16,12 +16,14 @@ typedef struct TSTree TSTree;
 typedef struct TSLexer {
   TSInput input;
   int debug;
+
   const char *chunk;
   size_t chunk_start;
   size_t chunk_size;
-  size_t position_in_chunk;
-  size_t token_end_position;
-  size_t token_start_position;
+
+  TSLength current_position;
+  TSLength token_end_position;
+  TSLength token_start_position;
 
   size_t lookahead_size;
   int32_t lookahead;
@@ -30,16 +32,12 @@ typedef struct TSLexer {
   int (*advance_fn)(struct TSLexer *);
 } TSLexer;
 
-static inline size_t ts_lexer_position(const TSLexer *lexer) {
-  return lexer->chunk_start + lexer->position_in_chunk;
-}
-
 static inline int32_t ts_lexer_lookahead_char(const TSLexer *lexer) {
   return lexer->lookahead;
 }
 
 static inline void ts_lexer_start_token(TSLexer *lexer) {
-  lexer->token_start_position = ts_lexer_position(lexer);
+  lexer->token_start_position = lexer->current_position;
 }
 
 static inline int ts_lexer_advance(TSLexer *lexer) {

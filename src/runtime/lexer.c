@@ -1,6 +1,7 @@
 #include "runtime/lexer.h"
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
+#include "runtime/length.h"
 #include "utf8proc.h"
 
 static int advance(TSLexer *lexer) {
@@ -13,9 +14,12 @@ static int advance(TSLexer *lexer) {
     return 0;
   }
 
-  if (lexer->position_in_chunk + 1 >= lexer->chunk_size) {
+  if (lexer->chunk_start + lexer->chunk_size <= lexer->current_position.bytes + 1) {
+    if (lexer->lookahead_size) {
+      lexer->current_position.bytes += lexer->lookahead_size;
+      lexer->current_position.chars += 1;
+    }
     lexer->lookahead_size = 0;
-    lexer->position_in_chunk = 0;
     lexer->chunk_start += lexer->chunk_size;
     lexer->chunk = lexer->input.read_fn(lexer->input.data, &lexer->chunk_size);
   }
@@ -24,10 +28,14 @@ static int advance(TSLexer *lexer) {
     lexer->lookahead_size = 0;
     lexer->chunk = empty_chunk;
   } else {
-    lexer->position_in_chunk += lexer->lookahead_size;
+    if (lexer->lookahead_size) {
+      lexer->current_position.bytes += lexer->lookahead_size;
+      lexer->current_position.chars += 1;
+    }
+
     lexer->lookahead_size = utf8proc_iterate(
-        (const uint8_t *)lexer->chunk + lexer->position_in_chunk,
-        lexer->chunk_size - lexer->position_in_chunk,
+        (const uint8_t *)lexer->chunk + (lexer->current_position.bytes - lexer->chunk_start),
+        lexer->chunk_start + lexer->chunk_size - lexer->current_position.bytes + 1,
         &lexer->lookahead);
   }
 
@@ -35,10 +43,9 @@ static int advance(TSLexer *lexer) {
 }
 
 static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
-  size_t current_position = ts_lexer_position(lexer);
-  size_t size = current_position - lexer->token_start_position;
-  size_t padding = lexer->token_start_position - lexer->token_end_position;
-  lexer->token_end_position = current_position;
+  TSLength size = ts_length_sub(lexer->current_position, lexer->token_start_position);
+  TSLength padding = ts_length_sub(lexer->token_start_position, lexer->token_end_position);
+  lexer->token_end_position = lexer->current_position;
   return (symbol == ts_builtin_sym_error)
              ? ts_tree_make_error(size, padding, ts_lexer_lookahead_char(lexer))
              : ts_tree_make_leaf(symbol, size, padding, is_hidden);
@@ -61,9 +68,9 @@ void ts_lexer_reset(TSLexer *lexer) {
   lexer->chunk = NULL;
   lexer->chunk_start = 0;
   lexer->chunk_size = 0;
-  lexer->position_in_chunk = 0;
-  lexer->token_start_position = 0;
-  lexer->token_end_position = 0;
+  lexer->current_position = (TSLength) {};
+  lexer->token_start_position = (TSLength) {};
+  lexer->token_end_position = (TSLength) {};
   lexer->lookahead = 0;
   lexer->lookahead_size = 0;
 }

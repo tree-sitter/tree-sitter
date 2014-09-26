@@ -11,7 +11,6 @@ describe("Node", []() {
   before_each([&]() {
     document = ts_document_make();
     ts_document_set_language(document, ts_language_json());
-
     ts_document_set_input_string(document, "  [123, false, {\"x\": null}]");
     root = ts_document_root_node(document);
     AssertThat(ts_node_string(root), Equals(
@@ -47,17 +46,17 @@ describe("Node", []() {
       AssertThat(ts_node_name(child2), Equals("false"));
       AssertThat(ts_node_name(child3), Equals("object"));
 
-      AssertThat(ts_node_pos(parent), Equals<size_t>(2));
-      AssertThat(ts_node_size(parent), Equals<size_t>(25));
+      AssertThat(ts_node_pos(parent).bytes, Equals<size_t>(2));
+      AssertThat(ts_node_size(parent).bytes, Equals<size_t>(25));
 
-      AssertThat(ts_node_pos(child1), Equals<size_t>(3));
-      AssertThat(ts_node_size(child1), Equals<size_t>(3));
+      AssertThat(ts_node_pos(child1).bytes, Equals<size_t>(3));
+      AssertThat(ts_node_size(child1).bytes, Equals<size_t>(3));
 
-      AssertThat(ts_node_pos(child2), Equals<size_t>(8));
-      AssertThat(ts_node_size(child2), Equals<size_t>(5));
+      AssertThat(ts_node_pos(child2).bytes, Equals<size_t>(8));
+      AssertThat(ts_node_size(child2).bytes, Equals<size_t>(5));
 
-      AssertThat(ts_node_pos(child3), Equals<size_t>(15));
-      AssertThat(ts_node_size(child3), Equals<size_t>(11));
+      AssertThat(ts_node_pos(child3).bytes, Equals<size_t>(15));
+      AssertThat(ts_node_size(child3).bytes, Equals<size_t>(11));
 
       ts_node_release(parent);
       ts_node_release(child1);
@@ -110,8 +109,8 @@ describe("Node", []() {
       it("returns that leaf node", [&]() {
         TSNode *leaf = ts_node_find_for_range(root, 16, 18);
         AssertThat(ts_node_name(leaf), Equals("string"));
-        AssertThat(ts_node_size(leaf), Equals<size_t>(3));
-        AssertThat(ts_node_pos(leaf), Equals<size_t>(16));
+        AssertThat(ts_node_size(leaf).bytes, Equals<size_t>(3));
+        AssertThat(ts_node_pos(leaf).bytes, Equals<size_t>(16));
         ts_node_release(leaf);
       });
     });
@@ -120,14 +119,14 @@ describe("Node", []() {
       it("returns that leaf node", [&]() {
         TSNode *leaf = ts_node_find_for_range(root, 16, 17);
         AssertThat(ts_node_name(leaf), Equals("string"));
-        AssertThat(ts_node_size(leaf), Equals<size_t>(3));
-        AssertThat(ts_node_pos(leaf), Equals<size_t>(16));
+        AssertThat(ts_node_size(leaf).bytes, Equals<size_t>(3));
+        AssertThat(ts_node_pos(leaf).bytes, Equals<size_t>(16));
         ts_node_release(leaf);
 
         leaf = ts_node_find_for_range(root, 17, 18);
         AssertThat(ts_node_name(leaf), Equals("string"));
-        AssertThat(ts_node_size(leaf), Equals<size_t>(3));
-        AssertThat(ts_node_pos(leaf), Equals<size_t>(16));
+        AssertThat(ts_node_size(leaf).bytes, Equals<size_t>(3));
+        AssertThat(ts_node_pos(leaf).bytes, Equals<size_t>(16));
         ts_node_release(leaf);
       });
     });
@@ -136,8 +135,8 @@ describe("Node", []() {
       it("returns the smallest node that does span the range", [&]() {
         TSNode *node = ts_node_find_for_range(root, 16, 19);
         AssertThat(ts_node_name(node), Equals("object"));
-        AssertThat(ts_node_size(node), Equals<size_t>(11));
-        AssertThat(ts_node_pos(node), Equals<size_t>(15));
+        AssertThat(ts_node_size(node).bytes, Equals<size_t>(11));
+        AssertThat(ts_node_pos(node).bytes, Equals<size_t>(15));
         ts_node_release(node);
       });
     });
@@ -147,8 +146,8 @@ describe("Node", []() {
     it("finds the smallest node that spans the given position", [&]() {
       TSNode *node = ts_node_find_for_pos(root, 10);
       AssertThat(ts_node_name(node), Equals("false"));
-      AssertThat(ts_node_pos(node), Equals<size_t>(8));
-      AssertThat(ts_node_size(node), Equals<size_t>(5));
+      AssertThat(ts_node_pos(node).bytes, Equals<size_t>(8));
+      AssertThat(ts_node_size(node).bytes, Equals<size_t>(5));
       ts_node_release(node);
     });
   });

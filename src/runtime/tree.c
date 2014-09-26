@@ -3,8 +3,9 @@
 #include <stdio.h>
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
+#include "runtime/length.h"
 
-TSTree *ts_tree_make_leaf(TSSymbol sym, size_t size, size_t padding,
+TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength size, TSLength padding,
                           bool is_hidden) {
   TSTree *result = malloc(sizeof(TSTree));
   *result = (TSTree) { .ref_count = 1,
@@ -18,7 +19,7 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, size_t size, size_t padding,
   return result;
 }
 
-TSTree *ts_tree_make_error(size_t size, size_t padding, char lookahead_char) {
+TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char) {
   TSTree *result = ts_tree_make_leaf(ts_builtin_sym_error, size, padding, false);
   result->lookahead_char = lookahead_char;
   return result;
@@ -31,7 +32,8 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
    *  Determine the new node's size, padding and visible child count based on
    *  the given child nodes.
    */
-  size_t size = 0, padding = 0, visible_child_count = 0;
+  TSLength size = ts_length_zero(), padding = ts_length_zero();
+  size_t visible_child_count = 0;
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
     ts_tree_retain(child);
@@ -40,7 +42,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
       padding = child->padding;
       size = child->size;
     } else {
-      size += child->padding + child->size;
+      size = ts_length_add(ts_length_add(size, child->padding), child->size);
     }
 
     if (ts_tree_is_visible(child))
@@ -79,11 +81,12 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
    *  their positions can be queried without using the hidden child nodes.
    */
   TSTreeChild *visible_children = ts_tree_visible_children(result, NULL);
-  for (size_t i = 0, vis_i = 0, offset = 0; i < child_count; i++) {
+  TSLength offset = ts_length_zero();
+  for (size_t i = 0, vis_i = 0; i < child_count; i++) {
     TSTree *child = children[i];
 
     if (i > 0)
-      offset += child->padding;
+      offset = ts_length_add(offset, child->padding);
 
     if (ts_tree_is_visible(child)) {
       visible_children[vis_i].tree = child;
@@ -94,12 +97,12 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
       TSTreeChild *grandchildren = ts_tree_visible_children(child, &n);
       for (size_t j = 0; j < n; j++) {
         visible_children[vis_i].tree = grandchildren[j].tree;
-        visible_children[vis_i].offset = offset + grandchildren[j].offset;
+        visible_children[vis_i].offset = ts_length_add(offset, grandchildren[j].offset);
         vis_i++;
       }
     }
 
-    offset += child->size;
+    offset = ts_length_add(offset, child->size);
   }
 
   return result;
@@ -119,8 +122,8 @@ void ts_tree_release(TSTree *tree) {
   }
 }
 
-size_t ts_tree_total_size(const TSTree *tree) {
-  return tree->padding + tree->size;
+TSLength ts_tree_total_size(const TSTree *tree) {
+  return ts_length_add(tree->padding, tree->size);
 }
 
 int ts_tree_equals(const TSTree *node1, const TSTree *node2) {

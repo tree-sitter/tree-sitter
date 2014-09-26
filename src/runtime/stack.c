@@ -1,6 +1,7 @@
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 #include "runtime/stack.h"
+#include "runtime/length.h"
 
 static size_t INITIAL_SIZE = 100;
 static TSStateId INITIAL_STATE = 0;
@@ -46,11 +47,11 @@ void ts_stack_shrink(TSStack *stack, size_t new_size) {
   stack->size = new_size;
 }
 
-size_t ts_stack_right_position(const TSStack *stack) {
-  size_t result = 0;
+TSLength ts_stack_right_position(const TSStack *stack) {
+  TSLength result = {};
   for (size_t i = 0; i < stack->size; i++) {
     TSTree *node = stack->entries[i].node;
-    result += ts_tree_total_size(node);
+    result = ts_length_add(result, ts_tree_total_size(node));
   }
   return result;
 }
