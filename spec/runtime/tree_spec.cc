@@ -1,5 +1,6 @@
 #include "runtime/runtime_spec_helper.h"
 #include "runtime/tree.h"
+#include "runtime/length.h"
 
 START_TEST
 
@@ -17,14 +18,14 @@ describe("Tree", []() {
   before_each([&]() {
     tree1 = ts_tree_make_leaf(
         cat,
-        (TSLength) { .bytes = 5, .chars = 4 },
-        (TSLength) { .bytes = 2, .chars = 1 },
+        ts_length_make(5, 4),
+        ts_length_make(2, 1),
         0);
 
     tree2 = ts_tree_make_leaf(
         cat,
-        (TSLength) { .bytes = 3, .chars = 3 },
-        (TSLength) { .bytes = 1, .chars = 1 },
+        ts_length_make(3, 3),
+        ts_length_make(1, 1),
         0);
 
     parent1 = ts_tree_make_node(
@@ -77,8 +78,8 @@ describe("Tree", []() {
         parent1->options = TSTreeOptionsHidden;
         tree3 = ts_tree_make_leaf(
             cat,
-            (TSLength) { .bytes = 8, .chars = 6 },
-            (TSLength) { .bytes = 5, .chars = 3 },
+            ts_length_make(8, 6),
+            ts_length_make(5, 3),
             0);
         grandparent = ts_tree_make_node(pig, 2, tree_array({
             parent1,
@@ -119,16 +120,16 @@ describe("Tree", []() {
     it("returns true for identical trees", [&]() {
       TSTree *tree1_copy = ts_tree_make_leaf(
           cat,
-          (TSLength) { .bytes = 5, .chars = 4 },
-          (TSLength) { .bytes = 2, .chars = 1 },
+          ts_length_make(5, 4),
+          ts_length_make(2, 1),
           0);
 
       AssertThat(ts_tree_equals(tree1, tree1_copy), Equals(1));
 
       TSTree *tree2_copy = ts_tree_make_leaf(
           cat,
-          (TSLength) { .bytes = 3, .chars = 3 },
-          (TSLength) { .bytes = 1, .chars = 1 },
+          ts_length_make(3, 3),
+          ts_length_make(1, 1),
           0);
 
       AssertThat(ts_tree_equals(tree2, tree2_copy), Equals(1));
@@ -146,9 +147,9 @@ describe("Tree", []() {
 
     it("returns false for trees with different symbols", [&]() {
       TSTree *different_tree = ts_tree_make_leaf(
-          pig,
-          (TSLength) { .bytes = 5, .chars = 4 },
-          (TSLength) { .bytes = 2, .chars = 1 },
+          tree1->symbol + 1,
+          tree1->size,
+          tree1->padding,
           0);
 
       AssertThat(ts_tree_equals(tree1, different_tree), Equals(0));
@@ -157,9 +158,9 @@ describe("Tree", []() {
 
     it("returns false for trees with different children", [&]() {
       TSTree *different_tree = ts_tree_make_leaf(
-          pig,
-          (TSLength) { .bytes = 5, .chars = 4 },
-          (TSLength) { .bytes = 2, .chars = 1 },
+          tree1->symbol + 1,
+          tree1->size,
+          tree1->padding,
           0);
 
       TSTree *different_parent = ts_tree_make_node(dog, 2, tree_array({

@@ -21,7 +21,7 @@ static TSParseAction action_for(const TSLanguage *lang, TSStateId state,
 static TSLength breakdown_stack(TSParser *parser, TSInputEdit *edit) {
   if (!edit) {
     ts_stack_shrink(&parser->stack, 0);
-    return (TSLength) {};
+    return ts_length_zero();
   }
 
   TSStack *stack = &parser->stack;

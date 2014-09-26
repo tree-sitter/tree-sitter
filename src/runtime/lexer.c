@@ -68,9 +68,9 @@ void ts_lexer_reset(TSLexer *lexer) {
   lexer->chunk = NULL;
   lexer->chunk_start = 0;
   lexer->chunk_size = 0;
-  lexer->current_position = (TSLength) {};
-  lexer->token_start_position = (TSLength) {};
-  lexer->token_end_position = (TSLength) {};
+  lexer->current_position = ts_length_zero(),
+  lexer->token_start_position = ts_length_zero(),
+  lexer->token_end_position = ts_length_zero(),
   lexer->lookahead = 0;
   lexer->lookahead_size = 0;
 }

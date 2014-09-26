@@ -1,4 +1,5 @@
 #include "runtime/runtime_spec_helper.h"
+#include "runtime/length.h"
 #include "runtime/tree.h"
 #include "runtime/stack.h"
 
@@ -29,8 +30,8 @@ describe("stacks", [&]() {
     before_each([&]() {
       node1 = ts_tree_make_leaf(
           sym1,
-          (TSLength) { 0, 0 },
-          (TSLength) { 1, 1 },
+          ts_length_make(0, 0),
+          ts_length_make(1, 1),
           0);
 
       ts_stack_push(&stack, 5, node1);

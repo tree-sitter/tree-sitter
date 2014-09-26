@@ -48,7 +48,7 @@ void ts_stack_shrink(TSStack *stack, size_t new_size) {
 }
 
 TSLength ts_stack_right_position(const TSStack *stack) {
-  TSLength result = {};
+  TSLength result = ts_length_zero();
   for (size_t i = 0; i < stack->size; i++) {
     TSTree *node = stack->entries[i].node;
     result = ts_length_add(result, ts_tree_total_size(node));
