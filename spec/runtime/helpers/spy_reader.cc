@@ -1,4 +1,5 @@
 #include "runtime/helpers/spy_reader.h"
+#include <string.h>
 #include <algorithm>
 
 using std::string;
