@@ -11,10 +11,12 @@ describe("Parser", [&]() {
   TSDocument *doc;
   SpyReader *reader;
   TSNode *root;
+  size_t chunk_size;
 
   before_each([&]() {
+    chunk_size = 3;
+    reader = nullptr;
     doc = ts_document_make();
-    reader = NULL;
   });
 
   after_each([&]() {
@@ -23,8 +25,12 @@ describe("Parser", [&]() {
       delete reader;
   });
 
+  auto set_chunk_size = [&](size_t size) {
+    chunk_size = size;
+  };
+
   auto set_text = [&](const char *text) {
-    reader = new SpyReader(text, 3);
+    reader = new SpyReader(text, chunk_size);
     ts_document_set_input(doc, reader->input);
     root = ts_document_root_node(doc);
     reader->clear();
@@ -328,8 +334,6 @@ describe("Parser", [&]() {
 
     describe("handling tokens containing wildcard patterns (e.g. comments)", [&]() {
       it("terminates them at the end of the document", [&]() {
-        ts_document_set_language(doc, ts_language_arithmetic());
-
         set_text("x # this is a comment");
 
         AssertThat(ts_node_string(root), Equals("(DOCUMENT "
@@ -343,6 +347,20 @@ describe("Parser", [&]() {
         ts_node_release(expression);
         ts_node_release(comment);
       });
+    });
+
+    it("recognizes UTF8 characters as single characters", [&]() {
+      // Inputs that return partial UTF8 characters are not yet supported
+      set_chunk_size(50);
+
+      // x # Ω — Δ
+      set_text("x # \u03A9 \u2014 \u0394");
+
+      AssertThat(ts_node_string(root), Equals("(DOCUMENT "
+        "(expression (variable) (comment)))"));
+
+      AssertThat(ts_node_size(root).chars, Equals(strlen("x # O - D")));
+      AssertThat(ts_node_size(root).bytes, Equals(strlen("x # \u03A9 \u2014 \u0394")));
     });
   });
 });

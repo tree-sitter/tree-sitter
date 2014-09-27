@@ -10,6 +10,7 @@ static const char * spy_read(void *data, size_t *bytes_read) {
   reader->position += result.size();
   reader->strings_read.back() += result;
   *bytes_read = result.size();
+  memset(reader->buffer, 0, reader->chunk_size);
   memcpy(reader->buffer, result.data(), result.size());
   return reader->buffer;
 }
