@@ -14,22 +14,22 @@ static rule_ptr terminated(rule_ptr rule) {
 
 extern const Grammar golang = Grammar({
     { "program", seq({
-      sym("package_directive"),
-      repeat(sym("imports_block")),
-      repeat(sym("declaration")) }) },
+        sym("package_directive"),
+        repeat(sym("imports_block")),
+        repeat(sym("declaration")) }) },
     { "package_directive", seq({
-      keyword("package"),
-      sym("package_name") }) },
+        keyword("package"),
+        sym("package_name") }) },
     { "imports_block", seq({
-      keyword("import"),
-      choice({
-        in_parens(err(repeat(sym("package_import")))),
-        sym("package_import") }) }) },
+        keyword("import"),
+        choice({
+            in_parens(err(repeat(sym("package_import")))),
+            sym("package_import") }) }) },
     { "package_import", sym("string") },
     { "declaration", choice({
-      sym("type_declaration"),
-      sym("var_declaration"),
-      sym("func_declaration") }) },
+        sym("type_declaration"),
+        sym("var_declaration"),
+        sym("func_declaration") }) },
 
     // Declarations
     { "type_declaration", terminated(seq({
@@ -37,19 +37,19 @@ extern const Grammar golang = Grammar({
         sym("type_name"),
         sym("type_expression") })) },
     { "var_declaration", terminated(seq({
-          keyword("var"),
-          sym("var_name"),
-          choice({
+        keyword("var"),
+        sym("var_name"),
+        choice({
             seq({
-              optional(sym("type_expression")),
-              str("="),
-              sym("expression") }),
+                optional(sym("type_expression")),
+                str("="),
+                sym("expression") }),
             sym("type_expression") }) })) },
     { "func_declaration", terminated(seq({
-          keyword("func"),
-          sym("var_name"),
-          sym("_func_signature"),
-          sym("block_statement") })) },
+        keyword("func"),
+        sym("var_name"),
+        sym("_func_signature"),
+        sym("block_statement") })) },
     { "block_statement", in_braces(err(repeat(sym("statement")))) },
     { "type_expression", choice({
         sym("pointer_type"),
@@ -73,13 +73,13 @@ extern const Grammar golang = Grammar({
     { "struct_type", seq({
         keyword("struct"),
         in_braces(repeat(seq({
-              sym("var_name"),
-              sym("type_expression") }))) }) },
+            sym("var_name"),
+            sym("type_expression") }))) }) },
     { "interface_type", seq({
         keyword("interface"),
         in_braces(repeat(seq({
-              sym("var_name"),
-              sym("_func_signature") }))) }) },
+            sym("var_name"),
+            sym("_func_signature") }))) }) },
 
     // Statements
     { "statement", choice({
@@ -89,8 +89,8 @@ extern const Grammar golang = Grammar({
         sym("range_statement"),
         sym("if_statement") }) },
     { "return_statement", terminated(seq({
-          keyword("return"),
-          comma_sep(sym("expression")) })) },
+        keyword("return"),
+        comma_sep(sym("expression")) })) },
     { "declaration_statement", choice({
         sym("var_declaration"),
         terminated(seq({
@@ -112,8 +112,8 @@ extern const Grammar golang = Grammar({
         optional(seq({
             keyword("else"),
             choice({
-              sym("if_statement"),
-              sym("block_statement") }) })) }) },
+                sym("if_statement"),
+                sym("block_statement") }) })) }) },
     { "expression_statement", terminated(sym("expression")) },
 
     // Value expressions
@@ -148,14 +148,14 @@ extern const Grammar golang = Grammar({
         prefix_op("!", "expression", 4) }) },
     { "_func_signature", seq({
         in_parens(comma_sep(seq({
-              comma_sep1(sym("var_name")),
-              sym("type_expression") }))),
+            comma_sep1(sym("var_name")),
+            sym("type_expression") }))),
         choice({
-          in_parens(choice({
-              comma_sep1(seq({ sym("var_name"), sym("type_name") })),
-              comma_sep1(sym("type_name")) })),
-          sym("type_name"),
-          blank() }) }) },
+            in_parens(choice({
+                comma_sep1(seq({ sym("var_name"), sym("type_name") })),
+                comma_sep1(sym("type_name")) })),
+            sym("type_name"),
+            blank() }) }) },
 
     { "_line_break", str("\n") },
 

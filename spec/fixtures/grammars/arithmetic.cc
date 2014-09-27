@@ -8,14 +8,14 @@ using namespace tree_sitter::rules;
 
 extern const Grammar arithmetic = Grammar({
     { "expression", choice({
-      sym("sum"),
-      sym("difference"),
-      sym("product"),
-      sym("quotient"),
-      sym("exponent"),
-      sym("group"),
-      sym("number"),
-      sym("variable") }) },
+        sym("sum"),
+        sym("difference"),
+        sym("product"),
+        sym("quotient"),
+        sym("exponent"),
+        sym("group"),
+        sym("number"),
+        sym("variable") }) },
 
     { "sum", infix_op("+", "expression", 1) },
     { "difference", infix_op("-", "expression", 1) },
