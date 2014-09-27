@@ -82,16 +82,19 @@ struct TSLanguage {
 
 #define DEBUG_LEX(...)                   \
   if (lexer->debug) {                    \
-    fprintf(stderr, "LEX " __VA_ARGS__); \
+    fprintf(stderr, "LEX ");             \
+    fprintf(stderr, __VA_ARGS__);        \
     fprintf(stderr, "\n");               \
   }
 
-#define START_LEXER()                         \
-  DEBUG_LEX("START %d", lex_state);           \
-  int32_t lookahead;                             \
-  next_state:                                 \
-  lookahead = ts_lexer_lookahead_char(lexer); \
-  DEBUG_LEX("CHAR '%c'", lookahead);
+#define START_LEXER()                                                \
+  DEBUG_LEX("START %d", lex_state);                                  \
+  int32_t lookahead;                                                 \
+  next_state:                                                        \
+  lookahead = ts_lexer_lookahead_char(lexer);                        \
+  DEBUG_LEX(                                                         \
+      (0 < lookahead && lookahead <= 255 ? "CHAR '%c'" : "CHAR %d"), \
+      lookahead);
 
 #define START_TOKEN() ts_lexer_start_token(lexer);
 
