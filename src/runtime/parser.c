@@ -138,8 +138,9 @@ static int handle_error(TSParser *parser) {
      *  expected and the current lookahead token is expected afterwards.
      */
     TS_STACK_FROM_TOP(parser->stack, entry) {
+      TSStateId stack_state = entry->state;
       TSParseAction action_on_error =
-          action_for(parser->language, entry->state, ts_builtin_sym_error);
+          action_for(parser->language, stack_state, ts_builtin_sym_error);
 
       if (action_on_error.type == TSParseActionTypeShift) {
         TSStateId state_after_error = action_on_error.data.to_state;
@@ -148,11 +149,13 @@ static int handle_error(TSParser *parser) {
 
         if (action_after_error.type != TSParseActionTypeError) {
           DEBUG_PARSE("RECOVER %u", state_after_error);
+
           ts_stack_shrink(&parser->stack, entry - parser->stack.entries + 1);
+          parser->lookahead->padding = ts_length_zero();
           error->size = ts_length_sub(
               ts_length_sub(
-                parser->lexer.token_start_position,
-                ts_stack_right_position(&parser->stack)),
+                  parser->lexer.token_start_position,
+                  ts_stack_right_position(&parser->stack)),
               error->padding);
           ts_stack_push(&parser->stack, state_after_error, error);
           ts_tree_release(error);
@@ -166,10 +169,14 @@ static int handle_error(TSParser *parser) {
      *  current lookahead token, advance to the next token. If no characters
      *  were consumed, advance the lexer to the next character.
      */
-    TSLength prev_position = parser->lexer.current_position;
     DEBUG_PARSE("LEX AGAIN");
+    TSLength prev_position = parser->lexer.current_position;
     lex(parser, ts_lex_state_error);
-    parser->lookahead->padding = ts_length_zero();
+
+    /*
+     *  If the current lookahead character cannot be the start of any token,
+     *  just skip it. If the end of input is reached, exit.
+     */
     if (ts_length_eq(parser->lexer.current_position, prev_position))
       if (!ts_lexer_advance(&parser->lexer)) {
         DEBUG_PARSE("FAIL TO RECOVER");
