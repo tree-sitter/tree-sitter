@@ -7,6 +7,7 @@ namespace util {
 using std::string;
 using std::vector;
 using std::set;
+using std::to_string;
 
 void str_replace(string *input, const string &search, const string &replace) {
   size_t pos = 0;
@@ -26,7 +27,7 @@ string escape_string(string input) {
   return input;
 }
 
-string escape_char(char character) {
+string escape_char(uint32_t character) {
   switch (character) {
     case '"':
       return "'\\\"'";
@@ -42,11 +43,9 @@ string escape_char(char character) {
       return "'\\\\'";
     default:
       if (character >= ' ' && character <= '~') {
-        return string("'") + character + "'";
+        return string("'") + static_cast<char>(character) + "'";
       } else {
-        char buffer[5];
-        snprintf(buffer, sizeof(buffer), "%d", static_cast<int>(character));
-        return string(buffer);
+        return to_string(character);
       }
   }
 }
