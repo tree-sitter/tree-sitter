@@ -7,6 +7,7 @@
       'include_dirs': [
         'include',
         'src',
+        'externals/utf8proc',
       ],
       'sources': [
         'src/compiler/build_tables/build_lex_table.cc',
@@ -54,6 +55,7 @@
         'src/compiler/rules/symbol.cc',
         'src/compiler/rules/visitor.cc',
         'src/compiler/util/string_helpers.cc',
+        'externals/utf8proc/utf8proc.c',
       ],
       'cflags_cc': [
         '-std=c++0x',

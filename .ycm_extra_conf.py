@@ -13,6 +13,7 @@ cxx_flags = [
     '-I', 'spec',
     '-I', 'include',
     '-I', 'externals/bandit',
+    '-I', 'externals/utf8proc',
     '-isystem', '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/c++/v1',
 ]
 

@@ -8,6 +8,7 @@
 #include "compiler/rules/character_set.h"
 #include "compiler/rules/blank.h"
 #include "compiler/util/string_helpers.h"
+#include "utf8proc.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {
@@ -27,7 +28,10 @@ using rules::blank;
 class PatternParser {
  public:
   explicit PatternParser(const string &input)
-      : input(input), length(input.length()), position(0) {}
+      : input(input),
+        iter((const uint8_t *)input.data()),
+        end(iter + input.size())
+  { next(); }
 
   pair<rule_ptr, const GrammarError *> rule(bool nested) {
     vector<rule_ptr> choices = {};
@@ -156,7 +160,7 @@ class PatternParser {
         next();
         break;
       default:
-        char first_char = peek();
+        uint32_t first_char = peek();
         next();
         if (peek() == '-') {
           next();
@@ -169,7 +173,7 @@ class PatternParser {
     return { value, nullptr };
   }
 
-  CharacterSet escaped_char(char value) {
+  CharacterSet escaped_char(uint32_t value) {
     switch (value) {
       case 'a':
         return CharacterSet().include('a', 'z').include('A', 'Z');
@@ -195,23 +199,33 @@ class PatternParser {
     }
   }
 
-  void next() { position++; }
+  void next() {
+    size_t lookahead_size = utf8proc_iterate(iter, end - iter, &lookahead);
+    if (!lookahead_size)
+      lookahead = 0;
+    iter += lookahead_size;
+  }
 
-  char peek() { return input[position]; }
+  uint32_t peek() { 
+    return lookahead;
+  }
 
-  bool has_more_input() { return position < length; }
+  bool has_more_input() {
+    return lookahead && iter <= end;
+  }
 
   pair<rule_ptr, const GrammarError *> error(string msg) {
     return { blank(), new GrammarError(GrammarErrorTypeRegex, msg) };
   }
 
-  const string input;
-  const size_t length;
-  size_t position;
+  string input;
+  const uint8_t *iter;
+  const uint8_t *end;
+  int32_t lookahead;
 };
 
 pair<rule_ptr, const GrammarError *> parse_regex(const std::string &input) {
-  return PatternParser(input).rule(false);
+  return PatternParser(input.c_str()).rule(false);
 }
 
 }  // namespace prepare_grammar

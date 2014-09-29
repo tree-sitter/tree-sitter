@@ -10,6 +10,7 @@
 #include "compiler/rules/seq.h"
 #include "compiler/rules/character_set.h"
 #include "compiler/prepare_grammar/parse_regex.h"
+#include "utf8proc.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {
@@ -27,8 +28,19 @@ class ExpandTokens : public rules::IdentityRuleFn {
 
   rule_ptr apply_to(const String *rule) {
     vector<rule_ptr> elements;
-    for (char val : rule->value)
-      elements.push_back(rules::CharacterSet().include(val).copy());
+    uint8_t *iter = (uint8_t *)rule->value.data();
+    uint8_t *end = iter + rule->value.size();
+
+    while (iter < end) {
+      int32_t el;
+      size_t size = utf8proc_iterate(iter, (end - iter), &el);
+      if (!size)
+        break;
+      iter += size;
+
+      elements.push_back(rules::CharacterSet().include(el).copy());
+    }
+
     return rules::Seq::Build(elements);
   }
 
