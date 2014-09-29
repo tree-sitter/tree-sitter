@@ -25,10 +25,6 @@ describe("Parser", [&]() {
       delete reader;
   });
 
-  auto set_chunk_size = [&](size_t size) {
-    chunk_size = size;
-  };
-
   auto set_text = [&](const char *text) {
     reader = new SpyReader(text, chunk_size);
     ts_document_set_input(doc, reader->input);
@@ -329,7 +325,6 @@ describe("Parser", [&]() {
             "(DOCUMENT (product (number) (comment) (variable)))"));
       });
     });
-
   });
 
   describe("lexing", [&]() {
@@ -356,7 +351,7 @@ describe("Parser", [&]() {
 
     it("recognizes UTF8 characters as single characters", [&]() {
       // Inputs that return partial UTF8 characters are not yet supported
-      set_chunk_size(50);
+      chunk_size = 50;
 
       // x # Ω — Δ
       set_text("x # \u03A9 \u2014 \u0394");
