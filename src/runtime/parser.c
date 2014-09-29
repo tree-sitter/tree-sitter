@@ -105,7 +105,7 @@ static void reduce(TSParser *parser, TSSymbol symbol, size_t child_count) {
 
 static int reduce_extra(TSParser *parser, TSSymbol symbol) {
   TSTree *last_node = NULL;
-  TS_STACK_FROM_TOP(parser->stack, entry, i) {
+  TS_STACK_FROM_TOP(parser->stack, entry) {
     if (!ts_tree_is_extra(entry->node)) {
       last_node = entry->node;
       break;
@@ -137,7 +137,7 @@ static int handle_error(TSParser *parser) {
      *  Unwind the parse stack until a state is found in which an error is
      *  expected and the current lookahead token is expected afterwards.
      */
-    TS_STACK_FROM_TOP(parser->stack, entry, i) {
+    TS_STACK_FROM_TOP(parser->stack, entry) {
       TSParseAction action_on_error =
           action_for(parser->language, entry->state, ts_builtin_sym_error);
 
@@ -148,7 +148,7 @@ static int handle_error(TSParser *parser) {
 
         if (action_after_error.type != TSParseActionTypeError) {
           DEBUG_PARSE("RECOVER %u", state_after_error);
-          ts_stack_shrink(&parser->stack, i + 1);
+          ts_stack_shrink(&parser->stack, entry - parser->stack.entries + 1);
           error->size = ts_length_sub(
               ts_length_sub(
                 parser->lexer.token_start_position,
