@@ -7,6 +7,7 @@ namespace rules {
 
 using std::ostream;
 using std::string;
+using std::to_string;
 
 CharacterRange::CharacterRange(uint32_t value) : min(value), max(value) {}
 CharacterRange::CharacterRange(uint32_t min, uint32_t max)
@@ -26,7 +27,10 @@ bool CharacterRange::operator<(const CharacterRange &other) const {
   return false;
 }
 
-string escape_character(unsigned char input) {
+string escape_character(uint32_t input) {
+  if (input >= 255)
+    return to_string(input);
+
   switch (input) {
     case '\0':
       return "\\0";
