@@ -21,8 +21,8 @@ typedef struct {
 
 typedef struct {
   size_t position;
-  size_t bytes_inserted;
-  size_t bytes_removed;
+  size_t chars_inserted;
+  size_t chars_removed;
 } TSInputEdit;
 
 typedef unsigned short TSSymbol;
