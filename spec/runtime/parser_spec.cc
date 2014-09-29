@@ -202,69 +202,109 @@ describe("Parser", [&]() {
       ts_document_set_language(doc, ts_language_arithmetic());
     });
 
-    describe("inserting new tokens near the end of the input", [&]() {
-      before_each([&]() {
-        set_text("x ^ (100 + abc)");
+    describe("inserting text", [&]() {
+      describe("new tokens near the end of the input", [&]() {
+        before_each([&]() {
+          set_text("x ^ (100 + abc)");
 
-        AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (exponent "
-              "(variable) "
-              "(group (sum (number) (variable)))))"));
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (exponent "
+                "(variable) "
+                "(group (sum (number) (variable)))))"));
 
-        insert_text(strlen("x ^ (100 + abc"), " * 5");
+          insert_text(strlen("x ^ (100 + abc"), " * 5");
+        });
+
+        it("updates the parse tree", [&]() {
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (exponent "
+                "(variable) "
+                "(group (sum (number) (product (variable) (number))))))"));
+        });
+
+        it("re-reads only the changed portion of the input", [&]() {
+          AssertThat(reader->strings_read, Equals(vector<string>({ " abc * 5)" })));
+        });
       });
 
-      it("updates the parse tree", [&]() {
-        AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (exponent "
-              "(variable) "
-              "(group (sum (number) (product (variable) (number))))))"));
+      describe("new tokens near the beginning of the input", [&]() {
+        before_each([&]() {
+          set_text("123 * 456");
+
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (product (number) (number)))"));
+
+          insert_text(strlen("123"), " + 5 ");
+        });
+
+        it("updates the parse tree", [&]() {
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (sum (number) (product (number) (number))))"));
+        });
+
+        it_skip("re-reads only the changed portion of the input", [&]() {
+          AssertThat(reader->strings_read, Equals(vector<string>({ "\"key2\": 4, " })));
+        });
       });
 
-      it("re-reads only the changed portion of the input", [&]() {
-        AssertThat(reader->strings_read, Equals(vector<string>({ " abc * 5)" })));
+      describe("into the middle of an existing token", [&]() {
+        before_each([&]() {
+          set_text("abc * 123");
+
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (product (variable) (number)))"));
+
+          insert_text(strlen("ab"), "XYZ");
+        });
+
+        it("updates the parse three", [&]() {
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (product (variable) (number)))"));
+
+          TSNode *node = ts_node_find_for_pos(root, 1);
+          AssertThat(ts_node_name(node), Equals("variable"));
+          AssertThat(ts_node_size(node).bytes, Equals(strlen("abXYZc")));
+          ts_node_release(node);
+        });
+      });
+
+      describe("at the end of an existing token", [&]() {
+        before_each([&]() {
+          set_text("abc * 123");
+
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (product (variable) (number)))"));
+
+          insert_text(strlen("abc"), "XYZ");
+        });
+
+        it("updates the parse three", [&]() {
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (product (variable) (number)))"));
+
+          TSNode *node = ts_node_find_for_pos(root, 1);
+          AssertThat(ts_node_name(node), Equals("variable"));
+          AssertThat(ts_node_size(node).bytes, Equals(strlen("abcXYZ")));
+          ts_node_release(node);
+        });
       });
     });
 
-    describe("inserting text into the middle of an existing token", [&]() {
-      before_each([&]() {
-        set_text("abc * 123");
+    describe("deleting text", [&]() {
+      describe("when a critical token is removed", [&]() {
+        before_each([&]() {
+          set_text("123 * 456");
 
-        AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (product (variable) (number)))"));
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (product (number) (number)))"));
 
-        insert_text(strlen("ab"), "XYZ");
-      });
+          delete_text(strlen("123 "), 2);
+        });
 
-      it("updates the parse three", [&]() {
-        AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (product (variable) (number)))"));
-
-        TSNode *node = ts_node_find_for_pos(root, 1);
-        AssertThat(ts_node_name(node), Equals("variable"));
-        AssertThat(ts_node_size(node).bytes, Equals(strlen("abXYZc")));
-        ts_node_release(node);
-      });
-    });
-
-    describe("appending text to the end of an existing token", [&]() {
-      before_each([&]() {
-        set_text("abc * 123");
-
-        AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (product (variable) (number)))"));
-
-        insert_text(strlen("abc"), "XYZ");
-      });
-
-      it("updates the parse three", [&]() {
-        AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (product (variable) (number)))"));
-
-        TSNode *node = ts_node_find_for_pos(root, 1);
-        AssertThat(ts_node_name(node), Equals("variable"));
-        AssertThat(ts_node_size(node).bytes, Equals(strlen("abcXYZ")));
-        ts_node_release(node);
+        it("updates the parse tree, creating an error", [&]() {
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (number) (ERROR '4'))"));
+        });
       });
     });
 
@@ -290,41 +330,6 @@ describe("Parser", [&]() {
       });
     });
 
-    describe("deleting an important token", [&]() {
-      before_each([&]() {
-        set_text("123 * 456");
-
-        AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (product (number) (number)))"));
-
-        delete_text(strlen("123 "), 2);
-      });
-
-      it("updates the parse tree, creating an error", [&]() {
-        AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (number) (ERROR '4'))"));
-      });
-    });
-
-    describe("inserting tokens near the beginning of the input", [&]() {
-      before_each([&]() {
-        set_text("123 * 456");
-
-        AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (product (number) (number)))"));
-
-        insert_text(strlen("123"), " + 5 ");
-      });
-
-      it("updates the parse tree", [&]() {
-        AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (sum (number) (product (number) (number))))"));
-      });
-
-      it_skip("re-reads only the changed portion of the input", [&]() {
-        AssertThat(reader->strings_read, Equals(vector<string>({ "\"key2\": 4, " })));
-      });
-    });
   });
 
   describe("lexing", [&]() {
