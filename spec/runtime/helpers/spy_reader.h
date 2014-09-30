@@ -11,12 +11,12 @@ class SpyReader {
   ~SpyReader();
 
   void clear();
+  TSInput input();
 
   char *buffer;
   std::string content;
   size_t position;
   size_t chunk_size;
-  TSInput input;
   std::vector<std::string> strings_read;
 };
 

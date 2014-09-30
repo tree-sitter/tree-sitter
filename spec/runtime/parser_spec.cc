@@ -27,7 +27,7 @@ describe("Parser", [&]() {
 
   auto set_text = [&](const char *text) {
     reader = new SpyReader(text, chunk_size);
-    ts_document_set_input(doc, reader->input);
+    ts_document_set_input(doc, reader->input());
     root = ts_document_root_node(doc);
     reader->clear();
   };

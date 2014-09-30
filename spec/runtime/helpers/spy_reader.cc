@@ -26,16 +26,19 @@ SpyReader::SpyReader(string content, size_t chunk_size) :
     buffer(new char[chunk_size]),
     content(content),
     position(0),
-    chunk_size(chunk_size),
-    input({
-        this,
-        spy_read,
-        spy_seek,
-        nullptr,
-    }) {}
+    chunk_size(chunk_size) {}
 
 void SpyReader::clear() {
   strings_read.clear();
+}
+
+TSInput SpyReader::input() {
+  TSInput result;
+  result.data = this;
+  result.seek_fn = spy_seek;
+  result.read_fn = spy_read;
+  result.release_fn = nullptr;
+  return result;
 }
 
 SpyReader::~SpyReader() {
