@@ -253,7 +253,7 @@ describe("Parser", [&]() {
           insert_text(strlen("ab"), "XYZ");
         });
 
-        it("updates the parse three", [&]() {
+        it("updates the parse tree", [&]() {
           AssertThat(ts_node_string(root), Equals(
               "(DOCUMENT (product (variable) (number)))"));
 
@@ -274,7 +274,7 @@ describe("Parser", [&]() {
           insert_text(strlen("abc"), "XYZ");
         });
 
-        it("updates the parse three", [&]() {
+        it("updates the parse tree", [&]() {
           AssertThat(ts_node_string(root), Equals(
               "(DOCUMENT (product (variable) (number)))"));
 
