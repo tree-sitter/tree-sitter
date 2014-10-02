@@ -28,6 +28,7 @@
         'examples',
         'spec',
         'externals/bandit',
+        'externals/utf8proc',
       ],
       'sources': [
         '<!@(find spec/runtime -name "*.cc")',

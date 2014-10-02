@@ -1,6 +1,7 @@
 #include "runtime/helpers/spy_reader.h"
 #include <string.h>
 #include <algorithm>
+#include "utf8proc.h"
 
 using std::string;
 
@@ -39,6 +40,37 @@ TSInput SpyReader::input() {
   result.read_fn = spy_read;
   result.release_fn = nullptr;
   return result;
+}
+
+long position_for_char_index(string str, size_t goal_index) {
+  size_t index = 0, position = 0;
+  int32_t dest_char;
+
+  while (index < goal_index) {
+    if (position >= str.size())
+      return -1;
+    position += utf8proc_iterate(
+        (uint8_t *)(str.data() + position),
+        str.size() - position,
+        &dest_char);
+    index++;
+  }
+
+  return position;
+}
+
+bool SpyReader::insert(size_t char_index, string text) {
+  long pos = position_for_char_index(content, char_index);
+  if (pos < 0) return false;
+  content.insert(pos, text);
+  return true;
+}
+
+bool SpyReader::erase(size_t char_index, size_t len) {
+  long pos = position_for_char_index(content, char_index);
+  if (pos < 0) return false;
+  content.erase(pos, len);
+  return true;
 }
 
 SpyReader::~SpyReader() {

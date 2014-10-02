@@ -12,6 +12,8 @@ class SpyReader {
 
   void clear();
   TSInput input();
+  bool insert(size_t position, std::string text);
+  bool erase(size_t position, size_t len);
 
   char *buffer;
   std::string content;
