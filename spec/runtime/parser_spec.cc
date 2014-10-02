@@ -33,13 +33,13 @@ describe("Parser", [&]() {
   };
 
   auto insert_text = [&](size_t position, string text) {
-    reader->content.insert(position, text);
+    AssertThat(reader->insert(position, text), IsTrue());
     ts_document_edit(doc, { position, 0, text.length() });
     root = ts_document_root_node(doc);
   };
 
   auto delete_text = [&](size_t position, size_t length) {
-    reader->content.erase(position, length);
+    AssertThat(reader->erase(position, length), IsTrue());
     ts_document_edit(doc, { position, length, 0 });
     root = ts_document_root_node(doc);
   };
@@ -282,6 +282,26 @@ describe("Parser", [&]() {
           AssertThat(ts_node_name(node), Equals("variable"));
           AssertThat(ts_node_size(node).bytes, Equals(strlen("abcXYZ")));
           ts_node_release(node);
+        });
+      });
+
+      describe("with non-ascii characters", [&]() {
+        before_each([&]() {
+          chunk_size = 50;
+
+          // αβδ + 1
+          set_text("\u03b1\u03b2\u03b4 + 1");
+
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (sum (variable) (number)))"));
+
+          // αβδ + ψ1
+          insert_text(strlen("abd + "), "\u03c8");
+        });
+
+        it("inserts the text according to the UTF8 character index", [&]() {
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (sum (variable) (variable)))"));
         });
       });
     });
