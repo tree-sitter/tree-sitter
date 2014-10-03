@@ -97,7 +97,8 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
       TSTreeChild *grandchildren = ts_tree_visible_children(child, &n);
       for (size_t j = 0; j < n; j++) {
         visible_children[vis_i].tree = grandchildren[j].tree;
-        visible_children[vis_i].offset = ts_length_add(offset, grandchildren[j].offset);
+        visible_children[vis_i].offset =
+            ts_length_add(offset, grandchildren[j].offset);
         vis_i++;
       }
     }

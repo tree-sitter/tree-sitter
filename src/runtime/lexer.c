@@ -43,8 +43,10 @@ static int advance(TSLexer *lexer) {
 }
 
 static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
-  TSLength size = ts_length_sub(lexer->current_position, lexer->token_start_position);
-  TSLength padding = ts_length_sub(lexer->token_start_position, lexer->token_end_position);
+  TSLength size =
+      ts_length_sub(lexer->current_position, lexer->token_start_position);
+  TSLength padding =
+      ts_length_sub(lexer->token_start_position, lexer->token_end_position);
   lexer->token_end_position = lexer->current_position;
   return (symbol == ts_builtin_sym_error)
              ? ts_tree_make_error(size, padding, ts_lexer_lookahead_char(lexer))
@@ -57,9 +59,8 @@ static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
  *  this library.
  */
 TSLexer ts_lexer_make() {
-  TSLexer result = (TSLexer) { .debug = 0,
-                               .advance_fn = advance,
-                               .accept_fn = accept, };
+  TSLexer result =
+      (TSLexer) { .debug = 0, .advance_fn = advance, .accept_fn = accept, };
   ts_lexer_reset(&result);
   return result;
 }
@@ -68,9 +69,9 @@ void ts_lexer_reset(TSLexer *lexer) {
   lexer->chunk = NULL;
   lexer->chunk_start = 0;
   lexer->chunk_size = 0;
-  lexer->current_position = ts_length_zero(),
-  lexer->token_start_position = ts_length_zero(),
-  lexer->token_end_position = ts_length_zero(),
+  lexer->current_position = ts_length_zero();
+  lexer->token_start_position = ts_length_zero();
+  lexer->token_end_position = ts_length_zero();
   lexer->lookahead = 0;
   lexer->lookahead_size = 0;
 }

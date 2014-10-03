@@ -80,30 +80,29 @@ struct TSLanguage {
   TSTree *(*lex_fn)(TSLexer *, TSStateId);
 };
 
-#define DEBUG_LEX(...)                   \
-  if (lexer->debug) {                    \
-    fprintf(stderr, "LEX ");             \
-    fprintf(stderr, __VA_ARGS__);        \
-    fprintf(stderr, "\n");               \
+#define DEBUG_LEX(...)            \
+  if (lexer->debug) {             \
+    fprintf(stderr, "LEX ");      \
+    fprintf(stderr, __VA_ARGS__); \
+    fprintf(stderr, "\n");        \
   }
 
-#define START_LEXER()                                                \
-  DEBUG_LEX("START %d", lex_state);                                  \
-  int32_t lookahead;                                                 \
-  next_state:                                                        \
-  lookahead = ts_lexer_lookahead_char(lexer);                        \
-  DEBUG_LEX(                                                         \
-      (0 < lookahead && lookahead <= 255 ? "CHAR '%c'" : "CHAR %d"), \
-      lookahead);
+#define START_LEXER()                                                     \
+  DEBUG_LEX("START %d", lex_state);                                       \
+  int32_t lookahead;                                                      \
+  next_state:                                                             \
+  lookahead = ts_lexer_lookahead_char(lexer);                             \
+  DEBUG_LEX((0 < lookahead &&lookahead <= 255 ? "CHAR '%c'" : "CHAR %d"), \
+            lookahead);
 
 #define START_TOKEN() ts_lexer_start_token(lexer);
 
-#define ADVANCE(state_index)                                \
-  {                                                         \
-    DEBUG_LEX("ADVANCE %d", state_index);                   \
-    ts_lexer_advance(lexer);                                \
-    lex_state = state_index;                                \
-    goto next_state;                                        \
+#define ADVANCE(state_index)              \
+  {                                       \
+    DEBUG_LEX("ADVANCE %d", state_index); \
+    ts_lexer_advance(lexer);              \
+    lex_state = state_index;              \
+    goto next_state;                      \
   }
 
 #define ACCEPT_TOKEN(symbol)                                               \

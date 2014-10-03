@@ -153,9 +153,8 @@ static int handle_error(TSParser *parser) {
           ts_stack_shrink(&parser->stack, entry - parser->stack.entries + 1);
           parser->lookahead->padding = ts_length_zero();
           error->size = ts_length_sub(
-              ts_length_sub(
-                  parser->lexer.token_start_position,
-                  ts_stack_right_position(&parser->stack)),
+              ts_length_sub(parser->lexer.token_start_position,
+                            ts_stack_right_position(&parser->stack)),
               error->padding);
           ts_stack_push(&parser->stack, state_after_error, error);
           ts_tree_release(error);
@@ -189,7 +188,8 @@ static int handle_error(TSParser *parser) {
 
 static TSTree *get_root(TSParser *parser) {
   if (parser->stack.size == 0)
-    ts_stack_push(&parser->stack, 0, ts_tree_make_error(ts_length_zero(), ts_length_zero(), 0));
+    ts_stack_push(&parser->stack, 0,
+                  ts_tree_make_error(ts_length_zero(), ts_length_zero(), 0));
 
   reduce(parser, ts_builtin_sym_document, parser->stack.size);
   parser->lookahead->options = 0;
