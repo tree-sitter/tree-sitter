@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include "runtime/node.h"
 #include "runtime/length.h"
 #include "runtime/tree.h"
@@ -35,8 +36,8 @@ TSLength ts_node_pos(const TSNode *node) { return node->position; }
 
 TSLength ts_node_size(const TSNode *node) { return node->content->size; }
 
-int ts_node_eq(const TSNode *left, const TSNode *right) {
-  return ts_tree_equals(left->content, right->content);
+bool ts_node_eq(const TSNode *left, const TSNode *right) {
+  return ts_tree_eq(left->content, right->content);
 }
 
 const char *ts_node_name(const TSNode *node) {

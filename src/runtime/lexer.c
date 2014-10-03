@@ -6,13 +6,13 @@
 
 static const char *empty_chunk = "";
 
-static int advance(TSLexer *lexer) {
+static bool advance(TSLexer *lexer) {
 
   /*
    *  Return false if the Lexer has already reached the end of the input.
    */
   if (lexer->chunk == empty_chunk)
-    return 0;
+    return false;
 
   /*
    *  Increment the Lexer's position.
@@ -41,7 +41,7 @@ static int advance(TSLexer *lexer) {
       (const uint8_t *)lexer->chunk + position_in_chunk,
       lexer->chunk_size - position_in_chunk + 1, &lexer->lookahead);
 
-  return 1;
+  return true;
 }
 
 static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {

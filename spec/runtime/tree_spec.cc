@@ -124,7 +124,7 @@ describe("Tree", []() {
           ts_length_make(2, 1),
           0);
 
-      AssertThat(ts_tree_equals(tree1, tree1_copy), Equals(1));
+      AssertThat(ts_tree_eq(tree1, tree1_copy), IsTrue());
 
       TSTree *tree2_copy = ts_tree_make_leaf(
           cat,
@@ -132,13 +132,13 @@ describe("Tree", []() {
           ts_length_make(1, 1),
           0);
 
-      AssertThat(ts_tree_equals(tree2, tree2_copy), Equals(1));
+      AssertThat(ts_tree_eq(tree2, tree2_copy), IsTrue());
 
       TSTree *parent2 = ts_tree_make_node(dog, 2, tree_array({
           tree1_copy, tree2_copy,
       }), 0);
 
-      AssertThat(ts_tree_equals(parent1, parent2), Equals(1));
+      AssertThat(ts_tree_eq(parent1, parent2), IsTrue());
 
       ts_tree_release(tree1_copy);
       ts_tree_release(tree2_copy);
@@ -152,7 +152,7 @@ describe("Tree", []() {
           tree1->padding,
           0);
 
-      AssertThat(ts_tree_equals(tree1, different_tree), Equals(0));
+      AssertThat(ts_tree_eq(tree1, different_tree), IsFalse());
       ts_tree_release(different_tree);
     });
 
@@ -167,8 +167,8 @@ describe("Tree", []() {
           different_tree, different_tree,
       }), 0);
 
-      AssertThat(ts_tree_equals(different_parent, parent1), Equals(0));
-      AssertThat(ts_tree_equals(parent1, different_parent), Equals(0));
+      AssertThat(ts_tree_eq(different_parent, parent1), IsFalse());
+      AssertThat(ts_tree_eq(parent1, different_parent), IsFalse());
 
       ts_tree_release(different_tree);
       ts_tree_release(different_parent);

@@ -127,19 +127,19 @@ TSLength ts_tree_total_size(const TSTree *tree) {
   return ts_length_add(tree->padding, tree->size);
 }
 
-int ts_tree_equals(const TSTree *node1, const TSTree *node2) {
+bool ts_tree_eq(const TSTree *node1, const TSTree *node2) {
   if (node1->symbol != node2->symbol)
-    return 0;
+    return false;
   if (node1->lookahead_char != node2->lookahead_char)
-    return 0;
+    return false;
   if (node1->child_count != node2->child_count)
-    return 0;
+    return false;
   if (node1->visible_child_count != node2->visible_child_count)
-    return 0;
+    return false;
   for (size_t i = 0; i < node1->child_count; i++)
-    if (!ts_tree_equals(node1->children[i], node2->children[i]))
-      return 0;
-  return 1;
+    if (!ts_tree_eq(node1->children[i], node2->children[i]))
+      return false;
+  return true;
 }
 
 TSTree **ts_tree_children(const TSTree *tree, size_t *count) {

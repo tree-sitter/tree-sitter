@@ -7,6 +7,7 @@ extern "C" {
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "tree_sitter/runtime.h"
 
 typedef struct TSTree TSTree;
@@ -29,7 +30,7 @@ typedef struct TSLexer {
   int32_t lookahead;
 
   TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, int);
-  int (*advance_fn)(struct TSLexer *);
+  bool (*advance_fn)(struct TSLexer *);
 } TSLexer;
 
 static inline int32_t ts_lexer_lookahead_char(const TSLexer *lexer) {

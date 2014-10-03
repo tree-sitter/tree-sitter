@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <stdlib.h>
+#include <stdbool.h>
 
 typedef struct {
   size_t bytes;
@@ -43,7 +44,7 @@ const char *ts_node_name(const TSNode *);
 const char *ts_node_string(const TSNode *);
 void ts_node_retain(TSNode *node);
 void ts_node_release(TSNode *node);
-int ts_node_eq(const TSNode *, const TSNode *);
+bool ts_node_eq(const TSNode *, const TSNode *);
 
 typedef struct TSDocument TSDocument;
 TSDocument *ts_document_make();
