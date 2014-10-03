@@ -43,12 +43,17 @@ SpyReader::~SpyReader() {
 }
 
 const char * SpyReader::read(size_t *bytes_read) {
-  string result = content.substr(position, chunk_size);
-  position += result.size();
-  strings_read.back() += result;
-  *bytes_read = result.size();
+  const char *start = content.data() + position;
+  long len = position_for_char_index(start, content.size() - position, chunk_size);
+  if (len < 0)
+    len = content.size() - position;
+
+  *bytes_read = len;
+  position += len;
+  strings_read.back() += string(start, len);
+
   memset(buffer, 0, chunk_size);
-  memcpy(buffer, result.data(), result.size());
+  memcpy(buffer, start, len);
   return buffer;
 }
 
