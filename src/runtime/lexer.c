@@ -4,40 +4,42 @@
 #include "runtime/length.h"
 #include "utf8proc.h"
 
+static const char *empty_chunk = "";
+
 static int advance(TSLexer *lexer) {
-  static const char *empty_chunk = "";
 
-  lexer->lookahead = 0;
-
-  if (lexer->chunk == empty_chunk) {
-    lexer->lookahead_size = 0;
+  /*
+   *  Return false if the Lexer has already reached the end of the input.
+   */
+  if (lexer->chunk == empty_chunk)
     return 0;
+
+  /*
+   *  Increment the Lexer's position.
+   */
+  if (lexer->lookahead_size) {
+    lexer->current_position.bytes += lexer->lookahead_size;
+    lexer->current_position.chars += 1;
   }
 
-  if (lexer->chunk_start + lexer->chunk_size <= lexer->current_position.bytes + 1) {
-    if (lexer->lookahead_size) {
-      lexer->current_position.bytes += lexer->lookahead_size;
-      lexer->current_position.chars += 1;
-    }
-    lexer->lookahead_size = 0;
+  /*
+   *  Request a new chunk of text from the Input if the Lexer has reached
+   *  the end of the current chunk.
+   */
+  if (lexer->current_position.bytes >= lexer->chunk_start + lexer->chunk_size) {
     lexer->chunk_start += lexer->chunk_size;
     lexer->chunk = lexer->input.read_fn(lexer->input.data, &lexer->chunk_size);
+    if (!lexer->chunk_size)
+      lexer->chunk = empty_chunk;
   }
 
-  if (lexer->chunk_size == 0) {
-    lexer->lookahead_size = 0;
-    lexer->chunk = empty_chunk;
-  } else {
-    if (lexer->lookahead_size) {
-      lexer->current_position.bytes += lexer->lookahead_size;
-      lexer->current_position.chars += 1;
-    }
-
-    lexer->lookahead_size = utf8proc_iterate(
-        (const uint8_t *)lexer->chunk + (lexer->current_position.bytes - lexer->chunk_start),
-        lexer->chunk_start + lexer->chunk_size - lexer->current_position.bytes + 1,
-        &lexer->lookahead);
-  }
+  /*
+   *  Read the next unicode character from the current chunk of text.
+   */
+  size_t position_in_chunk = lexer->current_position.bytes - lexer->chunk_start;
+  lexer->lookahead_size = utf8proc_iterate(
+      (const uint8_t *)lexer->chunk + position_in_chunk,
+      lexer->chunk_size - position_in_chunk + 1, &lexer->lookahead);
 
   return 1;
 }

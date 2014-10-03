@@ -287,8 +287,6 @@ describe("Parser", [&]() {
 
       describe("with non-ascii characters", [&]() {
         before_each([&]() {
-          chunk_size = 50;
-
           // αβδ + 1
           set_text("\u03b1\u03b2\u03b4 + 1");
 
@@ -370,17 +368,14 @@ describe("Parser", [&]() {
     });
 
     it("recognizes UTF8 characters as single characters", [&]() {
-      // Inputs that return partial UTF8 characters are not yet supported
-      chunk_size = 50;
-
-      // x # Ω — Δ
-      set_text("x # \u03A9 \u2014 \u0394");
+      // x # ΩΩΩ — ΔΔ
+      set_text("x # \u03A9\u03A9\u03A9 \u2014 \u0394\u0394");
 
       AssertThat(ts_node_string(root), Equals("(DOCUMENT "
         "(expression (variable) (comment)))"));
 
-      AssertThat(ts_node_size(root).chars, Equals(strlen("x # O - D")));
-      AssertThat(ts_node_size(root).bytes, Equals(strlen("x # \u03A9 \u2014 \u0394")));
+      AssertThat(ts_node_size(root).chars, Equals(strlen("x # OOO - DD")));
+      AssertThat(ts_node_size(root).bytes, Equals(strlen("x # \u03A9\u03A9\u03A9 \u2014 \u0394\u0394")));
     });
   });
 });
