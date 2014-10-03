@@ -5,22 +5,31 @@
 
 using std::string;
 
+static long position_for_char_index(const char *str, size_t len, size_t goal_index) {
+  size_t index = 0, position = 0;
+  int32_t dest_char;
+
+  while (index < goal_index) {
+    if (position >= len)
+      return -1;
+    position += utf8proc_iterate(
+        (uint8_t *)str + position,
+        len - position,
+        &dest_char);
+    index++;
+  }
+
+  return position;
+}
+
 static const char * spy_read(void *data, size_t *bytes_read) {
   SpyReader *reader = static_cast<SpyReader *>(data);
-  string result = reader->content.substr(reader->position, reader->chunk_size);
-  reader->position += result.size();
-  reader->strings_read.back() += result;
-  *bytes_read = result.size();
-  memset(reader->buffer, 0, reader->chunk_size);
-  memcpy(reader->buffer, result.data(), result.size());
-  return reader->buffer;
+  return reader->read(bytes_read);
 }
 
 static int spy_seek(void *data, TSLength position) {
   SpyReader *reader = static_cast<SpyReader *>(data);
-  reader->strings_read.push_back("");
-  reader->position = position.bytes;
-  return 0;
+  return reader->seek(position.bytes);
 }
 
 SpyReader::SpyReader(string content, size_t chunk_size) :
@@ -29,8 +38,24 @@ SpyReader::SpyReader(string content, size_t chunk_size) :
     position(0),
     chunk_size(chunk_size) {}
 
-void SpyReader::clear() {
-  strings_read.clear();
+SpyReader::~SpyReader() {
+  delete buffer;
+}
+
+const char * SpyReader::read(size_t *bytes_read) {
+  string result = content.substr(position, chunk_size);
+  position += result.size();
+  strings_read.back() += result;
+  *bytes_read = result.size();
+  memset(buffer, 0, chunk_size);
+  memcpy(buffer, result.data(), result.size());
+  return buffer;
+}
+
+int SpyReader::seek(size_t pos) {
+  strings_read.push_back("");
+  position = pos;
+  return 0;
 }
 
 TSInput SpyReader::input() {
@@ -42,37 +67,20 @@ TSInput SpyReader::input() {
   return result;
 }
 
-long position_for_char_index(string str, size_t goal_index) {
-  size_t index = 0, position = 0;
-  int32_t dest_char;
-
-  while (index < goal_index) {
-    if (position >= str.size())
-      return -1;
-    position += utf8proc_iterate(
-        (uint8_t *)(str.data() + position),
-        str.size() - position,
-        &dest_char);
-    index++;
-  }
-
-  return position;
-}
-
 bool SpyReader::insert(size_t char_index, string text) {
-  long pos = position_for_char_index(content, char_index);
+  long pos = position_for_char_index(content.data(), content.size(), char_index);
   if (pos < 0) return false;
   content.insert(pos, text);
   return true;
 }
 
 bool SpyReader::erase(size_t char_index, size_t len) {
-  long pos = position_for_char_index(content, char_index);
+  long pos = position_for_char_index(content.data(), content.size(), char_index);
   if (pos < 0) return false;
   content.erase(pos, len);
   return true;
 }
 
-SpyReader::~SpyReader() {
-  delete buffer;
+void SpyReader::clear() {
+  strings_read.clear();
 }

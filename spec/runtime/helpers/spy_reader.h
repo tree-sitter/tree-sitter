@@ -14,6 +14,8 @@ class SpyReader {
   TSInput input();
   bool insert(size_t position, std::string text);
   bool erase(size_t position, size_t len);
+  const char * read(size_t *len);
+  int seek(size_t position);
 
   char *buffer;
   std::string content;
