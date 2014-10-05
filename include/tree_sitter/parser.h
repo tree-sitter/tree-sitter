@@ -96,7 +96,9 @@ struct TSLanguage {
   DEBUG_LEX((0 < lookahead &&lookahead <= 255 ? "CHAR '%c'" : "CHAR %d"), \
             lookahead);
 
-#define START_TOKEN() ts_lexer_start_token(lexer);
+#define START_TOKEN()                                          \
+  DEBUG_LEX("START TOKEN %lu", lexer->current_position.chars); \
+  ts_lexer_start_token(lexer);
 
 #define ADVANCE(state_index)              \
   {                                       \

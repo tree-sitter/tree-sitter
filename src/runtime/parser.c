@@ -37,11 +37,9 @@ static TSLength breakdown_stack(TSParser *parser, TSInputEdit *edit) {
     if (position.chars < edit->position && !children)
       break;
 
+    DEBUG_PARSE("POP %s", parser->language->symbol_names[node->symbol]);
     stack->size--;
     position = ts_length_sub(position, ts_tree_total_size(node));
-
-    DEBUG_PARSE("POP %s %u", parser->language->symbol_names[node->symbol],
-                ts_stack_top_state(stack));
 
     for (size_t i = 0; i < child_count && position.chars < edit->position; i++) {
       TSTree *child = children[i];
@@ -49,17 +47,16 @@ static TSLength breakdown_stack(TSParser *parser, TSInputEdit *edit) {
       TSParseAction action = action_for(parser->language, state, child->symbol);
       TSStateId next_state =
           action.type == TSParseActionTypeShift ? action.data.to_state : state;
+
+      DEBUG_PARSE("PUT BACK %s", parser->language->symbol_names[child->symbol]);
       ts_stack_push(stack, next_state, child);
       position = ts_length_add(position, ts_tree_total_size(child));
-
-      DEBUG_PARSE("PUT BACK %s %u",
-                  parser->language->symbol_names[child->symbol], next_state);
     }
 
     ts_tree_release(node);
   }
 
-  DEBUG_PARSE("RESUME %lu", position.bytes);
+  DEBUG_PARSE("RESUME %lu", position.chars);
   return position;
 }
 
