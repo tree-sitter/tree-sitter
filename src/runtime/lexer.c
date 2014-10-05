@@ -61,19 +61,28 @@ static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
  *  this library.
  */
 TSLexer ts_lexer_make() {
-  TSLexer result =
-      (TSLexer) { .debug = 0, .advance_fn = advance, .accept_fn = accept, };
-  ts_lexer_reset(&result);
+  TSLexer result = (TSLexer) { .advance_fn = advance,
+                               .accept_fn = accept,
+                               .debug = 0,
+                               .chunk = NULL,
+                               .chunk_start = 0,
+                               .chunk_size = 0,
+                               .current_position = ts_length_zero(),
+                               .token_start_position = ts_length_zero(),
+                               .token_end_position = ts_length_zero(),
+                               .lookahead = 0,
+                               .lookahead_size = 0, };
   return result;
 }
 
-void ts_lexer_reset(TSLexer *lexer) {
-  lexer->chunk = NULL;
-  lexer->chunk_start = 0;
-  lexer->chunk_size = 0;
-  lexer->current_position = ts_length_zero();
-  lexer->token_start_position = ts_length_zero();
-  lexer->token_end_position = ts_length_zero();
+void ts_lexer_reset(TSLexer *lexer, TSLength position) {
+  lexer->input.seek_fn(lexer->input.data, position);
+  lexer->current_position = position;
+  lexer->token_end_position = position;
   lexer->lookahead = 0;
   lexer->lookahead_size = 0;
+  lexer->chunk_start = position.bytes;
+  lexer->chunk_size = 0;
+  lexer->chunk = lexer->input.read_fn(lexer->input.data, &lexer->chunk_size);
+  ts_lexer_advance(lexer);
 }

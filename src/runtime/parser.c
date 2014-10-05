@@ -124,6 +124,13 @@ static void lex(TSParser *parser, TSStateId lex_state) {
   parser->lookahead = parser->language->lex_fn(&parser->lexer, lex_state);
 }
 
+static void resize_error(TSParser *parser, TSTree *error) {
+  error->size =
+      ts_length_sub(ts_length_sub(parser->lexer.token_start_position,
+                                  ts_stack_right_position(&parser->stack)),
+                    error->padding);
+}
+
 static int handle_error(TSParser *parser) {
   TSTree *error = parser->lookahead;
   ts_tree_retain(error);
@@ -149,10 +156,8 @@ static int handle_error(TSParser *parser) {
 
           ts_stack_shrink(&parser->stack, entry - parser->stack.entries + 1);
           parser->lookahead->padding = ts_length_zero();
-          error->size = ts_length_sub(
-              ts_length_sub(parser->lexer.token_start_position,
-                            ts_stack_right_position(&parser->stack)),
-              error->padding);
+
+          resize_error(parser, error);
           ts_stack_push(&parser->stack, state_after_error, error);
           ts_tree_release(error);
           return 1;
@@ -176,6 +181,8 @@ static int handle_error(TSParser *parser) {
     if (ts_length_eq(parser->lexer.current_position, prev_position))
       if (!ts_lexer_advance(&parser->lexer)) {
         DEBUG_PARSE("FAIL TO RECOVER");
+
+        resize_error(parser, error);
         ts_stack_push(&parser->stack, 0, error);
         ts_tree_release(error);
         return 0;
@@ -220,11 +227,10 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
                               TSInputEdit *edit) {
   parser->lookahead = NULL;
   parser->next_lookahead = NULL;
-  ts_lexer_reset(&parser->lexer);
-  parser->lexer.input = input;
+  TSLength position = breakdown_stack(parser, edit);
 
-  input.seek_fn(input.data, breakdown_stack(parser, edit));
-  ts_lexer_advance(&parser->lexer);
+  parser->lexer.input = input;
+  ts_lexer_reset(&parser->lexer, position);
 
   for (;;) {
     TSParseAction action = next_action(parser);

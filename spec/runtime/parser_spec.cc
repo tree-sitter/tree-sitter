@@ -29,19 +29,28 @@ describe("Parser", [&]() {
     reader = new SpyReader(text, chunk_size);
     ts_document_set_input(doc, reader->input());
     root = ts_document_root_node(doc);
+    AssertThat(ts_node_size(root).bytes + ts_node_pos(root).bytes, Equals(strlen(text)));
     reader->clear();
   };
 
   auto insert_text = [&](size_t position, string text) {
+    size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
     AssertThat(reader->insert(position, text), IsTrue());
     ts_document_edit(doc, { position, 0, text.length() });
+
     root = ts_document_root_node(doc);
+    size_t new_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
+    AssertThat(new_size, Equals(prev_size + text.size()));
   };
 
   auto delete_text = [&](size_t position, size_t length) {
+    size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
     AssertThat(reader->erase(position, length), IsTrue());
     ts_document_edit(doc, { position, length, 0 });
+
     root = ts_document_root_node(doc);
+    size_t new_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
+    AssertThat(new_size, Equals(prev_size - length));
   };
 
   describe("handling errors", [&]() {
@@ -220,6 +229,29 @@ describe("Parser", [&]() {
 
         it("re-reads only the changed portion of the input", [&]() {
           AssertThat(reader->strings_read, Equals(vector<string>({ " abc * 5)" })));
+        });
+      });
+
+      describe("introducing an error", [&]() {
+        it("gives the error the right size", [&]() {
+          ts_document_set_language(doc, ts_language_javascript());
+
+          set_text("var x = y;");
+
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (var_declaration "
+                  "(identifier) (identifier)))"));
+
+          insert_text(strlen("var x = y"), " *");
+
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (var_declaration (ERROR ';')))"));
+
+          insert_text(strlen("var x = y *"), " z");
+
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (var_declaration "
+                  "(identifier) (math_op (identifier) (identifier))))"));
         });
       });
 
