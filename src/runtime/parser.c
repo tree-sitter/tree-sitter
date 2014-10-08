@@ -7,6 +7,10 @@
 #include "runtime/parser.h"
 #include "runtime/length.h"
 
+/*
+ *  Private
+ */
+
 #define DEBUG_PARSE(...)                   \
   if (parser->debug) {                     \
     fprintf(stderr, "PARSE " __VA_ARGS__); \
@@ -16,6 +20,10 @@
 static TSParseAction action_for(const TSLanguage *lang, TSStateId state,
                                 TSSymbol sym) {
   return (lang->parse_table + (state * lang->symbol_count))[sym];
+}
+
+static void lex(TSParser *parser, TSStateId lex_state) {
+  parser->lookahead = parser->language->lex_fn(&parser->lexer, lex_state);
 }
 
 static TSLength breakdown_stack(TSParser *parser, TSInputEdit *edit) {
@@ -60,6 +68,13 @@ static TSLength breakdown_stack(TSParser *parser, TSInputEdit *edit) {
   return position;
 }
 
+static void resize_error(TSParser *parser, TSTree *error) {
+  error->size =
+      ts_length_sub(ts_length_sub(parser->lexer.token_start_position,
+                                  ts_stack_right_position(&parser->stack)),
+                    error->padding);
+}
+
 static void shift(TSParser *parser, TSStateId parse_state) {
   if (ts_tree_is_extra(parser->lookahead))
     parse_state = ts_stack_top_state(&parser->stack);
@@ -100,35 +115,9 @@ static void reduce(TSParser *parser, TSSymbol symbol, size_t child_count) {
   ts_stack_shrink(stack, stack->size - child_count);
 }
 
-static int reduce_extra(TSParser *parser, TSSymbol symbol) {
-  TSTree *last_node = NULL;
-  TS_STACK_FROM_TOP(parser->stack, entry) {
-    if (!ts_tree_is_extra(entry->node)) {
-      last_node = entry->node;
-      break;
-    }
-  }
-
-  if (last_node && last_node->symbol == symbol) {
-    reduce(parser, symbol, 1);
-    ts_tree_set_extra(parser->lookahead);
-    return 1;
-  } else {
-    return 0;
-  }
-}
-
-static void lex(TSParser *parser, TSStateId lex_state) {
-  if (parser->lookahead)
-    ts_tree_release(parser->lookahead);
-  parser->lookahead = parser->language->lex_fn(&parser->lexer, lex_state);
-}
-
-static void resize_error(TSParser *parser, TSTree *error) {
-  error->size =
-      ts_length_sub(ts_length_sub(parser->lexer.token_start_position,
-                                  ts_stack_right_position(&parser->stack)),
-                    error->padding);
+static void reduce_extra(TSParser *parser, TSSymbol symbol) {
+  reduce(parser, symbol, 1);
+  ts_tree_set_extra(parser->lookahead);
 }
 
 static int handle_error(TSParser *parser) {
@@ -172,6 +161,8 @@ static int handle_error(TSParser *parser) {
      */
     DEBUG_PARSE("LEX AGAIN");
     TSLength prev_position = parser->lexer.current_position;
+    if (parser->lookahead)
+      ts_tree_release(parser->lookahead);
     lex(parser, ts_lex_state_error);
 
     /*
@@ -201,12 +192,9 @@ static TSTree *get_root(TSParser *parser) {
   return parser->stack.entries[0].node;
 }
 
-static TSParseAction next_action(TSParser *parser) {
-  TSStateId state = ts_stack_top_state(&parser->stack);
-  if (!parser->lookahead)
-    lex(parser, parser->language->lex_states[state]);
-  return action_for(parser->language, state, parser->lookahead->symbol);
-}
+/*
+ *  Public
+ */
 
 TSParser ts_parser_make(const TSLanguage *language) {
   return (TSParser) { .lexer = ts_lexer_make(),
@@ -233,7 +221,11 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
   ts_lexer_reset(&parser->lexer, position);
 
   for (;;) {
-    TSParseAction action = next_action(parser);
+    TSStateId state = ts_stack_top_state(&parser->stack);
+    if (!parser->lookahead)
+      lex(parser, parser->language->lex_states[state]);
+    TSParseAction action = action_for(parser->language, state, parser->lookahead->symbol);
+
     DEBUG_PARSE("LOOKAHEAD %s",
                 parser->language->symbol_names[parser->lookahead->symbol]);
 
@@ -261,12 +253,8 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
         break;
 
       case TSParseActionTypeReduceExtra:
-        if (!reduce_extra(parser, action.data.symbol)) {
-          DEBUG_PARSE("ERROR");
-          if (!handle_error(parser))
-            return get_root(parser);
-        }
         DEBUG_PARSE("REDUCE EXTRA");
+        reduce_extra(parser, action.data.symbol);
         break;
 
       case TSParseActionTypeAccept:
