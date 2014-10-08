@@ -1,20 +1,29 @@
 TODO
 ====
 
-Backlog
--------
+* Performance
+  * Implement the remainder of the incremental parsing algorithm: re-use parse tree after the edit
+  * Optimize grammar compilation
 
-* Handle UTF8 strings
-* Implement assertions in regexps ('^', '$', etc)
-* Make parse error handling more robust
-* Create C and go grammars
-* Implement the remainder of the incremental parsing algorithm: reuse parse tree after the edit
-* Expand the AST Node querying API (`closest(node_name)`, `find(node_name)`, etc)
-* Add special lexical behavior for indentation-aware languages
-* Speed up grammar compilation
+* Error handling
+  * Preserve tokens within error nodes
+  * Try to minimize size of error node by looking ahead a few tokens
 
-Icebox
-------
+* Grammar Features
+  * Indentation tokens
+  * Regexp assertions
+    - [ ] '^'
+    - [ ] '$'
+    - [ ] '\b'
+  * Composing languages
+    - [ ] Rule for referencing named grammar
+    - [ ] Grammar registry object in runtime
+    - [ ] Parsing returns control to parent language
 
-* Implement Pager's [Practical general method](http://link.springer.com/article/10.1007%2FBF00290336)
-  for reducing the size of the LR(1) parse table
+* Grammars
+  * C
+  * Go
+
+* Query API
+  * closest(node name)
+  * find(node name)
