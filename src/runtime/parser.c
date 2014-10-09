@@ -33,7 +33,7 @@ static TSLength breakdown_stack(TSParser *parser, TSInputEdit *edit) {
   }
 
   TSStack *stack = &parser->stack;
-  TSLength position = ts_stack_right_position(stack);
+  TSLength position = ts_stack_total_tree_size(stack);
 
   for (;;) {
     TSTree *node = ts_stack_top_node(stack);
@@ -71,7 +71,7 @@ static TSLength breakdown_stack(TSParser *parser, TSInputEdit *edit) {
 static void resize_error(TSParser *parser, TSTree *error) {
   error->size =
       ts_length_sub(ts_length_sub(parser->lexer.token_start_position,
-                                  ts_stack_right_position(&parser->stack)),
+                                  ts_stack_total_tree_size(&parser->stack)),
                     error->padding);
 }
 
