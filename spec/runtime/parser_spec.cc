@@ -36,7 +36,7 @@ describe("Parser", [&]() {
   auto insert_text = [&](size_t position, string text) {
     size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
     AssertThat(reader->insert(position, text), IsTrue());
-    ts_document_edit(doc, { position, 0, text.length() });
+    ts_document_edit(doc, { position, text.length(), 0 });
 
     root = ts_document_root_node(doc);
     size_t new_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
@@ -46,7 +46,7 @@ describe("Parser", [&]() {
   auto delete_text = [&](size_t position, size_t length) {
     size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
     AssertThat(reader->erase(position, length), IsTrue());
-    ts_document_edit(doc, { position, length, 0 });
+    ts_document_edit(doc, { position, 0, length });
 
     root = ts_document_root_node(doc);
     size_t new_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
@@ -257,21 +257,27 @@ describe("Parser", [&]() {
 
       describe("new tokens near the beginning of the input", [&]() {
         before_each([&]() {
-          set_text("123 * 456");
+          chunk_size = 2;
+
+          set_text("123 * 456 ^ (10 + x)");
 
           AssertThat(ts_node_string(root), Equals(
-              "(DOCUMENT (product (number) (number)))"));
+              "(DOCUMENT (product "
+                  "(number) "
+                  "(exponent (number) (group (sum (number) (variable))))))"));
 
-          insert_text(strlen("123"), " + 5 ");
+          insert_text(strlen("123"), " + 5");
         });
 
         it("updates the parse tree", [&]() {
           AssertThat(ts_node_string(root), Equals(
-              "(DOCUMENT (sum (number) (product (number) (number))))"));
+              "(DOCUMENT (sum (number) (product "
+                  "(number) "
+                  "(exponent (number) (group (sum (number) (variable)))))))"));
         });
 
-        it_skip("re-reads only the changed portion of the input", [&]() {
-          AssertThat(reader->strings_read, Equals(vector<string>({ "\"key2\": 4, " })));
+        it("re-reads only the changed portion of the input", [&]() {
+          AssertThat(reader->strings_read, Equals(vector<string>({ "123 + 5 * ", "" })));
         });
       });
 

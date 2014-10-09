@@ -6,6 +6,15 @@
 
 static const char *empty_chunk = "";
 
+static void ts_lexer_read_next_chunk(TSLexer *lexer) {
+  TSInput input = lexer->input;
+  input.seek_fn(input.data, lexer->current_position);
+  lexer->chunk_start = lexer->current_position.bytes;
+  lexer->chunk = input.read_fn(input.data, &lexer->chunk_size);
+  if (!lexer->chunk_size)
+    lexer->chunk = empty_chunk;
+}
+
 static bool advance(TSLexer *lexer) {
 
   /*
@@ -27,10 +36,7 @@ static bool advance(TSLexer *lexer) {
    *  the end of the current chunk.
    */
   if (lexer->current_position.bytes >= lexer->chunk_start + lexer->chunk_size) {
-    lexer->chunk_start += lexer->chunk_size;
-    lexer->chunk = lexer->input.read_fn(lexer->input.data, &lexer->chunk_size);
-    if (!lexer->chunk_size)
-      lexer->chunk = empty_chunk;
+    ts_lexer_read_next_chunk(lexer);
   }
 
   /*
@@ -76,13 +82,12 @@ TSLexer ts_lexer_make() {
 }
 
 void ts_lexer_reset(TSLexer *lexer, TSLength position) {
-  lexer->input.seek_fn(lexer->input.data, position);
-  lexer->current_position = position;
-  lexer->token_end_position = position;
   lexer->lookahead = 0;
   lexer->lookahead_size = 0;
-  lexer->chunk_start = position.bytes;
-  lexer->chunk_size = 0;
-  lexer->chunk = lexer->input.read_fn(lexer->input.data, &lexer->chunk_size);
+
+  lexer->token_end_position = position;
+  lexer->current_position = position;
+  ts_lexer_read_next_chunk(lexer);
+
   ts_lexer_advance(lexer);
 }

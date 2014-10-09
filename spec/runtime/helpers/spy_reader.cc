@@ -36,13 +36,19 @@ SpyReader::SpyReader(string content, size_t chunk_size) :
     buffer(new char[chunk_size]),
     content(content),
     position(0),
-    chunk_size(chunk_size) {}
+    chunk_size(chunk_size),
+    strings_read({ "" }) {}
 
 SpyReader::~SpyReader() {
   delete buffer;
 }
 
 const char * SpyReader::read(size_t *bytes_read) {
+  if (position > content.size()) {
+    *bytes_read = 0;
+    return "";
+  }
+
   const char *start = content.data() + position;
   long len = position_for_char_index(start, content.size() - position, chunk_size);
   if (len < 0)
@@ -58,7 +64,8 @@ const char * SpyReader::read(size_t *bytes_read) {
 }
 
 int SpyReader::seek(size_t pos) {
-  strings_read.push_back("");
+  if (position != pos)
+    strings_read.push_back("");
   position = pos;
   return 0;
 }

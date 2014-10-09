@@ -10,6 +10,8 @@ extern "C" {
 typedef struct {
   TSLexer lexer;
   TSStack stack;
+  TSStack right_stack;
+  size_t total_chars;
   int debug;
   TSTree *lookahead;
   TSTree *next_lookahead;
