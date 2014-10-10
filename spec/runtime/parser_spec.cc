@@ -271,13 +271,15 @@ describe("Parser", [&]() {
 
         it("updates the parse tree", [&]() {
           AssertThat(ts_node_string(root), Equals(
-              "(DOCUMENT (sum (number) (product "
+              "(DOCUMENT (sum "
                   "(number) "
-                  "(exponent (number) (group (sum (number) (variable)))))))"));
+                  "(product "
+                      "(number) "
+                      "(exponent (number) (group (sum (number) (variable)))))))"));
         });
 
         it("re-reads only the changed portion of the input", [&]() {
-          AssertThat(reader->strings_read, Equals(vector<string>({ "123 + 5 * ", "" })));
+          AssertThat(reader->strings_read, Equals(vector<string>({ "123 + 5 ", "" })));
         });
       });
 

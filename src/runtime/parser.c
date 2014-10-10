@@ -107,7 +107,7 @@ static TSLength breakdown_stack(TSParser *parser, TSInputEdit *edit) {
       position = ts_length_add(position, ts_tree_total_size(child));
     }
 
-    for (size_t j = child_count - 1; j + 1 > i + 1; j--) {
+    for (size_t j = child_count - 1; j + 1 > i; j--) {
       TSTree *child = children[j];
       DEBUG_PARSE("PUSH RIGHT %s",
                   parser->language->symbol_names[child->symbol]);
@@ -127,14 +127,18 @@ static void lex(TSParser *parser, TSStateId lex_state) {
       breakdown_right_stack(parser, parser->lexer.current_position, state);
   TSTree *node = ts_stack_top_node(&parser->right_stack);
   if (node && node_position == parser->lexer.current_position.chars) {
-    DEBUG_PARSE("REUSE %s", parser->language->symbol_names[node->symbol]);
-
     ts_stack_shrink(&parser->right_stack, parser->right_stack.size - 1);
+    parser->lexer.lookahead = 0;
+    parser->lexer.lookahead_size = 0;
+
     parser->lookahead = node;
     parser->lexer.current_position =
         ts_length_add(parser->lexer.current_position, ts_tree_total_size(node));
+    DEBUG_PARSE("REUSE %s", parser->language->symbol_names[node->symbol]);
   } else {
     parser->lookahead = parser->language->lex_fn(&parser->lexer, lex_state);
+    DEBUG_PARSE("TOKEN %s",
+                parser->language->symbol_names[parser->lookahead->symbol]);
   }
 }
 
@@ -297,9 +301,6 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
       lex(parser, parser->language->lex_states[state]);
     TSParseAction action =
         action_for(parser->language, state, parser->lookahead->symbol);
-
-    DEBUG_PARSE("LOOKAHEAD %s",
-                parser->language->symbol_names[parser->lookahead->symbol]);
 
     switch (action.type) {
       case TSParseActionTypeShift:
