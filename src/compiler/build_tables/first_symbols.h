@@ -1,5 +1,5 @@
-#ifndef COMPILER_BUILD_TABLES_FIRST_SET_H_
-#define COMPILER_BUILD_TABLES_FIRST_SET_H_
+#ifndef COMPILER_BUILD_TABLES_FIRST_SYMBOLS_H_
+#define COMPILER_BUILD_TABLES_FIRST_SYMBOLS_H_
 
 #include <set>
 #include "compiler/build_tables/parse_item.h"
@@ -16,10 +16,10 @@ namespace build_tables {
  *  the beginning of a string derivable from a given rule,
  *  in a given grammar.
  */
-std::set<rules::Symbol> first_set(const rules::rule_ptr &rule,
+std::set<rules::Symbol> first_symbols(const rules::rule_ptr &rule,
                                   const SyntaxGrammar &grammar);
 
 }  // namespace build_tables
 }  // namespace tree_sitter
 
-#endif  // COMPILER_BUILD_TABLES_FIRST_SET_H_
+#endif  // COMPILER_BUILD_TABLES_FIRST_SYMBOLS_H_

@@ -1,6 +1,6 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/prepared_grammar.h"
-#include "compiler/build_tables/first_set.h"
+#include "compiler/build_tables/first_symbols.h"
 #include "compiler/rules/metadata.h"
 
 using namespace build_tables;
@@ -8,32 +8,32 @@ using namespace rules;
 
 START_TEST
 
-describe("first_set", []() {
+describe("first_symbols", []() {
   const SyntaxGrammar null_grammar;
 
   describe("for a sequence AB", [&]() {
     it("ignores B when A cannot be blank", [&]() {
       auto rule = seq({ i_token(0), i_token(1) });
 
-      AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
+      AssertThat(first_symbols(rule, null_grammar), Equals(set<Symbol>({
           Symbol(0, SymbolOptionToken),
       })));
     });
 
-    it("includes FIRST(B) when A can be blank", [&]() {
+    it("includes first_symbols(B) when A can be blank", [&]() {
       auto rule = seq({
           choice({
               i_token(0),
               blank() }),
           i_token(1) });
 
-      AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
+      AssertThat(first_symbols(rule, null_grammar), Equals(set<Symbol>({
           Symbol(0, SymbolOptionToken),
           Symbol(1, SymbolOptionToken)
       })));
     });
 
-    it("includes FIRST(A's right hand side) when A is a non-terminal", [&]() {
+    it("includes first_symbols(A's right hand side) when A is a non-terminal", [&]() {
       auto rule = choice({
           seq({
               i_token(0),
@@ -47,13 +47,14 @@ describe("first_set", []() {
               i_token(4) }) }
       }, {});
 
-      AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
+      AssertThat(first_symbols(rule, grammar), Equals(set<Symbol>({
+          Symbol(0),
           Symbol(0, SymbolOptionToken),
           Symbol(2, SymbolOptionToken),
       })));
     });
 
-    it("includes FIRST(B) when A is a non-terminal and its expansion can be blank", [&]() {
+    it("includes first_symbols(B) when A is a non-terminal and its expansion can be blank", [&]() {
       auto rule = seq({
           i_sym(0),
           i_token(1) });
@@ -64,7 +65,8 @@ describe("first_set", []() {
               blank() }) }
       }, {});
 
-      AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
+      AssertThat(first_symbols(rule, grammar), Equals(set<Symbol>({
+          Symbol(0),
           Symbol(0, SymbolOptionToken),
           Symbol(1, SymbolOptionToken),
       })));
@@ -82,7 +84,8 @@ describe("first_set", []() {
 
       auto rule = i_sym(0);
 
-      AssertThat(first_set(rule, grammar), Equals(set<Symbol>({
+      AssertThat(first_symbols(rule, grammar), Equals(set<Symbol>({
+          Symbol(0),
           Symbol(11, SymbolOptionToken)
       })));
     });
@@ -91,7 +94,7 @@ describe("first_set", []() {
   it("ignores metadata rules", [&]() {
     auto rule = make_shared<Metadata>(i_token(3), map<rules::MetadataKey, int>());
 
-    AssertThat(first_set(rule, null_grammar), Equals(set<Symbol>({
+    AssertThat(first_symbols(rule, null_grammar), Equals(set<Symbol>({
         Symbol(3, SymbolOptionToken),
     })));
   });

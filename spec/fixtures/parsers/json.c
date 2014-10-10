@@ -484,6 +484,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_aux_sym_6] = SHIFT(56),
     },
     [6] = {
+        [ts_aux_sym_array_repeat0] = REDUCE(ts_sym_value, 1),
         [ts_aux_sym_3] = REDUCE(ts_sym_value, 1),
         [ts_aux_sym_6] = REDUCE(ts_sym_value, 1),
     },
@@ -515,6 +516,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_aux_sym_6] = SHIFT(14),
     },
     [11] = {
+        [ts_aux_sym_array_repeat0] = REDUCE(ts_sym_array, 2),
         [ts_aux_sym_3] = REDUCE(ts_sym_array, 2),
         [ts_aux_sym_6] = REDUCE(ts_sym_array, 2),
     },
@@ -535,6 +537,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_aux_sym_5] = SHIFT(8),
     },
     [14] = {
+        [ts_aux_sym_array_repeat0] = REDUCE(ts_sym_array, 3),
         [ts_aux_sym_3] = REDUCE(ts_sym_array, 3),
         [ts_aux_sym_6] = REDUCE(ts_sym_array, 3),
     },
@@ -547,6 +550,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_aux_sym_6] = REDUCE(ts_aux_sym_array_repeat0, 3),
     },
     [17] = {
+        [ts_aux_sym_array_repeat0] = REDUCE(ts_sym_array, 4),
         [ts_aux_sym_3] = REDUCE(ts_sym_array, 4),
         [ts_aux_sym_6] = REDUCE(ts_sym_array, 4),
     },
@@ -559,6 +563,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_aux_sym_2] = SHIFT(21),
     },
     [20] = {
+        [ts_aux_sym_array_repeat0] = REDUCE(ts_sym_object, 2),
         [ts_aux_sym_3] = REDUCE(ts_sym_object, 2),
         [ts_aux_sym_6] = REDUCE(ts_sym_object, 2),
     },
@@ -580,6 +585,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_aux_sym_4] = SHIFT(50),
     },
     [23] = {
+        [ts_aux_sym_object_repeat0] = REDUCE(ts_sym_value, 1),
         [ts_aux_sym_3] = REDUCE(ts_sym_value, 1),
         [ts_aux_sym_4] = REDUCE(ts_sym_value, 1),
     },
@@ -608,6 +614,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_aux_sym_6] = SHIFT(29),
     },
     [27] = {
+        [ts_aux_sym_object_repeat0] = REDUCE(ts_sym_array, 2),
         [ts_aux_sym_3] = REDUCE(ts_sym_array, 2),
         [ts_aux_sym_4] = REDUCE(ts_sym_array, 2),
     },
@@ -615,10 +622,12 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_aux_sym_6] = SHIFT(30),
     },
     [29] = {
+        [ts_aux_sym_object_repeat0] = REDUCE(ts_sym_array, 3),
         [ts_aux_sym_3] = REDUCE(ts_sym_array, 3),
         [ts_aux_sym_4] = REDUCE(ts_sym_array, 3),
     },
     [30] = {
+        [ts_aux_sym_object_repeat0] = REDUCE(ts_sym_array, 4),
         [ts_aux_sym_3] = REDUCE(ts_sym_array, 4),
         [ts_aux_sym_4] = REDUCE(ts_sym_array, 4),
     },
@@ -631,6 +640,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_aux_sym_2] = SHIFT(34),
     },
     [33] = {
+        [ts_aux_sym_object_repeat0] = REDUCE(ts_sym_object, 2),
         [ts_aux_sym_3] = REDUCE(ts_sym_object, 2),
         [ts_aux_sym_4] = REDUCE(ts_sym_object, 2),
     },
@@ -659,6 +669,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_sym_string] = SHIFT(40),
     },
     [38] = {
+        [ts_aux_sym_object_repeat0] = REDUCE(ts_sym_object, 5),
         [ts_aux_sym_3] = REDUCE(ts_sym_object, 5),
         [ts_aux_sym_4] = REDUCE(ts_sym_object, 5),
     },
@@ -694,6 +705,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_aux_sym_4] = REDUCE(ts_aux_sym_object_repeat0, 3),
     },
     [45] = {
+        [ts_aux_sym_object_repeat0] = REDUCE(ts_sym_object, 6),
         [ts_aux_sym_3] = REDUCE(ts_sym_object, 6),
         [ts_aux_sym_4] = REDUCE(ts_sym_object, 6),
     },
@@ -701,10 +713,12 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_aux_sym_4] = SHIFT(48),
     },
     [47] = {
+        [ts_aux_sym_object_repeat0] = REDUCE(ts_sym_object, 3),
         [ts_aux_sym_3] = REDUCE(ts_sym_object, 3),
         [ts_aux_sym_4] = REDUCE(ts_sym_object, 3),
     },
     [48] = {
+        [ts_aux_sym_object_repeat0] = REDUCE(ts_sym_object, 4),
         [ts_aux_sym_3] = REDUCE(ts_sym_object, 4),
         [ts_aux_sym_4] = REDUCE(ts_sym_object, 4),
     },
@@ -712,10 +726,12 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_aux_sym_4] = SHIFT(51),
     },
     [50] = {
+        [ts_aux_sym_array_repeat0] = REDUCE(ts_sym_object, 5),
         [ts_aux_sym_3] = REDUCE(ts_sym_object, 5),
         [ts_aux_sym_6] = REDUCE(ts_sym_object, 5),
     },
     [51] = {
+        [ts_aux_sym_array_repeat0] = REDUCE(ts_sym_object, 6),
         [ts_aux_sym_3] = REDUCE(ts_sym_object, 6),
         [ts_aux_sym_6] = REDUCE(ts_sym_object, 6),
     },
@@ -723,10 +739,12 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_aux_sym_4] = SHIFT(54),
     },
     [53] = {
+        [ts_aux_sym_array_repeat0] = REDUCE(ts_sym_object, 3),
         [ts_aux_sym_3] = REDUCE(ts_sym_object, 3),
         [ts_aux_sym_6] = REDUCE(ts_sym_object, 3),
     },
     [54] = {
+        [ts_aux_sym_array_repeat0] = REDUCE(ts_sym_object, 4),
         [ts_aux_sym_3] = REDUCE(ts_sym_object, 4),
         [ts_aux_sym_6] = REDUCE(ts_sym_object, 4),
     },

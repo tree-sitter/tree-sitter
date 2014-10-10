@@ -3,7 +3,7 @@
 #include <vector>
 #include <utility>
 #include "tree_sitter/compiler.h"
-#include "compiler/build_tables/first_set.h"
+#include "compiler/build_tables/first_symbols.h"
 #include "compiler/build_tables/rule_transitions.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
 #include "compiler/build_tables/item.h"
@@ -47,7 +47,7 @@ const ParseItemSet item_set_closure(const ParseItem &starting_item,
       if (symbol.is_token() || symbol.is_built_in())
         continue;
 
-      set<Symbol> next_lookahead_symbols = first_set(next_rule, grammar);
+      set<Symbol> next_lookahead_symbols = first_symbols(next_rule, grammar);
       if (rule_can_be_blank(next_rule, grammar))
         next_lookahead_symbols.insert(lookahead_symbols.begin(),
                                       lookahead_symbols.end());

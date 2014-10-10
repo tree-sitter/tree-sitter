@@ -1,4 +1,4 @@
-#include "compiler/build_tables/first_set.h"
+#include "compiler/build_tables/first_symbols.h"
 #include "tree_sitter/compiler.h"
 #include "compiler/prepared_grammar.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
@@ -14,21 +14,25 @@ namespace build_tables {
 using std::set;
 using rules::Symbol;
 
-class FirstSet : public rules::RuleFn<set<Symbol> > {
+class FirstSymbols : public rules::RuleFn<set<Symbol> > {
   const SyntaxGrammar *grammar;
   set<Symbol> visited_symbols;
 
  public:
-  explicit FirstSet(const SyntaxGrammar *grammar) : grammar(grammar) {}
+  explicit FirstSymbols(const SyntaxGrammar *grammar) : grammar(grammar) {}
 
   set<Symbol> apply_to(const Symbol *rule) {
     auto insertion_result = visited_symbols.insert(*rule);
-    if (insertion_result.second) {
-      return (rule->is_token()) ? set<Symbol>({ *rule })
-                                : apply(grammar->rule(*rule));
-    } else {
+    if (!insertion_result.second)
       return set<Symbol>();
+
+    set<Symbol> result({ *rule });
+    if (!rule->is_token()) {
+      set<Symbol> &&symbols = apply(grammar->rule(*rule));
+      result.insert(symbols.begin(), symbols.end());
     }
+
+    return result;
   }
 
   set<Symbol> apply_to(const rules::Metadata *rule) {
@@ -54,8 +58,8 @@ class FirstSet : public rules::RuleFn<set<Symbol> > {
   }
 };
 
-set<Symbol> first_set(const rules::rule_ptr &rule, const SyntaxGrammar &grammar) {
-  return FirstSet(&grammar).apply(rule);
+set<Symbol> first_symbols(const rules::rule_ptr &rule, const SyntaxGrammar &grammar) {
+  return FirstSymbols(&grammar).apply(rule);
 }
 
 }  // namespace build_tables

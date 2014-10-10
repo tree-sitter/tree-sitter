@@ -13,7 +13,7 @@
         'src/compiler/build_tables/build_lex_table.cc',
         'src/compiler/build_tables/build_parse_table.cc',
         'src/compiler/build_tables/build_tables.cc',
-        'src/compiler/build_tables/first_set.cc',
+        'src/compiler/build_tables/first_symbols.cc',
         'src/compiler/build_tables/get_metadata.cc',
         'src/compiler/build_tables/item.cc',
         'src/compiler/build_tables/item_set_closure.cc',

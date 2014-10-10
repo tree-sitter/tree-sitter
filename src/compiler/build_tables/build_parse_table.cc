@@ -11,7 +11,6 @@
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/build_tables/item_set_closure.h"
 #include "compiler/build_tables/item_set_transitions.h"
-#include "compiler/build_tables/first_set.h"
 
 namespace tree_sitter {
 namespace build_tables {
