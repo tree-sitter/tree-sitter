@@ -174,7 +174,7 @@ extern const Grammar javascript = Grammar({
     { "function_expression", seq({
         keyword("function"),
         optional(sym("identifier")),
-        sym("formal_parameters"),
+        in_parens(sym("formal_parameters")),
         sym("statement_block") }) },
     { "function_call", seq({
         sym("expression"),
@@ -187,7 +187,7 @@ extern const Grammar javascript = Grammar({
         prec(10, choice({
             seq({ str("."), sym("identifier") }),
             in_brackets(sym("expression")) })) }) },
-    { "formal_parameters", in_parens(comma_sep(sym("identifier"))) },
+    { "formal_parameters", comma_sep(sym("identifier")) },
 
     // Literals
     { "comment", token(choice({
