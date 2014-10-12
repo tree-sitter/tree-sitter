@@ -75,7 +75,7 @@ class CCodeGenerator {
     line("enum {");
     indent([&]() {
       bool at_start = true;
-      for (auto symbol : parse_table.symbols)
+      for (const auto &symbol : parse_table.symbols)
         if (!symbol.is_built_in()) {
           if (at_start)
             line(symbol_id(symbol) + " = ts_builtin_sym_start,");
@@ -91,7 +91,7 @@ class CCodeGenerator {
   void symbol_names_list() {
     line("static const char *ts_symbol_names[] = {");
     indent([&]() {
-      for (auto symbol : parse_table.symbols)
+      for (const auto &symbol : parse_table.symbols)
         line("[" + symbol_id(symbol) + "] = \"" + symbol_name(symbol) + "\",");
     });
     line("};");
@@ -101,7 +101,7 @@ class CCodeGenerator {
   void hidden_symbols_list() {
     line("static const int ts_hidden_symbol_flags[SYMBOL_COUNT] = {");
     indent([&]() {
-      for (auto &symbol : parse_table.symbols)
+      for (const auto &symbol : parse_table.symbols)
         if (!symbol.is_built_in() &&
             (symbol.is_auxiliary() || rule_name(symbol)[0] == '_'))
           line("[" + symbol_id(symbol) + "] = 1,");
@@ -124,7 +124,7 @@ class CCodeGenerator {
     line("static TSStateId ts_lex_states[STATE_COUNT] = {");
     indent([&]() {
       size_t state_id = 0;
-      for (auto &state : parse_table.states)
+      for (const auto &state : parse_table.states)
         line("[" + to_string(state_id++) + "] = " +
              lex_state_index(state.lex_state_id) + ",");
     });
@@ -142,10 +142,10 @@ class CCodeGenerator {
         "ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {");
 
     indent([&]() {
-      for (auto &state : parse_table.states) {
+      for (const auto &state : parse_table.states) {
         line("[" + to_string(state_id++) + "] = {");
         indent([&]() {
-          for (auto &pair : state.actions) {
+          for (const auto &pair : state.actions) {
             line("[" + symbol_id(pair.first) + "] = ");
             code_for_parse_action(pair.second);
             add(",");
@@ -214,7 +214,7 @@ class CCodeGenerator {
   }
 
   bool has_sanitized_name(string name) {
-    for (auto &pair : sanitized_names)
+    for (const auto &pair : sanitized_names)
       if (pair.second == name)
         return true;
     return false;
@@ -252,8 +252,8 @@ class CCodeGenerator {
       add(condition_for_character_range(*ranges.begin()));
     } else {
       bool first = true;
-      for (auto &match : ranges) {
-        string part = "(" + condition_for_character_range(match) + ")";
+      for (const auto &range : ranges) {
+        string part = "(" + condition_for_character_range(range) + ")";
         if (first) {
           add(part);
         } else {
@@ -317,7 +317,7 @@ class CCodeGenerator {
     auto expected_inputs = lex_state.expected_inputs();
     if (lex_state.is_token_start)
       line("START_TOKEN();");
-    for (auto pair : lex_state.actions)
+    for (const auto &pair : lex_state.actions)
       if (!pair.first.is_empty())
         _if([&]() { condition_for_character_set(pair.first); },
             [&]() { code_for_lex_actions(pair.second, expected_inputs); });
