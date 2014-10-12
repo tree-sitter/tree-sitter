@@ -8,13 +8,16 @@
 #include "compiler/lex_table.h"
 
 namespace tree_sitter {
+
 class SyntaxGrammar;
 class LexicalGrammar;
 
 namespace build_tables {
+
 std::tuple<ParseTable, LexTable, std::vector<Conflict>> build_tables(
-    const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar);
-}
-}
+    const SyntaxGrammar &, const LexicalGrammar &);
+
+}  // namespace build_tables
+}  // namespace tree_sitter
 
 #endif  // COMPILER_BUILD_TABLES_BUILD_TABLES_H_
