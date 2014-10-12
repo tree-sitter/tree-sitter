@@ -1,12 +1,12 @@
 #include "compiler/build_tables/first_symbols.h"
-#include "tree_sitter/compiler.h"
-#include "compiler/prepared_grammar.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
-#include "compiler/rules/metadata.h"
-#include "compiler/rules/visitor.h"
-#include "compiler/rules/seq.h"
+#include "compiler/prepared_grammar.h"
 #include "compiler/rules/choice.h"
+#include "compiler/rules/metadata.h"
+#include "compiler/rules/seq.h"
 #include "compiler/rules/symbol.h"
+#include "compiler/rules/visitor.h"
+#include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -21,6 +21,7 @@ class FirstSymbols : public rules::RuleFn<set<Symbol>> {
  public:
   explicit FirstSymbols(const SyntaxGrammar *grammar) : grammar(grammar) {}
 
+ protected:
   set<Symbol> apply_to(const Symbol *rule) {
     auto insertion_result = visited_symbols.insert(*rule);
     if (!insertion_result.second)
@@ -41,9 +42,9 @@ class FirstSymbols : public rules::RuleFn<set<Symbol>> {
 
   set<Symbol> apply_to(const rules::Choice *rule) {
     set<Symbol> result;
-    for (const auto &el : rule->elements) {
-      auto &&next_syms = apply(el);
-      result.insert(next_syms.begin(), next_syms.end());
+    for (const auto &element : rule->elements) {
+      auto &&element_symbols = apply(element);
+      result.insert(element_symbols.begin(), element_symbols.end());
     }
     return result;
   }
