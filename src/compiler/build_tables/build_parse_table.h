@@ -3,17 +3,20 @@
 
 #include <utility>
 #include <vector>
-#include "tree_sitter/compiler.h"
 #include "compiler/parse_table.h"
+#include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
+
 class SyntaxGrammar;
 class LexicalGrammar;
 
 namespace build_tables {
+
 std::pair<ParseTable, std::vector<Conflict>> build_parse_table(
-    const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar);
-}
-}
+    const SyntaxGrammar &, const LexicalGrammar &);
+
+}  // namespace build_tables
+}  // namespace tree_sitter
 
 #endif  // COMPILER_BUILD_TABLES_BUILD_PARSE_TABLE_H_
