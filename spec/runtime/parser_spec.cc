@@ -53,6 +53,18 @@ describe("Parser", [&]() {
     AssertThat(new_size, Equals(prev_size - length));
   };
 
+  auto replace_text = [&](size_t position, size_t length, string new_text) {
+    size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
+    AssertThat(reader->erase(position, length), IsTrue());
+    AssertThat(reader->insert(position, new_text), IsTrue());
+
+    ts_document_edit(doc, { position, new_text.size(), length });
+
+    root = ts_document_root_node(doc);
+    size_t new_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
+    AssertThat(new_size, Equals(prev_size - length + new_text.size()));
+  };
+
   describe("handling errors", [&]() {
     before_each([&]() {
       ts_document_set_language(doc, ts_language_json());
@@ -359,6 +371,24 @@ describe("Parser", [&]() {
           AssertThat(ts_node_string(root), Equals(
               "(DOCUMENT (number) (ERROR '4'))"));
         });
+      });
+    });
+
+    describe("replacing text", [&]() {
+      it("does not try to re-use nodes that are within the edited region", [&]() {
+        ts_document_set_language(doc, ts_language_javascript());
+
+        set_text("{ x: (b.c) };");
+
+        AssertThat(ts_node_string(root), Equals(
+            "(DOCUMENT (expression_statement (object "
+                "(identifier) (expression (property_access (identifier) (identifier))))))"));
+
+        replace_text(strlen("{ x: "), strlen("(b.c)"), "b.c");
+
+        AssertThat(ts_node_string(root), Equals(
+            "(DOCUMENT (expression_statement (object "
+                "(identifier) (property_access (identifier) (identifier)))))"));
       });
     });
 

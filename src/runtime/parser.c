@@ -26,19 +26,20 @@ static TSParseAction action_for(const TSLanguage *lang, TSStateId state,
 static size_t breakdown_right_stack(TSParser *parser, TSLength cur_position,
                                     TSStateId state) {
   TSStack *stack = &parser->right_stack;
-  size_t position = parser->total_chars - ts_stack_total_tree_size(stack).chars;
+  size_t right_subtree_start =
+      parser->total_chars - ts_stack_total_tree_size(stack).chars;
 
   for (;;) {
     TSTree *node = ts_stack_top_node(stack);
     if (!node)
       break;
 
-    if (position > cur_position.chars)
+    if (right_subtree_start > cur_position.chars)
       break;
 
     bool can_be_used = action_for(parser->language, state, node->symbol).type !=
                        TSParseActionTypeError;
-    if (position == cur_position.chars && can_be_used)
+    if (right_subtree_start == cur_position.chars && can_be_used)
       break;
 
     size_t child_count;
@@ -46,16 +47,16 @@ static size_t breakdown_right_stack(TSParser *parser, TSLength cur_position,
 
     DEBUG_PARSE("POP RIGHT %s", parser->language->symbol_names[node->symbol]);
     stack->size--;
-    position += ts_tree_total_size(node).chars;
+    right_subtree_start += ts_tree_total_size(node).chars;
 
     for (size_t i = child_count - 1; i + 1 > 0; i--) {
       TSTree *child = children[i];
 
-      if (position > cur_position.chars) {
+      if (right_subtree_start > cur_position.chars) {
         DEBUG_PARSE("PUSH RIGHT %s",
                     parser->language->symbol_names[child->symbol]);
         ts_stack_push(stack, 0, child);
-        position -= ts_tree_total_size(child).chars;
+        right_subtree_start -= ts_tree_total_size(child).chars;
       } else {
         break;
       }
@@ -64,7 +65,7 @@ static size_t breakdown_right_stack(TSParser *parser, TSLength cur_position,
     ts_tree_release(node);
   }
 
-  return position;
+  return right_subtree_start;
 }
 
 static TSLength breakdown_stack(TSParser *parser, TSInputEdit *edit) {
@@ -75,40 +76,46 @@ static TSLength breakdown_stack(TSParser *parser, TSInputEdit *edit) {
     return ts_length_zero();
   }
 
-  TSStack *stack = &parser->stack;
-  TSLength position = ts_stack_total_tree_size(stack);
+  TSLength prev_size = ts_stack_total_tree_size(&parser->stack);
   parser->total_chars =
-      position.chars + edit->chars_inserted - edit->chars_removed;
+      prev_size.chars + edit->chars_inserted - edit->chars_removed;
+  TSLength left_subtree_end = prev_size;
+  size_t right_subtree_start = parser->total_chars;
 
   for (;;) {
-    TSTree *node = ts_stack_top_node(stack);
+    TSTree *node = ts_stack_top_node(&parser->stack);
     if (!node)
       break;
 
     size_t child_count;
     TSTree **children = ts_tree_children(node, &child_count);
-    if (position.chars < edit->position && !children)
+    if (left_subtree_end.chars < edit->position && !children)
       break;
 
     DEBUG_PARSE("POP LEFT %s", parser->language->symbol_names[node->symbol]);
-    stack->size--;
-    position = ts_length_sub(position, ts_tree_total_size(node));
+    parser->stack.size--;
+    left_subtree_end = ts_length_sub(left_subtree_end, ts_tree_total_size(node));
 
     size_t i = 0;
-    for (; i < child_count && position.chars < edit->position; i++) {
+    for (; i < child_count && left_subtree_end.chars < edit->position; i++) {
       TSTree *child = children[i];
-      TSStateId state = ts_stack_top_state(stack);
+      TSStateId state = ts_stack_top_state(&parser->stack);
       TSParseAction action = action_for(parser->language, state, child->symbol);
       TSStateId next_state =
           action.type == TSParseActionTypeShift ? action.data.to_state : state;
 
       DEBUG_PARSE("PUSH LEFT %s", parser->language->symbol_names[child->symbol]);
-      ts_stack_push(stack, next_state, child);
-      position = ts_length_add(position, ts_tree_total_size(child));
+      ts_stack_push(&parser->stack, next_state, child);
+      left_subtree_end =
+          ts_length_add(left_subtree_end, ts_tree_total_size(child));
     }
 
     for (size_t j = child_count - 1; j + 1 > i; j--) {
       TSTree *child = children[j];
+      right_subtree_start -= ts_tree_total_size(child).chars;
+      if (right_subtree_start < edit->position + edit->chars_inserted)
+        break;
+
       DEBUG_PARSE("PUSH RIGHT %s",
                   parser->language->symbol_names[child->symbol]);
       ts_stack_push(&parser->right_stack, 0, child);
@@ -117,8 +124,8 @@ static TSLength breakdown_stack(TSParser *parser, TSInputEdit *edit) {
     ts_tree_release(node);
   }
 
-  DEBUG_PARSE("RESUME LEFT %lu", position.chars);
-  return position;
+  DEBUG_PARSE("RESUME LEFT %lu", left_subtree_end.chars);
+  return left_subtree_end;
 }
 
 static void lex(TSParser *parser, TSStateId lex_state) {
