@@ -14,7 +14,7 @@ namespace build_tables {
 using std::set;
 using rules::Symbol;
 
-class FirstSymbols : public rules::RuleFn<set<Symbol> > {
+class FirstSymbols : public rules::RuleFn<set<Symbol>> {
   const SyntaxGrammar *grammar;
   set<Symbol> visited_symbols;
 
@@ -58,7 +58,8 @@ class FirstSymbols : public rules::RuleFn<set<Symbol> > {
   }
 };
 
-set<Symbol> first_symbols(const rules::rule_ptr &rule, const SyntaxGrammar &grammar) {
+set<Symbol> first_symbols(const rules::rule_ptr &rule,
+                          const SyntaxGrammar &grammar) {
   return FirstSymbols(&grammar).apply(rule);
 }
 

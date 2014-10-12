@@ -25,30 +25,28 @@ PreparedGrammar::PreparedGrammar() {}
 SyntaxGrammar::SyntaxGrammar() {}
 LexicalGrammar::LexicalGrammar() {}
 
-SyntaxGrammar::SyntaxGrammar(
-    const vector<pair<string, rules::rule_ptr> > &rules,
-    const vector<pair<string, rules::rule_ptr> > &aux_rules)
+SyntaxGrammar::SyntaxGrammar(const vector<pair<string, rules::rule_ptr>> &rules,
+                             const vector<pair<string, rules::rule_ptr>> &aux_rules)
     : PreparedGrammar(rules, aux_rules) {}
 
 LexicalGrammar::LexicalGrammar(
-    const vector<pair<string, rules::rule_ptr> > &rules,
-    const vector<pair<string, rules::rule_ptr> > &aux_rules)
+    const vector<pair<string, rules::rule_ptr>> &rules,
+    const vector<pair<string, rules::rule_ptr>> &aux_rules)
     : PreparedGrammar(rules, aux_rules) {}
 
 PreparedGrammar::PreparedGrammar(
-    const vector<pair<string, rules::rule_ptr> > &rules,
-    const vector<pair<string, rules::rule_ptr> > &aux_rules)
+    const vector<pair<string, rules::rule_ptr>> &rules,
+    const vector<pair<string, rules::rule_ptr>> &aux_rules)
     : rules(rules), aux_rules(aux_rules) {}
 
-SyntaxGrammar::SyntaxGrammar(
-    const vector<pair<string, rules::rule_ptr> > &rules,
-    const vector<pair<string, rules::rule_ptr> > &aux_rules,
-    const set<rules::Symbol> &ubiquitous_tokens)
+SyntaxGrammar::SyntaxGrammar(const vector<pair<string, rules::rule_ptr>> &rules,
+                             const vector<pair<string, rules::rule_ptr>> &aux_rules,
+                             const set<rules::Symbol> &ubiquitous_tokens)
     : PreparedGrammar(rules, aux_rules), ubiquitous_tokens(ubiquitous_tokens) {}
 
 LexicalGrammar::LexicalGrammar(
-    const vector<pair<string, rules::rule_ptr> > &rules,
-    const vector<pair<string, rules::rule_ptr> > &aux_rules,
+    const vector<pair<string, rules::rule_ptr>> &rules,
+    const vector<pair<string, rules::rule_ptr>> &aux_rules,
     const vector<rules::rule_ptr> &separators)
     : PreparedGrammar(rules, aux_rules), separators(separators) {}
 

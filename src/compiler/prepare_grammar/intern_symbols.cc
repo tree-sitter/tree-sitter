@@ -48,7 +48,7 @@ pair<Grammar, const GrammarError *> missing_rule_error(string rule_name) {
 
 pair<Grammar, const GrammarError *> intern_symbols(const Grammar &grammar) {
   InternSymbols interner(grammar);
-  vector<pair<string, rule_ptr> > rules;
+  vector<pair<string, rule_ptr>> rules;
 
   for (auto &pair : grammar.rules()) {
     auto new_rule = interner.apply(pair.second);

@@ -43,6 +43,7 @@ class RuleFn : private Visitor {
 
  protected:
   virtual T default_apply(const Rule *rule) { return T(); }
+
   virtual T apply_to(const Blank *rule) {
     return default_apply((const Rule *)rule);
   }

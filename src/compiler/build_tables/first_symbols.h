@@ -17,7 +17,7 @@ namespace build_tables {
  *  in a given grammar.
  */
 std::set<rules::Symbol> first_symbols(const rules::rule_ptr &rule,
-                                  const SyntaxGrammar &grammar);
+                                      const SyntaxGrammar &grammar);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

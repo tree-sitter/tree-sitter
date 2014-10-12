@@ -20,7 +20,7 @@ class ParseItem : public Item {
 
 std::ostream &operator<<(std::ostream &stream, const ParseItem &item);
 
-typedef std::unordered_map<ParseItem, std::set<rules::Symbol> > ParseItemSet;
+typedef std::unordered_map<ParseItem, std::set<rules::Symbol>> ParseItemSet;
 
 }  // namespace build_tables
 }  // namespace tree_sitter

@@ -47,11 +47,11 @@ class ExpandRepeats : public rules::IdentityRuleFn {
       : rule_name(rule_name), offset(offset) {}
 
   size_t offset;
-  vector<pair<string, rules::rule_ptr> > aux_rules;
+  vector<pair<string, rules::rule_ptr>> aux_rules;
 };
 
 SyntaxGrammar expand_repeats(const SyntaxGrammar &grammar) {
-  vector<pair<string, rules::rule_ptr> > rules, aux_rules(grammar.aux_rules);
+  vector<pair<string, rules::rule_ptr>> rules, aux_rules(grammar.aux_rules);
 
   for (auto &pair : grammar.rules) {
     ExpandRepeats expander(pair.first, aux_rules.size());

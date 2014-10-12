@@ -45,7 +45,7 @@ void merge_transitions(map<Symbol, rule_ptr> *left,
 }
 
 template <typename T>
-class RuleTransitions : public rules::RuleFn<map<T, rule_ptr> > {
+class RuleTransitions : public rules::RuleFn<map<T, rule_ptr>> {
   map<T, rule_ptr> apply_to_atom(const rules::Rule *rule) {
     auto atom = dynamic_cast<const T *>(rule);
     if (atom)

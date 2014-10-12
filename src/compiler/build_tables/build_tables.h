@@ -12,7 +12,7 @@ class SyntaxGrammar;
 class LexicalGrammar;
 
 namespace build_tables {
-std::tuple<ParseTable, LexTable, std::vector<Conflict> > build_tables(
+std::tuple<ParseTable, LexTable, std::vector<Conflict>> build_tables(
     const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar);
 }
 }

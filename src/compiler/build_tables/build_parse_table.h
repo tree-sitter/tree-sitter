@@ -11,7 +11,7 @@ class SyntaxGrammar;
 class LexicalGrammar;
 
 namespace build_tables {
-std::pair<ParseTable, std::vector<Conflict> > build_parse_table(
+std::pair<ParseTable, std::vector<Conflict>> build_parse_table(
     const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar);
 }
 }

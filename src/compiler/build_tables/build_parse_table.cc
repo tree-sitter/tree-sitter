@@ -28,7 +28,7 @@ class ParseTableBuilder {
   const SyntaxGrammar grammar;
   ParseConflictManager conflict_manager;
   unordered_map<const ParseItemSet, ParseStateId> parse_state_ids;
-  vector<pair<ParseItemSet, ParseStateId> > item_sets_to_process;
+  vector<pair<ParseItemSet, ParseStateId>> item_sets_to_process;
   ParseTable parse_table;
 
   ParseStateId add_parse_state(const ParseItemSet &item_set) {
@@ -132,7 +132,7 @@ class ParseTableBuilder {
       : grammar(grammar),
         conflict_manager(ParseConflictManager(grammar, lex_grammar)) {}
 
-  pair<ParseTable, vector<Conflict> > build() {
+  pair<ParseTable, vector<Conflict>> build() {
     auto start_symbol = grammar.rules.empty()
                             ? make_shared<Symbol>(0, rules::SymbolOptionToken)
                             : make_shared<Symbol>(0);
@@ -162,7 +162,7 @@ class ParseTableBuilder {
   }
 };
 
-pair<ParseTable, vector<Conflict> > build_parse_table(
+pair<ParseTable, vector<Conflict>> build_parse_table(
     const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar) {
   return ParseTableBuilder(grammar, lex_grammar).build();
 }
