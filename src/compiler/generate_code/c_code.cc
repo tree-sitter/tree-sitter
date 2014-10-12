@@ -1,24 +1,25 @@
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
-#include <functional>
 #include <utility>
 #include <vector>
 #include "compiler/generate_code/c_code.h"
-#include "compiler/util/string_helpers.h"
-#include "compiler/rules/built_in_symbols.h"
+#include "compiler/lex_table.h"
+#include "compiler/parse_table.h"
 #include "compiler/prepared_grammar.h"
+#include "compiler/rules/built_in_symbols.h"
+#include "compiler/util/string_helpers.h"
 
 namespace tree_sitter {
 namespace generate_code {
 
-using std::string;
-using std::to_string;
 using std::function;
 using std::map;
-using std::vector;
 using std::set;
-using std::pair;
+using std::string;
+using std::to_string;
+using std::vector;
 using util::escape_char;
 
 class CCodeGenerator {
@@ -46,32 +47,32 @@ class CCodeGenerator {
   string code() {
     buffer = "";
 
-    includes();
-    state_and_symbol_counts();
-    symbol_enum();
-    symbol_names_list();
-    hidden_symbols_list();
-    lex_function();
-    lex_states_list();
-    parse_table_array();
-    parser_export();
+    add_includes();
+    add_state_and_symbol_counts();
+    add_symbol_enum();
+    add_symbol_names_list();
+    add_hidden_symbols_list();
+    add_lex_function();
+    add_lex_states_list();
+    add_parse_table();
+    add_parser_export();
 
     return buffer;
   }
 
  private:
-  void includes() {
+  void add_includes() {
     add("#include \"tree_sitter/parser.h\"");
     line();
   }
 
-  void state_and_symbol_counts() {
+  void add_state_and_symbol_counts() {
     line("#define STATE_COUNT " + to_string(parse_table.states.size()));
     line("#define SYMBOL_COUNT " + to_string(parse_table.symbols.size()));
     line();
   }
 
-  void symbol_enum() {
+  void add_symbol_enum() {
     line("enum {");
     indent([&]() {
       bool at_start = true;
@@ -88,7 +89,7 @@ class CCodeGenerator {
     line();
   }
 
-  void symbol_names_list() {
+  void add_symbol_names_list() {
     line("static const char *ts_symbol_names[] = {");
     indent([&]() {
       for (const auto &symbol : parse_table.symbols)
@@ -98,7 +99,7 @@ class CCodeGenerator {
     line();
   }
 
-  void hidden_symbols_list() {
+  void add_hidden_symbols_list() {
     line("static const int ts_hidden_symbol_flags[SYMBOL_COUNT] = {");
     indent([&]() {
       for (const auto &symbol : parse_table.symbols)
@@ -110,17 +111,24 @@ class CCodeGenerator {
     line();
   }
 
-  void lex_function() {
+  void add_lex_function() {
     line("static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {");
     indent([&]() {
       line("START_LEXER();");
-      switch_on_lex_state();
+      _switch("lex_state", [&]() {
+        for (size_t i = 0; i < lex_table.states.size(); i++)
+          _case(lex_state_index(i),
+                [&]() { add_lex_state(lex_table.states[i]); });
+        _case("ts_lex_state_error",
+              [&]() { add_lex_state(lex_table.error_state); });
+        _default([&]() { line("LEX_ERROR();"); });
+      });
     });
     line("}");
     line();
   }
 
-  void lex_states_list() {
+  void add_lex_states_list() {
     line("static TSStateId ts_lex_states[STATE_COUNT] = {");
     indent([&]() {
       size_t state_id = 0;
@@ -132,7 +140,7 @@ class CCodeGenerator {
     line();
   }
 
-  void parse_table_array() {
+  void add_parse_table() {
     size_t state_id = 0;
     line("#pragma GCC diagnostic push");
     line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
@@ -147,7 +155,7 @@ class CCodeGenerator {
         indent([&]() {
           for (const auto &pair : state.actions) {
             line("[" + symbol_id(pair.first) + "] = ");
-            code_for_parse_action(pair.second);
+            add_parse_action(pair.second);
             add(",");
           }
         });
@@ -161,15 +169,104 @@ class CCodeGenerator {
     line();
   }
 
-  void parser_export() {
+  void add_parser_export() {
     line("EXPORT_LANGUAGE(ts_language_" + name + ");");
     line();
   }
 
-  string rule_name(const rules::Symbol &symbol) {
-    return symbol.is_token() ? lexical_grammar.rule_name(symbol)
-                             : syntax_grammar.rule_name(symbol);
+  void add_lex_state(const LexState &lex_state) {
+    auto expected_inputs = lex_state.expected_inputs();
+    if (lex_state.is_token_start)
+      line("START_TOKEN();");
+    for (const auto &pair : lex_state.actions)
+      if (!pair.first.is_empty())
+        _if([&]() { add_character_set_condition(pair.first); },
+            [&]() { add_lex_actions(pair.second, expected_inputs); });
+    add_lex_actions(lex_state.default_action, expected_inputs);
   }
+
+  void add_character_set_condition(const rules::CharacterSet &rule) {
+    if (rule.includes_all) {
+      add("!(");
+      add_character_range_conditions(rule.excluded_ranges());
+      add(")");
+    } else {
+      add_character_range_conditions(rule.included_ranges());
+    }
+  }
+
+  void add_character_range_conditions(const vector<rules::CharacterRange> &ranges) {
+    if (ranges.size() == 1) {
+      add_character_range_condition(*ranges.begin());
+    } else {
+      bool first = true;
+      for (const auto &range : ranges) {
+        if (!first) {
+          add(" ||");
+          line();
+          add_padding();
+        }
+
+        add("(");
+        add_character_range_condition(range);
+        add(")");
+
+        first = false;
+      }
+    }
+  }
+
+  void add_character_range_condition(const rules::CharacterRange &range) {
+    string lookahead("lookahead");
+    if (range.min == range.max) {
+      add(lookahead + " == " + escape_char(range.min));
+    } else {
+      add(escape_char(range.min) + string(" <= ") + lookahead + " && " +
+          lookahead + " <= " + escape_char(range.max));
+    }
+  }
+
+  void add_lex_actions(const LexAction &action,
+                       const set<rules::CharacterSet> &expected_inputs) {
+    switch (action.type) {
+      case LexActionTypeAdvance:
+        line("ADVANCE(" + lex_state_index(action.state_index) + ");");
+        break;
+      case LexActionTypeAccept:
+        line("ACCEPT_TOKEN(" + symbol_id(action.symbol) + ");");
+        break;
+      case LexActionTypeError:
+        line("LEX_ERROR();");
+        break;
+      default: {}
+    }
+  }
+
+  void add_parse_action(const ParseAction &action) {
+    switch (action.type) {
+      case ParseActionTypeAccept:
+        add("ACCEPT_INPUT()");
+        break;
+      case ParseActionTypeShift:
+        add("SHIFT(" + to_string(action.state_index) + ")");
+        break;
+      case ParseActionTypeShiftExtra:
+        add("SHIFT_EXTRA()");
+        break;
+      case ParseActionTypeReduce:
+        add("REDUCE(" + symbol_id(action.symbol) + ", " +
+            to_string(action.consumed_symbol_count) + ")");
+        break;
+      case ParseActionTypeReduceExtra:
+        add("REDUCE_EXTRA(" + symbol_id(action.symbol) + ")");
+        break;
+      default: {}
+    }
+  }
+
+  // Helper functions
+
+  string lex_state_index(size_t i) { return to_string(i + 1); }
 
   string symbol_id(const rules::Symbol &symbol) {
     if (symbol.is_built_in()) {
@@ -186,6 +283,49 @@ class CCodeGenerator {
       else
         return "ts_sym_" + name;
     }
+  }
+
+  string symbol_name(const rules::Symbol &symbol) {
+    if (symbol.is_built_in()) {
+      if (symbol == rules::ERROR())
+        return "error";
+      else if (symbol == rules::END_OF_INPUT())
+        return "end";
+      else
+        return "DOCUMENT";
+    } else {
+      return rule_name(symbol);
+    }
+  }
+
+  string rule_name(const rules::Symbol &symbol) {
+    return symbol.is_token() ? lexical_grammar.rule_name(symbol)
+                             : syntax_grammar.rule_name(symbol);
+  }
+
+  // C-code generation functions
+
+  void _switch(string condition, function<void()> body) {
+    line("switch (" + condition + ") {");
+    indent(body);
+    line("}");
+  }
+
+  void _case(string value, function<void()> body) {
+    line("case " + value + ":");
+    indent(body);
+  }
+
+  void _default(function<void()> body) {
+    line("default:");
+    indent(body);
+  }
+
+  void _if(function<void()> condition, function<void()> body) {
+    line("if (");
+    indent(condition);
+    add(")");
+    indent(body);
   }
 
   string sanitize_name(string name) {
@@ -220,165 +360,30 @@ class CCodeGenerator {
     return false;
   }
 
-  string lex_state_index(size_t i) { return to_string(i + 1); }
-
-  string symbol_name(const rules::Symbol &symbol) {
-    if (symbol.is_built_in()) {
-      if (symbol == rules::ERROR())
-        return "error";
-      else if (symbol == rules::END_OF_INPUT())
-        return "end";
-      else
-        return "DOCUMENT";
-    } else if (symbol.is_token() && symbol.is_auxiliary()) {
-      return rule_name(symbol);
-    } else {
-      return rule_name(symbol);
-    }
-  }
-
-  string condition_for_character_range(const rules::CharacterRange &range) {
-    string lookahead("lookahead");
-    if (range.min == range.max) {
-      return lookahead + " == " + escape_char(range.min);
-    } else {
-      return escape_char(range.min) + string(" <= ") + lookahead + " && " +
-             lookahead + " <= " + escape_char(range.max);
-    }
-  }
-
-  void condition_for_character_ranges(const vector<rules::CharacterRange> &ranges) {
-    if (ranges.size() == 1) {
-      add(condition_for_character_range(*ranges.begin()));
-    } else {
-      bool first = true;
-      for (const auto &range : ranges) {
-        string part = "(" + condition_for_character_range(range) + ")";
-        if (first) {
-          add(part);
-        } else {
-          add(" ||");
-          line(part);
-        }
-        first = false;
-      }
-    }
-  }
-
-  void condition_for_character_set(const rules::CharacterSet &rule) {
-    if (rule.includes_all) {
-      add("!(");
-      condition_for_character_ranges(rule.excluded_ranges());
-      add(")");
-    } else {
-      condition_for_character_ranges(rule.included_ranges());
-    }
-  }
-
-  void code_for_parse_action(const ParseAction &action) {
-    switch (action.type) {
-      case ParseActionTypeAccept:
-        add("ACCEPT_INPUT()");
-        break;
-      case ParseActionTypeShift:
-        add("SHIFT(" + to_string(action.state_index) + ")");
-        break;
-      case ParseActionTypeShiftExtra:
-        add("SHIFT_EXTRA()");
-        break;
-      case ParseActionTypeReduce:
-        add("REDUCE(" + symbol_id(action.symbol) + ", " +
-            to_string(action.consumed_symbol_count) + ")");
-        break;
-      case ParseActionTypeReduceExtra:
-        add("REDUCE_EXTRA(" + symbol_id(action.symbol) + ")");
-        break;
-      default: {}
-    }
-  }
-
-  void code_for_lex_actions(const LexAction &action,
-                            const set<rules::CharacterSet> &expected_inputs) {
-    switch (action.type) {
-      case LexActionTypeAdvance:
-        line("ADVANCE(" + lex_state_index(action.state_index) + ");");
-        break;
-      case LexActionTypeAccept:
-        line("ACCEPT_TOKEN(" + symbol_id(action.symbol) + ");");
-        break;
-      case LexActionTypeError:
-        line("LEX_ERROR();");
-        break;
-      default: {}
-    }
-  }
-
-  void code_for_lex_state(const LexState &lex_state) {
-    auto expected_inputs = lex_state.expected_inputs();
-    if (lex_state.is_token_start)
-      line("START_TOKEN();");
-    for (const auto &pair : lex_state.actions)
-      if (!pair.first.is_empty())
-        _if([&]() { condition_for_character_set(pair.first); },
-            [&]() { code_for_lex_actions(pair.second, expected_inputs); });
-    code_for_lex_actions(lex_state.default_action, expected_inputs);
-  }
-
-  void switch_on_lex_state() {
-    _switch("lex_state", [&]() {
-      for (size_t i = 0; i < lex_table.states.size(); i++)
-        _case(lex_state_index(i),
-              [&]() { code_for_lex_state(lex_table.states[i]); });
-      _case("ts_lex_state_error",
-            [&]() { code_for_lex_state(lex_table.error_state); });
-      _default([&]() { line("LEX_ERROR();"); });
-    });
-  }
-
-  void _switch(string condition, function<void()> body) {
-    line("switch (" + condition + ") {");
-    indent(body);
-    line("}");
-  }
-
-  void _case(string value, function<void()> body) {
-    line("case " + value + ":");
-    indent(body);
-  }
-
-  void _default(function<void()> body) {
-    line("default:");
-    indent(body);
-  }
-
-  void _if(function<void()> condition, function<void()> body) {
-    line("if (");
-    indent(condition);
-    add(")");
-    indent(body);
-  }
+  // General code generation functions
 
   void line() { line(""); }
 
   void line(string input) {
     add("\n");
     if (!input.empty()) {
-      string space;
-      for (size_t i = 0; i < indent_level; i++)
-        space += "    ";
-      add(space + input);
+      add_padding();
+      add(input);
     }
   }
 
-  void add(string input) { buffer += input; }
-
-  void indent(function<void()> body) { indent(body, 1); }
-
-  void indent(function<void()> body, size_t n) {
-    indent_level += n;
-    body();
-    indent_level -= n;
+  void add_padding() {
+    for (size_t i = 0; i < indent_level; i++)
+      add("    ");
   }
+
+  void indent(function<void()> body) {
+    indent_level++;
+    body();
+    indent_level--;
+  }
+
+  void add(string input) { buffer += input; }
 };
 
 string c_code(string name, const ParseTable &parse_table,
