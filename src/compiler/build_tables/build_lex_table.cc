@@ -1,33 +1,32 @@
-#include "compiler/build_tables/build_tables.h"
-#include <string>
-#include <utility>
 #include <map>
 #include <set>
-#include <vector>
+#include <string>
 #include <unordered_map>
-#include "compiler/prepared_grammar.h"
-#include "compiler/rules/built_in_symbols.h"
-#include "compiler/rules/metadata.h"
-#include "compiler/rules/choice.h"
-#include "compiler/rules/repeat.h"
-#include "compiler/rules/blank.h"
-#include "compiler/rules/seq.h"
+#include <utility>
+#include <vector>
+#include "compiler/build_tables/item_set_transitions.h"
 #include "compiler/build_tables/lex_conflict_manager.h"
 #include "compiler/build_tables/lex_item.h"
-#include "compiler/build_tables/item_set_transitions.h"
+#include "compiler/parse_table.h"
+#include "compiler/prepared_grammar.h"
+#include "compiler/rules/built_in_symbols.h"
+#include "compiler/rules/choice.h"
+#include "compiler/rules/metadata.h"
+#include "compiler/rules/repeat.h"
+#include "compiler/rules/seq.h"
 
 namespace tree_sitter {
 namespace build_tables {
 
-using std::string;
-using std::map;
-using std::unordered_map;
-using std::set;
-using std::make_shared;
-using std::vector;
 using std::dynamic_pointer_cast;
-using rules::Symbol;
+using std::make_shared;
+using std::map;
+using std::set;
+using std::string;
+using std::unordered_map;
+using std::vector;
 using rules::CharacterSet;
+using rules::Symbol;
 
 class LexTableBuilder {
   const LexicalGrammar lex_grammar;
@@ -36,14 +35,32 @@ class LexTableBuilder {
   unordered_map<const LexItemSet, LexStateId> lex_state_ids;
   LexTable lex_table;
 
+ public:
+  LexTableBuilder(ParseTable *parse_table, const LexicalGrammar &lex_grammar)
+      : lex_grammar(lex_grammar),
+        parse_table(parse_table),
+        conflict_manager(LexConflictManager(lex_grammar)) {}
+
+  LexTable build() {
+    for (auto &parse_state : parse_table->states) {
+      LexItemSet item_set = build_lex_item_set(parse_state.expected_inputs());
+      parse_state.lex_state_id = add_lex_state(item_set);
+    }
+    add_error_lex_state();
+    return lex_table;
+  }
+
+ private:
   LexItemSet build_lex_item_set(const set<Symbol> &symbols) {
     LexItemSet result;
     for (const auto &symbol : symbols) {
       if (symbol == rules::ERROR())
         continue;
-      else if (symbol == rules::END_OF_INPUT())
+
+      if (symbol == rules::END_OF_INPUT())
         result.insert(LexItem(
             symbol, after_separators(CharacterSet().include(0).copy())));
+
       else if (symbol.is_token())
         result.insert(
             LexItem(symbol, after_separators(lex_grammar.rule(symbol))));
@@ -52,7 +69,7 @@ class LexTableBuilder {
   }
 
   LexStateId add_lex_state(const LexItemSet &item_set) {
-    auto pair = lex_state_ids.find(item_set);
+    const auto &pair = lex_state_ids.find(item_set);
     if (pair == lex_state_ids.end()) {
       LexStateId state_id = lex_table.add_state();
       lex_state_ids[item_set] = state_id;
@@ -88,14 +105,13 @@ class LexTableBuilder {
   }
 
   void add_accept_token_actions(const LexItemSet &item_set, LexStateId state_id) {
-    for (const LexItem &item : item_set) {
+    for (const LexItem &item : item_set)
       if (item.is_done()) {
         auto current_action = lex_table.state(state_id).default_action;
         auto new_action = LexAction::Accept(item.lhs, item.precedence());
         if (conflict_manager.resolve_lex_action(current_action, new_action))
           lex_table.state(state_id).default_action = new_action;
       }
-    }
   }
 
   void add_token_start(const LexItemSet &item_set, LexStateId state_id) {
@@ -104,11 +120,20 @@ class LexTableBuilder {
         lex_table.state(state_id).is_token_start = true;
   }
 
+  rules::rule_ptr after_separators(rules::rule_ptr rule) {
+    return rules::Seq::Build(
+        { make_shared<rules::Metadata>(
+              separator_rule(),
+              map<rules::MetadataKey, int>(
+                  { { rules::START_TOKEN, 1 }, { rules::PRECEDENCE, -1 }, })),
+          rule, });
+  }
+
   // TODO - remove this hack. right now, nested repeats cause
   // item sets which are equivalent to appear unequal.
-  rules::rule_ptr separators() const {
-    std::vector<rules::rule_ptr> separators;
-    for (auto &rule : lex_grammar.separators) {
+  rules::rule_ptr separator_rule() const {
+    vector<rules::rule_ptr> separators;
+    for (const auto &rule : lex_grammar.separators) {
       auto repeat = dynamic_pointer_cast<const rules::Repeat>(rule);
       if (repeat.get())
         separators.push_back(repeat->content);
@@ -118,41 +143,16 @@ class LexTableBuilder {
     return rules::repeat(rules::choice(separators));
   }
 
-  rules::rule_ptr after_separators(rules::rule_ptr rule) {
-    return rules::Seq::Build(
-        { make_shared<rules::Metadata>(
-              separators(),
-              map<rules::MetadataKey, int>(
-                  { { rules::START_TOKEN, 1 }, { rules::PRECEDENCE, -1 }, })),
-          rule, });
-  }
-
   set<int> precedence_values_for_item_set(const LexItemSet &item_set) const {
     set<int> result;
     for (const auto &item : item_set)
       result.insert(item.precedence());
     return result;
   }
-
- public:
-  LexTableBuilder(ParseTable *parse_table, const LexicalGrammar &lex_grammar)
-      : lex_grammar(lex_grammar),
-        parse_table(parse_table),
-        conflict_manager(LexConflictManager(lex_grammar)) {}
-
-  LexTable build() {
-    for (auto &parse_state : parse_table->states) {
-      LexItemSet item_set = build_lex_item_set(parse_state.expected_inputs());
-      parse_state.lex_state_id = add_lex_state(item_set);
-    }
-    add_error_lex_state();
-    return lex_table;
-  }
 };
 
-LexTable build_lex_table(ParseTable *parse_table,
-                         const LexicalGrammar &lex_grammar) {
-  return LexTableBuilder(parse_table, lex_grammar).build();
+LexTable build_lex_table(ParseTable *table, const LexicalGrammar &grammar) {
+  return LexTableBuilder(table, grammar).build();
 }
 
 }  // namespace build_tables

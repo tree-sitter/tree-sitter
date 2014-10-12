@@ -11,8 +11,7 @@ class ParseTable;
 
 namespace build_tables {
 
-LexTable build_lex_table(ParseTable *parse_table,
-                         const LexicalGrammar &lex_grammar);
+LexTable build_lex_table(ParseTable *, const LexicalGrammar &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter
