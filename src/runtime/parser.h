@@ -12,14 +12,16 @@ typedef struct {
   TSStack stack;
   TSStack right_stack;
   size_t total_chars;
-  int debug;
   TSTree *lookahead;
   TSTree *next_lookahead;
   const TSLanguage *language;
+  TSDebugger debugger;
 } TSParser;
 
-TSParser ts_parser_make(const TSLanguage *);
+TSParser ts_parser_make();
 void ts_parser_destroy(TSParser *);
+void ts_parser_debug_parse(TSParser *, TSDebugger);
+void ts_parser_debug_lex(TSParser *, TSDebugger);
 const TSTree *ts_parser_parse(TSParser *, TSInput, TSInputEdit *);
 
 #ifdef __cplusplus

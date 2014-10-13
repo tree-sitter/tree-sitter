@@ -69,7 +69,7 @@ static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
 TSLexer ts_lexer_make() {
   TSLexer result = (TSLexer) { .advance_fn = advance,
                                .accept_fn = accept,
-                               .debug = 0,
+                               .debugger = {},
                                .chunk = NULL,
                                .chunk_start = 0,
                                .chunk_size = 0,

@@ -21,6 +21,12 @@ typedef struct {
 } TSInput;
 
 typedef struct {
+  void *data;
+  void (*debug_fn)(void *data, const char *);
+  void (*release_fn)(void *data);
+} TSDebugger;
+
+typedef struct {
   size_t position;
   size_t chars_inserted;
   size_t chars_removed;
@@ -53,7 +59,8 @@ void ts_document_set_language(TSDocument *, const TSLanguage *);
 void ts_document_set_input(TSDocument *, TSInput);
 void ts_document_set_input_string(TSDocument *, const char *);
 void ts_document_edit(TSDocument *, TSInputEdit);
-void ts_document_set_debug(TSDocument *, int);
+void ts_document_debug_parse(TSDocument *, TSDebugger);
+void ts_document_debug_lex(TSDocument *, TSDebugger);
 TSNode *ts_document_root_node(const TSDocument *);
 
 #define ts_builtin_sym_error 0

@@ -7,10 +7,13 @@ struct TSDocument {
   TSParser parser;
   TSInput input;
   TSNode *node;
-  int debug;
 };
 
-TSDocument *ts_document_make() { return calloc(sizeof(TSDocument), 1); }
+TSDocument *ts_document_make() {
+  TSDocument *document = calloc(sizeof(TSDocument), 1);
+  document->parser = ts_parser_make();
+  return document;
+}
 
 void ts_document_free(TSDocument *document) {
   ts_parser_destroy(&document->parser);
@@ -33,19 +36,16 @@ static void reparse(TSDocument *document, TSInputEdit *edit) {
 }
 
 void ts_document_set_language(TSDocument *document, const TSLanguage *language) {
-  ts_parser_destroy(&document->parser);
-  document->parser = ts_parser_make(language);
-  ts_document_set_debug(document, document->debug);
+  document->parser.language = language;
   reparse(document, NULL);
 }
 
-void ts_document_set_debug(TSDocument *document, int debug) {
-  document->debug = debug;
-  document->parser.debug = debug;
-  if (debug > 1)
-    document->parser.lexer.debug = 1;
-  else
-    document->parser.lexer.debug = 0;
+void ts_document_debug_parse(TSDocument *document, TSDebugger debugger) {
+  ts_parser_debug_parse(&document->parser, debugger);
+}
+
+void ts_document_debug_lex(TSDocument *document, TSDebugger debugger) {
+  ts_parser_debug_lex(&document->parser, debugger);
 }
 
 void ts_document_set_input(TSDocument *document, TSInput input) {

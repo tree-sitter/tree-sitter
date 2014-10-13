@@ -13,10 +13,10 @@ extern "C" {
 typedef struct TSTree TSTree;
 
 #define ts_lex_state_error 0
+#define TS_DEBUG_BUFFER_SIZE 512
 
 typedef struct TSLexer {
   TSInput input;
-  int debug;
 
   const char *chunk;
   size_t chunk_start;
@@ -31,6 +31,9 @@ typedef struct TSLexer {
 
   TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, int);
   bool (*advance_fn)(struct TSLexer *);
+
+  TSDebugger debugger;
+  char debug_buffer[TS_DEBUG_BUFFER_SIZE];
 } TSLexer;
 
 static inline int32_t ts_lexer_lookahead_char(const TSLexer *lexer) {
@@ -81,42 +84,42 @@ struct TSLanguage {
   TSTree *(*lex_fn)(TSLexer *, TSStateId);
 };
 
-#define DEBUG_LEX(...)            \
-  if (lexer->debug) {             \
-    fprintf(stderr, "LEX ");      \
-    fprintf(stderr, __VA_ARGS__); \
-    fprintf(stderr, "\n");        \
+#define DEBUG_LEX(...)                                                   \
+  if (lexer->debugger.debug_fn) {                                        \
+    snprintf(lexer->debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__);    \
+    lexer->debugger.debug_fn(lexer->debugger.data, lexer->debug_buffer); \
   }
 
-#define START_LEXER()                                                     \
-  DEBUG_LEX("START %d", lex_state);                                       \
-  int32_t lookahead;                                                      \
-  next_state:                                                             \
-  lookahead = ts_lexer_lookahead_char(lexer);                             \
-  DEBUG_LEX((0 < lookahead &&lookahead <= 255 ? "CHAR '%c'" : "CHAR %d"), \
+#define START_LEXER()                                                \
+  DEBUG_LEX("start state:%d", lex_state);                            \
+  int32_t lookahead;                                                 \
+  next_state:                                                        \
+  lookahead = ts_lexer_lookahead_char(lexer);                        \
+  DEBUG_LEX((0 < lookahead &&lookahead < 255 ? "lookahead char:'%c'" \
+                                             : "lookahead char:%d"), \
             lookahead);
 
-#define START_TOKEN()                                          \
-  DEBUG_LEX("START TOKEN %lu", lexer->current_position.chars); \
+#define START_TOKEN()                                                \
+  DEBUG_LEX("start_token chars:%lu", lexer->current_position.chars); \
   ts_lexer_start_token(lexer);
 
-#define ADVANCE(state_index)              \
-  {                                       \
-    DEBUG_LEX("ADVANCE %d", state_index); \
-    ts_lexer_advance(lexer);              \
-    lex_state = state_index;              \
-    goto next_state;                      \
+#define ADVANCE(state_index)                    \
+  {                                             \
+    DEBUG_LEX("advance state:%d", state_index); \
+    ts_lexer_advance(lexer);                    \
+    lex_state = state_index;                    \
+    goto next_state;                            \
   }
 
 #define ACCEPT_TOKEN(symbol)                                               \
   {                                                                        \
-    DEBUG_LEX("TOKEN %s", ts_symbol_names[symbol]);                        \
+    DEBUG_LEX("accept_token sym:%s", ts_symbol_names[symbol]);             \
     return ts_lexer_accept(lexer, symbol, ts_hidden_symbol_flags[symbol]); \
   }
 
 #define LEX_ERROR()                                         \
   {                                                         \
-    DEBUG_LEX("ERROR");                                     \
+    DEBUG_LEX("error");                                     \
     return ts_lexer_accept(lexer, ts_builtin_sym_error, 0); \
   }
 
