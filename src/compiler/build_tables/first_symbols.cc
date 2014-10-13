@@ -21,7 +21,7 @@ class FirstSymbols : public rules::RuleFn<set<Symbol>> {
  public:
   explicit FirstSymbols(const SyntaxGrammar *grammar) : grammar(grammar) {}
 
- protected:
+ private:
   set<Symbol> apply_to(const Symbol *rule) {
     auto insertion_result = visited_symbols.insert(*rule);
     if (!insertion_result.second)

@@ -1,7 +1,7 @@
+#include "compiler/build_tables/get_metadata.h"
 #include "compiler/build_tables/item.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
 #include "compiler/rules/metadata.h"
-#include "compiler/build_tables/get_metadata.h"
 #include "tree_sitter/compiler.h"
 
 namespace tree_sitter {

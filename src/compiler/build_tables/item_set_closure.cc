@@ -22,10 +22,8 @@ const ParseItemSet item_set_closure(const ParseItem &starting_item,
                                     const set<Symbol> &starting_lookahead_symbols,
                                     const SyntaxGrammar &grammar) {
   ParseItemSet result;
-
-  vector<pair<ParseItem, set<Symbol>>> items_to_process = {
-    { starting_item, starting_lookahead_symbols }
-  };
+  vector<pair<ParseItem, set<Symbol>>> items_to_process;
+  items_to_process.push_back({ starting_item, starting_lookahead_symbols });
 
   while (!items_to_process.empty()) {
     ParseItem item = items_to_process.back().first;

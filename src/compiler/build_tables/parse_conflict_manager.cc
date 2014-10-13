@@ -1,8 +1,6 @@
 #include "compiler/build_tables/parse_conflict_manager.h"
 #include <vector>
-#include <map>
 #include <string>
-#include <set>
 #include "compiler/util/string_helpers.h"
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/prepared_grammar.h"
@@ -12,8 +10,6 @@ namespace build_tables {
 
 using std::string;
 using std::to_string;
-using std::map;
-using std::set;
 using std::vector;
 
 ParseConflictManager::ParseConflictManager(const SyntaxGrammar &parse_grammar,
@@ -29,6 +25,7 @@ bool ParseConflictManager::resolve_parse_action(const rules::Symbol &symbol,
   switch (old_action.type) {
     case ParseActionTypeError:
       return true;
+
     case ParseActionTypeShift: {
       int min_precedence = *old_action.precedence_values.begin();
       int max_precedence = *old_action.precedence_values.rbegin();
@@ -50,6 +47,7 @@ bool ParseConflictManager::resolve_parse_action(const rules::Symbol &symbol,
           return false;
       }
     }
+
     case ParseActionTypeReduce:
       switch (new_action.type) {
         case ParseActionTypeReduce: {
@@ -67,6 +65,7 @@ bool ParseConflictManager::resolve_parse_action(const rules::Symbol &symbol,
         default:
           return false;
       }
+
     default:
       return false;
   }

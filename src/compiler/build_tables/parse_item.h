@@ -2,10 +2,9 @@
 #define COMPILER_BUILD_TABLES_PARSE_ITEM_H_
 
 #include <set>
-#include <string>
 #include <unordered_map>
-#include "compiler/rules/symbol.h"
 #include "compiler/build_tables/item.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
 namespace build_tables {

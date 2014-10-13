@@ -10,7 +10,6 @@ namespace build_tables {
 
 using std::string;
 using std::ostream;
-using std::vector;
 
 LexItem::LexItem(const rules::Symbol &lhs, const rules::rule_ptr rule)
     : Item(lhs, rule) {}

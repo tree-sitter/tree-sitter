@@ -1,8 +1,8 @@
 #ifndef COMPILER_BUILD_TABLES_ITEM_H_
 #define COMPILER_BUILD_TABLES_ITEM_H_
 
-#include <unordered_set>
 #include "compiler/rules/symbol.h"
+#include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
 namespace build_tables {

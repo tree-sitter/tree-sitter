@@ -1,14 +1,10 @@
 #include "compiler/build_tables/parse_item.h"
-#include <set>
 #include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
 namespace build_tables {
 
-using std::pair;
-using std::set;
 using std::string;
-using std::to_string;
 using std::ostream;
 
 ParseItem::ParseItem(const rules::Symbol &lhs, const rules::rule_ptr rule,

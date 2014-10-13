@@ -1,10 +1,11 @@
-#include "compiler/build_tables/item_set_transitions.h"
 #include <set>
 #include "compiler/build_tables/item_set_closure.h"
-#include "compiler/build_tables/rule_transitions.h"
+#include "compiler/build_tables/lex_item.h"
 #include "compiler/build_tables/merge_transitions.h"
-#include "compiler/rules/symbol.h"
+#include "compiler/build_tables/parse_item.h"
+#include "compiler/build_tables/rule_transitions.h"
 #include "compiler/prepared_grammar.h"
+#include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
 namespace build_tables {

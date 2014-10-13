@@ -40,9 +40,11 @@ class CanBeBlankRecursive : public CanBeBlank {
   using CanBeBlank::visit;
 
  public:
-  using CanBeBlank::apply_to;
   explicit CanBeBlankRecursive(const SyntaxGrammar *grammar)
       : grammar(grammar) {}
+
+ private:
+  using CanBeBlank::apply_to;
 
   bool apply_to(const rules::Symbol *rule) {
     if (visited_symbols.find(*rule) == visited_symbols.end()) {
