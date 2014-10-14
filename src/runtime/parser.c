@@ -30,17 +30,12 @@ static TSParseAction get_action(const TSLanguage *language, TSStateId state,
   return (language->parse_table + (state * language->symbol_count))[sym];
 }
 
-static TSLength break_down_left_stack(TSParser *parser, TSInputEdit *edit) {
+static TSLength break_down_left_stack(TSParser *parser, TSInputEdit edit) {
   ts_stack_shrink(&parser->right_stack, 0);
-
-  if (!edit) {
-    ts_stack_shrink(&parser->stack, 0);
-    return ts_length_zero();
-  }
 
   TSLength prev_size = ts_stack_total_tree_size(&parser->stack);
   parser->total_chars =
-      prev_size.chars + edit->chars_inserted - edit->chars_removed;
+      prev_size.chars + edit.chars_inserted - edit.chars_removed;
   TSLength left_subtree_end = prev_size;
   size_t right_subtree_start = parser->total_chars;
 
@@ -51,7 +46,7 @@ static TSLength break_down_left_stack(TSParser *parser, TSInputEdit *edit) {
 
     size_t child_count;
     TSTree **children = ts_tree_children(node, &child_count);
-    if (left_subtree_end.chars < edit->position && !children)
+    if (left_subtree_end.chars < edit.position && !children)
       break;
 
     DEBUG_PARSE("pop_left sym:%s", SYM_NAME(node->symbol));
@@ -59,7 +54,7 @@ static TSLength break_down_left_stack(TSParser *parser, TSInputEdit *edit) {
     left_subtree_end = ts_length_sub(left_subtree_end, ts_tree_total_size(node));
 
     size_t i = 0;
-    for (; i < child_count && left_subtree_end.chars < edit->position; i++) {
+    for (; i < child_count && left_subtree_end.chars < edit.position; i++) {
       TSTree *child = children[i];
       TSStateId state = ts_stack_top_state(&parser->stack);
       TSParseAction action = get_action(parser->language, state, child->symbol);
@@ -75,7 +70,7 @@ static TSLength break_down_left_stack(TSParser *parser, TSInputEdit *edit) {
     for (size_t j = child_count - 1; j + 1 > i; j--) {
       TSTree *child = children[j];
       right_subtree_start -= ts_tree_total_size(child).chars;
-      if (right_subtree_start < edit->position + edit->chars_inserted)
+      if (right_subtree_start < edit.position + edit.chars_inserted)
         break;
 
       DEBUG_PARSE("push_right sym:%s", SYM_NAME(child->symbol));
@@ -324,7 +319,17 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
                               TSInputEdit *edit) {
   parser->lookahead = NULL;
   parser->next_lookahead = NULL;
-  TSLength position = break_down_left_stack(parser, edit);
+
+  TSLength position;
+  if (edit) {
+    DEBUG_PARSE("edit pos:%lu inserted:%lu deleted:%lu", edit->position,
+                edit->chars_inserted, edit->chars_removed);
+    position = break_down_left_stack(parser, *edit);
+  } else {
+    DEBUG_PARSE("new_parse");
+    ts_stack_shrink(&parser->stack, 0);
+    position = ts_length_zero();
+  }
 
   parser->lexer.input = input;
   ts_lexer_reset(&parser->lexer, position);
