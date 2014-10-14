@@ -141,7 +141,7 @@ class LexTableBuilder {
       else
         separators.push_back(rule);
     }
-    
+
     return rules::repeat(rules::choice(separators));
   }
 
