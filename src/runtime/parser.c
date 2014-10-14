@@ -132,7 +132,7 @@ static TSTree *get_next_node(TSParser *parser, TSStateId lex_state) {
   TSTree *node;
 
   if ((node = break_down_right_stack(parser))) {
-    DEBUG_PARSE("reuse_right sym:%s", SYM_NAME(node->symbol));
+    DEBUG_PARSE("reuse sym:%s", SYM_NAME(node->symbol));
 
     parser->lexer.lookahead = 0;
     parser->lexer.lookahead_size = 0;
