@@ -119,7 +119,7 @@ static TSTree *break_down_right_stack(TSParser *parser) {
         break;
 
       TSTree *child = children[i];
-      DEBUG_PARSE("push_right %s", SYM_NAME(child->symbol));
+      DEBUG_PARSE("push_right sym:%s", SYM_NAME(child->symbol));
       ts_stack_push(stack, 0, child);
       right_subtree_start -= ts_tree_total_size(child).chars;
     }
