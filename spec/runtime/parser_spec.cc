@@ -279,8 +279,8 @@ describe("Parser", [&]() {
           set_text("var x = y;");
 
           AssertThat(ts_node_string(root), Equals(
-              "(DOCUMENT (var_declaration "
-                  "(identifier) (identifier)))"));
+              "(DOCUMENT (var_declaration (var_assignment "
+                  "(identifier) (identifier))))"));
 
           insert_text(strlen("var x = y"), " *");
 
@@ -290,8 +290,8 @@ describe("Parser", [&]() {
           insert_text(strlen("var x = y *"), " z");
 
           AssertThat(ts_node_string(root), Equals(
-              "(DOCUMENT (var_declaration "
-                  "(identifier) (math_op (identifier) (identifier))))"));
+              "(DOCUMENT (var_declaration (var_assignment "
+                  "(identifier) (math_op (identifier) (identifier)))))"));
         });
       });
 

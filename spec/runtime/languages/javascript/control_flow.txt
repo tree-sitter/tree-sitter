@@ -7,9 +7,9 @@ secondFunction(x);
 ---
 (program
     (var_declaration
-        (identifier) (object)
+        (var_assignment (identifier) (object))
         (identifier)
-        (identifier) (number))
+        (var_assignment (identifier) (number)))
     (expression_statement (function_call (identifier) (identifier)))
     (expression_statement (function_call (identifier) (identifier))))
 
@@ -62,7 +62,7 @@ for (var i = 1; someCondition(i); i = next()) {
 }
 ---
 (for_statement
-    (var_declaration (identifier) (number))
+    (var_declaration (var_assignment (identifier) (number)))
     (expression_statement (function_call (identifier) (identifier)))
     (assignment (identifier) (function_call (identifier)))
     (statement_block (expression_statement (function_call (identifier)))))

@@ -31,11 +31,12 @@ var x = {
     }
 };
 ---
-(var_declaration
+(var_declaration (var_assignment
     (identifier)
     (object (identifier) (function_expression
         (formal_parameters (identifier) (identifier))
-        (statement_block (var_declaration (identifier) (identifier))))))
+        (statement_block
+            (var_declaration (var_assignment (identifier) (identifier))))))))
 
 ==========================================
 parses comments
@@ -55,14 +56,16 @@ var thing = {
 ---
 (comment)
 (comment)
-(var_declaration (identifier) (object
-    (comment)
-    (comment)
-    (identifier) (function_expression
-        (formal_parameters (identifier) (comment))
-        (statement_block
-            (comment)
-            (expression_statement (function_call (identifier)))))))
+(var_declaration (var_assignment
+    (identifier)
+    (object
+        (comment)
+        (comment)
+        (identifier) (function_expression
+            (formal_parameters (identifier) (comment))
+            (statement_block
+                (comment)
+                (expression_statement (function_call (identifier))))))))
 
 ==========================================
 parses comments within expressions

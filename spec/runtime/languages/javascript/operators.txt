@@ -12,13 +12,13 @@ parses constructor calls
 ==========================================
 var x = new Node(5, new Node(3, null));
 ---
-(var_declaration
+(var_declaration (var_assignment
     (identifier)
     (constructor_call (function_call (identifier)
         (number)
         (constructor_call (function_call (identifier)
             (number)
-            (null))))))
+            (null)))))))
 
 ==========================================
 parses property access with dot notation

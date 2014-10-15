@@ -89,11 +89,13 @@ extern const Grammar javascript = Grammar({
     { "break_statement", terminated(keyword("break")) },
     { "var_declaration", terminated(seq({
         keyword("var"),
-        comma_sep(err(seq({
+        comma_sep1(err(choice({
             sym("identifier"),
-            optional(seq({
-                str("="),
-                sym("expression") })) }))) })) },
+            sym("var_assignment") }))) })) },
+    { "var_assignment", seq({
+        sym("identifier"),
+        str("="),
+        sym("expression") }) },
     { "expression_statement", terminated(err(sym("expression"))) },
     { "return_statement", terminated(seq({
         keyword("return"),
