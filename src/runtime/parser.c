@@ -7,6 +7,7 @@
 #include "runtime/stack.h"
 #include "runtime/parser.h"
 #include "runtime/length.h"
+#include "runtime/debugger.h"
 
 /*
  *  Debugging
@@ -283,7 +284,7 @@ TSParser ts_parser_make() {
   return (TSParser) { .lexer = ts_lexer_make(),
                       .stack = ts_stack_make(),
                       .right_stack = ts_stack_make(),
-                      .debugger = (TSDebugger) {} };
+                      .debugger = ts_debugger_null() };
 }
 
 void ts_parser_destroy(TSParser *parser) {

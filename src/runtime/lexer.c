@@ -2,6 +2,7 @@
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 #include "runtime/length.h"
+#include "runtime/debugger.h"
 #include "utf8proc.h"
 
 static const char *empty_chunk = "";
@@ -69,7 +70,7 @@ static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
 TSLexer ts_lexer_make() {
   TSLexer result = (TSLexer) { .advance_fn = advance,
                                .accept_fn = accept,
-                               .debugger = {},
+                               .debugger = ts_debugger_null(),
                                .chunk = NULL,
                                .chunk_start = 0,
                                .chunk_size = 0,

@@ -1,5 +1,6 @@
-#include "runtime/runtime_spec_helper.h"
+#include "runtime/debugger.h"
 #include "runtime/helpers/spy_debugger.h"
+#include "runtime/runtime_spec_helper.h"
 
 extern "C" const TSLanguage * ts_language_json();
 
@@ -114,7 +115,7 @@ describe("Document", [&]() {
 
       describe("disabling debugging", [&]() {
         before_each([&]() {
-          ts_document_debug_parse(doc, {});
+          ts_document_debug_parse(doc, ts_debugger_null());
         });
 
         it("does not call the debugger any more", [&]() {
