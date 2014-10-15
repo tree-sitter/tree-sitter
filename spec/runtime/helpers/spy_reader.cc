@@ -64,8 +64,7 @@ const char * SpyReader::read(size_t *bytes_read) {
 }
 
 int SpyReader::seek(size_t pos) {
-  if (position != pos)
-    strings_read.push_back("");
+  strings_read.push_back("");
   position = pos;
   return 0;
 }

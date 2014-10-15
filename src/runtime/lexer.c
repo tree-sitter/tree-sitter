@@ -9,7 +9,8 @@ static const char *empty_chunk = "";
 
 static void ts_lexer_read_next_chunk(TSLexer *lexer) {
   TSInput input = lexer->input;
-  input.seek_fn(input.data, lexer->current_position);
+  if (lexer->current_position.bytes != lexer->chunk_start + lexer->chunk_size)
+    input.seek_fn(input.data, lexer->current_position);
   lexer->chunk_start = lexer->current_position.bytes;
   lexer->chunk = input.read_fn(input.data, &lexer->chunk_size);
   if (!lexer->chunk_size)
