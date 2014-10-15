@@ -220,7 +220,7 @@ describe("Parser", [&]() {
     });
 
     describe("inserting text", [&]() {
-      describe("new tokens near the end of the input", [&]() {
+      describe("creating new tokens near the end of the input", [&]() {
         before_each([&]() {
           set_text("x ^ (100 + abc)");
 
@@ -244,30 +244,7 @@ describe("Parser", [&]() {
         });
       });
 
-      describe("introducing an error", [&]() {
-        it("gives the error the right size", [&]() {
-          ts_document_set_language(doc, ts_language_javascript());
-
-          set_text("var x = y;");
-
-          AssertThat(ts_node_string(root), Equals(
-              "(DOCUMENT (var_declaration "
-                  "(identifier) (identifier)))"));
-
-          insert_text(strlen("var x = y"), " *");
-
-          AssertThat(ts_node_string(root), Equals(
-              "(DOCUMENT (var_declaration (ERROR ';')))"));
-
-          insert_text(strlen("var x = y *"), " z");
-
-          AssertThat(ts_node_string(root), Equals(
-              "(DOCUMENT (var_declaration "
-                  "(identifier) (math_op (identifier) (identifier))))"));
-        });
-      });
-
-      describe("new tokens near the beginning of the input", [&]() {
+      describe("creating new tokens near the beginning of the input", [&]() {
         before_each([&]() {
           chunk_size = 2;
 
@@ -292,6 +269,29 @@ describe("Parser", [&]() {
 
         it("re-reads only the changed portion of the input", [&]() {
           AssertThat(reader->strings_read, Equals(vector<string>({ "123 + 5 ", "" })));
+        });
+      });
+
+      describe("introducing an error", [&]() {
+        it("gives the error the right size", [&]() {
+          ts_document_set_language(doc, ts_language_javascript());
+
+          set_text("var x = y;");
+
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (var_declaration "
+                  "(identifier) (identifier)))"));
+
+          insert_text(strlen("var x = y"), " *");
+
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (var_declaration (ERROR ';')))"));
+
+          insert_text(strlen("var x = y *"), " z");
+
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (var_declaration "
+                  "(identifier) (math_op (identifier) (identifier))))"));
         });
       });
 
@@ -354,6 +354,28 @@ describe("Parser", [&]() {
               "(DOCUMENT (sum (variable) (variable)))"));
         });
       });
+
+      describe("into a node containing a ubiquitous token", [&]() {
+        before_each([&]() {
+          set_text("123 *\n"
+              "# a-comment\n"
+              "abc");
+
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (product (number) (comment) (variable)))"));
+
+          insert_text(
+              strlen("123 *\n"
+                  "# a-comment\n"
+                  "abc"),
+              "XYZ");
+        });
+
+        it("updates the parse tree", [&]() {
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (product (number) (comment) (variable)))"));
+        });
+      });
     });
 
     describe("deleting text", [&]() {
@@ -389,28 +411,6 @@ describe("Parser", [&]() {
         AssertThat(ts_node_string(root), Equals(
             "(DOCUMENT (expression_statement (object "
                 "(identifier) (property_access (identifier) (identifier)))))"));
-      });
-    });
-
-    describe("editing text inside a node containing a ubiquitous token", [&]() {
-      before_each([&]() {
-        set_text("123 *\n"
-            "# a-comment\n"
-            "abc");
-
-        AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (product (number) (comment) (variable)))"));
-
-        insert_text(
-            strlen("123 *\n"
-                "# a-comment\n"
-                "abc"),
-            "XYZ");
-      });
-
-      it("updates the parse tree", [&]() {
-        AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (product (number) (comment) (variable)))"));
       });
     });
   });
