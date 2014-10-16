@@ -8,7 +8,8 @@ extern "C" {
 #include "tree_sitter/runtime.h"
 
 static inline TSDebugger ts_debugger_null() {
-  return (TSDebugger) { .data = NULL, .debug_fn = NULL, .release_fn = NULL, };
+  TSDebugger debugger = { 0, 0, 0 };
+  return debugger;
 }
 
 #ifdef __cplusplus
