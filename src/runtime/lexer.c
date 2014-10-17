@@ -59,7 +59,7 @@ static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
       ts_length_sub(lexer->token_start_position, lexer->token_end_position);
   lexer->token_end_position = lexer->current_position;
   return (symbol == ts_builtin_sym_error)
-             ? ts_tree_make_error(size, padding, ts_lexer_lookahead_char(lexer))
+             ? ts_tree_make_error(size, padding, lexer->lookahead)
              : ts_tree_make_leaf(symbol, size, padding, is_hidden);
 }
 
@@ -91,5 +91,5 @@ void ts_lexer_reset(TSLexer *lexer, TSLength position) {
   lexer->current_position = position;
   ts_lexer_read_next_chunk(lexer);
 
-  ts_lexer_advance(lexer);
+  lexer->advance_fn(lexer);
 }

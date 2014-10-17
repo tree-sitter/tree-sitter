@@ -36,23 +36,6 @@ typedef struct TSLexer {
   char debug_buffer[TS_DEBUG_BUFFER_SIZE];
 } TSLexer;
 
-static inline int32_t ts_lexer_lookahead_char(const TSLexer *lexer) {
-  return lexer->lookahead;
-}
-
-static inline void ts_lexer_start_token(TSLexer *lexer) {
-  lexer->token_start_position = lexer->current_position;
-}
-
-static inline int ts_lexer_advance(TSLexer *lexer) {
-  return lexer->advance_fn(lexer);
-}
-
-static inline TSTree *ts_lexer_accept(TSLexer *lexer, TSSymbol symbol,
-                                      int is_hidden) {
-  return lexer->accept_fn(lexer, symbol, is_hidden);
-}
-
 typedef unsigned short TSStateId;
 
 typedef enum {
@@ -94,33 +77,33 @@ struct TSLanguage {
   DEBUG_LEX("start state:%d", lex_state);                            \
   int32_t lookahead;                                                 \
   next_state:                                                        \
-  lookahead = ts_lexer_lookahead_char(lexer);                        \
+  lookahead = lexer->lookahead;                                      \
   DEBUG_LEX((0 < lookahead &&lookahead < 255 ? "lookahead char:'%c'" \
                                              : "lookahead char:%d"), \
             lookahead);
 
 #define START_TOKEN()                                                \
   DEBUG_LEX("start_token chars:%lu", lexer->current_position.chars); \
-  ts_lexer_start_token(lexer);
+  lexer->token_start_position = lexer->current_position;
 
 #define ADVANCE(state_index)                    \
   {                                             \
     DEBUG_LEX("advance state:%d", state_index); \
-    ts_lexer_advance(lexer);                    \
+    lexer->advance_fn(lexer);                   \
     lex_state = state_index;                    \
     goto next_state;                            \
   }
 
-#define ACCEPT_TOKEN(symbol)                                               \
-  {                                                                        \
-    DEBUG_LEX("accept_token sym:%s", ts_symbol_names[symbol]);             \
-    return ts_lexer_accept(lexer, symbol, ts_hidden_symbol_flags[symbol]); \
+#define ACCEPT_TOKEN(symbol)                                                \
+  {                                                                         \
+    DEBUG_LEX("accept_token sym:%s", ts_symbol_names[symbol]);              \
+    return lexer->accept_fn(lexer, symbol, ts_hidden_symbol_flags[symbol]); \
   }
 
-#define LEX_ERROR()                                         \
-  {                                                         \
-    DEBUG_LEX("error");                                     \
-    return ts_lexer_accept(lexer, ts_builtin_sym_error, 0); \
+#define LEX_ERROR()                                          \
+  {                                                          \
+    DEBUG_LEX("error");                                      \
+    return lexer->accept_fn(lexer, ts_builtin_sym_error, 0); \
   }
 
 #define SHIFT(to_state_value)                                              \

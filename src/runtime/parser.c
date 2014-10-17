@@ -253,7 +253,7 @@ static int handle_error(TSParser *parser) {
      *  just skip it. If the end of input is reached, exit.
      */
     if (ts_length_eq(parser->lexer.current_position, prev_position))
-      if (!ts_lexer_advance(&parser->lexer)) {
+      if (!parser->lexer.advance_fn(&parser->lexer)) {
         DEBUG_PARSE("fail_to_recover");
 
         resize_error(parser, error);
