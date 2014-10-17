@@ -10,14 +10,20 @@ extern "C" {
 #include <stdbool.h>
 #include "tree_sitter/runtime.h"
 
-typedef struct TSTree TSTree;
-
 #define ts_lex_state_error 0
 #define TS_DEBUG_BUFFER_SIZE 512
 
-typedef struct TSLexer {
-  TSInput input;
+typedef struct TSTree TSTree;
+typedef unsigned short TSStateId;
 
+typedef struct TSLexer {
+  // Public
+  void (*start_fn)(struct TSLexer *, TSStateId);
+  void (*start_token_fn)(struct TSLexer *);
+  bool (*advance_fn)(struct TSLexer *, TSStateId);
+  TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, int, const char *);
+
+  // Private
   const char *chunk;
   size_t chunk_start;
   size_t chunk_size;
@@ -29,14 +35,10 @@ typedef struct TSLexer {
   size_t lookahead_size;
   int32_t lookahead;
 
-  TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, int);
-  bool (*advance_fn)(struct TSLexer *);
-
+  TSInput input;
   TSDebugger debugger;
   char debug_buffer[TS_DEBUG_BUFFER_SIZE];
 } TSLexer;
-
-typedef unsigned short TSStateId;
 
 typedef enum {
   TSParseActionTypeError,
@@ -67,44 +69,34 @@ struct TSLanguage {
   TSTree *(*lex_fn)(TSLexer *, TSStateId);
 };
 
-#define DEBUG_LEX(...)                                                   \
-  if (lexer->debugger.debug_fn) {                                        \
-    snprintf(lexer->debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__);    \
-    lexer->debugger.debug_fn(lexer->debugger.data, lexer->debug_buffer); \
+/*
+ *  Lexer Macros
+ */
+
+#define START_LEXER()                \
+  lexer->start_fn(lexer, lex_state); \
+  int32_t lookahead;                 \
+  next_state:                        \
+  lookahead = lexer->lookahead;
+
+#define START_TOKEN() lexer->start_token_fn(lexer);
+
+#define ADVANCE(state_index)               \
+  {                                        \
+    lexer->advance_fn(lexer, state_index); \
+    lex_state = state_index;               \
+    goto next_state;                       \
   }
 
-#define START_LEXER()                                                \
-  DEBUG_LEX("start state:%d", lex_state);                            \
-  int32_t lookahead;                                                 \
-  next_state:                                                        \
-  lookahead = lexer->lookahead;                                      \
-  DEBUG_LEX((0 < lookahead &&lookahead < 255 ? "lookahead char:'%c'" \
-                                             : "lookahead char:%d"), \
-            lookahead);
+#define ACCEPT_TOKEN(symbol)                                             \
+  return lexer->accept_fn(lexer, symbol, ts_hidden_symbol_flags[symbol], \
+                          ts_symbol_names[symbol]);
 
-#define START_TOKEN()                                                \
-  DEBUG_LEX("start_token chars:%lu", lexer->current_position.chars); \
-  lexer->token_start_position = lexer->current_position;
+#define LEX_ERROR() ACCEPT_TOKEN(ts_builtin_sym_error);
 
-#define ADVANCE(state_index)                    \
-  {                                             \
-    DEBUG_LEX("advance state:%d", state_index); \
-    lexer->advance_fn(lexer);                   \
-    lex_state = state_index;                    \
-    goto next_state;                            \
-  }
-
-#define ACCEPT_TOKEN(symbol)                                                \
-  {                                                                         \
-    DEBUG_LEX("accept_token sym:%s", ts_symbol_names[symbol]);              \
-    return lexer->accept_fn(lexer, symbol, ts_hidden_symbol_flags[symbol]); \
-  }
-
-#define LEX_ERROR()                                          \
-  {                                                          \
-    DEBUG_LEX("error");                                      \
-    return lexer->accept_fn(lexer, ts_builtin_sym_error, 0); \
-  }
+/*
+ *  Parse Table Macros
+ */
 
 #define SHIFT(to_state_value)                                              \
   {                                                                        \

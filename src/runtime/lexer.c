@@ -5,54 +5,66 @@
 #include "runtime/debugger.h"
 #include "utf8proc.h"
 
+#define DEBUG(...)                                                       \
+  if (lexer->debugger.debug_fn) {                                        \
+    snprintf(lexer->debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__);    \
+    lexer->debugger.debug_fn(lexer->debugger.data, lexer->debug_buffer); \
+  }
+
 static const char *empty_chunk = "";
 
-static void ts_lexer_read_next_chunk(TSLexer *lexer) {
+static void read_next_chunk(TSLexer *lexer) {
   TSInput input = lexer->input;
   if (lexer->current_position.bytes != lexer->chunk_start + lexer->chunk_size)
     input.seek_fn(input.data, lexer->current_position);
+
   lexer->chunk_start = lexer->current_position.bytes;
   lexer->chunk = input.read_fn(input.data, &lexer->chunk_size);
   if (!lexer->chunk_size)
     lexer->chunk = empty_chunk;
 }
 
-static bool advance(TSLexer *lexer) {
-
-  /*
-   *  Return false if the Lexer has already reached the end of the input.
-   */
-  if (lexer->chunk == empty_chunk)
-    return false;
-
-  /*
-   *  Increment the Lexer's position.
-   */
-  if (lexer->lookahead_size) {
-    lexer->current_position.bytes += lexer->lookahead_size;
-    lexer->current_position.chars += 1;
-  }
-
-  /*
-   *  Request a new chunk of text from the Input if the Lexer has reached
-   *  the end of the current chunk.
-   */
-  if (lexer->current_position.bytes >= lexer->chunk_start + lexer->chunk_size) {
-    ts_lexer_read_next_chunk(lexer);
-  }
-
-  /*
-   *  Read the next unicode character from the current chunk of text.
-   */
+static void read_lookahead(TSLexer *lexer) {
   size_t position_in_chunk = lexer->current_position.bytes - lexer->chunk_start;
   lexer->lookahead_size = utf8proc_iterate(
       (const uint8_t *)lexer->chunk + position_in_chunk,
       lexer->chunk_size - position_in_chunk + 1, &lexer->lookahead);
 
+  DEBUG((0 < lexer->lookahead && lexer->lookahead < 256) ? "lookahead char:'%c'"
+                                                         : "lookahead char:%d",
+        lexer->lookahead);
+}
+
+static void start(TSLexer *lexer, TSStateId lex_state) {
+  DEBUG("start_lex state:%d", lex_state);
+}
+
+static void start_token(TSLexer *lexer) {
+  DEBUG("start_token chars:%lu", lexer->current_position.chars);
+  lexer->token_start_position = lexer->current_position;
+}
+
+static bool advance(TSLexer *lexer, TSStateId state) {
+  DEBUG("advance state:%d", state);
+
+  if (lexer->chunk == empty_chunk)
+    return false;
+
+  if (lexer->lookahead_size) {
+    lexer->current_position.bytes += lexer->lookahead_size;
+    lexer->current_position.chars += 1;
+  }
+
+  if (lexer->current_position.bytes >= lexer->chunk_start + lexer->chunk_size)
+    read_next_chunk(lexer);
+
+  read_lookahead(lexer);
   return true;
 }
 
-static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
+static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden,
+                      const char *symbol_name) {
+  DEBUG("accept_token sym:%s", symbol_name);
   TSLength size =
       ts_length_sub(lexer->current_position, lexer->token_start_position);
   TSLength padding =
@@ -64,14 +76,15 @@ static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden) {
 }
 
 /*
- *  The `advance` and `accept` methods are stored as fields on the Lexer so
- *  that generated parsers can call them without needing to be linked against
- *  this library.
+ *  The lexer's methods are stored as struct fields so that generated parsers
+ *  can call them without needing to be linked against this library.
  */
+
 TSLexer ts_lexer_make() {
-  TSLexer result = (TSLexer) { .advance_fn = advance,
+  TSLexer result = (TSLexer) { .start_fn = start,
+                               .start_token_fn = start_token,
+                               .advance_fn = advance,
                                .accept_fn = accept,
-                               .debugger = ts_debugger_null(),
                                .chunk = NULL,
                                .chunk_start = 0,
                                .chunk_size = 0,
@@ -79,17 +92,14 @@ TSLexer ts_lexer_make() {
                                .token_start_position = ts_length_zero(),
                                .token_end_position = ts_length_zero(),
                                .lookahead = 0,
-                               .lookahead_size = 0, };
+                               .lookahead_size = 0,
+                               .debugger = ts_debugger_null() };
   return result;
 }
 
 void ts_lexer_reset(TSLexer *lexer, TSLength position) {
-  lexer->lookahead = 0;
-  lexer->lookahead_size = 0;
-
   lexer->token_end_position = position;
   lexer->current_position = position;
-  ts_lexer_read_next_chunk(lexer);
-
-  lexer->advance_fn(lexer);
+  read_next_chunk(lexer);
+  read_lookahead(lexer);
 }
