@@ -94,7 +94,7 @@ describe("Document", [&]() {
 
     describe("disabling debugging", [&]() {
       before_each([&]() {
-        ts_document_set_debugger(doc, {});
+        ts_document_set_debugger(doc, ts_debugger_null());
       });
 
       it("does not call the debugger any more", [&]() {
