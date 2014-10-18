@@ -1,5 +1,6 @@
 #include "runtime/runtime_spec_helper.h"
 #include "runtime/helpers/spy_reader.h"
+#include "runtime/helpers/log_debugger.h"
 
 extern "C" const TSLanguage * ts_language_json();
 extern "C" const TSLanguage * ts_language_javascript();
@@ -292,6 +293,27 @@ describe("Parser", [&]() {
           AssertThat(ts_node_string(root), Equals(
               "(DOCUMENT (var_declaration (var_assignment "
                   "(identifier) (math_op (identifier) (identifier)))))"));
+        });
+      });
+
+      describe("fixing an error", [&]() {
+        it("doesn't try to reuse the error node", [&]() {
+          ts_document_set_language(doc, ts_language_javascript());
+          set_text(
+              "var y = z\n"
+              "var x = y;");
+
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (program "
+                  "(var_declaration (var_assignment (identifier) (identifier))) "
+                  "(var_declaration (var_assignment (identifier) (identifier)))))"));
+
+          ts_document_set_debugger(doc, log_debugger_make());
+
+          delete_text(strlen("var y = "), 1);
+
+          AssertThat(ts_node_string(root), Equals(
+              "(DOCUMENT (var_declaration (ERROR 'x')))"));
         });
       });
 
