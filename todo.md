@@ -1,9 +1,17 @@
 TODO
 ====
 
-* Performance
-  * Implement the remainder of the incremental parsing algorithm: re-use parse tree after the edit
-  * Optimize grammar compilation
+* Incremental parsing
+  * Add randomized editing to all language tests.
+    - [ ] inserts
+    - [ ] deletes
+    - [ ] replaces
+  * Verify that tree remains the same after edit is undone.
+  * Verify that the tree's total size is as expected after each edit.
+
+* Ubiquitous token handling
+  * Fix the unintuitive tree that results when ubiquitous tokens are last child
+    of their parent node.
 
 * Error handling
   * Preserve tokens within error nodes
@@ -19,6 +27,9 @@ TODO
     - [ ] Rule for referencing named grammar
     - [ ] Grammar registry object in runtime
     - [ ] Parsing returns control to parent language
+
+* Performance
+  * Optimize grammar compilation
 
 * Grammars
   * C
