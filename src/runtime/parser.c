@@ -103,7 +103,8 @@ static TSTree *break_down_right_stack(TSParser *parser) {
       return NULL;
 
     TSParseAction action = get_action(parser->language, state, node->symbol);
-    bool is_usable = (action.type != TSParseActionTypeError) && (node->symbol != ts_builtin_sym_error);
+    bool is_usable = (action.type != TSParseActionTypeError) &&
+                     (node->symbol != ts_builtin_sym_error);
     if (is_usable && right_subtree_start == current_position.chars) {
       ts_stack_shrink(&parser->right_stack, parser->right_stack.size - 1);
       return node;
@@ -138,9 +139,10 @@ static TSTree *get_next_node(TSParser *parser, TSStateId lex_state) {
 
     parser->lexer.lookahead = 0;
     parser->lexer.lookahead_size = 0;
-    parser->lexer.token_start_position = ts_length_add(parser->lexer.current_position, node->padding);
+    parser->lexer.token_start_position =
+        ts_length_add(parser->lexer.current_position, node->padding);
     parser->lexer.token_end_position = parser->lexer.current_position =
-        ts_length_add(parser->lexer.current_position, ts_tree_total_size(node));
+        ts_length_add(parser->lexer.token_start_position, node->size);
   } else {
     node = parser->language->lex_fn(&parser->lexer, lex_state);
     DEBUG("lex sym:%s", SYM_NAME(node->symbol));

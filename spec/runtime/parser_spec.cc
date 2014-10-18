@@ -308,8 +308,6 @@ describe("Parser", [&]() {
                   "(var_declaration (var_assignment (identifier) (identifier))) "
                   "(var_declaration (var_assignment (identifier) (identifier)))))"));
 
-          ts_document_set_debugger(doc, log_debugger_make());
-
           delete_text(strlen("var y = "), 1);
 
           AssertThat(ts_node_string(root), Equals(
