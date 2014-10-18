@@ -63,69 +63,47 @@ describe("Document", [&]() {
     });
   });
 
-  describe("debugging", [&]() {
+  describe("set_debugger(TSDebugger)", [&]() {
     SpyDebugger *debugger;
 
     before_each([&]() {
-      ts_document_set_language(doc, ts_language_json());
       debugger = new SpyDebugger();
+      ts_document_set_language(doc, ts_language_json());
+      ts_document_set_debugger(doc, debugger->debugger());
     });
 
-    describe("debug_lex(TSDebugger)", [&]() {
-      before_each([&]() {
-        ts_document_debug_lex(doc, debugger->debugger());
-      });
+    it("calls the debugger with a message for each lex action", [&]() {
+      ts_document_set_input_string(doc, "[1, 2]");
 
-      it("calls the debugger with a message for each lex action", [&]() {
-        ts_document_set_input_string(doc, "[1, 2]");
-
-        AssertThat(debugger->messages, Contains("lookahead char:'1'"));
-        AssertThat(debugger->messages, Contains("accept_token sym:number"));
-        AssertThat(debugger->messages, Contains("advance state:1"));
-      });
-
-      describe("disabling debugging", [&]() {
-        before_each([&]() {
-          ts_document_debug_lex(doc, {});
-        });
-
-        it("does not call the debugger any more", [&]() {
-          ts_document_set_input_string(doc, "[1, 2]");
-          AssertThat(debugger->messages, IsEmpty());
-        });
-
-        it("releases the old debugger", [&]() {
-          AssertThat(debugger->release_call_count, Equals<size_t>(1));
-        });
-      });
+      AssertThat(debugger->messages, Contains("lookahead char:'1'"));
+      AssertThat(debugger->messages, Contains("advance state:1"));
+      AssertThat(debugger->messages, Contains("accept_token sym:number"));
     });
 
-    describe("debug_parse(TSDebugger)", [&]() {
+    it("calls the debugger with a message for each parse action", [&]() {
+      ts_document_set_input_string(doc, "[1, 2]");
+
+      AssertThat(debugger->messages, Contains("shift state:1"));
+      AssertThat(debugger->messages, Contains("reduce sym:value count:1"));
+      AssertThat(debugger->messages, Contains("accept"));
+    });
+
+    it("allows the debugger to be retrieved later", [&]() {
+      AssertThat(ts_document_get_debugger(doc).data, Equals(debugger));
+    });
+
+    describe("disabling debugging", [&]() {
       before_each([&]() {
-        ts_document_debug_parse(doc, debugger->debugger());
+        ts_document_set_debugger(doc, {});
       });
 
-      it("calls the debugger with a message for each parse action", [&]() {
+      it("does not call the debugger any more", [&]() {
         ts_document_set_input_string(doc, "[1, 2]");
-
-        AssertThat(debugger->messages, Contains("lex sym:number"));
-        AssertThat(debugger->messages, Contains("shift state:1"));
-        AssertThat(debugger->messages, Contains("reduce sym:value count:1"));
+        AssertThat(debugger->messages, IsEmpty());
       });
 
-      describe("disabling debugging", [&]() {
-        before_each([&]() {
-          ts_document_debug_parse(doc, ts_debugger_null());
-        });
-
-        it("does not call the debugger any more", [&]() {
-          ts_document_set_input_string(doc, "[1, 2]");
-          AssertThat(debugger->messages, IsEmpty());
-        });
-
-        it("releases the old debugger", [&]() {
-          AssertThat(debugger->release_call_count, Equals<size_t>(1));
-        });
+      it("releases the old debugger", [&]() {
+        AssertThat(debugger->release_call_count, Equals<size_t>(1));
       });
     });
   });

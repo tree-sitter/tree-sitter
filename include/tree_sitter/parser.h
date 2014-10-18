@@ -5,7 +5,6 @@
 extern "C" {
 #endif
 
-#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "tree_sitter/runtime.h"

@@ -15,13 +15,12 @@ typedef struct {
   TSTree *lookahead;
   TSTree *next_lookahead;
   const TSLanguage *language;
-  TSDebugger debugger;
 } TSParser;
 
 TSParser ts_parser_make();
 void ts_parser_destroy(TSParser *);
-void ts_parser_debug_parse(TSParser *, TSDebugger);
-void ts_parser_debug_lex(TSParser *, TSDebugger);
+TSDebugger ts_parser_get_debugger(const TSParser *);
+void ts_parser_set_debugger(TSParser *, TSDebugger);
 const TSTree *ts_parser_parse(TSParser *, TSInput, TSInputEdit *);
 
 #ifdef __cplusplus

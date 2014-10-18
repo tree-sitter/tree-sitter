@@ -40,12 +40,12 @@ void ts_document_set_language(TSDocument *document, const TSLanguage *language) 
   reparse(document, NULL);
 }
 
-void ts_document_debug_parse(TSDocument *document, TSDebugger debugger) {
-  ts_parser_debug_parse(&document->parser, debugger);
+TSDebugger ts_document_get_debugger(const TSDocument *document) {
+  return ts_parser_get_debugger(&document->parser);
 }
 
-void ts_document_debug_lex(TSDocument *document, TSDebugger debugger) {
-  ts_parser_debug_lex(&document->parser, debugger);
+void ts_document_set_debugger(TSDocument *document, TSDebugger debugger) {
+  ts_parser_set_debugger(&document->parser, debugger);
 }
 
 void ts_document_set_input(TSDocument *document, TSInput input) {

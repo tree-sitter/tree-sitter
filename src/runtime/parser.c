@@ -13,11 +13,12 @@
  *  Debugging
  */
 
-#define DEBUG(...)                                                     \
-  if (parser->debugger.debug_fn) {                                           \
+#define DEBUG(...)                                                           \
+  if (parser->lexer.debugger.debug_fn) {                                     \
     snprintf(parser->lexer.debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__); \
-    parser->debugger.debug_fn(parser->debugger.data,                         \
-                              parser->lexer.debug_buffer);                   \
+    parser->lexer.debugger.debug_fn(parser->lexer.debugger.data,             \
+                                    TSDebugTypeParse,                        \
+                                    parser->lexer.debug_buffer);             \
   }
 
 #define SYM_NAME(sym) parser->language->symbol_names[sym]
@@ -283,8 +284,7 @@ static TSTree *finish(TSParser *parser) {
 TSParser ts_parser_make() {
   return (TSParser) { .lexer = ts_lexer_make(),
                       .stack = ts_stack_make(),
-                      .right_stack = ts_stack_make(),
-                      .debugger = ts_debugger_null() };
+                      .right_stack = ts_stack_make() };
 }
 
 void ts_parser_destroy(TSParser *parser) {
@@ -296,20 +296,15 @@ void ts_parser_destroy(TSParser *parser) {
   if (parser->next_lookahead)
     ts_tree_release(parser->next_lookahead);
 
-  if (parser->debugger.release_fn)
-    parser->debugger.release_fn(parser->debugger.data);
   if (parser->lexer.debugger.release_fn)
     parser->lexer.debugger.release_fn(parser->lexer.debugger.data);
 }
 
-void ts_parser_debug_parse(TSParser *parser, TSDebugger debugger) {
-  TSDebugger old_debugger = parser->debugger;
-  if (old_debugger.release_fn)
-    old_debugger.release_fn(old_debugger.data);
-  parser->debugger = debugger;
+TSDebugger ts_parser_get_debugger(const TSParser *parser) {
+  return parser->lexer.debugger;
 }
 
-void ts_parser_debug_lex(TSParser *parser, TSDebugger debugger) {
+void ts_parser_set_debugger(TSParser *parser, TSDebugger debugger) {
   TSDebugger old_debugger = parser->lexer.debugger;
   if (old_debugger.release_fn)
     old_debugger.release_fn(old_debugger.data);
@@ -324,7 +319,7 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
   TSLength position;
   if (edit) {
     DEBUG("edit pos:%lu inserted:%lu deleted:%lu", edit->position,
-                edit->chars_inserted, edit->chars_removed);
+          edit->chars_inserted, edit->chars_removed);
     position = break_down_left_stack(parser, *edit);
   } else {
     DEBUG("new_parse");
@@ -362,7 +357,7 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
 
       case TSParseActionTypeReduce:
         DEBUG("reduce sym:%s count:%u", SYM_NAME(action.data.symbol),
-                    action.data.child_count);
+              action.data.child_count);
         reduce(parser, action.data.symbol, action.data.child_count);
         break;
 

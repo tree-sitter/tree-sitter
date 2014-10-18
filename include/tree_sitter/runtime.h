@@ -20,9 +20,14 @@ typedef struct {
   void (*release_fn)(void *data);
 } TSInput;
 
+typedef enum {
+  TSDebugTypeParse,
+  TSDebugTypeLex
+} TSDebugType;
+
 typedef struct {
   void *data;
-  void (*debug_fn)(void *data, const char *);
+  void (*debug_fn)(void *data, TSDebugType, const char *);
   void (*release_fn)(void *data);
 } TSDebugger;
 
@@ -59,8 +64,8 @@ void ts_document_set_language(TSDocument *, const TSLanguage *);
 void ts_document_set_input(TSDocument *, TSInput);
 void ts_document_set_input_string(TSDocument *, const char *);
 void ts_document_edit(TSDocument *, TSInputEdit);
-void ts_document_debug_parse(TSDocument *, TSDebugger);
-void ts_document_debug_lex(TSDocument *, TSDebugger);
+TSDebugger ts_document_get_debugger(const TSDocument *);
+void ts_document_set_debugger(TSDocument *, TSDebugger);
 TSNode *ts_document_root_node(const TSDocument *);
 
 #define ts_builtin_sym_error 0

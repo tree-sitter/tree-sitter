@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "runtime/lexer.h"
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
@@ -5,10 +6,11 @@
 #include "runtime/debugger.h"
 #include "utf8proc.h"
 
-#define DEBUG(...)                                                       \
-  if (lexer->debugger.debug_fn) {                                        \
-    snprintf(lexer->debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__);    \
-    lexer->debugger.debug_fn(lexer->debugger.data, lexer->debug_buffer); \
+#define DEBUG(...)                                                    \
+  if (lexer->debugger.debug_fn) {                                     \
+    snprintf(lexer->debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__); \
+    lexer->debugger.debug_fn(lexer->debugger.data, TSDebugTypeLex,    \
+                             lexer->debug_buffer);                    \
   }
 
 static const char *empty_chunk = "";
