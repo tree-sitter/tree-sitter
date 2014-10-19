@@ -308,9 +308,8 @@ TSDebugger ts_parser_get_debugger(const TSParser *parser) {
 }
 
 void ts_parser_set_debugger(TSParser *parser, TSDebugger debugger) {
-  TSDebugger old_debugger = parser->lexer.debugger;
-  if (old_debugger.release_fn)
-    old_debugger.release_fn(old_debugger.data);
+  if (parser->lexer.debugger.release_fn)
+    parser->lexer.debugger.release_fn(parser->lexer.debugger.data);
   parser->lexer.debugger = debugger;
 }
 
