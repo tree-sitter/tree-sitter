@@ -1,10 +1,13 @@
 ==========================================
-parses multiple statements
+multiple statements
 ==========================================
+
 var x = {}, z, i = 0;
 firstFunction(x)
 secondFunction(x);
+
 ---
+
 (program
     (var_declaration
         (var_assignment (identifier) (object))
@@ -14,32 +17,39 @@ secondFunction(x);
     (expression_statement (function_call (identifier) (identifier))))
 
 ==========================================
-js parses if statements
+if statements
 ==========================================
+
 if (isReady()) {
     console.log(theData)
 }
+
 ---
+
 (if_statement (function_call (identifier))
     (statement_block (expression_statement (function_call (property_access (identifier) (identifier)) (identifier)))))
 
 ==========================================
-parses if-else statements
+if-else statements
 ==========================================
+
 if (theCondition) {
     firstFunction();
 } else {
     secondFunction();
 }
+
 ---
+
 (if_statement
     (identifier)
     (statement_block (expression_statement (function_call (identifier))))
     (statement_block (expression_statement (function_call (identifier)))))
 
 ==================================================
-parses if-else statements with multiple conditions
+if-else statements with multiple conditions
 ==================================================
+
 if (firstValue) {
     firstFunction();
 } else if (secondValue)
@@ -47,7 +57,9 @@ if (firstValue) {
 else {
     thirdFunction();
 }
+
 ---
+
 (if_statement (identifier)
     (statement_block (expression_statement (function_call (identifier))))
     (if_statement (identifier)
@@ -55,12 +67,15 @@ else {
         (statement_block (expression_statement (function_call (identifier))))))
 
 ==========================================
-parses for loops
+for loops
 ==========================================
+
 for (var i = 1; someCondition(i); i = next()) {
     doSomething();
 }
+
 ---
+
 (for_statement
     (var_declaration (var_assignment (identifier) (number)))
     (expression_statement (function_call (identifier) (identifier)))
@@ -68,13 +83,16 @@ for (var i = 1; someCondition(i); i = next()) {
     (statement_block (expression_statement (function_call (identifier)))))
 
 ==========================================
-parses for-in loops
+for-in loops
 ==========================================
+
 for (var key in someObject)
     doSomething();
 for (key in someObject)
     doSomethingElse();
+
 ---
+
 (program
     (for_in_statement
         (identifier) (identifier)
@@ -84,19 +102,22 @@ for (key in someObject)
         (expression_statement (function_call (identifier)))))
 
 ==========================================
-parses while loops
+while loops
 ==========================================
+
 while (someCondition(i)) {
     doSomething();
 }
+
 ---
 (while_statement
     (function_call (identifier) (identifier))
     (statement_block (expression_statement (function_call (identifier)))))
 
 ==========================================
-parses try/catch statements
+try/catch statements
 ==========================================
+
 try {
     doSomething();
 } catch (e) {
@@ -108,7 +129,9 @@ try {
 } finally {
     logError();
 }
+
 ---
+
 (program
     (try_statement
         (statement_block (expression_statement (function_call (identifier))))
@@ -120,26 +143,33 @@ try {
             (statement_block (expression_statement (function_call (identifier)))))))
 
 ===========================================
-parses throw statements
+throw statements
 ===========================================
+
 throw new Error("wtf");
+
 ---
+
 (throw_statement (constructor_call (function_call (identifier) (string))))
 
 ===========================================
-parses indented code after blocks
+indented code after blocks
 ===========================================
+
   function x() {}
   return z;
+
 ---
+
 (program
     (expression_statement
         (function_expression (identifier) (formal_parameters) (statement_block)))
     (return_statement (identifier)))
 
 ===========================================
-parses switch statements
+switch statements
 ===========================================
+
 switch(x) {
     case "hello":
         print("one");
@@ -150,7 +180,9 @@ switch(x) {
     default:
         print("three");
 }
+
 ---
+
 (switch_statement (identifier)
     (switch_case
         (string)

@@ -1,19 +1,25 @@
 ==========================================
-recovers from errors in function calls
+errors in function calls
 ==========================================
+
 stuff(|||);
+
 ---
+
 (expression_statement (function_call (identifier) (ERROR '|')))
 
 ==========================================
-recovers from errors in if statements
+errors in if statements
 ==========================================
+
 stuff();
 if (*nonsense*) {
     *more-nonsense*;
 }
 moreStuff();
+
 ---
+
 (program
     (expression_statement (function_call (identifier)))
     (if_statement (ERROR '*')

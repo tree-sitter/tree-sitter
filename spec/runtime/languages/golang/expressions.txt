@@ -1,13 +1,16 @@
 ==========================================
-parses function calls
+function calls
 ==========================================
+
 package main
 
 func main() {
     println("1", 2)
     println()
 }
+
 ---
+
 (program
     (package_directive (package_name))
     (func_declaration (var_name) (block_statement
@@ -15,14 +18,17 @@ func main() {
         (expression_statement (call_expression (var_name))))))
 
 ============================================
-parses selector expressions
+selector expressions
 ============================================
+
 package main
 
 func main() {
     x.SomeMethod(x.SomeField, x.OtherField.NestedField);
 }
+
 ---
+
 (program
     (package_directive (package_name))
     (func_declaration (var_name) (block_statement

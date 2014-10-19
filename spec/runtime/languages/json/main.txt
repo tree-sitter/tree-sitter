@@ -1,20 +1,27 @@
 =============================
-parses floating point numbers
+floating point numbers
 =============================
+
 3.14
+
 ---
+
 (number)
 
 ===================
-parses empty arrays
+empty arrays
 ===================
+
 []
+
 ---
+
 (array)
 
 ===================
-parses arrays
+arrays
 ===================
+
 [
     333,
     null,
@@ -22,7 +29,9 @@ parses arrays
     false,
     { "stuff": "good" }
 ]
+
 ---
+
 (array
     (number)
     (null)
@@ -31,21 +40,26 @@ parses arrays
     (object (string) (string)))
 
 ====================
-parses empty objects
+empty objects
 ====================
+
 {}
+
 ---
+
 (object)
 
 ===================
-parses long objects
+long objects
 ===================
+
 {
 	"key1": "value1",
 	"key2": 1
 }
+
 ---
+
 (object
 	(string) (string)
 	(string) (number))
-

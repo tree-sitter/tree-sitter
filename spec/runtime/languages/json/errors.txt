@@ -1,21 +1,29 @@
 ==========================================
-recovers from top-level errors
+top-level errors
 ==========================================
+
 [}
+
 ---
+
 (ERROR '}')
 
 ==========================================
-recovers from unexpected tokens
+unexpected tokens
 ==========================================
+
 barf
+
 ---
+
 (ERROR 'b')
 
 ==========================================
-recovers from errors inside arrays
+errors inside arrays
 ==========================================
+
 [1, , 2]
+
 ---
 (array
     (number)
@@ -23,17 +31,23 @@ recovers from errors inside arrays
     (number))
 
 ==========================================
-recovers from errors inside objects
+errors inside objects
 ==========================================
+
 { "key1": 1, oops }
+
 ---
+
 (object (string) (number) (ERROR 'o'))
 
 ==========================================
-recovers from errors inside nested objects
+errors inside nested objects
 ==========================================
+
 { "key1": { "key2": 1, 2 }, [, "key3": 3 }
+
 ---
+
 (object
     (string) (object (string) (number) (ERROR '2'))
     (ERROR '[')

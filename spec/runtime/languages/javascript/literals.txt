@@ -1,36 +1,48 @@
 ==========================================
-parses regexes
+regexes
 ==========================================
+
 theFunction(/regex1/, /regex2/g);
+
 ---
+
 (expression_statement (function_call (identifier)
     (regex) (regex)))
 
 ==========================================
-parses numbers
+numbers
 ==========================================
+
 theFunction(100.0, 200);
+
 ---
+
 (expression_statement (function_call (identifier)
     (number) (number)))
 
 ==========================================
-parses strings
+strings
 ==========================================
+
 theFunction('', "", 'single-quoted-string', "double-quoted-string");
+
 ---
+
 (expression_statement (function_call (identifier)
     (string) (string) (string) (string)))
 
 ==========================================
-parses function expressions
+function expressions
 ==========================================
+
 var x = {
     theMethod: function(argA, argB) {
         var x = argA;
     }
 };
+
 ---
+
 (var_declaration (var_assignment
     (identifier)
     (object (identifier) (function_expression
@@ -39,8 +51,9 @@ var x = {
             (var_declaration (var_assignment (identifier) (identifier))))))))
 
 ==========================================
-parses comments
+comments
 ==========================================
+
 // this is the beginning of the script.
 // here we go.
 var thing = {
@@ -53,6 +66,7 @@ var thing = {
         doStuff();
     }
 };
+
 ---
 (comment)
 (comment)
@@ -68,9 +82,12 @@ var thing = {
                 (expression_statement (function_call (identifier))))))))
 
 ==========================================
-parses comments within expressions
+comments within expressions
 ==========================================
+
 y // comment
   * z;
+
 ---
+
 (expression_statement (math_op (expression (identifier) (comment)) (identifier)))

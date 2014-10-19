@@ -1,12 +1,15 @@
 ==========================================
-parses simple declarations
+simple declarations
 ==========================================
+
 package trivial
 
 type x int64
 var y = ""
 func z() {}
+
 ---
+
 (program
     (package_directive (package_name))
     (type_declaration (type_name) (type_name))
@@ -14,21 +17,25 @@ func z() {}
     (func_declaration (var_name) (block_statement)))
 
 ==========================================
-parses var declarations
+var declarations
 ==========================================
+
 package trivial
 
 var X struct { Y int64 }
 var Z = ""
+
 ---
+
 (program
     (package_directive (package_name))
     (var_declaration (var_name) (struct_type (var_name) (type_name)))
     (var_declaration (var_name) (string)))
 
 ==========================================
-parses comments
+comments
 ==========================================
+
 package trivial
 
 var x = 1 // on variable
@@ -36,7 +43,9 @@ var x = 1 // on variable
 func main() {
     // in function
 }
+
 ---
+
 (program
     (package_directive (package_name))
     (var_declaration (var_name) (expression (number) (comment)))

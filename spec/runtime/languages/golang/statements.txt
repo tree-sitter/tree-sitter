@@ -1,5 +1,5 @@
 ============================================
-parses return statements
+return statements
 ============================================
 package main
 
@@ -10,7 +10,9 @@ func main() {
 func helper() {
     return 1, two, "three"
 }
+
 ---
+
 (program (package_directive (package_name))
     (func_declaration (var_name) (block_statement
         (return_statement)))
@@ -18,8 +20,9 @@ func helper() {
         (return_statement (number) (var_name) (string)))))
 
 ============================================
-parses variable declaration statements
+variable declarations
 ============================================
+
 package main
 
 func main() {
@@ -27,7 +30,9 @@ func main() {
     var z = 10
     println(x, y, z)
 }
+
 ---
+
 (program (package_directive (package_name))
     (func_declaration (var_name) (block_statement
         (declaration_statement (var_name) (var_name) (call_expression (var_name)))
@@ -35,8 +40,9 @@ func main() {
         (expression_statement (call_expression (var_name) (var_name) (var_name) (var_name))))))
 
 ============================================
-parses if statements
+if statements
 ============================================
+
 package main
 
 func main() {
@@ -51,7 +57,9 @@ func main() {
     } else if condition4() {
     }
 }
+
 ---
+
 (program (package_directive (package_name))
     (func_declaration (var_name) (block_statement
         (if_statement (call_expression (var_name))
@@ -64,8 +72,9 @@ func main() {
                 (block_statement))))))
 
 =============================================
-parses range statements
+range statements
 =============================================
+
 package main
 
 func main() {
@@ -77,7 +86,9 @@ func main() {
         println(k, v)
     }
 }
+
 ---
+
 (program (package_directive (package_name))
     (func_declaration (var_name) (block_statement
         (range_statement (var_name) (call_expression (var_name)) (block_statement

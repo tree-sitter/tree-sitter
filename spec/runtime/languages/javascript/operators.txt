@@ -1,17 +1,23 @@
 ==========================================
-parses function calls
+function calls
 ==========================================
+
 x.theMethod(5, 6);
+
 ---
+
 (expression_statement (function_call
     (property_access (identifier) (identifier))
     (number) (number)))
 
 ==========================================
-parses constructor calls
+constructor calls
 ==========================================
+
 var x = new Node(5, new Node(3, null));
+
 ---
+
 (var_declaration (var_assignment
     (identifier)
     (constructor_call (function_call (identifier)
@@ -21,11 +27,14 @@ var x = new Node(5, new Node(3, null));
             (null)))))))
 
 ==========================================
-parses property access with dot notation
+property access with dot notation
 ==========================================
+
 object.property = "the-value";
 print(object.property);
+
 ---
+
 (program
     (expression_statement (assignment
         (property_access (identifier) (identifier))
@@ -35,22 +44,27 @@ print(object.property);
         (property_access (identifier) (identifier)))))
 
 ==========================================
-parses property access across lines
+property access across lines
 ==========================================
+
 object
   .someProperty
   .otherProperty
+
 ---
+
 (expression_statement
     (property_access
         (property_access (identifier) (identifier))
         (identifier)))
 
 ===========================================
-parses dynamic property access
+dynamic property access
 ==========================================
+
 object[propertName()] = propertyValue();
 print(object[propertyName()]);
+
 ---
 (program
     (expression_statement (assignment
@@ -61,18 +75,22 @@ print(object[propertyName()]);
         (property_access (identifier) (function_call (identifier))))))
 
 ==========================================
-parses ternary expressions
+ternary expressions
 ==========================================
+
 print(isDone() ? stuff : otherStuff);
+
 ---
+
 (expression_statement
     (function_call
         (identifier)
         (ternary (function_call (identifier)) (identifier) (identifier))))
 
 ==========================================
-parses mathematical operators
+mathematical operators
 ==========================================
+
 -a + b * c - d / +e
 
 ---
@@ -84,11 +102,13 @@ parses mathematical operators
             (math_op (identifier) (math_op (identifier))))))
 
 ==========================================
-parses boolean operators
+boolean operators
 =========================================
+
 !a || !(b && c)
 
 ---
+
 (expression_statement
     (bool_op
         (bool_op (identifier))
@@ -96,19 +116,22 @@ parses boolean operators
             (expression (bool_op (identifier) (identifier))))))
 
 ===========================================
-parses the type operators
+type operators
 ===========================================
+
 print((x instanceof Array) || (typeof x == "string"))
 
 ---
+
 (expression_statement (function_call (identifier)
     (bool_op
         (expression (instanceof_expression (identifier) (identifier)))
         (expression (typeof_expression (bool_op (identifier) (string)))))))
 
 ============================================
-parses the 'in' operator
+the 'in' operator
 ===========================================
+
 print(x in y)
 
 ---
@@ -117,13 +140,16 @@ print(x in y)
     (in_expression (identifier) (identifier))))
 
 ============================================
-parses assignment operators
+assignment operators
 ============================================
+
 x += 1;
 x -= 1;
 x *= 2;
 x /= 2;
+
 ---
+
 (program
     (expression_statement (assignment (identifier) (number)))
     (expression_statement (assignment (identifier) (number)))
@@ -131,11 +157,13 @@ x /= 2;
     (expression_statement (assignment (identifier) (number))))
 
 ============================================
-parses property access and operators
+property access and operators
 ============================================
+
 print(x.y.z && a.b.c)
 
 ---
+
 (expression_statement (function_call (identifier)
     (bool_op
         (property_access (property_access (identifier) (identifier)) (identifier))

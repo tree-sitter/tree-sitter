@@ -1,15 +1,21 @@
 =====================================================
-recovers from errors at the top level
+errors at the top level
 =====================================================
+
 x * * y
+
 ---
+
 (variable) (ERROR '*')
 
 =====================================================
-recovers from errors inside parenthesized expressions
+errors inside parenthesized expressions
 =====================================================
+
 x + (y * + z) * 5
+
 ---
+
 (sum
     (variable)
     (product (group (ERROR '+')) (number)))

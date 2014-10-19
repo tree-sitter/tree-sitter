@@ -1,6 +1,7 @@
 ==========================================
-parses complex types
+composite types
 ==========================================
+
 package main
 
 type x *struct {
@@ -9,7 +10,9 @@ type x *struct {
         DoStuff()
     }
 }
+
 ---
+
 (program
     (package_directive (package_name))
     (type_declaration
@@ -19,14 +22,17 @@ type x *struct {
             (var_name) (map_type (type_name) (interface_type (var_name)))))))
 
 ============================================
-parses functions arguments
+functions arguments
 ============================================
+
 package main
 
 func oneArg(arg1 interface{}) {}
 func argsOfSameType(arg1, arg2 string) {}
 func argsOfDifferentTypes() (arg1 string, arg2 int64) {}
+
 ---
+
 (program
     (package_directive (package_name))
     (func_declaration (var_name) (var_name) (interface_type) (block_statement))
@@ -34,13 +40,16 @@ func argsOfDifferentTypes() (arg1 string, arg2 int64) {}
     (func_declaration (var_name) (var_name) (type_name) (var_name) (type_name) (block_statement)))
 
 ============================================
-parses functions with unnamed return values
+functions with unnamed return values
 ============================================
+
 package main
 
 func oneReturnValue() string {}
 func multipleReturnValues() (string, int64, error) {}
+
 ---
+
 (program
     (package_directive (package_name))
     (func_declaration (var_name) (type_name)
@@ -49,13 +58,16 @@ func multipleReturnValues() (string, int64, error) {}
         (block_statement)))
 
 ============================================
-parses functions with named return values
+functions with named return values
 ============================================
+
 package main
 
 func oneReturnValue() (result string) {}
 func multipleReturnValues() (result string, count int64, err error) {}
+
 ---
+
 (program
     (package_directive (package_name))
     (func_declaration (var_name) (var_name) (type_name)

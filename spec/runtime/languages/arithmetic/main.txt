@@ -1,52 +1,73 @@
 ====================
-parses numbers
+numbers
 ===================
+
 5
+
 ---
+
 (number)
 
 ===================
-parses variables
+variables
 ===================
+
 x
+
 ---
+
 (variable)
 
 ====================================
-parses variables with greek letters
+variables with greek letters
 ====================================
+
 φ1
+
 ---
+
 (variable)
 
 ===================
-parses products
+products
 ===================
+
 x * x
+
 ---
+
 (product (variable) (variable))
 
 ===================
-parses sums
+sums
 ===================
+
 x + x
+
 ---
+
 (sum (variable) (variable))
 
 ===============================================
-binds multiplication more tightly than addition
+operators of different precedence
 ===============================================
+
 a * b + c * d
+
 ---
+
 (sum
     (product (variable) (variable))
     (product (variable) (variable)))
 
 ============================
-parses exponents
+exponents
 ============================
+
 x + y * z^(a + b)
+
 ---
+
 (sum
     (variable)
     (product
