@@ -27,7 +27,7 @@ if (isReady()) {
 ---
 
 (if_statement (function_call (identifier))
-    (statement_block (expression_statement (function_call (property_access (identifier) (identifier)) (identifier)))))
+    (statement_block (expression_statement (function_call (member_access (identifier) (identifier)) (identifier)))))
 
 ==========================================
 if-else statements
@@ -78,7 +78,7 @@ for (var i = 1; someCondition(i); i = next()) {
 
 (for_statement
     (var_declaration (var_assignment (identifier) (number)))
-    (expression_statement (function_call (identifier) (identifier)))
+    (function_call (identifier) (identifier))
     (assignment (identifier) (function_call (identifier)))
     (statement_block (expression_statement (function_call (identifier)))))
 
@@ -135,11 +135,11 @@ try {
 (program
     (try_statement
         (statement_block (expression_statement (function_call (identifier))))
-        (catch_clause (identifier)
+        (catch (identifier)
             (statement_block (expression_statement (function_call (identifier) (identifier))))))
     (try_statement
         (statement_block (expression_statement (function_call (identifier))))
-        (finally_clause
+        (finally
             (statement_block (expression_statement (function_call (identifier)))))))
 
 ===========================================
@@ -150,7 +150,7 @@ throw new Error("wtf");
 
 ---
 
-(throw_statement (constructor_call (function_call (identifier) (string))))
+(throw_statement (constructor_call (identifier) (string)))
 
 ===========================================
 indented code after blocks
@@ -163,7 +163,7 @@ indented code after blocks
 
 (program
     (expression_statement
-        (function_expression (identifier) (formal_parameters) (statement_block)))
+        (function_expression (identifier) (statement_block)))
     (return_statement (identifier)))
 
 ===========================================
@@ -184,13 +184,13 @@ switch(x) {
 ---
 
 (switch_statement (identifier)
-    (switch_case
+    (case
         (string)
         (expression_statement (function_call (identifier) (string)))
         (break_statement))
-    (switch_case
+    (case
         (function_call (identifier))
         (expression_statement (function_call (identifier) (string)))
         (break_statement))
-    (switch_case
+    (default
         (expression_statement (function_call (identifier) (string)))))

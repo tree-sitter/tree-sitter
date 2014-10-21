@@ -5,7 +5,7 @@ namespace tree_sitter_examples {
 using namespace tree_sitter::rules;
 
 rule_ptr comma_sep1(rule_ptr element) {
-  return seq({ element, repeat(seq({ str(","), element })) });
+  return seq({ element, repeat(seq({ keyword(","), element })) });
 }
 
 rule_ptr comma_sep(rule_ptr element) {

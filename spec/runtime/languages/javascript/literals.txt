@@ -7,7 +7,7 @@ theFunction(/regex1/, /regex2/g);
 ---
 
 (expression_statement (function_call (identifier)
-    (regex) (regex)))
+    (arguments (regex) (regex))))
 
 ==========================================
 numbers
@@ -18,7 +18,7 @@ theFunction(100.0, 200);
 ---
 
 (expression_statement (function_call (identifier)
-    (number) (number)))
+    (arguments (number) (number))))
 
 ==========================================
 strings
@@ -29,7 +29,7 @@ theFunction('', "", 'single-quoted-string', "double-quoted-string");
 ---
 
 (expression_statement (function_call (identifier)
-    (string) (string) (string) (string)))
+    (arguments (string) (string) (string) (string))))
 
 ==========================================
 function expressions
@@ -45,10 +45,10 @@ var x = {
 
 (var_declaration (var_assignment
     (identifier)
-    (object (identifier) (function_expression
+    (object (pair (identifier) (function_expression
         (formal_parameters (identifier) (identifier))
         (statement_block
-            (var_declaration (var_assignment (identifier) (identifier))))))))
+            (var_declaration (var_assignment (identifier) (identifier)))))))))
 
 ==========================================
 comments
@@ -75,11 +75,11 @@ var thing = {
     (object
         (comment)
         (comment)
-        (identifier) (function_expression
+        (pair (identifier) (function_expression
             (formal_parameters (identifier) (comment))
             (statement_block
                 (comment)
-                (expression_statement (function_call (identifier))))))))
+                (expression_statement (function_call (identifier)))))))))
 
 ==========================================
 comments within expressions

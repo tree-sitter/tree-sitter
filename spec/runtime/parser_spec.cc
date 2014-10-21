@@ -193,7 +193,7 @@ describe("Parser", [&]() {
         AssertThat(ts_node_string(root), Equals(
             "(DOCUMENT "
               "(expression_statement (function_call "
-                "(property_access (function_call (identifier)) (identifier)))))"));
+                "(member_access (function_call (identifier)) (identifier)))))"));
       });
     });
 
@@ -208,7 +208,7 @@ describe("Parser", [&]() {
         AssertThat(ts_node_string(root), Equals(
             "(DOCUMENT "
               "(expression_statement (function_call "
-                "(property_access (function_call (identifier)) "
+                "(member_access (function_call (identifier)) "
                   "(comment) "
                   "(identifier)))))"));
       });
@@ -423,14 +423,14 @@ describe("Parser", [&]() {
         set_text("{ x: (b.c) };");
 
         AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (expression_statement (object "
-                "(identifier) (expression (property_access (identifier) (identifier))))))"));
+            "(DOCUMENT (expression_statement (object (pair "
+                "(identifier) (expression (member_access (identifier) (identifier)))))))"));
 
         replace_text(strlen("{ x: "), strlen("(b.c)"), "b.c");
 
         AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (expression_statement (object "
-                "(identifier) (property_access (identifier) (identifier)))))"));
+            "(DOCUMENT (expression_statement (object (pair "
+                "(identifier) (member_access (identifier) (identifier))))))"));
       });
     });
   });
