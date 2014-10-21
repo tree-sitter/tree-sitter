@@ -47,7 +47,7 @@ extern const Grammar javascript = Grammar({
         sym("while_statement"),
 
         sym("for_in_statement"),
-        sym("do_statement"),
+        // sym("do_statement"),
 
         sym("try_statement"),
         sym("return_statement"),
@@ -107,11 +107,11 @@ extern const Grammar javascript = Grammar({
         sym("_paren_expression"),
         sym("statement") }) },
 
-    { "do_statement", seq({
-        keyword("do"),
-        sym("statement"),
-        keyword("while"),
-        sym("_paren_expression") })},
+    // { "do_statement", seq({
+        // keyword("do"),
+        // sym("statement"),
+        // keyword("while"),
+        // sym("_paren_expression") })},
 
     { "try_statement", seq({
         keyword("try"),
@@ -184,7 +184,9 @@ extern const Grammar javascript = Grammar({
         sym("bool_op"),
         sym("math_op"),
         sym("comma_op"),
-        sym("bitwise_op"),
+
+        // sym("bitwise_op"),
+
         sym("rel_op"),
         sym("type_op"),
         sym("null"),
@@ -265,8 +267,10 @@ extern const Grammar javascript = Grammar({
     { "comma_op", infix_op(",", "expression", PREC_COMMA) },
 
     { "math_op", choice({
-        prefix_op("+", "expression", PREC_SIGN),
-        prefix_op("-", "expression", PREC_SIGN),
+
+        // prefix_op("+", "expression", PREC_SIGN),
+        // prefix_op("-", "expression", PREC_SIGN),
+
         postfix_op("++", "expression", PREC_INC),
         postfix_op("--", "expression", PREC_INC),
         infix_op("*", "expression", PREC_MULT),
@@ -274,17 +278,19 @@ extern const Grammar javascript = Grammar({
         infix_op("+", "expression", PREC_ADD),
         infix_op("-", "expression", PREC_ADD) }) },
 
-    { "bitwise_op", choice({
-        infix_op("&", "expression", PREC_MULT),
-        infix_op("|", "expression", PREC_MULT),
-        infix_op("<<", "expression", PREC_MULT),
-        infix_op(">>", "expression", PREC_MULT) }) },
+    // { "bitwise_op", choice({
+        // infix_op("&", "expression", PREC_MULT),
+        // infix_op("|", "expression", PREC_MULT),
+        // infix_op("<<", "expression", PREC_MULT),
+        // infix_op(">>", "expression", PREC_MULT) }) },
 
     { "rel_op", choice({
-        infix_op("==", "expression", PREC_REL),
-        infix_op("!=", "expression", PREC_REL),
-        infix_op("<=", "expression", PREC_REL),
-        infix_op(">=", "expression", PREC_REL),
+
+        // infix_op("==", "expression", PREC_REL),
+        // infix_op("!=", "expression", PREC_REL),
+        // infix_op("<=", "expression", PREC_REL),
+        // infix_op(">=", "expression", PREC_REL),
+
         infix_op("===", "expression", PREC_REL),
         infix_op("!==", "expression", PREC_REL),
         infix_op("<", "expression", PREC_REL),
