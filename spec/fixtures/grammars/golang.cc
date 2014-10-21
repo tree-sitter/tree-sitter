@@ -100,7 +100,7 @@ extern const Grammar golang = Grammar({
     { "range_statement", seq({
         keyword("for"),
         sym("var_name"),
-        optional(seq({ str(","), sym("var_name") })),
+        optional(seq({ keyword(","), sym("var_name") })),
         str(":="),
         keyword("range"),
         sym("expression"),
