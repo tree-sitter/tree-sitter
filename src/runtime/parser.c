@@ -51,7 +51,8 @@ static TSLength break_down_left_stack(TSParser *parser, TSInputEdit edit) {
     if (left_subtree_end.chars < edit.position && !children)
       break;
 
-    DEBUG("pop_left sym:%s", SYM_NAME(node->symbol));
+    DEBUG("pop_left sym:%s state:%u", SYM_NAME(node->symbol),
+          ts_stack_top_state(&parser->stack));
     parser->stack.size--;
     left_subtree_end = ts_length_sub(left_subtree_end, ts_tree_total_size(node));
 
@@ -63,7 +64,7 @@ static TSLength break_down_left_stack(TSParser *parser, TSInputEdit edit) {
       TSStateId next_state =
           action.type == TSParseActionTypeShift ? action.data.to_state : state;
 
-      DEBUG("push_left sym:%s", SYM_NAME(child->symbol));
+      DEBUG("push_left sym:%s state:%u", SYM_NAME(child->symbol), next_state);
       ts_stack_push(&parser->stack, next_state, child);
       left_subtree_end =
           ts_length_add(left_subtree_end, ts_tree_total_size(child));
@@ -82,7 +83,8 @@ static TSLength break_down_left_stack(TSParser *parser, TSInputEdit edit) {
     ts_tree_release(node);
   }
 
-  DEBUG("reuse_left chars:%lu", left_subtree_end.chars);
+  DEBUG("reuse_left chars:%lu state:%u", left_subtree_end.chars,
+        ts_stack_top_state(&parser->stack));
   return left_subtree_end;
 }
 
@@ -113,7 +115,7 @@ static TSTree *break_down_right_stack(TSParser *parser) {
     size_t child_count;
     TSTree **children = ts_tree_children(node, &child_count);
 
-    DEBUG("pop_right %s", SYM_NAME(node->symbol));
+    DEBUG("pop_right sym:%s", SYM_NAME(node->symbol));
     stack->size--;
     right_subtree_start += ts_tree_total_size(node).chars;
 
@@ -135,17 +137,18 @@ static TSTree *get_next_node(TSParser *parser, TSStateId lex_state) {
   TSTree *node;
 
   if ((node = break_down_right_stack(parser))) {
-    DEBUG("reuse sym:%s", SYM_NAME(node->symbol));
+    DEBUG("reuse sym:%s is_extra:%u size:%lu", SYM_NAME(node->symbol),
+          ts_tree_is_extra(node), ts_tree_total_size(node).chars);
 
-    parser->lexer.lookahead = 0;
-    parser->lexer.lookahead_size = 0;
     parser->lexer.token_start_position =
         ts_length_add(parser->lexer.current_position, node->padding);
     parser->lexer.token_end_position = parser->lexer.current_position =
         ts_length_add(parser->lexer.token_start_position, node->size);
+
+    parser->lexer.lookahead = 0;
+    parser->lexer.lookahead_size = 0;
   } else {
     node = parser->language->lex_fn(&parser->lexer, lex_state);
-    DEBUG("lex sym:%s", SYM_NAME(node->symbol));
   }
 
   return node;
@@ -340,10 +343,11 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
     TSParseAction action =
         get_action(parser->language, state, parser->lookahead->symbol);
 
+    DEBUG("lookahead sym:%s", SYM_NAME(parser->lookahead->symbol));
     switch (action.type) {
       case TSParseActionTypeShift:
         if (parser->lookahead->symbol == ts_builtin_sym_error) {
-          DEBUG("error");
+          DEBUG("error_sym");
           if (!handle_error(parser))
             return finish(parser);
         } else {
@@ -358,9 +362,9 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
         break;
 
       case TSParseActionTypeReduce:
-        DEBUG("reduce sym:%s count:%u", SYM_NAME(action.data.symbol),
-              action.data.child_count);
         reduce(parser, action.data.symbol, action.data.child_count);
+        DEBUG("reduce sym:%s count:%u state:%u", SYM_NAME(action.data.symbol),
+              action.data.child_count, ts_stack_top_state(&parser->stack));
         break;
 
       case TSParseActionTypeReduceExtra:
@@ -373,7 +377,7 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
         return finish(parser);
 
       case TSParseActionTypeError:
-        DEBUG("error");
+        DEBUG("error_sym");
         if (!handle_error(parser))
           return finish(parser);
         break;

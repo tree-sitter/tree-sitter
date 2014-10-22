@@ -13,6 +13,12 @@
                              lexer->debug_buffer);                    \
   }
 
+#define DEBUG_LOOKAHEAD()                               \
+  DEBUG((0 < lexer->lookahead &&lexer->lookahead < 256) \
+            ? "lookahead char:'%c'"                     \
+            : "lookahead char:%d",                      \
+        lexer->lookahead);
+
 static const char *empty_chunk = "";
 
 static void read_next_chunk(TSLexer *lexer) {
@@ -31,10 +37,7 @@ static void read_lookahead(TSLexer *lexer) {
   lexer->lookahead_size = utf8proc_iterate(
       (const uint8_t *)lexer->chunk + position_in_chunk,
       lexer->chunk_size - position_in_chunk + 1, &lexer->lookahead);
-
-  DEBUG((0 < lexer->lookahead && lexer->lookahead < 256) ? "lookahead char:'%c'"
-                                                         : "lookahead char:%d",
-        lexer->lookahead);
+  DEBUG_LOOKAHEAD();
 }
 
 static void start(TSLexer *lexer, TSStateId lex_state) {
@@ -66,15 +69,20 @@ static bool advance(TSLexer *lexer, TSStateId state) {
 
 static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden,
                       const char *symbol_name) {
-  DEBUG("accept_token sym:%s", symbol_name);
   TSLength size =
       ts_length_sub(lexer->current_position, lexer->token_start_position);
   TSLength padding =
       ts_length_sub(lexer->token_start_position, lexer->token_end_position);
   lexer->token_end_position = lexer->current_position;
-  return (symbol == ts_builtin_sym_error)
-             ? ts_tree_make_error(size, padding, lexer->lookahead)
-             : ts_tree_make_leaf(symbol, size, padding, is_hidden);
+
+  if (symbol == ts_builtin_sym_error) {
+    DEBUG_LOOKAHEAD();
+    DEBUG("error_char");
+    return ts_tree_make_error(size, padding, lexer->lookahead);
+  } else {
+    DEBUG("accept_token sym:%s", symbol_name);
+    return ts_tree_make_leaf(symbol, size, padding, is_hidden);
+  }
 }
 
 /*
