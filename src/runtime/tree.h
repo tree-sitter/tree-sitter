@@ -31,11 +31,11 @@ typedef struct {
   TSLength offset;
 } TSTreeChild;
 
-static inline int ts_tree_is_extra(const TSTree *tree) {
-  return (tree->options & TSTreeOptionsExtra);
+static inline bool ts_tree_is_extra(const TSTree *tree) {
+  return !!(tree->options & TSTreeOptionsExtra);
 }
 
-static inline int ts_tree_is_visible(const TSTree *tree) {
+static inline bool ts_tree_is_visible(const TSTree *tree) {
   return !(tree->options & TSTreeOptionsHidden);
 }
 
@@ -43,8 +43,8 @@ static inline void ts_tree_set_extra(TSTree *tree) {
   tree->options = (TSTreeOptions)(tree->options | TSTreeOptionsExtra);
 }
 
-static inline int ts_tree_is_wrapper(const TSTree *tree) {
-  return (tree->options & TSTreeOptionsWrapper);
+static inline bool ts_tree_is_wrapper(const TSTree *tree) {
+  return !!(tree->options & TSTreeOptionsWrapper);
 }
 
 TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, bool);
