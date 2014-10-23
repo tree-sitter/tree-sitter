@@ -106,7 +106,7 @@ static TSTree *break_down_right_stack(TSParser *parser) {
 
     TSParseAction action = get_action(parser->language, state, node->symbol);
     bool is_usable = (action.type != TSParseActionTypeError) &&
-                     (node->symbol != ts_builtin_sym_error) &&
+                     !ts_tree_has_error(node) &&
                      !ts_tree_is_extra(node);
     if (is_usable && right_subtree_start == current_position.chars) {
       ts_stack_shrink(&parser->right_stack, parser->right_stack.size - 1);

@@ -21,6 +21,7 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength size, TSLength padding,
 
 TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char) {
   TSTree *result = ts_tree_make_leaf(ts_builtin_sym_error, size, padding, false);
+  ts_tree_set_has_error(result);
   result->lookahead_char = lookahead_char;
   return result;
 }
@@ -34,6 +35,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
    */
   TSLength size = ts_length_zero(), padding = ts_length_zero();
   size_t visible_child_count = 0;
+  bool has_error = false;
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
     ts_tree_retain(child);
@@ -49,12 +51,17 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
       visible_child_count++;
     else
       visible_child_count += child->visible_child_count;
+
+    if (ts_tree_has_error(child))
+      has_error = true;
   }
 
   /*
    *  Mark the tree as hidden if it wraps a single child node.
    */
   TSTreeOptions options = 0;
+  if (has_error)
+    options |= TSTreeOptionsHasError;
   if (is_hidden)
     options |= TSTreeOptionsHidden;
   if (child_count == 1 &&
@@ -197,15 +204,9 @@ static size_t tree_write_to_string(const TSTree *tree, const char **symbol_names
 }
 
 char *ts_tree_string(const TSTree *tree, const char **symbol_names) {
-
-  /*
-   *  Determine the length of the string first, so that the right amount of
-   *  memory can be allocated.
-   */
   static char SCRATCH[1];
   size_t size = tree_write_to_string(tree, symbol_names, SCRATCH, 0, 1) + 1;
   char *result = malloc(size * sizeof(char));
-
   tree_write_to_string(tree, symbol_names, result, size, 1);
   return result;
 }

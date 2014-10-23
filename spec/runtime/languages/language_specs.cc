@@ -40,11 +40,7 @@ describe("Languages", [&]() {
           expect_the_correct_tree();
         });
 
-        // TODO - make these tests pass
-        set<string> skipped({
-          "while loops",
-          "function expressions",
-        });
+        set<string> skipped({});
 
         if (skipped.find(entry.description) != skipped.end())
           continue;

@@ -10,7 +10,13 @@ enum {
     pig = 4,
 };
 
-static const char *names[] = { "error", "end", "cat", "dog", "pig" };
+static const char *names[] = {
+    "error",
+    "end",
+    "cat",
+    "dog",
+    "pig",
+};
 
 describe("Tree", []() {
   TSTree *tree1, *tree2, *parent1;
@@ -20,19 +26,19 @@ describe("Tree", []() {
         cat,
         ts_length_make(5, 4),
         ts_length_make(2, 1),
-        0);
+        false);
 
     tree2 = ts_tree_make_leaf(
         cat,
         ts_length_make(3, 3),
         ts_length_make(1, 1),
-        0);
+        false);
 
     parent1 = ts_tree_make_node(
         dog,
         2,
         tree_array({ tree1, tree2, }),
-        0);
+        false);
   });
 
   after_each([&]() {
@@ -41,7 +47,24 @@ describe("Tree", []() {
     ts_tree_release(parent1);
   });
 
-  describe("building a parent node", [&]() {
+  describe("make_leaf(sym, size, padding, is_hidden)", [&]() {
+    it("does not record that it contains an error", [&]() {
+      AssertThat(ts_tree_has_error(tree1), IsFalse());
+    });
+  });
+
+  describe("make_error(size, padding, lookahead_char)", [&]() {
+    it("records that it contains an error", [&]() {
+      TSTree *error_tree = ts_tree_make_error(
+        ts_length_zero(),
+        ts_length_zero(),
+        'z');
+
+      AssertThat(ts_tree_has_error(error_tree), IsTrue());
+    });
+  });
+
+  describe("make_node(symbol, child_count, children, is_hidden)", [&]() {
     it("computes its size based on its child nodes", [&]() {
       AssertThat(parent1->size.bytes, Equals<size_t>(
           tree1->size.bytes + + tree2->padding.bytes + tree2->size.bytes));
@@ -112,6 +135,32 @@ describe("Tree", []() {
             tree1->size.bytes + tree2->padding.bytes + tree2->size.bytes + tree3->padding.bytes));
         AssertThat(children[2].offset.chars, Equals<size_t>(
             tree1->size.chars + tree2->padding.chars + tree2->size.chars + tree3->padding.chars));
+      });
+    });
+
+    describe("when one of the child nodes has an error", [&]() {
+      TSTree *parent;
+
+      before_each([&]() {
+        tree2->options = (TSTreeOptions)(TSTreeOptionsHasError|TSTreeOptionsExtra);
+        parent = ts_tree_make_node(pig, 2, tree_array({
+            tree1,
+            tree2,
+        }), 0);
+      });
+
+      after_each([&]() {
+        ts_tree_release(parent);
+      });
+
+      it("records that it contains an error", [&]() {
+        AssertThat(ts_tree_has_error(parent), IsTrue());
+      });
+    });
+
+    describe("when none of the child nodes have an error", [&]() {
+      it("records that it does not contain an error", [&]() {
+        AssertThat(ts_tree_has_error(parent1), IsFalse());
       });
     });
   });

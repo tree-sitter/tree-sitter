@@ -9,9 +9,10 @@ extern "C" {
 #include "tree_sitter/parser.h"
 
 typedef enum {
-  TSTreeOptionsHidden = 1,
-  TSTreeOptionsExtra = 2,
-  TSTreeOptionsWrapper = 4,
+  TSTreeOptionsHidden = 1 << 0,
+  TSTreeOptionsExtra = 1 << 1,
+  TSTreeOptionsWrapper = 1 << 2,
+  TSTreeOptionsHasError = 1 << 3,
 } TSTreeOptions;
 
 struct TSTree {
@@ -39,12 +40,24 @@ static inline bool ts_tree_is_visible(const TSTree *tree) {
   return !(tree->options & TSTreeOptionsHidden);
 }
 
-static inline void ts_tree_set_extra(TSTree *tree) {
-  tree->options = (TSTreeOptions)(tree->options | TSTreeOptionsExtra);
-}
-
 static inline bool ts_tree_is_wrapper(const TSTree *tree) {
   return !!(tree->options & TSTreeOptionsWrapper);
+}
+
+static inline bool ts_tree_has_error(const TSTree *tree) {
+  return !!(tree->options & TSTreeOptionsHasError);
+}
+
+static inline void ts_tree_set_options(TSTree *tree, TSTreeOptions options) {
+  tree->options = (TSTreeOptions)(tree->options | options);
+}
+
+static inline void ts_tree_set_extra(TSTree *tree) {
+  ts_tree_set_options(tree, TSTreeOptionsExtra);
+}
+
+static inline void ts_tree_set_has_error(TSTree *tree) {
+  ts_tree_set_options(tree, TSTreeOptionsHasError);
 }
 
 TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, bool);
