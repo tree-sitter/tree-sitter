@@ -62,7 +62,7 @@ static TSLength break_down_left_stack(TSParser *parser, TSInputEdit edit) {
       TSStateId state = ts_stack_top_state(&parser->stack);
       TSParseAction action = get_action(parser->language, state, child->symbol);
       TSStateId next_state =
-          action.type == TSParseActionTypeShift ? action.data.to_state : state;
+          ts_tree_is_extra(child) ? state : action.data.to_state;
 
       DEBUG("push_left sym:%s state:%u", SYM_NAME(child->symbol), next_state);
       ts_stack_push(&parser->stack, next_state, child);
@@ -106,7 +106,8 @@ static TSTree *break_down_right_stack(TSParser *parser) {
 
     TSParseAction action = get_action(parser->language, state, node->symbol);
     bool is_usable = (action.type != TSParseActionTypeError) &&
-                     (node->symbol != ts_builtin_sym_error);
+                     (node->symbol != ts_builtin_sym_error) &&
+                     !ts_tree_is_extra(node);
     if (is_usable && right_subtree_start == current_position.chars) {
       ts_stack_shrink(&parser->right_stack, parser->right_stack.size - 1);
       return node;
@@ -147,6 +148,7 @@ static TSTree *get_next_node(TSParser *parser, TSStateId lex_state) {
 
     parser->lexer.lookahead = 0;
     parser->lexer.lookahead_size = 0;
+    parser->lexer.advance_fn(&parser->lexer, 0);
   } else {
     node = parser->language->lex_fn(&parser->lexer, lex_state);
   }
