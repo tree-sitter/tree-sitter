@@ -51,7 +51,7 @@ static TSLength break_down_left_stack(TSParser *parser, TSInputEdit edit) {
     if (left_subtree_end.chars < edit.position && !children)
       break;
 
-    DEBUG("pop_left sym:%s state:%u", SYM_NAME(node->symbol),
+    DEBUG("pop_left sym:%s, state:%u", SYM_NAME(node->symbol),
           ts_stack_top_state(&parser->stack));
     parser->stack.size--;
     left_subtree_end = ts_length_sub(left_subtree_end, ts_tree_total_size(node));
@@ -64,7 +64,7 @@ static TSLength break_down_left_stack(TSParser *parser, TSInputEdit edit) {
       TSStateId next_state =
           ts_tree_is_extra(child) ? state : action.data.to_state;
 
-      DEBUG("push_left sym:%s state:%u", SYM_NAME(child->symbol), next_state);
+      DEBUG("push_left sym:%s, state:%u", SYM_NAME(child->symbol), next_state);
       ts_stack_push(&parser->stack, next_state, child);
       left_subtree_end =
           ts_length_add(left_subtree_end, ts_tree_total_size(child));
@@ -83,7 +83,7 @@ static TSLength break_down_left_stack(TSParser *parser, TSInputEdit edit) {
     ts_tree_release(node);
   }
 
-  DEBUG("reuse_left chars:%lu state:%u", left_subtree_end.chars,
+  DEBUG("reuse_left chars:%lu, state:%u", left_subtree_end.chars,
         ts_stack_top_state(&parser->stack));
   return left_subtree_end;
 }
@@ -138,7 +138,7 @@ static TSTree *get_next_node(TSParser *parser, TSStateId lex_state) {
   TSTree *node;
 
   if ((node = break_down_right_stack(parser))) {
-    DEBUG("reuse sym:%s is_extra:%u size:%lu", SYM_NAME(node->symbol),
+    DEBUG("reuse sym:%s, is_extra:%u, size:%lu", SYM_NAME(node->symbol),
           ts_tree_is_extra(node), ts_tree_total_size(node).chars);
 
     parser->lexer.token_start_position =
@@ -325,7 +325,7 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
 
   TSLength position;
   if (edit) {
-    DEBUG("edit pos:%lu inserted:%lu deleted:%lu", edit->position,
+    DEBUG("edit pos:%lu, inserted:%lu, deleted:%lu", edit->position,
           edit->chars_inserted, edit->chars_removed);
     position = break_down_left_stack(parser, *edit);
   } else {
@@ -365,7 +365,7 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
 
       case TSParseActionTypeReduce:
         reduce(parser, action.data.symbol, action.data.child_count);
-        DEBUG("reduce sym:%s count:%u state:%u", SYM_NAME(action.data.symbol),
+        DEBUG("reduce sym:%s, count:%u, state:%u", SYM_NAME(action.data.symbol),
               action.data.child_count, ts_stack_top_state(&parser->stack));
         break;
 
