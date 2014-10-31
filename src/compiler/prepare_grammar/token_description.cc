@@ -15,11 +15,11 @@ using std::string;
 
 class TokenDescription : public rules::RuleFn<string> {
   string apply_to(const rules::Pattern *rule) {
-    return "/" + util::escape_string(rule->value) + "/";
+    return "PAT_" + util::escape_string(rule->value);
   }
 
   string apply_to(const rules::String *rule) {
-    return "'" + util::escape_string(rule->value) + "'";
+    return "STR_" + util::escape_string(rule->value);
   }
 
   string apply_to(const rules::Metadata *rule) { return apply(rule->rule); }

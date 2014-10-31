@@ -22,6 +22,38 @@ using std::to_string;
 using std::vector;
 using util::escape_char;
 
+static const map<char, string> REPLACEMENTS({
+  { '=', "EQ" },
+  { '\'', "SQUOTE" },
+  { '"', "DQUOTE" },
+  { '`', "BQUOTE" },
+  { '.', "DOT" },
+  { ',', "COMMA" },
+  { ':', "COLON" },
+  { ';', "SEMI" },
+  { '(', "LPAREN" },
+  { ')', "RPAREN" },
+  { '<', "LT" },
+  { '>', "GT" },
+  { '{', "LBRACE" },
+  { '}', "RBRACE" },
+  { '[', "LBRACK" },
+  { ']', "RBRACK" },
+  { '&', "AMP" },
+  { '|', "PIPE" },
+  { '%', "PERCENT" },
+  { '-', "DASH" },
+  { '+', "PLUS" },
+  { '*', "STAR" },
+  { '~', "TILDE" },
+  { '!', "BANG" },
+  { '^', "CARET" },
+  { '$', "DOLLAR" },
+  { '@', "AT" },
+  { '/', "SLASH" },
+  { '\\', "BSLASH" },
+});
+
 class CCodeGenerator {
   string buffer;
   size_t indent_level;
@@ -279,9 +311,9 @@ class CCodeGenerator {
     } else {
       string name = sanitize_name(rule_name(symbol));
       if (symbol.is_auxiliary())
-        return "ts_aux_sym_" + name;
+        return "aux_sym_" + name;
       else
-        return "ts_sym_" + name;
+        return "sym_" + name;
     }
   }
 
@@ -338,6 +370,15 @@ class CCodeGenerator {
       if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') ||
           ('0' <= c && c <= '9') || (c == '_')) {
         stripped_name += c;
+        continue;
+      }
+
+      auto replacement = REPLACEMENTS.find(c);
+      if (replacement != REPLACEMENTS.end()) {
+        if (stripped_name[stripped_name.size() - 1] != '_')
+          stripped_name += "_";
+        stripped_name += replacement->second;
+        continue;
       }
     }
 
