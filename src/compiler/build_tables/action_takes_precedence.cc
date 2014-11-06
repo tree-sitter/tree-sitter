@@ -68,5 +68,42 @@ pair<bool, bool> action_takes_precedence(const ParseAction &new_action,
   return { has_precedence, has_conflict };
 }
 
+bool action_takes_precedence(const LexAction &new_action,
+                             const LexAction &old_action) {
+  if (new_action.type < old_action.type)
+    return !action_takes_precedence(old_action, new_action);
+
+  switch (old_action.type) {
+    case LexActionTypeError:
+      return true;
+
+    case LexActionTypeAccept: {
+      int old_precedence = *old_action.precedence_values.begin();
+
+      switch (new_action.type) {
+        case LexActionTypeAccept: {
+          int new_precedence = *new_action.precedence_values.begin();
+          if (new_precedence > old_precedence)
+            return true;
+          else if (new_precedence < old_precedence)
+            return false;
+          else
+            return new_action.symbol.index < old_action.symbol.index;
+        }
+
+        case LexActionTypeAdvance:
+          return true;
+
+        default:
+          return false;
+      }
+      return true;
+    }
+
+    default:
+      return false;
+  }
+}
+
 }  // namespace build_tables
 }  // namespace tree_sitter

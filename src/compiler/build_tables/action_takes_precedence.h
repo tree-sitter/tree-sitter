@@ -15,6 +15,9 @@ std::pair<bool, bool> action_takes_precedence(const ParseAction &new_action,
                                               const rules::Symbol &symbol,
                                               const SyntaxGrammar &grammar);
 
+bool action_takes_precedence(const LexAction &new_action,
+                             const LexAction &old_action);
+
 }  // namespace build_tables
 }  // namespace tree_sitter
 

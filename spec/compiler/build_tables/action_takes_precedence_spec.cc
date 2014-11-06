@@ -2,7 +2,6 @@
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/action_takes_precedence.h"
-#include "compiler/build_tables/lex_conflict_manager.h"
 #include "compiler/prepared_grammar.h"
 
 using namespace rules;
@@ -10,7 +9,7 @@ using namespace build_tables;
 
 START_TEST
 
-describe("resolving parse conflicts", []() {
+describe("action_takes_precedence", []() {
   bool update;
 
   SyntaxGrammar parse_grammar({
@@ -18,41 +17,25 @@ describe("resolving parse conflicts", []() {
       { "rule2", sym("token1") },
   }, {}, set<rules::Symbol>());
 
-  LexicalGrammar lex_grammar({
-      { "token1", pattern("[a-c]") },
-      { "token2", pattern("[b-d]") },
-      { "token3", keyword("stuff") },
-  }, {}, {});
-
-  describe("LexConflictManager", [&]() {
+  describe("lexical conflicts", [&]() {
     Symbol sym1(0, SymbolOptionToken);
     Symbol sym2(1, SymbolOptionToken);
     Symbol sym3(2, SymbolOptionToken);
 
-    LexConflictManager *manager;
-
-    before_each([&]() {
-      manager = new LexConflictManager(lex_grammar);
-    });
-
-    after_each([&]() {
-      delete manager;
-    });
-
     it("favors non-errors over lexical errors", [&]() {
-      update = manager->resolve_lex_action(LexAction::Error(), LexAction::Advance(2, {0}));
+      update = action_takes_precedence(LexAction::Advance(2, {0}), LexAction::Error());
       AssertThat(update, IsTrue());
 
-      update = manager->resolve_lex_action(LexAction::Advance(2, {0}), LexAction::Error());
+      update = action_takes_precedence(LexAction::Error(), LexAction::Advance(2, {0}));
       AssertThat(update, IsFalse());
     });
 
     describe("accept-token/advance conflicts", [&]() {
       it("prefers the advance", [&]() {
-        update = manager->resolve_lex_action(LexAction::Accept(sym3, 3), LexAction::Advance(1, { 0 }));
+        update = action_takes_precedence(LexAction::Advance(1, { 0 }), LexAction::Accept(sym3, 3));
         AssertThat(update, IsTrue());
 
-        update = manager->resolve_lex_action(LexAction::Advance(1, { 0 }), LexAction::Accept(sym3, 3));
+        update = action_takes_precedence(LexAction::Accept(sym3, 3), LexAction::Advance(1, { 0 }));
         AssertThat(update, IsFalse());
       });
     });
@@ -60,27 +43,27 @@ describe("resolving parse conflicts", []() {
     describe("accept-token/accept-token conflicts", [&]() {
       describe("when one token has a higher precedence than the other", [&]() {
         it("prefers the token with the higher precedence", [&]() {
-          update = manager->resolve_lex_action(LexAction::Accept(sym3, 2), LexAction::Accept(sym2, 0));
+          update = action_takes_precedence(LexAction::Accept(sym2, 0), LexAction::Accept(sym3, 2));
           AssertThat(update, IsFalse());
 
-          update = manager->resolve_lex_action(LexAction::Accept(sym2, 0), LexAction::Accept(sym3, 2));
+          update = action_takes_precedence(LexAction::Accept(sym3, 2), LexAction::Accept(sym2, 0));
           AssertThat(update, IsTrue());
         });
       });
 
       describe("when both tokens have the same precedence", [&]() {
         it("prefers the token listed earlier in the grammar", [&]() {
-          update = manager->resolve_lex_action(LexAction::Accept(sym1, 0), LexAction::Accept(sym2, 0));
+          update = action_takes_precedence(LexAction::Accept(sym2, 0), LexAction::Accept(sym1, 0));
           AssertThat(update, IsFalse());
 
-          update = manager->resolve_lex_action(LexAction::Accept(sym2, 0), LexAction::Accept(sym1, 0));
+          update = action_takes_precedence(LexAction::Accept(sym1, 0), LexAction::Accept(sym2, 0));
           AssertThat(update, IsTrue());
         });
       });
     });
   });
 
-  describe("action_takes_precedence", [&]() {
+  describe("parsing conflicts", [&]() {
     pair<bool, bool> result;
     Symbol sym1(0);
     Symbol sym2(1);
