@@ -1,6 +1,7 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/rules/built_in_symbols.h"
-#include "compiler/build_tables/parse_conflict_manager.h"
+#include "compiler/parse_table.h"
+#include "compiler/build_tables/action_takes_precedence.h"
 #include "compiler/build_tables/lex_conflict_manager.h"
 #include "compiler/prepared_grammar.h"
 
@@ -79,25 +80,30 @@ describe("resolving parse conflicts", []() {
     });
   });
 
-  describe("ParseConflictManager", [&]() {
+  describe("action_takes_precedence", [&]() {
+    pair<bool, bool> result;
     Symbol sym1(0);
     Symbol sym2(1);
-    ParseConflictManager *manager;
 
-    before_each([&]() {
-      manager = new ParseConflictManager(parse_grammar, lex_grammar);
-    });
+    describe("errors", [&]() {
+      ParseAction error = ParseAction::Error();
+      ParseAction non_error = ParseAction::Shift(2, { 0 });
 
-    after_each([&]() {
-      delete manager;
-    });
+      it("favors non-errors", [&]() {
+        result = action_takes_precedence(non_error, error, sym1, parse_grammar);
+        AssertThat(result.first, IsTrue());
 
-    it("favors non-errors over parse errors", [&]() {
-      update = manager->resolve_parse_action(sym1, ParseAction::Error(), ParseAction::Shift(2, { 0 }));
-      AssertThat(update, IsTrue());
+        result = action_takes_precedence(error, non_error, sym1, parse_grammar);
+        AssertThat(result.first, IsFalse());
+      });
 
-      update = manager->resolve_parse_action(sym1, ParseAction::Shift(2, { 0 }), ParseAction::Error());
-      AssertThat(update, IsFalse());
+      it("is not a conflict", [&]() {
+        result = action_takes_precedence(non_error, error, sym1, parse_grammar);
+        AssertThat(result.second, IsFalse());
+
+        result = action_takes_precedence(error, non_error, sym1, parse_grammar);
+        AssertThat(result.second, IsFalse());
+      });
     });
 
     describe("shift/reduce conflicts", [&]() {
@@ -105,15 +111,20 @@ describe("resolving parse conflicts", []() {
         ParseAction shift = ParseAction::Shift(2, { 3 });
         ParseAction reduce = ParseAction::Reduce(sym2, 1, 1);
 
-        it("does not record a conflict", [&]() {
-          manager->resolve_parse_action(sym1, shift, reduce);
-          manager->resolve_parse_action(sym1, reduce, shift);
-          AssertThat(manager->conflicts(), IsEmpty());
+        it("is not a conflict", [&]() {
+          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          AssertThat(result.second, IsFalse());
+
+          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          AssertThat(result.second, IsFalse());
         });
 
         it("favors the shift", [&]() {
-          AssertThat(manager->resolve_parse_action(sym1, shift, reduce), IsFalse());
-          AssertThat(manager->resolve_parse_action(sym1, reduce, shift), IsTrue());
+          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          AssertThat(result.first, IsTrue());
+
+          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          AssertThat(result.first, IsFalse());
         });
       });
 
@@ -121,15 +132,20 @@ describe("resolving parse conflicts", []() {
         ParseAction shift = ParseAction::Shift(2, { 1 });
         ParseAction reduce = ParseAction::Reduce(sym2, 1, 3);
 
-        it("does not record a conflict", [&]() {
-          manager->resolve_parse_action(sym1, reduce, shift);
-          manager->resolve_parse_action(sym1, shift, reduce);
-          AssertThat(manager->conflicts(), IsEmpty());
+        it("is not a conflict", [&]() {
+          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          AssertThat(result.second, IsFalse());
+
+          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          AssertThat(result.second, IsFalse());
         });
 
         it("favors the reduce", [&]() {
-          AssertThat(manager->resolve_parse_action(sym1, reduce, shift), IsFalse());
-          AssertThat(manager->resolve_parse_action(sym1, shift, reduce), IsTrue());
+          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          AssertThat(result.first, IsFalse());
+
+          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          AssertThat(result.first, IsTrue());
         });
       });
 
@@ -137,31 +153,20 @@ describe("resolving parse conflicts", []() {
         ParseAction shift = ParseAction::Shift(2, { 0 });
         ParseAction reduce = ParseAction::Reduce(sym2, 1, 0);
 
-        it("records a conflict", [&]() {
-          manager->resolve_parse_action(sym1, reduce, shift);
-          manager->resolve_parse_action(sym1, shift, reduce);
-          AssertThat(manager->conflicts(), Equals(vector<Conflict>({
-              Conflict("rule1: shift (precedence 0) / reduce rule2 (precedence 0)")
-          })));
+        it("is a conflict", [&]() {
+          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          AssertThat(result.second, IsTrue());
+
+          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          AssertThat(result.second, IsTrue());
         });
 
         it("favors the shift", [&]() {
-          AssertThat(manager->resolve_parse_action(sym1, shift, reduce), IsFalse());
-          AssertThat(manager->resolve_parse_action(sym1, reduce, shift), IsTrue());
-        });
+          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          AssertThat(result.first, IsFalse());
 
-        describe("when the symbols is a built-in symbol", [&]() {
-          it("records a conflict", [&]() {
-            manager->resolve_parse_action(rules::ERROR(), reduce, shift);
-            AssertThat(manager->conflicts()[0], Equals(
-                Conflict("ERROR: shift (precedence 0) / reduce rule2 (precedence 0)")
-            ));
-
-            manager->resolve_parse_action(rules::END_OF_INPUT(), reduce, shift);
-            AssertThat(manager->conflicts()[1], Equals(
-                Conflict("END_OF_INPUT: shift (precedence 0) / reduce rule2 (precedence 0)")
-            ));
-          });
+          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          AssertThat(result.first, IsTrue());
         });
       });
 
@@ -169,17 +174,20 @@ describe("resolving parse conflicts", []() {
         ParseAction shift = ParseAction::Shift(2, { 0, 1, 3 });
         ParseAction reduce = ParseAction::Reduce(sym2, 1, 2);
 
-        it("records a conflict", [&]() {
-          manager->resolve_parse_action(sym1, reduce, shift);
-          manager->resolve_parse_action(sym1, shift, reduce);
-          AssertThat(manager->conflicts(), Equals(vector<Conflict>({
-              Conflict("rule1: shift (precedence 0, 1, 3) / reduce rule2 (precedence 2)")
-          })));
+        it("is a conflict", [&]() {
+          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          AssertThat(result.second, IsTrue());
+
+          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          AssertThat(result.second, IsTrue());
         });
 
         it("favors the shift", [&]() {
-          AssertThat(manager->resolve_parse_action(sym1, shift, reduce), IsFalse());
-          AssertThat(manager->resolve_parse_action(sym1, reduce, shift), IsTrue());
+          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          AssertThat(result.first, IsFalse());
+
+          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          AssertThat(result.first, IsTrue());
         });
       });
     });
@@ -190,14 +198,19 @@ describe("resolving parse conflicts", []() {
         ParseAction right = ParseAction::Reduce(sym2, 1, 3);
 
         it("favors that action", [&]() {
-          AssertThat(manager->resolve_parse_action(sym1, left, right), IsTrue());
-          AssertThat(manager->resolve_parse_action(sym1, right, left), IsFalse());
+          result = action_takes_precedence(left, right, sym1, parse_grammar);
+          AssertThat(result.first, IsFalse());
+
+          result = action_takes_precedence(right, left, sym1, parse_grammar);
+          AssertThat(result.first, IsTrue());
         });
 
-        it("does not record a conflict", [&]() {
-          manager->resolve_parse_action(sym1, left, right);
-          manager->resolve_parse_action(sym1, right, left);
-          AssertThat(manager->conflicts(), IsEmpty());
+        it("is not a conflict", [&]() {
+          result = action_takes_precedence(left, right, sym1, parse_grammar);
+          AssertThat(result.second, IsFalse());
+
+          result = action_takes_precedence(right, left, sym1, parse_grammar);
+          AssertThat(result.second, IsFalse());
         });
       });
 
@@ -206,17 +219,19 @@ describe("resolving parse conflicts", []() {
         ParseAction right = ParseAction::Reduce(sym2, 1, 0);
 
         it("favors the symbol listed earlier in the grammar", [&]() {
-          AssertThat(manager->resolve_parse_action(sym1, right, left), IsTrue());
-          AssertThat(manager->resolve_parse_action(sym1, left, right), IsFalse());
+          result = action_takes_precedence(left, right, sym1, parse_grammar);
+          AssertThat(result.first, IsTrue());
+
+          result = action_takes_precedence(right, left, sym1, parse_grammar);
+          AssertThat(result.first, IsFalse());
         });
 
         it("records a conflict", [&]() {
-          manager->resolve_parse_action(sym1, left, right);
-          manager->resolve_parse_action(sym1, right, left);
-          AssertThat(manager->conflicts(), Equals(vector<Conflict>({
-              Conflict("rule1: reduce rule2 (precedence 0) / reduce rule1 (precedence 0)"),
-              Conflict("rule1: reduce rule1 (precedence 0) / reduce rule2 (precedence 0)")
-          })));
+          result = action_takes_precedence(left, right, sym1, parse_grammar);
+          AssertThat(result.second, IsTrue());
+
+          result = action_takes_precedence(right, left, sym1, parse_grammar);
+          AssertThat(result.second, IsTrue());
         });
       });
     });
