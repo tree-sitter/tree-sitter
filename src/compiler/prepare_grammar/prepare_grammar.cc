@@ -1,9 +1,11 @@
+#include "compiler/prepare_grammar/prepare_grammar.h"
 #include "compiler/prepare_grammar/expand_repeats.h"
 #include "compiler/prepare_grammar/expand_tokens.h"
 #include "compiler/prepare_grammar/extract_tokens.h"
 #include "compiler/prepare_grammar/intern_symbols.h"
-#include "compiler/prepare_grammar/prepare_grammar.h"
+#include "compiler/prepare_grammar/flatten_grammar.h"
 #include "compiler/lexical_grammar.h"
+#include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/syntax_grammar.h"
 
 namespace tree_sitter {
@@ -29,7 +31,7 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
     return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
 
   // Replace `Repeat` rules with pairs of recursive rules
-  const SyntaxGrammar &syntax_grammar = expand_repeats(get<0>(extract_result));
+  const InitialSyntaxGrammar &syntax_grammar = expand_repeats(get<0>(extract_result));
 
   // Expand `String` and `Pattern` rules into full rule trees
   auto expand_tokens_result = expand_tokens(get<1>(extract_result));
@@ -38,7 +40,7 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
   if (error)
     return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
 
-  return make_tuple(syntax_grammar, lex_grammar, nullptr);
+  return make_tuple(flatten_grammar(syntax_grammar), lex_grammar, nullptr);
 }
 
 }  // namespace prepare_grammar

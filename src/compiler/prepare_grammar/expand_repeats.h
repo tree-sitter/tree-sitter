@@ -4,12 +4,11 @@
 #include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
-
-class SyntaxGrammar;
-
 namespace prepare_grammar {
 
-SyntaxGrammar expand_repeats(const SyntaxGrammar &);
+class InitialSyntaxGrammar;
+
+InitialSyntaxGrammar expand_repeats(const InitialSyntaxGrammar &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

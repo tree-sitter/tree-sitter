@@ -1,6 +1,6 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/lexical_grammar.h"
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/prepare_grammar/extract_tokens.h"
 #include "compiler/helpers/containers.h"
 
@@ -8,10 +8,11 @@ START_TEST
 
 using namespace rules;
 using prepare_grammar::extract_tokens;
+using prepare_grammar::InitialSyntaxGrammar;
 
 describe("extract_tokens", []() {
   it("moves string rules into the lexical grammar", [&]() {
-    tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> result =
+    tuple<InitialSyntaxGrammar, LexicalGrammar, const GrammarError *> result =
         extract_tokens(Grammar({
             { "rule_A", seq({ str("ab"), i_sym(0) }) }
         }));

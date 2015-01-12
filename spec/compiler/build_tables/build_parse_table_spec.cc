@@ -12,9 +12,25 @@ START_TEST
 
 describe("build_parse_table", []() {
   SyntaxGrammar parse_grammar({
-      { "rule0", choice({ i_sym(1), i_sym(2) }) },
-      { "rule1", i_token(0) },
-      { "rule2", i_token(1) },
+      {
+        "rule0",
+        {
+          Production({ {Symbol(1), 0, 1} }, 0),
+          Production({ {Symbol(2), 0, 2} }, 0)
+        }
+      },
+      {
+        "rule1",
+        {
+          Production({ {Symbol(0, SymbolOptionToken), 0, 3} }, 0)
+        }
+      },
+      {
+        "rule2",
+        {
+          Production({ {Symbol(1, SymbolOptionToken), 0, 4} }, 0)
+        }
+      },
   }, {}, { Symbol(2, SymbolOptionToken) });
 
   LexicalGrammar lex_grammar({

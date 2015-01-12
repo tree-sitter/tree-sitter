@@ -1,16 +1,17 @@
 #include "compiler/compiler_spec_helper.h"
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/prepare_grammar/expand_repeats.h"
 #include "compiler/helpers/containers.h"
 
 START_TEST
 
 using namespace rules;
+using prepare_grammar::InitialSyntaxGrammar;
 using prepare_grammar::expand_repeats;
 
 describe("expand_repeats", []() {
   it("replaces repeat rules with pairs of recursive rules", [&]() {
-    SyntaxGrammar grammar({
+    InitialSyntaxGrammar grammar({
         { "rule0", repeat(i_token(0)) },
     }, {}, set<Symbol>());
 
@@ -28,7 +29,7 @@ describe("expand_repeats", []() {
   });
 
   it("replaces repeats inside of sequences", [&]() {
-    SyntaxGrammar grammar({
+    InitialSyntaxGrammar grammar({
         { "rule0", seq({
             i_token(10),
             repeat(i_token(11)) }) },
@@ -50,7 +51,7 @@ describe("expand_repeats", []() {
   });
 
   it("replaces repeats inside of choices", [&]() {
-    SyntaxGrammar grammar({
+    InitialSyntaxGrammar grammar({
         { "rule0", choice({ i_token(10), repeat(i_token(11)) }) },
     }, {}, set<Symbol>());
 
@@ -68,7 +69,7 @@ describe("expand_repeats", []() {
   });
 
   it("can replace multiple repeats in the same rule", [&]() {
-    SyntaxGrammar grammar({
+    InitialSyntaxGrammar grammar({
         { "rule0", seq({
             repeat(i_token(10)),
             repeat(i_token(11)) }) },
@@ -93,7 +94,7 @@ describe("expand_repeats", []() {
   });
 
   it("can replace repeats in multiple rules", [&]() {
-    SyntaxGrammar grammar({
+    InitialSyntaxGrammar grammar({
         { "rule0", repeat(i_token(10)) },
         { "rule1", repeat(i_token(11)) },
     }, {}, set<Symbol>());

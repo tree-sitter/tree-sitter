@@ -5,7 +5,7 @@
 #include <string>
 #include "tree_sitter/compiler.h"
 #include "compiler/lexical_grammar.h"
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/string.h"
@@ -92,14 +92,14 @@ class TokenExtractor : public rules::IdentityRuleFn {
   vector<pair<string, rule_ptr>> tokens;
 };
 
-static tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> ubiq_token_err(
+static tuple<InitialSyntaxGrammar, LexicalGrammar, const GrammarError *> ubiq_token_err(
     const string &msg) {
-  return make_tuple(SyntaxGrammar(), LexicalGrammar(),
+  return make_tuple(InitialSyntaxGrammar(), LexicalGrammar(),
                     new GrammarError(GrammarErrorTypeInvalidUbiquitousToken,
                                      "Not a token: " + msg));
 }
 
-tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
+tuple<InitialSyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
     const Grammar &grammar) {
   vector<pair<string, rule_ptr>> rules, tokens;
   vector<rule_ptr> separators;
@@ -139,7 +139,7 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
     }
   }
 
-  return make_tuple(SyntaxGrammar(rules, {}, ubiquitous_tokens),
+  return make_tuple(InitialSyntaxGrammar(rules, {}, ubiquitous_tokens),
                     LexicalGrammar(tokens, extractor.tokens, separators),
                     nullptr);
 }

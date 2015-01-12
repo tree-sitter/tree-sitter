@@ -36,8 +36,8 @@ inline std::ostream& operator<<(std::ostream &stream, const std::set<T> &set) {
   return stream << ")";
 }
 
-template<typename T>
-inline std::ostream& operator<<(std::ostream &stream, const std::unordered_set<T> &set) {
+template<typename T, typename H, typename E>
+inline std::ostream& operator<<(std::ostream &stream, const std::unordered_set<T, H, E> &set) {
   stream << std::string("(set: ");
   bool started = false;
   for (auto item : set) {

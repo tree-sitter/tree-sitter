@@ -7,12 +7,13 @@
 namespace tree_sitter {
 
 class Grammar;
-class SyntaxGrammar;
 class LexicalGrammar;
 
 namespace prepare_grammar {
 
-std::tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
+class InitialSyntaxGrammar;
+
+std::tuple<InitialSyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
     const Grammar &);
 
 }  // namespace prepare_grammar

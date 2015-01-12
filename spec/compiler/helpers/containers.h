@@ -15,6 +15,15 @@ using std::initializer_list;
 using std::pair;
 using tree_sitter::rules::rule_ptr;
 
+template<typename T, typename Func>
+std::vector<typename std::result_of<Func(T)>::type>
+collect(const std::vector<T> &v, Func f) {
+  vector<typename std::result_of<Func(T)>::type> result;
+  for (const T &item : v)
+    result.push_back(f(item));
+  return result;
+}
+
 template<typename K>
 class rule_map : public map<K, rule_ptr> {
  public:

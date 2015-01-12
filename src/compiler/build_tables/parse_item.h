@@ -9,11 +9,15 @@
 namespace tree_sitter {
 namespace build_tables {
 
-class ParseItem : public Item {
+class ParseItem {
  public:
-  ParseItem(const rules::Symbol &lhs, rules::rule_ptr rule,
-            const size_t consumed_symbol_count);
+  ParseItem(const rules::Symbol &lhs, size_t production_index,
+            int rule_id, size_t consumed_symbol_count);
   bool operator==(const ParseItem &other) const;
+
+  rules::Symbol lhs;
+  size_t production_index;
+  int rule_id;
   size_t consumed_symbol_count;
 };
 
@@ -30,8 +34,8 @@ template <>
 struct hash<tree_sitter::build_tables::ParseItem> {
   size_t operator()(const tree_sitter::build_tables::ParseItem &item) const {
     return hash<tree_sitter::rules::Symbol>()(item.lhs) ^
-           hash<tree_sitter::rules::rule_ptr>()(item.rule) ^
-           hash<size_t>()(item.consumed_symbol_count);
+      hash<int>()(item.rule_id) ^
+      hash<size_t>()(item.consumed_symbol_count);
   }
 };
 

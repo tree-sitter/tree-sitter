@@ -1,7 +1,5 @@
 #include "compiler/build_tables/rule_can_be_blank.h"
-#include <set>
 #include "tree_sitter/compiler.h"
-#include "compiler/syntax_grammar.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
@@ -11,8 +9,6 @@
 
 namespace tree_sitter {
 namespace build_tables {
-
-using std::set;
 
 class CanBeBlank : public rules::RuleFn<bool> {
  protected:
@@ -34,35 +30,8 @@ class CanBeBlank : public rules::RuleFn<bool> {
   bool apply_to(const rules::Metadata *rule) { return apply(rule->rule); }
 };
 
-class CanBeBlankRecursive : public CanBeBlank {
-  const SyntaxGrammar *grammar;
-  set<rules::Symbol> visited_symbols;
-  using CanBeBlank::visit;
-
- public:
-  explicit CanBeBlankRecursive(const SyntaxGrammar *grammar)
-      : grammar(grammar) {}
-
- private:
-  using CanBeBlank::apply_to;
-
-  bool apply_to(const rules::Symbol *rule) {
-    if (visited_symbols.find(*rule) == visited_symbols.end()) {
-      visited_symbols.insert(*rule);
-      return !rule->is_token() && apply(grammar->rule(*rule));
-    } else {
-      return false;
-    }
-  }
-};
-
 bool rule_can_be_blank(const rules::rule_ptr &rule) {
   return CanBeBlank().apply(rule);
-}
-
-bool rule_can_be_blank(const rules::rule_ptr &rule,
-                       const SyntaxGrammar &grammar) {
-  return CanBeBlankRecursive(&grammar).apply(rule);
 }
 
 }  // namespace build_tables

@@ -1,7 +1,6 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
 #include "compiler/rules/metadata.h"
-#include "compiler/syntax_grammar.h"
 
 using namespace rules;
 using build_tables::rule_can_be_blank;
@@ -53,27 +52,6 @@ describe("rule_can_be_blank", [&]() {
 
     rule = make_shared<rules::Metadata>(sym("one"), map<rules::MetadataKey, int>());
     AssertThat(rule_can_be_blank(rule), IsFalse());
-  });
-
-  describe("checking recursively (by expanding non-terminals)", [&]() {
-    SyntaxGrammar grammar({
-        { "A", choice({
-            seq({ i_sym(0), i_token(11) }),
-            blank() }) },
-        { "B", choice({
-            seq({ i_sym(1), i_token(12) }),
-            i_token(13) }) },
-    }, {}, set<Symbol>());
-
-    it("terminates for left-recursive rules that can be blank", [&]() {
-      rule = i_sym(0);
-      AssertThat(rule_can_be_blank(rule, grammar), IsTrue());
-    });
-
-    it("terminates for left-recursive rules that can't be blank", [&]() {
-      rule = i_sym(1);
-      AssertThat(rule_can_be_blank(rule, grammar), IsFalse());
-    });
   });
 });
 

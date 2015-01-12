@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 #include <utility>
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/symbol.h"
@@ -50,7 +50,7 @@ class ExpandRepeats : public rules::IdentityRuleFn {
   vector<pair<string, rules::rule_ptr>> aux_rules;
 };
 
-SyntaxGrammar expand_repeats(const SyntaxGrammar &grammar) {
+InitialSyntaxGrammar expand_repeats(const InitialSyntaxGrammar &grammar) {
   vector<pair<string, rules::rule_ptr>> rules, aux_rules(grammar.aux_rules);
 
   for (auto &pair : grammar.rules) {
@@ -60,7 +60,7 @@ SyntaxGrammar expand_repeats(const SyntaxGrammar &grammar) {
                      expander.aux_rules.end());
   }
 
-  return SyntaxGrammar(rules, aux_rules, grammar.ubiquitous_tokens);
+  return InitialSyntaxGrammar(rules, aux_rules, grammar.ubiquitous_tokens);
 }
 
 }  // namespace prepare_grammar

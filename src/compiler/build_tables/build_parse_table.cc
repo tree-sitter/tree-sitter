@@ -40,12 +40,8 @@ class ParseTableBuilder {
       : grammar(grammar), lex_grammar(lex_grammar) {}
 
   pair<ParseTable, vector<Conflict>> build() {
-    auto start_symbol = grammar.rules.empty()
-                            ? make_shared<Symbol>(0, rules::SymbolOptionToken)
-                            : make_shared<Symbol>(0);
-    ParseItem start_item(rules::START(), start_symbol, 0);
-    add_parse_state(
-        item_set_closure(start_item, { rules::END_OF_INPUT() }, grammar));
+    ParseItem start_item(rules::START(), 0, -2, 0);
+    add_parse_state(item_set_closure(start_item, { rules::END_OF_INPUT() }, grammar));
 
     while (!item_sets_to_process.empty()) {
       auto pair = item_sets_to_process.back();
@@ -100,12 +96,13 @@ class ParseTableBuilder {
       const ParseItem &item = pair.first;
       const set<Symbol> &lookahead_symbols = pair.second;
 
-      if (item.is_done()) {
+
+      if (item_is_done(item)) {
         ParseAction action =
             (item.lhs == rules::START())
                 ? ParseAction::Accept()
                 : ParseAction::Reduce(item.lhs, item.consumed_symbol_count,
-                                      item.precedence());
+                                      item_precedence(item));
 
         for (const auto &lookahead_sym : lookahead_symbols)
           if (should_add_action(state_id, lookahead_sym, action, ParseItemSet()))
@@ -170,9 +167,17 @@ class ParseTableBuilder {
     for (const auto &pair : item_set) {
       const ParseItem &item = pair.first;
       if (item.consumed_symbol_count > 0)
-        result.insert(item.precedence());
+        result.insert(item_precedence(item));
     }
     return result;
+  }
+
+  bool item_is_done(const ParseItem &item) {
+    return item.consumed_symbol_count == grammar.productions(item.lhs)[item.production_index].size();
+  }
+
+  int item_precedence(const ParseItem &item) {
+    return grammar.productions(item.lhs)[item.production_index].precedence_at(item.consumed_symbol_count - 1);
   }
 
   void record_conflict(const Symbol &sym, const ParseAction &left,
