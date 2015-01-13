@@ -2,7 +2,7 @@
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/action_takes_precedence.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/syntax_grammar.h"
 
 using namespace rules;
 using namespace build_tables;

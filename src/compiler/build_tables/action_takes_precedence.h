@@ -5,7 +5,7 @@
 #include "tree_sitter/compiler.h"
 #include "compiler/parse_table.h"
 #include "compiler/rules/symbol.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/syntax_grammar.h"
 
 namespace tree_sitter {
 namespace build_tables {

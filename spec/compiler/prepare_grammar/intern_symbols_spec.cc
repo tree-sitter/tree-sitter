@@ -1,5 +1,4 @@
 #include "compiler/compiler_spec_helper.h"
-#include "compiler/prepared_grammar.h"
 #include "compiler/prepare_grammar/intern_symbols.h"
 #include "compiler/rules/named_symbol.h"
 #include "compiler/rules/symbol.h"

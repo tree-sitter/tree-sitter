@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 #include <utility>
-#include "compiler/prepared_grammar.h"
+#include "compiler/syntax_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/symbol.h"

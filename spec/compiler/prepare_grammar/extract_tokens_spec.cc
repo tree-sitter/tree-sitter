@@ -1,7 +1,7 @@
 #include "compiler/compiler_spec_helper.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/lexical_grammar.h"
+#include "compiler/syntax_grammar.h"
 #include "compiler/prepare_grammar/extract_tokens.h"
-#include "compiler/prepared_grammar.h"
 #include "compiler/helpers/containers.h"
 
 START_TEST

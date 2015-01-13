@@ -1,7 +1,7 @@
 #include "compiler/build_tables/rule_can_be_blank.h"
 #include <set>
 #include "tree_sitter/compiler.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/syntax_grammar.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"

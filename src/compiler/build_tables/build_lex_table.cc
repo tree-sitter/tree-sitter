@@ -8,7 +8,7 @@
 #include "compiler/build_tables/item_set_transitions.h"
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/parse_table.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/lexical_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/rules/choice.h"
 #include "compiler/rules/metadata.h"

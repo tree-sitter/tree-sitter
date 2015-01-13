@@ -1,7 +1,8 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/build_tables/build_parse_table.h"
 #include "compiler/parse_table.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/lexical_grammar.h"
+#include "compiler/syntax_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
 
 using namespace rules;

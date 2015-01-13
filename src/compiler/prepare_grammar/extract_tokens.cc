@@ -4,7 +4,8 @@
 #include <set>
 #include <string>
 #include "tree_sitter/compiler.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/lexical_grammar.h"
+#include "compiler/syntax_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/string.h"

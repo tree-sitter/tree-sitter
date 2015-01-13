@@ -1,5 +1,5 @@
 #include "compiler/compiler_spec_helper.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/syntax_grammar.h"
 #include "compiler/build_tables/item_set_closure.h"
 #include "compiler/build_tables/item_set_transitions.h"
 

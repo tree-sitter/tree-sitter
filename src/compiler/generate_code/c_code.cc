@@ -7,7 +7,8 @@
 #include "compiler/generate_code/c_code.h"
 #include "compiler/lex_table.h"
 #include "compiler/parse_table.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/lexical_grammar.h"
+#include "compiler/syntax_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/util/string_helpers.h"
 

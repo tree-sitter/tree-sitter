@@ -4,7 +4,7 @@
 #include "compiler/build_tables/merge_transitions.h"
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/build_tables/rule_transitions.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/syntax_grammar.h"
 #include "compiler/rules/symbol.h"
 
 namespace tree_sitter {

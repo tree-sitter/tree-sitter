@@ -9,7 +9,8 @@
 #include "compiler/build_tables/action_takes_precedence.h"
 #include "compiler/build_tables/build_conflict.h"
 #include "compiler/build_tables/parse_item.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/lexical_grammar.h"
+#include "compiler/syntax_grammar.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/built_in_symbols.h"
 

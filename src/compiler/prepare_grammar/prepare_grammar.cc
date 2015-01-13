@@ -3,7 +3,8 @@
 #include "compiler/prepare_grammar/extract_tokens.h"
 #include "compiler/prepare_grammar/intern_symbols.h"
 #include "compiler/prepare_grammar/prepare_grammar.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/lexical_grammar.h"
+#include "compiler/syntax_grammar.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {

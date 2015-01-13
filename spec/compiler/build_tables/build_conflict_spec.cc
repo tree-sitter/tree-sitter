@@ -1,6 +1,7 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/build_tables/build_conflict.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/syntax_grammar.h"
+#include "compiler/lexical_grammar.h"
 
 using namespace rules;
 using namespace build_tables;

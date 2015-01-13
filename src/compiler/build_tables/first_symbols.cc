@@ -1,6 +1,6 @@
 #include "compiler/build_tables/first_symbols.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/syntax_grammar.h"
 #include "compiler/rules/choice.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/rules/seq.h"

@@ -1,5 +1,5 @@
 #include "compiler/compiler_spec_helper.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/syntax_grammar.h"
 #include "compiler/build_tables/first_symbols.h"
 #include "compiler/rules/metadata.h"
 

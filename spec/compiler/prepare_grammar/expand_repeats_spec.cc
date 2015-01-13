@@ -1,5 +1,5 @@
 #include "compiler/compiler_spec_helper.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/syntax_grammar.h"
 #include "compiler/prepare_grammar/expand_repeats.h"
 #include "compiler/helpers/containers.h"
 

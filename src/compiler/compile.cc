@@ -2,7 +2,8 @@
 #include "compiler/prepare_grammar/prepare_grammar.h"
 #include "compiler/build_tables/build_tables.h"
 #include "compiler/generate_code/c_code.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/syntax_grammar.h"
+#include "compiler/lexical_grammar.h"
 
 namespace tree_sitter {
 
