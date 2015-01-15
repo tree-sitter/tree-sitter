@@ -128,18 +128,9 @@ class LexTableBuilder {
 
   rules::rule_ptr separator_rule() const {
     vector<rules::rule_ptr> separators;
-    for (const auto &rule : lex_grammar.separators) {
-
-      // TODO - remove this hack. right now, nested repeats cause
-      // item sets which are equivalent to appear unequal.
-      auto repeat = dynamic_pointer_cast<const rules::Repeat>(rule);
-      if (repeat.get())
-        separators.push_back(repeat->content);
-      else
-        separators.push_back(rule);
-    }
-
-    return rules::repeat(rules::choice(separators));
+    for (const auto &rule : lex_grammar.separators)
+      separators.push_back(rules::repeat(rule));
+    return rules::choice(separators);
   }
 
   set<int> precedence_values_for_item_set(const LexItemSet &item_set) const {

@@ -78,11 +78,11 @@ class PatternParser {
       switch (peek()) {
         case '*':
           next();
-          result = make_shared<Repeat>(result);
+          result = Repeat::build(result);
           break;
         case '+':
           next();
-          result = make_shared<Seq>(result, make_shared<Repeat>(result));
+          result = make_shared<Seq>(result, Repeat::build(result));
           break;
         case '?':
           next();

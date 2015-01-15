@@ -35,7 +35,7 @@ rule_ptr blank() { return make_shared<Blank>(); }
 rule_ptr choice(const vector<rule_ptr> &rules) { return Choice::build(rules); }
 
 rule_ptr repeat(const rule_ptr &content) {
-  return std::make_shared<Repeat>(content);
+  return Repeat::build(content);
 }
 
 rule_ptr seq(const vector<rule_ptr> &rules) { return Seq::build(rules); }

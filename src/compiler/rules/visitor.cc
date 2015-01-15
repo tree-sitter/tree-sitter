@@ -33,7 +33,7 @@ rule_ptr IdentityRuleFn::apply_to(const Seq *rule) {
 }
 
 rule_ptr IdentityRuleFn::apply_to(const Repeat *rule) {
-  return std::make_shared<Repeat>(apply(rule->content));
+  return Repeat::build(apply(rule->content));
 }
 
 rule_ptr IdentityRuleFn::apply_to(const Metadata *rule) {

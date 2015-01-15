@@ -10,6 +10,7 @@ namespace rules {
 class Repeat : public Rule {
  public:
   explicit Repeat(rule_ptr content);
+  static rule_ptr build(const rule_ptr &rule);
 
   bool operator==(const Rule &other) const;
   size_t hash_code() const;
