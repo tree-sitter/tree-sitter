@@ -7,11 +7,10 @@ using std::pair;
 
 pair<bool, bool> action_takes_precedence(const ParseAction &new_action,
                                          const ParseAction &old_action,
-                                         const rules::Symbol &symbol,
-                                         const SyntaxGrammar &grammar) {
+                                         const rules::Symbol &symbol) {
   if (new_action.type < old_action.type) {
     auto opposite =
-        action_takes_precedence(old_action, new_action, symbol, grammar);
+        action_takes_precedence(old_action, new_action, symbol);
     return { !opposite.first, opposite.second };
   }
 

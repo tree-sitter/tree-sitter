@@ -12,8 +12,7 @@ namespace build_tables {
 
 std::pair<bool, bool> action_takes_precedence(const ParseAction &new_action,
                                               const ParseAction &old_action,
-                                              const rules::Symbol &symbol,
-                                              const SyntaxGrammar &grammar);
+                                              const rules::Symbol &symbol);
 
 bool action_takes_precedence(const LexAction &new_action,
                              const LexAction &old_action);

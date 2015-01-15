@@ -157,7 +157,7 @@ class ParseTableBuilder {
       return true;
 
     auto result = action_takes_precedence(action, current_action->second,
-                                          symbol, grammar);
+                                          symbol);
 
     if (result.second)
       record_conflict(symbol, current_action->second, action, item_set);

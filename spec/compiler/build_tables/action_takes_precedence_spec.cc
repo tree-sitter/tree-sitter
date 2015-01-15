@@ -12,11 +12,6 @@ START_TEST
 describe("action_takes_precedence", []() {
   bool update;
 
-  SyntaxGrammar parse_grammar({
-      { "rule1", seq({ sym("rule2"), sym("token2") }) },
-      { "rule2", sym("token1") },
-  }, {}, set<rules::Symbol>());
-
   describe("lexical conflicts", [&]() {
     Symbol sym1(0, SymbolOptionToken);
     Symbol sym2(1, SymbolOptionToken);
@@ -73,18 +68,18 @@ describe("action_takes_precedence", []() {
       ParseAction non_error = ParseAction::Shift(2, { 0 });
 
       it("favors non-errors", [&]() {
-        result = action_takes_precedence(non_error, error, sym1, parse_grammar);
+        result = action_takes_precedence(non_error, error, sym1);
         AssertThat(result.first, IsTrue());
 
-        result = action_takes_precedence(error, non_error, sym1, parse_grammar);
+        result = action_takes_precedence(error, non_error, sym1);
         AssertThat(result.first, IsFalse());
       });
 
       it("is not a conflict", [&]() {
-        result = action_takes_precedence(non_error, error, sym1, parse_grammar);
+        result = action_takes_precedence(non_error, error, sym1);
         AssertThat(result.second, IsFalse());
 
-        result = action_takes_precedence(error, non_error, sym1, parse_grammar);
+        result = action_takes_precedence(error, non_error, sym1);
         AssertThat(result.second, IsFalse());
       });
     });
@@ -95,18 +90,18 @@ describe("action_takes_precedence", []() {
         ParseAction reduce = ParseAction::Reduce(sym2, 1, 1);
 
         it("is not a conflict", [&]() {
-          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          result = action_takes_precedence(shift, reduce, sym1);
           AssertThat(result.second, IsFalse());
 
-          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          result = action_takes_precedence(reduce, shift, sym1);
           AssertThat(result.second, IsFalse());
         });
 
         it("favors the shift", [&]() {
-          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          result = action_takes_precedence(shift, reduce, sym1);
           AssertThat(result.first, IsTrue());
 
-          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          result = action_takes_precedence(reduce, shift, sym1);
           AssertThat(result.first, IsFalse());
         });
       });
@@ -116,18 +111,18 @@ describe("action_takes_precedence", []() {
         ParseAction reduce = ParseAction::Reduce(sym2, 1, 3);
 
         it("is not a conflict", [&]() {
-          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          result = action_takes_precedence(shift, reduce, sym1);
           AssertThat(result.second, IsFalse());
 
-          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          result = action_takes_precedence(reduce, shift, sym1);
           AssertThat(result.second, IsFalse());
         });
 
         it("favors the reduce", [&]() {
-          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          result = action_takes_precedence(shift, reduce, sym1);
           AssertThat(result.first, IsFalse());
 
-          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          result = action_takes_precedence(reduce, shift, sym1);
           AssertThat(result.first, IsTrue());
         });
       });
@@ -137,18 +132,18 @@ describe("action_takes_precedence", []() {
         ParseAction reduce = ParseAction::Reduce(sym2, 1, 0);
 
         it("is a conflict", [&]() {
-          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          result = action_takes_precedence(reduce, shift, sym1);
           AssertThat(result.second, IsTrue());
 
-          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          result = action_takes_precedence(shift, reduce, sym1);
           AssertThat(result.second, IsTrue());
         });
 
         it("favors the shift", [&]() {
-          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          result = action_takes_precedence(reduce, shift, sym1);
           AssertThat(result.first, IsFalse());
 
-          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          result = action_takes_precedence(shift, reduce, sym1);
           AssertThat(result.first, IsTrue());
         });
       });
@@ -158,18 +153,18 @@ describe("action_takes_precedence", []() {
         ParseAction reduce = ParseAction::Reduce(sym2, 1, 2);
 
         it("is a conflict", [&]() {
-          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          result = action_takes_precedence(reduce, shift, sym1);
           AssertThat(result.second, IsTrue());
 
-          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          result = action_takes_precedence(shift, reduce, sym1);
           AssertThat(result.second, IsTrue());
         });
 
         it("favors the shift", [&]() {
-          result = action_takes_precedence(reduce, shift, sym1, parse_grammar);
+          result = action_takes_precedence(reduce, shift, sym1);
           AssertThat(result.first, IsFalse());
 
-          result = action_takes_precedence(shift, reduce, sym1, parse_grammar);
+          result = action_takes_precedence(shift, reduce, sym1);
           AssertThat(result.first, IsTrue());
         });
       });
@@ -181,18 +176,18 @@ describe("action_takes_precedence", []() {
         ParseAction right = ParseAction::Reduce(sym2, 1, 3);
 
         it("favors that action", [&]() {
-          result = action_takes_precedence(left, right, sym1, parse_grammar);
+          result = action_takes_precedence(left, right, sym1);
           AssertThat(result.first, IsFalse());
 
-          result = action_takes_precedence(right, left, sym1, parse_grammar);
+          result = action_takes_precedence(right, left, sym1);
           AssertThat(result.first, IsTrue());
         });
 
         it("is not a conflict", [&]() {
-          result = action_takes_precedence(left, right, sym1, parse_grammar);
+          result = action_takes_precedence(left, right, sym1);
           AssertThat(result.second, IsFalse());
 
-          result = action_takes_precedence(right, left, sym1, parse_grammar);
+          result = action_takes_precedence(right, left, sym1);
           AssertThat(result.second, IsFalse());
         });
       });
@@ -202,18 +197,18 @@ describe("action_takes_precedence", []() {
         ParseAction right = ParseAction::Reduce(sym2, 1, 0);
 
         it("favors the symbol listed earlier in the grammar", [&]() {
-          result = action_takes_precedence(left, right, sym1, parse_grammar);
+          result = action_takes_precedence(left, right, sym1);
           AssertThat(result.first, IsTrue());
 
-          result = action_takes_precedence(right, left, sym1, parse_grammar);
+          result = action_takes_precedence(right, left, sym1);
           AssertThat(result.first, IsFalse());
         });
 
         it("records a conflict", [&]() {
-          result = action_takes_precedence(left, right, sym1, parse_grammar);
+          result = action_takes_precedence(left, right, sym1);
           AssertThat(result.second, IsTrue());
 
-          result = action_takes_precedence(right, left, sym1, parse_grammar);
+          result = action_takes_precedence(right, left, sym1);
           AssertThat(result.second, IsTrue());
         });
       });
