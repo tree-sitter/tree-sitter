@@ -32,13 +32,13 @@ static rule_ptr metadata(rule_ptr rule, map<MetadataKey, int> values) {
 
 rule_ptr blank() { return make_shared<Blank>(); }
 
-rule_ptr choice(const vector<rule_ptr> &rules) { return Choice::Build(rules); }
+rule_ptr choice(const vector<rule_ptr> &rules) { return Choice::build(rules); }
 
 rule_ptr repeat(const rule_ptr &content) {
   return std::make_shared<Repeat>(content);
 }
 
-rule_ptr seq(const vector<rule_ptr> &rules) { return Seq::Build(rules); }
+rule_ptr seq(const vector<rule_ptr> &rules) { return Seq::build(rules); }
 
 rule_ptr sym(const string &name) { return make_shared<NamedSymbol>(name); }
 

@@ -25,11 +25,11 @@ rule_ptr IdentityRuleFn::apply_to(const Choice *rule) {
   vector<rule_ptr> rules;
   for (const auto &el : rule->elements)
     rules.push_back(apply(el));
-  return Choice::Build(rules);
+  return Choice::build(rules);
 }
 
 rule_ptr IdentityRuleFn::apply_to(const Seq *rule) {
-  return Seq::Build({ apply(rule->left), apply(rule->right) });
+  return Seq::build({ apply(rule->left), apply(rule->right) });
 }
 
 rule_ptr IdentityRuleFn::apply_to(const Repeat *rule) {

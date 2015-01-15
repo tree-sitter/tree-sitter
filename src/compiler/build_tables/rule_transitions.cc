@@ -25,7 +25,7 @@ void merge_transitions(map<T, rule_ptr> *, const map<T, rule_ptr> &);
 
 struct MergeAsChoice {
   void operator()(rule_ptr *left, const rule_ptr *right) {
-    *left = Choice::Build({ *left, *right });
+    *left = Choice::build({ *left, *right });
   }
 };
 
@@ -72,7 +72,7 @@ class RuleTransitions : public rules::RuleFn<map<T, rule_ptr>> {
   map<T, rule_ptr> apply_to(const rules::Seq *rule) {
     auto result = this->apply(rule->left);
     for (auto &pair : result)
-      pair.second = rules::Seq::Build({ pair.second, rule->right });
+      pair.second = rules::Seq::build({ pair.second, rule->right });
     if (rule_can_be_blank(rule->left))
       merge_transitions<T>(&result, this->apply(rule->right));
     return result;
@@ -81,7 +81,7 @@ class RuleTransitions : public rules::RuleFn<map<T, rule_ptr>> {
   map<T, rule_ptr> apply_to(const rules::Repeat *rule) {
     auto result = this->apply(rule->content);
     for (auto &pair : result)
-      pair.second = rules::Seq::Build({ pair.second, rule->copy() });
+      pair.second = rules::Seq::build({ pair.second, rule->copy() });
     return result;
   }
 

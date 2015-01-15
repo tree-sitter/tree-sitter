@@ -64,7 +64,7 @@ class PatternParser {
       auto pair = factor();
       if (pair.second)
         return { blank(), pair.second };
-      result = Seq::Build({ result, pair.first });
+      result = Seq::build({ result, pair.first });
     } while (has_more_input());
     return { result, nullptr };
   }
@@ -86,7 +86,7 @@ class PatternParser {
           break;
         case '?':
           next();
-          result = Choice::Build({ result, make_shared<Blank>() });
+          result = Choice::build({ result, make_shared<Blank>() });
           break;
       }
     }

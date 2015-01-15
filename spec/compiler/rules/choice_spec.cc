@@ -8,7 +8,7 @@ START_TEST
 describe("Choice", []() {
   describe("constructing choices", [&]() {
     it("eliminates duplicate members", [&]() {
-      auto rule = Choice::Build({
+      auto rule = Choice::build({
         seq({ sym("one"), sym("two") }),
         sym("three"),
         seq({ sym("one"), sym("two") })
@@ -21,9 +21,9 @@ describe("Choice", []() {
     });
 
     it("eliminates duplicates within nested choices", [&]() {
-      auto rule = Choice::Build({
+      auto rule = Choice::build({
         seq({ sym("one"), sym("two") }),
-        Choice::Build({
+        Choice::build({
           sym("three"),
           seq({ sym("one"), sym("two") })
         })
@@ -36,9 +36,9 @@ describe("Choice", []() {
     });
 
     it("doesn't construct a choice if there's only one unique member", [&]() {
-      auto rule = Choice::Build({
+      auto rule = Choice::build({
         sym("one"),
-        Choice::Build({
+        Choice::build({
           sym("one"),
         })
       });

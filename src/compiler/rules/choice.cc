@@ -27,7 +27,7 @@ void add_choice_element(vector<rule_ptr> *vec, const rule_ptr new_rule) {
   }
 }
 
-rule_ptr Choice::Build(const vector<rule_ptr> &inputs) {
+rule_ptr Choice::build(const vector<rule_ptr> &inputs) {
   vector<rule_ptr> elements;
   for (auto &el : inputs)
     add_choice_element(&elements, el);

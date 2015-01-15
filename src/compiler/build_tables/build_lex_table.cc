@@ -118,7 +118,7 @@ class LexTableBuilder {
   }
 
   rules::rule_ptr after_separators(rules::rule_ptr rule) {
-    return rules::Seq::Build(
+    return rules::Seq::build(
         { make_shared<rules::Metadata>(
               separator_rule(),
               map<rules::MetadataKey, int>(

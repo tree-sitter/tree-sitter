@@ -12,7 +12,7 @@ using std::vector;
 
 Seq::Seq(rule_ptr left, rule_ptr right) : left(left), right(right) {}
 
-rule_ptr Seq::Build(const std::vector<rule_ptr> &rules) {
+rule_ptr Seq::build(const std::vector<rule_ptr> &rules) {
   rule_ptr result = make_shared<Blank>();
   for (auto &rule : rules)
     result = (typeid(*result) != typeid(Blank)) ? make_shared<Seq>(result, rule)

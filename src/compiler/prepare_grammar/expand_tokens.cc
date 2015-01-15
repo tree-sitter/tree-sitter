@@ -41,7 +41,7 @@ class ExpandTokens : public rules::IdentityRuleFn {
       elements.push_back(rules::CharacterSet().include(el).copy());
     }
 
-    return rules::Seq::Build(elements);
+    return rules::Seq::build(elements);
   }
 
   rule_ptr apply_to(const Pattern *rule) {
