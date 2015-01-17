@@ -90,6 +90,59 @@ class RuleFn : private Visitor {
   T value_;
 };
 
+template <>
+class RuleFn<void> : private Visitor {
+ public:
+  void apply(const rule_ptr &rule) {
+    rule->accept(this);
+  }
+
+ protected:
+  virtual void default_apply(const Rule *rule) {}
+
+  virtual void apply_to(const Blank *rule) {
+    return default_apply((const Rule *)rule);
+  }
+  virtual void apply_to(const CharacterSet *rule) {
+    return default_apply((const Rule *)rule);
+  }
+  virtual void apply_to(const Choice *rule) {
+    return default_apply((const Rule *)rule);
+  }
+  virtual void apply_to(const Metadata *rule) {
+    return default_apply((const Rule *)rule);
+  }
+  virtual void apply_to(const Pattern *rule) {
+    return default_apply((const Rule *)rule);
+  }
+  virtual void apply_to(const Repeat *rule) {
+    return default_apply((const Rule *)rule);
+  }
+  virtual void apply_to(const Seq *rule) {
+    return default_apply((const Rule *)rule);
+  }
+  virtual void apply_to(const String *rule) {
+    return default_apply((const Rule *)rule);
+  }
+  virtual void apply_to(const NamedSymbol *rule) {
+    return default_apply((const Rule *)rule);
+  }
+  virtual void apply_to(const Symbol *rule) {
+    return default_apply((const Rule *)rule);
+  }
+
+  void visit(const Blank *rule) { apply_to(rule); }
+  void visit(const CharacterSet *rule) { apply_to(rule); }
+  void visit(const Choice *rule) { apply_to(rule); }
+  void visit(const Metadata *rule) { apply_to(rule); }
+  void visit(const Pattern *rule) { apply_to(rule); }
+  void visit(const Repeat *rule) { apply_to(rule); }
+  void visit(const Seq *rule) { apply_to(rule); }
+  void visit(const String *rule) { apply_to(rule); }
+  void visit(const NamedSymbol *rule) { apply_to(rule); }
+  void visit(const Symbol *rule) { apply_to(rule); }
+};
+
 class IdentityRuleFn : public RuleFn<rule_ptr> {
  protected:
   virtual rule_ptr default_apply(const Rule *rule);
