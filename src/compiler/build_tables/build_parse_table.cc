@@ -40,8 +40,11 @@ class ParseTableBuilder {
       : grammar(grammar), lex_grammar(lex_grammar) {}
 
   pair<ParseTable, vector<Conflict>> build() {
-    ParseItem start_item(rules::START(), 0, -2, 0);
-    add_parse_state(item_set_closure(start_item, { rules::END_OF_INPUT() }, grammar));
+    ParseItemSet start_item_set({
+      { ParseItem(rules::START(), 0, -2, 0), { rules::END_OF_INPUT() } }
+    });
+    item_set_closure(&start_item_set, grammar);
+    add_parse_state(start_item_set);
 
     while (!item_sets_to_process.empty()) {
       auto pair = item_sets_to_process.back();

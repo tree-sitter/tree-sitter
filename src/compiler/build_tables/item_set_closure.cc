@@ -17,19 +17,17 @@ using std::pair;
 using rules::Symbol;
 using rules::rule_ptr;
 
-const ParseItemSet item_set_closure(const ParseItem &starting_item,
-                                    const set<Symbol> &starting_lookahead_symbols,
-                                    const SyntaxGrammar &grammar) {
-  ParseItemSet result;
+void item_set_closure(ParseItemSet *item_set, const SyntaxGrammar &grammar) {
   vector<pair<ParseItem, set<Symbol>>> items_to_process;
-  items_to_process.push_back({ starting_item, starting_lookahead_symbols });
+  items_to_process.insert(items_to_process.end(), item_set->begin(), item_set->end());
+  item_set->clear();
 
   while (!items_to_process.empty()) {
     ParseItem item = items_to_process.back().first;
     set<Symbol> new_lookahead_symbols = items_to_process.back().second;
     items_to_process.pop_back();
 
-    set<Symbol> &lookahead_symbols = result[item];
+    set<Symbol> &lookahead_symbols = item_set->operator[](item);
     size_t previous_size = lookahead_symbols.size();
     lookahead_symbols.insert(new_lookahead_symbols.begin(),
                              new_lookahead_symbols.end());
@@ -70,8 +68,6 @@ const ParseItemSet item_set_closure(const ParseItem &starting_item,
       i++;
     }
   }
-
-  return result;
 }
 
 }  // namespace build_tables

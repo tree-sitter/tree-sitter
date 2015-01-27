@@ -12,6 +12,7 @@ namespace build_tables {
 
 using std::map;
 using std::set;
+using std::vector;
 using rules::CharacterSet;
 using rules::Symbol;
 
@@ -21,31 +22,20 @@ map<Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set,
   for (const auto &pair : item_set) {
     const ParseItem &item = pair.first;
     const set<Symbol> &lookahead_symbols = pair.second;
-    const auto &productions = grammar.productions(item.lhs);
-    if (productions.empty())
-      continue;
-
     const Production &production = grammar.productions(item.lhs)[item.production_index];
     if (production.size() <= item.consumed_symbol_count)
       continue;
 
     const Symbol &symbol = production.symbol_at(item.consumed_symbol_count);
-    ParseItem new_item(
-      item.lhs,
-      item.production_index,
-      production.rule_id_at(item.consumed_symbol_count + 1),
-      item.consumed_symbol_count + 1
-    );
+    int rule_id = production.rule_id_at(item.consumed_symbol_count + 1);
+    ParseItem new_item(item.lhs, item.production_index, rule_id, item.consumed_symbol_count + 1);
 
-    merge_sym_transition<ParseItemSet>(
-      &result,
-      { symbol, item_set_closure(new_item, { lookahead_symbols }, grammar) },
-      [](ParseItemSet *left, const ParseItemSet *right) {
-        for (auto &pair : *right)
-          left->operator[](pair.first)
-            .insert(pair.second.begin(), pair.second.end());
-      });
+    result[symbol][new_item].insert(lookahead_symbols.begin(), lookahead_symbols.end());
   }
+
+  for (auto &pair : result)
+    item_set_closure(&pair.second, grammar);
+
   return result;
 }
 

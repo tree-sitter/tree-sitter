@@ -43,10 +43,14 @@ describe("item_set_closure", []() {
   }, {}, set<Symbol>());
 
   it("adds items at the beginnings of referenced rules", [&]() {
-    ParseItemSet item_set = item_set_closure(
-      ParseItem(Symbol(0), 0, 100, 0),
-      set<Symbol>({ Symbol(10, SymbolOptionToken) }),
-      grammar);
+    ParseItemSet item_set({
+      {
+        ParseItem(Symbol(0), 0, 100, 0),
+        set<Symbol>({ Symbol(10, SymbolOptionToken) }),
+      }
+    });
+
+    item_set_closure(&item_set, grammar);
 
     AssertThat(item_set, Equals(ParseItemSet({
       {
