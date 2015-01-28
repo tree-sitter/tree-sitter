@@ -65,6 +65,8 @@
       '-std=c++0x',
     ],
 
+    'libraries': ['-weak-lprofiler'],
+
     'xcode_settings': {
       'CLANG_CXX_LANGUAGE_STANDARD': 'c++11',
       'ALWAYS_SEARCH_USER_PATHS': 'NO',
@@ -76,4 +78,3 @@
     },
   }
 }
-

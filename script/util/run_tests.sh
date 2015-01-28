@@ -20,13 +20,14 @@ EOF
 }
 
 function run_tests {
+  local profile=
   local mode=normal
   local args=()
   local target=$1
   local cmd="out/Debug/${target}"
   shift
 
-  while getopts "df:ghv" option; do
+  while getopts "df:ghpv" option; do
     case ${option} in
       h)
         usage
@@ -37,6 +38,9 @@ function run_tests {
         ;;
       g)
         mode=valgrind
+        ;;
+      p)
+        profile=true
         ;;
       f)
         args+=("--only=${OPTARG}")
@@ -49,6 +53,10 @@ function run_tests {
 
   BUILDTYPE=Debug make $target
   args=${args:-""}
+
+  if [[ -n $profile ]]; then
+    export CPUPROFILE=/tmp/${target}-$(date '+%s').prof
+  fi
 
   case ${mode} in
     valgrind)
@@ -74,4 +82,8 @@ function run_tests {
       time $cmd "${args[@]}"
       ;;
   esac
+
+  if [[ -n $profile ]]; then
+    pprof $cmd $CPUPROFILE
+  fi
 }
