@@ -15,20 +15,32 @@ describe("build_parse_table", []() {
       {
         "rule0",
         {
-          Production({ {Symbol(1), 0, 1} }, 0),
-          Production({ {Symbol(2), 0, 2} }, 0)
+          Production({
+            {Symbol(1), 0, 1},
+            {rules::NONE(), 0, 5}
+          }),
+          Production({
+            {Symbol(2), 0, 2},
+            {rules::NONE(), 0, 6}
+          })
         }
       },
       {
         "rule1",
         {
-          Production({ {Symbol(0, SymbolOptionToken), 0, 3} }, 0)
+          Production({
+            {Symbol(0, SymbolOptionToken), 0, 3},
+            {rules::NONE(), 0, 7}
+          })
         }
       },
       {
         "rule2",
         {
-          Production({ {Symbol(1, SymbolOptionToken), 0, 4} }, 0)
+          Production({
+            {Symbol(1, SymbolOptionToken), 0, 4},
+            {rules::NONE(), 0, 8}
+          })
         }
       },
   }, {}, { Symbol(2, SymbolOptionToken) });

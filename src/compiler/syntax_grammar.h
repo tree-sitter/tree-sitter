@@ -18,15 +18,12 @@ struct ProductionEntry {
   bool operator==(const ProductionEntry &) const;
 };
 
-class Production {
-public:
+struct Production {
+  Production();
+  Production(const std::vector<ProductionEntry> &);
+  size_t symbol_count() const;
+  const ProductionEntry &operator[](int) const;
   std::vector<ProductionEntry> entries;
-  int end_rule_id;
-  Production(const std::vector<ProductionEntry> &, int);
-  size_t size() const;
-  const rules::Symbol &symbol_at(size_t) const;
-  int precedence_at(size_t) const;
-  int rule_id_at(size_t) const;
 };
 
 std::ostream &operator<<(std::ostream &, const ProductionEntry &);

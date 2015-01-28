@@ -35,18 +35,18 @@ void item_set_closure(ParseItemSet *item_set, const SyntaxGrammar &grammar) {
       continue;
 
     const Production &item_production = grammar.productions(item.lhs)[item.production_index];
-    if (item_production.size() <= item.consumed_symbol_count)
+    if (item.consumed_symbol_count >= item_production.symbol_count())
       continue;
 
-    Symbol symbol = item_production.symbol_at(item.consumed_symbol_count);
+    Symbol symbol = item_production[item.consumed_symbol_count].symbol;
     if (symbol.is_token() || symbol.is_built_in())
       continue;
 
     set<Symbol> next_lookahead_symbols;
-    if (item.consumed_symbol_count + 1 >= item_production.size()) {
+    if (item.consumed_symbol_count + 1 >= item_production.symbol_count()) {
       next_lookahead_symbols = lookahead_symbols;
     } else {
-      vector<Symbol> symbols_to_process({ item_production.symbol_at(item.consumed_symbol_count + 1) });
+      vector<Symbol> symbols_to_process({ item_production[item.consumed_symbol_count + 1].symbol });
 
       while (!symbols_to_process.empty()) {
         Symbol following_symbol = symbols_to_process.back();
@@ -55,14 +55,14 @@ void item_set_closure(ParseItemSet *item_set, const SyntaxGrammar &grammar) {
           continue;
 
         for (const auto &production : grammar.productions(following_symbol))
-          symbols_to_process.push_back(production.symbol_at(0));
+          symbols_to_process.push_back(production[0].symbol);
       }
     }
 
     size_t i = 0;
     for (const Production &production : grammar.productions(symbol)) {
       items_to_process.push_back({
-        ParseItem(symbol, i, production.rule_id_at(0), 0),
+        ParseItem(symbol, i, production[0].rule_id, 0),
         next_lookahead_symbols
       });
       i++;

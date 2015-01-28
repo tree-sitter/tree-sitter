@@ -23,11 +23,11 @@ map<Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set,
     const ParseItem &item = pair.first;
     const set<Symbol> &lookahead_symbols = pair.second;
     const Production &production = grammar.productions(item.lhs)[item.production_index];
-    if (production.size() <= item.consumed_symbol_count)
+    if (item.consumed_symbol_count >= production.symbol_count())
       continue;
 
-    const Symbol &symbol = production.symbol_at(item.consumed_symbol_count);
-    int rule_id = production.rule_id_at(item.consumed_symbol_count + 1);
+    const Symbol &symbol = production[item.consumed_symbol_count].symbol;
+    int rule_id = production[item.consumed_symbol_count + 1].rule_id;
     ParseItem new_item(item.lhs, item.production_index, rule_id, item.consumed_symbol_count + 1);
 
     result[symbol][new_item].insert(lookahead_symbols.begin(), lookahead_symbols.end());

@@ -3,6 +3,7 @@
 #include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/helpers/containers.h"
+#include "compiler/rules/built_in_symbols.h"
 
 START_TEST
 
@@ -48,15 +49,15 @@ describe("flatten_grammar", []() {
     AssertThat(
       get_symbol_lists(0),
       Equals(vector<vector<Symbol>>({
-        { Symbol(1), Symbol(2), Symbol(4) },
-        { Symbol(1), Symbol(3), Symbol(4) }
+        { Symbol(1), Symbol(2), Symbol(4), rules::NONE() },
+        { Symbol(1), Symbol(3), Symbol(4), rules::NONE() }
       })));
 
     AssertThat(
       get_symbol_lists(1),
       Equals(vector<vector<Symbol>>({
-        { Symbol(1), Symbol(2), Symbol(3), Symbol(4), Symbol(6), Symbol(7) },
-        { Symbol(1), Symbol(2), Symbol(5), Symbol(6), Symbol(7) }
+        { Symbol(1), Symbol(2), Symbol(3), Symbol(4), Symbol(6), Symbol(7), rules::NONE() },
+        { Symbol(1), Symbol(2), Symbol(5), Symbol(6), Symbol(7), rules::NONE() }
       })));
   });
 
@@ -74,15 +75,15 @@ describe("flatten_grammar", []() {
     AssertThat(
       get_precedence_lists(0),
       Equals(vector<vector<int>>({
-        { 0, 0, 0 },
-        { 0, 0, 0 }
+        { 0, 0, 0, 0 },
+        { 0, 0, 0, 0 }
       })));
 
     AssertThat(
       get_precedence_lists(1),
       Equals(vector<vector<int>>({
-        { 0, 0, 50, 100, 50, 0 },
-        { 0, 0, 50, 50, 0 }
+        { 0, 0, 50, 100, 50, 0, 0 },
+        { 0, 0, 50, 50, 0, 0 }
       })));
   });
 
@@ -90,7 +91,7 @@ describe("flatten_grammar", []() {
     SyntaxGrammar grammar = flatten_grammar(input_grammar);
 
     auto rule_id = [&](int rule_index, int production_index, int symbol_index) {
-      return grammar.rules[rule_index].second[production_index].rule_id_at(symbol_index);
+      return grammar.rules[rule_index].second[production_index][symbol_index].rule_id;
     };
 
     // Rule 1: last symbol is the same for both productions.

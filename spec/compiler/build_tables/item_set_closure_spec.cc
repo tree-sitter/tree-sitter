@@ -2,6 +2,7 @@
 #include "compiler/syntax_grammar.h"
 #include "compiler/build_tables/item_set_closure.h"
 #include "compiler/build_tables/item_set_transitions.h"
+#include "compiler/rules/built_in_symbols.h"
 
 using namespace build_tables;
 using namespace rules;
@@ -15,8 +16,9 @@ describe("item_set_closure", []() {
       {
         Production({
           {Symbol(1), 0, 100},
-          {Symbol(11, SymbolOptionToken), 0, 101}
-        }, 107),
+          {Symbol(11, SymbolOptionToken), 0, 101},
+          {rules::NONE(), 0, 107}
+        }),
       }
     },
     {
@@ -24,11 +26,13 @@ describe("item_set_closure", []() {
       {
         Production({
           {Symbol(12, SymbolOptionToken), 0, 102},
-          {Symbol(13, SymbolOptionToken), 0, 103}
-        }, 108),
+          {Symbol(13, SymbolOptionToken), 0, 103},
+          {rules::NONE(), 0, 108}
+        }),
         Production({
           {Symbol(2), 0, 104},
-        }, 109)
+          {rules::NONE(), 0, 109}
+        })
       }
     },
     {
@@ -36,8 +40,9 @@ describe("item_set_closure", []() {
       {
         Production({
           {Symbol(14, SymbolOptionToken), 0, 105},
-          {Symbol(15, SymbolOptionToken), 0, 106}
-        }, 110)
+          {Symbol(15, SymbolOptionToken), 0, 106},
+          {rules::NONE(), 0, 110}
+        })
       }
     },
   }, {}, set<Symbol>());

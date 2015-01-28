@@ -52,14 +52,14 @@ describe("sym_transitions(ParseItemSet, InitialSyntaxGrammar)", [&]() {
             {Symbol(13, SymbolOptionToken), 0, 103},
             {Symbol(1), 0, 104},
             {Symbol(14, SymbolOptionToken), 0, 105},
-          }, 1)
+          })
         },
       },
       {
         "B", {
           Production({
             {Symbol(15, SymbolOptionToken), 0, 106},
-          }, 2)
+          })
         },
       }
     }, {}, set<Symbol>());

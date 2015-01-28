@@ -176,11 +176,12 @@ class ParseTableBuilder {
   }
 
   bool item_is_done(const ParseItem &item) {
-    return item.consumed_symbol_count == grammar.productions(item.lhs)[item.production_index].size();
+    return item.consumed_symbol_count ==
+      grammar.productions(item.lhs)[item.production_index].symbol_count();
   }
 
   int item_precedence(const ParseItem &item) {
-    return grammar.productions(item.lhs)[item.production_index].precedence_at(item.consumed_symbol_count - 1);
+    return grammar.productions(item.lhs)[item.production_index][item.consumed_symbol_count - 1].precedence;
   }
 
   void record_conflict(const Symbol &sym, const ParseAction &left,

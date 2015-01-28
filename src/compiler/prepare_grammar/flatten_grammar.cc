@@ -5,6 +5,7 @@
 #include "compiler/rules/seq.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/metadata.h"
+#include "compiler/rules/built_in_symbols.h"
 #include <string>
 #include <algorithm>
 
@@ -63,16 +64,16 @@ class FlattenRule : public rules::RuleFn<void> {
 Production flatten_rule(const rule_ptr &rule) {
   FlattenRule flattener;
   flattener.apply(rule);
-  return Production(flattener.entries, 0);
+  int end_precedence = flattener.entries.back().precedence;
+  flattener.entries.push_back({ rules::NONE(), end_precedence, 0 });
+  return Production(flattener.entries);
 }
 
 struct ProductionSlice {
   vector<ProductionEntry>::const_iterator start;
   vector<ProductionEntry>::const_iterator end;
-  int end_precedence;
 
   bool operator==(const ProductionSlice &other) const {
-    if (end_precedence != other.end_precedence) return false;
     if (end - start != other.end - other.start) return false;
     for (auto iter1 = start, iter2 = other.start; iter1 != end; ++iter1, ++iter2)
       if (!(iter1->symbol == iter2->symbol) || iter1->precedence != iter2->precedence)
@@ -82,11 +83,10 @@ struct ProductionSlice {
 };
 
 void assign_rule_ids(Production *production, vector<ProductionSlice> *unique_slices) {
-  auto &entries = production->entries;
-  auto end = entries.end();
+  auto end = production->entries.end();
 
-  for (auto iter = entries.begin(); iter != end; ++iter) {
-    ProductionSlice slice{iter, end, 0};
+  for (auto iter = production->entries.begin(); iter != end; ++iter) {
+    ProductionSlice slice{iter, end};
     auto existing_id = find(unique_slices->cbegin(), unique_slices->cend(), slice);
     if (existing_id == unique_slices->end()) {
       unique_slices->push_back(slice);
@@ -94,15 +94,6 @@ void assign_rule_ids(Production *production, vector<ProductionSlice> *unique_sli
     } else {
       iter->rule_id = existing_id - unique_slices->cbegin();
     }
-  }
-
-  ProductionSlice slice{end, end, production->precedence_at(production->size() - 1)};
-  auto existing_id = find(unique_slices->cbegin(), unique_slices->cend(), slice);
-  if (existing_id == unique_slices->end()) {
-    unique_slices->push_back(slice);
-    production->end_rule_id = unique_slices->size() - 1;
-  } else {
-    production->end_rule_id = existing_id - unique_slices->cbegin();
   }
 }
 
@@ -126,7 +117,7 @@ SyntaxGrammar flatten_grammar(const InitialSyntaxGrammar &grammar) {
   if (rules.empty()) {
     rules.push_back({
       "START",
-      { Production({ {rules::Symbol(0, rules::SymbolOptionToken), 0, 0} }, 0) }
+      { Production({ {rules::Symbol(0, rules::SymbolOptionToken), 0, 0} }) }
     });
   }
 

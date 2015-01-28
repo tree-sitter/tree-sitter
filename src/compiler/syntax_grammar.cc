@@ -14,7 +14,7 @@ using std::vector;
 using std::set;
 
 static const vector<Production> START_PRODUCTIONS({
-  Production({ {rules::Symbol(0), 0, -1} }, 2)
+  Production({ {rules::Symbol(0), 0, -1}, { rules::NONE(), 0, -2} })
 });
 
 static const vector<Production> NO_PRODUCTIONS({});
@@ -24,29 +24,14 @@ bool ProductionEntry::operator==(const ProductionEntry &other) const {
     rule_id == other.rule_id;
 }
 
-Production::Production(const vector<ProductionEntry> &entries, int last_rule_id) :
-  entries(entries), end_rule_id(last_rule_id) {}
+Production::Production(const vector<ProductionEntry> &entries) : entries(entries) {}
 
-int Production::precedence_at(size_t index) const {
-  if (index >= size())
-    return 0;
-  else
-    return entries[index].precedence;
+size_t Production::symbol_count() const {
+  return entries.size() - 1;
 }
 
-int Production::rule_id_at(size_t index) const {
-  if (index >= size())
-    return end_rule_id;
-  else
-    return entries[index].rule_id;
-}
-
-const rules::Symbol &Production::symbol_at(size_t index) const {
-  return entries[index].symbol;
-}
-
-size_t Production::size() const {
-  return entries.size();
+const ProductionEntry &Production::operator[](int i) const {
+  return entries[i];
 }
 
 SyntaxGrammar::SyntaxGrammar() {}
@@ -87,8 +72,7 @@ std::ostream &operator<<(std::ostream &stream, const Production &production) {
     stream << entry;
     started = true;
   }
-  return stream << string(") end_rule_id: ") <<
-    to_string(production.end_rule_id) << string(")");
+  return stream << string(")");
 }
 
 }  // namespace tree_sitter
