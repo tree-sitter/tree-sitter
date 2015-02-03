@@ -127,10 +127,7 @@
     'default_configuration': 'Release',
     'configurations': {
       'Debug': {
-        'cflags': [ '-g', '-O0' ],
-        'xcode_settings': {
-          'GCC_OPTIMIZATION_LEVEL': '0',
-        },
+        'cflags': [ '-g' ],
       },
       'Release': {
         'cflags': [ '-O2', '-fno-strict-aliasing' ],
