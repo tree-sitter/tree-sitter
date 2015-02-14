@@ -56,6 +56,8 @@ std::ostream &operator<<(std::ostream &stream, const LexAction &action) {
   }
 }
 
+LexState::LexState() : is_token_start(false) {}
+
 set<CharacterSet> LexState::expected_inputs() const {
   set<CharacterSet> result;
   for (auto &pair : actions)

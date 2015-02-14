@@ -85,6 +85,7 @@ class LexTableBuilder {
     LexItemSet item_set = build_lex_item_set(parse_table->symbols);
     add_accept_token_actions(item_set, LexTable::ERROR_STATE_ID);
     add_advance_actions(item_set, LexTable::ERROR_STATE_ID);
+    add_token_start(item_set, LexTable::ERROR_STATE_ID);
   }
 
   void add_advance_actions(const LexItemSet &item_set, LexStateId state_id) {

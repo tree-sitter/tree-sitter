@@ -54,6 +54,7 @@ namespace tree_sitter {
 
 class LexState {
  public:
+  LexState();
   std::map<rules::CharacterSet, LexAction> actions;
   LexAction default_action;
   std::set<rules::CharacterSet> expected_inputs() const;
