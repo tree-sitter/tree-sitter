@@ -45,6 +45,7 @@ typedef enum {
   TSParseActionTypeShiftExtra,
   TSParseActionTypeReduce,
   TSParseActionTypeReduceExtra,
+  TSParseActionTypeReduceFragile,
   TSParseActionTypeAccept,
 } TSParseActionType;
 
@@ -113,6 +114,12 @@ struct TSLanguage {
 #define REDUCE(symbol_val, child_count_val)                          \
   {                                                                  \
     .type = TSParseActionTypeReduce,                                 \
+    .data = { .symbol = symbol_val, .child_count = child_count_val } \
+  }
+
+#define REDUCE_FRAGILE(symbol_val, child_count_val)                  \
+  {                                                                  \
+    .type = TSParseActionTypeReduceFragile,                          \
     .data = { .symbol = symbol_val, .child_count = child_count_val } \
   }
 

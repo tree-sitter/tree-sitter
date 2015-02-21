@@ -60,7 +60,7 @@ describe("build_parse_table", []() {
     auto result = build_parse_table(parse_grammar, lex_grammar);
 
     AssertThat(result.first.states[2].actions, Equals(map<Symbol, ParseAction>({
-        { END_OF_INPUT(), ParseAction::Reduce(Symbol(0), 1, 0) },
+        { END_OF_INPUT(), ParseAction::Reduce(Symbol(0), 1, 0, 0) },
 
         // for the ubiquitous_token 'token2'
         { Symbol(2, SymbolOptionToken), ParseAction::ShiftExtra() },

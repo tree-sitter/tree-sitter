@@ -290,8 +290,12 @@ class CCodeGenerator {
         add("SHIFT_EXTRA()");
         break;
       case ParseActionTypeReduce:
-        add("REDUCE(" + symbol_id(action.symbol) + ", " +
-            to_string(action.consumed_symbol_count) + ")");
+        if (reduce_action_is_fragile(action))
+          add("REDUCE_FRAGILE(" + symbol_id(action.symbol) + ", " +
+              to_string(action.consumed_symbol_count) + ")");
+        else
+          add("REDUCE(" + symbol_id(action.symbol) + ", " +
+              to_string(action.consumed_symbol_count) + ")");
         break;
       case ParseActionTypeReduceExtra:
         add("REDUCE_EXTRA(" + symbol_id(action.symbol) + ")");
@@ -337,6 +341,11 @@ class CCodeGenerator {
   string rule_name(const rules::Symbol &symbol) {
     return symbol.is_token() ? lexical_grammar.rule_name(symbol)
                              : syntax_grammar.rule_name(symbol);
+  }
+
+  bool reduce_action_is_fragile(const ParseAction &action) const {
+    return parse_table.fragile_production_ids.find(action.production_id) !=
+      parse_table.fragile_production_ids.end();
   }
 
   // C-code generation functions

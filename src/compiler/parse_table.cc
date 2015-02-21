@@ -12,12 +12,14 @@ using rules::Symbol;
 
 ParseAction::ParseAction(ParseActionType type, ParseStateId state_index,
                          Symbol symbol, size_t consumed_symbol_count,
-                         set<int> precedence_values)
+                         set<int> precedence_values,
+                         int production_id)
     : type(type),
       symbol(symbol),
       state_index(state_index),
       consumed_symbol_count(consumed_symbol_count),
-      precedence_values(precedence_values) {}
+      precedence_values(precedence_values),
+      production_id(production_id) {}
 
 ParseAction::ParseAction()
     : type(ParseActionTypeError),
@@ -26,31 +28,31 @@ ParseAction::ParseAction()
       consumed_symbol_count(0) {}
 
 ParseAction ParseAction::Error() {
-  return ParseAction(ParseActionTypeError, -1, Symbol(-1), 0, { 0 });
+  return ParseAction(ParseActionTypeError, -1, Symbol(-1), 0, { 0 }, 0);
 }
 
 ParseAction ParseAction::Accept() {
-  return ParseAction(ParseActionTypeAccept, -1, Symbol(-1), 0, { 0 });
+  return ParseAction(ParseActionTypeAccept, -1, Symbol(-1), 0, { 0 }, 0);
 }
 
 ParseAction ParseAction::Shift(ParseStateId state_index,
                                set<int> precedence_values) {
   return ParseAction(ParseActionTypeShift, state_index, Symbol(-1), 0,
-                     precedence_values);
+                     precedence_values, 0);
 }
 
 ParseAction ParseAction::ShiftExtra() {
-  return ParseAction(ParseActionTypeShiftExtra, 0, Symbol(-1), 0, { 0 });
+  return ParseAction(ParseActionTypeShiftExtra, 0, Symbol(-1), 0, { 0 }, 0);
 }
 
 ParseAction ParseAction::ReduceExtra(Symbol symbol) {
-  return ParseAction(ParseActionTypeReduceExtra, 0, symbol, 0, { 0 });
+  return ParseAction(ParseActionTypeReduceExtra, 0, symbol, 0, { 0 }, 0);
 }
 
 ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
-                                int precedence) {
+                                int precedence, int production_id) {
   return ParseAction(ParseActionTypeReduce, 0, symbol, consumed_symbol_count,
-                     { precedence });
+                     { precedence }, production_id);
 }
 
 bool ParseAction::operator==(const ParseAction &other) const {

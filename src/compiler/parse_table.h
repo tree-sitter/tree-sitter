@@ -24,7 +24,7 @@ typedef enum {
 class ParseAction {
   ParseAction(ParseActionType type, ParseStateId state_index,
               rules::Symbol symbol, size_t consumed_symbol_count,
-              std::set<int> precedence_values);
+              std::set<int> precedence_values, int production_id);
 
  public:
   ParseAction();
@@ -33,7 +33,7 @@ class ParseAction {
   static ParseAction Shift(ParseStateId state_index,
                            std::set<int> precedence_values);
   static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count,
-                            int precedence);
+                            int precedence, int production_id);
   static ParseAction ShiftExtra();
   static ParseAction ReduceExtra(rules::Symbol symbol);
   bool operator==(const ParseAction &action) const;
@@ -43,6 +43,7 @@ class ParseAction {
   ParseStateId state_index;
   size_t consumed_symbol_count;
   std::set<int> precedence_values;
+  int production_id;
 };
 
 std::ostream &operator<<(std::ostream &stream, const ParseAction &item);
@@ -57,7 +58,8 @@ struct hash<tree_sitter::ParseAction> {
     return (hash<int>()(action.type) ^
             hash<tree_sitter::rules::Symbol>()(action.symbol) ^
             hash<size_t>()(action.state_index) ^
-            hash<size_t>()(action.consumed_symbol_count));
+            hash<size_t>()(action.consumed_symbol_count) ^
+            hash<size_t>()(action.production_id));
   }
 };
 
@@ -83,6 +85,7 @@ class ParseTable {
 
   std::vector<ParseState> states;
   std::set<rules::Symbol> symbols;
+  std::set<int> fragile_production_ids;
 };
 
 }  // namespace tree_sitter

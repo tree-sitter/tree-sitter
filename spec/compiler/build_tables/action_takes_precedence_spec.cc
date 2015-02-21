@@ -87,7 +87,7 @@ describe("action_takes_precedence", []() {
     describe("shift/reduce conflicts", [&]() {
       describe("when the shift has higher precedence", [&]() {
         ParseAction shift = ParseAction::Shift(2, { 3 });
-        ParseAction reduce = ParseAction::Reduce(sym2, 1, 1);
+        ParseAction reduce = ParseAction::Reduce(sym2, 1, 1, 0);
 
         it("is not a conflict", [&]() {
           result = action_takes_precedence(shift, reduce, sym1);
@@ -108,7 +108,7 @@ describe("action_takes_precedence", []() {
 
       describe("when the reduce has higher precedence", [&]() {
         ParseAction shift = ParseAction::Shift(2, { 1 });
-        ParseAction reduce = ParseAction::Reduce(sym2, 1, 3);
+        ParseAction reduce = ParseAction::Reduce(sym2, 1, 3, 0);
 
         it("is not a conflict", [&]() {
           result = action_takes_precedence(shift, reduce, sym1);
@@ -129,7 +129,7 @@ describe("action_takes_precedence", []() {
 
       describe("when the precedences are equal", [&]() {
         ParseAction shift = ParseAction::Shift(2, { 0 });
-        ParseAction reduce = ParseAction::Reduce(sym2, 1, 0);
+        ParseAction reduce = ParseAction::Reduce(sym2, 1, 0, 0);
 
         it("is a conflict", [&]() {
           result = action_takes_precedence(reduce, shift, sym1);
@@ -150,7 +150,7 @@ describe("action_takes_precedence", []() {
 
       describe("when the shift has conflicting precedences compared to the reduce", [&]() {
         ParseAction shift = ParseAction::Shift(2, { 0, 1, 3 });
-        ParseAction reduce = ParseAction::Reduce(sym2, 1, 2);
+        ParseAction reduce = ParseAction::Reduce(sym2, 1, 2, 0);
 
         it("is a conflict", [&]() {
           result = action_takes_precedence(reduce, shift, sym1);
@@ -172,8 +172,8 @@ describe("action_takes_precedence", []() {
 
     describe("reduce/reduce conflicts", [&]() {
       describe("when one action has higher precedence", [&]() {
-        ParseAction left = ParseAction::Reduce(sym2, 1, 0);
-        ParseAction right = ParseAction::Reduce(sym2, 1, 3);
+        ParseAction left = ParseAction::Reduce(sym2, 1, 0, 0);
+        ParseAction right = ParseAction::Reduce(sym2, 1, 3, 0);
 
         it("favors that action", [&]() {
           result = action_takes_precedence(left, right, sym1);
@@ -193,8 +193,8 @@ describe("action_takes_precedence", []() {
       });
 
       describe("when the actions have the same precedence", [&]() {
-        ParseAction left = ParseAction::Reduce(sym1, 1, 0);
-        ParseAction right = ParseAction::Reduce(sym2, 1, 0);
+        ParseAction left = ParseAction::Reduce(sym1, 1, 0, 0);
+        ParseAction right = ParseAction::Reduce(sym2, 1, 0, 0);
 
         it("favors the symbol listed earlier in the grammar", [&]() {
           result = action_takes_precedence(left, right, sym1);

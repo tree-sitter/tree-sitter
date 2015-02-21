@@ -27,7 +27,7 @@ describe("build_conflict", []() {
   it("uses the given item-set to determine which symbols are involved in the shift", [&]() {
     conflict = build_conflict(
       ParseAction::Shift(2, set<int>()),
-      ParseAction::Reduce(Symbol(2), 1, 0), // reduced_rule
+      ParseAction::Reduce(Symbol(2), 1, 0, 0), // reduced_rule
       ParseItemSet({
         {
           ParseItem(Symbol(0), blank(), { Symbol(101) }), // in_progress_rule1
@@ -54,7 +54,7 @@ describe("build_conflict", []() {
 
   it("always puts shift actions before reduce actions", [&]() {
     conflict = build_conflict(
-      ParseAction::Reduce(Symbol(2), 1, 0), // reduced_rule
+      ParseAction::Reduce(Symbol(2), 1, 0, 0), // reduced_rule
       ParseAction::Shift(2, set<int>()),
       ParseItemSet({
         {

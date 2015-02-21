@@ -212,6 +212,12 @@ static void reduce_extra(TSParser *parser, TSSymbol symbol) {
   ts_tree_set_extra(parser->lookahead);
 }
 
+static void reduce_fragile(TSParser *parser, TSSymbol symbol, size_t child_count) {
+  reduce(parser, symbol, child_count);
+  ts_tree_set_fragile_left(parser->lookahead);
+  ts_tree_set_fragile_right(parser->lookahead);
+}
+
 static int handle_error(TSParser *parser) {
   TSTree *error = parser->lookahead;
   ts_tree_retain(error);
@@ -372,6 +378,12 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
       case TSParseActionTypeReduceExtra:
         DEBUG("reduce_extra sym:%s", SYM_NAME(action.data.symbol));
         reduce_extra(parser, action.data.symbol);
+        break;
+
+      case TSParseActionTypeReduceFragile:
+        reduce_fragile(parser, action.data.symbol, action.data.child_count);
+        DEBUG("reduce_fragile sym:%s, count:%u, state:%u", SYM_NAME(action.data.symbol),
+              action.data.child_count, ts_stack_top_state(&parser->stack));
         break;
 
       case TSParseActionTypeAccept:

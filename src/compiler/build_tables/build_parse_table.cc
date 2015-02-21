@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <map>
 #include <set>
 #include <string>
@@ -17,6 +18,7 @@
 namespace tree_sitter {
 namespace build_tables {
 
+using std::find;
 using std::pair;
 using std::vector;
 using std::set;
@@ -30,6 +32,7 @@ class ParseTableBuilder {
   const SyntaxGrammar grammar;
   const LexicalGrammar lex_grammar;
   unordered_map<const ParseItemSet, ParseStateId> parse_state_ids;
+  vector<vector<Symbol>> productions;
   vector<pair<ParseItemSet, ParseStateId>> item_sets_to_process;
   ParseTable parse_table;
   std::set<Conflict> conflicts;
@@ -105,7 +108,7 @@ class ParseTableBuilder {
             (item.lhs == rules::START())
                 ? ParseAction::Accept()
                 : ParseAction::Reduce(item.lhs, item.consumed_symbols.size(),
-                                      item.precedence());
+                                      item.precedence(), get_production_id(item.consumed_symbols));
 
         for (const auto &lookahead_sym : lookahead_symbols)
           if (should_add_action(state_id, lookahead_sym, action, ParseItemSet()))
@@ -159,8 +162,14 @@ class ParseTableBuilder {
     auto result = action_takes_precedence(action, current_action->second,
                                           symbol);
 
-    if (result.second)
+    if (result.second) {
       record_conflict(symbol, current_action->second, action, item_set);
+
+      if (action.type == ParseActionTypeReduce)
+        parse_table.fragile_production_ids.insert(action.production_id);
+      if (current_action->second.type == ParseActionTypeReduce)
+        parse_table.fragile_production_ids.insert(current_action->second.production_id);
+    }
 
     return result.first;
   }
@@ -173,6 +182,17 @@ class ParseTableBuilder {
         result.insert(item.precedence());
     }
     return result;
+  }
+
+  int get_production_id(const vector<Symbol> &symbols) {
+    auto begin = productions.begin();
+    auto end = productions.end();
+    auto iter = find(begin, end, symbols);
+    if (iter == end) {
+      productions.push_back(symbols);
+      return productions.size() - 1;
+    }
+    return iter - begin;
   }
 
   void record_conflict(const Symbol &sym, const ParseAction &left,
