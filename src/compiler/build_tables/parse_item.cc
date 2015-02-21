@@ -5,15 +5,16 @@ namespace tree_sitter {
 namespace build_tables {
 
 using std::string;
+using std::vector;
 using std::ostream;
 
 ParseItem::ParseItem(const rules::Symbol &lhs, const rules::rule_ptr rule,
-                     size_t consumed_symbol_count)
-    : Item(lhs, rule), consumed_symbol_count(consumed_symbol_count) {}
+                     const vector<rules::Symbol> &consumed_symbols)
+    : Item(lhs, rule), consumed_symbols(consumed_symbols) {}
 
 bool ParseItem::operator==(const ParseItem &other) const {
   return (lhs == other.lhs) &&
-         (consumed_symbol_count == other.consumed_symbol_count) &&
+         (consumed_symbols.size() == other.consumed_symbols.size()) &&
          (rule == other.rule || rule->operator==(*other.rule));
 }
 

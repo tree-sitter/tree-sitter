@@ -37,7 +37,7 @@ static string action_description(const ParseAction &action,
     case ParseActionTypeShift: {
       string result("shift (");
       for (const auto &item : item_set)
-        if (item.first.consumed_symbol_count > 0)
+        if (!item.first.consumed_symbols.empty())
           result += " " + symbol_name(item.first.lhs, grammar, lex_grammar);
       return result + " )";
     }

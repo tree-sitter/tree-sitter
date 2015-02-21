@@ -50,7 +50,7 @@ const ParseItemSet item_set_closure(const ParseItem &starting_item,
         next_lookahead_symbols.insert(lookahead_symbols.begin(),
                                       lookahead_symbols.end());
 
-      items_to_process.push_back({ ParseItem(symbol, grammar.rule(symbol), 0),
+      items_to_process.push_back({ ParseItem(symbol, grammar.rule(symbol), {}),
                                    next_lookahead_symbols });
     }
   }

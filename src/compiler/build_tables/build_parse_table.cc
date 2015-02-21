@@ -43,7 +43,7 @@ class ParseTableBuilder {
     auto start_symbol = grammar.rules.empty()
                             ? make_shared<Symbol>(0, rules::SymbolOptionToken)
                             : make_shared<Symbol>(0);
-    ParseItem start_item(rules::START(), start_symbol, 0);
+    ParseItem start_item(rules::START(), start_symbol, {});
     add_parse_state(
         item_set_closure(start_item, { rules::END_OF_INPUT() }, grammar));
 
@@ -104,7 +104,7 @@ class ParseTableBuilder {
         ParseAction action =
             (item.lhs == rules::START())
                 ? ParseAction::Accept()
-                : ParseAction::Reduce(item.lhs, item.consumed_symbol_count,
+                : ParseAction::Reduce(item.lhs, item.consumed_symbols.size(),
                                       item.precedence());
 
         for (const auto &lookahead_sym : lookahead_symbols)
@@ -169,7 +169,7 @@ class ParseTableBuilder {
     set<int> result;
     for (const auto &pair : item_set) {
       const ParseItem &item = pair.first;
-      if (item.consumed_symbol_count > 0)
+      if (!item.consumed_symbols.empty())
         result.insert(item.precedence());
     }
     return result;

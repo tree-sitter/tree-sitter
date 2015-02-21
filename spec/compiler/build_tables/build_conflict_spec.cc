@@ -30,15 +30,15 @@ describe("build_conflict", []() {
       ParseAction::Reduce(Symbol(2), 1, 0), // reduced_rule
       ParseItemSet({
         {
-          ParseItem(Symbol(0), blank(), 2), // in_progress_rule1
+          ParseItem(Symbol(0), blank(), { Symbol(101) }), // in_progress_rule1
           set<Symbol>({ Symbol(2, SymbolOptionToken) })
         },
         {
-          ParseItem(Symbol(1), blank(), 2), // in_progress_rule2
+          ParseItem(Symbol(1), blank(), { Symbol(101) }), // in_progress_rule2
           set<Symbol>({ Symbol(2, SymbolOptionToken) })
         },
         {
-          ParseItem(Symbol(3), blank(), 0), // other_rule1
+          ParseItem(Symbol(3), blank(), {}), // other_rule1
           set<Symbol>({ Symbol(2, SymbolOptionToken) })
         },
       }),
@@ -58,11 +58,11 @@ describe("build_conflict", []() {
       ParseAction::Shift(2, set<int>()),
       ParseItemSet({
         {
-          ParseItem(Symbol(0), blank(), 2), // in_progress_rule1
+          ParseItem(Symbol(0), blank(), { Symbol(101) }), // in_progress_rule1
           set<Symbol>({ Symbol(2, SymbolOptionToken) })
         },
         {
-          ParseItem(Symbol(1), blank(), 2), // in_progress_rule2
+          ParseItem(Symbol(1), blank(), { Symbol(101) }), // in_progress_rule2
           set<Symbol>({ Symbol(2, SymbolOptionToken) })
         },
       }),

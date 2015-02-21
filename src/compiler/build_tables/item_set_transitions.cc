@@ -12,6 +12,7 @@ namespace build_tables {
 
 using std::map;
 using std::set;
+using std::vector;
 using rules::CharacterSet;
 using rules::Symbol;
 
@@ -22,8 +23,9 @@ map<Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set,
     const ParseItem &item = pair.first;
     const set<Symbol> &lookahead_symbols = pair.second;
     for (auto &transition : sym_transitions(item.rule)) {
-      ParseItem new_item(item.lhs, transition.second,
-                         item.consumed_symbol_count + 1);
+      vector<Symbol> consumed_symbols(item.consumed_symbols);
+      consumed_symbols.push_back(transition.first);
+      ParseItem new_item(item.lhs, transition.second, consumed_symbols);
       merge_sym_transition<ParseItemSet>(
           &result, { transition.first,
                      item_set_closure(new_item, lookahead_symbols, grammar) },
