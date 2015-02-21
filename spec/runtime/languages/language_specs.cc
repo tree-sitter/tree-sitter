@@ -60,6 +60,22 @@ describe("Languages", [&]() {
 
           expect_the_correct_tree();
         });
+
+        it(("handles random deletions in " + entry.description).c_str(), [&]() {
+          SpyReader reader(entry.input, 3);
+          ts_document_set_input(doc, reader.input());
+
+          size_t position = entry.input.size() / 2;
+          string removed = entry.input.substr(position);
+
+          reader.erase(position, removed.size());
+          ts_document_edit(doc, { position, 0, removed.size() });
+
+          reader.insert(position, removed);
+          ts_document_edit(doc, { position, removed.size(), 0 });
+
+          expect_the_correct_tree();
+        });
       }
     });
   };
