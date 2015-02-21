@@ -21,7 +21,8 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength size, TSLength padding,
 
 TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char) {
   TSTree *result = ts_tree_make_leaf(ts_builtin_sym_error, size, padding, false);
-  ts_tree_set_has_error(result);
+  ts_tree_set_fragile_left(result);
+  ts_tree_set_fragile_right(result);
   result->lookahead_char = lookahead_char;
   return result;
 }
@@ -35,7 +36,6 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
    */
   TSLength size = ts_length_zero(), padding = ts_length_zero();
   size_t visible_child_count = 0;
-  bool has_error = false;
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
     ts_tree_retain(child);
@@ -51,22 +51,21 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
       visible_child_count++;
     else
       visible_child_count += child->visible_child_count;
-
-    if (ts_tree_has_error(child))
-      has_error = true;
   }
 
   /*
    *  Mark the tree as hidden if it wraps a single child node.
    */
   TSTreeOptions options = 0;
-  if (has_error)
-    options |= TSTreeOptionsHasError;
   if (is_hidden)
     options |= TSTreeOptionsHidden;
   if (child_count == 1 &&
       (ts_tree_is_visible(children[0]) || ts_tree_is_wrapper(children[0])))
     options |= (TSTreeOptionsWrapper | TSTreeOptionsHidden);
+  if (child_count > 0 && ts_tree_is_fragile_left(children[0]))
+    options |= (TSTreeOptionsFragileLeft);
+  if (child_count > 0 && ts_tree_is_fragile_right(children[child_count - 1]))
+    options |= (TSTreeOptionsFragileRight);
 
   /*
    *  Store the visible child array adjacent to the tree itself. This avoids

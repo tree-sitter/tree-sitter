@@ -48,19 +48,21 @@ describe("Tree", []() {
   });
 
   describe("make_leaf(sym, size, padding, is_hidden)", [&]() {
-    it("does not record that it contains an error", [&]() {
-      AssertThat(ts_tree_has_error(tree1), IsFalse());
+    it("does not record that it is fragile", [&]() {
+      AssertThat(ts_tree_is_fragile_left(tree1), IsFalse());
+      AssertThat(ts_tree_is_fragile_right(tree1), IsFalse());
     });
   });
 
   describe("make_error(size, padding, lookahead_char)", [&]() {
-    it("records that it contains an error", [&]() {
+    it("records that it is fragile", [&]() {
       TSTree *error_tree = ts_tree_make_error(
         ts_length_zero(),
         ts_length_zero(),
         'z');
 
-      AssertThat(ts_tree_has_error(error_tree), IsTrue());
+      AssertThat(ts_tree_is_fragile_left(error_tree), IsTrue());
+      AssertThat(ts_tree_is_fragile_right(error_tree), IsTrue());
     });
   });
 
@@ -138,11 +140,12 @@ describe("Tree", []() {
       });
     });
 
-    describe("when one of the child nodes has an error", [&]() {
+    describe("when the first node is fragile on the left side", [&]() {
       TSTree *parent;
 
       before_each([&]() {
-        tree2->options = (TSTreeOptions)(TSTreeOptionsHasError|TSTreeOptionsExtra);
+        ts_tree_set_fragile_left(tree1);
+        ts_tree_set_extra(tree1);
         parent = ts_tree_make_node(pig, 2, tree_array({
             tree1,
             tree2,
@@ -153,14 +156,51 @@ describe("Tree", []() {
         ts_tree_release(parent);
       });
 
-      it("records that it contains an error", [&]() {
-        AssertThat(ts_tree_has_error(parent), IsTrue());
+      it("records that it is fragile on the left side", [&]() {
+        AssertThat(ts_tree_is_fragile_left(parent), IsTrue());
       });
     });
 
-    describe("when none of the child nodes have an error", [&]() {
-      it("records that it does not contain an error", [&]() {
-        AssertThat(ts_tree_has_error(parent1), IsFalse());
+    describe("when the last node is fragile on the right side", [&]() {
+      TSTree *parent;
+
+      before_each([&]() {
+        ts_tree_set_fragile_right(tree2);
+        ts_tree_set_extra(tree2);
+        parent = ts_tree_make_node(pig, 2, tree_array({
+            tree1,
+            tree2,
+        }), 0);
+      });
+
+      after_each([&]() {
+        ts_tree_release(parent);
+      });
+
+      it("records that it is fragile on the right side", [&]() {
+        AssertThat(ts_tree_is_fragile_right(parent), IsTrue());
+      });
+    });
+
+    describe("when the outer nodes aren't fragile on their outer side", [&]() {
+      TSTree *parent;
+
+      before_each([&]() {
+        ts_tree_set_fragile_right(tree1);
+        ts_tree_set_fragile_left(tree2);
+        parent = ts_tree_make_node(pig, 2, tree_array({
+            tree1,
+            tree2,
+        }), 0);
+      });
+
+      after_each([&]() {
+        ts_tree_release(parent);
+      });
+
+      it("records that it is not fragile", [&]() {
+        AssertThat(ts_tree_is_fragile_left(parent), IsFalse());
+        AssertThat(ts_tree_is_fragile_right(parent), IsFalse());
       });
     });
   });

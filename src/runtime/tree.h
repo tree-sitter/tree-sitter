@@ -12,7 +12,8 @@ typedef enum {
   TSTreeOptionsHidden = 1 << 0,
   TSTreeOptionsExtra = 1 << 1,
   TSTreeOptionsWrapper = 1 << 2,
-  TSTreeOptionsHasError = 1 << 3,
+  TSTreeOptionsFragileLeft = 1 << 3,
+  TSTreeOptionsFragileRight = 1 << 4,
 } TSTreeOptions;
 
 struct TSTree {
@@ -44,10 +45,6 @@ static inline bool ts_tree_is_wrapper(const TSTree *tree) {
   return !!(tree->options & TSTreeOptionsWrapper);
 }
 
-static inline bool ts_tree_has_error(const TSTree *tree) {
-  return !!(tree->options & TSTreeOptionsHasError);
-}
-
 static inline void ts_tree_set_options(TSTree *tree, TSTreeOptions options) {
   tree->options = (TSTreeOptions)(tree->options | options);
 }
@@ -56,8 +53,20 @@ static inline void ts_tree_set_extra(TSTree *tree) {
   ts_tree_set_options(tree, TSTreeOptionsExtra);
 }
 
-static inline void ts_tree_set_has_error(TSTree *tree) {
-  ts_tree_set_options(tree, TSTreeOptionsHasError);
+static inline void ts_tree_set_fragile_left(TSTree *tree) {
+  ts_tree_set_options(tree, TSTreeOptionsFragileLeft);
+}
+
+static inline void ts_tree_set_fragile_right(TSTree *tree) {
+  ts_tree_set_options(tree, TSTreeOptionsFragileRight);
+}
+
+static inline bool ts_tree_is_fragile_left(TSTree *tree) {
+  return tree->options & TSTreeOptionsFragileLeft;
+}
+
+static inline bool ts_tree_is_fragile_right(TSTree *tree) {
+  return tree->options & TSTreeOptionsFragileRight;
 }
 
 TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, bool);
