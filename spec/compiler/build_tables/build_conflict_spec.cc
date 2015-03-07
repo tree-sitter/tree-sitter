@@ -48,7 +48,7 @@ describe("build_conflict", []() {
 
     AssertThat(conflict.description, Equals(
         "lookahead_token: "
-        "shift ( in_progress_rule2 in_progress_rule1 ) / "
+        "shift ( in_progress_rule1 in_progress_rule2 ) / "
         "reduce ( reduced_rule )"));
   });
 
@@ -72,7 +72,7 @@ describe("build_conflict", []() {
 
     AssertThat(conflict.description, Equals(
         "lookahead_token: "
-        "shift ( in_progress_rule2 in_progress_rule1 ) / "
+        "shift ( in_progress_rule1 in_progress_rule2 ) / "
         "reduce ( reduced_rule )"));
   });
 });

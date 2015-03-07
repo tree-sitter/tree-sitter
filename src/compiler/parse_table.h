@@ -36,7 +36,8 @@ class ParseAction {
                             int precedence, int production_id);
   static ParseAction ShiftExtra();
   static ParseAction ReduceExtra(rules::Symbol symbol);
-  bool operator==(const ParseAction &action) const;
+  bool operator==(const ParseAction &) const;
+  bool operator<(const ParseAction &) const;
 
   ParseActionType type;
   rules::Symbol symbol;

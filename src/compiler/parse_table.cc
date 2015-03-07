@@ -64,6 +64,16 @@ bool ParseAction::operator==(const ParseAction &other) const {
   return types_eq && symbols_eq && state_indices_eq && consumed_symbol_counts_eq;
 }
 
+bool ParseAction::operator<(const ParseAction &other) const {
+  if (type < other.type) return true;
+  if (other.type < type) return false;
+  if (symbol < other.symbol) return true;
+  if (other.symbol < symbol) return false;
+  if (state_index < other.state_index) return true;
+  if (other.state_index < state_index) return false;
+  return consumed_symbol_count < other.consumed_symbol_count;
+}
+
 ostream &operator<<(ostream &stream, const ParseAction &action) {
   switch (action.type) {
     case ParseActionTypeError:
