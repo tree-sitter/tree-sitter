@@ -351,7 +351,7 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
     TSParseAction action =
         get_action(parser->language, state, parser->lookahead->symbol);
 
-    DEBUG("lookahead sym:%s", SYM_NAME(parser->lookahead->symbol));
+    DEBUG("lookahead state:%d, sym:%s", state, SYM_NAME(parser->lookahead->symbol));
     switch (action.type) {
       case TSParseActionTypeShift:
         if (parser->lookahead->symbol == ts_builtin_sym_error) {
@@ -371,8 +371,7 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
 
       case TSParseActionTypeReduce:
         reduce(parser, action.data.symbol, action.data.child_count);
-        DEBUG("reduce sym:%s, count:%u, state:%u", SYM_NAME(action.data.symbol),
-              action.data.child_count, ts_stack_top_state(&parser->stack));
+        DEBUG("reduce sym:%s, count:%u", SYM_NAME(action.data.symbol), action.data.child_count);
         break;
 
       case TSParseActionTypeReduceExtra:
@@ -382,8 +381,7 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
 
       case TSParseActionTypeReduceFragile:
         reduce_fragile(parser, action.data.symbol, action.data.child_count);
-        DEBUG("reduce_fragile sym:%s, count:%u, state:%u", SYM_NAME(action.data.symbol),
-              action.data.child_count, ts_stack_top_state(&parser->stack));
+        DEBUG("reduce_fragile sym:%s, count:%u", SYM_NAME(action.data.symbol), action.data.child_count);
         break;
 
       case TSParseActionTypeAccept:
