@@ -84,7 +84,7 @@ describe("Document", [&]() {
       ts_document_set_input_string(doc, "[1, 2]");
 
       AssertThat(debugger->messages, Contains("shift state:1"));
-      AssertThat(debugger->messages, Contains("reduce sym:value, count:1, state:0"));
+      AssertThat(debugger->messages, Contains("reduce sym:value, count:1"));
       AssertThat(debugger->messages, Contains("accept"));
     });
 
