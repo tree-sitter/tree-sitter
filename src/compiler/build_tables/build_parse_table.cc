@@ -7,8 +7,7 @@
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/item_set_closure.h"
 #include "compiler/build_tables/item_set_transitions.h"
-#include "compiler/build_tables/action_takes_precedence.h"
-#include "compiler/build_tables/build_conflict.h"
+#include "compiler/build_tables/parse_conflict_manager.h"
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/syntax_grammar.h"
@@ -19,6 +18,7 @@ namespace tree_sitter {
 namespace build_tables {
 
 using std::find;
+using std::get;
 using std::pair;
 using std::vector;
 using std::set;
@@ -30,9 +30,8 @@ using rules::Symbol;
 
 class ParseTableBuilder {
   const SyntaxGrammar grammar;
-  const LexicalGrammar lex_grammar;
+  ParseConflictManager conflict_manager;
   unordered_map<const ParseItemSet, ParseStateId> parse_state_ids;
-  vector<vector<Symbol>> productions;
   vector<pair<ParseItemSet, ParseStateId>> item_sets_to_process;
   ParseTable parse_table;
   std::set<string> conflicts;
@@ -40,7 +39,7 @@ class ParseTableBuilder {
  public:
   ParseTableBuilder(const SyntaxGrammar &grammar,
                     const LexicalGrammar &lex_grammar)
-      : grammar(grammar), lex_grammar(lex_grammar) {}
+      : grammar(grammar), conflict_manager(grammar, lex_grammar) {}
 
   pair<ParseTable, const GrammarError *> build() {
     auto start_symbol = grammar.rules.empty()
@@ -63,7 +62,7 @@ class ParseTableBuilder {
       if (!conflicts.empty())
         return {
           parse_table,
-          new GrammarError(GrammarErrorTypeParseConflict, *conflicts.begin())
+          new GrammarError(GrammarErrorTypeParseConflict, "Unresolved conflict.\n\n" + *conflicts.begin())
         };
     }
 
@@ -96,7 +95,7 @@ class ParseTableBuilder {
 
       ParseAction new_action =
           ParseAction::Shift(0, precedence_values_for_item_set(next_item_set));
-      if (should_add_action(state_id, symbol, new_action, next_item_set)) {
+      if (should_add_action(state_id, symbol, new_action)) {
         ParseStateId new_state_id = add_parse_state(next_item_set);
         new_action.state_index = new_state_id;
         parse_table.add_action(state_id, symbol, new_action);
@@ -114,10 +113,10 @@ class ParseTableBuilder {
             (item.lhs == rules::START())
                 ? ParseAction::Accept()
                 : ParseAction::Reduce(item.lhs, item.consumed_symbols.size(),
-                                      item.precedence(), get_production_id(item.consumed_symbols));
+                                      item.precedence(), conflict_manager.get_production_id(item.consumed_symbols));
 
         for (const auto &lookahead_sym : lookahead_symbols)
-          if (should_add_action(state_id, lookahead_sym, action, ParseItemSet()))
+          if (should_add_action(state_id, lookahead_sym, action))
             parse_table.add_action(state_id, lookahead_sym, action);
       }
     }
@@ -149,8 +148,7 @@ class ParseTableBuilder {
         for (const auto &pair : actions) {
           const Symbol &lookahead_sym = pair.first;
           ParseAction reduce_extra = ParseAction::ReduceExtra(ubiquitous_symbol);
-          if (should_add_action(shift_state_id, lookahead_sym, reduce_extra,
-                                ParseItemSet()))
+          if (should_add_action(shift_state_id, lookahead_sym, reduce_extra))
             parse_table.add_action(shift_state_id, lookahead_sym, reduce_extra);
         }
       }
@@ -158,17 +156,16 @@ class ParseTableBuilder {
   }
 
   bool should_add_action(ParseStateId state_id, const Symbol &symbol,
-                         const ParseAction &action,
-                         const ParseItemSet &item_set) {
+                         const ParseAction &action) {
     auto &current_actions = parse_table.states[state_id].actions;
     auto current_action = current_actions.find(symbol);
     if (current_action == current_actions.end())
       return true;
 
-    auto result = action_takes_precedence(action, current_action->second,
-                                          symbol);
+    auto result = conflict_manager.resolve(action, current_action->second,
+                                           symbol);
 
-    switch (result.second) {
+    switch (get<1>(result)) {
       case ConflictTypeResolved:
         if (action.type == ParseActionTypeReduce)
           parse_table.fragile_production_ids.insert(action.production_id);
@@ -176,13 +173,13 @@ class ParseTableBuilder {
           parse_table.fragile_production_ids.insert(current_action->second.production_id);
         break;
       case ConflictTypeError:
-        record_conflict(symbol, current_action->second, action, item_set);
+        conflicts.insert(get<2>(result));
         break;
       default:
         break;
     }
 
-    return result.first;
+    return get<0>(result);
   }
 
   set<int> precedence_values_for_item_set(const ParseItemSet &item_set) {
@@ -192,28 +189,6 @@ class ParseTableBuilder {
       if (!item.consumed_symbols.empty())
         result.insert(item.precedence());
     }
-    return result;
-  }
-
-  int get_production_id(const vector<Symbol> &symbols) {
-    auto begin = productions.begin();
-    auto end = productions.end();
-    auto iter = find(begin, end, symbols);
-    if (iter == end) {
-      productions.push_back(symbols);
-      return productions.size() - 1;
-    }
-    return iter - begin;
-  }
-
-  void record_conflict(const Symbol &sym, const ParseAction &left,
-                       const ParseAction &right, const ParseItemSet &item_set) {
-    conflicts.insert(build_conflict(left, right, item_set, sym, grammar, lex_grammar));
-  }
-
-  vector<string> conflicts_vector() const {
-    vector<string> result;
-    result.insert(result.end(), conflicts.begin(), conflicts.end());
     return result;
   }
 };

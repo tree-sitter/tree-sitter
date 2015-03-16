@@ -10,8 +10,6 @@
         'externals/utf8proc',
       ],
       'sources': [
-        'src/compiler/build_tables/action_takes_precedence.cc',
-        'src/compiler/build_tables/build_conflict.cc',
         'src/compiler/build_tables/build_lex_table.cc',
         'src/compiler/build_tables/build_parse_table.cc',
         'src/compiler/build_tables/build_tables.cc',
@@ -21,7 +19,9 @@
         'src/compiler/build_tables/item_set_closure.cc',
         'src/compiler/build_tables/item_set_transitions.cc',
         'src/compiler/build_tables/lex_item.cc',
+        'src/compiler/build_tables/lex_conflict_manager.cc',
         'src/compiler/build_tables/parse_item.cc',
+        'src/compiler/build_tables/parse_conflict_manager.cc',
         'src/compiler/build_tables/rule_can_be_blank.cc',
         'src/compiler/build_tables/rule_transitions.cc',
         'src/compiler/compile.cc',

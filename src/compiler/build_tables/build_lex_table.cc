@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include "compiler/build_tables/action_takes_precedence.h"
+#include "compiler/build_tables/lex_conflict_manager.h"
 #include "compiler/build_tables/item_set_transitions.h"
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/parse_table.h"
@@ -30,13 +30,14 @@ using rules::Symbol;
 
 class LexTableBuilder {
   const LexicalGrammar lex_grammar;
+  const LexConflictManager conflict_manager;
   ParseTable *parse_table;
   unordered_map<const LexItemSet, LexStateId> lex_state_ids;
   LexTable lex_table;
 
  public:
   LexTableBuilder(ParseTable *parse_table, const LexicalGrammar &lex_grammar)
-      : lex_grammar(lex_grammar), parse_table(parse_table) {}
+      : lex_grammar(lex_grammar), conflict_manager(lex_grammar), parse_table(parse_table) {}
 
   LexTable build() {
     for (auto &parse_state : parse_table->states) {
@@ -96,8 +97,7 @@ class LexTableBuilder {
       LexStateId new_state_id = add_lex_state(new_item_set);
       auto action = LexAction::Advance(
           new_state_id, precedence_values_for_item_set(new_item_set));
-      if (action_takes_precedence(action,
-                                  lex_table.state(state_id).default_action))
+      if (conflict_manager.resolve(action, lex_table.state(state_id).default_action))
         lex_table.state(state_id).actions[rule] = action;
     }
   }
@@ -107,7 +107,7 @@ class LexTableBuilder {
       if (item.is_done()) {
         auto current_action = lex_table.state(state_id).default_action;
         auto new_action = LexAction::Accept(item.lhs, item.precedence());
-        if (action_takes_precedence(new_action, current_action))
+        if (conflict_manager.resolve(new_action, current_action))
           lex_table.state(state_id).default_action = new_action;
       }
   }
