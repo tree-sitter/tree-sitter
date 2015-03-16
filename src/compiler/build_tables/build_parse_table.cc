@@ -35,14 +35,14 @@ class ParseTableBuilder {
   vector<vector<Symbol>> productions;
   vector<pair<ParseItemSet, ParseStateId>> item_sets_to_process;
   ParseTable parse_table;
-  std::set<Conflict> conflicts;
+  std::set<string> conflicts;
 
  public:
   ParseTableBuilder(const SyntaxGrammar &grammar,
                     const LexicalGrammar &lex_grammar)
       : grammar(grammar), lex_grammar(lex_grammar) {}
 
-  pair<ParseTable, vector<Conflict>> build() {
+  pair<ParseTable, const GrammarError *> build() {
     auto start_symbol = grammar.rules.empty()
                             ? make_shared<Symbol>(0, rules::SymbolOptionToken)
                             : make_shared<Symbol>(0);
@@ -59,6 +59,12 @@ class ParseTableBuilder {
       add_reduce_actions(item_set, state_id);
       add_shift_actions(item_set, state_id);
       add_shift_extra_actions(state_id);
+
+      if (!conflicts.empty())
+        return {
+          parse_table,
+          new GrammarError(GrammarErrorTypeParseConflict, *conflicts.begin())
+        };
     }
 
     for (ParseStateId state = 0; state < parse_table.states.size(); state++)
@@ -67,7 +73,7 @@ class ParseTableBuilder {
     parse_table.symbols.insert(rules::ERROR());
     parse_table.symbols.insert(rules::DOCUMENT());
 
-    return { parse_table, conflicts_vector() };
+    return { parse_table, nullptr };
   }
 
  private:
@@ -162,13 +168,18 @@ class ParseTableBuilder {
     auto result = action_takes_precedence(action, current_action->second,
                                           symbol);
 
-    if (result.second) {
-      record_conflict(symbol, current_action->second, action, item_set);
-
-      if (action.type == ParseActionTypeReduce)
-        parse_table.fragile_production_ids.insert(action.production_id);
-      if (current_action->second.type == ParseActionTypeReduce)
-        parse_table.fragile_production_ids.insert(current_action->second.production_id);
+    switch (result.second) {
+      case ConflictTypeResolved:
+        if (action.type == ParseActionTypeReduce)
+          parse_table.fragile_production_ids.insert(action.production_id);
+        if (current_action->second.type == ParseActionTypeReduce)
+          parse_table.fragile_production_ids.insert(current_action->second.production_id);
+        break;
+      case ConflictTypeError:
+        record_conflict(symbol, current_action->second, action, item_set);
+        break;
+      default:
+        break;
     }
 
     return result.first;
@@ -197,18 +208,17 @@ class ParseTableBuilder {
 
   void record_conflict(const Symbol &sym, const ParseAction &left,
                        const ParseAction &right, const ParseItemSet &item_set) {
-    conflicts.insert(
-        build_conflict(left, right, item_set, sym, grammar, lex_grammar));
+    conflicts.insert(build_conflict(left, right, item_set, sym, grammar, lex_grammar));
   }
 
-  vector<Conflict> conflicts_vector() const {
-    vector<Conflict> result;
+  vector<string> conflicts_vector() const {
+    vector<string> result;
     result.insert(result.end(), conflicts.begin(), conflicts.end());
     return result;
   }
 };
 
-pair<ParseTable, vector<Conflict>> build_parse_table(
+pair<ParseTable, const GrammarError *> build_parse_table(
     const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar) {
   return ParseTableBuilder(grammar, lex_grammar).build();
 }

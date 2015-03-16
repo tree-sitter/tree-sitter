@@ -13,7 +13,7 @@ describe("Compile", []() {
       });
 
       auto result = compile(grammar, "test_grammar");
-      const GrammarError *error = get<2>(result);
+      const GrammarError *error = result.second;
       AssertThat(error, Equals<const GrammarError *>(nullptr));
     });
   });

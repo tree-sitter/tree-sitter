@@ -9,7 +9,7 @@ using namespace build_tables;
 START_TEST
 
 describe("build_conflict", []() {
-  Conflict conflict("");
+  string conflict;
 
   SyntaxGrammar parse_grammar({
       { "in_progress_rule1", i_token(0) },
@@ -46,7 +46,7 @@ describe("build_conflict", []() {
       parse_grammar, lex_grammar
     );
 
-    AssertThat(conflict.description, Equals(
+    AssertThat(conflict, Equals(
         "lookahead_token: "
         "shift ( in_progress_rule1 in_progress_rule2 ) / "
         "reduce ( reduced_rule )"));
@@ -70,7 +70,7 @@ describe("build_conflict", []() {
       parse_grammar, lex_grammar
     );
 
-    AssertThat(conflict.description, Equals(
+    AssertThat(conflict, Equals(
         "lookahead_token: "
         "shift ( in_progress_rule1 in_progress_rule2 ) / "
         "reduce ( reduced_rule )"));

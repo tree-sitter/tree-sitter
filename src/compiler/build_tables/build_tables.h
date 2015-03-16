@@ -1,6 +1,7 @@
 #ifndef COMPILER_BUILD_TABLES_BUILD_TABLES_H_
 #define COMPILER_BUILD_TABLES_BUILD_TABLES_H_
 
+#include <string>
 #include <utility>
 #include <vector>
 #include "tree_sitter/compiler.h"
@@ -14,8 +15,8 @@ class LexicalGrammar;
 
 namespace build_tables {
 
-std::tuple<ParseTable, LexTable, std::vector<Conflict>> build_tables(
-    const SyntaxGrammar &, const LexicalGrammar &);
+std::tuple<ParseTable, LexTable, const GrammarError *>
+build_tables(const SyntaxGrammar &, const LexicalGrammar &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

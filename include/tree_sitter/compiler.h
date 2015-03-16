@@ -15,17 +15,17 @@ class Rule;
 typedef std::shared_ptr<Rule> rule_ptr;
 
 rule_ptr blank();
-rule_ptr choice(const std::vector<rule_ptr> &rules);
-rule_ptr repeat(const rule_ptr &content);
-rule_ptr seq(const std::vector<rule_ptr> &rules);
-rule_ptr sym(const std::string &name);
-rule_ptr pattern(const std::string &value);
-rule_ptr str(const std::string &value);
-rule_ptr keyword(const std::string &value);
-rule_ptr keypattern(const std::string &value);
-rule_ptr err(const rule_ptr &rule);
-rule_ptr prec(int precedence, rule_ptr rule);
-rule_ptr token(rule_ptr rule);
+rule_ptr choice(const std::vector<rule_ptr> &);
+rule_ptr repeat(const rule_ptr &);
+rule_ptr seq(const std::vector<rule_ptr> &);
+rule_ptr sym(const std::string &);
+rule_ptr pattern(const std::string &);
+rule_ptr str(const std::string &);
+rule_ptr keyword(const std::string &);
+rule_ptr keypattern(const std::string &);
+rule_ptr err(const rule_ptr &);
+rule_ptr prec(int precedence, const rule_ptr &);
+rule_ptr token(const rule_ptr &rule);
 
 std::ostream &operator<<(std::ostream &stream, const rules::rule_ptr &rule);
 
@@ -45,17 +45,12 @@ class Grammar {
   Grammar &ubiquitous_tokens(const std::set<rules::rule_ptr> &);
 };
 
-struct Conflict {
-  explicit Conflict(std::string description);
-  std::string description;
-  bool operator==(const Conflict &other) const;
-  bool operator<(const Conflict &other) const;
-};
-
 enum GrammarErrorType {
   GrammarErrorTypeRegex,
   GrammarErrorTypeUndefinedSymbol,
-  GrammarErrorTypeInvalidUbiquitousToken
+  GrammarErrorTypeInvalidUbiquitousToken,
+  GrammarErrorTypeLexConflict,
+  GrammarErrorTypeParseConflict,
 };
 
 class GrammarError {
@@ -66,11 +61,9 @@ class GrammarError {
   std::string message;
 };
 
-std::tuple<std::string, std::vector<Conflict>, const GrammarError *> compile(
-    const Grammar &grammar, std::string name);
+std::pair<std::string, const GrammarError *> compile(const Grammar &, std::string);
 
 std::ostream &operator<<(std::ostream &stream, const Grammar &grammar);
-std::ostream &operator<<(std::ostream &stream, const Conflict &conflict);
 std::ostream &operator<<(std::ostream &stream, const GrammarError *error);
 
 }  // namespace tree_sitter

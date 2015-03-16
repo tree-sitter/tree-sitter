@@ -58,11 +58,11 @@ rule_ptr err(const rule_ptr &rule) {
   return choice({ rule, ERROR().copy() });
 }
 
-rule_ptr prec(int precedence, rule_ptr rule) {
+rule_ptr prec(int precedence, const rule_ptr &rule) {
   return metadata(rule, { { PRECEDENCE, precedence } });
 }
 
-rule_ptr token(rule_ptr rule) {
+rule_ptr token(const rule_ptr &rule) {
   return metadata(rule, { { IS_TOKEN, 1 } });
 }
 

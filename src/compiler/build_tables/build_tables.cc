@@ -6,17 +6,18 @@
 namespace tree_sitter {
 namespace build_tables {
 
+using std::string;
 using std::tuple;
 using std::vector;
 using std::make_tuple;
 
-tuple<ParseTable, LexTable, vector<Conflict>> build_tables(
-    const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar) {
+tuple<ParseTable, LexTable, const GrammarError *>
+build_tables(const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar) {
   auto parse_table_result = build_parse_table(grammar, lex_grammar);
   ParseTable parse_table = parse_table_result.first;
-  vector<Conflict> conflicts = parse_table_result.second;
+  const GrammarError *error = parse_table_result.second;
   LexTable lex_table = build_lex_table(&parse_table, lex_grammar);
-  return make_tuple(parse_table, lex_table, conflicts);
+  return make_tuple(parse_table, lex_table, error);
 }
 
 }  // namespace build_tables

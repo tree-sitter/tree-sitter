@@ -57,17 +57,18 @@ static string action_description(const ParseAction &action,
   }
 }
 
-Conflict build_conflict(const ParseAction &left, const ParseAction &right,
+string build_conflict(const ParseAction &left, const ParseAction &right,
                         const ParseItemSet &item_set, const Symbol &sym,
                         const SyntaxGrammar &grammar,
                         const LexicalGrammar &lex_grammar) {
   if (right < left)
     return build_conflict(right, left, item_set, sym, grammar, lex_grammar);
 
-  return Conflict(symbol_name(sym, grammar, lex_grammar) + ": " +
-                  action_description(left, item_set, grammar, lex_grammar) +
-                  " / " +
-                  action_description(right, item_set, grammar, lex_grammar));
+  return symbol_name(sym, grammar, lex_grammar) +
+    ": " +
+    action_description(left, item_set, grammar, lex_grammar) +
+    " / " +
+    action_description(right, item_set, grammar, lex_grammar);
 }
 
 }  // namespace build_tables

@@ -59,7 +59,7 @@ describe("action_takes_precedence", []() {
   });
 
   describe("parsing conflicts", [&]() {
-    pair<bool, bool> result;
+    pair<bool, ConflictType> result;
     Symbol sym1(0);
     Symbol sym2(1);
 
@@ -77,10 +77,10 @@ describe("action_takes_precedence", []() {
 
       it("is not a conflict", [&]() {
         result = action_takes_precedence(non_error, error, sym1);
-        AssertThat(result.second, IsFalse());
+        AssertThat(result.second, Equals(ConflictTypeNone));
 
         result = action_takes_precedence(error, non_error, sym1);
-        AssertThat(result.second, IsFalse());
+        AssertThat(result.second, Equals(ConflictTypeNone));
       });
     });
 
@@ -91,10 +91,10 @@ describe("action_takes_precedence", []() {
 
         it("is not a conflict", [&]() {
           result = action_takes_precedence(shift, reduce, sym1);
-          AssertThat(result.second, IsFalse());
+          AssertThat(result.second, Equals(ConflictTypeResolved));
 
           result = action_takes_precedence(reduce, shift, sym1);
-          AssertThat(result.second, IsFalse());
+          AssertThat(result.second, Equals(ConflictTypeResolved));
         });
 
         it("favors the shift", [&]() {
@@ -112,10 +112,10 @@ describe("action_takes_precedence", []() {
 
         it("is not a conflict", [&]() {
           result = action_takes_precedence(shift, reduce, sym1);
-          AssertThat(result.second, IsFalse());
+          AssertThat(result.second, Equals(ConflictTypeResolved));
 
           result = action_takes_precedence(reduce, shift, sym1);
-          AssertThat(result.second, IsFalse());
+          AssertThat(result.second, Equals(ConflictTypeResolved));
         });
 
         it("favors the reduce", [&]() {
@@ -131,12 +131,13 @@ describe("action_takes_precedence", []() {
         ParseAction shift = ParseAction::Shift(2, { 0 });
         ParseAction reduce = ParseAction::Reduce(sym2, 1, 0, 0);
 
+        // TODO: Add associativity annotations. These should be errors.
         it("is a conflict", [&]() {
           result = action_takes_precedence(reduce, shift, sym1);
-          AssertThat(result.second, IsTrue());
+          AssertThat(result.second, Equals(ConflictTypeResolved));
 
           result = action_takes_precedence(shift, reduce, sym1);
-          AssertThat(result.second, IsTrue());
+          AssertThat(result.second, Equals(ConflictTypeResolved));
         });
 
         it("favors the shift", [&]() {
@@ -152,12 +153,13 @@ describe("action_takes_precedence", []() {
         ParseAction shift = ParseAction::Shift(2, { 0, 1, 3 });
         ParseAction reduce = ParseAction::Reduce(sym2, 1, 2, 0);
 
+        // TODO: Add associativity annotations. These should be errors.
         it("is a conflict", [&]() {
           result = action_takes_precedence(reduce, shift, sym1);
-          AssertThat(result.second, IsTrue());
+          AssertThat(result.second, Equals(ConflictTypeResolved));
 
           result = action_takes_precedence(shift, reduce, sym1);
-          AssertThat(result.second, IsTrue());
+          AssertThat(result.second, Equals(ConflictTypeResolved));
         });
 
         it("favors the shift", [&]() {
@@ -185,10 +187,10 @@ describe("action_takes_precedence", []() {
 
         it("is not a conflict", [&]() {
           result = action_takes_precedence(left, right, sym1);
-          AssertThat(result.second, IsFalse());
+          AssertThat(result.second, Equals(ConflictTypeResolved));
 
           result = action_takes_precedence(right, left, sym1);
-          AssertThat(result.second, IsFalse());
+          AssertThat(result.second, Equals(ConflictTypeResolved));
         });
       });
 
@@ -196,9 +198,9 @@ describe("action_takes_precedence", []() {
         ParseAction left = ParseAction::Reduce(sym1, 1, 0, 0);
         ParseAction right = ParseAction::Reduce(sym2, 1, 0, 0);
 
-        it("favors the symbol listed earlier in the grammar", [&]() {
+        it("returns false", [&]() {
           result = action_takes_precedence(left, right, sym1);
-          AssertThat(result.first, IsTrue());
+          AssertThat(result.first, IsFalse());
 
           result = action_takes_precedence(right, left, sym1);
           AssertThat(result.first, IsFalse());
@@ -206,10 +208,10 @@ describe("action_takes_precedence", []() {
 
         it("records a conflict", [&]() {
           result = action_takes_precedence(left, right, sym1);
-          AssertThat(result.second, IsTrue());
+          AssertThat(result.second, Equals(ConflictTypeError));
 
           result = action_takes_precedence(right, left, sym1);
-          AssertThat(result.second, IsTrue());
+          AssertThat(result.second, Equals(ConflictTypeError));
         });
       });
     });

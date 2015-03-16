@@ -15,6 +15,7 @@ static rule_ptr terminated(rule_ptr rule) {
 enum {
   PREC_COMMA = -1,
   PREC_ASSIGN,
+  PREC_BLOCK,
   PREC_TERNARY,
   PREC_OR,
   PREC_AND,
@@ -63,7 +64,8 @@ extern const Grammar javascript = Grammar({
             sym("identifier"),
             sym("var_assignment") }))) })) },
 
-    { "statement_block", in_braces(err(repeat(sym("statement")))) },
+    { "statement_block", prec(PREC_BLOCK,
+        in_braces(err(repeat(sym("statement"))))) },
 
     { "if_statement", seq({
         keyword("if"),

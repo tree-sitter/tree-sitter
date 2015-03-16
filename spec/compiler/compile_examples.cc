@@ -25,14 +25,10 @@ describe("compiling the example grammars", []() {
   auto compile_grammar = [&](const Grammar &grammar, string language) {
     it(("compiles the " + language + " grammar").c_str(), [&]() {
       auto result = compile(grammar, language);
-      string code = get<0>(result);
-      vector<Conflict> conflicts = get<1>(result);
-      const GrammarError *error = get<2>(result);
+      string code = result.first;
+      const GrammarError *error = result.second;
 
       AssertThat(error, Equals((GrammarError *)nullptr));
-
-      // for (const auto &conflict : conflicts)
-        // std::cout << conflict << std::endl;
 
       ofstream file(example_parser_dir + language + ".c");
       file << get<0>(result);

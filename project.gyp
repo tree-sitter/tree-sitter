@@ -25,7 +25,6 @@
         'src/compiler/build_tables/rule_can_be_blank.cc',
         'src/compiler/build_tables/rule_transitions.cc',
         'src/compiler/compile.cc',
-        'src/compiler/conflict.cc',
         'src/compiler/generate_code/c_code.cc',
         'src/compiler/grammar.cc',
         'src/compiler/lex_table.cc',

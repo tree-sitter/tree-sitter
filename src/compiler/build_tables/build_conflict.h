@@ -13,9 +13,9 @@ class LexicalGrammar;
 
 namespace build_tables {
 
-Conflict build_conflict(const ParseAction &left, const ParseAction &right,
-                        const ParseItemSet &item_set, const rules::Symbol &,
-                        const SyntaxGrammar &, const LexicalGrammar &);
+std::string build_conflict(const ParseAction &, const ParseAction &,
+                           const ParseItemSet &, const rules::Symbol &,
+                           const SyntaxGrammar &, const LexicalGrammar &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter
