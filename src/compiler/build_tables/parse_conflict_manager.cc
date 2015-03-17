@@ -25,7 +25,7 @@ ParseConflictManager::resolve(const ParseAction &new_action,
                          const rules::Symbol &symbol) const {
   if (new_action.type < old_action.type) {
     auto opposite = resolve(old_action, new_action, symbol);
-    return { !get<0>(opposite), get<1>(opposite), get<2>(opposite) };
+    return make_tuple(!get<0>(opposite), get<1>(opposite), get<2>(opposite));
   }
 
   switch (old_action.type) {
