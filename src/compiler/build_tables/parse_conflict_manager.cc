@@ -2,10 +2,12 @@
 #include "compiler/parse_table.h"
 #include "compiler/rules/built_in_symbols.h"
 #include <utility>
+#include <algorithm>
 
 namespace tree_sitter {
 namespace build_tables {
 
+using std::find;
 using std::get;
 using std::make_tuple;
 using std::string;

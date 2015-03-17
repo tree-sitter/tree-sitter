@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <map>
 #include <set>
 #include <string>
@@ -17,7 +16,6 @@
 namespace tree_sitter {
 namespace build_tables {
 
-using std::find;
 using std::get;
 using std::pair;
 using std::vector;
