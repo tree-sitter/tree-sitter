@@ -95,11 +95,13 @@ a++ + b * c - d / e--
 
 ---
 (expression_statement
+  (math_op
     (math_op
-        (math_op (identifier))
-        (math_op
-            (math_op (identifier) (identifier))
-            (math_op (identifier) (math_op (identifier))))))
+      (math_op (identifier))
+      (math_op (identifier) (identifier)))
+    (math_op
+      (identifier)
+      (math_op (identifier)))))
 
 ==========================================
 boolean operators

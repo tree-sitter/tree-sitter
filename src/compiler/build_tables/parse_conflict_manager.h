@@ -27,15 +27,14 @@ class ParseConflictManager {
 
  public:
   ParseConflictManager(const SyntaxGrammar &, const LexicalGrammar &);
-
   size_t get_production_id(const std::vector<rules::Symbol> &);
-
-  std::tuple<bool, ConflictType, std::string>
-  resolve(const ParseAction &, const ParseAction &, const rules::Symbol &) const;
+  std::tuple<bool, ConflictType, std::string> resolve(
+    const ParseAction &, const ParseAction &, const rules::Symbol &) const;
 
  private:
   std::string symbol_name(const rules::Symbol &) const;
   std::string action_description(const ParseAction &) const;
+  std::string conflict_description(const ParseAction &, const ParseAction &, const rules::Symbol &) const;
 };
 
 }  // namespace build_tables

@@ -111,7 +111,8 @@ class ParseTableBuilder {
             (item.lhs == rules::START())
                 ? ParseAction::Accept()
                 : ParseAction::Reduce(item.lhs, item.consumed_symbols.size(),
-                                      item.precedence(), conflict_manager.get_production_id(item.consumed_symbols));
+                                      item.precedence(), item.associativity(),
+                                      conflict_manager.get_production_id(item.consumed_symbols));
 
         for (const auto &lookahead_sym : lookahead_symbols)
           if (should_add_action(state_id, lookahead_sym, action))

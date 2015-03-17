@@ -47,19 +47,29 @@ rule_ptr pattern(const string &value) { return make_shared<Pattern>(value); }
 rule_ptr str(const string &value) { return make_shared<String>(value); }
 
 rule_ptr keyword(const string &value) {
-  return token(prec(KEYWORD_PRECEDENCE, str(value)));
+  return token(left_assoc(KEYWORD_PRECEDENCE, str(value)));
 }
 
 rule_ptr keypattern(const string &value) {
-  return token(prec(KEYWORD_PRECEDENCE, pattern(value)));
+  return token(left_assoc(KEYWORD_PRECEDENCE, pattern(value)));
 }
 
 rule_ptr err(const rule_ptr &rule) {
   return choice({ rule, ERROR().copy() });
 }
 
-rule_ptr prec(int precedence, const rule_ptr &rule) {
-  return metadata(rule, { { PRECEDENCE, precedence } });
+rule_ptr left_assoc(int precedence, const rule_ptr &rule) {
+  return metadata(rule, {
+    { PRECEDENCE, precedence },
+    { ASSOCIATIVITY, AssociativityLeft }
+  });
+}
+
+rule_ptr right_assoc(int precedence, const rule_ptr &rule) {
+  return metadata(rule, {
+    { PRECEDENCE, precedence },
+    { ASSOCIATIVITY, AssociativityRight }
+  });
 }
 
 rule_ptr token(const rule_ptr &rule) {

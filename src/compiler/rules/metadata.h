@@ -8,12 +8,19 @@
 namespace tree_sitter {
 namespace rules {
 
-typedef enum {
+enum MetadataKey {
   START_TOKEN,
   PRECEDENCE,
   IS_TOKEN,
   DESCRIPTION,
-} MetadataKey;
+  ASSOCIATIVITY,
+};
+
+enum Associativity {
+  AssociativityUnspecified,
+  AssociativityLeft,
+  AssociativityRight,
+};
 
 class Metadata : public Rule {
  public:

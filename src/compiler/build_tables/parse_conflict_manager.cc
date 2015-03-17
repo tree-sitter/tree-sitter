@@ -41,15 +41,19 @@ ParseConflictManager::resolve(const ParseAction &new_action,
           return make_tuple(false, ConflictTypeResolved, "");
         else if (new_precedence > max_precedence)
           return make_tuple(true, ConflictTypeResolved, "");
-        else {
-
-          // TODO: Add associativity annotations. In the event of a precedence
-          // tie, return ConflictTypeError unless there is an associativity
-          // annotation to break the tie.
-          return make_tuple(false, ConflictTypeResolved, "");
+        else if (min_precedence == max_precedence) {
+          switch (new_action.associativity) {
+            case rules::AssociativityLeft:
+              return make_tuple(true, ConflictTypeResolved, "");
+            case rules::AssociativityRight:
+              return make_tuple(false, ConflictTypeResolved, "");
+            default:
+              return make_tuple(false, ConflictTypeError, conflict_description(new_action, old_action, symbol));
+          }
+        } else {
+          return make_tuple(false, ConflictTypeError, conflict_description(new_action, old_action, symbol));
         }
       }
-      break;
 
     case ParseActionTypeReduce:
       if (new_action.type == ParseActionTypeReduce) {
@@ -60,20 +64,13 @@ ParseConflictManager::resolve(const ParseAction &new_action,
         } else if (new_precedence < old_precedence) {
           return make_tuple(false, ConflictTypeResolved, "");
         } else {
-          string message =
-            "Lookahead: " + symbol_name(symbol) + "\n" +
-            "Possible Actions:\n"
-            "* " + action_description(old_action) + "\n" +
-            "* " + action_description(new_action) + "\n";
-          return make_tuple(false, ConflictTypeError, message);
+          return make_tuple(false, ConflictTypeError, conflict_description(new_action, old_action, symbol));
         }
       }
 
     default:
-      break;
+      return make_tuple(false, ConflictTypeNone, "");
   }
-
-  return make_tuple(false, ConflictTypeNone, "");
 }
 
 size_t ParseConflictManager::get_production_id(const vector<rules::Symbol> &symbols) {
@@ -85,6 +82,16 @@ size_t ParseConflictManager::get_production_id(const vector<rules::Symbol> &symb
     return productions.size() - 1;
   }
   return iter - begin;
+}
+
+string ParseConflictManager::conflict_description(const ParseAction &new_action,
+                                                  const ParseAction &old_action,
+                                                  const rules::Symbol &symbol) const {
+  return
+    "Lookahead: " + symbol_name(symbol) + "\n" +
+    "Possible Actions:\n"
+    "* " + action_description(old_action) + "\n" +
+    "* " + action_description(new_action);
 }
 
 string ParseConflictManager::symbol_name(const rules::Symbol &symbol) const {
@@ -102,11 +109,22 @@ string ParseConflictManager::symbol_name(const rules::Symbol &symbol) const {
 }
 
 string ParseConflictManager::action_description(const ParseAction &action) const {
-  string result = "Reduce";
-  for (const rules::Symbol &symbol : productions[action.production_id])
-    result += " " + symbol_name(symbol);
-  result += " -> " + symbol_name(action.symbol);
-  return result;
+  switch (action.type) {
+    case ParseActionTypeReduce: {
+      string result = "Reduce";
+      for (const rules::Symbol &symbol : productions[action.production_id])
+        result += " " + symbol_name(symbol);
+      result += " -> " + symbol_name(action.symbol);
+      return result;
+    }
+
+    case ParseActionTypeShift: {
+      return "Shift";
+    }
+
+    default:
+      return "";
+  }
 }
 
 }  // namespace build_tables

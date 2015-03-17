@@ -146,7 +146,7 @@ extern const Grammar golang = Grammar({
         infix_op(">=", "expression", 3),
         infix_op(">", "expression", 3),
         prefix_op("!", "expression", 4) }) },
-    { "_func_signature", seq({
+    { "_func_signature", left_assoc(10, seq({
         in_parens(comma_sep(seq({
             comma_sep1(sym("var_name")),
             sym("type_expression") }))),
@@ -155,7 +155,7 @@ extern const Grammar golang = Grammar({
                 comma_sep1(seq({ sym("var_name"), sym("type_name") })),
                 comma_sep1(sym("type_name")) })),
             sym("type_name"),
-            blank() }) }) },
+            blank() }) })) },
 
     { "_line_break", str("\n") },
 

@@ -24,7 +24,8 @@ rule_ptr str(const std::string &);
 rule_ptr keyword(const std::string &);
 rule_ptr keypattern(const std::string &);
 rule_ptr err(const rule_ptr &);
-rule_ptr prec(int precedence, const rule_ptr &);
+rule_ptr left_assoc(int precedence, const rule_ptr &);
+rule_ptr right_assoc(int precedence, const rule_ptr &);
 rule_ptr token(const rule_ptr &rule);
 
 std::ostream &operator<<(std::ostream &stream, const rules::rule_ptr &rule);
