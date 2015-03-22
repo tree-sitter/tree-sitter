@@ -24,8 +24,6 @@ using std::set;
 using std::vector;
 using std::map;
 
-static const int KEYWORD_PRECEDENCE = 100;
-
 static rule_ptr metadata(rule_ptr rule, map<MetadataKey, int> values) {
   return std::make_shared<Metadata>(rule, values);
 }
@@ -44,14 +42,8 @@ rule_ptr sym(const string &name) { return make_shared<NamedSymbol>(name); }
 
 rule_ptr pattern(const string &value) { return make_shared<Pattern>(value); }
 
-rule_ptr str(const string &value) { return make_shared<String>(value); }
-
-rule_ptr keyword(const string &value) {
-  return token(left_assoc(KEYWORD_PRECEDENCE, str(value)));
-}
-
-rule_ptr keypattern(const string &value) {
-  return token(left_assoc(KEYWORD_PRECEDENCE, pattern(value)));
+rule_ptr str(const string &value) {
+  return token(left_assoc(1, make_shared<String>(value)));
 }
 
 rule_ptr err(const rule_ptr &rule) {

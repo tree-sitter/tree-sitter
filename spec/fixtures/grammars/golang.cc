@@ -18,10 +18,10 @@ extern const Grammar golang = Grammar({
         repeat(sym("imports_block")),
         repeat(sym("declaration")) }) },
     { "package_directive", seq({
-        keyword("package"),
+        str("package"),
         sym("package_name") }) },
     { "imports_block", seq({
-        keyword("import"),
+        str("import"),
         choice({
             in_parens(err(repeat(sym("package_import")))),
             sym("package_import") }) }) },
@@ -33,11 +33,11 @@ extern const Grammar golang = Grammar({
 
     // Declarations
     { "type_declaration", terminated(seq({
-        keyword("type"),
+        str("type"),
         sym("type_name"),
         sym("type_expression") })) },
     { "var_declaration", terminated(seq({
-        keyword("var"),
+        str("var"),
         sym("var_name"),
         choice({
             seq({
@@ -46,7 +46,7 @@ extern const Grammar golang = Grammar({
                 sym("expression") }),
             sym("type_expression") }) })) },
     { "func_declaration", terminated(seq({
-        keyword("func"),
+        str("func"),
         sym("var_name"),
         sym("_func_signature"),
         sym("block_statement") })) },
@@ -61,22 +61,22 @@ extern const Grammar golang = Grammar({
 
     // Type expressions
     { "pointer_type", seq({
-        keyword("*"),
+        str("*"),
         sym("type_expression") }) },
     { "map_type", seq({
-        keyword("map"),
+        str("map"),
         in_brackets(sym("type_expression")),
         sym("type_expression") }) },
     { "slice_type", seq({
         in_brackets(blank()),
         sym("type_expression") }) },
     { "struct_type", seq({
-        keyword("struct"),
+        str("struct"),
         in_braces(repeat(seq({
             sym("var_name"),
             sym("type_expression") }))) }) },
     { "interface_type", seq({
-        keyword("interface"),
+        str("interface"),
         in_braces(repeat(seq({
             sym("var_name"),
             sym("_func_signature") }))) }) },
@@ -89,7 +89,7 @@ extern const Grammar golang = Grammar({
         sym("range_statement"),
         sym("if_statement") }) },
     { "return_statement", terminated(seq({
-        keyword("return"),
+        str("return"),
         comma_sep(sym("expression")) })) },
     { "declaration_statement", choice({
         sym("var_declaration"),
@@ -98,19 +98,19 @@ extern const Grammar golang = Grammar({
             str(":="),
             sym("expression") })) }) },
     { "range_statement", seq({
-        keyword("for"),
+        str("for"),
         sym("var_name"),
-        optional(seq({ keyword(","), sym("var_name") })),
+        optional(seq({ str(","), sym("var_name") })),
         str(":="),
-        keyword("range"),
+        str("range"),
         sym("expression"),
         sym("block_statement") }) },
     { "if_statement", seq({
-        keyword("if"),
+        str("if"),
         sym("expression"),
         sym("block_statement"),
         optional(seq({
-            keyword("else"),
+            str("else"),
             choice({
                 sym("if_statement"),
                 sym("block_statement") }) })) }) },
@@ -165,7 +165,7 @@ extern const Grammar golang = Grammar({
     { "type_name", sym("_identifier") },
     { "_identifier", pattern("\\a[\\w_]*") },
     { "number", pattern("\\d+(\\.\\d+)?") },
-    { "comment", keypattern("//[^\n]*") },
+    { "comment", pattern("//[^\n]*") },
 }).ubiquitous_tokens({
     sym("comment"),
     sym("_line_break"),

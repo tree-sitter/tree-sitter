@@ -21,8 +21,6 @@ rule_ptr seq(const std::vector<rule_ptr> &);
 rule_ptr sym(const std::string &);
 rule_ptr pattern(const std::string &);
 rule_ptr str(const std::string &);
-rule_ptr keyword(const std::string &);
-rule_ptr keypattern(const std::string &);
 rule_ptr err(const rule_ptr &);
 rule_ptr left_assoc(int precedence, const rule_ptr &);
 rule_ptr right_assoc(int precedence, const rule_ptr &);

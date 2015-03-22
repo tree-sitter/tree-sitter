@@ -22,9 +22,9 @@ extern const Grammar json = Grammar({
     { "array", in_brackets(comma_sep(err(sym("value")))) },
     { "string", pattern("\"([^\"]|\\\\\")*\"") },
     { "number", pattern("\\d+(\\.\\d+)?") },
-    { "null", keyword("null") },
-    { "true", keyword("true") },
-    { "false", keyword("false") },
+    { "null", str("null") },
+    { "true", str("true") },
+    { "false", str("false") },
 }).ubiquitous_tokens({
     pattern("\\s"),
 });

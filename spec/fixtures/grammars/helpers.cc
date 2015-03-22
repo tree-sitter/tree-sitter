@@ -5,7 +5,7 @@ namespace tree_sitter_examples {
 using namespace tree_sitter::rules;
 
 rule_ptr comma_sep1(rule_ptr element) {
-  return seq({ element, repeat(seq({ keyword(","), element })) });
+  return seq({ element, repeat(seq({ str(","), element })) });
 }
 
 rule_ptr comma_sep(rule_ptr element) {
@@ -31,20 +31,20 @@ rule_ptr in_brackets(rule_ptr rule) {
 rule_ptr infix_op(std::string op, std::string rule_name, int precedence) {
   return left_assoc(precedence, seq({
       sym(rule_name),
-      keyword(op),
+      str(op),
       sym(rule_name) }));
 }
 
 rule_ptr prefix_op(std::string op, std::string rule_name, int precedence) {
   return right_assoc(precedence, seq({
-      keyword(op),
+      str(op),
       sym(rule_name) }));
 }
 
 rule_ptr postfix_op(std::string op, std::string rule_name, int precedence) {
   return left_assoc(precedence, seq({
       sym(rule_name),
-      keyword(op) }));
+      str(op) }));
 }
 
 rule_ptr delimited(std::string delimiter) {

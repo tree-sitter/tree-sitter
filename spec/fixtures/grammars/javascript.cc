@@ -60,7 +60,7 @@ extern const Grammar javascript = Grammar({
     { "expression_statement", terminated(err(sym("expression"))) },
 
     { "var_declaration", terminated(seq({
-        keyword("var"),
+        str("var"),
         comma_sep1(err(choice({
             sym("identifier"),
             sym("var_assignment") }))) })) },
@@ -69,22 +69,22 @@ extern const Grammar javascript = Grammar({
         in_braces(err(repeat(sym("statement"))))) },
 
     { "if_statement", right_assoc(0, seq({
-        keyword("if"),
+        str("if"),
         sym("_paren_expression"),
         sym("statement"),
         optional(seq({
-            keyword("else"),
+            str("else"),
             sym("statement") })) })) },
 
     { "switch_statement", seq({
-        keyword("switch"),
+        str("switch"),
         sym("_paren_expression"),
         str("{"),
         repeat(choice({ sym("case"), sym("default") })),
         str("}") }) },
 
     { "for_statement", seq({
-        keyword("for"),
+        str("for"),
         str("("),
         choice({
             sym("var_declaration"),
@@ -96,45 +96,45 @@ extern const Grammar javascript = Grammar({
         sym("statement") }) },
 
     { "for_in_statement", seq({
-        keyword("for"),
+        str("for"),
         str("("),
-        optional(keyword("var")),
+        optional(str("var")),
         left_assoc(PREC_REL, seq({
           sym("identifier"),
-          keyword("in"),
+          str("in"),
           sym("expression") })),
         str(")"),
         sym("statement") }) },
 
     { "while_statement", seq({
-        keyword("while"),
+        str("while"),
         sym("_paren_expression"),
         sym("statement") }) },
 
     // { "do_statement", seq({
-        // keyword("do"),
+        // str("do"),
         // sym("statement"),
-        // keyword("while"),
+        // str("while"),
         // sym("_paren_expression") })},
 
     { "try_statement", seq({
-        keyword("try"),
+        str("try"),
         sym("statement_block"),
         optional(sym("catch")),
         optional(sym("finally")) }) },
 
     { "return_statement", terminated(seq({
-        keyword("return"),
+        str("return"),
         optional(sym("expression")) })) },
 
     { "throw_statement", terminated(seq({
-        keyword("throw"),
+        str("throw"),
         sym("expression") })) },
 
-    { "break_statement", terminated(keyword("break")) },
+    { "break_statement", terminated(str("break")) },
 
     { "delete_statement", terminated(seq({
-        keyword("delete"),
+        str("delete"),
         choice({ sym("member_access"), sym("subscript_access") }) })) },
 
     /*
@@ -142,25 +142,25 @@ extern const Grammar javascript = Grammar({
      */
 
     { "case", seq({
-        keyword("case"),
+        str("case"),
         sym("expression"),
         str(":"),
         repeat(sym("statement")) }) },
 
     { "default", seq({
-        keyword("default"),
+        str("default"),
         str(":"),
         repeat(sym("statement")) }) },
 
     { "catch", seq({
-        keyword("catch"),
+        str("catch"),
         str("("),
         err(sym("identifier")),
         str(")"),
         sym("statement_block") }) },
 
     { "finally", seq({
-        keyword("finally"),
+        str("finally"),
         sym("statement_block") }) },
 
     { "var_assignment", seq({
@@ -208,7 +208,7 @@ extern const Grammar javascript = Grammar({
     { "array", in_brackets(comma_sep(err(sym("expression")))) },
 
     { "function_expression", seq({
-        keyword("function"),
+        str("function"),
         optional(sym("identifier")),
         str("("),
         optional(sym("formal_parameters")),
@@ -223,10 +223,10 @@ extern const Grammar javascript = Grammar({
 
     { "constructor_call", choice({
         left_assoc(PREC_SHORT_NEW, seq({
-          keyword("new"),
+          str("new"),
           sym("expression") })),
         left_assoc(PREC_FULL_NEW, seq({
-          keyword("new"),
+          str("new"),
           sym("expression"),
           str("("),
           err(optional(sym("arguments"))),
@@ -306,7 +306,7 @@ extern const Grammar javascript = Grammar({
     { "type_op", choice({
         left_assoc(PREC_REL, seq({
           choice({ sym("expression"), sym("identifier") }),
-          keyword("in"),
+          str("in"),
           sym("expression") })),
         infix_op("instanceof", "expression", PREC_REL),
         prefix_op("typeof", "expression", PREC_TYPE) }) },
@@ -332,10 +332,10 @@ extern const Grammar javascript = Grammar({
 
     { "identifier", pattern("[\\a_$][\\w_$]*") },
 
-    { "null", keyword("null") },
-    { "undefined", keyword("undefined") },
-    { "true", keyword("true") },
-    { "false", keyword("false") },
+    { "null", str("null") },
+    { "undefined", str("undefined") },
+    { "true", str("true") },
+    { "false", str("false") },
     { "_line_break", str("\n") },
 
     /*
