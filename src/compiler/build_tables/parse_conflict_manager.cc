@@ -11,6 +11,7 @@ using std::find;
 using std::get;
 using std::make_tuple;
 using std::string;
+using std::to_string;
 using std::tuple;
 using std::vector;
 
@@ -109,22 +110,34 @@ string ParseConflictManager::symbol_name(const rules::Symbol &symbol) const {
 }
 
 string ParseConflictManager::action_description(const ParseAction &action) const {
+  string result;
+
   switch (action.type) {
     case ParseActionTypeReduce: {
-      string result = "Reduce";
+      result = "Reduce";
       for (const rules::Symbol &symbol : productions[action.production_id])
         result += " " + symbol_name(symbol);
       result += " -> " + symbol_name(action.symbol);
-      return result;
+      break;
     }
 
     case ParseActionTypeShift: {
-      return "Shift";
+      result = "Shift";
+      break;
     }
 
     default:
       return "";
   }
+
+  if (action.precedence_values.size() > 1) {
+    result += " (Precedences " + to_string(*action.precedence_values.begin()) +
+      ", " + to_string(*action.precedence_values.rbegin()) + ")";
+  } else {
+    result += " (Precedence " + to_string(*action.precedence_values.begin()) + ")";
+  }
+
+  return result;
 }
 
 }  // namespace build_tables

@@ -148,8 +148,8 @@ describe("ParseConflictManager", []() {
           AssertThat(get<2>(result), Equals(
             "Lookahead: lookahead_token\n"
             "Possible Actions:\n"
-            "* Shift\n"
-            "* Reduce other_rule1 other_rule2 -> reduced_rule"
+            "* Shift (Precedence 0)\n"
+            "* Reduce other_rule1 other_rule2 -> reduced_rule (Precedence 0)"
           ));
 
           result = conflict_manager->resolve(shift, reduce, lookahead_sym);
@@ -157,26 +157,35 @@ describe("ParseConflictManager", []() {
           AssertThat(get<2>(result), Equals(
             "Lookahead: lookahead_token\n"
             "Possible Actions:\n"
-            "* Shift\n"
-            "* Reduce other_rule1 other_rule2 -> reduced_rule"
+            "* Shift (Precedence 0)\n"
+            "* Reduce other_rule1 other_rule2 -> reduced_rule (Precedence 0)"
           ));
         });
       });
 
       describe("when the shift has conflicting precedences compared to the reduce", [&]() {
         ParseAction shift = ParseAction::Shift(2, { 0, 1, 3 });
-        ParseAction reduce = ParseAction::Reduce(sym2, 1, 2, AssociativityLeft, 0);
+        ParseAction reduce = ParseAction::Reduce(Symbol(2), 1, 2, AssociativityLeft, 0);
 
         it("returns false and reports an unresolved conflict", [&]() {
-          reduce.production_id = conflict_manager->get_production_id({ Symbol(1) });
-          
-          result = conflict_manager->resolve(reduce, shift, sym2);
+          reduce.production_id = conflict_manager->get_production_id(vector<Symbol>({
+            Symbol(3),
+            Symbol(4),
+          }));
+
+          result = conflict_manager->resolve(reduce, shift, lookahead_sym);
           AssertThat(get<0>(result), IsFalse());
           AssertThat(get<1>(result), Equals(ConflictTypeError));
 
-          result = conflict_manager->resolve(shift, reduce, sym1);
+          result = conflict_manager->resolve(shift, reduce, lookahead_sym);
           AssertThat(get<0>(result), IsTrue());
           AssertThat(get<1>(result), Equals(ConflictTypeError));
+          AssertThat(get<2>(result), Equals(
+            "Lookahead: lookahead_token\n"
+            "Possible Actions:\n"
+            "* Shift (Precedences 0, 3)\n"
+            "* Reduce other_rule1 other_rule2 -> reduced_rule (Precedence 2)"
+          ));
         });
       });
     });
@@ -217,8 +226,8 @@ describe("ParseConflictManager", []() {
           AssertThat(get<2>(result), Equals(
             "Lookahead: lookahead_token\n"
             "Possible Actions:\n"
-            "* Reduce other_rule1 other_rule2 -> reduced_rule\n"
-            "* Reduce other_rule2 -> other_rule1"
+            "* Reduce other_rule1 other_rule2 -> reduced_rule (Precedence 0)\n"
+            "* Reduce other_rule2 -> other_rule1 (Precedence 0)"
           ));
 
           result = conflict_manager->resolve(left, right, lookahead_sym);
@@ -227,8 +236,8 @@ describe("ParseConflictManager", []() {
           AssertThat(get<2>(result), Equals(
             "Lookahead: lookahead_token\n"
             "Possible Actions:\n"
-            "* Reduce other_rule2 -> other_rule1\n"
-            "* Reduce other_rule1 other_rule2 -> reduced_rule"
+            "* Reduce other_rule2 -> other_rule1 (Precedence 0)\n"
+            "* Reduce other_rule1 other_rule2 -> reduced_rule (Precedence 0)"
           ));
         });
       });
