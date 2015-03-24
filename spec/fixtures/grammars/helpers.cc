@@ -29,20 +29,20 @@ rule_ptr in_brackets(rule_ptr rule) {
 }
 
 rule_ptr infix_op(std::string op, std::string rule_name, int precedence) {
-  return left_assoc(precedence, seq({
+  return prec(precedence, seq({
       sym(rule_name),
       str(op),
       sym(rule_name) }));
 }
 
 rule_ptr prefix_op(std::string op, std::string rule_name, int precedence) {
-  return right_assoc(precedence, seq({
+  return prec(precedence, seq({
       str(op),
       sym(rule_name) }));
 }
 
 rule_ptr postfix_op(std::string op, std::string rule_name, int precedence) {
-  return left_assoc(precedence, seq({
+  return prec(precedence, seq({
       sym(rule_name),
       str(op) }));
 }

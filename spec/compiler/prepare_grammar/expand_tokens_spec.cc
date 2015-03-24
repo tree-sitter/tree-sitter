@@ -24,7 +24,7 @@ describe("expand_tokens", []() {
       AssertThat(result.first.rules, Equals(rule_list({
           { "rule_A", seq({
               i_sym(10),
-              token(left_assoc(1, seq({ character({ 'x' }), character({ 'y' }), character({ 'z' }) }))),
+              token(prec(1, seq({ character({ 'x' }), character({ 'y' }), character({ 'z' }) }))),
               i_sym(11) }) },
       })));
     });
@@ -38,7 +38,7 @@ describe("expand_tokens", []() {
       auto result = expand_tokens(grammar);
 
       AssertThat(result.first.rules, Equals(rule_list({
-          { "rule_A", token(left_assoc(1, seq({
+          { "rule_A", token(prec(1, seq({
               character({ 945 }),
               character({ ' ' }),
               character({ 946 }) }))) }

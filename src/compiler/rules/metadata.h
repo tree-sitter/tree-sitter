@@ -3,6 +3,7 @@
 
 #include <string>
 #include <map>
+#include "tree_sitter/compiler.h"
 #include "compiler/rules/rule.h"
 
 namespace tree_sitter {
@@ -16,11 +17,7 @@ enum MetadataKey {
   ASSOCIATIVITY,
 };
 
-enum Associativity {
-  AssociativityUnspecified,
-  AssociativityLeft,
-  AssociativityRight,
-};
+const Associativity AssociativityUnspecified = (Associativity)0;
 
 class Metadata : public Rule {
  public:

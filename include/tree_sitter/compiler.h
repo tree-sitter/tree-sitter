@@ -14,6 +14,11 @@ namespace rules {
 class Rule;
 typedef std::shared_ptr<Rule> rule_ptr;
 
+enum Associativity {
+  AssociativityLeft = 1,
+  AssociativityRight
+};
+
 rule_ptr blank();
 rule_ptr choice(const std::vector<rule_ptr> &);
 rule_ptr repeat(const rule_ptr &);
@@ -22,8 +27,8 @@ rule_ptr sym(const std::string &);
 rule_ptr pattern(const std::string &);
 rule_ptr str(const std::string &);
 rule_ptr err(const rule_ptr &);
-rule_ptr left_assoc(int precedence, const rule_ptr &);
-rule_ptr right_assoc(int precedence, const rule_ptr &);
+rule_ptr prec(int precedence, const rule_ptr &);
+rule_ptr prec(int precedence, const rule_ptr &, Associativity);
 rule_ptr token(const rule_ptr &rule);
 
 std::ostream &operator<<(std::ostream &stream, const rules::rule_ptr &rule);

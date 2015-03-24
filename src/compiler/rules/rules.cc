@@ -43,25 +43,22 @@ rule_ptr sym(const string &name) { return make_shared<NamedSymbol>(name); }
 rule_ptr pattern(const string &value) { return make_shared<Pattern>(value); }
 
 rule_ptr str(const string &value) {
-  return token(left_assoc(1, make_shared<String>(value)));
+  return token(prec(1, make_shared<String>(value)));
 }
 
 rule_ptr err(const rule_ptr &rule) {
   return choice({ rule, ERROR().copy() });
 }
 
-rule_ptr left_assoc(int precedence, const rule_ptr &rule) {
+rule_ptr prec(int precedence, const rule_ptr &rule, Associativity associativity) {
   return metadata(rule, {
     { PRECEDENCE, precedence },
-    { ASSOCIATIVITY, AssociativityLeft }
+    { ASSOCIATIVITY, associativity }
   });
 }
 
-rule_ptr right_assoc(int precedence, const rule_ptr &rule) {
-  return metadata(rule, {
-    { PRECEDENCE, precedence },
-    { ASSOCIATIVITY, AssociativityRight }
-  });
+rule_ptr prec(int precedence, const rule_ptr &rule) {
+  return prec(precedence, rule, AssociativityLeft);
 }
 
 rule_ptr token(const rule_ptr &rule) {

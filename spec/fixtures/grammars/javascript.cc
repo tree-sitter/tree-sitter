@@ -65,16 +65,16 @@ extern const Grammar javascript = Grammar({
             sym("identifier"),
             sym("var_assignment") }))) })) },
 
-    { "statement_block", left_assoc(PREC_BLOCK,
+    { "statement_block", prec(PREC_BLOCK,
         in_braces(err(repeat(sym("statement"))))) },
 
-    { "if_statement", right_assoc(0, seq({
+    { "if_statement", prec(0, seq({
         str("if"),
         sym("_paren_expression"),
         sym("statement"),
         optional(seq({
             str("else"),
-            sym("statement") })) })) },
+            sym("statement") })) }), AssociativityRight) },
 
     { "switch_statement", seq({
         str("switch"),
@@ -99,7 +99,7 @@ extern const Grammar javascript = Grammar({
         str("for"),
         str("("),
         optional(str("var")),
-        left_assoc(PREC_REL, seq({
+        prec(PREC_REL, seq({
           sym("identifier"),
           str("in"),
           sym("expression") })),
@@ -215,56 +215,56 @@ extern const Grammar javascript = Grammar({
         str(")"),
         sym("statement_block") }) },
 
-    { "function_call", left_assoc(PREC_CALL, seq({
+    { "function_call", prec(PREC_CALL, seq({
         sym("expression"),
         str("("),
         optional(err(sym("arguments"))),
         str(")") })) },
 
     { "constructor_call", choice({
-        left_assoc(PREC_SHORT_NEW, seq({
+        prec(PREC_SHORT_NEW, seq({
           str("new"),
           sym("expression") })),
-        left_assoc(PREC_FULL_NEW, seq({
+        prec(PREC_FULL_NEW, seq({
           str("new"),
           sym("expression"),
           str("("),
           err(optional(sym("arguments"))),
           str(")") })) }) },
 
-    { "member_access", left_assoc(PREC_MEMBER, seq({
+    { "member_access", prec(PREC_MEMBER, seq({
         sym("expression"),
         str("."),
         sym("identifier") })) },
 
-    { "subscript_access", left_assoc(PREC_MEMBER, seq({
+    { "subscript_access", prec(PREC_MEMBER, seq({
         sym("expression"),
         str("["),
         err(sym("expression")),
         str("]") })) },
 
-    { "assignment", right_assoc(PREC_ASSIGN, seq({
+    { "assignment", prec(PREC_ASSIGN, seq({
         choice({
             sym("identifier"),
             sym("member_access"),
             sym("subscript_access") }),
         str("="),
-        sym("expression") })) },
+        sym("expression") }), AssociativityRight) },
 
-    { "math_assignment", right_assoc(PREC_ASSIGN, seq({
+    { "math_assignment", prec(PREC_ASSIGN, seq({
         choice({
             sym("identifier"),
             sym("member_access"),
             sym("subscript_access") }),
         choice({ str("+="), str("-="), str("*="), str("/=") }),
-        sym("expression") })) },
+        sym("expression") }), AssociativityRight) },
 
-    { "ternary", right_assoc(PREC_TERNARY, seq({
+    { "ternary", prec(PREC_TERNARY, seq({
         sym("expression"),
         str("?"),
         sym("expression"),
         str(":"),
-        sym("expression") })) },
+        sym("expression") }), AssociativityRight) },
 
     { "bool_op", choice({
         infix_op("||", "expression", PREC_OR),
@@ -304,7 +304,7 @@ extern const Grammar javascript = Grammar({
         infix_op(">", "expression", PREC_REL) }) },
 
     { "type_op", choice({
-        left_assoc(PREC_REL, seq({
+        prec(PREC_REL, seq({
           choice({ sym("expression"), sym("identifier") }),
           str("in"),
           sym("expression") })),
@@ -344,7 +344,7 @@ extern const Grammar javascript = Grammar({
 
     { "formal_parameters", comma_sep1(sym("identifier")) },
 
-    { "arguments", left_assoc(-5, comma_sep1(err(sym("expression")))) },
+    { "arguments", prec(-5, comma_sep1(err(sym("expression")))) },
 
     { "pair", seq({
         choice({ sym("string"), sym("identifier") }),
