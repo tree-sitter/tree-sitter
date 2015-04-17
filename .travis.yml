@@ -1,7 +1,12 @@
+sudo: false
 language: cpp
 compiler:
-    - gcc
-before_install:
-  - sudo apt-get install libboost-regex1.48-dev
+- gcc
+
+addons:
+  apt:
+    packages:
+    - libboost-regex-dev
+
 install: script/configure.sh -D USE_BOOST_REGEX=true -D USE_LIBPROFILER=false
 script: script/test_all.sh
