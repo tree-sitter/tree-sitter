@@ -23,9 +23,10 @@ ParseConflictManager::ParseConflictManager(const SyntaxGrammar &syntax_grammar,
 tuple<bool, ConflictType, string>
 ParseConflictManager::resolve(const ParseAction &new_action,
                          const ParseAction &old_action,
-                         const rules::Symbol &symbol) const {
+                         const rules::Symbol &symbol,
+                         const ParseItemSet &item_set) const {
   if (new_action.type < old_action.type) {
-    auto opposite = resolve(old_action, new_action, symbol);
+    auto opposite = resolve(old_action, new_action, symbol, item_set);
     return make_tuple(!get<0>(opposite), get<1>(opposite), get<2>(opposite));
   }
 
@@ -49,10 +50,10 @@ ParseConflictManager::resolve(const ParseAction &new_action,
             case rules::AssociativityRight:
               return make_tuple(false, ConflictTypeResolved, "");
             default:
-              return make_tuple(false, ConflictTypeError, conflict_description(new_action, old_action, symbol));
+              return make_tuple(false, ConflictTypeError, conflict_description(new_action, old_action, symbol, item_set));
           }
         } else {
-          return make_tuple(false, ConflictTypeError, conflict_description(new_action, old_action, symbol));
+          return make_tuple(false, ConflictTypeError, conflict_description(new_action, old_action, symbol, item_set));
         }
       }
 
@@ -65,7 +66,7 @@ ParseConflictManager::resolve(const ParseAction &new_action,
         } else if (new_precedence < old_precedence) {
           return make_tuple(false, ConflictTypeResolved, "");
         } else {
-          return make_tuple(false, ConflictTypeError, conflict_description(new_action, old_action, symbol));
+          return make_tuple(false, ConflictTypeError, conflict_description(new_action, old_action, symbol, item_set));
         }
       }
 
@@ -85,10 +86,26 @@ size_t ParseConflictManager::get_production_id(const vector<rules::Symbol> &symb
   return iter - begin;
 }
 
+string ParseConflictManager::item_set_description(const ParseItemSet &item_set) const {
+  string result;
+  bool started = false;
+  for (const auto &pair : item_set) {
+    const ParseItem &item = pair.first;
+    if (!item.consumed_symbols.empty()) {
+      if (started) result += ", ";
+      result += symbol_name(item.lhs);
+      started = true;
+    }
+  }
+  return result;
+}
+
 string ParseConflictManager::conflict_description(const ParseAction &new_action,
                                                   const ParseAction &old_action,
-                                                  const rules::Symbol &symbol) const {
+                                                  const rules::Symbol &symbol,
+                                                  const ParseItemSet &item_set) const {
   return
+    "Within: " + item_set_description(item_set) + "\n"
     "Lookahead: " + symbol_name(symbol) + "\n" +
     "Possible Actions:\n"
     "* " + action_description(old_action) + "\n" +

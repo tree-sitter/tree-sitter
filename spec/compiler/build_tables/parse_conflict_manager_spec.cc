@@ -54,16 +54,21 @@ describe("ParseConflictManager", []() {
   });
 
   describe(".resolve", [&]() {
+    ParseItemSet item_set({
+      { ParseItem(Symbol(0), blank(), { Symbol(0, SymbolOptionToken) }), set<Symbol>() }, // in_progress_rule1
+      { ParseItem(Symbol(3), blank(), {}), set<Symbol>() }, // other_rule1
+    });
+
     describe("errors", [&]() {
       ParseAction error = ParseAction::Error();
       ParseAction non_error = ParseAction::Shift(2, { 0 });
 
       it("favors non-errors and reports no conflict", [&]() {
-        result = conflict_manager->resolve(non_error, error, sym1);
+        result = conflict_manager->resolve(non_error, error, sym1, item_set);
         AssertThat(get<0>(result), IsTrue());
         AssertThat(get<1>(result), Equals(ConflictTypeNone));
 
-        result = conflict_manager->resolve(error, non_error, sym1);
+        result = conflict_manager->resolve(error, non_error, sym1, item_set);
         AssertThat(get<0>(result), IsFalse());
         AssertThat(get<1>(result), Equals(ConflictTypeNone));
       });
@@ -75,11 +80,11 @@ describe("ParseConflictManager", []() {
         ParseAction reduce = ParseAction::Reduce(sym2, 1, 1, AssociativityLeft, 0);
 
         it("favors the shift and reports the conflict as resolved", [&]() {
-          result = conflict_manager->resolve(shift, reduce, sym1);
+          result = conflict_manager->resolve(shift, reduce, sym1, item_set);
           AssertThat(get<0>(result), IsTrue());
           AssertThat(get<1>(result), Equals(ConflictTypeResolved));
 
-          result = conflict_manager->resolve(reduce, shift, sym1);
+          result = conflict_manager->resolve(reduce, shift, sym1, item_set);
           AssertThat(get<0>(result), IsFalse());
           AssertThat(get<1>(result), Equals(ConflictTypeResolved));
         });
@@ -92,11 +97,11 @@ describe("ParseConflictManager", []() {
         ParseAction reduce = ParseAction::Reduce(sym2, 1, 3, AssociativityLeft, 0);
 
         it("favors the reduce and reports the conflict as resolved", [&]() {
-          result = conflict_manager->resolve(shift, reduce, sym1);
+          result = conflict_manager->resolve(shift, reduce, sym1, item_set);
           AssertThat(get<0>(result), IsFalse());
           AssertThat(get<1>(result), Equals(ConflictTypeResolved));
 
-          result = conflict_manager->resolve(reduce, shift, sym1);
+          result = conflict_manager->resolve(reduce, shift, sym1, item_set);
           AssertThat(get<0>(result), IsTrue());
           AssertThat(get<1>(result), Equals(ConflictTypeResolved));
         });
@@ -107,11 +112,11 @@ describe("ParseConflictManager", []() {
         ParseAction reduce = ParseAction::Reduce(sym2, 1, 0, AssociativityLeft, 0);
 
         it("favors the reduce and reports the conflict as resolved", [&]() {
-          result = conflict_manager->resolve(reduce, shift, sym1);
+          result = conflict_manager->resolve(reduce, shift, sym1, item_set);
           AssertThat(get<0>(result), IsTrue());
           AssertThat(get<1>(result), Equals(ConflictTypeResolved));
 
-          result = conflict_manager->resolve(shift, reduce, sym1);
+          result = conflict_manager->resolve(shift, reduce, sym1, item_set);
           AssertThat(get<0>(result), IsFalse());
           AssertThat(get<1>(result), Equals(ConflictTypeResolved));
         });
@@ -122,11 +127,11 @@ describe("ParseConflictManager", []() {
         ParseAction reduce = ParseAction::Reduce(sym2, 1, 0, AssociativityRight, 0);
 
         it("favors the shift, and reports the conflict as resolved", [&]() {
-          result = conflict_manager->resolve(reduce, shift, sym1);
+          result = conflict_manager->resolve(reduce, shift, sym1, item_set);
           AssertThat(get<0>(result), IsFalse());
           AssertThat(get<1>(result), Equals(ConflictTypeResolved));
 
-          result = conflict_manager->resolve(shift, reduce, sym1);
+          result = conflict_manager->resolve(shift, reduce, sym1, item_set);
           AssertThat(get<0>(result), IsTrue());
           AssertThat(get<1>(result), Equals(ConflictTypeResolved));
         });
@@ -142,19 +147,21 @@ describe("ParseConflictManager", []() {
             Symbol(4),
           }));
 
-          result = conflict_manager->resolve(reduce, shift, lookahead_sym);
+          result = conflict_manager->resolve(reduce, shift, lookahead_sym, item_set);
           AssertThat(get<0>(result), IsFalse());
           AssertThat(get<1>(result), Equals(ConflictTypeError));
           AssertThat(get<2>(result), Equals(
+            "Within: in_progress_rule1\n"
             "Lookahead: lookahead_token\n"
             "Possible Actions:\n"
             "* Shift (Precedence 0)\n"
             "* Reduce other_rule1 other_rule2 -> reduced_rule (Precedence 0)"
           ));
 
-          result = conflict_manager->resolve(shift, reduce, lookahead_sym);
+          result = conflict_manager->resolve(shift, reduce, lookahead_sym, item_set);
           AssertThat(get<0>(result), IsTrue());
           AssertThat(get<2>(result), Equals(
+            "Within: in_progress_rule1\n"
             "Lookahead: lookahead_token\n"
             "Possible Actions:\n"
             "* Shift (Precedence 0)\n"
@@ -173,14 +180,15 @@ describe("ParseConflictManager", []() {
             Symbol(4),
           }));
 
-          result = conflict_manager->resolve(reduce, shift, lookahead_sym);
+          result = conflict_manager->resolve(reduce, shift, lookahead_sym, item_set);
           AssertThat(get<0>(result), IsFalse());
           AssertThat(get<1>(result), Equals(ConflictTypeError));
 
-          result = conflict_manager->resolve(shift, reduce, lookahead_sym);
+          result = conflict_manager->resolve(shift, reduce, lookahead_sym, item_set);
           AssertThat(get<0>(result), IsTrue());
           AssertThat(get<1>(result), Equals(ConflictTypeError));
           AssertThat(get<2>(result), Equals(
+            "Within: in_progress_rule1\n"
             "Lookahead: lookahead_token\n"
             "Possible Actions:\n"
             "* Shift (Precedences 0, 3)\n"
@@ -196,11 +204,11 @@ describe("ParseConflictManager", []() {
         ParseAction right = ParseAction::Reduce(sym2, 1, 3, AssociativityLeft, 0);
 
         it("favors that action", [&]() {
-          result = conflict_manager->resolve(left, right, sym1);
+          result = conflict_manager->resolve(left, right, sym1, item_set);
           AssertThat(get<0>(result), IsFalse());
           AssertThat(get<1>(result), Equals(ConflictTypeResolved));
 
-          result = conflict_manager->resolve(right, left, sym1);
+          result = conflict_manager->resolve(right, left, sym1, item_set);
           AssertThat(get<0>(result), IsTrue());
           AssertThat(get<1>(result), Equals(ConflictTypeResolved));
         });
@@ -220,20 +228,22 @@ describe("ParseConflictManager", []() {
             Symbol(4),
           }));
 
-          result = conflict_manager->resolve(right, left, lookahead_sym);
+          result = conflict_manager->resolve(right, left, lookahead_sym, item_set);
           AssertThat(get<0>(result), IsFalse());
           AssertThat(get<1>(result), Equals(ConflictTypeError));
           AssertThat(get<2>(result), Equals(
+            "Within: in_progress_rule1\n"
             "Lookahead: lookahead_token\n"
             "Possible Actions:\n"
             "* Reduce other_rule1 other_rule2 -> reduced_rule (Precedence 0)\n"
             "* Reduce other_rule2 -> other_rule1 (Precedence 0)"
           ));
 
-          result = conflict_manager->resolve(left, right, lookahead_sym);
+          result = conflict_manager->resolve(left, right, lookahead_sym, item_set);
           AssertThat(get<0>(result), IsFalse());
           AssertThat(get<1>(result), Equals(ConflictTypeError));
           AssertThat(get<2>(result), Equals(
+            "Within: in_progress_rule1\n"
             "Lookahead: lookahead_token\n"
             "Possible Actions:\n"
             "* Reduce other_rule2 -> other_rule1 (Precedence 0)\n"

@@ -93,7 +93,7 @@ class ParseTableBuilder {
 
       ParseAction new_action =
           ParseAction::Shift(0, precedence_values_for_item_set(next_item_set));
-      if (should_add_action(state_id, symbol, new_action)) {
+      if (should_add_action(state_id, item_set, symbol, new_action)) {
         ParseStateId new_state_id = add_parse_state(next_item_set);
         new_action.state_index = new_state_id;
         parse_table.add_action(state_id, symbol, new_action);
@@ -115,7 +115,7 @@ class ParseTableBuilder {
                                       conflict_manager.get_production_id(item.consumed_symbols));
 
         for (const auto &lookahead_sym : lookahead_symbols)
-          if (should_add_action(state_id, lookahead_sym, action))
+          if (should_add_action(state_id, item_set, lookahead_sym, action))
             parse_table.add_action(state_id, lookahead_sym, action);
       }
     }
@@ -147,22 +147,22 @@ class ParseTableBuilder {
         for (const auto &pair : actions) {
           const Symbol &lookahead_sym = pair.first;
           ParseAction reduce_extra = ParseAction::ReduceExtra(ubiquitous_symbol);
-          if (should_add_action(shift_state_id, lookahead_sym, reduce_extra))
+          if (should_add_action(shift_state_id, ParseItemSet(), lookahead_sym, reduce_extra))
             parse_table.add_action(shift_state_id, lookahead_sym, reduce_extra);
         }
       }
     }
   }
 
-  bool should_add_action(ParseStateId state_id, const Symbol &symbol,
-                         const ParseAction &action) {
+  bool should_add_action(ParseStateId state_id, const ParseItemSet &item_set,
+                         const Symbol &symbol, const ParseAction &action) {
     auto &current_actions = parse_table.states[state_id].actions;
     auto current_action = current_actions.find(symbol);
     if (current_action == current_actions.end())
       return true;
 
     auto result = conflict_manager.resolve(action, current_action->second,
-                                           symbol);
+                                           symbol, item_set);
 
     switch (get<1>(result)) {
       case ConflictTypeResolved:
