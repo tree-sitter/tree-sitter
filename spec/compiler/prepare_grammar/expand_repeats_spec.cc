@@ -67,6 +67,28 @@ describe("expand_repeats", []() {
     })));
   });
 
+  it("does not create redundant auxiliary rules", [&]() {
+    SyntaxGrammar grammar({
+        { "rule0", choice({
+            seq({ i_token(1), repeat(i_token(3)) }),
+            seq({ i_token(2), repeat(i_token(3)) }) }) },
+    }, {}, set<Symbol>());
+
+    auto match = expand_repeats(grammar);
+
+    AssertThat(match.rules, Equals(rule_list({
+        { "rule0", choice({
+            seq({ i_token(1), choice({ i_aux_sym(0), blank() }) }),
+            seq({ i_token(2), choice({ i_aux_sym(0), blank() }) }) }) },
+    })));
+
+    AssertThat(match.aux_rules, Equals(rule_list({
+        { "rule0_repeat0", seq({
+            i_token(3),
+            choice({ i_aux_sym(0), blank() }) }) },
+    })));
+  });
+
   it("can replace multiple repeats in the same rule", [&]() {
     SyntaxGrammar grammar({
         { "rule0", seq({

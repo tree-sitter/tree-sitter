@@ -28,18 +28,28 @@ using rules::Symbol;
 
 class ExpandRepeats : public rules::IdentityRuleFn {
   string rule_name;
+  vector<pair<const rule_ptr, Symbol>> existing_repeats;
 
-  rule_ptr apply_to(const Repeat *rule) {
+  rule_ptr expand_repeat(const Repeat *rule) {
+    for (auto pair : existing_repeats) {
+      if (pair.first->operator==(*rule))
+        return pair.second.copy();
+    }
+
     rule_ptr inner_rule = apply(rule->content);
     size_t index = aux_rules.size();
     string helper_rule_name = rule_name + string("_repeat") + to_string(index);
-    rule_ptr repeat_symbol =
-        make_shared<Symbol>(offset + index, rules::SymbolOptionAuxiliary);
+    Symbol repeat_symbol(offset + index, rules::SymbolOptionAuxiliary);
+    existing_repeats.push_back({ rule->copy(), repeat_symbol });
     aux_rules.push_back(
         { helper_rule_name,
-          Seq::build({ inner_rule, Choice::build({ repeat_symbol,
+          Seq::build({ inner_rule, Choice::build({ repeat_symbol.copy(),
                                                    make_shared<Blank>() }) }) });
-    return Choice::build({ repeat_symbol, make_shared<Blank>() });
+    return repeat_symbol.copy();
+  }
+
+  rule_ptr apply_to(const Repeat *rule) {
+    return Choice::build({ expand_repeat(rule), make_shared<Blank>() });
   }
 
  public:
