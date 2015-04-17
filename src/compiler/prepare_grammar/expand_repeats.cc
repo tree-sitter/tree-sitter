@@ -28,10 +28,10 @@ using rules::Symbol;
 
 class ExpandRepeats : public rules::IdentityRuleFn {
   string rule_name;
-  vector<pair<const rule_ptr, Symbol>> existing_repeats;
+  vector<pair<rule_ptr, Symbol>> existing_repeats;
 
   rule_ptr expand_repeat(const Repeat *rule) {
-    for (auto pair : existing_repeats) {
+    for (const auto pair : existing_repeats) {
       if (pair.first->operator==(*rule))
         return pair.second.copy();
     }
