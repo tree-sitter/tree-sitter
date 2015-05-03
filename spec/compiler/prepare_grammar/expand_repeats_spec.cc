@@ -70,8 +70,9 @@ describe("expand_repeats", []() {
   it("does not create redundant auxiliary rules", [&]() {
     SyntaxGrammar grammar({
         { "rule0", choice({
-            seq({ i_token(1), repeat(i_token(3)) }),
-            seq({ i_token(2), repeat(i_token(3)) }) }) },
+            seq({ i_token(1), repeat(i_token(4)) }),
+            seq({ i_token(2), repeat(i_token(4)) }) }) },
+        { "rule1", seq({ i_token(3), repeat(i_token(4)) }) },
     }, {}, set<Symbol>());
 
     auto match = expand_repeats(grammar);
@@ -80,11 +81,12 @@ describe("expand_repeats", []() {
         { "rule0", choice({
             seq({ i_token(1), choice({ i_aux_sym(0), blank() }) }),
             seq({ i_token(2), choice({ i_aux_sym(0), blank() }) }) }) },
+        { "rule1", seq({ i_token(3), choice({ i_aux_sym(0), blank() }) }) },
     })));
 
     AssertThat(match.aux_rules, Equals(rule_list({
         { "rule0_repeat0", seq({
-            i_token(3),
+            i_token(4),
             choice({ i_aux_sym(0), blank() }) }) },
     })));
   });

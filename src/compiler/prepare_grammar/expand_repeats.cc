@@ -28,6 +28,8 @@ using rules::Symbol;
 
 class ExpandRepeats : public rules::IdentityRuleFn {
   string rule_name;
+  size_t offset;
+  size_t repeat_count;
   vector<pair<rule_ptr, Symbol>> existing_repeats;
 
   rule_ptr expand_repeat(const Repeat *rule) {
@@ -38,7 +40,7 @@ class ExpandRepeats : public rules::IdentityRuleFn {
 
     rule_ptr inner_rule = apply(rule->content);
     size_t index = aux_rules.size();
-    string helper_rule_name = rule_name + string("_repeat") + to_string(index);
+    string helper_rule_name = rule_name + string("_repeat") + to_string(++repeat_count);
     Symbol repeat_symbol(offset + index, rules::SymbolOptionAuxiliary);
     existing_repeats.push_back({ rule->copy(), repeat_symbol });
     aux_rules.push_back(
@@ -53,22 +55,28 @@ class ExpandRepeats : public rules::IdentityRuleFn {
   }
 
  public:
-  ExpandRepeats(string rule_name, size_t offset)
-      : rule_name(rule_name), offset(offset) {}
+  ExpandRepeats(size_t offset) : offset(offset) {}
 
-  size_t offset;
+  rule_ptr expand(const rule_ptr &rule, const string &name) {
+    rule_name = name;
+    repeat_count = 0;
+    return apply(rule);
+  }
+
   vector<pair<string, rules::rule_ptr>> aux_rules;
 };
 
 SyntaxGrammar expand_repeats(const SyntaxGrammar &grammar) {
   vector<pair<string, rules::rule_ptr>> rules, aux_rules(grammar.aux_rules);
 
+  ExpandRepeats expander(aux_rules.size());
+
   for (auto &pair : grammar.rules) {
-    ExpandRepeats expander(pair.first, aux_rules.size());
-    rules.push_back({ pair.first, expander.apply(pair.second) });
-    aux_rules.insert(aux_rules.end(), expander.aux_rules.begin(),
-                     expander.aux_rules.end());
+    rules.push_back({ pair.first, expander.expand(pair.second, pair.first) });
   }
+
+  aux_rules.insert(aux_rules.end(), expander.aux_rules.begin(),
+                   expander.aux_rules.end());
 
   return SyntaxGrammar(rules, aux_rules, grammar.ubiquitous_tokens);
 }

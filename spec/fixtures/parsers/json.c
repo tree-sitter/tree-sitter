@@ -12,8 +12,8 @@ enum {
     sym_null,
     sym_true,
     sym_false,
-    aux_sym_object_repeat0,
-    aux_sym_array_repeat0,
+    aux_sym_object_repeat1,
+    aux_sym_array_repeat1,
     aux_sym_STR_LBRACE,
     aux_sym_STR_COLON,
     aux_sym_STR_COMMA,
@@ -34,8 +34,8 @@ static const char *ts_symbol_names[] = {
     [sym_null] = "null",
     [sym_true] = "true",
     [sym_false] = "false",
-    [aux_sym_object_repeat0] = "object_repeat0",
-    [aux_sym_array_repeat0] = "array_repeat0",
+    [aux_sym_object_repeat1] = "object_repeat1",
+    [aux_sym_array_repeat1] = "array_repeat1",
     [aux_sym_STR_LBRACE] = "STR_{",
     [aux_sym_STR_COLON] = "STR_:",
     [aux_sym_STR_COMMA] = "STR_,",
@@ -45,8 +45,8 @@ static const char *ts_symbol_names[] = {
 };
 
 static const int ts_hidden_symbol_flags[SYMBOL_COUNT] = {
-    [aux_sym_object_repeat0] = 1,
-    [aux_sym_array_repeat0] = 1,
+    [aux_sym_object_repeat1] = 1,
+    [aux_sym_array_repeat1] = 1,
     [aux_sym_STR_LBRACE] = 1,
     [aux_sym_STR_COLON] = 1,
     [aux_sym_STR_COMMA] = 1,
@@ -479,12 +479,12 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_RBRACK] = SHIFT(9),
     },
     [5] = {
-        [aux_sym_array_repeat0] = SHIFT(55),
+        [aux_sym_array_repeat1] = SHIFT(55),
         [aux_sym_STR_COMMA] = SHIFT(13),
         [aux_sym_STR_RBRACK] = SHIFT(56),
     },
     [6] = {
-        [aux_sym_array_repeat0] = REDUCE(sym_value, 1),
+        [aux_sym_array_repeat1] = REDUCE(sym_value, 1),
         [aux_sym_STR_COMMA] = REDUCE(sym_value, 1),
         [aux_sym_STR_RBRACK] = REDUCE(sym_value, 1),
     },
@@ -511,12 +511,12 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_builtin_sym_end] = REDUCE(sym_array, 2),
     },
     [10] = {
-        [aux_sym_array_repeat0] = SHIFT(12),
+        [aux_sym_array_repeat1] = SHIFT(12),
         [aux_sym_STR_COMMA] = SHIFT(13),
         [aux_sym_STR_RBRACK] = SHIFT(14),
     },
     [11] = {
-        [aux_sym_array_repeat0] = REDUCE(sym_array, 2),
+        [aux_sym_array_repeat1] = REDUCE(sym_array, 2),
         [aux_sym_STR_COMMA] = REDUCE(sym_array, 2),
         [aux_sym_STR_RBRACK] = REDUCE(sym_array, 2),
     },
@@ -537,25 +537,25 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_LBRACK] = SHIFT(8),
     },
     [14] = {
-        [aux_sym_array_repeat0] = REDUCE(sym_array, 3),
+        [aux_sym_array_repeat1] = REDUCE(sym_array, 3),
         [aux_sym_STR_COMMA] = REDUCE(sym_array, 3),
         [aux_sym_STR_RBRACK] = REDUCE(sym_array, 3),
     },
     [15] = {
-        [aux_sym_array_repeat0] = SHIFT(16),
+        [aux_sym_array_repeat1] = SHIFT(16),
         [aux_sym_STR_COMMA] = SHIFT(13),
-        [aux_sym_STR_RBRACK] = REDUCE(aux_sym_array_repeat0, 2),
+        [aux_sym_STR_RBRACK] = REDUCE(aux_sym_array_repeat1, 2),
     },
     [16] = {
-        [aux_sym_STR_RBRACK] = REDUCE(aux_sym_array_repeat0, 3),
+        [aux_sym_STR_RBRACK] = REDUCE(aux_sym_array_repeat1, 3),
     },
     [17] = {
-        [aux_sym_array_repeat0] = REDUCE(sym_array, 4),
+        [aux_sym_array_repeat1] = REDUCE(sym_array, 4),
         [aux_sym_STR_COMMA] = REDUCE(sym_array, 4),
         [aux_sym_STR_RBRACK] = REDUCE(sym_array, 4),
     },
     [18] = {
-        [aux_sym_object_repeat0] = SHIFT(52),
+        [aux_sym_object_repeat1] = SHIFT(52),
         [aux_sym_STR_COMMA] = SHIFT(37),
         [aux_sym_STR_RBRACE] = SHIFT(53),
     },
@@ -563,7 +563,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_COLON] = SHIFT(21),
     },
     [20] = {
-        [aux_sym_array_repeat0] = REDUCE(sym_object, 2),
+        [aux_sym_array_repeat1] = REDUCE(sym_object, 2),
         [aux_sym_STR_COMMA] = REDUCE(sym_object, 2),
         [aux_sym_STR_RBRACK] = REDUCE(sym_object, 2),
     },
@@ -580,12 +580,12 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_LBRACK] = SHIFT(25),
     },
     [22] = {
-        [aux_sym_object_repeat0] = SHIFT(49),
+        [aux_sym_object_repeat1] = SHIFT(49),
         [aux_sym_STR_COMMA] = SHIFT(37),
         [aux_sym_STR_RBRACE] = SHIFT(50),
     },
     [23] = {
-        [aux_sym_object_repeat0] = REDUCE(sym_value, 1),
+        [aux_sym_object_repeat1] = REDUCE(sym_value, 1),
         [aux_sym_STR_COMMA] = REDUCE(sym_value, 1),
         [aux_sym_STR_RBRACE] = REDUCE(sym_value, 1),
     },
@@ -609,12 +609,12 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_RBRACK] = SHIFT(27),
     },
     [26] = {
-        [aux_sym_array_repeat0] = SHIFT(28),
+        [aux_sym_array_repeat1] = SHIFT(28),
         [aux_sym_STR_COMMA] = SHIFT(13),
         [aux_sym_STR_RBRACK] = SHIFT(29),
     },
     [27] = {
-        [aux_sym_object_repeat0] = REDUCE(sym_array, 2),
+        [aux_sym_object_repeat1] = REDUCE(sym_array, 2),
         [aux_sym_STR_COMMA] = REDUCE(sym_array, 2),
         [aux_sym_STR_RBRACE] = REDUCE(sym_array, 2),
     },
@@ -622,17 +622,17 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_RBRACK] = SHIFT(30),
     },
     [29] = {
-        [aux_sym_object_repeat0] = REDUCE(sym_array, 3),
+        [aux_sym_object_repeat1] = REDUCE(sym_array, 3),
         [aux_sym_STR_COMMA] = REDUCE(sym_array, 3),
         [aux_sym_STR_RBRACE] = REDUCE(sym_array, 3),
     },
     [30] = {
-        [aux_sym_object_repeat0] = REDUCE(sym_array, 4),
+        [aux_sym_object_repeat1] = REDUCE(sym_array, 4),
         [aux_sym_STR_COMMA] = REDUCE(sym_array, 4),
         [aux_sym_STR_RBRACE] = REDUCE(sym_array, 4),
     },
     [31] = {
-        [aux_sym_object_repeat0] = SHIFT(46),
+        [aux_sym_object_repeat1] = SHIFT(46),
         [aux_sym_STR_COMMA] = SHIFT(37),
         [aux_sym_STR_RBRACE] = SHIFT(47),
     },
@@ -640,7 +640,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_COLON] = SHIFT(34),
     },
     [33] = {
-        [aux_sym_object_repeat0] = REDUCE(sym_object, 2),
+        [aux_sym_object_repeat1] = REDUCE(sym_object, 2),
         [aux_sym_STR_COMMA] = REDUCE(sym_object, 2),
         [aux_sym_STR_RBRACE] = REDUCE(sym_object, 2),
     },
@@ -657,7 +657,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_LBRACK] = SHIFT(25),
     },
     [35] = {
-        [aux_sym_object_repeat0] = SHIFT(36),
+        [aux_sym_object_repeat1] = SHIFT(36),
         [aux_sym_STR_COMMA] = SHIFT(37),
         [aux_sym_STR_RBRACE] = SHIFT(38),
     },
@@ -669,14 +669,14 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [sym_string] = SHIFT(40),
     },
     [38] = {
-        [aux_sym_object_repeat0] = REDUCE(sym_object, 5),
+        [aux_sym_object_repeat1] = REDUCE(sym_object, 5),
         [aux_sym_STR_COMMA] = REDUCE(sym_object, 5),
         [aux_sym_STR_RBRACE] = REDUCE(sym_object, 5),
     },
     [39] = {
-        [aux_sym_object_repeat0] = SHIFT(44),
+        [aux_sym_object_repeat1] = SHIFT(44),
         [aux_sym_STR_COMMA] = SHIFT(37),
-        [aux_sym_STR_RBRACE] = REDUCE(aux_sym_object_repeat0, 2),
+        [aux_sym_STR_RBRACE] = REDUCE(aux_sym_object_repeat1, 2),
     },
     [40] = {
         [aux_sym_STR_COLON] = SHIFT(41),
@@ -694,18 +694,18 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_LBRACK] = SHIFT(25),
     },
     [42] = {
-        [aux_sym_object_repeat0] = SHIFT(43),
+        [aux_sym_object_repeat1] = SHIFT(43),
         [aux_sym_STR_COMMA] = SHIFT(37),
-        [aux_sym_STR_RBRACE] = REDUCE(aux_sym_object_repeat0, 4),
+        [aux_sym_STR_RBRACE] = REDUCE(aux_sym_object_repeat1, 4),
     },
     [43] = {
-        [aux_sym_STR_RBRACE] = REDUCE(aux_sym_object_repeat0, 5),
+        [aux_sym_STR_RBRACE] = REDUCE(aux_sym_object_repeat1, 5),
     },
     [44] = {
-        [aux_sym_STR_RBRACE] = REDUCE(aux_sym_object_repeat0, 3),
+        [aux_sym_STR_RBRACE] = REDUCE(aux_sym_object_repeat1, 3),
     },
     [45] = {
-        [aux_sym_object_repeat0] = REDUCE(sym_object, 6),
+        [aux_sym_object_repeat1] = REDUCE(sym_object, 6),
         [aux_sym_STR_COMMA] = REDUCE(sym_object, 6),
         [aux_sym_STR_RBRACE] = REDUCE(sym_object, 6),
     },
@@ -713,12 +713,12 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_RBRACE] = SHIFT(48),
     },
     [47] = {
-        [aux_sym_object_repeat0] = REDUCE(sym_object, 3),
+        [aux_sym_object_repeat1] = REDUCE(sym_object, 3),
         [aux_sym_STR_COMMA] = REDUCE(sym_object, 3),
         [aux_sym_STR_RBRACE] = REDUCE(sym_object, 3),
     },
     [48] = {
-        [aux_sym_object_repeat0] = REDUCE(sym_object, 4),
+        [aux_sym_object_repeat1] = REDUCE(sym_object, 4),
         [aux_sym_STR_COMMA] = REDUCE(sym_object, 4),
         [aux_sym_STR_RBRACE] = REDUCE(sym_object, 4),
     },
@@ -726,12 +726,12 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_RBRACE] = SHIFT(51),
     },
     [50] = {
-        [aux_sym_array_repeat0] = REDUCE(sym_object, 5),
+        [aux_sym_array_repeat1] = REDUCE(sym_object, 5),
         [aux_sym_STR_COMMA] = REDUCE(sym_object, 5),
         [aux_sym_STR_RBRACK] = REDUCE(sym_object, 5),
     },
     [51] = {
-        [aux_sym_array_repeat0] = REDUCE(sym_object, 6),
+        [aux_sym_array_repeat1] = REDUCE(sym_object, 6),
         [aux_sym_STR_COMMA] = REDUCE(sym_object, 6),
         [aux_sym_STR_RBRACK] = REDUCE(sym_object, 6),
     },
@@ -739,12 +739,12 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_RBRACE] = SHIFT(54),
     },
     [53] = {
-        [aux_sym_array_repeat0] = REDUCE(sym_object, 3),
+        [aux_sym_array_repeat1] = REDUCE(sym_object, 3),
         [aux_sym_STR_COMMA] = REDUCE(sym_object, 3),
         [aux_sym_STR_RBRACK] = REDUCE(sym_object, 3),
     },
     [54] = {
-        [aux_sym_array_repeat0] = REDUCE(sym_object, 4),
+        [aux_sym_array_repeat1] = REDUCE(sym_object, 4),
         [aux_sym_STR_COMMA] = REDUCE(sym_object, 4),
         [aux_sym_STR_RBRACK] = REDUCE(sym_object, 4),
     },
@@ -758,7 +758,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_builtin_sym_end] = REDUCE(sym_array, 4),
     },
     [58] = {
-        [aux_sym_object_repeat0] = SHIFT(66),
+        [aux_sym_object_repeat1] = SHIFT(66),
         [aux_sym_STR_COMMA] = SHIFT(37),
         [aux_sym_STR_RBRACE] = SHIFT(67),
     },
@@ -781,7 +781,7 @@ static const TSParseAction ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_LBRACK] = SHIFT(25),
     },
     [62] = {
-        [aux_sym_object_repeat0] = SHIFT(63),
+        [aux_sym_object_repeat1] = SHIFT(63),
         [aux_sym_STR_COMMA] = SHIFT(37),
         [aux_sym_STR_RBRACE] = SHIFT(64),
     },
