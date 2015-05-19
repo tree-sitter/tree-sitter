@@ -182,7 +182,7 @@ class CCodeGenerator {
     line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
     line();
     line(
-        "static const TSParseAction "
+        "static const TSParseAction *"
         "ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {");
 
     indent([&]() {
@@ -191,8 +191,9 @@ class CCodeGenerator {
         indent([&]() {
           for (const auto &pair : state.actions) {
             line("[" + symbol_id(pair.first) + "] = ");
+            add("ACTIONS(");
             add_parse_action(pair.second);
-            add(",");
+            add("),");
           }
         });
         line("},");

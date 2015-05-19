@@ -27,9 +27,14 @@
  *  Private
  */
 
+static const TSParseAction ERROR_ACTION = {
+  .type = TSParseActionTypeError
+};
+
 static TSParseAction get_action(const TSLanguage *language, TSStateId state,
                                 TSSymbol sym) {
-  return (language->parse_table + (state * language->symbol_count))[sym];
+  const TSParseAction *actions = (language->parse_table + (state * language->symbol_count))[sym];
+  return actions ? actions[0] : ERROR_ACTION;
 }
 
 static TSLength break_down_left_stack(TSParser *parser, TSInputEdit edit) {

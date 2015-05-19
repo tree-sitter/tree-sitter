@@ -64,7 +64,7 @@ struct TSLanguage {
   size_t symbol_count;
   const char **symbol_names;
   const int *hidden_symbol_flags;
-  const TSParseAction *parse_table;
+  const TSParseAction **parse_table;
   const TSStateId *lex_states;
   TSTree *(*lex_fn)(TSLexer *, TSStateId);
 };
@@ -112,6 +112,9 @@ struct TSLanguage {
  *  Parse Table Macros
  */
 
+#define ACTIONS(...) \
+  (TSParseAction[]) {__VA_ARGS__}
+
 #define SHIFT(to_state_value)                                              \
   {                                                                        \
     .type = TSParseActionTypeShift, .data = { .to_state = to_state_value } \
@@ -144,7 +147,7 @@ struct TSLanguage {
   static TSLanguage language = { .symbol_count = SYMBOL_COUNT,                  \
                                  .hidden_symbol_flags = ts_hidden_symbol_flags, \
                                  .parse_table =                                 \
-                                     (const TSParseAction *)ts_parse_actions,   \
+                                     (const TSParseAction **)ts_parse_actions,   \
                                  .lex_states = ts_lex_states,                   \
                                  .symbol_names = ts_symbol_names,               \
                                  .lex_fn = ts_lex, };                           \
