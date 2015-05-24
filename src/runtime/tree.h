@@ -19,13 +19,17 @@ typedef enum {
 struct TSTree {
   TSSymbol symbol;
   TSTreeOptions options;
-  size_t ref_count;
   TSLength padding;
   TSLength size;
-  char lookahead_char;
-  size_t child_count;
-  size_t visible_child_count;
-  struct TSTree **children;
+  union {
+    struct {
+      struct TSTree **children;
+      size_t child_count;
+      size_t visible_child_count;
+    };
+    char lookahead_char;
+  };
+  unsigned short int ref_count;
 };
 
 typedef struct {

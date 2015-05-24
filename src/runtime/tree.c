@@ -13,7 +13,6 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength size, TSLength padding,
                        .size = size,
                        .child_count = 0,
                        .children = NULL,
-                       .lookahead_char = 0,
                        .padding = padding,
                        .options = is_hidden ? TSTreeOptionsHidden : 0, };
   return result;
@@ -122,9 +121,11 @@ void ts_tree_release(TSTree *tree) {
   if (tree->ref_count == 0) {
     size_t count;
     TSTree **children = ts_tree_children(tree, &count);
-    for (size_t i = 0; i < count; i++)
-      ts_tree_release(children[i]);
-    free(tree->children);
+    if (children) {
+      for (size_t i = 0; i < count; i++)
+        ts_tree_release(children[i]);
+      free(tree->children);
+    }
     free(tree);
   }
 }
@@ -136,8 +137,8 @@ TSLength ts_tree_total_size(const TSTree *tree) {
 bool ts_tree_eq(const TSTree *node1, const TSTree *node2) {
   if (node1->symbol != node2->symbol)
     return false;
-  if (node1->lookahead_char != node2->lookahead_char)
-    return false;
+  if (node1->symbol == ts_builtin_sym_error)
+    return node1->lookahead_char == node2->lookahead_char;
   if (node1->child_count != node2->child_count)
     return false;
   if (node1->visible_child_count != node2->visible_child_count)
@@ -149,15 +150,27 @@ bool ts_tree_eq(const TSTree *node1, const TSTree *node2) {
 }
 
 TSTree **ts_tree_children(const TSTree *tree, size_t *count) {
-  if (count)
-    *count = tree->child_count;
-  return tree->children;
+  if (tree->symbol == ts_builtin_sym_error) {
+    if (count)
+      *count = 0;
+    return NULL;
+  } else {
+    if (count)
+      *count = tree->child_count;
+    return tree->children;
+  }
 }
 
 TSTreeChild *ts_tree_visible_children(const TSTree *tree, size_t *count) {
-  if (count)
-    *count = tree->visible_child_count;
-  return (TSTreeChild *)(tree + 1);
+  if (tree->symbol == ts_builtin_sym_error) {
+    if (count)
+      *count = 0;
+    return NULL;
+  } else {
+    if (count)
+      *count = tree->visible_child_count;
+    return (TSTreeChild *)(tree + 1);
+  }
 }
 
 static size_t write_lookahead_to_string(char *string, size_t limit,
