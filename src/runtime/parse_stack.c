@@ -53,19 +53,13 @@ static void stack_node_retain(ParseStackNode *);
 static bool stack_node_release(ParseStackNode *);
 static void stack_node_add_successor(ParseStackNode *, ParseStackNode *);
 static void parse_stack_remove_head(ParseStack *, int);
+static bool parse_stack_merge_head(ParseStack *, int, TSStateId, TSTree *);
 
 bool ts_parse_stack_shift(ParseStack *this, int head_index, TSStateId state, TSTree *tree) {
   assert(head_index < this->head_count);
-  for (int i =  0; i < head_index; i++) {
-    ParseStackNode *head = this->heads[i];
-    if (head->state == state && ts_tree_eq(head->tree, tree)) {
-      stack_node_add_successor(head, this->heads[head_index]);
-      parse_stack_remove_head(this, head_index);
-      return true;
-    }
-  }
-  ParseStackNode *new_head = stack_node_new(this->heads[head_index], state, tree);
-  this->heads[head_index] = new_head;
+  if (parse_stack_merge_head(this, head_index, state, tree))
+    return true;
+  this->heads[head_index] = stack_node_new(this->heads[head_index], state, tree);
   return false;
 }
 
@@ -96,15 +90,9 @@ bool ts_parse_stack_reduce(ParseStack *this, int head_index, TSStateId state,
   }
 
   TSTree *parent = ts_tree_make_node(symbol, child_count, children, false);
-
-  for (int i =  0; i < head_index; i++) {
-    ParseStackNode *head = this->heads[i];
-    if (head->state == state && ts_tree_eq(head->tree, parent)) {
-      stack_node_add_successor(head, this->heads[head_index]);
-      ts_tree_release(parent);
-      parse_stack_remove_head(this, head_index);
-      return true;
-    }
+  if (parse_stack_merge_head(this, head_index, state, parent)) {
+    ts_tree_release(parent);
+    return true;
   }
 
   stack_node_retain(next_node);
@@ -166,6 +154,18 @@ static void stack_node_add_successor(ParseStackNode *this, ParseStackNode *succe
   stack_node_retain(successor);
   this->successors[this->successor_count] = successor;
   this->successor_count++;
+}
+
+static bool parse_stack_merge_head(ParseStack *this, int head_index, TSStateId state, TSTree *tree) {
+  for (int i =  0; i < head_index; i++) {
+    ParseStackNode *head = this->heads[i];
+    if (head->state == state && ts_tree_eq(head->tree, tree)) {
+      stack_node_add_successor(head, this->heads[head_index]);
+      parse_stack_remove_head(this, head_index);
+      return true;
+    }
+  }
+  return false;
 }
 
 static void parse_stack_remove_head(ParseStack *this, int head_index) {
