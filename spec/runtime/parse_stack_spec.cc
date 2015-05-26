@@ -70,12 +70,9 @@ describe("ParseStack", [&]() {
 
       ParseStackNode *head = ts_parse_stack_head(stack, 0);
       AssertThat(head->state, Equals(103));
-      AssertThat(
-        ts_tree_eq(
-          head->tree,
-          ts_tree_make_node(symbol4, 2, tree_array({ trees[1], trees[2] }), false)
-        ),
-        IsTrue());
+      AssertThat(head->tree, Fulfills(EqualsTree(
+        ts_tree_make_node(symbol4, 2, tree_array({ trees[1], trees[2] }), false),
+        names)));
       AssertThat(head->successor_count, Equals(1));
 
       head = head->successors[0];
@@ -94,12 +91,9 @@ describe("ParseStack", [&]() {
 
         ParseStackNode *head = ts_parse_stack_head(stack, 0);
         AssertThat(head->state, Equals(103));
-        AssertThat(
-          ts_tree_eq(
-            head->tree,
-            ts_tree_make_node(symbol4, 3, tree_array({ trees[0], trees[1], trees[2] }), false)
-          ),
-          IsTrue());
+        AssertThat(head->tree, Fulfills(EqualsTree(
+          ts_tree_make_node(symbol4, 3, tree_array({ trees[0], trees[1], trees[2] }), false),
+          names)));
         AssertThat(head->successor_count, Equals(1));
 
         head = head->successors[0];
@@ -198,11 +192,9 @@ describe("ParseStack", [&]() {
       AssertThat(ts_parse_stack_head_count(stack), Equals(1));
       ParseStackNode *head = ts_parse_stack_head(stack, 0);
       AssertThat(head->state, Equals(stateG));
-      AssertThat(
-        ts_tree_eq(
-          head->tree,
-          ts_tree_make_node(symbol5, 1, tree_array({ trees[4] }), false)),
-        IsTrue());
+      AssertThat(head->tree, Fulfills(EqualsTree(
+        ts_tree_make_node(symbol5, 1, tree_array({ trees[4] }), false),
+        names)));
       AssertThat(head->successor_count, Equals(2));
     });
   });
