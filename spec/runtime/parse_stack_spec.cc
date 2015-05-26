@@ -5,7 +5,7 @@
 
 enum { stateA, stateB, stateC, stateD, stateE, stateF, stateG, };
 enum { symbol0, symbol1, symbol2, symbol3, symbol4, symbol5, symbol6, };
-const char *names[] = { "zero", "one", "two", "three", "four", "five", "six", };
+const char *symbol_names[] = { "zero", "one", "two", "three", "four", "five", "six", };
 
 START_TEST
 
@@ -72,7 +72,7 @@ describe("ParseStack", [&]() {
       AssertThat(head->state, Equals(103));
       AssertThat(head->tree, Fulfills(EqualsTree(
         ts_tree_make_node(symbol4, 2, tree_array({ trees[1], trees[2] }), false),
-        names)));
+        symbol_names)));
       AssertThat(head->successor_count, Equals(1));
 
       head = head->successors[0];
@@ -93,7 +93,7 @@ describe("ParseStack", [&]() {
         AssertThat(head->state, Equals(103));
         AssertThat(head->tree, Fulfills(EqualsTree(
           ts_tree_make_node(symbol4, 3, tree_array({ trees[0], trees[1], trees[2] }), false),
-          names)));
+          symbol_names)));
         AssertThat(head->successor_count, Equals(1));
 
         head = head->successors[0];
@@ -194,7 +194,7 @@ describe("ParseStack", [&]() {
       AssertThat(head->state, Equals(stateG));
       AssertThat(head->tree, Fulfills(EqualsTree(
         ts_tree_make_node(symbol5, 1, tree_array({ trees[4] }), false),
-        names)));
+        symbol_names)));
       AssertThat(head->successor_count, Equals(2));
     });
   });
