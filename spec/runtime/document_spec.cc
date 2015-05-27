@@ -83,7 +83,8 @@ describe("Document", [&]() {
     it("calls the debugger with a message for each parse action", [&]() {
       ts_document_set_input_string(doc, "[1, 2]");
 
-      AssertThat(debugger->messages, Contains("shift state:1"));
+      AssertThat(debugger->messages, Contains("new_parse"));
+      AssertThat(debugger->messages, Contains("lookahead char:'['"));
       AssertThat(debugger->messages, Contains("reduce sym:value, count:1"));
       AssertThat(debugger->messages, Contains("accept"));
     });

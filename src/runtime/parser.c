@@ -171,8 +171,7 @@ static void shift(TSParser *parser, TSStateId parse_state) {
     parse_state = ts_stack_top_state(&parser->stack);
 
   ts_stack_push(&parser->stack, parse_state, parser->lookahead);
-  parser->lookahead = parser->next_lookahead;
-  parser->next_lookahead = NULL;
+  parser->lookahead = NULL;
 }
 
 static void shift_extra(TSParser *parser) {
@@ -180,15 +179,14 @@ static void shift_extra(TSParser *parser) {
   shift(parser, 0);
 }
 
-static void reduce(TSParser *parser, TSSymbol symbol, size_t child_count) {
-  TSStack *stack = &parser->stack;
-  parser->next_lookahead = parser->lookahead;
+static TSTree * reduce_helper(TSParser *parser, TSSymbol symbol, size_t child_count, bool extra) {
 
   /*
    *  Walk down the stack to determine which symbols will be reduced.
    *  The child node count is known ahead of time, but some children
    *  may be ubiquitous tokens, which don't count.
    */
+  TSStack *stack = &parser->stack;
   for (size_t i = 0; i < child_count; i++) {
     if (child_count == stack->size)
       break;
@@ -203,19 +201,32 @@ static void reduce(TSParser *parser, TSSymbol symbol, size_t child_count) {
     children[i] = stack->entries[start_index + i].node;
 
   bool hidden = parser->language->hidden_symbol_flags[symbol];
-  parser->lookahead = ts_tree_make_node(symbol, child_count, children, hidden);
-  ts_stack_shrink(stack, stack->size - child_count);
+  TSTree *parent = ts_tree_make_node(symbol, child_count, children, hidden);
+
+  ts_stack_shrink(stack, start_index);
+  TSStateId top_state = ts_stack_top_state(stack), state;
+  if (extra)
+    state = top_state;
+  else
+    state = get_action(parser->language, top_state, symbol).data.to_state;
+
+  ts_stack_push(stack, state, parent);
+  return parent;
+}
+
+static void reduce(TSParser *parser, TSSymbol symbol, size_t child_count) {
+  reduce_helper(parser, symbol, child_count, false);
 }
 
 static void reduce_extra(TSParser *parser, TSSymbol symbol) {
-  reduce(parser, symbol, 1);
-  ts_tree_set_extra(parser->lookahead);
+  TSTree *reduced = reduce_helper(parser, symbol, 1, true);
+  ts_tree_set_extra(reduced);
 }
 
 static void reduce_fragile(TSParser *parser, TSSymbol symbol, size_t child_count) {
-  reduce(parser, symbol, child_count);
-  ts_tree_set_fragile_left(parser->lookahead);
-  ts_tree_set_fragile_right(parser->lookahead);
+  TSTree *reduced = reduce_helper(parser, symbol, child_count, false);
+  ts_tree_set_fragile_left(reduced);
+  ts_tree_set_fragile_right(reduced);
 }
 
 static int handle_error(TSParser *parser) {
@@ -307,8 +318,6 @@ void ts_parser_destroy(TSParser *parser) {
 
   if (parser->lookahead)
     ts_tree_release(parser->lookahead);
-  if (parser->next_lookahead)
-    ts_tree_release(parser->next_lookahead);
 
   if (parser->lexer.debugger.release_fn)
     parser->lexer.debugger.release_fn(parser->lexer.debugger.data);
@@ -327,7 +336,6 @@ void ts_parser_set_debugger(TSParser *parser, TSDebugger debugger) {
 const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
                               TSInputEdit *edit) {
   parser->lookahead = NULL;
-  parser->next_lookahead = NULL;
 
   TSLength position;
   if (edit) {
@@ -370,8 +378,8 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
         break;
 
       case TSParseActionTypeReduce:
-        reduce(parser, action.data.symbol, action.data.child_count);
         DEBUG("reduce sym:%s, count:%u", SYM_NAME(action.data.symbol), action.data.child_count);
+        reduce(parser, action.data.symbol, action.data.child_count);
         break;
 
       case TSParseActionTypeReduceExtra:
@@ -380,8 +388,8 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
         break;
 
       case TSParseActionTypeReduceFragile:
-        reduce_fragile(parser, action.data.symbol, action.data.child_count);
         DEBUG("reduce_fragile sym:%s, count:%u", SYM_NAME(action.data.symbol), action.data.child_count);
+        reduce_fragile(parser, action.data.symbol, action.data.child_count);
         break;
 
       case TSParseActionTypeAccept:

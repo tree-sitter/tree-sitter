@@ -13,7 +13,6 @@ typedef struct {
   TSStack right_stack;
   size_t total_chars;
   TSTree *lookahead;
-  TSTree *next_lookahead;
   const TSLanguage *language;
 } TSParser;
 
