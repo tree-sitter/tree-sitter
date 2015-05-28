@@ -1,7 +1,7 @@
 #include "tree_sitter/parser.h"
 
 #define STATE_COUNT 32
-#define SYMBOL_COUNT 20
+#define SYMBOL_COUNT 21
 
 enum {
     sym_expression = ts_builtin_sym_start,
@@ -24,6 +24,7 @@ enum {
 };
 
 static const char *ts_symbol_names[] = {
+    [ts_builtin_sym_ambiguity] = "DOCUMENT",
     [ts_builtin_sym_document] = "DOCUMENT",
     [sym_expression] = "expression",
     [sym_sum] = "sum",

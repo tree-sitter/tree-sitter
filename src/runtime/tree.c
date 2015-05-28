@@ -120,6 +120,18 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   return result;
 }
 
+TSTree *ts_tree_make_ambiguity(size_t alternative_count, TSTree **alternatives) {
+  TSTree *result = malloc(sizeof(TSTree));
+  *result = (TSTree) { .ref_count = 1,
+                       .symbol = ts_builtin_sym_ambiguity,
+                       .size = alternatives[0]->size,
+                       .padding = alternatives[0]->padding,
+                       .child_count = alternative_count,
+                       .children = alternatives,
+                       .options = 0 };
+  return result;
+}
+
 void ts_tree_retain(TSTree *tree) { tree->ref_count++; }
 
 void ts_tree_release(TSTree *tree) {

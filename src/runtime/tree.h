@@ -76,6 +76,7 @@ static inline bool ts_tree_is_fragile_right(TSTree *tree) {
 TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, bool);
 TSTree *ts_tree_make_node(TSSymbol, size_t, TSTree **, bool);
 TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char);
+TSTree *ts_tree_make_ambiguity(size_t, TSTree **);
 void ts_tree_retain(TSTree *tree);
 void ts_tree_release(TSTree *tree);
 bool ts_tree_eq(const TSTree *tree1, const TSTree *tree2);

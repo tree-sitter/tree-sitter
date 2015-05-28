@@ -315,8 +315,12 @@ class CCodeGenerator {
         return "ts_builtin_sym_error";
       else if (symbol == rules::END_OF_INPUT())
         return "ts_builtin_sym_end";
-      else
+      else if (symbol == rules::DOCUMENT())
         return "ts_builtin_sym_document";
+      else if (symbol == rules::AMBIGUITY())
+        return "ts_builtin_sym_ambiguity";
+      else
+        return "";
     } else {
       string name = sanitize_name(rule_name(symbol));
       if (symbol.is_auxiliary())

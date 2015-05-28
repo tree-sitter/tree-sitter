@@ -1,6 +1,7 @@
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 #include "runtime/parse_stack.h"
+#include "runtime/length.h"
 #include <assert.h>
 
 static const size_t INITIAL_HEAD_CAPACITY = 3;
@@ -90,13 +91,14 @@ bool ts_parse_stack_reduce(ParseStack *this, int head_index, TSStateId state,
   }
 
   TSTree *parent = ts_tree_make_node(symbol, child_count, children, false);
-  if (parse_stack_merge_head(this, head_index, state, parent)) {
-    ts_tree_release(parent);
-    return true;
-  }
 
   stack_node_retain(next_node);
   stack_node_release(this->heads[head_index]);
+  this->heads[head_index] = next_node;
+
+  if (parse_stack_merge_head(this, head_index, state, parent))
+    return true;
+
   this->heads[head_index] = stack_node_new(next_node, state, parent);
   return false;
 }
@@ -152,6 +154,9 @@ static bool stack_node_release(ParseStackNode *this) {
 
 static void stack_node_add_successor(ParseStackNode *this, ParseStackNode *successor) {
   stack_node_retain(successor);
+  for (int i = 0; i < this->successor_count; i++)
+    if (this->successors[i] == successor)
+      return;
   this->successors[this->successor_count] = successor;
   this->successor_count++;
 }
@@ -159,10 +164,23 @@ static void stack_node_add_successor(ParseStackNode *this, ParseStackNode *succe
 static bool parse_stack_merge_head(ParseStack *this, int head_index, TSStateId state, TSTree *tree) {
   for (int i =  0; i < head_index; i++) {
     ParseStackNode *head = this->heads[i];
-    if (head->state == state && ts_tree_eq(head->tree, tree)) {
-      stack_node_add_successor(head, this->heads[head_index]);
-      parse_stack_remove_head(this, head_index);
-      return true;
+    if (head->state == state) {
+      if (head->tree == tree) {
+        stack_node_add_successor(head, this->heads[head_index]);
+        parse_stack_remove_head(this, head_index);
+        return true;
+      }
+
+      if (head->tree->symbol == tree->symbol &&
+          ts_length_eq(head->tree->size, tree->size)) {
+        TSTree **options = malloc(2 * sizeof(TSTree *));
+        options[0] = head->tree;
+        options[1] = tree;
+        head->tree = ts_tree_make_ambiguity(2, options);
+        stack_node_add_successor(head, this->heads[head_index]);
+        parse_stack_remove_head(this, head_index);
+        return true;
+      }
     }
   }
   return false;

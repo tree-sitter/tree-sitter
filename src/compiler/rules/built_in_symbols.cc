@@ -7,6 +7,7 @@ Symbol END_OF_INPUT() { return Symbol(-1, SymbolOptionToken); }
 Symbol ERROR() { return Symbol(-2, SymbolOptionToken); }
 Symbol START() { return Symbol(-3); }
 Symbol DOCUMENT() { return Symbol(-4); }
+Symbol AMBIGUITY() { return Symbol(-5); }
 
 }  // namespace rules
 }  // namespace tree_sitter
