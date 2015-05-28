@@ -163,16 +163,13 @@ static TSTree *get_next_node(TSParser *parser, TSStateId lex_state) {
  */
 
 static void shift(TSParser *parser, TSStateId parse_state) {
-  if (ts_tree_is_extra(parser->lookahead))
-    parse_state = ts_stack_top_state(&parser->stack);
-
   ts_stack_push(&parser->stack, parse_state, parser->lookahead);
   parser->lookahead = NULL;
 }
 
-static void shift_extra(TSParser *parser) {
+static void shift_extra(TSParser *parser, TSStateId state) {
   ts_tree_set_extra(parser->lookahead);
-  shift(parser, 0);
+  shift(parser, state);
 }
 
 static TSTree * reduce_helper(TSParser *parser, TSSymbol symbol, size_t child_count, bool extra, bool count_extra) {
@@ -319,8 +316,6 @@ void ts_parser_set_debugger(TSParser *parser, TSDebugger debugger) {
 
 const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
                               TSInputEdit *edit) {
-  parser->lookahead = NULL;
-
   TSLength position;
   if (edit) {
     DEBUG("edit pos:%lu, inserted:%lu, deleted:%lu", edit->position,
@@ -332,16 +327,15 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
     position = ts_length_zero();
   }
 
+  parser->lookahead = NULL;
   parser->lexer.input = input;
   ts_lexer_reset(&parser->lexer, position);
 
   for (;;) {
     TSStateId state = ts_stack_top_state(&parser->stack);
     if (!parser->lookahead)
-      parser->lookahead =
-          get_next_node(parser, parser->language->lex_states[state]);
-    TSParseAction action =
-        get_action(parser->language, state, parser->lookahead->symbol);
+      parser->lookahead = get_next_node(parser, parser->language->lex_states[state]);
+    TSParseAction action = get_action(parser->language, state, parser->lookahead->symbol);
 
     DEBUG("lookahead state:%d, sym:%s", state, SYM_NAME(parser->lookahead->symbol));
     switch (action.type) {
@@ -358,7 +352,7 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
 
       case TSParseActionTypeShiftExtra:
         DEBUG("shift_extra");
-        shift_extra(parser);
+        shift_extra(parser, state);
         break;
 
       case TSParseActionTypeReduce:
