@@ -4,7 +4,7 @@
 #include "runtime/length.h"
 
 enum {
-  stateA, stateB, stateC, stateD, stateE, stateF, stateG, stageH
+  stateA, stateB, stateC, stateD, stateE, stateF, stateG, stateH
 };
 
 enum {
@@ -187,7 +187,7 @@ describe("ParseStack", [&]() {
         AssertThat(merged, IsTrue());
       });
 
-      it("re-joins the heads, creating an 'ambiguity' node", [&]() {
+      it("re-joins the heads, creating an ambiguity node", [&]() {
         AssertThat(ts_parse_stack_head_count(stack), Equals(1));
 
         ParseStackNode *head = ts_parse_stack_head(stack, 0);
@@ -210,6 +210,38 @@ describe("ParseStack", [&]() {
           })),
           symbol_names)));
         AssertThat(head->successor_count, Equals(1));
+      });
+    });
+
+    describe("when a head with multiple paths is reduced", [&]() {
+      before_each([&]() {
+        //  A0__B1__C2__D3__G5
+        //   \______E4__F3__/
+        ts_parse_stack_shift(stack, 0, stateG, trees[5]);
+        ts_parse_stack_shift(stack, 1, stateG, trees[5]);
+      });
+
+      it("reduces along all paths, creating an ambiguity node", [&]() {
+        //  A0__B1__C2__H6
+        //   \______E4__/
+        ts_parse_stack_reduce(stack, 0, stateH, symbol6, 2);
+        AssertThat(ts_parse_stack_head_count(stack), Equals(1));
+
+        ParseStackNode *head = ts_parse_stack_head(stack, 0);
+        AssertThat(head->state, Equals(stateH));
+        AssertThat(head->tree, Fulfills(EqualsTree(
+          ts_tree_make_ambiguity(2, tree_array({
+            ts_tree_make_node(symbol6, 2, tree_array({
+              trees[3],
+              trees[5],
+            }), false),
+            ts_tree_make_node(symbol6, 2, tree_array({
+              trees[3],
+              trees[5],
+            }), false)
+          })),
+          symbol_names)));
+        AssertThat(head->successor_count, Equals(2));
       });
     });
   });
