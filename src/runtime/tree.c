@@ -153,6 +153,12 @@ TSLength ts_tree_total_size(const TSTree *tree) {
 }
 
 bool ts_tree_eq(const TSTree *node1, const TSTree *node2) {
+  if (node1) {
+    if (!node2) return false;
+  } else {
+    return !node2;
+  }
+
   if (node1->symbol != node2->symbol)
     return false;
   if (node1->symbol == ts_builtin_sym_error)

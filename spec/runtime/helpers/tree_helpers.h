@@ -5,6 +5,8 @@
 #include <vector>
 #include <string>
 
+extern const char *symbol_names[12];
+
 TSTree ** tree_array(std::vector<TSTree *> trees);
 
 struct EqualsTree {
@@ -15,5 +17,6 @@ struct EqualsTree {
 };
 
 std::ostream &operator<<(std::ostream &stream, const EqualsTree &matcher);
+std::ostream &operator<<(std::ostream &stream, const TSTree *tree);
 
 #endif  // HELPERS_TREE_HELPERS_H_

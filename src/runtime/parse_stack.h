@@ -9,23 +9,73 @@ extern "C" {
 
 typedef struct ParseStack ParseStack;
 
-typedef struct ParseStackNode {
+typedef struct {
   TSTree *tree;
   TSStateId state;
-  struct ParseStackNode *successors[4];
-  short unsigned int successor_count;
-  short unsigned int ref_count;
-} ParseStackNode;
+} ParseStackEntry;
 
+typedef struct {
+  int index;
+  int tree_count;
+  TSTree **trees;
+} ParseStackPopResult;
+
+typedef struct {
+  int size;
+  ParseStackPopResult *contents;
+} ParseStackPopResultList;
+
+/*
+ *  Create a ParseStack.
+ */
 ParseStack *ts_parse_stack_new();
+
+/*
+ *  Release any resources reserved by a parse stack.
+ */
 void ts_parse_stack_delete(ParseStack *);
 
-ParseStackNode *ts_parse_stack_head(const ParseStack *, int);
+/*
+ *  Get the stack's current number of heads.
+ */
 int ts_parse_stack_head_count(const ParseStack *);
 
-bool ts_parse_stack_shift(ParseStack *, int, TSStateId, TSTree *);
-bool ts_parse_stack_reduce(ParseStack *, int, TSStateId, TSSymbol, int);
-int ts_parse_stack_split(ParseStack *, int);
+/*
+ *  Get the tree and state that are at the top of the given stack head.
+ */
+const ParseStackEntry *ts_parse_stack_head(const ParseStack *, int head);
+
+/*
+ *  Get the number of successors for a given parse stack entry.
+ */
+int ts_parse_stack_entry_next_count(const ParseStackEntry *);
+
+/*
+ *  Get the nth successor to a given parse stack entry.
+ */
+const ParseStackEntry *ts_parse_stack_entry_next(const ParseStackEntry *, int);
+
+/*
+ *  Push a (tree, state) pair onto the given head of the stack. Returns
+ *  a boolean indicating whether the stack head was merged with an
+ *  existing head.
+ */
+bool ts_parse_stack_push(ParseStack *, int head, TSStateId, TSTree *);
+
+/*
+ *  Pop the given number of entries from the given head of the stack. This
+ *  operation can increase the number of stack heads by revealing multiple heads
+ *  which had previously been merged. It returns a struct that indicates the
+ *  index of each revealed head and the trees removed from that head.
+ */
+ParseStackPopResultList ts_parse_stack_pop(ParseStack *, int head, int count);
+
+/*
+ *  Split the given stack head into two heads, so that the stack can be
+ *  transformed from its current state in multiple alternative ways. Returns
+ *  the index of the newly-created head.
+ */
+int ts_parse_stack_split(ParseStack *, int head);
 
 #ifdef __cplusplus
 }
