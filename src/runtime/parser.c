@@ -269,7 +269,6 @@ static int handle_error(TSParser *parser) {
      *  were consumed, advance the lexer to the next character.
      */
     DEBUG("skip_token");
-    TSLength prev_position = parser->lexer.current_position;
     if (parser->lookahead)
       ts_tree_release(parser->lookahead);
     parser->lookahead = get_next_node(parser, ts_lex_state_error);
@@ -278,15 +277,14 @@ static int handle_error(TSParser *parser) {
      *  If the current lookahead character cannot be the start of any token,
      *  just skip it. If the end of input is reached, exit.
      */
-    if (ts_length_eq(parser->lexer.current_position, prev_position))
-      if (!parser->lexer.advance_fn(&parser->lexer, 0)) {
-        DEBUG("fail_to_recover");
+    if (parser->lookahead->symbol == ts_builtin_sym_end) {
+      DEBUG("fail_to_recover");
 
-        resize_error(parser, error);
-        ts_stack_push(&parser->stack, 0, error);
-        ts_tree_release(error);
-        return 0;
-      }
+      resize_error(parser, error);
+      ts_stack_push(&parser->stack, 0, error);
+      ts_tree_release(error);
+      return 0;
+    }
   }
 }
 

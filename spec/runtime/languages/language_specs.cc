@@ -26,6 +26,7 @@ describe("Languages", [&]() {
     describe(language_name.c_str(), [&]() {
       before_each([&]() {
         ts_document_set_language(doc, language);
+        // ts_document_set_debugger(doc, log_debugger_make());
       });
 
       for (auto &entry : test_entries_for_language(language_name)) {

@@ -74,6 +74,7 @@ struct TSLanguage {
  */
 
 #define START_LEXER()                \
+  const bool error_mode = (lex_state == ts_lex_state_error); \
   lexer->start_fn(lexer, lex_state); \
   int32_t lookahead;                 \
   next_state:                        \
@@ -81,18 +82,31 @@ struct TSLanguage {
 
 #define START_TOKEN() lexer->start_token_fn(lexer);
 
+#define GO_TO_STATE(state_index)           \
+  {                                        \
+    lex_state = state_index;               \
+    goto next_state;                       \
+  }
+
 #define ADVANCE(state_index)               \
   {                                        \
     lexer->advance_fn(lexer, state_index); \
-    lex_state = state_index;               \
-    goto next_state;                       \
+    GO_TO_STATE(state_index);              \
   }
 
 #define ACCEPT_TOKEN(symbol)                                             \
   return lexer->accept_fn(lexer, symbol, ts_hidden_symbol_flags[symbol], \
                           ts_symbol_names[symbol]);
 
-#define LEX_ERROR() ACCEPT_TOKEN(ts_builtin_sym_error);
+#define LEX_ERROR()                        \
+  if (error_mode) {                        \
+    if (lex_state == ts_lex_state_error)   \
+      ADVANCE(ts_lex_state_error)          \
+    else                                   \
+      GO_TO_STATE(ts_lex_state_error)      \
+  } else {                                 \
+    ACCEPT_TOKEN(ts_builtin_sym_error)     \
+  }
 
 /*
  *  Parse Table Macros

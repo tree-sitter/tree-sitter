@@ -42,6 +42,7 @@ static void read_lookahead(TSLexer *lexer) {
 
 static void start(TSLexer *lexer, TSStateId lex_state) {
   DEBUG("start_lex state:%d", lex_state);
+  DEBUG_LOOKAHEAD();
 }
 
 static void start_token(TSLexer *lexer) {
@@ -76,7 +77,6 @@ static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden,
   lexer->token_end_position = lexer->current_position;
 
   if (symbol == ts_builtin_sym_error) {
-    DEBUG_LOOKAHEAD();
     DEBUG("error_char");
     return ts_tree_make_error(size, padding, lexer->lookahead);
   } else {
