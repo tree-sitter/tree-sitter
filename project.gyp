@@ -114,6 +114,9 @@
       'cflags_c': [
         '-std=c99'
       ],
+      'ldflags': [
+        '-g',
+      ],
       'direct_dependent_settings': {
         'include_dirs': [
           'include'
@@ -127,6 +130,11 @@
     'configurations': {
       'Debug': {
         'cflags': [ '-g' ],
+        'ldflags': [ '-g' ],
+        'xcode_settings': {
+          'OTHER_LDFLAGS': ['-g'],
+          'GCC_OPTIMIZATION_LEVEL': '0',
+        },
       },
       'Release': {
         'cflags': [ '-O2', '-fno-strict-aliasing' ],
