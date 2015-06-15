@@ -56,15 +56,21 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
    *  Mark the tree as hidden if it wraps a single child node.
    */
   TSTreeOptions options = 0;
-  if (is_hidden)
-    options |= TSTreeOptionsHidden;
-  if (child_count == 1 &&
-      (ts_tree_is_visible(children[0]) || ts_tree_is_wrapper(children[0])))
-    options |= (TSTreeOptionsWrapper | TSTreeOptionsHidden);
-  if (child_count > 0 && ts_tree_is_fragile_left(children[0]))
-    options |= (TSTreeOptionsFragileLeft);
-  if (child_count > 0 && ts_tree_is_fragile_right(children[child_count - 1]))
-    options |= (TSTreeOptionsFragileRight);
+  if (symbol == ts_builtin_sym_error) {
+    options |= (TSTreeOptionsFragileLeft | TSTreeOptionsFragileRight);
+  } else {
+    if (is_hidden)
+      options |= TSTreeOptionsHidden;
+    if (child_count == 1 &&
+        (ts_tree_is_visible(children[0]) || ts_tree_is_wrapper(children[0])))
+      options |= (TSTreeOptionsWrapper | TSTreeOptionsHidden);
+    if (child_count > 0) {
+      if (ts_tree_is_fragile_left(children[0]))
+        options |= (TSTreeOptionsFragileLeft);
+      if (ts_tree_is_fragile_right(children[child_count - 1]))
+        options |= (TSTreeOptionsFragileRight);
+    }
+  }
 
   /*
    *  Store the visible child array adjacent to the tree itself. This avoids
@@ -162,7 +168,7 @@ TSTree **ts_tree_children(const TSTree *tree, size_t *count) {
 }
 
 TSTreeChild *ts_tree_visible_children(const TSTree *tree, size_t *count) {
-  if (tree->symbol == ts_builtin_sym_error) {
+  if (tree->child_count == 0) {
     if (count)
       *count = 0;
     return NULL;
@@ -196,13 +202,14 @@ static size_t tree_write_to_string(const TSTree *tree, const char **symbol_names
     cursor += snprintf(*writer, limit, " ");
 
   if (visible) {
-    if (tree->symbol == ts_builtin_sym_error) {
-      cursor += snprintf(*writer, limit, "(ERROR ");
+    if (tree->symbol == ts_builtin_sym_error && tree->child_count == 0) {
+      cursor += snprintf(*writer, limit, "(UNEXPECTED ");
       cursor += write_lookahead_to_string(*writer, limit, tree->lookahead_char);
     } else {
       cursor += snprintf(*writer, limit, "(%s", symbol_names[tree->symbol]);
     }
   }
+
 
   for (size_t i = 0; i < tree->child_count; i++) {
     TSTree *child = tree->children[i];

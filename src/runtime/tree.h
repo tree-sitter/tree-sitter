@@ -21,10 +21,10 @@ struct TSTree {
   TSTreeOptions options;
   TSLength padding;
   TSLength size;
+  size_t child_count;
   union {
     struct {
       struct TSTree **children;
-      size_t child_count;
       size_t visible_child_count;
     };
     char lookahead_char;
@@ -84,6 +84,10 @@ char *ts_tree_error_string(const TSTree *tree, const char **names);
 TSTree **ts_tree_children(const TSTree *tree, size_t *count);
 TSTreeChild *ts_tree_visible_children(const TSTree *tree, size_t *count);
 TSLength ts_tree_total_size(const TSTree *tree);
+
+static inline bool ts_tree_is_empty(TSTree *tree) {
+  return ts_tree_total_size(tree).bytes == 0;
+}
 
 #ifdef __cplusplus
 }

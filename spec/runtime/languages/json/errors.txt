@@ -6,7 +6,7 @@ top-level errors
 
 ---
 
-(ERROR '}')
+(ERROR (UNEXPECTED '}'))
 
 ==========================================
 unexpected tokens
@@ -16,7 +16,7 @@ barf
 
 ---
 
-(ERROR 'b')
+(ERROR (UNEXPECTED 'b'))
 
 ==========================================
 errors inside arrays
@@ -27,7 +27,7 @@ errors inside arrays
 ---
 (array
     (number)
-    (ERROR ',')
+    (ERROR (UNEXPECTED ','))
     (number))
 
 ==========================================
@@ -38,7 +38,7 @@ errors inside objects
 
 ---
 
-(object (string) (number) (ERROR 'o'))
+(object (string) (number) (ERROR (UNEXPECTED 'o')))
 
 ==========================================
 errors inside nested objects
@@ -49,6 +49,8 @@ errors inside nested objects
 ---
 
 (object
-    (string) (object (string) (number) (ERROR '2'))
-    (ERROR '[')
+    (string) (object
+      (string) (number)
+      (ERROR (UNEXPECTED '2') (number)))
+    (ERROR (UNEXPECTED '['))
     (string) (number))

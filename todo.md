@@ -14,7 +14,6 @@ TODO
     of their parent node.
 
 * Error handling
-  * Preserve tokens within error nodes
   * Try to minimize size of error node by looking ahead a few tokens
 
 * Grammar Features

@@ -6,7 +6,7 @@ x * * y
 
 ---
 
-(variable) (ERROR '*')
+(variable) (ERROR (UNEXPECTED '*') (variable))
 
 =====================================================
 errors inside parenthesized expressions
@@ -17,5 +17,6 @@ x + (y * + z) * 5
 ---
 
 (sum
-    (variable)
-    (product (group (ERROR '+')) (number)))
+  (variable)
+  (product
+    (group (ERROR (variable) (UNEXPECTED '+') (variable))) (number)))

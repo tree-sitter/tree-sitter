@@ -76,13 +76,13 @@ describe("Parser", [&]() {
         set_text("  [123,  @@@@@,   true]");
 
         AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (array (number) (ERROR '@') (true)))"));
+            "(DOCUMENT (array (number) (ERROR (UNEXPECTED '@')) (true)))"));
 
         TSNode *array = ts_node_child(root, 0);
         TSNode *error = ts_node_child(array, 1);
         TSNode *last = ts_node_child(array, 2);
 
-        AssertThat(ts_node_name(error), Equals("error"));
+        AssertThat(ts_node_name(error), Equals("ERROR"));
         AssertThat(ts_node_pos(error).bytes, Equals(strlen("  [123,  ")))
         AssertThat(ts_node_size(error).bytes, Equals(strlen("@@@@@")))
 
@@ -100,13 +100,13 @@ describe("Parser", [&]() {
         set_text("  [123, faaaaalse, true]");
 
         AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (array (number) (ERROR 'a') (true)))"));
+            "(DOCUMENT (array (number) (ERROR (UNEXPECTED 'a')) (true)))"));
 
         TSNode *array = ts_node_child(root, 0);
         TSNode *error = ts_node_child(array, 1);
         TSNode *last = ts_node_child(array, 2);
 
-        AssertThat(ts_node_name(error), Equals("error"));
+        AssertThat(ts_node_name(error), Equals("ERROR"));
         AssertThat(ts_node_pos(error).bytes, Equals(strlen("  [123, ")))
         AssertThat(ts_node_size(error).bytes, Equals(strlen("faaaaalse")))
 
@@ -124,13 +124,13 @@ describe("Parser", [&]() {
         set_text("  [123, true false, true]");
 
         AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (array (number) (ERROR 'f') (true)))"));
+            "(DOCUMENT (array (number) (ERROR (true) (UNEXPECTED 'f') (false)) (true)))"));
 
         TSNode *array = ts_node_child(root, 0);
         TSNode *error = ts_node_child(array, 1);
         TSNode *last = ts_node_child(array, 2);
 
-        AssertThat(ts_node_name(error), Equals("error"));
+        AssertThat(ts_node_name(error), Equals("ERROR"));
         AssertThat(ts_node_pos(error).bytes, Equals(strlen("  [123, ")));
         AssertThat(ts_node_size(error).bytes, Equals(strlen("true false")));
 
@@ -148,13 +148,13 @@ describe("Parser", [&]() {
         set_text("  [123, , true]");
 
         AssertThat(ts_node_string(root), Equals(
-            "(DOCUMENT (array (number) (ERROR ',') (true)))"));
+            "(DOCUMENT (array (number) (ERROR (UNEXPECTED ',')) (true)))"));
 
         TSNode *array = ts_node_child(root, 0);
         TSNode *error = ts_node_child(array, 1);
         TSNode *last = ts_node_child(array, 2);
 
-        AssertThat(ts_node_name(error), Equals("error"));
+        AssertThat(ts_node_name(error), Equals("ERROR"));
         AssertThat(ts_node_pos(error).bytes, Equals(strlen("  [123, ")));
         AssertThat(ts_node_size(error).bytes, Equals<size_t>(0))
 
@@ -286,32 +286,13 @@ describe("Parser", [&]() {
           insert_text(strlen("var x = y"), " *");
 
           AssertThat(ts_node_string(root), Equals(
-              "(DOCUMENT (var_declaration (ERROR ';')))"));
+              "(DOCUMENT (var_declaration (ERROR (identifier) (identifier) (UNEXPECTED ';'))))"));
 
           insert_text(strlen("var x = y *"), " z");
 
           AssertThat(ts_node_string(root), Equals(
               "(DOCUMENT (var_declaration (var_assignment "
                   "(identifier) (math_op (identifier) (identifier)))))"));
-        });
-      });
-
-      describe("fixing an error", [&]() {
-        it("doesn't try to reuse the error node", [&]() {
-          ts_document_set_language(doc, ts_language_javascript());
-          set_text(
-              "var y = z\n"
-              "var x = y;");
-
-          AssertThat(ts_node_string(root), Equals(
-              "(DOCUMENT (program "
-                  "(var_declaration (var_assignment (identifier) (identifier))) "
-                  "(var_declaration (var_assignment (identifier) (identifier)))))"));
-
-          delete_text(strlen("var y = "), 1);
-
-          AssertThat(ts_node_string(root), Equals(
-              "(DOCUMENT (var_declaration (ERROR 'x')))"));
         });
       });
 
@@ -411,7 +392,7 @@ describe("Parser", [&]() {
 
         it("updates the parse tree, creating an error", [&]() {
           AssertThat(ts_node_string(root), Equals(
-              "(DOCUMENT (number) (ERROR '4'))"));
+              "(DOCUMENT (number) (ERROR (UNEXPECTED '4') (number)))"));
         });
       });
     });
