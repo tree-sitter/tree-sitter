@@ -328,9 +328,9 @@ class CCodeGenerator {
   string symbol_name(const rules::Symbol &symbol) {
     if (symbol.is_built_in()) {
       if (symbol == rules::ERROR())
-        return "error";
+        return "ERROR";
       else if (symbol == rules::END_OF_INPUT())
-        return "end";
+        return "END";
       else
         return "DOCUMENT";
     } else {
