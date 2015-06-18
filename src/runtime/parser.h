@@ -6,10 +6,11 @@ extern "C" {
 #endif
 
 #include "runtime/stack.h"
+#include "runtime/parse_stack.h"
 
 typedef struct {
   TSLexer lexer;
-  TSStack stack;
+  ParseStack *stack;
   TSStack right_stack;
   size_t total_chars;
   TSTree *lookahead;

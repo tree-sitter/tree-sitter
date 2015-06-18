@@ -72,7 +72,7 @@ describe("ParseStack", [&]() {
     /*
      *  A0.
      */
-    pop = ts_parse_stack_pop(stack, 0, 2);
+    pop = ts_parse_stack_pop(stack, 0, 2, false);
     AssertThat(pop.size, Equals(1));
     AssertThat(pop.contents[0].tree_count, Equals(2));
     AssertThat(pop.contents[0].trees[0], Equals(trees[1]));
@@ -82,7 +82,7 @@ describe("ParseStack", [&]() {
     /*
      *  .
      */
-    pop = ts_parse_stack_pop(stack, 0, 1);
+    pop = ts_parse_stack_pop(stack, 0, 1, false);
     AssertThat(pop.size, Equals(1));
     AssertThat(pop.contents[0].tree_count, Equals(1));
     AssertThat(pop.contents[0].trees[0], Equals(trees[0]));
@@ -95,7 +95,7 @@ describe("ParseStack", [&]() {
     ts_parse_stack_push(stack, 0, stateC, trees[2]);
     ts_tree_set_extra(trees[1]);
 
-    pop = ts_parse_stack_pop(stack, 0, 2);
+    pop = ts_parse_stack_pop(stack, 0, 2, false);
     AssertThat(pop.size, Equals(1));
     AssertThat(pop.contents[0].tree_count, Equals(3));
     AssertThat(pop.contents[0].trees[0], Equals(trees[0]));
@@ -121,7 +121,7 @@ describe("ParseStack", [&]() {
      *       \.
      */
     ts_parse_stack_push(stack, 0, stateD, trees[3]);
-    ts_parse_stack_pop(stack, 1, 1);
+    ts_parse_stack_pop(stack, 1, 1, false);
 
     AssertThat(ts_parse_stack_head_count(stack), Equals(2));
     AssertThat(*ts_parse_stack_head(stack, 0), Equals<ParseStackEntry>({trees[3], stateD}));
@@ -139,6 +139,20 @@ describe("ParseStack", [&]() {
     AssertThat(*ts_parse_stack_head(stack, 1), Equals<ParseStackEntry>({trees[3], stateF}));
   });
 
+  it("pops the entire stack when given a negative count", [&]() {
+    ts_parse_stack_push(stack, 0, stateA, trees[0]);
+    ts_parse_stack_push(stack, 0, stateB, trees[1]);
+    ts_parse_stack_push(stack, 0, stateC, trees[2]);
+
+    pop = ts_parse_stack_pop(stack, 0, -1, false);
+
+    AssertThat(pop.size, Equals(1));
+    AssertThat(pop.contents[0].tree_count, Equals(3));
+    AssertThat(pop.contents[0].trees[0], Equals(trees[0]));
+    AssertThat(pop.contents[0].trees[1], Equals(trees[1]));
+    AssertThat(pop.contents[0].trees[2], Equals(trees[2]));
+  });
+
   describe("when same state is pushed onto two heads", [&]() {
     before_each([&]() {
       /*
@@ -154,7 +168,7 @@ describe("ParseStack", [&]() {
        */
       ts_parse_stack_split(stack, 0);
       ts_parse_stack_push(stack, 0, stateD, trees[3]);
-      ts_parse_stack_pop(stack, 1, 1);
+      ts_parse_stack_pop(stack, 1, 1, false);
       ts_parse_stack_push(stack, 1, stateE, trees[4]);
       ts_parse_stack_push(stack, 1, stateF, trees[5]);
 
@@ -185,7 +199,7 @@ describe("ParseStack", [&]() {
          *  A0__B1__C2.
          *       \__E4.
          */
-        pop = ts_parse_stack_pop(stack, 0, 2);
+        pop = ts_parse_stack_pop(stack, 0, 2, false);
 
         AssertThat(pop.size, Equals(2));
         AssertThat(pop.contents[0].tree_count, Equals(2));

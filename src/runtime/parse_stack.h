@@ -41,19 +41,31 @@ void ts_parse_stack_delete(ParseStack *);
 int ts_parse_stack_head_count(const ParseStack *);
 
 /*
- *  Get the tree and state that are at the top of the given stack head.
+ *  Get the state at given head of the stack. If the stack is empty, this
+ *  returns the initial state (0).
  */
-const ParseStackEntry *ts_parse_stack_head(const ParseStack *, int head);
+TSStateId ts_parse_stack_top_state(const ParseStack *, int head);
 
 /*
- *  Get the number of successors for a given parse stack entry.
+ *  Get the tree at given head of the stack. If the stack is empty, this
+ *  returns NULL.
+ */
+TSTree *ts_parse_stack_top_tree(const ParseStack *, int head);
+
+/*
+ *  Get the entry at the given head of the stack.
+ */
+ParseStackEntry *ts_parse_stack_head(ParseStack *, int head);
+
+/*
+ *  Get the number of successors for the parse stack entry.
  */
 int ts_parse_stack_entry_next_count(const ParseStackEntry *);
 
 /*
- *  Get the nth successor to a given parse stack entry.
+ *  Get the given successor for the parse stack entry.
  */
-const ParseStackEntry *ts_parse_stack_entry_next(const ParseStackEntry *, int);
+ParseStackEntry *ts_parse_stack_entry_next(const ParseStackEntry *, int);
 
 /*
  *  Push a (tree, state) pair onto the given head of the stack. Returns
@@ -68,7 +80,12 @@ bool ts_parse_stack_push(ParseStack *, int head, TSStateId, TSTree *);
  *  which had previously been merged. It returns a struct that indicates the
  *  index of each revealed head and the trees removed from that head.
  */
-ParseStackPopResultList ts_parse_stack_pop(ParseStack *, int head, int count);
+ParseStackPopResultList ts_parse_stack_pop(ParseStack *, int head, int count, bool count_extra);
+
+/*
+ *  Remove the given number of entries from the given head of the stack.
+ */
+void ts_parse_stack_shrink(ParseStack *, int head, int count);
 
 /*
  *  Split the given stack head into two heads, so that the stack can be
@@ -76,6 +93,11 @@ ParseStackPopResultList ts_parse_stack_pop(ParseStack *, int head, int count);
  *  the index of the newly-created head.
  */
 int ts_parse_stack_split(ParseStack *, int head);
+
+/*
+ *  Remove all entries from the stack.
+ */
+void ts_parse_stack_clear(ParseStack *);
 
 #ifdef __cplusplus
 }

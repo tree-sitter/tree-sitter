@@ -7,6 +7,7 @@
 
 #define MAX_POP_PATH_COUNT 8
 #define INITIAL_HEAD_CAPACITY 3
+#define STARTING_TREE_CAPACITY 10
 
 typedef struct ParseStackNode {
   ParseStackEntry entry;
@@ -45,7 +46,17 @@ void ts_parse_stack_delete(ParseStack *this) {
  *  Section: Reading from the stack
  */
 
-const ParseStackEntry *ts_parse_stack_head(const ParseStack *this, int head) {
+TSStateId ts_parse_stack_top_state(const ParseStack *this, int head) {
+  ParseStackEntry *entry = ts_parse_stack_head((ParseStack *)this, head);
+  return entry ? entry->state : 0;
+}
+
+TSTree *ts_parse_stack_top_tree(const ParseStack *this, int head) {
+  ParseStackEntry *entry = ts_parse_stack_head((ParseStack *)this, head);
+  return entry ? entry->tree : NULL;
+}
+
+ParseStackEntry *ts_parse_stack_head(ParseStack *this, int head) {
   assert(head < this->head_count);
   ParseStackNode *node = this->heads[head];
   return node ? &node->entry : NULL;
@@ -59,7 +70,7 @@ int ts_parse_stack_entry_next_count(const ParseStackEntry *entry) {
   return ((const ParseStackNode *)entry)->successor_count;
 }
 
-const ParseStackEntry *ts_parse_stack_entry_next(const ParseStackEntry *entry, int i) {
+ParseStackEntry *ts_parse_stack_entry_next(const ParseStackEntry *entry, int i) {
   return &((const ParseStackNode *)entry)->successors[i]->entry;
 }
 
@@ -175,13 +186,14 @@ int ts_parse_stack_split(ParseStack *this, int head_index) {
   return ts_parse_stack_add_head(this, this->heads[head_index]);
 }
 
-ParseStackPopResultList ts_parse_stack_pop(ParseStack *this, int head_index, int child_count) {
+ParseStackPopResultList ts_parse_stack_pop(ParseStack *this, int head_index, int child_count, bool count_extra) {
   ParseStackNode *previous_head = this->heads[head_index];
 
   int path_count = 1;
+  int capacity = (child_count == -1) ? STARTING_TREE_CAPACITY : child_count;
   size_t tree_counts_by_path[MAX_POP_PATH_COUNT] = {child_count};
-  TreeVector trees_by_path[MAX_POP_PATH_COUNT] = {tree_vector_new(child_count)};
   ParseStackNode *nodes_by_path[MAX_POP_PATH_COUNT] = {previous_head};
+  TreeVector trees_by_path[MAX_POP_PATH_COUNT] = {tree_vector_new(capacity)};
 
   /*
    *  Reduce along every possible path in parallel. Stop when the given number
@@ -192,16 +204,15 @@ ParseStackPopResultList ts_parse_stack_pop(ParseStack *this, int head_index, int
     all_paths_done = true;
     int current_path_count = path_count;
     for (int path = 0; path < current_path_count; path++) {
-      if (trees_by_path[path].size == tree_counts_by_path[path])
+      ParseStackNode *node = nodes_by_path[path];
+      if (!node || (trees_by_path[path].size == tree_counts_by_path[path]))
         continue;
-      else
-        all_paths_done = false;
+      all_paths_done = false;
 
       /*
        *  Children that are 'extra' do not count towards the total child count.
        */
-      ParseStackNode *node = nodes_by_path[path];
-      if (ts_tree_is_extra(node->entry.tree))
+      if (ts_tree_is_extra(node->entry.tree) && !count_extra)
         tree_counts_by_path[path]++;
 
       /*
@@ -250,4 +261,23 @@ ParseStackPopResultList ts_parse_stack_pop(ParseStack *this, int head_index, int
     .size = path_count,
     .contents = this->last_pop_results,
   };
+}
+
+void ts_parse_stack_shrink(ParseStack *this, int head_index, int count) {
+  ParseStackNode *head = this->heads[head_index];
+  ParseStackNode *new_head = head;
+  for (int i = 0; i < count; i++) {
+    if (new_head->successor_count == 0) break;
+    new_head = new_head->successors[0];
+  }
+  stack_node_retain(new_head);
+  stack_node_release(head);
+  this->heads[head_index] = new_head;
+}
+
+void ts_parse_stack_clear(ParseStack *this) {
+  for (int i = 0; i < this->head_count; i++)
+    stack_node_release(this->heads[i]);
+  this->head_count = 1;
+  this->heads[0] = NULL;
 }
