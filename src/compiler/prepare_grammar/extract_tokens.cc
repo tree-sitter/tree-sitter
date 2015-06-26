@@ -100,7 +100,7 @@ static tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> ubiq_token_err
 }
 
 tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
-    const Grammar &grammar) {
+    const InternedGrammar &grammar) {
   vector<pair<string, rule_ptr>> rules, tokens;
   vector<rule_ptr> separators;
   set<Symbol> ubiquitous_tokens;
@@ -109,7 +109,7 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
   TokenExtractor extractor;
 
   size_t i = 0;
-  for (auto &pair : grammar.rules()) {
+  for (auto &pair : grammar.rules) {
     if (is_token(pair.second)) {
       tokens.push_back(pair);
       symbol_replacer.replacements.insert(
@@ -123,7 +123,7 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
   for (auto &pair : rules)
     pair.second = symbol_replacer.apply(pair.second);
 
-  for (auto &rule : grammar.ubiquitous_tokens()) {
+  for (auto &rule : grammar.ubiquitous_tokens) {
     if (is_token(rule)) {
       separators.push_back(rule);
     } else {
@@ -139,7 +139,15 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
     }
   }
 
-  return make_tuple(SyntaxGrammar(rules, {}, ubiquitous_tokens),
+  set<set<rules::Symbol>> expected_conflicts;
+  for (auto &symbol_set : grammar.expected_conflicts) {
+    set<Symbol> new_symbol_set;
+    for (const Symbol &symbol : symbol_set)
+      new_symbol_set.insert(symbol_replacer.replace_symbol(symbol));
+    expected_conflicts.insert(new_symbol_set);
+  }
+
+  return make_tuple(SyntaxGrammar(rules, {}, ubiquitous_tokens, expected_conflicts),
                     LexicalGrammar(tokens, extractor.tokens, separators),
                     nullptr);
 }

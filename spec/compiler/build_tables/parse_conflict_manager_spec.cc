@@ -16,7 +16,7 @@ describe("ParseConflictManager", []() {
     { "reduced_rule", i_token(0) },
     { "other_rule1", i_token(0) },
     { "other_rule2", i_token(0) },
-  }, {}, { Symbol(2, SymbolOptionToken) });
+  }, {}, { Symbol(2, SymbolOptionToken) }, set<set<Symbol>>());
 
   LexicalGrammar lexical_grammar({
     { "other_token", pattern("[a-b]") },

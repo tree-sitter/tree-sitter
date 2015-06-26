@@ -78,7 +78,8 @@ SyntaxGrammar expand_repeats(const SyntaxGrammar &grammar) {
   aux_rules.insert(aux_rules.end(), expander.aux_rules.begin(),
                    expander.aux_rules.end());
 
-  return SyntaxGrammar(rules, aux_rules, grammar.ubiquitous_tokens);
+  return SyntaxGrammar(rules, aux_rules, grammar.ubiquitous_tokens,
+                       grammar.expected_conflicts);
 }
 
 }  // namespace prepare_grammar

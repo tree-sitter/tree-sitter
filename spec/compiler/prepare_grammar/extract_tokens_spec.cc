@@ -1,6 +1,7 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/syntax_grammar.h"
+#include "compiler/prepare_grammar/interned_grammar.h"
 #include "compiler/prepare_grammar/extract_tokens.h"
 #include "compiler/helpers/containers.h"
 
@@ -8,13 +9,16 @@ START_TEST
 
 using namespace rules;
 using prepare_grammar::extract_tokens;
+using prepare_grammar::InternedGrammar;
 
 describe("extract_tokens", []() {
+  const set<rules::rule_ptr> no_ubiquitous_tokens;
+  const set<set<rules::Symbol>> no_expected_conflicts;
+
   it("moves string rules into the lexical grammar", [&]() {
-    tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> result =
-        extract_tokens(Grammar({
-            { "rule_A", seq({ str("ab"), i_sym(0) }) }
-        }));
+    auto result = extract_tokens(InternedGrammar{{
+        { "rule_A", seq({ str("ab"), i_sym(0) }) }
+    }, no_ubiquitous_tokens, no_expected_conflicts});
 
     AssertThat(get<0>(result).rules, Equals(rule_list({
         { "rule_A", seq({ i_aux_token(0), i_sym(0) }) }
@@ -28,9 +32,9 @@ describe("extract_tokens", []() {
   });
 
   it("moves pattern rules into the lexical grammar", [&]() {
-    auto result = extract_tokens(Grammar({
+    auto result = extract_tokens(InternedGrammar{{
         { "rule_A", seq({ pattern("a+"), i_sym(0) }) }
-    }));
+    }, no_ubiquitous_tokens, no_expected_conflicts});
 
     AssertThat(get<0>(result).rules, Equals(rule_list({
         { "rule_A", seq({ i_aux_token(0), i_sym(0) }) }
@@ -44,11 +48,11 @@ describe("extract_tokens", []() {
   });
 
   it("moves other rules marked as tokens into the lexical grammar", [&]() {
-    auto result = extract_tokens(Grammar({
+    auto result = extract_tokens(InternedGrammar{{
         { "rule_A", seq({
             token(seq({ pattern("."), choice({ str("a"), str("b") }) })),
             i_sym(0) }) }
-    }));
+    }, no_ubiquitous_tokens, no_expected_conflicts});
 
     AssertThat(get<0>(result).rules, Equals(rule_list({
         { "rule_A", seq({ i_aux_token(0), i_sym(0) }) }
@@ -62,9 +66,9 @@ describe("extract_tokens", []() {
   });
 
   it("does not move blank rules", [&]() {
-    auto result = extract_tokens(Grammar({
+    auto result = extract_tokens(InternedGrammar{{
         { "rule_A", choice({ i_sym(0), blank() }) },
-    }));
+    }, no_ubiquitous_tokens, no_expected_conflicts});
 
     AssertThat(get<0>(result).rules, Equals(rule_list({
         { "rule_A", choice({ i_sym(0), blank() }) },
@@ -76,9 +80,9 @@ describe("extract_tokens", []() {
   });
 
   it("does not create duplicate tokens in the lexical grammar", [&]() {
-    auto result = extract_tokens(Grammar({
+    auto result = extract_tokens(InternedGrammar{{
         { "rule_A", seq({ str("ab"), i_sym(0), str("ab") }) },
-    }));
+    }, no_ubiquitous_tokens, no_expected_conflicts});
 
     AssertThat(get<0>(result).rules, Equals(rule_list({
         { "rule_A", seq({ i_aux_token(0), i_sym(0), i_aux_token(0) }) }
@@ -91,13 +95,31 @@ describe("extract_tokens", []() {
     })))
   });
 
+  it("updates the grammar's expected conflict symbols", [&]() {
+    auto result = extract_tokens(InternedGrammar{
+      {
+        { "rule_A", str("ok") },
+        { "rule_B", repeat(i_sym(0)) },
+        { "rule_C", repeat(seq({ i_sym(0), i_sym(0) })) },
+      },
+      { str(" ") },
+      { { Symbol(1), Symbol(2) } }
+    });
+
+    AssertThat(get<0>(result).rules.size(), Equals<size_t>(2));
+    AssertThat(get<1>(result).rules.size(), Equals<size_t>(1));
+    AssertThat(get<0>(result).expected_conflicts, Equals(set<set<Symbol>>({
+      { Symbol(0), Symbol(1) },
+    })));
+  });
+
   describe("when an entire rule can be extracted", [&]() {
     it("moves the rule the lexical grammar when possible and updates referencing symbols", [&]() {
-      auto result = extract_tokens(Grammar({
+      auto result = extract_tokens(InternedGrammar{{
           { "rule_A", i_sym(1) },
           { "rule_B", pattern("a|b") },
           { "rule_C", token(seq({ str("a"), str("b") })) },
-      }));
+      }, no_ubiquitous_tokens, no_expected_conflicts});
 
       AssertThat(get<0>(result).rules, Equals(rule_list({
           { "rule_A", i_token(0) }
@@ -112,11 +134,11 @@ describe("extract_tokens", []() {
     });
 
     it("updates symbols whose indices need to change due to deleted rules", [&]() {
-      auto result = extract_tokens(Grammar({
+      auto result = extract_tokens(InternedGrammar{{
           { "rule_A", str("ab") },
           { "rule_B", i_sym(0) },
           { "rule_C", i_sym(1) },
-      }));
+      }, no_ubiquitous_tokens, no_expected_conflicts});
 
       AssertThat(get<0>(result).rules, Equals(rule_list({
           { "rule_B", i_token(0) },
@@ -134,12 +156,12 @@ describe("extract_tokens", []() {
   describe("handling ubiquitous tokens", [&]() {
     describe("ubiquitous tokens that are not symbols", [&]() {
       it("adds them to the lexical grammar's separators", [&]() {
-        auto result = extract_tokens(Grammar({
+        auto result = extract_tokens(InternedGrammar{{
             { "rule_A", str("x") },
-        }).ubiquitous_tokens({
+        }, {
             pattern("\\s+"),
             str("y"),
-        }));
+        }, no_expected_conflicts});
 
         AssertThat(get<2>(result), Equals<const GrammarError *>(nullptr));
 
@@ -154,13 +176,13 @@ describe("extract_tokens", []() {
 
     describe("ubiquitous tokens that point to moved rules", [&]() {
       it("updates them according to the new symbol numbers", [&]() {
-        auto result = extract_tokens(Grammar( {
+        auto result = extract_tokens(InternedGrammar{ {
             { "rule_A", seq({ str("w"), i_sym(1) }) },
             { "rule_B", str("x") },
             { "rule_C", str("y") },
-        }).ubiquitous_tokens({
+        }, {
             i_sym(2),
-        }));
+        }, no_expected_conflicts});
 
         AssertThat(get<2>(result), Equals<const GrammarError *>(nullptr));
 
@@ -174,10 +196,10 @@ describe("extract_tokens", []() {
 
     describe("ubiquitous tokens that are visible", [&]() {
       it("preserves them in the syntactic grammar", [&]() {
-        auto result = extract_tokens(Grammar({
+        auto result = extract_tokens(InternedGrammar{{
             { "rule_A", str("ab") },
             { "rule_B", str("bc") },
-        }).ubiquitous_tokens({ i_sym(1) }));
+        }, { i_sym(1) }, no_expected_conflicts});
 
         AssertThat(get<2>(result), Equals<const GrammarError *>(nullptr));
 
@@ -191,10 +213,10 @@ describe("extract_tokens", []() {
 
     describe("ubiquitous tokens that are used in other grammar rules", [&]() {
       it("preserves them in the syntactic grammar", [&]() {
-        auto result = extract_tokens(Grammar({
+        auto result = extract_tokens(InternedGrammar{{
             { "rule_A", seq({ i_sym(1), str("ab") }) },
             { "_rule_B", str("bc") },
-        }).ubiquitous_tokens({ i_sym(1) }));
+        }, { i_sym(1) }, no_expected_conflicts});
 
         AssertThat(get<2>(result), Equals<const GrammarError *>(nullptr));
 
@@ -208,10 +230,10 @@ describe("extract_tokens", []() {
 
     describe("ubiquitous tokens that are non-token symbols", [&]() {
       it("returns an error", [&]() {
-        auto result = extract_tokens(Grammar({
+        auto result = extract_tokens(InternedGrammar{{
             { "rule_A", seq({ str("x"), i_sym(1) }), },
             { "rule_B", seq({ str("y"), str("z") }) },
-        }).ubiquitous_tokens({ i_sym(1) }));
+        }, { i_sym(1) }, no_expected_conflicts});
 
         AssertThat(get<2>(result), !Equals<const GrammarError *>(nullptr));
         AssertThat(get<2>(result), EqualsPointer(
@@ -220,12 +242,12 @@ describe("extract_tokens", []() {
       });
     });
 
-    describe("ubiquitous tokens that are non-token symbols", [&]() {
+    describe("ubiquitous tokens that are not symbols", [&]() {
       it("returns an error", [&]() {
-        auto result = extract_tokens(Grammar({
+        auto result = extract_tokens(InternedGrammar{{
             { "rule_A", str("x") },
             { "rule_B", str("y") },
-        }).ubiquitous_tokens({ choice({ i_sym(1), blank() }) }));
+        }, { choice({ i_sym(1), blank() }) }, no_expected_conflicts});
 
         AssertThat(get<2>(result), !Equals<const GrammarError *>(nullptr));
         AssertThat(get<2>(result), EqualsPointer(

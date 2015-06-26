@@ -45,7 +45,7 @@ describe("sym_transitions(ParseItemSet, SyntaxGrammar)", [&]() {
   SyntaxGrammar grammar({
       { "A", blank() },
       { "B", i_token(21) },
-  }, {}, set<Symbol>());
+  }, {}, set<Symbol>(), set<set<Symbol>>());
 
   it("computes the closure of the new item sets", [&]() {
     ParseItemSet set1({

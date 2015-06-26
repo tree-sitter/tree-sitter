@@ -20,7 +20,7 @@ describe("intern_symbols", []() {
     auto result = intern_symbols(grammar);
 
     AssertThat(result.second, Equals((GrammarError *)nullptr));
-    AssertThat(result.first.rules(), Equals(rule_list({
+    AssertThat(result.first.rules, Equals(rule_list({
         { "x", choice({ i_sym(1), i_sym(2) }) },
         { "y", i_sym(2) },
         { "z", str("stuff") },
@@ -49,8 +49,8 @@ describe("intern_symbols", []() {
     auto result = intern_symbols(grammar);
 
     AssertThat(result.second, Equals((GrammarError *)nullptr));
-    AssertThat(result.first.ubiquitous_tokens().size(), Equals<size_t>(1));
-    AssertThat(*result.first.ubiquitous_tokens().begin(), EqualsPointer(i_sym(2)));
+    AssertThat(result.first.ubiquitous_tokens.size(), Equals<size_t>(1));
+    AssertThat(*result.first.ubiquitous_tokens.begin(), EqualsPointer(i_sym(2)));
   });
 });
 

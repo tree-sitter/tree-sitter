@@ -38,6 +38,7 @@ std::ostream &operator<<(std::ostream &stream, const rules::rule_ptr &rule);
 class Grammar {
   const std::vector<std::pair<std::string, rules::rule_ptr>> rules_;
   std::set<rules::rule_ptr> ubiquitous_tokens_;
+  std::set<std::set<std::string>> expected_conflicts_;
 
  public:
   explicit Grammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &);
@@ -47,6 +48,8 @@ class Grammar {
   const std::vector<std::pair<std::string, rules::rule_ptr>> &rules() const;
   const std::set<rules::rule_ptr> &ubiquitous_tokens() const;
   Grammar &ubiquitous_tokens(const std::set<rules::rule_ptr> &);
+  const std::set<std::set<std::string>> &expected_conflicts() const;
+  Grammar &expected_conflicts(const std::set<std::set<std::string>> &);
 };
 
 enum GrammarErrorType {

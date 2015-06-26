@@ -69,6 +69,15 @@ Grammar &Grammar::ubiquitous_tokens(const set<rule_ptr> &ubiquitous_tokens) {
   return *this;
 }
 
+const set<set<string>> &Grammar::expected_conflicts() const {
+  return expected_conflicts_;
+}
+
+Grammar &Grammar::expected_conflicts(const set<set<string>> &expected_conflicts) {
+  expected_conflicts_ = expected_conflicts;
+  return *this;
+}
+
 const vector<pair<string, rule_ptr>> &Grammar::rules() const { return rules_; }
 
 }  // namespace tree_sitter

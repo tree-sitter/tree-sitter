@@ -63,7 +63,7 @@ describe("rule_can_be_blank", [&]() {
         { "B", choice({
             seq({ i_sym(1), i_token(12) }),
             i_token(13) }) },
-    }, {}, set<Symbol>());
+    }, {}, set<Symbol>(), set<set<Symbol>>());
 
     it("terminates for left-recursive rules that can be blank", [&]() {
       rule = i_sym(0);

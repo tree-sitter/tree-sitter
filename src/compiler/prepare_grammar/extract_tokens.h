@@ -3,6 +3,7 @@
 
 #include <utility>
 #include "tree_sitter/compiler.h"
+#include "compiler/prepare_grammar/interned_grammar.h"
 
 namespace tree_sitter {
 
@@ -13,7 +14,7 @@ class LexicalGrammar;
 namespace prepare_grammar {
 
 std::tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
-    const Grammar &);
+    const InternedGrammar &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

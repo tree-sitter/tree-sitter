@@ -22,8 +22,10 @@ class InternSymbols : public rules::IdentityRuleFn {
 
   rule_ptr apply_to(const rules::NamedSymbol *rule) {
     auto result = symbol_for_rule_name(rule->name);
-    if (!result.get())
+    if (!result.get()) {
       missing_rule_name = rule->name;
+      return rules::blank();
+    }
     return result;
   }
 
@@ -40,31 +42,40 @@ class InternSymbols : public rules::IdentityRuleFn {
   string missing_rule_name;
 };
 
-pair<Grammar, const GrammarError *> missing_rule_error(string rule_name) {
-  return { Grammar({}), new GrammarError(GrammarErrorTypeUndefinedSymbol,
-                                         "Undefined rule '" + rule_name + "'") };
+const GrammarError * missing_rule_error(string rule_name) {
+  return new GrammarError(GrammarErrorTypeUndefinedSymbol,
+                          "Undefined rule '" + rule_name + "'");
 }
 
-pair<Grammar, const GrammarError *> intern_symbols(const Grammar &grammar) {
+pair<InternedGrammar, const GrammarError *> intern_symbols(const Grammar &grammar) {
+  InternedGrammar result;
   InternSymbols interner(grammar);
-  vector<pair<string, rule_ptr>> rules;
 
   for (auto &pair : grammar.rules()) {
     auto new_rule = interner.apply(pair.second);
     if (!interner.missing_rule_name.empty())
-      return missing_rule_error(interner.missing_rule_name);
-    rules.push_back({ pair.first, new_rule });
+      return {result, missing_rule_error(interner.missing_rule_name)};
+    result.rules.push_back({ pair.first, new_rule });
   }
 
-  set<rules::rule_ptr> ubiquitous_tokens;
   for (auto &rule : grammar.ubiquitous_tokens()) {
     auto new_rule = interner.apply(rule);
     if (!interner.missing_rule_name.empty())
-      return missing_rule_error(interner.missing_rule_name);
-    ubiquitous_tokens.insert(new_rule);
+      return {result, missing_rule_error(interner.missing_rule_name)};
+    result.ubiquitous_tokens.insert(new_rule);
   }
 
-  return { Grammar(rules).ubiquitous_tokens(ubiquitous_tokens), nullptr };
+  for (auto &names : grammar.expected_conflicts()) {
+    set<rules::Symbol> entry;
+    for (auto &name : names) {
+      auto symbol = interner.symbol_for_rule_name(name);
+      if (symbol.get())
+        entry.insert(*symbol);
+    }
+    result.expected_conflicts.insert(entry);
+  }
+
+  return { result, nullptr };
 }
 
 }  // namespace prepare_grammar
