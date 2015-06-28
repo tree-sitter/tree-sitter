@@ -8,6 +8,7 @@ extern "C" const TSLanguage *ts_language_javascript();
 extern "C" const TSLanguage *ts_language_json();
 extern "C" const TSLanguage *ts_language_arithmetic();
 extern "C" const TSLanguage *ts_language_golang();
+extern "C" const TSLanguage *ts_language_c();
 
 START_TEST
 
@@ -23,7 +24,7 @@ describe("Languages", [&]() {
   });
 
   auto run_tests_for_language = [&](string language_name, const TSLanguage *language) {
-    describe(language_name.c_str(), [&]() {
+    describe((string("The ") + language_name + " parser").c_str(), [&]() {
       before_each([&]() {
         ts_document_set_language(doc, language);
         // ts_document_set_debugger(doc, log_debugger_make());
@@ -85,6 +86,7 @@ describe("Languages", [&]() {
   run_tests_for_language("arithmetic", ts_language_arithmetic());
   run_tests_for_language("javascript", ts_language_javascript());
   run_tests_for_language("golang", ts_language_golang());
+  run_tests_for_language("c", ts_language_c());
 });
 
 END_TEST

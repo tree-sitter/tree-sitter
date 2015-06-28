@@ -192,7 +192,7 @@ class CCodeGenerator {
           for (const auto &pair : state.actions) {
             line("[" + symbol_id(pair.first) + "] = ");
             add("ACTIONS(");
-            add_parse_action(pair.second);
+            add_parse_actions(pair.second);
             add("),");
           }
         });
@@ -279,29 +279,35 @@ class CCodeGenerator {
     }
   }
 
-  void add_parse_action(const ParseAction &action) {
-    switch (action.type) {
-      case ParseActionTypeAccept:
-        add("ACCEPT_INPUT()");
-        break;
-      case ParseActionTypeShift:
-        add("SHIFT(" + to_string(action.state_index) + ")");
-        break;
-      case ParseActionTypeShiftExtra:
-        add("SHIFT_EXTRA()");
-        break;
-      case ParseActionTypeReduce:
-        if (reduce_action_is_fragile(action))
-          add("REDUCE_FRAGILE(" + symbol_id(action.symbol) + ", " +
-              to_string(action.consumed_symbol_count) + ")");
-        else
-          add("REDUCE(" + symbol_id(action.symbol) + ", " +
-              to_string(action.consumed_symbol_count) + ")");
-        break;
-      case ParseActionTypeReduceExtra:
-        add("REDUCE_EXTRA(" + symbol_id(action.symbol) + ")");
-        break;
-      default: {}
+  void add_parse_actions(const vector<ParseAction> &actions) {
+    bool started = false;
+    for (const auto &action : actions) {
+      if (started)
+        add(", ");
+      switch (action.type) {
+        case ParseActionTypeAccept:
+          add("ACCEPT_INPUT()");
+          break;
+        case ParseActionTypeShift:
+          add("SHIFT(" + to_string(action.state_index) + ")");
+          break;
+        case ParseActionTypeShiftExtra:
+          add("SHIFT_EXTRA()");
+          break;
+        case ParseActionTypeReduce:
+          if (reduce_action_is_fragile(action))
+            add("REDUCE_FRAGILE(" + symbol_id(action.symbol) + ", " +
+                to_string(action.consumed_symbol_count) + ")");
+          else
+            add("REDUCE(" + symbol_id(action.symbol) + ", " +
+                to_string(action.consumed_symbol_count) + ")");
+          break;
+        case ParseActionTypeReduceExtra:
+          add("REDUCE_EXTRA(" + symbol_id(action.symbol) + ")");
+          break;
+        default: {}
+      }
+      started = true;
     }
   }
 

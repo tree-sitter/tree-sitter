@@ -7,6 +7,7 @@ namespace tree_sitter_examples {
 
 using namespace tree_sitter::rules;
 
+rule_ptr repeat1(rule_ptr element);
 rule_ptr comma_sep1(rule_ptr element);
 rule_ptr comma_sep(rule_ptr element);
 rule_ptr optional(rule_ptr rule);

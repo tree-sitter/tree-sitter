@@ -16,20 +16,22 @@
 namespace tree_sitter {
 namespace build_tables {
 
-using std::get;
 using std::pair;
 using std::vector;
 using std::set;
 using std::map;
 using std::string;
+using std::to_string;
 using std::unordered_map;
 using std::make_shared;
 using rules::Symbol;
 
 class ParseTableBuilder {
   const SyntaxGrammar grammar;
+  const LexicalGrammar lexical_grammar;
   ParseConflictManager conflict_manager;
   unordered_map<const ParseItemSet, ParseStateId> parse_state_ids;
+  vector<vector<Symbol>> productions;
   vector<pair<ParseItemSet, ParseStateId>> item_sets_to_process;
   ParseTable parse_table;
   std::set<string> conflicts;
@@ -37,7 +39,7 @@ class ParseTableBuilder {
  public:
   ParseTableBuilder(const SyntaxGrammar &grammar,
                     const LexicalGrammar &lex_grammar)
-      : grammar(grammar), conflict_manager(grammar, lex_grammar) {}
+      : grammar(grammar), lexical_grammar(lex_grammar), conflict_manager(grammar) {}
 
   pair<ParseTable, const GrammarError *> build() {
     auto start_symbol = grammar.rules.empty()
@@ -55,7 +57,7 @@ class ParseTableBuilder {
 
       add_reduce_actions(item_set, state_id);
       add_shift_actions(item_set, state_id);
-      add_shift_extra_actions(state_id);
+      add_shift_extra_actions(item_set, state_id);
 
       if (!conflicts.empty())
         return {
@@ -92,13 +94,11 @@ class ParseTableBuilder {
       const Symbol &symbol = transition.first;
       const ParseItemSet &next_item_set = transition.second;
 
-      ParseAction new_action =
-          ParseAction::Shift(0, precedence_values_for_item_set(next_item_set));
-      if (should_add_action(state_id, item_set, symbol, new_action)) {
-        ParseStateId new_state_id = add_parse_state(next_item_set);
-        new_action.state_index = new_state_id;
-        parse_table.add_action(state_id, symbol, new_action);
-      }
+      ParseAction *new_action = add_action(state_id, symbol,
+          ParseAction::Shift(0, precedence_values_for_item_set(next_item_set)),
+          item_set);
+      if (new_action)
+        new_action->state_index = add_parse_state(next_item_set);
     }
   }
 
@@ -113,73 +113,85 @@ class ParseTableBuilder {
                 ? ParseAction::Accept()
                 : ParseAction::Reduce(item.lhs, item.consumed_symbols.size(),
                                       item.precedence(), item.associativity(),
-                                      conflict_manager.get_production_id(item.consumed_symbols));
+                                      get_production_id(item.consumed_symbols));
 
         for (const auto &lookahead_sym : lookahead_symbols)
-          if (should_add_action(state_id, item_set, lookahead_sym, action))
-            parse_table.add_action(state_id, lookahead_sym, action);
+          add_action(state_id, lookahead_sym, action, item_set);
       }
     }
   }
 
-  void add_shift_extra_actions(ParseStateId state_id) {
-    const map<Symbol, ParseAction> &actions =
-        parse_table.states[state_id].actions;
-
-    for (const Symbol &ubiquitous_symbol : grammar.ubiquitous_tokens) {
-      const auto &pair_for_symbol = actions.find(ubiquitous_symbol);
-      if (pair_for_symbol == actions.end()) {
-        parse_table.add_action(state_id, ubiquitous_symbol,
-                               ParseAction::ShiftExtra());
-      }
-    }
+  void add_shift_extra_actions(const ParseItemSet &item_set, ParseStateId state_id) {
+    for (const Symbol &ubiquitous_symbol : grammar.ubiquitous_tokens)
+      add_action(state_id, ubiquitous_symbol, ParseAction::ShiftExtra(), item_set);
   }
 
   void add_reduce_extra_actions(ParseStateId state_id) {
-    const map<Symbol, ParseAction> &actions =
+    const ParseItemSet item_set;
+    const map<Symbol, vector<ParseAction>> &actions =
         parse_table.states[state_id].actions;
 
     for (const Symbol &ubiquitous_symbol : grammar.ubiquitous_tokens) {
-      const auto &pair_for_symbol = actions.find(ubiquitous_symbol);
+      const auto &entry = actions.find(ubiquitous_symbol);
+      if (entry == actions.end())
+        continue;
 
-      if (pair_for_symbol != actions.end() &&
-          pair_for_symbol->second.type == ParseActionTypeShift) {
-        size_t shift_state_id = pair_for_symbol->second.state_index;
-        for (const auto &pair : actions) {
-          const Symbol &lookahead_sym = pair.first;
-          ParseAction reduce_extra = ParseAction::ReduceExtra(ubiquitous_symbol);
-          if (should_add_action(shift_state_id, ParseItemSet(), lookahead_sym, reduce_extra))
-            parse_table.add_action(shift_state_id, lookahead_sym, reduce_extra);
+      for (const auto &action : entry->second) {
+        if (action.type == ParseActionTypeShift) {
+          size_t shift_state_id = action.state_index;
+          for (const auto &pair : actions) {
+            const Symbol &lookahead_sym = pair.first;
+            ParseAction reduce_extra = ParseAction::ReduceExtra(ubiquitous_symbol);
+            add_action(shift_state_id, lookahead_sym, reduce_extra, item_set);
+          }
         }
       }
     }
   }
 
-  bool should_add_action(ParseStateId state_id, const ParseItemSet &item_set,
-                         const Symbol &symbol, const ParseAction &action) {
+  ParseAction *add_action(ParseStateId state_id, Symbol lookahead_sym,
+                  const ParseAction &action, const ParseItemSet &item_set) {
     auto &current_actions = parse_table.states[state_id].actions;
-    auto current_action = current_actions.find(symbol);
-    if (current_action == current_actions.end())
-      return true;
+    auto current_entry = current_actions.find(lookahead_sym);
+    if (current_entry == current_actions.end())
+      return &parse_table.set_action(state_id, lookahead_sym, action);
 
-    auto result = conflict_manager.resolve(action, current_action->second,
-                                           symbol, item_set);
+    const ParseAction current_action = current_entry->second[0];
+    auto resolution = conflict_manager.resolve(action, current_action, lookahead_sym);
 
-    switch (get<1>(result)) {
+    switch (resolution.second) {
+      case ConflictTypeNone:
+        if (resolution.first)
+          return &parse_table.set_action(state_id, lookahead_sym, action);
+        break;
+
       case ConflictTypeResolved:
         if (action.type == ParseActionTypeReduce)
           parse_table.fragile_production_ids.insert(action.production_id);
-        if (current_action->second.type == ParseActionTypeReduce)
-          parse_table.fragile_production_ids.insert(current_action->second.production_id);
+        if (current_action.type == ParseActionTypeReduce)
+          parse_table.fragile_production_ids.insert(current_action.production_id);
+        if (resolution.first)
+          return &parse_table.set_action(state_id, lookahead_sym, action);
         break;
-      case ConflictTypeError:
-        conflicts.insert(get<2>(result));
+
+      case ConflictTypeUnresolved: {
+        set<Symbol> goal_symbols = item_set_goal_symbols(item_set);
+        if (has_expected_conflict(goal_symbols))
+          return &parse_table.add_action(state_id, lookahead_sym, action);
+        else
+          conflicts.insert(conflict_description(action, current_action, lookahead_sym, goal_symbols));
         break;
-      default:
-        break;
+      }
     }
 
-    return get<0>(result);
+    return nullptr;
+  }
+
+  bool has_expected_conflict(const set<Symbol> &symbols) {
+    for (const auto &conflicting_symbols : grammar.expected_conflicts)
+      if (symbols == conflicting_symbols)
+        return true;
+    return false;
   }
 
   set<int> precedence_values_for_item_set(const ParseItemSet &item_set) {
@@ -190,6 +202,93 @@ class ParseTableBuilder {
         result.insert(item.precedence());
     }
     return result;
+  }
+
+  set<Symbol> item_set_goal_symbols(const ParseItemSet &item_set) {
+    set<Symbol> result;
+    for (const auto &pair : item_set) {
+      const ParseItem &item = pair.first;
+      if (!item.consumed_symbols.empty())
+        result.insert(item.lhs);
+    }
+    return result;
+  }
+
+  string conflict_description(const ParseAction &new_action,
+                                                    const ParseAction &old_action,
+                                                    const rules::Symbol &symbol,
+                                                    const set<Symbol> &goal_symbols) const {
+    string symbols_string;
+    bool started = false;
+    for (const auto &symbol : goal_symbols) {
+      if (started)
+        symbols_string += ", ";
+      symbols_string += symbol_name(symbol);
+      started = true;
+    }
+
+    return
+      "Within: " + symbols_string + "\n"
+      "Lookahead: " + symbol_name(symbol) + "\n" +
+      "Possible Actions:\n"
+      "* " + action_description(old_action) + "\n" +
+      "* " + action_description(new_action);
+  }
+
+  string symbol_name(const rules::Symbol &symbol) const {
+    if (symbol.is_built_in()) {
+      if (symbol == rules::ERROR())
+        return "ERROR";
+      else if (symbol == rules::END_OF_INPUT())
+        return "END_OF_INPUT";
+      else
+        return "";
+    } else if (symbol.is_token())
+      return lexical_grammar.rule_name(symbol);
+    else
+      return grammar.rule_name(symbol);
+  }
+
+  string action_description(const ParseAction &action) const {
+    string result;
+
+    switch (action.type) {
+      case ParseActionTypeReduce: {
+        result = "Reduce";
+        for (const rules::Symbol &symbol : productions[action.production_id])
+          result += " " + symbol_name(symbol);
+        result += " -> " + symbol_name(action.symbol);
+        break;
+      }
+
+      case ParseActionTypeShift: {
+        result = "Shift";
+        break;
+      }
+
+      default:
+        return "";
+    }
+
+    if (action.precedence_values.size() > 1) {
+      result += " (Precedences " + to_string(*action.precedence_values.begin()) +
+        ", " + to_string(*action.precedence_values.rbegin()) + ")";
+    } else {
+      result += " (Precedence " + to_string(*action.precedence_values.begin()) + ")";
+    }
+
+    return result;
+  }
+
+  size_t get_production_id(const vector<rules::Symbol> &symbols) {
+    auto begin = productions.begin();
+    auto end = productions.end();
+    auto iter = find(begin, end, symbols);
+    if (iter == end) {
+      productions.push_back(symbols);
+      return productions.size() - 1;
+    }
+    return iter - begin;
   }
 };
 

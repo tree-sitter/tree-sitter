@@ -1,0 +1,38 @@
+==========================================
+simple declarations
+==========================================
+
+int x;
+
+---
+
+(declaration (identifier) (identifier))
+
+==========================================
+simple functions
+==========================================
+
+int main() {
+}
+
+---
+
+(function_definition
+	(identifier) (direct_declarator (identifier))
+	(compound_statement))
+
+==========================================
+simple declarations in functions
+==========================================
+
+int main() {
+	x + y;
+}
+
+---
+
+(function_definition
+	(identifier)
+	(direct_declarator (identifier))
+	(compound_statement
+		(expression_statement (math_expression (identifier) (identifier)))))

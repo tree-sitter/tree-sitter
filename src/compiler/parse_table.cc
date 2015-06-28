@@ -122,7 +122,11 @@ ostream &operator<<(ostream &stream, const ParseState &state) {
   for (auto pair : state.actions) {
     if (started)
       stream << string(", ");
-    stream << pair.first << string(" => ") << pair.second;
+    stream << pair.first << string(" => {");
+    for (auto &action : pair.second) {
+      stream << string(" ") << action;
+    }
+    stream << string("}");
     started = true;
   }
   stream << string(">");
@@ -134,9 +138,16 @@ ParseStateId ParseTable::add_state() {
   return states.size() - 1;
 }
 
-void ParseTable::add_action(ParseStateId id, Symbol symbol, ParseAction action) {
+ParseAction &ParseTable::set_action(ParseStateId id, Symbol symbol, ParseAction action) {
   symbols.insert(symbol);
-  states[id].actions[symbol] = action;
+  states[id].actions[symbol] = vector<ParseAction>({ action });
+  return *states[id].actions[symbol].begin();
+}
+
+ParseAction &ParseTable::add_action(ParseStateId id, Symbol symbol, ParseAction action) {
+  symbols.insert(symbol);
+  states[id].actions[symbol].push_back(action);
+  return *states[id].actions[symbol].rbegin();
 }
 
 }  // namespace tree_sitter

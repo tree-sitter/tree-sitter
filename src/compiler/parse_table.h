@@ -15,10 +15,11 @@ typedef uint64_t ParseStateId;
 
 typedef enum {
   ParseActionTypeError,
-  ParseActionTypeShift,
-  ParseActionTypeShiftExtra,
-  ParseActionTypeReduce,
   ParseActionTypeReduceExtra,
+  ParseActionTypeShiftExtra,
+
+  ParseActionTypeShift,
+  ParseActionTypeReduce,
   ParseActionTypeAccept,
 } ParseActionType;
 
@@ -74,7 +75,7 @@ namespace tree_sitter {
 class ParseState {
  public:
   ParseState();
-  std::map<rules::Symbol, ParseAction> actions;
+  std::map<rules::Symbol, std::vector<ParseAction>> actions;
   std::set<rules::Symbol> expected_inputs() const;
   LexStateId lex_state_id;
 };
@@ -84,7 +85,9 @@ std::ostream &operator<<(std::ostream &stream, const ParseState &state);
 class ParseTable {
  public:
   ParseStateId add_state();
-  void add_action(ParseStateId state_id, rules::Symbol symbol,
+  ParseAction &set_action(ParseStateId state_id, rules::Symbol symbol,
+                  ParseAction action);
+  ParseAction &add_action(ParseStateId state_id, rules::Symbol symbol,
                   ParseAction action);
 
   std::vector<ParseState> states;

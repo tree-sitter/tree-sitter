@@ -14,6 +14,7 @@ extern const Grammar arithmetic;
 extern const Grammar javascript;
 extern const Grammar json;
 extern const Grammar golang;
+extern const Grammar c;
 
 }  // namespace tree_sitter_examples
 
@@ -40,6 +41,7 @@ describe("compiling the example grammars", []() {
   compile_grammar(tree_sitter_examples::json, "json");
   compile_grammar(tree_sitter_examples::javascript, "javascript");
   compile_grammar(tree_sitter_examples::golang, "golang");
+  compile_grammar(tree_sitter_examples::c, "c");
 });
 
 END_TEST

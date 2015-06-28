@@ -4,6 +4,10 @@ namespace tree_sitter_examples {
 
 using namespace tree_sitter::rules;
 
+rule_ptr repeat1(rule_ptr element) {
+  return seq({ element, repeat(element) });
+}
+
 rule_ptr comma_sep1(rule_ptr element) {
   return seq({ element, repeat(seq({ str(","), element })) });
 }
