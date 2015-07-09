@@ -27,6 +27,7 @@ static inline void tree_vector_push(TreeVector *this, TSTree *tree) {
     this->capacity += 4;
     this->contents = realloc(this->contents, this->capacity * sizeof(TSTree *));
   }
+  ts_tree_retain(tree);
   this->contents[this->size++] = tree;
 }
 

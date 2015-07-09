@@ -132,6 +132,7 @@ extern const Grammar c = Grammar({
 
     { "expression", choice({
         sym("math_expression"),
+        sym("call_expression"),
         sym("string"),
         sym("identifier"),
         sym("number") }) },
@@ -139,6 +140,12 @@ extern const Grammar c = Grammar({
     { "math_expression", choice({
         prec(1, seq({ sym("expression"), str("+"), sym("expression") })),
         prec(2, seq({ sym("expression"), sym("star"), sym("expression") })) }) },
+
+    { "call_expression", prec(3, seq({
+        sym("expression"),
+        str("("),
+        comma_sep(sym("expression")),
+        str(")") })) },
 
     { "statement", choice({
         sym("expression_statement") }) },

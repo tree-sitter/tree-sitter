@@ -22,17 +22,20 @@ int main() {
 	(compound_statement))
 
 ==========================================
-simple declarations in functions
+ambiguous declarations
 ==========================================
 
 int main() {
-	x + y;
+	someTypeOrValue * pointerOrMultiplicand();
 }
 
 ---
 
 (function_definition
-	(identifier)
-	(direct_declarator (identifier))
-	(compound_statement
-		(expression_statement (math_expression (identifier) (identifier)))))
+  (identifier)
+  (direct_declarator (identifier))
+  (AMBIGUITY
+    (ALTERNATIVE (compound_statement
+      (declaration (identifier) (declarator (star) (direct_declarator (identifier))))))
+    (ALTERNATIVE (compound_statement
+      (expression_statement (math_expression (identifier) (star) (call_expression (identifier))))))))

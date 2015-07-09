@@ -139,7 +139,15 @@ static int ts_parse_stack_add_head(ParseStack *this, ParseStackNode *node) {
   return new_index;
 }
 
-static void ts_parse_stack_remove_head(ParseStack *this, int head_index) {
+static int ts_parse_stack_find_or_add_head(ParseStack *this, ParseStackNode *node) {
+  for (int i = 0; i < this->head_count; i++)
+    if (this->heads[i] == node) {
+      return i;
+    }
+  return ts_parse_stack_add_head(this, node);
+}
+
+void ts_parse_stack_remove_head(ParseStack *this, int head_index) {
   stack_node_release(this->heads[head_index]);
   for (int i = head_index; i < this->head_count - 1; i++) {
     this->heads[head_index] = this->heads[head_index + 1];
@@ -156,10 +164,7 @@ static bool ts_parse_stack_merge_head(ParseStack *this, int head_index, TSStateI
         ts_parse_stack_remove_head(this, head_index);
         return true;
       } else {
-        TSTree **options = malloc(2 * sizeof(TSTree *));
-        options[0] = head->entry.tree;
-        options[1] = tree;
-        head->entry.tree = ts_tree_make_ambiguity(2, options);
+        head->entry.tree = ts_tree_add_alternative(head->entry.tree, tree);
         stack_node_add_successor(head, this->heads[head_index]);
         ts_parse_stack_remove_head(this, head_index);
         return true;
@@ -181,6 +186,12 @@ bool ts_parse_stack_push(ParseStack *this, int head_index, TSStateId state, TSTr
   return false;
 }
 
+void ts_parse_stack_add_alternative(ParseStack *this, int head_index, TSTree *tree) {
+  assert(head_index < this->head_count);
+  ParseStackEntry *entry = &this->heads[head_index]->entry;
+  entry->tree = ts_tree_add_alternative(entry->tree, tree);
+}
+
 int ts_parse_stack_split(ParseStack *this, int head_index) {
   assert(head_index < this->head_count);
   return ts_parse_stack_add_head(this, this->heads[head_index]);
@@ -194,6 +205,7 @@ ParseStackPopResultList ts_parse_stack_pop(ParseStack *this, int head_index, int
   size_t tree_counts_by_path[MAX_POP_PATH_COUNT] = {child_count};
   ParseStackNode *nodes_by_path[MAX_POP_PATH_COUNT] = {previous_head};
   TreeVector trees_by_path[MAX_POP_PATH_COUNT] = {tree_vector_new(capacity)};
+  bool is_shared_by_path[MAX_POP_PATH_COUNT] = {false};
 
   /*
    *  Reduce along every possible path in parallel. Stop when the given number
@@ -219,6 +231,10 @@ ParseStackPopResultList ts_parse_stack_pop(ParseStack *this, int head_index, int
        *  If a node has more than one successor, create new paths for each of
        *  the additional successors.
        */
+      if (is_shared_by_path[path]) {
+        trees_by_path[path] = tree_vector_copy(&trees_by_path[path]);
+        is_shared_by_path[path] = false;
+      }
       tree_vector_push(&trees_by_path[path], node->entry.tree);
 
       for (int i = 0; i < node->successor_count; i++) {
@@ -227,7 +243,8 @@ ParseStackPopResultList ts_parse_stack_pop(ParseStack *this, int head_index, int
           if (path_count == MAX_POP_PATH_COUNT) break;
           next_path = path_count;
           tree_counts_by_path[next_path] = tree_counts_by_path[path];
-          trees_by_path[next_path] = tree_vector_copy(&trees_by_path[path]);
+          trees_by_path[next_path] = trees_by_path[path];
+          is_shared_by_path[next_path] = true;
           path_count++;
         } else {
           next_path = path;
@@ -240,13 +257,13 @@ ParseStackPopResultList ts_parse_stack_pop(ParseStack *this, int head_index, int
 
   for (int path = 0; path < path_count; path++) {
     tree_vector_reverse(&trees_by_path[path]);
-    int index;
+    int index = -1;
     if (path == 0) {
       stack_node_retain(nodes_by_path[path]);
       this->heads[head_index] = nodes_by_path[path];
       index = head_index;
     } else {
-      index = ts_parse_stack_add_head(this, nodes_by_path[path]);
+      index = ts_parse_stack_find_or_add_head(this, nodes_by_path[path]);
     }
 
     this->last_pop_results[path] = (ParseStackPopResult) {

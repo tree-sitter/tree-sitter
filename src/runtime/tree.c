@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -120,21 +121,44 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   return result;
 }
 
-TSTree *ts_tree_make_ambiguity(size_t alternative_count, TSTree **alternatives) {
+TSTree *ts_tree_make_ambiguity(TSTree *left, TSTree *right) {
   TSTree *result = malloc(sizeof(TSTree));
+  TSTree **alternatives = malloc(2 * sizeof(TSTree *));
+  alternatives[0] = left;
+  alternatives[1] = right;
+  ts_tree_retain(left);
+  ts_tree_retain(right);
   *result = (TSTree) { .ref_count = 1,
                        .symbol = ts_builtin_sym_ambiguity,
                        .size = alternatives[0]->size,
                        .padding = alternatives[0]->padding,
-                       .child_count = alternative_count,
+                       .child_count = 2,
                        .children = alternatives,
                        .options = 0 };
   return result;
 }
 
-void ts_tree_retain(TSTree *tree) { tree->ref_count++; }
+TSTree *ts_tree_add_alternative(TSTree *left, TSTree *right) {
+  if (left->symbol == ts_builtin_sym_ambiguity) {
+    size_t index = left->child_count++;
+    left->children = realloc(left->children, left->child_count * sizeof(TSTree *));
+    left->children[index] = right;
+    ts_tree_retain(right);
+    return left;
+  } else {
+    TSTree *result = ts_tree_make_ambiguity(left, right);
+    ts_tree_release(left);
+    return result;
+  }
+}
+
+void ts_tree_retain(TSTree *tree) {
+  assert(tree->ref_count > 0);
+  tree->ref_count++;
+}
 
 void ts_tree_release(TSTree *tree) {
+  assert(tree->ref_count > 0);
   tree->ref_count--;
   if (tree->ref_count == 0) {
     size_t count;
@@ -228,10 +252,13 @@ static size_t tree_write_to_string(const TSTree *tree, const char **symbol_names
     }
   }
 
-
   for (size_t i = 0; i < tree->child_count; i++) {
+    if (tree->symbol == ts_builtin_sym_ambiguity)
+      cursor += snprintf(*writer, limit, " (ALTERNATIVE");
     TSTree *child = tree->children[i];
     cursor += tree_write_to_string(child, symbol_names, *writer, limit, 0);
+    if (tree->symbol == ts_builtin_sym_ambiguity)
+      cursor += snprintf(*writer, limit, ")");
   }
 
   if (visible)

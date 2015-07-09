@@ -40,7 +40,7 @@ typedef struct TSLexer {
 } TSLexer;
 
 typedef enum {
-  TSParseActionTypeError,
+  TSParseActionTypeError = 1,
   TSParseActionTypeShift,
   TSParseActionTypeShiftExtra,
   TSParseActionTypeReduce,
@@ -113,7 +113,7 @@ struct TSLanguage {
  */
 
 #define ACTIONS(...) \
-  (TSParseAction[]) {__VA_ARGS__}
+  (TSParseAction[]) {__VA_ARGS__, {.type = 0}}
 
 #define SHIFT(to_state_value)                                              \
   {                                                                        \

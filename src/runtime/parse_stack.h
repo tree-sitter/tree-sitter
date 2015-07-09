@@ -75,6 +75,11 @@ ParseStackEntry *ts_parse_stack_entry_next(const ParseStackEntry *, int);
 bool ts_parse_stack_push(ParseStack *, int head, TSStateId, TSTree *);
 
 /*
+ *  Add an alternative tree for the given head of the stack.
+ */
+void ts_parse_stack_add_alternative(ParseStack *, int head, TSTree *);
+
+/*
  *  Pop the given number of entries from the given head of the stack. This
  *  operation can increase the number of stack heads by revealing multiple heads
  *  which had previously been merged. It returns a struct that indicates the
@@ -93,6 +98,11 @@ void ts_parse_stack_shrink(ParseStack *, int head, int count);
  *  the index of the newly-created head.
  */
 int ts_parse_stack_split(ParseStack *, int head);
+
+/*
+ *  Remove the given head from the stack.
+ */
+void ts_parse_stack_remove_head(ParseStack *, int head);
 
 /*
  *  Remove all entries from the stack.

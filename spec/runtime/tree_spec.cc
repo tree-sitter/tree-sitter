@@ -5,17 +5,19 @@
 START_TEST
 
 enum {
-    cat = 2,
-    dog = 3,
-    pig = 4,
+    cat = ts_builtin_sym_start,
+    dog,
+    pig,
 };
 
 static const char *names[] = {
-    "error",
-    "end",
-    "cat",
-    "dog",
-    "pig",
+  "AMBIGUITY",
+  "DOCUMENT",
+  "ERROR",
+  "END",
+  "cat",
+  "dog",
+  "pig",
 };
 
 describe("Tree", []() {
