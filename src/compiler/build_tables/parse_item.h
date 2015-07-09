@@ -2,7 +2,7 @@
 #define COMPILER_BUILD_TABLES_PARSE_ITEM_H_
 
 #include <set>
-#include <unordered_map>
+#include <map>
 #include <vector>
 #include "compiler/build_tables/item.h"
 #include "compiler/rules/symbol.h"
@@ -16,13 +16,14 @@ class ParseItem : public Item {
   ParseItem(const rules::Symbol &lhs, rules::rule_ptr rule,
             const std::vector<rules::Symbol> &consumed_symbols);
   bool operator==(const ParseItem &other) const;
+  bool operator<(const ParseItem &other) const;
   rules::Associativity associativity() const;
   std::vector<rules::Symbol> consumed_symbols;
 };
 
 std::ostream &operator<<(std::ostream &stream, const ParseItem &item);
 
-typedef std::unordered_map<ParseItem, std::set<rules::Symbol>> ParseItemSet;
+typedef std::map<ParseItem, std::set<rules::Symbol>> ParseItemSet;
 
 }  // namespace build_tables
 }  // namespace tree_sitter

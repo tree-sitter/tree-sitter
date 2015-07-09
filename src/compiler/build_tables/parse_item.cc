@@ -20,6 +20,14 @@ bool ParseItem::operator==(const ParseItem &other) const {
          (rule == other.rule || rule->operator==(*other.rule));
 }
 
+bool ParseItem::operator<(const ParseItem &other) const {
+  if (lhs < other.lhs) return true;
+  if (other.lhs < lhs) return false;
+  if (consumed_symbols.size() < other.consumed_symbols.size()) return true;
+  if (other.consumed_symbols.size() < consumed_symbols.size()) return false;
+  return rule < other.rule;
+}
+
 rules::Associativity ParseItem::associativity() const {
   return rules::Associativity(get_metadata(rule, rules::ASSOCIATIVITY));
 }
