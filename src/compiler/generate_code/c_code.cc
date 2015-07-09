@@ -342,8 +342,12 @@ class CCodeGenerator {
         return "ERROR";
       else if (symbol == rules::END_OF_INPUT())
         return "END";
-      else
+      else if (symbol == rules::DOCUMENT())
         return "DOCUMENT";
+      else if (symbol == rules::AMBIGUITY())
+        return "AMBIGUITY";
+      else
+        return "";
     } else {
       return rule_name(symbol);
     }

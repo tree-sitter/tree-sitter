@@ -89,7 +89,7 @@ enum {
 };
 
 static const char *ts_symbol_names[] = {
-    [ts_builtin_sym_ambiguity] = "DOCUMENT",
+    [ts_builtin_sym_ambiguity] = "AMBIGUITY",
     [ts_builtin_sym_document] = "DOCUMENT",
     [sym_program] = "program",
     [sym_package_directive] = "package_directive",
