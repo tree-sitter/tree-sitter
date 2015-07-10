@@ -257,7 +257,7 @@ static bool handle_error(TSParser *parser, int head) {
     int i = -1;
     for (ParseStackEntry *entry = entry_before_error;
          entry != NULL;
-         entry = ts_parse_stack_entry_next(entry, 0), i++) {
+         entry = ts_parse_stack_entry_next(entry, head), i++) {
       TSStateId stack_state = entry->state;
       TSParseAction action_on_error = get_action(
         parser->language, stack_state, ts_builtin_sym_error);
@@ -280,7 +280,7 @@ static bool handle_error(TSParser *parser, int head) {
      *  current lookahead token, advance to the next token.
      */
     DEBUG("skip token:%s", SYM_NAME(parser->lookahead->symbol));
-    shift(parser, head, ts_parse_stack_top_state(parser->stack, 0));
+    shift(parser, head, ts_parse_stack_top_state(parser->stack, head));
     parser->lookahead = get_next_node(parser, ts_lex_state_error);
     error_token_count++;
 
