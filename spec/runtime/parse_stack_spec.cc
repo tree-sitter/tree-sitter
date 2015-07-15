@@ -12,15 +12,35 @@ enum {
   symbol1, symbol2, symbol3, symbol4, symbol5, symbol6, symbol7
 };
 
+struct TreeSelectionSpy {
+  int call_count;
+  TSTree *tree_to_return;
+  const TSTree *arguments[2];
+};
+
+extern "C"
+TSTree * tree_selection_spy_callback(void *data, TSTree *left, TSTree *right) {
+  TreeSelectionSpy *spy = (TreeSelectionSpy *)data;
+  spy->call_count++;
+  spy->arguments[0] = left;
+  spy->arguments[1] = right;
+  return spy->tree_to_return;
+}
+
 START_TEST
 
 describe("ParseStack", [&]() {
   ParseStack *stack;
   const size_t tree_count = 8;
   TSTree *trees[tree_count];
+  TreeSelectionSpy tree_selection_spy{0, NULL, {NULL, NULL}};
 
   before_each([&]() {
-    stack = ts_parse_stack_new();
+    stack = ts_parse_stack_new({
+      &tree_selection_spy,
+      tree_selection_spy_callback
+    });
+
     TSLength len = ts_length_make(2, 2);
     for (size_t i = 0; i < tree_count; i++)
       trees[i] = ts_tree_make_leaf(ts_builtin_sym_start + i, len, len, false);
@@ -199,7 +219,12 @@ describe("ParseStack", [&]() {
     });
 
     describe("when the trees are different", [&]() {
-      it("merges the heads by creating an ambiguity node", [&]() {
+      before_each([&]() {
+        tree_selection_spy.tree_to_return = trees[7];
+        AssertThat(tree_selection_spy.call_count, Equals(0));
+      });
+
+      it("merges the heads, selecting the tree with the tree selection callback", [&]() {
         /*
          *  A0__B1__C2__D3__G(6|7)
          *       \__E4__F5____/
@@ -210,10 +235,44 @@ describe("ParseStack", [&]() {
         AssertThat(merged, IsTrue());
 
         AssertThat(ts_parse_stack_head_count(stack), Equals(1));
+        AssertThat(tree_selection_spy.call_count, Equals(1));
+        AssertThat(tree_selection_spy.arguments[0], Equals(trees[6]));
+        AssertThat(tree_selection_spy.arguments[1], Equals(trees[7]));
         AssertThat(*ts_parse_stack_head(stack, 0), Equals<ParseStackEntry>({
-          ts_tree_make_ambiguity(trees[6], trees[7]),
+          trees[7],
           stateG
         }));
+      });
+    });
+
+    describe("when successor nodes of the merged nodes have the same state", [&]() {
+      it("recursively merges those successor nodes", [&]() {
+        /*
+         *  A0__B1__C2__D3__G6__H7.
+         *       \__E4__F5__G6.
+         */
+        bool merged = ts_parse_stack_push(stack, 0, stateG, trees[6]);
+        AssertThat(merged, IsFalse());
+        merged = ts_parse_stack_push(stack, 0, stateH, trees[7]);
+        AssertThat(merged, IsFalse());
+        merged = ts_parse_stack_push(stack, 1, stateG, trees[6]);
+        AssertThat(merged, IsFalse());
+
+        /*
+         *  A0__B1__C2__D3__G6__H7.
+         *       \__E4__F5_/
+         */
+        merged = ts_parse_stack_push(stack, 1, stateH, trees[7]);
+        AssertThat(merged, IsTrue());
+
+        AssertThat(ts_parse_stack_head_count(stack), Equals(1));
+        ParseStackEntry *head = ts_parse_stack_head(stack, 0);
+        AssertThat(*head, Equals<ParseStackEntry>({trees[7], stateH}))
+        AssertThat(ts_parse_stack_entry_next_count(head), Equals(1));
+
+        ParseStackEntry *next = ts_parse_stack_entry_next(head, 0);
+        AssertThat(*next, Equals<ParseStackEntry>({trees[6], stateG}))
+        AssertThat(ts_parse_stack_entry_next_count(next), Equals(2));
       });
     });
   });

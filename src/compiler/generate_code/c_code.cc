@@ -323,8 +323,6 @@ class CCodeGenerator {
         return "ts_builtin_sym_end";
       else if (symbol == rules::DOCUMENT())
         return "ts_builtin_sym_document";
-      else if (symbol == rules::AMBIGUITY())
-        return "ts_builtin_sym_ambiguity";
       else
         return "";
     } else {
@@ -344,8 +342,6 @@ class CCodeGenerator {
         return "END";
       else if (symbol == rules::DOCUMENT())
         return "DOCUMENT";
-      else if (symbol == rules::AMBIGUITY())
-        return "AMBIGUITY";
       else
         return "";
     } else {

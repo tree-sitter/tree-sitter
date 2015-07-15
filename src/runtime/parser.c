@@ -303,9 +303,13 @@ static TSTree *finish(TSParser *parser) {
  *  Public
  */
 
+TSTree * ts_parser_select_tree(void *data, TSTree *left, TSTree *right) {
+  return left;
+}
+
 TSParser ts_parser_make() {
   return (TSParser) { .lexer = ts_lexer_make(),
-                      .stack = ts_parse_stack_new(),
+                      .stack = ts_parse_stack_new((TreeSelectionCallback) {NULL, ts_parser_select_tree}),
                       .right_stack = ts_stack_make() };
 }
 

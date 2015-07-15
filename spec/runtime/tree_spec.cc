@@ -11,7 +11,6 @@ enum {
 };
 
 static const char *names[] = {
-  "AMBIGUITY",
   "DOCUMENT",
   "ERROR",
   "END",

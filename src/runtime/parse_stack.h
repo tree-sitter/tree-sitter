@@ -25,10 +25,15 @@ typedef struct {
   ParseStackPopResult *contents;
 } ParseStackPopResultList;
 
+typedef struct {
+  void *data;
+  TSTree * (*callback)(void *data, TSTree *, TSTree *);
+} TreeSelectionCallback;
+
 /*
  *  Create a ParseStack.
  */
-ParseStack *ts_parse_stack_new();
+ParseStack *ts_parse_stack_new(TreeSelectionCallback);
 
 /*
  *  Release any resources reserved by a parse stack.

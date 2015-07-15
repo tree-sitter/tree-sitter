@@ -26,16 +26,16 @@ ambiguous declarations
 ==========================================
 
 int main() {
+	int i;
 	someTypeOrValue * pointerOrMultiplicand();
+	float y;
 }
 
 ---
 
 (function_definition
-  (identifier)
-  (direct_declarator (identifier))
-  (AMBIGUITY
-    (ALTERNATIVE (compound_statement
-      (declaration (identifier) (declarator (star) (direct_declarator (identifier))))))
-    (ALTERNATIVE (compound_statement
-      (expression_statement (math_expression (identifier) (star) (call_expression (identifier))))))))
+	(identifier) (direct_declarator (identifier))
+  (compound_statement
+		(declaration (identifier) (identifier))
+		(declaration (identifier) (declarator (star) (direct_declarator (identifier))))
+		(declaration (identifier) (identifier))))

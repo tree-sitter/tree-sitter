@@ -76,7 +76,6 @@ static inline bool ts_tree_is_fragile_right(TSTree *tree) {
 TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, bool);
 TSTree *ts_tree_make_node(TSSymbol, size_t, TSTree **, bool);
 TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char);
-TSTree *ts_tree_make_ambiguity(TSTree *, TSTree *);
 void ts_tree_retain(TSTree *tree);
 void ts_tree_release(TSTree *tree);
 bool ts_tree_eq(const TSTree *tree1, const TSTree *tree2);
@@ -85,7 +84,6 @@ char *ts_tree_error_string(const TSTree *tree, const char **names);
 TSTree **ts_tree_children(const TSTree *tree, size_t *count);
 TSTreeChild *ts_tree_visible_children(const TSTree *tree, size_t *count);
 TSLength ts_tree_total_size(const TSTree *tree);
-TSTree *ts_tree_add_alternative(TSTree *tree, TSTree *alternative);
 
 static inline bool ts_tree_is_empty(TSTree *tree) {
   return ts_tree_total_size(tree).bytes == 0;

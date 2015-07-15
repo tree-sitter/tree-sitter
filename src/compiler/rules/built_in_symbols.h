@@ -10,7 +10,6 @@ Symbol ERROR();
 Symbol START();
 Symbol END_OF_INPUT();
 Symbol DOCUMENT();
-Symbol AMBIGUITY();
 
 }  // namespace rules
 }  // namespace tree_sitter

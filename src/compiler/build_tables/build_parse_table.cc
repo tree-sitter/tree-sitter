@@ -73,7 +73,6 @@ class ParseTableBuilder {
 
     parse_table.symbols.insert(rules::ERROR());
     parse_table.symbols.insert(rules::DOCUMENT());
-    parse_table.symbols.insert(rules::AMBIGUITY());
 
     return { parse_table, nullptr };
   }

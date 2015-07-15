@@ -21,18 +21,20 @@ struct ParseStack {
   int head_count;
   int head_capacity;
   ParseStackPopResult last_pop_results[MAX_POP_PATH_COUNT];
+  TreeSelectionCallback tree_selection_callback;
 };
 
 /*
  *  Section: Stack lifecycle
  */
 
-ParseStack *ts_parse_stack_new() {
+ParseStack *ts_parse_stack_new(TreeSelectionCallback tree_selection_callback) {
   ParseStack *this = malloc(sizeof(ParseStack));
   *this = (ParseStack) {
     .heads = calloc(INITIAL_HEAD_CAPACITY, sizeof(ParseStackNode *)),
     .head_count = 1,
     .head_capacity = INITIAL_HEAD_CAPACITY,
+    .tree_selection_callback = tree_selection_callback,
   };
   return this;
 }
@@ -115,13 +117,27 @@ static ParseStackNode *stack_node_new(ParseStackNode *next, TSStateId state, TST
   return this;
 }
 
-static void stack_node_add_successor(ParseStackNode *this, ParseStackNode *successor) {
-  for (int i = 0; i < this->successor_count; i++)
-    if (this->successors[i] == successor)
+static void ts_parse_stack_add_node_successor(ParseStack *this, ParseStackNode *node, ParseStackNode *new_successor) {
+  for (int i = 0; i < node->successor_count; i++) {
+    ParseStackNode *successor = node->successors[i];
+    if (successor == new_successor)
       return;
-  stack_node_retain(successor);
-  this->successors[this->successor_count] = successor;
-  this->successor_count++;
+    if (successor->entry.state == new_successor->entry.state) {
+      if (successor->entry.tree != new_successor->entry.tree)
+        successor->entry.tree = this->tree_selection_callback.callback(
+          this->tree_selection_callback.data,
+          successor->entry.tree,
+          new_successor->entry.tree
+        );
+      for (int j = 0; j < new_successor->successor_count; j++)
+        ts_parse_stack_add_node_successor(this, successor, new_successor->successors[j]);
+      return;
+    }
+  }
+
+  stack_node_retain(new_successor);
+  node->successors[node->successor_count] = new_successor;
+  node->successor_count++;
 }
 
 /*
@@ -159,16 +175,16 @@ static bool ts_parse_stack_merge_head(ParseStack *this, int head_index, TSStateI
   for (int i =  0; i < head_index; i++) {
     ParseStackNode *head = this->heads[i];
     if (head->entry.state == state) {
-      if (head->entry.tree == tree) {
-        stack_node_add_successor(head, this->heads[head_index]);
-        ts_parse_stack_remove_head(this, head_index);
-        return true;
-      } else {
-        head->entry.tree = ts_tree_add_alternative(head->entry.tree, tree);
-        stack_node_add_successor(head, this->heads[head_index]);
-        ts_parse_stack_remove_head(this, head_index);
-        return true;
+      if (head->entry.tree != tree) {
+        head->entry.tree = this->tree_selection_callback.callback(
+          this->tree_selection_callback.data,
+          head->entry.tree,
+          tree
+        );
       }
+      ts_parse_stack_add_node_successor(this, head, this->heads[head_index]);
+      ts_parse_stack_remove_head(this, head_index);
+      return true;
     }
   }
   return false;
@@ -189,7 +205,11 @@ bool ts_parse_stack_push(ParseStack *this, int head_index, TSStateId state, TSTr
 void ts_parse_stack_add_alternative(ParseStack *this, int head_index, TSTree *tree) {
   assert(head_index < this->head_count);
   ParseStackEntry *entry = &this->heads[head_index]->entry;
-  entry->tree = ts_tree_add_alternative(entry->tree, tree);
+  entry->tree = this->tree_selection_callback.callback(
+    this->tree_selection_callback.data,
+    entry->tree,
+    tree
+  );
 }
 
 int ts_parse_stack_split(ParseStack *this, int head_index) {
