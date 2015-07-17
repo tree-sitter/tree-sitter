@@ -1,14 +1,14 @@
-#ifndef HELPERS_SPY_READER_H_
-#define HELPERS_SPY_READER_H_
+#ifndef HELPERS_spy_input_H_
+#define HELPERS_spy_input_H_
 
 #include <string>
 #include <vector>
 #include "tree_sitter/runtime.h"
 
-class SpyReader {
+class SpyInput {
  public:
-  SpyReader(std::string content, size_t chars_per_chunk);
-  ~SpyReader();
+  SpyInput(std::string content, size_t chars_per_chunk);
+  ~SpyInput();
 
   void clear();
   TSInput input();
@@ -25,4 +25,4 @@ class SpyReader {
   std::vector<std::string> strings_read;
 };
 
-#endif  // HELPERS_SPY_READER_H_
+#endif  // HELPERS_spy_input_H_

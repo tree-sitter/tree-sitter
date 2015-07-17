@@ -1,5 +1,5 @@
 #include "runtime/runtime_spec_helper.h"
-#include "runtime/helpers/spy_reader.h"
+#include "runtime/helpers/spy_input.h"
 #include "runtime/helpers/log_debugger.h"
 
 extern "C" const TSLanguage * ts_language_json();
@@ -10,33 +10,33 @@ START_TEST
 
 describe("Parser", [&]() {
   TSDocument *doc;
-  SpyReader *reader;
+  SpyInput *input;
   TSNode *root;
   size_t chunk_size;
 
   before_each([&]() {
     chunk_size = 3;
-    reader = nullptr;
+    input = nullptr;
     doc = ts_document_make();
   });
 
   after_each([&]() {
     ts_document_free(doc);
-    if (reader)
-      delete reader;
+    if (input)
+      delete input;
   });
 
   auto set_text = [&](const char *text) {
-    reader = new SpyReader(text, chunk_size);
-    ts_document_set_input(doc, reader->input());
+    input = new SpyInput(text, chunk_size);
+    ts_document_set_input(doc, input->input());
     root = ts_document_root_node(doc);
     AssertThat(ts_node_size(root).bytes + ts_node_pos(root).bytes, Equals(strlen(text)));
-    reader->clear();
+    input->clear();
   };
 
   auto insert_text = [&](size_t position, string text) {
     size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
-    AssertThat(reader->insert(position, text), IsTrue());
+    AssertThat(input->insert(position, text), IsTrue());
     ts_document_edit(doc, { position, text.length(), 0 });
 
     root = ts_document_root_node(doc);
@@ -46,7 +46,7 @@ describe("Parser", [&]() {
 
   auto delete_text = [&](size_t position, size_t length) {
     size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
-    AssertThat(reader->erase(position, length), IsTrue());
+    AssertThat(input->erase(position, length), IsTrue());
     ts_document_edit(doc, { position, 0, length });
 
     root = ts_document_root_node(doc);
@@ -56,8 +56,8 @@ describe("Parser", [&]() {
 
   auto replace_text = [&](size_t position, size_t length, string new_text) {
     size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
-    AssertThat(reader->erase(position, length), IsTrue());
-    AssertThat(reader->insert(position, new_text), IsTrue());
+    AssertThat(input->erase(position, length), IsTrue());
+    AssertThat(input->insert(position, new_text), IsTrue());
 
     ts_document_edit(doc, { position, new_text.size(), length });
 
@@ -241,7 +241,7 @@ describe("Parser", [&]() {
         });
 
         it("re-reads only the changed portion of the input", [&]() {
-          AssertThat(reader->strings_read, Equals(vector<string>({ " abc * 5)" })));
+          AssertThat(input->strings_read, Equals(vector<string>({ " abc * 5)" })));
         });
       });
 
@@ -269,7 +269,7 @@ describe("Parser", [&]() {
         });
 
         it("re-reads only the changed portion of the input", [&]() {
-          AssertThat(reader->strings_read, Equals(vector<string>({ "123 + 5 ", " 4", " ^ (", "" })));
+          AssertThat(input->strings_read, Equals(vector<string>({ "123 + 5 ", " 4", " ^ (", "" })));
         });
       });
 

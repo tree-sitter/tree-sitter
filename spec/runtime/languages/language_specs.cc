@@ -1,6 +1,6 @@
 #include "runtime/runtime_spec_helper.h"
 #include "runtime/helpers/read_test_entries.h"
-#include "runtime/helpers/spy_reader.h"
+#include "runtime/helpers/spy_input.h"
 #include "runtime/helpers/log_debugger.h"
 #include <set>
 
@@ -48,7 +48,7 @@ describe("Languages", [&]() {
           continue;
 
         it(("handles random insertions in " + entry.description).c_str(), [&]() {
-          SpyReader reader(entry.input, 3);
+          SpyInput reader(entry.input, 3);
           ts_document_set_input(doc, reader.input());
 
           string garbage("%^&*");
@@ -64,7 +64,7 @@ describe("Languages", [&]() {
         });
 
         it(("handles random deletions in " + entry.description).c_str(), [&]() {
-          SpyReader reader(entry.input, 3);
+          SpyInput reader(entry.input, 3);
           ts_document_set_input(doc, reader.input());
 
           size_t position = entry.input.size() / 2;

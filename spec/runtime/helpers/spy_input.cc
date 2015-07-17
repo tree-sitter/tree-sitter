@@ -1,4 +1,4 @@
-#include "runtime/helpers/spy_reader.h"
+#include "runtime/helpers/spy_input.h"
 #include <string.h>
 #include <algorithm>
 #include "utf8proc.h"
@@ -23,16 +23,16 @@ static long byte_for_character(const char *str, size_t len, size_t goal_characte
 }
 
 static const char * spy_read(void *data, size_t *bytes_read) {
-  SpyReader *reader = static_cast<SpyReader *>(data);
+  SpyInput *reader = static_cast<SpyInput *>(data);
   return reader->read(bytes_read);
 }
 
 static int spy_seek(void *data, TSLength byte_offset) {
-  SpyReader *reader = static_cast<SpyReader *>(data);
+  SpyInput *reader = static_cast<SpyInput *>(data);
   return reader->seek(byte_offset.bytes);
 }
 
-SpyReader::SpyReader(string content, size_t chars_per_chunk) :
+SpyInput::SpyInput(string content, size_t chars_per_chunk) :
     content(content),
     chars_per_chunk(chars_per_chunk),
     buffer_size(4 * chars_per_chunk),
@@ -40,11 +40,11 @@ SpyReader::SpyReader(string content, size_t chars_per_chunk) :
     byte_offset(0),
     strings_read({ "" }) {}
 
-SpyReader::~SpyReader() {
+SpyInput::~SpyInput() {
   delete buffer;
 }
 
-const char * SpyReader::read(size_t *bytes_read) {
+const char * SpyInput::read(size_t *bytes_read) {
   if (byte_offset > content.size()) {
     *bytes_read = 0;
     return "";
@@ -72,13 +72,13 @@ const char * SpyReader::read(size_t *bytes_read) {
   return buffer;
 }
 
-int SpyReader::seek(size_t pos) {
+int SpyInput::seek(size_t pos) {
   strings_read.push_back("");
   byte_offset = pos;
   return 0;
 }
 
-TSInput SpyReader::input() {
+TSInput SpyInput::input() {
   TSInput result;
   result.data = this;
   result.seek_fn = spy_seek;
@@ -87,20 +87,20 @@ TSInput SpyReader::input() {
   return result;
 }
 
-bool SpyReader::insert(size_t char_index, string text) {
+bool SpyInput::insert(size_t char_index, string text) {
   long pos = byte_for_character(content.data(), content.size(), char_index);
   if (pos < 0) return false;
   content.insert(pos, text);
   return true;
 }
 
-bool SpyReader::erase(size_t char_index, size_t len) {
+bool SpyInput::erase(size_t char_index, size_t len) {
   long pos = byte_for_character(content.data(), content.size(), char_index);
   if (pos < 0) return false;
   content.erase(pos, len);
   return true;
 }
 
-void SpyReader::clear() {
+void SpyInput::clear() {
   strings_read.clear();
 }
