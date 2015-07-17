@@ -5,21 +5,21 @@
 
 using std::string;
 
-static long position_for_char_index(const char *str, size_t len, size_t goal_index) {
-  size_t index = 0, position = 0;
+static long byte_for_character(const char *str, size_t len, size_t goal_character) {
+  size_t character = 0, byte = 0;
   int32_t dest_char;
 
-  while (index < goal_index) {
-    if (position >= len)
+  while (character < goal_character) {
+    if (byte >= len)
       return -1;
-    position += utf8proc_iterate(
-        (uint8_t *)str + position,
-        len - position,
+    byte += utf8proc_iterate(
+        (uint8_t *)str + byte,
+        len - byte,
         &dest_char);
-    index++;
+    character++;
   }
 
-  return position;
+  return byte;
 }
 
 static const char * spy_read(void *data, size_t *bytes_read) {
@@ -27,16 +27,17 @@ static const char * spy_read(void *data, size_t *bytes_read) {
   return reader->read(bytes_read);
 }
 
-static int spy_seek(void *data, TSLength position) {
+static int spy_seek(void *data, TSLength byte_offset) {
   SpyReader *reader = static_cast<SpyReader *>(data);
-  return reader->seek(position.bytes);
+  return reader->seek(byte_offset.bytes);
 }
 
-SpyReader::SpyReader(string content, size_t chunk_size) :
-    buffer(new char[chunk_size]),
+SpyReader::SpyReader(string content, size_t chars_per_chunk) :
     content(content),
-    position(0),
-    chunk_size(chunk_size),
+    chars_per_chunk(chars_per_chunk),
+    buffer_size(4 * chars_per_chunk),
+    buffer(new char[buffer_size]),
+    byte_offset(0),
     strings_read({ "" }) {}
 
 SpyReader::~SpyReader() {
@@ -44,28 +45,36 @@ SpyReader::~SpyReader() {
 }
 
 const char * SpyReader::read(size_t *bytes_read) {
-  if (position > content.size()) {
+  if (byte_offset > content.size()) {
     *bytes_read = 0;
     return "";
   }
 
-  const char *start = content.data() + position;
-  long len = position_for_char_index(start, content.size() - position, chunk_size);
-  if (len < 0)
-    len = content.size() - position;
+  const char *start = content.data() + byte_offset;
+  long byte_count = byte_for_character(start, content.size() - byte_offset, chars_per_chunk);
+  if (byte_count < 0)
+    byte_count = content.size() - byte_offset;
 
-  *bytes_read = len;
-  position += len;
-  strings_read.back() += string(start, len);
+  *bytes_read = byte_count;
+  byte_offset += byte_count;
+  strings_read.back() += string(start, byte_count);
 
-  memset(buffer, 0, chunk_size);
-  memcpy(buffer, start, len);
+  /*
+   * This class stores its entire `content` in a contiguous buffer, but we want
+   * to ensure that the code under test cannot accidentally read more than
+   * `*bytes_read` bytes past the returned pointer. To make sure that this type
+   * of error does not fly, we copy the chunk into a zeroed-out buffer and
+   * return a reference to that buffer, rather than a pointer into the main
+   * content.
+   */
+  memset(buffer, 0, buffer_size);
+  memcpy(buffer, start, byte_count);
   return buffer;
 }
 
 int SpyReader::seek(size_t pos) {
   strings_read.push_back("");
-  position = pos;
+  byte_offset = pos;
   return 0;
 }
 
@@ -79,14 +88,14 @@ TSInput SpyReader::input() {
 }
 
 bool SpyReader::insert(size_t char_index, string text) {
-  long pos = position_for_char_index(content.data(), content.size(), char_index);
+  long pos = byte_for_character(content.data(), content.size(), char_index);
   if (pos < 0) return false;
   content.insert(pos, text);
   return true;
 }
 
 bool SpyReader::erase(size_t char_index, size_t len) {
-  long pos = position_for_char_index(content.data(), content.size(), char_index);
+  long pos = byte_for_character(content.data(), content.size(), char_index);
   if (pos < 0) return false;
   content.erase(pos, len);
   return true;

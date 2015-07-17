@@ -7,7 +7,7 @@
 
 class SpyReader {
  public:
-  SpyReader(std::string content, size_t chunk_size);
+  SpyReader(std::string content, size_t chars_per_chunk);
   ~SpyReader();
 
   void clear();
@@ -17,10 +17,11 @@ class SpyReader {
   const char * read(size_t *len);
   int seek(size_t position);
 
-  char *buffer;
   std::string content;
-  size_t position;
-  size_t chunk_size;
+  size_t chars_per_chunk;
+  size_t buffer_size;
+  char *buffer;
+  size_t byte_offset;
   std::vector<std::string> strings_read;
 };
 
