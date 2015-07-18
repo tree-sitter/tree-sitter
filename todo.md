@@ -1,39 +1,37 @@
 TODO
 ====
 
-* Incremental parsing
-  * Add randomized editing to all language tests.
-    - [ ] inserts
-    - [ ] deletes
-    - [ ] replaces
-  * Verify that tree remains the same after edit is undone.
-  * Verify that the tree's total size is as expected after each edit.
+### Handling ambiguity (GLR)
+* Add a simple way to specify syntactic ambiguity resolutions in the Grammar (e.g. 'prefer declarations to statements' in C)
+* Optimize the lexical DFA so that all compatible starting lex states are merged. Then, when the parse stack has multiple heads, check at runtime that each head's state corresponds to the same starting lex state.
+* Fix memory leaks in the graph-structured parse stack.
 
-* Ubiquitous token handling
-  * Fix the unintuitive tree that results when ubiquitous tokens are last child
-    of their parent node.
+### Runtime System
+* Rework the public API for accessing the syntax tree. The current immutable Node API is too abstract because it requires a Node allocation for every traversal operation through the tree. Instead, expose TreeIterators, which can be mutated in place to point to different nodes. This way, the tree can be traversed using public methods without unnecessary allocation, which will allow more efficient algorithms to be implemented outside of the library.
+* Stop storing nodes' visible children in a separate array. Instead allow the TreeIterators to traverse the tree at two different levels of abstraction: one which includes anonymous tokens (the concrete syntax tree) and one that does not (the sufficiently-abstract syntax tree).
 
-* Error handling
-  * Try to minimize size of error node by looking ahead a few tokens
+### Testing / Quality
+* Start running the clang-analyzer on the codebase on travis-CI.
+* Use the Valgrind leak checker to fix the memory leaks in the runtime library.
+* Randomize the editing in the language tests, using a seed that can be specified in order to reproduce failures.
+* Verify that the tree's total size is as expected after each edit.
 
-* Grammar Features
-  * Indentation tokens
-  * Regexp assertions
-    - [ ] '^'
-    - [ ] '$'
-    - [ ] '\b'
-  * Composing languages
-    - [ ] Rule for referencing named grammar
-    - [ ] Grammar registry object in runtime
-    - [ ] Parsing returns control to parent language
+### Ubiquitous token handling
+* Fix the unintuitive tree that results when ubiquitous tokens are last child of their parent node.
 
-* Performance
-  * Optimize grammar compilation
+### Error handling
+* Use information about nesting depth of tokens like '(' and ')' to make error recovery more accurate.
 
-* Grammars
-  * C
-  * Go
+### Grammar Features
+* Regexp assertions
+  - [ ] '^'
+  - [ ] '$'
+  - [ ] '\b'
+* Composing languages
+  - [ ] Rule for referencing named grammar
+  - [ ] Grammar registry object in runtime
+  - [ ] Parsing returns control to parent language
+* Indentation tokens
 
-* Query API
-  * closest(node name)
-  * find(node name)
+### Performance
+* Optimize grammar compilation
