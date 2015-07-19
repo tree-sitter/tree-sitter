@@ -11,16 +11,16 @@ using namespace build_tables;
 START_TEST
 
 describe("build_parse_table", []() {
-  SyntaxGrammar parse_grammar({
+  SyntaxGrammar parse_grammar{{
       { "rule0", choice({ i_sym(1), i_sym(2) }) },
       { "rule1", i_token(0) },
       { "rule2", i_token(1) },
-  }, {}, { Symbol(2, SymbolOptionToken) }, set<set<Symbol>>());
+  }, {}, { Symbol(2, SymbolOptionToken) }, {}};
 
-  LexicalGrammar lex_grammar({
+  LexicalGrammar lex_grammar{{
       { "token0", pattern("[a-c]") },
       { "token1", pattern("[b-d]") },
-  }, {});
+  }, {}, {}};
 
   it("first looks for the start rule and its item set closure", [&]() {
     auto result = build_parse_table(parse_grammar, lex_grammar);

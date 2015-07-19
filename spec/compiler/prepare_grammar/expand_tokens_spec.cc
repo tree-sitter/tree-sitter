@@ -11,12 +11,12 @@ using prepare_grammar::expand_tokens;
 describe("expand_tokens", []() {
   describe("string rules", [&]() {
     it("replaces strings with sequences of character sets", [&]() {
-      LexicalGrammar grammar({
+      LexicalGrammar grammar{{
           { "rule_A", seq({
               i_sym(10),
               str("xyz"),
               i_sym(11) }) },
-      }, {});
+      }, {}, {}};
 
       auto result = expand_tokens(grammar);
 
@@ -30,10 +30,10 @@ describe("expand_tokens", []() {
     });
 
     it("handles strings containing non-ASCII UTF8 characters", [&]() {
-      LexicalGrammar grammar({
-          // α β
-          { "rule_A", str("\u03B1 \u03B2") },
-      }, {});
+      LexicalGrammar grammar{{
+        // α β
+        { "rule_A", str("\u03B1 \u03B2") },
+      }, {}, {}};
 
       auto result = expand_tokens(grammar);
 
@@ -48,12 +48,12 @@ describe("expand_tokens", []() {
 
   describe("regexp rules", [&]() {
     it("replaces regexps with the equivalent rule tree", [&]() {
-      LexicalGrammar grammar({
-          { "rule_A", seq({
-              i_sym(10),
-              pattern("x*"),
-              i_sym(11) }) },
-      }, {});
+      LexicalGrammar grammar{{
+        { "rule_A", seq({
+            i_sym(10),
+            pattern("x*"),
+            i_sym(11) }) },
+      }, {}, {}};
 
       auto result = expand_tokens(grammar);
 
@@ -67,10 +67,10 @@ describe("expand_tokens", []() {
     });
 
     it("handles regexps containing non-ASCII UTF8 characters", [&]() {
-      LexicalGrammar grammar({
-          // [^α-δ]
-          { "rule_A", pattern("[^\u03B1-\u03B4]*") },
-      }, {});
+      LexicalGrammar grammar{{
+        // [^α-δ]
+        { "rule_A", pattern("[^\u03B1-\u03B4]*") },
+      }, {}, {}};
 
       auto result = expand_tokens(grammar);
 
@@ -80,12 +80,12 @@ describe("expand_tokens", []() {
     });
 
     it("returns an error when the grammar contains an invalid regex", [&]() {
-      LexicalGrammar grammar({
-          { "rule_A", seq({
-              pattern("("),
-              str("xyz"),
-              pattern("[") }) },
-      }, {});
+      LexicalGrammar grammar{{
+        { "rule_A", seq({
+            pattern("("),
+            str("xyz"),
+            pattern("[") }) },
+      }, {}, {}};
 
       auto result = expand_tokens(grammar);
 

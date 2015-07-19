@@ -10,9 +10,9 @@ using prepare_grammar::expand_repeats;
 
 describe("expand_repeats", []() {
   it("replaces repeat rules with pairs of recursive rules", [&]() {
-    SyntaxGrammar grammar({
-        { "rule0", repeat(i_token(0)) },
-    }, {}, set<Symbol>(), set<set<Symbol>>());
+    SyntaxGrammar grammar{{
+      { "rule0", repeat(i_token(0)) },
+    }, {}, {}, {}};
 
     auto match = expand_repeats(grammar);
 
@@ -28,11 +28,11 @@ describe("expand_repeats", []() {
   });
 
   it("replaces repeats inside of sequences", [&]() {
-    SyntaxGrammar grammar({
-        { "rule0", seq({
-            i_token(10),
-            repeat(i_token(11)) }) },
-    }, {}, set<Symbol>(), set<set<Symbol>>());
+    SyntaxGrammar grammar{{
+      { "rule0", seq({
+          i_token(10),
+          repeat(i_token(11)) }) },
+    }, {}, {}, {}};
 
     auto match = expand_repeats(grammar);
 
@@ -50,9 +50,9 @@ describe("expand_repeats", []() {
   });
 
   it("replaces repeats inside of choices", [&]() {
-    SyntaxGrammar grammar({
-        { "rule0", choice({ i_token(10), repeat(i_token(11)) }) },
-    }, {}, set<Symbol>(), set<set<Symbol>>());
+    SyntaxGrammar grammar{{
+      { "rule0", choice({ i_token(10), repeat(i_token(11)) }) },
+    }, {}, {}, {}};
 
     auto match = expand_repeats(grammar);
 
@@ -68,12 +68,12 @@ describe("expand_repeats", []() {
   });
 
   it("does not create redundant auxiliary rules", [&]() {
-    SyntaxGrammar grammar({
-        { "rule0", choice({
-            seq({ i_token(1), repeat(i_token(4)) }),
-            seq({ i_token(2), repeat(i_token(4)) }) }) },
-        { "rule1", seq({ i_token(3), repeat(i_token(4)) }) },
-    }, {}, set<Symbol>(), set<set<Symbol>>());
+    SyntaxGrammar grammar{{
+      { "rule0", choice({
+          seq({ i_token(1), repeat(i_token(4)) }),
+          seq({ i_token(2), repeat(i_token(4)) }) }) },
+      { "rule1", seq({ i_token(3), repeat(i_token(4)) }) },
+    }, {}, {}, {}};
 
     auto match = expand_repeats(grammar);
 
@@ -92,11 +92,11 @@ describe("expand_repeats", []() {
   });
 
   it("can replace multiple repeats in the same rule", [&]() {
-    SyntaxGrammar grammar({
-        { "rule0", seq({
-            repeat(i_token(10)),
-            repeat(i_token(11)) }) },
-    }, {}, set<Symbol>(), set<set<Symbol>>());
+    SyntaxGrammar grammar{{
+      { "rule0", seq({
+          repeat(i_token(10)),
+          repeat(i_token(11)) }) },
+    }, {}, {}, {}};
 
     auto match = expand_repeats(grammar);
 
@@ -117,10 +117,10 @@ describe("expand_repeats", []() {
   });
 
   it("can replace repeats in multiple rules", [&]() {
-    SyntaxGrammar grammar({
-        { "rule0", repeat(i_token(10)) },
-        { "rule1", repeat(i_token(11)) },
-    }, {}, set<Symbol>(), set<set<Symbol>>());
+    SyntaxGrammar grammar{{
+      { "rule0", repeat(i_token(10)) },
+      { "rule1", repeat(i_token(11)) },
+    }, {}, {}, {}};
 
     auto match = expand_repeats(grammar);
 

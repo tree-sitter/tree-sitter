@@ -67,19 +67,18 @@ class ExpandRepeats : public rules::IdentityRuleFn {
 };
 
 SyntaxGrammar expand_repeats(const SyntaxGrammar &grammar) {
-  vector<pair<string, rules::rule_ptr>> rules, aux_rules(grammar.aux_rules);
+  SyntaxGrammar result;
+  result.aux_rules = grammar.aux_rules;
+  result.ubiquitous_tokens = grammar.ubiquitous_tokens;
+  result.expected_conflicts = grammar.expected_conflicts;
 
-  ExpandRepeats expander(aux_rules.size());
+  ExpandRepeats expander(result.aux_rules.size());
+  for (auto &pair : grammar.rules)
+    result.rules.push_back({ pair.first, expander.expand(pair.second, pair.first) });
 
-  for (auto &pair : grammar.rules) {
-    rules.push_back({ pair.first, expander.expand(pair.second, pair.first) });
-  }
-
-  aux_rules.insert(aux_rules.end(), expander.aux_rules.begin(),
-                   expander.aux_rules.end());
-
-  return SyntaxGrammar(rules, aux_rules, grammar.ubiquitous_tokens,
-                       grammar.expected_conflicts);
+  result.aux_rules.insert(result.aux_rules.end(), expander.aux_rules.begin(),
+                          expander.aux_rules.end());
+  return result;
 }
 
 }  // namespace prepare_grammar

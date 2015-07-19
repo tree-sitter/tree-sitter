@@ -10,13 +10,13 @@ using namespace build_tables;
 START_TEST
 
 describe("ParseConflictManager", []() {
-  SyntaxGrammar syntax_grammar({
+  SyntaxGrammar syntax_grammar{{
     { "in_progress_rule1", i_token(0) },
     { "in_progress_rule2", i_token(0) },
     { "reduced_rule", i_token(0) },
     { "other_rule1", i_token(0) },
     { "other_rule2", i_token(0) },
-  }, {}, { Symbol(2, SymbolOptionToken) }, set<set<Symbol>>());
+  }, {}, { Symbol(2, SymbolOptionToken) }, {}};
 
   pair<bool, ConflictType> result;
   Symbol sym1(0);

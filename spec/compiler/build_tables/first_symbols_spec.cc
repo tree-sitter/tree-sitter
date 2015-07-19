@@ -9,7 +9,7 @@ using namespace rules;
 START_TEST
 
 describe("first_symbols", []() {
-  const SyntaxGrammar null_grammar;
+  SyntaxGrammar null_grammar;
 
   describe("for a sequence AB", [&]() {
     it("ignores B when A cannot be blank", [&]() {
@@ -40,12 +40,12 @@ describe("first_symbols", []() {
               i_token(1) }),
           i_sym(0) });
 
-      SyntaxGrammar grammar({
+      SyntaxGrammar grammar{{
           { "rule0", seq({
               i_token(2),
               i_token(3),
               i_token(4) }) }
-      }, {});
+      }, {}, {}, {}};
 
       AssertThat(first_symbols(rule, grammar), Equals(set<Symbol>({
           Symbol(0),
@@ -59,11 +59,11 @@ describe("first_symbols", []() {
           i_sym(0),
           i_token(1) });
 
-      SyntaxGrammar grammar({
+      SyntaxGrammar grammar{{
           { "rule0", choice({
               i_token(0),
               blank() }) }
-      }, {});
+      }, {}, {}, {}};
 
       AssertThat(first_symbols(rule, grammar), Equals(set<Symbol>({
           Symbol(0),
@@ -75,12 +75,12 @@ describe("first_symbols", []() {
 
   describe("when there are left-recursive rules", [&]() {
     it("terminates", [&]() {
-      SyntaxGrammar grammar({
+      SyntaxGrammar grammar{{
           { "rule0", choice({
               seq({ i_sym(0), i_token(10) }),
               i_token(11),
           }) },
-      }, {});
+      }, {}, {}, {}};
 
       auto rule = i_sym(0);
 

@@ -9,14 +9,14 @@ using namespace rules;
 START_TEST
 
 describe("item_set_closure", []() {
-  SyntaxGrammar grammar({
+  SyntaxGrammar grammar{{
       { "E", seq({
           i_sym(1),
           i_token(11) }) },
       { "T", seq({
           i_token(12),
           i_token(13) }) },
-  }, {});
+  }, {}, {}, {}};
 
   it("adds items at the beginnings of referenced rules", [&]() {
     ParseItemSet item_set = item_set_closure(
