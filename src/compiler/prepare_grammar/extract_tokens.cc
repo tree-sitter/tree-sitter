@@ -72,84 +72,77 @@ class TokenExtractor : public rules::IdentityRuleFn {
 
   rule_ptr default_apply(const rules::Rule *rule) {
     auto result = rule->copy();
-    if (is_token(rule->copy())) {
+    if (is_token(result))
       return apply_to_token(rule);
-    } else {
+    else
       return result;
-    }
   }
 
   rule_ptr apply_to(const rules::Metadata *rule) {
-    auto result = rule->copy();
-    if (is_token(rule->copy())) {
+    if (is_token(rule->copy()))
       return apply_to_token(rule);
-    } else {
+    else
       return rules::IdentityRuleFn::apply_to(rule);
-    }
   }
 
  public:
   vector<pair<string, rule_ptr>> tokens;
 };
 
-static tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> ubiq_token_err(
-    const string &msg) {
-  return make_tuple(SyntaxGrammar(), LexicalGrammar(),
-                    new GrammarError(GrammarErrorTypeInvalidUbiquitousToken,
-                                     "Not a token: " + msg));
+static const GrammarError * ubiq_token_err(const string &msg) {
+  return new GrammarError(GrammarErrorTypeInvalidUbiquitousToken, "Not a token: " + msg);
 }
 
-tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
-    const InternedGrammar &grammar) {
-  vector<pair<string, rule_ptr>> rules, tokens;
-  vector<rule_ptr> separators;
-  set<Symbol> ubiquitous_tokens;
-
+tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *>
+extract_tokens(const InternedGrammar &grammar) {
+  SyntaxGrammar syntax_grammar;
+  LexicalGrammar lexical_grammar;
   SymbolReplacer symbol_replacer;
   TokenExtractor extractor;
 
   size_t i = 0;
   for (auto &pair : grammar.rules) {
     if (is_token(pair.second)) {
-      tokens.push_back(pair);
-      symbol_replacer.replacements.insert(
-          { Symbol(i), Symbol(tokens.size() - 1, SymbolOptionToken), });
+      lexical_grammar.rules.push_back(pair);
+      symbol_replacer.replacements.insert({
+        Symbol(i),
+        Symbol(lexical_grammar.rules.size() - 1, SymbolOptionToken)
+      });
     } else {
-      rules.push_back({ pair.first, extractor.apply(pair.second) });
+      syntax_grammar.rules.push_back({ pair.first, extractor.apply(pair.second) });
     }
     i++;
   }
 
-  for (auto &pair : rules)
+  for (auto &pair : syntax_grammar.rules)
     pair.second = symbol_replacer.apply(pair.second);
 
   for (auto &rule : grammar.ubiquitous_tokens) {
     if (is_token(rule)) {
-      separators.push_back(rule);
+      lexical_grammar.separators.push_back(rule);
     } else {
       auto sym = dynamic_pointer_cast<const Symbol>(extractor.apply(rule));
       if (!sym.get())
-        return ubiq_token_err(rule->to_string());
+        return make_tuple(syntax_grammar, lexical_grammar, ubiq_token_err(rule->to_string()));
 
       Symbol symbol = symbol_replacer.replace_symbol(*sym);
       if (!symbol.is_token())
-        return ubiq_token_err(rules[symbol.index].first);
+        return make_tuple(syntax_grammar, lexical_grammar, ubiq_token_err(syntax_grammar.rules[symbol.index].first));
 
-      ubiquitous_tokens.insert(symbol);
+      syntax_grammar.ubiquitous_tokens.insert(symbol);
     }
   }
 
-  set<set<rules::Symbol>> expected_conflicts;
   for (auto &symbol_set : grammar.expected_conflicts) {
     set<Symbol> new_symbol_set;
     for (const Symbol &symbol : symbol_set)
       new_symbol_set.insert(symbol_replacer.replace_symbol(symbol));
-    expected_conflicts.insert(new_symbol_set);
+    syntax_grammar.expected_conflicts.insert(new_symbol_set);
   }
 
-  return make_tuple(SyntaxGrammar(rules, {}, ubiquitous_tokens, expected_conflicts),
-                    LexicalGrammar(tokens, extractor.tokens, separators),
-                    nullptr);
+  lexical_grammar.aux_rules = extractor.tokens;
+
+  return make_tuple(syntax_grammar, lexical_grammar, nullptr);
 }
 
 }  // namespace prepare_grammar
