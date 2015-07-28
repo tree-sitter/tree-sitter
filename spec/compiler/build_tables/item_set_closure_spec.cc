@@ -10,30 +10,30 @@ START_TEST
 
 describe("item_set_closure", []() {
   SyntaxGrammar grammar{{
-      { "E", seq({
-          i_sym(1),
-          i_token(11) }) },
-      { "T", seq({
-          i_token(12),
-          i_token(13) }) },
+    { "E", seq({
+      i_sym(1),
+      i_token(11) }) },
+    { "T", seq({
+      i_token(12),
+      i_token(13) }) },
   }, {}, {}, {}};
 
   it("adds items at the beginnings of referenced rules", [&]() {
     ParseItemSet item_set = item_set_closure(
-        ParseItem(Symbol(0), grammar.rule(Symbol(0)), {}),
-        set<Symbol>({ Symbol(10, SymbolOptionToken) }),
-        grammar
+      ParseItem(Symbol(0), grammar.rule(Symbol(0)), {}),
+      set<Symbol>({ Symbol(10, SymbolOptionToken) }),
+      grammar
     );
 
     AssertThat(item_set, Equals(ParseItemSet({
-        {
-            ParseItem(Symbol(1), grammar.rule(Symbol(1)), {}),
-            set<Symbol>({ Symbol(11, SymbolOptionToken) }),
-        },
-        {
-            ParseItem(Symbol(0), grammar.rule(Symbol(0)), {}),
-            set<Symbol>({ Symbol(10, SymbolOptionToken) }),
-        },
+      {
+        ParseItem(Symbol(1), grammar.rule(Symbol(1)), {}),
+        set<Symbol>({ Symbol(11, SymbolOptionToken) }),
+      },
+      {
+        ParseItem(Symbol(0), grammar.rule(Symbol(0)), {}),
+        set<Symbol>({ Symbol(10, SymbolOptionToken) }),
+      },
     })));
   });
 });

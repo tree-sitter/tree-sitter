@@ -14,10 +14,10 @@ describe("Node", []() {
     ts_document_set_input_string(document, "  [123, false, {\"x\": null}]");
     root = ts_document_root_node(document);
     AssertThat(ts_node_string(root), Equals(
-        "(DOCUMENT (array "
-          "(number) "
-          "(false) "
-          "(object (string) (null))))"));
+      "(DOCUMENT (array "
+        "(number) "
+        "(false) "
+        "(object (string) (null))))"));
   });
 
   after_each([&]() {

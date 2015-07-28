@@ -11,160 +11,158 @@ START_TEST
 describe("sym_transitions", []() {
   it("handles symbols", [&]() {
     AssertThat(
-        sym_transitions(i_sym(1)),
-        Equals(rule_map<Symbol>({
-            { Symbol(1), blank() }
-        })));
+      sym_transitions(i_sym(1)),
+      Equals(rule_map<Symbol>({
+        { Symbol(1), blank() }
+      })));
   });
 
   it("handles choices", [&]() {
     AssertThat(
-        sym_transitions(choice({ i_sym(1), i_sym(2) })),
-        Equals(rule_map<Symbol>({
-            { Symbol(1), blank() },
-            { Symbol(2), blank() }
-        })));
+      sym_transitions(choice({ i_sym(1), i_sym(2) })),
+      Equals(rule_map<Symbol>({
+        { Symbol(1), blank() },
+        { Symbol(2), blank() }
+      })));
   });
 
   it("handles sequences", [&]() {
     AssertThat(
-        sym_transitions(seq({ i_sym(1), i_sym(2) })),
-        Equals(rule_map<Symbol>({
-            { Symbol(1), i_sym(2) }
-        })));
+      sym_transitions(seq({ i_sym(1), i_sym(2) })),
+      Equals(rule_map<Symbol>({
+        { Symbol(1), i_sym(2) }
+      })));
   });
 
   it("handles long sequences", [&]() {
     AssertThat(
-        sym_transitions(seq({
-            i_sym(1),
-            i_sym(2),
-            i_sym(3),
-            i_sym(4)
-        })),
-        Equals(rule_map<Symbol>({
-            { Symbol(1), seq({ i_sym(2), i_sym(3), i_sym(4) }) }
-        })));
+      sym_transitions(seq({
+        i_sym(1),
+        i_sym(2),
+        i_sym(3),
+        i_sym(4)
+      })),
+      Equals(rule_map<Symbol>({
+        { Symbol(1), seq({ i_sym(2), i_sym(3), i_sym(4) }) }
+      })));
   });
 
   it("handles sequences whose left sides can be blank", [&]() {
     AssertThat(
-        sym_transitions(seq({
-            choice({
-                i_sym(1),
-                blank(),
-            }),
-            seq({
-                i_sym(1),
-                i_sym(2)
-            })
-        })), Equals(rule_map<Symbol>({
-            { Symbol(1), choice({ seq({ i_sym(1), i_sym(2) }), i_sym(2), }) }
-        })));
+      sym_transitions(seq({
+        choice({
+          i_sym(1),
+          blank() }),
+        seq({
+          i_sym(1),
+          i_sym(2) })
+      })), Equals(rule_map<Symbol>({
+        { Symbol(1), choice({ seq({ i_sym(1), i_sym(2) }), i_sym(2), }) }
+      })));
   });
 
   it("handles choices with common starting symbols", [&]() {
     AssertThat(
-        sym_transitions(
-            choice({
-                seq({ i_sym(1), i_sym(2) }),
-                seq({ i_sym(1), i_sym(3) }) })),
-        Equals(rule_map<Symbol>({
-            { Symbol(1), choice({ i_sym(2), i_sym(3) }) }
-        })));
+      sym_transitions(
+        choice({
+          seq({ i_sym(1), i_sym(2) }),
+          seq({ i_sym(1), i_sym(3) }) })),
+      Equals(rule_map<Symbol>({
+        { Symbol(1), choice({ i_sym(2), i_sym(3) }) }
+      })));
   });
 
   it("preserves metadata", [&]() {
     map<MetadataKey, int> metadata_value({
-        { PRECEDENCE, 5 }
+      { PRECEDENCE, 5 }
     });
 
     rule_ptr rule = make_shared<Metadata>(seq({ i_sym(1), i_sym(2) }), metadata_value);
     AssertThat(
-        sym_transitions(rule),
-        Equals(rule_map<Symbol>({
-            { Symbol(1), make_shared<Metadata>(i_sym(2), metadata_value)},
-        })));
+      sym_transitions(rule),
+      Equals(rule_map<Symbol>({
+        { Symbol(1), make_shared<Metadata>(i_sym(2), metadata_value)},
+      })));
   });
 });
 
 describe("char_transitions", []() {
   it("handles characters", [&]() {
     AssertThat(
-        char_transitions(character({ '1' })),
-        Equals(rule_map<CharacterSet>({
-            { CharacterSet().include('1'), blank() }
-        })));
+      char_transitions(character({ '1' })),
+      Equals(rule_map<CharacterSet>({
+        { CharacterSet().include('1'), blank() }
+      })));
   });
 
   it("handles choices between overlapping character sets", [&]() {
     AssertThat(
-        char_transitions(choice({
-            seq({
-                character({ 'a', 'b', 'c', 'd'  }),
-                sym("x") }),
-            seq({
-                character({ 'c', 'd', 'e', 'f' }),
-                sym("y") }) })),
-        Equals(rule_map<CharacterSet>({
-            { CharacterSet().include('a', 'b'), sym("x") },
-            { CharacterSet().include('c', 'd'), choice({ sym("x"), sym("y") }) },
-            { CharacterSet().include('e', 'f'), sym("y") },
-        })));
+      char_transitions(choice({
+        seq({
+          character({ 'a', 'b', 'c', 'd'  }),
+          sym("x") }),
+        seq({
+          character({ 'c', 'd', 'e', 'f' }),
+          sym("y") }) })),
+      Equals(rule_map<CharacterSet>({
+        { CharacterSet().include('a', 'b'), sym("x") },
+        { CharacterSet().include('c', 'd'), choice({ sym("x"), sym("y") }) },
+        { CharacterSet().include('e', 'f'), sym("y") },
+      })));
   });
 
   it("handles choices between whitelisted and blacklisted character sets", [&]() {
     AssertThat(
-        char_transitions(seq({
-            choice({
-                character({ '/' }, false),
-                seq({
-                    character({ '\\' }),
-                    character({ '/' }) }) }),
-            character({ '/' }) })),
+      char_transitions(seq({
+        choice({
+          character({ '/' }, false),
+          seq({
+            character({ '\\' }),
+            character({ '/' }) }) }),
+        character({ '/' }) })),
 
-        Equals(rule_map<CharacterSet>({
-            { CharacterSet()
-                  .include_all()
-                  .exclude('/')
-                  .exclude('\\'),
-              character({ '/' }) },
-            { CharacterSet()
-                  .include('\\'),
-              seq({
-                  choice({
-                      blank(),
-                      character({ '/' }) }),
-                  character({ '/' }) }) },
-        })));
+      Equals(rule_map<CharacterSet>({
+        { CharacterSet()
+            .include_all()
+            .exclude('/')
+            .exclude('\\'),
+          character({ '/' }) },
+        { CharacterSet()
+            .include('\\'),
+          seq({
+            choice({
+              blank(),
+              character({ '/' }) }),
+            character({ '/' }) }) },
+      })));
   });
 
   it("handles choices between a subset and a superset of characters", [&]() {
     AssertThat(
-        char_transitions(choice({
-            seq({
-                character({ 'b', 'c', 'd' }),
-                sym("x") }),
-            seq({
-                character({ 'a', 'b', 'c', 'd', 'e', 'f' }),
-                sym("y") }) })),
-        Equals(rule_map<CharacterSet>({
-            { CharacterSet().include('b', 'd'), choice({ sym("x"), sym("y") }) },
-            { CharacterSet().include('a').include('e', 'f'), sym("y") },
-        })));
+      char_transitions(choice({
+        seq({
+          character({ 'b', 'c', 'd' }),
+          sym("x") }),
+        seq({
+          character({ 'a', 'b', 'c', 'd', 'e', 'f' }),
+          sym("y") }) })),
+      Equals(rule_map<CharacterSet>({
+        { CharacterSet().include('b', 'd'), choice({ sym("x"), sym("y") }) },
+        { CharacterSet().include('a').include('e', 'f'), sym("y") },
+      })));
 
     AssertThat(
-        char_transitions(choice({
-            seq({
-                character({ 'a', 'b', 'c', 'd', 'e', 'f' }),
-                sym("x") }),
-            seq({
-                character({ 'b', 'c', 'd' }),
-                sym("y") }) })),
-        Equals(rule_map<CharacterSet>({
-            { CharacterSet().include('b', 'd'), choice({ sym("x"), sym("y") }) },
-            { CharacterSet().include('a').include('e', 'f'), sym("x") },
-        })));
+      char_transitions(choice({
+        seq({
+          character({ 'a', 'b', 'c', 'd', 'e', 'f' }),
+          sym("x") }),
+        seq({
+          character({ 'b', 'c', 'd' }),
+          sym("y") }) })),
+      Equals(rule_map<CharacterSet>({
+        { CharacterSet().include('b', 'd'), choice({ sym("x"), sym("y") }) },
+        { CharacterSet().include('a').include('e', 'f'), sym("x") },
+      })));
   });
 
   it("handles blanks", [&]() {
@@ -173,23 +171,24 @@ describe("char_transitions", []() {
 
   it("handles repeats", [&]() {
     rule_ptr rule = repeat(seq({ character({ 'a' }), character({ 'b' }) }));
+
     AssertThat(
-        char_transitions(rule),
-        Equals(rule_map<CharacterSet>({
-            {
-                CharacterSet().include('a'),
-                seq({
-                    character({ 'b' }),
-                    rule,
-                })
-            }})));
+      char_transitions(rule),
+      Equals(rule_map<CharacterSet>({
+        {
+          CharacterSet().include('a'),
+          seq({
+            character({ 'b' }),
+            rule })
+        }})));
 
     rule = repeat(character({ 'a' }));
+
     AssertThat(
-        char_transitions(rule),
-        Equals(rule_map<CharacterSet>({
-            { CharacterSet().include('a'), rule }
-        })));
+      char_transitions(rule),
+      Equals(rule_map<CharacterSet>({
+        { CharacterSet().include('a'), rule }
+      })));
   });
 });
 

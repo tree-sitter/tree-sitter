@@ -58,11 +58,11 @@ describe("rule_can_be_blank", [&]() {
   describe("checking recursively (by expanding non-terminals)", [&]() {
     SyntaxGrammar grammar{{
       { "A", choice({
-          seq({ i_sym(0), i_token(11) }),
-          blank() }) },
+        seq({ i_sym(0), i_token(11) }),
+        blank() }) },
       { "B", choice({
-          seq({ i_sym(1), i_token(12) }),
-          i_token(13) }) },
+        seq({ i_sym(1), i_token(12) }),
+        i_token(13) }) },
     }, {}, {}, {}};
 
     it("terminates for left-recursive rules that can be blank", [&]() {

@@ -24,22 +24,22 @@ describe("Tree", []() {
 
   before_each([&]() {
     tree1 = ts_tree_make_leaf(
-        cat,
-        ts_length_make(5, 4),
-        ts_length_make(2, 1),
-        false);
+      cat,
+      ts_length_make(5, 4),
+      ts_length_make(2, 1),
+      false);
 
     tree2 = ts_tree_make_leaf(
-        cat,
-        ts_length_make(3, 3),
-        ts_length_make(1, 1),
-        false);
+      cat,
+      ts_length_make(3, 3),
+      ts_length_make(1, 1),
+      false);
 
     parent1 = ts_tree_make_node(
-        dog,
-        2,
-        tree_array({ tree1, tree2, }),
-        false);
+      dog,
+      2,
+      tree_array({ tree1, tree2, }),
+      false);
   });
 
   after_each([&]() {
@@ -70,9 +70,9 @@ describe("Tree", []() {
   describe("make_node(symbol, child_count, children, is_hidden)", [&]() {
     it("computes its size based on its child nodes", [&]() {
       AssertThat(parent1->size.bytes, Equals<size_t>(
-          tree1->size.bytes + + tree2->padding.bytes + tree2->size.bytes));
+        tree1->size.bytes + + tree2->padding.bytes + tree2->size.bytes));
       AssertThat(parent1->size.chars, Equals<size_t>(
-          tree1->size.chars + + tree2->padding.chars + tree2->size.chars));
+        tree1->size.chars + + tree2->padding.chars + tree2->size.chars));
     });
 
     it("computes its padding based on its first child", [&]() {
@@ -103,13 +103,13 @@ describe("Tree", []() {
       before_each([&]() {
         parent1->options = TSTreeOptionsHidden;
         tree3 = ts_tree_make_leaf(
-            cat,
-            ts_length_make(8, 6),
-            ts_length_make(5, 3),
-            0);
+          cat,
+          ts_length_make(8, 6),
+          ts_length_make(5, 3),
+          0);
         grandparent = ts_tree_make_node(pig, 2, tree_array({
-            parent1,
-            tree3,
+          parent1,
+          tree3,
         }), 0);
       });
 
@@ -129,15 +129,15 @@ describe("Tree", []() {
 
         AssertThat(children[1].tree, Equals(tree2));
         AssertThat(children[1].offset.bytes, Equals<size_t>(
-            tree1->size.bytes + tree2->padding.bytes));
+          tree1->size.bytes + tree2->padding.bytes));
         AssertThat(children[1].offset.chars, Equals<size_t>(
-            tree1->size.chars + tree2->padding.chars));
+          tree1->size.chars + tree2->padding.chars));
 
         AssertThat(children[2].tree, Equals(tree3));
         AssertThat(children[2].offset.bytes, Equals<size_t>(
-            tree1->size.bytes + tree2->padding.bytes + tree2->size.bytes + tree3->padding.bytes));
+          tree1->size.bytes + tree2->padding.bytes + tree2->size.bytes + tree3->padding.bytes));
         AssertThat(children[2].offset.chars, Equals<size_t>(
-            tree1->size.chars + tree2->padding.chars + tree2->size.chars + tree3->padding.chars));
+          tree1->size.chars + tree2->padding.chars + tree2->size.chars + tree3->padding.chars));
       });
     });
 
@@ -148,8 +148,8 @@ describe("Tree", []() {
         ts_tree_set_fragile_left(tree1);
         ts_tree_set_extra(tree1);
         parent = ts_tree_make_node(pig, 2, tree_array({
-            tree1,
-            tree2,
+          tree1,
+          tree2,
         }), 0);
       });
 
@@ -169,8 +169,8 @@ describe("Tree", []() {
         ts_tree_set_fragile_right(tree2);
         ts_tree_set_extra(tree2);
         parent = ts_tree_make_node(pig, 2, tree_array({
-            tree1,
-            tree2,
+          tree1,
+          tree2,
         }), 0);
       });
 
@@ -190,8 +190,8 @@ describe("Tree", []() {
         ts_tree_set_fragile_right(tree1);
         ts_tree_set_fragile_left(tree2);
         parent = ts_tree_make_node(pig, 2, tree_array({
-            tree1,
-            tree2,
+          tree1,
+          tree2,
         }), 0);
       });
 
@@ -209,23 +209,23 @@ describe("Tree", []() {
   describe("equality", [&]() {
     it("returns true for identical trees", [&]() {
       TSTree *tree1_copy = ts_tree_make_leaf(
-          cat,
-          ts_length_make(5, 4),
-          ts_length_make(2, 1),
-          0);
+        cat,
+        ts_length_make(5, 4),
+        ts_length_make(2, 1),
+        0);
 
       AssertThat(ts_tree_eq(tree1, tree1_copy), IsTrue());
 
       TSTree *tree2_copy = ts_tree_make_leaf(
-          cat,
-          ts_length_make(3, 3),
-          ts_length_make(1, 1),
-          0);
+        cat,
+        ts_length_make(3, 3),
+        ts_length_make(1, 1),
+        0);
 
       AssertThat(ts_tree_eq(tree2, tree2_copy), IsTrue());
 
       TSTree *parent2 = ts_tree_make_node(dog, 2, tree_array({
-          tree1_copy, tree2_copy,
+        tree1_copy, tree2_copy,
       }), 0);
 
       AssertThat(ts_tree_eq(parent1, parent2), IsTrue());
@@ -237,10 +237,10 @@ describe("Tree", []() {
 
     it("returns false for trees with different symbols", [&]() {
       TSTree *different_tree = ts_tree_make_leaf(
-          tree1->symbol + 1,
-          tree1->size,
-          tree1->padding,
-          0);
+        tree1->symbol + 1,
+        tree1->size,
+        tree1->padding,
+        0);
 
       AssertThat(ts_tree_eq(tree1, different_tree), IsFalse());
       ts_tree_release(different_tree);
@@ -248,10 +248,10 @@ describe("Tree", []() {
 
     it("returns false for trees with different children", [&]() {
       TSTree *different_tree = ts_tree_make_leaf(
-          tree1->symbol + 1,
-          tree1->size,
-          tree1->padding,
-          0);
+        tree1->symbol + 1,
+        tree1->size,
+        tree1->padding,
+        0);
 
       TSTree *different_parent = ts_tree_make_node(dog, 2, tree_array({
           different_tree, different_tree,
@@ -289,7 +289,7 @@ describe("Tree", []() {
         parent1->options = TSTreeOptionsHidden;
 
         char *string1 = ts_tree_string(parent1, names);
-        AssertThat(string(string1), Equals("(dog (cat) (cat))"));
+      AssertThat(string(string1), Equals("(dog (cat) (cat))"));
         free(string1);
 
         tree1->options = TSTreeOptionsHidden;

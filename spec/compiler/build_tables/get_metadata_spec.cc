@@ -15,8 +15,8 @@ describe("get_metadata", []() {
   describe("when given a metadata rule", [&]() {
     before_each([&]() {
       rule = make_shared<Metadata>(sym("x"), map<MetadataKey, int>({
-          { key1, 1 },
-          { key2, 2 },
+        { key1, 1 },
+        { key2, 2 },
       }));
     });
 
@@ -32,7 +32,7 @@ describe("get_metadata", []() {
     describe("when the rule contains another metadata rule", [&]() {
       it("also gets metadata from the inner metadata rule", [&]() {
         rule = make_shared<Metadata>(make_shared<Metadata>(sym("x"), map<MetadataKey, int>({
-            { key1, 1 }
+          { key1, 1 }
         })), map<MetadataKey, int>());
 
         AssertThat(get_metadata(rule, key1), Equals(1));

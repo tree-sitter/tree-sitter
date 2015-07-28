@@ -11,7 +11,7 @@ describe("LexItem", []() {
   describe("determining if an item is the start of a token", [&]() {
     Symbol sym(1);
     rule_ptr token_start = make_shared<Metadata>(str("a"), map<MetadataKey, int>({
-        { START_TOKEN, 1 }
+      { START_TOKEN, 1 }
     }));
 
     it("returns true for rules designated as token starts", [&]() {
@@ -21,7 +21,7 @@ describe("LexItem", []() {
 
     it("returns false for rules not designated as token starts", [&]() {
       AssertThat(LexItem(sym, make_shared<Metadata>(str("a"), map<MetadataKey, int>({
-          { START_TOKEN, 0 }
+        { START_TOKEN, 0 }
       }))).is_token_start(), IsFalse());
       AssertThat(LexItem(sym, str("a")).is_token_start(), IsFalse());
     });

@@ -13,7 +13,7 @@ namespace snowhouse {
 
     template<typename ActualType>
     bool operator()(const ActualType& actual) const {
-        return *expected == *actual;
+      return *expected == *actual;
     }
 
     ExpectedType expected;
@@ -22,9 +22,9 @@ namespace snowhouse {
   template<typename ExpectedType>
   struct Stringizer<EqualsPointerConstraint<ExpectedType>> {
     static string ToString(const EqualsPointerConstraint<ExpectedType>& constraint) {
-        ostringstream builder;
-        builder << "pointer to " << snowhouse::Stringize(constraint.expected);
-        return builder.str();
+      ostringstream builder;
+      builder << "pointer to " << snowhouse::Stringize(constraint.expected);
+      return builder.str();
     }
   };
 

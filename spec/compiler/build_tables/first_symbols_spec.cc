@@ -16,59 +16,59 @@ describe("first_symbols", []() {
       auto rule = seq({ i_token(0), i_token(1) });
 
       AssertThat(first_symbols(rule, null_grammar), Equals(set<Symbol>({
-          Symbol(0, SymbolOptionToken),
+        Symbol(0, SymbolOptionToken),
       })));
     });
 
     it("includes first_symbols(B) when A can be blank", [&]() {
       auto rule = seq({
-          choice({
-              i_token(0),
-              blank() }),
-          i_token(1) });
+        choice({
+          i_token(0),
+          blank() }),
+        i_token(1) });
 
       AssertThat(first_symbols(rule, null_grammar), Equals(set<Symbol>({
-          Symbol(0, SymbolOptionToken),
-          Symbol(1, SymbolOptionToken)
+        Symbol(0, SymbolOptionToken),
+        Symbol(1, SymbolOptionToken)
       })));
     });
 
     it("includes first_symbols(A's right hand side) when A is a non-terminal", [&]() {
       auto rule = choice({
-          seq({
-              i_token(0),
-              i_token(1) }),
-          i_sym(0) });
+        seq({
+          i_token(0),
+          i_token(1) }),
+        i_sym(0) });
 
       SyntaxGrammar grammar{{
-          { "rule0", seq({
-              i_token(2),
-              i_token(3),
-              i_token(4) }) }
+        { "rule0", seq({
+          i_token(2),
+          i_token(3),
+          i_token(4) }) }
       }, {}, {}, {}};
 
       AssertThat(first_symbols(rule, grammar), Equals(set<Symbol>({
-          Symbol(0),
-          Symbol(0, SymbolOptionToken),
-          Symbol(2, SymbolOptionToken),
+        Symbol(0),
+        Symbol(0, SymbolOptionToken),
+        Symbol(2, SymbolOptionToken),
       })));
     });
 
     it("includes first_symbols(B) when A is a non-terminal and its expansion can be blank", [&]() {
       auto rule = seq({
-          i_sym(0),
-          i_token(1) });
+        i_sym(0),
+        i_token(1) });
 
       SyntaxGrammar grammar{{
-          { "rule0", choice({
-              i_token(0),
-              blank() }) }
+        { "rule0", choice({
+          i_token(0),
+          blank() }) }
       }, {}, {}, {}};
 
       AssertThat(first_symbols(rule, grammar), Equals(set<Symbol>({
-          Symbol(0),
-          Symbol(0, SymbolOptionToken),
-          Symbol(1, SymbolOptionToken),
+        Symbol(0),
+        Symbol(0, SymbolOptionToken),
+        Symbol(1, SymbolOptionToken),
       })));
     });
   });
@@ -76,17 +76,17 @@ describe("first_symbols", []() {
   describe("when there are left-recursive rules", [&]() {
     it("terminates", [&]() {
       SyntaxGrammar grammar{{
-          { "rule0", choice({
-              seq({ i_sym(0), i_token(10) }),
-              i_token(11),
-          }) },
+        { "rule0", choice({
+          seq({ i_sym(0), i_token(10) }),
+          i_token(11),
+        }) },
       }, {}, {}, {}};
 
       auto rule = i_sym(0);
 
       AssertThat(first_symbols(rule, grammar), Equals(set<Symbol>({
-          Symbol(0),
-          Symbol(11, SymbolOptionToken)
+        Symbol(0),
+        Symbol(11, SymbolOptionToken)
       })));
     });
   });
@@ -95,7 +95,7 @@ describe("first_symbols", []() {
     auto rule = make_shared<Metadata>(i_token(3), map<rules::MetadataKey, int>());
 
     AssertThat(first_symbols(rule, null_grammar), Equals(set<Symbol>({
-        Symbol(3, SymbolOptionToken),
+      Symbol(3, SymbolOptionToken),
     })));
   });
 });

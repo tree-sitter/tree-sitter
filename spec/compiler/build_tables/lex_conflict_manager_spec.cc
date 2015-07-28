@@ -11,8 +11,8 @@ START_TEST
 
 describe("LexConflictManager", []() {
   LexicalGrammar lexical_grammar{{
-      { "other_token", pattern("[a-b]") },
-      { "lookahead_token", pattern("[c-d]") },
+    { "other_token", pattern("[a-b]") },
+    { "lookahead_token", pattern("[c-d]") },
   }, {}, {}};
 
   LexConflictManager conflict_manager(lexical_grammar);

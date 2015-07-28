@@ -9,24 +9,24 @@ describe("CharacterSet", []() {
   describe("equality", [&]() {
     it("returns true for identical character sets", [&]() {
       CharacterSet set1 = CharacterSet()
-          .include('a', 'd')
-          .include('f', 'm');
+        .include('a', 'd')
+        .include('f', 'm');
 
       CharacterSet set2 = CharacterSet()
-          .include('a', 'd')
-          .include('f', 'm');
+        .include('a', 'd')
+        .include('f', 'm');
 
       AssertThat(set1, Equals(set2));
     });
 
     it("returns false for character sets that include different ranges", [&]() {
       CharacterSet set1 = CharacterSet()
-          .include('a', 'd')
-          .include('f', 'm');
+        .include('a', 'd')
+        .include('f', 'm');
 
       CharacterSet set2 = CharacterSet()
-          .include('a', 'c')
-          .include('f', 'm');
+        .include('a', 'c')
+        .include('f', 'm');
 
       AssertThat(set1, !Equals(set2));
       AssertThat(set2, !Equals(set1));
@@ -34,14 +34,14 @@ describe("CharacterSet", []() {
 
     it("returns false for character sets that exclude different ranges", [&]() {
       CharacterSet set1 = CharacterSet()
-          .include_all()
-          .exclude('a', 'd')
-          .exclude('f', 'm');
+        .include_all()
+        .exclude('a', 'd')
+        .exclude('f', 'm');
 
       CharacterSet set2 = CharacterSet()
-          .include_all()
-          .exclude('a', 'c')
-          .exclude('f', 'm');
+        .include_all()
+        .exclude('a', 'c')
+        .exclude('f', 'm');
 
       AssertThat(set1, !Equals(set2));
       AssertThat(set2, !Equals(set1));
@@ -59,24 +59,24 @@ describe("CharacterSet", []() {
   describe("hashing", [&]() {
     it("returns the same number for identical character sets", [&]() {
       CharacterSet set1 = CharacterSet()
-          .include('a', 'd')
-          .include('f', 'm');
+        .include('a', 'd')
+        .include('f', 'm');
 
       CharacterSet set2 = CharacterSet()
-          .include('a', 'd')
-          .include('f', 'm');
+        .include('a', 'd')
+        .include('f', 'm');
 
       AssertThat(set1.hash_code(), Equals(set2.hash_code()));
     });
 
     it("returns different numbers for character sets that include different ranges", [&]() {
       CharacterSet set1 = CharacterSet()
-          .include('a', 'd')
-          .include('f', 'm');
+        .include('a', 'd')
+        .include('f', 'm');
 
       CharacterSet set2 = CharacterSet()
-          .include('a', 'c')
-          .include('f', 'm');
+        .include('a', 'c')
+        .include('f', 'm');
 
       AssertThat(set1.hash_code(), !Equals(set2.hash_code()));
       AssertThat(set2.hash_code(), !Equals(set1.hash_code()));
@@ -84,14 +84,14 @@ describe("CharacterSet", []() {
 
     it("returns different numbers for character sets that exclude different ranges", [&]() {
       CharacterSet set1 = CharacterSet()
-          .include_all()
-          .exclude('a', 'd')
-          .exclude('f', 'm');
+        .include_all()
+        .exclude('a', 'd')
+        .exclude('f', 'm');
 
       CharacterSet set2 = CharacterSet()
-          .include_all()
-          .exclude('a', 'c')
-          .exclude('f', 'm');
+        .include_all()
+        .exclude('a', 'c')
+        .exclude('f', 'm');
 
       AssertThat(set1.hash_code(), !Equals(set2.hash_code()));
       AssertThat(set2.hash_code(), !Equals(set1.hash_code()));
@@ -125,31 +125,33 @@ describe("CharacterSet", []() {
       it("adds included characters", [&]() {
         CharacterSet set1 = CharacterSet().include('a', 'd');
         AssertThat(set1, Equals(CharacterSet()
-            .include('a')
-            .include('b')
-            .include('c')
-            .include('d')));
+          .include('a')
+          .include('b')
+          .include('c')
+          .include('d')));
       });
     });
 
     describe("when the set has a blacklist of characters", [&]() {
       it("removes excluded characters", [&]() {
         CharacterSet set1 = CharacterSet()
-            .include_all()
-            .exclude('a', 'g')
-            .include('c', 'e');
+          .include_all()
+          .exclude('a', 'g')
+          .include('c', 'e');
+
         AssertThat(set1, Equals(CharacterSet()
-            .include_all()
-            .exclude('a')
-            .exclude('b')
-            .exclude('f')
-            .exclude('g')));
+          .include_all()
+          .exclude('a')
+          .exclude('b')
+          .exclude('f')
+          .exclude('g')));
       });
 
       it("does nothing if the character are already not excluded", [&]() {
         CharacterSet set1 = CharacterSet()
-            .include_all()
-            .include('a', 'c');
+          .include_all()
+          .include('a', 'c');
+
         AssertThat(set1, Equals(CharacterSet().include_all()));
       });
     });
@@ -159,13 +161,14 @@ describe("CharacterSet", []() {
     describe("when the set has a whitelist of characters", [&]() {
       it("removes included characters", [&]() {
         CharacterSet set1 = CharacterSet()
-            .include('a', 'g')
-            .exclude('c', 'e');
+          .include('a', 'g')
+          .exclude('c', 'e');
+
         AssertThat(set1, Equals(CharacterSet()
-            .include('a')
-            .include('b')
-            .include('f')
-            .include('g')));
+          .include('a')
+          .include('b')
+          .include('f')
+          .include('g')));
       });
 
       it("does nothing if the character's are already not included", [&]() {
@@ -177,14 +180,15 @@ describe("CharacterSet", []() {
     describe("when the set has a blacklist of characters", [&]() {
       it("removes excluded characters", [&]() {
         CharacterSet set1 = CharacterSet()
-            .include_all()
-            .exclude('a', 'd');
+          .include_all()
+          .exclude('a', 'd');
+
         AssertThat(set1, Equals(CharacterSet()
-            .include_all()
-            .exclude('a')
-            .exclude('b')
-            .exclude('c')
-            .exclude('d')));
+          .include_all()
+          .exclude('a')
+          .exclude('b')
+          .exclude('c')
+          .exclude('d')));
       });
     });
   });
@@ -198,15 +202,15 @@ describe("CharacterSet", []() {
           CharacterSet set1 = CharacterSet().include('a', 'z');
           set1.remove_set(CharacterSet().include('d', 's'));
           AssertThat(set1, Equals(CharacterSet()
-              .include('a', 'c')
-              .include('t', 'z')));
+            .include('a', 'c')
+            .include('t', 'z')));
         });
 
         it("returns the characters that were removed", [&]() {
           CharacterSet set1 = CharacterSet().include('a', 'z');
           intersection = set1.remove_set(CharacterSet().include('d', 's'));
           AssertThat(intersection, Equals(CharacterSet()
-              .include('d', 's')));
+            .include('d', 's')));
         });
 
         it("returns the empty set when the sets are disjoint", [&]() {
@@ -222,13 +226,13 @@ describe("CharacterSet", []() {
           CharacterSet set1 = CharacterSet().include('a', 'f');
 
           intersection = set1.remove_set(CharacterSet()
-              .include_all()
-              .exclude('d', 'z'));
+            .include_all()
+            .exclude('d', 'z'));
 
           AssertThat(set1, Equals(CharacterSet()
-              .include('d', 'f')));
+            .include('d', 'f')));
           AssertThat(intersection, Equals(CharacterSet()
-              .include('a', 'c')));
+            .include('a', 'c')));
         });
       });
     });
@@ -237,16 +241,16 @@ describe("CharacterSet", []() {
       describe("when the subtractend has whitelisted characters", [&]() {
         it("adds the subtractend's inclusions to the receiver's exclusions", [&]() {
           CharacterSet set1 = CharacterSet()
-              .include_all()
-              .exclude('a', 'f');
+            .include_all()
+            .exclude('a', 'f');
 
           intersection = set1.remove_set(CharacterSet()
-              .include('x', 'z'));
+            .include('x', 'z'));
 
           AssertThat(set1, Equals(CharacterSet()
-              .include_all()
-              .exclude('a', 'f')
-              .exclude('x', 'z')));
+            .include_all()
+            .exclude('a', 'f')
+            .exclude('x', 'z')));
 
           AssertThat(intersection, Equals(CharacterSet().include('x', 'z')));
         });
@@ -255,46 +259,46 @@ describe("CharacterSet", []() {
       describe("when the subtractend has blacklisted characters", [&]() {
         it("includes only the characters excluded by the subtractend but not by the receiver", [&]() {
           CharacterSet set1 = CharacterSet()
-              .include_all()
-              .exclude('a', 'm');
+            .include_all()
+            .exclude('a', 'm');
 
           set1.remove_set(CharacterSet()
-              .include_all()
-              .exclude('d', 'z'));
+            .include_all()
+            .exclude('d', 'z'));
 
           AssertThat(set1, Equals(CharacterSet()
-              .include('n', 'z')));
+            .include('n', 'z')));
         });
 
         it("returns the characters excluded by neither set", [&]() {
           CharacterSet set1 = CharacterSet()
-              .include_all()
-              .exclude('a', 'm');
+            .include_all()
+            .exclude('a', 'm');
 
           intersection = set1.remove_set(CharacterSet()
-              .include_all()
-              .exclude('d', 'z'));
+            .include_all()
+            .exclude('d', 'z'));
 
           AssertThat(intersection, Equals(CharacterSet()
-              .include_all()
-              .exclude('a', 'z')));
+            .include_all()
+            .exclude('a', 'z')));
         });
 
         it("works when the sets are disjoint", [&]() {
           CharacterSet set1 = CharacterSet()
-              .include_all()
-              .exclude('a', 'm');
+            .include_all()
+            .exclude('a', 'm');
 
           intersection = set1.remove_set(CharacterSet()
-              .include_all()
-              .exclude('d', 'z'));
+            .include_all()
+            .exclude('d', 'z'));
 
           AssertThat(set1, Equals(CharacterSet()
-              .include('n', 'z')));
+            .include('n', 'z')));
 
           AssertThat(intersection, Equals(CharacterSet()
-              .include_all()
-              .exclude('a', 'z')));
+            .include_all()
+            .exclude('a', 'z')));
         });
       });
     });
@@ -303,28 +307,28 @@ describe("CharacterSet", []() {
   describe("::included_ranges", [&]() {
     it("consolidates sequences of 3 or more consecutive characters into ranges", [&]() {
       CharacterSet set1 = CharacterSet()
-          .include('a', 'c')
-          .include('g')
-          .include('z');
+        .include('a', 'c')
+        .include('g')
+        .include('z');
 
       AssertThat(set1.included_ranges(), Equals(vector<CharacterRange>({
-          CharacterRange('a', 'c'),
-          CharacterRange('g'),
-          CharacterRange('z'),
+        CharacterRange('a', 'c'),
+        CharacterRange('g'),
+        CharacterRange('z'),
       })));
     });
 
     it("doesn't consolidate sequences of 2 consecutive characters", [&]() {
       CharacterSet set1 = CharacterSet()
-          .include('a', 'b')
-          .include('g')
-          .include('z');
+        .include('a', 'b')
+        .include('g')
+        .include('z');
 
       AssertThat(set1.included_ranges(), Equals(vector<CharacterRange>({
-          CharacterRange('a'),
-          CharacterRange('b'),
-          CharacterRange('g'),
-          CharacterRange('z'),
+        CharacterRange('a'),
+        CharacterRange('b'),
+        CharacterRange('g'),
+        CharacterRange('z'),
       })));
     });
   });

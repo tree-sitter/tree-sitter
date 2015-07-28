@@ -12,20 +12,20 @@ describe("expand_tokens", []() {
   describe("string rules", [&]() {
     it("replaces strings with sequences of character sets", [&]() {
       LexicalGrammar grammar{{
-          { "rule_A", seq({
-              i_sym(10),
-              str("xyz"),
-              i_sym(11) }) },
+        { "rule_A", seq({
+          i_sym(10),
+          str("xyz"),
+          i_sym(11) }) },
       }, {}, {}};
 
       auto result = expand_tokens(grammar);
 
       AssertThat(result.second, Equals((const GrammarError *)nullptr));
       AssertThat(result.first.rules, Equals(rule_list({
-          { "rule_A", seq({
-              i_sym(10),
-              token(prec(1, seq({ character({ 'x' }), character({ 'y' }), character({ 'z' }) }))),
-              i_sym(11) }) },
+        { "rule_A", seq({
+          i_sym(10),
+          token(prec(1, seq({ character({ 'x' }), character({ 'y' }), character({ 'z' }) }))),
+          i_sym(11) }) },
       })));
     });
 
@@ -38,10 +38,10 @@ describe("expand_tokens", []() {
       auto result = expand_tokens(grammar);
 
       AssertThat(result.first.rules, Equals(rule_list({
-          { "rule_A", token(prec(1, seq({
-              character({ 945 }),
-              character({ ' ' }),
-              character({ 946 }) }))) }
+        { "rule_A", token(prec(1, seq({
+          character({ 945 }),
+          character({ ' ' }),
+          character({ 946 }) }))) }
       })));
     });
   });
@@ -50,19 +50,19 @@ describe("expand_tokens", []() {
     it("replaces regexps with the equivalent rule tree", [&]() {
       LexicalGrammar grammar{{
         { "rule_A", seq({
-            i_sym(10),
-            pattern("x*"),
-            i_sym(11) }) },
+          i_sym(10),
+          pattern("x*"),
+          i_sym(11) }) },
       }, {}, {}};
 
       auto result = expand_tokens(grammar);
 
       AssertThat(result.second, Equals((const GrammarError *)nullptr));
       AssertThat(result.first.rules, Equals(rule_list({
-          { "rule_A", seq({
-              i_sym(10),
-              repeat(character({ 'x' })),
-              i_sym(11) }) },
+        { "rule_A", seq({
+          i_sym(10),
+          repeat(character({ 'x' })),
+          i_sym(11) }) },
       })));
     });
 
@@ -75,16 +75,16 @@ describe("expand_tokens", []() {
       auto result = expand_tokens(grammar);
 
       AssertThat(result.first.rules, Equals(rule_list({
-          { "rule_A", repeat(character({ 945, 946, 947, 948 }, false)) }
+        { "rule_A", repeat(character({ 945, 946, 947, 948 }, false)) }
       })));
     });
 
     it("returns an error when the grammar contains an invalid regex", [&]() {
       LexicalGrammar grammar{{
         { "rule_A", seq({
-            pattern("("),
-            str("xyz"),
-            pattern("[") }) },
+          pattern("("),
+          str("xyz"),
+          pattern("[") }) },
       }, {}, {}};
 
       auto result = expand_tokens(grammar);

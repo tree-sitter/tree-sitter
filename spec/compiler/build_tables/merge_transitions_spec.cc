@@ -18,20 +18,20 @@ describe("merge_char_transitions", []() {
   describe("when none of the transitions intersect", [&]() {
     it("returns the union of the two sets of transitions", [&]() {
       int_map map({
-          { CharacterSet().include('a').include('c'), 1 },
-          { CharacterSet().include('x').include('y'), 2 },
-          { CharacterSet().include('1').include('9'), 4 },
+        { CharacterSet().include('a').include('c'), 1 },
+        { CharacterSet().include('x').include('y'), 2 },
+        { CharacterSet().include('1').include('9'), 4 },
       });
 
       do_merge(&map, { CharacterSet().include(' '), 8 });
       do_merge(&map, { CharacterSet().include('\t'), 16 });
 
       AssertThat(map, Equals(int_map({
-          { CharacterSet().include('a').include('c'), 1 },
-          { CharacterSet().include('x').include('y'), 2 },
-          { CharacterSet().include('1').include('9'), 4 },
-          { CharacterSet().include(' '), 8 },
-          { CharacterSet().include('\t'), 16 },
+        { CharacterSet().include('a').include('c'), 1 },
+        { CharacterSet().include('x').include('y'), 2 },
+        { CharacterSet().include('1').include('9'), 4 },
+        { CharacterSet().include(' '), 8 },
+        { CharacterSet().include('\t'), 16 },
       })));
     });
   });
@@ -39,33 +39,33 @@ describe("merge_char_transitions", []() {
   describe("when transitions intersect", [&]() {
     it("merges the intersecting transitions using the provided function", [&]() {
       int_map map({
-          { CharacterSet().include('a', 'f').include('A', 'F'), 1 },
-          { CharacterSet().include('0', '9'), 2 },
+        { CharacterSet().include('a', 'f').include('A', 'F'), 1 },
+        { CharacterSet().include('0', '9'), 2 },
       });
 
       do_merge(&map, { CharacterSet().include('c'), 4 });
       do_merge(&map, { CharacterSet().include('3'), 8 });
 
       AssertThat(map, Equals(int_map({
-          {
-              CharacterSet()
-                .include('a', 'b')
-                .include('d', 'f')
-                .include('A', 'F'),
-              1
-          },
-          {
-              CharacterSet().include('c'),
-              5
-          },
-          {
-              CharacterSet().include('0', '2').include('4', '9'),
-              2
-          },
-          {
-              CharacterSet().include('3'),
-              10
-          },
+        {
+          CharacterSet()
+            .include('a', 'b')
+            .include('d', 'f')
+            .include('A', 'F'),
+          1
+        },
+        {
+          CharacterSet().include('c'),
+          5
+        },
+        {
+          CharacterSet().include('0', '2').include('4', '9'),
+          2
+        },
+        {
+          CharacterSet().include('3'),
+          10
+        },
       })));
     });
   });
@@ -73,15 +73,15 @@ describe("merge_char_transitions", []() {
   describe("when two of the right transitions intersect the same left transition", [&]() {
     it("splits the left-hand transition correctly", [&]() {
       int_map map1({
-          { CharacterSet().include('a').include('c'), 1 },
+        { CharacterSet().include('a').include('c'), 1 },
       });
 
       do_merge(&map1, { CharacterSet().include('a'), 2 });
       do_merge(&map1, { CharacterSet().include('c'), 4 });
 
       AssertThat(map1, Equals(int_map({
-          { CharacterSet().include('a'), 3 },
-          { CharacterSet().include('c'), 5 },
+        { CharacterSet().include('a'), 3 },
+        { CharacterSet().include('c'), 5 },
       })));
     });
   });

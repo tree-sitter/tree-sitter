@@ -12,25 +12,25 @@ using prepare_grammar::intern_symbols;
 describe("intern_symbols", []() {
   it("replaces named symbols with numerically-indexed symbols", [&]() {
     Grammar grammar({
-        { "x", choice({ sym("y"), sym("z") }) },
-        { "y", sym("z") },
-        { "z", str("stuff") }
+      { "x", choice({ sym("y"), sym("z") }) },
+      { "y", sym("z") },
+      { "z", str("stuff") }
     });
 
     auto result = intern_symbols(grammar);
 
     AssertThat(result.second, Equals((GrammarError *)nullptr));
     AssertThat(result.first.rules, Equals(rule_list({
-        { "x", choice({ i_sym(1), i_sym(2) }) },
-        { "y", i_sym(2) },
-        { "z", str("stuff") },
+      { "x", choice({ i_sym(1), i_sym(2) }) },
+      { "y", i_sym(2) },
+      { "z", str("stuff") },
     })));
   });
 
   describe("when there are symbols that reference undefined rules", [&]() {
     it("returns an error", []() {
       Grammar grammar({
-          { "x", sym("y") },
+        { "x", sym("y") },
       });
 
       auto result = intern_symbols(grammar);
@@ -41,9 +41,9 @@ describe("intern_symbols", []() {
 
   it("translates the grammar's optional 'ubiquitous_tokens' to numerical symbols", [&]() {
     auto grammar = Grammar({
-        { "x", choice({ sym("y"), sym("z") }) },
-        { "y", sym("z") },
-        { "z", str("stuff") }
+      { "x", choice({ sym("y"), sym("z") }) },
+      { "y", sym("z") },
+      { "z", str("stuff") }
     }).ubiquitous_tokens({ sym("z") });
 
     auto result = intern_symbols(grammar);
