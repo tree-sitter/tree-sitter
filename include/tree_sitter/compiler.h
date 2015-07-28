@@ -16,7 +16,7 @@ typedef std::shared_ptr<Rule> rule_ptr;
 
 enum Associativity {
   AssociativityLeft = 1,
-  AssociativityRight
+  AssociativityRight,
 };
 
 rule_ptr blank();
@@ -68,7 +68,8 @@ class GrammarError {
   std::string message;
 };
 
-std::pair<std::string, const GrammarError *> compile(const Grammar &, std::string);
+std::pair<std::string, const GrammarError *> compile(const Grammar &,
+                                                     std::string);
 
 std::ostream &operator<<(std::ostream &stream, const Grammar &grammar);
 std::ostream &operator<<(std::ostream &stream, const GrammarError *error);

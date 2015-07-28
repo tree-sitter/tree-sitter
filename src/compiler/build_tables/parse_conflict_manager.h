@@ -10,7 +10,9 @@
 namespace tree_sitter {
 
 class ParseAction;
-namespace rules { class Symbol; }
+namespace rules {
+class Symbol;
+}
 
 namespace build_tables {
 
@@ -25,8 +27,8 @@ class ParseConflictManager {
 
  public:
   ParseConflictManager(const SyntaxGrammar &);
-  std::pair<bool, ConflictType> resolve(
-    const ParseAction &, const ParseAction &, const rules::Symbol &) const;
+  std::pair<bool, ConflictType> resolve(const ParseAction &, const ParseAction &,
+                                        const rules::Symbol &) const;
 };
 
 }  // namespace build_tables

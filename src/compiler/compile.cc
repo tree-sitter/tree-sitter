@@ -13,29 +13,29 @@ using std::vector;
 using std::get;
 using std::make_tuple;
 
-pair<string, const GrammarError *>
-compile(const Grammar &grammar, std::string name) {
+pair<string, const GrammarError *> compile(const Grammar &grammar,
+                                           std::string name) {
   auto prepare_grammar_result = prepare_grammar::prepare_grammar(grammar);
   const SyntaxGrammar &syntax_grammar = get<0>(prepare_grammar_result);
   const LexicalGrammar &lexical_grammar = get<1>(prepare_grammar_result);
   const GrammarError *error = get<2>(prepare_grammar_result);
 
   if (error)
-    return {"", error};
+    return { "", error };
 
   auto table_build_result =
-      build_tables::build_tables(syntax_grammar, lexical_grammar);
+    build_tables::build_tables(syntax_grammar, lexical_grammar);
   const ParseTable &parse_table = get<0>(table_build_result);
   const LexTable &lex_table = get<1>(table_build_result);
   error = get<2>(table_build_result);
 
   if (error)
-    return {"", error};
+    return { "", error };
 
   string code = generate_code::c_code(name, parse_table, lex_table,
                                       syntax_grammar, lexical_grammar);
 
-  return {code, nullptr};
+  return { code, nullptr };
 }
 
 }  // namespace tree_sitter

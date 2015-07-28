@@ -10,22 +10,21 @@ using std::pair;
 using std::vector;
 
 ParseConflictManager::ParseConflictManager(const SyntaxGrammar &syntax_grammar)
-  : syntax_grammar(syntax_grammar) {}
+    : syntax_grammar(syntax_grammar) {}
 
-pair<bool, ConflictType>
-ParseConflictManager::resolve(const ParseAction &new_action,
-                         const ParseAction &old_action,
-                         const rules::Symbol &symbol) const {
+pair<bool, ConflictType> ParseConflictManager::resolve(
+  const ParseAction &new_action, const ParseAction &old_action,
+  const rules::Symbol &symbol) const {
   if (new_action.type < old_action.type) {
     auto opposite = resolve(old_action, new_action, symbol);
-    return {!opposite.first, opposite.second};
+    return { !opposite.first, opposite.second };
   }
 
   switch (old_action.type) {
     case ParseActionTypeError:
     case ParseActionTypeShiftExtra:
     case ParseActionTypeReduceExtra:
-      return {true, ConflictTypeNone};
+      return { true, ConflictTypeNone };
 
     case ParseActionTypeShift:
       if (new_action.type == ParseActionTypeReduce) {
@@ -33,20 +32,20 @@ ParseConflictManager::resolve(const ParseAction &new_action,
         int max_precedence = *old_action.precedence_values.rbegin();
         int new_precedence = *new_action.precedence_values.rbegin();
         if (new_precedence < min_precedence)
-          return {false, ConflictTypeResolved};
+          return { false, ConflictTypeResolved };
         else if (new_precedence > max_precedence)
-          return {true, ConflictTypeResolved};
+          return { true, ConflictTypeResolved };
         else if (min_precedence == max_precedence) {
           switch (new_action.associativity) {
             case rules::AssociativityLeft:
-              return {true, ConflictTypeResolved};
+              return { true, ConflictTypeResolved };
             case rules::AssociativityRight:
-              return {false, ConflictTypeResolved};
+              return { false, ConflictTypeResolved };
             default:
-              return {false, ConflictTypeUnresolved};
+              return { false, ConflictTypeUnresolved };
           }
         } else {
-          return {false, ConflictTypeUnresolved};
+          return { false, ConflictTypeUnresolved };
         }
       }
 
@@ -55,11 +54,11 @@ ParseConflictManager::resolve(const ParseAction &new_action,
         int old_precedence = *old_action.precedence_values.begin();
         int new_precedence = *new_action.precedence_values.begin();
         if (new_precedence > old_precedence) {
-          return {true, ConflictTypeResolved};
+          return { true, ConflictTypeResolved };
         } else if (new_precedence < old_precedence) {
-          return {false, ConflictTypeResolved};
+          return { false, ConflictTypeResolved };
         } else {
-          return {false, ConflictTypeUnresolved};
+          return { false, ConflictTypeUnresolved };
         }
       }
 
@@ -67,7 +66,7 @@ ParseConflictManager::resolve(const ParseAction &new_action,
       break;
   }
 
-  return {false, ConflictTypeNone};
+  return { false, ConflictTypeNone };
 }
 
 }  // namespace build_tables

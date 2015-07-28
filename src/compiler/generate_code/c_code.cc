@@ -23,40 +23,42 @@ using std::to_string;
 using std::vector;
 using util::escape_char;
 
-static const map<char, string> REPLACEMENTS({ { '~', "TILDE" },
-                                              { '`', "BQUOTE" },
-                                              { '!', "BANG" },
-                                              { '@', "AT" },
-                                              { '#', "POUND" },
-                                              { '$', "DOLLAR" },
-                                              { '%', "PERCENT" },
-                                              { '^', "CARET" },
-                                              { '&', "AMP" },
-                                              { '*', "STAR" },
-                                              { '(', "LPAREN" },
-                                              { ')', "RPAREN" },
-                                              { '-', "DASH" },
-                                              { '+', "PLUS" },
-                                              { '=', "EQ" },
-                                              { '{', "LBRACE" },
-                                              { '}', "RBRACE" },
-                                              { '[', "LBRACK" },
-                                              { ']', "RBRACK" },
-                                              { '\\', "BSLASH" },
-                                              { '|', "PIPE" },
-                                              { ':', "COLON" },
-                                              { ';', "SEMI" },
-                                              { '"', "DQUOTE" },
-                                              { '\'', "SQUOTE" },
-                                              { '<', "LT" },
-                                              { '>', "GT" },
-                                              { ',', "COMMA" },
-                                              { '.', "DOT" },
-                                              { '?', "QMARK" },
-                                              { '/', "SLASH" },
-                                              { '\n', "LB" },
-                                              { '\r', "CR" },
-                                              { '\t', "TAB" }, });
+static const map<char, string> REPLACEMENTS({
+  { '~', "TILDE" },
+  { '`', "BQUOTE" },
+  { '!', "BANG" },
+  { '@', "AT" },
+  { '#', "POUND" },
+  { '$', "DOLLAR" },
+  { '%', "PERCENT" },
+  { '^', "CARET" },
+  { '&', "AMP" },
+  { '*', "STAR" },
+  { '(', "LPAREN" },
+  { ')', "RPAREN" },
+  { '-', "DASH" },
+  { '+', "PLUS" },
+  { '=', "EQ" },
+  { '{', "LBRACE" },
+  { '}', "RBRACE" },
+  { '[', "LBRACK" },
+  { ']', "RBRACK" },
+  { '\\', "BSLASH" },
+  { '|', "PIPE" },
+  { ':', "COLON" },
+  { ';', "SEMI" },
+  { '"', "DQUOTE" },
+  { '\'', "SQUOTE" },
+  { '<', "LT" },
+  { '>', "GT" },
+  { ',', "COMMA" },
+  { '.', "DOT" },
+  { '?', "QMARK" },
+  { '/', "SLASH" },
+  { '\n', "LB" },
+  { '\r', "CR" },
+  { '\t', "TAB" },
+});
 
 class CCodeGenerator {
   string buffer;
@@ -182,8 +184,8 @@ class CCodeGenerator {
     line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
     line();
     line(
-        "static const TSParseAction *"
-        "ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {");
+      "static const TSParseAction *"
+      "ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {");
 
     indent([&]() {
       for (const auto &state : parse_table.states) {
@@ -356,7 +358,7 @@ class CCodeGenerator {
 
   bool reduce_action_is_fragile(const ParseAction &action) const {
     return parse_table.fragile_production_ids.find(action.production_id) !=
-      parse_table.fragile_production_ids.end();
+           parse_table.fragile_production_ids.end();
   }
 
   // C-code generation functions
@@ -455,7 +457,8 @@ string c_code(string name, const ParseTable &parse_table,
               const LexTable &lex_table, const SyntaxGrammar &syntax_grammar,
               const LexicalGrammar &lexical_grammar) {
   return CCodeGenerator(name, parse_table, lex_table, syntax_grammar,
-                        lexical_grammar).code();
+                        lexical_grammar)
+    .code();
 }
 
 }  // namespace generate_code

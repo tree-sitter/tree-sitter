@@ -11,7 +11,7 @@ using std::to_string;
 using std::hash;
 
 SymbolOption SymbolOptionAuxToken =
-    SymbolOption(SymbolOptionToken | SymbolOptionAuxiliary);
+  SymbolOption(SymbolOptionToken | SymbolOptionAuxiliary);
 
 Symbol::Symbol(int index) : index(index), options(SymbolOption(0)) {}
 

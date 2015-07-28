@@ -42,7 +42,7 @@ class InternSymbols : public rules::IdentityRuleFn {
   string missing_rule_name;
 };
 
-const GrammarError * missing_rule_error(string rule_name) {
+const GrammarError *missing_rule_error(string rule_name) {
   return new GrammarError(GrammarErrorTypeUndefinedSymbol,
                           "Undefined rule '" + rule_name + "'");
 }
@@ -54,14 +54,14 @@ pair<InternedGrammar, const GrammarError *> intern_symbols(const Grammar &gramma
   for (auto &pair : grammar.rules()) {
     auto new_rule = interner.apply(pair.second);
     if (!interner.missing_rule_name.empty())
-      return {result, missing_rule_error(interner.missing_rule_name)};
+      return { result, missing_rule_error(interner.missing_rule_name) };
     result.rules.push_back({ pair.first, new_rule });
   }
 
   for (auto &rule : grammar.ubiquitous_tokens()) {
     auto new_rule = interner.apply(rule);
     if (!interner.missing_rule_name.empty())
-      return {result, missing_rule_error(interner.missing_rule_name)};
+      return { result, missing_rule_error(interner.missing_rule_name) };
     result.ubiquitous_tokens.insert(new_rule);
   }
 

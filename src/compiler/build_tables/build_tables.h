@@ -15,8 +15,8 @@ class LexicalGrammar;
 
 namespace build_tables {
 
-std::tuple<ParseTable, LexTable, const GrammarError *>
-build_tables(const SyntaxGrammar &, const LexicalGrammar &);
+std::tuple<ParseTable, LexTable, const GrammarError *> build_tables(
+  const SyntaxGrammar &, const LexicalGrammar &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

@@ -169,10 +169,10 @@ CharacterSet CharacterSet::remove_set(const CharacterSet &other) {
     if (other.includes_all) {
       result.included_chars = included_chars;
       included_chars =
-          remove_chars(&result.included_chars, other.excluded_chars);
+        remove_chars(&result.included_chars, other.excluded_chars);
     } else {
       result.included_chars =
-          remove_chars(&included_chars, other.included_chars);
+        remove_chars(&included_chars, other.included_chars);
     }
   }
   return result;

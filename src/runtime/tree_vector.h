@@ -15,10 +15,8 @@ typedef struct {
 } TreeVector;
 
 static inline TreeVector tree_vector_new(size_t size) {
-  return (TreeVector) {
-    .contents = malloc(size * sizeof(TSTree *)),
-    .capacity = size,
-    .size = 0,
+  return (TreeVector){
+    .contents = malloc(size * sizeof(TSTree *)), .capacity = size, .size = 0,
   };
 }
 
@@ -42,12 +40,9 @@ static inline void tree_vector_reverse(TreeVector *this) {
 }
 
 static inline TreeVector tree_vector_copy(TreeVector *this) {
-  return (TreeVector) {
-    .contents = memcpy(
-      malloc(this->capacity * sizeof(TSTree *)),
-      this->contents,
-      this->size * sizeof(TSTree *)
-    ),
+  return (TreeVector){
+    .contents = memcpy(malloc(this->capacity * sizeof(TSTree *)),
+                       this->contents, this->size * sizeof(TSTree *)),
     .capacity = this->capacity,
     .size = this->size,
   };

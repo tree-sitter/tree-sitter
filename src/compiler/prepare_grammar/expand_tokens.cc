@@ -56,8 +56,8 @@ class ExpandTokens : public rules::IdentityRuleFn {
   ExpandTokens() : error(nullptr) {}
 };
 
-pair<LexicalGrammar, const GrammarError *>
-expand_tokens(const LexicalGrammar &grammar) {
+pair<LexicalGrammar, const GrammarError *> expand_tokens(
+  const LexicalGrammar &grammar) {
   LexicalGrammar result;
   ExpandTokens expander;
 
@@ -82,7 +82,9 @@ expand_tokens(const LexicalGrammar &grammar) {
     result.separators.push_back(rule);
   }
 
-  return { result, nullptr, };
+  return {
+    result, nullptr,
+  };
 }
 
 }  // namespace prepare_grammar

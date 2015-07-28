@@ -37,7 +37,9 @@ class LexTableBuilder {
 
  public:
   LexTableBuilder(ParseTable *parse_table, const LexicalGrammar &lex_grammar)
-      : lex_grammar(lex_grammar), conflict_manager(lex_grammar), parse_table(parse_table) {}
+      : lex_grammar(lex_grammar),
+        conflict_manager(lex_grammar),
+        parse_table(parse_table) {}
 
   LexTable build() {
     for (auto &parse_state : parse_table->states) {
@@ -56,12 +58,12 @@ class LexTableBuilder {
         continue;
 
       if (symbol == rules::END_OF_INPUT())
-        result.insert(LexItem(
-            symbol, after_separators(CharacterSet().include(0).copy())));
+        result.insert(
+          LexItem(symbol, after_separators(CharacterSet().include(0).copy())));
 
       else if (symbol.is_token())
         result.insert(
-            LexItem(symbol, after_separators(lex_grammar.rule(symbol))));
+          LexItem(symbol, after_separators(lex_grammar.rule(symbol))));
     }
     return result;
   }
@@ -96,8 +98,9 @@ class LexTableBuilder {
       LexItemSet new_item_set = transition.second;
       LexStateId new_state_id = add_lex_state(new_item_set);
       auto action = LexAction::Advance(
-          new_state_id, precedence_values_for_item_set(new_item_set));
-      if (conflict_manager.resolve(action, lex_table.state(state_id).default_action))
+        new_state_id, precedence_values_for_item_set(new_item_set));
+      if (conflict_manager.resolve(action,
+                                   lex_table.state(state_id).default_action))
         lex_table.state(state_id).actions[rule] = action;
     }
   }
@@ -119,12 +122,13 @@ class LexTableBuilder {
   }
 
   rules::rule_ptr after_separators(rules::rule_ptr rule) {
-    return rules::Seq::build(
-        { make_shared<rules::Metadata>(
-              separator_rule(),
-              map<rules::MetadataKey, int>(
-                  { { rules::START_TOKEN, 1 }, { rules::PRECEDENCE, -1 }, })),
-          rule, });
+    return rules::Seq::build({
+      make_shared<rules::Metadata>(
+        separator_rule(), map<rules::MetadataKey, int>({
+                            { rules::START_TOKEN, 1 }, { rules::PRECEDENCE, -1 },
+                          })),
+      rule,
+    });
   }
 
   rules::rule_ptr separator_rule() const {

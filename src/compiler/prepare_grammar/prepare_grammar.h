@@ -13,7 +13,7 @@ class GrammarError;
 namespace prepare_grammar {
 
 std::tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
-    const Grammar &);
+  const Grammar &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

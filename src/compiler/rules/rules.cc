@@ -32,9 +32,7 @@ rule_ptr blank() { return make_shared<Blank>(); }
 
 rule_ptr choice(const vector<rule_ptr> &rules) { return Choice::build(rules); }
 
-rule_ptr repeat(const rule_ptr &content) {
-  return Repeat::build(content);
-}
+rule_ptr repeat(const rule_ptr &content) { return Repeat::build(content); }
 
 rule_ptr seq(const vector<rule_ptr> &rules) { return Seq::build(rules); }
 
@@ -46,15 +44,11 @@ rule_ptr str(const string &value) {
   return token(prec(1, make_shared<String>(value)));
 }
 
-rule_ptr err(const rule_ptr &rule) {
-  return choice({ rule, ERROR().copy() });
-}
+rule_ptr err(const rule_ptr &rule) { return choice({ rule, ERROR().copy() }); }
 
 rule_ptr prec(int precedence, const rule_ptr &rule, Associativity associativity) {
-  return metadata(rule, {
-    { PRECEDENCE, precedence },
-    { ASSOCIATIVITY, associativity }
-  });
+  return metadata(
+    rule, { { PRECEDENCE, precedence }, { ASSOCIATIVITY, associativity } });
 }
 
 rule_ptr prec(int precedence, const rule_ptr &rule) {

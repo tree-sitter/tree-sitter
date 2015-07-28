@@ -27,11 +27,11 @@ void ts_document_free(TSDocument *document) {
 static void reparse(TSDocument *document, TSInputEdit *edit) {
   if (document->input.read_fn && document->parser.language) {
     const TSTree *tree =
-        ts_parser_parse(&document->parser, document->input, edit);
+      ts_parser_parse(&document->parser, document->input, edit);
     if (document->node)
       ts_node_release(document->node);
     document->node =
-        ts_node_make_root(tree, document->parser.language->symbol_names);
+      ts_node_make_root(tree, document->parser.language->symbol_names);
   }
 }
 

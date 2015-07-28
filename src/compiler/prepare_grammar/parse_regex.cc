@@ -49,7 +49,7 @@ class PatternParser {
       choices.push_back(pair.first);
     } while (has_more_input());
     auto rule =
-        (choices.size() > 1) ? make_shared<Choice>(choices) : choices.front();
+      (choices.size() > 1) ? make_shared<Choice>(choices) : choices.front();
     return { rule, nullptr };
   }
 
@@ -115,8 +115,12 @@ class PatternParser {
         next();
         return { pair.first.copy(), nullptr };
       }
-      case ')': { return error("unmatched close paren"); }
-      case ']': { return error("unmatched close square bracket"); }
+      case ')': {
+        return error("unmatched close paren");
+      }
+      case ']': {
+        return error("unmatched close square bracket");
+      }
       case '.': {
         next();
         return { CharacterSet().include_all().exclude('\n').copy(), nullptr };
@@ -180,15 +184,15 @@ class PatternParser {
         return CharacterSet().include('a', 'z').include('A', 'Z');
       case 'w':
         return CharacterSet()
-            .include('a', 'z')
-            .include('A', 'Z')
-            .include('0', '9')
-            .include('_');
+          .include('a', 'z')
+          .include('A', 'Z')
+          .include('0', '9')
+          .include('_');
       case 'd':
         return CharacterSet().include('0', '9');
       case 's':
         return CharacterSet().include(' ').include('\t').include('\n').include(
-            '\r');
+          '\r');
       case 't':
         return CharacterSet().include('\t');
       case 'n':

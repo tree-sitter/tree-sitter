@@ -11,7 +11,7 @@ class LexicalGrammar;
 namespace prepare_grammar {
 
 std::pair<LexicalGrammar, const GrammarError *> expand_tokens(
-    const LexicalGrammar &);
+  const LexicalGrammar &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

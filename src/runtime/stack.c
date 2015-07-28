@@ -7,9 +7,9 @@ static size_t INITIAL_SIZE = 100;
 static TSStateId INITIAL_STATE = 0;
 
 TSStack ts_stack_make() {
-  return (TSStack) { .size = 0,
-                     .capacity = INITIAL_SIZE,
-                     .entries = malloc(INITIAL_SIZE * sizeof(TSStackEntry)) };
+  return (TSStack){.size = 0,
+                   .capacity = INITIAL_SIZE,
+                   .entries = malloc(INITIAL_SIZE * sizeof(TSStackEntry)) };
 }
 
 void ts_stack_delete(TSStack *stack) {
@@ -33,7 +33,7 @@ void ts_stack_push(TSStack *stack, TSStateId state, TSTree *node) {
   if (stack->size == stack->capacity) {
     stack->capacity *= 2;
     stack->entries =
-        realloc(stack->entries, stack->capacity * sizeof(*stack->entries));
+      realloc(stack->entries, stack->capacity * sizeof(*stack->entries));
   }
   stack->entries[stack->size].state = state;
   stack->entries[stack->size].node = node;

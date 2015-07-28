@@ -14,7 +14,7 @@ class LexicalGrammar;
 namespace prepare_grammar {
 
 std::tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
-    const InternedGrammar &);
+  const InternedGrammar &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

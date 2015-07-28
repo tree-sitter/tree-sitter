@@ -27,13 +27,13 @@ map<Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set,
       consumed_symbols.push_back(transition.first);
       ParseItem new_item(item.lhs, transition.second, consumed_symbols);
       merge_sym_transition<ParseItemSet>(
-          &result, { transition.first,
-                     item_set_closure(new_item, lookahead_symbols, grammar) },
-          [](ParseItemSet *left, const ParseItemSet *right) {
-            for (auto &pair : *right)
-              left->operator[](pair.first)
-                  .insert(pair.second.begin(), pair.second.end());
-          });
+        &result, { transition.first,
+                   item_set_closure(new_item, lookahead_symbols, grammar) },
+        [](ParseItemSet *left, const ParseItemSet *right) {
+          for (auto &pair : *right)
+            left->operator[](pair.first)
+              .insert(pair.second.begin(), pair.second.end());
+        });
     }
   }
   return result;
@@ -45,10 +45,10 @@ map<CharacterSet, LexItemSet> char_transitions(const LexItemSet &item_set) {
     for (auto &transition : char_transitions(item.rule)) {
       LexItem next_item(item.lhs, transition.second);
       merge_char_transition<LexItemSet>(
-          &result, { transition.first, LexItemSet({ next_item }) },
-          [](LexItemSet *left, const LexItemSet *right) {
-            left->insert(right->begin(), right->end());
-          });
+        &result, { transition.first, LexItemSet({ next_item }) },
+        [](LexItemSet *left, const LexItemSet *right) {
+          left->insert(right->begin(), right->end());
+        });
     }
   }
   return result;

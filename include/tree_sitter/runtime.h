@@ -22,7 +22,7 @@ typedef struct {
 
 typedef enum {
   TSDebugTypeParse,
-  TSDebugTypeLex
+  TSDebugTypeLex,
 } TSDebugType;
 
 typedef struct {

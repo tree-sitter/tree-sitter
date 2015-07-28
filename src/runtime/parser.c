@@ -29,13 +29,13 @@
  */
 
 static const TSParseAction ERROR_ACTIONS[2] = {
-  {.type = TSParseActionTypeError},
-  {.type = 0}
+  {.type = TSParseActionTypeError }, {.type = 0 }
 };
 
-static const TSParseAction *get_actions(const TSLanguage *language, TSStateId state,
-                                TSSymbol sym) {
-  const TSParseAction *actions = (language->parse_table + (state * language->symbol_count))[sym];
+static const TSParseAction *get_actions(const TSLanguage *language,
+                                        TSStateId state, TSSymbol sym) {
+  const TSParseAction *actions =
+    (language->parse_table + (state * language->symbol_count))[sym];
   return actions ? actions : ERROR_ACTIONS;
 }
 
@@ -47,9 +47,10 @@ static TSParseAction get_action(const TSLanguage *language, TSStateId state,
 static TSLength break_down_left_stack(TSParser *parser, TSInputEdit edit) {
   ts_stack_shrink(&parser->right_stack, 0);
 
-  TSLength prev_size = ts_tree_total_size(ts_parse_stack_top_tree(parser->stack, 0));
+  TSLength prev_size =
+    ts_tree_total_size(ts_parse_stack_top_tree(parser->stack, 0));
   parser->total_chars =
-      prev_size.chars + edit.chars_inserted - edit.chars_removed;
+    prev_size.chars + edit.chars_inserted - edit.chars_removed;
   TSLength left_subtree_end = prev_size;
   size_t right_subtree_start = parser->total_chars;
 
@@ -61,7 +62,8 @@ static TSLength break_down_left_stack(TSParser *parser, TSInputEdit edit) {
 
     size_t child_count;
     TSTree **children = ts_tree_children(node, &child_count);
-    if (left_subtree_end.chars < edit.position && !children && node->symbol != ts_builtin_sym_error)
+    if (left_subtree_end.chars < edit.position && !children &&
+        node->symbol != ts_builtin_sym_error)
       break;
 
     DEBUG("pop_left sym:%s, state:%u", SYM_NAME(node->symbol),
@@ -75,12 +77,12 @@ static TSLength break_down_left_stack(TSParser *parser, TSInputEdit edit) {
       TSStateId state = ts_parse_stack_top_state(parser->stack, 0);
       TSParseAction action = get_action(parser->language, state, child->symbol);
       TSStateId next_state =
-          ts_tree_is_extra(child) ? state : action.data.to_state;
+        ts_tree_is_extra(child) ? state : action.data.to_state;
 
       DEBUG("push_left sym:%s, state:%u", SYM_NAME(child->symbol), next_state);
       ts_parse_stack_push(parser->stack, 0, next_state, child);
       left_subtree_end =
-          ts_length_add(left_subtree_end, ts_tree_total_size(child));
+        ts_length_add(left_subtree_end, ts_tree_total_size(child));
     }
 
     for (size_t j = child_count - 1; j + 1 > i; j--) {
@@ -107,7 +109,7 @@ static TSTree *break_down_right_stack(TSParser *parser) {
   TSStateId state = ts_parse_stack_top_state(parser->stack, 0);
 
   size_t right_subtree_start =
-      parser->total_chars - ts_stack_total_tree_size(stack).chars;
+    parser->total_chars - ts_stack_total_tree_size(stack).chars;
 
   for (;;) {
     TSTree *node = ts_stack_top_node(stack);
@@ -119,8 +121,7 @@ static TSTree *break_down_right_stack(TSParser *parser) {
 
     TSParseAction action = get_action(parser->language, state, node->symbol);
     bool is_usable = (action.type != TSParseActionTypeError) &&
-                     !ts_tree_is_extra(node) &&
-                     !ts_tree_is_empty(node) &&
+                     !ts_tree_is_extra(node) && !ts_tree_is_empty(node) &&
                      !ts_tree_is_fragile_left(node) &&
                      !ts_tree_is_fragile_right(node);
     if (is_usable && right_subtree_start == current_position.chars) {
@@ -157,9 +158,9 @@ static TSTree *get_next_node(TSParser *parser, TSStateId lex_state) {
           ts_tree_is_extra(node), ts_tree_total_size(node).chars);
 
     parser->lexer.token_start_position =
-        ts_length_add(parser->lexer.current_position, node->padding);
+      ts_length_add(parser->lexer.current_position, node->padding);
     parser->lexer.token_end_position = parser->lexer.current_position =
-        ts_length_add(parser->lexer.token_start_position, node->size);
+      ts_length_add(parser->lexer.token_start_position, node->size);
 
     parser->lexer.lookahead = 0;
     parser->lexer.lookahead_size = 0;
@@ -184,9 +185,11 @@ static void shift_extra(TSParser *parser, int head, TSStateId state) {
   shift(parser, head, state);
 }
 
-static TSTree * reduce_helper(TSParser *parser, int head, TSSymbol symbol, size_t child_count, bool extra, bool count_extra) {
+static TSTree *reduce_helper(TSParser *parser, int head, TSSymbol symbol,
+                             size_t child_count, bool extra, bool count_extra) {
   bool hidden = parser->language->hidden_symbol_flags[symbol];
-  ParseStackPopResultList pop_results = ts_parse_stack_pop(parser->stack, head, child_count, count_extra);
+  ParseStackPopResultList pop_results =
+    ts_parse_stack_pop(parser->stack, head, child_count, count_extra);
 
   TSTree *parent = NULL;
   TSTree **last_children = NULL;
@@ -196,13 +199,15 @@ static TSTree * reduce_helper(TSParser *parser, int head, TSSymbol symbol, size_
     ParseStackPopResult pop_result = pop_results.contents[i];
 
     if (pop_result.trees != last_children) {
-      parent = ts_tree_make_node(symbol, pop_result.tree_count, pop_result.trees, hidden);
+      parent = ts_tree_make_node(symbol, pop_result.tree_count,
+                                 pop_result.trees, hidden);
     }
 
     if (pop_result.index == last_index) {
       ts_parse_stack_add_alternative(parser->stack, pop_result.index, parent);
     } else {
-      TSStateId top_state = ts_parse_stack_top_state(parser->stack, pop_result.index);
+      TSStateId top_state =
+        ts_parse_stack_top_state(parser->stack, pop_result.index);
       TSStateId state;
 
       if (extra) {
@@ -222,7 +227,8 @@ static TSTree * reduce_helper(TSParser *parser, int head, TSSymbol symbol, size_
   return parent;
 }
 
-static void reduce(TSParser *parser, int head, TSSymbol symbol, size_t child_count) {
+static void reduce(TSParser *parser, int head, TSSymbol symbol,
+                   size_t child_count) {
   reduce_helper(parser, head, symbol, child_count, false, false);
 }
 
@@ -230,14 +236,17 @@ static void reduce_extra(TSParser *parser, int head, TSSymbol symbol) {
   reduce_helper(parser, head, symbol, 1, true, false);
 }
 
-static void reduce_fragile(TSParser *parser, int head, TSSymbol symbol, size_t child_count) {
-  TSTree *reduced = reduce_helper(parser, head, symbol, child_count, false, false);
+static void reduce_fragile(TSParser *parser, int head, TSSymbol symbol,
+                           size_t child_count) {
+  TSTree *reduced =
+    reduce_helper(parser, head, symbol, child_count, false, false);
   ts_tree_set_fragile_left(reduced);
   ts_tree_set_fragile_right(reduced);
 }
 
 static void reduce_error(TSParser *parser, int head, size_t child_count) {
-  TSTree *reduced = reduce_helper(parser, head, ts_builtin_sym_error, child_count, false, true);
+  TSTree *reduced =
+    reduce_helper(parser, head, ts_builtin_sym_error, child_count, false, true);
   reduced->size = ts_length_add(reduced->size, parser->lookahead->padding);
   parser->lookahead->padding = ts_length_zero();
   ts_tree_set_fragile_left(reduced);
@@ -255,20 +264,20 @@ static bool handle_error(TSParser *parser, int head) {
      *  expected and the current lookahead token is expected afterwards.
      */
     int i = -1;
-    for (ParseStackEntry *entry = entry_before_error;
-         entry != NULL;
+    for (ParseStackEntry *entry = entry_before_error; entry != NULL;
          entry = ts_parse_stack_entry_next(entry, head), i++) {
       TSStateId stack_state = entry->state;
-      TSParseAction action_on_error = get_action(
-        parser->language, stack_state, ts_builtin_sym_error);
+      TSParseAction action_on_error =
+        get_action(parser->language, stack_state, ts_builtin_sym_error);
 
       if (action_on_error.type == TSParseActionTypeShift) {
         TSStateId state_after_error = action_on_error.data.to_state;
         TSParseAction action_after_error = get_action(
-            parser->language, state_after_error, parser->lookahead->symbol);
+          parser->language, state_after_error, parser->lookahead->symbol);
 
         if (action_after_error.type != TSParseActionTypeError) {
-          DEBUG("recover state:%u, count:%lu", state_after_error, error_token_count + i);
+          DEBUG("recover state:%u, count:%lu", state_after_error,
+                error_token_count + i);
           reduce_error(parser, head, error_token_count + i);
           return true;
         }
@@ -303,14 +312,15 @@ static TSTree *finish(TSParser *parser) {
  *  Public
  */
 
-TSTree * ts_parser_select_tree(void *data, TSTree *left, TSTree *right) {
+TSTree *ts_parser_select_tree(void *data, TSTree *left, TSTree *right) {
   return left;
 }
 
 TSParser ts_parser_make() {
-  return (TSParser) { .lexer = ts_lexer_make(),
-                      .stack = ts_parse_stack_new((TreeSelectionCallback) {NULL, ts_parser_select_tree}),
-                      .right_stack = ts_stack_make() };
+  return (TSParser){.lexer = ts_lexer_make(),
+                    .stack = ts_parse_stack_new(
+                      (TreeSelectionCallback){ NULL, ts_parser_select_tree }),
+                    .right_stack = ts_stack_make() };
 }
 
 void ts_parser_destroy(TSParser *parser) {
@@ -343,7 +353,8 @@ typedef enum {
 
 ParserNextResult ts_parser_next(TSParser *parser, int head_to_advance) {
   TSStateId state = ts_parse_stack_top_state(parser->stack, head_to_advance);
-  const TSParseAction *next_action = get_actions(parser->language, state, parser->lookahead->symbol);
+  const TSParseAction *next_action =
+    get_actions(parser->language, state, parser->lookahead->symbol);
   int head, next_head = head_to_advance;
 
   ParserNextResult result = ParserNextResultNone;
@@ -394,7 +405,8 @@ ParserNextResult ts_parser_next(TSParser *parser, int head_to_advance) {
         break;
 
       case TSParseActionTypeReduce:
-        DEBUG("reduce sym:%s, count:%u", SYM_NAME(action.data.symbol), action.data.child_count);
+        DEBUG("reduce sym:%s, count:%u", SYM_NAME(action.data.symbol),
+              action.data.child_count);
         reduce(parser, head, action.data.symbol, action.data.child_count);
         break;
 
@@ -404,8 +416,10 @@ ParserNextResult ts_parser_next(TSParser *parser, int head_to_advance) {
         break;
 
       case TSParseActionTypeReduceFragile:
-        DEBUG("reduce_fragile sym:%s, count:%u", SYM_NAME(action.data.symbol), action.data.child_count);
-        reduce_fragile(parser, head, action.data.symbol, action.data.child_count);
+        DEBUG("reduce_fragile sym:%s, count:%u", SYM_NAME(action.data.symbol),
+              action.data.child_count);
+        reduce_fragile(parser, head, action.data.symbol,
+                       action.data.child_count);
         break;
 
       case TSParseActionTypeAccept:
@@ -435,7 +449,8 @@ const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
 
   for (;;) {
     TSStateId state = ts_parse_stack_top_state(parser->stack, 0);
-    parser->lookahead = get_next_node(parser, parser->language->lex_states[state]);
+    parser->lookahead =
+      get_next_node(parser, parser->language->lex_states[state]);
 
     DEBUG("lookahead sym:%s", SYM_NAME(parser->lookahead->symbol));
     DEBUG("head_count: %d", ts_parse_stack_head_count(parser->stack));

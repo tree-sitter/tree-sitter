@@ -14,7 +14,7 @@ using std::get;
 using std::make_tuple;
 
 tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
-    const Grammar &input_grammar) {
+  const Grammar &input_grammar) {
 
   // Convert all string-based `NamedSymbols` into numerical `Symbols`
   auto intern_result = intern_symbols(input_grammar);

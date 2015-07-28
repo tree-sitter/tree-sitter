@@ -20,5 +20,4 @@ struct InternedGrammar {
 }  // namespace prepare_grammar
 }  // namespace tree_sitter
 
-
 #endif  // COMPILER_PREPARE_GRAMMAR_INTERNED_GRAMMAR_H_

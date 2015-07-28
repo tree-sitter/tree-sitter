@@ -27,7 +27,7 @@ typedef struct {
 
 typedef struct {
   void *data;
-  TSTree * (*callback)(void *data, TSTree *, TSTree *);
+  TSTree *(*callback)(void *data, TSTree *, TSTree *);
 } TreeSelectionCallback;
 
 /*
@@ -90,7 +90,8 @@ void ts_parse_stack_add_alternative(ParseStack *, int head, TSTree *);
  *  which had previously been merged. It returns a struct that indicates the
  *  index of each revealed head and the trees removed from that head.
  */
-ParseStackPopResultList ts_parse_stack_pop(ParseStack *, int head, int count, bool count_extra);
+ParseStackPopResultList ts_parse_stack_pop(ParseStack *, int head, int count,
+                                           bool count_extra);
 
 /*
  *  Remove the given number of entries from the given head of the stack.

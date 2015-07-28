@@ -40,13 +40,14 @@ class ExpandRepeats : public rules::IdentityRuleFn {
 
     rule_ptr inner_rule = apply(rule->content);
     size_t index = aux_rules.size();
-    string helper_rule_name = rule_name + string("_repeat") + to_string(++repeat_count);
+    string helper_rule_name =
+      rule_name + string("_repeat") + to_string(++repeat_count);
     Symbol repeat_symbol(offset + index, rules::SymbolOptionAuxiliary);
     existing_repeats.push_back({ rule->copy(), repeat_symbol });
     aux_rules.push_back(
-        { helper_rule_name,
-          Seq::build({ inner_rule, Choice::build({ repeat_symbol.copy(),
-                                                   make_shared<Blank>() }) }) });
+      { helper_rule_name,
+        Seq::build({ inner_rule, Choice::build({ repeat_symbol.copy(),
+                                                 make_shared<Blank>() }) }) });
     return repeat_symbol.copy();
   }
 
@@ -74,7 +75,8 @@ SyntaxGrammar expand_repeats(const SyntaxGrammar &grammar) {
 
   ExpandRepeats expander(result.aux_rules.size());
   for (auto &pair : grammar.rules)
-    result.rules.push_back({ pair.first, expander.expand(pair.second, pair.first) });
+    result.rules.push_back(
+      { pair.first, expander.expand(pair.second, pair.first) });
 
   result.aux_rules.insert(result.aux_rules.end(), expander.aux_rules.begin(),
                           expander.aux_rules.end());

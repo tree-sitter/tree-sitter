@@ -13,10 +13,10 @@
                              lexer->debug_buffer);                    \
   }
 
-#define DEBUG_LOOKAHEAD()                               \
-  DEBUG((0 < lexer->lookahead &&lexer->lookahead < 256) \
-            ? "lookahead char:'%c'"                     \
-            : "lookahead char:%d",                      \
+#define DEBUG_LOOKAHEAD()                                \
+  DEBUG((0 < lexer->lookahead && lexer->lookahead < 256) \
+          ? "lookahead char:'%c'"                        \
+          : "lookahead char:%d",                         \
         lexer->lookahead);
 
 static const char *empty_chunk = "";
@@ -35,8 +35,8 @@ static void read_next_chunk(TSLexer *lexer) {
 static void read_lookahead(TSLexer *lexer) {
   size_t position_in_chunk = lexer->current_position.bytes - lexer->chunk_start;
   lexer->lookahead_size = utf8proc_iterate(
-      (const uint8_t *)lexer->chunk + position_in_chunk,
-      lexer->chunk_size - position_in_chunk + 1, &lexer->lookahead);
+    (const uint8_t *)lexer->chunk + position_in_chunk,
+    lexer->chunk_size - position_in_chunk + 1, &lexer->lookahead);
   DEBUG_LOOKAHEAD();
 }
 
@@ -71,9 +71,9 @@ static bool advance(TSLexer *lexer, TSStateId state) {
 static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden,
                       const char *symbol_name) {
   TSLength size =
-      ts_length_sub(lexer->current_position, lexer->token_start_position);
+    ts_length_sub(lexer->current_position, lexer->token_start_position);
   TSLength padding =
-      ts_length_sub(lexer->token_start_position, lexer->token_end_position);
+    ts_length_sub(lexer->token_start_position, lexer->token_end_position);
   lexer->token_end_position = lexer->current_position;
 
   if (symbol == ts_builtin_sym_error) {
@@ -91,19 +91,19 @@ static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden,
  */
 
 TSLexer ts_lexer_make() {
-  TSLexer result = (TSLexer) { .start_fn = start,
-                               .start_token_fn = start_token,
-                               .advance_fn = advance,
-                               .accept_fn = accept,
-                               .chunk = NULL,
-                               .chunk_start = 0,
-                               .chunk_size = 0,
-                               .current_position = ts_length_zero(),
-                               .token_start_position = ts_length_zero(),
-                               .token_end_position = ts_length_zero(),
-                               .lookahead = 0,
-                               .lookahead_size = 0,
-                               .debugger = ts_debugger_null() };
+  TSLexer result = (TSLexer){.start_fn = start,
+                             .start_token_fn = start_token,
+                             .advance_fn = advance,
+                             .accept_fn = accept,
+                             .chunk = NULL,
+                             .chunk_start = 0,
+                             .chunk_size = 0,
+                             .current_position = ts_length_zero(),
+                             .token_start_position = ts_length_zero(),
+                             .token_end_position = ts_length_zero(),
+                             .lookahead = 0,
+                             .lookahead_size = 0,
+                             .debugger = ts_debugger_null() };
   return result;
 }
 

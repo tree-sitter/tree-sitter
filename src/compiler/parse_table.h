@@ -36,7 +36,8 @@ class ParseAction {
   static ParseAction Shift(ParseStateId state_index,
                            std::set<int> precedence_values);
   static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count,
-                            int precedence, rules::Associativity, int production_id);
+                            int precedence, rules::Associativity,
+                            int production_id);
   static ParseAction ShiftExtra();
   static ParseAction ReduceExtra(rules::Symbol symbol);
   bool operator==(const ParseAction &) const;
@@ -86,9 +87,9 @@ class ParseTable {
  public:
   ParseStateId add_state();
   ParseAction &set_action(ParseStateId state_id, rules::Symbol symbol,
-                  ParseAction action);
+                          ParseAction action);
   ParseAction &add_action(ParseStateId state_id, rules::Symbol symbol,
-                  ParseAction action);
+                          ParseAction action);
 
   std::vector<ParseState> states;
   std::set<rules::Symbol> symbols;

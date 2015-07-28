@@ -30,8 +30,8 @@ TSInput ts_string_input_make(const char *string) {
   data->string = string;
   data->position = 0;
   data->length = strlen(string);
-  return (TSInput) { .data = (void *)data,
-                     .read_fn = ts_string_input_read,
-                     .seek_fn = ts_string_input_seek,
-                     .release_fn = free };
+  return (TSInput){.data = (void *)data,
+                   .read_fn = ts_string_input_read,
+                   .seek_fn = ts_string_input_seek,
+                   .release_fn = free };
 }

@@ -13,8 +13,8 @@ class LexicalGrammar;
 
 namespace build_tables {
 
-std::pair<ParseTable, const GrammarError *>
-build_parse_table(const SyntaxGrammar &, const LexicalGrammar &);
+std::pair<ParseTable, const GrammarError *> build_parse_table(
+  const SyntaxGrammar &, const LexicalGrammar &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

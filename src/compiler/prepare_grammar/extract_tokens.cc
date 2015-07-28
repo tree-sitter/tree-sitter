@@ -89,12 +89,13 @@ class TokenExtractor : public rules::IdentityRuleFn {
   vector<pair<string, rule_ptr>> tokens;
 };
 
-static const GrammarError * ubiq_token_err(const string &msg) {
-  return new GrammarError(GrammarErrorTypeInvalidUbiquitousToken, "Not a token: " + msg);
+static const GrammarError *ubiq_token_err(const string &msg) {
+  return new GrammarError(GrammarErrorTypeInvalidUbiquitousToken,
+                          "Not a token: " + msg);
 }
 
-tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *>
-extract_tokens(const InternedGrammar &grammar) {
+tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
+  const InternedGrammar &grammar) {
   SyntaxGrammar syntax_grammar;
   LexicalGrammar lexical_grammar;
   SymbolReplacer symbol_replacer;
@@ -104,12 +105,12 @@ extract_tokens(const InternedGrammar &grammar) {
   for (auto &pair : grammar.rules) {
     if (is_token(pair.second)) {
       lexical_grammar.rules.push_back(pair);
-      symbol_replacer.replacements.insert({
-        Symbol(i),
-        Symbol(lexical_grammar.rules.size() - 1, SymbolOptionToken)
-      });
+      symbol_replacer.replacements.insert(
+        { Symbol(i),
+          Symbol(lexical_grammar.rules.size() - 1, SymbolOptionToken) });
     } else {
-      syntax_grammar.rules.push_back({ pair.first, extractor.apply(pair.second) });
+      syntax_grammar.rules.push_back(
+        { pair.first, extractor.apply(pair.second) });
     }
     i++;
   }
@@ -123,11 +124,14 @@ extract_tokens(const InternedGrammar &grammar) {
     } else {
       auto sym = dynamic_pointer_cast<const Symbol>(extractor.apply(rule));
       if (!sym.get())
-        return make_tuple(syntax_grammar, lexical_grammar, ubiq_token_err(rule->to_string()));
+        return make_tuple(syntax_grammar, lexical_grammar,
+                          ubiq_token_err(rule->to_string()));
 
       Symbol symbol = symbol_replacer.replace_symbol(*sym);
       if (!symbol.is_token())
-        return make_tuple(syntax_grammar, lexical_grammar, ubiq_token_err(syntax_grammar.rules[symbol.index].first));
+        return make_tuple(
+          syntax_grammar, lexical_grammar,
+          ubiq_token_err(syntax_grammar.rules[symbol.index].first));
 
       syntax_grammar.ubiquitous_tokens.insert(symbol);
     }

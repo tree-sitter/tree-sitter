@@ -8,12 +8,14 @@ TSNode *ts_node_make(const TSTree *tree, TSNode *parent, size_t index,
   if (parent)
     ts_node_retain(parent);
   TSNode *result = malloc(sizeof(TSNode));
-  *result = (TSNode) { .ref_count = 1,
-                       .parent = parent,
-                       .index = index,
-                       .content = tree,
-                       .position = position,
-                       .names = names, };
+  *result = (TSNode){
+    .ref_count = 1,
+    .parent = parent,
+    .index = index,
+    .content = tree,
+    .position = position,
+    .names = names,
+  };
   return result;
 }
 

@@ -17,10 +17,10 @@ class Symbol;
 namespace build_tables {
 
 std::map<rules::Symbol, ParseItemSet> sym_transitions(
-    const ParseItemSet &item_set, const SyntaxGrammar &grammar);
+  const ParseItemSet &item_set, const SyntaxGrammar &grammar);
 
 std::map<rules::CharacterSet, LexItemSet> char_transitions(
-    const LexItemSet &item_set);
+  const LexItemSet &item_set);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

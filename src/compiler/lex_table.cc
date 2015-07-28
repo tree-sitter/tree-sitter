@@ -47,10 +47,10 @@ std::ostream &operator<<(std::ostream &stream, const LexAction &action) {
       return stream << string("#<error>");
     case LexActionTypeAccept:
       return stream << string("#<accept ") + to_string(action.symbol.index) +
-                           ">";
+                         ">";
     case LexActionTypeAdvance:
       return stream << string("#<advance ") + to_string(action.state_index) +
-                           ">";
+                         ">";
     default:
       return stream;
   }

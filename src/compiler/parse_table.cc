@@ -13,8 +13,7 @@ using rules::Symbol;
 ParseAction::ParseAction(ParseActionType type, ParseStateId state_index,
                          Symbol symbol, size_t consumed_symbol_count,
                          set<int> precedence_values,
-                         rules::Associativity associativity,
-                         int production_id)
+                         rules::Associativity associativity, int production_id)
     : type(type),
       symbol(symbol),
       state_index(state_index),
@@ -30,9 +29,7 @@ ParseAction::ParseAction()
       consumed_symbol_count(0),
       associativity(rules::AssociativityUnspecified) {}
 
-ParseAction ParseAction::Error() {
-  return ParseAction();
-}
+ParseAction ParseAction::Error() { return ParseAction(); }
 
 ParseAction ParseAction::Accept() {
   ParseAction action;
@@ -60,7 +57,8 @@ ParseAction ParseAction::ReduceExtra(Symbol symbol) {
 }
 
 ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
-                                int precedence, rules::Associativity associativity,
+                                int precedence,
+                                rules::Associativity associativity,
                                 int production_id) {
   return ParseAction(ParseActionTypeReduce, 0, symbol, consumed_symbol_count,
                      { precedence }, associativity, production_id);
@@ -71,17 +69,23 @@ bool ParseAction::operator==(const ParseAction &other) const {
   bool symbols_eq = symbol == other.symbol;
   bool state_indices_eq = state_index == other.state_index;
   bool consumed_symbol_counts_eq =
-      consumed_symbol_count == other.consumed_symbol_count;
+    consumed_symbol_count == other.consumed_symbol_count;
   return types_eq && symbols_eq && state_indices_eq && consumed_symbol_counts_eq;
 }
 
 bool ParseAction::operator<(const ParseAction &other) const {
-  if (type < other.type) return true;
-  if (other.type < type) return false;
-  if (symbol < other.symbol) return true;
-  if (other.symbol < symbol) return false;
-  if (state_index < other.state_index) return true;
-  if (other.state_index < state_index) return false;
+  if (type < other.type)
+    return true;
+  if (other.type < type)
+    return false;
+  if (symbol < other.symbol)
+    return true;
+  if (other.symbol < symbol)
+    return false;
+  if (state_index < other.state_index)
+    return true;
+  if (other.state_index < state_index)
+    return false;
   return consumed_symbol_count < other.consumed_symbol_count;
 }
 
@@ -138,13 +142,15 @@ ParseStateId ParseTable::add_state() {
   return states.size() - 1;
 }
 
-ParseAction &ParseTable::set_action(ParseStateId id, Symbol symbol, ParseAction action) {
+ParseAction &ParseTable::set_action(ParseStateId id, Symbol symbol,
+                                    ParseAction action) {
   symbols.insert(symbol);
   states[id].actions[symbol] = vector<ParseAction>({ action });
   return *states[id].actions[symbol].begin();
 }
 
-ParseAction &ParseTable::add_action(ParseStateId id, Symbol symbol, ParseAction action) {
+ParseAction &ParseTable::add_action(ParseStateId id, Symbol symbol,
+                                    ParseAction action) {
   symbols.insert(symbol);
   states[id].actions[symbol].push_back(action);
   return *states[id].actions[symbol].rbegin();

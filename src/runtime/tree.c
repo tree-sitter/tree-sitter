@@ -9,13 +9,15 @@
 TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength size, TSLength padding,
                           bool is_hidden) {
   TSTree *result = malloc(sizeof(TSTree));
-  *result = (TSTree) { .ref_count = 1,
-                       .symbol = sym,
-                       .size = size,
-                       .child_count = 0,
-                       .children = NULL,
-                       .padding = padding,
-                       .options = is_hidden ? TSTreeOptionsHidden : 0, };
+  *result = (TSTree){
+    .ref_count = 1,
+    .symbol = sym,
+    .size = size,
+    .child_count = 0,
+    .children = NULL,
+    .padding = padding,
+    .options = is_hidden ? TSTreeOptionsHidden : 0,
+  };
   return result;
 }
 
@@ -78,15 +80,15 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
    *  performing a second allocation and storing an additional pointer.
    */
   TSTree *result =
-      malloc(sizeof(TSTree) + (visible_child_count * sizeof(TSTreeChild)));
-  *result = (TSTree) { .ref_count = 1,
-                       .symbol = symbol,
-                       .children = children,
-                       .child_count = child_count,
-                       .visible_child_count = visible_child_count,
-                       .size = size,
-                       .padding = padding,
-                       .options = options };
+    malloc(sizeof(TSTree) + (visible_child_count * sizeof(TSTreeChild)));
+  *result = (TSTree){.ref_count = 1,
+                     .symbol = symbol,
+                     .children = children,
+                     .child_count = child_count,
+                     .visible_child_count = visible_child_count,
+                     .size = size,
+                     .padding = padding,
+                     .options = options };
 
   /*
    *  Associate a relative offset with each of the visible child nodes, so that
@@ -110,7 +112,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
       for (size_t j = 0; j < n; j++) {
         visible_children[vis_i].tree = grandchildren[j].tree;
         visible_children[vis_i].offset =
-            ts_length_add(offset, grandchildren[j].offset);
+          ts_length_add(offset, grandchildren[j].offset);
         vis_i++;
       }
     }
@@ -147,7 +149,8 @@ TSLength ts_tree_total_size(const TSTree *tree) {
 
 bool ts_tree_eq(const TSTree *node1, const TSTree *node2) {
   if (node1) {
-    if (!node2) return false;
+    if (!node2)
+      return false;
   } else {
     return !node2;
   }
