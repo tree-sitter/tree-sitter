@@ -82,13 +82,13 @@ describe("extract_tokens", []() {
     }, {}, {}});
 
     AssertThat(get<0>(result).rules, Equals(rule_list({
-        { "rule_A", seq({ i_aux_token(0), i_sym(0), i_aux_token(0) }) }
+      { "rule_A", seq({ i_aux_token(0), i_sym(0), i_aux_token(0) }) }
     })));
     AssertThat(get<0>(result).aux_rules, IsEmpty())
 
     AssertThat(get<1>(result).rules, IsEmpty())
     AssertThat(get<1>(result).aux_rules, Equals(rule_list({
-        { "'ab'", str("ab") },
+      { "'ab'", str("ab") },
     })))
   });
 
@@ -201,7 +201,7 @@ describe("extract_tokens", []() {
         AssertThat(get<2>(result), Equals<const GrammarError *>(nullptr));
 
         AssertThat(get<0>(result).ubiquitous_tokens, Equals(set<Symbol>({
-            Symbol(1, SymbolOptionToken)
+          Symbol(1, SymbolOptionToken)
         })));
 
         AssertThat(get<1>(result).separators, IsEmpty());
