@@ -431,8 +431,7 @@ ParserNextResult ts_parser_next(TSParser *parser, int head_to_advance) {
   return result;
 }
 
-const TSTree *ts_parser_parse(TSParser *parser, TSInput input,
-                              TSInputEdit *edit) {
+TSTree *ts_parser_parse(TSParser *parser, TSInput input, TSInputEdit *edit) {
   TSLength position;
   if (edit) {
     DEBUG("edit pos:%lu, inserted:%lu, deleted:%lu", edit->position,

@@ -112,9 +112,11 @@ struct TSLanguage {
  *  Parse Table Macros
  */
 
-#define ACTIONS(...)           \
-  (TSParseAction[]) {          \
-    __VA_ARGS__, { .type = 0 } \
+#define ACTIONS(...)  \
+  (TSParseAction[]) { \
+    __VA_ARGS__, {    \
+      .type = 0       \
+    }                 \
   }
 
 #define SHIFT(to_state_value)                                             \
@@ -155,7 +157,9 @@ struct TSLanguage {
     .lex_fn = ts_lex,                                        \
   };                                                         \
                                                              \
-  const TSLanguage *language_name() { return &language; }
+  const TSLanguage *language_name() {                        \
+    return &language;                                        \
+  }
 
 #ifdef __cplusplus
 }

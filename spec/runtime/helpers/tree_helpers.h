@@ -18,5 +18,6 @@ struct EqualsTree {
 
 std::ostream &operator<<(std::ostream &stream, const EqualsTree &matcher);
 std::ostream &operator<<(std::ostream &stream, const TSTree *tree);
+std::ostream &operator<<(std::ostream &stream, const TSNode ref);
 
 #endif  // HELPERS_TREE_HELPERS_H_

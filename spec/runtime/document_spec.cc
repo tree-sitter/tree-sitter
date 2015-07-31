@@ -26,7 +26,7 @@ describe("Document", [&]() {
       it("parses the document", [&]() {
         ts_document_set_input_string(doc, "{ \"key\": [1, 2] }");
 
-        AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
+        AssertThat(ts_node_string(ts_document_root_node(doc), doc), Equals(
           "(DOCUMENT (object (string) (array (number) (number))))"));
       });
     });
@@ -35,7 +35,7 @@ describe("Document", [&]() {
       it("does not try to parse the document", [&]() {
         ts_document_set_input_string(doc, "{ \"key\": [1, 2] }");
 
-        AssertThat(ts_document_root_node(doc), Equals<TSNode *>(nullptr));
+        AssertThat(ts_document_root_node(doc).data, Equals<void *>(nullptr));
       });
     });
   });
@@ -45,7 +45,7 @@ describe("Document", [&]() {
       it("does not try to parse the document", [&]() {
         ts_document_set_language(doc, ts_language_json());
 
-        AssertThat(ts_document_root_node(doc), Equals<TSNode *>(nullptr));
+        AssertThat(ts_document_root_node(doc).data, Equals<void *>(nullptr));
       });
     });
 
@@ -57,7 +57,7 @@ describe("Document", [&]() {
       it("parses the document", [&]() {
         ts_document_set_language(doc, ts_language_json());
 
-        AssertThat(ts_node_string(ts_document_root_node(doc)), Equals(
+        AssertThat(ts_node_string(ts_document_root_node(doc), doc), Equals(
           "(DOCUMENT (object (string) (array (number) (number))))"));
       });
     });

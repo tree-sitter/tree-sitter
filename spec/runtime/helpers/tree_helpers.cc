@@ -27,3 +27,8 @@ std::ostream &operator<<(std::ostream &stream, const EqualsTree &matcher) {
 std::ostream &operator<<(std::ostream &stream, const TSTree *tree) {
   return stream << std::string(ts_tree_string(tree, symbol_names));;
 }
+
+std::ostream &operator<<(std::ostream &stream, const TSNode ref) {
+  return stream << std::string("{") << (const TSTree *)ref.data <<
+    std::string(", ") << std::to_string(ref.position.chars) << std::string("}");
+}

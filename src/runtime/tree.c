@@ -64,7 +64,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   } else {
     if (is_hidden)
       options |= TSTreeOptionsHidden;
-    if (child_count == 1 &&
+    if (child_count == 1 && symbol != ts_builtin_sym_document &&
         (ts_tree_is_visible(children[0]) || ts_tree_is_wrapper(children[0])))
       options |= (TSTreeOptionsWrapper | TSTreeOptionsHidden);
     if (child_count > 0) {
@@ -82,6 +82,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   TSTree *result =
     malloc(sizeof(TSTree) + (visible_child_count * sizeof(TSTreeChild)));
   *result = (TSTree){.ref_count = 1,
+                     .parent = NULL,
                      .symbol = symbol,
                      .children = children,
                      .child_count = child_count,
@@ -98,6 +99,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   TSLength offset = ts_length_zero();
   for (size_t i = 0, vis_i = 0; i < child_count; i++) {
     TSTree *child = children[i];
+    child->parent = result;
 
     if (i > 0)
       offset = ts_length_add(offset, child->padding);

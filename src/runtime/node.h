@@ -2,19 +2,13 @@
 #define RUNTIME_NODE_H_
 
 #include "tree_sitter/parser.h"
+#include "runtime/length.h"
 #include "runtime/tree.h"
 
-struct TSNode {
-  size_t ref_count;
-  size_t index;
-  TSLength position;
-  const TSTree *content;
-  struct TSNode *parent;
-  const char **names;
-};
+TSNode ts_node_make(const TSTree *, TSLength);
 
-TSNode *ts_node_make(const TSTree *tree, TSNode *parent, size_t index,
-                     TSLength position, const char **names);
-TSNode *ts_node_make_root(const TSTree *tree, const char **names);
+static inline TSNode ts_node_null() {
+  return (TSNode){.data = NULL, .position = ts_length_zero() };
+}
 
 #endif

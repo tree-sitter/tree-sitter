@@ -32,7 +32,7 @@ describe("Languages", [&]() {
 
       for (auto &entry : test_entries_for_language(language_name)) {
         auto expect_the_correct_tree = [&]() {
-          const char *node_string = ts_node_string(ts_document_root_node(doc));
+          const char *node_string = ts_node_string(ts_document_root_node(doc), doc);
           AssertThat(node_string, Equals(("(DOCUMENT " + entry.tree_string + ")").c_str()));
           free((void *)node_string);
         };

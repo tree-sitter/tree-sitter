@@ -11,7 +11,7 @@ START_TEST
 describe("Parser", [&]() {
   TSDocument *doc;
   SpyInput *input;
-  TSNode *root;
+  TSNode root;
   size_t chunk_size;
 
   before_each([&]() {
@@ -75,23 +75,19 @@ describe("Parser", [&]() {
       it("computes the error node's size and position correctly", [&]() {
         set_text("  [123,  @@@@@,   true]");
 
-        AssertThat(ts_node_string(root), Equals(
+        AssertThat(ts_node_string(root, doc), Equals(
             "(DOCUMENT (array (number) (ERROR (UNEXPECTED '@')) (true)))"));
 
-        TSNode *array = ts_node_child(root, 0);
-        TSNode *error = ts_node_child(array, 1);
-        TSNode *last = ts_node_child(array, 2);
+        TSNode array = ts_node_child(root, 0);
+        TSNode error = ts_node_child(array, 1);
+        TSNode last = ts_node_child(array, 2);
 
-        AssertThat(ts_node_name(error), Equals("ERROR"));
+        AssertThat(ts_node_name(error, doc), Equals("ERROR"));
         AssertThat(ts_node_pos(error).bytes, Equals(strlen("  [123,  ")))
         AssertThat(ts_node_size(error).bytes, Equals(strlen("@@@@@")))
 
-        AssertThat(ts_node_name(last), Equals("true"));
+        AssertThat(ts_node_name(last, doc), Equals("true"));
         AssertThat(ts_node_pos(last).bytes, Equals(strlen("  [123,  @@@@@,   ")))
-
-        ts_node_release(last);
-        ts_node_release(error);
-        ts_node_release(array);
       });
     });
 
@@ -99,23 +95,19 @@ describe("Parser", [&]() {
       it("computes the error node's size and position correctly", [&]() {
         set_text("  [123, faaaaalse, true]");
 
-        AssertThat(ts_node_string(root), Equals(
+        AssertThat(ts_node_string(root, doc), Equals(
             "(DOCUMENT (array (number) (ERROR (UNEXPECTED 'a')) (true)))"));
 
-        TSNode *array = ts_node_child(root, 0);
-        TSNode *error = ts_node_child(array, 1);
-        TSNode *last = ts_node_child(array, 2);
+        TSNode array = ts_node_child(root, 0);
+        TSNode error = ts_node_child(array, 1);
+        TSNode last = ts_node_child(array, 2);
 
-        AssertThat(ts_node_name(error), Equals("ERROR"));
+        AssertThat(ts_node_name(error, doc), Equals("ERROR"));
         AssertThat(ts_node_pos(error).bytes, Equals(strlen("  [123, ")))
         AssertThat(ts_node_size(error).bytes, Equals(strlen("faaaaalse")))
 
-        AssertThat(ts_node_name(last), Equals("true"));
+        AssertThat(ts_node_name(last, doc), Equals("true"));
         AssertThat(ts_node_pos(last).bytes, Equals(strlen("  [123, faaaaalse, ")));
-
-        ts_node_release(last);
-        ts_node_release(error);
-        ts_node_release(array);
       });
     });
 
@@ -123,23 +115,19 @@ describe("Parser", [&]() {
       it("computes the error node's size and position correctly", [&]() {
         set_text("  [123, true false, true]");
 
-        AssertThat(ts_node_string(root), Equals(
+        AssertThat(ts_node_string(root, doc), Equals(
             "(DOCUMENT (array (number) (ERROR (true) (UNEXPECTED 'f') (false)) (true)))"));
 
-        TSNode *array = ts_node_child(root, 0);
-        TSNode *error = ts_node_child(array, 1);
-        TSNode *last = ts_node_child(array, 2);
+        TSNode array = ts_node_child(root, 0);
+        TSNode error = ts_node_child(array, 1);
+        TSNode last = ts_node_child(array, 2);
 
-        AssertThat(ts_node_name(error), Equals("ERROR"));
+        AssertThat(ts_node_name(error, doc), Equals("ERROR"));
         AssertThat(ts_node_pos(error).bytes, Equals(strlen("  [123, ")));
         AssertThat(ts_node_size(error).bytes, Equals(strlen("true false")));
 
-        AssertThat(ts_node_name(last), Equals("true"));
+        AssertThat(ts_node_name(last, doc), Equals("true"));
         AssertThat(ts_node_pos(last).bytes, Equals(strlen("  [123, true false, ")));
-
-        ts_node_release(last);
-        ts_node_release(error);
-        ts_node_release(array);
       });
     });
 
@@ -147,23 +135,19 @@ describe("Parser", [&]() {
       it("computes the error node's size and position correctly", [&]() {
         set_text("  [123, , true]");
 
-        AssertThat(ts_node_string(root), Equals(
+        AssertThat(ts_node_string(root, doc), Equals(
             "(DOCUMENT (array (number) (ERROR (UNEXPECTED ',')) (true)))"));
 
-        TSNode *array = ts_node_child(root, 0);
-        TSNode *error = ts_node_child(array, 1);
-        TSNode *last = ts_node_child(array, 2);
+        TSNode array = ts_node_child(root, 0);
+        TSNode error = ts_node_child(array, 1);
+        TSNode last = ts_node_child(array, 2);
 
-        AssertThat(ts_node_name(error), Equals("ERROR"));
+        AssertThat(ts_node_name(error, doc), Equals("ERROR"));
         AssertThat(ts_node_pos(error).bytes, Equals(strlen("  [123, ")));
         AssertThat(ts_node_size(error).bytes, Equals<size_t>(0))
 
-        AssertThat(ts_node_name(last), Equals("true"));
+        AssertThat(ts_node_name(last, doc), Equals("true"));
         AssertThat(ts_node_pos(last).bytes, Equals(strlen("  [123, , ")));
-
-        ts_node_release(last);
-        ts_node_release(error);
-        ts_node_release(array);
       });
     });
   });
@@ -179,7 +163,7 @@ describe("Parser", [&]() {
       it("is incorporated into the tree", [&]() {
         set_text("fn()\n");
 
-        AssertThat(ts_node_string(root), Equals(
+        AssertThat(ts_node_string(root, doc), Equals(
             "(DOCUMENT (expression_statement (function_call (identifier))))"));
       });
     });
@@ -190,7 +174,7 @@ describe("Parser", [&]() {
           "fn()\n"
           "  .otherFn();");
 
-        AssertThat(ts_node_string(root), Equals(
+        AssertThat(ts_node_string(root, doc), Equals(
             "(DOCUMENT "
               "(expression_statement (function_call "
                 "(member_access (function_call (identifier)) (identifier)))))"));
@@ -205,7 +189,7 @@ describe("Parser", [&]() {
           "\n\n"
           ".otherFn();");
 
-        AssertThat(ts_node_string(root), Equals(
+        AssertThat(ts_node_string(root, doc), Equals(
             "(DOCUMENT "
               "(expression_statement (function_call "
                 "(member_access (function_call (identifier)) "
@@ -225,7 +209,7 @@ describe("Parser", [&]() {
         before_each([&]() {
           set_text("x ^ (100 + abc)");
 
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (exponent "
                 "(variable) "
                 "(group (sum (number) (variable)))))"));
@@ -234,7 +218,7 @@ describe("Parser", [&]() {
         });
 
         it("updates the parse tree", [&]() {
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (exponent "
                 "(variable) "
                 "(group (sum (number) (product (variable) (number))))))"));
@@ -251,7 +235,7 @@ describe("Parser", [&]() {
 
           set_text("123 * 456 ^ (10 + x)");
 
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (product "
                   "(number) "
                   "(exponent (number) (group (sum (number) (variable))))))"));
@@ -260,7 +244,7 @@ describe("Parser", [&]() {
         });
 
         it("updates the parse tree", [&]() {
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (sum "
                   "(number) "
                   "(product "
@@ -279,18 +263,18 @@ describe("Parser", [&]() {
 
           set_text("var x = y;");
 
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (var_declaration (var_assignment "
                   "(identifier) (identifier))))"));
 
           insert_text(strlen("var x = y"), " *");
 
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (var_declaration (ERROR (identifier) (identifier) (UNEXPECTED ';'))))"));
 
           insert_text(strlen("var x = y *"), " z");
 
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (var_declaration (var_assignment "
                   "(identifier) (math_op (identifier) (identifier)))))"));
         });
@@ -300,20 +284,19 @@ describe("Parser", [&]() {
         before_each([&]() {
           set_text("abc * 123");
 
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (product (variable) (number)))"));
 
           insert_text(strlen("ab"), "XYZ");
         });
 
         it("updates the parse tree", [&]() {
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (product (variable) (number)))"));
 
-          TSNode *node = ts_node_find_for_pos(root, 1);
-          AssertThat(ts_node_name(node), Equals("variable"));
+          TSNode node = ts_node_find_for_pos(root, 1);
+          AssertThat(ts_node_name(node, doc), Equals("variable"));
           AssertThat(ts_node_size(node).bytes, Equals(strlen("abXYZc")));
-          ts_node_release(node);
         });
       });
 
@@ -321,20 +304,19 @@ describe("Parser", [&]() {
         before_each([&]() {
           set_text("abc * 123");
 
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (product (variable) (number)))"));
 
           insert_text(strlen("abc"), "XYZ");
         });
 
         it("updates the parse tree", [&]() {
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (product (variable) (number)))"));
 
-          TSNode *node = ts_node_find_for_pos(root, 1);
-          AssertThat(ts_node_name(node), Equals("variable"));
+          TSNode node = ts_node_find_for_pos(root, 1);
+          AssertThat(ts_node_name(node, doc), Equals("variable"));
           AssertThat(ts_node_size(node).bytes, Equals(strlen("abcXYZ")));
-          ts_node_release(node);
         });
       });
 
@@ -343,7 +325,7 @@ describe("Parser", [&]() {
           // αβδ + 1
           set_text("\u03b1\u03b2\u03b4 + 1");
 
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (sum (variable) (number)))"));
 
           // αβδ + ψ1
@@ -351,7 +333,7 @@ describe("Parser", [&]() {
         });
 
         it("inserts the text according to the UTF8 character index", [&]() {
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (sum (variable) (variable)))"));
         });
       });
@@ -362,7 +344,7 @@ describe("Parser", [&]() {
               "# a-comment\n"
               "abc");
 
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (product (number) (comment) (variable)))"));
 
           insert_text(
@@ -373,7 +355,7 @@ describe("Parser", [&]() {
         });
 
         it("updates the parse tree", [&]() {
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (product (number) (comment) (variable)))"));
         });
       });
@@ -384,14 +366,14 @@ describe("Parser", [&]() {
         before_each([&]() {
           set_text("123 * 456");
 
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (product (number) (number)))"));
 
           delete_text(strlen("123 "), 2);
         });
 
         it("updates the parse tree, creating an error", [&]() {
-          AssertThat(ts_node_string(root), Equals(
+          AssertThat(ts_node_string(root, doc), Equals(
               "(DOCUMENT (number) (ERROR (UNEXPECTED '4') (number)))"));
         });
       });
@@ -403,13 +385,13 @@ describe("Parser", [&]() {
 
         set_text("{ x: (b.c) };");
 
-        AssertThat(ts_node_string(root), Equals(
+        AssertThat(ts_node_string(root, doc), Equals(
             "(DOCUMENT (expression_statement (object (pair "
                 "(identifier) (expression (member_access (identifier) (identifier)))))))"));
 
         replace_text(strlen("{ x: "), strlen("(b.c)"), "b.c");
 
-        AssertThat(ts_node_string(root), Equals(
+        AssertThat(ts_node_string(root, doc), Equals(
             "(DOCUMENT (expression_statement (object (pair "
                 "(identifier) (member_access (identifier) (identifier))))))"));
       });
@@ -425,16 +407,13 @@ describe("Parser", [&]() {
       it("terminates them at the end of the document", [&]() {
         set_text("x # this is a comment");
 
-        AssertThat(ts_node_string(root), Equals("(DOCUMENT "
+        AssertThat(ts_node_string(root, doc), Equals("(DOCUMENT "
             "(expression (variable) (comment)))"));
 
-        TSNode *expression = ts_node_child(root, 0);
-        TSNode *comment = ts_node_child(expression, 1);
+        TSNode expression = ts_node_child(root, 0);
+        TSNode comment = ts_node_child(expression, 1);
 
         AssertThat(ts_node_size(comment).bytes, Equals(strlen("# this is a comment")));
-
-        ts_node_release(expression);
-        ts_node_release(comment);
       });
     });
 
@@ -442,7 +421,7 @@ describe("Parser", [&]() {
       // x # ΩΩΩ — ΔΔ
       set_text("x # \u03A9\u03A9\u03A9 \u2014 \u0394\u0394");
 
-      AssertThat(ts_node_string(root), Equals("(DOCUMENT "
+      AssertThat(ts_node_string(root, doc), Equals("(DOCUMENT "
         "(expression (variable) (comment)))"));
 
       AssertThat(ts_node_size(root).chars, Equals(strlen("x # OOO - DD")));

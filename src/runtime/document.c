@@ -1,13 +1,9 @@
 #include "tree_sitter/parser.h"
 #include "runtime/node.h"
+#include "runtime/length.h"
 #include "runtime/parser.h"
 #include "runtime/string_input.h"
-
-struct TSDocument {
-  TSParser parser;
-  TSInput input;
-  TSNode *node;
-};
+#include "runtime/document.h"
 
 TSDocument *ts_document_make() {
   TSDocument *document = calloc(sizeof(TSDocument), 1);
@@ -19,19 +15,18 @@ void ts_document_free(TSDocument *document) {
   ts_parser_destroy(&document->parser);
   if (document->input.release_fn)
     document->input.release_fn(document->input.data);
-  if (document->node)
-    ts_node_release(document->node);
+  if (document->tree)
+    ts_tree_release(document->tree);
   free(document);
 }
 
 static void reparse(TSDocument *document, TSInputEdit *edit) {
   if (document->input.read_fn && document->parser.language) {
-    const TSTree *tree =
-      ts_parser_parse(&document->parser, document->input, edit);
-    if (document->node)
-      ts_node_release(document->node);
-    document->node =
-      ts_node_make_root(tree, document->parser.language->symbol_names);
+    TSTree *tree = ts_parser_parse(&document->parser, document->input, edit);
+    if (document->tree)
+      ts_tree_release(document->tree);
+    document->tree = tree;
+    ts_tree_retain(tree);
   }
 }
 
@@ -66,6 +61,9 @@ void ts_document_set_input_string(TSDocument *document, const char *text) {
   ts_document_set_input(document, ts_string_input_make(text));
 }
 
-TSNode *ts_document_root_node(const TSDocument *document) {
-  return document->node;
+TSNode ts_document_root_node(const TSDocument *document) {
+  if (document->tree)
+    return ts_node_make(document->tree, document->tree->padding);
+  else
+    return ts_node_null();
 }

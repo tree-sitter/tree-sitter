@@ -21,7 +21,7 @@ TSParser ts_parser_make();
 void ts_parser_destroy(TSParser *);
 TSDebugger ts_parser_get_debugger(const TSParser *);
 void ts_parser_set_debugger(TSParser *, TSDebugger);
-const TSTree *ts_parser_parse(TSParser *, TSInput, TSInputEdit *);
+TSTree *ts_parser_parse(TSParser *, TSInput, TSInputEdit *);
 
 #ifdef __cplusplus
 }

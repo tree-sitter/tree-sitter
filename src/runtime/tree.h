@@ -17,10 +17,7 @@ typedef enum {
 } TSTreeOptions;
 
 struct TSTree {
-  TSSymbol symbol;
-  TSTreeOptions options;
-  TSLength padding;
-  TSLength size;
+  struct TSTree *parent;
   size_t child_count;
   union {
     struct {
@@ -29,6 +26,10 @@ struct TSTree {
     };
     char lookahead_char;
   };
+  TSLength padding;
+  TSLength size;
+  TSSymbol symbol;
+  TSTreeOptions options;
   unsigned short int ref_count;
 };
 
