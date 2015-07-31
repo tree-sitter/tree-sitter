@@ -22,7 +22,9 @@ class TokenDescription : public rules::RuleFn<string> {
     return "STR_" + util::escape_string(rule->value);
   }
 
-  string apply_to(const rules::Metadata *rule) { return apply(rule->rule); }
+  string apply_to(const rules::Metadata *rule) {
+    return apply(rule->rule);
+  }
 
   string apply_to(const rules::Seq *rule) {
     return "(seq " + apply(rule->left) + " " + apply(rule->right) + ")";

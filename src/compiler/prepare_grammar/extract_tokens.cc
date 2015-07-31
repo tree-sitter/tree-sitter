@@ -43,7 +43,9 @@ class SymbolReplacer : public rules::IdentityRuleFn {
     return result;
   }
 
-  rule_ptr apply_to(const Symbol *rule) { return replace_symbol(*rule).copy(); }
+  rule_ptr apply_to(const Symbol *rule) {
+    return replace_symbol(*rule).copy();
+  }
 
  public:
   map<Symbol, Symbol> replacements;
@@ -98,7 +100,6 @@ static const GrammarError *ubiq_token_err(const string &msg) {
                           "Not a token: " + msg);
 }
 
-
 tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
   const InternedGrammar &grammar) {
   SyntaxGrammar syntax_grammar;
@@ -108,14 +109,16 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
 
   vector<pair<string, rule_ptr>> extracted_rules;
   for (auto &pair : grammar.rules)
-    extracted_rules.push_back({pair.first, extractor.apply(pair.second)});
+    extracted_rules.push_back({ pair.first, extractor.apply(pair.second) });
 
   size_t i = 0;
   for (auto &pair : extracted_rules) {
     auto &rule = pair.second;
     auto symbol = dynamic_pointer_cast<const Symbol>(rule);
-    if (symbol.get() && symbol->is_auxiliary() && extractor.token_usage_counts[symbol->index] == 1) {
-      lexical_grammar.rules.push_back({pair.first, extractor.tokens[symbol->index].second});
+    if (symbol.get() && symbol->is_auxiliary() &&
+        extractor.token_usage_counts[symbol->index] == 1) {
+      lexical_grammar.rules.push_back(
+        { pair.first, extractor.tokens[symbol->index].second });
       extractor.token_usage_counts[symbol->index] = 0;
       symbol_replacer.replacements.insert(
         { Symbol(i),

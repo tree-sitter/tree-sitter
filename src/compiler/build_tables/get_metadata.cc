@@ -21,7 +21,9 @@ int get_metadata(const rules::rule_ptr &rule, rules::MetadataKey key) {
     // TODO -
     // Remove this. It is currently needed to make the rule generated
     // by `LexTableBuilder::after_separators` have the right precedence.
-    int apply_to(const rules::Seq *rule) { return apply(rule->left); }
+    int apply_to(const rules::Seq *rule) {
+      return apply(rule->left);
+    }
   };
 
   return GetMetadata(key).apply(rule);

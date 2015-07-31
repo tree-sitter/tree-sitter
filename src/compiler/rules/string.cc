@@ -15,13 +15,21 @@ bool String::operator==(const Rule &rule) const {
   return other && (other->value == value);
 }
 
-size_t String::hash_code() const { return hash<string>()(value); }
+size_t String::hash_code() const {
+  return hash<string>()(value);
+}
 
-rule_ptr String::copy() const { return std::make_shared<String>(*this); }
+rule_ptr String::copy() const {
+  return std::make_shared<String>(*this);
+}
 
-string String::to_string() const { return string("(string '") + value + "')"; }
+string String::to_string() const {
+  return string("(string '") + value + "')";
+}
 
-void String::accept(Visitor *visitor) const { visitor->visit(this); }
+void String::accept(Visitor *visitor) const {
+  visitor->visit(this);
+}
 
 }  // namespace rules
 }  // namespace tree_sitter

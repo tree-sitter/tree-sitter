@@ -16,9 +16,13 @@ using std::set;
 
 class CanBeBlank : public rules::RuleFn<bool> {
  protected:
-  bool apply_to(const rules::Blank *) { return true; }
+  bool apply_to(const rules::Blank *) {
+    return true;
+  }
 
-  bool apply_to(const rules::Repeat *rule) { return true; }
+  bool apply_to(const rules::Repeat *rule) {
+    return true;
+  }
 
   bool apply_to(const rules::Choice *rule) {
     for (const auto &element : rule->elements)
@@ -31,7 +35,9 @@ class CanBeBlank : public rules::RuleFn<bool> {
     return apply(rule->left) && apply(rule->right);
   }
 
-  bool apply_to(const rules::Metadata *rule) { return apply(rule->rule); }
+  bool apply_to(const rules::Metadata *rule) {
+    return apply(rule->rule);
+  }
 };
 
 class CanBeBlankRecursive : public CanBeBlank {

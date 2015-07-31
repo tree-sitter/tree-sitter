@@ -10,9 +10,13 @@ namespace build_tables {
 Item::Item(const rules::Symbol &lhs, const rules::rule_ptr rule)
     : lhs(lhs), rule(rule) {}
 
-bool Item::is_done() const { return rule_can_be_blank(rule); }
+bool Item::is_done() const {
+  return rule_can_be_blank(rule);
+}
 
-int Item::precedence() const { return get_metadata(rule, rules::PRECEDENCE); }
+int Item::precedence() const {
+  return get_metadata(rule, rules::PRECEDENCE);
+}
 
 }  // namespace build_tables
 }  // namespace tree_sitter

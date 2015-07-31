@@ -29,7 +29,9 @@ ParseAction::ParseAction()
       consumed_symbol_count(0),
       associativity(rules::AssociativityUnspecified) {}
 
-ParseAction ParseAction::Error() { return ParseAction(); }
+ParseAction ParseAction::Error() {
+  return ParseAction();
+}
 
 ParseAction ParseAction::Accept() {
   ParseAction action;

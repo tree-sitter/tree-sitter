@@ -315,7 +315,9 @@ class CCodeGenerator {
 
   // Helper functions
 
-  string lex_state_index(size_t i) { return to_string(i + 1); }
+  string lex_state_index(size_t i) {
+    return to_string(i + 1);
+  }
 
   string symbol_id(const rules::Symbol &symbol) {
     if (symbol.is_built_in()) {
@@ -429,7 +431,9 @@ class CCodeGenerator {
 
   // General code generation functions
 
-  void line() { line(""); }
+  void line() {
+    line("");
+  }
 
   void line(string input) {
     add("\n");
@@ -450,7 +454,9 @@ class CCodeGenerator {
     indent_level--;
   }
 
-  void add(string input) { buffer += input; }
+  void add(string input) {
+    buffer += input;
+  }
 };
 
 string c_code(string name, const ParseTable &parse_table,

@@ -211,9 +211,13 @@ class PatternParser {
     iter += lookahead_size;
   }
 
-  uint32_t peek() { return lookahead; }
+  uint32_t peek() {
+    return lookahead;
+  }
 
-  bool has_more_input() { return lookahead && iter <= end; }
+  bool has_more_input() {
+    return lookahead && iter <= end;
+  }
 
   pair<rule_ptr, const GrammarError *> error(string msg) {
     return { blank(), new GrammarError(GrammarErrorTypeRegex, msg) };

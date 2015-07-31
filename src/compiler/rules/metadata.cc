@@ -40,7 +40,9 @@ std::string Metadata::to_string() const {
   return "(metadata " + rule->to_string() + ")";
 }
 
-void Metadata::accept(Visitor *visitor) const { visitor->visit(this); }
+void Metadata::accept(Visitor *visitor) const {
+  visitor->visit(this);
+}
 
 }  // namespace rules
 }  // namespace tree_sitter

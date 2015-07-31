@@ -29,7 +29,9 @@ bool Grammar::operator==(const Grammar &other) const {
   return true;
 }
 
-string Grammar::start_rule_name() const { return rules_.front().first; }
+string Grammar::start_rule_name() const {
+  return rules_.front().first;
+}
 
 ostream &operator<<(ostream &stream, const Grammar &grammar) {
   stream << string("#<grammar");
@@ -78,6 +80,8 @@ Grammar &Grammar::expected_conflicts(const set<set<string>> &expected_conflicts)
   return *this;
 }
 
-const vector<pair<string, rule_ptr>> &Grammar::rules() const { return rules_; }
+const vector<pair<string, rule_ptr>> &Grammar::rules() const {
+  return rules_;
+}
 
 }  // namespace tree_sitter

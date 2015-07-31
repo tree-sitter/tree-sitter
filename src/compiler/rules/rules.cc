@@ -28,23 +28,37 @@ static rule_ptr metadata(rule_ptr rule, map<MetadataKey, int> values) {
   return std::make_shared<Metadata>(rule, values);
 }
 
-rule_ptr blank() { return make_shared<Blank>(); }
+rule_ptr blank() {
+  return make_shared<Blank>();
+}
 
-rule_ptr choice(const vector<rule_ptr> &rules) { return Choice::build(rules); }
+rule_ptr choice(const vector<rule_ptr> &rules) {
+  return Choice::build(rules);
+}
 
-rule_ptr repeat(const rule_ptr &content) { return Repeat::build(content); }
+rule_ptr repeat(const rule_ptr &content) {
+  return Repeat::build(content);
+}
 
-rule_ptr seq(const vector<rule_ptr> &rules) { return Seq::build(rules); }
+rule_ptr seq(const vector<rule_ptr> &rules) {
+  return Seq::build(rules);
+}
 
-rule_ptr sym(const string &name) { return make_shared<NamedSymbol>(name); }
+rule_ptr sym(const string &name) {
+  return make_shared<NamedSymbol>(name);
+}
 
-rule_ptr pattern(const string &value) { return make_shared<Pattern>(value); }
+rule_ptr pattern(const string &value) {
+  return make_shared<Pattern>(value);
+}
 
 rule_ptr str(const string &value) {
   return token(prec(1, make_shared<String>(value)));
 }
 
-rule_ptr err(const rule_ptr &rule) { return choice({ rule, ERROR().copy() }); }
+rule_ptr err(const rule_ptr &rule) {
+  return choice({ rule, ERROR().copy() });
+}
 
 rule_ptr prec(int precedence, const rule_ptr &rule, Associativity associativity) {
   return metadata(

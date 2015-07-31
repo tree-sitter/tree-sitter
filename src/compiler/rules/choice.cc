@@ -57,7 +57,9 @@ size_t Choice::hash_code() const {
   return result;
 }
 
-rule_ptr Choice::copy() const { return std::make_shared<Choice>(*this); }
+rule_ptr Choice::copy() const {
+  return std::make_shared<Choice>(*this);
+}
 
 string Choice::to_string() const {
   string result = "(choice";
@@ -66,7 +68,9 @@ string Choice::to_string() const {
   return result + ")";
 }
 
-void Choice::accept(Visitor *visitor) const { visitor->visit(this); }
+void Choice::accept(Visitor *visitor) const {
+  visitor->visit(this);
+}
 
 }  // namespace rules
 }  // namespace tree_sitter

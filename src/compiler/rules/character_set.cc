@@ -140,9 +140,13 @@ CharacterSet &CharacterSet::exclude(uint32_t min, uint32_t max) {
   return *this;
 }
 
-CharacterSet &CharacterSet::include(uint32_t c) { return include(c, c); }
+CharacterSet &CharacterSet::include(uint32_t c) {
+  return include(c, c);
+}
 
-CharacterSet &CharacterSet::exclude(uint32_t c) { return exclude(c, c); }
+CharacterSet &CharacterSet::exclude(uint32_t c) {
+  return exclude(c, c);
+}
 
 bool CharacterSet::is_empty() const {
   return !includes_all && included_chars.empty();
@@ -186,7 +190,9 @@ vector<CharacterRange> CharacterSet::excluded_ranges() const {
   return consolidate_ranges(excluded_chars);
 }
 
-void CharacterSet::accept(Visitor *visitor) const { visitor->visit(this); }
+void CharacterSet::accept(Visitor *visitor) const {
+  visitor->visit(this);
+}
 
 }  // namespace rules
 }  // namespace tree_sitter

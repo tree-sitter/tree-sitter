@@ -31,7 +31,9 @@ size_t Symbol::hash_code() const {
   return hash<int>()(index) ^ hash<int16_t>()(options);
 }
 
-rule_ptr Symbol::copy() const { return std::make_shared<Symbol>(*this); }
+rule_ptr Symbol::copy() const {
+  return std::make_shared<Symbol>(*this);
+}
 
 string Symbol::to_string() const {
   string name = (options & SymbolOptionAuxiliary) ? "aux_" : "";
@@ -47,13 +49,21 @@ bool Symbol::operator<(const Symbol &other) const {
   return (index < other.index);
 }
 
-bool Symbol::is_token() const { return options & SymbolOptionToken; }
+bool Symbol::is_token() const {
+  return options & SymbolOptionToken;
+}
 
-bool Symbol::is_built_in() const { return index < 0; }
+bool Symbol::is_built_in() const {
+  return index < 0;
+}
 
-bool Symbol::is_auxiliary() const { return options & SymbolOptionAuxiliary; }
+bool Symbol::is_auxiliary() const {
+  return options & SymbolOptionAuxiliary;
+}
 
-void Symbol::accept(Visitor *visitor) const { visitor->visit(this); }
+void Symbol::accept(Visitor *visitor) const {
+  visitor->visit(this);
+}
 
 }  // namespace rules
 }  // namespace tree_sitter
