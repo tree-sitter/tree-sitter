@@ -63,10 +63,13 @@ class TokenExtractor : public rules::IdentityRuleFn {
   rule_ptr apply_to_token(const rules::Rule *input) {
     auto rule = input->copy();
     for (size_t i = 0; i < tokens.size(); i++)
-      if (tokens[i].second->operator==(*rule))
+      if (tokens[i].second->operator==(*rule)) {
+        token_usage_counts[i]++;
         return make_shared<Symbol>(i, SymbolOptionAuxToken);
+      }
     size_t index = tokens.size();
     tokens.push_back({ token_description(rule), rule });
+    token_usage_counts.push_back(1);
     return make_shared<Symbol>(index, SymbolOptionAuxToken);
   }
 
@@ -86,6 +89,7 @@ class TokenExtractor : public rules::IdentityRuleFn {
   }
 
  public:
+  vector<size_t> token_usage_counts;
   vector<pair<string, rule_ptr>> tokens;
 };
 
@@ -94,6 +98,7 @@ static const GrammarError *ubiq_token_err(const string &msg) {
                           "Not a token: " + msg);
 }
 
+
 tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
   const InternedGrammar &grammar) {
   SyntaxGrammar syntax_grammar;
@@ -101,22 +106,30 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
   SymbolReplacer symbol_replacer;
   TokenExtractor extractor;
 
+  vector<pair<string, rule_ptr>> extracted_rules;
+  for (auto &pair : grammar.rules)
+    extracted_rules.push_back({pair.first, extractor.apply(pair.second)});
+
   size_t i = 0;
-  for (auto &pair : grammar.rules) {
-    if (is_token(pair.second)) {
-      lexical_grammar.rules.push_back(pair);
+  for (auto &pair : extracted_rules) {
+    auto &rule = pair.second;
+    auto symbol = dynamic_pointer_cast<const Symbol>(rule);
+    if (symbol.get() && symbol->is_auxiliary() && extractor.token_usage_counts[symbol->index] == 1) {
+      lexical_grammar.rules.push_back({pair.first, extractor.tokens[symbol->index].second});
+      extractor.token_usage_counts[symbol->index] = 0;
       symbol_replacer.replacements.insert(
         { Symbol(i),
           Symbol(lexical_grammar.rules.size() - 1, SymbolOptionToken) });
     } else {
-      syntax_grammar.rules.push_back(
-        { pair.first, extractor.apply(pair.second) });
+      syntax_grammar.rules.push_back(pair);
     }
     i++;
   }
 
   for (auto &pair : syntax_grammar.rules)
     pair.second = symbol_replacer.apply(pair.second);
+
+  lexical_grammar.aux_rules = extractor.tokens;
 
   for (auto &rule : grammar.ubiquitous_tokens) {
     if (is_token(rule)) {
@@ -143,8 +156,6 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
       new_symbol_set.insert(symbol_replacer.replace_symbol(symbol));
     syntax_grammar.expected_conflicts.insert(new_symbol_set);
   }
-
-  lexical_grammar.aux_rules = extractor.tokens;
 
   return make_tuple(syntax_grammar, lexical_grammar, nullptr);
 }
