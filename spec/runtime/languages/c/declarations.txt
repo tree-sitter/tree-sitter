@@ -37,5 +37,5 @@ int main() {
 	(identifier) (direct_declarator (identifier))
   (compound_statement
 		(declaration (identifier) (identifier))
-		(declaration (identifier) (declarator (star) (direct_declarator (identifier))))
+		(declaration (identifier) (declarator (pointer) (direct_declarator (identifier))))
 		(declaration (identifier) (identifier))))

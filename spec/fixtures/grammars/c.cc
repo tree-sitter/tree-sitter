@@ -98,7 +98,7 @@ extern const Grammar c = Grammar({
         str("=") }) },
 
     { "declarator", seq({
-        repeat(sym("star")),
+        repeat(sym("pointer")),
         sym("direct_declarator") }) },
 
     { "direct_declarator", choice({
@@ -123,7 +123,7 @@ extern const Grammar c = Grammar({
         str("restrict"),
         str("volatile") }) },
 
-    { "star", str("*") },
+    { "pointer", str("*") },
 
     { "compound_statement", seq({
         str("{"),
@@ -139,7 +139,7 @@ extern const Grammar c = Grammar({
 
     { "math_expression", choice({
         prec(1, seq({ sym("expression"), str("+"), sym("expression") })),
-        prec(2, seq({ sym("expression"), sym("star"), sym("expression") })) }) },
+        prec(2, seq({ sym("expression"), str("*"), sym("expression") })) }) },
 
     { "call_expression", prec(3, seq({
         sym("expression"),
