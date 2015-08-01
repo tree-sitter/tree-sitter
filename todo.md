@@ -7,8 +7,8 @@ TODO
 * Fix memory leaks in the graph-structured parse stack.
 
 ### Runtime System
-* Rework the public API for accessing the syntax tree. The current immutable Node API is too abstract because it requires a Node allocation for every traversal operation through the tree. Instead, expose TreeIterators, which can be mutated in place to point to different nodes. This way, the tree can be traversed using public methods without unnecessary allocation, which will allow more efficient algorithms to be implemented outside of the library.
-* Stop storing nodes' visible children in a separate array. Instead allow the TreeIterators to traverse the tree at two different levels of abstraction: one which includes anonymous tokens (the concrete syntax tree) and one that does not (the sufficiently-abstract syntax tree).
+* Add a NodeIterator class that can be used to traverse the tree efficiently.
+* Stop storing nodes' visible children in a separate array. Instead, allow traversing the tree at two different levels of abstraction: one which includes anonymous tokens (the concrete syntax tree) and one that does not (the sufficiently-abstract syntax tree).
 
 ### Testing / Quality
 * Start running the clang-analyzer on the codebase on travis-CI.
