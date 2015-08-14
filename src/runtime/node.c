@@ -87,23 +87,31 @@ size_t ts_node_child_count(TSNode this) {
 }
 
 TSNode ts_node_child(TSNode this, size_t child_index) {
-  TSLength position = this.position;
-  const TSTree *tree = get_tree(this);
+  TSNode node = this;
+  bool did_descend = true;
+  while (did_descend) {
+    did_descend = false;
+    const TSTree *tree = get_tree(node);
+    TSLength position = node.position;
 
-  size_t index = 0;
-  for (size_t i = 0; i < tree->child_count; i++) {
-    TSTree *child = tree->children[i];
-    if (ts_tree_is_visible(child)) {
-      if (index == child_index)
-        return ts_node_make(child, position);
-      index++;
-    } else {
-      size_t index_within = child_index - index;
-      if (index_within < child->visible_child_count)
-        return ts_node_child(ts_node_make(child, position), index_within);
-      index += child->visible_child_count;
+    size_t index = 0;
+    for (size_t i = 0; i < tree->child_count; i++) {
+      TSTree *child = tree->children[i];
+      if (ts_tree_is_visible(child)) {
+        if (index == child_index)
+          return ts_node_make(child, position);
+        index++;
+      } else {
+        size_t grandchild_index = child_index - index;
+        if (grandchild_index < child->visible_child_count) {
+          did_descend = true;
+          node = ts_node_make(child, position);
+          child_index = grandchild_index;
+        }
+        index += child->visible_child_count;
+      }
+      position = ts_length_add(position, ts_tree_total_size(child));
     }
-    position = ts_length_add(position, ts_tree_total_size(child));
   }
 
   return ts_node_null();
@@ -116,6 +124,7 @@ TSNode ts_node_find_for_range(TSNode this, size_t min, size_t max) {
     did_descend = false;
     const TSTree *tree = get_tree(node);
     TSLength position = node.position;
+
     for (size_t i = 0; i < tree->child_count; i++) {
       const TSTree *child = tree->children[i];
       if (position.chars + child->padding.chars > min)
@@ -127,6 +136,7 @@ TSNode ts_node_find_for_range(TSNode this, size_t min, size_t max) {
       position = ts_length_add(position, ts_tree_total_size(child));
     }
   }
+
   return node;
 }
 
