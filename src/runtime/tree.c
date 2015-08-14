@@ -101,9 +101,6 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
     TSTree *child = children[i];
     child->parent = result;
 
-    if (i > 0)
-      offset = ts_length_add(offset, child->padding);
-
     if (ts_tree_is_visible(child)) {
       visible_children[vis_i].tree = child;
       visible_children[vis_i].offset = offset;
@@ -119,7 +116,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
       }
     }
 
-    offset = ts_length_add(offset, child->size);
+    offset = ts_length_add(offset, ts_tree_total_size(child));
   }
 
   return result;

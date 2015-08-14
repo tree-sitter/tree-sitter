@@ -13,7 +13,7 @@ static inline const TSTree *get_tree(TSNode this) {
 }
 
 TSLength ts_node_pos(TSNode this) {
-  return this.position;
+  return ts_length_add(this.position, get_tree(this)->padding);
 }
 
 TSLength ts_node_size(TSNode this) {
@@ -41,7 +41,7 @@ typedef struct {
 static inline NodeWithIndex ts_node_parent_with_index(TSNode this) {
   const TSTree *tree = get_tree(this);
   size_t index = 0;
-  TSLength position = ts_length_sub(this.position, tree->padding);
+  TSLength position = this.position;
 
   do {
     TSTree *parent = tree->parent;
@@ -64,9 +64,7 @@ static inline NodeWithIndex ts_node_parent_with_index(TSNode this) {
     tree = parent;
   } while (!ts_tree_is_visible(tree));
 
-  return (NodeWithIndex){
-    ts_node_make(tree, ts_length_add(position, tree->padding)), index
-  };
+  return (NodeWithIndex){ ts_node_make(tree, position), index };
 }
 
 TSNode ts_node_parent(TSNode this) {

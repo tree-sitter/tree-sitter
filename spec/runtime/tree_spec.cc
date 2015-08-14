@@ -91,10 +91,7 @@ describe("Tree", []() {
       AssertThat(children[0].offset.chars, Equals<size_t>(0));
 
       AssertThat(children[1].tree, Equals(tree2));
-      AssertThat(children[1].offset.bytes, Equals<size_t>(
-          tree1->size.bytes + tree2->padding.bytes));
-      AssertThat(children[1].offset.chars, Equals<size_t>(
-          tree1->size.chars + tree2->padding.chars));
+      AssertThat(children[1].offset, Equals(ts_tree_total_size(tree1)));
     });
 
     describe("when one of the child nodes is hidden", [&]() {
@@ -128,16 +125,10 @@ describe("Tree", []() {
         AssertThat(children[0].offset.chars, Equals<size_t>(0));
 
         AssertThat(children[1].tree, Equals(tree2));
-        AssertThat(children[1].offset.bytes, Equals<size_t>(
-          tree1->size.bytes + tree2->padding.bytes));
-        AssertThat(children[1].offset.chars, Equals<size_t>(
-          tree1->size.chars + tree2->padding.chars));
+        AssertThat(children[1].offset, Equals(ts_tree_total_size(tree1)));
 
         AssertThat(children[2].tree, Equals(tree3));
-        AssertThat(children[2].offset.bytes, Equals<size_t>(
-          tree1->size.bytes + tree2->padding.bytes + tree2->size.bytes + tree3->padding.bytes));
-        AssertThat(children[2].offset.chars, Equals<size_t>(
-          tree1->size.chars + tree2->padding.chars + tree2->size.chars + tree3->padding.chars));
+        AssertThat(children[2].offset, Equals(ts_length_add(ts_tree_total_size(tree1), ts_tree_total_size(tree2))));
       });
     });
 
@@ -303,3 +294,7 @@ describe("Tree", []() {
 });
 
 END_TEST
+
+bool operator==(TSLength left, TSLength right) {
+  return ts_length_eq(left, right);
+}
