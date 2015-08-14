@@ -60,8 +60,11 @@ static TSLength break_down_left_stack(TSParser *parser, TSInputEdit edit) {
       break;
     TSTree *node = entry->tree;
 
-    size_t child_count;
-    TSTree **children = ts_tree_children(node, &child_count);
+    size_t child_count = node->child_count;
+    TSTree **children = node->children;
+    if (node->symbol == ts_builtin_sym_error)
+      child_count = 0;
+
     if (left_subtree_end.chars < edit.position && !children &&
         node->symbol != ts_builtin_sym_error)
       break;
@@ -129,8 +132,8 @@ static TSTree *break_down_right_stack(TSParser *parser) {
       return node;
     }
 
-    size_t child_count;
-    TSTree **children = ts_tree_children(node, &child_count);
+    size_t child_count = node->child_count;
+    TSTree **children = node->children;
 
     DEBUG("pop_right sym:%s", SYM_NAME(node->symbol));
     stack->size--;

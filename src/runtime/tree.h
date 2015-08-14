@@ -19,11 +19,9 @@ typedef enum {
 struct TSTree {
   struct TSTree *parent;
   size_t child_count;
+  size_t visible_child_count;
   union {
-    struct {
-      struct TSTree **children;
-      size_t visible_child_count;
-    };
+    struct TSTree **children;
     char lookahead_char;
   };
   TSLength padding;
@@ -82,8 +80,6 @@ void ts_tree_release(TSTree *tree);
 bool ts_tree_eq(const TSTree *tree1, const TSTree *tree2);
 char *ts_tree_string(const TSTree *tree, const char **names);
 char *ts_tree_error_string(const TSTree *tree, const char **names);
-TSTree **ts_tree_children(const TSTree *tree, size_t *count);
-TSTreeChild *ts_tree_visible_children(const TSTree *tree, size_t *count);
 TSLength ts_tree_total_size(const TSTree *tree);
 
 static inline bool ts_tree_is_empty(TSTree *tree) {

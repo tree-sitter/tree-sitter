@@ -54,23 +54,11 @@ describe("Node", []() {
 
       AssertThat(ts_node_pos(child3).bytes, Equals<size_t>(15));
       AssertThat(ts_node_size(child3).bytes, Equals<size_t>(11));
-    });
-  });
 
-  describe("parent()", [&]() {
-    it("returns the node's parent node", [&]() {
-      TSNode array = ts_node_child(root, 0);
-      TSNode child1 = ts_node_child(array, 0);
-      TSNode child2 = ts_node_child(array, 1);
-      TSNode child3 = ts_node_child(array, 2);
-
-      AssertThat(ts_node_parent(child1), Equals(array));
-      AssertThat(ts_node_parent(child2), Equals(array));
-      AssertThat(ts_node_parent(child3), Equals(array));
-      AssertThat(ts_node_parent(array), Equals(root));
-    });
-
-    it("returns null if the node has no parent", [&]() {
+      AssertThat(ts_node_parent(child1), Equals(parent));
+      AssertThat(ts_node_parent(child2), Equals(parent));
+      AssertThat(ts_node_parent(child3), Equals(parent));
+      AssertThat(ts_node_parent(parent), Equals(root));
       AssertThat(ts_node_parent(root).data, Equals<void *>(nullptr));
     });
   });

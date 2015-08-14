@@ -39,10 +39,10 @@ typedef struct {
 } NodeWithIndex;
 
 static inline NodeWithIndex ts_node_parent_with_index(TSNode this) {
-  const TSTree *tree = get_tree(this);
-  size_t index = 0;
   TSLength position = this.position;
+  const TSTree *tree = get_tree(this);
 
+  size_t index = 0;
   do {
     TSTree *parent = tree->parent;
     if (!parent)
@@ -52,15 +52,10 @@ static inline NodeWithIndex ts_node_parent_with_index(TSNode this) {
       TSTree *child = parent->children[i];
       if (child == tree)
         break;
-      if (ts_tree_is_visible(child)) {
-        index += 1;
-      } else {
-        size_t child_count;
-        ts_tree_visible_children(child, &child_count);
-        index += child_count;
-      }
+      index += ts_tree_is_visible(child) ? 1 : child->visible_child_count;
       position = ts_length_sub(position, ts_tree_total_size(child));
     }
+
     tree = parent;
   } while (!ts_tree_is_visible(tree));
 
@@ -88,18 +83,30 @@ TSNode ts_node_next_sibling(TSNode this) {
 }
 
 size_t ts_node_child_count(TSNode this) {
-  size_t result;
-  ts_tree_visible_children(get_tree(this), &result);
-  return result;
+  return get_tree(this)->visible_child_count;
 }
 
-TSNode ts_node_child(TSNode this, size_t i) {
-  size_t count;
-  TSTreeChild *children = ts_tree_visible_children(get_tree(this), &count);
-  if (i >= count)
-    return ts_node_null();
-  TSLength position = ts_length_add(this.position, children[i].offset);
-  return ts_node_make(children[i].tree, position);
+TSNode ts_node_child(TSNode this, size_t child_index) {
+  TSLength position = this.position;
+  const TSTree *tree = get_tree(this);
+
+  size_t index = 0;
+  for (size_t i = 0; i < tree->child_count; i++) {
+    TSTree *child = tree->children[i];
+    if (ts_tree_is_visible(child)) {
+      if (index == child_index)
+        return ts_node_make(child, position);
+      index++;
+    } else {
+      size_t index_within = child_index - index;
+      if (index_within < child->visible_child_count)
+        return ts_node_child(ts_node_make(child, position), index_within);
+      index += child->visible_child_count;
+    }
+    position = ts_length_add(position, ts_tree_total_size(child));
+  }
+
+  return ts_node_null();
 }
 
 TSNode ts_node_find_for_range(TSNode this, size_t min, size_t max) {
@@ -107,18 +114,17 @@ TSNode ts_node_find_for_range(TSNode this, size_t min, size_t max) {
   bool did_descend = true;
   while (did_descend) {
     did_descend = false;
-    size_t count;
-    TSTreeChild *children = ts_tree_visible_children(get_tree(node), &count);
-
-    for (size_t i = 0; i < count; i++) {
-      TSTreeChild child = children[i];
-      TSLength position = ts_length_add(node.position, child.offset);
-      if (position.chars > min)
+    const TSTree *tree = get_tree(node);
+    TSLength position = node.position;
+    for (size_t i = 0; i < tree->child_count; i++) {
+      const TSTree *child = tree->children[i];
+      if (position.chars + child->padding.chars > min)
         break;
-      if (position.chars + child.tree->size.chars > max) {
-        node = ts_node_make(child.tree, position);
+      if (position.chars + child->padding.chars + child->size.chars > max) {
+        node = ts_node_make(child, position);
         did_descend = true;
       }
+      position = ts_length_add(position, ts_tree_total_size(child));
     }
   }
   return node;

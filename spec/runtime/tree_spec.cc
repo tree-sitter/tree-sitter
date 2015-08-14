@@ -80,58 +80,6 @@ describe("Tree", []() {
       AssertThat(parent1->padding.chars, Equals<size_t>(tree1->padding.chars));
     });
 
-    it("computes the offset of each child node", [&]() {
-      size_t count;
-      TSTreeChild *children = ts_tree_visible_children(parent1, &count);
-
-      AssertThat(count, Equals<size_t>(2));
-
-      AssertThat(children[0].tree, Equals(tree1));
-      AssertThat(children[0].offset.bytes, Equals<size_t>(0));
-      AssertThat(children[0].offset.chars, Equals<size_t>(0));
-
-      AssertThat(children[1].tree, Equals(tree2));
-      AssertThat(children[1].offset, Equals(ts_tree_total_size(tree1)));
-    });
-
-    describe("when one of the child nodes is hidden", [&]() {
-      TSTree *grandparent, *tree3;
-
-      before_each([&]() {
-        parent1->options = TSTreeOptionsHidden;
-        tree3 = ts_tree_make_leaf(
-          cat,
-          ts_length_make(8, 6),
-          ts_length_make(5, 3),
-          0);
-        grandparent = ts_tree_make_node(pig, 2, tree_array({
-          parent1,
-          tree3,
-        }), 0);
-      });
-
-      after_each([&]() {
-        ts_tree_release(tree3);
-        ts_tree_release(grandparent);
-      });
-
-      it("claims the hidden node's children as its own", [&]() {
-        size_t count;
-        TSTreeChild *children = ts_tree_visible_children(grandparent, &count);
-
-        AssertThat(count, Equals<size_t>(3));
-        AssertThat(children[0].tree, Equals(tree1));
-        AssertThat(children[0].offset.bytes, Equals<size_t>(0));
-        AssertThat(children[0].offset.chars, Equals<size_t>(0));
-
-        AssertThat(children[1].tree, Equals(tree2));
-        AssertThat(children[1].offset, Equals(ts_tree_total_size(tree1)));
-
-        AssertThat(children[2].tree, Equals(tree3));
-        AssertThat(children[2].offset, Equals(ts_length_add(ts_tree_total_size(tree1), ts_tree_total_size(tree2))));
-      });
-    });
-
     describe("when the first node is fragile on the left side", [&]() {
       TSTree *parent;
 
