@@ -92,6 +92,11 @@ describe("Node", []() {
         AssertThat(ts_node_name(leaf, document), Equals("string"));
         AssertThat(ts_node_size(leaf).bytes, Equals<size_t>(3));
         AssertThat(ts_node_pos(leaf).bytes, Equals<size_t>(16));
+
+        leaf = ts_node_find_for_range(root, 3, 5);
+        AssertThat(ts_node_name(leaf, document), Equals("number"));
+        AssertThat(ts_node_size(leaf).bytes, Equals<size_t>(3));
+        AssertThat(ts_node_pos(leaf).bytes, Equals<size_t>(3));
       });
     });
 
@@ -115,6 +120,13 @@ describe("Node", []() {
         AssertThat(ts_node_name(node, document), Equals("object"));
         AssertThat(ts_node_size(node).bytes, Equals<size_t>(11));
         AssertThat(ts_node_pos(node).bytes, Equals<size_t>(15));
+      });
+
+      it("does not return invisible nodes (repeats)", [&]() {
+        TSNode node = ts_node_find_for_range(root, 6, 7);
+        AssertThat(ts_node_name(node, document), Equals("array"));
+        AssertThat(ts_node_size(node).bytes, Equals<size_t>(25));
+        AssertThat(ts_node_pos(node).bytes, Equals<size_t>(2));
       });
     });
   });

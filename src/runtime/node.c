@@ -118,7 +118,7 @@ TSNode ts_node_child(TSNode this, size_t child_index) {
 }
 
 TSNode ts_node_find_for_range(TSNode this, size_t min, size_t max) {
-  TSNode node = this;
+  TSNode node = this, last_visible_node = this;
   bool did_descend = true;
   while (did_descend) {
     did_descend = false;
@@ -131,13 +131,15 @@ TSNode ts_node_find_for_range(TSNode this, size_t min, size_t max) {
         break;
       if (position.chars + child->padding.chars + child->size.chars > max) {
         node = ts_node_make(child, position);
+        if (ts_tree_is_visible(child))
+          last_visible_node = node;
         did_descend = true;
       }
       position = ts_length_add(position, ts_tree_total_size(child));
     }
   }
 
-  return node;
+  return last_visible_node;
 }
 
 TSNode ts_node_find_for_pos(TSNode this, size_t position) {
