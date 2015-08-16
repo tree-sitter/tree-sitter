@@ -16,6 +16,10 @@ static inline TSLength ts_node__offset(TSNode this) {
   return this.offset;
 }
 
+static inline TSNode ts_node__null() {
+  return ts_node_make(NULL, ts_length_zero());
+}
+
 TSLength ts_node_pos(TSNode this) {
   return ts_length_add(ts_node__offset(this), ts_node__tree(this)->padding);
 }
@@ -45,7 +49,7 @@ TSNode ts_node_parent(TSNode this) {
   do {
     TSTree *parent = tree->context.parent;
     if (!parent)
-      return ts_node_null();
+      return ts_node__null();
 
     for (size_t i = 0; i < tree->context.index; i++) {
       TSTree *child = parent->children[i];
@@ -80,7 +84,7 @@ TSNode ts_node_prev_sibling(TSNode this) {
     tree = parent;
   } while (!ts_tree_is_visible(tree));
 
-  return ts_node_null();
+  return ts_node__null();
 }
 
 TSNode ts_node_next_sibling(TSNode this) {
@@ -106,7 +110,7 @@ TSNode ts_node_next_sibling(TSNode this) {
     tree = parent;
   } while (!ts_tree_is_visible(tree));
 
-  return ts_node_null();
+  return ts_node__null();
 }
 
 size_t ts_node_child_count(TSNode this) {
@@ -142,7 +146,7 @@ TSNode ts_node_child(TSNode this, size_t child_index) {
     }
   }
 
-  return ts_node_null();
+  return ts_node__null();
 }
 
 TSNode ts_node_find_for_range(TSNode this, size_t min, size_t max) {

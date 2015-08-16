@@ -7,8 +7,4 @@
 
 TSNode ts_node_make(const TSTree *, TSLength);
 
-static inline TSNode ts_node_null() {
-  return (TSNode){.data = NULL, .offset = ts_length_zero() };
-}
-
 #endif
