@@ -4,38 +4,43 @@
 #include "runtime/tree.h"
 #include "runtime/document.h"
 
-TSNode ts_node_make(const TSTree *tree, TSLength position) {
-  return (TSNode){.data = tree, .position = position };
+TSNode ts_node_make(const TSTree *tree, TSLength offset) {
+  return (TSNode){.data = tree, .offset = offset };
 }
 
-static inline const TSTree *get_tree(TSNode this) {
+static inline const TSTree *ts_node__tree(TSNode this) {
   return this.data;
 }
 
+static inline TSLength ts_node__offset(TSNode this) {
+  return this.offset;
+}
+
 TSLength ts_node_pos(TSNode this) {
-  return ts_length_add(this.position, get_tree(this)->padding);
+  return ts_length_add(ts_node__offset(this), ts_node__tree(this)->padding);
 }
 
 TSLength ts_node_size(TSNode this) {
-  return get_tree(this)->size;
+  return ts_node__tree(this)->size;
 }
 
 bool ts_node_eq(TSNode this, TSNode other) {
-  return ts_tree_eq(get_tree(this), get_tree(other)) &&
-         ts_length_eq(this.position, other.position);
+  return ts_tree_eq(ts_node__tree(this), ts_node__tree(other)) &&
+         ts_length_eq(ts_node__offset(this), ts_node__offset(other));
 }
 
 const char *ts_node_name(TSNode this, const TSDocument *document) {
-  return document->parser.language->symbol_names[get_tree(this)->symbol];
+  return document->parser.language->symbol_names[ts_node__tree(this)->symbol];
 }
 
 const char *ts_node_string(TSNode this, const TSDocument *document) {
-  return ts_tree_string(get_tree(this), document->parser.language->symbol_names);
+  return ts_tree_string(ts_node__tree(this),
+                        document->parser.language->symbol_names);
 }
 
 TSNode ts_node_parent(TSNode this) {
-  const TSTree *tree = get_tree(this);
-  TSLength position = this.position;
+  const TSTree *tree = ts_node__tree(this);
+  TSLength position = ts_node__offset(this);
 
   do {
     TSTree *parent = tree->context.parent;
@@ -54,8 +59,8 @@ TSNode ts_node_parent(TSNode this) {
 }
 
 TSNode ts_node_prev_sibling(TSNode this) {
-  const TSTree *tree = get_tree(this);
-  TSLength position = this.position;
+  const TSTree *tree = ts_node__tree(this);
+  TSLength position = ts_node__offset(this);
 
   do {
     TSTree *parent = tree->context.parent;
@@ -79,8 +84,8 @@ TSNode ts_node_prev_sibling(TSNode this) {
 }
 
 TSNode ts_node_next_sibling(TSNode this) {
-  const TSTree *tree = get_tree(this);
-  TSLength position = this.position;
+  const TSTree *tree = ts_node__tree(this);
+  TSLength position = ts_node__offset(this);
 
   do {
     TSTree *parent = tree->context.parent;
@@ -105,12 +110,12 @@ TSNode ts_node_next_sibling(TSNode this) {
 }
 
 size_t ts_node_child_count(TSNode this) {
-  return get_tree(this)->visible_child_count;
+  return ts_node__tree(this)->visible_child_count;
 }
 
 TSNode ts_node_child(TSNode this, size_t child_index) {
-  const TSTree *tree = get_tree(this);
-  TSLength position = this.position;
+  const TSTree *tree = ts_node__tree(this);
+  TSLength position = ts_node__offset(this);
 
   bool did_descend = true;
   while (did_descend) {
@@ -141,8 +146,8 @@ TSNode ts_node_child(TSNode this, size_t child_index) {
 }
 
 TSNode ts_node_find_for_range(TSNode this, size_t min, size_t max) {
-  const TSTree *tree = get_tree(this), *last_visible_tree = tree;
-  TSLength position = this.position, last_visible_position = position;
+  const TSTree *tree = ts_node__tree(this), *last_visible_tree = tree;
+  TSLength position = ts_node__offset(this), last_visible_position = position;
 
   bool did_descend = true;
   while (did_descend) {
