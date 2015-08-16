@@ -7,8 +7,8 @@ TODO
 * Fix memory leaks in the graph-structured parse stack.
 
 ### Runtime System
-* Add a NodeIterator class that can be used to traverse the tree efficiently.
-* Stop storing nodes' visible children in a separate array. Instead, allow traversing the tree at two different levels of abstraction: one which includes anonymous tokens (the concrete syntax tree) and one that does not (the sufficiently-abstract syntax tree).
+* Remove 'document' wrapper node.
+* Make separate symbol for unexpected characters than for interior error nodes.
 
 ### Testing / Quality
 * Start running the clang-analyzer on the codebase on travis-CI.
