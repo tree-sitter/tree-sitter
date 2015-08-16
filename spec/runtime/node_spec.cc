@@ -65,23 +65,27 @@ describe("Node", []() {
 
   describe("next_sibling() and prev_sibling()", [&]() {
     it("returns the node's next and previous siblings", [&]() {
-      TSNode array = ts_node_child(root, 0);
-      TSNode number1 = ts_node_child(array, 0);
-      TSNode number2 = ts_node_child(array, 1);
-      TSNode number3 = ts_node_child(array, 2);
+      TSNode array_node = ts_node_child(root, 0);
+      TSNode number_node = ts_node_child(array_node, 0);
+      TSNode false_node = ts_node_child(array_node, 1);
+      TSNode object_node = ts_node_child(array_node, 2);
+      TSNode string_node = ts_node_child(object_node, 0);
+      TSNode null_node = ts_node_child(object_node, 1);
 
-      AssertThat(ts_node_next_sibling(number1), Equals(number2));
-      AssertThat(ts_node_next_sibling(number2), Equals(number3));
-      AssertThat(ts_node_prev_sibling(number3), Equals(number2));
-      AssertThat(ts_node_prev_sibling(number2), Equals(number1));
+      AssertThat(ts_node_next_sibling(number_node), Equals(false_node));
+      AssertThat(ts_node_next_sibling(false_node), Equals(object_node));
+      AssertThat(ts_node_next_sibling(string_node), Equals(null_node));
+      AssertThat(ts_node_prev_sibling(object_node), Equals(false_node));
+      AssertThat(ts_node_prev_sibling(false_node), Equals(number_node));
+      AssertThat(ts_node_prev_sibling(null_node), Equals(string_node));
     });
 
     it("returns null when the node has no parent", [&]() {
-      TSNode array = ts_node_child(root, 0);
+      TSNode array_node = ts_node_child(root, 0);
       AssertThat(ts_node_next_sibling(root).data, Equals<void *>(nullptr));
       AssertThat(ts_node_prev_sibling(root).data, Equals<void *>(nullptr));
-      AssertThat(ts_node_next_sibling(array).data, Equals<void *>(nullptr));
-      AssertThat(ts_node_prev_sibling(array).data, Equals<void *>(nullptr));
+      AssertThat(ts_node_next_sibling(array_node).data, Equals<void *>(nullptr));
+      AssertThat(ts_node_prev_sibling(array_node).data, Equals<void *>(nullptr));
     });
   });
 

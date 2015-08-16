@@ -17,7 +17,10 @@ typedef enum {
 } TSTreeOptions;
 
 struct TSTree {
-  struct TSTree *parent;
+  struct {
+    struct TSTree *parent;
+    size_t index;
+  } context;
   size_t child_count;
   size_t visible_child_count;
   union {

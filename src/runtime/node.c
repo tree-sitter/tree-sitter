@@ -33,53 +33,72 @@ const char *ts_node_string(TSNode this, const TSDocument *document) {
   return ts_tree_string(get_tree(this), document->parser.language->symbol_names);
 }
 
-typedef struct {
-  TSNode node;
-  size_t index;
-} NodeWithIndex;
-
-static inline NodeWithIndex ts_node_parent_with_index(TSNode this) {
+TSNode ts_node_parent(TSNode this) {
   TSLength position = this.position;
   const TSTree *tree = get_tree(this);
 
-  size_t index = 0;
   do {
-    TSTree *parent = tree->parent;
+    TSTree *parent = tree->context.parent;
     if (!parent)
-      return (NodeWithIndex){ ts_node_null(), 0 };
+      return ts_node_null();
 
     for (size_t i = 0; i < parent->child_count; i++) {
       TSTree *child = parent->children[i];
       if (child == tree)
         break;
-      index += ts_tree_is_visible(child) ? 1 : child->visible_child_count;
       position = ts_length_sub(position, ts_tree_total_size(child));
     }
 
     tree = parent;
   } while (!ts_tree_is_visible(tree));
 
-  return (NodeWithIndex){ ts_node_make(tree, position), index };
-}
-
-TSNode ts_node_parent(TSNode this) {
-  return ts_node_parent_with_index(this).node;
+  return ts_node_make(tree, position);
 }
 
 TSNode ts_node_prev_sibling(TSNode this) {
-  NodeWithIndex parent = ts_node_parent_with_index(this);
-  if (parent.node.data && parent.index > 0)
-    return ts_node_child(parent.node, parent.index - 1);
-  else
-    return ts_node_null();
+  const TSTree *tree = get_tree(this);
+  TSLength position = this.position;
+  do {
+    TSTree *parent = tree->context.parent;
+    if (!parent)
+      break;
+
+    for (size_t i = tree->context.index - 1; i + 1 > 0; i--) {
+      const TSTree *child = parent->children[i];
+      position = ts_length_sub(position, ts_tree_total_size(child));
+      if (ts_tree_is_visible(child))
+        return ts_node_make(child, position);
+      if (child->visible_child_count > 0)
+        return ts_node_child(ts_node_make(child, position), child->visible_child_count - 1);
+    }
+
+    tree = parent;
+  } while (!ts_tree_is_visible(tree));
+
+  return ts_node_null();
 }
 
 TSNode ts_node_next_sibling(TSNode this) {
-  NodeWithIndex parent = ts_node_parent_with_index(this);
-  if (parent.node.data)
-    return ts_node_child(parent.node, parent.index + 1);
-  else
-    return ts_node_null();
+  const TSTree *tree = get_tree(this);
+  TSLength position = this.position;
+  do {
+    TSTree *parent = tree->context.parent;
+    if (!parent)
+      break;
+
+    for (size_t i = tree->context.index + 1; i < parent->child_count; i++) {
+      const TSTree *child = parent->children[i];
+      position = ts_length_add(position, ts_tree_total_size(parent->children[i - 1]));
+      if (ts_tree_is_visible(child))
+        return ts_node_make(child, position);
+      if (child->visible_child_count > 0)
+        return ts_node_child(ts_node_make(child, position), 0);
+    }
+
+    tree = parent;
+  } while (!ts_tree_is_visible(tree));
+
+  return ts_node_null();
 }
 
 size_t ts_node_child_count(TSNode this) {

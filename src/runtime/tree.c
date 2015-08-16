@@ -42,7 +42,8 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
     ts_tree_retain(child);
-    child->parent = result;
+    child->context.parent = result;
+    child->context.index = i;
 
     if (i == 0) {
       padding = child->padding;
@@ -78,7 +79,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   }
 
   *result = (TSTree){.ref_count = 1,
-                     .parent = NULL,
+                     .context = {.parent = NULL, .index = 0},
                      .symbol = symbol,
                      .children = children,
                      .child_count = child_count,
