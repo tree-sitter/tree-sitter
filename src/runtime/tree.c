@@ -79,7 +79,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   }
 
   *result = (TSTree){.ref_count = 1,
-                     .context = {.parent = NULL, .index = 0},
+                     .context = {.parent = NULL, .index = 0 },
                      .symbol = symbol,
                      .children = children,
                      .child_count = child_count,
