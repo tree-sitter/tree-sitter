@@ -69,7 +69,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
       options |= TSTreeOptionsHidden;
     if (child_count == 1 && symbol != ts_builtin_sym_document &&
         (ts_tree_is_visible(children[0]) || ts_tree_is_wrapper(children[0])))
-      options |= (TSTreeOptionsWrapper | TSTreeOptionsHidden);
+      options |= (TSTreeOptionsSingleton | TSTreeOptionsHidden);
     if (child_count > 0) {
       if (ts_tree_is_fragile_left(children[0]))
         options |= (TSTreeOptionsFragileLeft);

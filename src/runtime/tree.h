@@ -11,7 +11,7 @@ extern "C" {
 typedef enum {
   TSTreeOptionsHidden = 1 << 0,
   TSTreeOptionsExtra = 1 << 1,
-  TSTreeOptionsWrapper = 1 << 2,
+  TSTreeOptionsSingleton = 1 << 2,
   TSTreeOptionsFragileLeft = 1 << 3,
   TSTreeOptionsFragileRight = 1 << 4,
 } TSTreeOptions;
@@ -48,7 +48,7 @@ static inline bool ts_tree_is_visible(const TSTree *tree) {
 }
 
 static inline bool ts_tree_is_wrapper(const TSTree *tree) {
-  return !!(tree->options & TSTreeOptionsWrapper);
+  return !!(tree->options & TSTreeOptionsSingleton);
 }
 
 static inline void ts_tree_set_options(TSTree *tree, TSTreeOptions options) {
