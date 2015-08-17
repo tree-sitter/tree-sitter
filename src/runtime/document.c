@@ -20,7 +20,7 @@ void ts_document_free(TSDocument *document) {
   free(document);
 }
 
-static void reparse(TSDocument *document, TSInputEdit *edit) {
+static void ts_document__reparse(TSDocument *document, TSInputEdit *edit) {
   if (document->input.read_fn && document->parser.language) {
     TSTree *tree = ts_parser_parse(&document->parser, document->input, edit);
     if (document->tree)
@@ -32,7 +32,7 @@ static void reparse(TSDocument *document, TSInputEdit *edit) {
 
 void ts_document_set_language(TSDocument *document, const TSLanguage *language) {
   document->parser.language = language;
-  reparse(document, NULL);
+  ts_document__reparse(document, NULL);
 }
 
 TSDebugger ts_document_get_debugger(const TSDocument *document) {
@@ -45,11 +45,11 @@ void ts_document_set_debugger(TSDocument *document, TSDebugger debugger) {
 
 void ts_document_set_input(TSDocument *document, TSInput input) {
   document->input = input;
-  reparse(document, NULL);
+  ts_document__reparse(document, NULL);
 }
 
 void ts_document_edit(TSDocument *document, TSInputEdit edit) {
-  reparse(document, &edit);
+  ts_document__reparse(document, &edit);
 }
 
 const char *ts_document_symbol_name(const TSDocument *document,

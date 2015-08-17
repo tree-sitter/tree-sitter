@@ -31,7 +31,7 @@ typedef struct {
 } TreeSelectionCallback;
 
 /*
- *  Create a ParseStack.
+ *  Create a parse stack.
  */
 ParseStack *ts_parse_stack_new(TreeSelectionCallback);
 

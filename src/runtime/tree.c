@@ -143,8 +143,9 @@ static size_t write_lookahead_to_string(char *string, size_t limit,
   }
 }
 
-static size_t tree_write_to_string(const TSTree *tree, const char **symbol_names,
-                                   char *string, size_t limit, int is_root) {
+static size_t ts_tree__write_to_string(const TSTree *tree,
+                                       const char **symbol_names, char *string,
+                                       size_t limit, int is_root) {
   if (!tree)
     return snprintf(string, limit, "(NULL)");
 
@@ -166,7 +167,7 @@ static size_t tree_write_to_string(const TSTree *tree, const char **symbol_names
 
   for (size_t i = 0; i < tree->child_count; i++) {
     TSTree *child = tree->children[i];
-    cursor += tree_write_to_string(child, symbol_names, *writer, limit, 0);
+    cursor += ts_tree__write_to_string(child, symbol_names, *writer, limit, 0);
   }
 
   if (visible)
@@ -177,8 +178,8 @@ static size_t tree_write_to_string(const TSTree *tree, const char **symbol_names
 
 char *ts_tree_string(const TSTree *tree, const char **symbol_names) {
   static char SCRATCH[1];
-  size_t size = tree_write_to_string(tree, symbol_names, SCRATCH, 0, 1) + 1;
+  size_t size = ts_tree__write_to_string(tree, symbol_names, SCRATCH, 0, 1) + 1;
   char *result = malloc(size * sizeof(char));
-  tree_write_to_string(tree, symbol_names, result, size, 1);
+  ts_tree__write_to_string(tree, symbol_names, result, size, 1);
   return result;
 }

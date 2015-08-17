@@ -21,7 +21,7 @@
 
 static const char *empty_chunk = "";
 
-static void read_next_chunk(TSLexer *lexer) {
+static void ts_lexer__get_chunk(TSLexer *lexer) {
   TSInput input = lexer->input;
   if (lexer->current_position.bytes != lexer->chunk_start + lexer->chunk_size)
     input.seek_fn(input.data, lexer->current_position);
@@ -32,7 +32,7 @@ static void read_next_chunk(TSLexer *lexer) {
     lexer->chunk = empty_chunk;
 }
 
-static void read_lookahead(TSLexer *lexer) {
+static void ts_lexer__get_lookahead(TSLexer *lexer) {
   size_t position_in_chunk = lexer->current_position.bytes - lexer->chunk_start;
   lexer->lookahead_size = utf8proc_iterate(
     (const uint8_t *)lexer->chunk + position_in_chunk,
@@ -40,17 +40,17 @@ static void read_lookahead(TSLexer *lexer) {
   DEBUG_LOOKAHEAD();
 }
 
-static void start(TSLexer *lexer, TSStateId lex_state) {
+static void ts_lexer__start(TSLexer *lexer, TSStateId lex_state) {
   DEBUG("start_lex state:%d", lex_state);
   DEBUG_LOOKAHEAD();
 }
 
-static void start_token(TSLexer *lexer) {
+static void ts_lexer__start_token(TSLexer *lexer) {
   DEBUG("start_token chars:%lu", lexer->current_position.chars);
   lexer->token_start_position = lexer->current_position;
 }
 
-static bool advance(TSLexer *lexer, TSStateId state) {
+static bool ts_lexer__advance(TSLexer *lexer, TSStateId state) {
   DEBUG("advance state:%d", state);
 
   if (lexer->chunk == empty_chunk)
@@ -62,14 +62,14 @@ static bool advance(TSLexer *lexer, TSStateId state) {
   }
 
   if (lexer->current_position.bytes >= lexer->chunk_start + lexer->chunk_size)
-    read_next_chunk(lexer);
+    ts_lexer__get_chunk(lexer);
 
-  read_lookahead(lexer);
+  ts_lexer__get_lookahead(lexer);
   return true;
 }
 
-static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden,
-                      const char *symbol_name) {
+static TSTree *ts_lexer__accept(TSLexer *lexer, TSSymbol symbol, int is_hidden,
+                                const char *symbol_name) {
   TSLength size =
     ts_length_sub(lexer->current_position, lexer->token_start_position);
   TSLength padding =
@@ -91,10 +91,10 @@ static TSTree *accept(TSLexer *lexer, TSSymbol symbol, int is_hidden,
  */
 
 TSLexer ts_lexer_make() {
-  TSLexer result = (TSLexer){.start_fn = start,
-                             .start_token_fn = start_token,
-                             .advance_fn = advance,
-                             .accept_fn = accept,
+  TSLexer result = (TSLexer){.start_fn = ts_lexer__start,
+                             .start_token_fn = ts_lexer__start_token,
+                             .advance_fn = ts_lexer__advance,
+                             .accept_fn = ts_lexer__accept,
                              .chunk = NULL,
                              .chunk_start = 0,
                              .chunk_size = 0,
@@ -110,6 +110,6 @@ TSLexer ts_lexer_make() {
 void ts_lexer_reset(TSLexer *lexer, TSLength position) {
   lexer->token_end_position = position;
   lexer->current_position = position;
-  read_next_chunk(lexer);
-  read_lookahead(lexer);
+  ts_lexer__get_chunk(lexer);
+  ts_lexer__get_lookahead(lexer);
 }
