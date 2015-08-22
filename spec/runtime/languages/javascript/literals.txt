@@ -68,18 +68,20 @@ var thing = {
 };
 
 ---
-(comment)
-(comment)
-(var_declaration (var_assignment
-    (identifier)
-    (object
-        (comment)
-        (comment)
-        (pair (identifier) (function_expression
-            (formal_parameters (identifier) (comment))
-            (statement_block
-                (comment)
-                (expression_statement (function_call (identifier)))))))))
+
+(program
+  (comment)
+  (comment)
+  (var_declaration (var_assignment
+      (identifier)
+      (object
+          (comment)
+          (comment)
+          (pair (identifier) (function_expression
+              (formal_parameters (identifier) (comment))
+              (statement_block
+                  (comment)
+                  (expression_statement (function_call (identifier))))))))))
 
 ==========================================
 comments within expressions

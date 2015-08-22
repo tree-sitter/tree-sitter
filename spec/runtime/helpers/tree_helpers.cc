@@ -1,8 +1,8 @@
 #include "runtime/helpers/tree_helpers.h"
 
 const char *symbol_names[12] = {
-  "ERROR", "END", "DOCUMENT", "AMBIGUITY",
-  "zero", "one", "two", "three", "four", "five", "six", "seven",
+  "ERROR", "END",  "two", "three", "four", "five", "six", "seven", "eight",
+  "nine", "ten", "eleven",
 };
 
 TSTree ** tree_array(std::vector<TSTree *> trees) {

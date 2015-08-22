@@ -6,7 +6,7 @@ x * * y
 
 ---
 
-(variable) (ERROR (UNEXPECTED '*') (variable))
+(ERROR (variable) (UNEXPECTED '*') (variable))
 
 =====================================================
 errors inside parenthesized expressions

@@ -1,5 +1,6 @@
 #include "tree_sitter/parser.h"
 #include "runtime/node.h"
+#include "runtime/tree.h"
 #include "runtime/length.h"
 #include "runtime/parser.h"
 #include "runtime/string_input.h"
@@ -62,5 +63,8 @@ void ts_document_set_input_string(TSDocument *document, const char *text) {
 }
 
 TSNode ts_document_root_node(const TSDocument *document) {
-  return ts_node_make(document->tree, ts_length_zero());
+  TSTree *tree = document->tree;
+  while (tree && ts_tree_is_singleton(tree))
+    tree = tree->children[0];
+  return ts_node_make(tree, ts_length_zero());
 }

@@ -305,7 +305,17 @@ static bool ts_parser__handle_error(TSParser *parser, int head) {
 }
 
 static TSTree *ts_parser__finish(TSParser *parser) {
-  return ts_parser__reduce(parser, 0, ts_builtin_sym_document, -1, false, true);
+  ParseStackPopResult pop_result =
+    ts_parse_stack_pop(parser->stack, 0, -1, true).contents[0];
+
+  TSTree **trees = pop_result.trees;
+  size_t extra_count = pop_result.tree_count - 1;
+  TSTree *root = trees[extra_count];
+  assert(root->child_count > 0);
+
+  ts_tree_prepend_children(root, extra_count, trees);
+  ts_parse_stack_push(parser->stack, 0, 0, root);
+  return root;
 }
 
 typedef enum {

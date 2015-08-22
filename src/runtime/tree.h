@@ -47,8 +47,12 @@ static inline bool ts_tree_is_visible(const TSTree *tree) {
   return !(tree->options & TSTreeOptionsHidden);
 }
 
-static inline bool ts_tree_is_wrapper(const TSTree *tree) {
+static inline bool ts_tree_is_singleton(const TSTree *tree) {
   return !!(tree->options & TSTreeOptionsSingleton);
+}
+
+static inline void ts_tree_unset_singleton(TSTree *tree) {
+  tree->options = (TSTreeOptions)(tree->options & ~TSTreeOptionsSingleton);
 }
 
 static inline void ts_tree_set_options(TSTree *tree, TSTreeOptions options) {
@@ -84,6 +88,7 @@ bool ts_tree_eq(const TSTree *tree1, const TSTree *tree2);
 char *ts_tree_string(const TSTree *tree, const char **names);
 char *ts_tree_error_string(const TSTree *tree, const char **names);
 TSLength ts_tree_total_size(const TSTree *tree);
+void ts_tree_prepend_children(TSTree *, size_t, TSTree **);
 
 static inline bool ts_tree_is_empty(TSTree *tree) {
   return ts_tree_total_size(tree).bytes == 0;

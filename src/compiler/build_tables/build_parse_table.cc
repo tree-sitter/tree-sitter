@@ -73,7 +73,6 @@ class ParseTableBuilder {
       add_reduce_extra_actions(state);
 
     parse_table.symbols.insert(rules::ERROR());
-    parse_table.symbols.insert(rules::DOCUMENT());
 
     return { parse_table, nullptr };
   }

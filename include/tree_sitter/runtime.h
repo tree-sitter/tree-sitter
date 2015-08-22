@@ -72,8 +72,7 @@ TSNode ts_document_root_node(const TSDocument *);
 
 #define ts_builtin_sym_error 0
 #define ts_builtin_sym_end 1
-#define ts_builtin_sym_document 2
-#define ts_builtin_sym_start 3
+#define ts_builtin_sym_start 2
 
 #ifdef __cplusplus
 }

@@ -27,7 +27,7 @@ describe("Document", [&]() {
         ts_document_set_input_string(doc, "{ \"key\": [1, 2] }");
 
         AssertThat(ts_node_string(ts_document_root_node(doc), doc), Equals(
-          "(DOCUMENT (object (string) (array (number) (number))))"));
+          "(object (string) (array (number) (number)))"));
       });
     });
 
@@ -58,7 +58,7 @@ describe("Document", [&]() {
         ts_document_set_language(doc, ts_language_json());
 
         AssertThat(ts_node_string(ts_document_root_node(doc), doc), Equals(
-          "(DOCUMENT (object (string) (array (number) (number))))"));
+          "(object (string) (array (number) (number)))"));
       });
     });
   });

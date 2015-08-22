@@ -7,8 +7,8 @@ TODO
 * Fix memory leaks in the graph-structured parse stack.
 
 ### Runtime System
-* Remove 'document' wrapper node.
 * Make separate symbol for unexpected characters than for interior error nodes.
+* Make anonymous tokens visible via separate API methods
 
 ### Testing / Quality
 * Start running the clang-analyzer on the codebase on travis-CI.

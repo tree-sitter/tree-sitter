@@ -7,9 +7,8 @@ namespace tree_sitter {
 namespace rules {
 
 Symbol ERROR();
-Symbol START();
 Symbol END_OF_INPUT();
-Symbol DOCUMENT();
+Symbol START();
 
 }  // namespace rules
 }  // namespace tree_sitter

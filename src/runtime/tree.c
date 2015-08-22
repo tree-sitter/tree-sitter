@@ -67,8 +67,8 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   } else {
     if (is_hidden)
       options |= TSTreeOptionsHidden;
-    if (child_count == 1 && symbol != ts_builtin_sym_document &&
-        (ts_tree_is_visible(children[0]) || ts_tree_is_wrapper(children[0])))
+    if (child_count == 1 &&
+        (ts_tree_is_visible(children[0]) || ts_tree_is_singleton(children[0])))
       options |= (TSTreeOptionsSingleton | TSTreeOptionsHidden);
     if (child_count > 0) {
       if (ts_tree_is_fragile_left(children[0]))
@@ -182,4 +182,33 @@ char *ts_tree_string(const TSTree *tree, const char **symbol_names) {
   char *result = malloc(size * sizeof(char));
   ts_tree__write_to_string(tree, symbol_names, result, size, 1);
   return result;
+}
+
+void ts_tree_prepend_children(TSTree *tree, size_t count, TSTree **children) {
+  if (count == 0)
+    return;
+
+  tree->size = ts_length_add(tree->size, tree->padding);
+
+  size_t visible_count = 0;
+  for (size_t i = 0; i < count; i++) {
+    if (i == 0)
+      tree->padding = children[i]->padding;
+    else
+      tree->size = ts_length_add(tree->size, children[i]->padding);
+    tree->size = ts_length_add(tree->size, children[i]->size);
+    if (ts_tree_is_visible(children[i]))
+      visible_count++;
+  }
+
+  size_t new_child_count = count + tree->child_count;
+  TSTree **new_children = realloc(children, new_child_count * sizeof(TSTree *));
+  memcpy(new_children + count, tree->children,
+         tree->child_count * sizeof(TSTree *));
+  free(tree->children);
+
+  ts_tree_unset_singleton(tree);
+  tree->children = new_children;
+  tree->visible_child_count += visible_count;
+  tree->child_count += count;
 }
