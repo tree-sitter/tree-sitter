@@ -6,7 +6,8 @@ stuff(|||);
 
 ---
 
-(expression_statement (function_call (identifier) (ERROR (UNEXPECTED '|'))))
+(program
+  (expression_statement (function_call (identifier) (ERROR (UNEXPECTED '|')))))
 
 ==========================================
 errors in if statements
@@ -14,7 +15,7 @@ errors in if statements
 
 stuff();
 if (*nonsense*) {
-    *more-nonsense*;
+  *more-nonsense*;
 }
 moreStuff();
 

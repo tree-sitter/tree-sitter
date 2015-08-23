@@ -10,12 +10,6 @@ extern "C" const TSLanguage *ts_language_arithmetic();
 extern "C" const TSLanguage *ts_language_golang();
 extern "C" const TSLanguage *ts_language_c();
 
-static string trim_newlines(const string &input) {
-  size_t start = input.find_first_not_of("\n");
-  size_t last = input.find_last_not_of("\n");
-  return input.substr(start, last + 1);
-}
-
 START_TEST
 
 describe("Languages", [&]() {
@@ -37,8 +31,6 @@ describe("Languages", [&]() {
       });
 
       for (auto &entry : test_entries_for_language(language_name)) {
-        entry.input = trim_newlines(entry.input);
-
         auto expect_the_correct_tree = [&]() {
           const char *node_string = ts_node_string(ts_document_root_node(doc), doc);
           AssertThat(node_string, Equals(entry.tree_string.c_str()));

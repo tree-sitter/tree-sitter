@@ -6,8 +6,8 @@ theFunction(/regex1/, /regex2/g);
 
 ---
 
-(expression_statement (function_call (identifier)
-    (arguments (regex) (regex))))
+(program (expression_statement
+  (function_call (identifier) (arguments (regex) (regex)))))
 
 ==========================================
 numbers
@@ -17,8 +17,8 @@ theFunction(100.0, 200);
 
 ---
 
-(expression_statement (function_call (identifier)
-    (arguments (number) (number))))
+(program (expression_statement
+  (function_call (identifier) (arguments (number) (number)))))
 
 ==========================================
 strings
@@ -28,27 +28,29 @@ theFunction('', "", 'single-quoted-string', "double-quoted-string");
 
 ---
 
-(expression_statement (function_call (identifier)
-    (arguments (string) (string) (string) (string))))
+(program (expression_statement
+  (function_call (identifier)
+    (arguments (string) (string) (string) (string)))))
 
 ==========================================
 function expressions
 ==========================================
 
 var x = {
-    theMethod: function(argA, argB) {
-        var x = argA;
-    }
+  theMethod: function(argA, argB) {
+    var x = argA;
+  }
 };
 
 ---
 
-(var_declaration (var_assignment
+(program
+  (var_declaration (var_assignment
     (identifier)
     (object (pair (identifier) (function_expression
-        (formal_parameters (identifier) (identifier))
-        (statement_block
-            (var_declaration (var_assignment (identifier) (identifier)))))))))
+      (formal_parameters (identifier) (identifier))
+      (statement_block
+        (var_declaration (var_assignment (identifier) (identifier))))))))))
 
 ==========================================
 comments
@@ -58,13 +60,13 @@ comments
 // here we go.
 var thing = {
 
-    // this is a property.
-    // its value is a function.
-    key: function(x /* this is a parameter */) {
+  // this is a property.
+  // its value is a function.
+  key: function(x /* this is a parameter */) {
 
-        // this is a statement
-        doStuff();
-    }
+    // this is a statement
+    doStuff();
+  }
 };
 
 ---
@@ -73,15 +75,15 @@ var thing = {
   (comment)
   (comment)
   (var_declaration (var_assignment
-      (identifier)
-      (object
+    (identifier)
+    (object
+      (comment)
+      (comment)
+      (pair (identifier) (function_expression
+        (formal_parameters (identifier) (comment))
+        (statement_block
           (comment)
-          (comment)
-          (pair (identifier) (function_expression
-              (formal_parameters (identifier) (comment))
-              (statement_block
-                  (comment)
-                  (expression_statement (function_call (identifier))))))))))
+          (expression_statement (function_call (identifier))))))))))
 
 ==========================================
 comments within expressions
@@ -92,4 +94,5 @@ y // comment
 
 ---
 
-(expression_statement (math_op (expression (identifier) (comment)) (identifier)))
+(program (expression_statement
+  (math_op (expression (identifier) (comment)) (identifier))))

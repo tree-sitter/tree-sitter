@@ -6,9 +6,10 @@ x.theMethod(5, 6);
 
 ---
 
-(expression_statement (function_call
+(program (expression_statement
+  (function_call
     (member_access (identifier) (identifier))
-    (arguments (number) (number))))
+    (arguments (number) (number)))))
 
 ==========================================
 constructor calls
@@ -18,13 +19,13 @@ var x = new Node(5, new Node(3, null));
 
 ---
 
-(var_declaration (var_assignment
-    (identifier)
+(program (var_declaration (var_assignment
+  (identifier)
+  (constructor_call (identifier) (arguments
+    (number)
     (constructor_call (identifier) (arguments
-        (number)
-        (constructor_call (identifier) (arguments
-            (number)
-            (null)))))))
+      (number)
+      (null))))))))
 
 ==========================================
 property access with dot notation
@@ -36,12 +37,12 @@ print(object.property);
 ---
 
 (program
-    (expression_statement (assignment
-        (member_access (identifier) (identifier))
-        (string)))
-    (expression_statement (function_call
-        (identifier)
-        (member_access (identifier) (identifier)))))
+  (expression_statement (assignment
+    (member_access (identifier) (identifier))
+    (string)))
+  (expression_statement (function_call
+    (identifier)
+    (member_access (identifier) (identifier)))))
 
 ==========================================
 property access across lines
@@ -53,10 +54,10 @@ object
 
 ---
 
-(expression_statement
-    (member_access
-        (member_access (identifier) (identifier))
-        (identifier)))
+(program (expression_statement
+  (member_access
+    (member_access (identifier) (identifier))
+    (identifier))))
 
 ===========================================
 dynamic property access
@@ -66,13 +67,14 @@ object[propertName()] = propertyValue();
 print(object[propertyName()]);
 
 ---
+
 (program
-    (expression_statement (assignment
-        (subscript_access (identifier) (function_call (identifier)))
-        (function_call (identifier))))
-    (expression_statement (function_call
-        (identifier)
-        (subscript_access (identifier) (function_call (identifier))))))
+  (expression_statement (assignment
+    (subscript_access (identifier) (function_call (identifier)))
+    (function_call (identifier))))
+  (expression_statement (function_call
+    (identifier)
+    (subscript_access (identifier) (function_call (identifier))))))
 
 ==========================================
 ternary expressions
@@ -82,10 +84,10 @@ print(isDone() ? stuff : otherStuff);
 
 ---
 
-(expression_statement
-    (function_call
-        (identifier)
-        (ternary (function_call (identifier)) (identifier) (identifier))))
+(program (expression_statement
+  (function_call
+    (identifier)
+    (ternary (function_call (identifier)) (identifier) (identifier)))))
 
 ==========================================
 mathematical operators
@@ -94,14 +96,15 @@ mathematical operators
 a++ + b * c - d / e--
 
 ---
-(expression_statement
+
+(program (expression_statement
   (math_op
     (math_op
       (math_op (identifier))
       (math_op (identifier) (identifier)))
     (math_op
       (identifier)
-      (math_op (identifier)))))
+      (math_op (identifier))))))
 
 ==========================================
 boolean operators
@@ -111,11 +114,11 @@ boolean operators
 
 ---
 
-(expression_statement
+(program (expression_statement
+  (bool_op
+    (bool_op (identifier))
     (bool_op
-        (bool_op (identifier))
-        (bool_op
-            (expression (bool_op (identifier) (identifier))))))
+      (expression (bool_op (identifier) (identifier)))))))
 
 ===========================================
 type operators
@@ -125,10 +128,11 @@ print((x instanceof Array) || (typeof x === "string"))
 
 ---
 
-(expression_statement (function_call (identifier)
+(program (expression_statement
+  (function_call (identifier)
     (bool_op
-        (expression (type_op (identifier) (identifier)))
-        (expression (rel_op (type_op (identifier)) (string))))))
+      (expression (type_op (identifier) (identifier)))
+      (expression (rel_op (type_op (identifier)) (string)))))))
 
 ============================================
 the 'in' operator
@@ -137,9 +141,11 @@ the 'in' operator
 print(x in y)
 
 ---
-(expression_statement (function_call
+
+(program (expression_statement
+  (function_call
     (identifier)
-    (type_op (identifier) (identifier))))
+    (type_op (identifier) (identifier)))))
 
 ============================================
 assignment operators
@@ -153,10 +159,10 @@ x /= 2;
 ---
 
 (program
-    (expression_statement (math_assignment (identifier) (number)))
-    (expression_statement (math_assignment (identifier) (number)))
-    (expression_statement (math_assignment (identifier) (number)))
-    (expression_statement (math_assignment (identifier) (number))))
+  (expression_statement (math_assignment (identifier) (number)))
+  (expression_statement (math_assignment (identifier) (number)))
+  (expression_statement (math_assignment (identifier) (number)))
+  (expression_statement (math_assignment (identifier) (number))))
 
 ============================================
 property access and operators
@@ -166,7 +172,8 @@ print(x.y.z && a.b.c)
 
 ---
 
-(expression_statement (function_call (identifier)
+(program (expression_statement
+  (function_call (identifier)
     (bool_op
-        (member_access (member_access (identifier) (identifier)) (identifier))
-        (member_access (member_access (identifier) (identifier)) (identifier)))))
+      (member_access (member_access (identifier) (identifier)) (identifier))
+      (member_access (member_access (identifier) (identifier)) (identifier))))))
