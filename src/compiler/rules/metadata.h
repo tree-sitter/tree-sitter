@@ -13,7 +13,6 @@ enum MetadataKey {
   START_TOKEN,
   PRECEDENCE,
   IS_TOKEN,
-  DESCRIPTION,
   ASSOCIATIVITY,
 };
 
