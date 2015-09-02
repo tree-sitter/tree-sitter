@@ -6,7 +6,6 @@
 #include <vector>
 #include "compiler/build_tables/item.h"
 #include "compiler/rules/symbol.h"
-#include "compiler/rules/metadata.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -17,7 +16,6 @@ class ParseItem : public Item {
             const std::vector<rules::Symbol> &consumed_symbols);
   bool operator==(const ParseItem &other) const;
   bool operator<(const ParseItem &other) const;
-  rules::Associativity associativity() const;
   std::vector<rules::Symbol> consumed_symbols;
 };
 

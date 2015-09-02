@@ -15,7 +15,8 @@ class Rule;
 typedef std::shared_ptr<Rule> rule_ptr;
 
 enum Associativity {
-  AssociativityLeft = 1,
+  AssociativityNone = 0,
+  AssociativityLeft,
   AssociativityRight,
 };
 

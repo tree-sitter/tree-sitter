@@ -7,7 +7,21 @@
 namespace tree_sitter {
 namespace build_tables {
 
-int get_metadata(const rules::rule_ptr &, rules::MetadataKey);
+struct MetadataRange {
+  MetadataRange() : MetadataRange(0, 0) {}
+  MetadataRange(int min, int max) : min(min), max(max) {}
+
+  bool operator==(const MetadataRange &other) const {
+    return min == other.min && max == other.max;
+  }
+
+  int min;
+  int max;
+};
+
+std::ostream &operator<<(std::ostream &stream, const MetadataRange &range);
+
+MetadataRange get_metadata(const rules::rule_ptr &, rules::MetadataKey);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

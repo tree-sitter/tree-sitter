@@ -9,6 +9,8 @@
 #include "compiler/build_tables/item_set_transitions.h"
 #include "compiler/build_tables/parse_conflict_manager.h"
 #include "compiler/build_tables/parse_item.h"
+#include "compiler/build_tables/get_completion_status.h"
+#include "compiler/build_tables/get_metadata.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/rules/symbol.h"
@@ -109,12 +111,14 @@ class ParseTableBuilder {
       const ParseItem &item = pair.first;
       const set<Symbol> &lookahead_symbols = pair.second;
 
-      if (item.is_done()) {
+      CompletionStatus completion_status = get_completion_status(item.rule);
+      if (completion_status.is_done) {
         ParseAction action =
           (item.lhs == rules::START())
             ? ParseAction::Accept()
             : ParseAction::Reduce(item.lhs, item.consumed_symbols.size(),
-                                  item.precedence(), item.associativity(),
+                                  completion_status.precedence,
+                                  completion_status.associativity,
                                   get_production_id(item.consumed_symbols));
 
         for (const auto &lookahead_sym : lookahead_symbols)
@@ -206,8 +210,11 @@ class ParseTableBuilder {
     set<int> result;
     for (const auto &pair : item_set) {
       const ParseItem &item = pair.first;
-      if (!item.consumed_symbols.empty())
-        result.insert(item.precedence());
+      if (!item.consumed_symbols.empty()) {
+        auto precedence_range = get_metadata(item.rule, rules::PRECEDENCE);
+        result.insert(precedence_range.min);
+        result.insert(precedence_range.max);
+      }
     }
     return result;
   }

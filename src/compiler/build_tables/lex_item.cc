@@ -1,5 +1,5 @@
 #include "compiler/build_tables/lex_item.h"
-#include "compiler/build_tables/rule_can_be_blank.h"
+#include "compiler/build_tables/get_metadata.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/rules/seq.h"
@@ -19,22 +19,7 @@ bool LexItem::operator==(const LexItem &other) const {
 }
 
 bool LexItem::is_token_start() const {
-  class IsTokenStart : public rules::RuleFn<bool> {
-    bool apply_to(const rules::Seq *rule) {
-      if (apply(rule->left))
-        return true;
-      else if (rule_can_be_blank(rule->left))
-        return apply(rule->right);
-      else
-        return false;
-    }
-
-    bool apply_to(const rules::Metadata *rule) {
-      return rule->value_for(rules::START_TOKEN);
-    }
-  };
-
-  return IsTokenStart().apply(rule);
+  return get_metadata(rule, rules::START_TOKEN).max > 0;
 }
 
 ostream &operator<<(ostream &stream, const LexItem &item) {

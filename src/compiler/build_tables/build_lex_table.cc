@@ -6,6 +6,8 @@
 #include <vector>
 #include "compiler/build_tables/lex_conflict_manager.h"
 #include "compiler/build_tables/item_set_transitions.h"
+#include "compiler/build_tables/get_completion_status.h"
+#include "compiler/build_tables/get_metadata.h"
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/parse_table.h"
 #include "compiler/lexical_grammar.h"
@@ -106,13 +108,16 @@ class LexTableBuilder {
   }
 
   void add_accept_token_actions(const LexItemSet &item_set, LexStateId state_id) {
-    for (const LexItem &item : item_set)
-      if (item.is_done()) {
+    for (const LexItem &item : item_set) {
+      CompletionStatus completion_status = get_completion_status(item.rule);
+      if (completion_status.is_done) {
         auto current_action = lex_table.state(state_id).default_action;
-        auto new_action = LexAction::Accept(item.lhs, item.precedence());
+        auto new_action =
+          LexAction::Accept(item.lhs, completion_status.precedence);
         if (conflict_manager.resolve(new_action, current_action))
           lex_table.state(state_id).default_action = new_action;
       }
+    }
   }
 
   void add_token_start(const LexItemSet &item_set, LexStateId state_id) {
@@ -140,8 +145,11 @@ class LexTableBuilder {
 
   set<int> precedence_values_for_item_set(const LexItemSet &item_set) const {
     set<int> result;
-    for (const auto &item : item_set)
-      result.insert(item.precedence());
+    for (const auto &item : item_set) {
+      auto precedence_range = get_metadata(item.rule, rules::PRECEDENCE);
+      result.insert(precedence_range.min);
+      result.insert(precedence_range.max);
+    }
     return result;
   }
 };

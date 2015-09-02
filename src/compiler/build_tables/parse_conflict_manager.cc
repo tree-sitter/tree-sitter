@@ -31,9 +31,12 @@ pair<bool, ConflictType> ParseConflictManager::resolve(
         int min_precedence = *old_action.precedence_values.begin();
         int max_precedence = *old_action.precedence_values.rbegin();
         int new_precedence = *new_action.precedence_values.rbegin();
-        if (new_precedence < min_precedence)
+        if (new_precedence < min_precedence ||
+            (new_precedence == min_precedence && min_precedence < max_precedence))
           return { false, ConflictTypeResolved };
-        else if (new_precedence > max_precedence)
+        else if (new_precedence > max_precedence ||
+                 (new_precedence == max_precedence &&
+                  min_precedence < max_precedence))
           return { true, ConflictTypeResolved };
         else if (min_precedence == max_precedence) {
           switch (new_action.associativity) {
