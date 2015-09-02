@@ -5,17 +5,17 @@ function calls
 package main
 
 func main() {
-    println("1", 2)
-    println()
+  println("1", 2)
+  println()
 }
 
 ---
 
 (program
-    (package_directive (package_name))
-    (func_declaration (var_name) (block_statement
-        (expression_statement (call_expression (var_name) (string) (number)))
-        (expression_statement (call_expression (var_name))))))
+  (package_directive (package_name))
+  (func_declaration (var_name) (block_statement
+    (expression_statement (call_expression (var_name) (string) (number)))
+    (expression_statement (call_expression (var_name))))))
 
 ============================================
 selector expressions
@@ -24,16 +24,15 @@ selector expressions
 package main
 
 func main() {
-    x.SomeMethod(x.SomeField, x.OtherField.NestedField);
+  x.SomeMethod(x.SomeField, x.OtherField.NestedField);
 }
 
 ---
 
 (program
-    (package_directive (package_name))
-    (func_declaration (var_name) (block_statement
-        (expression_statement (call_expression
-            (selector_expression (var_name) (var_name))
-            (selector_expression (var_name) (var_name))
-            (selector_expression (selector_expression (var_name) (var_name)) (var_name)))))))
-
+  (package_directive (package_name))
+  (func_declaration (var_name) (block_statement
+    (expression_statement (call_expression
+      (selector_expression (var_name) (var_name))
+      (selector_expression (var_name) (var_name))
+      (selector_expression (selector_expression (var_name) (var_name)) (var_name)))))))

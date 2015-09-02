@@ -10,6 +10,6 @@ package trivial
 ---
 
 (program
-    (package_directive (package_name))
-    (func_declaration (var_name) (block_statement))
-    (func_declaration (var_name) (block_statement)))
+  (package_directive (package_name))
+  (func_declaration (var_name) (block_statement))
+  (func_declaration (var_name) (block_statement)))

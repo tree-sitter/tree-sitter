@@ -48,5 +48,5 @@ func main() {
 
 (program
     (package_directive (package_name))
-    (var_declaration (var_name) (expression (number) (comment)))
+    (var_declaration (var_name) (number) (comment))
     (func_declaration (var_name) (block_statement (comment))))

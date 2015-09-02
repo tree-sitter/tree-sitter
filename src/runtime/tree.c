@@ -67,9 +67,6 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   } else {
     if (is_hidden)
       options |= TSTreeOptionsHidden;
-    if (child_count == 1 &&
-        (ts_tree_is_visible(children[0]) || ts_tree_is_singleton(children[0])))
-      options |= (TSTreeOptionsSingleton | TSTreeOptionsHidden);
     if (child_count > 0) {
       if (ts_tree_is_fragile_left(children[0]))
         options |= (TSTreeOptionsFragileLeft);
@@ -207,7 +204,6 @@ void ts_tree_prepend_children(TSTree *tree, size_t count, TSTree **children) {
          tree->child_count * sizeof(TSTree *));
   free(tree->children);
 
-  ts_tree_unset_singleton(tree);
   tree->children = new_children;
   tree->visible_child_count += visible_count;
   tree->child_count += count;

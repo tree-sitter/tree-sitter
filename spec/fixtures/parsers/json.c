@@ -4,7 +4,7 @@
 #define SYMBOL_COUNT 18
 
 enum {
-    sym_value = ts_builtin_sym_start,
+    sym__value = ts_builtin_sym_start,
     sym_object,
     sym_array,
     sym_string,
@@ -23,7 +23,7 @@ enum {
 };
 
 static const char *ts_symbol_names[] = {
-    [sym_value] = "value",
+    [sym__value] = "_value",
     [sym_object] = "object",
     [sym_array] = "array",
     [ts_builtin_sym_error] = "ERROR",
@@ -44,6 +44,7 @@ static const char *ts_symbol_names[] = {
 };
 
 static const int ts_hidden_symbol_flags[SYMBOL_COUNT] = {
+    [sym__value] = 1,
     [aux_sym_object_repeat1] = 1,
     [aux_sym_array_repeat1] = 1,
     [aux_sym_STR_LBRACE] = 1,
@@ -441,7 +442,7 @@ static TSStateId ts_lex_states[STATE_COUNT] = {
 
 static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
     [0] = {
-        [sym_value] = ACTIONS(SHIFT(1)),
+        [sym__value] = ACTIONS(SHIFT(1)),
         [sym_object] = ACTIONS(SHIFT(2)),
         [sym_array] = ACTIONS(SHIFT(2)),
         [sym_string] = ACTIONS(SHIFT(2)),
@@ -456,7 +457,7 @@ static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_builtin_sym_end] = ACTIONS(ACCEPT_INPUT()),
     },
     [2] = {
-        [ts_builtin_sym_end] = ACTIONS(REDUCE(sym_value, 1)),
+        [ts_builtin_sym_end] = ACTIONS(REDUCE(sym__value, 1)),
     },
     [3] = {
         [ts_builtin_sym_error] = ACTIONS(SHIFT(58)),
@@ -464,7 +465,7 @@ static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_RBRACE] = ACTIONS(SHIFT(60)),
     },
     [4] = {
-        [sym_value] = ACTIONS(SHIFT(5)),
+        [sym__value] = ACTIONS(SHIFT(5)),
         [sym_object] = ACTIONS(SHIFT(6)),
         [sym_array] = ACTIONS(SHIFT(6)),
         [ts_builtin_sym_error] = ACTIONS(SHIFT(5)),
@@ -483,9 +484,9 @@ static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_RBRACK] = ACTIONS(SHIFT(56)),
     },
     [6] = {
-        [aux_sym_array_repeat1] = ACTIONS(REDUCE(sym_value, 1)),
-        [aux_sym_STR_COMMA] = ACTIONS(REDUCE(sym_value, 1)),
-        [aux_sym_STR_RBRACK] = ACTIONS(REDUCE(sym_value, 1)),
+        [aux_sym_array_repeat1] = ACTIONS(REDUCE(sym__value, 1)),
+        [aux_sym_STR_COMMA] = ACTIONS(REDUCE(sym__value, 1)),
+        [aux_sym_STR_RBRACK] = ACTIONS(REDUCE(sym__value, 1)),
     },
     [7] = {
         [ts_builtin_sym_error] = ACTIONS(SHIFT(18)),
@@ -493,7 +494,7 @@ static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_RBRACE] = ACTIONS(SHIFT(20)),
     },
     [8] = {
-        [sym_value] = ACTIONS(SHIFT(10)),
+        [sym__value] = ACTIONS(SHIFT(10)),
         [sym_object] = ACTIONS(SHIFT(6)),
         [sym_array] = ACTIONS(SHIFT(6)),
         [ts_builtin_sym_error] = ACTIONS(SHIFT(10)),
@@ -523,7 +524,7 @@ static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_RBRACK] = ACTIONS(SHIFT(17)),
     },
     [13] = {
-        [sym_value] = ACTIONS(SHIFT(15)),
+        [sym__value] = ACTIONS(SHIFT(15)),
         [sym_object] = ACTIONS(SHIFT(6)),
         [sym_array] = ACTIONS(SHIFT(6)),
         [ts_builtin_sym_error] = ACTIONS(SHIFT(15)),
@@ -567,7 +568,7 @@ static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_RBRACK] = ACTIONS(REDUCE(sym_object, 2)),
     },
     [21] = {
-        [sym_value] = ACTIONS(SHIFT(22)),
+        [sym__value] = ACTIONS(SHIFT(22)),
         [sym_object] = ACTIONS(SHIFT(23)),
         [sym_array] = ACTIONS(SHIFT(23)),
         [sym_string] = ACTIONS(SHIFT(23)),
@@ -584,9 +585,9 @@ static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_RBRACE] = ACTIONS(SHIFT(50)),
     },
     [23] = {
-        [aux_sym_object_repeat1] = ACTIONS(REDUCE(sym_value, 1)),
-        [aux_sym_STR_COMMA] = ACTIONS(REDUCE(sym_value, 1)),
-        [aux_sym_STR_RBRACE] = ACTIONS(REDUCE(sym_value, 1)),
+        [aux_sym_object_repeat1] = ACTIONS(REDUCE(sym__value, 1)),
+        [aux_sym_STR_COMMA] = ACTIONS(REDUCE(sym__value, 1)),
+        [aux_sym_STR_RBRACE] = ACTIONS(REDUCE(sym__value, 1)),
     },
     [24] = {
         [ts_builtin_sym_error] = ACTIONS(SHIFT(31)),
@@ -594,7 +595,7 @@ static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_RBRACE] = ACTIONS(SHIFT(33)),
     },
     [25] = {
-        [sym_value] = ACTIONS(SHIFT(26)),
+        [sym__value] = ACTIONS(SHIFT(26)),
         [sym_object] = ACTIONS(SHIFT(6)),
         [sym_array] = ACTIONS(SHIFT(6)),
         [ts_builtin_sym_error] = ACTIONS(SHIFT(26)),
@@ -644,7 +645,7 @@ static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_RBRACE] = ACTIONS(REDUCE(sym_object, 2)),
     },
     [34] = {
-        [sym_value] = ACTIONS(SHIFT(35)),
+        [sym__value] = ACTIONS(SHIFT(35)),
         [sym_object] = ACTIONS(SHIFT(23)),
         [sym_array] = ACTIONS(SHIFT(23)),
         [sym_string] = ACTIONS(SHIFT(23)),
@@ -681,7 +682,7 @@ static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [aux_sym_STR_COLON] = ACTIONS(SHIFT(41)),
     },
     [41] = {
-        [sym_value] = ACTIONS(SHIFT(42)),
+        [sym__value] = ACTIONS(SHIFT(42)),
         [sym_object] = ACTIONS(SHIFT(23)),
         [sym_array] = ACTIONS(SHIFT(23)),
         [sym_string] = ACTIONS(SHIFT(23)),
@@ -768,7 +769,7 @@ static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
         [ts_builtin_sym_end] = ACTIONS(REDUCE(sym_object, 2)),
     },
     [61] = {
-        [sym_value] = ACTIONS(SHIFT(62)),
+        [sym__value] = ACTIONS(SHIFT(62)),
         [sym_object] = ACTIONS(SHIFT(23)),
         [sym_array] = ACTIONS(SHIFT(23)),
         [sym_string] = ACTIONS(SHIFT(23)),

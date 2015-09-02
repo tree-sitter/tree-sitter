@@ -6,7 +6,7 @@ numbers
 
 ---
 
-(number)
+(program (number))
 
 ===================
 variables
@@ -16,7 +16,7 @@ x
 
 ---
 
-(variable)
+(program (variable))
 
 ====================================
 variables with greek letters
@@ -26,7 +26,7 @@ variables with greek letters
 
 ---
 
-(variable)
+(program (variable))
 
 ===================
 products
@@ -36,7 +36,7 @@ x * x
 
 ---
 
-(product (variable) (variable))
+(program (product (variable) (variable)))
 
 ===================
 sums
@@ -46,7 +46,7 @@ x + x
 
 ---
 
-(sum (variable) (variable))
+(program (sum (variable) (variable)))
 
 ===============================================
 operators of different precedence
@@ -56,9 +56,9 @@ a * b + c * d
 
 ---
 
-(sum
+(program (sum
     (product (variable) (variable))
-    (product (variable) (variable)))
+    (product (variable) (variable))))
 
 ============================
 exponents
@@ -68,10 +68,10 @@ x + y * z^(a + b)
 
 ---
 
-(sum
+(program (sum
     (variable)
     (product
         (variable)
         (exponent
             (variable)
-            (group (sum (variable) (variable))))))
+            (group (sum (variable) (variable)))))))

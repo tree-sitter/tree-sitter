@@ -14,10 +14,10 @@ func helper() {
 ---
 
 (program (package_directive (package_name))
-    (func_declaration (var_name) (block_statement
-        (return_statement)))
-    (func_declaration (var_name) (block_statement
-        (return_statement (number) (var_name) (string)))))
+  (func_declaration (var_name) (block_statement
+    (return_statement)))
+  (func_declaration (var_name) (block_statement
+    (return_statement (number) (var_name) (string)))))
 
 ============================================
 variable declarations
@@ -34,10 +34,10 @@ func main() {
 ---
 
 (program (package_directive (package_name))
-    (func_declaration (var_name) (block_statement
-        (declaration_statement (var_name) (var_name) (call_expression (var_name)))
-        (var_declaration (var_name) (number))
-        (expression_statement (call_expression (var_name) (var_name) (var_name) (var_name))))))
+  (func_declaration (var_name) (block_statement
+    (short_var_declaration (var_name) (var_name) (call_expression (var_name)))
+    (var_declaration (var_name) (number))
+    (expression_statement (call_expression (var_name) (var_name) (var_name) (var_name))))))
 
 ============================================
 if statements
@@ -46,30 +46,30 @@ if statements
 package main
 
 func main() {
-    if condition1() {
-    }
+  if condition1() {
+  }
 
-    if condition2() {
-    } else {
-    }
+  if condition2() {
+  } else {
+  }
 
-    if condition3() {
-    } else if condition4() {
-    }
+  if condition3() {
+  } else if condition4() {
+  }
 }
 
 ---
 
 (program (package_directive (package_name))
-    (func_declaration (var_name) (block_statement
+  (func_declaration (var_name) (block_statement
+    (if_statement (call_expression (var_name))
+      (block_statement))
+    (if_statement (call_expression (var_name))
+      (block_statement) (block_statement))
+    (if_statement (call_expression (var_name))
+      (block_statement)
         (if_statement (call_expression (var_name))
-            (block_statement))
-        (if_statement (call_expression (var_name))
-            (block_statement) (block_statement))
-        (if_statement (call_expression (var_name))
-            (block_statement)
-            (if_statement (call_expression (var_name))
-                (block_statement))))))
+          (block_statement))))))
 
 =============================================
 range statements
@@ -90,8 +90,8 @@ func main() {
 ---
 
 (program (package_directive (package_name))
-    (func_declaration (var_name) (block_statement
-        (range_statement (var_name) (call_expression (var_name)) (block_statement
-            (expression_statement (call_expression (var_name) (var_name)))))
-        (range_statement (var_name) (var_name) (call_expression (var_name)) (block_statement
-            (expression_statement (call_expression (var_name) (var_name) (var_name))))))))
+  (func_declaration (var_name) (block_statement
+    (range_statement (var_name) (call_expression (var_name)) (block_statement
+      (expression_statement (call_expression (var_name) (var_name)))))
+    (range_statement (var_name) (var_name) (call_expression (var_name)) (block_statement
+      (expression_statement (call_expression (var_name) (var_name) (var_name))))))))

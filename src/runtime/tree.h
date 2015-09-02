@@ -11,9 +11,8 @@ extern "C" {
 typedef enum {
   TSTreeOptionsHidden = 1 << 0,
   TSTreeOptionsExtra = 1 << 1,
-  TSTreeOptionsSingleton = 1 << 2,
-  TSTreeOptionsFragileLeft = 1 << 3,
-  TSTreeOptionsFragileRight = 1 << 4,
+  TSTreeOptionsFragileLeft = 1 << 2,
+  TSTreeOptionsFragileRight = 1 << 3,
 } TSTreeOptions;
 
 struct TSTree {
@@ -45,14 +44,6 @@ static inline bool ts_tree_is_extra(const TSTree *tree) {
 
 static inline bool ts_tree_is_visible(const TSTree *tree) {
   return !(tree->options & TSTreeOptionsHidden);
-}
-
-static inline bool ts_tree_is_singleton(const TSTree *tree) {
-  return !!(tree->options & TSTreeOptionsSingleton);
-}
-
-static inline void ts_tree_unset_singleton(TSTree *tree) {
-  tree->options = (TSTreeOptions)(tree->options & ~TSTreeOptionsSingleton);
 }
 
 static inline void ts_tree_set_options(TSTree *tree, TSTreeOptions options) {

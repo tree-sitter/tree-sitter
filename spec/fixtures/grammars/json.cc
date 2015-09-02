@@ -7,7 +7,7 @@ using tree_sitter::Grammar;
 using namespace tree_sitter::rules;
 
 extern const Grammar json = Grammar({
-    { "value", choice({
+    { "_value", choice({
         sym("object"),
         sym("array"),
         sym("string"),
@@ -18,8 +18,8 @@ extern const Grammar json = Grammar({
     { "object", in_braces(comma_sep(err(seq({
         sym("string"),
         str(":"),
-        sym("value") })))) },
-    { "array", in_brackets(comma_sep(err(sym("value")))) },
+        sym("_value") })))) },
+    { "array", in_brackets(comma_sep(err(sym("_value")))) },
     { "string", pattern("\"([^\"]|\\\\\")*\"") },
     { "number", pattern("\\d+(\\.\\d+)?") },
     { "null", str("null") },

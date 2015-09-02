@@ -6,7 +6,8 @@ int x;
 
 ---
 
-(declaration (identifier) (identifier))
+(program
+  (declaration (type_name (identifier)) (declarator (identifier))))
 
 ==========================================
 simple functions
@@ -17,25 +18,27 @@ int main() {
 
 ---
 
-(function_definition
-	(identifier) (direct_declarator (identifier))
-	(compound_statement))
+(program (function_definition
+  (type_name (identifier))
+  (declarator (identifier))
+  (compound_statement)))
 
 ==========================================
 ambiguous declarations
 ==========================================
 
 int main() {
-	int i;
-	someTypeOrValue * pointerOrMultiplicand();
-	float y;
+  int i;
+  someTypeOrValue * pointerOrMultiplicand();
+  float y;
 }
 
 ---
 
-(function_definition
-	(identifier) (direct_declarator (identifier))
+(program (function_definition
+  (type_name (identifier))
+  (declarator (identifier))
   (compound_statement
-		(declaration (identifier) (identifier))
-		(declaration (identifier) (declarator (pointer) (direct_declarator (identifier))))
-		(declaration (identifier) (identifier))))
+    (declaration (type_name (identifier)) (declarator (identifier)))
+    (declaration (type_name (identifier)) (declarator (pointer) (identifier)))
+    (declaration (type_name (identifier)) (declarator (identifier))))))

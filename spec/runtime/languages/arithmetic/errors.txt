@@ -16,7 +16,7 @@ x + (y * + z) * 5
 
 ---
 
-(sum
+(program (sum
   (variable)
   (product
-    (group (ERROR (variable) (UNEXPECTED '+') (variable))) (number)))
+    (group (ERROR (variable) (UNEXPECTED '+') (variable))) (number))))

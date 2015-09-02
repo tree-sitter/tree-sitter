@@ -15,7 +15,7 @@ extern const Grammar c = Grammar({
 
     { "function_definition", seq({
         optional(sym("declaration_specifiers")),
-        sym("type_specifier"),
+        sym("_type_specifier"),
         sym("declarator"),
         repeat(sym("declaration")),
         sym("compound_statement") }) },
@@ -31,15 +31,17 @@ extern const Grammar c = Grammar({
         str("auto"),
         str("register") }) },
 
-    { "type_specifier", choice({
+    { "_type_specifier", choice({
         sym("struct_specifier"),
-        seq({
-            repeat(choice({
-                str("signed"),
-                str("unsigned"),
-                str("long"),
-                str("short") })),
-            sym("identifier") }) }) },
+        sym("type_name") }) },
+
+    { "type_name", seq({
+        repeat(choice({
+            str("signed"),
+            str("unsigned"),
+            str("long"),
+            str("short") })),
+        sym("identifier") }) },
 
     { "struct_specifier", seq({
         str("struct"),
@@ -50,21 +52,21 @@ extern const Grammar c = Grammar({
             str("}") }) }) },
 
     { "struct_declaration", seq({
-        sym("type_specifier"),
+        sym("_type_specifier"),
         sym("declarator") }) },
 
     { "parameter_declaration", seq({
         optional(sym("declaration_specifiers")),
-        sym("type_specifier"),
+        sym("_type_specifier"),
         sym("declarator") }) },
 
     { "declaration", seq({
         optional(sym("declaration_specifiers")),
-        sym("type_specifier"),
-        comma_sep1(sym("init_declarator")),
+        sym("_type_specifier"),
+        comma_sep1(sym("_init_declarator")),
         str(";") }) },
 
-    { "init_declarator", choice({
+    { "_init_declarator", choice({
         sym("declarator"),
         seq({ sym("declarator"), str("="), sym("initializer") }) }) },
 
@@ -99,21 +101,21 @@ extern const Grammar c = Grammar({
 
     { "declarator", seq({
         repeat(sym("pointer")),
-        sym("direct_declarator") }) },
+        sym("_direct_declarator") }) },
 
-    { "direct_declarator", choice({
+    { "_direct_declarator", choice({
         sym("identifier"),
         seq({
             str("("),
             sym("declarator"),
             str(")") }),
         seq({
-            sym("direct_declarator"),
+            sym("_direct_declarator"),
             str("["),
             optional(sym("expression")),
             str("]") }),
         seq({
-            sym("direct_declarator"),
+            sym("_direct_declarator"),
             str("("),
             comma_sep(sym("parameter_declaration")),
             str(")") }) }) },
@@ -165,7 +167,7 @@ extern const Grammar c = Grammar({
     sym("comment"),
     pattern("[ \t\r\n]"),
 }).expected_conflicts({
-  { "type_specifier", "expression" },
+  { "type_name", "expression" },
 });
 
 }  // namespace tree_sitter_examples

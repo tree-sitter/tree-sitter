@@ -5,21 +5,21 @@ composite types
 package main
 
 type x *struct {
-    field1 []int64
-    field2 map[string]interface{
-        DoStuff()
-    }
+  field1 []int64
+  field2 map[string]interface{
+    DoStuff()
+  }
 }
 
 ---
 
 (program
-    (package_directive (package_name))
-    (type_declaration
-        (type_name)
-        (pointer_type (struct_type
-            (var_name) (slice_type (type_name))
-            (var_name) (map_type (type_name) (interface_type (var_name)))))))
+  (package_directive (package_name))
+  (type_declaration
+    (type_name)
+    (pointer_type (struct_type
+      (var_name) (slice_type (type_name))
+      (var_name) (map_type (type_name) (interface_type (var_name)))))))
 
 ============================================
 functions arguments
@@ -34,10 +34,10 @@ func argsOfDifferentTypes() (arg1 string, arg2 int64) {}
 ---
 
 (program
-    (package_directive (package_name))
-    (func_declaration (var_name) (var_name) (interface_type) (block_statement))
-    (func_declaration (var_name) (var_name) (var_name) (type_name) (block_statement))
-    (func_declaration (var_name) (var_name) (type_name) (var_name) (type_name) (block_statement)))
+  (package_directive (package_name))
+  (func_declaration (var_name) (var_name) (interface_type) (block_statement))
+  (func_declaration (var_name) (var_name) (var_name) (type_name) (block_statement))
+  (func_declaration (var_name) (var_name) (type_name) (var_name) (type_name) (block_statement)))
 
 ============================================
 functions with unnamed return values
@@ -51,11 +51,11 @@ func multipleReturnValues() (string, int64, error) {}
 ---
 
 (program
-    (package_directive (package_name))
-    (func_declaration (var_name) (type_name)
-        (block_statement))
-    (func_declaration (var_name) (type_name) (type_name) (type_name)
-        (block_statement)))
+  (package_directive (package_name))
+  (func_declaration (var_name) (type_name)
+    (block_statement))
+  (func_declaration (var_name) (type_name) (type_name) (type_name)
+    (block_statement)))
 
 ============================================
 functions with named return values
@@ -69,9 +69,8 @@ func multipleReturnValues() (result string, count int64, err error) {}
 ---
 
 (program
-    (package_directive (package_name))
-    (func_declaration (var_name) (var_name) (type_name)
-        (block_statement))
-    (func_declaration (var_name) (var_name) (type_name) (var_name) (type_name) (var_name) (type_name)
-        (block_statement)))
-
+  (package_directive (package_name))
+  (func_declaration (var_name) (var_name) (type_name)
+    (block_statement))
+  (func_declaration (var_name) (var_name) (type_name) (var_name) (type_name) (var_name) (type_name)
+    (block_statement)))

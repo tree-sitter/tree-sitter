@@ -85,7 +85,7 @@ describe("Document", [&]() {
 
       AssertThat(debugger->messages, Contains("new_parse"));
       AssertThat(debugger->messages, Contains("lookahead char:'['"));
-      AssertThat(debugger->messages, Contains("reduce sym:value, count:1"));
+      AssertThat(debugger->messages, Contains("reduce sym:array, count:4"));
       AssertThat(debugger->messages, Contains("accept"));
     });
 
