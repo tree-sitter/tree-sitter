@@ -13,8 +13,8 @@ secondFunction(x);
     (var_assignment (identifier) (object))
     (identifier)
     (var_assignment (identifier) (number)))
-  (expression_statement (function_call (identifier) (identifier)))
-  (expression_statement (function_call (identifier) (identifier))))
+  (expression_statement (function_call (identifier) (arguments (identifier))))
+  (expression_statement (function_call (identifier) (arguments (identifier)))))
 
 ==========================================
 if statements
@@ -26,9 +26,9 @@ if (isReady()) {
 
 ---
 
-(program (if_statement (function_call (identifier))
+(program (if_statement (function_call (identifier) (arguments))
   (statement_block (expression_statement
-    (function_call (member_access (identifier) (identifier)) (identifier))))))
+    (function_call (member_access (identifier) (identifier)) (arguments (identifier)))))))
 
 ==========================================
 if-else statements
@@ -44,8 +44,8 @@ if (theCondition) {
 
 (program (if_statement
   (identifier)
-  (statement_block (expression_statement (function_call (identifier))))
-  (statement_block (expression_statement (function_call (identifier))))))
+  (statement_block (expression_statement (function_call (identifier) (arguments))))
+  (statement_block (expression_statement (function_call (identifier) (arguments))))))
 
 ==================================================
 if-else statements with multiple conditions
@@ -62,10 +62,10 @@ else {
 ---
 
 (program (if_statement (identifier)
-  (statement_block (expression_statement (function_call (identifier))))
+  (statement_block (expression_statement (function_call (identifier) (arguments))))
   (if_statement (identifier)
-    (expression_statement (function_call (identifier)))
-    (statement_block (expression_statement (function_call (identifier)))))))
+    (expression_statement (function_call (identifier) (arguments)))
+    (statement_block (expression_statement (function_call (identifier) (arguments)))))))
 
 ==========================================
 for loops
@@ -79,9 +79,9 @@ for (var i = 1; someCondition(i); i = next()) {
 
 (program (for_statement
   (var_declaration (var_assignment (identifier) (number)))
-  (function_call (identifier) (identifier))
-  (assignment (identifier) (function_call (identifier)))
-  (statement_block (expression_statement (function_call (identifier))))))
+  (function_call (identifier) (arguments (identifier)))
+  (assignment (identifier) (function_call (identifier) (arguments)))
+  (statement_block (expression_statement (function_call (identifier) (arguments))))))
 
 ==========================================
 for-in loops
@@ -97,10 +97,10 @@ for (key in someObject)
 (program
   (for_in_statement
     (identifier) (identifier)
-    (expression_statement (function_call (identifier))))
+    (expression_statement (function_call (identifier) (arguments))))
   (for_in_statement
     (identifier) (identifier)
-    (expression_statement (function_call (identifier)))))
+    (expression_statement (function_call (identifier) (arguments)))))
 
 ==========================================
 while loops
@@ -113,8 +113,8 @@ while (someCondition(i)) {
 ---
 
 (program (while_statement
-  (function_call (identifier) (identifier))
-  (statement_block (expression_statement (function_call (identifier))))))
+  (function_call (identifier) (arguments (identifier)))
+  (statement_block (expression_statement (function_call (identifier) (arguments))))))
 
 ==========================================
 try/catch statements
@@ -136,13 +136,13 @@ try {
 
 (program
   (try_statement
-    (statement_block (expression_statement (function_call (identifier))))
+    (statement_block (expression_statement (function_call (identifier) (arguments))))
     (catch (identifier)
-      (statement_block (expression_statement (function_call (identifier) (identifier))))))
+      (statement_block (expression_statement (function_call (identifier) (arguments (identifier)))))))
   (try_statement
-    (statement_block (expression_statement (function_call (identifier))))
+    (statement_block (expression_statement (function_call (identifier) (arguments))))
     (finally
-      (statement_block (expression_statement (function_call (identifier)))))))
+      (statement_block (expression_statement (function_call (identifier) (arguments)))))))
 
 ===========================================
 throw statements
@@ -153,7 +153,7 @@ throw new Error("wtf");
 ---
 
 (program
-  (throw_statement (constructor_call (identifier) (string))))
+  (throw_statement (constructor_call (identifier) (arguments (string)))))
 
 ===========================================
 indented code after blocks
@@ -189,11 +189,11 @@ switch(x) {
 (program (switch_statement (identifier)
   (case
     (string)
-    (expression_statement (function_call (identifier) (string)))
+    (expression_statement (function_call (identifier) (arguments (string))))
     (break_statement))
   (case
-    (function_call (identifier))
-    (expression_statement (function_call (identifier) (string)))
+    (function_call (identifier) (arguments))
+    (expression_statement (function_call (identifier) (arguments (string))))
     (break_statement))
   (default
-    (expression_statement (function_call (identifier) (string))))))
+    (expression_statement (function_call (identifier) (arguments (string)))))))

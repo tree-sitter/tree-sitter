@@ -83,7 +83,7 @@ var thing = {
         (formal_parameters (identifier) (comment))
         (statement_block
           (comment)
-          (expression_statement (function_call (identifier))))))))))
+          (expression_statement (function_call (identifier) (arguments))))))))))
 
 ==========================================
 comments within expressions
@@ -95,4 +95,4 @@ y // comment
 ---
 
 (program (expression_statement
-  (math_op (expression (identifier) (comment)) (identifier))))
+  (math_op (identifier) (comment) (identifier))))

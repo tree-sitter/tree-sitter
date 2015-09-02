@@ -14,32 +14,33 @@ static rule_ptr terminated(rule_ptr rule) {
 
 enum {
   PREC_COMMA = -1,
-  PREC_ASSIGN,
-  PREC_BLOCK,
-  PREC_TERNARY,
-  PREC_OR,
-  PREC_AND,
-  PREC_REL,
-  PREC_ADD,
-  PREC_MULT,
-  PREC_TYPE,
-  PREC_NOT,
-  PREC_SIGN,
-  PREC_INC,
-  PREC_CALL,
-  PREC_SHORT_NEW,
-  PREC_FULL_NEW,
-  PREC_MEMBER,
+  PREC_ASSIGN = 0,
+  PREC_BLOCK = 1,
+  PREC_TERNARY = 2,
+  PREC_OR = 3,
+  PREC_AND = 4,
+  PREC_REL = 5,
+  PREC_ADD = 6,
+  PREC_MULT = 7,
+  PREC_TYPE = 8,
+  PREC_NOT = 9,
+  PREC_SIGN = 10,
+  PREC_INC = 11,
+  PREC_SHORT_NEW = 12,
+  PREC_CALL = 13,
+  PREC_FULL_NEW = 14,
+  PREC_MEMBER = 15,
+  PREC_ARGS = 16,
 };
 
 extern const Grammar javascript = Grammar({
-    { "program", repeat(sym("statement")) },
+    { "program", repeat(sym("_statement")) },
 
     /*
      *  Statements
      */
 
-    { "statement", choice({
+    { "_statement", choice({
         sym("expression_statement"),
         sym("var_declaration"),
         sym("statement_block"),
@@ -57,7 +58,7 @@ extern const Grammar javascript = Grammar({
         sym("throw_statement"),
         sym("delete_statement") }) },
 
-    { "expression_statement", terminated(err(sym("expression"))) },
+    { "expression_statement", terminated(err(sym("_expression"))) },
 
     { "var_declaration", terminated(seq({
         str("var"),
@@ -66,15 +67,15 @@ extern const Grammar javascript = Grammar({
             sym("var_assignment") }))) })) },
 
     { "statement_block", prec(PREC_BLOCK,
-        in_braces(err(repeat(sym("statement"))))) },
+        in_braces(err(repeat(sym("_statement"))))) },
 
     { "if_statement", prec(0, seq({
         str("if"),
         sym("_paren_expression"),
-        sym("statement"),
+        sym("_statement"),
         optional(seq({
             str("else"),
-            sym("statement") })) }), AssociativityRight) },
+            sym("_statement") })) }), AssociativityRight) },
 
     { "switch_statement", seq({
         str("switch"),
@@ -88,12 +89,12 @@ extern const Grammar javascript = Grammar({
         str("("),
         choice({
             sym("var_declaration"),
-            seq({ sym("expression"), str(";") }),
+            seq({ sym("_expression"), str(";") }),
             str(";") }),
-        optional(err(sym("expression"))), str(";"),
-        optional(err(sym("expression"))),
+        optional(err(sym("_expression"))), str(";"),
+        optional(err(sym("_expression"))),
         str(")"),
-        sym("statement") }) },
+        sym("_statement") }) },
 
     { "for_in_statement", seq({
         str("for"),
@@ -102,18 +103,18 @@ extern const Grammar javascript = Grammar({
         prec(PREC_REL, seq({
           sym("identifier"),
           str("in"),
-          sym("expression") })),
+          sym("_expression") })),
         str(")"),
-        sym("statement") }) },
+        sym("_statement") }) },
 
     { "while_statement", seq({
         str("while"),
         sym("_paren_expression"),
-        sym("statement") }) },
+        sym("_statement") }) },
 
     // { "do_statement", seq({
         // str("do"),
-        // sym("statement"),
+        // sym("_statement"),
         // str("while"),
         // sym("_paren_expression") })},
 
@@ -125,11 +126,11 @@ extern const Grammar javascript = Grammar({
 
     { "return_statement", terminated(seq({
         str("return"),
-        optional(sym("expression")) })) },
+        optional(sym("_expression")) })) },
 
     { "throw_statement", terminated(seq({
         str("throw"),
-        sym("expression") })) },
+        sym("_expression") })) },
 
     { "break_statement", terminated(str("break")) },
 
@@ -143,14 +144,14 @@ extern const Grammar javascript = Grammar({
 
     { "case", seq({
         str("case"),
-        sym("expression"),
+        sym("_expression"),
         str(":"),
-        repeat(sym("statement")) }) },
+        repeat(sym("_statement")) }) },
 
     { "default", seq({
         str("default"),
         str(":"),
-        repeat(sym("statement")) }) },
+        repeat(sym("_statement")) }) },
 
     { "catch", seq({
         str("catch"),
@@ -166,15 +167,15 @@ extern const Grammar javascript = Grammar({
     { "var_assignment", seq({
         sym("identifier"),
         str("="),
-        sym("expression") }) },
+        sym("_expression") }) },
 
-    { "_paren_expression", in_parens(err(sym("expression"))) },
+    { "_paren_expression", in_parens(err(sym("_expression"))) },
 
     /*
      *  Expressions
      */
 
-    { "expression", choice({
+    { "_expression", choice({
         sym("object"),
         sym("array"),
         sym("function_expression"),
@@ -205,7 +206,7 @@ extern const Grammar javascript = Grammar({
 
     { "object", in_braces(comma_sep(err(sym("pair")))) },
 
-    { "array", in_brackets(comma_sep(err(sym("expression")))) },
+    { "array", in_brackets(comma_sep(err(sym("_expression")))) },
 
     { "function_expression", seq({
         str("function"),
@@ -216,31 +217,27 @@ extern const Grammar javascript = Grammar({
         sym("statement_block") }) },
 
     { "function_call", prec(PREC_CALL, seq({
-        sym("expression"),
-        str("("),
-        optional(err(sym("arguments"))),
-        str(")") })) },
+        sym("_expression"),
+        sym("arguments") })) },
 
     { "constructor_call", choice({
         prec(PREC_SHORT_NEW, seq({
           str("new"),
-          sym("expression") })),
-        prec(PREC_FULL_NEW, seq({
+          sym("_expression") }), AssociativityRight),
+        prec(PREC_MEMBER, seq({
           str("new"),
-          sym("expression"),
-          str("("),
-          err(optional(sym("arguments"))),
-          str(")") })) }) },
+          sym("_expression"),
+          sym("arguments") }), AssociativityRight) }) },
 
     { "member_access", prec(PREC_MEMBER, seq({
-        sym("expression"),
+        sym("_expression"),
         str("."),
         sym("identifier") })) },
 
     { "subscript_access", prec(PREC_MEMBER, seq({
-        sym("expression"),
+        sym("_expression"),
         str("["),
-        err(sym("expression")),
+        err(sym("_expression")),
         str("]") })) },
 
     { "assignment", prec(PREC_ASSIGN, seq({
@@ -249,7 +246,7 @@ extern const Grammar javascript = Grammar({
             sym("member_access"),
             sym("subscript_access") }),
         str("="),
-        sym("expression") }), AssociativityRight) },
+        sym("_expression") }), AssociativityRight) },
 
     { "math_assignment", prec(PREC_ASSIGN, seq({
         choice({
@@ -257,59 +254,59 @@ extern const Grammar javascript = Grammar({
             sym("member_access"),
             sym("subscript_access") }),
         choice({ str("+="), str("-="), str("*="), str("/=") }),
-        sym("expression") }), AssociativityRight) },
+        sym("_expression") }), AssociativityRight) },
 
     { "ternary", prec(PREC_TERNARY, seq({
-        sym("expression"),
+        sym("_expression"),
         str("?"),
-        sym("expression"),
+        sym("_expression"),
         str(":"),
-        sym("expression") }), AssociativityRight) },
+        sym("_expression") }), AssociativityRight) },
 
     { "bool_op", choice({
-        infix_op("||", "expression", PREC_OR),
-        infix_op("&&", "expression", PREC_AND),
-        prefix_op("!", "expression", PREC_NOT) }) },
+        infix_op("||", "_expression", PREC_OR),
+        infix_op("&&", "_expression", PREC_AND),
+        prefix_op("!", "_expression", PREC_NOT) }) },
 
-    { "comma_op", infix_op(",", "expression", PREC_COMMA) },
+    { "comma_op", infix_op(",", "_expression", PREC_COMMA) },
 
     { "math_op", choice({
 
-        // prefix_op("+", "expression", PREC_SIGN),
-        // prefix_op("-", "expression", PREC_SIGN),
+        // prefix_op("+", "_expression", PREC_SIGN),
+        // prefix_op("-", "_expression", PREC_SIGN),
 
-        postfix_op("++", "expression", PREC_INC),
-        postfix_op("--", "expression", PREC_INC),
-        infix_op("*", "expression", PREC_MULT),
-        infix_op("/", "expression", PREC_MULT),
-        infix_op("+", "expression", PREC_ADD),
-        infix_op("-", "expression", PREC_ADD) }) },
+        postfix_op("++", "_expression", PREC_INC),
+        postfix_op("--", "_expression", PREC_INC),
+        infix_op("*", "_expression", PREC_MULT),
+        infix_op("/", "_expression", PREC_MULT),
+        infix_op("+", "_expression", PREC_ADD),
+        infix_op("-", "_expression", PREC_ADD) }) },
 
     // { "bitwise_op", choice({
-        // infix_op("&", "expression", PREC_MULT),
-        // infix_op("|", "expression", PREC_MULT),
-        // infix_op("<<", "expression", PREC_MULT),
-        // infix_op(">>", "expression", PREC_MULT) }) },
+        // infix_op("&", "_expression", PREC_MULT),
+        // infix_op("|", "_expression", PREC_MULT),
+        // infix_op("<<", "_expression", PREC_MULT),
+        // infix_op(">>", "_expression", PREC_MULT) }) },
 
     { "rel_op", choice({
 
-        // infix_op("==", "expression", PREC_REL),
-        // infix_op("!=", "expression", PREC_REL),
-        // infix_op("<=", "expression", PREC_REL),
-        // infix_op(">=", "expression", PREC_REL),
+        // infix_op("==", "_expression", PREC_REL),
+        // infix_op("!=", "_expression", PREC_REL),
+        // infix_op("<=", "_expression", PREC_REL),
+        // infix_op(">=", "_expression", PREC_REL),
 
-        infix_op("===", "expression", PREC_REL),
-        infix_op("!==", "expression", PREC_REL),
-        infix_op("<", "expression", PREC_REL),
-        infix_op(">", "expression", PREC_REL) }) },
+        infix_op("===", "_expression", PREC_REL),
+        infix_op("!==", "_expression", PREC_REL),
+        infix_op("<", "_expression", PREC_REL),
+        infix_op(">", "_expression", PREC_REL) }) },
 
     { "type_op", choice({
         prec(PREC_REL, seq({
-          choice({ sym("expression"), sym("identifier") }),
+          choice({ sym("_expression"), sym("identifier") }),
           str("in"),
-          sym("expression") })),
-        infix_op("instanceof", "expression", PREC_REL),
-        prefix_op("typeof", "expression", PREC_TYPE) }) },
+          sym("_expression") })),
+        infix_op("instanceof", "_expression", PREC_REL),
+        prefix_op("typeof", "_expression", PREC_TYPE) }) },
 
     /*
      *  Primitives
@@ -344,12 +341,15 @@ extern const Grammar javascript = Grammar({
 
     { "formal_parameters", comma_sep1(sym("identifier")) },
 
-    { "arguments", prec(-5, comma_sep1(err(sym("expression")))) },
+    { "arguments", prec(PREC_ARGS, seq({
+        str("("),
+        comma_sep(err(sym("_expression"))),
+        str(")") })) },
 
     { "pair", seq({
         choice({ sym("string"), sym("identifier") }),
         str(":"),
-        sym("expression") }) },
+        sym("_expression") }) },
 }).ubiquitous_tokens({
     sym("comment"),
     sym("_line_break"),

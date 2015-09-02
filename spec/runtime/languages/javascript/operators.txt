@@ -16,33 +16,34 @@ constructor calls
 ==========================================
 
 var x = new Node(5, new Node(3, null));
+new Thing;
 
 ---
 
-(program (var_declaration (var_assignment
-  (identifier)
-  (constructor_call (identifier) (arguments
-    (number)
+(program
+  (var_declaration (var_assignment
+    (identifier)
     (constructor_call (identifier) (arguments
       (number)
-      (null))))))))
+      (constructor_call (identifier) (arguments
+        (number)
+        (null)))))))
+  (expression_statement (constructor_call (identifier))))
 
 ==========================================
 property access with dot notation
 ==========================================
 
 object.property = "the-value";
-print(object.property);
+object.property;
 
 ---
 
 (program
-  (expression_statement (assignment
-    (member_access (identifier) (identifier))
-    (string)))
-  (expression_statement (function_call
-    (identifier)
-    (member_access (identifier) (identifier)))))
+  (expression_statement
+    (assignment (member_access (identifier) (identifier)) (string)))
+  (expression_statement
+    (member_access (identifier) (identifier))))
 
 ==========================================
 property access across lines
@@ -64,30 +65,28 @@ dynamic property access
 ==========================================
 
 object[propertName()] = propertyValue();
-print(object[propertyName()]);
+object[propertyName()];
 
 ---
 
 (program
-  (expression_statement (assignment
-    (subscript_access (identifier) (function_call (identifier)))
-    (function_call (identifier))))
-  (expression_statement (function_call
-    (identifier)
-    (subscript_access (identifier) (function_call (identifier))))))
+  (expression_statement
+    (assignment
+      (subscript_access (identifier) (function_call (identifier) (arguments)))
+      (function_call (identifier) (arguments))))
+  (expression_statement
+    (subscript_access (identifier) (function_call (identifier) (arguments)))))
 
 ==========================================
 ternary expressions
 ==========================================
 
-print(isDone() ? stuff : otherStuff);
+isDone() ? stuff : otherStuff;
 
 ---
 
 (program (expression_statement
-  (function_call
-    (identifier)
-    (ternary (function_call (identifier)) (identifier) (identifier)))))
+  (ternary (function_call (identifier) (arguments)) (identifier) (identifier))))
 
 ==========================================
 mathematical operators
@@ -118,21 +117,20 @@ boolean operators
   (bool_op
     (bool_op (identifier))
     (bool_op
-      (expression (bool_op (identifier) (identifier)))))))
+      (bool_op (identifier) (identifier))))))
 
 ===========================================
 type operators
 ===========================================
 
-print((x instanceof Array) || (typeof x === "string"))
+(x instanceof Array) || (typeof x === "string")
 
 ---
 
 (program (expression_statement
-  (function_call (identifier)
-    (bool_op
-      (expression (type_op (identifier) (identifier)))
-      (expression (rel_op (type_op (identifier)) (string)))))))
+  (bool_op
+    (type_op (identifier) (identifier))
+    (rel_op (type_op (identifier)) (string)))))
 
 ============================================
 the 'in' operator
@@ -145,7 +143,7 @@ print(x in y)
 (program (expression_statement
   (function_call
     (identifier)
-    (type_op (identifier) (identifier)))))
+    (arguments (type_op (identifier) (identifier))))))
 
 ============================================
 assignment operators
@@ -174,6 +172,6 @@ print(x.y.z && a.b.c)
 
 (program (expression_statement
   (function_call (identifier)
-    (bool_op
+    (arguments (bool_op
       (member_access (member_access (identifier) (identifier)) (identifier))
-      (member_access (member_access (identifier) (identifier)) (identifier))))))
+      (member_access (member_access (identifier) (identifier)) (identifier)))))))
