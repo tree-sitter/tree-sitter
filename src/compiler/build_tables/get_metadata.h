@@ -8,7 +8,7 @@ namespace tree_sitter {
 namespace build_tables {
 
 struct MetadataRange {
-  MetadataRange() : MetadataRange(0, 0) {}
+  MetadataRange() : min(0), max(0) {}
   MetadataRange(int min, int max) : min(min), max(max) {}
 
   bool operator==(const MetadataRange &other) const {
