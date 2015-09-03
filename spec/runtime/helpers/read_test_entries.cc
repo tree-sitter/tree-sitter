@@ -102,7 +102,7 @@ static string src_dir() {
 
 vector<TestEntry> test_entries_for_language(string language) {
   vector<TestEntry> result;
-  string language_dir = src_dir() + "/spec/runtime/languages/" + language;
+  string language_dir = src_dir() + "/spec/fixtures/corpus/" + language;
   vector<string> filenames = list_directory(language_dir);
 
   for (string &filename : filenames) {
