@@ -6,7 +6,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "compiler/rules/rule.h"
+#include "compiler/rule.h"
 #include "compiler/rules/character_range.h"
 
 namespace tree_sitter {

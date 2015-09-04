@@ -8,7 +8,7 @@ using std::string;
 using std::vector;
 using std::ostream;
 
-ParseItem::ParseItem(const rules::Symbol &lhs, const rules::rule_ptr rule,
+ParseItem::ParseItem(const rules::Symbol &lhs, const rule_ptr rule,
                      const vector<rules::Symbol> &consumed_symbols)
     : Item(lhs, rule), consumed_symbols(consumed_symbols) {}
 

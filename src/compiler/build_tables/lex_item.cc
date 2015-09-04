@@ -11,7 +11,7 @@ namespace build_tables {
 using std::string;
 using std::ostream;
 
-LexItem::LexItem(const rules::Symbol &lhs, const rules::rule_ptr rule)
+LexItem::LexItem(const rules::Symbol &lhs, const rule_ptr rule)
     : Item(lhs, rule) {}
 
 bool LexItem::operator==(const LexItem &other) const {

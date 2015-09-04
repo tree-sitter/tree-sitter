@@ -6,14 +6,14 @@
 #include <string>
 #include <initializer_list>
 #include "tree_sitter/compiler.h"
-#include "compiler/rules/rule.h"
+#include "compiler/rule.h"
 
 using std::map;
 using std::vector;
 using std::string;
 using std::initializer_list;
 using std::pair;
-using tree_sitter::rules::rule_ptr;
+using tree_sitter::rule_ptr;
 
 template<typename K>
 class rule_map : public map<K, rule_ptr> {

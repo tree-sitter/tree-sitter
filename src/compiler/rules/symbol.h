@@ -2,7 +2,7 @@
 #define COMPILER_RULES_SYMBOL_H_
 
 #include <string>
-#include "compiler/rules/rule.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace rules {

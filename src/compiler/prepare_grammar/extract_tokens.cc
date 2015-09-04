@@ -26,7 +26,6 @@ using std::set;
 using std::string;
 using std::tuple;
 using std::vector;
-using rules::rule_ptr;
 using rules::Symbol;
 using rules::SymbolOptionToken;
 using rules::SymbolOptionAuxToken;
@@ -62,7 +61,7 @@ class SymbolReplacer : public rules::IdentityRuleFn {
 };
 
 class TokenExtractor : public rules::IdentityRuleFn {
-  rule_ptr apply_to_token(const rules::Rule *input) {
+  rule_ptr apply_to_token(const Rule *input) {
     auto rule = input->copy();
     for (size_t i = 0; i < tokens.size(); i++)
       if (tokens[i].second->operator==(*rule)) {
@@ -75,7 +74,7 @@ class TokenExtractor : public rules::IdentityRuleFn {
     return make_shared<Symbol>(index, SymbolOptionAuxToken);
   }
 
-  rule_ptr default_apply(const rules::Rule *rule) {
+  rule_ptr default_apply(const Rule *rule) {
     auto result = rule->copy();
     if (is_token(result))
       return apply_to_token(rule);

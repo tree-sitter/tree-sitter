@@ -40,9 +40,9 @@ pair<bool, ConflictType> ParseConflictManager::resolve(
           return { true, ConflictTypeResolved };
         else if (min_precedence == max_precedence) {
           switch (new_action.associativity) {
-            case rules::AssociativityLeft:
+            case AssociativityLeft:
               return { true, ConflictTypeResolved };
-            case rules::AssociativityRight:
+            case AssociativityRight:
               return { false, ConflictTypeResolved };
             default:
               return { false, ConflictTypeUnresolved };

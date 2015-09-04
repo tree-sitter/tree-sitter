@@ -1,6 +1,6 @@
 #include "compiler/rules/visitor.h"
 #include <vector>
-#include "compiler/rules/rule.h"
+#include "compiler/rule.h"
 #include "compiler/rules/blank.h"
 #include "compiler/rules/character_set.h"
 #include "compiler/rules/choice.h"

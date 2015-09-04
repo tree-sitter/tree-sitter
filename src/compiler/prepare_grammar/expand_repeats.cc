@@ -18,11 +18,9 @@ using std::vector;
 using std::pair;
 using std::to_string;
 using std::make_shared;
-using rules::rule_ptr;
 using rules::Blank;
 using rules::Choice;
 using rules::Repeat;
-using rules::Rule;
 using rules::Seq;
 using rules::Symbol;
 
@@ -64,7 +62,7 @@ class ExpandRepeats : public rules::IdentityRuleFn {
     return apply(rule);
   }
 
-  vector<pair<string, rules::rule_ptr>> aux_rules;
+  vector<pair<string, rule_ptr>> aux_rules;
 };
 
 SyntaxGrammar expand_repeats(const SyntaxGrammar &grammar) {

@@ -6,7 +6,7 @@
 namespace tree_sitter {
 namespace prepare_grammar {
 
-bool is_token(const rules::rule_ptr &);
+bool is_token(const rule_ptr &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

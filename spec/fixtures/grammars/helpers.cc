@@ -2,7 +2,7 @@
 
 namespace tree_sitter_examples {
 
-using namespace tree_sitter::rules;
+using namespace tree_sitter;
 
 rule_ptr repeat1(rule_ptr element) {
   return seq({ element, repeat(element) });

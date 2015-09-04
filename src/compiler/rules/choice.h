@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include "compiler/rules/rule.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace rules {

@@ -2,7 +2,7 @@
 #define COMPILER_RULES_BLANK_H_
 
 #include <string>
-#include "compiler/rules/rule.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace rules {
@@ -10,6 +10,7 @@ namespace rules {
 class Blank : public Rule {
  public:
   Blank();
+  static rule_ptr build();
 
   bool operator==(const Rule &other) const;
   size_t hash_code() const;

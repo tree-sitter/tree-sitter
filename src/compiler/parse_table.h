@@ -26,8 +26,7 @@ typedef enum {
 class ParseAction {
   ParseAction(ParseActionType type, ParseStateId state_index,
               rules::Symbol symbol, size_t consumed_symbol_count,
-              std::set<int> precedence_values, rules::Associativity,
-              int production_id);
+              std::set<int> precedence_values, Associativity, int production_id);
 
  public:
   ParseAction();
@@ -36,8 +35,7 @@ class ParseAction {
   static ParseAction Shift(ParseStateId state_index,
                            std::set<int> precedence_values);
   static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count,
-                            int precedence, rules::Associativity,
-                            int production_id);
+                            int precedence, Associativity, int production_id);
   static ParseAction ShiftExtra();
   static ParseAction ReduceExtra(rules::Symbol symbol);
   bool operator==(const ParseAction &) const;
@@ -48,7 +46,7 @@ class ParseAction {
   ParseStateId state_index;
   size_t consumed_symbol_count;
   std::set<int> precedence_values;
-  rules::Associativity associativity;
+  Associativity associativity;
   int production_id;
 };
 

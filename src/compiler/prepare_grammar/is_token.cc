@@ -20,7 +20,7 @@ class IsToken : public rules::RuleFn<bool> {
   }
 };
 
-bool is_token(const rules::rule_ptr &rule) {
+bool is_token(const rule_ptr &rule) {
   return IsToken().apply(rule);
 }
 

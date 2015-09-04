@@ -3,9 +3,6 @@
 
 namespace tree_sitter_examples {
 
-using tree_sitter::Grammar;
-using namespace tree_sitter::rules;
-
 extern const Grammar json = Grammar({
     { "_value", choice({
         sym("object"),

@@ -16,7 +16,6 @@ using std::set;
 using std::vector;
 using std::pair;
 using rules::Symbol;
-using rules::rule_ptr;
 
 const ParseItemSet item_set_closure(const ParseItem &starting_item,
                                     const set<Symbol> &starting_lookahead_symbols,

@@ -126,7 +126,7 @@ class LexTableBuilder {
         lex_table.state(state_id).is_token_start = true;
   }
 
-  rules::rule_ptr after_separators(rules::rule_ptr rule) {
+  rule_ptr after_separators(rule_ptr rule) {
     return rules::Seq::build({
       make_shared<rules::Metadata>(
         separator_rule(), map<rules::MetadataKey, int>({
@@ -136,11 +136,11 @@ class LexTableBuilder {
     });
   }
 
-  rules::rule_ptr separator_rule() const {
-    vector<rules::rule_ptr> separators;
+  rule_ptr separator_rule() const {
+    vector<rule_ptr> separators;
     for (const auto &rule : lex_grammar.separators)
-      separators.push_back(rules::repeat(rule));
-    return rules::choice(separators);
+      separators.push_back(rules::Repeat::build(rule));
+    return rules::Choice::build(separators);
   }
 
   set<int> precedence_values_for_item_set(const LexItemSet &item_set) const {

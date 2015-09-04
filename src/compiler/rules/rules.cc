@@ -3,7 +3,7 @@
 #include <set>
 #include <string>
 #include "tree_sitter/compiler.h"
-#include "compiler/rules/rule.h"
+#include "compiler/rule.h"
 #include "compiler/rules/blank.h"
 #include "compiler/rules/named_symbol.h"
 #include "compiler/rules/choice.h"
@@ -16,7 +16,6 @@
 #include "compiler/rules/built_in_symbols.h"
 
 namespace tree_sitter {
-namespace rules {
 
 using std::make_shared;
 using std::string;
@@ -24,45 +23,45 @@ using std::set;
 using std::vector;
 using std::map;
 
-static rule_ptr metadata(rule_ptr rule, map<MetadataKey, int> values) {
-  return std::make_shared<Metadata>(rule, values);
+static rule_ptr metadata(rule_ptr rule, map<rules::MetadataKey, int> values) {
+  return std::make_shared<rules::Metadata>(rule, values);
 }
 
 rule_ptr blank() {
-  return make_shared<Blank>();
+  return rules::Blank::build();
 }
 
 rule_ptr choice(const vector<rule_ptr> &rules) {
-  return Choice::build(rules);
+  return rules::Choice::build(rules);
 }
 
 rule_ptr repeat(const rule_ptr &content) {
-  return Repeat::build(content);
+  return rules::Repeat::build(content);
 }
 
 rule_ptr seq(const vector<rule_ptr> &rules) {
-  return Seq::build(rules);
+  return rules::Seq::build(rules);
 }
 
 rule_ptr sym(const string &name) {
-  return make_shared<NamedSymbol>(name);
+  return make_shared<rules::NamedSymbol>(name);
 }
 
 rule_ptr pattern(const string &value) {
-  return make_shared<Pattern>(value);
+  return make_shared<rules::Pattern>(value);
 }
 
 rule_ptr str(const string &value) {
-  return token(prec(1, make_shared<String>(value)));
+  return token(prec(1, make_shared<rules::String>(value)));
 }
 
 rule_ptr err(const rule_ptr &rule) {
-  return choice({ rule, ERROR().copy() });
+  return choice({ rule, rules::ERROR().copy() });
 }
 
 rule_ptr prec(int precedence, const rule_ptr &rule, Associativity associativity) {
-  return metadata(
-    rule, { { PRECEDENCE, precedence }, { ASSOCIATIVITY, associativity } });
+  return metadata(rule, { { rules::PRECEDENCE, precedence },
+                          { rules::ASSOCIATIVITY, associativity } });
 }
 
 rule_ptr prec(int precedence, const rule_ptr &rule) {
@@ -70,8 +69,7 @@ rule_ptr prec(int precedence, const rule_ptr &rule) {
 }
 
 rule_ptr token(const rule_ptr &rule) {
-  return metadata(rule, { { IS_TOKEN, 1 } });
+  return metadata(rule, { { rules::IS_TOKEN, 1 } });
 }
 
-}  // namespace rules
 }  // namespace tree_sitter

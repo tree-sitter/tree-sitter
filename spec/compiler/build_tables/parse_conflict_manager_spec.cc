@@ -129,7 +129,7 @@ describe("ParseConflictManager", []() {
       describe("when the precedences are equal and the reduce's rule has no associativity", [&]() {
         it("reports an unresolved conflict", [&]() {
           ParseAction shift = ParseAction::Shift(2, { 0 });
-          ParseAction reduce = ParseAction::Reduce(Symbol(2), 1, 0, AssociativityUnspecified, 0);
+          ParseAction reduce = ParseAction::Reduce(Symbol(2), 1, 0, AssociativityNone, 0);
 
           result = conflict_manager->resolve(reduce, shift, lookahead_sym);
           AssertThat(result.first, IsFalse());

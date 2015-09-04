@@ -62,12 +62,11 @@ class CanBeBlankRecursive : public CanBeBlank {
   }
 };
 
-bool rule_can_be_blank(const rules::rule_ptr &rule) {
+bool rule_can_be_blank(const rule_ptr &rule) {
   return CanBeBlank().apply(rule);
 }
 
-bool rule_can_be_blank(const rules::rule_ptr &rule,
-                       const SyntaxGrammar &grammar) {
+bool rule_can_be_blank(const rule_ptr &rule, const SyntaxGrammar &grammar) {
   return CanBeBlankRecursive(&grammar).apply(rule);
 }
 

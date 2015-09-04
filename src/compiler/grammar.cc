@@ -1,5 +1,5 @@
 #include "tree_sitter/compiler.h"
-#include "compiler/rules/rule.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 
@@ -8,9 +8,8 @@ using std::pair;
 using std::set;
 using std::string;
 using std::vector;
-using rules::rule_ptr;
 
-Grammar::Grammar(const vector<pair<string, rules::rule_ptr>> &rules)
+Grammar::Grammar(const vector<pair<string, rule_ptr>> &rules)
     : rules_(rules), ubiquitous_tokens_({}) {}
 
 const vector<pair<string, rule_ptr>> &Grammar::rules() const {

@@ -59,8 +59,7 @@ class FirstSymbols : public rules::RuleFn<set<Symbol>> {
   }
 };
 
-set<Symbol> first_symbols(const rules::rule_ptr &rule,
-                          const SyntaxGrammar &grammar) {
+set<Symbol> first_symbols(const rule_ptr &rule, const SyntaxGrammar &grammar) {
   return FirstSymbols(&grammar).apply(rule);
 }
 

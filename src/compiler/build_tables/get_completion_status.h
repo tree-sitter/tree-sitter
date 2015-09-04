@@ -9,10 +9,10 @@ namespace build_tables {
 struct CompletionStatus {
   bool is_done;
   int precedence;
-  rules::Associativity associativity;
+  Associativity associativity;
 };
 
-CompletionStatus get_completion_status(const rules::rule_ptr &);
+CompletionStatus get_completion_status(const rule_ptr &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

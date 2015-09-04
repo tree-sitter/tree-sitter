@@ -17,13 +17,11 @@ using std::string;
 using std::vector;
 using std::pair;
 using std::make_shared;
-using rules::rule_ptr;
 using rules::CharacterSet;
 using rules::Seq;
 using rules::Blank;
 using rules::Choice;
 using rules::Repeat;
-using rules::blank;
 
 class PatternParser {
  public:
@@ -45,7 +43,7 @@ class PatternParser {
       }
       auto pair = term(nested);
       if (pair.second)
-        return { blank(), pair.second };
+        return { Blank::build(), pair.second };
       choices.push_back(pair.first);
     } while (has_more_input());
     auto rule =
@@ -55,7 +53,7 @@ class PatternParser {
 
  private:
   pair<rule_ptr, const GrammarError *> term(bool nested) {
-    rule_ptr result = blank();
+    rule_ptr result = Blank::build();
     do {
       if (peek() == '|')
         break;
@@ -63,7 +61,7 @@ class PatternParser {
         break;
       auto pair = factor();
       if (pair.second)
-        return { blank(), pair.second };
+        return { Blank::build(), pair.second };
       result = Seq::build({ result, pair.first });
     } while (has_more_input());
     return { result, nullptr };
@@ -72,7 +70,7 @@ class PatternParser {
   pair<rule_ptr, const GrammarError *> factor() {
     auto pair = atom();
     if (pair.second)
-      return { blank(), pair.second };
+      return { Blank::build(), pair.second };
     rule_ptr result = pair.first;
     if (has_more_input()) {
       switch (peek()) {
@@ -99,7 +97,7 @@ class PatternParser {
         next();
         auto pair = rule(true);
         if (pair.second)
-          return { blank(), pair.second };
+          return { Blank::build(), pair.second };
         if (peek() != ')')
           return error("unmatched open paren");
         next();
@@ -109,7 +107,7 @@ class PatternParser {
         next();
         auto pair = char_set();
         if (pair.second)
-          return { blank(), pair.second };
+          return { Blank::build(), pair.second };
         if (peek() != ']')
           return error("unmatched open square bracket");
         next();
@@ -128,7 +126,7 @@ class PatternParser {
       default: {
         auto pair = single_char();
         if (pair.second)
-          return { blank(), pair.second };
+          return { Blank::build(), pair.second };
         return { pair.first.copy(), nullptr };
       }
     }
@@ -220,7 +218,7 @@ class PatternParser {
   }
 
   pair<rule_ptr, const GrammarError *> error(string msg) {
-    return { blank(), new GrammarError(GrammarErrorTypeRegex, msg) };
+    return { Blank::build(), new GrammarError(GrammarErrorTypeRegex, msg) };
   }
 
   string input;

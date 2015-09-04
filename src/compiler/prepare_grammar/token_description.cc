@@ -38,7 +38,7 @@ class TokenDescription : public rules::RuleFn<string> {
   }
 };
 
-std::string token_description(const rules::rule_ptr &rule) {
+std::string token_description(const rule_ptr &rule) {
   return TokenDescription().apply(rule);
 }
 

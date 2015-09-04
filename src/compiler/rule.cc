@@ -1,8 +1,7 @@
-#include "compiler/rules/rule.h"
+#include "compiler/rule.h"
 #include <set>
 
 namespace tree_sitter {
-namespace rules {
 
 using std::ostream;
 using std::string;
@@ -25,5 +24,4 @@ ostream &operator<<(ostream &stream, const rule_ptr &rule) {
 
 Rule::~Rule() {}
 
-}  // namespace rules
 }  // namespace tree_sitter

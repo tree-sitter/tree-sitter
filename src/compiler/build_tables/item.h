@@ -9,10 +9,10 @@ namespace build_tables {
 
 class Item {
  public:
-  Item(const rules::Symbol &lhs, rules::rule_ptr rule);
+  Item(const rules::Symbol &lhs, rule_ptr rule);
 
   rules::Symbol lhs;
-  rules::rule_ptr rule;
+  rule_ptr rule;
 };
 
 }  // namespace build_tables

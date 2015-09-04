@@ -4,6 +4,7 @@
 #include <set>
 #include "tree_sitter/compiler.h"
 #include "compiler/rules/visitor.h"
+#include "compiler/rules/blank.h"
 #include "compiler/rules/named_symbol.h"
 #include "compiler/rules/symbol.h"
 
@@ -11,7 +12,6 @@ namespace tree_sitter {
 namespace prepare_grammar {
 
 using std::string;
-using rules::rule_ptr;
 using std::vector;
 using std::set;
 using std::pair;
@@ -24,7 +24,7 @@ class InternSymbols : public rules::IdentityRuleFn {
     auto result = symbol_for_rule_name(rule->name);
     if (!result.get()) {
       missing_rule_name = rule->name;
-      return rules::blank();
+      return rules::Blank::build();
     }
     return result;
   }

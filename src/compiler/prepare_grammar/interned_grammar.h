@@ -12,8 +12,8 @@ namespace tree_sitter {
 namespace prepare_grammar {
 
 struct InternedGrammar {
-  std::vector<std::pair<std::string, rules::rule_ptr>> rules;
-  std::set<rules::rule_ptr> ubiquitous_tokens;
+  std::vector<std::pair<std::string, rule_ptr>> rules;
+  std::set<rule_ptr> ubiquitous_tokens;
   std::set<std::set<rules::Symbol>> expected_conflicts;
 };
 

@@ -3,9 +3,6 @@
 
 namespace tree_sitter_examples {
 
-using tree_sitter::Grammar;
-using namespace tree_sitter::rules;
-
 // http://slps.github.io/zoo/c/iso-9899-tc3.html
 
 extern const Grammar c = Grammar({

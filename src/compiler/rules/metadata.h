@@ -4,7 +4,7 @@
 #include <string>
 #include <map>
 #include "tree_sitter/compiler.h"
-#include "compiler/rules/rule.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace rules {
@@ -15,8 +15,6 @@ enum MetadataKey {
   IS_TOKEN,
   ASSOCIATIVITY,
 };
-
-const Associativity AssociativityUnspecified = (Associativity)0;
 
 class Metadata : public Rule {
  public:

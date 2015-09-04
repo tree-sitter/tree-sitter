@@ -18,7 +18,6 @@ using std::make_shared;
 using rules::CharacterSet;
 using rules::Choice;
 using rules::Symbol;
-using rules::rule_ptr;
 
 template <typename T>
 void merge_transitions(map<T, rule_ptr> *, const map<T, rule_ptr> &);
@@ -46,7 +45,7 @@ void merge_transitions(map<Symbol, rule_ptr> *left,
 template <typename T>
 class RuleTransitions : public rules::RuleFn<map<T, rule_ptr>> {
  private:
-  map<T, rule_ptr> apply_to_primitive(const rules::Rule *rule) {
+  map<T, rule_ptr> apply_to_primitive(const Rule *rule) {
     auto primitive = dynamic_cast<const T *>(rule);
     if (primitive)
       return map<T, rule_ptr>({ { *primitive, make_shared<rules::Blank>() } });

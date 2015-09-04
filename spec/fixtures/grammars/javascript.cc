@@ -3,9 +3,6 @@
 
 namespace tree_sitter_examples {
 
-using tree_sitter::Grammar;
-using namespace tree_sitter::rules;
-
 static rule_ptr terminated(rule_ptr rule) {
   return seq({ rule, choice({
       sym("_line_break"),

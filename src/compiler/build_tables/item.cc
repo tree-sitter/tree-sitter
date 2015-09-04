@@ -4,7 +4,7 @@
 namespace tree_sitter {
 namespace build_tables {
 
-Item::Item(const rules::Symbol &lhs, const rules::rule_ptr rule)
+Item::Item(const rules::Symbol &lhs, const rule_ptr rule)
     : lhs(lhs), rule(rule) {}
 
 }  // namespace build_tables

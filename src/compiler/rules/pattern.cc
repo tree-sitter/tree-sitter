@@ -11,7 +11,7 @@ using std::hash;
 
 Pattern::Pattern(const string &string) : value(string) {}
 
-bool Pattern::operator==(tree_sitter::rules::Rule const &other) const {
+bool Pattern::operator==(tree_sitter::Rule const &other) const {
   auto pattern = dynamic_cast<const Pattern *>(&other);
   return pattern && (pattern->value == value);
 }

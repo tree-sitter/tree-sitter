@@ -8,7 +8,7 @@ namespace tree_sitter {
 
 using std::string;
 
-const rules::rule_ptr &SyntaxGrammar::rule(const rules::Symbol &symbol) const {
+const rule_ptr &SyntaxGrammar::rule(const rules::Symbol &symbol) const {
   return symbol.is_auxiliary() ? aux_rules[symbol.index].second
                                : rules[symbol.index].second;
 }

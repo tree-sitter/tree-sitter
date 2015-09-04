@@ -15,7 +15,7 @@ namespace build_tables {
  *  Returns the set of symbols that can appear at the beginning of a sentential
  *  form derivable from a given rule in a given grammar.
  */
-std::set<rules::Symbol> first_symbols(const rules::rule_ptr &rule,
+std::set<rules::Symbol> first_symbols(const rule_ptr &rule,
                                       const SyntaxGrammar &grammar);
 
 }  // namespace build_tables

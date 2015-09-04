@@ -19,7 +19,6 @@ using std::string;
 using std::vector;
 using std::pair;
 using std::make_shared;
-using rules::rule_ptr;
 using rules::String;
 using rules::Pattern;
 

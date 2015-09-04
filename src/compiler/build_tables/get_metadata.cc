@@ -19,7 +19,7 @@ std::ostream &operator<<(std::ostream &stream, const MetadataRange &range) {
                 << to_string(range.max) << string("}");
 }
 
-MetadataRange get_metadata(const rules::rule_ptr &rule, rules::MetadataKey key) {
+MetadataRange get_metadata(const rule_ptr &rule, rules::MetadataKey key) {
   class GetMetadata : public rules::RuleFn<pair<MetadataRange, bool>> {
     rules::MetadataKey metadata_key;
 

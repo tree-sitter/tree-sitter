@@ -13,7 +13,7 @@ using rules::Symbol;
 ParseAction::ParseAction(ParseActionType type, ParseStateId state_index,
                          Symbol symbol, size_t consumed_symbol_count,
                          set<int> precedence_values,
-                         rules::Associativity associativity, int production_id)
+                         Associativity associativity, int production_id)
     : type(type),
       symbol(symbol),
       state_index(state_index),
@@ -27,7 +27,7 @@ ParseAction::ParseAction()
       symbol(Symbol(-1)),
       state_index(-1),
       consumed_symbol_count(0),
-      associativity(rules::AssociativityUnspecified) {}
+      associativity(AssociativityNone) {}
 
 ParseAction ParseAction::Error() {
   return ParseAction();
@@ -42,7 +42,7 @@ ParseAction ParseAction::Accept() {
 ParseAction ParseAction::Shift(ParseStateId state_index,
                                set<int> precedence_values) {
   return ParseAction(ParseActionTypeShift, state_index, Symbol(-1), 0,
-                     precedence_values, rules::AssociativityUnspecified, -1);
+                     precedence_values, AssociativityNone, -1);
 }
 
 ParseAction ParseAction::ShiftExtra() {
@@ -59,8 +59,7 @@ ParseAction ParseAction::ReduceExtra(Symbol symbol) {
 }
 
 ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
-                                int precedence,
-                                rules::Associativity associativity,
+                                int precedence, Associativity associativity,
                                 int production_id) {
   return ParseAction(ParseActionTypeReduce, 0, symbol, consumed_symbol_count,
                      { precedence }, associativity, production_id);

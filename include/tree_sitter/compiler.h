@@ -9,13 +9,11 @@
 
 namespace tree_sitter {
 
-namespace rules {
-
 class Rule;
 typedef std::shared_ptr<Rule> rule_ptr;
 
 enum Associativity {
-  AssociativityNone = 0,
+  AssociativityNone,
   AssociativityLeft,
   AssociativityRight,
 };
@@ -32,21 +30,17 @@ rule_ptr prec(int precedence, const rule_ptr &);
 rule_ptr prec(int precedence, const rule_ptr &, Associativity);
 rule_ptr token(const rule_ptr &rule);
 
-std::ostream &operator<<(std::ostream &stream, const rules::rule_ptr &rule);
-
-}  // namespace rules
-
 class Grammar {
-  const std::vector<std::pair<std::string, rules::rule_ptr>> rules_;
-  std::set<rules::rule_ptr> ubiquitous_tokens_;
+  const std::vector<std::pair<std::string, rule_ptr>> rules_;
+  std::set<rule_ptr> ubiquitous_tokens_;
   std::set<std::set<std::string>> expected_conflicts_;
 
  public:
-  explicit Grammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &);
-  Grammar &ubiquitous_tokens(const std::set<rules::rule_ptr> &);
+  explicit Grammar(const std::vector<std::pair<std::string, rule_ptr>> &);
+  Grammar &ubiquitous_tokens(const std::set<rule_ptr> &);
   Grammar &expected_conflicts(const std::set<std::set<std::string>> &);
-  const std::vector<std::pair<std::string, rules::rule_ptr>> &rules() const;
-  const std::set<rules::rule_ptr> &ubiquitous_tokens() const;
+  const std::vector<std::pair<std::string, rule_ptr>> &rules() const;
+  const std::set<rule_ptr> &ubiquitous_tokens() const;
   const std::set<std::set<std::string>> &expected_conflicts() const;
 };
 
@@ -71,6 +65,7 @@ std::pair<std::string, const GrammarError *> compile(const Grammar &,
 
 std::ostream &operator<<(std::ostream &stream, const Grammar &grammar);
 std::ostream &operator<<(std::ostream &stream, const GrammarError *error);
+std::ostream &operator<<(std::ostream &stream, const rule_ptr &rule);
 
 }  // namespace tree_sitter
 

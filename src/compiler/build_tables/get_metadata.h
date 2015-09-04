@@ -21,7 +21,7 @@ struct MetadataRange {
 
 std::ostream &operator<<(std::ostream &stream, const MetadataRange &range);
 
-MetadataRange get_metadata(const rules::rule_ptr &, rules::MetadataKey);
+MetadataRange get_metadata(const rule_ptr &, rules::MetadataKey);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

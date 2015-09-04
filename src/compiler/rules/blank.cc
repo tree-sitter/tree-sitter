@@ -1,11 +1,16 @@
 #include "compiler/rules/blank.h"
 #include <string>
+#include <memory>
 #include "compiler/rules/visitor.h"
 
 namespace tree_sitter {
 namespace rules {
 
 Blank::Blank() {}
+
+rule_ptr Blank::build() {
+  return std::make_shared<Blank>();
+}
 
 bool Blank::operator==(const Rule &rule) const {
   return dynamic_cast<const Blank *>(&rule) != nullptr;

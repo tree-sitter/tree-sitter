@@ -11,7 +11,7 @@ using std::pair;
 using std::vector;
 using std::set;
 
-const rules::rule_ptr &LexicalGrammar::rule(const rules::Symbol &symbol) const {
+const rule_ptr &LexicalGrammar::rule(const rules::Symbol &symbol) const {
   return symbol.is_auxiliary() ? aux_rules[symbol.index].second
                                : rules[symbol.index].second;
 }
