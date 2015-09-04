@@ -10,27 +10,29 @@ using std::string;
 using std::vector;
 using rules::rule_ptr;
 
-Grammar::Grammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &rules)
+Grammar::Grammar(const vector<pair<string, rules::rule_ptr>> &rules)
     : rules_(rules), ubiquitous_tokens_({}) {}
 
-bool Grammar::operator==(const Grammar &other) const {
-  if (other.rules_.size() != rules_.size())
-    return false;
-
-  for (size_t i = 0; i < rules_.size(); i++) {
-    auto &pair = rules_[i];
-    auto &other_pair = other.rules_[i];
-    if (other_pair.first != pair.first)
-      return false;
-    if (!other_pair.second->operator==(*pair.second))
-      return false;
-  }
-
-  return true;
+const vector<pair<string, rule_ptr>> &Grammar::rules() const {
+  return rules_;
 }
 
-string Grammar::start_rule_name() const {
-  return rules_.front().first;
+const set<rule_ptr> &Grammar::ubiquitous_tokens() const {
+  return ubiquitous_tokens_;
+}
+
+const set<set<string>> &Grammar::expected_conflicts() const {
+  return expected_conflicts_;
+}
+
+Grammar &Grammar::ubiquitous_tokens(const set<rule_ptr> &ubiquitous_tokens) {
+  ubiquitous_tokens_ = ubiquitous_tokens;
+  return *this;
+}
+
+Grammar &Grammar::expected_conflicts(const set<set<string>> &expected_conflicts) {
+  expected_conflicts_ = expected_conflicts;
+  return *this;
 }
 
 ostream &operator<<(ostream &stream, const Grammar &grammar) {
@@ -48,7 +50,7 @@ ostream &operator<<(ostream &stream, const Grammar &grammar) {
   return stream << string("}>");
 }
 
-GrammarError::GrammarError(GrammarErrorType type, std::string message)
+GrammarError::GrammarError(GrammarErrorType type, string message)
     : type(type), message(message) {}
 
 bool GrammarError::operator==(const GrammarError &other) const {
@@ -60,28 +62,6 @@ ostream &operator<<(ostream &stream, const GrammarError *error) {
     return stream << (string("#<grammar-error '") + error->message + "'>");
   else
     return stream << string("#<null>");
-}
-
-const set<rule_ptr> &Grammar::ubiquitous_tokens() const {
-  return ubiquitous_tokens_;
-}
-
-Grammar &Grammar::ubiquitous_tokens(const set<rule_ptr> &ubiquitous_tokens) {
-  ubiquitous_tokens_ = ubiquitous_tokens;
-  return *this;
-}
-
-const set<set<string>> &Grammar::expected_conflicts() const {
-  return expected_conflicts_;
-}
-
-Grammar &Grammar::expected_conflicts(const set<set<string>> &expected_conflicts) {
-  expected_conflicts_ = expected_conflicts;
-  return *this;
-}
-
-const vector<pair<string, rule_ptr>> &Grammar::rules() const {
-  return rules_;
 }
 
 }  // namespace tree_sitter

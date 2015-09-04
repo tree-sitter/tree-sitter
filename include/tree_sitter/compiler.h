@@ -43,14 +43,11 @@ class Grammar {
 
  public:
   explicit Grammar(const std::vector<std::pair<std::string, rules::rule_ptr>> &);
-  bool operator==(const Grammar &) const;
-  std::string start_rule_name() const;
-  const rules::rule_ptr rule(const std::string &) const;
+  Grammar &ubiquitous_tokens(const std::set<rules::rule_ptr> &);
+  Grammar &expected_conflicts(const std::set<std::set<std::string>> &);
   const std::vector<std::pair<std::string, rules::rule_ptr>> &rules() const;
   const std::set<rules::rule_ptr> &ubiquitous_tokens() const;
-  Grammar &ubiquitous_tokens(const std::set<rules::rule_ptr> &);
   const std::set<std::set<std::string>> &expected_conflicts() const;
-  Grammar &expected_conflicts(const std::set<std::set<std::string>> &);
 };
 
 enum GrammarErrorType {
