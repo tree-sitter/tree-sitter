@@ -29,11 +29,11 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
     return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
 
   // Replace `Repeat` rules with pairs of recursive rules
-  const SyntaxGrammar &syntax_grammar = expand_repeats(get<0>(extract_result));
+  SyntaxGrammar syntax_grammar = expand_repeats(get<0>(extract_result));
 
   // Expand `String` and `Pattern` rules into full rule trees
   auto expand_tokens_result = expand_tokens(get<1>(extract_result));
-  const LexicalGrammar &lex_grammar = expand_tokens_result.first;
+  LexicalGrammar lex_grammar = expand_tokens_result.first;
   error = expand_tokens_result.second;
   if (error)
     return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
