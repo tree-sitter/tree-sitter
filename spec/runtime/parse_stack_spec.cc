@@ -43,7 +43,7 @@ describe("ParseStack", [&]() {
 
     TSLength len = ts_length_make(2, 2);
     for (size_t i = 0; i < tree_count; i++)
-      trees[i] = ts_tree_make_leaf(ts_builtin_sym_start + i, len, len, false);
+      trees[i] = ts_tree_make_leaf(ts_builtin_sym_start + i, len, len, TSNodeTypeNormal);
   });
 
   after_each([&]() {

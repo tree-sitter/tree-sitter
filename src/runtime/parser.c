@@ -193,7 +193,7 @@ static void ts_parser__shift_extra(TSParser *parser, int head, TSStateId state) 
 static TSTree *ts_parser__reduce(TSParser *parser, int head, TSSymbol symbol,
                                  size_t child_count, bool extra,
                                  bool count_extra) {
-  bool hidden = parser->language->hidden_symbol_flags[symbol];
+  TSNodeType node_type = parser->language->node_types[symbol];
   ParseStackPopResultList pop_results =
     ts_parse_stack_pop(parser->stack, head, child_count, count_extra);
 
@@ -206,7 +206,7 @@ static TSTree *ts_parser__reduce(TSParser *parser, int head, TSSymbol symbol,
 
     if (pop_result.trees != last_children) {
       parent = ts_tree_make_node(symbol, pop_result.tree_count,
-                                 pop_result.trees, hidden);
+                                 pop_result.trees, node_type);
     }
 
     if (pop_result.index == last_index) {

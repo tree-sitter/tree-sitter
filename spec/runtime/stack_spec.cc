@@ -32,7 +32,7 @@ describe("stacks", [&]() {
           sym1,
           ts_length_make(0, 0),
           ts_length_make(1, 1),
-          0);
+          TSNodeTypeNormal);
 
       ts_stack_push(&stack, 5, node1);
     });

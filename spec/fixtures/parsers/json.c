@@ -43,16 +43,25 @@ static const char *ts_symbol_names[] = {
     [sym_false] = "false",
 };
 
-static const int ts_hidden_symbol_flags[SYMBOL_COUNT] = {
-    [sym__value] = 1,
-    [aux_sym_object_repeat1] = 1,
-    [aux_sym_array_repeat1] = 1,
-    [aux_sym_LBRACE] = 1,
-    [aux_sym_COLON] = 1,
-    [aux_sym_COMMA] = 1,
-    [aux_sym_RBRACE] = 1,
-    [aux_sym_LBRACK] = 1,
-    [aux_sym_RBRACK] = 1,
+static const TSNodeType ts_node_types[SYMBOL_COUNT] = {
+    [sym__value] = TSNodeTypeHidden,
+    [sym_object] = TSNodeTypeNormal,
+    [sym_array] = TSNodeTypeNormal,
+    [aux_sym_object_repeat1] = TSNodeTypeHidden,
+    [aux_sym_array_repeat1] = TSNodeTypeHidden,
+    [ts_builtin_sym_error] = TSNodeTypeNormal,
+    [ts_builtin_sym_end] = TSNodeTypeHidden,
+    [aux_sym_LBRACE] = TSNodeTypeConcrete,
+    [aux_sym_COLON] = TSNodeTypeConcrete,
+    [aux_sym_COMMA] = TSNodeTypeConcrete,
+    [aux_sym_RBRACE] = TSNodeTypeConcrete,
+    [aux_sym_LBRACK] = TSNodeTypeConcrete,
+    [aux_sym_RBRACK] = TSNodeTypeConcrete,
+    [sym_string] = TSNodeTypeNormal,
+    [sym_number] = TSNodeTypeNormal,
+    [sym_null] = TSNodeTypeNormal,
+    [sym_true] = TSNodeTypeNormal,
+    [sym_false] = TSNodeTypeNormal,
 };
 
 static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {

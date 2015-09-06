@@ -7,7 +7,7 @@
 #include "runtime/length.h"
 
 TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength size, TSLength padding,
-                          bool is_hidden) {
+                          TSNodeType node_type) {
   TSTree *result = malloc(sizeof(TSTree));
   *result = (TSTree){
     .ref_count = 1,
@@ -16,7 +16,10 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength size, TSLength padding,
     .child_count = 0,
     .children = NULL,
     .padding = padding,
-    .options = is_hidden ? TSTreeOptionsHidden : 0,
+    .options = (TSTreeOptions){
+      .hidden = (node_type == TSNodeTypeHidden),
+      .concrete = (node_type == TSNodeTypeConcrete),
+    },
   };
   return result;
 }
@@ -30,7 +33,7 @@ TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char)
 }
 
 TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
-                          TSTree **children, bool is_hidden) {
+                          TSTree **children, TSNodeType node_type) {
   TSTree *result = malloc(sizeof(TSTree));
 
   /*
@@ -58,21 +61,17 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
       visible_child_count += child->visible_child_count;
   }
 
-  /*
-   *  Mark the tree as hidden if it wraps a single child node.
-   */
-  TSTreeOptions options = 0;
+  TSTreeOptions options = (TSTreeOptions){
+    .hidden = (node_type == TSNodeTypeHidden),
+    .concrete = (node_type == TSNodeTypeConcrete),
+  };
+
   if (symbol == ts_builtin_sym_error) {
-    options |= (TSTreeOptionsFragileLeft | TSTreeOptionsFragileRight);
-  } else {
-    if (is_hidden)
-      options |= TSTreeOptionsHidden;
-    if (child_count > 0) {
-      if (ts_tree_is_fragile_left(children[0]))
-        options |= (TSTreeOptionsFragileLeft);
-      if (ts_tree_is_fragile_right(children[child_count - 1]))
-        options |= (TSTreeOptionsFragileRight);
-    }
+    options.fragile_left = true;
+    options.fragile_left = true;
+  } else if (child_count > 0) {
+    options.fragile_left = children[0]->options.fragile_left;
+    options.fragile_right = children[child_count - 1]->options.fragile_right;
   }
 
   *result = (TSTree){.ref_count = 1,

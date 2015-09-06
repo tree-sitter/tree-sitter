@@ -47,15 +47,27 @@ static const char *ts_symbol_names[] = {
     [sym_comment] = "comment",
 };
 
-static const int ts_hidden_symbol_flags[SYMBOL_COUNT] = {
-    [sym__expression] = 1,
-    [aux_sym_PLUS] = 1,
-    [aux_sym_DASH] = 1,
-    [aux_sym_STAR] = 1,
-    [aux_sym_SLASH] = 1,
-    [aux_sym_CARET] = 1,
-    [aux_sym_LPAREN] = 1,
-    [aux_sym_RPAREN] = 1,
+static const TSNodeType ts_node_types[SYMBOL_COUNT] = {
+    [sym_program] = TSNodeTypeNormal,
+    [sym__expression] = TSNodeTypeHidden,
+    [sym_sum] = TSNodeTypeNormal,
+    [sym_difference] = TSNodeTypeNormal,
+    [sym_product] = TSNodeTypeNormal,
+    [sym_quotient] = TSNodeTypeNormal,
+    [sym_exponent] = TSNodeTypeNormal,
+    [sym_group] = TSNodeTypeNormal,
+    [ts_builtin_sym_error] = TSNodeTypeNormal,
+    [ts_builtin_sym_end] = TSNodeTypeHidden,
+    [aux_sym_PLUS] = TSNodeTypeConcrete,
+    [aux_sym_DASH] = TSNodeTypeConcrete,
+    [aux_sym_STAR] = TSNodeTypeConcrete,
+    [aux_sym_SLASH] = TSNodeTypeConcrete,
+    [aux_sym_CARET] = TSNodeTypeConcrete,
+    [aux_sym_LPAREN] = TSNodeTypeConcrete,
+    [aux_sym_RPAREN] = TSNodeTypeConcrete,
+    [sym_number] = TSNodeTypeNormal,
+    [sym_variable] = TSNodeTypeNormal,
+    [sym_comment] = TSNodeTypeNormal,
 };
 
 static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {

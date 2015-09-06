@@ -13,14 +13,21 @@ extern "C" {
 #define TS_DEBUG_BUFFER_SIZE 512
 
 typedef struct TSTree TSTree;
+
 typedef unsigned short TSStateId;
+
+typedef enum {
+  TSNodeTypeNormal,
+  TSNodeTypeConcrete,
+  TSNodeTypeHidden,
+} TSNodeType;
 
 typedef struct TSLexer {
   // Public
   void (*start_fn)(struct TSLexer *, TSStateId);
   void (*start_token_fn)(struct TSLexer *);
   bool (*advance_fn)(struct TSLexer *, TSStateId);
-  TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, int, const char *);
+  TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, TSNodeType, const char *);
 
   // Private
   const char *chunk;
@@ -63,7 +70,7 @@ typedef struct {
 struct TSLanguage {
   size_t symbol_count;
   const char **symbol_names;
-  const int *hidden_symbol_flags;
+  const TSNodeType *node_types;
   const TSParseAction **parse_table;
   const TSStateId *lex_states;
   TSTree *(*lex_fn)(TSLexer *, TSStateId);
@@ -94,8 +101,8 @@ struct TSLanguage {
     GO_TO_STATE(state_index);              \
   }
 
-#define ACCEPT_TOKEN(symbol)                                             \
-  return lexer->accept_fn(lexer, symbol, ts_hidden_symbol_flags[symbol], \
+#define ACCEPT_TOKEN(symbol)                                    \
+  return lexer->accept_fn(lexer, symbol, ts_node_types[symbol], \
                           ts_symbol_names[symbol]);
 
 #define LEX_ERROR()                      \
@@ -150,7 +157,7 @@ struct TSLanguage {
 #define EXPORT_LANGUAGE(language_name)                       \
   static TSLanguage language = {                             \
     .symbol_count = SYMBOL_COUNT,                            \
-    .hidden_symbol_flags = ts_hidden_symbol_flags,           \
+    .node_types = ts_node_types,                             \
     .parse_table = (const TSParseAction **)ts_parse_actions, \
     .lex_states = ts_lex_states,                             \
     .symbol_names = ts_symbol_names,                         \

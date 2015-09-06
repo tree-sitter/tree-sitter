@@ -88,7 +88,7 @@ class CCodeGenerator {
     add_state_and_symbol_counts();
     add_symbol_enum();
     add_symbol_names_list();
-    add_hidden_symbols_list();
+    add_symbol_node_types_list();
     add_lex_function();
     add_lex_states_list();
     add_parse_table();
@@ -136,13 +136,38 @@ class CCodeGenerator {
     line();
   }
 
-  void add_hidden_symbols_list() {
-    line("static const int ts_hidden_symbol_flags[SYMBOL_COUNT] = {");
+  void add_symbol_node_types_list() {
+    line("static const TSNodeType ts_node_types[SYMBOL_COUNT] = {");
     indent([&]() {
-      for (const auto &symbol : parse_table.symbols)
-        if (!symbol.is_built_in() &&
-            (is_auxiliary(symbol) || rule_name(symbol)[0] == '_'))
-          line("[" + symbol_id(symbol) + "] = 1,");
+      for (const auto &symbol : parse_table.symbols) {
+        line("[" + symbol_id(symbol) + "] = ");
+
+        if (symbol == rules::ERROR()) {
+          add("TSNodeTypeNormal,");
+          continue;
+        } else if (symbol == rules::END_OF_INPUT()) {
+          add("TSNodeTypeHidden,");
+          continue;
+        }
+
+        RuleEntry entry = entry_for_symbol(symbol);
+        if (entry.name[0] == '_') {
+          add("TSNodeTypeHidden,");
+          continue;
+        }
+
+        switch (entry.type) {
+          case RuleEntryTypeNamed:
+            add("TSNodeTypeNormal,");
+            break;
+          case RuleEntryTypeAnonymous:
+            add("TSNodeTypeConcrete,");
+            break;
+          case RuleEntryTypeHidden:
+            add("TSNodeTypeHidden,");
+            break;
+        }
+      }
     });
     line("};");
     line();
@@ -328,10 +353,10 @@ class CCodeGenerator {
         return "";
     } else {
       string name = sanitize_name(rule_name(symbol));
-      if (is_auxiliary(symbol))
-        return "aux_sym_" + name;
-      else
+      if (entry_for_symbol(symbol).type == RuleEntryTypeNamed)
         return "sym_" + name;
+      else
+        return "aux_sym_" + name;
     }
   }
 
@@ -348,20 +373,15 @@ class CCodeGenerator {
     }
   }
 
-  bool is_auxiliary(const rules::Symbol &symbol) {
-    if (symbol.is_token) {
-      return lexical_grammar.rules[symbol.index].type != RuleEntryTypeNamed;
-    } else {
-      return syntax_grammar.rules[symbol.index].type != RuleEntryTypeNamed;
-    }
+  const RuleEntry &entry_for_symbol(const rules::Symbol &symbol) {
+    if (symbol.is_token)
+      return lexical_grammar.rules[symbol.index];
+    else
+      return syntax_grammar.rules[symbol.index];
   }
 
   string rule_name(const rules::Symbol &symbol) {
-    if (symbol.is_token) {
-      return lexical_grammar.rules[symbol.index].name;
-    } else {
-      return syntax_grammar.rules[symbol.index].name;
-    }
+    return entry_for_symbol(symbol).name;
   }
 
   bool reduce_action_is_fragile(const ParseAction &action) const {

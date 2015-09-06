@@ -68,8 +68,8 @@ static bool ts_lexer__advance(TSLexer *lexer, TSStateId state) {
   return true;
 }
 
-static TSTree *ts_lexer__accept(TSLexer *lexer, TSSymbol symbol, int is_hidden,
-                                const char *symbol_name) {
+static TSTree *ts_lexer__accept(TSLexer *lexer, TSSymbol symbol,
+                                TSNodeType node_type, const char *symbol_name) {
   TSLength size =
     ts_length_sub(lexer->current_position, lexer->token_start_position);
   TSLength padding =
@@ -81,7 +81,7 @@ static TSTree *ts_lexer__accept(TSLexer *lexer, TSSymbol symbol, int is_hidden,
     return ts_tree_make_error(size, padding, lexer->lookahead);
   } else {
     DEBUG("accept_token sym:%s", symbol_name);
-    return ts_tree_make_leaf(symbol, size, padding, is_hidden);
+    return ts_tree_make_leaf(symbol, size, padding, node_type);
   }
 }
 
@@ -91,19 +91,21 @@ static TSTree *ts_lexer__accept(TSLexer *lexer, TSSymbol symbol, int is_hidden,
  */
 
 TSLexer ts_lexer_make() {
-  TSLexer result = (TSLexer){.start_fn = ts_lexer__start,
-                             .start_token_fn = ts_lexer__start_token,
-                             .advance_fn = ts_lexer__advance,
-                             .accept_fn = ts_lexer__accept,
-                             .chunk = NULL,
-                             .chunk_start = 0,
-                             .chunk_size = 0,
-                             .current_position = ts_length_zero(),
-                             .token_start_position = ts_length_zero(),
-                             .token_end_position = ts_length_zero(),
-                             .lookahead = 0,
-                             .lookahead_size = 0,
-                             .debugger = ts_debugger_null() };
+  TSLexer result = (TSLexer){
+    .start_fn = ts_lexer__start,
+    .start_token_fn = ts_lexer__start_token,
+    .advance_fn = ts_lexer__advance,
+    .accept_fn = ts_lexer__accept,
+    .chunk = NULL,
+    .chunk_start = 0,
+    .chunk_size = 0,
+    .current_position = ts_length_zero(),
+    .token_start_position = ts_length_zero(),
+    .token_end_position = ts_length_zero(),
+    .lookahead = 0,
+    .lookahead_size = 0,
+    .debugger = ts_debugger_null(),
+  };
   return result;
 }
 

@@ -8,11 +8,12 @@ extern "C" {
 #include <stdbool.h>
 #include "tree_sitter/parser.h"
 
-typedef enum {
-  TSTreeOptionsHidden = 1 << 0,
-  TSTreeOptionsExtra = 1 << 1,
-  TSTreeOptionsFragileLeft = 1 << 2,
-  TSTreeOptionsFragileRight = 1 << 3,
+typedef struct {
+  bool hidden : 1;
+  bool concrete : 1;
+  bool extra : 1;
+  bool fragile_left : 1;
+  bool fragile_right : 1;
 } TSTreeOptions;
 
 struct TSTree {
@@ -39,39 +40,35 @@ typedef struct {
 } TSTreeChild;
 
 static inline bool ts_tree_is_extra(const TSTree *tree) {
-  return !!(tree->options & TSTreeOptionsExtra);
+  return tree->options.extra;
 }
 
 static inline bool ts_tree_is_visible(const TSTree *tree) {
-  return !(tree->options & TSTreeOptionsHidden);
-}
-
-static inline void ts_tree_set_options(TSTree *tree, TSTreeOptions options) {
-  tree->options = (TSTreeOptions)(tree->options | options);
+  return !(tree->options.hidden || tree->options.concrete);
 }
 
 static inline void ts_tree_set_extra(TSTree *tree) {
-  ts_tree_set_options(tree, TSTreeOptionsExtra);
+  tree->options.extra = true;
 }
 
 static inline void ts_tree_set_fragile_left(TSTree *tree) {
-  ts_tree_set_options(tree, TSTreeOptionsFragileLeft);
+  tree->options.fragile_left = true;
 }
 
 static inline void ts_tree_set_fragile_right(TSTree *tree) {
-  ts_tree_set_options(tree, TSTreeOptionsFragileRight);
+  tree->options.fragile_right = true;
 }
 
 static inline bool ts_tree_is_fragile_left(TSTree *tree) {
-  return tree->options & TSTreeOptionsFragileLeft;
+  return tree->options.fragile_left;
 }
 
 static inline bool ts_tree_is_fragile_right(TSTree *tree) {
-  return tree->options & TSTreeOptionsFragileRight;
+  return tree->options.fragile_right;
 }
 
-TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, bool);
-TSTree *ts_tree_make_node(TSSymbol, size_t, TSTree **, bool);
+TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, TSNodeType);
+TSTree *ts_tree_make_node(TSSymbol, size_t, TSTree **, TSNodeType);
 TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char);
 void ts_tree_retain(TSTree *tree);
 void ts_tree_release(TSTree *tree);
