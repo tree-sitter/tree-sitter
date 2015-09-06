@@ -55,7 +55,11 @@ pair<InternedGrammar, const GrammarError *> intern_symbols(const Grammar &gramma
     auto new_rule = interner.apply(pair.second);
     if (!interner.missing_rule_name.empty())
       return { result, missing_rule_error(interner.missing_rule_name) };
-    result.rules.push_back({ pair.first, new_rule });
+
+    result.rules.push_back({
+      pair.first, new_rule,
+      pair.first[0] == '_' ? RuleEntryTypeHidden : RuleEntryTypeNamed,
+    });
   }
 
   for (auto &rule : grammar.ubiquitous_tokens()) {

@@ -13,6 +13,7 @@ enum RuleEntryType {
   RuleEntryTypeNamed,
   RuleEntryTypeAnonymous,
   RuleEntryTypeHidden,
+  RuleEntryTypeAuxiliary,
 };
 
 struct RuleEntry {

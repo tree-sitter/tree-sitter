@@ -46,7 +46,7 @@ class ExpandRepeats : public rules::IdentityRuleFn {
       helper_rule_name,
       Seq::build({ inner_rule, Choice::build({ repeat_symbol.copy(),
                                                make_shared<Blank>() }) }),
-      RuleEntryTypeHidden,
+      RuleEntryTypeAuxiliary,
     });
     return repeat_symbol.copy();
   }

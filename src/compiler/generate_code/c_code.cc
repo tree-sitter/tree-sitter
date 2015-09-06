@@ -13,7 +13,6 @@
 
 namespace tree_sitter {
 namespace generate_code {
-
 using std::function;
 using std::map;
 using std::set;
@@ -21,6 +20,14 @@ using std::string;
 using std::to_string;
 using std::vector;
 using util::escape_char;
+
+static RuleEntry ERROR_ENTRY{
+  "error", rule_ptr(), RuleEntryTypeNamed,
+};
+
+static RuleEntry EOF_ENTRY{
+  "end", rule_ptr(), RuleEntryTypeAuxiliary,
+};
 
 static const map<char, string> REPLACEMENTS({
   { '~', "TILDE" },
@@ -142,21 +149,7 @@ class CCodeGenerator {
       for (const auto &symbol : parse_table.symbols) {
         line("[" + symbol_id(symbol) + "] = ");
 
-        if (symbol == rules::ERROR()) {
-          add("TSNodeTypeNormal,");
-          continue;
-        } else if (symbol == rules::END_OF_INPUT()) {
-          add("TSNodeTypeHidden,");
-          continue;
-        }
-
-        RuleEntry entry = entry_for_symbol(symbol);
-        if (entry.name[0] == '_') {
-          add("TSNodeTypeHidden,");
-          continue;
-        }
-
-        switch (entry.type) {
+        switch (entry_for_symbol(symbol).type) {
           case RuleEntryTypeNamed:
             add("TSNodeTypeNormal,");
             break;
@@ -164,6 +157,7 @@ class CCodeGenerator {
             add("TSNodeTypeConcrete,");
             break;
           case RuleEntryTypeHidden:
+          case RuleEntryTypeAuxiliary:
             add("TSNodeTypeHidden,");
             break;
         }
@@ -344,36 +338,34 @@ class CCodeGenerator {
   }
 
   string symbol_id(const rules::Symbol &symbol) {
-    if (symbol.is_built_in()) {
-      if (symbol == rules::ERROR())
-        return "ts_builtin_sym_error";
-      else if (symbol == rules::END_OF_INPUT())
-        return "ts_builtin_sym_end";
-      else
-        return "";
-    } else {
-      string name = sanitize_name(rule_name(symbol));
-      if (entry_for_symbol(symbol).type == RuleEntryTypeNamed)
-        return "sym_" + name;
-      else
+    RuleEntry entry = entry_for_symbol(symbol);
+    string name = sanitize_name(entry.name);
+    if (symbol.is_built_in())
+      return "ts_builtin_sym_" + name;
+
+    switch (entry.type) {
+      case RuleEntryTypeAuxiliary:
         return "aux_sym_" + name;
+      case RuleEntryTypeAnonymous:
+        return "anon_sym_" + name;
+      default:
+        return "sym_" + name;
     }
   }
 
   string symbol_name(const rules::Symbol &symbol) {
-    if (symbol.is_built_in()) {
-      if (symbol == rules::ERROR())
-        return "ERROR";
-      else if (symbol == rules::END_OF_INPUT())
-        return "END";
-      else
-        return "";
-    } else {
-      return rule_name(symbol);
-    }
+    if (symbol == rules::ERROR())
+      return "ERROR";
+    if (symbol == rules::END_OF_INPUT())
+      return "END";
+    return entry_for_symbol(symbol).name;
   }
 
   const RuleEntry &entry_for_symbol(const rules::Symbol &symbol) {
+    if (symbol == rules::ERROR())
+      return ERROR_ENTRY;
+    if (symbol == rules::END_OF_INPUT())
+      return EOF_ENTRY;
     if (symbol.is_token)
       return lexical_grammar.rules[symbol.index];
     else

@@ -24,18 +24,22 @@ describe("extract_tokens", []() {
             token(repeat(choice({ str("ef"), str("gh") }))),
           }),
         })),
+        RuleEntryTypeNamed,
       },
       {
         "rule_B",
         pattern("ij+"),
+        RuleEntryTypeNamed,
       },
       {
         "rule_C",
         choice({ str("kl"), blank() }),
+        RuleEntryTypeNamed,
       },
       {
         "rule_D",
-        repeat(i_sym(3))
+        repeat(i_sym(3)),
+        RuleEntryTypeNamed,
       }
     }, {}, {}});
 
@@ -96,14 +100,14 @@ describe("extract_tokens", []() {
       {
         "/cd*/",
         pattern("cd*"),
-        RuleEntryTypeHidden,
+        RuleEntryTypeAuxiliary,
       },
 
       // Rules marked as tokens become hidden rules.
       {
         "/(ef|gh)*/",
         repeat(choice({ str("ef"), str("gh") })),
-        RuleEntryTypeHidden,
+        RuleEntryTypeAuxiliary,
       },
 
       // This named rule was moved wholesale to the lexical grammar.
@@ -131,7 +135,8 @@ describe("extract_tokens", []() {
           str("ab"),
           i_sym(0),
           str("ab"),
-        })
+        }),
+        RuleEntryTypeNamed,
       },
     }, {}, {}});
 
@@ -159,15 +164,18 @@ describe("extract_tokens", []() {
     auto result = extract_tokens(InternedGrammar{{
       {
         "rule_A",
-        seq({ i_sym(1), str("ab") })
+        seq({ i_sym(1), str("ab") }),
+        RuleEntryTypeNamed,
       },
       {
         "rule_B",
-        str("cd")
+        str("cd"),
+        RuleEntryTypeNamed,
       },
       {
         "rule_C",
-        seq({ str("ef"), str("cd") })
+        seq({ str("ef"), str("cd") }),
+        RuleEntryTypeNamed,
       },
     }, {}, {}});
 
@@ -215,15 +223,18 @@ describe("extract_tokens", []() {
     auto result = extract_tokens(InternedGrammar{{
       {
         "rule_A",
-        str("ok")
+        str("ok"),
+        RuleEntryTypeNamed,
       },
       {
         "rule_B",
-        repeat(i_sym(0))
+        repeat(i_sym(0)),
+        RuleEntryTypeNamed,
       },
       {
         "rule_C",
-        repeat(seq({ i_sym(0), i_sym(0) }))
+        repeat(seq({ i_sym(0), i_sym(0) })),
+        RuleEntryTypeNamed,
       },
     }, { str(" ") }, { { Symbol(1), Symbol(2) } }});
 
@@ -238,7 +249,11 @@ describe("extract_tokens", []() {
   describe("handling ubiquitous tokens", [&]() {
     it("adds inline ubiquitous tokens to the lexical grammar's separators", [&]() {
       auto result = extract_tokens(InternedGrammar{{
-        { "rule_A", str("x") },
+        {
+          "rule_A",
+          str("x"),
+          RuleEntryTypeNamed,
+        },
       }, {
         pattern("\\s+"),
         str("y"),
@@ -256,9 +271,21 @@ describe("extract_tokens", []() {
 
     it("updates ubiquitous symbols according to the new symbol numbers", [&]() {
       auto result = extract_tokens(InternedGrammar{ {
-        { "rule_A", seq({ str("w"), str("x"), i_sym(1) }) },
-        { "rule_B", str("y") },
-        { "rule_C", str("z") },
+        {
+          "rule_A",
+          seq({ str("w"), str("x"), i_sym(1) }),
+          RuleEntryTypeNamed
+        },
+        {
+          "rule_B",
+          str("y"),
+          RuleEntryTypeNamed
+        },
+        {
+          "rule_C",
+          str("z"),
+          RuleEntryTypeNamed
+        },
       }, {
         i_sym(2),
       }, {}});
@@ -277,10 +304,12 @@ describe("extract_tokens", []() {
         {
           "rule_A",
           seq({ str("x"), i_sym(1) }),
+          RuleEntryTypeNamed,
         },
         {
           "rule_B",
-          seq({ str("y"), str("z") })
+          seq({ str("y"), str("z") }),
+          RuleEntryTypeNamed,
         },
       }, { i_sym(1) }, {}});
 
@@ -294,11 +323,13 @@ describe("extract_tokens", []() {
       auto result = extract_tokens(InternedGrammar{{
         {
           "rule_A",
-          str("x")
+          str("x"),
+          RuleEntryTypeNamed,
         },
         {
           "rule_B",
-          str("y")
+          str("y"),
+          RuleEntryTypeNamed,
         },
       }, { choice({ i_sym(1), blank() }) }, {}});
 

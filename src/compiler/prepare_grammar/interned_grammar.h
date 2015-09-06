@@ -7,12 +7,13 @@
 #include <vector>
 #include "tree_sitter/compiler.h"
 #include "compiler/rules/symbol.h"
+#include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {
 
 struct InternedGrammar {
-  std::vector<std::pair<std::string, rule_ptr>> rules;
+  std::vector<RuleEntry> rules;
   std::set<rule_ptr> ubiquitous_tokens;
   std::set<std::set<rules::Symbol>> expected_conflicts;
 };

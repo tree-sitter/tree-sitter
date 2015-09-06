@@ -12,18 +12,30 @@ using prepare_grammar::intern_symbols;
 describe("intern_symbols", []() {
   it("replaces named symbols with numerically-indexed symbols", [&]() {
     Grammar grammar({
-      { "x", choice({ sym("y"), sym("z") }) },
-      { "y", sym("z") },
-      { "z", str("stuff") }
+      { "x", choice({ sym("y"), sym("_z") }) },
+      { "y", sym("_z") },
+      { "_z", str("stuff") }
     });
 
     auto result = intern_symbols(grammar);
 
     AssertThat(result.second, Equals((GrammarError *)nullptr));
-    AssertThat(result.first.rules, Equals(rule_list({
-      { "x", choice({ i_sym(1), i_sym(2) }) },
-      { "y", i_sym(2) },
-      { "z", str("stuff") },
+    AssertThat(result.first.rules, Equals(eq_vector<RuleEntry>({
+      {
+        "x",
+        choice({ i_sym(1), i_sym(2) }),
+        RuleEntryTypeNamed
+      },
+      {
+        "y",
+        i_sym(2),
+        RuleEntryTypeNamed,
+      },
+      {
+        "_z",
+        str("stuff"),
+        RuleEntryTypeHidden
+      },
     })));
   });
 

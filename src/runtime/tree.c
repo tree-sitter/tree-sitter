@@ -16,10 +16,11 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength size, TSLength padding,
     .child_count = 0,
     .children = NULL,
     .padding = padding,
-    .options = (TSTreeOptions){
-      .hidden = (node_type == TSNodeTypeHidden),
-      .concrete = (node_type == TSNodeTypeConcrete),
-    },
+    .options =
+      (TSTreeOptions){
+        .hidden = (node_type == TSNodeTypeHidden),
+        .concrete = (node_type == TSNodeTypeConcrete),
+      },
   };
   return result;
 }

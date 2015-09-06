@@ -76,12 +76,12 @@ class TokenExtractor : public rules::IdentityRuleFn {
   }
 
   rule_ptr apply_to(const rules::Pattern *rule) {
-    return apply_to_token(rule, RuleEntryTypeHidden);
+    return apply_to_token(rule, RuleEntryTypeAuxiliary);
   }
 
   rule_ptr apply_to(const rules::Metadata *rule) {
     if (rule->value_for(rules::IS_TOKEN) > 0)
-      return apply_to_token(rule->rule.get(), RuleEntryTypeHidden);
+      return apply_to_token(rule->rule.get(), RuleEntryTypeAuxiliary);
     else
       return rules::IdentityRuleFn::apply_to(rule);
   }
@@ -107,9 +107,9 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
    *  First, extract all of the grammar's tokens into the lexical grammar.
    */
   vector<RuleEntry> processed_rules;
-  for (const auto &pair : grammar.rules)
+  for (const RuleEntry &entry : grammar.rules)
     processed_rules.push_back({
-      pair.first, extractor.apply(pair.second), RuleEntryTypeNamed,
+      entry.name, extractor.apply(entry.rule), entry.type,
     });
   lexical_grammar.rules = extractor.tokens;
 

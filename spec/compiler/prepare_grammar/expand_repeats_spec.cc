@@ -32,7 +32,7 @@ describe("expand_repeats", []() {
           i_token(0),
           choice({ i_sym(1), blank() })
         }),
-        RuleEntryTypeHidden
+        RuleEntryTypeAuxiliary
       },
     })));
   });
@@ -66,7 +66,7 @@ describe("expand_repeats", []() {
           i_token(11),
           choice({ i_sym(1), blank() })
         }),
-        RuleEntryTypeHidden
+        RuleEntryTypeAuxiliary
       },
     })));
   });
@@ -94,7 +94,7 @@ describe("expand_repeats", []() {
           i_token(11),
           choice({ i_sym(1), blank() }),
         }),
-        RuleEntryTypeHidden
+        RuleEntryTypeAuxiliary
       },
     })));
   });
@@ -138,7 +138,7 @@ describe("expand_repeats", []() {
           i_token(4),
           choice({ i_sym(2), blank() }),
         }),
-        RuleEntryTypeHidden
+        RuleEntryTypeAuxiliary
       },
     })));
   });
@@ -172,7 +172,7 @@ describe("expand_repeats", []() {
           i_token(10),
           choice({ i_sym(1), blank() }),
         }),
-        RuleEntryTypeHidden
+        RuleEntryTypeAuxiliary
       },
       {
         "rule0_repeat2",
@@ -180,7 +180,7 @@ describe("expand_repeats", []() {
           i_token(11),
           choice({ i_sym(2), blank() }),
         }),
-        RuleEntryTypeHidden
+        RuleEntryTypeAuxiliary
       },
     })));
   });
@@ -218,7 +218,7 @@ describe("expand_repeats", []() {
           i_token(10),
           choice({ i_sym(2), blank() }),
         }),
-        RuleEntryTypeHidden
+        RuleEntryTypeAuxiliary
       },
       {
         "rule1_repeat1",
@@ -226,7 +226,7 @@ describe("expand_repeats", []() {
           i_token(11),
           choice({ i_sym(3), blank() })
         }),
-        RuleEntryTypeHidden
+        RuleEntryTypeAuxiliary
       },
     })));
   });
