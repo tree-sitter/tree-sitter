@@ -2,7 +2,7 @@
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/parse_conflict_manager.h"
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepared_grammar.h"
 
 using namespace rules;
 using namespace build_tables;
@@ -11,17 +11,37 @@ START_TEST
 
 describe("ParseConflictManager", []() {
   SyntaxGrammar syntax_grammar{{
-    { "in_progress_rule1", i_token(0) },
-    { "in_progress_rule2", i_token(0) },
-    { "reduced_rule", i_token(0) },
-    { "other_rule1", i_token(0) },
-    { "other_rule2", i_token(0) },
-  }, {}, { Symbol(2, SymbolOptionToken) }, {}};
+    {
+      "in_progress_rule1",
+      i_token(0),
+      RuleEntryTypeNamed,
+    },
+    {
+      "in_progress_rule2",
+      i_token(0),
+      RuleEntryTypeNamed,
+    },
+    {
+      "reduced_rule",
+      i_token(0),
+      RuleEntryTypeNamed,
+    },
+    {
+      "other_rule1",
+      i_token(0),
+      RuleEntryTypeNamed,
+    },
+    {
+      "other_rule2",
+      i_token(0),
+      RuleEntryTypeNamed,
+    },
+  }, { Symbol(2, true) }, {}};
 
   pair<bool, ConflictType> result;
   Symbol sym1(0);
   Symbol sym2(1);
-  Symbol lookahead_sym(1, SymbolOptionToken);
+  Symbol lookahead_sym(1, true);
   ParseConflictManager *conflict_manager;
 
   before_each([&]() {

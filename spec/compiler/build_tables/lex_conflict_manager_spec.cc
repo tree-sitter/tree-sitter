@@ -2,7 +2,7 @@
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/lex_conflict_manager.h"
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepared_grammar.h"
 
 using namespace rules;
 using namespace build_tables;
@@ -11,16 +11,24 @@ START_TEST
 
 describe("LexConflictManager", []() {
   LexicalGrammar lexical_grammar{{
-    { "other_token", pattern("[a-b]") },
-    { "lookahead_token", pattern("[c-d]") },
-  }, {}, {}};
+    {
+      "other_token",
+      pattern("[a-b]"),
+      RuleEntryTypeNamed
+    },
+    {
+      "lookahead_token",
+      pattern("[c-d]"),
+      RuleEntryTypeNamed
+    },
+  }, {}};
 
   LexConflictManager conflict_manager(lexical_grammar);
 
   bool update;
-  Symbol sym1(0, SymbolOptionToken);
-  Symbol sym2(1, SymbolOptionToken);
-  Symbol sym3(2, SymbolOptionToken);
+  Symbol sym1(0, true);
+  Symbol sym2(1, true);
+  Symbol sym3(2, true);
 
   it("favors non-errors over lexical errors", [&]() {
     update = conflict_manager.resolve(LexAction::Advance(2, {0}), LexAction::Error());

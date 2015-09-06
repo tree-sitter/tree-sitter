@@ -52,7 +52,7 @@ rule_ptr pattern(const string &value) {
 }
 
 rule_ptr str(const string &value) {
-  return token(prec(1, make_shared<rules::String>(value)));
+  return make_shared<rules::String>(value);
 }
 
 rule_ptr err(const rule_ptr &rule) {

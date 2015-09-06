@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 #include <utility>
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepared_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/symbol.h"
@@ -40,12 +40,14 @@ class ExpandRepeats : public rules::IdentityRuleFn {
     size_t index = aux_rules.size();
     string helper_rule_name =
       rule_name + string("_repeat") + to_string(++repeat_count);
-    Symbol repeat_symbol(offset + index, rules::SymbolOptionAuxiliary);
+    Symbol repeat_symbol(offset + index);
     existing_repeats.push_back({ rule->copy(), repeat_symbol });
-    aux_rules.push_back(
-      { helper_rule_name,
-        Seq::build({ inner_rule, Choice::build({ repeat_symbol.copy(),
-                                                 make_shared<Blank>() }) }) });
+    aux_rules.push_back({
+      helper_rule_name,
+      Seq::build({ inner_rule, Choice::build({ repeat_symbol.copy(),
+                                               make_shared<Blank>() }) }),
+      RuleEntryTypeHidden,
+    });
     return repeat_symbol.copy();
   }
 
@@ -62,22 +64,21 @@ class ExpandRepeats : public rules::IdentityRuleFn {
     return apply(rule);
   }
 
-  vector<pair<string, rule_ptr>> aux_rules;
+  vector<RuleEntry> aux_rules;
 };
 
 SyntaxGrammar expand_repeats(const SyntaxGrammar &grammar) {
   SyntaxGrammar result;
-  result.aux_rules = grammar.aux_rules;
+  result.rules = grammar.rules;
   result.ubiquitous_tokens = grammar.ubiquitous_tokens;
   result.expected_conflicts = grammar.expected_conflicts;
 
-  ExpandRepeats expander(result.aux_rules.size());
-  for (auto &pair : grammar.rules)
-    result.rules.push_back(
-      { pair.first, expander.expand(pair.second, pair.first) });
+  ExpandRepeats expander(result.rules.size());
+  for (auto &rule_entry : result.rules)
+    rule_entry.rule = expander.expand(rule_entry.rule, rule_entry.name);
 
-  result.aux_rules.insert(result.aux_rules.end(), expander.aux_rules.begin(),
-                          expander.aux_rules.end());
+  result.rules.insert(result.rules.end(), expander.aux_rules.begin(),
+                      expander.aux_rules.end());
   return result;
 }
 

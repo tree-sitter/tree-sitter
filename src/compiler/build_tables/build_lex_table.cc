@@ -10,7 +10,7 @@
 #include "compiler/build_tables/get_metadata.h"
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/parse_table.h"
-#include "compiler/lexical_grammar.h"
+#include "compiler/prepared_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/rules/choice.h"
 #include "compiler/rules/metadata.h"
@@ -63,9 +63,9 @@ class LexTableBuilder {
         result.insert(
           LexItem(symbol, after_separators(CharacterSet().include(0).copy())));
 
-      else if (symbol.is_token())
-        result.insert(
-          LexItem(symbol, after_separators(lex_grammar.rule(symbol))));
+      else if (symbol.is_token)
+        result.insert(LexItem(
+          symbol, after_separators(lex_grammar.rules[symbol.index].rule)));
     }
     return result;
   }

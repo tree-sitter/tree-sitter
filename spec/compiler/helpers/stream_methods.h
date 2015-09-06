@@ -7,6 +7,7 @@
 #include <map>
 #include <unordered_set>
 #include <vector>
+#include "compiler/prepared_grammar.h"
 
 using std::cout;
 
@@ -82,5 +83,17 @@ inline std::ostream& operator<<(std::ostream &stream, const std::pair<T1, T2> &p
 }
 
 }  // namespace std
+
+namespace tree_sitter {
+
+using std::ostream;
+using std::string;
+using std::to_string;
+
+inline ostream &operator<<(ostream &stream, const RuleEntry &entry) {
+  return stream << string("{") << entry.name << string(", ") << entry.rule << string(", ") << to_string(entry.type) << string("}");
+}
+
+}
 
 #endif

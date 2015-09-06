@@ -1,6 +1,6 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/build_tables/item_set_transitions.h"
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepared_grammar.h"
 #include "compiler/helpers/rule_helpers.h"
 
 using namespace rules;
@@ -43,29 +43,37 @@ describe("char_transitions(LexItemSet)", []() {
 
 describe("sym_transitions(ParseItemSet, SyntaxGrammar)", [&]() {
   SyntaxGrammar grammar{{
-    { "A", blank() },
-    { "B", i_token(21) },
-  }, {}, {}, {}};
+    {
+      "A",
+      blank(),
+      RuleEntryTypeNamed
+    },
+    {
+      "B",
+      i_token(21),
+      RuleEntryTypeNamed
+    },
+  }, {}, {}};
 
   it("computes the closure of the new item sets", [&]() {
     ParseItemSet set1({
       {
         ParseItem(Symbol(0), seq({ i_token(22), i_sym(1) }), { Symbol(101) }),
-        set<Symbol>({ Symbol(23, SymbolOptionToken) })
+        set<Symbol>({ Symbol(23, true) })
       },
     });
 
     AssertThat(sym_transitions(set1, grammar), Equals(map<Symbol, ParseItemSet>({
       {
-        Symbol(22, SymbolOptionToken),
+        Symbol(22, true),
         ParseItemSet({
           {
             ParseItem(Symbol(0), i_sym(1), { Symbol(101), Symbol(22) }),
-            set<Symbol>({ Symbol(23, SymbolOptionToken) }),
+            set<Symbol>({ Symbol(23, true) }),
           },
           {
             ParseItem(Symbol(1), i_token(21), {}),
-            set<Symbol>({ Symbol(23, SymbolOptionToken) })
+            set<Symbol>({ Symbol(23, true) })
           },
         })
       },

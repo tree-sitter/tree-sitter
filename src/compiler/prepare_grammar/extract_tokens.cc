@@ -4,8 +4,7 @@
 #include <set>
 #include <string>
 #include "tree_sitter/compiler.h"
-#include "compiler/lexical_grammar.h"
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepared_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/string.h"
@@ -21,26 +20,14 @@ using std::dynamic_pointer_cast;
 using std::make_shared;
 using std::make_tuple;
 using std::map;
-using std::pair;
 using std::set;
 using std::string;
 using std::tuple;
 using std::vector;
 using rules::Symbol;
-using rules::SymbolOptionToken;
-using rules::SymbolOptionAuxToken;
 
 class SymbolReplacer : public rules::IdentityRuleFn {
   using rules::IdentityRuleFn::apply_to;
-
-  int new_index_for_symbol(const Symbol &symbol) {
-    int result = symbol.index;
-    for (const auto &pair : replacements)
-      if (pair.first.index < symbol.index &&
-          pair.first.is_auxiliary() == symbol.is_auxiliary())
-        result--;
-    return result;
-  }
 
   rule_ptr apply_to(const Symbol *rule) {
     return replace_symbol(*rule).copy();
@@ -49,54 +36,64 @@ class SymbolReplacer : public rules::IdentityRuleFn {
  public:
   map<Symbol, Symbol> replacements;
 
-  Symbol replace_symbol(const Symbol &rule) {
-    if (rule.is_built_in())
-      return rule;
-    auto replacement_pair = replacements.find(rule);
+  Symbol replace_symbol(const Symbol &symbol) {
+    if (symbol.is_built_in() || symbol.is_token)
+      return symbol;
+
+    auto replacement_pair = replacements.find(symbol);
     if (replacement_pair != replacements.end())
       return replacement_pair->second;
-    else
-      return Symbol(new_index_for_symbol(rule), rule.options);
+
+    int new_index = symbol.index;
+    for (const auto &pair : replacements)
+      if (pair.first.index < symbol.index)
+        new_index--;
+    return Symbol(new_index);
   }
 };
 
 class TokenExtractor : public rules::IdentityRuleFn {
-  rule_ptr apply_to_token(const Rule *input) {
-    auto rule = input->copy();
+  using rules::IdentityRuleFn::apply_to;
+
+  rule_ptr apply_to_token(const Rule *input, RuleEntryType entry_type) {
     for (size_t i = 0; i < tokens.size(); i++)
-      if (tokens[i].second->operator==(*rule)) {
+      if (tokens[i].rule->operator==(*input)) {
         token_usage_counts[i]++;
-        return make_shared<Symbol>(i, SymbolOptionAuxToken);
+        return make_shared<Symbol>(i, true);
       }
+
+    rule_ptr rule = input->copy();
     size_t index = tokens.size();
-    tokens.push_back({ token_description(rule), rule });
+    tokens.push_back({
+      token_description(rule), rule, entry_type,
+    });
     token_usage_counts.push_back(1);
-    return make_shared<Symbol>(index, SymbolOptionAuxToken);
+    return make_shared<Symbol>(index, true);
   }
 
-  rule_ptr default_apply(const Rule *rule) {
-    auto result = rule->copy();
-    if (is_token(result))
-      return apply_to_token(rule);
-    else
-      return result;
+  rule_ptr apply_to(const rules::String *rule) {
+    return apply_to_token(rule, RuleEntryTypeAnonymous);
+  }
+
+  rule_ptr apply_to(const rules::Pattern *rule) {
+    return apply_to_token(rule, RuleEntryTypeHidden);
   }
 
   rule_ptr apply_to(const rules::Metadata *rule) {
-    if (is_token(rule->copy()))
-      return apply_to_token(rule);
+    if (rule->value_for(rules::IS_TOKEN) > 0)
+      return apply_to_token(rule->rule.get(), RuleEntryTypeHidden);
     else
       return rules::IdentityRuleFn::apply_to(rule);
   }
 
  public:
   vector<size_t> token_usage_counts;
-  vector<pair<string, rule_ptr>> tokens;
+  vector<RuleEntry> tokens;
 };
 
-static const GrammarError *ubiq_token_err(const string &msg) {
+static const GrammarError *ubiq_token_err(const string &message) {
   return new GrammarError(GrammarErrorTypeInvalidUbiquitousToken,
-                          "Not a token: " + msg);
+                          "Not a token: " + message);
 }
 
 tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
@@ -106,57 +103,76 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
   SymbolReplacer symbol_replacer;
   TokenExtractor extractor;
 
-  vector<pair<string, rule_ptr>> extracted_rules;
-  for (auto &pair : grammar.rules)
-    extracted_rules.push_back({ pair.first, extractor.apply(pair.second) });
+  /*
+   *  First, extract all of the grammar's tokens into the lexical grammar.
+   */
+  vector<RuleEntry> processed_rules;
+  for (const auto &pair : grammar.rules)
+    processed_rules.push_back({
+      pair.first, extractor.apply(pair.second), RuleEntryTypeNamed,
+    });
+  lexical_grammar.rules = extractor.tokens;
 
+  /*
+   *  If a rule's entire content was extracted as a token and that token didn't
+   *  appear within any other rule, then remove that rule from the syntax
+   *  grammar, giving its name to the token in the lexical grammar. Any symbols
+   *  that pointed to that rule will need to be updated to point to the rule in
+   *  the lexical grammar. Symbols that pointed to later rules will need to have
+   *  their indices decremented.
+   */
   size_t i = 0;
-  for (auto &pair : extracted_rules) {
-    auto &rule = pair.second;
-    auto symbol = dynamic_pointer_cast<const Symbol>(rule);
-    if (symbol.get() && symbol->is_auxiliary() &&
+  for (const RuleEntry &entry : processed_rules) {
+    auto symbol = dynamic_pointer_cast<const Symbol>(entry.rule);
+    if (symbol.get() && symbol->is_token && !symbol->is_built_in() &&
         extractor.token_usage_counts[symbol->index] == 1) {
-      lexical_grammar.rules.push_back(
-        { pair.first, extractor.tokens[symbol->index].second });
-      extractor.token_usage_counts[symbol->index] = 0;
-      symbol_replacer.replacements.insert(
-        { Symbol(i),
-          Symbol(lexical_grammar.rules.size() - 1, SymbolOptionToken) });
+      lexical_grammar.rules[symbol->index].type = entry.type;
+      lexical_grammar.rules[symbol->index].name = entry.name;
+      symbol_replacer.replacements.insert({ Symbol(i), *symbol });
     } else {
-      syntax_grammar.rules.push_back(pair);
+      syntax_grammar.rules.push_back(entry);
     }
     i++;
   }
 
-  for (auto &pair : syntax_grammar.rules)
-    pair.second = symbol_replacer.apply(pair.second);
-
-  lexical_grammar.aux_rules = extractor.tokens;
-
-  for (auto &rule : grammar.ubiquitous_tokens) {
-    if (is_token(rule)) {
-      lexical_grammar.separators.push_back(rule);
-    } else {
-      auto sym = dynamic_pointer_cast<const Symbol>(extractor.apply(rule));
-      if (!sym.get())
-        return make_tuple(syntax_grammar, lexical_grammar,
-                          ubiq_token_err(rule->to_string()));
-
-      Symbol symbol = symbol_replacer.replace_symbol(*sym);
-      if (!symbol.is_token())
-        return make_tuple(
-          syntax_grammar, lexical_grammar,
-          ubiq_token_err(syntax_grammar.rules[symbol.index].first));
-
-      syntax_grammar.ubiquitous_tokens.insert(symbol);
-    }
-  }
+  /*
+   *  Perform any replacements of symbols needed based on the previous step.
+   */
+  for (RuleEntry &entry : syntax_grammar.rules)
+    entry.rule = symbol_replacer.apply(entry.rule);
 
   for (auto &symbol_set : grammar.expected_conflicts) {
     set<Symbol> new_symbol_set;
     for (const Symbol &symbol : symbol_set)
       new_symbol_set.insert(symbol_replacer.replace_symbol(symbol));
     syntax_grammar.expected_conflicts.insert(new_symbol_set);
+  }
+
+  /*
+   *  The grammar's ubiquitous tokens can be either token rules or symbols
+   *  pointing to token rules. If they are symbols, then they'll be handled by
+   *  the parser; add them to the syntax grammar's ubiqutous tokens. If they
+   *  are anonymous rules, they can be handled by the lexer; add them to the
+   *  lexical grammar's separator rules.
+   */
+  for (const rule_ptr &rule : grammar.ubiquitous_tokens) {
+    if (is_token(rule)) {
+      lexical_grammar.separators.push_back(rule);
+      continue;
+    }
+
+    auto symbol = dynamic_pointer_cast<const Symbol>(rule);
+    if (!symbol.get())
+      return make_tuple(syntax_grammar, lexical_grammar,
+                        ubiq_token_err(rule->to_string()));
+
+    Symbol new_symbol = symbol_replacer.replace_symbol(*symbol);
+    if (!new_symbol.is_token)
+      return make_tuple(
+        syntax_grammar, lexical_grammar,
+        ubiq_token_err(syntax_grammar.rules[new_symbol.index].name));
+
+    syntax_grammar.ubiquitous_tokens.insert(new_symbol);
   }
 
   return make_tuple(syntax_grammar, lexical_grammar, nullptr);

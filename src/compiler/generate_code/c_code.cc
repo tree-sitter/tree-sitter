@@ -7,8 +7,7 @@
 #include "compiler/generate_code/c_code.h"
 #include "compiler/lex_table.h"
 #include "compiler/parse_table.h"
-#include "compiler/lexical_grammar.h"
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepared_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/util/string_helpers.h"
 
@@ -142,7 +141,7 @@ class CCodeGenerator {
     indent([&]() {
       for (const auto &symbol : parse_table.symbols)
         if (!symbol.is_built_in() &&
-            (symbol.is_auxiliary() || rule_name(symbol)[0] == '_'))
+            (is_auxiliary(symbol) || rule_name(symbol)[0] == '_'))
           line("[" + symbol_id(symbol) + "] = 1,");
     });
     line("};");
@@ -329,7 +328,7 @@ class CCodeGenerator {
         return "";
     } else {
       string name = sanitize_name(rule_name(symbol));
-      if (symbol.is_auxiliary())
+      if (is_auxiliary(symbol))
         return "aux_sym_" + name;
       else
         return "sym_" + name;
@@ -349,9 +348,20 @@ class CCodeGenerator {
     }
   }
 
+  bool is_auxiliary(const rules::Symbol &symbol) {
+    if (symbol.is_token) {
+      return lexical_grammar.rules[symbol.index].type != RuleEntryTypeNamed;
+    } else {
+      return syntax_grammar.rules[symbol.index].type != RuleEntryTypeNamed;
+    }
+  }
+
   string rule_name(const rules::Symbol &symbol) {
-    return symbol.is_token() ? lexical_grammar.rule_name(symbol)
-                             : syntax_grammar.rule_name(symbol);
+    if (symbol.is_token) {
+      return lexical_grammar.rules[symbol.index].name;
+    } else {
+      return syntax_grammar.rules[symbol.index].name;
+    }
   }
 
   bool reduce_action_is_fragile(const ParseAction &action) const {
@@ -394,15 +404,14 @@ class CCodeGenerator {
       if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') ||
           ('0' <= c && c <= '9') || (c == '_')) {
         stripped_name += c;
-        continue;
-      }
-
-      auto replacement = REPLACEMENTS.find(c);
-      if (replacement != REPLACEMENTS.end()) {
-        if (stripped_name[stripped_name.size() - 1] != '_')
-          stripped_name += "_";
-        stripped_name += replacement->second;
-        continue;
+      } else {
+        auto replacement = REPLACEMENTS.find(c);
+        size_t i = stripped_name.size();
+        if (replacement != REPLACEMENTS.end()) {
+          if (i > 0 && stripped_name[i - 1] != '_')
+            stripped_name += "_";
+          stripped_name += replacement->second;
+        }
       }
     }
 

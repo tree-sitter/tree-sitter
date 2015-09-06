@@ -7,17 +7,10 @@
 namespace tree_sitter {
 namespace rules {
 
-typedef enum {
-  SymbolOptionToken = 1 << 0,
-  SymbolOptionAuxiliary = 1 << 1,
-} SymbolOption;
-
-extern SymbolOption SymbolOptionAuxToken;
-
 class Symbol : public Rule {
  public:
   explicit Symbol(int index);
-  Symbol(int index, SymbolOption options);
+  Symbol(int index, bool is_token);
 
   bool operator==(const Symbol &other) const;
   bool operator==(const Rule &other) const;
@@ -28,12 +21,10 @@ class Symbol : public Rule {
   void accept(Visitor *visitor) const;
 
   bool operator<(const Symbol &other) const;
-  bool is_token() const;
   bool is_built_in() const;
-  bool is_auxiliary() const;
 
   int index;
-  SymbolOption options;
+  bool is_token;
 };
 
 }  // namespace rules

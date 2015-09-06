@@ -4,11 +4,11 @@ namespace tree_sitter {
 namespace rules {
 
 Symbol END_OF_INPUT() {
-  return Symbol(-1, SymbolOptionToken);
+  return Symbol(-1, true);
 }
 
 Symbol ERROR() {
-  return Symbol(-2, SymbolOptionToken);
+  return Symbol(-2, true);
 }
 
 Symbol START() {

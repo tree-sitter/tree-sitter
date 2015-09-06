@@ -1,7 +1,7 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
 #include "compiler/rules/metadata.h"
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepared_grammar.h"
 
 using namespace rules;
 using build_tables::rule_can_be_blank;
@@ -57,13 +57,23 @@ describe("rule_can_be_blank", [&]() {
 
   describe("checking recursively (by expanding non-terminals)", [&]() {
     SyntaxGrammar grammar{{
-      { "A", choice({
-        seq({ i_sym(0), i_token(11) }),
-        blank() }) },
-      { "B", choice({
-        seq({ i_sym(1), i_token(12) }),
-        i_token(13) }) },
-    }, {}, {}, {}};
+      {
+        "A",
+        choice({
+          seq({ i_sym(0), i_token(11) }),
+          blank()
+        }),
+        RuleEntryTypeNamed,
+      },
+      {
+        "B",
+        choice({
+          seq({ i_sym(1), i_token(12) }),
+          i_token(13)
+        }),
+        RuleEntryTypeNamed,
+      },
+    }, {}, {}};
 
     it("terminates for left-recursive rules that can be blank", [&]() {
       rule = i_sym(0);

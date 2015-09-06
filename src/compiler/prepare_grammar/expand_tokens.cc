@@ -2,12 +2,14 @@
 #include <vector>
 #include <string>
 #include <utility>
-#include "compiler/lexical_grammar.h"
+#include <map>
+#include "compiler/prepared_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/pattern.h"
 #include "compiler/rules/string.h"
 #include "compiler/rules/blank.h"
 #include "compiler/rules/seq.h"
+#include "compiler/rules/metadata.h"
 #include "compiler/rules/character_set.h"
 #include "compiler/prepare_grammar/parse_regex.h"
 #include "utf8proc.h"
@@ -17,10 +19,12 @@ namespace prepare_grammar {
 
 using std::string;
 using std::vector;
+using std::map;
 using std::pair;
 using std::make_shared;
 using rules::String;
 using rules::Pattern;
+using rules::Metadata;
 
 class ExpandTokens : public rules::IdentityRuleFn {
   using rules::IdentityRuleFn::apply_to;
@@ -40,7 +44,11 @@ class ExpandTokens : public rules::IdentityRuleFn {
       elements.push_back(rules::CharacterSet().include(el).copy());
     }
 
-    return rules::Seq::build(elements);
+    return make_shared<rules::Metadata>(
+      rules::Seq::build(elements),
+      std::map<rules::MetadataKey, int>({
+        { rules::IS_TOKEN, 1 }, { rules::PRECEDENCE, 1 },
+      }));
   }
 
   rule_ptr apply_to(const Pattern *rule) {
@@ -60,18 +68,11 @@ pair<LexicalGrammar, const GrammarError *> expand_tokens(
   LexicalGrammar result;
   ExpandTokens expander;
 
-  for (auto &pair : grammar.rules) {
-    auto rule = expander.apply(pair.second);
+  for (auto &entry : grammar.rules) {
+    auto rule = expander.apply(entry.rule);
     if (expander.error)
       return { result, expander.error };
-    result.rules.push_back({ pair.first, rule });
-  }
-
-  for (auto &pair : grammar.aux_rules) {
-    auto rule = expander.apply(pair.second);
-    if (expander.error)
-      return { result, expander.error };
-    result.aux_rules.push_back({ pair.first, rule });
+    result.rules.push_back({ entry.name, rule, entry.type });
   }
 
   for (auto &sep : grammar.separators) {
@@ -81,9 +82,7 @@ pair<LexicalGrammar, const GrammarError *> expand_tokens(
     result.separators.push_back(rule);
   }
 
-  return {
-    result, nullptr,
-  };
+  return { result, nullptr };
 }
 
 }  // namespace prepare_grammar

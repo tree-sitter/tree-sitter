@@ -3,8 +3,7 @@
 
 #include <utility>
 #include "tree_sitter/compiler.h"
-#include "compiler/syntax_grammar.h"
-#include "compiler/lexical_grammar.h"
+#include "compiler/prepared_grammar.h"
 #include "compiler/build_tables/parse_item.h"
 
 namespace tree_sitter {

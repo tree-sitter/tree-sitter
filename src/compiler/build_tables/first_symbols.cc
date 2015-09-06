@@ -1,6 +1,6 @@
 #include "compiler/build_tables/first_symbols.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepared_grammar.h"
 #include "compiler/rules/choice.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/rules/seq.h"
@@ -28,8 +28,8 @@ class FirstSymbols : public rules::RuleFn<set<Symbol>> {
       return set<Symbol>();
 
     set<Symbol> result({ *rule });
-    if (!rule->is_token()) {
-      set<Symbol> &&symbols = apply(grammar->rule(*rule));
+    if (!rule->is_token) {
+      set<Symbol> &&symbols = apply(grammar->rules[rule->index].rule);
       result.insert(symbols.begin(), symbols.end());
     }
 

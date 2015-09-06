@@ -2,8 +2,7 @@
 #define COMPILER_PREPARE_GRAMMAR_PREPARE_GRAMMAR_H_
 
 #include <utility>
-#include "compiler/lexical_grammar.h"
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {
 

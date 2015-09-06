@@ -48,6 +48,20 @@ class rule_list : public vector<pair<string, rule_ptr>> {
       vector<pair<string, rule_ptr>>(list) {}
 };
 
+template<typename T>
+class eq_vector : public vector<T> {
+ public:
+  bool operator==(const vector<T> &other) const {
+    if (this->size() != other.size()) return false;
+    for (size_t i = 0; i < this->size(); i++)
+      if (!(this->operator[](i) == other[i]))
+        return false;
+    return true;
+  }
+
+  eq_vector(const initializer_list<T> &list) : vector<T>(list) {}
+};
+
 class rule_vector : public vector<rule_ptr> {
  public:
   bool operator==(const vector<rule_ptr> &other) const {

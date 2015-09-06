@@ -1,7 +1,7 @@
 #include "compiler/build_tables/rule_can_be_blank.h"
 #include <set>
 #include "tree_sitter/compiler.h"
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepared_grammar.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
@@ -55,7 +55,7 @@ class CanBeBlankRecursive : public CanBeBlank {
   bool apply_to(const rules::Symbol *rule) {
     if (visited_symbols.find(*rule) == visited_symbols.end()) {
       visited_symbols.insert(*rule);
-      return !rule->is_token() && apply(grammar->rule(*rule));
+      return !rule->is_token && apply(grammar->rules[rule->index].rule);
     } else {
       return false;
     }

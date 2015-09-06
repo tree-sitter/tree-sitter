@@ -7,7 +7,7 @@
 #include "compiler/build_tables/rule_transitions.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
 #include "compiler/build_tables/item.h"
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -41,7 +41,7 @@ const ParseItemSet item_set_closure(const ParseItem &starting_item,
       const Symbol &symbol = pair.first;
       const rule_ptr &next_rule = pair.second;
 
-      if (symbol.is_token() || symbol.is_built_in())
+      if (symbol.is_token || symbol.is_built_in())
         continue;
 
       set<Symbol> next_lookahead_symbols = first_symbols(next_rule, grammar);
@@ -49,8 +49,9 @@ const ParseItemSet item_set_closure(const ParseItem &starting_item,
         next_lookahead_symbols.insert(lookahead_symbols.begin(),
                                       lookahead_symbols.end());
 
-      items_to_process.push_back({ ParseItem(symbol, grammar.rule(symbol), {}),
-                                   next_lookahead_symbols });
+      items_to_process.push_back(
+        { ParseItem(symbol, grammar.rules[symbol.index].rule, {}),
+          next_lookahead_symbols });
     }
   }
 

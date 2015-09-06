@@ -11,8 +11,7 @@
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/build_tables/get_completion_status.h"
 #include "compiler/build_tables/get_metadata.h"
-#include "compiler/lexical_grammar.h"
-#include "compiler/syntax_grammar.h"
+#include "compiler/prepared_grammar.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/built_in_symbols.h"
 
@@ -48,9 +47,8 @@ class ParseTableBuilder {
         conflict_manager(grammar) {}
 
   pair<ParseTable, const GrammarError *> build() {
-    auto start_symbol = grammar.rules.empty()
-                          ? make_shared<Symbol>(0, rules::SymbolOptionToken)
-                          : make_shared<Symbol>(0);
+    auto start_symbol = grammar.rules.empty() ? make_shared<Symbol>(0, true)
+                                              : make_shared<Symbol>(0);
     ParseItem start_item(rules::START(), start_symbol, {});
     add_parse_state(
       item_set_closure(start_item, { rules::END_OF_INPUT() }, grammar));
@@ -260,10 +258,10 @@ class ParseTableBuilder {
         return "END_OF_INPUT";
       else
         return "";
-    } else if (symbol.is_token())
-      return lexical_grammar.rule_name(symbol);
+    } else if (symbol.is_token)
+      return lexical_grammar.rules[symbol.index].name;
     else
-      return grammar.rule_name(symbol);
+      return grammar.rules[symbol.index].name;
   }
 
   string action_description(const ParseAction &action) const {

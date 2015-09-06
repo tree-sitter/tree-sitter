@@ -1,5 +1,5 @@
 #include "compiler/compiler_spec_helper.h"
-#include "compiler/lexical_grammar.h"
+#include "compiler/prepared_grammar.h"
 #include "compiler/helpers/containers.h"
 #include "compiler/prepare_grammar/expand_tokens.h"
 
@@ -12,36 +12,64 @@ describe("expand_tokens", []() {
   describe("string rules", [&]() {
     it("replaces strings with sequences of character sets", [&]() {
       LexicalGrammar grammar{{
-        { "rule_A", seq({
-          i_sym(10),
-          str("xyz"),
-          i_sym(11) }) },
-      }, {}, {}};
+        {
+          "rule_A",
+          seq({
+            i_sym(10),
+            str("xyz"),
+            i_sym(11),
+          }),
+          RuleEntryTypeNamed
+        },
+      }, {}};
 
       auto result = expand_tokens(grammar);
 
       AssertThat(result.second, Equals((const GrammarError *)nullptr));
-      AssertThat(result.first.rules, Equals(rule_list({
-        { "rule_A", seq({
-          i_sym(10),
-          token(prec(1, seq({ character({ 'x' }), character({ 'y' }), character({ 'z' }) }))),
-          i_sym(11) }) },
+      AssertThat(result.first.rules, Equals(eq_vector<RuleEntry>({
+        {
+          "rule_A",
+          seq({
+            i_sym(10),
+            metadata(seq({
+              character({ 'x' }),
+              character({ 'y' }),
+              character({ 'z' }),
+            }), {
+              {PRECEDENCE, 1},
+              {IS_TOKEN, 1},
+            }),
+            i_sym(11),
+          }),
+          RuleEntryTypeNamed
+        },
       })));
     });
 
     it("handles strings containing non-ASCII UTF8 characters", [&]() {
       LexicalGrammar grammar{{
-        // α β
-        { "rule_A", str("\u03B1 \u03B2") },
-      }, {}, {}};
+        {
+          "rule_A",
+          str("\u03B1 \u03B2"), // α β
+          RuleEntryTypeNamed
+        },
+      }, {}};
 
       auto result = expand_tokens(grammar);
 
-      AssertThat(result.first.rules, Equals(rule_list({
-        { "rule_A", token(prec(1, seq({
-          character({ 945 }),
-          character({ ' ' }),
-          character({ 946 }) }))) }
+      AssertThat(result.first.rules, Equals(eq_vector<RuleEntry>({
+        {
+          "rule_A",
+          metadata(seq({
+            character({ 945 }),
+            character({ ' ' }),
+            character({ 946 }),
+          }), {
+            {PRECEDENCE, 1},
+            {IS_TOKEN, 1},
+          }),
+          RuleEntryTypeNamed
+        }
       })));
     });
   });
@@ -49,43 +77,65 @@ describe("expand_tokens", []() {
   describe("regexp rules", [&]() {
     it("replaces regexps with the equivalent rule tree", [&]() {
       LexicalGrammar grammar{{
-        { "rule_A", seq({
-          i_sym(10),
-          pattern("x*"),
-          i_sym(11) }) },
-      }, {}, {}};
+        {
+          "rule_A",
+          seq({
+            i_sym(10),
+            pattern("x*"),
+            i_sym(11),
+          }),
+          RuleEntryTypeNamed
+        },
+      }, {}};
 
       auto result = expand_tokens(grammar);
 
       AssertThat(result.second, Equals((const GrammarError *)nullptr));
-      AssertThat(result.first.rules, Equals(rule_list({
-        { "rule_A", seq({
-          i_sym(10),
-          repeat(character({ 'x' })),
-          i_sym(11) }) },
+      AssertThat(result.first.rules, Equals(eq_vector<RuleEntry>({
+        {
+          "rule_A",
+          seq({
+            i_sym(10),
+            repeat(character({ 'x' })),
+            i_sym(11),
+          }),
+          RuleEntryTypeNamed
+        },
       })));
     });
 
     it("handles regexps containing non-ASCII UTF8 characters", [&]() {
       LexicalGrammar grammar{{
-        // [^α-δ]
-        { "rule_A", pattern("[^\u03B1-\u03B4]*") },
-      }, {}, {}};
+        {
+          "rule_A",
+          pattern("[^\u03B1-\u03B4]*"), // [^α-δ]
+          RuleEntryTypeNamed
+        },
+      }, {}};
 
       auto result = expand_tokens(grammar);
 
-      AssertThat(result.first.rules, Equals(rule_list({
-        { "rule_A", repeat(character({ 945, 946, 947, 948 }, false)) }
+      AssertThat(result.first.rules, Equals(eq_vector<RuleEntry>({
+        {
+          "rule_A",
+          repeat(character({ 945, 946, 947, 948 }, false)),
+          RuleEntryTypeNamed
+        }
       })));
     });
 
     it("returns an error when the grammar contains an invalid regex", [&]() {
       LexicalGrammar grammar{{
-        { "rule_A", seq({
-          pattern("("),
-          str("xyz"),
-          pattern("[") }) },
-      }, {}, {}};
+        {
+          "rule_A",
+          seq({
+            pattern("("),
+            str("xyz"),
+            pattern("["),
+          }),
+          RuleEntryTypeNamed
+        },
+      }, {}};
 
       auto result = expand_tokens(grammar);
 

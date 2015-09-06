@@ -10,16 +10,12 @@ using std::string;
 using std::to_string;
 using std::hash;
 
-SymbolOption SymbolOptionAuxToken =
-  SymbolOption(SymbolOptionToken | SymbolOptionAuxiliary);
+Symbol::Symbol(int index) : index(index), is_token(false) {}
 
-Symbol::Symbol(int index) : index(index), options(SymbolOption(0)) {}
-
-Symbol::Symbol(int index, SymbolOption options)
-    : index(index), options(options) {}
+Symbol::Symbol(int index, bool is_token) : index(index), is_token(is_token) {}
 
 bool Symbol::operator==(const Symbol &other) const {
-  return (other.index == index) && (other.options == options);
+  return (other.index == index) && (other.is_token == is_token);
 }
 
 bool Symbol::operator==(const Rule &rule) const {
@@ -28,7 +24,7 @@ bool Symbol::operator==(const Rule &rule) const {
 }
 
 size_t Symbol::hash_code() const {
-  return hash<int>()(index) ^ hash<int16_t>()(options);
+  return hash<int>()(index) ^ hash<bool>()(is_token);
 }
 
 rule_ptr Symbol::copy() const {
@@ -36,29 +32,20 @@ rule_ptr Symbol::copy() const {
 }
 
 string Symbol::to_string() const {
-  string name = (options & SymbolOptionAuxiliary) ? "aux_" : "";
-  name += (options & SymbolOptionToken) ? "token" : "sym";
+  string name = is_token ? "token" : "sym";
   return "(" + name + " " + std::to_string(index) + ")";
 }
 
 bool Symbol::operator<(const Symbol &other) const {
-  if (options < other.options)
+  if (!is_token && other.is_token)
     return true;
-  if (options > other.options)
+  if (is_token && !other.is_token)
     return false;
   return (index < other.index);
 }
 
-bool Symbol::is_token() const {
-  return options & SymbolOptionToken;
-}
-
 bool Symbol::is_built_in() const {
   return index < 0;
-}
-
-bool Symbol::is_auxiliary() const {
-  return options & SymbolOptionAuxiliary;
 }
 
 void Symbol::accept(Visitor *visitor) const {
