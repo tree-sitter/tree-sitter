@@ -2,7 +2,6 @@
 #include "compiler/prepared_grammar.h"
 #include "compiler/prepare_grammar/interned_grammar.h"
 #include "compiler/prepare_grammar/extract_tokens.h"
-#include "compiler/helpers/containers.h"
 
 START_TEST
 
@@ -49,7 +48,7 @@ describe("extract_tokens", []() {
 
     AssertThat(error, Equals<const GrammarError *>(nullptr));
 
-    AssertThat(syntax_grammar.rules, Equals(eq_vector<RuleEntry>({
+    AssertThat(syntax_grammar.rules, Equals(vector<RuleEntry>({
       {
         "rule_A",
         repeat(seq({
@@ -87,7 +86,7 @@ describe("extract_tokens", []() {
       }
     })));
 
-    AssertThat(lexical_grammar.rules, Equals(eq_vector<RuleEntry>({
+    AssertThat(lexical_grammar.rules, Equals(vector<RuleEntry>({
 
       // Strings become anonymous rules.
       {
@@ -143,7 +142,7 @@ describe("extract_tokens", []() {
     SyntaxGrammar &syntax_grammar = get<0>(result);
     LexicalGrammar &lexical_grammar = get<1>(result);
 
-    AssertThat(syntax_grammar.rules, Equals(eq_vector<RuleEntry>({
+    AssertThat(syntax_grammar.rules, Equals(vector<RuleEntry>({
       {
         "rule_A",
         seq({ i_token(0), i_sym(0), i_token(0) }),
@@ -151,7 +150,7 @@ describe("extract_tokens", []() {
       }
     })));
 
-    AssertThat(lexical_grammar.rules, Equals(eq_vector<RuleEntry>({
+    AssertThat(lexical_grammar.rules, Equals(vector<RuleEntry>({
       {
         "ab",
         str("ab"),
@@ -182,7 +181,7 @@ describe("extract_tokens", []() {
     SyntaxGrammar &syntax_grammar = get<0>(result);
     LexicalGrammar &lexical_grammar = get<1>(result);
 
-    AssertThat(syntax_grammar.rules, Equals(eq_vector<RuleEntry>({
+    AssertThat(syntax_grammar.rules, Equals(vector<RuleEntry>({
       {
         "rule_A",
         seq({ i_sym(1), i_token(0) }),
@@ -200,7 +199,7 @@ describe("extract_tokens", []() {
       },
     })));
 
-    AssertThat(lexical_grammar.rules, Equals(eq_vector<RuleEntry>({
+    AssertThat(lexical_grammar.rules, Equals(vector<RuleEntry>({
       {
         "ab",
         str("ab"),
@@ -261,10 +260,9 @@ describe("extract_tokens", []() {
 
       AssertThat(get<2>(result), Equals<const GrammarError *>(nullptr));
 
-      AssertThat(get<1>(result).separators, Equals(rule_vector({
-        pattern("\\s+"),
-        str("y"),
-      })));
+      AssertThat(get<1>(result).separators.size(), Equals<size_t>(2));
+      AssertThat(get<1>(result).separators[0], EqualsPointer(pattern("\\s+")));
+      AssertThat(get<1>(result).separators[1], EqualsPointer(str("y")));
 
       AssertThat(get<0>(result).ubiquitous_tokens, IsEmpty());
     });

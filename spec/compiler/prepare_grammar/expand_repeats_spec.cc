@@ -1,7 +1,6 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/prepared_grammar.h"
 #include "compiler/prepare_grammar/expand_repeats.h"
-#include "compiler/helpers/containers.h"
 
 START_TEST
 
@@ -20,7 +19,7 @@ describe("expand_repeats", []() {
 
     auto match = expand_repeats(grammar);
 
-    AssertThat(match.rules, Equals(eq_vector<RuleEntry>({
+    AssertThat(match.rules, Equals(vector<RuleEntry>({
       {
         "rule0",
         choice({ i_sym(1), blank() }),
@@ -51,7 +50,7 @@ describe("expand_repeats", []() {
 
     auto match = expand_repeats(grammar);
 
-    AssertThat(match.rules, Equals(eq_vector<RuleEntry>({
+    AssertThat(match.rules, Equals(vector<RuleEntry>({
       {
         "rule0",
         seq({
@@ -82,7 +81,7 @@ describe("expand_repeats", []() {
 
     auto match = expand_repeats(grammar);
 
-    AssertThat(match.rules, Equals(eq_vector<RuleEntry>({
+    AssertThat(match.rules, Equals(vector<RuleEntry>({
       {
         "rule0",
         choice({ i_token(10), i_sym(1), blank() }),
@@ -118,7 +117,7 @@ describe("expand_repeats", []() {
 
     auto match = expand_repeats(grammar);
 
-    AssertThat(match.rules, Equals(eq_vector<RuleEntry>({
+    AssertThat(match.rules, Equals(vector<RuleEntry>({
       {
         "rule0",
         choice({
@@ -157,7 +156,7 @@ describe("expand_repeats", []() {
 
     auto match = expand_repeats(grammar);
 
-    AssertThat(match.rules, Equals(eq_vector<RuleEntry>({
+    AssertThat(match.rules, Equals(vector<RuleEntry>({
       {
         "rule0",
         seq({
@@ -201,7 +200,7 @@ describe("expand_repeats", []() {
 
     auto match = expand_repeats(grammar);
 
-    AssertThat(match.rules, Equals(eq_vector<RuleEntry>({
+    AssertThat(match.rules, Equals(vector<RuleEntry>({
       {
         "rule0",
         choice({ i_sym(2), blank() }),

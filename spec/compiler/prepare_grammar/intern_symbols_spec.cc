@@ -2,7 +2,6 @@
 #include "compiler/prepare_grammar/intern_symbols.h"
 #include "compiler/rules/named_symbol.h"
 #include "compiler/rules/symbol.h"
-#include "compiler/helpers/containers.h"
 
 START_TEST
 
@@ -20,7 +19,7 @@ describe("intern_symbols", []() {
     auto result = intern_symbols(grammar);
 
     AssertThat(result.second, Equals((GrammarError *)nullptr));
-    AssertThat(result.first.rules, Equals(eq_vector<RuleEntry>({
+    AssertThat(result.first.rules, Equals(vector<RuleEntry>({
       {
         "x",
         choice({ i_sym(1), i_sym(2) }),

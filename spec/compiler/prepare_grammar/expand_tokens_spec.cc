@@ -1,6 +1,5 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/prepared_grammar.h"
-#include "compiler/helpers/containers.h"
 #include "compiler/prepare_grammar/expand_tokens.h"
 
 START_TEST
@@ -26,7 +25,7 @@ describe("expand_tokens", []() {
       auto result = expand_tokens(grammar);
 
       AssertThat(result.second, Equals((const GrammarError *)nullptr));
-      AssertThat(result.first.rules, Equals(eq_vector<RuleEntry>({
+      AssertThat(result.first.rules, Equals(vector<RuleEntry>({
         {
           "rule_A",
           seq({
@@ -57,7 +56,7 @@ describe("expand_tokens", []() {
 
       auto result = expand_tokens(grammar);
 
-      AssertThat(result.first.rules, Equals(eq_vector<RuleEntry>({
+      AssertThat(result.first.rules, Equals(vector<RuleEntry>({
         {
           "rule_A",
           metadata(seq({
@@ -91,7 +90,7 @@ describe("expand_tokens", []() {
       auto result = expand_tokens(grammar);
 
       AssertThat(result.second, Equals((const GrammarError *)nullptr));
-      AssertThat(result.first.rules, Equals(eq_vector<RuleEntry>({
+      AssertThat(result.first.rules, Equals(vector<RuleEntry>({
         {
           "rule_A",
           seq({
@@ -115,7 +114,7 @@ describe("expand_tokens", []() {
 
       auto result = expand_tokens(grammar);
 
-      AssertThat(result.first.rules, Equals(eq_vector<RuleEntry>({
+      AssertThat(result.first.rules, Equals(vector<RuleEntry>({
         {
           "rule_A",
           repeat(character({ 945, 946, 947, 948 }, false)),
