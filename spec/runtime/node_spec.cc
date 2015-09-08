@@ -24,14 +24,10 @@ describe("Node", []() {
     ts_document_free(document);
   });
 
-  describe("child_count()", [&]() {
-    it("returns the number of visible child nodes", [&]() {
-      AssertThat(ts_node_child_count(array_node), Equals<size_t>(3));
-    });
-  });
-
-  describe("child(i)", [&]() {
+  describe("child_count(), child(i)", [&]() {
     it("returns the child node at the given index", [&]() {
+      AssertThat(ts_node_child_count(array_node), Equals<size_t>(3));
+
       TSNode child1 = ts_node_child(array_node, 0);
       TSNode child2 = ts_node_child(array_node, 1);
       TSNode child3 = ts_node_child(array_node, 2);
@@ -53,9 +49,83 @@ describe("Node", []() {
       AssertThat(ts_node_pos(child3).bytes, Equals<size_t>(15));
       AssertThat(ts_node_size(child3).bytes, Equals<size_t>(11));
 
+      AssertThat(ts_node_child_count(child3), Equals<size_t>(2));
+
+      TSNode grandchild1 = ts_node_child(child3, 0);
+      TSNode grandchild2 = ts_node_child(child3, 1);
+
+      AssertThat(ts_node_name(grandchild1, document), Equals("string"));
+      AssertThat(ts_node_name(grandchild2, document), Equals("null"));
+
       AssertThat(ts_node_parent(child1), Equals(array_node));
       AssertThat(ts_node_parent(child2), Equals(array_node));
       AssertThat(ts_node_parent(child3), Equals(array_node));
+      AssertThat(ts_node_parent(array_node).data, Equals<void *>(nullptr));
+    });
+  });
+
+  describe("concrete_child_count(), concrete_child(i)", [&]() {
+    it("returns the child node at the given index, counting anonymous token nodes", [&]() {
+      AssertThat(ts_node_concrete_child_count(array_node), Equals<size_t>(7));
+      TSNode child1 = ts_node_concrete_child(array_node, 0);
+      TSNode child2 = ts_node_concrete_child(array_node, 1);
+      TSNode child3 = ts_node_concrete_child(array_node, 2);
+      TSNode child4 = ts_node_concrete_child(array_node, 3);
+      TSNode child5 = ts_node_concrete_child(array_node, 4);
+      TSNode child6 = ts_node_concrete_child(array_node, 5);
+      TSNode child7 = ts_node_concrete_child(array_node, 6);
+
+      AssertThat(ts_node_name(array_node, document), Equals("array"));
+      AssertThat(ts_node_name(child1, document), Equals("["));
+      AssertThat(ts_node_name(child2, document), Equals("number"));
+      AssertThat(ts_node_name(child3, document), Equals(","));
+      AssertThat(ts_node_name(child4, document), Equals("false"));
+      AssertThat(ts_node_name(child5, document), Equals(","));
+      AssertThat(ts_node_name(child6, document), Equals("object"));
+      AssertThat(ts_node_name(child7, document), Equals("]"));
+
+      AssertThat(ts_node_is_concrete(array_node), IsFalse());
+      AssertThat(ts_node_is_concrete(child1), IsTrue());
+      AssertThat(ts_node_is_concrete(child2), IsFalse());
+      AssertThat(ts_node_is_concrete(child3), IsTrue());
+      AssertThat(ts_node_is_concrete(child4), IsFalse());
+      AssertThat(ts_node_is_concrete(child5), IsTrue());
+      AssertThat(ts_node_is_concrete(child6), IsFalse());
+      AssertThat(ts_node_is_concrete(child7), IsTrue());
+
+      AssertThat(ts_node_pos(child1).bytes, Equals<size_t>(2));
+      AssertThat(ts_node_size(child1).bytes, Equals<size_t>(1));
+
+      AssertThat(ts_node_pos(child3).bytes, Equals<size_t>(6));
+      AssertThat(ts_node_size(child3).bytes, Equals<size_t>(1));
+
+      AssertThat(ts_node_pos(child5).bytes, Equals<size_t>(13));
+      AssertThat(ts_node_size(child5).bytes, Equals<size_t>(1));
+
+      AssertThat(ts_node_pos(child7).bytes, Equals<size_t>(26));
+      AssertThat(ts_node_size(child7).bytes, Equals<size_t>(1));
+
+      AssertThat(ts_node_concrete_child_count(child6), Equals<size_t>(5))
+
+      TSNode grandchild1 = ts_node_concrete_child(child6, 0);
+      TSNode grandchild2 = ts_node_concrete_child(child6, 1);
+      TSNode grandchild3 = ts_node_concrete_child(child6, 2);
+      TSNode grandchild4 = ts_node_concrete_child(child6, 3);
+      TSNode grandchild5 = ts_node_concrete_child(child6, 4);
+
+      AssertThat(ts_node_name(grandchild1, document), Equals("{"));
+      AssertThat(ts_node_name(grandchild2, document), Equals("string"));
+      AssertThat(ts_node_name(grandchild3, document), Equals(":"));
+      AssertThat(ts_node_name(grandchild4, document), Equals("null"));
+      AssertThat(ts_node_name(grandchild5, document), Equals("}"));
+
+      AssertThat(ts_node_parent(child1), Equals(array_node));
+      AssertThat(ts_node_parent(child2), Equals(array_node));
+      AssertThat(ts_node_parent(child3), Equals(array_node));
+      AssertThat(ts_node_parent(child4), Equals(array_node));
+      AssertThat(ts_node_parent(child5), Equals(array_node));
+      AssertThat(ts_node_parent(child6), Equals(array_node));
+      AssertThat(ts_node_parent(child7), Equals(array_node));
       AssertThat(ts_node_parent(array_node).data, Equals<void *>(nullptr));
     });
   });

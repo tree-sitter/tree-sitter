@@ -17,9 +17,9 @@ typedef struct TSTree TSTree;
 typedef unsigned short TSStateId;
 
 typedef enum {
-  TSNodeTypeNormal,
-  TSNodeTypeConcrete,
   TSNodeTypeHidden,
+  TSNodeTypeConcrete,
+  TSNodeTypeNormal,
 } TSNodeType;
 
 typedef struct TSLexer {

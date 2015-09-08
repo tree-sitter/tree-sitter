@@ -74,11 +74,11 @@ TSNode ts_node_prev_sibling(TSNode this) {
     for (size_t i = tree->context.index - 1; i + 1 > 0; i--) {
       const TSTree *child = parent->children[i];
       position = ts_length_sub(position, ts_tree_total_size(child));
-      if (ts_tree_is_visible(child))
+      if (child->options.type == TSNodeTypeNormal)
         return ts_node_make(child, position);
-      if (child->visible_child_count > 0)
+      if (child->named_child_count > 0)
         return ts_node_child(ts_node_make(child, position),
-                             child->visible_child_count - 1);
+                             child->named_child_count - 1);
     }
 
     tree = parent;
@@ -100,9 +100,9 @@ TSNode ts_node_next_sibling(TSNode this) {
     for (size_t i = tree->context.index + 1; i < parent->child_count; i++) {
       const TSTree *child = parent->children[i];
       position = ts_length_add(position, ts_tree_total_size(prev_child));
-      if (ts_tree_is_visible(child))
+      if (child->options.type == TSNodeTypeNormal)
         return ts_node_make(child, position);
-      if (child->visible_child_count > 0)
+      if (child->named_child_count > 0)
         return ts_node_child(ts_node_make(child, position), 0);
       prev_child = child;
     }
@@ -113,11 +113,20 @@ TSNode ts_node_next_sibling(TSNode this) {
   return ts_node__null();
 }
 
-size_t ts_node_child_count(TSNode this) {
+size_t ts_node_concrete_child_count(TSNode this) {
   return ts_node__tree(this)->visible_child_count;
 }
 
-TSNode ts_node_child(TSNode this, size_t child_index) {
+bool ts_node_is_concrete(TSNode this) {
+  return ts_node__tree(this)->options.type == TSNodeTypeConcrete;
+}
+
+size_t ts_node_child_count(TSNode this) {
+  return ts_node__tree(this)->named_child_count;
+}
+
+static TSNode ts_node__child_with_type(TSNode this, size_t child_index,
+                                       TSNodeType type) {
   const TSTree *tree = ts_node__tree(this);
   TSLength position = ts_node__offset(this);
 
@@ -128,25 +137,36 @@ TSNode ts_node_child(TSNode this, size_t child_index) {
     size_t index = 0;
     for (size_t i = 0; i < tree->child_count; i++) {
       TSTree *child = tree->children[i];
-      if (ts_tree_is_visible(child)) {
+      if (child->options.type >= type) {
         if (index == child_index)
           return ts_node_make(child, position);
         index++;
       } else {
         size_t grandchild_index = child_index - index;
-        if (grandchild_index < child->visible_child_count) {
+        size_t grandchild_count = (type == TSNodeTypeNormal)
+                                    ? child->named_child_count
+                                    : child->visible_child_count;
+        if (grandchild_index < grandchild_count) {
           did_descend = true;
           tree = child;
           child_index = grandchild_index;
           break;
         }
-        index += child->visible_child_count;
+        index += grandchild_count;
       }
       position = ts_length_add(position, ts_tree_total_size(child));
     }
   }
 
   return ts_node__null();
+}
+
+TSNode ts_node_child(TSNode this, size_t child_index) {
+  return ts_node__child_with_type(this, child_index, TSNodeTypeNormal);
+}
+
+TSNode ts_node_concrete_child(TSNode this, size_t child_index) {
+  return ts_node__child_with_type(this, child_index, TSNodeTypeConcrete);
 }
 
 TSNode ts_node_find_for_range(TSNode this, size_t min, size_t max) {

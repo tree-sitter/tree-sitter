@@ -14,19 +14,18 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength size, TSLength padding,
     .symbol = sym,
     .size = size,
     .child_count = 0,
+    .visible_child_count = 0,
+    .named_child_count = 0,
     .children = NULL,
     .padding = padding,
-    .options =
-      (TSTreeOptions){
-        .hidden = (node_type == TSNodeTypeHidden),
-        .concrete = (node_type == TSNodeTypeConcrete),
-      },
+    .options = {.type = node_type },
   };
   return result;
 }
 
 TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char) {
-  TSTree *result = ts_tree_make_leaf(ts_builtin_sym_error, size, padding, false);
+  TSTree *result =
+    ts_tree_make_leaf(ts_builtin_sym_error, size, padding, TSNodeTypeNormal);
   ts_tree_set_fragile_left(result);
   ts_tree_set_fragile_right(result);
   result->lookahead_char = lookahead_char;
@@ -42,7 +41,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
    *  the given child nodes.
    */
   TSLength size = ts_length_zero(), padding = ts_length_zero();
-  size_t visible_child_count = 0;
+  size_t visible_child_count = 0, named_child_count = 0;
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
     ts_tree_retain(child);
@@ -56,15 +55,23 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
       size = ts_length_add(ts_length_add(size, child->padding), child->size);
     }
 
-    if (ts_tree_is_visible(child))
-      visible_child_count++;
-    else
-      visible_child_count += child->visible_child_count;
+    switch (child->options.type) {
+      case TSNodeTypeNormal:
+        visible_child_count++;
+        named_child_count++;
+        break;
+      case TSNodeTypeConcrete:
+        visible_child_count++;
+        break;
+      case TSNodeTypeHidden:
+        visible_child_count += child->visible_child_count;
+        named_child_count += child->named_child_count;
+        break;
+    }
   }
 
   TSTreeOptions options = (TSTreeOptions){
-    .hidden = (node_type == TSNodeTypeHidden),
-    .concrete = (node_type == TSNodeTypeConcrete),
+    .type = node_type,
   };
 
   if (symbol == ts_builtin_sym_error) {
@@ -75,15 +82,18 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
     options.fragile_right = children[child_count - 1]->options.fragile_right;
   }
 
-  *result = (TSTree){.ref_count = 1,
-                     .context = {.parent = NULL, .index = 0 },
-                     .symbol = symbol,
-                     .children = children,
-                     .child_count = child_count,
-                     .visible_child_count = visible_child_count,
-                     .size = size,
-                     .padding = padding,
-                     .options = options };
+  *result = (TSTree){
+    .ref_count = 1,
+    .context = {.parent = NULL, .index = 0 },
+    .symbol = symbol,
+    .children = children,
+    .child_count = child_count,
+    .visible_child_count = visible_child_count,
+    .named_child_count = named_child_count,
+    .size = size,
+    .padding = padding,
+    .options = options,
+  };
   return result;
 }
 
@@ -124,6 +134,8 @@ bool ts_tree_eq(const TSTree *node1, const TSTree *node2) {
     return false;
   if (node1->visible_child_count != node2->visible_child_count)
     return false;
+  if (node1->named_child_count != node2->named_child_count)
+    return false;
   for (size_t i = 0; i < node1->child_count; i++)
     if (!ts_tree_eq(node1->children[i], node2->children[i]))
       return false;
@@ -148,7 +160,7 @@ static size_t ts_tree__write_to_string(const TSTree *tree,
 
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
-  int visible = ts_tree_is_visible(tree) || is_root;
+  int visible = tree->options.type == TSNodeTypeNormal || is_root;
 
   if (visible && !is_root)
     cursor += snprintf(*writer, limit, " ");
@@ -187,15 +199,24 @@ void ts_tree_prepend_children(TSTree *tree, size_t count, TSTree **children) {
 
   tree->size = ts_length_add(tree->size, tree->padding);
 
-  size_t visible_count = 0;
+  size_t visible_count = 0, named_count = 0;
   for (size_t i = 0; i < count; i++) {
     if (i == 0)
       tree->padding = children[i]->padding;
     else
       tree->size = ts_length_add(tree->size, children[i]->padding);
     tree->size = ts_length_add(tree->size, children[i]->size);
-    if (ts_tree_is_visible(children[i]))
-      visible_count++;
+    switch (children[i]->options.type) {
+      case TSNodeTypeNormal:
+        visible_count++;
+        named_count++;
+        break;
+      case TSNodeTypeConcrete:
+        visible_count++;
+        break;
+      case TSNodeTypeHidden:
+        break;
+    }
   }
 
   size_t new_child_count = count + tree->child_count;
@@ -206,5 +227,6 @@ void ts_tree_prepend_children(TSTree *tree, size_t count, TSTree **children) {
 
   tree->children = new_children;
   tree->visible_child_count += visible_count;
+  tree->named_child_count += named_count;
   tree->child_count += count;
 }

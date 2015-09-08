@@ -9,8 +9,7 @@ extern "C" {
 #include "tree_sitter/parser.h"
 
 typedef struct {
-  bool hidden : 1;
-  bool concrete : 1;
+  TSNodeType type : 4;
   bool extra : 1;
   bool fragile_left : 1;
   bool fragile_right : 1;
@@ -23,6 +22,7 @@ struct TSTree {
   } context;
   size_t child_count;
   size_t visible_child_count;
+  size_t named_child_count;
   union {
     struct TSTree **children;
     char lookahead_char;
@@ -44,7 +44,7 @@ static inline bool ts_tree_is_extra(const TSTree *tree) {
 }
 
 static inline bool ts_tree_is_visible(const TSTree *tree) {
-  return !(tree->options.hidden || tree->options.concrete);
+  return tree->options.type != TSNodeTypeHidden;
 }
 
 static inline void ts_tree_set_extra(TSTree *tree) {

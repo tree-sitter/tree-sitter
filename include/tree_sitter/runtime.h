@@ -51,6 +51,8 @@ TSLength ts_node_size(TSNode);
 TSSymbol ts_node_sym(TSNode);
 TSNode ts_node_child(TSNode, size_t);
 size_t ts_node_child_count(TSNode);
+TSNode ts_node_concrete_child(TSNode, size_t);
+size_t ts_node_concrete_child_count(TSNode);
 TSNode ts_node_find_for_pos(TSNode, size_t);
 TSNode ts_node_find_for_range(TSNode, size_t, size_t);
 TSNode ts_node_parent(TSNode);
@@ -59,6 +61,7 @@ TSNode ts_node_prev_sibling(TSNode);
 const char *ts_node_name(TSNode, const TSDocument *);
 const char *ts_node_string(TSNode, const TSDocument *);
 bool ts_node_eq(TSNode, TSNode);
+bool ts_node_is_concrete(TSNode);
 
 TSDocument *ts_document_make();
 void ts_document_free(TSDocument *);
