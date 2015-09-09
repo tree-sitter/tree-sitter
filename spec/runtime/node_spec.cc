@@ -130,7 +130,59 @@ describe("Node", []() {
     });
   });
 
-  describe("next_sibling() and prev_sibling()", [&]() {
+  describe("next_concrete_sibling(), prev_concrete_sibling()", [&]() {
+    it("returns the node's next and previous sibling, including anonymous nodes", [&]() {
+      TSNode bracket_node1 = ts_node_concrete_child(array_node, 0);
+      TSNode number_node = ts_node_concrete_child(array_node, 1);
+      TSNode array_comma_node1 = ts_node_concrete_child(array_node, 2);
+      TSNode false_node = ts_node_concrete_child(array_node, 3);
+      TSNode array_comma_node2 = ts_node_concrete_child(array_node, 4);
+      TSNode object_node = ts_node_concrete_child(array_node, 5);
+      TSNode brace_node1 = ts_node_concrete_child(object_node, 0);
+      TSNode string_node = ts_node_concrete_child(object_node, 1);
+      TSNode colon_node = ts_node_concrete_child(object_node, 2);
+      TSNode null_node = ts_node_concrete_child(object_node, 3);
+      TSNode brace_node2 = ts_node_concrete_child(object_node, 4);
+      TSNode bracket_node2 = ts_node_concrete_child(array_node, 6);
+
+      AssertThat(ts_node_next_concrete_sibling(bracket_node1), Equals(number_node));
+      AssertThat(ts_node_next_concrete_sibling(number_node), Equals(array_comma_node1));
+      AssertThat(ts_node_next_concrete_sibling(array_comma_node1), Equals(false_node));
+      AssertThat(ts_node_next_concrete_sibling(false_node), Equals(array_comma_node2));
+      AssertThat(ts_node_next_concrete_sibling(array_comma_node2), Equals(object_node));
+      AssertThat(ts_node_next_concrete_sibling(object_node), Equals(bracket_node2));
+      AssertThat(ts_node_next_concrete_sibling(bracket_node2).data, Equals<void *>(nullptr));
+
+      AssertThat(ts_node_prev_concrete_sibling(bracket_node1).data, Equals<void *>(nullptr));
+      AssertThat(ts_node_prev_concrete_sibling(number_node), Equals(bracket_node1));
+      AssertThat(ts_node_prev_concrete_sibling(array_comma_node1), Equals(number_node));
+      AssertThat(ts_node_prev_concrete_sibling(false_node), Equals(array_comma_node1));
+      AssertThat(ts_node_prev_concrete_sibling(array_comma_node2), Equals(false_node));
+      AssertThat(ts_node_prev_concrete_sibling(object_node), Equals(array_comma_node2));
+      AssertThat(ts_node_prev_concrete_sibling(bracket_node2), Equals(object_node));
+
+      AssertThat(ts_node_next_concrete_sibling(brace_node1), Equals(string_node));
+      AssertThat(ts_node_next_concrete_sibling(string_node), Equals(colon_node));
+      AssertThat(ts_node_next_concrete_sibling(colon_node), Equals(null_node));
+      AssertThat(ts_node_next_concrete_sibling(null_node), Equals(brace_node2));
+      AssertThat(ts_node_next_concrete_sibling(brace_node2).data, Equals<void *>(nullptr));
+
+      AssertThat(ts_node_prev_concrete_sibling(brace_node1).data, Equals<void *>(nullptr));
+      AssertThat(ts_node_prev_concrete_sibling(string_node), Equals(brace_node1));
+      AssertThat(ts_node_prev_concrete_sibling(colon_node), Equals(string_node));
+      AssertThat(ts_node_prev_concrete_sibling(null_node), Equals(colon_node));
+      AssertThat(ts_node_prev_concrete_sibling(brace_node2), Equals(null_node));
+    });
+
+    it("returns null when the node has no parent", [&]() {
+      AssertThat(ts_node_next_sibling(array_node).data, Equals<void *>(nullptr));
+      AssertThat(ts_node_prev_sibling(array_node).data, Equals<void *>(nullptr));
+      AssertThat(ts_node_next_sibling(array_node).data, Equals<void *>(nullptr));
+      AssertThat(ts_node_prev_sibling(array_node).data, Equals<void *>(nullptr));
+    });
+  });
+
+  describe("next_concrete_sibling(), prev_concrete_sibling()", [&]() {
     it("returns the node's next and previous siblings", [&]() {
       TSNode number_node = ts_node_child(array_node, 0);
       TSNode false_node = ts_node_child(array_node, 1);
@@ -197,6 +249,20 @@ describe("Node", []() {
         AssertThat(ts_node_size(node).bytes, Equals<size_t>(25));
         AssertThat(ts_node_pos(node).bytes, Equals<size_t>(2));
       });
+    });
+  });
+
+  describe("find_concrete_for_range(start, end)", [&]() {
+    it("returns the smallest concrete node that spans the given range", [&]() {
+      TSNode node1 = ts_node_find_concrete_for_range(array_node, 19, 19);
+      AssertThat(ts_node_name(node1, document), Equals(":"));
+      AssertThat(ts_node_pos(node1).bytes, Equals<size_t>(19));
+      AssertThat(ts_node_size(node1).bytes, Equals<size_t>(1));
+
+      TSNode node2 = ts_node_find_concrete_for_range(array_node, 18, 20);
+      AssertThat(ts_node_name(node2, document), Equals("object"));
+      AssertThat(ts_node_pos(node2).bytes, Equals<size_t>(15));
+      AssertThat(ts_node_size(node2).bytes, Equals<size_t>(11));
     });
   });
 

@@ -5,7 +5,7 @@
 #include <vector>
 #include <string>
 
-extern const char *symbol_names[12];
+extern const char *symbol_names[24];
 
 TSTree ** tree_array(std::vector<TSTree *> trees);
 

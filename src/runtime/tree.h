@@ -19,6 +19,7 @@ struct TSTree {
   struct {
     struct TSTree *parent;
     size_t index;
+    TSLength offset;
   } context;
   size_t child_count;
   size_t visible_child_count;
