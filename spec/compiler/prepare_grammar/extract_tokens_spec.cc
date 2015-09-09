@@ -254,15 +254,15 @@ describe("extract_tokens", []() {
           RuleEntryTypeNamed,
         },
       }, {
-        pattern("\\s+"),
         str("y"),
+        pattern("\\s+"),
       }, {}});
 
       AssertThat(get<2>(result), Equals<const GrammarError *>(nullptr));
 
       AssertThat(get<1>(result).separators.size(), Equals<size_t>(2));
-      AssertThat(get<1>(result).separators[0], EqualsPointer(pattern("\\s+")));
-      AssertThat(get<1>(result).separators[1], EqualsPointer(str("y")));
+      AssertThat(get<1>(result).separators[0], EqualsPointer(str("y")));
+      AssertThat(get<1>(result).separators[1], EqualsPointer(pattern("\\s+")));
 
       AssertThat(get<0>(result).ubiquitous_tokens, IsEmpty());
     });

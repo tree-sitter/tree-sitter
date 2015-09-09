@@ -1,9 +1,7 @@
 #ifndef COMPILER_PREPARE_GRAMMAR_INTERNED_GRAMMAR_H_
 #define COMPILER_PREPARE_GRAMMAR_INTERNED_GRAMMAR_H_
 
-#include <string>
 #include <set>
-#include <utility>
 #include <vector>
 #include "tree_sitter/compiler.h"
 #include "compiler/rules/symbol.h"
@@ -14,7 +12,7 @@ namespace prepare_grammar {
 
 struct InternedGrammar {
   std::vector<RuleEntry> rules;
-  std::set<rule_ptr> ubiquitous_tokens;
+  std::vector<rule_ptr> ubiquitous_tokens;
   std::set<std::set<rules::Symbol>> expected_conflicts;
 };
 

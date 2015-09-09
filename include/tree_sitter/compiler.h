@@ -2,7 +2,6 @@
 #define TREE_SITTER_COMPILER_H_
 
 #include <memory>
-#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -32,16 +31,16 @@ rule_ptr token(const rule_ptr &rule);
 
 class Grammar {
   const std::vector<std::pair<std::string, rule_ptr>> rules_;
-  std::set<rule_ptr> ubiquitous_tokens_;
-  std::set<std::set<std::string>> expected_conflicts_;
+  std::vector<rule_ptr> ubiquitous_tokens_;
+  std::vector<std::vector<std::string>> expected_conflicts_;
 
  public:
   explicit Grammar(const std::vector<std::pair<std::string, rule_ptr>> &);
-  Grammar &ubiquitous_tokens(const std::set<rule_ptr> &);
-  Grammar &expected_conflicts(const std::set<std::set<std::string>> &);
+  Grammar &ubiquitous_tokens(const std::vector<rule_ptr> &);
+  Grammar &expected_conflicts(const std::vector<std::vector<std::string>> &);
   const std::vector<std::pair<std::string, rule_ptr>> &rules() const;
-  const std::set<rule_ptr> &ubiquitous_tokens() const;
-  const std::set<std::set<std::string>> &expected_conflicts() const;
+  const std::vector<rule_ptr> &ubiquitous_tokens() const;
+  const std::vector<std::vector<std::string>> &expected_conflicts() const;
 };
 
 enum GrammarErrorType {

@@ -66,7 +66,7 @@ pair<InternedGrammar, const GrammarError *> intern_symbols(const Grammar &gramma
     auto new_rule = interner.apply(rule);
     if (!interner.missing_rule_name.empty())
       return { result, missing_rule_error(interner.missing_rule_name) };
-    result.ubiquitous_tokens.insert(new_rule);
+    result.ubiquitous_tokens.push_back(new_rule);
   }
 
   for (auto &names : grammar.expected_conflicts()) {
