@@ -8,7 +8,7 @@ extern "C" {
 #include "tree_sitter/runtime.h"
 
 static inline TSDebugger ts_debugger_null() {
-  TSDebugger debugger = { 0, 0, 0 };
+  TSDebugger debugger = { 0, 0 };
   return debugger;
 }
 

@@ -9,7 +9,7 @@
 #define DEBUG(...)                                                    \
   if (lexer->debugger.debug_fn) {                                     \
     snprintf(lexer->debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__); \
-    lexer->debugger.debug_fn(lexer->debugger.data, TSDebugTypeLex,    \
+    lexer->debugger.debug_fn(lexer->debugger.payload, TSDebugTypeLex,    \
                              lexer->debug_buffer);                    \
   }
 
@@ -24,10 +24,10 @@ static const char *empty_chunk = "";
 static void ts_lexer__get_chunk(TSLexer *lexer) {
   TSInput input = lexer->input;
   if (lexer->current_position.bytes != lexer->chunk_start + lexer->chunk_size)
-    input.seek_fn(input.data, lexer->current_position);
+    input.seek_fn(input.payload, lexer->current_position);
 
   lexer->chunk_start = lexer->current_position.bytes;
-  lexer->chunk = input.read_fn(input.data, &lexer->chunk_size);
+  lexer->chunk = input.read_fn(input.payload, &lexer->chunk_size);
   if (!lexer->chunk_size)
     lexer->chunk = empty_chunk;
 }

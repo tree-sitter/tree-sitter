@@ -17,7 +17,7 @@
 #define DEBUG(...)                                                           \
   if (parser->lexer.debugger.debug_fn) {                                     \
     snprintf(parser->lexer.debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__); \
-    parser->lexer.debugger.debug_fn(parser->lexer.debugger.data,             \
+    parser->lexer.debugger.debug_fn(parser->lexer.debugger.payload,          \
                                     TSDebugTypeParse,                        \
                                     parser->lexer.debug_buffer);             \
   }
@@ -424,12 +424,8 @@ TSParser ts_parser_make() {
 void ts_parser_destroy(TSParser *parser) {
   ts_parse_stack_delete(parser->stack);
   ts_stack_delete(&parser->right_stack);
-
   if (parser->lookahead)
     ts_tree_release(parser->lookahead);
-
-  if (parser->lexer.debugger.release_fn)
-    parser->lexer.debugger.release_fn(parser->lexer.debugger.data);
 }
 
 TSDebugger ts_parser_get_debugger(const TSParser *parser) {
@@ -437,8 +433,6 @@ TSDebugger ts_parser_get_debugger(const TSParser *parser) {
 }
 
 void ts_parser_set_debugger(TSParser *parser, TSDebugger debugger) {
-  if (parser->lexer.debugger.release_fn)
-    parser->lexer.debugger.release_fn(parser->lexer.debugger.data);
   parser->lexer.debugger = debugger;
 }
 

@@ -14,8 +14,6 @@ TSDocument *ts_document_make() {
 
 void ts_document_free(TSDocument *document) {
   ts_parser_destroy(&document->parser);
-  if (document->input.release_fn)
-    document->input.release_fn(document->input.data);
   if (document->tree)
     ts_tree_release(document->tree);
   free(document);

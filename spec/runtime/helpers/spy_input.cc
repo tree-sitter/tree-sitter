@@ -80,10 +80,9 @@ int SpyInput::seek(size_t pos) {
 
 TSInput SpyInput::input() {
   TSInput result;
-  result.data = this;
+  result.payload = this;
   result.seek_fn = spy_seek;
   result.read_fn = spy_read;
-  result.release_fn = nullptr;
   return result;
 }
 

@@ -10,16 +10,10 @@ static void spy_debug(void *data, TSDebugType type, const char *msg) {
   debugger->messages.push_back(msg);
 }
 
-static void spy_release(void *data) {
-  SpyDebugger *debugger = static_cast<SpyDebugger *>(data);
-  debugger->release_call_count++;
-}
-
 TSDebugger SpyDebugger::debugger() {
   TSDebugger result;
-  result.data = (void *)this;
+  result.payload = (void *)this;
   result.debug_fn = spy_debug;
-  result.release_fn = spy_release;
   return result;
 }
 

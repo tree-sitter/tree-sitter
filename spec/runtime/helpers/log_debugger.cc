@@ -14,8 +14,7 @@ static void log_debug(void *data, TSDebugType type, const char *msg) {
 
 TSDebugger log_debugger_make() {
   TSDebugger result;
-  result.data = NULL;
+  result.payload = NULL;
   result.debug_fn = log_debug;
-  result.release_fn = NULL;
   return result;
 }

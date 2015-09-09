@@ -7,31 +7,32 @@ typedef struct {
   size_t length;
 } TSStringInput;
 
-const char *ts_string_input_read(void *d, size_t *bytes_read) {
-  TSStringInput *data = (TSStringInput *)d;
-  if (data->position >= data->length) {
+const char *ts_string_input_read(void *payload, size_t *bytes_read) {
+  TSStringInput *input = (TSStringInput *)payload;
+  if (input->position >= input->length) {
     *bytes_read = 0;
     return "";
   }
-  size_t previous_position = data->position;
-  data->position = data->length;
-  *bytes_read = data->position - previous_position;
-  return data->string + previous_position;
+  size_t previous_position = input->position;
+  input->position = input->length;
+  *bytes_read = input->position - previous_position;
+  return input->string + previous_position;
 }
 
-int ts_string_input_seek(void *d, TSLength position) {
-  TSStringInput *data = (TSStringInput *)d;
-  data->position = position.bytes;
-  return (position.bytes < data->length);
+int ts_string_input_seek(void *payload, TSLength position) {
+  TSStringInput *input = (TSStringInput *)payload;
+  input->position = position.bytes;
+  return (position.bytes < input->length);
 }
 
 TSInput ts_string_input_make(const char *string) {
-  TSStringInput *data = malloc(sizeof(TSStringInput));
-  data->string = string;
-  data->position = 0;
-  data->length = strlen(string);
-  return (TSInput){.data = (void *)data,
-                   .read_fn = ts_string_input_read,
-                   .seek_fn = ts_string_input_seek,
-                   .release_fn = free };
+  TSStringInput *input = malloc(sizeof(TSStringInput));
+  input->string = string;
+  input->position = 0;
+  input->length = strlen(string);
+  return (TSInput){
+    .payload = input,
+    .read_fn = ts_string_input_read,
+    .seek_fn = ts_string_input_seek,
+  };
 }

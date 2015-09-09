@@ -90,7 +90,7 @@ describe("Document", [&]() {
     });
 
     it("allows the debugger to be retrieved later", [&]() {
-      AssertThat(ts_document_get_debugger(doc).data, Equals(debugger));
+      AssertThat(ts_document_get_debugger(doc).payload, Equals(debugger));
     });
 
     describe("disabling debugging", [&]() {
@@ -101,10 +101,6 @@ describe("Document", [&]() {
       it("does not call the debugger any more", [&]() {
         ts_document_set_input_string(doc, "[1, 2]");
         AssertThat(debugger->messages, IsEmpty());
-      });
-
-      it("releases the old debugger", [&]() {
-        AssertThat(debugger->release_call_count, Equals<size_t>(1));
       });
     });
   });
