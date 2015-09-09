@@ -8,13 +8,6 @@ extern "C" {
 #include <stdbool.h>
 #include "tree_sitter/parser.h"
 
-typedef struct {
-  TSNodeType type : 4;
-  bool extra : 1;
-  bool fragile_left : 1;
-  bool fragile_right : 1;
-} TSTreeOptions;
-
 struct TSTree {
   struct {
     struct TSTree *parent;
@@ -31,7 +24,12 @@ struct TSTree {
   TSLength padding;
   TSLength size;
   TSSymbol symbol;
-  TSTreeOptions options;
+  struct {
+    TSNodeType type : 2;
+    bool extra : 1;
+    bool fragile_left : 1;
+    bool fragile_right : 1;
+  } options;
   unsigned short int ref_count;
 };
 
