@@ -183,16 +183,10 @@ TSNode ts_node_parent(TSNode this) {
   TSLength position = ts_node__offset(this);
 
   do {
-    TSTree *parent = tree->context.parent;
-    if (!parent)
+    position = ts_length_sub(position, tree->context.offset);
+    tree = tree->context.parent;
+    if (!tree)
       return ts_node__null();
-
-    for (size_t i = 0; i < tree->context.index; i++) {
-      TSTree *child = parent->children[i];
-      position = ts_length_sub(position, ts_tree_total_size(child));
-    }
-
-    tree = parent;
   } while (!ts_tree_is_visible(tree));
 
   return ts_node_make(tree, position);
