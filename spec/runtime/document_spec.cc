@@ -1,6 +1,7 @@
 #include "runtime/debugger.h"
-#include "runtime/helpers/spy_debugger.h"
 #include "runtime/runtime_spec_helper.h"
+#include "runtime/helpers/spy_debugger.h"
+#include "runtime/helpers/spy_input.h"
 
 extern "C" const TSLanguage * ts_language_json();
 
@@ -38,6 +39,13 @@ describe("Document", [&]() {
         AssertThat(ts_document_root_node(doc).data, Equals<void *>(nullptr));
       });
     });
+
+    it("allows the input to be retrieved later", [&]() {
+      auto spy_input = new SpyInput("12345", 3);
+      ts_document_set_input(doc, spy_input->input());
+      AssertThat(ts_document_input(doc).payload, Equals<void *>(spy_input));
+      delete spy_input;
+    });
   });
 
   describe("set_language(TSLanguage)", [&]() {
@@ -60,6 +68,11 @@ describe("Document", [&]() {
         AssertThat(ts_node_string(ts_document_root_node(doc), doc), Equals(
           "(object (string) (array (number) (number)))"));
       });
+    });
+
+    it("allows the language to be retrieved later", [&]() {
+      ts_document_set_language(doc, ts_language_json());
+      AssertThat(ts_document_language(doc), Equals(ts_language_json()));
     });
   });
 
@@ -90,7 +103,7 @@ describe("Document", [&]() {
     });
 
     it("allows the debugger to be retrieved later", [&]() {
-      AssertThat(ts_document_get_debugger(doc).payload, Equals(debugger));
+      AssertThat(ts_document_debugger(doc).payload, Equals(debugger));
     });
 
     describe("disabling debugging", [&]() {

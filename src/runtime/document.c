@@ -29,17 +29,25 @@ static void ts_document__reparse(TSDocument *document, TSInputEdit *edit) {
   }
 }
 
+const TSLanguage * ts_document_language(TSDocument *document) {
+  return document->parser.language;
+}
+
 void ts_document_set_language(TSDocument *document, const TSLanguage *language) {
   document->parser.language = language;
   ts_document__reparse(document, NULL);
 }
 
-TSDebugger ts_document_get_debugger(const TSDocument *document) {
-  return ts_parser_get_debugger(&document->parser);
+TSDebugger ts_document_debugger(const TSDocument *document) {
+  return ts_parser_debugger(&document->parser);
 }
 
 void ts_document_set_debugger(TSDocument *document, TSDebugger debugger) {
   ts_parser_set_debugger(&document->parser, debugger);
+}
+
+TSInput ts_document_input(TSDocument *document) {
+  return document->input;
 }
 
 void ts_document_set_input(TSDocument *document, TSInput input) {

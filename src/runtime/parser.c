@@ -428,7 +428,7 @@ void ts_parser_destroy(TSParser *parser) {
     ts_tree_release(parser->lookahead);
 }
 
-TSDebugger ts_parser_get_debugger(const TSParser *parser) {
+TSDebugger ts_parser_debugger(const TSParser *parser) {
   return parser->lexer.debugger;
 }
 

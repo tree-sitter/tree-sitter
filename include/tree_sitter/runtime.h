@@ -14,10 +14,9 @@ typedef struct {
 } TSLength;
 
 typedef struct {
-  void *data;
-  const char *(*read_fn)(void *data, size_t *bytes_read);
-  int (*seek_fn)(void *data, TSLength position);
-  void (*release_fn)(void *data);
+  void *payload;
+  const char *(*read_fn)(void *payload, size_t *bytes_read);
+  int (*seek_fn)(void *payload, TSLength position);
 } TSInput;
 
 typedef enum {
@@ -26,9 +25,8 @@ typedef enum {
 } TSDebugType;
 
 typedef struct {
-  void *data;
-  void (*debug_fn)(void *data, TSDebugType, const char *);
-  void (*release_fn)(void *data);
+  void *payload;
+  void (*debug_fn)(void *payload, TSDebugType, const char *);
 } TSDebugger;
 
 typedef struct {
@@ -67,11 +65,13 @@ TSNode ts_node_named_descendent_for_range(TSNode, size_t, size_t);
 
 TSDocument *ts_document_make();
 void ts_document_free(TSDocument *);
+const TSLanguage * ts_document_language(TSDocument *);
 void ts_document_set_language(TSDocument *, const TSLanguage *);
+TSInput ts_document_input(TSDocument *);
 void ts_document_set_input(TSDocument *, TSInput);
 void ts_document_set_input_string(TSDocument *, const char *);
 void ts_document_edit(TSDocument *, TSInputEdit);
-TSDebugger ts_document_get_debugger(const TSDocument *);
+TSDebugger ts_document_debugger(const TSDocument *);
 void ts_document_set_debugger(TSDocument *, TSDebugger);
 TSNode ts_document_root_node(const TSDocument *);
 
