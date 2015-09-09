@@ -18,8 +18,8 @@ typedef unsigned short TSStateId;
 
 typedef enum {
   TSNodeTypeHidden,
-  TSNodeTypeConcrete,
-  TSNodeTypeNormal,
+  TSNodeTypeAnonymous,
+  TSNodeTypeNamed,
 } TSNodeType;
 
 typedef struct TSLexer {

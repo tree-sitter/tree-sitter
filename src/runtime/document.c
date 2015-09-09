@@ -65,6 +65,6 @@ void ts_document_set_input_string(TSDocument *document, const char *text) {
 TSNode ts_document_root_node(const TSDocument *document) {
   TSNode result = ts_node_make(document->tree, ts_length_zero());
   while (result.data && !ts_tree_is_visible(result.data))
-    result = ts_node_child(result, 0);
+    result = ts_node_named_child(result, 0);
   return result;
 }

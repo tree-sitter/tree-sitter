@@ -26,19 +26,19 @@ describe("Tree", []() {
       cat,
       ts_length_make(5, 4),
       ts_length_make(2, 1),
-      TSNodeTypeNormal);
+      TSNodeTypeNamed);
 
     tree2 = ts_tree_make_leaf(
       cat,
       ts_length_make(3, 3),
       ts_length_make(1, 1),
-      TSNodeTypeNormal);
+      TSNodeTypeNamed);
 
     parent1 = ts_tree_make_node(
       dog,
       2,
       tree_array({ tree1, tree2, }),
-      TSNodeTypeNormal);
+      TSNodeTypeNamed);
   });
 
   after_each([&]() {
@@ -88,7 +88,7 @@ describe("Tree", []() {
         parent = ts_tree_make_node(pig, 2, tree_array({
           tree1,
           tree2,
-        }), TSNodeTypeNormal);
+        }), TSNodeTypeNamed);
       });
 
       after_each([&]() {
@@ -109,7 +109,7 @@ describe("Tree", []() {
         parent = ts_tree_make_node(pig, 2, tree_array({
           tree1,
           tree2,
-        }), TSNodeTypeNormal);
+        }), TSNodeTypeNamed);
       });
 
       after_each([&]() {
@@ -130,7 +130,7 @@ describe("Tree", []() {
         parent = ts_tree_make_node(pig, 2, tree_array({
           tree1,
           tree2,
-        }), TSNodeTypeNormal);
+        }), TSNodeTypeNamed);
       });
 
       after_each([&]() {
@@ -150,7 +150,7 @@ describe("Tree", []() {
         cat,
         ts_length_make(5, 4),
         ts_length_make(2, 1),
-        TSNodeTypeNormal);
+        TSNodeTypeNamed);
 
       AssertThat(ts_tree_eq(tree1, tree1_copy), IsTrue());
 
@@ -158,13 +158,13 @@ describe("Tree", []() {
         cat,
         ts_length_make(3, 3),
         ts_length_make(1, 1),
-        TSNodeTypeNormal);
+        TSNodeTypeNamed);
 
       AssertThat(ts_tree_eq(tree2, tree2_copy), IsTrue());
 
       TSTree *parent2 = ts_tree_make_node(dog, 2, tree_array({
         tree1_copy, tree2_copy,
-      }), TSNodeTypeNormal);
+      }), TSNodeTypeNamed);
 
       AssertThat(ts_tree_eq(parent1, parent2), IsTrue());
 
@@ -178,7 +178,7 @@ describe("Tree", []() {
         tree1->symbol + 1,
         tree1->size,
         tree1->padding,
-        TSNodeTypeNormal);
+        TSNodeTypeNamed);
 
       AssertThat(ts_tree_eq(tree1, different_tree), IsFalse());
       ts_tree_release(different_tree);
@@ -189,11 +189,11 @@ describe("Tree", []() {
         tree1->symbol + 1,
         tree1->size,
         tree1->padding,
-        TSNodeTypeNormal);
+        TSNodeTypeNamed);
 
       TSTree *different_parent = ts_tree_make_node(dog, 2, tree_array({
           different_tree, different_tree,
-      }), TSNodeTypeNormal);
+      }), TSNodeTypeNamed);
 
       AssertThat(ts_tree_eq(different_parent, parent1), IsFalse());
       AssertThat(ts_tree_eq(parent1, different_parent), IsFalse());

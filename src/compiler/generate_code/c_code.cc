@@ -151,10 +151,10 @@ class CCodeGenerator {
 
         switch (entry_for_symbol(symbol).type) {
           case RuleEntryTypeNamed:
-            add("TSNodeTypeNormal,");
+            add("TSNodeTypeNamed,");
             break;
           case RuleEntryTypeAnonymous:
-            add("TSNodeTypeConcrete,");
+            add("TSNodeTypeAnonymous,");
             break;
           case RuleEntryTypeHidden:
           case RuleEntryTypeAuxiliary:

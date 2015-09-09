@@ -31,7 +31,7 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength size, TSLength padding,
 
 TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char) {
   TSTree *result =
-    ts_tree_make_leaf(ts_builtin_sym_error, size, padding, TSNodeTypeNormal);
+    ts_tree_make_leaf(ts_builtin_sym_error, size, padding, TSNodeTypeNamed);
   result->lookahead_char = lookahead_char;
   return result;
 }
@@ -56,11 +56,11 @@ static void ts_tree__set_children(TSTree *this, TSTree **children,
     }
 
     switch (child->options.type) {
-      case TSNodeTypeNormal:
+      case TSNodeTypeNamed:
         this->visible_child_count++;
         this->named_child_count++;
         break;
-      case TSNodeTypeConcrete:
+      case TSNodeTypeAnonymous:
         this->visible_child_count++;
         break;
       case TSNodeTypeHidden:
@@ -149,7 +149,7 @@ static size_t ts_tree__write_to_string(const TSTree *tree,
 
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
-  int visible = tree->options.type == TSNodeTypeNormal || is_root;
+  int visible = tree->options.type == TSNodeTypeNamed || is_root;
 
   if (visible && !is_root)
     cursor += snprintf(*writer, limit, " ");
