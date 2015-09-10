@@ -22,10 +22,5 @@ bool LexItem::is_token_start() const {
   return get_metadata(rule, rules::START_TOKEN).max > 0;
 }
 
-ostream &operator<<(ostream &stream, const LexItem &item) {
-  return stream << string("(item ") << item.lhs << string(" ") << *item.rule
-                << string(")");
-}
-
 }  // namespace build_tables
 }  // namespace tree_sitter

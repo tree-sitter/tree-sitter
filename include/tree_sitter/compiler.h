@@ -62,10 +62,6 @@ class GrammarError {
 std::pair<std::string, const GrammarError *> compile(const Grammar &,
                                                      std::string);
 
-std::ostream &operator<<(std::ostream &stream, const Grammar &grammar);
-std::ostream &operator<<(std::ostream &stream, const GrammarError *error);
-std::ostream &operator<<(std::ostream &stream, const rule_ptr &rule);
-
 }  // namespace tree_sitter
 
 #endif  // TREE_SITTER_COMPILER_H_

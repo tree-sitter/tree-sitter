@@ -33,8 +33,6 @@ class LexAction {
   std::set<int> precedence_values;
 };
 
-std::ostream &operator<<(std::ostream &stream, const LexAction &item);
-
 }  // namespace tree_sitter
 
 namespace std {

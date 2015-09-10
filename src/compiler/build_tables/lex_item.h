@@ -15,8 +15,6 @@ class LexItem : public Item {
   bool is_token_start() const;
 };
 
-std::ostream &operator<<(std::ostream &stream, const LexItem &item);
-
 typedef std::unordered_set<LexItem> LexItemSet;
 
 }  // namespace build_tables

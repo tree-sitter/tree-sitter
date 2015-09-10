@@ -19,8 +19,6 @@ class ParseItem : public Item {
   std::vector<rules::Symbol> consumed_symbols;
 };
 
-std::ostream &operator<<(std::ostream &stream, const ParseItem &item);
-
 typedef std::map<ParseItem, std::set<rules::Symbol>> ParseItemSet;
 
 }  // namespace build_tables

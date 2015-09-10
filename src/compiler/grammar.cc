@@ -33,33 +33,11 @@ Grammar &Grammar::expected_conflicts(const vector<vector<string>> &expected_conf
   return *this;
 }
 
-ostream &operator<<(ostream &stream, const Grammar &grammar) {
-  stream << string("#<grammar");
-  stream << string(" rules: {");
-  bool started = false;
-  for (auto pair : grammar.rules()) {
-    if (started)
-      stream << string(", ");
-    stream << pair.first;
-    stream << string(" => ");
-    stream << pair.second;
-    started = true;
-  }
-  return stream << string("}>");
-}
-
 GrammarError::GrammarError(GrammarErrorType type, string message)
     : type(type), message(message) {}
 
 bool GrammarError::operator==(const GrammarError &other) const {
   return type == other.type && message == other.message;
-}
-
-ostream &operator<<(ostream &stream, const GrammarError *error) {
-  if (error)
-    return stream << (string("#<grammar-error '") + error->message + "'>");
-  else
-    return stream << string("#<null>");
 }
 
 }  // namespace tree_sitter

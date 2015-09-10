@@ -24,9 +24,6 @@ class Rule {
   virtual ~Rule();
 };
 
-std::ostream &operator<<(std::ostream &stream, const Rule &rule);
-std::ostream &operator<<(std::ostream &stream, const rule_ptr &rule);
-
 }  // namespace tree_sitter
 
 namespace std {

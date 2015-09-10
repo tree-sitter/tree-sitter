@@ -30,10 +30,5 @@ bool ParseItem::operator<(const ParseItem &other) const {
   return rule < other.rule;
 }
 
-ostream &operator<<(ostream &stream, const ParseItem &item) {
-  return stream << string("(item ") << item.lhs << string(" ") << *item.rule
-                << string(")");
-}
-
 }  // namespace build_tables
 }  // namespace tree_sitter

@@ -35,9 +35,5 @@ string CharacterRange::to_string() const {
     return string() + util::escape_char(min) + "-" + util::escape_char(max);
 }
 
-ostream &operator<<(ostream &stream, const CharacterRange &range) {
-  return stream << range.to_string();
-}
-
 }  // namespace rules
 }  // namespace tree_sitter

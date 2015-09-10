@@ -7,7 +7,7 @@
 #include <map>
 #include <unordered_set>
 #include <vector>
-#include "compiler/prepared_grammar.h"
+#include "tree_sitter/compiler.h"
 
 using std::cout;
 
@@ -89,11 +89,31 @@ namespace tree_sitter {
 using std::ostream;
 using std::string;
 using std::to_string;
+struct RuleEntry;
+class LexAction;
+class ParseAction;
+class ParseState;
 
-inline ostream &operator<<(ostream &stream, const RuleEntry &entry) {
-  return stream << string("{") << entry.name << string(", ") << entry.rule << string(", ") << to_string(entry.type) << string("}");
-}
+ostream &operator<<(ostream &, const Grammar &);
+ostream &operator<<(ostream &, const GrammarError &);
+ostream &operator<<(ostream &, const Rule &);
+ostream &operator<<(ostream &, const rule_ptr &);
+ostream &operator<<(ostream &, const RuleEntry &);
+std::ostream &operator<<(ostream &stream, const LexAction &);
+std::ostream &operator<<(ostream &stream, const ParseAction &);
+std::ostream &operator<<(ostream &stream, const ParseState &);
 
-}
+namespace build_tables {
+
+struct MetadataRange;
+class LexItem;
+class ParseItem;
+
+ostream &operator<<(ostream &stream, const MetadataRange &);
+ostream &operator<<(ostream &stream, const LexItem &);
+ostream &operator<<(ostream &stream, const ParseItem &);
+
+}  // namespace build_tables
+}  // namespace tree_sitter
 
 #endif

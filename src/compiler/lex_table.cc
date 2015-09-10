@@ -41,21 +41,6 @@ bool LexAction::operator==(const LexAction &other) const {
          (symbol == other.symbol);
 }
 
-std::ostream &operator<<(std::ostream &stream, const LexAction &action) {
-  switch (action.type) {
-    case LexActionTypeError:
-      return stream << string("#<error>");
-    case LexActionTypeAccept:
-      return stream << string("#<accept ") + to_string(action.symbol.index) +
-                         ">";
-    case LexActionTypeAdvance:
-      return stream << string("#<advance ") + to_string(action.state_index) +
-                         ">";
-    default:
-      return stream;
-  }
-}
-
 LexState::LexState() : is_token_start(false) {}
 
 set<CharacterSet> LexState::expected_inputs() const {

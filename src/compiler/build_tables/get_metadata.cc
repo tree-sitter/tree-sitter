@@ -1,6 +1,5 @@
 #include "compiler/build_tables/get_metadata.h"
 #include <utility>
-#include <string>
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/repeat.h"
@@ -11,13 +10,6 @@ namespace tree_sitter {
 namespace build_tables {
 
 using std::pair;
-using std::string;
-using std::to_string;
-
-std::ostream &operator<<(std::ostream &stream, const MetadataRange &range) {
-  return stream << string("{") << to_string(range.min) << string(", ")
-                << to_string(range.max) << string("}");
-}
 
 MetadataRange get_metadata(const rule_ptr &rule, rules::MetadataKey key) {
   class GetMetadata : public rules::RuleFn<pair<MetadataRange, bool>> {

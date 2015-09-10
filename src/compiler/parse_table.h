@@ -50,8 +50,6 @@ class ParseAction {
   int production_id;
 };
 
-std::ostream &operator<<(std::ostream &stream, const ParseAction &item);
-
 }  // namespace tree_sitter
 
 namespace std {
@@ -78,8 +76,6 @@ class ParseState {
   std::set<rules::Symbol> expected_inputs() const;
   LexStateId lex_state_id;
 };
-
-std::ostream &operator<<(std::ostream &stream, const ParseState &state);
 
 class ParseTable {
  public:

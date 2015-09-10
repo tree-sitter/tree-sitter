@@ -19,8 +19,6 @@ struct MetadataRange {
   int max;
 };
 
-std::ostream &operator<<(std::ostream &stream, const MetadataRange &range);
-
 MetadataRange get_metadata(const rule_ptr &, rules::MetadataKey);
 
 }  // namespace build_tables
