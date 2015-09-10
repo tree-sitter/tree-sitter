@@ -394,6 +394,16 @@ describe("Parser", [&]() {
             "(identifier) (member_access (identifier) (identifier))))))"));
       });
     });
+
+    it("updates the document's parse-count", [&]() {
+      AssertThat(ts_document_parse_count(doc), Equals<size_t>(0));
+
+      set_text("{ x: (b.c) };");
+      AssertThat(ts_document_parse_count(doc), Equals<size_t>(1));
+
+      insert_text(strlen("{ x"), "yz");
+      AssertThat(ts_document_parse_count(doc), Equals<size_t>(2));
+    });
   });
 
   describe("lexing", [&]() {

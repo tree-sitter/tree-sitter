@@ -74,6 +74,7 @@ void ts_document_edit(TSDocument *, TSInputEdit);
 TSDebugger ts_document_debugger(const TSDocument *);
 void ts_document_set_debugger(TSDocument *, TSDebugger);
 TSNode ts_document_root_node(const TSDocument *);
+size_t ts_document_parse_count(const TSDocument *);
 
 #define ts_builtin_sym_error 0
 #define ts_builtin_sym_end 1

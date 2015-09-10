@@ -9,6 +9,7 @@ struct TSDocument {
   TSParser parser;
   TSInput input;
   TSTree *tree;
+  size_t parse_count;
 };
 
 #endif

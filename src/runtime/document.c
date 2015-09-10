@@ -26,6 +26,7 @@ static void ts_document__reparse(TSDocument *document, TSInputEdit *edit) {
       ts_tree_release(document->tree);
     document->tree = tree;
     ts_tree_retain(tree);
+    document->parse_count++;
   }
 }
 
@@ -73,4 +74,8 @@ TSNode ts_document_root_node(const TSDocument *document) {
   while (result.data && !ts_tree_is_visible(result.data))
     result = ts_node_named_child(result, 0);
   return result;
+}
+
+size_t ts_document_parse_count(const TSDocument *document) {
+  return document->parse_count;
 }
