@@ -2,19 +2,19 @@ TODO
 ====
 
 ### Handling ambiguity (GLR)
-* Add a simple way to specify syntactic ambiguity resolutions in the Grammar (e.g. 'prefer declarations to statements' in C)
+* Add a simple way to specify syntactic ambiguity resolutions in the Grammar (e.g. 'prefer declarations to statements' in C), similar to bison's `dprec`
+construct.
 * Optimize the lexical DFA so that all compatible starting lex states are merged. Then, when the parse stack has multiple heads, check at runtime that each head's state corresponds to the same starting lex state.
-* Fix memory leaks in the graph-structured parse stack.
 
 ### Runtime System
-* Make separate symbol for unexpected characters than for interior error nodes.
-* Make anonymous tokens visible via separate API methods
+* Don't automatically reparse on every edit; expose a separate function for
+  explicitly reparsing, so that multiple related edits can be made cheaply.
+* Refactoring: make separate symbol for unexpected characters than for interior error nodes.
 
 ### Testing / Quality
-* Start running the clang-analyzer on the codebase on travis-CI.
+* Start running the clang-analyzer on the codebase on Travis-CI.
 * Use the Valgrind leak checker to fix the memory leaks in the runtime library.
 * Randomize the editing in the language tests, using a seed that can be specified in order to reproduce failures.
-* Verify that the tree's total size is as expected after each edit.
 
 ### Ubiquitous token handling
 * Fix the unintuitive tree that results when ubiquitous tokens are last child of their parent node.
