@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include "tree_sitter/runtime.h"
@@ -311,7 +310,6 @@ static TSTree *ts_parser__finish(TSParser *parser) {
   TSTree **trees = pop_result.trees;
   size_t extra_count = pop_result.tree_count - 1;
   TSTree *root = trees[extra_count];
-  assert(root->child_count > 0);
 
   ts_tree_prepend_children(root, extra_count, trees);
   ts_parse_stack_push(parser->stack, 0, 0, root);
