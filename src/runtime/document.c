@@ -30,7 +30,7 @@ static void ts_document__reparse(TSDocument *document, TSInputEdit *edit) {
   }
 }
 
-const TSLanguage * ts_document_language(TSDocument *document) {
+const TSLanguage *ts_document_language(TSDocument *document) {
   return document->parser.language;
 }
 

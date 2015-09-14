@@ -9,7 +9,7 @@
 #define DEBUG(...)                                                    \
   if (lexer->debugger.debug_fn) {                                     \
     snprintf(lexer->debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__); \
-    lexer->debugger.debug_fn(lexer->debugger.payload, TSDebugTypeLex,    \
+    lexer->debugger.debug_fn(lexer->debugger.payload, TSDebugTypeLex, \
                              lexer->debug_buffer);                    \
   }
 

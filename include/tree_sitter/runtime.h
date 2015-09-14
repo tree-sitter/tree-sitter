@@ -65,7 +65,7 @@ TSNode ts_node_named_descendent_for_range(TSNode, size_t, size_t);
 
 TSDocument *ts_document_make();
 void ts_document_free(TSDocument *);
-const TSLanguage * ts_document_language(TSDocument *);
+const TSLanguage *ts_document_language(TSDocument *);
 void ts_document_set_language(TSDocument *, const TSLanguage *);
 TSInput ts_document_input(TSDocument *);
 void ts_document_set_input(TSDocument *, TSInput);

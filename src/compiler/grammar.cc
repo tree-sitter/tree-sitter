@@ -28,7 +28,8 @@ Grammar &Grammar::ubiquitous_tokens(const vector<rule_ptr> &ubiquitous_tokens) {
   return *this;
 }
 
-Grammar &Grammar::expected_conflicts(const vector<vector<string>> &expected_conflicts) {
+Grammar &Grammar::expected_conflicts(
+  const vector<vector<string>> &expected_conflicts) {
   expected_conflicts_ = expected_conflicts;
   return *this;
 }
