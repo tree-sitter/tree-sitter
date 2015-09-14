@@ -251,11 +251,11 @@ void ts_tree_edit(TSTree *tree, TSInputEdit edit) {
       if (remainder_to_delete > 0) {
         size_t chars_removed = min(remainder_to_delete, child_size);
         remainder_to_delete -= chars_removed;
-        ts_tree_edit(child, (TSInputEdit){
-          .position = 0,
-          .chars_inserted = 0,
-          .chars_removed = chars_removed,
-        });
+        ts_tree_edit(
+          child,
+          (TSInputEdit){
+            .position = 0, .chars_inserted = 0, .chars_removed = chars_removed,
+          });
       } else {
         break;
       }

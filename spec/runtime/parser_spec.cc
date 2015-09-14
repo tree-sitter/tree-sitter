@@ -223,7 +223,7 @@ describe("Parser", [&]() {
         });
 
         it("re-reads only the changed portion of the input", [&]() {
-          AssertThat(input->strings_read, Equals(vector<string>({ " abc * 5)" })));
+          AssertThat(input->strings_read, Equals(vector<string>({ " abc * 5)", "" })));
         });
       });
 
@@ -251,7 +251,7 @@ describe("Parser", [&]() {
         });
 
         it("re-reads only the changed portion of the input", [&]() {
-          AssertThat(input->strings_read, Equals(vector<string>({ "123 + 5 ", " 4", " ^ (", "" })));
+          AssertThat(input->strings_read, Equals(vector<string>({ "123 + 5 ", "" })));
         });
       });
 

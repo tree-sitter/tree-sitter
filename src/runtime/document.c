@@ -19,9 +19,9 @@ void ts_document_free(TSDocument *document) {
   free(document);
 }
 
-static void ts_document__reparse(TSDocument *document, TSInputEdit *edit) {
+static void ts_document__reparse(TSDocument *document) {
   if (document->input.read_fn && document->parser.language) {
-    TSTree *tree = ts_parser_parse(&document->parser, document->input, edit);
+    TSTree *tree = ts_parser_parse(&document->parser, document->input);
     if (document->tree)
       ts_tree_release(document->tree);
     document->tree = tree;
@@ -36,7 +36,7 @@ const TSLanguage *ts_document_language(TSDocument *document) {
 
 void ts_document_set_language(TSDocument *document, const TSLanguage *language) {
   document->parser.language = language;
-  ts_document__reparse(document, NULL);
+  ts_document__reparse(document);
 }
 
 TSDebugger ts_document_debugger(const TSDocument *document) {
@@ -53,11 +53,18 @@ TSInput ts_document_input(TSDocument *document) {
 
 void ts_document_set_input(TSDocument *document, TSInput input) {
   document->input = input;
-  ts_document__reparse(document, NULL);
+  ts_document__reparse(document);
 }
 
 void ts_document_edit(TSDocument *document, TSInputEdit edit) {
-  ts_document__reparse(document, &edit);
+  size_t max_chars = ts_tree_total_size(document->tree).chars;
+  if (edit.position > max_chars)
+    edit.position = max_chars;
+  if (edit.chars_removed > max_chars - edit.position)
+    edit.chars_removed = max_chars - edit.position;
+
+  ts_tree_edit(document->tree, edit);
+  ts_document__reparse(document);
 }
 
 const char *ts_document_symbol_name(const TSDocument *document,

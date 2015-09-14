@@ -106,7 +106,6 @@
         'src/runtime/node.c',
         'src/runtime/parse_stack.c',
         'src/runtime/parser.c',
-        'src/runtime/stack.c',
         'src/runtime/string_input.c',
         'src/runtime/tree.c',
         'externals/utf8proc/utf8proc.c',

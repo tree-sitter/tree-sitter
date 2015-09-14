@@ -43,6 +43,11 @@ static void ts_lexer__get_lookahead(TSLexer *lexer) {
 static void ts_lexer__start(TSLexer *lexer, TSStateId lex_state) {
   DEBUG("start_lex state:%d", lex_state);
   DEBUG_LOOKAHEAD();
+
+  if (!lexer->chunk)
+    ts_lexer__get_chunk(lexer);
+  if (!lexer->lookahead_size)
+    ts_lexer__get_lookahead(lexer);
 }
 
 static void ts_lexer__start_token(TSLexer *lexer) {
@@ -98,20 +103,18 @@ TSLexer ts_lexer_make() {
     .accept_fn = ts_lexer__accept,
     .chunk = NULL,
     .chunk_start = 0,
-    .chunk_size = 0,
-    .current_position = ts_length_zero(),
-    .token_start_position = ts_length_zero(),
-    .token_end_position = ts_length_zero(),
-    .lookahead = 0,
-    .lookahead_size = 0,
     .debugger = ts_debugger_null(),
   };
+  ts_lexer_reset(&result, ts_length_zero());
   return result;
 }
 
 void ts_lexer_reset(TSLexer *lexer, TSLength position) {
+  lexer->token_start_position = position;
   lexer->token_end_position = position;
   lexer->current_position = position;
-  ts_lexer__get_chunk(lexer);
-  ts_lexer__get_lookahead(lexer);
+  lexer->chunk = 0;
+  lexer->chunk_size = 0;
+  lexer->lookahead_size = 0;
+  lexer->lookahead = 0;
 }
