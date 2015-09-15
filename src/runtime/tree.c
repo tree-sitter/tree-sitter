@@ -6,7 +6,7 @@
 #include "runtime/tree.h"
 #include "runtime/length.h"
 
-TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength size, TSLength padding,
+TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
                           TSNodeType node_type) {
   TSTree *result = malloc(sizeof(TSTree));
   *result = (TSTree){
@@ -31,7 +31,7 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength size, TSLength padding,
 
 TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char) {
   TSTree *result =
-    ts_tree_make_leaf(ts_builtin_sym_error, size, padding, TSNodeTypeNamed);
+    ts_tree_make_leaf(ts_builtin_sym_error, padding, size, TSNodeTypeNamed);
   result->lookahead_char = lookahead_char;
   return result;
 }
@@ -193,4 +193,72 @@ void ts_tree_prepend_children(TSTree *tree, size_t count, TSTree **children) {
   free(tree->children);
 
   ts_tree__set_children(tree, new_children, new_child_count);
+}
+
+static inline long min(long a, long b) {
+  return a <= b ? a : b;
+}
+
+void ts_tree_edit(TSTree *tree, TSInputEdit edit) {
+  size_t start = edit.position;
+  size_t old_end = edit.position + edit.chars_removed;
+  size_t new_end = edit.position + edit.chars_inserted;
+
+  assert(start >= 0);
+  assert(old_end <= ts_tree_total_size(tree).chars);
+
+  tree->options.has_changes = true;
+
+  if (start < tree->padding.chars) {
+    tree->padding.bytes = 0;
+    long remaining_padding = tree->padding.chars - old_end;
+    if (remaining_padding >= 0) {
+      tree->padding.chars = new_end + remaining_padding;
+    } else {
+      tree->padding.chars = new_end;
+      tree->size.chars += remaining_padding;
+      tree->size.bytes = 0;
+    }
+  } else if (start == tree->padding.chars && edit.chars_removed == 0) {
+    tree->padding.bytes = 0;
+    tree->padding.chars += edit.chars_inserted;
+  } else {
+    tree->size.bytes = 0;
+    tree->size.chars += (edit.chars_inserted - edit.chars_removed);
+  }
+
+  bool found_first_child = false;
+  long remainder_to_delete = edit.chars_removed - edit.chars_inserted;
+  size_t child_left = 0, child_right = 0;
+  for (size_t i = 0; i < tree->child_count; i++) {
+    TSTree *child = tree->children[i];
+    size_t child_size = ts_tree_total_size(child).chars;
+    child_left = child_right;
+    child_right += child_size;
+
+    if (!found_first_child) {
+      if (child_right >= start) {
+        found_first_child = true;
+        size_t chars_removed = min(edit.chars_removed, child_right - start);
+        remainder_to_delete -= (chars_removed - edit.chars_inserted);
+        ts_tree_edit(child, (TSInputEdit){
+                              .position = start - child_left,
+                              .chars_inserted = edit.chars_inserted,
+                              .chars_removed = chars_removed,
+                            });
+      }
+    } else {
+      if (remainder_to_delete > 0) {
+        size_t chars_removed = min(remainder_to_delete, child_size);
+        remainder_to_delete -= chars_removed;
+        ts_tree_edit(child, (TSInputEdit){
+          .position = 0,
+          .chars_inserted = 0,
+          .chars_removed = chars_removed,
+        });
+      } else {
+        break;
+      }
+    }
+  }
 }

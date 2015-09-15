@@ -81,7 +81,7 @@ static TSTree *ts_lexer__accept(TSLexer *lexer, TSSymbol symbol,
     return ts_tree_make_error(size, padding, lexer->lookahead);
   } else {
     DEBUG("accept_token sym:%s", symbol_name);
-    return ts_tree_make_leaf(symbol, size, padding, node_type);
+    return ts_tree_make_leaf(symbol, padding, size, node_type);
   }
 }
 

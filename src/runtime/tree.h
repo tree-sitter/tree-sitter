@@ -29,6 +29,7 @@ struct TSTree {
     bool extra : 1;
     bool fragile_left : 1;
     bool fragile_right : 1;
+    bool has_changes : 1;
   } options;
   unsigned short int ref_count;
 };
@@ -76,6 +77,7 @@ char *ts_tree_string(const TSTree *tree, const char **names);
 char *ts_tree_error_string(const TSTree *tree, const char **names);
 TSLength ts_tree_total_size(const TSTree *tree);
 void ts_tree_prepend_children(TSTree *, size_t, TSTree **);
+void ts_tree_edit(TSTree *, TSInputEdit);
 
 static inline bool ts_tree_is_empty(TSTree *tree) {
   return ts_tree_total_size(tree).bytes == 0;
