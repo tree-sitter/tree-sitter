@@ -2,7 +2,6 @@
 #include "runtime/helpers/read_test_entries.h"
 #include "runtime/helpers/spy_input.h"
 #include "runtime/helpers/log_debugger.h"
-#include <set>
 
 extern "C" const TSLanguage *ts_language_javascript();
 extern "C" const TSLanguage *ts_language_json();
@@ -23,30 +22,36 @@ describe("Languages", [&]() {
     ts_document_free(doc);
   });
 
-  auto run_tests_for_language = [&](string language_name, const TSLanguage *language) {
-    describe((string("The ") + language_name + " parser").c_str(), [&]() {
+  map<string, const TSLanguage *> languages({
+    {"json", ts_language_json()},
+    {"arithmetic", ts_language_arithmetic()},
+    {"javascript", ts_language_javascript()},
+    {"golang", ts_language_golang()},
+    {"c", ts_language_c()},
+  });
+
+  auto expect_the_correct_tree = [&](string tree_string) {
+    const char *node_string = ts_node_string(ts_document_root_node(doc), doc);
+    AssertThat(node_string, Equals(tree_string));
+    free((void *)node_string);
+  };
+
+  for (const auto &pair : languages) {
+    string language_name = pair.first;
+    const TSLanguage *language = pair.second;
+
+    describe(("The " + language_name + " parser").c_str(), [&]() {
       before_each([&]() {
         ts_document_set_language(doc, language);
         // ts_document_set_debugger(doc, log_debugger_make());
       });
 
       for (auto &entry : test_entries_for_language(language_name)) {
-        auto expect_the_correct_tree = [&]() {
-          const char *node_string = ts_node_string(ts_document_root_node(doc), doc);
-          AssertThat(node_string, Equals(entry.tree_string.c_str()));
-          free((void *)node_string);
-        };
-
         it(("parses " + entry.description).c_str(), [&]() {
           ts_document_set_input_string(doc, entry.input.c_str());
           ts_document_parse(doc);
-          expect_the_correct_tree();
+          expect_the_correct_tree(entry.tree_string);
         });
-
-        set<string> skipped({});
-
-        if (skipped.find(entry.description) != skipped.end())
-          continue;
 
         it(("handles random insertions in " + entry.description).c_str(), [&]() {
           SpyInput reader(entry.input, 3);
@@ -64,7 +69,7 @@ describe("Languages", [&]() {
           ts_document_edit(doc, { position, 0, garbage.size() });
           ts_document_parse(doc);
 
-          expect_the_correct_tree();
+          expect_the_correct_tree(entry.tree_string);
         });
 
         it(("handles random deletions in " + entry.description).c_str(), [&]() {
@@ -83,17 +88,11 @@ describe("Languages", [&]() {
           ts_document_edit(doc, { position, removed.size(), 0 });
           ts_document_parse(doc);
 
-          expect_the_correct_tree();
+          expect_the_correct_tree(entry.tree_string);
         });
       }
     });
-  };
-
-  run_tests_for_language("json", ts_language_json());
-  run_tests_for_language("arithmetic", ts_language_arithmetic());
-  run_tests_for_language("javascript", ts_language_javascript());
-  run_tests_for_language("golang", ts_language_golang());
-  run_tests_for_language("c", ts_language_c());
+  }
 });
 
 END_TEST
