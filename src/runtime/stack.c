@@ -1,7 +1,7 @@
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 #include "runtime/tree_vector.h"
-#include "runtime/parse_stack.h"
+#include "runtime/stack.h"
 #include "runtime/length.h"
 #include <assert.h>
 
@@ -9,18 +9,18 @@
 #define INITIAL_HEAD_CAPACITY 3
 #define STARTING_TREE_CAPACITY 10
 
-typedef struct ParseStackNode {
-  ParseStackEntry entry;
-  struct ParseStackNode *successors[MAX_POP_PATH_COUNT];
+typedef struct StackNode {
+  StackEntry entry;
+  struct StackNode *successors[MAX_POP_PATH_COUNT];
   short unsigned int successor_count;
   short unsigned int ref_count;
-} ParseStackNode;
+} StackNode;
 
-struct ParseStack {
-  ParseStackNode **heads;
+struct Stack {
+  StackNode **heads;
   int head_count;
   int head_capacity;
-  ParseStackPopResult last_pop_results[MAX_POP_PATH_COUNT];
+  StackPopResult last_pop_results[MAX_POP_PATH_COUNT];
   TreeSelectionCallback tree_selection_callback;
 };
 
@@ -28,10 +28,10 @@ struct ParseStack {
  *  Section: Stack lifecycle
  */
 
-ParseStack *ts_parse_stack_new(TreeSelectionCallback tree_selection_callback) {
-  ParseStack *this = malloc(sizeof(ParseStack));
-  *this = (ParseStack){
-    .heads = calloc(INITIAL_HEAD_CAPACITY, sizeof(ParseStackNode *)),
+Stack *ts_stack_new(TreeSelectionCallback tree_selection_callback) {
+  Stack *this = malloc(sizeof(Stack));
+  *this = (Stack){
+    .heads = calloc(INITIAL_HEAD_CAPACITY, sizeof(StackNode *)),
     .head_count = 1,
     .head_capacity = INITIAL_HEAD_CAPACITY,
     .tree_selection_callback = tree_selection_callback,
@@ -39,7 +39,7 @@ ParseStack *ts_parse_stack_new(TreeSelectionCallback tree_selection_callback) {
   return this;
 }
 
-void ts_parse_stack_delete(ParseStack *this) {
+void ts_stack_delete(Stack *this) {
   free(this->heads);
   free(this);
 }
@@ -48,46 +48,46 @@ void ts_parse_stack_delete(ParseStack *this) {
  *  Section: Reading from the stack
  */
 
-TSStateId ts_parse_stack_top_state(const ParseStack *this, int head) {
-  ParseStackEntry *entry = ts_parse_stack_head((ParseStack *)this, head);
+TSStateId ts_stack_top_state(const Stack *this, int head) {
+  StackEntry *entry = ts_stack_head((Stack *)this, head);
   return entry ? entry->state : 0;
 }
 
-TSTree *ts_parse_stack_top_tree(const ParseStack *this, int head) {
-  ParseStackEntry *entry = ts_parse_stack_head((ParseStack *)this, head);
+TSTree *ts_stack_top_tree(const Stack *this, int head) {
+  StackEntry *entry = ts_stack_head((Stack *)this, head);
   return entry ? entry->tree : NULL;
 }
 
-ParseStackEntry *ts_parse_stack_head(ParseStack *this, int head) {
+StackEntry *ts_stack_head(Stack *this, int head) {
   assert(head < this->head_count);
-  ParseStackNode *node = this->heads[head];
+  StackNode *node = this->heads[head];
   return node ? &node->entry : NULL;
 }
 
-int ts_parse_stack_head_count(const ParseStack *this) {
+int ts_stack_head_count(const Stack *this) {
   return this->head_count;
 }
 
-int ts_parse_stack_entry_next_count(const ParseStackEntry *entry) {
-  return ((const ParseStackNode *)entry)->successor_count;
+int ts_stack_entry_next_count(const StackEntry *entry) {
+  return ((const StackNode *)entry)->successor_count;
 }
 
-ParseStackEntry *ts_parse_stack_entry_next(const ParseStackEntry *entry, int i) {
-  return &((const ParseStackNode *)entry)->successors[i]->entry;
+StackEntry *ts_stack_entry_next(const StackEntry *entry, int i) {
+  return &((const StackNode *)entry)->successors[i]->entry;
 }
 
 /*
  *  Section: Manipulating nodes (Private)
  */
 
-static void stack_node_retain(ParseStackNode *this) {
+static void stack_node_retain(StackNode *this) {
   if (!this)
     return;
   assert(this->ref_count != 0);
   this->ref_count++;
 }
 
-static bool stack_node_release(ParseStackNode *this) {
+static bool stack_node_release(StackNode *this) {
   if (!this)
     return false;
   assert(this->ref_count != 0);
@@ -103,12 +103,11 @@ static bool stack_node_release(ParseStackNode *this) {
   }
 }
 
-static ParseStackNode *stack_node_new(ParseStackNode *next, TSStateId state,
-                                      TSTree *tree) {
-  ParseStackNode *this = malloc(sizeof(ParseStackNode));
+static StackNode *stack_node_new(StackNode *next, TSStateId state, TSTree *tree) {
+  StackNode *this = malloc(sizeof(StackNode));
   ts_tree_retain(tree);
   stack_node_retain(next);
-  *this = (ParseStackNode){
+  *this = (StackNode){
     .ref_count = 1,
     .successor_count = 1,
     .successors = { next, NULL, NULL },
@@ -120,11 +119,10 @@ static ParseStackNode *stack_node_new(ParseStackNode *next, TSStateId state,
   return this;
 }
 
-static void ts_parse_stack__add_node_successor(ParseStack *this,
-                                               ParseStackNode *node,
-                                               ParseStackNode *new_successor) {
+static void ts_stack__add_node_successor(Stack *this, StackNode *node,
+                                         StackNode *new_successor) {
   for (int i = 0; i < node->successor_count; i++) {
-    ParseStackNode *successor = node->successors[i];
+    StackNode *successor = node->successors[i];
     if (successor == new_successor)
       return;
     if (successor->entry.state == new_successor->entry.state) {
@@ -133,8 +131,8 @@ static void ts_parse_stack__add_node_successor(ParseStack *this,
           this->tree_selection_callback.data, successor->entry.tree,
           new_successor->entry.tree);
       for (int j = 0; j < new_successor->successor_count; j++)
-        ts_parse_stack__add_node_successor(this, successor,
-                                           new_successor->successors[j]);
+        ts_stack__add_node_successor(this, successor,
+                                     new_successor->successors[j]);
       return;
     }
   }
@@ -148,11 +146,11 @@ static void ts_parse_stack__add_node_successor(ParseStack *this,
  *  Section: Mutating the stack (Private)
  */
 
-static int ts_parse_stack__add_head(ParseStack *this, ParseStackNode *node) {
+static int ts_stack__add_head(Stack *this, StackNode *node) {
   if (this->head_count == this->head_capacity) {
     this->head_capacity += 3;
     this->heads =
-      realloc(this->heads, this->head_capacity * sizeof(ParseStackNode *));
+      realloc(this->heads, this->head_capacity * sizeof(StackNode *));
   }
   int new_index = this->head_count++;
   this->heads[new_index] = node;
@@ -160,16 +158,15 @@ static int ts_parse_stack__add_head(ParseStack *this, ParseStackNode *node) {
   return new_index;
 }
 
-static int ts_parse_stack__find_or_add_head(ParseStack *this,
-                                            ParseStackNode *node) {
+static int ts_stack__find_or_add_head(Stack *this, StackNode *node) {
   for (int i = 0; i < this->head_count; i++)
     if (this->heads[i] == node) {
       return i;
     }
-  return ts_parse_stack__add_head(this, node);
+  return ts_stack__add_head(this, node);
 }
 
-void ts_parse_stack_remove_head(ParseStack *this, int head_index) {
+void ts_stack_remove_head(Stack *this, int head_index) {
   stack_node_release(this->heads[head_index]);
   for (int i = head_index; i < this->head_count - 1; i++) {
     this->heads[head_index] = this->heads[head_index + 1];
@@ -177,17 +174,17 @@ void ts_parse_stack_remove_head(ParseStack *this, int head_index) {
   this->head_count--;
 }
 
-static bool ts_parse_stack__merge_head(ParseStack *this, int head_index,
-                                       TSStateId state, TSTree *tree) {
+static bool ts_stack__merge_head(Stack *this, int head_index, TSStateId state,
+                                 TSTree *tree) {
   for (int i = 0; i < head_index; i++) {
-    ParseStackNode *head = this->heads[i];
+    StackNode *head = this->heads[i];
     if (head->entry.state == state) {
       if (head->entry.tree != tree) {
         head->entry.tree = this->tree_selection_callback.callback(
           this->tree_selection_callback.data, head->entry.tree, tree);
       }
-      ts_parse_stack__add_node_successor(this, head, this->heads[head_index]);
-      ts_parse_stack_remove_head(this, head_index);
+      ts_stack__add_node_successor(this, head, this->heads[head_index]);
+      ts_stack_remove_head(this, head_index);
       return true;
     }
   }
@@ -198,36 +195,34 @@ static bool ts_parse_stack__merge_head(ParseStack *this, int head_index,
  *  Section: Mutating the stack (Public)
  */
 
-bool ts_parse_stack_push(ParseStack *this, int head_index, TSStateId state,
-                         TSTree *tree) {
+bool ts_stack_push(Stack *this, int head_index, TSStateId state, TSTree *tree) {
   assert(head_index < this->head_count);
-  if (ts_parse_stack__merge_head(this, head_index, state, tree))
+  if (ts_stack__merge_head(this, head_index, state, tree))
     return true;
   this->heads[head_index] = stack_node_new(this->heads[head_index], state, tree);
   return false;
 }
 
-void ts_parse_stack_add_alternative(ParseStack *this, int head_index,
-                                    TSTree *tree) {
+void ts_stack_add_alternative(Stack *this, int head_index, TSTree *tree) {
   assert(head_index < this->head_count);
-  ParseStackEntry *entry = &this->heads[head_index]->entry;
+  StackEntry *entry = &this->heads[head_index]->entry;
   entry->tree = this->tree_selection_callback.callback(
     this->tree_selection_callback.data, entry->tree, tree);
 }
 
-int ts_parse_stack_split(ParseStack *this, int head_index) {
+int ts_stack_split(Stack *this, int head_index) {
   assert(head_index < this->head_count);
-  return ts_parse_stack__add_head(this, this->heads[head_index]);
+  return ts_stack__add_head(this, this->heads[head_index]);
 }
 
-ParseStackPopResultList ts_parse_stack_pop(ParseStack *this, int head_index,
-                                           int child_count, bool count_extra) {
-  ParseStackNode *previous_head = this->heads[head_index];
+StackPopResultList ts_stack_pop(Stack *this, int head_index, int child_count,
+                                bool count_extra) {
+  StackNode *previous_head = this->heads[head_index];
 
   int path_count = 1;
   int capacity = (child_count == -1) ? STARTING_TREE_CAPACITY : child_count;
   size_t tree_counts_by_path[MAX_POP_PATH_COUNT] = { child_count };
-  ParseStackNode *nodes_by_path[MAX_POP_PATH_COUNT] = { previous_head };
+  StackNode *nodes_by_path[MAX_POP_PATH_COUNT] = { previous_head };
   TreeVector trees_by_path[MAX_POP_PATH_COUNT] = { tree_vector_new(capacity) };
   bool is_shared_by_path[MAX_POP_PATH_COUNT] = { false };
 
@@ -240,7 +235,7 @@ ParseStackPopResultList ts_parse_stack_pop(ParseStack *this, int head_index,
     all_paths_done = true;
     int current_path_count = path_count;
     for (int path = 0; path < current_path_count; path++) {
-      ParseStackNode *node = nodes_by_path[path];
+      StackNode *node = nodes_by_path[path];
       if (!node || (trees_by_path[path].size == tree_counts_by_path[path]))
         continue;
       all_paths_done = false;
@@ -288,10 +283,10 @@ ParseStackPopResultList ts_parse_stack_pop(ParseStack *this, int head_index,
       this->heads[head_index] = nodes_by_path[path];
       index = head_index;
     } else {
-      index = ts_parse_stack__find_or_add_head(this, nodes_by_path[path]);
+      index = ts_stack__find_or_add_head(this, nodes_by_path[path]);
     }
 
-    this->last_pop_results[path] = (ParseStackPopResult){
+    this->last_pop_results[path] = (StackPopResult){
       .index = index,
       .tree_count = trees_by_path[path].size,
       .trees = trees_by_path[path].contents,
@@ -299,14 +294,14 @@ ParseStackPopResultList ts_parse_stack_pop(ParseStack *this, int head_index,
   }
 
   stack_node_release(previous_head);
-  return (ParseStackPopResultList){
+  return (StackPopResultList){
     .size = path_count, .contents = this->last_pop_results,
   };
 }
 
-void ts_parse_stack_shrink(ParseStack *this, int head_index, int count) {
-  ParseStackNode *head = this->heads[head_index];
-  ParseStackNode *new_head = head;
+void ts_stack_shrink(Stack *this, int head_index, int count) {
+  StackNode *head = this->heads[head_index];
+  StackNode *new_head = head;
   for (int i = 0; i < count; i++) {
     if (new_head->successor_count == 0)
       break;
@@ -317,7 +312,7 @@ void ts_parse_stack_shrink(ParseStack *this, int head_index, int count) {
   this->heads[head_index] = new_head;
 }
 
-void ts_parse_stack_clear(ParseStack *this) {
+void ts_stack_clear(Stack *this) {
   for (int i = 0; i < this->head_count; i++)
     stack_node_release(this->heads[i]);
   this->head_count = 1;

@@ -7,23 +7,23 @@ extern "C" {
 
 #include "tree_sitter/parser.h"
 
-typedef struct ParseStack ParseStack;
+typedef struct Stack Stack;
 
 typedef struct {
   TSTree *tree;
   TSStateId state;
-} ParseStackEntry;
+} StackEntry;
 
 typedef struct {
   int index;
   int tree_count;
   TSTree **trees;
-} ParseStackPopResult;
+} StackPopResult;
 
 typedef struct {
   int size;
-  ParseStackPopResult *contents;
-} ParseStackPopResultList;
+  StackPopResult *contents;
+} StackPopResultList;
 
 typedef struct {
   void *data;
@@ -33,56 +33,56 @@ typedef struct {
 /*
  *  Create a parse stack.
  */
-ParseStack *ts_parse_stack_new(TreeSelectionCallback);
+Stack *ts_stack_new(TreeSelectionCallback);
 
 /*
  *  Release any resources reserved by a parse stack.
  */
-void ts_parse_stack_delete(ParseStack *);
+void ts_stack_delete(Stack *);
 
 /*
  *  Get the stack's current number of heads.
  */
-int ts_parse_stack_head_count(const ParseStack *);
+int ts_stack_head_count(const Stack *);
 
 /*
  *  Get the state at given head of the stack. If the stack is empty, this
  *  returns the initial state (0).
  */
-TSStateId ts_parse_stack_top_state(const ParseStack *, int head);
+TSStateId ts_stack_top_state(const Stack *, int head);
 
 /*
  *  Get the tree at given head of the stack. If the stack is empty, this
  *  returns NULL.
  */
-TSTree *ts_parse_stack_top_tree(const ParseStack *, int head);
+TSTree *ts_stack_top_tree(const Stack *, int head);
 
 /*
  *  Get the entry at the given head of the stack.
  */
-ParseStackEntry *ts_parse_stack_head(ParseStack *, int head);
+StackEntry *ts_stack_head(Stack *, int head);
 
 /*
  *  Get the number of successors for the parse stack entry.
  */
-int ts_parse_stack_entry_next_count(const ParseStackEntry *);
+int ts_stack_entry_next_count(const StackEntry *);
 
 /*
  *  Get the given successor for the parse stack entry.
  */
-ParseStackEntry *ts_parse_stack_entry_next(const ParseStackEntry *, int);
+StackEntry *ts_stack_entry_next(const StackEntry *, int);
 
 /*
  *  Push a (tree, state) pair onto the given head of the stack. Returns
  *  a boolean indicating whether the stack head was merged with an
  *  existing head.
  */
-bool ts_parse_stack_push(ParseStack *, int head, TSStateId, TSTree *);
+bool ts_stack_push(Stack *, int head, TSStateId, TSTree *);
 
 /*
  *  Add an alternative tree for the given head of the stack.
  */
-void ts_parse_stack_add_alternative(ParseStack *, int head, TSTree *);
+void ts_stack_add_alternative(Stack *, int head, TSTree *);
 
 /*
  *  Pop the given number of entries from the given head of the stack. This
@@ -90,30 +90,29 @@ void ts_parse_stack_add_alternative(ParseStack *, int head, TSTree *);
  *  which had previously been merged. It returns a struct that indicates the
  *  index of each revealed head and the trees removed from that head.
  */
-ParseStackPopResultList ts_parse_stack_pop(ParseStack *, int head, int count,
-                                           bool count_extra);
+StackPopResultList ts_stack_pop(Stack *, int head, int count, bool count_extra);
 
 /*
  *  Remove the given number of entries from the given head of the stack.
  */
-void ts_parse_stack_shrink(ParseStack *, int head, int count);
+void ts_stack_shrink(Stack *, int head, int count);
 
 /*
  *  Split the given stack head into two heads, so that the stack can be
  *  transformed from its current state in multiple alternative ways. Returns
  *  the index of the newly-created head.
  */
-int ts_parse_stack_split(ParseStack *, int head);
+int ts_stack_split(Stack *, int head);
 
 /*
  *  Remove the given head from the stack.
  */
-void ts_parse_stack_remove_head(ParseStack *, int head);
+void ts_stack_remove_head(Stack *, int head);
 
 /*
  *  Remove all entries from the stack.
  */
-void ts_parse_stack_clear(ParseStack *);
+void ts_stack_clear(Stack *);
 
 #ifdef __cplusplus
 }

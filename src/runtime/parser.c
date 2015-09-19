@@ -104,7 +104,7 @@ static void ts_parser__get_next_lookahead(TSParser *parser, bool error_mode) {
       continue;
     }
 
-    TSStateId top_state = ts_parse_stack_top_state(parser->stack, 0);
+    TSStateId top_state = ts_stack_top_state(parser->stack, 0);
     TSSymbol symbol = parser->reusable_subtree->symbol;
     if (ts_language__action(parser->language, top_state, symbol).type ==
         TSParseActionTypeError) {
@@ -125,7 +125,7 @@ static void ts_parser__get_next_lookahead(TSParser *parser, bool error_mode) {
   TSStateId lex_state =
     error_mode
       ? ts_lex_state_error
-      : parser->language->lex_states[ts_parse_stack_top_state(parser->stack, 0)];
+      : parser->language->lex_states[ts_stack_top_state(parser->stack, 0)];
 
   parser->lookahead = parser->language->lex_fn(&parser->lexer, lex_state);
 }
@@ -135,7 +135,7 @@ static void ts_parser__get_next_lookahead(TSParser *parser, bool error_mode) {
  */
 
 static void ts_parser__shift(TSParser *parser, int head, TSStateId parse_state) {
-  ts_parse_stack_push(parser->stack, head, parse_state, parser->lookahead);
+  ts_stack_push(parser->stack, head, parse_state, parser->lookahead);
 }
 
 static void ts_parser__shift_extra(TSParser *parser, int head, TSStateId state) {
@@ -147,15 +147,15 @@ static TSTree *ts_parser__reduce(TSParser *parser, int head, TSSymbol symbol,
                                  size_t child_count, bool extra,
                                  bool count_extra) {
   TSNodeType node_type = parser->language->node_types[symbol];
-  ParseStackPopResultList pop_results =
-    ts_parse_stack_pop(parser->stack, head, child_count, count_extra);
+  StackPopResultList pop_results =
+    ts_stack_pop(parser->stack, head, child_count, count_extra);
 
   TSTree *parent = NULL;
   TSTree **last_children = NULL;
   int last_index = -1;
 
   for (int i = 0; i < pop_results.size; i++) {
-    ParseStackPopResult pop_result = pop_results.contents[i];
+    StackPopResult pop_result = pop_results.contents[i];
 
     if (pop_result.trees != last_children) {
       parent = ts_tree_make_node(symbol, pop_result.tree_count,
@@ -163,10 +163,9 @@ static TSTree *ts_parser__reduce(TSParser *parser, int head, TSSymbol symbol,
     }
 
     if (pop_result.index == last_index) {
-      ts_parse_stack_add_alternative(parser->stack, pop_result.index, parent);
+      ts_stack_add_alternative(parser->stack, pop_result.index, parent);
     } else {
-      TSStateId top_state =
-        ts_parse_stack_top_state(parser->stack, pop_result.index);
+      TSStateId top_state = ts_stack_top_state(parser->stack, pop_result.index);
       TSStateId state;
 
       if (extra) {
@@ -177,7 +176,7 @@ static TSTree *ts_parser__reduce(TSParser *parser, int head, TSSymbol symbol,
                   .data.to_state;
       }
 
-      ts_parse_stack_push(parser->stack, pop_result.index, state, parent);
+      ts_stack_push(parser->stack, pop_result.index, state, parent);
     }
 
     last_index = pop_result.index;
@@ -207,7 +206,7 @@ static void ts_parser__reduce_error(TSParser *parser, int head,
 
 static bool ts_parser__handle_error(TSParser *parser, int head) {
   size_t error_token_count = 1;
-  ParseStackEntry *entry_before_error = ts_parse_stack_head(parser->stack, head);
+  StackEntry *entry_before_error = ts_stack_head(parser->stack, head);
 
   for (;;) {
 
@@ -216,8 +215,8 @@ static bool ts_parser__handle_error(TSParser *parser, int head) {
      *  expected and the current lookahead token is expected afterwards.
      */
     int i = -1;
-    for (ParseStackEntry *entry = entry_before_error; entry != NULL;
-         entry = ts_parse_stack_entry_next(entry, head), i++) {
+    for (StackEntry *entry = entry_before_error; entry != NULL;
+         entry = ts_stack_entry_next(entry, head), i++) {
       TSStateId stack_state = entry->state;
       TSParseAction action_on_error = ts_language__action(
         parser->language, stack_state, ts_builtin_sym_error);
@@ -241,8 +240,7 @@ static bool ts_parser__handle_error(TSParser *parser, int head) {
      *  current lookahead token, advance to the next token.
      */
     DEBUG("skip token:%s", SYM_NAME(parser->lookahead->symbol));
-    ts_parser__shift(parser, head,
-                     ts_parse_stack_top_state(parser->stack, head));
+    ts_parser__shift(parser, head, ts_stack_top_state(parser->stack, head));
     ts_parser__get_next_lookahead(parser, true);
     error_token_count++;
 
@@ -261,7 +259,7 @@ static void ts_parser__start(TSParser *parser, TSInput input) {
   parser->lexer.input = input;
   ts_lexer_reset(&parser->lexer, ts_length_zero());
 
-  parser->previous_tree = ts_parse_stack_top_tree(parser->stack, 0);
+  parser->previous_tree = ts_stack_top_tree(parser->stack, 0);
   if (parser->previous_tree) {
     DEBUG("parse_after_edit");
     ts_tree_retain(parser->previous_tree);
@@ -272,19 +270,19 @@ static void ts_parser__start(TSParser *parser, TSInput input) {
   parser->reusable_subtree_pos = 0;
   parser->lookahead = NULL;
   parser->is_verifying = false;
-  ts_parse_stack_clear(parser->stack);
+  ts_stack_clear(parser->stack);
 }
 
 static TSTree *ts_parser__finish(TSParser *parser) {
-  ParseStackPopResult pop_result =
-    ts_parse_stack_pop(parser->stack, 0, -1, true).contents[0];
+  StackPopResult pop_result =
+    ts_stack_pop(parser->stack, 0, -1, true).contents[0];
 
   TSTree **trees = pop_result.trees;
   size_t extra_count = pop_result.tree_count - 1;
   TSTree *root = trees[extra_count];
 
   ts_tree_prepend_children(root, extra_count, trees);
-  ts_parse_stack_push(parser->stack, 0, 0, root);
+  ts_stack_push(parser->stack, 0, 0, root);
   return root;
 }
 
@@ -296,7 +294,7 @@ typedef enum {
 } ParserNextResult;
 
 static ParserNextResult ts_parser__next(TSParser *parser, int head_to_advance) {
-  TSStateId state = ts_parse_stack_top_state(parser->stack, head_to_advance);
+  TSStateId state = ts_stack_top_state(parser->stack, head_to_advance);
   const TSParseAction *next_action =
     ts_language__actions(parser->language, state, parser->lookahead->symbol);
   int head, next_head = head_to_advance;
@@ -311,7 +309,7 @@ static ParserNextResult ts_parser__next(TSParser *parser, int head_to_advance) {
     if (next_action->type == 0) {
       next_action = NULL;
     } else {
-      next_head = ts_parse_stack_split(parser->stack, head);
+      next_head = ts_stack_split(parser->stack, head);
       DEBUG("split head:%d, created:%d", head, next_head);
     }
 
@@ -325,14 +323,14 @@ static ParserNextResult ts_parser__next(TSParser *parser, int head_to_advance) {
     switch (action.type) {
       case TSParseActionTypeError:
         DEBUG("error_sym");
-        if (ts_parse_stack_head_count(parser->stack) == 1) {
+        if (ts_stack_head_count(parser->stack) == 1) {
           if (ts_parser__handle_error(parser, head))
             break;
           else
             return ParserNextResultFinished;
         } else {
           DEBUG("bail head:%d", head);
-          ts_parse_stack_remove_head(parser->stack, head);
+          ts_stack_remove_head(parser->stack, head);
           return ParserNextResultRemoved;
         }
 
@@ -387,7 +385,7 @@ static TSTree *ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
 TSParser ts_parser_make() {
   return (TSParser){
     .lexer = ts_lexer_make(),
-    .stack = ts_parse_stack_new((TreeSelectionCallback){
+    .stack = ts_stack_new((TreeSelectionCallback){
       NULL, ts_parser__select_tree,
     }),
     .lookahead = NULL,
@@ -396,7 +394,7 @@ TSParser ts_parser_make() {
 }
 
 void ts_parser_destroy(TSParser *parser) {
-  ts_parse_stack_delete(parser->stack);
+  ts_stack_delete(parser->stack);
   if (parser->lookahead)
     ts_tree_release(parser->lookahead);
 }
@@ -416,10 +414,10 @@ TSTree *ts_parser_parse(TSParser *parser, TSInput input) {
     ts_parser__get_next_lookahead(parser, false);
 
     DEBUG("lookahead sym:%s", SYM_NAME(parser->lookahead->symbol));
-    DEBUG("head_count: %d", ts_parse_stack_head_count(parser->stack));
+    DEBUG("head_count: %d", ts_stack_head_count(parser->stack));
 
     int head = 0;
-    while (head < ts_parse_stack_head_count(parser->stack)) {
+    while (head < ts_stack_head_count(parser->stack)) {
       bool removed = false, advanced = false;
 
       while (!(advanced || removed)) {

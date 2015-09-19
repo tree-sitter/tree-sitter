@@ -104,7 +104,7 @@
         'src/runtime/document.c',
         'src/runtime/lexer.c',
         'src/runtime/node.c',
-        'src/runtime/parse_stack.c',
+        'src/runtime/stack.c',
         'src/runtime/parser.c',
         'src/runtime/string_input.c',
         'src/runtime/tree.c',
