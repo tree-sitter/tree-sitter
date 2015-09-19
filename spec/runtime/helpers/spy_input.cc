@@ -5,6 +5,8 @@
 
 using std::string;
 
+static const size_t UTF8_MAX_CHAR_SIZE = 4;
+
 static long byte_for_character(const char *str, size_t len, size_t goal_character) {
   size_t character = 0, byte = 0;
   int32_t dest_char;
@@ -22,42 +24,34 @@ static long byte_for_character(const char *str, size_t len, size_t goal_characte
   return byte;
 }
 
-static const char * spy_read(void *data, size_t *bytes_read) {
-  SpyInput *reader = static_cast<SpyInput *>(data);
-  return reader->read(bytes_read);
-}
-
-static int spy_seek(void *data, TSLength byte_offset) {
-  SpyInput *reader = static_cast<SpyInput *>(data);
-  return reader->seek(byte_offset.bytes);
-}
-
 SpyInput::SpyInput(string content, size_t chars_per_chunk) :
-    chars_per_chunk(chars_per_chunk),
-    buffer_size(4 * chars_per_chunk),
-    buffer(new char[buffer_size]),
-    byte_offset(0),
-    content(content),
-    strings_read({""}) {}
+  chars_per_chunk(chars_per_chunk),
+  buffer_size(UTF8_MAX_CHAR_SIZE * chars_per_chunk),
+  buffer(new char[buffer_size]),
+  byte_offset(0),
+  content(content),
+  strings_read({""}) {}
 
 SpyInput::~SpyInput() {
   delete buffer;
 }
 
-const char * SpyInput::read(size_t *bytes_read) {
-  if (byte_offset > content.size()) {
+const char * SpyInput::read(void *payload, size_t *bytes_read) {
+  auto spy = static_cast<SpyInput *>(payload);
+
+  if (spy->byte_offset > spy->content.size()) {
     *bytes_read = 0;
     return "";
   }
 
-  const char *start = content.data() + byte_offset;
-  long byte_count = byte_for_character(start, content.size() - byte_offset, chars_per_chunk);
+  const char *start = spy->content.data() + spy->byte_offset;
+  long byte_count = byte_for_character(start, spy->content.size() - spy->byte_offset, spy->chars_per_chunk);
   if (byte_count < 0)
-    byte_count = content.size() - byte_offset;
+    byte_count = spy->content.size() - spy->byte_offset;
 
   *bytes_read = byte_count;
-  byte_offset += byte_count;
-  strings_read.back() += string(start, byte_count);
+  spy->byte_offset += byte_count;
+  spy->strings_read.back() += string(start, byte_count);
 
   /*
    * This class stores its entire `content` in a contiguous buffer, but we want
@@ -67,23 +61,24 @@ const char * SpyInput::read(size_t *bytes_read) {
    * return a reference to that buffer, rather than a pointer into the main
    * content.
    */
-  memset(buffer, 0, buffer_size);
-  memcpy(buffer, start, byte_count);
-  return buffer;
+  memset(spy->buffer, 0, spy->buffer_size);
+  memcpy(spy->buffer, start, byte_count);
+  return spy->buffer;
 }
 
-int SpyInput::seek(size_t pos) {
-  if (strings_read.size() == 0 || strings_read.back().size() > 0)
-    strings_read.push_back("");
-  byte_offset = pos;
+int SpyInput::seek(void *payload, TSLength position) {
+  auto spy = static_cast<SpyInput *>(payload);
+  if (spy->strings_read.size() == 0 || spy->strings_read.back().size() > 0)
+    spy->strings_read.push_back("");
+  spy->byte_offset = position.bytes;
   return 0;
 }
 
 TSInput SpyInput::input() {
   TSInput result;
   result.payload = this;
-  result.seek_fn = spy_seek;
-  result.read_fn = spy_read;
+  result.seek_fn = seek;
+  result.read_fn = read;
   return result;
 }
 

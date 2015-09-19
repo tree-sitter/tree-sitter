@@ -11,16 +11,17 @@ class SpyInput {
   char *buffer;
   size_t byte_offset;
 
+  static const char * read(void *, size_t *);
+  static int seek(void *, TSLength);
+
  public:
   SpyInput(std::string content, size_t chars_per_chunk);
   ~SpyInput();
 
-  void clear();
   TSInput input();
+  void clear();
   bool insert(size_t position, std::string text);
   bool erase(size_t position, size_t len);
-  const char * read(size_t *len);
-  int seek(size_t position);
 
   std::string content;
   std::vector<std::string> strings_read;
