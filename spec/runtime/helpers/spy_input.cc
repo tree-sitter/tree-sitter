@@ -2,10 +2,28 @@
 #include <string.h>
 #include <algorithm>
 #include "utf8proc.h"
+#include <assert.h>
 
 using std::string;
 
 static const size_t UTF8_MAX_CHAR_SIZE = 4;
+
+static size_t string_char_count(const string &text) {
+  const char *bytes = text.data();
+  size_t len = text.size();
+  size_t character = 0, byte = 0;
+  int32_t dest_char;
+
+  while (byte < len) {
+    byte += utf8proc_iterate(
+        (uint8_t *)bytes + byte,
+        len - byte,
+        &dest_char);
+    character++;
+  }
+
+  return character;
+}
 
 static long byte_for_character(const char *str, size_t len, size_t goal_character) {
   size_t character = 0, byte = 0;
@@ -82,18 +100,37 @@ TSInput SpyInput::input() {
   return result;
 }
 
-bool SpyInput::insert(size_t char_index, string text) {
-  long pos = byte_for_character(content.data(), content.size(), char_index);
-  if (pos < 0) return false;
-  content.insert(pos, text);
-  return true;
+TSInputEdit SpyInput::replace(size_t start_char, size_t chars_removed, string text) {
+  string text_removed = swap_substr(start_char, chars_removed, text);
+  size_t chars_inserted = string_char_count(text);
+  undo_stack.push_back(SpyInputEdit{start_char, chars_inserted, text_removed});
+  return {start_char, chars_inserted, chars_removed};
 }
 
-bool SpyInput::erase(size_t char_index, size_t len) {
-  long pos = byte_for_character(content.data(), content.size(), char_index);
-  if (pos < 0) return false;
-  content.erase(pos, len);
-  return true;
+TSInputEdit SpyInput::undo() {
+  SpyInputEdit entry = undo_stack.back();
+  undo_stack.pop_back();
+  swap_substr(entry.position, entry.chars_removed, entry.text_inserted);
+  size_t chars_inserted = string_char_count(entry.text_inserted);
+  return TSInputEdit{entry.position, chars_inserted, entry.chars_removed};
+}
+
+string SpyInput::swap_substr(size_t start_char, size_t chars_removed, string text) {
+  const char *bytes = content.data();
+  size_t size = content.size();
+
+  long start_byte = byte_for_character(bytes, size, start_char);
+  assert(start_byte >= 0);
+
+  long bytes_removed = byte_for_character(bytes + start_byte, size - start_byte, chars_removed);
+  if (bytes_removed < 0)
+    bytes_removed = size - start_byte;
+
+  string text_removed = content.substr(start_byte, bytes_removed);
+  content.erase(start_byte, bytes_removed);
+  content.insert(start_byte, text);
+
+  return text_removed;
 }
 
 void SpyInput::clear() {

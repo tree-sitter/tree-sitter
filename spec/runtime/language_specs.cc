@@ -54,38 +54,33 @@ describe("Languages", [&]() {
         });
 
         it(("handles random insertions in " + entry.description).c_str(), [&]() {
-          SpyInput reader(entry.input, 3);
-          ts_document_set_input(doc, reader.input());
+          SpyInput input(entry.input, 3);
+          ts_document_set_input(doc, input.input());
           ts_document_parse(doc);
 
           string garbage("%^&*");
           size_t position = entry.input.size() / 2;
 
-          reader.insert(position, garbage);
-          ts_document_edit(doc, { position, garbage.size(), 0 });
+          ts_document_edit(doc, input.replace(position, 0, garbage));
           ts_document_parse(doc);
 
-          reader.erase(position, garbage.size());
-          ts_document_edit(doc, { position, 0, garbage.size() });
+          ts_document_edit(doc, input.undo());
           ts_document_parse(doc);
 
           expect_the_correct_tree(entry.tree_string);
         });
 
         it(("handles random deletions in " + entry.description).c_str(), [&]() {
-          SpyInput reader(entry.input, 3);
-          ts_document_set_input(doc, reader.input());
+          SpyInput input(entry.input, 3);
+          ts_document_set_input(doc, input.input());
           ts_document_parse(doc);
 
           size_t position = entry.input.size() / 2;
-          string removed = entry.input.substr(position);
 
-          reader.erase(position, removed.size());
-          ts_document_edit(doc, { position, 0, removed.size() });
+          ts_document_edit(doc, input.replace(position, 5, ""));
           ts_document_parse(doc);
 
-          reader.insert(position, removed);
-          ts_document_edit(doc, { position, removed.size(), 0 });
+          ts_document_edit(doc, input.undo());
           ts_document_parse(doc);
 
           expect_the_correct_tree(entry.tree_string);

@@ -38,8 +38,7 @@ describe("Parser", [&]() {
 
   auto insert_text = [&](size_t position, string text) {
     size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
-    AssertThat(input->insert(position, text), IsTrue());
-    ts_document_edit(doc, { position, text.length(), 0 });
+    ts_document_edit(doc, input->replace(position, 0, text));
     ts_document_parse(doc);
 
     root = ts_document_root_node(doc);
@@ -49,8 +48,7 @@ describe("Parser", [&]() {
 
   auto delete_text = [&](size_t position, size_t length) {
     size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
-    AssertThat(input->erase(position, length), IsTrue());
-    ts_document_edit(doc, { position, 0, length });
+    ts_document_edit(doc, input->replace(position, length, ""));
     ts_document_parse(doc);
 
     root = ts_document_root_node(doc);
@@ -60,10 +58,8 @@ describe("Parser", [&]() {
 
   auto replace_text = [&](size_t position, size_t length, string new_text) {
     size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
-    AssertThat(input->erase(position, length), IsTrue());
-    AssertThat(input->insert(position, new_text), IsTrue());
 
-    ts_document_edit(doc, { position, new_text.size(), length });
+    ts_document_edit(doc, input->replace(position, length, new_text));
     ts_document_parse(doc);
 
     root = ts_document_root_node(doc);
