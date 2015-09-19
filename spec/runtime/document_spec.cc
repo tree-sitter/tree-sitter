@@ -1,14 +1,17 @@
-#include "runtime/debugger.h"
 #include "runtime/runtime_spec_helper.h"
+#include "runtime/helpers/tree_helpers.h"
+#include "runtime/debugger.h"
 #include "runtime/helpers/spy_debugger.h"
 #include "runtime/helpers/spy_input.h"
 
 extern "C" const TSLanguage * ts_language_json();
+extern "C" const TSLanguage * ts_language_javascript();
 
 START_TEST
 
 describe("Document", [&]() {
   TSDocument *doc;
+  TSNode root;
 
   before_each([&]() {
     doc = ts_document_make();
@@ -18,61 +21,79 @@ describe("Document", [&]() {
     ts_document_free(doc);
   });
 
-  describe("set_input(TSInput)", [&]() {
-    describe("when the language is set", [&]() {
-      before_each([&]() {
-        ts_document_set_language(doc, ts_language_json());
-      });
+  describe("set_input(input)", [&]() {
+    SpyInput *spy_input;
 
-      it("parses the document", [&]() {
-        ts_document_set_input_string(doc, "{ \"key\": [1, 2] }");
+    before_each([&]() {
+      ts_document_set_language(doc, ts_language_json());
+      ts_document_set_input_string(doc, "{\"key\": [1, 2]}");
+      ts_document_parse(doc);
 
-        AssertThat(ts_node_string(ts_document_root_node(doc), doc), Equals(
-          "(object (string) (array (number) (number)))"));
-      });
+      root = ts_document_root_node(doc);
+      AssertThat(ts_node_string(root, doc), Equals(
+        "(object (string) (array (number) (number)))"));
+
+      spy_input = new SpyInput("{\"key\": [null, 2]}", 3);
     });
 
-    describe("when the language is not set", [&]() {
-      it("does not try to parse the document", [&]() {
-        ts_document_set_input_string(doc, "{ \"key\": [1, 2] }");
-
-        AssertThat(ts_document_root_node(doc).data, Equals<void *>(nullptr));
-      });
+    after_each([&]() {
+      delete spy_input;
     });
 
     it("allows the input to be retrieved later", [&]() {
-      auto spy_input = new SpyInput("12345", 3);
       ts_document_set_input(doc, spy_input->input());
       AssertThat(ts_document_input(doc).payload, Equals<void *>(spy_input));
-      delete spy_input;
+      AssertThat(ts_document_input(doc).read_fn, Equals(spy_input->input().read_fn));
+      AssertThat(ts_document_input(doc).seek_fn, Equals(spy_input->input().seek_fn));
+    });
+
+    it("does not assume that the document's text has changed", [&]() {
+      ts_document_set_input(doc, spy_input->input());
+      AssertThat(ts_document_root_node(doc), Equals<TSNode>(root));
+      AssertThat(ts_node_has_changes(root), IsFalse());
+      AssertThat(spy_input->strings_read, Equals(vector<string>({ "" })));
+    });
+
+    it("reads text from the new input for future parses", [&]() {
+      ts_document_set_input(doc, spy_input->input());
+
+      // Insert 'null', delete '1'.
+      ts_document_edit(doc, {strlen("{\"key\": ["), 4, 1});
+      ts_document_parse(doc);
+
+      TSNode new_root = ts_document_root_node(doc);
+      AssertThat(ts_node_string(new_root, doc), Equals(
+        "(object (string) (array (null) (number)))"));
+      AssertThat(spy_input->strings_read, Equals(vector<string>({" [null, 2", ""})));
     });
   });
 
-  describe("set_language(TSLanguage)", [&]() {
-    describe("when the input is not set", [&]() {
-      it("does not try to parse the document", [&]() {
-        ts_document_set_language(doc, ts_language_json());
-
-        AssertThat(ts_document_root_node(doc).data, Equals<void *>(nullptr));
-      });
+  describe("set_language(language)", [&]() {
+    before_each([&]() {
+      ts_document_set_input_string(doc, "{\"key\": [1, 2]}\n");
     });
 
-    describe("when the input is set", [&]() {
-      before_each([&]() {
-        ts_document_set_input_string(doc, "{ \"key\": [1, 2] }");
-      });
-
-      it("parses the document", [&]() {
-        ts_document_set_language(doc, ts_language_json());
-
-        AssertThat(ts_node_string(ts_document_root_node(doc), doc), Equals(
-          "(object (string) (array (number) (number)))"));
-      });
-    });
-
-    it("allows the language to be retrieved later", [&]() {
+    it("uses the given language for future parses", [&]() {
       ts_document_set_language(doc, ts_language_json());
-      AssertThat(ts_document_language(doc), Equals(ts_language_json()));
+      ts_document_parse(doc);
+
+      root = ts_document_root_node(doc);
+      AssertThat(ts_node_string(root, doc), Equals(
+        "(object (string) (array (number) (number)))"));
+    });
+
+    it("clears out any previous tree", [&]() {
+      ts_document_set_language(doc, ts_language_json());
+      ts_document_parse(doc);
+
+      ts_document_set_language(doc, ts_language_javascript());
+      AssertThat(ts_document_root_node(doc).data, Equals<void *>(nullptr));
+
+      ts_document_parse(doc);
+      root = ts_document_root_node(doc);
+      AssertThat(ts_node_string(root, doc), Equals(
+        "(program (expression_statement "
+          "(object (pair (string) (array (number) (number))))))"));
     });
   });
 
@@ -82,11 +103,12 @@ describe("Document", [&]() {
     before_each([&]() {
       debugger = new SpyDebugger();
       ts_document_set_language(doc, ts_language_json());
-      ts_document_set_debugger(doc, debugger->debugger());
+      ts_document_set_input_string(doc, "[1, 2]");
     });
 
     it("calls the debugger with a message for each lex action", [&]() {
-      ts_document_set_input_string(doc, "[1, 2]");
+      ts_document_set_debugger(doc, debugger->debugger());
+      ts_document_parse(doc);
 
       AssertThat(debugger->messages, Contains("lookahead char:'1'"));
       AssertThat(debugger->messages, Contains("advance state:1"));
@@ -94,7 +116,8 @@ describe("Document", [&]() {
     });
 
     it("calls the debugger with a message for each parse action", [&]() {
-      ts_document_set_input_string(doc, "[1, 2]");
+      ts_document_set_debugger(doc, debugger->debugger());
+      ts_document_parse(doc);
 
       AssertThat(debugger->messages, Contains("new_parse"));
       AssertThat(debugger->messages, Contains("lookahead char:'['"));
@@ -103,16 +126,18 @@ describe("Document", [&]() {
     });
 
     it("allows the debugger to be retrieved later", [&]() {
+      ts_document_set_debugger(doc, debugger->debugger());
       AssertThat(ts_document_debugger(doc).payload, Equals(debugger));
     });
 
     describe("disabling debugging", [&]() {
       before_each([&]() {
+        ts_document_set_debugger(doc, debugger->debugger());
         ts_document_set_debugger(doc, ts_debugger_null());
       });
 
       it("does not call the debugger any more", [&]() {
-        ts_document_set_input_string(doc, "[1, 2]");
+        ts_document_parse(doc);
         AssertThat(debugger->messages, IsEmpty());
       });
     });

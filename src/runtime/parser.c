@@ -255,22 +255,21 @@ static bool ts_parser__handle_error(TSParser *parser, int head) {
   }
 }
 
-static void ts_parser__start(TSParser *parser, TSInput input) {
-  parser->lexer.input = input;
-  ts_lexer_reset(&parser->lexer, ts_length_zero());
-
-  parser->previous_tree = ts_stack_top_tree(parser->stack, 0);
-  if (parser->previous_tree) {
+static void ts_parser__start(TSParser *parser, TSInput input,
+                             TSTree *previous_tree) {
+  if (previous_tree) {
     DEBUG("parse_after_edit");
-    ts_tree_retain(parser->previous_tree);
   } else {
     DEBUG("new_parse");
   }
-  parser->reusable_subtree = parser->previous_tree;
+
+  parser->lexer.input = input;
+  ts_lexer_reset(&parser->lexer, ts_length_zero());
+  ts_stack_clear(parser->stack);
+
+  parser->reusable_subtree = previous_tree;
   parser->reusable_subtree_pos = 0;
   parser->lookahead = NULL;
-  parser->is_verifying = false;
-  ts_stack_clear(parser->stack);
 }
 
 static TSTree *ts_parser__finish(TSParser *parser) {
@@ -282,7 +281,6 @@ static TSTree *ts_parser__finish(TSParser *parser) {
   TSTree *root = trees[extra_count];
 
   ts_tree_prepend_children(root, extra_count, trees);
-  ts_stack_push(parser->stack, 0, 0, root);
   return root;
 }
 
@@ -389,7 +387,6 @@ TSParser ts_parser_make() {
       NULL, ts_parser__select_tree,
     }),
     .lookahead = NULL,
-    .is_verifying = false,
   };
 }
 
@@ -407,8 +404,8 @@ void ts_parser_set_debugger(TSParser *parser, TSDebugger debugger) {
   parser->lexer.debugger = debugger;
 }
 
-TSTree *ts_parser_parse(TSParser *parser, TSInput input) {
-  ts_parser__start(parser, input);
+TSTree *ts_parser_parse(TSParser *parser, TSInput input, TSTree *previous_tree) {
+  ts_parser__start(parser, input, previous_tree);
 
   for (;;) {
     ts_parser__get_next_lookahead(parser, false);

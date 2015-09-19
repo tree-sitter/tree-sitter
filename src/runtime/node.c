@@ -178,6 +178,10 @@ bool ts_node_is_named(TSNode this) {
   return ts_node__tree(this)->options.type == TSNodeTypeNamed;
 }
 
+bool ts_node_has_changes(TSNode this) {
+  return ts_node__tree(this)->options.has_changes;
+}
+
 TSNode ts_node_parent(TSNode this) {
   const TSTree *tree = ts_node__tree(this);
   TSLength position = ts_node__offset(this);

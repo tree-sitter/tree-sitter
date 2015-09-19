@@ -6,6 +6,11 @@
 #include "tree_sitter/runtime.h"
 
 class SpyInput {
+  size_t chars_per_chunk;
+  size_t buffer_size;
+  char *buffer;
+  size_t byte_offset;
+
  public:
   SpyInput(std::string content, size_t chars_per_chunk);
   ~SpyInput();
@@ -18,10 +23,6 @@ class SpyInput {
   int seek(size_t position);
 
   std::string content;
-  size_t chars_per_chunk;
-  size_t buffer_size;
-  char *buffer;
-  size_t byte_offset;
   std::vector<std::string> strings_read;
 };
 

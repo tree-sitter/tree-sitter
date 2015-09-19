@@ -19,24 +19,13 @@ void ts_document_free(TSDocument *document) {
   free(document);
 }
 
-static void ts_document__reparse(TSDocument *document) {
-  if (document->input.read_fn && document->parser.language) {
-    TSTree *tree = ts_parser_parse(&document->parser, document->input);
-    if (document->tree)
-      ts_tree_release(document->tree);
-    document->tree = tree;
-    ts_tree_retain(tree);
-    document->parse_count++;
-  }
-}
-
 const TSLanguage *ts_document_language(TSDocument *document) {
   return document->parser.language;
 }
 
 void ts_document_set_language(TSDocument *document, const TSLanguage *language) {
   document->parser.language = language;
-  ts_document__reparse(document);
+  document->tree = NULL;
 }
 
 TSDebugger ts_document_debugger(const TSDocument *document) {
@@ -53,7 +42,10 @@ TSInput ts_document_input(TSDocument *document) {
 
 void ts_document_set_input(TSDocument *document, TSInput input) {
   document->input = input;
-  ts_document__reparse(document);
+}
+
+void ts_document_set_input_string(TSDocument *document, const char *text) {
+  ts_document_set_input(document, ts_string_input_make(text));
 }
 
 void ts_document_edit(TSDocument *document, TSInputEdit edit) {
@@ -64,16 +56,18 @@ void ts_document_edit(TSDocument *document, TSInputEdit edit) {
     edit.chars_removed = max_chars - edit.position;
 
   ts_tree_edit(document->tree, edit);
-  ts_document__reparse(document);
 }
 
-const char *ts_document_symbol_name(const TSDocument *document,
-                                    const TSTree *tree) {
-  return document->parser.language->symbol_names[tree->symbol];
-}
-
-void ts_document_set_input_string(TSDocument *document, const char *text) {
-  ts_document_set_input(document, ts_string_input_make(text));
+void ts_document_parse(TSDocument *document) {
+  if (document->input.read_fn && document->parser.language) {
+    TSTree *tree =
+      ts_parser_parse(&document->parser, document->input, document->tree);
+    if (document->tree)
+      ts_tree_release(document->tree);
+    document->tree = tree;
+    ts_tree_retain(tree);
+    document->parse_count++;
+  }
 }
 
 TSNode ts_document_root_node(const TSDocument *document) {

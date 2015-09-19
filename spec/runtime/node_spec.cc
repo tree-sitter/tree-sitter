@@ -1,4 +1,5 @@
 #include "runtime/runtime_spec_helper.h"
+#include "runtime/helpers/tree_helpers.h"
 
 extern "C" TSLanguage * ts_language_json();
 
@@ -12,6 +13,8 @@ describe("Node", []() {
     document = ts_document_make();
     ts_document_set_language(document, ts_language_json());
     ts_document_set_input_string(document, "  [123, false, {\"x\": null}]");
+    ts_document_parse(document);
+
     array_node = ts_document_root_node(document);
     AssertThat(ts_node_string(array_node, document), Equals(
       "(array "
@@ -268,7 +271,3 @@ describe("Node", []() {
 });
 
 END_TEST
-
-bool operator==(const TSNode &left, const TSNode &right) {
-  return ts_node_eq(left, right);
-}

@@ -33,12 +33,12 @@ static int spy_seek(void *data, TSLength byte_offset) {
 }
 
 SpyInput::SpyInput(string content, size_t chars_per_chunk) :
-    content(content),
     chars_per_chunk(chars_per_chunk),
     buffer_size(4 * chars_per_chunk),
     buffer(new char[buffer_size]),
     byte_offset(0),
-    strings_read({ "" }) {}
+    content(content),
+    strings_read({""}) {}
 
 SpyInput::~SpyInput() {
   delete buffer;
@@ -73,7 +73,8 @@ const char * SpyInput::read(size_t *bytes_read) {
 }
 
 int SpyInput::seek(size_t pos) {
-  strings_read.push_back("");
+  if (strings_read.size() == 0 || strings_read.back().size() > 0)
+    strings_read.push_back("");
   byte_offset = pos;
   return 0;
 }

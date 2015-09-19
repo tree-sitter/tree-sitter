@@ -29,6 +29,8 @@ describe("Parser", [&]() {
   auto set_text = [&](const char *text) {
     input = new SpyInput(text, chunk_size);
     ts_document_set_input(doc, input->input());
+    ts_document_parse(doc);
+
     root = ts_document_root_node(doc);
     AssertThat(ts_node_size(root).bytes + ts_node_pos(root).bytes, Equals(strlen(text)));
     input->clear();
@@ -38,6 +40,7 @@ describe("Parser", [&]() {
     size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
     AssertThat(input->insert(position, text), IsTrue());
     ts_document_edit(doc, { position, text.length(), 0 });
+    ts_document_parse(doc);
 
     root = ts_document_root_node(doc);
     size_t new_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
@@ -48,6 +51,7 @@ describe("Parser", [&]() {
     size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
     AssertThat(input->erase(position, length), IsTrue());
     ts_document_edit(doc, { position, 0, length });
+    ts_document_parse(doc);
 
     root = ts_document_root_node(doc);
     size_t new_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
@@ -60,6 +64,7 @@ describe("Parser", [&]() {
     AssertThat(input->insert(position, new_text), IsTrue());
 
     ts_document_edit(doc, { position, new_text.size(), length });
+    ts_document_parse(doc);
 
     root = ts_document_root_node(doc);
     size_t new_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
