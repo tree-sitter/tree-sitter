@@ -14,7 +14,7 @@ class LexConflictManager {
   const LexicalGrammar grammar;
 
  public:
-  LexConflictManager(const LexicalGrammar &);
+  explicit LexConflictManager(const LexicalGrammar &);
   bool resolve(const LexAction &, const LexAction &) const;
 };
 

@@ -3,6 +3,7 @@
 #include <vector>
 #include <set>
 #include <string>
+#include <tuple>
 #include "tree_sitter/compiler.h"
 #include "compiler/prepared_grammar.h"
 #include "compiler/rules/visitor.h"

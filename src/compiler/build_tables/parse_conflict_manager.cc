@@ -1,7 +1,7 @@
 #include "compiler/build_tables/parse_conflict_manager.h"
+#include <utility>
 #include "compiler/parse_table.h"
 #include "compiler/rules/built_in_symbols.h"
-#include <utility>
 
 namespace tree_sitter {
 namespace build_tables {
@@ -32,13 +32,14 @@ pair<bool, ConflictType> ParseConflictManager::resolve(
         int max_precedence = *old_action.precedence_values.rbegin();
         int new_precedence = *new_action.precedence_values.rbegin();
         if (new_precedence < min_precedence ||
-            (new_precedence == min_precedence && min_precedence < max_precedence))
+            (new_precedence == min_precedence &&
+             min_precedence < max_precedence)) {
           return { false, ConflictTypeResolved };
-        else if (new_precedence > max_precedence ||
-                 (new_precedence == max_precedence &&
-                  min_precedence < max_precedence))
+        } else if (new_precedence > max_precedence ||
+                   (new_precedence == max_precedence &&
+                    min_precedence < max_precedence)) {
           return { true, ConflictTypeResolved };
-        else if (min_precedence == max_precedence) {
+        } else if (min_precedence == max_precedence) {
           switch (new_action.associativity) {
             case AssociativityLeft:
               return { true, ConflictTypeResolved };

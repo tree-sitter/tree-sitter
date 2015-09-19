@@ -1,12 +1,11 @@
+#include "runtime/parser.h"
 #include <stdio.h>
 #include <stdbool.h>
 #include "tree_sitter/runtime.h"
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 #include "runtime/lexer.h"
-#include "runtime/parser.h"
 #include "runtime/length.h"
-#include "runtime/debugger.h"
 
 /*
  *  Debugging

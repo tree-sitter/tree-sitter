@@ -1,7 +1,7 @@
 #include "compiler/build_tables/lex_conflict_manager.h"
+#include <utility>
 #include "compiler/parse_table.h"
 #include "compiler/rules/built_in_symbols.h"
-#include <utility>
 
 namespace tree_sitter {
 namespace build_tables {

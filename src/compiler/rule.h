@@ -1,5 +1,5 @@
-#ifndef COMPILER_RULES_RULE_H_
-#define COMPILER_RULES_RULE_H_
+#ifndef COMPILER_RULE_H_
+#define COMPILER_RULE_H_
 
 #include <string>
 #include <memory>
@@ -31,10 +31,10 @@ namespace std {
 template <>
 struct hash<tree_sitter::rule_ptr> {
   size_t operator()(const tree_sitter::rule_ptr &rule) const {
-    return typeid(*rule).hash_code() ^ rule->hash_code();
+    return rule->hash_code();
   }
 };
 
 }  // namespace std
 
-#endif  // COMPILER_RULES_RULE_H_
+#endif  // COMPILER_RULE_H_

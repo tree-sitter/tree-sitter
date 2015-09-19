@@ -1,3 +1,4 @@
+#include "compiler/build_tables/build_lex_table.h"
 #include <map>
 #include <set>
 #include <string>

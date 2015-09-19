@@ -31,8 +31,8 @@ class ExpandTokens : public rules::IdentityRuleFn {
 
   rule_ptr apply_to(const String *rule) {
     vector<rule_ptr> elements;
-    uint8_t *iter = (uint8_t *)rule->value.data();
-    uint8_t *end = iter + rule->value.size();
+    const uint8_t *iter = reinterpret_cast<const uint8_t *>(rule->value.data());
+    const uint8_t *end = iter + rule->value.size();
 
     while (iter < end) {
       int32_t el;

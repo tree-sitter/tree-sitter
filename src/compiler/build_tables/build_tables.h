@@ -2,7 +2,7 @@
 #define COMPILER_BUILD_TABLES_BUILD_TABLES_H_
 
 #include <string>
-#include <utility>
+#include <tuple>
 #include <vector>
 #include "tree_sitter/compiler.h"
 #include "compiler/parse_table.h"

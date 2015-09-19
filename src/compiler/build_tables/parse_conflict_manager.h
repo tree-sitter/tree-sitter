@@ -25,7 +25,7 @@ class ParseConflictManager {
   const SyntaxGrammar syntax_grammar;
 
  public:
-  ParseConflictManager(const SyntaxGrammar &);
+  explicit ParseConflictManager(const SyntaxGrammar &);
   std::pair<bool, ConflictType> resolve(const ParseAction &, const ParseAction &,
                                         const rules::Symbol &) const;
 };

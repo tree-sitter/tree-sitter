@@ -1,7 +1,7 @@
 #ifndef COMPILER_PREPARE_GRAMMAR_PREPARE_GRAMMAR_H_
 #define COMPILER_PREPARE_GRAMMAR_PREPARE_GRAMMAR_H_
 
-#include <utility>
+#include <tuple>
 #include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {

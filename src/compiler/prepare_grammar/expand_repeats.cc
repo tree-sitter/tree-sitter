@@ -56,7 +56,7 @@ class ExpandRepeats : public rules::IdentityRuleFn {
   }
 
  public:
-  ExpandRepeats(size_t offset) : offset(offset) {}
+  explicit ExpandRepeats(size_t offset) : offset(offset) {}
 
   rule_ptr expand(const rule_ptr &rule, const string &name) {
     rule_name = name;

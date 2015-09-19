@@ -1,3 +1,4 @@
+#include "compiler/build_tables/build_parse_table.h"
 #include <algorithm>
 #include <map>
 #include <set>
@@ -258,10 +259,11 @@ class ParseTableBuilder {
         return "END_OF_INPUT";
       else
         return "";
-    } else if (symbol.is_token)
+    } else if (symbol.is_token) {
       return lexical_grammar.rules[symbol.index].name;
-    else
+    } else {
       return grammar.rules[symbol.index].name;
+    }
   }
 
   string action_description(const ParseAction &action) const {

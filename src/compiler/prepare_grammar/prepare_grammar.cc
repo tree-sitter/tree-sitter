@@ -1,8 +1,9 @@
+#include "compiler/prepare_grammar/prepare_grammar.h"
+#include <tuple>
 #include "compiler/prepare_grammar/expand_repeats.h"
 #include "compiler/prepare_grammar/expand_tokens.h"
 #include "compiler/prepare_grammar/extract_tokens.h"
 #include "compiler/prepare_grammar/intern_symbols.h"
-#include "compiler/prepare_grammar/prepare_grammar.h"
 #include "compiler/prepared_grammar.h"
 
 namespace tree_sitter {
@@ -14,7 +15,6 @@ using std::make_tuple;
 
 tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
   const Grammar &input_grammar) {
-
   // Convert all string-based `NamedSymbols` into numerical `Symbols`
   auto intern_result = intern_symbols(input_grammar);
   const GrammarError *error = intern_result.second;

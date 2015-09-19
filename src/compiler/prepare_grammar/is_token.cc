@@ -1,6 +1,6 @@
+#include "compiler/prepare_grammar/is_token.h"
 #include "tree_sitter/compiler.h"
 #include "compiler/rules/visitor.h"
-#include "compiler/rules/symbol.h"
 #include "compiler/rules/string.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/rules/pattern.h"
@@ -12,9 +12,11 @@ class IsToken : public rules::RuleFn<bool> {
   bool apply_to(const rules::String *rule) {
     return true;
   }
+
   bool apply_to(const rules::Pattern *rule) {
     return true;
   }
+
   bool apply_to(const rules::Metadata *rule) {
     return rule->value_for(rules::IS_TOKEN);
   }

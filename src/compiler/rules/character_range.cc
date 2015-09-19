@@ -1,7 +1,7 @@
 #include "compiler/rules/character_range.h"
-#include "compiler/util/string_helpers.h"
 #include <algorithm>
 #include <string>
+#include "compiler/util/string_helpers.h"
 
 namespace tree_sitter {
 namespace rules {

@@ -1,7 +1,7 @@
 #ifndef COMPILER_PREPARE_GRAMMAR_EXTRACT_TOKENS_H_
 #define COMPILER_PREPARE_GRAMMAR_EXTRACT_TOKENS_H_
 
-#include <utility>
+#include <tuple>
 #include "tree_sitter/compiler.h"
 #include "compiler/prepare_grammar/interned_grammar.h"
 
