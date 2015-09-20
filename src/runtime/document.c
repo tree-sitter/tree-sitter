@@ -49,6 +49,8 @@ void ts_document_set_input_string(TSDocument *document, const char *text) {
 }
 
 void ts_document_edit(TSDocument *document, TSInputEdit edit) {
+  if (!document->tree) return;
+
   size_t max_chars = ts_tree_total_size(document->tree).chars;
   if (edit.position > max_chars)
     edit.position = max_chars;
