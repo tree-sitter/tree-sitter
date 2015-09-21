@@ -80,8 +80,8 @@ static void ts_parser__pop_reusable_subtree(TSParser *parser) {
  *  at the correct position in the parser's previous tree, use that. Otherwise,
  *  run the lexer.
  */
-static void ts_parser__get_next_lookahead(TSParser *parser, bool error_mode) {
-  while (!error_mode && parser->reusable_subtree) {
+static void ts_parser__get_next_lookahead(TSParser *parser) {
+  while (parser->reusable_subtree) {
     if (parser->reusable_subtree_pos > parser->lexer.current_position.chars) {
       break;
     }
@@ -96,10 +96,8 @@ static void ts_parser__get_next_lookahead(TSParser *parser, bool error_mode) {
         ts_tree_is_fragile(parser->reusable_subtree) ||
         ts_tree_is_extra(parser->reusable_subtree)) {
       DEBUG("breakdown sym:%s", SYM_NAME(parser->reusable_subtree->symbol));
-      if (!ts_parser__breakdown_reusable_subtree(parser)) {
-        DEBUG("cant_reuse sym:%s", SYM_NAME(parser->reusable_subtree->symbol));
+      if (!ts_parser__breakdown_reusable_subtree(parser))
         ts_parser__pop_reusable_subtree(parser);
-      }
       continue;
     }
 
@@ -107,6 +105,7 @@ static void ts_parser__get_next_lookahead(TSParser *parser, bool error_mode) {
     TSSymbol symbol = parser->reusable_subtree->symbol;
     if (ts_language__action(parser->language, top_state, symbol).type ==
         TSParseActionTypeError) {
+      DEBUG("cant_reuse sym:%s", SYM_NAME(parser->reusable_subtree->symbol));
       ts_parser__pop_reusable_subtree(parser);
       continue;
     }
@@ -121,11 +120,9 @@ static void ts_parser__get_next_lookahead(TSParser *parser, bool error_mode) {
     return;
   }
 
-  TSStateId lex_state =
-    error_mode
-      ? ts_lex_state_error
-      : parser->language->lex_states[ts_stack_top_state(parser->stack, 0)];
-
+  TSStateId parse_state = ts_stack_top_state(parser->stack, 0);
+  TSStateId lex_state = parser->language->lex_states[parse_state];
+  DEBUG("lex state:%d", lex_state);
   parser->lookahead = parser->language->lex_fn(&parser->lexer, lex_state);
 }
 
@@ -240,7 +237,8 @@ static bool ts_parser__handle_error(TSParser *parser, int head) {
      */
     DEBUG("skip token:%s", SYM_NAME(parser->lookahead->symbol));
     ts_parser__shift(parser, head, ts_stack_top_state(parser->stack, head));
-    ts_parser__get_next_lookahead(parser, true);
+    parser->lookahead =
+      parser->language->lex_fn(&parser->lexer, ts_lex_state_error);
     error_token_count++;
 
     /*
@@ -302,15 +300,15 @@ static ParserNextResult ts_parser__next(TSParser *parser, int head_to_advance) {
     TSParseAction action = *next_action;
     head = next_head;
 
+    DEBUG("action state:%d, head:%d", state, head);
+
     next_action++;
     if (next_action->type == 0) {
       next_action = NULL;
     } else {
       next_head = ts_stack_split(parser->stack, head);
-      DEBUG("split head:%d, created:%d", head, next_head);
+      DEBUG("split created_head:%d", next_head);
     }
-
-    DEBUG("iteration state:%d, head:%d", state, head);
 
     // TODO: Remove this by making a separate symbol for errors returned from
     // the lexer.
@@ -344,7 +342,7 @@ static ParserNextResult ts_parser__next(TSParser *parser, int head_to_advance) {
         break;
 
       case TSParseActionTypeReduce:
-        DEBUG("reduce sym:%s, count:%u", SYM_NAME(action.data.symbol),
+        DEBUG("reduce sym:%s, child_count:%u", SYM_NAME(action.data.symbol),
               action.data.child_count);
         ts_parser__reduce(parser, head, action.data.symbol,
                           action.data.child_count, false, false);
@@ -407,10 +405,12 @@ TSTree *ts_parser_parse(TSParser *parser, TSInput input, TSTree *previous_tree) 
   ts_parser__start(parser, input, previous_tree);
 
   for (;;) {
-    ts_parser__get_next_lookahead(parser, false);
+    ts_parser__get_next_lookahead(parser);
 
-    DEBUG("lookahead sym:%s", SYM_NAME(parser->lookahead->symbol));
-    DEBUG("head_count: %d", ts_stack_head_count(parser->stack));
+    DEBUG("lookahead sym:%s, pos:%lu, head_count:%d",
+          SYM_NAME(parser->lookahead->symbol),
+          parser->lexer.current_position.chars,
+          ts_stack_head_count(parser->stack));
 
     int head = 0;
     while (head < ts_stack_head_count(parser->stack)) {
