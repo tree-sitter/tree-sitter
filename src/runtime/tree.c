@@ -201,10 +201,8 @@ static inline long min(long a, long b) {
 
 void ts_tree_edit(TSTree *tree, TSInputEdit edit) {
   size_t start = edit.position;
-  size_t old_end = edit.position + edit.chars_removed;
   size_t new_end = edit.position + edit.chars_inserted;
-
-  assert(start >= 0);
+  size_t old_end = edit.position + edit.chars_removed;
   assert(old_end <= ts_tree_total_size(tree).chars);
 
   tree->options.has_changes = true;
