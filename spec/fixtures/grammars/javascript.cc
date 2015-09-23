@@ -55,7 +55,9 @@ extern const Grammar javascript = Grammar({
     sym("throw_statement"),
     sym("delete_statement") }) },
 
-  { "expression_statement", terminated(err(sym("_expression"))) },
+  { "expression_statement", choice({
+    terminated(sym("_expression")),
+    seq({ err(sym("_expression")), str(";") }) }) },
 
   { "var_declaration", terminated(seq({
     str("var"),
