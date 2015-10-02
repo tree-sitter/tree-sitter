@@ -29,8 +29,9 @@ describe("compiling the example grammars", []() {
       string code = result.first;
       const GrammarError *error = result.second;
 
-      AssertThat(error, Equals((GrammarError *)nullptr));
-
+      if (error)
+        AssertThat(error->message, Equals(""));
+      
       ofstream file(example_parser_dir + language + ".c");
       file << get<0>(result);
       file.close();

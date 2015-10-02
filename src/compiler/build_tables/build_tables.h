@@ -10,8 +10,8 @@
 
 namespace tree_sitter {
 
-class SyntaxGrammar;
-class LexicalGrammar;
+struct SyntaxGrammar;
+struct LexicalGrammar;
 
 namespace build_tables {
 

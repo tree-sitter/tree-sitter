@@ -7,7 +7,7 @@
 
 namespace tree_sitter {
 
-class SyntaxGrammar;
+struct SyntaxGrammar;
 
 namespace rules {
 class CharacterSet;

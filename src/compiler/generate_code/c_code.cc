@@ -7,7 +7,8 @@
 #include "compiler/generate_code/c_code.h"
 #include "compiler/lex_table.h"
 #include "compiler/parse_table.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/syntax_grammar.h"
+#include "compiler/lexical_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/util/string_helpers.h"
 
@@ -15,19 +16,15 @@ namespace tree_sitter {
 namespace generate_code {
 using std::function;
 using std::map;
+using std::pair;
 using std::set;
 using std::string;
 using std::to_string;
 using std::vector;
 using util::escape_char;
 
-static RuleEntry ERROR_ENTRY{
-  "error", rule_ptr(), RuleEntryTypeNamed,
-};
-
-static RuleEntry EOF_ENTRY{
-  "end", rule_ptr(), RuleEntryTypeAuxiliary,
-};
+static Variable ERROR_ENTRY("error", VariableTypeNamed, rule_ptr());
+static Variable EOF_ENTRY("end", VariableTypeNamed, rule_ptr());
 
 static const map<char, string> REPLACEMENTS({
   { '~', "TILDE" },
@@ -149,15 +146,15 @@ class CCodeGenerator {
       for (const auto &symbol : parse_table.symbols) {
         line("[" + symbol_id(symbol) + "] = ");
 
-        switch (entry_for_symbol(symbol).type) {
-          case RuleEntryTypeNamed:
+        switch (symbol_type(symbol)) {
+          case VariableTypeNamed:
             add("TSNodeTypeNamed,");
             break;
-          case RuleEntryTypeAnonymous:
+          case VariableTypeAnonymous:
             add("TSNodeTypeAnonymous,");
             break;
-          case RuleEntryTypeHidden:
-          case RuleEntryTypeAuxiliary:
+          case VariableTypeHidden:
+          case VariableTypeAuxiliary:
             add("TSNodeTypeHidden,");
             break;
         }
@@ -338,15 +335,18 @@ class CCodeGenerator {
   }
 
   string symbol_id(const rules::Symbol &symbol) {
-    RuleEntry entry = entry_for_symbol(symbol);
-    string name = sanitize_name(entry.name);
-    if (symbol.is_built_in())
-      return "ts_builtin_sym_" + name;
+    if (symbol == rules::ERROR())
+      return "ts_builtin_sym_error";
+    if (symbol == rules::END_OF_INPUT())
+      return "ts_builtin_sym_end";
 
-    switch (entry.type) {
-      case RuleEntryTypeAuxiliary:
+    auto entry = entry_for_symbol(symbol);
+    string name = sanitize_name(entry.first);
+
+    switch (entry.second) {
+      case VariableTypeAuxiliary:
         return "aux_sym_" + name;
-      case RuleEntryTypeAnonymous:
+      case VariableTypeAnonymous:
         return "anon_sym_" + name;
       default:
         return "sym_" + name;
@@ -358,26 +358,30 @@ class CCodeGenerator {
       return "ERROR";
     if (symbol == rules::END_OF_INPUT())
       return "END";
-    return entry_for_symbol(symbol).name;
+    return entry_for_symbol(symbol).first;
   }
 
-  const RuleEntry &entry_for_symbol(const rules::Symbol &symbol) {
+  VariableType symbol_type(const rules::Symbol &symbol) {
     if (symbol == rules::ERROR())
-      return ERROR_ENTRY;
+      return VariableTypeNamed;
     if (symbol == rules::END_OF_INPUT())
-      return EOF_ENTRY;
-    if (symbol.is_token)
-      return lexical_grammar.rules[symbol.index];
-    else
-      return syntax_grammar.rules[symbol.index];
+      return VariableTypeHidden;
+    return entry_for_symbol(symbol).second;
   }
 
-  string rule_name(const rules::Symbol &symbol) {
-    return entry_for_symbol(symbol).name;
+  pair<string, VariableType> entry_for_symbol(const rules::Symbol &symbol) {
+    if (symbol.is_token) {
+      const Variable &variable = lexical_grammar.variables[symbol.index];
+      return { variable.name, variable.type };
+    } else {
+      const SyntaxVariable &variable = syntax_grammar.variables[symbol.index];
+      return { variable.name, variable.type };
+    }
   }
 
   bool reduce_action_is_fragile(const ParseAction &action) const {
-    return parse_table.fragile_production_ids.find(action.production_id) !=
+    return parse_table.fragile_production_ids.find(
+             { action.symbol, action.production_id }) !=
            parse_table.fragile_production_ids.end();
   }
 

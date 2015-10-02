@@ -5,10 +5,10 @@
 
 namespace tree_sitter {
 
+struct LexicalGrammar;
+struct SyntaxGrammar;
 class LexTable;
-class LexicalGrammar;
 class ParseTable;
-class SyntaxGrammar;
 
 namespace generate_code {
 

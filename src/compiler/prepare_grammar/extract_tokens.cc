@@ -5,7 +5,8 @@
 #include <string>
 #include <tuple>
 #include "tree_sitter/compiler.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/lexical_grammar.h"
+#include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/string.h"
@@ -56,7 +57,7 @@ class SymbolReplacer : public rules::IdentityRuleFn {
 class TokenExtractor : public rules::IdentityRuleFn {
   using rules::IdentityRuleFn::apply_to;
 
-  rule_ptr apply_to_token(const Rule *input, RuleEntryType entry_type) {
+  rule_ptr apply_to_token(const Rule *input, VariableType entry_type) {
     for (size_t i = 0; i < tokens.size(); i++)
       if (tokens[i].rule->operator==(*input)) {
         token_usage_counts[i]++;
@@ -65,31 +66,29 @@ class TokenExtractor : public rules::IdentityRuleFn {
 
     rule_ptr rule = input->copy();
     size_t index = tokens.size();
-    tokens.push_back({
-      token_description(rule), rule, entry_type,
-    });
+    tokens.push_back(Variable(token_description(rule), entry_type, rule));
     token_usage_counts.push_back(1);
     return make_shared<Symbol>(index, true);
   }
 
   rule_ptr apply_to(const rules::String *rule) {
-    return apply_to_token(rule, RuleEntryTypeAnonymous);
+    return apply_to_token(rule, VariableTypeAnonymous);
   }
 
   rule_ptr apply_to(const rules::Pattern *rule) {
-    return apply_to_token(rule, RuleEntryTypeAuxiliary);
+    return apply_to_token(rule, VariableTypeAuxiliary);
   }
 
   rule_ptr apply_to(const rules::Metadata *rule) {
     if (rule->value_for(rules::IS_TOKEN) > 0)
-      return apply_to_token(rule->rule.get(), RuleEntryTypeAuxiliary);
+      return apply_to_token(rule->rule.get(), VariableTypeAuxiliary);
     else
       return rules::IdentityRuleFn::apply_to(rule);
   }
 
  public:
   vector<size_t> token_usage_counts;
-  vector<RuleEntry> tokens;
+  vector<Variable> tokens;
 };
 
 static const GrammarError *ubiq_token_err(const string &message) {
@@ -97,9 +96,9 @@ static const GrammarError *ubiq_token_err(const string &message) {
                           "Not a token: " + message);
 }
 
-tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
+tuple<InitialSyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
   const InternedGrammar &grammar) {
-  SyntaxGrammar syntax_grammar;
+  InitialSyntaxGrammar syntax_grammar;
   LexicalGrammar lexical_grammar;
   SymbolReplacer symbol_replacer;
   TokenExtractor extractor;
@@ -107,31 +106,30 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
   /*
    *  First, extract all of the grammar's tokens into the lexical grammar.
    */
-  vector<RuleEntry> processed_rules;
-  for (const RuleEntry &entry : grammar.rules)
-    processed_rules.push_back({
-      entry.name, extractor.apply(entry.rule), entry.type,
-    });
-  lexical_grammar.rules = extractor.tokens;
+  vector<Variable> processed_variables;
+  for (const Variable &variable : grammar.variables)
+    processed_variables.push_back(
+      Variable(variable.name, variable.type, extractor.apply(variable.rule)));
+  lexical_grammar.variables = extractor.tokens;
 
   /*
-   *  If a rule's entire content was extracted as a token and that token didn't
-   *  appear within any other rule, then remove that rule from the syntax
+   *  If a variable's entire rule was extracted as a token and that token didn't
+   *  appear within any other rule, then remove that variable from the syntax
    *  grammar, giving its name to the token in the lexical grammar. Any symbols
-   *  that pointed to that rule will need to be updated to point to the rule in
-   *  the lexical grammar. Symbols that pointed to later rules will need to have
-   *  their indices decremented.
+   *  that pointed to that variable will need to be updated to point to the
+   *  variable in the lexical grammar. Symbols that pointed to later variables
+   *  will need to have their indices decremented.
    */
   size_t i = 0;
-  for (const RuleEntry &entry : processed_rules) {
-    auto symbol = dynamic_pointer_cast<const Symbol>(entry.rule);
+  for (const Variable &variable : processed_variables) {
+    auto symbol = dynamic_pointer_cast<const Symbol>(variable.rule);
     if (symbol.get() && symbol->is_token && !symbol->is_built_in() &&
         extractor.token_usage_counts[symbol->index] == 1) {
-      lexical_grammar.rules[symbol->index].type = entry.type;
-      lexical_grammar.rules[symbol->index].name = entry.name;
+      lexical_grammar.variables[symbol->index].type = variable.type;
+      lexical_grammar.variables[symbol->index].name = variable.name;
       symbol_replacer.replacements.insert({ Symbol(i), *symbol });
     } else {
-      syntax_grammar.rules.push_back(entry);
+      syntax_grammar.variables.push_back(variable);
     }
     i++;
   }
@@ -139,14 +137,14 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
   /*
    *  Perform any replacements of symbols needed based on the previous step.
    */
-  for (RuleEntry &entry : syntax_grammar.rules)
-    entry.rule = symbol_replacer.apply(entry.rule);
+  for (Variable &variable : syntax_grammar.variables)
+    variable.rule = symbol_replacer.apply(variable.rule);
 
-  for (auto &symbol_set : grammar.expected_conflicts) {
-    set<Symbol> new_symbol_set;
-    for (const Symbol &symbol : symbol_set)
-      new_symbol_set.insert(symbol_replacer.replace_symbol(symbol));
-    syntax_grammar.expected_conflicts.insert(new_symbol_set);
+  for (const ConflictSet &conflict_set : grammar.expected_conflicts) {
+    ConflictSet new_conflict_set;
+    for (const Symbol &symbol : conflict_set)
+      new_conflict_set.insert(symbol_replacer.replace_symbol(symbol));
+    syntax_grammar.expected_conflicts.insert(new_conflict_set);
   }
 
   /*
@@ -171,7 +169,7 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
     if (!new_symbol.is_token)
       return make_tuple(
         syntax_grammar, lexical_grammar,
-        ubiq_token_err(syntax_grammar.rules[new_symbol.index].name));
+        ubiq_token_err(syntax_grammar.variables[new_symbol.index].name));
 
     syntax_grammar.ubiquitous_tokens.insert(new_symbol);
   }

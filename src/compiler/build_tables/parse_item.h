@@ -10,13 +10,17 @@
 namespace tree_sitter {
 namespace build_tables {
 
-class ParseItem : public Item {
+class ParseItem {
  public:
-  ParseItem(const rules::Symbol &lhs, rule_ptr rule,
-            const std::vector<rules::Symbol> &consumed_symbols);
+  ParseItem(const rules::Symbol &, unsigned int, unsigned int, int);
   bool operator==(const ParseItem &other) const;
   bool operator<(const ParseItem &other) const;
-  std::vector<rules::Symbol> consumed_symbols;
+  rules::Symbol lhs() const;
+
+  int variable_index;
+  unsigned int production_index;
+  unsigned int step_index;
+  int rule_id;
 };
 
 typedef std::map<ParseItem, std::set<rules::Symbol>> ParseItemSet;
@@ -29,9 +33,8 @@ namespace std {
 template <>
 struct hash<tree_sitter::build_tables::ParseItem> {
   size_t operator()(const tree_sitter::build_tables::ParseItem &item) const {
-    return hash<tree_sitter::rules::Symbol>()(item.lhs) ^
-           hash<tree_sitter::rule_ptr>()(item.rule) ^
-           hash<size_t>()(item.consumed_symbols.size());
+    return hash<unsigned int>()(item.variable_index) ^
+           hash<int>()(item.rule_id) ^ hash<unsigned int>()(item.step_index);
   }
 };
 

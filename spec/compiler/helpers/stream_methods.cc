@@ -2,6 +2,7 @@
 #include "compiler/compiler_spec_helper.h"
 #include "tree_sitter/compiler.h"
 #include "compiler/parse_table.h"
+#include "compiler/syntax_grammar.h"
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/build_tables/get_metadata.h"
@@ -42,8 +43,12 @@ ostream &operator<<(ostream &stream, const rule_ptr &rule) {
   return stream;
 }
 
-ostream &operator<<(ostream &stream, const RuleEntry &entry) {
-  return stream << string("{") << entry.name << string(", ") << entry.rule << string(", ") << to_string(entry.type) << string("}");
+ostream &operator<<(ostream &stream, const Variable &variable) {
+  return stream << string("{") << variable.name << string(", ") << variable.rule << string(", ") << to_string(variable.type) << string("}");
+}
+
+ostream &operator<<(ostream &stream, const SyntaxVariable &variable) {
+  return stream << string("{") << variable.name << string(", ") << variable.productions << string(", ") << to_string(variable.type) << string("}");
 }
 
 std::ostream &operator<<(std::ostream &stream, const LexAction &action) {
@@ -100,6 +105,10 @@ ostream &operator<<(ostream &stream, const ParseState &state) {
   return stream;
 }
 
+ostream &operator<<(ostream &stream, const ProductionStep &step) {
+  return stream << string("(production_step symbol:") << step.symbol << string(" precedence:") << to_string(step.precedence) << ")";
+}
+
 namespace build_tables {
 
 ostream &operator<<(ostream &stream, const build_tables::LexItem &item) {
@@ -107,8 +116,11 @@ ostream &operator<<(ostream &stream, const build_tables::LexItem &item) {
                 << string(")");
 }
 
-ostream &operator<<(ostream &stream, const build_tables::ParseItem &item) {
-  return stream << string("(item ") << item.lhs << string(" ") << *item.rule
+ostream &operator<<(ostream &stream, const ParseItem &item) {
+  return stream << string("(item variable:") << to_string(item.variable_index)
+                << string(" production:") << to_string(item.production_index)
+                << string(" step:") << to_string(item.step_index)
+                << string(" remaining_rule:") << to_string(item.rule_id)
                 << string(")");
 }
 

@@ -35,7 +35,7 @@ describe("Languages", [&]() {
     describe(("The " + pair.first + " parser").c_str(), [&]() {
       before_each([&]() {
         ts_document_set_language(doc, pair.second);
-        // ts_document_set_debugger(doc, log_debugger_make(true));
+        // ts_document_set_debugger(doc, log_debugger_make(false));
       });
 
       for (auto &entry : test_entries_for_language(pair.first)) {

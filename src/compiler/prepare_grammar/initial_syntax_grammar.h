@@ -1,23 +1,24 @@
-#ifndef COMPILER_PREPARE_GRAMMAR_INTERNED_GRAMMAR_H_
-#define COMPILER_PREPARE_GRAMMAR_INTERNED_GRAMMAR_H_
+#ifndef COMPILER_INITIAL_SYNTAX_GRAMMAR_H_
+#define COMPILER_INITIAL_SYNTAX_GRAMMAR_H_
 
-#include <set>
 #include <vector>
+#include <string>
+#include <set>
 #include "tree_sitter/compiler.h"
 #include "compiler/rules/symbol.h"
-#include "compiler/syntax_grammar.h"
 #include "compiler/variable.h"
+#include "compiler/syntax_grammar.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {
 
-struct InternedGrammar {
+struct InitialSyntaxGrammar {
   std::vector<Variable> variables;
-  std::vector<rule_ptr> ubiquitous_tokens;
+  std::set<rules::Symbol> ubiquitous_tokens;
   std::set<ConflictSet> expected_conflicts;
 };
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter
 
-#endif  // COMPILER_PREPARE_GRAMMAR_INTERNED_GRAMMAR_H_
+#endif  // COMPILER_INITIAL_SYNTAX_GRAMMAR_H_

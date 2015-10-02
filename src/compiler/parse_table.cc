@@ -60,7 +60,7 @@ ParseAction ParseAction::ReduceExtra(Symbol symbol) {
 
 ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
                                 int precedence, Associativity associativity,
-                                int production_id) {
+                                unsigned int production_id) {
   return ParseAction(ParseActionTypeReduce, 0, symbol, consumed_symbol_count,
                      { precedence }, associativity, production_id);
 }

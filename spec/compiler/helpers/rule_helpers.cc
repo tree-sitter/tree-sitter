@@ -39,7 +39,7 @@ namespace tree_sitter {
     return make_shared<rules::Metadata>(rule, values);
   }
 
-  bool operator==(const RuleEntry &left, const RuleEntry &right) {
+  bool operator==(const Variable &left, const Variable &right) {
     return left.name == right.name && left.rule->operator==(*right.rule) &&
       left.type == right.type;
   }

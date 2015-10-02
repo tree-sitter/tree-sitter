@@ -7,9 +7,6 @@
 #include "compiler/prepare_grammar/interned_grammar.h"
 
 namespace tree_sitter {
-
-class Grammar;
-
 namespace prepare_grammar {
 
 std::pair<InternedGrammar, const GrammarError *> intern_symbols(const Grammar &);

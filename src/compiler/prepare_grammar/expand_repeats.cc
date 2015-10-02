@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 #include <utility>
-#include "compiler/prepared_grammar.h"
+#include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/symbol.h"
@@ -42,12 +42,10 @@ class ExpandRepeats : public rules::IdentityRuleFn {
       rule_name + string("_repeat") + to_string(++repeat_count);
     Symbol repeat_symbol(offset + index);
     existing_repeats.push_back({ rule->copy(), repeat_symbol });
-    aux_rules.push_back({
-      helper_rule_name,
+    aux_rules.push_back(Variable(
+      helper_rule_name, VariableTypeAuxiliary,
       Seq::build({ inner_rule, Choice::build({ repeat_symbol.copy(),
-                                               make_shared<Blank>() }) }),
-      RuleEntryTypeAuxiliary,
-    });
+                                               make_shared<Blank>() }) })));
     return repeat_symbol.copy();
   }
 
@@ -64,21 +62,21 @@ class ExpandRepeats : public rules::IdentityRuleFn {
     return apply(rule);
   }
 
-  vector<RuleEntry> aux_rules;
+  vector<Variable> aux_rules;
 };
 
-SyntaxGrammar expand_repeats(const SyntaxGrammar &grammar) {
-  SyntaxGrammar result;
-  result.rules = grammar.rules;
+InitialSyntaxGrammar expand_repeats(const InitialSyntaxGrammar &grammar) {
+  InitialSyntaxGrammar result;
+  result.variables = grammar.variables;
   result.ubiquitous_tokens = grammar.ubiquitous_tokens;
   result.expected_conflicts = grammar.expected_conflicts;
 
-  ExpandRepeats expander(result.rules.size());
-  for (auto &rule_entry : result.rules)
-    rule_entry.rule = expander.expand(rule_entry.rule, rule_entry.name);
+  ExpandRepeats expander(result.variables.size());
+  for (auto &variable : result.variables)
+    variable.rule = expander.expand(variable.rule, variable.name);
 
-  result.rules.insert(result.rules.end(), expander.aux_rules.begin(),
-                      expander.aux_rules.end());
+  result.variables.insert(result.variables.end(), expander.aux_rules.begin(),
+                          expander.aux_rules.end());
   return result;
 }
 

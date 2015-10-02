@@ -19,22 +19,10 @@ describe("intern_symbols", []() {
     auto result = intern_symbols(grammar);
 
     AssertThat(result.second, Equals((GrammarError *)nullptr));
-    AssertThat(result.first.rules, Equals(vector<RuleEntry>({
-      {
-        "x",
-        choice({ i_sym(1), i_sym(2) }),
-        RuleEntryTypeNamed
-      },
-      {
-        "y",
-        i_sym(2),
-        RuleEntryTypeNamed,
-      },
-      {
-        "_z",
-        str("stuff"),
-        RuleEntryTypeHidden
-      },
+    AssertThat(result.first.variables, Equals(vector<Variable>({
+      Variable("x", VariableTypeNamed, choice({ i_sym(1), i_sym(2) })),
+      Variable("y", VariableTypeNamed, i_sym(2)),
+      Variable("_z", VariableTypeHidden, str("stuff")),
     })));
   });
 

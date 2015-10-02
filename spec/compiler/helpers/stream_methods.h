@@ -37,8 +37,8 @@ inline std::ostream& operator<<(std::ostream &stream, const std::set<T> &set) {
   return stream << ")";
 }
 
-template<typename T>
-inline std::ostream& operator<<(std::ostream &stream, const std::unordered_set<T> &set) {
+template<typename T, typename H, typename E>
+inline std::ostream& operator<<(std::ostream &stream, const std::unordered_set<T, H, E> &set) {
   stream << std::string("(set: ");
   bool started = false;
   for (auto item : set) {
@@ -89,19 +89,23 @@ namespace tree_sitter {
 using std::ostream;
 using std::string;
 using std::to_string;
-struct RuleEntry;
+struct Variable;
+struct SyntaxVariable;
 class LexAction;
 class ParseAction;
 class ParseState;
+struct ProductionStep;
 
 ostream &operator<<(ostream &, const Grammar &);
 ostream &operator<<(ostream &, const GrammarError &);
 ostream &operator<<(ostream &, const Rule &);
 ostream &operator<<(ostream &, const rule_ptr &);
-ostream &operator<<(ostream &, const RuleEntry &);
-std::ostream &operator<<(ostream &stream, const LexAction &);
-std::ostream &operator<<(ostream &stream, const ParseAction &);
-std::ostream &operator<<(ostream &stream, const ParseState &);
+ostream &operator<<(ostream &, const Variable &);
+ostream &operator<<(ostream &, const SyntaxVariable &);
+ostream &operator<<(ostream &, const LexAction &);
+ostream &operator<<(ostream &, const ParseAction &);
+ostream &operator<<(ostream &, const ParseState &);
+ostream &operator<<(ostream &, const ProductionStep &);
 
 namespace build_tables {
 
@@ -109,9 +113,9 @@ struct MetadataRange;
 class LexItem;
 class ParseItem;
 
-ostream &operator<<(ostream &stream, const MetadataRange &);
-ostream &operator<<(ostream &stream, const LexItem &);
-ostream &operator<<(ostream &stream, const ParseItem &);
+ostream &operator<<(ostream &, const MetadataRange &);
+ostream &operator<<(ostream &, const LexItem &);
+ostream &operator<<(ostream &, const ParseItem &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

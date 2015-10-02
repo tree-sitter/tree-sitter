@@ -1,34 +1,42 @@
 #include "compiler/build_tables/parse_item.h"
 #include <string>
+#include "compiler/syntax_grammar.h"
 #include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
 namespace build_tables {
 
 using std::string;
-using std::vector;
+using std::to_string;
 using std::ostream;
+using rules::Symbol;
 
-ParseItem::ParseItem(const rules::Symbol &lhs, const rule_ptr rule,
-                     const vector<rules::Symbol> &consumed_symbols)
-    : Item(lhs, rule), consumed_symbols(consumed_symbols) {}
+ParseItem::ParseItem(const Symbol &lhs, unsigned int production_index,
+                     unsigned int step_index, int rule_id)
+    : variable_index(lhs.index),
+      production_index(production_index),
+      step_index(step_index),
+      rule_id(rule_id) {}
 
 bool ParseItem::operator==(const ParseItem &other) const {
-  return (lhs == other.lhs) &&
-         (consumed_symbols.size() == other.consumed_symbols.size()) &&
-         (rule == other.rule || rule->operator==(*other.rule));
+  return (variable_index == other.variable_index) &&
+         (rule_id == other.rule_id) && (step_index == other.step_index);
 }
 
 bool ParseItem::operator<(const ParseItem &other) const {
-  if (lhs < other.lhs)
+  if (variable_index < other.variable_index)
     return true;
-  if (other.lhs < lhs)
+  if (variable_index > other.variable_index)
     return false;
-  if (consumed_symbols.size() < other.consumed_symbols.size())
+  if (step_index < other.step_index)
     return true;
-  if (other.consumed_symbols.size() < consumed_symbols.size())
+  if (step_index > other.step_index)
     return false;
-  return rule < other.rule;
+  return rule_id < other.rule_id;
+}
+
+Symbol ParseItem::lhs() const {
+  return Symbol(variable_index);
 }
 
 }  // namespace build_tables

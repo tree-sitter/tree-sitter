@@ -3,7 +3,7 @@
 #include <string>
 #include <utility>
 #include <map>
-#include "compiler/prepared_grammar.h"
+#include "compiler/lexical_grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/pattern.h"
 #include "compiler/rules/string.h"
@@ -68,11 +68,11 @@ pair<LexicalGrammar, const GrammarError *> expand_tokens(
   LexicalGrammar result;
   ExpandTokens expander;
 
-  for (auto &entry : grammar.rules) {
-    auto rule = expander.apply(entry.rule);
+  for (const Variable &variable : grammar.variables) {
+    auto rule = expander.apply(variable.rule);
     if (expander.error)
       return { result, expander.error };
-    result.rules.push_back({ entry.name, rule, entry.type });
+    result.variables.push_back(Variable(variable.name, variable.type, rule));
   }
 
   for (auto &sep : grammar.separators) {

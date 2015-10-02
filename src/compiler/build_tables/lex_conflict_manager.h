@@ -2,7 +2,7 @@
 #define COMPILER_BUILD_TABLES_LEX_CONFLICT_MANAGER_H_
 
 #include "tree_sitter/compiler.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/lexical_grammar.h"
 
 namespace tree_sitter {
 

@@ -35,7 +35,8 @@ class ParseAction {
   static ParseAction Shift(ParseStateId state_index,
                            std::set<int> precedence_values);
   static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count,
-                            int precedence, Associativity, int production_id);
+                            int precedence, Associativity,
+                            unsigned int production_id);
   static ParseAction ShiftExtra();
   static ParseAction ReduceExtra(rules::Symbol symbol);
   bool operator==(const ParseAction &) const;
@@ -87,7 +88,7 @@ class ParseTable {
 
   std::vector<ParseState> states;
   std::set<rules::Symbol> symbols;
-  std::set<int> fragile_production_ids;
+  std::set<std::pair<rules::Symbol, unsigned int>> fragile_production_ids;
 };
 
 }  // namespace tree_sitter

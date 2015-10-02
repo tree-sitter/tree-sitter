@@ -2,7 +2,6 @@
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/lex_conflict_manager.h"
-#include "compiler/prepared_grammar.h"
 
 using namespace rules;
 using namespace build_tables;
@@ -11,16 +10,8 @@ START_TEST
 
 describe("LexConflictManager", []() {
   LexicalGrammar lexical_grammar{{
-    {
-      "other_token",
-      pattern("[a-b]"),
-      RuleEntryTypeNamed
-    },
-    {
-      "lookahead_token",
-      pattern("[c-d]"),
-      RuleEntryTypeNamed
-    },
+    Variable("other_token", VariableTypeNamed, pattern("[a-b]")),
+    Variable("lookahead_token", VariableTypeNamed, pattern("[c-d]"))
   }, {}};
 
   LexConflictManager conflict_manager(lexical_grammar);

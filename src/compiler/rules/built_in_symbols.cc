@@ -15,5 +15,9 @@ Symbol START() {
   return Symbol(-3);
 }
 
+Symbol NONE() {
+  return Symbol(-4);
+}
+
 }  // namespace rules
 }  // namespace tree_sitter

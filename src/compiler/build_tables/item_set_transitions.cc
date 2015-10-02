@@ -4,7 +4,7 @@
 #include "compiler/build_tables/merge_transitions.h"
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/build_tables/rule_transitions.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/syntax_grammar.h"
 #include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
@@ -22,20 +22,23 @@ map<Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set,
   for (const auto &pair : item_set) {
     const ParseItem &item = pair.first;
     const set<Symbol> &lookahead_symbols = pair.second;
-    for (auto &transition : sym_transitions(item.rule)) {
-      vector<Symbol> consumed_symbols(item.consumed_symbols);
-      consumed_symbols.push_back(transition.first);
-      ParseItem new_item(item.lhs, transition.second, consumed_symbols);
-      merge_sym_transition<ParseItemSet>(
-        &result, { transition.first,
-                   item_set_closure(new_item, lookahead_symbols, grammar) },
-        [](ParseItemSet *left, const ParseItemSet *right) {
-          for (auto &pair : *right)
-            left->operator[](pair.first)
-              .insert(pair.second.begin(), pair.second.end());
-        });
-    }
+    const Production &production =
+      grammar.productions(item.lhs())[item.production_index];
+    if (item.step_index == production.size())
+      continue;
+
+    const Symbol &symbol = production[item.step_index].symbol;
+    unsigned int step = item.step_index + 1;
+    int rule_id = step < production.size() ? production[step].rule_id : 0;
+    ParseItem new_item(item.lhs(), item.production_index, step, rule_id);
+
+    result[symbol][new_item].insert(lookahead_symbols.begin(),
+                                    lookahead_symbols.end());
   }
+
+  for (auto &pair : result)
+    item_set_closure(&pair.second, grammar);
+
   return result;
 }
 

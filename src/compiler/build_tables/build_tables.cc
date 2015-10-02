@@ -2,7 +2,8 @@
 #include <tuple>
 #include "compiler/build_tables/build_lex_table.h"
 #include "compiler/build_tables/build_parse_table.h"
-#include "compiler/prepared_grammar.h"
+#include "compiler/syntax_grammar.h"
+#include "compiler/lexical_grammar.h"
 
 namespace tree_sitter {
 namespace build_tables {

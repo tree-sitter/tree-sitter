@@ -300,10 +300,7 @@ extern const Grammar javascript = Grammar({
     infix_op(">", "_expression", PREC_REL) }) },
 
   { "type_op", choice({
-    prec(PREC_REL, seq({
-      choice({ sym("_expression"), sym("identifier") }),
-      str("in"),
-      sym("_expression") })),
+    infix_op("in", "_expression", PREC_REL),
     infix_op("instanceof", "_expression", PREC_REL),
     prefix_op("typeof", "_expression", PREC_TYPE) }) },
 
