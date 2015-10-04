@@ -16,18 +16,17 @@ using std::vector;
 using std::pair;
 using rules::Symbol;
 
-void item_set_closure(ParseItemSet *item_set, const SyntaxGrammar &grammar) {
-  vector<pair<ParseItem, set<Symbol>>> items_to_process;
-  items_to_process.insert(items_to_process.end(), item_set->begin(),
-                          item_set->end());
-  item_set->clear();
+ParseItemSet item_set_closure(const ParseItemSet &input_item_set, const SyntaxGrammar &grammar) {
+  ParseItemSet result;
+  vector<pair<ParseItem, set<Symbol>>> items_to_process(input_item_set.begin(),
+                          input_item_set.end());
 
   while (!items_to_process.empty()) {
     ParseItem item = items_to_process.back().first;
     set<Symbol> new_lookahead_symbols = items_to_process.back().second;
     items_to_process.pop_back();
 
-    set<Symbol> &lookahead_symbols = item_set->operator[](item);
+    set<Symbol> &lookahead_symbols = result[item];
     size_t previous_size = lookahead_symbols.size();
     lookahead_symbols.insert(new_lookahead_symbols.begin(),
                              new_lookahead_symbols.end());
@@ -73,6 +72,8 @@ void item_set_closure(ParseItemSet *item_set, const SyntaxGrammar &grammar) {
       i++;
     }
   }
+
+  return result;
 }
 
 }  // namespace build_tables

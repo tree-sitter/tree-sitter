@@ -44,39 +44,65 @@ describe("char_transitions(LexItemSet)", []() {
 describe("sym_transitions(ParseItemSet, InitialSyntaxGrammar)", [&]() {
   it("computes the closure of the new item sets", [&]() {
     SyntaxGrammar grammar{{
-      SyntaxVariable("A", VariableTypeNamed, {
+      SyntaxVariable("rule_0", VariableTypeNamed, {
         Production({
           {Symbol(11, true), 0, AssociativityNone, 101},
           {Symbol(12, true), 0, AssociativityNone, 102},
-          {Symbol(13, true), 0, AssociativityNone, 103},
-          {Symbol(1), 0, AssociativityNone, 104},
-          {Symbol(14, true), 0, AssociativityNone, 105},
+          {Symbol(1), 0, AssociativityNone, 103},
+          {Symbol(13, true), 0, AssociativityNone, 104},
         })
       }),
-      SyntaxVariable("B", VariableTypeNamed, {
+      SyntaxVariable("rule_1", VariableTypeNamed, {
         Production({
-          {Symbol(15, true), 0, AssociativityNone, 106},
+          {Symbol(2), 0, AssociativityNone, 105},
+          {Symbol(14, true), 0, AssociativityNone, 106},
+        })
+      }),
+      SyntaxVariable("rule_2", VariableTypeNamed, {
+        Production({
+          {Symbol(15, true), 0, AssociativityNone, 105},
         })
       })
     }, {}, {}};
 
     ParseItemSet set1({
       {
+        // Step 2 of rule_0's production: right before the reference to rule_1.
         ParseItem(Symbol(0), 0, 2, 103),
         set<Symbol>({ Symbol(16, true) })
       }
     });
 
     AssertThat(sym_transitions(set1, grammar), Equals(map<Symbol, ParseItemSet>({
+
+      // Consume symbol 1 -> step 3 of rule_0's production
       {
-        Symbol(13, true),
+        Symbol(1),
         ParseItemSet({
           {
             ParseItem(Symbol(0), 0, 3, 104),
             set<Symbol>({ Symbol(16, true) })
-          },
+          }
+        })
+      },
+
+      // Consume symbol 2 -> step 1 of rule_1's production
+      {
+        Symbol(2),
+        ParseItemSet({
           {
-            ParseItem(Symbol(1), 0, 0, 106),
+            ParseItem(Symbol(1), 0, 1, 106),
+            set<Symbol>({ Symbol(13, true) })
+          },
+        })
+      },
+
+      // Consume token 15 -> step 1 of rule_2's production
+      {
+        Symbol(15, true),
+        ParseItemSet({
+          {
+            ParseItem(Symbol(2), 0, 1, 0),
             set<Symbol>({ Symbol(14, true) })
           },
         })

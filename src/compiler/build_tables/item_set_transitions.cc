@@ -16,8 +16,10 @@ using std::vector;
 using rules::CharacterSet;
 using rules::Symbol;
 
-map<Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set,
+map<Symbol, ParseItemSet> sym_transitions(const ParseItemSet &input_item_set,
                                           const SyntaxGrammar &grammar) {
+
+  ParseItemSet item_set(item_set_closure(input_item_set, grammar));
   map<Symbol, ParseItemSet> result;
   for (const auto &pair : item_set) {
     const ParseItem &item = pair.first;
@@ -35,9 +37,6 @@ map<Symbol, ParseItemSet> sym_transitions(const ParseItemSet &item_set,
     result[symbol][new_item].insert(lookahead_symbols.begin(),
                                     lookahead_symbols.end());
   }
-
-  for (auto &pair : result)
-    item_set_closure(&pair.second, grammar);
 
   return result;
 }

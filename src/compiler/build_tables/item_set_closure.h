@@ -10,7 +10,7 @@ struct SyntaxGrammar;
 
 namespace build_tables {
 
-void item_set_closure(ParseItemSet *, const SyntaxGrammar &);
+ParseItemSet item_set_closure(const ParseItemSet &, const SyntaxGrammar &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

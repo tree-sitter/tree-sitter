@@ -6,7 +6,6 @@
 #include <unordered_map>
 #include <utility>
 #include "compiler/parse_table.h"
-#include "compiler/build_tables/item_set_closure.h"
 #include "compiler/build_tables/item_set_transitions.h"
 #include "compiler/build_tables/parse_conflict_manager.h"
 #include "compiler/build_tables/parse_item.h"
@@ -49,9 +48,9 @@ class ParseTableBuilder {
 
   pair<ParseTable, const GrammarError *> build() {
     ParseItem start_item(rules::START(), 0, 0, -2);
-    ParseItemSet start_item_set({ { start_item, { rules::END_OF_INPUT() } } });
-    item_set_closure(&start_item_set, grammar);
-    add_parse_state(start_item_set);
+    add_parse_state(ParseItemSet({
+      { start_item, set<Symbol>({ rules::END_OF_INPUT() }) },
+    }));
 
     while (!item_sets_to_process.empty()) {
       auto pair = item_sets_to_process.back();
