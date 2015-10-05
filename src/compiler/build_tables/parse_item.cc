@@ -8,7 +8,6 @@ namespace build_tables {
 
 using std::string;
 using std::to_string;
-using std::ostream;
 using rules::Symbol;
 
 ParseItem::ParseItem(const Symbol &lhs, unsigned int production_index,

@@ -11,19 +11,16 @@ namespace tree_sitter {
 namespace build_tables {
 
 using std::map;
-using std::set;
-using std::vector;
 using rules::CharacterSet;
 using rules::Symbol;
 
 map<Symbol, ParseItemSet> sym_transitions(const ParseItemSet &input_item_set,
                                           const SyntaxGrammar &grammar) {
-
   ParseItemSet item_set(item_set_closure(input_item_set, grammar));
   map<Symbol, ParseItemSet> result;
   for (const auto &pair : item_set) {
     const ParseItem &item = pair.first;
-    const set<Symbol> &lookahead_symbols = pair.second;
+    const LookaheadSet &lookahead_symbols = pair.second;
     const Production &production =
       grammar.productions(item.lhs())[item.production_index];
     if (item.step_index == production.size())
@@ -34,8 +31,7 @@ map<Symbol, ParseItemSet> sym_transitions(const ParseItemSet &input_item_set,
     int rule_id = step < production.size() ? production[step].rule_id : 0;
     ParseItem new_item(item.lhs(), item.production_index, step, rule_id);
 
-    result[symbol][new_item].insert(lookahead_symbols.begin(),
-                                    lookahead_symbols.end());
+    result[symbol][new_item] = lookahead_symbols;
   }
 
   return result;

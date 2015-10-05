@@ -47,15 +47,17 @@ class ParseTableBuilder {
         conflict_manager(grammar) {}
 
   pair<ParseTable, const GrammarError *> build() {
-    ParseItem start_item(rules::START(), 0, 0, -2);
     add_parse_state(ParseItemSet({
-      { start_item, set<Symbol>({ rules::END_OF_INPUT() }) },
+      {
+        ParseItem(rules::START(), 0, 0, -2),
+        LookaheadSet({ rules::END_OF_INPUT() }),
+      },
     }));
 
     while (!item_sets_to_process.empty()) {
       auto pair = item_sets_to_process.back();
-      ParseItemSet &item_set = pair.first;
-      ParseStateId &state_id = pair.second;
+      ParseItemSet item_set = std::move(pair.first);
+      ParseStateId state_id = pair.second;
       item_sets_to_process.pop_back();
 
       add_reduce_actions(item_set, state_id);
@@ -127,7 +129,7 @@ class ParseTableBuilder {
   void add_reduce_actions(const ParseItemSet &item_set, ParseStateId state_id) {
     for (const auto &pair : item_set) {
       const ParseItem &item = pair.first;
-      const set<Symbol> &lookahead_symbols = pair.second;
+      const auto &lookahead_symbols = pair.second;
 
       CompletionStatus completion_status = get_completion_status(item);
       if (completion_status.is_done) {
@@ -139,7 +141,7 @@ class ParseTableBuilder {
                                   completion_status.associativity,
                                   item.production_index);
 
-        for (const auto &lookahead_sym : lookahead_symbols)
+        for (const auto &lookahead_sym : *lookahead_symbols.entries)
           add_action(state_id, lookahead_sym, action, item_set);
       }
     }

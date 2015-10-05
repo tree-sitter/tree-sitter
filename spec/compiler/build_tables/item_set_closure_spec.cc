@@ -1,7 +1,7 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/build_tables/item_set_closure.h"
-#include "compiler/build_tables/item_set_transitions.h"
+#include "compiler/build_tables/lookahead_set.h"
 #include "compiler/rules/built_in_symbols.h"
 
 using namespace build_tables;
@@ -45,19 +45,19 @@ describe("item_set_closure", []() {
     AssertThat(item_set, Equals(ParseItemSet({
       {
         ParseItem(Symbol(0), 0, 0, 100),
-        set<Symbol>({ Symbol(10, true) })
+        LookaheadSet({ Symbol(10, true) })
       },
       {
         ParseItem(Symbol(1), 0, 0, 102),
-        set<Symbol>({ Symbol(11, true) })
+        LookaheadSet({ Symbol(11, true) })
       },
       {
         ParseItem(Symbol(1), 1, 0, 104),
-        set<Symbol>({ Symbol(11, true) })
+        LookaheadSet({ Symbol(11, true) })
       },
       {
         ParseItem(Symbol(2), 0, 0, 105),
-        set<Symbol>({ Symbol(11, true) })
+        LookaheadSet({ Symbol(11, true) })
       },
     })));
   });

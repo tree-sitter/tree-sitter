@@ -20,6 +20,7 @@
         'src/compiler/build_tables/item_set_transitions.cc',
         'src/compiler/build_tables/lex_item.cc',
         'src/compiler/build_tables/lex_conflict_manager.cc',
+        'src/compiler/build_tables/lookahead_set.cc',
         'src/compiler/build_tables/parse_item.cc',
         'src/compiler/build_tables/parse_conflict_manager.cc',
         'src/compiler/build_tables/rule_can_be_blank.cc',

@@ -129,6 +129,10 @@ std::ostream &operator<<(std::ostream &stream, const MetadataRange &range) {
                 << to_string(range.max) << string("}");
 }
 
+std::ostream &operator<<(std::ostream &stream, const LookaheadSet &set) {
+  return stream << *set.entries;
+}
+
 }  // namespace build_tables
 
 } // namespace tree_sitter

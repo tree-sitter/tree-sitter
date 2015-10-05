@@ -1,10 +1,9 @@
 #ifndef COMPILER_BUILD_TABLES_PARSE_ITEM_H_
 #define COMPILER_BUILD_TABLES_PARSE_ITEM_H_
 
-#include <set>
 #include <map>
-#include <vector>
 #include "compiler/build_tables/item.h"
+#include "compiler/build_tables/lookahead_set.h"
 #include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
@@ -13,6 +12,7 @@ namespace build_tables {
 class ParseItem {
  public:
   ParseItem(const rules::Symbol &, unsigned int, unsigned int, int);
+
   bool operator==(const ParseItem &other) const;
   bool operator<(const ParseItem &other) const;
   rules::Symbol lhs() const;
@@ -23,7 +23,7 @@ class ParseItem {
   int rule_id;
 };
 
-typedef std::map<ParseItem, std::set<rules::Symbol>> ParseItemSet;
+typedef std::map<ParseItem, LookaheadSet> ParseItemSet;
 
 }  // namespace build_tables
 }  // namespace tree_sitter
@@ -44,8 +44,8 @@ struct hash<const tree_sitter::build_tables::ParseItemSet> {
     size_t result = hash<size_t>()(set.size());
     for (auto &pair : set) {
       result ^= hash<tree_sitter::build_tables::ParseItem>()(pair.first);
-      result ^= hash<size_t>()(pair.second.size());
-      for (auto &symbol : pair.second)
+      result ^= hash<size_t>()(pair.second.entries->size());
+      for (auto &symbol : *pair.second.entries)
         result ^= hash<tree_sitter::rules::Symbol>()(symbol);
     }
     return result;

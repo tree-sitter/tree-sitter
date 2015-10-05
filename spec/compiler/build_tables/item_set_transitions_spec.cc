@@ -1,5 +1,6 @@
 #include "compiler/compiler_spec_helper.h"
 #include "compiler/build_tables/item_set_transitions.h"
+#include "compiler/build_tables/lookahead_set.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/helpers/rule_helpers.h"
 
@@ -69,7 +70,7 @@ describe("sym_transitions(ParseItemSet, InitialSyntaxGrammar)", [&]() {
       {
         // Step 2 of rule_0's production: right before the reference to rule_1.
         ParseItem(Symbol(0), 0, 2, 103),
-        set<Symbol>({ Symbol(16, true) })
+        LookaheadSet({ Symbol(16, true) })
       }
     });
 
@@ -81,7 +82,7 @@ describe("sym_transitions(ParseItemSet, InitialSyntaxGrammar)", [&]() {
         ParseItemSet({
           {
             ParseItem(Symbol(0), 0, 3, 104),
-            set<Symbol>({ Symbol(16, true) })
+            LookaheadSet({ Symbol(16, true) })
           }
         })
       },
@@ -92,7 +93,7 @@ describe("sym_transitions(ParseItemSet, InitialSyntaxGrammar)", [&]() {
         ParseItemSet({
           {
             ParseItem(Symbol(1), 0, 1, 106),
-            set<Symbol>({ Symbol(13, true) })
+            LookaheadSet({ Symbol(13, true) })
           },
         })
       },
@@ -103,7 +104,7 @@ describe("sym_transitions(ParseItemSet, InitialSyntaxGrammar)", [&]() {
         ParseItemSet({
           {
             ParseItem(Symbol(2), 0, 1, 0),
-            set<Symbol>({ Symbol(14, true) })
+            LookaheadSet({ Symbol(14, true) })
           },
         })
       },
