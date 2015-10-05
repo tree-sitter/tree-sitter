@@ -8,9 +8,7 @@
 namespace tree_sitter {
 namespace build_tables {
 
-std::map<rules::CharacterSet, rule_ptr> char_transitions(const rule_ptr &rule);
-
-std::map<rules::Symbol, rule_ptr> sym_transitions(const rule_ptr &rule);
+std::map<rules::CharacterSet, rule_ptr> rule_transitions(const rule_ptr &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

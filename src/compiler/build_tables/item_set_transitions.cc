@@ -40,9 +40,9 @@ map<Symbol, ParseItemSet> sym_transitions(const ParseItemSet &input_item_set,
 map<CharacterSet, LexItemSet> char_transitions(const LexItemSet &item_set) {
   map<CharacterSet, LexItemSet> result;
   for (const LexItem &item : item_set) {
-    for (auto &transition : char_transitions(item.rule)) {
+    for (auto &transition : rule_transitions(item.rule)) {
       LexItem next_item(item.lhs, transition.second);
-      merge_char_transition<LexItemSet>(
+      merge_transition<LexItemSet>(
         &result, { transition.first, LexItemSet({ next_item }) },
         [](LexItemSet *left, const LexItemSet *right) {
           left->insert(right->begin(), right->end());
