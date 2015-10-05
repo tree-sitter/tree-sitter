@@ -34,7 +34,7 @@ class ParseTableBuilder {
   const SyntaxGrammar grammar;
   const LexicalGrammar lexical_grammar;
   ParseConflictManager conflict_manager;
-  unordered_map<const ParseItemSet, ParseStateId, ParseItemSet::Hash> parse_state_ids;
+  unordered_map<ParseItemSet, ParseStateId, ParseItemSet::Hash> parse_state_ids;
   vector<pair<ParseItemSet, ParseStateId>> item_sets_to_process;
   ParseTable parse_table;
   std::set<string> conflicts;
@@ -112,18 +112,13 @@ class ParseTableBuilder {
   };
 
   CompletionStatus get_completion_status(const ParseItem &item) {
-    CompletionStatus result{ false, 0, AssociativityNone };
     const Production &production =
       grammar.productions(item.lhs())[item.production_index];
     if (item.step_index == production.size()) {
-      result.is_done = true;
-      if (item.step_index > 0) {
-        const ProductionStep &step = production[item.step_index - 1];
-        result.precedence = step.precedence;
-        result.associativity = step.associativity;
-      }
+      const ProductionStep &last_step = production[item.step_index - 1];
+      return { true, last_step.precedence, last_step.associativity };
     }
-    return result;
+    return { false, 0, AssociativityNone };
   }
 
   void add_reduce_actions(const ParseItemSet &item_set, ParseStateId state_id) {
@@ -239,12 +234,8 @@ class ParseTableBuilder {
       const ParseItem &item = pair.first;
       const Production &production =
         grammar.productions(item.lhs())[item.production_index];
-      if (item.step_index > 0) {
-        if (item.step_index < production.size())
-          result.add(production[item.step_index].precedence);
-        else
-          result.add(production[item.step_index - 1].precedence);
-      }
+      if (item.step_index > 0)
+        result.add(production[item.step_index - 1].precedence);
     }
     return result;
   }

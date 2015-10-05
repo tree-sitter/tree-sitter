@@ -17,56 +17,36 @@ using std::string;
 using std::vector;
 
 class FlattenRule : public rules::RuleFn<void> {
- public:
-  bool has_pending_precedence;
-  int pending_precedence;
+ private:
   vector<int> precedence_stack;
-  bool has_pending_associativity;
-  Associativity pending_associativity;
   vector<Associativity> associativity_stack;
   Production production;
 
-  FlattenRule()
-      : has_pending_precedence(false),
-        pending_precedence(0),
-        has_pending_associativity(false),
-        pending_associativity(AssociativityNone) {}
-
   void apply_to(const rules::Symbol *sym) {
-    production.push_back(
-      ProductionStep(*sym, current_precedence(), current_associativity()));
-
-    if (has_pending_precedence) {
-      precedence_stack.push_back(pending_precedence);
-      has_pending_precedence = false;
-    }
-    if (has_pending_associativity) {
-      associativity_stack.push_back(pending_associativity);
-      has_pending_associativity = false;
-    }
+    production.push_back(ProductionStep(*sym, precedence_stack.back(),
+                                        associativity_stack.back()));
   }
 
   void apply_to(const rules::Metadata *metadata) {
     int precedence = metadata->value_for(rules::PRECEDENCE);
     int associativity = metadata->value_for(rules::ASSOCIATIVITY);
 
-    if (precedence != 0) {
-      pending_precedence = precedence;
-      has_pending_precedence = true;
-    }
-
-    if (associativity != 0) {
-      pending_associativity = static_cast<Associativity>(associativity);
-      has_pending_associativity = true;
-    }
+    if (precedence != 0)
+      precedence_stack.push_back(precedence);
+    if (associativity != 0)
+      associativity_stack.push_back(static_cast<Associativity>(associativity));
 
     apply(metadata->rule);
 
-    if (precedence != 0)
+    if (precedence != 0) {
       precedence_stack.pop_back();
+      production.back().precedence = precedence_stack.back();
+    }
 
-    if (associativity != 0)
+    if (associativity != 0) {
       associativity_stack.pop_back();
+      production.back().associativity = associativity_stack.back();
+    }
   }
 
   void apply_to(const rules::Seq *seq) {
@@ -74,27 +54,20 @@ class FlattenRule : public rules::RuleFn<void> {
     apply(seq->right);
   }
 
- private:
-  int current_precedence() {
-    if (precedence_stack.empty())
-      return 0;
-    else
-      return precedence_stack.back();
-  }
+ public:
+  FlattenRule()
+      : precedence_stack({ 0 }), associativity_stack({ AssociativityNone }) {}
 
-  Associativity current_associativity() {
-    if (associativity_stack.empty())
-      return AssociativityNone;
-    else
-      return associativity_stack.back();
+  Production flatten(const rule_ptr &rule) {
+    apply(rule);
+    size_t size = production.size();
+    if (size > 1) {
+      production[size - 1].precedence = production[size - 2].precedence;
+      production[size - 1].associativity = production[size - 2].associativity;
+    }
+    return production;
   }
 };
-
-Production flatten_rule(const rule_ptr &rule) {
-  FlattenRule flattener;
-  flattener.apply(rule);
-  return flattener.production;
-}
 
 struct ProductionSlice {
   vector<ProductionStep>::const_iterator start;
@@ -137,7 +110,7 @@ SyntaxGrammar flatten_grammar(const InitialSyntaxGrammar &grammar) {
   for (const Variable &variable : grammar.variables) {
     vector<Production> productions;
     for (const rule_ptr &rule_component : extract_choices(variable.rule))
-      productions.push_back(flatten_rule(rule_component));
+      productions.push_back(FlattenRule().flatten(rule_component));
     result.variables.push_back(
       SyntaxVariable(variable.name, variable.type, productions));
   }

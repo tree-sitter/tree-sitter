@@ -156,7 +156,7 @@ describe("ParseConflictManager", []() {
     describe("reduce/reduce conflicts", [&]() {
       describe("when one action has higher precedence", [&]() {
         ParseAction left = ParseAction::Reduce(sym2, 1, 0, AssociativityLeft, 0);
-        ParseAction right = ParseAction::Reduce(sym2, 1, 3, AssociativityLeft, 0);
+        ParseAction right = ParseAction::Reduce(sym2, 1, 2, AssociativityLeft, 0);
 
         it("favors that action", [&]() {
           result = conflict_manager->resolve(left, right, sym1);

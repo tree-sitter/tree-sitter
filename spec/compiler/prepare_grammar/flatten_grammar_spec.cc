@@ -138,14 +138,14 @@ describe("flatten_grammar", []() {
     AssertThat(
       get_precedence_sequences(grammar.variables[1].productions),
       Equals(vector<vector<int>>({
-        { 0, 0, 101, 102, 101, 0 },
-        { 0, 0, 101, 101, 0 }
+        { 0, 101, 102, 101, 0, 0 },
+        { 0, 101, 101, 0, 0 }
       })));
 
     AssertThat(
       get_precedence_sequences(grammar.variables[2].productions),
       Equals(vector<vector<int>>({
-        { 0, 102, 0, 103 },
+        { 102, 0, 103, 103 },
       })));
   });
 
@@ -155,8 +155,8 @@ describe("flatten_grammar", []() {
     AssertThat(
       get_associativity_sequences(grammar.variables[1].productions),
       Equals(vector<vector<Associativity>>({
-        { none, none, AssociativityLeft, AssociativityRight, AssociativityLeft, none },
-        { none, none, AssociativityLeft, AssociativityLeft, none }
+        { none, AssociativityLeft, AssociativityRight, AssociativityLeft, none, none },
+        { none, AssociativityLeft, AssociativityLeft, none, none }
       })));
   });
 

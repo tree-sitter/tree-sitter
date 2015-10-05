@@ -20,7 +20,6 @@
 namespace tree_sitter {
 namespace build_tables {
 
-using std::dynamic_pointer_cast;
 using std::make_shared;
 using std::map;
 using std::set;
