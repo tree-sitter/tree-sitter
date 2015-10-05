@@ -23,14 +23,20 @@ class ParseItem {
   int rule_id;
 };
 
-typedef std::map<ParseItem, LookaheadSet> ParseItemSet;
+class ParseItemSet {
+ public:
+  ParseItemSet();
+  ParseItemSet(const std::map<ParseItem, LookaheadSet> &);
 
-struct ParseItemSetHash {
-  size_t operator()(const ParseItemSet &) const;
+  std::map<rules::Symbol, ParseItemSet> transitions(const SyntaxGrammar &) const;
+  bool operator==(const ParseItemSet &) const;
+
+  std::map<ParseItem, LookaheadSet> entries;
+
+  struct Hash {
+    size_t operator()(const ParseItemSet &) const;
+  };
 };
-
-std::map<rules::Symbol, ParseItemSet> parse_item_set_transitions(
-  const ParseItemSet &, const SyntaxGrammar &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

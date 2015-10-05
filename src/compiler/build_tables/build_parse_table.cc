@@ -34,7 +34,7 @@ class ParseTableBuilder {
   const SyntaxGrammar grammar;
   const LexicalGrammar lexical_grammar;
   ParseConflictManager conflict_manager;
-  unordered_map<const ParseItemSet, ParseStateId, ParseItemSetHash> parse_state_ids;
+  unordered_map<const ParseItemSet, ParseStateId, ParseItemSet::Hash> parse_state_ids;
   vector<pair<ParseItemSet, ParseStateId>> item_sets_to_process;
   ParseTable parse_table;
   std::set<string> conflicts;
@@ -92,7 +92,7 @@ class ParseTableBuilder {
   }
 
   void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
-    for (const auto &transition : parse_item_set_transitions(item_set, grammar)) {
+    for (const auto &transition : item_set.transitions(grammar)) {
       const Symbol &symbol = transition.first;
       const ParseItemSet &next_item_set = transition.second;
 
@@ -127,7 +127,7 @@ class ParseTableBuilder {
   }
 
   void add_reduce_actions(const ParseItemSet &item_set, ParseStateId state_id) {
-    for (const auto &pair : item_set) {
+    for (const auto &pair : item_set.entries) {
       const ParseItem &item = pair.first;
       const auto &lookahead_symbols = pair.second;
 
@@ -235,7 +235,7 @@ class ParseTableBuilder {
 
   set<int> precedence_values_for_item_set(const ParseItemSet &item_set) {
     set<int> result;
-    for (const auto &pair : item_set) {
+    for (const auto &pair : item_set.entries) {
       const ParseItem &item = pair.first;
       const Production &production =
         grammar.productions(item.lhs())[item.production_index];
@@ -255,7 +255,7 @@ class ParseTableBuilder {
     set<Symbol> result;
     switch (action.type) {
       case ParseActionTypeShift: {
-        for (const auto &pair : item_set) {
+        for (const auto &pair : item_set.entries) {
           const ParseItem &item = pair.first;
           const Production &production =
             grammar.productions(item.lhs())[item.production_index];

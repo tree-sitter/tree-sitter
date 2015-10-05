@@ -24,14 +24,20 @@ class LexItem {
   };
 };
 
-typedef std::unordered_set<LexItem, LexItem::Hash> LexItemSet;
+class LexItemSet {
+ public:
+  LexItemSet();
+  LexItemSet(const std::unordered_set<LexItem, LexItem::Hash> &);
 
-struct LexItemSetHash {
-  size_t operator()(const LexItemSet &) const;
+  bool operator==(const LexItemSet &) const;
+  std::map<rules::CharacterSet, LexItemSet> transitions() const;
+
+  std::unordered_set<LexItem, LexItem::Hash> entries;
+
+  struct Hash {
+    size_t operator()(const LexItemSet &) const;
+  };
 };
-
-std::map<rules::CharacterSet, LexItemSet> lex_item_set_transitions(
-  const LexItemSet &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

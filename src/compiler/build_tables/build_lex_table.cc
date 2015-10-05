@@ -34,7 +34,7 @@ class LexTableBuilder {
   const LexicalGrammar lex_grammar;
   const LexConflictManager conflict_manager;
   ParseTable *parse_table;
-  unordered_map<const LexItemSet, LexStateId, LexItemSetHash> lex_state_ids;
+  unordered_map<const LexItemSet, LexStateId, LexItemSet::Hash> lex_state_ids;
   LexTable lex_table;
 
  public:
@@ -60,11 +60,11 @@ class LexTableBuilder {
         continue;
 
       if (symbol == rules::END_OF_INPUT())
-        result.insert(
+        result.entries.insert(
           LexItem(symbol, after_separators(CharacterSet().include(0).copy())));
 
       else if (symbol.is_token)
-        result.insert(LexItem(
+        result.entries.insert(LexItem(
           symbol, after_separators(lex_grammar.variables[symbol.index].rule)));
     }
     return result;
@@ -94,8 +94,7 @@ class LexTableBuilder {
   }
 
   void add_advance_actions(const LexItemSet &item_set, LexStateId state_id) {
-    auto transitions = lex_item_set_transitions(item_set);
-    for (const auto &transition : transitions) {
+    for (const auto &transition : item_set.transitions()) {
       CharacterSet rule = transition.first;
       LexItemSet new_item_set = transition.second;
       LexStateId new_state_id = add_lex_state(new_item_set);
@@ -108,7 +107,7 @@ class LexTableBuilder {
   }
 
   void add_accept_token_actions(const LexItemSet &item_set, LexStateId state_id) {
-    for (const LexItem &item : item_set) {
+    for (const LexItem &item : item_set.entries) {
       CompletionStatus completion_status = get_completion_status(item.rule);
       if (completion_status.is_done) {
         auto current_action = lex_table.state(state_id).default_action;
@@ -121,7 +120,7 @@ class LexTableBuilder {
   }
 
   void add_token_start(const LexItemSet &item_set, LexStateId state_id) {
-    for (const auto &item : item_set)
+    for (const auto &item : item_set.entries)
       if (item.is_token_start())
         lex_table.state(state_id).is_token_start = true;
   }
@@ -145,7 +144,7 @@ class LexTableBuilder {
 
   set<int> precedence_values_for_item_set(const LexItemSet &item_set) const {
     set<int> result;
-    for (const auto &item : item_set) {
+    for (const auto &item : item_set.entries) {
       auto precedence_range = get_metadata(item.rule, rules::PRECEDENCE);
       result.insert(precedence_range.min);
       result.insert(precedence_range.max);

@@ -22,8 +22,9 @@ ParseItemSet item_set_closure(const ParseItemSet &input_item_set,
 
   // An item set's closure is defined recursively. Use an explicit stack to
   // store the recursively-added items.
-  vector<pair<ParseItem, LookaheadSet>> items_to_process(input_item_set.begin(),
-                                                         input_item_set.end());
+  vector<pair<ParseItem, LookaheadSet>> items_to_process(
+    input_item_set.entries.begin(), input_item_set.entries.end());
+
   while (!items_to_process.empty()) {
     ParseItem item = items_to_process.back().first;
     LookaheadSet lookahead_symbols = items_to_process.back().second;
@@ -31,7 +32,7 @@ ParseItemSet item_set_closure(const ParseItemSet &input_item_set,
 
     // Add the parse-item and lookahead symbols to the item set.
     // If they were already present, skip to the next item.
-    if (!result[item].insert_all(lookahead_symbols))
+    if (!result.entries[item].insert_all(lookahead_symbols))
       continue;
 
     // If the item is at the end of its production, skip to the next item.

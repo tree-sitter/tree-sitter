@@ -111,9 +111,13 @@ ostream &operator<<(ostream &stream, const ProductionStep &step) {
 
 namespace build_tables {
 
-ostream &operator<<(ostream &stream, const build_tables::LexItem &item) {
+ostream &operator<<(ostream &stream, const LexItem &item) {
   return stream << string("(item ") << item.lhs << string(" ") << *item.rule
                 << string(")");
+}
+
+ostream &operator<<(ostream &stream, const LexItemSet &item_set) {
+  return stream << item_set.entries;
 }
 
 ostream &operator<<(ostream &stream, const ParseItem &item) {
@@ -122,6 +126,10 @@ ostream &operator<<(ostream &stream, const ParseItem &item) {
                 << string(" step:") << to_string(item.step_index)
                 << string(" remaining_rule:") << to_string(item.rule_id)
                 << string(")");
+}
+
+std::ostream &operator<<(std::ostream &stream, const ParseItemSet &item_set) {
+  return stream << item_set.entries;
 }
 
 std::ostream &operator<<(std::ostream &stream, const MetadataRange &range) {

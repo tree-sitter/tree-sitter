@@ -40,9 +40,18 @@ Symbol ParseItem::lhs() const {
   return Symbol(variable_index);
 }
 
-size_t ParseItemSetHash::operator()(const ParseItemSet &item_set) const {
-  size_t result = hash<size_t>()(item_set.size());
-  for (auto &pair : item_set) {
+ParseItemSet::ParseItemSet() {}
+
+ParseItemSet::ParseItemSet(const map<ParseItem, LookaheadSet> &entries)
+    : entries(entries) {}
+
+bool ParseItemSet::operator==(const ParseItemSet &other) const {
+  return entries == other.entries;
+}
+
+size_t ParseItemSet::Hash::operator()(const ParseItemSet &item_set) const {
+  size_t result = hash<size_t>()(item_set.entries.size());
+  for (auto &pair : item_set.entries) {
     const ParseItem &item = pair.first;
     result ^= hash<unsigned int>()(item.variable_index) ^
               hash<int>()(item.rule_id) ^ hash<unsigned int>()(item.step_index);
@@ -56,10 +65,10 @@ size_t ParseItemSetHash::operator()(const ParseItemSet &item_set) const {
   return result;
 }
 
-map<Symbol, ParseItemSet> parse_item_set_transitions(
-  const ParseItemSet &item_set, const SyntaxGrammar &grammar) {
+map<Symbol, ParseItemSet> ParseItemSet::transitions(
+  const SyntaxGrammar &grammar) const {
   map<Symbol, ParseItemSet> result;
-  for (const auto &pair : item_set) {
+  for (const auto &pair : entries) {
     const ParseItem &item = pair.first;
     const LookaheadSet &lookahead_symbols = pair.second;
     const Production &production =
@@ -72,7 +81,7 @@ map<Symbol, ParseItemSet> parse_item_set_transitions(
     int rule_id = step < production.size() ? production[step].rule_id : 0;
     ParseItem new_item(item.lhs(), item.production_index, step, rule_id);
 
-    result[symbol][new_item] = lookahead_symbols;
+    result[symbol].entries[new_item] = lookahead_symbols;
   }
 
   return result;

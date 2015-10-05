@@ -48,7 +48,7 @@ describe("lex_item_set_transitions", [&]() {
         LexItem(Symbol(2), CharacterSet().include('e', 'x').copy())
       });
 
-      AssertThat(lex_item_set_transitions(set1), Equals(map<CharacterSet, LexItemSet>({
+      AssertThat(set1.transitions(), Equals(map<CharacterSet, LexItemSet>({
         {
           CharacterSet().include('a', 'd'),
           LexItemSet({

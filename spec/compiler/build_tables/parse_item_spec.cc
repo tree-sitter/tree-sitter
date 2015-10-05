@@ -47,7 +47,7 @@ describe("parse_item_set_transitions(ParseItemSet, SyntaxGrammar)", [&]() {
       }
     });
 
-    AssertThat(parse_item_set_transitions(set1, grammar), Equals(map<Symbol, ParseItemSet>({
+    AssertThat(set1.transitions(grammar), Equals(map<Symbol, ParseItemSet>({
       {
         Symbol(1),
         ParseItemSet({
