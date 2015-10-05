@@ -8,6 +8,7 @@
 #include "compiler/lex_table.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/metadata.h"
+#include "compiler/precedence_range.h"
 
 namespace tree_sitter {
 
@@ -26,14 +27,13 @@ typedef enum {
 class ParseAction {
   ParseAction(ParseActionType type, ParseStateId state_index,
               rules::Symbol symbol, size_t consumed_symbol_count,
-              std::set<int> precedence_values, Associativity, int production_id);
+              PrecedenceRange range, Associativity, int production_id);
 
  public:
   ParseAction();
   static ParseAction Accept();
   static ParseAction Error();
-  static ParseAction Shift(ParseStateId state_index,
-                           std::set<int> precedence_values);
+  static ParseAction Shift(ParseStateId state_index, PrecedenceRange precedence);
   static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count,
                             int precedence, Associativity,
                             unsigned int production_id);
@@ -46,7 +46,7 @@ class ParseAction {
   rules::Symbol symbol;
   ParseStateId state_index;
   size_t consumed_symbol_count;
-  std::set<int> precedence_values;
+  PrecedenceRange precedence_range;
   Associativity associativity;
   int production_id;
 };
@@ -62,6 +62,9 @@ struct hash<tree_sitter::ParseAction> {
             hash<tree_sitter::rules::Symbol>()(action.symbol) ^
             hash<size_t>()(action.state_index) ^
             hash<size_t>()(action.consumed_symbol_count) ^
+            hash<int>()(action.associativity) ^
+            hash<int>()(action.precedence_range.min) ^
+            hash<int>()(action.precedence_range.max) ^
             hash<size_t>()(action.production_id));
   }
 };

@@ -28,6 +28,7 @@
         'src/compiler/grammar.cc',
         'src/compiler/lex_table.cc',
         'src/compiler/parse_table.cc',
+        'src/compiler/precedence_range.cc',
         'src/compiler/prepare_grammar/expand_repeats.cc',
         'src/compiler/prepare_grammar/expand_tokens.cc',
         'src/compiler/prepare_grammar/extract_choices.cc',

@@ -233,17 +233,17 @@ class ParseTableBuilder {
     return false;
   }
 
-  set<int> precedence_values_for_item_set(const ParseItemSet &item_set) {
-    set<int> result;
+  PrecedenceRange precedence_values_for_item_set(const ParseItemSet &item_set) {
+    PrecedenceRange result;
     for (const auto &pair : item_set.entries) {
       const ParseItem &item = pair.first;
       const Production &production =
         grammar.productions(item.lhs())[item.production_index];
       if (item.step_index > 0) {
         if (item.step_index < production.size())
-          result.insert(production[item.step_index].precedence);
+          result.add(production[item.step_index].precedence);
         else
-          result.insert(production[item.step_index - 1].precedence);
+          result.add(production[item.step_index - 1].precedence);
       }
     }
     return result;
@@ -305,20 +305,10 @@ class ParseTableBuilder {
 
   string action_description(const ParseAction &action,
                             const set<Symbol> &goal_symbols) const {
-    string symbols_string;
-    bool started = false;
-    for (const auto &symbol : goal_symbols) {
-      if (started)
-        symbols_string += ", ";
-      symbols_string += symbol_name(symbol);
-      started = true;
-    }
-
     string result;
-
     switch (action.type) {
       case ParseActionTypeReduce: {
-        result = "Reduce";
+        result += "Reduce";
         for (const ProductionStep &step :
              grammar.productions(action.symbol)[action.production_id])
           result += " " + symbol_name(step.symbol);
@@ -327,21 +317,25 @@ class ParseTableBuilder {
       }
 
       case ParseActionTypeShift: {
-        result = "Shift";
+        result += "Shift ";
+        bool started = false;
+        for (const auto &symbol : goal_symbols) {
+          if (started)
+            result += ", ";
+          started = true;
+          result += symbol_name(symbol);
+        }
         break;
       }
 
       default:
-        return "";
+        break;
     }
 
-    if (action.precedence_values.size() > 1) {
-      result += " (Precedences " + to_string(*action.precedence_values.begin()) +
-                ", " + to_string(*action.precedence_values.rbegin()) + ")";
-    } else {
-      result +=
-        " (Precedence " + to_string(*action.precedence_values.begin()) + ")";
-    }
+    result += (action.precedence_range.min == action.precedence_range.max)
+                ? " (Precedence " + to_string(action.precedence_range.min) + ")"
+                : " (Precedences " + to_string(action.precedence_range.min) +
+                    ", " + to_string(action.precedence_range.max) + ")";
 
     return result;
   }
