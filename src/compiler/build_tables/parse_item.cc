@@ -6,8 +6,10 @@
 namespace tree_sitter {
 namespace build_tables {
 
+using std::map;
 using std::string;
 using std::to_string;
+using std::hash;
 using rules::Symbol;
 
 ParseItem::ParseItem(const Symbol &lhs, unsigned int production_index,
@@ -36,6 +38,44 @@ bool ParseItem::operator<(const ParseItem &other) const {
 
 Symbol ParseItem::lhs() const {
   return Symbol(variable_index);
+}
+
+size_t ParseItemSetHash::operator()(const ParseItemSet &item_set) const {
+  size_t result = hash<size_t>()(item_set.size());
+  for (auto &pair : item_set) {
+    const ParseItem &item = pair.first;
+    result ^= hash<unsigned int>()(item.variable_index) ^
+              hash<int>()(item.rule_id) ^ hash<unsigned int>()(item.step_index);
+
+    const LookaheadSet &lookahead_set = pair.second;
+    result ^= hash<size_t>()(lookahead_set.entries->size());
+    for (auto &symbol : *pair.second.entries) {
+      result ^= hash<tree_sitter::rules::Symbol>()(symbol);
+    }
+  }
+  return result;
+}
+
+map<Symbol, ParseItemSet> parse_item_set_transitions(
+  const ParseItemSet &item_set, const SyntaxGrammar &grammar) {
+  map<Symbol, ParseItemSet> result;
+  for (const auto &pair : item_set) {
+    const ParseItem &item = pair.first;
+    const LookaheadSet &lookahead_symbols = pair.second;
+    const Production &production =
+      grammar.productions(item.lhs())[item.production_index];
+    if (item.step_index == production.size())
+      continue;
+
+    size_t step = item.step_index + 1;
+    Symbol symbol = production[item.step_index].symbol;
+    int rule_id = step < production.size() ? production[step].rule_id : 0;
+    ParseItem new_item(item.lhs(), item.production_index, step, rule_id);
+
+    result[symbol][new_item] = lookahead_symbols;
+  }
+
+  return result;
 }
 
 }  // namespace build_tables

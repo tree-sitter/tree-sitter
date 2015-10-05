@@ -6,7 +6,6 @@
 #include <utility>
 #include <vector>
 #include "compiler/build_tables/lex_conflict_manager.h"
-#include "compiler/build_tables/item_set_transitions.h"
 #include "compiler/build_tables/get_completion_status.h"
 #include "compiler/build_tables/get_metadata.h"
 #include "compiler/build_tables/lex_item.h"
@@ -35,7 +34,7 @@ class LexTableBuilder {
   const LexicalGrammar lex_grammar;
   const LexConflictManager conflict_manager;
   ParseTable *parse_table;
-  unordered_map<const LexItemSet, LexStateId> lex_state_ids;
+  unordered_map<const LexItemSet, LexStateId, LexItemSetHash> lex_state_ids;
   LexTable lex_table;
 
  public:
@@ -95,7 +94,7 @@ class LexTableBuilder {
   }
 
   void add_advance_actions(const LexItemSet &item_set, LexStateId state_id) {
-    auto transitions = char_transitions(item_set);
+    auto transitions = lex_item_set_transitions(item_set);
     for (const auto &transition : transitions) {
       CharacterSet rule = transition.first;
       LexItemSet new_item_set = transition.second;

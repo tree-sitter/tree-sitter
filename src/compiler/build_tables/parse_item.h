@@ -2,9 +2,9 @@
 #define COMPILER_BUILD_TABLES_PARSE_ITEM_H_
 
 #include <map>
-#include "compiler/build_tables/item.h"
 #include "compiler/build_tables/lookahead_set.h"
 #include "compiler/rules/symbol.h"
+#include "compiler/syntax_grammar.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -25,33 +25,14 @@ class ParseItem {
 
 typedef std::map<ParseItem, LookaheadSet> ParseItemSet;
 
+struct ParseItemSetHash {
+  size_t operator()(const ParseItemSet &) const;
+};
+
+std::map<rules::Symbol, ParseItemSet> parse_item_set_transitions(
+  const ParseItemSet &, const SyntaxGrammar &);
+
 }  // namespace build_tables
 }  // namespace tree_sitter
-
-namespace std {
-
-template <>
-struct hash<tree_sitter::build_tables::ParseItem> {
-  size_t operator()(const tree_sitter::build_tables::ParseItem &item) const {
-    return hash<unsigned int>()(item.variable_index) ^
-           hash<int>()(item.rule_id) ^ hash<unsigned int>()(item.step_index);
-  }
-};
-
-template <>
-struct hash<const tree_sitter::build_tables::ParseItemSet> {
-  size_t operator()(const tree_sitter::build_tables::ParseItemSet &set) const {
-    size_t result = hash<size_t>()(set.size());
-    for (auto &pair : set) {
-      result ^= hash<tree_sitter::build_tables::ParseItem>()(pair.first);
-      result ^= hash<size_t>()(pair.second.entries->size());
-      for (auto &symbol : *pair.second.entries)
-        result ^= hash<tree_sitter::rules::Symbol>()(symbol);
-    }
-    return result;
-  }
-};
-
-}  // namespace std
 
 #endif  // COMPILER_BUILD_TABLES_PARSE_ITEM_H_

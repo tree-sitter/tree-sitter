@@ -6,11 +6,11 @@
 #include <unordered_map>
 #include <utility>
 #include "compiler/parse_table.h"
-#include "compiler/build_tables/item_set_transitions.h"
 #include "compiler/build_tables/parse_conflict_manager.h"
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/build_tables/get_completion_status.h"
 #include "compiler/build_tables/get_metadata.h"
+#include "compiler/build_tables/item_set_closure.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/rules/symbol.h"
@@ -34,7 +34,7 @@ class ParseTableBuilder {
   const SyntaxGrammar grammar;
   const LexicalGrammar lexical_grammar;
   ParseConflictManager conflict_manager;
-  unordered_map<const ParseItemSet, ParseStateId> parse_state_ids;
+  unordered_map<const ParseItemSet, ParseStateId, ParseItemSetHash> parse_state_ids;
   vector<pair<ParseItemSet, ParseStateId>> item_sets_to_process;
   ParseTable parse_table;
   std::set<string> conflicts;
@@ -56,7 +56,7 @@ class ParseTableBuilder {
 
     while (!item_sets_to_process.empty()) {
       auto pair = item_sets_to_process.back();
-      ParseItemSet item_set = std::move(pair.first);
+      ParseItemSet item_set = item_set_closure(pair.first, grammar);
       ParseStateId state_id = pair.second;
       item_sets_to_process.pop_back();
 
@@ -92,7 +92,7 @@ class ParseTableBuilder {
   }
 
   void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
-    for (const auto &transition : sym_transitions(item_set, grammar)) {
+    for (const auto &transition : parse_item_set_transitions(item_set, grammar)) {
       const Symbol &symbol = transition.first;
       const ParseItemSet &next_item_set = transition.second;
 

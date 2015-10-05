@@ -24,10 +24,10 @@ class RuleTransitions : public rules::RuleFn<map<CharacterSet, rule_ptr>> {
   void merge_transitions(map<CharacterSet, rule_ptr> *left,
                          const map<CharacterSet, rule_ptr> &right) {
     for (auto &pair : right)
-      merge_transition<rule_ptr>(
-        left, pair, [](rule_ptr *left, const rule_ptr *right) {
-          *left = Choice::build({ *left, *right });
-        });
+      merge_transition<rule_ptr>(left, pair,
+                                 [](rule_ptr *left, const rule_ptr *right) {
+                                   *left = Choice::build({ *left, *right });
+                                 });
   }
 
   map<CharacterSet, rule_ptr> apply_to(const CharacterSet *rule) {
