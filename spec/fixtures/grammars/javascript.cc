@@ -99,10 +99,9 @@ extern const Grammar javascript = Grammar({
     str("for"),
     str("("),
     optional(str("var")),
-    prec(PREC_REL, seq({
-      sym("identifier"),
-      str("in"),
-      sym("_expression") })),
+    sym("identifier"),
+    str("in"),
+    sym("_expression"),
     str(")"),
     sym("_statement") }) },
 
@@ -351,6 +350,8 @@ extern const Grammar javascript = Grammar({
   sym("comment"),
   sym("_line_break"),
   pattern("[ \t\r]"),
+}).expected_conflicts({
+  { "for_in_statement", "_expression" },
 });
 
 }  // namespace tree_sitter_examples
