@@ -289,11 +289,19 @@ typedef enum {
 } ParserNextResult;
 
 static ParserNextResult ts_parser__next(TSParser *parser, int head_to_advance) {
+  ParserNextResult result = ParserNextResultNone;
   TSStateId state = ts_stack_top_state(parser->stack, head_to_advance);
   const TSParseAction *next_action =
     ts_language__actions(parser->language, state, parser->lookahead->symbol);
 
-  ParserNextResult result = ParserNextResultNone;
+  /*
+   *  If there are multiple actions for the current state and lookahead symbol,
+   *  split the stack so that each one can be performed. If there is a `SHIFT`
+   *  action, it will always appear *last* in the list of actions. Perform it
+   *  on the original stack head, and return `ParserNextResultAdvanced`, to
+   *  indicate that the original head has finished consuming this lookahead
+   *  symbol.
+   */
   while (next_action->type != 0) {
     TSParseAction action = *next_action;
     next_action++;
@@ -303,7 +311,7 @@ static ParserNextResult ts_parser__next(TSParser *parser, int head_to_advance) {
       head = head_to_advance;
     } else {
       head = ts_stack_split(parser->stack, head_to_advance);
-      DEBUG("split from_head:%d, to_head:%d", head_to_advance, head);
+      DEBUG("split from_head:%d", head_to_advance);
     }
 
     DEBUG("action state:%d, head:%d", state, head);
@@ -318,14 +326,15 @@ static ParserNextResult ts_parser__next(TSParser *parser, int head_to_advance) {
         DEBUG("error_sym");
         if (ts_stack_head_count(parser->stack) == 1) {
           if (ts_parser__handle_error(parser, head))
-            break;
+            result = ParserNextResultNone;
           else
-            return ParserNextResultFinished;
+            result = ParserNextResultFinished;
         } else {
           DEBUG("bail head:%d", head);
           ts_stack_remove_head(parser->stack, head);
-          return ParserNextResultRemoved;
+          result = ParserNextResultRemoved;
         }
+        break;
 
       case TSParseActionTypeShift:
         DEBUG("shift state:%u", action.data.to_state);
@@ -344,11 +353,13 @@ static ParserNextResult ts_parser__next(TSParser *parser, int head_to_advance) {
               action.data.child_count);
         ts_parser__reduce(parser, head, action.data.symbol,
                           action.data.child_count, false, false);
+        result = ParserNextResultNone;
         break;
 
       case TSParseActionTypeReduceExtra:
         DEBUG("reduce_extra sym:%s", SYM_NAME(action.data.symbol));
         ts_parser__reduce(parser, head, action.data.symbol, 1, true, false);
+        result = ParserNextResultNone;
         break;
 
       case TSParseActionTypeReduceFragile:
@@ -356,11 +367,13 @@ static ParserNextResult ts_parser__next(TSParser *parser, int head_to_advance) {
               action.data.child_count);
         ts_parser__reduce_fragile(parser, head, action.data.symbol,
                                   action.data.child_count);
+        result = ParserNextResultNone;
         break;
 
       case TSParseActionTypeAccept:
         DEBUG("accept");
-        return ParserNextResultFinished;
+        result = ParserNextResultFinished;
+        break;
     }
   }
 
