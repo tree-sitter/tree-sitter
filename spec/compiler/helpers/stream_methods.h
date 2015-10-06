@@ -95,6 +95,7 @@ class LexAction;
 class ParseAction;
 class ParseState;
 struct ProductionStep;
+struct PrecedenceRange;
 
 ostream &operator<<(ostream &, const Grammar &);
 ostream &operator<<(ostream &, const GrammarError &);
@@ -106,6 +107,7 @@ ostream &operator<<(ostream &, const LexAction &);
 ostream &operator<<(ostream &, const ParseAction &);
 ostream &operator<<(ostream &, const ParseState &);
 ostream &operator<<(ostream &, const ProductionStep &);
+ostream &operator<<(ostream &, const PrecedenceRange &);
 
 namespace build_tables {
 

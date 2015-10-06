@@ -73,13 +73,13 @@ ostream &operator<<(ostream &stream, const ParseAction &action) {
     case ParseActionTypeAccept:
       return stream << string("#<accept>");
     case ParseActionTypeShift:
-      return stream << (string("#<shift ") + to_string(action.state_index) +
-                        ">");
+      return stream << string("#<shift state:") << to_string(action.state_index) <<
+                        string(" precedence:") << action.precedence_range << ">";
     case ParseActionTypeShiftExtra:
       return stream << string("#<shift_extra");
     case ParseActionTypeReduceExtra:
-      return stream << ("#<reduce_extra sym" + to_string(action.symbol.index) +
-                        ">");
+      return stream << "#<reduce_extra sym:" << action.symbol <<
+                        string(" precedence:") << to_string(action.precedence_range.min) << ">";
     case ParseActionTypeReduce:
       return stream << ("#<reduce sym" + to_string(action.symbol.index) + " " +
                         to_string(action.consumed_symbol_count) + ">");
@@ -107,6 +107,10 @@ ostream &operator<<(ostream &stream, const ParseState &state) {
 
 ostream &operator<<(ostream &stream, const ProductionStep &step) {
   return stream << string("(production_step symbol:") << step.symbol << string(" precedence:") << to_string(step.precedence) << ")";
+}
+
+ostream &operator<<(ostream &stream, const PrecedenceRange &range) {
+  return stream << string("{") << to_string(range.min) << string(", ") << to_string(range.max) << string("}");
 }
 
 namespace build_tables {
