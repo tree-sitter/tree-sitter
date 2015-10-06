@@ -292,23 +292,21 @@ static ParserNextResult ts_parser__next(TSParser *parser, int head_to_advance) {
   TSStateId state = ts_stack_top_state(parser->stack, head_to_advance);
   const TSParseAction *next_action =
     ts_language__actions(parser->language, state, parser->lookahead->symbol);
-  int head, next_head = head_to_advance;
 
   ParserNextResult result = ParserNextResultNone;
-
-  while (next_action) {
+  while (next_action->type != 0) {
     TSParseAction action = *next_action;
-    head = next_head;
+    next_action++;
+
+    int head;
+    if (next_action->type == 0) {
+      head = head_to_advance;
+    } else {
+      head = ts_stack_split(parser->stack, head_to_advance);
+      DEBUG("split from_head:%d, to_head:%d", head_to_advance, head);
+    }
 
     DEBUG("action state:%d, head:%d", state, head);
-
-    next_action++;
-    if (next_action->type == 0) {
-      next_action = NULL;
-    } else {
-      next_head = ts_stack_split(parser->stack, head);
-      DEBUG("split created_head:%d", next_head);
-    }
 
     // TODO: Remove this by making a separate symbol for errors returned from
     // the lexer.
@@ -370,7 +368,7 @@ static ParserNextResult ts_parser__next(TSParser *parser, int head_to_advance) {
 }
 
 static TSTree *ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
-  return left;
+  return right;
 }
 
 /*
