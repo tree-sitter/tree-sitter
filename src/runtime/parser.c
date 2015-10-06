@@ -120,10 +120,21 @@ static void ts_parser__get_next_lookahead(TSParser *parser) {
     return;
   }
 
-  TSStateId parse_state = ts_stack_top_state(parser->stack, 0);
-  TSStateId lex_state = parser->language->lex_states[parse_state];
-  DEBUG("lex state:%d", lex_state);
-  parser->lookahead = parser->language->lex_fn(&parser->lexer, lex_state);
+  TSLength position = parser->lexer.current_position;
+  for (size_t i = 0, count = ts_stack_head_count(parser->stack); i < count; i++) {
+    if (i > 0) {
+      ts_lexer_reset(&parser->lexer, position);
+      ts_tree_release(parser->lookahead);
+    }
+
+    TSStateId parse_state = ts_stack_top_state(parser->stack, i);
+    TSStateId lex_state = parser->language->lex_states[parse_state];
+    DEBUG("lex state:%d", lex_state);
+    parser->lookahead = parser->language->lex_fn(&parser->lexer, lex_state);
+
+    if (parser->lookahead->symbol != ts_builtin_sym_error)
+      break;
+  }
 }
 
 /*

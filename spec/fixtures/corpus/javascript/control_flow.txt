@@ -103,6 +103,24 @@ for (key in someObject)
     (expression_statement (function_call (identifier) (arguments)))))
 
 ==========================================
+regular for loops beginning with an in-expression
+==========================================
+
+for (key in something && i = 0; i < n; i++) {
+  doSomething();
+}
+
+---
+
+(program (for_statement
+  (bool_op
+    (type_op (identifier) (identifier))
+    (assignment (identifier) (number)))
+  (rel_op (identifier) (identifier))
+  (math_op (identifier))
+  (statement_block (expression_statement (function_call (identifier) (arguments))))))
+
+==========================================
 while loops
 ==========================================
 
