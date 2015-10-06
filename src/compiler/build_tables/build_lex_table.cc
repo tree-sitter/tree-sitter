@@ -35,12 +35,18 @@ class LexTableBuilder {
   ParseTable *parse_table;
   unordered_map<const LexItemSet, LexStateId, LexItemSet::Hash> lex_state_ids;
   LexTable lex_table;
+  rule_ptr separator_rule;
 
  public:
   LexTableBuilder(ParseTable *parse_table, const LexicalGrammar &lex_grammar)
       : lex_grammar(lex_grammar),
         conflict_manager(lex_grammar),
-        parse_table(parse_table) {}
+        parse_table(parse_table) {
+    vector<rule_ptr> separators;
+    for (const auto &rule : lex_grammar.separators)
+      separators.push_back(rules::Repeat::build(rule));
+    separator_rule = rules::Choice::build(separators);
+  }
 
   LexTable build() {
     for (auto &parse_state : parse_table->states) {
@@ -127,18 +133,11 @@ class LexTableBuilder {
   rule_ptr after_separators(rule_ptr rule) {
     return rules::Seq::build({
       make_shared<rules::Metadata>(
-        separator_rule(), map<rules::MetadataKey, int>({
+        separator_rule, map<rules::MetadataKey, int>({
                             { rules::START_TOKEN, 1 }, { rules::PRECEDENCE, -1 },
                           })),
       rule,
     });
-  }
-
-  rule_ptr separator_rule() const {
-    vector<rule_ptr> separators;
-    for (const auto &rule : lex_grammar.separators)
-      separators.push_back(rules::Repeat::build(rule));
-    return rules::Choice::build(separators);
   }
 
   set<int> precedence_values_for_item_set(const LexItemSet &item_set) const {
