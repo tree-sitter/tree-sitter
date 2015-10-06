@@ -43,31 +43,32 @@ class LexTableBuilder {
         conflict_manager(lex_grammar),
         parse_table(parse_table) {
     vector<rule_ptr> separators;
-    for (const auto &rule : lex_grammar.separators)
+    for (const rule_ptr &rule : lex_grammar.separators)
       separators.push_back(rules::Repeat::build(rule));
     separator_rule = rules::Choice::build(separators);
   }
 
   LexTable build() {
-    for (auto &parse_state : parse_table->states) {
+    for (ParseState &parse_state : parse_table->states) {
       LexItemSet item_set = build_lex_item_set(parse_state.expected_inputs());
       parse_state.lex_state_id = add_lex_state(item_set);
     }
-    add_error_lex_state();
+
+    LexItemSet error_item_set = build_lex_item_set(parse_table->symbols);
+    populate_lex_state(error_item_set, LexTable::ERROR_STATE_ID);
+
     return lex_table;
   }
 
  private:
   LexItemSet build_lex_item_set(const set<Symbol> &symbols) {
     LexItemSet result;
-    for (const auto &symbol : symbols) {
+    for (const Symbol &symbol : symbols) {
       if (symbol == rules::ERROR())
         continue;
-
-      if (symbol == rules::END_OF_INPUT())
+      else if (symbol == rules::END_OF_INPUT())
         result.entries.insert(
           LexItem(symbol, after_separators(CharacterSet().include(0).copy())));
-
       else if (symbol.is_token)
         result.entries.insert(LexItem(
           symbol, after_separators(lex_grammar.variables[symbol.index].rule)));
@@ -80,31 +81,26 @@ class LexTableBuilder {
     if (pair == lex_state_ids.end()) {
       LexStateId state_id = lex_table.add_state();
       lex_state_ids[item_set] = state_id;
-
-      add_accept_token_actions(item_set, state_id);
-      add_advance_actions(item_set, state_id);
-      add_token_start(item_set, state_id);
-
+      populate_lex_state(item_set, state_id);
       return state_id;
     } else {
       return pair->second;
     }
   }
 
-  void add_error_lex_state() {
-    LexItemSet item_set = build_lex_item_set(parse_table->symbols);
-    add_accept_token_actions(item_set, LexTable::ERROR_STATE_ID);
-    add_advance_actions(item_set, LexTable::ERROR_STATE_ID);
-    add_token_start(item_set, LexTable::ERROR_STATE_ID);
+  void populate_lex_state(const LexItemSet &item_set, LexStateId state_id) {
+    add_accept_token_actions(item_set, state_id);
+    add_advance_actions(item_set, state_id);
+    add_token_start(item_set, state_id);
   }
 
   void add_advance_actions(const LexItemSet &item_set, LexStateId state_id) {
     for (const auto &transition : item_set.transitions()) {
-      CharacterSet rule = transition.first;
-      LexItemSet new_item_set = transition.second;
+      const CharacterSet &rule = transition.first;
+      const LexItemSet &new_item_set = transition.second;
       LexStateId new_state_id = add_lex_state(new_item_set);
       auto action = LexAction::Advance(
-        new_state_id, precedence_values_for_item_set(new_item_set));
+        new_state_id, precedence_range_for_item_set(new_item_set));
       if (conflict_manager.resolve(action,
                                    lex_table.state(state_id).default_action))
         lex_table.state(state_id).actions[rule] = action;
@@ -140,12 +136,12 @@ class LexTableBuilder {
     });
   }
 
-  set<int> precedence_values_for_item_set(const LexItemSet &item_set) const {
-    set<int> result;
+  PrecedenceRange precedence_range_for_item_set(const LexItemSet &item_set) const {
+    PrecedenceRange result;
     for (const auto &item : item_set.entries) {
       auto precedence_range = get_metadata(item.rule, rules::PRECEDENCE);
-      result.insert(precedence_range.min);
-      result.insert(precedence_range.max);
+      result.add(precedence_range.min);
+      result.add(precedence_range.max);
     }
     return result;
   }

@@ -14,26 +14,26 @@ LexAction::LexAction()
     : type(LexActionTypeError),
       symbol(Symbol(-1)),
       state_index(-1),
-      precedence_values({ 0 }) {}
+      precedence_range({ 0, 0 }) {}
 
 LexAction::LexAction(LexActionType type, size_t state_index, Symbol symbol,
-                     set<int> precedence_values)
+                     PrecedenceRange precedence_range)
     : type(type),
       symbol(symbol),
       state_index(state_index),
-      precedence_values(precedence_values) {}
+      precedence_range(precedence_range) {}
 
 LexAction LexAction::Error() {
-  return LexAction(LexActionTypeError, -1, Symbol(-1), { 0 });
+  return LexAction(LexActionTypeError, -1, Symbol(-1), { 0, 0 });
 }
 
-LexAction LexAction::Advance(size_t state_index, set<int> precedence_values) {
+LexAction LexAction::Advance(size_t state_index, PrecedenceRange precedence_range) {
   return LexAction(LexActionTypeAdvance, state_index, Symbol(-1),
-                   precedence_values);
+                   precedence_range);
 }
 
 LexAction LexAction::Accept(Symbol symbol, int precedence) {
-  return LexAction(LexActionTypeAccept, -1, symbol, { precedence });
+  return LexAction(LexActionTypeAccept, -1, symbol, { precedence, precedence });
 }
 
 bool LexAction::operator==(const LexAction &other) const {

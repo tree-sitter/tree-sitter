@@ -5,6 +5,7 @@
 #include <vector>
 #include <set>
 #include <string>
+#include "compiler/precedence_range.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/character_set.h"
 
@@ -18,19 +19,19 @@ typedef enum {
 
 class LexAction {
   LexAction(LexActionType type, size_t state_index, rules::Symbol symbol,
-            std::set<int> precedence_values);
+            PrecedenceRange precedence_range);
 
  public:
   LexAction();
   static LexAction Accept(rules::Symbol symbol, int precedence);
   static LexAction Error();
-  static LexAction Advance(size_t state_index, std::set<int> precedence_values);
+  static LexAction Advance(size_t state_index, PrecedenceRange precedence_range);
   bool operator==(const LexAction &action) const;
 
   LexActionType type;
   rules::Symbol symbol;
   size_t state_index;
-  std::set<int> precedence_values;
+  PrecedenceRange precedence_range;
 };
 
 }  // namespace tree_sitter

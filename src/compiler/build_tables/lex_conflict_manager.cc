@@ -19,11 +19,11 @@ bool LexConflictManager::resolve(const LexAction &new_action,
       return true;
 
     case LexActionTypeAccept: {
-      int old_precedence = *old_action.precedence_values.begin();
+      int old_precedence = old_action.precedence_range.min;
 
       switch (new_action.type) {
         case LexActionTypeAccept: {
-          int new_precedence = *new_action.precedence_values.begin();
+          int new_precedence = new_action.precedence_range.min;
           if (new_precedence > old_precedence)
             return true;
           else if (new_precedence < old_precedence)

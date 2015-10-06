@@ -22,19 +22,19 @@ describe("LexConflictManager", []() {
   Symbol sym3(2, true);
 
   it("favors non-errors over lexical errors", [&]() {
-    update = conflict_manager.resolve(LexAction::Advance(2, {0}), LexAction::Error());
+    update = conflict_manager.resolve(LexAction::Advance(2, {0, 0}), LexAction::Error());
     AssertThat(update, IsTrue());
 
-    update = conflict_manager.resolve(LexAction::Error(), LexAction::Advance(2, {0}));
+    update = conflict_manager.resolve(LexAction::Error(), LexAction::Advance(2, {0, 0}));
     AssertThat(update, IsFalse());
   });
 
   describe("accept-token/advance conflicts", [&]() {
     it("prefers the advance", [&]() {
-      update = conflict_manager.resolve(LexAction::Advance(1, { 0 }), LexAction::Accept(sym3, 3));
+      update = conflict_manager.resolve(LexAction::Advance(1, { 0, 0 }), LexAction::Accept(sym3, 3));
       AssertThat(update, IsTrue());
 
-      update = conflict_manager.resolve(LexAction::Accept(sym3, 3), LexAction::Advance(1, { 0 }));
+      update = conflict_manager.resolve(LexAction::Accept(sym3, 3), LexAction::Advance(1, { 0, 0 }));
       AssertThat(update, IsFalse());
     });
   });
