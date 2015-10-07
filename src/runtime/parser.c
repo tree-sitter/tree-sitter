@@ -293,102 +293,96 @@ static TSTree *ts_parser__finish(TSParser *parser) {
 }
 
 typedef enum {
-  ParserNextResultNone,
-  ParserNextResultAdvanced,
-  ParserNextResultRemoved,
-  ParserNextResultFinished
-} ParserNextResult;
+  ConsumeResultShifted,
+  ConsumeResultRemoved,
+  ConsumeResultFinished
+} ConsumeResult;
 
-static ParserNextResult ts_parser__next(TSParser *parser, int head_to_advance) {
-  ParserNextResult result = ParserNextResultNone;
-  TSStateId state = ts_stack_top_state(parser->stack, head_to_advance);
-  const TSParseAction *next_action =
-    ts_language__actions(parser->language, state, parser->lookahead->symbol);
+/*
+ * Continue performing parse actions for the given head until the current
+ * lookahead symbol is consumed.
+ */
+static ConsumeResult ts_parser__consume_lookahead(TSParser *parser, int head) {
+  for (;;) {
+    TSStateId state = ts_stack_top_state(parser->stack, head);
+    const TSParseAction *next_action =
+      ts_language__actions(parser->language, state, parser->lookahead->symbol);
 
-  /*
-   *  If there are multiple actions for the current state and lookahead symbol,
-   *  split the stack so that each one can be performed. If there is a `SHIFT`
-   *  action, it will always appear *last* in the list of actions. Perform it
-   *  on the original stack head, and return `ParserNextResultAdvanced`, to
-   *  indicate that the original head has finished consuming this lookahead
-   *  symbol.
-   */
-  while (next_action->type != 0) {
-    TSParseAction action = *next_action;
-    next_action++;
+    /*
+     * If there are multiple actions for the current state and lookahead symbol,
+     * split the stack so that each one can be performed. If there is a `SHIFT`
+     * action, it will always appear *last* in the list of actions. Perform it
+     * on the original stack head and return.
+     */
+    while (next_action->type != 0) {
+      TSParseAction action = *next_action;
+      next_action++;
 
-    int head;
-    if (next_action->type == 0) {
-      head = head_to_advance;
-    } else {
-      head = ts_stack_split(parser->stack, head_to_advance);
-      DEBUG("split from_head:%d", head_to_advance);
-    }
+      int current_head;
+      if (next_action->type == 0) {
+        current_head = head;
+        DEBUG("action current_head:%d, state:%d", current_head, state);
+      } else {
+        current_head = ts_stack_split(parser->stack, head);
+        DEBUG("split_action from_head:%d, current_head:%d, state:%d", head,
+              current_head, state);
+      }
 
-    DEBUG("action state:%d, head:%d", state, head);
+      // TODO: Remove this by making a separate symbol for errors returned from
+      // the lexer.
+      if (parser->lookahead->symbol == ts_builtin_sym_error)
+        action.type = TSParseActionTypeError;
 
-    // TODO: Remove this by making a separate symbol for errors returned from
-    // the lexer.
-    if (parser->lookahead->symbol == ts_builtin_sym_error)
-      action.type = TSParseActionTypeError;
+      switch (action.type) {
+        case TSParseActionTypeError:
+          DEBUG("error_sym");
+          if (ts_stack_head_count(parser->stack) == 1) {
+            if (ts_parser__handle_error(parser, current_head))
+              break;
+            else
+              return ConsumeResultFinished;
+          } else {
+            DEBUG("bail current_head:%d", current_head);
+            ts_stack_remove_head(parser->stack, current_head);
+            return ConsumeResultRemoved;
+          }
 
-    switch (action.type) {
-      case TSParseActionTypeError:
-        DEBUG("error_sym");
-        if (ts_stack_head_count(parser->stack) == 1) {
-          if (ts_parser__handle_error(parser, head))
-            result = ParserNextResultNone;
-          else
-            result = ParserNextResultFinished;
-        } else {
-          DEBUG("bail head:%d", head);
-          ts_stack_remove_head(parser->stack, head);
-          result = ParserNextResultRemoved;
-        }
-        break;
+        case TSParseActionTypeShift:
+          DEBUG("shift state:%u", action.data.to_state);
+          ts_parser__shift(parser, current_head, action.data.to_state);
+          return ConsumeResultShifted;
 
-      case TSParseActionTypeShift:
-        DEBUG("shift state:%u", action.data.to_state);
-        ts_parser__shift(parser, head, action.data.to_state);
-        result = ParserNextResultAdvanced;
-        break;
+        case TSParseActionTypeShiftExtra:
+          DEBUG("shift_extra");
+          ts_parser__shift_extra(parser, current_head, state);
+          return ConsumeResultShifted;
 
-      case TSParseActionTypeShiftExtra:
-        DEBUG("shift_extra");
-        ts_parser__shift_extra(parser, head, state);
-        result = ParserNextResultAdvanced;
-        break;
+        case TSParseActionTypeReduce:
+          DEBUG("reduce sym:%s, child_count:%u", SYM_NAME(action.data.symbol),
+                action.data.child_count);
+          ts_parser__reduce(parser, current_head, action.data.symbol,
+                            action.data.child_count, false, false);
+          break;
 
-      case TSParseActionTypeReduce:
-        DEBUG("reduce sym:%s, child_count:%u", SYM_NAME(action.data.symbol),
-              action.data.child_count);
-        ts_parser__reduce(parser, head, action.data.symbol,
-                          action.data.child_count, false, false);
-        result = ParserNextResultNone;
-        break;
+        case TSParseActionTypeReduceExtra:
+          DEBUG("reduce_extra sym:%s", SYM_NAME(action.data.symbol));
+          ts_parser__reduce(parser, current_head, action.data.symbol, 1, true,
+                            false);
+          break;
 
-      case TSParseActionTypeReduceExtra:
-        DEBUG("reduce_extra sym:%s", SYM_NAME(action.data.symbol));
-        ts_parser__reduce(parser, head, action.data.symbol, 1, true, false);
-        result = ParserNextResultNone;
-        break;
+        case TSParseActionTypeReduceFragile:
+          DEBUG("reduce_fragile sym:%s, count:%u", SYM_NAME(action.data.symbol),
+                action.data.child_count);
+          ts_parser__reduce_fragile(parser, current_head, action.data.symbol,
+                                    action.data.child_count);
+          break;
 
-      case TSParseActionTypeReduceFragile:
-        DEBUG("reduce_fragile sym:%s, count:%u", SYM_NAME(action.data.symbol),
-              action.data.child_count);
-        ts_parser__reduce_fragile(parser, head, action.data.symbol,
-                                  action.data.child_count);
-        result = ParserNextResultNone;
-        break;
-
-      case TSParseActionTypeAccept:
-        DEBUG("accept");
-        result = ParserNextResultFinished;
-        break;
+        case TSParseActionTypeAccept:
+          DEBUG("accept");
+          return ConsumeResultFinished;
+      }
     }
   }
-
-  return result;
 }
 
 static TSTree *ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
@@ -434,27 +428,16 @@ TSTree *ts_parser_parse(TSParser *parser, TSInput input, TSTree *previous_tree) 
           parser->lexer.current_position.chars,
           ts_stack_head_count(parser->stack));
 
-    int head = 0;
-    while (head < ts_stack_head_count(parser->stack)) {
-      bool removed = false, advanced = false;
-
-      while (!(advanced || removed)) {
-        switch (ts_parser__next(parser, head)) {
-          case ParserNextResultNone:
-            break;
-          case ParserNextResultRemoved:
-            removed = true;
-            break;
-          case ParserNextResultAdvanced:
-            advanced = true;
-            break;
-          case ParserNextResultFinished:
-            return ts_parser__finish(parser);
-        }
+    for (int head = 0; head < ts_stack_head_count(parser->stack);) {
+      switch (ts_parser__consume_lookahead(parser, head)) {
+        case ConsumeResultRemoved:
+          break;
+        case ConsumeResultShifted:
+          head++;
+          break;
+        case ConsumeResultFinished:
+          return ts_parser__finish(parser);
       }
-
-      if (!removed)
-        head++;
     }
   }
 }
