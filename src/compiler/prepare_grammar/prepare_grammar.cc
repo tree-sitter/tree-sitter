@@ -40,7 +40,8 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
   if (error)
     return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
 
-  return make_tuple(flatten_grammar(syntax_grammar), normalize_rules(lex_grammar), nullptr);
+  return make_tuple(flatten_grammar(syntax_grammar),
+                    normalize_rules(lex_grammar), nullptr);
 }
 
 }  // namespace prepare_grammar

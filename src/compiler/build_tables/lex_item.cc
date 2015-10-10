@@ -1,7 +1,6 @@
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/build_tables/get_metadata.h"
-#include "compiler/build_tables/rule_transitions.h"
-#include "compiler/build_tables/merge_transitions.h"
+#include "compiler/build_tables/lex_item_transitions.h"
 #include "compiler/rules/symbol.h"
 #include <unordered_set>
 
@@ -48,16 +47,8 @@ bool LexItemSet::operator==(const LexItemSet &other) const {
 
 map<CharacterSet, LexItemSet> LexItemSet::transitions() const {
   map<CharacterSet, LexItemSet> result;
-  for (const LexItem &item : entries) {
-    for (auto &transition : rule_transitions(item.rule)) {
-      LexItem next_item(item.lhs, transition.second);
-      merge_transition<LexItemSet>(
-        &result, { transition.first, LexItemSet({ next_item }) },
-        [](LexItemSet *left, const LexItemSet *right) {
-          left->entries.insert(right->entries.begin(), right->entries.end());
-        });
-    }
-  }
+  for (const LexItem &item : entries)
+    lex_item_transitions(&result, item);
   return result;
 }
 

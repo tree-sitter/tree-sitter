@@ -27,7 +27,8 @@ LexAction LexAction::Error() {
   return LexAction(LexActionTypeError, -1, Symbol(-1), { 0, 0 });
 }
 
-LexAction LexAction::Advance(size_t state_index, PrecedenceRange precedence_range) {
+LexAction LexAction::Advance(size_t state_index,
+                             PrecedenceRange precedence_range) {
   return LexAction(LexActionTypeAdvance, state_index, Symbol(-1),
                    precedence_range);
 }

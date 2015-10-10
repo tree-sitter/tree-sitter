@@ -130,8 +130,8 @@ class LexTableBuilder {
     return rules::Seq::build({
       make_shared<rules::Metadata>(
         separator_rule, map<rules::MetadataKey, int>({
-                            { rules::START_TOKEN, 1 }, { rules::PRECEDENCE, -1 },
-                          })),
+                          { rules::START_TOKEN, 1 }, { rules::PRECEDENCE, -1 },
+                        })),
       rule,
     });
   }

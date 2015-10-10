@@ -3,8 +3,6 @@
 #include <vector>
 #include <utility>
 #include "tree_sitter/compiler.h"
-#include "compiler/build_tables/rule_transitions.h"
-#include "compiler/build_tables/rule_can_be_blank.h"
 #include "compiler/syntax_grammar.h"
 
 namespace tree_sitter {
