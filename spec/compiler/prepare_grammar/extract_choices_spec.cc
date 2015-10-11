@@ -61,12 +61,37 @@ describe("extract_choices", []() {
     })));
   });
 
-  it("handles repeats", [&]() {
-    auto rule = repeat(choice({ sym("a"), sym("b") }));
+  it("does not move choices outside of repeats", [&]() {
+    auto rule = seq({
+      choice({ sym("a"), sym("b") }),
+      repeat(seq({
+        sym("c"),
+        choice({
+          sym("d"),
+          sym("e"),
+        }),
+        sym("f"),
+      })),
+      sym("g"),
+    });
 
     AssertThat(extract_choices(rule), Equals(rule_vector({
-      repeat(sym("a")),
-      repeat(sym("b")),
+      seq({
+        sym("a"),
+        repeat(choice({
+          seq({ sym("c"), sym("d"), sym("f") }),
+          seq({ sym("c"), sym("e"), sym("f") }),
+        })),
+        sym("g"),
+      }),
+      seq({
+        sym("b"),
+        repeat(choice({
+          seq({ sym("c"), sym("d"), sym("f") }),
+          seq({ sym("c"), sym("e"), sym("f") }),
+        })),
+        sym("g"),
+      }),
     })));
   });
 });

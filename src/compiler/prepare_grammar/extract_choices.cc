@@ -42,10 +42,9 @@ class ExtractChoices : public rules::RuleFn<vector<rule_ptr>> {
   }
 
   vector<rule_ptr> apply_to(const rules::Repeat *rule) {
-    vector<rule_ptr> result;
-    for (auto element : apply(rule->content))
-      result.push_back(make_shared<rules::Repeat>(element));
-    return result;
+    return vector<rule_ptr>({
+      rules::Repeat::build(rules::Choice::build(apply(rule->content))),
+    });
   }
 };
 

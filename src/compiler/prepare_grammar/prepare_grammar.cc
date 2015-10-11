@@ -4,6 +4,7 @@
 #include "compiler/prepare_grammar/extract_tokens.h"
 #include "compiler/prepare_grammar/intern_symbols.h"
 #include "compiler/prepare_grammar/flatten_grammar.h"
+#include "compiler/prepare_grammar/normalize_rules.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/syntax_grammar.h"
@@ -39,7 +40,7 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
   if (error)
     return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
 
-  return make_tuple(flatten_grammar(syntax_grammar), lex_grammar, nullptr);
+  return make_tuple(flatten_grammar(syntax_grammar), normalize_rules(lex_grammar), nullptr);
 }
 
 }  // namespace prepare_grammar
