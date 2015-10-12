@@ -3,6 +3,7 @@
 #include "compiler/rules/choice.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/metadata.h"
+#include "compiler/rules/repeat.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -29,7 +30,7 @@ class GetCompletionStatus : public rules::RuleFn<CompletionStatus> {
   }
 
   CompletionStatus apply_to(const rules::Repeat *rule) {
-    return { true, 0, AssociativityNone };
+    return apply(rule->content);
   }
 
   CompletionStatus apply_to(const rules::Blank *rule) {

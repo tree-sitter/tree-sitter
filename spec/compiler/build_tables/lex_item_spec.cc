@@ -127,11 +127,11 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles repeats", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol(1), repeat(seq({
+      LexItem(Symbol(1), repeat1(seq({
         character({ 'a' }),
         character({ 'b' }),
       }))),
-      LexItem(Symbol(2), repeat(character({ 'c' }))),
+      LexItem(Symbol(2), repeat1(character({ 'c' }))),
     });
 
     AssertThat(
@@ -142,17 +142,19 @@ describe("LexItemSet::transitions()", [&]() {
           LexItemSet({
             LexItem(Symbol(1), seq({
               character({ 'b' }),
-              repeat(seq({
+              repeat1(seq({
                 character({ 'a' }),
                 character({ 'b' }),
               }))
-            }))
+            })),
+            LexItem(Symbol(1), character({ 'b' })),
           })
         },
         {
           CharacterSet().include('c'),
           LexItemSet({
-            LexItem(Symbol(2), repeat(character({ 'c' }))),
+            LexItem(Symbol(2), repeat1(character({ 'c' }))),
+            LexItem(Symbol(2), blank()),
           })
         }
       })));

@@ -2,6 +2,7 @@
 #include <string>
 #include <map>
 #include "compiler/rules/visitor.h"
+#include "compiler/rules/blank.h"
 
 namespace tree_sitter {
 namespace rules {

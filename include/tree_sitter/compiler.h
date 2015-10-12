@@ -20,6 +20,7 @@ enum Associativity {
 rule_ptr blank();
 rule_ptr choice(const std::vector<rule_ptr> &);
 rule_ptr repeat(const rule_ptr &);
+rule_ptr repeat1(const rule_ptr &);
 rule_ptr seq(const std::vector<rule_ptr> &);
 rule_ptr sym(const std::string &);
 rule_ptr pattern(const std::string &);

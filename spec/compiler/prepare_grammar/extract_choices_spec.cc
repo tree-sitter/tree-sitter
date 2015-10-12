@@ -64,7 +64,7 @@ describe("extract_choices", []() {
   it("does not move choices outside of repeats", [&]() {
     auto rule = seq({
       choice({ sym("a"), sym("b") }),
-      repeat(seq({
+      repeat1(seq({
         sym("c"),
         choice({
           sym("d"),
@@ -78,7 +78,7 @@ describe("extract_choices", []() {
     AssertThat(extract_choices(rule), Equals(rule_vector({
       seq({
         sym("a"),
-        repeat(choice({
+        repeat1(choice({
           seq({ sym("c"), sym("d"), sym("f") }),
           seq({ sym("c"), sym("e"), sym("f") }),
         })),
@@ -86,7 +86,7 @@ describe("extract_choices", []() {
       }),
       seq({
         sym("b"),
-        repeat(choice({
+        repeat1(choice({
           seq({ sym("c"), sym("d"), sym("f") }),
           seq({ sym("c"), sym("e"), sym("f") }),
         })),

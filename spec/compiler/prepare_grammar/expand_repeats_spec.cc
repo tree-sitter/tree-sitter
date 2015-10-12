@@ -11,13 +11,13 @@ using prepare_grammar::expand_repeats;
 describe("expand_repeats", []() {
   it("replaces repeat rules with pairs of recursive rules", [&]() {
     InitialSyntaxGrammar grammar{{
-      Variable("rule0", VariableTypeNamed, repeat(i_token(0))),
+      Variable("rule0", VariableTypeNamed, repeat1(i_token(0))),
     }, {}, {}};
 
     auto result = expand_repeats(grammar);
 
     AssertThat(result.variables, Equals(vector<Variable>({
-      Variable("rule0", VariableTypeNamed, choice({ i_sym(1), blank() })),
+      Variable("rule0", VariableTypeNamed, i_sym(1)),
       Variable("rule0_repeat1", VariableTypeAuxiliary, seq({
         i_token(0),
         choice({ i_sym(1), blank() })
@@ -29,7 +29,7 @@ describe("expand_repeats", []() {
     InitialSyntaxGrammar grammar{{
       Variable("rule0", VariableTypeNamed, seq({
         i_token(10),
-        repeat(i_token(11)),
+        repeat1(i_token(11)),
       })),
     }, {}, {}};
 
@@ -38,7 +38,7 @@ describe("expand_repeats", []() {
     AssertThat(result.variables, Equals(vector<Variable>({
       Variable("rule0", VariableTypeNamed, seq({
         i_token(10),
-        choice({ i_sym(1), blank() })
+        i_sym(1),
       })),
       Variable("rule0_repeat1", VariableTypeAuxiliary, seq({
         i_token(11),
@@ -51,14 +51,17 @@ describe("expand_repeats", []() {
     InitialSyntaxGrammar grammar{{
       Variable("rule0", VariableTypeNamed, choice({
         i_token(10),
-        repeat(i_token(11))
+        repeat1(i_token(11))
       })),
     }, {}, {}};
 
     auto result = expand_repeats(grammar);
 
     AssertThat(result.variables, Equals(vector<Variable>({
-      Variable("rule0", VariableTypeNamed, choice({ i_token(10), i_sym(1), blank() })),
+      Variable("rule0", VariableTypeNamed, choice({
+        i_token(10),
+        i_sym(1),
+      })),
       Variable("rule0_repeat1", VariableTypeAuxiliary, seq({
         i_token(11),
         choice({ i_sym(1), blank() }),
@@ -69,12 +72,12 @@ describe("expand_repeats", []() {
   it("does not create redundant auxiliary rules", [&]() {
     InitialSyntaxGrammar grammar{{
       Variable("rule0", VariableTypeNamed, choice({
-        seq({ i_token(1), repeat(i_token(4)) }),
-        seq({ i_token(2), repeat(i_token(4)) }),
+        seq({ i_token(1), repeat1(i_token(4)) }),
+        seq({ i_token(2), repeat1(i_token(4)) }),
       })),
       Variable("rule1", VariableTypeNamed, seq({
         i_token(3),
-        repeat(i_token(4))
+        repeat1(i_token(4))
       })),
     }, {}, {}};
 
@@ -82,12 +85,12 @@ describe("expand_repeats", []() {
 
     AssertThat(result.variables, Equals(vector<Variable>({
       Variable("rule0", VariableTypeNamed, choice({
-        seq({ i_token(1), choice({ i_sym(2), blank() }) }),
-        seq({ i_token(2), choice({ i_sym(2), blank() }) }),
+        seq({ i_token(1), i_sym(2) }),
+        seq({ i_token(2), i_sym(2) }),
       })),
       Variable("rule1", VariableTypeNamed, seq({
         i_token(3),
-        choice({ i_sym(2), blank() })
+        i_sym(2),
       })),
       Variable("rule0_repeat1", VariableTypeAuxiliary, seq({
         i_token(4),
@@ -99,8 +102,8 @@ describe("expand_repeats", []() {
   it("can replace multiple repeats in the same rule", [&]() {
     InitialSyntaxGrammar grammar{{
       Variable("rule0", VariableTypeNamed, seq({
-        repeat(i_token(10)),
-        repeat(i_token(11)),
+        repeat1(i_token(10)),
+        repeat1(i_token(11)),
       })),
     }, {}, {}};
 
@@ -108,8 +111,8 @@ describe("expand_repeats", []() {
 
     AssertThat(result.variables, Equals(vector<Variable>({
       Variable("rule0", VariableTypeNamed, seq({
-        choice({ i_sym(1), blank() }),
-        choice({ i_sym(2), blank() }),
+        i_sym(1),
+        i_sym(2),
       })),
       Variable("rule0_repeat1", VariableTypeAuxiliary, seq({
         i_token(10),
@@ -124,21 +127,15 @@ describe("expand_repeats", []() {
 
   it("can replace repeats in multiple rules", [&]() {
     InitialSyntaxGrammar grammar{{
-      Variable("rule0", VariableTypeNamed, repeat(i_token(10))),
-      Variable("rule1", VariableTypeNamed, repeat(i_token(11))),
+      Variable("rule0", VariableTypeNamed, repeat1(i_token(10))),
+      Variable("rule1", VariableTypeNamed, repeat1(i_token(11))),
     }, {}, {}};
 
     auto result = expand_repeats(grammar);
 
     AssertThat(result.variables, Equals(vector<Variable>({
-      Variable("rule0", VariableTypeNamed, choice({
-        i_sym(2),
-        blank(),
-      })),
-      Variable("rule1", VariableTypeNamed, choice({
-        i_sym(3),
-        blank(),
-      })),
+      Variable("rule0", VariableTypeNamed, i_sym(2)),
+      Variable("rule1", VariableTypeNamed, i_sym(3)),
       Variable("rule0_repeat1", VariableTypeAuxiliary, seq({
         i_token(10),
         choice({ i_sym(2), blank() }),

@@ -79,7 +79,7 @@ class LexItemTransitions : public rules::RuleFn<void> {
   void apply_to(const rules::Seq *rule) {
     map<CharacterSet, LexItemSet> left_transitions;
     LexItemTransitions(&left_transitions, item_lhs).apply(rule->left);
-    for (auto &pair : left_transitions)
+    for (const auto &pair : left_transitions)
       merge_transition(
         transitions, pair.first,
         transform_item_set(pair.second, [&rule](rule_ptr item_rule) {
@@ -93,22 +93,24 @@ class LexItemTransitions : public rules::RuleFn<void> {
   void apply_to(const rules::Repeat *rule) {
     map<CharacterSet, LexItemSet> content_transitions;
     LexItemTransitions(&content_transitions, item_lhs).apply(rule->content);
-    for (auto &pair : content_transitions)
+    for (const auto &pair : content_transitions) {
+      merge_transition(transitions, pair.first, pair.second);
       merge_transition(
         transitions, pair.first,
         transform_item_set(pair.second, [&rule](rule_ptr item_rule) {
           return rules::Seq::build({ item_rule, rule->copy() });
         }));
+    }
   }
 
   void apply_to(const rules::Metadata *rule) {
     map<CharacterSet, LexItemSet> content_transitions;
     LexItemTransitions(&content_transitions, item_lhs).apply(rule->rule);
-    for (auto &pair : content_transitions)
+    for (const auto &pair : content_transitions)
       merge_transition(
         transitions, pair.first,
         transform_item_set(pair.second, [&rule](rule_ptr item_rule) {
-          return make_shared<rules::Metadata>(item_rule, rule->value);
+          return rules::Metadata::build(item_rule, rule->value);
         }));
   }
 

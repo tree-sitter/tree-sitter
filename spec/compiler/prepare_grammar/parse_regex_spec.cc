@@ -139,12 +139,8 @@ describe("parse_regex", []() {
       "plus repeats",
       "(ab)+(cd)+",
       seq({
-        seq({
-          seq({ character({ 'a' }), character({ 'b' }) }),
-          repeat(seq({ character({ 'a' }), character({ 'b' }) })) }),
-        seq({
-          seq({ character({ 'c' }), character({ 'd' }) }),
-          repeat(seq({ character({ 'c' }), character({ 'd' }) })) }) })
+        repeat1(seq({ character({ 'a' }), character({ 'b' }) })),
+        repeat1(seq({ character({ 'c' }), character({ 'd' }) })) })
     },
 
     {

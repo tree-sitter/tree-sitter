@@ -36,6 +36,10 @@ rule_ptr choice(const vector<rule_ptr> &rules) {
 }
 
 rule_ptr repeat(const rule_ptr &content) {
+  return choice({ repeat1(content), blank() });
+}
+
+rule_ptr repeat1(const rule_ptr &content) {
   return rules::Repeat::build(content);
 }
 

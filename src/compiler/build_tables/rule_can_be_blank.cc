@@ -6,6 +6,7 @@
 #include "compiler/rules/choice.h"
 #include "compiler/rules/blank.h"
 #include "compiler/rules/metadata.h"
+#include "compiler/rules/repeat.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -17,7 +18,7 @@ class CanBeBlank : public rules::RuleFn<bool> {
   }
 
   bool apply_to(const rules::Repeat *rule) {
-    return true;
+    return apply(rule->content);
   }
 
   bool apply_to(const rules::Choice *rule) {

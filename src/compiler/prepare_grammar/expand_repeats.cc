@@ -30,16 +30,14 @@ class ExpandRepeats : public rules::IdentityRuleFn {
   size_t repeat_count;
   vector<pair<rule_ptr, Symbol>> existing_repeats;
 
-  rule_ptr expand_repeat(const Repeat *rule) {
-    for (const auto pair : existing_repeats) {
+  rule_ptr apply_to(const Repeat *rule) {
+    for (const auto pair : existing_repeats)
       if (pair.first->operator==(*rule))
         return pair.second.copy();
-    }
 
     rule_ptr inner_rule = apply(rule->content);
     size_t index = aux_rules.size();
-    string helper_rule_name =
-      rule_name + string("_repeat") + to_string(++repeat_count);
+    string helper_rule_name = rule_name + "_repeat" + to_string(++repeat_count);
     Symbol repeat_symbol(offset + index);
     existing_repeats.push_back({ rule->copy(), repeat_symbol });
     aux_rules.push_back(Variable(
@@ -47,10 +45,6 @@ class ExpandRepeats : public rules::IdentityRuleFn {
       Seq::build({ inner_rule, Choice::build({ repeat_symbol.copy(),
                                                make_shared<Blank>() }) })));
     return repeat_symbol.copy();
-  }
-
-  rule_ptr apply_to(const Repeat *rule) {
-    return Choice::build({ expand_repeat(rule), make_shared<Blank>() });
   }
 
  public:

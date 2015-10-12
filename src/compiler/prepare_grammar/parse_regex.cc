@@ -76,15 +76,15 @@ class PatternParser {
       switch (peek()) {
         case '*':
           next();
-          result = Repeat::build(result);
+          result = Choice::build({ Repeat::build(result), Blank::build() });
           break;
         case '+':
           next();
-          result = make_shared<Seq>(result, Repeat::build(result));
+          result = Repeat::build(result);
           break;
         case '?':
           next();
-          result = Choice::build({ result, make_shared<Blank>() });
+          result = Choice::build({ result, Blank::build() });
           break;
       }
     }

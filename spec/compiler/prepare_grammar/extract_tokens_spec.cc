@@ -14,18 +14,18 @@ using prepare_grammar::InitialSyntaxGrammar;
 describe("extract_tokens", []() {
   it("moves strings, patterns, and sub-rules marked as tokens into the lexical grammar", [&]() {
     auto result = extract_tokens(InternedGrammar{{
-      Variable("rule_A", VariableTypeNamed, repeat(seq({
+      Variable("rule_A", VariableTypeNamed, repeat1(seq({
         str("ab"),
         pattern("cd*"),
         choice({
           i_sym(1),
           i_sym(2),
-          token(repeat(choice({ str("ef"), str("gh") }))),
+          token(repeat1(choice({ str("ef"), str("gh") }))),
         }),
       }))),
       Variable("rule_B", VariableTypeNamed, pattern("ij+")),
       Variable("rule_C", VariableTypeNamed, choice({ str("kl"), blank() })),
-      Variable("rule_D", VariableTypeNamed, repeat(i_sym(3)))
+      Variable("rule_D", VariableTypeNamed, repeat1(i_sym(3)))
     }, {}, {}});
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
@@ -35,7 +35,7 @@ describe("extract_tokens", []() {
     AssertThat(error, Equals<const GrammarError *>(nullptr));
 
     AssertThat(syntax_grammar.variables, Equals(vector<Variable>({
-      Variable("rule_A", VariableTypeNamed, repeat(seq({
+      Variable("rule_A", VariableTypeNamed, repeat1(seq({
 
         // This string is now the first token in the lexical grammar.
         i_token(0),
@@ -58,7 +58,7 @@ describe("extract_tokens", []() {
       }))),
 
       Variable("rule_C", VariableTypeNamed, choice({ i_token(4), blank() })),
-      Variable("rule_D", VariableTypeNamed, repeat(i_sym(2))),
+      Variable("rule_D", VariableTypeNamed, repeat1(i_sym(2))),
     })));
 
     AssertThat(lexical_grammar.variables, Equals(vector<Variable>({
@@ -69,7 +69,7 @@ describe("extract_tokens", []() {
       Variable("/cd*/", VariableTypeAuxiliary, pattern("cd*")),
 
       // Rules marked as tokens become hidden rules.
-      Variable("/(ef|gh)*/", VariableTypeAuxiliary, repeat(choice({
+      Variable("/(ef|gh)*/", VariableTypeAuxiliary, repeat1(choice({
         str("ef"),
         str("gh")
       }))),

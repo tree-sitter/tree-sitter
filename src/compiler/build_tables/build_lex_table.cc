@@ -16,6 +16,7 @@
 #include "compiler/rules/metadata.h"
 #include "compiler/rules/repeat.h"
 #include "compiler/rules/seq.h"
+#include "compiler/rules/blank.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -35,17 +36,16 @@ class LexTableBuilder {
   ParseTable *parse_table;
   unordered_map<const LexItemSet, LexStateId, LexItemSet::Hash> lex_state_ids;
   LexTable lex_table;
-  rule_ptr separator_rule;
+  vector<rule_ptr> separator_rules;
 
  public:
   LexTableBuilder(ParseTable *parse_table, const LexicalGrammar &lex_grammar)
       : lex_grammar(lex_grammar),
         conflict_manager(lex_grammar),
         parse_table(parse_table) {
-    vector<rule_ptr> separators;
     for (const rule_ptr &rule : lex_grammar.separators)
-      separators.push_back(rules::Repeat::build(rule));
-    separator_rule = rules::Choice::build(separators);
+      separator_rules.push_back(rules::Repeat::build(rule));
+    separator_rules.push_back(rules::Blank::build());
   }
 
   LexTable build() {
@@ -64,15 +64,34 @@ class LexTableBuilder {
   LexItemSet build_lex_item_set(const set<Symbol> &symbols) {
     LexItemSet result;
     for (const Symbol &symbol : symbols) {
-      if (symbol == rules::ERROR())
+      vector<rule_ptr> rules;
+      if (symbol == rules::ERROR()) {
         continue;
-      else if (symbol == rules::END_OF_INPUT())
-        result.entries.insert(
-          LexItem(symbol, after_separators(CharacterSet().include(0).copy())));
-      else if (symbol.is_token)
-        result.entries.insert(LexItem(
-          symbol, after_separators(lex_grammar.variables[symbol.index].rule)));
+      } else if (symbol == rules::END_OF_INPUT()) {
+        rules.push_back(CharacterSet().include(0).copy());
+      } else if (symbol.is_token) {
+        rule_ptr rule = lex_grammar.variables[symbol.index].rule;
+        auto choice = rule->as<rules::Choice>();
+        if (choice)
+          for (const rule_ptr &element : choice->elements)
+            rules.push_back(element);
+        else
+          rules.push_back(rule);
+      }
+
+      for (const rule_ptr &rule : rules)
+        for (const rule_ptr &separator_rule : separator_rules)
+          result.entries.insert(LexItem(
+            symbol, rules::Seq::build({
+                      rules::Metadata::build(
+                        separator_rule,
+                        {
+                          { rules::START_TOKEN, 1 }, { rules::PRECEDENCE, -1 },
+                        }),
+                      rule,
+                    })));
     }
+
     return result;
   }
 
@@ -124,16 +143,6 @@ class LexTableBuilder {
     for (const auto &item : item_set.entries)
       if (item.is_token_start())
         lex_table.state(state_id).is_token_start = true;
-  }
-
-  rule_ptr after_separators(rule_ptr rule) {
-    return rules::Seq::build({
-      make_shared<rules::Metadata>(
-        separator_rule, map<rules::MetadataKey, int>({
-                          { rules::START_TOKEN, 1 }, { rules::PRECEDENCE, -1 },
-                        })),
-      rule,
-    });
   }
 
   PrecedenceRange precedence_range_for_item_set(const LexItemSet &item_set) const {
