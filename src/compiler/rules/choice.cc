@@ -10,18 +10,17 @@ using std::string;
 using std::make_shared;
 using std::vector;
 using std::set;
-using std::dynamic_pointer_cast;
 
 Choice::Choice(const vector<rule_ptr> &elements) : elements(elements) {}
 
 void add_choice_element(vector<rule_ptr> *vec, const rule_ptr new_rule) {
-  auto choice = dynamic_pointer_cast<const Choice>(new_rule);
-  if (choice.get()) {
+  auto choice = new_rule->as<Choice>();
+  if (choice) {
     for (auto &child : choice->elements)
       add_choice_element(vec, child);
   } else {
-    for (auto &el : *vec)
-      if (el->operator==(*new_rule))
+    for (auto &element : *vec)
+      if (element->operator==(*new_rule))
         return;
     vec->push_back(new_rule);
   }
@@ -38,7 +37,7 @@ rule_ptr Choice::build(const vector<rule_ptr> &inputs) {
 }
 
 bool Choice::operator==(const Rule &rule) const {
-  const Choice *other = dynamic_cast<const Choice *>(&rule);
+  const Choice *other = rule.as<Choice>();
   if (!other)
     return false;
   size_t size = elements.size();

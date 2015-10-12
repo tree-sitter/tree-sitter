@@ -18,7 +18,6 @@
 namespace tree_sitter {
 namespace prepare_grammar {
 
-using std::dynamic_pointer_cast;
 using std::make_shared;
 using std::make_tuple;
 using std::map;
@@ -122,8 +121,8 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens
    */
   size_t i = 0;
   for (const Variable &variable : processed_variables) {
-    auto symbol = dynamic_pointer_cast<const Symbol>(variable.rule);
-    if (symbol.get() && symbol->is_token && !symbol->is_built_in() &&
+    auto symbol = variable.rule->as<Symbol>();
+    if (symbol && symbol->is_token && !symbol->is_built_in() &&
         extractor.token_usage_counts[symbol->index] == 1) {
       lexical_grammar.variables[symbol->index].type = variable.type;
       lexical_grammar.variables[symbol->index].name = variable.name;
@@ -160,8 +159,8 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens
       continue;
     }
 
-    auto symbol = dynamic_pointer_cast<const Symbol>(rule);
-    if (!symbol.get())
+    auto symbol = rule->as<Symbol>();
+    if (!symbol)
       return make_tuple(syntax_grammar, lexical_grammar,
                         ubiq_token_err(rule->to_string()));
 

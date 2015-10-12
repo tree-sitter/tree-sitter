@@ -13,8 +13,12 @@ using std::map;
 Metadata::Metadata(rule_ptr rule, map<MetadataKey, int> values)
     : rule(rule), value(values) {}
 
+rule_ptr Metadata::build(rule_ptr rule, map<MetadataKey, int> values) {
+  return std::make_shared<Metadata>(rule, values);
+}
+
 bool Metadata::operator==(const Rule &rule) const {
-  auto other = dynamic_cast<const Metadata *>(&rule);
+  auto other = rule.as<Metadata>();
   return other && other->value == value && other->rule->operator==(*this->rule);
 }
 

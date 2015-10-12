@@ -19,6 +19,7 @@ enum MetadataKey {
 class Metadata : public Rule {
  public:
   Metadata(rule_ptr rule, std::map<MetadataKey, int> value);
+  static rule_ptr build(rule_ptr rule, std::map<MetadataKey, int> value);
 
   bool operator==(const Rule &other) const;
   size_t hash_code() const;

@@ -1,5 +1,5 @@
 #include "compiler/rule.h"
-#include <set>
+#include <memory>
 
 namespace tree_sitter {
 

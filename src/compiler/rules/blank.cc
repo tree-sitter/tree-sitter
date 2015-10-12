@@ -13,7 +13,7 @@ rule_ptr Blank::build() {
 }
 
 bool Blank::operator==(const Rule &rule) const {
-  return dynamic_cast<const Blank *>(&rule) != nullptr;
+  return rule.as<Blank>() != nullptr;
 }
 
 size_t Blank::hash_code() const {

@@ -12,7 +12,7 @@ using std::hash;
 Pattern::Pattern(const string &string) : value(string) {}
 
 bool Pattern::operator==(tree_sitter::Rule const &other) const {
-  auto pattern = dynamic_cast<const Pattern *>(&other);
+  auto pattern = other.as<Pattern>();
   return pattern && (pattern->value == value);
 }
 

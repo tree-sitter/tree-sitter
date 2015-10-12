@@ -19,7 +19,7 @@ bool Symbol::operator==(const Symbol &other) const {
 }
 
 bool Symbol::operator==(const Rule &rule) const {
-  const Symbol *other = dynamic_cast<const Symbol *>(&rule);
+  auto other = rule.as<Symbol>();
   return other && this->operator==(*other);
 }
 

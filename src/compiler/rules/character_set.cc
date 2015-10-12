@@ -64,7 +64,7 @@ CharacterSet::CharacterSet()
     : includes_all(false), included_chars({}), excluded_chars({}) {}
 
 bool CharacterSet::operator==(const Rule &rule) const {
-  const CharacterSet *other = dynamic_cast<const CharacterSet *>(&rule);
+  const CharacterSet *other = rule.as<CharacterSet>();
   return other && (includes_all == other->includes_all) &&
          (included_chars == other->included_chars) &&
          (excluded_chars == other->excluded_chars);

@@ -11,7 +11,7 @@ using std::hash;
 NamedSymbol::NamedSymbol(const std::string &name) : name(name) {}
 
 bool NamedSymbol::operator==(const Rule &rule) const {
-  auto other = dynamic_cast<const NamedSymbol *>(&rule);
+  auto other = rule.as<NamedSymbol>();
   return other && other->name == name;
 }
 

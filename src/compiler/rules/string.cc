@@ -11,7 +11,7 @@ using std::hash;
 String::String(string value) : value(value) {}
 
 bool String::operator==(const Rule &rule) const {
-  const String *other = dynamic_cast<const String *>(&rule);
+  auto other = rule.as<String>();
   return other && (other->value == value);
 }
 

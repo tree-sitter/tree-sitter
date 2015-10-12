@@ -6,22 +6,21 @@
 namespace tree_sitter {
 namespace rules {
 
-using std::dynamic_pointer_cast;
 using std::make_shared;
 using std::string;
 
 Repeat::Repeat(const rule_ptr content) : content(content) {}
 
 rule_ptr Repeat::build(const rule_ptr &rule) {
-  auto inner_repeat = dynamic_pointer_cast<Repeat>(rule);
-  if (inner_repeat.get())
-    return inner_repeat;
+  auto inner_repeat = rule->as<Repeat>();
+  if (inner_repeat)
+    return rule;
   else
     return make_shared<Repeat>(rule);
 }
 
 bool Repeat::operator==(const Rule &rule) const {
-  const Repeat *other = dynamic_cast<const Repeat *>(&rule);
+  auto other = rule.as<Repeat>();
   return other && (*other->content == *content);
 }
 
