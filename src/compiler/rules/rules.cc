@@ -63,13 +63,26 @@ rule_ptr err(const rule_ptr &rule) {
   return choice({ rule, rules::ERROR().copy() });
 }
 
-rule_ptr prec(int precedence, const rule_ptr &rule, Associativity associativity) {
+rule_ptr prec_left(const rule_ptr &rule) {
+  return metadata(rule, { { rules::ASSOCIATIVITY, rules::AssociativityLeft } });
+}
+
+rule_ptr prec_left(int precedence, const rule_ptr &rule) {
   return metadata(rule, { { rules::PRECEDENCE, precedence },
-                          { rules::ASSOCIATIVITY, associativity } });
+                          { rules::ASSOCIATIVITY, rules::AssociativityLeft } });
+}
+
+rule_ptr prec_right(const rule_ptr &rule) {
+  return metadata(rule, { { rules::ASSOCIATIVITY, rules::AssociativityRight } });
+}
+
+rule_ptr prec_right(int precedence, const rule_ptr &rule) {
+  return metadata(rule, { { rules::PRECEDENCE, precedence },
+                          { rules::ASSOCIATIVITY, rules::AssociativityRight } });
 }
 
 rule_ptr prec(int precedence, const rule_ptr &rule) {
-  return prec(precedence, rule, AssociativityLeft);
+  return metadata(rule, { { rules::PRECEDENCE, precedence } });
 }
 
 rule_ptr token(const rule_ptr &rule) {

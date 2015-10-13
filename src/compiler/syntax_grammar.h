@@ -6,18 +6,19 @@
 #include <set>
 #include "tree_sitter/compiler.h"
 #include "compiler/rules/symbol.h"
+#include "compiler/rules/metadata.h"
 #include "compiler/variable.h"
 
 namespace tree_sitter {
 
 struct ProductionStep {
-  ProductionStep(const rules::Symbol &, int, Associativity);
-  ProductionStep(const rules::Symbol &, int, Associativity, int);
+  ProductionStep(const rules::Symbol &, int, rules::Associativity);
+  ProductionStep(const rules::Symbol &, int, rules::Associativity, int);
   bool operator==(const ProductionStep &) const;
 
   rules::Symbol symbol;
   int precedence;
-  Associativity associativity;
+  rules::Associativity associativity;
   int rule_id;
 };
 

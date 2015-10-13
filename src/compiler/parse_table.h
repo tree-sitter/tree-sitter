@@ -27,7 +27,7 @@ typedef enum {
 class ParseAction {
   ParseAction(ParseActionType type, ParseStateId state_index,
               rules::Symbol symbol, size_t consumed_symbol_count,
-              PrecedenceRange range, Associativity, int production_id);
+              PrecedenceRange range, rules::Associativity, int production_id);
 
  public:
   ParseAction();
@@ -35,7 +35,7 @@ class ParseAction {
   static ParseAction Error();
   static ParseAction Shift(ParseStateId state_index, PrecedenceRange precedence);
   static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count,
-                            int precedence, Associativity,
+                            int precedence, rules::Associativity,
                             unsigned int production_id);
   static ParseAction ShiftExtra();
   static ParseAction ReduceExtra(rules::Symbol symbol);
@@ -47,7 +47,7 @@ class ParseAction {
   ParseStateId state_index;
   size_t consumed_symbol_count;
   PrecedenceRange precedence_range;
-  Associativity associativity;
+  rules::Associativity associativity;
   int production_id;
 };
 

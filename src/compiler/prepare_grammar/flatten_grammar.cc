@@ -20,7 +20,7 @@ using std::vector;
 class FlattenRule : public rules::RuleFn<void> {
  private:
   vector<int> precedence_stack;
-  vector<Associativity> associativity_stack;
+  vector<rules::Associativity> associativity_stack;
   Production production;
 
   void apply_to(const rules::Symbol *sym) {
@@ -35,7 +35,8 @@ class FlattenRule : public rules::RuleFn<void> {
     if (precedence != 0)
       precedence_stack.push_back(precedence);
     if (associativity != 0)
-      associativity_stack.push_back(static_cast<Associativity>(associativity));
+      associativity_stack.push_back(
+        static_cast<rules::Associativity>(associativity));
 
     apply(metadata->rule);
 
@@ -57,7 +58,8 @@ class FlattenRule : public rules::RuleFn<void> {
 
  public:
   FlattenRule()
-      : precedence_stack({ 0 }), associativity_stack({ AssociativityNone }) {}
+      : precedence_stack({ 0 }),
+        associativity_stack({ rules::AssociativityNone }) {}
 
   Production flatten(const rule_ptr &rule) {
     apply(rule);

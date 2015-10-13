@@ -9,6 +9,12 @@
 namespace tree_sitter {
 namespace rules {
 
+enum Associativity {
+  AssociativityNone,
+  AssociativityLeft,
+  AssociativityRight,
+};
+
 enum MetadataKey {
   START_TOKEN,
   PRECEDENCE,

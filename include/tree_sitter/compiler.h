@@ -11,12 +11,6 @@ namespace tree_sitter {
 class Rule;
 typedef std::shared_ptr<Rule> rule_ptr;
 
-enum Associativity {
-  AssociativityNone,
-  AssociativityLeft,
-  AssociativityRight,
-};
-
 rule_ptr blank();
 rule_ptr choice(const std::vector<rule_ptr> &);
 rule_ptr repeat(const rule_ptr &);
@@ -27,7 +21,10 @@ rule_ptr pattern(const std::string &);
 rule_ptr str(const std::string &);
 rule_ptr err(const rule_ptr &);
 rule_ptr prec(int precedence, const rule_ptr &);
-rule_ptr prec(int precedence, const rule_ptr &, Associativity);
+rule_ptr prec_left(const rule_ptr &);
+rule_ptr prec_left(int precedence, const rule_ptr &);
+rule_ptr prec_right(const rule_ptr &);
+rule_ptr prec_right(int precedence, const rule_ptr &);
 rule_ptr token(const rule_ptr &rule);
 
 class Grammar {

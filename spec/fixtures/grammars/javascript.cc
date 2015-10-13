@@ -68,13 +68,13 @@ extern const Grammar javascript = Grammar({
   { "statement_block", prec(PREC_BLOCK,
     in_braces(err(repeat(sym("_statement"))))) },
 
-  { "if_statement", prec(0, seq({
+  { "if_statement", prec_right(0, seq({
     str("if"),
     sym("_paren_expression"),
     sym("_statement"),
     optional(seq({
       str("else"),
-      sym("_statement") })) }), AssociativityRight) },
+      sym("_statement") })) })) },
 
   { "switch_statement", seq({
     str("switch"),
@@ -219,13 +219,13 @@ extern const Grammar javascript = Grammar({
     sym("arguments") })) },
 
   { "constructor_call", choice({
-    prec(PREC_SHORT_NEW, seq({
+    prec_right(PREC_SHORT_NEW, seq({
       str("new"),
-      sym("_expression") }), AssociativityRight),
-    prec(PREC_MEMBER, seq({
+      sym("_expression") })),
+    prec_right(PREC_MEMBER, seq({
       str("new"),
       sym("_expression"),
-      sym("arguments") }), AssociativityRight) }) },
+      sym("arguments") })) }) },
 
   { "member_access", prec(PREC_MEMBER, seq({
     sym("_expression"),
@@ -238,28 +238,28 @@ extern const Grammar javascript = Grammar({
     err(sym("_expression")),
     str("]") })) },
 
-  { "assignment", prec(PREC_ASSIGN, seq({
+  { "assignment", prec_right(PREC_ASSIGN, seq({
     choice({
       sym("identifier"),
       sym("member_access"),
       sym("subscript_access") }),
     str("="),
-    sym("_expression") }), AssociativityRight) },
+    sym("_expression") })) },
 
-  { "math_assignment", prec(PREC_ASSIGN, seq({
+  { "math_assignment", prec_right(PREC_ASSIGN, seq({
     choice({
       sym("identifier"),
       sym("member_access"),
       sym("subscript_access") }),
     choice({ str("+="), str("-="), str("*="), str("/=") }),
-    sym("_expression") }), AssociativityRight) },
+    sym("_expression") })) },
 
-  { "ternary", prec(PREC_TERNARY, seq({
+  { "ternary", prec_right(PREC_TERNARY, seq({
     sym("_expression"),
     str("?"),
     sym("_expression"),
     str(":"),
-    sym("_expression") }), AssociativityRight) },
+    sym("_expression") })) },
 
   { "bool_op", choice({
     infix_op("||", "_expression", PREC_OR),

@@ -2,6 +2,7 @@
 #define COMPILER_BUILD_TABLES_GET_COMPLETION_STATUS_H_
 
 #include "tree_sitter/compiler.h"
+#include "compiler/rules/metadata.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -9,7 +10,7 @@ namespace build_tables {
 struct CompletionStatus {
   bool is_done;
   int precedence;
-  Associativity associativity;
+  rules::Associativity associativity;
 };
 
 CompletionStatus get_completion_status(const rule_ptr &);

@@ -32,13 +32,13 @@ describe("flatten_grammar", []() {
     // When multiple precedence values are nested, the inner precedence wins.
     Variable("variable1", VariableTypeNamed, seq({
       i_sym(1),
-      prec(101, seq({
+      prec_left(101, seq({
         i_sym(2),
         choice({
-          prec(102, seq({
+          prec_right(102, seq({
             i_sym(3),
             i_sym(4)
-          }), AssociativityRight),
+          })),
           i_sym(5),
         }),
         i_sym(6),
@@ -49,11 +49,11 @@ describe("flatten_grammar", []() {
     // When a precedence is applied to the end of a rule, its value is assigned
     // to the last step of the corresponding production.
     Variable("variable2", VariableTypeHidden, seq({
-      prec(102, seq({
+      prec_left(102, seq({
         i_sym(1),
         i_sym(2),
       })),
-      prec(103, seq({
+      prec_left(103, seq({
         i_sym(3),
         i_sym(4),
       })),

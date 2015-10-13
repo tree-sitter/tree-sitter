@@ -137,8 +137,8 @@ extern const Grammar c = Grammar({
     sym("number") }) },
 
   { "math_expression", choice({
-    prec(1, seq({ sym("expression"), str("+"), sym("expression") })),
-    prec(2, seq({ sym("expression"), str("*"), sym("expression") })) }) },
+    prec_left(1, seq({ sym("expression"), str("+"), sym("expression") })),
+    prec_left(2, seq({ sym("expression"), str("*"), sym("expression") })) }) },
 
   { "call_expression", prec(3, seq({
     sym("expression"),

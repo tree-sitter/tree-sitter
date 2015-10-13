@@ -14,11 +14,12 @@ using std::vector;
 using std::set;
 
 static const vector<Production> START_PRODUCTIONS_TOKEN_ONLY({
-  Production({ ProductionStep(rules::Symbol(0, true), 0, AssociativityNone) }),
+  Production({ ProductionStep(rules::Symbol(0, true), 0,
+                              rules::AssociativityNone) }),
 });
 
 static const vector<Production> START_PRODUCTIONS({
-  Production({ ProductionStep(rules::Symbol(0), 0, AssociativityNone) }),
+  Production({ ProductionStep(rules::Symbol(0), 0, rules::AssociativityNone) }),
 });
 
 static const vector<Production> NO_PRODUCTIONS({});
@@ -28,14 +29,14 @@ SyntaxVariable::SyntaxVariable(const string &name, VariableType type,
     : name(name), productions(productions), type(type) {}
 
 ProductionStep::ProductionStep(const rules::Symbol &symbol, int precedence,
-                               Associativity associativity)
+                               rules::Associativity associativity)
     : symbol(symbol),
       precedence(precedence),
       associativity(associativity),
       rule_id(0) {}
 
 ProductionStep::ProductionStep(const rules::Symbol &symbol, int precedence,
-                               Associativity associativity, int rule_id)
+                               rules::Associativity associativity, int rule_id)
     : symbol(symbol),
       precedence(precedence),
       associativity(associativity),

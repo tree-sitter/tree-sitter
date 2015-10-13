@@ -16,7 +16,7 @@ class GetCompletionStatus : public rules::RuleFn<CompletionStatus> {
       if (status.is_done)
         return status;
     }
-    return { false, 0, AssociativityNone };
+    return { false, 0, rules::AssociativityNone };
   }
 
   CompletionStatus apply_to(const rules::Metadata *rule) {
@@ -24,7 +24,7 @@ class GetCompletionStatus : public rules::RuleFn<CompletionStatus> {
     if (result.is_done && !result.associativity) {
       result.precedence = rule->value_for(rules::PRECEDENCE);
       result.associativity =
-        (Associativity)(rule->value_for(rules::ASSOCIATIVITY));
+        (rules::Associativity)(rule->value_for(rules::ASSOCIATIVITY));
     }
     return result;
   }
@@ -34,7 +34,7 @@ class GetCompletionStatus : public rules::RuleFn<CompletionStatus> {
   }
 
   CompletionStatus apply_to(const rules::Blank *rule) {
-    return { true, 0, AssociativityNone };
+    return { true, 0, rules::AssociativityNone };
   }
 
   CompletionStatus apply_to(const rules::Seq *rule) {
@@ -42,7 +42,7 @@ class GetCompletionStatus : public rules::RuleFn<CompletionStatus> {
     if (left_status.is_done)
       return apply(rule->right);
     else
-      return { false, 0, AssociativityNone };
+      return { false, 0, rules::AssociativityNone };
   }
 };
 

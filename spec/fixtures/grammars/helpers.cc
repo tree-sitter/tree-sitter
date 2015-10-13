@@ -29,7 +29,7 @@ rule_ptr in_brackets(rule_ptr rule) {
 }
 
 rule_ptr infix_op(std::string op, std::string rule_name, int precedence) {
-  return prec(precedence, seq({
+  return prec_left(precedence, seq({
     sym(rule_name),
     str(op),
     sym(rule_name) }));

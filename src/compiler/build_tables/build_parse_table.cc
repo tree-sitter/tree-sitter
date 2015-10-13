@@ -108,7 +108,7 @@ class ParseTableBuilder {
   struct CompletionStatus {
     bool is_done;
     int precedence;
-    Associativity associativity;
+    rules::Associativity associativity;
   };
 
   CompletionStatus get_completion_status(const ParseItem &item) {
@@ -118,7 +118,7 @@ class ParseTableBuilder {
       const ProductionStep &last_step = production[item.step_index - 1];
       return { true, last_step.precedence, last_step.associativity };
     }
-    return { false, 0, AssociativityNone };
+    return { false, 0, rules::AssociativityNone };
   }
 
   void add_reduce_actions(const ParseItemSet &item_set, ParseStateId state_id) {
