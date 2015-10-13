@@ -1,14 +1,11 @@
 #include "compiler/rules/character_range.h"
-#include <algorithm>
 #include <string>
 #include "compiler/util/string_helpers.h"
 
 namespace tree_sitter {
 namespace rules {
 
-using std::ostream;
 using std::string;
-using std::to_string;
 
 CharacterRange::CharacterRange(uint32_t value) : min(value), max(value) {}
 CharacterRange::CharacterRange(uint32_t min, uint32_t max)
@@ -32,7 +29,7 @@ string CharacterRange::to_string() const {
   if (min == max)
     return util::escape_char(min);
   else
-    return string() + util::escape_char(min) + "-" + util::escape_char(max);
+    return util::escape_char(min) + "-" + util::escape_char(max);
 }
 
 }  // namespace rules

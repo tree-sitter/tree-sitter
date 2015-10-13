@@ -26,7 +26,7 @@ class ParseItem {
 class ParseItemSet {
  public:
   ParseItemSet();
-  ParseItemSet(const std::map<ParseItem, LookaheadSet> &);
+  explicit ParseItemSet(const std::map<ParseItem, LookaheadSet> &);
 
   std::map<rules::Symbol, ParseItemSet> transitions(const SyntaxGrammar &) const;
   bool operator==(const ParseItemSet &) const;

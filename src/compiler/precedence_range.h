@@ -7,7 +7,7 @@ struct PrecedenceRange {
   PrecedenceRange();
   PrecedenceRange(int min, int max);
 
-  void add(int);
+  void add(int value);
   bool operator==(const PrecedenceRange &other) const;
   bool operator<(const PrecedenceRange &other) const;
 

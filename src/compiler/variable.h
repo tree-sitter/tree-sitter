@@ -1,6 +1,7 @@
 #ifndef COMPILER_VARIABLE_H_
 #define COMPILER_VARIABLE_H_
 
+#include <string>
 #include "tree_sitter/compiler.h"
 #include "compiler/rules/symbol.h"
 

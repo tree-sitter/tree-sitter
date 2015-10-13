@@ -1,5 +1,5 @@
-#ifndef COMPILER_BUILD_TABLES_RULE_TRANSITIONS_H_
-#define COMPILER_BUILD_TABLES_RULE_TRANSITIONS_H_
+#ifndef COMPILER_BUILD_TABLES_LEX_ITEM_TRANSITIONS_H_
+#define COMPILER_BUILD_TABLES_LEX_ITEM_TRANSITIONS_H_
 
 #include <map>
 #include <set>
@@ -16,4 +16,4 @@ void lex_item_transitions(std::map<rules::CharacterSet, LexItemSet> *transitions
 }  // namespace build_tables
 }  // namespace tree_sitter
 
-#endif  // COMPILER_BUILD_TABLES_RULE_TRANSITIONS_H_
+#endif  // COMPILER_BUILD_TABLES_LEX_ITEM_TRANSITIONS_H_

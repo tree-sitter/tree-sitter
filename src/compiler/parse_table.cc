@@ -1,6 +1,6 @@
 #include "compiler/parse_table.h"
-#include "compiler/precedence_range.h"
 #include <string>
+#include "compiler/precedence_range.h"
 
 namespace tree_sitter {
 

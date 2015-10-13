@@ -1,4 +1,7 @@
 #include "compiler/prepare_grammar/flatten_grammar.h"
+#include <string>
+#include <vector>
+#include <algorithm>
 #include "compiler/prepare_grammar/extract_choices.h"
 #include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/rules/visitor.h"
@@ -6,8 +9,6 @@
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/rules/built_in_symbols.h"
-#include <string>
-#include <algorithm>
 
 namespace tree_sitter {
 namespace prepare_grammar {

@@ -1,5 +1,5 @@
-#ifndef COMPILER_PREPARED_GRAMMAR_H_
-#define COMPILER_PREPARED_GRAMMAR_H_
+#ifndef COMPILER_SYNTAX_GRAMMAR_H_
+#define COMPILER_SYNTAX_GRAMMAR_H_
 
 #include <vector>
 #include <string>
@@ -44,4 +44,4 @@ struct SyntaxGrammar {
 
 }  // namespace tree_sitter
 
-#endif  // COMPILER_PREPARED_GRAMMAR_H_
+#endif  // COMPILER_SYNTAX_GRAMMAR_H_

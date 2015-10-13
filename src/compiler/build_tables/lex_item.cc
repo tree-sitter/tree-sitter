@@ -1,8 +1,8 @@
 #include "compiler/build_tables/lex_item.h"
+#include <unordered_set>
 #include "compiler/build_tables/get_metadata.h"
 #include "compiler/build_tables/lex_item_transitions.h"
 #include "compiler/rules/symbol.h"
-#include <unordered_set>
 
 namespace tree_sitter {
 namespace build_tables {

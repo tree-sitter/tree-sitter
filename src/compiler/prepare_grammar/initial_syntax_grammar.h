@@ -1,5 +1,5 @@
-#ifndef COMPILER_INITIAL_SYNTAX_GRAMMAR_H_
-#define COMPILER_INITIAL_SYNTAX_GRAMMAR_H_
+#ifndef COMPILER_PREPARE_GRAMMAR_INITIAL_SYNTAX_GRAMMAR_H_
+#define COMPILER_PREPARE_GRAMMAR_INITIAL_SYNTAX_GRAMMAR_H_
 
 #include <vector>
 #include <string>
@@ -21,4 +21,4 @@ struct InitialSyntaxGrammar {
 }  // namespace prepare_grammar
 }  // namespace tree_sitter
 
-#endif  // COMPILER_INITIAL_SYNTAX_GRAMMAR_H_
+#endif  // COMPILER_PREPARE_GRAMMAR_INITIAL_SYNTAX_GRAMMAR_H_

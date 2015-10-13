@@ -2,6 +2,7 @@
 #include <map>
 #include <vector>
 #include <functional>
+#include <utility>
 #include "compiler/build_tables/rule_can_be_blank.h"
 #include "compiler/rules/blank.h"
 #include "compiler/rules/choice.h"
@@ -28,10 +29,10 @@ class LexItemTransitions : public rules::RuleFn<void> {
   const rules::Symbol &item_lhs;
 
   LexItemSet transform_item_set(const LexItemSet &item_set,
-                                function<rule_ptr(rule_ptr)> transform) {
+                                function<rule_ptr(rule_ptr)> callback) {
     LexItemSet new_set;
     for (const LexItem &item : item_set.entries)
-      new_set.entries.insert(LexItem(item.lhs, transform(item.rule)));
+      new_set.entries.insert(LexItem(item.lhs, callback(item.rule)));
     return new_set;
   }
 

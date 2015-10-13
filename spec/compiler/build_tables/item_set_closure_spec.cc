@@ -38,7 +38,7 @@ describe("item_set_closure", []() {
     ParseItemSet item_set = item_set_closure(ParseItemSet({
       {
         ParseItem(Symbol(0), 0, 0, 100),
-        set<Symbol>({ Symbol(10, true) }),
+        LookaheadSet({ Symbol(10, true) }),
       }
     }), grammar);
 

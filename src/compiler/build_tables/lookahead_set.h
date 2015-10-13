@@ -11,7 +11,7 @@ namespace build_tables {
 class LookaheadSet {
  public:
   LookaheadSet();
-  LookaheadSet(const std::set<rules::Symbol> &);
+  explicit LookaheadSet(const std::set<rules::Symbol> &);
 
   bool empty() const;
   bool operator==(const LookaheadSet &) const;

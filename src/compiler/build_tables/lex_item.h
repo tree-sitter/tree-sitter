@@ -27,7 +27,7 @@ class LexItem {
 class LexItemSet {
  public:
   LexItemSet();
-  LexItemSet(const std::unordered_set<LexItem, LexItem::Hash> &);
+  explicit LexItemSet(const std::unordered_set<LexItem, LexItem::Hash> &);
 
   bool operator==(const LexItemSet &) const;
   std::map<rules::CharacterSet, LexItemSet> transitions() const;
