@@ -15,6 +15,7 @@ extern const Grammar javascript;
 extern const Grammar json;
 extern const Grammar golang;
 extern const Grammar c;
+extern const Grammar cpp;
 
 }  // namespace tree_sitter_examples
 
@@ -31,7 +32,7 @@ describe("compiling the example grammars", []() {
 
       if (error)
         AssertThat(error->message, Equals(""));
-      
+
       ofstream file(example_parser_dir + language + ".c");
       file << get<0>(result);
       file.close();
@@ -43,6 +44,7 @@ describe("compiling the example grammars", []() {
   compile_grammar(tree_sitter_examples::javascript, "javascript");
   compile_grammar(tree_sitter_examples::golang, "golang");
   compile_grammar(tree_sitter_examples::c, "c");
+  compile_grammar(tree_sitter_examples::cpp, "cpp");
 });
 
 END_TEST

@@ -5,117 +5,218 @@ namespace tree_sitter_examples {
 
 // http://slps.github.io/zoo/cpp/iso-n2723.html
 
-extern const Grammar cpp =
-  Grammar(
-    {
-      { "expression", repeat(sym("declaration")) },
+extern const Grammar cpp = Grammar({
+  { "translation_unit", repeat(sym("_declaration")) },
 
-      { "declaration", sym("function_definition") },
+  { "_declaration", choice({
+    sym("_block_declaration"),
+    sym("function_definition") }) },
 
-      { "function_definition",
-        seq({ optional(sym("declaration_specifiers")), sym("type_specifier"),
-              sym("declarator"), repeat(sym("declaration")),
-              sym("compound_statement") }) },
+  { "_block_declaration", choice({
+    sym("simple_declaration"),
+    sym("namespace_alias_definition"), }) },
 
-      { "declaration_specifiers",
-        repeat1(
-          choice({ sym("storage_class_specifier"), sym("type_qualifier") })) },
+  { "function_definition", seq({
+    repeat(sym("decl_specifier")),
+    sym("type_specifier"),
+    sym("declarator"),
+    choice({
+      sym("function_body"),
+      seq({
+        str("="),
+        choice({
+          str("default"),
+          str("delete") }),
+        str(";") }) }) }) },
 
-      { "storage_class_specifier",
-        choice({ str("typedef"), str("extern"), str("static"), str("auto"),
-                 str("register") }) },
+  { "simple_declaration", seq({
+    repeat(sym("decl_specifier")),
+    sym("type_specifier"),
+    comma_sep1(sym("init_declarator")),
+    str(";") }) },
 
-      { "type_specifier",
-        choice({ sym("struct_specifier"),
-                 seq({ repeat(choice({ str("signed"), str("unsigned"),
-                                       str("long"), str("short") })),
-                       sym("identifier") }) }) },
+  { "namespace_alias_definition", seq({
+    str("namespace"),
+    sym("identifier"),
+    str("="),
+    sym("scoped_identifier") }) },
 
-      { "struct_specifier",
-        seq(
-          { str("struct"), optional(sym("identifier")),
-            seq({ str("{"), repeat(sym("struct_declaration")), str("}") }) }) },
+  { "scoped_identifier", seq({
+    sym("identifier"),
+    str("::"),
+    choice({
+      sym("identifier"),
+      sym("scoped_identifier") }) }) },
 
-      { "struct_declaration",
-        seq({ sym("type_specifier"), sym("declarator") }) },
+  { "declarator", seq({
+    repeat(sym("pointer_operator")),
+    sym("direct_declarator") }) },
 
-      { "parameter_declaration",
-        seq({ optional(sym("declaration_specifiers")), sym("type_specifier"),
-              sym("declarator") }) },
+  { "abstract_declarator", seq({
+    repeat(sym("pointer_operator")),
+    sym("direct_abstract_declarator") }) },
 
-      { "declaration",
-        seq({ optional(sym("declaration_specifiers")), sym("type_specifier"),
-              comma_sep1(sym("init_declarator")), str(";") }) },
+  { "direct_declarator", choice({
+    sym("identifier"),
+    seq({
+      str("("),
+      sym("declarator"),
+      str(")") }),
+    seq({
+      sym("direct_declarator"),
+      str("("),
+      comma_sep(sym("parameter_declaration")),
+      str(")") }) }) },
 
-      { "init_declarator",
-        choice({ sym("declarator"),
-                 seq({ sym("declarator"), str("="), sym("initializer") }) }) },
+  { "parameter_declaration", seq({
+    repeat(sym("decl_specifier")),
+    sym("type_specifier"),
+    choice({
+      sym("declarator"),
+      sym("abstract_declarator") }) }) },
 
-      { "initializer",
-        choice({ sym("expression"), seq({ str("{"), sym("initializer_list"),
-                                          optional(str(",")), str("}") }) }) },
+  { "direct_abstract_declarator", choice({
+    seq({
+      str("("),
+      sym("abstract_declarator"),
+      str(")") }) }) },
 
-      { "initializer_list",
-        choice({ seq({ optional(sym("designation")), sym("initializer") }),
-                 seq({ sym("initializer_list"), str(","),
-                       optional(sym("designation")), sym("initializer") }) }) },
+  { "cv_qualifier", choice({
+    str("const"),
+    str("volatile") }) },
 
-      { "designation",
-        seq({ repeat1(choice({ seq({ str("["), sym("expression"), str("]") }),
-                               seq({ str("."), sym("identifier") }) })),
-              str("=") }) },
+  { "type_id", seq({
+    sym("type_specifier"),
+    optional(sym("abstract_declarator")) }) },
 
-      { "declarator", seq({ repeat(sym("star")), sym("direct_declarator") }) },
+  { "pointer_operator", choice({
+    seq({ str("*"), repeat(sym("cv_qualifier")) }),
+    str("&"),
+    str("&&") }) },
 
-      { "direct_declarator",
-        choice(
-          { sym("identifier"), seq({ str("("), sym("declarator"), str(")") }),
-            seq({ sym("direct_declarator"), str("["),
-                  optional(sym("expression")), str("]") }),
-            seq({ sym("direct_declarator"), str("("),
-                  comma_sep(sym("parameter_declaration")), str(")") }) }) },
+  { "type_name", choice({
+    sym("identifier"),
+    sym("template_call") }) },
 
-      { "type_qualifier",
-        choice({ str("const"), str("restrict"), str("volatile") }) },
+  { "function_body", choice({
+    // sym("function_try_block"),
+    seq({
+      optional(sym("constructor_initializer")),
+      sym("compound_statement") }) }) },
 
-      { "star", str("*") },
+  { "constructor_initializer", seq({
+    str(":"),
+    repeat(sym("member_initializer")),
+    optional(str("...")) }) },
 
-      { "compound_statement",
-        seq({ str("{"),
-              repeat(choice({ sym("declaration"), sym("statement") })),
-              str("}") }) },
+  { "member_initializer", seq({
+    sym("identifier"),
+    choice({
+      // sym("braced_initializer_list"),
+      seq({
+        str("("),
+        str("initializer_list"),
+        str(")") }) }) }) },
 
-      { "expression",
-        choice({ sym("math_expression"), sym("call_expression"), sym("string"),
-                 sym("identifier"), sym("number") }) },
+  { "init_declarator", seq({
+    sym("declarator"),
+    optional(sym("initializer")) }) },
 
-      { "math_expression",
-        choice(
-          { prec(1, seq({ sym("expression"), str("+"), sym("expression") })),
-            prec(2, seq({ sym("expression"), sym("star"),
-                          sym("expression") })) }) },
+  { "decl_specifier", choice({
+    sym("storage_class_specifier"),
+    sym("function_specifier"),
+    str("friend"),
+    str("typedef"),
+    str("constexpr") }) },
 
-      { "call_expression",
-        prec(3, seq({ sym("expression"), str("("), comma_sep(sym("expression")),
-                      str(")") })) },
+  { "storage_class_specifier", choice({
+    str("register"),
+    str("static"),
+    str("thread_local"),
+    str("extern"),
+    str("mutable") }) },
 
-      { "statement", choice({ sym("expression_statement") }) },
+  { "type_specifier", choice({
+    sym("scoped_identifier"),
+    sym("identifier") }) },
 
-      { "expression_statement", seq({ sym("expression"), str(";") }) },
+  { "compound_statement", seq({
+    str("{"),
+    repeat(sym("_statement")),
+    str("}") }) },
 
-      { "string", delimited("\"") },
+  { "_statement", choice({
+    sym("compound_statement"),
+    sym("_block_declaration"),
+    sym("expression_statement") }) },
 
-      { "identifier", pattern("\\a[\\w_]*") },
+  { "expression_statement", seq({
+    optional(sym("_expression")),
+    str(";") }) },
 
-      { "number", pattern("\\d+(\\.\\d+)?") },
+  { "initializer", choice({
+    // sym("braced_initializer_list"),
+    seq({
+      str("="),
+      sym("initializer_clause") }) }) },
 
-      { "comment", pattern("//[^\n]*") },
-    })
-    .ubiquitous_tokens({
-      sym("comment"), pattern("[ \t\r\n]"),
-    })
-    .expected_conflicts({
-      { "type_specifier", "expression" },
-    });
+  { "initializer_clause", choice({
+    // sym("braced_initializer_list"),
+    sym("_expression") }) },
+
+  { "function_specifier", choice({
+    str("inline"),
+    str("virtual"),
+    str("explicit") }) },
+
+  { "_expression", choice({
+    sym("relational_expression"),
+    sym("call_expression"),
+    sym("identifier"),
+    sym("template_call"),
+    sym("scoped_identifier"),
+    sym("string"),
+    sym("number") }) },
+
+  { "call_expression", seq({
+    sym("_expression"),
+    str("("),
+    comma_sep(sym("_expression")),
+    str(")") }) },
+
+  { "relational_expression", prec_left(seq({
+    sym("_expression"),
+    choice({
+      str(">"),
+      str(">="),
+      str("=="),
+      str("!="),
+      str("<="),
+      str("<") }),
+    sym("_expression") })) },
+
+  { "template_call", seq({
+    choice({ sym("identifier"), sym("scoped_identifier") }),
+    str("<"),
+    choice({
+      sym("_expression"),
+      sym("type_id") }),
+    str(">") }) },
+
+  { "string", delimited("\"") },
+
+  { "identifier", pattern("\\a[\\w_]*") },
+
+  { "number", pattern("\\d+(\\.\\d+)?") },
+
+  { "comment", pattern("//[^\n]*") },
+}).ubiquitous_tokens({
+  sym("comment"),
+  pattern("[ \t\r\n]"),
+}).expected_conflicts({
+  { "template_call", "_expression" },
+  { "type_specifier", "_expression" },
+  { "template_argument", "relational_expression" },
+});
 
 }  // namespace tree_sitter_examples

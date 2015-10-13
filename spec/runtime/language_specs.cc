@@ -9,6 +9,7 @@ extern "C" const TSLanguage *ts_language_json();
 extern "C" const TSLanguage *ts_language_arithmetic();
 extern "C" const TSLanguage *ts_language_golang();
 extern "C" const TSLanguage *ts_language_c();
+extern "C" const TSLanguage *ts_language_cpp();
 
 START_TEST
 
@@ -18,6 +19,7 @@ map<string, const TSLanguage *> languages({
   {"javascript", ts_language_javascript()},
   {"golang", ts_language_golang()},
   {"c", ts_language_c()},
+  {"cpp", ts_language_cpp()},
 });
 
 describe("Languages", [&]() {

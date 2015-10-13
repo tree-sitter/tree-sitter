@@ -1,0 +1,55 @@
+==================================================
+simple functions cpp
+==================================================
+
+int main() {
+  x;
+}
+
+---
+
+(translation_unit (function_definition
+  (type_specifier (identifier))
+  (declarator (direct_declarator (direct_declarator (identifier))))
+  (function_body (compound_statement
+    (expression_statement (identifier))))))
+
+==================================================
+function calls
+==================================================
+
+int main() {
+  printf("hello %s", "world");
+}
+
+---
+
+(translation_unit (function_definition
+  (type_specifier (identifier))
+  (declarator (direct_declarator (direct_declarator (identifier))))
+  (function_body (compound_statement
+    (expression_statement (call_expression (identifier) (string) (string)))))))
+
+==================================================
+template / relational expression ambiguities
+==================================================
+
+int main() {
+  someVariable < someValue > 0.0;
+  someTemplate<SomeType>(y);
+}
+
+---
+
+(translation_unit (function_definition
+  (type_specifier (identifier))
+  (declarator (direct_declarator (direct_declarator (identifier))))
+  (function_body (compound_statement
+    (expression_statement
+      (relational_expression
+        (relational_expression (identifier) (identifier))
+        (number)))
+    (expression_statement
+      (call_expression
+        (template_call (identifier) (type_id (type_specifier (identifier))))
+        (identifier)))))))
