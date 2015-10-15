@@ -15,6 +15,7 @@ class LookaheadSet {
 
   bool empty() const;
   bool operator==(const LookaheadSet &) const;
+  bool contains(const rules::Symbol &) const;
   bool insert_all(const LookaheadSet &);
   bool insert(const rules::Symbol &);
 

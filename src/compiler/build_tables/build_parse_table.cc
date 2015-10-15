@@ -202,13 +202,8 @@ class ParseTableBuilder {
       }
 
       case ConflictTypeUnresolved: {
-        auto old_goal_syms = goal_symbols(item_set, old_action, lookahead);
-        auto new_goal_syms = goal_symbols(item_set, new_action, lookahead);
-        if (has_expected_conflict(old_goal_syms, new_goal_syms))
+        if (handle_unresolved_conflict(item_set, lookahead))
           return &parse_table.add_action(state_id, lookahead, new_action);
-        else
-          conflicts.insert(conflict_description(
-            lookahead, old_action, old_goal_syms, new_action, new_goal_syms));
         break;
       }
     }
@@ -220,12 +215,98 @@ class ParseTableBuilder {
     return { action.symbol, action.production_id };
   }
 
-  bool has_expected_conflict(set<Symbol> symbols1, const set<Symbol> &symbols2) {
-    symbols1.insert(symbols2.begin(), symbols2.end());
-    for (const auto &conflicting_symbols : grammar.expected_conflicts)
-      if (symbols1 == conflicting_symbols)
+  bool handle_unresolved_conflict(const ParseItemSet &item_set,
+                                  const Symbol &lookahead) {
+    set<Symbol> involved_symbols;
+    set<ParseItem> reduce_items;
+    set<ParseItem> core_shift_items;
+    set<ParseItem> other_shift_items;
+
+    for (const auto &pair : item_set.entries) {
+      const ParseItem &item = pair.first;
+      const LookaheadSet &lookahead_set = pair.second;
+      const Production &production =
+        grammar.productions(item.lhs())[item.production_index];
+
+      if (item.step_index == production.size()) {
+        if (lookahead_set.contains(lookahead)) {
+          involved_symbols.insert(item.lhs());
+          reduce_items.insert(item);
+        }
+      } else {
+        Symbol next_symbol = production[item.step_index].symbol;
+
+        if (item.step_index > 0) {
+          set<Symbol> first_set = get_first_set(next_symbol);
+          if (first_set.find(lookahead) != first_set.end()) {
+            involved_symbols.insert(item.lhs());
+            core_shift_items.insert(item);
+          }
+        } else if (next_symbol == lookahead) {
+          other_shift_items.insert(item);
+        }
+      }
+    }
+
+    for (const auto &conflict_set : grammar.expected_conflicts)
+      if (involved_symbols == conflict_set)
         return true;
+
+    string description = "Lookahead symbol: " + symbol_name(lookahead) + "\n";
+
+    if (!reduce_items.empty()) {
+      description += "Reduce items:\n";
+      for (const ParseItem &item : reduce_items)
+        description += "  " + item_string(item) + "\n";
+    }
+
+    if (!core_shift_items.empty()) {
+      description += "Core shift items:\n";
+      for (const ParseItem &item : core_shift_items)
+        description += "  " + item_string(item) + "\n";
+    }
+
+    if (!other_shift_items.empty()) {
+      description += "Other shift items:\n";
+      for (const ParseItem &item : other_shift_items)
+        description += "  " + item_string(item) + "\n";
+    }
+
+    conflicts.insert(description);
     return false;
+  }
+
+  string item_string(const ParseItem &item) const {
+    string result = symbol_name(item.lhs()) + " ->";
+    size_t i = 0;
+    for (const ProductionStep &step :
+         grammar.productions(item.lhs())[item.production_index]) {
+      if (i == item.step_index)
+        result += " \u2022";
+      result += " " + symbol_name(step.symbol);
+      i++;
+    }
+    if (i == item.step_index)
+      result += " \u2022";
+    return result;
+  }
+
+  set<Symbol> get_first_set(const Symbol &start_symbol) {
+    set<Symbol> result;
+    vector<Symbol> symbols_to_process({ start_symbol });
+
+    while (!symbols_to_process.empty()) {
+      Symbol symbol = symbols_to_process.back();
+      symbols_to_process.pop_back();
+      if (result.insert(symbol).second) {
+        for (const Production &production : grammar.productions(symbol)) {
+          if (!production.empty())
+            symbols_to_process.push_back({ production[0].symbol });
+        }
+      }
+    }
+
+    return result;
   }
 
   PrecedenceRange precedence_values_for_item_set(const ParseItemSet &item_set) {
@@ -240,45 +321,6 @@ class ParseTableBuilder {
     return result;
   }
 
-  set<Symbol> goal_symbols(const ParseItemSet &item_set,
-                           const ParseAction &action,
-                           const Symbol &lookahead_sym) {
-    set<Symbol> result;
-    switch (action.type) {
-      case ParseActionTypeShift: {
-        for (const auto &pair : item_set.entries) {
-          const ParseItem &item = pair.first;
-          const Production &production =
-            grammar.productions(item.lhs())[item.production_index];
-          if (item.step_index < production.size() &&
-              production[item.step_index].symbol == lookahead_sym)
-            result.insert(item.lhs());
-        }
-        break;
-      }
-
-      case ParseActionTypeReduce:
-        result.insert(action.symbol);
-        break;
-
-      default:
-        break;
-    }
-    return result;
-  }
-
-  string conflict_description(const Symbol &lookahead,
-                              const ParseAction &old_action,
-                              const set<Symbol> &old_goal_symbols,
-                              const ParseAction &new_action,
-                              const set<Symbol> &new_goal_symbols) const {
-    return "Lookahead: " + symbol_name(lookahead) + "\n" +
-           "Possible Actions:\n"
-           "* " +
-           action_description(old_action, old_goal_symbols) + "\n" + "* " +
-           action_description(new_action, new_goal_symbols);
-  }
-
   string symbol_name(const rules::Symbol &symbol) const {
     if (symbol.is_built_in()) {
       if (symbol == rules::ERROR())
@@ -288,47 +330,14 @@ class ParseTableBuilder {
       else
         return "";
     } else if (symbol.is_token) {
-      return lexical_grammar.variables[symbol.index].name;
+      const Variable &variable = lexical_grammar.variables[symbol.index];
+      if (variable.type == VariableTypeNamed)
+        return variable.name;
+      else
+        return "'" + variable.name + "'";
     } else {
       return grammar.variables[symbol.index].name;
     }
-  }
-
-  string action_description(const ParseAction &action,
-                            const set<Symbol> &goal_symbols) const {
-    string result;
-    switch (action.type) {
-      case ParseActionTypeReduce: {
-        result += "Reduce";
-        for (const ProductionStep &step :
-             grammar.productions(action.symbol)[action.production_id])
-          result += " " + symbol_name(step.symbol);
-        result += " -> " + symbol_name(action.symbol);
-        break;
-      }
-
-      case ParseActionTypeShift: {
-        result += "Shift ";
-        bool started = false;
-        for (const auto &symbol : goal_symbols) {
-          if (started)
-            result += ", ";
-          started = true;
-          result += symbol_name(symbol);
-        }
-        break;
-      }
-
-      default:
-        break;
-    }
-
-    result += (action.precedence_range.min == action.precedence_range.max)
-                ? " (Precedence " + to_string(action.precedence_range.min) + ")"
-                : " (Precedences " + to_string(action.precedence_range.min) +
-                    ", " + to_string(action.precedence_range.max) + ")";
-
-    return result;
   }
 };
 

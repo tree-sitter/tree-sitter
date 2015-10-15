@@ -23,6 +23,10 @@ bool LookaheadSet::operator==(const LookaheadSet &other) const {
   return *entries == *other.entries;
 }
 
+bool LookaheadSet::contains(const Symbol &symbol) const {
+  return entries->find(symbol) != entries->end();
+}
+
 bool LookaheadSet::insert_all(const LookaheadSet &other) {
   if (!entries.get())
     entries = make_shared<set<Symbol>>();
