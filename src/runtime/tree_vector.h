@@ -20,31 +20,31 @@ static inline TreeVector tree_vector_new(size_t size) {
   };
 }
 
-static inline void tree_vector_push(TreeVector *this, TSTree *tree) {
-  if (this->size == this->capacity) {
-    this->capacity += 4;
-    this->contents = realloc(this->contents, this->capacity * sizeof(TSTree *));
+static inline void tree_vector_push(TreeVector *self, TSTree *tree) {
+  if (self->size == self->capacity) {
+    self->capacity += 4;
+    self->contents = realloc(self->contents, self->capacity * sizeof(TSTree *));
   }
   ts_tree_retain(tree);
-  this->contents[this->size++] = tree;
+  self->contents[self->size++] = tree;
 }
 
-static inline void tree_vector_reverse(TreeVector *this) {
+static inline void tree_vector_reverse(TreeVector *self) {
   TSTree *swap;
-  size_t limit = this->size / 2;
+  size_t limit = self->size / 2;
   for (size_t i = 0; i < limit; i++) {
-    swap = this->contents[i];
-    this->contents[i] = this->contents[this->size - 1 - i];
-    this->contents[this->size - 1 - i] = swap;
+    swap = self->contents[i];
+    self->contents[i] = self->contents[self->size - 1 - i];
+    self->contents[self->size - 1 - i] = swap;
   }
 }
 
-static inline TreeVector tree_vector_copy(TreeVector *this) {
+static inline TreeVector tree_vector_copy(TreeVector *self) {
   return (TreeVector){
-    .contents = memcpy(malloc(this->capacity * sizeof(TSTree *)),
-                       this->contents, this->size * sizeof(TSTree *)),
-    .capacity = this->capacity,
-    .size = this->size,
+    .contents = memcpy(malloc(self->capacity * sizeof(TSTree *)),
+                       self->contents, self->size * sizeof(TSTree *)),
+    .capacity = self->capacity,
+    .size = self->size,
   };
 }
 

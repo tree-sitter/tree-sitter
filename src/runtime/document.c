@@ -12,74 +12,73 @@ TSDocument *ts_document_make() {
   return document;
 }
 
-void ts_document_free(TSDocument *document) {
-  ts_parser_destroy(&document->parser);
-  if (document->tree)
-    ts_tree_release(document->tree);
-  free(document);
+void ts_document_free(TSDocument *self) {
+  ts_parser_destroy(&self->parser);
+  if (self->tree)
+    ts_tree_release(self->tree);
+  free(self);
 }
 
-const TSLanguage *ts_document_language(TSDocument *document) {
-  return document->parser.language;
+const TSLanguage *ts_document_language(TSDocument *self) {
+  return self->parser.language;
 }
 
-void ts_document_set_language(TSDocument *document, const TSLanguage *language) {
-  document->parser.language = language;
-  document->tree = NULL;
+void ts_document_set_language(TSDocument *self, const TSLanguage *language) {
+  self->parser.language = language;
+  self->tree = NULL;
 }
 
-TSDebugger ts_document_debugger(const TSDocument *document) {
-  return ts_parser_debugger(&document->parser);
+TSDebugger ts_document_debugger(const TSDocument *self) {
+  return ts_parser_debugger(&self->parser);
 }
 
-void ts_document_set_debugger(TSDocument *document, TSDebugger debugger) {
-  ts_parser_set_debugger(&document->parser, debugger);
+void ts_document_set_debugger(TSDocument *self, TSDebugger debugger) {
+  ts_parser_set_debugger(&self->parser, debugger);
 }
 
-TSInput ts_document_input(TSDocument *document) {
-  return document->input;
+TSInput ts_document_input(TSDocument *self) {
+  return self->input;
 }
 
-void ts_document_set_input(TSDocument *document, TSInput input) {
-  document->input = input;
+void ts_document_set_input(TSDocument *self, TSInput input) {
+  self->input = input;
 }
 
-void ts_document_set_input_string(TSDocument *document, const char *text) {
-  ts_document_set_input(document, ts_string_input_make(text));
+void ts_document_set_input_string(TSDocument *self, const char *text) {
+  ts_document_set_input(self, ts_string_input_make(text));
 }
 
-void ts_document_edit(TSDocument *document, TSInputEdit edit) {
-  if (!document->tree)
+void ts_document_edit(TSDocument *self, TSInputEdit edit) {
+  if (!self->tree)
     return;
 
-  size_t max_chars = ts_tree_total_size(document->tree).chars;
+  size_t max_chars = ts_tree_total_size(self->tree).chars;
   if (edit.position > max_chars)
     edit.position = max_chars;
   if (edit.chars_removed > max_chars - edit.position)
     edit.chars_removed = max_chars - edit.position;
 
-  ts_tree_edit(document->tree, edit);
+  ts_tree_edit(self->tree, edit);
 }
 
-void ts_document_parse(TSDocument *document) {
-  if (document->input.read_fn && document->parser.language) {
-    TSTree *tree =
-      ts_parser_parse(&document->parser, document->input, document->tree);
-    if (document->tree)
-      ts_tree_release(document->tree);
-    document->tree = tree;
+void ts_document_parse(TSDocument *self) {
+  if (self->input.read_fn && self->parser.language) {
+    TSTree *tree = ts_parser_parse(&self->parser, self->input, self->tree);
+    if (self->tree)
+      ts_tree_release(self->tree);
+    self->tree = tree;
     ts_tree_retain(tree);
-    document->parse_count++;
+    self->parse_count++;
   }
 }
 
-TSNode ts_document_root_node(const TSDocument *document) {
-  TSNode result = ts_node_make(document->tree, ts_length_zero());
+TSNode ts_document_root_node(const TSDocument *self) {
+  TSNode result = ts_node_make(self->tree, ts_length_zero());
   while (result.data && !ts_tree_is_visible(result.data))
     result = ts_node_named_child(result, 0);
   return result;
 }
 
-size_t ts_document_parse_count(const TSDocument *document) {
-  return document->parse_count;
+size_t ts_document_parse_count(const TSDocument *self) {
+  return self->parse_count;
 }

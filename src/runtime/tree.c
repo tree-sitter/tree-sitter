@@ -36,45 +36,45 @@ TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char)
   return result;
 }
 
-static void ts_tree__set_children(TSTree *this, TSTree **children,
+static void ts_tree__set_children(TSTree *self, TSTree **children,
                                   size_t child_count) {
-  this->children = children;
-  this->child_count = child_count;
+  self->children = children;
+  self->child_count = child_count;
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
     ts_tree_retain(child);
-    child->context.parent = this;
+    child->context.parent = self;
     child->context.index = i;
-    child->context.offset = ts_tree_total_size(this);
+    child->context.offset = ts_tree_total_size(self);
 
     if (i == 0) {
-      this->padding = child->padding;
-      this->size = child->size;
+      self->padding = child->padding;
+      self->size = child->size;
     } else {
-      this->size =
-        ts_length_add(ts_length_add(this->size, child->padding), child->size);
+      self->size =
+        ts_length_add(ts_length_add(self->size, child->padding), child->size);
     }
 
     switch (child->options.type) {
       case TSNodeTypeNamed:
-        this->visible_child_count++;
-        this->named_child_count++;
+        self->visible_child_count++;
+        self->named_child_count++;
         break;
       case TSNodeTypeAnonymous:
-        this->visible_child_count++;
+        self->visible_child_count++;
         break;
       case TSNodeTypeHidden:
-        this->visible_child_count += child->visible_child_count;
-        this->named_child_count += child->named_child_count;
+        self->visible_child_count += child->visible_child_count;
+        self->named_child_count += child->named_child_count;
         break;
     }
   }
 
   if (child_count > 0) {
     if (children[0]->options.fragile_left)
-      this->options.fragile_left = true;
+      self->options.fragile_left = true;
     if (children[child_count - 1]->options.fragile_right)
-      this->options.fragile_right = true;
+      self->options.fragile_right = true;
   }
 }
 
@@ -86,47 +86,47 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   return result;
 }
 
-void ts_tree_retain(TSTree *tree) {
-  assert(tree->ref_count > 0);
-  tree->ref_count++;
+void ts_tree_retain(TSTree *self) {
+  assert(self->ref_count > 0);
+  self->ref_count++;
 }
 
-void ts_tree_release(TSTree *tree) {
-  assert(tree->ref_count > 0);
-  tree->ref_count--;
-  if (tree->ref_count == 0) {
-    for (size_t i = 0; i < tree->child_count; i++)
-      ts_tree_release(tree->children[i]);
-    if (tree->child_count > 0)
-      free(tree->children);
-    free(tree);
+void ts_tree_release(TSTree *self) {
+  assert(self->ref_count > 0);
+  self->ref_count--;
+  if (self->ref_count == 0) {
+    for (size_t i = 0; i < self->child_count; i++)
+      ts_tree_release(self->children[i]);
+    if (self->child_count > 0)
+      free(self->children);
+    free(self);
   }
 }
 
-TSLength ts_tree_total_size(const TSTree *tree) {
-  return ts_length_add(tree->padding, tree->size);
+TSLength ts_tree_total_size(const TSTree *self) {
+  return ts_length_add(self->padding, self->size);
 }
 
-bool ts_tree_eq(const TSTree *node1, const TSTree *node2) {
-  if (node1) {
-    if (!node2)
+bool ts_tree_eq(const TSTree *self, const TSTree *other) {
+  if (self) {
+    if (!other)
       return false;
   } else {
-    return !node2;
+    return !other;
   }
 
-  if (node1->symbol != node2->symbol)
+  if (self->symbol != other->symbol)
     return false;
-  if (node1->symbol == ts_builtin_sym_error)
-    return node1->lookahead_char == node2->lookahead_char;
-  if (node1->child_count != node2->child_count)
+  if (self->symbol == ts_builtin_sym_error)
+    return self->lookahead_char == other->lookahead_char;
+  if (self->child_count != other->child_count)
     return false;
-  if (node1->visible_child_count != node2->visible_child_count)
+  if (self->visible_child_count != other->visible_child_count)
     return false;
-  if (node1->named_child_count != node2->named_child_count)
+  if (self->named_child_count != other->named_child_count)
     return false;
-  for (size_t i = 0; i < node1->child_count; i++)
-    if (!ts_tree_eq(node1->children[i], node2->children[i]))
+  for (size_t i = 0; i < self->child_count; i++)
+    if (!ts_tree_eq(self->children[i], other->children[i]))
       return false;
   return true;
 }
@@ -141,30 +141,30 @@ static size_t write_lookahead_to_string(char *string, size_t limit,
   }
 }
 
-static size_t ts_tree__write_to_string(const TSTree *tree,
+static size_t ts_tree__write_to_string(const TSTree *self,
                                        const char **symbol_names, char *string,
                                        size_t limit, int is_root) {
-  if (!tree)
+  if (!self)
     return snprintf(string, limit, "(NULL)");
 
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
-  int visible = tree->options.type == TSNodeTypeNamed || is_root;
+  int visible = self->options.type == TSNodeTypeNamed || is_root;
 
   if (visible && !is_root)
     cursor += snprintf(*writer, limit, " ");
 
   if (visible) {
-    if (tree->symbol == ts_builtin_sym_error && tree->child_count == 0) {
+    if (self->symbol == ts_builtin_sym_error && self->child_count == 0) {
       cursor += snprintf(*writer, limit, "(UNEXPECTED ");
-      cursor += write_lookahead_to_string(*writer, limit, tree->lookahead_char);
+      cursor += write_lookahead_to_string(*writer, limit, self->lookahead_char);
     } else {
-      cursor += snprintf(*writer, limit, "(%s", symbol_names[tree->symbol]);
+      cursor += snprintf(*writer, limit, "(%s", symbol_names[self->symbol]);
     }
   }
 
-  for (size_t i = 0; i < tree->child_count; i++) {
-    TSTree *child = tree->children[i];
+  for (size_t i = 0; i < self->child_count; i++) {
+    TSTree *child = self->children[i];
     cursor += ts_tree__write_to_string(child, symbol_names, *writer, limit, 0);
   }
 
@@ -174,62 +174,62 @@ static size_t ts_tree__write_to_string(const TSTree *tree,
   return cursor - string;
 }
 
-char *ts_tree_string(const TSTree *tree, const char **symbol_names) {
+char *ts_tree_string(const TSTree *self, const char **symbol_names) {
   static char SCRATCH[1];
-  size_t size = ts_tree__write_to_string(tree, symbol_names, SCRATCH, 0, 1) + 1;
+  size_t size = ts_tree__write_to_string(self, symbol_names, SCRATCH, 0, 1) + 1;
   char *result = malloc(size * sizeof(char));
-  ts_tree__write_to_string(tree, symbol_names, result, size, 1);
+  ts_tree__write_to_string(self, symbol_names, result, size, 1);
   return result;
 }
 
-void ts_tree_prepend_children(TSTree *tree, size_t count, TSTree **children) {
+void ts_tree_prepend_children(TSTree *self, size_t count, TSTree **children) {
   if (count == 0)
     return;
 
-  size_t new_child_count = count + tree->child_count;
+  size_t new_child_count = count + self->child_count;
   TSTree **new_children = realloc(children, new_child_count * sizeof(TSTree *));
-  memcpy(new_children + count, tree->children,
-         tree->child_count * sizeof(TSTree *));
-  free(tree->children);
+  memcpy(new_children + count, self->children,
+         self->child_count * sizeof(TSTree *));
+  free(self->children);
 
-  ts_tree__set_children(tree, new_children, new_child_count);
+  ts_tree__set_children(self, new_children, new_child_count);
 }
 
 static inline long min(long a, long b) {
   return a <= b ? a : b;
 }
 
-void ts_tree_edit(TSTree *tree, TSInputEdit edit) {
+void ts_tree_edit(TSTree *self, TSInputEdit edit) {
   size_t start = edit.position;
   size_t new_end = edit.position + edit.chars_inserted;
   size_t old_end = edit.position + edit.chars_removed;
-  assert(old_end <= ts_tree_total_size(tree).chars);
+  assert(old_end <= ts_tree_total_size(self).chars);
 
-  tree->options.has_changes = true;
+  self->options.has_changes = true;
 
-  if (start < tree->padding.chars) {
-    tree->padding.bytes = 0;
-    long remaining_padding = tree->padding.chars - old_end;
+  if (start < self->padding.chars) {
+    self->padding.bytes = 0;
+    long remaining_padding = self->padding.chars - old_end;
     if (remaining_padding >= 0) {
-      tree->padding.chars = new_end + remaining_padding;
+      self->padding.chars = new_end + remaining_padding;
     } else {
-      tree->padding.chars = new_end;
-      tree->size.chars += remaining_padding;
-      tree->size.bytes = 0;
+      self->padding.chars = new_end;
+      self->size.chars += remaining_padding;
+      self->size.bytes = 0;
     }
-  } else if (start == tree->padding.chars && edit.chars_removed == 0) {
-    tree->padding.bytes = 0;
-    tree->padding.chars += edit.chars_inserted;
+  } else if (start == self->padding.chars && edit.chars_removed == 0) {
+    self->padding.bytes = 0;
+    self->padding.chars += edit.chars_inserted;
   } else {
-    tree->size.bytes = 0;
-    tree->size.chars += (edit.chars_inserted - edit.chars_removed);
+    self->size.bytes = 0;
+    self->size.chars += (edit.chars_inserted - edit.chars_removed);
   }
 
   bool found_first_child = false;
   long remainder_to_delete = edit.chars_removed - edit.chars_inserted;
   size_t child_left = 0, child_right = 0;
-  for (size_t i = 0; i < tree->child_count; i++) {
-    TSTree *child = tree->children[i];
+  for (size_t i = 0; i < self->child_count; i++) {
+    TSTree *child = self->children[i];
     size_t child_size = ts_tree_total_size(child).chars;
     child_left = child_right;
     child_right += child_size;

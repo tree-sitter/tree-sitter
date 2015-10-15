@@ -29,43 +29,43 @@ struct Stack {
  */
 
 Stack *ts_stack_new(TreeSelectionCallback tree_selection_callback) {
-  Stack *this = malloc(sizeof(Stack));
-  *this = (Stack){
+  Stack *self = malloc(sizeof(Stack));
+  *self = (Stack){
     .heads = calloc(INITIAL_HEAD_CAPACITY, sizeof(StackNode *)),
     .head_count = 1,
     .head_capacity = INITIAL_HEAD_CAPACITY,
     .tree_selection_callback = tree_selection_callback,
   };
-  return this;
+  return self;
 }
 
-void ts_stack_delete(Stack *this) {
-  free(this->heads);
-  free(this);
+void ts_stack_delete(Stack *self) {
+  free(self->heads);
+  free(self);
 }
 
 /*
  *  Section: Reading from the stack
  */
 
-TSStateId ts_stack_top_state(const Stack *this, int head) {
-  StackEntry *entry = ts_stack_head((Stack *)this, head);
+TSStateId ts_stack_top_state(const Stack *self, int head) {
+  StackEntry *entry = ts_stack_head((Stack *)self, head);
   return entry ? entry->state : 0;
 }
 
-TSTree *ts_stack_top_tree(const Stack *this, int head) {
-  StackEntry *entry = ts_stack_head((Stack *)this, head);
+TSTree *ts_stack_top_tree(const Stack *self, int head) {
+  StackEntry *entry = ts_stack_head((Stack *)self, head);
   return entry ? entry->tree : NULL;
 }
 
-StackEntry *ts_stack_head(Stack *this, int head) {
-  assert(head < this->head_count);
-  StackNode *node = this->heads[head];
+StackEntry *ts_stack_head(Stack *self, int head) {
+  assert(head < self->head_count);
+  StackNode *node = self->heads[head];
   return node ? &node->entry : NULL;
 }
 
-int ts_stack_head_count(const Stack *this) {
-  return this->head_count;
+int ts_stack_head_count(const Stack *self) {
+  return self->head_count;
 }
 
 int ts_stack_entry_next_count(const StackEntry *entry) {
@@ -80,23 +80,23 @@ StackEntry *ts_stack_entry_next(const StackEntry *entry, int i) {
  *  Section: Manipulating nodes (Private)
  */
 
-static void stack_node_retain(StackNode *this) {
-  if (!this)
+static void stack_node_retain(StackNode *self) {
+  if (!self)
     return;
-  assert(this->ref_count != 0);
-  this->ref_count++;
+  assert(self->ref_count != 0);
+  self->ref_count++;
 }
 
-static bool stack_node_release(StackNode *this) {
-  if (!this)
+static bool stack_node_release(StackNode *self) {
+  if (!self)
     return false;
-  assert(this->ref_count != 0);
-  this->ref_count--;
-  if (this->ref_count == 0) {
-    for (int i = 0; i < this->successor_count; i++)
-      stack_node_release(this->successors[i]);
-    ts_tree_release(this->entry.tree);
-    free(this);
+  assert(self->ref_count != 0);
+  self->ref_count--;
+  if (self->ref_count == 0) {
+    for (int i = 0; i < self->successor_count; i++)
+      stack_node_release(self->successors[i]);
+    ts_tree_release(self->entry.tree);
+    free(self);
     return true;
   } else {
     return false;
@@ -104,10 +104,10 @@ static bool stack_node_release(StackNode *this) {
 }
 
 static StackNode *stack_node_new(StackNode *next, TSStateId state, TSTree *tree) {
-  StackNode *this = malloc(sizeof(StackNode));
+  StackNode *self = malloc(sizeof(StackNode));
   ts_tree_retain(tree);
   stack_node_retain(next);
-  *this = (StackNode){
+  *self = (StackNode){
     .ref_count = 1,
     .successor_count = 1,
     .successors = { next, NULL, NULL },
@@ -116,10 +116,10 @@ static StackNode *stack_node_new(StackNode *next, TSStateId state, TSTree *tree)
         .state = state, .tree = tree,
       },
   };
-  return this;
+  return self;
 }
 
-static void ts_stack__add_node_successor(Stack *this, StackNode *node,
+static void ts_stack__add_node_successor(Stack *self, StackNode *node,
                                          StackNode *new_successor) {
   for (int i = 0; i < node->successor_count; i++) {
     StackNode *successor = node->successors[i];
@@ -127,11 +127,11 @@ static void ts_stack__add_node_successor(Stack *this, StackNode *node,
       return;
     if (successor->entry.state == new_successor->entry.state) {
       if (successor->entry.tree != new_successor->entry.tree)
-        successor->entry.tree = this->tree_selection_callback.callback(
-          this->tree_selection_callback.data, successor->entry.tree,
+        successor->entry.tree = self->tree_selection_callback.callback(
+          self->tree_selection_callback.data, successor->entry.tree,
           new_successor->entry.tree);
       for (int j = 0; j < new_successor->successor_count; j++)
-        ts_stack__add_node_successor(this, successor,
+        ts_stack__add_node_successor(self, successor,
                                      new_successor->successors[j]);
       return;
     }
@@ -146,45 +146,45 @@ static void ts_stack__add_node_successor(Stack *this, StackNode *node,
  *  Section: Mutating the stack (Private)
  */
 
-static int ts_stack__add_head(Stack *this, StackNode *node) {
-  if (this->head_count == this->head_capacity) {
-    this->head_capacity += 3;
-    this->heads =
-      realloc(this->heads, this->head_capacity * sizeof(StackNode *));
+static int ts_stack__add_head(Stack *self, StackNode *node) {
+  if (self->head_count == self->head_capacity) {
+    self->head_capacity += 3;
+    self->heads =
+      realloc(self->heads, self->head_capacity * sizeof(StackNode *));
   }
-  int new_index = this->head_count++;
-  this->heads[new_index] = node;
+  int new_index = self->head_count++;
+  self->heads[new_index] = node;
   stack_node_retain(node);
   return new_index;
 }
 
-static int ts_stack__find_or_add_head(Stack *this, StackNode *node) {
-  for (int i = 0; i < this->head_count; i++)
-    if (this->heads[i] == node) {
+static int ts_stack__find_or_add_head(Stack *self, StackNode *node) {
+  for (int i = 0; i < self->head_count; i++)
+    if (self->heads[i] == node) {
       return i;
     }
-  return ts_stack__add_head(this, node);
+  return ts_stack__add_head(self, node);
 }
 
-void ts_stack_remove_head(Stack *this, int head_index) {
-  stack_node_release(this->heads[head_index]);
-  for (int i = head_index; i < this->head_count - 1; i++) {
-    this->heads[head_index] = this->heads[head_index + 1];
+void ts_stack_remove_head(Stack *self, int head_index) {
+  stack_node_release(self->heads[head_index]);
+  for (int i = head_index; i < self->head_count - 1; i++) {
+    self->heads[head_index] = self->heads[head_index + 1];
   }
-  this->head_count--;
+  self->head_count--;
 }
 
-static bool ts_stack__merge_head(Stack *this, int head_index, TSStateId state,
+static bool ts_stack__merge_head(Stack *self, int head_index, TSStateId state,
                                  TSTree *tree) {
   for (int i = 0; i < head_index; i++) {
-    StackNode *head = this->heads[i];
+    StackNode *head = self->heads[i];
     if (head->entry.state == state) {
       if (head->entry.tree != tree) {
-        head->entry.tree = this->tree_selection_callback.callback(
-          this->tree_selection_callback.data, head->entry.tree, tree);
+        head->entry.tree = self->tree_selection_callback.callback(
+          self->tree_selection_callback.data, head->entry.tree, tree);
       }
-      ts_stack__add_node_successor(this, head, this->heads[head_index]);
-      ts_stack_remove_head(this, head_index);
+      ts_stack__add_node_successor(self, head, self->heads[head_index]);
+      ts_stack_remove_head(self, head_index);
       return true;
     }
   }
@@ -195,29 +195,29 @@ static bool ts_stack__merge_head(Stack *this, int head_index, TSStateId state,
  *  Section: Mutating the stack (Public)
  */
 
-bool ts_stack_push(Stack *this, int head_index, TSStateId state, TSTree *tree) {
-  assert(head_index < this->head_count);
-  if (ts_stack__merge_head(this, head_index, state, tree))
+bool ts_stack_push(Stack *self, int head_index, TSStateId state, TSTree *tree) {
+  assert(head_index < self->head_count);
+  if (ts_stack__merge_head(self, head_index, state, tree))
     return true;
-  this->heads[head_index] = stack_node_new(this->heads[head_index], state, tree);
+  self->heads[head_index] = stack_node_new(self->heads[head_index], state, tree);
   return false;
 }
 
-void ts_stack_add_alternative(Stack *this, int head_index, TSTree *tree) {
-  assert(head_index < this->head_count);
-  StackEntry *entry = &this->heads[head_index]->entry;
-  entry->tree = this->tree_selection_callback.callback(
-    this->tree_selection_callback.data, entry->tree, tree);
+void ts_stack_add_alternative(Stack *self, int head_index, TSTree *tree) {
+  assert(head_index < self->head_count);
+  StackEntry *entry = &self->heads[head_index]->entry;
+  entry->tree = self->tree_selection_callback.callback(
+    self->tree_selection_callback.data, entry->tree, tree);
 }
 
-int ts_stack_split(Stack *this, int head_index) {
-  assert(head_index < this->head_count);
-  return ts_stack__add_head(this, this->heads[head_index]);
+int ts_stack_split(Stack *self, int head_index) {
+  assert(head_index < self->head_count);
+  return ts_stack__add_head(self, self->heads[head_index]);
 }
 
-StackPopResultList ts_stack_pop(Stack *this, int head_index, int child_count,
+StackPopResultList ts_stack_pop(Stack *self, int head_index, int child_count,
                                 bool count_extra) {
-  StackNode *previous_head = this->heads[head_index];
+  StackNode *previous_head = self->heads[head_index];
 
   int path_count = 1;
   int capacity = (child_count == -1) ? STARTING_TREE_CAPACITY : child_count;
@@ -280,13 +280,13 @@ StackPopResultList ts_stack_pop(Stack *this, int head_index, int child_count,
     int index = -1;
     if (path == 0) {
       stack_node_retain(nodes_by_path[path]);
-      this->heads[head_index] = nodes_by_path[path];
+      self->heads[head_index] = nodes_by_path[path];
       index = head_index;
     } else {
-      index = ts_stack__find_or_add_head(this, nodes_by_path[path]);
+      index = ts_stack__find_or_add_head(self, nodes_by_path[path]);
     }
 
-    this->last_pop_results[path] = (StackPopResult){
+    self->last_pop_results[path] = (StackPopResult){
       .index = index,
       .tree_count = trees_by_path[path].size,
       .trees = trees_by_path[path].contents,
@@ -295,12 +295,12 @@ StackPopResultList ts_stack_pop(Stack *this, int head_index, int child_count,
 
   stack_node_release(previous_head);
   return (StackPopResultList){
-    .size = path_count, .contents = this->last_pop_results,
+    .size = path_count, .contents = self->last_pop_results,
   };
 }
 
-void ts_stack_shrink(Stack *this, int head_index, int count) {
-  StackNode *head = this->heads[head_index];
+void ts_stack_shrink(Stack *self, int head_index, int count) {
+  StackNode *head = self->heads[head_index];
   StackNode *new_head = head;
   for (int i = 0; i < count; i++) {
     if (new_head->successor_count == 0)
@@ -309,12 +309,12 @@ void ts_stack_shrink(Stack *this, int head_index, int count) {
   }
   stack_node_retain(new_head);
   stack_node_release(head);
-  this->heads[head_index] = new_head;
+  self->heads[head_index] = new_head;
 }
 
-void ts_stack_clear(Stack *this) {
-  for (int i = 0; i < this->head_count; i++)
-    stack_node_release(this->heads[i]);
-  this->head_count = 1;
-  this->heads[0] = NULL;
+void ts_stack_clear(Stack *self) {
+  for (int i = 0; i < self->head_count; i++)
+    stack_node_release(self->heads[i]);
+  self->head_count = 1;
+  self->heads[0] = NULL;
 }

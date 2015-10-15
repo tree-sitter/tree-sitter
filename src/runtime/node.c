@@ -16,18 +16,18 @@ static inline TSNode ts_node__null() {
   return ts_node_make(NULL, ts_length_zero());
 }
 
-static inline const TSTree *ts_node__tree(TSNode this) {
-  return this.data;
+static inline const TSTree *ts_node__tree(TSNode self) {
+  return self.data;
 }
 
-static inline TSLength ts_node__offset(TSNode this) {
-  return this.offset;
+static inline TSLength ts_node__offset(TSNode self) {
+  return self.offset;
 }
 
-static inline TSNode ts_node__child(TSNode this, size_t child_index,
+static inline TSNode ts_node__child(TSNode self, size_t child_index,
                                     TSNodeType type) {
-  const TSTree *tree = ts_node__tree(this);
-  TSLength position = ts_node__offset(this);
+  const TSTree *tree = ts_node__tree(self);
+  TSLength position = ts_node__offset(self);
 
   bool did_descend = true;
   while (did_descend) {
@@ -60,9 +60,9 @@ static inline TSNode ts_node__child(TSNode this, size_t child_index,
   return ts_node__null();
 }
 
-static inline TSNode ts_node__prev_sibling(TSNode this, TSNodeType type) {
-  const TSTree *tree = ts_node__tree(this);
-  TSLength position = ts_node__offset(this);
+static inline TSNode ts_node__prev_sibling(TSNode self, TSNodeType type) {
+  const TSTree *tree = ts_node__tree(self);
+  TSLength position = ts_node__offset(self);
 
   do {
     size_t index = tree->context.index;
@@ -88,9 +88,9 @@ static inline TSNode ts_node__prev_sibling(TSNode this, TSNodeType type) {
   return ts_node__null();
 }
 
-static inline TSNode ts_node__next_sibling(TSNode this, TSNodeType type) {
-  const TSTree *tree = ts_node__tree(this);
-  TSLength position = ts_node__offset(this);
+static inline TSNode ts_node__next_sibling(TSNode self, TSNodeType type) {
+  const TSTree *tree = ts_node__tree(self);
+  TSLength position = ts_node__offset(self);
 
   do {
     size_t index = tree->context.index;
@@ -115,10 +115,10 @@ static inline TSNode ts_node__next_sibling(TSNode this, TSNodeType type) {
   return ts_node__null();
 }
 
-static inline TSNode ts_node__descendent_for_range(TSNode this, size_t min,
+static inline TSNode ts_node__descendent_for_range(TSNode self, size_t min,
                                                    size_t max, TSNodeType type) {
-  const TSTree *tree = ts_node__tree(this), *last_visible_tree = tree;
-  TSLength position = ts_node__offset(this), last_visible_position = position;
+  const TSTree *tree = ts_node__tree(self), *last_visible_tree = tree;
+  TSLength position = ts_node__offset(self), last_visible_position = position;
 
   bool did_descend = true;
   while (did_descend) {
@@ -148,43 +148,43 @@ static inline TSNode ts_node__descendent_for_range(TSNode this, size_t min,
  *  Public
  */
 
-TSLength ts_node_pos(TSNode this) {
-  return ts_length_add(ts_node__offset(this), ts_node__tree(this)->padding);
+TSLength ts_node_pos(TSNode self) {
+  return ts_length_add(ts_node__offset(self), ts_node__tree(self)->padding);
 }
 
-TSLength ts_node_size(TSNode this) {
-  return ts_node__tree(this)->size;
+TSLength ts_node_size(TSNode self) {
+  return ts_node__tree(self)->size;
 }
 
-TSSymbol ts_node_symbol(TSNode this) {
-  return ts_node__tree(this)->symbol;
+TSSymbol ts_node_symbol(TSNode self) {
+  return ts_node__tree(self)->symbol;
 }
 
-const char *ts_node_name(TSNode this, const TSDocument *document) {
-  return document->parser.language->symbol_names[ts_node__tree(this)->symbol];
+const char *ts_node_name(TSNode self, const TSDocument *document) {
+  return document->parser.language->symbol_names[ts_node__tree(self)->symbol];
 }
 
-const char *ts_node_string(TSNode this, const TSDocument *document) {
-  return ts_tree_string(ts_node__tree(this),
+const char *ts_node_string(TSNode self, const TSDocument *document) {
+  return ts_tree_string(ts_node__tree(self),
                         document->parser.language->symbol_names);
 }
 
-bool ts_node_eq(TSNode this, TSNode other) {
-  return ts_tree_eq(ts_node__tree(this), ts_node__tree(other)) &&
-         ts_length_eq(ts_node__offset(this), ts_node__offset(other));
+bool ts_node_eq(TSNode self, TSNode other) {
+  return ts_tree_eq(ts_node__tree(self), ts_node__tree(other)) &&
+         ts_length_eq(ts_node__offset(self), ts_node__offset(other));
 }
 
-bool ts_node_is_named(TSNode this) {
-  return ts_node__tree(this)->options.type == TSNodeTypeNamed;
+bool ts_node_is_named(TSNode self) {
+  return ts_node__tree(self)->options.type == TSNodeTypeNamed;
 }
 
-bool ts_node_has_changes(TSNode this) {
-  return ts_node__tree(this)->options.has_changes;
+bool ts_node_has_changes(TSNode self) {
+  return ts_node__tree(self)->options.has_changes;
 }
 
-TSNode ts_node_parent(TSNode this) {
-  const TSTree *tree = ts_node__tree(this);
-  TSLength position = ts_node__offset(this);
+TSNode ts_node_parent(TSNode self) {
+  const TSTree *tree = ts_node__tree(self);
+  TSLength position = ts_node__offset(self);
 
   do {
     position = ts_length_sub(position, tree->context.offset);
@@ -196,42 +196,42 @@ TSNode ts_node_parent(TSNode this) {
   return ts_node_make(tree, position);
 }
 
-TSNode ts_node_child(TSNode this, size_t child_index) {
-  return ts_node__child(this, child_index, TSNodeTypeAnonymous);
+TSNode ts_node_child(TSNode self, size_t child_index) {
+  return ts_node__child(self, child_index, TSNodeTypeAnonymous);
 }
 
-TSNode ts_node_named_child(TSNode this, size_t child_index) {
-  return ts_node__child(this, child_index, TSNodeTypeNamed);
+TSNode ts_node_named_child(TSNode self, size_t child_index) {
+  return ts_node__child(self, child_index, TSNodeTypeNamed);
 }
 
-size_t ts_node_child_count(TSNode this) {
-  return ts_node__tree(this)->visible_child_count;
+size_t ts_node_child_count(TSNode self) {
+  return ts_node__tree(self)->visible_child_count;
 }
 
-size_t ts_node_named_child_count(TSNode this) {
-  return ts_node__tree(this)->named_child_count;
+size_t ts_node_named_child_count(TSNode self) {
+  return ts_node__tree(self)->named_child_count;
 }
 
-TSNode ts_node_next_sibling(TSNode this) {
-  return ts_node__next_sibling(this, TSNodeTypeAnonymous);
+TSNode ts_node_next_sibling(TSNode self) {
+  return ts_node__next_sibling(self, TSNodeTypeAnonymous);
 }
 
-TSNode ts_node_next_named_sibling(TSNode this) {
-  return ts_node__next_sibling(this, TSNodeTypeNamed);
+TSNode ts_node_next_named_sibling(TSNode self) {
+  return ts_node__next_sibling(self, TSNodeTypeNamed);
 }
 
-TSNode ts_node_prev_sibling(TSNode this) {
-  return ts_node__prev_sibling(this, TSNodeTypeAnonymous);
+TSNode ts_node_prev_sibling(TSNode self) {
+  return ts_node__prev_sibling(self, TSNodeTypeAnonymous);
 }
 
-TSNode ts_node_prev_named_sibling(TSNode this) {
-  return ts_node__prev_sibling(this, TSNodeTypeNamed);
+TSNode ts_node_prev_named_sibling(TSNode self) {
+  return ts_node__prev_sibling(self, TSNodeTypeNamed);
 }
 
-TSNode ts_node_descendent_for_range(TSNode this, size_t min, size_t max) {
-  return ts_node__descendent_for_range(this, min, max, TSNodeTypeAnonymous);
+TSNode ts_node_descendent_for_range(TSNode self, size_t min, size_t max) {
+  return ts_node__descendent_for_range(self, min, max, TSNodeTypeAnonymous);
 }
 
-TSNode ts_node_named_descendent_for_range(TSNode this, size_t min, size_t max) {
-  return ts_node__descendent_for_range(this, min, max, TSNodeTypeNamed);
+TSNode ts_node_named_descendent_for_range(TSNode self, size_t min, size_t max) {
+  return ts_node__descendent_for_range(self, min, max, TSNodeTypeNamed);
 }

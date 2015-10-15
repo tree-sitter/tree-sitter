@@ -11,15 +11,14 @@
  *  Debugging
  */
 
-#define DEBUG(...)                                                           \
-  if (parser->lexer.debugger.debug_fn) {                                     \
-    snprintf(parser->lexer.debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__); \
-    parser->lexer.debugger.debug_fn(parser->lexer.debugger.payload,          \
-                                    TSDebugTypeParse,                        \
-                                    parser->lexer.debug_buffer);             \
+#define DEBUG(...)                                                             \
+  if (self->lexer.debugger.debug_fn) {                                         \
+    snprintf(self->lexer.debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__);     \
+    self->lexer.debugger.debug_fn(self->lexer.debugger.payload,                \
+                                  TSDebugTypeParse, self->lexer.debug_buffer); \
   }
 
-#define SYM_NAME(sym) parser->language->symbol_names[sym]
+#define SYM_NAME(sym) self->language->symbol_names[sym]
 
 /*
  *  Private
@@ -42,17 +41,17 @@ static TSParseAction ts_language__action(const TSLanguage *language,
 }
 
 /*
- *  Replace parser's reusable_subtree with its first non-fragile descendant.
+ *  Replace the parser's reusable_subtree with its first non-fragile descendant.
  *  Return true if a suitable descendant is found, false otherwise.
  */
-static bool ts_parser__breakdown_reusable_subtree(TSParser *parser) {
+static bool ts_parser__breakdown_reusable_subtree(TSParser *self) {
   do {
-    if (parser->reusable_subtree->symbol == ts_builtin_sym_error)
+    if (self->reusable_subtree->symbol == ts_builtin_sym_error)
       return false;
-    if (parser->reusable_subtree->child_count == 0)
+    if (self->reusable_subtree->child_count == 0)
       return false;
-    parser->reusable_subtree = parser->reusable_subtree->children[0];
-  } while (ts_tree_is_fragile(parser->reusable_subtree));
+    self->reusable_subtree = self->reusable_subtree->children[0];
+  } while (ts_tree_is_fragile(self->reusable_subtree));
   return true;
 }
 
@@ -60,18 +59,17 @@ static bool ts_parser__breakdown_reusable_subtree(TSParser *parser) {
  *  Replace the parser's reusable_subtree with its largest right neighbor, or
  *  NULL if no right neighbor exists.
  */
-static void ts_parser__pop_reusable_subtree(TSParser *parser) {
-  parser->reusable_subtree_pos +=
-    ts_tree_total_size(parser->reusable_subtree).chars;
+static void ts_parser__pop_reusable_subtree(TSParser *self) {
+  self->reusable_subtree_pos += ts_tree_total_size(self->reusable_subtree).chars;
 
-  while (parser->reusable_subtree) {
-    TSTree *parent = parser->reusable_subtree->context.parent;
-    size_t next_index = parser->reusable_subtree->context.index + 1;
+  while (self->reusable_subtree) {
+    TSTree *parent = self->reusable_subtree->context.parent;
+    size_t next_index = self->reusable_subtree->context.index + 1;
     if (parent && parent->child_count > next_index) {
-      parser->reusable_subtree = parent->children[next_index];
+      self->reusable_subtree = parent->children[next_index];
       return;
     }
-    parser->reusable_subtree = parent;
+    self->reusable_subtree = parent;
   }
 }
 
@@ -80,59 +78,59 @@ static void ts_parser__pop_reusable_subtree(TSParser *parser) {
  *  at the correct position in the parser's previous tree, use that. Otherwise,
  *  run the lexer.
  */
-static void ts_parser__get_next_lookahead(TSParser *parser) {
-  while (parser->reusable_subtree) {
-    if (parser->reusable_subtree_pos > parser->lexer.current_position.chars) {
+static void ts_parser__get_next_lookahead(TSParser *self) {
+  while (self->reusable_subtree) {
+    if (self->reusable_subtree_pos > self->lexer.current_position.chars) {
       break;
     }
 
-    if (parser->reusable_subtree_pos < parser->lexer.current_position.chars) {
-      DEBUG("past_reuse sym:%s", SYM_NAME(parser->reusable_subtree->symbol));
-      ts_parser__pop_reusable_subtree(parser);
+    if (self->reusable_subtree_pos < self->lexer.current_position.chars) {
+      DEBUG("past_reuse sym:%s", SYM_NAME(self->reusable_subtree->symbol));
+      ts_parser__pop_reusable_subtree(self);
       continue;
     }
 
-    if (ts_tree_has_changes(parser->reusable_subtree) ||
-        ts_tree_is_fragile(parser->reusable_subtree) ||
-        ts_tree_is_extra(parser->reusable_subtree)) {
-      DEBUG("breakdown sym:%s", SYM_NAME(parser->reusable_subtree->symbol));
-      if (!ts_parser__breakdown_reusable_subtree(parser))
-        ts_parser__pop_reusable_subtree(parser);
+    if (ts_tree_has_changes(self->reusable_subtree) ||
+        ts_tree_is_fragile(self->reusable_subtree) ||
+        ts_tree_is_extra(self->reusable_subtree)) {
+      DEBUG("breakdown sym:%s", SYM_NAME(self->reusable_subtree->symbol));
+      if (!ts_parser__breakdown_reusable_subtree(self))
+        ts_parser__pop_reusable_subtree(self);
       continue;
     }
 
-    TSStateId top_state = ts_stack_top_state(parser->stack, 0);
-    TSSymbol symbol = parser->reusable_subtree->symbol;
-    if (ts_language__action(parser->language, top_state, symbol).type ==
+    TSStateId top_state = ts_stack_top_state(self->stack, 0);
+    TSSymbol symbol = self->reusable_subtree->symbol;
+    if (ts_language__action(self->language, top_state, symbol).type ==
         TSParseActionTypeError) {
-      DEBUG("cant_reuse sym:%s", SYM_NAME(parser->reusable_subtree->symbol));
-      ts_parser__pop_reusable_subtree(parser);
+      DEBUG("cant_reuse sym:%s", SYM_NAME(self->reusable_subtree->symbol));
+      ts_parser__pop_reusable_subtree(self);
       continue;
     }
 
-    parser->lookahead = parser->reusable_subtree;
-    TSLength size = ts_tree_total_size(parser->lookahead);
-    DEBUG("reuse sym:%s size:%lu extra:%d", SYM_NAME(parser->lookahead->symbol),
-          size.chars, parser->lookahead->options.extra);
-    ts_lexer_reset(&parser->lexer,
-                   ts_length_add(parser->lexer.current_position, size));
-    ts_parser__pop_reusable_subtree(parser);
+    self->lookahead = self->reusable_subtree;
+    TSLength size = ts_tree_total_size(self->lookahead);
+    DEBUG("reuse sym:%s size:%lu extra:%d", SYM_NAME(self->lookahead->symbol),
+          size.chars, self->lookahead->options.extra);
+    ts_lexer_reset(&self->lexer,
+                   ts_length_add(self->lexer.current_position, size));
+    ts_parser__pop_reusable_subtree(self);
     return;
   }
 
-  TSLength position = parser->lexer.current_position;
-  for (size_t i = 0, count = ts_stack_head_count(parser->stack); i < count; i++) {
+  TSLength position = self->lexer.current_position;
+  for (size_t i = 0, count = ts_stack_head_count(self->stack); i < count; i++) {
     if (i > 0) {
-      ts_lexer_reset(&parser->lexer, position);
-      ts_tree_release(parser->lookahead);
+      ts_lexer_reset(&self->lexer, position);
+      ts_tree_release(self->lookahead);
     }
 
-    TSStateId parse_state = ts_stack_top_state(parser->stack, i);
-    TSStateId lex_state = parser->language->lex_states[parse_state];
+    TSStateId parse_state = ts_stack_top_state(self->stack, i);
+    TSStateId lex_state = self->language->lex_states[parse_state];
     DEBUG("lex state:%d", lex_state);
-    parser->lookahead = parser->language->lex_fn(&parser->lexer, lex_state);
+    self->lookahead = self->language->lex_fn(&self->lexer, lex_state);
 
-    if (parser->lookahead->symbol != ts_builtin_sym_error)
+    if (self->lookahead->symbol != ts_builtin_sym_error)
       break;
   }
 }
@@ -141,21 +139,21 @@ static void ts_parser__get_next_lookahead(TSParser *parser) {
  *  Parse Actions
  */
 
-static void ts_parser__shift(TSParser *parser, int head, TSStateId parse_state) {
-  ts_stack_push(parser->stack, head, parse_state, parser->lookahead);
+static void ts_parser__shift(TSParser *self, int head, TSStateId parse_state) {
+  ts_stack_push(self->stack, head, parse_state, self->lookahead);
 }
 
-static void ts_parser__shift_extra(TSParser *parser, int head, TSStateId state) {
-  ts_tree_set_extra(parser->lookahead);
-  ts_parser__shift(parser, head, state);
+static void ts_parser__shift_extra(TSParser *self, int head, TSStateId state) {
+  ts_tree_set_extra(self->lookahead);
+  ts_parser__shift(self, head, state);
 }
 
-static TSTree *ts_parser__reduce(TSParser *parser, int head, TSSymbol symbol,
+static TSTree *ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
                                  size_t child_count, bool extra,
                                  bool count_extra) {
-  TSNodeType node_type = parser->language->node_types[symbol];
+  TSNodeType node_type = self->language->node_types[symbol];
   StackPopResultList pop_results =
-    ts_stack_pop(parser->stack, head, child_count, count_extra);
+    ts_stack_pop(self->stack, head, child_count, count_extra);
 
   TSTree *parent = NULL;
   TSTree **last_children = NULL;
@@ -170,20 +168,20 @@ static TSTree *ts_parser__reduce(TSParser *parser, int head, TSSymbol symbol,
     }
 
     if (pop_result.index == last_index) {
-      ts_stack_add_alternative(parser->stack, pop_result.index, parent);
+      ts_stack_add_alternative(self->stack, pop_result.index, parent);
     } else {
-      TSStateId top_state = ts_stack_top_state(parser->stack, pop_result.index);
+      TSStateId top_state = ts_stack_top_state(self->stack, pop_result.index);
       TSStateId state;
 
       if (extra) {
         ts_tree_set_extra(parent);
         state = top_state;
       } else {
-        state = ts_language__action(parser->language, top_state, symbol)
-                  .data.to_state;
+        state =
+          ts_language__action(self->language, top_state, symbol).data.to_state;
       }
 
-      ts_stack_push(parser->stack, pop_result.index, state, parent);
+      ts_stack_push(self->stack, pop_result.index, state, parent);
     }
 
     last_index = pop_result.index;
@@ -193,27 +191,27 @@ static TSTree *ts_parser__reduce(TSParser *parser, int head, TSSymbol symbol,
   return parent;
 }
 
-static void ts_parser__reduce_fragile(TSParser *parser, int head,
-                                      TSSymbol symbol, size_t child_count) {
+static void ts_parser__reduce_fragile(TSParser *self, int head, TSSymbol symbol,
+                                      size_t child_count) {
   TSTree *reduced =
-    ts_parser__reduce(parser, head, symbol, child_count, false, false);
+    ts_parser__reduce(self, head, symbol, child_count, false, false);
   ts_tree_set_fragile_left(reduced);
   ts_tree_set_fragile_right(reduced);
 }
 
-static void ts_parser__reduce_error(TSParser *parser, int head,
+static void ts_parser__reduce_error(TSParser *self, int head,
                                     size_t child_count) {
-  TSTree *reduced = ts_parser__reduce(parser, head, ts_builtin_sym_error,
+  TSTree *reduced = ts_parser__reduce(self, head, ts_builtin_sym_error,
                                       child_count, false, true);
-  reduced->size = ts_length_add(reduced->size, parser->lookahead->padding);
-  parser->lookahead->padding = ts_length_zero();
+  reduced->size = ts_length_add(reduced->size, self->lookahead->padding);
+  self->lookahead->padding = ts_length_zero();
   ts_tree_set_fragile_left(reduced);
   ts_tree_set_fragile_right(reduced);
 }
 
-static bool ts_parser__handle_error(TSParser *parser, int head) {
+static bool ts_parser__handle_error(TSParser *self, int head) {
   size_t error_token_count = 1;
-  StackEntry *entry_before_error = ts_stack_head(parser->stack, head);
+  StackEntry *entry_before_error = ts_stack_head(self->stack, head);
 
   for (;;) {
 
@@ -225,18 +223,18 @@ static bool ts_parser__handle_error(TSParser *parser, int head) {
     for (StackEntry *entry = entry_before_error; entry != NULL;
          entry = ts_stack_entry_next(entry, head), i++) {
       TSStateId stack_state = entry->state;
-      TSParseAction action_on_error = ts_language__action(
-        parser->language, stack_state, ts_builtin_sym_error);
+      TSParseAction action_on_error =
+        ts_language__action(self->language, stack_state, ts_builtin_sym_error);
 
       if (action_on_error.type == TSParseActionTypeShift) {
         TSStateId state_after_error = action_on_error.data.to_state;
         TSParseAction action_after_error = ts_language__action(
-          parser->language, state_after_error, parser->lookahead->symbol);
+          self->language, state_after_error, self->lookahead->symbol);
 
         if (action_after_error.type != TSParseActionTypeError) {
           DEBUG("recover state:%u, count:%lu", state_after_error,
                 error_token_count + i);
-          ts_parser__reduce_error(parser, head, error_token_count + i);
+          ts_parser__reduce_error(self, head, error_token_count + i);
           return true;
         }
       }
@@ -246,24 +244,23 @@ static bool ts_parser__handle_error(TSParser *parser, int head) {
      *  If there is no state in the stack for which we can recover with the
      *  current lookahead token, advance to the next token.
      */
-    DEBUG("skip token:%s", SYM_NAME(parser->lookahead->symbol));
-    ts_parser__shift(parser, head, ts_stack_top_state(parser->stack, head));
-    parser->lookahead =
-      parser->language->lex_fn(&parser->lexer, ts_lex_state_error);
+    DEBUG("skip token:%s", SYM_NAME(self->lookahead->symbol));
+    ts_parser__shift(self, head, ts_stack_top_state(self->stack, head));
+    self->lookahead = self->language->lex_fn(&self->lexer, ts_lex_state_error);
     error_token_count++;
 
     /*
      *  If the end of input is reached, exit.
      */
-    if (parser->lookahead->symbol == ts_builtin_sym_end) {
+    if (self->lookahead->symbol == ts_builtin_sym_end) {
       DEBUG("fail_to_recover");
-      ts_parser__reduce_error(parser, head, error_token_count - 1);
+      ts_parser__reduce_error(self, head, error_token_count - 1);
       return false;
     }
   }
 }
 
-static void ts_parser__start(TSParser *parser, TSInput input,
+static void ts_parser__start(TSParser *self, TSInput input,
                              TSTree *previous_tree) {
   if (previous_tree) {
     DEBUG("parse_after_edit");
@@ -271,18 +268,17 @@ static void ts_parser__start(TSParser *parser, TSInput input,
     DEBUG("new_parse");
   }
 
-  parser->lexer.input = input;
-  ts_lexer_reset(&parser->lexer, ts_length_zero());
-  ts_stack_clear(parser->stack);
+  self->lexer.input = input;
+  ts_lexer_reset(&self->lexer, ts_length_zero());
+  ts_stack_clear(self->stack);
 
-  parser->reusable_subtree = previous_tree;
-  parser->reusable_subtree_pos = 0;
-  parser->lookahead = NULL;
+  self->reusable_subtree = previous_tree;
+  self->reusable_subtree_pos = 0;
+  self->lookahead = NULL;
 }
 
-static TSTree *ts_parser__finish(TSParser *parser) {
-  StackPopResult pop_result =
-    ts_stack_pop(parser->stack, 0, -1, true).contents[0];
+static TSTree *ts_parser__finish(TSParser *self) {
+  StackPopResult pop_result = ts_stack_pop(self->stack, 0, -1, true).contents[0];
 
   TSTree **trees = pop_result.trees;
   size_t extra_count = pop_result.tree_count - 1;
@@ -302,11 +298,11 @@ typedef enum {
  * Continue performing parse actions for the given head until the current
  * lookahead symbol is consumed.
  */
-static ConsumeResult ts_parser__consume_lookahead(TSParser *parser, int head) {
+static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head) {
   for (;;) {
-    TSStateId state = ts_stack_top_state(parser->stack, head);
+    TSStateId state = ts_stack_top_state(self->stack, head);
     const TSParseAction *next_action =
-      ts_language__actions(parser->language, state, parser->lookahead->symbol);
+      ts_language__actions(self->language, state, self->lookahead->symbol);
 
     /*
      * If there are multiple actions for the current state and lookahead symbol,
@@ -323,57 +319,57 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *parser, int head) {
         current_head = head;
         DEBUG("action current_head:%d, state:%d", current_head, state);
       } else {
-        current_head = ts_stack_split(parser->stack, head);
+        current_head = ts_stack_split(self->stack, head);
         DEBUG("split_action from_head:%d, current_head:%d, state:%d", head,
               current_head, state);
       }
 
       // TODO: Remove this by making a separate symbol for errors returned from
       // the lexer.
-      if (parser->lookahead->symbol == ts_builtin_sym_error)
+      if (self->lookahead->symbol == ts_builtin_sym_error)
         action.type = TSParseActionTypeError;
 
       switch (action.type) {
         case TSParseActionTypeError:
           DEBUG("error_sym");
-          if (ts_stack_head_count(parser->stack) == 1) {
-            if (ts_parser__handle_error(parser, current_head))
+          if (ts_stack_head_count(self->stack) == 1) {
+            if (ts_parser__handle_error(self, current_head))
               break;
             else
               return ConsumeResultFinished;
           } else {
             DEBUG("bail current_head:%d", current_head);
-            ts_stack_remove_head(parser->stack, current_head);
+            ts_stack_remove_head(self->stack, current_head);
             return ConsumeResultRemoved;
           }
 
         case TSParseActionTypeShift:
           DEBUG("shift state:%u", action.data.to_state);
-          ts_parser__shift(parser, current_head, action.data.to_state);
+          ts_parser__shift(self, current_head, action.data.to_state);
           return ConsumeResultShifted;
 
         case TSParseActionTypeShiftExtra:
           DEBUG("shift_extra");
-          ts_parser__shift_extra(parser, current_head, state);
+          ts_parser__shift_extra(self, current_head, state);
           return ConsumeResultShifted;
 
         case TSParseActionTypeReduce:
           DEBUG("reduce sym:%s, child_count:%u", SYM_NAME(action.data.symbol),
                 action.data.child_count);
-          ts_parser__reduce(parser, current_head, action.data.symbol,
+          ts_parser__reduce(self, current_head, action.data.symbol,
                             action.data.child_count, false, false);
           break;
 
         case TSParseActionTypeReduceExtra:
           DEBUG("reduce_extra sym:%s", SYM_NAME(action.data.symbol));
-          ts_parser__reduce(parser, current_head, action.data.symbol, 1, true,
+          ts_parser__reduce(self, current_head, action.data.symbol, 1, true,
                             false);
           break;
 
         case TSParseActionTypeReduceFragile:
           DEBUG("reduce_fragile sym:%s, count:%u", SYM_NAME(action.data.symbol),
                 action.data.child_count);
-          ts_parser__reduce_fragile(parser, current_head, action.data.symbol,
+          ts_parser__reduce_fragile(self, current_head, action.data.symbol,
                                     action.data.child_count);
           break;
 
@@ -403,40 +399,39 @@ TSParser ts_parser_make() {
   };
 }
 
-void ts_parser_destroy(TSParser *parser) {
-  ts_stack_delete(parser->stack);
-  if (parser->lookahead)
-    ts_tree_release(parser->lookahead);
+void ts_parser_destroy(TSParser *self) {
+  ts_stack_delete(self->stack);
+  if (self->lookahead)
+    ts_tree_release(self->lookahead);
 }
 
-TSDebugger ts_parser_debugger(const TSParser *parser) {
-  return parser->lexer.debugger;
+TSDebugger ts_parser_debugger(const TSParser *self) {
+  return self->lexer.debugger;
 }
 
-void ts_parser_set_debugger(TSParser *parser, TSDebugger debugger) {
-  parser->lexer.debugger = debugger;
+void ts_parser_set_debugger(TSParser *self, TSDebugger debugger) {
+  self->lexer.debugger = debugger;
 }
 
-TSTree *ts_parser_parse(TSParser *parser, TSInput input, TSTree *previous_tree) {
-  ts_parser__start(parser, input, previous_tree);
+TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
+  ts_parser__start(self, input, previous_tree);
 
   for (;;) {
-    ts_parser__get_next_lookahead(parser);
+    ts_parser__get_next_lookahead(self);
 
     DEBUG("lookahead sym:%s, pos:%lu, head_count:%d",
-          SYM_NAME(parser->lookahead->symbol),
-          parser->lexer.current_position.chars,
-          ts_stack_head_count(parser->stack));
+          SYM_NAME(self->lookahead->symbol), self->lexer.current_position.chars,
+          ts_stack_head_count(self->stack));
 
-    for (int head = 0; head < ts_stack_head_count(parser->stack);) {
-      switch (ts_parser__consume_lookahead(parser, head)) {
+    for (int head = 0; head < ts_stack_head_count(self->stack);) {
+      switch (ts_parser__consume_lookahead(self, head)) {
         case ConsumeResultRemoved:
           break;
         case ConsumeResultShifted:
           head++;
           break;
         case ConsumeResultFinished:
-          return ts_parser__finish(parser);
+          return ts_parser__finish(self);
       }
     }
   }
