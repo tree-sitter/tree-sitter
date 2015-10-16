@@ -57,14 +57,14 @@ int main() {
 
     // Tokens like '+' and '*' are described directly within the grammar's rules,
     // as opposed to in a seperate lexer description.
-    { "sum", prec(1, seq({
+    { "sum", prec_left(1, seq({
       sym("expression"),
       str("+"),
       sym("expression") })) },
 
     // Ambiguities can be resolved at compile time by assigning precedence
     // values to rule subtrees.
-    { "product", prec(2, seq({
+    { "product", prec_left(2, seq({
       sym("expression"),
       str("*"),
       sym("expression") })) },
@@ -102,8 +102,6 @@ clang++ -stdlib=libc++ -std=c++11                             \
   arithmetic_grammar.cc -o arithmetic_grammar
 
 ./arithmetic_grammar > arithmetic_parser.c
-
-clang -I tree-sitter/include -c arithmetic_parser.c
 ```
 
 ### Using the parser
@@ -135,6 +133,7 @@ int main() {
   // and reading chunks of text. This allows you to efficiently parse text
   // stored in your own data structure.
   ts_document_set_input_string(document, "a + b * 5");
+  ts_document_parse(document);
 
   TSNode root_node = ts_document_root_node(document);
   printf(
@@ -162,7 +161,7 @@ To demo this parser's capabilities, compile this program like this:
 ```sh
 clang                                                        \
   -I tree-sitter/include -L tree-sitter/out/Debug -l runtime \
-  arithmetic_parser.o test_parser.c -o test_parser
+  arithmetic_parser.c test_parser.c -o test_parser
 
 ./test_parser
 ```
