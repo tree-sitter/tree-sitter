@@ -17,6 +17,18 @@ describe("Compile", []() {
       AssertThat(error, Equals<const GrammarError *>(nullptr));
     });
   });
+
+  describe("when the grammar's start symbol is blank", [&]() {
+    it("does not fail", [&]() {
+      Grammar grammar({
+        { "rule1", blank() }
+      });
+
+      auto result = compile(grammar, "test_grammar");
+      const GrammarError *error = result.second;
+      AssertThat(error, Equals<const GrammarError *>(nullptr));
+    });
+  });
 });
 
 END_TEST

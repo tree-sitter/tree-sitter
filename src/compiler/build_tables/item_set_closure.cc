@@ -72,11 +72,11 @@ ParseItemSet item_set_closure(const ParseItemSet &input_item_set,
     // Add each of the next symbol's productions to be processed recursively.
     size_t i = 0;
     for (const Production &production : grammar.productions(next_symbol)) {
-      if (!production.empty())
-        items_to_process.push_back({
-          ParseItem(next_symbol, i, 0, production[0].rule_id),
-          next_lookahead_symbols,
-        });
+      int rule_id = production.empty() ? 0 : production[0].rule_id;
+      items_to_process.push_back({
+        ParseItem(next_symbol, i, 0, rule_id),
+        next_lookahead_symbols,
+      });
       i++;
     }
   }

@@ -112,13 +112,18 @@ class ParseTableBuilder {
   };
 
   CompletionStatus get_completion_status(const ParseItem &item) {
+    CompletionStatus result = { false, 0, rules::AssociativityNone };
     const Production &production =
       grammar.productions(item.lhs())[item.production_index];
     if (item.step_index == production.size()) {
-      const ProductionStep &last_step = production[item.step_index - 1];
-      return { true, last_step.precedence, last_step.associativity };
+      result.is_done = true;
+      if (item.step_index > 0) {
+        const ProductionStep &last_step = production[item.step_index - 1];
+        result.precedence = last_step.precedence;
+        result.associativity = last_step.associativity;
+      }
     }
-    return { false, 0, rules::AssociativityNone };
+    return result;
   }
 
   void add_reduce_actions(const ParseItemSet &item_set, ParseStateId state_id) {

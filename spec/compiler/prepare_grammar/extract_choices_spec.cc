@@ -61,6 +61,12 @@ describe("extract_choices", []() {
     })));
   });
 
+  it("handles blank rules", [&]() {
+    AssertThat(extract_choices(blank()), Equals(rule_vector({
+      blank(),
+    })));
+  });
+
   it("does not move choices outside of repeats", [&]() {
     auto rule = seq({
       choice({ sym("a"), sym("b") }),
