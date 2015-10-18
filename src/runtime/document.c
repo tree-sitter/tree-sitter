@@ -24,6 +24,7 @@ const TSLanguage *ts_document_language(TSDocument *self) {
 }
 
 void ts_document_set_language(TSDocument *self, const TSLanguage *language) {
+  ts_document_invalidate(self);
   self->parser.language = language;
   self->tree = NULL;
 }
@@ -45,6 +46,7 @@ void ts_document_set_input(TSDocument *self, TSInput input) {
 }
 
 void ts_document_set_input_string(TSDocument *self, const char *text) {
+  ts_document_invalidate(self);
   ts_document_set_input(self, ts_string_input_make(text));
 }
 
@@ -62,14 +64,24 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
 }
 
 void ts_document_parse(TSDocument *self) {
-  if (self->input.read_fn && self->parser.language) {
-    TSTree *tree = ts_parser_parse(&self->parser, self->input, self->tree);
-    if (self->tree)
-      ts_tree_release(self->tree);
-    self->tree = tree;
-    ts_tree_retain(tree);
-    self->parse_count++;
-  }
+  if (!self->input.read_fn || !self->parser.language)
+    return;
+
+  TSTree *reusable_tree = self->valid ? self->tree : NULL;
+  if (reusable_tree && !reusable_tree->options.has_changes)
+    return;
+
+  TSTree *tree = ts_parser_parse(&self->parser, self->input, reusable_tree);
+  ts_tree_retain(tree);
+  if (self->tree)
+    ts_tree_release(self->tree);
+  self->tree = tree;
+  self->parse_count++;
+  self->valid = true;
+}
+
+void ts_document_invalidate(TSDocument *self) {
+  self->valid = false;
 }
 
 TSNode ts_document_root_node(const TSDocument *self) {

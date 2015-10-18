@@ -73,8 +73,9 @@ void ts_document_set_input(TSDocument *, TSInput);
 void ts_document_set_input_string(TSDocument *, const char *);
 TSDebugger ts_document_debugger(const TSDocument *);
 void ts_document_set_debugger(TSDocument *, TSDebugger);
-void ts_document_parse(TSDocument *);
 void ts_document_edit(TSDocument *, TSInputEdit);
+void ts_document_parse(TSDocument *);
+void ts_document_invalidate(TSDocument *);
 TSNode ts_document_root_node(const TSDocument *);
 size_t ts_document_parse_count(const TSDocument *);
 
