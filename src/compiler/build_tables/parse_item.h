@@ -2,6 +2,7 @@
 #define COMPILER_BUILD_TABLES_PARSE_ITEM_H_
 
 #include <map>
+#include <utility>
 #include "compiler/build_tables/lookahead_set.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/syntax_grammar.h"
@@ -11,16 +12,20 @@ namespace build_tables {
 
 class ParseItem {
  public:
-  ParseItem(const rules::Symbol &, unsigned int, unsigned int, int);
+  ParseItem(const rules::Symbol &, const Production &, unsigned int);
 
   bool operator==(const ParseItem &other) const;
   bool operator<(const ParseItem &other) const;
   rules::Symbol lhs() const;
+  std::pair<int, int> remaining_rule_id() const;
 
   int variable_index;
-  unsigned int production_index;
+  const Production *production;
   unsigned int step_index;
-  int rule_id;
+
+  struct Hash {
+    size_t operator()(const ParseItem &) const;
+  };
 };
 
 class ParseItemSet {
@@ -28,7 +33,7 @@ class ParseItemSet {
   ParseItemSet();
   explicit ParseItemSet(const std::map<ParseItem, LookaheadSet> &);
 
-  std::map<rules::Symbol, ParseItemSet> transitions(const SyntaxGrammar &) const;
+  std::map<rules::Symbol, ParseItemSet> transitions() const;
   bool operator==(const ParseItemSet &) const;
 
   std::map<ParseItem, LookaheadSet> entries;

@@ -13,16 +13,7 @@ using std::pair;
 using std::vector;
 using std::set;
 
-static const vector<Production> START_PRODUCTIONS_TOKEN_ONLY({
-  Production({ ProductionStep(rules::Symbol(0, true), 0,
-                              rules::AssociativityNone) }),
-});
-
-static const vector<Production> START_PRODUCTIONS({
-  Production({ ProductionStep(rules::Symbol(0), 0, rules::AssociativityNone) }),
-});
-
-static const vector<Production> NO_PRODUCTIONS({});
+static const vector<Production> NO_PRODUCTIONS;
 
 SyntaxVariable::SyntaxVariable(const string &name, VariableType type,
                                const vector<Production> &productions)
@@ -49,12 +40,7 @@ bool ProductionStep::operator==(const ProductionStep &other) const {
 
 const vector<Production> &SyntaxGrammar::productions(
   const rules::Symbol &symbol) const {
-  if (symbol == rules::START()) {
-    if (variables.empty())
-      return START_PRODUCTIONS_TOKEN_ONLY;
-    else
-      return START_PRODUCTIONS;
-  } else if (symbol.is_built_in() || symbol.is_token) {
+  if (symbol.is_built_in() || symbol.is_token) {
     return NO_PRODUCTIONS;
   } else {
     return variables[symbol.index].productions;

@@ -32,27 +32,31 @@ describe("parse_item_set_transitions(ParseItemSet, SyntaxGrammar)", [&]() {
       })
     }, {}, {}};
 
+    auto production = [&](int variable_index, int production_index) -> const Production & {
+      return grammar.variables[variable_index].productions[production_index];
+    };
+
     ParseItemSet set1({
       {
-        ParseItem(Symbol(0), 0, 2, 103),
+        ParseItem(Symbol(0), production(0, 0), 2),
         LookaheadSet({ Symbol(16, true) })
       },
       {
-        ParseItem(Symbol(1), 0, 0, 106),
+        ParseItem(Symbol(1), production(1, 0), 0),
         LookaheadSet({ Symbol(17, true) })
       },
       {
-        ParseItem(Symbol(2), 0, 1, 106),
+        ParseItem(Symbol(2), production(2, 0), 1),
         LookaheadSet({ Symbol(17, true) })
       }
     });
 
-    AssertThat(set1.transitions(grammar), Equals(map<Symbol, ParseItemSet>({
+    AssertThat(set1.transitions(), Equals(map<Symbol, ParseItemSet>({
       {
         Symbol(1),
         ParseItemSet({
           {
-            ParseItem(Symbol(0), 0, 3, 104),
+            ParseItem(Symbol(0), production(0, 0), 3),
             LookaheadSet({ Symbol(16, true) })
           }
         })
@@ -62,7 +66,7 @@ describe("parse_item_set_transitions(ParseItemSet, SyntaxGrammar)", [&]() {
         Symbol(2),
         ParseItemSet({
           {
-            ParseItem(Symbol(1), 0, 1, 106),
+            ParseItem(Symbol(1), production(1, 0), 1),
             LookaheadSet({ Symbol(17, true) })
           },
         })

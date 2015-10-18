@@ -380,9 +380,8 @@ class CCodeGenerator {
   }
 
   bool reduce_action_is_fragile(const ParseAction &action) const {
-    return parse_table.fragile_production_ids.find(
-             { action.symbol, action.production_id }) !=
-           parse_table.fragile_production_ids.end();
+    return parse_table.fragile_productions.find(action.production) !=
+           parse_table.fragile_productions.end();
   }
 
   // C-code generation functions

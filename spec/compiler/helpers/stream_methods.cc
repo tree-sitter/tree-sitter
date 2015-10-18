@@ -126,9 +126,8 @@ ostream &operator<<(ostream &stream, const LexItemSet &item_set) {
 
 ostream &operator<<(ostream &stream, const ParseItem &item) {
   return stream << string("(item variable:") << to_string(item.variable_index)
-                << string(" production:") << to_string(item.production_index)
+                << string(" production:") << to_string((size_t)&item.production % 1000)
                 << string(" step:") << to_string(item.step_index)
-                << string(" remaining_rule:") << to_string(item.rule_id)
                 << string(")");
 }
 

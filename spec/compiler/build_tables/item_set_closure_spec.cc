@@ -35,28 +35,32 @@ describe("item_set_closure", []() {
       }),
     }, {}, {}};
 
+    auto production = [&](int variable_index, int production_index) -> const Production & {
+      return grammar.variables[variable_index].productions[production_index];
+    };
+
     ParseItemSet item_set = item_set_closure(ParseItemSet({
       {
-        ParseItem(Symbol(0), 0, 0, 100),
+        ParseItem(Symbol(0), production(0, 0), 0),
         LookaheadSet({ Symbol(10, true) }),
       }
     }), grammar);
 
     AssertThat(item_set, Equals(ParseItemSet({
       {
-        ParseItem(Symbol(0), 0, 0, 100),
+        ParseItem(Symbol(0), production(0, 0), 0),
         LookaheadSet({ Symbol(10, true) })
       },
       {
-        ParseItem(Symbol(1), 0, 0, 102),
+        ParseItem(Symbol(1), production(1, 0), 0),
         LookaheadSet({ Symbol(11, true) })
       },
       {
-        ParseItem(Symbol(1), 1, 0, 104),
+        ParseItem(Symbol(1), production(1, 1), 0),
         LookaheadSet({ Symbol(11, true) })
       },
       {
-        ParseItem(Symbol(2), 0, 0, 105),
+        ParseItem(Symbol(2), production(2, 0), 0),
         LookaheadSet({ Symbol(11, true) })
       },
     })));
@@ -79,24 +83,28 @@ describe("item_set_closure", []() {
       }),
     }, {}, {}};
 
+    auto production = [&](int variable_index, int production_index) -> const Production & {
+      return grammar.variables[variable_index].productions[production_index];
+    };
+
     ParseItemSet item_set = item_set_closure(ParseItemSet({
       {
-        ParseItem(Symbol(0), 0, 0, 100),
+        ParseItem(Symbol(0), production(0, 0), 0),
         LookaheadSet({ Symbol(10, true) }),
       }
     }), grammar);
 
     AssertThat(item_set, Equals(ParseItemSet({
       {
-        ParseItem(Symbol(0), 0, 0, 100),
+        ParseItem(Symbol(0), production(0, 0), 0),
         LookaheadSet({ Symbol(10, true) })
       },
       {
-        ParseItem(Symbol(1), 0, 0, 102),
+        ParseItem(Symbol(1), production(1, 0), 0),
         LookaheadSet({ Symbol(11, true) })
       },
       {
-        ParseItem(Symbol(1), 1, 0, 0),
+        ParseItem(Symbol(1), production(1, 1), 0),
         LookaheadSet({ Symbol(11, true) })
       },
     })));

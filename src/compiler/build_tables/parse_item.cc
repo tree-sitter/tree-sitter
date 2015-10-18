@@ -7,21 +7,22 @@ namespace tree_sitter {
 namespace build_tables {
 
 using std::map;
+using std::pair;
 using std::string;
 using std::to_string;
 using std::hash;
 using rules::Symbol;
 
-ParseItem::ParseItem(const Symbol &lhs, unsigned int production_index,
-                     unsigned int step_index, int rule_id)
+ParseItem::ParseItem(const Symbol &lhs, const Production &production,
+                     unsigned int step_index)
     : variable_index(lhs.index),
-      production_index(production_index),
-      step_index(step_index),
-      rule_id(rule_id) {}
+      production(&production),
+      step_index(step_index) {}
 
 bool ParseItem::operator==(const ParseItem &other) const {
-  return (variable_index == other.variable_index) &&
-         (rule_id == other.rule_id) && (step_index == other.step_index);
+  return ((variable_index == other.variable_index) &&
+          (step_index == other.step_index) &&
+          (remaining_rule_id() == other.remaining_rule_id()));
 }
 
 bool ParseItem::operator<(const ParseItem &other) const {
@@ -33,11 +34,29 @@ bool ParseItem::operator<(const ParseItem &other) const {
     return true;
   if (step_index > other.step_index)
     return false;
-  return rule_id < other.rule_id;
+  return remaining_rule_id() < other.remaining_rule_id();
 }
 
 Symbol ParseItem::lhs() const {
   return Symbol(variable_index);
+}
+
+pair<int, int> ParseItem::remaining_rule_id() const {
+  if (production->empty())
+    return { -2, -1 };
+  else if (step_index < production->size())
+    return { -1, production->at(step_index).rule_id };
+  else
+    return { production->back().associativity, production->back().precedence };
+}
+
+size_t ParseItem::Hash::operator()(const ParseItem &item) const {
+  size_t result = hash<int>()(item.variable_index);
+  result ^= hash<unsigned int>()(item.step_index);
+  result ^= hash<size_t>()(item.production->size());
+  pair<int, int> id = item.remaining_rule_id();
+  result ^= hash<int>()(id.first) ^ hash<int>()(id.second);
+  return result;
 }
 
 ParseItemSet::ParseItemSet() {}
@@ -53,33 +72,27 @@ size_t ParseItemSet::Hash::operator()(const ParseItemSet &item_set) const {
   size_t result = hash<size_t>()(item_set.entries.size());
   for (auto &pair : item_set.entries) {
     const ParseItem &item = pair.first;
-    result ^= hash<unsigned int>()(item.variable_index) ^
-              hash<int>()(item.rule_id) ^ hash<unsigned int>()(item.step_index);
+    result ^= ParseItem::Hash()(item);
 
     const LookaheadSet &lookahead_set = pair.second;
     result ^= hash<size_t>()(lookahead_set.entries->size());
-    for (auto &symbol : *pair.second.entries) {
+    for (auto &symbol : *pair.second.entries)
       result ^= hash<tree_sitter::rules::Symbol>()(symbol);
-    }
   }
   return result;
 }
 
-map<Symbol, ParseItemSet> ParseItemSet::transitions(
-  const SyntaxGrammar &grammar) const {
+map<Symbol, ParseItemSet> ParseItemSet::transitions() const {
   map<Symbol, ParseItemSet> result;
   for (const auto &pair : entries) {
     const ParseItem &item = pair.first;
     const LookaheadSet &lookahead_symbols = pair.second;
-    const Production &production =
-      grammar.productions(item.lhs())[item.production_index];
-    if (item.step_index == production.size())
+    if (item.step_index == item.production->size())
       continue;
 
     size_t step = item.step_index + 1;
-    Symbol symbol = production[item.step_index].symbol;
-    int rule_id = step < production.size() ? production[step].rule_id : 0;
-    ParseItem new_item(item.lhs(), item.production_index, step, rule_id);
+    Symbol symbol = item.production->at(item.step_index).symbol;
+    ParseItem new_item(item.lhs(), *item.production, step);
 
     result[symbol].entries[new_item] = lookahead_symbols;
   }

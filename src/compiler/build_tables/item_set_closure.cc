@@ -34,14 +34,12 @@ ParseItemSet item_set_closure(const ParseItemSet &input_item_set,
       continue;
 
     // If the item is at the end of its production, skip to the next item.
-    const Production &item_production =
-      grammar.productions(item.lhs())[item.production_index];
-    if (item.step_index == item_production.size())
+    if (item.step_index == item.production->size())
       continue;
 
     // If the next symbol in the production is not a non-terminal, skip to the
     // next item.
-    Symbol next_symbol = item_production[item.step_index].symbol;
+    Symbol next_symbol = item.production->at(item.step_index).symbol;
     if (next_symbol.is_token || next_symbol.is_built_in())
       continue;
 
@@ -52,33 +50,29 @@ ParseItemSet item_set_closure(const ParseItemSet &input_item_set,
     // recursively-added follow symbols.
     LookaheadSet next_lookahead_symbols;
     size_t next_step = item.step_index + 1;
-    if (next_step == item_production.size()) {
+    if (next_step == item.production->size()) {
       next_lookahead_symbols = lookahead_symbols;
     } else {
-      vector<Symbol> symbols_to_process({ item_production[next_step].symbol });
+      vector<Symbol> symbols_to_process(
+        { item.production->at(next_step).symbol });
       while (!symbols_to_process.empty()) {
-        Symbol following_symbol = symbols_to_process.back();
+        Symbol symbol = symbols_to_process.back();
         symbols_to_process.pop_back();
 
-        if (!next_lookahead_symbols.insert(following_symbol))
+        if (!next_lookahead_symbols.insert(symbol))
           continue;
 
-        for (const auto &production : grammar.productions(following_symbol))
+        for (const Production &production : grammar.productions(symbol))
           if (!production.empty())
             symbols_to_process.push_back(production[0].symbol);
       }
     }
 
     // Add each of the next symbol's productions to be processed recursively.
-    size_t i = 0;
-    for (const Production &production : grammar.productions(next_symbol)) {
-      int rule_id = production.empty() ? 0 : production[0].rule_id;
+    for (const Production &production : grammar.productions(next_symbol))
       items_to_process.push_back({
-        ParseItem(next_symbol, i, 0, rule_id),
-        next_lookahead_symbols,
+        ParseItem(next_symbol, production, 0), next_lookahead_symbols,
       });
-      i++;
-    }
   }
 
   return result;

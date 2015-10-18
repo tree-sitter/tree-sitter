@@ -14,14 +14,15 @@ using rules::Symbol;
 ParseAction::ParseAction(ParseActionType type, ParseStateId state_index,
                          Symbol symbol, size_t consumed_symbol_count,
                          PrecedenceRange precedence_range,
-                         rules::Associativity associativity, int production_id)
+                         rules::Associativity associativity,
+                         const Production *production)
     : type(type),
       symbol(symbol),
       state_index(state_index),
       consumed_symbol_count(consumed_symbol_count),
       precedence_range(precedence_range),
       associativity(associativity),
-      production_id(production_id) {}
+      production(production) {}
 
 ParseAction::ParseAction()
     : type(ParseActionTypeError),
@@ -43,7 +44,7 @@ ParseAction ParseAction::Accept() {
 ParseAction ParseAction::Shift(ParseStateId state_index,
                                PrecedenceRange precedence_range) {
   return ParseAction(ParseActionTypeShift, state_index, Symbol(-1), 0,
-                     precedence_range, rules::AssociativityNone, -1);
+                     precedence_range, rules::AssociativityNone, nullptr);
 }
 
 ParseAction ParseAction::ShiftExtra() {
@@ -62,9 +63,9 @@ ParseAction ParseAction::ReduceExtra(Symbol symbol) {
 ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
                                 int precedence,
                                 rules::Associativity associativity,
-                                unsigned int production_id) {
+                                const Production &production) {
   return ParseAction(ParseActionTypeReduce, 0, symbol, consumed_symbol_count,
-                     { precedence, precedence }, associativity, production_id);
+                     { precedence, precedence }, associativity, &production);
 }
 
 bool ParseAction::operator==(const ParseAction &other) const {

@@ -9,6 +9,7 @@
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/precedence_range.h"
+#include "compiler/syntax_grammar.h"
 
 namespace tree_sitter {
 
@@ -27,7 +28,7 @@ typedef enum {
 class ParseAction {
   ParseAction(ParseActionType type, ParseStateId state_index,
               rules::Symbol symbol, size_t consumed_symbol_count,
-              PrecedenceRange range, rules::Associativity, int production_id);
+              PrecedenceRange range, rules::Associativity, const Production *);
 
  public:
   ParseAction();
@@ -36,7 +37,7 @@ class ParseAction {
   static ParseAction Shift(ParseStateId state_index, PrecedenceRange precedence);
   static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count,
                             int precedence, rules::Associativity,
-                            unsigned int production_id);
+                            const Production &);
   static ParseAction ShiftExtra();
   static ParseAction ReduceExtra(rules::Symbol symbol);
   bool operator==(const ParseAction &) const;
@@ -48,7 +49,7 @@ class ParseAction {
   size_t consumed_symbol_count;
   PrecedenceRange precedence_range;
   rules::Associativity associativity;
-  int production_id;
+  const Production *production;
 };
 
 }  // namespace tree_sitter
@@ -65,7 +66,7 @@ struct hash<tree_sitter::ParseAction> {
             hash<int>()(action.associativity) ^
             hash<int>()(action.precedence_range.min) ^
             hash<int>()(action.precedence_range.max) ^
-            hash<size_t>()(action.production_id));
+            hash<const void *>()(&action.production));
   }
 };
 
@@ -91,7 +92,7 @@ class ParseTable {
 
   std::vector<ParseState> states;
   std::set<rules::Symbol> symbols;
-  std::set<std::pair<rules::Symbol, unsigned int>> fragile_production_ids;
+  std::set<const Production *> fragile_productions;
 };
 
 }  // namespace tree_sitter

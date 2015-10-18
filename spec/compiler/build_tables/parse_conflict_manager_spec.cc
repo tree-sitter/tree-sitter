@@ -31,6 +31,8 @@ describe("ParseConflictManager", []() {
     delete conflict_manager;
   });
 
+  const Production &production = syntax_grammar.variables[0].productions[0];
+
   describe(".resolve", [&]() {
     describe("errors", [&]() {
       ParseAction error = ParseAction::Error();
@@ -65,7 +67,7 @@ describe("ParseConflictManager", []() {
     describe("shift/reduce conflicts", [&]() {
       describe("when the shift has higher precedence", [&]() {
         ParseAction shift = ParseAction::Shift(2, {3, 4});
-        ParseAction reduce = ParseAction::Reduce(sym2, 1, 2, AssociativityLeft, 0);
+        ParseAction reduce = ParseAction::Reduce(sym2, 1, 2, AssociativityLeft, production);
 
         it("favors the shift and reports the conflict as resolved", [&]() {
           result = conflict_manager->resolve(shift, reduce, sym1);
@@ -80,7 +82,7 @@ describe("ParseConflictManager", []() {
 
       describe("when the reduce has higher precedence", [&]() {
         ParseAction shift = ParseAction::Shift(2, {1, 2});
-        ParseAction reduce = ParseAction::Reduce(sym2, 1, 3, AssociativityLeft, 0);
+        ParseAction reduce = ParseAction::Reduce(sym2, 1, 3, AssociativityLeft, production);
 
         it("favors the reduce and reports the conflict as resolved", [&]() {
           result = conflict_manager->resolve(shift, reduce, sym1);
@@ -95,7 +97,7 @@ describe("ParseConflictManager", []() {
 
       describe("when the precedences are equal and the reduce's rule is left associative", [&]() {
         ParseAction shift = ParseAction::Shift(2, { 0, 0 });
-        ParseAction reduce = ParseAction::Reduce(sym2, 1, 0, AssociativityLeft, 0);
+        ParseAction reduce = ParseAction::Reduce(sym2, 1, 0, AssociativityLeft, production);
 
         it("favors the reduce and reports the conflict as resolved", [&]() {
           result = conflict_manager->resolve(reduce, shift, sym1);
@@ -110,7 +112,7 @@ describe("ParseConflictManager", []() {
 
       describe("when the precedences are equal and the reduce's rule is right-associative", [&]() {
         ParseAction shift = ParseAction::Shift(2, { 0, 0 });
-        ParseAction reduce = ParseAction::Reduce(sym2, 1, 0, AssociativityRight, 0);
+        ParseAction reduce = ParseAction::Reduce(sym2, 1, 0, AssociativityRight, production);
 
         it("favors the shift, and reports the conflict as resolved", [&]() {
           result = conflict_manager->resolve(reduce, shift, sym1);
@@ -126,7 +128,7 @@ describe("ParseConflictManager", []() {
       describe("when the precedences are equal and the reduce's rule has no associativity", [&]() {
         it("reports an unresolved conflict", [&]() {
           ParseAction shift = ParseAction::Shift(2, { 0, 0 });
-          ParseAction reduce = ParseAction::Reduce(Symbol(2), 1, 0, AssociativityNone, 0);
+          ParseAction reduce = ParseAction::Reduce(Symbol(2), 1, 0, AssociativityNone, production);
 
           result = conflict_manager->resolve(reduce, shift, lookahead_sym);
           AssertThat(result.first, IsFalse());
@@ -139,7 +141,7 @@ describe("ParseConflictManager", []() {
 
       describe("when the shift has conflicting precedences compared to the reduce", [&]() {
         ParseAction shift = ParseAction::Shift(2, { 1, 3 });
-        ParseAction reduce = ParseAction::Reduce(Symbol(2), 1, 2, AssociativityLeft, 0);
+        ParseAction reduce = ParseAction::Reduce(Symbol(2), 1, 2, AssociativityLeft, production);
 
         it("returns false and reports an unresolved conflict", [&]() {
           result = conflict_manager->resolve(reduce, shift, lookahead_sym);
@@ -155,8 +157,8 @@ describe("ParseConflictManager", []() {
 
     describe("reduce/reduce conflicts", [&]() {
       describe("when one action has higher precedence", [&]() {
-        ParseAction left = ParseAction::Reduce(sym2, 1, 0, AssociativityLeft, 0);
-        ParseAction right = ParseAction::Reduce(sym2, 1, 2, AssociativityLeft, 0);
+        ParseAction left = ParseAction::Reduce(sym2, 1, 0, AssociativityLeft, production);
+        ParseAction right = ParseAction::Reduce(sym2, 1, 2, AssociativityLeft, production);
 
         it("favors that action", [&]() {
           result = conflict_manager->resolve(left, right, sym1);
@@ -171,8 +173,8 @@ describe("ParseConflictManager", []() {
 
       describe("when the actions have the same precedence", [&]() {
         it("returns false and reports a conflict", [&]() {
-          ParseAction left = ParseAction::Reduce(Symbol(2), 1, 0, AssociativityLeft, 0);
-          ParseAction right = ParseAction::Reduce(Symbol(3), 1, 0, AssociativityLeft, 0);
+          ParseAction left = ParseAction::Reduce(Symbol(2), 1, 0, AssociativityLeft, production);
+          ParseAction right = ParseAction::Reduce(Symbol(3), 1, 0, AssociativityLeft, production);
 
           result = conflict_manager->resolve(right, left, lookahead_sym);
           AssertThat(result.first, IsFalse());

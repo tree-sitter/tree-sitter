@@ -47,9 +47,14 @@ class ParseTableBuilder {
         conflict_manager(grammar) {}
 
   pair<ParseTable, const GrammarError *> build() {
+    Symbol start_symbol = Symbol(0, grammar.variables.empty());
+    Production start_production({
+      ProductionStep(start_symbol, 0, rules::AssociativityNone, -2),
+    });
+
     add_parse_state(ParseItemSet({
       {
-        ParseItem(rules::START(), 0, 0, -2),
+        ParseItem(rules::START(), start_production, 0),
         LookaheadSet({ rules::END_OF_INPUT() }),
       },
     }));
@@ -92,7 +97,7 @@ class ParseTableBuilder {
   }
 
   void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
-    for (const auto &transition : item_set.transitions(grammar)) {
+    for (const auto &transition : item_set.transitions()) {
       const Symbol &symbol = transition.first;
       const ParseItemSet &next_item_set = transition.second;
 
@@ -113,12 +118,11 @@ class ParseTableBuilder {
 
   CompletionStatus get_completion_status(const ParseItem &item) {
     CompletionStatus result = { false, 0, rules::AssociativityNone };
-    const Production &production =
-      grammar.productions(item.lhs())[item.production_index];
-    if (item.step_index == production.size()) {
+    if (item.step_index == item.production->size()) {
       result.is_done = true;
       if (item.step_index > 0) {
-        const ProductionStep &last_step = production[item.step_index - 1];
+        const ProductionStep &last_step =
+          item.production->at(item.step_index - 1);
         result.precedence = last_step.precedence;
         result.associativity = last_step.associativity;
       }
@@ -139,7 +143,7 @@ class ParseTableBuilder {
             : ParseAction::Reduce(Symbol(item.variable_index), item.step_index,
                                   completion_status.precedence,
                                   completion_status.associativity,
-                                  item.production_index);
+                                  *item.production);
 
         for (const auto &lookahead_sym : *lookahead_symbols.entries)
           add_action(state_id, lookahead_sym, action, item_set);
@@ -200,9 +204,9 @@ class ParseTableBuilder {
         if (resolution.first)
           return &parse_table.set_action(state_id, lookahead, new_action);
         if (old_action.type == ParseActionTypeReduce)
-          parse_table.fragile_production_ids.insert(production_id(old_action));
+          parse_table.fragile_productions.insert(old_action.production);
         if (new_action.type == ParseActionTypeReduce)
-          parse_table.fragile_production_ids.insert(production_id(new_action));
+          parse_table.fragile_productions.insert(new_action.production);
         break;
       }
 
@@ -216,10 +220,6 @@ class ParseTableBuilder {
     return nullptr;
   }
 
-  pair<Symbol, int> production_id(const ParseAction &action) {
-    return { action.symbol, action.production_id };
-  }
-
   bool handle_unresolved_conflict(const ParseItemSet &item_set,
                                   const Symbol &lookahead) {
     set<Symbol> involved_symbols;
@@ -230,16 +230,14 @@ class ParseTableBuilder {
     for (const auto &pair : item_set.entries) {
       const ParseItem &item = pair.first;
       const LookaheadSet &lookahead_set = pair.second;
-      const Production &production =
-        grammar.productions(item.lhs())[item.production_index];
 
-      if (item.step_index == production.size()) {
+      if (item.step_index == item.production->size()) {
         if (lookahead_set.contains(lookahead)) {
           involved_symbols.insert(item.lhs());
           reduce_items.insert(item);
         }
       } else {
-        Symbol next_symbol = production[item.step_index].symbol;
+        Symbol next_symbol = item.production->at(item.step_index).symbol;
 
         if (item.step_index > 0) {
           set<Symbol> first_set = get_first_set(next_symbol);
@@ -284,8 +282,7 @@ class ParseTableBuilder {
   string item_string(const ParseItem &item) const {
     string result = symbol_name(item.lhs()) + " ->";
     size_t i = 0;
-    for (const ProductionStep &step :
-         grammar.productions(item.lhs())[item.production_index]) {
+    for (const ProductionStep &step : *item.production) {
       if (i == item.step_index)
         result += " \u2022";
       result += " " + symbol_name(step.symbol);
@@ -303,12 +300,10 @@ class ParseTableBuilder {
     while (!symbols_to_process.empty()) {
       Symbol symbol = symbols_to_process.back();
       symbols_to_process.pop_back();
-      if (result.insert(symbol).second) {
-        for (const Production &production : grammar.productions(symbol)) {
+      if (result.insert(symbol).second)
+        for (const Production &production : grammar.productions(symbol))
           if (!production.empty())
-            symbols_to_process.push_back({ production[0].symbol });
-        }
-      }
+            symbols_to_process.push_back(production[0].symbol);
     }
 
     return result;
@@ -318,10 +313,8 @@ class ParseTableBuilder {
     PrecedenceRange result;
     for (const auto &pair : item_set.entries) {
       const ParseItem &item = pair.first;
-      const Production &production =
-        grammar.productions(item.lhs())[item.production_index];
       if (item.step_index > 0)
-        result.add(production[item.step_index - 1].precedence);
+        result.add(item.production->at(item.step_index - 1).precedence);
     }
     return result;
   }

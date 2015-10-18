@@ -119,6 +119,22 @@ boolean operators
     (bool_op
       (bool_op (identifier) (identifier))))))
 
+==========================================
+boolean operator precedence
+=========================================
+
+a && b(c) && d;
+
+---
+
+(program
+  (expression_statement
+    (bool_op
+      (bool_op
+        (identifier)
+        (function_call (identifier) (arguments (identifier))))
+      (identifier))))
+
 ===========================================
 type operators
 ===========================================
