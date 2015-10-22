@@ -138,6 +138,7 @@ extern const Grammar cpp = Grammar({
 
   { "type_specifier", choice({
     sym("scoped_identifier"),
+    sym("template_call"),
     sym("identifier") }) },
 
   { "compound_statement", seq({
@@ -214,9 +215,9 @@ extern const Grammar cpp = Grammar({
   sym("comment"),
   pattern("[ \t\r\n]"),
 }).expected_conflicts({
-  { "template_call", "_expression" },
   { "type_specifier", "_expression" },
-  { "template_argument", "relational_expression" },
+  { "template_call", "_expression" },
+  { "template_call", "relational_expression" },
 });
 
 }  // namespace tree_sitter_examples

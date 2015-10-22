@@ -31,7 +31,7 @@ int main() {
     (expression_statement (call_expression (identifier) (string) (string)))))))
 
 ==================================================
-template / relational expression ambiguities
+template function / relational expression ambiguities
 ==================================================
 
 int main() {
@@ -53,3 +53,23 @@ int main() {
       (call_expression
         (template_call (identifier) (type_id (type_specifier (identifier))))
         (identifier)))))))
+
+==================================================
+template class / relational expression ambiguities
+==================================================
+
+int main() {
+  SomeTemplate<SomeType> someVariable = 1;
+}
+
+---
+
+(translation_unit (function_definition
+  (type_specifier (identifier))
+  (declarator (direct_declarator (direct_declarator (identifier))))
+  (function_body (compound_statement
+    (simple_declaration
+      (type_specifier (template_call (identifier) (identifier)))
+      (init_declarator
+        (declarator (direct_declarator (identifier)))
+        (initializer (initializer_clause (number)))))))))

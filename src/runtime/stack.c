@@ -168,9 +168,8 @@ static int ts_stack__find_or_add_head(Stack *self, StackNode *node) {
 
 void ts_stack_remove_head(Stack *self, int head_index) {
   stack_node_release(self->heads[head_index]);
-  for (int i = head_index; i < self->head_count - 1; i++) {
-    self->heads[head_index] = self->heads[head_index + 1];
-  }
+  for (int i = head_index; i < self->head_count - 1; i++)
+    self->heads[i] = self->heads[i + 1];
   self->head_count--;
 }
 
