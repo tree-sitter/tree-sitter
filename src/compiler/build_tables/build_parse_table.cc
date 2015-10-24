@@ -159,26 +159,21 @@ class ParseTableBuilder {
   }
 
   void add_reduce_extra_actions(ParseStateId state_id) {
+    const ParseState &state = parse_table.states[state_id];
     const ParseItemSet item_set;
-    const map<Symbol, vector<ParseAction>> &actions =
-      parse_table.states[state_id].actions;
 
     for (const Symbol &ubiquitous_symbol : grammar.ubiquitous_tokens) {
-      const auto &entry = actions.find(ubiquitous_symbol);
-      if (entry == actions.end())
+      const auto &actions_for_symbol = state.actions.find(ubiquitous_symbol);
+      if (actions_for_symbol == state.actions.end())
         continue;
 
-      for (const auto &action : entry->second) {
+      for (const ParseAction &action : actions_for_symbol->second)
         if (action.type == ParseActionTypeShift) {
-          size_t shift_state_id = action.state_index;
-          for (const auto &pair : actions) {
-            const Symbol &lookahead_sym = pair.first;
-            ParseAction reduce_extra =
-              ParseAction::ReduceExtra(ubiquitous_symbol);
-            add_action(shift_state_id, lookahead_sym, reduce_extra, item_set);
-          }
+          size_t dest_state_id = action.state_index;
+          ParseAction reduce_extra = ParseAction::ReduceExtra(ubiquitous_symbol);
+          for (const auto &symbol : parse_table.symbols)
+            add_action(dest_state_id, symbol, reduce_extra, item_set);
         }
-      }
     }
   }
 
