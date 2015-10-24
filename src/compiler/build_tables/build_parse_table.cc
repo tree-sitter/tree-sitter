@@ -290,6 +290,21 @@ class ParseTableBuilder {
     }
     if (i == item.step_index)
       result += " \u2022";
+
+    result += "   (prec " + to_string(item.precedence());
+
+    switch (item.associativity()) {
+      case rules::AssociativityNone:
+        result += ")";
+        break;
+      case rules::AssociativityLeft:
+        result += ", assoc left)";
+        break;
+      case rules::AssociativityRight:
+        result += ", assoc right)";
+        break;
+    }
+
     return result;
   }
 

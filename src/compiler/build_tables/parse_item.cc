@@ -41,13 +41,35 @@ Symbol ParseItem::lhs() const {
   return Symbol(variable_index);
 }
 
+bool ParseItem::is_done() const {
+  return step_index == production->size();
+}
+
+int ParseItem::precedence() const {
+  if (production->empty())
+    return 0;
+  else if (is_done())
+    return production->back().precedence;
+  else
+    return production->at(step_index).precedence;
+}
+
+rules::Associativity ParseItem::associativity() const {
+  if (production->empty())
+    return rules::AssociativityNone;
+  else if (is_done())
+    return production->back().associativity;
+  else
+    return production->at(step_index).associativity;
+}
+
 pair<int, int> ParseItem::remaining_rule_id() const {
   if (production->empty())
     return { -2, -1 };
-  else if (step_index < production->size())
-    return { -1, production->at(step_index).rule_id };
-  else
+  else if (is_done())
     return { production->back().associativity, production->back().precedence };
+  else
+    return { -1, production->at(step_index).rule_id };
 }
 
 size_t ParseItem::Hash::operator()(const ParseItem &item) const {

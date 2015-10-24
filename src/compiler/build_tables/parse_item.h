@@ -5,6 +5,7 @@
 #include <utility>
 #include "compiler/build_tables/lookahead_set.h"
 #include "compiler/rules/symbol.h"
+#include "compiler/rules/metadata.h"
 #include "compiler/syntax_grammar.h"
 
 namespace tree_sitter {
@@ -18,6 +19,9 @@ class ParseItem {
   bool operator<(const ParseItem &other) const;
   rules::Symbol lhs() const;
   std::pair<int, int> remaining_rule_id() const;
+  bool is_done() const;
+  int precedence() const;
+  rules::Associativity associativity() const;
 
   int variable_index;
   const Production *production;
