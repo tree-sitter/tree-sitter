@@ -58,7 +58,7 @@ static const map<char, string> REPLACEMENTS({
   { '.', "DOT" },
   { '?', "QMARK" },
   { '/', "SLASH" },
-  { '\n', "LB" },
+  { '\n', "LF" },
   { '\r', "CR" },
   { '\t', "TAB" },
 });
