@@ -134,7 +134,7 @@ class CCodeGenerator {
     line("static const char *ts_symbol_names[] = {");
     indent([&]() {
       for (const auto &symbol : parse_table.symbols)
-        line("[" + symbol_id(symbol) + "] = \"" + symbol_name(symbol) + "\",");
+        line("[" + symbol_id(symbol) + "] = \"" + sanitize_name_for_string(symbol_name(symbol)) + "\",");
     });
     line("};");
     line();
@@ -407,6 +407,12 @@ class CCodeGenerator {
     indent(condition);
     add(")");
     indent(body);
+  }
+
+  string sanitize_name_for_string(string name) {
+    util::str_replace(&name, "\n", "\\n");
+    util::str_replace(&name, "\r", "\\r");
+    return name;
   }
 
   string sanitize_name(string name) {
