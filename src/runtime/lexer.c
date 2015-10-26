@@ -40,7 +40,7 @@ static void ts_lexer__get_lookahead(TSLexer *self) {
 }
 
 static void ts_lexer__start(TSLexer *self, TSStateId lex_state) {
-  DEBUG("start_lex state:%d", lex_state);
+  DEBUG("start_lex state:%d, pos:%lu", lex_state, self->current_position.chars);
   DEBUG_LOOKAHEAD();
 
   if (!self->chunk)
