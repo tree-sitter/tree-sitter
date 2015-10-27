@@ -154,6 +154,19 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens
    *  lexical grammar's separator rules.
    */
   for (const rule_ptr &rule : grammar.ubiquitous_tokens) {
+    int i = 0;
+    bool used_elsewhere_in_grammar = false;
+    for (const Variable &variable : lexical_grammar.variables) {
+      if (variable.rule->operator==(*rule)) {
+        syntax_grammar.ubiquitous_tokens.insert(Symbol(i, true));
+        used_elsewhere_in_grammar = true;
+      }
+      i++;
+    }
+
+    if (used_elsewhere_in_grammar)
+      continue;
+
     if (is_token(rule)) {
       lexical_grammar.separators.push_back(rule);
       continue;

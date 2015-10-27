@@ -159,6 +159,19 @@ describe("extract_tokens", []() {
       AssertThat(get<0>(result).ubiquitous_tokens, IsEmpty());
     });
 
+    it("handles inline ubiquitous tokens that match tokens in the grammar", [&]() {
+      auto result = extract_tokens(InternedGrammar{{
+        Variable("rule_A", VariableTypeNamed, str("x")),
+        Variable("rule_B", VariableTypeNamed, str("y")),
+      }, {
+        str("y"),
+      }, {}});
+
+      AssertThat(get<2>(result), Equals<const GrammarError *>(nullptr));
+      AssertThat(get<1>(result).separators.size(), Equals<size_t>(0));
+      AssertThat(get<0>(result).ubiquitous_tokens, Equals(set<Symbol>({ Symbol(1, true) })));
+    });
+
     it("updates ubiquitous symbols according to the new symbol numbers", [&]() {
       auto result = extract_tokens(InternedGrammar{{
         Variable("rule_A", VariableTypeNamed, seq({ str("w"), str("x"), i_sym(1) })),
