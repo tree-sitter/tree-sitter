@@ -48,7 +48,7 @@
 
   'target_defaults': {
     'default_configuration': 'Debug',
-    'configurations': {'Debug': {}},
+    'configurations': {'Debug': {}, 'Release': {}},
 
     'cflags': [
       '-g',
