@@ -171,8 +171,8 @@ class ParseTableBuilder {
         if (action.type == ParseActionTypeShift) {
           size_t dest_state_id = action.state_index;
           ParseAction reduce_extra = ParseAction::ReduceExtra(ubiquitous_symbol);
-          for (const auto &symbol : parse_table.symbols)
-            add_action(dest_state_id, symbol, reduce_extra, item_set);
+          for (const auto &pair : state.actions)
+            add_action(dest_state_id, pair.first, reduce_extra, item_set);
         }
     }
   }
