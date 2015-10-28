@@ -71,6 +71,7 @@ void ts_document_set_language(TSDocument *, const TSLanguage *);
 TSInput ts_document_input(TSDocument *);
 void ts_document_set_input(TSDocument *, TSInput);
 void ts_document_set_input_string(TSDocument *, const char *);
+const char *ts_document_symbol_name(TSDocument *, TSSymbol);
 TSDebugger ts_document_debugger(const TSDocument *);
 void ts_document_set_debugger(TSDocument *, TSDebugger);
 void ts_document_edit(TSDocument *, TSInputEdit);
