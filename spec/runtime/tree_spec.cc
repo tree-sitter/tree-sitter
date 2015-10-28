@@ -316,11 +316,11 @@ describe("Tree", []() {
 
   describe("serialization", [&]() {
     it("returns a readable string", [&]() {
-      char *string1 = ts_tree_string(tree1, names);
+      char *string1 = ts_tree_string(tree1, names, true);
       AssertThat(string(string1), Equals("(cat)"));
       free(string1);
 
-      char *string2 = ts_tree_string(parent1, names);
+      char *string2 = ts_tree_string(parent1, names, true);
       AssertThat(string(string2), Equals("(dog (cat) (cat))"));
       free(string2);
     });
@@ -328,7 +328,7 @@ describe("Tree", []() {
     it("hides invisible nodes", [&]() {
       tree2->options.type = TSNodeTypeHidden;
 
-      char *string1 = ts_tree_string(parent1, names);
+      char *string1 = ts_tree_string(parent1, names, true);
       AssertThat(string(string1), Equals("(dog (cat))"));
       free(string1);
     });
@@ -337,13 +337,13 @@ describe("Tree", []() {
       it("still serializes it", [&]() {
         parent1->options.type = TSNodeTypeHidden;
 
-        char *string1 = ts_tree_string(parent1, names);
+        char *string1 = ts_tree_string(parent1, names, true);
         AssertThat(string(string1), Equals("(dog (cat) (cat))"));
         free(string1);
 
         tree1->options.type = TSNodeTypeHidden;
 
-        char *string2 = ts_tree_string(tree1, names);
+        char *string2 = ts_tree_string(tree1, names, true);
         AssertThat(string(string2), Equals("(cat)"));
         free(string2);
       });

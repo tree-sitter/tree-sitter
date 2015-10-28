@@ -166,7 +166,7 @@ const char *ts_node_name(TSNode self, const TSDocument *document) {
 
 const char *ts_node_string(TSNode self, const TSDocument *document) {
   return ts_tree_string(ts_node__tree(self),
-                        document->parser.language->symbol_names);
+                        document->parser.language->symbol_names, false);
 }
 
 bool ts_node_eq(TSNode self, TSNode other) {

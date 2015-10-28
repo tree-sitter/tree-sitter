@@ -15,7 +15,7 @@ TSTree ** tree_array(std::vector<TSTree *> trees) {
 }
 
 std::ostream &operator<<(std::ostream &stream, const TSTree *tree) {
-  return stream << std::string(ts_tree_string(tree, symbol_names));;
+  return stream << std::string(ts_tree_string(tree, symbol_names, true));;
 }
 
 std::ostream &operator<<(std::ostream &stream, const TSNode node) {

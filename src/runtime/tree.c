@@ -144,13 +144,16 @@ static size_t write_lookahead_to_string(char *string, size_t limit,
 
 static size_t ts_tree__write_to_string(const TSTree *self,
                                        const char **symbol_names, char *string,
-                                       size_t limit, int is_root) {
+                                       size_t limit, int is_root,
+                                       bool include_anonymous) {
   if (!self)
     return snprintf(string, limit, "(NULL)");
 
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
-  int visible = self->options.type == TSNodeTypeNamed || is_root;
+  TSNodeType min_node_type =
+    include_anonymous ? TSNodeTypeAnonymous : TSNodeTypeNamed;
+  int visible = self->options.type >= min_node_type || is_root;
 
   if (visible && !is_root)
     cursor += snprintf(*writer, limit, " ");
@@ -166,7 +169,8 @@ static size_t ts_tree__write_to_string(const TSTree *self,
 
   for (size_t i = 0; i < self->child_count; i++) {
     TSTree *child = self->children[i];
-    cursor += ts_tree__write_to_string(child, symbol_names, *writer, limit, 0);
+    cursor += ts_tree__write_to_string(child, symbol_names, *writer, limit, 0,
+                                       include_anonymous);
   }
 
   if (visible)
@@ -175,11 +179,14 @@ static size_t ts_tree__write_to_string(const TSTree *self,
   return cursor - string;
 }
 
-char *ts_tree_string(const TSTree *self, const char **symbol_names) {
+char *ts_tree_string(const TSTree *self, const char **symbol_names,
+                     bool include_anonymous) {
   static char SCRATCH[1];
-  size_t size = ts_tree__write_to_string(self, symbol_names, SCRATCH, 0, 1) + 1;
+  size_t size = 1 + ts_tree__write_to_string(self, symbol_names, SCRATCH, 0, 1,
+                                             include_anonymous);
   char *result = malloc(size * sizeof(char));
-  ts_tree__write_to_string(self, symbol_names, result, size, 1);
+  ts_tree__write_to_string(self, symbol_names, result, size, 1,
+                           include_anonymous);
   return result;
 }
 
