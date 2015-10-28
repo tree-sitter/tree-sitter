@@ -134,7 +134,8 @@ class CCodeGenerator {
     line("static const char *ts_symbol_names[] = {");
     indent([&]() {
       for (const auto &symbol : parse_table.symbols)
-        line("[" + symbol_id(symbol) + "] = \"" + sanitize_name_for_string(symbol_name(symbol)) + "\",");
+        line("[" + symbol_id(symbol) + "] = \"" +
+             sanitize_name_for_string(symbol_name(symbol)) + "\",");
     });
     line("};");
     line();
