@@ -22,7 +22,8 @@ static const char *empty_chunk = "";
 
 static void ts_lexer__get_chunk(TSLexer *self) {
   TSInput input = self->input;
-  if (!self->chunk || self->current_position.bytes != self->chunk_start + self->chunk_size)
+  if (!self->chunk ||
+      self->current_position.bytes != self->chunk_start + self->chunk_size)
     input.seek_fn(input.payload, self->current_position);
 
   self->chunk_start = self->current_position.bytes;

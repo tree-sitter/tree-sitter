@@ -105,6 +105,7 @@ static bool stack_node_release(StackNode *self) {
 
 static StackNode *stack_node_new(StackNode *next, TSStateId state, TSTree *tree) {
   StackNode *self = malloc(sizeof(StackNode));
+  assert(tree->ref_count > 0);
   ts_tree_retain(tree);
   stack_node_retain(next);
   *self = (StackNode){
@@ -126,10 +127,12 @@ static void ts_stack__add_node_successor(Stack *self, StackNode *node,
     if (successor == new_successor)
       return;
     if (successor->entry.state == new_successor->entry.state) {
-      if (successor->entry.tree != new_successor->entry.tree)
+      if (successor->entry.tree != new_successor->entry.tree) {
         successor->entry.tree = self->tree_selection_callback.callback(
           self->tree_selection_callback.data, successor->entry.tree,
           new_successor->entry.tree);
+        ts_tree_retain(successor->entry.tree);
+      }
       for (int j = 0; j < new_successor->successor_count; j++)
         ts_stack__add_node_successor(self, successor,
                                      new_successor->successors[j]);
@@ -181,6 +184,7 @@ static bool ts_stack__merge_head(Stack *self, int head_index, TSStateId state,
       if (head->entry.tree != tree) {
         head->entry.tree = self->tree_selection_callback.callback(
           self->tree_selection_callback.data, head->entry.tree, tree);
+        ts_tree_retain(head->entry.tree);
       }
       ts_stack__add_node_successor(self, head, self->heads[head_index]);
       ts_stack_remove_head(self, head_index);
@@ -275,7 +279,8 @@ StackPopResultList ts_stack_pop(Stack *self, int head_index, int child_count,
   }
 
   for (int path = 0; path < path_count; path++) {
-    tree_vector_reverse(&trees_by_path[path]);
+    if (!is_shared_by_path[path])
+      tree_vector_reverse(&trees_by_path[path]);
     int index = -1;
     if (path == 0) {
       stack_node_retain(nodes_by_path[path]);

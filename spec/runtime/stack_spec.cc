@@ -345,16 +345,29 @@ describe("Stack", [&]() {
     describe("when there is one path that leads to two different heads", [&]() {
       it("returns two entries with the same array of trees", [&]() {
         /*
+         *  A0__B1__C2__D3__G6__H7.
+         *       \__E4__F5__/
+         */
+        ts_stack_push(stack, 0, stateH, trees[7]);
+
+
+        /*
          *  A0__B1__C2__D3.
          *       \__E4__F5.
          */
-        StackPopResultList pop = ts_stack_pop(stack, 0, 1, false);
+        StackPopResultList pop = ts_stack_pop(stack, 0, 2, false);
         AssertThat(ts_stack_head_count(stack), Equals(2));
 
         AssertThat(pop.size, Equals(2));
         AssertThat(pop.contents[0].index, Equals(0));
+        AssertThat(pop.contents[0].tree_count, Equals(2));
+        AssertThat(pop.contents[0].trees[0], Equals(trees[6]));
+        AssertThat(pop.contents[0].trees[1], Equals(trees[7]));
+
         AssertThat(pop.contents[1].index, Equals(1));
-        AssertThat(pop.contents[0].trees, Equals(pop.contents[1].trees));
+        AssertThat(pop.contents[1].tree_count, Equals(2));
+        AssertThat(pop.contents[1].trees[0], Equals(trees[6]));
+        AssertThat(pop.contents[1].trees[1], Equals(trees[7]));
       });
     });
 
