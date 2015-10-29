@@ -50,10 +50,6 @@ void ts_document_set_input_string(TSDocument *self, const char *text) {
   ts_document_set_input(self, ts_string_input_make(text));
 }
 
-const char *ts_document_symbol_name(TSDocument *document, TSSymbol symbol) {
-  return document->parser.language->symbol_names[symbol];
-}
-
 void ts_document_edit(TSDocument *self, TSInputEdit edit) {
   if (!self->tree)
     return;
