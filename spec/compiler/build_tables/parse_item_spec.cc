@@ -8,8 +8,8 @@ using namespace build_tables;
 
 START_TEST
 
-describe("parse_item_set_transitions(ParseItemSet, SyntaxGrammar)", [&]() {
-  it("computes the closure of the new item sets", [&]() {
+describe("ParseItemSet::transitions())", [&]() {
+  it("returns a map of symbols to ParseItemSets that would result from consuming those symbols", [&]() {
     SyntaxGrammar grammar{{
       SyntaxVariable("rule_0", VariableTypeNamed, {
         Production({
