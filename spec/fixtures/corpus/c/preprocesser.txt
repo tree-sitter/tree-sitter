@@ -1,0 +1,13 @@
+=============================================
+#defines
+=============================================
+
+#define THING abc def \
+  ghi jkl
+#define OTHER_THING mno
+
+---
+
+(program
+  (preproc_define (identifier))
+  (preproc_define (identifier)))

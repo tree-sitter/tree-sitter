@@ -9,6 +9,7 @@
 #include "compiler/build_tables/get_completion_status.h"
 #include "compiler/build_tables/get_metadata.h"
 #include "compiler/build_tables/lex_item.h"
+#include "compiler/build_tables/does_match_any_line.h"
 #include "compiler/parse_table.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
@@ -50,18 +51,18 @@ class LexTableBuilder {
 
   LexTable build() {
     for (ParseState &parse_state : parse_table->states) {
-      LexItemSet item_set = build_lex_item_set(parse_state.expected_inputs());
+      LexItemSet item_set = build_lex_item_set(parse_state.expected_inputs(), false);
       parse_state.lex_state_id = add_lex_state(item_set);
     }
 
-    LexItemSet error_item_set = build_lex_item_set(parse_table->symbols);
+    LexItemSet error_item_set = build_lex_item_set(parse_table->symbols, true);
     populate_lex_state(error_item_set, LexTable::ERROR_STATE_ID);
 
     return lex_table;
   }
 
  private:
-  LexItemSet build_lex_item_set(const set<Symbol> &symbols) {
+  LexItemSet build_lex_item_set(const set<Symbol> &symbols, bool error) {
     LexItemSet result;
     for (const Symbol &symbol : symbols) {
       vector<rule_ptr> rules;
@@ -71,6 +72,9 @@ class LexTableBuilder {
         rules.push_back(CharacterSet().include(0).copy());
       } else if (symbol.is_token) {
         rule_ptr rule = lex_grammar.variables[symbol.index].rule;
+        if (error && does_match_any_line(rule))
+          continue;
+
         auto choice = rule->as<rules::Choice>();
         if (choice)
           for (const rule_ptr &element : choice->elements)

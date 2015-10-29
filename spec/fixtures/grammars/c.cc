@@ -6,9 +6,15 @@ namespace tree_sitter_examples {
 // http://slps.github.io/zoo/c/iso-9899-tc3.html
 
 extern const Grammar c = Grammar({
-  { "program", choice({
+  { "program", repeat(choice({
+    sym("preproc_define"),
     sym("function_definition"),
-    sym("declaration") }) },
+    sym("declaration") })) },
+
+  { "preproc_define", seq({
+    str("#define"),
+    sym("identifier"),
+    token(repeat(choice({ str("\\\n"), pattern(".") }))) }) },
 
   { "function_definition", seq({
     optional(sym("declaration_specifiers")),
@@ -126,7 +132,7 @@ extern const Grammar c = Grammar({
 
   { "compound_statement", seq({
     str("{"),
-    repeat(choice({ sym("declaration"), sym("statement") })),
+    err(repeat(choice({ sym("declaration"), sym("statement") }))),
     str("}") }) },
 
   { "expression", choice({

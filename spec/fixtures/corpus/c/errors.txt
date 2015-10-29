@@ -1,0 +1,13 @@
+==========================================
+errors in compound statements
+==========================================
+
+int main() { %%% }
+
+---
+
+(program (function_definition
+  (type_name (identifier))
+  (declarator (identifier))
+  (compound_statement
+    (ERROR (UNEXPECTED '%')))))
