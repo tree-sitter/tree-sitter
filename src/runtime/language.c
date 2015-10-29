@@ -1,4 +1,4 @@
-#include "runtime/parser.h"
+#include "tree_sitter/parser.h"
 
 size_t ts_language_symbol_count(const TSLanguage *language) {
   return language->symbol_count;
