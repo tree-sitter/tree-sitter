@@ -71,7 +71,6 @@ void ts_document_set_language(TSDocument *, const TSLanguage *);
 TSInput ts_document_input(TSDocument *);
 void ts_document_set_input(TSDocument *, TSInput);
 void ts_document_set_input_string(TSDocument *, const char *);
-const char *ts_document_symbol_name(TSDocument *, TSSymbol);
 TSDebugger ts_document_debugger(const TSDocument *);
 void ts_document_set_debugger(TSDocument *, TSDebugger);
 void ts_document_edit(TSDocument *, TSInputEdit);
@@ -79,6 +78,8 @@ void ts_document_parse(TSDocument *);
 void ts_document_invalidate(TSDocument *);
 TSNode ts_document_root_node(const TSDocument *);
 size_t ts_document_parse_count(const TSDocument *);
+
+const char *ts_language_symbol_name(TSDocument *, TSSymbol);
 
 #define ts_builtin_sym_error 0
 #define ts_builtin_sym_end 1
