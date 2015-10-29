@@ -107,6 +107,7 @@
       ],
       'sources': [
         'src/runtime/document.c',
+        'src/runtime/language.c',
         'src/runtime/lexer.c',
         'src/runtime/node.c',
         'src/runtime/stack.c',
