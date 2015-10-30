@@ -41,14 +41,24 @@ Symbol ParseItem::lhs() const {
   return Symbol(variable_index);
 }
 
-bool ParseItem::is_done() const {
-  return step_index == production->size();
+ParseItem::CompletionStatus ParseItem::completion_status() const {
+  CompletionStatus result = { false, 0, rules::AssociativityNone };
+  if (step_index == production->size()) {
+    result.is_done = true;
+    if (step_index > 0) {
+      const ProductionStep &last_step =
+        production->at(step_index - 1);
+      result.precedence = last_step.precedence;
+      result.associativity = last_step.associativity;
+    }
+  }
+  return result;
 }
 
 int ParseItem::precedence() const {
   if (production->empty())
     return 0;
-  else if (is_done())
+  else if (completion_status().is_done)
     return production->back().precedence;
   else
     return production->at(step_index).precedence;
@@ -57,7 +67,7 @@ int ParseItem::precedence() const {
 rules::Associativity ParseItem::associativity() const {
   if (production->empty())
     return rules::AssociativityNone;
-  else if (is_done())
+  else if (completion_status().is_done)
     return production->back().associativity;
   else
     return production->at(step_index).associativity;
@@ -66,7 +76,7 @@ rules::Associativity ParseItem::associativity() const {
 pair<int, int> ParseItem::remaining_rule_id() const {
   if (production->empty())
     return { -2, -1 };
-  else if (is_done())
+  else if (completion_status().is_done)
     return { production->back().associativity, production->back().precedence };
   else
     return { -1, production->at(step_index).rule_id };

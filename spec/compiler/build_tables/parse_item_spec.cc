@@ -8,39 +8,84 @@ using namespace build_tables;
 
 START_TEST
 
+describe("ParseItem::completion_status()", [&]() {
+  SyntaxGrammar grammar{{
+    SyntaxVariable("rule_0", VariableTypeNamed, {
+      Production({
+        {Symbol(11, true), 0, AssociativityNone, 101},
+        {Symbol(12, true), 0, AssociativityNone, 102},
+        {Symbol(13), 0, AssociativityNone, 103},
+        {Symbol(14, true), 4, AssociativityLeft, 104},
+      }),
+      Production({
+        {Symbol(15, true), 0, AssociativityNone, 101},
+        {Symbol(16, true), 0, AssociativityNone, 102},
+        {Symbol(17, true), 5, AssociativityRight, 104},
+      }),
+      Production({}),
+    }),
+  }, {}, {}};
+
+  auto production = [&](int variable_index, int production_index) -> const Production & {
+    return grammar.variables[variable_index].productions[production_index];
+  };
+
+  it("indicates whether the parse item is done, and its associativity and precedence", [&]() {
+    ParseItem item(Symbol(0), production(0, 0), 3);
+    AssertThat(item.completion_status().is_done, IsFalse());
+    AssertThat(item.completion_status().precedence, Equals(0));
+    AssertThat(item.completion_status().associativity, Equals(AssociativityNone));
+
+    item = ParseItem(Symbol(0), production(0, 0), 4);
+    AssertThat(item.completion_status().is_done, IsTrue());
+    AssertThat(item.completion_status().precedence, Equals(4));
+    AssertThat(item.completion_status().associativity, Equals(AssociativityLeft));
+
+    item = ParseItem(Symbol(0), production(0, 1), 3);
+    AssertThat(item.completion_status().is_done, IsTrue());
+    AssertThat(item.completion_status().precedence, Equals(5));
+    AssertThat(item.completion_status().associativity, Equals(AssociativityRight));
+
+    item = ParseItem(Symbol(0), production(0, 2), 0);
+    AssertThat(item.completion_status().is_done, IsTrue());
+    AssertThat(item.completion_status().precedence, Equals(0));
+    AssertThat(item.completion_status().associativity, Equals(AssociativityNone));
+  });
+});
+
 describe("ParseItemSet::transitions())", [&]() {
-  it("computes the ParseItemSet that would occur after consuming each lookahead symbol, along with its precedence", [&]() {
-    SyntaxGrammar grammar{{
-      SyntaxVariable("rule_0", VariableTypeNamed, {
-        Production({
-          {Symbol(11, true), 0, AssociativityNone, 101},
-          {Symbol(12, true), 0, AssociativityNone, 102},
-          {Symbol(13), 5, AssociativityNone, 103},
-          {Symbol(14, true), 0, AssociativityNone, 104},
-        }),
-        Production({
-          {Symbol(11, true), 0, AssociativityNone, 105},
-          {Symbol(12, true), 0, AssociativityNone, 106},
-          {Symbol(15), 6, AssociativityNone, 107},
-        })
+  SyntaxGrammar grammar{{
+    SyntaxVariable("rule_0", VariableTypeNamed, {
+      Production({
+        {Symbol(11, true), 0, AssociativityNone, 101},
+        {Symbol(12, true), 0, AssociativityNone, 102},
+        {Symbol(13), 5, AssociativityNone, 103},
+        {Symbol(14, true), 0, AssociativityNone, 104},
       }),
-      SyntaxVariable("rule_1", VariableTypeNamed, {
-        Production({
-          {Symbol(15), 7, AssociativityNone, 109},
-          {Symbol(16, true), 0, AssociativityNone, 110},
-        })
-      }),
-      SyntaxVariable("rule_2", VariableTypeNamed, {
-        Production({
-          {Symbol(18, true), 0, AssociativityNone, 111},
-        })
+      Production({
+        {Symbol(11, true), 0, AssociativityNone, 105},
+        {Symbol(12, true), 0, AssociativityNone, 106},
+        {Symbol(15), 6, AssociativityNone, 107},
       })
-    }, {}, {}};
+    }),
+    SyntaxVariable("rule_1", VariableTypeNamed, {
+      Production({
+        {Symbol(15), 7, AssociativityNone, 109},
+        {Symbol(16, true), 0, AssociativityNone, 110},
+      })
+    }),
+    SyntaxVariable("rule_2", VariableTypeNamed, {
+      Production({
+        {Symbol(18, true), 0, AssociativityNone, 111},
+      })
+    })
+  }, {}, {}};
 
-    auto production = [&](int variable_index, int production_index) -> const Production & {
-      return grammar.variables[variable_index].productions[production_index];
-    };
+  auto production = [&](int variable_index, int production_index) -> const Production & {
+    return grammar.variables[variable_index].productions[production_index];
+  };
 
+  it("computes the ParseItemSet that would occur after consuming each lookahead symbol, along with its precedence", [&]() {
     ParseItemSet item_set({
 
       // Two symbols into the first production for rule_0

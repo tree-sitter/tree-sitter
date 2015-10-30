@@ -16,13 +16,19 @@ class ParseItem {
  public:
   ParseItem(const rules::Symbol &, const Production &, unsigned int);
 
+  struct CompletionStatus {
+    bool is_done;
+    int precedence;
+    rules::Associativity associativity;
+  };
+
   bool operator==(const ParseItem &other) const;
   bool operator<(const ParseItem &other) const;
   rules::Symbol lhs() const;
   std::pair<int, int> remaining_rule_id() const;
-  bool is_done() const;
   int precedence() const;
   rules::Associativity associativity() const;
+  CompletionStatus completion_status() const;
 
   int variable_index;
   const Production *production;
