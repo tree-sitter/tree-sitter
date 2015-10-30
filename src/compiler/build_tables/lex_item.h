@@ -3,9 +3,11 @@
 
 #include <unordered_set>
 #include <map>
+#include <utility>
 #include <string>
 #include "compiler/rules/character_set.h"
 #include "compiler/rules/symbol.h"
+#include "compiler/precedence_range.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -29,8 +31,11 @@ class LexItemSet {
   LexItemSet();
   explicit LexItemSet(const std::unordered_set<LexItem, LexItem::Hash> &);
 
+  typedef std::map<rules::CharacterSet, std::pair<LexItemSet, PrecedenceRange>>
+    TransitionMap;
+
   bool operator==(const LexItemSet &) const;
-  std::map<rules::CharacterSet, LexItemSet> transitions() const;
+  TransitionMap transitions() const;
 
   std::unordered_set<LexItem, LexItem::Hash> entries;
 

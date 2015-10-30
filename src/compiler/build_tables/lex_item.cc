@@ -45,8 +45,8 @@ bool LexItemSet::operator==(const LexItemSet &other) const {
   return entries == other.entries;
 }
 
-map<CharacterSet, LexItemSet> LexItemSet::transitions() const {
-  map<CharacterSet, LexItemSet> result;
+LexItemSet::TransitionMap LexItemSet::transitions() const {
+  TransitionMap result;
   for (const LexItem &item : entries)
     lex_item_transitions(&result, item);
   return result;

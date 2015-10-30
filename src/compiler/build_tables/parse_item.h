@@ -44,7 +44,8 @@ class ParseItemSet {
   ParseItemSet();
   explicit ParseItemSet(const std::map<ParseItem, LookaheadSet> &);
 
-  typedef std::map<rules::Symbol, std::pair<ParseItemSet, PrecedenceRange>> TransitionMap;
+  typedef std::map<rules::Symbol, std::pair<ParseItemSet, PrecedenceRange>>
+    TransitionMap;
 
   TransitionMap transitions() const;
   bool operator==(const ParseItemSet &) const;

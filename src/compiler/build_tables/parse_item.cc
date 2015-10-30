@@ -46,8 +46,7 @@ ParseItem::CompletionStatus ParseItem::completion_status() const {
   if (step_index == production->size()) {
     result.is_done = true;
     if (step_index > 0) {
-      const ProductionStep &last_step =
-        production->at(step_index - 1);
+      const ProductionStep &last_step = production->at(step_index - 1);
       result.precedence = last_step.precedence;
       result.associativity = last_step.associativity;
     }

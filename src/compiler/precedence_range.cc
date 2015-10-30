@@ -7,6 +7,9 @@ PrecedenceRange::PrecedenceRange() : min(0), max(0), empty(true) {}
 PrecedenceRange::PrecedenceRange(int min, int max)
     : min(min), max(max), empty(false) {}
 
+PrecedenceRange::PrecedenceRange(int value)
+    : min(value), max(value), empty(false) {}
+
 void PrecedenceRange::add(int new_value) {
   if (empty) {
     min = new_value;
@@ -17,6 +20,13 @@ void PrecedenceRange::add(int new_value) {
       min = new_value;
     else if (new_value > max)
       max = new_value;
+  }
+}
+
+void PrecedenceRange::add(const PrecedenceRange &other) {
+  if (!other.empty) {
+    add(other.min);
+    add(other.max);
   }
 }
 

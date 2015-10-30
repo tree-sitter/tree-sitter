@@ -102,9 +102,7 @@ class ParseTableBuilder {
       const PrecedenceRange &precedence = transition.second.second;
 
       ParseAction *new_action = add_action(
-        state_id, symbol,
-        ParseAction::Shift(0, precedence),
-        item_set);
+        state_id, symbol, ParseAction::Shift(0, precedence), item_set);
       if (new_action)
         new_action->state_index = add_parse_state(next_item_set);
     }
@@ -121,8 +119,7 @@ class ParseTableBuilder {
           (item.lhs() == rules::START())
             ? ParseAction::Accept()
             : ParseAction::Reduce(Symbol(item.variable_index), item.step_index,
-                                  status.precedence,
-                                  status.associativity,
+                                  status.precedence, status.associativity,
                                   *item.production);
 
         for (const auto &lookahead_sym : *lookahead_symbols.entries)

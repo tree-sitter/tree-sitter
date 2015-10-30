@@ -7,7 +7,6 @@
 #include <vector>
 #include "compiler/build_tables/lex_conflict_manager.h"
 #include "compiler/build_tables/get_completion_status.h"
-#include "compiler/build_tables/get_metadata.h"
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/build_tables/does_match_any_line.h"
 #include "compiler/parse_table.h"
@@ -51,7 +50,8 @@ class LexTableBuilder {
 
   LexTable build() {
     for (ParseState &parse_state : parse_table->states) {
-      LexItemSet item_set = build_lex_item_set(parse_state.expected_inputs(), false);
+      LexItemSet item_set =
+        build_lex_item_set(parse_state.expected_inputs(), false);
       parse_state.lex_state_id = add_lex_state(item_set);
     }
 
@@ -120,13 +120,14 @@ class LexTableBuilder {
   void add_advance_actions(const LexItemSet &item_set, LexStateId state_id) {
     for (const auto &transition : item_set.transitions()) {
       const CharacterSet &rule = transition.first;
-      const LexItemSet &new_item_set = transition.second;
-      LexStateId new_state_id = add_lex_state(new_item_set);
-      auto action = LexAction::Advance(
-        new_state_id, precedence_range_for_item_set(new_item_set));
-      if (conflict_manager.resolve(action,
-                                   lex_table.state(state_id).default_action))
+      const LexItemSet &new_item_set = transition.second.first;
+      const PrecedenceRange &precedence = transition.second.second;
+      auto current_action = lex_table.state(state_id).default_action;
+      auto action = LexAction::Advance(-1, precedence);
+      if (conflict_manager.resolve(action, current_action)) {
+        action.state_index = add_lex_state(new_item_set);
         lex_table.state(state_id).actions[rule] = action;
+      }
     }
   }
 
@@ -135,10 +136,9 @@ class LexTableBuilder {
       CompletionStatus completion_status = get_completion_status(item.rule);
       if (completion_status.is_done) {
         auto current_action = lex_table.state(state_id).default_action;
-        auto new_action =
-          LexAction::Accept(item.lhs, completion_status.precedence);
-        if (conflict_manager.resolve(new_action, current_action))
-          lex_table.state(state_id).default_action = new_action;
+        auto action = LexAction::Accept(item.lhs, completion_status.precedence);
+        if (conflict_manager.resolve(action, current_action))
+          lex_table.state(state_id).default_action = action;
       }
     }
   }
@@ -147,16 +147,6 @@ class LexTableBuilder {
     for (const auto &item : item_set.entries)
       if (item.is_token_start())
         lex_table.state(state_id).is_token_start = true;
-  }
-
-  PrecedenceRange precedence_range_for_item_set(const LexItemSet &item_set) const {
-    PrecedenceRange result;
-    for (const auto &item : item_set.entries) {
-      auto precedence_range = get_metadata(item.rule, rules::PRECEDENCE);
-      result.add(precedence_range.min);
-      result.add(precedence_range.max);
-    }
-    return result;
   }
 };
 
