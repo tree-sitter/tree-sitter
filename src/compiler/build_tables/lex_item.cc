@@ -1,8 +1,12 @@
 #include "compiler/build_tables/lex_item.h"
 #include <unordered_set>
-#include "compiler/build_tables/get_metadata.h"
 #include "compiler/build_tables/lex_item_transitions.h"
+#include "compiler/build_tables/rule_can_be_blank.h"
+#include "compiler/rules/choice.h"
+#include "compiler/rules/metadata.h"
+#include "compiler/rules/seq.h"
 #include "compiler/rules/symbol.h"
+#include "compiler/rules/visitor.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -22,7 +26,25 @@ bool LexItem::operator==(const LexItem &other) const {
 }
 
 bool LexItem::is_token_start() const {
-  return get_metadata(rule, rules::START_TOKEN).max > 0;
+  class IsTokenStart : public rules::RuleFn<bool> {
+    bool apply_to(const rules::Seq *rule) {
+      return apply(rule->left) ||
+             (rule_can_be_blank(rule->left) && apply(rule->right));
+    }
+
+    bool apply_to(const rules::Metadata *rule) {
+      return (rule->value_for(rules::START_TOKEN) > 0) || apply(rule->rule);
+    }
+
+    bool apply_to(const rules::Choice *rule) {
+      for (const rule_ptr &element : rule->elements)
+        if (apply(element))
+          return true;
+      return false;
+    }
+  };
+
+  return IsTokenStart().apply(rule);
 }
 
 size_t LexItem::Hash::operator()(const LexItem &item) const {

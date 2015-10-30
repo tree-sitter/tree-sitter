@@ -8,7 +8,6 @@
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/parse_conflict_manager.h"
 #include "compiler/build_tables/parse_item.h"
-#include "compiler/build_tables/get_metadata.h"
 #include "compiler/build_tables/item_set_closure.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/syntax_grammar.h"

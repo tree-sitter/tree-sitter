@@ -5,7 +5,6 @@
 #include "compiler/syntax_grammar.h"
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/build_tables/lex_item.h"
-#include "compiler/build_tables/get_metadata.h"
 
 namespace tree_sitter {
 
@@ -136,11 +135,6 @@ ostream &operator<<(ostream &stream, const ParseItem &item) {
 
 std::ostream &operator<<(std::ostream &stream, const ParseItemSet &item_set) {
   return stream << item_set.entries;
-}
-
-std::ostream &operator<<(std::ostream &stream, const MetadataRange &range) {
-  return stream << string("{") << to_string(range.min) << string(", ")
-                << to_string(range.max) << string("}");
 }
 
 std::ostream &operator<<(std::ostream &stream, const LookaheadSet &set) {

@@ -77,7 +77,8 @@ class LexItemTransitions : public rules::RuleFn<void> {
     merge_transition(transitions, *rule,
                      LexItemSet({
                        LexItem(item_lhs, rules::Blank::build()),
-                     }), PrecedenceRange());
+                     }),
+                     PrecedenceRange());
   }
 
   void apply_to(const rules::Choice *rule) {
