@@ -110,7 +110,10 @@ ostream &operator<<(ostream &stream, const ProductionStep &step) {
 }
 
 ostream &operator<<(ostream &stream, const PrecedenceRange &range) {
-  return stream << string("{") << to_string(range.min) << string(", ") << to_string(range.max) << string("}");
+  if (range.empty)
+    return stream << string("{empty}");
+  else
+    return stream << string("{") << to_string(range.min) << string(", ") << to_string(range.max) << string("}");
 }
 
 namespace build_tables {
@@ -126,7 +129,7 @@ ostream &operator<<(ostream &stream, const LexItemSet &item_set) {
 
 ostream &operator<<(ostream &stream, const ParseItem &item) {
   return stream << string("(item variable:") << to_string(item.variable_index)
-                << string(" production:") << to_string((size_t)&item.production % 1000)
+                << string(" production:") << to_string((size_t)item.production % 1000)
                 << string(" step:") << to_string(item.step_index)
                 << string(")");
 }
