@@ -7,6 +7,7 @@
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/syntax_grammar.h"
+#include "compiler/precedence_range.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -37,7 +38,9 @@ class ParseItemSet {
   ParseItemSet();
   explicit ParseItemSet(const std::map<ParseItem, LookaheadSet> &);
 
-  std::map<rules::Symbol, ParseItemSet> transitions() const;
+  typedef std::map<rules::Symbol, std::pair<ParseItemSet, PrecedenceRange>> TransitionMap;
+
+  TransitionMap transitions() const;
   bool operator==(const ParseItemSet &) const;
 
   std::map<ParseItem, LookaheadSet> entries;

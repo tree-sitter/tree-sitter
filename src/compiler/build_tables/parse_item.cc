@@ -104,8 +104,8 @@ size_t ParseItemSet::Hash::operator()(const ParseItemSet &item_set) const {
   return result;
 }
 
-map<Symbol, ParseItemSet> ParseItemSet::transitions() const {
-  map<Symbol, ParseItemSet> result;
+ParseItemSet::TransitionMap ParseItemSet::transitions() const {
+  ParseItemSet::TransitionMap result;
   for (const auto &pair : entries) {
     const ParseItem &item = pair.first;
     const LookaheadSet &lookahead_symbols = pair.second;
@@ -114,9 +114,11 @@ map<Symbol, ParseItemSet> ParseItemSet::transitions() const {
 
     size_t step = item.step_index + 1;
     Symbol symbol = item.production->at(item.step_index).symbol;
+    int precedence = item.production->at(item.step_index).precedence;
     ParseItem new_item(item.lhs(), *item.production, step);
 
-    result[symbol].entries[new_item] = lookahead_symbols;
+    result[symbol].first.entries[new_item] = lookahead_symbols;
+    result[symbol].second.add(precedence);
   }
 
   return result;

@@ -99,11 +99,12 @@ class ParseTableBuilder {
   void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
     for (const auto &transition : item_set.transitions()) {
       const Symbol &symbol = transition.first;
-      const ParseItemSet &next_item_set = transition.second;
+      const ParseItemSet &next_item_set = transition.second.first;
+      const PrecedenceRange &precedence = transition.second.second;
 
       ParseAction *new_action = add_action(
         state_id, symbol,
-        ParseAction::Shift(0, precedence_values_for_item_set(next_item_set)),
+        ParseAction::Shift(0, precedence),
         item_set);
       if (new_action)
         new_action->state_index = add_parse_state(next_item_set);
@@ -316,16 +317,6 @@ class ParseTableBuilder {
             symbols_to_process.push_back(production[0].symbol);
     }
 
-    return result;
-  }
-
-  PrecedenceRange precedence_values_for_item_set(const ParseItemSet &item_set) {
-    PrecedenceRange result;
-    for (const auto &pair : item_set.entries) {
-      const ParseItem &item = pair.first;
-      if (item.step_index > 0)
-        result.add(item.production->at(item.step_index - 1).precedence);
-    }
     return result;
   }
 
