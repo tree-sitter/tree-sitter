@@ -6,7 +6,6 @@
 #include <utility>
 #include <vector>
 #include "compiler/build_tables/lex_conflict_manager.h"
-#include "compiler/build_tables/get_completion_status.h"
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/build_tables/does_match_any_line.h"
 #include "compiler/parse_table.h"
@@ -133,7 +132,7 @@ class LexTableBuilder {
 
   void add_accept_token_actions(const LexItemSet &item_set, LexStateId state_id) {
     for (const LexItem &item : item_set.entries) {
-      CompletionStatus completion_status = get_completion_status(item.rule);
+      LexItem::CompletionStatus completion_status = item.completion_status();
       if (completion_status.is_done) {
         auto current_action = lex_table.state(state_id).default_action;
         auto action = LexAction::Accept(item.lhs, completion_status.precedence);

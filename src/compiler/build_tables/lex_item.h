@@ -14,16 +14,24 @@ namespace build_tables {
 
 class LexItem {
  public:
-  LexItem(const rules::Symbol &lhs, rule_ptr rule);
-  bool operator==(const LexItem &other) const;
-  bool is_token_start() const;
+  LexItem(const rules::Symbol &, rule_ptr);
 
-  rules::Symbol lhs;
-  rule_ptr rule;
+  struct CompletionStatus {
+    bool is_done;
+    int precedence;
+    bool is_string;
+  };
 
   struct Hash {
     size_t operator()(const LexItem &) const;
   };
+
+  bool operator==(const LexItem &other) const;
+  bool is_token_start() const;
+  CompletionStatus completion_status() const;
+
+  rules::Symbol lhs;
+  rule_ptr rule;
 };
 
 class LexItemSet {
@@ -34,14 +42,14 @@ class LexItemSet {
   typedef std::map<rules::CharacterSet, std::pair<LexItemSet, PrecedenceRange>>
     TransitionMap;
 
+  struct Hash {
+    size_t operator()(const LexItemSet &) const;
+  };
+
   bool operator==(const LexItemSet &) const;
   TransitionMap transitions() const;
 
   std::unordered_set<LexItem, LexItem::Hash> entries;
-
-  struct Hash {
-    size_t operator()(const LexItemSet &) const;
-  };
 };
 
 }  // namespace build_tables

@@ -18,8 +18,9 @@ enum Associativity {
 enum MetadataKey {
   START_TOKEN,
   PRECEDENCE,
-  IS_TOKEN,
   ASSOCIATIVITY,
+  IS_TOKEN,
+  IS_STRING,
 };
 
 class Metadata : public Rule {

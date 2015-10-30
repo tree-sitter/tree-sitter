@@ -22,6 +22,10 @@ class ParseItem {
     rules::Associativity associativity;
   };
 
+  struct Hash {
+    size_t operator()(const ParseItem &) const;
+  };
+
   bool operator==(const ParseItem &other) const;
   bool operator<(const ParseItem &other) const;
   rules::Symbol lhs() const;
@@ -34,9 +38,6 @@ class ParseItem {
   const Production *production;
   unsigned int step_index;
 
-  struct Hash {
-    size_t operator()(const ParseItem &) const;
-  };
 };
 
 class ParseItemSet {
@@ -47,14 +48,14 @@ class ParseItemSet {
   typedef std::map<rules::Symbol, std::pair<ParseItemSet, PrecedenceRange>>
     TransitionMap;
 
+  struct Hash {
+    size_t operator()(const ParseItemSet &) const;
+  };
+
   TransitionMap transitions() const;
   bool operator==(const ParseItemSet &) const;
 
   std::map<ParseItem, LookaheadSet> entries;
-
-  struct Hash {
-    size_t operator()(const ParseItemSet &) const;
-  };
 };
 
 }  // namespace build_tables

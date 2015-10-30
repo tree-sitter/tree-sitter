@@ -6,6 +6,7 @@
 #include "compiler/rules/metadata.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/symbol.h"
+#include "compiler/rules/repeat.h"
 #include "compiler/rules/visitor.h"
 
 namespace tree_sitter {
@@ -45,6 +46,49 @@ bool LexItem::is_token_start() const {
   };
 
   return IsTokenStart().apply(rule);
+}
+
+LexItem::CompletionStatus LexItem::completion_status() const {
+  class GetCompletionStatus : public rules::RuleFn<CompletionStatus> {
+   protected:
+    CompletionStatus apply_to(const rules::Choice *rule) {
+      for (const auto &element : rule->elements) {
+        CompletionStatus status = apply(element);
+        if (status.is_done)
+          return status;
+      }
+      return { false, 0, false };
+    }
+
+    CompletionStatus apply_to(const rules::Metadata *rule) {
+      CompletionStatus result = apply(rule->rule);
+      if (result.is_done) {
+        if (!result.precedence && rule->value_for(rules::PRECEDENCE))
+          result.precedence = rule->value_for(rules::PRECEDENCE);
+        if (rule->value_for(rules::IS_STRING))
+          result.is_string = true;
+      }
+      return result;
+    }
+
+    CompletionStatus apply_to(const rules::Repeat *rule) {
+      return apply(rule->content);
+    }
+
+    CompletionStatus apply_to(const rules::Blank *rule) {
+      return { true, 0, false };
+    }
+
+    CompletionStatus apply_to(const rules::Seq *rule) {
+      CompletionStatus left_status = apply(rule->left);
+      if (left_status.is_done)
+        return apply(rule->right);
+      else
+        return { false, 0, false };
+    }
+  };
+
+  return GetCompletionStatus().apply(rule);
 }
 
 size_t LexItem::Hash::operator()(const LexItem &item) const {

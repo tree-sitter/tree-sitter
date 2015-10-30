@@ -38,6 +38,29 @@ describe("LexItem", []() {
       });
     });
   });
+
+  describe("completion_status()", [&]() {
+    it("indicates whether the item is done, its precedence, and whether it is a string", [&]() {
+      LexItem item1(Symbol(0, true), character({ 'a', 'b', 'c' }));
+      AssertThat(item1.completion_status().is_done, IsFalse());
+      AssertThat(item1.completion_status().precedence, Equals(0));
+      AssertThat(item1.completion_status().is_string, IsFalse());
+
+      LexItem item2(Symbol(0, true), choice({
+        metadata(blank(), { {PRECEDENCE, 3}, {IS_STRING, 1} }),
+        character({ 'a', 'b', 'c' })
+      }));
+
+      AssertThat(item2.completion_status().is_done, IsTrue());
+      AssertThat(item2.completion_status().precedence, Equals(3));
+      AssertThat(item2.completion_status().is_string, IsTrue());
+
+      LexItem item3(Symbol(0, true), repeat(character({ ' ', '\t' })));
+      AssertThat(item3.completion_status().is_done, IsTrue());
+      AssertThat(item3.completion_status().precedence, Equals(0));
+      AssertThat(item3.completion_status().is_string, IsFalse());
+    });
+  });
 });
 
 describe("LexItemSet::transitions()", [&]() {
