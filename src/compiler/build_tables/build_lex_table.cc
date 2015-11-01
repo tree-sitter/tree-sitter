@@ -135,7 +135,7 @@ class LexTableBuilder {
       LexItem::CompletionStatus completion_status = item.completion_status();
       if (completion_status.is_done) {
         auto current_action = lex_table.state(state_id).default_action;
-        auto action = LexAction::Accept(item.lhs, completion_status.precedence);
+        auto action = LexAction::Accept(item.lhs, completion_status.precedence, completion_status.is_string);
         if (conflict_manager.resolve(action, current_action))
           lex_table.state(state_id).default_action = action;
       }

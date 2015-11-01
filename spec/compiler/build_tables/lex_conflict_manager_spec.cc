@@ -8,7 +8,7 @@ using namespace build_tables;
 
 START_TEST
 
-describe("LexConflictManager", []() {
+describe("LexConflictManager::resolve(new_action, old_action)", []() {
   LexicalGrammar lexical_grammar{{
     Variable("other_token", VariableTypeNamed, pattern("[a-b]")),
     Variable("lookahead_token", VariableTypeNamed, pattern("[c-d]"))
@@ -29,34 +29,56 @@ describe("LexConflictManager", []() {
     AssertThat(update, IsFalse());
   });
 
-  describe("accept-token/advance conflicts", [&]() {
-    it("prefers the advance", [&]() {
-      update = conflict_manager.resolve(LexAction::Advance(1, { 0, 0 }), LexAction::Accept(sym3, 3));
-      AssertThat(update, IsTrue());
-
-      update = conflict_manager.resolve(LexAction::Accept(sym3, 3), LexAction::Advance(1, { 0, 0 }));
-      AssertThat(update, IsFalse());
-    });
-  });
-
   describe("accept-token/accept-token conflicts", [&]() {
-    describe("when one token has a higher precedence than the other", [&]() {
-      it("prefers the token with the higher precedence", [&]() {
-        update = conflict_manager.resolve(LexAction::Accept(sym2, 0), LexAction::Accept(sym3, 2));
+    describe("when one tokens' precedence values differ", [&]() {
+      it("favors the token with higher precedence", [&]() {
+        update = conflict_manager.resolve(LexAction::Accept(sym2, 1, false), LexAction::Accept(sym1, 2, false));
         AssertThat(update, IsFalse());
 
-        update = conflict_manager.resolve(LexAction::Accept(sym3, 2), LexAction::Accept(sym2, 0));
+        update = conflict_manager.resolve(LexAction::Accept(sym1, 2, false), LexAction::Accept(sym2, 1, false));
         AssertThat(update, IsTrue());
       });
     });
 
-    describe("when both tokens have the same precedence", [&]() {
-      it("prefers the token listed earlier in the grammar", [&]() {
-        update = conflict_manager.resolve(LexAction::Accept(sym2, 0), LexAction::Accept(sym1, 0));
+    describe("when one token is string-based and the other is regexp-based", [&]() {
+      it("favors the string-based token", [&]() {
+        update = conflict_manager.resolve(LexAction::Accept(sym1, 0, false), LexAction::Accept(sym2, 0, true));
         AssertThat(update, IsFalse());
 
-        update = conflict_manager.resolve(LexAction::Accept(sym1, 0), LexAction::Accept(sym2, 0));
+        update = conflict_manager.resolve(LexAction::Accept(sym2, 0, true), LexAction::Accept(sym1, 0, false));
         AssertThat(update, IsTrue());
+      });
+    });
+
+    describe("when the tokens have equal precedence", [&]() {
+      it("favors the token listed earlier in the grammar", [&]() {
+        update = conflict_manager.resolve(LexAction::Accept(sym2, 0, false), LexAction::Accept(sym1, 0, false));
+        AssertThat(update, IsFalse());
+
+        update = conflict_manager.resolve(LexAction::Accept(sym1, 0, false), LexAction::Accept(sym2, 0, false));
+        AssertThat(update, IsTrue());
+      });
+    });
+  });
+
+  describe("advance/accept-token conflicts", [&]() {
+    describe("when the token to accept has higher precedence", [&]() {
+      it("prefers the accept-token action", [&]() {
+        update = conflict_manager.resolve(LexAction::Advance(1, { 1, 2 }), LexAction::Accept(sym3, 3, true));
+        AssertThat(update, IsFalse());
+
+        update = conflict_manager.resolve(LexAction::Accept(sym3, 3, true), LexAction::Advance(1, { 1, 2 }));
+        AssertThat(update, IsTrue());
+      });
+    });
+
+    describe("when the token to accept does not have a higher precedence", [&]() {
+      it("favors the advance action", [&]() {
+        update = conflict_manager.resolve(LexAction::Advance(1, { 1, 2 }), LexAction::Accept(sym3, 2, true));
+        AssertThat(update, IsTrue());
+
+        update = conflict_manager.resolve(LexAction::Accept(sym3, 2, true), LexAction::Advance(1, { 1, 2 }));
+        AssertThat(update, IsFalse());
       });
     });
   });

@@ -47,7 +47,7 @@ class ExpandTokens : public rules::IdentityRuleFn {
     return make_shared<rules::Metadata>(
       rules::Seq::build(elements),
       std::map<rules::MetadataKey, int>({
-        { rules::IS_TOKEN, 1 }, { rules::PRECEDENCE, 1 },
+        { rules::IS_TOKEN, 1 }, { rules::IS_STRING, 1 },
       }));
   }
 

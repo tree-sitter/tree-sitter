@@ -28,12 +28,19 @@ bool LexConflictManager::resolve(const LexAction &new_action,
             return true;
           else if (new_precedence < old_precedence)
             return false;
+          else if (new_action.is_string && !old_action.is_string)
+            return true;
+          else if (old_action.is_string && !new_action.is_string)
+            return false;
           else
             return new_action.symbol.index < old_action.symbol.index;
         }
 
         case LexActionTypeAdvance:
-          return true;
+          if (old_precedence > new_action.precedence_range.max)
+            return false;
+          else
+            return true;
 
         default:
           return false;

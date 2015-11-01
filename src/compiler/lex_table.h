@@ -19,11 +19,11 @@ typedef enum {
 
 class LexAction {
   LexAction(LexActionType type, size_t state_index, rules::Symbol symbol,
-            PrecedenceRange precedence_range);
+            PrecedenceRange precedence_range, bool is_string);
 
  public:
   LexAction();
-  static LexAction Accept(rules::Symbol symbol, int precedence);
+  static LexAction Accept(rules::Symbol symbol, int precedence, bool is_string);
   static LexAction Error();
   static LexAction Advance(size_t state_index, PrecedenceRange precedence_range);
   bool operator==(const LexAction &action) const;
@@ -32,6 +32,7 @@ class LexAction {
   rules::Symbol symbol;
   size_t state_index;
   PrecedenceRange precedence_range;
+  bool is_string;
 };
 
 }  // namespace tree_sitter
