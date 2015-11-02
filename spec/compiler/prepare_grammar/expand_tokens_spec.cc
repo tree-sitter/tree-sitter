@@ -29,7 +29,7 @@ describe("expand_tokens", []() {
             character({ 'y' }),
             character({ 'z' }),
           }), {
-            {PRECEDENCE, 1},
+            {IS_STRING, 1},
             {IS_TOKEN, 1},
           }),
           i_sym(11),
@@ -50,7 +50,7 @@ describe("expand_tokens", []() {
           character({ ' ' }),
           character({ 946 }),
         }), {
-          {PRECEDENCE, 1},
+          {IS_STRING, 1},
           {IS_TOKEN, 1},
         })),
       })));

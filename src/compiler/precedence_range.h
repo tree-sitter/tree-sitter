@@ -5,9 +5,11 @@ namespace tree_sitter {
 
 struct PrecedenceRange {
   PrecedenceRange();
+  explicit PrecedenceRange(int value);
   PrecedenceRange(int min, int max);
 
   void add(int value);
+  void add(const PrecedenceRange &);
   bool operator==(const PrecedenceRange &other) const;
   bool operator<(const PrecedenceRange &other) const;
 

@@ -14,7 +14,8 @@ extern const Grammar c = Grammar({
   { "preproc_define", seq({
     str("#define"),
     sym("identifier"),
-    token(repeat(choice({ str("\\\n"), pattern(".") }))) }) },
+    optional(token(prec(-1, repeat1(choice({ str("\\\n"), pattern(".") }))))),
+    str("\n") }) },
 
   { "function_definition", seq({
     optional(sym("declaration_specifiers")),

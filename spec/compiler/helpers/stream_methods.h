@@ -111,14 +111,12 @@ ostream &operator<<(ostream &, const PrecedenceRange &);
 
 namespace build_tables {
 
-struct MetadataRange;
 class LexItem;
 class LexItemSet;
 class ParseItem;
 class ParseItemSet;
 class LookaheadSet;
 
-ostream &operator<<(ostream &, const MetadataRange &);
 ostream &operator<<(ostream &, const LexItem &);
 ostream &operator<<(ostream &, const LexItemSet &);
 ostream &operator<<(ostream &, const ParseItem &);

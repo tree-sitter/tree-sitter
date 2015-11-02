@@ -8,8 +8,6 @@
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/parse_conflict_manager.h"
 #include "compiler/build_tables/parse_item.h"
-#include "compiler/build_tables/get_completion_status.h"
-#include "compiler/build_tables/get_metadata.h"
 #include "compiler/build_tables/item_set_closure.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/syntax_grammar.h"
@@ -99,35 +97,14 @@ class ParseTableBuilder {
   void add_shift_actions(const ParseItemSet &item_set, ParseStateId state_id) {
     for (const auto &transition : item_set.transitions()) {
       const Symbol &symbol = transition.first;
-      const ParseItemSet &next_item_set = transition.second;
+      const ParseItemSet &next_item_set = transition.second.first;
+      const PrecedenceRange &precedence = transition.second.second;
 
       ParseAction *new_action = add_action(
-        state_id, symbol,
-        ParseAction::Shift(0, precedence_values_for_item_set(next_item_set)),
-        item_set);
+        state_id, symbol, ParseAction::Shift(0, precedence), item_set);
       if (new_action)
         new_action->state_index = add_parse_state(next_item_set);
     }
-  }
-
-  struct CompletionStatus {
-    bool is_done;
-    int precedence;
-    rules::Associativity associativity;
-  };
-
-  CompletionStatus get_completion_status(const ParseItem &item) {
-    CompletionStatus result = { false, 0, rules::AssociativityNone };
-    if (item.step_index == item.production->size()) {
-      result.is_done = true;
-      if (item.step_index > 0) {
-        const ProductionStep &last_step =
-          item.production->at(item.step_index - 1);
-        result.precedence = last_step.precedence;
-        result.associativity = last_step.associativity;
-      }
-    }
-    return result;
   }
 
   void add_reduce_actions(const ParseItemSet &item_set, ParseStateId state_id) {
@@ -135,14 +112,13 @@ class ParseTableBuilder {
       const ParseItem &item = pair.first;
       const auto &lookahead_symbols = pair.second;
 
-      CompletionStatus completion_status = get_completion_status(item);
-      if (completion_status.is_done) {
+      ParseItem::CompletionStatus status = item.completion_status();
+      if (status.is_done) {
         ParseAction action =
           (item.lhs() == rules::START())
             ? ParseAction::Accept()
             : ParseAction::Reduce(Symbol(item.variable_index), item.step_index,
-                                  completion_status.precedence,
-                                  completion_status.associativity,
+                                  status.precedence, status.associativity,
                                   *item.production);
 
         for (const auto &lookahead_sym : *lookahead_symbols.entries)
@@ -316,16 +292,6 @@ class ParseTableBuilder {
             symbols_to_process.push_back(production[0].symbol);
     }
 
-    return result;
-  }
-
-  PrecedenceRange precedence_values_for_item_set(const ParseItemSet &item_set) {
-    PrecedenceRange result;
-    for (const auto &pair : item_set.entries) {
-      const ParseItem &item = pair.first;
-      if (item.step_index > 0)
-        result.add(item.production->at(item.step_index - 1).precedence);
-    }
     return result;
   }
 

@@ -594,7 +594,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 (lookahead == '\n') ||
                 (lookahead == 'g')))
                 ADVANCE(29);
-            ACCEPT_TOKEN(sym_comment);
+            ACCEPT_TOKEN(sym_regex);
         case 28:
             if (!((lookahead == 0) ||
                 (lookahead == '\n')))

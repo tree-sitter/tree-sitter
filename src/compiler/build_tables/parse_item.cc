@@ -41,14 +41,23 @@ Symbol ParseItem::lhs() const {
   return Symbol(variable_index);
 }
 
-bool ParseItem::is_done() const {
-  return step_index == production->size();
+ParseItem::CompletionStatus ParseItem::completion_status() const {
+  CompletionStatus result = { false, 0, rules::AssociativityNone };
+  if (step_index == production->size()) {
+    result.is_done = true;
+    if (step_index > 0) {
+      const ProductionStep &last_step = production->at(step_index - 1);
+      result.precedence = last_step.precedence;
+      result.associativity = last_step.associativity;
+    }
+  }
+  return result;
 }
 
 int ParseItem::precedence() const {
   if (production->empty())
     return 0;
-  else if (is_done())
+  else if (completion_status().is_done)
     return production->back().precedence;
   else
     return production->at(step_index).precedence;
@@ -57,7 +66,7 @@ int ParseItem::precedence() const {
 rules::Associativity ParseItem::associativity() const {
   if (production->empty())
     return rules::AssociativityNone;
-  else if (is_done())
+  else if (completion_status().is_done)
     return production->back().associativity;
   else
     return production->at(step_index).associativity;
@@ -66,7 +75,7 @@ rules::Associativity ParseItem::associativity() const {
 pair<int, int> ParseItem::remaining_rule_id() const {
   if (production->empty())
     return { -2, -1 };
-  else if (is_done())
+  else if (completion_status().is_done)
     return { production->back().associativity, production->back().precedence };
   else
     return { -1, production->at(step_index).rule_id };
@@ -104,8 +113,8 @@ size_t ParseItemSet::Hash::operator()(const ParseItemSet &item_set) const {
   return result;
 }
 
-map<Symbol, ParseItemSet> ParseItemSet::transitions() const {
-  map<Symbol, ParseItemSet> result;
+ParseItemSet::TransitionMap ParseItemSet::transitions() const {
+  ParseItemSet::TransitionMap result;
   for (const auto &pair : entries) {
     const ParseItem &item = pair.first;
     const LookaheadSet &lookahead_symbols = pair.second;
@@ -114,9 +123,11 @@ map<Symbol, ParseItemSet> ParseItemSet::transitions() const {
 
     size_t step = item.step_index + 1;
     Symbol symbol = item.production->at(item.step_index).symbol;
+    int precedence = item.production->at(item.step_index).precedence;
     ParseItem new_item(item.lhs(), *item.production, step);
 
-    result[symbol].entries[new_item] = lookahead_symbols;
+    result[symbol].first.entries[new_item] = lookahead_symbols;
+    result[symbol].second.add(precedence);
   }
 
   return result;
