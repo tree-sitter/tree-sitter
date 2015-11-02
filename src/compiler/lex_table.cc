@@ -35,7 +35,8 @@ LexAction LexAction::Advance(size_t state_index,
 }
 
 LexAction LexAction::Accept(Symbol symbol, int precedence, bool is_string) {
-  return LexAction(LexActionTypeAccept, -1, symbol, { precedence, precedence }, is_string);
+  return LexAction(LexActionTypeAccept, -1, symbol, { precedence, precedence },
+                   is_string);
 }
 
 bool LexAction::operator==(const LexAction &other) const {

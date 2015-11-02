@@ -86,12 +86,11 @@ class LexTableBuilder {
         for (const rule_ptr &separator_rule : separator_rules)
           result.entries.insert(LexItem(
             symbol, rules::Seq::build({
-                      rules::Metadata::build(
-                        separator_rule,
-                        {
-                          { rules::START_TOKEN, 1 },
-                          { rules::PRECEDENCE, -99999 },
-                        }),
+                      rules::Metadata::build(separator_rule,
+                                             {
+                                               { rules::START_TOKEN, 1 },
+                                               { rules::PRECEDENCE, -99999 },
+                                             }),
                       rule,
                     })));
     }
@@ -136,7 +135,8 @@ class LexTableBuilder {
       LexItem::CompletionStatus completion_status = item.completion_status();
       if (completion_status.is_done) {
         auto current_action = lex_table.state(state_id).default_action;
-        auto action = LexAction::Accept(item.lhs, completion_status.precedence, completion_status.is_string);
+        auto action = LexAction::Accept(item.lhs, completion_status.precedence,
+                                        completion_status.is_string);
         if (conflict_manager.resolve(action, current_action))
           lex_table.state(state_id).default_action = action;
       }

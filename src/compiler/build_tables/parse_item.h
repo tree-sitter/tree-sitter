@@ -37,7 +37,6 @@ class ParseItem {
   int variable_index;
   const Production *production;
   unsigned int step_index;
-
 };
 
 class ParseItemSet {
