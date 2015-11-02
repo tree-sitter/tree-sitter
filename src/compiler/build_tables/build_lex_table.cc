@@ -89,7 +89,8 @@ class LexTableBuilder {
                       rules::Metadata::build(
                         separator_rule,
                         {
-                          { rules::START_TOKEN, 1 }, { rules::PRECEDENCE, -1 },
+                          { rules::START_TOKEN, 1 },
+                          { rules::PRECEDENCE, -99999 },
                         }),
                       rule,
                     })));

@@ -259,6 +259,27 @@ describe("LexItemSet::transitions()", [&]() {
       })));
   });
 
+  it("handles repeats with precedence", [&]() {
+    LexItemSet item_set({
+      LexItem(Symbol(1), prec(-1, repeat1(character({ 'a' }))))
+    });
+
+    AssertThat(
+      item_set.transitions(),
+      Equals(LexItemSet::TransitionMap({
+        {
+          CharacterSet().include('a'),
+          {
+            LexItemSet({
+              LexItem(Symbol(1), prec(-1, repeat1(character({ 'a' })))),
+              LexItem(Symbol(1), prec(-1, blank())),
+            }),
+            PrecedenceRange(-1)
+          }
+        }
+      })));
+  });
+
   it("handles choices between overlapping character sets", [&]() {
     LexItemSet item_set({
       LexItem(Symbol(1), choice({
