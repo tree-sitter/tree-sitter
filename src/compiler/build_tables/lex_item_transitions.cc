@@ -73,6 +73,12 @@ class LexItemTransitions : public rules::RuleFn<void> {
         { new_char_set, { new_item_set, new_precedence_range } });
   }
 
+  PrecedenceRange merge_precedence(PrecedenceRange precedence) {
+    if (precedence.empty && !precedence_stack->empty())
+      precedence.add(precedence_stack->back());
+    return precedence;
+  }
+
   void apply_to(const CharacterSet *rule) {
     merge_transition(transitions, *rule,
                      LexItemSet({
@@ -90,15 +96,11 @@ class LexItemTransitions : public rules::RuleFn<void> {
     LexItemSet::TransitionMap left_transitions;
     LexItemTransitions(&left_transitions, this).apply(rule->left);
     for (const auto &pair : left_transitions) {
-      PrecedenceRange precedence(pair.second.second);
-      if (precedence.empty && !precedence_stack->empty())
-        precedence.add(precedence_stack->back());
-
       merge_transition(
         transitions, pair.first,
         transform_item_set(pair.second.first, [&rule](rule_ptr item_rule) {
           return rules::Seq::build({ item_rule, rule->right });
-        }), precedence);
+        }), merge_precedence(pair.second.second));
     }
 
     if (rule_can_be_blank(rule->left))
@@ -109,17 +111,13 @@ class LexItemTransitions : public rules::RuleFn<void> {
     LexItemSet::TransitionMap content_transitions;
     LexItemTransitions(&content_transitions, this).apply(rule->content);
     for (const auto &pair : content_transitions) {
-      PrecedenceRange precedence(pair.second.second);
-      if (precedence.empty && !precedence_stack->empty())
-        precedence.add(precedence_stack->back());
-
       merge_transition(transitions, pair.first, pair.second.first,
-                       precedence);
+                       merge_precedence(pair.second.second));
       merge_transition(
         transitions, pair.first,
         transform_item_set(pair.second.first, [&rule](rule_ptr item_rule) {
           return rules::Seq::build({ item_rule, rule->copy() });
-        }), precedence);
+        }), merge_precedence(pair.second.second));
     }
   }
 
