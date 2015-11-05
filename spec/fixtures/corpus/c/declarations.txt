@@ -6,8 +6,8 @@ int x;
 
 ---
 
-(program
-  (declaration (type_name (identifier)) (declarator (identifier))))
+(translation_unit
+  (declaration (identifier) (identifier)))
 
 ==========================================
 simple functions
@@ -18,9 +18,9 @@ int main() {
 
 ---
 
-(program (function_definition
-  (type_name (identifier))
-  (declarator (identifier))
+(translation_unit (function_definition
+  (identifier)
+  (function_declarator (identifier))
   (compound_statement)))
 
 ==========================================
@@ -28,17 +28,51 @@ ambiguous declarations
 ==========================================
 
 int main() {
-  int i;
-  someTypeOrValue * pointerOrMultiplicand();
-  float y;
+  // declare a function pointer
+  A * b(int a);
+
+  // evaluate an expression
+  c * d(5);
 }
 
 ---
 
-(program (function_definition
-  (type_name (identifier))
-  (declarator (identifier))
+(translation_unit (function_definition
+  (identifier)
+  (function_declarator (identifier))
   (compound_statement
-    (declaration (type_name (identifier)) (declarator (identifier)))
-    (declaration (type_name (identifier)) (declarator (pointer) (identifier)))
-    (declaration (type_name (identifier)) (declarator (identifier))))))
+    (comment)
+    (declaration
+      (identifier)
+      (pointer_declarator (function_declarator (identifier) (parameter_declaration (identifier) (identifier))))
+      (comment))
+    (expression_statement (math_expression
+      (identifier)
+      (call_expression (identifier) (number)))))))
+
+==========================================
+ambiguous expressions
+==========================================
+
+int main() {
+  // cast
+  a((B *)c);
+
+  // parenthesized product
+  d((e * f));
+}
+
+---
+
+(translation_unit (function_definition
+  (identifier)
+  (function_declarator (identifier))
+  (compound_statement
+    (comment)
+    (expression_statement (call_expression
+      (identifier)
+      (cast_expression (type_name (identifier) (abstract_pointer_declarator)) (identifier)))
+      (comment))
+    (expression_statement (call_expression
+      (identifier)
+      (math_expression (identifier) (identifier)))))))

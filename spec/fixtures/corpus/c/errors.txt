@@ -6,8 +6,8 @@ int main() { %%% }
 
 ---
 
-(program (function_definition
-  (type_name (identifier))
-  (declarator (identifier))
+(translation_unit (function_definition
+  (identifier)
+  (function_declarator (identifier))
   (compound_statement
     (ERROR (UNEXPECTED '%')))))

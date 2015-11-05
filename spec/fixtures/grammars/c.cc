@@ -6,7 +6,7 @@ namespace tree_sitter_examples {
 // http://slps.github.io/zoo/c/iso-9899-tc3.html
 
 extern const Grammar c = Grammar({
-  { "program", repeat(choice({
+  { "translation_unit", repeat(choice({
     sym("preproc_define"),
     sym("function_definition"),
     sym("declaration") })) },
@@ -14,13 +14,17 @@ extern const Grammar c = Grammar({
   { "preproc_define", seq({
     str("#define"),
     sym("identifier"),
-    optional(token(prec(-1, repeat1(choice({ str("\\\n"), pattern(".") }))))),
+    optional(sym("preproc_arg")),
     str("\n") }) },
+
+  { "preproc_arg", token(prec(-1, repeat1(choice({
+    str("\\\n"),
+    pattern(".") })))) },
 
   { "function_definition", seq({
     optional(sym("declaration_specifiers")),
     sym("_type_specifier"),
-    sym("declarator"),
+    sym("_declarator"),
     repeat(sym("declaration")),
     sym("compound_statement") }) },
 
@@ -37,15 +41,23 @@ extern const Grammar c = Grammar({
 
   { "_type_specifier", choice({
     sym("struct_specifier"),
-    sym("type_name") }) },
+    sym("numeric_type_specifier"),
+    sym("identifier"),
+    sym("macro_type"), }) },
 
-  { "type_name", seq({
-    repeat(choice({
+  { "numeric_type_specifier", seq({
+    repeat1(choice({
       str("signed"),
       str("unsigned"),
       str("long"),
       str("short") })),
     sym("identifier") }) },
+
+  { "macro_type", seq({
+    sym("identifier"),
+    str("("),
+    sym("_type_specifier"),
+    str(")") }) },
 
   { "struct_specifier", seq({
     str("struct"),
@@ -55,27 +67,32 @@ extern const Grammar c = Grammar({
       repeat(sym("struct_declaration")),
       str("}") }) }) },
 
+  { "type_name", seq({
+    repeat(sym("type_qualifier")),
+    sym("_type_specifier"),
+    optional(sym("_abstract_declarator")) }) },
+
   { "struct_declaration", seq({
     sym("_type_specifier"),
-    sym("declarator") }) },
+    sym("_declarator") }) },
 
   { "parameter_declaration", seq({
     optional(sym("declaration_specifiers")),
     sym("_type_specifier"),
-    sym("declarator") }) },
+    sym("_declarator") }) },
 
   { "declaration", seq({
     optional(sym("declaration_specifiers")),
     sym("_type_specifier"),
-    comma_sep1(sym("_init_declarator")),
+    comma_sep(sym("_init_declarator")),
     str(";") }) },
 
   { "_init_declarator", choice({
-    sym("declarator"),
-    seq({ sym("declarator"), str("="), sym("initializer") }) }) },
+    sym("_declarator"),
+    seq({ sym("_declarator"), str("="), sym("initializer") }) }) },
 
   { "initializer", choice({
-    sym("expression"),
+    sym("_expression"),
     seq({
       str("{"),
       sym("initializer_list"),
@@ -96,68 +113,105 @@ extern const Grammar c = Grammar({
     repeat1(choice({
       seq({
         str("["),
-        sym("expression"),
+        sym("_expression"),
         str("]") }),
       seq({
         str("."),
         sym("identifier") }) })),
     str("=") }) },
 
-  { "declarator", seq({
-    repeat(sym("pointer")),
-    sym("_direct_declarator") }) },
-
-  { "_direct_declarator", choice({
+  { "_declarator", choice({
+    sym("pointer_declarator"),
+    sym("function_declarator"),
+    sym("array_declarator"),
     sym("identifier"),
-    seq({
-      str("("),
-      sym("declarator"),
-      str(")") }),
-    seq({
-      sym("_direct_declarator"),
-      str("["),
-      optional(sym("expression")),
-      str("]") }),
-    seq({
-      sym("_direct_declarator"),
-      str("("),
-      comma_sep(sym("parameter_declaration")),
-      str(")") }) }) },
+    seq({ str("("), sym("_declarator"), str(")") }) }) },
+
+  { "_abstract_declarator", choice({
+    sym("abstract_pointer_declarator"),
+    sym("abstract_function_declarator"),
+    sym("abstract_array_declarator"),
+    prec(1, seq({ str("("), sym("_abstract_declarator"), str(")") })) }) },
+
+  { "pointer_declarator", seq({
+    str("*"),
+    sym("_declarator") }) },
+
+  { "abstract_pointer_declarator", seq({
+    str("*"),
+    optional(sym("_abstract_declarator")) }) },
+
+  { "function_declarator", prec(1, seq({
+    sym("_declarator"),
+    str("("),
+    comma_sep(sym("parameter_declaration")),
+    str(")") })) },
+
+  { "abstract_function_declarator", prec(1, seq({
+    sym("_abstract_declarator"),
+    str("("),
+    comma_sep(sym("parameter_declaration")),
+    str(")") })) },
+
+  { "array_declarator", prec(1, seq({
+    sym("_declarator"),
+    str("["),
+    optional(sym("_expression")),
+    str("]") })) },
+
+  { "abstract_array_declarator", prec(1, seq({
+    sym("_abstract_declarator"),
+    str("["),
+    optional(sym("_expression")),
+    str("]") })) },
 
   { "type_qualifier", choice({
     str("const"),
     str("restrict"),
     str("volatile") }) },
 
-  { "pointer", str("*") },
-
   { "compound_statement", seq({
     str("{"),
-    err(repeat(choice({ sym("declaration"), sym("statement") }))),
+    err(repeat(choice({ sym("declaration"), sym("_statement") }))),
     str("}") }) },
 
-  { "expression", choice({
+  { "_expression", choice({
+    sym("cast_expression"),
     sym("math_expression"),
     sym("call_expression"),
+    sym("pointer_expression"),
     sym("string"),
     sym("identifier"),
-    sym("number") }) },
+    sym("number"),
+    prec(1, seq({ str("("), sym("_expression"), str(")") })) }) },
+
+  { "cast_expression", prec(4, seq({
+    str("("),
+    sym("type_name"),
+    str(")"),
+    sym("_expression") })) },
 
   { "math_expression", choice({
-    prec_left(1, seq({ sym("expression"), str("+"), sym("expression") })),
-    prec_left(2, seq({ sym("expression"), str("*"), sym("expression") })) }) },
+    prec_left(1, seq({ sym("_expression"), str("+"), sym("_expression") })),
+    prec_left(2, seq({ sym("_expression"), str("*"), sym("_expression") })) }) },
 
   { "call_expression", prec(3, seq({
-    sym("expression"),
+    sym("_expression"),
     str("("),
-    comma_sep(sym("expression")),
+    comma_sep(sym("_expression")),
     str(")") })) },
 
-  { "statement", choice({
+  { "pointer_expression", seq({
+    choice({
+      str("*"),
+      str("&") }),
+    sym("_expression") }) },
+
+  { "_statement", choice({
     sym("expression_statement") }) },
 
   { "expression_statement", seq({
-    sym("expression"),
+    sym("_expression"),
     str(";") }) },
 
   { "string", delimited("\"") },
@@ -166,12 +220,21 @@ extern const Grammar c = Grammar({
 
   { "number", pattern("\\d+(\\.\\d+)?") },
 
-  { "comment", pattern("//[^\n]*") },
+  { "comment", token(choice({
+    pattern("//[^\n]*"),
+    seq({
+      str("/*"),
+      repeat(choice({
+        pattern("[^\\*]"),
+        pattern("\\*[^/]") })),
+      str("*/") }) })) },
 }).ubiquitous_tokens({
   sym("comment"),
   pattern("[ \t\r\n]"),
 }).expected_conflicts({
-  { "type_name", "expression" },
+  { "_type_specifier", "_expression" },
+  { "_type_specifier", "_expression", "macro_type" },
+  { "_type_specifier", "macro_type" },
 });
 
 }  // namespace tree_sitter_examples

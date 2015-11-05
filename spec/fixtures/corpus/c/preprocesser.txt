@@ -8,6 +8,6 @@
 
 ---
 
-(program
-  (preproc_define (identifier))
-  (preproc_define (identifier)))
+(translation_unit
+  (preproc_define (identifier) (preproc_arg))
+  (preproc_define (identifier) (preproc_arg)))
