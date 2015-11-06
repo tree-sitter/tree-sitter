@@ -36,7 +36,7 @@ template function / relational expression ambiguities
 
 int main() {
   someVariable < someValue > 0.0;
-  someTemplate<SomeType>(y);
+  someTemplate<SomeType>(0, 0);
 }
 
 ---
@@ -52,7 +52,7 @@ int main() {
     (expression_statement
       (call_expression
         (template_call (identifier) (type_id (type_specifier (identifier))))
-        (identifier)))))))
+        (number) (number)))))))
 
 ==================================================
 template class / relational expression ambiguities

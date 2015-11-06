@@ -76,3 +76,43 @@ int main() {
     (expression_statement (call_expression
       (identifier)
       (math_expression (identifier) (identifier)))))))
+
+==========================================
+function-like macros that produce types
+==========================================
+
+GIT_INLINE(int) x = 5;
+
+---
+
+(translation_unit (declaration
+  (macro_type (identifier) (identifier))
+  (identifier)
+  (initializer (number))))
+
+============================================
+3-way ambiguities (regression)
+============================================
+
+int main() {
+  /*
+   * Could be either:
+   *   - function call
+   *   - declaration w/ parenthesized declarator
+   *   - declaration w/ macro type, no declarator
+   */
+  ABC(d);
+
+  efg hij;
+}
+
+---
+
+(translation_unit
+  (function_definition
+    (identifier)
+    (function_declarator (identifier))
+    (compound_statement
+      (comment)
+      (expression_statement (call_expression (identifier) (identifier)))
+      (declaration (identifier) (identifier)))))

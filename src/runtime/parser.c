@@ -20,6 +20,12 @@
 
 #define SYM_NAME(sym) self->language->symbol_names[sym]
 
+typedef enum {
+  ConsumeResultShifted,
+  ConsumeResultRemoved,
+  ConsumeResultFinished
+} ConsumeResult;
+
 /*
  *  Private
  */
@@ -139,13 +145,16 @@ static void ts_parser__get_next_lookahead(TSParser *self) {
  *  Parse Actions
  */
 
-static void ts_parser__shift(TSParser *self, int head, TSStateId parse_state) {
-  ts_stack_push(self->stack, head, parse_state, self->lookahead);
+static ConsumeResult ts_parser__shift(TSParser *self, int head, TSStateId parse_state) {
+  if (ts_stack_push(self->stack, head, parse_state, self->lookahead))
+    return ConsumeResultRemoved;
+  else
+    return ConsumeResultShifted;
 }
 
-static void ts_parser__shift_extra(TSParser *self, int head, TSStateId state) {
+static bool ts_parser__shift_extra(TSParser *self, int head, TSStateId state) {
   ts_tree_set_extra(self->lookahead);
-  ts_parser__shift(self, head, state);
+  return ts_parser__shift(self, head, state);
 }
 
 static TSTree *ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
@@ -288,12 +297,6 @@ static TSTree *ts_parser__finish(TSParser *self) {
   return root;
 }
 
-typedef enum {
-  ConsumeResultShifted,
-  ConsumeResultRemoved,
-  ConsumeResultFinished
-} ConsumeResult;
-
 /*
  * Continue performing parse actions for the given head until the current
  * lookahead symbol is consumed.
@@ -345,13 +348,11 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head) {
 
         case TSParseActionTypeShift:
           DEBUG("shift state:%u", action.data.to_state);
-          ts_parser__shift(self, current_head, action.data.to_state);
-          return ConsumeResultShifted;
+          return ts_parser__shift(self, current_head, action.data.to_state);
 
         case TSParseActionTypeShiftExtra:
           DEBUG("shift_extra");
-          ts_parser__shift_extra(self, current_head, state);
-          return ConsumeResultShifted;
+          return ts_parser__shift_extra(self, current_head, state);
 
         case TSParseActionTypeReduce:
           DEBUG("reduce sym:%s, child_count:%u", SYM_NAME(action.data.symbol),
