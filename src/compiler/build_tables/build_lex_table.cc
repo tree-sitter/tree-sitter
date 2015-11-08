@@ -1,4 +1,5 @@
 #include "compiler/build_tables/build_lex_table.h"
+#include <climits>
 #include <map>
 #include <set>
 #include <string>
@@ -85,14 +86,14 @@ class LexTableBuilder {
       for (const rule_ptr &rule : rules)
         for (const rule_ptr &separator_rule : separator_rules)
           result.entries.insert(LexItem(
-            symbol, rules::Seq::build({
-                      rules::Metadata::build(separator_rule,
-                                             {
-                                               { rules::START_TOKEN, 1 },
-                                               { rules::PRECEDENCE, -99999 },
-                                             }),
-                      rule,
-                    })));
+            symbol, rules::Metadata::build(
+              rules::Seq::build({
+                rules::Metadata::build(separator_rule, {{rules::START_TOKEN, 1}}),
+                rules::Metadata::build(rule, {{rules::PRECEDENCE, 0}}),
+              }), {
+                {rules::PRECEDENCE, INT_MIN},
+                {rules::IS_ACTIVE, true},
+              })));
     }
 
     return result;
@@ -135,7 +136,7 @@ class LexTableBuilder {
       LexItem::CompletionStatus completion_status = item.completion_status();
       if (completion_status.is_done) {
         auto current_action = lex_table.state(state_id).default_action;
-        auto action = LexAction::Accept(item.lhs, completion_status.precedence,
+        auto action = LexAction::Accept(item.lhs, completion_status.precedence.max,
                                         completion_status.is_string);
         if (conflict_manager.resolve(action, current_action))
           lex_table.state(state_id).default_action = action;

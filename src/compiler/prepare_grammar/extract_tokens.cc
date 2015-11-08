@@ -79,7 +79,7 @@ class TokenExtractor : public rules::IdentityRuleFn {
   }
 
   rule_ptr apply_to(const rules::Metadata *rule) {
-    if (rule->value_for(rules::IS_TOKEN) > 0)
+    if (rule->value_for(rules::IS_TOKEN).second)
       return apply_to_token(rule->rule.get(), VariableTypeAuxiliary);
     else
       return rules::IdentityRuleFn::apply_to(rule);

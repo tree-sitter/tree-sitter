@@ -29,23 +29,23 @@ class FlattenRule : public rules::RuleFn<void> {
   }
 
   void apply_to(const rules::Metadata *metadata) {
-    int precedence = metadata->value_for(rules::PRECEDENCE);
-    int associativity = metadata->value_for(rules::ASSOCIATIVITY);
+    auto precedence = metadata->value_for(rules::PRECEDENCE);
+    auto associativity = metadata->value_for(rules::ASSOCIATIVITY);
 
-    if (precedence != 0)
-      precedence_stack.push_back(precedence);
-    if (associativity != 0)
+    if (precedence.second)
+      precedence_stack.push_back(precedence.first);
+    if (associativity.second)
       associativity_stack.push_back(
-        static_cast<rules::Associativity>(associativity));
+        static_cast<rules::Associativity>(associativity.first));
 
     apply(metadata->rule);
 
-    if (precedence != 0) {
+    if (precedence.second) {
       precedence_stack.pop_back();
       production.back().precedence = precedence_stack.back();
     }
 
-    if (associativity != 0) {
+    if (associativity.second) {
       associativity_stack.pop_back();
       production.back().associativity = associativity_stack.back();
     }

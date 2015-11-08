@@ -21,7 +21,7 @@ describe("LexItem", []() {
 
     it("returns false for rules not designated as token starts", [&]() {
       AssertThat(LexItem(sym, make_shared<Metadata>(str("a"), map<MetadataKey, int>({
-        { START_TOKEN, 0 }
+        { PRECEDENCE, 5 }
       }))).is_token_start(), IsFalse());
       AssertThat(LexItem(sym, str("a")).is_token_start(), IsFalse());
     });
@@ -43,7 +43,7 @@ describe("LexItem", []() {
     it("indicates whether the item is done, its precedence, and whether it is a string", [&]() {
       LexItem item1(Symbol(0, true), character({ 'a', 'b', 'c' }));
       AssertThat(item1.completion_status().is_done, IsFalse());
-      AssertThat(item1.completion_status().precedence, Equals(0));
+      AssertThat(item1.completion_status().precedence, Equals(PrecedenceRange()));
       AssertThat(item1.completion_status().is_string, IsFalse());
 
       LexItem item2(Symbol(0, true), choice({
@@ -52,12 +52,12 @@ describe("LexItem", []() {
       }));
 
       AssertThat(item2.completion_status().is_done, IsTrue());
-      AssertThat(item2.completion_status().precedence, Equals(3));
+      AssertThat(item2.completion_status().precedence, Equals(PrecedenceRange(3)));
       AssertThat(item2.completion_status().is_string, IsTrue());
 
       LexItem item3(Symbol(0, true), repeat(character({ ' ', '\t' })));
       AssertThat(item3.completion_status().is_done, IsTrue());
-      AssertThat(item3.completion_status().precedence, Equals(0));
+      AssertThat(item3.completion_status().precedence, Equals(PrecedenceRange()));
       AssertThat(item3.completion_status().is_string, IsFalse());
     });
   });
@@ -117,6 +117,7 @@ describe("LexItemSet::transitions()", [&]() {
     LexItemSet item_set({
       LexItem(Symbol(1), seq({
         prec(3, seq({
+          character({ 'v' }),
           prec(4, seq({
             character({ 'w' }),
             character({ 'x' }) })),
@@ -125,45 +126,91 @@ describe("LexItemSet::transitions()", [&]() {
       })),
     });
 
+    auto transitions = item_set.transitions();
+
     AssertThat(
-      item_set.transitions(),
+      transitions,
       Equals(LexItemSet::TransitionMap({
         {
-          CharacterSet().include('w'),
+          CharacterSet().include('v'),
           {
+            // The outer precedence is now 'active', because we are within its
+            // contained rule.
             LexItemSet({
               LexItem(Symbol(1), seq({
-                prec(3, seq({
-                  prec(4, character({ 'x' })),
+                active_prec(3, seq({
+                  prec(4, seq({
+                    character({ 'w' }),
+                    character({ 'x' }) })),
                   character({ 'y' }) })),
                 character({ 'z' }),
               })),
             }),
-            PrecedenceRange(4)
+
+            // No precedence is applied upon entering a rule.
+            PrecedenceRange()
           }
         }
       })));
 
-    LexItemSet item_set2({
-      LexItem(Symbol(1), seq({
-        prec(3, seq({
-          prec(4, character({ 'x' })),
-          character({ 'y' }) })),
-        character({ 'z' }),
-      })),
-    });
+    LexItemSet item_set2 = transitions[CharacterSet().include('v')].first;
+    transitions = item_set2.transitions();
 
     AssertThat(
-      item_set2.transitions(),
+      transitions,
+      Equals(LexItemSet::TransitionMap({
+        {
+          CharacterSet().include('w'),
+          {
+            // The inner precedence is now 'active'
+            LexItemSet({
+              LexItem(Symbol(1), seq({
+                active_prec(3, seq({
+                  active_prec(4, character({ 'x' })),
+                  character({ 'y' }) })),
+                character({ 'z' }),
+              })),
+            }),
+
+            // The outer precedence is applied.
+            PrecedenceRange(3)
+          }
+        }
+      })));
+
+    LexItemSet item_set3 = transitions[CharacterSet().include('w')].first;
+    transitions = item_set3.transitions();
+
+    AssertThat(
+      transitions,
       Equals(LexItemSet::TransitionMap({
         {
           CharacterSet().include('x'),
           {
             LexItemSet({
               LexItem(Symbol(1), seq({
-                prec(3, character({ 'y' })),
+                active_prec(3, character({ 'y' })),
                 character({ 'z' }),
               })),
+            }),
+
+            // The inner precedence is applied.
+            PrecedenceRange(4)
+          }
+        }
+      })));
+
+    LexItemSet item_set4 = transitions[CharacterSet().include('x')].first;
+    transitions = item_set4.transitions();
+
+    AssertThat(
+      transitions,
+      Equals(LexItemSet::TransitionMap({
+        {
+          CharacterSet().include('y'),
+          {
+            LexItemSet({
+              LexItem(Symbol(1), character({ 'z' })),
             }),
             PrecedenceRange(3)
           }
@@ -261,7 +308,7 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles repeats with precedence", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol(1), prec(-1, repeat1(character({ 'a' }))))
+      LexItem(Symbol(1), active_prec(-1, repeat1(character({ 'a' }))))
     });
 
     AssertThat(
@@ -271,8 +318,8 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('a'),
           {
             LexItemSet({
-              LexItem(Symbol(1), prec(-1, repeat1(character({ 'a' })))),
-              LexItem(Symbol(1), prec(-1, blank())),
+              LexItem(Symbol(1), active_prec(-1, repeat1(character({ 'a' })))),
+              LexItem(Symbol(1), active_prec(-1, blank())),
             }),
             PrecedenceRange(-1)
           }
@@ -283,11 +330,11 @@ describe("LexItemSet::transitions()", [&]() {
   it("handles choices between overlapping character sets", [&]() {
     LexItemSet item_set({
       LexItem(Symbol(1), choice({
-        prec(2, seq({
+        active_prec(2, seq({
           character({ 'a', 'b', 'c', 'd'  }),
           character({ 'x' }),
         })),
-        prec(3, seq({
+        active_prec(3, seq({
           character({ 'c', 'd', 'e', 'f' }),
           character({ 'y' }),
         })),
@@ -301,7 +348,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('a', 'b'),
           {
             LexItemSet({
-              LexItem(Symbol(1), prec(2, character({ 'x' }))),
+              LexItem(Symbol(1), active_prec(2, character({ 'x' }))),
             }),
             PrecedenceRange(2)
           }
@@ -310,8 +357,8 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('c', 'd'),
           {
             LexItemSet({
-              LexItem(Symbol(1), prec(2, character({ 'x' }))),
-              LexItem(Symbol(1), prec(3, character({ 'y' }))),
+              LexItem(Symbol(1), active_prec(2, character({ 'x' }))),
+              LexItem(Symbol(1), active_prec(3, character({ 'y' }))),
             }),
             PrecedenceRange(2, 3)
           }
@@ -320,7 +367,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('e', 'f'),
           {
             LexItemSet({
-              LexItem(Symbol(1), prec(3, character({ 'y' }))),
+              LexItem(Symbol(1), active_prec(3, character({ 'y' }))),
             }),
             PrecedenceRange(3)
           }

@@ -18,7 +18,7 @@ class LexItem {
 
   struct CompletionStatus {
     bool is_done;
-    int precedence;
+    PrecedenceRange precedence;
     bool is_string;
   };
 

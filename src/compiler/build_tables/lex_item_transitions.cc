@@ -73,18 +73,20 @@ class LexItemTransitions : public rules::RuleFn<void> {
         { new_char_set, { new_item_set, new_precedence_range } });
   }
 
-  PrecedenceRange merge_precedence(PrecedenceRange precedence) {
-    if (precedence.empty && !precedence_stack->empty())
-      precedence.add(precedence_stack->back());
-    return precedence;
+  map<rules::MetadataKey, int> activate_precedence(map<rules::MetadataKey, int> metadata) {
+    if (metadata.find(rules::PRECEDENCE) != metadata.end())
+      metadata.insert({ rules::IS_ACTIVE, 1 });
+    return metadata;
   }
 
   void apply_to(const CharacterSet *rule) {
+    PrecedenceRange precedence;
+    if (!precedence_stack->empty())
+      precedence.add(precedence_stack->back());
+
     merge_transition(transitions, *rule,
-                     LexItemSet({
-                       LexItem(item_lhs, rules::Blank::build()),
-                     }),
-                     PrecedenceRange());
+                     LexItemSet({ LexItem(item_lhs, rules::Blank::build()) }),
+                     precedence);
   }
 
   void apply_to(const rules::Choice *rule) {
@@ -100,7 +102,7 @@ class LexItemTransitions : public rules::RuleFn<void> {
         transitions, pair.first,
         transform_item_set(pair.second.first, [&rule](rule_ptr item_rule) {
           return rules::Seq::build({ item_rule, rule->right });
-        }), merge_precedence(pair.second.second));
+        }), pair.second.second);
     }
 
     if (rule_can_be_blank(rule->left))
@@ -112,28 +114,32 @@ class LexItemTransitions : public rules::RuleFn<void> {
     LexItemTransitions(&content_transitions, this).apply(rule->content);
     for (const auto &pair : content_transitions) {
       merge_transition(transitions, pair.first, pair.second.first,
-                       merge_precedence(pair.second.second));
+                       pair.second.second);
       merge_transition(
         transitions, pair.first,
         transform_item_set(pair.second.first, [&rule](rule_ptr item_rule) {
           return rules::Seq::build({ item_rule, rule->copy() });
-        }), merge_precedence(pair.second.second));
+        }), pair.second.second);
     }
   }
 
   void apply_to(const rules::Metadata *rule) {
     LexItemSet::TransitionMap content_transitions;
-    precedence_stack->push_back(rule->value_for(rules::PRECEDENCE));
+    auto precedence = rule->value_for(rules::PRECEDENCE);
+    bool has_active_precedence = precedence.second && rule->value_for(rules::IS_ACTIVE).second;
+    if (has_active_precedence)
+      precedence_stack->push_back(precedence.first);
 
     LexItemTransitions(&content_transitions, this).apply(rule->rule);
     for (const auto &pair : content_transitions)
       merge_transition(
         transitions, pair.first,
-        transform_item_set(pair.second.first, [&rule](rule_ptr item_rule) {
-          return rules::Metadata::build(item_rule, rule->value);
+        transform_item_set(pair.second.first, [this, &rule](rule_ptr item_rule) {
+          return rules::Metadata::build(item_rule, activate_precedence(rule->value));
         }), pair.second.second);
 
-    precedence_stack->pop_back();
+    if (has_active_precedence)
+      precedence_stack->pop_back();
   }
 
  public:

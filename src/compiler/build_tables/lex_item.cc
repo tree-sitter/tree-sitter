@@ -34,7 +34,7 @@ bool LexItem::is_token_start() const {
     }
 
     bool apply_to(const rules::Metadata *rule) {
-      return (rule->value_for(rules::START_TOKEN) > 0) || apply(rule->rule);
+      return (rule->value_for(rules::START_TOKEN).second) || apply(rule->rule);
     }
 
     bool apply_to(const rules::Choice *rule) {
@@ -57,15 +57,15 @@ LexItem::CompletionStatus LexItem::completion_status() const {
         if (status.is_done)
           return status;
       }
-      return { false, 0, false };
+      return { false, PrecedenceRange(), false };
     }
 
     CompletionStatus apply_to(const rules::Metadata *rule) {
       CompletionStatus result = apply(rule->rule);
       if (result.is_done) {
-        if (!result.precedence && rule->value_for(rules::PRECEDENCE))
-          result.precedence = rule->value_for(rules::PRECEDENCE);
-        if (rule->value_for(rules::IS_STRING))
+        if (result.precedence.empty && rule->value_for(rules::PRECEDENCE).second)
+          result.precedence.add(rule->value_for(rules::PRECEDENCE).first);
+        if (rule->value_for(rules::IS_STRING).second)
           result.is_string = true;
       }
       return result;
@@ -76,7 +76,7 @@ LexItem::CompletionStatus LexItem::completion_status() const {
     }
 
     CompletionStatus apply_to(const rules::Blank *rule) {
-      return { true, 0, false };
+      return { true, PrecedenceRange(), false };
     }
 
     CompletionStatus apply_to(const rules::Seq *rule) {
@@ -84,7 +84,7 @@ LexItem::CompletionStatus LexItem::completion_status() const {
       if (left_status.is_done)
         return apply(rule->right);
       else
-        return { false, 0, false };
+        return { false, PrecedenceRange(), false };
     }
   };
 
