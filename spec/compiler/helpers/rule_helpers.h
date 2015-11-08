@@ -12,6 +12,7 @@ namespace tree_sitter {
   rule_ptr character(const std::set<uint32_t> &, bool sign);
   rule_ptr i_sym(size_t index);
   rule_ptr i_token(size_t index);
+  rule_ptr active_prec(int precedence, rule_ptr);
 
   bool operator==(const Variable &left, const Variable &right);
 }

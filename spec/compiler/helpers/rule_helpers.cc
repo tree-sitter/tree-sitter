@@ -39,6 +39,13 @@ namespace tree_sitter {
     return make_shared<rules::Metadata>(rule, values);
   }
 
+  rule_ptr active_prec(int precedence, rule_ptr rule) {
+    return std::make_shared<rules::Metadata>(rule, map<rules::MetadataKey, int>({
+      { rules::PRECEDENCE, precedence },
+      { rules::IS_ACTIVE, true }
+    }));
+  }
+
   bool operator==(const Variable &left, const Variable &right) {
     return left.name == right.name && left.rule->operator==(*right.rule) &&
       left.type == right.type;

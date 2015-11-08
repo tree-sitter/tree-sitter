@@ -10,6 +10,7 @@ namespace rules {
 using std::hash;
 using std::make_shared;
 using std::map;
+using std::pair;
 
 Metadata::Metadata(rule_ptr rule, map<MetadataKey, int> values)
     : rule(rule), value(values) {}
@@ -36,13 +37,20 @@ rule_ptr Metadata::copy() const {
   return make_shared<Metadata>(rule->copy(), value);
 }
 
-int Metadata::value_for(MetadataKey key) const {
-  auto pair = value.find(key);
-  return (pair != value.end()) ? pair->second : 0;
+pair<int, bool> Metadata::value_for(MetadataKey key) const {
+  auto entry = value.find(key);
+  if (entry == value.end())
+    return {0, false};
+  else
+    return {entry->second, true};
 }
 
 std::string Metadata::to_string() const {
-  return "(metadata " + rule->to_string() + ")";
+  auto precedence = value_for(rules::PRECEDENCE);
+  if (precedence.second && value_for(rules::IS_ACTIVE).second)
+    return "(metadata prec:" + std::to_string(precedence.first) + " " + rule->to_string() + ")";
+  else
+    return "(metadata " + rule->to_string() + ")";
 }
 
 void Metadata::accept(Visitor *visitor) const {

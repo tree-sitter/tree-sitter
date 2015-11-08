@@ -21,6 +21,7 @@ enum MetadataKey {
   ASSOCIATIVITY,
   IS_TOKEN,
   IS_STRING,
+  IS_ACTIVE,
 };
 
 class Metadata : public Rule {
@@ -33,7 +34,7 @@ class Metadata : public Rule {
   rule_ptr copy() const;
   std::string to_string() const;
   void accept(Visitor *visitor) const;
-  int value_for(MetadataKey key) const;
+  std::pair<int, bool> value_for(MetadataKey key) const;
 
   const rule_ptr rule;
   const std::map<MetadataKey, int> value;
