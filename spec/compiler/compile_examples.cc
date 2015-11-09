@@ -16,6 +16,7 @@ extern const Grammar json;
 extern const Grammar golang;
 extern const Grammar c;
 extern const Grammar cpp;
+extern const Grammar anonymous_tokens;
 
 }  // namespace tree_sitter_examples
 
@@ -39,12 +40,17 @@ describe("compiling the example grammars", []() {
     });
   };
 
+  // example languages
   compile_grammar(tree_sitter_examples::arithmetic, "arithmetic");
   compile_grammar(tree_sitter_examples::json, "json");
   compile_grammar(tree_sitter_examples::javascript, "javascript");
   compile_grammar(tree_sitter_examples::golang, "golang");
   compile_grammar(tree_sitter_examples::c, "c");
   compile_grammar(tree_sitter_examples::cpp, "cpp");
+
+  // edge cases
+  compile_grammar(tree_sitter_examples::anonymous_tokens, "anonymous_tokens");
+
 });
 
 END_TEST

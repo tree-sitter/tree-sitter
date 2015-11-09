@@ -411,8 +411,10 @@ class CCodeGenerator {
   }
 
   string sanitize_name_for_string(string name) {
+    util::str_replace(&name, "\\", "\\\\");
     util::str_replace(&name, "\n", "\\n");
     util::str_replace(&name, "\r", "\\r");
+    util::str_replace(&name, "\"", "\\\"");
     return name;
   }
 
