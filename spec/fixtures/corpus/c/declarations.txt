@@ -55,10 +55,8 @@ ambiguous expressions
 ==========================================
 
 int main() {
-  // cast
+  // cast vs parenthesized product
   a((B *)c);
-
-  // parenthesized product
   d((e * f));
 }
 
@@ -71,8 +69,7 @@ int main() {
     (comment)
     (expression_statement (call_expression
       (identifier)
-      (cast_expression (type_name (identifier) (abstract_pointer_declarator)) (identifier)))
-      (comment))
+      (cast_expression (type_name (identifier) (abstract_pointer_declarator)) (identifier))))
     (expression_statement (call_expression
       (identifier)
       (math_expression (identifier) (identifier)))))))
@@ -114,5 +111,5 @@ int main() {
     (function_declarator (identifier))
     (compound_statement
       (comment)
-      (expression_statement (call_expression (identifier) (identifier)))
+      (declaration (identifier) (identifier))
       (declaration (identifier) (identifier)))))

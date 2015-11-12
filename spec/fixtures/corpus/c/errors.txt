@@ -1,4 +1,17 @@
 ==========================================
+errors in top-level declarations
+==========================================
+
+int int int;
+int y;
+
+---
+
+(translation_unit
+  (declaration (ERROR (identifier) (identifier) (UNEXPECTED 'i') (identifier)))
+  (declaration (identifier) (identifier)))
+
+==========================================
 errors in compound statements
 ==========================================
 
