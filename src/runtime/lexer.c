@@ -68,6 +68,13 @@ static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
   if (self->lookahead_size) {
     self->current_position.bytes += self->lookahead_size;
     self->current_position.chars += 1;
+
+		if (self->lookahead == '\n') {
+			self->current_source_info.line += 1;
+			self->current_source_info.column = 0;
+		} else {
+			self->current_source_info.column += 1;
+		}
   }
 
   if (self->current_position.bytes >= self->chunk_start + self->chunk_size)
