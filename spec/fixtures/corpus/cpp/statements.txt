@@ -69,7 +69,7 @@ int main() {
   (declarator (direct_declarator (direct_declarator (identifier))))
   (function_body (compound_statement
     (simple_declaration
-      (type_specifier (template_call (identifier) (identifier)))
+      (type_specifier (template_call (identifier) (type_id (type_specifier (identifier)))))
       (init_declarator
         (declarator (direct_declarator (identifier)))
         (initializer (initializer_clause (number)))))))))

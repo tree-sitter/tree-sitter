@@ -25,7 +25,6 @@ extern const Grammar c = Grammar({
     optional(sym("declaration_specifiers")),
     sym("_type_specifier"),
     sym("_declarator"),
-    repeat(sym("declaration")),
     sym("compound_statement") }) },
 
   { "declaration_specifiers", repeat1(choice({
@@ -52,12 +51,6 @@ extern const Grammar c = Grammar({
       str("long"),
       str("short") })),
     sym("identifier") }) },
-
-  { "macro_type", seq({
-    sym("identifier"),
-    str("("),
-    sym("_type_specifier"),
-    str(")") }) },
 
   { "struct_specifier", seq({
     str("struct"),
@@ -219,6 +212,12 @@ extern const Grammar c = Grammar({
   { "identifier", pattern("\\a[\\w_]*") },
 
   { "number", pattern("\\d+(\\.\\d+)?") },
+
+  { "macro_type", seq({
+    sym("identifier"),
+    str("("),
+    sym("_type_specifier"),
+    str(")") }) },
 
   { "comment", token(choice({
     pattern("//[^\n]*"),

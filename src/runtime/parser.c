@@ -382,8 +382,31 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head) {
   }
 }
 
+static int ts_tree__compare(TSTree *left, TSTree *right) {
+  if (left->symbol < right->symbol) return -1;
+  if (right->symbol < left->symbol) return 1;
+  if (left->child_count < right->child_count) return -1;
+  if (right->child_count < left->child_count) return 1;
+  for (size_t i = 0; i < left->child_count; i++) {
+    TSTree *left_child = left->children[i];
+    TSTree *right_child = right->children[i];
+    switch (ts_tree__compare(left_child, right_child)) {
+      case -1:
+        return -1;
+      case 1:
+        return 1;
+      default:
+        break;
+    }
+  }
+  return 0;
+}
+
 static TSTree *ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
-  return right;
+  if (ts_tree__compare(left, right) <= 0)
+    return left;
+  else
+    return right;
 }
 
 /*
