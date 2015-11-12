@@ -41,9 +41,12 @@ static const TSParseAction *ts_language__actions(const TSLanguage *language,
   return actions ? actions : ERROR_ACTIONS;
 }
 
-static TSParseAction ts_language__action(const TSLanguage *language,
-                                         TSStateId state, TSSymbol sym) {
-  return ts_language__actions(language, state, sym)[0];
+static TSParseAction ts_language__last_action(const TSLanguage *language,
+                                              TSStateId state, TSSymbol sym) {
+  const TSParseAction *action = ts_language__actions(language, state, sym);
+  while ((action + 1)->type)
+    action++;
+  return *action;
 }
 
 /*
@@ -107,7 +110,7 @@ static void ts_parser__get_next_lookahead(TSParser *self) {
 
     TSStateId top_state = ts_stack_top_state(self->stack, 0);
     TSSymbol symbol = self->reusable_subtree->symbol;
-    if (ts_language__action(self->language, top_state, symbol).type ==
+    if (ts_language__last_action(self->language, top_state, symbol).type ==
         TSParseActionTypeError) {
       DEBUG("cant_reuse sym:%s", SYM_NAME(self->reusable_subtree->symbol));
       ts_parser__pop_reusable_subtree(self);
@@ -145,7 +148,8 @@ static void ts_parser__get_next_lookahead(TSParser *self) {
  *  Parse Actions
  */
 
-static ConsumeResult ts_parser__shift(TSParser *self, int head, TSStateId parse_state) {
+static ConsumeResult ts_parser__shift(TSParser *self, int head,
+                                      TSStateId parse_state) {
   if (ts_stack_push(self->stack, head, parse_state, self->lookahead))
     return ConsumeResultRemoved;
   else
@@ -186,8 +190,8 @@ static TSTree *ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
         ts_tree_set_extra(parent);
         state = top_state;
       } else {
-        state =
-          ts_language__action(self->language, top_state, symbol).data.to_state;
+        state = ts_language__last_action(self->language, top_state, symbol)
+                  .data.to_state;
       }
 
       ts_stack_push(self->stack, pop_result.index, state, parent);
@@ -232,12 +236,12 @@ static bool ts_parser__handle_error(TSParser *self, int head) {
     for (StackEntry *entry = entry_before_error; true;
          entry = ts_stack_entry_next(entry, head), i++) {
       TSStateId stack_state = entry ? entry->state : 0;
-      TSParseAction action_on_error = ts_language__action(
+      TSParseAction action_on_error = ts_language__last_action(
         self->language, stack_state, ts_builtin_sym_error);
 
       if (action_on_error.type == TSParseActionTypeShift) {
         TSStateId state_after_error = action_on_error.data.to_state;
-        TSParseAction action_after_error = ts_language__action(
+        TSParseAction action_after_error = ts_language__last_action(
           self->language, state_after_error, self->lookahead->symbol);
 
         if (action_after_error.type != TSParseActionTypeError) {
@@ -248,7 +252,8 @@ static bool ts_parser__handle_error(TSParser *self, int head) {
         }
       }
 
-      if (!entry) break;
+      if (!entry)
+        break;
     }
 
     /*
