@@ -5,7 +5,10 @@
 #include "runtime/document.h"
 
 TSNode ts_node_make(const TSTree *tree, TSLength offset) {
-  return (TSNode){.data = tree, .offset = offset };
+	TSSourceInfo start = tree != NULL ? tree->start_source_info : ts_source_info_zero();
+	TSSourceInfo end = tree != NULL ? tree->end_source_info : ts_source_info_zero();
+
+  return (TSNode){.data = tree, .offset = offset, .start = start, .end = end };
 }
 
 /*

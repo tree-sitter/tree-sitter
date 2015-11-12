@@ -96,10 +96,13 @@ static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
 
   if (symbol == ts_builtin_sym_error) {
     DEBUG("error_char");
-    return ts_tree_make_error(size, padding, self->lookahead);
+    return ts_tree_make_error(size, padding, self->token_start_source_info,
+															self->token_end_source_info, self->lookahead);
   } else {
     DEBUG("accept_token sym:%s", symbol_name);
-    return ts_tree_make_leaf(symbol, padding, size, node_type);
+    return ts_tree_make_leaf(symbol, padding, size,
+														 self->token_start_source_info,
+														 self->token_end_source_info, node_type);
   }
 }
 

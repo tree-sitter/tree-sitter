@@ -7,6 +7,8 @@
 #include "runtime/length.h"
 
 TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
+													TSSourceInfo start_source_info,
+													TSSourceInfo end_source_info,
                           TSNodeType node_type) {
   TSTree *result = malloc(sizeof(TSTree));
   *result = (TSTree){
@@ -18,6 +20,8 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
     .named_child_count = 0,
     .children = NULL,
     .padding = padding,
+		.start_source_info = start_source_info,
+		.end_source_info = end_source_info,
     .options = {.type = node_type },
   };
 
@@ -29,9 +33,13 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
   return result;
 }
 
-TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char) {
+TSTree *ts_tree_make_error(TSLength size, TSLength padding,
+													 TSSourceInfo start_source_info,
+													 TSSourceInfo end_source_info,
+													 char lookahead_char) {
   TSTree *result =
-    ts_tree_make_leaf(ts_builtin_sym_error, padding, size, TSNodeTypeNamed);
+    ts_tree_make_leaf(ts_builtin_sym_error, padding, size, start_source_info,
+											end_source_info, TSNodeTypeNamed);
   result->lookahead_char = lookahead_char;
   return result;
 }
@@ -82,7 +90,7 @@ static void ts_tree__set_children(TSTree *self, TSTree **children,
 TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
                           TSTree **children, TSNodeType node_type) {
   TSTree *result =
-    ts_tree_make_leaf(symbol, ts_length_zero(), ts_length_zero(), node_type);
+    ts_tree_make_leaf(symbol, ts_length_zero(), ts_length_zero(), ts_source_info_zero(), ts_source_info_zero(), node_type);
   ts_tree__set_children(result, children, child_count);
   return result;
 }

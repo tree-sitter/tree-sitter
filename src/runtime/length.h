@@ -36,6 +36,14 @@ static inline bool ts_length_eq(TSLength len1, TSLength len2) {
   return len1.bytes == len2.bytes && len1.chars == len2.chars;
 }
 
+static inline TSSourceInfo ts_source_info_zero() {
+	return (TSSourceInfo){ .line = 1, .column = 1 };
+}
+
+static inline TSSourceInfo ts_source_info_make(size_t line, size_t column) {
+	return (TSSourceInfo){ .line = line, .column = column };
+}
+
 static inline TSLength ts_length_make(size_t bytes, size_t chars) {
   TSLength result;
   result.bytes = bytes;
