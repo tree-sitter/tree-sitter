@@ -75,9 +75,10 @@ extern const Grammar c = Grammar({
     sym("_declarator") }) },
 
   { "declaration", seq({
-    optional(sym("declaration_specifiers")),
-    sym("_type_specifier"),
-    comma_sep(sym("_init_declarator")),
+    err(seq({
+      optional(sym("declaration_specifiers")),
+      sym("_type_specifier"),
+      comma_sep1(sym("_init_declarator")) })),
     str(";") }) },
 
   { "_init_declarator", choice({
