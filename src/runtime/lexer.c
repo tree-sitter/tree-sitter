@@ -92,6 +92,8 @@ static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
     ts_length_sub(self->token_start_position, self->token_end_position);
   self->token_end_position = self->current_position;
 
+	self->token_end_source_info = self->current_source_info;
+
   if (symbol == ts_builtin_sym_error) {
     DEBUG("error_char");
     return ts_tree_make_error(size, padding, self->lookahead);
