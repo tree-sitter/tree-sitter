@@ -53,6 +53,10 @@ static void ts_lexer__start(TSLexer *self, TSStateId lex_state) {
 static void ts_lexer__start_token(TSLexer *self) {
   DEBUG("start_token chars:%lu", self->current_position.chars);
   self->token_start_position = self->current_position;
+
+  DEBUG("start_token line:%lu", self->current_source_info.line);
+  DEBUG("start_token column:%lu", self->current_source_info.column);
+  self->token_start_source_info = self->current_source_info;
 }
 
 static bool ts_lexer__advance(TSLexer *self, TSStateId state) {

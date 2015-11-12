@@ -36,8 +36,15 @@ typedef struct {
 } TSInputEdit;
 
 typedef struct {
+	size_t line;
+	size_t column;
+} TSSourceInfo;
+
+typedef struct {
   const void *data;
   TSLength offset;
+	TSSourceInfo start;
+	TSSourceInfo end;
 } TSNode;
 
 typedef unsigned short TSSymbol;
