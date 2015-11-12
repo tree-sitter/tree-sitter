@@ -275,6 +275,30 @@ describe("Stack", [&]() {
         AssertThat(ts_stack_entry_next_count(next), Equals(2));
       });
     });
+
+    describe("when the first head is only one node deep", [&]() {
+      it("adds it as an additional successor node to The Null node", [&]() {
+        /*
+         *    .__A0.
+         *  B1.__/
+         */
+        ts_stack_clear(stack);
+        ts_stack_split(stack, 0);
+        ts_stack_push(stack, 0, stateA, trees[0]);
+        bool merged = ts_stack_push(stack, 1, stateB, trees[1]);
+        AssertThat(merged, IsFalse());
+        merged = ts_stack_push(stack, 1, stateA, trees[0]);
+        AssertThat(merged, IsTrue());
+
+        AssertThat(ts_stack_head_count(stack), Equals(1));
+        StackEntry *head = ts_stack_head(stack, 0);
+        AssertThat(*head, Equals<StackEntry>({trees[0], stateA}));
+
+        AssertThat(ts_stack_entry_next_count(head), Equals(2));
+        AssertThat(ts_stack_entry_next(head, 0), Equals<StackEntry *>(nullptr));
+        AssertThat(*ts_stack_entry_next(head, 1), Equals<StackEntry>({trees[1], stateB}));
+      });
+    });
   });
 
   describe("popping from a stack head that has been merged", [&]() {

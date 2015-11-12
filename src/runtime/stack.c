@@ -124,8 +124,11 @@ static void ts_stack__add_node_successor(Stack *self, StackNode *node,
                                          StackNode *new_successor) {
   for (int i = 0; i < node->successor_count; i++) {
     StackNode *successor = node->successors[i];
+    if (!successor)
+      continue;
     if (successor == new_successor)
       return;
+
     if (successor->entry.state == new_successor->entry.state) {
       if (successor->entry.tree != new_successor->entry.tree) {
         successor->entry.tree = self->tree_selection_callback.callback(
