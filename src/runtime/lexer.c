@@ -71,7 +71,7 @@ static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
 
 		if (self->lookahead == '\n') {
 			self->current_source_info.line += 1;
-			self->current_source_info.column = 0;
+			self->current_source_info.column = 1;
 		} else {
 			self->current_source_info.column += 1;
 		}
