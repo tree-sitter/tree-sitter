@@ -234,7 +234,7 @@ static bool ts_parser__handle_error(TSParser *self, int head) {
      */
     int i = -1;
     for (StackEntry *entry = entry_before_error; true;
-         entry = ts_stack_entry_next(entry, head), i++) {
+         entry = ts_stack_entry_next(entry, 0), i++) {
       TSStateId stack_state = entry ? entry->state : 0;
       TSParseAction action_on_error = ts_language__last_action(
         self->language, stack_state, ts_builtin_sym_error);
