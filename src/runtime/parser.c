@@ -301,6 +301,7 @@ static TSTree *ts_parser__finish(TSParser *self) {
   TSTree *root = trees[extra_count];
 
   ts_tree_prepend_children(root, extra_count, trees);
+  ts_tree_assign_parents(root);
   return root;
 }
 

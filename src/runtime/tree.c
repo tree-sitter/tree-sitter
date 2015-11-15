@@ -36,6 +36,20 @@ TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char)
   return result;
 }
 
+void ts_tree_assign_parents(TSTree *self) {
+  TSLength offset = ts_length_zero();
+  for (size_t i = 0; i < self->child_count; i++) {
+    TSTree *child = self->children[i];
+    if (child->context.parent != self) {
+      child->context.parent = self;
+      child->context.index = i;
+      child->context.offset = offset;
+      ts_tree_assign_parents(child);
+    }
+    offset = ts_length_add(offset, ts_tree_total_size(child));
+  }
+}
+
 static void ts_tree__set_children(TSTree *self, TSTree **children,
                                   size_t child_count) {
   self->children = children;
@@ -44,9 +58,6 @@ static void ts_tree__set_children(TSTree *self, TSTree **children,
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
     ts_tree_retain(child);
-    child->context.parent = self;
-    child->context.index = i;
-    child->context.offset = ts_tree_total_size(self);
 
     if (i == 0) {
       self->padding = child->padding;
