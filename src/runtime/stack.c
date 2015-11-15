@@ -1,6 +1,6 @@
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
-#include "runtime/tree_vector.h"
+#include "runtime/vector.h"
 #include "runtime/stack.h"
 #include "runtime/length.h"
 #include <assert.h>
@@ -229,7 +229,8 @@ StackPopResultList ts_stack_pop(Stack *self, int head_index, int child_count,
   int capacity = (child_count == -1) ? STARTING_TREE_CAPACITY : child_count;
   size_t tree_counts_by_path[MAX_POP_PATH_COUNT] = { child_count };
   StackNode *nodes_by_path[MAX_POP_PATH_COUNT] = { previous_head };
-  TreeVector trees_by_path[MAX_POP_PATH_COUNT] = { tree_vector_new(capacity) };
+  Vector trees_by_path[MAX_POP_PATH_COUNT] = { vector_new(sizeof(TSTree *),
+                                                          capacity) };
   bool is_shared_by_path[MAX_POP_PATH_COUNT] = { false };
 
   /*
@@ -257,10 +258,11 @@ StackPopResultList ts_stack_pop(Stack *self, int head_index, int child_count,
        *  the additional successors.
        */
       if (is_shared_by_path[path]) {
-        trees_by_path[path] = tree_vector_copy(&trees_by_path[path]);
+        trees_by_path[path] = vector_copy(&trees_by_path[path]);
         is_shared_by_path[path] = false;
       }
-      tree_vector_push(&trees_by_path[path], node->entry.tree);
+      ts_tree_retain(node->entry.tree);
+      vector_push(&trees_by_path[path], &node->entry.tree);
 
       for (int i = 0; i < node->successor_count; i++) {
         int next_path;
@@ -283,7 +285,7 @@ StackPopResultList ts_stack_pop(Stack *self, int head_index, int child_count,
 
   for (int path = 0; path < path_count; path++) {
     if (!is_shared_by_path[path])
-      tree_vector_reverse(&trees_by_path[path]);
+      vector_reverse(&trees_by_path[path]);
     int index = -1;
     if (path == 0) {
       stack_node_retain(nodes_by_path[path]);

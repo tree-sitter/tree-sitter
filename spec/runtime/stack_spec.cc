@@ -1,4 +1,5 @@
 #include "runtime/runtime_spec_helper.h"
+#include "runtime/helpers/tree_helpers.h"
 #include "runtime/stack.h"
 #include "runtime/tree.h"
 #include "runtime/length.h"
@@ -43,7 +44,7 @@ describe("Stack", [&]() {
 
     TSLength len = ts_length_make(2, 2);
     for (size_t i = 0; i < tree_count; i++)
-      trees[i] = ts_tree_make_leaf(ts_builtin_sym_start + i, len, len, TSNodeTypeNamed);
+      trees[i] = ts_tree_make_leaf(i, len, len, TSNodeTypeNamed);
   });
 
   after_each([&]() {
