@@ -7,6 +7,7 @@ extern "C" {
 
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
 typedef struct {
   void *contents;
@@ -22,6 +23,24 @@ static inline Vector vector_new(size_t element_size, size_t capacity) {
     .capacity = capacity,
     .element_size = element_size,
   };
+}
+
+static inline void *vector_get(Vector *self, size_t index) {
+  assert(index < self->size);
+  return (void *)((char *)self->contents + index * self->element_size);
+}
+
+static inline void vector_clear(Vector *self) {
+  self->size = 0;
+}
+
+static inline void vector_erase(Vector *self, size_t index) {
+  assert(index < self->size);
+  char *contents = (char *)self->contents;
+  memmove(contents + index * self->element_size,
+          contents + (index + 1) * self->element_size,
+          (self->size - index - 1) * self->element_size);
+  self->size--;
 }
 
 static inline void vector_push(Vector *self, void *entry) {

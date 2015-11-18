@@ -110,6 +110,9 @@ TSLexer ts_lexer_make() {
 }
 
 void ts_lexer_reset(TSLexer *self, TSLength position) {
+  if (ts_length_eq(position, self->current_position))
+    return;
+
   self->token_start_position = position;
   self->token_end_position = position;
   self->current_position = position;
