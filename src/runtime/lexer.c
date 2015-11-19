@@ -54,9 +54,9 @@ static void ts_lexer__start_token(TSLexer *self) {
   DEBUG("start_token chars:%lu", self->current_position.chars);
   self->token_start_position = self->current_position;
 
-  DEBUG("start_token line:%lu", self->current_source_info.line);
-  DEBUG("start_token column:%lu", self->current_source_info.column);
-  self->token_start_source_info = self->current_source_info;
+  DEBUG("start_token line:%lu", self->current_point.line);
+  DEBUG("start_token column:%lu", self->current_point.column);
+  self->token_start_point = self->current_point;
 }
 
 static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
@@ -70,10 +70,10 @@ static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
     self->current_position.chars += 1;
 
 		if (self->lookahead == '\n') {
-			self->current_source_info.line += 1;
-			self->current_source_info.column = 0;
+			self->current_point.line += 1;
+			self->current_point.column = 0;
 		} else {
-			self->current_source_info.column += 1;
+			self->current_point.column += 1;
 		}
   }
 
@@ -92,17 +92,17 @@ static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
     ts_length_sub(self->token_start_position, self->token_end_position);
   self->token_end_position = self->current_position;
 
-	self->token_end_source_info = self->current_source_info;
+	self->token_end_point = self->current_point;
 
   if (symbol == ts_builtin_sym_error) {
     DEBUG("error_char");
-    return ts_tree_make_error(size, padding, self->token_start_source_info,
-															self->token_end_source_info, self->lookahead);
+    return ts_tree_make_error(size, padding, self->token_start_point,
+															self->token_end_point, self->lookahead);
   } else {
     DEBUG("accept_token sym:%s", symbol_name);
     return ts_tree_make_leaf(symbol, padding, size,
-														 self->token_start_source_info,
-														 self->token_end_source_info, node_type);
+														 self->token_start_point,
+														 self->token_end_point, node_type);
   }
 }
 
@@ -121,14 +121,19 @@ TSLexer ts_lexer_make() {
     .chunk_start = 0,
     .debugger = ts_debugger_null(),
   };
-  ts_lexer_reset(&result, ts_length_zero());
+  ts_lexer_reset(&result, ts_length_zero(), ts_point_zero());
   return result;
 }
 
-void ts_lexer_reset(TSLexer *self, TSLength position) {
+void ts_lexer_reset(TSLexer *self, TSLength position, TSPoint point) {
   self->token_start_position = position;
   self->token_end_position = position;
   self->current_position = position;
+
+  self->token_start_point = point;
+  self->token_end_point = point;
+  self->current_point = point;
+
   self->chunk = 0;
   self->chunk_start = 0;
   self->chunk_size = 0;

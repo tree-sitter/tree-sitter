@@ -38,13 +38,12 @@ typedef struct {
 typedef struct {
 	size_t line;
 	size_t column;
-} TSSourceInfo;
+} TSPoint;
 
 typedef struct {
   const void *data;
   TSLength offset;
-	TSSourceInfo start;
-	TSSourceInfo end;
+	TSPoint point;
 } TSNode;
 
 typedef unsigned short TSSymbol;

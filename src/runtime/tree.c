@@ -7,8 +7,8 @@
 #include "runtime/length.h"
 
 TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
-													TSSourceInfo start_source_info,
-													TSSourceInfo end_source_info,
+													TSPoint padding_point,
+													TSPoint size_point,
                           TSNodeType node_type) {
   TSTree *result = malloc(sizeof(TSTree));
   *result = (TSTree){
@@ -20,8 +20,8 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
     .named_child_count = 0,
     .children = NULL,
     .padding = padding,
-		.start_source_info = start_source_info,
-		.end_source_info = end_source_info,
+		.padding_point = padding_point,
+		.size_point = size_point,
     .options = {.type = node_type },
   };
 
@@ -34,12 +34,12 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
 }
 
 TSTree *ts_tree_make_error(TSLength size, TSLength padding,
-													 TSSourceInfo start_source_info,
-													 TSSourceInfo end_source_info,
+													 TSPoint start_point,
+													 TSPoint end_point,
 													 char lookahead_char) {
   TSTree *result =
-    ts_tree_make_leaf(ts_builtin_sym_error, padding, size, start_source_info,
-											end_source_info, TSNodeTypeNamed);
+    ts_tree_make_leaf(ts_builtin_sym_error, padding, size, start_point,
+											end_point, TSNodeTypeNamed);
   result->lookahead_char = lookahead_char;
   return result;
 }
@@ -90,7 +90,7 @@ static void ts_tree__set_children(TSTree *self, TSTree **children,
 TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
                           TSTree **children, TSNodeType node_type) {
   TSTree *result =
-    ts_tree_make_leaf(symbol, ts_length_zero(), ts_length_zero(), ts_source_info_zero(), ts_source_info_zero(), node_type);
+    ts_tree_make_leaf(symbol, ts_length_zero(), ts_length_zero(), ts_point_zero(), ts_point_zero(), node_type);
   ts_tree__set_children(result, children, child_count);
   return result;
 }
@@ -114,6 +114,10 @@ void ts_tree_release(TSTree *self) {
 
 TSLength ts_tree_total_size(const TSTree *self) {
   return ts_length_add(self->padding, self->size);
+}
+
+TSPoint ts_tree_total_size_point(const TSTree *self) {
+  return ts_point_add(self->padding_point, self->size_point);
 }
 
 bool ts_tree_eq(const TSTree *self, const TSTree *other) {

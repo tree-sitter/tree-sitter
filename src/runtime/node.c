@@ -4,11 +4,8 @@
 #include "runtime/tree.h"
 #include "runtime/document.h"
 
-TSNode ts_node_make(const TSTree *tree, TSLength offset) {
-	TSSourceInfo start = tree != NULL ? tree->start_source_info : ts_source_info_zero();
-	TSSourceInfo end = tree != NULL ? tree->end_source_info : ts_source_info_zero();
-
-  return (TSNode){.data = tree, .offset = offset, .start = start, .end = end };
+TSNode ts_node_make(const TSTree *tree, TSLength offset, TSPoint point) {
+  return (TSNode){.data = tree, .offset = offset, .point = point };
 }
 
 /*
@@ -16,7 +13,7 @@ TSNode ts_node_make(const TSTree *tree, TSLength offset) {
  */
 
 static inline TSNode ts_node__null() {
-  return ts_node_make(NULL, ts_length_zero());
+  return ts_node_make(NULL, ts_length_zero(), ts_point_zero());
 }
 
 static inline const TSTree *ts_node__tree(TSNode self) {
@@ -27,10 +24,16 @@ static inline TSLength ts_node__offset(TSNode self) {
   return self.offset;
 }
 
+
+static inline TSPoint ts_node__point(TSNode self) {
+  return self.point;
+}
+
 static inline TSNode ts_node__child(TSNode self, size_t child_index,
                                     TSNodeType type) {
   const TSTree *tree = ts_node__tree(self);
   TSLength position = ts_node__offset(self);
+  TSPoint point = ts_node__point(self);
 
   bool did_descend = true;
   while (did_descend) {
@@ -41,7 +44,7 @@ static inline TSNode ts_node__child(TSNode self, size_t child_index,
       TSTree *child = tree->children[i];
       if (child->options.type >= type) {
         if (index == child_index)
-          return ts_node_make(child, position);
+          return ts_node_make(child, position, point);
         index++;
       } else {
         size_t grandchild_index = child_index - index;
@@ -66,10 +69,12 @@ static inline TSNode ts_node__child(TSNode self, size_t child_index,
 static inline TSNode ts_node__prev_sibling(TSNode self, TSNodeType type) {
   const TSTree *tree = ts_node__tree(self);
   TSLength position = ts_node__offset(self);
+  TSPoint point = ts_node__point(self);
 
   do {
     size_t index = tree->context.index;
     position = ts_length_sub(position, tree->context.offset);
+    point = ts_point_sub(point, tree->context.offset_point);
     tree = tree->context.parent;
     if (!tree)
       break;
@@ -77,13 +82,14 @@ static inline TSNode ts_node__prev_sibling(TSNode self, TSNodeType type) {
     for (size_t i = index - 1; i + 1 > 0; i--) {
       const TSTree *child = tree->children[i];
       TSLength child_position = ts_length_add(position, child->context.offset);
+      TSPoint child_point = ts_point_add(point, child->context.offset_point);
       if (child->options.type >= type)
-        return ts_node_make(child, child_position);
+        return ts_node_make(child, child_position, child_point);
       size_t grandchild_count = (type == TSNodeTypeNamed)
                                   ? child->named_child_count
                                   : child->visible_child_count;
       if (grandchild_count > 0)
-        return ts_node__child(ts_node_make(child, child_position),
+        return ts_node__child(ts_node_make(child, child_position, child_point),
                               grandchild_count - 1, type);
     }
   } while (!ts_tree_is_visible(tree));
@@ -94,6 +100,7 @@ static inline TSNode ts_node__prev_sibling(TSNode self, TSNodeType type) {
 static inline TSNode ts_node__next_sibling(TSNode self, TSNodeType type) {
   const TSTree *tree = ts_node__tree(self);
   TSLength position = ts_node__offset(self);
+  TSPoint point = ts_node__point(self);
 
   do {
     size_t index = tree->context.index;
@@ -105,13 +112,14 @@ static inline TSNode ts_node__next_sibling(TSNode self, TSNodeType type) {
     for (size_t i = index + 1; i < tree->child_count; i++) {
       const TSTree *child = tree->children[i];
       TSLength child_position = ts_length_add(position, child->context.offset);
+      TSPoint child_point = ts_point_add(point, child->context.offset_point);
       if (child->options.type >= type)
-        return ts_node_make(child, child_position);
+        return ts_node_make(child, child_position, child_point);
       size_t grandchild_count = (type == TSNodeTypeNamed)
                                   ? child->named_child_count
                                   : child->visible_child_count;
       if (grandchild_count > 0)
-        return ts_node__child(ts_node_make(child, child_position), 0, type);
+        return ts_node__child(ts_node_make(child, child_position, child_point), 0, type);
     }
   } while (!ts_tree_is_visible(tree));
 
@@ -122,6 +130,7 @@ static inline TSNode ts_node__descendent_for_range(TSNode self, size_t min,
                                                    size_t max, TSNodeType type) {
   const TSTree *tree = ts_node__tree(self), *last_visible_tree = tree;
   TSLength position = ts_node__offset(self), last_visible_position = position;
+  TSPoint point = ts_node__point(self), last_visible_point = point;
 
   bool did_descend = true;
   while (did_descend) {
@@ -144,7 +153,7 @@ static inline TSNode ts_node__descendent_for_range(TSNode self, size_t min,
     }
   }
 
-  return ts_node_make(last_visible_tree, last_visible_position);
+  return ts_node_make(last_visible_tree, last_visible_position, last_visible_point);
 }
 
 /*
@@ -188,15 +197,18 @@ bool ts_node_has_changes(TSNode self) {
 TSNode ts_node_parent(TSNode self) {
   const TSTree *tree = ts_node__tree(self);
   TSLength position = ts_node__offset(self);
+	TSPoint point = ts_node__point(self);
 
   do {
     position = ts_length_sub(position, tree->context.offset);
+		point = ts_point_sub(point, tree->context.offset_point);
+
     tree = tree->context.parent;
     if (!tree)
       return ts_node__null();
   } while (!ts_tree_is_visible(tree));
 
-  return ts_node_make(tree, position);
+  return ts_node_make(tree, position, point);
 }
 
 TSNode ts_node_child(TSNode self, size_t child_index) {

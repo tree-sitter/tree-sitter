@@ -119,18 +119,21 @@ static void ts_parser__get_next_lookahead(TSParser *self) {
 
     self->lookahead = self->reusable_subtree;
     TSLength size = ts_tree_total_size(self->lookahead);
+    TSPoint point_size = ts_tree_total_size_point(self->lookahead);
     DEBUG("reuse sym:%s size:%lu extra:%d", SYM_NAME(self->lookahead->symbol),
           size.chars, self->lookahead->options.extra);
     ts_lexer_reset(&self->lexer,
-                   ts_length_add(self->lexer.current_position, size));
+                   ts_length_add(self->lexer.current_position, size),
+                   ts_point_add(self->lexer.current_point, point_size));
     ts_parser__pop_reusable_subtree(self);
     return;
   }
 
   TSLength position = self->lexer.current_position;
+  TSPoint point = self->lexer.current_point;
   for (size_t i = 0, count = ts_stack_head_count(self->stack); i < count; i++) {
     if (i > 0) {
-      ts_lexer_reset(&self->lexer, position);
+      ts_lexer_reset(&self->lexer, position, point);
       ts_tree_release(self->lookahead);
     }
 
@@ -285,7 +288,7 @@ static void ts_parser__start(TSParser *self, TSInput input,
   }
 
   self->lexer.input = input;
-  ts_lexer_reset(&self->lexer, ts_length_zero());
+  ts_lexer_reset(&self->lexer, ts_length_zero(), ts_point_zero());
   ts_stack_clear(self->stack);
 
   self->reusable_subtree = previous_tree;

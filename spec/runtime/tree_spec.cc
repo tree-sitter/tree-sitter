@@ -29,8 +29,8 @@ describe("Tree", []() {
   TSTree *tree1, *tree2, *parent1;
 
   before_each([&]() {
-    tree1 = ts_tree_make_leaf(cat, {2, 1}, {5, 4}, ts_source_info_zero(), ts_source_info_zero(), TSNodeTypeNamed);
-    tree2 = ts_tree_make_leaf(cat, {1, 1}, {3, 3}, ts_source_info_zero(), ts_source_info_zero(), TSNodeTypeNamed);
+    tree1 = ts_tree_make_leaf(cat, {2, 1}, {5, 4}, ts_point_zero(), ts_point_zero(), TSNodeTypeNamed);
+    tree2 = ts_tree_make_leaf(cat, {1, 1}, {3, 3}, ts_point_zero(), ts_point_zero(), TSNodeTypeNamed);
     parent1 = ts_tree_make_node(dog, 2, tree_array({
       tree1,
       tree2,
@@ -55,8 +55,8 @@ describe("Tree", []() {
       TSTree *error_tree = ts_tree_make_error(
         ts_length_zero(),
         ts_length_zero(),
-        ts_source_info_zero(),
-        ts_source_info_zero(),
+        ts_point_zero(),
+        ts_point_zero(),
         'z');
 
       AssertThat(ts_tree_is_fragile_left(error_tree), IsTrue());
@@ -291,8 +291,8 @@ describe("Tree", []() {
         tree1->symbol + 1,
         tree1->padding,
         tree1->size,
-				tree1->start_source_info,
-				tree1->end_source_info,
+				tree1->padding_point,
+				tree1->size_point,
         TSNodeTypeNamed);
 
       AssertThat(ts_tree_eq(tree1, different_tree), IsFalse());
@@ -304,8 +304,8 @@ describe("Tree", []() {
         tree1->symbol + 1,
         tree1->padding,
         tree1->size,
-				tree1->start_source_info,
-				tree1->end_source_info,
+				tree1->padding_point,
+				tree1->size_point,
         TSNodeTypeNamed);
 
       TSTree *different_parent = ts_tree_make_node(dog, 2, tree_array({

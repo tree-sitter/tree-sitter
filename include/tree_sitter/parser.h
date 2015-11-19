@@ -38,9 +38,9 @@ typedef struct TSLexer {
   TSLength token_end_position;
   TSLength token_start_position;
 
-  TSSourceInfo current_source_info;
-  TSSourceInfo token_end_source_info;
-  TSSourceInfo token_start_source_info;
+  TSPoint current_point;
+  TSPoint token_end_point;
+  TSPoint token_start_point;
 
   size_t lookahead_size;
   int32_t lookahead;

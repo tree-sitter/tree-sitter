@@ -5,6 +5,6 @@
 #include "runtime/length.h"
 #include "runtime/tree.h"
 
-TSNode ts_node_make(const TSTree *, TSLength);
+TSNode ts_node_make(const TSTree *, TSLength, TSPoint);
 
 #endif

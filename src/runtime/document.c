@@ -85,7 +85,7 @@ void ts_document_invalidate(TSDocument *self) {
 }
 
 TSNode ts_document_root_node(const TSDocument *self) {
-  TSNode result = ts_node_make(self->tree, ts_length_zero());
+  TSNode result = ts_node_make(self->tree, ts_length_zero(), ts_point_zero());
   while (result.data && !ts_tree_is_visible(result.data))
     result = ts_node_named_child(result, 0);
   return result;
