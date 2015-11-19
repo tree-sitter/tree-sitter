@@ -43,7 +43,7 @@ typedef struct {
 typedef struct {
   const void *data;
   TSLength offset;
-	TSPoint point;
+	TSPoint offset_point;
 } TSNode;
 
 typedef unsigned short TSSymbol;
