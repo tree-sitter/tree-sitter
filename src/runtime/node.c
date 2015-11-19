@@ -168,6 +168,10 @@ TSLength ts_node_size(TSNode self) {
   return ts_node__tree(self)->size;
 }
 
+TSLength ts_node_point(TSNode self) {
+  return ts_node__tree(self)->size_point;
+}
+
 TSSymbol ts_node_symbol(TSNode self) {
   return ts_node__tree(self)->symbol;
 }
