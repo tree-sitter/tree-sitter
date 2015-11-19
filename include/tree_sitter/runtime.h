@@ -52,7 +52,7 @@ typedef struct TSDocument TSDocument;
 
 TSLength ts_node_pos(TSNode);
 TSLength ts_node_size(TSNode);
-TSPoint ts_node_end_point(TSNode);
+TSPoint ts_node_size_point(TSNode);
 TSSymbol ts_node_symbol(TSNode);
 const char *ts_node_name(TSNode, const TSDocument *);
 const char *ts_node_string(TSNode, const TSDocument *);
