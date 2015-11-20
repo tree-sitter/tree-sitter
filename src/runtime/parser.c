@@ -137,6 +137,10 @@ static void ts_parser__remove_head(TSParser *self, int head) {
   ts_stack_remove_head(self->stack, head);
 }
 
+static TSTree *ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
+  return ts_tree_compare(left, right) <= 0 ? left : right;
+}
+
 /*
  *  Parse Actions
  */
@@ -445,13 +449,6 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
   }
 }
 
-static TSTree *ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
-  if (ts_tree_compare(left, right) <= 0)
-    return left;
-  else
-    return right;
-}
-
 /*
  *  Public
  */
@@ -484,6 +481,7 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
 
   for (;;) {
     TSTree *lookahead = NULL;
+    TSLength position = ts_length_zero();
 
     for (int head = 0; head < ts_stack_head_count(self->stack);) {
       LookaheadState *state = vector_get(&self->lookahead_states, head);
@@ -492,14 +490,18 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
           ts_stack_head_count(self->stack),
           ts_stack_top_state(self->stack, head), state->position.chars);
 
-      TSTree *reused_lookahead = ts_parser__get_next_lookahead(self, head);
-      if (ts_parser__can_reuse(self, head, reused_lookahead)) {
-        lookahead = reused_lookahead;
-      } else if (!ts_parser__can_reuse(self, head, lookahead)) {
-        ts_lexer_reset(&self->lexer, state->position);
-        TSStateId parse_state = ts_stack_top_state(self->stack, head);
-        TSStateId lex_state = self->language->lex_states[parse_state];
-        lookahead = self->language->lex_fn(&self->lexer, lex_state);
+      if (!ts_parser__can_reuse(self, head, lookahead) ||
+          !ts_length_eq(state->position, position)) {
+        TSTree *reused_lookahead = ts_parser__get_next_lookahead(self, head);
+        if (ts_parser__can_reuse(self, head, reused_lookahead)) {
+          lookahead = reused_lookahead;
+        } else {
+          position = state->position;
+          ts_lexer_reset(&self->lexer, position);
+          TSStateId parse_state = ts_stack_top_state(self->stack, head);
+          TSStateId lex_state = self->language->lex_states[parse_state];
+          lookahead = self->language->lex_fn(&self->lexer, lex_state);
+        }
       }
 
       LOG("lookahead sym:%s, size:%lu", SYM_NAME(lookahead->symbol),
