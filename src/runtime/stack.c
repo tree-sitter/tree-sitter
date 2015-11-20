@@ -1,17 +1,17 @@
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
-#include "runtime/tree_vector.h"
+#include "runtime/vector.h"
 #include "runtime/stack.h"
 #include "runtime/length.h"
 #include <assert.h>
 
-#define MAX_POP_PATH_COUNT 8
+#define MAX_SUCCESSOR_COUNT 8
 #define INITIAL_HEAD_CAPACITY 3
 #define STARTING_TREE_CAPACITY 10
 
 typedef struct StackNode {
   StackEntry entry;
-  struct StackNode *successors[MAX_POP_PATH_COUNT];
+  struct StackNode *successors[MAX_SUCCESSOR_COUNT];
   short unsigned int successor_count;
   short unsigned int ref_count;
 } StackNode;
@@ -20,9 +20,17 @@ struct Stack {
   StackNode **heads;
   int head_count;
   int head_capacity;
-  StackPopResult last_pop_results[MAX_POP_PATH_COUNT];
+  Vector pop_results;
+  Vector pop_paths;
   TreeSelectionCallback tree_selection_callback;
 };
+
+typedef struct {
+  size_t goal_tree_count;
+  StackNode *node;
+  Vector trees;
+  bool is_shared;
+} PopPath;
 
 /*
  *  Section: Stack lifecycle
@@ -35,11 +43,15 @@ Stack *ts_stack_new(TreeSelectionCallback tree_selection_callback) {
     .head_count = 1,
     .head_capacity = INITIAL_HEAD_CAPACITY,
     .tree_selection_callback = tree_selection_callback,
+    .pop_results = vector_new(sizeof(StackPopResult), 4),
+    .pop_paths = vector_new(sizeof(PopPath), 4),
   };
   return self;
 }
 
 void ts_stack_delete(Stack *self) {
+  vector_delete(&self->pop_results);
+  vector_delete(&self->pop_paths);
   free(self->heads);
   free(self);
 }
@@ -164,12 +176,12 @@ static int ts_stack__add_head(Stack *self, StackNode *node) {
   return new_index;
 }
 
-static int ts_stack__find_or_add_head(Stack *self, StackNode *node) {
+static int ts_stack__find_head(Stack *self, StackNode *node) {
   for (int i = 0; i < self->head_count; i++)
     if (self->heads[i] == node) {
       return i;
     }
-  return ts_stack__add_head(self, node);
+  return -1;
 }
 
 void ts_stack_remove_head(Stack *self, int head_index) {
@@ -221,16 +233,24 @@ int ts_stack_split(Stack *self, int head_index) {
   return ts_stack__add_head(self, self->heads[head_index]);
 }
 
-StackPopResultList ts_stack_pop(Stack *self, int head_index, int child_count,
-                                bool count_extra) {
-  StackNode *previous_head = self->heads[head_index];
+const char *symbol_names[] = {
+  "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+  "ten", "eleven", "twelve"
+};
 
-  int path_count = 1;
+Vector ts_stack_pop(Stack *self, int head_index, int child_count, bool count_extra) {
+  StackNode *previous_head = self->heads[head_index];
   int capacity = (child_count == -1) ? STARTING_TREE_CAPACITY : child_count;
-  size_t tree_counts_by_path[MAX_POP_PATH_COUNT] = { child_count };
-  StackNode *nodes_by_path[MAX_POP_PATH_COUNT] = { previous_head };
-  TreeVector trees_by_path[MAX_POP_PATH_COUNT] = { tree_vector_new(capacity) };
-  bool is_shared_by_path[MAX_POP_PATH_COUNT] = { false };
+  PopPath initial_path = {
+    .goal_tree_count = child_count,
+    .node = previous_head,
+    .trees = vector_new(sizeof(TSTree *), capacity),
+    .is_shared = false,
+  };
+
+  vector_clear(&self->pop_results);
+  vector_clear(&self->pop_paths);
+  vector_push(&self->pop_paths, &initial_path);
 
   /*
    *  Reduce along every possible path in parallel. Stop when the given number
@@ -239,71 +259,72 @@ StackPopResultList ts_stack_pop(Stack *self, int head_index, int child_count,
   bool all_paths_done = false;
   while (!all_paths_done) {
     all_paths_done = true;
-    int current_path_count = path_count;
-    for (int path = 0; path < current_path_count; path++) {
-      StackNode *node = nodes_by_path[path];
-      if (!node || (trees_by_path[path].size == tree_counts_by_path[path]))
+
+    for (size_t i = 0; i < self->pop_paths.size; i++) {
+      PopPath *path = vector_get(&self->pop_paths, i);
+      StackNode *node = path->node;
+
+      if (!node || path->trees.size == path->goal_tree_count)
         continue;
+
       all_paths_done = false;
 
       /*
        *  Children that are 'extra' do not count towards the total child count.
        */
       if (ts_tree_is_extra(node->entry.tree) && !count_extra)
-        tree_counts_by_path[path]++;
+        path->goal_tree_count++;
 
       /*
        *  If a node has more than one successor, create new paths for each of
        *  the additional successors.
        */
-      if (is_shared_by_path[path]) {
-        trees_by_path[path] = tree_vector_copy(&trees_by_path[path]);
-        is_shared_by_path[path] = false;
+      if (path->is_shared) {
+        path->trees = vector_copy(&path->trees);
+        path->is_shared = false;
       }
-      tree_vector_push(&trees_by_path[path], node->entry.tree);
 
-      for (int i = 0; i < node->successor_count; i++) {
-        int next_path;
-        if (i > 0) {
-          if (path_count == MAX_POP_PATH_COUNT)
-            break;
-          next_path = path_count;
-          tree_counts_by_path[next_path] = tree_counts_by_path[path];
-          trees_by_path[next_path] = trees_by_path[path];
-          is_shared_by_path[next_path] = true;
-          path_count++;
-        } else {
-          next_path = path;
-        }
+      ts_tree_retain(node->entry.tree);
+      vector_push(&path->trees, &node->entry.tree);
 
-        nodes_by_path[next_path] = node->successors[i];
+      path->node = path->node->successors[0];
+      for (int j = 1; j < node->successor_count; j++) {
+        PopPath path_copy = *path;
+        vector_push(&self->pop_paths, &path_copy);
+        PopPath *next_path = vector_back(&self->pop_paths);
+        next_path->node = node->successors[j];
+        next_path->is_shared = true;
       }
     }
   }
 
-  for (int path = 0; path < path_count; path++) {
-    if (!is_shared_by_path[path])
-      tree_vector_reverse(&trees_by_path[path]);
-    int index = -1;
-    if (path == 0) {
-      stack_node_retain(nodes_by_path[path]);
-      self->heads[head_index] = nodes_by_path[path];
-      index = head_index;
+  for (size_t i = 0; i < self->pop_paths.size; i++) {
+    PopPath *path = vector_get(&self->pop_paths, i);
+
+    if (!path->is_shared)
+      vector_reverse(&path->trees);
+
+    StackPopResult result = {
+      .trees = path->trees.contents,
+      .tree_count = path->trees.size,
+      .head_index = -1,
+    };
+
+    if (i == 0) {
+      stack_node_retain(path->node);
+      self->heads[head_index] = path->node;
+      result.head_index = head_index;
     } else {
-      index = ts_stack__find_or_add_head(self, nodes_by_path[path]);
+      result.head_index = ts_stack__find_head(self, path->node);
+      if (result.head_index == -1)
+        result.head_index = ts_stack__add_head(self, path->node);
     }
 
-    self->last_pop_results[path] = (StackPopResult){
-      .index = index,
-      .tree_count = trees_by_path[path].size,
-      .trees = trees_by_path[path].contents,
-    };
+    vector_push(&self->pop_results, &result);
   }
 
   stack_node_release(previous_head);
-  return (StackPopResultList){
-    .size = path_count, .contents = self->last_pop_results,
-  };
+  return self->pop_results;
 }
 
 void ts_stack_shrink(Stack *self, int head_index, int count) {

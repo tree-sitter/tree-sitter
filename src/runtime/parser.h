@@ -6,14 +6,15 @@ extern "C" {
 #endif
 
 #include "runtime/stack.h"
+#include "runtime/vector.h"
 
 typedef struct {
   TSLexer lexer;
   Stack *stack;
   TSTree *lookahead;
-  TSTree *reusable_subtree;
-  size_t reusable_subtree_pos;
   const TSLanguage *language;
+  Vector head_states;
+  Vector reduce_parents;
 } TSParser;
 
 TSParser ts_parser_make();

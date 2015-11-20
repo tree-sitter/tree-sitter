@@ -44,6 +44,7 @@ char *ts_tree_string(const TSTree *tree, const char **names,
                      bool include_anonymous);
 TSLength ts_tree_total_size(const TSTree *tree);
 void ts_tree_prepend_children(TSTree *, size_t, TSTree **);
+void ts_tree_assign_parents(TSTree *);
 void ts_tree_edit(TSTree *, TSInputEdit);
 
 static inline bool ts_tree_is_extra(const TSTree *tree) {

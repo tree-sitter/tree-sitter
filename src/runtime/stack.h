@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include "tree_sitter/parser.h"
+#include "runtime/vector.h"
 
 typedef struct Stack Stack;
 
@@ -15,15 +16,10 @@ typedef struct {
 } StackEntry;
 
 typedef struct {
-  int index;
-  int tree_count;
   TSTree **trees;
+  size_t tree_count;
+  int head_index;
 } StackPopResult;
-
-typedef struct {
-  int size;
-  StackPopResult *contents;
-} StackPopResultList;
 
 typedef struct {
   void *data;
@@ -90,7 +86,7 @@ void ts_stack_add_alternative(Stack *, int head, TSTree *);
  *  which had previously been merged. It returns a struct that indicates the
  *  index of each revealed head and the trees removed from that head.
  */
-StackPopResultList ts_stack_pop(Stack *, int head, int count, bool count_extra);
+Vector ts_stack_pop(Stack *, int head, int count, bool count_extra);
 
 /*
  *  Remove the given number of entries from the given head of the stack.
