@@ -1,14 +1,13 @@
 #include "runtime/parser.h"
 #include <stdio.h>
 #include <stdbool.h>
+#include <assert.h>
 #include "tree_sitter/runtime.h"
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 #include "runtime/lexer.h"
 #include "runtime/length.h"
 #include "runtime/vector.h"
-
-#include <assert.h>
 
 /*
  *  Debugging
@@ -144,7 +143,7 @@ static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head) {
 
 static int ts_parser__split(TSParser *self, int head) {
   int result = ts_stack_split(self->stack, head);
-  assert(result == self->head_states.size);
+  assert(result == (int)self->head_states.size);
   HeadState head_state = *(HeadState *)vector_get(&self->head_states, head);
   vector_push(&self->head_states, &head_state);
   return result;
@@ -179,7 +178,7 @@ static bool ts_parser__shift_extra(TSParser *self, int head, TSStateId state) {
 }
 
 static TSTree *ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
-                                 size_t child_count, bool extra,
+                                 int child_count, bool extra,
                                  bool count_extra) {
   vector_clear(&self->reduce_parents);
   TSNodeType node_type = self->language->node_types[symbol];
