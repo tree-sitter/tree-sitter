@@ -8,6 +8,7 @@
 #include "runtime/lexer.h"
 #include "runtime/length.h"
 #include "runtime/vector.h"
+#include "runtime/language.h"
 
 /*
  *  Debugging
@@ -37,25 +38,6 @@ typedef enum {
 /*
  *  Private
  */
-
-static const TSParseAction ERROR_ACTIONS[2] = {
-  {.type = TSParseActionTypeError }, {.type = 0 }
-};
-
-static const TSParseAction *ts_language__actions(const TSLanguage *language,
-                                                 TSStateId state, TSSymbol sym) {
-  const TSParseAction *actions =
-    (language->parse_table + (state * language->symbol_count))[sym];
-  return actions ? actions : ERROR_ACTIONS;
-}
-
-static TSParseAction ts_language__last_action(const TSLanguage *language,
-                                              TSStateId state, TSSymbol sym) {
-  const TSParseAction *action = ts_language__actions(language, state, sym);
-  while ((action + 1)->type)
-    action++;
-  return *action;
-}
 
 /*
  *  Replace the parser's reusable_subtree with its first non-fragile descendant.
@@ -96,7 +78,7 @@ static bool ts_parser__can_reuse(TSParser *self, int head, TSTree *subtree) {
     return false;
   TSStateId state = ts_stack_top_state(self->stack, head);
   const TSParseAction *action =
-    ts_language__actions(self->language, state, subtree->symbol);
+    ts_language_actions(self->language, state, subtree->symbol);
   return action->type != TSParseActionTypeError;
 }
 
@@ -243,7 +225,7 @@ static TSTree *ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
       state = top_state;
     } else {
       TSParseAction action =
-        ts_language__last_action(self->language, top_state, symbol);
+        ts_language_last_action(self->language, top_state, symbol);
       if (child_count == -1) {
         state = 0;
       } else {
@@ -303,12 +285,12 @@ static bool ts_parser__handle_error(TSParser *self, int head) {
     for (StackEntry *entry = entry_before_error; true;
          entry = ts_stack_entry_next(entry, 0), i++) {
       TSStateId stack_state = entry ? entry->state : 0;
-      TSParseAction action_on_error = ts_language__last_action(
+      TSParseAction action_on_error = ts_language_last_action(
         self->language, stack_state, ts_builtin_sym_error);
 
       if (action_on_error.type == TSParseActionTypeShift) {
         TSStateId state_after_error = action_on_error.data.to_state;
-        TSParseAction action_after_error = ts_language__last_action(
+        TSParseAction action_after_error = ts_language_last_action(
           self->language, state_after_error, self->lookahead->symbol);
 
         if (action_after_error.type != TSParseActionTypeError) {
@@ -370,11 +352,10 @@ static TSTree *ts_parser__finish(TSParser *self) {
   Vector pop_results = ts_stack_pop(self->stack, 0, -1, true);
   StackPopResult *pop_result = vector_get(&pop_results, 0);
 
-  TSTree **trees = pop_result->trees;
   size_t extra_count = pop_result->tree_count - 1;
-  TSTree *root = trees[extra_count];
+  TSTree *root = pop_result->trees[extra_count];
 
-  ts_tree_prepend_children(root, extra_count, trees);
+  ts_tree_prepend_children(root, extra_count, pop_result->trees);
   ts_tree_assign_parents(root);
   return root;
 }
@@ -387,7 +368,7 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head) {
   for (;;) {
     TSStateId state = ts_stack_top_state(self->stack, head);
     const TSParseAction *next_action =
-      ts_language__actions(self->language, state, self->lookahead->symbol);
+      ts_language_actions(self->language, state, self->lookahead->symbol);
 
     /*
      * If there are multiple actions for the current state and lookahead symbol,
