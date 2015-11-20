@@ -181,52 +181,91 @@ static bool ts_parser__shift_extra(TSParser *self, int head, TSStateId state) {
 static TSTree *ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
                                  size_t child_count, bool extra,
                                  bool count_extra) {
+  vector_clear(&self->reduce_parents);
   TSNodeType node_type = self->language->node_types[symbol];
-  StackPopResultList pop_results =
-    ts_stack_pop(self->stack, head, child_count, count_extra);
+  Vector pop_results = ts_stack_pop(self->stack, head, child_count, count_extra);
 
-  TSTree *parent = NULL;
-  TSTree **last_children = NULL;
-  int last_index = -1;
+  int last_head_index = -1;
+  int removed_heads = 0;
 
-  for (int i = 0; i < pop_results.size; i++) {
-    StackPopResult pop_result = pop_results.contents[i];
+  for (size_t i = 0; i < pop_results.size; i++) {
+    StackPopResult *pop_result = vector_get(&pop_results, i);
 
+    /*
+     *  If the same set of trees led to a previous stack head, reuse the parent
+     *  tree that was added to that head.
+     */
+    TSTree *parent = NULL;
+    for (size_t j = 0; j < i; j++) {
+      StackPopResult *prior_result = vector_get(&pop_results, j);
+      if (pop_result->trees == prior_result->trees) {
+        TSTree **existing_parent = vector_get(&self->reduce_parents, j);
+        parent = *existing_parent;
+        break;
+      }
+    }
+
+    /*
+     *  Otherwise, create a new parent node for this set of trees.
+     */
+    if (!parent)
+      parent = ts_tree_make_node(symbol, pop_result->tree_count, pop_result->trees, node_type);
+    vector_push(&self->reduce_parents, &parent);
+
+    /*
+     *  If another path led to the same stack head, add this new parent tree
+     *  as an alternative for that stack head.
+     */
+    int new_head = pop_result->head_index - removed_heads;
+    if (pop_result->head_index == last_head_index) {
+      ts_stack_add_alternative(self->stack, new_head, parent);
+      continue;
+    }
+
+    /*
+     *  If the stack has split in the process of popping, create a duplicate of
+     *  the lookahead state for this head, for the new head.
+     */
     if (i > 0) {
-      assert(pop_result.index == self->head_states.size);
-      DEBUG("split_during_reduce new_head:%d", pop_result.index);
+      DEBUG("split_during_reduce new_head:%d", new_head);
       HeadState *head_state = vector_get(&self->head_states, head);
       vector_push(&self->head_states, head_state);
     }
 
-    if (pop_result.trees != last_children) {
-      parent = ts_tree_make_node(symbol, pop_result.tree_count,
-                                 pop_result.trees, node_type);
-    }
-
-    if (pop_result.index == last_index) {
-      ts_stack_add_alternative(self->stack, pop_result.index, parent);
+    /*
+     *  If the parent node is extra, then do not change the state when pushing
+     *  it. Otherwise, proceed to the state given in the parse table for the
+     *  new parent symbol.
+     */
+    TSStateId state;
+    TSStateId top_state = ts_stack_top_state(self->stack, new_head);
+    if (extra) {
+      ts_tree_set_extra(parent);
+      state = top_state;
     } else {
-      TSStateId top_state = ts_stack_top_state(self->stack, pop_result.index);
-      TSStateId state;
-
-      if (extra) {
-        ts_tree_set_extra(parent);
-        state = top_state;
+      TSParseAction action = ts_language__last_action(self->language, top_state, symbol);
+      if (child_count == -1) {
+        state = 0;
       } else {
-        state = ts_language__last_action(self->language, top_state, symbol)
-                  .data.to_state;
+        assert(action.type == TSParseActionTypeShift);
+        state = action.data.to_state;
       }
-
-      if (ts_stack_push(self->stack, pop_result.index, state, parent))
-        vector_erase(&self->head_states, pop_result.index);
     }
 
-    last_index = pop_result.index;
-    last_children = pop_result.trees;
+    /*
+     *  If the given state already existed at a different head of the stack,
+     *  then remove the lookahead state for the head.
+     */
+    if (ts_stack_push(self->stack, new_head, state, parent)) {
+      vector_erase(&self->head_states, new_head);
+      removed_heads++;
+    }
+
+    last_head_index = pop_result->head_index;
   }
 
-  return parent;
+  TSTree **last_parent = vector_back(&self->reduce_parents);
+  return *last_parent;
 }
 
 static void ts_parser__reduce_fragile(TSParser *self, int head, TSSymbol symbol,
@@ -298,7 +337,7 @@ static bool ts_parser__handle_error(TSParser *self, int head) {
      */
     if (self->lookahead->symbol == ts_builtin_sym_end) {
       DEBUG("fail_to_recover");
-      ts_parser__reduce_error(self, head, error_token_count - 1);
+      ts_parser__reduce_error(self, head, -1);
       return false;
     }
   }
@@ -328,10 +367,11 @@ static void ts_parser__start(TSParser *self, TSInput input,
 }
 
 static TSTree *ts_parser__finish(TSParser *self) {
-  StackPopResult pop_result = ts_stack_pop(self->stack, 0, -1, true).contents[0];
+  Vector pop_results = ts_stack_pop(self->stack, 0, -1, true);
+  StackPopResult *pop_result = vector_get(&pop_results, 0);
 
-  TSTree **trees = pop_result.trees;
-  size_t extra_count = pop_result.tree_count - 1;
+  TSTree **trees = pop_result->trees;
+  size_t extra_count = pop_result->tree_count - 1;
   TSTree *root = trees[extra_count];
 
   ts_tree_prepend_children(root, extra_count, trees);
@@ -463,7 +503,8 @@ TSParser ts_parser_make() {
     .stack = ts_stack_new((TreeSelectionCallback){
       NULL, ts_parser__select_tree,
     }),
-    .head_states = vector_new(sizeof(HeadState), 3),
+    .head_states = vector_new(sizeof(HeadState), 4),
+    .reduce_parents = vector_new(sizeof(TSTree *), 4),
     .lookahead = NULL,
   };
 }

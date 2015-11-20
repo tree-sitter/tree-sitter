@@ -14,6 +14,7 @@ typedef struct {
   TSTree *lookahead;
   const TSLanguage *language;
   Vector head_states;
+  Vector reduce_parents;
 } TSParser;
 
 TSParser ts_parser_make();

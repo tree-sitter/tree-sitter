@@ -25,9 +25,18 @@ static inline Vector vector_new(size_t element_size, size_t capacity) {
   };
 }
 
+static inline void vector_delete(Vector *self) {
+  free(self->contents);
+}
+
 static inline void *vector_get(Vector *self, size_t index) {
   assert(index < self->size);
   return (void *)((char *)self->contents + index * self->element_size);
+}
+
+static inline void *vector_back(Vector *self)  {
+  assert(self->size > 0);
+  return vector_get(self, self->size - 1);
 }
 
 static inline void vector_clear(Vector *self) {
