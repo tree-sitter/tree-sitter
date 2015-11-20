@@ -233,10 +233,6 @@ int ts_stack_split(Stack *self, int head_index) {
   return ts_stack__add_head(self, self->heads[head_index]);
 }
 
-const char *symbol_names[] = { "zero", "one",    "two",   "three", "four",
-                               "five", "six",    "seven", "eight", "nine",
-                               "ten",  "eleven", "twelve" };
-
 Vector ts_stack_pop(Stack *self, int head_index, int child_count,
                     bool count_extra) {
   StackNode *previous_head = self->heads[head_index];
