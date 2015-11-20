@@ -17,12 +17,12 @@ typedef struct {
 } Vector;
 
 static inline Vector vector_new(size_t element_size, size_t capacity) {
-  return (Vector){
-    .contents = malloc(capacity * element_size),
-    .size = 0,
-    .capacity = capacity,
-    .element_size = element_size,
-  };
+  Vector result;
+  result.contents = malloc(capacity * element_size);
+  result.size = 0;
+  result.capacity = capacity;
+  result.element_size = element_size;
+  return result;
 }
 
 static inline void vector_delete(Vector *self) {
@@ -79,13 +79,10 @@ static inline void vector_reverse(Vector *self) {
 }
 
 static inline Vector vector_copy(Vector *self) {
-  return (Vector){
-    .contents = memcpy(malloc(self->capacity * self->element_size),
-                       self->contents, self->size * self->element_size),
-    .size = self->size,
-    .capacity = self->capacity,
-    .element_size = self->element_size,
-  };
+  Vector copy = *self;
+  copy.contents = memcpy(malloc(self->capacity * self->element_size),
+                       self->contents, self->size * self->element_size);
+  return copy;
 }
 
 #ifdef __cplusplus
