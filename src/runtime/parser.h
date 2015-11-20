@@ -11,9 +11,8 @@ extern "C" {
 typedef struct {
   TSLexer lexer;
   Stack *stack;
-  TSTree *lookahead;
   const TSLanguage *language;
-  Vector head_states;
+  Vector lookahead_states;
   Vector reduce_parents;
 } TSParser;
 
