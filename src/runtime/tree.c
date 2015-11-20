@@ -143,6 +143,30 @@ bool ts_tree_eq(const TSTree *self, const TSTree *other) {
   return true;
 }
 
+int ts_tree_compare(const TSTree *left, const TSTree *right) {
+  if (left->symbol < right->symbol)
+    return -1;
+  if (right->symbol < left->symbol)
+    return 1;
+  if (left->child_count < right->child_count)
+    return -1;
+  if (right->child_count < left->child_count)
+    return 1;
+  for (size_t i = 0; i < left->child_count; i++) {
+    TSTree *left_child = left->children[i];
+    TSTree *right_child = right->children[i];
+    switch (ts_tree_compare(left_child, right_child)) {
+      case -1:
+        return -1;
+      case 1:
+        return 1;
+      default:
+        break;
+    }
+  }
+  return 0;
+}
+
 static size_t write_lookahead_to_string(char *string, size_t limit,
                                         char lookahead) {
   switch (lookahead) {
