@@ -6,17 +6,17 @@
 #include "runtime/debugger.h"
 #include "utf8proc.h"
 
-#define DEBUG(...)                                                   \
+#define LOG(...)                                                     \
   if (self->debugger.debug_fn) {                                     \
     snprintf(self->debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__); \
     self->debugger.debug_fn(self->debugger.payload, TSDebugTypeLex,  \
                             self->debug_buffer);                     \
   }
 
-#define DEBUG_LOOKAHEAD()                                                      \
-  DEBUG((0 < self->lookahead && self->lookahead < 256) ? "lookahead char:'%c'" \
-                                                       : "lookahead char:%d",  \
-        self->lookahead);
+#define LOG_LOOKAHEAD()                                                      \
+  LOG((0 < self->lookahead && self->lookahead < 256) ? "lookahead char:'%c'" \
+                                                     : "lookahead char:%d",  \
+      self->lookahead);
 
 static const char *empty_chunk = "";
 
@@ -37,12 +37,12 @@ static void ts_lexer__get_lookahead(TSLexer *self) {
   self->lookahead_size = utf8proc_iterate(
     (const uint8_t *)self->chunk + position_in_chunk,
     self->chunk_size - position_in_chunk + 1, &self->lookahead);
-  DEBUG_LOOKAHEAD();
+  LOG_LOOKAHEAD();
 }
 
 static void ts_lexer__start(TSLexer *self, TSStateId lex_state) {
-  DEBUG("start_lex state:%d, pos:%lu", lex_state, self->current_position.chars);
-  DEBUG_LOOKAHEAD();
+  LOG("start_lex state:%d, pos:%lu", lex_state, self->current_position.chars);
+  LOG_LOOKAHEAD();
 
   if (!self->chunk)
     ts_lexer__get_chunk(self);
@@ -51,12 +51,12 @@ static void ts_lexer__start(TSLexer *self, TSStateId lex_state) {
 }
 
 static void ts_lexer__start_token(TSLexer *self) {
-  DEBUG("start_token chars:%lu", self->current_position.chars);
+  LOG("start_token chars:%lu", self->current_position.chars);
   self->token_start_position = self->current_position;
 }
 
 static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
-  DEBUG("advance state:%d", state);
+  LOG("advance state:%d", state);
 
   if (self->chunk == empty_chunk)
     return false;
@@ -82,10 +82,10 @@ static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
   self->token_end_position = self->current_position;
 
   if (symbol == ts_builtin_sym_error) {
-    DEBUG("error_char");
+    LOG("error_char");
     return ts_tree_make_error(size, padding, self->lookahead);
   } else {
-    DEBUG("accept_token sym:%s", symbol_name);
+    LOG("accept_token sym:%s", symbol_name);
     return ts_tree_make_leaf(symbol, padding, size, node_type);
   }
 }

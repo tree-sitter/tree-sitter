@@ -34,7 +34,7 @@ static inline void *vector_get(Vector *self, size_t index) {
   return (void *)((char *)self->contents + index * self->element_size);
 }
 
-static inline void *vector_back(Vector *self)  {
+static inline void *vector_back(Vector *self) {
   assert(self->size > 0);
   return vector_get(self, self->size - 1);
 }
@@ -81,7 +81,7 @@ static inline void vector_reverse(Vector *self) {
 static inline Vector vector_copy(Vector *self) {
   Vector copy = *self;
   copy.contents = memcpy(malloc(self->capacity * self->element_size),
-                       self->contents, self->size * self->element_size);
+                         self->contents, self->size * self->element_size);
   return copy;
 }
 
