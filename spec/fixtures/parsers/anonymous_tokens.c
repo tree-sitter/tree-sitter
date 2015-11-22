@@ -21,14 +21,14 @@ static const char *ts_symbol_names[] = {
     [anon_sym_DQUOTEhello_DQUOTE] = "\"hello\"",
 };
 
-static const TSNodeType ts_node_types[SYMBOL_COUNT] = {
-    [sym_program] = TSNodeTypeNamed,
-    [ts_builtin_sym_error] = TSNodeTypeNamed,
-    [ts_builtin_sym_end] = TSNodeTypeHidden,
-    [anon_sym_LF] = TSNodeTypeAnonymous,
-    [anon_sym_CR] = TSNodeTypeAnonymous,
-    [aux_sym_SLASH_BSLASHd_SLASH] = TSNodeTypeHidden,
-    [anon_sym_DQUOTEhello_DQUOTE] = TSNodeTypeAnonymous,
+static const TSSymbolMetadata ts_symbol_metadata[SYMBOL_COUNT] = {
+    [sym_program] = {.visible = true, .named = true},
+    [ts_builtin_sym_error] = {.visible = true, .named = true},
+    [ts_builtin_sym_end] = {.visible = false, .named = false},
+    [anon_sym_LF] = {.visible = true, .named = false},
+    [anon_sym_CR] = {.visible = true, .named = false},
+    [aux_sym_SLASH_BSLASHd_SLASH] = {.visible = false, .named = false},
+    [anon_sym_DQUOTEhello_DQUOTE] = {.visible = true, .named = false},
 };
 
 static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {

@@ -27,14 +27,16 @@ static const char *names[] = {
 
 describe("Tree", []() {
   TSTree *tree1, *tree2, *parent1;
+  TSSymbolMetadata visible = {true, true};
+  TSSymbolMetadata invisible = {false, false};
 
   before_each([&]() {
-    tree1 = ts_tree_make_leaf(cat, {2, 1}, {5, 4}, ts_point_zero(), ts_point_zero(), TSNodeTypeNamed);
-    tree2 = ts_tree_make_leaf(cat, {1, 1}, {3, 3}, ts_point_zero(), ts_point_zero(), TSNodeTypeNamed);
+    tree1 = ts_tree_make_leaf(cat, {2, 1}, {5, 4}, ts_point_zero(), ts_point_zero(), visible);
+    tree2 = ts_tree_make_leaf(cat, {1, 1}, {3, 3}, ts_point_zero(), ts_point_zero(), visible);
     parent1 = ts_tree_make_node(dog, 2, tree_array({
       tree1,
       tree2,
-    }), TSNodeTypeNamed);
+    }), visible);
   });
 
   after_each([&]() {
@@ -86,7 +88,7 @@ describe("Tree", []() {
         parent = ts_tree_make_node(eel, 2, tree_array({
           tree1,
           tree2,
-        }), TSNodeTypeNamed);
+        }), visible);
       });
 
       after_each([&]() {
@@ -107,7 +109,7 @@ describe("Tree", []() {
         parent = ts_tree_make_node(eel, 2, tree_array({
           tree1,
           tree2,
-        }), TSNodeTypeNamed);
+        }), visible);
       });
 
       after_each([&]() {
@@ -128,7 +130,7 @@ describe("Tree", []() {
         parent = ts_tree_make_node(eel, 2, tree_array({
           tree1,
           tree2,
-        }), TSNodeTypeNamed);
+        }), visible);
       });
 
       after_each([&]() {
@@ -147,10 +149,10 @@ describe("Tree", []() {
 
     before_each([&]() {
       tree = ts_tree_make_node(cat, 3, tree_array({
-        ts_tree_make_leaf(dog, {2, 2}, {3, 3}, {1, 2}, {1, 3}, TSNodeTypeNamed),
-        ts_tree_make_leaf(eel, {2, 2}, {3, 3}, {1, 2}, {1, 3}, TSNodeTypeNamed),
-        ts_tree_make_leaf(fox, {2, 2}, {3, 3}, {1, 2}, {1, 3}, TSNodeTypeNamed),
-      }), TSNodeTypeNamed);
+        ts_tree_make_leaf(dog, {2, 2}, {3, 3}, {1, 2}, {1, 3}, visible),
+        ts_tree_make_leaf(eel, {2, 2}, {3, 3}, {1, 2}, {1, 3}, visible),
+        ts_tree_make_leaf(fox, {2, 2}, {3, 3}, {1, 2}, {1, 3}, visible),
+      }), visible);
 
       AssertThat(tree->padding, Equals<TSLength>({2, 2}));
       AssertThat(tree->size, Equals<TSLength>({13, 13}));
@@ -268,16 +270,16 @@ describe("Tree", []() {
 
   describe("equality", [&]() {
     it("returns true for identical trees", [&]() {
-      TSTree *tree1_copy = ts_tree_make_leaf(cat, {2, 1}, {5, 4}, {1, 1}, {1, 4}, TSNodeTypeNamed);
+      TSTree *tree1_copy = ts_tree_make_leaf(cat, {2, 1}, {5, 4}, {1, 1}, {1, 4}, visible);
       AssertThat(ts_tree_eq(tree1, tree1_copy), IsTrue());
 
-      TSTree *tree2_copy = ts_tree_make_leaf(cat, {1, 1}, {3, 3}, {1, 1}, {1, 3}, TSNodeTypeNamed);
+      TSTree *tree2_copy = ts_tree_make_leaf(cat, {1, 1}, {3, 3}, {1, 1}, {1, 3}, visible);
       AssertThat(ts_tree_eq(tree2, tree2_copy), IsTrue());
 
       TSTree *parent2 = ts_tree_make_node(dog, 2, tree_array({
         tree1_copy,
         tree2_copy,
-      }), TSNodeTypeNamed);
+      }), visible);
 
       AssertThat(ts_tree_eq(parent1, parent2), IsTrue());
 
@@ -293,10 +295,26 @@ describe("Tree", []() {
         tree1->size,
 				tree1->padding_point,
 				tree1->size_point,
-        TSNodeTypeNamed);
+        visible);
 
       AssertThat(ts_tree_eq(tree1, different_tree), IsFalse());
       ts_tree_release(different_tree);
+    });
+
+    it("returns false for trees with different options", [&]() {
+      TSTree *tree1_copy = ts_tree_make_leaf(cat, tree1->padding, tree1->size, tree1->padding_point, tree1->size_point, invisible);
+      AssertThat(ts_tree_eq(tree1, tree1_copy), IsFalse());
+      ts_tree_release(tree1_copy);
+    });
+
+    it("returns false for trees with different 2D dimensions", [&]() {
+      TSTree *tree1_copy = ts_tree_make_leaf(cat, tree1->padding, tree1->size, {5, 10}, tree1->size_point, invisible);
+      AssertThat(ts_tree_eq(tree1, tree1_copy), IsFalse());
+      ts_tree_release(tree1_copy);
+
+      tree1_copy = ts_tree_make_leaf(cat, tree1->padding, tree1->size, tree1->padding_point, {5, 10}, invisible);
+      AssertThat(ts_tree_eq(tree1, tree1_copy), IsFalse());
+      ts_tree_release(tree1_copy);
     });
 
     it("returns false for trees with different children", [&]() {
@@ -306,11 +324,11 @@ describe("Tree", []() {
         tree1->size,
 				tree1->padding_point,
 				tree1->size_point,
-        TSNodeTypeNamed);
+        visible);
 
       TSTree *different_parent = ts_tree_make_node(dog, 2, tree_array({
           different_tree, different_tree,
-      }), TSNodeTypeNamed);
+      }), visible);
 
       AssertThat(ts_tree_eq(different_parent, parent1), IsFalse());
       AssertThat(ts_tree_eq(parent1, different_parent), IsFalse());
@@ -332,7 +350,7 @@ describe("Tree", []() {
     });
 
     it("hides invisible nodes", [&]() {
-      tree2->options.type = TSNodeTypeHidden;
+      tree2->options.visible = false;
 
       char *string1 = ts_tree_string(parent1, names, true);
       AssertThat(string(string1), Equals("(dog (cat))"));
@@ -341,13 +359,13 @@ describe("Tree", []() {
 
     describe("when the root node is not visible", [&]() {
       it("still serializes it", [&]() {
-        parent1->options.type = TSNodeTypeHidden;
+        parent1->options.visible = false;
 
         char *string1 = ts_tree_string(parent1, names, true);
         AssertThat(string(string1), Equals("(dog (cat) (cat))"));
         free(string1);
 
-        tree1->options.type = TSNodeTypeHidden;
+        tree1->options.visible = false;
 
         char *string2 = ts_tree_string(tree1, names, true);
         AssertThat(string(string2), Equals("(cat)"));

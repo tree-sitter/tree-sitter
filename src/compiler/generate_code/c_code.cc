@@ -142,23 +142,25 @@ class CCodeGenerator {
   }
 
   void add_symbol_node_types_list() {
-    line("static const TSNodeType ts_node_types[SYMBOL_COUNT] = {");
+    line("static const TSSymbolMetadata ts_symbol_metadata[SYMBOL_COUNT] = {");
     indent([&]() {
       for (const auto &symbol : parse_table.symbols) {
-        line("[" + symbol_id(symbol) + "] = ");
+        line("[" + symbol_id(symbol) + "] = {");
 
         switch (symbol_type(symbol)) {
           case VariableTypeNamed:
-            add("TSNodeTypeNamed,");
+            add(".visible = true, .named = true");
             break;
           case VariableTypeAnonymous:
-            add("TSNodeTypeAnonymous,");
+            add(".visible = true, .named = false");
             break;
           case VariableTypeHidden:
           case VariableTypeAuxiliary:
-            add("TSNodeTypeHidden,");
+            add(".visible = false, .named = false");
             break;
         }
+
+        add("},");
       }
     });
     line("};");

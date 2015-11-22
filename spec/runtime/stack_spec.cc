@@ -43,8 +43,9 @@ describe("Stack", [&]() {
     });
 
     TSLength len = ts_length_make(2, 2);
+    TSPoint point = ts_point_make(1, 1);
     for (size_t i = 0; i < tree_count; i++)
-      trees[i] = ts_tree_make_leaf(i, len, len, {1, 1}, {1, 2}, TSNodeTypeNamed);
+      trees[i] = ts_tree_make_leaf(i, len, len, point, point, {});
   });
 
   after_each([&]() {

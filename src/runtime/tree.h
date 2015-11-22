@@ -31,7 +31,8 @@ struct TSTree {
   TSSymbol symbol;
 
   struct {
-    TSNodeType type : 2;
+    bool visible : 1;
+    bool named : 1;
     bool extra : 1;
     bool fragile_left : 1;
     bool fragile_right : 1;
@@ -41,8 +42,8 @@ struct TSTree {
 };
 
 TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, TSPoint,
-                          TSPoint, TSNodeType);
-TSTree *ts_tree_make_node(TSSymbol, size_t, TSTree **, TSNodeType);
+                          TSPoint, TSSymbolMetadata);
+TSTree *ts_tree_make_node(TSSymbol, size_t, TSTree **, TSSymbolMetadata);
 TSTree *ts_tree_make_error(TSLength size, TSLength padding,
                            TSPoint padding_point,
                            TSPoint size_point, char lookahead_char);
@@ -65,7 +66,7 @@ static inline bool ts_tree_is_extra(const TSTree *tree) {
 }
 
 static inline bool ts_tree_is_visible(const TSTree *tree) {
-  return tree->options.type != TSNodeTypeHidden;
+  return tree->options.visible;
 }
 
 static inline void ts_tree_set_extra(TSTree *tree) {
