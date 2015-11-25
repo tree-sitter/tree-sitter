@@ -119,12 +119,12 @@ static void ts_parser__get_next_lookahead(TSParser *self) {
 
     self->lookahead = self->reusable_subtree;
     TSLength size = ts_tree_total_size(self->lookahead);
-    TSPoint point_size = ts_tree_total_size_point(self->lookahead);
+    TSPoint offset_point = ts_tree_offset_point(self->lookahead);
     DEBUG("reuse sym:%s size:%lu extra:%d", SYM_NAME(self->lookahead->symbol),
           size.chars, self->lookahead->options.extra);
     ts_lexer_reset(&self->lexer,
                    ts_length_add(self->lexer.current_position, size),
-                   ts_point_add(self->lexer.current_point, point_size));
+                   ts_point_add(self->lexer.current_point, offset_point));
     ts_parser__pop_reusable_subtree(self);
     return;
   }

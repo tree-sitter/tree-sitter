@@ -55,7 +55,7 @@ static void ts_tree__set_children(TSTree *self, TSTree **children,
     child->context.parent = self;
     child->context.index = i;
     child->context.offset = ts_tree_total_size(self);
-		child->context.end_point = ts_tree_end_point(self);
+		child->context.offset_point = ts_tree_offset_point(self);
 
     if (i == 0) {
       self->padding = child->padding;
@@ -130,7 +130,7 @@ TSLength ts_tree_total_size(const TSTree *self) {
   return ts_length_add(self->padding, self->size);
 }
 
-TSPoint ts_tree_total_size_point(const TSTree *self) {
+TSPoint ts_tree_offset_point(const TSTree *self) {
   return ts_point_add(self->padding_point, self->size_point);
 }
 
