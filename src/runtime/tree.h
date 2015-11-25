@@ -52,7 +52,7 @@ bool ts_tree_eq(const TSTree *tree1, const TSTree *tree2);
 char *ts_tree_string(const TSTree *tree, const char **names,
                      bool include_anonymous);
 
-TSPoint ts_find_parent_offset_point(const TSTree *self);
+size_t ts_tree_offset_column(const TSTree *self);
 TSLength ts_tree_total_size(const TSTree *tree);
 TSPoint ts_tree_offset_point(const TSTree *self);
 void ts_tree_prepend_children(TSTree *, size_t, TSTree **);

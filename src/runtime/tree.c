@@ -60,9 +60,12 @@ static void ts_tree__set_children(TSTree *self, TSTree **children,
     if (i == 0) {
       self->padding = child->padding;
       self->size = child->size;
+      self->padding_point = child->padding_point;
+      self->size_point = child->size_point;
     } else {
       self->size =
         ts_length_add(ts_length_add(self->size, child->padding), child->size);
+      self->size_point = ts_point_add(ts_point_add(self->size_point, child->padding_point), child->size_point);
     }
 
     switch (child->options.type) {
@@ -113,17 +116,22 @@ void ts_tree_release(TSTree *self) {
   }
 }
 
-TSPoint ts_find_parent_offset_point(const TSTree *self) {
-	TSPoint size_point = self->size_point;
+size_t ts_tree_offset_column(const TSTree *self) {
 	const TSTree *parent = self;
-	TSPoint current_offset_point;
+	size_t column = self->padding_point.column;
+
+  if (self->padding_point.row > 0) {
+    return column;
+  }
 
 	do {
 		parent = parent->context.parent;
-		current_offset_point = parent->context.offset_point;
-	} while (current_offset_point.line == 0);
+    if (!parent) break;
 
-	return (TSPoint){ .line = size_point.line, .column = current_offset_point.column };
+		column += parent->context.offset_point.column;
+	} while (parent->context.offset_point.row == 0);
+
+	return column;
 }
 
 TSLength ts_tree_total_size(const TSTree *self) {

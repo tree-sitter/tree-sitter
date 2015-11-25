@@ -43,6 +43,12 @@ describe("Node", []() {
       AssertThat(ts_node_pos(array_node).bytes, Equals<size_t>(2));
       AssertThat(ts_node_size(array_node).bytes, Equals<size_t>(25));
 
+      AssertThat(ts_node_start_point(array_node).row, Equals<size_t>(0));
+      AssertThat(ts_node_start_point(array_node).column, Equals<size_t>(2));
+
+      AssertThat(ts_node_end_point(array_node).row, Equals<size_t>(0));
+      AssertThat(ts_node_end_point(array_node).column, Equals<size_t>(27));
+
       AssertThat(ts_node_pos(child1).bytes, Equals<size_t>(3));
       AssertThat(ts_node_size(child1).bytes, Equals<size_t>(3));
 
