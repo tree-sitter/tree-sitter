@@ -63,7 +63,7 @@ static inline bool ts_length_eq(TSLength len1, TSLength len2) {
 }
 
 static inline TSPoint ts_point_zero() {
-	return (TSPoint){ .row = 0, .column = 0 };
+	return (TSPoint){ .row = 1, .column = 1 };
 }
 
 static inline TSPoint ts_point_make(size_t row, size_t column) {

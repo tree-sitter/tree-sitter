@@ -71,7 +71,7 @@ static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
 
 		if (self->lookahead == '\n') {
 			self->current_point.row += 1;
-			self->current_point.column = 0;
+			self->current_point.column = 1;
 		} else {
 			self->current_point.column += 1;
 		}
