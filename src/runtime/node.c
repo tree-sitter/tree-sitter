@@ -74,7 +74,7 @@ static inline TSNode ts_node__prev_sibling(TSNode self, TSNodeType type) {
   do {
     size_t index = tree->context.index;
     offset = ts_length_sub(offset, tree->context.offset);
-    offset_point = ts_find_parent_offset_point(tree, point);
+    offset_point = ts_find_parent_offset_point(tree);
     tree = tree->context.parent;
     if (!tree)
       break;

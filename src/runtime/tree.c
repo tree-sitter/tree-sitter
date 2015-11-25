@@ -113,6 +113,19 @@ void ts_tree_release(TSTree *self) {
   }
 }
 
+TSPoint ts_find_parent_offset_point(const TSTree *self) {
+	TSPoint size_point = self->size_point;
+	const TSTree *parent = self;
+	TSPoint current_offset_point;
+
+	do {
+		parent = parent->context.parent;
+		current_offset_point = parent->context.offset_point;
+	} while (current_offset_point.line == 0);
+
+	return (TSPoint){ .line = size_point.line, .column = current_offset_point.column };
+}
+
 TSLength ts_tree_total_size(const TSTree *self) {
   return ts_length_add(self->padding, self->size);
 }
