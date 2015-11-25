@@ -34,12 +34,12 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
 }
 
 TSTree *ts_tree_make_error(TSLength size, TSLength padding,
-													 TSPoint start_point,
-													 TSPoint end_point,
+													 TSPoint size_point,
+													 TSPoint padding_point,
 													 char lookahead_char) {
   TSTree *result =
-    ts_tree_make_leaf(ts_builtin_sym_error, padding, size, start_point,
-											end_point, TSNodeTypeNamed);
+    ts_tree_make_leaf(ts_builtin_sym_error, padding, size, padding_point,
+											size_point, TSNodeTypeNamed);
   result->lookahead_char = lookahead_char;
   return result;
 }

@@ -92,17 +92,19 @@ static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
     ts_length_sub(self->token_start_position, self->token_end_position);
   self->token_end_position = self->current_position;
 
+  TSPoint size_point = ts_point_sub(self->current_point, self ->token_start_point);
+  TSPoint padding_point = ts_point_sub(self->token_start_point, self ->token_end_point);
 	self->token_end_point = self->current_point;
 
   if (symbol == ts_builtin_sym_error) {
     DEBUG("error_char");
-    return ts_tree_make_error(size, padding, self->token_start_point,
-															self->token_end_point, self->lookahead);
+    return ts_tree_make_error(size, padding, size_point,
+															padding_point, self->lookahead);
   } else {
     DEBUG("accept_token sym:%s", symbol_name);
     return ts_tree_make_leaf(symbol, padding, size,
-														 self->token_start_point,
-														 self->token_end_point, node_type);
+														 padding_point,
+														 size_point, node_type);
   }
 }
 
