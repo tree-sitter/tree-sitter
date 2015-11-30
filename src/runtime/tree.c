@@ -7,8 +7,8 @@
 #include "runtime/length.h"
 
 TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
-													TSPoint padding_point,
-													TSPoint size_point,
+                          TSPoint padding_point,
+                          TSPoint size_point,
                           TSNodeType node_type) {
   TSTree *result = malloc(sizeof(TSTree));
   *result = (TSTree){
@@ -20,8 +20,8 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
     .named_child_count = 0,
     .children = NULL,
     .padding = padding,
-		.padding_point = padding_point,
-		.size_point = size_point,
+    .padding_point = padding_point,
+    .size_point = size_point,
     .options = {.type = node_type },
   };
 
@@ -34,12 +34,12 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
 }
 
 TSTree *ts_tree_make_error(TSLength size, TSLength padding,
-													 TSPoint size_point,
-													 TSPoint padding_point,
-													 char lookahead_char) {
+                           TSPoint size_point,
+                           TSPoint padding_point,
+                           char lookahead_char) {
   TSTree *result =
     ts_tree_make_leaf(ts_builtin_sym_error, padding, size, padding_point,
-											size_point, TSNodeTypeNamed);
+                      size_point, TSNodeTypeNamed);
   result->lookahead_char = lookahead_char;
   return result;
 }
@@ -128,21 +128,21 @@ void ts_tree_release(TSTree *self) {
 }
 
 size_t ts_tree_offset_column(const TSTree *self) {
-	const TSTree *parent = self;
-	size_t column = self->padding_point.column;
+  const TSTree *parent = self;
+  size_t column = self->padding_point.column;
 
   if (self->padding_point.row > 0) {
     return column;
   }
 
-	do {
-		parent = parent->context.parent;
+  do {
+    parent = parent->context.parent;
     if (!parent) break;
 
-		column += parent->context.offset_point.column;
-	} while (parent->context.offset_point.row == 0);
+    column += parent->context.offset_point.column;
+  } while (parent->context.offset_point.row == 0);
 
-	return column;
+  return column;
 }
 
 TSLength ts_tree_total_size(const TSTree *self) {

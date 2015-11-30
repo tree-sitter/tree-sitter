@@ -69,12 +69,12 @@ static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
     self->current_position.bytes += self->lookahead_size;
     self->current_position.chars += 1;
 
-		if (self->lookahead == '\n') {
-			self->current_point.row += 1;
-			self->current_point.column = 0;
-		} else {
-			self->current_point.column += 1;
-		}
+    if (self->lookahead == '\n') {
+      self->current_point.row += 1;
+      self->current_point.column = 1;
+    } else {
+      self->current_point.column += 1;
+    }
   }
 
   if (self->current_position.bytes >= self->chunk_start + self->chunk_size)
@@ -94,7 +94,7 @@ static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
 
   TSPoint size_point = ts_point_sub(self->current_point, self ->token_start_point);
   TSPoint padding_point = ts_point_sub(self->token_start_point, self->token_end_point);
-	self->token_end_point = self->current_point;
+  self->token_end_point = self->current_point;
 
   if (symbol == ts_builtin_sym_error) {
     LOG("error_char");

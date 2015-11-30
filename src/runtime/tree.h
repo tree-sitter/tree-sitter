@@ -25,8 +25,8 @@ struct TSTree {
   TSLength padding;
   TSLength size;
 
-	TSPoint padding_point;
-	TSPoint size_point;
+  TSPoint padding_point;
+  TSPoint size_point;
 
   TSSymbol symbol;
 
@@ -41,11 +41,11 @@ struct TSTree {
 };
 
 TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, TSPoint,
-													TSPoint, TSNodeType);
+                          TSPoint, TSNodeType);
 TSTree *ts_tree_make_node(TSSymbol, size_t, TSTree **, TSNodeType);
 TSTree *ts_tree_make_error(TSLength size, TSLength padding,
-													 TSPoint padding_point,
-													 TSPoint size_point, char lookahead_char);
+                           TSPoint padding_point,
+                           TSPoint size_point, char lookahead_char);
 void ts_tree_retain(TSTree *tree);
 void ts_tree_release(TSTree *tree);
 bool ts_tree_eq(const TSTree *tree1, const TSTree *tree2);
