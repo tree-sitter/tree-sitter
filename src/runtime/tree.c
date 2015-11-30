@@ -44,6 +44,21 @@ TSTree *ts_tree_make_error(TSLength size, TSLength padding,
   return result;
 }
 
+void ts_tree_assign_parents(TSTree *self) {
+  TSLength offset = ts_length_zero();
+  for (size_t i = 0; i < self->child_count; i++) {
+    TSTree *child = self->children[i];
+    if (child->context.parent != self) {
+      child->context.parent = self;
+      child->context.index = i;
+      child->context.offset = offset;
+      child->context.offset_point = ts_tree_offset_point(self);
+      ts_tree_assign_parents(child);
+    }
+    offset = ts_length_add(offset, ts_tree_total_size(child));
+  }
+}
+
 static void ts_tree__set_children(TSTree *self, TSTree **children,
                                   size_t child_count) {
   self->children = children;
@@ -52,10 +67,6 @@ static void ts_tree__set_children(TSTree *self, TSTree **children,
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
     ts_tree_retain(child);
-    child->context.parent = self;
-    child->context.index = i;
-    child->context.offset = ts_tree_total_size(self);
-		child->context.offset_point = ts_tree_offset_point(self);
 
     if (i == 0) {
       self->padding = child->padding;
@@ -164,6 +175,30 @@ bool ts_tree_eq(const TSTree *self, const TSTree *other) {
     if (!ts_tree_eq(self->children[i], other->children[i]))
       return false;
   return true;
+}
+
+int ts_tree_compare(const TSTree *left, const TSTree *right) {
+  if (left->symbol < right->symbol)
+    return -1;
+  if (right->symbol < left->symbol)
+    return 1;
+  if (left->child_count < right->child_count)
+    return -1;
+  if (right->child_count < left->child_count)
+    return 1;
+  for (size_t i = 0; i < left->child_count; i++) {
+    TSTree *left_child = left->children[i];
+    TSTree *right_child = right->children[i];
+    switch (ts_tree_compare(left_child, right_child)) {
+      case -1:
+        return -1;
+      case 1:
+        return 1;
+      default:
+        break;
+    }
+  }
+  return 0;
 }
 
 static size_t write_lookahead_to_string(char *string, size_t limit,
