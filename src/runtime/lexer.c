@@ -51,11 +51,9 @@ static void ts_lexer__start(TSLexer *self, TSStateId lex_state) {
 }
 
 static void ts_lexer__start_token(TSLexer *self) {
-  LOG("start_token chars:%lu", self->current_position.chars);
-  self->token_start_position = self->current_position;
+  LOG("start_token chars:%lu, rows:%lu, columns:%lu", self->current_position.chars, self->current_point.row, self->current_point.column);
 
-  LOG("start_token row:%lu", self->current_point.row);
-  LOG("start_token column:%lu", self->current_point.column);
+  self->token_start_position = self->current_position;
   self->token_start_point = self->current_point;
 }
 
