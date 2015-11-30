@@ -36,8 +36,8 @@ typedef struct {
 } TSInputEdit;
 
 typedef struct {
-	size_t row;
-	size_t column;
+  size_t row;
+  size_t column;
 } TSPoint;
 
 typedef struct {
