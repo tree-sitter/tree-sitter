@@ -27,6 +27,7 @@ typedef struct {
   TSTree *reusable_subtree;
   size_t reusable_subtree_pos;
   TSLength position;
+  TSPoint offset_point;
 } LookaheadState;
 
 typedef enum {
@@ -150,6 +151,7 @@ static ConsumeResult ts_parser__shift(TSParser *self, int head,
   LookaheadState *head_state = vector_get(&self->lookahead_states, head);
   head_state->position =
     ts_length_add(head_state->position, ts_tree_total_size(lookahead));
+  head_state->offset_point = ts_point_add(head_state->offset_point, ts_tree_offset_point(lookahead));
   if (ts_stack_push(self->stack, head, parse_state, lookahead)) {
     LOG("merge head:%d", head);
     vector_erase(&self->lookahead_states, head);
@@ -271,6 +273,7 @@ static void ts_parser__reduce_error(TSParser *self, int head,
                                       child_count, false, true);
   reduced->size = ts_length_add(reduced->size, lookahead->padding);
   head_state->position = ts_length_add(head_state->position, lookahead->padding);
+  head_state->offset_point = ts_point_add(head_state->offset_point, lookahead->padding_point);
   lookahead->padding = ts_length_zero();
   ts_tree_set_fragile_left(reduced);
   ts_tree_set_fragile_right(reduced);
@@ -482,7 +485,7 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
   for (;;) {
     TSTree *lookahead = NULL;
     TSLength position = ts_length_zero();
-    TSPoint point = ts_point_zero();
+    TSPoint offset_point = ts_point_zero();
 
     for (int head = 0; head < ts_stack_head_count(self->stack);) {
       LookaheadState *state = vector_get(&self->lookahead_states, head);
@@ -498,8 +501,8 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
           lookahead = reused_lookahead;
         } else {
           position = state->position;
-          point = state->current_point;
-          ts_lexer_reset(&self->lexer, position, point);
+          offset_point = state->offset_point;
+          ts_lexer_reset(&self->lexer, position, offset_point);
           TSStateId parse_state = ts_stack_top_state(self->stack, head);
           TSStateId lex_state = self->language->lex_states[parse_state];
           lookahead = self->language->lex_fn(&self->lexer, lex_state);
