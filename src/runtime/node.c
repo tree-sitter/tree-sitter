@@ -173,7 +173,8 @@ TSPoint ts_node_size_point(TSNode self) {
 }
 
 TSPoint ts_node_start_point(TSNode self) {
-  return ts_point_make(self.row, ts_tree_offset_column(ts_node__tree(self)));
+  TSTree *tree = ts_node__tree(self);
+  return ts_point_make(self.row + tree->padding_point.row, ts_tree_offset_column(tree));
 }
 
 TSPoint ts_node_end_point(TSNode self) {
