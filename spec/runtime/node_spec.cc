@@ -8,11 +8,13 @@ START_TEST
 describe("Node", []() {
   TSDocument *document;
   TSNode array_node;
+  string input_string;
 
   before_each([&]() {
     document = ts_document_make();
     ts_document_set_language(document, ts_language_json());
-    ts_document_set_input_string(document,"\n"
+
+    input_string = "\n"
       "\n"
       "[\n"
       "  123,\n"
@@ -20,7 +22,9 @@ describe("Node", []() {
       "  {\n"
       "    \"x\": null\n"
       "  }\n"
-      "]");
+      "]";
+
+    ts_document_set_input_string(document, input_string.c_str());
     ts_document_parse(document);
 
     array_node = ts_document_root_node(document);
@@ -55,16 +59,17 @@ describe("Node", []() {
       AssertThat(ts_node_start_point(array_node).column, Equals<size_t>(0));
 
       AssertThat(ts_node_end_point(array_node).row, Equals<size_t>(6));
-      AssertThat(ts_node_end_point(array_node).column, Equals<size_t>(0));
+      AssertThat(ts_node_end_point(array_node).column, Equals<size_t>(1));
 
-      AssertThat(ts_node_pos(child1).bytes, Equals<size_t>(3));
+
+      AssertThat(ts_node_pos(child1).bytes, Equals(input_string.find("123")));
       AssertThat(ts_node_size(child1).bytes, Equals<size_t>(3));
 
-      AssertThat(ts_node_pos(child2).bytes, Equals<size_t>(8));
+      AssertThat(ts_node_pos(child2).bytes, Equals(input_string.find("false")));
       AssertThat(ts_node_size(child2).bytes, Equals<size_t>(5));
 
-      AssertThat(ts_node_pos(child3).bytes, Equals<size_t>(15));
-      AssertThat(ts_node_size(child3).bytes, Equals<size_t>(11));
+      AssertThat(ts_node_pos(child3).bytes, Equals(input_string.find("{")));
+      AssertThat(ts_node_size(child3).bytes, Equals<size_t>(19));
 
       AssertThat(ts_node_named_child_count(child3), Equals<size_t>(2));
 
@@ -231,55 +236,66 @@ describe("Node", []() {
         AssertThat(ts_node_size(leaf).bytes, Equals<size_t>(3));
         AssertThat(ts_node_pos(leaf).bytes, Equals<size_t>(28));
 
-        leaf = ts_node_named_descendent_for_range(array_node, 7, 9);
+        size_t index = input_string.find("123");
+        leaf = ts_node_named_descendent_for_range(array_node, index, index + 2);
         AssertThat(ts_node_name(leaf, document), Equals("number"));
+        AssertThat(ts_node_pos(leaf).bytes, Equals(index));
         AssertThat(ts_node_size(leaf).bytes, Equals<size_t>(3));
-        AssertThat(ts_node_pos(leaf).bytes, Equals<size_t>(7));
       });
     });
 
     describe("when there is a leaf node that extends beyond the given range", [&]() {
       it("returns that leaf node", [&]() {
-        TSNode leaf = ts_node_named_descendent_for_range(array_node, 16, 17);
+        size_t index = input_string.find("\"x\"");
+        TSNode leaf = ts_node_named_descendent_for_range(array_node, index, index + 1);
         AssertThat(ts_node_name(leaf, document), Equals("string"));
+        AssertThat(ts_node_pos(leaf).bytes, Equals(index));
         AssertThat(ts_node_size(leaf).bytes, Equals<size_t>(3));
-        AssertThat(ts_node_pos(leaf).bytes, Equals<size_t>(16));
 
-        leaf = ts_node_named_descendent_for_range(array_node, 17, 18);
+        leaf = ts_node_named_descendent_for_range(array_node, index + 1, index + 2);
         AssertThat(ts_node_name(leaf, document), Equals("string"));
+        AssertThat(ts_node_pos(leaf).bytes, Equals<size_t>(index));
         AssertThat(ts_node_size(leaf).bytes, Equals<size_t>(3));
-        AssertThat(ts_node_pos(leaf).bytes, Equals<size_t>(16));
       });
     });
 
     describe("when there is no leaf node that spans the given range", [&]() {
       it("returns the smallest node that does span the range", [&]() {
-        TSNode node = ts_node_named_descendent_for_range(array_node, 16, 19);
+        size_t index = input_string.find("\"x\"");
+        TSNode node = ts_node_named_descendent_for_range(array_node, index, index + 3);
         AssertThat(ts_node_name(node, document), Equals("object"));
-        AssertThat(ts_node_size(node).bytes, Equals<size_t>(11));
-        AssertThat(ts_node_pos(node).bytes, Equals<size_t>(15));
+
+        size_t object_index = input_string.find("{");
+        AssertThat(ts_node_pos(node).bytes, Equals<size_t>(object_index));
+        AssertThat(ts_node_size(node).bytes, Equals<size_t>(19));
       });
 
       it("does not return invisible nodes (repeats)", [&]() {
-        TSNode node = ts_node_named_descendent_for_range(array_node, 6, 7);
+        size_t comma_index = input_string.find(",");
+        TSNode node = ts_node_named_descendent_for_range(array_node, comma_index, comma_index + 1);
         AssertThat(ts_node_name(node, document), Equals("array"));
-        AssertThat(ts_node_size(node).bytes, Equals<size_t>(25));
-        AssertThat(ts_node_pos(node).bytes, Equals<size_t>(2));
+        size_t array_index = input_string.find("[");
+        AssertThat(ts_node_pos(node).bytes, Equals<size_t>(array_index));
+        AssertThat(ts_node_size(node).bytes, Equals<size_t>(41));
       });
     });
   });
 
   describe("find_concrete_for_range(start, end)", [&]() {
     it("returns the smallest concrete node that spans the given range", [&]() {
-      TSNode node1 = ts_node_descendent_for_range(array_node, 19, 19);
+      size_t colon_index = input_string.find(":");
+      TSNode node1 = ts_node_descendent_for_range(array_node, colon_index, colon_index);
       AssertThat(ts_node_name(node1, document), Equals(":"));
-      AssertThat(ts_node_pos(node1).bytes, Equals<size_t>(19));
+      AssertThat(ts_node_pos(node1).bytes, Equals<size_t>(colon_index));
       AssertThat(ts_node_size(node1).bytes, Equals<size_t>(1));
 
-      TSNode node2 = ts_node_descendent_for_range(array_node, 18, 20);
+      size_t index = input_string.find("\":");
+      TSNode node2 = ts_node_descendent_for_range(array_node, index, index + 2);
       AssertThat(ts_node_name(node2, document), Equals("object"));
-      AssertThat(ts_node_pos(node2).bytes, Equals<size_t>(15));
-      AssertThat(ts_node_size(node2).bytes, Equals<size_t>(11));
+
+      size_t object_index = input_string.find("{");
+      AssertThat(ts_node_pos(node2).bytes, Equals<size_t>(object_index));
+      AssertThat(ts_node_size(node2).bytes, Equals<size_t>(19));
     });
   });
 });
