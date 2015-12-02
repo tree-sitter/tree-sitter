@@ -36,8 +36,14 @@ typedef struct {
 } TSInputEdit;
 
 typedef struct {
+  size_t row;
+  size_t column;
+} TSPoint;
+
+typedef struct {
   const void *data;
   TSLength offset;
+  size_t row;
 } TSNode;
 
 typedef unsigned short TSSymbol;
@@ -46,6 +52,9 @@ typedef struct TSDocument TSDocument;
 
 TSLength ts_node_pos(TSNode);
 TSLength ts_node_size(TSNode);
+TSPoint ts_node_size_point(TSNode);
+TSPoint ts_node_start_point(TSNode);
+TSPoint ts_node_end_point(TSNode);
 TSSymbol ts_node_symbol(TSNode);
 const char *ts_node_name(TSNode, const TSDocument *);
 const char *ts_node_string(TSNode, const TSDocument *);

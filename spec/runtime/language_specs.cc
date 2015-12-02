@@ -4,6 +4,7 @@
 #include "runtime/helpers/read_test_entries.h"
 #include "runtime/helpers/spy_input.h"
 #include "runtime/helpers/log_debugger.h"
+#include "runtime/helpers/point_helpers.h"
 
 extern "C" const TSLanguage *ts_language_javascript();
 extern "C" const TSLanguage *ts_language_json();
@@ -23,6 +24,9 @@ void expect_a_consistent_tree(TSNode node, TSDocument *doc) {
   TSLength end = ts_length_add(start, ts_node_size(node));
   size_t child_count = ts_node_child_count(node);
 
+  TSPoint start_point = ts_node_start_point(node);
+  TSPoint end_point = ts_node_end_point(node);
+
   bool has_changes = ts_node_has_changes(node);
   bool some_child_has_changes = false;
 
@@ -31,8 +35,15 @@ void expect_a_consistent_tree(TSNode node, TSDocument *doc) {
     TSLength child_start = ts_node_pos(child);
     TSLength child_end = ts_length_add(child_start, ts_node_size(child));
 
+    TSPoint child_start_point = ts_node_start_point(child);
+    TSPoint child_end_point = ts_node_end_point(child);
+
     AssertThat(child_start.chars, IsGreaterThan(start.chars) || Equals(start.chars));
     AssertThat(child_end.chars, IsLessThan(end.chars) || Equals(end.chars));
+
+    AssertThat(child_start_point, IsGreaterThan(start_point) || Equals(start_point));
+    AssertThat(child_end_point, IsLessThan(end_point) || Equals(end_point));
+
     if (ts_node_has_changes(child))
       some_child_has_changes = true;
   }

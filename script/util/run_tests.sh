@@ -68,10 +68,10 @@ function run_tests {
       ;;
 
     debug)
-      if which -s gdb; then
-        gdb $cmd -- "${args[@]}"
-      elif which -s lldb; then
+      if which -s lldb; then
         lldb $cmd -- "${args[@]}"
+      elif which -s gdb; then
+        gdb $cmd -- "${args[@]}"
       else
         echo "No debugger found"
         exit 1

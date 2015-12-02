@@ -7,6 +7,8 @@
 #include "runtime/length.h"
 
 TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
+                          TSPoint padding_point,
+                          TSPoint size_point,
                           TSNodeType node_type) {
   TSTree *result = malloc(sizeof(TSTree));
   *result = (TSTree){
@@ -18,6 +20,8 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
     .named_child_count = 0,
     .children = NULL,
     .padding = padding,
+    .padding_point = padding_point,
+    .size_point = size_point,
     .options = {.type = node_type },
   };
 
@@ -29,24 +33,31 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
   return result;
 }
 
-TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char) {
+TSTree *ts_tree_make_error(TSLength size, TSLength padding,
+                           TSPoint size_point,
+                           TSPoint padding_point,
+                           char lookahead_char) {
   TSTree *result =
-    ts_tree_make_leaf(ts_builtin_sym_error, padding, size, TSNodeTypeNamed);
+    ts_tree_make_leaf(ts_builtin_sym_error, padding, size, padding_point,
+                      size_point, TSNodeTypeNamed);
   result->lookahead_char = lookahead_char;
   return result;
 }
 
 void ts_tree_assign_parents(TSTree *self) {
   TSLength offset = ts_length_zero();
+  TSPoint offset_point = ts_point_zero();
   for (size_t i = 0; i < self->child_count; i++) {
     TSTree *child = self->children[i];
     if (child->context.parent != self) {
       child->context.parent = self;
       child->context.index = i;
       child->context.offset = offset;
+      child->context.offset_point = offset_point;
       ts_tree_assign_parents(child);
     }
     offset = ts_length_add(offset, ts_tree_total_size(child));
+    offset_point = ts_point_add(offset_point, ts_tree_total_size_point(child));
   }
 }
 
@@ -62,9 +73,12 @@ static void ts_tree__set_children(TSTree *self, TSTree **children,
     if (i == 0) {
       self->padding = child->padding;
       self->size = child->size;
+      self->padding_point = child->padding_point;
+      self->size_point = child->size_point;
     } else {
       self->size =
         ts_length_add(ts_length_add(self->size, child->padding), child->size);
+      self->size_point = ts_point_add(ts_point_add(self->size_point, child->padding_point), child->size_point);
     }
 
     switch (child->options.type) {
@@ -93,7 +107,7 @@ static void ts_tree__set_children(TSTree *self, TSTree **children,
 TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
                           TSTree **children, TSNodeType node_type) {
   TSTree *result =
-    ts_tree_make_leaf(symbol, ts_length_zero(), ts_length_zero(), node_type);
+    ts_tree_make_leaf(symbol, ts_length_zero(), ts_length_zero(), ts_point_zero(), ts_point_zero(), node_type);
   ts_tree__set_children(result, children, child_count);
   return result;
 }
@@ -115,8 +129,32 @@ void ts_tree_release(TSTree *self) {
   }
 }
 
+size_t ts_tree_offset_column(const TSTree *self) {
+  size_t column = self->padding_point.column;
+
+  if (self->padding_point.row > 0) {
+    return column;
+  }
+
+  const TSTree *parent = self;
+  TSPoint offset_point;
+  do {
+    offset_point = parent->context.offset_point;
+    column += offset_point.column;
+
+    parent = parent->context.parent;
+    if (!parent) break;
+  } while (offset_point.row == 0);
+
+  return column;
+}
+
 TSLength ts_tree_total_size(const TSTree *self) {
   return ts_length_add(self->padding, self->size);
+}
+
+TSPoint ts_tree_total_size_point(const TSTree *self) {
+  return ts_point_add(self->padding_point, self->size_point);
 }
 
 bool ts_tree_eq(const TSTree *self, const TSTree *other) {

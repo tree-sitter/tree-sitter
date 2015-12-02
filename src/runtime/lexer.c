@@ -51,8 +51,10 @@ static void ts_lexer__start(TSLexer *self, TSStateId lex_state) {
 }
 
 static void ts_lexer__start_token(TSLexer *self) {
-  LOG("start_token chars:%lu", self->current_position.chars);
+  LOG("start_token chars:%lu, rows:%lu, columns:%lu", self->current_position.chars, self->current_point.row, self->current_point.column);
+
   self->token_start_position = self->current_position;
+  self->token_start_point = self->current_point;
 }
 
 static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
@@ -64,6 +66,13 @@ static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
   if (self->lookahead_size) {
     self->current_position.bytes += self->lookahead_size;
     self->current_position.chars += 1;
+
+    if (self->lookahead == '\n') {
+      self->current_point.row += 1;
+      self->current_point.column = 0;
+    } else {
+      self->current_point.column += 1;
+    }
   }
 
   if (self->current_position.bytes >= self->chunk_start + self->chunk_size)
@@ -81,12 +90,16 @@ static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
     ts_length_sub(self->token_start_position, self->token_end_position);
   self->token_end_position = self->current_position;
 
+  TSPoint size_point = ts_point_sub(self->current_point, self ->token_start_point);
+  TSPoint padding_point = ts_point_sub(self->token_start_point, self->token_end_point);
+  self->token_end_point = self->current_point;
+
   if (symbol == ts_builtin_sym_error) {
     LOG("error_char");
-    return ts_tree_make_error(size, padding, self->lookahead);
+    return ts_tree_make_error(size, padding, size_point, padding_point, self->lookahead);
   } else {
     LOG("accept_token sym:%s", symbol_name);
-    return ts_tree_make_leaf(symbol, padding, size, node_type);
+    return ts_tree_make_leaf(symbol, padding, size, padding_point, size_point, node_type);
   }
 }
 
@@ -105,17 +118,22 @@ TSLexer ts_lexer_make() {
     .chunk_start = 0,
     .debugger = ts_debugger_null(),
   };
-  ts_lexer_reset(&result, ts_length_zero());
+  ts_lexer_reset(&result, ts_length_zero(), ts_point_zero());
   return result;
 }
 
-void ts_lexer_reset(TSLexer *self, TSLength position) {
+void ts_lexer_reset(TSLexer *self, TSLength position, TSPoint point) {
   if (ts_length_eq(position, self->current_position))
     return;
 
   self->token_start_position = position;
   self->token_end_position = position;
   self->current_position = position;
+
+  self->token_start_point = point;
+  self->token_end_point = point;
+  self->current_point = point;
+
   self->chunk = 0;
   self->chunk_start = 0;
   self->chunk_size = 0;

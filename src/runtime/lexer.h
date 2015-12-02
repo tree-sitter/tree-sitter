@@ -8,7 +8,7 @@ extern "C" {
 #include "tree_sitter/parser.h"
 
 TSLexer ts_lexer_make();
-void ts_lexer_reset(TSLexer *, TSLength);
+void ts_lexer_reset(TSLexer *, TSLength, TSPoint);
 
 #ifdef __cplusplus
 }

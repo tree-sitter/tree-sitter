@@ -44,7 +44,7 @@ describe("Stack", [&]() {
 
     TSLength len = ts_length_make(2, 2);
     for (size_t i = 0; i < tree_count; i++)
-      trees[i] = ts_tree_make_leaf(i, len, len, TSNodeTypeNamed);
+      trees[i] = ts_tree_make_leaf(i, len, len, {1, 1}, {1, 2}, TSNodeTypeNamed);
   });
 
   after_each([&]() {
