@@ -26,6 +26,13 @@ static inline TSLength ts_length_sub(TSLength len1, TSLength len2) {
   return result;
 }
 
+static inline TSPoint ts_point_make(size_t row, size_t column) {
+  TSPoint point;
+  point.row = row;
+  point.column = column;
+  return point;
+}
+
 static inline TSPoint ts_point_add(TSPoint point1, TSPoint point2) {
   size_t row = point1.row + point2.row;
 
@@ -65,13 +72,6 @@ static inline bool ts_length_eq(TSLength len1, TSLength len2) {
 static inline TSPoint ts_point_zero() {
   TSPoint point;
   point.row = point.column = 0;
-  return point;
-}
-
-static inline TSPoint ts_point_make(size_t row, size_t column) {
-  TSPoint point;
-  point.row = row;
-  point.column = column;
   return point;
 }
 
