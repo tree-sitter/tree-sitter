@@ -48,7 +48,7 @@ static void ts_parser__breakdown_top_of_stack(TSParser *self, int head) {
 
     StackPopResult *pop_result = vector_get(&pop_results, 0);
     TSTree *parent = pop_result->trees[0];
-    LOG("breakdown_right sym:%s", SYM_NAME(parent->symbol));
+    LOG("breakdown_pop sym:%s, size:%lu", SYM_NAME(parent->symbol), ts_tree_total_size(parent).chars);
     last_state = ts_stack_top_state(self->stack, head);
     for (size_t i = 0, count = parent->child_count; i < count; i++) {
       last_child = parent->children[i];
@@ -58,6 +58,7 @@ static void ts_parser__breakdown_top_of_stack(TSParser *self, int head) {
         last_state = action.data.to_state;
       }
       ts_stack_push(self->stack, head, last_state, last_child);
+      LOG("breakdown_push sym:%s, size:%lu", SYM_NAME(last_child->symbol), ts_tree_total_size(last_child).chars);
     }
 
     for (size_t i = 1, count = pop_result->tree_count; i < count; i++) {
