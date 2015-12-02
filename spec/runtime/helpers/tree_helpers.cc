@@ -1,5 +1,9 @@
 #include "runtime/helpers/tree_helpers.h"
 
+using std::string;
+using std::to_string;
+using std::ostream;
+
 static const char *symbol_names[24] = {
   "ERROR", "END",  "two", "three", "four", "five", "six", "seven", "eight",
   "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
@@ -14,15 +18,20 @@ TSTree ** tree_array(std::vector<TSTree *> trees) {
   return result;
 }
 
-std::ostream &operator<<(std::ostream &stream, const TSTree *tree) {
-  return stream << std::string(ts_tree_string(tree, symbol_names, true));;
+ostream &operator<<(std::ostream &stream, const TSTree *tree) {
+  return stream << string(ts_tree_string(tree, symbol_names, true));;
 }
 
-std::ostream &operator<<(std::ostream &stream, const TSNode node) {
-  return stream << std::string("{") << (const TSTree *)node.data <<
-    std::string(", ") << std::to_string(ts_node_pos(node).chars) << std::string("}");
+ostream &operator<<(ostream &stream, const TSNode &node) {
+  return stream << string("{") << (const TSTree *)node.data <<
+    string(", ") << to_string(ts_node_pos(node).chars) << string("}");
 }
 
 bool operator==(const TSNode &left, const TSNode &right) {
   return ts_node_eq(left, right);
+}
+
+ostream &operator<<(ostream &stream, const TSLength &length) {
+  return stream << string("{") << to_string(length.chars) << string(", ") <<
+    to_string(length.bytes) << string("}");
 }

@@ -13,6 +13,8 @@ typedef struct Stack Stack;
 typedef struct {
   TSTree *tree;
   TSStateId state;
+  TSLength position;
+  TSPoint position_point;
 } StackEntry;
 
 typedef struct {
@@ -52,6 +54,12 @@ TSStateId ts_stack_top_state(const Stack *, int head);
  *  returns NULL.
  */
 TSTree *ts_stack_top_tree(const Stack *, int head);
+
+/*
+ *  Get the position of the given head of the stack. If the stack is empty, this
+ *  returns {0, 0}.
+ */
+TSLength ts_stack_top_position(const Stack *, int head);
 
 /*
  *  Get the entry at the given head of the stack.
