@@ -36,7 +36,7 @@ static inline TSPoint ts_point_add(TSPoint point1, TSPoint point2) {
     column = point2.column;
   }
 
-  return (TSPoint){ .row = row, .column = column };
+  return ts_point_make(row, column);
 }
 
 static inline TSPoint ts_point_sub(TSPoint point1, TSPoint point2) {
@@ -49,7 +49,7 @@ static inline TSPoint ts_point_sub(TSPoint point1, TSPoint point2) {
     column = point1.column;
   }
 
-  return (TSPoint){ .row = row, .column = column };
+  return ts_point_make(row, column);
 }
 
 static inline TSLength ts_length_zero() {
