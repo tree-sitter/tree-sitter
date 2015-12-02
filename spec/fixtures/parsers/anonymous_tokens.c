@@ -22,13 +22,13 @@ static const char *ts_symbol_names[] = {
 };
 
 static const TSSymbolMetadata ts_symbol_metadata[SYMBOL_COUNT] = {
-    [sym_program] = {.visible = true, .named = true},
-    [ts_builtin_sym_error] = {.visible = true, .named = true},
-    [ts_builtin_sym_end] = {.visible = false, .named = false},
-    [anon_sym_LF] = {.visible = true, .named = false},
-    [anon_sym_CR] = {.visible = true, .named = false},
-    [aux_sym_SLASH_BSLASHd_SLASH] = {.visible = false, .named = false},
-    [anon_sym_DQUOTEhello_DQUOTE] = {.visible = true, .named = false},
+    [sym_program] = {.visible = true, .named = true, .extra = false},
+    [ts_builtin_sym_error] = {.visible = true, .named = true, .extra = true},
+    [ts_builtin_sym_end] = {.visible = false, .named = false, .extra = false},
+    [anon_sym_LF] = {.visible = true, .named = false, .extra = false},
+    [anon_sym_CR] = {.visible = true, .named = false, .extra = false},
+    [aux_sym_SLASH_BSLASHd_SLASH] = {.visible = false, .named = false, .extra = false},
+    [anon_sym_DQUOTEhello_DQUOTE] = {.visible = true, .named = false, .extra = false},
 };
 
 static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {

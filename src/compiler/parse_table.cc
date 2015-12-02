@@ -104,6 +104,13 @@ set<Symbol> ParseState::expected_inputs() const {
   return result;
 }
 
+set<Symbol> ParseTable::all_symbols() const {
+  set<Symbol> result;
+  for (auto &pair : symbols)
+    result.insert(pair.first);
+  return result;
+}
+
 ParseStateId ParseTable::add_state() {
   states.push_back(ParseState());
   return states.size() - 1;
@@ -111,14 +118,16 @@ ParseStateId ParseTable::add_state() {
 
 ParseAction &ParseTable::set_action(ParseStateId id, Symbol symbol,
                                     ParseAction action) {
-  symbols.insert(symbol);
+  bool structural = action.type != ParseActionTypeShiftExtra;
+  symbols[symbol].structural += structural;
   states[id].actions[symbol] = vector<ParseAction>({ action });
   return *states[id].actions[symbol].begin();
 }
 
 ParseAction &ParseTable::add_action(ParseStateId id, Symbol symbol,
                                     ParseAction action) {
-  symbols.insert(symbol);
+  bool structural = action.type != ParseActionTypeShiftExtra;
+  symbols[symbol].structural += structural;
   states[id].actions[symbol].push_back(action);
   return *states[id].actions[symbol].rbegin();
 }

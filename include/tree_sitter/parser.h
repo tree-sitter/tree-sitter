@@ -19,6 +19,7 @@ typedef unsigned short TSStateId;
 typedef struct {
   bool visible : 1;
   bool named : 1;
+  bool extra : 1;
 } TSSymbolMetadata;
 
 typedef struct TSLexer {

@@ -55,7 +55,7 @@ class LexTableBuilder {
       parse_state.lex_state_id = add_lex_state(item_set);
     }
 
-    LexItemSet error_item_set = build_lex_item_set(parse_table->symbols, true);
+    LexItemSet error_item_set = build_lex_item_set(parse_table->all_symbols(), true);
     populate_lex_state(error_item_set, LexTable::ERROR_STATE_ID);
 
     return lex_table;

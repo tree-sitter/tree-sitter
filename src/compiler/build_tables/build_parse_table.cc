@@ -36,6 +36,7 @@ class ParseTableBuilder {
   vector<pair<ParseItemSet, ParseStateId>> item_sets_to_process;
   ParseTable parse_table;
   std::set<string> conflicts;
+  ParseItemSet null_item_set;
 
  public:
   ParseTableBuilder(const SyntaxGrammar &grammar,
@@ -65,7 +66,6 @@ class ParseTableBuilder {
 
       add_reduce_actions(item_set, state_id);
       add_shift_actions(item_set, state_id);
-      add_shift_extra_actions(item_set, state_id);
 
       if (!conflicts.empty())
         return { parse_table, new GrammarError(GrammarErrorTypeParseConflict,
@@ -73,10 +73,12 @@ class ParseTableBuilder {
                                                  *conflicts.begin()) };
     }
 
-    for (ParseStateId state = 0; state < parse_table.states.size(); state++)
+    for (ParseStateId state = 0; state < parse_table.states.size(); state++) {
+      add_shift_extra_actions(state);
       add_reduce_extra_actions(state);
+    }
 
-    parse_table.symbols.insert(rules::ERROR());
+    parse_table.symbols.insert({ rules::ERROR(), {} });
 
     return { parse_table, nullptr };
   }
@@ -127,16 +129,14 @@ class ParseTableBuilder {
     }
   }
 
-  void add_shift_extra_actions(const ParseItemSet &item_set,
-                               ParseStateId state_id) {
+  void add_shift_extra_actions(ParseStateId state_id) {
     for (const Symbol &ubiquitous_symbol : grammar.ubiquitous_tokens)
       add_action(state_id, ubiquitous_symbol, ParseAction::ShiftExtra(),
-                 item_set);
+                 null_item_set);
   }
 
   void add_reduce_extra_actions(ParseStateId state_id) {
     const ParseState &state = parse_table.states[state_id];
-    const ParseItemSet item_set;
 
     for (const Symbol &ubiquitous_symbol : grammar.ubiquitous_tokens) {
       const auto &actions_for_symbol = state.actions.find(ubiquitous_symbol);
@@ -148,7 +148,7 @@ class ParseTableBuilder {
           size_t dest_state_id = action.state_index;
           ParseAction reduce_extra = ParseAction::ReduceExtra(ubiquitous_symbol);
           for (const auto &pair : state.actions)
-            add_action(dest_state_id, pair.first, reduce_extra, item_set);
+            add_action(dest_state_id, pair.first, reduce_extra, null_item_set);
         }
     }
   }

@@ -117,7 +117,8 @@ class CCodeGenerator {
     line("enum {");
     indent([&]() {
       bool at_start = true;
-      for (const auto &symbol : parse_table.symbols)
+      for (const auto &entry : parse_table.symbols) {
+        const rules::Symbol &symbol = entry.first;
         if (!symbol.is_built_in()) {
           if (at_start)
             line(symbol_id(symbol) + " = ts_builtin_sym_start,");
@@ -125,6 +126,7 @@ class CCodeGenerator {
             line(symbol_id(symbol) + ",");
           at_start = false;
         }
+      }
     });
     line("};");
     line();
@@ -133,9 +135,9 @@ class CCodeGenerator {
   void add_symbol_names_list() {
     line("static const char *ts_symbol_names[] = {");
     indent([&]() {
-      for (const auto &symbol : parse_table.symbols)
-        line("[" + symbol_id(symbol) + "] = \"" +
-             sanitize_name_for_string(symbol_name(symbol)) + "\",");
+      for (const auto &entry : parse_table.symbols)
+        line("[" + symbol_id(entry.first) + "] = \"" +
+             sanitize_name_for_string(symbol_name(entry.first)) + "\",");
     });
     line("};");
     line();
@@ -144,7 +146,8 @@ class CCodeGenerator {
   void add_symbol_node_types_list() {
     line("static const TSSymbolMetadata ts_symbol_metadata[SYMBOL_COUNT] = {");
     indent([&]() {
-      for (const auto &symbol : parse_table.symbols) {
+      for (const auto &entry : parse_table.symbols) {
+        const rules::Symbol &symbol = entry.first;
         line("[" + symbol_id(symbol) + "] = {");
 
         switch (symbol_type(symbol)) {
@@ -159,6 +162,13 @@ class CCodeGenerator {
             add(".visible = false, .named = false");
             break;
         }
+
+        add(", ");
+
+        if (entry.second.structural)
+          add(".extra = false");
+        else
+          add(".extra = true");
 
         add("},");
       }
