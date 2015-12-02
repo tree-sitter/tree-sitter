@@ -151,7 +151,7 @@ static ConsumeResult ts_parser__shift(TSParser *self, int head,
   LookaheadState *head_state = vector_get(&self->lookahead_states, head);
   head_state->position =
     ts_length_add(head_state->position, ts_tree_total_size(lookahead));
-  head_state->offset_point = ts_point_add(head_state->offset_point, ts_tree_offset_point(lookahead));
+  head_state->offset_point = ts_point_add(head_state->offset_point, ts_tree_total_size_point(lookahead));
   if (ts_stack_push(self->stack, head, parse_state, lookahead)) {
     LOG("merge head:%d", head);
     vector_erase(&self->lookahead_states, head);

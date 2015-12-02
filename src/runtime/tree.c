@@ -151,7 +151,7 @@ TSLength ts_tree_total_size(const TSTree *self) {
   return ts_length_add(self->padding, self->size);
 }
 
-TSPoint ts_tree_offset_point(const TSTree *self) {
+TSPoint ts_tree_total_size_point(const TSTree *self) {
   return ts_point_add(self->padding_point, self->size_point);
 }
 

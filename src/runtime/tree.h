@@ -55,7 +55,7 @@ char *ts_tree_string(const TSTree *tree, const char **names,
 
 size_t ts_tree_offset_column(const TSTree *self);
 TSLength ts_tree_total_size(const TSTree *tree);
-TSPoint ts_tree_offset_point(const TSTree *self);
+TSPoint ts_tree_total_size_point(const TSTree *self);
 void ts_tree_prepend_children(TSTree *, size_t, TSTree **);
 void ts_tree_assign_parents(TSTree *);
 void ts_tree_edit(TSTree *, TSInputEdit);
