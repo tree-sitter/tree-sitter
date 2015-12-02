@@ -196,7 +196,8 @@ const char *ts_node_string(TSNode self, const TSDocument *document) {
 
 bool ts_node_eq(TSNode self, TSNode other) {
   return ts_tree_eq(ts_node__tree(self), ts_node__tree(other)) &&
-         ts_length_eq(ts_node__offset(self), ts_node__offset(other));
+         ts_length_eq(ts_node__offset(self), ts_node__offset(other)) &&
+         self.row == other.row;
 }
 
 bool ts_node_is_named(TSNode self) {
