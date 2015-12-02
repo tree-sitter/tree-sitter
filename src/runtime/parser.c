@@ -26,6 +26,7 @@
 typedef struct {
   TSTree *reusable_subtree;
   size_t reusable_subtree_pos;
+  bool is_verifying;
 } LookaheadState;
 
 typedef enum {
@@ -37,6 +38,34 @@ typedef enum {
 /*
  *  Private
  */
+
+static void ts_parser__breakdown_top_of_stack(TSParser *self, int head) {
+  TSTree *last_child = NULL;
+  TSStateId last_state = 0;
+  do {
+    Vector pop_results = ts_stack_pop(self->stack, head, 1, false);
+    assert(pop_results.size == 1);
+
+    StackPopResult *pop_result = vector_get(&pop_results, 0);
+    TSTree *parent = pop_result->trees[0];
+    LOG("breakdown_right sym:%s", SYM_NAME(parent->symbol));
+    last_state = ts_stack_top_state(self->stack, head);
+    for (size_t i = 0, count = parent->child_count; i < count; i++) {
+      last_child = parent->children[i];
+      if (!last_child->options.extra) {
+        TSParseAction action = ts_language_last_action(self->language, last_state, last_child->symbol);
+        assert(action.type == TSParseActionTypeShift);
+        last_state = action.data.to_state;
+      }
+      ts_stack_push(self->stack, head, last_state, last_child);
+    }
+
+    for (size_t i = 1, count = pop_result->tree_count; i < count; i++) {
+      ts_stack_push(self->stack, head, last_state, pop_result->trees[i]);
+    }
+
+  } while (last_child->child_count > 0);
+}
 
 /*
  *  Replace the parser's reusable_subtree with its first non-fragile descendant.
@@ -381,7 +410,9 @@ static void ts_parser__start(TSParser *self, TSInput input,
   ts_stack_clear(self->stack);
 
   LookaheadState lookahead_state = {
-    .reusable_subtree = previous_tree, .reusable_subtree_pos = 0,
+    .reusable_subtree = previous_tree,
+    .reusable_subtree_pos = 0,
+    .is_verifying = false,
   };
   vector_clear(&self->lookahead_states);
   vector_push(&self->lookahead_states, &lookahead_state);
@@ -447,6 +478,8 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
         LOG("split_action from_head:%d, new_head:%d", head, current_head);
       }
 
+      LookaheadState *lookahead_state = vector_get(&self->lookahead_states, current_head);
+
       // TODO: Remove this by making a separate symbol for errors returned from
       // the lexer.
       if (lookahead->symbol == ts_builtin_sym_error)
@@ -455,6 +488,12 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
       switch (action.type) {
         case TSParseActionTypeError:
           LOG("error_sym");
+          if (lookahead_state->is_verifying) {
+            ts_parser__breakdown_top_of_stack(self, current_head);
+            lookahead_state->is_verifying = false;
+            return ConsumeResultRemoved;
+          }
+
           if (ts_stack_head_count(self->stack) == 1) {
             if (ts_parser__handle_error(self, current_head, lookahead))
               return ConsumeResultShifted;
@@ -468,6 +507,7 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
 
         case TSParseActionTypeShift:
           LOG("shift state:%u", action.data.to_state);
+          lookahead_state->is_verifying = (lookahead->child_count > 0);
           return ts_parser__shift(self, current_head, action.data.to_state,
                                   lookahead);
 
@@ -478,6 +518,7 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
         case TSParseActionTypeReduce:
           LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.data.symbol),
               action.data.child_count);
+          lookahead_state->is_verifying = false;
           if (!ts_parser__reduce(self, current_head, action.data.symbol,
                                  action.data.child_count, false, false))
             if (!next_action)
@@ -486,13 +527,15 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
 
         case TSParseActionTypeReduceExtra:
           LOG("reduce_extra sym:%s", SYM_NAME(action.data.symbol));
-          ts_parser__reduce(self, current_head, action.data.symbol, 1, true,
-                            false);
+          lookahead_state->is_verifying = false;
+          ts_parser__reduce(self, current_head, action.data.symbol, 1,
+                            true, false);
           break;
 
         case TSParseActionTypeReduceFragile:
           LOG("reduce_fragile sym:%s, count:%u", SYM_NAME(action.data.symbol),
               action.data.child_count);
+          lookahead_state->is_verifying = false;
           if (!ts_parser__reduce_fragile(self, current_head, action.data.symbol,
                                          action.data.child_count))
             if (!next_action)

@@ -97,41 +97,50 @@ describe("Languages", [&]() {
           ts_document_parse(doc);
         });
 
-        it_handles_edit_sequence("repairing an inserted error", [&]() {
-          ts_document_edit(doc, input->replace(entry.input.size() / 2, 0, "%^&*"));
-          ts_document_parse(doc);
+        srand(0);
 
-          ts_document_edit(doc, input->undo());
-          ts_document_parse(doc);
-        });
+        for (int i = 0; i < 5; i++) {
+          size_t edit_position = rand() % entry.input.size();
+          size_t deletion_amount = rand() % (entry.input.size() - edit_position);
+          string pos_string = to_string(edit_position);
 
-        it_handles_edit_sequence("creating and repairing an inserted error", [&]() {
-          ts_document_parse(doc);
+          it_handles_edit_sequence("repairing an inserted error at " + pos_string, [&]() {
+            ts_document_edit(doc, input->replace(edit_position, 0, "%^&*"));
+            ts_document_parse(doc);
 
-          ts_document_edit(doc, input->replace(entry.input.size() / 2, 0, "%^&*"));
-          ts_document_parse(doc);
+            ts_document_edit(doc, input->undo());
+            ts_document_parse(doc);
+          });
 
-          ts_document_edit(doc, input->undo());
-          ts_document_parse(doc);
-        });
+          it_handles_edit_sequence("creating and repairing an inserted error at " + pos_string, [&]() {
+            ts_document_parse(doc);
 
-        it_handles_edit_sequence("repairing an errant deletion", [&]() {
-          ts_document_parse(doc);
+            ts_document_edit(doc, input->replace(edit_position, 0, "%^&*"));
 
-          ts_document_edit(doc, input->replace(entry.input.size() / 2, 5, ""));
-          ts_document_parse(doc);
+            ts_document_parse(doc);
 
-          ts_document_edit(doc, input->undo());
-          ts_document_parse(doc);
-        });
+            ts_document_edit(doc, input->undo());
+            ts_document_parse(doc);
+          });
 
-        it_handles_edit_sequence("creating and repairing an errant deletion", [&]() {
-          ts_document_edit(doc, input->replace(entry.input.size() / 2, 5, ""));
-          ts_document_parse(doc);
+          it_handles_edit_sequence("repairing an errant deletion at " + pos_string, [&]() {
+            ts_document_parse(doc);
 
-          ts_document_edit(doc, input->undo());
-          ts_document_parse(doc);
-        });
+            ts_document_edit(doc, input->replace(edit_position, deletion_amount, ""));
+            ts_document_parse(doc);
+
+            ts_document_edit(doc, input->undo());
+            ts_document_parse(doc);
+          });
+
+          it_handles_edit_sequence("creating and repairing an errant deletion at " + pos_string, [&]() {
+            ts_document_edit(doc, input->replace(edit_position, deletion_amount, ""));
+            ts_document_parse(doc);
+
+            ts_document_edit(doc, input->undo());
+            ts_document_parse(doc);
+          });
+        }
       }
     });
   }
