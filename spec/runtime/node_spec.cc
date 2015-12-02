@@ -55,21 +55,26 @@ describe("Node", []() {
       AssertThat(ts_node_pos(array_node).bytes, Equals<size_t>(2));
       AssertThat(ts_node_size(array_node).bytes, Equals<size_t>(41));
 
-      AssertThat(ts_node_start_point(array_node).row, Equals<size_t>(0));
-      AssertThat(ts_node_start_point(array_node).column, Equals<size_t>(0));
-
-      AssertThat(ts_node_end_point(array_node).row, Equals<size_t>(6));
-      AssertThat(ts_node_end_point(array_node).column, Equals<size_t>(1));
-
+      AssertThat(ts_node_start_point(array_node), Equals<TSPoint>({ 2, 0 }));
+      AssertThat(ts_node_end_point(array_node), Equals<TSPoint>({ 8, 1 }));
 
       AssertThat(ts_node_pos(child1).bytes, Equals(input_string.find("123")));
       AssertThat(ts_node_size(child1).bytes, Equals<size_t>(3));
 
+      AssertThat(ts_node_start_point(child1), Equals<TSPoint>({ 3, 2 }));
+      AssertThat(ts_node_end_point(child1), Equals<TSPoint>({ 3, 5 }));
+
       AssertThat(ts_node_pos(child2).bytes, Equals(input_string.find("false")));
       AssertThat(ts_node_size(child2).bytes, Equals<size_t>(5));
 
+      AssertThat(ts_node_start_point(child2), Equals<TSPoint>({ 4, 2 }));
+      AssertThat(ts_node_end_point(child2), Equals<TSPoint>({ 4, 7 }));
+
       AssertThat(ts_node_pos(child3).bytes, Equals(input_string.find("{")));
       AssertThat(ts_node_size(child3).bytes, Equals<size_t>(19));
+
+      AssertThat(ts_node_start_point(child3), Equals<TSPoint>({ 5, 2 }));
+      AssertThat(ts_node_end_point(child3), Equals<TSPoint>({ 7, 3 }));
 
       AssertThat(ts_node_named_child_count(child3), Equals<size_t>(2));
 
@@ -79,6 +84,9 @@ describe("Node", []() {
       AssertThat(ts_node_name(grandchild1, document), Equals("string"));
       AssertThat(ts_node_name(grandchild2, document), Equals("null"));
 
+      AssertThat(ts_node_start_point(grandchild1), Equals<TSPoint>({ 6, 4 }));
+      AssertThat(ts_node_end_point(grandchild1), Equals<TSPoint>({ 6, 7 }));
+
       AssertThat(ts_node_parent(child1), Equals(array_node));
       AssertThat(ts_node_parent(child2), Equals(array_node));
       AssertThat(ts_node_parent(child3), Equals(array_node));
@@ -86,7 +94,7 @@ describe("Node", []() {
     });
   });
 
-  describe("concrete_child_count(), concrete_child(i)", [&]() {
+  describe("child_count(), child(i)", [&]() {
     it("returns the child node at the given index, including anonymous nodes", [&]() {
       AssertThat(ts_node_child_count(array_node), Equals<size_t>(7));
       TSNode child1 = ts_node_child(array_node, 0);
@@ -118,14 +126,26 @@ describe("Node", []() {
       AssertThat(ts_node_pos(child1).bytes, Equals<size_t>(2));
       AssertThat(ts_node_size(child1).bytes, Equals<size_t>(1));
 
+      AssertThat(ts_node_start_point(child1), Equals<TSPoint>({ 2, 0 }));
+      AssertThat(ts_node_end_point(child1), Equals<TSPoint>({ 2, 1 }));
+
       AssertThat(ts_node_pos(child3).bytes, Equals<size_t>(9));
       AssertThat(ts_node_size(child3).bytes, Equals<size_t>(1));
+
+      AssertThat(ts_node_start_point(child3), Equals<TSPoint>({ 3, 5 }));
+      AssertThat(ts_node_end_point(child3), Equals<TSPoint>({ 3, 6 }));
 
       AssertThat(ts_node_pos(child5).bytes, Equals<size_t>(18));
       AssertThat(ts_node_size(child5).bytes, Equals<size_t>(1));
 
+      AssertThat(ts_node_start_point(child5), Equals<TSPoint>({ 4, 7 }));
+      AssertThat(ts_node_end_point(child5), Equals<TSPoint>({ 4, 8 }));
+
       AssertThat(ts_node_pos(child7).bytes, Equals<size_t>(42));
       AssertThat(ts_node_size(child7).bytes, Equals<size_t>(1));
+
+      AssertThat(ts_node_start_point(child7), Equals<TSPoint>({ 8, 0 }));
+      AssertThat(ts_node_end_point(child7), Equals<TSPoint>({ 8, 1 }));
 
       AssertThat(ts_node_child_count(child6), Equals<size_t>(5))
 
@@ -301,3 +321,12 @@ describe("Node", []() {
 });
 
 END_TEST
+
+bool operator==(const TSPoint &left, const TSPoint &right) {
+  return left.row == right.row && left.column == right.column;
+}
+
+std::ostream &operator<<(std::ostream &stream, const TSPoint &point) {
+  return stream << "{" << point.row << ", " << point.column << "}";
+}
+
