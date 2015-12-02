@@ -46,16 +46,18 @@ TSTree *ts_tree_make_error(TSLength size, TSLength padding,
 
 void ts_tree_assign_parents(TSTree *self) {
   TSLength offset = ts_length_zero();
+  TSPoint offset_point = ts_point_zero();
   for (size_t i = 0; i < self->child_count; i++) {
     TSTree *child = self->children[i];
     if (child->context.parent != self) {
       child->context.parent = self;
       child->context.index = i;
       child->context.offset = offset;
-      child->context.offset_point = ts_tree_offset_point(self);
+      child->context.offset_point = offset_point;
       ts_tree_assign_parents(child);
     }
     offset = ts_length_add(offset, ts_tree_total_size(child));
+    offset_point = ts_point_add(offset_point, ts_tree_total_size_point(child));
   }
 }
 
