@@ -130,19 +130,21 @@ void ts_tree_release(TSTree *self) {
 }
 
 size_t ts_tree_offset_column(const TSTree *self) {
-  const TSTree *parent = self;
   size_t column = self->padding_point.column;
 
   if (self->padding_point.row > 0) {
     return column;
   }
 
+  const TSTree *parent = self;
+  TSPoint offset_point;
   do {
+    offset_point = parent->context.offset_point;
+    column += offset_point.column;
+
     parent = parent->context.parent;
     if (!parent) break;
-
-    column += parent->context.offset_point.column;
-  } while (parent->context.offset_point.row == 0);
+  } while (offset_point.row == 0);
 
   return column;
 }
