@@ -1,5 +1,6 @@
 #include "runtime/runtime_spec_helper.h"
 #include "runtime/helpers/tree_helpers.h"
+#include "runtime/helpers/point_helpers.h"
 
 extern "C" TSLanguage * ts_language_json();
 
@@ -339,12 +340,3 @@ describe("Node", []() {
 });
 
 END_TEST
-
-bool operator==(const TSPoint &left, const TSPoint &right) {
-  return left.row == right.row && left.column == right.column;
-}
-
-std::ostream &operator<<(std::ostream &stream, const TSPoint &point) {
-  return stream << "{" << point.row << ", " << point.column << "}";
-}
-
