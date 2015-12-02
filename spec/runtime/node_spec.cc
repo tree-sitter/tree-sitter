@@ -39,7 +39,7 @@ describe("Node", []() {
     ts_document_free(document);
   });
 
-  describe("child_count(), child(i)", [&]() {
+  describe("named_child_count(), named_child(i)", [&]() {
     it("returns the named child node at the given index", [&]() {
       AssertThat(ts_node_named_child_count(array_node), Equals<size_t>(3));
 
@@ -172,7 +172,7 @@ describe("Node", []() {
     });
   });
 
-  describe("next_concrete_sibling(), prev_concrete_sibling()", [&]() {
+  describe("next_sibling(), prev_sibling()", [&]() {
     it("returns the node's next and previous sibling, including anonymous nodes", [&]() {
       TSNode bracket_node1 = ts_node_child(array_node, 0);
       TSNode number_node = ts_node_child(array_node, 1);
