@@ -65,6 +65,11 @@ TSStateId ts_stack_top_state(const Stack *self, int head) {
   return entry ? entry->state : 0;
 }
 
+TSLength ts_stack_top_position(const Stack *self, int head) {
+  StackEntry *entry = ts_stack_head((Stack *)self, head);
+  return entry ? entry->position : ts_length_zero();
+}
+
 TSTree *ts_stack_top_tree(const Stack *self, int head) {
   StackEntry *entry = ts_stack_head((Stack *)self, head);
   return entry ? entry->tree : NULL;
@@ -120,13 +125,19 @@ static StackNode *stack_node_new(StackNode *next, TSStateId state, TSTree *tree)
   assert(tree->ref_count > 0);
   ts_tree_retain(tree);
   stack_node_retain(next);
+  TSLength position = ts_tree_total_size(tree);
+  TSPoint position_point = ts_tree_total_size_point(tree);
+  if (next) {
+    position = ts_length_add(next->entry.position, position);
+    position_point = ts_point_add(next->entry.position_point, position_point);
+  }
   *self = (StackNode){
     .ref_count = 1,
     .successor_count = 1,
     .successors = { next, NULL, NULL },
     .entry =
       {
-        .state = state, .tree = tree,
+        .state = state, .tree = tree, .position = position, .position_point = position_point,
       },
   };
   return self;
@@ -192,10 +203,10 @@ void ts_stack_remove_head(Stack *self, int head_index) {
 }
 
 static bool ts_stack__merge_head(Stack *self, int head_index, TSStateId state,
-                                 TSTree *tree) {
+                                 TSTree *tree, TSLength position) {
   for (int i = 0; i < head_index; i++) {
     StackNode *head = self->heads[i];
-    if (head->entry.state == state) {
+    if (head->entry.state == state && ts_length_eq(head->entry.position, position)) {
       if (head->entry.tree != tree) {
         head->entry.tree = self->tree_selection_callback.callback(
           self->tree_selection_callback.data, head->entry.tree, tree);
@@ -215,7 +226,10 @@ static bool ts_stack__merge_head(Stack *self, int head_index, TSStateId state,
 
 bool ts_stack_push(Stack *self, int head_index, TSStateId state, TSTree *tree) {
   assert(head_index < self->head_count);
-  if (ts_stack__merge_head(self, head_index, state, tree))
+  TSLength position = ts_tree_total_size(tree);
+  if (self->heads[head_index])
+    position = ts_length_add(self->heads[head_index]->entry.position, position);
+  if (ts_stack__merge_head(self, head_index, state, tree, position))
     return true;
   self->heads[head_index] = stack_node_new(self->heads[head_index], state, tree);
   return false;

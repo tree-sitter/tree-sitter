@@ -27,8 +27,8 @@ static const char *names[] = {
 
 describe("Tree", []() {
   TSTree *tree1, *tree2, *parent1;
-  TSSymbolMetadata visible = {true, true};
-  TSSymbolMetadata invisible = {false, false};
+  TSSymbolMetadata visible = {true, true, false};
+  TSSymbolMetadata invisible = {false, false, false};
 
   before_each([&]() {
     tree1 = ts_tree_make_leaf(cat, {2, 1}, {5, 4}, ts_point_zero(), ts_point_zero(), visible);
@@ -376,10 +376,6 @@ describe("Tree", []() {
 });
 
 END_TEST
-
-ostream &operator<<(ostream &stream, const TSLength &length) {
-  return stream << "{bytes:" << length.bytes << ", chars:" << length.chars << "}";
-}
 
 bool operator==(TSLength left, TSLength right) {
   return ts_length_eq(left, right);

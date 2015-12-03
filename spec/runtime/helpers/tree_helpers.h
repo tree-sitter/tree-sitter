@@ -8,7 +8,8 @@
 TSTree ** tree_array(std::vector<TSTree *> trees);
 
 std::ostream &operator<<(std::ostream &stream, const TSTree *tree);
-std::ostream &operator<<(std::ostream &stream, const TSNode node);
+std::ostream &operator<<(std::ostream &stream, const TSNode &node);
+std::ostream &operator<<(std::ostream &stream, const TSLength &length);
 bool operator==(const TSNode &left, const TSNode &right);
 
 #endif  // HELPERS_TREE_HELPERS_H_

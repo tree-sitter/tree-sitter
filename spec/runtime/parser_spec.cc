@@ -396,7 +396,8 @@ describe("Parser", [&]() {
       });
     });
 
-    it("updates the document's parse-count", [&]() {
+    it("updates the document's parse count", [&]() {
+      ts_document_set_language(doc, ts_language_javascript());
       AssertThat(ts_document_parse_count(doc), Equals<size_t>(0));
 
       set_text("{ x: (b.c) };");

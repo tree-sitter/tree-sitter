@@ -63,9 +63,10 @@ var thing = {
   // this is a property.
   // its value is a function.
   key: function(x /* this is a parameter */) {
-
-    // this is a statement
-    doStuff();
+    // this is one statement
+    one();
+    // this is another statement
+    two();
   }
 };
 
@@ -80,8 +81,10 @@ var thing = {
       (comment)
       (comment)
       (pair (identifier) (function_expression
-        (formal_parameters (identifier) (comment))
+        (formal_parameters (identifier)) (comment)
         (statement_block
+          (comment)
+          (expression_statement (function_call (identifier) (arguments)))
           (comment)
           (expression_statement (function_call (identifier) (arguments))))))))))
 

@@ -40,6 +40,8 @@ package trivial
 
 var x = 1 // on variable
 
+// between declarations
+
 func main() {
     // in function
 }
@@ -49,4 +51,5 @@ func main() {
 (program
     (package_directive (package_name))
     (var_declaration (var_name) (number) (comment))
+    (comment)
     (func_declaration (var_name) (block_statement (comment))))

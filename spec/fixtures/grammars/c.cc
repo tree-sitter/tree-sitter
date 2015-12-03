@@ -78,12 +78,15 @@ extern const Grammar c = Grammar({
     err(seq({
       optional(sym("declaration_specifiers")),
       sym("_type_specifier"),
-      comma_sep1(sym("_init_declarator")) })),
+      comma_sep1(choice({
+        sym("_declarator"),
+        sym("_init_declarator") })) })),
     str(";") }) },
 
-  { "_init_declarator", choice({
+  { "_init_declarator", seq({
     sym("_declarator"),
-    seq({ sym("_declarator"), str("="), sym("initializer") }) }) },
+    str("="),
+    sym("initializer") }) },
 
   { "initializer", choice({
     sym("_expression"),
@@ -174,6 +177,7 @@ extern const Grammar c = Grammar({
     sym("math_expression"),
     sym("call_expression"),
     sym("pointer_expression"),
+    sym("assignment_expression"),
     sym("string"),
     sym("identifier"),
     sym("number"),
@@ -201,8 +205,27 @@ extern const Grammar c = Grammar({
       str("&") }),
     sym("_expression") }) },
 
+  { "assignment_expression", prec_right(-1, seq({
+    sym("_expression"),
+    str("="),
+    sym("_expression") })) },
+
   { "_statement", choice({
-    sym("expression_statement") }) },
+    sym("for_statement"),
+    sym("expression_statement"),
+    sym("compound_statement") }) },
+
+  { "for_statement", seq({
+    str("for"),
+    str("("),
+    choice({
+      sym("declaration"),
+      seq({ optional(sym("_expression")), str(";") }) }),
+    optional(sym("_expression")),
+    str(";"),
+    comma_sep(sym("_expression")),
+    str(")"),
+    sym("_statement") }) },
 
   { "expression_statement", seq({
     sym("_expression"),

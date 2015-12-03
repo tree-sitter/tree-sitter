@@ -66,8 +66,7 @@ void ts_tree_assign_parents(TSTree *self) {
   }
 }
 
-static void ts_tree__set_children(TSTree *self, TSTree **children,
-                                  size_t child_count) {
+void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   self->children = children;
   self->child_count = child_count;
   self->visible_child_count = 0;
@@ -108,7 +107,7 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
                           TSTree **children, TSSymbolMetadata metadata) {
   TSTree *result =
     ts_tree_make_leaf(symbol, ts_length_zero(), ts_length_zero(), ts_point_zero(), ts_point_zero(), metadata);
-  ts_tree__set_children(result, children, child_count);
+  ts_tree_set_children(result, child_count, children);
   return result;
 }
 
@@ -264,19 +263,6 @@ char *ts_tree_string(const TSTree *self, const char **symbol_names,
   ts_tree__write_to_string(self, symbol_names, result, size, true,
                            include_anonymous);
   return result;
-}
-
-void ts_tree_prepend_children(TSTree *self, size_t count, TSTree **children) {
-  if (count == 0)
-    return;
-
-  size_t new_child_count = count + self->child_count;
-  TSTree **new_children = realloc(children, new_child_count * sizeof(TSTree *));
-  memcpy(new_children + count, self->children,
-         self->child_count * sizeof(TSTree *));
-  free(self->children);
-
-  ts_tree__set_children(self, new_children, new_child_count);
 }
 
 static inline long min(long a, long b) {

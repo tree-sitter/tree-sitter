@@ -44,8 +44,8 @@ int main() {
     (comment)
     (declaration
       (identifier)
-      (pointer_declarator (function_declarator (identifier) (parameter_declaration (identifier) (identifier))))
-      (comment))
+      (pointer_declarator (function_declarator (identifier) (parameter_declaration (identifier) (identifier)))))
+    (comment)
     (expression_statement (math_expression
       (identifier)
       (call_expression (identifier) (number)))))))
@@ -54,38 +54,50 @@ int main() {
 ambiguous expressions
 ==========================================
 
+/*
+ * ambiguities
+ */
+
 int main() {
-  // cast vs parenthesized product
+  // cast
   a((B *)c);
+
+  // parenthesized product
   d((e * f));
 }
 
 ---
 
-(translation_unit (function_definition
-  (identifier)
-  (function_declarator (identifier))
-  (compound_statement
-    (comment)
-    (expression_statement (call_expression
-      (identifier)
-      (cast_expression (type_name (identifier) (abstract_pointer_declarator)) (identifier))))
-    (expression_statement (call_expression
-      (identifier)
-      (math_expression (identifier) (identifier)))))))
+(translation_unit
+  (comment)
+  (function_definition
+    (identifier)
+    (function_declarator (identifier))
+    (compound_statement
+      (comment)
+      (expression_statement (call_expression
+        (identifier)
+        (cast_expression (type_name (identifier) (abstract_pointer_declarator)) (identifier))))
+      (comment)
+      (expression_statement (call_expression
+        (identifier)
+        (math_expression (identifier) (identifier)))))))
 
 ==========================================
 function-like macros that produce types
 ==========================================
 
+// this is a macro
 GIT_INLINE(int) x = 5;
 
 ---
 
-(translation_unit (declaration
-  (macro_type (identifier) (identifier))
-  (identifier)
-  (initializer (number))))
+(translation_unit
+  (comment)
+  (declaration
+    (macro_type (identifier) (identifier))
+    (identifier)
+    (initializer (number))))
 
 ============================================
 3-way ambiguities (regression)
@@ -100,6 +112,9 @@ int main() {
    */
   ABC(d);
 
+  /*
+   * Normal declaration
+   */
   efg hij;
 }
 
@@ -112,4 +127,34 @@ int main() {
     (compound_statement
       (comment)
       (declaration (identifier) (identifier))
+      (comment)
       (declaration (identifier) (identifier)))))
+
+=========================================
+Comments after for loops with ambiguities
+===========================================
+
+int main() {
+  for (a *b = c; d; e) {
+    aff;
+  }
+
+  // a-comment
+
+  g;
+}
+
+---
+
+(translation_unit (function_definition
+  (identifier)
+  (function_declarator (identifier))
+  (compound_statement
+    (for_statement
+      (declaration (identifier) (pointer_declarator (identifier)) (initializer (identifier)))
+      (identifier)
+      (identifier)
+      (compound_statement
+        (expression_statement (identifier))))
+    (comment)
+    (expression_statement (identifier)))))
