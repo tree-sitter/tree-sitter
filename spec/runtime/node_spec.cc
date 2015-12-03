@@ -225,7 +225,7 @@ describe("Node", []() {
     });
   });
 
-  describe("next_named_sibling(), prev_concrete_sibling()", [&]() {
+  describe("next_named_sibling(), prev_named_sibling()", [&]() {
     it("returns the node's next and previous siblings", [&]() {
       TSNode number_node = ts_node_named_child(array_node, 0);
       TSNode false_node = ts_node_named_child(array_node, 1);
@@ -249,7 +249,7 @@ describe("Node", []() {
     });
   });
 
-  describe("find_for_range(start, end)", [&]() {
+  describe("named_descendant_for_range(start, end)", [&]() {
     describe("when there is a leaf node that spans the given range exactly", [&]() {
       it("returns that leaf node", [&]() {
         TSNode leaf = ts_node_named_descendent_for_range(array_node, 28, 30);

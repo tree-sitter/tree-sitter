@@ -9,7 +9,7 @@
 TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
                           TSPoint padding_point,
                           TSPoint size_point,
-                          TSNodeType node_type) {
+                          TSSymbolMetadata metadata) {
   TSTree *result = malloc(sizeof(TSTree));
   *result = (TSTree){
     .ref_count = 1,
@@ -22,7 +22,10 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
     .padding = padding,
     .padding_point = padding_point,
     .size_point = size_point,
-    .options = {.type = node_type },
+    .options =
+      {
+        .visible = metadata.visible, .named = metadata.named,
+      },
   };
 
   if (sym == ts_builtin_sym_error) {
@@ -39,7 +42,9 @@ TSTree *ts_tree_make_error(TSLength size, TSLength padding,
                            char lookahead_char) {
   TSTree *result =
     ts_tree_make_leaf(ts_builtin_sym_error, padding, size, padding_point,
-                      size_point, TSNodeTypeNamed);
+                      size_point, (TSSymbolMetadata){
+                                       .visible = true, .named = true,
+                                     });
   result->lookahead_char = lookahead_char;
   return result;
 }
@@ -81,18 +86,13 @@ static void ts_tree__set_children(TSTree *self, TSTree **children,
       self->size_point = ts_point_add(ts_point_add(self->size_point, child->padding_point), child->size_point);
     }
 
-    switch (child->options.type) {
-      case TSNodeTypeNamed:
-        self->visible_child_count++;
+    if (child->options.visible) {
+      self->visible_child_count++;
+      if (child->options.named)
         self->named_child_count++;
-        break;
-      case TSNodeTypeAnonymous:
-        self->visible_child_count++;
-        break;
-      case TSNodeTypeHidden:
-        self->visible_child_count += child->visible_child_count;
-        self->named_child_count += child->named_child_count;
-        break;
+    } else {
+      self->visible_child_count += child->visible_child_count;
+      self->named_child_count += child->named_child_count;
     }
   }
 
@@ -105,9 +105,9 @@ static void ts_tree__set_children(TSTree *self, TSTree **children,
 }
 
 TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
-                          TSTree **children, TSNodeType node_type) {
+                          TSTree **children, TSSymbolMetadata metadata) {
   TSTree *result =
-    ts_tree_make_leaf(symbol, ts_length_zero(), ts_length_zero(), ts_point_zero(), ts_point_zero(), node_type);
+    ts_tree_make_leaf(symbol, ts_length_zero(), ts_length_zero(), ts_point_zero(), ts_point_zero(), metadata);
   ts_tree__set_children(result, children, child_count);
   return result;
 }
@@ -167,6 +167,10 @@ bool ts_tree_eq(const TSTree *self, const TSTree *other) {
 
   if (self->symbol != other->symbol)
     return false;
+  if (self->options.visible != other->options.visible)
+    return false;
+  if (self->options.named != other->options.named)
+    return false;
   if (self->symbol == ts_builtin_sym_error)
     return self->lookahead_char == other->lookahead_char;
   if (self->child_count != other->child_count)
@@ -217,16 +221,15 @@ static size_t write_lookahead_to_string(char *string, size_t limit,
 
 static size_t ts_tree__write_to_string(const TSTree *self,
                                        const char **symbol_names, char *string,
-                                       size_t limit, int is_root,
+                                       size_t limit, bool is_root,
                                        bool include_anonymous) {
   if (!self)
     return snprintf(string, limit, "(NULL)");
 
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
-  TSNodeType min_node_type =
-    include_anonymous ? TSNodeTypeAnonymous : TSNodeTypeNamed;
-  int visible = self->options.type >= min_node_type || is_root;
+  bool visible = is_root || (self->options.visible &&
+                             (include_anonymous || self->options.named));
 
   if (visible && !is_root)
     cursor += snprintf(*writer, limit, " ");
@@ -242,8 +245,8 @@ static size_t ts_tree__write_to_string(const TSTree *self,
 
   for (size_t i = 0; i < self->child_count; i++) {
     TSTree *child = self->children[i];
-    cursor += ts_tree__write_to_string(child, symbol_names, *writer, limit, 0,
-                                       include_anonymous);
+    cursor += ts_tree__write_to_string(child, symbol_names, *writer, limit,
+                                       false, include_anonymous);
   }
 
   if (visible)
@@ -255,10 +258,10 @@ static size_t ts_tree__write_to_string(const TSTree *self,
 char *ts_tree_string(const TSTree *self, const char **symbol_names,
                      bool include_anonymous) {
   static char SCRATCH[1];
-  size_t size = 1 + ts_tree__write_to_string(self, symbol_names, SCRATCH, 0, 1,
-                                             include_anonymous);
+  size_t size = 1 + ts_tree__write_to_string(self, symbol_names, SCRATCH, 0,
+                                             true, include_anonymous);
   char *result = malloc(size * sizeof(char));
-  ts_tree__write_to_string(self, symbol_names, result, size, 1,
+  ts_tree__write_to_string(self, symbol_names, result, size, true,
                            include_anonymous);
   return result;
 }

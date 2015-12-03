@@ -82,8 +82,13 @@ class ParseState {
   LexStateId lex_state_id;
 };
 
+struct ParseTableSymbolMetadata {
+  bool structural;
+};
+
 class ParseTable {
  public:
+  std::set<rules::Symbol> all_symbols() const;
   ParseStateId add_state();
   ParseAction &set_action(ParseStateId state_id, rules::Symbol symbol,
                           ParseAction action);
@@ -91,7 +96,7 @@ class ParseTable {
                           ParseAction action);
 
   std::vector<ParseState> states;
-  std::set<rules::Symbol> symbols;
+  std::map<rules::Symbol, ParseTableSymbolMetadata> symbols;
   std::set<const Production *> fragile_productions;
 };
 

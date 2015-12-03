@@ -83,7 +83,8 @@ static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
 }
 
 static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
-                                TSNodeType node_type, const char *symbol_name) {
+                                TSSymbolMetadata metadata,
+                                const char *symbol_name) {
   TSLength size =
     ts_length_sub(self->current_position, self->token_start_position);
   TSLength padding =
@@ -99,7 +100,7 @@ static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
     return ts_tree_make_error(size, padding, size_point, padding_point, self->lookahead);
   } else {
     LOG("accept_token sym:%s", symbol_name);
-    return ts_tree_make_leaf(symbol, padding, size, padding_point, size_point, node_type);
+    return ts_tree_make_leaf(symbol, padding, size, padding_point, size_point, metadata);
   }
 }
 

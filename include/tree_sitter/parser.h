@@ -16,20 +16,19 @@ typedef struct TSTree TSTree;
 
 typedef unsigned short TSStateId;
 
-typedef enum {
-  TSNodeTypeHidden,
-  TSNodeTypeAnonymous,
-  TSNodeTypeNamed,
-} TSNodeType;
+typedef struct {
+  bool visible : 1;
+  bool named : 1;
+  bool extra : 1;
+} TSSymbolMetadata;
 
 typedef struct TSLexer {
-  // Public
   void (*start_fn)(struct TSLexer *, TSStateId);
   void (*start_token_fn)(struct TSLexer *);
   bool (*advance_fn)(struct TSLexer *, TSStateId);
-  TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, TSNodeType, const char *);
+  TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, TSSymbolMetadata,
+                       const char *);
 
-  // Private
   const char *chunk;
   size_t chunk_start;
   size_t chunk_size;
@@ -74,7 +73,7 @@ typedef struct {
 struct TSLanguage {
   size_t symbol_count;
   const char **symbol_names;
-  const TSNodeType *node_types;
+  const TSSymbolMetadata *symbol_metadata;
   const TSParseAction **parse_table;
   const TSStateId *lex_states;
   TSTree *(*lex_fn)(TSLexer *, TSStateId);
@@ -105,8 +104,8 @@ struct TSLanguage {
     GO_TO_STATE(state_index);              \
   }
 
-#define ACCEPT_TOKEN(symbol)                                    \
-  return lexer->accept_fn(lexer, symbol, ts_node_types[symbol], \
+#define ACCEPT_TOKEN(symbol)                                         \
+  return lexer->accept_fn(lexer, symbol, ts_symbol_metadata[symbol], \
                           ts_symbol_names[symbol]);
 
 #define LEX_ERROR()                      \
@@ -161,7 +160,7 @@ struct TSLanguage {
 #define EXPORT_LANGUAGE(language_name)                       \
   static TSLanguage language = {                             \
     .symbol_count = SYMBOL_COUNT,                            \
-    .node_types = ts_node_types,                             \
+    .symbol_metadata = ts_symbol_metadata,                   \
     .parse_table = (const TSParseAction **)ts_parse_actions, \
     .lex_states = ts_lex_states,                             \
     .symbol_names = ts_symbol_names,                         \

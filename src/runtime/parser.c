@@ -170,7 +170,7 @@ static bool ts_parser__shift_extra(TSParser *self, int head, TSStateId state,
 static TSTree *ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
                                  int child_count, bool extra, bool count_extra) {
   vector_clear(&self->reduce_parents);
-  TSNodeType node_type = self->language->node_types[symbol];
+  TSSymbolMetadata metadata = self->language->symbol_metadata[symbol];
   Vector pop_results = ts_stack_pop(self->stack, head, child_count, count_extra);
 
   int last_head_index = -1;
@@ -198,7 +198,7 @@ static TSTree *ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
      */
     if (!parent)
       parent = ts_tree_make_node(symbol, pop_result->tree_count,
-                                 pop_result->trees, node_type);
+                                 pop_result->trees, metadata);
     vector_push(&self->reduce_parents, &parent);
 
     /*
