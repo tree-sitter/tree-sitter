@@ -123,10 +123,7 @@ TSLexer ts_lexer_make() {
   return result;
 }
 
-void ts_lexer_reset(TSLexer *self, TSLength position, TSPoint point) {
-  if (ts_length_eq(position, self->current_position))
-    return;
-
+static inline void ts_lexer__reset(TSLexer *self, TSLength position, TSPoint point) {
   self->token_start_position = position;
   self->token_end_position = position;
   self->current_position = position;
@@ -140,4 +137,15 @@ void ts_lexer_reset(TSLexer *self, TSLength position, TSPoint point) {
   self->chunk_size = 0;
   self->lookahead_size = 0;
   self->lookahead = 0;
+}
+
+void ts_lexer_set_input(TSLexer *self, TSInput input) {
+  self->input = input;
+  ts_lexer__reset(self, ts_length_zero(), ts_point_zero());
+}
+
+void ts_lexer_reset(TSLexer *self, TSLength position, TSPoint point) {
+  if (!ts_length_eq(position, self->current_position))
+    ts_lexer__reset(self, position, point);
+    return;
 }

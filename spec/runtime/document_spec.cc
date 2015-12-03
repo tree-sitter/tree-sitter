@@ -66,6 +66,20 @@ describe("Document", [&]() {
         "(object (string) (array (null) (number)))"));
       AssertThat(spy_input->strings_read, Equals(vector<string>({" [null, 2", ""})));
     });
+
+    it("reads from the new input correctly when the old input was blank", [&]() {
+      ts_document_set_input_string(doc, "");
+      ts_document_parse(doc);
+      TSNode new_root = ts_document_root_node(doc);
+      AssertThat(ts_node_string(new_root, doc), Equals(
+        "(ERROR (UNEXPECTED <EOF>))"));
+
+      ts_document_set_input_string(doc, "1");
+      ts_document_parse(doc);
+      new_root = ts_document_root_node(doc);
+      AssertThat(ts_node_string(new_root, doc), Equals(
+        "(number)"));
+    });
   });
 
   describe("set_language(language)", [&]() {

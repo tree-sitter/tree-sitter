@@ -342,8 +342,7 @@ static void ts_parser__start(TSParser *self, TSInput input,
     LOG("new_parse");
   }
 
-  self->lexer.input = input;
-  ts_lexer_reset(&self->lexer, ts_length_zero(), ts_point_zero());
+  ts_lexer_set_input(&self->lexer, input);
   ts_stack_clear(self->stack);
 
   LookaheadState head_state = {
