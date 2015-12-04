@@ -1,7 +1,7 @@
 #ifndef RUNTIME_LENGTH_H_
 #define RUNTIME_LENGTH_H_
 
-#include "tree_sitter/runtime.h"
+#include "tree_sitter/parser.h"
 #include <stdbool.h>
 
 static inline TSLength ts_length_add(TSLength len1, TSLength len2) {

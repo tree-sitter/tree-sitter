@@ -9,11 +9,6 @@ extern "C" {
 #include <stdbool.h>
 
 typedef struct {
-  size_t bytes;
-  size_t chars;
-} TSLength;
-
-typedef struct {
   void *payload;
   const char *(*read_fn)(void *payload, size_t *bytes_read);
   int (*seek_fn)(void *payload, size_t character, size_t byte);
@@ -42,8 +37,7 @@ typedef struct {
 
 typedef struct {
   const void *data;
-  TSLength offset;
-  size_t row;
+  size_t offset[3];
 } TSNode;
 
 typedef unsigned short TSSymbol;
@@ -51,10 +45,10 @@ typedef struct TSLanguage TSLanguage;
 typedef struct TSDocument TSDocument;
 
 size_t ts_node_start_char(TSNode);
-size_t ts_node_end_char(TSNode);
 size_t ts_node_start_byte(TSNode);
-size_t ts_node_end_byte(TSNode);
 TSPoint ts_node_start_point(TSNode);
+size_t ts_node_end_char(TSNode);
+size_t ts_node_end_byte(TSNode);
 TSPoint ts_node_end_point(TSNode);
 TSSymbol ts_node_symbol(TSNode);
 const char *ts_node_name(TSNode, const TSDocument *);

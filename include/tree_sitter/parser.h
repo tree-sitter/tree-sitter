@@ -17,6 +17,11 @@ typedef struct TSTree TSTree;
 typedef unsigned short TSStateId;
 
 typedef struct {
+  size_t bytes;
+  size_t chars;
+} TSLength;
+
+typedef struct {
   bool visible : 1;
   bool named : 1;
   bool extra : 1;

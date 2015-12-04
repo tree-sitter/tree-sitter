@@ -1,7 +1,6 @@
 #include "tree_sitter/parser.h"
 #include "runtime/node.h"
 #include "runtime/tree.h"
-#include "runtime/length.h"
 #include "runtime/parser.h"
 #include "runtime/string_input.h"
 #include "runtime/document.h"
@@ -85,7 +84,7 @@ void ts_document_invalidate(TSDocument *self) {
 }
 
 TSNode ts_document_root_node(const TSDocument *self) {
-  TSNode result = ts_node_make(self->tree, ts_length_zero(), 0);
+  TSNode result = ts_node_make(self->tree, 0, 0, 0);
   while (result.data && !ts_tree_is_visible(result.data))
     result = ts_node_named_child(result, 0);
   return result;
