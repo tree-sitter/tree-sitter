@@ -19,10 +19,10 @@ const char *ts_string_input_read(void *payload, size_t *bytes_read) {
   return input->string + previous_position;
 }
 
-int ts_string_input_seek(void *payload, TSLength position) {
+int ts_string_input_seek(void *payload, size_t character, size_t byte) {
   TSStringInput *input = (TSStringInput *)payload;
-  input->position = position.bytes;
-  return (position.bytes < input->length);
+  input->position = byte;
+  return (byte < input->length);
 }
 
 TSInput ts_string_input_make(const char *string) {

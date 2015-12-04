@@ -19,7 +19,7 @@ class SpyInput {
   std::vector<SpyInputEdit> undo_stack;
 
   static const char * read(void *, size_t *);
-  static int seek(void *, TSLength);
+  static int seek(void *, size_t, size_t);
   std::string swap_substr(size_t, size_t, std::string);
 
  public:
