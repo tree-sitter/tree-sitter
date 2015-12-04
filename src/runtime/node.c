@@ -128,7 +128,7 @@ static inline TSNode ts_node__next_sibling(TSNode self, bool include_anonymous) 
   return ts_node__null();
 }
 
-static inline TSNode ts_node__descendent_for_range(TSNode self, size_t min,
+static inline TSNode ts_node__descendant_for_range(TSNode self, size_t min,
                                                    size_t max,
                                                    bool include_anonymous) {
   const TSTree *tree = ts_node__tree(self), *last_visible_tree = tree;
@@ -165,12 +165,20 @@ static inline TSNode ts_node__descendent_for_range(TSNode self, size_t min,
  *  Public
  */
 
-TSLength ts_node_pos(TSNode self) {
-  return ts_length_add(ts_node__offset(self), ts_node__tree(self)->padding);
+size_t ts_node_start_char(TSNode self) {
+  return ts_node__offset(self).chars + ts_node__tree(self)->padding.chars;
 }
 
-TSLength ts_node_size(TSNode self) {
-  return ts_node__tree(self)->size;
+size_t ts_node_end_char(TSNode self) {
+  return ts_node_start_char(self) + ts_node__tree(self)->size.chars;
+}
+
+size_t ts_node_start_byte(TSNode self) {
+  return ts_node__offset(self).bytes + ts_node__tree(self)->padding.bytes;
+}
+
+size_t ts_node_end_byte(TSNode self) {
+  return ts_node_start_byte(self) + ts_node__tree(self)->size.bytes;
 }
 
 TSPoint ts_node_size_point(TSNode self) {
@@ -262,10 +270,10 @@ TSNode ts_node_prev_named_sibling(TSNode self) {
   return ts_node__prev_sibling(self, false);
 }
 
-TSNode ts_node_descendent_for_range(TSNode self, size_t min, size_t max) {
-  return ts_node__descendent_for_range(self, min, max, true);
+TSNode ts_node_descendant_for_range(TSNode self, size_t min, size_t max) {
+  return ts_node__descendant_for_range(self, min, max, true);
 }
 
-TSNode ts_node_named_descendent_for_range(TSNode self, size_t min, size_t max) {
-  return ts_node__descendent_for_range(self, min, max, false);
+TSNode ts_node_named_descendant_for_range(TSNode self, size_t min, size_t max) {
+  return ts_node__descendant_for_range(self, min, max, false);
 }

@@ -20,10 +20,9 @@ void expect_the_correct_tree(TSNode node, TSDocument *doc, string tree_string) {
 }
 
 void expect_a_consistent_tree(TSNode node, TSDocument *doc) {
-  TSLength start = ts_node_pos(node);
-  TSLength end = ts_length_add(start, ts_node_size(node));
   size_t child_count = ts_node_child_count(node);
-
+  size_t start = ts_node_start_char(node);
+  size_t end = ts_node_end_char(node);
   TSPoint start_point = ts_node_start_point(node);
   TSPoint end_point = ts_node_end_point(node);
 
@@ -32,15 +31,13 @@ void expect_a_consistent_tree(TSNode node, TSDocument *doc) {
 
   for (size_t i = 0; i < child_count; i++) {
     TSNode child = ts_node_child(node, i);
-    TSLength child_start = ts_node_pos(child);
-    TSLength child_end = ts_length_add(child_start, ts_node_size(child));
-
+    size_t child_start = ts_node_start_char(child);
+    size_t child_end = ts_node_end_char(child);
     TSPoint child_start_point = ts_node_start_point(child);
     TSPoint child_end_point = ts_node_end_point(child);
 
-    AssertThat(child_start.chars, IsGreaterThan(start.chars) || Equals(start.chars));
-    AssertThat(child_end.chars, IsLessThan(end.chars) || Equals(end.chars));
-
+    AssertThat(child_start, IsGreaterThan(start) || Equals(start));
+    AssertThat(child_end, IsLessThan(end) || Equals(end));
     AssertThat(child_start_point, IsGreaterThan(start_point) || Equals(start_point));
     AssertThat(child_end_point, IsLessThan(end_point) || Equals(end_point));
 

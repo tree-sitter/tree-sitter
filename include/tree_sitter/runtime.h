@@ -50,9 +50,10 @@ typedef unsigned short TSSymbol;
 typedef struct TSLanguage TSLanguage;
 typedef struct TSDocument TSDocument;
 
-TSLength ts_node_pos(TSNode);
-TSLength ts_node_size(TSNode);
-TSPoint ts_node_size_point(TSNode);
+size_t ts_node_start_char(TSNode);
+size_t ts_node_end_char(TSNode);
+size_t ts_node_start_byte(TSNode);
+size_t ts_node_end_byte(TSNode);
 TSPoint ts_node_start_point(TSNode);
 TSPoint ts_node_end_point(TSNode);
 TSSymbol ts_node_symbol(TSNode);
@@ -70,8 +71,8 @@ TSNode ts_node_next_sibling(TSNode);
 TSNode ts_node_next_named_sibling(TSNode);
 TSNode ts_node_prev_sibling(TSNode);
 TSNode ts_node_prev_named_sibling(TSNode);
-TSNode ts_node_descendent_for_range(TSNode, size_t, size_t);
-TSNode ts_node_named_descendent_for_range(TSNode, size_t, size_t);
+TSNode ts_node_descendant_for_range(TSNode, size_t, size_t);
+TSNode ts_node_named_descendant_for_range(TSNode, size_t, size_t);
 
 TSDocument *ts_document_make();
 void ts_document_free(TSDocument *);
