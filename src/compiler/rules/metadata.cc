@@ -40,15 +40,16 @@ rule_ptr Metadata::copy() const {
 pair<int, bool> Metadata::value_for(MetadataKey key) const {
   auto entry = value.find(key);
   if (entry == value.end())
-    return {0, false};
+    return { 0, false };
   else
-    return {entry->second, true};
+    return { entry->second, true };
 }
 
 std::string Metadata::to_string() const {
   auto precedence = value_for(rules::PRECEDENCE);
   if (precedence.second && value_for(rules::IS_ACTIVE).second)
-    return "(metadata prec:" + std::to_string(precedence.first) + " " + rule->to_string() + ")";
+    return "(metadata prec:" + std::to_string(precedence.first) + " " +
+           rule->to_string() + ")";
   else
     return "(metadata " + rule->to_string() + ")";
 }

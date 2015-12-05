@@ -4,7 +4,7 @@
 #include "runtime/document.h"
 
 TSNode ts_node_make(const TSTree *tree, size_t chars, size_t byte, size_t row) {
-  return (TSNode){.data = tree, .offset = {chars, byte, row} };
+  return (TSNode){.data = tree, .offset = { chars, byte, row } };
 }
 
 /*
@@ -36,7 +36,8 @@ static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
   return include_anonymous ? tree->options.visible : tree->options.named;
 }
 
-static inline size_t ts_node__relevant_child_count(TSNode self, bool include_anonymous) {
+static inline size_t ts_node__relevant_child_count(TSNode self,
+                                                   bool include_anonymous) {
   const TSTree *tree = ts_node__tree(self);
   return include_anonymous ? tree->visible_child_count : tree->named_child_count;
 }
@@ -44,22 +45,18 @@ static inline size_t ts_node__relevant_child_count(TSNode self, bool include_ano
 static inline TSNode ts_node__direct_parent(TSNode self, size_t *index) {
   const TSTree *tree = ts_node__tree(self);
   *index = tree->context.index;
-  return ts_node_make(
-    tree->context.parent,
-    ts_node__offset_char(self) - tree->context.offset.chars,
-    ts_node__offset_byte(self) - tree->context.offset.bytes,
-    ts_node__offset_row(self) - tree->context.offset.rows
-  );
+  return ts_node_make(tree->context.parent,
+                      ts_node__offset_char(self) - tree->context.offset.chars,
+                      ts_node__offset_byte(self) - tree->context.offset.bytes,
+                      ts_node__offset_row(self) - tree->context.offset.rows);
 }
 
 static inline TSNode ts_node__direct_child(TSNode self, size_t i) {
   const TSTree *child_tree = ts_node__tree(self)->children[i];
   return ts_node_make(
-    child_tree,
-    ts_node__offset_char(self) + child_tree->context.offset.chars,
+    child_tree, ts_node__offset_char(self) + child_tree->context.offset.chars,
     ts_node__offset_byte(self) + child_tree->context.offset.bytes,
-    ts_node__offset_row(self) + child_tree->context.offset.rows
-  );
+    ts_node__offset_row(self) + child_tree->context.offset.rows);
 }
 
 static inline TSNode ts_node__child(TSNode self, size_t child_index,
@@ -108,7 +105,8 @@ static inline TSNode ts_node__prev_sibling(TSNode self, bool include_anonymous) 
       TSNode child = ts_node__direct_child(result, i);
       if (ts_node__is_relevant(child, include_anonymous))
         return child;
-      size_t grandchild_count = ts_node__relevant_child_count(child, include_anonymous);
+      size_t grandchild_count =
+        ts_node__relevant_child_count(child, include_anonymous);
       if (grandchild_count > 0)
         return ts_node__child(child, grandchild_count - 1, include_anonymous);
     }
@@ -130,7 +128,8 @@ static inline TSNode ts_node__next_sibling(TSNode self, bool include_anonymous) 
       TSNode child = ts_node__direct_child(result, i);
       if (ts_node__is_relevant(child, include_anonymous))
         return child;
-      size_t grandchild_count = ts_node__relevant_child_count(child, include_anonymous);
+      size_t grandchild_count =
+        ts_node__relevant_child_count(child, include_anonymous);
       if (grandchild_count > 0)
         return ts_node__child(child, 0, include_anonymous);
     }
@@ -188,18 +187,15 @@ size_t ts_node_end_byte(TSNode self) {
 
 TSPoint ts_node_start_point(TSNode self) {
   const TSTree *tree = ts_node__tree(self);
-  return (TSPoint){
-    ts_node__offset_row(self) + tree->padding.rows,
-    ts_tree_start_column(tree)
-  };
+  return (TSPoint){ ts_node__offset_row(self) + tree->padding.rows,
+                    ts_tree_start_column(tree) };
 }
 
 TSPoint ts_node_end_point(TSNode self) {
   const TSTree *tree = ts_node__tree(self);
-  return (TSPoint){
-    ts_node__offset_row(self) + tree->padding.rows + tree->size.rows,
-    ts_tree_end_column(tree)
-  };
+  return (TSPoint){ ts_node__offset_row(self) + tree->padding.rows +
+                      tree->size.rows,
+                    ts_tree_end_column(tree) };
 }
 
 TSSymbol ts_node_symbol(TSNode self) {
@@ -218,8 +214,7 @@ const char *ts_node_string(TSNode self, const TSDocument *document) {
 bool ts_node_eq(TSNode self, TSNode other) {
   return ts_tree_eq(ts_node__tree(self), ts_node__tree(other)) &&
          self.offset[0] == other.offset[0] &&
-         self.offset[1] == other.offset[1] &&
-         self.offset[2] == other.offset[2];
+         self.offset[1] == other.offset[1] && self.offset[2] == other.offset[2];
 }
 
 bool ts_node_is_named(TSNode self) {

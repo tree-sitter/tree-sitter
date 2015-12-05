@@ -162,7 +162,7 @@ static bool ts_parser__shift_extra(TSParser *self, int head, TSStateId state,
 }
 
 static bool ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
-                                 int child_count, bool extra, bool count_extra) {
+                              int child_count, bool extra, bool count_extra) {
   vector_clear(&self->reduce_parents);
   const TSSymbolMetadata *all_metadata = self->language->symbol_metadata;
   TSSymbolMetadata metadata = all_metadata[symbol];
@@ -202,8 +202,9 @@ static bool ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
           break;
       }
 
-      parent = ts_tree_make_node(symbol, pop_result->tree_count - trailing_extra_count,
-                                 pop_result->trees, metadata);
+      parent =
+        ts_tree_make_node(symbol, pop_result->tree_count - trailing_extra_count,
+                          pop_result->trees, metadata);
     }
     vector_push(&self->reduce_parents, &parent);
 
@@ -232,7 +233,8 @@ static bool ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
       }
 
       LOG("split_during_reduce new_head:%d", new_head);
-      LookaheadState *lookahead_state = vector_get(&self->lookahead_states, head);
+      LookaheadState *lookahead_state =
+        vector_get(&self->lookahead_states, head);
       vector_push(&self->lookahead_states, lookahead_state);
     }
 
@@ -271,7 +273,8 @@ static bool ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
     if (trailing_extra_count > 0) {
       for (size_t j = 0; j < trailing_extra_count; j++) {
         size_t index = pop_result->tree_count - trailing_extra_count + j;
-        if (ts_stack_push(self->stack, new_head, state, pop_result->trees[index])) {
+        if (ts_stack_push(self->stack, new_head, state,
+                          pop_result->trees[index])) {
           vector_erase(&self->lookahead_states, new_head);
           removed_heads++;
           continue;
@@ -297,12 +300,13 @@ static bool ts_parser__reduce_fragile(TSParser *self, int head, TSSymbol symbol,
 
 static void ts_parser__reduce_error(TSParser *self, int head,
                                     size_t child_count, TSTree *lookahead) {
-  bool result = ts_parser__reduce(self, head, ts_builtin_sym_error,
-                                  child_count, false, true);
+  bool result = ts_parser__reduce(self, head, ts_builtin_sym_error, child_count,
+                                  false, true);
   if (result) {
     TSTree **parent = vector_back(&self->reduce_parents);
     StackEntry *stack_entry = ts_stack_head(self->stack, head);
-    stack_entry->position = ts_length_add(stack_entry->position, lookahead->padding);
+    stack_entry->position =
+      ts_length_add(stack_entry->position, lookahead->padding);
     (*parent)->size = ts_length_add((*parent)->size, lookahead->padding);
     lookahead->padding = ts_length_zero();
     ts_tree_set_fragile_left(*parent);
@@ -377,8 +381,7 @@ static void ts_parser__start(TSParser *self, TSInput input,
   ts_stack_clear(self->stack);
 
   LookaheadState lookahead_state = {
-    .reusable_subtree = previous_tree,
-    .reusable_subtree_pos = 0,
+    .reusable_subtree = previous_tree, .reusable_subtree_pos = 0,
   };
   vector_clear(&self->lookahead_states);
   vector_push(&self->lookahead_states, &lookahead_state);
@@ -393,20 +396,18 @@ static TSTree *ts_parser__finish(TSParser *self) {
       TSTree *root = pop_result->trees[i];
       size_t leading_extra_count = i;
       size_t trailing_extra_count = pop_result->tree_count - 1 - i;
-      TSTree **new_children = malloc((root->child_count + leading_extra_count + trailing_extra_count) * sizeof(TSTree *));
-      memcpy(
-        new_children,
-        pop_result->trees,
-        leading_extra_count * sizeof(TSTree *));
-      memcpy(
-        new_children + leading_extra_count,
-        root->children,
-        root->child_count * sizeof(TSTree *));
-      memcpy(
-        new_children + leading_extra_count + root->child_count,
-        pop_result->trees + leading_extra_count + 1,
-        trailing_extra_count * sizeof(TSTree *));
-      size_t new_count = root->child_count + leading_extra_count + trailing_extra_count;
+      TSTree **new_children =
+        malloc((root->child_count + leading_extra_count + trailing_extra_count) *
+               sizeof(TSTree *));
+      memcpy(new_children, pop_result->trees,
+             leading_extra_count * sizeof(TSTree *));
+      memcpy(new_children + leading_extra_count, root->children,
+             root->child_count * sizeof(TSTree *));
+      memcpy(new_children + leading_extra_count + root->child_count,
+             pop_result->trees + leading_extra_count + 1,
+             trailing_extra_count * sizeof(TSTree *));
+      size_t new_count =
+        root->child_count + leading_extra_count + trailing_extra_count;
       ts_tree_set_children(root, new_count, new_children);
       ts_tree_assign_parents(root);
       return root;
@@ -485,15 +486,15 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
 
         case TSParseActionTypeReduceExtra:
           LOG("reduce_extra sym:%s", SYM_NAME(action.data.symbol));
-          ts_parser__reduce(self, current_head, action.data.symbol, 1,
-                            true, false);
+          ts_parser__reduce(self, current_head, action.data.symbol, 1, true,
+                            false);
           break;
 
         case TSParseActionTypeReduceFragile:
           LOG("reduce_fragile sym:%s, count:%u", SYM_NAME(action.data.symbol),
               action.data.child_count);
           if (!ts_parser__reduce_fragile(self, current_head, action.data.symbol,
-                                    action.data.child_count))
+                                         action.data.child_count))
             if (!next_action)
               return ConsumeResultRemoved;
           break;

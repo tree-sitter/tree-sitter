@@ -55,7 +55,8 @@ class LexTableBuilder {
       parse_state.lex_state_id = add_lex_state(item_set);
     }
 
-    LexItemSet error_item_set = build_lex_item_set(parse_table->all_symbols(), true);
+    LexItemSet error_item_set =
+      build_lex_item_set(parse_table->all_symbols(), true);
     populate_lex_state(error_item_set, LexTable::ERROR_STATE_ID);
 
     return lex_table;
@@ -86,13 +87,15 @@ class LexTableBuilder {
       for (const rule_ptr &rule : rules)
         for (const rule_ptr &separator_rule : separator_rules)
           result.entries.insert(LexItem(
-            symbol, rules::Metadata::build(
+            symbol,
+            rules::Metadata::build(
               rules::Seq::build({
-                rules::Metadata::build(separator_rule, {{rules::START_TOKEN, 1}}),
-                rules::Metadata::build(rule, {{rules::PRECEDENCE, 0}}),
-              }), {
-                {rules::PRECEDENCE, INT_MIN},
-                {rules::IS_ACTIVE, true},
+                rules::Metadata::build(separator_rule,
+                                       { { rules::START_TOKEN, 1 } }),
+                rules::Metadata::build(rule, { { rules::PRECEDENCE, 0 } }),
+              }),
+              {
+                { rules::PRECEDENCE, INT_MIN }, { rules::IS_ACTIVE, true },
               })));
     }
 
@@ -136,8 +139,9 @@ class LexTableBuilder {
       LexItem::CompletionStatus completion_status = item.completion_status();
       if (completion_status.is_done) {
         auto current_action = lex_table.state(state_id).default_action;
-        auto action = LexAction::Accept(item.lhs, completion_status.precedence.max,
-                                        completion_status.is_string);
+        auto action =
+          LexAction::Accept(item.lhs, completion_status.precedence.max,
+                            completion_status.is_string);
         if (conflict_manager.resolve(action, current_action))
           lex_table.state(state_id).default_action = action;
       }

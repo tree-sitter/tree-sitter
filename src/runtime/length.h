@@ -59,14 +59,12 @@ static inline TSLength ts_length_sub(TSLength len1, TSLength len2) {
 }
 
 static inline TSLength ts_length_zero() {
-  return (TSLength){0, 0, 0, 0};
+  return (TSLength){ 0, 0, 0, 0 };
 }
 
 static inline bool ts_length_eq(TSLength self, TSLength other) {
-  return self.bytes == other.bytes &&
-    self.chars == other.chars &&
-    self.rows == other.rows &&
-    self.columns == other.columns;
+  return self.bytes == other.bytes && self.chars == other.chars &&
+         self.rows == other.rows && self.columns == other.columns;
 }
 
 #endif

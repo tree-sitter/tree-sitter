@@ -33,10 +33,10 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
 }
 
 TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char) {
-  TSTree *result =
-    ts_tree_make_leaf(ts_builtin_sym_error, padding, size, (TSSymbolMetadata){
-                               .visible = true, .named = true,
-                             });
+  TSTree *result = ts_tree_make_leaf(ts_builtin_sym_error, padding, size,
+                                     (TSSymbolMetadata){
+                                       .visible = true, .named = true,
+                                     });
   result->lookahead_char = lookahead_char;
   return result;
 }

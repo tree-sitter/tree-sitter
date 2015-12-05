@@ -132,10 +132,7 @@ static StackNode *stack_node_new(StackNode *next, TSStateId state, TSTree *tree)
     .ref_count = 1,
     .successor_count = 1,
     .successors = { next, NULL, NULL },
-    .entry =
-      {
-        .state = state, .tree = tree, .position = position
-      },
+    .entry = {.state = state, .tree = tree, .position = position },
   };
   return self;
 }
@@ -203,7 +200,8 @@ static bool ts_stack__merge_head(Stack *self, int head_index, TSStateId state,
                                  TSTree *tree, TSLength position) {
   for (int i = 0; i < head_index; i++) {
     StackNode *head = self->heads[i];
-    if (head->entry.state == state && ts_length_eq(head->entry.position, position)) {
+    if (head->entry.state == state &&
+        ts_length_eq(head->entry.position, position)) {
       if (head->entry.tree != tree) {
         head->entry.tree = self->tree_selection_callback.callback(
           self->tree_selection_callback.data, head->entry.tree, tree);

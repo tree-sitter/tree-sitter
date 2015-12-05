@@ -24,7 +24,8 @@ static void ts_lexer__get_chunk(TSLexer *self) {
   TSInput input = self->input;
   if (!self->chunk ||
       self->current_position.bytes != self->chunk_start + self->chunk_size)
-    input.seek_fn(input.payload, self->current_position.chars, self->current_position.bytes);
+    input.seek_fn(input.payload, self->current_position.chars,
+                  self->current_position.bytes);
 
   self->chunk_start = self->current_position.bytes;
   self->chunk = input.read_fn(input.payload, &self->chunk_size);
@@ -51,7 +52,9 @@ static void ts_lexer__start(TSLexer *self, TSStateId lex_state) {
 }
 
 static void ts_lexer__start_token(TSLexer *self) {
-  LOG("start_token chars:%lu, rows:%lu, columns:%lu", self->current_position.chars, self->current_position.rows, self->current_position.columns);
+  LOG("start_token chars:%lu, rows:%lu, columns:%lu",
+      self->current_position.chars, self->current_position.rows,
+      self->current_position.columns);
   self->token_start_position = self->current_position;
 }
 
@@ -83,8 +86,10 @@ static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
 static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
                                 TSSymbolMetadata metadata,
                                 const char *symbol_name) {
-  TSLength size = ts_length_sub(self->current_position, self->token_start_position);
-  TSLength padding = ts_length_sub(self->token_start_position, self->token_end_position);
+  TSLength size =
+    ts_length_sub(self->current_position, self->token_start_position);
+  TSLength padding =
+    ts_length_sub(self->token_start_position, self->token_end_position);
   self->token_end_position = self->current_position;
 
   if (symbol == ts_builtin_sym_error) {
@@ -135,5 +140,5 @@ void ts_lexer_set_input(TSLexer *self, TSInput input) {
 void ts_lexer_reset(TSLexer *self, TSLength position) {
   if (!ts_length_eq(position, self->current_position))
     ts_lexer__reset(self, position);
-    return;
+  return;
 }
