@@ -32,38 +32,38 @@ describe("Parser", [&]() {
     ts_document_parse(doc);
 
     root = ts_document_root_node(doc);
-    AssertThat(ts_node_size(root).bytes + ts_node_pos(root).bytes, Equals(strlen(text)));
+    AssertThat(ts_node_end_byte(root), Equals(strlen(text)));
     input->clear();
   };
 
   auto insert_text = [&](size_t position, string text) {
-    size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
+    size_t prev_size = ts_node_end_byte(root);
     ts_document_edit(doc, input->replace(position, 0, text));
     ts_document_parse(doc);
 
     root = ts_document_root_node(doc);
-    size_t new_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
+    size_t new_size = ts_node_end_byte(root);
     AssertThat(new_size, Equals(prev_size + text.size()));
   };
 
   auto delete_text = [&](size_t position, size_t length) {
-    size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
+    size_t prev_size = ts_node_end_byte(root);
     ts_document_edit(doc, input->replace(position, length, ""));
     ts_document_parse(doc);
 
     root = ts_document_root_node(doc);
-    size_t new_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
+    size_t new_size = ts_node_end_byte(root);
     AssertThat(new_size, Equals(prev_size - length));
   };
 
   auto replace_text = [&](size_t position, size_t length, string new_text) {
-    size_t prev_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
+    size_t prev_size = ts_node_end_byte(root);
 
     ts_document_edit(doc, input->replace(position, length, new_text));
     ts_document_parse(doc);
 
     root = ts_document_root_node(doc);
-    size_t new_size = ts_node_size(root).bytes + ts_node_pos(root).bytes;
+    size_t new_size = ts_node_end_byte(root);
     AssertThat(new_size, Equals(prev_size - length + new_text.size()));
   };
 
@@ -83,11 +83,11 @@ describe("Parser", [&]() {
         TSNode last = ts_node_named_child(root, 2);
 
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_pos(error).bytes, Equals(strlen("  [123,  ")))
-        AssertThat(ts_node_size(error).bytes, Equals(strlen("@@@@@")))
+        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123,  ")));
+        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123,  @@@@@")));
 
         AssertThat(ts_node_name(last, doc), Equals("true"));
-        AssertThat(ts_node_pos(last).bytes, Equals(strlen("  [123,  @@@@@,   ")))
+        AssertThat(ts_node_start_byte(last), Equals(strlen("  [123,  @@@@@,   ")))
       });
     });
 
@@ -104,11 +104,11 @@ describe("Parser", [&]() {
         AssertThat(ts_node_symbol(error), Equals(ts_builtin_sym_error));
 
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_pos(error).bytes, Equals(strlen("  [123, ")))
-        AssertThat(ts_node_size(error).bytes, Equals(strlen("faaaaalse")))
+        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")))
+        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, faaaaalse")))
 
         AssertThat(ts_node_name(last, doc), Equals("true"));
-        AssertThat(ts_node_pos(last).bytes, Equals(strlen("  [123, faaaaalse, ")));
+        AssertThat(ts_node_start_byte(last), Equals(strlen("  [123, faaaaalse, ")));
       });
     });
 
@@ -123,11 +123,11 @@ describe("Parser", [&]() {
         TSNode last = ts_node_named_child(root, 2);
 
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_pos(error).bytes, Equals(strlen("  [123, ")));
-        AssertThat(ts_node_size(error).bytes, Equals(strlen("true false")));
+        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")));
+        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, true false")));
 
         AssertThat(ts_node_name(last, doc), Equals("true"));
-        AssertThat(ts_node_pos(last).bytes, Equals(strlen("  [123, true false, ")));
+        AssertThat(ts_node_start_byte(last), Equals(strlen("  [123, true false, ")));
       });
     });
 
@@ -142,11 +142,11 @@ describe("Parser", [&]() {
         TSNode last = ts_node_named_child(root, 2);
 
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_pos(error).bytes, Equals(strlen("  [123, ")));
-        AssertThat(ts_node_size(error).bytes, Equals<size_t>(0))
+        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")));
+        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, ")))
 
         AssertThat(ts_node_name(last, doc), Equals("true"));
-        AssertThat(ts_node_pos(last).bytes, Equals(strlen("  [123, , ")));
+        AssertThat(ts_node_start_byte(last), Equals(strlen("  [123, , ")));
       });
     });
   });
@@ -293,9 +293,9 @@ describe("Parser", [&]() {
           AssertThat(ts_node_string(root, doc), Equals(
             "(program (product (variable) (number)))"));
 
-          TSNode node = ts_node_named_descendent_for_range(root, 1, 1);
+          TSNode node = ts_node_named_descendant_for_range(root, 1, 1);
           AssertThat(ts_node_name(node, doc), Equals("variable"));
-          AssertThat(ts_node_size(node).bytes, Equals(strlen("abXYZc")));
+          AssertThat(ts_node_end_byte(node), Equals(strlen("abXYZc")));
         });
       });
 
@@ -313,9 +313,9 @@ describe("Parser", [&]() {
           AssertThat(ts_node_string(root, doc), Equals(
             "(program (product (variable) (number)))"));
 
-          TSNode node = ts_node_named_descendent_for_range(root, 1, 1);
+          TSNode node = ts_node_named_descendant_for_range(root, 1, 1);
           AssertThat(ts_node_name(node, doc), Equals("variable"));
-          AssertThat(ts_node_size(node).bytes, Equals(strlen("abcXYZ")));
+          AssertThat(ts_node_end_byte(node), Equals(strlen("abcXYZ")));
         });
       });
 
@@ -422,7 +422,8 @@ describe("Parser", [&]() {
 
         TSNode comment = ts_node_named_child(root, 1);
 
-        AssertThat(ts_node_size(comment).bytes, Equals(strlen("# this is a comment")));
+        AssertThat(ts_node_start_byte(comment), Equals(strlen("x ")));
+        AssertThat(ts_node_end_byte(comment), Equals(strlen("x # this is a comment")));
       });
     });
 
@@ -433,8 +434,8 @@ describe("Parser", [&]() {
       AssertThat(ts_node_string(root, doc), Equals(
         "(program (variable) (comment))"));
 
-      AssertThat(ts_node_size(root).chars, Equals(strlen("x # OOO - DD")));
-      AssertThat(ts_node_size(root).bytes, Equals(strlen("x # \u03A9\u03A9\u03A9 \u2014 \u0394\u0394")));
+      AssertThat(ts_node_end_char(root), Equals(strlen("x # OOO - DD")));
+      AssertThat(ts_node_end_byte(root), Equals(strlen("x # \u03A9\u03A9\u03A9 \u2014 \u0394\u0394")));
     });
   });
 });

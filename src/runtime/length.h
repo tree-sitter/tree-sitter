@@ -1,85 +1,72 @@
 #ifndef RUNTIME_LENGTH_H_
 #define RUNTIME_LENGTH_H_
 
-#include "tree_sitter/runtime.h"
+#include "tree_sitter/parser.h"
 #include <stdbool.h>
+
+static inline bool ts_length_is_unknown(TSLength self) {
+  return self.chars > 0 && self.bytes == 0;
+}
+
+static inline void ts_length_set_unknown(TSLength *self) {
+  self->bytes = 0;
+  self->rows = 0;
+  self->columns = 0;
+}
 
 static inline TSLength ts_length_add(TSLength len1, TSLength len2) {
   TSLength result;
-  result.bytes = len1.bytes + len2.bytes;
   result.chars = len1.chars + len2.chars;
 
-  if ((len1.chars > 0 && len1.bytes == 0) || (len2.chars > 0 && len2.bytes == 0))
+  if (ts_length_is_unknown(len1) || ts_length_is_unknown(len2)) {
     result.bytes = 0;
+    result.rows = 0;
+    result.columns = result.chars;
+  } else {
+    result.bytes = len1.bytes + len2.bytes;
+    if (len2.rows == 0) {
+      result.rows = len1.rows;
+      result.columns = len1.columns + len2.columns;
+    } else {
+      result.rows = len1.rows + len2.rows;
+      result.columns = len2.columns;
+    }
+  }
 
   return result;
 }
 
 static inline TSLength ts_length_sub(TSLength len1, TSLength len2) {
   TSLength result;
-  result.bytes = len1.bytes - len2.bytes;
   result.chars = len1.chars - len2.chars;
 
-  if ((len1.chars > 0 && len1.bytes == 0) || (len2.chars > 0 && len2.bytes == 0))
+  if (ts_length_is_unknown(len1) || ts_length_is_unknown(len2)) {
     result.bytes = 0;
+    result.rows = 0;
+    result.columns = result.chars;
+  } else {
+    result.bytes = len1.bytes - len2.bytes;
+    if (len1.rows == len2.rows) {
+      result.rows = 0;
+      result.columns = len1.columns - len2.columns;
+    } else {
+      result.rows = len1.rows - len2.rows;
+      result.columns = len1.columns;
+    }
+  }
 
   return result;
-}
-
-static inline TSPoint ts_point_make(size_t row, size_t column) {
-  TSPoint point;
-  point.row = row;
-  point.column = column;
-  return point;
-}
-
-static inline TSPoint ts_point_add(TSPoint point1, TSPoint point2) {
-  size_t row = point1.row + point2.row;
-
-  size_t column;
-  if (point2.row == 0) {
-    column = point1.column + point2.column;
-  } else {
-    column = point2.column;
-  }
-
-  return ts_point_make(row, column);
-}
-
-static inline TSPoint ts_point_sub(TSPoint point1, TSPoint point2) {
-  size_t row, column;
-  if (point1.row == point2.row) {
-    row = 0;
-    column = point1.column - point2.column;
-  } else {
-    row = point1.row - point2.row;
-    column = point1.column;
-  }
-
-  return ts_point_make(row, column);
 }
 
 static inline TSLength ts_length_zero() {
-  TSLength result;
-  result.bytes = result.chars = 0;
-  return result;
+  return (TSLength){0, 0, 0, 0};
 }
 
-static inline bool ts_length_eq(TSLength len1, TSLength len2) {
-  return len1.bytes == len2.bytes && len1.chars == len2.chars;
-}
-
-static inline TSPoint ts_point_zero() {
-  TSPoint point;
-  point.row = point.column = 0;
-  return point;
-}
-
-static inline TSLength ts_length_make(size_t bytes, size_t chars) {
-  TSLength result;
-  result.bytes = bytes;
-  result.chars = chars;
-  return result;
+static inline bool ts_length_eq(TSLength self, TSLength other) {
+  return self.bytes == other.bytes &&
+    self.chars == other.chars &&
+    self.rows == other.rows &&
+    self.columns == other.columns;
 }
 
 #endif

@@ -1,11 +1,10 @@
 #include <stdbool.h>
 #include "runtime/node.h"
-#include "runtime/length.h"
 #include "runtime/tree.h"
 #include "runtime/document.h"
 
-TSNode ts_node_make(const TSTree *tree, TSLength offset, size_t row) {
-  return (TSNode){.data = tree, .offset = offset, .row = row };
+TSNode ts_node_make(const TSTree *tree, size_t chars, size_t byte, size_t row) {
+  return (TSNode){.data = tree, .offset = {chars, byte, row} };
 }
 
 /*
@@ -13,57 +12,83 @@ TSNode ts_node_make(const TSTree *tree, TSLength offset, size_t row) {
  */
 
 static inline TSNode ts_node__null() {
-  return ts_node_make(NULL, ts_length_zero(), 0);
+  return ts_node_make(NULL, 0, 0, 0);
 }
 
 static inline const TSTree *ts_node__tree(TSNode self) {
   return self.data;
 }
 
-static inline TSLength ts_node__offset(TSNode self) {
-  return self.offset;
+static inline size_t ts_node__offset_char(TSNode self) {
+  return self.offset[0];
 }
 
-static inline bool ts_tree__is_relevant(const TSTree *tree, bool include_anonymous) {
+static inline size_t ts_node__offset_byte(TSNode self) {
+  return self.offset[1];
+}
+
+static inline size_t ts_node__offset_row(TSNode self) {
+  return self.offset[2];
+}
+
+static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
+  const TSTree *tree = ts_node__tree(self);
   return include_anonymous ? tree->options.visible : tree->options.named;
 }
 
-static inline size_t ts_tree__relevant_child_count(const TSTree *tree,
-                                                   bool include_anonymous) {
+static inline size_t ts_node__relevant_child_count(TSNode self, bool include_anonymous) {
+  const TSTree *tree = ts_node__tree(self);
   return include_anonymous ? tree->visible_child_count : tree->named_child_count;
+}
+
+static inline TSNode ts_node__direct_parent(TSNode self, size_t *index) {
+  const TSTree *tree = ts_node__tree(self);
+  *index = tree->context.index;
+  return ts_node_make(
+    tree->context.parent,
+    ts_node__offset_char(self) - tree->context.offset.chars,
+    ts_node__offset_byte(self) - tree->context.offset.bytes,
+    ts_node__offset_row(self) - tree->context.offset.rows
+  );
+}
+
+static inline TSNode ts_node__direct_child(TSNode self, size_t i) {
+  const TSTree *child_tree = ts_node__tree(self)->children[i];
+  return ts_node_make(
+    child_tree,
+    ts_node__offset_char(self) + child_tree->context.offset.chars,
+    ts_node__offset_byte(self) + child_tree->context.offset.bytes,
+    ts_node__offset_row(self) + child_tree->context.offset.rows
+  );
 }
 
 static inline TSNode ts_node__child(TSNode self, size_t child_index,
                                     bool include_anonymous) {
-  const TSTree *tree = ts_node__tree(self);
-  TSLength position = ts_node__offset(self);
-  size_t offset_row = self.row;
-
+  TSNode result = self;
   bool did_descend = true;
+
   while (did_descend) {
     did_descend = false;
 
     size_t index = 0;
-    for (size_t i = 0; i < tree->child_count; i++) {
-      TSTree *child = tree->children[i];
-      if (ts_tree__is_relevant(child, include_anonymous)) {
+    for (size_t i = 0; i < ts_node__tree(result)->child_count; i++) {
+      TSNode child = ts_node__direct_child(result, i);
+      if (ts_node__is_relevant(child, include_anonymous)) {
         if (index == child_index)
-          return ts_node_make(child, position, offset_row);
+          return child;
         index++;
       } else {
         size_t grandchild_index = child_index - index;
         size_t grandchild_count =
-          ts_tree__relevant_child_count(child, include_anonymous);
+          ts_node__relevant_child_count(child, include_anonymous);
         if (grandchild_index < grandchild_count) {
           did_descend = true;
-          tree = child;
+          result = child;
           child_index = grandchild_index;
           break;
         }
         index += grandchild_count;
       }
-      position = ts_length_add(position, ts_tree_total_size(child));
-      offset_row += child->padding_point.row + child->size_point.row;
     }
   }
 
@@ -71,119 +96,110 @@ static inline TSNode ts_node__child(TSNode self, size_t child_index,
 }
 
 static inline TSNode ts_node__prev_sibling(TSNode self, bool include_anonymous) {
-  const TSTree *tree = ts_node__tree(self);
-  TSLength offset = ts_node__offset(self);
-  size_t offset_row = self.row;
+  TSNode result = self;
 
   do {
-    size_t index = tree->context.index;
-    offset = ts_length_sub(offset, tree->context.offset);
-    offset_row -= tree->context.offset_point.row;
-    tree = tree->context.parent;
-    if (!tree)
+    size_t index;
+    result = ts_node__direct_parent(result, &index);
+    if (!result.data)
       break;
 
     for (size_t i = index - 1; i + 1 > 0; i--) {
-      const TSTree *child = tree->children[i];
-      TSLength child_offset = ts_length_add(offset, child->context.offset);
-      size_t child_offset_row = offset_row + child->context.offset_point.row;
-      if (ts_tree__is_relevant(child, include_anonymous))
-        return ts_node_make(child, child_offset, child_offset_row);
-      size_t grandchild_count = ts_tree__relevant_child_count(child, include_anonymous);
+      TSNode child = ts_node__direct_child(result, i);
+      if (ts_node__is_relevant(child, include_anonymous))
+        return child;
+      size_t grandchild_count = ts_node__relevant_child_count(child, include_anonymous);
       if (grandchild_count > 0)
-        return ts_node__child(ts_node_make(child, child_offset, child_offset_row),
-                              grandchild_count - 1, include_anonymous);
+        return ts_node__child(child, grandchild_count - 1, include_anonymous);
     }
-  } while (!ts_tree_is_visible(tree));
+  } while (!ts_tree_is_visible(ts_node__tree(result)));
 
   return ts_node__null();
 }
 
 static inline TSNode ts_node__next_sibling(TSNode self, bool include_anonymous) {
-  const TSTree *tree = ts_node__tree(self);
-  TSLength offset = ts_node__offset(self);
-  size_t offset_row = self.row;
+  TSNode result = self;
 
   do {
-    size_t index = tree->context.index;
-    offset = ts_length_sub(offset, tree->context.offset);
-    offset_row -= tree->context.offset_point.row;
-    tree = tree->context.parent;
-    if (!tree)
+    size_t index;
+    result = ts_node__direct_parent(result, &index);
+    if (!result.data)
       break;
 
-    for (size_t i = index + 1; i < tree->child_count; i++) {
-      const TSTree *child = tree->children[i];
-      TSLength child_offset = ts_length_add(offset, child->context.offset);
-      size_t child_offset_row = offset_row + child->context.offset_point.row;
-      if (ts_tree__is_relevant(child, include_anonymous))
-        return ts_node_make(child, child_offset, child_offset_row);
-      size_t grandchild_count = ts_tree__relevant_child_count(child, include_anonymous);
+    for (size_t i = index + 1; i < ts_node__tree(result)->child_count; i++) {
+      TSNode child = ts_node__direct_child(result, i);
+      if (ts_node__is_relevant(child, include_anonymous))
+        return child;
+      size_t grandchild_count = ts_node__relevant_child_count(child, include_anonymous);
       if (grandchild_count > 0)
-        return ts_node__child(ts_node_make(child, child_offset, child_offset_row), 0,
-                              include_anonymous);
+        return ts_node__child(child, 0, include_anonymous);
     }
-  } while (!ts_tree_is_visible(tree));
+  } while (!ts_tree_is_visible(ts_node__tree(result)));
 
   return ts_node__null();
 }
 
-static inline TSNode ts_node__descendent_for_range(TSNode self, size_t min,
+static inline TSNode ts_node__descendant_for_range(TSNode self, size_t min,
                                                    size_t max,
                                                    bool include_anonymous) {
-  const TSTree *tree = ts_node__tree(self), *last_visible_tree = tree;
-  TSLength offset = ts_node__offset(self), last_visible_position = offset;
-  size_t offset_row = self.row, last_visible_row = offset_row;
+  TSNode node = self;
+  TSNode last_visible_node = self;
 
   bool did_descend = true;
   while (did_descend) {
     did_descend = false;
 
-    for (size_t i = 0; i < tree->child_count; i++) {
-      const TSTree *child = tree->children[i];
-      if (offset.chars + child->padding.chars > min)
+    for (size_t i = 0; i < ts_node__tree(node)->child_count; i++) {
+      TSNode child = ts_node__direct_child(node, i);
+      if (ts_node_start_char(child) > min)
         break;
-      if (offset.chars + child->padding.chars + child->size.chars > max) {
-        tree = child;
-        if (ts_tree__is_relevant(child, include_anonymous)) {
-          last_visible_tree = tree;
-          last_visible_position = offset;
-          last_visible_row = offset_row;
-        }
+      if (ts_node_end_char(child) > max) {
+        node = child;
+        if (ts_node__is_relevant(node, include_anonymous))
+          last_visible_node = node;
         did_descend = true;
         break;
       }
-      offset = ts_length_add(offset, ts_tree_total_size(child));
-      offset_row += child->padding_point.row + child->size_point.row;
     }
   }
 
-  return ts_node_make(last_visible_tree, last_visible_position, last_visible_row);
+  return last_visible_node;
 }
 
 /*
  *  Public
  */
 
-TSLength ts_node_pos(TSNode self) {
-  return ts_length_add(ts_node__offset(self), ts_node__tree(self)->padding);
+size_t ts_node_start_char(TSNode self) {
+  return ts_node__offset_char(self) + ts_node__tree(self)->padding.chars;
 }
 
-TSLength ts_node_size(TSNode self) {
-  return ts_node__tree(self)->size;
+size_t ts_node_end_char(TSNode self) {
+  return ts_node_start_char(self) + ts_node__tree(self)->size.chars;
 }
 
-TSPoint ts_node_size_point(TSNode self) {
-  return ts_node__tree(self)->size_point;
+size_t ts_node_start_byte(TSNode self) {
+  return ts_node__offset_byte(self) + ts_node__tree(self)->padding.bytes;
+}
+
+size_t ts_node_end_byte(TSNode self) {
+  return ts_node_start_byte(self) + ts_node__tree(self)->size.bytes;
 }
 
 TSPoint ts_node_start_point(TSNode self) {
   const TSTree *tree = ts_node__tree(self);
-  return ts_point_make(self.row + tree->padding_point.row, ts_tree_offset_column(tree));
+  return (TSPoint){
+    ts_node__offset_row(self) + tree->padding.rows,
+    ts_tree_start_column(tree)
+  };
 }
 
 TSPoint ts_node_end_point(TSNode self) {
-  return ts_point_add(ts_node_start_point(self), ts_node_size_point(self));
+  const TSTree *tree = ts_node__tree(self);
+  return (TSPoint){
+    ts_node__offset_row(self) + tree->padding.rows + tree->size.rows,
+    ts_tree_end_column(tree)
+  };
 }
 
 TSSymbol ts_node_symbol(TSNode self) {
@@ -201,8 +217,9 @@ const char *ts_node_string(TSNode self, const TSDocument *document) {
 
 bool ts_node_eq(TSNode self, TSNode other) {
   return ts_tree_eq(ts_node__tree(self), ts_node__tree(other)) &&
-         ts_length_eq(ts_node__offset(self), ts_node__offset(other)) &&
-         self.row == other.row;
+         self.offset[0] == other.offset[0] &&
+         self.offset[1] == other.offset[1] &&
+         self.offset[2] == other.offset[2];
 }
 
 bool ts_node_is_named(TSNode self) {
@@ -214,20 +231,16 @@ bool ts_node_has_changes(TSNode self) {
 }
 
 TSNode ts_node_parent(TSNode self) {
-  const TSTree *tree = ts_node__tree(self);
-  TSLength offset = ts_node__offset(self);
-	size_t offset_row = self.row;
+  TSNode result = self;
+  size_t index;
 
   do {
-    offset = ts_length_sub(offset, tree->context.offset);
-		offset_row -= tree->context.offset_point.row;
-
-    tree = tree->context.parent;
-    if (!tree)
+    result = ts_node__direct_parent(result, &index);
+    if (!result.data)
       return ts_node__null();
-  } while (!ts_tree_is_visible(tree));
+  } while (!ts_tree_is_visible(result.data));
 
-  return ts_node_make(tree, offset, offset_row);
+  return result;
 }
 
 TSNode ts_node_child(TSNode self, size_t child_index) {
@@ -262,10 +275,10 @@ TSNode ts_node_prev_named_sibling(TSNode self) {
   return ts_node__prev_sibling(self, false);
 }
 
-TSNode ts_node_descendent_for_range(TSNode self, size_t min, size_t max) {
-  return ts_node__descendent_for_range(self, min, max, true);
+TSNode ts_node_descendant_for_range(TSNode self, size_t min, size_t max) {
+  return ts_node__descendant_for_range(self, min, max, true);
 }
 
-TSNode ts_node_named_descendent_for_range(TSNode self, size_t min, size_t max) {
-  return ts_node__descendent_for_range(self, min, max, false);
+TSNode ts_node_named_descendant_for_range(TSNode self, size_t min, size_t max) {
+  return ts_node__descendant_for_range(self, min, max, false);
 }

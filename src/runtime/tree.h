@@ -7,13 +7,13 @@ extern "C" {
 
 #include <stdbool.h>
 #include "tree_sitter/parser.h"
+#include "runtime/length.h"
 
 struct TSTree {
   struct {
     struct TSTree *parent;
     size_t index;
     TSLength offset;
-    TSPoint offset_point;
   } context;
   size_t child_count;
   size_t visible_child_count;
@@ -24,9 +24,6 @@ struct TSTree {
   };
   TSLength padding;
   TSLength size;
-
-  TSPoint padding_point;
-  TSPoint size_point;
 
   TSSymbol symbol;
 
@@ -41,12 +38,9 @@ struct TSTree {
   unsigned short int ref_count;
 };
 
-TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, TSPoint,
-                          TSPoint, TSSymbolMetadata);
+TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, TSSymbolMetadata);
 TSTree *ts_tree_make_node(TSSymbol, size_t, TSTree **, TSSymbolMetadata);
-TSTree *ts_tree_make_error(TSLength size, TSLength padding,
-                           TSPoint padding_point,
-                           TSPoint size_point, char lookahead_char);
+TSTree *ts_tree_make_error(TSLength, TSLength, char);
 void ts_tree_retain(TSTree *tree);
 void ts_tree_release(TSTree *tree);
 bool ts_tree_eq(const TSTree *tree1, const TSTree *tree2);
@@ -54,12 +48,26 @@ int ts_tree_compare(const TSTree *tree1, const TSTree *tree2);
 char *ts_tree_string(const TSTree *tree, const char **names,
                      bool include_anonymous);
 
-size_t ts_tree_offset_column(const TSTree *self);
-TSLength ts_tree_total_size(const TSTree *tree);
-TSPoint ts_tree_total_size_point(const TSTree *self);
+size_t ts_tree_start_column(const TSTree *self);
+size_t ts_tree_end_column(const TSTree *self);
 void ts_tree_set_children(TSTree *, size_t, TSTree **);
 void ts_tree_assign_parents(TSTree *);
 void ts_tree_edit(TSTree *, TSInputEdit);
+
+static inline size_t ts_tree_total_chars(const TSTree *self) {
+  return self->padding.chars + self->size.chars;
+}
+
+static inline TSLength ts_tree_total_size(const TSTree *self) {
+  return ts_length_add(self->padding, self->size);
+}
+
+static inline TSPoint ts_tree_extent(const TSTree *tree) {
+  TSPoint result;
+  result.row = tree->size.rows;
+  result.column = tree->size.columns;
+  return result;
+}
 
 static inline bool ts_tree_is_extra(const TSTree *tree) {
   return tree->options.extra;

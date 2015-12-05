@@ -58,8 +58,7 @@ static bool ts_parser__breakdown_reusable_subtree(LookaheadState *state) {
  *  NULL if no right neighbor exists.
  */
 static void ts_parser__pop_reusable_subtree(LookaheadState *state) {
-  state->reusable_subtree_pos +=
-    ts_tree_total_size(state->reusable_subtree).chars;
+  state->reusable_subtree_pos += ts_tree_total_chars(state->reusable_subtree);
 
   while (state->reusable_subtree) {
     TSTree *parent = state->reusable_subtree->context.parent;
@@ -304,10 +303,8 @@ static void ts_parser__reduce_error(TSParser *self, int head,
     TSTree **parent = vector_back(&self->reduce_parents);
     StackEntry *stack_entry = ts_stack_head(self->stack, head);
     stack_entry->position = ts_length_add(stack_entry->position, lookahead->padding);
-    stack_entry->position_point = ts_point_add(stack_entry->position_point, lookahead->padding_point);
     (*parent)->size = ts_length_add((*parent)->size, lookahead->padding);
     lookahead->padding = ts_length_zero();
-    lookahead->padding_point = ts_point_zero();
     ts_tree_set_fragile_left(*parent);
     ts_tree_set_fragile_right(*parent);
   }
@@ -546,7 +543,6 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
     for (int head = 0; head < ts_stack_head_count(self->stack);) {
       StackEntry *entry = ts_stack_head(self->stack, head);
       TSLength position = entry ? entry->position : ts_length_zero();
-      TSPoint position_point = entry ? entry->position_point : ts_point_zero();
 
       LOG("process head:%d, head_count:%d, state:%d, pos:%lu", head,
           ts_stack_head_count(self->stack),
@@ -559,7 +555,7 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
           lookahead = reused_lookahead;
         } else {
           last_position = position;
-          ts_lexer_reset(&self->lexer, position, position_point);
+          ts_lexer_reset(&self->lexer, position);
           TSStateId parse_state = ts_stack_top_state(self->stack, head);
           TSStateId lex_state = self->language->lex_states[parse_state];
           lookahead = self->language->lex_fn(&self->lexer, lex_state);
@@ -567,7 +563,7 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
       }
 
       LOG("lookahead sym:%s, size:%lu", SYM_NAME(lookahead->symbol),
-          ts_tree_total_size(lookahead).chars);
+          ts_tree_total_chars(lookahead));
 
       switch (ts_parser__consume_lookahead(self, head, lookahead)) {
         case ConsumeResultRemoved:

@@ -84,11 +84,11 @@ const char * SpyInput::read(void *payload, size_t *bytes_read) {
   return spy->buffer;
 }
 
-int SpyInput::seek(void *payload, TSLength position) {
+int SpyInput::seek(void *payload, size_t character, size_t byte) {
   auto spy = static_cast<SpyInput *>(payload);
   if (spy->strings_read.size() == 0 || spy->strings_read.back().size() > 0)
     spy->strings_read.push_back("");
-  spy->byte_offset = position.bytes;
+  spy->byte_offset = byte;
   return 0;
 }
 

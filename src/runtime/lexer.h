@@ -9,7 +9,7 @@ extern "C" {
 
 TSLexer ts_lexer_make();
 void ts_lexer_set_input(TSLexer *, TSInput);
-void ts_lexer_reset(TSLexer *, TSLength, TSPoint);
+void ts_lexer_reset(TSLexer *, TSLength);
 
 #ifdef __cplusplus
 }

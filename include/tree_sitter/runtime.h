@@ -9,14 +9,9 @@ extern "C" {
 #include <stdbool.h>
 
 typedef struct {
-  size_t bytes;
-  size_t chars;
-} TSLength;
-
-typedef struct {
   void *payload;
   const char *(*read_fn)(void *payload, size_t *bytes_read);
-  int (*seek_fn)(void *payload, TSLength position);
+  int (*seek_fn)(void *payload, size_t character, size_t byte);
 } TSInput;
 
 typedef enum {
@@ -42,18 +37,18 @@ typedef struct {
 
 typedef struct {
   const void *data;
-  TSLength offset;
-  size_t row;
+  size_t offset[3];
 } TSNode;
 
 typedef unsigned short TSSymbol;
 typedef struct TSLanguage TSLanguage;
 typedef struct TSDocument TSDocument;
 
-TSLength ts_node_pos(TSNode);
-TSLength ts_node_size(TSNode);
-TSPoint ts_node_size_point(TSNode);
+size_t ts_node_start_char(TSNode);
+size_t ts_node_start_byte(TSNode);
 TSPoint ts_node_start_point(TSNode);
+size_t ts_node_end_char(TSNode);
+size_t ts_node_end_byte(TSNode);
 TSPoint ts_node_end_point(TSNode);
 TSSymbol ts_node_symbol(TSNode);
 const char *ts_node_name(TSNode, const TSDocument *);
@@ -70,8 +65,8 @@ TSNode ts_node_next_sibling(TSNode);
 TSNode ts_node_next_named_sibling(TSNode);
 TSNode ts_node_prev_sibling(TSNode);
 TSNode ts_node_prev_named_sibling(TSNode);
-TSNode ts_node_descendent_for_range(TSNode, size_t, size_t);
-TSNode ts_node_named_descendent_for_range(TSNode, size_t, size_t);
+TSNode ts_node_descendant_for_range(TSNode, size_t, size_t);
+TSNode ts_node_named_descendant_for_range(TSNode, size_t, size_t);
 
 TSDocument *ts_document_make();
 void ts_document_free(TSDocument *);

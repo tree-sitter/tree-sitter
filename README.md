@@ -137,18 +137,18 @@ int main() {
 
   TSNode root_node = ts_document_root_node(document);
   printf(
-    "Root name: %s, position: %lu, size: %lu\n",
+    "Root name: %s, start: %lu, end: %lu\n",
     ts_node_name(root_node, document),
-    ts_node_pos(root_node).chars,
-    ts_node_size(root_node).chars
+    ts_node_start_char(root_node),
+    ts_node_end_char(root_node)
   );
 
   TSNode product_node = ts_node_named_child(ts_node_child(root_node, 0), 1);
   printf(
-    "Child name: %s, position: %lu, size: %lu\n",
+    "Child name: %s, start: %lu, end: %lu\n",
     ts_node_name(product_node, document),
-    ts_node_pos(product_node).chars,
-    ts_node_size(product_node).chars
+    ts_node_start_char(product_node),
+    ts_node_end_char(product_node)
   );
 
   ts_document_free(document);

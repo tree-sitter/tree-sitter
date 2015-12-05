@@ -7,8 +7,6 @@
 #include "runtime/length.h"
 
 TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
-                          TSPoint padding_point,
-                          TSPoint size_point,
                           TSSymbolMetadata metadata) {
   TSTree *result = malloc(sizeof(TSTree));
   *result = (TSTree){
@@ -20,8 +18,6 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
     .named_child_count = 0,
     .children = NULL,
     .padding = padding,
-    .padding_point = padding_point,
-    .size_point = size_point,
     .options =
       {
         .visible = metadata.visible, .named = metadata.named,
@@ -36,33 +32,26 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
   return result;
 }
 
-TSTree *ts_tree_make_error(TSLength size, TSLength padding,
-                           TSPoint size_point,
-                           TSPoint padding_point,
-                           char lookahead_char) {
+TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char) {
   TSTree *result =
-    ts_tree_make_leaf(ts_builtin_sym_error, padding, size, padding_point,
-                      size_point, (TSSymbolMetadata){
-                                       .visible = true, .named = true,
-                                     });
+    ts_tree_make_leaf(ts_builtin_sym_error, padding, size, (TSSymbolMetadata){
+                               .visible = true, .named = true,
+                             });
   result->lookahead_char = lookahead_char;
   return result;
 }
 
 void ts_tree_assign_parents(TSTree *self) {
   TSLength offset = ts_length_zero();
-  TSPoint offset_point = ts_point_zero();
   for (size_t i = 0; i < self->child_count; i++) {
     TSTree *child = self->children[i];
     if (child->context.parent != self) {
       child->context.parent = self;
       child->context.index = i;
       child->context.offset = offset;
-      child->context.offset_point = offset_point;
       ts_tree_assign_parents(child);
     }
     offset = ts_length_add(offset, ts_tree_total_size(child));
-    offset_point = ts_point_add(offset_point, ts_tree_total_size_point(child));
   }
 }
 
@@ -78,12 +67,8 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
     if (i == 0) {
       self->padding = child->padding;
       self->size = child->size;
-      self->padding_point = child->padding_point;
-      self->size_point = child->size_point;
     } else {
-      self->size =
-        ts_length_add(ts_length_add(self->size, child->padding), child->size);
-      self->size_point = ts_point_add(ts_point_add(self->size_point, child->padding_point), child->size_point);
+      self->size = ts_length_add(self->size, ts_tree_total_size(child));
     }
 
     if (child->options.visible) {
@@ -107,7 +92,7 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
 TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
                           TSTree **children, TSSymbolMetadata metadata) {
   TSTree *result =
-    ts_tree_make_leaf(symbol, ts_length_zero(), ts_length_zero(), ts_point_zero(), ts_point_zero(), metadata);
+    ts_tree_make_leaf(symbol, ts_length_zero(), ts_length_zero(), metadata);
   ts_tree_set_children(result, child_count, children);
   return result;
 }
@@ -129,32 +114,23 @@ void ts_tree_release(TSTree *self) {
   }
 }
 
-size_t ts_tree_offset_column(const TSTree *self) {
-  size_t column = self->padding_point.column;
-
-  if (self->padding_point.row > 0) {
+size_t ts_tree_start_column(const TSTree *self) {
+  size_t column = self->padding.columns;
+  if (self->padding.rows > 0)
     return column;
+  for (const TSTree *tree = self; tree != NULL; tree = tree->context.parent) {
+    column += tree->context.offset.columns;
+    if (tree->context.offset.rows > 0)
+      break;
   }
-
-  const TSTree *parent = self;
-  TSPoint offset_point;
-  do {
-    offset_point = parent->context.offset_point;
-    column += offset_point.column;
-
-    parent = parent->context.parent;
-    if (!parent) break;
-  } while (offset_point.row == 0);
-
   return column;
 }
 
-TSLength ts_tree_total_size(const TSTree *self) {
-  return ts_length_add(self->padding, self->size);
-}
-
-TSPoint ts_tree_total_size_point(const TSTree *self) {
-  return ts_point_add(self->padding_point, self->size_point);
+size_t ts_tree_end_column(const TSTree *self) {
+  size_t result = self->size.columns;
+  if (self->size.rows == 0)
+    result += ts_tree_start_column(self);
+  return result;
 }
 
 bool ts_tree_eq(const TSTree *self, const TSTree *other) {
@@ -274,26 +250,26 @@ void ts_tree_edit(TSTree *self, TSInputEdit edit) {
   size_t start = edit.position;
   size_t new_end = edit.position + edit.chars_inserted;
   size_t old_end = edit.position + edit.chars_removed;
-  assert(old_end <= ts_tree_total_size(self).chars);
+  assert(old_end <= ts_tree_total_chars(self));
 
   self->options.has_changes = true;
 
   if (start < self->padding.chars) {
-    self->padding.bytes = 0;
+    ts_length_set_unknown(&self->padding);
     long remaining_padding = self->padding.chars - old_end;
     if (remaining_padding >= 0) {
       self->padding.chars = new_end + remaining_padding;
     } else {
       self->padding.chars = new_end;
       self->size.chars += remaining_padding;
-      self->size.bytes = 0;
+      ts_length_set_unknown(&self->size);
     }
   } else if (start == self->padding.chars && edit.chars_removed == 0) {
-    self->padding.bytes = 0;
     self->padding.chars += edit.chars_inserted;
+    ts_length_set_unknown(&self->padding);
   } else {
-    self->size.bytes = 0;
     self->size.chars += (edit.chars_inserted - edit.chars_removed);
+    ts_length_set_unknown(&self->size);
   }
 
   bool found_first_child = false;
@@ -301,7 +277,7 @@ void ts_tree_edit(TSTree *self, TSInputEdit edit) {
   size_t child_left = 0, child_right = 0;
   for (size_t i = 0; i < self->child_count; i++) {
     TSTree *child = self->children[i];
-    size_t child_size = ts_tree_total_size(child).chars;
+    size_t child_size = ts_tree_total_chars(child);
     child_left = child_right;
     child_right += child_size;
 
