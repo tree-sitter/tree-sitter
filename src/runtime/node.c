@@ -1,6 +1,5 @@
 #include <stdbool.h>
 #include "runtime/node.h"
-#include "runtime/length.h"
 #include "runtime/tree.h"
 #include "runtime/document.h"
 
@@ -49,7 +48,7 @@ static inline TSNode ts_node__direct_parent(TSNode self, size_t *index) {
     tree->context.parent,
     ts_node__offset_char(self) - tree->context.offset.chars,
     ts_node__offset_byte(self) - tree->context.offset.bytes,
-    ts_node__offset_row(self) - tree->context.offset_point.row
+    ts_node__offset_row(self) - tree->context.offset.rows
   );
 }
 
@@ -59,7 +58,7 @@ static inline TSNode ts_node__direct_child(TSNode self, size_t i) {
     child_tree,
     ts_node__offset_char(self) + child_tree->context.offset.chars,
     ts_node__offset_byte(self) + child_tree->context.offset.bytes,
-    ts_node__offset_row(self) + child_tree->context.offset_point.row
+    ts_node__offset_row(self) + child_tree->context.offset.rows
   );
 }
 
@@ -189,11 +188,18 @@ size_t ts_node_end_byte(TSNode self) {
 
 TSPoint ts_node_start_point(TSNode self) {
   const TSTree *tree = ts_node__tree(self);
-  return ts_point_make(ts_node__offset_row(self) + tree->padding_point.row, ts_tree_offset_column(tree));
+  return (TSPoint){
+    ts_node__offset_row(self) + tree->padding.rows,
+    ts_tree_start_column(tree)
+  };
 }
 
 TSPoint ts_node_end_point(TSNode self) {
-  return ts_point_add(ts_node_start_point(self), ts_node__tree(self)->size_point);
+  const TSTree *tree = ts_node__tree(self);
+  return (TSPoint){
+    ts_node__offset_row(self) + tree->padding.rows + tree->size.rows,
+    ts_tree_end_column(tree)
+  };
 }
 
 TSSymbol ts_node_symbol(TSNode self) {

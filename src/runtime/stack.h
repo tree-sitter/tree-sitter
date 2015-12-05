@@ -14,7 +14,6 @@ typedef struct {
   TSTree *tree;
   TSStateId state;
   TSLength position;
-  TSPoint position_point;
 } StackEntry;
 
 typedef struct {

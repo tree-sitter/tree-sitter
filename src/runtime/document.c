@@ -53,7 +53,7 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
   if (!self->tree)
     return;
 
-  size_t max_chars = ts_tree_total_size(self->tree).chars;
+  size_t max_chars = ts_tree_total_chars(self->tree);
   if (edit.position > max_chars)
     edit.position = max_chars;
   if (edit.chars_removed > max_chars - edit.position)

@@ -1,4 +1,5 @@
 #include "runtime/helpers/tree_helpers.h"
+#include <ostream>
 
 using std::string;
 using std::to_string;
@@ -32,6 +33,6 @@ bool operator==(const TSNode &left, const TSNode &right) {
 }
 
 ostream &operator<<(ostream &stream, const TSLength &length) {
-  return stream << string("{") << to_string(length.chars) << string(", ") <<
-    to_string(length.bytes) << string("}");
+  return stream << "{chars:" << length.chars << ", bytes:" <<
+    length.bytes << ", rows:" << length.rows << ", columns:" << length.columns << "}";
 }

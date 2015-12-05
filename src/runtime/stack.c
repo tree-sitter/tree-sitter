@@ -126,18 +126,15 @@ static StackNode *stack_node_new(StackNode *next, TSStateId state, TSTree *tree)
   ts_tree_retain(tree);
   stack_node_retain(next);
   TSLength position = ts_tree_total_size(tree);
-  TSPoint position_point = ts_tree_total_size_point(tree);
-  if (next) {
+  if (next)
     position = ts_length_add(next->entry.position, position);
-    position_point = ts_point_add(next->entry.position_point, position_point);
-  }
   *self = (StackNode){
     .ref_count = 1,
     .successor_count = 1,
     .successors = { next, NULL, NULL },
     .entry =
       {
-        .state = state, .tree = tree, .position = position, .position_point = position_point,
+        .state = state, .tree = tree, .position = position
       },
   };
   return self;
