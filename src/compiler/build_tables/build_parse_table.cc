@@ -172,13 +172,15 @@ class ParseTableBuilder {
         break;
 
       case ConflictTypeResolved: {
-        if (resolution.first)
+        if (resolution.first) {
+          if (old_action.type == ParseActionTypeReduce)
+            parse_table.fragile_productions.insert(old_action.production);
           return &parse_table.set_action(state_id, lookahead, new_action);
-        if (old_action.type == ParseActionTypeReduce)
-          parse_table.fragile_productions.insert(old_action.production);
-        if (new_action.type == ParseActionTypeReduce)
-          parse_table.fragile_productions.insert(new_action.production);
-        break;
+        } else {
+          if (new_action.type == ParseActionTypeReduce)
+            parse_table.fragile_productions.insert(new_action.production);
+          break;
+        }
       }
 
       case ConflictTypeUnresolved: {
