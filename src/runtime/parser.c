@@ -41,30 +41,46 @@ typedef enum {
 
 static void ts_parser__breakdown_top_of_stack(TSParser *self, int head) {
   TSTree *last_child = NULL;
-  TSStateId last_state = 0;
+
   do {
     Vector pop_results = ts_stack_pop(self->stack, head, 1, false);
-    assert(pop_results.size == 1);
 
-    StackPopResult *pop_result = vector_get(&pop_results, 0);
-    TSTree *parent = pop_result->trees[0];
+    /*
+     *  Since only one entry (not counting extra trees) is being popped from the
+     *  stack, there should only be one possible array of removed trees.
+     */
+    StackPopResult *first_result = vector_get(&pop_results, 0);
+    TSTree **removed_trees = first_result->trees;
+    TSTree *parent = removed_trees[0];
     LOG("breakdown_pop sym:%s, size:%lu", SYM_NAME(parent->symbol), ts_tree_total_size(parent).chars);
-    last_state = ts_stack_top_state(self->stack, head);
-    for (size_t i = 0, count = parent->child_count; i < count; i++) {
-      last_child = parent->children[i];
-      if (!last_child->options.extra) {
-        TSParseAction action = ts_language_last_action(self->language, last_state, last_child->symbol);
-        assert(action.type == TSParseActionTypeShift);
-        last_state = action.data.to_state;
+
+    for (size_t i = 0; i < pop_results.size; i++) {
+      StackPopResult *pop_result = vector_get(&pop_results, i);
+      assert(pop_result->trees == removed_trees);
+      int head_index = pop_result->head_index;
+
+      bool merged = true;
+      TSStateId state = ts_stack_top_state(self->stack, head_index);
+      for (size_t j = 0; j < parent->child_count; j++) {
+        last_child = parent->children[j];
+        if (!last_child->options.extra) {
+          TSParseAction action = ts_language_last_action(self->language, state, last_child->symbol);
+          assert(action.type == TSParseActionTypeShift);
+          state = action.data.to_state;
+        }
+
+        LOG("breakdown_push sym:%s, size:%lu", SYM_NAME(last_child->symbol), ts_tree_total_size(last_child).chars);
+        merged = ts_stack_push(self->stack, pop_result->head_index, state, last_child);
       }
-      ts_stack_push(self->stack, head, last_state, last_child);
-      LOG("breakdown_push sym:%s, size:%lu", SYM_NAME(last_child->symbol), ts_tree_total_size(last_child).chars);
+
+      for (size_t j = 1, count = pop_result->tree_count; j < count; j++) {
+        merged = ts_stack_push(self->stack, pop_result->head_index, state, pop_result->trees[j]);
+      }
+
+      assert(i == 0 || merged);
     }
 
-    for (size_t i = 1, count = pop_result->tree_count; i < count; i++) {
-      ts_stack_push(self->stack, head, last_state, pop_result->trees[i]);
-    }
-
+    free(removed_trees);
   } while (last_child->child_count > 0);
 }
 
