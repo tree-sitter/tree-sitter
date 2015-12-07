@@ -313,6 +313,14 @@ static bool ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
     }
   }
 
+  if (ts_stack_head_count(self->stack) > 1) {
+    for (size_t i = 0, size = self->reduce_parents.size; i < size; i++) {
+      TSTree **parent = vector_get(&self->reduce_parents, i);
+      (*parent)->options.fragile_left = true;
+      (*parent)->options.fragile_right = true;
+    }
+  }
+
   return removed_heads < revealed_heads;
 }
 
