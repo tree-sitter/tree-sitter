@@ -79,6 +79,10 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
       self->visible_child_count += child->visible_child_count;
       self->named_child_count += child->named_child_count;
     }
+
+    if (child->symbol == ts_builtin_sym_error) {
+      self->options.fragile_left = self->options.fragile_right = true;
+    }
   }
 
   if (child_count > 0) {
