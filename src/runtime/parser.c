@@ -612,26 +612,26 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
 
   for (;;) {
     TSTree *lookahead = NULL;
-    TSLength last_position = ts_length_zero();
+    TSLength position = ts_length_zero(), last_position;
 
     for (int head = 0; head < ts_stack_head_count(self->stack);) {
       StackEntry *entry = ts_stack_head(self->stack, head);
-      TSLength position = entry ? entry->position : ts_length_zero();
+      last_position = position;
+      position = entry ? entry->position : ts_length_zero();
 
       LOG("process head:%d, head_count:%d, state:%d, pos:%lu", head,
           ts_stack_head_count(self->stack),
           ts_stack_top_state(self->stack, head), position.chars);
 
-      if (!ts_parser__can_reuse(self, head, lookahead) ||
-          !ts_length_eq(position, last_position)) {
+      if (!ts_parser__can_reuse(self, head, lookahead) || position.chars != last_position.chars) {
         TSTree *reused_lookahead = ts_parser__get_next_lookahead(self, head);
         if (ts_parser__can_reuse(self, head, reused_lookahead)) {
           lookahead = reused_lookahead;
         } else {
-          last_position = position;
           ts_lexer_reset(&self->lexer, position);
           TSStateId parse_state = ts_stack_top_state(self->stack, head);
           TSStateId lex_state = self->language->lex_states[parse_state];
+          LOG("lex state:%d", lex_state);
           lookahead = self->language->lex_fn(&self->lexer, lex_state);
         }
       }
