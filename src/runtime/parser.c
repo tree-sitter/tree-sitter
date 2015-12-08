@@ -183,7 +183,15 @@ static void ts_parser__remove_head(TSParser *self, int head) {
 }
 
 static TSTree *ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
-  return ts_tree_compare(left, right) <= 0 ? left : right;
+  TSParser *self = data;
+  int comparison = ts_tree_compare(left, right);
+  if (comparison <= 0) {
+    LOG("select tree:%s, over_tree:%s", SYM_NAME(left->symbol), SYM_NAME(right->symbol));
+    return left;
+  } else {
+    LOG("select tree:%s, over_tree:%s", SYM_NAME(right->symbol), SYM_NAME(left->symbol));
+    return right;
+  }
 }
 
 /*
