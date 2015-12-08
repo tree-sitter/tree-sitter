@@ -433,6 +433,9 @@ static void ts_parser__start(TSParser *self, TSInput input,
 
   ts_lexer_set_input(&self->lexer, input);
   ts_stack_clear(self->stack);
+  ts_stack_set_tree_selection_callback(self->stack, (TreeSelectionCallback){
+    self, ts_parser__select_tree,
+  });
 
   LookaheadState lookahead_state = {
     .reusable_subtree = previous_tree,
@@ -582,9 +585,7 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
 TSParser ts_parser_make() {
   return (TSParser){
     .lexer = ts_lexer_make(),
-    .stack = ts_stack_new((TreeSelectionCallback){
-      NULL, ts_parser__select_tree,
-    }),
+    .stack = ts_stack_new(),
     .lookahead_states = vector_new(sizeof(LookaheadState), 4),
     .reduce_parents = vector_new(sizeof(TSTree *), 4),
   };
