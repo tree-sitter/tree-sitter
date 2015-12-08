@@ -29,12 +29,6 @@ typedef struct {
   bool is_verifying;
 } LookaheadState;
 
-typedef enum {
-  ConsumeResultShifted,
-  ConsumeResultRemoved,
-  ConsumeResultFinished
-} ConsumeResult;
-
 /*
  *  Private
  */
@@ -198,14 +192,14 @@ static TSTree *ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
  *  Parse Actions
  */
 
-static ConsumeResult ts_parser__shift(TSParser *self, int head,
+static bool ts_parser__shift(TSParser *self, int head,
                                       TSStateId parse_state, TSTree *lookahead) {
   if (ts_stack_push(self->stack, head, parse_state, lookahead)) {
     LOG("merge head:%d", head);
     vector_erase(&self->lookahead_states, head);
-    return ConsumeResultRemoved;
+    return false;
   } else {
-    return ConsumeResultShifted;
+    return true;
   }
 }
 
@@ -452,10 +446,11 @@ static void ts_parser__start(TSParser *self, TSInput input,
   };
   vector_clear(&self->lookahead_states);
   vector_push(&self->lookahead_states, &lookahead_state);
+  self->finished_stack_head = -1;
 }
 
-static TSTree *ts_parser__finish(TSParser *self) {
-  Vector pop_results = ts_stack_pop(self->stack, 0, -1, true);
+static TSTree *ts_parser__finish(TSParser *self, int finished_stack_head) {
+  Vector pop_results = ts_stack_pop(self->stack, finished_stack_head, -1, true);
   StackPopResult *pop_result = vector_get(&pop_results, 0);
 
   for (size_t i = 0; i < pop_result->tree_count; i++) {
@@ -488,7 +483,7 @@ static TSTree *ts_parser__finish(TSParser *self) {
  * Continue performing parse actions for the given head until the current
  * lookahead symbol is consumed.
  */
-static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
+static bool ts_parser__consume_lookahead(TSParser *self, int head,
                                                   TSTree *lookahead) {
   for (;;) {
     TSStateId state = ts_stack_top_state(self->stack, head);
@@ -527,18 +522,17 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
           if (lookahead_state->is_verifying) {
             ts_parser__breakdown_top_of_stack(self, current_head);
             lookahead_state->is_verifying = false;
-            return ConsumeResultRemoved;
+            return false;
           }
 
           if (ts_stack_head_count(self->stack) == 1) {
-            if (ts_parser__handle_error(self, current_head, lookahead))
-              return ConsumeResultShifted;
-            else
-              return ConsumeResultFinished;
+            if (!ts_parser__handle_error(self, current_head, lookahead))
+              self->finished_stack_head = current_head;
+            return true;
           } else {
             LOG("bail current_head:%d", current_head);
             ts_parser__remove_head(self, current_head);
-            return ConsumeResultRemoved;
+            return false;
           }
 
         case TSParseActionTypeShift:
@@ -558,7 +552,7 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
           if (!ts_parser__reduce(self, current_head, action.data.symbol,
                                  action.data.child_count, false, false))
             if (!next_action)
-              return ConsumeResultRemoved;
+              return false;
           break;
 
         case TSParseActionTypeReduceExtra:
@@ -575,12 +569,13 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
           if (!ts_parser__reduce_fragile(self, current_head, action.data.symbol,
                                          action.data.child_count))
             if (!next_action)
-              return ConsumeResultRemoved;
+              return false;
           break;
 
         case TSParseActionTypeAccept:
           LOG("accept");
-          return ConsumeResultFinished;
+          self->finished_stack_head = current_head;
+          return true;
       }
     }
   }
@@ -596,6 +591,7 @@ TSParser ts_parser_make() {
     .stack = ts_stack_new(),
     .lookahead_states = vector_new(sizeof(LookaheadState), 4),
     .reduce_parents = vector_new(sizeof(TSTree *), 4),
+    .finished_stack_head = -1,
   };
 }
 
@@ -643,15 +639,11 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
       LOG("lookahead sym:%s, size:%lu", SYM_NAME(lookahead->symbol),
           ts_tree_total_chars(lookahead));
 
-      switch (ts_parser__consume_lookahead(self, head, lookahead)) {
-        case ConsumeResultRemoved:
-          break;
-        case ConsumeResultShifted:
-          head++;
-          break;
-        case ConsumeResultFinished:
-          return ts_parser__finish(self);
-      }
+      if (ts_parser__consume_lookahead(self, head, lookahead))
+        head++;
     }
+
+    if (self->finished_stack_head >= 0 && ts_stack_head_count(self->stack) == 1)
+      return ts_parser__finish(self, self->finished_stack_head);
   }
 }
