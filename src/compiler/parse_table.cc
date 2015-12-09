@@ -69,14 +69,13 @@ ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
 }
 
 bool ParseAction::operator==(const ParseAction &other) const {
-  bool types_eq = type == other.type;
-  bool symbols_eq = symbol == other.symbol;
-  bool state_indices_eq = state_index == other.state_index;
-  bool consumed_symbol_counts_eq =
-    consumed_symbol_count == other.consumed_symbol_count;
-  bool precedences_eq = precedence_range == other.precedence_range;
-  return types_eq && symbols_eq && state_indices_eq &&
-         consumed_symbol_counts_eq && precedences_eq;
+  return (
+    type == other.type &&
+    symbol == other.symbol &&
+    state_index == other.state_index &&
+    production == other.production &&
+    consumed_symbol_count == other.consumed_symbol_count
+  );
 }
 
 bool ParseAction::operator<(const ParseAction &other) const {
@@ -91,6 +90,10 @@ bool ParseAction::operator<(const ParseAction &other) const {
   if (state_index < other.state_index)
     return true;
   if (other.state_index < state_index)
+    return false;
+  if (production < other.production)
+    return true;
+  if (other.production < production)
     return false;
   return consumed_symbol_count < other.consumed_symbol_count;
 }

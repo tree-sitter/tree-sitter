@@ -87,14 +87,6 @@ describe("flatten_grammar", []() {
     });
   };
 
-  auto get_rule_id_sequences = [&](vector<Production> productions) {
-    return collect(productions, [](Production p) {
-      return collect(p, [](ProductionStep e) {
-        return e.rule_id;
-      });
-    });
-  };
-
   it("preserves the names and types of the grammar's variables", [&]() {
     AssertThat(grammar.variables[0].name, Equals("variable0"));
     AssertThat(grammar.variables[1].name, Equals("variable1"));
@@ -158,21 +150,6 @@ describe("flatten_grammar", []() {
         { none, AssociativityLeft, AssociativityRight, AssociativityLeft, none, none },
         { none, AssociativityLeft, AssociativityLeft, none, none }
       })));
-  });
-
-  it("associates each unique remaining subsequence of symbols and precedences with a rule_id", [&]() {
-    // Variable 0: only the last symbol is the same for both productions.
-    auto variable0_step_ids = get_rule_id_sequences(grammar.variables[0].productions);
-    AssertThat(variable0_step_ids[0][0], !Equals(variable0_step_ids[1][0]));
-    AssertThat(variable0_step_ids[0][1], !Equals(variable0_step_ids[1][1]));
-    AssertThat(variable0_step_ids[0][2],  Equals(variable0_step_ids[1][2]));
-
-    // Variable 1: the last *two* symbols are the same for both productions.
-    auto variable1_step_ids = get_rule_id_sequences(grammar.variables[1].productions);
-    AssertThat(variable1_step_ids[0][0], !Equals(variable1_step_ids[1][0]));
-    AssertThat(variable1_step_ids[0][1], !Equals(variable1_step_ids[1][1]));
-    AssertThat(variable1_step_ids[0][4],  Equals(variable1_step_ids[1][3]));
-    AssertThat(variable1_step_ids[0][5],  Equals(variable1_step_ids[1][4]));
   });
 });
 

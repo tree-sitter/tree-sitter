@@ -22,7 +22,7 @@ ParseItem::ParseItem(const Symbol &lhs, const Production &production,
 bool ParseItem::operator==(const ParseItem &other) const {
   return ((variable_index == other.variable_index) &&
           (step_index == other.step_index) &&
-          (remaining_rule_id() == other.remaining_rule_id()));
+          (production == other.production));
 }
 
 bool ParseItem::operator<(const ParseItem &other) const {
@@ -34,7 +34,7 @@ bool ParseItem::operator<(const ParseItem &other) const {
     return true;
   if (step_index > other.step_index)
     return false;
-  return remaining_rule_id() < other.remaining_rule_id();
+  return production < other.production;
 }
 
 Symbol ParseItem::lhs() const {
@@ -72,21 +72,10 @@ rules::Associativity ParseItem::associativity() const {
     return production->at(step_index).associativity;
 }
 
-pair<int, int> ParseItem::remaining_rule_id() const {
-  if (production->empty())
-    return { -2, -1 };
-  else if (completion_status().is_done)
-    return { production->back().associativity, production->back().precedence };
-  else
-    return { -1, production->at(step_index).rule_id };
-}
-
 size_t ParseItem::Hash::operator()(const ParseItem &item) const {
   size_t result = hash<int>()(item.variable_index);
   result ^= hash<unsigned int>()(item.step_index);
-  result ^= hash<size_t>()(item.production->size());
-  pair<int, int> id = item.remaining_rule_id();
-  result ^= hash<int>()(id.first) ^ hash<int>()(id.second);
+  result ^= hash<void *>()((void *)item.production);
   return result;
 }
 

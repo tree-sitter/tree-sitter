@@ -23,19 +23,11 @@ ProductionStep::ProductionStep(const rules::Symbol &symbol, int precedence,
                                rules::Associativity associativity)
     : symbol(symbol),
       precedence(precedence),
-      associativity(associativity),
-      rule_id(0) {}
-
-ProductionStep::ProductionStep(const rules::Symbol &symbol, int precedence,
-                               rules::Associativity associativity, int rule_id)
-    : symbol(symbol),
-      precedence(precedence),
-      associativity(associativity),
-      rule_id(rule_id) {}
+      associativity(associativity) {}
 
 bool ProductionStep::operator==(const ProductionStep &other) const {
   return symbol == other.symbol && precedence == other.precedence &&
-         rule_id == other.rule_id && associativity == other.associativity;
+         associativity == other.associativity;
 }
 
 const vector<Production> &SyntaxGrammar::productions(

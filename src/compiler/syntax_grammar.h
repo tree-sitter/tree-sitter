@@ -13,13 +13,11 @@ namespace tree_sitter {
 
 struct ProductionStep {
   ProductionStep(const rules::Symbol &, int, rules::Associativity);
-  ProductionStep(const rules::Symbol &, int, rules::Associativity, int);
   bool operator==(const ProductionStep &) const;
 
   rules::Symbol symbol;
   int precedence;
   rules::Associativity associativity;
-  int rule_id;
 };
 
 typedef std::vector<ProductionStep> Production;
