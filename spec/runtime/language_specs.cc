@@ -97,7 +97,7 @@ describe("Languages", [&]() {
           ts_document_parse(doc);
         });
 
-        srand(0);
+        srand(2);
 
         for (int i = 0; i < 5; i++) {
           size_t edit_position = rand() % entry.input.size();
