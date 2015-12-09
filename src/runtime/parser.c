@@ -71,7 +71,10 @@ static void ts_parser__breakdown_top_of_stack(TSParser *self, int head) {
         merged = ts_stack_push(self->stack, pop_result->head_index, state, pop_result->trees[j]);
       }
 
-      assert(i == 0 || merged);
+      if (i == 0)
+        assert(!merged);
+      else
+        assert(merged);
     }
 
     free(removed_trees);
@@ -140,14 +143,27 @@ static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head) {
       continue;
     }
 
-    if (ts_tree_has_changes(state->reusable_subtree) ||
-        ts_tree_is_fragile(state->reusable_subtree) ||
-        ts_tree_is_extra(state->reusable_subtree) ||
-        (state->reusable_subtree->child_count > 0 &&
-         !ts_parser__can_reuse(self, head, state->reusable_subtree))) {
-      LOG("breakdown sym:%s", SYM_NAME(state->reusable_subtree->symbol));
-      if (!ts_parser__breakdown_reusable_subtree(state))
+    bool can_reuse = true;
+    if (ts_tree_has_changes(state->reusable_subtree)) {
+      LOG("breakdown_changed sym:%s", SYM_NAME(state->reusable_subtree->symbol));
+      can_reuse = false;
+    } else if (ts_tree_is_fragile(state->reusable_subtree)) {
+      LOG("breakdown_fragile sym:%s", SYM_NAME(state->reusable_subtree->symbol));
+      can_reuse = false;
+    } else if (ts_tree_is_extra(state->reusable_subtree)) {
+      LOG("breakdown_extra sym:%s", SYM_NAME(state->reusable_subtree->symbol));
+      can_reuse = false;
+    } else if (state->reusable_subtree->child_count > 0 &&
+         !ts_parser__can_reuse(self, head, state->reusable_subtree)) {
+      LOG("breakdown_unexpected sym:%s", SYM_NAME(state->reusable_subtree->symbol));
+      can_reuse = false;
+    }
+
+    if (!can_reuse) {
+      if (!ts_parser__breakdown_reusable_subtree(state)) {
+        LOG("dont_reuse sym:%s", SYM_NAME(state->reusable_subtree->symbol));
         ts_parser__pop_reusable_subtree(state);
+      }
       continue;
     }
 
@@ -276,7 +292,6 @@ static bool ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
     if (i > 0) {
       if (symbol == ts_builtin_sym_error) {
         ts_stack_remove_head(self->stack, new_head);
-        free(pop_result->trees);
         continue;
       }
 
@@ -331,7 +346,7 @@ static bool ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
     }
   }
 
-  if (ts_stack_head_count(self->stack) > 1) {
+  if (self->is_split || ts_stack_head_count(self->stack) > 1) {
     for (size_t i = 0, size = self->reduce_parents.size; i < size; i++) {
       TSTree **parent = vector_get(&self->reduce_parents, i);
       (*parent)->options.fragile_left = true;
@@ -614,6 +629,7 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
     TSTree *lookahead = NULL;
     TSLength position = ts_length_zero(), last_position;
 
+    self->is_split = ts_stack_head_count(self->stack) > 1;
     for (int head = 0; head < ts_stack_head_count(self->stack);) {
       StackEntry *entry = ts_stack_head(self->stack, head);
       last_position = position;
