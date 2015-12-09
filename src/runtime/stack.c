@@ -36,13 +36,17 @@ typedef struct {
  *  Section: Stack lifecycle
  */
 
-Stack *ts_stack_new(TreeSelectionCallback tree_selection_callback) {
+static TSTree *ts_stack__default_tree_selection(void *p, TSTree *t1, TSTree *t2) {
+  return t1;
+}
+
+Stack *ts_stack_new() {
   Stack *self = malloc(sizeof(Stack));
   *self = (Stack){
     .heads = calloc(INITIAL_HEAD_CAPACITY, sizeof(StackNode *)),
     .head_count = 1,
     .head_capacity = INITIAL_HEAD_CAPACITY,
-    .tree_selection_callback = tree_selection_callback,
+    .tree_selection_callback = {NULL, ts_stack__default_tree_selection},
     .pop_results = vector_new(sizeof(StackPopResult), 4),
     .pop_paths = vector_new(sizeof(PopPath), 4),
   };
@@ -350,4 +354,8 @@ void ts_stack_clear(Stack *self) {
     stack_node_release(self->heads[i]);
   self->head_count = 1;
   self->heads[0] = NULL;
+}
+
+void ts_stack_set_tree_selection_callback(Stack *self, TreeSelectionCallback callback) {
+  self->tree_selection_callback = callback;
 }

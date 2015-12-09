@@ -26,17 +26,57 @@
 typedef struct {
   TSTree *reusable_subtree;
   size_t reusable_subtree_pos;
+  bool is_verifying;
 } LookaheadState;
-
-typedef enum {
-  ConsumeResultShifted,
-  ConsumeResultRemoved,
-  ConsumeResultFinished
-} ConsumeResult;
 
 /*
  *  Private
  */
+
+static void ts_parser__breakdown_top_of_stack(TSParser *self, int head) {
+  TSTree *last_child = NULL;
+
+  do {
+    Vector pop_results = ts_stack_pop(self->stack, head, 1, false);
+
+    /*
+     *  Since only one entry (not counting extra trees) is being popped from the
+     *  stack, there should only be one possible array of removed trees.
+     */
+    StackPopResult *first_result = vector_get(&pop_results, 0);
+    TSTree **removed_trees = first_result->trees;
+    TSTree *parent = removed_trees[0];
+    LOG("breakdown_pop sym:%s, size:%lu", SYM_NAME(parent->symbol), ts_tree_total_size(parent).chars);
+
+    for (size_t i = 0; i < pop_results.size; i++) {
+      StackPopResult *pop_result = vector_get(&pop_results, i);
+      assert(pop_result->trees == removed_trees);
+      int head_index = pop_result->head_index;
+
+      bool merged = true;
+      TSStateId state = ts_stack_top_state(self->stack, head_index);
+      for (size_t j = 0; j < parent->child_count; j++) {
+        last_child = parent->children[j];
+        if (!last_child->options.extra) {
+          TSParseAction action = ts_language_last_action(self->language, state, last_child->symbol);
+          assert(action.type == TSParseActionTypeShift);
+          state = action.data.to_state;
+        }
+
+        LOG("breakdown_push sym:%s, size:%lu", SYM_NAME(last_child->symbol), ts_tree_total_size(last_child).chars);
+        merged = ts_stack_push(self->stack, pop_result->head_index, state, last_child);
+      }
+
+      for (size_t j = 1, count = pop_result->tree_count; j < count; j++) {
+        merged = ts_stack_push(self->stack, pop_result->head_index, state, pop_result->trees[j]);
+      }
+
+      assert(i == 0 || merged);
+    }
+
+    free(removed_trees);
+  } while (last_child->child_count > 0);
+}
 
 /*
  *  Replace the parser's reusable_subtree with its first non-fragile descendant.
@@ -137,21 +177,29 @@ static void ts_parser__remove_head(TSParser *self, int head) {
 }
 
 static TSTree *ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
-  return ts_tree_compare(left, right) <= 0 ? left : right;
+  TSParser *self = data;
+  int comparison = ts_tree_compare(left, right);
+  if (comparison <= 0) {
+    LOG("select tree:%s, over_tree:%s", SYM_NAME(left->symbol), SYM_NAME(right->symbol));
+    return left;
+  } else {
+    LOG("select tree:%s, over_tree:%s", SYM_NAME(right->symbol), SYM_NAME(left->symbol));
+    return right;
+  }
 }
 
 /*
  *  Parse Actions
  */
 
-static ConsumeResult ts_parser__shift(TSParser *self, int head,
+static bool ts_parser__shift(TSParser *self, int head,
                                       TSStateId parse_state, TSTree *lookahead) {
   if (ts_stack_push(self->stack, head, parse_state, lookahead)) {
     LOG("merge head:%d", head);
     vector_erase(&self->lookahead_states, head);
-    return ConsumeResultRemoved;
+    return false;
   } else {
-    return ConsumeResultShifted;
+    return true;
   }
 }
 
@@ -283,6 +331,14 @@ static bool ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
     }
   }
 
+  if (ts_stack_head_count(self->stack) > 1) {
+    for (size_t i = 0, size = self->reduce_parents.size; i < size; i++) {
+      TSTree **parent = vector_get(&self->reduce_parents, i);
+      (*parent)->options.fragile_left = true;
+      (*parent)->options.fragile_right = true;
+    }
+  }
+
   return removed_heads < revealed_heads;
 }
 
@@ -379,16 +435,22 @@ static void ts_parser__start(TSParser *self, TSInput input,
 
   ts_lexer_set_input(&self->lexer, input);
   ts_stack_clear(self->stack);
+  ts_stack_set_tree_selection_callback(self->stack, (TreeSelectionCallback){
+    self, ts_parser__select_tree,
+  });
 
   LookaheadState lookahead_state = {
-    .reusable_subtree = previous_tree, .reusable_subtree_pos = 0,
+    .reusable_subtree = previous_tree,
+    .reusable_subtree_pos = 0,
+    .is_verifying = false,
   };
   vector_clear(&self->lookahead_states);
   vector_push(&self->lookahead_states, &lookahead_state);
+  self->finished_stack_head = -1;
 }
 
-static TSTree *ts_parser__finish(TSParser *self) {
-  Vector pop_results = ts_stack_pop(self->stack, 0, -1, true);
+static TSTree *ts_parser__finish(TSParser *self, int finished_stack_head) {
+  Vector pop_results = ts_stack_pop(self->stack, finished_stack_head, -1, true);
   StackPopResult *pop_result = vector_get(&pop_results, 0);
 
   for (size_t i = 0; i < pop_result->tree_count; i++) {
@@ -421,7 +483,7 @@ static TSTree *ts_parser__finish(TSParser *self) {
  * Continue performing parse actions for the given head until the current
  * lookahead symbol is consumed.
  */
-static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
+static bool ts_parser__consume_lookahead(TSParser *self, int head,
                                                   TSTree *lookahead) {
   for (;;) {
     TSStateId state = ts_stack_top_state(self->stack, head);
@@ -447,6 +509,8 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
         LOG("split_action from_head:%d, new_head:%d", head, current_head);
       }
 
+      LookaheadState *lookahead_state = vector_get(&self->lookahead_states, current_head);
+
       // TODO: Remove this by making a separate symbol for errors returned from
       // the lexer.
       if (lookahead->symbol == ts_builtin_sym_error)
@@ -455,19 +519,25 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
       switch (action.type) {
         case TSParseActionTypeError:
           LOG("error_sym");
+          if (lookahead_state->is_verifying) {
+            ts_parser__breakdown_top_of_stack(self, current_head);
+            lookahead_state->is_verifying = false;
+            return false;
+          }
+
           if (ts_stack_head_count(self->stack) == 1) {
-            if (ts_parser__handle_error(self, current_head, lookahead))
-              return ConsumeResultShifted;
-            else
-              return ConsumeResultFinished;
+            if (!ts_parser__handle_error(self, current_head, lookahead))
+              self->finished_stack_head = current_head;
+            return true;
           } else {
             LOG("bail current_head:%d", current_head);
             ts_parser__remove_head(self, current_head);
-            return ConsumeResultRemoved;
+            return false;
           }
 
         case TSParseActionTypeShift:
           LOG("shift state:%u", action.data.to_state);
+          lookahead_state->is_verifying = (lookahead->child_count > 0);
           return ts_parser__shift(self, current_head, action.data.to_state,
                                   lookahead);
 
@@ -478,30 +548,34 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
         case TSParseActionTypeReduce:
           LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.data.symbol),
               action.data.child_count);
+          lookahead_state->is_verifying = false;
           if (!ts_parser__reduce(self, current_head, action.data.symbol,
                                  action.data.child_count, false, false))
             if (!next_action)
-              return ConsumeResultRemoved;
+              return false;
           break;
 
         case TSParseActionTypeReduceExtra:
           LOG("reduce_extra sym:%s", SYM_NAME(action.data.symbol));
-          ts_parser__reduce(self, current_head, action.data.symbol, 1, true,
-                            false);
+          lookahead_state->is_verifying = false;
+          ts_parser__reduce(self, current_head, action.data.symbol, 1,
+                            true, false);
           break;
 
         case TSParseActionTypeReduceFragile:
           LOG("reduce_fragile sym:%s, count:%u", SYM_NAME(action.data.symbol),
               action.data.child_count);
+          lookahead_state->is_verifying = false;
           if (!ts_parser__reduce_fragile(self, current_head, action.data.symbol,
                                          action.data.child_count))
             if (!next_action)
-              return ConsumeResultRemoved;
+              return false;
           break;
 
         case TSParseActionTypeAccept:
           LOG("accept");
-          return ConsumeResultFinished;
+          self->finished_stack_head = current_head;
+          return true;
       }
     }
   }
@@ -514,11 +588,10 @@ static ConsumeResult ts_parser__consume_lookahead(TSParser *self, int head,
 TSParser ts_parser_make() {
   return (TSParser){
     .lexer = ts_lexer_make(),
-    .stack = ts_stack_new((TreeSelectionCallback){
-      NULL, ts_parser__select_tree,
-    }),
+    .stack = ts_stack_new(),
     .lookahead_states = vector_new(sizeof(LookaheadState), 4),
     .reduce_parents = vector_new(sizeof(TSTree *), 4),
+    .finished_stack_head = -1,
   };
 }
 
@@ -539,26 +612,26 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
 
   for (;;) {
     TSTree *lookahead = NULL;
-    TSLength last_position = ts_length_zero();
+    TSLength position = ts_length_zero(), last_position;
 
     for (int head = 0; head < ts_stack_head_count(self->stack);) {
       StackEntry *entry = ts_stack_head(self->stack, head);
-      TSLength position = entry ? entry->position : ts_length_zero();
+      last_position = position;
+      position = entry ? entry->position : ts_length_zero();
 
       LOG("process head:%d, head_count:%d, state:%d, pos:%lu", head,
           ts_stack_head_count(self->stack),
           ts_stack_top_state(self->stack, head), position.chars);
 
-      if (!ts_parser__can_reuse(self, head, lookahead) ||
-          !ts_length_eq(position, last_position)) {
+      if (!ts_parser__can_reuse(self, head, lookahead) || position.chars != last_position.chars) {
         TSTree *reused_lookahead = ts_parser__get_next_lookahead(self, head);
         if (ts_parser__can_reuse(self, head, reused_lookahead)) {
           lookahead = reused_lookahead;
         } else {
-          last_position = position;
           ts_lexer_reset(&self->lexer, position);
           TSStateId parse_state = ts_stack_top_state(self->stack, head);
           TSStateId lex_state = self->language->lex_states[parse_state];
+          LOG("lex state:%d", lex_state);
           lookahead = self->language->lex_fn(&self->lexer, lex_state);
         }
       }
@@ -566,15 +639,11 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
       LOG("lookahead sym:%s, size:%lu", SYM_NAME(lookahead->symbol),
           ts_tree_total_chars(lookahead));
 
-      switch (ts_parser__consume_lookahead(self, head, lookahead)) {
-        case ConsumeResultRemoved:
-          break;
-        case ConsumeResultShifted:
-          head++;
-          break;
-        case ConsumeResultFinished:
-          return ts_parser__finish(self);
-      }
+      if (ts_parser__consume_lookahead(self, head, lookahead))
+        head++;
     }
+
+    if (self->finished_stack_head >= 0 && ts_stack_head_count(self->stack) == 1)
+      return ts_parser__finish(self, self->finished_stack_head);
   }
 }

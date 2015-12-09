@@ -24,13 +24,13 @@ typedef struct {
 
 typedef struct {
   void *data;
-  TSTree *(*callback)(void *data, TSTree *, TSTree *);
+  TSTree *(*callback)(void *, TSTree *, TSTree *);
 } TreeSelectionCallback;
 
 /*
  *  Create a parse stack.
  */
-Stack *ts_stack_new(TreeSelectionCallback);
+Stack *ts_stack_new();
 
 /*
  *  Release any resources reserved by a parse stack.
@@ -116,6 +116,8 @@ void ts_stack_remove_head(Stack *, int head);
  *  Remove all entries from the stack.
  */
 void ts_stack_clear(Stack *);
+
+void ts_stack_set_tree_selection_callback(Stack *, TreeSelectionCallback);
 
 #ifdef __cplusplus
 }

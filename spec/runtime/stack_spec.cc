@@ -43,7 +43,9 @@ describe("Stack", [&]() {
   TSSymbolMetadata metadata = {true, true, true};
 
   before_each([&]() {
-    stack = ts_stack_new({
+    stack = ts_stack_new();
+
+    ts_stack_set_tree_selection_callback(stack, {
       &tree_selection_spy,
       tree_selection_spy_callback
     });

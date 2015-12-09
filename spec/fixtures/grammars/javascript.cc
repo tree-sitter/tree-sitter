@@ -11,11 +11,11 @@ static rule_ptr terminated(rule_ptr rule) {
 
 enum {
   PREC_COMMA = -1,
-  PREC_ASSIGN = 0,
   PREC_BLOCK = 1,
   PREC_TERNARY = 2,
   PREC_OR = 3,
   PREC_AND = 4,
+  PREC_ASSIGN = 5,
   PREC_REL = 5,
   PREC_ADD = 6,
   PREC_MULT = 7,
@@ -239,18 +239,12 @@ extern const Grammar javascript = Grammar({
     str("]") })) },
 
   { "assignment", prec_right(PREC_ASSIGN, seq({
-    choice({
-      sym("identifier"),
-      sym("member_access"),
-      sym("subscript_access") }),
+    sym("_expression"),
     str("="),
     sym("_expression") })) },
 
   { "math_assignment", prec_right(PREC_ASSIGN, seq({
-    choice({
-      sym("identifier"),
-      sym("member_access"),
-      sym("subscript_access") }),
+    sym("_expression"),
     choice({ str("+="), str("-="), str("*="), str("/=") }),
     sym("_expression") })) },
 
