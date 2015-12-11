@@ -12,15 +12,15 @@ describe("ParseItem::completion_status()", [&]() {
   SyntaxGrammar grammar{{
     SyntaxVariable("rule_0", VariableTypeNamed, {
       Production({
-        {Symbol(11, true), 0, AssociativityNone, 101},
-        {Symbol(12, true), 0, AssociativityNone, 102},
-        {Symbol(13), 0, AssociativityNone, 103},
-        {Symbol(14, true), 4, AssociativityLeft, 104},
+        {Symbol(11, true), 0, AssociativityNone},
+        {Symbol(12, true), 0, AssociativityNone},
+        {Symbol(13), 0, AssociativityNone},
+        {Symbol(14, true), 4, AssociativityLeft},
       }),
       Production({
-        {Symbol(15, true), 0, AssociativityNone, 101},
-        {Symbol(16, true), 0, AssociativityNone, 102},
-        {Symbol(17, true), 5, AssociativityRight, 104},
+        {Symbol(15, true), 0, AssociativityNone},
+        {Symbol(16, true), 0, AssociativityNone},
+        {Symbol(17, true), 5, AssociativityRight},
       }),
       Production({}),
     }),
@@ -57,26 +57,26 @@ describe("ParseItemSet::transitions())", [&]() {
   SyntaxGrammar grammar{{
     SyntaxVariable("rule_0", VariableTypeNamed, {
       Production({
-        {Symbol(11, true), 0, AssociativityNone, 101},
-        {Symbol(12, true), 0, AssociativityNone, 102},
-        {Symbol(13), 5, AssociativityNone, 103},
-        {Symbol(14, true), 0, AssociativityNone, 104},
+        {Symbol(11, true), 0, AssociativityNone},
+        {Symbol(12, true), 0, AssociativityNone},
+        {Symbol(13), 5, AssociativityNone},
+        {Symbol(14, true), 0, AssociativityNone},
       }),
       Production({
-        {Symbol(11, true), 0, AssociativityNone, 105},
-        {Symbol(12, true), 0, AssociativityNone, 106},
-        {Symbol(15), 6, AssociativityNone, 107},
+        {Symbol(11, true), 0, AssociativityNone},
+        {Symbol(12, true), 0, AssociativityNone},
+        {Symbol(15), 6, AssociativityNone},
       })
     }),
     SyntaxVariable("rule_1", VariableTypeNamed, {
       Production({
-        {Symbol(15), 7, AssociativityNone, 109},
-        {Symbol(16, true), 0, AssociativityNone, 110},
+        {Symbol(15), 7, AssociativityNone},
+        {Symbol(16, true), 0, AssociativityNone},
       })
     }),
     SyntaxVariable("rule_2", VariableTypeNamed, {
       Production({
-        {Symbol(18, true), 0, AssociativityNone, 111},
+        {Symbol(18, true), 0, AssociativityNone},
       })
     })
   }, {}, {}};

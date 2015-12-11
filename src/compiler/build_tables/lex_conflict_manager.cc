@@ -10,7 +10,7 @@ LexConflictManager::LexConflictManager(const LexicalGrammar &grammar)
     : grammar(grammar) {}
 
 bool LexConflictManager::resolve(const LexAction &new_action,
-                                 const LexAction &old_action) const {
+                                 const LexAction &old_action) {
   if (new_action.type < old_action.type)
     return !resolve(old_action, new_action);
 
@@ -24,16 +24,27 @@ bool LexConflictManager::resolve(const LexAction &new_action,
       switch (new_action.type) {
         case LexActionTypeAccept: {
           int new_precedence = new_action.precedence_range.min;
+
+          bool result;
           if (new_precedence > old_precedence)
-            return true;
+            result = true;
           else if (new_precedence < old_precedence)
-            return false;
+            result = false;
           else if (new_action.is_string && !old_action.is_string)
-            return true;
+            result = true;
           else if (old_action.is_string && !new_action.is_string)
-            return false;
+            result = false;
+          else if (new_action.symbol.index < old_action.symbol.index)
+            result = true;
           else
-            return new_action.symbol.index < old_action.symbol.index;
+            result = false;
+
+          if (result)
+            fragile_tokens.insert(old_action.symbol);
+          else
+            fragile_tokens.insert(new_action.symbol);
+
+          return result;
         }
 
         case LexActionTypeAdvance:

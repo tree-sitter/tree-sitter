@@ -302,6 +302,9 @@ class CCodeGenerator {
       case LexActionTypeAccept:
         line("ACCEPT_TOKEN(" + symbol_id(action.symbol) + ");");
         break;
+      case LexActionTypeAcceptFragile:
+        line("ACCEPT_FRAGILE_TOKEN(" + symbol_id(action.symbol) + ");");
+        break;
       case LexActionTypeError:
         line("LEX_ERROR();");
         break;
@@ -324,13 +327,13 @@ class CCodeGenerator {
         case ParseActionTypeShiftExtra:
           add("SHIFT_EXTRA()");
           break;
+        case ParseActionTypeReduceFragile:
+          add("REDUCE_FRAGILE(" + symbol_id(action.symbol) + ", " +
+              to_string(action.consumed_symbol_count) + ")");
+          break;
         case ParseActionTypeReduce:
-          if (reduce_action_is_fragile(action))
-            add("REDUCE_FRAGILE(" + symbol_id(action.symbol) + ", " +
-                to_string(action.consumed_symbol_count) + ")");
-          else
-            add("REDUCE(" + symbol_id(action.symbol) + ", " +
-                to_string(action.consumed_symbol_count) + ")");
+          add("REDUCE(" + symbol_id(action.symbol) + ", " +
+              to_string(action.consumed_symbol_count) + ")");
           break;
         case ParseActionTypeReduceExtra:
           add("REDUCE_EXTRA(" + symbol_id(action.symbol) + ")");
@@ -390,11 +393,6 @@ class CCodeGenerator {
       const SyntaxVariable &variable = syntax_grammar.variables[symbol.index];
       return { variable.name, variable.type };
     }
-  }
-
-  bool reduce_action_is_fragile(const ParseAction &action) const {
-    return parse_table.fragile_productions.find(action.production) !=
-           parse_table.fragile_productions.end();
   }
 
   // C-code generation functions

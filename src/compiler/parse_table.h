@@ -18,6 +18,7 @@ typedef uint64_t ParseStateId;
 typedef enum {
   ParseActionTypeError,
   ParseActionTypeReduceExtra,
+  ParseActionTypeReduceFragile,
   ParseActionTypeShiftExtra,
 
   ParseActionTypeShift,
@@ -97,7 +98,6 @@ class ParseTable {
 
   std::vector<ParseState> states;
   std::map<rules::Symbol, ParseTableSymbolMetadata> symbols;
-  std::set<const Production *> fragile_productions;
 };
 
 }  // namespace tree_sitter

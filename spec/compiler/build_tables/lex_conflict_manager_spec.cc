@@ -38,6 +38,11 @@ describe("LexConflictManager::resolve(new_action, old_action)", []() {
         update = conflict_manager.resolve(LexAction::Accept(sym1, 2, false), LexAction::Accept(sym2, 1, false));
         AssertThat(update, IsTrue());
       });
+
+      it("adds the discarded token to the 'fragile tokens' set", [&]() {
+        update = conflict_manager.resolve(LexAction::Accept(sym2, 1, false), LexAction::Accept(sym1, 2, false));
+        AssertThat(conflict_manager.fragile_tokens, Contains(sym2));
+      });
     });
 
     describe("when one token is string-based and the other is regexp-based", [&]() {

@@ -14,6 +14,7 @@ namespace tree_sitter {
 typedef enum {
   LexActionTypeError,
   LexActionTypeAccept,
+  LexActionTypeAcceptFragile,
   LexActionTypeAdvance
 } LexActionType;
 

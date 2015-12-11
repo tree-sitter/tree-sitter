@@ -32,7 +32,7 @@ using rules::Symbol;
 
 class LexTableBuilder {
   const LexicalGrammar lex_grammar;
-  const LexConflictManager conflict_manager;
+  LexConflictManager conflict_manager;
   ParseTable *parse_table;
   unordered_map<const LexItemSet, LexStateId, LexItemSet::Hash> lex_state_ids;
   LexTable lex_table;
@@ -58,6 +58,8 @@ class LexTableBuilder {
     LexItemSet error_item_set =
       build_lex_item_set(parse_table->all_symbols(), true);
     populate_lex_state(error_item_set, LexTable::ERROR_STATE_ID);
+
+    mark_fragile_tokens();
 
     return lex_table;
   }
@@ -152,6 +154,17 @@ class LexTableBuilder {
     for (const auto &item : item_set.entries)
       if (item.is_token_start())
         lex_table.state(state_id).is_token_start = true;
+  }
+
+  void mark_fragile_tokens() {
+    for (LexState &state : lex_table.states)
+      if (state.default_action.type == LexActionTypeAccept)
+        if (has_fragile_token(state.default_action.symbol))
+          state.default_action.type = LexActionTypeAcceptFragile;
+  }
+
+  bool has_fragile_token(const Symbol &symbol) {
+    return conflict_manager.fragile_tokens.find(symbol) != conflict_manager.fragile_tokens.end();
   }
 };
 

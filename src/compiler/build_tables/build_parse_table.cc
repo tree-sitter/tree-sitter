@@ -37,6 +37,7 @@ class ParseTableBuilder {
   ParseTable parse_table;
   std::set<string> conflicts;
   ParseItemSet null_item_set;
+  std::set<const Production *> fragile_productions;
 
  public:
   ParseTableBuilder(const SyntaxGrammar &grammar,
@@ -48,7 +49,7 @@ class ParseTableBuilder {
   pair<ParseTable, const GrammarError *> build() {
     Symbol start_symbol = Symbol(0, grammar.variables.empty());
     Production start_production({
-      ProductionStep(start_symbol, 0, rules::AssociativityNone, -2),
+      ProductionStep(start_symbol, 0, rules::AssociativityNone),
     });
 
     add_parse_state(ParseItemSet({
@@ -77,6 +78,9 @@ class ParseTableBuilder {
       add_shift_extra_actions(state);
       add_reduce_extra_actions(state);
     }
+
+    mark_fragile_reductions();
+    remove_duplicate_states();
 
     parse_table.symbols.insert({ rules::ERROR(), {} });
 
@@ -153,6 +157,65 @@ class ParseTableBuilder {
     }
   }
 
+  void mark_fragile_reductions() {
+    for (ParseState &state : parse_table.states) {
+      for (auto &entry : state.actions) {
+        for (ParseAction &action : entry.second) {
+          if (action.type == ParseActionTypeReduce) {
+            if (has_fragile_production(action.production))
+              action.type = ParseActionTypeReduceFragile;
+            action.production = NULL;
+          }
+        }
+      }
+    }
+  }
+
+  void remove_duplicate_states() {
+    bool done = false;
+    while (!done) {
+      done = true;
+      map<ParseStateId, ParseStateId> replacements;
+      for (size_t i = 0, size = parse_table.states.size(); i < size; i++) {
+        for (size_t j = 0; j < i; j++) {
+          if (parse_table.states[i].actions == parse_table.states[j].actions) {
+            replacements.insert({ i, j });
+            done = false;
+            break;
+          }
+        }
+      }
+
+      for (ParseState &state : parse_table.states) {
+        for (auto &entry : state.actions) {
+          for (ParseAction &action : entry.second) {
+            if (action.type == ParseActionTypeShift) {
+              ParseStateId state_index = action.state_index;
+              auto replacement = replacements.find(action.state_index);
+              if (replacement != replacements.end()) {
+                state_index = replacement->second;
+              }
+
+              size_t prior_removed = 0;
+              for (const auto &replacement : replacements) {
+                if (replacement.first >= state_index)
+                  break;
+                prior_removed++;
+              }
+
+              state_index -= prior_removed;
+              action.state_index = state_index;
+            }
+          }
+        }
+      }
+
+      for (auto replacement = replacements.rbegin(); replacement != replacements.rend(); ++replacement) {
+        parse_table.states.erase(parse_table.states.begin() + replacement->first);
+      }
+    }
+  }
+
   ParseAction *add_action(ParseStateId state_id, Symbol lookahead,
                           const ParseAction &new_action,
                           const ParseItemSet &item_set) {
@@ -174,18 +237,23 @@ class ParseTableBuilder {
       case ConflictTypeResolved: {
         if (resolution.first) {
           if (old_action.type == ParseActionTypeReduce)
-            parse_table.fragile_productions.insert(old_action.production);
+            fragile_productions.insert(old_action.production);
           return &parse_table.set_action(state_id, lookahead, new_action);
         } else {
           if (new_action.type == ParseActionTypeReduce)
-            parse_table.fragile_productions.insert(new_action.production);
+            fragile_productions.insert(new_action.production);
           break;
         }
       }
 
       case ConflictTypeUnresolved: {
-        if (handle_unresolved_conflict(item_set, lookahead))
+        if (handle_unresolved_conflict(item_set, lookahead)) {
+          if (old_action.type == ParseActionTypeReduce)
+            fragile_productions.insert(old_action.production);
+          if (new_action.type == ParseActionTypeReduce)
+            fragile_productions.insert(new_action.production);
           return &parse_table.add_action(state_id, lookahead, new_action);
+        }
         break;
       }
     }
@@ -314,6 +382,11 @@ class ParseTableBuilder {
     } else {
       return grammar.variables[symbol.index].name;
     }
+  }
+
+  bool has_fragile_production(const Production *production) {
+    auto end = fragile_productions.end();
+    return std::find(fragile_productions.begin(), end, production) != end;
   }
 };
 

@@ -27,7 +27,7 @@ function run_tests {
   local cmd="out/Debug/${target}"
   shift
 
-  while getopts "df:ghpv" option; do
+  while getopts "df:s:ghpv" option; do
     case ${option} in
       h)
         usage
@@ -47,6 +47,9 @@ function run_tests {
         ;;
       v)
         args+=("--reporter=spec")
+        ;;
+      s)
+        export TREE_SITTER_SEED=${OPTARG}
         ;;
     esac
   done

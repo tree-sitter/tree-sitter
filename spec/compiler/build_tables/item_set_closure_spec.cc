@@ -14,23 +14,23 @@ describe("item_set_closure", []() {
     SyntaxGrammar grammar{{
       SyntaxVariable("rule0", VariableTypeNamed, {
         Production({
-          {Symbol(1), 0, AssociativityNone, 100},
-          {Symbol(11, true), 0, AssociativityNone, 101},
+          {Symbol(1), 0, AssociativityNone},
+          {Symbol(11, true), 0, AssociativityNone},
         }),
       }),
       SyntaxVariable("rule1", VariableTypeNamed, {
         Production({
-          {Symbol(12, true), 0, AssociativityNone, 102},
-          {Symbol(13, true), 0, AssociativityNone, 103},
+          {Symbol(12, true), 0, AssociativityNone},
+          {Symbol(13, true), 0, AssociativityNone},
         }),
         Production({
-          {Symbol(2), 0, AssociativityNone, 104},
+          {Symbol(2), 0, AssociativityNone},
         })
       }),
       SyntaxVariable("rule2", VariableTypeNamed, {
         Production({
-          {Symbol(14, true), 0, AssociativityNone, 105},
-          {Symbol(15, true), 0, AssociativityNone, 106},
+          {Symbol(14, true), 0, AssociativityNone},
+          {Symbol(15, true), 0, AssociativityNone},
         })
       }),
     }, {}, {}};
@@ -70,14 +70,14 @@ describe("item_set_closure", []() {
     SyntaxGrammar grammar{{
       SyntaxVariable("rule0", VariableTypeNamed, {
         Production({
-          {Symbol(1), 0, AssociativityNone, 100},
-          {Symbol(11, true), 0, AssociativityNone, 101},
+          {Symbol(1), 0, AssociativityNone},
+          {Symbol(11, true), 0, AssociativityNone},
         }),
       }),
       SyntaxVariable("rule1", VariableTypeNamed, {
         Production({
-          {Symbol(12, true), 0, AssociativityNone, 102},
-          {Symbol(13, true), 0, AssociativityNone, 103},
+          {Symbol(12, true), 0, AssociativityNone},
+          {Symbol(13, true), 0, AssociativityNone},
         }),
         Production({})
       }),
