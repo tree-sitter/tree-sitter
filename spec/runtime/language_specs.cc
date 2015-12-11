@@ -108,8 +108,6 @@ string random_words(size_t count) {
 START_TEST
 
 describe("Languages", [&]() {
-  srand(0);
-
   for (const auto &pair : languages) {
     describe(("The " + pair.first + " parser").c_str(), [&]() {
       TSDocument *doc;
@@ -117,6 +115,7 @@ describe("Languages", [&]() {
       before_each([&]() {
         doc = ts_document_make();
         ts_document_set_language(doc, pair.second);
+        // ts_document_set_debugger(doc, log_debugger_make(true));
       });
 
       after_each([&]() {
