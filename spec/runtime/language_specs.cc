@@ -91,13 +91,16 @@ string random_char(string characters) {
 
 string random_words(size_t count) {
   string result;
+  bool just_inserted_word = false;
   for (size_t i = 0; i < count; i++) {
-    if (!result.empty() && rand() % 2 > 0)
-      result += " ";
-    if (rand() % 10 < 5)
+    if (rand() % 10 < 6) {
       result += random_char("!(){}[]<>+-=");
-    else
+    } else {
+      if (just_inserted_word)
+        result += " ";
       result += random_string('a', 'z');
+      just_inserted_word = true;
+    }
   }
   return result;
 }
@@ -148,7 +151,7 @@ describe("Languages", [&]() {
           string inserted_text = random_words(rand() % 4 + 1);
 
           if (insertions.insert({edit_position, inserted_text}).second) {
-            string description = "'" + inserted_text + "' at " + to_string(edit_position);
+            string description = "\"" + inserted_text + "\" at " + to_string(edit_position);
 
             it_handles_edit_sequence("repairing an insertion of " + description, [&]() {
               ts_document_edit(doc, input->replace(edit_position, 0, inserted_text));
