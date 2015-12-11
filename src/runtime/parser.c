@@ -145,6 +145,10 @@ static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head) {
 
     bool can_reuse = true;
     if (ts_tree_has_changes(state->reusable_subtree)) {
+      if (state->is_verifying) {
+        ts_parser__breakdown_top_of_stack(self, head);
+        state->is_verifying = false;
+      }
       LOG("breakdown_changed sym:%s", SYM_NAME(state->reusable_subtree->symbol));
       can_reuse = false;
     } else if (ts_tree_is_fragile(state->reusable_subtree)) {
