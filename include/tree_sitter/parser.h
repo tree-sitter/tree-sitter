@@ -34,7 +34,7 @@ typedef struct TSLexer {
   void (*start_token_fn)(struct TSLexer *);
   bool (*advance_fn)(struct TSLexer *, TSStateId);
   TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, TSSymbolMetadata,
-                       const char *);
+                       const char *, bool fragile);
 
   const char *chunk;
   size_t chunk_start;
@@ -107,9 +107,13 @@ struct TSLanguage {
     GO_TO_STATE(state_index);              \
   }
 
+#define ACCEPT_FRAGILE_TOKEN(symbol)                                 \
+  return lexer->accept_fn(lexer, symbol, ts_symbol_metadata[symbol], \
+                          ts_symbol_names[symbol], true);
+
 #define ACCEPT_TOKEN(symbol)                                         \
   return lexer->accept_fn(lexer, symbol, ts_symbol_metadata[symbol], \
-                          ts_symbol_names[symbol]);
+                          ts_symbol_names[symbol], false);
 
 #define LEX_ERROR()                      \
   if (error_mode) {                      \

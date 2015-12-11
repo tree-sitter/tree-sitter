@@ -302,6 +302,9 @@ class CCodeGenerator {
       case LexActionTypeAccept:
         line("ACCEPT_TOKEN(" + symbol_id(action.symbol) + ");");
         break;
+      case LexActionTypeAcceptFragile:
+        line("ACCEPT_FRAGILE_TOKEN(" + symbol_id(action.symbol) + ");");
+        break;
       case LexActionTypeError:
         line("LEX_ERROR();");
         break;

@@ -85,20 +85,24 @@ static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
 
 static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
                                 TSSymbolMetadata metadata,
-                                const char *symbol_name) {
+                                const char *symbol_name, bool fragile) {
   TSLength size =
     ts_length_sub(self->current_position, self->token_start_position);
   TSLength padding =
     ts_length_sub(self->token_start_position, self->token_end_position);
   self->token_end_position = self->current_position;
 
+  TSTree *result;
   if (symbol == ts_builtin_sym_error) {
     LOG("error_char");
-    return ts_tree_make_error(size, padding, self->lookahead);
+    result = ts_tree_make_error(size, padding, self->lookahead);
   } else {
     LOG("accept_token sym:%s", symbol_name);
-    return ts_tree_make_leaf(symbol, padding, size, metadata);
+    result = ts_tree_make_leaf(symbol, padding, size, metadata);
   }
+
+  result->options.fragile_left = fragile;
+  return result;
 }
 
 /*

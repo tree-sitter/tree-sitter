@@ -437,7 +437,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 (lookahead == '_') ||
                 ('a' <= lookahead && lookahead <= 'z'))
                 ADVANCE(9);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 10:
             if (lookahead == '\'')
                 ADVANCE(6);
@@ -509,9 +509,9 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
         case 17:
             if (lookahead == 'g')
                 ADVANCE(18);
-            ACCEPT_TOKEN(sym_comment);
+            ACCEPT_FRAGILE_TOKEN(sym_comment);
         case 18:
-            ACCEPT_TOKEN(sym_regex);
+            ACCEPT_FRAGILE_TOKEN(sym_regex);
         case 19:
             if (lookahead == '*')
                 ADVANCE(16);
@@ -540,7 +540,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 (lookahead == '\\') ||
                 (lookahead == 'g')))
                 ADVANCE(15);
-            ACCEPT_TOKEN(sym_regex);
+            ACCEPT_FRAGILE_TOKEN(sym_regex);
         case 21:
             if (lookahead == '*')
                 ADVANCE(22);
@@ -550,7 +550,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 (lookahead == '*') ||
                 (lookahead == 'g')))
                 ADVANCE(24);
-            ACCEPT_TOKEN(sym_regex);
+            ACCEPT_FRAGILE_TOKEN(sym_regex);
         case 22:
             if (lookahead == '/')
                 ADVANCE(23);
@@ -559,7 +559,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(24);
             LEX_ERROR();
         case 23:
-            ACCEPT_TOKEN(sym_comment);
+            ACCEPT_FRAGILE_TOKEN(sym_comment);
         case 24:
             if (lookahead == '*')
                 ADVANCE(22);
@@ -573,7 +573,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
             if (!((lookahead == 0) ||
                 (lookahead == '*')))
                 ADVANCE(24);
-            ACCEPT_TOKEN(sym_regex);
+            ACCEPT_FRAGILE_TOKEN(sym_regex);
         case 26:
             if (lookahead == '*')
                 ADVANCE(16);
@@ -586,7 +586,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 (lookahead == '/') ||
                 (lookahead == '\\')))
                 ADVANCE(15);
-            ACCEPT_TOKEN(sym_regex);
+            ACCEPT_FRAGILE_TOKEN(sym_regex);
         case 27:
             if (lookahead == 'g')
                 ADVANCE(28);
@@ -594,17 +594,17 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 (lookahead == '\n') ||
                 (lookahead == 'g')))
                 ADVANCE(29);
-            ACCEPT_TOKEN(sym_regex);
+            ACCEPT_FRAGILE_TOKEN(sym_regex);
         case 28:
             if (!((lookahead == 0) ||
                 (lookahead == '\n')))
                 ADVANCE(29);
-            ACCEPT_TOKEN(sym_regex);
+            ACCEPT_FRAGILE_TOKEN(sym_regex);
         case 29:
             if (!((lookahead == 0) ||
                 (lookahead == '\n')))
                 ADVANCE(29);
-            ACCEPT_TOKEN(sym_comment);
+            ACCEPT_FRAGILE_TOKEN(sym_comment);
         case 30:
             if (lookahead == '/')
                 ADVANCE(31);
@@ -627,11 +627,11 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 (lookahead == '\\') ||
                 (lookahead == 'g')))
                 ADVANCE(34);
-            ACCEPT_TOKEN(sym_regex);
+            ACCEPT_FRAGILE_TOKEN(sym_regex);
         case 32:
             if (lookahead == 'g')
                 ADVANCE(18);
-            ACCEPT_TOKEN(sym_regex);
+            ACCEPT_FRAGILE_TOKEN(sym_regex);
         case 33:
             if (lookahead == '/')
                 ADVANCE(32);
@@ -641,7 +641,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 (lookahead == '/') ||
                 (lookahead == '\\')))
                 ADVANCE(34);
-            ACCEPT_TOKEN(sym_regex);
+            ACCEPT_FRAGILE_TOKEN(sym_regex);
         case 34:
             if (lookahead == '/')
                 ADVANCE(32);
@@ -678,7 +678,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'r')
                 ADVANCE(40);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 40:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -689,7 +689,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(41);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 41:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -699,7 +699,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'a')
                 ADVANCE(42);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 42:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -710,7 +710,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'k')
                 ADVANCE(43);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 43:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -729,7 +729,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(45);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 45:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -740,7 +740,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'l')
                 ADVANCE(46);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 46:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -751,7 +751,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(47);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 47:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -762,7 +762,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 't')
                 ADVANCE(48);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 48:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -773,7 +773,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(49);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 49:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -797,7 +797,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(55);
             if (lookahead == 'u')
                 ADVANCE(57);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 51:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -808,7 +808,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'l')
                 ADVANCE(52);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 52:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -819,7 +819,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 's')
                 ADVANCE(53);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 53:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -830,7 +830,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(54);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 54:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -849,7 +849,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'r')
                 ADVANCE(56);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 56:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -868,7 +868,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'n')
                 ADVANCE(58);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 58:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -880,7 +880,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'c')
                 ADVANCE(59);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 59:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -891,7 +891,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 't')
                 ADVANCE(60);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 60:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -902,7 +902,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'i')
                 ADVANCE(61);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 61:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -913,7 +913,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'o')
                 ADVANCE(62);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 62:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -924,7 +924,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'n')
                 ADVANCE(63);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 63:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -943,7 +943,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'f')
                 ADVANCE(65);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 65:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -965,7 +965,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(67);
             if (lookahead == 'u')
                 ADVANCE(69);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 67:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -976,7 +976,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'w')
                 ADVANCE(68);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 68:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -995,7 +995,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'l')
                 ADVANCE(70);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 70:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1006,7 +1006,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'l')
                 ADVANCE(71);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 71:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1025,7 +1025,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(73);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 73:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1036,7 +1036,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 't')
                 ADVANCE(74);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 74:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1047,7 +1047,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'u')
                 ADVANCE(75);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 75:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1058,7 +1058,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'r')
                 ADVANCE(76);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 76:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1069,7 +1069,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'n')
                 ADVANCE(77);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 77:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1088,7 +1088,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'w')
                 ADVANCE(79);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 79:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1099,7 +1099,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'i')
                 ADVANCE(80);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 80:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1110,7 +1110,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 't')
                 ADVANCE(81);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 81:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1122,7 +1122,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'c')
                 ADVANCE(82);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 82:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1133,7 +1133,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'h')
                 ADVANCE(83);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 83:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1158,7 +1158,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(89);
             if (lookahead == 'y')
                 ADVANCE(93);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 85:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1169,7 +1169,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'r')
                 ADVANCE(86);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 86:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1180,7 +1180,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'o')
                 ADVANCE(87);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 87:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1191,7 +1191,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'w')
                 ADVANCE(88);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 88:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1213,7 +1213,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(90);
             if (lookahead == 'y')
                 ADVANCE(92);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 90:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1224,7 +1224,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(91);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 91:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1251,7 +1251,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'p')
                 ADVANCE(94);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 94:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1262,7 +1262,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(95);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 95:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1273,7 +1273,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'o')
                 ADVANCE(96);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 96:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1284,7 +1284,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'f')
                 ADVANCE(97);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 97:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1303,7 +1303,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'n')
                 ADVANCE(99);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 99:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1314,7 +1314,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'd')
                 ADVANCE(100);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 100:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1325,7 +1325,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(101);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 101:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1336,7 +1336,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'f')
                 ADVANCE(102);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 102:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1347,7 +1347,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'i')
                 ADVANCE(103);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 103:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1358,7 +1358,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'n')
                 ADVANCE(104);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 104:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1369,7 +1369,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(105);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 105:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1380,7 +1380,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'd')
                 ADVANCE(106);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 106:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1398,7 +1398,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'a')
                 ADVANCE(108);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 108:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1409,7 +1409,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'r')
                 ADVANCE(109);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 109:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1428,7 +1428,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'h')
                 ADVANCE(111);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 111:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1439,7 +1439,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'i')
                 ADVANCE(112);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 112:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1450,7 +1450,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'l')
                 ADVANCE(113);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 113:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1461,7 +1461,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(114);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 114:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1806,7 +1806,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(51);
             if (lookahead == 'u')
                 ADVANCE(57);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 161:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1820,7 +1820,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(162);
             if (lookahead == 'y')
                 ADVANCE(93);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 162:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -1831,7 +1831,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'u')
                 ADVANCE(90);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 163:
             START_TOKEN();
             if ((lookahead == '\t') ||
@@ -2589,7 +2589,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(65);
             if (lookahead == 'n')
                 ADVANCE(195);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 195:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2611,7 +2611,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 't')
                 ADVANCE(197);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 197:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2621,7 +2621,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'a')
                 ADVANCE(198);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 198:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2632,7 +2632,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'n')
                 ADVANCE(199);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 199:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2644,7 +2644,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'c')
                 ADVANCE(200);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 200:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2655,7 +2655,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(201);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 201:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2666,7 +2666,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'o')
                 ADVANCE(202);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 202:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2677,7 +2677,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'f')
                 ADVANCE(203);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 203:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2820,7 +2820,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'a')
                 ADVANCE(207);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 207:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2831,7 +2831,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 't')
                 ADVANCE(208);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 208:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2843,7 +2843,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'c')
                 ADVANCE(209);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 209:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2854,7 +2854,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'h')
                 ADVANCE(210);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 210:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2881,7 +2881,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(55);
             if (lookahead == 'u')
                 ADVANCE(57);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 212:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2892,7 +2892,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'n')
                 ADVANCE(213);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 213:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2902,7 +2902,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'a')
                 ADVANCE(214);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 214:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2913,7 +2913,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'l')
                 ADVANCE(215);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 215:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2924,7 +2924,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'l')
                 ADVANCE(216);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 216:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -2935,7 +2935,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'y')
                 ADVANCE(217);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 217:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -3212,7 +3212,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'n')
                 ADVANCE(228);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 228:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -3454,7 +3454,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'a')
                 ADVANCE(246);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 246:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -3465,7 +3465,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 's')
                 ADVANCE(247);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 247:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -3476,7 +3476,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(248);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 248:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -3495,7 +3495,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(250);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 250:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -3509,7 +3509,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(251);
             if (lookahead == 'l')
                 ADVANCE(46);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 251:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -3519,7 +3519,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'a')
                 ADVANCE(252);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 252:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -3530,7 +3530,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'u')
                 ADVANCE(253);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 253:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -3541,7 +3541,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'l')
                 ADVANCE(254);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 254:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -3552,7 +3552,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 't')
                 ADVANCE(255);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 255:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -3780,7 +3780,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'a')
                 ADVANCE(260);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 260:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -3793,7 +3793,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(247);
             if (lookahead == 't')
                 ADVANCE(208);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 261:
             START_TOKEN();
             if ((lookahead == '\t') ||
@@ -3929,7 +3929,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'l')
                 ADVANCE(264);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 264:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -3940,7 +3940,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 's')
                 ADVANCE(265);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 265:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
@@ -3951,7 +3951,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(9);
             if (lookahead == 'e')
                 ADVANCE(266);
-            ACCEPT_TOKEN(sym_identifier);
+            ACCEPT_FRAGILE_TOKEN(sym_identifier);
         case 266:
             if ((lookahead == '$') ||
                 ('0' <= lookahead && lookahead <= '9') ||
