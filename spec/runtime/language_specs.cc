@@ -76,16 +76,16 @@ void expect_a_consistent_tree(TSNode node, TSDocument *doc) {
 
 string random_string(char min, char max) {
   string result;
-  size_t length = rand() % 12;
+  size_t length = random() % 12;
   for (size_t i = 0; i < length; i++) {
-    char inserted_char = min + (rand() % (max - min));
+    char inserted_char = min + (random() % (max - min));
     result += inserted_char;
   }
   return result;
 }
 
 string random_char(string characters) {
-  size_t index = rand() % characters.size();
+  size_t index = random() % characters.size();
   return string() + characters[index];
 }
 
@@ -93,7 +93,7 @@ string random_words(size_t count) {
   string result;
   bool just_inserted_word = false;
   for (size_t i = 0; i < count; i++) {
-    if (rand() % 10 < 6) {
+    if (random() % 10 < 6) {
       result += random_char("!(){}[]<>+-=");
     } else {
       if (just_inserted_word)
@@ -145,9 +145,9 @@ describe("Languages", [&]() {
         std::set<std::pair<size_t, string>> insertions;
 
         for (size_t i = 0; i < 50; i++) {
-          size_t edit_position = rand() % entry.input.size();
-          size_t deletion_size = rand() % (entry.input.size() - edit_position);
-          string inserted_text = random_words(rand() % 4 + 1);
+          size_t edit_position = random() % entry.input.size();
+          size_t deletion_size = random() % (entry.input.size() - edit_position);
+          string inserted_text = random_words(random() % 4 + 1);
 
           if (insertions.insert({edit_position, inserted_text}).second) {
             string description = "\"" + inserted_text + "\" at " + to_string(edit_position);

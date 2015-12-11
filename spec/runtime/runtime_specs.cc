@@ -10,7 +10,7 @@ int main(int argc, char *argv[]) {
   }
 
   printf("Random seed: %d\n", seed);
-  srand(seed);
+  srandom(seed);
 
   return bandit::run(argc, argv);
 }
