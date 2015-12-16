@@ -40,6 +40,7 @@ struct TSTree {
 
 TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, TSSymbolMetadata);
 TSTree *ts_tree_make_node(TSSymbol, size_t, TSTree **, TSSymbolMetadata);
+TSTree *ts_tree_make_copy(TSTree *child);
 TSTree *ts_tree_make_error(TSLength, TSLength, char);
 void ts_tree_retain(TSTree *tree);
 void ts_tree_release(TSTree *tree);

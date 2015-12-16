@@ -202,7 +202,9 @@ extern const Grammar javascript = Grammar({
     sym("true"),
     sym("_paren_expression") }) },
 
-  { "object", in_braces(comma_sep(err(sym("pair")))) },
+  { "object", in_braces(comma_sep(err(choice({
+    sym("pair"),
+    sym("method_definition") })))) },
 
   { "array", in_brackets(comma_sep(err(sym("_expression")))) },
 
@@ -340,12 +342,20 @@ extern const Grammar javascript = Grammar({
     str(":"),
     sym("_expression") }) },
 
+  { "method_definition", seq({
+    sym("identifier"),
+    str("("),
+    comma_sep(sym("identifier")),
+    str(")"),
+    sym("statement_block") }) },
+
 }).ubiquitous_tokens({
   sym("comment"),
   sym("_line_break"),
   pattern("[ \t\r]"),
 }).expected_conflicts({
   { "for_in_statement", "_expression" },
+  { "method_definition", "_expression" },
 });
 
 }  // namespace tree_sitter_examples

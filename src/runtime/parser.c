@@ -115,7 +115,7 @@ static void ts_parser__pop_reusable_subtree(LookaheadState *state) {
 }
 
 static bool ts_parser__can_reuse(TSParser *self, int head, TSTree *subtree) {
-  if (!subtree || subtree->symbol == ts_builtin_sym_error)
+  if (!subtree || subtree->symbol == ts_builtin_sym_error || ts_tree_is_fragile(subtree))
     return false;
   TSStateId state = ts_stack_top_state(self->stack, head);
   const TSParseAction *action =
@@ -151,15 +151,11 @@ static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head) {
       }
       LOG("breakdown_changed sym:%s", SYM_NAME(state->reusable_subtree->symbol));
       can_reuse = false;
-    } else if (ts_tree_is_fragile(state->reusable_subtree)) {
-      LOG("breakdown_fragile sym:%s", SYM_NAME(state->reusable_subtree->symbol));
-      can_reuse = false;
     } else if (ts_tree_is_extra(state->reusable_subtree)) {
       LOG("breakdown_extra sym:%s", SYM_NAME(state->reusable_subtree->symbol));
       can_reuse = false;
-    } else if (state->reusable_subtree->child_count > 0 &&
-         !ts_parser__can_reuse(self, head, state->reusable_subtree)) {
-      LOG("breakdown_unexpected sym:%s", SYM_NAME(state->reusable_subtree->symbol));
+    } else if (!ts_parser__can_reuse(self, head, state->reusable_subtree)) {
+      LOG("breakdown_non_reusable sym:%s", SYM_NAME(state->reusable_subtree->symbol));
       can_reuse = false;
     }
 
@@ -225,6 +221,9 @@ static bool ts_parser__shift(TSParser *self, int head,
 
 static bool ts_parser__shift_extra(TSParser *self, int head, TSStateId state,
                                    TSTree *lookahead) {
+  TSSymbolMetadata metadata = self->language->symbol_metadata[lookahead->symbol];
+  if (!metadata.extra && ts_stack_head_count(self->stack) > 1)
+    lookahead = ts_tree_make_copy(lookahead);
   ts_tree_set_extra(lookahead);
   return ts_parser__shift(self, head, state, lookahead);
 }

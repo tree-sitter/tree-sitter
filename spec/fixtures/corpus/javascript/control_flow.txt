@@ -31,6 +31,49 @@ if (isReady()) {
     (function_call (member_access (identifier) (identifier)) (arguments (identifier)))))))
 
 ==========================================
+if statements whose bodies are objects
+==========================================
+
+if (a) {
+  b()
+  {
+    c();
+  },
+
+  d: 'e'
+}
+
+---
+
+(program (if_statement (identifier)
+  (expression_statement (object
+    (method_definition (identifier) (statement_block (expression_statement (function_call (identifier) (arguments)))))
+    (pair (identifier) (string))))))
+
+============================================
+if statements whose bodies look like objects
+============================================
+
+if (f) {
+  g()
+  {
+    h();
+    i();
+  }
+  j()
+}
+
+---
+
+(program (if_statement (identifier)
+  (statement_block
+    (expression_statement (function_call (identifier) (arguments)))
+    (statement_block
+      (expression_statement (function_call (identifier) (arguments)))
+      (expression_statement (function_call (identifier) (arguments))))
+    (expression_statement (function_call (identifier) (arguments))))))
+
+==========================================
 if-else statements
 ==========================================
 
