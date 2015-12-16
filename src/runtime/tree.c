@@ -41,6 +41,12 @@ TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char)
   return result;
 }
 
+TSTree *ts_tree_make_copy(TSTree *self) {
+  TSTree *result = malloc(sizeof(TSTree));
+  *result = *self;
+  return result;
+}
+
 void ts_tree_assign_parents(TSTree *self) {
   TSLength offset = ts_length_zero();
   for (size_t i = 0; i < self->child_count; i++) {
