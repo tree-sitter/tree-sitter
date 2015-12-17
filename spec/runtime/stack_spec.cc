@@ -40,7 +40,7 @@ describe("Stack", [&]() {
   TSTree *trees[tree_count];
   TreeSelectionSpy tree_selection_spy{0, NULL, {NULL, NULL}};
   TSLength tree_len = {2, 3, 0, 3};
-  TSSymbolMetadata metadata = {true, true, true};
+  TSSymbolMetadata metadata = {true, true, true, true};
 
   before_each([&]() {
     stack = ts_stack_new();
