@@ -282,7 +282,7 @@ class ParseTableBuilder {
 
         if (item.step_index > 0) {
           set<Symbol> first_set = get_first_set(next_symbol);
-          if (first_set.find(lookahead) != first_set.end()) {
+          if (first_set.count(lookahead)) {
             involved_symbols.insert(item.lhs());
             core_shift_items.insert(item);
           }

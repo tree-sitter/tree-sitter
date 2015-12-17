@@ -75,7 +75,7 @@ class LexItemTransitions : public rules::RuleFn<void> {
 
   map<rules::MetadataKey, int> activate_precedence(
     map<rules::MetadataKey, int> metadata) {
-    if (metadata.find(rules::PRECEDENCE) != metadata.end())
+    if (metadata.count(rules::PRECEDENCE))
       metadata.insert({ rules::IS_ACTIVE, 1 });
     return metadata;
   }
