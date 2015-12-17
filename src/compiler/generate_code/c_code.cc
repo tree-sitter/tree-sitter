@@ -329,26 +329,39 @@ class CCodeGenerator {
           add("ACCEPT_INPUT()");
           break;
         case ParseActionTypeShift:
-          add("SHIFT(" + to_string(action.state_index) + ")");
-          break;
-        case ParseActionTypeShiftExtra:
-          add("SHIFT_EXTRA()");
-          break;
-        case ParseActionTypeReduceFragile:
-          add("REDUCE_FRAGILE(" + symbol_id(action.symbol) + ", " +
-              to_string(action.consumed_symbol_count) + ")");
+          if (action.extra) {
+            add("SHIFT_EXTRA()");
+          } else {
+            add("SHIFT(" + to_string(action.state_index) + ", ");
+            add_action_flags(action);
+            add(")");
+          }
           break;
         case ParseActionTypeReduce:
-          add("REDUCE(" + symbol_id(action.symbol) + ", " +
-              to_string(action.consumed_symbol_count) + ")");
-          break;
-        case ParseActionTypeReduceExtra:
-          add("REDUCE_EXTRA(" + symbol_id(action.symbol) + ")");
+          if (action.extra) {
+            add("REDUCE_EXTRA(" + symbol_id(action.symbol) + ")");
+          } else {
+            add("REDUCE(" + symbol_id(action.symbol) + ", " +
+                to_string(action.consumed_symbol_count) + ", ");
+            add_action_flags(action);
+            add(")");
+          }
           break;
         default: {}
       }
       started = true;
     }
+  }
+
+  void add_action_flags(const ParseAction &action) {
+    if (action.fragile && action.can_hide_split)
+      add("FRAGILE|CAN_HIDE_SPLIT");
+    else if (action.fragile)
+      add("FRAGILE");
+    else if (action.can_hide_split)
+      add("CAN_HIDE_SPLIT");
+    else
+      add("0");
   }
 
   // Helper functions

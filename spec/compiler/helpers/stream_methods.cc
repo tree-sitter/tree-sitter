@@ -74,11 +74,6 @@ ostream &operator<<(ostream &stream, const ParseAction &action) {
     case ParseActionTypeShift:
       return stream << string("#<shift state:") << to_string(action.state_index) <<
                         string(" precedence:") << action.precedence_range << ">";
-    case ParseActionTypeShiftExtra:
-      return stream << string("#<shift_extra");
-    case ParseActionTypeReduceExtra:
-      return stream << "#<reduce_extra sym:" << action.symbol <<
-                        string(" precedence:") << to_string(action.precedence_range.min) << ">";
     case ParseActionTypeReduce:
       return stream << ("#<reduce sym" + to_string(action.symbol.index) + " " +
                         to_string(action.consumed_symbol_count) + ">");

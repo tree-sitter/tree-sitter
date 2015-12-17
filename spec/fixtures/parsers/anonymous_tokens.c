@@ -148,17 +148,17 @@ static TSStateId ts_lex_states[STATE_COUNT] = {
 
 static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
     [0] = {
-        [sym_program] = ACTIONS(SHIFT(1)),
-        [anon_sym_LF] = ACTIONS(SHIFT(2)),
-        [anon_sym_CR] = ACTIONS(SHIFT(2)),
-        [aux_sym_SLASH_BSLASHd_SLASH] = ACTIONS(SHIFT(2)),
-        [anon_sym_DQUOTEhello_DQUOTE] = ACTIONS(SHIFT(2)),
+        [sym_program] = ACTIONS(SHIFT(1, 0)),
+        [anon_sym_LF] = ACTIONS(SHIFT(2, 0)),
+        [anon_sym_CR] = ACTIONS(SHIFT(2, 0)),
+        [aux_sym_SLASH_BSLASHd_SLASH] = ACTIONS(SHIFT(2, 0)),
+        [anon_sym_DQUOTEhello_DQUOTE] = ACTIONS(SHIFT(2, 0)),
     },
     [1] = {
         [ts_builtin_sym_end] = ACTIONS(ACCEPT_INPUT()),
     },
     [2] = {
-        [ts_builtin_sym_end] = ACTIONS(REDUCE(sym_program, 1)),
+        [ts_builtin_sym_end] = ACTIONS(REDUCE(sym_program, 1, 0)),
     },
 };
 

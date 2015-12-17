@@ -79,7 +79,7 @@ class ParseTableBuilder {
       add_reduce_extra_actions(state);
     }
 
-    mark_fragile_reductions();
+    mark_fragile_actions();
     remove_duplicate_states();
 
     parse_table.symbols.insert({ rules::ERROR(), {} });
@@ -134,9 +134,9 @@ class ParseTableBuilder {
   }
 
   void add_shift_extra_actions(ParseStateId state_id) {
+    ParseAction action = ParseAction::ShiftExtra();
     for (const Symbol &ubiquitous_symbol : grammar.ubiquitous_tokens)
-      add_action(state_id, ubiquitous_symbol, ParseAction::ShiftExtra(),
-                 null_item_set);
+      add_action(state_id, ubiquitous_symbol, action, null_item_set);
   }
 
   void add_reduce_extra_actions(ParseStateId state_id) {
@@ -148,7 +148,7 @@ class ParseTableBuilder {
         continue;
 
       for (const ParseAction &action : actions_for_symbol->second)
-        if (action.type == ParseActionTypeShift) {
+        if (action.type == ParseActionTypeShift && !action.extra) {
           size_t dest_state_id = action.state_index;
           ParseAction reduce_extra = ParseAction::ReduceExtra(ubiquitous_symbol);
           for (const auto &pair : state.actions)
@@ -157,14 +157,36 @@ class ParseTableBuilder {
     }
   }
 
-  void mark_fragile_reductions() {
+  void mark_fragile_actions() {
     for (ParseState &state : parse_table.states) {
+      set<Symbol> symbols_with_multiple_actions;
+
       for (auto &entry : state.actions) {
+        if (entry.second.size() > 1)
+          symbols_with_multiple_actions.insert(entry.first);
+
         for (ParseAction &action : entry.second) {
-          if (action.type == ParseActionTypeReduce) {
+          if (action.type == ParseActionTypeReduce && !action.extra) {
             if (has_fragile_production(action.production))
-              action.type = ParseActionTypeReduceFragile;
+              action.fragile = true;
+
             action.production = NULL;
+            action.precedence_range = PrecedenceRange();
+            action.associativity = rules::AssociativityNone;
+          }
+        }
+      }
+
+      if (!symbols_with_multiple_actions.empty()) {
+        for (auto &entry : state.actions) {
+          if (!entry.first.is_token) {
+            set<Symbol> first_set = get_first_set(entry.first);
+            for (const Symbol &symbol : symbols_with_multiple_actions) {
+              if (first_set.count(symbol)) {
+                entry.second[0].can_hide_split = true;
+                break;
+              }
+            }
           }
         }
       }
@@ -175,6 +197,7 @@ class ParseTableBuilder {
     bool done = false;
     while (!done) {
       done = true;
+
       map<ParseStateId, ParseStateId> replacements;
       for (size_t i = 0, size = parse_table.states.size(); i < size; i++) {
         for (size_t j = 0; j < i; j++) {
@@ -210,9 +233,8 @@ class ParseTableBuilder {
         }
       }
 
-      for (auto replacement = replacements.rbegin(); replacement != replacements.rend(); ++replacement) {
-        parse_table.states.erase(parse_table.states.begin() + replacement->first);
-      }
+      for (auto i = replacements.rbegin(); i != replacements.rend(); ++i)
+        parse_table.states.erase(parse_table.states.begin() + i->first);
     }
   }
 

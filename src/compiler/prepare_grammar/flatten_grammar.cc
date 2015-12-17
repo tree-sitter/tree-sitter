@@ -81,7 +81,8 @@ SyntaxGrammar flatten_grammar(const InitialSyntaxGrammar &grammar) {
     vector<Production> productions;
     for (const rule_ptr &rule_component : extract_choices(variable.rule)) {
       Production production = FlattenRule().flatten(rule_component);
-      if (std::find(productions.begin(), productions.end(), production) == productions.end())
+      if (std::find(productions.begin(), productions.end(), production) ==
+          productions.end())
         productions.push_back(production);
     }
     result.variables.push_back(
