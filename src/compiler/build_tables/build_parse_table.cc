@@ -134,22 +134,22 @@ class ParseTableBuilder {
 
   void add_shift_extra_actions(ParseStateId state_id) {
     ParseAction action = ParseAction::ShiftExtra();
-    for (const Symbol &ubiquitous_symbol : grammar.ubiquitous_tokens)
-      add_action(state_id, ubiquitous_symbol, action, null_item_set);
+    for (const Symbol &extra_symbol : grammar.extra_tokens)
+      add_action(state_id, extra_symbol, action, null_item_set);
   }
 
   void add_reduce_extra_actions(ParseStateId state_id) {
     const ParseState &state = parse_table.states[state_id];
 
-    for (const Symbol &ubiquitous_symbol : grammar.ubiquitous_tokens) {
-      const auto &actions_for_symbol = state.actions.find(ubiquitous_symbol);
+    for (const Symbol &extra_symbol : grammar.extra_tokens) {
+      const auto &actions_for_symbol = state.actions.find(extra_symbol);
       if (actions_for_symbol == state.actions.end())
         continue;
 
       for (const ParseAction &action : actions_for_symbol->second)
         if (action.type == ParseActionTypeShift && !action.extra) {
           size_t dest_state_id = action.state_index;
-          ParseAction reduce_extra = ParseAction::ReduceExtra(ubiquitous_symbol);
+          ParseAction reduce_extra = ParseAction::ReduceExtra(extra_symbol);
           for (const auto &pair : state.actions)
             add_action(dest_state_id, pair.first, reduce_extra, null_item_set);
         }

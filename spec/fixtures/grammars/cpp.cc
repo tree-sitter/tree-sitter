@@ -211,7 +211,7 @@ extern const Grammar cpp = Grammar({
   { "number", pattern("\\d+(\\.\\d+)?") },
 
   { "comment", pattern("//[^\n]*") },
-}).ubiquitous_tokens({
+}).extra_tokens({
   sym("comment"),
   pattern("[ \t\r\n]"),
 }).expected_conflicts({

@@ -203,7 +203,7 @@ extern const Grammar golang = Grammar({
 
   { "comment", pattern("//[^\n]*") },
 
-}).ubiquitous_tokens({
+}).extra_tokens({
   sym("comment"),
   sym("_line_break"),
   pattern("[ \t\r]"),

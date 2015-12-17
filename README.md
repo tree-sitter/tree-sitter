@@ -74,10 +74,10 @@ int main() {
     { "variable", pattern("[a-zA-Z]+\\w*") },
     { "comment", pattern("//.*") },
 
-  }).ubiquitous_tokens({
+  }).extra_tokens({
 
     // Things that can appear anywhere in the language are expressed as
-    // 'ubiquitous tokens'.
+    // 'extra tokens'.
     sym("comment"),
     pattern("\\s+")
   });

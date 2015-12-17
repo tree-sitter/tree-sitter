@@ -13,7 +13,7 @@ namespace prepare_grammar {
 
 struct InternedGrammar {
   std::vector<Variable> variables;
-  std::vector<rule_ptr> ubiquitous_tokens;
+  std::vector<rule_ptr> extra_tokens;
   std::set<ConflictSet> expected_conflicts;
 };
 

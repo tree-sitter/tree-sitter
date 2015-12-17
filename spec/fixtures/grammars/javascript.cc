@@ -349,7 +349,7 @@ extern const Grammar javascript = Grammar({
     str(")"),
     sym("statement_block") }) },
 
-}).ubiquitous_tokens({
+}).extra_tokens({
   sym("comment"),
   sym("_line_break"),
   pattern("[ \t\r]"),

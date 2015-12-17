@@ -62,7 +62,7 @@ class ExpandRepeats : public rules::IdentityRuleFn {
 InitialSyntaxGrammar expand_repeats(const InitialSyntaxGrammar &grammar) {
   InitialSyntaxGrammar result;
   result.variables = grammar.variables;
-  result.ubiquitous_tokens = grammar.ubiquitous_tokens;
+  result.extra_tokens = grammar.extra_tokens;
   result.expected_conflicts = grammar.expected_conflicts;
 
   ExpandRepeats expander(result.variables.size());

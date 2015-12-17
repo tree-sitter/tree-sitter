@@ -29,15 +29,15 @@ rule_ptr token(const rule_ptr &rule);
 
 class Grammar {
   const std::vector<std::pair<std::string, rule_ptr>> rules_;
-  std::vector<rule_ptr> ubiquitous_tokens_;
+  std::vector<rule_ptr> extra_tokens_;
   std::vector<std::vector<std::string>> expected_conflicts_;
 
  public:
   explicit Grammar(const std::vector<std::pair<std::string, rule_ptr>> &);
-  Grammar &ubiquitous_tokens(const std::vector<rule_ptr> &);
+  Grammar &extra_tokens(const std::vector<rule_ptr> &);
   Grammar &expected_conflicts(const std::vector<std::vector<std::string>> &);
   const std::vector<std::pair<std::string, rule_ptr>> &rules() const;
-  const std::vector<rule_ptr> &ubiquitous_tokens() const;
+  const std::vector<rule_ptr> &extra_tokens() const;
   const std::vector<std::vector<std::string>> &expected_conflicts() const;
 };
 

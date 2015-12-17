@@ -75,7 +75,7 @@ class FlattenRule : public rules::RuleFn<void> {
 SyntaxGrammar flatten_grammar(const InitialSyntaxGrammar &grammar) {
   SyntaxGrammar result;
   result.expected_conflicts = grammar.expected_conflicts;
-  result.ubiquitous_tokens = grammar.ubiquitous_tokens;
+  result.extra_tokens = grammar.extra_tokens;
 
   for (const Variable &variable : grammar.variables) {
     vector<Production> productions;

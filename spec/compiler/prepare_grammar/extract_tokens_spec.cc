@@ -141,8 +141,8 @@ describe("extract_tokens", []() {
     })));
   });
 
-  describe("handling ubiquitous tokens", [&]() {
-    it("adds inline ubiquitous tokens to the lexical grammar's separators", [&]() {
+  describe("handling extra tokens", [&]() {
+    it("adds inline extra tokens to the lexical grammar's separators", [&]() {
       auto result = extract_tokens(InternedGrammar{{
         Variable("rule_A", VariableTypeNamed, str("x")),
       }, {
@@ -156,10 +156,10 @@ describe("extract_tokens", []() {
       AssertThat(get<1>(result).separators[0], EqualsPointer(str("y")));
       AssertThat(get<1>(result).separators[1], EqualsPointer(pattern("\\s+")));
 
-      AssertThat(get<0>(result).ubiquitous_tokens, IsEmpty());
+      AssertThat(get<0>(result).extra_tokens, IsEmpty());
     });
 
-    it("handles inline ubiquitous tokens that match tokens in the grammar", [&]() {
+    it("handles inline extra tokens that match tokens in the grammar", [&]() {
       auto result = extract_tokens(InternedGrammar{{
         Variable("rule_A", VariableTypeNamed, str("x")),
         Variable("rule_B", VariableTypeNamed, str("y")),
@@ -169,10 +169,10 @@ describe("extract_tokens", []() {
 
       AssertThat(get<2>(result), Equals<const GrammarError *>(nullptr));
       AssertThat(get<1>(result).separators.size(), Equals<size_t>(0));
-      AssertThat(get<0>(result).ubiquitous_tokens, Equals(set<Symbol>({ Symbol(1, true) })));
+      AssertThat(get<0>(result).extra_tokens, Equals(set<Symbol>({ Symbol(1, true) })));
     });
 
-    it("updates ubiquitous symbols according to the new symbol numbers", [&]() {
+    it("updates extra symbols according to the new symbol numbers", [&]() {
       auto result = extract_tokens(InternedGrammar{{
         Variable("rule_A", VariableTypeNamed, seq({ str("w"), str("x"), i_sym(1) })),
         Variable("rule_B", VariableTypeNamed, str("y")),
@@ -183,14 +183,14 @@ describe("extract_tokens", []() {
 
       AssertThat(get<2>(result), Equals<const GrammarError *>(nullptr));
 
-      AssertThat(get<0>(result).ubiquitous_tokens, Equals(set<Symbol>({
+      AssertThat(get<0>(result).extra_tokens, Equals(set<Symbol>({
         { Symbol(3, true) },
       })));
 
       AssertThat(get<1>(result).separators, IsEmpty());
     });
 
-    it("returns an error if any ubiquitous tokens are non-token symbols", [&]() {
+    it("returns an error if any extra tokens are non-token symbols", [&]() {
       auto result = extract_tokens(InternedGrammar{{
         Variable("rule_A", VariableTypeNamed, seq({ str("x"), i_sym(1) })),
         Variable("rule_B", VariableTypeNamed, seq({ str("y"), str("z") })),
@@ -202,7 +202,7 @@ describe("extract_tokens", []() {
                          "Not a token: rule_B")));
     });
 
-    it("returns an error if any ubiquitous tokens are non-token rules", [&]() {
+    it("returns an error if any extra tokens are non-token rules", [&]() {
       auto result = extract_tokens(InternedGrammar{{
         Variable("rule_A", VariableTypeNamed, str("x")),
         Variable("rule_B", VariableTypeNamed, str("y")),

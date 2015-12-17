@@ -172,7 +172,7 @@ class CCodeGenerator {
 
         add(", ");
 
-        if (syntax_grammar.ubiquitous_tokens.count(symbol))
+        if (syntax_grammar.extra_tokens.count(symbol))
           add(".extra = true");
         else
           add(".extra = false");

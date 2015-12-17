@@ -22,7 +22,7 @@ extern const Grammar json = Grammar({
   { "null", str("null") },
   { "true", str("true") },
   { "false", str("false") },
-}).ubiquitous_tokens({
+}).extra_tokens({
   pattern("\\s"),
 });
 

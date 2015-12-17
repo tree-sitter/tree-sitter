@@ -34,7 +34,7 @@ extern const Grammar arithmetic = Grammar({
   { "variable", pattern("[a-zA-Z\u03b1-\u03c9]+\\d*") },
 
   { "comment", pattern("#.*") },
-}).ubiquitous_tokens({
+}).extra_tokens({
   sym("comment"),
   pattern("\\s"),
 });

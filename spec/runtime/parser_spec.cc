@@ -151,9 +151,9 @@ describe("Parser", [&]() {
     });
   });
 
-  describe("handling ubiquitous tokens", [&]() {
+  describe("handling extra tokens", [&]() {
     // In the javascript example grammar, ASI works by using newlines as
-    // terminators in statements, but also as ubiquitous tokens.
+    // terminators in statements, but also as extra tokens.
     before_each([&]() {
       ts_document_set_language(doc, ts_language_javascript());
     });
@@ -180,7 +180,7 @@ describe("Parser", [&]() {
       });
     });
 
-    describe("when several ubiquitous tokens appear in a row", [&]() {
+    describe("when several extra tokens appear in a row", [&]() {
       it("is incorporated into the tree", [&]() {
         set_text(
           "fn()\n\n"
@@ -337,7 +337,7 @@ describe("Parser", [&]() {
         });
       });
 
-      describe("into a node containing a ubiquitous token", [&]() {
+      describe("into a node containing a extra token", [&]() {
         before_each([&]() {
           set_text("123 *\n"
             "# a-comment\n"

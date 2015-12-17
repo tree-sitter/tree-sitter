@@ -9,22 +9,22 @@ using std::string;
 using std::vector;
 
 Grammar::Grammar(const vector<pair<string, rule_ptr>> &rules)
-    : rules_(rules), ubiquitous_tokens_({}) {}
+    : rules_(rules), extra_tokens_({}) {}
 
 const vector<pair<string, rule_ptr>> &Grammar::rules() const {
   return rules_;
 }
 
-const vector<rule_ptr> &Grammar::ubiquitous_tokens() const {
-  return ubiquitous_tokens_;
+const vector<rule_ptr> &Grammar::extra_tokens() const {
+  return extra_tokens_;
 }
 
 const vector<vector<string>> &Grammar::expected_conflicts() const {
   return expected_conflicts_;
 }
 
-Grammar &Grammar::ubiquitous_tokens(const vector<rule_ptr> &ubiquitous_tokens) {
-  ubiquitous_tokens_ = ubiquitous_tokens;
+Grammar &Grammar::extra_tokens(const vector<rule_ptr> &extra_tokens) {
+  extra_tokens_ = extra_tokens;
   return *this;
 }
 

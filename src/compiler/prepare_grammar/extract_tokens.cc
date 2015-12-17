@@ -147,18 +147,18 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens
   }
 
   /*
-   *  The grammar's ubiquitous tokens can be either token rules or symbols
+   *  The grammar's extra tokens can be either token rules or symbols
    *  pointing to token rules. If they are symbols, then they'll be handled by
    *  the parser; add them to the syntax grammar's ubiqutous tokens. If they
    *  are anonymous rules, they can be handled by the lexer; add them to the
    *  lexical grammar's separator rules.
    */
-  for (const rule_ptr &rule : grammar.ubiquitous_tokens) {
+  for (const rule_ptr &rule : grammar.extra_tokens) {
     int i = 0;
     bool used_elsewhere_in_grammar = false;
     for (const Variable &variable : lexical_grammar.variables) {
       if (variable.rule->operator==(*rule)) {
-        syntax_grammar.ubiquitous_tokens.insert(Symbol(i, true));
+        syntax_grammar.extra_tokens.insert(Symbol(i, true));
         used_elsewhere_in_grammar = true;
       }
       i++;
@@ -183,7 +183,7 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens
         syntax_grammar, lexical_grammar,
         ubiq_token_err(syntax_grammar.variables[new_symbol.index].name));
 
-    syntax_grammar.ubiquitous_tokens.insert(new_symbol);
+    syntax_grammar.extra_tokens.insert(new_symbol);
   }
 
   return make_tuple(syntax_grammar, lexical_grammar, nullptr);

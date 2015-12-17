@@ -61,11 +61,11 @@ pair<InternedGrammar, const GrammarError *> intern_symbols(const Grammar &gramma
       new_rule));
   }
 
-  for (auto &rule : grammar.ubiquitous_tokens()) {
+  for (auto &rule : grammar.extra_tokens()) {
     auto new_rule = interner.apply(rule);
     if (!interner.missing_rule_name.empty())
       return { result, missing_rule_error(interner.missing_rule_name) };
-    result.ubiquitous_tokens.push_back(new_rule);
+    result.extra_tokens.push_back(new_rule);
   }
 
   for (auto &names : grammar.expected_conflicts()) {

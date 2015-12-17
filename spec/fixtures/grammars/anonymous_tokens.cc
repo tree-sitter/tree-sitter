@@ -9,7 +9,7 @@ extern const Grammar anonymous_tokens = Grammar({
     str("\r"),
     pattern("\\d"),
     str("\"hello\"") }) },
-}).ubiquitous_tokens({
+}).extra_tokens({
   pattern("\\s"),
 });
 

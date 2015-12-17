@@ -37,7 +37,7 @@ struct SyntaxGrammar {
   const std::vector<Production> &productions(const rules::Symbol &) const;
 
   std::vector<SyntaxVariable> variables;
-  std::set<rules::Symbol> ubiquitous_tokens;
+  std::set<rules::Symbol> extra_tokens;
   std::set<ConflictSet> expected_conflicts;
 };
 

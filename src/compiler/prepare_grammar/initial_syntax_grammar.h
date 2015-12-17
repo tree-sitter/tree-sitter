@@ -14,7 +14,7 @@ namespace prepare_grammar {
 
 struct InitialSyntaxGrammar {
   std::vector<Variable> variables;
-  std::set<rules::Symbol> ubiquitous_tokens;
+  std::set<rules::Symbol> extra_tokens;
   std::set<ConflictSet> expected_conflicts;
 };
 

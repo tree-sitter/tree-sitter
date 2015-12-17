@@ -38,18 +38,18 @@ describe("intern_symbols", []() {
     });
   });
 
-  it("translates the grammar's optional 'ubiquitous_tokens' to numerical symbols", [&]() {
+  it("translates the grammar's optional 'extra_tokens' to numerical symbols", [&]() {
     auto grammar = Grammar({
       { "x", choice({ sym("y"), sym("z") }) },
       { "y", sym("z") },
       { "z", str("stuff") }
-    }).ubiquitous_tokens({ sym("z") });
+    }).extra_tokens({ sym("z") });
 
     auto result = intern_symbols(grammar);
 
     AssertThat(result.second, Equals((GrammarError *)nullptr));
-    AssertThat(result.first.ubiquitous_tokens.size(), Equals<size_t>(1));
-    AssertThat(*result.first.ubiquitous_tokens.begin(), EqualsPointer(i_sym(2)));
+    AssertThat(result.first.extra_tokens.size(), Equals<size_t>(1));
+    AssertThat(*result.first.extra_tokens.begin(), EqualsPointer(i_sym(2)));
   });
 });
 

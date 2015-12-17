@@ -251,7 +251,7 @@ extern const Grammar c = Grammar({
         pattern("[^\\*]"),
         pattern("\\*[^/]") })),
       str("*/") }) })) },
-}).ubiquitous_tokens({
+}).extra_tokens({
   sym("comment"),
   pattern("[ \t\r\n]"),
 }).expected_conflicts({
