@@ -21,8 +21,7 @@ ParseItem::ParseItem(const Symbol &lhs, const Production &production,
 
 bool ParseItem::operator==(const ParseItem &other) const {
   return ((variable_index == other.variable_index) &&
-          (step_index == other.step_index) &&
-          (production == other.production));
+          (step_index == other.step_index) && (production == other.production));
 }
 
 bool ParseItem::operator<(const ParseItem &other) const {
@@ -75,7 +74,7 @@ rules::Associativity ParseItem::associativity() const {
 size_t ParseItem::Hash::operator()(const ParseItem &item) const {
   size_t result = hash<int>()(item.variable_index);
   result ^= hash<unsigned int>()(item.step_index);
-  result ^= hash<void *>()((void *)item.production);
+  result ^= hash<const void *>()(static_cast<const void *>(item.production));
   return result;
 }
 

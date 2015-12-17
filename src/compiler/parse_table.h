@@ -17,10 +17,6 @@ typedef uint64_t ParseStateId;
 
 typedef enum {
   ParseActionTypeError,
-  ParseActionTypeReduceExtra,
-  ParseActionTypeReduceFragile,
-  ParseActionTypeShiftExtra,
-
   ParseActionTypeShift,
   ParseActionTypeReduce,
   ParseActionTypeAccept,
@@ -45,6 +41,9 @@ class ParseAction {
   bool operator<(const ParseAction &) const;
 
   ParseActionType type;
+  bool extra;
+  bool fragile;
+  bool can_hide_split;
   rules::Symbol symbol;
   ParseStateId state_index;
   size_t consumed_symbol_count;
@@ -64,6 +63,8 @@ struct hash<tree_sitter::ParseAction> {
             hash<tree_sitter::rules::Symbol>()(action.symbol) ^
             hash<size_t>()(action.state_index) ^
             hash<size_t>()(action.consumed_symbol_count) ^
+            hash<bool>()(action.extra) ^ hash<bool>()(action.fragile) ^
+            hash<bool>()(action.can_hide_split) ^
             hash<int>()(action.associativity) ^
             hash<int>()(action.precedence_range.min) ^
             hash<int>()(action.precedence_range.max) ^

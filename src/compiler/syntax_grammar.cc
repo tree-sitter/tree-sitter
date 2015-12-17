@@ -21,9 +21,7 @@ SyntaxVariable::SyntaxVariable(const string &name, VariableType type,
 
 ProductionStep::ProductionStep(const rules::Symbol &symbol, int precedence,
                                rules::Associativity associativity)
-    : symbol(symbol),
-      precedence(precedence),
-      associativity(associativity) {}
+    : symbol(symbol), precedence(precedence), associativity(associativity) {}
 
 bool ProductionStep::operator==(const ProductionStep &other) const {
   return symbol == other.symbol && precedence == other.precedence &&

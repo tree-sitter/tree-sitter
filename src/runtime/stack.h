@@ -22,10 +22,7 @@ typedef struct {
   int head_index;
 } StackPopResult;
 
-typedef struct {
-  void *data;
-  TSTree *(*callback)(void *, TSTree *, TSTree *);
-} TreeSelectionCallback;
+typedef TSTree *(*TreeSelectionFunction)(void *, TSTree *, TSTree *);
 
 /*
  *  Create a parse stack.
@@ -117,7 +114,8 @@ void ts_stack_remove_head(Stack *, int head);
  */
 void ts_stack_clear(Stack *);
 
-void ts_stack_set_tree_selection_callback(Stack *, TreeSelectionCallback);
+void ts_stack_set_tree_selection_callback(Stack *, void *,
+                                          TreeSelectionFunction);
 
 #ifdef __cplusplus
 }

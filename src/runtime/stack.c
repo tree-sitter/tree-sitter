@@ -22,7 +22,8 @@ struct Stack {
   int head_capacity;
   Vector pop_results;
   Vector pop_paths;
-  TreeSelectionCallback tree_selection_callback;
+  void *tree_selection_payload;
+  TreeSelectionFunction tree_selection_function;
 };
 
 typedef struct {
@@ -46,7 +47,8 @@ Stack *ts_stack_new() {
     .heads = calloc(INITIAL_HEAD_CAPACITY, sizeof(StackNode *)),
     .head_count = 1,
     .head_capacity = INITIAL_HEAD_CAPACITY,
-    .tree_selection_callback = {NULL, ts_stack__default_tree_selection},
+    .tree_selection_payload = NULL,
+    .tree_selection_function = ts_stack__default_tree_selection,
     .pop_results = vector_new(sizeof(StackPopResult), 4),
     .pop_paths = vector_new(sizeof(PopPath), 4),
   };
@@ -152,8 +154,8 @@ static void ts_stack__add_node_successor(Stack *self, StackNode *node,
 
     if (successor->entry.state == new_successor->entry.state) {
       if (successor->entry.tree != new_successor->entry.tree) {
-        successor->entry.tree = self->tree_selection_callback.callback(
-          self->tree_selection_callback.data, successor->entry.tree,
+        successor->entry.tree = self->tree_selection_function(
+          self->tree_selection_payload, successor->entry.tree,
           new_successor->entry.tree);
         ts_tree_retain(successor->entry.tree);
       }
@@ -207,8 +209,8 @@ static bool ts_stack__merge_head(Stack *self, int head_index, TSStateId state,
     if (head->entry.state == state &&
         ts_length_eq(head->entry.position, position)) {
       if (head->entry.tree != tree) {
-        head->entry.tree = self->tree_selection_callback.callback(
-          self->tree_selection_callback.data, head->entry.tree, tree);
+        head->entry.tree = self->tree_selection_function(
+          self->tree_selection_payload, head->entry.tree, tree);
         ts_tree_retain(head->entry.tree);
       }
       ts_stack__add_node_successor(self, head, self->heads[head_index]);
@@ -237,8 +239,8 @@ bool ts_stack_push(Stack *self, int head_index, TSStateId state, TSTree *tree) {
 void ts_stack_add_alternative(Stack *self, int head_index, TSTree *tree) {
   assert(head_index < self->head_count);
   StackEntry *entry = &self->heads[head_index]->entry;
-  entry->tree = self->tree_selection_callback.callback(
-    self->tree_selection_callback.data, entry->tree, tree);
+  entry->tree = self->tree_selection_function(self->tree_selection_payload,
+                                              entry->tree, tree);
 }
 
 int ts_stack_split(Stack *self, int head_index) {
@@ -356,6 +358,8 @@ void ts_stack_clear(Stack *self) {
   self->heads[0] = NULL;
 }
 
-void ts_stack_set_tree_selection_callback(Stack *self, TreeSelectionCallback callback) {
-  self->tree_selection_callback = callback;
+void ts_stack_set_tree_selection_callback(Stack *self, void *payload,
+                                          TreeSelectionFunction function) {
+  self->tree_selection_payload = payload;
+  self->tree_selection_function = function;
 }

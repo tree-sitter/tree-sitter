@@ -90,6 +90,11 @@ static inline void ts_tree_set_fragile_right(TSTree *tree) {
   tree->options.fragile_right = true;
 }
 
+static inline void ts_tree_set_fragile(TSTree *tree) {
+  ts_tree_set_fragile_left(tree);
+  ts_tree_set_fragile_right(tree);
+}
+
 static inline bool ts_tree_is_fragile_left(const TSTree *tree) {
   return tree->options.fragile_left;
 }

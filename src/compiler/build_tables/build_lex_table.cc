@@ -159,12 +159,8 @@ class LexTableBuilder {
   void mark_fragile_tokens() {
     for (LexState &state : lex_table.states)
       if (state.default_action.type == LexActionTypeAccept)
-        if (has_fragile_token(state.default_action.symbol))
+        if (conflict_manager.fragile_tokens.count(state.default_action.symbol))
           state.default_action.type = LexActionTypeAcceptFragile;
-  }
-
-  bool has_fragile_token(const Symbol &symbol) {
-    return conflict_manager.fragile_tokens.find(symbol) != conflict_manager.fragile_tokens.end();
   }
 };
 

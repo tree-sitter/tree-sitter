@@ -27,8 +27,8 @@ static const char *names[] = {
 
 describe("Tree", []() {
   TSTree *tree1, *tree2, *parent1;
-  TSSymbolMetadata visible = {true, true, false};
-  TSSymbolMetadata invisible = {false, false, false};
+  TSSymbolMetadata visible = {true, true, false, true};
+  TSSymbolMetadata invisible = {false, false, false, true};
 
   before_each([&]() {
     tree1 = ts_tree_make_leaf(cat, {2, 1, 0, 1}, {5, 4, 0, 4}, visible);

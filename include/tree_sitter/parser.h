@@ -27,6 +27,7 @@ typedef struct {
   bool visible : 1;
   bool named : 1;
   bool extra : 1;
+  bool structural : 1;
 } TSSymbolMetadata;
 
 typedef struct TSLexer {
@@ -55,15 +56,11 @@ typedef struct TSLexer {
 typedef enum {
   TSParseActionTypeError = 1,
   TSParseActionTypeShift,
-  TSParseActionTypeShiftExtra,
   TSParseActionTypeReduce,
-  TSParseActionTypeReduceExtra,
-  TSParseActionTypeReduceFragile,
   TSParseActionTypeAccept,
 } TSParseActionType;
 
 typedef struct {
-  TSParseActionType type;
   union {
     TSStateId to_state;
     struct {
@@ -71,6 +68,10 @@ typedef struct {
       unsigned short child_count;
     };
   } data;
+  TSParseActionType type : 3;
+  bool extra : 1;
+  bool fragile : 1;
+  bool can_hide_split : 1;
 } TSParseAction;
 
 struct TSLanguage {
@@ -136,29 +137,32 @@ struct TSLanguage {
     }                 \
   }
 
-#define SHIFT(to_state_value)                                             \
-  {                                                                       \
-    .type = TSParseActionTypeShift, .data = {.to_state = to_state_value } \
+enum {
+  FRAGILE = 1,
+  CAN_HIDE_SPLIT = 2,
+};
+
+#define SHIFT(to_state_value, flags)                 \
+  {                                                  \
+    .type = TSParseActionTypeShift,                  \
+    .can_hide_split = (flags & CAN_HIDE_SPLIT) != 0, \
+    .data = {.to_state = to_state_value }            \
   }
 
 #define SHIFT_EXTRA() \
-  { .type = TSParseActionTypeShiftExtra }
+  { .type = TSParseActionTypeShift, .extra = true }
 
-#define REDUCE_EXTRA(symbol_val)                                          \
-  {                                                                       \
-    .type = TSParseActionTypeReduceExtra, .data = {.symbol = symbol_val } \
+#define REDUCE_EXTRA(symbol_val)                      \
+  {                                                   \
+    .type = TSParseActionTypeReduce, .extra = true,   \
+    .data = {.symbol = symbol_val, .child_count = 1 } \
   }
 
-#define REDUCE(symbol_val, child_count_val)                         \
-  {                                                                 \
-    .type = TSParseActionTypeReduce,                                \
-    .data = {.symbol = symbol_val, .child_count = child_count_val } \
-  }
-
-#define REDUCE_FRAGILE(symbol_val, child_count_val)                 \
-  {                                                                 \
-    .type = TSParseActionTypeReduceFragile,                         \
-    .data = {.symbol = symbol_val, .child_count = child_count_val } \
+#define REDUCE(symbol_val, child_count_val, flags)                      \
+  {                                                                     \
+    .type = TSParseActionTypeReduce, .fragile = (flags & FRAGILE) != 0, \
+    .can_hide_split = (flags & CAN_HIDE_SPLIT) != 0,                    \
+    .data = {.symbol = symbol_val, .child_count = child_count_val }     \
   }
 
 #define ACCEPT_INPUT() \

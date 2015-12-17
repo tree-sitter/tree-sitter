@@ -17,6 +17,9 @@ ParseAction::ParseAction(ParseActionType type, ParseStateId state_index,
                          rules::Associativity associativity,
                          const Production *production)
     : type(type),
+      extra(false),
+      fragile(false),
+      can_hide_split(false),
       symbol(symbol),
       state_index(state_index),
       consumed_symbol_count(consumed_symbol_count),
@@ -26,6 +29,9 @@ ParseAction::ParseAction(ParseActionType type, ParseStateId state_index,
 
 ParseAction::ParseAction()
     : type(ParseActionTypeError),
+      extra(false),
+      fragile(false),
+      can_hide_split(false),
       symbol(Symbol(-1)),
       state_index(-1),
       consumed_symbol_count(0),
@@ -49,14 +55,17 @@ ParseAction ParseAction::Shift(ParseStateId state_index,
 
 ParseAction ParseAction::ShiftExtra() {
   ParseAction action;
-  action.type = ParseActionTypeShiftExtra;
+  action.type = ParseActionTypeShift;
+  action.extra = true;
   return action;
 }
 
 ParseAction ParseAction::ReduceExtra(Symbol symbol) {
   ParseAction action;
-  action.type = ParseActionTypeReduceExtra;
+  action.type = ParseActionTypeReduce;
+  action.extra = true;
   action.symbol = symbol;
+  action.consumed_symbol_count = 1;
   return action;
 }
 
@@ -69,19 +78,29 @@ ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
 }
 
 bool ParseAction::operator==(const ParseAction &other) const {
-  return (
-    type == other.type &&
-    symbol == other.symbol &&
-    state_index == other.state_index &&
-    production == other.production &&
-    consumed_symbol_count == other.consumed_symbol_count
-  );
+  return (type == other.type && extra == other.extra &&
+          fragile == other.fragile && can_hide_split == other.can_hide_split &&
+          symbol == other.symbol && state_index == other.state_index &&
+          production == other.production &&
+          consumed_symbol_count == other.consumed_symbol_count);
 }
 
 bool ParseAction::operator<(const ParseAction &other) const {
   if (type < other.type)
     return true;
   if (other.type < type)
+    return false;
+  if (extra && !other.extra)
+    return true;
+  if (other.extra && !extra)
+    return false;
+  if (fragile && !other.fragile)
+    return true;
+  if (other.fragile && !fragile)
+    return false;
+  if (can_hide_split && !other.can_hide_split)
+    return true;
+  if (other.can_hide_split && !can_hide_split)
     return false;
   if (symbol < other.symbol)
     return true;
@@ -121,16 +140,20 @@ ParseStateId ParseTable::add_state() {
 
 ParseAction &ParseTable::set_action(ParseStateId id, Symbol symbol,
                                     ParseAction action) {
-  bool structural = action.type != ParseActionTypeShiftExtra;
-  symbols[symbol].structural += structural;
+  if (action.extra)
+    symbols[symbol];
+  else
+    symbols[symbol].structural = true;
   states[id].actions[symbol] = vector<ParseAction>({ action });
   return *states[id].actions[symbol].begin();
 }
 
 ParseAction &ParseTable::add_action(ParseStateId id, Symbol symbol,
                                     ParseAction action) {
-  bool structural = action.type != ParseActionTypeShiftExtra;
-  symbols[symbol].structural += structural;
+  if (action.extra)
+    symbols[symbol];
+  else
+    symbols[symbol].structural = true;
   states[id].actions[symbol].push_back(action);
   return *states[id].actions[symbol].rbegin();
 }

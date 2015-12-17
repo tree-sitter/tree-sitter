@@ -22,13 +22,13 @@ static const char *ts_symbol_names[] = {
 };
 
 static const TSSymbolMetadata ts_symbol_metadata[SYMBOL_COUNT] = {
-    [sym_program] = {.visible = true, .named = true, .extra = false},
-    [ts_builtin_sym_error] = {.visible = true, .named = true, .extra = true},
-    [ts_builtin_sym_end] = {.visible = false, .named = false, .extra = false},
-    [anon_sym_LF] = {.visible = true, .named = false, .extra = false},
-    [anon_sym_CR] = {.visible = true, .named = false, .extra = false},
-    [aux_sym_SLASH_BSLASHd_SLASH] = {.visible = false, .named = false, .extra = false},
-    [anon_sym_DQUOTEhello_DQUOTE] = {.visible = true, .named = false, .extra = false},
+    [sym_program] = {.visible = true, .named = true, .structural = true, .extra = false},
+    [ts_builtin_sym_error] = {.visible = true, .named = true, .structural = false, .extra = false},
+    [ts_builtin_sym_end] = {.visible = false, .named = false, .structural = true, .extra = false},
+    [anon_sym_LF] = {.visible = true, .named = false, .structural = true, .extra = false},
+    [anon_sym_CR] = {.visible = true, .named = false, .structural = true, .extra = false},
+    [aux_sym_SLASH_BSLASHd_SLASH] = {.visible = false, .named = false, .structural = true, .extra = false},
+    [anon_sym_DQUOTEhello_DQUOTE] = {.visible = true, .named = false, .structural = true, .extra = false},
 };
 
 static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
@@ -148,17 +148,17 @@ static TSStateId ts_lex_states[STATE_COUNT] = {
 
 static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
     [0] = {
-        [sym_program] = ACTIONS(SHIFT(1)),
-        [anon_sym_LF] = ACTIONS(SHIFT(2)),
-        [anon_sym_CR] = ACTIONS(SHIFT(2)),
-        [aux_sym_SLASH_BSLASHd_SLASH] = ACTIONS(SHIFT(2)),
-        [anon_sym_DQUOTEhello_DQUOTE] = ACTIONS(SHIFT(2)),
+        [sym_program] = ACTIONS(SHIFT(1, 0)),
+        [anon_sym_LF] = ACTIONS(SHIFT(2, 0)),
+        [anon_sym_CR] = ACTIONS(SHIFT(2, 0)),
+        [aux_sym_SLASH_BSLASHd_SLASH] = ACTIONS(SHIFT(2, 0)),
+        [anon_sym_DQUOTEhello_DQUOTE] = ACTIONS(SHIFT(2, 0)),
     },
     [1] = {
         [ts_builtin_sym_end] = ACTIONS(ACCEPT_INPUT()),
     },
     [2] = {
-        [ts_builtin_sym_end] = ACTIONS(REDUCE(sym_program, 1)),
+        [ts_builtin_sym_end] = ACTIONS(REDUCE(sym_program, 1, 0)),
     },
 };
 

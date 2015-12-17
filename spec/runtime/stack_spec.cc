@@ -40,15 +40,15 @@ describe("Stack", [&]() {
   TSTree *trees[tree_count];
   TreeSelectionSpy tree_selection_spy{0, NULL, {NULL, NULL}};
   TSLength tree_len = {2, 3, 0, 3};
-  TSSymbolMetadata metadata = {true, true, true};
+  TSSymbolMetadata metadata = {true, true, true, true};
 
-  before_each([&]() {
+  before_each([&]()   {
     stack = ts_stack_new();
 
-    ts_stack_set_tree_selection_callback(stack, {
+    ts_stack_set_tree_selection_callback(stack,
       &tree_selection_spy,
       tree_selection_spy_callback
-    });
+    );
 
     for (size_t i = 0; i < tree_count; i++)
       trees[i] = ts_tree_make_leaf(i, ts_length_zero(), tree_len, {});
