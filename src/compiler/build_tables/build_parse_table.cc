@@ -43,8 +43,7 @@ class ParseTableBuilder {
   ParseTableBuilder(const SyntaxGrammar &grammar,
                     const LexicalGrammar &lex_grammar)
       : grammar(grammar),
-        lexical_grammar(lex_grammar),
-        conflict_manager(grammar) {}
+        lexical_grammar(lex_grammar) {}
 
   pair<ParseTable, const GrammarError *> build() {
     Symbol start_symbol = Symbol(0, grammar.variables.empty());
@@ -247,8 +246,7 @@ class ParseTableBuilder {
       return &parse_table.set_action(state_id, lookahead, new_action);
 
     const ParseAction old_action = current_entry->second[0];
-    auto resolution =
-      conflict_manager.resolve(new_action, old_action, lookahead);
+    auto resolution = conflict_manager.resolve(new_action, old_action);
 
     switch (resolution.second) {
       case ConflictTypeNone:

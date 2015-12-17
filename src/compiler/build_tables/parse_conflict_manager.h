@@ -22,12 +22,8 @@ enum ConflictType {
 };
 
 class ParseConflictManager {
-  const SyntaxGrammar syntax_grammar;
-
  public:
-  explicit ParseConflictManager(const SyntaxGrammar &);
-  std::pair<bool, ConflictType> resolve(const ParseAction &, const ParseAction &,
-                                        const rules::Symbol &) const;
+  std::pair<bool, ConflictType> resolve(const ParseAction &, const ParseAction &) const;
 };
 
 }  // namespace build_tables

@@ -9,14 +9,10 @@ namespace build_tables {
 using std::pair;
 using std::vector;
 
-ParseConflictManager::ParseConflictManager(const SyntaxGrammar &syntax_grammar)
-    : syntax_grammar(syntax_grammar) {}
-
 pair<bool, ConflictType> ParseConflictManager::resolve(
-  const ParseAction &new_action, const ParseAction &old_action,
-  const rules::Symbol &symbol) const {
+  const ParseAction &new_action, const ParseAction &old_action) const {
   if (new_action.type < old_action.type) {
-    auto opposite = resolve(old_action, new_action, symbol);
+    auto opposite = resolve(old_action, new_action);
     return { !opposite.first, opposite.second };
   }
 
