@@ -166,9 +166,16 @@ class CCodeGenerator {
         add(", ");
 
         if (entry.second.structural)
-          add(".extra = false");
+          add(".structural = true");
         else
+          add(".structural = false");
+
+        add(", ");
+
+        if (syntax_grammar.ubiquitous_tokens.find(symbol) != syntax_grammar.ubiquitous_tokens.end())
           add(".extra = true");
+        else
+          add(".extra = false");
 
         add("},");
       }

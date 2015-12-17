@@ -210,6 +210,8 @@ static TSTree *ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
 
 static bool ts_parser__shift(TSParser *self, int head,
                                       TSStateId parse_state, TSTree *lookahead) {
+  if (self->language->symbol_metadata[lookahead->symbol].extra)
+    ts_tree_set_fragile(lookahead);
   if (ts_stack_push(self->stack, head, parse_state, lookahead)) {
     LOG("merge head:%d", head);
     vector_erase(&self->lookahead_states, head);
@@ -222,7 +224,7 @@ static bool ts_parser__shift(TSParser *self, int head,
 static bool ts_parser__shift_extra(TSParser *self, int head, TSStateId state,
                                    TSTree *lookahead) {
   TSSymbolMetadata metadata = self->language->symbol_metadata[lookahead->symbol];
-  if (!metadata.extra && ts_stack_head_count(self->stack) > 1)
+  if (metadata.structural && ts_stack_head_count(self->stack) > 1)
     lookahead = ts_tree_make_copy(lookahead);
   ts_tree_set_extra(lookahead);
   return ts_parser__shift(self, head, state, lookahead);
