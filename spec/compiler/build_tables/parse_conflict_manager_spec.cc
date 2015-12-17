@@ -41,15 +41,38 @@ describe("ParseConflictManager", []() {
     });
 
     describe("shift-extra actions", [&]() {
-      ParseAction shift_extra = ParseAction::Error();
-      ParseAction other = ParseAction::Shift(2, { 0, 0 });
+      ParseAction shift_extra = ParseAction::ShiftExtra();
+      ParseAction shift = ParseAction::Shift(2, { 0, 0 });
+      ParseAction reduce = ParseAction::Reduce(sym2, 1, -1, AssociativityRight, production);
 
-      it("favors other actions over shift-extra actions", [&]() {
-        result = conflict_manager->resolve(other, shift_extra);
+      it("favors any shift action over a shift-extra actions", [&]() {
+        result = conflict_manager->resolve(shift, shift_extra);
         AssertThat(result.first, IsTrue());
         AssertThat(result.second, Equals(ConflictTypeNone));
 
-        result = conflict_manager->resolve(shift_extra, other);
+        result = conflict_manager->resolve(shift_extra, shift);
+        AssertThat(result.first, IsFalse());
+        AssertThat(result.second, Equals(ConflictTypeNone));
+      });
+
+      it("favors any reduce action over a shift-extra actions", [&]() {
+        result = conflict_manager->resolve(reduce, shift_extra);
+        AssertThat(result.first, IsTrue());
+        AssertThat(result.second, Equals(ConflictTypeNone));
+
+        result = conflict_manager->resolve(shift_extra, reduce);
+        AssertThat(result.first, IsFalse());
+        AssertThat(result.second, Equals(ConflictTypeNone));
+      });
+    });
+
+    describe("reduce-extra actions", [&]() {
+      it("favors shift-extra actions over reduce-extra actions", [&]() {
+        result = conflict_manager->resolve(ParseAction::ShiftExtra(), ParseAction::ReduceExtra(sym1));
+        AssertThat(result.first, IsTrue());
+        AssertThat(result.second, Equals(ConflictTypeNone));
+
+        result = conflict_manager->resolve(ParseAction::ReduceExtra(sym1), ParseAction::ShiftExtra());
         AssertThat(result.first, IsFalse());
         AssertThat(result.second, Equals(ConflictTypeNone));
       });

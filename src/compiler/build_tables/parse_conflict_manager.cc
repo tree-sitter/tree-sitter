@@ -21,9 +21,11 @@ pair<bool, ConflictType> ParseConflictManager::resolve(
       return { true, ConflictTypeNone };
 
     case ParseActionTypeShift:
-      if (new_action.type == ParseActionTypeReduce) {
-        if (new_action.extra)
-          return { false, ConflictTypeNone };
+      if (new_action.extra) {
+        return {false, ConflictTypeNone};
+      } else if (old_action.extra) {
+        return {true, ConflictTypeNone};
+      } else if (new_action.type == ParseActionTypeReduce) {
         int min_precedence = old_action.precedence_range.min;
         int max_precedence = old_action.precedence_range.max;
         int new_precedence = new_action.precedence_range.max;
@@ -48,15 +50,14 @@ pair<bool, ConflictType> ParseConflictManager::resolve(
           return { false, ConflictTypeUnresolved };
         }
       }
+      break;
 
     case ParseActionTypeReduce:
-      if (new_action.extra)
-        return { false, ConflictTypeNone };
-      if (old_action.extra)
-        return { true, ConflictTypeNone };
-      if (new_action.extra)
-        return { false, ConflictTypeNone };
       if (new_action.type == ParseActionTypeReduce) {
+        if (new_action.extra)
+          return { false, ConflictTypeNone };
+        if (old_action.extra)
+          return { true, ConflictTypeNone };
         int old_precedence = old_action.precedence_range.min;
         int new_precedence = new_action.precedence_range.min;
         if (new_precedence > old_precedence) {
