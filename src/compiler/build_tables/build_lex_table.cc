@@ -41,7 +41,6 @@ class LexTableBuilder {
  public:
   LexTableBuilder(ParseTable *parse_table, const LexicalGrammar &lex_grammar)
       : lex_grammar(lex_grammar),
-        conflict_manager(lex_grammar),
         parse_table(parse_table) {
     for (const rule_ptr &rule : lex_grammar.separators)
       separator_rules.push_back(rules::Repeat::build(rule));

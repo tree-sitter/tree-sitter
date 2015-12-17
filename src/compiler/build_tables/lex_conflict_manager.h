@@ -13,10 +13,7 @@ class LexAction;
 namespace build_tables {
 
 class LexConflictManager {
-  const LexicalGrammar grammar;
-
  public:
-  explicit LexConflictManager(const LexicalGrammar &);
   bool resolve(const LexAction &, const LexAction &);
 
   std::set<rules::Symbol> fragile_tokens;

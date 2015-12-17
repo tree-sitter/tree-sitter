@@ -6,9 +6,6 @@
 namespace tree_sitter {
 namespace build_tables {
 
-LexConflictManager::LexConflictManager(const LexicalGrammar &grammar)
-    : grammar(grammar) {}
-
 bool LexConflictManager::resolve(const LexAction &new_action,
                                  const LexAction &old_action) {
   if (new_action.type < old_action.type)

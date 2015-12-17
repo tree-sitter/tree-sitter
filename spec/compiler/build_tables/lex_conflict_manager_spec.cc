@@ -9,13 +9,7 @@ using namespace build_tables;
 START_TEST
 
 describe("LexConflictManager::resolve(new_action, old_action)", []() {
-  LexicalGrammar lexical_grammar{{
-    Variable("other_token", VariableTypeNamed, pattern("[a-b]")),
-    Variable("lookahead_token", VariableTypeNamed, pattern("[c-d]"))
-  }, {}};
-
-  LexConflictManager conflict_manager(lexical_grammar);
-
+  LexConflictManager conflict_manager;
   bool update;
   Symbol sym1(0, true);
   Symbol sym2(1, true);
