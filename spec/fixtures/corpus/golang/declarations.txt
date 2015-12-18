@@ -4,6 +4,7 @@ simple declarations
 
 package trivial
 
+var X struct { Y int64 }
 type x int64
 var y = ""
 func z() {}
@@ -11,26 +12,11 @@ func z() {}
 ---
 
 (program
-    (package_directive (package_name))
-    (type_declaration (type_name) (type_name))
-    (var_declaration (var_name) (string))
-    (func_declaration (var_name) (block_statement)))
-
-==========================================
-var declarations
-==========================================
-
-package trivial
-
-var X struct { Y int64 }
-var Z = ""
-
----
-
-(program
-    (package_directive (package_name))
-    (var_declaration (var_name) (struct_type (var_name) (type_name)))
-    (var_declaration (var_name) (string)))
+  (package_directive (package_name))
+  (var_declaration (var_name) (struct_type (var_name) (type_name)))
+  (type_declaration (type_name) (type_name))
+  (var_declaration (var_name) (string))
+  (func_declaration (var_name) (block_statement)))
 
 ==========================================
 comments

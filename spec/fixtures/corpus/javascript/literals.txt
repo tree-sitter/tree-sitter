@@ -1,36 +1,17 @@
 ==========================================
-regexes
+primitives
 ==========================================
 
 theFunction(/regex1/, /regex2/g);
-
----
-
-(program (expression_statement
-  (function_call (identifier) (arguments (regex) (regex)))))
-
-==========================================
-numbers
-==========================================
-
 theFunction(100.0, 200);
-
----
-
-(program (expression_statement
-  (function_call (identifier) (arguments (number) (number)))))
-
-==========================================
-strings
-==========================================
-
 theFunction('', "", 'single-quoted-string', "double-quoted-string");
 
 ---
 
-(program (expression_statement
-  (function_call (identifier)
-    (arguments (string) (string) (string) (string)))))
+(program
+  (expression_statement (function_call (identifier) (arguments (regex) (regex))))
+  (expression_statement (function_call (identifier) (arguments (number) (number))))
+  (expression_statement (function_call (identifier) (arguments (string) (string) (string) (string)))))
 
 ==========================================
 function expressions

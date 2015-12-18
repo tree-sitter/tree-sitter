@@ -1,29 +1,4 @@
 ==========================================
-simple declarations
-==========================================
-
-int x;
-
----
-
-(translation_unit
-  (declaration (identifier) (identifier)))
-
-==========================================
-simple functions
-==========================================
-
-int main() {
-}
-
----
-
-(translation_unit (function_definition
-  (identifier)
-  (function_declarator (identifier))
-  (compound_statement)))
-
-==========================================
 ambiguous declarations
 ==========================================
 

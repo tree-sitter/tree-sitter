@@ -1,20 +1,4 @@
 ==================================================
-simple functions cpp
-==================================================
-
-int main() {
-  x;
-}
-
----
-
-(translation_unit (function_definition
-  (type_specifier (identifier))
-  (declarator (direct_declarator (direct_declarator (identifier))))
-  (function_body (compound_statement
-    (expression_statement (identifier))))))
-
-==================================================
 function calls
 ==================================================
 
