@@ -30,8 +30,11 @@ extern const Grammar arithmetic = Grammar({
 
   { "number", pattern("\\d+") },
 
-  // [a-ZA-Zα-ω]+\d*
-  { "variable", pattern("[a-zA-Z\u03b1-\u03c9]+\\d*") },
+  { "variable", token(seq({
+    pattern("[a-zA-Z\u03B1-\u03C9]"),
+    repeat(choice({
+      pattern("[a-zA-Z\u03B1-\u03C9]"),
+      pattern("[0-9]") })) })) },
 
   { "comment", pattern("#.*") },
 }).extra_tokens({

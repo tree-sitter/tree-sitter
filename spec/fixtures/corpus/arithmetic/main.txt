@@ -22,27 +22,7 @@ x
 variables with greek letters
 ====================================
 
-φ123
-
----
-
-(program (variable))
-
-===================
-products
-===================
-
-x * x
-
----
-
-(program (product (variable) (variable)))
-
-===================
-sums
-===================
-
-x + x
+φη12ψ + aγδεε
 
 ---
 
@@ -52,7 +32,7 @@ x + x
 operators of different precedence
 ===============================================
 
-a * b + c * d
+ε * δ + c * d
 
 ---
 
