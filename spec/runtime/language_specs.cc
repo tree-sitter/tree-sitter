@@ -145,8 +145,8 @@ describe("Languages", [&]() {
         std::set<std::pair<size_t, string>> insertions;
 
         for (size_t i = 0; i < 50; i++) {
-          size_t edit_position = random() % entry.input.size();
-          size_t deletion_size = random() % (entry.input.size() - edit_position);
+          size_t edit_position = random() % SpyInput::char_count(entry.input);
+          size_t deletion_size = random() % (SpyInput::char_count(entry.input) - edit_position);
           string inserted_text = random_words(random() % 4 + 1);
 
           if (insertions.insert({edit_position, inserted_text}).second) {

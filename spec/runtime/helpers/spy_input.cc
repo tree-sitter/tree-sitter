@@ -8,7 +8,7 @@ using std::string;
 
 static const size_t UTF8_MAX_CHAR_SIZE = 4;
 
-static size_t string_char_count(const string &text) {
+size_t SpyInput::char_count(const string &text) {
   const char *bytes = text.data();
   size_t len = text.size();
   size_t character = 0, byte = 0;
@@ -102,7 +102,7 @@ TSInput SpyInput::input() {
 
 TSInputEdit SpyInput::replace(size_t start_char, size_t chars_removed, string text) {
   string text_removed = swap_substr(start_char, chars_removed, text);
-  size_t chars_inserted = string_char_count(text);
+  size_t chars_inserted = SpyInput::char_count(text);
   undo_stack.push_back(SpyInputEdit{start_char, chars_inserted, text_removed});
   return {start_char, chars_inserted, chars_removed};
 }
@@ -111,7 +111,7 @@ TSInputEdit SpyInput::undo() {
   SpyInputEdit entry = undo_stack.back();
   undo_stack.pop_back();
   swap_substr(entry.position, entry.chars_removed, entry.text_inserted);
-  size_t chars_inserted = string_char_count(entry.text_inserted);
+  size_t chars_inserted = SpyInput::char_count(entry.text_inserted);
   return TSInputEdit{entry.position, chars_inserted, entry.chars_removed};
 }
 
