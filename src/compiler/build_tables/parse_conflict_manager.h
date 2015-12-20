@@ -23,7 +23,8 @@ enum ConflictType {
 
 class ParseConflictManager {
  public:
-  std::pair<bool, ConflictType> resolve(const ParseAction &, const ParseAction &) const;
+  std::pair<bool, ConflictType> resolve(const ParseAction &,
+                                        const ParseAction &) const;
 };
 
 }  // namespace build_tables

@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 #include "compiler/build_tables/lex_conflict_manager.h"
+#include "compiler/build_tables/remove_duplicate_states.h"
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/build_tables/does_match_any_line.h"
 #include "compiler/parse_table.h"
@@ -40,8 +41,7 @@ class LexTableBuilder {
 
  public:
   LexTableBuilder(ParseTable *parse_table, const LexicalGrammar &lex_grammar)
-      : lex_grammar(lex_grammar),
-        parse_table(parse_table) {
+      : lex_grammar(lex_grammar), parse_table(parse_table) {
     for (const rule_ptr &rule : lex_grammar.separators)
       separator_rules.push_back(rules::Repeat::build(rule));
     separator_rules.push_back(rules::Blank::build());
@@ -59,6 +59,7 @@ class LexTableBuilder {
     populate_lex_state(error_item_set, LexTable::ERROR_STATE_ID);
 
     mark_fragile_tokens();
+    remove_duplicate_lex_states();
 
     return lex_table;
   }
@@ -160,6 +161,18 @@ class LexTableBuilder {
       if (state.default_action.type == LexActionTypeAccept)
         if (conflict_manager.fragile_tokens.count(state.default_action.symbol))
           state.default_action.type = LexActionTypeAcceptFragile;
+  }
+
+  void remove_duplicate_lex_states() {
+    auto replacements =
+      remove_duplicate_states<LexState, LexAction, LexActionTypeAdvance>(
+        &lex_table.states);
+
+    for (ParseState &parse_state : parse_table->states) {
+      auto replacement = replacements.find(parse_state.lex_state_id);
+      if (replacement != replacements.end())
+        parse_state.lex_state_id = replacement->second;
+    }
   }
 };
 

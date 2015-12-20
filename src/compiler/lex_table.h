@@ -56,9 +56,12 @@ namespace tree_sitter {
 class LexState {
  public:
   LexState();
+  std::set<rules::CharacterSet> expected_inputs() const;
+  bool operator==(const LexState &) const;
+  void each_action(std::function<void(LexAction *)>);
+
   std::map<rules::CharacterSet, LexAction> actions;
   LexAction default_action;
-  std::set<rules::CharacterSet> expected_inputs() const;
   bool is_token_start;
 };
 

@@ -3,6 +3,7 @@
 
 namespace tree_sitter {
 
+using std::function;
 using std::string;
 using std::to_string;
 using std::map;
@@ -51,6 +52,16 @@ set<CharacterSet> LexState::expected_inputs() const {
   for (auto &pair : actions)
     result.insert(pair.first);
   return result;
+}
+
+bool LexState::operator==(const LexState &other) const {
+  return actions == other.actions && default_action == other.default_action &&
+         is_token_start == other.is_token_start;
+}
+
+void LexState::each_action(function<void(LexAction *)> fn) {
+  for (auto &entry : actions)
+    fn(&entry.second);
 }
 
 LexStateId LexTable::add_state() {
