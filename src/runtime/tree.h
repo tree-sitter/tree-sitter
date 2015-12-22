@@ -9,7 +9,8 @@ extern "C" {
 #include "tree_sitter/parser.h"
 #include "runtime/length.h"
 
-#define TSTREE_LEX_STATE_INDEPENDENT (unsigned short)(-1)
+#define TSTREE_STATE_INDEPENDENT (unsigned short)(-1)
+#define TSTREE_STATE_ERROR (TSTREE_STATE_INDEPENDENT - 1)
 
 struct TSTree {
   struct {
@@ -17,6 +18,7 @@ struct TSTree {
     size_t index;
     TSLength offset;
     TSStateId lex_state;
+    TSStateId parse_state;
   } context;
   size_t child_count;
   size_t visible_child_count;

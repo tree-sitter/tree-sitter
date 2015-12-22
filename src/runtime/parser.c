@@ -129,12 +129,14 @@ static bool ts_parser__can_reuse(TSParser *self, int head, TSTree *subtree) {
     return false;
   if (subtree->symbol == ts_builtin_sym_error)
     return false;
-  if (ts_tree_is_fragile(subtree))
-    return false;
+  if (ts_tree_is_fragile(subtree)) {
+    if (subtree->context.parse_state != ts_stack_top_state(self->stack, head))
+      return false;
+  }
 
   TSStateId state = ts_stack_top_state(self->stack, head);
 
-  if (subtree->context.lex_state != TSTREE_LEX_STATE_INDEPENDENT) {
+  if (subtree->context.lex_state != TSTREE_STATE_INDEPENDENT) {
     TSStateId lex_state = self->language->lex_states[state];
     if (subtree->context.lex_state != lex_state)
       return false;
@@ -335,6 +337,10 @@ static bool ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
      */
     TSStateId state;
     TSStateId top_state = ts_stack_top_state(self->stack, new_head);
+
+    if (parent->context.parse_state != TSTREE_STATE_ERROR)
+      parent->context.parse_state = top_state;
+
     if (extra) {
       ts_tree_set_extra(parent);
       state = top_state;
@@ -378,6 +384,7 @@ static bool ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
       TSTree **parent = vector_get(&self->reduce_parents, i);
       (*parent)->options.fragile_left = true;
       (*parent)->options.fragile_right = true;
+      (*parent)->context.parse_state = TSTREE_STATE_ERROR;
     }
   }
 
