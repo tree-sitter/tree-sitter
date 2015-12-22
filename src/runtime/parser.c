@@ -136,7 +136,7 @@ static bool ts_parser__can_reuse(TSParser *self, int head, TSTree *subtree) {
 
   TSStateId state = ts_stack_top_state(self->stack, head);
 
-  if (subtree->lex_state != TSTREE_STATE_INDEPENDENT) {
+  if (subtree->lex_state != TS_TREE_STATE_INDEPENDENT) {
     TSStateId lex_state = self->language->lex_states[state];
     if (subtree->lex_state != lex_state)
       return false;
@@ -338,7 +338,7 @@ static bool ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
     TSStateId state;
     TSStateId top_state = ts_stack_top_state(self->stack, new_head);
 
-    if (parent->parse_state != TSTREE_STATE_ERROR)
+    if (parent->parse_state != TS_TREE_STATE_ERROR)
       parent->parse_state = top_state;
 
     if (extra) {
@@ -384,7 +384,7 @@ static bool ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
       TSTree **parent = vector_get(&self->reduce_parents, i);
       (*parent)->fragile_left = true;
       (*parent)->fragile_right = true;
-      (*parent)->parse_state = TSTREE_STATE_ERROR;
+      (*parent)->parse_state = TS_TREE_STATE_ERROR;
     }
   }
 

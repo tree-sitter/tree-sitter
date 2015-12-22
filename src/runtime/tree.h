@@ -9,8 +9,8 @@ extern "C" {
 #include "tree_sitter/parser.h"
 #include "runtime/length.h"
 
-#define TSTREE_STATE_INDEPENDENT (unsigned short)(-1)
-#define TSTREE_STATE_ERROR (TSTREE_STATE_INDEPENDENT - 1)
+extern TSStateId TS_TREE_STATE_INDEPENDENT;
+extern TSStateId TS_TREE_STATE_ERROR;
 
 struct TSTree {
   struct {

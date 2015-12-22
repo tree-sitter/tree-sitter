@@ -1,10 +1,14 @@
 #include <assert.h>
+#include <limits.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 #include "runtime/length.h"
+
+TSStateId TS_TREE_STATE_INDEPENDENT = USHRT_MAX;
+TSStateId TS_TREE_STATE_ERROR = USHRT_MAX - 1;
 
 TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
                           TSSymbolMetadata metadata) {
@@ -20,8 +24,8 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
     .padding = padding,
     .visible = metadata.visible,
     .named = metadata.named,
-    .lex_state = TSTREE_STATE_INDEPENDENT,
-    .parse_state = TSTREE_STATE_INDEPENDENT,
+    .lex_state = TS_TREE_STATE_INDEPENDENT,
+    .parse_state = TS_TREE_STATE_INDEPENDENT,
   };
 
   if (sym == ts_builtin_sym_error) {
@@ -88,7 +92,7 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
 
     if (child->symbol == ts_builtin_sym_error) {
       self->fragile_left = self->fragile_right = true;
-      self->parse_state = TSTREE_STATE_ERROR;
+      self->parse_state = TS_TREE_STATE_ERROR;
     }
   }
 
