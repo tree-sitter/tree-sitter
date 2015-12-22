@@ -174,7 +174,7 @@ static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head) {
     }
 
     if (ts_tree_has_changes(state->reusable_subtree)) {
-      if (state->is_verifying) {
+      if (state->is_verifying && state->reusable_subtree->child_count == 0) {
         ts_parser__breakdown_top_of_stack(self, head);
         state->is_verifying = false;
       }
