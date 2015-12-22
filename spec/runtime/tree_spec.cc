@@ -47,8 +47,8 @@ describe("Tree", []() {
 
   describe("make_leaf(sym, size, padding, is_hidden)", [&]() {
     it("does not record that it is fragile", [&]() {
-      AssertThat(ts_tree_is_fragile_left(tree1), IsFalse());
-      AssertThat(ts_tree_is_fragile_right(tree1), IsFalse());
+      AssertThat(tree1->fragile_left, IsFalse());
+      AssertThat(tree1->fragile_right, IsFalse());
     });
   });
 
@@ -59,8 +59,8 @@ describe("Tree", []() {
         ts_length_zero(),
         'z');
 
-      AssertThat(ts_tree_is_fragile_left(error_tree), IsTrue());
-      AssertThat(ts_tree_is_fragile_right(error_tree), IsTrue());
+      AssertThat(error_tree->fragile_left, IsTrue());
+      AssertThat(error_tree->fragile_right, IsTrue());
     });
   });
 
@@ -81,8 +81,8 @@ describe("Tree", []() {
       TSTree *parent;
 
       before_each([&]() {
-        ts_tree_set_fragile_left(tree1);
-        ts_tree_set_extra(tree1);
+        tree1->fragile_left = true;
+        tree1->extra = true;
         parent = ts_tree_make_node(eel, 2, tree_array({
           tree1,
           tree2,
@@ -94,7 +94,7 @@ describe("Tree", []() {
       });
 
       it("records that it is fragile on the left side", [&]() {
-        AssertThat(ts_tree_is_fragile_left(parent), IsTrue());
+        AssertThat(parent->fragile_left, IsTrue());
       });
     });
 
@@ -102,8 +102,8 @@ describe("Tree", []() {
       TSTree *parent;
 
       before_each([&]() {
-        ts_tree_set_fragile_right(tree2);
-        ts_tree_set_extra(tree2);
+        tree2->fragile_right = true;
+        tree2->extra = true;
         parent = ts_tree_make_node(eel, 2, tree_array({
           tree1,
           tree2,
@@ -115,7 +115,7 @@ describe("Tree", []() {
       });
 
       it("records that it is fragile on the right side", [&]() {
-        AssertThat(ts_tree_is_fragile_right(parent), IsTrue());
+        AssertThat(parent->fragile_right, IsTrue());
       });
     });
 
@@ -123,8 +123,8 @@ describe("Tree", []() {
       TSTree *parent;
 
       before_each([&]() {
-        ts_tree_set_fragile_right(tree1);
-        ts_tree_set_fragile_left(tree2);
+        tree1->fragile_right = true;
+        tree2->fragile_left = true;
         parent = ts_tree_make_node(eel, 2, tree_array({
           tree1,
           tree2,
@@ -136,8 +136,8 @@ describe("Tree", []() {
       });
 
       it("records that it is not fragile", [&]() {
-        AssertThat(ts_tree_is_fragile_left(parent), IsFalse());
-        AssertThat(ts_tree_is_fragile_right(parent), IsFalse());
+        AssertThat(parent->fragile_left, IsFalse());
+        AssertThat(parent->fragile_right, IsFalse());
       });
     });
   });
@@ -175,15 +175,15 @@ describe("Tree", []() {
 
         assert_consistent(tree);
 
-        AssertThat(tree->options.has_changes, IsTrue());
+        AssertThat(tree->has_changes, IsTrue());
         AssertThat(tree->padding, Equals<TSLength>({0, 3, 0, 0}));
         AssertThat(tree->size, Equals<TSLength>({13, 13, 0, 13}));
 
-        AssertThat(tree->children[0]->options.has_changes, IsTrue());
+        AssertThat(tree->children[0]->has_changes, IsTrue());
         AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 3, 0, 0}));
         AssertThat(tree->children[0]->size, Equals<TSLength>({3, 3, 0, 3}));
 
-        AssertThat(tree->children[1]->options.has_changes, IsFalse());
+        AssertThat(tree->children[1]->has_changes, IsFalse());
         AssertThat(tree->children[1]->padding, Equals<TSLength>({2, 2, 0, 2}));
         AssertThat(tree->children[1]->size, Equals<TSLength>({3, 3, 0, 3}));
       });
@@ -195,11 +195,11 @@ describe("Tree", []() {
 
         assert_consistent(tree);
 
-        AssertThat(tree->options.has_changes, IsTrue());
+        AssertThat(tree->has_changes, IsTrue());
         AssertThat(tree->padding, Equals<TSLength>({0, 5, 0, 0}));
         AssertThat(tree->size, Equals<TSLength>({0, 11, 0, 0}));
 
-        AssertThat(tree->children[0]->options.has_changes, IsTrue());
+        AssertThat(tree->children[0]->has_changes, IsTrue());
         AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 5, 0, 0}));
         AssertThat(tree->children[0]->size, Equals<TSLength>({0, 1, 0, 0}));
       });
@@ -211,15 +211,15 @@ describe("Tree", []() {
 
         assert_consistent(tree);
 
-        AssertThat(tree->options.has_changes, IsTrue());
+        AssertThat(tree->has_changes, IsTrue());
         AssertThat(tree->padding, Equals<TSLength>({0, 4, 0, 0}));
         AssertThat(tree->size, Equals<TSLength>({13, 13, 0, 13}));
 
-        AssertThat(tree->children[0]->options.has_changes, IsTrue());
+        AssertThat(tree->children[0]->has_changes, IsTrue());
         AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 4, 0, 0}));
         AssertThat(tree->children[0]->size, Equals<TSLength>({3, 3, 0, 3}));
 
-        AssertThat(tree->children[1]->options.has_changes, IsFalse());
+        AssertThat(tree->children[1]->has_changes, IsFalse());
       });
     });
 
@@ -229,15 +229,15 @@ describe("Tree", []() {
 
         assert_consistent(tree);
 
-        AssertThat(tree->options.has_changes, IsTrue());
+        AssertThat(tree->has_changes, IsTrue());
         AssertThat(tree->padding, Equals<TSLength>({2, 2, 0, 2}));
         AssertThat(tree->size, Equals<TSLength>({0, 16, 0, 0}));
 
-        AssertThat(tree->children[0]->options.has_changes, IsTrue());
+        AssertThat(tree->children[0]->has_changes, IsTrue());
         AssertThat(tree->children[0]->padding, Equals<TSLength>({2, 2, 0, 2}));
         AssertThat(tree->children[0]->size, Equals<TSLength>({0, 6, 0, 0}));
 
-        AssertThat(tree->children[1]->options.has_changes, IsFalse());
+        AssertThat(tree->children[1]->has_changes, IsFalse());
       });
     });
 
@@ -247,19 +247,19 @@ describe("Tree", []() {
 
         assert_consistent(tree);
 
-        AssertThat(tree->options.has_changes, IsTrue());
+        AssertThat(tree->has_changes, IsTrue());
         AssertThat(tree->padding, Equals<TSLength>({0, 4, 0, 0}));
         AssertThat(tree->size, Equals<TSLength>({0, 4, 0, 0}));
 
-        AssertThat(tree->children[0]->options.has_changes, IsTrue());
+        AssertThat(tree->children[0]->has_changes, IsTrue());
         AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 4, 0, 0}));
         AssertThat(tree->children[0]->size, Equals<TSLength>({0, 0, 0, 0}));
 
-        AssertThat(tree->children[1]->options.has_changes, IsTrue());
+        AssertThat(tree->children[1]->has_changes, IsTrue());
         AssertThat(tree->children[1]->padding, Equals<TSLength>({0, 0, 0, 0}));
         AssertThat(tree->children[1]->size, Equals<TSLength>({0, 0, 0, 0}));
 
-        AssertThat(tree->children[2]->options.has_changes, IsTrue());
+        AssertThat(tree->children[2]->has_changes, IsTrue());
         AssertThat(tree->children[2]->padding, Equals<TSLength>({0, 1, 0, 0}));
         AssertThat(tree->children[2]->size, Equals<TSLength>({3, 3, 0, 3}));
       });
@@ -344,7 +344,7 @@ describe("Tree", []() {
     });
 
     it("hides invisible nodes", [&]() {
-      tree2->options.visible = false;
+      tree2->visible = false;
 
       char *string1 = ts_tree_string(parent1, names, true);
       AssertThat(string(string1), Equals("(dog (cat))"));
@@ -353,13 +353,13 @@ describe("Tree", []() {
 
     describe("when the root node is not visible", [&]() {
       it("still serializes it", [&]() {
-        parent1->options.visible = false;
+        parent1->visible = false;
 
         char *string1 = ts_tree_string(parent1, names, true);
         AssertThat(string(string1), Equals("(dog (cat) (cat))"));
         free(string1);
 
-        tree1->options.visible = false;
+        tree1->visible = false;
 
         char *string2 = ts_tree_string(tree1, names, true);
         AssertThat(string(string2), Equals("(cat)"));

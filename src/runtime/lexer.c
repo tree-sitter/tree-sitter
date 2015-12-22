@@ -103,7 +103,7 @@ static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
   }
 
   if (fragile)
-    result->context.lex_state = self->starting_state;
+    result->lex_state = self->starting_state;
 
   return result;
 }

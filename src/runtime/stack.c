@@ -283,7 +283,7 @@ Vector ts_stack_pop(Stack *self, int head_index, int child_count,
       /*
        *  Children that are 'extra' do not count towards the total child count.
        */
-      if (ts_tree_is_extra(node->entry.tree) && !count_extra)
+      if (node->entry.tree->extra && !count_extra)
         path->goal_tree_count++;
 
       /*
