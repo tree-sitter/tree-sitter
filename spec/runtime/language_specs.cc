@@ -144,7 +144,7 @@ describe("Languages", [&]() {
         std::set<std::pair<size_t, size_t>> deletions;
         std::set<std::pair<size_t, string>> insertions;
 
-        for (size_t i = 0; i < 50; i++) {
+        for (size_t i = 0; i < 80; i++) {
           size_t edit_position = random() % SpyInput::char_count(entry.input);
           size_t deletion_size = random() % (SpyInput::char_count(entry.input) - edit_position);
           string inserted_text = random_words(random() % 4 + 1);
@@ -159,32 +159,12 @@ describe("Languages", [&]() {
               ts_document_edit(doc, input->undo());
               ts_document_parse(doc);
             });
-
-            it_handles_edit_sequence("performing and repairing an insertion of " + description, [&]() {
-              ts_document_parse(doc);
-
-              ts_document_edit(doc, input->replace(edit_position, 0, inserted_text));
-              ts_document_parse(doc);
-
-              ts_document_edit(doc, input->undo());
-              ts_document_parse(doc);
-            });
           }
 
           if (deletions.insert({edit_position, deletion_size}).second) {
             string desription = to_string(edit_position) + "-" + to_string(edit_position + deletion_size);
 
             it_handles_edit_sequence("repairing a deletion of " + desription, [&]() {
-              ts_document_edit(doc, input->replace(edit_position, deletion_size, ""));
-              ts_document_parse(doc);
-
-              ts_document_edit(doc, input->undo());
-              ts_document_parse(doc);
-            });
-
-            it_handles_edit_sequence("performing and repairing a deletion of " + desription, [&]() {
-              ts_document_parse(doc);
-
               ts_document_edit(doc, input->replace(edit_position, deletion_size, ""));
               ts_document_parse(doc);
 
