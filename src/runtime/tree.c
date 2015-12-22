@@ -18,10 +18,9 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
     .named_child_count = 0,
     .children = NULL,
     .padding = padding,
-    .options =
-      {
-        .visible = metadata.visible, .named = metadata.named,
-      },
+    .options.visible = metadata.visible,
+    .options.named = metadata.named,
+    .context.lex_state = TSTREE_LEX_STATE_INDEPENDENT,
   };
 
   if (sym == ts_builtin_sym_error) {
@@ -92,6 +91,7 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   }
 
   if (child_count > 0) {
+    self->context.lex_state = children[0]->context.lex_state;
     if (children[0]->options.fragile_left)
       self->options.fragile_left = true;
     if (children[child_count - 1]->options.fragile_right)

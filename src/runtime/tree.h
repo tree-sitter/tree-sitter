@@ -9,11 +9,14 @@ extern "C" {
 #include "tree_sitter/parser.h"
 #include "runtime/length.h"
 
+#define TSTREE_LEX_STATE_INDEPENDENT (unsigned short)(-1)
+
 struct TSTree {
   struct {
     struct TSTree *parent;
     size_t index;
     TSLength offset;
+    TSStateId lex_state;
   } context;
   size_t child_count;
   size_t visible_child_count;

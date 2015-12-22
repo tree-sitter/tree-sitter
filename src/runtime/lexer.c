@@ -45,6 +45,7 @@ static void ts_lexer__start(TSLexer *self, TSStateId lex_state) {
   LOG("start_lex state:%d, pos:%lu", lex_state, self->current_position.chars);
   LOG_LOOKAHEAD();
 
+  self->starting_state = lex_state;
   if (!self->chunk)
     ts_lexer__get_chunk(self);
   if (!self->lookahead_size)
@@ -101,7 +102,9 @@ static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
     result = ts_tree_make_leaf(symbol, padding, size, metadata);
   }
 
-  result->options.fragile_left = fragile;
+  if (fragile)
+    result->context.lex_state = self->starting_state;
+
   return result;
 }
 
