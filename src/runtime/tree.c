@@ -1,10 +1,14 @@
 #include <assert.h>
+#include <limits.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 #include "runtime/length.h"
+
+TSStateId TS_TREE_STATE_INDEPENDENT = USHRT_MAX;
+TSStateId TS_TREE_STATE_ERROR = USHRT_MAX - 1;
 
 TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
                           TSSymbolMetadata metadata) {
@@ -18,15 +22,15 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
     .named_child_count = 0,
     .children = NULL,
     .padding = padding,
-    .options =
-      {
-        .visible = metadata.visible, .named = metadata.named,
-      },
+    .visible = metadata.visible,
+    .named = metadata.named,
+    .lex_state = TS_TREE_STATE_INDEPENDENT,
+    .parse_state = TS_TREE_STATE_INDEPENDENT,
   };
 
   if (sym == ts_builtin_sym_error) {
-    result->options.fragile_left = true;
-    result->options.fragile_right = true;
+    result->fragile_left = true;
+    result->fragile_right = true;
   }
 
   return result;
@@ -77,9 +81,9 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
       self->size = ts_length_add(self->size, ts_tree_total_size(child));
     }
 
-    if (child->options.visible) {
+    if (child->visible) {
       self->visible_child_count++;
-      if (child->options.named)
+      if (child->named)
         self->named_child_count++;
     } else {
       self->visible_child_count += child->visible_child_count;
@@ -87,15 +91,17 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
     }
 
     if (child->symbol == ts_builtin_sym_error) {
-      self->options.fragile_left = self->options.fragile_right = true;
+      self->fragile_left = self->fragile_right = true;
+      self->parse_state = TS_TREE_STATE_ERROR;
     }
   }
 
   if (child_count > 0) {
-    if (children[0]->options.fragile_left)
-      self->options.fragile_left = true;
-    if (children[child_count - 1]->options.fragile_right)
-      self->options.fragile_right = true;
+    self->lex_state = children[0]->lex_state;
+    if (children[0]->fragile_left)
+      self->fragile_left = true;
+    if (children[child_count - 1]->fragile_right)
+      self->fragile_right = true;
   }
 }
 
@@ -153,9 +159,9 @@ bool ts_tree_eq(const TSTree *self, const TSTree *other) {
 
   if (self->symbol != other->symbol)
     return false;
-  if (self->options.visible != other->options.visible)
+  if (self->visible != other->visible)
     return false;
-  if (self->options.named != other->options.named)
+  if (self->named != other->named)
     return false;
   if (self->symbol == ts_builtin_sym_error)
     return self->lookahead_char == other->lookahead_char;
@@ -214,8 +220,8 @@ static size_t ts_tree__write_to_string(const TSTree *self,
 
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
-  bool visible = is_root || (self->options.visible &&
-                             (include_anonymous || self->options.named));
+  bool visible = is_root || (self->visible &&
+                             (include_anonymous || self->named));
 
   if (visible && !is_root)
     cursor += snprintf(*writer, limit, " ");
@@ -262,7 +268,7 @@ void ts_tree_edit(TSTree *self, TSInputEdit edit) {
   size_t old_end = edit.position + edit.chars_removed;
   assert(old_end <= ts_tree_total_chars(self));
 
-  self->options.has_changes = true;
+  self->has_changes = true;
 
   if (start < self->padding.chars) {
     ts_length_set_unknown(&self->padding);

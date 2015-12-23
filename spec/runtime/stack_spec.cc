@@ -128,7 +128,7 @@ describe("Stack", [&]() {
     });
 
     it("does not count 'extra' trees toward the count", [&]() {
-      ts_tree_set_extra(trees[1]);
+      trees[1]->extra = true;
 
       Vector pop = ts_stack_pop(stack, 0, 2, false);
       StackPopResult pop1 = *(StackPopResult *)vector_get(&pop, 0);

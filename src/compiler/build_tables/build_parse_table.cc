@@ -7,6 +7,7 @@
 #include <utility>
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/parse_conflict_manager.h"
+#include "compiler/build_tables/remove_duplicate_states.h"
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/build_tables/item_set_closure.h"
 #include "compiler/lexical_grammar.h"
@@ -42,8 +43,7 @@ class ParseTableBuilder {
  public:
   ParseTableBuilder(const SyntaxGrammar &grammar,
                     const LexicalGrammar &lex_grammar)
-      : grammar(grammar),
-        lexical_grammar(lex_grammar) {}
+      : grammar(grammar), lexical_grammar(lex_grammar) {}
 
   pair<ParseTable, const GrammarError *> build() {
     Symbol start_symbol = Symbol(0, grammar.variables.empty());
@@ -79,7 +79,7 @@ class ParseTableBuilder {
     }
 
     mark_fragile_actions();
-    remove_duplicate_states();
+    remove_duplicate_parse_states();
 
     parse_table.symbols.insert({ rules::ERROR(), {} });
 
@@ -192,49 +192,9 @@ class ParseTableBuilder {
     }
   }
 
-  void remove_duplicate_states() {
-    bool done = false;
-    while (!done) {
-      done = true;
-
-      map<ParseStateId, ParseStateId> replacements;
-      for (size_t i = 0, size = parse_table.states.size(); i < size; i++) {
-        for (size_t j = 0; j < i; j++) {
-          if (parse_table.states[i].actions == parse_table.states[j].actions) {
-            replacements.insert({ i, j });
-            done = false;
-            break;
-          }
-        }
-      }
-
-      for (ParseState &state : parse_table.states) {
-        for (auto &entry : state.actions) {
-          for (ParseAction &action : entry.second) {
-            if (action.type == ParseActionTypeShift) {
-              ParseStateId state_index = action.state_index;
-              auto replacement = replacements.find(action.state_index);
-              if (replacement != replacements.end()) {
-                state_index = replacement->second;
-              }
-
-              size_t prior_removed = 0;
-              for (const auto &replacement : replacements) {
-                if (replacement.first >= state_index)
-                  break;
-                prior_removed++;
-              }
-
-              state_index -= prior_removed;
-              action.state_index = state_index;
-            }
-          }
-        }
-      }
-
-      for (auto i = replacements.rbegin(); i != replacements.rend(); ++i)
-        parse_table.states.erase(parse_table.states.begin() + i->first);
-    }
+  void remove_duplicate_parse_states() {
+    remove_duplicate_states<ParseState, ParseAction, ParseActionTypeShift>(
+      &parse_table.states);
   }
 
   ParseAction *add_action(ParseStateId state_id, Symbol lookahead,

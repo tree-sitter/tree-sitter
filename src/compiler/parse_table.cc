@@ -9,6 +9,7 @@ using std::ostream;
 using std::to_string;
 using std::set;
 using std::vector;
+using std::function;
 using rules::Symbol;
 
 ParseAction::ParseAction(ParseActionType type, ParseStateId state_index,
@@ -124,6 +125,16 @@ set<Symbol> ParseState::expected_inputs() const {
   for (auto &pair : actions)
     result.insert(pair.first);
   return result;
+}
+
+void ParseState::each_action(function<void(ParseAction *)> fn) {
+  for (auto &entry : actions)
+    for (ParseAction &action : entry.second)
+      fn(&action);
+}
+
+bool ParseState::operator==(const ParseState &other) const {
+  return actions == other.actions;
 }
 
 set<Symbol> ParseTable::all_symbols() const {

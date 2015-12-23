@@ -9,12 +9,16 @@ extern "C" {
 #include "tree_sitter/parser.h"
 #include "runtime/length.h"
 
+extern TSStateId TS_TREE_STATE_INDEPENDENT;
+extern TSStateId TS_TREE_STATE_ERROR;
+
 struct TSTree {
   struct {
     struct TSTree *parent;
     size_t index;
     TSLength offset;
   } context;
+
   size_t child_count;
   size_t visible_child_count;
   size_t named_child_count;
@@ -22,20 +26,20 @@ struct TSTree {
     struct TSTree **children;
     char lookahead_char;
   };
+
   TSLength padding;
   TSLength size;
 
   TSSymbol symbol;
-
-  struct {
-    bool visible : 1;
-    bool named : 1;
-    bool extra : 1;
-    bool fragile_left : 1;
-    bool fragile_right : 1;
-    bool has_changes : 1;
-  } options;
-  unsigned short int ref_count;
+  TSStateId lex_state;
+  TSStateId parse_state;
+  unsigned short ref_count;
+  bool visible : 1;
+  bool named : 1;
+  bool extra : 1;
+  bool fragile_left : 1;
+  bool fragile_right : 1;
+  bool has_changes : 1;
 };
 
 TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, TSSymbolMetadata);
@@ -63,61 +67,8 @@ static inline TSLength ts_tree_total_size(const TSTree *self) {
   return ts_length_add(self->padding, self->size);
 }
 
-static inline TSPoint ts_tree_extent(const TSTree *tree) {
-  TSPoint result;
-  result.row = tree->size.rows;
-  result.column = tree->size.columns;
-  return result;
-}
-
-static inline bool ts_tree_is_extra(const TSTree *tree) {
-  return tree->options.extra;
-}
-
-static inline bool ts_tree_is_visible(const TSTree *tree) {
-  return tree->options.visible;
-}
-
-static inline void ts_tree_set_extra(TSTree *tree) {
-  tree->options.extra = true;
-}
-
-static inline void ts_tree_set_fragile_left(TSTree *tree) {
-  tree->options.fragile_left = true;
-}
-
-static inline void ts_tree_set_fragile_right(TSTree *tree) {
-  tree->options.fragile_right = true;
-}
-
-static inline void ts_tree_set_fragile(TSTree *tree) {
-  ts_tree_set_fragile_left(tree);
-  ts_tree_set_fragile_right(tree);
-}
-
-static inline bool ts_tree_is_fragile_left(const TSTree *tree) {
-  return tree->options.fragile_left;
-}
-
-static inline bool ts_tree_is_fragile_right(const TSTree *tree) {
-  return tree->options.fragile_right;
-}
-
-static inline bool ts_tree_is_terminal(const TSTree *tree) {
-  return tree->child_count == 0;
-}
-
-static inline bool ts_tree_has_changes(const TSTree *tree) {
-  return tree->options.has_changes;
-}
-
-static inline bool ts_tree_is_empty(const TSTree *tree) {
-  return ts_tree_total_size(tree).chars == 0;
-}
-
 static inline bool ts_tree_is_fragile(const TSTree *tree) {
-  return ts_tree_is_empty(tree) || tree->options.fragile_left ||
-         tree->options.fragile_right;
+  return tree->fragile_left || tree->fragile_right || ts_tree_total_chars(tree) == 0;
 }
 
 #ifdef __cplusplus

@@ -33,7 +33,7 @@ static inline size_t ts_node__offset_row(TSNode self) {
 
 static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
   const TSTree *tree = ts_node__tree(self);
-  return include_anonymous ? tree->options.visible : tree->options.named;
+  return include_anonymous ? tree->visible : tree->named;
 }
 
 static inline size_t ts_node__relevant_child_count(TSNode self,
@@ -110,7 +110,7 @@ static inline TSNode ts_node__prev_sibling(TSNode self, bool include_anonymous) 
       if (grandchild_count > 0)
         return ts_node__child(child, grandchild_count - 1, include_anonymous);
     }
-  } while (!ts_tree_is_visible(ts_node__tree(result)));
+  } while (!ts_node__tree(result)->visible);
 
   return ts_node__null();
 }
@@ -133,7 +133,7 @@ static inline TSNode ts_node__next_sibling(TSNode self, bool include_anonymous) 
       if (grandchild_count > 0)
         return ts_node__child(child, 0, include_anonymous);
     }
-  } while (!ts_tree_is_visible(ts_node__tree(result)));
+  } while (!ts_node__tree(result)->visible);
 
   return ts_node__null();
 }
@@ -218,11 +218,11 @@ bool ts_node_eq(TSNode self, TSNode other) {
 }
 
 bool ts_node_is_named(TSNode self) {
-  return ts_node__tree(self)->options.named;
+  return ts_node__tree(self)->named;
 }
 
 bool ts_node_has_changes(TSNode self) {
-  return ts_node__tree(self)->options.has_changes;
+  return ts_node__tree(self)->has_changes;
 }
 
 TSNode ts_node_parent(TSNode self) {
@@ -233,7 +233,7 @@ TSNode ts_node_parent(TSNode self) {
     result = ts_node__direct_parent(result, &index);
     if (!result.data)
       return ts_node__null();
-  } while (!ts_tree_is_visible(result.data));
+  } while (!ts_node__tree(result)->visible);
 
   return result;
 }

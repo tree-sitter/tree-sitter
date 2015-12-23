@@ -67,7 +67,7 @@ void ts_document_parse(TSDocument *self) {
     return;
 
   TSTree *reusable_tree = self->valid ? self->tree : NULL;
-  if (reusable_tree && !reusable_tree->options.has_changes)
+  if (reusable_tree && !reusable_tree->has_changes)
     return;
 
   TSTree *tree = ts_parser_parse(&self->parser, self->input, reusable_tree);
@@ -85,7 +85,7 @@ void ts_document_invalidate(TSDocument *self) {
 
 TSNode ts_document_root_node(const TSDocument *self) {
   TSNode result = ts_node_make(self->tree, 0, 0, 0);
-  while (result.data && !ts_tree_is_visible(result.data))
+  while (result.data && !((TSTree *)result.data)->visible)
     result = ts_node_named_child(result, 0);
   return result;
 }

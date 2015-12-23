@@ -102,20 +102,14 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 (lookahead == ' '))
                 ADVANCE(14);
             if (lookahead == '\n')
-                ADVANCE(15);
+                ADVANCE(2);
             if (lookahead == '\r')
-                ADVANCE(16);
+                ADVANCE(3);
             if (lookahead == '\"')
                 ADVANCE(4);
             if ('0' <= lookahead && lookahead <= '9')
                 ADVANCE(11);
             LEX_ERROR();
-        case 15:
-            START_TOKEN();
-            ACCEPT_TOKEN(anon_sym_LF);
-        case 16:
-            START_TOKEN();
-            ACCEPT_TOKEN(anon_sym_CR);
         case ts_lex_state_error:
             START_TOKEN();
             if (lookahead == 0)

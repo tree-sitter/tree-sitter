@@ -47,6 +47,7 @@ typedef struct TSLexer {
 
   size_t lookahead_size;
   int32_t lookahead;
+  TSStateId starting_state;
 
   TSInput input;
   TSDebugger debugger;
