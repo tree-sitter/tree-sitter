@@ -185,7 +185,8 @@ static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head) {
     }
 
     if (!ts_parser__can_reuse(self, head, state->reusable_subtree)) {
-      LOG("breakdown_unreusable sym:%s", SYM_NAME(state->reusable_subtree->symbol));
+      LOG("breakdown_unreusable sym:%s",
+          SYM_NAME(state->reusable_subtree->symbol));
       ts_parser__breakdown_reusable_subtree(state);
       continue;
     }
@@ -511,9 +512,9 @@ static void ts_parser__accept(TSParser *self, int head) {
         TSTree *root = pop_result->trees[i];
         size_t leading_extra_count = i;
         size_t trailing_extra_count = pop_result->tree_count - 1 - i;
-        TSTree **new_children =
-          malloc((root->child_count + leading_extra_count + trailing_extra_count) *
-                 sizeof(TSTree *));
+        TSTree **new_children = malloc(
+          (root->child_count + leading_extra_count + trailing_extra_count) *
+          sizeof(TSTree *));
         memcpy(new_children, pop_result->trees,
                leading_extra_count * sizeof(TSTree *));
         memcpy(new_children + leading_extra_count, root->children,
@@ -526,7 +527,8 @@ static void ts_parser__accept(TSParser *self, int head) {
         ts_tree_set_children(root, new_count, new_children);
         ts_tree_retain(root);
         ts_parser__remove_head(self, pop_result->head_index);
-        self->finished_tree = ts_parser__select_tree(self, self->finished_tree, root);
+        self->finished_tree =
+          ts_parser__select_tree(self, self->finished_tree, root);
         break;
       }
     }
