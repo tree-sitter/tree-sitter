@@ -68,7 +68,8 @@ static inline TSLength ts_tree_total_size(const TSTree *self) {
 }
 
 static inline bool ts_tree_is_fragile(const TSTree *tree) {
-  return tree->fragile_left || tree->fragile_right || ts_tree_total_chars(tree) == 0;
+  return tree->fragile_left || tree->fragile_right ||
+         ts_tree_total_chars(tree) == 0;
 }
 
 #ifdef __cplusplus

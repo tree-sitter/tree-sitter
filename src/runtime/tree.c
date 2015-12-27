@@ -220,8 +220,8 @@ static size_t ts_tree__write_to_string(const TSTree *self,
 
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
-  bool visible = is_root || (self->visible &&
-                             (include_anonymous || self->named));
+  bool visible =
+    is_root || (self->visible && (include_anonymous || self->named));
 
   if (visible && !is_root)
     cursor += snprintf(*writer, limit, " ");

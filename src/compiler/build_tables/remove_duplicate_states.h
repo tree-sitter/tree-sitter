@@ -8,8 +8,7 @@ namespace tree_sitter {
 namespace build_tables {
 
 template <typename StateType, typename ActionType, int advance_action>
-std::map<size_t, size_t> remove_duplicate_states(
-  std::vector<StateType> *states) {
+std::map<size_t, size_t> remove_duplicate_states(std::vector<StateType> *states) {
   std::map<size_t, size_t> replacements;
 
   while (true) {

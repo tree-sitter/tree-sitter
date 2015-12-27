@@ -14,7 +14,7 @@ typedef struct {
   const TSLanguage *language;
   Vector lookahead_states;
   Vector reduce_parents;
-  int finished_stack_head;
+  TSTree *finished_tree;
   bool is_split;
 } TSParser;
 
