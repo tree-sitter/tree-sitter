@@ -31,9 +31,8 @@ class SpyInput {
   TSInputEdit replace(size_t start_char, size_t chars_removed, std::string text);
   TSInputEdit undo();
 
-  static size_t char_count(const std::string &);
-
   std::string content;
+  TSInputEncoding encoding;
   std::vector<std::string> strings_read;
 };
 

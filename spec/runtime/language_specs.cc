@@ -7,6 +7,7 @@
 #include "runtime/helpers/spy_input.h"
 #include "runtime/helpers/log_debugger.h"
 #include "runtime/helpers/point_helpers.h"
+#include "runtime/helpers/encoding_helpers.h"
 
 extern "C" const TSLanguage *ts_language_javascript();
 extern "C" const TSLanguage *ts_language_json();
@@ -145,8 +146,8 @@ describe("Languages", [&]() {
         std::set<std::pair<size_t, string>> insertions;
 
         for (size_t i = 0; i < 80; i++) {
-          size_t edit_position = random() % SpyInput::char_count(entry.input);
-          size_t deletion_size = random() % (SpyInput::char_count(entry.input) - edit_position);
+          size_t edit_position = random() % utf8_char_count(entry.input);
+          size_t deletion_size = random() % (utf8_char_count(entry.input) - edit_position);
           string inserted_text = random_words(random() % 4 + 1);
 
           if (insertions.insert({edit_position, inserted_text}).second) {
