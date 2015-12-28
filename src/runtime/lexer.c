@@ -4,6 +4,7 @@
 #include "runtime/tree.h"
 #include "runtime/length.h"
 #include "runtime/debugger.h"
+#include "runtime/utf16.h"
 #include "utf8proc.h"
 
 #define LOG(...)                                                     \
@@ -18,7 +19,7 @@
                                                      : "lookahead char:%d",  \
       self->lookahead);
 
-static const char *empty_chunk = "";
+static const char empty_chunk[2] = { 0, 0 };
 
 static void ts_lexer__get_chunk(TSLexer *self) {
   TSInput input = self->input;
@@ -35,9 +36,14 @@ static void ts_lexer__get_chunk(TSLexer *self) {
 
 static void ts_lexer__get_lookahead(TSLexer *self) {
   size_t position_in_chunk = self->current_position.bytes - self->chunk_start;
-  self->lookahead_size = utf8proc_iterate(
-    (const uint8_t *)self->chunk + position_in_chunk,
-    self->chunk_size - position_in_chunk + 1, &self->lookahead);
+  const uint8_t *chunk = (const uint8_t *)self->chunk + position_in_chunk;
+  size_t size = self->chunk_size - position_in_chunk + 1;
+
+  if (self->input.encoding == TSInputEncodingUTF8)
+    self->lookahead_size = utf8proc_iterate(chunk, size, &self->lookahead);
+  else
+    self->lookahead_size = utf16_iterate(chunk, size, &self->lookahead);
+
   LOG_LOOKAHEAD();
 }
 

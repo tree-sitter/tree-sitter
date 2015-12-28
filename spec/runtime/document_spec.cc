@@ -40,6 +40,20 @@ describe("Document", [&]() {
       delete spy_input;
     });
 
+    it("handles both UTF8 and UTF16 encodings", [&]() {
+      const char16_t content[] = u"[true, false]";
+      spy_input->content = string((const char *)content, sizeof(content));
+      spy_input->encoding = TSInputEncodingUTF16;
+
+      ts_document_set_input(doc, spy_input->input());
+      ts_document_invalidate(doc);
+      ts_document_parse(doc);
+
+      root = ts_document_root_node(doc);
+      AssertThat(ts_node_string(root, doc), Equals(
+        "(array (true) (false))"));
+    });
+
     it("allows the input to be retrieved later", [&]() {
       ts_document_set_input(doc, spy_input->input());
       AssertThat(ts_document_input(doc).payload, Equals<void *>(spy_input));

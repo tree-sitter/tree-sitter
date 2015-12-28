@@ -8,10 +8,16 @@ extern "C" {
 #include <stdlib.h>
 #include <stdbool.h>
 
+typedef enum {
+  TSInputEncodingUTF8,
+  TSInputEncodingUTF16,
+} TSInputEncoding;
+
 typedef struct {
   void *payload;
   const char *(*read_fn)(void *payload, size_t *bytes_read);
   int (*seek_fn)(void *payload, size_t character, size_t byte);
+  TSInputEncoding encoding;
 } TSInput;
 
 typedef enum {
