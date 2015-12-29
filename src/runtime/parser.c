@@ -142,12 +142,11 @@ static bool ts_parser__can_reuse(TSParser *self, int head, TSTree *subtree) {
       return false;
   }
 
-  const TSParseAction *action =
-    ts_language_actions(self->language, state, subtree->symbol);
-  if (action->type == TSParseActionTypeError || action->can_hide_split)
+  const TSParseAction action = ts_language_last_action(self->language, state, subtree->symbol);
+  if (action.type == TSParseActionTypeError || action.can_hide_split)
     return false;
 
-  if (subtree->extra && !action->extra)
+  if (subtree->extra && !action.extra)
     return false;
 
   return true;
@@ -543,8 +542,8 @@ static bool ts_parser__consume_lookahead(TSParser *self, int head,
                                          TSTree *lookahead) {
   for (;;) {
     TSStateId state = ts_stack_top_state(self->stack, head);
-    const TSParseAction *next_action =
-      ts_language_actions(self->language, state, lookahead->symbol);
+    size_t action_count;
+    const TSParseAction *actions = ts_language_actions(self->language, state, lookahead->symbol, &action_count);
 
     /*
      * If there are multiple actions for the current state and lookahead symbol,
@@ -552,14 +551,12 @@ static bool ts_parser__consume_lookahead(TSParser *self, int head,
      * action, it will always appear *last* in the list of actions. Perform it
      * on the original stack head and return.
      */
-    while (next_action) {
-      TSParseAction action = *next_action;
-      next_action++;
+    for (size_t i = 0; i < action_count; i++) {
+      TSParseAction action = actions[i];
 
       int current_head;
-      if (next_action->type == 0) {
+      if (i == action_count - 1) {
         current_head = head;
-        next_action = NULL;
       } else {
         current_head = ts_parser__split(self, head);
         LOG("split_action from_head:%d, new_head:%d", head, current_head);
@@ -620,7 +617,7 @@ static bool ts_parser__consume_lookahead(TSParser *self, int head,
             if (!ts_parser__reduce(self, current_head, action.data.symbol,
                                    action.data.child_count, false,
                                    action.fragile, false))
-              if (!next_action)
+              if (current_head == head)
                 return false;
           }
           break;

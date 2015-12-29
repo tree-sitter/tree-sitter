@@ -73,6 +73,8 @@ class CCodeGenerator {
   const SyntaxGrammar syntax_grammar;
   const LexicalGrammar lexical_grammar;
   map<string, string> sanitized_names;
+  vector<pair<size_t, vector<ParseAction>>> parse_actions;
+  size_t next_parse_action_list_index;
 
  public:
   CCodeGenerator(string name, const ParseTable &parse_table,
@@ -83,7 +85,8 @@ class CCodeGenerator {
         parse_table(parse_table),
         lex_table(lex_table),
         syntax_grammar(syntax_grammar),
-        lexical_grammar(lexical_grammar) {}
+        lexical_grammar(lexical_grammar),
+        next_parse_action_list_index(0) {}
 
   string code() {
     buffer = "";
@@ -214,13 +217,13 @@ class CCodeGenerator {
   }
 
   void add_parse_table() {
+    add_parse_actions({ ParseAction::Error() });
+
     size_t state_id = 0;
     line("#pragma GCC diagnostic push");
     line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
     line();
-    line(
-      "static const TSParseAction *"
-      "ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {");
+    line("static unsigned short ts_parse_table[STATE_COUNT][SYMBOL_COUNT] = {");
 
     indent([&]() {
       for (const auto &state : parse_table.states) {
@@ -228,9 +231,8 @@ class CCodeGenerator {
         indent([&]() {
           for (const auto &pair : state.actions) {
             line("[" + symbol_id(pair.first) + "] = ");
-            add("ACTIONS(");
-            add_parse_actions(pair.second);
-            add("),");
+            add(to_string(add_parse_actions(pair.second)));
+            add(",");
           }
         });
         line("},");
@@ -238,6 +240,8 @@ class CCodeGenerator {
     });
 
     line("};");
+    line();
+    add_parse_action_list();
     line();
     line("#pragma GCC diagnostic pop");
     line();
@@ -319,38 +323,64 @@ class CCodeGenerator {
     }
   }
 
-  void add_parse_actions(const vector<ParseAction> &actions) {
-    bool started = false;
-    for (const auto &action : actions) {
-      if (started)
-        add(", ");
-      switch (action.type) {
-        case ParseActionTypeAccept:
-          add("ACCEPT_INPUT()");
-          break;
-        case ParseActionTypeShift:
-          if (action.extra) {
-            add("SHIFT_EXTRA()");
-          } else {
-            add("SHIFT(" + to_string(action.state_index) + ", ");
-            add_action_flags(action);
-            add(")");
+  void add_parse_action_list() {
+    line("static TSParseActionEntry ts_parse_actions[] = {");
+
+    indent([&]() {
+      for (const auto &pair : parse_actions) {
+        size_t index = pair.first;
+        line("[" + to_string(index) + "] = {.count = " + to_string(pair.second.size()) + "},");
+
+        for (const ParseAction &action : pair.second) {
+          index++;
+          add(" ");
+          switch (action.type) {
+            case ParseActionTypeError:
+              add("ERROR()");
+              break;
+            case ParseActionTypeAccept:
+              add("ACCEPT_INPUT()");
+              break;
+            case ParseActionTypeShift:
+              if (action.extra) {
+                add("SHIFT_EXTRA()");
+              } else {
+                add("SHIFT(" + to_string(action.state_index) + ", ");
+                add_action_flags(action);
+                add(")");
+              }
+              break;
+            case ParseActionTypeReduce:
+              if (action.extra) {
+                add("REDUCE_EXTRA(" + symbol_id(action.symbol) + ")");
+              } else {
+                add("REDUCE(" + symbol_id(action.symbol) + ", " +
+                    to_string(action.consumed_symbol_count) + ", ");
+                add_action_flags(action);
+                add(")");
+              }
+              break;
+            default: {}
           }
-          break;
-        case ParseActionTypeReduce:
-          if (action.extra) {
-            add("REDUCE_EXTRA(" + symbol_id(action.symbol) + ")");
-          } else {
-            add("REDUCE(" + symbol_id(action.symbol) + ", " +
-                to_string(action.consumed_symbol_count) + ", ");
-            add_action_flags(action);
-            add(")");
-          }
-          break;
-        default: {}
+          add(",");
+        }
       }
-      started = true;
+    });
+
+    line ("};");
+  }
+
+  size_t add_parse_actions(const vector<ParseAction> &actions) {
+    for (const auto &pair : parse_actions) {
+      if (pair.second == actions) {
+        return pair.first;
+      }
     }
+
+    size_t result = next_parse_action_list_index;
+    parse_actions.push_back({ next_parse_action_list_index, actions });
+    next_parse_action_list_index += 1 + actions.size();
+    return result;
   }
 
   void add_action_flags(const ParseAction &action) {
