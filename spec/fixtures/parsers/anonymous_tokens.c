@@ -31,9 +31,25 @@ static const TSSymbolMetadata ts_symbol_metadata[SYMBOL_COUNT] = {
     [anon_sym_DQUOTEhello_DQUOTE] = {.visible = true, .named = false, .structural = true, .extra = false},
 };
 
-static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
+static TSTree *ts_lex(TSLexer *lexer, TSStateId state, bool error_mode) {
     START_LEXER();
-    switch (lex_state) {
+    switch (state) {
+        case 0:
+            START_TOKEN();
+            if (lookahead == 0)
+                ADVANCE(1);
+            if ((lookahead == '\t') ||
+                (lookahead == ' '))
+                ADVANCE(0);
+            if (lookahead == '\n')
+                ADVANCE(2);
+            if (lookahead == '\r')
+                ADVANCE(3);
+            if (lookahead == '\"')
+                ADVANCE(4);
+            if ('0' <= lookahead && lookahead <= '9')
+                ADVANCE(11);
+            LEX_ERROR();
         case 1:
             ACCEPT_TOKEN(ts_builtin_sym_end);
         case 2:
@@ -93,22 +109,6 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 (lookahead == '\r') ||
                 (lookahead == ' '))
                 ADVANCE(13);
-            LEX_ERROR();
-        case ts_lex_state_error:
-            START_TOKEN();
-            if (lookahead == 0)
-                ADVANCE(1);
-            if ((lookahead == '\t') ||
-                (lookahead == ' '))
-                ADVANCE(0);
-            if (lookahead == '\n')
-                ADVANCE(2);
-            if (lookahead == '\r')
-                ADVANCE(3);
-            if (lookahead == '\"')
-                ADVANCE(4);
-            if ('0' <= lookahead && lookahead <= '9')
-                ADVANCE(11);
             LEX_ERROR();
         default:
             LEX_ERROR();

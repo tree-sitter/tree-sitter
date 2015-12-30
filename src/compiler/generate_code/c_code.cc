@@ -188,14 +188,13 @@ class CCodeGenerator {
   }
 
   void add_lex_function() {
-    line("static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {");
+    line("static TSTree *ts_lex(TSLexer *lexer, TSStateId state, bool error_mode) {");
     indent([&]() {
       line("START_LEXER();");
-      _switch("lex_state", [&]() {
-        for (size_t i = 1; i < lex_table.states.size(); i++)
-          _case(to_string(i), [&]() { add_lex_state(lex_table.states[i]); });
-        _case("ts_lex_state_error",
-              [&]() { add_lex_state(lex_table.states[0]); });
+      _switch("state", [&]() {
+        size_t i = 0;
+        for (const LexState &state : lex_table.states)
+          _case(to_string(i++), [&]() { add_lex_state(state); });
         _default([&]() { line("LEX_ERROR();"); });
       });
     });

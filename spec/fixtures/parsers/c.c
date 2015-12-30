@@ -256,9 +256,81 @@ static const TSSymbolMetadata ts_symbol_metadata[SYMBOL_COUNT] = {
     [sym_comment] = {.visible = true, .named = true, .structural = false, .extra = true},
 };
 
-static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
+static TSTree *ts_lex(TSLexer *lexer, TSStateId state, bool error_mode) {
     START_LEXER();
-    switch (lex_state) {
+    switch (state) {
+        case 0:
+            START_TOKEN();
+            if (lookahead == 0)
+                ADVANCE(1);
+            if ((lookahead == '\t') ||
+                (lookahead == '\r') ||
+                (lookahead == ' '))
+                ADVANCE(0);
+            if (lookahead == '\n')
+                ADVANCE(2);
+            if (lookahead == '\"')
+                ADVANCE(3);
+            if (lookahead == '#')
+                ADVANCE(7);
+            if (lookahead == '&')
+                ADVANCE(14);
+            if (lookahead == '(')
+                ADVANCE(15);
+            if (lookahead == ')')
+                ADVANCE(16);
+            if (lookahead == '*')
+                ADVANCE(17);
+            if (lookahead == '+')
+                ADVANCE(18);
+            if (lookahead == ',')
+                ADVANCE(19);
+            if (lookahead == '.')
+                ADVANCE(20);
+            if (lookahead == '/')
+                ADVANCE(21);
+            if ('0' <= lookahead && lookahead <= '9')
+                ADVANCE(26);
+            if (lookahead == ';')
+                ADVANCE(29);
+            if (lookahead == '=')
+                ADVANCE(30);
+            if (('A' <= lookahead && lookahead <= 'Z') ||
+                (lookahead == 'b') ||
+                (lookahead == 'd') ||
+                ('g' <= lookahead && lookahead <= 'k') ||
+                ('m' <= lookahead && lookahead <= 'q') ||
+                ('w' <= lookahead && lookahead <= 'z'))
+                ADVANCE(31);
+            if (lookahead == '[')
+                ADVANCE(32);
+            if (lookahead == ']')
+                ADVANCE(33);
+            if (lookahead == 'a')
+                ADVANCE(34);
+            if (lookahead == 'c')
+                ADVANCE(38);
+            if (lookahead == 'e')
+                ADVANCE(43);
+            if (lookahead == 'f')
+                ADVANCE(49);
+            if (lookahead == 'l')
+                ADVANCE(52);
+            if (lookahead == 'r')
+                ADVANCE(56);
+            if (lookahead == 's')
+                ADVANCE(70);
+            if (lookahead == 't')
+                ADVANCE(89);
+            if (lookahead == 'u')
+                ADVANCE(96);
+            if (lookahead == 'v')
+                ADVANCE(104);
+            if (lookahead == '{')
+                ADVANCE(112);
+            if (lookahead == '}')
+                ADVANCE(113);
+            LEX_ERROR();
         case 1:
             ACCEPT_TOKEN(ts_builtin_sym_end);
         case 2:
@@ -2407,78 +2479,6 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
                 ADVANCE(49);
             if (lookahead == '{')
                 ADVANCE(112);
-            LEX_ERROR();
-        case ts_lex_state_error:
-            START_TOKEN();
-            if (lookahead == 0)
-                ADVANCE(1);
-            if ((lookahead == '\t') ||
-                (lookahead == '\r') ||
-                (lookahead == ' '))
-                ADVANCE(0);
-            if (lookahead == '\n')
-                ADVANCE(2);
-            if (lookahead == '\"')
-                ADVANCE(3);
-            if (lookahead == '#')
-                ADVANCE(7);
-            if (lookahead == '&')
-                ADVANCE(14);
-            if (lookahead == '(')
-                ADVANCE(15);
-            if (lookahead == ')')
-                ADVANCE(16);
-            if (lookahead == '*')
-                ADVANCE(17);
-            if (lookahead == '+')
-                ADVANCE(18);
-            if (lookahead == ',')
-                ADVANCE(19);
-            if (lookahead == '.')
-                ADVANCE(20);
-            if (lookahead == '/')
-                ADVANCE(21);
-            if ('0' <= lookahead && lookahead <= '9')
-                ADVANCE(26);
-            if (lookahead == ';')
-                ADVANCE(29);
-            if (lookahead == '=')
-                ADVANCE(30);
-            if (('A' <= lookahead && lookahead <= 'Z') ||
-                (lookahead == 'b') ||
-                (lookahead == 'd') ||
-                ('g' <= lookahead && lookahead <= 'k') ||
-                ('m' <= lookahead && lookahead <= 'q') ||
-                ('w' <= lookahead && lookahead <= 'z'))
-                ADVANCE(31);
-            if (lookahead == '[')
-                ADVANCE(32);
-            if (lookahead == ']')
-                ADVANCE(33);
-            if (lookahead == 'a')
-                ADVANCE(34);
-            if (lookahead == 'c')
-                ADVANCE(38);
-            if (lookahead == 'e')
-                ADVANCE(43);
-            if (lookahead == 'f')
-                ADVANCE(49);
-            if (lookahead == 'l')
-                ADVANCE(52);
-            if (lookahead == 'r')
-                ADVANCE(56);
-            if (lookahead == 's')
-                ADVANCE(70);
-            if (lookahead == 't')
-                ADVANCE(89);
-            if (lookahead == 'u')
-                ADVANCE(96);
-            if (lookahead == 'v')
-                ADVANCE(104);
-            if (lookahead == '{')
-                ADVANCE(112);
-            if (lookahead == '}')
-                ADVANCE(113);
             LEX_ERROR();
         default:
             LEX_ERROR();

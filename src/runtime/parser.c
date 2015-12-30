@@ -203,7 +203,7 @@ static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head) {
   TSStateId parse_state = ts_stack_top_state(self->stack, head);
   TSStateId lex_state = self->language->lex_states[parse_state];
   LOG("lex state:%d", lex_state);
-  return self->language->lex_fn(&self->lexer, lex_state);
+  return self->language->lex_fn(&self->lexer, lex_state, false);
 }
 
 static int ts_parser__split(TSParser *self, int head) {
@@ -464,7 +464,7 @@ static bool ts_parser__handle_error(TSParser *self, int head, TSTree *lookahead)
     LOG("skip token:%s", SYM_NAME(lookahead->symbol));
     ts_parser__shift(self, head, ts_stack_top_state(self->stack, head),
                      lookahead);
-    lookahead = self->language->lex_fn(&self->lexer, ts_lex_state_error);
+    lookahead = self->language->lex_fn(&self->lexer, 0, true);
     error_token_count++;
 
     /*
