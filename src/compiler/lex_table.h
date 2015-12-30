@@ -69,12 +69,9 @@ typedef int64_t LexStateId;
 
 class LexTable {
  public:
-  static const LexStateId ERROR_STATE_ID;
   LexStateId add_state();
   LexState &state(LexStateId state_id);
-
   std::vector<LexState> states;
-  LexState error_state;
 };
 
 }  // namespace tree_sitter

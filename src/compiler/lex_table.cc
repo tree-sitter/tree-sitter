@@ -70,12 +70,7 @@ LexStateId LexTable::add_state() {
 }
 
 LexState &LexTable::state(LexStateId id) {
-  if (id < 0)
-    return error_state;
-  else
-    return states[id];
+  return states[id];
 }
-
-const LexStateId LexTable::ERROR_STATE_ID = -1;
 
 }  // namespace tree_sitter

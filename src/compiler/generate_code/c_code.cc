@@ -192,11 +192,11 @@ class CCodeGenerator {
     indent([&]() {
       line("START_LEXER();");
       _switch("lex_state", [&]() {
-        for (size_t i = 0; i < lex_table.states.size(); i++)
-          _case(lex_state_index(i),
+        for (size_t i = 1; i < lex_table.states.size(); i++)
+          _case(to_string(i),
                 [&]() { add_lex_state(lex_table.states[i]); });
         _case("ts_lex_state_error",
-              [&]() { add_lex_state(lex_table.error_state); });
+              [&]() { add_lex_state(lex_table.states[0]); });
         _default([&]() { line("LEX_ERROR();"); });
       });
     });
@@ -210,7 +210,7 @@ class CCodeGenerator {
       size_t state_id = 0;
       for (const auto &state : parse_table.states)
         line("[" + to_string(state_id++) + "] = " +
-             lex_state_index(state.lex_state_id) + ",");
+             to_string(state.lex_state_id) + ",");
     });
     line("};");
     line();
@@ -308,7 +308,7 @@ class CCodeGenerator {
                        const set<rules::CharacterSet> &expected_inputs) {
     switch (action.type) {
       case LexActionTypeAdvance:
-        line("ADVANCE(" + lex_state_index(action.state_index) + ");");
+        line("ADVANCE(" + to_string(action.state_index) + ");");
         break;
       case LexActionTypeAccept:
         line("ACCEPT_TOKEN(" + symbol_id(action.symbol) + ");");
@@ -329,7 +329,8 @@ class CCodeGenerator {
     indent([&]() {
       for (const auto &pair : parse_actions) {
         size_t index = pair.first;
-        line("[" + to_string(index) + "] = {.count = " + to_string(pair.second.size()) + "},");
+        line("[" + to_string(index) + "] = {.count = " +
+             to_string(pair.second.size()) + "},");
 
         for (const ParseAction &action : pair.second) {
           index++;
@@ -367,7 +368,7 @@ class CCodeGenerator {
       }
     });
 
-    line ("};");
+    line("};");
   }
 
   size_t add_parse_actions(const vector<ParseAction> &actions) {
@@ -395,10 +396,6 @@ class CCodeGenerator {
   }
 
   // Helper functions
-
-  string lex_state_index(size_t i) {
-    return to_string(i + 1);
-  }
 
   string symbol_id(const rules::Symbol &symbol) {
     if (symbol == rules::ERROR())

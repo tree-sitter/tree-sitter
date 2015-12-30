@@ -35,19 +35,7 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
     START_LEXER();
     switch (lex_state) {
         case 1:
-            START_TOKEN();
-            if ((lookahead == '\t') ||
-                (lookahead == ' '))
-                ADVANCE(1);
-            if (lookahead == '\n')
-                ADVANCE(2);
-            if (lookahead == '\r')
-                ADVANCE(3);
-            if (lookahead == '\"')
-                ADVANCE(4);
-            if ('0' <= lookahead && lookahead <= '9')
-                ADVANCE(11);
-            LEX_ERROR();
+            ACCEPT_TOKEN(ts_builtin_sym_end);
         case 2:
             START_TOKEN();
             ACCEPT_TOKEN(anon_sym_LF);
@@ -84,23 +72,9 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
             ACCEPT_TOKEN(aux_sym_SLASH_BSLASHd_SLASH);
         case 12:
             START_TOKEN();
-            if (lookahead == 0)
-                ADVANCE(13);
             if ((lookahead == '\t') ||
-                (lookahead == '\n') ||
-                (lookahead == '\r') ||
                 (lookahead == ' '))
                 ADVANCE(12);
-            LEX_ERROR();
-        case 13:
-            ACCEPT_TOKEN(ts_builtin_sym_end);
-        case 14:
-            START_TOKEN();
-            if (lookahead == 0)
-                ADVANCE(13);
-            if ((lookahead == '\t') ||
-                (lookahead == ' '))
-                ADVANCE(14);
             if (lookahead == '\n')
                 ADVANCE(2);
             if (lookahead == '\r')
@@ -110,17 +84,27 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
             if ('0' <= lookahead && lookahead <= '9')
                 ADVANCE(11);
             LEX_ERROR();
+        case 13:
+            START_TOKEN();
+            if (lookahead == 0)
+                ADVANCE(1);
+            if ((lookahead == '\t') ||
+                (lookahead == '\n') ||
+                (lookahead == '\r') ||
+                (lookahead == ' '))
+                ADVANCE(13);
+            LEX_ERROR();
         case ts_lex_state_error:
             START_TOKEN();
             if (lookahead == 0)
-                ADVANCE(13);
+                ADVANCE(1);
             if ((lookahead == '\t') ||
                 (lookahead == ' '))
-                ADVANCE(14);
+                ADVANCE(0);
             if (lookahead == '\n')
-                ADVANCE(15);
+                ADVANCE(2);
             if (lookahead == '\r')
-                ADVANCE(16);
+                ADVANCE(3);
             if (lookahead == '\"')
                 ADVANCE(4);
             if ('0' <= lookahead && lookahead <= '9')
@@ -132,9 +116,9 @@ static TSTree *ts_lex(TSLexer *lexer, TSStateId lex_state) {
 }
 
 static TSStateId ts_lex_states[STATE_COUNT] = {
-    [0] = 1,
-    [1] = 12,
-    [2] = 12,
+    [0] = 12,
+    [1] = 13,
+    [2] = 13,
 };
 
 #pragma GCC diagnostic push

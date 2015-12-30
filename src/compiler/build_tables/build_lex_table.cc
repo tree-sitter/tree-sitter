@@ -48,15 +48,11 @@ class LexTableBuilder {
   }
 
   LexTable build() {
-    for (ParseState &parse_state : parse_table->states) {
-      LexItemSet item_set =
-        build_lex_item_set(parse_state.expected_inputs(), false);
-      parse_state.lex_state_id = add_lex_state(item_set);
-    }
+    add_lex_state(build_lex_item_set(parse_table->all_symbols(), true));
 
-    LexItemSet error_item_set =
-      build_lex_item_set(parse_table->all_symbols(), true);
-    populate_lex_state(error_item_set, LexTable::ERROR_STATE_ID);
+    for (ParseState &parse_state : parse_table->states)
+      parse_state.lex_state_id =
+        add_lex_state(build_lex_item_set(parse_state.expected_inputs(), false));
 
     mark_fragile_tokens();
     remove_duplicate_lex_states();
@@ -109,17 +105,13 @@ class LexTableBuilder {
     if (pair == lex_state_ids.end()) {
       LexStateId state_id = lex_table.add_state();
       lex_state_ids[item_set] = state_id;
-      populate_lex_state(item_set, state_id);
+      add_accept_token_actions(item_set, state_id);
+      add_advance_actions(item_set, state_id);
+      add_token_start(item_set, state_id);
       return state_id;
     } else {
       return pair->second;
     }
-  }
-
-  void populate_lex_state(const LexItemSet &item_set, LexStateId state_id) {
-    add_accept_token_actions(item_set, state_id);
-    add_advance_actions(item_set, state_id);
-    add_token_start(item_set, state_id);
   }
 
   void add_advance_actions(const LexItemSet &item_set, LexStateId state_id) {
