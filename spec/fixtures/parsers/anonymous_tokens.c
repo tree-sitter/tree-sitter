@@ -140,20 +140,28 @@ static TSStateId ts_lex_states[STATE_COUNT] = {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 
-static const TSParseAction *ts_parse_actions[STATE_COUNT][SYMBOL_COUNT] = {
+static unsigned short ts_parse_table[STATE_COUNT][SYMBOL_COUNT] = {
     [0] = {
-        [sym_program] = ACTIONS(SHIFT(1, 0)),
-        [anon_sym_LF] = ACTIONS(SHIFT(2, 0)),
-        [anon_sym_CR] = ACTIONS(SHIFT(2, 0)),
-        [aux_sym_SLASH_BSLASHd_SLASH] = ACTIONS(SHIFT(2, 0)),
-        [anon_sym_DQUOTEhello_DQUOTE] = ACTIONS(SHIFT(2, 0)),
+        [sym_program] = 2,
+        [anon_sym_LF] = 4,
+        [anon_sym_CR] = 4,
+        [aux_sym_SLASH_BSLASHd_SLASH] = 4,
+        [anon_sym_DQUOTEhello_DQUOTE] = 4,
     },
     [1] = {
-        [ts_builtin_sym_end] = ACTIONS(ACCEPT_INPUT()),
+        [ts_builtin_sym_end] = 6,
     },
     [2] = {
-        [ts_builtin_sym_end] = ACTIONS(REDUCE(sym_program, 1, 0)),
+        [ts_builtin_sym_end] = 8,
     },
+};
+
+static TSParseActionEntry ts_parse_actions[] = {
+    [0] = {.count = 1}, ERROR(),
+    [2] = {.count = 1}, SHIFT(1, 0),
+    [4] = {.count = 1}, SHIFT(2, 0),
+    [6] = {.count = 1}, ACCEPT_INPUT(),
+    [8] = {.count = 1}, REDUCE(sym_program, 1, 0),
 };
 
 #pragma GCC diagnostic pop
