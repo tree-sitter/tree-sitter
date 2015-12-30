@@ -7,7 +7,8 @@ extern "C" {
 
 #include "tree_sitter/parser.h"
 
-const TSParseAction *ts_language_actions(const TSLanguage *, TSStateId, TSSymbol, size_t *);
+const TSParseAction *ts_language_actions(const TSLanguage *, TSStateId,
+                                         TSSymbol, size_t *);
 TSParseAction ts_language_last_action(const TSLanguage *, TSStateId, TSSymbol);
 
 #ifdef __cplusplus

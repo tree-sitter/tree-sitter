@@ -142,7 +142,8 @@ static bool ts_parser__can_reuse(TSParser *self, int head, TSTree *subtree) {
       return false;
   }
 
-  const TSParseAction action = ts_language_last_action(self->language, state, subtree->symbol);
+  const TSParseAction action =
+    ts_language_last_action(self->language, state, subtree->symbol);
   if (action.type == TSParseActionTypeError || action.can_hide_split)
     return false;
 
@@ -543,7 +544,8 @@ static bool ts_parser__consume_lookahead(TSParser *self, int head,
   for (;;) {
     TSStateId state = ts_stack_top_state(self->stack, head);
     size_t action_count;
-    const TSParseAction *actions = ts_language_actions(self->language, state, lookahead->symbol, &action_count);
+    const TSParseAction *actions = ts_language_actions(
+      self->language, state, lookahead->symbol, &action_count);
 
     /*
      * If there are multiple actions for the current state and lookahead symbol,

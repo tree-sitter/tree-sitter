@@ -193,8 +193,7 @@ class CCodeGenerator {
       line("START_LEXER();");
       _switch("lex_state", [&]() {
         for (size_t i = 1; i < lex_table.states.size(); i++)
-          _case(to_string(i),
-                [&]() { add_lex_state(lex_table.states[i]); });
+          _case(to_string(i), [&]() { add_lex_state(lex_table.states[i]); });
         _case("ts_lex_state_error",
               [&]() { add_lex_state(lex_table.states[0]); });
         _default([&]() { line("LEX_ERROR();"); });

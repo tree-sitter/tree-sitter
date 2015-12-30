@@ -149,47 +149,60 @@ enum {
   CAN_HIDE_SPLIT = 2,
 };
 
-#define ERROR() {{.type = TSParseActionTypeError}}
+#define ERROR()                        \
+  {                                    \
+    { .type = TSParseActionTypeError } \
+  }
 
-#define SHIFT(to_state_value, flags)                 \
-  {{                                                 \
-    .type = TSParseActionTypeShift,                  \
-    .can_hide_split = (flags & CAN_HIDE_SPLIT) != 0, \
-    .data = {.to_state = to_state_value }            \
-  }}
+#define SHIFT(to_state_value, flags)                   \
+  {                                                    \
+    {                                                  \
+      .type = TSParseActionTypeShift,                  \
+      .can_hide_split = (flags & CAN_HIDE_SPLIT) != 0, \
+      .data = {.to_state = to_state_value }            \
+    }                                                  \
+  }
 
-#define SHIFT_EXTRA() \
-  {{ .type = TSParseActionTypeShift, .extra = true }}
+#define SHIFT_EXTRA()                                 \
+  {                                                   \
+    { .type = TSParseActionTypeShift, .extra = true } \
+  }
 
-#define REDUCE_EXTRA(symbol_val)                      \
-  {{                                                   \
-    .type = TSParseActionTypeReduce, .extra = true,   \
-    .data = {.symbol = symbol_val, .child_count = 1 } \
-  }}
+#define REDUCE_EXTRA(symbol_val)                        \
+  {                                                     \
+    {                                                   \
+      .type = TSParseActionTypeReduce, .extra = true,   \
+      .data = {.symbol = symbol_val, .child_count = 1 } \
+    }                                                   \
+  }
 
-#define REDUCE(symbol_val, child_count_val, flags)                      \
-  {{                                                                    \
-    .type = TSParseActionTypeReduce, .fragile = (flags & FRAGILE) != 0, \
-    .can_hide_split = (flags & CAN_HIDE_SPLIT) != 0,                    \
-    .data = {.symbol = symbol_val, .child_count = child_count_val }     \
-  }}
+#define REDUCE(symbol_val, child_count_val, flags)                        \
+  {                                                                       \
+    {                                                                     \
+      .type = TSParseActionTypeReduce, .fragile = (flags & FRAGILE) != 0, \
+      .can_hide_split = (flags & CAN_HIDE_SPLIT) != 0,                    \
+      .data = {.symbol = symbol_val, .child_count = child_count_val }     \
+    }                                                                     \
+  }
 
-#define ACCEPT_INPUT() \
-  {{ .type = TSParseActionTypeAccept }}
+#define ACCEPT_INPUT()                  \
+  {                                     \
+    { .type = TSParseActionTypeAccept } \
+  }
 
-#define EXPORT_LANGUAGE(language_name)                       \
-  static TSLanguage language = {                             \
-    .symbol_count = SYMBOL_COUNT,                            \
-    .symbol_metadata = ts_symbol_metadata,                   \
-    .parse_table = (const unsigned short *)ts_parse_table,   \
-    .parse_actions = ts_parse_actions,                       \
-    .lex_states = ts_lex_states,                             \
-    .symbol_names = ts_symbol_names,                         \
-    .lex_fn = ts_lex,                                        \
-  };                                                         \
-                                                             \
-  const TSLanguage *language_name() {                        \
-    return &language;                                        \
+#define EXPORT_LANGUAGE(language_name)                     \
+  static TSLanguage language = {                           \
+    .symbol_count = SYMBOL_COUNT,                          \
+    .symbol_metadata = ts_symbol_metadata,                 \
+    .parse_table = (const unsigned short *)ts_parse_table, \
+    .parse_actions = ts_parse_actions,                     \
+    .lex_states = ts_lex_states,                           \
+    .symbol_names = ts_symbol_names,                       \
+    .lex_fn = ts_lex,                                      \
+  };                                                       \
+                                                           \
+  const TSLanguage *language_name() {                      \
+    return &language;                                      \
   }
 
 #ifdef __cplusplus
