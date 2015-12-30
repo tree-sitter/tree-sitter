@@ -23,24 +23,34 @@ std::map<size_t, size_t> remove_duplicate_states(std::vector<StateType> *states)
     if (duplicates.empty())
       break;
 
+    std::map<size_t, size_t> new_replacements;
+    for (size_t i = 0, size = states->size(); i < size; i++) {
+      size_t new_state_index = i;
+      auto duplicate = duplicates.find(i);
+      if (duplicate != duplicates.end())
+        new_state_index = duplicate->second;
+
+      size_t prior_removed = 0;
+      for (const auto &duplicate : duplicates) {
+        if (duplicate.first >= new_state_index)
+          break;
+        prior_removed++;
+      }
+
+      new_state_index -= prior_removed;
+      new_replacements.insert({ i, new_state_index });
+      replacements.insert({ i, new_state_index });
+      for (auto &replacement : replacements)
+        if (replacement.second == i)
+          replacement.second = new_state_index;
+    }
+
     for (StateType &state : *states)
-      state.each_action([&duplicates, &replacements](ActionType *action) {
+      state.each_action([&duplicates, &new_replacements](ActionType *action) {
         if (action->type == advance_action) {
-          size_t state_index = action->state_index;
-          auto replacement = duplicates.find(action->state_index);
-          if (replacement != duplicates.end())
-            state_index = replacement->second;
-
-          size_t prior_removed = 0;
-          for (const auto &replacement : duplicates) {
-            if (replacement.first >= state_index)
-              break;
-            prior_removed++;
-          }
-
-          state_index -= prior_removed;
-          replacements.insert({ action->state_index, state_index });
-          action->state_index = state_index;
+          auto new_replacement = new_replacements.find(action->state_index);
+          if (new_replacement != new_replacements.end())
+            action->state_index = new_replacement->second;
         }
       });
 

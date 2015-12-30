@@ -8,6 +8,7 @@ namespace tree_sitter_examples {
 extern const Grammar c = Grammar({
   { "translation_unit", repeat(choice({
     sym("preproc_define"),
+    sym("preproc_call"),
     sym("function_definition"),
     sym("declaration") })) },
 
@@ -17,9 +18,15 @@ extern const Grammar c = Grammar({
     optional(sym("preproc_arg")),
     str("\n") }) },
 
+  { "preproc_call", seq({
+    sym("preproc_directive"),
+    sym("preproc_arg") }) },
+
   { "preproc_arg", token(prec(-1, repeat1(choice({
     str("\\\n"),
     pattern(".") })))) },
+
+  { "preproc_directive", pattern("#\a\\w*") },
 
   { "function_definition", seq({
     optional(sym("declaration_specifiers")),
