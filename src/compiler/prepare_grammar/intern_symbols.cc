@@ -31,8 +31,8 @@ class InternSymbols : public rules::IdentityRuleFn {
 
  public:
   std::shared_ptr<rules::Symbol> symbol_for_rule_name(string rule_name) {
-    for (size_t i = 0; i < grammar.rules().size(); i++)
-      if (grammar.rules()[i].first == rule_name)
+    for (size_t i = 0; i < grammar.rules.size(); i++)
+      if (grammar.rules[i].first == rule_name)
         return make_shared<rules::Symbol>(i);
     return nullptr;
   }
@@ -51,7 +51,7 @@ pair<InternedGrammar, const GrammarError *> intern_symbols(const Grammar &gramma
   InternedGrammar result;
   InternSymbols interner(grammar);
 
-  for (auto &pair : grammar.rules()) {
+  for (auto &pair : grammar.rules) {
     auto new_rule = interner.apply(pair.second);
     if (!interner.missing_rule_name.empty())
       return { result, missing_rule_error(interner.missing_rule_name) };
@@ -61,14 +61,14 @@ pair<InternedGrammar, const GrammarError *> intern_symbols(const Grammar &gramma
       new_rule));
   }
 
-  for (auto &rule : grammar.extra_tokens()) {
+  for (auto &rule : grammar.extra_tokens) {
     auto new_rule = interner.apply(rule);
     if (!interner.missing_rule_name.empty())
       return { result, missing_rule_error(interner.missing_rule_name) };
     result.extra_tokens.push_back(new_rule);
   }
 
-  for (auto &names : grammar.expected_conflicts()) {
+  for (auto &names : grammar.expected_conflicts) {
     set<rules::Symbol> entry;
     for (auto &name : names) {
       auto symbol = interner.symbol_for_rule_name(name);

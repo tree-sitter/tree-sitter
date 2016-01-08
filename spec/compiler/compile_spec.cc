@@ -8,9 +8,9 @@ START_TEST
 describe("Compile", []() {
   describe("when the grammar's start symbol is a token", [&]() {
     it("does not fail", [&]() {
-      Grammar grammar({
+      Grammar grammar{{
         { "rule1", str("the-value") }
-      });
+      }, {}, {}};
 
       auto result = compile(grammar, "test_grammar");
       const GrammarError *error = result.second;
@@ -20,9 +20,9 @@ describe("Compile", []() {
 
   describe("when the grammar's start symbol is blank", [&]() {
     it("does not fail", [&]() {
-      Grammar grammar({
+      Grammar grammar{{
         { "rule1", blank() }
-      });
+      }, {}, {}};
 
       auto result = compile(grammar, "test_grammar");
       const GrammarError *error = result.second;

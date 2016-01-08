@@ -12,7 +12,7 @@ ostream &operator<<(ostream &stream, const Grammar &grammar) {
   stream << string("#<grammar");
   stream << string(" rules: {");
   bool started = false;
-  for (auto pair : grammar.rules()) {
+  for (auto pair : grammar.rules) {
     if (started)
       stream << string(", ");
     stream << pair.first;

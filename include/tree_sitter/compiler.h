@@ -27,18 +27,10 @@ rule_ptr prec_right(const rule_ptr &);
 rule_ptr prec_right(int precedence, const rule_ptr &);
 rule_ptr token(const rule_ptr &rule);
 
-class Grammar {
-  const std::vector<std::pair<std::string, rule_ptr>> rules_;
-  std::vector<rule_ptr> extra_tokens_;
-  std::vector<std::vector<std::string>> expected_conflicts_;
-
- public:
-  explicit Grammar(const std::vector<std::pair<std::string, rule_ptr>> &);
-  Grammar &extra_tokens(const std::vector<rule_ptr> &);
-  Grammar &expected_conflicts(const std::vector<std::vector<std::string>> &);
-  const std::vector<std::pair<std::string, rule_ptr>> &rules() const;
-  const std::vector<rule_ptr> &extra_tokens() const;
-  const std::vector<std::vector<std::string>> &expected_conflicts() const;
+struct Grammar {
+  std::vector<std::pair<std::string, rule_ptr>> rules;
+  std::vector<rule_ptr> extra_tokens;
+  std::vector<std::vector<std::string>> expected_conflicts;
 };
 
 enum GrammarErrorType {
@@ -51,8 +43,11 @@ enum GrammarErrorType {
 
 class GrammarError {
  public:
-  GrammarError(GrammarErrorType type, std::string message);
-  bool operator==(const GrammarError &other) const;
+  GrammarError(GrammarErrorType type, std::string message) : type(type), message(message) {}
+  bool operator==(const GrammarError &other) const {
+    return type == other.type && message == other.message;
+  }
+
   GrammarErrorType type;
   std::string message;
 };

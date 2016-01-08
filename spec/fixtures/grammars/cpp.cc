@@ -5,7 +5,7 @@ namespace tree_sitter_examples {
 
 // http://slps.github.io/zoo/cpp/iso-n2723.html
 
-extern const Grammar cpp = Grammar({
+extern const Grammar cpp{{
   { "translation_unit", repeat(sym("_declaration")) },
 
   { "_declaration", choice({
@@ -211,13 +211,13 @@ extern const Grammar cpp = Grammar({
   { "number", pattern("\\d+(\\.\\d+)?") },
 
   { "comment", pattern("//[^\n]*") },
-}).extra_tokens({
+}, {
   sym("comment"),
   pattern("[ \t\r\n]"),
-}).expected_conflicts({
+}, {
   { "type_specifier", "_expression" },
   { "template_call", "_expression" },
   { "template_call", "relational_expression" },
-});
+}};
 
 }  // namespace tree_sitter_examples

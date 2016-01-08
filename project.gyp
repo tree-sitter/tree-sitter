@@ -24,7 +24,6 @@
         'src/compiler/build_tables/rule_can_be_blank.cc',
         'src/compiler/compile.cc',
         'src/compiler/generate_code/c_code.cc',
-        'src/compiler/grammar.cc',
         'src/compiler/lex_table.cc',
         'src/compiler/parse_table.cc',
         'src/compiler/precedence_range.cc',

@@ -9,7 +9,7 @@ static rule_ptr terminated(rule_ptr rule) {
     str(";") }) });
 }
 
-extern const Grammar golang = Grammar({
+extern const Grammar golang{{
   { "program", seq({
     sym("package_directive"),
     repeat(sym("imports_block")),
@@ -203,10 +203,10 @@ extern const Grammar golang = Grammar({
 
   { "comment", pattern("//[^\n]*") },
 
-}).extra_tokens({
+}, {
   sym("comment"),
   sym("_line_break"),
   pattern("[ \t\r]"),
-});
+}, {}};
 
 }  // namespace tree_sitter_examples

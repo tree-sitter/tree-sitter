@@ -10,11 +10,11 @@ using prepare_grammar::intern_symbols;
 
 describe("intern_symbols", []() {
   it("replaces named symbols with numerically-indexed symbols", [&]() {
-    Grammar grammar({
+    Grammar grammar{{
       { "x", choice({ sym("y"), sym("_z") }) },
       { "y", sym("_z") },
       { "_z", str("stuff") }
-    });
+    }, {}, {}};
 
     auto result = intern_symbols(grammar);
 
@@ -28,9 +28,9 @@ describe("intern_symbols", []() {
 
   describe("when there are symbols that reference undefined rules", [&]() {
     it("returns an error", []() {
-      Grammar grammar({
+      Grammar grammar{{
         { "x", sym("y") },
-      });
+      }, {}, {}};
 
       auto result = intern_symbols(grammar);
 
@@ -39,11 +39,13 @@ describe("intern_symbols", []() {
   });
 
   it("translates the grammar's optional 'extra_tokens' to numerical symbols", [&]() {
-    auto grammar = Grammar({
+    Grammar grammar{{
       { "x", choice({ sym("y"), sym("z") }) },
       { "y", sym("z") },
       { "z", str("stuff") }
-    }).extra_tokens({ sym("z") });
+    }, {
+      sym("z")
+    }, {}};
 
     auto result = intern_symbols(grammar);
 

@@ -3,7 +3,7 @@
 
 namespace tree_sitter_examples {
 
-extern const Grammar arithmetic = Grammar({
+extern const Grammar arithmetic{{
   { "program", sym("_expression") },
 
   { "_expression", choice({
@@ -37,9 +37,9 @@ extern const Grammar arithmetic = Grammar({
       pattern("[0-9]") })) })) },
 
   { "comment", pattern("#.*") },
-}).extra_tokens({
+}, {
   sym("comment"),
   pattern("\\s"),
-});
+}, {}};
 
 }  // namespace tree_sitter_examples

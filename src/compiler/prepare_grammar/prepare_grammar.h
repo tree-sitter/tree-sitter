@@ -7,7 +7,7 @@
 
 namespace tree_sitter {
 
-class Grammar;
+struct Grammar;
 class GrammarError;
 
 namespace prepare_grammar {
