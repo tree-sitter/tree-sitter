@@ -7,3 +7,6 @@
 [submodule "externals/utf8proc"]
 	path = externals/utf8proc
 	url = https://github.com/julialang/utf8proc
+[submodule "externals/json-parser"]
+	path = externals/json-parser
+	url = https://github.com/udp/json-parser.git

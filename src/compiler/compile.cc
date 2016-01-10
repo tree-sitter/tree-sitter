@@ -4,6 +4,8 @@
 #include "compiler/generate_code/c_code.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/lexical_grammar.h"
+#include "compiler/parse_grammar.h"
+#include "json.h"
 
 namespace tree_sitter {
 
@@ -12,6 +14,20 @@ using std::string;
 using std::vector;
 using std::get;
 using std::make_tuple;
+
+CompileResult compile(const char *input) {
+  ParseGrammarResult parse_result = parse_grammar(string(input));
+  if (!parse_result.error_message.empty()) {
+    return {nullptr, parse_result.error_message.c_str()};
+  }
+
+  auto compile_result = compile(parse_result.grammar, parse_result.name);
+  if (compile_result.second) {
+    return {nullptr, compile_result.second->message.c_str()};
+  }
+
+  return {compile_result.first.c_str(), nullptr};
+}
 
 pair<string, const GrammarError *> compile(const Grammar &grammar,
                                            std::string name) {

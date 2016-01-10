@@ -8,6 +8,7 @@
         'include',
         'src',
         'externals/utf8proc',
+        'externals/json-parser',
       ],
       'sources': [
         'src/compiler/build_tables/build_lex_table.cc',
@@ -25,6 +26,7 @@
         'src/compiler/compile.cc',
         'src/compiler/generate_code/c_code.cc',
         'src/compiler/lex_table.cc',
+        'src/compiler/parse_grammar.cc',
         'src/compiler/parse_table.cc',
         'src/compiler/precedence_range.cc',
         'src/compiler/prepare_grammar/expand_repeats.cc',
@@ -57,6 +59,7 @@
         'src/compiler/rules/visitor.cc',
         'src/compiler/util/string_helpers.cc',
         'externals/utf8proc/utf8proc.c',
+        'externals/json-parser/json.c',
       ],
       'cflags_cc': [
         '-std=c++0x',

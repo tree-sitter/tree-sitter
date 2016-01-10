@@ -54,6 +54,12 @@ class GrammarError {
 
 std::pair<std::string, const GrammarError *> compile(const Grammar &,
                                                      std::string);
+struct CompileResult {
+  const char *code;
+  const char *error_message;
+};
+
+extern "C" CompileResult compile(const char *input);
 
 }  // namespace tree_sitter
 
