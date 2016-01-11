@@ -1,4 +1,4 @@
-#include "tree_sitter/compiler.h"
+#include "compiler/rules.h"
 
 namespace tree_sitter_examples {
 

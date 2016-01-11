@@ -2,7 +2,6 @@
 #define COMPILER_BUILD_TABLES_LEX_CONFLICT_MANAGER_H_
 
 #include <set>
-#include "tree_sitter/compiler.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/rules/symbol.h"
 

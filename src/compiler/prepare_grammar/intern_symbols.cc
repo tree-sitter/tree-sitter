@@ -3,6 +3,7 @@
 #include <vector>
 #include <set>
 #include "tree_sitter/compiler.h"
+#include "compiler/grammar.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/blank.h"
 #include "compiler/rules/named_symbol.h"
@@ -42,12 +43,12 @@ class InternSymbols : public rules::IdentityRuleFn {
   string missing_rule_name;
 };
 
-const GrammarError *missing_rule_error(string rule_name) {
-  return new GrammarError(GrammarErrorTypeUndefinedSymbol,
-                          "Undefined rule '" + rule_name + "'");
+CompileError missing_rule_error(string rule_name) {
+  return CompileError(TSCompileErrorTypeUndefinedSymbol,
+                      "Undefined rule '" + rule_name + "'");
 }
 
-pair<InternedGrammar, const GrammarError *> intern_symbols(const Grammar &grammar) {
+pair<InternedGrammar, CompileError> intern_symbols(const Grammar &grammar) {
   InternedGrammar result;
   InternSymbols interner(grammar);
 
@@ -78,7 +79,7 @@ pair<InternedGrammar, const GrammarError *> intern_symbols(const Grammar &gramma
     result.expected_conflicts.insert(entry);
   }
 
-  return { result, nullptr };
+  return { result, CompileError::none() };
 }
 
 }  // namespace prepare_grammar

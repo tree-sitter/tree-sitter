@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include <set>
-#include "tree_sitter/compiler.h"
+#include "compiler/rule.h"
 #include "compiler/variable.h"
 
 namespace tree_sitter {

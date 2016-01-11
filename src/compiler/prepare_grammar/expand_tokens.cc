@@ -53,36 +53,35 @@ class ExpandTokens : public rules::IdentityRuleFn {
 
   rule_ptr apply_to(const Pattern *rule) {
     auto pair = parse_regex(rule->value);
-    if (!error)
+    if (!error.type)
       error = pair.second;
     return pair.first;
   }
 
  public:
-  const GrammarError *error;
-  ExpandTokens() : error(nullptr) {}
+  CompileError error;
+  ExpandTokens() : error(CompileError::none()) {}
 };
 
-pair<LexicalGrammar, const GrammarError *> expand_tokens(
-  const LexicalGrammar &grammar) {
+pair<LexicalGrammar, CompileError> expand_tokens(const LexicalGrammar &grammar) {
   LexicalGrammar result;
   ExpandTokens expander;
 
   for (const Variable &variable : grammar.variables) {
     auto rule = expander.apply(variable.rule);
-    if (expander.error)
+    if (expander.error.type)
       return { result, expander.error };
     result.variables.push_back(Variable(variable.name, variable.type, rule));
   }
 
   for (auto &sep : grammar.separators) {
     auto rule = expander.apply(sep);
-    if (expander.error)
+    if (expander.error.type)
       return { result, expander.error };
     result.separators.push_back(rule);
   }
 
-  return { result, nullptr };
+  return { result, CompileError::none() };
 }
 
 }  // namespace prepare_grammar

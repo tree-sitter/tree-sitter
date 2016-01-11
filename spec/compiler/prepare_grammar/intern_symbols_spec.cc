@@ -18,7 +18,7 @@ describe("intern_symbols", []() {
 
     auto result = intern_symbols(grammar);
 
-    AssertThat(result.second, Equals((GrammarError *)nullptr));
+    AssertThat(result.second, Equals(CompileError::none()));
     AssertThat(result.first.variables, Equals(vector<Variable>({
       Variable("x", VariableTypeNamed, choice({ i_sym(1), i_sym(2) })),
       Variable("y", VariableTypeNamed, i_sym(2)),
@@ -34,7 +34,7 @@ describe("intern_symbols", []() {
 
       auto result = intern_symbols(grammar);
 
-      AssertThat(result.second->message, Equals("Undefined rule 'y'"));
+      AssertThat(result.second.message, Equals("Undefined rule 'y'"));
     });
   });
 
@@ -49,7 +49,7 @@ describe("intern_symbols", []() {
 
     auto result = intern_symbols(grammar);
 
-    AssertThat(result.second, Equals((GrammarError *)nullptr));
+    AssertThat(result.second, Equals(CompileError::none()));
     AssertThat(result.first.extra_tokens.size(), Equals<size_t>(1));
     AssertThat(*result.first.extra_tokens.begin(), EqualsPointer(i_sym(2)));
   });

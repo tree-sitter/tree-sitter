@@ -15,28 +15,44 @@ using std::vector;
 using std::get;
 using std::make_tuple;
 
-CompileResult compile(const char *input) {
+extern "C" TSCompileResult ts_compile_grammar(const char *input) {
   ParseGrammarResult parse_result = parse_grammar(string(input));
   if (!parse_result.error_message.empty()) {
-    return {nullptr, parse_result.error_message.c_str()};
+    return { "", strdup(parse_result.error_message.c_str()),
+             TSCompileErrorTypeInvalidGrammar };
   }
 
-  auto compile_result = compile(parse_result.grammar, parse_result.name);
-  if (compile_result.second) {
-    return {nullptr, compile_result.second->message.c_str()};
+  auto prepare_grammar_result =
+    prepare_grammar::prepare_grammar(parse_result.grammar);
+  const SyntaxGrammar &syntax_grammar = get<0>(prepare_grammar_result);
+  const LexicalGrammar &lexical_grammar = get<1>(prepare_grammar_result);
+  CompileError error = get<2>(prepare_grammar_result);
+  if (error.type) {
+    return { "", strdup(error.message.c_str()), error.type };
   }
 
-  return {compile_result.first.c_str(), nullptr};
+  auto table_build_result =
+    build_tables::build_tables(syntax_grammar, lexical_grammar);
+  const ParseTable &parse_table = get<0>(table_build_result);
+  const LexTable &lex_table = get<1>(table_build_result);
+  error = get<2>(table_build_result);
+  if (error.type) {
+    return { "", strdup(error.message.c_str()), error.type };
+  }
+
+  string code = generate_code::c_code(parse_result.name, parse_table, lex_table,
+                                      syntax_grammar, lexical_grammar);
+
+  return { strdup(code.c_str()), "", TSCompileErrorTypeNone };
 }
 
-pair<string, const GrammarError *> compile(const Grammar &grammar,
-                                           std::string name) {
+pair<string, const CompileError> compile(const Grammar &grammar,
+                                         std::string name) {
   auto prepare_grammar_result = prepare_grammar::prepare_grammar(grammar);
   const SyntaxGrammar &syntax_grammar = get<0>(prepare_grammar_result);
   const LexicalGrammar &lexical_grammar = get<1>(prepare_grammar_result);
-  const GrammarError *error = get<2>(prepare_grammar_result);
-
-  if (error)
+  CompileError error = get<2>(prepare_grammar_result);
+  if (error.type)
     return { "", error };
 
   auto table_build_result =
@@ -44,14 +60,13 @@ pair<string, const GrammarError *> compile(const Grammar &grammar,
   const ParseTable &parse_table = get<0>(table_build_result);
   const LexTable &lex_table = get<1>(table_build_result);
   error = get<2>(table_build_result);
-
-  if (error)
+  if (error.type)
     return { "", error };
 
   string code = generate_code::c_code(name, parse_table, lex_table,
                                       syntax_grammar, lexical_grammar);
 
-  return { code, nullptr };
+  return { code, CompileError::none() };
 }
 
 }  // namespace tree_sitter

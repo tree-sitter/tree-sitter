@@ -1,7 +1,8 @@
 #ifndef TREESITTER_EXAMPLES_HELPERS_
 #define TREESITTER_EXAMPLES_HELPERS_
 
-#include "tree_sitter/compiler.h"
+#include "compiler/rules.h"
+#include "compiler/grammar.h"
 
 namespace tree_sitter_examples {
 

@@ -2,8 +2,9 @@
 #include <string>
 #include <vector>
 #include <utility>
-#include "tree_sitter/compiler.h"
 #include "json.h"
+#include "compiler/rule.h"
+#include "compiler/rules.h"
 
 namespace tree_sitter {
 
@@ -40,7 +41,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
   type = rule_type_json.u.string.ptr;
 
   if (type == "BLANK") {
-    return {blank(), ""};
+    return { blank(), "" };
   }
 
   if (type == "CHOICE") {
@@ -61,7 +62,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
         goto error;
       }
     }
-    return {choice(members), ""};
+    return { choice(members), "" };
   }
 
   if (type == "SEQ") {
@@ -82,14 +83,14 @@ ParseRuleResult parse_rule(json_value *rule_json) {
         goto error;
       }
     }
-    return {seq(members), ""};
+    return { seq(members), "" };
   }
 
   if (type == "ERROR") {
     json_value content_json = rule_json->operator[]("content");
     ParseRuleResult content = parse_rule(&content_json);
     if (content.rule.get()) {
-      return {err(content.rule), ""};
+      return { err(content.rule), "" };
     } else {
       error_message = "Invalid error content: " + content.error_message;
       goto error;
@@ -100,7 +101,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     json_value content_json = rule_json->operator[]("content");
     ParseRuleResult content = parse_rule(&content_json);
     if (content.rule.get()) {
-      return {repeat(content.rule), ""};
+      return { repeat(content.rule), "" };
     } else {
       error_message = "Invalid repeat content: " + content.error_message;
       goto error;
@@ -111,7 +112,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     json_value content_json = rule_json->operator[]("content");
     ParseRuleResult content = parse_rule(&content_json);
     if (content.rule.get()) {
-      return {repeat1(content.rule), ""};
+      return { repeat1(content.rule), "" };
     } else {
       error_message = "Invalid repeat1 content: " + content.error_message;
       goto error;
@@ -122,7 +123,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     json_value content_json = rule_json->operator[]("content");
     ParseRuleResult content = parse_rule(&content_json);
     if (content.rule.get()) {
-      return {token(content.rule), ""};
+      return { token(content.rule), "" };
     } else {
       error_message = "Invalid token content: " + content.error_message;
       goto error;
@@ -132,7 +133,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
   if (type == "PATTERN") {
     json_value value_json = rule_json->operator[]("value");
     if (value_json.type == json_string) {
-      return {pattern(value_json.u.string.ptr), ""};
+      return { pattern(value_json.u.string.ptr), "" };
     } else {
       error_message = "Pattern value must be a string";
       goto error;
@@ -142,7 +143,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
   if (type == "STRING") {
     json_value value_json = rule_json->operator[]("value");
     if (value_json.type == json_string) {
-      return {str(value_json.u.string.ptr), ""};
+      return { str(value_json.u.string.ptr), "" };
     } else {
       error_message = "String rule value must be a string";
       goto error;
@@ -152,7 +153,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
   if (type == "SYMBOL") {
     json_value value_json = rule_json->operator[]("name");
     if (value_json.type == json_string) {
-      return {sym(value_json.u.string.ptr), ""};
+      return { sym(value_json.u.string.ptr), "" };
     } else {
       error_message = "Symbol value must be a string";
       goto error;
@@ -173,7 +174,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
       goto error;
     }
 
-    return {prec(precedence_json.u.integer, content.rule), ""};
+    return { prec(precedence_json.u.integer, content.rule), "" };
   }
 
   if (type == "PREC_LEFT") {
@@ -190,7 +191,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
       goto error;
     }
 
-    return {prec_left(precedence_json.u.integer, content.rule), ""};
+    return { prec_left(precedence_json.u.integer, content.rule), "" };
   }
 
   if (type == "PREC_RIGHT") {
@@ -207,13 +208,13 @@ ParseRuleResult parse_rule(json_value *rule_json) {
       goto error;
     }
 
-    return {prec_right(precedence_json.u.integer, content.rule), ""};
+    return { prec_right(precedence_json.u.integer, content.rule), "" };
   }
 
   error_message = "Unknown rule type " + type;
 
 error:
-  return {rule_ptr(), error_message};
+  return { rule_ptr(), error_message };
 }
 
 ParseGrammarResult parse_grammar(const string &input) {
@@ -222,11 +223,12 @@ ParseGrammarResult parse_grammar(const string &input) {
   Grammar grammar;
   json_value name_json, rules_json, extras_json, conflicts_json;
 
-  json_settings settings = {0, 0, 0, 0, 0, 0};
+  json_settings settings = { 0, 0, 0, 0, 0, 0 };
   char parse_error[json_error_max];
-  json_value *grammar_json = json_parse_ex(&settings, input.c_str(), input.size(), parse_error);
+  json_value *grammar_json =
+    json_parse_ex(&settings, input.c_str(), input.size(), parse_error);
   if (!grammar_json) {
-    error_message = "Failed to parse JSON";
+    error_message = string("Invalid JSON at ") + parse_error;
     goto error;
   }
 
@@ -254,7 +256,8 @@ ParseGrammarResult parse_grammar(const string &input) {
     ParseRuleResult entry = parse_rule(entry_json.value);
 
     if (!entry.rule.get()) {
-      error_message = string("Invalid rule '") + entry_json.name + "' " + entry.error_message;
+      error_message =
+        string("Invalid rule '") + entry_json.name + "' " + entry.error_message;
       goto error;
     }
 
@@ -295,7 +298,8 @@ ParseGrammarResult parse_grammar(const string &input) {
       }
 
       vector<string> conflict;
-      for (size_t j = 0, conflict_length = conflict_json->u.array.length; j < conflict_length; j++) {
+      for (size_t j = 0, conflict_length = conflict_json->u.array.length;
+           j < conflict_length; j++) {
         json_value *conflict_entry_json = conflict_json->u.array.values[j];
         if (conflict_entry_json->type != json_string) {
           error_message = "Each conflict entry must be an array of strings";
@@ -309,14 +313,14 @@ ParseGrammarResult parse_grammar(const string &input) {
     }
   }
 
-  return {name, grammar, ""};
+  return { name, grammar, "" };
 
 error:
   if (grammar_json) {
     json_value_free(grammar_json);
   }
 
-  return {"", Grammar{}, error_message};
+  return { "", Grammar{}, error_message };
 }
 
 }  // namespace tree_sitter

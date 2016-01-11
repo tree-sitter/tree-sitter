@@ -90,12 +90,12 @@ class TokenExtractor : public rules::IdentityRuleFn {
   vector<Variable> tokens;
 };
 
-static const GrammarError *ubiq_token_err(const string &message) {
-  return new GrammarError(GrammarErrorTypeInvalidUbiquitousToken,
-                          "Not a token: " + message);
+static CompileError ubiq_token_err(const string &message) {
+  return CompileError(TSCompileErrorTypeInvalidUbiquitousToken,
+                      "Not a token: " + message);
 }
 
-tuple<InitialSyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens(
+tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
   const InternedGrammar &grammar) {
   InitialSyntaxGrammar syntax_grammar;
   LexicalGrammar lexical_grammar;
@@ -186,7 +186,7 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, const GrammarError *> extract_tokens
     syntax_grammar.extra_tokens.insert(new_symbol);
   }
 
-  return make_tuple(syntax_grammar, lexical_grammar, nullptr);
+  return make_tuple(syntax_grammar, lexical_grammar, CompileError::none());
 }
 
 }  // namespace prepare_grammar

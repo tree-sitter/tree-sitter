@@ -3,6 +3,7 @@
 
 #include <string>
 #include "tree_sitter/compiler.h"
+#include "compiler/grammar.h"
 
 namespace tree_sitter {
 

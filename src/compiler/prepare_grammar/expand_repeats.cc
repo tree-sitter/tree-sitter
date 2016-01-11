@@ -3,6 +3,7 @@
 #include <string>
 #include <utility>
 #include "compiler/prepare_grammar/initial_syntax_grammar.h"
+#include "compiler/rule.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/symbol.h"

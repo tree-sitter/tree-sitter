@@ -4,15 +4,15 @@
 #include <tuple>
 #include "compiler/syntax_grammar.h"
 #include "compiler/lexical_grammar.h"
+#include "compiler/compile_error.h"
 
 namespace tree_sitter {
 
 struct Grammar;
-class GrammarError;
 
 namespace prepare_grammar {
 
-std::tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
+std::tuple<SyntaxGrammar, LexicalGrammar, CompileError> prepare_grammar(
   const Grammar &);
 
 }  // namespace prepare_grammar

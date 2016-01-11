@@ -1,32 +1,45 @@
 #include "compiler/compiler_spec_helper.h"
-#include "tree_sitter/compiler.h"
+#include "compiler/compile.h"
 
 using namespace rules;
 
 START_TEST
 
-describe("Compile", []() {
+describe("compile_grammar", []() {
   describe("when the grammar's start symbol is a token", [&]() {
     it("does not fail", [&]() {
-      Grammar grammar{{
-        { "rule1", str("the-value") }
-      }, {}, {}};
+      TSCompileResult result = ts_compile_grammar(R"JSON(
+        {
+          "name": "the_grammar",
+          "rules": {
+            "rule1": {
+              "type": "STRING",
+              "value": "hello"
+            }
+          }
+        }
+      )JSON");
 
-      auto result = compile(grammar, "test_grammar");
-      const GrammarError *error = result.second;
-      AssertThat(error, Equals<const GrammarError *>(nullptr));
+      AssertThat(string(result.error_message), IsEmpty());
+      AssertThat(string(result.code), !IsEmpty());
     });
   });
 
   describe("when the grammar's start symbol is blank", [&]() {
     it("does not fail", [&]() {
-      Grammar grammar{{
-        { "rule1", blank() }
-      }, {}, {}};
+      TSCompileResult result = ts_compile_grammar(R"JSON(
+        {
+          "name": "the_grammar",
+          "rules": {
+            "rule1": {
+              "type": "BLANK"
+            }
+          }
+        }
+      )JSON");
 
-      auto result = compile(grammar, "test_grammar");
-      const GrammarError *error = result.second;
-      AssertThat(error, Equals<const GrammarError *>(nullptr));
+      AssertThat(string(result.error_message), IsEmpty());
+      AssertThat(string(result.code), !IsEmpty());
     });
   });
 });

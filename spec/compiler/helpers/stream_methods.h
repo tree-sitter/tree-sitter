@@ -7,7 +7,8 @@
 #include <map>
 #include <unordered_set>
 #include <vector>
-#include "tree_sitter/compiler.h"
+#include "compiler/grammar.h"
+#include "compiler/compile_error.h"
 
 using std::cout;
 
@@ -98,7 +99,7 @@ struct ProductionStep;
 struct PrecedenceRange;
 
 ostream &operator<<(ostream &, const Grammar &);
-ostream &operator<<(ostream &, const GrammarError &);
+ostream &operator<<(ostream &, const CompileError &);
 ostream &operator<<(ostream &, const Rule &);
 ostream &operator<<(ostream &, const rule_ptr &);
 ostream &operator<<(ostream &, const Variable &);

@@ -4,7 +4,7 @@
 #include <utility>
 #include <vector>
 #include "compiler/parse_table.h"
-#include "tree_sitter/compiler.h"
+#include "compiler/compile_error.h"
 
 namespace tree_sitter {
 
@@ -13,8 +13,8 @@ struct LexicalGrammar;
 
 namespace build_tables {
 
-std::pair<ParseTable, const GrammarError *> build_parse_table(
-  const SyntaxGrammar &, const LexicalGrammar &);
+std::pair<ParseTable, CompileError> build_parse_table(const SyntaxGrammar &,
+                                                      const LexicalGrammar &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

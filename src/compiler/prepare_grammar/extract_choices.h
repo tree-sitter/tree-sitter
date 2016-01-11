@@ -2,7 +2,7 @@
 #define COMPILER_PREPARE_GRAMMAR_EXTRACT_CHOICES_H_
 
 #include <vector>
-#include "tree_sitter/compiler.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {

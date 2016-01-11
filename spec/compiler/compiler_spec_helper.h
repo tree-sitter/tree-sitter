@@ -5,7 +5,7 @@
 #include "compiler/helpers/stream_methods.h"
 #include "compiler/helpers/equals_pointer.h"
 #include "compiler/helpers/rule_helpers.h"
-#include "tree_sitter/compiler.h"
+#include "compiler/rules.h"
 
 using namespace tree_sitter;
 using namespace std;

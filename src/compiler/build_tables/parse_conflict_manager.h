@@ -2,7 +2,6 @@
 #define COMPILER_BUILD_TABLES_PARSE_CONFLICT_MANAGER_H_
 
 #include <utility>
-#include "tree_sitter/compiler.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/build_tables/parse_item.h"
 

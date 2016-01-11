@@ -16,14 +16,14 @@ using std::tuple;
 using std::get;
 using std::make_tuple;
 
-tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
+tuple<SyntaxGrammar, LexicalGrammar, CompileError> prepare_grammar(
   const Grammar &input_grammar) {
   /*
    * Convert all string-based `NamedSymbols` into numerical `Symbols`
    */
   auto intern_result = intern_symbols(input_grammar);
-  const GrammarError *error = intern_result.second;
-  if (error)
+  CompileError error = intern_result.second;
+  if (error.type)
     return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
 
   /*
@@ -31,7 +31,7 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
    */
   auto extract_result = extract_tokens(intern_result.first);
   error = get<2>(extract_result);
-  if (error)
+  if (error.type)
     return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
 
   /*
@@ -45,7 +45,7 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
   auto expand_tokens_result = expand_tokens(get<1>(extract_result));
   LexicalGrammar lex_grammar = expand_tokens_result.first;
   error = expand_tokens_result.second;
-  if (error)
+  if (error.type)
     return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
 
   /*
@@ -58,7 +58,7 @@ tuple<SyntaxGrammar, LexicalGrammar, const GrammarError *> prepare_grammar(
    */
   lex_grammar = normalize_rules(lex_grammar);
 
-  return make_tuple(syntax_grammar, lex_grammar, nullptr);
+  return make_tuple(syntax_grammar, lex_grammar, CompileError::none());
 }
 
 }  // namespace prepare_grammar
