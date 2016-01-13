@@ -335,9 +335,8 @@ static bool ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
       }
 
       LOG("split_during_reduce new_head:%d", new_head);
-      LookaheadState *lookahead_state =
-        vector_get(&self->lookahead_states, head);
-      vector_push(&self->lookahead_states, lookahead_state);
+      LookaheadState lookahead_state = *(LookaheadState *)vector_get(&self->lookahead_states, head);
+      vector_push(&self->lookahead_states, &lookahead_state);
     }
 
     /*
