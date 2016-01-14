@@ -25,12 +25,10 @@ describe("compile_grammar", []() {
         }
       )JSON");
 
-      const TSLanguage *language = load_language("test_language", result);
+      ts_document_set_language(document, load_language("test_language", result));
 
-      ts_document_set_language(document, language);
       ts_document_set_input_string(document, "the-value");
       ts_document_parse(document);
-
       TSNode root_node = ts_document_root_node(document);
       AssertThat(ts_node_string(root_node, document), Equals("(first_rule)"));
     });
@@ -47,13 +45,49 @@ describe("compile_grammar", []() {
         }
       )JSON");
 
-      const TSLanguage *language = load_language("test_language", result);
+      ts_document_set_language(document, load_language("test_language", result));
 
-      ts_document_set_language(document, language);
       ts_document_set_input_string(document, "");
       ts_document_parse(document);
-
       TSNode root_node = ts_document_root_node(document);
+      AssertThat(ts_node_string(root_node, document), Equals("(first_rule)"));
+    });
+  });
+
+  describe("when the grammar contains anonymous tokens with escaped characters", [&]() {
+    it("escapes the escaped characters properly in the generated parser", [&]() {
+      TSCompileResult result = ts_compile_grammar(R"JSON(
+        {
+          "name": "test_language",
+          "rules": {
+            "first_rule": {
+              "type": "CHOICE",
+              "members": [
+                {"type": "STRING", "value": "\n"},
+                {"type": "STRING", "value": "\r"},
+                {"type": "STRING", "value": "'hello'"},
+                {"type": "PATTERN", "value": "\\d+"}
+              ]
+            }
+          }
+        }
+      )JSON");
+
+      ts_document_set_language(document, load_language("test_language", result));
+
+      ts_document_set_input_string(document, "1234");
+      ts_document_parse(document);
+      TSNode root_node = ts_document_root_node(document);
+      AssertThat(ts_node_string(root_node, document), Equals("(first_rule)"));
+
+      ts_document_set_input_string(document, "\n");
+      ts_document_parse(document);
+      root_node = ts_document_root_node(document);
+      AssertThat(ts_node_string(root_node, document), Equals("(first_rule)"));
+
+      ts_document_set_input_string(document, "'hello'");
+      ts_document_parse(document);
+      root_node = ts_document_root_node(document);
       AssertThat(ts_node_string(root_node, document), Equals("(first_rule)"));
     });
   });
