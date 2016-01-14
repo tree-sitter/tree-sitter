@@ -25,7 +25,6 @@
       ],
       'include_dirs': [
         'src',
-        'examples',
         'spec',
         'externals/bandit',
         'externals/utf8proc',
@@ -42,6 +41,27 @@
           'defines': ['USE_BOOST_REGEX'],
           'libraries': ['-lboost_regex'],
         }]
+      ],
+    },
+
+    {
+      'target_name': 'integration_specs',
+      'type': 'executable',
+      'dependencies': [
+        'project.gyp:compiler',
+        'project.gyp:runtime'
+      ],
+      'include_dirs': [
+        'src',
+        'spec',
+        'externals/bandit',
+        'externals/utf8proc'
+      ],
+      'libraries': [
+        '-ldl'
+      ],
+      'sources': [
+        '<!@(find spec/integration -name "*.cc")'
       ],
     },
   ],
