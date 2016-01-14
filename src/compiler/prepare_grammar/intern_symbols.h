@@ -3,13 +3,16 @@
 
 #include <utility>
 #include <string>
-#include "tree_sitter/compiler.h"
+#include "compiler/compile_error.h"
 #include "compiler/prepare_grammar/interned_grammar.h"
 
 namespace tree_sitter {
+
+struct Grammar;
+
 namespace prepare_grammar {
 
-std::pair<InternedGrammar, const GrammarError *> intern_symbols(const Grammar &);
+std::pair<InternedGrammar, CompileError> intern_symbols(const Grammar &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

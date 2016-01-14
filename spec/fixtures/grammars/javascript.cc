@@ -30,7 +30,7 @@ enum {
   PREC_ARGS = 16,
 };
 
-extern const Grammar javascript = Grammar({
+extern const Grammar javascript{{
   { "program", repeat(sym("_statement")) },
 
   /*
@@ -349,13 +349,13 @@ extern const Grammar javascript = Grammar({
     str(")"),
     sym("statement_block") }) },
 
-}).extra_tokens({
+}, {
   sym("comment"),
   sym("_line_break"),
   pattern("[ \t\r]"),
-}).expected_conflicts({
+}, {
   { "for_in_statement", "_expression" },
   { "method_definition", "_expression" },
-});
+}};
 
 }  // namespace tree_sitter_examples

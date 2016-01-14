@@ -30,9 +30,9 @@ describe("extract_tokens", []() {
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
     LexicalGrammar &lexical_grammar = get<1>(result);
-    const GrammarError *error = get<2>(result);
+    CompileError error = get<2>(result);
 
-    AssertThat(error, Equals<const GrammarError *>(nullptr));
+    AssertThat(error, Equals(CompileError::none()));
 
     AssertThat(syntax_grammar.variables, Equals(vector<Variable>({
       Variable("rule_A", VariableTypeNamed, repeat1(seq({
@@ -150,7 +150,7 @@ describe("extract_tokens", []() {
         pattern("\\s+"),
       }, {}});
 
-      AssertThat(get<2>(result), Equals<const GrammarError *>(nullptr));
+      AssertThat(get<2>(result), Equals(CompileError::none()));
 
       AssertThat(get<1>(result).separators.size(), Equals<size_t>(2));
       AssertThat(get<1>(result).separators[0], EqualsPointer(str("y")));
@@ -167,7 +167,7 @@ describe("extract_tokens", []() {
         str("y"),
       }, {}});
 
-      AssertThat(get<2>(result), Equals<const GrammarError *>(nullptr));
+      AssertThat(get<2>(result), Equals(CompileError::none()));
       AssertThat(get<1>(result).separators.size(), Equals<size_t>(0));
       AssertThat(get<0>(result).extra_tokens, Equals(set<Symbol>({ Symbol(1, true) })));
     });
@@ -181,7 +181,7 @@ describe("extract_tokens", []() {
         i_sym(2),
       }, {}});
 
-      AssertThat(get<2>(result), Equals<const GrammarError *>(nullptr));
+      AssertThat(get<2>(result), Equals(CompileError::none()));
 
       AssertThat(get<0>(result).extra_tokens, Equals(set<Symbol>({
         { Symbol(3, true) },
@@ -196,9 +196,9 @@ describe("extract_tokens", []() {
         Variable("rule_B", VariableTypeNamed, seq({ str("y"), str("z") })),
       }, { i_sym(1) }, {}});
 
-      AssertThat(get<2>(result), !Equals<const GrammarError *>(nullptr));
-      AssertThat(get<2>(result), EqualsPointer(
-        new GrammarError(GrammarErrorTypeInvalidUbiquitousToken,
+      AssertThat(get<2>(result), !Equals(CompileError::none()));
+      AssertThat(get<2>(result), Equals(
+        CompileError(TSCompileErrorTypeInvalidUbiquitousToken,
                          "Not a token: rule_B")));
     });
 
@@ -208,9 +208,9 @@ describe("extract_tokens", []() {
         Variable("rule_B", VariableTypeNamed, str("y")),
       }, { choice({ i_sym(1), blank() }) }, {}});
 
-      AssertThat(get<2>(result), !Equals<const GrammarError *>(nullptr));
-      AssertThat(get<2>(result), EqualsPointer(
-        new GrammarError(GrammarErrorTypeInvalidUbiquitousToken,
+      AssertThat(get<2>(result), !Equals(CompileError::none()));
+      AssertThat(get<2>(result), Equals(
+        CompileError(TSCompileErrorTypeInvalidUbiquitousToken,
                          "Not a token: (choice (sym 1) (blank))")));
     });
   });

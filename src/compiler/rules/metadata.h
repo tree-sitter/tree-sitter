@@ -3,7 +3,6 @@
 
 #include <string>
 #include <map>
-#include "tree_sitter/compiler.h"
 #include "compiler/rule.h"
 
 namespace tree_sitter {

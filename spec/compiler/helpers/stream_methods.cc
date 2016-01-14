@@ -12,7 +12,7 @@ ostream &operator<<(ostream &stream, const Grammar &grammar) {
   stream << string("#<grammar");
   stream << string(" rules: {");
   bool started = false;
-  for (auto pair : grammar.rules()) {
+  for (auto pair : grammar.rules) {
     if (started)
       stream << string(", ");
     stream << pair.first;
@@ -23,11 +23,11 @@ ostream &operator<<(ostream &stream, const Grammar &grammar) {
   return stream << string("}>");
 }
 
-ostream &operator<<(ostream &stream, const GrammarError *error) {
-  if (error)
-    return stream << (string("#<grammar-error '") + error->message + "'>");
+ostream &operator<<(ostream &stream, const CompileError &error) {
+  if (error.type)
+    return stream << (string("#<compile-error '") + error.message + "'>");
   else
-    return stream << string("#<null>");
+    return stream << string("#<no-compile-error>");
 }
 
 ostream &operator<<(ostream &stream, const Rule &rule) {

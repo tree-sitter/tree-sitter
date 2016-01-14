@@ -5,7 +5,7 @@ namespace tree_sitter_examples {
 
 // http://slps.github.io/zoo/c/iso-9899-tc3.html
 
-extern const Grammar c = Grammar({
+extern const Grammar c{{
   { "translation_unit", repeat(choice({
     sym("preproc_define"),
     sym("preproc_call"),
@@ -258,13 +258,13 @@ extern const Grammar c = Grammar({
         pattern("[^\\*]"),
         pattern("\\*[^/]") })),
       str("*/") }) })) },
-}).extra_tokens({
+}, {
   sym("comment"),
   pattern("[ \t\r\n]"),
-}).expected_conflicts({
+}, {
   { "_type_specifier", "_expression" },
   { "_type_specifier", "_expression", "macro_type" },
   { "_type_specifier", "macro_type" },
-});
+}};
 
 }  // namespace tree_sitter_examples

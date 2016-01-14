@@ -4,7 +4,6 @@
 #include <vector>
 #include <string>
 #include <set>
-#include "tree_sitter/compiler.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/metadata.h"
 #include "compiler/variable.h"

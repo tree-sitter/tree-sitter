@@ -45,7 +45,7 @@ class ParseTableBuilder {
                     const LexicalGrammar &lex_grammar)
       : grammar(grammar), lexical_grammar(lex_grammar) {}
 
-  pair<ParseTable, const GrammarError *> build() {
+  pair<ParseTable, CompileError> build() {
     Symbol start_symbol = Symbol(0, grammar.variables.empty());
     Production start_production({
       ProductionStep(start_symbol, 0, rules::AssociativityNone),
@@ -68,9 +68,9 @@ class ParseTableBuilder {
       add_shift_actions(item_set, state_id);
 
       if (!conflicts.empty())
-        return { parse_table, new GrammarError(GrammarErrorTypeParseConflict,
-                                               "Unresolved conflict.\n\n" +
-                                                 *conflicts.begin()) };
+        return { parse_table,
+                 CompileError(TSCompileErrorTypeParseConflict,
+                              "Unresolved conflict.\n\n" + *conflicts.begin()) };
     }
 
     for (ParseStateId state = 0; state < parse_table.states.size(); state++) {
@@ -83,7 +83,7 @@ class ParseTableBuilder {
 
     parse_table.symbols.insert({ rules::ERROR(), {} });
 
-    return { parse_table, nullptr };
+    return { parse_table, CompileError::none() };
   }
 
  private:
@@ -370,7 +370,7 @@ class ParseTableBuilder {
   }
 };
 
-pair<ParseTable, const GrammarError *> build_parse_table(
+pair<ParseTable, CompileError> build_parse_table(
   const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar) {
   return ParseTableBuilder(grammar, lex_grammar).build();
 }

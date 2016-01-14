@@ -1,7 +1,6 @@
 #include "compiler/build_tables/parse_item.h"
 #include <string>
 #include "compiler/syntax_grammar.h"
-#include "tree_sitter/compiler.h"
 
 namespace tree_sitter {
 namespace build_tables {

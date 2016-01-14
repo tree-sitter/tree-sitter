@@ -2,8 +2,8 @@
 #include <map>
 #include <set>
 #include <string>
-#include "tree_sitter/compiler.h"
 #include "compiler/rule.h"
+#include "compiler/rules.h"
 #include "compiler/rules/blank.h"
 #include "compiler/rules/named_symbol.h"
 #include "compiler/rules/choice.h"

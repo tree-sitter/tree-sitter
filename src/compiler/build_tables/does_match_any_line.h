@@ -1,7 +1,7 @@
 #ifndef COMPILER_BUILD_TABLES_DOES_MATCH_ANY_LINE_H_
 #define COMPILER_BUILD_TABLES_DOES_MATCH_ANY_LINE_H_
 
-#include "tree_sitter/compiler.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace build_tables {

@@ -3,12 +3,13 @@
 
 #include <string>
 #include <utility>
-#include "tree_sitter/compiler.h"
+#include "compiler/rule.h"
+#include "compiler/compile_error.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {
 
-std::pair<rule_ptr, const GrammarError *> parse_regex(const std::string &);
+std::pair<rule_ptr, CompileError> parse_regex(const std::string &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

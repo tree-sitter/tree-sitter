@@ -94,17 +94,17 @@ struct TSLanguage {
  *  Lexer Macros
  */
 
-#define START_LEXER()                                        \
-  lexer->start_fn(lexer, state);                             \
-  int32_t lookahead;                                         \
-  next_state:                                                \
+#define START_LEXER()            \
+  lexer->start_fn(lexer, state); \
+  int32_t lookahead;             \
+  next_state:                    \
   lookahead = lexer->lookahead;
 
 #define START_TOKEN() lexer->start_token_fn(lexer);
 
 #define GO_TO_STATE(state_value) \
   {                              \
-    state = state_value;     \
+    state = state_value;         \
     goto next_state;             \
   }
 

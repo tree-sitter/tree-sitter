@@ -1,4 +1,5 @@
 #include "compiler/compiler_spec_helper.h"
+#include "compiler/compile.h"
 #include <fstream>
 #include <iostream>
 
@@ -29,10 +30,10 @@ describe("compiling the example grammars", []() {
     it(("compiles the " + language + " grammar").c_str(), [&]() {
       auto result = compile(grammar, language);
       string code = result.first;
-      const GrammarError *error = result.second;
+      const CompileError error = result.second;
 
-      if (error)
-        AssertThat(error->message, Equals(""));
+      if (error.type)
+        AssertThat(error.message, Equals(""));
 
       ofstream file(example_parser_dir + language + ".c");
       file << get<0>(result);

@@ -2,7 +2,6 @@
 #include <set>
 #include <vector>
 #include <utility>
-#include "tree_sitter/compiler.h"
 #include "compiler/syntax_grammar.h"
 
 namespace tree_sitter {

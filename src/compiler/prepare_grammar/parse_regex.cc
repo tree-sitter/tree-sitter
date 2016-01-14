@@ -32,7 +32,7 @@ class PatternParser {
     next();
   }
 
-  pair<rule_ptr, const GrammarError *> rule(bool nested) {
+  pair<rule_ptr, CompileError> rule(bool nested) {
     vector<rule_ptr> choices = {};
     do {
       if (!choices.empty()) {
@@ -42,17 +42,17 @@ class PatternParser {
           break;
       }
       auto pair = term(nested);
-      if (pair.second)
+      if (pair.second.type)
         return { Blank::build(), pair.second };
       choices.push_back(pair.first);
     } while (has_more_input());
     auto rule =
       (choices.size() > 1) ? make_shared<Choice>(choices) : choices.front();
-    return { rule, nullptr };
+    return { rule, CompileError::none() };
   }
 
  private:
-  pair<rule_ptr, const GrammarError *> term(bool nested) {
+  pair<rule_ptr, CompileError> term(bool nested) {
     rule_ptr result = Blank::build();
     do {
       if (peek() == '|')
@@ -60,16 +60,16 @@ class PatternParser {
       if (nested && peek() == ')')
         break;
       auto pair = factor();
-      if (pair.second)
+      if (pair.second.type)
         return { Blank::build(), pair.second };
       result = Seq::build({ result, pair.first });
     } while (has_more_input());
-    return { result, nullptr };
+    return { result, CompileError::none() };
   }
 
-  pair<rule_ptr, const GrammarError *> factor() {
+  pair<rule_ptr, CompileError> factor() {
     auto pair = atom();
-    if (pair.second)
+    if (pair.second.type)
       return { Blank::build(), pair.second };
     rule_ptr result = pair.first;
     if (has_more_input()) {
@@ -88,30 +88,30 @@ class PatternParser {
           break;
       }
     }
-    return { result, nullptr };
+    return { result, CompileError::none() };
   }
 
-  pair<rule_ptr, const GrammarError *> atom() {
+  pair<rule_ptr, CompileError> atom() {
     switch (peek()) {
       case '(': {
         next();
         auto pair = rule(true);
-        if (pair.second)
+        if (pair.second.type)
           return { Blank::build(), pair.second };
         if (peek() != ')')
           return error("unmatched open paren");
         next();
-        return { pair.first, nullptr };
+        return { pair.first, CompileError::none() };
       }
       case '[': {
         next();
         auto pair = char_set();
-        if (pair.second)
+        if (pair.second.type)
           return { Blank::build(), pair.second };
         if (peek() != ']')
           return error("unmatched open square bracket");
         next();
-        return { pair.first.copy(), nullptr };
+        return { pair.first.copy(), CompileError::none() };
       }
       case ')': {
         return error("unmatched close paren");
@@ -121,18 +121,19 @@ class PatternParser {
       }
       case '.': {
         next();
-        return { CharacterSet().include_all().exclude('\n').copy(), nullptr };
+        return { CharacterSet().include_all().exclude('\n').copy(),
+                 CompileError::none() };
       }
       default: {
         auto pair = single_char();
-        if (pair.second)
+        if (pair.second.type)
           return { Blank::build(), pair.second };
-        return { pair.first.copy(), nullptr };
+        return { pair.first.copy(), CompileError::none() };
       }
     }
   }
 
-  pair<CharacterSet, const GrammarError *> char_set() {
+  pair<CharacterSet, CompileError> char_set() {
     CharacterSet result;
     bool is_affirmative = true;
     if (peek() == '^') {
@@ -143,7 +144,7 @@ class PatternParser {
 
     while (has_more_input() && (peek() != ']')) {
       auto pair = single_char();
-      if (pair.second)
+      if (pair.second.type)
         return { CharacterSet(), pair.second };
       if (is_affirmative)
         result.add_set(pair.first);
@@ -151,10 +152,10 @@ class PatternParser {
         result.remove_set(pair.first);
     }
 
-    return { result, nullptr };
+    return { result, CompileError::none() };
   }
 
-  pair<CharacterSet, const GrammarError *> single_char() {
+  pair<CharacterSet, CompileError> single_char() {
     CharacterSet value;
     switch (peek()) {
       case '\\':
@@ -173,7 +174,7 @@ class PatternParser {
           value = CharacterSet().include(first_char);
         }
     }
-    return { value, nullptr };
+    return { value, CompileError::none() };
   }
 
   CharacterSet escaped_char(uint32_t value) {
@@ -217,8 +218,8 @@ class PatternParser {
     return lookahead && iter <= end;
   }
 
-  pair<rule_ptr, const GrammarError *> error(string msg) {
-    return { Blank::build(), new GrammarError(GrammarErrorTypeRegex, msg) };
+  pair<rule_ptr, CompileError> error(string msg) {
+    return { Blank::build(), CompileError(TSCompileErrorTypeInvalidRegex, msg) };
   }
 
   string input;
@@ -227,7 +228,7 @@ class PatternParser {
   int32_t lookahead;
 };
 
-pair<rule_ptr, const GrammarError *> parse_regex(const std::string &input) {
+pair<rule_ptr, CompileError> parse_regex(const std::string &input) {
   return PatternParser(input.c_str()).rule(false);
 }
 

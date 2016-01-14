@@ -3,7 +3,7 @@
 
 namespace tree_sitter_examples {
 
-extern const Grammar json = Grammar({
+extern const Grammar json{{
   { "_value", choice({
     sym("object"),
     sym("array"),
@@ -22,8 +22,8 @@ extern const Grammar json = Grammar({
   { "null", str("null") },
   { "true", str("true") },
   { "false", str("false") },
-}).extra_tokens({
+}, {
   pattern("\\s"),
-});
+}, {}};
 
 }  // namespace tree_sitter_examples

@@ -222,8 +222,8 @@ describe("parse_regex", []() {
   for (auto &row : invalid_inputs) {
     it(("handles invalid regexes with " + row.description).c_str(), [&]() {
       auto result = parse_regex(row.pattern);
-      AssertThat(result.second, !Equals((const GrammarError *)nullptr));
-      AssertThat(result.second->message, Contains(row.message));
+      AssertThat(result.second.type, Equals(TSCompileErrorTypeInvalidRegex));
+      AssertThat(result.second.message, Contains(row.message));
     });
   }
 });

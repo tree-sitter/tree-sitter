@@ -20,7 +20,7 @@ describe("expand_tokens", []() {
 
       auto result = expand_tokens(grammar);
 
-      AssertThat(result.second, Equals((const GrammarError *)nullptr));
+      AssertThat(result.second, Equals(CompileError::none()));
       AssertThat(result.first.variables, Equals(vector<Variable>({
         Variable("rule_A", VariableTypeNamed, seq({
           i_sym(10),
@@ -69,7 +69,7 @@ describe("expand_tokens", []() {
 
       auto result = expand_tokens(grammar);
 
-      AssertThat(result.second, Equals((const GrammarError *)nullptr));
+      AssertThat(result.second, Equals(CompileError::none()));
       AssertThat(result.first.variables, Equals(vector<Variable>({
         Variable("rule_A", VariableTypeNamed, seq({
           i_sym(10),
@@ -102,7 +102,7 @@ describe("expand_tokens", []() {
 
       auto result = expand_tokens(grammar);
 
-      AssertThat(result.second, EqualsPointer(new GrammarError(GrammarErrorTypeRegex, "unmatched open paren")));
+      AssertThat(result.second, Equals(CompileError(TSCompileErrorTypeInvalidRegex, "unmatched open paren")));
     });
   });
 });

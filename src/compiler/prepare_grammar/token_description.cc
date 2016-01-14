@@ -1,5 +1,4 @@
 #include "compiler/prepare_grammar/token_description.h"
-#include "tree_sitter/compiler.h"
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/pattern.h"
 #include "compiler/rules/seq.h"
