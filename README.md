@@ -103,8 +103,8 @@ int main() {
           }
         },
 
-        "number": {"type": "PATTERN", "value": "\\d+"}
-        "variable": {"type": "PATTERN", "value": "[a-zA-Z]\\w*"},
+        "number": {"type": "PATTERN", "value": "\\d+"},
+        "variable": {"type": "PATTERN", "value": "[a-zA-Z]\\w*"}
       }
     }
   )JSON");
