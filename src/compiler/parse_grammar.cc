@@ -223,7 +223,7 @@ ParseGrammarResult parse_grammar(const string &input) {
   Grammar grammar;
   json_value name_json, rules_json, extras_json, conflicts_json;
 
-  json_settings settings = { 0, 0, 0, 0, 0, 0 };
+  json_settings settings = { 0, json_enable_comments, 0, 0, 0, 0 };
   char parse_error[json_error_max];
   json_value *grammar_json =
     json_parse_ex(&settings, input.c_str(), input.size(), parse_error);
