@@ -44,6 +44,7 @@
       ],
       'variables': {
         'USE_LIBPROFILER%': 'true',
+        'USE_BOOST_REGEX%': 'false',
       },
       'conditions': [
         ['USE_BOOST_REGEX != "false"', {
