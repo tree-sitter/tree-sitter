@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 function usage {
   cat <<-EOF
 USAGE
