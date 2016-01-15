@@ -1,4 +1,5 @@
 #include "runtime/string_input.h"
+#include "runtime/alloc.h"
 #include <string.h>
 
 typedef struct {
@@ -26,7 +27,7 @@ int ts_string_input_seek(void *payload, size_t character, size_t byte) {
 }
 
 TSInput ts_string_input_make(const char *string) {
-  TSStringInput *input = malloc(sizeof(TSStringInput));
+  TSStringInput *input = ts_malloc(sizeof(TSStringInput));
   input->string = string;
   input->position = 0;
   input->length = strlen(string);

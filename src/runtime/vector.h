@@ -8,6 +8,7 @@ extern "C" {
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include "runtime/alloc.h"
 
 typedef struct {
   void *contents;
@@ -18,7 +19,7 @@ typedef struct {
 
 static inline Vector vector_new(size_t element_size, size_t capacity) {
   Vector result;
-  result.contents = malloc(capacity * element_size);
+  result.contents = ts_calloc(capacity, element_size);
   result.size = 0;
   result.capacity = capacity;
   result.element_size = element_size;
@@ -26,7 +27,7 @@ static inline Vector vector_new(size_t element_size, size_t capacity) {
 }
 
 static inline void vector_delete(Vector *self) {
-  free(self->contents);
+  ts_free(self->contents);
 }
 
 static inline void *vector_get(Vector *self, size_t index) {
@@ -56,7 +57,7 @@ static inline void vector_push(Vector *self, void *entry) {
   if (self->size == self->capacity) {
     self->capacity += 4;
     self->contents =
-      realloc(self->contents, self->capacity * self->element_size);
+      ts_realloc(self->contents, self->capacity * self->element_size);
   }
 
   char *contents = (char *)self->contents;
@@ -80,7 +81,7 @@ static inline void vector_reverse(Vector *self) {
 
 static inline Vector vector_copy(Vector *self) {
   Vector copy = *self;
-  copy.contents = memcpy(malloc(self->capacity * self->element_size),
+  copy.contents = memcpy(ts_calloc(self->capacity, self->element_size),
                          self->contents, self->size * self->element_size);
   return copy;
 }

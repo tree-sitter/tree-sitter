@@ -1,4 +1,5 @@
 #include "tree_sitter/parser.h"
+#include "runtime/alloc.h"
 #include "runtime/tree.h"
 #include "runtime/vector.h"
 #include "runtime/stack.h"
@@ -42,9 +43,9 @@ static TSTree *ts_stack__default_tree_selection(void *p, TSTree *t1, TSTree *t2)
 }
 
 Stack *ts_stack_new() {
-  Stack *self = malloc(sizeof(Stack));
+  Stack *self = ts_malloc(sizeof(Stack));
   *self = (Stack){
-    .heads = calloc(INITIAL_HEAD_CAPACITY, sizeof(StackNode *)),
+    .heads = ts_calloc(INITIAL_HEAD_CAPACITY, sizeof(StackNode *)),
     .head_count = 1,
     .head_capacity = INITIAL_HEAD_CAPACITY,
     .tree_selection_payload = NULL,
@@ -58,8 +59,8 @@ Stack *ts_stack_new() {
 void ts_stack_delete(Stack *self) {
   vector_delete(&self->pop_results);
   vector_delete(&self->pop_paths);
-  free(self->heads);
-  free(self);
+  ts_free(self->heads);
+  ts_free(self);
 }
 
 /*
@@ -119,7 +120,7 @@ static bool stack_node_release(StackNode *self) {
     for (int i = 0; i < self->successor_count; i++)
       stack_node_release(self->successors[i]);
     ts_tree_release(self->entry.tree);
-    free(self);
+    ts_free(self);
     return true;
   } else {
     return false;
@@ -127,7 +128,7 @@ static bool stack_node_release(StackNode *self) {
 }
 
 static StackNode *stack_node_new(StackNode *next, TSStateId state, TSTree *tree) {
-  StackNode *self = malloc(sizeof(StackNode));
+  StackNode *self = ts_malloc(sizeof(StackNode));
   assert(tree->ref_count > 0);
   ts_tree_retain(tree);
   stack_node_retain(next);
@@ -179,7 +180,7 @@ static int ts_stack__add_head(Stack *self, StackNode *node) {
   if (self->head_count == self->head_capacity) {
     self->head_capacity += 3;
     self->heads =
-      realloc(self->heads, self->head_capacity * sizeof(StackNode *));
+      ts_realloc(self->heads, self->head_capacity * sizeof(StackNode *));
   }
   int new_index = self->head_count++;
   self->heads[new_index] = node;

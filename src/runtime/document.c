@@ -1,4 +1,5 @@
 #include "tree_sitter/parser.h"
+#include "runtime/alloc.h"
 #include "runtime/node.h"
 #include "runtime/tree.h"
 #include "runtime/parser.h"
@@ -6,7 +7,7 @@
 #include "runtime/document.h"
 
 TSDocument *ts_document_make() {
-  TSDocument *document = calloc(sizeof(TSDocument), 1);
+  TSDocument *document = ts_calloc(1, sizeof(TSDocument));
   document->parser = ts_parser_make();
   return document;
 }
@@ -15,7 +16,7 @@ void ts_document_free(TSDocument *self) {
   ts_parser_destroy(&self->parser);
   if (self->tree)
     ts_tree_release(self->tree);
-  free(self);
+  ts_free(self);
 }
 
 const TSLanguage *ts_document_language(TSDocument *self) {

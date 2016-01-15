@@ -9,6 +9,7 @@
 #include "runtime/length.h"
 #include "runtime/vector.h"
 #include "runtime/language.h"
+#include "runtime/alloc.h"
 
 /*
  *  Debugging
@@ -80,7 +81,7 @@ static void ts_parser__breakdown_top_of_stack(TSParser *self, int head) {
       assert((i == 0) ^ merged);
     }
 
-    free(removed_trees);
+    ts_free(removed_trees);
   } while (last_child && last_child->child_count > 0);
 }
 
@@ -511,8 +512,8 @@ static void ts_parser__accept(TSParser *self, int head) {
         TSTree *root = pop_result->trees[i];
         size_t leading_extra_count = i;
         size_t trailing_extra_count = pop_result->tree_count - 1 - i;
-        TSTree **new_children = malloc(
-          (root->child_count + leading_extra_count + trailing_extra_count) *
+        TSTree **new_children = ts_calloc(
+          root->child_count + leading_extra_count + trailing_extra_count,
           sizeof(TSTree *));
         memcpy(new_children, pop_result->trees,
                leading_extra_count * sizeof(TSTree *));
