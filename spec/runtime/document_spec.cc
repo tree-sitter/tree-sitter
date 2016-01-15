@@ -1,11 +1,9 @@
-#include "runtime/runtime_spec_helper.h"
-#include "runtime/helpers/tree_helpers.h"
+#include "spec_helper.h"
 #include "runtime/debugger.h"
-#include "runtime/helpers/spy_debugger.h"
-#include "runtime/helpers/spy_input.h"
-
-extern "C" const TSLanguage * ts_language_json();
-extern "C" const TSLanguage * ts_language_javascript();
+#include "helpers/tree_helpers.h"
+#include "helpers/spy_debugger.h"
+#include "helpers/spy_input.h"
+#include "helpers/test_languages.h"
 
 START_TEST
 
@@ -25,15 +23,15 @@ describe("Document", [&]() {
     SpyInput *spy_input;
 
     before_each([&]() {
-      ts_document_set_language(doc, ts_language_json());
+      spy_input = new SpyInput("{\"key\": [null, 2]}", 3);
+
+      ts_document_set_language(doc, get_test_language("json"));
       ts_document_set_input_string(doc, "{\"key\": [1, 2]}");
       ts_document_parse(doc);
 
       root = ts_document_root_node(doc);
       AssertThat(ts_node_string(root, doc), Equals(
-        "(object (string) (array (number) (number)))"));
-
-      spy_input = new SpyInput("{\"key\": [null, 2]}", 3);
+        "(object (pair (string) (array (number) (number))))"));
     });
 
     after_each([&]() {
@@ -77,7 +75,7 @@ describe("Document", [&]() {
 
       TSNode new_root = ts_document_root_node(doc);
       AssertThat(ts_node_string(new_root, doc), Equals(
-        "(object (string) (array (null) (number)))"));
+        "(object (pair (string) (array (null) (number))))"));
       AssertThat(spy_input->strings_read, Equals(vector<string>({" [null, 2", ""})));
     });
 
@@ -102,19 +100,19 @@ describe("Document", [&]() {
     });
 
     it("uses the given language for future parses", [&]() {
-      ts_document_set_language(doc, ts_language_json());
+      ts_document_set_language(doc, get_test_language("json"));
       ts_document_parse(doc);
 
       root = ts_document_root_node(doc);
       AssertThat(ts_node_string(root, doc), Equals(
-        "(object (string) (array (number) (number)))"));
+        "(object (pair (string) (array (number) (number))))"));
     });
 
     it("clears out any previous tree", [&]() {
-      ts_document_set_language(doc, ts_language_json());
+      ts_document_set_language(doc, get_test_language("json"));
       ts_document_parse(doc);
 
-      ts_document_set_language(doc, ts_language_javascript());
+      ts_document_set_language(doc, get_test_language("javascript"));
       AssertThat(ts_document_root_node(doc).data, Equals<void *>(nullptr));
 
       ts_document_parse(doc);
@@ -130,7 +128,7 @@ describe("Document", [&]() {
 
     before_each([&]() {
       debugger = new SpyDebugger();
-      ts_document_set_language(doc, ts_language_json());
+      ts_document_set_language(doc, get_test_language("json"));
       ts_document_set_input_string(doc, "[1, 2]");
     });
 

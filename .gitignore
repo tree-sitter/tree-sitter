@@ -10,3 +10,6 @@ spec/run.out*
 externals/cpplint.py
 out
 *.pyc
+
+spec/fixtures/*
+!spec/fixtures/.gitkeep

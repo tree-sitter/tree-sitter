@@ -1,7 +1,7 @@
-#include "compiler/compiler_spec_helper.h"
+#include "spec_helper.h"
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/syntax_grammar.h"
-#include "compiler/helpers/rule_helpers.h"
+#include "helpers/rule_helpers.h"
 
 using namespace rules;
 using namespace build_tables;

@@ -9,4 +9,4 @@ addons:
     - libboost-regex-dev
 
 install: script/configure.sh -D USE_BOOST_REGEX=true -D USE_LIBPROFILER=false
-script: script/test_all.sh
+script: script/ci

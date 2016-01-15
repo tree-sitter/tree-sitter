@@ -1,6 +1,8 @@
-#include "compiler/compiler_spec_helper.h"
+#include "spec_helper.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
 #include "compiler/rules/metadata.h"
+#include "compiler/rules.h"
+#include "helpers/rule_helpers.h"
 
 using namespace rules;
 using build_tables::rule_can_be_blank;

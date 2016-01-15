@@ -1,4 +1,4 @@
-#include "compiler/compiler_spec_helper.h"
+#include "spec_helper.h"
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/lex_conflict_manager.h"

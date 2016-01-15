@@ -1,10 +1,7 @@
-#include "runtime/runtime_spec_helper.h"
-#include "runtime/helpers/spy_input.h"
-#include "runtime/helpers/log_debugger.h"
-
-extern "C" const TSLanguage * ts_language_json();
-extern "C" const TSLanguage * ts_language_javascript();
-extern "C" const TSLanguage * ts_language_arithmetic();
+#include "spec_helper.h"
+#include "helpers/spy_input.h"
+#include "helpers/test_languages.h"
+#include "helpers/log_debugger.h"
 
 START_TEST
 
@@ -69,7 +66,7 @@ describe("Parser", [&]() {
 
   describe("handling errors", [&]() {
     before_each([&]() {
-      ts_document_set_language(doc, ts_language_json());
+      ts_document_set_language(doc, get_test_language("json"));
     });
 
     describe("when the error occurs at the beginning of a token", [&]() {
@@ -155,7 +152,7 @@ describe("Parser", [&]() {
     // In the javascript example grammar, ASI works by using newlines as
     // terminators in statements, but also as extra tokens.
     before_each([&]() {
-      ts_document_set_language(doc, ts_language_javascript());
+      ts_document_set_language(doc, get_test_language("javascript"));
     });
 
     describe("when the token appears as part of a grammar rule", [&]() {
@@ -163,7 +160,7 @@ describe("Parser", [&]() {
         set_text("fn()\n");
 
         AssertThat(ts_node_string(root, doc), Equals(
-          "(program (expression_statement (function_call (identifier) (arguments))))"));
+          "(program (expression_statement (function_call (identifier))))"));
       });
     });
 
@@ -175,8 +172,7 @@ describe("Parser", [&]() {
 
         AssertThat(ts_node_string(root, doc), Equals(
           "(program (expression_statement (function_call "
-            "(member_access (function_call (identifier) (arguments)) (identifier)) "
-            "(arguments))))"));
+            "(member_access (function_call (identifier)) (identifier)))))"));
       });
     });
 
@@ -190,75 +186,66 @@ describe("Parser", [&]() {
 
         AssertThat(ts_node_string(root, doc), Equals(
           "(program (expression_statement (function_call "
-            "(member_access (function_call (identifier) (arguments)) "
+            "(member_access (function_call (identifier)) "
               "(comment) "
-              "(identifier)) "
-              "(arguments))))"));
+              "(identifier)))))"));
       });
     });
   });
 
   describe("editing", [&]() {
     before_each([&]() {
-      ts_document_set_language(doc, ts_language_arithmetic());
+      ts_document_set_language(doc, get_test_language("javascript"));
     });
 
     describe("inserting text", [&]() {
       describe("creating new tokens near the end of the input", [&]() {
-        before_each([&]() {
-          set_text("x ^ (100 + abc)");
+        it("updates the parse tree and re-reads only the changed portion of the text", [&]() {
+          set_text("x * (100 + abc);");
 
           AssertThat(ts_node_string(root, doc), Equals(
-            "(program (exponent "
-              "(variable) "
-              "(group (sum (number) (variable)))))"));
+            "(program (expression_statement (math_op "
+              "(identifier) "
+              "(math_op (number) (identifier)))))"));
 
-          insert_text(strlen("x ^ (100 + abc"), " * 5");
-        });
+          insert_text(strlen("x ^ (100 + abc"), ".d");
 
-        it("updates the parse tree", [&]() {
           AssertThat(ts_node_string(root, doc), Equals(
-            "(program (exponent "
-              "(variable) "
-              "(group (sum (number) (product (variable) (number))))))"));
-        });
+            "(program (expression_statement (math_op "
+              "(identifier) "
+              "(math_op (number) (member_access (identifier) (identifier))))))"));
 
-        it("re-reads only the changed portion of the input", [&]() {
-          AssertThat(input->strings_read, Equals(vector<string>({ " abc * 5)", "" })));
+          AssertThat(input->strings_read, Equals(vector<string>({ " abc.d);", "" })));
         });
       });
 
       describe("creating new tokens near the beginning of the input", [&]() {
-        before_each([&]() {
+        it("updates the parse tree and re-reads only the changed portion of the input", [&]() {
           chunk_size = 2;
 
-          set_text("123 * 456 ^ (10 + x)");
+          set_text("123 + 456 * (10 + x);");
 
           AssertThat(ts_node_string(root, doc), Equals(
-            "(program (product "
+            "(program (expression_statement (math_op "
               "(number) "
-              "(exponent (number) (group (sum (number) (variable))))))"));
+              "(math_op (number) (math_op (number) (identifier))))))"));
 
-          insert_text(strlen("123"), " + 5");
-        });
+          insert_text(strlen("123"), " || 5");
 
-        it("updates the parse tree", [&]() {
           AssertThat(ts_node_string(root, doc), Equals(
-            "(program (sum "
+            "(program (expression_statement (bool_op "
               "(number) "
-              "(product "
+              "(math_op "
                 "(number) "
-                "(exponent (number) (group (sum (number) (variable)))))))"));
-        });
+                "(math_op (number) (math_op (number) (identifier)))))))"));
 
-        it("re-reads only the changed portion of the input", [&]() {
-          AssertThat(input->strings_read, Equals(vector<string>({ "123 + 5 ", "" })));
+          AssertThat(input->strings_read, Equals(vector<string>({ "123 || 5 +", "" })));
         });
       });
 
       describe("introducing an error", [&]() {
         it("gives the error the right size", [&]() {
-          ts_document_set_language(doc, ts_language_javascript());
+          ts_document_set_language(doc, get_test_language("javascript"));
 
           set_text("var x = y;");
 
@@ -280,107 +267,103 @@ describe("Parser", [&]() {
       });
 
       describe("into the middle of an existing token", [&]() {
-        before_each([&]() {
-          set_text("abc * 123");
+        it("updates the parse tree", [&]() {
+          set_text("abc * 123;");
 
           AssertThat(ts_node_string(root, doc), Equals(
-            "(program (product (variable) (number)))"));
+            "(program (expression_statement (math_op (identifier) (number))))"));
 
           insert_text(strlen("ab"), "XYZ");
-        });
 
-        it("updates the parse tree", [&]() {
           AssertThat(ts_node_string(root, doc), Equals(
-            "(program (product (variable) (number)))"));
+            "(program (expression_statement (math_op (identifier) (number))))"));
 
           TSNode node = ts_node_named_descendant_for_range(root, 1, 1);
-          AssertThat(ts_node_name(node, doc), Equals("variable"));
+          AssertThat(ts_node_name(node, doc), Equals("identifier"));
           AssertThat(ts_node_end_byte(node), Equals(strlen("abXYZc")));
         });
       });
 
       describe("at the end of an existing token", [&]() {
-        before_each([&]() {
-          set_text("abc * 123");
+        it("updates the parse tree", [&]() {
+          set_text("abc * 123;");
 
           AssertThat(ts_node_string(root, doc), Equals(
-            "(program (product (variable) (number)))"));
+            "(program (expression_statement (math_op (identifier) (number))))"));
 
           insert_text(strlen("abc"), "XYZ");
-        });
 
-        it("updates the parse tree", [&]() {
           AssertThat(ts_node_string(root, doc), Equals(
-            "(program (product (variable) (number)))"));
+            "(program (expression_statement (math_op (identifier) (number))))"));
 
           TSNode node = ts_node_named_descendant_for_range(root, 1, 1);
-          AssertThat(ts_node_name(node, doc), Equals("variable"));
+          AssertThat(ts_node_name(node, doc), Equals("identifier"));
           AssertThat(ts_node_end_byte(node), Equals(strlen("abcXYZ")));
         });
       });
 
       describe("with non-ascii characters", [&]() {
-        before_each([&]() {
-          // αβδ + 1
-          set_text("\u03b1\u03b2\u03b4 + 1");
-
-          AssertThat(ts_node_string(root, doc), Equals(
-            "(program (sum (variable) (number)))"));
-
-          // αβδ + ψ1
-          insert_text(strlen("abd + "), "\u03c8");
-        });
-
         it("inserts the text according to the UTF8 character index", [&]() {
+          // 'αβδ' + '1'
+          set_text("'\u03b1\u03b2\u03b4' + '1';");
+
           AssertThat(ts_node_string(root, doc), Equals(
-            "(program (sum (variable) (variable)))"));
+            "(program (expression_statement (math_op (string) (string))))"));
+
+          // 'αβδ' + 'ψ1'
+          insert_text(strlen("'abd' + '"), "\u03c8");
+
+          AssertThat(ts_node_string(root, doc), Equals(
+            "(program (expression_statement (math_op (string) (string))))"));
         });
       });
 
       describe("into a node containing a extra token", [&]() {
-        before_each([&]() {
+        it("updates the parse tree", [&]() {
           set_text("123 *\n"
-            "# a-comment\n"
-            "abc");
+            "// a-comment\n"
+            "abc;");
 
           AssertThat(ts_node_string(root, doc), Equals(
-            "(program (product (number) (comment) (variable)))"));
+            "(program (expression_statement (math_op "
+              "(number) "
+              "(comment) "
+              "(identifier))))"));
 
           insert_text(
             strlen("123 *\n"
-              "# a-comment\n"
+              "// a-comment\n"
               "abc"),
             "XYZ");
-        });
 
-        it("updates the parse tree", [&]() {
           AssertThat(ts_node_string(root, doc), Equals(
-            "(program (product (number) (comment) (variable)))"));
+            "(program (expression_statement (math_op "
+              "(number) "
+              "(comment) "
+              "(identifier))))"));
         });
       });
     });
 
     describe("deleting text", [&]() {
       describe("when a critical token is removed", [&]() {
-        before_each([&]() {
-          set_text("123 * 456");
+        it("updates the parse tree, creating an error", [&]() {
+          set_text("123 * 456;");
 
           AssertThat(ts_node_string(root, doc), Equals(
-            "(program (product (number) (number)))"));
+            "(program (expression_statement (math_op (number) (number))))"));
 
           delete_text(strlen("123 "), 2);
-        });
 
-        it("updates the parse tree, creating an error", [&]() {
           AssertThat(ts_node_string(root, doc), Equals(
-            "(ERROR (number) (UNEXPECTED '4') (number))"));
+            "(program (expression_statement (ERROR (number) (UNEXPECTED '4') (number))))"));
         });
       });
     });
 
     describe("replacing text", [&]() {
       it("does not try to re-use nodes that are within the edited region", [&]() {
-        ts_document_set_language(doc, ts_language_javascript());
+        ts_document_set_language(doc, get_test_language("javascript"));
 
         set_text("{ x: (b.c) };");
 
@@ -397,7 +380,7 @@ describe("Parser", [&]() {
     });
 
     it("updates the document's parse count", [&]() {
-      ts_document_set_language(doc, ts_language_javascript());
+      ts_document_set_language(doc, get_test_language("javascript"));
       AssertThat(ts_document_parse_count(doc), Equals<size_t>(0));
 
       set_text("{ x: (b.c) };");
@@ -410,32 +393,32 @@ describe("Parser", [&]() {
 
   describe("lexing", [&]() {
     before_each([&]() {
-      ts_document_set_language(doc, ts_language_arithmetic());
+      ts_document_set_language(doc, get_test_language("javascript"));
     });
 
     describe("handling tokens containing wildcard patterns (e.g. comments)", [&]() {
       it("terminates them at the end of the document", [&]() {
-        set_text("x # this is a comment");
+        set_text("x; // this is a comment");
 
         AssertThat(ts_node_string(root, doc), Equals(
-          "(program (variable) (comment))"));
+          "(program (expression_statement (identifier)) (comment))"));
 
         TSNode comment = ts_node_named_child(root, 1);
 
-        AssertThat(ts_node_start_byte(comment), Equals(strlen("x ")));
-        AssertThat(ts_node_end_byte(comment), Equals(strlen("x # this is a comment")));
+        AssertThat(ts_node_start_byte(comment), Equals(strlen("x; ")));
+        AssertThat(ts_node_end_byte(comment), Equals(strlen("x; // this is a comment")));
       });
     });
 
     it("recognizes UTF8 characters as single characters", [&]() {
-      // x # ΩΩΩ — ΔΔ
-      set_text("x # \u03A9\u03A9\u03A9 \u2014 \u0394\u0394");
+      // 'ΩΩΩ — ΔΔ';
+      set_text("'\u03A9\u03A9\u03A9 \u2014 \u0394\u0394';");
 
       AssertThat(ts_node_string(root, doc), Equals(
-        "(program (variable) (comment))"));
+        "(program (expression_statement (string)))"));
 
-      AssertThat(ts_node_end_char(root), Equals(strlen("x # OOO - DD")));
-      AssertThat(ts_node_end_byte(root), Equals(strlen("x # \u03A9\u03A9\u03A9 \u2014 \u0394\u0394")));
+      AssertThat(ts_node_end_char(root), Equals(strlen("'OOO - DD';")));
+      AssertThat(ts_node_end_byte(root), Equals(strlen("'\u03A9\u03A9\u03A9 \u2014 \u0394\u0394';")));
     });
   });
 });

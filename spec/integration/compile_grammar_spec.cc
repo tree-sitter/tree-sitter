@@ -1,5 +1,5 @@
-#include "integration/integration_spec_helper.h"
-#include "integration/helpers/load_language.h"
+#include "spec_helper.h"
+#include "helpers/load_language.h"
 
 START_TEST
 

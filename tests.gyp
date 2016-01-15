@@ -1,27 +1,11 @@
 {
   'targets': [
     {
-      'target_name': 'compiler_specs',
+      'target_name': 'tests',
       'type': 'executable',
       'dependencies': [
+        'project.gyp:runtime',
         'project.gyp:compiler'
-      ],
-      'include_dirs': [
-        'src',
-        'spec',
-        'externals/bandit',
-      ],
-      'sources': [
-        '<!@(find spec/compiler -name "*.cc")',
-        '<!@(find spec/fixtures/grammars -name "*.cc")',
-      ],
-    },
-
-    {
-      'target_name': 'runtime_specs',
-      'type': 'executable',
-      'dependencies': [
-        'project.gyp:runtime'
       ],
       'include_dirs': [
         'src',
@@ -30,83 +14,50 @@
         'externals/utf8proc',
       ],
       'sources': [
+        'spec/specs.cc',
+        '<!@(find spec/compiler -name "*.cc")',
         '<!@(find spec/runtime -name "*.cc")',
-        '<!@(find spec/fixtures/parsers -name "*.c")',
+        '<!@(find spec/integration -name "*.cc")',
+        '<!@(find spec/helpers -name "*.cc")',
       ],
-      'variables': {
-        'USE_BOOST_REGEX%': 'false',
-      },
-      'conditions': [
-        ['USE_BOOST_REGEX != "false"', {
-          'defines': ['USE_BOOST_REGEX'],
-          'libraries': ['-lboost_regex'],
-        }]
-      ],
-    },
-
-    {
-      'target_name': 'integration_specs',
-      'type': 'executable',
-      'dependencies': [
-        'project.gyp:compiler',
-        'project.gyp:runtime'
-      ],
-      'include_dirs': [
-        'src',
-        'spec',
-        'externals/bandit',
-        'externals/utf8proc'
-      ],
-      'libraries': [
-        '-ldl'
-      ],
-      'sources': [
-        '<!@(find spec/integration -name "*.cc")'
-      ],
-    },
-  ],
-
-  'target_defaults': {
-    'default_configuration': 'Debug',
-    'configurations': {'Debug': {}, 'Release': {}},
-
-    'cflags': [
-      '-g',
-      '-O0',
-      '-Wall',
-      '-Wextra',
-      '-Wno-unused-parameter',
-      '-Wno-unknown-pragmas',
-    ],
-    'cflags_c': [
-      '-std=c99',
-    ],
-    'cflags_cc': [
-      '-std=c++0x',
-    ],
-    'ldflags': [
-      '-g',
-    ],
-
-    'variables': {
-      'USE_LIBPROFILER%': 'true',
-    },
-    'conditions': [
-      ['USE_LIBPROFILER != "false"', {
-        'libraries': ['-lprofiler'],
-      }]
-    ],
-
-    'xcode_settings': {
-      'CLANG_CXX_LANGUAGE_STANDARD': 'c++11',
-      'OTHER_LDFLAGS': ['-g'],
-      'GCC_OPTIMIZATION_LEVEL': '0',
-      'ALWAYS_SEARCH_USER_PATHS': 'NO',
-      'WARNING_CFLAGS': [
+      'default_configuration': 'Debug',
+      'configurations': {'Debug': {}, 'Release': {}},
+      'cflags': [
+        '-g',
+        '-O0',
         '-Wall',
         '-Wextra',
-        '-Wno-unused-parameter'
+        '-Wno-unused-parameter',
+        '-Wno-unknown-pragmas',
       ],
-    },
-  }
+      'cflags_c': [
+        '-std=c99',
+      ],
+      'cflags_cc': [
+        '-std=c++0x',
+      ],
+      'ldflags': [
+        '-g',
+      ],
+      'variables': {
+        'USE_LIBPROFILER%': 'true',
+      },
+      'conditions': [
+        ['USE_LIBPROFILER != "false"', {
+          'libraries': ['-lprofiler'],
+        }]
+      ],
+      'xcode_settings': {
+        'CLANG_CXX_LANGUAGE_STANDARD': 'c++11',
+        'OTHER_LDFLAGS': ['-g'],
+        'GCC_OPTIMIZATION_LEVEL': '0',
+        'ALWAYS_SEARCH_USER_PATHS': 'NO',
+        'WARNING_CFLAGS': [
+          '-Wall',
+          '-Wextra',
+          '-Wno-unused-parameter'
+        ],
+      },
+    }
+  ]
 }

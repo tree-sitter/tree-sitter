@@ -1,5 +1,7 @@
-#include "compiler/compiler_spec_helper.h"
+#include "spec_helper.h"
 #include "compiler/rules/choice.h"
+#include "helpers/rule_helpers.h"
+#include "helpers/equals_pointer.h"
 
 using namespace rules;
 

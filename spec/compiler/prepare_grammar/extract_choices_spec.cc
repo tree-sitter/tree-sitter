@@ -1,5 +1,6 @@
-#include "compiler/compiler_spec_helper.h"
+#include "spec_helper.h"
 #include "compiler/prepare_grammar/extract_choices.h"
+#include "helpers/rule_helpers.h"
 
 START_TEST
 
