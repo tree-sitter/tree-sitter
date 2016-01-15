@@ -81,7 +81,7 @@ static void ts_parser__breakdown_top_of_stack(TSParser *self, int head) {
     }
 
     free(removed_trees);
-  } while (last_child->child_count > 0);
+  } while (last_child && last_child->child_count > 0);
 }
 
 static void ts_parser__pop_reusable_subtree(LookaheadState *state);
@@ -664,8 +664,7 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
 
   for (;;) {
     TSTree *lookahead = NULL;
-    TSLength last_position = ts_length_zero();
-    TSLength position = ts_length_zero();
+    TSLength last_position, position = ts_length_zero();
 
     self->is_split = ts_stack_head_count(self->stack) > 1;
 

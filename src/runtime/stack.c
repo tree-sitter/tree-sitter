@@ -299,8 +299,8 @@ Vector ts_stack_pop(Stack *self, int head_index, int child_count,
       vector_push(&path->trees, &node->entry.tree);
 
       path->node = path->node->successors[0];
+      PopPath path_copy = *path;
       for (int j = 1; j < node->successor_count; j++) {
-        PopPath path_copy = *path;
         vector_push(&self->pop_paths, &path_copy);
         PopPath *next_path = vector_back(&self->pop_paths);
         next_path->node = node->successors[j];
