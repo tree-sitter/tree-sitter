@@ -18,7 +18,7 @@ static int get_modified_time(const string &path) {
   struct stat file_stat;
   int error = stat(path.c_str(), &file_stat);
   if (error != 0) {
-    fprintf(stderr, "Error in stat() for path: %s", + path.c_str());
+    fprintf(stderr, "Error in stat() for path: %s\n", + path.c_str());
     return 0;
   }
 
@@ -28,6 +28,9 @@ static int get_modified_time(const string &path) {
 const TSLanguage *get_test_language(const string &language_name) {
   if (libcompiler_mtime == -1) {
     libcompiler_mtime = get_modified_time("out/Debug/libcompiler.a");
+    if (!libcompiler_mtime) {
+      return nullptr;
+    }
   }
 
   if (loaded_languages[language_name]) {
@@ -37,8 +40,16 @@ const TSLanguage *get_test_language(const string &language_name) {
   string language_dir = string("spec/fixtures/") + language_name;
   string grammar_filename = language_dir + "/src/grammar.json";
   string parser_filename = language_dir + "/src/parser.c";
+
   int grammar_mtime = get_modified_time(grammar_filename);
+  if (!grammar_mtime) {
+    return nullptr;
+  }
+
   int parser_mtime = get_modified_time(parser_filename);
+  if (!parser_mtime) {
+    return nullptr;
+  }
 
   string parser_code;
   if (parser_mtime <= grammar_mtime || parser_mtime <= libcompiler_mtime) {
