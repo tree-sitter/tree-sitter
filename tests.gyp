@@ -20,6 +20,9 @@
         '<!@(find spec/integration -name "*.cc")',
         '<!@(find spec/helpers -name "*.cc")',
       ],
+      'libraries': [
+        '-ldl'
+      ],
       'default_configuration': 'Debug',
       'configurations': {'Debug': {}, 'Release': {}},
       'cflags': [
