@@ -1,6 +1,8 @@
-#include "compiler/compiler_spec_helper.h"
+#include "spec_helper.h"
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/rules/metadata.h"
+#include "compiler/rules.h"
+#include "helpers/rule_helpers.h"
 
 using namespace rules;
 using namespace build_tables;

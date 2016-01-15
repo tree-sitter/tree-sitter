@@ -1,5 +1,5 @@
-#include "runtime/runtime_spec_helper.h"
-#include "runtime/helpers/tree_helpers.h"
+#include "spec_helper.h"
+#include "helpers/tree_helpers.h"
 #include "runtime/tree.h"
 #include "runtime/length.h"
 

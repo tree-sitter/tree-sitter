@@ -1,7 +1,6 @@
-#include "compiler/compiler_spec_helper.h"
+#include "spec_helper.h"
 #include "compiler/util/string_helpers.h"
 
-using namespace rules;
 using util::escape_char;
 
 START_TEST

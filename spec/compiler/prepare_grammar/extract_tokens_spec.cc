@@ -1,8 +1,10 @@
-#include "compiler/compiler_spec_helper.h"
+#include "spec_helper.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/prepare_grammar/interned_grammar.h"
 #include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/prepare_grammar/extract_tokens.h"
+#include "helpers/rule_helpers.h"
+#include "helpers/equals_pointer.h"
 
 START_TEST
 

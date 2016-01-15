@@ -54,11 +54,16 @@ int main() {
     {
       "name": "arithmetic",
 
+      // Things that can appear anywhere in the language, like comments
+      // and whitespace, are expressed as 'extras'.
       "extras": [
         {"type": "PATTERN", "value": "\\s"},
+        {"type": "SYMBOL", "name": "comment"}
       ],
 
       "rules": {
+
+        // The first rule listed in the grammar becomes the 'start rule'.
         "expression": {
           "type": "CHOICE",
           "members": [
@@ -70,13 +75,22 @@ int main() {
               "type": "SEQ",
               "members": [
                 {"type": "STRING", "value": "("},
-                {"type": "SYMBOL", "name": "expression"},
+
+                // Error recovery is controlled by wrapping rule subtrees
+                // in an 'ERROR' rule.
+                {
+                  "type": "ERROR",
+                  "content": {"type": "SYMBOL", "name": "expression"}
+                },
+
                 {"type": "STRING", "value": ")"}
               ]
             }
           ]
         },
 
+        // Tokens like '+' and '*' are described directly within the
+        // grammar's rules, as opposed to in a seperate lexer description.
         "sum": {
           "type": "PREC_LEFT",
           "value": 1,
@@ -90,6 +104,8 @@ int main() {
           }
         },
 
+        // Ambiguities can be resolved at compile time by assigning precedence
+        // values to rule subtrees.
         "product": {
           "type": "PREC_LEFT",
           "value": 2,
@@ -103,7 +119,9 @@ int main() {
           }
         },
 
-        "number": {"type": "PATTERN", "value": "\\d+"}
+        // Tokens can be specified using ECMAScript regexps.
+        "number": {"type": "PATTERN", "value": "\\d+"},
+        "comment": {"type": "PATTERN", "value": "#.*"},
         "variable": {"type": "PATTERN", "value": "[a-zA-Z]\\w*"},
       }
     }

@@ -1,7 +1,10 @@
-#include "compiler/compiler_spec_helper.h"
+#include "spec_helper.h"
 #include "compiler/prepare_grammar/intern_symbols.h"
+#include "compiler/grammar.h"
 #include "compiler/rules/named_symbol.h"
 #include "compiler/rules/symbol.h"
+#include "helpers/equals_pointer.h"
+#include "helpers/rule_helpers.h"
 
 START_TEST
 

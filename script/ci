@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -e
+
+script/fetch_languages
+script/test

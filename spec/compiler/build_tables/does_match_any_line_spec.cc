@@ -1,6 +1,8 @@
-#include "compiler/compiler_spec_helper.h"
+#include "spec_helper.h"
 #include "compiler/rules/character_set.h"
 #include "compiler/build_tables/does_match_any_line.h"
+#include "helpers/rule_helpers.h"
+#include "compiler/rules.h"
 
 using namespace rules;
 using namespace build_tables;

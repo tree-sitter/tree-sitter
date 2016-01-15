@@ -1,6 +1,7 @@
-#include "compiler/compiler_spec_helper.h"
+#include "spec_helper.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/prepare_grammar/expand_tokens.h"
+#include "helpers/rule_helpers.h"
 
 START_TEST
 

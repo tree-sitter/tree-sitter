@@ -1,4 +1,4 @@
-#include "compiler/compiler_spec_helper.h"
+#include "spec_helper.h"
 #include "compiler/rules/character_set.h"
 
 using namespace rules;

@@ -1,8 +1,9 @@
-#include "compiler/compiler_spec_helper.h"
+#include "spec_helper.h"
 #include "compiler/prepare_grammar/flatten_grammar.h"
 #include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
+#include "helpers/rule_helpers.h"
 
 template<typename T, typename Func>
 std::vector<typename std::result_of<Func(T)>::type>
