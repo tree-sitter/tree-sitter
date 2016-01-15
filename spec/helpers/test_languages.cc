@@ -14,6 +14,14 @@ using std::istreambuf_iterator;
 map<string, const TSLanguage *> loaded_languages;
 int libcompiler_mtime = -1;
 
+const char libcompiler_path[] =
+#if defined(__linux)
+  "out/Debug/obj.target/libcompiler.a"
+#else
+  "out/Debug/libcompiler.a"
+#endif
+;
+
 static int get_modified_time(const string &path) {
   struct stat file_stat;
   int error = stat(path.c_str(), &file_stat);
@@ -27,7 +35,7 @@ static int get_modified_time(const string &path) {
 
 const TSLanguage *get_test_language(const string &language_name) {
   if (libcompiler_mtime == -1) {
-    libcompiler_mtime = get_modified_time("out/Debug/libcompiler.a");
+    libcompiler_mtime = get_modified_time(libcompiler_path);
     if (!libcompiler_mtime) {
       return nullptr;
     }
