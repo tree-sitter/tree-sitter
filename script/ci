@@ -2,5 +2,5 @@
 
 set -e
 
-script/fetch_languages
+script/fetch-fixtures
 script/test
