@@ -27,7 +27,8 @@ profile=
 mode=normal
 args=()
 target=tests
-cmd="out/Debug/${target}"
+export BUILDTYPE=Test
+cmd="out/${BUILDTYPE}/${target}"
 
 while getopts "df:s:ghpv" option; do
   case ${option} in
@@ -56,7 +57,7 @@ while getopts "df:s:ghpv" option; do
   esac
 done
 
-BUILDTYPE=Debug make $target
+make $target
 args=${args:-""}
 
 if [[ -n $profile ]]; then

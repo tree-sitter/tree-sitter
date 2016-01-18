@@ -16,9 +16,9 @@ int libcompiler_mtime = -1;
 
 const char libcompiler_path[] =
 #if defined(__linux)
-  "out/Debug/obj.target/libcompiler.a"
+  "out/Test/obj.target/libcompiler.a"
 #else
-  "out/Debug/libcompiler.a"
+  "out/Test/libcompiler.a"
 #endif
 ;
 

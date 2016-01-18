@@ -7,9 +7,16 @@
 #include "runtime/document.h"
 
 TSDocument *ts_document_make() {
-  TSDocument *document = ts_calloc(1, sizeof(TSDocument));
-  document->parser = ts_parser_make();
-  return document;
+  TSDocument *self = ts_calloc(1, sizeof(TSDocument));
+  if (!self)
+    return NULL;
+
+  if (!ts_parser_init(&self->parser)) {
+    ts_free(self);
+    return NULL;
+  }
+
+  return self;
 }
 
 void ts_document_free(TSDocument *self) {

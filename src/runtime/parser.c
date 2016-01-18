@@ -637,18 +637,35 @@ static bool ts_parser__consume_lookahead(TSParser *self, int head,
  *  Public
  */
 
-TSParser ts_parser_make() {
-  return (TSParser){
-    .lexer = ts_lexer_make(),
-    .stack = ts_stack_new(),
-    .lookahead_states = vector_new(sizeof(LookaheadState), 4),
-    .reduce_parents = vector_new(sizeof(TSTree *), 4),
-    .finished_tree = NULL,
-  };
+bool ts_parser_init(TSParser *self) {
+  self->finished_tree = NULL;
+  self->lexer = ts_lexer_make();
+
+  self->stack = ts_stack_new();
+  if (!self->stack) {
+    return false;
+  }
+
+  self->lookahead_states = vector_new(sizeof(LookaheadState), 4);
+  if (!self->lookahead_states.contents) {
+    ts_stack_delete(self->stack);
+    return false;
+  }
+
+  self->reduce_parents = vector_new(sizeof(TSTree *), 4);
+  if (!self->reduce_parents.contents) {
+    ts_stack_delete(self->stack);
+    vector_delete(&self->lookahead_states);
+    return false;
+  }
+
+  return true;
 }
 
 void ts_parser_destroy(TSParser *self) {
   ts_stack_delete(self->stack);
+  vector_delete(&self->lookahead_states);
+  vector_delete(&self->reduce_parents);
 }
 
 TSDebugger ts_parser_debugger(const TSParser *self) {

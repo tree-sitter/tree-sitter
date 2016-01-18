@@ -18,7 +18,7 @@ typedef struct {
   bool is_split;
 } TSParser;
 
-TSParser ts_parser_make();
+bool ts_parser_init(TSParser *);
 void ts_parser_destroy(TSParser *);
 TSDebugger ts_parser_debugger(const TSParser *);
 void ts_parser_set_debugger(TSParser *, TSDebugger);

@@ -43,17 +43,39 @@ static TSTree *ts_stack__default_tree_selection(void *p, TSTree *t1, TSTree *t2)
 }
 
 Stack *ts_stack_new() {
-  Stack *self = ts_malloc(sizeof(Stack));
-  *self = (Stack){
-    .heads = ts_calloc(INITIAL_HEAD_CAPACITY, sizeof(StackNode *)),
-    .head_count = 1,
-    .head_capacity = INITIAL_HEAD_CAPACITY,
-    .tree_selection_payload = NULL,
-    .tree_selection_function = ts_stack__default_tree_selection,
-    .pop_results = vector_new(sizeof(StackPopResult), 4),
-    .pop_paths = vector_new(sizeof(PopPath), 4),
-  };
+  Stack *self = ts_calloc(1, sizeof(Stack));
+  if (!self)
+    goto error;
+
+  self->head_count = 1;
+  self->head_capacity = INITIAL_HEAD_CAPACITY;
+  self->heads = ts_calloc(INITIAL_HEAD_CAPACITY, sizeof(StackNode *));
+  if (!self->heads)
+    goto error;
+
+  self->pop_results = vector_new(sizeof(StackPopResult), 4);
+  if (!self->pop_results.contents)
+    goto error;
+
+  self->pop_paths = vector_new(sizeof(PopPath), 4);
+  if (!self->pop_paths.contents)
+    goto error;
+
+  self->tree_selection_payload = NULL;
+  self->tree_selection_function = ts_stack__default_tree_selection;
   return self;
+
+error:
+  if (self) {
+    if (self->heads)
+      ts_free(self->heads);
+    if (self->pop_results.contents)
+      vector_delete(&self->pop_results);
+    if (self->pop_paths.contents)
+      vector_delete(&self->pop_paths);
+    ts_free(self);
+  }
+  return NULL;
 }
 
 void ts_stack_delete(Stack *self) {
