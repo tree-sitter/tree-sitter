@@ -58,7 +58,7 @@ size_t ts_node_end_byte(TSNode);
 TSPoint ts_node_end_point(TSNode);
 TSSymbol ts_node_symbol(TSNode);
 const char *ts_node_name(TSNode, const TSDocument *);
-const char *ts_node_string(TSNode, const TSDocument *);
+char *ts_node_string(TSNode, const TSDocument *);
 bool ts_node_eq(TSNode, TSNode);
 bool ts_node_is_named(TSNode);
 bool ts_node_has_changes(TSNode);
