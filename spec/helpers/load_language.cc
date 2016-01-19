@@ -78,6 +78,7 @@ const TSLanguage *load_language(const string &name, const string &code) {
     compiler_name,
     "-x", "c",
     "-fPIC",
+    "-g",
     "-I", header_dir.c_str(),
     "-c", source_filename.c_str(),
     "-o", obj_filename.c_str(),
