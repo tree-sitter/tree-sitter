@@ -14,6 +14,9 @@ TSStateId TS_TREE_STATE_ERROR = USHRT_MAX - 1;
 TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
                           TSSymbolMetadata metadata) {
   TSTree *result = ts_malloc(sizeof(TSTree));
+  if (!result)
+    return NULL;
+
   *result = (TSTree){
     .ref_count = 1,
     .symbol = sym,
@@ -42,12 +45,18 @@ TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char)
                                      (TSSymbolMetadata){
                                        .visible = true, .named = true,
                                      });
+  if (!result)
+    return NULL;
+
   result->lookahead_char = lookahead_char;
   return result;
 }
 
 TSTree *ts_tree_make_copy(TSTree *self) {
   TSTree *result = ts_malloc(sizeof(TSTree));
+  if (!result)
+    return NULL;
+
   *result = *self;
   return result;
 }
@@ -110,6 +119,9 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
                           TSTree **children, TSSymbolMetadata metadata) {
   TSTree *result =
     ts_tree_make_leaf(symbol, ts_length_zero(), ts_length_zero(), metadata);
+  if (!result)
+    return NULL;
+
   ts_tree_set_children(result, child_count, children);
   return result;
 }

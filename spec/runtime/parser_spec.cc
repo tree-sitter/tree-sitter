@@ -30,7 +30,7 @@ describe("Parser", [&]() {
   auto set_text = [&](const char *text) {
     input = new SpyInput(text, chunk_size);
     ts_document_set_input(doc, input->input());
-    ts_document_parse(doc);
+    AssertThat(ts_document_parse(doc), Equals(0));
 
     root = ts_document_root_node(doc);
     AssertThat(ts_node_end_byte(root), Equals(strlen(text)));
@@ -448,6 +448,34 @@ describe("Parser", [&]() {
         record_alloc::fail_at_allocation_index(i);
         AssertThat(ts_document_make(), Equals<TSDocument *>(nullptr));
         AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
+      }
+    });
+
+    it("handles allocation failures during parsing", [&]() {
+      ts_document_set_language(doc, get_test_language("cpp"));
+
+      set_text("int main() { return vector<int *>().size(); }");
+
+      size_t allocation_count = record_alloc::allocation_count();
+      AssertThat(allocation_count, IsGreaterThan<size_t>(1));
+
+      char *string = ts_node_string(root, doc);
+      AssertThat(string, Equals("(translation_unit (function_definition "
+        "(identifier) "
+        "(function_declarator (identifier)) "
+        "(compound_statement "
+          "(return_statement (call_expression (field_expression "
+            "(call_expression (template_call "
+              "(identifier) "
+              "(type_name (identifier) (abstract_pointer_declarator)))) "
+            "(identifier)))))))"));
+      free(string);
+
+      for (size_t i = 0; i < allocation_count; i++) {
+        record_alloc::start();
+        record_alloc::fail_at_allocation_index(i);
+        ts_document_invalidate(doc);
+        AssertThat(ts_document_parse(doc), Equals(-1));
       }
     });
   });

@@ -70,21 +70,25 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
   ts_tree_edit(self->tree, edit);
 }
 
-void ts_document_parse(TSDocument *self) {
+int ts_document_parse(TSDocument *self) {
   if (!self->input.read_fn || !self->parser.language)
-    return;
+    return 0;
 
   TSTree *reusable_tree = self->valid ? self->tree : NULL;
   if (reusable_tree && !reusable_tree->has_changes)
-    return;
+    return 0;
 
   TSTree *tree = ts_parser_parse(&self->parser, self->input, reusable_tree);
+  if (!tree)
+    return -1;
+
   ts_tree_retain(tree);
   if (self->tree)
     ts_tree_release(self->tree);
   self->tree = tree;
   self->parse_count++;
   self->valid = true;
+  return 0;
 }
 
 void ts_document_invalidate(TSDocument *self) {

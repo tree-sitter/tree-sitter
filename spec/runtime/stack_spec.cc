@@ -214,10 +214,8 @@ describe("Stack", [&]() {
          *  A0__B1__C2__D3__G6.
          *       \__E4__F5__/
          */
-        bool merged = ts_stack_push(stack, 0, stateG, trees[6]);
-        AssertThat(merged, IsFalse());
-        merged = ts_stack_push(stack, 1, stateG, trees[6]);
-        AssertThat(merged, IsTrue());
+        AssertThat(ts_stack_push(stack, 0, stateG, trees[6]), Equals(StackPushResultContinued));
+        AssertThat(ts_stack_push(stack, 1, stateG, trees[6]), Equals(StackPushResultMerged));
 
         AssertThat(ts_stack_head_count(stack), Equals(1));
         const StackEntry *entry1 = ts_stack_head(stack, 0);
@@ -239,10 +237,8 @@ describe("Stack", [&]() {
          *  A0__B1__C2__D3__G(6|7)
          *       \__E4__F5____/
          */
-        bool merged = ts_stack_push(stack, 0, stateG, trees[6]);
-        AssertThat(merged, IsFalse());
-        merged = ts_stack_push(stack, 1, stateG, trees[7]);
-        AssertThat(merged, IsTrue());
+        AssertThat(ts_stack_push(stack, 0, stateG, trees[6]), Equals(StackPushResultContinued));
+        AssertThat(ts_stack_push(stack, 1, stateG, trees[7]), Equals(StackPushResultMerged));
 
         AssertThat(ts_stack_head_count(stack), Equals(1));
         AssertThat(tree_selection_spy.call_count, Equals(1));
@@ -258,19 +254,15 @@ describe("Stack", [&]() {
          *  A0__B1__C2__D3__G6__H7.
          *       \__E4__F5__G6.
          */
-        bool merged = ts_stack_push(stack, 0, stateG, trees[6]);
-        AssertThat(merged, IsFalse());
-        merged = ts_stack_push(stack, 0, stateH, trees[7]);
-        AssertThat(merged, IsFalse());
-        merged = ts_stack_push(stack, 1, stateG, trees[6]);
-        AssertThat(merged, IsFalse());
+        AssertThat(ts_stack_push(stack, 0, stateG, trees[6]), Equals(StackPushResultContinued));
+        AssertThat(ts_stack_push(stack, 0, stateH, trees[7]), Equals(StackPushResultContinued));
+        AssertThat(ts_stack_push(stack, 1, stateG, trees[6]), Equals(StackPushResultContinued));
 
         /*
          *  A0__B1__C2__D3__G6__H7.
          *       \__E4__F5_/
          */
-        merged = ts_stack_push(stack, 1, stateH, trees[7]);
-        AssertThat(merged, IsTrue());
+        AssertThat(ts_stack_push(stack, 1, stateH, trees[7]), Equals(StackPushResultMerged));
 
         AssertThat(ts_stack_head_count(stack), Equals(1));
         StackEntry *head = ts_stack_head(stack, 0);
@@ -298,10 +290,8 @@ describe("Stack", [&]() {
         tree_selection_spy.tree_to_return = parent;
         tree_selection_spy.call_count = 0;
 
-        bool merged = ts_stack_push(stack, 1, stateB, trees[2]);
-        AssertThat(merged, IsFalse());
-        merged = ts_stack_push(stack, 1, stateC, trees[3]);
-        AssertThat(merged, IsTrue());
+        AssertThat(ts_stack_push(stack, 1, stateB, trees[2]), Equals(StackPushResultContinued));
+        AssertThat(ts_stack_push(stack, 1, stateC, trees[3]), Equals(StackPushResultMerged));
         AssertThat(tree_selection_spy.call_count, Equals(1));
 
         AssertThat(ts_stack_head_count(stack), Equals(1));
@@ -368,8 +358,7 @@ describe("Stack", [&]() {
          *  A0__B1__C2__D3__G6__H7.
          *       \__E4__F5__/
          */
-        bool merged = ts_stack_push(stack, 0, stateH, trees[7]);
-        AssertThat(merged, IsFalse());
+        AssertThat(ts_stack_push(stack, 0, stateH, trees[7]), Equals(StackPushResultContinued));
         AssertThat(ts_stack_head_count(stack), Equals(1));
 
         /*

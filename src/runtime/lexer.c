@@ -108,6 +108,9 @@ static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
     result = ts_tree_make_leaf(symbol, padding, size, metadata);
   }
 
+  if (!result)
+    return NULL;
+
   if (fragile)
     result->lex_state = self->starting_state;
 
