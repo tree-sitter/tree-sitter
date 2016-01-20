@@ -459,8 +459,8 @@ describe("Parser", [&]() {
       size_t allocation_count = record_alloc::allocation_count();
       AssertThat(allocation_count, IsGreaterThan<size_t>(1));
 
-      char *string = ts_node_string(root, doc);
-      AssertThat(string, Equals("(translation_unit (function_definition "
+      char *node_string = ts_node_string(root, doc);
+      AssertThat(node_string, Equals("(translation_unit (function_definition "
         "(identifier) "
         "(function_declarator (identifier)) "
         "(compound_statement "
@@ -469,7 +469,6 @@ describe("Parser", [&]() {
               "(identifier) "
               "(type_name (identifier) (abstract_pointer_declarator)))) "
             "(identifier)))))))"));
-      free(string);
 
       for (size_t i = 0; i < allocation_count; i++) {
         record_alloc::start();
@@ -477,6 +476,16 @@ describe("Parser", [&]() {
         ts_document_invalidate(doc);
         AssertThat(ts_document_parse(doc), Equals(-1));
       }
+
+      record_alloc::start();
+      record_alloc::fail_at_allocation_index(allocation_count + 1);
+      ts_document_invalidate(doc);
+      AssertThat(ts_document_parse(doc), Equals(0));
+
+      char *node_string2 = ts_node_string(ts_document_root_node(doc), doc);
+      AssertThat(string(node_string2), Equals(node_string));
+      free(node_string2);
+      free(node_string);
     });
   });
 });
