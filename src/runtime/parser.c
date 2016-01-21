@@ -47,14 +47,16 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self, int h
 
   do {
     Vector pop_results = ts_stack_pop(self->stack, head, 1, false);
-    if (!pop_results.size)
+    if (!vector_valid(&pop_results))
       return FailedToUpdateStackHead;
+    assert(pop_results.size > 0);
 
     /*
      *  Since only one entry (not counting extra trees) is being popped from the
      *  stack, there should only be one possible array of removed trees.
      */
     StackPopResult *first_result = vector_get(&pop_results, 0);
+    assert(first_result->tree_count > 0);
     TSTree **removed_trees = first_result->trees;
     TSTree *parent = removed_trees[0];
     LOG("breakdown_pop sym:%s, size:%lu", SYM_NAME(parent->symbol),
@@ -65,7 +67,7 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self, int h
       assert(pop_result->trees == removed_trees);
       int head_index = pop_result->head_index;
 
-      bool merged = true;
+      StackPushResult last_push = StackPushResultContinued;
       TSStateId state = ts_stack_top_state(self->stack, head_index);
       for (size_t j = 0; j < parent->child_count; j++) {
         last_child = parent->children[j];
@@ -79,35 +81,31 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self, int h
         LOG("breakdown_push sym:%s, size:%lu", SYM_NAME(last_child->symbol),
             ts_tree_total_size(last_child).chars);
 
-        switch (ts_stack_push(self->stack, head_index, state, last_child)) {
-          case StackPushResultFailed:
-            return FailedToUpdateStackHead;
-          case StackPushResultMerged:
-            merged = true;
-          case StackPushResultContinued:
-            merged = false;
-            break;
-        }
+        last_push = ts_stack_push(self->stack, head_index, state, last_child);
+        if (last_push == StackPushResultFailed)
+          goto error;
       }
 
       for (size_t j = 1, count = pop_result->tree_count; j < count; j++) {
         TSTree *tree = pop_result->trees[j];
-        switch (ts_stack_push(self->stack, head_index, state, tree)) {
-          case StackPushResultFailed:
-            return FailedToUpdateStackHead;
-          case StackPushResultMerged:
-            merged = true;
-          case StackPushResultContinued:
-            merged = false;
-            break;
-        }
+        last_push = ts_stack_push(self->stack, head_index, state, tree);
+        if (last_push == StackPushResultFailed)
+          goto error;
       }
+
+      if (i == 0)
+        assert(last_push != StackPushResultMerged);
+      else
+        assert(last_push == StackPushResultMerged);
     }
 
     ts_free(removed_trees);
   } while (last_child && last_child->child_count > 0);
 
   return UpdatedStackHead;
+
+error:
+  return FailedToUpdateStackHead;
 }
 
 static void ts_parser__pop_reusable_subtree(LookaheadState *state);
