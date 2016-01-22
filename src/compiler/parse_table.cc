@@ -36,7 +36,8 @@ ParseAction::ParseAction()
       symbol(Symbol(-1)),
       state_index(-1),
       consumed_symbol_count(0),
-      associativity(rules::AssociativityNone) {}
+      associativity(rules::AssociativityNone),
+      production(nullptr) {}
 
 ParseAction ParseAction::Error() {
   return ParseAction();
