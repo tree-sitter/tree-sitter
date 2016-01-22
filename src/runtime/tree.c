@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include "tree_sitter/parser.h"
+#include "runtime/alloc.h"
 #include "runtime/tree.h"
 #include "runtime/length.h"
 
@@ -12,7 +13,10 @@ TSStateId TS_TREE_STATE_ERROR = USHRT_MAX - 1;
 
 TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
                           TSSymbolMetadata metadata) {
-  TSTree *result = malloc(sizeof(TSTree));
+  TSTree *result = ts_malloc(sizeof(TSTree));
+  if (!result)
+    return NULL;
+
   *result = (TSTree){
     .ref_count = 1,
     .symbol = sym,
@@ -41,12 +45,18 @@ TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char)
                                      (TSSymbolMetadata){
                                        .visible = true, .named = true,
                                      });
+  if (!result)
+    return NULL;
+
   result->lookahead_char = lookahead_char;
   return result;
 }
 
 TSTree *ts_tree_make_copy(TSTree *self) {
-  TSTree *result = malloc(sizeof(TSTree));
+  TSTree *result = ts_malloc(sizeof(TSTree));
+  if (!result)
+    return NULL;
+
   *result = *self;
   return result;
 }
@@ -109,6 +119,9 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
                           TSTree **children, TSSymbolMetadata metadata) {
   TSTree *result =
     ts_tree_make_leaf(symbol, ts_length_zero(), ts_length_zero(), metadata);
+  if (!result)
+    return NULL;
+
   ts_tree_set_children(result, child_count, children);
   return result;
 }
@@ -125,8 +138,8 @@ void ts_tree_release(TSTree *self) {
     for (size_t i = 0; i < self->child_count; i++)
       ts_tree_release(self->children[i]);
     if (self->child_count > 0)
-      free(self->children);
-    free(self);
+      ts_free(self->children);
+    ts_free(self);
   }
 }
 
@@ -252,7 +265,7 @@ char *ts_tree_string(const TSTree *self, const char **symbol_names,
   static char SCRATCH[1];
   size_t size = 1 + ts_tree__write_to_string(self, symbol_names, SCRATCH, 0,
                                              true, include_anonymous);
-  char *result = malloc(size * sizeof(char));
+  char *result = ts_malloc(size * sizeof(char));
   ts_tree__write_to_string(self, symbol_names, result, size, true,
                            include_anonymous);
   return result;

@@ -22,6 +22,12 @@ typedef struct {
   int head_index;
 } StackPopResult;
 
+typedef enum {
+  StackPushResultFailed,
+  StackPushResultMerged,
+  StackPushResultContinued,
+} StackPushResult;
+
 typedef TSTree *(*TreeSelectionFunction)(void *, TSTree *, TSTree *);
 
 /*
@@ -73,11 +79,10 @@ int ts_stack_entry_next_count(const StackEntry *);
 StackEntry *ts_stack_entry_next(const StackEntry *, int);
 
 /*
- *  Push a (tree, state) pair onto the given head of the stack. Returns
- *  a boolean indicating whether the stack head was merged with an
- *  existing head.
+ *  Push a (tree, state) pair onto the given head of the stack. This could cause
+ *  the head to merge with an existing head.
  */
-bool ts_stack_push(Stack *, int head, TSStateId, TSTree *);
+StackPushResult ts_stack_push(Stack *, int head, TSStateId, TSTree *);
 
 /*
  *  Add an alternative tree for the given head of the stack.

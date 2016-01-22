@@ -23,8 +23,8 @@
       'libraries': [
         '-ldl'
       ],
-      'default_configuration': 'Debug',
-      'configurations': {'Debug': {}, 'Release': {}},
+      'default_configuration': 'Test',
+      'configurations': {'Test': {}, 'Release': {}},
       'cflags': [
         '-g',
         '-O0',

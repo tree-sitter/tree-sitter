@@ -142,6 +142,15 @@
           'GCC_OPTIMIZATION_LEVEL': '0',
         },
       },
+      'Test': {
+        'defines': ['TREE_SITTER_WRAP_MALLOC=true'],
+        'cflags': [ '-g' ],
+        'ldflags': [ '-g' ],
+        'xcode_settings': {
+          'OTHER_LDFLAGS': ['-g'],
+          'GCC_OPTIMIZATION_LEVEL': '0',
+        },
+      },
       'Release': {
         'cflags': [ '-O2', '-fno-strict-aliasing' ],
         'cflags!': [ '-O3', '-fstrict-aliasing' ],

@@ -1,4 +1,5 @@
 #include "tree_sitter/parser.h"
+#include "runtime/alloc.h"
 #include "runtime/node.h"
 #include "runtime/tree.h"
 #include "runtime/parser.h"
@@ -6,16 +7,23 @@
 #include "runtime/document.h"
 
 TSDocument *ts_document_make() {
-  TSDocument *document = calloc(sizeof(TSDocument), 1);
-  document->parser = ts_parser_make();
-  return document;
+  TSDocument *self = ts_calloc(1, sizeof(TSDocument));
+  if (!self)
+    return NULL;
+
+  if (!ts_parser_init(&self->parser)) {
+    ts_free(self);
+    return NULL;
+  }
+
+  return self;
 }
 
 void ts_document_free(TSDocument *self) {
   ts_parser_destroy(&self->parser);
   if (self->tree)
     ts_tree_release(self->tree);
-  free(self);
+  ts_free(self);
 }
 
 const TSLanguage *ts_document_language(TSDocument *self) {
@@ -62,21 +70,25 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
   ts_tree_edit(self->tree, edit);
 }
 
-void ts_document_parse(TSDocument *self) {
+int ts_document_parse(TSDocument *self) {
   if (!self->input.read_fn || !self->parser.language)
-    return;
+    return 0;
 
   TSTree *reusable_tree = self->valid ? self->tree : NULL;
   if (reusable_tree && !reusable_tree->has_changes)
-    return;
+    return 0;
 
   TSTree *tree = ts_parser_parse(&self->parser, self->input, reusable_tree);
+  if (!tree)
+    return -1;
+
   ts_tree_retain(tree);
   if (self->tree)
     ts_tree_release(self->tree);
   self->tree = tree;
   self->parse_count++;
   self->valid = true;
+  return 0;
 }
 
 void ts_document_invalidate(TSDocument *self) {
