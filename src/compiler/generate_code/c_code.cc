@@ -253,14 +253,18 @@ class CCodeGenerator {
   }
 
   void add_lex_state(const LexState &lex_state) {
-    auto expected_inputs = lex_state.expected_inputs();
     if (lex_state.is_token_start)
       line("START_TOKEN();");
-    for (const auto &pair : lex_state.actions)
+
+    for (const auto &pair : lex_state.advance_actions)
       if (!pair.first.is_empty())
         _if([&]() { add_character_set_condition(pair.first); },
-            [&]() { add_lex_actions(pair.second, expected_inputs); });
-    add_lex_actions(lex_state.default_action, expected_inputs);
+            [&]() { add_advance_action(pair.second); });
+
+    if (lex_state.accept_action.is_present())
+      add_accept_token_action(lex_state.accept_action);
+    else
+      line("LEX_ERROR();");
   }
 
   void add_character_set_condition(const rules::CharacterSet &rule) {
@@ -304,23 +308,15 @@ class CCodeGenerator {
     }
   }
 
-  void add_lex_actions(const LexAction &action,
-                       const set<rules::CharacterSet> &expected_inputs) {
-    switch (action.type) {
-      case LexActionTypeAdvance:
-        line("ADVANCE(" + to_string(action.state_index) + ");");
-        break;
-      case LexActionTypeAccept:
-        line("ACCEPT_TOKEN(" + symbol_id(action.symbol) + ");");
-        break;
-      case LexActionTypeAcceptFragile:
-        line("ACCEPT_FRAGILE_TOKEN(" + symbol_id(action.symbol) + ");");
-        break;
-      case LexActionTypeError:
-        line("LEX_ERROR();");
-        break;
-      default: {}
-    }
+  void add_advance_action(const AdvanceAction &action) {
+    line("ADVANCE(" + to_string(action.state_index) + ");");
+  }
+
+  void add_accept_token_action(const AcceptTokenAction &action) {
+    if (action.is_fragile)
+      line("ACCEPT_FRAGILE_TOKEN(" + symbol_id(action.symbol) + ");");
+    else
+      line("ACCEPT_TOKEN(" + symbol_id(action.symbol) + ");");
   }
 
   void add_parse_action_list() {

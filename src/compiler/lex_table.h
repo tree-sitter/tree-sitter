@@ -18,38 +18,32 @@ typedef enum {
   LexActionTypeAdvance
 } LexActionType;
 
-class LexAction {
-  LexAction(LexActionType type, size_t state_index, rules::Symbol symbol,
-            PrecedenceRange precedence_range, bool is_string);
+struct AdvanceAction {
+  AdvanceAction();
+  AdvanceAction(size_t, PrecedenceRange);
 
- public:
-  LexAction();
-  static LexAction Accept(rules::Symbol symbol, int precedence, bool is_string);
-  static LexAction Error();
-  static LexAction Advance(size_t state_index, PrecedenceRange precedence_range);
-  bool operator==(const LexAction &action) const;
+  bool operator==(const AdvanceAction &action) const;
 
-  LexActionType type;
-  rules::Symbol symbol;
   size_t state_index;
   PrecedenceRange precedence_range;
+};
+
+struct AcceptTokenAction {
+  AcceptTokenAction();
+  AcceptTokenAction(rules::Symbol, int, bool);
+
+  bool is_present() const;
+  bool operator==(const AcceptTokenAction &action) const;
+
+  rules::Symbol symbol;
+  int precedence;
   bool is_string;
+  bool is_fragile;
 };
 
 }  // namespace tree_sitter
 
-namespace std {
-
-template <>
-struct hash<tree_sitter::LexAction> {
-  size_t operator()(const tree_sitter::LexAction &action) const {
-    return (hash<int>()(action.type) ^
-            hash<tree_sitter::rules::Symbol>()(action.symbol) ^
-            hash<size_t>()(action.state_index));
-  }
-};
-
-}  // namespace std
+namespace std {}  // namespace std
 
 namespace tree_sitter {
 
@@ -58,10 +52,10 @@ class LexState {
   LexState();
   std::set<rules::CharacterSet> expected_inputs() const;
   bool operator==(const LexState &) const;
-  void each_action(std::function<void(LexAction *)>);
+  void each_advance_action(std::function<void(AdvanceAction *)>);
 
-  std::map<rules::CharacterSet, LexAction> actions;
-  LexAction default_action;
+  std::map<rules::CharacterSet, AdvanceAction> advance_actions;
+  AcceptTokenAction accept_action;
   bool is_token_start;
 };
 

@@ -128,10 +128,11 @@ set<Symbol> ParseState::expected_inputs() const {
   return result;
 }
 
-void ParseState::each_action(function<void(ParseAction *)> fn) {
+void ParseState::each_advance_action(function<void(ParseAction *)> fn) {
   for (auto &entry : actions)
     for (ParseAction &action : entry.second)
-      fn(&action);
+      if (action.type == ParseActionTypeShift)
+        fn(&action);
 }
 
 bool ParseState::operator==(const ParseState &other) const {

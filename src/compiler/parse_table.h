@@ -81,7 +81,7 @@ class ParseState {
   ParseState();
   std::set<rules::Symbol> expected_inputs() const;
   bool operator==(const ParseState &) const;
-  void each_action(std::function<void(ParseAction *)>);
+  void each_advance_action(std::function<void(ParseAction *)>);
 
   std::map<rules::Symbol, std::vector<ParseAction>> actions;
   LexStateId lex_state_id;

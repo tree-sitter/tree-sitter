@@ -119,11 +119,12 @@ class LexTableBuilder {
       const CharacterSet &rule = transition.first;
       const LexItemSet &new_item_set = transition.second.first;
       const PrecedenceRange &precedence = transition.second.second;
-      auto current_action = lex_table.state(state_id).default_action;
-      auto action = LexAction::Advance(-1, precedence);
+      AdvanceAction action(-1, precedence);
+
+      auto current_action = lex_table.state(state_id).accept_action;
       if (conflict_manager.resolve(action, current_action)) {
         action.state_index = add_lex_state(new_item_set);
-        lex_table.state(state_id).actions[rule] = action;
+        lex_table.state(state_id).advance_actions[rule] = action;
       }
     }
   }
@@ -132,12 +133,12 @@ class LexTableBuilder {
     for (const LexItem &item : item_set.entries) {
       LexItem::CompletionStatus completion_status = item.completion_status();
       if (completion_status.is_done) {
-        auto current_action = lex_table.state(state_id).default_action;
-        auto action =
-          LexAction::Accept(item.lhs, completion_status.precedence.max,
-                            completion_status.is_string);
+        AcceptTokenAction action(item.lhs, completion_status.precedence.max,
+                                 completion_status.is_string);
+
+        auto current_action = lex_table.state(state_id).accept_action;
         if (conflict_manager.resolve(action, current_action))
-          lex_table.state(state_id).default_action = action;
+          lex_table.state(state_id).accept_action = action;
       }
     }
   }
@@ -150,15 +151,19 @@ class LexTableBuilder {
 
   void mark_fragile_tokens() {
     for (LexState &state : lex_table.states)
-      if (state.default_action.type == LexActionTypeAccept)
-        if (conflict_manager.fragile_tokens.count(state.default_action.symbol))
-          state.default_action.type = LexActionTypeAcceptFragile;
+      if (state.accept_action.is_present())
+        if (conflict_manager.fragile_tokens.count(state.accept_action.symbol))
+          state.accept_action.is_fragile = true;
   }
 
   void remove_duplicate_lex_states() {
+    for (LexState &state : lex_table.states) {
+      state.accept_action.is_string = false;
+      state.accept_action.precedence = 0;
+    }
+
     auto replacements =
-      remove_duplicate_states<LexState, LexAction, LexActionTypeAdvance>(
-        &lex_table.states);
+      remove_duplicate_states<LexState, AdvanceAction>(&lex_table.states);
 
     for (ParseState &parse_state : parse_table->states) {
       auto replacement = replacements.find(parse_state.lex_state_id);

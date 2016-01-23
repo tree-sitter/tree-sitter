@@ -193,8 +193,7 @@ class ParseTableBuilder {
   }
 
   void remove_duplicate_parse_states() {
-    remove_duplicate_states<ParseState, ParseAction, ParseActionTypeShift>(
-      &parse_table.states);
+    remove_duplicate_states<ParseState, ParseAction>(&parse_table.states);
   }
 
   ParseAction *add_action(ParseStateId state_id, Symbol lookahead,

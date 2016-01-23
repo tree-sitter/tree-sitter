@@ -7,13 +7,15 @@
 
 namespace tree_sitter {
 
-class LexAction;
+struct AdvanceAction;
+struct AcceptTokenAction;
 
 namespace build_tables {
 
 class LexConflictManager {
  public:
-  bool resolve(const LexAction &, const LexAction &);
+  bool resolve(const AdvanceAction &, const AcceptTokenAction &);
+  bool resolve(const AcceptTokenAction &, const AcceptTokenAction &);
 
   std::set<rules::Symbol> fragile_tokens;
 };

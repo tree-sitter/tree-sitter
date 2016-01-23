@@ -1,5 +1,6 @@
 #include "compiler/lex_table.h"
 #include "compiler/rules/symbol.h"
+#include "compiler/rules/built_in_symbols.h"
 
 namespace tree_sitter {
 
@@ -11,56 +12,53 @@ using std::set;
 using rules::Symbol;
 using rules::CharacterSet;
 
-LexAction::LexAction()
-    : type(LexActionTypeError),
-      symbol(Symbol(-1)),
-      state_index(-1),
-      precedence_range({ 0, 0 }) {}
+AdvanceAction::AdvanceAction() : state_index(-1) {}
 
-LexAction::LexAction(LexActionType type, size_t state_index, Symbol symbol,
-                     PrecedenceRange precedence_range, bool is_string)
-    : type(type),
-      symbol(symbol),
-      state_index(state_index),
-      precedence_range(precedence_range),
-      is_string(is_string) {}
+AdvanceAction::AdvanceAction(size_t state_index,
+                             PrecedenceRange precedence_range)
+    : state_index(state_index), precedence_range(precedence_range) {}
 
-LexAction LexAction::Error() {
-  return LexAction(LexActionTypeError, -1, Symbol(-1), { 0, 0 }, false);
+bool AdvanceAction::operator==(const AdvanceAction &other) const {
+  return (state_index == other.state_index) &&
+         (precedence_range == other.precedence_range);
 }
 
-LexAction LexAction::Advance(size_t state_index,
-                             PrecedenceRange precedence_range) {
-  return LexAction(LexActionTypeAdvance, state_index, Symbol(-1),
-                   precedence_range, false);
+AcceptTokenAction::AcceptTokenAction()
+    : symbol(rules::NONE()), precedence(0), is_string(false), is_fragile(false) {}
+
+AcceptTokenAction::AcceptTokenAction(Symbol symbol, int precedence,
+                                     bool is_string)
+    : symbol(symbol),
+      precedence(precedence),
+      is_string(is_string),
+      is_fragile(false) {}
+
+bool AcceptTokenAction::is_present() const {
+  return symbol != rules::NONE();
 }
 
-LexAction LexAction::Accept(Symbol symbol, int precedence, bool is_string) {
-  return LexAction(LexActionTypeAccept, -1, symbol, { precedence, precedence },
-                   is_string);
-}
-
-bool LexAction::operator==(const LexAction &other) const {
-  return (type == other.type) && (state_index == other.state_index) &&
-         (symbol == other.symbol);
+bool AcceptTokenAction::operator==(const AcceptTokenAction &other) const {
+  return (symbol == other.symbol) && (precedence == other.precedence) &&
+         (is_string == other.is_string) && (is_fragile == other.is_fragile);
 }
 
 LexState::LexState() : is_token_start(false) {}
 
 set<CharacterSet> LexState::expected_inputs() const {
   set<CharacterSet> result;
-  for (auto &pair : actions)
+  for (auto &pair : advance_actions)
     result.insert(pair.first);
   return result;
 }
 
 bool LexState::operator==(const LexState &other) const {
-  return actions == other.actions && default_action == other.default_action &&
+  return advance_actions == other.advance_actions &&
+         accept_action == other.accept_action &&
          is_token_start == other.is_token_start;
 }
 
-void LexState::each_action(function<void(LexAction *)> fn) {
-  for (auto &entry : actions)
+void LexState::each_advance_action(function<void(AdvanceAction *)> fn) {
+  for (auto &entry : advance_actions)
     fn(&entry.second);
 }
 

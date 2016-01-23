@@ -50,19 +50,12 @@ ostream &operator<<(ostream &stream, const SyntaxVariable &variable) {
   return stream << string("{") << variable.name << string(", ") << variable.productions << string(", ") << to_string(variable.type) << string("}");
 }
 
-std::ostream &operator<<(std::ostream &stream, const LexAction &action) {
-  switch (action.type) {
-    case LexActionTypeError:
-      return stream << string("#<error>");
-    case LexActionTypeAccept:
-      return stream << string("#<accept ") + to_string(action.symbol.index) +
-                         ">";
-    case LexActionTypeAdvance:
-      return stream << string("#<advance ") + to_string(action.state_index) +
-                         ">";
-    default:
-      return stream;
-  }
+std::ostream &operator<<(std::ostream &stream, const AdvanceAction &action) {
+  return stream << string("#<advance ") + to_string(action.state_index) + ">";
+}
+
+std::ostream &operator<<(std::ostream &stream, const AcceptTokenAction &action) {
+  return stream << string("#<accept ") + to_string(action.symbol.index) + ">";
 }
 
 ostream &operator<<(ostream &stream, const ParseAction &action) {
