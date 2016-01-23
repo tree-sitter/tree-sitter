@@ -66,10 +66,11 @@ static inline void vector_erase(Vector *self, size_t index) {
 static inline bool vector_push(Vector *self, void *entry) {
   if (self->size == self->capacity) {
     self->capacity += 4;
-    void *new_contents = ts_realloc(self->contents, self->capacity * self->element_size);
-    if (!new_contents)
+    void *contents =
+      ts_realloc(self->contents, self->capacity * self->element_size);
+    if (!contents)
       return false;
-    self->contents = new_contents;
+    self->contents = contents;
   }
 
   char *contents = (char *)self->contents;

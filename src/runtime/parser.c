@@ -42,7 +42,8 @@ typedef enum {
  *  Private
  */
 
-static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self, int head) {
+static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
+                                                           int head) {
   TSTree *last_child = NULL;
 
   do {
@@ -268,8 +269,8 @@ static TSTree *ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
  */
 
 static ParseActionResult ts_parser__shift(TSParser *self, int head,
-                                        TSStateId parse_state,
-                                        TSTree *lookahead) {
+                                          TSStateId parse_state,
+                                          TSTree *lookahead) {
   switch (ts_stack_push(self->stack, head, parse_state, lookahead)) {
     case StackPushResultFailed:
       return FailedToUpdateStackHead;
@@ -282,8 +283,9 @@ static ParseActionResult ts_parser__shift(TSParser *self, int head,
   }
 }
 
-static ParseActionResult ts_parser__shift_extra(TSParser *self, int head, TSStateId state,
-                                   TSTree *lookahead) {
+static ParseActionResult ts_parser__shift_extra(TSParser *self, int head,
+                                                TSStateId state,
+                                                TSTree *lookahead) {
   TSSymbolMetadata metadata = self->language->symbol_metadata[lookahead->symbol];
   if (metadata.structural && ts_stack_head_count(self->stack) > 1) {
     lookahead = ts_tree_make_copy(lookahead);
@@ -295,9 +297,10 @@ static ParseActionResult ts_parser__shift_extra(TSParser *self, int head, TSStat
   return ts_parser__shift(self, head, state, lookahead);
 }
 
-static ParseActionResult ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
-                              int child_count, bool extra, bool fragile,
-                              bool count_extra) {
+static ParseActionResult ts_parser__reduce(TSParser *self, int head,
+                                           TSSymbol symbol, int child_count,
+                                           bool extra, bool fragile,
+                                           bool count_extra) {
   vector_clear(&self->reduce_parents);
   const TSSymbolMetadata *all_metadata = self->language->symbol_metadata;
   TSSymbolMetadata metadata = all_metadata[symbol];
@@ -340,7 +343,8 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head, TSSymbol sy
       }
 
       size_t child_count = pop_result->tree_count - trailing_extra_count;
-      parent = ts_tree_make_node(symbol, child_count, pop_result->trees, metadata);
+      parent =
+        ts_tree_make_node(symbol, child_count, pop_result->trees, metadata);
       if (!parent)
         return FailedToUpdateStackHead;
     }
@@ -459,9 +463,10 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head, TSSymbol sy
 }
 
 static ParseActionResult ts_parser__reduce_error(TSParser *self, int head,
-                                    size_t child_count, TSTree *lookahead) {
-  switch(ts_parser__reduce(self, head, ts_builtin_sym_error, child_count,
-                                  false, false, true)) {
+                                                 size_t child_count,
+                                                 TSTree *lookahead) {
+  switch (ts_parser__reduce(self, head, ts_builtin_sym_error, child_count,
+                            false, false, true)) {
     case FailedToUpdateStackHead:
       return FailedToUpdateStackHead;
     case RemovedStackHead:
@@ -479,7 +484,8 @@ static ParseActionResult ts_parser__reduce_error(TSParser *self, int head,
   }
 }
 
-static ParseActionResult ts_parser__handle_error(TSParser *self, int head, TSTree *lookahead) {
+static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
+                                                 TSTree *lookahead) {
   size_t error_token_count = 1;
   StackEntry *entry_before_error = ts_stack_head(self->stack, head);
 
@@ -538,7 +544,7 @@ static ParseActionResult ts_parser__handle_error(TSParser *self, int head, TSTre
 }
 
 static ParseActionResult ts_parser__start(TSParser *self, TSInput input,
-                             TSTree *previous_tree) {
+                                          TSTree *previous_tree) {
   if (previous_tree) {
     LOG("parse_after_edit");
   } else {
@@ -608,7 +614,7 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
  */
 
 static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
-                                         TSTree *lookahead) {
+                                                      TSTree *lookahead) {
   for (;;) {
     TSStateId state = ts_stack_top_state(self->stack, head);
     size_t action_count;
@@ -687,8 +693,8 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
                 SYM_NAME(action.data.symbol), action.data.child_count,
                 BOOL_STRING(action.fragile));
             switch (ts_parser__reduce(self, current_head, action.data.symbol,
-                                   action.data.child_count, false,
-                                   action.fragile, false)) {
+                                      action.data.child_count, false,
+                                      action.fragile, false)) {
               case FailedToUpdateStackHead:
                 return FailedToUpdateStackHead;
               case RemovedStackHead:
