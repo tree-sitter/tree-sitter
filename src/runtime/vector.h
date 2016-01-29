@@ -8,6 +8,7 @@ extern "C" {
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <stdbool.h>
 #include "runtime/alloc.h"
 
 typedef struct {
@@ -37,7 +38,10 @@ static inline bool vector_valid(Vector *self) {
 }
 
 static inline void vector_delete(Vector *self) {
-  ts_free(self->contents);
+  if (self->contents) {
+    ts_free(self->contents);
+    self->contents = NULL;
+  }
 }
 
 static inline void *vector_get(Vector *self, size_t index) {

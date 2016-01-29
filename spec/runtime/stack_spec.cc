@@ -1,8 +1,12 @@
+#define TREE_SITTER_WRAP_MALLOC
 #include "spec_helper.h"
 #include "helpers/tree_helpers.h"
+#include "helpers/record_alloc.h"
+#include "helpers/stream_methods.h"
 #include "runtime/stack.h"
 #include "runtime/tree.h"
 #include "runtime/length.h"
+#include "runtime/alloc.h"
 
 enum {
   stateA, stateB, stateC, stateD, stateE, stateF, stateG, stateH, stateI, stateJ
@@ -31,8 +35,28 @@ TSTree * tree_selection_spy_callback(void *data, TSTree *left, TSTree *right) {
   return spy->tree_to_return;
 }
 
-START_TEST
+void free_pop_results(Vector *pop_results) {
+  for (size_t i = 0; i < pop_results->size; i++) {
+    StackPopResult *pop_result = (StackPopResult *)vector_get(pop_results, i);
 
+    bool matches_prior_trees = false;
+    for (size_t j = 0; j < i; j++) {
+      StackPopResult *prior_result = (StackPopResult *)vector_get(pop_results, j);
+      if (pop_result->trees == prior_result->trees) {
+        matches_prior_trees = true;
+        break;
+      }
+    }
+
+    if (!matches_prior_trees) {
+      for (size_t j = 0; j < pop_result->tree_count; j++)
+        ts_tree_release(pop_result->trees[j]);
+      ts_free(pop_result->trees);
+    }
+  }
+}
+
+START_TEST
 
 describe("Stack", [&]() {
   Stack *stack;
@@ -43,6 +67,8 @@ describe("Stack", [&]() {
   TSSymbolMetadata metadata = {true, true, true, true};
 
   before_each([&]()   {
+    record_alloc::start();
+
     stack = ts_stack_new();
 
     ts_stack_set_tree_selection_callback(stack,
@@ -58,6 +84,9 @@ describe("Stack", [&]() {
     ts_stack_delete(stack);
     for (size_t i = 0; i < tree_count; i++)
       ts_tree_release(trees[i]);
+
+    record_alloc::stop();
+    AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
   });
 
   describe("pushing entries to the stack", [&]() {
@@ -108,47 +137,57 @@ describe("Stack", [&]() {
       /*
        *  A0.
        */
-      Vector pop = ts_stack_pop(stack, 0, 2, false);
-      StackPopResult pop1 = *(StackPopResult *)vector_get(&pop, 0);
-      AssertThat(pop.size, Equals<size_t>(1));
-      AssertThat(pop1.tree_count, Equals<size_t>(2));
-      AssertThat(pop1.trees[0], Equals(trees[1]));
-      AssertThat(pop1.trees[1], Equals(trees[2]));
+      Vector results = ts_stack_pop(stack, 0, 2, false);
+      AssertThat(results.size, Equals<size_t>(1));
+
+      StackPopResult result = *(StackPopResult *)vector_get(&results, 0);
+      AssertThat(result.tree_count, Equals<size_t>(2));
+      AssertThat(result.trees[0], Equals(trees[1]));
+      AssertThat(result.trees[1], Equals(trees[2]));
       AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({trees[0], stateA, tree_len}));
+      free_pop_results(&results);
 
       /*
        *  .
        */
-      pop = ts_stack_pop(stack, 0, 1, false);
-      pop1 = *(StackPopResult *)vector_get(&pop, 0);
-      AssertThat(pop.size, Equals<size_t>(1));
-      AssertThat(pop1.tree_count, Equals<size_t>(1));
-      AssertThat(pop1.trees[0], Equals(trees[0]));
+      results = ts_stack_pop(stack, 0, 1, false);
+      AssertThat(results.size, Equals<size_t>(1));
+
+      result = *(StackPopResult *)vector_get(&results, 0);
+      AssertThat(result.tree_count, Equals<size_t>(1));
+      AssertThat(result.trees[0], Equals(trees[0]));
       AssertThat(ts_stack_head(stack, 0), Equals<const StackEntry *>(nullptr));
+
+      free_pop_results(&results);
     });
 
     it("does not count 'extra' trees toward the count", [&]() {
       trees[1]->extra = true;
 
-      Vector pop = ts_stack_pop(stack, 0, 2, false);
-      StackPopResult pop1 = *(StackPopResult *)vector_get(&pop, 0);
-      AssertThat(pop.size, Equals<size_t>(1));
-      AssertThat(pop1.tree_count, Equals<size_t>(3));
-      AssertThat(pop1.trees[0], Equals(trees[0]));
-      AssertThat(pop1.trees[1], Equals(trees[1]));
-      AssertThat(pop1.trees[2], Equals(trees[2]));
+      Vector results = ts_stack_pop(stack, 0, 2, false);
+      AssertThat(results.size, Equals<size_t>(1));
+
+      StackPopResult result = *(StackPopResult *)vector_get(&results, 0);
+      AssertThat(result.tree_count, Equals<size_t>(3));
+      AssertThat(result.trees[0], Equals(trees[0]));
+      AssertThat(result.trees[1], Equals(trees[1]));
+      AssertThat(result.trees[2], Equals(trees[2]));
       AssertThat(ts_stack_head(stack, 0), Equals<const StackEntry *>(nullptr));
+
+      free_pop_results(&results);
     });
 
     it("pops the entire stack when given a negative count", [&]() {
-      Vector pop = ts_stack_pop(stack, 0, -1, false);
+      Vector results = ts_stack_pop(stack, 0, -1, false);
+      AssertThat(results.size, Equals<size_t>(1));
 
-      AssertThat(pop.size, Equals<size_t>(1));
-      StackPopResult pop1 = *(StackPopResult *)vector_get(&pop, 0);
-      AssertThat(pop1.tree_count, Equals<size_t>(3));
-      AssertThat(pop1.trees[0], Equals(trees[0]));
-      AssertThat(pop1.trees[1], Equals(trees[1]));
-      AssertThat(pop1.trees[2], Equals(trees[2]));
+      StackPopResult result = *(StackPopResult *)vector_get(&results, 0);
+      AssertThat(result.tree_count, Equals<size_t>(3));
+      AssertThat(result.trees[0], Equals(trees[0]));
+      AssertThat(result.trees[1], Equals(trees[1]));
+      AssertThat(result.trees[2], Equals(trees[2]));
+
+      free_pop_results(&results);
     });
   });
 
@@ -170,11 +209,15 @@ describe("Stack", [&]() {
        *       \.
        */
       ts_stack_push(stack, 0, stateD, trees[3]);
-      ts_stack_pop(stack, 1, 1, false);
+      Vector pop_results = ts_stack_pop(stack, 1, 1, false);
 
       AssertThat(ts_stack_head_count(stack), Equals(2));
       AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({trees[3], stateD, tree_len * 4}));
       AssertThat(*ts_stack_head(stack, 1), Equals<StackEntry>({trees[1], stateB, tree_len * 2}));
+      AssertThat(pop_results.size, Equals<size_t>(1));
+      StackPopResult *pop_result = (StackPopResult *)vector_get(&pop_results, 0);
+      AssertThat(pop_result->tree_count, Equals<size_t>(1));
+      free_pop_results(&pop_results);
 
       /*
        *  A0__B1__C2__D3.
@@ -276,20 +319,18 @@ describe("Stack", [&]() {
     });
 
     describe("when the first head is only one node deep", [&]() {
-      it("adds it as an additional successor node to The Null node", [&]() {
+      it("creates a node with one null successor and one non-null successor", [&]() {
+        TSTree *parent = ts_tree_make_node(5, 2, tree_array({ trees[2], trees[3] }), metadata);
+        tree_selection_spy.tree_to_return = parent;
+        tree_selection_spy.call_count = 0;
+
         /*
          *    .__C5.
          *  B2.__/
          */
         ts_stack_clear(stack);
         ts_stack_split(stack, 0);
-        TSTree *parent = ts_tree_make_node(5, 2, tree_array({ trees[2], trees[3] }), metadata);
-
-        ts_stack_push(stack, 0, stateC, parent);
-
-        tree_selection_spy.tree_to_return = parent;
-        tree_selection_spy.call_count = 0;
-
+        AssertThat(ts_stack_push(stack, 0, stateC, parent), Equals(StackPushResultContinued));
         AssertThat(ts_stack_push(stack, 1, stateB, trees[2]), Equals(StackPushResultContinued));
         AssertThat(ts_stack_push(stack, 1, stateC, trees[3]), Equals(StackPushResultMerged));
         AssertThat(tree_selection_spy.call_count, Equals(1));
@@ -301,6 +342,8 @@ describe("Stack", [&]() {
         AssertThat(ts_stack_entry_next_count(head), Equals(2));
         AssertThat(ts_stack_entry_next(head, 0), Equals<StackEntry *>(nullptr));
         AssertThat(*ts_stack_entry_next(head, 1), Equals<StackEntry>({trees[2], stateB, tree_len}));
+
+        ts_tree_release(parent);
       });
     });
   });
@@ -349,6 +392,8 @@ describe("Stack", [&]() {
         AssertThat(ts_stack_head_count(stack), Equals(2));
         AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({trees[2], stateC, tree_len * 3}));
         AssertThat(*ts_stack_head(stack, 1), Equals<StackEntry>({trees[4], stateE, tree_len * 3}));
+
+        free_pop_results(&pop);
       });
     });
 
@@ -369,6 +414,8 @@ describe("Stack", [&]() {
 
         AssertThat(pop.size, Equals<size_t>(1));
         AssertThat(ts_stack_head_count(stack), Equals(1));
+
+        free_pop_results(&pop);
       });
     });
 
@@ -400,6 +447,8 @@ describe("Stack", [&]() {
         AssertThat(pop2.tree_count, Equals<size_t>(2));
         AssertThat(pop2.trees[0], Equals(trees[6]));
         AssertThat(pop2.trees[1], Equals(trees[7]));
+
+        free_pop_results(&pop);
       });
     });
 
@@ -422,6 +471,8 @@ describe("Stack", [&]() {
         AssertThat(pop2.tree_count, Equals<size_t>(3));
         AssertThat(pop2.head_index, Equals(0));
         AssertThat(pop2.trees[0], Equals(trees[4]));
+
+        free_pop_results(&pop);
       });
     });
   });
@@ -485,6 +536,8 @@ describe("Stack", [&]() {
         AssertThat(pop3.head_index, Equals(2));
         AssertThat(pop3.tree_count, Equals<size_t>(2));
         AssertThat(pop3.trees, Equals(pop1.trees));
+
+        free_pop_results(&pop);
       });
     });
 
@@ -523,6 +576,8 @@ describe("Stack", [&]() {
         AssertThat(pop3.trees[0], Equals(trees[7]));
         AssertThat(pop3.trees[1], Equals(trees[8]));
         AssertThat(pop3.trees[2], Equals(trees[9]));
+
+        free_pop_results(&pop);
       });
     });
   });

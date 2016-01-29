@@ -5,6 +5,7 @@
 #include "runtime/stack.h"
 #include "runtime/length.h"
 #include <assert.h>
+#include <stdio.h>
 
 #define MAX_SUCCESSOR_COUNT 8
 #define INITIAL_HEAD_CAPACITY 3
@@ -76,13 +77,6 @@ error:
     ts_free(self);
   }
   return NULL;
-}
-
-void ts_stack_delete(Stack *self) {
-  vector_delete(&self->pop_results);
-  vector_delete(&self->pop_paths);
-  ts_free(self->heads);
-  ts_free(self);
 }
 
 /*
@@ -169,6 +163,21 @@ static StackNode *stack_node_new(StackNode *next, TSStateId state, TSTree *tree)
   return self;
 }
 
+static void ts_stack__add_alternative_tree(Stack *self, StackNode *node, TSTree *tree) {
+  if (tree != node->entry.tree) {
+    TSTree *new_tree = self->tree_selection_function(
+      self->tree_selection_payload,
+      node->entry.tree,
+      tree);
+
+    if (new_tree != node->entry.tree) {
+      ts_tree_retain(new_tree);
+      ts_tree_release(node->entry.tree);
+      node->entry.tree = new_tree;
+    }
+  }
+}
+
 static void ts_stack__add_node_successor(Stack *self, StackNode *node,
                                          StackNode *new_successor) {
   for (int i = 0; i < node->successor_count; i++) {
@@ -179,12 +188,7 @@ static void ts_stack__add_node_successor(Stack *self, StackNode *node,
       return;
 
     if (successor->entry.state == new_successor->entry.state) {
-      if (successor->entry.tree != new_successor->entry.tree) {
-        successor->entry.tree = self->tree_selection_function(
-          self->tree_selection_payload, successor->entry.tree,
-          new_successor->entry.tree);
-        ts_tree_retain(successor->entry.tree);
-      }
+      ts_stack__add_alternative_tree(self, successor, new_successor->entry.tree);
       for (int j = 0; j < new_successor->successor_count; j++)
         ts_stack__add_node_successor(self, successor,
                                      new_successor->successors[j]);
@@ -234,11 +238,7 @@ static bool ts_stack__merge_head(Stack *self, int head_index, TSStateId state,
     StackNode *head = self->heads[i];
     if (head->entry.state == state &&
         ts_length_eq(head->entry.position, position)) {
-      if (head->entry.tree != tree) {
-        head->entry.tree = self->tree_selection_function(
-          self->tree_selection_payload, head->entry.tree, tree);
-        ts_tree_retain(head->entry.tree);
-      }
+      ts_stack__add_alternative_tree(self, head, tree);
       ts_stack__add_node_successor(self, head, self->heads[head_index]);
       ts_stack_remove_head(self, head_index);
       return true;
@@ -267,15 +267,15 @@ StackPushResult ts_stack_push(Stack *self, int head_index, TSStateId state,
   if (!new_head)
     return StackPushResultFailed;
 
+  stack_node_release(self->heads[head_index]);
   self->heads[head_index] = new_head;
   return StackPushResultContinued;
 }
 
 void ts_stack_add_alternative(Stack *self, int head_index, TSTree *tree) {
   assert(head_index < self->head_count);
-  StackEntry *entry = &self->heads[head_index]->entry;
-  entry->tree = self->tree_selection_function(self->tree_selection_payload,
-                                              entry->tree, tree);
+  StackNode *node = self->heads[head_index];
+  ts_stack__add_alternative_tree(self, node, tree);
 }
 
 int ts_stack_split(Stack *self, int head_index) {
@@ -332,6 +332,11 @@ Vector ts_stack_pop(Stack *self, int head_index, int child_count,
        */
       if (path->is_shared) {
         path->trees = vector_copy(&path->trees);
+        for (size_t j = 0; j < path->trees.size; j++) {
+          TSTree **tree = vector_get(&path->trees, j);
+          ts_tree_retain(*tree);
+        }
+
         path->is_shared = false;
       }
 
@@ -409,4 +414,12 @@ void ts_stack_set_tree_selection_callback(Stack *self, void *payload,
                                           TreeSelectionFunction function) {
   self->tree_selection_payload = payload;
   self->tree_selection_function = function;
+}
+
+void ts_stack_delete(Stack *self) {
+  vector_delete(&self->pop_results);
+  vector_delete(&self->pop_paths);
+  ts_stack_clear(self);
+  ts_free(self->heads);
+  ts_free(self);
 }
