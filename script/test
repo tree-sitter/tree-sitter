@@ -66,10 +66,11 @@ fi
 
 case ${mode} in
   valgrind)
-    valgrind \
+    valgrind                                     \
       --suppressions=./script/util/valgrind.supp \
-      --dsymutil=yes \
-      $cmd "${args[@]}" 2>&1 | \
+      --dsymutil=yes                             \
+      --leak-check=full                          \
+      $cmd "${args[@]}" 2>&1 |                   \
       grep --color -E '\w+_specs?.cc:\d+|$'
     ;;
 
