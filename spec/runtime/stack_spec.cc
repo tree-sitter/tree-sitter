@@ -320,7 +320,10 @@ describe("Stack", [&]() {
 
     describe("when the first head is only one node deep", [&]() {
       it("creates a node with one null successor and one non-null successor", [&]() {
+        ts_tree_retain(trees[2]);
+        ts_tree_retain(trees[3]);
         TSTree *parent = ts_tree_make_node(5, 2, tree_array({ trees[2], trees[3] }), metadata);
+
         tree_selection_spy.tree_to_return = parent;
         tree_selection_spy.call_count = 0;
 

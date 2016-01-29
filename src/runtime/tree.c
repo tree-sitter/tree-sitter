@@ -82,7 +82,6 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   self->visible_child_count = 0;
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
-    ts_tree_retain(child);
 
     if (i == 0) {
       self->padding = child->padding;
