@@ -24,13 +24,14 @@ EOF
 }
 
 profile=
+leak_check=no
 mode=normal
 args=()
 target=tests
 export BUILDTYPE=Test
 cmd="out/${BUILDTYPE}/${target}"
 
-while getopts "df:s:ghpv" option; do
+while getopts "df:s:gGhpv" option; do
   case ${option} in
     h)
       usage
@@ -41,6 +42,10 @@ while getopts "df:s:ghpv" option; do
       ;;
     g)
       mode=valgrind
+      ;;
+    G)
+      mode=valgrind
+      leak_check=full
       ;;
     p)
       profile=true
@@ -69,7 +74,7 @@ case ${mode} in
     valgrind                                     \
       --suppressions=./script/util/valgrind.supp \
       --dsymutil=yes                             \
-      --leak-check=full                          \
+      --leak-check=${leak_check}                 \
       $cmd "${args[@]}" 2>&1 |                   \
       grep --color -E '\w+_specs?.cc:\d+|$'
     ;;
