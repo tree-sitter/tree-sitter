@@ -59,7 +59,7 @@ const TSLanguage *load_language(const string &name, const string &code) {
     return nullptr;
   }
 
-  string source_filename = string(temp_directory) + "/parser.c";
+  string source_filename = string(temp_directory) + "/generated-parser.c";
   string obj_filename = string(source_filename) + ".o";
   string lib_filename = string(source_filename) + ".so";
   string header_dir = string(getenv("PWD")) + "/include";
