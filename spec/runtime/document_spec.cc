@@ -1,5 +1,8 @@
 #include "spec_helper.h"
+#include "runtime/alloc.h"
 #include "runtime/debugger.h"
+#include "helpers/record_alloc.h"
+#include "helpers/stream_methods.h"
 #include "helpers/tree_helpers.h"
 #include "helpers/spy_debugger.h"
 #include "helpers/spy_input.h"
@@ -12,12 +15,21 @@ describe("Document", [&]() {
   TSNode root;
 
   before_each([&]() {
+    record_alloc::start();
     doc = ts_document_make();
   });
 
   after_each([&]() {
     ts_document_free(doc);
+    record_alloc::stop();
+    AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
   });
+
+  auto assert_node_string_equals = [&](TSNode node, const string &expected) {
+    char *actual = ts_node_string(node, doc);
+    AssertThat(actual, Equals(expected));
+    ts_free(actual);
+  };
 
   describe("set_input(input)", [&]() {
     SpyInput *spy_input;
@@ -30,8 +42,9 @@ describe("Document", [&]() {
       ts_document_parse(doc);
 
       root = ts_document_root_node(doc);
-      AssertThat(ts_node_string(root, doc), Equals(
-        "(object (pair (string) (array (number) (number))))"));
+      assert_node_string_equals(
+        root,
+        "(object (pair (string) (array (number) (number))))");
     });
 
     after_each([&]() {
@@ -48,8 +61,9 @@ describe("Document", [&]() {
       ts_document_parse(doc);
 
       root = ts_document_root_node(doc);
-      AssertThat(ts_node_string(root, doc), Equals(
-        "(array (true) (false))"));
+      assert_node_string_equals(
+        root,
+        "(array (true) (false))");
     });
 
     it("allows the input to be retrieved later", [&]() {
@@ -74,8 +88,9 @@ describe("Document", [&]() {
       ts_document_parse(doc);
 
       TSNode new_root = ts_document_root_node(doc);
-      AssertThat(ts_node_string(new_root, doc), Equals(
-        "(object (pair (string) (array (null) (number))))"));
+      assert_node_string_equals(
+        new_root,
+        "(object (pair (string) (array (null) (number))))");
       AssertThat(spy_input->strings_read, Equals(vector<string>({" [null, 2", ""})));
     });
 
@@ -83,14 +98,16 @@ describe("Document", [&]() {
       ts_document_set_input_string(doc, "");
       ts_document_parse(doc);
       TSNode new_root = ts_document_root_node(doc);
-      AssertThat(ts_node_string(new_root, doc), Equals(
-        "(ERROR (UNEXPECTED <EOF>))"));
+      assert_node_string_equals(
+        new_root,
+        "(ERROR (UNEXPECTED <EOF>))");
 
       ts_document_set_input_string(doc, "1");
       ts_document_parse(doc);
       new_root = ts_document_root_node(doc);
-      AssertThat(ts_node_string(new_root, doc), Equals(
-        "(number)"));
+      assert_node_string_equals(
+        new_root,
+        "(number)");
     });
   });
 
@@ -104,8 +121,9 @@ describe("Document", [&]() {
       ts_document_parse(doc);
 
       root = ts_document_root_node(doc);
-      AssertThat(ts_node_string(root, doc), Equals(
-        "(object (pair (string) (array (number) (number))))"));
+      assert_node_string_equals(
+        root,
+        "(object (pair (string) (array (number) (number))))");
     });
 
     it("clears out any previous tree", [&]() {
@@ -117,9 +135,10 @@ describe("Document", [&]() {
 
       ts_document_parse(doc);
       root = ts_document_root_node(doc);
-      AssertThat(ts_node_string(root, doc), Equals(
+      assert_node_string_equals(
+        root,
         "(program (expression_statement "
-          "(object (pair (string) (array (number) (number))))))"));
+          "(object (pair (string) (array (number) (number))))))");
     });
   });
 

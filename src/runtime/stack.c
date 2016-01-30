@@ -163,12 +163,11 @@ static StackNode *stack_node_new(StackNode *next, TSStateId state, TSTree *tree)
   return self;
 }
 
-static void ts_stack__add_alternative_tree(Stack *self, StackNode *node, TSTree *tree) {
+static void ts_stack__add_alternative_tree(Stack *self, StackNode *node,
+                                           TSTree *tree) {
   if (tree != node->entry.tree) {
     TSTree *new_tree = self->tree_selection_function(
-      self->tree_selection_payload,
-      node->entry.tree,
-      tree);
+      self->tree_selection_payload, node->entry.tree, tree);
 
     if (new_tree != node->entry.tree) {
       ts_tree_retain(new_tree);

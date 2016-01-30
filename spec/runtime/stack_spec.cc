@@ -1,4 +1,3 @@
-#define TREE_SITTER_WRAP_MALLOC
 #include "spec_helper.h"
 #include "helpers/tree_helpers.h"
 #include "helpers/record_alloc.h"

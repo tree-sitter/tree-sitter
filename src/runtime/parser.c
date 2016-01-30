@@ -221,6 +221,7 @@ static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head) {
     LOG("reuse sym:%s size:%lu extra:%d", SYM_NAME(result->symbol), size.chars,
         result->extra);
     ts_parser__pop_reusable_subtree(state);
+    ts_tree_retain(result);
     return result;
   }
 
@@ -305,7 +306,7 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
   const TSSymbolMetadata *all_metadata = self->language->symbol_metadata;
   TSSymbolMetadata metadata = all_metadata[symbol];
   Vector pop_results = ts_stack_pop(self->stack, head, child_count, count_extra);
-  if (!pop_results.element_size)
+  if (!vector_valid(&pop_results))
     return FailedToUpdateStackHead;
 
   int last_head_index = -1;
@@ -326,6 +327,7 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
       if (pop_result->trees == prior_result->trees) {
         TSTree **existing_parent = vector_get(&self->reduce_parents, j);
         parent = *existing_parent;
+        ts_tree_retain(parent);
         trailing_extra_count = pop_result->tree_count - parent->child_count;
         break;
       }
@@ -346,10 +348,10 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
       parent =
         ts_tree_make_node(symbol, child_count, pop_result->trees, metadata);
       if (!parent)
-        return FailedToUpdateStackHead;
+        goto error;
     }
     if (!vector_push(&self->reduce_parents, &parent))
-      return FailedToUpdateStackHead;
+      goto error;
 
     /*
      *  If another path led to the same stack head, add this new parent tree
@@ -370,6 +372,7 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
      */
     if (i > 0) {
       if (symbol == ts_builtin_sym_error) {
+        removed_heads++;
         ts_stack_remove_head(self->stack, new_head);
         continue;
       }
@@ -378,7 +381,7 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
       LookaheadState lookahead_state =
         *(LookaheadState *)vector_get(&self->lookahead_states, head);
       if (!vector_push(&self->lookahead_states, &lookahead_state))
-        return FailedToUpdateStackHead;
+        goto error;
     }
 
     /*
@@ -412,7 +415,7 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
      */
     switch (ts_stack_push(self->stack, new_head, state, parent)) {
       case StackPushResultFailed:
-        return FailedToUpdateStackHead;
+        goto error;
       case StackPushResultMerged:
         LOG("merge_during_reduce head:%d", new_head);
         vector_erase(&self->lookahead_states, new_head);
@@ -449,17 +452,20 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
     }
   }
 
-  if (fragile) {
-    for (size_t i = 0; i < self->reduce_parents.size; i++) {
-      TSTree **parent = vector_get(&self->reduce_parents, i);
+  for (size_t i = 0; i < self->reduce_parents.size; i++) {
+    TSTree **parent = vector_get(&self->reduce_parents, i);
+    if (fragile)
       (*parent)->fragile_left = (*parent)->fragile_right = true;
-    }
+    ts_tree_release(*parent);
   }
 
   if (removed_heads < revealed_heads)
     return UpdatedStackHead;
   else
     return RemovedStackHead;
+
+error:
+  return FailedToUpdateStackHead;
 }
 
 static ParseActionResult ts_parser__reduce_error(TSParser *self, int head,
@@ -472,12 +478,12 @@ static ParseActionResult ts_parser__reduce_error(TSParser *self, int head,
     case RemovedStackHead:
       return RemovedStackHead;
     case UpdatedStackHead: {
-      TSTree **parent = vector_back(&self->reduce_parents);
       StackEntry *stack_entry = ts_stack_head(self->stack, head);
+      TSTree *parent = stack_entry->tree;
       stack_entry->position =
         ts_length_add(stack_entry->position, lookahead->padding);
-      (*parent)->size = ts_length_add((*parent)->size, lookahead->padding);
-      (*parent)->fragile_left = (*parent)->fragile_right = true;
+      parent->size = ts_length_add(parent->size, lookahead->padding);
+      parent->fragile_left = parent->fragile_right = true;
       lookahead->padding = ts_length_zero();
       return UpdatedStackHead;
     }
@@ -538,6 +544,7 @@ static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
     if (lookahead->symbol == ts_builtin_sym_end) {
       LOG("fail_to_recover");
       ts_parser__reduce_error(self, head, -1, lookahead);
+      ts_tree_release(lookahead);
       return RemovedStackHead;
     }
   }
@@ -596,10 +603,10 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
         size_t new_count =
           root->child_count + leading_extra_count + trailing_extra_count;
         ts_tree_set_children(root, new_count, new_children);
-        ts_tree_retain(root);
         ts_parser__remove_head(self, pop_result->head_index);
         self->finished_tree =
           ts_parser__select_tree(self, self->finished_tree, root);
+        ts_free(pop_result->trees);
         break;
       }
     }
@@ -788,8 +795,11 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
             ts_stack_head_count(self->stack),
             ts_stack_top_state(self->stack, head), position.chars);
 
-        if (position.chars != last_position.chars ||
-            !ts_parser__can_reuse(self, head, lookahead)) {
+        if (position.chars == last_position.chars &&
+            ts_parser__can_reuse(self, head, lookahead)) {
+          ts_tree_retain(lookahead);
+        } else {
+          ts_tree_release(lookahead);
           lookahead = ts_parser__get_next_lookahead(self, head);
           if (!lookahead)
             return NULL;
@@ -800,7 +810,7 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
 
         switch (ts_parser__consume_lookahead(self, head, lookahead)) {
           case FailedToUpdateStackHead:
-            return NULL;
+            goto error;
           case RemovedStackHead:
             removed = true;
             break;
@@ -810,9 +820,15 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
       }
     }
 
+    ts_tree_release(lookahead);
+
     if (ts_stack_head_count(self->stack) == 0) {
+      ts_stack_clear(self->stack);
       ts_tree_assign_parents(self->finished_tree);
       return self->finished_tree;
     }
   }
+
+error:
+  return NULL;
 }
