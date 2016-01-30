@@ -23,6 +23,7 @@ void ts_document_free(TSDocument *self) {
   ts_parser_destroy(&self->parser);
   if (self->tree)
     ts_tree_release(self->tree);
+  ts_document_set_input(self, (TSInput){});
   ts_free(self);
 }
 
@@ -49,12 +50,16 @@ TSInput ts_document_input(TSDocument *self) {
 }
 
 void ts_document_set_input(TSDocument *self, TSInput input) {
+  if (self->owns_input)
+    ts_free(self->input.payload);
   self->input = input;
+  self->owns_input = false;
 }
 
 void ts_document_set_input_string(TSDocument *self, const char *text) {
   ts_document_invalidate(self);
   ts_document_set_input(self, ts_string_input_make(text));
+  self->owns_input = true;
 }
 
 void ts_document_edit(TSDocument *self, TSInputEdit edit) {
@@ -82,7 +87,6 @@ int ts_document_parse(TSDocument *self) {
   if (!tree)
     return -1;
 
-  ts_tree_retain(tree);
   if (self->tree)
     ts_tree_release(self->tree);
   self->tree = tree;
