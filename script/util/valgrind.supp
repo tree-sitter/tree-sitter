@@ -1,4 +1,5 @@
-# Errors in bandit's options parser
+# Errors
+
 {
    <insert_a_suppression_name_here>
    Memcheck:Cond
@@ -30,7 +31,6 @@
    fun:main
 }
 
-# Errors in bandit's assertions
 {
    <insert_a_suppression_name_here>
    Memcheck:Value8
@@ -64,8 +64,6 @@
    fun:_ZN6bandit8describeEPKcNSt3__18functionIFvvEEERNS_6detail8listenerERNS2_5dequeIPNS6_7contextENS2_9allocatorISB_EEEEb
    fun:_ZN6bandit8describeEPKcNSt3__18functionIFvvEEE
 }
-
-# CPP strings
 
 {
    <insert_a_suppression_name_here>
@@ -237,3 +235,22 @@
    fun:_ZN6bandit8describeEPKcNSt3__18functionIFvvEEE
 }
 
+# Leaks
+
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc_zone_malloc
+   fun:_objc_copyClassNamesForImage
+   fun:_ZL9protocolsv
+   fun:_Z9readClassP10objc_classbb
+   fun:gc_init
+   fun:_ZL33objc_initializeClassPair_internalP10objc_classPKcS0_S0_
+   fun:layout_string_create
+   fun:_ZL12realizeClassP10objc_class
+   fun:_ZL22copySwiftV1MangledNamePKcb
+   fun:_ZL22copySwiftV1MangledNamePKcb
+   fun:_ZL22copySwiftV1MangledNamePKcb
+   fun:_ZL22copySwiftV1MangledNamePKcb
+}
