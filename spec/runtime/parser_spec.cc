@@ -1,4 +1,6 @@
 #include "spec_helper.h"
+#include "runtime/alloc.h"
+#include "helpers/record_alloc.h"
 #include "helpers/spy_input.h"
 #include "helpers/test_languages.h"
 #include "helpers/log_debugger.h"
@@ -13,6 +15,8 @@ describe("Parser", [&]() {
   size_t chunk_size;
 
   before_each([&]() {
+    record_alloc::start();
+
     chunk_size = 3;
     input = nullptr;
 
@@ -20,11 +24,13 @@ describe("Parser", [&]() {
   });
 
   after_each([&]() {
-    if (doc)
-      ts_document_free(doc);
+    ts_document_free(doc);
 
     if (input)
       delete input;
+
+    record_alloc::stop();
+    AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
   });
 
   auto set_text = [&](const char *text) {
@@ -68,6 +74,13 @@ describe("Parser", [&]() {
     AssertThat(new_size, Equals(prev_size - length + new_text.size()));
   };
 
+  auto assert_root_node = [&](const string &expected) {
+    TSNode node = ts_document_root_node(doc);
+    char *actual = ts_node_string(node, doc);
+    AssertThat(actual, Equals(expected));
+    ts_free(actual);
+  };
+
   describe("handling errors", [&]() {
     before_each([&]() {
       ts_document_set_language(doc, get_test_language("json"));
@@ -77,8 +90,8 @@ describe("Parser", [&]() {
       it("computes the error node's size and position correctly", [&]() {
         set_text("  [123,  @@@@@,   true]");
 
-        AssertThat(ts_node_string(root, doc), Equals(
-          "(array (number) (ERROR (UNEXPECTED '@')) (true))"));
+        assert_root_node(
+          "(array (number) (ERROR (UNEXPECTED '@')) (true))");
 
         TSNode error = ts_node_named_child(root, 1);
         TSNode last = ts_node_named_child(root, 2);
@@ -96,8 +109,8 @@ describe("Parser", [&]() {
       it("computes the error node's size and position correctly", [&]() {
         set_text("  [123, faaaaalse, true]");
 
-        AssertThat(ts_node_string(root, doc), Equals(
-          "(array (number) (ERROR (UNEXPECTED 'a')) (true))"));
+        assert_root_node(
+          "(array (number) (ERROR (UNEXPECTED 'a')) (true))");
 
         TSNode error = ts_node_named_child(root, 1);
         TSNode last = ts_node_named_child(root, 2);
@@ -117,8 +130,8 @@ describe("Parser", [&]() {
       it("computes the error node's size and position correctly", [&]() {
         set_text("  [123, true false, true]");
 
-        AssertThat(ts_node_string(root, doc), Equals(
-          "(array (number) (ERROR (true) (UNEXPECTED 'f') (false)) (true))"));
+        assert_root_node(
+          "(array (number) (ERROR (true) (UNEXPECTED 'f') (false)) (true))");
 
         TSNode error = ts_node_named_child(root, 1);
         TSNode last = ts_node_named_child(root, 2);
@@ -136,8 +149,8 @@ describe("Parser", [&]() {
       it("computes the error node's size and position correctly", [&]() {
         set_text("  [123, , true]");
 
-        AssertThat(ts_node_string(root, doc), Equals(
-          "(array (number) (ERROR (UNEXPECTED ',')) (true))"));
+        assert_root_node(
+          "(array (number) (ERROR (UNEXPECTED ',')) (true))");
 
         TSNode error = ts_node_named_child(root, 1);
         TSNode last = ts_node_named_child(root, 2);
@@ -163,8 +176,8 @@ describe("Parser", [&]() {
       it("is incorporated into the tree", [&]() {
         set_text("fn()\n");
 
-        AssertThat(ts_node_string(root, doc), Equals(
-          "(program (expression_statement (function_call (identifier))))"));
+        assert_root_node(
+          "(program (expression_statement (function_call (identifier))))");
       });
     });
 
@@ -174,9 +187,9 @@ describe("Parser", [&]() {
           "fn()\n"
           "  .otherFn();");
 
-        AssertThat(ts_node_string(root, doc), Equals(
+        assert_root_node(
           "(program (expression_statement (function_call "
-            "(member_access (function_call (identifier)) (identifier)))))"));
+            "(member_access (function_call (identifier)) (identifier)))))");
       });
     });
 
@@ -188,11 +201,11 @@ describe("Parser", [&]() {
           "\n\n"
           ".otherFn();");
 
-        AssertThat(ts_node_string(root, doc), Equals(
+        assert_root_node(
           "(program (expression_statement (function_call "
             "(member_access (function_call (identifier)) "
               "(comment) "
-              "(identifier)))))"));
+              "(identifier)))))");
       });
     });
   });
@@ -207,17 +220,17 @@ describe("Parser", [&]() {
         it("updates the parse tree and re-reads only the changed portion of the text", [&]() {
           set_text("x * (100 + abc);");
 
-          AssertThat(ts_node_string(root, doc), Equals(
+          assert_root_node(
             "(program (expression_statement (math_op "
               "(identifier) "
-              "(math_op (number) (identifier)))))"));
+              "(math_op (number) (identifier)))))");
 
           insert_text(strlen("x ^ (100 + abc"), ".d");
 
-          AssertThat(ts_node_string(root, doc), Equals(
+          assert_root_node(
             "(program (expression_statement (math_op "
               "(identifier) "
-              "(math_op (number) (member_access (identifier) (identifier))))))"));
+              "(math_op (number) (member_access (identifier) (identifier))))))");
 
           AssertThat(input->strings_read, Equals(vector<string>({ " abc.d);", "" })));
         });
@@ -229,19 +242,19 @@ describe("Parser", [&]() {
 
           set_text("123 + 456 * (10 + x);");
 
-          AssertThat(ts_node_string(root, doc), Equals(
+          assert_root_node(
             "(program (expression_statement (math_op "
               "(number) "
-              "(math_op (number) (math_op (number) (identifier))))))"));
+              "(math_op (number) (math_op (number) (identifier))))))");
 
           insert_text(strlen("123"), " || 5");
 
-          AssertThat(ts_node_string(root, doc), Equals(
+          assert_root_node(
             "(program (expression_statement (bool_op "
               "(number) "
               "(math_op "
                 "(number) "
-                "(math_op (number) (math_op (number) (identifier)))))))"));
+                "(math_op (number) (math_op (number) (identifier)))))))");
 
           AssertThat(input->strings_read, Equals(vector<string>({ "123 || 5 +", "" })));
         });
@@ -253,20 +266,20 @@ describe("Parser", [&]() {
 
           set_text("var x = y;");
 
-          AssertThat(ts_node_string(root, doc), Equals(
+          assert_root_node(
             "(program (var_declaration (var_assignment "
-              "(identifier) (identifier))))"));
+              "(identifier) (identifier))))");
 
           insert_text(strlen("var x = y"), " *");
 
-          AssertThat(ts_node_string(root, doc), Equals(
-              "(program (var_declaration (ERROR (identifier) (identifier) (UNEXPECTED ';'))))"));
+          assert_root_node(
+              "(program (var_declaration (ERROR (identifier) (identifier) (UNEXPECTED ';'))))");
 
           insert_text(strlen("var x = y *"), " z");
 
-          AssertThat(ts_node_string(root, doc), Equals(
+          assert_root_node(
             "(program (var_declaration (var_assignment "
-              "(identifier) (math_op (identifier) (identifier)))))"));
+              "(identifier) (math_op (identifier) (identifier)))))");
         });
       });
 
@@ -274,13 +287,13 @@ describe("Parser", [&]() {
         it("updates the parse tree", [&]() {
           set_text("abc * 123;");
 
-          AssertThat(ts_node_string(root, doc), Equals(
-            "(program (expression_statement (math_op (identifier) (number))))"));
+          assert_root_node(
+            "(program (expression_statement (math_op (identifier) (number))))");
 
           insert_text(strlen("ab"), "XYZ");
 
-          AssertThat(ts_node_string(root, doc), Equals(
-            "(program (expression_statement (math_op (identifier) (number))))"));
+          assert_root_node(
+            "(program (expression_statement (math_op (identifier) (number))))");
 
           TSNode node = ts_node_named_descendant_for_range(root, 1, 1);
           AssertThat(ts_node_name(node, doc), Equals("identifier"));
@@ -292,13 +305,13 @@ describe("Parser", [&]() {
         it("updates the parse tree", [&]() {
           set_text("abc * 123;");
 
-          AssertThat(ts_node_string(root, doc), Equals(
-            "(program (expression_statement (math_op (identifier) (number))))"));
+          assert_root_node(
+            "(program (expression_statement (math_op (identifier) (number))))");
 
           insert_text(strlen("abc"), "XYZ");
 
-          AssertThat(ts_node_string(root, doc), Equals(
-            "(program (expression_statement (math_op (identifier) (number))))"));
+          assert_root_node(
+            "(program (expression_statement (math_op (identifier) (number))))");
 
           TSNode node = ts_node_named_descendant_for_range(root, 1, 1);
           AssertThat(ts_node_name(node, doc), Equals("identifier"));
@@ -311,14 +324,14 @@ describe("Parser", [&]() {
           // 'αβδ' + '1'
           set_text("'\u03b1\u03b2\u03b4' + '1';");
 
-          AssertThat(ts_node_string(root, doc), Equals(
-            "(program (expression_statement (math_op (string) (string))))"));
+          assert_root_node(
+            "(program (expression_statement (math_op (string) (string))))");
 
           // 'αβδ' + 'ψ1'
           insert_text(strlen("'abd' + '"), "\u03c8");
 
-          AssertThat(ts_node_string(root, doc), Equals(
-            "(program (expression_statement (math_op (string) (string))))"));
+          assert_root_node(
+            "(program (expression_statement (math_op (string) (string))))");
         });
       });
 
@@ -328,11 +341,11 @@ describe("Parser", [&]() {
             "// a-comment\n"
             "abc;");
 
-          AssertThat(ts_node_string(root, doc), Equals(
+          assert_root_node(
             "(program (expression_statement (math_op "
               "(number) "
               "(comment) "
-              "(identifier))))"));
+              "(identifier))))");
 
           insert_text(
             strlen("123 *\n"
@@ -340,11 +353,11 @@ describe("Parser", [&]() {
               "abc"),
             "XYZ");
 
-          AssertThat(ts_node_string(root, doc), Equals(
+          assert_root_node(
             "(program (expression_statement (math_op "
               "(number) "
               "(comment) "
-              "(identifier))))"));
+              "(identifier))))");
         });
       });
     });
@@ -354,13 +367,13 @@ describe("Parser", [&]() {
         it("updates the parse tree, creating an error", [&]() {
           set_text("123 * 456;");
 
-          AssertThat(ts_node_string(root, doc), Equals(
-            "(program (expression_statement (math_op (number) (number))))"));
+          assert_root_node(
+            "(program (expression_statement (math_op (number) (number))))");
 
           delete_text(strlen("123 "), 2);
 
-          AssertThat(ts_node_string(root, doc), Equals(
-            "(program (expression_statement (ERROR (number) (UNEXPECTED '4') (number))))"));
+          assert_root_node(
+            "(program (expression_statement (ERROR (number) (UNEXPECTED '4') (number))))");
         });
       });
     });
@@ -371,15 +384,15 @@ describe("Parser", [&]() {
 
         set_text("{ x: (b.c) };");
 
-        AssertThat(ts_node_string(root, doc), Equals(
+        assert_root_node(
           "(program (expression_statement (object (pair "
-            "(identifier) (member_access (identifier) (identifier))))))"));
+            "(identifier) (member_access (identifier) (identifier))))))");
 
         replace_text(strlen("{ x: "), strlen("(b.c)"), "b.c");
 
-        AssertThat(ts_node_string(root, doc), Equals(
+        assert_root_node(
           "(program (expression_statement (object (pair "
-            "(identifier) (member_access (identifier) (identifier))))))"));
+            "(identifier) (member_access (identifier) (identifier))))))");
       });
     });
 
@@ -404,8 +417,8 @@ describe("Parser", [&]() {
       it("terminates them at the end of the document", [&]() {
         set_text("x; // this is a comment");
 
-        AssertThat(ts_node_string(root, doc), Equals(
-          "(program (expression_statement (identifier)) (comment))"));
+        assert_root_node(
+          "(program (expression_statement (identifier)) (comment))");
 
         TSNode comment = ts_node_named_child(root, 1);
 
@@ -418,8 +431,8 @@ describe("Parser", [&]() {
       // 'ΩΩΩ — ΔΔ';
       set_text("'\u03A9\u03A9\u03A9 \u2014 \u0394\u0394';");
 
-      AssertThat(ts_node_string(root, doc), Equals(
-        "(program (expression_statement (string)))"));
+      assert_root_node(
+        "(program (expression_statement (string)))");
 
       AssertThat(ts_node_end_char(root), Equals(strlen("'OOO - DD';")));
       AssertThat(ts_node_end_byte(root), Equals(strlen("'\u03A9\u03A9\u03A9 \u2014 \u0394\u0394';")));
@@ -484,8 +497,8 @@ describe("Parser", [&]() {
 
       char *node_string2 = ts_node_string(ts_document_root_node(doc), doc);
       AssertThat(string(node_string2), Equals(node_string));
-      free(node_string2);
-      free(node_string);
+      ts_free(node_string2);
+      ts_free(node_string);
     });
   });
 });

@@ -100,7 +100,10 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
         assert(last_push == StackPushResultMerged);
     }
 
+    for (size_t j = 0, count = first_result->tree_count; j < count; j++)
+      ts_tree_release(first_result->trees[j]);
     ts_free(removed_trees);
+
   } while (last_child && last_child->child_count > 0);
 
   return UpdatedStackHead;
@@ -327,8 +330,10 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
       if (pop_result->trees == prior_result->trees) {
         TSTree **existing_parent = vector_get(&self->reduce_parents, j);
         parent = *existing_parent;
-        ts_tree_retain(parent);
         trailing_extra_count = pop_result->tree_count - parent->child_count;
+        ts_tree_retain(parent);
+        for (size_t k = parent->child_count; k < pop_result->tree_count; k++)
+          ts_tree_retain(pop_result->trees[k]);
         break;
       }
     }
@@ -435,10 +440,11 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
           case StackPushResultMerged:
             vector_erase(&self->lookahead_states, new_head);
             removed_heads++;
-            continue;
+            break;
           case StackPushResultContinued:
             break;
         }
+        ts_tree_release(tree);
       }
     }
   }
@@ -494,6 +500,7 @@ static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
                                                  TSTree *lookahead) {
   size_t error_token_count = 1;
   StackEntry *entry_before_error = ts_stack_head(self->stack, head);
+  ts_tree_retain(lookahead);
 
   for (;;) {
 
@@ -517,6 +524,7 @@ static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
           LOG("recover state:%u, count:%lu", state_after_error,
               error_token_count + i);
           ts_parser__reduce_error(self, head, error_token_count + i, lookahead);
+          ts_tree_release(lookahead);
           return UpdatedStackHead;
         }
       }
@@ -533,6 +541,7 @@ static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
     TSStateId state = ts_stack_top_state(self->stack, head);
     if (ts_parser__shift(self, head, state, lookahead) == FailedToUpdateStackHead)
       return FailedToUpdateStackHead;
+    ts_tree_release(lookahead);
     lookahead = self->language->lex_fn(&self->lexer, 0, true);
     if (!lookahead)
       return FailedToUpdateStackHead;
