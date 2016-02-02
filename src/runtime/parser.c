@@ -292,13 +292,17 @@ static ParseActionResult ts_parser__shift_extra(TSParser *self, int head,
                                                 TSTree *lookahead) {
   TSSymbolMetadata metadata = self->language->symbol_metadata[lookahead->symbol];
   if (metadata.structural && ts_stack_head_count(self->stack) > 1) {
-    lookahead = ts_tree_make_copy(lookahead);
-    if (!lookahead)
+    TSTree *copy = ts_tree_make_copy(lookahead);
+    if (!copy)
       return FailedToUpdateStackHead;
+    copy->extra = true;
+    ParseActionResult result = ts_parser__shift(self, head, state, copy);
+    ts_tree_release(copy);
+    return result;
+  } else {
+    lookahead->extra = true;
+    return ts_parser__shift(self, head, state, lookahead);
   }
-
-  lookahead->extra = true;
-  return ts_parser__shift(self, head, state, lookahead);
 }
 
 static ParseActionResult ts_parser__reduce(TSParser *self, int head,
