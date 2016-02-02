@@ -602,13 +602,16 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
         if (!new_children)
           return FailedToUpdateStackHead;
 
-        memcpy(new_children, pop_result->trees,
-               leading_extra_count * sizeof(TSTree *));
-        memcpy(new_children + leading_extra_count, root->children,
-               root->child_count * sizeof(TSTree *));
-        memcpy(new_children + leading_extra_count + root->child_count,
-               pop_result->trees + leading_extra_count + 1,
-               trailing_extra_count * sizeof(TSTree *));
+        if (leading_extra_count > 0)
+          memcpy(new_children, pop_result->trees,
+                 leading_extra_count * sizeof(TSTree *));
+        if (root->child_count > 0)
+          memcpy(new_children + leading_extra_count, root->children,
+                 root->child_count * sizeof(TSTree *));
+        if (trailing_extra_count > 0)
+          memcpy(new_children + leading_extra_count + root->child_count,
+                 pop_result->trees + leading_extra_count + 1,
+                 trailing_extra_count * sizeof(TSTree *));
         size_t new_count =
           root->child_count + leading_extra_count + trailing_extra_count;
         ts_tree_set_children(root, new_count, new_children);
