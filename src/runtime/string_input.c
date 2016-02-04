@@ -28,6 +28,9 @@ int ts_string_input_seek(void *payload, size_t character, size_t byte) {
 
 TSInput ts_string_input_make(const char *string) {
   TSStringInput *input = ts_malloc(sizeof(TSStringInput));
+  if (!input)
+    goto error;
+
   input->string = string;
   input->position = 0;
   input->length = strlen(string);
@@ -36,4 +39,7 @@ TSInput ts_string_input_make(const char *string) {
     .read_fn = ts_string_input_read,
     .seek_fn = ts_string_input_seek,
   };
+
+error:
+  return (TSInput){NULL, NULL, NULL};
 }

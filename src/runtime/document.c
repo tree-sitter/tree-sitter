@@ -9,14 +9,17 @@
 TSDocument *ts_document_make() {
   TSDocument *self = ts_calloc(1, sizeof(TSDocument));
   if (!self)
-    return NULL;
+    goto error;
 
-  if (!ts_parser_init(&self->parser)) {
-    ts_free(self);
-    return NULL;
-  }
+  if (!ts_parser_init(&self->parser))
+    goto error;
 
   return self;
+
+error:
+  if (self)
+    ts_free(self);
+  return NULL;
 }
 
 void ts_document_free(TSDocument *self) {
@@ -61,8 +64,11 @@ void ts_document_set_input(TSDocument *self, TSInput input) {
 
 void ts_document_set_input_string(TSDocument *self, const char *text) {
   ts_document_invalidate(self);
-  ts_document_set_input(self, ts_string_input_make(text));
-  self->owns_input = true;
+  TSInput input = ts_string_input_make(text);
+  ts_document_set_input(self, input);
+  if (input.payload) {
+    self->owns_input = true;
+  }
 }
 
 void ts_document_edit(TSDocument *self, TSInputEdit edit) {
@@ -80,7 +86,7 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
 
 int ts_document_parse(TSDocument *self) {
   if (!self->input.read_fn || !self->parser.language)
-    return 0;
+    return -1;
 
   TSTree *reusable_tree = self->valid ? self->tree : NULL;
   if (reusable_tree && !reusable_tree->has_changes)

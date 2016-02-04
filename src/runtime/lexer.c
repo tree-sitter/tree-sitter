@@ -122,8 +122,8 @@ static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
  *  can call them without needing to be linked against this library.
  */
 
-TSLexer ts_lexer_make() {
-  TSLexer result = (TSLexer){
+void ts_lexer_init(TSLexer *self) {
+  *self = (TSLexer){
     .start_fn = ts_lexer__start,
     .start_token_fn = ts_lexer__start_token,
     .advance_fn = ts_lexer__advance,
@@ -132,8 +132,7 @@ TSLexer ts_lexer_make() {
     .chunk_start = 0,
     .debugger = ts_debugger_null(),
   };
-  ts_lexer_reset(&result, ts_length_zero());
-  return result;
+  ts_lexer_reset(self, ts_length_zero());
 }
 
 static inline void ts_lexer__reset(TSLexer *self, TSLength position) {
