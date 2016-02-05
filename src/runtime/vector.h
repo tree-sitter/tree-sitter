@@ -28,6 +28,9 @@ static inline Vector vector_new(size_t element_size) {
 }
 
 static inline bool vector_grow(Vector *self, size_t capacity) {
+  if (capacity == 0)
+    return true;
+
   void *new_contents;
   if (self->contents)
     new_contents = ts_realloc(self->contents, capacity * self->element_size);

@@ -1,16 +1,18 @@
 #include "spec_helper.h"
+#include "runtime/alloc.h"
 #include "helpers/test_languages.h"
 #include "helpers/read_test_entries.h"
 #include "helpers/spy_input.h"
 #include "helpers/log_debugger.h"
 #include "helpers/point_helpers.h"
 #include "helpers/encoding_helpers.h"
+#include "helpers/record_alloc.h"
 #include <set>
 
 static void expect_the_correct_tree(TSNode node, TSDocument *document, string tree_string) {
   const char *node_string = ts_node_string(node, document);
   AssertThat(node_string, Equals(tree_string));
-  free((void *)node_string);
+  ts_free((void *)node_string);
 }
 
 static void expect_a_consistent_tree(TSNode node, TSDocument *document) {
@@ -105,6 +107,7 @@ describe("The Corpus", []() {
       TSDocument *document;
 
       before_each([&]() {
+        record_alloc::start();
         document = ts_document_make();
         ts_document_set_language(document, get_test_language(language_name));
         // ts_document_set_debugger(document, log_debugger_make(true));
@@ -112,6 +115,7 @@ describe("The Corpus", []() {
 
       after_each([&]() {
         ts_document_free(document);
+        AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
       });
 
       for (auto &entry : read_corpus_entries(language_dir + "/grammar_test")) {

@@ -605,28 +605,35 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
         TSTree *root = pop_result->trees[i];
         size_t leading_extra_count = i;
         size_t trailing_extra_count = pop_result->tree_count - 1 - i;
-        TSTree **new_children = ts_calloc(
-          root->child_count + leading_extra_count + trailing_extra_count,
-          sizeof(TSTree *));
-        if (!new_children)
-          goto error;
-
-        if (leading_extra_count > 0)
-          memcpy(new_children, pop_result->trees,
-                 leading_extra_count * sizeof(TSTree *));
-        if (root->child_count > 0)
-          memcpy(new_children + leading_extra_count, root->children,
-                 root->child_count * sizeof(TSTree *));
-        if (trailing_extra_count > 0)
-          memcpy(new_children + leading_extra_count + root->child_count,
-                 pop_result->trees + leading_extra_count + 1,
-                 trailing_extra_count * sizeof(TSTree *));
         size_t new_count =
           root->child_count + leading_extra_count + trailing_extra_count;
-        ts_tree_set_children(root, new_count, new_children);
+
+        if (new_count > 0) {
+          TSTree **new_children = ts_calloc(new_count, sizeof(TSTree *));
+          if (!new_children)
+            goto error;
+          if (leading_extra_count > 0)
+            memcpy(new_children, pop_result->trees,
+                   leading_extra_count * sizeof(TSTree *));
+          if (root->child_count > 0)
+            memcpy(new_children + leading_extra_count, root->children,
+                   root->child_count * sizeof(TSTree *));
+          if (trailing_extra_count > 0)
+            memcpy(new_children + leading_extra_count + root->child_count,
+                   pop_result->trees + leading_extra_count + 1,
+                   trailing_extra_count * sizeof(TSTree *));
+          ts_tree_set_children(root, new_count, new_children);
+        }
+
         ts_parser__remove_head(self, pop_result->head_index);
-        self->finished_tree =
-          ts_parser__select_tree(self, self->finished_tree, root);
+        TSTree *tree = ts_parser__select_tree(self, self->finished_tree, root);
+        if (tree == root) {
+          ts_tree_release(self->finished_tree);
+          self->finished_tree = root;
+        } else {
+          ts_tree_release(root);
+        }
+
         ts_free(pop_result->trees);
         break;
       }
@@ -834,10 +841,8 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
             ts_stack_head_count(self->stack),
             ts_stack_top_state(self->stack, head), position.chars);
 
-        if (position.chars == last_position.chars &&
-            ts_parser__can_reuse(self, head, lookahead)) {
-          ts_tree_retain(lookahead);
-        } else {
+        if (position.chars != last_position.chars ||
+            !ts_parser__can_reuse(self, head, lookahead)) {
           ts_tree_release(lookahead);
           lookahead = ts_parser__get_next_lookahead(self, head);
           if (!lookahead)
