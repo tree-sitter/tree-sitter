@@ -1,4 +1,5 @@
 #include "spec_helper.h"
+#include "runtime/alloc.h"
 #include "helpers/load_language.h"
 
 START_TEST
@@ -13,6 +14,13 @@ describe("compile_grammar", []() {
   after_each([&]() {
     ts_document_free(document);
   });
+
+  auto assert_root_node = [&](const string &expected_string) {
+    TSNode root_node = ts_document_root_node(document);
+    char *node_string = ts_node_string(root_node, document);
+    AssertThat(node_string, Equals(expected_string));
+    ts_free(node_string);
+  };
 
   describe("when the grammar's start symbol is a token", [&]() {
     it("parses the token", [&]() {
@@ -29,8 +37,7 @@ describe("compile_grammar", []() {
 
       ts_document_set_input_string(document, "the-value");
       ts_document_parse(document);
-      TSNode root_node = ts_document_root_node(document);
-      AssertThat(ts_node_string(root_node, document), Equals("(first_rule)"));
+      assert_root_node("(first_rule)");
     });
   });
 
@@ -49,8 +56,7 @@ describe("compile_grammar", []() {
 
       ts_document_set_input_string(document, "");
       ts_document_parse(document);
-      TSNode root_node = ts_document_root_node(document);
-      AssertThat(ts_node_string(root_node, document), Equals("(first_rule)"));
+      assert_root_node("(first_rule)");
     });
   });
 
@@ -77,18 +83,15 @@ describe("compile_grammar", []() {
 
       ts_document_set_input_string(document, "1234");
       ts_document_parse(document);
-      TSNode root_node = ts_document_root_node(document);
-      AssertThat(ts_node_string(root_node, document), Equals("(first_rule)"));
+      assert_root_node("(first_rule)");
 
       ts_document_set_input_string(document, "\n");
       ts_document_parse(document);
-      root_node = ts_document_root_node(document);
-      AssertThat(ts_node_string(root_node, document), Equals("(first_rule)"));
+      assert_root_node("(first_rule)");
 
       ts_document_set_input_string(document, "'hello'");
       ts_document_parse(document);
-      root_node = ts_document_root_node(document);
-      AssertThat(ts_node_string(root_node, document), Equals("(first_rule)"));
+      assert_root_node("(first_rule)");
     });
   });
 
@@ -177,13 +180,12 @@ describe("compile_grammar", []() {
       ts_document_set_input_string(document, "a + b * c");
       ts_document_parse(document);
 
-      TSNode root_node = ts_document_root_node(document);
-      AssertThat(ts_node_string(root_node, document), Equals(
+      assert_root_node(
         "(expression (sum "
           "(expression (variable)) "
           "(expression (product "
              "(expression (variable)) "
-             "(expression (variable))))))"));
+             "(expression (variable))))))");
     });
   });
 });

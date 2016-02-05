@@ -40,11 +40,13 @@ static std::string run_cmd(const char *cmd, const char *args[]) {
 
 const TSLanguage *load_language(const string &name, const TSCompileResult &compile_result) {
   if (compile_result.error_type != TSCompileErrorTypeNone) {
-    AssertThat(string(compile_result.error_message), IsEmpty());
+    Assert::Failure(string("Compilation failed ") + compile_result.error_message);
     return nullptr;
   }
 
-  return load_language(name, compile_result.code);
+  const TSLanguage *language = load_language(name, compile_result.code);
+  free(compile_result.code);
+  return language;
 }
 
 const TSLanguage *load_language(const string &name, const string &code) {

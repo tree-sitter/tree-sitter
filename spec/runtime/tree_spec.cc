@@ -64,6 +64,8 @@ describe("Tree", []() {
 
       AssertThat(error_tree->fragile_left, IsTrue());
       AssertThat(error_tree->fragile_right, IsTrue());
+
+      ts_tree_release(error_tree);
     });
   });
 

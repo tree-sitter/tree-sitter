@@ -313,6 +313,7 @@ ParseGrammarResult parse_grammar(const string &input) {
     }
   }
 
+  json_value_free(grammar_json);
   return { name, grammar, "" };
 
 error:

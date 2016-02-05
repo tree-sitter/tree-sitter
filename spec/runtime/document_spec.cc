@@ -151,6 +151,10 @@ describe("Document", [&]() {
       ts_document_set_input_string(doc, "[1, 2]");
     });
 
+    after_each([&]() {
+      delete debugger;
+    });
+
     it("calls the debugger with a message for each lex action", [&]() {
       ts_document_set_debugger(doc, debugger->debugger());
       ts_document_parse(doc);
