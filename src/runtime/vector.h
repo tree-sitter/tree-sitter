@@ -8,6 +8,7 @@ extern "C" {
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <stdbool.h>
 #include "runtime/alloc.h"
 
 typedef struct {
@@ -17,19 +18,30 @@ typedef struct {
   size_t element_size;
 } Vector;
 
-static inline Vector vector_new(size_t element_size, size_t capacity) {
+static inline Vector vector_new(size_t element_size) {
   Vector result;
+  result.contents = NULL;
   result.size = 0;
-  result.capacity = capacity;
+  result.capacity = 0;
   result.element_size = element_size;
-
-  if (capacity > 0) {
-    result.contents = ts_calloc(capacity, element_size);
-    if (!result.contents)
-      result.element_size = 0;
-  }
-
   return result;
+}
+
+static inline bool vector_grow(Vector *self, size_t capacity) {
+  if (capacity == 0)
+    return true;
+
+  void *new_contents;
+  if (self->contents)
+    new_contents = ts_realloc(self->contents, capacity * self->element_size);
+  else
+    new_contents = ts_calloc(capacity, self->element_size);
+
+  if (!new_contents)
+    return false;
+  self->capacity = capacity;
+  self->contents = new_contents;
+  return true;
 }
 
 static inline bool vector_valid(Vector *self) {
@@ -37,7 +49,12 @@ static inline bool vector_valid(Vector *self) {
 }
 
 static inline void vector_delete(Vector *self) {
-  ts_free(self->contents);
+  if (self->contents) {
+    ts_free(self->contents);
+    self->contents = NULL;
+    self->size = 0;
+    self->capacity = 0;
+  }
 }
 
 static inline void *vector_get(Vector *self, size_t index) {
@@ -48,6 +65,12 @@ static inline void *vector_get(Vector *self, size_t index) {
 static inline void *vector_back(Vector *self) {
   assert(self->size > 0);
   return vector_get(self, self->size - 1);
+}
+
+static inline void *vector_pop(Vector *self) {
+  void *result = vector_back(self);
+  self->size--;
+  return result;
 }
 
 static inline void vector_clear(Vector *self) {

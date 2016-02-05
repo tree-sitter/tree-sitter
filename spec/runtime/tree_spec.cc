@@ -33,6 +33,9 @@ describe("Tree", []() {
   before_each([&]() {
     tree1 = ts_tree_make_leaf(cat, {2, 1, 0, 1}, {5, 4, 0, 4}, visible);
     tree2 = ts_tree_make_leaf(cat, {1, 1, 0, 1}, {3, 3, 0, 3}, visible);
+
+    ts_tree_retain(tree1);
+    ts_tree_retain(tree2);
     parent1 = ts_tree_make_node(dog, 2, tree_array({
       tree1,
       tree2,
@@ -61,6 +64,8 @@ describe("Tree", []() {
 
       AssertThat(error_tree->fragile_left, IsTrue());
       AssertThat(error_tree->fragile_right, IsTrue());
+
+      ts_tree_release(error_tree);
     });
   });
 
@@ -83,6 +88,9 @@ describe("Tree", []() {
       before_each([&]() {
         tree1->fragile_left = true;
         tree1->extra = true;
+
+        ts_tree_retain(tree1);
+        ts_tree_retain(tree2);
         parent = ts_tree_make_node(eel, 2, tree_array({
           tree1,
           tree2,
@@ -104,6 +112,9 @@ describe("Tree", []() {
       before_each([&]() {
         tree2->fragile_right = true;
         tree2->extra = true;
+
+        ts_tree_retain(tree1);
+        ts_tree_retain(tree2);
         parent = ts_tree_make_node(eel, 2, tree_array({
           tree1,
           tree2,
@@ -125,6 +136,9 @@ describe("Tree", []() {
       before_each([&]() {
         tree1->fragile_right = true;
         tree2->fragile_left = true;
+
+        ts_tree_retain(tree1);
+        ts_tree_retain(tree2);
         parent = ts_tree_make_node(eel, 2, tree_array({
           tree1,
           tree2,
@@ -281,8 +295,6 @@ describe("Tree", []() {
 
       AssertThat(ts_tree_eq(parent1, parent2), IsTrue());
 
-      ts_tree_release(tree1_copy);
-      ts_tree_release(tree2_copy);
       ts_tree_release(parent2);
     });
 
@@ -320,8 +332,10 @@ describe("Tree", []() {
         tree1->size,
         visible);
 
+      ts_tree_retain(different_tree);
+      ts_tree_retain(tree2);
       TSTree *different_parent = ts_tree_make_node(dog, 2, tree_array({
-          different_tree, different_tree,
+        different_tree, tree2,
       }), visible);
 
       AssertThat(ts_tree_eq(different_parent, parent1), IsFalse());

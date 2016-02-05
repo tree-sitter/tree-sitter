@@ -62,13 +62,21 @@ TSTree *ts_tree_make_copy(TSTree *self) {
 }
 
 void ts_tree_assign_parents(TSTree *self) {
-  TSLength offset = ts_length_zero();
+  TSLength offset;
+
+recur:
+  offset = ts_length_zero();
   for (size_t i = 0; i < self->child_count; i++) {
     TSTree *child = self->children[i];
     if (child->context.parent != self) {
       child->context.parent = self;
       child->context.index = i;
       child->context.offset = offset;
+      if (i == self->child_count - 1) {
+        self = child;
+        goto recur;
+      }
+
       ts_tree_assign_parents(child);
     }
     offset = ts_length_add(offset, ts_tree_total_size(child));
@@ -76,13 +84,14 @@ void ts_tree_assign_parents(TSTree *self) {
 }
 
 void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
+  if (self->child_count > 0)
+    ts_free(self->children);
   self->children = children;
   self->child_count = child_count;
   self->named_child_count = 0;
   self->visible_child_count = 0;
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
-    ts_tree_retain(child);
 
     if (i == 0) {
       self->padding = child->padding;
@@ -132,13 +141,25 @@ void ts_tree_retain(TSTree *self) {
 }
 
 void ts_tree_release(TSTree *self) {
+  if (!self)
+    return;
+
+recur:
   assert(self->ref_count > 0);
   self->ref_count--;
+
   if (self->ref_count == 0) {
-    for (size_t i = 0; i < self->child_count; i++)
-      ts_tree_release(self->children[i]);
-    if (self->child_count > 0)
+    if (self->child_count > 0) {
+      for (size_t i = 0; i < self->child_count - 1; i++)
+        ts_tree_release(self->children[i]);
+      TSTree *last_child = self->children[self->child_count - 1];
       ts_free(self->children);
+      ts_free(self);
+
+      self = last_child;
+      goto recur;
+    }
+
     ts_free(self);
   }
 }

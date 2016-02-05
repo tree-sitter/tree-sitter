@@ -16,8 +16,8 @@ typedef enum {
 } TSCompileErrorType;
 
 typedef struct {
-  const char *code;
-  const char *error_message;
+  char *code;
+  char *error_message;
   TSCompileErrorType error_type;
 } TSCompileResult;
 

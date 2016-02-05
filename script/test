@@ -6,7 +6,7 @@ function usage {
   cat <<-EOF
 USAGE
 
-  $0  [-dghv] [-f focus-string]
+  $0  [-dgGhv] [-f focus-string]
 
 OPTIONS
 
@@ -14,7 +14,9 @@ OPTIONS
 
   -d  run tests in a debugger (either lldb or gdb)
 
-  -g  run tests with valgrind
+  -g  run tests with valgrind's memcheck tool
+
+  -G  run tests with valgrind's memcheck tool, including a full leak check
 
   -v  run tests with verbose output
 
@@ -24,13 +26,14 @@ EOF
 }
 
 profile=
+leak_check=no
 mode=normal
 args=()
 target=tests
 export BUILDTYPE=Test
 cmd="out/${BUILDTYPE}/${target}"
 
-while getopts "df:s:ghpv" option; do
+while getopts "df:s:gGhpv" option; do
   case ${option} in
     h)
       usage
@@ -41,6 +44,10 @@ while getopts "df:s:ghpv" option; do
       ;;
     g)
       mode=valgrind
+      ;;
+    G)
+      mode=valgrind
+      leak_check=full
       ;;
     p)
       profile=true
@@ -66,10 +73,11 @@ fi
 
 case ${mode} in
   valgrind)
-    valgrind \
+    valgrind                                     \
       --suppressions=./script/util/valgrind.supp \
-      --dsymutil=yes \
-      $cmd "${args[@]}" 2>&1 | \
+      --dsymutil=yes                             \
+      --leak-check=${leak_check}                 \
+      $cmd "${args[@]}" 2>&1 |                   \
       grep --color -E '\w+_specs?.cc:\d+|$'
     ;;
 

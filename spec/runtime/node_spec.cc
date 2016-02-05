@@ -1,7 +1,10 @@
 #include "spec_helper.h"
+#include "runtime/alloc.h"
 #include "helpers/tree_helpers.h"
 #include "helpers/point_helpers.h"
 #include "helpers/test_languages.h"
+#include "helpers/record_alloc.h"
+#include "helpers/stream_methods.h"
 
 START_TEST
 
@@ -33,21 +36,28 @@ describe("Node", []() {
   size_t null_end_index = null_index + string("null").size();
 
   before_each([&]() {
+    record_alloc::start();
+
     document = ts_document_make();
     ts_document_set_language(document, get_test_language("json"));
     ts_document_set_input_string(document, input_string.c_str());
     ts_document_parse(document);
 
     array_node = ts_document_root_node(document);
-    AssertThat(ts_node_string(array_node, document), Equals(
+    char *node_string = ts_node_string(array_node, document);
+    AssertThat(node_string, Equals(
       "(array "
         "(number) "
         "(false) "
         "(object (pair (string) (null))))"));
+    ts_free(node_string);
   });
 
   after_each([&]() {
     ts_document_free(document);
+
+    record_alloc::stop();
+    AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
   });
 
   describe("named_child_count(), named_child(i)", [&]() {

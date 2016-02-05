@@ -9,20 +9,24 @@
 TSDocument *ts_document_make() {
   TSDocument *self = ts_calloc(1, sizeof(TSDocument));
   if (!self)
-    return NULL;
+    goto error;
 
-  if (!ts_parser_init(&self->parser)) {
-    ts_free(self);
-    return NULL;
-  }
+  if (!ts_parser_init(&self->parser))
+    goto error;
 
   return self;
+
+error:
+  if (self)
+    ts_free(self);
+  return NULL;
 }
 
 void ts_document_free(TSDocument *self) {
   ts_parser_destroy(&self->parser);
   if (self->tree)
     ts_tree_release(self->tree);
+  ts_document_set_input(self, (TSInput){});
   ts_free(self);
 }
 
@@ -33,7 +37,10 @@ const TSLanguage *ts_document_language(TSDocument *self) {
 void ts_document_set_language(TSDocument *self, const TSLanguage *language) {
   ts_document_invalidate(self);
   self->parser.language = language;
-  self->tree = NULL;
+  if (self->tree) {
+    ts_tree_release(self->tree);
+    self->tree = NULL;
+  }
 }
 
 TSDebugger ts_document_debugger(const TSDocument *self) {
@@ -49,12 +56,19 @@ TSInput ts_document_input(TSDocument *self) {
 }
 
 void ts_document_set_input(TSDocument *self, TSInput input) {
+  if (self->owns_input)
+    ts_free(self->input.payload);
   self->input = input;
+  self->owns_input = false;
 }
 
 void ts_document_set_input_string(TSDocument *self, const char *text) {
   ts_document_invalidate(self);
-  ts_document_set_input(self, ts_string_input_make(text));
+  TSInput input = ts_string_input_make(text);
+  ts_document_set_input(self, input);
+  if (input.payload) {
+    self->owns_input = true;
+  }
 }
 
 void ts_document_edit(TSDocument *self, TSInputEdit edit) {
@@ -72,7 +86,7 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
 
 int ts_document_parse(TSDocument *self) {
   if (!self->input.read_fn || !self->parser.language)
-    return 0;
+    return -1;
 
   TSTree *reusable_tree = self->valid ? self->tree : NULL;
   if (reusable_tree && !reusable_tree->has_changes)
@@ -82,7 +96,6 @@ int ts_document_parse(TSDocument *self) {
   if (!tree)
     return -1;
 
-  ts_tree_retain(tree);
   if (self->tree)
     ts_tree_release(self->tree);
   self->tree = tree;

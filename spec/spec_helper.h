@@ -14,4 +14,6 @@ using namespace tree_sitter;
 #define START_TEST go_bandit([]() {
 #define END_TEST });
 
+#define TREE_SITTER_WRAP_MALLOC
+
 #endif  // SPEC_HELPER_
