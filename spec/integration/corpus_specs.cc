@@ -11,8 +11,9 @@
 
 static void expect_the_correct_tree(TSNode node, TSDocument *document, string tree_string) {
   const char *node_string = ts_node_string(node, document);
-  AssertThat(node_string, Equals(tree_string));
+  string result(node_string);
   ts_free((void *)node_string);
+  AssertThat(result, Equals(tree_string));
 }
 
 static void expect_a_consistent_tree(TSNode node, TSDocument *document) {
