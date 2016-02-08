@@ -62,6 +62,12 @@ static inline void *vector_get(Vector *self, size_t index) {
   return (void *)((char *)self->contents + index * self->element_size);
 }
 
+static inline void vector_set(Vector *self, size_t index, void *entry) {
+  assert(index < self->size);
+  char *location = (char *)self->contents + index * self->element_size;
+  memcpy(location, (char *)entry, self->element_size);
+}
+
 static inline void *vector_back(Vector *self) {
   assert(self->size > 0);
   return vector_get(self, self->size - 1);
@@ -96,10 +102,8 @@ static inline bool vector_push(Vector *self, void *entry) {
     self->contents = contents;
   }
 
-  char *contents = (char *)self->contents;
-  memcpy(contents + (self->size * self->element_size), (char *)entry,
-         self->element_size);
   self->size++;
+  vector_set(self, self->size - 1, entry);
   return true;
 }
 

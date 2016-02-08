@@ -28,7 +28,7 @@ typedef enum {
   StackPushResultContinued,
 } StackPushResult;
 
-typedef TSTree *(*TreeSelectionFunction)(void *, TSTree *, TSTree *);
+typedef int (*TreeSelectionFunction)(void *, TSTree *, TSTree *);
 
 /*
  *  Create a parse stack.
@@ -83,11 +83,6 @@ StackEntry *ts_stack_entry_next(const StackEntry *, int);
  *  the head to merge with an existing head.
  */
 StackPushResult ts_stack_push(Stack *, int head, TSStateId, TSTree *);
-
-/*
- *  Add an alternative tree for the given head of the stack.
- */
-void ts_stack_add_alternative(Stack *, int head, TSTree *);
 
 /*
  *  Pop the given number of entries from the given head of the stack. This

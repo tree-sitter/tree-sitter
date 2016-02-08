@@ -249,23 +249,22 @@ static void ts_parser__remove_head(TSParser *self, int head) {
   ts_stack_remove_head(self->stack, head);
 }
 
-static TSTree *ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
+static int ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
   if (!left)
-    return right;
+    return 1;
   if (!right)
-    return left;
+    return -1;
 
   TSParser *self = data;
   int comparison = ts_tree_compare(left, right);
   if (comparison <= 0) {
     LOG("select tree:%s, over_tree:%s", SYM_NAME(left->symbol),
         SYM_NAME(right->symbol));
-    return left;
   } else {
     LOG("select tree:%s, over_tree:%s", SYM_NAME(right->symbol),
         SYM_NAME(left->symbol));
-    return right;
   }
+  return comparison;
 }
 
 /*
@@ -316,16 +315,15 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
   if (!vector_valid(&pop_results))
     return FailedToUpdateStackHead;
 
-  int last_head_index = -1;
   size_t removed_heads = 0;
-  size_t revealed_heads = 0;
 
   for (size_t i = 0; i < pop_results.size; i++) {
     StackPopResult *pop_result = vector_get(&pop_results, i);
 
     /*
      *  If the same set of trees led to a previous stack head, reuse the parent
-     *  tree that was added to that head.
+     *  tree that was added to that head. Otherwise, create a new parent node
+     *  for this set of trees.
      */
     TSTree *parent = NULL;
     size_t trailing_extra_count = 0;
@@ -342,9 +340,6 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
       }
     }
 
-    /*
-     *  Otherwise, create a new parent node for this set of trees.
-     */
     if (!parent) {
       for (size_t j = pop_result->tree_count - 1; j + 1 > 0; j--) {
         if (pop_result->trees[j]->extra) {
@@ -363,26 +358,12 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
         goto error;
       }
     }
+
     if (!vector_push(&self->reduce_parents, &parent))
       goto error;
 
-    /*
-     *  If another path led to the same stack head, add this new parent tree
-     *  as an alternative for that stack head.
-     */
     int new_head = pop_result->head_index - removed_heads;
-    if (pop_result->head_index == last_head_index) {
-      ts_stack_add_alternative(self->stack, new_head, parent);
-      continue;
-    } else {
-      revealed_heads++;
-      last_head_index = pop_result->head_index;
-    }
 
-    /*
-     *  If the stack has split in the process of popping, create a duplicate of
-     *  the lookahead state for this head, for the new head.
-     */
     if (i > 0) {
       if (symbol == ts_builtin_sym_error) {
         removed_heads++;
@@ -390,6 +371,10 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
         continue;
       }
 
+      /*
+       *  If the stack has split in the process of popping, create a duplicate of
+       *  the lookahead state for this head, for the new head.
+       */
       LOG("split_during_reduce new_head:%d", new_head);
       LookaheadState lookahead_state =
         *(LookaheadState *)vector_get(&self->lookahead_states, head);
@@ -458,23 +443,19 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
     }
   }
 
-  if (self->is_split || ts_stack_head_count(self->stack) > 1) {
-    for (size_t i = 0, size = self->reduce_parents.size; i < size; i++) {
-      TSTree **parent = vector_get(&self->reduce_parents, i);
+  for (size_t i = 0; i < self->reduce_parents.size; i++) {
+    TSTree **parent = vector_get(&self->reduce_parents, i);
+
+    if (fragile || self->is_split || ts_stack_head_count(self->stack) > 1) {
       (*parent)->fragile_left = true;
       (*parent)->fragile_right = true;
       (*parent)->parse_state = TS_TREE_STATE_ERROR;
     }
-  }
 
-  for (size_t i = 0; i < self->reduce_parents.size; i++) {
-    TSTree **parent = vector_get(&self->reduce_parents, i);
-    if (fragile)
-      (*parent)->fragile_left = (*parent)->fragile_right = true;
     ts_tree_release(*parent);
   }
 
-  if (removed_heads < revealed_heads)
+  if (removed_heads < pop_results.size)
     return UpdatedStackHead;
   else
     return RemovedStackHead;
@@ -487,18 +468,15 @@ static ParseActionResult ts_parser__reduce_error(TSParser *self, int head,
                                                  size_t child_count,
                                                  TSTree *lookahead) {
   switch (ts_parser__reduce(self, head, ts_builtin_sym_error, child_count,
-                            false, false, true)) {
+                            false, true, true)) {
     case FailedToUpdateStackHead:
       return FailedToUpdateStackHead;
     case RemovedStackHead:
       return RemovedStackHead;
     case UpdatedStackHead: {
-      StackEntry *stack_entry = ts_stack_head(self->stack, head);
-      TSTree *parent = stack_entry->tree;
-      stack_entry->position =
-        ts_length_add(stack_entry->position, lookahead->padding);
-      parent->size = ts_length_add(parent->size, lookahead->padding);
-      parent->fragile_left = parent->fragile_right = true;
+      StackEntry *entry = ts_stack_head(self->stack, head);
+      entry->position = ts_length_add(entry->position, lookahead->padding);
+      entry->tree->size = ts_length_add(entry->tree->size, lookahead->padding);
       lookahead->padding = ts_length_zero();
       return UpdatedStackHead;
     }
@@ -626,8 +604,8 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
         }
 
         ts_parser__remove_head(self, pop_result->head_index);
-        TSTree *tree = ts_parser__select_tree(self, self->finished_tree, root);
-        if (tree == root) {
+        int comparison = ts_parser__select_tree(self, self->finished_tree, root);
+        if (comparison > 0) {
           ts_tree_release(self->finished_tree);
           self->finished_tree = root;
         } else {

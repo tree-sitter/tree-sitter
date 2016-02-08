@@ -26,12 +26,15 @@ TSLength operator*(const TSLength &length, size_t factor) {
 }
 
 extern "C"
-TSTree * tree_selection_spy_callback(void *data, TSTree *left, TSTree *right) {
+int tree_selection_spy_callback(void *data, TSTree *left, TSTree *right) {
   TreeSelectionSpy *spy = (TreeSelectionSpy *)data;
   spy->call_count++;
   spy->arguments[0] = left;
   spy->arguments[1] = right;
-  return spy->tree_to_return;
+  if (spy->tree_to_return == left)
+    return -1;
+  else
+    return 1;
 }
 
 void free_pop_results(Vector *pop_results) {
@@ -455,26 +458,46 @@ describe("Stack", [&]() {
     });
 
     describe("when there are two paths that converge at the same head", [&]() {
-      it("returns two entries for that head", [&]() {
-        /*
-         *  A0__B1.
-         */
-        Vector pop = ts_stack_pop(stack, 0, 3, false);
-        AssertThat(ts_stack_head_count(stack), Equals(1));
-        AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({trees[1], stateB, tree_len * 2}));
+      describe("when the first path is preferred by the callback", [&]() {
+        it("returns one entry for that head, with the first path of trees", [&]() {
+          tree_selection_spy.tree_to_return = trees[2];
 
-        AssertThat(pop.size, Equals<size_t>(2));
-        StackPopResult pop1 = *(StackPopResult *)vector_get(&pop, 0);
-        AssertThat(pop1.tree_count, Equals<size_t>(3));
-        AssertThat(pop1.head_index, Equals(0));
-        AssertThat(pop1.trees[0], Equals(trees[2]));
+          /*
+           *  A0__B1.
+           */
+          Vector pop = ts_stack_pop(stack, 0, 3, false);
+          AssertThat(ts_stack_head_count(stack), Equals(1));
+          AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({trees[1], stateB, tree_len * 2}));
 
-        StackPopResult pop2 = *(StackPopResult *)vector_get(&pop, 1);
-        AssertThat(pop2.tree_count, Equals<size_t>(3));
-        AssertThat(pop2.head_index, Equals(0));
-        AssertThat(pop2.trees[0], Equals(trees[4]));
+          AssertThat(pop.size, Equals<size_t>(1));
+          StackPopResult pop1 = *(StackPopResult *)vector_get(&pop, 0);
+          AssertThat(pop1.tree_count, Equals<size_t>(3));
+          AssertThat(pop1.head_index, Equals(0));
+          AssertThat(pop1.trees[0], Equals(trees[2]));
 
-        free_pop_results(&pop);
+          free_pop_results(&pop);
+        });
+      });
+
+      describe("when the second path is preferred by the callback", [&]() {
+        it("returns one entry for that head, with the second path of trees", [&]() {
+          tree_selection_spy.tree_to_return = trees[4];
+
+          /*
+           *  A0__B1.
+           */
+          Vector pop = ts_stack_pop(stack, 0, 3, false);
+          AssertThat(ts_stack_head_count(stack), Equals(1));
+          AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({trees[1], stateB, tree_len * 2}));
+
+          AssertThat(pop.size, Equals<size_t>(1));
+          StackPopResult pop1 = *(StackPopResult *)vector_get(&pop, 0);
+          AssertThat(pop1.tree_count, Equals<size_t>(3));
+          AssertThat(pop1.head_index, Equals(0));
+          AssertThat(pop1.trees[0], Equals(trees[4]));
+
+          free_pop_results(&pop);
+        });
       });
     });
   });

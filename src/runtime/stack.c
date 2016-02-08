@@ -20,9 +20,7 @@ typedef struct StackNode {
 } StackNode;
 
 struct Stack {
-  StackNode **heads;
-  int head_count;
-  int head_capacity;
+  Vector heads;
   Vector pop_results;
   Vector pop_paths;
   Vector node_pool;
@@ -37,12 +35,14 @@ typedef struct {
   bool is_shared;
 } PopPath;
 
+static StackNode *NULL_NODE = NULL;
+
 /*
  *  Section: Stack lifecycle
  */
 
-static TSTree *ts_stack__default_tree_selection(void *p, TSTree *t1, TSTree *t2) {
-  return t1;
+static int ts_stack__default_tree_selection(void *p, TSTree *t1, TSTree *t2) {
+  return 0;
 }
 
 Stack *ts_stack_new() {
@@ -50,17 +50,14 @@ Stack *ts_stack_new() {
   if (!self)
     goto error;
 
-  self->head_count = 1;
-  self->head_capacity = INITIAL_HEAD_CAPACITY;
-  self->heads = NULL;
+  self->heads = vector_new(sizeof(StackNode *));
   self->pop_results = vector_new(sizeof(StackPopResult));
   self->pop_paths = vector_new(sizeof(PopPath));
   self->node_pool = vector_new(sizeof(StackNode *));
   self->tree_selection_payload = NULL;
   self->tree_selection_function = ts_stack__default_tree_selection;
 
-  self->heads = ts_calloc(INITIAL_HEAD_CAPACITY, sizeof(StackNode *));
-  if (!self->heads)
+  if (!vector_grow(&self->heads, 4))
     goto error;
 
   if (!vector_grow(&self->pop_results, 4))
@@ -72,12 +69,14 @@ Stack *ts_stack_new() {
   if (!vector_grow(&self->node_pool, 20))
     goto error;
 
+  vector_push(&self->heads, &NULL_NODE);
+
   return self;
 
 error:
   if (self) {
-    if (self->heads)
-      ts_free(self->heads);
+    if (self->heads.contents)
+      vector_delete(&self->heads);
     if (self->pop_results.contents)
       vector_delete(&self->pop_results);
     if (self->pop_paths.contents)
@@ -109,13 +108,12 @@ TSTree *ts_stack_top_tree(const Stack *self, int head) {
 }
 
 StackEntry *ts_stack_head(Stack *self, int head) {
-  assert(head < self->head_count);
-  StackNode *node = self->heads[head];
+  StackNode *node = *(StackNode **)vector_get(&self->heads, head);
   return node ? &node->entry : NULL;
 }
 
 int ts_stack_head_count(const Stack *self) {
-  return self->head_count;
+  return self->heads.size;
 }
 
 int ts_stack_entry_next_count(const StackEntry *entry) {
@@ -186,25 +184,61 @@ static StackNode *stack_node_new(Stack *self, StackNode *next, TSStateId state, 
 static void ts_stack__add_alternative_tree(Stack *self, StackNode *node,
                                            TSTree *tree) {
   if (tree != node->entry.tree) {
-    TSTree *new_tree = self->tree_selection_function(
+    int comparison = self->tree_selection_function(
       self->tree_selection_payload, node->entry.tree, tree);
 
-    if (new_tree != node->entry.tree) {
-      ts_tree_retain(new_tree);
+    if (comparison > 0) {
+      ts_tree_retain(tree);
       ts_tree_release(node->entry.tree);
-      node->entry.tree = new_tree;
+      node->entry.tree = tree;
     }
   }
 }
+
+static void ts_stack__clear_pop_result(Stack *self, StackPopResult *result) {
+  for (size_t i = 0; i < result->tree_count; i++)
+    ts_tree_release(result->trees[i]);
+  ts_free(result->trees);
+}
+
+static void ts_stack__add_alternative_pop_result(Stack *self,
+                                                 StackPopResult *result,
+                                                 StackPopResult *new_result) {
+  bool should_update = false;
+  if (result->tree_count < new_result->tree_count) {
+    should_update = true;
+  } else if (result->tree_count == new_result->tree_count) {
+    for (size_t i = 0; i < result->tree_count; i++) {
+      TSTree *tree = result->trees[i];
+      TSTree *new_tree = new_result->trees[i];
+      int comparison = self->tree_selection_function(self->tree_selection_payload, tree, new_tree);
+      if (comparison < 0) {
+        break;
+      } else if (comparison > 0) {
+        should_update = true;
+        break;
+      }
+    }
+  }
+
+  if (should_update) {
+    ts_stack__clear_pop_result(self, result);
+    result->trees = new_result->trees;
+    result->tree_count = new_result->tree_count;
+  } else {
+    ts_stack__clear_pop_result(self, new_result);
+  }
+}
+
 
 static void ts_stack__add_node_successor(Stack *self, StackNode *node,
                                          StackNode *new_successor) {
   for (int i = 0; i < node->successor_count; i++) {
     StackNode *successor = node->successors[i];
-    if (!successor)
-      continue;
     if (successor == new_successor)
       return;
+    if (!successor)
+      continue;
 
     if (successor->entry.state == new_successor->entry.state) {
       ts_stack__add_alternative_tree(self, successor, new_successor->entry.tree);
@@ -225,45 +259,27 @@ static void ts_stack__add_node_successor(Stack *self, StackNode *node,
  */
 
 static int ts_stack__add_head(Stack *self, StackNode *node) {
-  if (self->head_count == self->head_capacity) {
-    self->head_capacity += 3;
-    self->heads =
-      ts_realloc(self->heads, self->head_capacity * sizeof(StackNode *));
+  if (vector_push(&self->heads, &node)) {
+    stack_node_retain(node);
+    return self->heads.size - 1;
+  } else {
+    return -1;
   }
-  int new_index = self->head_count++;
-  self->heads[new_index] = node;
-  stack_node_retain(node);
-  return new_index;
 }
 
 static int ts_stack__find_head(Stack *self, StackNode *node) {
-  for (int i = 0; i < self->head_count; i++)
-    if (self->heads[i] == node) {
+  for (size_t i = 0; i < self->heads.size; i++) {
+    StackNode **existing_node = vector_get(&self->heads, i);
+    if (*existing_node == node)
       return i;
-    }
+  }
   return -1;
 }
 
 void ts_stack_remove_head(Stack *self, int head_index) {
-  stack_node_release(self, self->heads[head_index]);
-  for (int i = head_index; i < self->head_count - 1; i++)
-    self->heads[i] = self->heads[i + 1];
-  self->head_count--;
-}
-
-static bool ts_stack__merge_head(Stack *self, int head_index, TSStateId state,
-                                 TSTree *tree, TSLength position) {
-  for (int i = 0; i < head_index; i++) {
-    StackNode *head = self->heads[i];
-    if (head->entry.state == state &&
-        ts_length_eq(head->entry.position, position)) {
-      ts_stack__add_alternative_tree(self, head, tree);
-      ts_stack__add_node_successor(self, head, self->heads[head_index]);
-      ts_stack_remove_head(self, head_index);
-      return true;
-    }
-  }
-  return false;
+  StackNode **node = vector_get(&self->heads, head_index);
+  stack_node_release(self, *node);
+  vector_erase(&self->heads, head_index);
 }
 
 /*
@@ -272,34 +288,37 @@ static bool ts_stack__merge_head(Stack *self, int head_index, TSStateId state,
 
 StackPushResult ts_stack_push(Stack *self, int head_index, TSStateId state,
                               TSTree *tree) {
-  assert(head_index < self->head_count);
+  assert(head_index < self->heads.size);
   assert(tree);
 
   TSLength position = ts_tree_total_size(tree);
-  if (self->heads[head_index])
-    position = ts_length_add(self->heads[head_index]->entry.position, position);
+  StackNode **current_head = vector_get(&self->heads, head_index);
+  if (*current_head)
+    position = ts_length_add((*current_head)->entry.position, position);
 
-  if (ts_stack__merge_head(self, head_index, state, tree, position))
-    return StackPushResultMerged;
+  for (int i = 0; i < head_index; i++) {
+    StackNode **prior_node = vector_get(&self->heads, i);
+    StackEntry prior_entry = (*prior_node)->entry;
+    if (prior_entry.state == state && ts_length_eq(prior_entry.position, position)) {
+      ts_stack__add_alternative_tree(self, *prior_node, tree);
+      ts_stack__add_node_successor(self, *prior_node, *current_head);
+      ts_stack_remove_head(self, head_index);
+      return StackPushResultMerged;
+    }
+  }
 
-  StackNode *new_head = stack_node_new(self, self->heads[head_index], state, tree);
+  StackNode *new_head = stack_node_new(self, *current_head, state, tree);
   if (!new_head)
     return StackPushResultFailed;
 
-  stack_node_release(self, self->heads[head_index]);
-  self->heads[head_index] = new_head;
+  stack_node_release(self, *current_head);
+  vector_set(&self->heads, head_index, &new_head);
   return StackPushResultContinued;
 }
 
-void ts_stack_add_alternative(Stack *self, int head_index, TSTree *tree) {
-  assert(head_index < self->head_count);
-  StackNode *node = self->heads[head_index];
-  ts_stack__add_alternative_tree(self, node, tree);
-}
-
 int ts_stack_split(Stack *self, int head_index) {
-  assert(head_index < self->head_count);
-  return ts_stack__add_head(self, self->heads[head_index]);
+  StackNode **head = vector_get(&self->heads, head_index);
+  return ts_stack__add_head(self, *head);
 }
 
 Vector ts_stack_pop(Stack *self, int head_index, int child_count,
@@ -307,7 +326,7 @@ Vector ts_stack_pop(Stack *self, int head_index, int child_count,
   vector_clear(&self->pop_results);
   vector_clear(&self->pop_paths);
 
-  StackNode *previous_head = self->heads[head_index];
+  StackNode *previous_head = *(StackNode **)vector_get(&self->heads, head_index);
   int capacity = (child_count == -1) ? STARTING_TREE_CAPACITY : child_count;
   PopPath initial_path = {
     .goal_tree_count = child_count,
@@ -390,12 +409,27 @@ Vector ts_stack_pop(Stack *self, int head_index, int child_count,
 
     if (i == 0) {
       stack_node_retain(path->node);
-      self->heads[head_index] = path->node;
+      vector_set(&self->heads, head_index, &path->node);
       result.head_index = head_index;
     } else {
       result.head_index = ts_stack__find_head(self, path->node);
-      if (result.head_index == -1)
+      if (result.head_index == -1) {
         result.head_index = ts_stack__add_head(self, path->node);
+        if (result.head_index == -1)
+          goto error;
+      } else {
+        bool merged_result = false;
+        for (size_t j = 0; j < self->pop_results.size; j++) {
+          StackPopResult *prior_result = vector_get(&self->pop_results, j);
+          if (prior_result->head_index == result.head_index) {
+            ts_stack__add_alternative_pop_result(self, prior_result, &result);
+            merged_result = true;
+            break;
+          }
+        }
+        if (merged_result)
+          continue;
+      }
     }
 
     if (!vector_push(&self->pop_results, &result))
@@ -411,23 +445,26 @@ error:
 }
 
 void ts_stack_shrink(Stack *self, int head_index, int count) {
-  StackNode *head = self->heads[head_index];
-  StackNode *new_head = head;
+  StackNode **head = vector_get(&self->heads, head_index);
+  StackNode *new_head = *head;
   for (int i = 0; i < count; i++) {
     if (new_head->successor_count == 0)
       break;
     new_head = new_head->successors[0];
   }
   stack_node_retain(new_head);
-  stack_node_release(self, head);
-  self->heads[head_index] = new_head;
+  stack_node_release(self, *head);
+  vector_set(&self->heads, head_index, new_head);
 }
 
 void ts_stack_clear(Stack *self) {
-  for (int i = 0; i < self->head_count; i++)
-    stack_node_release(self, self->heads[i]);
-  self->head_count = 1;
-  self->heads[0] = NULL;
+  for (size_t i = 0; i < self->heads.size; i++) {
+    StackNode **head = vector_get(&self->heads, i);
+    stack_node_release(self, *head);
+  }
+
+  vector_clear(&self->heads);
+  vector_push(&self->heads, &NULL_NODE);
 }
 
 void ts_stack_set_tree_selection_callback(Stack *self, void *payload,
@@ -448,6 +485,6 @@ void ts_stack_delete(Stack *self) {
   }
   if (self->node_pool.contents)
     vector_delete(&self->node_pool);
-  ts_free(self->heads);
+  vector_delete(&self->heads);
   ts_free(self);
 }
