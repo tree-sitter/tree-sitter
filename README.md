@@ -1,9 +1,9 @@
 # tree-sitter
 
-[![Build Status](https://travis-ci.org/maxbrunsfeld/tree-sitter.png?branch=master)](https://travis-ci.org/maxbrunsfeld/tree-sitter)
+[![Build Status](https://travis-ci.org/tree-sitter/tree-sitter.png?branch=master)](https://travis-ci.org/tree-sitter/tree-sitter)
 
 Tree-sitter is a C library for incremental parsing, intended to be used via
-[bindings](https://github.com/maxbrunsfeld/node-tree-sitter) to higher-level
+[bindings](https://github.com/tree-sitter/node-tree-sitter) to higher-level
 languages. It can be used to build a concrete syntax tree for a program and
 efficiently update the syntax tree as the program is edited. This makes it suitable
 for use in text-editing programs.
@@ -34,7 +34,7 @@ syntax trees up-to-date as changes are made to the documents.
 ### Writing a grammar
 
 Tree-sitter's grammars are specified as JSON strings. This format allows them
-to be easily created and manipulated in high-level languages like [JavaScript](https://github.com/maxbrunsfeld/node-tree-sitter-compiler).
+to be easily created and manipulated in high-level languages like [JavaScript](https://github.com/tree-sitter/node-tree-sitter-compiler).
 The structure of a grammar is formally specified by [this JSON schema](./doc/grammar-schema.json).
 You can generate a parser for a grammar using the `ts_compile_grammar` function
 provided by `libcompiler`.
