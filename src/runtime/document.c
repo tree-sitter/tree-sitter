@@ -26,7 +26,7 @@ void ts_document_free(TSDocument *self) {
   ts_parser_destroy(&self->parser);
   if (self->tree)
     ts_tree_release(self->tree);
-  ts_document_set_input(self, (TSInput){});
+  ts_document_set_input(self, (TSInput){NULL, NULL, NULL, TSInputEncodingUTF8});
   ts_free(self);
 }
 

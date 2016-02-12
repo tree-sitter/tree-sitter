@@ -79,7 +79,9 @@ describe("Stack", [&]() {
     );
 
     for (size_t i = 0; i < tree_count; i++)
-      trees[i] = ts_tree_make_leaf(i, ts_length_zero(), tree_len, {});
+      trees[i] = ts_tree_make_leaf(i, ts_length_zero(), tree_len, {
+        true, true, false, true,
+      });
   });
 
   after_each([&]() {

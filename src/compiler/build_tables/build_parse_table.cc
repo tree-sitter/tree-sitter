@@ -81,7 +81,7 @@ class ParseTableBuilder {
     mark_fragile_actions();
     remove_duplicate_parse_states();
 
-    parse_table.symbols.insert({ rules::ERROR(), {} });
+    parse_table.symbols.insert({ rules::ERROR(), {true} });
 
     return { parse_table, CompileError::none() };
   }

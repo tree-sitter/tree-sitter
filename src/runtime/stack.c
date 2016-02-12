@@ -288,7 +288,7 @@ void ts_stack_remove_head(Stack *self, int head_index) {
 
 StackPushResult ts_stack_push(Stack *self, int head_index, TSStateId state,
                               TSTree *tree) {
-  assert(head_index < self->heads.size);
+  assert((size_t)head_index < self->heads.size);
   assert(tree);
 
   TSLength position = ts_tree_total_size(tree);

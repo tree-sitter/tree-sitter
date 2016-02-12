@@ -281,7 +281,7 @@ static ParseActionResult ts_parser__shift(TSParser *self, int head,
       LOG("merge head:%d", head);
       vector_erase(&self->lookahead_states, head);
       return RemovedStackHead;
-    case StackPushResultContinued:
+    default:
       return UpdatedStackHead;
   }
 }
@@ -473,7 +473,7 @@ static ParseActionResult ts_parser__reduce_error(TSParser *self, int head,
       return FailedToUpdateStackHead;
     case RemovedStackHead:
       return RemovedStackHead;
-    case UpdatedStackHead: {
+    default: {
       StackEntry *entry = ts_stack_head(self->stack, head);
       entry->position = ts_length_add(entry->position, lookahead->padding);
       entry->tree->size = ts_length_add(entry->tree->size, lookahead->padding);

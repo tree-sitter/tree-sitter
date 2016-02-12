@@ -38,8 +38,9 @@ TSInput ts_string_input_make(const char *string) {
     .payload = input,
     .read_fn = ts_string_input_read,
     .seek_fn = ts_string_input_seek,
+    .encoding = TSInputEncodingUTF8,
   };
 
 error:
-  return (TSInput){NULL, NULL, NULL};
+  return (TSInput){NULL, NULL, NULL, TSInputEncodingUTF8};
 }

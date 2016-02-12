@@ -321,7 +321,7 @@ error:
     json_value_free(grammar_json);
   }
 
-  return { "", Grammar{}, error_message };
+  return { "", Grammar(), error_message };
 }
 
 }  // namespace tree_sitter
