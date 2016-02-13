@@ -62,11 +62,21 @@ describe("symbols_by_first_symbol", [&]() {
         }
       },
       {
+        Symbol(12, true), {
+          Symbol(12, true),
+        }
+      },
+      {
         Symbol(13, true), {
           Symbol(13, true),
           Symbol(0),
           Symbol(1),
           Symbol(2),
+        }
+      },
+      {
+        Symbol(14, true), {
+          Symbol(14, true),
         }
       },
       {

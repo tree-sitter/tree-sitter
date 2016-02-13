@@ -21,7 +21,10 @@ map<Symbol, set<Symbol>> symbols_by_first_symbol(const SyntaxGrammar &grammar) {
       if (!production.empty()) {
         Symbol first_symbol = production[0].symbol;
         result[first_symbol].insert(symbol);
-        result[first_symbol].insert(first_symbol);
+
+        for (const ProductionStep &step : production) {
+          result[step.symbol].insert(step.symbol);
+        }
       }
   }
 
