@@ -107,25 +107,23 @@ class ParseTableBuilder {
   }
 
   void add_out_of_context_parse_states() {
-    map<Symbol, set<Symbol>> symbols_by_first_symbol =
-      build_tables::symbols_by_first_symbol(grammar);
-    for (size_t token_index = 0; token_index < lexical_grammar.variables.size();
-         token_index++) {
+    map<Symbol, set<Symbol>> symbols_by_token = symbols_by_first_symbol(grammar);
+    for (size_t i = 0; i < lexical_grammar.variables.size(); i++) {
+      Symbol token(i, true);
       ParseItemSet item_set;
-      const set<Symbol> &symbols =
-        symbols_by_first_symbol[Symbol(token_index, true)];
+      const set<Symbol> &symbols = symbols_by_token[token];
 
       for (const auto &parse_state_entry : parse_state_ids) {
         for (const auto &pair : parse_state_entry.first.entries) {
           const ParseItem &item = pair.first;
           const LookaheadSet &lookahead_set = pair.second;
-
           if (symbols.count(item.next_symbol()))
             item_set.entries[item].insert_all(lookahead_set);
         }
       }
 
-      add_parse_state(item_set);
+      ParseStateId state = add_parse_state(item_set);
+      parse_table.out_of_context_state_indices[token] = state;
     }
   }
 
@@ -235,7 +233,14 @@ class ParseTableBuilder {
   }
 
   void remove_duplicate_parse_states() {
-    remove_duplicate_states<ParseState, ParseAction>(&parse_table.states);
+    auto replacements = remove_duplicate_states<ParseState, ParseAction>(
+      &parse_table.states);
+
+    for (auto &pair : parse_table.out_of_context_state_indices) {
+      auto replacement = replacements.find(pair.second);
+      if (replacement != replacements.end())
+        pair.second = replacement->second;
+    }
   }
 
   ParseAction *add_action(ParseStateId state_id, Symbol lookahead,

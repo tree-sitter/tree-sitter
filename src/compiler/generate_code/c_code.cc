@@ -98,6 +98,7 @@ class CCodeGenerator {
     add_symbol_node_types_list();
     add_lex_function();
     add_lex_states_list();
+    add_out_of_context_parse_states_list();
     add_parse_table();
     add_parser_export();
 
@@ -211,6 +212,21 @@ class CCodeGenerator {
       for (const auto &state : parse_table.states)
         line("[" + to_string(state_id++) + "] = " +
              to_string(state.lex_state_id) + ",");
+    });
+    line("};");
+    line();
+  }
+
+  void add_out_of_context_parse_states_list() {
+    line("static TSStateId ts_out_of_context_states[SYMBOL_COUNT] = {");
+    indent([&]() {
+      for (const auto &entry : parse_table.symbols) {
+        const rules::Symbol &symbol = entry.first;
+        ParseStateId state = parse_table.out_of_context_state_indices.find(symbol)->second;
+        if (symbol.is_token && !symbol.is_built_in()) {
+          line("[" + symbol_id(symbol) + "] = " + to_string(state) + ",");
+        }
+      }
     });
     line("};");
     line();
