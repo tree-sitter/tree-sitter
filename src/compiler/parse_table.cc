@@ -167,6 +167,11 @@ ParseAction &ParseTable::add_action(ParseStateId id, Symbol symbol,
     symbols[symbol];
   else
     symbols[symbol].structural = true;
+
+  for (ParseAction &existing_action : states[id].actions[symbol])
+    if (existing_action == action)
+      return existing_action;
+
   states[id].actions[symbol].push_back(action);
   return *states[id].actions[symbol].rbegin();
 }

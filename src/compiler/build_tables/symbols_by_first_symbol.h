@@ -11,7 +11,8 @@ struct SyntaxGrammar;
 
 namespace build_tables {
 
-std::map<rules::Symbol, std::set<rules::Symbol>> symbols_by_first_symbol(const SyntaxGrammar &);
+std::map<rules::Symbol, std::set<rules::Symbol>> symbols_by_first_symbol(
+  const SyntaxGrammar &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

@@ -10,6 +10,7 @@
 #include "compiler/build_tables/remove_duplicate_states.h"
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/build_tables/item_set_closure.h"
+#include "compiler/build_tables/symbols_by_first_symbol.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/rules/symbol.h"
@@ -39,11 +40,14 @@ class ParseTableBuilder {
   std::set<string> conflicts;
   ParseItemSet null_item_set;
   std::set<const Production *> fragile_productions;
+  bool allow_any_conflict;
 
  public:
   ParseTableBuilder(const SyntaxGrammar &grammar,
                     const LexicalGrammar &lex_grammar)
-      : grammar(grammar), lexical_grammar(lex_grammar) {}
+      : grammar(grammar),
+        lexical_grammar(lex_grammar),
+        allow_any_conflict(false) {}
 
   pair<ParseTable, CompileError> build() {
     Symbol start_symbol = Symbol(0, grammar.variables.empty());
@@ -58,20 +62,15 @@ class ParseTableBuilder {
       },
     }));
 
-    while (!item_sets_to_process.empty()) {
-      auto pair = item_sets_to_process.back();
-      ParseItemSet item_set = item_set_closure(pair.first, grammar);
-      ParseStateId state_id = pair.second;
-      item_sets_to_process.pop_back();
-
-      add_reduce_actions(item_set, state_id);
-      add_shift_actions(item_set, state_id);
-
-      if (!conflicts.empty())
-        return { parse_table,
-                 CompileError(TSCompileErrorTypeParseConflict,
-                              "Unresolved conflict.\n\n" + *conflicts.begin()) };
+    CompileError error = process_part_state_queue();
+    if (error.type != TSCompileErrorTypeNone) {
+      return { parse_table, error };
     }
+
+    add_out_of_context_parse_states();
+    allow_any_conflict = true;
+    process_part_state_queue();
+    allow_any_conflict = false;
 
     for (ParseStateId state = 0; state < parse_table.states.size(); state++) {
       add_shift_extra_actions(state);
@@ -81,12 +80,55 @@ class ParseTableBuilder {
     mark_fragile_actions();
     remove_duplicate_parse_states();
 
-    parse_table.symbols.insert({ rules::ERROR(), {true} });
+    parse_table.symbols.insert({ rules::ERROR(), { true } });
 
     return { parse_table, CompileError::none() };
   }
 
  private:
+  CompileError process_part_state_queue() {
+    while (!item_sets_to_process.empty()) {
+      auto pair = item_sets_to_process.back();
+      ParseItemSet item_set = item_set_closure(pair.first, grammar);
+
+      ParseStateId state_id = pair.second;
+      item_sets_to_process.pop_back();
+
+      add_reduce_actions(item_set, state_id);
+      add_shift_actions(item_set, state_id);
+
+      if (!conflicts.empty()) {
+        return CompileError(TSCompileErrorTypeParseConflict,
+                            "Unresolved conflict.\n\n" + *conflicts.begin());
+      }
+    }
+
+    return CompileError::none();
+  }
+
+  void add_out_of_context_parse_states() {
+    map<Symbol, set<Symbol>> symbols_by_first_symbol =
+      build_tables::symbols_by_first_symbol(grammar);
+    for (size_t token_index = 0; token_index < lexical_grammar.variables.size();
+         token_index++) {
+      ParseItemSet item_set;
+      const set<Symbol> &symbols =
+        symbols_by_first_symbol[Symbol(token_index, true)];
+
+      for (const auto &parse_state_entry : parse_state_ids) {
+        for (const auto &pair : parse_state_entry.first.entries) {
+          const ParseItem &item = pair.first;
+          const LookaheadSet &lookahead_set = pair.second;
+
+          if (symbols.count(item.next_symbol()))
+            item_set.entries[item].insert_all(lookahead_set);
+        }
+      }
+
+      add_parse_state(item_set);
+    }
+  }
+
   ParseStateId add_parse_state(const ParseItemSet &item_set) {
     auto pair = parse_state_ids.find(item_set);
     if (pair == parse_state_ids.end()) {
@@ -203,6 +245,8 @@ class ParseTableBuilder {
     const auto &current_entry = current_actions.find(lookahead);
     if (current_entry == current_actions.end())
       return &parse_table.set_action(state_id, lookahead, new_action);
+    if (allow_any_conflict)
+      return &parse_table.add_action(state_id, lookahead, new_action);
 
     const ParseAction old_action = current_entry->second[0];
     auto resolution = conflict_manager.resolve(new_action, old_action);
@@ -251,14 +295,13 @@ class ParseTableBuilder {
       const ParseItem &item = pair.first;
       const LookaheadSet &lookahead_set = pair.second;
 
-      if (item.step_index == item.production->size()) {
+      Symbol next_symbol = item.next_symbol();
+      if (next_symbol == rules::NONE()) {
         if (lookahead_set.contains(lookahead)) {
           involved_symbols.insert(item.lhs());
           reduce_items.insert(item);
         }
       } else {
-        Symbol next_symbol = item.production->at(item.step_index).symbol;
-
         if (item.step_index > 0) {
           set<Symbol> first_set = get_first_set(next_symbol);
           if (first_set.count(lookahead)) {

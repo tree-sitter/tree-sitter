@@ -3,6 +3,7 @@
 #include <vector>
 #include <utility>
 #include "compiler/syntax_grammar.h"
+#include "compiler/rules/built_in_symbols.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -12,6 +13,7 @@ using std::pair;
 using std::shared_ptr;
 using std::make_shared;
 using rules::Symbol;
+using rules::NONE;
 
 ParseItemSet item_set_closure(const ParseItemSet &input_item_set,
                               const SyntaxGrammar &grammar) {
@@ -32,14 +34,10 @@ ParseItemSet item_set_closure(const ParseItemSet &input_item_set,
     if (!result.entries[item].insert_all(lookahead_symbols))
       continue;
 
-    // If the item is at the end of its production, skip to the next item.
-    if (item.step_index == item.production->size())
-      continue;
-
     // If the next symbol in the production is not a non-terminal, skip to the
     // next item.
-    Symbol next_symbol = item.production->at(item.step_index).symbol;
-    if (next_symbol.is_token || next_symbol.is_built_in())
+    Symbol next_symbol = item.next_symbol();
+    if (next_symbol == NONE() || next_symbol.is_token || next_symbol.is_built_in())
       continue;
 
     // If the next symbol is the last symbol in the item's production, then the

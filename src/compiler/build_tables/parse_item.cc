@@ -1,6 +1,7 @@
 #include "compiler/build_tables/parse_item.h"
 #include <string>
 #include "compiler/syntax_grammar.h"
+#include "compiler/rules/built_in_symbols.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -59,6 +60,13 @@ int ParseItem::precedence() const {
     return production->back().precedence;
   else
     return production->at(step_index).precedence;
+}
+
+Symbol ParseItem::next_symbol() const {
+  if (step_index >= production->size())
+    return rules::NONE();
+  else
+    return production->at(step_index).symbol;
 }
 
 rules::Associativity ParseItem::associativity() const {

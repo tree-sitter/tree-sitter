@@ -29,6 +29,7 @@ class ParseItem {
   bool operator==(const ParseItem &other) const;
   bool operator<(const ParseItem &other) const;
   rules::Symbol lhs() const;
+  rules::Symbol next_symbol() const;
   int precedence() const;
   rules::Associativity associativity() const;
   CompletionStatus completion_status() const;
