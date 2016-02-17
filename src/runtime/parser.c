@@ -26,11 +26,11 @@
 
 #define BOOL_STRING(value) (value ? "true" : "false")
 
-typedef struct {
+struct LookaheadState {
   TSTree *reusable_subtree;
   size_t reusable_subtree_pos;
   bool is_verifying;
-} LookaheadState;
+};
 
 typedef enum {
   UpdatedStackHead,
@@ -47,8 +47,8 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
   TSTree *last_child = NULL;
 
   do {
-    Vector pop_results = ts_stack_pop(self->stack, head, 1, false);
-    if (!vector_valid(&pop_results))
+    StackPopResultVector pop_results = ts_stack_pop(self->stack, head, 1, false);
+    if (!pop_results.size)
       return FailedToUpdateStackHead;
     assert(pop_results.size > 0);
 
@@ -64,7 +64,7 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
         ts_tree_total_size(parent).chars);
 
     for (size_t i = 0; i < pop_results.size; i++) {
-      StackPopResult *pop_result = vector_get(&pop_results, i);
+      StackPopResult *pop_result = &pop_results.contents[i];
       assert(pop_result->trees == removed_trees);
       int head_index = pop_result->head_index;
 
@@ -238,9 +238,8 @@ static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head) {
 static int ts_parser__split(TSParser *self, int head) {
   int result = ts_stack_split(self->stack, head);
   assert(result == (int)self->lookahead_states.size);
-  LookaheadState lookahead_state =
-    *(LookaheadState *)vector_get(&self->lookahead_states, head);
-  vector_push(&self->lookahead_states, &lookahead_state);
+  LookaheadState lookahead_state = *vector_get(&self->lookahead_states, head);
+  vector_push(&self->lookahead_states, lookahead_state);
   return result;
 }
 
@@ -311,14 +310,15 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
   vector_clear(&self->reduce_parents);
   const TSSymbolMetadata *all_metadata = self->language->symbol_metadata;
   TSSymbolMetadata metadata = all_metadata[symbol];
-  Vector pop_results = ts_stack_pop(self->stack, head, child_count, count_extra);
-  if (!vector_valid(&pop_results))
+  StackPopResultVector pop_results =
+    ts_stack_pop(self->stack, head, child_count, count_extra);
+  if (!pop_results.size)
     return FailedToUpdateStackHead;
 
   size_t removed_heads = 0;
 
   for (size_t i = 0; i < pop_results.size; i++) {
-    StackPopResult *pop_result = vector_get(&pop_results, i);
+    StackPopResult *pop_result = &pop_results.contents[i];
 
     /*
      *  If the same set of trees led to a previous stack head, reuse the parent
@@ -328,10 +328,9 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
     TSTree *parent = NULL;
     size_t trailing_extra_count = 0;
     for (size_t j = 0; j < i; j++) {
-      StackPopResult *prior_result = vector_get(&pop_results, j);
+      StackPopResult *prior_result = &pop_results.contents[j];
       if (pop_result->trees == prior_result->trees) {
-        TSTree **existing_parent = vector_get(&self->reduce_parents, j);
-        parent = *existing_parent;
+        parent = self->reduce_parents.contents[j];
         trailing_extra_count = pop_result->tree_count - parent->child_count;
         ts_tree_retain(parent);
         for (size_t k = parent->child_count; k < pop_result->tree_count; k++)
@@ -359,7 +358,7 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
       }
     }
 
-    if (!vector_push(&self->reduce_parents, &parent))
+    if (!vector_push(&self->reduce_parents, parent))
       goto error;
 
     int new_head = pop_result->head_index - removed_heads;
@@ -372,13 +371,14 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
       }
 
       /*
-       *  If the stack has split in the process of popping, create a duplicate of
+       *  If the stack has split in the process of popping, create a duplicate
+       * of
        *  the lookahead state for this head, for the new head.
        */
       LOG("split_during_reduce new_head:%d", new_head);
       LookaheadState lookahead_state =
-        *(LookaheadState *)vector_get(&self->lookahead_states, head);
-      if (!vector_push(&self->lookahead_states, &lookahead_state))
+        *vector_get(&self->lookahead_states, head);
+      if (!vector_push(&self->lookahead_states, lookahead_state))
         goto error;
     }
 
@@ -565,18 +565,18 @@ static ParseActionResult ts_parser__start(TSParser *self, TSInput input,
     .is_verifying = false,
   };
   vector_clear(&self->lookahead_states);
-  vector_push(&self->lookahead_states, &lookahead_state);
+  vector_push(&self->lookahead_states, lookahead_state);
   self->finished_tree = NULL;
   return UpdatedStackHead;
 }
 
 static ParseActionResult ts_parser__accept(TSParser *self, int head) {
-  Vector pop_results = ts_stack_pop(self->stack, head, -1, true);
+  StackPopResultVector pop_results = ts_stack_pop(self->stack, head, -1, true);
   if (!pop_results.size)
     goto error;
 
   for (size_t j = 0; j < pop_results.size; j++) {
-    StackPopResult *pop_result = vector_get(&pop_results, j);
+    StackPopResult *pop_result = &pop_results.contents[j];
 
     for (size_t i = 0; i < pop_result->tree_count; i++) {
       if (!pop_result->trees[i]->extra) {
@@ -622,7 +622,7 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
 
 error:
   if (pop_results.size) {
-    StackPopResult *pop_result = vector_get(&pop_results, 0);
+    StackPopResult *pop_result = vector_front(&pop_results);
     for (size_t i = 0; i < pop_result->tree_count; i++)
       ts_tree_release(pop_result->trees[i]);
     ts_free(pop_result->trees);
@@ -745,8 +745,8 @@ bool ts_parser_init(TSParser *self) {
   ts_lexer_init(&self->lexer);
   self->finished_tree = NULL;
   self->stack = NULL;
-  self->lookahead_states = vector_new(sizeof(LookaheadState));
-  self->reduce_parents = vector_new(sizeof(TSTree *));
+  vector_init(&self->lookahead_states);
+  vector_init(&self->reduce_parents);
 
   self->stack = ts_stack_new();
   if (!self->stack)

@@ -28,6 +28,8 @@ typedef enum {
   StackPushResultContinued,
 } StackPushResult;
 
+typedef Vector(StackPopResult) StackPopResultVector;
+
 typedef int (*TreeSelectionFunction)(void *, TSTree *, TSTree *);
 
 /*
@@ -90,7 +92,8 @@ StackPushResult ts_stack_push(Stack *, int head, TSStateId, TSTree *);
  *  which had previously been merged. It returns a struct that indicates the
  *  index of each revealed head and the trees removed from that head.
  */
-Vector ts_stack_pop(Stack *, int head, int count, bool count_extra);
+StackPopResultVector ts_stack_pop(Stack *, int head, int count,
+                                  bool count_extra);
 
 /*
  *  Remove the given number of entries from the given head of the stack.
