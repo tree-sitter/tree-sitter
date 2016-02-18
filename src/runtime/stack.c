@@ -1,7 +1,7 @@
 #include "tree_sitter/parser.h"
 #include "runtime/alloc.h"
 #include "runtime/tree.h"
-#include "runtime/vector.h"
+#include "runtime/array.h"
 #include "runtime/stack.h"
 #include "runtime/length.h"
 #include <assert.h>
@@ -19,20 +19,20 @@ typedef struct StackNode {
   short unsigned int ref_count;
 } StackNode;
 
-typedef Vector(TSTree *) TreeVector;
+typedef Array(TSTree *) TreeArray;
 
 typedef struct {
   size_t goal_tree_count;
   StackNode *node;
-  TreeVector trees;
+  TreeArray trees;
   bool is_shared;
 } PopPath;
 
 struct Stack {
-  Vector(StackNode *) heads;
-  StackPopResultVector pop_results;
-  Vector(PopPath) pop_paths;
-  Vector(StackNode *) node_pool;
+  Array(StackNode *) heads;
+  StackPopResultArray pop_results;
+  Array(PopPath) pop_paths;
+  Array(StackNode *) node_pool;
   void *tree_selection_payload;
   TreeSelectionFunction tree_selection_function;
 };
@@ -50,39 +50,39 @@ Stack *ts_stack_new() {
   if (!self)
     goto error;
 
-  vector_init(&self->heads);
-  vector_init(&self->pop_results);
-  vector_init(&self->pop_paths);
-  vector_init(&self->node_pool);
+  array_init(&self->heads);
+  array_init(&self->pop_results);
+  array_init(&self->pop_paths);
+  array_init(&self->node_pool);
   self->tree_selection_payload = NULL;
   self->tree_selection_function = ts_stack__default_tree_selection;
 
-  if (!vector_grow(&self->heads, 4))
+  if (!array_grow(&self->heads, 4))
     goto error;
 
-  if (!vector_grow(&self->pop_results, 4))
+  if (!array_grow(&self->pop_results, 4))
     goto error;
 
-  if (!vector_grow(&self->pop_paths, 4))
+  if (!array_grow(&self->pop_paths, 4))
     goto error;
 
-  if (!vector_grow(&self->node_pool, 20))
+  if (!array_grow(&self->node_pool, 20))
     goto error;
 
-  vector_push(&self->heads, NULL);
+  array_push(&self->heads, NULL);
 
   return self;
 
 error:
   if (self) {
     if (self->heads.contents)
-      vector_delete(&self->heads);
+      array_delete(&self->heads);
     if (self->pop_results.contents)
-      vector_delete(&self->pop_results);
+      array_delete(&self->pop_results);
     if (self->pop_paths.contents)
-      vector_delete(&self->pop_paths);
+      array_delete(&self->pop_paths);
     if (self->node_pool.contents)
-      vector_delete(&self->node_pool);
+      array_delete(&self->node_pool);
     ts_free(self);
   }
   return NULL;
@@ -148,7 +148,7 @@ static bool stack_node_release(Stack *self, StackNode *node) {
     if (self->node_pool.size >= MAX_NODE_POOL_SIZE)
       ts_free(node);
     else
-      vector_push(&self->node_pool, node);
+      array_push(&self->node_pool, node);
 
     return true;
   } else {
@@ -165,7 +165,7 @@ static StackNode *stack_node_new(Stack *self, StackNode *next, TSStateId state,
     if (!node)
       return NULL;
   } else {
-    node = vector_pop(&self->node_pool);
+    node = array_pop(&self->node_pool);
   }
 
   ts_tree_retain(tree);
@@ -260,7 +260,7 @@ static void ts_stack__add_node_successor(Stack *self, StackNode *node,
  */
 
 static int ts_stack__add_head(Stack *self, StackNode *node) {
-  if (vector_push(&self->heads, node)) {
+  if (array_push(&self->heads, node)) {
     stack_node_retain(node);
     return self->heads.size - 1;
   } else {
@@ -277,9 +277,9 @@ static int ts_stack__find_head(Stack *self, StackNode *node) {
 }
 
 void ts_stack_remove_head(Stack *self, int head_index) {
-  StackNode *node = *vector_get(&self->heads, head_index);
+  StackNode *node = *array_get(&self->heads, head_index);
   stack_node_release(self, node);
-  vector_erase(&self->heads, head_index);
+  array_erase(&self->heads, head_index);
 }
 
 /*
@@ -289,7 +289,7 @@ void ts_stack_remove_head(Stack *self, int head_index) {
 StackPushResult ts_stack_push(Stack *self, int head_index, TSStateId state,
                               TSTree *tree) {
   TSLength position = ts_tree_total_size(tree);
-  StackNode *current_head = *vector_get(&self->heads, head_index);
+  StackNode *current_head = *array_get(&self->heads, head_index);
   if (current_head)
     position = ts_length_add(current_head->entry.position, position);
 
@@ -319,24 +319,22 @@ int ts_stack_split(Stack *self, int head_index) {
   return ts_stack__add_head(self, head);
 }
 
-StackPopResultVector ts_stack_pop(Stack *self, int head_index, int child_count,
-                                  bool count_extra) {
-  vector_clear(&self->pop_results);
-  vector_clear(&self->pop_paths);
+StackPopResultArray ts_stack_pop(Stack *self, int head_index, int child_count,
+                                 bool count_extra) {
+  array_clear(&self->pop_results);
+  array_clear(&self->pop_paths);
 
-  StackNode *previous_head = *vector_get(&self->heads, head_index);
+  StackNode *previous_head = *array_get(&self->heads, head_index);
   int capacity = (child_count == -1) ? STARTING_TREE_CAPACITY : child_count;
   PopPath initial_path = {
-    .goal_tree_count = child_count,
-    .node = previous_head,
-    .is_shared = false,
+    .goal_tree_count = child_count, .node = previous_head, .is_shared = false,
   };
-  vector_init(&initial_path.trees);
+  array_init(&initial_path.trees);
 
-  if (!vector_grow(&initial_path.trees, capacity))
+  if (!array_grow(&initial_path.trees, capacity))
     goto error;
 
-  if (!vector_push(&self->pop_paths, initial_path))
+  if (!array_push(&self->pop_paths, initial_path))
     goto error;
 
   /*
@@ -367,22 +365,22 @@ StackPopResultVector ts_stack_pop(Stack *self, int head_index, int child_count,
        *  the additional successors.
        */
       if (path->is_shared) {
-        path->trees = (TreeVector)vector_copy(&path->trees);
+        path->trees = (TreeArray)array_copy(&path->trees);
         for (size_t j = 0; j < path->trees.size; j++)
           ts_tree_retain(path->trees.contents[j]);
         path->is_shared = false;
       }
 
       ts_tree_retain(node->entry.tree);
-      if (!vector_push(&path->trees, node->entry.tree))
+      if (!array_push(&path->trees, node->entry.tree))
         goto error;
 
       path->node = path->node->successors[0];
       for (int j = 1; j < node->successor_count; j++) {
-        if (!vector_push(&self->pop_paths, *path))
+        if (!array_push(&self->pop_paths, *path))
           goto error;
 
-        PopPath *next_path = vector_back(&self->pop_paths);
+        PopPath *next_path = array_back(&self->pop_paths);
         next_path->node = node->successors[j];
         next_path->is_shared = true;
       }
@@ -393,7 +391,7 @@ StackPopResultVector ts_stack_pop(Stack *self, int head_index, int child_count,
     PopPath *path = &self->pop_paths.contents[i];
 
     if (!path->is_shared)
-      vector_reverse(&path->trees);
+      array_reverse(&path->trees);
 
     StackPopResult result = {
       .trees = path->trees.contents,
@@ -426,7 +424,7 @@ StackPopResultVector ts_stack_pop(Stack *self, int head_index, int child_count,
       }
     }
 
-    if (!vector_push(&self->pop_results, result))
+    if (!array_push(&self->pop_results, result))
       goto error;
   }
 
@@ -434,14 +432,14 @@ StackPopResultVector ts_stack_pop(Stack *self, int head_index, int child_count,
   return self->pop_results;
 
 error:
-  vector_delete(&initial_path.trees);
-  StackPopResultVector result;
-  vector_init(&result);
+  array_delete(&initial_path.trees);
+  StackPopResultArray result;
+  array_init(&result);
   return result;
 }
 
 void ts_stack_shrink(Stack *self, int head_index, int count) {
-  StackNode *head = *vector_get(&self->heads, head_index);
+  StackNode *head = *array_get(&self->heads, head_index);
   StackNode *new_head = head;
   for (int i = 0; i < count; i++) {
     if (new_head->successor_count == 0)
@@ -456,8 +454,8 @@ void ts_stack_shrink(Stack *self, int head_index, int count) {
 void ts_stack_clear(Stack *self) {
   for (size_t i = 0; i < self->heads.size; i++)
     stack_node_release(self, self->heads.contents[i]);
-  vector_clear(&self->heads);
-  vector_push(&self->heads, NULL);
+  array_clear(&self->heads);
+  array_push(&self->heads, NULL);
 }
 
 void ts_stack_set_tree_selection_callback(Stack *self, void *payload,
@@ -468,15 +466,15 @@ void ts_stack_set_tree_selection_callback(Stack *self, void *payload,
 
 void ts_stack_delete(Stack *self) {
   if (self->pop_paths.contents)
-    vector_delete(&self->pop_results);
+    array_delete(&self->pop_results);
   if (self->pop_paths.contents)
-    vector_delete(&self->pop_paths);
+    array_delete(&self->pop_paths);
   ts_stack_clear(self);
   if (self->node_pool.contents) {
     for (size_t i = 0; i < self->node_pool.size; i++)
       ts_free(self->node_pool.contents[i]);
-    vector_delete(&self->node_pool);
+    array_delete(&self->node_pool);
   }
-  vector_delete(&self->heads);
+  array_delete(&self->heads);
   ts_free(self);
 }

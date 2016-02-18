@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 #include "tree_sitter/parser.h"
-#include "runtime/vector.h"
+#include "runtime/array.h"
 
 typedef struct Stack Stack;
 
@@ -28,7 +28,7 @@ typedef enum {
   StackPushResultContinued,
 } StackPushResult;
 
-typedef Vector(StackPopResult) StackPopResultVector;
+typedef Array(StackPopResult) StackPopResultArray;
 
 typedef int (*TreeSelectionFunction)(void *, TSTree *, TSTree *);
 
@@ -92,8 +92,7 @@ StackPushResult ts_stack_push(Stack *, int head, TSStateId, TSTree *);
  *  which had previously been merged. It returns a struct that indicates the
  *  index of each revealed head and the trees removed from that head.
  */
-StackPopResultVector ts_stack_pop(Stack *, int head, int count,
-                                  bool count_extra);
+StackPopResultArray ts_stack_pop(Stack *, int head, int count, bool count_extra);
 
 /*
  *  Remove the given number of entries from the given head of the stack.

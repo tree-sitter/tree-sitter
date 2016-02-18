@@ -7,7 +7,7 @@
 #include "runtime/tree.h"
 #include "runtime/lexer.h"
 #include "runtime/length.h"
-#include "runtime/vector.h"
+#include "runtime/array.h"
 #include "runtime/language.h"
 #include "runtime/alloc.h"
 
@@ -47,7 +47,7 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
   TSTree *last_child = NULL;
 
   do {
-    StackPopResultVector pop_results = ts_stack_pop(self->stack, head, 1, false);
+    StackPopResultArray pop_results = ts_stack_pop(self->stack, head, 1, false);
     if (!pop_results.size)
       return FailedToUpdateStackHead;
     assert(pop_results.size > 0);
@@ -56,7 +56,7 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
      *  Since only one entry (not counting extra trees) is being popped from the
      *  stack, there should only be one possible array of removed trees.
      */
-    StackPopResult *first_result = vector_get(&pop_results, 0);
+    StackPopResult *first_result = array_get(&pop_results, 0);
     assert(first_result->tree_count > 0);
     TSTree **removed_trees = first_result->trees;
     TSTree *parent = removed_trees[0];
@@ -187,7 +187,7 @@ static bool ts_parser__can_reuse(TSParser *self, int head, TSTree *subtree) {
  *  run the lexer.
  */
 static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head) {
-  LookaheadState *state = vector_get(&self->lookahead_states, head);
+  LookaheadState *state = array_get(&self->lookahead_states, head);
   TSLength position = ts_stack_top_position(self->stack, head);
 
   while (state->reusable_subtree) {
@@ -238,13 +238,13 @@ static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head) {
 static int ts_parser__split(TSParser *self, int head) {
   int result = ts_stack_split(self->stack, head);
   assert(result == (int)self->lookahead_states.size);
-  LookaheadState lookahead_state = *vector_get(&self->lookahead_states, head);
-  vector_push(&self->lookahead_states, lookahead_state);
+  LookaheadState lookahead_state = *array_get(&self->lookahead_states, head);
+  array_push(&self->lookahead_states, lookahead_state);
   return result;
 }
 
 static void ts_parser__remove_head(TSParser *self, int head) {
-  vector_erase(&self->lookahead_states, head);
+  array_erase(&self->lookahead_states, head);
   ts_stack_remove_head(self->stack, head);
 }
 
@@ -278,7 +278,7 @@ static ParseActionResult ts_parser__shift(TSParser *self, int head,
       return FailedToUpdateStackHead;
     case StackPushResultMerged:
       LOG("merge head:%d", head);
-      vector_erase(&self->lookahead_states, head);
+      array_erase(&self->lookahead_states, head);
       return RemovedStackHead;
     default:
       return UpdatedStackHead;
@@ -307,10 +307,10 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
                                            TSSymbol symbol, int child_count,
                                            bool extra, bool fragile,
                                            bool count_extra) {
-  vector_clear(&self->reduce_parents);
+  array_clear(&self->reduce_parents);
   const TSSymbolMetadata *all_metadata = self->language->symbol_metadata;
   TSSymbolMetadata metadata = all_metadata[symbol];
-  StackPopResultVector pop_results =
+  StackPopResultArray pop_results =
     ts_stack_pop(self->stack, head, child_count, count_extra);
   if (!pop_results.size)
     return FailedToUpdateStackHead;
@@ -358,7 +358,7 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
       }
     }
 
-    if (!vector_push(&self->reduce_parents, parent))
+    if (!array_push(&self->reduce_parents, parent))
       goto error;
 
     int new_head = pop_result->head_index - removed_heads;
@@ -376,9 +376,8 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
        *  the lookahead state for this head, for the new head.
        */
       LOG("split_during_reduce new_head:%d", new_head);
-      LookaheadState lookahead_state =
-        *vector_get(&self->lookahead_states, head);
-      if (!vector_push(&self->lookahead_states, lookahead_state))
+      LookaheadState lookahead_state = *array_get(&self->lookahead_states, head);
+      if (!array_push(&self->lookahead_states, lookahead_state))
         goto error;
     }
 
@@ -417,7 +416,7 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
         goto error;
       case StackPushResultMerged:
         LOG("merge_during_reduce head:%d", new_head);
-        vector_erase(&self->lookahead_states, new_head);
+        array_erase(&self->lookahead_states, new_head);
         removed_heads++;
         continue;
       case StackPushResultContinued:
@@ -432,7 +431,7 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
           case StackPushResultFailed:
             return FailedToUpdateStackHead;
           case StackPushResultMerged:
-            vector_erase(&self->lookahead_states, new_head);
+            array_erase(&self->lookahead_states, new_head);
             removed_heads++;
             break;
           case StackPushResultContinued:
@@ -444,7 +443,7 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
   }
 
   for (size_t i = 0; i < self->reduce_parents.size; i++) {
-    TSTree **parent = vector_get(&self->reduce_parents, i);
+    TSTree **parent = array_get(&self->reduce_parents, i);
 
     if (fragile || self->is_split || ts_stack_head_count(self->stack) > 1) {
       (*parent)->fragile_left = true;
@@ -564,14 +563,14 @@ static ParseActionResult ts_parser__start(TSParser *self, TSInput input,
     .reusable_subtree_pos = 0,
     .is_verifying = false,
   };
-  vector_clear(&self->lookahead_states);
-  vector_push(&self->lookahead_states, lookahead_state);
+  array_clear(&self->lookahead_states);
+  array_push(&self->lookahead_states, lookahead_state);
   self->finished_tree = NULL;
   return UpdatedStackHead;
 }
 
 static ParseActionResult ts_parser__accept(TSParser *self, int head) {
-  StackPopResultVector pop_results = ts_stack_pop(self->stack, head, -1, true);
+  StackPopResultArray pop_results = ts_stack_pop(self->stack, head, -1, true);
   if (!pop_results.size)
     goto error;
 
@@ -622,7 +621,7 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
 
 error:
   if (pop_results.size) {
-    StackPopResult *pop_result = vector_front(&pop_results);
+    StackPopResult *pop_result = array_front(&pop_results);
     for (size_t i = 0; i < pop_result->tree_count; i++)
       ts_tree_release(pop_result->trees[i]);
     ts_free(pop_result->trees);
@@ -661,7 +660,7 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
       }
 
       LookaheadState *lookahead_state =
-        vector_get(&self->lookahead_states, current_head);
+        array_get(&self->lookahead_states, current_head);
 
       // TODO: Remove this by making a separate symbol for errors returned from
       // the lexer.
@@ -745,17 +744,17 @@ bool ts_parser_init(TSParser *self) {
   ts_lexer_init(&self->lexer);
   self->finished_tree = NULL;
   self->stack = NULL;
-  vector_init(&self->lookahead_states);
-  vector_init(&self->reduce_parents);
+  array_init(&self->lookahead_states);
+  array_init(&self->reduce_parents);
 
   self->stack = ts_stack_new();
   if (!self->stack)
     goto error;
 
-  if (!vector_grow(&self->lookahead_states, 4))
+  if (!array_grow(&self->lookahead_states, 4))
     goto error;
 
-  if (!vector_grow(&self->reduce_parents, 4))
+  if (!array_grow(&self->reduce_parents, 4))
     goto error;
 
   return true;
@@ -766,9 +765,9 @@ error:
     self->stack = NULL;
   }
   if (self->lookahead_states.contents)
-    vector_delete(&self->lookahead_states);
+    array_delete(&self->lookahead_states);
   if (self->reduce_parents.contents)
-    vector_delete(&self->reduce_parents);
+    array_delete(&self->reduce_parents);
   return false;
 }
 
@@ -776,9 +775,9 @@ void ts_parser_destroy(TSParser *self) {
   if (self->stack)
     ts_stack_delete(self->stack);
   if (self->lookahead_states.contents)
-    vector_delete(&self->lookahead_states);
+    array_delete(&self->lookahead_states);
   if (self->reduce_parents.contents)
-    vector_delete(&self->reduce_parents);
+    array_delete(&self->reduce_parents);
 }
 
 TSDebugger ts_parser_debugger(const TSParser *self) {

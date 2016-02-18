@@ -42,5 +42,5 @@ TSInput ts_string_input_make(const char *string) {
   };
 
 error:
-  return (TSInput){NULL, NULL, NULL, TSInputEncodingUTF8};
+  return (TSInput){ NULL, NULL, NULL, TSInputEncodingUTF8 };
 }

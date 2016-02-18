@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 #include "runtime/stack.h"
-#include "runtime/vector.h"
+#include "runtime/array.h"
 
 typedef struct LookaheadState LookaheadState;
 
@@ -14,8 +14,8 @@ typedef struct {
   TSLexer lexer;
   Stack *stack;
   const TSLanguage *language;
-  Vector(LookaheadState) lookahead_states;
-  Vector(TSTree *) reduce_parents;
+  Array(LookaheadState) lookahead_states;
+  Array(TSTree *) reduce_parents;
   TSTree *finished_tree;
   bool is_split;
 } TSParser;
