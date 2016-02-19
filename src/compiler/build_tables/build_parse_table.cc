@@ -131,6 +131,12 @@ class ParseTableBuilder {
     auto pair = parse_state_ids.find(item_set);
     if (pair == parse_state_ids.end()) {
       ParseStateId state_id = parse_table.add_state();
+      for (const auto &entry : item_set.entries) {
+        const ParseItem &item = entry.first;
+        if (item.step_index > 0 && item.lhs() != rules::START())
+          parse_table.states[state_id].in_progress_symbols.insert(item.lhs());
+      }
+
       parse_state_ids[item_set] = state_id;
       item_sets_to_process.push_back({ item_set, state_id });
       return state_id;

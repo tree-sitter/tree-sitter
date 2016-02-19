@@ -74,7 +74,9 @@ class CCodeGenerator {
   const LexicalGrammar lexical_grammar;
   map<string, string> sanitized_names;
   vector<pair<size_t, vector<ParseAction>>> parse_actions;
+  vector<pair<size_t, set<rules::Symbol>>> in_progress_symbols;
   size_t next_parse_action_list_index;
+  size_t next_in_progress_symbol_list_index;
 
  public:
   CCodeGenerator(string name, const ParseTable &parse_table,
@@ -86,7 +88,8 @@ class CCodeGenerator {
         lex_table(lex_table),
         syntax_grammar(syntax_grammar),
         lexical_grammar(lexical_grammar),
-        next_parse_action_list_index(0) {}
+        next_parse_action_list_index(0),
+        next_in_progress_symbol_list_index(0) {}
 
   string code() {
     buffer = "";
@@ -100,6 +103,7 @@ class CCodeGenerator {
     add_lex_states_list();
     add_out_of_context_parse_states_list();
     add_parse_table();
+    add_in_progress_symbol_table();
     add_parser_export();
 
     return buffer;
@@ -233,7 +237,7 @@ class CCodeGenerator {
   }
 
   void add_parse_table() {
-    add_parse_actions({ ParseAction::Error() });
+    add_parse_action_list_id({ ParseAction::Error() });
 
     size_t state_id = 0;
     line("#pragma GCC diagnostic push");
@@ -247,7 +251,7 @@ class CCodeGenerator {
         indent([&]() {
           for (const auto &pair : state.actions) {
             line("[" + symbol_id(pair.first) + "] = ");
-            add(to_string(add_parse_actions(pair.second)));
+            add(to_string(add_parse_action_list_id(pair.second)));
             add(",");
           }
         });
@@ -260,6 +264,25 @@ class CCodeGenerator {
     add_parse_action_list();
     line();
     line("#pragma GCC diagnostic pop");
+    line();
+  }
+
+  void add_in_progress_symbol_table() {
+    line("static unsigned short ts_in_progress_symbol_table[] = {");
+
+    indent([&]() {
+      size_t state_id = 0;
+      for (const ParseState &state : parse_table.states) {
+        line("[" + to_string(state_id) + "] = ");
+        add(to_string(add_in_progress_symbol_list_id(state.in_progress_symbols)));
+        add(",");
+        state_id++;
+      }
+    });
+
+    line("};");
+    line();
+    add_in_progress_symbols_list();
     line();
   }
 
@@ -345,7 +368,6 @@ class CCodeGenerator {
              to_string(pair.second.size()) + "},");
 
         for (const ParseAction &action : pair.second) {
-          index++;
           add(" ");
           switch (action.type) {
             case ParseActionTypeError:
@@ -383,7 +405,27 @@ class CCodeGenerator {
     line("};");
   }
 
-  size_t add_parse_actions(const vector<ParseAction> &actions) {
+  void add_in_progress_symbols_list() {
+    line("static TSInProgressSymbolEntry ts_in_progress_symbols[] = {");
+
+    indent([&]() {
+      for (const auto &pair : in_progress_symbols) {
+        size_t index = pair.first;
+        line("[" + to_string(index) + "] = {.count = " +
+             to_string(pair.second.size()) + "},");
+
+        for (const rules::Symbol &symbol : pair.second) {
+          add(" ");
+          add("{" + symbol_id(symbol) + "}");
+          add(",");
+        }
+      }
+    });
+
+    line("};");
+  }
+
+  size_t add_parse_action_list_id(const vector<ParseAction> &actions) {
     for (const auto &pair : parse_actions) {
       if (pair.second == actions) {
         return pair.first;
@@ -393,6 +435,19 @@ class CCodeGenerator {
     size_t result = next_parse_action_list_index;
     parse_actions.push_back({ next_parse_action_list_index, actions });
     next_parse_action_list_index += 1 + actions.size();
+    return result;
+  }
+
+  size_t add_in_progress_symbol_list_id(const set<rules::Symbol> &symbols) {
+    for (const auto &pair : in_progress_symbols) {
+      if (pair.second == symbols) {
+        return pair.first;
+      }
+    }
+
+    size_t result = next_in_progress_symbol_list_index;
+    in_progress_symbols.push_back({ result, symbols });
+    next_in_progress_symbol_list_index += 1 + symbols.size();
     return result;
   }
 

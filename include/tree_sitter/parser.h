@@ -80,12 +80,19 @@ typedef union {
   unsigned int count;
 } TSParseActionEntry;
 
+typedef union {
+  TSSymbol symbol;
+  unsigned int count;
+} TSInProgressSymbolEntry;
+
 struct TSLanguage {
   size_t symbol_count;
   const char **symbol_names;
   const TSSymbolMetadata *symbol_metadata;
   const unsigned short *parse_table;
   const TSParseActionEntry *parse_actions;
+  const unsigned short *in_progress_symbol_table;
+  const TSInProgressSymbolEntry *in_progress_symbols;
   const TSStateId *lex_states;
   TSTree *(*lex_fn)(TSLexer *, TSStateId, bool);
 };
@@ -181,19 +188,21 @@ enum {
     { .type = TSParseActionTypeAccept } \
   }
 
-#define EXPORT_LANGUAGE(language_name)                     \
-  static TSLanguage language = {                           \
-    .symbol_count = SYMBOL_COUNT,                          \
-    .symbol_metadata = ts_symbol_metadata,                 \
-    .parse_table = (const unsigned short *)ts_parse_table, \
-    .parse_actions = ts_parse_actions,                     \
-    .lex_states = ts_lex_states,                           \
-    .symbol_names = ts_symbol_names,                       \
-    .lex_fn = ts_lex,                                      \
-  };                                                       \
-                                                           \
-  const TSLanguage *language_name() {                      \
-    return &language;                                      \
+#define EXPORT_LANGUAGE(language_name)                       \
+  static TSLanguage language = {                             \
+    .symbol_count = SYMBOL_COUNT,                            \
+    .symbol_metadata = ts_symbol_metadata,                   \
+    .parse_table = (const unsigned short *)ts_parse_table,   \
+    .parse_actions = ts_parse_actions,                       \
+    .in_progress_symbol_table = ts_in_progress_symbol_table, \
+    .in_progress_symbols = ts_in_progress_symbols,           \
+    .lex_states = ts_lex_states,                             \
+    .symbol_names = ts_symbol_names,                         \
+    .lex_fn = ts_lex,                                        \
+  };                                                         \
+                                                             \
+  const TSLanguage *language_name() {                        \
+    return &language;                                        \
   }
 
 #ifdef __cplusplus
