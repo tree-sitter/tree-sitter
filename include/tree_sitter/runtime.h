@@ -8,6 +8,10 @@ extern "C" {
 #include <stdlib.h>
 #include <stdbool.h>
 
+typedef unsigned short TSSymbol;
+typedef struct TSLanguage TSLanguage;
+typedef struct TSDocument TSDocument;
+
 typedef enum {
   TSInputEncodingUTF8,
   TSInputEncodingUTF16,
@@ -46,9 +50,11 @@ typedef struct {
   size_t offset[3];
 } TSNode;
 
-typedef unsigned short TSSymbol;
-typedef struct TSLanguage TSLanguage;
-typedef struct TSDocument TSDocument;
+typedef struct {
+  TSSymbol value;
+  bool done;
+  void *data;
+} TSSymbolIterator;
 
 size_t ts_node_start_char(TSNode);
 size_t ts_node_start_byte(TSNode);
@@ -57,6 +63,8 @@ size_t ts_node_end_char(TSNode);
 size_t ts_node_end_byte(TSNode);
 TSPoint ts_node_end_point(TSNode);
 TSSymbol ts_node_symbol(TSNode);
+TSSymbolIterator ts_node_symbols(TSNode);
+void ts_symbol_iterator_next(TSSymbolIterator *);
 const char *ts_node_name(TSNode, const TSDocument *);
 char *ts_node_string(TSNode, const TSDocument *);
 bool ts_node_eq(TSNode, TSNode);
@@ -90,7 +98,7 @@ TSNode ts_document_root_node(const TSDocument *);
 size_t ts_document_parse_count(const TSDocument *);
 
 size_t ts_language_symbol_count(const TSLanguage *);
-const char *ts_language_symbol_name(TSLanguage *, TSSymbol);
+const char *ts_language_symbol_name(const TSLanguage *, TSSymbol);
 
 #define ts_builtin_sym_error 0
 #define ts_builtin_sym_end 1

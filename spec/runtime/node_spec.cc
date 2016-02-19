@@ -133,6 +133,35 @@ describe("Node", []() {
     });
   });
 
+  describe("symbols()", [&]() {
+    it("returns an iterator that yields each of the node's symbols", [&]() {
+      const TSLanguage *language = ts_document_language(document);
+
+      TSSymbolIterator iterator = ts_node_symbols(array_node);
+      AssertThat(iterator.done, Equals(false));
+      AssertThat(ts_language_symbol_name(language, iterator.value), Equals("array"));
+
+      ts_symbol_iterator_next(&iterator);
+      AssertThat(iterator.done, Equals(false));
+      AssertThat(ts_language_symbol_name(language, iterator.value), Equals("_value"));
+
+      ts_symbol_iterator_next(&iterator);
+      AssertThat(iterator.done, Equals(true));
+
+      TSNode false_node = ts_node_descendant_for_range(array_node, false_index, false_index + 1);
+      iterator = ts_node_symbols(false_node);
+      AssertThat(iterator.done, Equals(false));
+      AssertThat(ts_language_symbol_name(language, iterator.value), Equals("false"));
+
+      ts_symbol_iterator_next(&iterator);
+      AssertThat(iterator.done, Equals(false));
+      AssertThat(ts_language_symbol_name(language, iterator.value), Equals("_value"));
+
+      ts_symbol_iterator_next(&iterator);
+      AssertThat(iterator.done, Equals(true));
+    });
+  });
+
   describe("child_count(), child(i)", [&]() {
     it("returns the child node at the given index, including anonymous nodes", [&]() {
       AssertThat(ts_node_child_count(array_node), Equals<size_t>(7));
