@@ -94,6 +94,7 @@ struct TSLanguage {
   const unsigned short *in_progress_symbol_table;
   const TSInProgressSymbolEntry *in_progress_symbols;
   const TSStateId *lex_states;
+  const TSStateId *out_of_context_states;
   TSTree *(*lex_fn)(TSLexer *, TSStateId, bool);
 };
 
@@ -196,6 +197,7 @@ enum {
     .parse_actions = ts_parse_actions,                       \
     .in_progress_symbol_table = ts_in_progress_symbol_table, \
     .in_progress_symbols = ts_in_progress_symbols,           \
+    .out_of_context_states = ts_out_of_context_states,       \
     .lex_states = ts_lex_states,                             \
     .symbol_names = ts_symbol_names,                         \
     .lex_fn = ts_lex,                                        \
