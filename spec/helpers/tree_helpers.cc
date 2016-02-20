@@ -1,4 +1,6 @@
 #include "helpers/tree_helpers.h"
+#include "runtime/document.h"
+#include "runtime/node.h"
 #include <ostream>
 
 using std::string;
@@ -12,6 +14,7 @@ static const char *symbol_names[24] = {
   "twenty-two", "twenty-three"
 };
 
+
 TSTree ** tree_array(std::vector<TSTree *> trees) {
   TSTree ** result = (TSTree **)calloc(trees.size(), sizeof(TSTree *));
   for (size_t i = 0; i < trees.size(); i++)
@@ -20,7 +23,13 @@ TSTree ** tree_array(std::vector<TSTree *> trees) {
 }
 
 ostream &operator<<(std::ostream &stream, const TSTree *tree) {
-  return stream << string(ts_tree_string(tree, symbol_names, true));;
+  static TSLanguage DUMMY_LANGUAGE = {};
+  static TSDocument DUMMY_DOCUMENT = {};
+  DUMMY_DOCUMENT.parser.language = &DUMMY_LANGUAGE;
+  DUMMY_LANGUAGE.symbol_names = symbol_names;
+  TSNode node;
+  node.data = tree;
+  return stream << string(ts_node_string(node, &DUMMY_DOCUMENT));
 }
 
 ostream &operator<<(ostream &stream, const TSNode &node) {

@@ -1,8 +1,6 @@
 #include <assert.h>
 #include <limits.h>
-#include <string.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include "tree_sitter/parser.h"
 #include "runtime/alloc.h"
 #include "runtime/tree.h"
@@ -233,63 +231,6 @@ int ts_tree_compare(const TSTree *left, const TSTree *right) {
     }
   }
   return 0;
-}
-
-static size_t write_lookahead_to_string(char *string, size_t limit,
-                                        char lookahead) {
-  switch (lookahead) {
-    case '\0':
-      return snprintf(string, limit, "<EOF>");
-    default:
-      return snprintf(string, limit, "'%c'", lookahead);
-  }
-}
-
-static size_t ts_tree__write_to_string(const TSTree *self,
-                                       const char **symbol_names, char *string,
-                                       size_t limit, bool is_root,
-                                       bool include_anonymous) {
-  if (!self)
-    return snprintf(string, limit, "(NULL)");
-
-  char *cursor = string;
-  char **writer = (limit > 0) ? &cursor : &string;
-  bool visible =
-    is_root || (self->visible && (include_anonymous || self->named));
-
-  if (visible && !is_root)
-    cursor += snprintf(*writer, limit, " ");
-
-  if (visible) {
-    if (self->symbol == ts_builtin_sym_error && self->child_count == 0) {
-      cursor += snprintf(*writer, limit, "(UNEXPECTED ");
-      cursor += write_lookahead_to_string(*writer, limit, self->lookahead_char);
-    } else {
-      cursor += snprintf(*writer, limit, "(%s", symbol_names[self->symbol]);
-    }
-  }
-
-  for (size_t i = 0; i < self->child_count; i++) {
-    TSTree *child = self->children[i];
-    cursor += ts_tree__write_to_string(child, symbol_names, *writer, limit,
-                                       false, include_anonymous);
-  }
-
-  if (visible)
-    cursor += snprintf(*writer, limit, ")");
-
-  return cursor - string;
-}
-
-char *ts_tree_string(const TSTree *self, const char **symbol_names,
-                     bool include_anonymous) {
-  static char SCRATCH[1];
-  size_t size = 1 + ts_tree__write_to_string(self, symbol_names, SCRATCH, 0,
-                                             true, include_anonymous);
-  char *result = ts_malloc(size * sizeof(char));
-  ts_tree__write_to_string(self, symbol_names, result, size, true,
-                           include_anonymous);
-  return result;
 }
 
 static inline long min(long a, long b) {

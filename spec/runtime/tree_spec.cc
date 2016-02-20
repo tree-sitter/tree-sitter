@@ -345,42 +345,6 @@ describe("Tree", []() {
       ts_tree_release(different_parent);
     });
   });
-
-  describe("serialization", [&]() {
-    it("returns a readable string", [&]() {
-      char *string1 = ts_tree_string(tree1, names, true);
-      AssertThat(string(string1), Equals("(cat)"));
-      free(string1);
-
-      char *string2 = ts_tree_string(parent1, names, true);
-      AssertThat(string(string2), Equals("(dog (cat) (cat))"));
-      free(string2);
-    });
-
-    it("hides invisible nodes", [&]() {
-      tree2->visible = false;
-
-      char *string1 = ts_tree_string(parent1, names, true);
-      AssertThat(string(string1), Equals("(dog (cat))"));
-      free(string1);
-    });
-
-    describe("when the root node is not visible", [&]() {
-      it("still serializes it", [&]() {
-        parent1->visible = false;
-
-        char *string1 = ts_tree_string(parent1, names, true);
-        AssertThat(string(string1), Equals("(dog (cat) (cat))"));
-        free(string1);
-
-        tree1->visible = false;
-
-        char *string2 = ts_tree_string(tree1, names, true);
-        AssertThat(string(string2), Equals("(cat)"));
-        free(string2);
-      });
-    });
-  });
 });
 
 END_TEST
