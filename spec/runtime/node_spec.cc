@@ -159,6 +159,14 @@ describe("Node", []() {
 
       ts_symbol_iterator_next(&iterator);
       AssertThat(iterator.done, Equals(true));
+
+      TSNode comma_node = ts_node_descendant_for_range(array_node, number_end_index, number_end_index);
+      iterator = ts_node_symbols(comma_node);
+      AssertThat(iterator.done, Equals(false));
+      AssertThat(ts_language_symbol_name(language, iterator.value), Equals(","));
+
+      ts_symbol_iterator_next(&iterator);
+      AssertThat(iterator.done, Equals(true));
     });
   });
 
