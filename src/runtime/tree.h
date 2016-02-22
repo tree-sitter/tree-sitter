@@ -8,6 +8,7 @@ extern "C" {
 #include <stdbool.h>
 #include "tree_sitter/parser.h"
 #include "runtime/length.h"
+#include "runtime/array.h"
 
 extern TSStateId TS_TREE_STATE_INDEPENDENT;
 extern TSStateId TS_TREE_STATE_ERROR;
@@ -41,6 +42,8 @@ struct TSTree {
   bool fragile_right : 1;
   bool has_changes : 1;
 };
+
+typedef Array(TSTree *) TreeArray;
 
 TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, TSSymbolMetadata);
 TSTree *ts_tree_make_node(TSSymbol, size_t, TSTree **, TSSymbolMetadata);

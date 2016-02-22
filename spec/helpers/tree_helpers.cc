@@ -41,6 +41,15 @@ bool operator==(const TSNode &left, const TSNode &right) {
   return ts_node_eq(left, right);
 }
 
+bool operator==(const std::vector<TSTree *> &vec, const TreeArray &array) {
+  if (vec.size() != array.size)
+    return false;
+  for (size_t i = 0; i < array.size; i++)
+    if (array.contents[i] != vec[i])
+      return false;
+  return true;
+}
+
 ostream &operator<<(ostream &stream, const TSLength &length) {
   return stream << "{chars:" << length.chars << ", bytes:" <<
     length.bytes << ", rows:" << length.rows << ", columns:" << length.columns << "}";

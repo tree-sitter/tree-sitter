@@ -7,6 +7,7 @@ extern "C" {
 
 #include "tree_sitter/parser.h"
 #include "runtime/array.h"
+#include "runtime/tree.h"
 
 typedef struct Stack Stack;
 
@@ -15,8 +16,6 @@ typedef struct {
   TSStateId state;
   TSLength position;
 } StackEntry;
-
-typedef Array(TSTree *) TreeArray;
 
 typedef struct {
   TreeArray trees;
