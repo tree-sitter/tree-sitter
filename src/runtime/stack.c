@@ -19,8 +19,6 @@ typedef struct StackNode {
   short unsigned int ref_count;
 } StackNode;
 
-typedef Array(TSTree *) TreeArray;
-
 typedef struct {
   size_t goal_tree_count;
   StackNode *node;
@@ -197,21 +195,21 @@ static void ts_stack__add_alternative_tree(Stack *self, StackNode *node,
 }
 
 static void ts_stack__clear_pop_result(Stack *self, StackPopResult *result) {
-  for (size_t i = 0; i < result->tree_count; i++)
-    ts_tree_release(result->trees[i]);
-  ts_free(result->trees);
+  for (size_t i = 0; i < result->trees.size; i++)
+    ts_tree_release(result->trees.contents[i]);
+  array_delete(&result->trees);
 }
 
 static void ts_stack__add_alternative_pop_result(Stack *self,
                                                  StackPopResult *result,
                                                  StackPopResult *new_result) {
   bool should_update = false;
-  if (result->tree_count < new_result->tree_count) {
+  if (result->trees.size < new_result->trees.size) {
     should_update = true;
-  } else if (result->tree_count == new_result->tree_count) {
-    for (size_t i = 0; i < result->tree_count; i++) {
-      TSTree *tree = result->trees[i];
-      TSTree *new_tree = new_result->trees[i];
+  } else if (result->trees.size == new_result->trees.size) {
+    for (size_t i = 0; i < result->trees.size; i++) {
+      TSTree *tree = result->trees.contents[i];
+      TSTree *new_tree = new_result->trees.contents[i];
       int comparison = self->tree_selection_function(
         self->tree_selection_payload, tree, new_tree);
       if (comparison < 0) {
@@ -226,7 +224,7 @@ static void ts_stack__add_alternative_pop_result(Stack *self,
   if (should_update) {
     ts_stack__clear_pop_result(self, result);
     result->trees = new_result->trees;
-    result->tree_count = new_result->tree_count;
+    result->trees.size = new_result->trees.size;
   } else {
     ts_stack__clear_pop_result(self, new_result);
   }
@@ -394,8 +392,7 @@ StackPopResultArray ts_stack_pop(Stack *self, int head_index, int child_count,
       array_reverse(&path->trees);
 
     StackPopResult result = {
-      .trees = path->trees.contents,
-      .tree_count = path->trees.size,
+      .trees = path->trees,
       .head_index = -1,
     };
 

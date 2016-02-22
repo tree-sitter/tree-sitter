@@ -16,9 +16,10 @@ typedef struct {
   TSLength position;
 } StackEntry;
 
+typedef Array(TSTree *) TreeArray;
+
 typedef struct {
-  TSTree **trees;
-  size_t tree_count;
+  TreeArray trees;
   int head_index;
 } StackPopResult;
 

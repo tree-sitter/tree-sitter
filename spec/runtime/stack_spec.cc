@@ -39,21 +39,21 @@ int tree_selection_spy_callback(void *data, TSTree *left, TSTree *right) {
 
 void free_pop_results(StackPopResultArray *pop_results) {
   for (size_t i = 0; i < pop_results->size; i++) {
-    StackPopResult *pop_result = &pop_results->contents[i];
+    StackPopResult pop_result = pop_results->contents[i];
 
     bool matches_prior_trees = false;
     for (size_t j = 0; j < i; j++) {
-      StackPopResult *prior_result = &pop_results->contents[j];
-      if (pop_result->trees == prior_result->trees) {
+      StackPopResult prior_result = pop_results->contents[j];
+      if (pop_result.trees.contents == prior_result.trees.contents) {
         matches_prior_trees = true;
         break;
       }
     }
 
     if (!matches_prior_trees) {
-      for (size_t j = 0; j < pop_result->tree_count; j++)
-        ts_tree_release(pop_result->trees[j]);
-      ts_free(pop_result->trees);
+      for (size_t j = 0; j < pop_result.trees.size; j++)
+        ts_tree_release(pop_result.trees.contents[j]);
+      array_delete(&pop_result.trees);
     }
   }
 }
@@ -145,9 +145,9 @@ describe("Stack", [&]() {
       AssertThat(results.size, Equals<size_t>(1));
 
       StackPopResult result = results.contents[0];
-      AssertThat(result.tree_count, Equals<size_t>(2));
-      AssertThat(result.trees[0], Equals(trees[1]));
-      AssertThat(result.trees[1], Equals(trees[2]));
+      AssertThat(result.trees.size, Equals<size_t>(2));
+      AssertThat(result.trees.contents[0], Equals(trees[1]));
+      AssertThat(result.trees.contents[1], Equals(trees[2]));
       AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({trees[0], stateA, tree_len}));
       free_pop_results(&results);
 
@@ -158,8 +158,8 @@ describe("Stack", [&]() {
       AssertThat(results.size, Equals<size_t>(1));
 
       result = results.contents[0];
-      AssertThat(result.tree_count, Equals<size_t>(1));
-      AssertThat(result.trees[0], Equals(trees[0]));
+      AssertThat(result.trees.size, Equals<size_t>(1));
+      AssertThat(result.trees.contents[0], Equals(trees[0]));
       AssertThat(ts_stack_head(stack, 0), Equals<const StackEntry *>(nullptr));
 
       free_pop_results(&results);
@@ -172,10 +172,10 @@ describe("Stack", [&]() {
       AssertThat(results.size, Equals<size_t>(1));
 
       StackPopResult result = results.contents[0];
-      AssertThat(result.tree_count, Equals<size_t>(3));
-      AssertThat(result.trees[0], Equals(trees[0]));
-      AssertThat(result.trees[1], Equals(trees[1]));
-      AssertThat(result.trees[2], Equals(trees[2]));
+      AssertThat(result.trees.size, Equals<size_t>(3));
+      AssertThat(result.trees.contents[0], Equals(trees[0]));
+      AssertThat(result.trees.contents[1], Equals(trees[1]));
+      AssertThat(result.trees.contents[2], Equals(trees[2]));
       AssertThat(ts_stack_head(stack, 0), Equals<const StackEntry *>(nullptr));
 
       free_pop_results(&results);
@@ -186,10 +186,10 @@ describe("Stack", [&]() {
       AssertThat(results.size, Equals<size_t>(1));
 
       StackPopResult result = results.contents[0];
-      AssertThat(result.tree_count, Equals<size_t>(3));
-      AssertThat(result.trees[0], Equals(trees[0]));
-      AssertThat(result.trees[1], Equals(trees[1]));
-      AssertThat(result.trees[2], Equals(trees[2]));
+      AssertThat(result.trees.size, Equals<size_t>(3));
+      AssertThat(result.trees.contents[0], Equals(trees[0]));
+      AssertThat(result.trees.contents[1], Equals(trees[1]));
+      AssertThat(result.trees.contents[2], Equals(trees[2]));
 
       free_pop_results(&results);
     });
@@ -220,7 +220,7 @@ describe("Stack", [&]() {
       AssertThat(*ts_stack_head(stack, 1), Equals<StackEntry>({trees[1], stateB, tree_len * 2}));
       AssertThat(pop_results.size, Equals<size_t>(1));
       StackPopResult pop_result = pop_results.contents[0];
-      AssertThat(pop_result.tree_count, Equals<size_t>(1));
+      AssertThat(pop_result.trees.size, Equals<size_t>(1));
       free_pop_results(&pop_results);
 
       /*
@@ -386,15 +386,15 @@ describe("Stack", [&]() {
         AssertThat(results.size, Equals<size_t>(2));
         StackPopResult pop1 = results.contents[0];
         AssertThat(pop1.head_index, Equals(0));
-        AssertThat(pop1.tree_count, Equals<size_t>(2));
-        AssertThat(pop1.trees[0], Equals(trees[3]));
-        AssertThat(pop1.trees[1], Equals(trees[6]));
+        AssertThat(pop1.trees.size, Equals<size_t>(2));
+        AssertThat(pop1.trees.contents[0], Equals(trees[3]));
+        AssertThat(pop1.trees.contents[1], Equals(trees[6]));
 
         StackPopResult pop2 = results.contents[1];
         AssertThat(pop2.head_index, Equals(1));
-        AssertThat(pop2.tree_count, Equals<size_t>(2));
-        AssertThat(pop2.trees[0], Equals(trees[5]));
-        AssertThat(pop2.trees[1], Equals(trees[6]));
+        AssertThat(pop2.trees.size, Equals<size_t>(2));
+        AssertThat(pop2.trees.contents[0], Equals(trees[5]));
+        AssertThat(pop2.trees.contents[1], Equals(trees[6]));
 
         AssertThat(ts_stack_head_count(stack), Equals(2));
         AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({trees[2], stateC, tree_len * 3}));
@@ -445,15 +445,15 @@ describe("Stack", [&]() {
         AssertThat(results.size, Equals<size_t>(2));
         StackPopResult pop1 = results.contents[0];
         AssertThat(pop1.head_index, Equals(0));
-        AssertThat(pop1.tree_count, Equals<size_t>(2));
-        AssertThat(pop1.trees[0], Equals(trees[6]));
-        AssertThat(pop1.trees[1], Equals(trees[7]));
+        AssertThat(pop1.trees.size, Equals<size_t>(2));
+        AssertThat(pop1.trees.contents[0], Equals(trees[6]));
+        AssertThat(pop1.trees.contents[1], Equals(trees[7]));
 
         StackPopResult pop2 = results.contents[1];
         AssertThat(pop2.head_index, Equals(1));
-        AssertThat(pop2.tree_count, Equals<size_t>(2));
-        AssertThat(pop2.trees[0], Equals(trees[6]));
-        AssertThat(pop2.trees[1], Equals(trees[7]));
+        AssertThat(pop2.trees.size, Equals<size_t>(2));
+        AssertThat(pop2.trees.contents[0], Equals(trees[6]));
+        AssertThat(pop2.trees.contents[1], Equals(trees[7]));
 
         free_pop_results(&results);
       });
@@ -473,9 +473,9 @@ describe("Stack", [&]() {
 
           AssertThat(results.size, Equals<size_t>(1));
           StackPopResult pop1 = results.contents[0];
-          AssertThat(pop1.tree_count, Equals<size_t>(3));
+          AssertThat(pop1.trees.size, Equals<size_t>(3));
           AssertThat(pop1.head_index, Equals(0));
-          AssertThat(pop1.trees[0], Equals(trees[2]));
+          AssertThat(pop1.trees.contents[0], Equals(trees[2]));
 
           free_pop_results(&results);
         });
@@ -494,9 +494,9 @@ describe("Stack", [&]() {
 
           AssertThat(results.size, Equals<size_t>(1));
           StackPopResult pop1 = results.contents[0];
-          AssertThat(pop1.tree_count, Equals<size_t>(3));
+          AssertThat(pop1.trees.size, Equals<size_t>(3));
           AssertThat(pop1.head_index, Equals(0));
-          AssertThat(pop1.trees[0], Equals(trees[4]));
+          AssertThat(pop1.trees.contents[0], Equals(trees[4]));
 
           free_pop_results(&results);
         });
@@ -548,21 +548,21 @@ describe("Stack", [&]() {
         StackPopResult pop1 = results.contents[0];
         AssertThat(ts_stack_top_tree(stack, 0), Equals(trees[3]));
         AssertThat(pop1.head_index, Equals(0));
-        AssertThat(pop1.tree_count, Equals<size_t>(2));
-        AssertThat(pop1.trees[0], Equals(trees[8]));
-        AssertThat(pop1.trees[1], Equals(trees[9]));
+        AssertThat(pop1.trees.size, Equals<size_t>(2));
+        AssertThat(pop1.trees.contents[0], Equals(trees[8]));
+        AssertThat(pop1.trees.contents[1], Equals(trees[9]));
 
         StackPopResult pop2 = results.contents[1];
         AssertThat(ts_stack_top_tree(stack, 1), Equals(trees[5]));
         AssertThat(pop2.head_index, Equals(1));
-        AssertThat(pop2.tree_count, Equals<size_t>(2));
-        AssertThat(pop2.trees, Equals(pop1.trees));
+        AssertThat(pop2.trees.size, Equals<size_t>(2));
+        AssertThat(pop2.trees.contents, Equals(pop1.trees.contents));
 
         StackPopResult pop3 = results.contents[2];
         AssertThat(ts_stack_top_tree(stack, 2), Equals(trees[7]));
         AssertThat(pop3.head_index, Equals(2));
-        AssertThat(pop3.tree_count, Equals<size_t>(2));
-        AssertThat(pop3.trees, Equals(pop1.trees));
+        AssertThat(pop3.trees.size, Equals<size_t>(2));
+        AssertThat(pop3.trees.contents, Equals(pop1.trees.contents));
 
         free_pop_results(&results);
       });
@@ -583,26 +583,26 @@ describe("Stack", [&]() {
         StackPopResult pop1 = results.contents[0];
         AssertThat(ts_stack_top_tree(stack, 0), Equals(trees[2]));
         AssertThat(pop1.head_index, Equals(0));
-        AssertThat(pop1.tree_count, Equals<size_t>(3));
-        AssertThat(pop1.trees[0], Equals(trees[3]));
-        AssertThat(pop1.trees[1], Equals(trees[8]));
-        AssertThat(pop1.trees[2], Equals(trees[9]));
+        AssertThat(pop1.trees.size, Equals<size_t>(3));
+        AssertThat(pop1.trees.contents[0], Equals(trees[3]));
+        AssertThat(pop1.trees.contents[1], Equals(trees[8]));
+        AssertThat(pop1.trees.contents[2], Equals(trees[9]));
 
         StackPopResult pop2 = results.contents[1];
         AssertThat(ts_stack_top_tree(stack, 1), Equals(trees[4]));
         AssertThat(pop2.head_index, Equals(1));
-        AssertThat(pop2.tree_count, Equals<size_t>(3));
-        AssertThat(pop2.trees[0], Equals(trees[5]));
-        AssertThat(pop2.trees[1], Equals(trees[8]));
-        AssertThat(pop2.trees[2], Equals(trees[9]));
+        AssertThat(pop2.trees.size, Equals<size_t>(3));
+        AssertThat(pop2.trees.contents[0], Equals(trees[5]));
+        AssertThat(pop2.trees.contents[1], Equals(trees[8]));
+        AssertThat(pop2.trees.contents[2], Equals(trees[9]));
 
         StackPopResult pop3 = results.contents[2];
         AssertThat(ts_stack_top_tree(stack, 2), Equals(trees[6]));
         AssertThat(pop3.head_index, Equals(2));
-        AssertThat(pop3.tree_count, Equals<size_t>(3));
-        AssertThat(pop3.trees[0], Equals(trees[7]));
-        AssertThat(pop3.trees[1], Equals(trees[8]));
-        AssertThat(pop3.trees[2], Equals(trees[9]));
+        AssertThat(pop3.trees.size, Equals<size_t>(3));
+        AssertThat(pop3.trees.contents[0], Equals(trees[7]));
+        AssertThat(pop3.trees.contents[1], Equals(trees[8]));
+        AssertThat(pop3.trees.contents[2], Equals(trees[9]));
 
         free_pop_results(&results);
       });

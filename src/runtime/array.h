@@ -43,6 +43,14 @@ extern "C" {
     array_grow((self), (self)->capacity * 2)) && \
    ((self)->contents[(self)->size++] = (element), true))
 
+#define array_splice(self, index, old_count, new_count, new_elements) \
+  array__splice((VoidArray *)(self),                                  \
+                array__elem_size(self),                               \
+                index,                                                \
+                old_count,                                            \
+                new_count,                                            \
+                new_elements)                                         \
+
 #define array_pop(self) ((self)->contents[--(self)->size])
 
 #define array_reverse(self) \
@@ -92,6 +100,30 @@ static inline bool array__grow(VoidArray *self, size_t element_size,
     return false;
   self->capacity = new_capacity;
   self->contents = new_contents;
+  return true;
+}
+
+static inline bool array__splice(VoidArray *self, size_t element_size,
+                                 size_t index, size_t old_count,
+                                 size_t new_count, void *elements) {
+  assert(index + old_count <= self->size);
+  assert(index < self->size);
+  size_t new_size = self->size + new_count - old_count;
+  size_t old_end = index + old_count;
+  size_t new_end = index + new_count;
+  if (new_size >= self->capacity) {
+    if (!array__grow(self, element_size, new_size))
+      return false;
+  }
+
+  char *contents = (char *)self->contents;
+  if (self->size > old_end)
+    memmove(contents + new_end * element_size,
+            contents + old_end * element_size,
+            (self->size - old_end) * element_size);
+  if (new_count > 0)
+    memcpy((contents + index * element_size), elements, new_count * element_size);
+  self->size += new_count - old_count;
   return true;
 }
 
