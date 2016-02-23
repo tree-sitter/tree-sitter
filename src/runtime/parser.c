@@ -15,8 +15,6 @@
  *  Debugging
  */
 
-bool TS_PARSER_PRINT_STACKS = false;
-
 #define LOG(...)                                                               \
   if (self->lexer.debugger.debug_fn) {                                         \
     snprintf(self->lexer.debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__);     \
@@ -26,14 +24,14 @@ bool TS_PARSER_PRINT_STACKS = false;
 
 #define LOG_ACTION(...)                   \
   LOG(__VA_ARGS__);                       \
-  if (TS_PARSER_PRINT_STACKS) {           \
+  if (self->print_debugging_graphs) {     \
     fprintf(stderr, "graph {\nlabel=\""); \
     fprintf(stderr, __VA_ARGS__);         \
     fprintf(stderr, "\"\n}\n\n");         \
   }
 
 #define LOG_STACK()                                                      \
-  if (TS_PARSER_PRINT_STACKS) {                                          \
+  if (self->print_debugging_graphs) {                                    \
     fputs(ts_stack_dot_graph(self->stack, self->language->symbol_names), \
           stderr);                                                       \
     fputs("\n\n", stderr);                                               \

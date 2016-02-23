@@ -52,6 +52,10 @@ void ts_document_set_debugger(TSDocument *self, TSDebugger debugger) {
   ts_parser_set_debugger(&self->parser, debugger);
 }
 
+void ts_document_print_debugging_graphs(TSDocument *self, bool should_print) {
+  self->parser.print_debugging_graphs = should_print;
+}
+
 TSInput ts_document_input(TSDocument *self) {
   return self->input;
 }
