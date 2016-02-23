@@ -207,9 +207,7 @@ TSSymbol ts_node_symbol(TSNode self) {
 TSSymbolIterator ts_node_symbols(TSNode self) {
   const TSTree *tree = ts_node__tree(self);
   return (TSSymbolIterator){
-    .value = tree->symbol,
-    .done = false,
-    .data = (void *)tree,
+    .value = tree->symbol, .done = false, .data = (void *)tree,
   };
 }
 
@@ -280,7 +278,8 @@ char *ts_node_string(TSNode self, const TSDocument *document) {
   static char SCRATCH[1];
   const TSTree *tree = ts_node__tree(self);
   const char **symbol_names = document->parser.language->symbol_names;
-  size_t size = ts_tree__write_to_string(tree, symbol_names, SCRATCH, 0, true, false) + 1;
+  size_t size =
+    ts_tree__write_to_string(tree, symbol_names, SCRATCH, 0, true, false) + 1;
   char *result = ts_malloc(size * sizeof(char));
   ts_tree__write_to_string(tree, symbol_names, result, size, true, false);
   return result;

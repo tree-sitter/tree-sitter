@@ -43,13 +43,9 @@ extern "C" {
     array_grow((self), (self)->capacity * 2)) && \
    ((self)->contents[(self)->size++] = (element), true))
 
-#define array_splice(self, index, old_count, new_count, new_elements) \
-  array__splice((VoidArray *)(self),                                  \
-                array__elem_size(self),                               \
-                index,                                                \
-                old_count,                                            \
-                new_count,                                            \
-                new_elements)                                         \
+#define array_splice(self, index, old_count, new_count, new_elements)          \
+  array__splice((VoidArray *)(self), array__elem_size(self), index, old_count, \
+                new_count, new_elements)
 
 #define array_pop(self) ((self)->contents[--(self)->size])
 
@@ -118,11 +114,11 @@ static inline bool array__splice(VoidArray *self, size_t element_size,
 
   char *contents = (char *)self->contents;
   if (self->size > old_end)
-    memmove(contents + new_end * element_size,
-            contents + old_end * element_size,
+    memmove(contents + new_end * element_size, contents + old_end * element_size,
             (self->size - old_end) * element_size);
   if (new_count > 0)
-    memcpy((contents + index * element_size), elements, new_count * element_size);
+    memcpy((contents + index * element_size), elements,
+           new_count * element_size);
   self->size += new_count - old_count;
   return true;
 }

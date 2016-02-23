@@ -392,8 +392,7 @@ StackPopResultArray ts_stack_pop(Stack *self, int head_index, int child_count,
       array_reverse(&path->trees);
 
     StackPopResult result = {
-      .trees = path->trees,
-      .head_index = -1,
+      .trees = path->trees, .head_index = -1,
     };
 
     if (i == 0) {
@@ -476,19 +475,27 @@ void ts_stack_delete(Stack *self) {
   ts_free(self);
 }
 
+static const char *graph_colors[] = {
+  "red", "blue", "orange", "green", "purple",
+};
+
 size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
                                  const char **symbol_names) {
   char *cursor = string;
   char **s = n > 0 ? &cursor : &string;
   cursor += snprintf(*s, n, "digraph stack {\n");
   cursor += snprintf(*s, n, "rankdir=\"RL\";\n");
-  cursor += snprintf(*s, n, "node_%p [label=\"0:NULL\"];\n", NULL);
 
   array_clear(&self->pop_paths);
-  for (int i = 0; i < self->heads.size; i++)
+  for (size_t i = 0; i < self->heads.size; i++) {
+    StackNode *node = self->heads.contents[i];
+    const char *color =
+      graph_colors[i % (sizeof(graph_colors) / sizeof(graph_colors[0]))];
+    cursor += snprintf(*s, n, "node_%p [color=%s];\n", node, color);
     array_push(&self->pop_paths, ((PopPath){
-      .node = self->heads.contents[i],
-    }));
+                                   .node = node,
+                                 }));
+  }
 
   bool all_paths_done = false;
   while (!all_paths_done) {
@@ -503,17 +510,19 @@ size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
 
       all_paths_done = false;
 
-      cursor += snprintf(*s, n, "node_%p [label=\"%d:%s\"];\n", node,
-                         node->entry.state,
-                         symbol_names[node->entry.tree->symbol]);
+      cursor +=
+        snprintf(*s, n, "node_%p [label=\"%s\\n%d\"];\n", node,
+                 symbol_names[node->entry.tree->symbol], node->entry.state);
 
       path->node = node->successors[0];
-      cursor += snprintf(*s, n, "node_%p -> node_%p;\n", node, node->successors[0]);
+      cursor +=
+        snprintf(*s, n, "node_%p -> node_%p;\n", node, node->successors[0]);
 
       for (int j = 1; j < node->successor_count; j++) {
         if (!array_push(&self->pop_paths, *path))
           goto error;
-        cursor += snprintf(*s, n, "node_%p -> node_%p;\n", node, node->successors[j]);
+        cursor +=
+          snprintf(*s, n, "node_%p -> node_%p;\n", node, node->successors[j]);
 
         PopPath *next_path = array_back(&self->pop_paths);
         next_path->node = node->successors[j];
@@ -522,6 +531,7 @@ size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
     }
   }
 
+  cursor += snprintf(*s, n, "node_%p [label=\"-\\n0\"];\n", NULL);
   cursor += snprintf(*s, n, "}\n");
 
   return cursor - string;
@@ -534,7 +544,7 @@ char *ts_stack_dot_graph(Stack *self, const char **symbol_names) {
   static char SCRATCH[1];
   char *result = NULL;
   size_t size = ts_stack__write_dot_graph(self, SCRATCH, 0, symbol_names) + 1;
-  if (size == -1)
+  if (size == (size_t)-1)
     goto error;
 
   result = ts_malloc(size * sizeof(char));
@@ -542,7 +552,7 @@ char *ts_stack_dot_graph(Stack *self, const char **symbol_names) {
     goto error;
 
   size = ts_stack__write_dot_graph(self, result, size, symbol_names);
-  if (size == -1)
+  if (size == (size_t)-1)
     goto error;
 
   return result;

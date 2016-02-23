@@ -15,11 +15,28 @@
  *  Debugging
  */
 
+bool TS_PARSER_PRINT_STACKS = false;
+
 #define LOG(...)                                                               \
   if (self->lexer.debugger.debug_fn) {                                         \
     snprintf(self->lexer.debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__);     \
     self->lexer.debugger.debug_fn(self->lexer.debugger.payload,                \
                                   TSDebugTypeParse, self->lexer.debug_buffer); \
+  }
+
+#define LOG_ACTION(...)                   \
+  LOG(__VA_ARGS__);                       \
+  if (TS_PARSER_PRINT_STACKS) {           \
+    fprintf(stderr, "graph {\nlabel=\""); \
+    fprintf(stderr, __VA_ARGS__);         \
+    fprintf(stderr, "\"\n}\n\n");         \
+  }
+
+#define LOG_STACK()                                                      \
+  if (TS_PARSER_PRINT_STACKS) {                                          \
+    fputs(ts_stack_dot_graph(self->stack, self->language->symbol_names), \
+          stderr);                                                       \
+    fputs("\n\n", stderr);                                               \
   }
 
 #define SYM_NAME(sym) self->language->symbol_names[sym]
@@ -345,8 +362,8 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
       }
 
       size_t child_count = pop_result.trees.size - trailing_extra_count;
-      parent =
-        ts_tree_make_node(symbol, child_count, pop_result.trees.contents, metadata);
+      parent = ts_tree_make_node(symbol, child_count, pop_result.trees.contents,
+                                 metadata);
       if (!parent) {
         for (size_t i = 0; i < pop_result.trees.size; i++)
           ts_tree_release(pop_result.trees.contents[i]);
@@ -637,7 +654,7 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
         current_head = head;
       } else {
         current_head = ts_parser__split(self, head);
-        LOG("split_action from_head:%d, new_head:%d", head, current_head);
+        LOG_ACTION("split_action from_head:%d, new_head:%d", head, current_head);
       }
 
       LookaheadState *lookahead_state =
@@ -648,9 +665,11 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
       if (lookahead->symbol == ts_builtin_sym_error)
         action.type = TSParseActionTypeError;
 
+      LOG_STACK();
+
       switch (action.type) {
         case TSParseActionTypeError:
-          LOG("error_sym");
+          LOG_ACTION("error_sym");
           if (lookahead_state->is_verifying) {
             ts_parser__breakdown_top_of_stack(self, current_head);
             lookahead_state->is_verifying = false;
@@ -667,17 +686,17 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
                 return ts_parser__accept(self, current_head);
             }
           } else {
-            LOG("bail current_head:%d", current_head);
+            LOG_ACTION("bail current_head:%d", current_head);
             ts_parser__remove_head(self, current_head);
             return RemovedStackHead;
           }
 
         case TSParseActionTypeShift:
           if (action.extra) {
-            LOG("shift_extra");
+            LOG_ACTION("shift_extra");
             return ts_parser__shift_extra(self, current_head, state, lookahead);
           } else {
-            LOG("shift state:%u", action.data.to_state);
+            LOG_ACTION("shift state:%u", action.data.to_state);
             lookahead_state->is_verifying = (lookahead->child_count > 0);
             TSStateId state = action.data.to_state;
             return ts_parser__shift(self, current_head, state, lookahead);
@@ -687,13 +706,13 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
           lookahead_state->is_verifying = false;
 
           if (action.extra) {
-            LOG("reduce_extra sym:%s", SYM_NAME(action.data.symbol));
+            LOG_ACTION("reduce_extra sym:%s", SYM_NAME(action.data.symbol));
             ts_parser__reduce(self, current_head, action.data.symbol, 1, true,
                               false, false);
           } else {
-            LOG("reduce sym:%s, child_count:%u, fragile:%s",
-                SYM_NAME(action.data.symbol), action.data.child_count,
-                BOOL_STRING(action.fragile));
+            LOG_ACTION("reduce sym:%s, child_count:%u, fragile:%s",
+                       SYM_NAME(action.data.symbol), action.data.child_count,
+                       BOOL_STRING(action.fragile));
             switch (ts_parser__reduce(self, current_head, action.data.symbol,
                                       action.data.child_count, false,
                                       action.fragile, false)) {
@@ -710,7 +729,7 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
           break;
 
         case TSParseActionTypeAccept:
-          LOG("accept");
+          LOG_ACTION("accept");
           return ts_parser__accept(self, current_head);
       }
     }
@@ -799,8 +818,7 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
             ts_stack_head_count(self->stack),
             ts_stack_top_state(self->stack, head), position);
 
-        if (!lookahead ||
-            (position != last_position) ||
+        if (!lookahead || (position != last_position) ||
             !ts_parser__can_reuse(self, head, lookahead)) {
           ts_tree_release(lookahead);
           lookahead = ts_parser__get_next_lookahead(self, head);
