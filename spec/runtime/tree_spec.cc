@@ -14,17 +14,6 @@ enum {
   hog,
 };
 
-static const char *names[] = {
-  "ERROR",
-  "END",
-  "cat",
-  "dog",
-  "eel",
-  "fox",
-  "goat",
-  "hog",
-};
-
 describe("Tree", []() {
   TSTree *tree1, *tree2, *parent1;
   TSSymbolMetadata visible = {true, true, false, true};
