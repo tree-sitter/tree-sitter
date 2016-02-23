@@ -152,8 +152,6 @@ static void ts_parser__pop_reusable_subtree(LookaheadState *state) {
 }
 
 static bool ts_parser__can_reuse(TSParser *self, int head, TSTree *subtree) {
-  if (!subtree)
-    return false;
   if (subtree->symbol == ts_builtin_sym_error)
     return false;
   if (ts_tree_is_fragile(subtree)) {
@@ -777,31 +775,32 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
 
   for (;;) {
     TSTree *lookahead = NULL;
-    TSLength last_position, position = ts_length_zero();
+    size_t last_position, position = 0;
 
     self->is_split = ts_stack_head_count(self->stack) > 1;
 
     for (int head = 0; head < ts_stack_head_count(self->stack);) {
       for (bool removed = false; !removed;) {
         last_position = position;
-        position = ts_stack_top_position(self->stack, head);
+        size_t new_position = ts_stack_top_position(self->stack, head).chars;
 
-        if (position.chars > max_position) {
-          max_position = position.chars;
+        if (new_position > max_position) {
+          max_position = new_position;
+          head++;
+          break;
+        } else if (new_position == max_position && head > 0) {
           head++;
           break;
         }
 
-        if (position.chars == max_position && head > 0) {
-          head++;
-          break;
-        }
+        position = new_position;
 
         LOG("process head:%d, head_count:%d, state:%d, pos:%lu", head,
             ts_stack_head_count(self->stack),
-            ts_stack_top_state(self->stack, head), position.chars);
+            ts_stack_top_state(self->stack, head), position);
 
-        if (position.chars != last_position.chars ||
+        if (!lookahead ||
+            (position != last_position) ||
             !ts_parser__can_reuse(self, head, lookahead)) {
           ts_tree_release(lookahead);
           lookahead = ts_parser__get_next_lookahead(self, head);
