@@ -12,7 +12,6 @@ extern "C" {
 typedef struct Stack Stack;
 
 typedef struct {
-  TSTree *tree;
   TSStateId state;
   TSLength position;
 } StackEntry;
@@ -52,12 +51,6 @@ int ts_stack_head_count(const Stack *);
  *  returns the initial state (0).
  */
 TSStateId ts_stack_top_state(const Stack *, int head);
-
-/*
- *  Get the tree at given head of the stack. If the stack is empty, this
- *  returns NULL.
- */
-TSTree *ts_stack_top_tree(const Stack *, int head);
 
 /*
  *  Get the position of the given head of the stack. If the stack is empty, this

@@ -40,7 +40,7 @@ extern "C" {
 
 #define array_push(self, element)                \
   (((self)->size < (self)->capacity ||           \
-    array_grow((self), (self)->capacity * 2)) && \
+    array_grow((self), (self)->capacity ? (self)->capacity * 2 : 4)) && \
    ((self)->contents[(self)->size++] = (element), true))
 
 #define array_splice(self, index, old_count, new_count, new_elements)          \
