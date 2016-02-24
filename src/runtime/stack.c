@@ -12,12 +12,19 @@
 #define STARTING_TREE_CAPACITY 10
 #define MAX_NODE_POOL_SIZE 50
 
-typedef struct StackNode {
+typedef struct StackNode StackNode;
+
+typedef struct {
+  StackNode *node;
+  TSTree *tree;
+} StackLink;
+
+struct StackNode {
   StackEntry entry;
-  struct StackNode *successors[MAX_SUCCESSOR_COUNT];
+  StackLink successors[MAX_SUCCESSOR_COUNT];
   short unsigned int successor_count;
   short unsigned int ref_count;
-} StackNode;
+};
 
 typedef struct {
   size_t goal_tree_count;
@@ -100,11 +107,6 @@ TSLength ts_stack_top_position(const Stack *self, int head) {
   return entry ? entry->position : ts_length_zero();
 }
 
-TSTree *ts_stack_top_tree(const Stack *self, int head) {
-  StackEntry *entry = ts_stack_head((Stack *)self, head);
-  return entry ? entry->tree : NULL;
-}
-
 StackEntry *ts_stack_head(Stack *self, int head) {
   StackNode *node = self->heads.contents[head];
   return node ? &node->entry : NULL;
@@ -119,7 +121,7 @@ int ts_stack_entry_next_count(const StackEntry *entry) {
 }
 
 StackEntry *ts_stack_entry_next(const StackEntry *entry, int i) {
-  return &((const StackNode *)entry)->successors[i]->entry;
+  return &((const StackNode *)entry)->successors[i].node->entry;
 }
 
 /*
@@ -139,9 +141,10 @@ static bool stack_node_release(Stack *self, StackNode *node) {
   assert(node->ref_count != 0);
   node->ref_count--;
   if (node->ref_count == 0) {
-    for (int i = 0; i < node->successor_count; i++)
-      stack_node_release(self, node->successors[i]);
-    ts_tree_release(node->entry.tree);
+    for (int i = 0; i < node->successor_count; i++) {
+      stack_node_release(self, node->successors[i].node);
+      ts_tree_release(node->successors[i].tree);
+    }
 
     if (self->node_pool.size >= MAX_NODE_POOL_SIZE)
       ts_free(node);
@@ -174,24 +177,10 @@ static StackNode *stack_node_new(Stack *self, StackNode *next, TSStateId state,
   *node = (StackNode){
     .ref_count = 1,
     .successor_count = 1,
-    .successors = { next, NULL, NULL },
-    .entry = {.state = state, .tree = tree, .position = position },
+    .successors = { {next, tree} },
+    .entry = {.state = state, .position = position },
   };
   return node;
-}
-
-static void ts_stack__add_alternative_tree(Stack *self, StackNode *node,
-                                           TSTree *tree) {
-  if (tree != node->entry.tree) {
-    int comparison = self->tree_selection_function(self->tree_selection_payload,
-                                                   node->entry.tree, tree);
-
-    if (comparison > 0) {
-      ts_tree_retain(tree);
-      ts_tree_release(node->entry.tree);
-      node->entry.tree = tree;
-    }
-  }
 }
 
 static void ts_stack__clear_pop_result(Stack *self, StackPopResult *result) {
@@ -230,27 +219,31 @@ static void ts_stack__add_alternative_pop_result(Stack *self,
   }
 }
 
-static void ts_stack__add_node_successor(Stack *self, StackNode *node,
-                                         StackNode *new_successor) {
-  for (int i = 0; i < node->successor_count; i++) {
-    StackNode *successor = node->successors[i];
-    if (successor == new_successor)
-      return;
-    if (!successor)
-      continue;
-
-    if (successor->entry.state == new_successor->entry.state) {
-      ts_stack__add_alternative_tree(self, successor, new_successor->entry.tree);
-      for (int j = 0; j < new_successor->successor_count; j++)
-        ts_stack__add_node_successor(self, successor,
-                                     new_successor->successors[j]);
-      return;
+static void stack_node__add_successor(StackNode *self,
+                                      TSTree *new_tree,
+                                      StackNode *new_node) {
+  for (int i = 0; i < self->successor_count; i++) {
+    StackLink successor = self->successors[i];
+    if (successor.tree == new_tree) {
+      if (successor.node == new_node)
+        return;
+      if (successor.node && new_node &&
+          successor.node->entry.state == new_node->entry.state) {
+        for (int j = 0; j < new_node->successor_count; j++) {
+          stack_node__add_successor(successor.node,
+            new_node->successors[j].tree, new_node->successors[j].node);
+        }
+        return;
+      }
     }
   }
 
-  stack_node_retain(new_successor);
-  node->successors[node->successor_count] = new_successor;
-  node->successor_count++;
+  stack_node_retain(new_node);
+  ts_tree_retain(new_tree);
+  self->successors[self->successor_count++] = (StackLink){
+    new_node,
+    new_tree,
+  };
 }
 
 /*
@@ -296,8 +289,7 @@ StackPushResult ts_stack_push(Stack *self, int head_index, TSStateId state,
     StackEntry prior_entry = prior_node->entry;
     if (prior_entry.state == state &&
         ts_length_eq(prior_entry.position, position)) {
-      ts_stack__add_alternative_tree(self, prior_node, tree);
-      ts_stack__add_node_successor(self, prior_node, current_head);
+      stack_node__add_successor(prior_node, tree, current_head);
       ts_stack_remove_head(self, head_index);
       return StackPushResultMerged;
     }
@@ -349,38 +341,43 @@ StackPopResultArray ts_stack_pop(Stack *self, int head_index, int child_count,
 
       if (!node || path->trees.size == path->goal_tree_count)
         continue;
-
       all_paths_done = false;
-
-      /*
-       *  Children that are 'extra' do not count towards the total child count.
-       */
-      if (node->entry.tree->extra && !count_extra)
-        path->goal_tree_count++;
 
       /*
        *  If a node has more than one successor, create new paths for each of
        *  the additional successors.
        */
-      if (path->is_shared) {
-        path->trees = (TreeArray)array_copy(&path->trees);
-        for (size_t j = 0; j < path->trees.size; j++)
-          ts_tree_retain(path->trees.contents[j]);
-        path->is_shared = false;
-      }
+      for (int j = 0; j < node->successor_count; j++) {
+        StackLink successor = node->successors[j];
 
-      ts_tree_retain(node->entry.tree);
-      if (!array_push(&path->trees, node->entry.tree))
-        goto error;
+        PopPath *next_path;
+        if (j == 0) {
+          next_path = path;
+        } else {
+          if (!array_push(&self->pop_paths, *path))
+            goto error;
+          next_path = array_back(&self->pop_paths);
+          next_path->is_shared = true;
+        }
 
-      path->node = path->node->successors[0];
-      for (int j = 1; j < node->successor_count; j++) {
-        if (!array_push(&self->pop_paths, *path))
+        if (next_path->is_shared) {
+          next_path->trees = (TreeArray)array_copy(&path->trees);
+          next_path->trees.size--;
+          for (size_t j = 0; j < next_path->trees.size; j++)
+            ts_tree_retain(next_path->trees.contents[j]);
+          next_path->is_shared = false;
+        }
+
+        next_path->node = successor.node;
+        ts_tree_retain(successor.tree);
+        if (!array_push(&next_path->trees, successor.tree))
           goto error;
 
-        PopPath *next_path = array_back(&self->pop_paths);
-        next_path->node = node->successors[j];
-        next_path->is_shared = true;
+        /*
+         *  Children that are 'extra' do not count towards the total child count.
+         */
+        if (successor.tree->extra && !count_extra)
+          next_path->goal_tree_count++;
       }
     }
   }
@@ -392,8 +389,7 @@ StackPopResultArray ts_stack_pop(Stack *self, int head_index, int child_count,
       array_reverse(&path->trees);
 
     StackPopResult result = {
-      .trees = path->trees,
-      .head_index = -1,
+      .trees = path->trees, .head_index = -1,
     };
 
     if (i == 0) {
@@ -441,7 +437,7 @@ void ts_stack_shrink(Stack *self, int head_index, int count) {
   for (int i = 0; i < count; i++) {
     if (new_head->successor_count == 0)
       break;
-    new_head = new_head->successors[0];
+    new_head = new_head->successors[0].node;
   }
   stack_node_retain(new_head);
   stack_node_release(self, head);
@@ -474,4 +470,103 @@ void ts_stack_delete(Stack *self) {
   }
   array_delete(&self->heads);
   ts_free(self);
+}
+
+static const char *COLORS[] = {
+  "red", "blue", "orange", "green", "purple",
+};
+
+static size_t COLOR_COUNT = sizeof(COLORS) / sizeof(COLORS[0]);
+
+size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
+                                 const char **symbol_names) {
+  char *cursor = string;
+  char **s = n > 0 ? &cursor : &string;
+  cursor += snprintf(*s, n, "digraph stack {\n");
+  cursor += snprintf(*s, n, "rankdir=\"RL\";\n");
+
+  Array(StackNode *) visited_nodes;
+  array_init(&visited_nodes);
+
+  array_clear(&self->pop_paths);
+  for (size_t i = 0; i < self->heads.size; i++) {
+    StackNode *node = self->heads.contents[i];
+    const char *color = COLORS[i % COLOR_COUNT];
+    cursor += snprintf(*s, n, "node_%p [color=%s];\n", node, color);
+    array_push(&self->pop_paths, ((PopPath){ .node = node }));
+  }
+
+  bool all_paths_done = false;
+  while (!all_paths_done) {
+    all_paths_done = true;
+
+    for (size_t i = 0; i < self->pop_paths.size; i++) {
+      PopPath *path = &self->pop_paths.contents[i];
+      StackNode *node = path->node;
+
+      for (size_t j = 0; j < visited_nodes.size; j++) {
+        if (visited_nodes.contents[j] == node) {
+          node = NULL;
+          break;
+        }
+      }
+
+      if (!node)
+        continue;
+      all_paths_done = false;
+
+      cursor += snprintf(*s, n, "node_%p [label=%d];\n", node, node->entry.state);
+
+      for (int j = 0; j < node->successor_count; j++) {
+        StackLink successor = node->successors[j];
+        cursor += snprintf(*s, n, "node_%p -> node_%p [label=\"%s\"];\n", node,
+          successor.node, symbol_names[successor.tree->symbol]);
+
+        if (j == 0) {
+          path->node = successor.node;
+        } else {
+          if (!array_push(&self->pop_paths, *path))
+            goto error;
+          PopPath *next_path = array_back(&self->pop_paths);
+          next_path->node = successor.node;
+        }
+      }
+
+      if (!array_push(&visited_nodes, node))
+        goto error;
+    }
+  }
+
+  cursor += snprintf(*s, n, "node_%p [label=0];\n", NULL);
+  cursor += snprintf(*s, n, "}\n");
+
+  array_delete(&visited_nodes);
+  return cursor - string;
+
+error:
+  array_delete(&visited_nodes);
+  return (size_t)-1;
+}
+
+char *ts_stack_dot_graph(Stack *self, const char **symbol_names) {
+  static char SCRATCH[1];
+  char *result = NULL;
+  size_t size = ts_stack__write_dot_graph(self, SCRATCH, 0, symbol_names) + 1;
+  if (size == (size_t)-1)
+    goto error;
+
+  result = ts_malloc(size * sizeof(char));
+  if (!result)
+    goto error;
+
+  size = ts_stack__write_dot_graph(self, result, size, symbol_names);
+  if (size == (size_t)-1)
+    goto error;
+
+  return result;
+
+error:
+  if (result)
+    ts_free(result);
+  return NULL;
 }

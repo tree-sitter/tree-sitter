@@ -91,6 +91,7 @@ void ts_document_set_input(TSDocument *, TSInput);
 void ts_document_set_input_string(TSDocument *, const char *);
 TSDebugger ts_document_debugger(const TSDocument *);
 void ts_document_set_debugger(TSDocument *, TSDebugger);
+void ts_document_print_debugging_graphs(TSDocument *, bool);
 void ts_document_edit(TSDocument *, TSInputEdit);
 int ts_document_parse(TSDocument *);
 void ts_document_invalidate(TSDocument *);
