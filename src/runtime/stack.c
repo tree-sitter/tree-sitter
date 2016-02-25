@@ -519,8 +519,19 @@ size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
 
       for (int j = 0; j < node->successor_count; j++) {
         StackLink successor = node->successors[j];
-        cursor += snprintf(*s, n, "node_%p -> node_%p [label=\"%s\"];\n", node,
-          successor.node, symbol_names[successor.tree->symbol]);
+        cursor += snprintf(*s, n, "node_%p -> node_%p [label=\"", node, successor.node);
+
+        const char *name = symbol_names[successor.tree->symbol];
+        for (const char *c = name; *c; c++) {
+          if (*c == '\"' || *c == '\\') {
+            **s = '\\';
+            cursor++;
+          }
+          **s = *c;
+          cursor++;
+        }
+
+        cursor += snprintf(*s, n, "\"];\n");
 
         if (j == 0) {
           path->node = successor.node;
