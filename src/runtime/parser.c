@@ -94,14 +94,14 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
         LOG("breakdown_push sym:%s, size:%lu", SYM_NAME(last_child->symbol),
             ts_tree_total_size(last_child).chars);
 
-        last_push = ts_stack_push(self->stack, head_index, state, last_child);
+        last_push = ts_stack_push(self->stack, head_index, last_child, state);
         if (last_push == StackPushResultFailed)
           goto error;
       }
 
       for (size_t j = 1, count = pop_result.trees.size; j < count; j++) {
         TSTree *tree = pop_result.trees.contents[j];
-        last_push = ts_stack_push(self->stack, head_index, state, tree);
+        last_push = ts_stack_push(self->stack, head_index, tree, state);
         if (last_push == StackPushResultFailed)
           goto error;
       }
@@ -286,7 +286,7 @@ static int ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
 static ParseActionResult ts_parser__shift(TSParser *self, int head,
                                           TSStateId parse_state,
                                           TSTree *lookahead) {
-  switch (ts_stack_push(self->stack, head, parse_state, lookahead)) {
+  switch (ts_stack_push(self->stack, head, lookahead, parse_state)) {
     case StackPushResultFailed:
       return FailedToUpdateStackHead;
     case StackPushResultMerged:
@@ -348,8 +348,8 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
     }
 
     size_t popped_child_count = pop_result.trees.size - trailing_extra_count;
-    parent = ts_tree_make_node(symbol, popped_child_count, pop_result.trees.contents,
-                               metadata);
+    parent = ts_tree_make_node(symbol, popped_child_count,
+                               pop_result.trees.contents, metadata);
     if (!parent) {
       for (size_t i = 0; i < pop_result.trees.size; i++)
         ts_tree_release(pop_result.trees.contents[i]);
@@ -409,7 +409,7 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
      *  If the given state already existed at a different head of the stack,
      *  then remove the lookahead state for the head.
      */
-    switch (ts_stack_push(self->stack, new_head, state, parent)) {
+    switch (ts_stack_push(self->stack, new_head, parent, state)) {
       case StackPushResultFailed:
         ts_tree_release(parent);
         goto error;
@@ -426,7 +426,7 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
       for (size_t j = 0; j < trailing_extra_count; j++) {
         size_t index = pop_result.trees.size - trailing_extra_count + j;
         TSTree *tree = pop_result.trees.contents[index];
-        switch (ts_stack_push(self->stack, new_head, state, tree)) {
+        switch (ts_stack_push(self->stack, new_head, tree, state)) {
           case StackPushResultFailed:
             return FailedToUpdateStackHead;
           case StackPushResultMerged:
@@ -812,8 +812,8 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
             return NULL;
         }
 
-        LOG("lookahead sym:(%s,%d), size:%lu", SYM_NAME(lookahead->symbol), lookahead->symbol,
-            ts_tree_total_chars(lookahead));
+        LOG("lookahead sym:(%s,%d), size:%lu", SYM_NAME(lookahead->symbol),
+            lookahead->symbol, ts_tree_total_chars(lookahead));
 
         switch (ts_parser__consume_lookahead(self, head, lookahead)) {
           case FailedToUpdateStackHead:

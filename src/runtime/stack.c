@@ -33,11 +33,13 @@ typedef struct {
   bool is_shared;
 } PopPath;
 
+typedef Array(StackNode *) StackNodeArray;
+
 struct Stack {
   Array(StackNode *) heads;
   StackPopResultArray pop_results;
   Array(PopPath) pop_paths;
-  Array(StackNode *) node_pool;
+  StackNodeArray node_pool;
   void *tree_selection_payload;
   TreeSelectionFunction tree_selection_function;
 };
@@ -97,18 +99,18 @@ error:
  *  Section: Reading from the stack
  */
 
-TSStateId ts_stack_top_state(const Stack *self, int head) {
-  StackEntry *entry = ts_stack_head((Stack *)self, head);
+TSStateId ts_stack_top_state(const Stack *self, int head_index) {
+  StackEntry *entry = ts_stack_head((Stack *)self, head_index);
   return entry ? entry->state : 0;
 }
 
-TSLength ts_stack_top_position(const Stack *self, int head) {
-  StackEntry *entry = ts_stack_head((Stack *)self, head);
+TSLength ts_stack_top_position(const Stack *self, int head_index) {
+  StackEntry *entry = ts_stack_head((Stack *)self, head_index);
   return entry ? entry->position : ts_length_zero();
 }
 
-StackEntry *ts_stack_head(Stack *self, int head) {
-  StackNode *node = self->heads.contents[head];
+StackEntry *ts_stack_head(Stack *self, int head_index) {
+  StackNode *node = self->heads.contents[head_index];
   return node ? &node->entry : NULL;
 }
 
@@ -120,8 +122,8 @@ int ts_stack_entry_next_count(const StackEntry *entry) {
   return ((const StackNode *)entry)->successor_count;
 }
 
-StackEntry *ts_stack_entry_next(const StackEntry *entry, int i) {
-  return &((const StackNode *)entry)->successors[i].node->entry;
+StackEntry *ts_stack_entry_next(const StackEntry *entry, int successor_index) {
+  return &((const StackNode *)entry)->successors[successor_index].node->entry;
 }
 
 /*
@@ -135,38 +137,34 @@ static void stack_node_retain(StackNode *self) {
   self->ref_count++;
 }
 
-static bool stack_node_release(Stack *self, StackNode *node) {
-  if (!node)
-    return false;
-  assert(node->ref_count != 0);
-  node->ref_count--;
-  if (node->ref_count == 0) {
-    for (int i = 0; i < node->successor_count; i++) {
-      stack_node_release(self, node->successors[i].node);
-      ts_tree_release(node->successors[i].tree);
+static void stack_node_release(StackNode *self, StackNodeArray *pool) {
+  if (!self)
+    return;
+  assert(self->ref_count != 0);
+  self->ref_count--;
+  if (self->ref_count == 0) {
+    for (int i = 0; i < self->successor_count; i++) {
+      stack_node_release(self->successors[i].node, pool);
+      ts_tree_release(self->successors[i].tree);
     }
 
-    if (self->node_pool.size >= MAX_NODE_POOL_SIZE)
-      ts_free(node);
+    if (pool->size >= MAX_NODE_POOL_SIZE)
+      ts_free(self);
     else
-      array_push(&self->node_pool, node);
-
-    return true;
-  } else {
-    return false;
+      array_push(pool, self);
   }
 }
 
-static StackNode *stack_node_new(Stack *self, StackNode *next, TSStateId state,
-                                 TSTree *tree) {
+static StackNode *stack_node_new(StackNode *next, TSTree *tree, TSStateId state,
+                                 StackNodeArray *pool) {
   assert(tree->ref_count > 0);
   StackNode *node;
-  if (self->node_pool.size == 0) {
+  if (pool->size == 0) {
     node = ts_malloc(sizeof(StackNode));
     if (!node)
       return NULL;
   } else {
-    node = array_pop(&self->node_pool);
+    node = array_pop(pool);
   }
 
   ts_tree_retain(tree);
@@ -177,7 +175,7 @@ static StackNode *stack_node_new(Stack *self, StackNode *next, TSStateId state,
   *node = (StackNode){
     .ref_count = 1,
     .successor_count = 1,
-    .successors = { {next, tree} },
+    .successors = { { next, tree } },
     .entry = {.state = state, .position = position },
   };
   return node;
@@ -219,8 +217,7 @@ static void ts_stack__add_alternative_pop_result(Stack *self,
   }
 }
 
-static void stack_node__add_successor(StackNode *self,
-                                      TSTree *new_tree,
+static void stack_node__add_successor(StackNode *self, TSTree *new_tree,
                                       StackNode *new_node) {
   for (int i = 0; i < self->successor_count; i++) {
     StackLink successor = self->successors[i];
@@ -230,8 +227,8 @@ static void stack_node__add_successor(StackNode *self,
       if (successor.node && new_node &&
           successor.node->entry.state == new_node->entry.state) {
         for (int j = 0; j < new_node->successor_count; j++) {
-          stack_node__add_successor(successor.node,
-            new_node->successors[j].tree, new_node->successors[j].node);
+          stack_node__add_successor(successor.node, new_node->successors[j].tree,
+                                    new_node->successors[j].node);
         }
         return;
       }
@@ -241,8 +238,7 @@ static void stack_node__add_successor(StackNode *self,
   stack_node_retain(new_node);
   ts_tree_retain(new_tree);
   self->successors[self->successor_count++] = (StackLink){
-    new_node,
-    new_tree,
+    new_node, new_tree,
   };
 }
 
@@ -269,7 +265,7 @@ static int ts_stack__find_head(Stack *self, StackNode *node) {
 
 void ts_stack_remove_head(Stack *self, int head_index) {
   StackNode *node = *array_get(&self->heads, head_index);
-  stack_node_release(self, node);
+  stack_node_release(node, &self->node_pool);
   array_erase(&self->heads, head_index);
 }
 
@@ -277,8 +273,8 @@ void ts_stack_remove_head(Stack *self, int head_index) {
  *  Section: Mutating the stack (Public)
  */
 
-StackPushResult ts_stack_push(Stack *self, int head_index, TSStateId state,
-                              TSTree *tree) {
+StackPushResult ts_stack_push(Stack *self, int head_index, TSTree *tree,
+                              TSStateId state) {
   TSLength position = ts_tree_total_size(tree);
   StackNode *current_head = *array_get(&self->heads, head_index);
   if (current_head)
@@ -295,11 +291,12 @@ StackPushResult ts_stack_push(Stack *self, int head_index, TSStateId state,
     }
   }
 
-  StackNode *new_head = stack_node_new(self, current_head, state, tree);
+  StackNode *new_head =
+    stack_node_new(current_head, tree, state, &self->node_pool);
   if (!new_head)
     return StackPushResultFailed;
 
-  stack_node_release(self, current_head);
+  stack_node_release(current_head, &self->node_pool);
   self->heads.contents[head_index] = new_head;
   return StackPushResultContinued;
 }
@@ -374,7 +371,8 @@ StackPopResultArray ts_stack_pop(Stack *self, int head_index, int child_count,
           goto error;
 
         /*
-         *  Children that are 'extra' do not count towards the total child count.
+         *  Children that are 'extra' do not count towards the total child
+         * count.
          */
         if (successor.tree->extra && !count_extra)
           next_path->goal_tree_count++;
@@ -421,7 +419,7 @@ StackPopResultArray ts_stack_pop(Stack *self, int head_index, int child_count,
       goto error;
   }
 
-  stack_node_release(self, previous_head);
+  stack_node_release(previous_head, &self->node_pool);
   return self->pop_results;
 
 error:
@@ -440,13 +438,13 @@ void ts_stack_shrink(Stack *self, int head_index, int count) {
     new_head = new_head->successors[0].node;
   }
   stack_node_retain(new_head);
-  stack_node_release(self, head);
+  stack_node_release(head, &self->node_pool);
   self->heads.contents[head_index] = new_head;
 }
 
 void ts_stack_clear(Stack *self) {
   for (size_t i = 0; i < self->heads.size; i++)
-    stack_node_release(self, self->heads.contents[i]);
+    stack_node_release(self->heads.contents[i], &self->node_pool);
   array_clear(&self->heads);
   array_push(&self->heads, NULL);
 }
@@ -485,7 +483,7 @@ size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
   cursor += snprintf(*s, n, "digraph stack {\n");
   cursor += snprintf(*s, n, "rankdir=\"RL\";\n");
 
-  Array(StackNode *) visited_nodes;
+  Array(StackNode *)visited_nodes;
   array_init(&visited_nodes);
 
   array_clear(&self->pop_paths);
@@ -493,7 +491,7 @@ size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
     StackNode *node = self->heads.contents[i];
     const char *color = COLORS[i % COLOR_COUNT];
     cursor += snprintf(*s, n, "node_%p [color=%s];\n", node, color);
-    array_push(&self->pop_paths, ((PopPath){ .node = node }));
+    array_push(&self->pop_paths, ((PopPath){.node = node }));
   }
 
   bool all_paths_done = false;
@@ -515,11 +513,13 @@ size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
         continue;
       all_paths_done = false;
 
-      cursor += snprintf(*s, n, "node_%p [label=%d];\n", node, node->entry.state);
+      cursor +=
+        snprintf(*s, n, "node_%p [label=%d];\n", node, node->entry.state);
 
       for (int j = 0; j < node->successor_count; j++) {
         StackLink successor = node->successors[j];
-        cursor += snprintf(*s, n, "node_%p -> node_%p [label=\"", node, successor.node);
+        cursor +=
+          snprintf(*s, n, "node_%p -> node_%p [label=\"", node, successor.node);
 
         const char *name = symbol_names[successor.tree->symbol];
         for (const char *c = name; *c; c++) {

@@ -50,18 +50,18 @@ int ts_stack_head_count(const Stack *);
  *  Get the state at given head of the stack. If the stack is empty, this
  *  returns the initial state (0).
  */
-TSStateId ts_stack_top_state(const Stack *, int head);
+TSStateId ts_stack_top_state(const Stack *, int head_index);
 
 /*
  *  Get the position of the given head of the stack. If the stack is empty, this
  *  returns {0, 0}.
  */
-TSLength ts_stack_top_position(const Stack *, int head);
+TSLength ts_stack_top_position(const Stack *, int head_index);
 
 /*
  *  Get the entry at the given head of the stack.
  */
-StackEntry *ts_stack_head(Stack *, int head);
+StackEntry *ts_stack_head(Stack *, int head_index);
 
 /*
  *  Get the number of successors for the parse stack entry.
@@ -71,13 +71,13 @@ int ts_stack_entry_next_count(const StackEntry *);
 /*
  *  Get the given successor for the parse stack entry.
  */
-StackEntry *ts_stack_entry_next(const StackEntry *, int);
+StackEntry *ts_stack_entry_next(const StackEntry *, int head_index);
 
 /*
  *  Push a (tree, state) pair onto the given head of the stack. This could cause
  *  the head to merge with an existing head.
  */
-StackPushResult ts_stack_push(Stack *, int head, TSStateId, TSTree *);
+StackPushResult ts_stack_push(Stack *, int head_index, TSTree *, TSStateId);
 
 /*
  *  Pop the given number of entries from the given head of the stack. This
@@ -85,24 +85,25 @@ StackPushResult ts_stack_push(Stack *, int head, TSStateId, TSTree *);
  *  which had previously been merged. It returns a struct that indicates the
  *  index of each revealed head and the trees removed from that head.
  */
-StackPopResultArray ts_stack_pop(Stack *, int head, int count, bool count_extra);
+StackPopResultArray ts_stack_pop(Stack *, int head_index, int count,
+                                 bool count_extra);
 
 /*
  *  Remove the given number of entries from the given head of the stack.
  */
-void ts_stack_shrink(Stack *, int head, int count);
+void ts_stack_shrink(Stack *, int head_index, int count);
 
 /*
  *  Split the given stack head into two heads, so that the stack can be
  *  transformed from its current state in multiple alternative ways. Returns
  *  the index of the newly-created head.
  */
-int ts_stack_split(Stack *, int head);
+int ts_stack_split(Stack *, int head_index);
 
 /*
  *  Remove the given head from the stack.
  */
-void ts_stack_remove_head(Stack *, int head);
+void ts_stack_remove_head(Stack *, int head_index);
 
 /*
  *  Remove all entries from the stack.

@@ -38,8 +38,8 @@ extern "C" {
 
 #define array_delete(self) array__delete((VoidArray *)self)
 
-#define array_push(self, element)                \
-  (((self)->size < (self)->capacity ||           \
+#define array_push(self, element)                                       \
+  (((self)->size < (self)->capacity ||                                  \
     array_grow((self), (self)->capacity ? (self)->capacity * 2 : 4)) && \
    ((self)->contents[(self)->size++] = (element), true))
 
