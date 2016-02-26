@@ -3,7 +3,11 @@
 const TSParseAction *ts_language_actions(const TSLanguage *language,
                                          TSStateId state, TSSymbol sym,
                                          size_t *count) {
-  unsigned short action_index =
+  if (state == ts_parse_state_error) {
+    state = language->out_of_context_states[sym];
+  }
+
+  unsigned action_index =
     (language->parse_table + (state * language->symbol_count))[sym];
   *count = language->parse_actions[action_index].count;
   const TSParseActionEntry *entry = language->parse_actions + action_index + 1;

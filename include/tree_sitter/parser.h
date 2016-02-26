@@ -10,6 +10,7 @@ extern "C" {
 #include "tree_sitter/runtime.h"
 
 #define ts_lex_state_error 0
+#define ts_parse_state_error ((TSStateId)-1)
 #define TS_DEBUG_BUFFER_SIZE 512
 
 typedef struct TSTree TSTree;
