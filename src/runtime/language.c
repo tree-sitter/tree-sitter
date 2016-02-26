@@ -29,3 +29,17 @@ size_t ts_language_symbol_count(const TSLanguage *language) {
 const char *ts_language_symbol_name(const TSLanguage *language, TSSymbol symbol) {
   return language->symbol_names[symbol];
 }
+
+bool ts_language_symbol_is_in_progress(const TSLanguage *self, TSStateId state,
+                                       TSSymbol symbol) {
+  if (state == ts_parse_state_error)
+    return false;
+  unsigned index = self->in_progress_symbol_table[state];
+  size_t count = self->in_progress_symbols[index].count;
+  const TSSymbol *symbols = (TSSymbol *)(self->in_progress_symbols + index + 1);
+  for (size_t i = 0; i < count; i++) {
+    if (symbols[i] == symbol)
+      return true;
+  }
+  return false;
+}
