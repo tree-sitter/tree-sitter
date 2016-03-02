@@ -90,7 +90,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     json_value content_json = rule_json->operator[]("content");
     ParseRuleResult content = parse_rule(&content_json);
     if (content.rule.get()) {
-      return { err(content.rule), "" };
+      return { content.rule, "" };
     } else {
       error_message = "Invalid error content: " + content.error_message;
       goto error;

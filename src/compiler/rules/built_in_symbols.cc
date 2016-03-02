@@ -7,16 +7,12 @@ Symbol END_OF_INPUT() {
   return Symbol(-1, true);
 }
 
-Symbol ERROR() {
-  return Symbol(-2, true);
-}
-
 Symbol START() {
-  return Symbol(-3);
+  return Symbol(-2);
 }
 
 Symbol NONE() {
-  return Symbol(-4);
+  return Symbol(-3);
 }
 
 }  // namespace rules

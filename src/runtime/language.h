@@ -13,6 +13,8 @@ const TSParseAction *ts_language_actions(const TSLanguage *, TSStateId,
                                          TSSymbol, size_t *);
 TSParseAction ts_language_last_action(const TSLanguage *, TSStateId, TSSymbol);
 
+TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *language, TSSymbol symbol);
+
 #ifdef __cplusplus
 }
 #endif

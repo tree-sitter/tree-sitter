@@ -65,9 +65,7 @@ class LexTableBuilder {
     LexItemSet result;
     for (const Symbol &symbol : symbols) {
       vector<rule_ptr> rules;
-      if (symbol == rules::ERROR()) {
-        continue;
-      } else if (symbol == rules::END_OF_INPUT()) {
+      if (symbol == rules::END_OF_INPUT()) {
         rules.push_back(CharacterSet().include(0).copy());
       } else if (symbol.is_token) {
         rule_ptr rule = lex_grammar.variables[symbol.index].rule;

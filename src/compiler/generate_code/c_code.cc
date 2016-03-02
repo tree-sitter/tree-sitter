@@ -23,7 +23,6 @@ using std::to_string;
 using std::vector;
 using util::escape_char;
 
-static Variable ERROR_ENTRY("error", VariableTypeNamed, rule_ptr());
 static Variable EOF_ENTRY("end", VariableTypeNamed, rule_ptr());
 
 static const map<char, string> REPLACEMENTS({
@@ -465,8 +464,6 @@ class CCodeGenerator {
   // Helper functions
 
   string symbol_id(const rules::Symbol &symbol) {
-    if (symbol == rules::ERROR())
-      return "ts_builtin_sym_error";
     if (symbol == rules::END_OF_INPUT())
       return "ts_builtin_sym_end";
 
@@ -484,16 +481,12 @@ class CCodeGenerator {
   }
 
   string symbol_name(const rules::Symbol &symbol) {
-    if (symbol == rules::ERROR())
-      return "ERROR";
     if (symbol == rules::END_OF_INPUT())
       return "END";
     return entry_for_symbol(symbol).first;
   }
 
   VariableType symbol_type(const rules::Symbol &symbol) {
-    if (symbol == rules::ERROR())
-      return VariableTypeNamed;
     if (symbol == rules::END_OF_INPUT())
       return VariableTypeHidden;
     return entry_for_symbol(symbol).second;

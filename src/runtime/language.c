@@ -1,14 +1,16 @@
 #include "tree_sitter/parser.h"
 
 const TSParseAction *ts_language_actions(const TSLanguage *language,
-                                         TSStateId state, TSSymbol sym,
+                                         TSStateId state, TSSymbol symbol,
                                          size_t *count) {
-  if (state == ts_parse_state_error) {
-    state = language->out_of_context_states[sym];
+  size_t action_index = 0;
+  if (symbol != ts_builtin_sym_error) {
+    if (state == ts_parse_state_error)
+      state = language->out_of_context_states[symbol];
+    action_index =
+      (language->parse_table + (state * language->symbol_count))[symbol];
   }
 
-  unsigned action_index =
-    (language->parse_table + (state * language->symbol_count))[sym];
   *count = language->parse_actions[action_index].count;
   const TSParseActionEntry *entry = language->parse_actions + action_index + 1;
   return (const TSParseAction *)entry;
@@ -26,8 +28,23 @@ size_t ts_language_symbol_count(const TSLanguage *language) {
   return language->symbol_count;
 }
 
+TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *language, TSSymbol symbol) {
+  if (symbol == ts_builtin_sym_error)
+    return (TSSymbolMetadata){
+      .visible = true,
+      .named = true,
+      .extra = false,
+      .structural = true,
+    };
+  else
+    return language->symbol_metadata[symbol];
+}
+
 const char *ts_language_symbol_name(const TSLanguage *language, TSSymbol symbol) {
-  return language->symbol_names[symbol];
+  if (symbol == ts_builtin_sym_error)
+    return "ERROR";
+  else
+    return language->symbol_names[symbol];
 }
 
 bool ts_language_symbol_is_in_progress(const TSLanguage *self, TSStateId state,

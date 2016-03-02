@@ -59,10 +59,6 @@ rule_ptr str(const string &value) {
   return make_shared<rules::String>(value);
 }
 
-rule_ptr err(const rule_ptr &rule) {
-  return choice({ rule, rules::ERROR().copy() });
-}
-
 rule_ptr prec_left(const rule_ptr &rule) {
   return metadata(rule, { { rules::ASSOCIATIVITY, rules::AssociativityLeft } });
 }

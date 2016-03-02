@@ -80,8 +80,6 @@ class ParseTableBuilder {
     mark_fragile_actions();
     remove_duplicate_parse_states();
 
-    parse_table.symbols.insert({ rules::ERROR(), { true } });
-
     return { parse_table, CompileError::none() };
   }
 
@@ -400,9 +398,7 @@ class ParseTableBuilder {
 
   string symbol_name(const rules::Symbol &symbol) const {
     if (symbol.is_built_in()) {
-      if (symbol == rules::ERROR())
-        return "ERROR";
-      else if (symbol == rules::END_OF_INPUT())
+      if (symbol == rules::END_OF_INPUT())
         return "END_OF_INPUT";
       else
         return "";

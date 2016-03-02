@@ -131,13 +131,14 @@ struct TSLanguage {
   return lexer->accept_fn(lexer, symbol, ts_symbol_metadata[symbol], \
                           ts_symbol_names[symbol], false);
 
-#define LEX_ERROR()                    \
-  if (error_mode) {                    \
-    if (state == ts_lex_state_error)   \
-      lexer->advance_fn(lexer, state); \
-    GO_TO_STATE(ts_lex_state_error)    \
-  } else {                             \
-    ACCEPT_TOKEN(ts_builtin_sym_error) \
+#define LEX_ERROR()                                                            \
+  if (error_mode) {                                                            \
+    if (state == ts_lex_state_error)                                           \
+      lexer->advance_fn(lexer, state);                                         \
+    GO_TO_STATE(ts_lex_state_error)                                            \
+  } else {                                                                     \
+    return lexer->accept_fn(lexer, ts_builtin_sym_error, (TSSymbolMetadata){}, \
+                            "ERROR", false);                                   \
   }
 
 /*

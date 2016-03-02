@@ -513,22 +513,30 @@ size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
         continue;
       all_paths_done = false;
 
-      cursor +=
-        snprintf(*s, n, "node_%p [label=%d];\n", node, node->entry.state);
+      cursor += snprintf(*s, n, "node_%p [label=", node);
+      if (node->entry.state == ts_parse_state_error)
+        cursor += snprintf(*s, n, "\"?\"");
+      else
+        cursor += snprintf(*s, n, "%d", node->entry.state);
+      cursor += snprintf(*s, n, "];\n");
 
       for (int j = 0; j < node->successor_count; j++) {
         StackLink successor = node->successors[j];
         cursor +=
           snprintf(*s, n, "node_%p -> node_%p [label=\"", node, successor.node);
 
-        const char *name = symbol_names[successor.tree->symbol];
-        for (const char *c = name; *c; c++) {
-          if (*c == '\"' || *c == '\\') {
-            **s = '\\';
+        if (successor.tree->symbol == ts_builtin_sym_error) {
+          cursor += snprintf(*s, n, "ERROR");
+        } else {
+          const char *name = symbol_names[successor.tree->symbol];
+          for (const char *c = name; *c; c++) {
+            if (*c == '\"' || *c == '\\') {
+              **s = '\\';
+              cursor++;
+            }
+            **s = *c;
             cursor++;
           }
-          **s = *c;
-          cursor++;
         }
 
         cursor += snprintf(*s, n, "\"];\n");

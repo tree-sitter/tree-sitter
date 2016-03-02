@@ -30,14 +30,16 @@
     fprintf(stderr, "\"\n}\n\n");         \
   }
 
-#define LOG_STACK()                                                      \
-  if (self->print_debugging_graphs) {                                    \
-    fputs(ts_stack_dot_graph(self->stack, self->language->symbol_names), \
-          stderr);                                                       \
-    fputs("\n\n", stderr);                                               \
+#define LOG_STACK()                                                  \
+  if (self->print_debugging_graphs) {                                \
+    char *graph_string =                                             \
+      ts_stack_dot_graph(self->stack, self->language->symbol_names); \
+    fputs(graph_string, stderr);                                     \
+    fputs("\n\n", stderr);                                           \
+    ts_free(graph_string);                                           \
   }
 
-#define SYM_NAME(sym) self->language->symbol_names[sym]
+#define SYM_NAME(symbol) ts_language_symbol_name(self->language, symbol)
 
 #define BOOL_STRING(value) (value ? "true" : "false")
 
@@ -258,9 +260,9 @@ static void ts_parser__remove_head(TSParser *self, int head) {
 }
 
 static int ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
-  if (!left)
+  if (!left || left->symbol == ts_builtin_sym_error)
     return 1;
-  if (!right)
+  if (!right || right->symbol == ts_builtin_sym_error)
     return -1;
 
   TSParser *self = data;
@@ -321,8 +323,7 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
                                            bool extra, bool fragile,
                                            bool count_extra) {
   array_clear(&self->reduce_parents);
-  const TSSymbolMetadata *all_metadata = self->language->symbol_metadata;
-  TSSymbolMetadata metadata = all_metadata[symbol];
+  TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, symbol);
   StackPopResultArray pop_results =
     ts_stack_pop(self->stack, head, child_count, count_extra);
   if (!pop_results.size)
@@ -645,11 +646,6 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
 
       LookaheadState *lookahead_state =
         array_get(&self->lookahead_states, current_head);
-
-      // TODO: Remove this by making a separate symbol for errors returned from
-      // the lexer.
-      if (lookahead->symbol == ts_builtin_sym_error)
-        action.type = TSParseActionTypeError;
 
       LOG_STACK();
 
