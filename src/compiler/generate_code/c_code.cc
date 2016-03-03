@@ -269,14 +269,17 @@ class CCodeGenerator {
   }
 
   void add_in_progress_symbol_table() {
-    line("static unsigned short ts_in_progress_symbol_table[] = {");
+    add_in_progress_symbol_list_id({});
+    line("static unsigned short ts_in_progress_symbol_table[STATE_COUNT] = {");
 
     indent([&]() {
       size_t state_id = 0;
       for (const ParseState &state : parse_table.states) {
-        line("[" + to_string(state_id) + "] = ");
-        add(to_string(add_in_progress_symbol_list_id(state.in_progress_symbols)));
-        add(",");
+        if (!state.in_progress_symbols.empty()) {
+          line("[" + to_string(state_id) + "] = ");
+            add(to_string(add_in_progress_symbol_list_id(state.in_progress_symbols)));
+          add(",");
+        }
         state_id++;
       }
     });

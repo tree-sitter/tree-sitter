@@ -143,7 +143,7 @@ class ParseTableBuilder {
       ParseStateId state_id = parse_table.add_state();
       for (const auto &entry : item_set.entries) {
         const ParseItem &item = entry.first;
-        if (item.step_index > 0 && item.lhs() != rules::START())
+        if (item.step_index > 0 && item.lhs() != rules::START() && !allow_any_conflict)
           parse_table.states[state_id].in_progress_symbols.insert(item.lhs());
       }
 
