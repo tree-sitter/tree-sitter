@@ -58,10 +58,17 @@ typedef struct {
 } ErrorRepair;
 
 typedef enum {
-  UpdatedStackHead,
-  RemovedStackHead,
-  FailedToUpdateStackHead,
+  ParseActionUpdated,
+  ParseActionRemoved,
+  ParseActionFailed,
 } ParseActionResult;
+
+typedef enum {
+  ReduceSucceeded,
+  ReduceMerged,
+  ReduceFailed,
+  ReduceStoppedAtError,
+} ReduceResult;
 
 /*
  *  Private
@@ -86,7 +93,7 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
   do {
     StackSliceArray slices = ts_stack_pop(self->stack, head, 1, false);
     if (!slices.size)
-      return FailedToUpdateStackHead;
+      return ParseActionFailed;
     assert(slices.size > 0);
 
     /*
@@ -139,10 +146,10 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
     }
   } while (last_child && last_child->child_count > 0);
 
-  return UpdatedStackHead;
+  return ParseActionUpdated;
 
 error:
-  return FailedToUpdateStackHead;
+  return ParseActionFailed;
 }
 
 static void ts_parser__pop_reusable_subtree(LookaheadState *state);
@@ -310,13 +317,13 @@ static ParseActionResult ts_parser__shift(TSParser *self, int head,
                                           TSTree *lookahead) {
   switch (ts_stack_push(self->stack, head, lookahead, parse_state)) {
     case StackPushFailed:
-      return FailedToUpdateStackHead;
+      return ParseActionFailed;
     case StackPushMerged:
       LOG("merge head:%d", head);
       array_erase(&self->lookahead_states, head);
-      return RemovedStackHead;
+      return ParseActionRemoved;
     default:
-      return UpdatedStackHead;
+      return ParseActionUpdated;
   }
 }
 
@@ -327,7 +334,7 @@ static ParseActionResult ts_parser__shift_extra(TSParser *self, int head,
   if (metadata.structural && ts_stack_head_count(self->stack) > 1) {
     TSTree *copy = ts_tree_make_copy(lookahead);
     if (!copy)
-      return FailedToUpdateStackHead;
+      return ParseActionFailed;
     copy->extra = true;
     ParseActionResult result = ts_parser__shift(self, head, state, copy);
     ts_tree_release(copy);
@@ -337,13 +344,6 @@ static ParseActionResult ts_parser__shift_extra(TSParser *self, int head,
     return ts_parser__shift(self, head, state, lookahead);
   }
 }
-
-typedef enum {
-  ReduceSucceeded,
-  ReduceMerged,
-  ReduceFailed,
-  ReduceStoppedAtError,
-} ReduceResult;
 
 static ReduceResult ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
                                       int child_count, bool extra, bool fragile) {
@@ -508,12 +508,12 @@ static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
   next_lookahead->padding = ts_length_zero();
 
   if (ts_parser__shift(self, head, ts_parse_state_error, lookahead) ==
-      FailedToUpdateStackHead)
+      ParseActionFailed)
     goto error;
 
   while (ts_language_symbol_metadata(self->language,next_lookahead->symbol).extra) {
     if (ts_parser__shift_extra(self, head, ts_parse_state_error,
-                               next_lookahead) == FailedToUpdateStackHead)
+                               next_lookahead) == ParseActionFailed)
       goto error;
     ts_tree_release(next_lookahead);
     next_lookahead = self->language->lex_fn(&self->lexer, 0, true);
@@ -526,7 +526,7 @@ static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
     ts_stack_push(self->stack, head, parent, 0);
     ts_tree_release(parent);
     ts_tree_release(next_lookahead);
-    return RemovedStackHead;
+    return ParseActionRemoved;
   }
 
   TSParseAction action = ts_language_last_action(
@@ -541,7 +541,7 @@ static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
 
 error:
   ts_tree_release(next_lookahead);
-  return FailedToUpdateStackHead;
+  return ParseActionFailed;
 }
 
 static bool ts_parser__error_repair_is_better(ErrorRepair old, ErrorRepair new) {
@@ -636,7 +636,7 @@ static ParseActionResult ts_parser__repair_error(TSParser *self, int head_index,
     ts_tree_array_clear(&self->partial_pop);
     array_delete(&self->partial_pop);
     ts_parser__remove_head(self, head_index);
-    return RemovedStackHead;
+    return ParseActionRemoved;
   }
 
   // Pop any trees that were skipped. Make a new extra error node that contains
@@ -667,11 +667,11 @@ static ParseActionResult ts_parser__repair_error(TSParser *self, int head_index,
   ts_tree_release(parent);
   switch (push_result) {
     case StackPushFailed:
-      return FailedToUpdateStackHead;
+      return ParseActionFailed;
     case StackPushMerged:
-      return RemovedStackHead;
+      return ParseActionRemoved;
     default:
-      return UpdatedStackHead;
+      return ParseActionUpdated;
   }
 }
 
@@ -696,7 +696,7 @@ static ParseActionResult ts_parser__start(TSParser *self, TSInput input,
   array_clear(&self->lookahead_states);
   array_push(&self->lookahead_states, lookahead_state);
   self->finished_tree = NULL;
-  return UpdatedStackHead;
+  return ParseActionUpdated;
 }
 
 static ParseActionResult ts_parser__accept(TSParser *self, int head) {
@@ -731,7 +731,7 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
     }
   }
 
-  return RemovedStackHead;
+  return ParseActionRemoved;
 
 error:
   if (slices.size) {
@@ -740,7 +740,7 @@ error:
       ts_tree_release(slice.trees.contents[i]);
     array_delete(&slice.trees);
   }
-  return FailedToUpdateStackHead;
+  return ParseActionFailed;
 }
 
 /*
@@ -788,23 +788,23 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
           if (lookahead_state->is_verifying) {
             ts_parser__breakdown_top_of_stack(self, current_head);
             lookahead_state->is_verifying = false;
-            return RemovedStackHead;
+            return ParseActionRemoved;
           }
 
           if (ts_stack_head_count(self->stack) == 1) {
             LOG_ACTION("handle_error %s", SYM_NAME(lookahead->symbol));
             switch (ts_parser__handle_error(self, current_head, lookahead)) {
-              case FailedToUpdateStackHead:
-                return FailedToUpdateStackHead;
-              case UpdatedStackHead:
-                return UpdatedStackHead;
-              case RemovedStackHead:
+              case ParseActionFailed:
+                return ParseActionFailed;
+              case ParseActionUpdated:
+                return ParseActionUpdated;
+              case ParseActionRemoved:
                 return ts_parser__accept(self, current_head);
             }
           } else {
             LOG_ACTION("bail current_head:%d", current_head);
             ts_parser__remove_head(self, current_head);
-            return RemovedStackHead;
+            return ParseActionRemoved;
           }
 
         case TSParseActionTypeShift:
@@ -833,10 +833,10 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
                                       action.data.child_count, false,
                                       action.fragile)) {
               case ReduceFailed:
-                return FailedToUpdateStackHead;
+                return ParseActionFailed;
               case ReduceMerged:
                 if (current_head == head)
-                  return RemovedStackHead;
+                  return ParseActionRemoved;
                 break;
               case ReduceSucceeded:
                 break;
@@ -845,9 +845,9 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
                 LOG_ACTION("repair head:%d", current_head);
                 switch (ts_parser__repair_error(self, current_head, lookahead,
                                                 actions, action_count)) {
-                  case FailedToUpdateStackHead:
-                    return FailedToUpdateStackHead;
-                  case RemovedStackHead:
+                  case ParseActionFailed:
+                    return ParseActionFailed;
+                  case ParseActionRemoved:
                     LOG_ACTION("repair_failed");
                     break;
                   default:
@@ -963,13 +963,13 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
                    ts_tree_total_chars(lookahead));
 
         switch (ts_parser__consume_lookahead(self, head, lookahead)) {
-          case FailedToUpdateStackHead:
+          case ParseActionFailed:
             ts_tree_release(lookahead);
             goto error;
-          case RemovedStackHead:
+          case ParseActionRemoved:
             removed = true;
             break;
-          case UpdatedStackHead:
+          case ParseActionUpdated:
             break;
         }
       }
