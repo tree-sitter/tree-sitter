@@ -67,16 +67,16 @@ typedef enum {
  *  Private
  */
 
-static StackPopResult ts_parser__pop_one(TSParser *self, int head_index, int count) {
-  StackPopResultArray results = ts_stack_pop(self->stack, head_index, count, true);
-  assert(results.size > 0);
-  assert(results.contents[0].head_index == head_index);
-  for (size_t i = 1; i < results.size; i++) {
-    ts_tree_array_clear(&results.contents[i].trees);
-    array_delete(&results.contents[i].trees);
-    ts_stack_remove_head(self->stack, results.contents[i].head_index);
+static StackSlice ts_parser__pop_one(TSParser *self, int head_index, int count) {
+  StackSliceArray slices = ts_stack_pop(self->stack, head_index, count, true);
+  assert(slices.size > 0);
+  assert(slices.contents[0].head_index == head_index);
+  for (size_t i = 1; i < slices.size; i++) {
+    ts_tree_array_clear(&slices.contents[i].trees);
+    array_delete(&slices.contents[i].trees);
+    ts_stack_remove_head(self->stack, slices.contents[i].head_index);
   }
-  return results.contents[0];
+  return slices.contents[0];
 }
 
 static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
@@ -84,21 +84,21 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
   TSTree *last_child = NULL;
 
   do {
-    StackPopResultArray pop_results = ts_stack_pop(self->stack, head, 1, false);
-    if (!pop_results.size)
+    StackSliceArray slices = ts_stack_pop(self->stack, head, 1, false);
+    if (!slices.size)
       return FailedToUpdateStackHead;
-    assert(pop_results.size > 0);
+    assert(slices.size > 0);
 
     /*
      *  Since only one entry (not counting extra trees) is being popped from the
      *  stack, there should only be one possible array of removed trees.
      */
 
-    for (size_t i = 0; i < pop_results.size; i++) {
-      StackPopResult pop_result = pop_results.contents[i];
-      TreeArray removed_trees = pop_result.trees;
+    for (size_t i = 0; i < slices.size; i++) {
+      StackSlice slice = slices.contents[i];
+      TreeArray removed_trees = slice.trees;
       TSTree *parent = *array_front(&removed_trees);
-      int head_index = pop_result.head_index;
+      int head_index = slice.head_index;
       LOG("breakdown_pop sym:%s, size:%lu", SYM_NAME(parent->symbol),
           ts_tree_total_size(parent).chars);
 
@@ -121,8 +121,8 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
           goto error;
       }
 
-      for (size_t j = 1, count = pop_result.trees.size; j < count; j++) {
-        TSTree *tree = pop_result.trees.contents[j];
+      for (size_t j = 1, count = slice.trees.size; j < count; j++) {
+        TSTree *tree = slice.trees.contents[j];
         last_push = ts_stack_push(self->stack, head_index, tree, state);
         if (last_push == StackPushResultFailed)
           goto error;
@@ -349,28 +349,28 @@ static ReduceResult ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
                                       int child_count, bool extra, bool fragile) {
   array_clear(&self->reduce_parents);
   TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, symbol);
-  StackPopResultArray pop_results =
+  StackSliceArray slices =
     ts_stack_pop(self->stack, head, child_count, false);
-  if (!pop_results.size)
+  if (!slices.size)
     return ReduceFailed;
-  if (pop_results.contents[0].trees.size &&
-      pop_results.contents[0].trees.contents[0]->symbol == ts_builtin_sym_error) {
+  if (slices.contents[0].trees.size &&
+      slices.contents[0].trees.contents[0]->symbol == ts_builtin_sym_error) {
     if (self->partial_pop.size) {
       ts_tree_array_clear(&self->partial_pop);
       array_delete(&self->partial_pop);
     }
-    self->partial_pop = pop_results.contents[0].trees;
-    for (size_t i = 1; i < pop_results.size; i++) {
-      ts_tree_array_clear(&pop_results.contents[i].trees);
-      array_delete(&pop_results.contents[i].trees);
+    self->partial_pop = slices.contents[0].trees;
+    for (size_t i = 1; i < slices.size; i++) {
+      ts_tree_array_clear(&slices.contents[i].trees);
+      array_delete(&slices.contents[i].trees);
     }
     return ReduceStoppedAtError;
   }
 
   size_t removed_heads = 0;
 
-  for (size_t i = 0; i < pop_results.size; i++) {
-    StackPopResult pop_result = pop_results.contents[i];
+  for (size_t i = 0; i < slices.size; i++) {
+    StackSlice slice = slices.contents[i];
 
     /*
      *  If the same set of trees led to a previous stack head, reuse the parent
@@ -379,27 +379,27 @@ static ReduceResult ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
      */
     TSTree *parent = NULL;
     size_t trailing_extra_count = 0;
-    for (size_t j = pop_result.trees.size - 1; j + 1 > 0; j--) {
-      if (pop_result.trees.contents[j]->extra)
+    for (size_t j = slice.trees.size - 1; j + 1 > 0; j--) {
+      if (slice.trees.contents[j]->extra)
         trailing_extra_count++;
       else
         break;
     }
 
-    size_t popped_child_count = pop_result.trees.size - trailing_extra_count;
+    size_t popped_child_count = slice.trees.size - trailing_extra_count;
     parent = ts_tree_make_node(symbol, popped_child_count,
-                               pop_result.trees.contents, metadata);
+                               slice.trees.contents, metadata);
     if (!parent) {
-      for (size_t i = 0; i < pop_result.trees.size; i++)
-        ts_tree_release(pop_result.trees.contents[i]);
-      array_delete(&pop_result.trees);
+      for (size_t i = 0; i < slice.trees.size; i++)
+        ts_tree_release(slice.trees.contents[i]);
+      array_delete(&slice.trees);
       goto error;
     }
 
     if (!array_push(&self->reduce_parents, parent))
       goto error;
 
-    int new_head = pop_result.head_index - removed_heads;
+    int new_head = slice.head_index - removed_heads;
 
     if (i > 0) {
       if (symbol == ts_builtin_sym_error) {
@@ -463,8 +463,8 @@ static ReduceResult ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
 
     if (trailing_extra_count > 0) {
       for (size_t j = 0; j < trailing_extra_count; j++) {
-        size_t index = pop_result.trees.size - trailing_extra_count + j;
-        TSTree *tree = pop_result.trees.contents[index];
+        size_t index = slice.trees.size - trailing_extra_count + j;
+        TSTree *tree = slice.trees.contents[index];
         switch (ts_stack_push(self->stack, new_head, tree, state)) {
           case StackPushResultFailed:
             return ReduceFailed;
@@ -492,7 +492,7 @@ static ReduceResult ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
     ts_tree_release(*parent);
   }
 
-  if (removed_heads < pop_results.size)
+  if (removed_heads < slices.size)
     return ReduceSucceeded;
   else
     return ReduceMerged;
@@ -520,7 +520,7 @@ static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
   }
 
   if (next_lookahead->symbol == ts_builtin_sym_end) {
-    StackPopResult result = ts_parser__pop_one(self, head, -1);
+    StackSlice result = ts_parser__pop_one(self, head, -1);
     TSTree *parent = ts_tree_make_node(ts_builtin_sym_start, result.trees.size,
       result.trees.contents, ts_language_symbol_metadata(self->language, ts_builtin_sym_start));
     ts_stack_push(self->stack, head, parent, 0);
@@ -641,26 +641,26 @@ static ParseActionResult ts_parser__repair_error(TSParser *self, int head_index,
 
   // Pop any trees that were skipped. Make a new extra error node that contains
   // them and the error leaf node.
-  StackPopResult pop_result = ts_parser__pop_one(self, head_index, best_repair.skipped_subtree_count);
-  array_push(&pop_result.trees, *array_front(&self->partial_pop));
+  StackSlice slice = ts_parser__pop_one(self, head_index, best_repair.skipped_subtree_count);
+  array_push(&slice.trees, *array_front(&self->partial_pop));
   TSTree *error = ts_tree_make_node(
     ts_builtin_sym_error,
-    pop_result.trees.size,
-    pop_result.trees.contents,
+    slice.trees.size,
+    slice.trees.contents,
     ts_language_symbol_metadata(self->language, ts_builtin_sym_error));
 
   // Pop any additional trees that are needed for the chosen reduce action. Make
   // a new wrapper node of the chosen symbol that contains them, the error node,
   // and the trees that were popped above the error node.
-  pop_result = ts_parser__pop_one(self, head_index, best_repair.depth - (error->child_count - 1));
-  array_push(&pop_result.trees, error);
+  slice = ts_parser__pop_one(self, head_index, best_repair.depth - (error->child_count - 1));
+  array_push(&slice.trees, error);
   for (size_t i = 1; i < self->partial_pop.size; i++)
-    array_push(&pop_result.trees, self->partial_pop.contents[i]);
+    array_push(&slice.trees, self->partial_pop.contents[i]);
   array_delete(&self->partial_pop);
   TSTree *parent = ts_tree_make_node(
     best_repair.symbol,
-    pop_result.trees.size,
-    pop_result.trees.contents,
+    slice.trees.size,
+    slice.trees.contents,
     ts_language_symbol_metadata(self->language, best_repair.symbol));
 
   StackPushResult push_result = ts_stack_push(self->stack, head_index, parent, best_repair.next_state);
@@ -700,13 +700,13 @@ static ParseActionResult ts_parser__start(TSParser *self, TSInput input,
 }
 
 static ParseActionResult ts_parser__accept(TSParser *self, int head) {
-  StackPopResultArray pop_results = ts_stack_pop(self->stack, head, -1, true);
-  if (!pop_results.size)
+  StackSliceArray slices = ts_stack_pop(self->stack, head, -1, true);
+  if (!slices.size)
     goto error;
 
-  for (size_t j = 0; j < pop_results.size; j++) {
-    StackPopResult pop_result = pop_results.contents[j];
-    TreeArray trees = pop_result.trees;
+  for (size_t j = 0; j < slices.size; j++) {
+    StackSlice slice = slices.contents[j];
+    TreeArray trees = slice.trees;
 
     for (size_t i = trees.size - 1; i + 1 > 0; i--) {
       if (!trees.contents[i]->extra) {
@@ -717,7 +717,7 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
         if (!trees.size)
           array_delete(&trees);
 
-        ts_parser__remove_head(self, pop_result.head_index);
+        ts_parser__remove_head(self, slice.head_index);
         int comparison = ts_parser__select_tree(self, self->finished_tree, root);
         if (comparison > 0) {
           ts_tree_release(self->finished_tree);
@@ -734,11 +734,11 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
   return RemovedStackHead;
 
 error:
-  if (pop_results.size) {
-    StackPopResult pop_result = *array_front(&pop_results);
-    for (size_t i = 0; i < pop_result.trees.size; i++)
-      ts_tree_release(pop_result.trees.contents[i]);
-    array_delete(&pop_result.trees);
+  if (slices.size) {
+    StackSlice slice = *array_front(&slices);
+    for (size_t i = 0; i < slice.trees.size; i++)
+      ts_tree_release(slice.trees.contents[i]);
+    array_delete(&slice.trees);
   }
   return FailedToUpdateStackHead;
 }

@@ -37,7 +37,7 @@ typedef Array(StackNode *) StackNodeArray;
 
 struct Stack {
   Array(StackNode *) heads;
-  StackPopResultArray pop_results;
+  StackSliceArray slices;
   Array(PopPath) pop_paths;
   StackNodeArray node_pool;
   void *tree_selection_payload;
@@ -58,7 +58,7 @@ Stack *ts_stack_new() {
     goto error;
 
   array_init(&self->heads);
-  array_init(&self->pop_results);
+  array_init(&self->slices);
   array_init(&self->pop_paths);
   array_init(&self->node_pool);
   self->tree_selection_payload = NULL;
@@ -67,7 +67,7 @@ Stack *ts_stack_new() {
   if (!array_grow(&self->heads, 4))
     goto error;
 
-  if (!array_grow(&self->pop_results, 4))
+  if (!array_grow(&self->slices, 4))
     goto error;
 
   if (!array_grow(&self->pop_paths, 4))
@@ -84,8 +84,8 @@ error:
   if (self) {
     if (self->heads.contents)
       array_delete(&self->heads);
-    if (self->pop_results.contents)
-      array_delete(&self->pop_results);
+    if (self->slices.contents)
+      array_delete(&self->slices);
     if (self->pop_paths.contents)
       array_delete(&self->pop_paths);
     if (self->node_pool.contents)
@@ -181,22 +181,20 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, TSStateId state,
   return node;
 }
 
-static void ts_stack__clear_pop_result(Stack *self, StackPopResult *result) {
-  for (size_t i = 0; i < result->trees.size; i++)
-    ts_tree_release(result->trees.contents[i]);
-  array_delete(&result->trees);
+static void ts_stack_slice__clear(StackSlice *slice) {
+  ts_tree_array_clear(&slice->trees);
+  array_delete(&slice->trees);
 }
 
-static void ts_stack__add_alternative_pop_result(Stack *self,
-                                                 StackPopResult *result,
-                                                 StackPopResult *new_result) {
+static void ts_stack__merge_slice(Stack *self, StackSlice *slice,
+                                  StackSlice *new_slice) {
   bool should_update = false;
-  if (result->trees.size < new_result->trees.size) {
+  if (slice->trees.size < new_slice->trees.size) {
     should_update = true;
-  } else if (result->trees.size == new_result->trees.size) {
-    for (size_t i = 0; i < result->trees.size; i++) {
-      TSTree *tree = result->trees.contents[i];
-      TSTree *new_tree = new_result->trees.contents[i];
+  } else if (slice->trees.size == new_slice->trees.size) {
+    for (size_t i = 0; i < slice->trees.size; i++) {
+      TSTree *tree = slice->trees.contents[i];
+      TSTree *new_tree = new_slice->trees.contents[i];
       int comparison = self->tree_selection_function(
         self->tree_selection_payload, tree, new_tree);
       if (comparison < 0) {
@@ -209,11 +207,11 @@ static void ts_stack__add_alternative_pop_result(Stack *self,
   }
 
   if (should_update) {
-    ts_stack__clear_pop_result(self, result);
-    result->trees = new_result->trees;
-    result->trees.size = new_result->trees.size;
+    ts_stack_slice__clear(slice);
+    slice->trees = new_slice->trees;
+    slice->trees.size = new_slice->trees.size;
   } else {
-    ts_stack__clear_pop_result(self, new_result);
+    ts_stack_slice__clear(new_slice);
   }
 }
 
@@ -306,9 +304,9 @@ int ts_stack_split(Stack *self, int head_index) {
   return ts_stack__add_head(self, head);
 }
 
-StackPopResultArray ts_stack_pop(Stack *self, int head_index, int child_count,
+StackSliceArray ts_stack_pop(Stack *self, int head_index, int child_count,
                                  bool count_extra) {
-  array_clear(&self->pop_results);
+  array_clear(&self->slices);
   array_clear(&self->pop_paths);
 
   StackNode *previous_head = *array_get(&self->heads, head_index);
@@ -384,47 +382,47 @@ StackPopResultArray ts_stack_pop(Stack *self, int head_index, int child_count,
     if (!path->is_shared)
       array_reverse(&path->trees);
 
-    StackPopResult result = {
+    StackSlice slice = {
       .trees = path->trees, .head_index = -1,
     };
 
     if (i == 0) {
       stack_node_retain(path->node);
       self->heads.contents[head_index] = path->node;
-      result.head_index = head_index;
+      slice.head_index = head_index;
     } else {
-      result.head_index = ts_stack__find_head(self, path->node);
-      if (result.head_index == -1) {
-        result.head_index = ts_stack__add_head(self, path->node);
-        if (result.head_index == -1)
+      slice.head_index = ts_stack__find_head(self, path->node);
+      if (slice.head_index == -1) {
+        slice.head_index = ts_stack__add_head(self, path->node);
+        if (slice.head_index == -1)
           goto error;
       } else {
-        bool merged_result = false;
-        for (size_t j = 0; j < self->pop_results.size; j++) {
-          StackPopResult *prior_result = &self->pop_results.contents[j];
-          if (prior_result->head_index == result.head_index) {
-            ts_stack__add_alternative_pop_result(self, prior_result, &result);
-            merged_result = true;
+        bool merged = false;
+        for (size_t j = 0; j < self->slices.size; j++) {
+          StackSlice *prior_result = &self->slices.contents[j];
+          if (prior_result->head_index == slice.head_index) {
+            ts_stack__merge_slice(self, prior_result, &slice);
+            merged = true;
             break;
           }
         }
-        if (merged_result)
+        if (merged)
           continue;
       }
     }
 
-    if (!array_push(&self->pop_results, result))
+    if (!array_push(&self->slices, slice))
       goto error;
   }
 
   stack_node_release(previous_head, &self->node_pool);
-  return self->pop_results;
+  return self->slices;
 
 error:
   array_delete(&initial_path.trees);
-  StackPopResultArray result;
-  array_init(&result);
-  return result;
+  StackSliceArray slices;
+  array_init(&slices);
+  return slices;
 }
 
 void ts_stack_shrink(Stack *self, int head_index, int count) {
@@ -455,7 +453,7 @@ void ts_stack_set_tree_selection_callback(Stack *self, void *payload,
 
 void ts_stack_delete(Stack *self) {
   if (self->pop_paths.contents)
-    array_delete(&self->pop_results);
+    array_delete(&self->slices);
   if (self->pop_paths.contents)
     array_delete(&self->pop_paths);
   ts_stack_clear(self);

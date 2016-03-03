@@ -19,7 +19,7 @@ typedef struct {
 typedef struct {
   TreeArray trees;
   int head_index;
-} StackPopResult;
+} StackSlice;
 
 typedef enum {
   StackPushResultFailed,
@@ -27,7 +27,7 @@ typedef enum {
   StackPushResultContinued,
 } StackPushResult;
 
-typedef Array(StackPopResult) StackPopResultArray;
+typedef Array(StackSlice) StackSliceArray;
 
 typedef int (*TreeSelectionFunction)(void *, TSTree *, TSTree *);
 
@@ -85,8 +85,8 @@ StackPushResult ts_stack_push(Stack *, int head_index, TSTree *, TSStateId);
  *  which had previously been merged. It returns a struct that indicates the
  *  index of each revealed head and the trees removed from that head.
  */
-StackPopResultArray ts_stack_pop(Stack *, int head_index, int count,
-                                 bool count_extra);
+StackSliceArray ts_stack_pop(Stack *, int head_index, int count,
+                             bool count_extra);
 
 /*
  *  Remove the given number of entries from the given head of the stack.
