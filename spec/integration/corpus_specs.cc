@@ -1,6 +1,6 @@
 #include "spec_helper.h"
 #include "runtime/alloc.h"
-#include "helpers/test_languages.h"
+#include "helpers/load_language.h"
 #include "helpers/read_test_entries.h"
 #include "helpers/spy_input.h"
 #include "helpers/log_debugger.h"

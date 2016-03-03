@@ -2,7 +2,7 @@
 #include "runtime/alloc.h"
 #include "helpers/record_alloc.h"
 #include "helpers/spy_input.h"
-#include "helpers/test_languages.h"
+#include "helpers/load_language.h"
 #include "helpers/log_debugger.h"
 #include "helpers/record_alloc.h"
 

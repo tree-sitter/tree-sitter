@@ -6,7 +6,7 @@
 #include "helpers/tree_helpers.h"
 #include "helpers/spy_debugger.h"
 #include "helpers/spy_input.h"
-#include "helpers/test_languages.h"
+#include "helpers/load_language.h"
 
 START_TEST
 
