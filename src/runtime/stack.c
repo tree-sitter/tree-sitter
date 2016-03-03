@@ -285,18 +285,18 @@ StackPushResult ts_stack_push(Stack *self, int head_index, TSTree *tree,
         ts_length_eq(prior_entry.position, position)) {
       stack_node__add_successor(prior_node, tree, current_head);
       ts_stack_remove_head(self, head_index);
-      return StackPushResultMerged;
+      return StackPushMerged;
     }
   }
 
   StackNode *new_head =
     stack_node_new(current_head, tree, state, &self->node_pool);
   if (!new_head)
-    return StackPushResultFailed;
+    return StackPushFailed;
 
   stack_node_release(current_head, &self->node_pool);
   self->heads.contents[head_index] = new_head;
-  return StackPushResultContinued;
+  return StackPushContinued;
 }
 
 int ts_stack_split(Stack *self, int head_index) {

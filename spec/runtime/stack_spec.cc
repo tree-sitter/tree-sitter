@@ -253,8 +253,8 @@ describe("Stack", [&]() {
       // . <──0── A <──1── B <──2── C <──3── D <──6── G*
       //                   ↑                          |
       //                   └───4─── E <──5── F <──7───┘
-      AssertThat(ts_stack_push(stack, 0, trees[6], stateG), Equals(StackPushResultContinued));
-      AssertThat(ts_stack_push(stack, 1, trees[7], stateG), Equals(StackPushResultMerged));
+      AssertThat(ts_stack_push(stack, 0, trees[6], stateG), Equals(StackPushContinued));
+      AssertThat(ts_stack_push(stack, 1, trees[7], stateG), Equals(StackPushMerged));
 
       AssertThat(ts_stack_head_count(stack), Equals(1));
       const StackEntry *entry1 = ts_stack_head(stack, 0);
@@ -269,14 +269,14 @@ describe("Stack", [&]() {
         // . <──0── A <──1── B <──2── C <──3── D <──6── G <──7──H*
         //                   ↑
         //                   └───4─── E <──5── F <──8── G*
-        AssertThat(ts_stack_push(stack, 0, trees[6], stateG), Equals(StackPushResultContinued));
-        AssertThat(ts_stack_push(stack, 0, trees[7], stateH), Equals(StackPushResultContinued));
-        AssertThat(ts_stack_push(stack, 1, trees[6], stateG), Equals(StackPushResultContinued));
+        AssertThat(ts_stack_push(stack, 0, trees[6], stateG), Equals(StackPushContinued));
+        AssertThat(ts_stack_push(stack, 0, trees[7], stateH), Equals(StackPushContinued));
+        AssertThat(ts_stack_push(stack, 1, trees[6], stateG), Equals(StackPushContinued));
 
         // . <──0── A <──1── B <──2── C <──3── D <──6── G <──7──H*
         //                   ↑                          |
         //                   └───4─── E <──5── F <──8───┘
-        AssertThat(ts_stack_push(stack, 1, trees[7], stateH), Equals(StackPushResultMerged));
+        AssertThat(ts_stack_push(stack, 1, trees[7], stateH), Equals(StackPushMerged));
 
         AssertThat(ts_stack_head_count(stack), Equals(1));
         StackEntry *head = ts_stack_head(stack, 0);
@@ -300,9 +300,9 @@ describe("Stack", [&]() {
         // └────────5────────┘
         ts_stack_clear(stack);
         ts_stack_split(stack, 0);
-        AssertThat(ts_stack_push(stack, 0, parent, stateC), Equals(StackPushResultContinued));
-        AssertThat(ts_stack_push(stack, 1, trees[2], stateB), Equals(StackPushResultContinued));
-        AssertThat(ts_stack_push(stack, 1, trees[3], stateC), Equals(StackPushResultMerged));
+        AssertThat(ts_stack_push(stack, 0, parent, stateC), Equals(StackPushContinued));
+        AssertThat(ts_stack_push(stack, 1, trees[2], stateB), Equals(StackPushContinued));
+        AssertThat(ts_stack_push(stack, 1, trees[3], stateC), Equals(StackPushMerged));
 
         AssertThat(ts_stack_head_count(stack), Equals(1));
         StackEntry *head = ts_stack_head(stack, 0);
@@ -368,7 +368,7 @@ describe("Stack", [&]() {
         // . <──0── A <──1── B <──2── C <──3── D <──4── E <──8──H*
         //                   ↑                          |
         //                   └───5─── F <──6── G <──7───┘
-        AssertThat(ts_stack_push(stack, 0, trees[8], stateH), Equals(StackPushResultContinued));
+        AssertThat(ts_stack_push(stack, 0, trees[8], stateH), Equals(StackPushContinued));
         AssertThat(ts_stack_head_count(stack), Equals(1));
         AssertThat(ts_stack_top_state(stack, 0), Equals(stateH));
 

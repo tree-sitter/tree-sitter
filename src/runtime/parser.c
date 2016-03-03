@@ -102,7 +102,7 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
       LOG("breakdown_pop sym:%s, size:%lu", SYM_NAME(parent->symbol),
           ts_tree_total_size(parent).chars);
 
-      StackPushResult last_push = StackPushResultContinued;
+      StackPushResult last_push = StackPushContinued;
       TSStateId state = ts_stack_top_state(self->stack, head_index);
       for (size_t j = 0; j < parent->child_count; j++) {
         last_child = parent->children[j];
@@ -117,21 +117,21 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
             ts_tree_total_size(last_child).chars);
 
         last_push = ts_stack_push(self->stack, head_index, last_child, state);
-        if (last_push == StackPushResultFailed)
+        if (last_push == StackPushFailed)
           goto error;
       }
 
       for (size_t j = 1, count = slice.trees.size; j < count; j++) {
         TSTree *tree = slice.trees.contents[j];
         last_push = ts_stack_push(self->stack, head_index, tree, state);
-        if (last_push == StackPushResultFailed)
+        if (last_push == StackPushFailed)
           goto error;
       }
 
       if (i == 0)
-        assert(last_push != StackPushResultMerged);
+        assert(last_push != StackPushMerged);
       else
-        assert(last_push == StackPushResultMerged);
+        assert(last_push == StackPushMerged);
 
       for (size_t j = 0, count = removed_trees.size; j < count; j++)
         ts_tree_release(removed_trees.contents[j]);
@@ -309,9 +309,9 @@ static ParseActionResult ts_parser__shift(TSParser *self, int head,
                                           TSStateId parse_state,
                                           TSTree *lookahead) {
   switch (ts_stack_push(self->stack, head, lookahead, parse_state)) {
-    case StackPushResultFailed:
+    case StackPushFailed:
       return FailedToUpdateStackHead;
-    case StackPushResultMerged:
+    case StackPushMerged:
       LOG("merge head:%d", head);
       array_erase(&self->lookahead_states, head);
       return RemovedStackHead;
@@ -449,15 +449,15 @@ static ReduceResult ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
      *  then remove the lookahead state for the head.
      */
     switch (ts_stack_push(self->stack, new_head, parent, state)) {
-      case StackPushResultFailed:
+      case StackPushFailed:
         ts_tree_release(parent);
         goto error;
-      case StackPushResultMerged:
+      case StackPushMerged:
         LOG("merge_during_reduce head:%d", new_head);
         array_erase(&self->lookahead_states, new_head);
         removed_heads++;
         continue;
-      case StackPushResultContinued:
+      case StackPushContinued:
         break;
     }
 
@@ -466,13 +466,13 @@ static ReduceResult ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
         size_t index = slice.trees.size - trailing_extra_count + j;
         TSTree *tree = slice.trees.contents[index];
         switch (ts_stack_push(self->stack, new_head, tree, state)) {
-          case StackPushResultFailed:
+          case StackPushFailed:
             return ReduceFailed;
-          case StackPushResultMerged:
+          case StackPushMerged:
             array_erase(&self->lookahead_states, new_head);
             removed_heads++;
             break;
-          case StackPushResultContinued:
+          case StackPushContinued:
             break;
         }
         ts_tree_release(tree);
@@ -666,9 +666,9 @@ static ParseActionResult ts_parser__repair_error(TSParser *self, int head_index,
   StackPushResult push_result = ts_stack_push(self->stack, head_index, parent, best_repair.next_state);
   ts_tree_release(parent);
   switch (push_result) {
-    case StackPushResultFailed:
+    case StackPushFailed:
       return FailedToUpdateStackHead;
-    case StackPushResultMerged:
+    case StackPushMerged:
       return RemovedStackHead;
     default:
       return UpdatedStackHead;

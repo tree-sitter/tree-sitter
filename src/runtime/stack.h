@@ -21,13 +21,13 @@ typedef struct {
   int head_index;
 } StackSlice;
 
-typedef enum {
-  StackPushResultFailed,
-  StackPushResultMerged,
-  StackPushResultContinued,
-} StackPushResult;
-
 typedef Array(StackSlice) StackSliceArray;
+
+typedef enum {
+  StackPushFailed,
+  StackPushMerged,
+  StackPushContinued,
+} StackPushResult;
 
 typedef int (*TreeSelectionFunction)(void *, TSTree *, TSTree *);
 
