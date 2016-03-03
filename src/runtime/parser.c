@@ -52,7 +52,8 @@ struct LookaheadState {
 typedef struct {
   TSSymbol symbol;
   TSStateId next_state;
-  size_t depth;
+  size_t stack_depth;
+  size_t child_count;
   size_t skipped_subtree_count;
   size_t in_progress_state_count;
 } ErrorRepair;
@@ -75,15 +76,16 @@ typedef enum {
  */
 
 static StackSlice ts_parser__pop_one(TSParser *self, int head_index, int count) {
-  StackSliceArray slices = ts_stack_pop(self->stack, head_index, count, true);
-  assert(slices.size > 0);
-  assert(slices.contents[0].head_index == head_index);
-  for (size_t i = 1; i < slices.size; i++) {
-    ts_tree_array_clear(&slices.contents[i].trees);
-    array_delete(&slices.contents[i].trees);
-    ts_stack_remove_head(self->stack, slices.contents[i].head_index);
+  StackPopResult pop = ts_stack_pop(self->stack, head_index, count, true);
+  assert(pop.status == StackPopSucceeded);
+  assert(pop.slices.size > 0);
+  assert(pop.slices.contents[0].head_index == head_index);
+  for (size_t i = 1; i < pop.slices.size; i++) {
+    ts_tree_array_clear(&pop.slices.contents[i].trees);
+    array_delete(&pop.slices.contents[i].trees);
+    ts_stack_remove_head(self->stack, pop.slices.contents[i].head_index);
   }
-  return slices.contents[0];
+  return pop.slices.contents[0];
 }
 
 static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
@@ -91,18 +93,18 @@ static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
   TSTree *last_child = NULL;
 
   do {
-    StackSliceArray slices = ts_stack_pop(self->stack, head, 1, false);
-    if (!slices.size)
+    StackPopResult pop = ts_stack_pop(self->stack, head, 1, false);
+    if (!pop.slices.size)
       return ParseActionFailed;
-    assert(slices.size > 0);
+    assert(pop.slices.size > 0);
 
     /*
      *  Since only one entry (not counting extra trees) is being popped from the
      *  stack, there should only be one possible array of removed trees.
      */
 
-    for (size_t i = 0; i < slices.size; i++) {
-      StackSlice slice = slices.contents[i];
+    for (size_t i = 0; i < pop.slices.size; i++) {
+      StackSlice slice = pop.slices.contents[i];
       TreeArray removed_trees = slice.trees;
       TSTree *parent = *array_front(&removed_trees);
       int head_index = slice.head_index;
@@ -349,28 +351,26 @@ static ReduceResult ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
                                       int child_count, bool extra, bool fragile) {
   array_clear(&self->reduce_parents);
   TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, symbol);
-  StackSliceArray slices =
-    ts_stack_pop(self->stack, head, child_count, false);
-  if (!slices.size)
+  StackPopResult pop = ts_stack_pop(self->stack, head, child_count, false);
+  if (!pop.slices.size)
     return ReduceFailed;
-  if (slices.contents[0].trees.size &&
-      slices.contents[0].trees.contents[0]->symbol == ts_builtin_sym_error) {
+  if (pop.status == StackPopStoppedAtError) {
     if (self->partial_pop.size) {
       ts_tree_array_clear(&self->partial_pop);
       array_delete(&self->partial_pop);
     }
-    self->partial_pop = slices.contents[0].trees;
-    for (size_t i = 1; i < slices.size; i++) {
-      ts_tree_array_clear(&slices.contents[i].trees);
-      array_delete(&slices.contents[i].trees);
+    self->partial_pop = pop.slices.contents[0].trees;
+    for (size_t i = 1; i < pop.slices.size; i++) {
+      ts_tree_array_clear(&pop.slices.contents[i].trees);
+      array_delete(&pop.slices.contents[i].trees);
     }
     return ReduceStoppedAtError;
   }
 
   size_t removed_heads = 0;
 
-  for (size_t i = 0; i < slices.size; i++) {
-    StackSlice slice = slices.contents[i];
+  for (size_t i = 0; i < pop.slices.size; i++) {
+    StackSlice slice = pop.slices.contents[i];
 
     /*
      *  If the same set of trees led to a previous stack head, reuse the parent
@@ -492,7 +492,7 @@ static ReduceResult ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
     ts_tree_release(*parent);
   }
 
-  if (removed_heads < slices.size)
+  if (removed_heads < pop.slices.size)
     return ReduceSucceeded;
   else
     return ReduceMerged;
@@ -555,8 +555,11 @@ static ParseActionResult ts_parser__repair_error(TSParser *self, int head_index,
                                                  const TSParseAction *actions,
                                                  size_t action_count) {
   StackEntry *entry_below = ts_stack_head(self->stack, head_index);
-  while (entry_below && entry_below->state == ts_parse_state_error)
+  size_t initial_depth = 0;
+  while (entry_below && entry_below->state == ts_parse_state_error) {
     entry_below = ts_stack_entry_next(entry_below, 0);
+    initial_depth++;
+  }
   bool has_repair = false;
   ErrorRepair best_repair;
 
@@ -575,7 +578,7 @@ static ParseActionResult ts_parser__repair_error(TSParser *self, int head_index,
       continue;
 
     StackEntry *entry = entry_below;
-    size_t depth = 0;
+    size_t depth = initial_depth;
     size_t child_count = 0;
     size_t in_progress_state_count = 0;
 
@@ -599,15 +602,11 @@ static ParseActionResult ts_parser__repair_error(TSParser *self, int head_index,
             ErrorRepair repair = {
               .symbol = action.data.symbol,
               .next_state = next_state,
-              .depth = depth,
+              .child_count = action.data.child_count,
+              .stack_depth = depth,
               .skipped_subtree_count = child_count + count_above_error - action.data.child_count,
               .in_progress_state_count = in_progress_state_count,
             };
-
-            LOG_ACTION("REPAIR_GOOD sym:%s, in_progress:%lu, skipped:%lu!",
-              SYM_NAME(action.data.symbol),
-              in_progress_state_count,
-              repair.skipped_subtree_count);
 
             if (!has_repair ||
                 ts_parser__error_repair_is_better(best_repair, repair)) {
@@ -637,6 +636,15 @@ static ParseActionResult ts_parser__repair_error(TSParser *self, int head_index,
     return ParseActionRemoved;
   }
 
+  LOG_ACTION(
+    "repair_found sym:%s, child_count:%lu, skip_count:%lu, match_count:%lu, DEPTH:%lu",
+    SYM_NAME(best_repair.symbol),
+    best_repair.child_count,
+    best_repair.in_progress_state_count,
+    best_repair.skipped_subtree_count,
+    best_repair.stack_depth
+  );
+
   // Pop any trees that were skipped. Make a new extra error node that contains
   // them and the error leaf node.
   StackSlice slice = ts_parser__pop_one(self, head_index, best_repair.skipped_subtree_count);
@@ -650,7 +658,7 @@ static ParseActionResult ts_parser__repair_error(TSParser *self, int head_index,
   // Pop any additional trees that are needed for the chosen reduce action. Make
   // a new wrapper node of the chosen symbol that contains them, the error node,
   // and the trees that were popped above the error node.
-  slice = ts_parser__pop_one(self, head_index, best_repair.depth - (error->child_count - 1));
+  slice = ts_parser__pop_one(self, head_index, best_repair.stack_depth - (error->child_count - 1));
   array_push(&slice.trees, error);
   for (size_t i = 1; i < self->partial_pop.size; i++)
     array_push(&slice.trees, self->partial_pop.contents[i]);
@@ -698,12 +706,12 @@ static ParseActionResult ts_parser__start(TSParser *self, TSInput input,
 }
 
 static ParseActionResult ts_parser__accept(TSParser *self, int head) {
-  StackSliceArray slices = ts_stack_pop(self->stack, head, -1, true);
-  if (!slices.size)
+  StackPopResult pop = ts_stack_pop(self->stack, head, -1, true);
+  if (!pop.slices.size)
     goto error;
 
-  for (size_t j = 0; j < slices.size; j++) {
-    StackSlice slice = slices.contents[j];
+  for (size_t j = 0; j < pop.slices.size; j++) {
+    StackSlice slice = pop.slices.contents[j];
     TreeArray trees = slice.trees;
 
     for (size_t i = trees.size - 1; i + 1 > 0; i--) {
@@ -732,8 +740,8 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
   return ParseActionRemoved;
 
 error:
-  if (slices.size) {
-    StackSlice slice = *array_front(&slices);
+  if (pop.slices.size) {
+    StackSlice slice = *array_front(&pop.slices);
     for (size_t i = 0; i < slice.trees.size; i++)
       ts_tree_release(slice.trees.contents[i]);
     array_delete(&slice.trees);

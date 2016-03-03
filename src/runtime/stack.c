@@ -304,7 +304,7 @@ int ts_stack_split(Stack *self, int head_index) {
   return ts_stack__add_head(self, head);
 }
 
-StackSliceArray ts_stack_pop(Stack *self, int head_index, int child_count,
+StackPopResult ts_stack_pop(Stack *self, int head_index, int child_count,
                                  bool count_extra) {
   array_clear(&self->slices);
   array_clear(&self->pop_paths);
@@ -327,6 +327,7 @@ StackSliceArray ts_stack_pop(Stack *self, int head_index, int child_count,
    *  of child trees have been collected along every path.
    */
   bool all_paths_done = false;
+  int status = StackPopSucceeded;
   while (!all_paths_done) {
     all_paths_done = true;
 
@@ -362,14 +363,16 @@ StackSliceArray ts_stack_pop(Stack *self, int head_index, int child_count,
           next_path->is_shared = false;
         }
 
-        if (successor.tree->extra && !count_extra)
+        if (!count_extra && successor.tree->extra)
           next_path->goal_tree_count++;
+
         ts_tree_retain(successor.tree);
         if (!array_push(&next_path->trees, successor.tree))
           goto error;
 
         next_path->node = successor.node;
-        if (successor.tree->symbol == ts_builtin_sym_error && !count_extra) {
+        if (!count_extra && node->entry.state == ts_parse_state_error) {
+          status = StackPopStoppedAtError;
           next_path->goal_tree_count = next_path->trees.size;
         }
       }
@@ -416,13 +419,11 @@ StackSliceArray ts_stack_pop(Stack *self, int head_index, int child_count,
   }
 
   stack_node_release(previous_head, &self->node_pool);
-  return self->slices;
+  return (StackPopResult){ .status = status, .slices = self->slices };
 
 error:
   array_delete(&initial_path.trees);
-  StackSliceArray slices;
-  array_init(&slices);
-  return slices;
+  return (StackPopResult){StackPopFailed, self->slices};
 }
 
 void ts_stack_shrink(Stack *self, int head_index, int count) {
