@@ -230,6 +230,19 @@ class ParseTableBuilder {
             action.associativity = rules::AssociativityNone;
           }
         }
+
+        for (auto i = entry.second.begin(); i != entry.second.end();) {
+          bool erased = false;
+          for (auto j = entry.second.begin(); j != i; j++) {
+            if (*j == *i) {
+              entry.second.erase(i);
+              erased = true;
+              break;
+            }
+          }
+          if (!erased)
+            ++i;
+        }
       }
 
       if (!symbols_with_multiple_actions.empty()) {
