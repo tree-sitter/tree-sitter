@@ -105,24 +105,36 @@ class ParseTableBuilder {
   }
 
   void add_out_of_context_parse_states() {
-    map<Symbol, set<Symbol>> symbols_by_token = symbols_by_first_symbol(grammar);
+    map<Symbol, set<Symbol>> symbols_by_first = symbols_by_first_symbol(grammar);
     for (size_t i = 0; i < lexical_grammar.variables.size(); i++) {
-      Symbol token(i, true);
-      ParseItemSet item_set;
-      const set<Symbol> &symbols = symbols_by_token[token];
+      Symbol symbol(i, true);
+      if (!grammar.extra_tokens.count(symbol))
+        add_out_of_context_parse_state(symbol, symbols_by_first[symbol]);
+    }
 
-      for (const auto &parse_state_entry : parse_state_ids) {
-        for (const auto &pair : parse_state_entry.first.entries) {
-          const ParseItem &item = pair.first;
-          const LookaheadSet &lookahead_set = pair.second;
-          if (symbols.count(item.next_symbol()))
-            item_set.entries[item].insert_all(lookahead_set);
+    for (size_t i = 0; i < grammar.variables.size(); i++) {
+      Symbol symbol(i, false);
+      add_out_of_context_parse_state(Symbol(i, false), symbols_by_first[symbol]);
+    }
+  }
+
+  void add_out_of_context_parse_state(const rules::Symbol &symbol,
+                                      const set<Symbol> &symbols) {
+    ParseItemSet item_set;
+
+    for (const auto &parse_state_entry : parse_state_ids) {
+      ParseItemSet state_item_set = parse_state_entry.first;
+      for (const auto &pair : state_item_set.entries) {
+        const ParseItem &item = pair.first;
+        const LookaheadSet &lookahead_set = pair.second;
+        if (symbols.count(item.next_symbol())) {
+          item_set.entries[item].insert_all(lookahead_set);
         }
       }
-
-      ParseStateId state = add_parse_state(item_set);
-      parse_table.out_of_context_state_indices[token] = state;
     }
+
+    ParseStateId state = add_parse_state(item_set);
+    parse_table.out_of_context_state_indices[symbol] = state;
   }
 
   ParseStateId add_parse_state(const ParseItemSet &item_set) {

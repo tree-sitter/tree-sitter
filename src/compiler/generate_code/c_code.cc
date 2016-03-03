@@ -225,10 +225,12 @@ class CCodeGenerator {
     indent([&]() {
       for (const auto &entry : parse_table.symbols) {
         const rules::Symbol &symbol = entry.first;
-        ParseStateId state = parse_table.out_of_context_state_indices.find(symbol)->second;
-        if (symbol.is_token && !symbol.is_built_in()) {
-          line("[" + symbol_id(symbol) + "] = " + to_string(state) + ",");
-        }
+        if (symbol.is_built_in())
+          continue;
+        auto iter = parse_table.out_of_context_state_indices.find(symbol);
+        string state = (iter != parse_table.out_of_context_state_indices.end()) ?
+          to_string(iter->second) : "ts_parse_state_error";
+        line("[" + symbol_id(symbol) + "] = " + state + ",");
       }
     });
     line("};");

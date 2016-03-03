@@ -86,6 +86,29 @@ describe("symbols_by_first_symbol", [&]() {
           Symbol(3)
         }
       },
+      {
+        Symbol(0), {
+          Symbol(0),
+          Symbol(1),
+          Symbol(2),
+        }
+      },
+      {
+        Symbol(1), {
+          Symbol(1),
+          Symbol(2),
+        }
+      },
+      {
+        Symbol(2), {
+          Symbol(2),
+        }
+      },
+      {
+        Symbol(3), {
+          Symbol(3),
+        }
+      }
     })));
   });
 });

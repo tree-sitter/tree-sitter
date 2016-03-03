@@ -43,14 +43,6 @@ map<Symbol, set<Symbol>> symbols_by_first_symbol(const SyntaxGrammar &grammar) {
     }
   }
 
-  for (auto iter = result.begin(), end = result.end(); iter != end;) {
-    if (!iter->first.is_token) {
-      result.erase(iter++);
-    } else {
-      iter++;
-    }
-  }
-
   return result;
 }
 
