@@ -49,6 +49,14 @@ struct LookaheadState {
   bool is_verifying;
 };
 
+typedef struct {
+  TSSymbol symbol;
+  TSStateId next_state;
+  size_t depth;
+  size_t skipped_subtree_count;
+  size_t in_progress_state_count;
+} ErrorRepair;
+
 typedef enum {
   UpdatedStackHead,
   RemovedStackHead,
@@ -58,6 +66,18 @@ typedef enum {
 /*
  *  Private
  */
+
+static StackPopResult ts_parser__pop_one(TSParser *self, int head_index, int count) {
+  StackPopResultArray results = ts_stack_pop(self->stack, head_index, count, true);
+  assert(results.size > 0);
+  assert(results.contents[0].head_index == head_index);
+  for (size_t i = 1; i < results.size; i++) {
+    ts_tree_array_clear(&results.contents[i].trees);
+    array_delete(&results.contents[i].trees);
+    ts_stack_remove_head(self->stack, results.contents[i].head_index);
+  }
+  return results.contents[0];
+}
 
 static ParseActionResult ts_parser__breakdown_top_of_stack(TSParser *self,
                                                            int head) {
@@ -318,16 +338,34 @@ static ParseActionResult ts_parser__shift_extra(TSParser *self, int head,
   }
 }
 
-static ParseActionResult ts_parser__reduce(TSParser *self, int head,
-                                           TSSymbol symbol, int child_count,
-                                           bool extra, bool fragile,
-                                           bool count_extra) {
+typedef enum {
+  ReduceSucceeded,
+  ReduceMerged,
+  ReduceFailed,
+  ReduceStoppedAtError,
+} ReduceResult;
+
+static ReduceResult ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
+                                      int child_count, bool extra, bool fragile) {
   array_clear(&self->reduce_parents);
   TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, symbol);
   StackPopResultArray pop_results =
-    ts_stack_pop(self->stack, head, child_count, count_extra);
+    ts_stack_pop(self->stack, head, child_count, false);
   if (!pop_results.size)
-    return FailedToUpdateStackHead;
+    return ReduceFailed;
+  if (pop_results.contents[0].trees.size &&
+      pop_results.contents[0].trees.contents[0]->symbol == ts_builtin_sym_error) {
+    if (self->partial_pop.size) {
+      ts_tree_array_clear(&self->partial_pop);
+      array_delete(&self->partial_pop);
+    }
+    self->partial_pop = pop_results.contents[0].trees;
+    for (size_t i = 1; i < pop_results.size; i++) {
+      ts_tree_array_clear(&pop_results.contents[i].trees);
+      array_delete(&pop_results.contents[i].trees);
+    }
+    return ReduceStoppedAtError;
+  }
 
   size_t removed_heads = 0;
 
@@ -429,7 +467,7 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
         TSTree *tree = pop_result.trees.contents[index];
         switch (ts_stack_push(self->stack, new_head, tree, state)) {
           case StackPushResultFailed:
-            return FailedToUpdateStackHead;
+            return ReduceFailed;
           case StackPushResultMerged:
             array_erase(&self->lookahead_states, new_head);
             removed_heads++;
@@ -455,94 +493,185 @@ static ParseActionResult ts_parser__reduce(TSParser *self, int head,
   }
 
   if (removed_heads < pop_results.size)
-    return UpdatedStackHead;
+    return ReduceSucceeded;
   else
-    return RemovedStackHead;
+    return ReduceMerged;
 
 error:
-  return FailedToUpdateStackHead;
-}
-
-static ParseActionResult ts_parser__reduce_error(TSParser *self, int head,
-                                                 size_t child_count,
-                                                 TSTree *lookahead) {
-  switch (ts_parser__reduce(self, head, ts_builtin_sym_error, child_count,
-                            false, true, true)) {
-    case FailedToUpdateStackHead:
-      return FailedToUpdateStackHead;
-    case RemovedStackHead:
-      return RemovedStackHead;
-    default: {
-      StackEntry *entry = ts_stack_head(self->stack, head);
-      entry->position = ts_length_add(entry->position, lookahead->padding);
-      TSTree *tree = *array_front(&self->reduce_parents);
-      tree->size = ts_length_add(tree->size, lookahead->padding);
-      lookahead->padding = ts_length_zero();
-      return UpdatedStackHead;
-    }
-  }
+  return ReduceFailed;
 }
 
 static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
                                                  TSTree *lookahead) {
-  size_t error_token_count = 1;
-  StackEntry *entry_before_error = ts_stack_head(self->stack, head);
-  ts_tree_retain(lookahead);
+  TSTree *next_lookahead = self->language->lex_fn(&self->lexer, 0, true);
+  lookahead->size = ts_length_add(lookahead->size, next_lookahead->padding);
+  next_lookahead->padding = ts_length_zero();
 
-  for (;;) {
+  if (ts_parser__shift(self, head, ts_parse_state_error, lookahead) ==
+      FailedToUpdateStackHead)
+    goto error;
 
-    /*
-     *  Unwind the parse stack until a state is found in which an error is
-     *  expected and the current lookahead token is expected afterwards.
-     */
-    int i = -1;
-    for (StackEntry *entry = entry_before_error; true;
-         entry = ts_stack_entry_next(entry, 0), i++) {
-      TSStateId stack_state = entry ? entry->state : 0;
-      TSParseAction action_on_error = ts_language_last_action(
-        self->language, stack_state, ts_builtin_sym_error);
+  while (ts_language_symbol_metadata(self->language,next_lookahead->symbol).extra) {
+    if (ts_parser__shift_extra(self, head, ts_parse_state_error,
+                               next_lookahead) == FailedToUpdateStackHead)
+      goto error;
+    ts_tree_release(next_lookahead);
+    next_lookahead = self->language->lex_fn(&self->lexer, 0, true);
+  }
 
-      if (action_on_error.type == TSParseActionTypeShift) {
-        TSStateId state_after_error = action_on_error.data.to_state;
-        TSParseAction action_after_error = ts_language_last_action(
-          self->language, state_after_error, lookahead->symbol);
+  if (next_lookahead->symbol == ts_builtin_sym_end) {
+    StackPopResult result = ts_parser__pop_one(self, head, -1);
+    TSTree *parent = ts_tree_make_node(ts_builtin_sym_start, result.trees.size,
+      result.trees.contents, ts_language_symbol_metadata(self->language, ts_builtin_sym_start));
+    ts_stack_push(self->stack, head, parent, 0);
+    ts_tree_release(parent);
+    ts_tree_release(next_lookahead);
+    return RemovedStackHead;
+  }
 
-        if (action_after_error.type != TSParseActionTypeError) {
-          LOG("recover state:%u, count:%lu", state_after_error,
-              error_token_count + i);
-          ts_parser__reduce_error(self, head, error_token_count + i, lookahead);
-          ts_tree_release(lookahead);
-          return UpdatedStackHead;
+  TSParseAction action = ts_language_last_action(
+    self->language, ts_parse_state_error, next_lookahead->symbol);
+  assert(action.type == TSParseActionTypeShift);
+
+  LOG("resume_without_context state:%d", action.data.to_state);
+  ParseActionResult result =
+    ts_parser__shift(self, head, action.data.to_state, next_lookahead);
+  ts_tree_release(next_lookahead);
+  return result;
+
+error:
+  ts_tree_release(next_lookahead);
+  return FailedToUpdateStackHead;
+}
+
+static bool ts_parser__error_repair_is_better(ErrorRepair old, ErrorRepair new) {
+  if (new.in_progress_state_count > old.in_progress_state_count)
+    return true;
+  if (new.in_progress_state_count < old.in_progress_state_count)
+    return false;
+  return new.skipped_subtree_count < old.skipped_subtree_count;
+}
+
+static ParseActionResult ts_parser__repair_error(TSParser *self, int head_index,
+                                                 TSTree *lookahead,
+                                                 const TSParseAction *actions,
+                                                 size_t action_count) {
+  StackEntry *entry_below = ts_stack_head(self->stack, head_index);
+  while (entry_below && entry_below->state == ts_parse_state_error)
+    entry_below = ts_stack_entry_next(entry_below, 0);
+  bool has_repair = false;
+  ErrorRepair best_repair;
+
+  // Count how many non-extra trees were already popped, not counting the error.
+  size_t count_above_error = 0;
+  for (size_t i = 1; i < self->partial_pop.size; i++)
+    if (!self->partial_pop.contents[i]->extra)
+      count_above_error++;
+
+  // Compare all of the reduce actions that extend back to the error. Find the
+  // one that best fits the nodes *below* the error on the stack.
+  for (size_t i = 0; i < action_count; i++) {
+    TSParseAction action = actions[i];
+    if (action.type != TSParseActionTypeReduce ||
+        action.data.child_count <= count_above_error)
+      continue;
+
+    StackEntry *entry = entry_below;
+    size_t depth = 0;
+    size_t child_count = 0;
+    size_t in_progress_state_count = 0;
+
+    // Move down the stack until a state is reached in which the reduced symbol
+    // is expected, and the current lookahead symbol is expected to follow it.
+    for (;;) {
+      TSStateId state = entry ? entry->state : 0;
+      if (ts_language_symbol_is_in_progress(self->language, state, action.data.symbol))
+        in_progress_state_count++;
+
+      if (child_count + count_above_error >= action.data.child_count &&
+          in_progress_state_count > 0) {
+        TSParseAction entry_action =
+          ts_language_last_action(self->language, state, action.data.symbol);
+        if (entry_action.type == TSParseActionTypeShift) {
+          TSStateId next_state = entry_action.data.to_state;
+          TSParseAction next_action = ts_language_last_action(
+            self->language, next_state, lookahead->symbol);
+
+          if (next_action.type != TSParseActionTypeError) {
+            ErrorRepair repair = {
+              .symbol = action.data.symbol,
+              .next_state = next_state,
+              .depth = depth,
+              .skipped_subtree_count = child_count + count_above_error - action.data.child_count,
+              .in_progress_state_count = in_progress_state_count,
+            };
+
+            LOG_ACTION("REPAIR_GOOD sym:%s, in_progress:%lu, skipped:%lu!",
+              SYM_NAME(action.data.symbol),
+              in_progress_state_count,
+              repair.skipped_subtree_count);
+
+            if (!has_repair ||
+                ts_parser__error_repair_is_better(best_repair, repair)) {
+              has_repair = true;
+              best_repair = repair;
+              break;
+            }
+          }
         }
       }
 
-      if (!entry)
+      if (entry) {
+        if (entry->state != ts_parse_state_error)
+          child_count++;
+        depth++;
+        entry = ts_stack_entry_next(entry, 0);
+      } else {
         break;
+      }
     }
+  }
 
-    /*
-     *  If there is no state in the stack for which we can recover with the
-     *  current lookahead token, advance to the next token.
-     */
-    LOG("skip token:%s", SYM_NAME(lookahead->symbol));
-    TSStateId state = ts_stack_top_state(self->stack, head);
-    if (ts_parser__shift(self, head, state, lookahead) == FailedToUpdateStackHead)
-      return FailedToUpdateStackHead;
-    ts_tree_release(lookahead);
-    lookahead = self->language->lex_fn(&self->lexer, 0, true);
-    if (!lookahead)
-      return FailedToUpdateStackHead;
-    error_token_count++;
+  if (!has_repair) {
+    ts_tree_array_clear(&self->partial_pop);
+    array_delete(&self->partial_pop);
+    ts_parser__remove_head(self, head_index);
+    return RemovedStackHead;
+  }
 
-    /*
-     *  If the end of input is reached, exit.
-     */
-    if (lookahead->symbol == ts_builtin_sym_end) {
-      LOG("fail_to_recover");
-      ts_parser__reduce_error(self, head, -1, lookahead);
-      ts_tree_release(lookahead);
+  // Pop any trees that were skipped. Make a new extra error node that contains
+  // them and the error leaf node.
+  StackPopResult pop_result = ts_parser__pop_one(self, head_index, best_repair.skipped_subtree_count);
+  array_push(&pop_result.trees, *array_front(&self->partial_pop));
+  TSTree *error = ts_tree_make_node(
+    ts_builtin_sym_error,
+    pop_result.trees.size,
+    pop_result.trees.contents,
+    ts_language_symbol_metadata(self->language, ts_builtin_sym_error));
+
+  // Pop any additional trees that are needed for the chosen reduce action. Make
+  // a new wrapper node of the chosen symbol that contains them, the error node,
+  // and the trees that were popped above the error node.
+  pop_result = ts_parser__pop_one(self, head_index, best_repair.depth - (error->child_count - 1));
+  array_push(&pop_result.trees, error);
+  for (size_t i = 1; i < self->partial_pop.size; i++)
+    array_push(&pop_result.trees, self->partial_pop.contents[i]);
+  array_delete(&self->partial_pop);
+  TSTree *parent = ts_tree_make_node(
+    best_repair.symbol,
+    pop_result.trees.size,
+    pop_result.trees.contents,
+    ts_language_symbol_metadata(self->language, best_repair.symbol));
+
+  StackPushResult push_result = ts_stack_push(self->stack, head_index, parent, best_repair.next_state);
+  ts_tree_release(parent);
+  switch (push_result) {
+    case StackPushResultFailed:
+      return FailedToUpdateStackHead;
+    case StackPushResultMerged:
       return RemovedStackHead;
-    }
+    default:
+      return UpdatedStackHead;
   }
 }
 
@@ -579,7 +708,7 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
     StackPopResult pop_result = pop_results.contents[j];
     TreeArray trees = pop_result.trees;
 
-    for (size_t i = 0; i < trees.size; i++) {
+    for (size_t i = trees.size - 1; i + 1 > 0; i--) {
       if (!trees.contents[i]->extra) {
         TSTree *root = trees.contents[i];
         if (!array_splice(&trees, i, 1, root->child_count, root->children))
@@ -633,25 +762,29 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
      * action, it will always appear *last* in the list of actions. Perform it
      * on the original stack head and return.
      */
+    bool repaired_error = false;
     for (size_t i = 0; i < action_count; i++) {
       TSParseAction action = actions[i];
 
       int current_head;
       if (i == action_count - 1) {
+        if (repaired_error && action.type == TSParseActionTypeReduce)
+          action.type = TSParseActionTypeError;
         current_head = head;
       } else {
+        if (repaired_error)
+          continue;
         current_head = ts_parser__split(self, head);
         LOG_ACTION("split_action from_head:%d, new_head:%d", head, current_head);
       }
 
+      LOG_STACK();
+
       LookaheadState *lookahead_state =
         array_get(&self->lookahead_states, current_head);
 
-      LOG_STACK();
-
       switch (action.type) {
         case TSParseActionTypeError:
-          LOG_ACTION("error_sym");
           if (lookahead_state->is_verifying) {
             ts_parser__breakdown_top_of_stack(self, current_head);
             lookahead_state->is_verifying = false;
@@ -659,6 +792,7 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
           }
 
           if (ts_stack_head_count(self->stack) == 1) {
+            LOG_ACTION("error_sym");
             switch (ts_parser__handle_error(self, current_head, lookahead)) {
               case FailedToUpdateStackHead:
                 return FailedToUpdateStackHead;
@@ -690,21 +824,35 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
           if (action.extra) {
             LOG_ACTION("reduce_extra sym:%s", SYM_NAME(action.data.symbol));
             ts_parser__reduce(self, current_head, action.data.symbol, 1, true,
-                              false, false);
+                              false);
           } else {
             LOG_ACTION("reduce sym:%s, child_count:%u, fragile:%s",
                        SYM_NAME(action.data.symbol), action.data.child_count,
                        BOOL_STRING(action.fragile));
             switch (ts_parser__reduce(self, current_head, action.data.symbol,
                                       action.data.child_count, false,
-                                      action.fragile, false)) {
-              case FailedToUpdateStackHead:
+                                      action.fragile)) {
+              case ReduceFailed:
                 return FailedToUpdateStackHead;
-              case RemovedStackHead:
+              case ReduceMerged:
                 if (current_head == head)
                   return RemovedStackHead;
                 break;
-              case UpdatedStackHead:
+              case ReduceSucceeded:
+                break;
+              case ReduceStoppedAtError:
+                repaired_error = true;
+                LOG_ACTION("repair head:%d", current_head);
+                switch (ts_parser__repair_error(self, current_head, lookahead,
+                                                actions, action_count)) {
+                  case FailedToUpdateStackHead:
+                    return FailedToUpdateStackHead;
+                  case RemovedStackHead:
+                    LOG_ACTION("repair_failed");
+                    break;
+                  default:
+                    break;
+                }
                 break;
             }
           }
@@ -760,6 +908,9 @@ void ts_parser_destroy(TSParser *self) {
     array_delete(&self->lookahead_states);
   if (self->reduce_parents.contents)
     array_delete(&self->reduce_parents);
+  ts_tree_array_clear(&self->partial_pop);
+  if (self->partial_pop.contents)
+    array_delete(&self->partial_pop);
 }
 
 TSDebugger ts_parser_debugger(const TSParser *self) {
@@ -796,9 +947,9 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
 
         position = new_position;
 
-        LOG("process head:%d, head_count:%d, state:%d, pos:%lu", head,
-            ts_stack_head_count(self->stack),
-            ts_stack_top_state(self->stack, head), position);
+        LOG_ACTION("process head:%d, head_count:%d, state:%d, pos:%lu", head,
+                   ts_stack_head_count(self->stack),
+                   ts_stack_top_state(self->stack, head), position);
 
         if (!lookahead || (position != last_position) ||
             !ts_parser__can_reuse(self, head, lookahead)) {
@@ -808,8 +959,8 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
             return NULL;
         }
 
-        LOG("lookahead sym:(%s,%d), size:%lu", SYM_NAME(lookahead->symbol),
-            lookahead->symbol, ts_tree_total_chars(lookahead));
+        LOG_ACTION("lookahead sym:%s, size:%lu", SYM_NAME(lookahead->symbol),
+                   ts_tree_total_chars(lookahead));
 
         switch (ts_parser__consume_lookahead(self, head, lookahead)) {
           case FailedToUpdateStackHead:

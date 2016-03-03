@@ -101,7 +101,7 @@ describe("Document", [&]() {
       TSNode new_root = ts_document_root_node(doc);
       assert_node_string_equals(
         new_root,
-        "(ERROR (UNEXPECTED <EOF>))");
+        "(UNEXPECTED <EOF>)");
 
       ts_document_set_input_string(doc, "1");
       ts_document_parse(doc);

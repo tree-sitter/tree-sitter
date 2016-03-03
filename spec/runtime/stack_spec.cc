@@ -191,6 +191,19 @@ describe("Stack", [&]() {
 
       free_pop_results(&results);
     });
+
+    it("stops immediately when removing an error", [&]() {
+      trees[2]->symbol = ts_builtin_sym_error;
+
+      StackPopResultArray results = ts_stack_pop(stack, 0, 2, false);
+      AssertThat(results.size, Equals<size_t>(1));
+
+      StackPopResult result = results.contents[0];
+      AssertThat(result.trees, Equals(vector<TSTree *>({ trees[2] })));
+      AssertThat(ts_stack_top_state(stack, 0), Equals(stateB));
+
+      free_pop_results(&results);
+    });
   });
 
   describe("splitting the stack", [&]() {

@@ -358,24 +358,22 @@ StackPopResultArray ts_stack_pop(Stack *self, int head_index, int child_count,
         }
 
         if (next_path->is_shared) {
-          next_path->trees = (TreeArray)array_copy(&path->trees);
-          next_path->trees.size--;
-          for (size_t j = 0; j < next_path->trees.size; j++)
-            ts_tree_retain(next_path->trees.contents[j]);
+          TreeArray trees = path->trees;
+          trees.size--;
+          next_path->trees = ts_tree_array_copy(&trees);
           next_path->is_shared = false;
         }
 
-        next_path->node = successor.node;
+        if (successor.tree->extra && !count_extra)
+          next_path->goal_tree_count++;
         ts_tree_retain(successor.tree);
         if (!array_push(&next_path->trees, successor.tree))
           goto error;
 
-        /*
-         *  Children that are 'extra' do not count towards the total child
-         * count.
-         */
-        if (successor.tree->extra && !count_extra)
-          next_path->goal_tree_count++;
+        next_path->node = successor.node;
+        if (successor.tree->symbol == ts_builtin_sym_error && !count_extra) {
+          next_path->goal_tree_count = next_path->trees.size;
+        }
       }
     }
   }

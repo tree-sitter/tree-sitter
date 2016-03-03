@@ -99,7 +99,7 @@ describe("Parser", [&]() {
         TSNode last = ts_node_named_child(root, 2);
 
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123,  ")));
+        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123")));
         AssertThat(ts_node_end_byte(error), Equals(strlen("  [123,  @@@@@")));
 
         AssertThat(ts_node_name(last, doc), Equals("true"));
@@ -120,7 +120,7 @@ describe("Parser", [&]() {
         AssertThat(ts_node_symbol(error), Equals(ts_builtin_sym_error));
 
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")))
+        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123")))
         AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, faaaaalse")))
 
         AssertThat(ts_node_name(last, doc), Equals("true"));
@@ -133,17 +133,17 @@ describe("Parser", [&]() {
         set_text("  [123, true false, true]");
 
         assert_root_node(
-          "(array (number) (ERROR (true) (UNEXPECTED 'f') (false)) (true))");
+          "(array (number) (ERROR (true) (UNEXPECTED 'f')) (false) (true))");
 
         TSNode error = ts_node_named_child(root, 1);
         TSNode last = ts_node_named_child(root, 2);
 
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
         AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")));
-        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, true false")));
+        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, true ")));
 
-        AssertThat(ts_node_name(last, doc), Equals("true"));
-        AssertThat(ts_node_start_byte(last), Equals(strlen("  [123, true false, ")));
+        AssertThat(ts_node_name(last, doc), Equals("false"));
+        AssertThat(ts_node_start_byte(last), Equals(strlen("  [123, true ")));
       });
     });
 
@@ -158,7 +158,7 @@ describe("Parser", [&]() {
         TSNode last = ts_node_named_child(root, 2);
 
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")));
+        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123")));
         AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, ")))
 
         AssertThat(ts_node_name(last, doc), Equals("true"));
@@ -275,7 +275,7 @@ describe("Parser", [&]() {
           insert_text(strlen("var x = y"), " *");
 
           assert_root_node(
-              "(program (var_declaration (ERROR (identifier) (identifier) (UNEXPECTED ';'))))");
+            "(program (var_declaration (identifier) (ERROR (identifier) (UNEXPECTED ';'))))");
 
           insert_text(strlen("var x = y *"), " z");
 
@@ -367,15 +367,19 @@ describe("Parser", [&]() {
     describe("deleting text", [&]() {
       describe("when a critical token is removed", [&]() {
         it("updates the parse tree, creating an error", [&]() {
-          set_text("123 * 456;");
+          set_text("123 * 456; 789 * 123;");
 
           assert_root_node(
-            "(program (expression_statement (math_op (number) (number))))");
+            "(program "
+              "(expression_statement (math_op (number) (number))) "
+              "(expression_statement (math_op (number) (number))))");
 
           delete_text(strlen("123 "), 2);
 
           assert_root_node(
-            "(program (expression_statement (ERROR (number) (UNEXPECTED '4') (number))))");
+            "(program "
+              "(number) (UNEXPECTED '4') (expression_statement (number)) "
+              "(expression_statement (math_op (number) (number))))");
         });
       });
     });

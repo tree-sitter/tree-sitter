@@ -38,6 +38,19 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
   return result;
 }
 
+TreeArray ts_tree_array_copy(TreeArray *self) {
+  TreeArray result = array_copy(self);
+  for (size_t i = 0; i < result.size; i++)
+    ts_tree_retain(result.contents[i]);
+  return result;
+}
+
+void ts_tree_array_clear(TreeArray *self) {
+  for (size_t i = 0; i < self->size; i++)
+    ts_tree_release(self->contents[i]);
+  array_clear(self);
+}
+
 TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char) {
   TSTree *result = ts_tree_make_leaf(ts_builtin_sym_error, padding, size,
                                      (TSSymbolMetadata){

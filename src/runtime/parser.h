@@ -16,6 +16,7 @@ typedef struct {
   const TSLanguage *language;
   Array(LookaheadState) lookahead_states;
   Array(TSTree *) reduce_parents;
+  TreeArray partial_pop;
   TSTree *finished_tree;
   bool is_split;
   bool print_debugging_graphs;
