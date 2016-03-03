@@ -77,9 +77,10 @@ describe("Parser", [&]() {
 
   auto assert_root_node = [&](const string &expected) {
     TSNode node = ts_document_root_node(doc);
-    char *actual = ts_node_string(node, doc);
+    char *str = ts_node_string(node, doc);
+    string actual(str);
+    ts_free(str);
     AssertThat(actual, Equals(expected));
-    ts_free(actual);
   };
 
   describe("handling errors", [&]() {
