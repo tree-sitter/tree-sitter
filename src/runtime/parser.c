@@ -58,15 +58,15 @@ typedef struct {
 } ErrorRepair;
 
 typedef enum {
+  ParseActionFailed,
   ParseActionUpdated,
   ParseActionRemoved,
-  ParseActionFailed,
 } ParseActionResult;
 
 typedef enum {
+  ReduceFailed,
   ReduceSucceeded,
   ReduceMerged,
-  ReduceFailed,
   ReduceStoppedAtError,
 } ReduceResult;
 
@@ -507,13 +507,11 @@ static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
   lookahead->size = ts_length_add(lookahead->size, next_lookahead->padding);
   next_lookahead->padding = ts_length_zero();
 
-  if (ts_parser__shift(self, head, ts_parse_state_error, lookahead) ==
-      ParseActionFailed)
+  if (!ts_parser__shift(self, head, ts_parse_state_error, lookahead))
     goto error;
 
   while (ts_language_symbol_metadata(self->language,next_lookahead->symbol).extra) {
-    if (ts_parser__shift_extra(self, head, ts_parse_state_error,
-                               next_lookahead) == ParseActionFailed)
+    if (!ts_parser__shift_extra(self, head, ts_parse_state_error, next_lookahead))
       goto error;
     ts_tree_release(next_lookahead);
     next_lookahead = self->language->lex_fn(&self->lexer, 0, true);
