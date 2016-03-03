@@ -792,7 +792,7 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
           }
 
           if (ts_stack_head_count(self->stack) == 1) {
-            LOG_ACTION("error_sym");
+            LOG_ACTION("handle_error %s", SYM_NAME(lookahead->symbol));
             switch (ts_parser__handle_error(self, current_head, lookahead)) {
               case FailedToUpdateStackHead:
                 return FailedToUpdateStackHead;
