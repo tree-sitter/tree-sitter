@@ -441,8 +441,7 @@ static inline ALWAYS_INLINE StackIterateAction stack__pop_count_callback(
 
 StackPopResult ts_stack_pop_count(Stack *self, int head_index, int count) {
   StackPopSession session = {
-    .goal_tree_count = count,
-    .found_error = false,
+    .goal_tree_count = count, .found_error = false,
   };
 
   StackSliceArray slices =

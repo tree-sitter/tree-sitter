@@ -378,7 +378,7 @@ describe("Parser", [&]() {
 
           assert_root_node(
             "(program "
-              "(number) (UNEXPECTED '4') (expression_statement (number)) "
+              "(expression_statement (ERROR (number) (UNEXPECTED '4')) (number)) "
               "(expression_statement (math_op (number) (number))))");
         });
       });

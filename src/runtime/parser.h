@@ -9,14 +9,16 @@ extern "C" {
 #include "runtime/array.h"
 
 typedef struct LookaheadState LookaheadState;
+typedef struct ErrorRepair ErrorRepair;
+typedef Array(LookaheadState) LookaheadStateArray;
+typedef Array(ErrorRepair) ErrorRepairArray;
 
 typedef struct {
   TSLexer lexer;
   Stack *stack;
   const TSLanguage *language;
-  Array(LookaheadState) lookahead_states;
-  Array(TSTree *) reduce_parents;
-  TreeArray partial_pop;
+  LookaheadStateArray lookahead_states;
+  ErrorRepairArray error_repairs;
   TSTree *finished_tree;
   bool is_split;
   bool print_debugging_graphs;

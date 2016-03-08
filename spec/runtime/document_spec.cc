@@ -7,6 +7,7 @@
 #include "helpers/spy_debugger.h"
 #include "helpers/spy_input.h"
 #include "helpers/load_language.h"
+#include "helpers/log_debugger.h"
 
 START_TEST
 
@@ -101,7 +102,7 @@ describe("Document", [&]() {
       TSNode new_root = ts_document_root_node(doc);
       assert_node_string_equals(
         new_root,
-        "(UNEXPECTED <EOF>)");
+        "(ERROR (UNEXPECTED <EOF>))");
 
       ts_document_set_input_string(doc, "1");
       ts_document_parse(doc);

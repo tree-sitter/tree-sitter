@@ -24,17 +24,21 @@ TSParseAction ts_language_last_action(const TSLanguage *language,
   return actions[count - 1];
 }
 
+bool ts_language_has_action(const TSLanguage *language, TSStateId state,
+                            TSSymbol symbol) {
+  TSParseAction action = ts_language_last_action(language, state, symbol);
+  return action.type != TSParseActionTypeError;
+}
+
 size_t ts_language_symbol_count(const TSLanguage *language) {
   return language->symbol_count;
 }
 
-TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *language, TSSymbol symbol) {
+TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *language,
+                                             TSSymbol symbol) {
   if (symbol == ts_builtin_sym_error)
     return (TSSymbolMetadata){
-      .visible = true,
-      .named = true,
-      .extra = false,
-      .structural = true,
+      .visible = true, .named = true, .extra = false, .structural = true,
     };
   else
     return language->symbol_metadata[symbol];
