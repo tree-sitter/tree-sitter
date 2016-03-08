@@ -8,7 +8,9 @@
 #include "runtime/alloc.h"
 
 enum {
-  stateA, stateB, stateC, stateD, stateE, stateF, stateG, stateH, stateI, stateJ
+  stateA = 1,
+  stateB,
+  stateC, stateD, stateE, stateF, stateG, stateH, stateI, stateJ
 };
 
 enum {
@@ -59,6 +61,26 @@ void free_slice_array(StackSliceArray *slices) {
   }
 }
 
+struct StackEntry {
+  TSStateId state;
+  size_t depth;
+};
+
+vector<StackEntry> get_stack_entries(Stack *stack, int head_index) {
+  vector<StackEntry> result;
+  ts_stack_pop_until(
+    stack,
+    head_index,
+    [](void *payload, TSStateId state, size_t depth, size_t extra_count) {
+      auto entries = static_cast<vector<StackEntry> *>(payload);
+      StackEntry entry = {state, depth};
+      if (find(entries->begin(), entries->end(), entry) == entries->end())
+        entries->push_back(entry);
+      return StackIterateContinue;
+    }, &result);
+  return result;
+}
+
 START_TEST
 
 describe("Stack", [&]() {
@@ -69,7 +91,7 @@ describe("Stack", [&]() {
   TSLength tree_len = {2, 3, 0, 3};
   TSSymbolMetadata metadata = {true, true, true, true};
 
-  before_each([&]()   {
+  before_each([&]() {
     record_alloc::start();
 
     stack = ts_stack_new();
@@ -97,28 +119,30 @@ describe("Stack", [&]() {
   describe("pushing entries to the stack", [&]() {
     it("adds entries to the stack", [&]() {
       AssertThat(ts_stack_head_count(stack), Equals(1));
-      AssertThat(ts_stack_head(stack, 0), Equals<const StackEntry *>(nullptr));
+      AssertThat(ts_stack_top_state(stack, 0), Equals(0));
+      AssertThat(ts_stack_top_position(stack, 0), Equals(ts_length_zero()));
 
       // . <──0── A*
       ts_stack_push(stack, 0, trees[0], stateA);
-      const StackEntry *entry1 = ts_stack_head(stack, 0);
-      AssertThat(*entry1, Equals<StackEntry>({stateA, tree_len}));
-      AssertThat(ts_stack_entry_next_count(entry1), Equals(1));
-      AssertThat(ts_stack_entry_next(entry1, 0), Equals<const StackEntry *>(nullptr));
+      AssertThat(ts_stack_top_state(stack, 0), Equals(stateA));
+      AssertThat(ts_stack_top_position(stack, 0), Equals(tree_len));
 
       // . <──0── A <──1── B*
       ts_stack_push(stack, 0, trees[1], stateB);
-      const StackEntry *entry2 = ts_stack_head(stack, 0);
-      AssertThat(*entry2, Equals<StackEntry>({stateB, tree_len * 2}));
-      AssertThat(ts_stack_entry_next_count(entry2), Equals(1));
-      AssertThat(ts_stack_entry_next(entry2, 0), Equals(entry1));
+      AssertThat(ts_stack_top_state(stack, 0), Equals(stateB));
+      AssertThat(ts_stack_top_position(stack, 0), Equals(tree_len * 2));
 
       // . <──0── A <──1── B <──2── C*
       ts_stack_push(stack, 0, trees[2], stateC);
-      const StackEntry *entry3 = ts_stack_head(stack, 0);
-      AssertThat(*entry3, Equals<StackEntry>({stateC, tree_len * 3}));
-      AssertThat(ts_stack_entry_next_count(entry3), Equals(1));
-      AssertThat(ts_stack_entry_next(entry3, 0), Equals(entry2));
+      AssertThat(ts_stack_top_state(stack, 0), Equals(stateC));
+      AssertThat(ts_stack_top_position(stack, 0), Equals(tree_len * 3));
+
+      AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
+        {stateC, 0},
+        {stateB, 1},
+        {stateA, 2},
+        {0, 3},
+      })));
     });
   });
 
@@ -132,23 +156,23 @@ describe("Stack", [&]() {
 
     it("removes the given number of nodes from the stack", [&]() {
       // . <──0── A*
-      StackPopResult pop_result = ts_stack_pop(stack, 0, 2, false);
+      StackPopResult pop_result = ts_stack_pop_count(stack, 0, 2);
       AssertThat(pop_result.status, Equals(StackPopResult::StackPopSucceeded));
       AssertThat(pop_result.slices.size, Equals<size_t>(1));
 
       StackSlice slice = pop_result.slices.contents[0];
       AssertThat(slice.trees, Equals(vector<TSTree *>({ trees[1], trees[2] })));
-      AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({stateA, tree_len}));
+      AssertThat(ts_stack_top_state(stack, 0), Equals(stateA));
       free_slice_array(&pop_result.slices);
 
       // .*
-      pop_result = ts_stack_pop(stack, 0, 1, false);
+      pop_result = ts_stack_pop_count(stack, 0, 1);
       AssertThat(pop_result.status, Equals(StackPopResult::StackPopSucceeded));
       AssertThat(pop_result.slices.size, Equals<size_t>(1));
 
       slice = pop_result.slices.contents[0];
       AssertThat(slice.trees, Equals(vector<TSTree *>({ trees[0] })));
-      AssertThat(ts_stack_head(stack, 0), Equals<const StackEntry *>(nullptr));
+      AssertThat(ts_stack_top_state(stack, 0), Equals(0));
 
       free_slice_array(&pop_result.slices);
     });
@@ -157,20 +181,20 @@ describe("Stack", [&]() {
       trees[1]->extra = true;
 
       // .*
-      StackPopResult pop_result = ts_stack_pop(stack, 0, 2, false);
+      StackPopResult pop_result = ts_stack_pop_count(stack, 0, 2);
       AssertThat(pop_result.status, Equals(StackPopResult::StackPopSucceeded));
       AssertThat(pop_result.slices.size, Equals<size_t>(1));
 
       StackSlice slice = pop_result.slices.contents[0];
       AssertThat(slice.trees, Equals(vector<TSTree *>({ trees[0], trees[1], trees[2] })));
-      AssertThat(ts_stack_head(stack, 0), Equals<const StackEntry *>(nullptr));
+      AssertThat(ts_stack_top_state(stack, 0), Equals(0));
 
       free_slice_array(&pop_result.slices);
     });
 
     it("pops the entire stack when given a negative count", [&]() {
       // .*
-      StackPopResult pop_result = ts_stack_pop(stack, 0, -1, false);
+      StackPopResult pop_result = ts_stack_pop_count(stack, 0, -1);
       AssertThat(pop_result.status, Equals(StackPopResult::StackPopSucceeded));
       AssertThat(pop_result.slices.size, Equals<size_t>(1));
 
@@ -180,20 +204,25 @@ describe("Stack", [&]() {
       free_slice_array(&pop_result.slices);
     });
 
-    it("stops immediately after popping a node with the error state", [&]() {
-      // . <──0── A <──1── B <──2── C <──3── ? <──4── D*
-      ts_stack_push(stack, 0, trees[3], ts_parse_state_error);
-      ts_stack_push(stack, 0, trees[4], stateD);
+    describe("when an error state exists above the given depth", [&]() {
+      it("stops popping nodes at the error", [&]() {
+        // . <──0── A <──1── B <──2── C <──3── ERROR <──4── D*
+        ts_stack_push(stack, 0, trees[3], ts_parse_state_error);
+        ts_stack_push(stack, 0, trees[4], stateD);
 
-      StackPopResult pop_result = ts_stack_pop(stack, 0, 3, false);
-      AssertThat(pop_result.status, Equals(StackPopResult::StackPopStoppedAtError));
-      AssertThat(pop_result.slices.size, Equals<size_t>(1));
+        StackPopResult pop_result = ts_stack_pop_count(stack, 0, 3);
+        AssertThat(pop_result.status, Equals(StackPopResult::StackPopStoppedAtError));
 
-      StackSlice slice = pop_result.slices.contents[0];
-      AssertThat(slice.trees, Equals(vector<TSTree *>({ trees[3], trees[4] })));
-      AssertThat(ts_stack_top_state(stack, 0), Equals(stateC));
+        AssertThat(ts_stack_head_count(stack), Equals(1));
+        AssertThat(ts_stack_top_state(stack, 0), Equals(ts_parse_state_error));
 
-      free_slice_array(&pop_result.slices);
+        AssertThat(pop_result.slices.size, Equals<size_t>(1));
+        StackSlice slice = pop_result.slices.contents[0];
+        AssertThat(slice.head_index, Equals(0));
+        AssertThat(slice.trees, Equals(vector<TSTree *>({ trees[4] })));
+
+        free_slice_array(&pop_result.slices);
+      });
     });
   });
 
@@ -216,11 +245,14 @@ describe("Stack", [&]() {
       //                   ↑
       //                   └─*
       ts_stack_push(stack, 0, trees[3], stateD);
-      StackPopResult pop_result = ts_stack_pop(stack, 1, 1, false);
+      StackPopResult pop_result = ts_stack_pop_count(stack, 1, 1);
 
       AssertThat(ts_stack_head_count(stack), Equals(2));
-      AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({stateD, tree_len * 4}));
-      AssertThat(*ts_stack_head(stack, 1), Equals<StackEntry>({stateB, tree_len * 2}));
+      AssertThat(ts_stack_top_state(stack, 0), Equals(stateD));
+      AssertThat(ts_stack_top_position(stack, 0), Equals(tree_len * 4));
+      AssertThat(ts_stack_top_state(stack, 1), Equals(stateB));
+      AssertThat(ts_stack_top_position(stack, 1), Equals(tree_len * 2));
+
       AssertThat(pop_result.slices.size, Equals<size_t>(1));
       StackSlice slice = pop_result.slices.contents[0];
       AssertThat(slice.trees.size, Equals<size_t>(1));
@@ -233,8 +265,10 @@ describe("Stack", [&]() {
       ts_stack_push(stack, 1, trees[5], stateF);
 
       AssertThat(ts_stack_head_count(stack), Equals(2));
-      AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({stateD, tree_len * 4}));
-      AssertThat(*ts_stack_head(stack, 1), Equals<StackEntry>({stateF, tree_len * 4}));
+      AssertThat(ts_stack_top_state(stack, 0), Equals(stateD));
+      AssertThat(ts_stack_top_position(stack, 0), Equals(tree_len * 4));
+      AssertThat(ts_stack_top_state(stack, 1), Equals(stateF));
+      AssertThat(ts_stack_top_position(stack, 1), Equals(tree_len * 4));
     });
   });
 
@@ -252,8 +286,20 @@ describe("Stack", [&]() {
       ts_stack_push(stack, 1, trees[5], stateF);
 
       AssertThat(ts_stack_head_count(stack), Equals(2));
-      AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({stateD, tree_len * 4}));
-      AssertThat(*ts_stack_head(stack, 1), Equals<StackEntry>({stateF, tree_len * 4}));
+      AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
+        {stateD, 0},
+        {stateC, 1},
+        {stateB, 2},
+        {stateA, 3},
+        {0, 4},
+      })));
+      AssertThat(get_stack_entries(stack, 1), Equals(vector<StackEntry>({
+        {stateF, 0},
+        {stateE, 1},
+        {stateB, 2},
+        {stateA, 3},
+        {0, 4},
+      })));
     });
 
     it("merges the heads", [&]() {
@@ -264,11 +310,16 @@ describe("Stack", [&]() {
       AssertThat(ts_stack_push(stack, 1, trees[7], stateG), Equals(StackPushMerged));
 
       AssertThat(ts_stack_head_count(stack), Equals(1));
-      const StackEntry *entry1 = ts_stack_head(stack, 0);
-      AssertThat(*entry1, Equals<StackEntry>({stateG, tree_len * 5}));
-      AssertThat(ts_stack_entry_next_count(entry1), Equals(2));
-      AssertThat(*ts_stack_entry_next(entry1, 0), Equals<StackEntry>({stateD, tree_len * 4}));
-      AssertThat(*ts_stack_entry_next(entry1, 1), Equals<StackEntry>({stateF, tree_len * 4}));
+      AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
+        {stateG, 0},
+        {stateD, 1},
+        {stateF, 1},
+        {stateC, 2},
+        {stateE, 2},
+        {stateB, 3},
+        {stateA, 4},
+        {0, 5},
+      })));
     });
 
     describe("when the merged nodes share a successor", [&]() {
@@ -286,13 +337,17 @@ describe("Stack", [&]() {
         AssertThat(ts_stack_push(stack, 1, trees[7], stateH), Equals(StackPushMerged));
 
         AssertThat(ts_stack_head_count(stack), Equals(1));
-        StackEntry *head = ts_stack_head(stack, 0);
-        AssertThat(*head, Equals<StackEntry>({stateH, tree_len * 6}))
-        AssertThat(ts_stack_entry_next_count(head), Equals(1));
-
-        StackEntry *next = ts_stack_entry_next(head, 0);
-        AssertThat(*next, Equals<StackEntry>({stateG, tree_len * 5}))
-        AssertThat(ts_stack_entry_next_count(next), Equals(2));
+        AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
+          {stateH, 0},
+          {stateG, 1},
+          {stateD, 2},
+          {stateF, 2},
+          {stateC, 3},
+          {stateE, 3},
+          {stateB, 4},
+          {stateA, 5},
+          {0, 6},
+        })));
       });
     });
 
@@ -302,9 +357,9 @@ describe("Stack", [&]() {
         ts_tree_retain(trees[3]);
         TSTree *parent = ts_tree_make_node(5, 2, tree_array({ trees[2], trees[3] }), metadata);
 
-        // . <──2── B <──3── C
+        // . <──────5─────── C*
         // ↑                 |
-        // └────────5────────┘
+        // └───2─── B ───3───┘
         ts_stack_clear(stack);
         ts_stack_split(stack, 0);
         AssertThat(ts_stack_push(stack, 0, parent, stateC), Equals(StackPushContinued));
@@ -312,12 +367,13 @@ describe("Stack", [&]() {
         AssertThat(ts_stack_push(stack, 1, trees[3], stateC), Equals(StackPushMerged));
 
         AssertThat(ts_stack_head_count(stack), Equals(1));
-        StackEntry *head = ts_stack_head(stack, 0);
-        AssertThat(*head, Equals<StackEntry>({stateC, tree_len * 2}));
-
-        AssertThat(ts_stack_entry_next_count(head), Equals(2));
-        AssertThat(ts_stack_entry_next(head, 0), Equals<StackEntry *>(nullptr));
-        AssertThat(*ts_stack_entry_next(head, 1), Equals<StackEntry>({stateB, tree_len}));
+        AssertThat(ts_stack_top_state(stack, 0), Equals(stateC));
+        AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
+          {stateC, 0},
+          {0, 1},
+          {stateB, 1},
+          {0, 2},
+        })));
 
         ts_tree_release(parent);
       });
@@ -340,8 +396,16 @@ describe("Stack", [&]() {
       ts_stack_push(stack, 1, trees[7], stateE);
 
       AssertThat(ts_stack_head_count(stack), Equals(1));
-      AssertThat(ts_stack_top_state(stack, 0), Equals(stateE));
-      AssertThat(ts_stack_entry_next_count(ts_stack_head(stack, 0)), Equals(2));
+      AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
+        {stateE, 0},
+        {stateD, 1},
+        {stateG, 1},
+        {stateC, 2},
+        {stateF, 2},
+        {stateB, 3},
+        {stateA, 4},
+        {0, 5},
+      })));
     });
 
     describe("when there are two paths that lead to two different heads", [&]() {
@@ -349,7 +413,7 @@ describe("Stack", [&]() {
         // . <──0── A <──1── B <──2── C*
         //                   ↑
         //                   └───5─── F*
-        StackPopResult pop_result = ts_stack_pop(stack, 0, 2, false);
+        StackPopResult pop_result = ts_stack_pop_count(stack, 0, 2);
 
         AssertThat(pop_result.slices.size, Equals<size_t>(2));
         StackSlice slice1 = pop_result.slices.contents[0];
@@ -363,8 +427,18 @@ describe("Stack", [&]() {
         AssertThat(slice2.trees, Equals(vector<TSTree *>({ trees[6], trees[7] })));
 
         AssertThat(ts_stack_head_count(stack), Equals(2));
-        AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({stateC, tree_len * 3}));
-        AssertThat(*ts_stack_head(stack, 1), Equals<StackEntry>({stateF, tree_len * 3}));
+        AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
+          {stateC, 0},
+          {stateB, 1},
+          {stateA, 2},
+          {0, 3},
+        })));
+        AssertThat(get_stack_entries(stack, 1), Equals(vector<StackEntry>({
+          {stateF, 0},
+          {stateB, 1},
+          {stateA, 2},
+          {0, 3},
+        })));
 
         free_slice_array(&pop_result.slices);
       });
@@ -382,7 +456,7 @@ describe("Stack", [&]() {
         // . <──0── A <──1── B <──2── C <──3── D <──4── E*
         //                   ↑                          |
         //                   └───5─── F <──6── G <──7───┘
-        StackPopResult pop_result = ts_stack_pop(stack, 0, 1, false);
+        StackPopResult pop_result = ts_stack_pop_count(stack, 0, 1);
         AssertThat(pop_result.slices.size, Equals<size_t>(1));
         StackSlice slice1 = pop_result.slices.contents[0];
         AssertThat(slice1.head_index, Equals(0));
@@ -401,9 +475,10 @@ describe("Stack", [&]() {
           tree_selection_spy.tree_to_return = trees[2];
 
           // . <──0── A <──1── B*
-          StackPopResult pop_result = ts_stack_pop(stack, 0, 3, false);
+          StackPopResult pop_result = ts_stack_pop_count(stack, 0, 3);
           AssertThat(ts_stack_head_count(stack), Equals(1));
-          AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({stateB, tree_len * 2}));
+          AssertThat(ts_stack_top_state(stack, 0), Equals(stateB));
+          AssertThat(ts_stack_top_position(stack, 0), Equals(tree_len * 2));
 
           AssertThat(pop_result.slices.size, Equals<size_t>(1));
           StackSlice slice1 = pop_result.slices.contents[0];
@@ -419,9 +494,10 @@ describe("Stack", [&]() {
           tree_selection_spy.tree_to_return = trees[4];
 
           // . <──0── A <──1── B*
-          StackPopResult pop_result = ts_stack_pop(stack, 0, 3, false);
+          StackPopResult pop_result = ts_stack_pop_count(stack, 0, 3);
           AssertThat(ts_stack_head_count(stack), Equals(1));
-          AssertThat(*ts_stack_head(stack, 0), Equals<StackEntry>({stateB, tree_len * 2}));
+          AssertThat(ts_stack_top_state(stack, 0), Equals(stateB));
+          AssertThat(ts_stack_top_position(stack, 0), Equals(tree_len * 2));
 
           AssertThat(pop_result.slices.size, Equals<size_t>(1));
           StackSlice slice1 = pop_result.slices.contents[0];
@@ -454,10 +530,21 @@ describe("Stack", [&]() {
       ts_stack_push(stack, 1, trees[7], stateG);
       ts_stack_push(stack, 1, trees[8], stateH);
       ts_stack_push(stack, 1, trees[9], stateD);
-      AssertThat(ts_stack_head_count(stack), Equals(1));
-      AssertThat(ts_stack_entry_next_count(ts_stack_head(stack, 0)), Equals(3));
       ts_stack_push(stack, 0, trees[10], stateI);
-      AssertThat(ts_stack_entry_next_count(ts_stack_head(stack, 0)), Equals(1));
+
+      AssertThat(ts_stack_head_count(stack), Equals(1));
+      AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
+        {stateI, 0},
+        {stateD, 1},
+        {stateC, 2},
+        {stateF, 2},
+        {stateH, 2},
+        {stateB, 3},
+        {stateE, 3},
+        {stateG, 3},
+        {stateA, 4},
+        {0, 5},
+      })));
     });
 
     describe("when there are three different paths that lead to three different heads", [&]() {
@@ -467,7 +554,7 @@ describe("Stack", [&]() {
         //          ├───4─── E <──5── F*
         //          |
         //          └───7─── G <──8── H*
-        StackPopResult pop_result = ts_stack_pop(stack, 0, 2, false);
+        StackPopResult pop_result = ts_stack_pop_count(stack, 0, 2);
         AssertThat(ts_stack_head_count(stack), Equals(3));
 
         AssertThat(pop_result.slices.size, Equals<size_t>(3));
@@ -496,11 +583,11 @@ describe("Stack", [&]() {
 END_TEST
 
 bool operator==(const StackEntry &left, const StackEntry &right) {
-  return left.state == right.state && ts_length_eq(left.position, right.position);
+  return left.state == right.state && left.depth == right.depth;
 }
 
 std::ostream &operator<<(std::ostream &stream, const StackEntry &entry) {
-  return stream << "{" << entry.state << ", " << entry.position << "}";
+  return stream << "{" << entry.state << ", " << entry.depth << "}";
 }
 
 std::ostream &operator<<(std::ostream &stream, const TreeArray &array) {

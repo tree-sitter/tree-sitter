@@ -45,7 +45,7 @@ struct TSTree {
 
 typedef Array(TSTree *) TreeArray;
 TreeArray ts_tree_array_copy(TreeArray *);
-void ts_tree_array_clear(TreeArray *);
+void ts_tree_array_delete(TreeArray *);
 
 TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, TSSymbolMetadata);
 TSTree *ts_tree_make_node(TSSymbol, size_t, TSTree **, TSSymbolMetadata);

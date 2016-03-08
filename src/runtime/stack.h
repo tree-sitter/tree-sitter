@@ -12,11 +12,6 @@ extern "C" {
 typedef struct Stack Stack;
 
 typedef struct {
-  TSStateId state;
-  TSLength position;
-} StackEntry;
-
-typedef struct {
   TreeArray trees;
   int head_index;
 } StackSlice;
@@ -38,7 +33,17 @@ typedef struct {
   StackSliceArray slices;
 } StackPopResult;
 
-typedef int (*TreeSelectionFunction)(void *, TSTree *, TSTree *);
+typedef enum {
+  StackIterateContinue,
+  StackIterateAbort,
+  StackIteratePop,
+} StackIterateAction;
+
+typedef StackIterateAction (*StackIterateCallback)(void *, TSStateId state,
+                                                   size_t depth,
+                                                   size_t extra_count);
+
+typedef int (*TreeSelectionFunction)(void *, TSTree *tree1, TSTree *tree2);
 
 /*
  *  Create a parse stack.
@@ -68,21 +73,6 @@ TSStateId ts_stack_top_state(const Stack *, int head_index);
 TSLength ts_stack_top_position(const Stack *, int head_index);
 
 /*
- *  Get the entry at the given head of the stack.
- */
-StackEntry *ts_stack_head(Stack *, int head_index);
-
-/*
- *  Get the number of successors for the parse stack entry.
- */
-int ts_stack_entry_next_count(const StackEntry *);
-
-/*
- *  Get the given successor for the parse stack entry.
- */
-StackEntry *ts_stack_entry_next(const StackEntry *, int head_index);
-
-/*
  *  Push a (tree, state) pair onto the given head of the stack. This could cause
  *  the head to merge with an existing head.
  */
@@ -94,7 +84,10 @@ StackPushResult ts_stack_push(Stack *, int head_index, TSTree *, TSStateId);
  *  which had previously been merged. It returns a struct that indicates the
  *  index of each revealed head and the trees removed from that head.
  */
-StackPopResult ts_stack_pop(Stack *, int head_index, int count, bool count_extra);
+StackPopResult ts_stack_pop_count(Stack *, int head_index, int count);
+
+StackPopResult ts_stack_pop_until(Stack *, int head_index, StackIterateCallback,
+                                  void *);
 
 /*
  *  Remove the given number of entries from the given head of the stack.

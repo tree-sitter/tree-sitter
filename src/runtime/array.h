@@ -21,6 +21,9 @@ extern "C" {
 #define array_init(self) \
   ((self)->size = 0, (self)->capacity = 0, (self)->contents = NULL)
 
+#define array_new() \
+  { NULL, 0, 0 }
+
 #define array_get(self, index) \
   (assert((size_t)index < (self)->size), &(self)->contents[index])
 

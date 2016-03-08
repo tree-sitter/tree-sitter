@@ -40,6 +40,10 @@ bool operator==(const TSNode &left, const TSNode &right) {
   return ts_node_eq(left, right);
 }
 
+bool operator==(const TSLength &left, const TSLength &right) {
+  return ts_length_eq(left, right);
+}
+
 bool operator==(const std::vector<TSTree *> &vec, const TreeArray &array) {
   if (vec.size() != array.size)
     return false;

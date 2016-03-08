@@ -45,10 +45,10 @@ TreeArray ts_tree_array_copy(TreeArray *self) {
   return result;
 }
 
-void ts_tree_array_clear(TreeArray *self) {
+void ts_tree_array_delete(TreeArray *self) {
   for (size_t i = 0; i < self->size; i++)
     ts_tree_release(self->contents[i]);
-  array_clear(self);
+  array_delete(self);
 }
 
 TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char) {

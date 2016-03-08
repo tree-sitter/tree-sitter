@@ -337,7 +337,3 @@ describe("Tree", []() {
 });
 
 END_TEST
-
-bool operator==(TSLength left, TSLength right) {
-  return ts_length_eq(left, right);
-}
