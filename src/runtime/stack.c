@@ -12,11 +12,7 @@
 #define STARTING_TREE_CAPACITY 10
 #define MAX_NODE_POOL_SIZE 50
 
-#if __has_attribute(always_inline)
 #define ALWAYS_INLINE __attribute__((always_inline))
-#else
-#define ALWAYS_INLINE
-#endif
 
 typedef struct StackNode StackNode;
 
