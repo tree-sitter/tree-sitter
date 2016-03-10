@@ -522,6 +522,8 @@ static StackIterateAction ts_parser__error_repair_callback(void *payload,
 
     if (ts_language_symbol_is_in_progress(self->language, state, symbol))
       repair->in_progress_state_count++;
+    else
+      repair->in_progress_state_count = 0;
   }
 
   return StackIterateContinue;
@@ -635,95 +637,111 @@ static ParseActionResult ts_parser__start(TSParser *self, TSInput input,
 }
 
 static ParseActionResult ts_parser__accept(TSParser *self, int head) {
-  StackPopResult pop = ts_stack_pop_count(self->stack, head, -1);
-  if (!pop.slices.size)
+  StackSlice slice = ts_parser__pop_one(self, head, -1);
+  if (!slice.trees.contents)
     goto error;
 
-  for (size_t j = 0; j < pop.slices.size; j++) {
-    StackSlice slice = pop.slices.contents[j];
-    TreeArray trees = slice.trees;
+  TreeArray trees = slice.trees;
 
-    for (size_t i = trees.size - 1; i + 1 > 0; i--) {
-      if (!trees.contents[i]->extra) {
-        TSTree *root = trees.contents[i];
-        if (!array_splice(&trees, i, 1, root->child_count, root->children))
-          goto error;
-        ts_tree_set_children(root, trees.size, trees.contents);
-        if (!trees.size)
-          array_delete(&trees);
+  for (size_t i = trees.size - 1; i + 1 > 0; i--) {
+    if (!trees.contents[i]->extra) {
+      TSTree *root = trees.contents[i];
+      if (!array_splice(&trees, i, 1, root->child_count, root->children))
+        goto error;
+      ts_tree_set_children(root, trees.size, trees.contents);
+      if (!trees.size)
+        array_delete(&trees);
 
-        ts_parser__remove_head(self, slice.head_index);
-        int comparison = ts_parser__select_tree(self, self->finished_tree, root);
-        if (comparison > 0) {
-          ts_tree_release(self->finished_tree);
-          self->finished_tree = root;
-        } else {
-          ts_tree_release(root);
-        }
-
-        break;
+      ts_parser__remove_head(self, slice.head_index);
+      int comparison = ts_parser__select_tree(self, self->finished_tree, root);
+      if (comparison > 0) {
+        ts_tree_release(self->finished_tree);
+        self->finished_tree = root;
+      } else {
+        ts_tree_release(root);
       }
+
+      break;
     }
   }
 
   return ParseActionRemoved;
 
 error:
-  if (pop.slices.size) {
-    StackSlice slice = *array_front(&pop.slices);
-    for (size_t i = 0; i < slice.trees.size; i++)
-      ts_tree_release(slice.trees.contents[i]);
-    array_delete(&slice.trees);
-  }
+  for (size_t i = 0; i < slice.trees.size; i++)
+    ts_tree_release(slice.trees.contents[i]);
+  array_delete(&slice.trees);
   return ParseActionFailed;
 }
 
 static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
-                                                 TSTree *lookahead) {
-  TSTree *next_lookahead = self->language->lex_fn(&self->lexer, 0, true);
-  lookahead->size = ts_length_add(lookahead->size, next_lookahead->padding);
-  next_lookahead->padding = ts_length_zero();
-
-  if (!ts_parser__shift(self, head, ts_parse_state_error, lookahead))
+                                                 TSTree *invalid_tree) {
+  TreeArray invalid_trees = array_new();
+  TSTree *next_token = self->language->lex_fn(&self->lexer, 0, true);
+  ts_tree_retain(invalid_tree);
+  if (!array_push(&invalid_trees, invalid_tree))
     goto error;
 
-  while (
-    ts_language_symbol_metadata(self->language, next_lookahead->symbol).extra) {
-    if (!ts_parser__shift_extra(self, head, ts_parse_state_error, next_lookahead))
+  for (;;) {
+    if (next_token->symbol == ts_builtin_sym_end) {
+      LOG_ACTION("fail_to_recover");
+      TSTree *error = ts_tree_make_node(
+        ts_builtin_sym_error, invalid_trees.size, invalid_trees.contents,
+        ts_language_symbol_metadata(self->language, ts_builtin_sym_error));
+      if (!ts_stack_push(self->stack, head, error, 0))
+        goto error;
+
+      StackSlice slice = ts_parser__pop_one(self, head, -1);
+      if (!slice.trees.contents)
+        goto error;
+      TSTree *parent = ts_tree_make_node(
+        ts_builtin_sym_start, slice.trees.size, slice.trees.contents,
+        ts_language_symbol_metadata(self->language, ts_builtin_sym_start));
+
+      if (!ts_stack_push(self->stack, head, parent, 0))
+        goto error;
+
+      ts_tree_release(parent);
+      ts_tree_release(error);
+      ts_tree_release(next_token);
+      return ts_parser__accept(self, head);
+    }
+
+    TSLength position = self->lexer.current_position;
+    TSTree *following_token = self->language->lex_fn(&self->lexer, 0, true);
+
+    if (!ts_language_symbol_metadata(self->language, next_token->symbol).extra) {
+      TSParseAction action = ts_language_last_action(
+        self->language, ts_parse_state_error, next_token->symbol);
+      assert(action.type == TSParseActionTypeShift);
+
+      TSStateId next_state = action.data.to_state;
+      if (ts_language_has_action(self->language, next_state, following_token->symbol)) {
+        LOG_ACTION("resume_without_context state:%d", next_state);
+        ts_lexer_reset(&self->lexer, position);
+        TSTree *error = ts_tree_make_node(
+          ts_builtin_sym_error, invalid_trees.size, invalid_trees.contents,
+          ts_language_symbol_metadata(self->language, ts_builtin_sym_error));
+        error->extra = true;
+        if (!ts_parser__shift(self, head, ts_parse_state_error, error))
+          goto error;
+        if (!ts_parser__shift(self, head, next_state, next_token))
+          goto error;
+
+        ts_tree_release(error);
+        ts_tree_release(next_token);
+        ts_tree_release(following_token);
+
+        return ParseActionUpdated;
+      }
+    }
+
+    if (!array_push(&invalid_trees, next_token))
       goto error;
-    ts_tree_release(next_lookahead);
-    next_lookahead = self->language->lex_fn(&self->lexer, 0, true);
+    next_token = following_token;
   }
-
-  if (next_lookahead->symbol == ts_builtin_sym_end) {
-    StackSlice result = ts_parser__pop_one(self, head, -1);
-    TSTree *error = ts_tree_make_node(
-      ts_builtin_sym_error, result.trees.size, result.trees.contents,
-      ts_language_symbol_metadata(self->language, ts_builtin_sym_error));
-    TreeArray children = array_new();
-    if (!array_push(&children, error))
-      goto error;
-    TSTree *parent = ts_tree_make_node(
-      ts_builtin_sym_start, children.size, children.contents,
-      ts_language_symbol_metadata(self->language, ts_builtin_sym_start));
-    ts_stack_push(self->stack, head, parent, 0);
-    ts_tree_release(parent);
-    ts_tree_release(next_lookahead);
-    return ts_parser__accept(self, head);
-  }
-
-  TSParseAction action = ts_language_last_action(
-    self->language, ts_parse_state_error, next_lookahead->symbol);
-  assert(action.type == TSParseActionTypeShift);
-
-  LOG("resume_without_context state:%d", action.data.to_state);
-  ParseActionResult result =
-    ts_parser__shift(self, head, action.data.to_state, next_lookahead);
-  ts_tree_release(next_lookahead);
-  return result;
 
 error:
-  ts_tree_release(next_lookahead);
   return ParseActionFailed;
 }
 
