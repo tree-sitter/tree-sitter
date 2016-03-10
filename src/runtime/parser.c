@@ -93,7 +93,11 @@ typedef enum {
 
 static StackSlice ts_parser__pop_one(TSParser *self, int head_index, int count) {
   StackPopResult pop = ts_stack_pop_count(self->stack, head_index, count);
-  assert(pop.status == StackPopSucceeded);
+  if (pop.status != StackPopSucceeded)
+    return (StackSlice){
+      .head_index = -1,
+      .trees = array_new(),
+    };
   assert(pop.slices.size > 0);
   assert(pop.slices.contents[0].head_index == head_index);
   for (size_t i = pop.slices.size - 1; i > 0; i--) {
