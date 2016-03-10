@@ -71,9 +71,9 @@ vector<StackEntry> get_stack_entries(Stack *stack, int head_index) {
   ts_stack_pop_until(
     stack,
     head_index,
-    [](void *payload, TSStateId state, size_t depth, size_t extra_count) {
+    [](void *payload, TSStateId state, size_t tree_count, bool is_done) {
       auto entries = static_cast<vector<StackEntry> *>(payload);
-      StackEntry entry = {state, depth};
+      StackEntry entry = {state, tree_count};
       if (find(entries->begin(), entries->end(), entry) == entries->end())
         entries->push_back(entry);
       return StackIterateContinue;

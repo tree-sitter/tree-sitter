@@ -40,8 +40,8 @@ typedef enum {
 } StackIterateAction;
 
 typedef StackIterateAction (*StackIterateCallback)(void *, TSStateId state,
-                                                   size_t depth,
-                                                   size_t extra_count);
+                                                   size_t tree_count,
+                                                   bool is_done);
 
 typedef int (*TreeSelectionFunction)(void *, TSTree *tree1, TSTree *tree2);
 

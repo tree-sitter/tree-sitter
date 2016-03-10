@@ -491,8 +491,8 @@ error:
 
 static StackIterateAction ts_parser__error_repair_callback(void *payload,
                                                            TSStateId state,
-                                                           size_t depth,
-                                                           size_t extra_count) {
+                                                           size_t tree_count,
+                                                           bool is_done) {
   ErrorRepairSession *session = (ErrorRepairSession *)payload;
   const TSParser *self = session->parser;
   size_t count_above_error = session->count_above_error;
@@ -506,7 +506,7 @@ static StackIterateAction ts_parser__error_repair_callback(void *payload,
     TSSymbol symbol = repair->action.data.symbol;
     size_t child_count = repair->action.data.child_count;
 
-    if (depth + count_above_error - extra_count >= child_count &&
+    if (tree_count + count_above_error >= child_count &&
         repair->in_progress_state_count > 0) {
       TSParseAction new_action =
         ts_language_last_action(self->language, state, symbol);

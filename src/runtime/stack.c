@@ -330,7 +330,7 @@ static inline ALWAYS_INLINE StackSliceArray stack__pop(
 
       StackNode *node = path->node;
       size_t successor_count = node->successor_count;
-      switch (callback(payload, node->state, depth, path->extra_count)) {
+      switch (callback(payload, node->state, depth - path->extra_count, node == self->base_node)) {
         case StackIteratePop:
           path->is_done = true;
           continue;
@@ -350,17 +350,17 @@ static inline ALWAYS_INLINE StackSliceArray stack__pop(
 
       all_paths_done = false;
 
-      for (size_t j = 0; j < successor_count; j++) {
-        StackLink successor = node->successors[j];
-
+      for (size_t j = 1; j <= successor_count; j++) {
         PopPath *next_path;
-        if (j == 0) {
-          next_path = path;
+        StackLink successor;
+        if (j == successor_count) {
+          successor = node->successors[0];
+          next_path = &self->pop_paths.contents[i];
         } else {
-          if (!array_push(&self->pop_paths, *path))
+          successor = node->successors[j];
+          if (!array_push(&self->pop_paths, self->pop_paths.contents[i]))
             goto error;
           next_path = array_back(&self->pop_paths);
-          next_path->trees.size--;
           next_path->trees = ts_tree_array_copy(&next_path->trees);
         }
 
@@ -422,21 +422,22 @@ error:
 }
 
 static inline ALWAYS_INLINE StackIterateAction stack__pop_count_callback(
-  void *payload, TSStateId state, size_t depth, size_t extra_count) {
+  void *payload, TSStateId state, size_t tree_count, bool is_done) {
   StackPopSession *pop_session = (StackPopSession *)payload;
   if (pop_session->found_error)
     return StackIterateAbort;
 
-  if (state == ts_parse_state_error && pop_session->goal_tree_count > 0) {
-    pop_session->found_error = true;
+  if (pop_session->goal_tree_count > 0) {
+    if ((int)tree_count == pop_session->goal_tree_count)
+      return StackIteratePop;
+
+    if (state == ts_parse_state_error) {
+      pop_session->found_error = true;
+      return StackIteratePop;
+    }
+  } else if (is_done) {
     return StackIteratePop;
   }
-
-  if ((int)(depth - extra_count) == pop_session->goal_tree_count)
-    return StackIteratePop;
-
-  if (state == 0 && depth > 0)
-    return StackIteratePop;
 
   return StackIterateContinue;
 }
