@@ -165,7 +165,7 @@ const TSLanguage *get_test_language(const string &language_name) {
 
   int parser_mtime = get_modified_time(parser_filename);
 
-  int input_mtime = (grammar_mtime < libcompiler_mtime) ?
+  int input_mtime = (grammar_mtime > libcompiler_mtime) ?
     grammar_mtime :
     libcompiler_mtime;
 
