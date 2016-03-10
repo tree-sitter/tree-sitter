@@ -373,6 +373,7 @@ static ReduceResult ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
                                       int child_count, bool extra, bool fragile) {
   TSSymbolMetadata metadata =
     ts_language_symbol_metadata(self->language, symbol);
+  LookaheadState lookahead_state = *array_get(&self->lookahead_states, head);
   StackPopResult pop = ts_stack_pop_count(self->stack, head, child_count);
   if (!pop.slices.size)
     goto error;
@@ -418,7 +419,6 @@ static ReduceResult ts_parser__reduce(TSParser *self, int head, TSSymbol symbol,
       }
 
       LOG("split_during_reduce new_head:%d", new_head);
-      LookaheadState lookahead_state = *array_get(&self->lookahead_states, head);
       if (!array_push(&self->lookahead_states, lookahead_state))
         goto error;
     }
