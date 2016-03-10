@@ -133,11 +133,13 @@ static void stack_node_add_successor(StackNode *self, TSTree *new_tree,
     }
   }
 
-  stack_node_retain(new_node);
-  ts_tree_retain(new_tree);
-  self->successors[self->successor_count++] = (StackLink){
-    new_node, new_tree,
-  };
+  if (self->successor_count < MAX_SUCCESSOR_COUNT) {
+    stack_node_retain(new_node);
+    ts_tree_retain(new_tree);
+    self->successors[self->successor_count++] = (StackLink){
+      new_node, new_tree,
+    };
+  }
 }
 
 /*
