@@ -490,6 +490,7 @@ describe("Parser", [&]() {
 
       assert_root_node(expected_node_string);
       ts_document_free(doc);
+      doc = nullptr;
       AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
 
       for (size_t i = 0; i < allocation_count; i++) {
