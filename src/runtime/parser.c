@@ -547,7 +547,7 @@ static RepairResult ts_parser__repair_error(TSParser *self, int head_index,
   array_clear(&self->error_repairs);
   for (size_t i = 0; i < action_count; i++)
     if (actions[i].type == TSParseActionTypeReduce &&
-        actions[i].data.child_count >= session.count_above_error)
+        actions[i].data.child_count > session.count_above_error)
       array_push(&self->error_repairs,
                  ((ErrorRepair){
                    .action = actions[i], .in_progress_state_count = 0,
@@ -747,13 +747,13 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
      * on the original stack head and return.
      */
     bool repaired_error = false;
-    size_t aborted_reduce_size = -1;
+    size_t child_count_above_error = -1;
     for (size_t i = 0; i < action_count; i++) {
       TSParseAction action = actions[i];
 
-      bool should_skip =
-        repaired_error || (action.type == TSParseActionTypeReduce &&
-                           action.data.child_count >= aborted_reduce_size);
+      bool should_skip = repaired_error &&
+        action.type == TSParseActionTypeReduce &&
+        action.data.child_count > child_count_above_error;
 
       int current_head;
       if (i == action_count - 1) {
@@ -827,6 +827,11 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
                 break;
               case ReduceStoppedAtError:
                 repaired_error = true;
+                child_count_above_error = 0;
+                for (size_t j = 0; j < result.partial_slice.trees.size; j++)
+                  if (!result.partial_slice.trees.contents[j]->extra)
+                    child_count_above_error++;
+
                 LOG_ACTION("repair head:%d", current_head);
                 switch (ts_parser__repair_error(self, current_head,
                                                 result.partial_slice, lookahead,
