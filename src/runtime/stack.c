@@ -447,10 +447,17 @@ StackPopResult ts_stack_pop_count(Stack *self, int head_index, int count) {
     stack__pop(self, head_index, stack__pop_count_callback, &session);
   int status;
   if (slices.size) {
-    if (session.found_error)
+    if (session.found_error) {
       status = StackPopStoppedAtError;
-    else
+      array_reverse(&slices);
+      while (slices.size > 1) {
+        StackSlice slice = array_pop(&slices);
+        ts_tree_array_delete(&slice.trees);
+        ts_stack_remove_head(self, slice.head_index);
+      }
+    } else {
       status = StackPopSucceeded;
+    }
   } else {
     status = StackPopFailed;
   }
