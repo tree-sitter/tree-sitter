@@ -41,7 +41,8 @@ typedef enum {
 
 typedef StackIterateAction (*StackIterateCallback)(void *, TSStateId state,
                                                    size_t tree_count,
-                                                   bool is_done);
+                                                   bool is_done,
+                                                   bool is_pending);
 
 typedef int (*TreeSelectionFunction)(void *, TSTree *tree1, TSTree *tree2);
 
@@ -76,7 +77,8 @@ TSLength ts_stack_top_position(const Stack *, int head_index);
  *  Push a (tree, state) pair onto the given head of the stack. This could cause
  *  the head to merge with an existing head.
  */
-StackPushResult ts_stack_push(Stack *, int head_index, TSTree *, TSStateId);
+StackPushResult ts_stack_push(Stack *, int head_index, TSTree *, bool,
+                              TSStateId);
 
 /*
  *  Pop the given number of entries from the given head of the stack. This
@@ -88,6 +90,8 @@ StackPopResult ts_stack_pop_count(Stack *, int head_index, int count);
 
 StackPopResult ts_stack_pop_until(Stack *, int head_index, StackIterateCallback,
                                   void *);
+
+StackPopResult ts_stack_pop_pending(Stack *, int head_index);
 
 /*
  *  Remove the given number of entries from the given head of the stack.
