@@ -8,16 +8,13 @@ extern "C" {
 #include "runtime/stack.h"
 #include "runtime/array.h"
 
-typedef struct LookaheadState LookaheadState;
 typedef struct ErrorRepair ErrorRepair;
-typedef Array(LookaheadState) LookaheadStateArray;
 typedef Array(ErrorRepair) ErrorRepairArray;
 
 typedef struct {
   TSLexer lexer;
   Stack *stack;
   const TSLanguage *language;
-  LookaheadStateArray lookahead_states;
   ErrorRepairArray error_repairs;
   TSTree *finished_tree;
   bool is_split;
