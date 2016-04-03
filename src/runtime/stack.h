@@ -8,6 +8,7 @@ extern "C" {
 #include "tree_sitter/parser.h"
 #include "runtime/array.h"
 #include "runtime/tree.h"
+#include <stdio.h>
 
 typedef struct Stack Stack;
 
@@ -118,7 +119,7 @@ void ts_stack_clear(Stack *);
 void ts_stack_set_tree_selection_callback(Stack *, void *,
                                           TreeSelectionFunction);
 
-char *ts_stack_dot_graph(Stack *, const char **);
+int ts_stack_print_dot_graph(Stack *, const char **, FILE *);
 
 #ifdef __cplusplus
 }

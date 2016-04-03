@@ -28,11 +28,8 @@
 
 #define LOG_STACK()                                                  \
   if (self->print_debugging_graphs) {                                \
-    char *graph_string =                                             \
-      ts_stack_dot_graph(self->stack, self->language->symbol_names); \
-    fputs(graph_string, stderr);                                     \
+    ts_stack_print_dot_graph(self->stack, self->language->symbol_names, stderr); \
     fputs("\n\n", stderr);                                           \
-    ts_free(graph_string);                                           \
   }
 
 #define SYM_NAME(symbol) ts_language_symbol_name(self->language, symbol)

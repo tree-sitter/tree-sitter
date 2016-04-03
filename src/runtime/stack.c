@@ -548,12 +548,9 @@ void ts_stack_delete(Stack *self) {
   ts_free(self);
 }
 
-size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
-                                 const char **symbol_names) {
-  char *cursor = string;
-  char **s = n > 0 ? &cursor : &string;
-  cursor += snprintf(*s, n, "digraph stack {\n");
-  cursor += snprintf(*s, n, "rankdir=\"RL\";\n");
+int ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
+  fprintf(f, "digraph stack {\n");
+  fprintf(f, "rankdir=\"RL\";\n");
 
   Array(StackNode *)visited_nodes;
   array_init(&visited_nodes);
@@ -563,7 +560,7 @@ size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
     StackNode *node = self->heads.contents[i];
     size_t color_count = sizeof(COLORS) / sizeof(COLORS[0]);
     const char *color = COLORS[i % color_count];
-    cursor += snprintf(*s, n, "node_%p [color=%s];\n", node, color);
+    fprintf(f, "node_%p [color=%s];\n", node, color);
     array_push(&self->pop_paths, ((PopPath){.node = node }));
   }
 
@@ -586,33 +583,29 @@ size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
         continue;
       all_paths_done = false;
 
-      cursor += snprintf(*s, n, "node_%p [label=", node);
+      fprintf(f, "node_%p [label=", node);
       if (node->state == ts_parse_state_error)
-        cursor += snprintf(*s, n, "\"?\"");
+        fprintf(f, "\"?\"");
       else
-        cursor += snprintf(*s, n, "%d", node->state);
-      cursor += snprintf(*s, n, "];\n");
+        fprintf(f, "%d", node->state);
+      fprintf(f, "];\n");
 
       for (int j = 0; j < node->successor_count; j++) {
         StackLink successor = node->successors[j];
-        cursor +=
-          snprintf(*s, n, "node_%p -> node_%p [label=\"", node, successor.node);
+        fprintf(f, "node_%p -> node_%p [label=\"", node, successor.node);
 
         if (successor.tree->symbol == ts_builtin_sym_error) {
-          cursor += snprintf(*s, n, "ERROR");
+          fprintf(f, "ERROR");
         } else {
           const char *name = symbol_names[successor.tree->symbol];
           for (const char *c = name; *c; c++) {
-            if (*c == '\"' || *c == '\\') {
-              **s = '\\';
-              cursor++;
-            }
-            **s = *c;
-            cursor++;
+            if (*c == '\"' || *c == '\\')
+              fprintf(f, "\\");
+            fprintf(f, "%c", *c);
           }
         }
 
-        cursor += snprintf(*s, n, "\"];\n");
+        fprintf(f, "\"];\n");
 
         if (j == 0) {
           path->node = successor.node;
@@ -629,35 +622,10 @@ size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
     }
   }
 
-  cursor += snprintf(*s, n, "}\n");
+  fprintf(f, "}\n");
 
   array_delete(&visited_nodes);
-  return cursor - string;
 
 error:
-  array_delete(&visited_nodes);
-  return (size_t)-1;
-}
-
-char *ts_stack_dot_graph(Stack *self, const char **symbol_names) {
-  static char SCRATCH[1];
-  char *result = NULL;
-  size_t size = ts_stack__write_dot_graph(self, SCRATCH, 0, symbol_names) + 1;
-  if (size == (size_t)-1)
-    goto error;
-
-  result = ts_malloc(size * sizeof(char));
-  if (!result)
-    goto error;
-
-  size = ts_stack__write_dot_graph(self, result, size, symbol_names);
-  if (size == (size_t)-1)
-    goto error;
-
-  return result;
-
-error:
-  if (result)
-    ts_free(result);
-  return NULL;
+  return -1;
 }
