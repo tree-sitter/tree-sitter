@@ -11,10 +11,6 @@
 #include "runtime/language.h"
 #include "runtime/alloc.h"
 
-/*
- *  Debugging
- */
-
 #define LOG(...)                                                               \
   if (self->lexer.debugger.debug_fn) {                                         \
     snprintf(self->lexer.debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__);     \
@@ -91,10 +87,6 @@ typedef enum {
   BreakdownPerformed,
   BreakdownAborted,
 } BreakdownResult;
-
-/*
- *  Private
- */
 
 static StackSlice ts_parser__pop_one(TSParser *self, int head_index, int count) {
   StackPopResult pop = ts_stack_pop_count(self->stack, head_index, count);
@@ -179,35 +171,8 @@ error:
   return BreakdownFailed;
 }
 
-static void ts_parser__pop_reusable_subtree(ReusableNode *);
-
-/*
- *  Replace the parser's reusable_subtree with its first non-fragile descendant.
- *  Return true if a suitable descendant is found, false otherwise.
- */
-static void ts_parser__breakdown_reusable_subtree(ReusableNode *reusable_node) {
-  do {
-    if (reusable_node->tree->symbol == ts_builtin_sym_error) {
-      ts_parser__pop_reusable_subtree(reusable_node);
-      return;
-    }
-
-    if (reusable_node->tree->child_count == 0) {
-      ts_parser__pop_reusable_subtree(reusable_node);
-      return;
-    }
-
-    reusable_node->tree = reusable_node->tree->children[0];
-  } while (ts_tree_is_fragile(reusable_node->tree));
-}
-
-/*
- *  Replace the parser's reusable_subtree with its largest right neighbor, or
- *  NULL if no right neighbor exists.
- */
-static void ts_parser__pop_reusable_subtree(ReusableNode *reusable_node) {
+static void ts_parser__pop_reusable_node(ReusableNode *reusable_node) {
   reusable_node->char_index += ts_tree_total_chars(reusable_node->tree);
-
   while (reusable_node->tree) {
     TSTree *parent = reusable_node->tree->context.parent;
     size_t next_index = reusable_node->tree->context.index + 1;
@@ -219,39 +184,49 @@ static void ts_parser__pop_reusable_subtree(ReusableNode *reusable_node) {
   }
 }
 
-static bool ts_parser__can_reuse(TSParser *self, int head, TSTree *subtree) {
-  if (subtree->symbol == ts_builtin_sym_error)
+static void ts_parser__breakdown_reusable_node(ReusableNode *reusable_node) {
+  do {
+    if (reusable_node->tree->symbol == ts_builtin_sym_error) {
+      ts_parser__pop_reusable_node(reusable_node);
+      return;
+    }
+
+    if (reusable_node->tree->child_count == 0) {
+      ts_parser__pop_reusable_node(reusable_node);
+      return;
+    }
+
+    reusable_node->tree = reusable_node->tree->children[0];
+  } while (ts_tree_is_fragile(reusable_node->tree));
+}
+
+static bool ts_parser__can_reuse(TSParser *self, int head, TSTree *tree) {
+  if (tree->symbol == ts_builtin_sym_error)
     return false;
-  if (ts_tree_is_fragile(subtree)) {
-    if (subtree->parse_state != ts_stack_top_state(self->stack, head))
-      return false;
-  }
 
-  TSStateId state = ts_stack_top_state(self->stack, head);
+  if (ts_tree_is_fragile(tree) &&
+      tree->parse_state != ts_stack_top_state(self->stack, head))
+    return false;
 
-  if (subtree->lex_state != TS_TREE_STATE_INDEPENDENT) {
-    TSStateId lex_state = self->language->lex_states[state];
-    if (subtree->lex_state != lex_state)
-      return false;
-  }
+  TSStateId top_state = ts_stack_top_state(self->stack, head);
+
+  if (tree->lex_state != TS_TREE_STATE_INDEPENDENT &&
+      tree->lex_state != self->language->lex_states[top_state])
+    return false;
 
   const TSParseAction action =
-    ts_language_last_action(self->language, state, subtree->symbol);
+    ts_language_last_action(self->language, top_state, tree->symbol);
   if (action.type == TSParseActionTypeError || action.can_hide_split)
     return false;
 
-  if (subtree->extra && !action.extra)
+  if (tree->extra && !action.extra)
     return false;
 
   return true;
 }
 
-/*
- *  Advance the parser's lookahead subtree. If there is a reusable subtree
- *  at the correct position in the parser's previous tree, use that. Otherwise,
- *  run the lexer.
- */
-static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head, ReusableNode *reusable_node) {
+static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head,
+                                             ReusableNode *reusable_node) {
   TSLength position = ts_stack_top_position(self->stack, head);
 
   while (reusable_node->tree) {
@@ -261,7 +236,7 @@ static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head, ReusableN
 
     if (reusable_node->char_index < position.chars) {
       LOG("past_reusable sym:%s", SYM_NAME(reusable_node->tree->symbol));
-      ts_parser__pop_reusable_subtree(reusable_node);
+      ts_parser__pop_reusable_node(reusable_node);
       continue;
     }
 
@@ -270,14 +245,13 @@ static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head, ReusableN
         ts_parser__breakdown_top_of_stack(self, head);
 
       LOG("breakdown_changed sym:%s", SYM_NAME(reusable_node->tree->symbol));
-      ts_parser__breakdown_reusable_subtree(reusable_node);
+      ts_parser__breakdown_reusable_node(reusable_node);
       continue;
     }
 
     if (!ts_parser__can_reuse(self, head, reusable_node->tree)) {
-      LOG("breakdown_unreusable sym:%s",
-          SYM_NAME(reusable_node->tree->symbol));
-      ts_parser__breakdown_reusable_subtree(reusable_node);
+      LOG("breakdown_unreusable sym:%s", SYM_NAME(reusable_node->tree->symbol));
+      ts_parser__breakdown_reusable_node(reusable_node);
       continue;
     }
 
@@ -285,7 +259,7 @@ static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head, ReusableN
     TSLength size = ts_tree_total_size(result);
     LOG("reuse sym:%s size:%lu extra:%d", SYM_NAME(result->symbol), size.chars,
         result->extra);
-    ts_parser__pop_reusable_subtree(reusable_node);
+    ts_parser__pop_reusable_node(reusable_node);
     ts_tree_retain(result);
     return result;
   }
@@ -295,14 +269,6 @@ static TSTree *ts_parser__get_next_lookahead(TSParser *self, int head, ReusableN
   TSStateId lex_state = self->language->lex_states[parse_state];
   LOG("lex state:%d", lex_state);
   return self->language->lex_fn(&self->lexer, lex_state, false);
-}
-
-static int ts_parser__split(TSParser *self, int head) {
-  return ts_stack_split(self->stack, head);
-}
-
-static void ts_parser__remove_head(TSParser *self, int head) {
-  ts_stack_remove_head(self->stack, head);
 }
 
 static int ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
@@ -327,16 +293,12 @@ static int ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
   return comparison;
 }
 
-/*
- *  Parse Actions
- */
-
 static ParseActionResult ts_parser__shift(TSParser *self, int head,
                                           TSStateId parse_state,
                                           TSTree *lookahead) {
-  bool is_verifying = lookahead->child_count > 0;
+  bool is_pending = lookahead->child_count > 0;
   switch (
-    ts_stack_push(self->stack, head, lookahead, is_verifying, parse_state)) {
+    ts_stack_push(self->stack, head, lookahead, is_pending, parse_state)) {
     case StackPushFailed:
       return ParseActionFailed;
     case StackPushMerged:
@@ -638,7 +600,7 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
       if (!trees.size)
         array_delete(&trees);
 
-      ts_parser__remove_head(self, slice.head_index);
+      ts_stack_remove_head(self->stack, slice.head_index);
       int comparison = ts_parser__select_tree(self, self->finished_tree, root);
       if (comparison > 0) {
         ts_tree_release(self->finished_tree);
@@ -732,11 +694,6 @@ error:
   return ParseActionFailed;
 }
 
-/*
- * Continue performing parse actions for the given head until the current
- * lookahead symbol is consumed.
- */
-
 static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
                                                       TSTree *lookahead) {
   for (;;) {
@@ -768,7 +725,7 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
       } else {
         if (should_skip)
           continue;
-        current_head = ts_parser__split(self, head);
+        current_head = ts_stack_split(self->stack, head);
         LOG_ACTION("split_action from_head:%d, new_head:%d", head, current_head);
       }
 
@@ -790,7 +747,7 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
             return ts_parser__handle_error(self, current_head, lookahead);
           } else {
             LOG_ACTION("bail current_head:%d", current_head);
-            ts_parser__remove_head(self, current_head);
+            ts_stack_remove_head(self->stack, current_head);
             return ParseActionRemoved;
           }
         }
@@ -848,7 +805,7 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
                     } else {
                       LOG_ACTION("bail head:%d, count:%d", current_head,
                                  ts_stack_head_count(self->stack));
-                      ts_parser__remove_head(self, current_head);
+                      ts_stack_remove_head(self->stack, current_head);
                       if (current_head == head)
                         return ParseActionRemoved;
                       break;
@@ -872,10 +829,6 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self, int head,
     }
   }
 }
-
-/*
- *  Public
- */
 
 bool ts_parser_init(TSParser *self) {
   ts_lexer_init(&self->lexer);
@@ -920,7 +873,7 @@ void ts_parser_set_debugger(TSParser *self, TSDebugger debugger) {
 TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
   ts_parser__start(self, input, previous_tree);
   size_t max_position = 0;
-  ReusableNode current_reusable_node, next_reusable_node = {previous_tree, 0};
+  ReusableNode current_reusable_node, next_reusable_node = { previous_tree, 0 };
 
   for (;;) {
     current_reusable_node = next_reusable_node;
