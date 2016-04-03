@@ -592,7 +592,9 @@ int ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
 
       for (int j = 0; j < node->successor_count; j++) {
         StackLink successor = node->successors[j];
-        fprintf(f, "node_%p -> node_%p [label=\"", node, successor.node);
+        fprintf(f, "node_%p -> node_%p [", node, successor.node);
+        if (successor.is_pending) fprintf(f, "style=dashed ");
+        fprintf(f, "label=\"");
 
         if (successor.tree->symbol == ts_builtin_sym_error) {
           fprintf(f, "ERROR");
