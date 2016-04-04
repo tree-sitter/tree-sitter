@@ -86,21 +86,6 @@ typedef enum {
   BreakdownAborted,
 } BreakdownResult;
 
-static StackSlice ts_parser__pop_one(TSParser *self, int head_index, int count) {
-  StackPopResult pop = ts_stack_pop_count(self->stack, head_index, count);
-  if (pop.status != StackPopSucceeded)
-    return (StackSlice){
-      .head_index = -1, .trees = array_new(),
-    };
-  assert(pop.slices.size > 0);
-  assert(pop.slices.contents[0].head_index == head_index);
-  for (size_t i = pop.slices.size - 1; i > 0; i--) {
-    ts_tree_array_delete(&pop.slices.contents[i].trees);
-    ts_stack_remove_head(self->stack, pop.slices.contents[i].head_index);
-  }
-  return pop.slices.contents[0];
-}
-
 static BreakdownResult ts_parser__breakdown_top_of_stack(TSParser *self,
                                                          int head) {
   TSTree *last_child = NULL;
@@ -586,11 +571,9 @@ static ParseActionResult ts_parser__start(TSParser *self, TSInput input,
 }
 
 static ParseActionResult ts_parser__accept(TSParser *self, int head) {
-  StackSlice slice = ts_parser__pop_one(self, head, -1);
-  if (!slice.trees.contents)
+  TreeArray trees = ts_stack_pop_all(self->stack, head);
+  if (!trees.contents)
     goto error;
-
-  TreeArray trees = slice.trees;
 
   for (size_t i = trees.size - 1; i + 1 > 0; i--) {
     if (!trees.contents[i]->extra) {
@@ -601,7 +584,7 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
       if (!trees.size)
         array_delete(&trees);
 
-      ts_stack_remove_head(self->stack, slice.head_index);
+      ts_stack_remove_head(self->stack, head);
       int comparison = ts_parser__select_tree(self, self->finished_tree, root);
       if (comparison > 0) {
         ts_tree_release(self->finished_tree);
@@ -617,9 +600,7 @@ static ParseActionResult ts_parser__accept(TSParser *self, int head) {
   return ParseActionRemoved;
 
 error:
-  for (size_t i = 0; i < slice.trees.size; i++)
-    ts_tree_release(slice.trees.contents[i]);
-  array_delete(&slice.trees);
+  ts_tree_array_delete(&trees);
   return ParseActionFailed;
 }
 
@@ -638,11 +619,11 @@ static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
       if (!ts_stack_push(self->stack, head, error, false, 0))
         goto error;
 
-      StackSlice slice = ts_parser__pop_one(self, head, -1);
-      if (!slice.trees.contents)
+      TreeArray trees = ts_stack_pop_all(self->stack, head);
+      if (!trees.contents)
         goto error;
       TSTree *parent = ts_tree_make_node(
-        ts_builtin_sym_start, slice.trees.size, slice.trees.contents,
+        ts_builtin_sym_start, trees.size, trees.contents,
         ts_language_symbol_metadata(self->language, ts_builtin_sym_start));
 
       if (!ts_stack_push(self->stack, head, parent, false, 0))

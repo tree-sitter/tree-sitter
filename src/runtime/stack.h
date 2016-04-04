@@ -94,6 +94,8 @@ StackPopResult ts_stack_pop_until(Stack *, int head_index, StackIterateCallback,
 
 StackPopResult ts_stack_pop_pending(Stack *, int head_index);
 
+TreeArray ts_stack_pop_all(Stack *, int head_index);
+
 /*
  *  Remove the given number of entries from the given head of the stack.
  */

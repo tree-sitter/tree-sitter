@@ -515,6 +515,15 @@ void ts_stack_clear(Stack *self) {
   array_push(&self->heads, self->base_node);
 }
 
+TreeArray ts_stack_pop_all(Stack *self, int head_index) {
+  StackPopResult pop = ts_stack_pop_count(self, head_index, -1);
+  if (pop.status != StackPopSucceeded)
+    return (TreeArray)array_new();
+  assert(pop.slices.size == 1);
+  assert(pop.slices.contents[0].head_index == head_index);
+  return pop.slices.contents[0].trees;
+}
+
 void ts_stack_set_tree_selection_callback(Stack *self, void *payload,
                                           TreeSelectionFunction function) {
   self->tree_selection_payload = payload;
