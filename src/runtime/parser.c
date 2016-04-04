@@ -45,6 +45,7 @@ struct ErrorRepair {
   TSParseAction action;
   TSStateId next_state;
   size_t in_progress_state_count;
+  size_t essential_tree_count;
 };
 
 typedef struct {
@@ -108,6 +109,8 @@ static BreakdownResult ts_parser__breakdown_top_of_stack(TSParser *self,
 
   do {
     StackPopResult pop = ts_stack_pop_pending(self->stack, head);
+    if (!pop.status)
+      goto error;
     if (!pop.slices.size)
       break;
 
@@ -468,6 +471,7 @@ static StackIterateAction ts_parser__error_repair_callback(void *payload,
         if (ts_language_has_action(self->language, repair->next_state,
                                    lookahead_symbol)) {
           session->best_repair_index = i;
+          repair->essential_tree_count = tree_count;
           return StackIteratePop;
         }
       }
@@ -506,6 +510,7 @@ static RepairResult ts_parser__repair_error(TSParser *self, int head_index,
       array_push(&self->error_repairs,
                  ((ErrorRepair){
                    .action = actions[i], .in_progress_state_count = 0,
+                   .essential_tree_count = 0,
                  }));
 
   StackPopResult result = ts_stack_pop_until(
@@ -519,7 +524,7 @@ static RepairResult ts_parser__repair_error(TSParser *self, int head_index,
   size_t count_needed_below =
     repair.action.data.child_count - session.count_above_error;
   TreeArray children_below = result.slices.contents[0].trees;
-  size_t count_skipped_below = children_below.size - count_needed_below;
+  size_t count_skipped_below = repair.essential_tree_count - count_needed_below;
   TSSymbol symbol = repair.action.data.symbol;
 
   LOG_ACTION(
@@ -527,16 +532,15 @@ static RepairResult ts_parser__repair_error(TSParser *self, int head_index,
     SYM_NAME(symbol), repair.action.data.child_count,
     repair.in_progress_state_count, count_skipped_below);
 
-  if (count_skipped_below > 1) {
+  if (count_skipped_below > 0) {
     TreeArray skipped_children = array_new();
     if (!array_grow(&skipped_children, count_skipped_below))
       goto error;
     for (size_t i = count_needed_below; i < children_below.size; i++)
       array_push(&skipped_children, children_below.contents[i]);
-    TSTree *error = ts_tree_make_node(
-      ts_builtin_sym_error, skipped_children.size, skipped_children.contents,
-      ts_language_symbol_metadata(self->language, ts_builtin_sym_error));
-    error->extra = true;
+    TSTree *error = ts_tree_make_error_node(&skipped_children);
+    if (!error)
+      goto error;
     children_below.size = count_needed_below;
     array_push(&children_below, error);
   }
@@ -630,9 +634,7 @@ static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
   for (;;) {
     if (next_token->symbol == ts_builtin_sym_end) {
       LOG_ACTION("fail_to_recover");
-      TSTree *error = ts_tree_make_node(
-        ts_builtin_sym_error, invalid_trees.size, invalid_trees.contents,
-        ts_language_symbol_metadata(self->language, ts_builtin_sym_error));
+      TSTree *error = ts_tree_make_error_node(&invalid_trees);
       if (!ts_stack_push(self->stack, head, error, false, 0))
         goto error;
 
@@ -665,10 +667,10 @@ static ParseActionResult ts_parser__handle_error(TSParser *self, int head,
                                  following_token->symbol)) {
         LOG_ACTION("resume_without_context state:%d", next_state);
         ts_lexer_reset(&self->lexer, position);
-        TSTree *error = ts_tree_make_node(
-          ts_builtin_sym_error, invalid_trees.size, invalid_trees.contents,
-          ts_language_symbol_metadata(self->language, ts_builtin_sym_error));
-        error->extra = true;
+        ts_tree_steal_padding(*array_back(&invalid_trees), next_token);
+        TSTree *error = ts_tree_make_error_node(&invalid_trees);
+        if (!error)
+          goto error;
         if (!ts_stack_push(self->stack, head, error, false, ts_parse_state_error))
           goto error;
         if (!ts_stack_push(self->stack, head, next_token, false, next_state))

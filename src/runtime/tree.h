@@ -50,6 +50,7 @@ void ts_tree_array_delete(TreeArray *);
 TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, TSSymbolMetadata);
 TSTree *ts_tree_make_node(TSSymbol, size_t, TSTree **, TSSymbolMetadata);
 TSTree *ts_tree_make_copy(TSTree *child);
+TSTree *ts_tree_make_error_node(TreeArray *);
 TSTree *ts_tree_make_error(TSLength, TSLength, char);
 void ts_tree_retain(TSTree *tree);
 void ts_tree_release(TSTree *tree);
@@ -61,6 +62,7 @@ size_t ts_tree_end_column(const TSTree *self);
 void ts_tree_set_children(TSTree *, size_t, TSTree **);
 void ts_tree_assign_parents(TSTree *);
 void ts_tree_edit(TSTree *, TSInputEdit);
+void ts_tree_steal_padding(TSTree *, TSTree *);
 
 static inline size_t ts_tree_total_chars(const TSTree *self) {
   return self->padding.chars + self->size.chars;

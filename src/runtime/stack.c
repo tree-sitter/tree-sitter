@@ -32,7 +32,7 @@ struct StackNode {
 
 typedef struct {
   TreeArray trees;
-  size_t extra_count;
+  size_t essential_tree_count;
   StackNode *node;
   bool is_done;
   bool is_pending;
@@ -306,7 +306,7 @@ int ts_stack_split(Stack *self, int head_index) {
   return ts_stack__add_head(self, head);
 }
 
-static inline ALWAYS_INLINE StackSliceArray stack__pop(
+static inline ALWAYS_INLINE StackPopResult stack__pop(
   Stack *self, int head_index, StackIterateCallback callback, void *payload) {
   array_clear(&self->slices);
   array_clear(&self->pop_paths);
@@ -315,7 +315,7 @@ static inline ALWAYS_INLINE StackSliceArray stack__pop(
   PopPath pop_path = {
     .node = initial_head,
     .trees = array_new(),
-    .extra_count = 0,
+    .essential_tree_count = 0,
     .is_done = false,
     .is_pending = true,
   };
@@ -334,7 +334,7 @@ static inline ALWAYS_INLINE StackSliceArray stack__pop(
 
       StackNode *node = path->node;
       size_t successor_count = node->successor_count;
-      switch (callback(payload, node->state, depth - path->extra_count,
+      switch (callback(payload, node->state, path->essential_tree_count,
                        node == self->base_node, path->is_pending && depth > 0)) {
         case StackIteratePop:
           path->is_done = true;
@@ -372,8 +372,8 @@ static inline ALWAYS_INLINE StackSliceArray stack__pop(
         next_path->node = successor.node;
         if (!array_push(&next_path->trees, successor.tree))
           goto error;
-        if (successor.tree->extra)
-          next_path->extra_count++;
+        if (!successor.tree->extra && successor.tree->symbol != ts_builtin_sym_error)
+          next_path->essential_tree_count++;
         if (!successor.is_pending)
           next_path->is_pending = false;
         ts_tree_retain(successor.tree);
@@ -419,13 +419,13 @@ static inline ALWAYS_INLINE StackSliceArray stack__pop(
 
   if (self->slices.size)
     stack_node_release(initial_head, &self->node_pool);
-  return self->slices;
+  return (StackPopResult){.status = StackPopSucceeded, .slices = self->slices};
 
 error:
   for (size_t i = 0; i < self->pop_paths.size; i++)
     array_delete(&self->pop_paths.contents[i].trees);
   array_clear(&self->slices);
-  return self->slices;
+  return (StackPopResult){.status = StackPopFailed};
 }
 
 static inline ALWAYS_INLINE StackIterateAction
@@ -469,38 +469,29 @@ StackPopResult ts_stack_pop_count(Stack *self, int head_index, int count) {
     .goal_tree_count = count, .found_error = false,
   };
 
-  StackSliceArray slices =
+  StackPopResult pop =
     stack__pop(self, head_index, stack__pop_count_callback, &session);
-  int status;
-  if (slices.size) {
-    if (session.found_error) {
-      status = StackPopStoppedAtError;
-      array_reverse(&slices);
-      while (slices.size > 1) {
-        StackSlice slice = array_pop(&slices);
-        ts_tree_array_delete(&slice.trees);
-        ts_stack_remove_head(self, slice.head_index);
-      }
-    } else {
-      status = StackPopSucceeded;
+
+  if (pop.status && session.found_error) {
+    pop.status = StackPopStoppedAtError;
+    array_reverse(&pop.slices);
+    while (pop.slices.size > 1) {
+      StackSlice slice = array_pop(&pop.slices);
+      ts_tree_array_delete(&slice.trees);
+      ts_stack_remove_head(self, slice.head_index);
     }
-  } else {
-    status = StackPopFailed;
   }
 
-  return (StackPopResult){.status = status, .slices = slices };
+  return pop;
 }
 
 StackPopResult ts_stack_pop_until(Stack *self, int head_index,
                                   StackIterateCallback callback, void *payload) {
-  StackSliceArray slices = stack__pop(self, head_index, callback, payload);
-  return (StackPopResult){.status = StackPopSucceeded, .slices = slices };
+  return stack__pop(self, head_index, callback, payload);
 }
 
 StackPopResult ts_stack_pop_pending(Stack *self, int head_index) {
-  StackSliceArray slices =
-    stack__pop(self, head_index, stack__pop_pending_callback, NULL);
-  return (StackPopResult){.status = StackPopSucceeded, .slices = slices };
+  return stack__pop(self, head_index, stack__pop_pending_callback, NULL);
 }
 
 void ts_stack_shrink(Stack *self, int head_index, int count) {

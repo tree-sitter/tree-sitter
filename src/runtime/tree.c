@@ -146,6 +146,25 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
   return result;
 }
 
+TSTree *ts_tree_make_error_node(TreeArray *children) {
+  for (size_t i = 0; i < children->size; i++) {
+    TSTree *child = children->contents[i];
+    if (child->symbol == ts_builtin_sym_error && child->child_count > 0) {
+      if (!array_splice(children, i, 1, child->child_count, child->children))
+        return NULL;
+      i += child->child_count - 1;
+      for (size_t j = 0; j < child->child_count; j++)
+        ts_tree_retain(child->children[j]);
+      ts_tree_release(child);
+    }
+  }
+
+  return ts_tree_make_node(ts_builtin_sym_error, children->size,
+    children->contents, (TSSymbolMetadata){
+      .extra = false, .visible = true, .named = true
+    });
+}
+
 void ts_tree_retain(TSTree *self) {
   assert(self->ref_count > 0);
   self->ref_count++;
@@ -310,4 +329,9 @@ void ts_tree_edit(TSTree *self, TSInputEdit edit) {
       }
     }
   }
+}
+
+void ts_tree_steal_padding(TSTree *self, TSTree *other) {
+  self->size = ts_length_add(self->size, other->padding);
+  other->padding = ts_length_zero();
 }
