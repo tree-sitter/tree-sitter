@@ -87,7 +87,7 @@ StackPushResult ts_stack_push(Stack *, int head_index, TSTree *, bool,
  *  which had previously been merged. It returns a struct that indicates the
  *  index of each revealed head and the trees removed from that head.
  */
-StackPopResult ts_stack_pop_count(Stack *, int head_index, int count);
+StackPopResult ts_stack_pop_count(Stack *, int head_index, size_t count);
 
 StackPopResult ts_stack_pop_until(Stack *, int head_index, StackIterateCallback,
                                   void *);
@@ -95,11 +95,6 @@ StackPopResult ts_stack_pop_until(Stack *, int head_index, StackIterateCallback,
 StackPopResult ts_stack_pop_pending(Stack *, int head_index);
 
 TreeArray ts_stack_pop_all(Stack *, int head_index);
-
-/*
- *  Remove the given number of entries from the given head of the stack.
- */
-void ts_stack_shrink(Stack *, int head_index, int count);
 
 /*
  *  Split the given stack head into two heads, so that the stack can be

@@ -39,7 +39,7 @@ typedef struct {
 } PopPath;
 
 typedef struct {
-  int goal_tree_count;
+  size_t goal_tree_count;
   bool found_error;
 } StackPopSession;
 
@@ -428,46 +428,28 @@ error:
   return (StackPopResult){.status = StackPopFailed};
 }
 
+StackPopResult ts_stack_pop_until(Stack *self, int head_index,
+                                  StackIterateCallback callback, void *payload) {
+  return stack__pop(self, head_index, callback, payload);
+}
+
 static inline ALWAYS_INLINE StackIterateAction
   stack__pop_count_callback(void *payload, TSStateId state, size_t tree_count,
                             bool is_done, bool is_pending) {
   StackPopSession *pop_session = (StackPopSession *)payload;
   if (pop_session->found_error)
     return StackIterateAbort;
-
-  if (pop_session->goal_tree_count > 0) {
-    if ((int)tree_count == pop_session->goal_tree_count)
-      return StackIteratePop;
-
-    if (state == ts_parse_state_error) {
-      pop_session->found_error = true;
-      return StackIteratePop;
-    }
-  } else if (is_done) {
+  if (tree_count == pop_session->goal_tree_count)
+    return StackIteratePop;
+  if (state == ts_parse_state_error) {
+    pop_session->found_error = true;
     return StackIteratePop;
   }
-
   return StackIterateContinue;
 }
 
-static inline ALWAYS_INLINE StackIterateAction
-  stack__pop_pending_callback(void *payload, TSStateId state, size_t tree_count,
-                              bool is_done, bool is_pending) {
-  if (tree_count >= 1) {
-    if (is_pending) {
-      return StackIteratePop;
-    } else {
-      return StackIterateAbort;
-    }
-  } else {
-    return StackIterateContinue;
-  }
-}
-
-StackPopResult ts_stack_pop_count(Stack *self, int head_index, int count) {
-  StackPopSession session = {
-    .goal_tree_count = count, .found_error = false,
-  };
+StackPopResult ts_stack_pop_count(Stack *self, int head_index, size_t count) {
+  StackPopSession session = { .goal_tree_count = count, .found_error = false };
 
   StackPopResult pop =
     stack__pop(self, head_index, stack__pop_count_callback, &session);
@@ -485,26 +467,33 @@ StackPopResult ts_stack_pop_count(Stack *self, int head_index, int count) {
   return pop;
 }
 
-StackPopResult ts_stack_pop_until(Stack *self, int head_index,
-                                  StackIterateCallback callback, void *payload) {
-  return stack__pop(self, head_index, callback, payload);
+static inline ALWAYS_INLINE StackIterateAction
+  stack__pop_pending_callback(void *payload, TSStateId state, size_t tree_count,
+                              bool is_done, bool is_pending) {
+  if (tree_count >= 1)
+    return is_pending ? StackIteratePop : StackIterateAbort;
+  else
+    return StackIterateContinue;
 }
 
 StackPopResult ts_stack_pop_pending(Stack *self, int head_index) {
   return stack__pop(self, head_index, stack__pop_pending_callback, NULL);
 }
 
-void ts_stack_shrink(Stack *self, int head_index, int count) {
-  StackNode *head = *array_get(&self->heads, head_index);
-  StackNode *new_head = head;
-  for (int i = 0; i < count; i++) {
-    if (new_head->successor_count == 0)
-      break;
-    new_head = new_head->successors[0].node;
-  }
-  stack_node_retain(new_head);
-  stack_node_release(head, &self->node_pool);
-  self->heads.contents[head_index] = new_head;
+
+static inline ALWAYS_INLINE StackIterateAction
+  stack__pop_all_callback(void *payload, TSStateId state, size_t tree_count,
+                              bool is_done, bool is_pending) {
+  return is_done ? StackIteratePop : StackIterateContinue;
+}
+
+TreeArray ts_stack_pop_all(Stack *self, int head_index) {
+  StackPopResult pop = stack__pop(self, head_index, stack__pop_all_callback, NULL);
+  if (pop.status != StackPopSucceeded)
+    return (TreeArray)array_new();
+  assert(pop.slices.size == 1);
+  assert(pop.slices.contents[0].head_index == head_index);
+  return pop.slices.contents[0].trees;
 }
 
 void ts_stack_clear(Stack *self) {
@@ -513,15 +502,6 @@ void ts_stack_clear(Stack *self) {
     stack_node_release(self->heads.contents[i], &self->node_pool);
   array_clear(&self->heads);
   array_push(&self->heads, self->base_node);
-}
-
-TreeArray ts_stack_pop_all(Stack *self, int head_index) {
-  StackPopResult pop = ts_stack_pop_count(self, head_index, -1);
-  if (pop.status != StackPopSucceeded)
-    return (TreeArray)array_new();
-  assert(pop.slices.size == 1);
-  assert(pop.slices.contents[0].head_index == head_index);
-  return pop.slices.contents[0].trees;
 }
 
 void ts_stack_set_tree_selection_callback(Stack *self, void *payload,
