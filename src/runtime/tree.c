@@ -159,10 +159,9 @@ TSTree *ts_tree_make_error_node(TreeArray *children) {
     }
   }
 
-  return ts_tree_make_node(ts_builtin_sym_error, children->size,
-    children->contents, (TSSymbolMetadata){
-      .extra = false, .visible = true, .named = true
-    });
+  return ts_tree_make_node(
+    ts_builtin_sym_error, children->size, children->contents,
+    (TSSymbolMetadata){.extra = false, .visible = true, .named = true });
 }
 
 void ts_tree_retain(TSTree *self) {

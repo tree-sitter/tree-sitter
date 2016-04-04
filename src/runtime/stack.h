@@ -12,9 +12,11 @@ extern "C" {
 
 typedef struct Stack Stack;
 
+typedef int StackVersion;
+
 typedef struct {
   TreeArray trees;
-  int head_index;
+  StackVersion version;
 } StackSlice;
 
 typedef Array(StackSlice) StackSliceArray;
@@ -58,55 +60,55 @@ Stack *ts_stack_new();
 void ts_stack_delete(Stack *);
 
 /*
- *  Get the stack's current number of heads.
+ *  Get the stack's current number of versions.
  */
-int ts_stack_head_count(const Stack *);
+int ts_stack_version_count(const Stack *);
 
 /*
- *  Get the state at given head of the stack. If the stack is empty, this
- *  returns the initial state (0).
+ *  Get the state at the top of the given version of the stack. If the stack is
+ *  empty, this returns the initial state (0).
  */
-TSStateId ts_stack_top_state(const Stack *, int head_index);
+TSStateId ts_stack_top_state(const Stack *, StackVersion);
 
 /*
- *  Get the position of the given head of the stack. If the stack is empty, this
- *  returns {0, 0}.
+ *  Get the position at the top of the given version of the stack. If the stack
+ *  is empty, this returns zero.
  */
-TSLength ts_stack_top_position(const Stack *, int head_index);
+TSLength ts_stack_top_position(const Stack *, StackVersion);
 
 /*
- *  Push a (tree, state) pair onto the given head of the stack. This could cause
- *  the head to merge with an existing head.
+ *  Push a tree and state onto the given head of the stack. This could cause
+ *  the version to merge with an existing version.
  */
-StackPushResult ts_stack_push(Stack *, int head_index, TSTree *, bool,
-                              TSStateId);
+StackPushResult ts_stack_push(Stack *, StackVersion, TSTree *, bool, TSStateId);
 
 /*
- *  Pop the given number of entries from the given head of the stack. This
- *  operation can increase the number of stack heads by revealing multiple heads
- *  which had previously been merged. It returns a struct that indicates the
- *  index of each revealed head and the trees removed from that head.
+ *  Pop the given number of entries from the given version of the stack. This
+ *  operation can increase the number of stack versions by revealing multiple
+ *  versions which had previously been merged. It returns a struct that
+ *  indicates the index of each revealed version and the trees removed from that
+ *  version.
  */
-StackPopResult ts_stack_pop_count(Stack *, int head_index, size_t count);
+StackPopResult ts_stack_pop_count(Stack *, StackVersion, size_t count);
 
-StackPopResult ts_stack_pop_until(Stack *, int head_index, StackIterateCallback,
+StackPopResult ts_stack_pop_until(Stack *, StackVersion, StackIterateCallback,
                                   void *);
 
-StackPopResult ts_stack_pop_pending(Stack *, int head_index);
+StackPopResult ts_stack_pop_pending(Stack *, StackVersion);
 
-TreeArray ts_stack_pop_all(Stack *, int head_index);
+TreeArray ts_stack_pop_all(Stack *, StackVersion);
 
 /*
- *  Split the given stack head into two heads, so that the stack can be
+ *  Split the given stack head into two versions, so that the stack can be
  *  transformed from its current state in multiple alternative ways. Returns
- *  the index of the newly-created head.
+ *  the ID of the newly-created version.
  */
-int ts_stack_split(Stack *, int head_index);
+StackVersion ts_stack_split(Stack *, StackVersion);
 
 /*
- *  Remove the given head from the stack.
+ *  Remove the given version from the stack.
  */
-void ts_stack_remove_head(Stack *, int head_index);
+void ts_stack_remove_version(Stack *, StackVersion);
 
 /*
  *  Remove all entries from the stack.

@@ -275,14 +275,15 @@ static size_t ts_tree__write_to_string(const TSTree *self,
   return cursor - string;
 }
 
-static char *ts_node__string(TSNode self, const TSDocument *document, bool include_all) {
+static char *ts_node__string(TSNode self, const TSDocument *document,
+                             bool include_all) {
   static char SCRATCH[1];
   const TSTree *tree = ts_node__tree(self);
   const TSLanguage *language = document->parser.language;
   size_t size =
     ts_tree__write_to_string(tree, language, SCRATCH, 0, true, include_all) + 1;
   char *result = ts_malloc(size * sizeof(char));
-  ts_tree__write_to_string(tree, language, result , size, true, include_all);
+  ts_tree__write_to_string(tree, language, result, size, true, include_all);
   return result;
 }
 
