@@ -319,117 +319,95 @@ static ParseActionResult ts_parser__shift_extra(TSParser *self,
 static ReduceResult ts_parser__reduce(TSParser *self, StackVersion version,
                                       TSSymbol symbol, int child_count,
                                       bool extra, bool fragile) {
+  ReduceResult result = {.status = ReduceSucceeded};
+  StackPopResult pop = ts_stack_pop_count(self->stack, version, child_count);
+  switch (pop.status) {
+    case StackPopFailed:
+      goto error;
+    case StackPopStoppedAtError:
+      result.status = ReduceStoppedAtError;
+      result.partial_slice = pop.slices.contents[0];
+      return result;
+    default:
+      break;
+  }
+
   TSSymbolMetadata metadata =
     ts_language_symbol_metadata(self->language, symbol);
-  StackPopResult pop = ts_stack_pop_count(self->stack, version, child_count);
-  if (!pop.slices.size)
-    goto error;
-  if (pop.status == StackPopStoppedAtError)
-    return (ReduceResult){
-      .status = ReduceStoppedAtError, .partial_slice = pop.slices.contents[0],
-    };
 
   size_t removed_versions = 0;
-
   for (size_t i = 0; i < pop.slices.size; i++) {
     StackSlice slice = pop.slices.contents[i];
+    slice.version -= removed_versions;
 
-    size_t trailing_extra_count = 0;
-    for (size_t j = slice.trees.size - 1; j + 1 > 0; j--) {
-      if (slice.trees.contents[j]->extra)
-        trailing_extra_count++;
-      else
-        break;
-    }
+    size_t child_count = slice.trees.size;
+    while (child_count > 0 && slice.trees.contents[child_count - 1]->extra)
+      child_count--;
 
-    size_t popped_child_count = slice.trees.size - trailing_extra_count;
-    TSTree *parent = ts_tree_make_node(symbol, popped_child_count,
+    TSTree *parent = ts_tree_make_node(symbol, child_count,
                                        slice.trees.contents, metadata);
     if (!parent) {
       ts_tree_array_delete(&slice.trees);
       goto error;
     }
 
+    TSStateId top_state = ts_stack_top_state(self->stack, slice.version);
     if (fragile || self->is_split || ts_stack_version_count(self->stack) > 1) {
       parent->fragile_left = true;
       parent->fragile_right = true;
       parent->parse_state = TS_TREE_STATE_ERROR;
-    }
-
-    int new_version = slice.version - removed_versions;
-
-    if (i > 0) {
-      if (symbol == ts_builtin_sym_error) {
-        removed_versions++;
-        ts_stack_remove_version(self->stack, new_version);
-        continue;
-      }
-
-      LOG("split_during_reduce new_version:%d", new_version);
-    }
-
-    /*
-     *  If the parent node is extra, then do not change the state when pushing
-     *  it. Otherwise, proceed to the state given in the parse table for the
-     *  new parent symbol.
-     */
-    TSStateId state;
-    TSStateId top_state = ts_stack_top_state(self->stack, new_version);
-    if (parent->parse_state != TS_TREE_STATE_ERROR)
+    } else {
       parent->parse_state = top_state;
+    }
+
+    TSStateId new_state;
     if (extra) {
       parent->extra = true;
-      state = top_state;
+      new_state = top_state;
     } else {
       TSParseAction action =
         ts_language_last_action(self->language, top_state, symbol);
-      if (child_count == -1) {
-        state = 0;
-      } else {
-        assert(action.type == TSParseActionTypeShift);
-        state = action.data.to_state;
-      }
+      assert(action.type == TSParseActionTypeShift);
+      new_state = action.data.to_state;
     }
 
+    bool did_merge = false;
+
     StackPushResult push =
-      ts_stack_push(self->stack, new_version, parent, false, state);
+      ts_stack_push(self->stack, slice.version, parent, false, new_state);
     ts_tree_release(parent);
     switch (push) {
       case StackPushFailed:
         goto error;
       case StackPushMerged:
-        LOG("merge_during_reduce version:%d", new_version);
+        did_merge = true;
         removed_versions++;
-        continue;
+        break;
       case StackPushContinued:
         break;
     }
 
-    if (trailing_extra_count > 0) {
-      for (size_t j = 0; j < trailing_extra_count; j++) {
-        size_t index = slice.trees.size - trailing_extra_count + j;
-        TSTree *tree = slice.trees.contents[index];
-        StackPushResult push =
-          ts_stack_push(self->stack, new_version, tree, false, state);
-        ts_tree_release(tree);
-        switch (push) {
-          case StackPushFailed:
-            goto error;
-          case StackPushMerged:
-            removed_versions++;
-            break;
-          case StackPushContinued:
-            break;
-        }
+    for (size_t j = child_count; !did_merge && j < slice.trees.size; j++) {
+      TSTree *extra_tree = slice.trees.contents[j];
+      StackPushResult push =
+        ts_stack_push(self->stack, slice.version, extra_tree, false, new_state);
+      ts_tree_release(extra_tree);
+      switch (push) {
+        case StackPushFailed:
+          goto error;
+        case StackPushMerged:
+          did_merge = true;
+          removed_versions++;
+          break;
+        case StackPushContinued:
+          break;
       }
     }
   }
 
-  if (removed_versions < pop.slices.size)
-    return (ReduceResult){.status = ReduceSucceeded };
-  else
-    return (ReduceResult){.status = ReduceMerged };
-
+  if (removed_versions == pop.slices.size)
+    result.status = ReduceMerged;
+  return result;
 error:
   return (ReduceResult){.status = ReduceFailed };
 }
