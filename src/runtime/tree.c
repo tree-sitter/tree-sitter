@@ -51,6 +51,16 @@ void ts_tree_array_delete(TreeArray *self) {
   array_delete(self);
 }
 
+size_t ts_tree_array_essential_count(const TreeArray *self) {
+  size_t result = 0;
+  for (size_t i = 0; i < self->size; i++) {
+    TSTree *tree = self->contents[i];
+    if (!tree->extra && tree->symbol != ts_builtin_sym_error)
+      result++;
+  }
+  return result;
+}
+
 TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char) {
   TSTree *result = ts_tree_make_leaf(ts_builtin_sym_error, padding, size,
                                      (TSSymbolMetadata){

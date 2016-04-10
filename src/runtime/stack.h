@@ -12,7 +12,9 @@ extern "C" {
 
 typedef struct Stack Stack;
 
-typedef int StackVersion;
+typedef unsigned int StackVersion;
+
+#define STACK_VERSION_NONE ((StackVersion)-1)
 
 typedef struct {
   TreeArray trees;
@@ -20,12 +22,6 @@ typedef struct {
 } StackSlice;
 
 typedef Array(StackSlice) StackSliceArray;
-
-typedef enum {
-  StackPushFailed,
-  StackPushMerged,
-  StackPushContinued,
-} StackPushResult;
 
 typedef struct {
   enum {
@@ -62,7 +58,7 @@ void ts_stack_delete(Stack *);
 /*
  *  Get the stack's current number of versions.
  */
-int ts_stack_version_count(const Stack *);
+size_t ts_stack_version_count(const Stack *);
 
 /*
  *  Get the state at the top of the given version of the stack. If the stack is
@@ -80,7 +76,7 @@ TSLength ts_stack_top_position(const Stack *, StackVersion);
  *  Push a tree and state onto the given head of the stack. This could cause
  *  the version to merge with an existing version.
  */
-StackPushResult ts_stack_push(Stack *, StackVersion, TSTree *, bool, TSStateId);
+bool ts_stack_push(Stack *, StackVersion, TSTree *, bool, TSStateId);
 
 /*
  *  Pop the given number of entries from the given version of the stack. This
@@ -98,12 +94,9 @@ StackPopResult ts_stack_pop_pending(Stack *, StackVersion);
 
 TreeArray ts_stack_pop_all(Stack *, StackVersion);
 
-/*
- *  Split the given stack head into two versions, so that the stack can be
- *  transformed from its current state in multiple alternative ways. Returns
- *  the ID of the newly-created version.
- */
-StackVersion ts_stack_split(Stack *, StackVersion);
+void ts_stack_merge(Stack *);
+
+void ts_stack_renumber_version(Stack *, StackVersion, StackVersion);
 
 /*
  *  Remove the given version from the stack.
