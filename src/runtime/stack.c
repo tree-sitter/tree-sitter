@@ -7,7 +7,7 @@
 #include <assert.h>
 #include <stdio.h>
 
-#define MAX_SUCCESSOR_COUNT 8
+#define MAX_LINK_COUNT 8
 #define STARTING_TREE_CAPACITY 10
 #define MAX_NODE_POOL_SIZE 50
 
@@ -24,8 +24,8 @@ typedef struct {
 struct StackNode {
   TSStateId state;
   TSLength position;
-  StackLink successors[MAX_SUCCESSOR_COUNT];
-  short unsigned int successor_count;
+  StackLink links[MAX_LINK_COUNT];
+  short unsigned int link_count;
   short unsigned int ref_count;
 };
 
@@ -75,9 +75,9 @@ static void stack_node_release(StackNode *self, StackNodeArray *pool) {
   assert(self->ref_count != 0);
   self->ref_count--;
   if (self->ref_count == 0) {
-    for (int i = 0; i < self->successor_count; i++) {
-      ts_tree_release(self->successors[i].tree);
-      stack_node_release(self->successors[i].node, pool);
+    for (int i = 0; i < self->link_count; i++) {
+      ts_tree_release(self->links[i].tree);
+      stack_node_release(self->links[i].node, pool);
     }
 
     if (pool->size >= MAX_NODE_POOL_SIZE)
@@ -98,8 +98,8 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
 
   *node = (StackNode){
     .ref_count = 1,
-    .successor_count = 0,
-    .successors = {},
+    .link_count = 0,
+    .links = {},
     .state = state,
     .position = position,
   };
@@ -107,31 +107,31 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
   if (next) {
     ts_tree_retain(tree);
     stack_node_retain(next);
-    node->successor_count = 1;
-    node->successors[0] = (StackLink){ next, tree, is_pending };
+    node->link_count = 1;
+    node->links[0] = (StackLink){ next, tree, is_pending };
   }
 
   return node;
 }
 
 static void stack_node_add_link(StackNode *self, StackLink link) {
-  for (int i = 0; i < self->successor_count; i++) {
-    StackLink existing_link = self->successors[i];
+  for (int i = 0; i < self->link_count; i++) {
+    StackLink existing_link = self->links[i];
     if (existing_link.tree == link.tree) {
       if (existing_link.node == link.node)
         return;
       if (existing_link.node->state == link.node->state) {
-        for (int j = 0; j < link.node->successor_count; j++)
-          stack_node_add_link(existing_link.node, link.node->successors[j]);
+        for (int j = 0; j < link.node->link_count; j++)
+          stack_node_add_link(existing_link.node, link.node->links[j]);
         return;
       }
     }
   }
 
-  if (self->successor_count < MAX_SUCCESSOR_COUNT) {
+  if (self->link_count < MAX_LINK_COUNT) {
     stack_node_retain(link.node);
     ts_tree_retain(link.tree);
-    self->successors[self->successor_count++] = (StackLink){
+    self->links[self->link_count++] = (StackLink){
       link.node, link.tree, link.is_pending,
     };
   }
@@ -280,9 +280,9 @@ void ts_stack_merge(Stack *self) {
       StackNode *prior_node = self->heads.contents[j];
       if (prior_node->state == node->state &&
           prior_node->position.chars == node->position.chars) {
-        for (size_t k = 0; k < node->successor_count; k++) {
-          StackLink successor = node->successors[k];
-          stack_node_add_link(prior_node, successor);
+        for (size_t k = 0; k < node->link_count; k++) {
+          StackLink link = node->links[k];
+          stack_node_add_link(prior_node, link);
         }
         ts_stack_remove_version(self, i--);
         break;
@@ -324,20 +324,20 @@ static inline ALWAYS_INLINE StackPopResult
         continue;
 
       StackNode *node = path->node;
-      size_t successor_count = node->successor_count;
+      size_t link_count = node->link_count;
       switch (callback(payload, node->state, path->essential_tree_count,
                        node == self->base_node, path->is_pending && depth > 0)) {
         case StackIteratePop:
           path->is_done = true;
           continue;
         case StackIterateAbort:
-          successor_count = 0;
+          link_count = 0;
           break;
         default:
           break;
       }
 
-      if (!successor_count) {
+      if (!link_count) {
         ts_tree_array_delete(&path->trees);
         array_erase(&self->pop_paths, i--);
         size--;
@@ -346,29 +346,29 @@ static inline ALWAYS_INLINE StackPopResult
 
       all_paths_done = false;
 
-      for (size_t j = 1; j <= successor_count; j++) {
+      for (size_t j = 1; j <= link_count; j++) {
         PopPath *next_path;
-        StackLink successor;
-        if (j == successor_count) {
-          successor = node->successors[0];
+        StackLink link;
+        if (j == link_count) {
+          link = node->links[0];
           next_path = &self->pop_paths.contents[i];
         } else {
-          successor = node->successors[j];
+          link = node->links[j];
           if (!array_push(&self->pop_paths, self->pop_paths.contents[i]))
             goto error;
           next_path = array_back(&self->pop_paths);
           next_path->trees = ts_tree_array_copy(&next_path->trees);
         }
 
-        next_path->node = successor.node;
-        if (!array_push(&next_path->trees, successor.tree))
+        next_path->node = link.node;
+        if (!array_push(&next_path->trees, link.tree))
           goto error;
-        if (!successor.tree->extra &&
-            successor.tree->symbol != ts_builtin_sym_error)
+        if (!link.tree->extra &&
+            link.tree->symbol != ts_builtin_sym_error)
           next_path->essential_tree_count++;
-        if (!successor.is_pending)
+        if (!link.is_pending)
           next_path->is_pending = false;
-        ts_tree_retain(successor.tree);
+        ts_tree_retain(link.tree);
       }
     }
   }
@@ -557,17 +557,17 @@ int ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
         fprintf(f, "%d", node->state);
       fprintf(f, "];\n");
 
-      for (int j = 0; j < node->successor_count; j++) {
-        StackLink successor = node->successors[j];
-        fprintf(f, "node_%p -> node_%p [", node, successor.node);
-        if (successor.is_pending)
+      for (int j = 0; j < node->link_count; j++) {
+        StackLink link = node->links[j];
+        fprintf(f, "node_%p -> node_%p [", node, link.node);
+        if (link.is_pending)
           fprintf(f, "style=dashed ");
         fprintf(f, "label=\"");
 
-        if (successor.tree->symbol == ts_builtin_sym_error) {
+        if (link.tree->symbol == ts_builtin_sym_error) {
           fprintf(f, "ERROR");
         } else {
-          const char *name = symbol_names[successor.tree->symbol];
+          const char *name = symbol_names[link.tree->symbol];
           for (const char *c = name; *c; c++) {
             if (*c == '\"' || *c == '\\')
               fprintf(f, "\\");
@@ -578,12 +578,12 @@ int ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
         fprintf(f, "\"];\n");
 
         if (j == 0) {
-          path->node = successor.node;
+          path->node = link.node;
         } else {
           if (!array_push(&self->pop_paths, *path))
             goto error;
           PopPath *next_path = array_back(&self->pop_paths);
-          next_path->node = successor.node;
+          next_path->node = link.node;
         }
       }
 
