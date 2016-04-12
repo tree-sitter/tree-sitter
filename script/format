@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-find                                             \
-  src include                                    \
+DIRS="${*:-src include}"
+
+find $DIRS                                       \
   -name '*.c' -or -name '*.cc' -or -name '*.h' | \
   xargs clang-format -i -style=file
