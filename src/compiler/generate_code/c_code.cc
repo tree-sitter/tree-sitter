@@ -228,8 +228,9 @@ class CCodeGenerator {
         if (symbol.is_built_in())
           continue;
         auto iter = parse_table.out_of_context_state_indices.find(symbol);
-        string state = (iter != parse_table.out_of_context_state_indices.end()) ?
-          to_string(iter->second) : "ts_parse_state_error";
+        string state = (iter != parse_table.out_of_context_state_indices.end())
+                         ? to_string(iter->second)
+                         : "ts_parse_state_error";
         line("[" + symbol_id(symbol) + "] = " + state + ",");
       }
     });
@@ -277,7 +278,8 @@ class CCodeGenerator {
       for (const ParseState &state : parse_table.states) {
         if (!state.in_progress_symbols.empty()) {
           line("[" + to_string(state_id) + "] = ");
-            add(to_string(add_in_progress_symbol_list_id(state.in_progress_symbols)));
+          add(to_string(
+            add_in_progress_symbol_list_id(state.in_progress_symbols)));
           add(",");
         }
         state_id++;

@@ -52,18 +52,20 @@ typedef struct {
 } ReusableNode;
 
 struct ErrorRepair {
-  TSParseAction action;
-  TSStateId next_state;
+  TSSymbol symbol;
   size_t in_progress_state_count;
-  size_t essential_tree_count;
+  size_t count_below_error;
 };
 
 typedef struct {
-  ErrorRepairArray *repairs;
-  size_t count_above_error;
-  int best_repair_index;
   TSParser *parser;
   TSSymbol lookahead_symbol;
+  ErrorRepairArray *repairs;
+  bool found_repair;
+  ErrorRepair best_repair;
+  TSStateId best_repair_state;
+  TSStateId best_repair_next_state;
+  size_t best_repair_skip_count;
 } ErrorRepairSession;
 
 typedef enum {
@@ -384,28 +386,39 @@ static StackIterateAction ts_parser__error_repair_callback(void *payload,
                                                            bool is_pending) {
   ErrorRepairSession *session = (ErrorRepairSession *)payload;
   const TSParser *self = session->parser;
-  size_t count_above_error = session->count_above_error;
+  const TSLanguage *language = self->language;
   TSSymbol lookahead_symbol = session->lookahead_symbol;
-
-  if (session->best_repair_index >= 0)
-    return StackIterateAbort;
+  StackIterateAction result = StackIterateNone;
 
   for (size_t i = 0; i < session->repairs->size; i++) {
     ErrorRepair *repair = &session->repairs->contents[i];
-    TSSymbol symbol = repair->action.data.symbol;
-    size_t child_count = repair->action.data.child_count;
+    TSSymbol symbol = repair->symbol;
 
-    if (tree_count + count_above_error >= child_count &&
-        repair->in_progress_state_count > 0) {
-      TSParseAction new_action =
-        ts_language_last_action(self->language, state, symbol);
-      if (new_action.type == TSParseActionTypeShift) {
-        repair->next_state = new_action.data.to_state;
-        if (ts_language_has_action(self->language, repair->next_state,
-                                   lookahead_symbol)) {
-          session->best_repair_index = i;
-          repair->essential_tree_count = tree_count;
-          return StackIteratePop;
+    if (tree_count >= repair->count_below_error) {
+      size_t skip_count = tree_count - repair->count_below_error;
+
+      if (session->found_repair && skip_count > session->best_repair_skip_count) {
+        array_erase(session->repairs, i--);
+        continue;
+      }
+
+      if (repair->in_progress_state_count > 0) {
+        TSParseAction action = ts_language_last_action(language, state, symbol);
+        if (action.type == TSParseActionTypeShift) {
+          TSStateId next_state = action.data.to_state;
+          if (ts_language_has_action(language, next_state, lookahead_symbol) &&
+              (!session->found_repair ||
+               repair->in_progress_state_count >
+                 session->best_repair.in_progress_state_count)) {
+            result |= StackIteratePop;
+            session->found_repair = true;
+            session->best_repair = *repair;
+            session->best_repair_state = state;
+            session->best_repair_skip_count = skip_count;
+            session->best_repair_next_state = next_state;
+            array_erase(session->repairs, i--);
+            continue;
+          }
         }
       }
     }
@@ -416,75 +429,85 @@ static StackIterateAction ts_parser__error_repair_callback(void *payload,
       repair->in_progress_state_count = 0;
   }
 
-  return StackIterateContinue;
+  if (session->repairs->size == 0)
+    result |= StackIterateStop;
+
+  return result;
 }
 
 static RepairResult ts_parser__repair_error(TSParser *self, StackSlice slice,
                                             TSTree *lookahead,
                                             const TSParseAction *actions,
                                             size_t action_count) {
+  size_t count_above_error = ts_tree_array_essential_count(&slice.trees);
   ErrorRepairSession session = {
-    .count_above_error = ts_tree_array_essential_count(&slice.trees),
-    .best_repair_index = -1,
-    .repairs = &self->error_repairs,
-    .lookahead_symbol = lookahead->symbol,
     .parser = self,
+    .lookahead_symbol = lookahead->symbol,
+    .repairs = &self->error_repairs,
+    .found_repair = false,
   };
 
   array_clear(&self->error_repairs);
   for (size_t i = 0; i < action_count; i++)
     if (actions[i].type == TSParseActionTypeReduce &&
-        actions[i].data.child_count > session.count_above_error)
-      CHECK(array_push(&self->error_repairs, ((ErrorRepair){
-                                               .action = actions[i],
-                                               .in_progress_state_count = 0,
-                                               .essential_tree_count = 0,
-                                             })));
+        actions[i].data.child_count > count_above_error)
+      CHECK(array_push(
+        &self->error_repairs,
+        ((ErrorRepair){
+          .symbol = actions[i].data.symbol,
+          .count_below_error = actions[i].data.child_count - count_above_error,
+          .in_progress_state_count = 0,
+        })));
 
-  StackPopResult pop = ts_stack_pop_until(
+  StackPopResult pop = ts_stack_iterate(
     self->stack, slice.version, ts_parser__error_repair_callback, &session);
-  if (!pop.slices.size) {
+  CHECK(pop.status);
+  if (!session.found_repair) {
     ts_tree_array_delete(&slice.trees);
     return RepairNoneFound;
   }
 
-  ts_stack_renumber_version(self->stack, pop.slices.contents[0].version,
-                            slice.version);
-  ErrorRepair repair = self->error_repairs.contents[session.best_repair_index];
-  size_t count_needed_below =
-    repair.action.data.child_count - session.count_above_error;
-  TreeArray children_below = pop.slices.contents[0].trees;
-  size_t count_skipped_below = repair.essential_tree_count - count_needed_below;
-  TSSymbol symbol = repair.action.data.symbol;
+  ErrorRepair repair = session.best_repair;
+  TSStateId next_state = session.best_repair_next_state;
+  size_t skip_count = session.best_repair_skip_count;
+  TSSymbol symbol = repair.symbol;
+
+  StackSlice new_slice = array_pop(&pop.slices);
+  TreeArray children_below = new_slice.trees;
+  ts_stack_renumber_version(self->stack, new_slice.version, slice.version);
+
+  while (pop.slices.size) {
+    StackSlice other_slice = array_pop(&pop.slices);
+    ts_tree_array_delete(&other_slice.trees);
+    ts_stack_remove_version(self->stack, other_slice.version);
+  }
 
   LOG_ACTION(
-    "repair_found sym:%s, child_count:%d, match_count:%lu, skipped:%lu",
-    SYM_NAME(symbol), repair.action.data.child_count,
-    repair.in_progress_state_count, count_skipped_below);
+    "repair_found sym:%s, child_count:%lu, match_count:%lu, skipped:%lu",
+    SYM_NAME(symbol), repair.count_below_error, repair.in_progress_state_count,
+    skip_count);
 
-  if (count_skipped_below > 0) {
+  if (skip_count > 0) {
     TreeArray skipped_children = array_new();
-    CHECK(array_grow(&skipped_children, count_skipped_below));
-    for (size_t i = count_needed_below; i < children_below.size; i++)
+    CHECK(array_grow(&skipped_children, skip_count));
+    for (size_t i = repair.count_below_error; i < children_below.size; i++)
       array_push(&skipped_children, children_below.contents[i]);
 
     TSTree *error = ts_tree_make_error_node(&skipped_children);
     CHECK(error);
-    children_below.size = count_needed_below;
+    children_below.size = repair.count_below_error;
     array_push(&children_below, error);
   }
 
   for (size_t i = 0; i < slice.trees.size; i++)
     array_push(&children_below, slice.trees.contents[i]);
-  array_delete(&slice);
+  array_delete(&slice.trees);
 
   TSTree *parent =
     ts_tree_make_node(symbol, children_below.size, children_below.contents,
                       ts_language_symbol_metadata(self->language, symbol));
   CHECK(parent);
-  CHECK(ts_stack_push(self->stack, slice.version, parent, false,
-                      repair.next_state));
-  ts_tree_release(parent);
+  CHECK(ts_parser__push(self, slice.version, parent, next_state));
   return RepairSucceeded;
 
 error:

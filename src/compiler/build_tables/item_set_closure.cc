@@ -37,7 +37,8 @@ ParseItemSet item_set_closure(const ParseItemSet &input_item_set,
     // If the next symbol in the production is not a non-terminal, skip to the
     // next item.
     Symbol next_symbol = item.next_symbol();
-    if (next_symbol == NONE() || next_symbol.is_token || next_symbol.is_built_in())
+    if (next_symbol == NONE() || next_symbol.is_token ||
+        next_symbol.is_built_in())
       continue;
 
     // If the next symbol is the last symbol in the item's production, then the

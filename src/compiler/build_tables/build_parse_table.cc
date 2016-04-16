@@ -262,8 +262,8 @@ class ParseTableBuilder {
   }
 
   void remove_duplicate_parse_states() {
-    auto replacements = remove_duplicate_states<ParseState, ParseAction>(
-      &parse_table.states);
+    auto replacements =
+      remove_duplicate_states<ParseState, ParseAction>(&parse_table.states);
 
     for (auto &pair : parse_table.out_of_context_state_indices) {
       auto replacement = replacements.find(pair.second);

@@ -55,11 +55,13 @@ extern "C" {
 #define array_reverse(self) \
   array__reverse((VoidArray *)(self), array__elem_size(self))
 
-#define array_copy(self)                                            \
-  {                                                                 \
-    memcpy(ts_calloc((self)->capacity, array__elem_size(self)),     \
-           (self)->contents, (self)->size *array__elem_size(self)), \
-      (self)->size, (self)->capacity,                               \
+#define array_copy(self)                                               \
+  {                                                                    \
+    (self)->contents                                                   \
+      ? memcpy(ts_calloc((self)->capacity, array__elem_size(self)),    \
+               (self)->contents, (self)->size *array__elem_size(self)) \
+      : NULL,                                                          \
+      (self)->size, (self)->capacity,                                  \
   }
 
 // Private

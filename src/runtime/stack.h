@@ -32,11 +32,13 @@ typedef struct {
   StackSliceArray slices;
 } StackPopResult;
 
-typedef enum {
-  StackIterateContinue,
-  StackIterateAbort,
-  StackIteratePop,
-} StackIterateAction;
+enum {
+  StackIterateNone,
+  StackIterateStop = 1 << 0,
+  StackIteratePop = 1 << 1,
+};
+
+typedef unsigned int StackIterateAction;
 
 typedef StackIterateAction (*StackIterateCallback)(void *, TSStateId state,
                                                    size_t tree_count,
@@ -87,8 +89,8 @@ bool ts_stack_push(Stack *, StackVersion, TSTree *, bool, TSStateId);
  */
 StackPopResult ts_stack_pop_count(Stack *, StackVersion, size_t count);
 
-StackPopResult ts_stack_pop_until(Stack *, StackVersion, StackIterateCallback,
-                                  void *);
+StackPopResult ts_stack_iterate(Stack *, StackVersion, StackIterateCallback,
+                                void *);
 
 StackPopResult ts_stack_pop_pending(Stack *, StackVersion);
 

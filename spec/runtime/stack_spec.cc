@@ -72,15 +72,15 @@ struct StackEntry {
 
 vector<StackEntry> get_stack_entries(Stack *stack, StackVersion version) {
   vector<StackEntry> result;
-  ts_stack_pop_until(
+  ts_stack_iterate(
     stack,
     version,
-    [](void *payload, TSStateId state, size_t tree_count, bool is_done, bool is_pending) {
+    [](void *payload, TSStateId state, size_t tree_count, bool is_done, bool is_pending) -> StackIterateAction {
       auto entries = static_cast<vector<StackEntry> *>(payload);
       StackEntry entry = {state, tree_count};
       if (find(entries->begin(), entries->end(), entry) == entries->end())
         entries->push_back(entry);
-      return StackIterateContinue;
+      return StackIterateNone;
     }, &result);
   return result;
 }
