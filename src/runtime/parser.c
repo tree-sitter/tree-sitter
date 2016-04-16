@@ -566,6 +566,7 @@ error:
 static ParseActionResult ts_parser__handle_error(TSParser *self,
                                                  StackVersion version,
                                                  TSTree *invalid_tree) {
+  const TSLanguage *language = self->language;
   TreeArray invalid_trees = array_new();
   TSTree *next_token = self->language->lex_fn(&self->lexer, 0, true);
   ts_tree_retain(invalid_tree);
@@ -584,7 +585,7 @@ static ParseActionResult ts_parser__handle_error(TSParser *self,
       CHECK(trees.contents);
       TSTree *parent = ts_tree_make_node(
         ts_builtin_sym_start, trees.size, trees.contents,
-        ts_language_symbol_metadata(self->language, ts_builtin_sym_start));
+        ts_language_symbol_metadata(language, ts_builtin_sym_start));
       CHECK(parent);
       CHECK(ts_parser__push(self, version, parent, 0));
       CHECK(ts_parser__accept(self, version));
@@ -592,17 +593,17 @@ static ParseActionResult ts_parser__handle_error(TSParser *self,
     }
 
     TSLength position = self->lexer.current_position;
-    TSTree *following_token = self->language->lex_fn(&self->lexer, 0, true);
+    TSTree *following_token = language->lex_fn(&self->lexer, 0, true);
     CHECK(following_token);
 
-    if (!ts_language_symbol_metadata(self->language, next_token->symbol).extra) {
+    if (!ts_language_symbol_metadata(language, next_token->symbol).extra) {
       TSParseAction action = ts_language_last_action(
-        self->language, ts_parse_state_error, next_token->symbol);
+        language, ts_parse_state_error, next_token->symbol);
       assert(action.type == TSParseActionTypeShift);
       TSStateId next_state = action.data.to_state;
 
-      if (ts_language_has_action(self->language, next_state,
-                                 following_token->symbol)) {
+      if (ts_language_has_action(language, next_state, following_token->symbol) &&
+          !ts_language_symbol_metadata(language, following_token->symbol).extra) {
         LOG_ACTION("resume_without_context state:%d", next_state);
 
         ts_tree_release(following_token);
