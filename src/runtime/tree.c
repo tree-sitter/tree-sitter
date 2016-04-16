@@ -79,6 +79,7 @@ TSTree *ts_tree_make_copy(TSTree *self) {
     return NULL;
 
   *result = *self;
+  result->ref_count = 1;
   return result;
 }
 
