@@ -8,7 +8,6 @@
 #include <stdio.h>
 
 #define MAX_LINK_COUNT 8
-#define STARTING_TREE_CAPACITY 10
 #define MAX_NODE_POOL_SIZE 50
 
 #define INLINE static inline __attribute__((always_inline))
