@@ -73,8 +73,9 @@ const TSLanguage *load_language(const string &name, const string &code, int time
   string obj_filename = source_filename + ".o";
   string lib_filename = source_filename + ".so";
 
-  int mtime = get_modified_time(lib_filename);
-  if (!mtime || !timestamp || mtime < timestamp) {
+  int lib_mtime = get_modified_time(lib_filename);
+  int header_mtime = get_modified_time(header_dir + "/tree_sitter/parser.h");
+  if (!timestamp || !header_mtime || lib_mtime < timestamp || lib_mtime < header_mtime) {
     ofstream source_file;
     source_file.open(source_filename);
     source_file << code;
