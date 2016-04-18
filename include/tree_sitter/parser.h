@@ -83,7 +83,7 @@ typedef union {
 
 typedef union {
   TSSymbol symbol;
-  unsigned int count;
+  unsigned short count;
 } TSInProgressSymbolEntry;
 
 struct TSLanguage {

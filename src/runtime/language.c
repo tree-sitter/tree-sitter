@@ -56,11 +56,10 @@ bool ts_language_symbol_is_in_progress(const TSLanguage *self, TSStateId state,
   if (state == ts_parse_state_error)
     return false;
   unsigned index = self->in_progress_symbol_table[state];
-  size_t count = self->in_progress_symbols[index].count;
-  const TSSymbol *symbols = (TSSymbol *)(self->in_progress_symbols + index + 1);
-  for (size_t i = 0; i < count; i++) {
-    if (symbols[i] == symbol)
+  unsigned short count = self->in_progress_symbols[index].count;
+  const TSInProgressSymbolEntry *entries = self->in_progress_symbols + index + 1;
+  for (size_t i = 0; i < count; i++)
+    if (entries[i].symbol == symbol)
       return true;
-  }
   return false;
 }
