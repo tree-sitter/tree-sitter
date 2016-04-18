@@ -19,9 +19,9 @@ describe("expand_repeats", []() {
 
     AssertThat(result.variables, Equals(vector<Variable>({
       Variable("rule0", VariableTypeNamed, i_sym(1)),
-      Variable("rule0_repeat1", VariableTypeAuxiliary, seq({
+      Variable("rule0_repeat1", VariableTypeAuxiliary, choice({
+        seq({ i_sym(1), i_token(0) }),
         i_token(0),
-        choice({ i_sym(1), blank() })
       })),
     })));
   });
@@ -41,9 +41,9 @@ describe("expand_repeats", []() {
         i_token(10),
         i_sym(1),
       })),
-      Variable("rule0_repeat1", VariableTypeAuxiliary, seq({
-        i_token(11),
-        choice({ i_sym(1), blank() })
+      Variable("rule0_repeat1", VariableTypeAuxiliary, choice({
+        seq({ i_sym(1), i_token(11) }),
+        i_token(11)
       })),
     })));
   });
@@ -63,9 +63,9 @@ describe("expand_repeats", []() {
         i_token(10),
         i_sym(1),
       })),
-      Variable("rule0_repeat1", VariableTypeAuxiliary, seq({
+      Variable("rule0_repeat1", VariableTypeAuxiliary, choice({
+        seq({ i_sym(1), i_token(11) }),
         i_token(11),
-        choice({ i_sym(1), blank() }),
       })),
     })));
   });
@@ -93,9 +93,9 @@ describe("expand_repeats", []() {
         i_token(3),
         i_sym(2),
       })),
-      Variable("rule0_repeat1", VariableTypeAuxiliary, seq({
+      Variable("rule0_repeat1", VariableTypeAuxiliary, choice({
+        seq({ i_sym(2), i_token(4) }),
         i_token(4),
-        choice({ i_sym(2), blank() }),
       })),
     })));
   });
@@ -115,13 +115,13 @@ describe("expand_repeats", []() {
         i_sym(1),
         i_sym(2),
       })),
-      Variable("rule0_repeat1", VariableTypeAuxiliary, seq({
+      Variable("rule0_repeat1", VariableTypeAuxiliary, choice({
+        seq({ i_sym(1), i_token(10) }),
         i_token(10),
-        choice({ i_sym(1), blank() }),
       })),
-      Variable("rule0_repeat2", VariableTypeAuxiliary, seq({
+      Variable("rule0_repeat2", VariableTypeAuxiliary, choice({
+        seq({ i_sym(2), i_token(11) }),
         i_token(11),
-        choice({ i_sym(2), blank() }),
       })),
     })));
   });
@@ -137,13 +137,13 @@ describe("expand_repeats", []() {
     AssertThat(result.variables, Equals(vector<Variable>({
       Variable("rule0", VariableTypeNamed, i_sym(2)),
       Variable("rule1", VariableTypeNamed, i_sym(3)),
-      Variable("rule0_repeat1", VariableTypeAuxiliary, seq({
+      Variable("rule0_repeat1", VariableTypeAuxiliary, choice({
+        seq({ i_sym(2), i_token(10) }),
         i_token(10),
-        choice({ i_sym(2), blank() }),
       })),
-      Variable("rule1_repeat1", VariableTypeAuxiliary, seq({
+      Variable("rule1_repeat1", VariableTypeAuxiliary, choice({
+        seq({ i_sym(3), i_token(11) }),
         i_token(11),
-        choice({ i_sym(3), blank() })
       })),
     })));
   });
