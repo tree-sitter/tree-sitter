@@ -384,12 +384,15 @@ StackPopResult ts_stack_pop_count(Stack *self, StackVersion version,
   StackPopResult pop = stack__iter(self, version, pop_count_callback, &session);
   if (pop.status && session.found_error) {
     pop.status = StackPopStoppedAtError;
-    array_reverse(&pop.slices);
-    while (pop.slices.size > 1) {
-      StackSlice slice = array_pop(&pop.slices);
+    StackSlice stopped_slice = array_pop(&pop.slices);
+    for (size_t i = 0; i < pop.slices.size; i++) {
+      StackSlice slice = pop.slices.contents[i];
       ts_tree_array_delete(&slice.trees);
       ts_stack_remove_version(self, slice.version);
+      stopped_slice.version--;
     }
+    pop.slices.size = 1;
+    pop.slices.contents[0] = stopped_slice;
   }
   return pop;
 }
