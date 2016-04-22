@@ -1,6 +1,4 @@
 #include <stdbool.h>
-#include <string.h>
-#include <stdio.h>
 #include "runtime/node.h"
 #include "runtime/tree.h"
 #include "runtime/document.h"
@@ -229,66 +227,8 @@ const char *ts_node_name(TSNode self, const TSDocument *document) {
   return ts_language_symbol_name(document->parser.language, symbol);
 }
 
-static size_t write_lookahead_to_string(char *string, size_t limit,
-                                        char lookahead) {
-  switch (lookahead) {
-    case '\0':
-      return snprintf(string, limit, "<EOF>");
-    default:
-      return snprintf(string, limit, "'%c'", lookahead);
-  }
-}
-
-static size_t ts_tree__write_to_string(const TSTree *self,
-                                       const TSLanguage *language, char *string,
-                                       size_t limit, bool is_root,
-                                       bool include_all) {
-  if (!self)
-    return snprintf(string, limit, "(NULL)");
-
-  char *cursor = string;
-  char **writer = (limit > 0) ? &cursor : &string;
-  bool visible = include_all || is_root || (self->visible && self->named);
-
-  if (visible && !is_root)
-    cursor += snprintf(*writer, limit, " ");
-
-  if (visible) {
-    if (self->symbol == ts_builtin_sym_error && self->child_count == 0) {
-      cursor += snprintf(*writer, limit, "(UNEXPECTED ");
-      cursor += write_lookahead_to_string(*writer, limit, self->lookahead_char);
-    } else {
-      cursor += snprintf(*writer, limit, "(%s",
-                         ts_language_symbol_name(language, self->symbol));
-    }
-  }
-
-  for (size_t i = 0; i < self->child_count; i++) {
-    TSTree *child = self->children[i];
-    cursor += ts_tree__write_to_string(child, language, *writer, limit, false,
-                                       include_all);
-  }
-
-  if (visible)
-    cursor += snprintf(*writer, limit, ")");
-
-  return cursor - string;
-}
-
-static char *ts_node__string(TSNode self, const TSDocument *document,
-                             bool include_all) {
-  static char SCRATCH[1];
-  const TSTree *tree = ts_node__tree(self);
-  const TSLanguage *language = document->parser.language;
-  size_t size =
-    ts_tree__write_to_string(tree, language, SCRATCH, 0, true, include_all) + 1;
-  char *result = ts_malloc(size * sizeof(char));
-  ts_tree__write_to_string(tree, language, result, size, true, include_all);
-  return result;
-}
-
 char *ts_node_string(TSNode self, const TSDocument *document) {
-  return ts_node__string(self, document, false);
+  return ts_tree_string(ts_node__tree(self), document->parser.language, false);
 }
 
 bool ts_node_eq(TSNode self, TSNode other) {

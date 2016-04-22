@@ -1,6 +1,8 @@
 #include <assert.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <string.h>
+#include <stdio.h>
 #include "tree_sitter/parser.h"
 #include "runtime/alloc.h"
 #include "runtime/tree.h"
@@ -344,4 +346,60 @@ void ts_tree_edit(TSTree *self, TSInputEdit edit) {
 void ts_tree_steal_padding(TSTree *self, TSTree *other) {
   self->size = ts_length_add(self->size, other->padding);
   other->padding = ts_length_zero();
+}
+
+static size_t write_lookahead_to_string(char *string, size_t limit,
+                                        char lookahead) {
+  switch (lookahead) {
+    case '\0':
+      return snprintf(string, limit, "<EOF>");
+    default:
+      return snprintf(string, limit, "'%c'", lookahead);
+  }
+}
+
+static size_t ts_tree__write_to_string(const TSTree *self,
+                                       const TSLanguage *language, char *string,
+                                       size_t limit, bool is_root,
+                                       bool include_all) {
+  if (!self)
+    return snprintf(string, limit, "(NULL)");
+
+  char *cursor = string;
+  char **writer = (limit > 0) ? &cursor : &string;
+  bool visible = include_all || is_root || (self->visible && self->named);
+
+  if (visible && !is_root)
+    cursor += snprintf(*writer, limit, " ");
+
+  if (visible) {
+    if (self->symbol == ts_builtin_sym_error && self->child_count == 0) {
+      cursor += snprintf(*writer, limit, "(UNEXPECTED ");
+      cursor += write_lookahead_to_string(*writer, limit, self->lookahead_char);
+    } else {
+      cursor += snprintf(*writer, limit, "(%s",
+                         ts_language_symbol_name(language, self->symbol));
+    }
+  }
+
+  for (size_t i = 0; i < self->child_count; i++) {
+    TSTree *child = self->children[i];
+    cursor += ts_tree__write_to_string(child, language, *writer, limit, false,
+                                       include_all);
+  }
+
+  if (visible)
+    cursor += snprintf(*writer, limit, ")");
+
+  return cursor - string;
+}
+
+char *ts_tree_string(const TSTree *self, const TSLanguage *language,
+                     bool include_all) {
+  static char SCRATCH[1];
+  size_t size =
+    ts_tree__write_to_string(self, language, SCRATCH, 0, true, include_all) + 1;
+  char *result = ts_malloc(size * sizeof(char));
+  ts_tree__write_to_string(self, language, result, size, true, include_all);
+  return result;
 }
