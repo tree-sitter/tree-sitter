@@ -99,7 +99,7 @@ describe("Parser", [&]() {
         TSNode last = ts_node_named_child(root, 2);
 
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123")));
+        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123,  ")));
         AssertThat(ts_node_end_byte(error), Equals(strlen("  [123,  @@@@@")));
 
         AssertThat(ts_node_name(last, doc), Equals("true"));
@@ -120,7 +120,7 @@ describe("Parser", [&]() {
         AssertThat(ts_node_symbol(error), Equals(ts_builtin_sym_error));
 
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123")))
+        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")))
         AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, faaaaalse")))
 
         AssertThat(ts_node_name(last, doc), Equals("true"));
@@ -158,7 +158,7 @@ describe("Parser", [&]() {
         TSNode last = ts_node_named_child(root, 2);
 
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123")));
+        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")));
         AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, ")))
 
         AssertThat(ts_node_name(last, doc), Equals("true"));
