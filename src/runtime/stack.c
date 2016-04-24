@@ -50,10 +50,6 @@ struct Stack {
   StackNode *base_node;
 };
 
-static const char *COLORS[] = {
-  "red", "blue", "orange", "green", "purple",
-};
-
 static void stack_node_retain(StackNode *self) {
   if (!self)
     return;
@@ -441,9 +437,8 @@ int ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
   array_clear(&self->pop_paths);
   for (size_t i = 0; i < self->heads.size; i++) {
     StackNode *node = self->heads.contents[i];
-    size_t color_count = sizeof(COLORS) / sizeof(COLORS[0]);
-    const char *color = COLORS[i % color_count];
-    fprintf(f, "node_%p [color=%s];\n", node, color);
+    fprintf(f, "node_head_%lu [shape=none, label=\"\"]\n", i);
+    fprintf(f, "node_head_%lu -> node_%p [label=%lu, arrowhead=none, fontcolor=blue, weight=10000]\n", i, node, i);
     array_push(&self->pop_paths, ((PopPath){.node = node }));
   }
 
