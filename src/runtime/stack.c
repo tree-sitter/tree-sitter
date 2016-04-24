@@ -401,10 +401,10 @@ void ts_stack_renumber_version(Stack *self, StackVersion v1, StackVersion v2) {
   array_erase(&self->heads, v1);
 }
 
-void ts_stack_merge(Stack *self) {
-  for (size_t i = 0; i < self->heads.size; i++) {
+void ts_stack_merge_from(Stack *self, StackVersion start_version) {
+  for (size_t i = start_version + 1; i < self->heads.size; i++) {
     StackNode *node = self->heads.contents[i];
-    for (size_t j = 0; j < i; j++) {
+    for (size_t j = start_version; j < i; j++) {
       StackNode *prior_node = self->heads.contents[j];
       if (prior_node->state == node->state &&
           prior_node->position.chars == node->position.chars) {
@@ -417,6 +417,10 @@ void ts_stack_merge(Stack *self) {
       }
     }
   }
+}
+
+void ts_stack_merge(Stack *self) {
+  ts_stack_merge_from(self, 0);
 }
 
 void ts_stack_clear(Stack *self) {

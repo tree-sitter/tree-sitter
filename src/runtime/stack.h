@@ -94,6 +94,8 @@ StackPopResult ts_stack_pop_pending(Stack *, StackVersion);
 
 StackPopResult ts_stack_pop_all(Stack *, StackVersion);
 
+void ts_stack_merge_from(Stack *, StackVersion);
+
 void ts_stack_merge(Stack *);
 
 void ts_stack_renumber_version(Stack *, StackVersion, StackVersion);

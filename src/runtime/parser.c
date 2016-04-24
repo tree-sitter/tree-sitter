@@ -342,6 +342,7 @@ static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
                count, BOOL_STRING(fragile));
   }
 
+  size_t initial_version_count = ts_stack_version_count(self->stack);
   StackPopResult pop = ts_stack_pop_count(self->stack, version, count);
   switch (pop.status) {
     case StackPopFailed:
@@ -413,6 +414,8 @@ static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
       CHECK(ts_parser__push(self, slice.version, tree, new_state));
     }
   }
+
+  ts_stack_merge_from(self->stack, initial_version_count);
 
   return (Reduction){ ReduceSucceeded, pop.slices.contents[0] };
 
