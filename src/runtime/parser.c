@@ -258,26 +258,20 @@ static TSTree *ts_parser__get_lookahead(TSParser *self, StackVersion version,
   return self->language->lex_fn(&self->lexer, lex_state, false);
 }
 
-static int ts_parser__select_tree(void *data, TSTree *left, TSTree *right) {
-  if (!left || left->symbol == ts_builtin_sym_error)
-    return 1;
-  if (!right || right->symbol == ts_builtin_sym_error)
-    return -1;
-
-  TSParser *self = data;
-  int comparison = ts_tree_compare(left, right);
-  switch (comparison) {
-    case -1:
-      LOG_ACTION("select tree:%s, over_tree:%s", SYM_NAME(left->symbol),
-                 SYM_NAME(right->symbol));
-      break;
-    case 1:
-      LOG_ACTION("select tree:%s, over_tree:%s", SYM_NAME(right->symbol),
-                 SYM_NAME(left->symbol));
-      break;
+static bool ts_parser__select_tree(TSParser *self, TSTree *left, TSTree *right) {
+  if (!left)
+    return true;
+  if (!right)
+    return false;
+  if (right->error_size < left->error_size) {
+    LOG_ACTION("select_smaller_error symbol:%s, over_symbol:%s", SYM_NAME(right->symbol), SYM_NAME(left->symbol));
+    return true;
   }
-
-  return comparison;
+  if (left->error_size < right->error_size) {
+    LOG_ACTION("select_smaller_error symbol:%s, over_symbol:%s", SYM_NAME(left->symbol), SYM_NAME(right->symbol));
+    return false;
+  }
+  return ts_tree_compare(right, left) < 0;
 }
 
 static void ts_parser__remove_version(TSParser *self, StackVersion version) {
@@ -319,6 +313,25 @@ error:
   return false;
 }
 
+static bool ts_parser__switch_children(TSParser *self, TSTree *tree,
+                                           TSTree **children, size_t count) {
+  self->scratch_tree.symbol = tree->symbol;
+  self->scratch_tree.child_count = 0;
+  ts_tree_set_children(&self->scratch_tree, count, children);
+  if (ts_parser__select_tree(self, tree, &self->scratch_tree)) {
+    tree->size = self->scratch_tree.size;
+    tree->padding = self->scratch_tree.padding;
+    tree->error_size = self->scratch_tree.error_size;
+    tree->children = self->scratch_tree.children;
+    tree->child_count = self->scratch_tree.child_count;
+    tree->named_child_count = self->scratch_tree.named_child_count;
+    tree->visible_child_count = self->scratch_tree.visible_child_count;
+    return true;
+  } else {
+    return false;
+  }
+}
+
 static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
                                    TSSymbol symbol, unsigned count, bool extra,
                                    bool fragile) {
@@ -356,6 +369,25 @@ static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
       goto error;
     }
 
+    while (i + 1 < pop.slices.size) {
+      StackSlice next_slice = pop.slices.contents[i + 1];
+      if (next_slice.version != slice.version)
+        break;
+      i++;
+
+      size_t child_count = next_slice.trees.size;
+      while (child_count > 0 && next_slice.trees.contents[child_count - 1]->extra)
+        child_count--;
+
+      if (ts_parser__switch_children(self, parent, next_slice.trees.contents,
+                                     child_count)) {
+        ts_tree_array_delete(&slice.trees);
+        slice = next_slice;
+      } else {
+        ts_tree_array_delete(&next_slice.trees);
+      }
+    }
+
     TSStateId state = ts_stack_top_state(self->stack, slice.version);
     if (fragile || self->is_split || ts_stack_version_count(self->stack) > 1) {
       parent->fragile_left = true;
@@ -376,7 +408,7 @@ static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
     }
 
     CHECK(ts_parser__push(self, slice.version, parent, new_state));
-    for (size_t j = child_count; j < slice.trees.size; j++) {
+    for (size_t j = parent->child_count; j < slice.trees.size; j++) {
       TSTree *tree = slice.trees.contents[j];
       CHECK(ts_parser__push(self, slice.version, tree, new_state));
     }
@@ -490,15 +522,16 @@ static RepairResult ts_parser__repair_error(TSParser *self, StackSlice slice,
   TreeArray children_below = new_slice.trees;
   ts_stack_renumber_version(self->stack, new_slice.version, slice.version);
 
-  while (pop.slices.size) {
-    StackSlice other_slice = array_pop(&pop.slices);
+  for (size_t i = pop.slices.size - 1; i + 1 > 0; i--) {
+    StackSlice other_slice = pop.slices.contents[i];
     ts_tree_array_delete(&other_slice.trees);
-    ts_stack_remove_version(self->stack, other_slice.version);
+    if (other_slice.version != pop.slices.contents[i + 1].version)
+      ts_stack_remove_version(self->stack, other_slice.version);
   }
 
   LOG_ACTION(
     "repair_found sym:%s, child_count:%lu, match_count:%lu, skipped:%lu",
-    SYM_NAME(symbol), repair.count_below_error, repair.in_progress_state_count,
+    SYM_NAME(symbol), repair.count_below_error + count_above_error, repair.in_progress_state_count,
     skip_count);
 
   if (skip_count > 0) {
@@ -538,43 +571,51 @@ static void ts_parser__start(TSParser *self, TSInput input,
 
   ts_lexer_set_input(&self->lexer, input);
   ts_stack_clear(self->stack);
-  ts_stack_set_tree_selection_callback(self->stack, self,
-                                       ts_parser__select_tree);
 
   self->finished_tree = NULL;
 }
 
 static bool ts_parser__accept(TSParser *self, StackVersion version) {
   LOG_ACTION("accept");
-  TreeArray trees = ts_stack_pop_all(self->stack, version);
-  CHECK(trees.contents);
+  StackPopResult pop = ts_stack_pop_all(self->stack, version);
+  CHECK(pop.status);
+  CHECK(pop.slices.size);
 
-  for (size_t i = trees.size - 1; i + 1 > 0; i--) {
-    if (!trees.contents[i]->extra) {
-      TSTree *root = trees.contents[i];
-      CHECK(array_splice(&trees, i, 1, root->child_count, root->children));
+  for (size_t i = 0; i < pop.slices.size; i++) {
+    StackSlice slice = pop.slices.contents[i];
+    TreeArray trees = slice.trees;
 
-      ts_tree_set_children(root, trees.size, trees.contents);
-      if (!trees.size)
-        array_delete(&trees);
+    for (size_t j = trees.size - 1; j + 1 > 0; j--) {
+      if (!trees.contents[j]->extra) {
+        TSTree *root = trees.contents[j];
 
-      ts_stack_remove_version(self->stack, version);
-      int comparison = ts_parser__select_tree(self, self->finished_tree, root);
-      if (comparison > 0) {
-        ts_tree_release(self->finished_tree);
-        self->finished_tree = root;
-      } else {
-        ts_tree_release(root);
+        CHECK(array_splice(&trees, j, 1, root->child_count, root->children));
+        ts_tree_set_children(root, trees.size, trees.contents);
+        if (!trees.size)
+          array_delete(&trees);
+
+        for (size_t k = j - 1; k + 1 > 0; k--)
+          if (!root->children[k]->extra)
+            root->error_size += root->children[j]->size.chars;
+
+        if (ts_parser__select_tree(self, self->finished_tree, root)) {
+          ts_tree_release(self->finished_tree);
+          self->finished_tree = root;
+        } else {
+          ts_tree_release(root);
+        }
+
+        break;
       }
-
-      break;
     }
   }
+
+  ts_stack_remove_version(self->stack, pop.slices.contents[0].version);
+  ts_stack_remove_version(self->stack, version);
 
   return true;
 
 error:
-  ts_tree_array_delete(&trees);
   return false;
 }
 
@@ -597,10 +638,8 @@ static ParseActionResult ts_parser__handle_error(TSParser *self,
       CHECK(error);
       CHECK(ts_parser__push(self, version, error, 0));
 
-      TreeArray trees = ts_stack_pop_all(self->stack, version);
-      CHECK(trees.contents);
-      TSTree *parent = ts_tree_make_node(
-        ts_builtin_sym_start, trees.size, trees.contents,
+      TSTree *parent = ts_tree_make_leaf(
+        ts_builtin_sym_start, ts_length_zero(), ts_length_zero(),
         ts_language_symbol_metadata(language, ts_builtin_sym_start));
       CHECK(parent);
       CHECK(ts_parser__push(self, version, parent, 0));
@@ -682,7 +721,7 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self,
               break;
           }
 
-          if (ts_stack_version_count(self->stack) == 1) {
+          if (ts_stack_version_count(self->stack) == 1 && !self->finished_tree) {
             return ts_parser__handle_error(self, version, lookahead);
           } else {
             ts_parser__remove_version(self, version);

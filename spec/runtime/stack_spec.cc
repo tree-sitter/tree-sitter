@@ -18,30 +18,8 @@ enum {
   symbol9, symbol10
 };
 
-struct TreeSelectionSpy {
-  TreeSelectionSpy() :
-    call_count(0),
-    tree_to_return(nullptr),
-    arguments{nullptr, nullptr} {}
-  int call_count;
-  TSTree *tree_to_return;
-  const TSTree *arguments[2];
-};
-
 TSLength operator*(const TSLength &length, size_t factor) {
   return {length.bytes * factor, length.chars * factor, 0, length.columns * factor};
-}
-
-extern "C"
-int tree_selection_spy_callback(void *data, TSTree *left, TSTree *right) {
-  TreeSelectionSpy *spy = (TreeSelectionSpy *)data;
-  spy->call_count++;
-  spy->arguments[0] = left;
-  spy->arguments[1] = right;
-  if (spy->tree_to_return == left)
-    return -1;
-  else
-    return 1;
 }
 
 void free_slice_array(StackSliceArray *slices) {
@@ -91,18 +69,12 @@ describe("Stack", [&]() {
   Stack *stack;
   const size_t tree_count = 11;
   TSTree *trees[tree_count];
-  TreeSelectionSpy tree_selection_spy;
   TSLength tree_len = {2, 3, 0, 3};
 
   before_each([&]() {
     record_alloc::start();
 
     stack = ts_stack_new();
-
-    ts_stack_set_tree_selection_callback(stack,
-      &tree_selection_spy,
-      tree_selection_spy_callback
-    );
 
     for (size_t i = 0; i < tree_count; i++)
       trees[i] = ts_tree_make_leaf(i, ts_length_zero(), tree_len, {
@@ -383,42 +355,22 @@ describe("Stack", [&]() {
       });
 
       describe("when there are two paths that converge on one version", [&]() {
-        it("returns the first path of trees if they are selected by the selection callback", [&]() {
-          tree_selection_spy.tree_to_return = trees[1];
-
+        it("returns two slices with the same version", [&]() {
           // . <──0── A <──1── B <──2── C <──3── D <──10── I*
           //          ↑                          |
           //          ├───4─── E <──5── F <──6───┘
           //          |
           //          └*
           StackPopResult pop = ts_stack_pop_count(stack, 0, 4);
-          AssertThat(pop.slices.size, Equals<size_t>(1));
+          AssertThat(pop.slices.size, Equals<size_t>(2));
 
           StackSlice slice1 = pop.slices.contents[0];
           AssertThat(slice1.version, Equals<StackVersion>(1));
           AssertThat(slice1.trees, Equals(vector<TSTree *>({ trees[1], trees[2], trees[3], trees[10] })));
 
-          AssertThat(ts_stack_version_count(stack), Equals<size_t>(2));
-          AssertThat(ts_stack_top_state(stack, 0), Equals(stateI));
-          AssertThat(ts_stack_top_state(stack, 1), Equals(stateA));
-
-          free_slice_array(&pop.slices);
-        });
-
-        it("returns the second path of trees if they are selected by the selection callback", [&]() {
-          tree_selection_spy.tree_to_return = trees[4];
-
-          // . <──0── A <──1── B <──2── C <──3── D <──10── I*
-          //          ↑                          |
-          //          ├───4─── E <──5── F <──6───┘
-          //          |
-          //          └*
-          StackPopResult pop = ts_stack_pop_count(stack, 0, 4);
-          AssertThat(pop.slices.size, Equals<size_t>(1));
-
-          StackSlice slice1 = pop.slices.contents[0];
-          AssertThat(slice1.version, Equals<StackVersion>(1));
-          AssertThat(slice1.trees, Equals(vector<TSTree *>({ trees[4], trees[5], trees[6], trees[10] })))
+          StackSlice slice2 = pop.slices.contents[1];
+          AssertThat(slice2.version, Equals<StackVersion>(1));
+          AssertThat(slice2.trees, Equals(vector<TSTree *>({ trees[4], trees[5], trees[6], trees[10] })))
 
           AssertThat(ts_stack_version_count(stack), Equals<size_t>(2));
           AssertThat(ts_stack_top_state(stack, 0), Equals(stateI));

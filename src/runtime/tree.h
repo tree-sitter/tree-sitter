@@ -34,6 +34,8 @@ struct TSTree {
   TSSymbol symbol;
   TSStateId lex_state;
   TSStateId parse_state;
+  size_t error_size;
+
   unsigned short ref_count;
   bool visible : 1;
   bool named : 1;

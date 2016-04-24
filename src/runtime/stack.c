@@ -47,8 +47,6 @@ struct Stack {
   StackSliceArray slices;
   Array(PopPath) pop_paths;
   StackNodeArray node_pool;
-  void *tree_selection_payload;
-  TreeSelectionFunction tree_selection_function;
   StackNode *base_node;
 };
 
@@ -131,10 +129,6 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
   }
 }
 
-static int ts_stack__default_tree_selection(void *p, TSTree *t1, TSTree *t2) {
-  return 0;
-}
-
 static StackVersion ts_stack__add_version(Stack *self, StackNode *node) {
   if (!array_push(&self->heads, node))
     return STACK_VERSION_NONE;
@@ -142,55 +136,24 @@ static StackVersion ts_stack__add_version(Stack *self, StackNode *node) {
   return (StackVersion)(self->heads.size - 1);
 }
 
-static void ts_stack__update_slice(Stack *self, StackSlice *slice,
-                                   TreeArray *trees) {
-  bool should_update = false;
-  if (slice->trees.size < trees->size) {
-    should_update = true;
-  } else if (slice->trees.size == trees->size) {
-    for (size_t i = 0; i < slice->trees.size; i++) {
-      TSTree *tree = slice->trees.contents[i];
-      TSTree *new_tree = trees->contents[i];
-      int comparison = self->tree_selection_function(
-        self->tree_selection_payload, tree, new_tree);
-      if (comparison < 0) {
-        break;
-      } else if (comparison > 0) {
-        should_update = true;
-        break;
-      }
-    }
-  }
-
-  if (should_update) {
-    ts_tree_array_delete(&slice->trees);
-    slice->trees = *trees;
-  } else {
-    ts_tree_array_delete(trees);
-  }
-}
-
-static bool ts_stack__add_slice(Stack *self, size_t previous_version_count,
-                                StackNode *node, TreeArray *trees) {
-  for (size_t i = 0; i < self->slices.size; i++) {
-    StackSlice *previous_slice = &self->slices.contents[i];
-    size_t version_index = previous_version_count + i;
-    if (self->heads.contents[version_index] == node) {
-      ts_stack__update_slice(self, previous_slice, trees);
-      return true;
+static bool ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees) {
+  for (size_t i = self->slices.size - 1; i + 1 > 0; i--) {
+    StackVersion version  = self->slices.contents[i].version;
+    if (self->heads.contents[version] == node) {
+      StackSlice slice = {*trees, version};
+      return array_insert(&self->slices, i + 1, slice);
     }
   }
 
   StackVersion version = ts_stack__add_version(self, node);
   if (version == STACK_VERSION_NONE)
     return false;
-  StackSlice slice = {.version = version, .trees = *trees };
+  StackSlice slice = {*trees, version};
   return array_push(&self->slices, slice);
 }
 
 INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
                                   StackIterateCallback callback, void *payload) {
-  size_t previous_version_count = self->heads.size;
   array_clear(&self->slices);
 
   PopPath pop_path = {
@@ -219,7 +182,7 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
         TreeArray trees =
           should_stop ? path->trees : ts_tree_array_copy(&path->trees);
         array_reverse(&trees);
-        if (!ts_stack__add_slice(self, previous_version_count, node, &trees))
+        if (!ts_stack__add_slice(self, node, &trees))
           goto error;
       }
 
@@ -275,8 +238,6 @@ Stack *ts_stack_new() {
   array_init(&self->slices);
   array_init(&self->pop_paths);
   array_init(&self->node_pool);
-  self->tree_selection_payload = NULL;
-  self->tree_selection_function = ts_stack__default_tree_selection;
 
   if (!array_grow(&self->heads, 4))
     goto error;
@@ -426,13 +387,8 @@ INLINE StackIterateAction pop_all_callback(void *payload, TSStateId state,
   return is_done ? (StackIteratePop | StackIterateStop) : StackIterateNone;
 }
 
-TreeArray ts_stack_pop_all(Stack *self, StackVersion version) {
-  StackPopResult pop = stack__iter(self, version, pop_all_callback, NULL);
-  if (pop.status != StackPopSucceeded)
-    return (TreeArray)array_new();
-  assert(pop.slices.size == 1);
-  ts_stack_renumber_version(self, pop.slices.contents[0].version, version);
-  return pop.slices.contents[0].trees;
+StackPopResult ts_stack_pop_all(Stack *self, StackVersion version) {
+  return stack__iter(self, version, pop_all_callback, NULL);
 }
 
 void ts_stack_remove_version(Stack *self, StackVersion version) {
@@ -473,12 +429,6 @@ void ts_stack_clear(Stack *self) {
     stack_node_release(self->heads.contents[i], &self->node_pool);
   array_clear(&self->heads);
   array_push(&self->heads, self->base_node);
-}
-
-void ts_stack_set_tree_selection_callback(Stack *self, void *payload,
-                                          TreeSelectionFunction function) {
-  self->tree_selection_payload = payload;
-  self->tree_selection_function = function;
 }
 
 int ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {

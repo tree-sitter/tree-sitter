@@ -48,7 +48,10 @@ extern "C" {
 
 #define array_splice(self, index, old_count, new_count, new_elements)          \
   array__splice((VoidArray *)(self), array__elem_size(self), index, old_count, \
-                new_count, new_elements)
+                new_count, (new_elements))
+
+#define array_insert(self, index, element) \
+  array_splice(self, index, 0, 1, &(element))
 
 #define array_pop(self) ((self)->contents[--(self)->size])
 
@@ -107,15 +110,14 @@ static inline bool array__grow(VoidArray *self, size_t element_size,
 static inline bool array__splice(VoidArray *self, size_t element_size,
                                  size_t index, size_t old_count,
                                  size_t new_count, void *elements) {
-  assert(index + old_count <= self->size);
-  assert(index < self->size);
   size_t new_size = self->size + new_count - old_count;
   size_t old_end = index + old_count;
   size_t new_end = index + new_count;
-  if (new_size >= self->capacity) {
+  assert(old_end <= self->size);
+
+  if (new_size >= self->capacity)
     if (!array__grow(self, element_size, new_size))
       return false;
-  }
 
   char *contents = (char *)self->contents;
   if (self->size > old_end)

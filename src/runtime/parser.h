@@ -19,6 +19,7 @@ typedef struct {
   TSTree *finished_tree;
   bool is_split;
   bool print_debugging_graphs;
+  TSTree scratch_tree;
 } TSParser;
 
 bool ts_parser_init(TSParser *);

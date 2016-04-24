@@ -45,8 +45,6 @@ typedef StackIterateAction (*StackIterateCallback)(void *, TSStateId state,
                                                    bool is_done,
                                                    bool is_pending);
 
-typedef int (*TreeSelectionFunction)(void *, TSTree *tree1, TSTree *tree2);
-
 /*
  *  Create a parse stack.
  */
@@ -94,7 +92,7 @@ StackPopResult ts_stack_iterate(Stack *, StackVersion, StackIterateCallback,
 
 StackPopResult ts_stack_pop_pending(Stack *, StackVersion);
 
-TreeArray ts_stack_pop_all(Stack *, StackVersion);
+StackPopResult ts_stack_pop_all(Stack *, StackVersion);
 
 void ts_stack_merge(Stack *);
 
@@ -109,9 +107,6 @@ void ts_stack_remove_version(Stack *, StackVersion);
  *  Remove all entries from the stack.
  */
 void ts_stack_clear(Stack *);
-
-void ts_stack_set_tree_selection_callback(Stack *, void *,
-                                          TreeSelectionFunction);
 
 int ts_stack_print_dot_graph(Stack *, const char **, FILE *);
 

@@ -110,10 +110,13 @@ recur:
 void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   if (self->child_count > 0)
     ts_free(self->children);
+
   self->children = children;
   self->child_count = child_count;
   self->named_child_count = 0;
   self->visible_child_count = 0;
+  size_t error_size = 0;
+
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
 
@@ -136,8 +139,15 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
     if (child->symbol == ts_builtin_sym_error) {
       self->fragile_left = self->fragile_right = true;
       self->parse_state = TS_TREE_STATE_ERROR;
+    } else {
+      error_size += child->error_size;
     }
   }
+
+  if (self->symbol == ts_builtin_sym_error)
+    self->error_size = self->size.chars;
+  else
+    self->error_size = error_size;
 
   if (child_count > 0) {
     self->lex_state = children[0]->lex_state;
