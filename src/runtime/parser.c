@@ -264,11 +264,13 @@ static bool ts_parser__select_tree(TSParser *self, TSTree *left, TSTree *right) 
   if (!right)
     return false;
   if (right->error_size < left->error_size) {
-    LOG_ACTION("select_smaller_error symbol:%s, over_symbol:%s", SYM_NAME(right->symbol), SYM_NAME(left->symbol));
+    LOG_ACTION("select_smaller_error symbol:%s, over_symbol:%s",
+               SYM_NAME(right->symbol), SYM_NAME(left->symbol));
     return true;
   }
   if (left->error_size < right->error_size) {
-    LOG_ACTION("select_smaller_error symbol:%s, over_symbol:%s", SYM_NAME(left->symbol), SYM_NAME(right->symbol));
+    LOG_ACTION("select_smaller_error symbol:%s, over_symbol:%s",
+               SYM_NAME(left->symbol), SYM_NAME(right->symbol));
     return false;
   }
   return ts_tree_compare(right, left) < 0;
@@ -314,7 +316,7 @@ error:
 }
 
 static bool ts_parser__switch_children(TSParser *self, TSTree *tree,
-                                           TSTree **children, size_t count) {
+                                       TSTree **children, size_t count) {
   self->scratch_tree.symbol = tree->symbol;
   self->scratch_tree.child_count = 0;
   ts_tree_set_children(&self->scratch_tree, count, children);
@@ -534,8 +536,8 @@ static RepairResult ts_parser__repair_error(TSParser *self, StackSlice slice,
 
   LOG_ACTION(
     "repair_found sym:%s, child_count:%lu, match_count:%lu, skipped:%lu",
-    SYM_NAME(symbol), repair.count_below_error + count_above_error, repair.in_progress_state_count,
-    skip_count);
+    SYM_NAME(symbol), repair.count_below_error + count_above_error,
+    repair.in_progress_state_count, skip_count);
 
   if (skip_count > 0) {
     TreeArray skipped_children = array_new();

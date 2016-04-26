@@ -102,8 +102,8 @@ class ParseTable {
                           ParseAction action);
 
   std::vector<ParseState> states;
+  ParseState error_state;
   std::map<rules::Symbol, ParseTableSymbolMetadata> symbols;
-  std::map<rules::Symbol, size_t> out_of_context_state_indices;
 };
 
 }  // namespace tree_sitter

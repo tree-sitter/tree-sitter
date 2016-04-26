@@ -9,7 +9,6 @@
 #include "compiler/build_tables/lex_conflict_manager.h"
 #include "compiler/build_tables/remove_duplicate_states.h"
 #include "compiler/build_tables/lex_item.h"
-#include "compiler/build_tables/does_match_any_line.h"
 #include "compiler/parse_table.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
@@ -48,11 +47,10 @@ class LexTableBuilder {
   }
 
   LexTable build() {
-    add_lex_state(build_lex_item_set(parse_table->all_symbols(), true));
+    add_lex_state_for_parse_state(&parse_table->error_state);
 
     for (ParseState &parse_state : parse_table->states)
-      parse_state.lex_state_id =
-        add_lex_state(build_lex_item_set(parse_state.expected_inputs(), false));
+      add_lex_state_for_parse_state(&parse_state);
 
     mark_fragile_tokens();
     remove_duplicate_lex_states();
@@ -61,7 +59,7 @@ class LexTableBuilder {
   }
 
  private:
-  LexItemSet build_lex_item_set(const set<Symbol> &symbols, bool error) {
+  LexItemSet build_lex_item_set(const set<Symbol> &symbols) {
     LexItemSet result;
     for (const Symbol &symbol : symbols) {
       vector<rule_ptr> rules;
@@ -69,8 +67,6 @@ class LexTableBuilder {
         rules.push_back(CharacterSet().include(0).copy());
       } else if (symbol.is_token) {
         rule_ptr rule = lex_grammar.variables[symbol.index].rule;
-        if (error && does_match_any_line(rule))
-          continue;
 
         auto choice = rule->as<rules::Choice>();
         if (choice)
@@ -96,6 +92,11 @@ class LexTableBuilder {
     }
 
     return result;
+  }
+
+  void add_lex_state_for_parse_state(ParseState *parse_state) {
+    parse_state->lex_state_id =
+      add_lex_state(build_lex_item_set(parse_state->expected_inputs()));
   }
 
   LexStateId add_lex_state(const LexItemSet &item_set) {

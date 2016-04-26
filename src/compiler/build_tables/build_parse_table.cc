@@ -15,6 +15,7 @@
 #include "compiler/syntax_grammar.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/built_in_symbols.h"
+#include "compiler/build_tables/does_match_any_line.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -105,17 +106,20 @@ class ParseTableBuilder {
   }
 
   void add_out_of_context_parse_states() {
-    map<Symbol, set<Symbol>> symbols_by_first = symbols_by_first_symbol(grammar);
+    auto symbols_by_first = symbols_by_first_symbol(grammar);
+
     for (size_t i = 0; i < lexical_grammar.variables.size(); i++) {
       Symbol symbol(i, true);
-      if (!grammar.extra_tokens.count(symbol))
+      if (!does_match_any_line(lexical_grammar.variables[i].rule))
         add_out_of_context_parse_state(symbol, symbols_by_first[symbol]);
     }
 
     for (size_t i = 0; i < grammar.variables.size(); i++) {
       Symbol symbol(i, false);
-      add_out_of_context_parse_state(Symbol(i, false), symbols_by_first[symbol]);
+      add_out_of_context_parse_state(symbol, symbols_by_first[symbol]);
     }
+
+    parse_table.error_state.actions[rules::END_OF_INPUT()].clear();
   }
 
   void add_out_of_context_parse_state(const rules::Symbol &symbol,
@@ -133,8 +137,11 @@ class ParseTableBuilder {
       }
     }
 
-    ParseStateId state = add_parse_state(item_set);
-    parse_table.out_of_context_state_indices[symbol] = state;
+    if (!item_set.entries.empty()) {
+      ParseStateId state = add_parse_state(item_set);
+      parse_table.error_state.actions[symbol].push_back(
+        ParseAction::Shift(state, PrecedenceRange()));
+    }
   }
 
   ParseStateId add_parse_state(const ParseItemSet &item_set) {
@@ -265,11 +272,12 @@ class ParseTableBuilder {
     auto replacements =
       remove_duplicate_states<ParseState, ParseAction>(&parse_table.states);
 
-    for (auto &pair : parse_table.out_of_context_state_indices) {
-      auto replacement = replacements.find(pair.second);
-      if (replacement != replacements.end())
-        pair.second = replacement->second;
-    }
+    parse_table.error_state.each_advance_action(
+      [&replacements](ParseAction *action) {
+        auto replacement = replacements.find(action->state_index);
+        if (replacement != replacements.end())
+          action->state_index = replacement->second;
+      });
   }
 
   ParseAction *add_action(ParseStateId state_id, Symbol lookahead,

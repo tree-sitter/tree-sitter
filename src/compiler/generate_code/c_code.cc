@@ -223,15 +223,12 @@ class CCodeGenerator {
   void add_out_of_context_parse_states_list() {
     line("static TSStateId ts_out_of_context_states[SYMBOL_COUNT] = {");
     indent([&]() {
-      for (const auto &entry : parse_table.symbols) {
+      for (const auto &entry : parse_table.error_state.actions) {
         const rules::Symbol &symbol = entry.first;
-        if (symbol.is_built_in())
-          continue;
-        auto iter = parse_table.out_of_context_state_indices.find(symbol);
-        string state = (iter != parse_table.out_of_context_state_indices.end())
-                         ? to_string(iter->second)
-                         : "ts_parse_state_error";
-        line("[" + symbol_id(symbol) + "] = " + state + ",");
+        if (!entry.second.empty()) {
+          ParseStateId state = entry.second[0].state_index;
+          line("[" + symbol_id(symbol) + "] = " + to_string(state) + ",");
+        }
       }
     });
     line("};");

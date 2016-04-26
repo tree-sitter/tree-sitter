@@ -46,12 +46,11 @@ std::map<size_t, size_t> remove_duplicate_states(std::vector<StateType> *states)
     }
 
     for (StateType &state : *states)
-      state.each_advance_action(
-        [&duplicates, &new_replacements](ActionType *action) {
-          auto new_replacement = new_replacements.find(action->state_index);
-          if (new_replacement != new_replacements.end())
-            action->state_index = new_replacement->second;
-        });
+      state.each_advance_action([&new_replacements](ActionType *action) {
+        auto new_replacement = new_replacements.find(action->state_index);
+        if (new_replacement != new_replacements.end())
+          action->state_index = new_replacement->second;
+      });
 
     for (auto i = duplicates.rbegin(); i != duplicates.rend(); ++i)
       states->erase(states->begin() + i->first);

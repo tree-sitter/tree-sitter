@@ -134,9 +134,9 @@ static StackVersion ts_stack__add_version(Stack *self, StackNode *node) {
 
 static bool ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees) {
   for (size_t i = self->slices.size - 1; i + 1 > 0; i--) {
-    StackVersion version  = self->slices.contents[i].version;
+    StackVersion version = self->slices.contents[i].version;
     if (self->heads.contents[version] == node) {
-      StackSlice slice = {*trees, version};
+      StackSlice slice = { *trees, version };
       return array_insert(&self->slices, i + 1, slice);
     }
   }
@@ -144,7 +144,7 @@ static bool ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees) 
   StackVersion version = ts_stack__add_version(self, node);
   if (version == STACK_VERSION_NONE)
     return false;
-  StackSlice slice = {*trees, version};
+  StackSlice slice = { *trees, version };
   return array_push(&self->slices, slice);
 }
 
@@ -442,7 +442,10 @@ int ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
   for (size_t i = 0; i < self->heads.size; i++) {
     StackNode *node = self->heads.contents[i];
     fprintf(f, "node_head_%lu [shape=none, label=\"\"]\n", i);
-    fprintf(f, "node_head_%lu -> node_%p [label=%lu, arrowhead=none, fontcolor=blue, weight=10000]\n", i, node, i);
+    fprintf(f,
+            "node_head_%lu -> node_%p [label=%lu, arrowhead=none, "
+            "fontcolor=blue, weight=10000]\n",
+            i, node, i);
     array_push(&self->pop_paths, ((PopPath){.node = node }));
   }
 
