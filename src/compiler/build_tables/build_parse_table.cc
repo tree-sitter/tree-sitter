@@ -15,7 +15,7 @@
 #include "compiler/syntax_grammar.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/built_in_symbols.h"
-#include "compiler/build_tables/does_match_any_line.h"
+#include "compiler/build_tables/recovery_tokens.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -108,10 +108,8 @@ class ParseTableBuilder {
   void add_out_of_context_parse_states() {
     auto symbols_by_first = symbols_by_first_symbol(grammar);
 
-    for (size_t i = 0; i < lexical_grammar.variables.size(); i++) {
-      Symbol symbol(i, true);
-      if (!does_match_any_line(lexical_grammar.variables[i].rule))
-        add_out_of_context_parse_state(symbol, symbols_by_first[symbol]);
+    for (const Symbol &symbol : recovery_tokens(lexical_grammar)) {
+      add_out_of_context_parse_state(symbol, symbols_by_first[symbol]);
     }
 
     for (size_t i = 0; i < grammar.variables.size(); i++) {

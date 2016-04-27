@@ -14,7 +14,7 @@
         'src/compiler/build_tables/build_lex_table.cc',
         'src/compiler/build_tables/build_parse_table.cc',
         'src/compiler/build_tables/build_tables.cc',
-        'src/compiler/build_tables/does_match_any_line.cc',
+        'src/compiler/build_tables/recovery_tokens.cc',
         'src/compiler/build_tables/item_set_closure.cc',
         'src/compiler/build_tables/lex_item.cc',
         'src/compiler/build_tables/lex_item_transitions.cc',
