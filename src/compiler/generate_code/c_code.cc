@@ -100,7 +100,7 @@ class CCodeGenerator {
     add_symbol_node_types_list();
     add_lex_function();
     add_lex_states_list();
-    add_out_of_context_parse_states_list();
+    add_recovery_parse_states_list();
     add_parse_table();
     add_in_progress_symbol_table();
     add_parser_export();
@@ -220,8 +220,8 @@ class CCodeGenerator {
     line();
   }
 
-  void add_out_of_context_parse_states_list() {
-    line("static TSStateId ts_out_of_context_states[SYMBOL_COUNT] = {");
+  void add_recovery_parse_states_list() {
+    line("static TSStateId ts_recovery_states[SYMBOL_COUNT] = {");
     indent([&]() {
       for (const auto &entry : parse_table.error_state.actions) {
         const rules::Symbol &symbol = entry.first;

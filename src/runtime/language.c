@@ -6,7 +6,7 @@ const TSParseAction *ts_language_actions(const TSLanguage *language,
   size_t action_index = 0;
   if (symbol != ts_builtin_sym_error) {
     if (state == ts_parse_state_error)
-      state = language->out_of_context_states[symbol];
+      state = language->recovery_states[symbol];
     action_index =
       (language->parse_table + (state * language->symbol_count))[symbol];
   }
