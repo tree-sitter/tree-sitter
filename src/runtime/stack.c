@@ -434,6 +434,7 @@ void ts_stack_clear(Stack *self) {
 int ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
   fprintf(f, "digraph stack {\n");
   fprintf(f, "rankdir=\"RL\";\n");
+  fprintf(f, "edge [arrowhead=none]\n");
 
   Array(StackNode *)visited_nodes;
   array_init(&visited_nodes);
@@ -442,10 +443,9 @@ int ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
   for (size_t i = 0; i < self->heads.size; i++) {
     StackNode *node = self->heads.contents[i];
     fprintf(f, "node_head_%lu [shape=none, label=\"\"]\n", i);
-    fprintf(f,
-            "node_head_%lu -> node_%p [label=%lu, arrowhead=none, "
-            "fontcolor=blue, weight=10000]\n",
-            i, node, i);
+    fprintf(
+      f, "node_head_%lu -> node_%p [label=%lu, fontcolor=blue, weight=10000]\n",
+      i, node, i);
     array_push(&self->pop_paths, ((PopPath){.node = node }));
   }
 
@@ -468,11 +468,13 @@ int ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
         continue;
       all_paths_done = false;
 
-      fprintf(f, "node_%p [label=", node);
+      fprintf(f, "node_%p [", node);
       if (node->state == ts_parse_state_error)
-        fprintf(f, "\"?\"");
+        fprintf(f, "label=\"?\"");
+      else if (node->link_count == 1 && node->links[0].tree->extra)
+        fprintf(f, "shape=point margin=0 label=\"\"");
       else
-        fprintf(f, "%d", node->state);
+        fprintf(f, "label=%d", node->state);
       fprintf(f, "];\n");
 
       for (int j = 0; j < node->link_count; j++) {
@@ -480,6 +482,8 @@ int ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
         fprintf(f, "node_%p -> node_%p [", node, link.node);
         if (link.is_pending)
           fprintf(f, "style=dashed ");
+        if (link.tree->extra)
+          fprintf(f, "fontcolor=gray ");
         fprintf(f, "label=\"");
 
         if (link.tree->symbol == ts_builtin_sym_error) {

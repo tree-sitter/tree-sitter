@@ -199,7 +199,7 @@ enum {
     .parse_actions = ts_parse_actions,                       \
     .in_progress_symbol_table = ts_in_progress_symbol_table, \
     .in_progress_symbols = ts_in_progress_symbols,           \
-    .recovery_states = ts_recovery_states,       \
+    .recovery_states = ts_recovery_states,                   \
     .lex_states = ts_lex_states,                             \
     .symbol_names = ts_symbol_names,                         \
     .lex_fn = ts_lex,                                        \
