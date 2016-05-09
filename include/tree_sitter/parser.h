@@ -60,6 +60,7 @@ typedef enum {
   TSParseActionTypeShift,
   TSParseActionTypeReduce,
   TSParseActionTypeAccept,
+  TSParseActionTypeRecover,
 } TSParseActionType;
 
 typedef struct {
@@ -92,10 +93,8 @@ struct TSLanguage {
   const TSSymbolMetadata *symbol_metadata;
   const unsigned short *parse_table;
   const TSParseActionEntry *parse_actions;
-  const unsigned short *in_progress_symbol_table;
-  const TSInProgressSymbolEntry *in_progress_symbols;
   const TSStateId *lex_states;
-  const TSStateId *recovery_states;
+  const TSParseAction *recovery_actions;
   TSTree *(*lex_fn)(TSLexer *, TSStateId, bool);
 };
 
@@ -164,6 +163,11 @@ enum {
     }                                                  \
   }
 
+#define RECOVER(to_state_value)                                             \
+  {                                                                         \
+    .type = TSParseActionTypeRecover, .data = {.to_state = to_state_value } \
+  }
+
 #define SHIFT_EXTRA()                                 \
   {                                                   \
     { .type = TSParseActionTypeShift, .extra = true } \
@@ -191,22 +195,20 @@ enum {
     { .type = TSParseActionTypeAccept } \
   }
 
-#define EXPORT_LANGUAGE(language_name)                       \
-  static TSLanguage language = {                             \
-    .symbol_count = SYMBOL_COUNT,                            \
-    .symbol_metadata = ts_symbol_metadata,                   \
-    .parse_table = (const unsigned short *)ts_parse_table,   \
-    .parse_actions = ts_parse_actions,                       \
-    .in_progress_symbol_table = ts_in_progress_symbol_table, \
-    .in_progress_symbols = ts_in_progress_symbols,           \
-    .recovery_states = ts_recovery_states,                   \
-    .lex_states = ts_lex_states,                             \
-    .symbol_names = ts_symbol_names,                         \
-    .lex_fn = ts_lex,                                        \
-  };                                                         \
-                                                             \
-  const TSLanguage *language_name() {                        \
-    return &language;                                        \
+#define EXPORT_LANGUAGE(language_name)                     \
+  static TSLanguage language = {                           \
+    .symbol_count = SYMBOL_COUNT,                          \
+    .symbol_metadata = ts_symbol_metadata,                 \
+    .parse_table = (const unsigned short *)ts_parse_table, \
+    .parse_actions = ts_parse_actions,                     \
+    .recovery_actions = ts_recovery_actions,               \
+    .lex_states = ts_lex_states,                           \
+    .symbol_names = ts_symbol_names,                       \
+    .lex_fn = ts_lex,                                      \
+  };                                                       \
+                                                           \
+  const TSLanguage *language_name() {                      \
+    return &language;                                      \
   }
 
 #ifdef __cplusplus

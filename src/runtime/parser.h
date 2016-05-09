@@ -7,15 +7,13 @@ extern "C" {
 
 #include "runtime/stack.h"
 #include "runtime/array.h"
-
-typedef struct ErrorRepair ErrorRepair;
-typedef Array(ErrorRepair) ErrorRepairArray;
+#include "runtime/reduce_action.h"
 
 typedef struct {
   TSLexer lexer;
   Stack *stack;
   const TSLanguage *language;
-  ErrorRepairArray error_repairs;
+  ReduceActionSet reduce_actions;
   TSTree *finished_tree;
   bool is_split;
   bool print_debugging_graphs;

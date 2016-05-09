@@ -84,7 +84,6 @@ class ParseState {
   void each_advance_action(std::function<void(ParseAction *)>);
 
   std::map<rules::Symbol, std::vector<ParseAction>> actions;
-  std::set<rules::Symbol> in_progress_symbols;
   LexStateId lex_state_id;
 };
 

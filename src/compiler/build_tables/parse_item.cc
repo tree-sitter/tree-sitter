@@ -128,5 +128,10 @@ ParseItemSet::TransitionMap ParseItemSet::transitions() const {
   return result;
 }
 
+void ParseItemSet::add(const ParseItemSet &other) {
+  for (const auto &pair : other.entries)
+    entries[pair.first].insert_all(pair.second);
+}
+
 }  // namespace build_tables
 }  // namespace tree_sitter

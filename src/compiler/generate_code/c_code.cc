@@ -102,7 +102,6 @@ class CCodeGenerator {
     add_lex_states_list();
     add_recovery_parse_states_list();
     add_parse_table();
-    add_in_progress_symbol_table();
     add_parser_export();
 
     return buffer;
@@ -221,13 +220,14 @@ class CCodeGenerator {
   }
 
   void add_recovery_parse_states_list() {
-    line("static TSStateId ts_recovery_states[SYMBOL_COUNT] = {");
+    line("static TSParseAction ts_recovery_actions[SYMBOL_COUNT] = {");
     indent([&]() {
       for (const auto &entry : parse_table.error_state.actions) {
         const rules::Symbol &symbol = entry.first;
         if (!entry.second.empty()) {
           ParseStateId state = entry.second[0].state_index;
-          line("[" + symbol_id(symbol) + "] = " + to_string(state) + ",");
+          line("[" + symbol_id(symbol) + "] = RECOVER(" + to_string(state) +
+               "),");
         }
       }
     });
@@ -263,29 +263,6 @@ class CCodeGenerator {
     add_parse_action_list();
     line();
     line("#pragma GCC diagnostic pop");
-    line();
-  }
-
-  void add_in_progress_symbol_table() {
-    add_in_progress_symbol_list_id({});
-    line("static unsigned short ts_in_progress_symbol_table[STATE_COUNT] = {");
-
-    indent([&]() {
-      size_t state_id = 0;
-      for (const ParseState &state : parse_table.states) {
-        if (!state.in_progress_symbols.empty()) {
-          line("[" + to_string(state_id) + "] = ");
-          add(to_string(
-            add_in_progress_symbol_list_id(state.in_progress_symbols)));
-          add(",");
-        }
-        state_id++;
-      }
-    });
-
-    line("};");
-    line();
-    add_in_progress_symbols_list();
     line();
   }
 
@@ -400,26 +377,6 @@ class CCodeGenerator {
               break;
             default: {}
           }
-          add(",");
-        }
-      }
-    });
-
-    line("};");
-  }
-
-  void add_in_progress_symbols_list() {
-    line("static TSInProgressSymbolEntry ts_in_progress_symbols[] = {");
-
-    indent([&]() {
-      for (const auto &pair : in_progress_symbols) {
-        size_t index = pair.first;
-        line("[" + to_string(index) + "] = {.count = " +
-             to_string(pair.second.size()) + "},");
-
-        for (const rules::Symbol &symbol : pair.second) {
-          add(" ");
-          add("{" + symbol_id(symbol) + "}");
           add(",");
         }
       }

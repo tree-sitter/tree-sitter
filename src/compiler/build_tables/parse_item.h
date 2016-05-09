@@ -53,6 +53,7 @@ class ParseItemSet {
 
   TransitionMap transitions() const;
   bool operator==(const ParseItemSet &) const;
+  void add(const ParseItemSet &);
 
   std::map<ParseItem, LookaheadSet> entries;
 };

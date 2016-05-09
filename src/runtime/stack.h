@@ -41,6 +41,7 @@ enum {
 typedef unsigned int StackIterateAction;
 
 typedef StackIterateAction (*StackIterateCallback)(void *, TSStateId state,
+                                                   TreeArray *trees,
                                                    size_t tree_count,
                                                    bool is_done,
                                                    bool is_pending);
@@ -72,6 +73,10 @@ TSStateId ts_stack_top_state(const Stack *, StackVersion);
  */
 TSLength ts_stack_top_position(const Stack *, StackVersion);
 
+size_t ts_stack_error_length(const Stack *, StackVersion);
+
+size_t ts_stack_last_repaired_error_size(const Stack *, StackVersion);
+
 /*
  *  Push a tree and state onto the given head of the stack. This could cause
  *  the version to merge with an existing version.
@@ -99,6 +104,8 @@ void ts_stack_merge_from(Stack *, StackVersion);
 void ts_stack_merge(Stack *);
 
 void ts_stack_renumber_version(Stack *, StackVersion, StackVersion);
+
+StackVersion ts_stack_duplicate_version(Stack *, StackVersion);
 
 /*
  *  Remove the given version from the stack.

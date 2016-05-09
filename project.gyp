@@ -23,7 +23,6 @@
         'src/compiler/build_tables/parse_item.cc',
         'src/compiler/build_tables/parse_conflict_manager.cc',
         'src/compiler/build_tables/rule_can_be_blank.cc',
-        'src/compiler/build_tables/symbols_by_first_symbol.cc',
         'src/compiler/compile.cc',
         'src/compiler/generate_code/c_code.cc',
         'src/compiler/lex_table.cc',

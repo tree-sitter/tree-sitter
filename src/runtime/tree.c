@@ -107,6 +107,31 @@ recur:
   }
 }
 
+static void ts_tree_total_tokens(const TSTree *self, size_t *result) {
+recur:
+  if (self->child_count == 0) {
+    (*result)++;
+  } else {
+    for (size_t i = 1; i < self->child_count; i++)
+      ts_tree_total_tokens(self->children[i], result);
+    self = self->children[0];
+    goto recur;
+  }
+}
+
+size_t ts_tree_last_error_size(const TSTree *self) {
+  if (self->symbol == ts_builtin_sym_error)
+    return self->error_size;
+
+  for (size_t i = self->child_count - 1; i + 1 > 0; i--) {
+    size_t result = ts_tree_last_error_size(self->children[i]);
+    if (result > 0)
+      return result;
+  }
+
+  return 0;
+}
+
 void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   if (self->child_count > 0)
     ts_free(self->children);
@@ -115,7 +140,7 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   self->child_count = child_count;
   self->named_child_count = 0;
   self->visible_child_count = 0;
-  size_t error_size = 0;
+  self->error_size = 0;
 
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
@@ -126,6 +151,8 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
     } else {
       self->size = ts_length_add(self->size, ts_tree_total_size(child));
     }
+
+    self->error_size += child->error_size;
 
     if (child->visible) {
       self->visible_child_count++;
@@ -139,15 +166,13 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
     if (child->symbol == ts_builtin_sym_error) {
       self->fragile_left = self->fragile_right = true;
       self->parse_state = TS_TREE_STATE_ERROR;
-    } else {
-      error_size += child->error_size;
     }
   }
 
-  if (self->symbol == ts_builtin_sym_error)
-    self->error_size = self->size.chars;
-  else
-    self->error_size = error_size;
+  if (self->symbol == ts_builtin_sym_error) {
+    self->error_size = 0;
+    ts_tree_total_tokens(self, &self->error_size);
+  }
 
   if (child_count > 0) {
     self->lex_state = children[0]->lex_state;

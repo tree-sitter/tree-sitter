@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include "tree_sitter/parser.h"
+#include "runtime/tree.h"
 
 bool ts_language_symbol_is_in_progress(const TSLanguage *, TSStateId, TSSymbol);
 
@@ -15,8 +16,12 @@ TSParseAction ts_language_last_action(const TSLanguage *, TSStateId, TSSymbol);
 
 bool ts_language_has_action(const TSLanguage *, TSStateId, TSSymbol);
 
-TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *language,
-                                             TSSymbol symbol);
+TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *, TSSymbol);
+
+static inline TSStateId ts_language_lex_state(const TSLanguage *self,
+                                              TSStateId state) {
+  return state == ts_parse_state_error ? 0 : self->lex_states[state];
+}
 
 #ifdef __cplusplus
 }

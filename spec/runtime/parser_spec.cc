@@ -100,7 +100,7 @@ describe("Parser", [&]() {
 
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
         AssertThat(ts_node_start_byte(error), Equals(strlen("  [123,  ")));
-        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123,  @@@@@")));
+        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123,  @@@@@,")));
 
         AssertThat(ts_node_name(last, doc), Equals("true"));
         AssertThat(ts_node_start_byte(last), Equals(strlen("  [123,  @@@@@,   ")))
@@ -121,7 +121,7 @@ describe("Parser", [&]() {
 
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
         AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")))
-        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, faaaaalse")))
+        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, faaaaalse,")))
 
         AssertThat(ts_node_name(last, doc), Equals("true"));
         AssertThat(ts_node_start_byte(last), Equals(strlen("  [123, faaaaalse, ")));
@@ -159,7 +159,7 @@ describe("Parser", [&]() {
 
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
         AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")));
-        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, ")))
+        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, ,")))
 
         AssertThat(ts_node_name(last, doc), Equals("true"));
         AssertThat(ts_node_start_byte(last), Equals(strlen("  [123, , ")));
@@ -378,7 +378,7 @@ describe("Parser", [&]() {
 
           assert_root_node(
             "(program "
-              "(expression_statement (ERROR (number) (UNEXPECTED '4')) (number)) "
+              "(expression_statement (number) (ERROR (UNEXPECTED '4') (number))) "
               "(expression_statement (math_op (number) (number))))");
         });
       });
