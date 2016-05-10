@@ -165,12 +165,18 @@ class ParseTableBuilder {
 
       ParseItem::CompletionStatus status = item.completion_status();
       if (status.is_done) {
-        ParseAction action =
-          (item.lhs() == rules::START())
-            ? ParseAction::Accept()
-            : ParseAction::Reduce(Symbol(item.variable_index), item.step_index,
-                                  status.precedence, status.associativity,
-                                  *item.production);
+        ParseAction action;
+        if (item.lhs() == rules::START()) {
+          if (state_id == 1) {
+            action = ParseAction::Accept();
+          } else {
+            continue;
+          }
+        } else {
+          action = ParseAction::Reduce(Symbol(item.variable_index),
+                                       item.step_index, status.precedence,
+                                       status.associativity, *item.production);
+        }
 
         for (const auto &lookahead_sym : *lookahead_symbols.entries)
           add_action(state_id, lookahead_sym, action, item_set);
