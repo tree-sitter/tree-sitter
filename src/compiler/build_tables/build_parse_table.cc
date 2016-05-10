@@ -64,19 +64,17 @@ class ParseTableBuilder {
     }));
 
     CompileError error = process_part_state_queue();
-    if (error.type != TSCompileErrorTypeNone) {
+    if (error.type != TSCompileErrorTypeNone)
       return { parse_table, error };
-    }
 
     add_out_of_context_parse_states();
+
     allow_any_conflict = true;
     process_part_state_queue();
     allow_any_conflict = false;
 
-    for (ParseStateId state = 0; state < parse_table.states.size(); state++) {
-      add_shift_extra_actions(state);
+    for (ParseStateId state = 0; state < parse_table.states.size(); state++)
       add_reduce_extra_actions(state);
-    }
 
     mark_fragile_actions();
     remove_duplicate_parse_states();
@@ -95,6 +93,7 @@ class ParseTableBuilder {
 
       add_reduce_actions(item_set, state_id);
       add_shift_actions(item_set, state_id);
+      add_shift_extra_actions(state_id);
 
       if (!conflicts.empty()) {
         return CompileError(TSCompileErrorTypeParseConflict,
