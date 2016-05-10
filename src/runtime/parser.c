@@ -591,6 +591,15 @@ static RepairResult ts_parser__repair_error(TSParser *self, StackSlice slice,
                       ts_language_symbol_metadata(self->language, symbol));
   CHECK(parent);
   CHECK(ts_parser__push(self, slice.version, parent, next_state));
+
+  for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
+    size_t error_length = ts_stack_error_length(self->stack, i);
+    if ((error_length >= parent->error_size) ||
+        (error_length == 0 &&
+         ts_stack_last_repaired_error_size(self->stack, i) > parent->error_size))
+      ts_stack_halt(self->stack, i);
+  }
+
   return RepairSucceeded;
 
 error:
@@ -928,6 +937,11 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
 
     for (StackVersion version = 0;
          version < ts_stack_version_count(self->stack);) {
+      if (ts_stack_is_halted(self->stack, version)) {
+        version++;
+        continue;
+      }
+
       ReusableNode reusable_node = current_reusable_node;
 
       for (bool removed = false; !removed;) {

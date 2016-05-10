@@ -77,6 +77,10 @@ size_t ts_stack_error_length(const Stack *, StackVersion);
 
 size_t ts_stack_last_repaired_error_size(const Stack *, StackVersion);
 
+void ts_stack_halt(Stack *, StackVersion);
+
+bool ts_stack_is_halted(const Stack *, StackVersion);
+
 /*
  *  Push a tree and state onto the given head of the stack. This could cause
  *  the version to merge with an existing version.
