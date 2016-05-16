@@ -82,11 +82,6 @@ typedef union {
   unsigned int count;
 } TSParseActionEntry;
 
-typedef union {
-  TSSymbol symbol;
-  unsigned short count;
-} TSInProgressSymbolEntry;
-
 struct TSLanguage {
   size_t symbol_count;
   const char **symbol_names;
