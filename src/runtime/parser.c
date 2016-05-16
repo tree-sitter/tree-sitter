@@ -603,6 +603,7 @@ static RepairResult ts_parser__repair_error(TSParser *self, StackSlice slice,
   return RepairSucceeded;
 
 error:
+  ts_tree_array_delete(&slice.trees);
   return RepairFailed;
 }
 

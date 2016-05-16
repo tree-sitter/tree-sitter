@@ -75,10 +75,8 @@ static void stack_node_release(StackNode *self, StackNodeArray *pool) {
       stack_node_release(self->links[i].node, pool);
     }
 
-    if (pool->size >= MAX_NODE_POOL_SIZE)
+    if (pool->size >= MAX_NODE_POOL_SIZE || !array_push(pool, self))
       ts_free(self);
-    else
-      array_push(pool, self);
   }
 }
 
@@ -230,7 +228,7 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
 
 error:
   for (size_t i = 0; i < self->pop_paths.size; i++)
-    array_delete(&self->pop_paths.contents[i].trees);
+    ts_tree_array_delete(&self->pop_paths.contents[i].trees);
   array_clear(&self->slices);
   return (StackPopResult){.status = StackPopFailed };
 }
@@ -283,7 +281,7 @@ error:
 }
 
 void ts_stack_delete(Stack *self) {
-  if (self->pop_paths.contents)
+  if (self->slices.contents)
     array_delete(&self->slices);
   if (self->pop_paths.contents)
     array_delete(&self->pop_paths);
