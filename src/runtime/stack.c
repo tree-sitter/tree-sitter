@@ -494,13 +494,16 @@ void ts_stack_clear(Stack *self) {
   array_push(&self->heads, ((StackHead){ self->base_node, false }));
 }
 
-int ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
+bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
+  bool was_recording_allocations = ts_toggle_allocation_recording(false);
+  if (!f)
+    f = stderr;
+
   fprintf(f, "digraph stack {\n");
   fprintf(f, "rankdir=\"RL\";\n");
   fprintf(f, "edge [arrowhead=none]\n");
 
-  Array(StackNode *)visited_nodes;
-  array_init(&visited_nodes);
+  Array(StackNode *) visited_nodes = array_new();
 
   array_clear(&self->pop_paths);
   for (size_t i = 0; i < self->heads.size; i++) {
@@ -511,7 +514,8 @@ int ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
     fprintf(
       f, "node_head_%lu -> node_%p [label=%lu, fontcolor=blue, weight=10000]\n",
       i, node, i);
-    array_push(&self->pop_paths, ((PopPath){.node = node }));
+    if (!array_push(&self->pop_paths, ((PopPath){.node = node })))
+      goto error;
   }
 
   bool all_paths_done = false;
@@ -582,7 +586,12 @@ int ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
   fprintf(f, "}\n");
 
   array_delete(&visited_nodes);
+  ts_toggle_allocation_recording(was_recording_allocations);
+  return true;
 
 error:
-  return -1;
+  ts_toggle_allocation_recording(was_recording_allocations);
+  if (visited_nodes.contents)
+    array_delete(&visited_nodes);
+  return false;
 }

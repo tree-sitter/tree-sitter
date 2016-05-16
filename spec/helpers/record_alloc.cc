@@ -42,24 +42,24 @@ size_t allocation_count() {
 
 }  // namespace record_alloc
 
+static bool can_allocate() {
+  if (!_enabled)
+    return true;
+
+  return _allocation_count < _allocation_failure_index;
+}
+
 static void *record_allocation(void *result) {
   if (!_enabled)
     return result;
 
-  if (_allocation_count > _allocation_failure_index) {
-    free(result);
-    Assert::Failure("Allocated after a previous allocation failed!");
-  }
-
-  if (_allocation_count == _allocation_failure_index) {
-    _allocation_count++;
-    free(result);
-    return nullptr;
-  }
-
   _outstanding_allocations[result] = _allocation_count;
   _allocation_count++;
   return result;
+}
+
+static void record_allocation_failure() {
+  _allocation_count++;
 }
 
 static void record_deallocation(void *pointer) {
@@ -75,21 +75,42 @@ static void record_deallocation(void *pointer) {
 extern "C" {
 
 void *ts_record_malloc(size_t size) {
-  return record_allocation(malloc(size));
+  if (can_allocate()) {
+    return record_allocation(malloc(size));
+  } else {
+    record_allocation_failure();
+    return NULL;
+  }
 }
 
 void *ts_record_realloc(void *pointer, size_t size) {
-  record_deallocation(pointer);
-  return record_allocation(realloc(pointer, size));
+  if (can_allocate()) {
+    record_deallocation(pointer);
+    return record_allocation(realloc(pointer, size));
+  } else {
+    record_allocation_failure();
+    return NULL;
+  }
 }
 
 void *ts_record_calloc(size_t count, size_t size) {
-  return record_allocation(calloc(count, size));
+  if (can_allocate()) {
+    return record_allocation(calloc(count, size));
+  } else {
+    record_allocation_failure();
+    return NULL;
+  }
 }
 
 void ts_record_free(void *pointer) {
   free(pointer);
   record_deallocation(pointer);
+}
+
+bool ts_record_allocations_toggle(bool value) {
+  bool previous_value = _enabled;
+  _enabled = value;
+  return previous_value;
 }
 
 }

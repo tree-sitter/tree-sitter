@@ -121,7 +121,7 @@ void ts_stack_remove_version(Stack *, StackVersion);
  */
 void ts_stack_clear(Stack *);
 
-int ts_stack_print_dot_graph(Stack *, const char **, FILE *);
+bool ts_stack_print_dot_graph(Stack *, const char **, FILE *);
 
 #ifdef __cplusplus
 }
