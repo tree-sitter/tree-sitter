@@ -118,5 +118,9 @@ LexItemSet::TransitionMap LexItemSet::transitions() const {
   return result;
 }
 
+bool LexItemSet::Transition::operator==(const LexItemSet::Transition &other) const {
+  return destination == other.destination && precedence == other.precedence;
+}
+
 }  // namespace build_tables
 }  // namespace tree_sitter

@@ -39,17 +39,25 @@ class LexItemSet {
   LexItemSet();
   explicit LexItemSet(const std::unordered_set<LexItem, LexItem::Hash> &);
 
-  typedef std::map<rules::CharacterSet, std::pair<LexItemSet, PrecedenceRange>>
-    TransitionMap;
+  bool operator==(const LexItemSet &) const;
 
   struct Hash {
     size_t operator()(const LexItemSet &) const;
   };
 
-  bool operator==(const LexItemSet &) const;
+  struct Transition;
+  typedef std::map<rules::CharacterSet, Transition> TransitionMap;
+
   TransitionMap transitions() const;
 
   std::unordered_set<LexItem, LexItem::Hash> entries;
+};
+
+struct LexItemSet::Transition {
+  LexItemSet destination;
+  PrecedenceRange precedence;
+
+  bool operator==(const LexItemSet::Transition &) const;
 };
 
 }  // namespace build_tables

@@ -23,147 +23,162 @@ using std::map;
 using std::pair;
 using std::vector;
 using rules::CharacterSet;
+using rules::Symbol;
+using rules::Blank;
+using rules::MetadataKey;
+using rules::Choice;
+using rules::Seq;
+using rules::Repeat;
+using rules::Metadata;
+using rules::PRECEDENCE;
+using rules::IS_ACTIVE;
+typedef LexItemSet::Transition Transition;
+typedef LexItemSet::TransitionMap TransitionMap;
 
-class LexItemTransitions : public rules::RuleFn<void> {
-  LexItemSet::TransitionMap *transitions;
-  const rules::Symbol &item_lhs;
+class TransitionBuilder : public rules::RuleFn<void> {
+  TransitionMap *transitions;
+  const Symbol &item_lhs;
   vector<int> *precedence_stack;
 
-  LexItemSet transform_item_set(const LexItemSet &item_set,
-                                function<rule_ptr(rule_ptr)> callback) {
-    LexItemSet new_set;
-    for (const LexItem &item : item_set.entries)
-      new_set.entries.insert(LexItem(item.lhs, callback(item.rule)));
-    return new_set;
+  Transition transform_transition(const Transition &transition,
+                                  function<rule_ptr(rule_ptr)> callback) {
+    LexItemSet destination;
+    for (const LexItem &item : transition.destination.entries)
+      destination.entries.insert(LexItem(item.lhs, callback(item.rule)));
+    return Transition{ destination, transition.precedence };
   }
 
-  void merge_transition(LexItemSet::TransitionMap *transitions,
-                        CharacterSet new_char_set, LexItemSet new_item_set,
-                        PrecedenceRange new_precedence_range) {
-    vector<pair<CharacterSet, pair<LexItemSet, PrecedenceRange>>> new_entries;
+  void add_transition(TransitionMap *transitions, CharacterSet new_characters,
+                      Transition new_transition) {
+    vector<pair<CharacterSet, Transition>> new_entries;
 
     auto iter = transitions->begin();
     while (iter != transitions->end()) {
-      CharacterSet existing_char_set = iter->first;
-      LexItemSet &existing_item_set = iter->second.first;
-      PrecedenceRange &existing_precedence_range = iter->second.second;
+      CharacterSet existing_characters = iter->first;
+      Transition &existing_transition = iter->second;
+      LexItemSet &existing_item_set = existing_transition.destination;
+      PrecedenceRange &existing_precedence = existing_transition.precedence;
 
-      CharacterSet intersection = existing_char_set.remove_set(new_char_set);
-      if (!intersection.is_empty()) {
-        new_char_set.remove_set(intersection);
-        if (!existing_char_set.is_empty())
-          new_entries.push_back(
-            { existing_char_set,
-              { existing_item_set, existing_precedence_range } });
-        existing_item_set.entries.insert(new_item_set.entries.begin(),
-                                         new_item_set.entries.end());
-        existing_precedence_range.add(new_precedence_range);
-        new_entries.push_back(
-          { intersection, { existing_item_set, existing_precedence_range } });
-        transitions->erase(iter++);
-      } else {
+      CharacterSet intersecting_characters =
+        existing_characters.remove_set(new_characters);
+      if (intersecting_characters.is_empty()) {
         iter++;
+        continue;
       }
+
+      new_characters.remove_set(intersecting_characters);
+
+      if (!existing_characters.is_empty())
+        new_entries.push_back({
+          existing_characters,
+          Transition{ existing_item_set, existing_precedence },
+        });
+
+      existing_item_set.entries.insert(
+        new_transition.destination.entries.begin(),
+        new_transition.destination.entries.end());
+      existing_precedence.add(new_transition.precedence);
+      new_entries.push_back({
+        intersecting_characters,
+        Transition{ existing_item_set, existing_precedence },
+      });
+
+      transitions->erase(iter++);
     }
 
     transitions->insert(new_entries.begin(), new_entries.end());
 
-    if (!new_char_set.is_empty())
-      transitions->insert(
-        { new_char_set, { new_item_set, new_precedence_range } });
+    if (!new_characters.is_empty())
+      transitions->insert({ new_characters, new_transition });
   }
 
-  map<rules::MetadataKey, int> activate_precedence(
-    map<rules::MetadataKey, int> metadata) {
-    if (metadata.count(rules::PRECEDENCE))
-      metadata.insert({ rules::IS_ACTIVE, 1 });
-    return metadata;
-  }
-
-  void apply_to(const CharacterSet *rule) {
+  void apply_to(const CharacterSet *character_set) {
     PrecedenceRange precedence;
     if (!precedence_stack->empty())
       precedence.add(precedence_stack->back());
 
-    merge_transition(transitions, *rule,
-                     LexItemSet({ LexItem(item_lhs, rules::Blank::build()) }),
-                     precedence);
+    add_transition(
+      transitions, *character_set,
+      Transition{
+        LexItemSet({ LexItem(item_lhs, Blank::build()) }), precedence,
+      });
   }
 
-  void apply_to(const rules::Choice *rule) {
-    for (const rule_ptr &element : rule->elements)
+  void apply_to(const Choice *choice) {
+    for (const rule_ptr &element : choice->elements)
       apply(element);
   }
 
-  void apply_to(const rules::Seq *rule) {
-    LexItemSet::TransitionMap left_transitions;
-    LexItemTransitions(&left_transitions, this).apply(rule->left);
+  void apply_to(const Seq *sequence) {
+    TransitionMap left_transitions;
+    TransitionBuilder(&left_transitions, this).apply(sequence->left);
+
     for (const auto &pair : left_transitions) {
-      merge_transition(
+      add_transition(
         transitions, pair.first,
-        transform_item_set(pair.second.first, [&rule](rule_ptr item_rule) {
-          return rules::Seq::build({ item_rule, rule->right });
-        }), pair.second.second);
+        transform_transition(pair.second, [&sequence](rule_ptr rule) {
+          return Seq::build({ rule, sequence->right });
+        }));
     }
 
-    if (rule_can_be_blank(rule->left))
-      apply(rule->right);
+    if (rule_can_be_blank(sequence->left))
+      apply(sequence->right);
   }
 
-  void apply_to(const rules::Repeat *rule) {
-    LexItemSet::TransitionMap content_transitions;
-    LexItemTransitions(&content_transitions, this).apply(rule->content);
+  void apply_to(const Repeat *repeat) {
+    TransitionMap content_transitions;
+    TransitionBuilder(&content_transitions, this).apply(repeat->content);
+
     for (const auto &pair : content_transitions) {
-      merge_transition(transitions, pair.first, pair.second.first,
-                       pair.second.second);
-      merge_transition(
+      add_transition(transitions, pair.first, pair.second);
+      add_transition(
         transitions, pair.first,
-        transform_item_set(pair.second.first, [&rule](rule_ptr item_rule) {
-          return rules::Seq::build({ item_rule, rule->copy() });
-        }), pair.second.second);
+        transform_transition(pair.second, [&repeat](rule_ptr item_rule) {
+          return Seq::build({ item_rule, repeat->copy() });
+        }));
     }
   }
 
-  void apply_to(const rules::Metadata *rule) {
-    LexItemSet::TransitionMap content_transitions;
-    auto precedence = rule->value_for(rules::PRECEDENCE);
-    bool has_active_precedence =
-      precedence.second && rule->value_for(rules::IS_ACTIVE).second;
+  void apply_to(const Metadata *metadata) {
+    bool has_active_precedence = metadata->value_for(IS_ACTIVE).second;
     if (has_active_precedence)
-      precedence_stack->push_back(precedence.first);
+      precedence_stack->push_back(metadata->value_for(PRECEDENCE).first);
 
-    LexItemTransitions(&content_transitions, this).apply(rule->rule);
-    for (const auto &pair : content_transitions)
-      merge_transition(
+    auto metadata_value = metadata->value;
+    if (metadata_value.count(PRECEDENCE))
+      metadata_value.insert({ IS_ACTIVE, true });
+
+    TransitionMap content_transitions;
+    TransitionBuilder(&content_transitions, this).apply(metadata->rule);
+
+    for (const auto &pair : content_transitions) {
+      add_transition(
         transitions, pair.first,
-        transform_item_set(pair.second.first, [this, &rule](rule_ptr item_rule) {
-          return rules::Metadata::build(item_rule,
-                                        activate_precedence(rule->value));
-        }), pair.second.second);
+        transform_transition(pair.second, [&metadata_value](rule_ptr rule) {
+          return Metadata::build(rule, metadata_value);
+        }));
+    }
 
     if (has_active_precedence)
       precedence_stack->pop_back();
   }
 
  public:
-  LexItemTransitions(LexItemSet::TransitionMap *transitions,
-                     const rules::Symbol &item_lhs,
-                     vector<int> *precedence_stack)
+  TransitionBuilder(TransitionMap *transitions, const Symbol &item_lhs,
+                    vector<int> *precedence_stack)
       : transitions(transitions),
         item_lhs(item_lhs),
         precedence_stack(precedence_stack) {}
 
-  LexItemTransitions(LexItemSet::TransitionMap *transitions,
-                     LexItemTransitions *other)
+  TransitionBuilder(TransitionMap *transitions, TransitionBuilder *other)
       : transitions(transitions),
         item_lhs(other->item_lhs),
         precedence_stack(other->precedence_stack) {}
 };
 
-void lex_item_transitions(LexItemSet::TransitionMap *transitions,
-                          const LexItem &item) {
+void lex_item_transitions(TransitionMap *transitions, const LexItem &item) {
   vector<int> precedence_stack;
-  LexItemTransitions(transitions, item.lhs, &precedence_stack).apply(item.rule);
+  TransitionBuilder(transitions, item.lhs, &precedence_stack).apply(item.rule);
 }
 
 }  // namespace build_tables

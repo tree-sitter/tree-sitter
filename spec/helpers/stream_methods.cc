@@ -114,6 +114,10 @@ ostream &operator<<(ostream &stream, const LexItemSet &item_set) {
   return stream << item_set.entries;
 }
 
+ostream &operator<<(ostream &stream, const LexItemSet::Transition &transition) {
+  return stream << "{dest: " << transition.destination << ", prec: " << transition.precedence << "}";
+}
+
 ostream &operator<<(ostream &stream, const ParseItem &item) {
   return stream << string("(item variable:") << to_string(item.variable_index)
                 << string(" production:") << to_string((size_t)item.production % 1000)

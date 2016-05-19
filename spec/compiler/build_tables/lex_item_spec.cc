@@ -3,6 +3,7 @@
 #include "compiler/rules/metadata.h"
 #include "compiler/rules.h"
 #include "helpers/rule_helpers.h"
+#include "helpers/stream_methods.h"
 
 using namespace rules;
 using namespace build_tables;
@@ -13,7 +14,7 @@ describe("LexItem", []() {
   describe("is_token_start()", [&]() {
     Symbol sym(1);
     rule_ptr token_start = make_shared<Metadata>(str("a"), map<MetadataKey, int>({
-      { START_TOKEN, 1 }
+      { START_TOKEN, true }
     }));
 
     it("returns true for rules designated as token starts", [&]() {
@@ -155,7 +156,7 @@ describe("LexItemSet::transitions()", [&]() {
         }
       })));
 
-    LexItemSet item_set2 = transitions[CharacterSet().include('v')].first;
+    LexItemSet item_set2 = transitions[CharacterSet().include('v')].destination;
     transitions = item_set2.transitions();
 
     AssertThat(
@@ -180,7 +181,7 @@ describe("LexItemSet::transitions()", [&]() {
         }
       })));
 
-    LexItemSet item_set3 = transitions[CharacterSet().include('w')].first;
+    LexItemSet item_set3 = transitions[CharacterSet().include('w')].destination;
     transitions = item_set3.transitions();
 
     AssertThat(
@@ -202,7 +203,7 @@ describe("LexItemSet::transitions()", [&]() {
         }
       })));
 
-    LexItemSet item_set4 = transitions[CharacterSet().include('x')].first;
+    LexItemSet item_set4 = transitions[CharacterSet().include('x')].destination;
     transitions = item_set4.transitions();
 
     AssertThat(
