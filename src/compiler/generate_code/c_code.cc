@@ -328,7 +328,10 @@ class CCodeGenerator {
   }
 
   void add_advance_action(const AdvanceAction &action) {
-    line("ADVANCE(" + to_string(action.state_index) + ");");
+    if (action.in_main_token)
+      line("ADVANCE(" + to_string(action.state_index) + ");");
+    else
+      line("SKIP(" + to_string(action.state_index) + ");");
   }
 
   void add_accept_token_action(const AcceptTokenAction &action) {
@@ -527,6 +530,10 @@ class CCodeGenerator {
         return unique_name;
       }
     }
+  }
+
+  string _boolean(bool value) {
+    return value ? "true" : "false";
   }
 
   bool has_sanitized_name(string name) {

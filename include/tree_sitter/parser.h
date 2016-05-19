@@ -33,8 +33,7 @@ typedef struct {
 
 typedef struct TSLexer {
   void (*start_fn)(struct TSLexer *, TSStateId);
-  void (*start_token_fn)(struct TSLexer *);
-  bool (*advance_fn)(struct TSLexer *, TSStateId);
+  bool (*advance_fn)(struct TSLexer *, TSStateId, bool);
   TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, TSSymbolMetadata,
                        const char *, bool fragile);
 
@@ -103,18 +102,22 @@ struct TSLanguage {
   next_state:                    \
   lookahead = lexer->lookahead;
 
-#define START_TOKEN() lexer->start_token_fn(lexer);
-
 #define GO_TO_STATE(state_value) \
   {                              \
     state = state_value;         \
     goto next_state;             \
   }
 
-#define ADVANCE(state_value)               \
-  {                                        \
-    lexer->advance_fn(lexer, state_value); \
-    GO_TO_STATE(state_value);              \
+#define ADVANCE(state_value)                     \
+  {                                              \
+    lexer->advance_fn(lexer, state_value, true); \
+    GO_TO_STATE(state_value);                    \
+  }
+
+#define SKIP(state_value)                         \
+  {                                               \
+    lexer->advance_fn(lexer, state_value, false); \
+    GO_TO_STATE(state_value);                     \
   }
 
 #define ACCEPT_FRAGILE_TOKEN(symbol)                                 \
@@ -128,7 +131,7 @@ struct TSLanguage {
 #define LEX_ERROR()                                                            \
   if (error_mode) {                                                            \
     if (state == ts_lex_state_error)                                           \
-      lexer->advance_fn(lexer, state);                                         \
+      lexer->advance_fn(lexer, state, true);                                   \
     GO_TO_STATE(ts_lex_state_error)                                            \
   } else {                                                                     \
     return lexer->accept_fn(lexer, ts_builtin_sym_error, (TSSymbolMetadata){}, \

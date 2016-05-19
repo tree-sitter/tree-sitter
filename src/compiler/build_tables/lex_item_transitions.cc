@@ -32,6 +32,7 @@ using rules::Repeat;
 using rules::Metadata;
 using rules::PRECEDENCE;
 using rules::IS_ACTIVE;
+using rules::MAIN_TOKEN;
 typedef LexItemSet::Transition Transition;
 typedef LexItemSet::TransitionMap TransitionMap;
 
@@ -39,13 +40,15 @@ class TransitionBuilder : public rules::RuleFn<void> {
   TransitionMap *transitions;
   const Symbol &item_lhs;
   vector<int> *precedence_stack;
+  bool in_main_token;
 
   Transition transform_transition(const Transition &transition,
                                   function<rule_ptr(rule_ptr)> callback) {
     LexItemSet destination;
     for (const LexItem &item : transition.destination.entries)
       destination.entries.insert(LexItem(item.lhs, callback(item.rule)));
-    return Transition{ destination, transition.precedence };
+    return Transition{ destination, transition.precedence,
+                       transition.in_main_token };
   }
 
   void add_transition(TransitionMap *transitions, CharacterSet new_characters,
@@ -56,8 +59,6 @@ class TransitionBuilder : public rules::RuleFn<void> {
     while (iter != transitions->end()) {
       CharacterSet existing_characters = iter->first;
       Transition &existing_transition = iter->second;
-      LexItemSet &existing_item_set = existing_transition.destination;
-      PrecedenceRange &existing_precedence = existing_transition.precedence;
 
       CharacterSet intersecting_characters =
         existing_characters.remove_set(new_characters);
@@ -70,17 +71,17 @@ class TransitionBuilder : public rules::RuleFn<void> {
 
       if (!existing_characters.is_empty())
         new_entries.push_back({
-          existing_characters,
-          Transition{ existing_item_set, existing_precedence },
+          existing_characters, existing_transition,
         });
 
-      existing_item_set.entries.insert(
+      existing_transition.destination.entries.insert(
         new_transition.destination.entries.begin(),
         new_transition.destination.entries.end());
-      existing_precedence.add(new_transition.precedence);
+      existing_transition.precedence.add(new_transition.precedence);
+      existing_transition.in_main_token |= new_transition.in_main_token;
+
       new_entries.push_back({
-        intersecting_characters,
-        Transition{ existing_item_set, existing_precedence },
+        intersecting_characters, existing_transition,
       });
 
       transitions->erase(iter++);
@@ -97,11 +98,11 @@ class TransitionBuilder : public rules::RuleFn<void> {
     if (!precedence_stack->empty())
       precedence.add(precedence_stack->back());
 
-    add_transition(
-      transitions, *character_set,
-      Transition{
-        LexItemSet({ LexItem(item_lhs, Blank::build()) }), precedence,
-      });
+    add_transition(transitions, *character_set,
+                   Transition{
+                     LexItemSet({ LexItem(item_lhs, Blank::build()) }),
+                     precedence, in_main_token,
+                   });
   }
 
   void apply_to(const Choice *choice) {
@@ -144,6 +145,9 @@ class TransitionBuilder : public rules::RuleFn<void> {
     if (has_active_precedence)
       precedence_stack->push_back(metadata->value_for(PRECEDENCE).first);
 
+    if (metadata->value_for(MAIN_TOKEN).second)
+      in_main_token = true;
+
     auto metadata_value = metadata->value;
     if (metadata_value.count(PRECEDENCE))
       metadata_value.insert({ IS_ACTIVE, true });
@@ -165,20 +169,23 @@ class TransitionBuilder : public rules::RuleFn<void> {
 
  public:
   TransitionBuilder(TransitionMap *transitions, const Symbol &item_lhs,
-                    vector<int> *precedence_stack)
+                    vector<int> *precedence_stack, bool in_main_token)
       : transitions(transitions),
         item_lhs(item_lhs),
-        precedence_stack(precedence_stack) {}
+        precedence_stack(precedence_stack),
+        in_main_token(in_main_token) {}
 
   TransitionBuilder(TransitionMap *transitions, TransitionBuilder *other)
       : transitions(transitions),
         item_lhs(other->item_lhs),
-        precedence_stack(other->precedence_stack) {}
+        precedence_stack(other->precedence_stack),
+        in_main_token(other->in_main_token) {}
 };
 
 void lex_item_transitions(TransitionMap *transitions, const LexItem &item) {
   vector<int> precedence_stack;
-  TransitionBuilder(transitions, item.lhs, &precedence_stack).apply(item.rule);
+  TransitionBuilder(transitions, item.lhs, &precedence_stack, false)
+    .apply(item.rule);
 }
 
 }  // namespace build_tables

@@ -15,8 +15,11 @@ using rules::CharacterSet;
 AdvanceAction::AdvanceAction() : state_index(-1) {}
 
 AdvanceAction::AdvanceAction(size_t state_index,
-                             PrecedenceRange precedence_range)
-    : state_index(state_index), precedence_range(precedence_range) {}
+                             PrecedenceRange precedence_range,
+                             bool in_main_token)
+    : state_index(state_index),
+      precedence_range(precedence_range),
+      in_main_token(in_main_token) {}
 
 bool AdvanceAction::operator==(const AdvanceAction &other) const {
   return (state_index == other.state_index) &&

@@ -27,7 +27,6 @@ class LexItem {
   };
 
   bool operator==(const LexItem &other) const;
-  bool is_token_start() const;
   CompletionStatus completion_status() const;
 
   rules::Symbol lhs;
@@ -56,6 +55,7 @@ class LexItemSet {
 struct LexItemSet::Transition {
   LexItemSet destination;
   PrecedenceRange precedence;
+  bool in_main_token;
 
   bool operator==(const LexItemSet::Transition &) const;
 };

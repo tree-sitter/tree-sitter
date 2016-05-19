@@ -20,12 +20,13 @@ typedef enum {
 
 struct AdvanceAction {
   AdvanceAction();
-  AdvanceAction(size_t, PrecedenceRange);
+  AdvanceAction(size_t, PrecedenceRange, bool);
 
   bool operator==(const AdvanceAction &action) const;
 
   size_t state_index;
   PrecedenceRange precedence_range;
+  bool in_main_token;
 };
 
 struct AcceptTokenAction {

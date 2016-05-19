@@ -501,7 +501,7 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
   fprintf(f, "rankdir=\"RL\";\n");
   fprintf(f, "edge [arrowhead=none]\n");
 
-  Array(StackNode *) visited_nodes = array_new();
+  Array(StackNode *)visited_nodes = array_new();
 
   array_clear(&self->pop_paths);
   for (size_t i = 0; i < self->heads.size; i++) {

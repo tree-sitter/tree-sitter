@@ -52,20 +52,15 @@ static void ts_lexer__start(TSLexer *self, TSStateId lex_state) {
   LOG_LOOKAHEAD();
 
   self->starting_state = lex_state;
+  self->token_start_position = self->current_position;
   if (!self->chunk)
     ts_lexer__get_chunk(self);
   if (!self->lookahead_size)
     ts_lexer__get_lookahead(self);
 }
 
-static void ts_lexer__start_token(TSLexer *self) {
-  LOG("start_token chars:%lu, rows:%lu, columns:%lu",
-      self->current_position.chars, self->current_position.rows,
-      self->current_position.columns);
-  self->token_start_position = self->current_position;
-}
-
-static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
+static bool ts_lexer__advance(TSLexer *self, TSStateId state,
+                              bool in_main_token) {
   LOG("advance state:%d", state);
 
   if (self->chunk == empty_chunk)
@@ -82,6 +77,9 @@ static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
       self->current_position.columns++;
     }
   }
+
+  if (!in_main_token)
+    self->token_start_position = self->current_position;
 
   if (self->current_position.bytes >= self->chunk_start + self->chunk_size)
     ts_lexer__get_chunk(self);
@@ -125,7 +123,6 @@ static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
 void ts_lexer_init(TSLexer *self) {
   *self = (TSLexer){
     .start_fn = ts_lexer__start,
-    .start_token_fn = ts_lexer__start_token,
     .advance_fn = ts_lexer__advance,
     .accept_fn = ts_lexer__accept,
     .chunk = NULL,

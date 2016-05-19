@@ -15,7 +15,7 @@ enum Associativity {
 };
 
 enum MetadataKey {
-  START_TOKEN,
+  MAIN_TOKEN,
   PRECEDENCE,
   ASSOCIATIVITY,
   IS_TOKEN,

@@ -16,7 +16,7 @@ describe("LexConflictManager::resolve(new_action, old_action)", []() {
   Symbol sym3(2, true);
 
   it("favors advance actions over empty accept token actions", [&]() {
-    update = conflict_manager.resolve(AdvanceAction(2, {0, 0}), AcceptTokenAction());
+    update = conflict_manager.resolve(AdvanceAction(2, {0, 0}, true), AcceptTokenAction());
     AssertThat(update, IsTrue());
   });
 
@@ -60,14 +60,14 @@ describe("LexConflictManager::resolve(new_action, old_action)", []() {
   describe("advance/accept-token conflicts", [&]() {
     describe("when the token to accept has higher precedence", [&]() {
       it("prefers the accept-token action", [&]() {
-        update = conflict_manager.resolve(AdvanceAction(1, { 1, 2 }), AcceptTokenAction(sym3, 3, true));
+        update = conflict_manager.resolve(AdvanceAction(1, { 1, 2 }, true), AcceptTokenAction(sym3, 3, true));
         AssertThat(update, IsFalse());
       });
     });
 
     describe("when the token to accept does not have a higher precedence", [&]() {
       it("favors the advance action", [&]() {
-        update = conflict_manager.resolve(AdvanceAction(1, { 1, 2 }), AcceptTokenAction(sym3, 2, true));
+        update = conflict_manager.resolve(AdvanceAction(1, { 1, 2 }, true), AcceptTokenAction(sym3, 2, true));
         AssertThat(update, IsTrue());
       });
     });

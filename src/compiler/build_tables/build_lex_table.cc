@@ -34,7 +34,7 @@ using rules::Repeat;
 using rules::Symbol;
 using rules::Metadata;
 using rules::Seq;
-using rules::START_TOKEN;
+using rules::MAIN_TOKEN;
 using rules::PRECEDENCE;
 using rules::IS_ACTIVE;
 
@@ -79,7 +79,6 @@ class LexTableBuilder {
       lex_state_ids[item_set] = state_id;
       add_accept_token_actions(item_set, state_id);
       add_advance_actions(item_set, state_id);
-      add_token_start(item_set, state_id);
       return state_id;
     } else {
       return pair->second;
@@ -90,7 +89,7 @@ class LexTableBuilder {
     for (const auto &pair : item_set.transitions()) {
       const CharacterSet &characters = pair.first;
       const LexItemSet::Transition &transition = pair.second;
-      AdvanceAction action(-1, transition.precedence);
+      AdvanceAction action(-1, transition.precedence, transition.in_main_token);
 
       auto current_action = lex_table.state(state_id).accept_action;
       if (conflict_manager.resolve(action, current_action)) {
@@ -112,12 +111,6 @@ class LexTableBuilder {
           lex_table.state(state_id).accept_action = action;
       }
     }
-  }
-
-  void add_token_start(const LexItemSet &item_set, LexStateId state_id) {
-    for (const auto &item : item_set.entries)
-      if (item.is_token_start())
-        lex_table.state(state_id).is_token_start = true;
   }
 
   void mark_fragile_tokens() {
@@ -152,8 +145,8 @@ class LexTableBuilder {
             symbol,
             Metadata::build(
               Seq::build({
-                Metadata::build(separator_rule, { { START_TOKEN, true } }),
-                Metadata::build(rule, { { PRECEDENCE, 0 } }),
+                separator_rule,
+                Metadata::build(rule, { { PRECEDENCE, 0 }, { MAIN_TOKEN, 1 } }),
               }),
               { { PRECEDENCE, INT_MIN }, { IS_ACTIVE, true } })));
     return result;
