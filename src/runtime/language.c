@@ -2,11 +2,16 @@
 #include "runtime/language.h"
 #include "runtime/tree.h"
 
+static const TSParseAction ERROR_SHIFT_EXTRA = {
+  .type = TSParseActionTypeShift, .extra = true,
+};
+
 const TSParseAction *ts_language_actions(const TSLanguage *self, TSStateId state,
                                          TSSymbol symbol, size_t *count) {
   if (state == ts_parse_state_error) {
     *count = 1;
-    return &self->recovery_actions[symbol];
+    return (symbol == ts_builtin_sym_error) ? &ERROR_SHIFT_EXTRA
+                                            : &self->recovery_actions[symbol];
   }
 
   size_t action_index = 0;

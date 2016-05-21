@@ -88,7 +88,13 @@ describe("Parser", [&]() {
       ts_document_set_language(doc, get_test_language("json"));
     });
 
-    describe("when the error occurs at the beginning of a token", [&]() {
+    auto get_node_text = [&](TSNode node) {
+      size_t start = ts_node_start_byte(node);
+      size_t end = ts_node_end_byte(node);
+      return input->content.substr(start, end - start);
+    };
+
+    describe("when there is an invalid substring right before a valid token", [&]() {
       it("computes the error node's size and position correctly", [&]() {
         set_text("  [123,  @@@@@,   true]");
 
@@ -96,18 +102,24 @@ describe("Parser", [&]() {
           "(array (number) (ERROR (UNEXPECTED '@')) (true))");
 
         TSNode error = ts_node_named_child(root, 1);
-        TSNode last = ts_node_named_child(root, 2);
-
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123,  ")));
-        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123,  @@@@@,")));
+        AssertThat(get_node_text(error), Equals("@@@@@,"));
+        AssertThat(ts_node_child_count(error), Equals<size_t>(2));
+        AssertThat(ts_node_child_count(error), Equals<size_t>(2));
 
-        AssertThat(ts_node_name(last, doc), Equals("true"));
-        AssertThat(ts_node_start_byte(last), Equals(strlen("  [123,  @@@@@,   ")))
+        TSNode garbage = ts_node_child(error, 0);
+        AssertThat(get_node_text(garbage), Equals("@@@@@"));
+
+        TSNode comma = ts_node_child(error, 1);
+        AssertThat(get_node_text(comma), Equals(","));
+
+        TSNode node_after_error = ts_node_named_child(root, 2);
+        AssertThat(ts_node_name(node_after_error, doc), Equals("true"));
+        AssertThat(get_node_text(node_after_error), Equals("true"));
       });
     });
 
-    describe("when the error occurs in the middle of a token", [&]() {
+    describe("when there is an unexpected string in the middle of a token", [&]() {
       it("computes the error node's size and position correctly", [&]() {
         set_text("  [123, faaaaalse, true]");
 
@@ -115,54 +127,40 @@ describe("Parser", [&]() {
           "(array (number) (ERROR (UNEXPECTED 'a')) (true))");
 
         TSNode error = ts_node_named_child(root, 1);
-        TSNode last = ts_node_named_child(root, 2);
-
         AssertThat(ts_node_symbol(error), Equals(ts_builtin_sym_error));
-
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")))
-        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, faaaaalse,")))
+        AssertThat(get_node_text(error), Equals("faaaaalse,"));
+        AssertThat(ts_node_child_count(error), Equals<size_t>(2));
 
+        TSNode garbage = ts_node_child(error, 0);
+        AssertThat(ts_node_name(garbage, doc), Equals("ERROR"));
+        AssertThat(get_node_text(garbage), Equals("faaaaalse"));
+
+        TSNode comma = ts_node_child(error, 1);
+        AssertThat(ts_node_name(comma, doc), Equals(","));
+        AssertThat(get_node_text(comma), Equals(","));
+
+        TSNode last = ts_node_named_child(root, 2);
         AssertThat(ts_node_name(last, doc), Equals("true"));
         AssertThat(ts_node_start_byte(last), Equals(strlen("  [123, faaaaalse, ")));
       });
     });
 
-    describe("when the error occurs after one or more tokens", [&]() {
+    describe("when there is one unexpected token between two valid tokens", [&]() {
       it("computes the error node's size and position correctly", [&]() {
         set_text("  [123, true false, true]");
 
         assert_root_node(
-          "(array (number) (ERROR (true) (UNEXPECTED 'f')) (false) (true))");
+          "(array (number) (ERROR (true)) (false) (true))");
 
         TSNode error = ts_node_named_child(root, 1);
-        TSNode last = ts_node_named_child(root, 2);
-
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")));
-        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, true ")));
+        AssertThat(get_node_text(error), Equals("true"));
+        AssertThat(ts_node_child_count(error), Equals<size_t>(1));
 
+        TSNode last = ts_node_named_child(root, 2);
         AssertThat(ts_node_name(last, doc), Equals("false"));
-        AssertThat(ts_node_start_byte(last), Equals(strlen("  [123, true ")));
-      });
-    });
-
-    describe("when the error is an empty string", [&]() {
-      it("computes the error node's size and position correctly", [&]() {
-        set_text("  [123, , true]");
-
-        assert_root_node(
-          "(array (number) (ERROR (UNEXPECTED ',')) (true))");
-
-        TSNode error = ts_node_named_child(root, 1);
-        TSNode last = ts_node_named_child(root, 2);
-
-        AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")));
-        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, ,")))
-
-        AssertThat(ts_node_name(last, doc), Equals("true"));
-        AssertThat(ts_node_start_byte(last), Equals(strlen("  [123, , ")));
+        AssertThat(get_node_text(last), Equals("false"));
       });
     });
   });
@@ -275,7 +273,7 @@ describe("Parser", [&]() {
           insert_text(strlen("var x = y"), " *");
 
           assert_root_node(
-            "(program (var_declaration (identifier) (ERROR (identifier) (UNEXPECTED ';'))))");
+            "(program (var_declaration (identifier) (ERROR (identifier))))");
 
           insert_text(strlen("var x = y *"), " z");
 
@@ -378,7 +376,7 @@ describe("Parser", [&]() {
 
           assert_root_node(
             "(program "
-              "(expression_statement (number) (ERROR (UNEXPECTED '4') (number))) "
+              "(expression_statement (number) (ERROR (number))) "
               "(expression_statement (math_op (number) (number))))");
         });
       });

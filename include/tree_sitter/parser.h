@@ -13,8 +13,6 @@ extern "C" {
 #define ts_parse_state_error ((TSStateId)-1)
 #define TS_DEBUG_BUFFER_SIZE 512
 
-typedef struct TSTree TSTree;
-
 typedef unsigned short TSStateId;
 
 typedef struct {
@@ -31,23 +29,31 @@ typedef struct {
   bool structural : 1;
 } TSSymbolMetadata;
 
+typedef enum {
+  TSTransitionTypeMain,
+  TSTransitionTypeSeparator,
+  TSTransitionTypeError,
+} TSTransitionType;
+
 typedef struct TSLexer {
-  void (*start_fn)(struct TSLexer *, TSStateId);
-  bool (*advance_fn)(struct TSLexer *, TSStateId, bool);
-  TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, TSSymbolMetadata,
-                       const char *, bool fragile);
+  void (*advance)(struct TSLexer *, TSStateId, TSTransitionType);
+
+  TSLength current_position;
+  TSLength token_end_position;
+  TSLength token_start_position;
+  TSLength error_end_position;
 
   const char *chunk;
   size_t chunk_start;
   size_t chunk_size;
 
-  TSLength current_position;
-  TSLength token_end_position;
-  TSLength token_start_position;
-
   size_t lookahead_size;
   int32_t lookahead;
   TSStateId starting_state;
+  TSSymbol result_symbol;
+  bool result_is_fragile;
+  bool result_follows_error;
+  int32_t first_unexpected_character;
 
   TSInput input;
   TSDebugger debugger;
@@ -89,17 +95,16 @@ struct TSLanguage {
   const TSParseActionEntry *parse_actions;
   const TSStateId *lex_states;
   const TSParseAction *recovery_actions;
-  TSTree *(*lex_fn)(TSLexer *, TSStateId, bool);
+  void (*lex_fn)(TSLexer *, TSStateId, bool);
 };
 
 /*
  *  Lexer Macros
  */
 
-#define START_LEXER()            \
-  lexer->start_fn(lexer, state); \
-  int32_t lookahead;             \
-  next_state:                    \
+#define START_LEXER() \
+  int32_t lookahead;  \
+  next_state:         \
   lookahead = lexer->lookahead;
 
 #define GO_TO_STATE(state_value) \
@@ -108,35 +113,39 @@ struct TSLanguage {
     goto next_state;             \
   }
 
-#define ADVANCE(state_value)                     \
-  {                                              \
-    lexer->advance_fn(lexer, state_value, true); \
-    GO_TO_STATE(state_value);                    \
+#define ADVANCE(state_value)                                  \
+  {                                                           \
+    lexer->advance(lexer, state_value, TSTransitionTypeMain); \
+    GO_TO_STATE(state_value);                                 \
   }
 
-#define SKIP(state_value)                         \
-  {                                               \
-    lexer->advance_fn(lexer, state_value, false); \
-    GO_TO_STATE(state_value);                     \
+#define SKIP(state_value)                                          \
+  {                                                                \
+    lexer->advance(lexer, state_value, TSTransitionTypeSeparator); \
+    GO_TO_STATE(state_value);                                      \
   }
 
-#define ACCEPT_FRAGILE_TOKEN(symbol)                                 \
-  return lexer->accept_fn(lexer, symbol, ts_symbol_metadata[symbol], \
-                          ts_symbol_names[symbol], true);
-
-#define ACCEPT_TOKEN(symbol)                                         \
-  return lexer->accept_fn(lexer, symbol, ts_symbol_metadata[symbol], \
-                          ts_symbol_names[symbol], false);
-
-#define LEX_ERROR()                                                            \
-  if (error_mode) {                                                            \
-    if (state == ts_lex_state_error)                                           \
-      lexer->advance_fn(lexer, state, true);                                   \
-    GO_TO_STATE(ts_lex_state_error)                                            \
-  } else {                                                                     \
-    return lexer->accept_fn(lexer, ts_builtin_sym_error, (TSSymbolMetadata){}, \
-                            "ERROR", false);                                   \
+#define ACCEPT_FRAGILE_TOKEN(symbol_value) \
+  {                                        \
+    lexer->result_is_fragile = true;       \
+    lexer->result_symbol = symbol_value;   \
+    return;                                \
   }
+
+#define ACCEPT_TOKEN(symbol_value)       \
+  {                                      \
+    lexer->result_symbol = symbol_value; \
+    return;                              \
+  }
+
+#define LEX_ERROR()                                        \
+  if (error_mode) {                                        \
+    if (state == ts_lex_state_error)                       \
+      lexer->advance(lexer, state, TSTransitionTypeError); \
+  } else {                                                 \
+    error_mode = true;                                     \
+  }                                                        \
+  GO_TO_STATE(ts_lex_state_error)
 
 /*
  *  Parse Table Macros

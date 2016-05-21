@@ -162,7 +162,7 @@ describe("Document", [&]() {
       ts_document_parse(doc);
 
       AssertThat(debugger->messages, Contains("lookahead char:'1'"));
-      AssertThat(debugger->messages, Contains("advance state:1"));
+      AssertThat(debugger->messages, Contains("accept_token sym:["));
       AssertThat(debugger->messages, Contains("accept_token sym:number"));
     });
 

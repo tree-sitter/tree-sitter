@@ -47,24 +47,11 @@ static void ts_lexer__get_lookahead(TSLexer *self) {
   LOG_LOOKAHEAD();
 }
 
-static void ts_lexer__start(TSLexer *self, TSStateId lex_state) {
-  LOG("start_lex state:%d, pos:%lu", lex_state, self->current_position.chars);
-  LOG_LOOKAHEAD();
-
-  self->starting_state = lex_state;
-  self->token_start_position = self->current_position;
-  if (!self->chunk)
-    ts_lexer__get_chunk(self);
-  if (!self->lookahead_size)
-    ts_lexer__get_lookahead(self);
-}
-
-static bool ts_lexer__advance(TSLexer *self, TSStateId state,
-                              bool in_main_token) {
-  LOG("advance state:%d", state);
+static void ts_lexer__advance(TSLexer *self, TSStateId state,
+                              TSTransitionType transition_type) {
 
   if (self->chunk == empty_chunk)
-    return false;
+    return;
 
   if (self->lookahead_size) {
     self->current_position.bytes += self->lookahead_size;
@@ -78,53 +65,41 @@ static bool ts_lexer__advance(TSLexer *self, TSStateId state,
     }
   }
 
-  if (!in_main_token)
-    self->token_start_position = self->current_position;
+  switch (transition_type) {
+    case TSTransitionTypeSeparator:
+      if (self->result_follows_error) {
+        LOG("skip_error state:%d", state);
+      } else {
+        LOG("skip_separator state:%d", state);
+        self->token_start_position = self->current_position;
+      }
+      break;
+    case TSTransitionTypeError:
+      LOG("skip_error state:%d", state);
+      self->result_follows_error = true;
+      self->error_end_position = self->current_position;
+      if (!self->first_unexpected_character)
+        self->first_unexpected_character = self->lookahead;
+      break;
+    default:
+      LOG("advance state:%d", state);
+      break;
+  }
 
   if (self->current_position.bytes >= self->chunk_start + self->chunk_size)
     ts_lexer__get_chunk(self);
 
   ts_lexer__get_lookahead(self);
-  return true;
-}
-
-static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
-                                TSSymbolMetadata metadata,
-                                const char *symbol_name, bool fragile) {
-  TSLength size =
-    ts_length_sub(self->current_position, self->token_start_position);
-  TSLength padding =
-    ts_length_sub(self->token_start_position, self->token_end_position);
-  self->token_end_position = self->current_position;
-
-  TSTree *result;
-  if (symbol == ts_builtin_sym_error) {
-    LOG("error_char");
-    result = ts_tree_make_error(size, padding, self->lookahead);
-  } else {
-    LOG("accept_token sym:%s", symbol_name);
-    result = ts_tree_make_leaf(symbol, padding, size, metadata);
-  }
-
-  if (!result)
-    return NULL;
-
-  if (fragile)
-    result->lex_state = self->starting_state;
-
-  return result;
 }
 
 /*
- *  The lexer's methods are stored as struct fields so that generated parsers
- *  can call them without needing to be linked against this library.
+ *  The lexer's advance method is stored as a struct field so that generated
+ *  parsers can call it without needing to be linked against this library.
  */
 
 void ts_lexer_init(TSLexer *self) {
   *self = (TSLexer){
-    .start_fn = ts_lexer__start,
-    .advance_fn = ts_lexer__advance,
-    .accept_fn = ts_lexer__accept,
+    .advance = ts_lexer__advance,
     .chunk = NULL,
     .chunk_start = 0,
     .debugger = ts_debugger_null(),
@@ -153,4 +128,41 @@ void ts_lexer_reset(TSLexer *self, TSLength position) {
   if (!ts_length_eq(position, self->current_position))
     ts_lexer__reset(self, position);
   return;
+}
+
+void ts_lexer_start(TSLexer *self, TSStateId lex_state) {
+  LOG("start_lex state:%d, pos:%lu", lex_state, self->current_position.chars);
+  LOG_LOOKAHEAD();
+
+  self->starting_state = lex_state;
+  self->token_start_position = self->current_position;
+  self->result_follows_error = false;
+  self->result_is_fragile = false;
+  self->result_symbol = 0;
+  self->first_unexpected_character = 0;
+
+  if (!self->chunk)
+    ts_lexer__get_chunk(self);
+  if (!self->lookahead_size)
+    ts_lexer__get_lookahead(self);
+}
+
+void ts_lexer_finish(TSLexer *self, TSLexerResult *result) {
+  result->padding =
+    ts_length_sub(self->token_start_position, self->token_end_position);
+
+  if (self->result_follows_error) {
+    result->symbol = ts_builtin_sym_error;
+    result->size =
+      ts_length_sub(self->error_end_position, self->token_start_position);
+    result->first_unexpected_character = self->first_unexpected_character;
+    result->is_fragile = true;
+    ts_lexer_reset(self, self->error_end_position);
+  } else {
+    result->symbol = self->result_symbol;
+    result->size =
+      ts_length_sub(self->current_position, self->token_start_position);
+    result->is_fragile = self->result_is_fragile;
+    self->token_end_position = self->current_position;
+  }
 }

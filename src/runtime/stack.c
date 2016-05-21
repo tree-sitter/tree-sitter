@@ -487,6 +487,21 @@ void ts_stack_merge_from(Stack *self, StackVersion start_version) {
   }
 }
 
+void ts_stack_merge_new(Stack *self, StackVersion reference_version,
+                        StackVersion first_new_version) {
+  StackNode *reference_node = self->heads.contents[reference_version].node;
+  for (size_t i = first_new_version; i < self->heads.size; i++) {
+    StackNode *node = self->heads.contents[i].node;
+    if (reference_node->state == node->state &&
+        reference_node->position.chars == node->position.chars) {
+      for (size_t j = 0; j < node->link_count; j++)
+        stack_node_add_link(reference_node, node->links[j]);
+      ts_stack_remove_version(self, i);
+      i--;
+    }
+  }
+}
+
 void ts_stack_merge(Stack *self) {
   ts_stack_merge_from(self, 0);
 }

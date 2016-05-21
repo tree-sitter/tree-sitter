@@ -378,11 +378,6 @@ void ts_tree_edit(TSTree *self, TSInputEdit edit) {
   }
 }
 
-void ts_tree_steal_padding(TSTree *self, TSTree *other) {
-  self->size = ts_length_add(self->size, other->padding);
-  other->padding = ts_length_zero();
-}
-
 static size_t write_lookahead_to_string(char *string, size_t limit,
                                         char lookahead) {
   switch (lookahead) {

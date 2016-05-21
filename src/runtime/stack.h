@@ -107,6 +107,9 @@ void ts_stack_merge_from(Stack *, StackVersion);
 
 void ts_stack_merge(Stack *);
 
+void ts_stack_merge_new(Stack *, StackVersion base_version,
+                        StackVersion new_version);
+
 void ts_stack_renumber_version(Stack *, StackVersion, StackVersion);
 
 StackVersion ts_stack_duplicate_version(Stack *, StackVersion);

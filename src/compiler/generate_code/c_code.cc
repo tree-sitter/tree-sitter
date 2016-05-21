@@ -192,7 +192,7 @@ class CCodeGenerator {
 
   void add_lex_function() {
     line(
-      "static TSTree *ts_lex(TSLexer *lexer, TSStateId state, bool error_mode) "
+      "static void ts_lex(TSLexer *lexer, TSStateId state, bool error_mode) "
       "{");
     indent([&]() {
       line("START_LEXER();");

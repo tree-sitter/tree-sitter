@@ -13,7 +13,7 @@ extern "C" {
 extern TSStateId TS_TREE_STATE_INDEPENDENT;
 extern TSStateId TS_TREE_STATE_ERROR;
 
-struct TSTree {
+typedef struct TSTree {
   struct {
     struct TSTree *parent;
     size_t index;
@@ -43,7 +43,7 @@ struct TSTree {
   bool fragile_left : 1;
   bool fragile_right : 1;
   bool has_changes : 1;
-};
+} TSTree;
 
 typedef Array(TSTree *) TreeArray;
 TreeArray ts_tree_array_copy(TreeArray *);
@@ -65,7 +65,6 @@ size_t ts_tree_end_column(const TSTree *self);
 void ts_tree_set_children(TSTree *, size_t, TSTree **);
 void ts_tree_assign_parents(TSTree *);
 void ts_tree_edit(TSTree *, TSInputEdit);
-void ts_tree_steal_padding(TSTree *, TSTree *);
 char *ts_tree_string(const TSTree *, const TSLanguage *, bool include_all);
 size_t ts_tree_last_error_size(const TSTree *);
 

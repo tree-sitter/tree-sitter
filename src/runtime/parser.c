@@ -206,6 +206,32 @@ static bool ts_parser__can_reuse(TSParser *self, StackVersion version,
   return true;
 }
 
+static TSTree *ts_parser__lex(TSParser *self, TSStateId state, bool error_mode) {
+  TSLexerResult lex_result;
+  ts_lexer_start(&self->lexer, state);
+  self->language->lex_fn(&self->lexer, state, error_mode);
+  ts_lexer_finish(&self->lexer, &lex_result);
+
+  TSTree *result;
+  if (lex_result.symbol == ts_builtin_sym_error) {
+    result = ts_tree_make_error(lex_result.size, lex_result.padding,
+                                lex_result.first_unexpected_character);
+  } else {
+    LOG("accept_token sym:%s", SYM_NAME(lex_result.symbol));
+    result = ts_tree_make_leaf(
+      lex_result.symbol, lex_result.padding, lex_result.size,
+      ts_language_symbol_metadata(self->language, lex_result.symbol));
+  }
+
+  if (!result)
+    return NULL;
+
+  if (lex_result.is_fragile)
+    result->lex_state = state;
+
+  return result;
+}
+
 static TSTree *ts_parser__get_lookahead(TSParser *self, StackVersion version,
                                         ReusableNode *reusable_node) {
   TSLength position = ts_stack_top_position(self->stack, version);
@@ -250,7 +276,7 @@ static TSTree *ts_parser__get_lookahead(TSParser *self, StackVersion version,
   bool error_mode = parse_state == ts_parse_state_error;
   TSStateId lex_state = error_mode ? 0 : self->language->lex_states[parse_state];
   LOG("lex state:%d", lex_state);
-  return self->language->lex_fn(&self->lexer, lex_state, error_mode);
+  return ts_parser__lex(self, lex_state, error_mode);
 }
 
 static bool ts_parser__select_tree(TSParser *self, TSTree *left, TSTree *right) {
@@ -666,6 +692,8 @@ error:
 
 static bool ts_parser__handle_error(TSParser *self, StackVersion version,
                                     TSStateId state, TSTree *lookahead) {
+  size_t previous_version_count = ts_stack_version_count(self->stack);
+
   bool has_shift_action = false;
   array_clear(&self->reduce_actions);
   for (TSSymbol symbol = 0; symbol < self->language->symbol_count; symbol++) {
@@ -695,16 +723,18 @@ static bool ts_parser__handle_error(TSParser *self, StackVersion version,
                                   false, true);
     CHECK(reduction.status != ReduceFailed);
     assert(reduction.status == ReduceSucceeded);
-    CHECK(ts_parser__shift(self, reduction.slice.version, ts_parse_state_error,
-                           lookahead, false));
+    CHECK(ts_stack_push(self->stack, reduction.slice.version, NULL, false,
+                        ts_parse_state_error));
   }
 
   if (has_shift_action) {
-    CHECK(
-      ts_parser__shift(self, version, ts_parse_state_error, lookahead, false));
+    CHECK(ts_stack_push(self->stack, version, NULL, false, ts_parse_state_error));
   } else {
     ts_stack_renumber_version(self->stack, reduction.slice.version, version);
   }
+
+  ts_stack_merge_new(self->stack, version, previous_version_count);
+  assert(ts_stack_version_count(self->stack) == previous_version_count);
 
   return true;
 
@@ -793,7 +823,7 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self,
           if (ts_stack_version_count(self->stack) == 1 && !self->finished_tree) {
             LOG_ACTION("handle_error");
             CHECK(ts_parser__handle_error(self, version, state, lookahead));
-            return ParseActionUpdated;
+            break;
           } else {
             LOG_ACTION("bail version:%d", version);
             ts_stack_remove_version(self->stack, version);
