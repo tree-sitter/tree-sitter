@@ -71,7 +71,8 @@ static void stack_node_release(StackNode *self, StackNodeArray *pool) {
   self->ref_count--;
   if (self->ref_count == 0) {
     for (int i = 0; i < self->link_count; i++) {
-      ts_tree_release(self->links[i].tree);
+      if (self->links[i].tree)
+        ts_tree_release(self->links[i].tree);
       stack_node_release(self->links[i].node, pool);
     }
 
@@ -99,7 +100,8 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
   };
 
   if (next) {
-    ts_tree_retain(tree);
+    if (tree)
+      ts_tree_retain(tree);
     stack_node_retain(next);
     node->link_count = 1;
     node->links[0] = (StackLink){ next, tree, is_pending };
@@ -125,7 +127,8 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
 
   if (self->link_count < MAX_LINK_COUNT) {
     stack_node_retain(link.node);
-    ts_tree_retain(link.tree);
+    if (link.tree)
+      ts_tree_retain(link.tree);
     self->links[self->link_count++] = (StackLink){
       link.node, link.tree, link.is_pending,
     };
@@ -215,11 +218,13 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
         next_path->node = link.node;
         if (!link.is_pending)
           next_path->is_pending = false;
-        if (!link.tree->extra)
-          next_path->tree_count++;
-        if (!array_push(&next_path->trees, link.tree))
-          goto error;
-        ts_tree_retain(link.tree);
+        if (link.tree) {
+          if (!link.tree->extra)
+            next_path->tree_count++;
+          if (!array_push(&next_path->trees, link.tree))
+            goto error;
+          ts_tree_retain(link.tree);
+        }
       }
     }
   }
@@ -321,7 +326,7 @@ size_t ts_stack_last_repaired_error_size(const Stack *self,
     if (node->link_count == 0)
       break;
     TSTree *tree = node->links[0].tree;
-    if (tree->error_size > 0)
+    if (tree && tree->error_size > 0)
       return ts_tree_last_error_size(tree);
     node = node->links[0].node;
   }
@@ -339,7 +344,9 @@ bool ts_stack_is_halted(const Stack *self, StackVersion version) {
 bool ts_stack_push(Stack *self, StackVersion version, TSTree *tree,
                    bool is_pending, TSStateId state) {
   StackNode *node = array_get(&self->heads, version)->node;
-  TSLength position = ts_length_add(node->position, ts_tree_total_size(tree));
+  TSLength position =
+    tree ? ts_length_add(node->position, ts_tree_total_size(tree))
+         : node->position;
   StackNode *new_node =
     stack_node_new(node, tree, is_pending, state, position, &self->node_pool);
   if (!new_node)
@@ -538,7 +545,8 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
       fprintf(f, "node_%p [", node);
       if (node->state == ts_parse_state_error)
         fprintf(f, "label=\"?\"");
-      else if (node->link_count == 1 && node->links[0].tree->extra)
+      else if (node->link_count == 1 && node->links[0].tree &&
+               node->links[0].tree->extra)
         fprintf(f, "shape=point margin=0 label=\"\"");
       else
         fprintf(f, "label=%d", node->state);
@@ -549,22 +557,25 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
         fprintf(f, "node_%p -> node_%p [", node, link.node);
         if (link.is_pending)
           fprintf(f, "style=dashed ");
-        if (link.tree->extra)
+        if (link.tree && link.tree->extra)
           fprintf(f, "fontcolor=gray ");
-        fprintf(f, "label=\"");
 
-        if (link.tree->symbol == ts_builtin_sym_error) {
-          fprintf(f, "ERROR");
+        if (!link.tree) {
+          fprintf(f, "color=red");
+        } else if (link.tree->symbol == ts_builtin_sym_error) {
+          fprintf(f, "label=\"ERROR\"");
         } else {
+          fprintf(f, "label=\"");
           const char *name = symbol_names[link.tree->symbol];
           for (const char *c = name; *c; c++) {
             if (*c == '\"' || *c == '\\')
               fprintf(f, "\\");
             fprintf(f, "%c", *c);
           }
+          fprintf(f, "\"");
         }
 
-        fprintf(f, "\"];\n");
+        fprintf(f, "];\n");
 
         if (j == 0) {
           path->node = link.node;
