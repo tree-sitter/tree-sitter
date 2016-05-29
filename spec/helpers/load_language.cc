@@ -156,7 +156,7 @@ const TSLanguage *get_test_language(const string &language_name) {
       return nullptr;
   }
 
-  string language_dir = string("spec/fixtures/") + language_name;
+  string language_dir = string("spec/fixtures/grammars/") + language_name;
   string grammar_filename = language_dir + "/src/grammar.json";
   string parser_filename = language_dir + "/src/parser.c";
 

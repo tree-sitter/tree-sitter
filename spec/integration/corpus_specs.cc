@@ -102,8 +102,6 @@ describe("The Corpus", []() {
   });
 
   for (auto &language_name : test_languages) {
-    string language_dir = string("spec/fixtures/") + language_name;
-
     describe(("the " + language_name + " language").c_str(), [&]() {
       TSDocument *document;
 
@@ -120,7 +118,7 @@ describe("The Corpus", []() {
         AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
       });
 
-      for (auto &entry : read_corpus_entries(language_dir + "/grammar_test")) {
+      for (auto &entry : read_corpus_entries(language_name)) {
         SpyInput *input;
 
         auto it_handles_edit_sequence = [&](string name, std::function<void()> edit_sequence){

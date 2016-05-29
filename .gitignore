@@ -11,5 +11,5 @@ externals/cpplint.py
 out
 *.pyc
 
-spec/fixtures/*
-!spec/fixtures/.gitkeep
+spec/fixtures/grammars/*
+!spec/fixtures/grammars/.gitkeep

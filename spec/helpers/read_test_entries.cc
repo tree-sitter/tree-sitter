@@ -38,7 +38,7 @@ static string trim_output(const string &input) {
   return result;
 }
 
-static vector<TestEntry> get_test_entries_from_string(string content) {
+static vector<TestEntry> parse_test_entries(string content) {
   regex header_pattern("===+\n"  "([^=]+)\n"  "===+", extended);
   regex separator_pattern("---+", extended);
   vector<string> descriptions;
@@ -94,16 +94,25 @@ static vector<string> list_directory(string dir_name) {
 	return result;
 }
 
-vector<TestEntry> read_corpus_entries(string directory) {
-  vector<TestEntry> result;
-  vector<string> filenames = list_directory(directory);
+static string read_file(string filename) {
+  ifstream file(filename);
+  string result((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
+  return result;
+}
 
-  for (string &filename : filenames) {
-    ifstream file(filename);
-    std::string content((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
-    for (TestEntry &entry : get_test_entries_from_string(content))
+vector<TestEntry> read_corpus_entries(string language_name) {
+  vector<TestEntry> result;
+
+  string fixtures_dir = "spec/fixtures/";
+
+  string test_directory = fixtures_dir + "grammars/" + language_name + "/grammar_test";
+  for (string &test_filename : list_directory(test_directory))
+    for (TestEntry &entry : parse_test_entries(read_file(test_filename)))
       result.push_back(entry);
-  }
+
+  string error_test_filename = fixtures_dir + "/error_corpus/" + language_name + "_errors.txt";
+  for (TestEntry &entry : parse_test_entries(read_file(error_test_filename)))
+    result.push_back(entry);
 
   return result;
 }
