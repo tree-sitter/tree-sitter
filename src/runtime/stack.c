@@ -502,7 +502,7 @@ void ts_stack_merge_new(Stack *self, StackVersion reference_version,
   }
 }
 
-void ts_stack_merge(Stack *self) {
+void ts_stack_merge_all(Stack *self) {
   ts_stack_merge_from(self, 0);
 }
 

@@ -121,7 +121,7 @@ describe("Stack", [&]() {
     });
   });
 
-  describe("merge()", [&]() {
+  describe("merge_all()", [&]() {
     before_each([&]() {
       // . <──0── A <──1── B*
       //          ↑
@@ -142,7 +142,7 @@ describe("Stack", [&]() {
       // . <──0── A <──1── B <──3── D*
       //          ↑                 |
       //          └───2─── C <──4───┘
-      ts_stack_merge(stack);
+      ts_stack_merge_all(stack);
       AssertThat(ts_stack_version_count(stack), Equals<size_t>(1));
       AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
         {stateD, 0},
@@ -154,7 +154,7 @@ describe("Stack", [&]() {
     });
 
     it("does not combine versions that have different states", [&]() {
-      ts_stack_merge(stack);
+      ts_stack_merge_all(stack);
       AssertThat(ts_stack_version_count(stack), Equals<size_t>(2));
     });
 
@@ -166,7 +166,7 @@ describe("Stack", [&]() {
       ts_stack_push(stack, 0, trees[3], false, stateD);
       ts_stack_push(stack, 1, trees[4], false, stateD);
 
-      ts_stack_merge(stack);
+      ts_stack_merge_all(stack);
       AssertThat(ts_stack_version_count(stack), Equals<size_t>(2));
     });
 
@@ -183,7 +183,7 @@ describe("Stack", [&]() {
         // . <──0── A <──1── B <──3── D <──5── E*
         //          ↑                 |
         //          └───2─── C <──4───┘
-        ts_stack_merge(stack);
+        ts_stack_merge_all(stack);
         AssertThat(ts_stack_version_count(stack), Equals<size_t>(1));
         AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
           {stateE, 0},
@@ -272,7 +272,7 @@ describe("Stack", [&]() {
         ts_stack_push(stack, 1, trees[4], false, stateE);
         ts_stack_push(stack, 1, trees[5], false, stateF);
         ts_stack_push(stack, 1, trees[6], false, stateD);
-        ts_stack_merge(stack);
+        ts_stack_merge_all(stack);
         ts_stack_push(stack, 0, trees[10], false, stateI);
 
         AssertThat(ts_stack_version_count(stack), Equals<size_t>(1));
@@ -393,7 +393,7 @@ describe("Stack", [&]() {
           ts_stack_push(stack, 1, trees[8], false, stateH);
           ts_stack_push(stack, 1, trees[9], false, stateD);
           ts_stack_push(stack, 1, trees[10], false, stateI);
-          ts_stack_merge(stack);
+          ts_stack_merge_all(stack);
 
           AssertThat(ts_stack_version_count(stack), Equals<size_t>(1));
           AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({

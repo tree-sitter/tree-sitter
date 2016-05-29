@@ -1018,7 +1018,7 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
       }
     }
 
-    ts_stack_merge(self->stack);
+    ts_stack_merge_all(self->stack);
     ts_tree_release(lookahead);
 
     if (ts_stack_version_count(self->stack) == 0) {

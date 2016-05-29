@@ -105,7 +105,7 @@ StackPopResult ts_stack_pop_all(Stack *, StackVersion);
 
 void ts_stack_merge_from(Stack *, StackVersion);
 
-void ts_stack_merge(Stack *);
+void ts_stack_merge_all(Stack *);
 
 void ts_stack_merge_new(Stack *, StackVersion base_version,
                         StackVersion new_version);
