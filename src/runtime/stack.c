@@ -458,6 +458,28 @@ StackVersion ts_stack_duplicate_version(Stack *self, StackVersion version) {
   return self->heads.size - 1;
 }
 
+StackVersion ts_stack_split(Stack *self, StackVersion version) {
+  if (!array_push(&self->heads, self->heads.contents[version]))
+    return STACK_VERSION_NONE;
+  stack_node_retain(self->heads.contents[version].node);
+  return self->heads.size - 1;
+}
+
+bool ts_stack_merge(Stack *self, StackVersion version, StackVersion new_version) {
+  StackNode *node = self->heads.contents[version].node;
+  StackNode *new_node = self->heads.contents[new_version].node;
+
+  if (new_node->state == node->state &&
+      new_node->position.chars == node->position.chars) {
+    for (size_t j = 0; j < new_node->link_count; j++)
+      stack_node_add_link(node, new_node->links[j]);
+    ts_stack_remove_version(self, new_version);
+    return true;
+  } else {
+    return false;
+  }
+}
+
 void ts_stack_merge_from(Stack *self, StackVersion start_version) {
   for (size_t i = start_version; i < self->heads.size; i++) {
     if (self->heads.contents[i].is_halted) {
@@ -483,21 +505,6 @@ void ts_stack_merge_from(Stack *self, StackVersion start_version) {
         i--;
         break;
       }
-    }
-  }
-}
-
-void ts_stack_merge_new(Stack *self, StackVersion reference_version,
-                        StackVersion first_new_version) {
-  StackNode *reference_node = self->heads.contents[reference_version].node;
-  for (size_t i = first_new_version; i < self->heads.size; i++) {
-    StackNode *node = self->heads.contents[i].node;
-    if (reference_node->state == node->state &&
-        reference_node->position.chars == node->position.chars) {
-      for (size_t j = 0; j < node->link_count; j++)
-        stack_node_add_link(reference_node, node->links[j]);
-      ts_stack_remove_version(self, i);
-      i--;
     }
   }
 }

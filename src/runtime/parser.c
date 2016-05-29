@@ -692,9 +692,6 @@ error:
 
 static bool ts_parser__handle_error(TSParser *self, StackVersion version,
                                     TSStateId state, TSTree *lookahead) {
-  size_t previous_version_count = ts_stack_version_count(self->stack);
-
-  bool has_shift_action = false;
   array_clear(&self->reduce_actions);
   for (TSSymbol symbol = 0; symbol < self->language->symbol_count; symbol++) {
     size_t action_count;
@@ -702,12 +699,7 @@ static bool ts_parser__handle_error(TSParser *self, StackVersion version,
       ts_language_actions(self->language, state, symbol, &action_count);
     for (size_t i = 0; i < action_count; i++) {
       TSParseAction action = actions[i];
-      if (action.extra)
-        continue;
-      if (action.type == TSParseActionTypeShift ||
-          action.type == TSParseActionTypeRecover)
-        has_shift_action = true;
-      if (action.type == TSParseActionTypeReduce)
+      if (action.type == TSParseActionTypeReduce && !action.extra)
         CHECK(ts_reduce_action_set_add(
           &self->reduce_actions,
           (ReduceAction){
@@ -716,25 +708,25 @@ static bool ts_parser__handle_error(TSParser *self, StackVersion version,
     }
   }
 
-  Reduction reduction;
+  StackVersion scratch_version = ts_stack_split(self->stack, version);
+  CHECK(scratch_version != STACK_VERSION_NONE);
+  CHECK(ts_stack_push(self->stack, version, NULL, false, ts_parse_state_error));
+
+  size_t previous_version_count = ts_stack_version_count(self->stack);
   for (size_t i = 0; i < self->reduce_actions.size; i++) {
-    ReduceAction repair = self->reduce_actions.contents[i];
-    reduction = ts_parser__reduce(self, version, repair.symbol, repair.count,
-                                  false, true);
+    ReduceAction action = self->reduce_actions.contents[i];
+    Reduction reduction = ts_parser__reduce(self, scratch_version, action.symbol,
+                                            action.count, false, true);
     CHECK(reduction.status != ReduceFailed);
     assert(reduction.status == ReduceSucceeded);
-    CHECK(ts_stack_push(self->stack, reduction.slice.version, NULL, false,
-                        ts_parse_state_error));
+    while (ts_stack_version_count(self->stack) > previous_version_count) {
+      CHECK(ts_stack_push(self->stack, previous_version_count, NULL, false,
+                          ts_parse_state_error));
+      assert(ts_stack_merge(self->stack, version, previous_version_count));
+    }
   }
 
-  if (has_shift_action) {
-    CHECK(ts_stack_push(self->stack, version, NULL, false, ts_parse_state_error));
-  } else {
-    ts_stack_renumber_version(self->stack, reduction.slice.version, version);
-  }
-
-  ts_stack_merge_new(self->stack, version, previous_version_count);
-  assert(ts_stack_version_count(self->stack) == previous_version_count);
+  ts_stack_remove_version(self->stack, scratch_version);
 
   return true;
 

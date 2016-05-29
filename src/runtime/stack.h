@@ -103,12 +103,13 @@ StackPopResult ts_stack_pop_pending(Stack *, StackVersion);
 
 StackPopResult ts_stack_pop_all(Stack *, StackVersion);
 
+StackVersion ts_stack_split(Stack *, StackVersion);
+
+bool ts_stack_merge(Stack *, StackVersion, StackVersion);
+
 void ts_stack_merge_from(Stack *, StackVersion);
 
 void ts_stack_merge_all(Stack *);
-
-void ts_stack_merge_new(Stack *, StackVersion base_version,
-                        StackVersion new_version);
 
 void ts_stack_renumber_version(Stack *, StackVersion, StackVersion);
 
