@@ -6,6 +6,7 @@
 #include "runtime/length.h"
 #include <assert.h>
 #include <stdio.h>
+#include <limits.h>
 
 #define MAX_LINK_COUNT 8
 #define MAX_NODE_POOL_SIZE 50
@@ -26,7 +27,9 @@ struct StackNode {
   StackLink links[MAX_LINK_COUNT];
   short unsigned int link_count;
   short unsigned int ref_count;
-  size_t error_length;
+  unsigned min_error_cost;
+  unsigned max_error_cost;
+  unsigned error_depth;
 };
 
 typedef struct {
@@ -90,22 +93,35 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
   else if (!(node = ts_malloc(sizeof(StackNode))))
     return NULL;
 
+  bool is_error = (state == ts_parse_state_error);
+
   *node = (StackNode){
     .ref_count = 1,
     .link_count = 0,
     .links = {},
     .state = state,
     .position = position,
-    .error_length = (state == ts_parse_state_error) ? 1 : 0,
+    .error_depth = 0,
+    .min_error_cost = is_error ? 1 : 0,
+    .max_error_cost = is_error ? 1 : 0,
   };
 
   if (next) {
-    if (tree)
-      ts_tree_retain(tree);
     stack_node_retain(next);
-    node->link_count = 1;
     node->links[0] = (StackLink){ next, tree, is_pending };
-    node->error_length += next->error_length;
+
+    node->link_count = 1;
+    node->min_error_cost += next->min_error_cost;
+    node->max_error_cost += next->max_error_cost;
+    node->error_depth = next->error_depth;
+
+    if (tree) {
+      ts_tree_retain(tree);
+      node->min_error_cost += tree->error_size;
+      node->max_error_cost += tree->error_size;
+    } else {
+      node->error_depth++;
+    }
   }
 
   return node;
@@ -127,8 +143,16 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
 
   if (self->link_count < MAX_LINK_COUNT) {
     stack_node_retain(link.node);
-    if (link.tree)
+    if (link.tree) {
       ts_tree_retain(link.tree);
+      size_t min_error_cost = link.tree->error_size + link.node->min_error_cost;
+      size_t max_error_cost = link.tree->error_size + link.node->max_error_cost;
+      if (min_error_cost < self->min_error_cost)
+        self->min_error_cost = min_error_cost;
+      if (max_error_cost < self->max_error_cost)
+        self->max_error_cost = max_error_cost;
+    }
+
     self->links[self->link_count++] = (StackLink){
       link.node, link.tree, link.is_pending,
     };
@@ -257,7 +281,7 @@ Stack *ts_stack_new() {
   if (!array_grow(&self->pop_paths, 4))
     goto error;
 
-  if (!array_grow(&self->node_pool, 20))
+  if (!array_grow(&self->node_pool, MAX_NODE_POOL_SIZE))
     goto error;
 
   self->base_node =
@@ -315,10 +339,6 @@ TSLength ts_stack_top_position(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->position;
 }
 
-size_t ts_stack_error_length(const Stack *self, StackVersion version) {
-  return array_get(&self->heads, version)->node->error_length;
-}
-
 size_t ts_stack_last_repaired_error_size(const Stack *self,
                                          StackVersion version) {
   StackNode *node = array_get(&self->heads, version)->node;
@@ -331,14 +351,6 @@ size_t ts_stack_last_repaired_error_size(const Stack *self,
     node = node->links[0].node;
   }
   return 0;
-}
-
-void ts_stack_halt(Stack *self, StackVersion version) {
-  array_get(&self->heads, version)->is_halted = true;
-}
-
-bool ts_stack_is_halted(const Stack *self, StackVersion version) {
-  return array_get(&self->heads, version)->is_halted;
 }
 
 bool ts_stack_push(Stack *self, StackVersion version, TSTree *tree,
@@ -394,7 +406,8 @@ StackPopResult ts_stack_pop_count(Stack *self, StackVersion version,
       ts_stack_remove_version(self, error_slice.version);
       ts_tree_array_delete(&error_slice.trees);
       array_erase(&pop.slices, 0);
-      pop.slices.contents[0].version--;
+      for (StackVersion i = 0; i < pop.slices.size; i++)
+        pop.slices.contents[i].version--;
     } else {
       pop.status = StackPopStoppedAtError;
     }
@@ -470,7 +483,8 @@ bool ts_stack_merge(Stack *self, StackVersion version, StackVersion new_version)
   StackNode *new_node = self->heads.contents[new_version].node;
 
   if (new_node->state == node->state &&
-      new_node->position.chars == node->position.chars) {
+      new_node->position.chars == node->position.chars &&
+      new_node->error_depth == node->error_depth) {
     for (size_t j = 0; j < new_node->link_count; j++)
       stack_node_add_link(node, new_node->links[j]);
     ts_stack_remove_version(self, new_version);
@@ -482,26 +496,8 @@ bool ts_stack_merge(Stack *self, StackVersion version, StackVersion new_version)
 
 void ts_stack_merge_from(Stack *self, StackVersion start_version) {
   for (size_t i = start_version; i < self->heads.size; i++) {
-    if (self->heads.contents[i].is_halted) {
-      ts_stack_remove_version(self, i);
-      i--;
-      continue;
-    }
-
-    StackNode *node = self->heads.contents[i].node;
     for (size_t j = start_version; j < i; j++) {
-      StackNode *prior_node = self->heads.contents[j].node;
-      if (prior_node->state == node->state &&
-          prior_node->position.chars == node->position.chars) {
-        if (prior_node->error_length < node->error_length) {
-          ts_stack_remove_version(self, i);
-        } else if (node->error_length < prior_node->error_length) {
-          ts_stack_remove_version(self, j);
-        } else {
-          for (size_t k = 0; k < node->link_count; k++)
-            stack_node_add_link(prior_node, node->links[k]);
-          ts_stack_remove_version(self, i);
-        }
+      if (ts_stack_merge(self, j, i)) {
         i--;
         break;
       }
@@ -511,6 +507,84 @@ void ts_stack_merge_from(Stack *self, StackVersion start_version) {
 
 void ts_stack_merge_all(Stack *self) {
   ts_stack_merge_from(self, 0);
+}
+
+void stack_node_remove_link(StackNode *self, size_t i,
+                            StackNodeArray *node_pool) {
+  self->link_count--;
+  ts_tree_release(self->links[i].tree);
+  stack_node_release(self->links[i].node, node_pool);
+  memmove(&self->links[i], &self->links[i + 1],
+          (self->link_count - i) * sizeof(StackLink));
+}
+
+void stack_node_prune_paths_with_error_cost(StackNode *self, size_t cost,
+                                            StackNodeArray *node_pool) {
+  for (size_t i = 0; i < self->link_count; i++) {
+    StackLink link = self->links[i];
+    size_t link_cost = cost;
+    if (link.tree)
+      link_cost -= link.tree->error_size;
+    if (link.node->min_error_cost >= link_cost) {
+      stack_node_remove_link(self, i, node_pool);
+      i--;
+    } else if (link.node->max_error_cost >= link_cost) {
+      stack_node_prune_paths_with_error_cost(link.node, link_cost, node_pool);
+    }
+  }
+}
+
+bool ts_stack_condense(Stack *self) {
+  bool did_condense = false;
+  unsigned min_error_cost = UINT_MAX;
+  unsigned min_error_depth = UINT_MAX;
+  for (size_t i = 0; i < self->heads.size; i++) {
+    StackNode *node = self->heads.contents[i].node;
+
+    bool did_remove = false;
+    for (size_t j = 0; j < i; j++) {
+      if (ts_stack_merge(self, j, i)) {
+        did_condense = true;
+        did_remove = true;
+        break;
+      }
+    }
+
+    if (did_remove) {
+      i--;
+      continue;
+    }
+
+    if (node->error_depth < min_error_depth ||
+        (node->error_depth == min_error_depth &&
+         node->min_error_cost < min_error_cost)) {
+      min_error_depth = node->error_depth;
+      min_error_cost = node->min_error_cost;
+    }
+  }
+
+  for (size_t i = 0; i < self->heads.size; i++) {
+    StackNode *node = self->heads.contents[i].node;
+    if (node->error_depth > min_error_depth + 1) {
+      did_condense = true;
+      ts_stack_remove_version(self, i);
+      i--;
+      continue;
+    } else if (node->error_depth == min_error_depth + 1) {
+      if (node->min_error_cost >= min_error_cost) {
+        did_condense = true;
+        ts_stack_remove_version(self, i);
+        i--;
+        continue;
+      } else if (node->max_error_cost >= min_error_cost) {
+        did_condense = true;
+        stack_node_prune_paths_with_error_cost(node, min_error_cost,
+                                               &self->node_pool);
+      }
+    }
+  }
+
+  return did_condense;
 }
 
 void ts_stack_clear(Stack *self) {
@@ -571,8 +645,13 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
                node->links[0].tree->extra)
         fprintf(f, "shape=point margin=0 label=\"\"");
       else
-        fprintf(f, "label=%d", node->state);
-      fprintf(f, "];\n");
+        fprintf(f, "label=\"%d\"", node->state);
+      fprintf(f, " tooltip=\"error-count:%u, error-cost:", node->error_depth);
+      if (node->min_error_cost == node->max_error_cost)
+        fprintf(f, "%u", node->min_error_cost);
+      else
+        fprintf(f, "%u-%u", node->min_error_cost, node->max_error_cost);
+      fprintf(f, "\"];\n");
 
       for (int j = 0; j < node->link_count; j++) {
         StackLink link = node->links[j];

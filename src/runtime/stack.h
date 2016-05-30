@@ -73,14 +73,6 @@ TSStateId ts_stack_top_state(const Stack *, StackVersion);
  */
 TSLength ts_stack_top_position(const Stack *, StackVersion);
 
-size_t ts_stack_error_length(const Stack *, StackVersion);
-
-size_t ts_stack_last_repaired_error_size(const Stack *, StackVersion);
-
-void ts_stack_halt(Stack *, StackVersion);
-
-bool ts_stack_is_halted(const Stack *, StackVersion);
-
 /*
  *  Push a tree and state onto the given head of the stack. This could cause
  *  the version to merge with an existing version.
@@ -110,6 +102,8 @@ bool ts_stack_merge(Stack *, StackVersion, StackVersion);
 void ts_stack_merge_from(Stack *, StackVersion);
 
 void ts_stack_merge_all(Stack *);
+
+bool ts_stack_condense(Stack *);
 
 void ts_stack_renumber_version(Stack *, StackVersion, StackVersion);
 

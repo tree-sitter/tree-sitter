@@ -92,7 +92,7 @@ recur:
   offset = ts_length_zero();
   for (size_t i = 0; i < self->child_count; i++) {
     TSTree *child = self->children[i];
-    if (child->context.parent != self) {
+    if (child->context.parent != self || child->context.index != i) {
       child->context.parent = self;
       child->context.index = i;
       child->context.offset = offset;

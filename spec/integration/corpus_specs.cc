@@ -156,6 +156,9 @@ describe("The Corpus", []() {
             string description = "\"" + inserted_text + "\" at " + to_string(edit_position);
 
             it_handles_edit_sequence("repairing an insertion of " + description, [&]() {
+              // ts_document_set_debugger(document, log_debugger_make(true));
+              // ts_document_print_debugging_graphs(document, true);
+
               ts_document_edit(document, input->replace(edit_position, 0, inserted_text));
               ts_document_parse(document);
 
