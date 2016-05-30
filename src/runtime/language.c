@@ -10,8 +10,12 @@ const TSParseAction *ts_language_actions(const TSLanguage *self, TSStateId state
                                          TSSymbol symbol, size_t *count) {
   if (state == ts_parse_state_error) {
     *count = 1;
-    return (symbol == ts_builtin_sym_error) ? &ERROR_SHIFT_EXTRA
-                                            : &self->recovery_actions[symbol];
+    if (symbol == ts_builtin_sym_error)
+      return &ERROR_SHIFT_EXTRA;
+    else if (self->recovery_actions[symbol].type == TSParseActionTypeError)
+      return &ERROR_SHIFT_EXTRA;
+    else
+      return &self->recovery_actions[symbol];
   }
 
   size_t action_index = 0;

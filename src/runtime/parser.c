@@ -122,7 +122,7 @@ static BreakdownResult ts_parser__breakdown_top_of_stack(TSParser *self,
         } else if (!last_child->extra) {
           TSParseAction action =
             ts_language_last_action(self->language, state, last_child->symbol);
-          assert(action.type == TSParseActionTypeShift);
+          assert(action.type == TSParseActionTypeShift || action.type == TSParseActionTypeRecover);
           state = action.data.to_state;
         }
 
@@ -415,7 +415,7 @@ static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
     }
 
     TSStateId state = ts_stack_top_state(self->stack, slice.version);
-    if (fragile || self->is_split || ts_stack_version_count(self->stack) > 1) {
+    if (fragile || self->is_split || initial_version_count > 1) {
       parent->fragile_left = true;
       parent->fragile_right = true;
       parent->parse_state = TS_TREE_STATE_ERROR;
