@@ -403,11 +403,13 @@ StackPopResult ts_stack_pop_count(Stack *self, StackVersion version,
   if (pop.status && session.found_error) {
     if (session.found_valid_path) {
       StackSlice error_slice = pop.slices.contents[0];
-      ts_stack_remove_version(self, error_slice.version);
       ts_tree_array_delete(&error_slice.trees);
       array_erase(&pop.slices, 0);
-      for (StackVersion i = 0; i < pop.slices.size; i++)
-        pop.slices.contents[i].version--;
+      if (array_front(&pop.slices)->version != error_slice.version) {
+        ts_stack_remove_version(self, error_slice.version);
+        for (StackVersion i = 0; i < pop.slices.size; i++)
+          pop.slices.contents[i].version--;
+      }
     } else {
       pop.status = StackPopStoppedAtError;
     }
