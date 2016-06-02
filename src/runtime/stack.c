@@ -6,7 +6,6 @@
 #include "runtime/length.h"
 #include <assert.h>
 #include <stdio.h>
-#include <limits.h>
 
 #define MAX_LINK_COUNT 8
 #define MAX_NODE_POOL_SIZE 50
@@ -339,6 +338,14 @@ TSLength ts_stack_top_position(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->position;
 }
 
+unsigned ts_stack_error_cost(const Stack *self, StackVersion version) {
+  return array_get(&self->heads, version)->node->min_error_cost;
+}
+
+unsigned ts_stack_error_depth(const Stack *self, StackVersion version) {
+  return array_get(&self->heads, version)->node->error_depth;
+}
+
 size_t ts_stack_last_repaired_error_size(const Stack *self,
                                          StackVersion version) {
   StackNode *node = array_get(&self->heads, version)->node;
@@ -364,7 +371,7 @@ bool ts_stack_push(Stack *self, StackVersion version, TSTree *tree,
   if (!new_node)
     return false;
   stack_node_release(node, &self->node_pool);
-  self->heads.contents[version] = (StackHead){ new_node, false };
+  self->heads.contents[version].node = new_node;
   return true;
 }
 
@@ -473,13 +480,6 @@ StackVersion ts_stack_duplicate_version(Stack *self, StackVersion version) {
   return self->heads.size - 1;
 }
 
-StackVersion ts_stack_split(Stack *self, StackVersion version) {
-  if (!array_push(&self->heads, self->heads.contents[version]))
-    return STACK_VERSION_NONE;
-  stack_node_retain(self->heads.contents[version].node);
-  return self->heads.size - 1;
-}
-
 bool ts_stack_merge(Stack *self, StackVersion version, StackVersion new_version) {
   StackNode *node = self->heads.contents[version].node;
   StackNode *new_node = self->heads.contents[new_version].node;
@@ -494,21 +494,6 @@ bool ts_stack_merge(Stack *self, StackVersion version, StackVersion new_version)
   } else {
     return false;
   }
-}
-
-void ts_stack_merge_from(Stack *self, StackVersion start_version) {
-  for (size_t i = start_version; i < self->heads.size; i++) {
-    for (size_t j = start_version; j < i; j++) {
-      if (ts_stack_merge(self, j, i)) {
-        i--;
-        break;
-      }
-    }
-  }
-}
-
-void ts_stack_merge_all(Stack *self) {
-  ts_stack_merge_from(self, 0);
 }
 
 void stack_node_remove_link(StackNode *self, size_t i,
@@ -536,57 +521,12 @@ void stack_node_prune_paths_with_error_cost(StackNode *self, size_t cost,
   }
 }
 
-bool ts_stack_condense(Stack *self) {
-  bool did_condense = false;
-  unsigned min_error_cost = UINT_MAX;
-  unsigned min_error_depth = UINT_MAX;
-  for (size_t i = 0; i < self->heads.size; i++) {
-    StackNode *node = self->heads.contents[i].node;
+void ts_stack_halt(Stack *self, StackVersion version) {
+  array_get(&self->heads, version)->is_halted = true;
+}
 
-    bool did_remove = false;
-    for (size_t j = 0; j < i; j++) {
-      if (ts_stack_merge(self, j, i)) {
-        did_condense = true;
-        did_remove = true;
-        break;
-      }
-    }
-
-    if (did_remove) {
-      i--;
-      continue;
-    }
-
-    if (node->error_depth < min_error_depth ||
-        (node->error_depth == min_error_depth &&
-         node->min_error_cost < min_error_cost)) {
-      min_error_depth = node->error_depth;
-      min_error_cost = node->min_error_cost;
-    }
-  }
-
-  for (size_t i = 0; i < self->heads.size; i++) {
-    StackNode *node = self->heads.contents[i].node;
-    if (node->error_depth > min_error_depth + 1) {
-      did_condense = true;
-      ts_stack_remove_version(self, i);
-      i--;
-      continue;
-    } else if (node->error_depth == min_error_depth + 1) {
-      if (node->min_error_cost >= min_error_cost) {
-        did_condense = true;
-        ts_stack_remove_version(self, i);
-        i--;
-        continue;
-      } else if (node->max_error_cost >= min_error_cost) {
-        did_condense = true;
-        stack_node_prune_paths_with_error_cost(node, min_error_cost,
-                                               &self->node_pool);
-      }
-    }
-  }
-
-  return did_condense;
+bool ts_stack_is_halted(Stack *self, StackVersion version) {
+  return array_get(&self->heads, version)->is_halted;
 }
 
 void ts_stack_clear(Stack *self) {

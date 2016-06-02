@@ -1,6 +1,7 @@
 #include "runtime/parser.h"
 #include <assert.h>
 #include <stdio.h>
+#include <limits.h>
 #include <stdbool.h>
 #include "tree_sitter/runtime.h"
 #include "tree_sitter/parser.h"
@@ -43,6 +44,8 @@
     goto error;     \
   }
 
+static const unsigned ERROR_COST_THRESHOLD = 5;
+
 static const TSParseAction ERROR_ACTION = {.type = TSParseActionTypeError };
 
 static const size_t NO_ERROR_DEPTH = (size_t)(-1);
@@ -61,12 +64,6 @@ typedef struct {
   TSStateId best_repair_next_state;
   size_t best_repair_skip_count;
 } ErrorRepairSession;
-
-typedef enum {
-  ParseActionFailed,
-  ParseActionUpdated,
-  ParseActionRemoved,
-} ParseActionResult;
 
 typedef struct {
   enum {
@@ -122,7 +119,8 @@ static BreakdownResult ts_parser__breakdown_top_of_stack(TSParser *self,
         } else if (!last_child->extra) {
           TSParseAction action =
             ts_language_last_action(self->language, state, last_child->symbol);
-          assert(action.type == TSParseActionTypeShift || action.type == TSParseActionTypeRecover);
+          assert(action.type == TSParseActionTypeShift ||
+                 action.type == TSParseActionTypeRecover);
           state = action.data.to_state;
         }
 
@@ -178,6 +176,33 @@ static void ts_parser__breakdown_reusable_node(ReusableNode *reusable_node) {
 
     reusable_node->tree = reusable_node->tree->children[0];
   } while (ts_tree_is_fragile(reusable_node->tree));
+}
+
+static bool ts_parser__condense_stack(TSParser *self) {
+  bool result = false;
+  for (StackVersion i = 0; i < ts_stack_version_count(self->stack); i++) {
+    if (ts_stack_is_halted(self->stack, i)) {
+      ts_stack_remove_version(self->stack, i);
+      i--;
+      continue;
+    }
+
+    bool did_merge = false;
+    for (size_t j = 0; j < i; j++) {
+
+      if (ts_stack_merge(self->stack, j, i)) {
+        did_merge = true;
+        break;
+      }
+    }
+
+    if (did_merge) {
+      result = true;
+      i--;
+      continue;
+    }
+  }
+  return result;
 }
 
 static bool ts_parser__can_reuse(TSParser *self, StackVersion version,
@@ -441,7 +466,15 @@ static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
     }
   }
 
-  ts_stack_merge_from(self->stack, initial_version_count);
+  for (StackVersion i = initial_version_count;
+       i < ts_stack_version_count(self->stack); i++) {
+    for (StackVersion j = initial_version_count; j < i; j++) {
+      if (ts_stack_merge(self->stack, j, i)) {
+        i--;
+        break;
+      }
+    }
+  }
 
   return (Reduction){ ReduceSucceeded, pop.slices.contents[0] };
 
@@ -617,6 +650,20 @@ static RepairResult ts_parser__repair_error(TSParser *self, StackSlice slice,
              SYM_NAME(symbol), repair.count + count_above_error,
              parent->error_size);
 
+  unsigned my_error_cost = ts_stack_error_cost(self->stack, slice.version);
+  unsigned my_error_depth = ts_stack_error_depth(self->stack, slice.version);
+  for (StackVersion i = 0; i < ts_stack_version_count(self->stack); i++) {
+    if (i != slice.version) {
+      unsigned error_cost = ts_stack_error_cost(self->stack, i);
+      unsigned error_depth = ts_stack_error_depth(self->stack, i);
+      if (error_depth > my_error_depth + 1 ||
+          (error_depth == my_error_depth + 1 && error_cost >= my_error_cost)) {
+        LOG_ACTION("halt_other version:%u", i);
+        ts_stack_halt(self->stack, i);
+      }
+    }
+  }
+
   return RepairSucceeded;
 
 error:
@@ -673,7 +720,7 @@ static bool ts_parser__accept(TSParser *self, StackVersion version) {
   }
 
   ts_stack_remove_version(self->stack, pop.slices.contents[0].version);
-  ts_stack_remove_version(self->stack, version);
+  ts_stack_halt(self->stack, version);
 
   return true;
 
@@ -750,6 +797,30 @@ error:
 
 static bool ts_parser__recover(TSParser *self, StackVersion version,
                                TSStateId state, TSTree *lookahead) {
+  if (lookahead->symbol == ts_builtin_sym_end) {
+    LOG_ACTION("recover_eof");
+    TreeArray children = array_new();
+    TSTree *parent = ts_tree_make_error_node(&children);
+    return ts_parser__push(self, version, parent, 1);
+  }
+
+  unsigned my_error_cost = ts_stack_error_cost(self->stack, version);
+  unsigned my_error_depth = ts_stack_error_depth(self->stack, version);
+  for (StackVersion i = 0; i < ts_stack_version_count(self->stack); i++) {
+    if (i != version) {
+      unsigned error_cost = ts_stack_error_cost(self->stack, i);
+      unsigned error_depth = ts_stack_error_depth(self->stack, i);
+      if (error_depth < my_error_depth - 1 ||
+          (error_depth == my_error_depth - 1 && error_cost <= my_error_cost) ||
+          (error_depth == my_error_depth &&
+           error_cost + ERROR_COST_THRESHOLD <= my_error_cost)) {
+        ts_stack_halt(self->stack, version);
+        LOG_ACTION("bail_on_error");
+        return true;
+      }
+    }
+  }
+
   LOG_ACTION("recover state:%u", state);
 
   StackVersion new_version = ts_stack_duplicate_version(self->stack, version);
@@ -765,15 +836,8 @@ error:
   return false;
 }
 
-static bool ts_parser__recover_eof(TSParser *self, StackVersion version) {
-  TreeArray children = array_new();
-  TSTree *parent = ts_tree_make_error_node(&children);
-  return ts_parser__push(self, version, parent, 1);
-}
-
-static ParseActionResult ts_parser__consume_lookahead(TSParser *self,
-                                                      StackVersion version,
-                                                      TSTree *lookahead) {
+static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
+                                         TSTree *lookahead) {
   for (;;) {
     TSStateId state = ts_stack_top_state(self->stack, version);
 
@@ -830,7 +894,7 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self,
 
           CHECK(ts_parser__shift(self, version, next_state, lookahead,
                                  action.extra));
-          return ParseActionUpdated;
+          return true;
         }
 
         case TSParseActionTypeReduce: {
@@ -879,18 +943,13 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self,
         case TSParseActionTypeAccept: {
           LOG_ACTION("accept");
           CHECK(ts_parser__accept(self, version));
-          return ParseActionRemoved;
+          return true;
         }
 
         case TSParseActionTypeRecover: {
-          if (lookahead->symbol == ts_builtin_sym_end) {
-            LOG_ACTION("recover_eof");
-            CHECK(ts_parser__recover_eof(self, version));
-          } else {
-            CHECK(ts_parser__recover(self, version, action.data.to_state,
-                                     lookahead));
-          }
-          return ParseActionUpdated;
+          CHECK(ts_parser__recover(self, version, action.data.to_state,
+                                   lookahead));
+          return true;
         }
       }
     }
@@ -900,7 +959,7 @@ static ParseActionResult ts_parser__consume_lookahead(TSParser *self,
   }
 
 error:
-  return ParseActionFailed;
+  return false;
 }
 
 bool ts_parser_init(TSParser *self) {
@@ -958,7 +1017,12 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
          version < ts_stack_version_count(self->stack);) {
       reusable_node = current_reusable_node;
 
-      for (bool removed = false; !removed;) {
+      for (;;) {
+        if (ts_stack_is_halted(self->stack, version)) {
+          version++;
+          break;
+        }
+
         last_position = position;
         size_t new_position = ts_stack_top_position(self->stack, version).chars;
         if (new_position > max_position) {
@@ -987,22 +1051,16 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
         LOG_ACTION("lookahead sym:%s, size:%lu", SYM_NAME(lookahead->symbol),
                    ts_tree_total_chars(lookahead));
 
-        switch (ts_parser__consume_lookahead(self, version, lookahead)) {
-          case ParseActionFailed:
-            ts_tree_release(lookahead);
-            goto error;
-          case ParseActionRemoved:
-            removed = true;
-            break;
-          case ParseActionUpdated:
-            break;
+        if (!ts_parser__consume_lookahead(self, version, lookahead)) {
+          ts_tree_release(lookahead);
+          goto error;
         }
       }
     }
 
     current_reusable_node = reusable_node;
 
-    if (ts_stack_condense(self->stack)) {
+    if (ts_parser__condense_stack(self)) {
       LOG_ACTION("condense");
       LOG_STACK();
     }

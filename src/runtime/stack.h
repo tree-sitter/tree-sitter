@@ -95,15 +95,15 @@ StackPopResult ts_stack_pop_pending(Stack *, StackVersion);
 
 StackPopResult ts_stack_pop_all(Stack *, StackVersion);
 
-StackVersion ts_stack_split(Stack *, StackVersion);
+unsigned ts_stack_error_depth(const Stack *, StackVersion);
+
+unsigned ts_stack_error_cost(const Stack *, StackVersion);
 
 bool ts_stack_merge(Stack *, StackVersion, StackVersion);
 
-void ts_stack_merge_from(Stack *, StackVersion);
+void ts_stack_halt(Stack *, StackVersion);
 
-void ts_stack_merge_all(Stack *);
-
-bool ts_stack_condense(Stack *);
+bool ts_stack_is_halted(Stack *, StackVersion);
 
 void ts_stack_renumber_version(Stack *, StackVersion, StackVersion);
 
