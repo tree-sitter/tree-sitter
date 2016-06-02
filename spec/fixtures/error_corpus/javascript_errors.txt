@@ -43,7 +43,7 @@ Invalid for loops
 
 ok1;
 
-for (a b c; d; e)
+for (aa bb cc; dd; ee)
   wat();
 
 ok2;
@@ -121,7 +121,6 @@ var
 (program
   (var_declaration
     (var_assignment (identifier) (number))
-    (ERROR (UNEXPECTED '-') (identifier))
+    (ERROR) (identifier)
     (var_assignment (identifier) (number))
-    (ERROR (identifier) (UNEXPECTED '='))
-    (identifier)))
+    (var_assignment (identifier) (ERROR) (identifier))))
