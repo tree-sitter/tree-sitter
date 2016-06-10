@@ -25,13 +25,13 @@ bool ParseItem::operator==(const ParseItem &other) const {
 }
 
 bool ParseItem::operator<(const ParseItem &other) const {
-  if (variable_index < other.variable_index)
-    return true;
-  if (variable_index > other.variable_index)
-    return false;
   if (step_index < other.step_index)
     return true;
   if (step_index > other.step_index)
+    return false;
+  if (variable_index < other.variable_index)
+    return true;
+  if (variable_index > other.variable_index)
     return false;
   return production < other.production;
 }
