@@ -348,7 +348,7 @@ static bool ts_parser__push(TSParser *self, StackVersion version, TSTree *tree,
 
 static bool ts_parser__shift(TSParser *self, StackVersion version,
                              TSStateId state, TSTree *lookahead, bool extra) {
-  if (extra) {
+  if (extra != lookahead->extra) {
     TSSymbolMetadata metadata =
       ts_language_symbol_metadata(self->language, lookahead->symbol);
     if (metadata.structural && ts_stack_version_count(self->stack) > 1) {
@@ -356,7 +356,7 @@ static bool ts_parser__shift(TSParser *self, StackVersion version,
     } else {
       ts_tree_retain(lookahead);
     }
-    lookahead->extra = true;
+    lookahead->extra = extra;
   } else {
     ts_tree_retain(lookahead);
   }
