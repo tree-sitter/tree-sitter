@@ -120,7 +120,9 @@ recur:
 static void ts_tree_total_tokens(const TSTree *self, size_t *result) {
 recur:
   if (self->child_count == 0) {
-    (*result)++;
+    if (!self->extra) {
+      (*result)++;
+    }
   } else {
     for (size_t i = 1; i < self->child_count; i++)
       ts_tree_total_tokens(self->children[i], result);
