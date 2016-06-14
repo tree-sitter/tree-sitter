@@ -40,11 +40,21 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
   return result;
 }
 
-TreeArray ts_tree_array_copy(TreeArray *self) {
-  TreeArray result = array_copy(self);
-  for (size_t i = 0; i < result.size; i++)
-    ts_tree_retain(result.contents[i]);
-  return result;
+bool ts_tree_array_copy(TreeArray self, TreeArray *dest) {
+  TSTree **contents = NULL;
+  if (self.capacity > 0) {
+    contents = ts_calloc(self.capacity, sizeof(TSTree *));
+    if (!contents)
+      return false;
+    memcpy(contents, self.contents, self.size * sizeof(TSTree *));
+    for (size_t i = 0; i < self.size; i++)
+      ts_tree_retain(contents[i]);
+  }
+
+  dest->size = self.size;
+  dest->capacity = self.capacity;
+  dest->contents = contents;
+  return true;
 }
 
 void ts_tree_array_delete(TreeArray *self) {

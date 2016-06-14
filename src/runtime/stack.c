@@ -198,8 +198,10 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
       bool should_stop = action & StackIterateStop || node->link_count == 0;
 
       if (should_pop) {
-        TreeArray trees =
-          should_stop ? path->trees : ts_tree_array_copy(&path->trees);
+        TreeArray trees = path->trees;
+        if (!should_stop)
+          if (!ts_tree_array_copy(trees, &trees))
+            goto error;
         array_reverse(&trees);
         if (!ts_stack__add_slice(self, node, &trees))
           goto error;
@@ -224,7 +226,8 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
           if (!array_push(&self->pop_paths, self->pop_paths.contents[i]))
             goto error;
           next_path = array_back(&self->pop_paths);
-          next_path->trees = ts_tree_array_copy(&next_path->trees);
+          if (!ts_tree_array_copy(next_path->trees, &next_path->trees))
+            goto error;
         }
 
         next_path->node = link.node;

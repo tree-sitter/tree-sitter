@@ -46,7 +46,7 @@ typedef struct TSTree {
 } TSTree;
 
 typedef Array(TSTree *) TreeArray;
-TreeArray ts_tree_array_copy(TreeArray *);
+bool ts_tree_array_copy(TreeArray, TreeArray *);
 void ts_tree_array_delete(TreeArray *);
 size_t ts_tree_array_essential_count(const TreeArray *);
 
