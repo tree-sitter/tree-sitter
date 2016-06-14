@@ -44,7 +44,7 @@
     goto error;     \
   }
 
-static const unsigned ERROR_COST_THRESHOLD = 5;
+static const unsigned ERROR_COST_THRESHOLD = 3;
 
 static const TSParseAction ERROR_ACTION = {.type = TSParseActionTypeError };
 
@@ -546,7 +546,7 @@ static StackIterateAction ts_parser__error_repair_callback(
 
   StackIterateAction result = StackIterateNone;
 
-  size_t last_repair_count = 0;
+  size_t last_repair_count = -1;
   size_t repair_reduction_count = -1;
   const TSParseAction *repair_reductions = NULL;
 
@@ -573,19 +573,14 @@ static StackIterateAction ts_parser__error_repair_callback(
       continue;
 
     if (count_needed_below_error != last_repair_count) {
-      assert(count_needed_below_error > last_repair_count);
       last_repair_count = count_needed_below_error;
       repair_reductions = ts_parser__reductions_after_sequence(
         self, state, trees, count_needed_below_error, trees_above_error,
         lookahead_symbol, &repair_reduction_count);
     }
 
-    if (!repair_reductions)
-      continue;
-
     for (size_t j = 0; j < repair_reduction_count; j++) {
-      const TSParseAction repair_reduction = repair_reductions[j];
-      if (repair_reduction.data.symbol == repair->symbol) {
+      if (repair_reductions[j].data.symbol == repair->symbol) {
         result |= StackIteratePop;
         session->found_repair = true;
         session->best_repair = *repair;
@@ -603,6 +598,36 @@ static StackIterateAction ts_parser__error_repair_callback(
   return result;
 }
 
+static bool ts_parser__halt_if_better_version_exists(TSParser *self,
+                                                     StackVersion version,
+                                                     unsigned my_error_depth,
+                                                     unsigned my_error_cost) {
+  for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
+    if (i == version || ts_stack_is_halted(self->stack, i))
+      continue;
+
+    unsigned error_cost = ts_stack_error_cost(self->stack, i);
+    unsigned error_depth = ts_stack_error_depth(self->stack, i);
+
+    if ((error_depth > my_error_depth && error_cost >= my_error_cost) ||
+        (error_depth == my_error_depth &&
+         error_cost >= my_error_cost + ERROR_COST_THRESHOLD)) {
+      LOG_ACTION("halt_other version:%u", i);
+      ts_stack_halt(self->stack, i);
+      continue;
+    }
+
+    if ((my_error_depth > error_depth && my_error_cost >= error_cost) ||
+        (my_error_depth == error_depth &&
+         my_error_cost >= error_cost + ERROR_COST_THRESHOLD)) {
+      ts_stack_halt(self->stack, version);
+      return true;
+    }
+  }
+
+  return false;
+}
+
 static RepairResult ts_parser__repair_error(TSParser *self, StackSlice slice,
                                             TSTree *lookahead,
                                             const TSParseAction *actions,
@@ -616,14 +641,18 @@ static RepairResult ts_parser__repair_error(TSParser *self, StackSlice slice,
   };
 
   array_clear(&self->reduce_actions);
-  for (size_t i = 0; i < action_count; i++)
-    if (actions[i].type == TSParseActionTypeReduce &&
-        actions[i].data.child_count > session.tree_count_above_error)
-      CHECK(array_push(
-        &self->reduce_actions,
-        ((ReduceAction){
-          .symbol = actions[i].data.symbol, .count = actions[i].data.child_count,
-        })));
+  for (size_t i = 0; i < action_count; i++) {
+    if (actions[i].type == TSParseActionTypeReduce) {
+      TSSymbol symbol = actions[i].data.symbol;
+      size_t child_count = actions[i].data.child_count;
+      if ((child_count > session.tree_count_above_error) ||
+          (child_count == session.tree_count_above_error &&
+           !ts_language_symbol_metadata(self->language, symbol).visible))
+        CHECK(array_push(
+          &self->reduce_actions,
+          ((ReduceAction){.symbol = symbol, .count = child_count })));
+    }
+  }
 
   StackPopResult pop = ts_stack_iterate(
     self->stack, slice.version, ts_parser__error_repair_callback, &session);
@@ -673,26 +702,18 @@ static RepairResult ts_parser__repair_error(TSParser *self, StackSlice slice,
   CHECK(parent);
   CHECK(ts_parser__push(self, slice.version, parent, next_state));
 
-  LOG_ACTION("repair_found sym:%s, child_count:%lu, skipped:%lu",
-             SYM_NAME(symbol), repair.count, parent->error_size);
-
   unsigned my_error_cost = ts_stack_error_cost(self->stack, slice.version);
   unsigned my_error_depth = ts_stack_error_depth(self->stack, slice.version);
-  for (StackVersion i = 0; i < ts_stack_version_count(self->stack); i++) {
-    if (i == slice.version || ts_stack_is_halted(self->stack, i))
-      continue;
-    unsigned error_cost = ts_stack_error_cost(self->stack, i);
-    unsigned error_depth = ts_stack_error_depth(self->stack, i);
-    if (error_depth > my_error_depth + 1 ||
-        (error_depth == my_error_depth + 1 && error_cost >= my_error_cost) ||
-        (error_depth == my_error_depth &&
-         error_cost >= my_error_cost + ERROR_COST_THRESHOLD)) {
-      LOG_ACTION("halt_other version:%u", i);
-      ts_stack_halt(self->stack, i);
-    }
+  if (ts_parser__halt_if_better_version_exists(self, slice.version,
+                                               my_error_depth, my_error_cost)) {
+    LOG_ACTION("no_better_repair_found");
+    ts_stack_halt(self->stack, slice.version);
+    return RepairNoneFound;
+  } else {
+    LOG_ACTION("repair_found sym:%s, child_count:%lu, skipped:%lu",
+               SYM_NAME(symbol), repair.count, parent->error_size);
+    return RepairSucceeded;
   }
-
-  return RepairSucceeded;
 
 error:
   ts_tree_array_delete(&slice.trees);
@@ -753,27 +774,6 @@ static bool ts_parser__accept(TSParser *self, StackVersion version) {
   return true;
 
 error:
-  return false;
-}
-
-static bool ts_parser__halt_if_better_version_exists(TSParser *self,
-                                                     StackVersion version,
-                                                     unsigned my_error_depth,
-                                                     unsigned my_error_cost) {
-  for (StackVersion i = 0; i < ts_stack_version_count(self->stack); i++) {
-    if (i == version || ts_stack_is_halted(self->stack, i))
-      continue;
-    unsigned error_cost = ts_stack_error_cost(self->stack, i);
-    unsigned error_depth = ts_stack_error_depth(self->stack, i);
-    if (error_depth < my_error_depth - 1 ||
-        (error_depth == my_error_depth - 1 && error_cost < my_error_cost) ||
-        (error_depth == my_error_depth &&
-         error_cost + ERROR_COST_THRESHOLD <= my_error_cost)) {
-      ts_stack_halt(self->stack, version);
-      return true;
-    }
-  }
-
   return false;
 }
 

@@ -90,5 +90,42 @@ int y = 5;
 ---
 
 (translation_unit
-  (declaration (identifier) (identifier) (ERROR (identifier)))
+  (declaration (identifier) (ERROR (identifier)) (identifier))
   (declaration (identifier) (init_declarator (identifier) (number_literal))))
+
+==========================================
+Errors at the beginnings of blocks
+==========================================
+
+int a() {
+  struct x = 1;
+  struct y = 2;
+}
+
+int b() {
+  w x y z = 3;
+  w x y z = 4;
+}
+
+---
+
+(translation_unit
+  (function_definition
+    (identifier) (function_declarator (identifier))
+    (compound_statement
+      (ERROR (struct_specifier (identifier)))
+      (expression_statement (number_literal))
+      (ERROR (struct_specifier (identifier)))
+      (expression_statement (number_literal))))
+
+  (function_definition
+    (identifier) (function_declarator (identifier))
+    (compound_statement
+      (declaration
+        (ERROR (identifier) (identifier))
+        (identifier)
+        (init_declarator (identifier) (number_literal)))
+      (declaration
+        (ERROR (identifier) (identifier))
+        (identifier)
+        (init_declarator (identifier) (number_literal))))))

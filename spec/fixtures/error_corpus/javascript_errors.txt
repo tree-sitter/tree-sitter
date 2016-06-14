@@ -14,8 +14,8 @@ if (x) {
 
 (program
   (expression_statement
-    (identifier)
-    (ERROR (identifier) (identifier)))
+    (ERROR (identifier) (identifier))
+    (identifier))
   (expression_statement (function_call (identifier)))
   (if_statement (identifier) (statement_block
     (ERROR)
@@ -33,7 +33,7 @@ ok();
 ---
 
 (program
-  (if_statement (identifier) (ERROR (identifier))
+  (if_statement (ERROR (identifier)) (identifier)
     (expression_statement (function_call (identifier))))
   (expression_statement (function_call (identifier))))
 
@@ -123,4 +123,5 @@ var
     (var_assignment (identifier) (number))
     (ERROR) (identifier)
     (var_assignment (identifier) (number))
-    (var_assignment (identifier) (ERROR) (identifier))))
+    (ERROR (identifier))
+    (identifier)))
