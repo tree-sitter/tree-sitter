@@ -341,20 +341,6 @@ unsigned ts_stack_error_depth(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->error_depth;
 }
 
-size_t ts_stack_last_repaired_error_size(const Stack *self,
-                                         StackVersion version) {
-  StackNode *node = array_get(&self->heads, version)->node;
-  for (;;) {
-    if (node->link_count == 0)
-      break;
-    TSTree *tree = node->links[0].tree;
-    if (tree && tree->error_size > 0)
-      return ts_tree_last_error_size(tree);
-    node = node->links[0].node;
-  }
-  return 0;
-}
-
 bool ts_stack_push(Stack *self, StackVersion version, TSTree *tree,
                    bool is_pending, TSStateId state) {
   StackNode *node = array_get(&self->heads, version)->node;

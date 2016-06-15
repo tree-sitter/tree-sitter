@@ -131,19 +131,6 @@ recur:
   }
 }
 
-size_t ts_tree_last_error_size(const TSTree *self) {
-  if (self->symbol == ts_builtin_sym_error)
-    return self->error_size;
-
-  for (size_t i = self->child_count - 1; i + 1 > 0; i--) {
-    size_t result = ts_tree_last_error_size(self->children[i]);
-    if (result > 0)
-      return result;
-  }
-
-  return 0;
-}
-
 void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   if (self->child_count > 0)
     ts_free(self->children);
