@@ -545,8 +545,11 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
         fprintf(f, "shape=point margin=0 label=\"\"");
       else
         fprintf(f, "label=\"%d\"", node->state);
-      fprintf(f, " tooltip=\"error-count:%u, error-cost:%u\"];\n",
-              node->error_depth, node->error_cost);
+      fprintf(
+        f,
+        " tooltip=\"position: %lu,%lu\nerror-count: %u\nerror-cost: %u\"];\n",
+        node->position.rows, node->position.columns, node->error_depth,
+        node->error_cost);
 
       for (int j = 0; j < node->link_count; j++) {
         StackLink link = node->links[j];
