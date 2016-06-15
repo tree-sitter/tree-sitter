@@ -39,7 +39,7 @@ static string trim_output(const string &input) {
 }
 
 static vector<TestEntry> parse_test_entries(string content) {
-  regex header_pattern("===+\n"  "([^=]+)\n"  "===+", extended);
+  regex header_pattern("===+\n"  "([^=]+)\n"  "===+\n", extended);
   regex separator_pattern("---+", extended);
   vector<string> descriptions;
   vector<string> bodies;
