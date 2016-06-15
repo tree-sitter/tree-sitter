@@ -463,6 +463,29 @@ describe("Stack", [&]() {
       free_slice_array(&pop.slices);
     });
 
+    it("skips entries whose trees are extra", [&]() {
+      ts_stack_push(stack, 0, trees[1], true, stateB);
+
+      trees[2]->extra = true;
+      trees[3]->extra = true;
+
+      ts_stack_push(stack, 0, trees[2], false, stateB);
+      ts_stack_push(stack, 0, trees[3], false, stateB);
+
+      StackPopResult pop = ts_stack_pop_pending(stack, 0);
+      AssertThat(pop.status, Equals(StackPopResult::StackPopSucceeded));
+      AssertThat(pop.slices.size, Equals<size_t>(1));
+
+      AssertThat(pop.slices.contents[0].trees, Equals(vector<TSTree *>({ trees[1], trees[2], trees[3] })));
+
+      AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
+        {stateA, 0},
+        {0, 1},
+      })));
+
+      free_slice_array(&pop.slices);
+    });
+
     it("does nothing if the top node was not pushed in pending mode", [&]() {
       ts_stack_push(stack, 0, trees[1], false, stateB);
 

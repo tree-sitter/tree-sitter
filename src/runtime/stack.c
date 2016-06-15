@@ -231,14 +231,17 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
         }
 
         next_path->node = link.node;
-        if (!link.is_pending)
-          next_path->is_pending = false;
         if (link.tree) {
-          if (!link.tree->extra)
+          if (!link.tree->extra) {
             next_path->tree_count++;
+            if (!link.is_pending)
+              next_path->is_pending = false;
+          }
           if (!array_push(&next_path->trees, link.tree))
             goto error;
           ts_tree_retain(link.tree);
+        } else {
+          next_path->is_pending = false;
         }
       }
     }
