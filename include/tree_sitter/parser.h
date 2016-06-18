@@ -95,7 +95,7 @@ struct TSLanguage {
   const TSParseActionEntry *parse_actions;
   const TSStateId *lex_states;
   const TSParseAction *recovery_actions;
-  void (*lex_fn)(TSLexer *, TSStateId, bool);
+  bool (*lex_fn)(TSLexer *, TSStateId, bool);
 };
 
 /*
@@ -129,23 +129,23 @@ struct TSLanguage {
   {                                        \
     lexer->result_is_fragile = true;       \
     lexer->result_symbol = symbol_value;   \
-    return;                                \
+    return true;                           \
   }
 
 #define ACCEPT_TOKEN(symbol_value)       \
   {                                      \
     lexer->result_symbol = symbol_value; \
-    return;                              \
+    return true;                         \
   }
 
 #define LEX_ERROR()                                        \
   if (error_mode) {                                        \
     if (state == ts_lex_state_error)                       \
       lexer->advance(lexer, state, TSTransitionTypeError); \
+    GO_TO_STATE(ts_lex_state_error);                       \
   } else {                                                 \
-    error_mode = true;                                     \
-  }                                                        \
-  GO_TO_STATE(ts_lex_state_error)
+    return false;                                          \
+  }
 
 /*
  *  Parse Table Macros

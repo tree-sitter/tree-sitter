@@ -233,9 +233,16 @@ static bool ts_parser__can_reuse(TSParser *self, StackVersion version,
 }
 
 static TSTree *ts_parser__lex(TSParser *self, TSStateId state, bool error_mode) {
-  TSLexerResult lex_result;
+  TSLength position = self->lexer.current_position;
+
   ts_lexer_start(&self->lexer, state);
-  self->language->lex_fn(&self->lexer, state, error_mode);
+  if (!self->language->lex_fn(&self->lexer, state, error_mode)) {
+    ts_lexer_reset(&self->lexer, position);
+    ts_lexer_start(&self->lexer, state);
+    assert(self->language->lex_fn(&self->lexer, 0, true));
+  }
+
+  TSLexerResult lex_result;
   ts_lexer_finish(&self->lexer, &lex_result);
 
   TSTree *result;

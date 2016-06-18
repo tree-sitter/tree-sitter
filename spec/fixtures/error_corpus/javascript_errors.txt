@@ -14,8 +14,8 @@ if (x) {
 
 (program
   (expression_statement
-    (ERROR (identifier) (identifier))
-    (identifier))
+    (identifier)
+    (ERROR (identifier) (identifier)))
   (expression_statement (function_call (identifier)))
   (if_statement (identifier) (statement_block
     (ERROR)
@@ -43,12 +43,12 @@ Invalid for loops
 
 ok1;
 
-for (aa bb cc; dd; ee)
+for (a b c; d; e)
   wat();
 
 ok2;
 
-for (a; b; c d ef)
+for (a; b; c d e)
   wat();
 
 ---
