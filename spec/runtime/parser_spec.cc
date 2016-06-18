@@ -103,15 +103,14 @@ describe("Parser", [&]() {
 
         TSNode error = ts_node_named_child(root, 1);
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(get_node_text(error), Equals("@@@@@,"));
-        AssertThat(ts_node_child_count(error), Equals<size_t>(2));
+        AssertThat(get_node_text(error), Equals(",  @@@@@"));
         AssertThat(ts_node_child_count(error), Equals<size_t>(2));
 
-        TSNode garbage = ts_node_child(error, 0);
-        AssertThat(get_node_text(garbage), Equals("@@@@@"));
-
-        TSNode comma = ts_node_child(error, 1);
+        TSNode comma = ts_node_child(error, 0);
         AssertThat(get_node_text(comma), Equals(","));
+
+        TSNode garbage = ts_node_child(error, 1);
+        AssertThat(get_node_text(garbage), Equals("@@@@@"));
 
         TSNode node_after_error = ts_node_named_child(root, 2);
         AssertThat(ts_node_name(node_after_error, doc), Equals("true"));
@@ -129,16 +128,16 @@ describe("Parser", [&]() {
         TSNode error = ts_node_named_child(root, 1);
         AssertThat(ts_node_symbol(error), Equals(ts_builtin_sym_error));
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(get_node_text(error), Equals("faaaaalse,"));
+        AssertThat(get_node_text(error), Equals(", faaaaalse"));
         AssertThat(ts_node_child_count(error), Equals<size_t>(2));
 
-        TSNode garbage = ts_node_child(error, 0);
-        AssertThat(ts_node_name(garbage, doc), Equals("ERROR"));
-        AssertThat(get_node_text(garbage), Equals("faaaaalse"));
-
-        TSNode comma = ts_node_child(error, 1);
+        TSNode comma = ts_node_child(error, 0);
         AssertThat(ts_node_name(comma, doc), Equals(","));
         AssertThat(get_node_text(comma), Equals(","));
+
+        TSNode garbage = ts_node_child(error, 1);
+        AssertThat(ts_node_name(garbage, doc), Equals("ERROR"));
+        AssertThat(get_node_text(garbage), Equals("faaaaalse"));
 
         TSNode last = ts_node_named_child(root, 2);
         AssertThat(ts_node_name(last, doc), Equals("true"));
