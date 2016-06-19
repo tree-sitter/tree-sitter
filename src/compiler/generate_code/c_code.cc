@@ -224,9 +224,13 @@ class CCodeGenerator {
       for (const auto &entry : parse_table.error_state.actions) {
         const rules::Symbol &symbol = entry.first;
         if (!entry.second.empty()) {
-          ParseStateId state = entry.second[0].state_index;
-          line("[" + symbol_id(symbol) + "] = RECOVER(" + to_string(state) +
-               "),");
+          line("[" + symbol_id(symbol) + "] = ");
+          ParseAction action = entry.second[0];
+          if (action.extra) {
+            add("RECOVER_EXTRA(),");
+          } else {
+            add("RECOVER(" + to_string(action.state_index) + "),");
+          }
         }
       }
     });

@@ -109,6 +109,11 @@ class ParseTableBuilder {
       add_out_of_context_parse_state(symbol);
     }
 
+    for (const Symbol &symbol : grammar.extra_tokens) {
+      parse_table.error_state.actions[symbol].push_back(
+        ParseAction::ShiftExtra());
+    }
+
     for (size_t i = 0; i < grammar.variables.size(); i++) {
       Symbol symbol(i, false);
       add_out_of_context_parse_state(symbol);

@@ -175,6 +175,9 @@ enum {
     .type = TSParseActionTypeRecover, .data = {.to_state = to_state_value } \
   }
 
+#define RECOVER_EXTRA() \
+  { .type = TSParseActionTypeShift, .extra = true, }
+
 #define SHIFT_EXTRA()                                 \
   {                                                   \
     { .type = TSParseActionTypeShift, .extra = true } \
