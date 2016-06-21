@@ -211,28 +211,64 @@ static bool ts_parser__can_reuse(TSParser *self, StackVersion version,
   if (tree->symbol == ts_builtin_sym_error)
     return false;
 
-  if (ts_tree_is_fragile(tree) &&
-      tree->parse_state != ts_stack_top_state(self->stack, version))
-    return false;
+  TSStateId state = ts_stack_top_state(self->stack, version);
+  if (tree->parse_state != state) {
+    if (ts_tree_is_fragile(tree)) {
+      LOG_ACTION("cant_reuse_fragile tree:%s", SYM_NAME(tree->symbol));
+      return false;
+    }
 
-  TSStateId top_state = ts_stack_top_state(self->stack, version);
+    TableEntry entry;
+    ts_language_table_entry(self->language, state, tree->symbol, &entry);
 
-  if (tree->lex_state != TS_TREE_STATE_INDEPENDENT &&
-      tree->lex_state != ts_language_lex_state(self->language, top_state))
-    return false;
+    if (!entry.is_reusable) {
+      LOG_ACTION("cant_reuse tree:%s", SYM_NAME(tree->symbol));
+      return false;
+    }
 
-  const TSParseAction action =
-    ts_language_last_action(self->language, top_state, tree->symbol);
-  if (action.type == TSParseActionTypeError || action.can_hide_split)
-    return false;
+    TSParseAction action = entry.actions[entry.action_count - 1];
+    if (action.type == TSParseActionTypeError) {
+      LOG_ACTION("cant_reuse_unexpected tree:%s", SYM_NAME(tree->symbol));
+      return false;
+    }
 
-  if (tree->extra && !action.extra)
-    return false;
+    if (tree->extra != action.extra) {
+      LOG_ACTION("cant_reuse_extra tree:%s", SYM_NAME(tree->symbol));
+      return false;
+    }
+
+    TSStateId lex_state = ts_language_lex_state(self->language, state);
+    if (tree->first_leaf.lex_state != lex_state) {
+      if (tree->child_count > 0) {
+        TableEntry leaf_entry;
+        ts_language_table_entry(self->language, state, tree->first_leaf.symbol,
+                                &leaf_entry);
+
+        if (!leaf_entry.is_reusable) {
+          LOG_ACTION("cant_reuse_first_leaf tree:%s, leaf:%s",
+                     SYM_NAME(tree->symbol), SYM_NAME(tree->first_leaf.symbol));
+          return false;
+        }
+
+        if (tree->child_count == 1 && leaf_entry.depends_on_lookahead) {
+          LOG_ACTION("cant_reuse_lookahead_dependent tree:%s, leaf:%s", SYM_NAME(tree->symbol), SYM_NAME(tree->first_leaf.symbol));
+          return false;
+        }
+      } else if (entry.depends_on_lookahead) {
+        LOG_ACTION("cant_reuse_lookahead_dependent tree:%s", SYM_NAME(tree->symbol));
+        return false;
+      }
+    }
+  }
 
   return true;
 }
 
-static TSTree *ts_parser__lex(TSParser *self, TSStateId state, bool error_mode) {
+static TSTree *ts_parser__lex(TSParser *self, TSStateId parse_state,
+                              bool error_mode) {
+  TSStateId state = error_mode ? 0 : self->language->lex_states[parse_state];
+  LOG("lex state:%d", state);
+
   TSLength position = self->lexer.current_position;
 
   ts_lexer_start(&self->lexer, state);
@@ -247,6 +283,7 @@ static TSTree *ts_parser__lex(TSParser *self, TSStateId state, bool error_mode) 
 
   TSTree *result;
   if (lex_result.symbol == ts_builtin_sym_error) {
+    LOG("accept_error_token");
     result = ts_tree_make_error(lex_result.size, lex_result.padding,
                                 lex_result.first_unexpected_character);
   } else {
@@ -254,13 +291,11 @@ static TSTree *ts_parser__lex(TSParser *self, TSStateId state, bool error_mode) 
     result = ts_tree_make_leaf(
       lex_result.symbol, lex_result.padding, lex_result.size,
       ts_language_symbol_metadata(self->language, lex_result.symbol));
+    if (!result)
+      return NULL;
+    result->parse_state = parse_state;
+    result->first_leaf.lex_state = state;
   }
-
-  if (!result)
-    return NULL;
-
-  if (lex_result.is_fragile)
-    result->lex_state = state;
 
   return result;
 }
@@ -284,21 +319,20 @@ static TSTree *ts_parser__get_lookahead(TSParser *self, StackVersion version,
       if (reusable_node->tree->child_count == 0)
         ts_parser__breakdown_top_of_stack(self, version);
 
-      LOG("breakdown_changed sym:%s", SYM_NAME(reusable_node->tree->symbol));
+      LOG_ACTION("breakdown_changed sym:%s", SYM_NAME(reusable_node->tree->symbol));
       ts_parser__breakdown_reusable_node(reusable_node);
       continue;
     }
 
     if (!ts_parser__can_reuse(self, version, reusable_node->tree)) {
-      LOG("breakdown_unreusable sym:%s", SYM_NAME(reusable_node->tree->symbol));
       ts_parser__breakdown_reusable_node(reusable_node);
       continue;
     }
 
     TSTree *result = reusable_node->tree;
     TSLength size = ts_tree_total_size(result);
-    LOG("reuse sym:%s size:%lu extra:%d", SYM_NAME(result->symbol), size.chars,
-        result->extra);
+    LOG_ACTION("reuse sym:%s size:%lu extra:%d", SYM_NAME(result->symbol),
+               size.chars, result->extra);
     ts_parser__pop_reusable_node(reusable_node);
     ts_tree_retain(result);
     return result;
@@ -307,9 +341,7 @@ static TSTree *ts_parser__get_lookahead(TSParser *self, StackVersion version,
   ts_lexer_reset(&self->lexer, position);
   TSStateId parse_state = ts_stack_top_state(self->stack, version);
   bool error_mode = parse_state == ts_parse_state_error;
-  TSStateId lex_state = error_mode ? 0 : self->language->lex_states[parse_state];
-  LOG("lex state:%d", lex_state);
-  return ts_parser__lex(self, lex_state, error_mode);
+  return ts_parser__lex(self, parse_state, error_mode);
 }
 
 static bool ts_parser__select_tree(TSParser *self, TSTree *left, TSTree *right) {
@@ -487,7 +519,7 @@ static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
   return (Reduction){ ReduceSucceeded, pop.slices.contents[0] };
 
 error:
-  return (Reduction){ ReduceFailed };
+  return (Reduction){ ReduceFailed, {} };
 }
 
 static inline const TSParseAction *ts_parser__reductions_after_sequence(

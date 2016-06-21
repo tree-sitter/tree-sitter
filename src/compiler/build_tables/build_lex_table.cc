@@ -92,7 +92,8 @@ class LexTableBuilder {
       AdvanceAction action(-1, transition.precedence, transition.in_main_token);
 
       auto current_action = lex_table.state(state_id).accept_action;
-      if (conflict_manager.resolve(action, current_action)) {
+      if (conflict_manager.resolve(transition.destination, action,
+                                   current_action)) {
         action.state_index = add_lex_state(transition.destination);
         lex_table.state(state_id).advance_actions[characters] = action;
       }
@@ -114,10 +115,31 @@ class LexTableBuilder {
   }
 
   void mark_fragile_tokens() {
-    for (LexState &state : lex_table.states)
-      if (state.accept_action.is_present())
-        if (conflict_manager.fragile_tokens.count(state.accept_action.symbol))
-          state.accept_action.is_fragile = true;
+    for (ParseState &state : parse_table->states) {
+      for (auto &entry : state.entries) {
+        if (!entry.first.is_token)
+          continue;
+
+        auto homonyms = conflict_manager.possible_homonyms.find(entry.first);
+        if (homonyms != conflict_manager.possible_homonyms.end())
+          for (const Symbol &homonym : homonyms->second)
+            if (state.entries.count(homonym)) {
+              entry.second.reusable = false;
+              break;
+            }
+
+        if (!entry.second.reusable)
+          continue;
+
+        auto extensions = conflict_manager.possible_extensions.find(entry.first);
+        if (extensions != conflict_manager.possible_extensions.end())
+          for (const Symbol &extension : extensions->second)
+            if (state.entries.count(extension)) {
+              entry.second.depends_on_lookahead = true;
+              break;
+            }
+      }
+    }
   }
 
   void remove_duplicate_lex_states() {

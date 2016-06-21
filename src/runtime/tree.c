@@ -28,14 +28,12 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
     .padding = padding,
     .visible = metadata.visible,
     .named = metadata.named,
-    .lex_state = TS_TREE_STATE_INDEPENDENT,
     .parse_state = TS_TREE_STATE_INDEPENDENT,
+    .first_leaf =
+      {
+        .symbol = sym, .lex_state = TS_TREE_STATE_INDEPENDENT,
+      },
   };
-
-  if (sym == ts_builtin_sym_error) {
-    result->fragile_left = true;
-    result->fragile_right = true;
-  }
 
   return result;
 }
@@ -81,6 +79,8 @@ TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char)
   if (!result)
     return NULL;
 
+  result->fragile_left = true;
+  result->fragile_right = true;
   result->lookahead_char = lookahead_char;
   return result;
 }
@@ -174,7 +174,7 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   }
 
   if (child_count > 0) {
-    self->lex_state = children[0]->lex_state;
+    self->first_leaf = children[0]->first_leaf;
     if (children[0]->fragile_left)
       self->fragile_left = true;
     if (children[child_count - 1]->fragile_right)
@@ -206,9 +206,16 @@ TSTree *ts_tree_make_error_node(TreeArray *children) {
     }
   }
 
-  return ts_tree_make_node(
+  TSTree *result = ts_tree_make_node(
     ts_builtin_sym_error, children->size, children->contents,
     (TSSymbolMetadata){.extra = false, .visible = true, .named = true });
+
+  if (!result)
+    return NULL;
+
+  result->fragile_left = true;
+  result->fragile_right = true;
+  return result;
 }
 
 void ts_tree_retain(TSTree *self) {

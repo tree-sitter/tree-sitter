@@ -39,7 +39,6 @@ struct AcceptTokenAction {
   rules::Symbol symbol;
   int precedence;
   bool is_string;
-  bool is_fragile;
 };
 
 }  // namespace tree_sitter

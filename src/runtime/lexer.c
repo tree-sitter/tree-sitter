@@ -137,7 +137,6 @@ void ts_lexer_start(TSLexer *self, TSStateId lex_state) {
   self->starting_state = lex_state;
   self->token_start_position = self->current_position;
   self->result_follows_error = false;
-  self->result_is_fragile = false;
   self->result_symbol = 0;
   self->first_unexpected_character = 0;
 
@@ -156,13 +155,11 @@ void ts_lexer_finish(TSLexer *self, TSLexerResult *result) {
     result->size =
       ts_length_sub(self->error_end_position, self->token_start_position);
     result->first_unexpected_character = self->first_unexpected_character;
-    result->is_fragile = true;
     ts_lexer_reset(self, self->error_end_position);
   } else {
     result->symbol = self->result_symbol;
     result->size =
       ts_length_sub(self->current_position, self->token_start_position);
-    result->is_fragile = self->result_is_fragile;
     self->token_end_position = self->current_position;
   }
 }

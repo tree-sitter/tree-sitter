@@ -6,38 +6,30 @@ static const TSParseAction ERROR_SHIFT_EXTRA = {
   .type = TSParseActionTypeShift, .extra = true,
 };
 
-const TSParseAction *ts_language_actions(const TSLanguage *self, TSStateId state,
-                                         TSSymbol symbol, size_t *count) {
+void ts_language_table_entry(const TSLanguage *self, TSStateId state,
+                             TSSymbol symbol, TableEntry *result) {
   if (state == ts_parse_state_error) {
-    *count = 1;
-    if (symbol == ts_builtin_sym_error)
-      return &ERROR_SHIFT_EXTRA;
-    else if (self->recovery_actions[symbol].type == TSParseActionTypeError)
-      return &ERROR_SHIFT_EXTRA;
+    result->action_count = 1;
+    result->is_reusable = false;
+    result->depends_on_lookahead = false;
+    if (symbol == ts_builtin_sym_error ||
+        self->recovery_actions[symbol].type == TSParseActionTypeError)
+      result->actions = &ERROR_SHIFT_EXTRA;
     else
-      return &self->recovery_actions[symbol];
+      result->actions = &self->recovery_actions[symbol];
+    return;
   }
 
-  size_t action_index = 0;
-  if (symbol != ts_builtin_sym_error)
-    action_index = self->parse_table[state * self->symbol_count + symbol];
+  size_t action_index =
+    (symbol != ts_builtin_sym_error)
+      ? self->parse_table[state * self->symbol_count + symbol]
+      : 0;
 
-  *count = self->parse_actions[action_index].count;
-  const TSParseActionEntry *entry = self->parse_actions + action_index + 1;
-  return (const TSParseAction *)entry;
-}
-
-TSParseAction ts_language_last_action(const TSLanguage *self, TSStateId state,
-                                      TSSymbol sym) {
-  size_t count;
-  const TSParseAction *actions = ts_language_actions(self, state, sym, &count);
-  return actions[count - 1];
-}
-
-bool ts_language_has_action(const TSLanguage *self, TSStateId state,
-                            TSSymbol symbol) {
-  TSParseAction action = ts_language_last_action(self, state, symbol);
-  return action.type != TSParseActionTypeError;
+  const TSParseActionEntry *entry = &self->parse_actions[action_index];
+  result->action_count = entry->count;
+  result->is_reusable = entry->reusable;
+  result->depends_on_lookahead = entry->depends_on_lookahead;
+  result->actions = (const TSParseAction *)(entry + 1);
 }
 
 size_t ts_language_symbol_count(const TSLanguage *language) {

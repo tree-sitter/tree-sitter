@@ -51,7 +51,6 @@ typedef struct TSLexer {
   int32_t lookahead;
   TSStateId starting_state;
   TSSymbol result_symbol;
-  bool result_is_fragile;
   bool result_follows_error;
   int32_t first_unexpected_character;
 
@@ -79,12 +78,15 @@ typedef struct {
   TSParseActionType type : 3;
   bool extra : 1;
   bool fragile : 1;
-  bool can_hide_split : 1;
 } TSParseAction;
 
 typedef union {
   TSParseAction action;
-  unsigned int count;
+  struct {
+    unsigned short count;
+    bool reusable : 1;
+    bool depends_on_lookahead : 1;
+  };
 } TSParseActionEntry;
 
 struct TSLanguage {
@@ -125,13 +127,6 @@ struct TSLanguage {
     GO_TO_STATE(state_value);                                      \
   }
 
-#define ACCEPT_FRAGILE_TOKEN(symbol_value) \
-  {                                        \
-    lexer->result_is_fragile = true;       \
-    lexer->result_symbol = symbol_value;   \
-    return true;                           \
-  }
-
 #define ACCEPT_TOKEN(symbol_value)       \
   {                                      \
     lexer->result_symbol = symbol_value; \
@@ -151,23 +146,16 @@ struct TSLanguage {
  *  Parse Table Macros
  */
 
-enum {
-  FRAGILE = 1,
-  CAN_HIDE_SPLIT = 2,
-};
-
 #define ERROR()                        \
   {                                    \
     { .type = TSParseActionTypeError } \
   }
 
-#define SHIFT(to_state_value, flags)                   \
-  {                                                    \
-    {                                                  \
-      .type = TSParseActionTypeShift,                  \
-      .can_hide_split = (flags & CAN_HIDE_SPLIT) != 0, \
-      .data = {.to_state = to_state_value }            \
-    }                                                  \
+#define SHIFT(to_state_value)                                        \
+  {                                                                         \
+    {                                                                       \
+      .type = TSParseActionTypeShift, .data = {.to_state = to_state_value } \
+    }                                                                       \
   }
 
 #define RECOVER(to_state_value)                                             \
@@ -191,11 +179,18 @@ enum {
     }                                                   \
   }
 
-#define REDUCE(symbol_val, child_count_val, flags)                        \
+#define REDUCE(symbol_val, child_count_val)                        \
   {                                                                       \
     {                                                                     \
-      .type = TSParseActionTypeReduce, .fragile = (flags & FRAGILE) != 0, \
-      .can_hide_split = (flags & CAN_HIDE_SPLIT) != 0,                    \
+      .type = TSParseActionTypeReduce, .fragile = false, \
+      .data = {.symbol = symbol_val, .child_count = child_count_val }     \
+    }                                                                     \
+  }
+
+#define REDUCE_FRAGILE(symbol_val, child_count_val)                        \
+  {                                                                       \
+    {                                                                     \
+      .type = TSParseActionTypeReduce, .fragile = true, \
       .data = {.symbol = symbol_val, .child_count = child_count_val }     \
     }                                                                     \
   }

@@ -72,7 +72,7 @@ class CCodeGenerator {
   const SyntaxGrammar syntax_grammar;
   const LexicalGrammar lexical_grammar;
   map<string, string> sanitized_names;
-  vector<pair<size_t, vector<ParseAction>>> parse_actions;
+  vector<pair<size_t, ParseTableEntry>> parse_table_entries;
   vector<pair<size_t, set<rules::Symbol>>> in_progress_symbols;
   size_t next_parse_action_list_index;
   size_t next_in_progress_symbol_list_index;
@@ -155,35 +155,28 @@ class CCodeGenerator {
       for (const auto &entry : parse_table.symbols) {
         const rules::Symbol &symbol = entry.first;
         line("[" + symbol_id(symbol) + "] = {");
+        indent([&]() {
+          switch (symbol_type(symbol)) {
+            case VariableTypeNamed:
+              line(".visible = true,");
+              line(".named = true,");
+              break;
+            case VariableTypeAnonymous:
+              line(".visible = true,");
+              line(".named = false,");
+              break;
+            case VariableTypeHidden:
+            case VariableTypeAuxiliary:
+              line(".visible = false,");
+              line(".named = false,");
+              break;
+          }
 
-        switch (symbol_type(symbol)) {
-          case VariableTypeNamed:
-            add(".visible = true, .named = true");
-            break;
-          case VariableTypeAnonymous:
-            add(".visible = true, .named = false");
-            break;
-          case VariableTypeHidden:
-          case VariableTypeAuxiliary:
-            add(".visible = false, .named = false");
-            break;
-        }
+          line(".structural = " + _boolean(entry.second.structural) + ",");
+          line(".extra = " + _boolean(entry.second.extra) + ",");
+        });
 
-        add(", ");
-
-        if (entry.second.structural)
-          add(".structural = true");
-        else
-          add(".structural = false");
-
-        add(", ");
-
-        if (syntax_grammar.extra_tokens.count(symbol))
-          add(".extra = true");
-        else
-          add(".extra = false");
-
-        add("},");
+        line("},");
       }
     });
     line("};");
@@ -221,11 +214,10 @@ class CCodeGenerator {
   void add_recovery_parse_states_list() {
     line("static TSParseAction ts_recovery_actions[SYMBOL_COUNT] = {");
     indent([&]() {
-      for (const auto &entry : parse_table.error_state.actions) {
-        const rules::Symbol &symbol = entry.first;
-        if (!entry.second.empty()) {
-          line("[" + symbol_id(symbol) + "] = ");
-          ParseAction action = entry.second[0];
+      for (const auto &entry : parse_table.error_state.entries) {
+        if (!entry.second.actions.empty()) {
+          line("[" + symbol_id(entry.first) + "] = ");
+          ParseAction action = entry.second.actions[0];
           if (action.extra) {
             add("RECOVER_EXTRA(),");
           } else {
@@ -239,7 +231,8 @@ class CCodeGenerator {
   }
 
   void add_parse_table() {
-    add_parse_action_list_id({ ParseAction::Error() });
+    add_parse_action_list_id(
+      ParseTableEntry{ { ParseAction::Error() }, true, false });
 
     size_t state_id = 0;
     line("#pragma GCC diagnostic push");
@@ -251,9 +244,9 @@ class CCodeGenerator {
       for (const auto &state : parse_table.states) {
         line("[" + to_string(state_id++) + "] = {");
         indent([&]() {
-          for (const auto &pair : state.actions) {
-            line("[" + symbol_id(pair.first) + "] = ");
-            add(to_string(add_parse_action_list_id(pair.second)));
+          for (const auto &entry : state.entries) {
+            line("[" + symbol_id(entry.first) + "] = ");
+            add(to_string(add_parse_action_list_id(entry.second)));
             add(",");
           }
         });
@@ -338,22 +331,21 @@ class CCodeGenerator {
   }
 
   void add_accept_token_action(const AcceptTokenAction &action) {
-    if (action.is_fragile)
-      line("ACCEPT_FRAGILE_TOKEN(" + symbol_id(action.symbol) + ");");
-    else
-      line("ACCEPT_TOKEN(" + symbol_id(action.symbol) + ");");
+    line("ACCEPT_TOKEN(" + symbol_id(action.symbol) + ");");
   }
 
   void add_parse_action_list() {
     line("static TSParseActionEntry ts_parse_actions[] = {");
 
     indent([&]() {
-      for (const auto &pair : parse_actions) {
+      for (const auto &pair : parse_table_entries) {
         size_t index = pair.first;
         line("[" + to_string(index) + "] = {.count = " +
-             to_string(pair.second.size()) + "},");
+             to_string(pair.second.actions.size()) + ", .reusable = " +
+             _boolean(pair.second.reusable) + ", .depends_on_lookahead = " +
+             _boolean(pair.second.depends_on_lookahead) + "},");
 
-        for (const ParseAction &action : pair.second) {
+        for (const ParseAction &action : pair.second.actions) {
           add(" ");
           switch (action.type) {
             case ParseActionTypeError:
@@ -366,19 +358,18 @@ class CCodeGenerator {
               if (action.extra) {
                 add("SHIFT_EXTRA()");
               } else {
-                add("SHIFT(" + to_string(action.state_index) + ", ");
-                add_action_flags(action);
-                add(")");
+                add("SHIFT(" + to_string(action.state_index) + ")");
               }
               break;
             case ParseActionTypeReduce:
               if (action.extra) {
                 add("REDUCE_EXTRA(" + symbol_id(action.symbol) + ")");
+              } else if (action.fragile) {
+                add("REDUCE_FRAGILE(" + symbol_id(action.symbol) + ", " +
+                    to_string(action.consumed_symbol_count) + ")");
               } else {
                 add("REDUCE(" + symbol_id(action.symbol) + ", " +
-                    to_string(action.consumed_symbol_count) + ", ");
-                add_action_flags(action);
-                add(")");
+                    to_string(action.consumed_symbol_count) + ")");
               }
               break;
             default: {}
@@ -391,16 +382,16 @@ class CCodeGenerator {
     line("};");
   }
 
-  size_t add_parse_action_list_id(const vector<ParseAction> &actions) {
-    for (const auto &pair : parse_actions) {
-      if (pair.second == actions) {
+  size_t add_parse_action_list_id(const ParseTableEntry &entry) {
+    for (const auto &pair : parse_table_entries) {
+      if (pair.second == entry) {
         return pair.first;
       }
     }
 
     size_t result = next_parse_action_list_index;
-    parse_actions.push_back({ next_parse_action_list_index, actions });
-    next_parse_action_list_index += 1 + actions.size();
+    parse_table_entries.push_back({ next_parse_action_list_index, entry });
+    next_parse_action_list_index += 1 + entry.actions.size();
     return result;
   }
 
@@ -415,17 +406,6 @@ class CCodeGenerator {
     in_progress_symbols.push_back({ result, symbols });
     next_in_progress_symbol_list_index += 1 + symbols.size();
     return result;
-  }
-
-  void add_action_flags(const ParseAction &action) {
-    if (action.fragile && action.can_hide_split)
-      add("FRAGILE|CAN_HIDE_SPLIT");
-    else if (action.fragile)
-      add("FRAGILE");
-    else if (action.can_hide_split)
-      add("CAN_HIDE_SPLIT");
-    else
-      add("0");
   }
 
   // Helper functions

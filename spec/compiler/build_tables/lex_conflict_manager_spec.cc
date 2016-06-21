@@ -1,7 +1,9 @@
 #include "spec_helper.h"
+#include "helpers/rule_helpers.h"
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/lex_conflict_manager.h"
+#include "compiler/build_tables/lex_item.h"
 
 using namespace rules;
 using namespace build_tables;
@@ -14,14 +16,16 @@ describe("LexConflictManager::resolve(new_action, old_action)", []() {
   Symbol sym1(0, true);
   Symbol sym2(1, true);
   Symbol sym3(2, true);
+  Symbol sym4(3, true);
+  LexItemSet item_set({ LexItem(sym4, blank() )});
 
   it("favors advance actions over empty accept token actions", [&]() {
-    update = conflict_manager.resolve(AdvanceAction(2, {0, 0}, true), AcceptTokenAction());
+    update = conflict_manager.resolve(item_set, AdvanceAction(2, {0, 0}, true), AcceptTokenAction());
     AssertThat(update, IsTrue());
   });
 
   describe("accept-token/accept-token conflicts", [&]() {
-    describe("when one tokens' precedence values differ", [&]() {
+    describe("when the tokens' precedence values differ", [&]() {
       it("favors the token with higher precedence", [&]() {
         update = conflict_manager.resolve(AcceptTokenAction(sym2, 1, false), AcceptTokenAction(sym1, 2, false));
         AssertThat(update, IsFalse());
@@ -30,9 +34,9 @@ describe("LexConflictManager::resolve(new_action, old_action)", []() {
         AssertThat(update, IsTrue());
       });
 
-      it("adds the discarded token to the 'fragile tokens' set", [&]() {
-        update = conflict_manager.resolve(AcceptTokenAction(sym2, 1, false), AcceptTokenAction(sym1, 2, false));
-        AssertThat(conflict_manager.fragile_tokens, Contains(sym2));
+      it("adds the preferred token as a possible homonym for the discarded one", [&]() {
+        conflict_manager.resolve(AcceptTokenAction(sym2, 1, false), AcceptTokenAction(sym1, 2, false));
+        AssertThat(conflict_manager.possible_homonyms[sym2], Contains(sym1));
       });
     });
 
@@ -60,15 +64,21 @@ describe("LexConflictManager::resolve(new_action, old_action)", []() {
   describe("advance/accept-token conflicts", [&]() {
     describe("when the token to accept has higher precedence", [&]() {
       it("prefers the accept-token action", [&]() {
-        update = conflict_manager.resolve(AdvanceAction(1, { 1, 2 }, true), AcceptTokenAction(sym3, 3, true));
+        update = conflict_manager.resolve(item_set, AdvanceAction(1, { 1, 2 }, true), AcceptTokenAction(sym3, 3, true));
         AssertThat(update, IsFalse());
+        AssertThat(conflict_manager.possible_extensions, IsEmpty());
       });
     });
 
     describe("when the token to accept does not have a higher precedence", [&]() {
       it("favors the advance action", [&]() {
-        update = conflict_manager.resolve(AdvanceAction(1, { 1, 2 }, true), AcceptTokenAction(sym3, 2, true));
+        update = conflict_manager.resolve(item_set, AdvanceAction(1, { 1, 2 }, true), AcceptTokenAction(sym3, 2, true));
         AssertThat(update, IsTrue());
+      });
+
+      it("adds the in-progress tokens as possible extensions of the discarded token", [&]() {
+        conflict_manager.resolve(item_set, AdvanceAction(1, { 1, 2 }, true), AcceptTokenAction(sym3, 3, true));
+        AssertThat(conflict_manager.possible_extensions[sym3], Contains(sym4));
       });
     });
   });

@@ -20,7 +20,6 @@ ParseAction::ParseAction(ParseActionType type, ParseStateId state_index,
     : type(type),
       extra(false),
       fragile(false),
-      can_hide_split(false),
       symbol(symbol),
       state_index(state_index),
       consumed_symbol_count(consumed_symbol_count),
@@ -32,7 +31,6 @@ ParseAction::ParseAction()
     : type(ParseActionTypeError),
       extra(false),
       fragile(false),
-      can_hide_split(false),
       symbol(Symbol(-1)),
       state_index(-1),
       consumed_symbol_count(0),
@@ -81,9 +79,8 @@ ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
 
 bool ParseAction::operator==(const ParseAction &other) const {
   return (type == other.type && extra == other.extra &&
-          fragile == other.fragile && can_hide_split == other.can_hide_split &&
-          symbol == other.symbol && state_index == other.state_index &&
-          production == other.production &&
+          fragile == other.fragile && symbol == other.symbol &&
+          state_index == other.state_index && production == other.production &&
           consumed_symbol_count == other.consumed_symbol_count);
 }
 
@@ -100,10 +97,6 @@ bool ParseAction::operator<(const ParseAction &other) const {
     return true;
   if (other.fragile && !fragile)
     return false;
-  if (can_hide_split && !other.can_hide_split)
-    return true;
-  if (other.can_hide_split && !can_hide_split)
-    return false;
   if (symbol < other.symbol)
     return true;
   if (other.symbol < symbol)
@@ -119,24 +112,38 @@ bool ParseAction::operator<(const ParseAction &other) const {
   return consumed_symbol_count < other.consumed_symbol_count;
 }
 
+ParseTableEntry::ParseTableEntry()
+    : reusable(true), depends_on_lookahead(false) {}
+
+ParseTableEntry::ParseTableEntry(const vector<ParseAction> &actions,
+                                 bool reusable, bool depends_on_lookahead)
+    : actions(actions),
+      reusable(reusable),
+      depends_on_lookahead(depends_on_lookahead) {}
+
+bool ParseTableEntry::operator==(const ParseTableEntry &other) const {
+  return actions == other.actions && reusable == other.reusable &&
+         depends_on_lookahead == other.depends_on_lookahead;
+}
+
 ParseState::ParseState() : lex_state_id(-1) {}
 
 set<Symbol> ParseState::expected_inputs() const {
   set<Symbol> result;
-  for (auto &pair : actions)
-    result.insert(pair.first);
+  for (auto &entry : entries)
+    result.insert(entry.first);
   return result;
 }
 
 void ParseState::each_advance_action(function<void(ParseAction *)> fn) {
-  for (auto &entry : actions)
-    for (ParseAction &action : entry.second)
+  for (auto &entry : entries)
+    for (ParseAction &action : entry.second.actions)
       if (action.type == ParseActionTypeShift)
         fn(&action);
 }
 
 bool ParseState::operator==(const ParseState &other) const {
-  return actions == other.actions;
+  return entries == other.entries;
 }
 
 set<Symbol> ParseTable::all_symbols() const {
@@ -154,26 +161,28 @@ ParseStateId ParseTable::add_state() {
 ParseAction &ParseTable::set_action(ParseStateId id, Symbol symbol,
                                     ParseAction action) {
   if (action.extra)
-    symbols[symbol];
+    symbols[symbol].extra = true;
   else
     symbols[symbol].structural = true;
-  states[id].actions[symbol] = vector<ParseAction>({ action });
-  return *states[id].actions[symbol].begin();
+
+  states[id].entries[symbol].actions = { action };
+  return *states[id].entries[symbol].actions.begin();
 }
 
 ParseAction &ParseTable::add_action(ParseStateId id, Symbol symbol,
                                     ParseAction action) {
   if (action.extra)
-    symbols[symbol];
+    symbols[symbol].extra = true;
   else
     symbols[symbol].structural = true;
 
-  for (ParseAction &existing_action : states[id].actions[symbol])
+  ParseState &state = states[id];
+  for (ParseAction &existing_action : state.entries[symbol].actions)
     if (existing_action == action)
       return existing_action;
 
-  states[id].actions[symbol].push_back(action);
-  return *states[id].actions[symbol].rbegin();
+  state.entries[symbol].actions.push_back(action);
+  return *state.entries[symbol].actions.rbegin();
 }
 
 }  // namespace tree_sitter

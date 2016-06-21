@@ -11,7 +11,6 @@ typedef struct {
   TSSymbol symbol;
   TSLength padding;
   TSLength size;
-  bool is_fragile;
   int32_t first_unexpected_character;
 } TSLexerResult;
 

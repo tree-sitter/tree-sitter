@@ -110,7 +110,7 @@ class ParseTableBuilder {
     }
 
     for (const Symbol &symbol : grammar.extra_tokens) {
-      parse_table.error_state.actions[symbol].push_back(
+      parse_table.error_state.entries[symbol].actions.push_back(
         ParseAction::ShiftExtra());
     }
 
@@ -119,7 +119,7 @@ class ParseTableBuilder {
       add_out_of_context_parse_state(symbol);
     }
 
-    parse_table.error_state.actions[rules::END_OF_INPUT()].push_back(
+    parse_table.error_state.entries[rules::END_OF_INPUT()].actions.push_back(
       ParseAction::Shift(0, PrecedenceRange()));
   }
 
@@ -127,7 +127,7 @@ class ParseTableBuilder {
     const ParseItemSet &item_set = recovery_states[symbol];
     if (!item_set.entries.empty()) {
       ParseStateId state = add_parse_state(item_set);
-      parse_table.error_state.actions[symbol].push_back(
+      parse_table.error_state.entries[symbol].actions.push_back(
         ParseAction::Shift(state, PrecedenceRange()));
     }
   }
@@ -198,15 +198,15 @@ class ParseTableBuilder {
     const ParseState &state = parse_table.states[state_id];
 
     for (const Symbol &extra_symbol : grammar.extra_tokens) {
-      const auto &actions_for_symbol = state.actions.find(extra_symbol);
-      if (actions_for_symbol == state.actions.end())
+      const auto &entry_for_symbol = state.entries.find(extra_symbol);
+      if (entry_for_symbol == state.entries.end())
         continue;
 
-      for (const ParseAction &action : actions_for_symbol->second)
+      for (const ParseAction &action : entry_for_symbol->second.actions)
         if (action.type == ParseActionTypeShift && !action.extra) {
           size_t dest_state_id = action.state_index;
           ParseAction reduce_extra = ParseAction::ReduceExtra(extra_symbol);
-          for (const auto &pair : state.actions)
+          for (const auto &pair : state.entries)
             add_action(dest_state_id, pair.first, reduce_extra, null_item_set);
         }
     }
@@ -216,11 +216,14 @@ class ParseTableBuilder {
     for (ParseState &state : parse_table.states) {
       set<Symbol> symbols_with_multiple_actions;
 
-      for (auto &entry : state.actions) {
-        if (entry.second.size() > 1)
-          symbols_with_multiple_actions.insert(entry.first);
+      for (auto &entry : state.entries) {
+        const Symbol &symbol = entry.first;
+        auto &actions = entry.second.actions;
 
-        for (ParseAction &action : entry.second) {
+        if (actions.size() > 1)
+          symbols_with_multiple_actions.insert(symbol);
+
+        for (ParseAction &action : actions) {
           if (action.type == ParseActionTypeReduce && !action.extra) {
             if (has_fragile_production(action.production))
               action.fragile = true;
@@ -231,11 +234,11 @@ class ParseTableBuilder {
           }
         }
 
-        for (auto i = entry.second.begin(); i != entry.second.end();) {
+        for (auto i = actions.begin(); i != actions.end();) {
           bool erased = false;
-          for (auto j = entry.second.begin(); j != i; j++) {
+          for (auto j = actions.begin(); j != i; j++) {
             if (*j == *i) {
-              entry.second.erase(i);
+              actions.erase(i);
               erased = true;
               break;
             }
@@ -246,12 +249,12 @@ class ParseTableBuilder {
       }
 
       if (!symbols_with_multiple_actions.empty()) {
-        for (auto &entry : state.actions) {
+        for (auto &entry : state.entries) {
           if (!entry.first.is_token) {
             set<Symbol> first_set = get_first_set(entry.first);
             for (const Symbol &symbol : symbols_with_multiple_actions) {
               if (first_set.count(symbol)) {
-                entry.second[0].can_hide_split = true;
+                entry.second.reusable = false;
                 break;
               }
             }
@@ -276,14 +279,14 @@ class ParseTableBuilder {
   ParseAction *add_action(ParseStateId state_id, Symbol lookahead,
                           const ParseAction &new_action,
                           const ParseItemSet &item_set) {
-    const auto &current_actions = parse_table.states[state_id].actions;
-    const auto &current_entry = current_actions.find(lookahead);
-    if (current_entry == current_actions.end())
+    const ParseState &state = parse_table.states[state_id];
+    const auto &current_entry = state.entries.find(lookahead);
+    if (current_entry == state.entries.end())
       return &parse_table.set_action(state_id, lookahead, new_action);
     if (allow_any_conflict)
       return &parse_table.add_action(state_id, lookahead, new_action);
 
-    const ParseAction old_action = current_entry->second[0];
+    const ParseAction old_action = current_entry->second.actions[0];
     auto resolution = conflict_manager.resolve(new_action, old_action);
 
     switch (resolution.second) {

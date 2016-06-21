@@ -32,9 +32,13 @@ typedef struct TSTree {
   TSLength size;
 
   TSSymbol symbol;
-  TSStateId lex_state;
   TSStateId parse_state;
   size_t error_size;
+
+  struct {
+    TSSymbol symbol;
+    TSStateId lex_state;
+  } first_leaf;
 
   unsigned short ref_count;
   bool visible : 1;
