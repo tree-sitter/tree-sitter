@@ -46,8 +46,6 @@
 
 static const unsigned ERROR_COST_THRESHOLD = 3;
 
-static const size_t ERROR_DEPTH_NONE = (size_t)(-1);
-
 typedef struct {
   TSTree *tree;
   size_t char_index;
@@ -675,6 +673,7 @@ static RepairResult ts_parser__repair_error(TSParser *self, StackSlice slice,
                                             TSTree *lookahead,
                                             const TSParseAction *actions,
                                             size_t action_count) {
+  LOG_ACTION("repair_error");
   ErrorRepairSession session = {
     .parser = self,
     .lookahead_symbol = lookahead->symbol,
@@ -933,7 +932,7 @@ static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
                                          TSTree *lookahead) {
   for (;;) {
     TSStateId state = ts_stack_top_state(self->stack, version);
-    size_t error_repair_depth = ERROR_DEPTH_NONE;
+    bool reduction_stopped_at_error = false;
     StackVersion last_reduction_version = STACK_VERSION_NONE;
 
     size_t action_count;
@@ -960,7 +959,7 @@ static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
         }
 
         case TSParseActionTypeReduce: {
-          if (action.child_count > error_repair_depth)
+          if (reduction_stopped_at_error)
             continue;
 
           if (action.extra) {
@@ -982,10 +981,7 @@ static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
               last_reduction_version = reduction.slice.version;
               break;
             case ReduceStoppedAtError: {
-              error_repair_depth =
-                ts_tree_array_essential_count(&reduction.slice.trees);
-
-              LOG_ACTION("repair count_above_error:%lu", error_repair_depth);
+              reduction_stopped_at_error = true;
               switch (ts_parser__repair_error(self, reduction.slice, lookahead,
                                               actions, action_count)) {
                 case RepairFailed:
