@@ -60,7 +60,6 @@ typedef struct TSLexer {
 } TSLexer;
 
 typedef enum {
-  TSParseActionTypeError,
   TSParseActionTypeShift,
   TSParseActionTypeReduce,
   TSParseActionTypeAccept,
@@ -75,7 +74,7 @@ typedef struct {
       unsigned short child_count;
     };
   };
-  TSParseActionType type : 3;
+  TSParseActionType type : 4;
   bool extra : 1;
   bool fragile : 1;
 } TSParseAction;
@@ -145,11 +144,6 @@ struct TSLanguage {
 /*
  *  Parse Table Macros
  */
-
-#define ERROR()                        \
-  {                                    \
-    { .type = TSParseActionTypeError } \
-  }
 
 #define SHIFT(to_state_value)                                      \
   {                                                                \

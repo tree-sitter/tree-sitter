@@ -12,11 +12,8 @@ void ts_language_table_entry(const TSLanguage *self, TSStateId state,
     result->action_count = 1;
     result->is_reusable = false;
     result->depends_on_lookahead = false;
-    if (symbol == ts_builtin_sym_error ||
-        self->recovery_actions[symbol].type == TSParseActionTypeError)
-      result->actions = &ERROR_SHIFT_EXTRA;
-    else
-      result->actions = &self->recovery_actions[symbol];
+    result->actions = (symbol == ts_builtin_sym_error) ? &ERROR_SHIFT_EXTRA
+      : &self->recovery_actions[symbol];
     return;
   }
 

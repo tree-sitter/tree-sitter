@@ -30,18 +30,15 @@ static inline const TSParseAction *ts_language_actions(const TSLanguage *self,
   return entry.actions;
 }
 
-static inline TSParseAction ts_language_last_action(const TSLanguage *self,
+static inline const TSParseAction *ts_language_last_action(const TSLanguage *self,
                                                     TSStateId state,
                                                     TSSymbol symbol) {
   TableEntry entry;
   ts_language_table_entry(self, state, symbol, &entry);
-  return entry.actions[entry.action_count - 1];
-}
-
-static inline bool ts_language_has_action(const TSLanguage *self,
-                                          TSStateId state, TSSymbol symbol) {
-  TSParseAction action = ts_language_last_action(self, state, symbol);
-  return action.type != TSParseActionTypeError;
+  if (entry.action_count)
+    return &entry.actions[entry.action_count - 1];
+  else
+    return NULL;
 }
 
 static inline bool ts_language_is_reusable(const TSLanguage *self,
