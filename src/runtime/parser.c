@@ -1074,50 +1074,36 @@ void ts_parser_set_debugger(TSParser *self, TSDebugger debugger) {
   self->lexer.debugger = debugger;
 }
 
-TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
-  ts_parser__start(self, input, previous_tree);
-  size_t max_position = 0;
-  ReusableNode reusable_node, current_reusable_node = { previous_tree, 0 };
+TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *old_tree) {
+  ts_parser__start(self, input, old_tree);
+  StackVersion version = 0;
+  size_t last_position = 0, position = 0;
+  ReusableNode reusable_node, current_reusable_node = { old_tree, 0 };
 
   for (;;) {
     TSTree *lookahead = NULL;
-    size_t last_position, position = 0;
+    size_t lookahead_position = 0;
 
-    self->is_split = ts_stack_version_count(self->stack) > 1;
-
-    for (StackVersion version = 0;
-         version < ts_stack_version_count(self->stack);) {
+    for (version = 0; version < ts_stack_version_count(self->stack); version++) {
       reusable_node = current_reusable_node;
+      last_position = position;
 
-      for (;;) {
-        if (ts_stack_is_halted(self->stack, version)) {
-          version++;
+      while (!ts_stack_is_halted(self->stack, version)) {
+        position = ts_stack_top_position(self->stack, version).chars;
+        if (position > last_position ||
+            (version > 0 && position == last_position))
           break;
-        }
-
-        last_position = position;
-        size_t new_position = ts_stack_top_position(self->stack, version).chars;
-        if (new_position > max_position) {
-          max_position = new_position;
-          version++;
-          break;
-        } else if (new_position == max_position && version > 0) {
-          version++;
-          break;
-        }
-
-        position = new_position;
 
         LOG_ACTION("process version:%d, version_count:%lu, state:%d, pos:%lu",
                    version, ts_stack_version_count(self->stack),
                    ts_stack_top_state(self->stack, version), position);
 
-        if (!lookahead || (position != last_position) ||
+        if (!lookahead || (position != lookahead_position) ||
             !ts_parser__can_reuse(self, version, lookahead)) {
           ts_tree_release(lookahead);
           lookahead = ts_parser__get_lookahead(self, version, &reusable_node);
-          if (!lookahead)
-            return NULL;
+          lookahead_position = position;
+          CHECK(lookahead);
         }
 
         LOG_ACTION("lookahead sym:%s, size:%lu", SYM_NAME(lookahead->symbol),
@@ -1141,12 +1127,15 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *previous_tree) {
 
     ts_tree_release(lookahead);
 
-    if (ts_stack_version_count(self->stack) == 0) {
-      ts_stack_clear(self->stack);
-      ts_tree_assign_parents(self->finished_tree);
-      return self->finished_tree;
-    }
+    if (version > 1)
+      self->is_split = true;
+    if (version == 0)
+      break;
   }
+
+  ts_stack_clear(self->stack);
+  ts_tree_assign_parents(self->finished_tree);
+  return self->finished_tree;
 
 error:
   return NULL;
