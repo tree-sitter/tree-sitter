@@ -46,9 +46,7 @@
 
 static const unsigned ERROR_COST_THRESHOLD = 3;
 
-static const TSParseAction ERROR_ACTION = {.type = TSParseActionTypeError };
-
-static const size_t NO_ERROR_DEPTH = (size_t)(-1);
+static const size_t ERROR_DEPTH_NONE = (size_t)(-1);
 
 typedef struct {
   TSTree *tree;
@@ -930,24 +928,17 @@ static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
   for (;;) {
     TSStateId state = ts_stack_top_state(self->stack, version);
 
-    bool error_repair_failed = false;
-    size_t error_repair_depth = NO_ERROR_DEPTH;
+    size_t error_repair_depth = ERROR_DEPTH_NONE;
     StackVersion last_reduction_version = STACK_VERSION_NONE;
 
     size_t action_count;
     const TSParseAction *actions = ts_language_actions(
       self->language, state, lookahead->symbol, &action_count);
 
-    for (size_t i = 0;; i++) {
-      TSParseAction action;
-      if (i < action_count)
-        action = actions[i];
-      else if (error_repair_failed)
-        action = ERROR_ACTION;
-      else
-        break;
+    for (size_t i = 0; i < action_count; i++) {
+      TSParseAction action = actions[i];
 
-      if (error_repair_depth != NO_ERROR_DEPTH &&
+      if (error_repair_depth != ERROR_DEPTH_NONE &&
           action.type == TSParseActionTypeReduce &&
           action.data.child_count > error_repair_depth)
         continue;
@@ -955,23 +946,6 @@ static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
       LOG_STACK();
 
       switch (action.type) {
-        case TSParseActionTypeError: {
-          switch (ts_parser__breakdown_top_of_stack(self, version)) {
-            case BreakdownFailed:
-              goto error;
-            case BreakdownPerformed:
-              continue;
-            case BreakdownAborted:
-              break;
-          }
-
-          CHECK(ts_parser__handle_error(self, version, state, lookahead));
-          if (ts_stack_is_halted(self->stack, version))
-            return true;
-          error_repair_failed = false;
-          break;
-        }
-
         case TSParseActionTypeShift: {
           TSStateId next_state;
           if (action.extra) {
@@ -1016,9 +990,6 @@ static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
                 case RepairFailed:
                   goto error;
                 case RepairNoneFound:
-                  if (last_reduction_version == STACK_VERSION_NONE) {
-                    error_repair_failed = true;
-                  }
                   break;
                 case RepairSucceeded:
                   last_reduction_version = reduction.slice.version;
@@ -1041,11 +1012,26 @@ static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
             ts_parser__recover(self, version, action.data.to_state, lookahead));
           return true;
         }
+
+        case TSParseActionTypeError: {}
       }
     }
 
-    if (last_reduction_version != STACK_VERSION_NONE)
+    if (last_reduction_version != STACK_VERSION_NONE) {
       ts_stack_renumber_version(self->stack, last_reduction_version, version);
+      continue;
+    }
+
+    switch (ts_parser__breakdown_top_of_stack(self, version)) {
+      case BreakdownFailed:
+        goto error;
+      case BreakdownPerformed:
+        break;
+      case BreakdownAborted:
+        CHECK(ts_parser__handle_error(self, version, state, lookahead));
+        if (ts_stack_is_halted(self->stack, version))
+          return true;
+    }
   }
 
 error:
