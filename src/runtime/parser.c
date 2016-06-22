@@ -493,7 +493,8 @@ static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
       parent->extra = true;
       new_state = state;
     } else {
-      const TSParseAction *action = ts_language_last_action(language, state, symbol);
+      const TSParseAction *action =
+        ts_language_last_action(language, state, symbol);
       assert(action);
       assert(action->type == TSParseActionTypeShift ||
              action->type == TSParseActionTypeRecover);
@@ -605,7 +606,8 @@ static StackIterateAction ts_parser__error_repair_callback(
 
     const TSParseAction *repair_symbol_action =
       ts_language_last_action(self->language, state, repair->symbol);
-    if (!repair_symbol_action || repair_symbol_action->type != TSParseActionTypeShift)
+    if (!repair_symbol_action ||
+        repair_symbol_action->type != TSParseActionTypeShift)
       continue;
 
     TSStateId state_after_repair = repair_symbol_action->to_state;

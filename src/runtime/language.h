@@ -30,9 +30,8 @@ static inline const TSParseAction *ts_language_actions(const TSLanguage *self,
   return entry.actions;
 }
 
-static inline const TSParseAction *ts_language_last_action(const TSLanguage *self,
-                                                    TSStateId state,
-                                                    TSSymbol symbol) {
+static inline const TSParseAction *ts_language_last_action(
+  const TSLanguage *self, TSStateId state, TSSymbol symbol) {
   TableEntry entry;
   ts_language_table_entry(self, state, symbol, &entry);
   if (entry.action_count)
