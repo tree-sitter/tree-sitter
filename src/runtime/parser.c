@@ -120,7 +120,7 @@ static BreakdownResult ts_parser__breakdown_top_of_stack(TSParser *self,
             ts_language_last_action(self->language, state, last_child->symbol);
           assert(action.type == TSParseActionTypeShift ||
                  action.type == TSParseActionTypeRecover);
-          state = action.data.to_state;
+          state = action.to_state;
         }
 
         LOG("breakdown_push sym:%s, size:%lu", SYM_NAME(last_child->symbol),
@@ -249,11 +249,13 @@ static bool ts_parser__can_reuse(TSParser *self, StackVersion version,
         }
 
         if (tree->child_count == 1 && leaf_entry.depends_on_lookahead) {
-          LOG_ACTION("cant_reuse_lookahead_dependent tree:%s, leaf:%s", SYM_NAME(tree->symbol), SYM_NAME(tree->first_leaf.symbol));
+          LOG_ACTION("cant_reuse_lookahead_dependent tree:%s, leaf:%s",
+                     SYM_NAME(tree->symbol), SYM_NAME(tree->first_leaf.symbol));
           return false;
         }
       } else if (entry.depends_on_lookahead) {
-        LOG_ACTION("cant_reuse_lookahead_dependent tree:%s", SYM_NAME(tree->symbol));
+        LOG_ACTION("cant_reuse_lookahead_dependent tree:%s",
+                   SYM_NAME(tree->symbol));
         return false;
       }
     }
@@ -317,7 +319,8 @@ static TSTree *ts_parser__get_lookahead(TSParser *self, StackVersion version,
       if (reusable_node->tree->child_count == 0)
         ts_parser__breakdown_top_of_stack(self, version);
 
-      LOG_ACTION("breakdown_changed sym:%s", SYM_NAME(reusable_node->tree->symbol));
+      LOG_ACTION("breakdown_changed sym:%s",
+                 SYM_NAME(reusable_node->tree->symbol));
       ts_parser__breakdown_reusable_node(reusable_node);
       continue;
     }
@@ -494,7 +497,7 @@ static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
       TSParseAction action = ts_language_last_action(language, state, symbol);
       assert(action.type == TSParseActionTypeShift ||
              action.type == TSParseActionTypeRecover);
-      new_state = action.data.to_state;
+      new_state = action.to_state;
     }
 
     CHECK(ts_parser__push(self, slice.version, parent, new_state));
@@ -537,7 +540,7 @@ static inline const TSParseAction *ts_parser__reductions_after_sequence(
     if (action.extra || tree->extra)
       continue;
     child_count++;
-    state = action.data.to_state;
+    state = action.to_state;
   }
 
   for (size_t i = 0; i < trees_above->size; i++) {
@@ -549,7 +552,7 @@ static inline const TSParseAction *ts_parser__reductions_after_sequence(
     if (action.extra || tree->extra)
       continue;
     child_count++;
-    state = action.data.to_state;
+    state = action.to_state;
   }
 
   const TSParseAction *actions =
@@ -558,12 +561,12 @@ static inline const TSParseAction *ts_parser__reductions_after_sequence(
   if (actions[*count - 1].type != TSParseActionTypeReduce)
     (*count)--;
 
-  while (*count > 0 && actions[0].data.child_count < child_count) {
+  while (*count > 0 && actions[0].child_count < child_count) {
     actions++;
     (*count)--;
   }
 
-  while (*count > 0 && actions[*count - 1].data.child_count > child_count) {
+  while (*count > 0 && actions[*count - 1].child_count > child_count) {
     (*count)--;
   }
 
@@ -604,7 +607,7 @@ static StackIterateAction ts_parser__error_repair_callback(
     if (repair_symbol_action.type != TSParseActionTypeShift)
       continue;
 
-    TSStateId state_after_repair = repair_symbol_action.data.to_state;
+    TSStateId state_after_repair = repair_symbol_action.to_state;
     if (!ts_language_has_action(self->language, state_after_repair,
                                 lookahead_symbol))
       continue;
@@ -617,7 +620,7 @@ static StackIterateAction ts_parser__error_repair_callback(
     }
 
     for (size_t j = 0; j < repair_reduction_count; j++) {
-      if (repair_reductions[j].data.symbol == repair->symbol) {
+      if (repair_reductions[j].symbol == repair->symbol) {
         result |= StackIteratePop;
         session->found_repair = true;
         session->best_repair = *repair;
@@ -680,8 +683,8 @@ static RepairResult ts_parser__repair_error(TSParser *self, StackSlice slice,
   array_clear(&self->reduce_actions);
   for (size_t i = 0; i < action_count; i++) {
     if (actions[i].type == TSParseActionTypeReduce) {
-      TSSymbol symbol = actions[i].data.symbol;
-      size_t child_count = actions[i].data.child_count;
+      TSSymbol symbol = actions[i].symbol;
+      size_t child_count = actions[i].child_count;
       if ((child_count > session.tree_count_above_error) ||
           (child_count == session.tree_count_above_error &&
            !ts_language_symbol_metadata(self->language, symbol).visible))
@@ -845,11 +848,11 @@ static bool ts_parser__handle_error(TSParser *self, StackVersion version,
           has_shift_action = true;
           break;
         case TSParseActionTypeReduce:
-          if (action.data.child_count > 0)
+          if (action.child_count > 0)
             CHECK(ts_reduce_action_set_add(
               &self->reduce_actions,
               (ReduceAction){
-                .symbol = action.data.symbol, .count = action.data.child_count,
+                .symbol = action.symbol, .count = action.child_count,
               }));
         default:
           break;
@@ -940,7 +943,7 @@ static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
 
       if (error_repair_depth != ERROR_DEPTH_NONE &&
           action.type == TSParseActionTypeReduce &&
-          action.data.child_count > error_repair_depth)
+          action.child_count > error_repair_depth)
         continue;
 
       LOG_STACK();
@@ -952,7 +955,7 @@ static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
             next_state = state;
             LOG_ACTION("shift_extra");
           } else {
-            next_state = action.data.to_state;
+            next_state = action.to_state;
             LOG_ACTION("shift state:%u", next_state);
           }
 
@@ -966,13 +969,13 @@ static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
             LOG_ACTION("reduce_extra");
           } else {
             LOG_ACTION("reduce sym:%s, child_count:%u, fragile:%s",
-                       SYM_NAME(action.data.symbol), action.data.child_count,
+                       SYM_NAME(action.symbol), action.child_count,
                        BOOL_STRING(action.fragile));
           }
 
-          Reduction reduction = ts_parser__reduce(
-            self, version, action.data.symbol, action.data.child_count,
-            action.extra, action.fragile);
+          Reduction reduction =
+            ts_parser__reduce(self, version, action.symbol, action.child_count,
+                              action.extra, action.fragile);
 
           switch (reduction.status) {
             case ReduceFailed:
@@ -1008,12 +1011,12 @@ static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
         }
 
         case TSParseActionTypeRecover: {
-          CHECK(
-            ts_parser__recover(self, version, action.data.to_state, lookahead));
+          CHECK(ts_parser__recover(self, version, action.to_state, lookahead));
           return true;
         }
 
-        case TSParseActionTypeError: {}
+        case TSParseActionTypeError: {
+        }
       }
     }
 
