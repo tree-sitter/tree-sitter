@@ -909,7 +909,8 @@ static bool ts_parser__recover(TSParser *self, StackVersion version,
     LOG_ACTION("recover_eof");
     TreeArray children = array_new();
     TSTree *parent = ts_tree_make_error_node(&children);
-    return ts_parser__push(self, version, parent, 1);
+    CHECK(ts_parser__push(self, version, parent, 1));
+    return ts_parser__accept(self, version);
   }
 
   unsigned my_error_cost = ts_stack_error_cost(self->stack, version);
@@ -1006,6 +1007,8 @@ static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
         }
 
         case TSParseActionTypeAccept: {
+          if (ts_stack_error_depth(self->stack, version) > 0)
+            continue;
           LOG_ACTION("accept");
           CHECK(ts_parser__accept(self, version));
           return true;
