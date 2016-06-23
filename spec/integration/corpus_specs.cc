@@ -140,13 +140,6 @@ describe("The Corpus", []() {
         std::set<std::pair<size_t, size_t>> deletions;
         std::set<std::pair<size_t, string>> insertions;
 
-        // TODO - fix these incremental parsing bugs.
-        if (language_name == "javascript" && entry.description.find("Try catch finally") != string::npos)
-          continue;
-
-        if (language_name == "c" && entry.description.find("Boolean operators") != string::npos)
-          continue;
-
         for (size_t i = 0; i < 60; i++) {
           size_t edit_position = random() % utf8_char_count(entry.input);
           size_t deletion_size = random() % (utf8_char_count(entry.input) - edit_position);
