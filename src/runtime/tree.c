@@ -399,8 +399,10 @@ static size_t ts_tree__write_to_string(const TSTree *self,
     cursor += snprintf(*writer, limit, " ");
 
   if (visible) {
-    if (self->symbol == ts_builtin_sym_error && self->child_count == 0 && self->size.chars > 0) {
-      cursor += snprintf(*writer, limit, "(UNEXPECTED '%c'", self->lookahead_char);
+    if (self->symbol == ts_builtin_sym_error && self->child_count == 0 &&
+        self->size.chars > 0) {
+      cursor +=
+        snprintf(*writer, limit, "(UNEXPECTED '%c'", self->lookahead_char);
     } else {
       cursor += snprintf(*writer, limit, "(%s",
                          ts_language_symbol_name(language, self->symbol));

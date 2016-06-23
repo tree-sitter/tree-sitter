@@ -13,16 +13,16 @@
 #include "runtime/alloc.h"
 #include "runtime/reduce_action.h"
 
-#define LOG(...)                   \
+#define LOG(...)                                                               \
   if (self->lexer.debugger.debug_fn) {                                         \
     snprintf(self->lexer.debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__);     \
     self->lexer.debugger.debug_fn(self->lexer.debugger.payload,                \
                                   TSDebugTypeParse, self->lexer.debug_buffer); \
-  } \
-  if (self->print_debugging_graphs) {     \
-    fprintf(stderr, "graph {\nlabel=\""); \
-    fprintf(stderr, __VA_ARGS__);         \
-    fprintf(stderr, "\"\n}\n\n");         \
+  }                                                                            \
+  if (self->print_debugging_graphs) {                                          \
+    fprintf(stderr, "graph {\nlabel=\"");                                      \
+    fprintf(stderr, __VA_ARGS__);                                              \
+    fprintf(stderr, "\"\n}\n\n");                                              \
   }
 
 #define LOG_STACK()                                                     \
@@ -212,7 +212,7 @@ static bool ts_parser__can_reuse(TSParser *self, StackVersion version,
   TSStateId state = ts_stack_top_state(self->stack, version);
   if (tree->parse_state != state) {
     if (ts_tree_is_fragile(tree)) {
-      LOG("cant_reuse_fragile tree:%s", SYM_NAME(tree->symbol));
+      LOG("cant_reuse_fragile sym:%s", SYM_NAME(tree->symbol));
       return false;
     }
 
@@ -220,18 +220,18 @@ static bool ts_parser__can_reuse(TSParser *self, StackVersion version,
     ts_language_table_entry(self->language, state, tree->symbol, &entry);
 
     if (!entry.is_reusable) {
-      LOG("cant_reuse tree:%s", SYM_NAME(tree->symbol));
+      LOG("cant_reuse_ambiguous sym:%s", SYM_NAME(tree->symbol));
       return false;
     }
 
     if (entry.action_count == 0) {
-      LOG("cant_reuse_unexpected tree:%s", SYM_NAME(tree->symbol));
+      LOG("cant_reuse_unexpected sym:%s", SYM_NAME(tree->symbol));
       return false;
     }
 
     TSParseAction action = entry.actions[entry.action_count - 1];
     if (tree->extra != action.extra) {
-      LOG("cant_reuse_extra tree:%s", SYM_NAME(tree->symbol));
+      LOG("cant_reuse_extra sym:%s", SYM_NAME(tree->symbol));
       return false;
     }
 
@@ -243,19 +243,19 @@ static bool ts_parser__can_reuse(TSParser *self, StackVersion version,
                                 &leaf_entry);
 
         if (!leaf_entry.is_reusable) {
-          LOG("cant_reuse_first_leaf tree:%s, leaf:%s",
-                     SYM_NAME(tree->symbol), SYM_NAME(tree->first_leaf.symbol));
+          LOG("cant_reuse_first_leaf sym:%s, leaf_sym:%s",
+              SYM_NAME(tree->symbol), SYM_NAME(tree->first_leaf.symbol));
           return false;
         }
 
         if (tree->child_count == 1 && leaf_entry.depends_on_lookahead) {
-          LOG("cant_reuse_lookahead_dependent tree:%s, leaf:%s",
-                     SYM_NAME(tree->symbol), SYM_NAME(tree->first_leaf.symbol));
+          LOG("cant_reuse_lookahead_dependent sym:%s, leaf_sym:%s",
+              SYM_NAME(tree->symbol), SYM_NAME(tree->first_leaf.symbol));
           return false;
         }
       } else if (entry.depends_on_lookahead) {
-        LOG("cant_reuse_lookahead_dependent tree:%s",
-                   SYM_NAME(tree->symbol));
+        LOG("cant_reuse_lookahead_dependent sym:%s, leaf_sym:%s",
+            SYM_NAME(tree->symbol), SYM_NAME(tree->first_leaf.symbol));
         return false;
       }
     }
@@ -323,8 +323,8 @@ static TSTree *ts_parser__get_lookahead(TSParser *self, StackVersion version,
 
     TSTree *result = reusable_node->tree;
     TSLength size = ts_tree_total_size(result);
-    LOG("reuse sym:%s size:%lu extra:%d", SYM_NAME(result->symbol),
-               size.chars, result->extra);
+    LOG("reuse sym:%s size:%lu extra:%d", SYM_NAME(result->symbol), size.chars,
+        result->extra);
     ts_parser__pop_reusable_node(reusable_node);
     ts_tree_retain(result);
     return result;
@@ -346,29 +346,29 @@ static bool ts_parser__select_tree(TSParser *self, TSTree *left, TSTree *right) 
     return false;
   if (right->error_size < left->error_size) {
     LOG("select_smaller_error symbol:%s, over_symbol:%s",
-               SYM_NAME(right->symbol), SYM_NAME(left->symbol));
+        SYM_NAME(right->symbol), SYM_NAME(left->symbol));
     return true;
   }
   if (left->error_size < right->error_size) {
     LOG("select_smaller_error symbol:%s, over_symbol:%s",
-               SYM_NAME(left->symbol), SYM_NAME(right->symbol));
+        SYM_NAME(left->symbol), SYM_NAME(right->symbol));
     return false;
   }
 
   int comparison = ts_tree_compare(left, right);
   switch (comparison) {
     case -1:
-      LOG("select_earlier symbol:%s, over_symbol:%s",
-                 SYM_NAME(left->symbol), SYM_NAME(right->symbol));
+      LOG("select_earlier symbol:%s, over_symbol:%s", SYM_NAME(left->symbol),
+          SYM_NAME(right->symbol));
       return false;
       break;
     case 1:
-      LOG("select_earlier symbol:%s, over_symbol:%s",
-                 SYM_NAME(right->symbol), SYM_NAME(left->symbol));
+      LOG("select_earlier symbol:%s, over_symbol:%s", SYM_NAME(right->symbol),
+          SYM_NAME(left->symbol));
       return true;
     default:
-      LOG("select_existing symbol:%s, over_symbol:%s",
-                 SYM_NAME(left->symbol), SYM_NAME(right->symbol));
+      LOG("select_existing symbol:%s, over_symbol:%s", SYM_NAME(left->symbol),
+          SYM_NAME(right->symbol));
       return false;
   }
 }
@@ -742,8 +742,8 @@ static RepairResult ts_parser__repair_error(TSParser *self, StackSlice slice,
     ts_stack_halt(self->stack, slice.version);
     return RepairNoneFound;
   } else {
-    LOG("repair_found sym:%s, child_count:%lu, skipped:%lu",
-               SYM_NAME(symbol), repair.count, parent->error_size);
+    LOG("repair_found sym:%s, child_count:%lu, skipped:%lu", SYM_NAME(symbol),
+        repair.count, parent->error_size);
     return RepairSucceeded;
   }
 
@@ -957,8 +957,8 @@ static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
             LOG("reduce_extra");
           } else {
             LOG("reduce sym:%s, child_count:%u, fragile:%s",
-                       SYM_NAME(action.symbol), action.child_count,
-                       BOOL_STRING(action.fragile));
+                SYM_NAME(action.symbol), action.child_count,
+                BOOL_STRING(action.fragile));
           }
 
           Reduction reduction =
@@ -1087,9 +1087,11 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *old_tree) {
             (version > 0 && position == last_position))
           break;
 
-        LOG("process version:%d, version_count:%lu, state:%d, pos:%lu",
-                   version, ts_stack_version_count(self->stack),
-                   ts_stack_top_state(self->stack, version), position);
+        LOG("process version:%d, version_count:%lu, state:%d, row:%lu, col:%lu",
+            version, ts_stack_version_count(self->stack),
+            ts_stack_top_state(self->stack, version),
+            ts_stack_top_position(self->stack, version).rows + 1,
+            ts_stack_top_position(self->stack, version).columns + 1);
 
         if (!lookahead || (position != lookahead_position) ||
             !ts_parser__can_reuse(self, version, lookahead)) {
@@ -1100,7 +1102,7 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *old_tree) {
         }
 
         LOG("lookahead sym:%s, size:%lu", SYM_NAME(lookahead->symbol),
-                   ts_tree_total_chars(lookahead));
+            ts_tree_total_chars(lookahead));
 
         if (!ts_parser__consume_lookahead(self, version, lookahead)) {
           ts_tree_release(lookahead);
