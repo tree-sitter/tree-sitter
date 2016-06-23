@@ -384,16 +384,6 @@ void ts_tree_edit(TSTree *self, TSInputEdit edit) {
   }
 }
 
-static size_t write_lookahead_to_string(char *string, size_t limit,
-                                        char lookahead) {
-  switch (lookahead) {
-    case '\0':
-      return snprintf(string, limit, "<EOF>");
-    default:
-      return snprintf(string, limit, "'%c'", lookahead);
-  }
-}
-
 static size_t ts_tree__write_to_string(const TSTree *self,
                                        const TSLanguage *language, char *string,
                                        size_t limit, bool is_root,
@@ -409,9 +399,8 @@ static size_t ts_tree__write_to_string(const TSTree *self,
     cursor += snprintf(*writer, limit, " ");
 
   if (visible) {
-    if (self->symbol == ts_builtin_sym_error && self->child_count == 0) {
-      cursor += snprintf(*writer, limit, "(UNEXPECTED ");
-      cursor += write_lookahead_to_string(*writer, limit, self->lookahead_char);
+    if (self->symbol == ts_builtin_sym_error && self->child_count == 0 && self->size.chars > 0) {
+      cursor += snprintf(*writer, limit, "(UNEXPECTED '%c'", self->lookahead_char);
     } else {
       cursor += snprintf(*writer, limit, "(%s",
                          ts_language_symbol_name(language, self->symbol));

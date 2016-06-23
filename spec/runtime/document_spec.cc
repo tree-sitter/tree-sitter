@@ -100,13 +100,15 @@ describe("Document", [&]() {
       ts_document_set_input_string(doc, "");
       ts_document_parse(doc);
       TSNode new_root = ts_document_root_node(doc);
+      AssertThat(ts_node_end_char(new_root), Equals<size_t>(0));
       assert_node_string_equals(
         new_root,
-        "(ERROR (UNEXPECTED <EOF>))");
+        "(ERROR)");
 
       ts_document_set_input_string(doc, "1");
       ts_document_parse(doc);
       new_root = ts_document_root_node(doc);
+      AssertThat(ts_node_end_char(new_root), Equals<size_t>(1));
       assert_node_string_equals(
         new_root,
         "(number)");
