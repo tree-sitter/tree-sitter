@@ -9,6 +9,7 @@ extern "C" {
 #include "tree_sitter/parser.h"
 #include "runtime/length.h"
 #include "runtime/array.h"
+#include <stdio.h>
 
 extern TSStateId TS_TREE_STATE_INDEPENDENT;
 extern TSStateId TS_TREE_STATE_ERROR;
@@ -70,6 +71,7 @@ void ts_tree_set_children(TSTree *, size_t, TSTree **);
 void ts_tree_assign_parents(TSTree *);
 void ts_tree_edit(TSTree *, TSInputEdit);
 char *ts_tree_string(const TSTree *, const TSLanguage *, bool include_all);
+void ts_tree_print_dot_graph(const TSTree *, const TSLanguage *, FILE *);
 
 static inline size_t ts_tree_total_chars(const TSTree *self) {
   return self->padding.chars + self->size.chars;

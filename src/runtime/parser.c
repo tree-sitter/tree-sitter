@@ -35,6 +35,11 @@
     fputs("\n\n", stderr);                                              \
   }
 
+#define LOG_TREE()                                                        \
+  if (self->print_debugging_graphs) {                                     \
+    ts_tree_print_dot_graph(self->finished_tree, self->language, stderr); \
+  }
+
 #define SYM_NAME(symbol) ts_language_symbol_name(self->language, symbol)
 
 #define BOOL_STRING(value) (value ? "true" : "false")
@@ -1135,6 +1140,8 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *old_tree) {
       break;
   }
 
+  LOG_ACTION("done");
+  LOG_TREE();
   ts_stack_clear(self->stack);
   ts_tree_assign_parents(self->finished_tree);
   return self->finished_tree;

@@ -439,3 +439,31 @@ char *ts_tree_string(const TSTree *self, const TSLanguage *language,
   ts_tree__write_to_string(self, language, result, size, true, include_all);
   return result;
 }
+
+void ts_tree__print_dot_graph(const TSTree *self, size_t offset,
+                              const TSLanguage *language, FILE *f) {
+  fprintf(f, "tree_%p [label=\"%s\"", self,
+          ts_language_symbol_name(language, self->symbol));
+
+  if (self->child_count == 0)
+    fprintf(f, ", shape=plaintext");
+  if (self->extra)
+    fprintf(f, ", fontcolor=gray");
+
+  fprintf(f, ", tooltip=\"%lu - %lu\"]\n", offset,
+          offset + ts_tree_total_chars(self));
+  for (size_t i = 0; i < self->child_count; i++) {
+    const TSTree *child = self->children[i];
+    ts_tree__print_dot_graph(child, offset, language, f);
+    fprintf(f, "tree_%p -> tree_%p [tooltip=%lu]\n", self, child, i);
+    offset += ts_tree_total_chars(child);
+  }
+}
+
+void ts_tree_print_dot_graph(const TSTree *self, const TSLanguage *language,
+                             FILE *f) {
+  fprintf(f, "digraph tree {\n");
+  fprintf(f, "edge [arrowhead=none]\n");
+  ts_tree__print_dot_graph(self, 0, language, f);
+  fprintf(f, "}\n");
+}
