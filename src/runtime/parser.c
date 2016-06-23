@@ -90,62 +90,59 @@ typedef enum {
   BreakdownAborted,
 } BreakdownResult;
 
+static bool ts_parser__push(TSParser *self, StackVersion version, TSTree *tree,
+                            TSStateId state) {
+  bool result = ts_stack_push(self->stack, version, tree, false, state);
+  ts_tree_release(tree);
+  return result;
+}
+
 static BreakdownResult ts_parser__breakdown_top_of_stack(TSParser *self,
                                                          StackVersion version) {
-  TSTree *last_child = NULL;
   bool did_break_down = false;
-  bool is_still_pending = false;
+  bool pending = false;
 
   do {
     StackPopResult pop = ts_stack_pop_pending(self->stack, version);
-    if (!pop.status)
-      goto error;
+    CHECK(pop.status);
     if (!pop.slices.size)
       break;
 
     did_break_down = true;
-    is_still_pending = false;
+    pending = false;
     for (size_t i = 0; i < pop.slices.size; i++) {
       StackSlice slice = pop.slices.contents[i];
-      TreeArray removed_trees = slice.trees;
-      TSTree *parent = *array_front(&removed_trees);
-      LOG("breakdown_pop sym:%s, size:%lu", SYM_NAME(parent->symbol),
-          ts_tree_total_size(parent).chars);
-
       TSStateId state = ts_stack_top_state(self->stack, slice.version);
-      for (size_t j = 0; j < parent->child_count; j++) {
-        last_child = parent->children[j];
-        is_still_pending = last_child->child_count > 0;
+      TSTree *parent = *array_front(&slice.trees);
 
-        if (last_child->symbol == ts_builtin_sym_error) {
+      LOG_ACTION("breakdown_top_of_stack tree:%s", SYM_NAME(parent->symbol));
+
+      for (size_t j = 0; j < parent->child_count; j++) {
+        TSTree *child = parent->children[j];
+        pending = child->child_count > 0;
+
+        if (child->symbol == ts_builtin_sym_error) {
           state = ts_parse_state_error;
-        } else if (!last_child->extra) {
+        } else if (!child->extra) {
           const TSParseAction *action =
-            ts_language_last_action(self->language, state, last_child->symbol);
-          assert(action);
-          assert(action->type == TSParseActionTypeShift ||
-                 action->type == TSParseActionTypeRecover);
+            ts_language_last_action(self->language, state, child->symbol);
+          assert(action && (action->type == TSParseActionTypeShift ||
+                            action->type == TSParseActionTypeRecover));
           state = action->to_state;
         }
 
-        LOG("breakdown_push sym:%s, size:%lu", SYM_NAME(last_child->symbol),
-            ts_tree_total_size(last_child).chars);
-        if (!ts_stack_push(self->stack, slice.version, last_child,
-                           is_still_pending, state))
-          goto error;
+        CHECK(ts_stack_push(self->stack, slice.version, child, pending, state));
       }
 
-      for (size_t j = 1, count = slice.trees.size; j < count; j++) {
+      for (size_t j = 1; j < slice.trees.size; j++) {
         TSTree *tree = slice.trees.contents[j];
-        if (!ts_stack_push(self->stack, slice.version, tree, false, state))
-          goto error;
+        CHECK(ts_parser__push(self, slice.version, tree, state));
       }
 
-      for (size_t j = 0, count = removed_trees.size; j < count; j++)
-        ts_tree_release(removed_trees.contents[j]);
-      array_delete(&removed_trees);
+      ts_tree_release(parent);
+      array_delete(&slice.trees);
     }
-  } while (last_child && is_still_pending);
+  } while (pending);
 
   return did_break_down ? BreakdownPerformed : BreakdownAborted;
 
@@ -379,13 +376,6 @@ static bool ts_parser__select_tree(TSParser *self, TSTree *left, TSTree *right) 
                  SYM_NAME(left->symbol), SYM_NAME(right->symbol));
       return false;
   }
-}
-
-static bool ts_parser__push(TSParser *self, StackVersion version, TSTree *tree,
-                            TSStateId state) {
-  bool result = ts_stack_push(self->stack, version, tree, false, state);
-  ts_tree_release(tree);
-  return result;
 }
 
 static bool ts_parser__shift(TSParser *self, StackVersion version,
