@@ -1122,10 +1122,10 @@ TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *old_tree) {
 
     ts_tree_release(lookahead);
 
-    if (version > 1)
-      self->is_split = true;
     if (version == 0)
       break;
+    else
+      self->is_split = (version > 1);
   }
 
   LOG("done");
