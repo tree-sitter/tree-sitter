@@ -125,3 +125,28 @@ var
     (var_assignment (identifier) (number))
     (ERROR (identifier))
     (identifier)))
+
+============================================
+Misplaced expressions in var declarations
+============================================
+
+var
+  a = 1,
+  b = 2,
+  [1, 2],
+  {},
+  c = 3,
+  d = 4;
+
+var x;
+
+---
+
+(program
+  (var_declaration
+    (var_assignment (identifier) (number))
+    (var_assignment (identifier) (number))
+    (ERROR (array (number) (number)) (object))
+    (var_assignment (identifier) (number))
+    (var_assignment (identifier) (number)))
+  (var_declaration (identifier)))

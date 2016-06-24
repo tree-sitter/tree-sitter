@@ -419,7 +419,7 @@ static bool ts_parser__switch_children(TSParser *self, TSTree *tree,
 
 static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
                                    TSSymbol symbol, unsigned count, bool extra,
-                                   bool fragile) {
+                                   bool fragile, bool allow_skipping) {
   size_t initial_version_count = ts_stack_version_count(self->stack);
   StackPopResult pop = ts_stack_pop_count(self->stack, version, count);
   switch (pop.status) {
@@ -483,10 +483,23 @@ static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
     } else {
       const TSParseAction *action =
         ts_language_last_action(language, state, symbol);
-      assert(action);
       assert(action->type == TSParseActionTypeShift ||
              action->type == TSParseActionTypeRecover);
       new_state = action->to_state;
+
+      if (action->type == TSParseActionTypeRecover && allow_skipping) {
+        StackVersion other_version =
+          ts_stack_duplicate_version(self->stack, slice.version);
+        CHECK(other_version != STACK_VERSION_NONE);
+
+        CHECK(ts_stack_push(self->stack, other_version, parent, false,
+                            ts_parse_state_error));
+        for (size_t j = parent->child_count; j < slice.trees.size; j++) {
+          TSTree *tree = slice.trees.contents[j];
+          CHECK(ts_stack_push(self->stack, other_version, tree, false,
+                              ts_parse_state_error));
+        }
+      }
     }
 
     CHECK(ts_parser__push(self, slice.version, parent, new_state));
@@ -856,7 +869,7 @@ static bool ts_parser__handle_error(TSParser *self, StackVersion version,
   for (size_t i = 0; i < self->reduce_actions.size; i++) {
     ReduceAction action = self->reduce_actions.contents[i];
     Reduction reduction = ts_parser__reduce(self, version, action.symbol,
-                                            action.count, false, true);
+                                            action.count, false, true, false);
     switch (reduction.status) {
       case ReduceFailed:
         goto error;
@@ -963,7 +976,7 @@ static bool ts_parser__consume_lookahead(TSParser *self, StackVersion version,
 
           Reduction reduction =
             ts_parser__reduce(self, version, action.symbol, action.child_count,
-                              action.extra, action.fragile);
+                              action.extra, action.fragile, true);
 
           switch (reduction.status) {
             case ReduceFailed:
