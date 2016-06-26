@@ -152,6 +152,8 @@ describe("The Corpus", []() {
               ts_document_edit(document, input->replace(edit_position, 0, inserted_text));
               ts_document_parse(document);
 
+              expect_a_consistent_tree(ts_document_root_node(document), document);
+
               ts_document_edit(document, input->undo());
               ts_document_parse(document);
             });
@@ -163,6 +165,8 @@ describe("The Corpus", []() {
             it_handles_edit_sequence("repairing a deletion of " + desription, [&]() {
               ts_document_edit(document, input->replace(edit_position, deletion_size, ""));
               ts_document_parse(document);
+
+              expect_a_consistent_tree(ts_document_root_node(document), document);
 
               ts_document_edit(document, input->undo());
               ts_document_parse(document);

@@ -788,28 +788,31 @@ static bool ts_parser__accept(TSParser *self, StackVersion version) {
     StackSlice slice = pop.slices.contents[i];
     TreeArray trees = slice.trees;
 
-    for (size_t j = trees.size - 1; j + 1 > 0; j--) {
-      if (!trees.contents[j]->extra) {
-        TSTree *root = trees.contents[j];
-
-        CHECK(array_splice(&trees, j, 1, root->child_count, root->children));
-        ts_tree_set_children(root, trees.size, trees.contents);
-        if (!trees.size)
-          array_delete(&trees);
-
-        for (size_t k = j - 1; k + 1 > 0; k--)
-          if (!root->children[k]->extra)
-            root->error_size += root->children[j]->size.chars;
-
-        if (ts_parser__select_tree(self, self->finished_tree, root)) {
-          ts_tree_release(self->finished_tree);
-          self->finished_tree = root;
-        } else {
-          ts_tree_release(root);
+    TSTree *root = NULL;
+    if (trees.size == 1) {
+      root = trees.contents[0];
+      array_delete(&trees);
+    } else {
+      for (size_t j = trees.size - 1; j + 1 > 0; j--) {
+        TSTree *child = trees.contents[j];
+        if (!child->extra) {
+          root = ts_tree_make_copy(child);
+          root->child_count = 0;
+          for (size_t k = 0; k < child->child_count; k++)
+            ts_tree_retain(child->children[k]);
+          CHECK(array_splice(&trees, j, 1, child->child_count, child->children));
+          ts_tree_set_children(root, trees.size, trees.contents);
+          ts_tree_release(child);
+          break;
         }
-
-        break;
       }
+    }
+
+    if (ts_parser__select_tree(self, self->finished_tree, root)) {
+      ts_tree_release(self->finished_tree);
+      self->finished_tree = root;
+    } else {
+      ts_tree_release(root);
     }
   }
 
