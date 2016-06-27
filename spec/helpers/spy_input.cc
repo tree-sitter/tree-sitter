@@ -18,7 +18,7 @@ SpyInput::SpyInput(string content, size_t chars_per_chunk) :
   strings_read({""}) {}
 
 SpyInput::~SpyInput() {
-  delete buffer;
+  delete[] buffer;
 }
 
 const char * SpyInput::read(void *payload, size_t *bytes_read) {
