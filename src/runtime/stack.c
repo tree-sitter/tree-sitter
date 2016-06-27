@@ -91,8 +91,6 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
   else if (!(node = ts_malloc(sizeof(StackNode))))
     return NULL;
 
-  bool is_error = (state == ts_parse_state_error);
-
   *node = (StackNode){
     .ref_count = 1,
     .link_count = 0,
@@ -100,21 +98,29 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
     .state = state,
     .position = position,
     .error_depth = 0,
-    .error_cost = is_error ? 1 : 0,
+    .error_cost = 0,
   };
 
   if (next) {
     stack_node_retain(next);
-    node->links[0] = (StackLink){ next, tree, is_pending };
 
     node->link_count = 1;
-    node->error_cost += next->error_cost;
+    node->links[0] = (StackLink){ next, tree, is_pending };
+
+    node->error_cost = next->error_cost;
     node->error_depth = next->error_depth;
 
     if (tree) {
       ts_tree_retain(tree);
-      node->error_cost += tree->error_size;
+      if (state == ts_parse_state_error) {
+        if (!tree->extra) {
+          node->error_cost++;
+        }
+      } else {
+        node->error_cost += tree->error_size;
+      }
     } else {
+      node->error_cost++;
       node->error_depth++;
     }
   }

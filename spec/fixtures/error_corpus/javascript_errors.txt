@@ -123,8 +123,7 @@ var
     (var_assignment (identifier) (number))
     (ERROR) (identifier)
     (var_assignment (identifier) (number))
-    (ERROR (identifier))
-    (identifier)))
+    (var_assignment (identifier) (ERROR) (identifier))))
 
 ============================================
 Misplaced expressions in var declarations
@@ -148,5 +147,31 @@ var x;
     (var_assignment (identifier) (number))
     (ERROR (array (number) (number)) (object))
     (var_assignment (identifier) (number))
+    (var_assignment (identifier) (number)))
+  (var_declaration (identifier)))
+
+================================================
+Mismatched delimiters in var declarations
+================================================
+
+var
+  // keep this
+  a,
+
+  // skip this
+  [
+
+  // keep this
+  b = 1;
+
+var c;
+
+---
+
+(program
+  (var_declaration
+    (comment)
+    (identifier)
+    (ERROR (comment) (comment))
     (var_assignment (identifier) (number)))
   (var_declaration (identifier)))
