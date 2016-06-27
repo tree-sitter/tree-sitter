@@ -8,8 +8,7 @@
 #include "runtime/tree.h"
 #include "runtime/length.h"
 
-TSStateId TS_TREE_STATE_INDEPENDENT = USHRT_MAX;
-TSStateId TS_TREE_STATE_ERROR = USHRT_MAX - 1;
+TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
 
 TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
                           TSSymbolMetadata metadata) {
@@ -28,11 +27,7 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
     .padding = padding,
     .visible = metadata.visible,
     .named = metadata.named,
-    .parse_state = TS_TREE_STATE_INDEPENDENT,
-    .first_leaf =
-      {
-        .symbol = sym, .lex_state = TS_TREE_STATE_INDEPENDENT,
-      },
+    .first_leaf.symbol = sym,
   };
 
   return result;
@@ -164,7 +159,7 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
 
     if (child->symbol == ts_builtin_sym_error) {
       self->fragile_left = self->fragile_right = true;
-      self->parse_state = TS_TREE_STATE_ERROR;
+      self->parse_state = TS_TREE_STATE_NONE;
     }
   }
 

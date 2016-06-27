@@ -500,7 +500,7 @@ static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
     if (fragile || self->is_split || initial_version_count > 1) {
       parent->fragile_left = true;
       parent->fragile_right = true;
-      parent->parse_state = TS_TREE_STATE_ERROR;
+      parent->parse_state = TS_TREE_STATE_NONE;
     } else {
       parent->parse_state = state;
     }

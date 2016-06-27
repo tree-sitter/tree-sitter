@@ -11,8 +11,7 @@ extern "C" {
 #include "runtime/array.h"
 #include <stdio.h>
 
-extern TSStateId TS_TREE_STATE_INDEPENDENT;
-extern TSStateId TS_TREE_STATE_ERROR;
+extern TSStateId TS_TREE_STATE_NONE;
 
 typedef struct TSTree {
   struct {
