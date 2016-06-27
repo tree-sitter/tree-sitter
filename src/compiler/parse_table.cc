@@ -160,7 +160,7 @@ ParseStateId ParseTable::add_state() {
 
 ParseAction &ParseTable::set_action(ParseStateId id, Symbol symbol,
                                     ParseAction action) {
-  if (action.extra)
+  if (action.type == ParseActionTypeShift && action.extra)
     symbols[symbol].extra = true;
   else
     symbols[symbol].structural = true;
@@ -171,7 +171,7 @@ ParseAction &ParseTable::set_action(ParseStateId id, Symbol symbol,
 
 ParseAction &ParseTable::add_action(ParseStateId id, Symbol symbol,
                                     ParseAction action) {
-  if (action.extra)
+  if (action.type == ParseActionTypeShift && action.extra)
     symbols[symbol].extra = true;
   else
     symbols[symbol].structural = true;
