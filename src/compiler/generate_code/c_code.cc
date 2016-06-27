@@ -100,7 +100,6 @@ class CCodeGenerator {
     add_symbol_node_types_list();
     add_lex_function();
     add_lex_states_list();
-    add_recovery_parse_states_list();
     add_parse_table();
     add_parser_export();
 
@@ -206,27 +205,6 @@ class CCodeGenerator {
       for (const auto &state : parse_table.states)
         line("[" + to_string(state_id++) + "] = " +
              to_string(state.lex_state_id) + ",");
-    });
-    line("};");
-    line();
-  }
-
-  void add_recovery_parse_states_list() {
-    line("static TSParseAction ts_recovery_actions[SYMBOL_COUNT] = {");
-    indent([&]() {
-      for (const auto &pair : parse_table.symbols) {
-        const rules::Symbol &symbol = pair.first;
-        line("[" + symbol_id(pair.first) + "] = ");
-        const auto &entry = parse_table.error_state.entries.find(symbol);
-        if (entry != parse_table.error_state.entries.end()) {
-          ParseAction action = entry->second.actions[0];
-          if (!action.extra) {
-            add("RECOVER(" + to_string(action.state_index) + "),");
-            continue;
-          }
-        }
-        add("RECOVER_EXTRA(),");
-      }
     });
     line("};");
     line();
@@ -371,6 +349,9 @@ class CCodeGenerator {
                 add("REDUCE(" + symbol_id(action.symbol) + ", " +
                     to_string(action.consumed_symbol_count) + ")");
               }
+              break;
+            case ParseActionTypeRecover:
+              add("RECOVER(" + to_string(action.state_index) + ")");
               break;
             default: {}
           }

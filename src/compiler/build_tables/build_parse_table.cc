@@ -56,6 +56,9 @@ class ParseTableBuilder {
       ProductionStep(start_symbol, 0, rules::AssociativityNone),
     });
 
+    // Placeholder for error state
+    add_parse_state(ParseItemSet());
+
     add_parse_state(ParseItemSet({
       {
         ParseItem(rules::START(), start_production, 0),
@@ -67,7 +70,7 @@ class ParseTableBuilder {
     if (error.type != TSCompileErrorTypeNone)
       return { parse_table, error };
 
-    add_out_of_context_parse_states();
+    build_error_parse_state();
 
     allow_any_conflict = true;
     process_part_state_queue();
@@ -104,31 +107,35 @@ class ParseTableBuilder {
     return CompileError::none();
   }
 
-  void add_out_of_context_parse_states() {
+  void build_error_parse_state() {
+    ParseState error_state;
+
     for (const Symbol &symbol : recovery_tokens(lexical_grammar)) {
-      add_out_of_context_parse_state(symbol);
+      add_out_of_context_parse_state(&error_state, symbol);
     }
 
     for (const Symbol &symbol : grammar.extra_tokens) {
-      parse_table.error_state.entries[symbol].actions.push_back(
-        ParseAction::ShiftExtra());
+      error_state.entries[symbol].actions.push_back(ParseAction::ShiftExtra());
     }
 
     for (size_t i = 0; i < grammar.variables.size(); i++) {
       Symbol symbol(i, false);
-      add_out_of_context_parse_state(symbol);
+      add_out_of_context_parse_state(&error_state, symbol);
     }
 
-    parse_table.error_state.entries[rules::END_OF_INPUT()].actions.push_back(
-      ParseAction::Shift(0, PrecedenceRange()));
+    error_state.entries[rules::END_OF_INPUT()].actions.push_back(
+      ParseAction::Recover(0));
+
+    parse_table.states[0] = error_state;
   }
 
-  void add_out_of_context_parse_state(const rules::Symbol &symbol) {
+  void add_out_of_context_parse_state(ParseState *error_state,
+                                      const rules::Symbol &symbol) {
     const ParseItemSet &item_set = recovery_states[symbol];
     if (!item_set.entries.empty()) {
       ParseStateId state = add_parse_state(item_set);
-      parse_table.error_state.entries[symbol].actions.push_back(
-        ParseAction::Shift(state, PrecedenceRange()));
+      error_state->entries[symbol].actions.push_back(
+        ParseAction::Recover(state));
     }
   }
 
@@ -171,11 +178,7 @@ class ParseTableBuilder {
       if (status.is_done) {
         ParseAction action;
         if (item.lhs() == rules::START()) {
-          if (state_id == 1) {
-            action = ParseAction::Accept();
-          } else {
-            continue;
-          }
+          action = ParseAction::Accept();
         } else {
           action = ParseAction::Reduce(Symbol(item.variable_index),
                                        item.step_index, status.precedence,
@@ -265,15 +268,7 @@ class ParseTableBuilder {
   }
 
   void remove_duplicate_parse_states() {
-    auto replacements =
-      remove_duplicate_states<ParseState, ParseAction>(&parse_table.states);
-
-    parse_table.error_state.each_advance_action(
-      [&replacements](ParseAction *action) {
-        auto replacement = replacements.find(action->state_index);
-        if (replacement != replacements.end())
-          action->state_index = replacement->second;
-      });
+    remove_duplicate_states<ParseState, ParseAction>(&parse_table.states);
   }
 
   ParseAction *add_action(ParseStateId state_id, Symbol lookahead,

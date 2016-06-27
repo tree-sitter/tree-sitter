@@ -49,11 +49,6 @@ static inline bool ts_language_is_reusable(const TSLanguage *self,
 
 TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *, TSSymbol);
 
-static inline TSStateId ts_language_lex_state(const TSLanguage *self,
-                                              TSStateId state) {
-  return state == ts_parse_state_error ? 0 : self->lex_states[state];
-}
-
 #ifdef __cplusplus
 }
 #endif

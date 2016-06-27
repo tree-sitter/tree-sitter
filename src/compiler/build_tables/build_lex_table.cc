@@ -55,8 +55,6 @@ class LexTableBuilder {
   }
 
   LexTable build() {
-    add_lex_state_for_parse_state(&parse_table->error_state);
-
     for (ParseState &parse_state : parse_table->states)
       add_lex_state_for_parse_state(&parse_state);
 

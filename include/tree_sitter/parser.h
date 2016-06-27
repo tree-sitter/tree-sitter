@@ -9,8 +9,7 @@ extern "C" {
 #include <stdbool.h>
 #include "tree_sitter/runtime.h"
 
-#define ts_lex_state_error 0
-#define ts_parse_state_error ((TSStateId)-1)
+#define TS_STATE_ERROR 0
 #define TS_DEBUG_BUFFER_SIZE 512
 
 typedef unsigned short TSStateId;
@@ -95,7 +94,6 @@ struct TSLanguage {
   const unsigned short *parse_table;
   const TSParseActionEntry *parse_actions;
   const TSStateId *lex_states;
-  const TSParseAction *recovery_actions;
   bool (*lex_fn)(TSLexer *, TSStateId, bool);
 };
 
@@ -134,9 +132,9 @@ struct TSLanguage {
 
 #define LEX_ERROR()                                        \
   if (error_mode) {                                        \
-    if (state == ts_lex_state_error)                       \
+    if (state == TS_STATE_ERROR)                           \
       lexer->advance(lexer, state, TSTransitionTypeError); \
-    GO_TO_STATE(ts_lex_state_error);                       \
+    GO_TO_STATE(TS_STATE_ERROR);                           \
   } else {                                                 \
     return false;                                          \
   }
@@ -150,11 +148,10 @@ struct TSLanguage {
     { .type = TSParseActionTypeShift, .to_state = to_state_value } \
   }
 
-#define RECOVER(to_state_value) \
-  { .type = TSParseActionTypeRecover, .to_state = to_state_value }
-
-#define RECOVER_EXTRA() \
-  { .type = TSParseActionTypeShift, .extra = true, }
+#define RECOVER(to_state_value)                                      \
+  {                                                                  \
+    { .type = TSParseActionTypeRecover, .to_state = to_state_value } \
+  }
 
 #define SHIFT_EXTRA()                                 \
   {                                                   \
@@ -196,7 +193,6 @@ struct TSLanguage {
     .symbol_metadata = ts_symbol_metadata,                 \
     .parse_table = (const unsigned short *)ts_parse_table, \
     .parse_actions = ts_parse_actions,                     \
-    .recovery_actions = ts_recovery_actions,               \
     .lex_states = ts_lex_states,                           \
     .symbol_names = ts_symbol_names,                       \
     .lex_fn = ts_lex,                                      \

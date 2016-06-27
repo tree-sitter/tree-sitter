@@ -119,7 +119,7 @@ static BreakdownResult ts_parser__breakdown_top_of_stack(TSParser *self,
         pending = child->child_count > 0;
 
         if (child->symbol == ts_builtin_sym_error) {
-          state = ts_parse_state_error;
+          state = TS_STATE_ERROR;
         } else if (!child->extra) {
           const TSParseAction *action =
             ts_language_last_action(self->language, state, child->symbol);
@@ -235,7 +235,7 @@ static bool ts_parser__can_reuse(TSParser *self, StackVersion version,
       return false;
     }
 
-    TSStateId lex_state = ts_language_lex_state(self->language, state);
+    TSStateId lex_state = self->language->lex_states[state];
     if (tree->first_leaf.lex_state != lex_state) {
       if (tree->child_count > 0) {
         TableEntry leaf_entry;
@@ -266,7 +266,7 @@ static bool ts_parser__can_reuse(TSParser *self, StackVersion version,
 
 static TSTree *ts_parser__lex(TSParser *self, TSStateId parse_state,
                               bool error_mode) {
-  TSStateId state = error_mode ? 0 : self->language->lex_states[parse_state];
+  TSStateId state = self->language->lex_states[parse_state];
   LOG("lex state:%d", state);
 
   TSLength position = self->lexer.current_position;
@@ -275,7 +275,7 @@ static TSTree *ts_parser__lex(TSParser *self, TSStateId parse_state,
   if (!self->language->lex_fn(&self->lexer, state, error_mode)) {
     ts_lexer_reset(&self->lexer, position);
     ts_lexer_start(&self->lexer, state);
-    assert(self->language->lex_fn(&self->lexer, 0, true));
+    assert(self->language->lex_fn(&self->lexer, TS_STATE_ERROR, true));
   }
 
   TSLexerResult lex_result;
@@ -332,7 +332,7 @@ static TSTree *ts_parser__get_lookahead(TSParser *self, StackVersion version,
 
   ts_lexer_reset(&self->lexer, position);
   TSStateId parse_state = ts_stack_top_state(self->stack, version);
-  bool error_mode = parse_state == ts_parse_state_error;
+  bool error_mode = parse_state == TS_STATE_ERROR;
   return ts_parser__lex(self, parse_state, error_mode);
 
 error:
@@ -518,18 +518,20 @@ static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
 
       if (action->type == TSParseActionTypeRecover && allow_skipping) {
         unsigned error_depth = ts_stack_error_depth(self->stack, slice.version);
-        unsigned error_cost = ts_stack_error_cost(self->stack, slice.version) + 1;
-        if (!ts_parser__better_version_exists(self, slice.version, error_depth, error_cost)) {
+        unsigned error_cost =
+          ts_stack_error_cost(self->stack, slice.version) + 1;
+        if (!ts_parser__better_version_exists(self, slice.version, error_depth,
+                                              error_cost)) {
           StackVersion other_version =
             ts_stack_duplicate_version(self->stack, slice.version);
           CHECK(other_version != STACK_VERSION_NONE);
 
           CHECK(ts_stack_push(self->stack, other_version, parent, false,
-                              ts_parse_state_error));
+                              TS_STATE_ERROR));
           for (size_t j = parent->child_count; j < slice.trees.size; j++) {
             TSTree *tree = slice.trees.contents[j];
             CHECK(ts_stack_push(self->stack, other_version, tree, false,
-                                ts_parse_state_error));
+                                TS_STATE_ERROR));
           }
 
           for (StackVersion v = version + 1; v < initial_version_count; v++)
@@ -896,10 +898,10 @@ static bool ts_parser__handle_error(TSParser *self, StackVersion version,
   if (did_reduce && !has_shift_action)
     ts_stack_renumber_version(self->stack, previous_version_count, version);
 
-  CHECK(ts_stack_push(self->stack, version, NULL, false, ts_parse_state_error));
+  CHECK(ts_stack_push(self->stack, version, NULL, false, TS_STATE_ERROR));
   while (ts_stack_version_count(self->stack) > previous_version_count) {
     CHECK(ts_stack_push(self->stack, previous_version_count, NULL, false,
-                        ts_parse_state_error));
+                        TS_STATE_ERROR));
     assert(ts_stack_merge(self->stack, version, previous_version_count));
   }
 
@@ -932,7 +934,7 @@ static bool ts_parser__recover(TSParser *self, StackVersion version,
   StackVersion new_version = ts_stack_duplicate_version(self->stack, version);
   CHECK(new_version != STACK_VERSION_NONE);
   CHECK(ts_parser__shift(
-    self, new_version, ts_parse_state_error, lookahead,
+    self, new_version, TS_STATE_ERROR, lookahead,
     ts_language_symbol_metadata(self->language, lookahead->symbol).extra));
 
   CHECK(ts_parser__shift(self, version, state, lookahead, false));

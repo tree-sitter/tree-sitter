@@ -8,7 +8,7 @@
 #include "runtime/alloc.h"
 
 enum {
-  stateA = 1,
+  stateA = 2,
   stateB,
   stateC, stateD, stateE, stateF, stateG, stateH, stateI, stateJ
 };
@@ -94,7 +94,7 @@ describe("Stack", [&]() {
   describe("push(version, tree, is_pending, state)", [&]() {
     it("adds entries to the given version of the stack", [&]() {
       AssertThat(ts_stack_version_count(stack), Equals<size_t>(1));
-      AssertThat(ts_stack_top_state(stack, 0), Equals(0));
+      AssertThat(ts_stack_top_state(stack, 0), Equals(1));
       AssertThat(ts_stack_top_position(stack, 0), Equals(ts_length_zero()));
 
       // . <──0── A*
@@ -116,7 +116,7 @@ describe("Stack", [&]() {
         {stateC, 0},
         {stateB, 1},
         {stateA, 2},
-        {0, 3},
+        {1, 3},
       })));
     });
   });
@@ -149,7 +149,7 @@ describe("Stack", [&]() {
         {stateB, 1},
         {stateC, 1},
         {stateA, 2},
-        {0, 3},
+        {1, 3},
       })));
     });
 
@@ -191,7 +191,7 @@ describe("Stack", [&]() {
           {stateB, 2},
           {stateC, 2},
           {stateA, 3},
-          {0, 4},
+          {1, 4},
         })));
       });
     });
@@ -234,14 +234,14 @@ describe("Stack", [&]() {
 
       StackSlice slice = pop.slices.contents[0];
       AssertThat(slice.trees, Equals(vector<TSTree *>({ trees[0], trees[1], trees[2] })));
-      AssertThat(ts_stack_top_state(stack, 1), Equals(0));
+      AssertThat(ts_stack_top_state(stack, 1), Equals(1));
 
       free_slice_array(&pop.slices);
     });
 
     it("stops popping entries early if it reaches an error tree", [&]() {
       // . <──0── A <──1── B <──2── C <──3── ERROR <──4── D*
-      ts_stack_push(stack, 0, trees[3], false, ts_parse_state_error);
+      ts_stack_push(stack, 0, trees[3], false, TS_STATE_ERROR);
       ts_stack_push(stack, 0, trees[4], false, stateD);
 
       // . <──0── A <──1── B <──2── C <──3── ERROR <──4── D*
@@ -251,7 +251,7 @@ describe("Stack", [&]() {
       AssertThat(pop.status, Equals(StackPopResult::StackPopStoppedAtError));
 
       AssertThat(ts_stack_version_count(stack), Equals<size_t>(2));
-      AssertThat(ts_stack_top_state(stack, 1), Equals(ts_parse_state_error));
+      AssertThat(ts_stack_top_state(stack, 1), Equals(TS_STATE_ERROR));
 
       AssertThat(pop.slices.size, Equals<size_t>(1));
       StackSlice slice = pop.slices.contents[0];
@@ -284,7 +284,7 @@ describe("Stack", [&]() {
           {stateB, 3},
           {stateE, 3},
           {stateA, 4},
-          {0, 5},
+          {1, 5},
         })));
       });
 
@@ -315,17 +315,17 @@ describe("Stack", [&]() {
             {stateB, 3},
             {stateE, 3},
             {stateA, 4},
-            {0, 5},
+            {1, 5},
           })));
           AssertThat(get_stack_entries(stack, 1), Equals(vector<StackEntry>({
             {stateB, 0},
             {stateA, 1},
-            {0, 2},
+            {1, 2},
           })));
           AssertThat(get_stack_entries(stack, 2), Equals(vector<StackEntry>({
             {stateE, 0},
             {stateA, 1},
-            {0, 2},
+            {1, 2},
           })));
 
           free_slice_array(&pop.slices);
@@ -406,7 +406,7 @@ describe("Stack", [&]() {
             {stateE, 3},
             {stateG, 3},
             {stateA, 4},
-            {0, 5},
+            {1, 5},
           })));
 
           // . <──0── A <──1── B <──2── C <──3── D <──10── I*
@@ -457,7 +457,7 @@ describe("Stack", [&]() {
 
       AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
         {stateA, 0},
-        {0, 1},
+        {1, 1},
       })));
 
       free_slice_array(&pop.slices);
@@ -480,7 +480,7 @@ describe("Stack", [&]() {
 
       AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
         {stateA, 0},
-        {0, 1},
+        {1, 1},
       })));
 
       free_slice_array(&pop.slices);
@@ -496,7 +496,7 @@ describe("Stack", [&]() {
       AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
         {stateB, 0},
         {stateA, 1},
-        {0, 2},
+        {1, 2},
       })));
 
       free_slice_array(&pop.slices);

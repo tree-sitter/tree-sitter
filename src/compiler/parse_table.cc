@@ -53,6 +53,11 @@ ParseAction ParseAction::Shift(ParseStateId state_index,
                      precedence_range, rules::AssociativityNone, nullptr);
 }
 
+ParseAction ParseAction::Recover(ParseStateId state_index) {
+  return ParseAction(ParseActionTypeRecover, state_index, Symbol(-1), 0,
+                     PrecedenceRange(), rules::AssociativityNone, nullptr);
+}
+
 ParseAction ParseAction::ShiftExtra() {
   ParseAction action;
   action.type = ParseActionTypeShift;
@@ -138,7 +143,7 @@ set<Symbol> ParseState::expected_inputs() const {
 void ParseState::each_advance_action(function<void(ParseAction *)> fn) {
   for (auto &entry : entries)
     for (ParseAction &action : entry.second.actions)
-      if (action.type == ParseActionTypeShift)
+      if (action.type == ParseActionTypeShift || ParseActionTypeRecover)
         fn(&action);
 }
 

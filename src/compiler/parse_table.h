@@ -20,6 +20,7 @@ enum ParseActionType {
   ParseActionTypeShift,
   ParseActionTypeReduce,
   ParseActionTypeAccept,
+  ParseActionTypeRecover,
 };
 
 class ParseAction {
@@ -32,6 +33,7 @@ class ParseAction {
   static ParseAction Accept();
   static ParseAction Error();
   static ParseAction Shift(ParseStateId state_index, PrecedenceRange precedence);
+  static ParseAction Recover(ParseStateId state_index);
   static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count,
                             int precedence, rules::Associativity,
                             const Production &);
@@ -87,7 +89,6 @@ class ParseTable {
                           ParseAction action);
 
   std::vector<ParseState> states;
-  ParseState error_state;
   std::map<rules::Symbol, ParseTableSymbolMetadata> symbols;
 };
 

@@ -8,20 +8,19 @@ static const TSParseAction ERROR_SHIFT_EXTRA = {
 
 void ts_language_table_entry(const TSLanguage *self, TSStateId state,
                              TSSymbol symbol, TableEntry *result) {
-  if (state == ts_parse_state_error) {
-    result->action_count = 1;
-    result->is_reusable = false;
-    result->depends_on_lookahead = false;
-    result->actions = (symbol == ts_builtin_sym_error)
-                        ? &ERROR_SHIFT_EXTRA
-                        : &self->recovery_actions[symbol];
-    return;
+  size_t action_index;
+  if (symbol == ts_builtin_sym_error) {
+    if (state == TS_STATE_ERROR) {
+      result->action_count = 1;
+      result->is_reusable = false;
+      result->depends_on_lookahead = false;
+      result->actions = &ERROR_SHIFT_EXTRA;
+      return;
+    }
+    action_index = 0;
+  } else {
+    action_index = self->parse_table[state * self->symbol_count + symbol];
   }
-
-  size_t action_index =
-    (symbol != ts_builtin_sym_error)
-      ? self->parse_table[state * self->symbol_count + symbol]
-      : 0;
 
   const TSParseActionEntry *entry = &self->parse_actions[action_index];
   result->action_count = entry->count;

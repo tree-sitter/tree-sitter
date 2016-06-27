@@ -112,7 +112,7 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
 
     if (tree) {
       ts_tree_retain(tree);
-      if (state == ts_parse_state_error) {
+      if (state == TS_STATE_ERROR) {
         if (!tree->extra) {
           node->error_cost++;
         }
@@ -285,7 +285,7 @@ Stack *ts_stack_new() {
     goto error;
 
   self->base_node =
-    stack_node_new(NULL, NULL, false, 0, ts_length_zero(), &self->node_pool);
+    stack_node_new(NULL, NULL, false, 1, ts_length_zero(), &self->node_pool);
   stack_node_retain(self->base_node);
   if (!self->base_node)
     goto error;
@@ -377,7 +377,7 @@ INLINE StackIterateAction pop_count_callback(void *payload, TSStateId state,
     return StackIteratePop | StackIterateStop;
   }
 
-  if (state == ts_parse_state_error) {
+  if (state == TS_STATE_ERROR) {
     if (pop_session->found_valid_path || pop_session->found_error) {
       return StackIterateStop;
     } else {
@@ -544,7 +544,7 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
       all_paths_done = false;
 
       fprintf(f, "node_%p [", node);
-      if (node->state == ts_parse_state_error)
+      if (node->state == TS_STATE_ERROR)
         fprintf(f, "label=\"?\"");
       else if (node->link_count == 1 && node->links[0].tree &&
                node->links[0].tree->extra)
