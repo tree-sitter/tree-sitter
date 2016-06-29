@@ -190,4 +190,51 @@ ParseAction &ParseTable::add_action(ParseStateId id, Symbol symbol,
   return *state.entries[symbol].actions.rbegin();
 }
 
+static bool has_entry(const ParseState &state, const ParseTableEntry &entry) {
+  for (const auto &pair : state.entries)
+    if (pair.second == entry)
+      return true;
+  return false;
+}
+
+bool ParseTable::merge_state(size_t i, size_t j) {
+  ParseState &state = states[i];
+  ParseState &other = states[j];
+
+  for (auto &entry : state.entries) {
+    const Symbol &symbol = entry.first;
+    const vector<ParseAction> &actions = entry.second.actions;
+
+    const auto &other_entry = other.entries.find(symbol);
+    if (other_entry == other.entries.end()) {
+      if (actions.back().type != ParseActionTypeReduce)
+        return false;
+      if (!has_entry(other, entry.second))
+        return false;
+    } else if (entry.second != other_entry->second) {
+      return false;
+    }
+  }
+
+  set<Symbol> symbols_to_merge;
+
+  for (auto &entry : other.entries) {
+    const Symbol &symbol = entry.first;
+    const vector<ParseAction> &actions = entry.second.actions;
+
+    if (!state.entries.count(symbol)) {
+      if (actions.back().type != ParseActionTypeReduce)
+        return false;
+      if (!has_entry(state, entry.second))
+        return false;
+      symbols_to_merge.insert(symbol);
+    }
+  }
+
+  for (const Symbol &symbol : symbols_to_merge)
+    state.entries[symbol] = other.entries.find(symbol)->second;
+
+  return true;
+}
+
 }  // namespace tree_sitter

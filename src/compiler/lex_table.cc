@@ -71,4 +71,8 @@ LexState &LexTable::state(LexStateId id) {
   return states[id];
 }
 
+bool LexTable::merge_state(size_t i, size_t j) {
+  return states[i] == states[j];
+}
+
 }  // namespace tree_sitter

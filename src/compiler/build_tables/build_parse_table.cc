@@ -70,6 +70,11 @@ class ParseTableBuilder {
     if (error.type != TSCompileErrorTypeNone)
       return { parse_table, error };
 
+    for (const ParseState &state : parse_table.states)
+      for (const auto &pair1 : state.entries)
+        for (const auto &pair2 : state.entries)
+          parse_table.symbols[pair1.first].compatible_symbols.insert(pair2.first);
+
     build_error_parse_state();
 
     allow_any_conflict = true;
@@ -134,8 +139,7 @@ class ParseTableBuilder {
     const ParseItemSet &item_set = recovery_states[symbol];
     if (!item_set.entries.empty()) {
       ParseStateId state = add_parse_state(item_set);
-      error_state->entries[symbol].actions.push_back(
-        ParseAction::Recover(state));
+      error_state->entries[symbol].actions.push_back(ParseAction::Recover(state));
     }
   }
 
@@ -268,7 +272,7 @@ class ParseTableBuilder {
   }
 
   void remove_duplicate_parse_states() {
-    remove_duplicate_states<ParseState, ParseAction>(&parse_table.states);
+    remove_duplicate_states<ParseTable, ParseAction>(&parse_table);
   }
 
   ParseAction *add_action(ParseStateId state_id, Symbol lookahead,

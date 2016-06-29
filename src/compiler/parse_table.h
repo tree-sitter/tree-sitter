@@ -61,6 +61,10 @@ struct ParseTableEntry {
   ParseTableEntry();
   ParseTableEntry(const std::vector<ParseAction> &, bool, bool);
   bool operator==(const ParseTableEntry &other) const;
+
+  inline bool operator!=(const ParseTableEntry &other) const {
+    return !operator==(other);
+  }
 };
 
 class ParseState {
@@ -68,6 +72,7 @@ class ParseState {
   ParseState();
   std::set<rules::Symbol> expected_inputs() const;
   bool operator==(const ParseState &) const;
+  bool merge(const ParseState &);
   void each_advance_action(std::function<void(ParseAction *)>);
 
   std::map<rules::Symbol, ParseTableEntry> entries;
@@ -77,6 +82,7 @@ class ParseState {
 struct ParseTableSymbolMetadata {
   bool extra;
   bool structural;
+  std::set<rules::Symbol> compatible_symbols;
 };
 
 class ParseTable {
@@ -87,6 +93,7 @@ class ParseTable {
                           ParseAction action);
   ParseAction &add_action(ParseStateId state_id, rules::Symbol symbol,
                           ParseAction action);
+  bool merge_state(size_t i, size_t j);
 
   std::vector<ParseState> states;
   std::map<rules::Symbol, ParseTableSymbolMetadata> symbols;
