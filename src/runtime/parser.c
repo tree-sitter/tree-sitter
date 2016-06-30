@@ -1085,14 +1085,6 @@ void ts_parser_destroy(TSParser *self) {
     array_delete(&self->reduce_actions);
 }
 
-TSDebugger ts_parser_debugger(const TSParser *self) {
-  return self->lexer.debugger;
-}
-
-void ts_parser_set_debugger(TSParser *self, TSDebugger debugger) {
-  self->lexer.debugger = debugger;
-}
-
 TSTree *ts_parser_parse(TSParser *self, TSInput input, TSTree *old_tree) {
   ts_parser__start(self, input, old_tree);
   StackVersion version = 0;

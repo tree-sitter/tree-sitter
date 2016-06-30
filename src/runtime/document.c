@@ -45,11 +45,11 @@ void ts_document_set_language(TSDocument *self, const TSLanguage *language) {
 }
 
 TSDebugger ts_document_debugger(const TSDocument *self) {
-  return ts_parser_debugger(&self->parser);
+  return self->parser.lexer.debugger;
 }
 
 void ts_document_set_debugger(TSDocument *self, TSDebugger debugger) {
-  ts_parser_set_debugger(&self->parser, debugger);
+  self->parser.lexer.debugger = debugger;
 }
 
 void ts_document_print_debugging_graphs(TSDocument *self, bool should_print) {

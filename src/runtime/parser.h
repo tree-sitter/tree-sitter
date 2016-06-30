@@ -22,8 +22,6 @@ typedef struct {
 
 bool ts_parser_init(TSParser *);
 void ts_parser_destroy(TSParser *);
-TSDebugger ts_parser_debugger(const TSParser *);
-void ts_parser_set_debugger(TSParser *, TSDebugger);
 TSTree *ts_parser_parse(TSParser *, TSInput, TSTree *);
 
 #ifdef __cplusplus
