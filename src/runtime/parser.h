@@ -10,6 +10,11 @@ extern "C" {
 #include "runtime/reduce_action.h"
 
 typedef struct {
+  TSTree *tree;
+  size_t char_index;
+} ReusableNode;
+
+typedef struct {
   TSLexer lexer;
   Stack *stack;
   const TSLanguage *language;
@@ -18,6 +23,9 @@ typedef struct {
   bool is_split;
   bool print_debugging_graphs;
   TSTree scratch_tree;
+  TSTree *cached_token;
+  size_t cached_token_char_index;
+  ReusableNode reusable_node;
 } TSParser;
 
 bool ts_parser_init(TSParser *);

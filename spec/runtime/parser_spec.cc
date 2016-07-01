@@ -224,7 +224,7 @@ describe("Parser", [&]() {
               "(identifier) "
               "(math_op (number) (identifier)))))");
 
-          insert_text(strlen("x ^ (100 + abc"), ".d");
+          insert_text(strlen("x * (100 + abc"), ".d");
 
           assert_root_node(
             "(program (expression_statement (math_op "
