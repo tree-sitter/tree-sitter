@@ -1,0 +1,15 @@
+[package]
+name = "tree-sitter"
+version = "0.1.0"
+authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
+build = "build.rs"
+exclude = ["vendor/tree-sitter/**/*"]
+include = [
+  "vendor/tree-sitter/src/runtime/*",
+  "vendor/tree-sitter/externals/utf8proc/utf8proc*"
+]
+
+[dependencies]
+
+[build-dependencies]
+cc = "1.0"
