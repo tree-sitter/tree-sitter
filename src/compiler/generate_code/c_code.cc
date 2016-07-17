@@ -165,6 +165,9 @@ class CCodeGenerator {
               line(".named = false,");
               break;
             case VariableTypeHidden:
+              line(".visible = false,");
+              line(".named = true,");
+              break;
             case VariableTypeAuxiliary:
               line(".visible = false,");
               line(".named = false,");
