@@ -7,6 +7,7 @@
 #include "helpers/point_helpers.h"
 #include "helpers/encoding_helpers.h"
 #include "helpers/record_alloc.h"
+#include "helpers/random_helpers.h"
 #include <set>
 
 static void expect_the_correct_tree(TSNode node, TSDocument *document, string tree_string) {
@@ -58,37 +59,6 @@ static void expect_a_consistent_tree(TSNode node, TSDocument *document) {
 
   if (child_count > 0)
     AssertThat(has_changes, Equals(some_child_has_changes));
-}
-
-static string random_string(char min, char max) {
-  string result;
-  size_t length = random() % 12;
-  for (size_t i = 0; i < length; i++) {
-    char inserted_char = min + (random() % (max - min));
-    result += inserted_char;
-  }
-  return result;
-}
-
-static string random_char(string characters) {
-  size_t index = random() % characters.size();
-  return string() + characters[index];
-}
-
-static string random_words(size_t count) {
-  string result;
-  bool just_inserted_word = false;
-  for (size_t i = 0; i < count; i++) {
-    if (random() % 10 < 6) {
-      result += random_char("!(){}[]<>+-=");
-    } else {
-      if (just_inserted_word)
-        result += " ";
-      result += random_string('a', 'z');
-      just_inserted_word = true;
-    }
-  }
-  return result;
 }
 
 START_TEST
