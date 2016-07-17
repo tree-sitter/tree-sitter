@@ -170,6 +170,7 @@ static bool ts_parser__condense_stack(TSParser *self) {
   bool result = false;
   for (StackVersion i = 0; i < ts_stack_version_count(self->stack); i++) {
     if (ts_stack_is_halted(self->stack, i)) {
+      result = true;
       ts_stack_remove_version(self->stack, i);
       i--;
       continue;
