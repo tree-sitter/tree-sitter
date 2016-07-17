@@ -115,13 +115,12 @@ class ParseTableBuilder {
   void build_error_parse_state() {
     ParseState error_state;
 
-    for (const Symbol &symbol : recovery_tokens(lexical_grammar)) {
+    for (const Symbol &symbol : recovery_tokens(lexical_grammar))
       add_out_of_context_parse_state(&error_state, symbol);
-    }
 
-    for (const Symbol &symbol : grammar.extra_tokens) {
-      error_state.entries[symbol].actions.push_back(ParseAction::ShiftExtra());
-    }
+    for (const Symbol &symbol : grammar.extra_tokens)
+      if (!error_state.entries.count(symbol))
+        error_state.entries[symbol].actions.push_back(ParseAction::ShiftExtra());
 
     for (size_t i = 0; i < grammar.variables.size(); i++) {
       Symbol symbol(i, false);
@@ -197,8 +196,13 @@ class ParseTableBuilder {
 
   void add_shift_extra_actions(ParseStateId state_id) {
     ParseAction action = ParseAction::ShiftExtra();
+    ParseState &state = parse_table.states[state_id];
     for (const Symbol &extra_symbol : grammar.extra_tokens)
-      add_action(state_id, extra_symbol, action, null_item_set);
+      if (!state.entries.count(extra_symbol) ||
+          (allow_any_conflict &&
+           state.entries[extra_symbol].actions.back().type ==
+             ParseActionTypeReduce))
+        parse_table.add_action(state_id, extra_symbol, action);
   }
 
   void add_reduce_extra_actions(ParseStateId state_id) {
