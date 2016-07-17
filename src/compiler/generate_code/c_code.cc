@@ -211,7 +211,7 @@ class CCodeGenerator {
   }
 
   void add_parse_table() {
-    add_parse_action_list_id(ParseTableEntry{ {}, true, false });
+    add_parse_action_list_id(ParseTableEntry{ {}, false, false });
 
     size_t state_id = 0;
     line("#pragma GCC diagnostic push");
