@@ -224,14 +224,14 @@ describe("Parser", [&]() {
               "(identifier) "
               "(math_op (number) (identifier)))))");
 
-          insert_text(strlen("x ^ (100 + abc"), ".d");
+          insert_text(strlen("x * (100 + abc"), ".d");
 
           assert_root_node(
             "(program (expression_statement (math_op "
               "(identifier) "
               "(math_op (number) (member_access (identifier) (identifier))))))");
 
-          AssertThat(input->strings_read, Equals(vector<string>({ " abc.d);", "" })));
+          AssertThat(input->strings_read, Equals(vector<string>({ " + abc.d)", "" })));
         });
       });
 

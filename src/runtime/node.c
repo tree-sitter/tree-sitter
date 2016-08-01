@@ -33,7 +33,7 @@ static inline size_t ts_node__offset_row(TSNode self) {
 
 static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
   const TSTree *tree = ts_node__tree(self);
-  return include_anonymous ? tree->visible : tree->named;
+  return include_anonymous ? tree->visible : tree->visible && tree->named;
 }
 
 static inline size_t ts_node__relevant_child_count(TSNode self,

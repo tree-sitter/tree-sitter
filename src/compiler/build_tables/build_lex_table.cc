@@ -147,7 +147,7 @@ class LexTableBuilder {
     }
 
     auto replacements =
-      remove_duplicate_states<LexState, AdvanceAction>(&lex_table.states);
+      remove_duplicate_states<LexTable, AdvanceAction>(&lex_table);
 
     for (ParseState &parse_state : parse_table->states) {
       auto replacement = replacements.find(parse_state.lex_state_id);
