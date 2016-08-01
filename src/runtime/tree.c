@@ -436,8 +436,8 @@ void ts_tree__print_dot_graph(const TSTree *self, size_t offset,
   if (self->extra)
     fprintf(f, ", fontcolor=gray");
 
-  fprintf(f, ", tooltip=\"%lu - %lu\"]\n", offset,
-          offset + ts_tree_total_chars(self));
+  fprintf(f, ", tooltip=\"range:%lu - %lu\nstate:%d\"]\n", offset,
+          offset + ts_tree_total_chars(self), self->parse_state);
   for (size_t i = 0; i < self->child_count; i++) {
     const TSTree *child = self->children[i];
     ts_tree__print_dot_graph(child, offset, language, f);
