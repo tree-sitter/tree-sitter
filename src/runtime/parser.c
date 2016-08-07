@@ -378,6 +378,7 @@ static bool ts_parser__better_version_exists(TSParser *self,
     unsigned error_depth = ts_stack_error_depth(self->stack, i);
 
     if ((error_depth > my_error_depth && error_cost >= my_error_cost) ||
+        (my_error_depth == 0 && error_cost > my_error_cost) ||
         (error_depth == my_error_depth &&
          error_cost >= my_error_cost + ERROR_COST_THRESHOLD)) {
       LOG("halt_other version:%u", i);
@@ -386,6 +387,7 @@ static bool ts_parser__better_version_exists(TSParser *self,
     }
 
     if ((my_error_depth > error_depth && my_error_cost >= error_cost) ||
+        (error_depth == 0 && my_error_cost > error_cost) ||
         (my_error_depth == error_depth &&
          my_error_cost >= error_cost + ERROR_COST_THRESHOLD)) {
       return true;
