@@ -367,6 +367,9 @@ static bool ts_parser__better_version_exists(TSParser *self,
                                              StackVersion version,
                                              unsigned my_error_depth,
                                              unsigned my_error_cost) {
+  if (self->finished_tree && self->finished_tree->error_size <= my_error_cost)
+    return true;
+
   for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
     if (i == version || ts_stack_is_halted(self->stack, i))
       continue;
