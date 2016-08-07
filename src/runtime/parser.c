@@ -832,7 +832,6 @@ error:
 }
 
 static bool ts_parser__handle_error(TSParser *self, StackVersion version) {
-  size_t previous_version_count = ts_stack_version_count(self->stack);
   TSStateId state = ts_stack_top_state(self->stack, version);
 
   unsigned error_cost = ts_stack_error_cost(self->stack, version);
@@ -845,6 +844,7 @@ static bool ts_parser__handle_error(TSParser *self, StackVersion version) {
 
   LOG("handle_error");
 
+  size_t previous_version_count = ts_stack_version_count(self->stack);
   bool has_shift_action = false;
   array_clear(&self->reduce_actions);
   for (TSSymbol symbol = 0; symbol < self->language->symbol_count; symbol++) {
@@ -1099,6 +1099,10 @@ static bool ts_parser__advance(TSParser *self, StackVersion version,
         continue;
       case BreakdownAborted:
         break;
+    }
+
+    if (state == TS_STATE_ERROR) {
+      return ts_parser__push(self, version, lookahead, TS_STATE_ERROR);
     }
 
     CHECK(ts_parser__handle_error(self, version));
