@@ -511,7 +511,7 @@ static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
              action->type == TSParseActionTypeRecover);
       new_state = action->to_state;
 
-      if (action->type == TSParseActionTypeRecover && allow_skipping) {
+      if (action->type == TSParseActionTypeRecover && child_count > 1 && allow_skipping) {
         unsigned error_depth = ts_stack_error_depth(self->stack, slice.version);
         unsigned error_cost =
           ts_stack_error_cost(self->stack, slice.version) + 1;
@@ -528,10 +528,6 @@ static Reduction ts_parser__reduce(TSParser *self, StackVersion version,
             CHECK(ts_stack_push(self->stack, other_version, tree, false,
                                 TS_STATE_ERROR));
           }
-
-          for (StackVersion v = version + 1; v < initial_version_count; v++)
-            if (ts_stack_merge(self->stack, v, other_version))
-              break;
         }
       }
     }
