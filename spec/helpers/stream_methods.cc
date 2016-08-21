@@ -12,12 +12,12 @@ ostream &operator<<(ostream &stream, const Grammar &grammar) {
   stream << string("#<grammar");
   stream << string(" rules: {");
   bool started = false;
-  for (auto pair : grammar.rules) {
+  for (const Variable &variable : grammar.variables) {
     if (started)
       stream << string(", ");
-    stream << pair.first;
+    stream << variable.name;
     stream << string(" => ");
-    stream << pair.second;
+    stream << variable.rule;
     started = true;
   }
   return stream << string("}>");

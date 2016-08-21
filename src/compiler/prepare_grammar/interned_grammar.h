@@ -6,7 +6,7 @@
 #include "tree_sitter/compiler.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/syntax_grammar.h"
-#include "compiler/variable.h"
+#include "compiler/grammar.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {

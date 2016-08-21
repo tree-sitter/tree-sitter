@@ -5,7 +5,7 @@
 #include <string>
 #include <set>
 #include "compiler/rule.h"
-#include "compiler/variable.h"
+#include "compiler/grammar.h"
 
 namespace tree_sitter {
 

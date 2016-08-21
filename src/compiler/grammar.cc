@@ -1,4 +1,4 @@
-#include "compiler/variable.h"
+#include "compiler/grammar.h"
 #include <string>
 
 namespace tree_sitter {

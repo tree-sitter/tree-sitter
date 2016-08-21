@@ -261,7 +261,12 @@ ParseGrammarResult parse_grammar(const string &input) {
       goto error;
     }
 
-    grammar.rules.push_back({ string(entry_json.name), entry.rule });
+    string rule_name = entry_json.name;
+
+    grammar.variables.push_back(Variable(
+      rule_name,
+      rule_name[0] == '_' ? VariableTypeHidden : VariableTypeNamed,
+      entry.rule));
   }
 
   extras_json = grammar_json->operator[]("extras");

@@ -6,7 +6,7 @@
 #include <set>
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/metadata.h"
-#include "compiler/variable.h"
+#include "compiler/grammar.h"
 
 namespace tree_sitter {
 

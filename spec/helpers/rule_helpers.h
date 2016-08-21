@@ -5,7 +5,7 @@
 #include "compiler/rules.h"
 #include "compiler/rules/character_set.h"
 #include "compiler/rules/metadata.h"
-#include "compiler/variable.h"
+#include "compiler/grammar.h"
 
 namespace tree_sitter {
   rule_ptr metadata(rule_ptr, std::map<rules::MetadataKey, int>);
