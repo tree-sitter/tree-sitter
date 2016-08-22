@@ -17,7 +17,18 @@ static const vector<Production> NO_PRODUCTIONS;
 
 SyntaxVariable::SyntaxVariable(const string &name, VariableType type,
                                const vector<Production> &productions)
-    : name(name), productions(productions), type(type) {}
+    : internal_name(name),
+      external_name(name),
+      productions(productions),
+      type(type) {}
+
+SyntaxVariable::SyntaxVariable(const string &internal_name,
+                               const string &external_name, VariableType type,
+                               const vector<Production> &productions)
+    : internal_name(internal_name),
+      external_name(external_name),
+      productions(productions),
+      type(type) {}
 
 ProductionStep::ProductionStep(const rules::Symbol &symbol, int precedence,
                                rules::Associativity associativity)

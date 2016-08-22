@@ -24,8 +24,11 @@ typedef std::vector<ProductionStep> Production;
 struct SyntaxVariable {
   SyntaxVariable(const std::string &, VariableType,
                  const std::vector<Production> &);
+  SyntaxVariable(const std::string &, const std::string &, VariableType,
+                 const std::vector<Production> &);
 
-  std::string name;
+  std::string internal_name;
+  std::string external_name;
   std::vector<Production> productions;
   VariableType type;
 };

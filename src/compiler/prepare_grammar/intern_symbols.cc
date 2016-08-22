@@ -33,7 +33,7 @@ class InternSymbols : public rules::IdentityRuleFn {
  public:
   std::shared_ptr<rules::Symbol> symbol_for_rule_name(string rule_name) {
     for (size_t i = 0; i < grammar.variables.size(); i++)
-      if (grammar.variables[i].name == rule_name)
+      if (grammar.variables[i].internal_name == rule_name)
         return make_shared<rules::Symbol>(i);
     return nullptr;
   }
@@ -56,7 +56,8 @@ pair<InternedGrammar, CompileError> intern_symbols(const Grammar &grammar) {
     auto new_rule = interner.apply(variable.rule);
     if (!interner.missing_rule_name.empty())
       return { result, missing_rule_error(interner.missing_rule_name) };
-    result.variables.push_back(Variable(variable.name, variable.type, new_rule));
+    result.variables.push_back(Variable(
+      variable.internal_name, variable.external_name, variable.type, new_rule));
   }
 
   for (auto &rule : grammar.extra_tokens) {

@@ -89,9 +89,9 @@ describe("flatten_grammar", []() {
   };
 
   it("preserves the names and types of the grammar's variables", [&]() {
-    AssertThat(grammar.variables[0].name, Equals("variable0"));
-    AssertThat(grammar.variables[1].name, Equals("variable1"));
-    AssertThat(grammar.variables[2].name, Equals("variable2"));
+    AssertThat(grammar.variables[0].internal_name, Equals("variable0"));
+    AssertThat(grammar.variables[1].internal_name, Equals("variable1"));
+    AssertThat(grammar.variables[2].internal_name, Equals("variable2"));
 
     AssertThat(grammar.variables[0].type, Equals(VariableTypeNamed));
     AssertThat(grammar.variables[1].type, Equals(VariableTypeNamed));

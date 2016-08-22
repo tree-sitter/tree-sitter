@@ -30,12 +30,17 @@ typedef struct {
   bool structural : 1;
 } TSSymbolMetadata;
 
+typedef struct {
+  const char *external;
+  const char *internal;
+} TSSymbolNamePair;
+
 typedef struct TSLexer {
   void (*start_fn)(struct TSLexer *, TSStateId);
   void (*start_token_fn)(struct TSLexer *);
   bool (*advance_fn)(struct TSLexer *, TSStateId);
   TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, TSSymbolMetadata,
-                       const char *, bool fragile);
+                       TSSymbolNamePair, bool fragile);
 
   const char *chunk;
   size_t chunk_start;
@@ -82,7 +87,7 @@ typedef union {
 
 struct TSLanguage {
   size_t symbol_count;
-  const char **symbol_names;
+  const TSSymbolNamePair *symbol_names;
   const TSSymbolMetadata *symbol_metadata;
   const unsigned short *parse_table;
   const TSParseActionEntry *parse_actions;

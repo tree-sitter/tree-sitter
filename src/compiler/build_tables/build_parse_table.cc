@@ -81,7 +81,7 @@ class ParseTableBuilder {
     mark_fragile_actions();
     remove_duplicate_parse_states();
 
-    parse_table.symbols.insert({ rules::ERROR(), {true} });
+    parse_table.symbols.insert({ rules::ERROR(), { true } });
 
     return { parse_table, CompileError::none() };
   }
@@ -355,11 +355,11 @@ class ParseTableBuilder {
     } else if (symbol.is_token) {
       const Variable &variable = lexical_grammar.variables[symbol.index];
       if (variable.type == VariableTypeNamed)
-        return variable.name;
+        return variable.internal_name;
       else
-        return "'" + variable.name + "'";
+        return "'" + variable.internal_name + "'";
     } else {
-      return grammar.variables[symbol.index].name;
+      return grammar.variables[symbol.index].internal_name;
     }
   }
 

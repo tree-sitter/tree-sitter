@@ -17,8 +17,11 @@ enum VariableType {
 
 struct Variable {
   Variable(const std::string &, VariableType, const rule_ptr &);
+  Variable(const std::string &, const std::string &, VariableType,
+           const rule_ptr &);
 
-  std::string name;
+  std::string internal_name;
+  std::string external_name;
   rule_ptr rule;
   VariableType type;
 };

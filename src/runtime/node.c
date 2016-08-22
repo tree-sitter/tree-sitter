@@ -225,7 +225,8 @@ void ts_symbol_iterator_next(TSSymbolIterator *self) {
 }
 
 const char *ts_node_name(TSNode self, const TSDocument *document) {
-  return document->parser.language->symbol_names[ts_node__tree(self)->symbol];
+  return document->parser.language->symbol_names[ts_node__tree(self)->symbol]
+    .external;
 }
 
 static size_t write_lookahead_to_string(char *string, size_t limit,
@@ -239,7 +240,7 @@ static size_t write_lookahead_to_string(char *string, size_t limit,
 }
 
 static size_t ts_tree__write_to_string(const TSTree *self,
-                                       const char **symbol_names, char *string,
+                                       const TSLanguage *language, char *string,
                                        size_t limit, bool is_root,
                                        bool include_anonymous) {
   if (!self)
@@ -258,14 +259,15 @@ static size_t ts_tree__write_to_string(const TSTree *self,
       cursor += snprintf(*writer, limit, "(UNEXPECTED ");
       cursor += write_lookahead_to_string(*writer, limit, self->lookahead_char);
     } else {
-      cursor += snprintf(*writer, limit, "(%s", symbol_names[self->symbol]);
+      cursor += snprintf(*writer, limit, "(%s",
+                         language->symbol_names[self->symbol].external);
     }
   }
 
   for (size_t i = 0; i < self->child_count; i++) {
     TSTree *child = self->children[i];
-    cursor += ts_tree__write_to_string(child, symbol_names, *writer, limit,
-                                       false, include_anonymous);
+    cursor += ts_tree__write_to_string(child, language, *writer, limit, false,
+                                       include_anonymous);
   }
 
   if (visible)
@@ -277,11 +279,11 @@ static size_t ts_tree__write_to_string(const TSTree *self,
 char *ts_node_string(TSNode self, const TSDocument *document) {
   static char SCRATCH[1];
   const TSTree *tree = ts_node__tree(self);
-  const char **symbol_names = document->parser.language->symbol_names;
+  const TSLanguage *language = document->parser.language;
   size_t size =
-    ts_tree__write_to_string(tree, symbol_names, SCRATCH, 0, true, false) + 1;
+    ts_tree__write_to_string(tree, language, SCRATCH, 0, true, false) + 1;
   char *result = ts_malloc(size * sizeof(char));
-  ts_tree__write_to_string(tree, symbol_names, result, size, true, false);
+  ts_tree__write_to_string(tree, language, result, size, true, false);
   return result;
 }
 

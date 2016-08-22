@@ -108,7 +108,8 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
   vector<Variable> processed_variables;
   for (const Variable &variable : grammar.variables)
     processed_variables.push_back(
-      Variable(variable.name, variable.type, extractor.apply(variable.rule)));
+      Variable(variable.internal_name, variable.external_name, variable.type,
+               extractor.apply(variable.rule)));
   lexical_grammar.variables = extractor.tokens;
 
   /*
@@ -125,7 +126,10 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
     if (symbol && symbol->is_token && !symbol->is_built_in() &&
         extractor.token_usage_counts[symbol->index] == 1) {
       lexical_grammar.variables[symbol->index].type = variable.type;
-      lexical_grammar.variables[symbol->index].name = variable.name;
+      lexical_grammar.variables[symbol->index].internal_name =
+        variable.internal_name;
+      lexical_grammar.variables[symbol->index].external_name =
+        variable.external_name;
       symbol_replacer.replacements.insert({ Symbol(i), *symbol });
     } else {
       syntax_grammar.variables.push_back(variable);
@@ -181,7 +185,7 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
     if (!new_symbol.is_token)
       return make_tuple(
         syntax_grammar, lexical_grammar,
-        ubiq_token_err(syntax_grammar.variables[new_symbol.index].name));
+        ubiq_token_err(syntax_grammar.variables[new_symbol.index].internal_name));
 
     syntax_grammar.extra_tokens.insert(new_symbol);
   }

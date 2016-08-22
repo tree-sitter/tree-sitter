@@ -47,7 +47,9 @@ namespace tree_sitter {
   }
 
   bool operator==(const Variable &left, const Variable &right) {
-    return left.name == right.name && left.rule->operator==(*right.rule) &&
+    return left.internal_name == right.internal_name &&
+      left.external_name == right.external_name &&
+      left.rule->operator==(*right.rule) &&
       left.type == right.type;
   }
 }

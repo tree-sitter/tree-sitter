@@ -68,7 +68,7 @@ InitialSyntaxGrammar expand_repeats(const InitialSyntaxGrammar &grammar) {
 
   ExpandRepeats expander(result.variables.size());
   for (auto &variable : result.variables)
-    variable.rule = expander.expand(variable.rule, variable.name);
+    variable.rule = expander.expand(variable.rule, variable.internal_name);
 
   result.variables.insert(result.variables.end(), expander.aux_rules.begin(),
                           expander.aux_rules.end());
