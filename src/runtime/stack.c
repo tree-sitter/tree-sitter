@@ -477,7 +477,7 @@ static const char *COLORS[] = {
 static size_t COLOR_COUNT = sizeof(COLORS) / sizeof(COLORS[0]);
 
 size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
-                                 const char **symbol_names) {
+                                 const TSSymbolNamePair *symbol_names) {
   char *cursor = string;
   char **s = n > 0 ? &cursor : &string;
   cursor += snprintf(*s, n, "digraph stack {\n");
@@ -521,7 +521,8 @@ size_t ts_stack__write_dot_graph(Stack *self, char *string, size_t n,
         cursor +=
           snprintf(*s, n, "node_%p -> node_%p [label=\"", node, successor.node);
 
-        const char *name = symbol_names[successor.tree->symbol];
+        TSSymbolNamePair pair = symbol_names[successor.tree->symbol];
+        const char *name = pair.internal ? pair.internal : pair.external;
         for (const char *c = name; *c; c++) {
           if (*c == '\"' || *c == '\\') {
             **s = '\\';
@@ -559,7 +560,7 @@ error:
   return (size_t)-1;
 }
 
-char *ts_stack_dot_graph(Stack *self, const char **symbol_names) {
+char *ts_stack_dot_graph(Stack *self, const TSSymbolNamePair *symbol_names) {
   static char SCRATCH[1];
   char *result = NULL;
   size_t size = ts_stack__write_dot_graph(self, SCRATCH, 0, symbol_names) + 1;

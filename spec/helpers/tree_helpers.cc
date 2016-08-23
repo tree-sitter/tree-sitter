@@ -7,11 +7,11 @@ using std::string;
 using std::to_string;
 using std::ostream;
 
-const char *symbol_names[24] = {
-  "ERROR", "END",  "two", "three", "four", "five", "six", "seven", "eight",
-  "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
-  "sixteen", "seventeen", "eighteen", "nineteen", "twenty", "twenty-one",
-  "twenty-two", "twenty-three"
+const TSSymbolNamePair symbol_names[24] = {
+  {"ERROR"}, {"END"},  {"two"}, {"three"}, {"four"}, {"five"}, {"six"}, {"seven"}, {"eight"},
+  {"nine"}, {"ten"}, {"eleven"}, {"twelve"}, {"thirteen"}, {"fourteen"}, {"fifteen"},
+  {"sixteen"}, {"seventeen"}, {"eighteen"}, {"nineteen"}, {"twenty"}, {"twenty-one"},
+  {"twenty-two"}, {"twenty-three"},
 };
 
 TSTree ** tree_array(std::vector<TSTree *> trees) {

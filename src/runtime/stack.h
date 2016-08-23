@@ -113,7 +113,7 @@ void ts_stack_clear(Stack *);
 void ts_stack_set_tree_selection_callback(Stack *, void *,
                                           TreeSelectionFunction);
 
-char *ts_stack_dot_graph(Stack *, const char **);
+char *ts_stack_dot_graph(Stack *, const TSSymbolNamePair *);
 
 #ifdef __cplusplus
 }

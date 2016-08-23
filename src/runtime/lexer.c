@@ -92,7 +92,7 @@ static bool ts_lexer__advance(TSLexer *self, TSStateId state) {
 
 static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
                                 TSSymbolMetadata metadata,
-                                const char *symbol_name, bool fragile) {
+                                TSSymbolNamePair name, bool fragile) {
   TSLength size =
     ts_length_sub(self->current_position, self->token_start_position);
   TSLength padding =
@@ -104,7 +104,7 @@ static TSTree *ts_lexer__accept(TSLexer *self, TSSymbol symbol,
     LOG("error_char");
     result = ts_tree_make_error(size, padding, self->lookahead);
   } else {
-    LOG("accept_token sym:%s", symbol_name);
+    LOG("accept_token sym:%s", name.internal ? name.internal : name.external);
     result = ts_tree_make_leaf(symbol, padding, size, metadata);
   }
 

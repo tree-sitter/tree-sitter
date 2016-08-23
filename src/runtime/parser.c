@@ -37,7 +37,10 @@
     fputs("\n\n", stderr);                                               \
   }
 
-#define SYM_NAME(sym) self->language->symbol_names[sym]
+#define SYM_NAME(sym)                             \
+  (self->language->symbol_names[sym].internal     \
+     ? self->language->symbol_names[sym].internal \
+     : self->language->symbol_names[sym].external)
 
 #define BOOL_STRING(value) (value ? "true" : "false")
 

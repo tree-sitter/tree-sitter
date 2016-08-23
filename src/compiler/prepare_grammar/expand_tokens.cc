@@ -71,7 +71,8 @@ pair<LexicalGrammar, CompileError> expand_tokens(const LexicalGrammar &grammar) 
     auto rule = expander.apply(variable.rule);
     if (expander.error.type)
       return { result, expander.error };
-    result.variables.push_back(Variable(variable.name, variable.type, rule));
+    result.variables.push_back(Variable(
+      variable.internal_name, variable.external_name, variable.type, rule));
   }
 
   for (auto &sep : grammar.separators) {

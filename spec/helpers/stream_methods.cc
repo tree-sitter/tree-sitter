@@ -12,12 +12,10 @@ ostream &operator<<(ostream &stream, const Grammar &grammar) {
   stream << string("#<grammar");
   stream << string(" rules: {");
   bool started = false;
-  for (auto pair : grammar.rules) {
+  for (const Variable &variable : grammar.variables) {
     if (started)
       stream << string(", ");
-    stream << pair.first;
-    stream << string(" => ");
-    stream << pair.second;
+    stream << variable;
     started = true;
   }
   return stream << string("}>");
@@ -43,11 +41,11 @@ ostream &operator<<(ostream &stream, const rule_ptr &rule) {
 }
 
 ostream &operator<<(ostream &stream, const Variable &variable) {
-  return stream << string("{") << variable.name << string(", ") << variable.rule << string(", ") << to_string(variable.type) << string("}");
+  return stream << string("{") << variable.internal_name << string(", ") << variable.rule << string(", ") << to_string(variable.type) << string("}");
 }
 
 ostream &operator<<(ostream &stream, const SyntaxVariable &variable) {
-  return stream << string("{") << variable.name << string(", ") << variable.productions << string(", ") << to_string(variable.type) << string("}");
+  return stream << string("{") << variable.internal_name << string(", ") << variable.productions << string(", ") << to_string(variable.type) << string("}");
 }
 
 std::ostream &operator<<(std::ostream &stream, const AdvanceAction &action) {

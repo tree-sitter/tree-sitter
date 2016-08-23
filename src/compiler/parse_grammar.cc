@@ -221,7 +221,7 @@ ParseGrammarResult parse_grammar(const string &input) {
   string error_message;
   string name;
   Grammar grammar;
-  json_value name_json, rules_json, extras_json, conflicts_json;
+  json_value name_json, rules_json, extras_json, conflicts_json, aliases_json;
 
   json_settings settings = { 0, json_enable_comments, 0, 0, 0, 0 };
   char parse_error[json_error_max];
@@ -261,7 +261,11 @@ ParseGrammarResult parse_grammar(const string &input) {
       goto error;
     }
 
-    grammar.rules.push_back({ string(entry_json.name), entry.rule });
+    string rule_name = entry_json.name;
+
+    grammar.variables.push_back(Variable(
+      rule_name, rule_name[0] == '_' ? VariableTypeHidden : VariableTypeNamed,
+      entry.rule));
   }
 
   extras_json = grammar_json->operator[]("extras");
@@ -310,6 +314,41 @@ ParseGrammarResult parse_grammar(const string &input) {
       }
 
       grammar.expected_conflicts.push_back(conflict);
+    }
+  }
+
+  aliases_json = grammar_json->operator[]("aliases");
+  if (aliases_json.type != json_none) {
+    if (aliases_json.type != json_object) {
+      error_message = "Aliases must be an object";
+      goto error;
+    }
+
+    for (size_t i = 0, length = aliases_json.u.object.length; i < length; i++) {
+      json_object_entry entry_json = aliases_json.u.object.values[i];
+      string internal_name = entry_json.name;
+
+      if (entry_json.value->type != json_string) {
+        error_message =
+          "Value for alias " + internal_name + " must be a string";
+        goto error;
+      }
+
+      string external_name = entry_json.value->u.string.ptr;
+
+      bool found_variable = false;
+      for (Variable &variable : grammar.variables) {
+        if (variable.internal_name == internal_name) {
+          variable.external_name = external_name;
+          found_variable = true;
+          break;
+        }
+      }
+
+      if (!found_variable) {
+        error_message = "Invalid alias " + internal_name + "; no such rule";
+        goto error;
+      }
     }
   }
 

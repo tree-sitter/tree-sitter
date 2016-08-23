@@ -8,8 +8,26 @@
 
 namespace tree_sitter {
 
+enum VariableType {
+  VariableTypeHidden,
+  VariableTypeAuxiliary,
+  VariableTypeAnonymous,
+  VariableTypeNamed,
+};
+
+struct Variable {
+  Variable(const std::string &, VariableType, const rule_ptr &);
+  Variable(const std::string &, const std::string &, VariableType,
+           const rule_ptr &);
+
+  std::string internal_name;
+  std::string external_name;
+  rule_ptr rule;
+  VariableType type;
+};
+
 struct Grammar {
-  std::vector<std::pair<std::string, rule_ptr>> rules;
+  std::vector<Variable> variables;
   std::vector<rule_ptr> extra_tokens;
   std::vector<std::vector<std::string>> expected_conflicts;
 };

@@ -85,8 +85,9 @@ SyntaxGrammar flatten_grammar(const InitialSyntaxGrammar &grammar) {
           productions.end())
         productions.push_back(production);
     }
-    result.variables.push_back(
-      SyntaxVariable(variable.name, variable.type, productions));
+    result.variables.push_back(SyntaxVariable(variable.internal_name,
+                                              variable.external_name,
+                                              variable.type, productions));
   }
 
   return result;

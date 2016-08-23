@@ -95,6 +95,41 @@ describe("compile_grammar", []() {
     });
   });
 
+  describe("the 'aliases' field in the grammar", [&]() {
+    it("can be used to make different rules take the same name", [&]() {
+      TSCompileResult result = ts_compile_grammar(R"JSON(
+        {
+          "name": "test_language",
+
+          "aliases": {
+            "second_rule": "first_rule",
+            "third_rule": "first_rule"
+          },
+
+          "rules": {
+            "start_rule": {
+              "type": "SEQ",
+              "members": [
+                {"type": "SYMBOL", "name": "first_rule"},
+                {"type": "SYMBOL", "name": "second_rule"},
+                {"type": "SYMBOL", "name": "third_rule"}
+              ]
+            },
+
+            "first_rule": { "type": "STRING", "value": "a" },
+            "second_rule": { "type": "STRING", "value": "b" },
+            "third_rule": { "type": "STRING", "value": "c" }
+          }
+        }
+      )JSON");
+
+      ts_document_set_language(document, load_language("test_language", result));
+      ts_document_set_input_string(document, "abc");
+      ts_document_parse(document);
+      assert_root_node("(start_rule (first_rule) (first_rule) (first_rule))");
+    });
+  });
+
   describe("the grammar in the README", [&]() {
     it("works", [&]() {
       TSCompileResult result = ts_compile_grammar(R"JSON(

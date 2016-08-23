@@ -6,7 +6,7 @@
 #include <set>
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/metadata.h"
-#include "compiler/variable.h"
+#include "compiler/grammar.h"
 
 namespace tree_sitter {
 
@@ -24,8 +24,11 @@ typedef std::vector<ProductionStep> Production;
 struct SyntaxVariable {
   SyntaxVariable(const std::string &, VariableType,
                  const std::vector<Production> &);
+  SyntaxVariable(const std::string &, const std::string &, VariableType,
+                 const std::vector<Production> &);
 
-  std::string name;
+  std::string internal_name;
+  std::string external_name;
   std::vector<Production> productions;
   VariableType type;
 };

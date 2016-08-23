@@ -23,5 +23,5 @@ size_t ts_language_symbol_count(const TSLanguage *language) {
 }
 
 const char *ts_language_symbol_name(const TSLanguage *language, TSSymbol symbol) {
-  return language->symbol_names[symbol];
+  return language->symbol_names[symbol].external;
 }

@@ -92,6 +92,12 @@ class CCodeGenerator {
     buffer = "";
 
     add_includes();
+
+    line();
+    line("#pragma GCC diagnostic push");
+    line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
+    line();
+
     add_state_and_symbol_counts();
     add_symbol_enum();
     add_symbol_names_list();
@@ -136,11 +142,17 @@ class CCodeGenerator {
   }
 
   void add_symbol_names_list() {
-    line("static const char *ts_symbol_names[] = {");
+    line("static TSSymbolNamePair ts_symbol_names[] = {");
     indent([&]() {
-      for (const auto &entry : parse_table.symbols)
-        line("[" + symbol_id(entry.first) + "] = \"" +
-             sanitize_name_for_string(symbol_name(entry.first)) + "\",");
+      for (const auto &entry : parse_table.symbols) {
+        line("[" + symbol_id(entry.first) + "] = {");
+        Variable variable = variable_for_symbol(entry.first);
+        add(string_for_name(variable.external_name));
+        if (variable.internal_name != variable.external_name) {
+          add(", " + string_for_name(variable.internal_name));
+        }
+        add("},");
+      }
     });
     line("};");
     line();
@@ -220,9 +232,6 @@ class CCodeGenerator {
     add_parse_actions({ ParseAction::Error() });
 
     size_t state_id = 0;
-    line("#pragma GCC diagnostic push");
-    line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
-    line();
     line("static unsigned short ts_parse_table[STATE_COUNT][SYMBOL_COUNT] = {");
 
     indent([&]() {
@@ -242,8 +251,6 @@ class CCodeGenerator {
     line("};");
     line();
     add_parse_action_list();
-    line();
-    line("#pragma GCC diagnostic pop");
     line();
   }
 
@@ -399,10 +406,10 @@ class CCodeGenerator {
     if (symbol == rules::END_OF_INPUT())
       return "ts_builtin_sym_end";
 
-    auto entry = entry_for_symbol(symbol);
-    string name = sanitize_name(entry.first);
+    Variable variable = variable_for_symbol(symbol);
+    string name = sanitize_name(variable.internal_name);
 
-    switch (entry.second) {
+    switch (variable.type) {
       case VariableTypeAuxiliary:
         return "aux_sym_" + name;
       case VariableTypeAnonymous:
@@ -412,29 +419,25 @@ class CCodeGenerator {
     }
   }
 
-  string symbol_name(const rules::Symbol &symbol) {
-    if (symbol == rules::ERROR())
-      return "ERROR";
-    if (symbol == rules::END_OF_INPUT())
-      return "END";
-    return entry_for_symbol(symbol).first;
-  }
-
   VariableType symbol_type(const rules::Symbol &symbol) {
     if (symbol == rules::ERROR())
       return VariableTypeNamed;
     if (symbol == rules::END_OF_INPUT())
       return VariableTypeHidden;
-    return entry_for_symbol(symbol).second;
+    return variable_for_symbol(symbol).type;
   }
 
-  pair<string, VariableType> entry_for_symbol(const rules::Symbol &symbol) {
-    if (symbol.is_token) {
-      const Variable &variable = lexical_grammar.variables[symbol.index];
-      return { variable.name, variable.type };
+  Variable variable_for_symbol(const rules::Symbol &symbol) {
+    if (symbol == rules::ERROR()) {
+      return Variable("ERROR", VariableTypeNamed, rule_ptr());
+    } else if (symbol == rules::END_OF_INPUT()) {
+      return Variable("END", VariableTypeNamed, rule_ptr());
+    } else if (symbol.is_token) {
+      return lexical_grammar.variables[symbol.index];
     } else {
       const SyntaxVariable &variable = syntax_grammar.variables[symbol.index];
-      return { variable.name, variable.type };
+      return Variable(variable.internal_name, variable.external_name,
+                      variable.type, rule_ptr());
     }
   }
 
@@ -463,12 +466,12 @@ class CCodeGenerator {
     indent(body);
   }
 
-  string sanitize_name_for_string(string name) {
+  string string_for_name(string name) {
     util::str_replace(&name, "\\", "\\\\");
     util::str_replace(&name, "\n", "\\n");
     util::str_replace(&name, "\r", "\\r");
     util::str_replace(&name, "\"", "\\\"");
-    return name;
+    return "\"" + name + "\"";
   }
 
   string sanitize_name(string name) {

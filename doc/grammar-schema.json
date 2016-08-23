@@ -31,6 +31,16 @@
       }
     },
 
+    "aliases": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z_]\\w*$": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+
     "conflicts": {
       "type": "array",
       "items": {

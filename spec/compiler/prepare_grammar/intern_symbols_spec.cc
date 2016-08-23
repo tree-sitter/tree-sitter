@@ -5,6 +5,7 @@
 #include "compiler/rules/symbol.h"
 #include "helpers/equals_pointer.h"
 #include "helpers/rule_helpers.h"
+#include "helpers/stream_methods.h"
 
 START_TEST
 
@@ -14,9 +15,9 @@ using prepare_grammar::intern_symbols;
 describe("intern_symbols", []() {
   it("replaces named symbols with numerically-indexed symbols", [&]() {
     Grammar grammar{{
-      { "x", choice({ sym("y"), sym("_z") }) },
-      { "y", sym("_z") },
-      { "_z", str("stuff") }
+      Variable("x", VariableTypeNamed, choice({ sym("y"), sym("z") })),
+      Variable("y", VariableTypeNamed, sym("z")),
+      Variable("z", VariableTypeHidden,  str("stuff")),
     }, {}, {}};
 
     auto result = intern_symbols(grammar);
@@ -25,14 +26,14 @@ describe("intern_symbols", []() {
     AssertThat(result.first.variables, Equals(vector<Variable>({
       Variable("x", VariableTypeNamed, choice({ i_sym(1), i_sym(2) })),
       Variable("y", VariableTypeNamed, i_sym(2)),
-      Variable("_z", VariableTypeHidden, str("stuff")),
+      Variable("z", VariableTypeHidden, str("stuff")),
     })));
   });
 
   describe("when there are symbols that reference undefined rules", [&]() {
     it("returns an error", []() {
       Grammar grammar{{
-        { "x", sym("y") },
+        Variable("x", VariableTypeNamed, sym("y")),
       }, {}, {}};
 
       auto result = intern_symbols(grammar);
@@ -43,9 +44,9 @@ describe("intern_symbols", []() {
 
   it("translates the grammar's optional 'extra_tokens' to numerical symbols", [&]() {
     Grammar grammar{{
-      { "x", choice({ sym("y"), sym("z") }) },
-      { "y", sym("z") },
-      { "z", str("stuff") }
+      Variable("x", VariableTypeNamed, choice({ sym("y"), sym("z") })),
+      Variable("y", VariableTypeNamed, sym("z")),
+      Variable("z", VariableTypeNamed, str("stuff")),
     }, {
       sym("z")
     }, {}};
