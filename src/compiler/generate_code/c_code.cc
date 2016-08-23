@@ -92,6 +92,12 @@ class CCodeGenerator {
     buffer = "";
 
     add_includes();
+
+    line();
+    line("#pragma GCC diagnostic push");
+    line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
+    line();
+
     add_state_and_symbol_counts();
     add_symbol_enum();
     add_symbol_names_list();
@@ -226,9 +232,6 @@ class CCodeGenerator {
     add_parse_actions({ ParseAction::Error() });
 
     size_t state_id = 0;
-    line("#pragma GCC diagnostic push");
-    line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
-    line();
     line("static unsigned short ts_parse_table[STATE_COUNT][SYMBOL_COUNT] = {");
 
     indent([&]() {
@@ -248,8 +251,6 @@ class CCodeGenerator {
     line("};");
     line();
     add_parse_action_list();
-    line();
-    line("#pragma GCC diagnostic pop");
     line();
   }
 
