@@ -1,0 +1,6 @@
+-Isrc
+-Ispec
+-Iinclude
+-Iexternals/utf8proc
+-Iexternals/json-parser
+-Iexternals/bandit
