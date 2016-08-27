@@ -121,15 +121,12 @@ class CCodeGenerator {
   void add_symbol_enum() {
     line("enum {");
     indent([&]() {
-      bool at_start = true;
+      size_t i = 1;
       for (const auto &entry : parse_table.symbols) {
         const rules::Symbol &symbol = entry.first;
         if (!symbol.is_built_in()) {
-          if (at_start)
-            line(symbol_id(symbol) + " = ts_builtin_sym_start,");
-          else
-            line(symbol_id(symbol) + ",");
-          at_start = false;
+          line(symbol_id(symbol) + " = " + to_string(i) + ",");
+          i++;
         }
       }
     });
