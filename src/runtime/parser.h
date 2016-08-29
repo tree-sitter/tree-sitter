@@ -26,11 +26,11 @@ typedef struct {
   TSTree *cached_token;
   size_t cached_token_char_index;
   ReusableNode reusable_node;
-} TSParser;
+} Parser;
 
-bool ts_parser_init(TSParser *);
-void ts_parser_destroy(TSParser *);
-TSTree *ts_parser_parse(TSParser *, TSInput, TSTree *);
+bool parser_init(Parser *);
+void parser_destroy(Parser *);
+TSTree *parser_parse(Parser *, TSInput, TSTree *);
 
 #ifdef __cplusplus
 }

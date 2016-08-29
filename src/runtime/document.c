@@ -11,7 +11,7 @@ TSDocument *ts_document_make() {
   if (!self)
     goto error;
 
-  if (!ts_parser_init(&self->parser))
+  if (!parser_init(&self->parser))
     goto error;
 
   return self;
@@ -23,7 +23,7 @@ error:
 }
 
 void ts_document_free(TSDocument *self) {
-  ts_parser_destroy(&self->parser);
+  parser_destroy(&self->parser);
   if (self->tree)
     ts_tree_release(self->tree);
   ts_document_set_input(self,
@@ -97,7 +97,7 @@ int ts_document_parse(TSDocument *self) {
   if (reusable_tree && !reusable_tree->has_changes)
     return 0;
 
-  TSTree *tree = ts_parser_parse(&self->parser, self->input, reusable_tree);
+  TSTree *tree = parser_parse(&self->parser, self->input, reusable_tree);
   if (!tree)
     return -1;
 

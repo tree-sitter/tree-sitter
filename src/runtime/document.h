@@ -7,7 +7,7 @@
 #include <stdbool.h>
 
 struct TSDocument {
-  TSParser parser;
+  Parser parser;
   TSInput input;
   TSTree *tree;
   size_t parse_count;
