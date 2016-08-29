@@ -571,12 +571,16 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
           fprintf(f, "label=\"ERROR\"");
         } else {
           fprintf(f, "label=\"");
+          if (!link.tree->named)
+            fprintf(f, "'");
           const char *name = symbol_names[link.tree->symbol];
           for (const char *c = name; *c; c++) {
             if (*c == '\"' || *c == '\\')
               fprintf(f, "\\");
             fprintf(f, "%c", *c);
           }
+          if (!link.tree->named)
+            fprintf(f, "'");
           fprintf(f, "\"");
         }
 
