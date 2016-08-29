@@ -565,7 +565,9 @@ static inline const TSParseAction *ts_parser__reductions_after_sequence(
   size_t child_count = 0;
   *count = 0;
 
-  for (size_t i = 0; i < tree_count_below; i++) {
+  for (size_t i = 0; i < trees_below->size; i++) {
+    if (child_count == tree_count_below)
+      break;
     TSTree *tree = trees_below->contents[trees_below->size - 1 - i];
     const TSParseAction *action =
       ts_language_last_action(self->language, state, tree->symbol);
