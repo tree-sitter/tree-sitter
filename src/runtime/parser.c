@@ -831,29 +831,24 @@ error:
   return false;
 }
 
-static bool ts_parser__handle_error(TSParser *self, StackVersion version) {
-  TSStateId state = ts_stack_top_state(self->stack, version);
+typedef enum {
+  PotentialReductionsFailed,
+  PotentialReductionsContinue,
+  PotentialReductionsDone,
+} PotentialReductionStatus;
 
-  unsigned error_cost = ts_stack_error_cost(self->stack, version);
-  unsigned error_depth = ts_stack_error_depth(self->stack, version) + 1;
-  if (ts_parser__better_version_exists(self, version, error_depth, error_cost)) {
-    ts_stack_halt(self->stack, version);
-    LOG("bail_on_error");
-    return true;
-  }
-
-  LOG("handle_error");
-
-  size_t previous_version_count = ts_stack_version_count(self->stack);
+static PotentialReductionStatus parser__do_potential_reductions(TSParser *self,
+                                                                StackVersion version) {
   bool has_shift_action = false;
+  TSStateId state = ts_stack_top_state(self->stack, version);
+  size_t previous_version_count = ts_stack_version_count(self->stack);
+
   array_clear(&self->reduce_actions);
   for (TSSymbol symbol = 0; symbol < self->language->symbol_count; symbol++) {
-    size_t action_count;
-    const TSParseAction *actions =
-      ts_language_actions(self->language, state, symbol, &action_count);
-
-    for (size_t i = 0; i < action_count; i++) {
-      TSParseAction action = actions[i];
+    TableEntry entry;
+    ts_language_table_entry(self->language, state, symbol, &entry);
+    for (size_t i = 0; i < entry.action_count; i++) {
+      TSParseAction action = entry.actions[i];
       if (action.extra)
         continue;
       switch (action.type) {
@@ -892,8 +887,48 @@ static bool ts_parser__handle_error(TSParser *self, StackVersion version) {
     }
   }
 
-  if (did_reduce && !has_shift_action)
-    ts_stack_renumber_version(self->stack, previous_version_count, version);
+  if (did_reduce) {
+    if (has_shift_action) {
+      return PotentialReductionsDone;
+    } else {
+      ts_stack_renumber_version(self->stack, previous_version_count, version);
+      return PotentialReductionsContinue;
+    }
+  } else {
+    return PotentialReductionsDone;
+  }
+
+error:
+  return PotentialReductionsFailed;
+}
+
+static bool ts_parser__handle_error(TSParser *self, StackVersion version) {
+  unsigned error_cost = ts_stack_error_cost(self->stack, version);
+  unsigned error_depth = ts_stack_error_depth(self->stack, version) + 1;
+  if (ts_parser__better_version_exists(self, version, error_depth, error_cost)) {
+    ts_stack_halt(self->stack, version);
+    LOG("bail_on_error");
+    return true;
+  }
+
+  LOG("handle_error");
+
+  size_t previous_version_count = ts_stack_version_count(self->stack);
+  for (StackVersion v = version; v < ts_stack_version_count(self->stack);) {
+    switch (parser__do_potential_reductions(self, v)) {
+      case PotentialReductionsFailed:
+        goto error;
+      case PotentialReductionsContinue:
+        break;
+      case PotentialReductionsDone:
+        if (v == version) {
+          v = previous_version_count;
+        } else {
+          v++;
+        }
+        break;
+    }
+  }
 
   CHECK(ts_stack_push(self->stack, version, NULL, false, TS_STATE_ERROR));
   while (ts_stack_version_count(self->stack) > previous_version_count) {

@@ -1,177 +1,67 @@
-============================================
-Invalid statements
-============================================
+===================================================
+one invalid token right after the viable prefix
+===================================================
 
-what the heck !
-y();
+if (a b) {
+  c d
+}
+e f
 
-if (x) {
-  >>>
-  var y = right
+---
+
+(program
+  (if_statement
+    (identifier)
+    (ERROR (identifier))
+    (statement_block
+      (expression_statement
+        (identifier)
+        (ERROR (identifier)))))
+  (expression_statement
+    (identifier)
+    (ERROR (identifier))))
+
+=======================================================
+multiple invalid tokens right after the viable prefix
+=======================================================
+
+if (a b c) {
+  d e f g
+}
+h i j k
+
+---
+
+(program
+  (if_statement
+    (identifier)
+    (ERROR (identifier) (identifier))
+    (statement_block
+      (expression_statement
+        (identifier)
+        (ERROR (identifier) (identifier) (identifier)))))
+  (expression_statement
+    (identifier)
+    (ERROR (identifier) (identifier) (identifier))))
+
+===================================================
+one invalid subtree right after the viable prefix
+===================================================
+
+if ({a: 'b'} {c: 'd'}) {
+  function(a) { b; }    function(c) { d; }
 }
 
 ---
 
 (program
-  (expression_statement
-    (identifier)
-    (ERROR (identifier) (identifier)))
-  (expression_statement (function_call (identifier)))
-  (if_statement (identifier) (statement_block
-    (ERROR)
-    (var_declaration (var_assignment (identifier) (identifier))))))
-
-============================================
-Invalid if conditions
-============================================
-
-if (uh oh)
-  hmm();
-
-ok();
-
----
-
-(program
-  (if_statement (ERROR (identifier)) (identifier)
-    (expression_statement (function_call (identifier))))
-  (expression_statement (function_call (identifier))))
-
-============================================
-Invalid for loops
-============================================
-
-ok1;
-
-for (a b c; d; e)
-  wat();
-
-ok2;
-
-for (a; b; c d e)
-  wat();
-
----
-
-(program
-  (expression_statement (identifier))
-
-  (for_statement
-    (ERROR (identifier) (identifier))
-    (identifier)
-    (identifier)
-    (identifier)
-    (expression_statement (function_call (identifier))))
-
-  (expression_statement (identifier))
-
-  (for_statement
-    (identifier)
-    (identifier)
-    (ERROR (identifier) (identifier))
-    (identifier)
-    (expression_statement (function_call (identifier)))))
-
-============================================
-Invalid statement blocks
-============================================
-
-function() { ^ & * }
-
----
-
-(program
-  (expression_statement (function (statement_block (ERROR)))))
-
-============================================
-Invalid objects
-============================================
-
-x = {
-  key1: value1,
-
-  abc efg,
-
-  key2: value2
-};
-
----
-
-(program
-  (expression_statement (assignment
-    (identifier)
-    (object
-      (pair (identifier) (identifier))
-      (ERROR (identifier) (identifier))
-      (pair (identifier) (identifier))))))
-
-============================================
-Invalid items in var declarations
-============================================
-
-var
-  a = 1,
-  -b,
-  c = 2,
-  d = = = = =,
-  e;
-
----
-
-(program
-  (var_declaration
-    (var_assignment (identifier) (number))
-    (ERROR) (identifier)
-    (var_assignment (identifier) (number))
-    (var_assignment (identifier) (ERROR) (identifier))))
-
-============================================
-Misplaced expressions in var declarations
-============================================
-
-var
-  a = 1,
-  b = 2,
-  [1, 2],
-  {},
-  c = 3,
-  d = 4;
-
-var x;
-
----
-
-(program
-  (var_declaration
-    (var_assignment (identifier) (number))
-    (var_assignment (identifier) (number))
-    (ERROR (array (number) (number)) (object))
-    (var_assignment (identifier) (number))
-    (var_assignment (identifier) (number)))
-  (var_declaration (identifier)))
-
-================================================
-Mismatched delimiters in var declarations
-================================================
-
-var
-  // keep this
-  a,
-
-  // skip this
-  [
-
-  // keep this
-  b = 1;
-
-var c;
-
----
-
-(program
-  (var_declaration
-    (comment)
-    (identifier)
-    (ERROR (comment) (comment))
-    (var_assignment (identifier) (number)))
-  (var_declaration (identifier)))
+  (if_statement
+    (object (pair (identifier) (string)))
+    (ERROR (object (pair (identifier) (string))))
+    (statement_block
+      (ERROR (function
+        (formal_parameters (identifier))
+        (statement_block (expression_statement (identifier)))))
+      (expression_statement (function
+        (formal_parameters (identifier))
+        (statement_block (expression_statement (identifier))))))))
