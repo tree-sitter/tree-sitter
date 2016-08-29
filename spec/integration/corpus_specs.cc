@@ -79,6 +79,7 @@ describe("The Corpus", []() {
         record_alloc::start();
         document = ts_document_make();
         ts_document_set_language(document, get_test_language(language_name));
+
         // ts_document_set_debugger(document, log_debugger_make(true));
         // ts_document_print_debugging_graphs(document, true);
       });

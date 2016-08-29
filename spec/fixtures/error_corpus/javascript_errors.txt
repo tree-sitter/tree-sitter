@@ -3,46 +3,46 @@ one invalid token right after the viable prefix
 ===================================================
 
 if (a b) {
-  c d
+  c d;
 }
-e f
+e f;
 
 ---
 
 (program
   (if_statement
-    (identifier)
     (ERROR (identifier))
+    (identifier)
     (statement_block
       (expression_statement
-        (identifier)
-        (ERROR (identifier)))))
+        (ERROR (identifier))
+        (identifier))))
   (expression_statement
-    (identifier)
-    (ERROR (identifier))))
+    (ERROR (identifier))
+    (identifier)))
 
 =======================================================
 multiple invalid tokens right after the viable prefix
 =======================================================
 
 if (a b c) {
-  d e f g
+  d e f g;
 }
-h i j k
+h i j k;
 
 ---
 
 (program
   (if_statement
-    (identifier)
     (ERROR (identifier) (identifier))
+    (identifier)
     (statement_block
       (expression_statement
-        (identifier)
-        (ERROR (identifier) (identifier) (identifier)))))
+        (ERROR (identifier) (identifier) (identifier))
+        (identifier))))
   (expression_statement
-    (identifier)
-    (ERROR (identifier) (identifier) (identifier))))
+    (ERROR (identifier) (identifier) (identifier))
+    (identifier)))
 
 ===================================================
 one invalid subtree right after the viable prefix

@@ -150,16 +150,16 @@ describe("Parser", [&]() {
         set_text("  [123, true false, true]");
 
         assert_root_node(
-          "(array (number) (ERROR (true)) (false) (true))");
+          "(array (number) (true) (ERROR (false)) (true))");
 
-        TSNode error = ts_node_named_child(root, 1);
+        TSNode error = ts_node_named_child(root, 2);
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(get_node_text(error), Equals("true"));
+        AssertThat(get_node_text(error), Equals("false"));
         AssertThat(ts_node_child_count(error), Equals<size_t>(1));
 
-        TSNode last = ts_node_named_child(root, 2);
-        AssertThat(ts_node_name(last, doc), Equals("false"));
-        AssertThat(get_node_text(last), Equals("false"));
+        TSNode last = ts_node_named_child(root, 1);
+        AssertThat(ts_node_name(last, doc), Equals("true"));
+        AssertThat(get_node_text(last), Equals("true"));
       });
     });
   });
