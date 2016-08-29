@@ -40,58 +40,58 @@ static string trim_output(const string &input) {
 
 static vector<TestEntry> parse_test_entries(string content) {
   regex header_pattern("===+\n"  "([^=]+)\n"  "===+\n", extended);
-  regex separator_pattern("---+", extended);
+  regex separator_pattern("---+\n", extended);
   vector<string> descriptions;
   vector<string> bodies;
 
   for (;;) {
     smatch matches;
     if (!regex_search(content, matches, header_pattern) || matches.empty())
-        break;
+      break;
 
     string description = matches[1].str();
     descriptions.push_back(description);
 
     if (!bodies.empty())
-        bodies.back().erase(matches.position());
+      bodies.back().erase(matches.position());
     content.erase(0, matches.position() + matches[0].length());
     bodies.push_back(content);
   }
 
-	vector<TestEntry> result;
+  vector<TestEntry> result;
   for (size_t i = 0; i < descriptions.size(); i++) {
     string body = bodies[i];
     smatch matches;
     if (regex_search(body, matches, separator_pattern)) {
       result.push_back({
-          descriptions[i],
-          body.substr(0, matches.position()),
-          trim_output(body.substr(matches.position() + matches[0].length()))
+        descriptions[i],
+        body.substr(0, matches.position() - 1),
+        trim_output(body.substr(matches.position() + matches[0].length()))
       });
     }
   }
 
-	return result;
+  return result;
 }
 
 static vector<string> list_directory(string dir_name) {
-	vector<string> result;
+  vector<string> result;
 
-	DIR *dir = opendir(dir_name.c_str());
-	if (!dir) {
+  DIR *dir = opendir(dir_name.c_str());
+  if (!dir) {
     printf("\nTest error - no such directory '%s'", dir_name.c_str());
     return result;
   }
 
-	struct dirent *dir_entry;
-	while ((dir_entry = readdir(dir))) {
-		string name(dir_entry->d_name);
-		if (name != "." && name != "..")
-			result.push_back(dir_name + "/" + name);
-	}
+  struct dirent *dir_entry;
+  while ((dir_entry = readdir(dir))) {
+    string name(dir_entry->d_name);
+    if (name != "." && name != "..")
+      result.push_back(dir_name + "/" + name);
+  }
 
   closedir(dir);
-	return result;
+  return result;
 }
 
 static string read_file(string filename) {
