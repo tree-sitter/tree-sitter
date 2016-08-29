@@ -6,7 +6,7 @@ function usage {
   cat <<-EOF
 USAGE
 
-  $0  [-dgGhv] [-f focus-string]
+  $0  [-dgGhv] [-f focus-string] [-s seed]
 
 OPTIONS
 
@@ -22,6 +22,10 @@ OPTIONS
 
   -f  run only tests whose description contain the given string
 
+  -s  set the seed used to control random behavior
+
+  -z  pipe tests' stderr to `dot(1)`, to render an SVG log
+
 EOF
 }
 
@@ -33,7 +37,7 @@ target=tests
 export BUILDTYPE=Test
 cmd="out/${BUILDTYPE}/${target}"
 
-while getopts "df:s:gGhpv" option; do
+while getopts "df:s:gGhpvS" option; do
   case ${option} in
     h)
       usage
@@ -60,6 +64,9 @@ while getopts "df:s:gGhpv" option; do
       ;;
     s)
       export TREE_SITTER_SEED=${OPTARG}
+      ;;
+    S)
+      mode=SVG
       ;;
   esac
 done
@@ -90,6 +97,11 @@ case ${mode} in
       echo "No debugger found"
       exit 1
     fi
+    ;;
+
+  SVG)
+    $cmd "${args[@]}" 2> >(dot -Tsvg > index.html)
+    echo "Wrote index.html"
     ;;
 
   normal)
