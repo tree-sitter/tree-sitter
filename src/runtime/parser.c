@@ -377,7 +377,8 @@ static bool ts_parser__better_version_exists(TSParser *self,
     unsigned error_cost = ts_stack_error_cost(self->stack, i);
     unsigned error_depth = ts_stack_error_depth(self->stack, i);
 
-    if ((error_depth > my_error_depth && error_cost >= my_error_cost) ||
+    if ((error_depth > my_error_depth + 1) ||
+        (error_depth > my_error_depth && error_cost >= my_error_cost) ||
         (my_error_depth == 0 && error_cost > my_error_cost) ||
         (error_depth == my_error_depth &&
          error_cost >= my_error_cost + ERROR_COST_THRESHOLD)) {
@@ -386,7 +387,8 @@ static bool ts_parser__better_version_exists(TSParser *self,
       continue;
     }
 
-    if ((my_error_depth > error_depth && my_error_cost >= error_cost) ||
+    if ((my_error_depth > error_depth + 1) ||
+        (my_error_depth > error_depth && my_error_cost >= error_cost) ||
         (error_depth == 0 && my_error_cost > error_cost) ||
         (my_error_depth == error_depth &&
          my_error_cost >= error_cost + ERROR_COST_THRESHOLD)) {
