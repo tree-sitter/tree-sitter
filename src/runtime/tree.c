@@ -120,7 +120,7 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   self->child_count = child_count;
   self->named_child_count = 0;
   self->visible_child_count = 0;
-  self->error_size = 0;
+  self->error_cost = 0;
 
   for (size_t i = 0; i < child_count; i++) {
     TSTree *child = children[i];
@@ -132,7 +132,7 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
       self->size = ts_length_add(self->size, ts_tree_total_size(child));
     }
 
-    self->error_size += child->error_size;
+    self->error_cost += child->error_cost;
 
     if (child->visible) {
       self->visible_child_count++;
@@ -150,10 +150,10 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   }
 
   if (self->symbol == ts_builtin_sym_error) {
-    self->error_size = self->size.rows;
+    self->error_cost = self->size.rows;
     for (size_t i = 0; i < child_count; i++)
       if (!self->children[i]->extra)
-        self->error_size++;
+        self->error_cost++;
   }
 
   if (child_count > 0) {

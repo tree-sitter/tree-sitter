@@ -201,7 +201,7 @@ static bool parser__can_reuse(Parser *self, TSStateId state, TSTree *tree,
     return false;
   if (!table_entry->depends_on_lookahead)
     return true;
-  return tree->child_count > 1 && tree->error_size == 0;
+  return tree->child_count > 1 && tree->error_cost == 0;
 }
 
 static bool parser__condense_stack(Parser *self) {
@@ -335,12 +335,12 @@ static bool parser__select_tree(Parser *self, TSTree *left, TSTree *right) {
     return true;
   if (!right)
     return false;
-  if (right->error_size < left->error_size) {
+  if (right->error_cost < left->error_cost) {
     LOG("select_smaller_error symbol:%s, over_symbol:%s",
         SYM_NAME(right->symbol), SYM_NAME(left->symbol));
     return true;
   }
-  if (left->error_size < right->error_size) {
+  if (left->error_cost < right->error_cost) {
     LOG("select_smaller_error symbol:%s, over_symbol:%s",
         SYM_NAME(left->symbol), SYM_NAME(right->symbol));
     return false;
@@ -367,7 +367,7 @@ static bool parser__select_tree(Parser *self, TSTree *left, TSTree *right) {
 static bool parser__better_version_exists(Parser *self, StackVersion version,
                                           unsigned my_error_count,
                                           unsigned my_error_cost) {
-  if (self->finished_tree && self->finished_tree->error_size <= my_error_cost)
+  if (self->finished_tree && self->finished_tree->error_cost <= my_error_cost)
     return true;
 
   for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
@@ -432,7 +432,7 @@ static bool parser__switch_children(Parser *self, TSTree *tree,
   if (parser__select_tree(self, tree, &self->scratch_tree)) {
     tree->size = self->scratch_tree.size;
     tree->padding = self->scratch_tree.padding;
-    tree->error_size = self->scratch_tree.error_size;
+    tree->error_cost = self->scratch_tree.error_cost;
     tree->children = self->scratch_tree.children;
     tree->child_count = self->scratch_tree.child_count;
     tree->named_child_count = self->scratch_tree.named_child_count;
@@ -762,7 +762,7 @@ static RepairResult parser__repair_error(Parser *self, StackSlice slice,
     return RepairNoneFound;
   } else {
     LOG("repair_found sym:%s, child_count:%lu, skipped:%lu", SYM_NAME(symbol),
-        repair.count, parent->error_size);
+        repair.count, parent->error_cost);
     return RepairSucceeded;
   }
 

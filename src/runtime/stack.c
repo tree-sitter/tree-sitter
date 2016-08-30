@@ -117,7 +117,7 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
           node->error_cost += 1 + tree->padding.rows + tree->size.rows;
         }
       } else {
-        node->error_cost += tree->error_size;
+        node->error_cost += tree->error_cost;
       }
     } else {
       node->error_cost++;
