@@ -95,7 +95,7 @@ StackPopResult ts_stack_pop_pending(Stack *, StackVersion);
 
 StackPopResult ts_stack_pop_all(Stack *, StackVersion);
 
-unsigned ts_stack_error_depth(const Stack *, StackVersion);
+unsigned ts_stack_error_count(const Stack *, StackVersion);
 
 unsigned ts_stack_error_cost(const Stack *, StackVersion);
 

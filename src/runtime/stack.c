@@ -27,7 +27,7 @@ struct StackNode {
   short unsigned int link_count;
   short unsigned int ref_count;
   unsigned error_cost;
-  unsigned error_depth;
+  unsigned error_count;
 };
 
 typedef struct {
@@ -97,7 +97,7 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
     .links = {},
     .state = state,
     .position = position,
-    .error_depth = 0,
+    .error_count = 0,
     .error_cost = 0,
   };
 
@@ -108,7 +108,7 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
     node->links[0] = (StackLink){ next, tree, is_pending };
 
     node->error_cost = next->error_cost;
-    node->error_depth = next->error_depth;
+    node->error_count = next->error_count;
 
     if (tree) {
       ts_tree_retain(tree);
@@ -121,7 +121,7 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
       }
     } else {
       node->error_cost++;
-      node->error_depth++;
+      node->error_count++;
     }
   }
 
@@ -343,8 +343,8 @@ unsigned ts_stack_error_cost(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->error_cost;
 }
 
-unsigned ts_stack_error_depth(const Stack *self, StackVersion version) {
-  return array_get(&self->heads, version)->node->error_depth;
+unsigned ts_stack_error_count(const Stack *self, StackVersion version) {
+  return array_get(&self->heads, version)->node->error_count;
 }
 
 bool ts_stack_push(Stack *self, StackVersion version, TSTree *tree,
@@ -473,7 +473,7 @@ bool ts_stack_merge(Stack *self, StackVersion version, StackVersion new_version)
 
   if (new_node->state == node->state &&
       new_node->position.chars == node->position.chars &&
-      new_node->error_depth == node->error_depth &&
+      new_node->error_count == node->error_count &&
       new_node->error_cost == node->error_cost) {
     for (size_t j = 0; j < new_node->link_count; j++)
       stack_node_add_link(node, new_node->links[j]);
@@ -554,7 +554,7 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
       fprintf(
         f,
         " tooltip=\"position: %lu,%lu\nerror-count: %u\nerror-cost: %u\"];\n",
-        node->position.rows, node->position.columns, node->error_depth,
+        node->position.rows, node->position.columns, node->error_count,
         node->error_cost);
 
       for (int j = 0; j < node->link_count; j++) {
