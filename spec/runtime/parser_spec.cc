@@ -272,7 +272,8 @@ describe("Parser", [&]() {
           insert_text(strlen("var x = y"), " *");
 
           assert_root_node(
-            "(program (var_declaration (identifier) (ERROR (identifier))))");
+            "(program (var_declaration (var_assignment "
+              "(identifier) (identifier)) (ERROR)))");
 
           insert_text(strlen("var x = y *"), " z");
 

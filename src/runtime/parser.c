@@ -903,7 +903,57 @@ error:
   return PotentialReductionsFailed;
 }
 
-static bool parser__handle_error(Parser *self, StackVersion version) {
+typedef struct {
+  Parser *parser;
+  TSSymbol lookahead_symbol;
+} SkipPrecedingTokensSession;
+
+static StackIterateAction parser__repair_consumed_error_callback(
+  void *payload, TSStateId state, TreeArray *trees, size_t tree_count,
+  bool is_done, bool is_pending) {
+  if (tree_count > 0 && state != TS_STATE_ERROR) {
+    SkipPrecedingTokensSession *session = payload;
+    Parser *self = session->parser;
+    TSSymbol lookahead_symbol = session->lookahead_symbol;
+    const TSParseAction *action =
+      ts_language_last_action(self->language, state, lookahead_symbol);
+    if (action && action->type == TSParseActionTypeReduce) {
+      return StackIteratePop | StackIterateStop;
+    }
+  }
+  return StackIterateNone;
+}
+
+static bool parser__repair_consumed_error(Parser *self, StackVersion version,
+                                          TSSymbol lookahead_symbol) {
+  SkipPrecedingTokensSession session = { self, lookahead_symbol };
+  StackPopResult pop = ts_stack_iterate(
+    self->stack, version, parser__repair_consumed_error_callback, &session);
+  CHECK(pop.status);
+
+  StackVersion last_slice_version = STACK_VERSION_NONE;
+  for (size_t i = 0; i < pop.slices.size; i++) {
+    StackSlice slice = pop.slices.contents[i];
+    if (slice.version == last_slice_version) {
+      ts_tree_array_delete(&slice.trees);
+      continue;
+    }
+
+    last_slice_version = slice.version;
+    TSTree *error = ts_tree_make_error_node(&slice.trees);
+    CHECK(error);
+    error->extra = true;
+    TSStateId state = ts_stack_top_state(self->stack, slice.version);
+    parser__push(self, slice.version, error, state);
+  }
+
+  return true;
+error:
+  return false;
+}
+
+static bool parser__handle_error(Parser *self, StackVersion version,
+                                 TSSymbol lookahead_symbol) {
   unsigned error_cost = ts_stack_error_cost(self->stack, version);
   unsigned error_depth = ts_stack_error_depth(self->stack, version) + 1;
   if (parser__better_version_exists(self, version, error_depth, error_cost)) {
@@ -913,6 +963,7 @@ static bool parser__handle_error(Parser *self, StackVersion version) {
   }
 
   LOG("handle_error");
+  CHECK(parser__repair_consumed_error(self, version, lookahead_symbol));
 
   size_t previous_version_count = ts_stack_version_count(self->stack);
   for (StackVersion v = version; v < ts_stack_version_count(self->stack);) {
@@ -1141,7 +1192,7 @@ static bool parser__advance(Parser *self, StackVersion version,
       return parser__push(self, version, lookahead, TS_STATE_ERROR);
     }
 
-    CHECK(parser__handle_error(self, version));
+    CHECK(parser__handle_error(self, version, lookahead->symbol));
 
     if (ts_stack_is_halted(self->stack, version)) {
       ts_tree_release(lookahead);

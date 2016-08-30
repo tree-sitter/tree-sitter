@@ -65,3 +65,17 @@ if ({a: 'b'} {c: 'd'}) {
       (ERROR (function
         (formal_parameters (identifier))
         (statement_block (expression_statement (identifier)))))))))
+
+===================================================
+one invalid token at the end of the file
+===================================================
+
+// skip the equals sign
+a.b =
+---
+
+(program
+  (comment)
+  (trailing_expression_statement
+    (member_access (identifier) (identifier)))
+  (ERROR))
