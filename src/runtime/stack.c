@@ -114,7 +114,7 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
       ts_tree_retain(tree);
       if (state == TS_STATE_ERROR) {
         if (!tree->extra) {
-          node->error_cost++;
+          node->error_cost += 1 + tree->padding.rows + tree->size.rows;
         }
       } else {
         node->error_cost += tree->error_size;

@@ -112,20 +112,6 @@ recur:
   }
 }
 
-static void ts_tree_total_tokens(const TSTree *self, size_t *result) {
-recur:
-  if (self->child_count == 0) {
-    if (!self->extra) {
-      (*result)++;
-    }
-  } else {
-    for (size_t i = 1; i < self->child_count; i++)
-      ts_tree_total_tokens(self->children[i], result);
-    self = self->children[0];
-    goto recur;
-  }
-}
-
 void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   if (self->child_count > 0)
     ts_free(self->children);
@@ -164,8 +150,10 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   }
 
   if (self->symbol == ts_builtin_sym_error) {
-    self->error_size = 0;
-    ts_tree_total_tokens(self, &self->error_size);
+    self->error_size = self->size.rows;
+    for (size_t i = 0; i < child_count; i++)
+      if (!self->children[i]->extra)
+        self->error_size++;
   }
 
   if (child_count > 0) {

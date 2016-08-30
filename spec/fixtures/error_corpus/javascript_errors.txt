@@ -56,12 +56,12 @@ if ({a: 'b'} {c: 'd'}) {
 
 (program
   (if_statement
-    (object (pair (identifier) (string)))
     (ERROR (object (pair (identifier) (string))))
+    (object (pair (identifier) (string)))
     (statement_block
-      (ERROR (function
-        (formal_parameters (identifier))
-        (statement_block (expression_statement (identifier)))))
       (expression_statement (function
         (formal_parameters (identifier))
-        (statement_block (expression_statement (identifier))))))))
+        (statement_block (expression_statement (identifier))))
+      (ERROR (function
+        (formal_parameters (identifier))
+        (statement_block (expression_statement (identifier)))))))))
