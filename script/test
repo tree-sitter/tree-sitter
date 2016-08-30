@@ -100,7 +100,8 @@ case ${mode} in
     ;;
 
   SVG)
-    $cmd "${args[@]}" 2> >(grep -v 'Assertion failed' | dot -Tsvg > index.html)
+    echo "<!DOCTYPE html><style>svg { width: 100%; margin-bottom: 20px; }</style>" > index.html
+    $cmd "${args[@]}" 2> >(grep -v 'Assertion failed' | dot -Tsvg >> index.html)
     echo "Wrote index.html"
     ;;
 
