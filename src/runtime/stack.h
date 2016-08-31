@@ -8,6 +8,7 @@ extern "C" {
 #include "tree_sitter/parser.h"
 #include "runtime/array.h"
 #include "runtime/tree.h"
+#include "runtime/error_costs.h"
 #include <stdio.h>
 
 typedef struct Stack Stack;
@@ -95,9 +96,7 @@ StackPopResult ts_stack_pop_pending(Stack *, StackVersion);
 
 StackPopResult ts_stack_pop_all(Stack *, StackVersion);
 
-unsigned ts_stack_error_count(const Stack *, StackVersion);
-
-unsigned ts_stack_error_cost(const Stack *, StackVersion);
+ErrorStatus ts_stack_error_status(const Stack *, StackVersion);
 
 bool ts_stack_merge(Stack *, StackVersion, StackVersion);
 

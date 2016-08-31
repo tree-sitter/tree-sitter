@@ -33,7 +33,7 @@ typedef struct TSTree {
 
   TSSymbol symbol;
   TSStateId parse_state;
-  size_t error_cost;
+  unsigned error_cost;
 
   struct {
     TSSymbol symbol;

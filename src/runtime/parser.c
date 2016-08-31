@@ -12,6 +12,7 @@
 #include "runtime/language.h"
 #include "runtime/alloc.h"
 #include "runtime/reduce_action.h"
+#include "runtime/error_costs.h"
 
 #define LOG(...)                                                               \
   if (self->lexer.debugger.debug_fn) {                                         \
@@ -46,8 +47,6 @@
   if (!(expr)) {    \
     goto error;     \
   }
-
-static const unsigned ERROR_COST_THRESHOLD = 3;
 
 typedef struct {
   Parser *parser;
@@ -208,25 +207,35 @@ static bool parser__condense_stack(Parser *self) {
   bool result = false;
   for (StackVersion i = 0; i < ts_stack_version_count(self->stack); i++) {
     if (ts_stack_is_halted(self->stack, i)) {
-      result = true;
       ts_stack_remove_version(self->stack, i);
+      result = true;
       i--;
       continue;
     }
 
-    bool did_merge = false;
-    for (size_t j = 0; j < i; j++) {
+    ErrorStatus error_status = ts_stack_error_status(self->stack, i);
 
+    for (StackVersion j = 0; j < i; j++) {
       if (ts_stack_merge(self->stack, j, i)) {
-        did_merge = true;
+        result = true;
+        i--;
         break;
       }
-    }
 
-    if (did_merge) {
-      result = true;
-      i--;
-      continue;
+      switch (error_status_compare(error_status,
+                                   ts_stack_error_status(self->stack, j))) {
+        case -1:
+          ts_stack_remove_version(self->stack, j);
+          result = true;
+          i--;
+          j--;
+          break;
+        case 1:
+          ts_stack_remove_version(self->stack, i);
+          result = true;
+          i--;
+          break;
+      }
     }
   }
   return result;
@@ -365,34 +374,23 @@ static bool parser__select_tree(Parser *self, TSTree *left, TSTree *right) {
 }
 
 static bool parser__better_version_exists(Parser *self, StackVersion version,
-                                          unsigned my_error_count,
-                                          unsigned my_error_cost) {
-  if (self->finished_tree && self->finished_tree->error_cost <= my_error_cost)
+                                          ErrorStatus my_error_status) {
+  if (self->finished_tree &&
+      self->finished_tree->error_cost <= my_error_status.cost)
     return true;
 
   for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
     if (i == version || ts_stack_is_halted(self->stack, i))
       continue;
 
-    unsigned error_cost = ts_stack_error_cost(self->stack, i);
-    unsigned error_count = ts_stack_error_count(self->stack, i);
-
-    if ((error_count > my_error_count + 1) ||
-        (error_count > my_error_count && error_cost >= my_error_cost) ||
-        (my_error_count == 0 && error_cost > my_error_cost) ||
-        (error_count == my_error_count &&
-         error_cost >= my_error_cost + ERROR_COST_THRESHOLD)) {
-      LOG("halt_other version:%u", i);
-      ts_stack_halt(self->stack, i);
-      continue;
-    }
-
-    if ((my_error_count > error_count + 1) ||
-        (my_error_count > error_count && my_error_cost >= error_cost) ||
-        (error_count == 0 && my_error_cost > error_cost) ||
-        (my_error_count == error_count &&
-         my_error_cost >= error_cost + ERROR_COST_THRESHOLD)) {
-      return true;
+    switch (error_status_compare(my_error_status,
+                                 ts_stack_error_status(self->stack, i))) {
+      case -1:
+        LOG("halt_other version:%u", i);
+        ts_stack_halt(self->stack, i);
+        break;
+      case 1:
+        return true;
     }
   }
 
@@ -516,11 +514,8 @@ static Reduction parser__reduce(Parser *self, StackVersion version,
 
       if (action->type == TSParseActionTypeRecover && child_count > 1 &&
           allow_skipping) {
-        unsigned error_count = ts_stack_error_count(self->stack, slice.version);
-        unsigned error_cost =
-          ts_stack_error_cost(self->stack, slice.version) + 1;
-        if (!parser__better_version_exists(self, slice.version, error_count,
-                                           error_cost)) {
+        ErrorStatus error_status = ts_stack_error_status(self->stack, version);
+        if (!parser__better_version_exists(self, version, error_status)) {
           StackVersion other_version =
             ts_stack_duplicate_version(self->stack, slice.version);
           CHECK(other_version != STACK_VERSION_NONE);
@@ -753,15 +748,13 @@ static RepairResult parser__repair_error(Parser *self, StackSlice slice,
   CHECK(parent);
   CHECK(parser__push(self, slice.version, parent, next_state));
 
-  unsigned error_cost = ts_stack_error_cost(self->stack, slice.version);
-  unsigned error_count = ts_stack_error_count(self->stack, slice.version);
-  if (parser__better_version_exists(self, slice.version, error_count,
-                                    error_cost)) {
+  ErrorStatus error_status = ts_stack_error_status(self->stack, slice.version);
+  if (parser__better_version_exists(self, slice.version, error_status)) {
     LOG("no_better_repair_found");
     ts_stack_halt(self->stack, slice.version);
     return RepairNoneFound;
   } else {
-    LOG("repair_found sym:%s, child_count:%lu, skipped:%lu", SYM_NAME(symbol),
+    LOG("repair_found sym:%s, child_count:%lu, cost:%u", SYM_NAME(symbol),
         repair.count, parent->error_cost);
     return RepairSucceeded;
   }
@@ -954,9 +947,9 @@ error:
 
 static bool parser__handle_error(Parser *self, StackVersion version,
                                  TSSymbol lookahead_symbol) {
-  unsigned error_cost = ts_stack_error_cost(self->stack, version);
-  unsigned error_count = ts_stack_error_count(self->stack, version) + 1;
-  if (parser__better_version_exists(self, version, error_count, error_cost)) {
+  ErrorStatus error_status = ts_stack_error_status(self->stack, version);
+  error_status.count++;
+  if (parser__better_version_exists(self, version, error_status)) {
     ts_stack_halt(self->stack, version);
     LOG("bail_on_error");
     return true;
@@ -1005,9 +998,8 @@ static bool parser__recover(Parser *self, StackVersion version, TSStateId state,
     return parser__accept(self, version);
   }
 
-  unsigned error_cost = ts_stack_error_cost(self->stack, version);
-  unsigned error_count = ts_stack_error_count(self->stack, version);
-  if (parser__better_version_exists(self, version, error_count, error_cost)) {
+  ErrorStatus error_status = ts_stack_error_status(self->stack, version);
+  if (parser__better_version_exists(self, version, error_status)) {
     ts_stack_halt(self->stack, version);
     LOG("bail_on_recovery");
     return true;
@@ -1142,7 +1134,7 @@ static bool parser__advance(Parser *self, StackVersion version,
         }
 
         case TSParseActionTypeAccept: {
-          if (ts_stack_error_count(self->stack, version) > 0)
+          if (ts_stack_error_status(self->stack, version).count > 0)
             continue;
 
           LOG("accept");

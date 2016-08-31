@@ -28,6 +28,7 @@ struct StackNode {
   short unsigned int ref_count;
   unsigned error_cost;
   unsigned error_count;
+  unsigned error_depth;
 };
 
 typedef struct {
@@ -97,8 +98,6 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
     .links = {},
     .state = state,
     .position = position,
-    .error_count = 0,
-    .error_cost = 0,
   };
 
   if (next) {
@@ -107,22 +106,33 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
     node->link_count = 1;
     node->links[0] = (StackLink){ next, tree, is_pending };
 
-    node->error_cost = next->error_cost;
     node->error_count = next->error_count;
+    node->error_cost = next->error_cost;
+    node->error_depth = next->error_depth;
 
     if (tree) {
       ts_tree_retain(tree);
+      node->error_cost += tree->error_cost;
+
       if (state == TS_STATE_ERROR) {
         if (!tree->extra) {
-          node->error_cost += 1 + tree->padding.rows + tree->size.rows;
+          node->error_cost += ERROR_COST_PER_SKIPPED_TREE +
+                              ERROR_COST_PER_SKIPPED_CHAR *
+                                (tree->padding.chars + tree->size.chars) +
+                              ERROR_COST_PER_SKIPPED_LINE *
+                                (tree->padding.rows + tree->size.rows);
         }
       } else {
-        node->error_cost += tree->error_cost;
+        node->error_depth++;
       }
     } else {
-      node->error_cost++;
       node->error_count++;
+      node->error_depth = 0;
     }
+  } else {
+    node->error_count = 0;
+    node->error_cost = 0;
+    node->error_depth = 0;
   }
 
   return node;
@@ -339,12 +349,18 @@ TSLength ts_stack_top_position(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->position;
 }
 
-unsigned ts_stack_error_cost(const Stack *self, StackVersion version) {
-  return array_get(&self->heads, version)->node->error_cost;
+ErrorStatus ts_stack_error_status(const Stack *self, StackVersion version) {
+  StackNode *node = array_get(&self->heads, version)->node;
+  return (ErrorStatus){
+    .cost = node->error_cost,
+    .count = node->error_count,
+    .depth = node->error_depth,
+  };
 }
 
 unsigned ts_stack_error_count(const Stack *self, StackVersion version) {
-  return array_get(&self->heads, version)->node->error_count;
+  StackNode *node = array_get(&self->heads, version)->node;
+  return node->error_count;
 }
 
 bool ts_stack_push(Stack *self, StackVersion version, TSTree *tree,
@@ -551,11 +567,12 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
         fprintf(f, "shape=point margin=0 label=\"\"");
       else
         fprintf(f, "label=\"%d\"", node->state);
-      fprintf(
-        f,
-        " tooltip=\"position: %lu,%lu\nerror-count: %u\nerror-cost: %u\"];\n",
-        node->position.rows, node->position.columns, node->error_count,
-        node->error_cost);
+
+      fprintf(f,
+              " tooltip=\"position: %lu,%lu\nerror_count: %u\nerror_cost: %u\n"
+              "error_depth: %u\"];\n",
+              node->position.rows, node->position.columns, node->error_count,
+              node->error_cost, node->error_depth);
 
       for (int j = 0; j < node->link_count; j++) {
         StackLink link = node->links[j];
@@ -581,7 +598,8 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
           }
           if (!link.tree->named)
             fprintf(f, "'");
-          fprintf(f, "\"");
+          fprintf(f, "\" labeltooltip=\"error_cost: %u\"",
+                  link.tree->error_cost);
         }
 
         fprintf(f, "];\n");

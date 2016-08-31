@@ -59,12 +59,13 @@ if ({a: 'b'} {c: 'd'}) {
     (ERROR (object (pair (identifier) (string))))
     (object (pair (identifier) (string)))
     (statement_block
-      (expression_statement (function
-        (formal_parameters (identifier))
-        (statement_block (expression_statement (identifier))))
-      (ERROR (function
-        (formal_parameters (identifier))
-        (statement_block (expression_statement (identifier)))))))))
+      (expression_statement
+        (function
+          (formal_parameters (identifier))
+          (statement_block (expression_statement (identifier))))
+        (ERROR (function
+          (formal_parameters (identifier))
+          (statement_block (expression_statement (identifier)))))))))
 
 ===================================================
 one invalid token at the end of the file

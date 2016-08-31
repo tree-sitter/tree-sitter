@@ -7,6 +7,7 @@
 #include "runtime/alloc.h"
 #include "runtime/tree.h"
 #include "runtime/length.h"
+#include "runtime/error_costs.h"
 
 TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
 
@@ -150,10 +151,11 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   }
 
   if (self->symbol == ts_builtin_sym_error) {
-    self->error_cost = self->size.rows;
+    self->error_cost += ERROR_COST_PER_SKIPPED_CHAR * self->size.chars +
+                        ERROR_COST_PER_SKIPPED_LINE * self->size.rows;
     for (size_t i = 0; i < child_count; i++)
       if (!self->children[i]->extra)
-        self->error_cost++;
+        self->error_cost += ERROR_COST_PER_SKIPPED_TREE;
   }
 
   if (child_count > 0) {
@@ -424,8 +426,9 @@ void ts_tree__print_dot_graph(const TSTree *self, size_t offset,
   if (self->extra)
     fprintf(f, ", fontcolor=gray");
 
-  fprintf(f, ", tooltip=\"range:%lu - %lu\nstate:%d\"]\n", offset,
-          offset + ts_tree_total_chars(self), self->parse_state);
+  fprintf(f, ", tooltip=\"range:%lu - %lu\nstate:%d\nerror-cost:%u\"]\n",
+          offset, offset + ts_tree_total_chars(self), self->parse_state,
+          self->error_cost);
   for (size_t i = 0; i < self->child_count; i++) {
     const TSTree *child = self->children[i];
     ts_tree__print_dot_graph(child, offset, language, f);
