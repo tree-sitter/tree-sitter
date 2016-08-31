@@ -514,20 +514,21 @@ static Reduction parser__reduce(Parser *self, StackVersion version,
 
       if (action->type == TSParseActionTypeRecover && child_count > 1 &&
           allow_skipping) {
-        ErrorStatus error_status = ts_stack_error_status(self->stack, version);
-        if (!parser__better_version_exists(self, version, error_status)) {
-          StackVersion other_version =
-            ts_stack_duplicate_version(self->stack, slice.version);
-          CHECK(other_version != STACK_VERSION_NONE);
+        StackVersion other_version =
+          ts_stack_duplicate_version(self->stack, slice.version);
+        CHECK(other_version != STACK_VERSION_NONE);
 
-          CHECK(ts_stack_push(self->stack, other_version, parent, false,
+        CHECK(ts_stack_push(self->stack, other_version, parent, false,
+                            TS_STATE_ERROR));
+        for (size_t j = parent->child_count; j < slice.trees.size; j++) {
+          TSTree *tree = slice.trees.contents[j];
+          CHECK(ts_stack_push(self->stack, other_version, tree, false,
                               TS_STATE_ERROR));
-          for (size_t j = parent->child_count; j < slice.trees.size; j++) {
-            TSTree *tree = slice.trees.contents[j];
-            CHECK(ts_stack_push(self->stack, other_version, tree, false,
-                                TS_STATE_ERROR));
-          }
         }
+
+        ErrorStatus error_status = ts_stack_error_status(self->stack, other_version);
+        if (parser__better_version_exists(self, version, error_status))
+          ts_stack_remove_version(self->stack, other_version);
       }
     }
 
@@ -998,20 +999,19 @@ static bool parser__recover(Parser *self, StackVersion version, TSStateId state,
     return parser__accept(self, version);
   }
 
-  ErrorStatus error_status = ts_stack_error_status(self->stack, version);
-  if (parser__better_version_exists(self, version, error_status)) {
-    ts_stack_halt(self->stack, version);
-    LOG("bail_on_recovery");
-    return true;
-  }
-
   LOG("recover state:%u", state);
 
   StackVersion new_version = ts_stack_duplicate_version(self->stack, version);
   CHECK(new_version != STACK_VERSION_NONE);
+
   CHECK(parser__shift(
     self, new_version, TS_STATE_ERROR, lookahead,
     ts_language_symbol_metadata(self->language, lookahead->symbol).extra));
+  ErrorStatus error_status = ts_stack_error_status(self->stack, new_version);
+  if (parser__better_version_exists(self, version, error_status)) {
+    ts_stack_remove_version(self->stack, new_version);
+    LOG("bail_on_recovery");
+  }
 
   CHECK(parser__shift(self, version, state, lookahead, false));
   return true;
