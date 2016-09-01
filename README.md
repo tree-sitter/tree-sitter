@@ -74,14 +74,7 @@ int main() {
               "type": "SEQ",
               "members": [
                 {"type": "STRING", "value": "("},
-
-                // Error recovery is controlled by wrapping rule subtrees
-                // in an 'ERROR' rule.
-                {
-                  "type": "ERROR",
-                  "content": {"type": "SYMBOL", "name": "expression"}
-                },
-
+                {"type": "SYMBOL", "name": "expression"},
                 {"type": "STRING", "value": ")"}
               ]
             }
@@ -225,6 +218,7 @@ clang \
 ### References
 
 - [Context Aware Scanning for Parsing Extensible Languages](http://www.umsec.umn.edu/publications/Context-Aware-Scanning-Parsing-Extensible)
-- [LR(1) Parser Generation System](http://arxiv.org/pdf/1010.1234.pdf)  (Error recovery scheme)
 - [Efficient and Flexible Incremental Parsing](http://harmonia.cs.berkeley.edu/papers/twagner-parsing.ps.gz)
 - [Incremental Analysis of Real Programming Languages](http://harmonia.cs.berkeley.edu/papers/twagner-glr.pdf)
+- [Error Detection and Recovery in LR Parsers](http://what-when-how.com/compiler-writing/bottom-up-parsing-compiler-writing-part-13)
+- [Error Recovery for LR Parsers](http://www.dtic.mil/dtic/tr/fulltext/u2/a043470.pdf)

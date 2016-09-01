@@ -86,17 +86,6 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     return { seq(members), "" };
   }
 
-  if (type == "ERROR") {
-    json_value content_json = rule_json->operator[]("content");
-    ParseRuleResult content = parse_rule(&content_json);
-    if (content.rule.get()) {
-      return { content.rule, "" };
-    } else {
-      error_message = "Invalid error content: " + content.error_message;
-      goto error;
-    }
-  }
-
   if (type == "REPEAT") {
     json_value content_json = rule_json->operator[]("content");
     ParseRuleResult content = parse_rule(&content_json);

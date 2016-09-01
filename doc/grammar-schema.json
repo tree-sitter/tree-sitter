@@ -170,20 +170,6 @@
       "required": ["type", "content"]
     },
 
-    "error-rule": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "pattern": "^ERROR$"
-        },
-        "content": {
-          "$ref": "#/definitions/rule"
-        }
-      },
-      "required": ["type", "content"]
-    },
-
     "prec-rule": {
       "type": "object",
       "properties": {
@@ -246,7 +232,6 @@
         { "$ref": "#/definitions/repeat1-rule" },
         { "$ref": "#/definitions/repeat-rule" },
         { "$ref": "#/definitions/token-rule" },
-        { "$ref": "#/definitions/error-rule" },
         { "$ref": "#/definitions/prec-rule" },
         { "$ref": "#/definitions/prec-left-rule" },
         { "$ref": "#/definitions/prec-right-rule" }
