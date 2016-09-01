@@ -119,6 +119,12 @@ describe("Stack", [&]() {
         {1, 3},
       })));
     });
+
+    it("increments the version's push count", [&]() {
+      AssertThat(ts_stack_push_count(stack, 0), Equals<unsigned>(0));
+      ts_stack_push(stack, 0, trees[0], false, stateA);
+      AssertThat(ts_stack_push_count(stack, 0), Equals<unsigned>(1));
+    });
   });
 
   describe("merge()", [&]() {
@@ -257,6 +263,18 @@ describe("Stack", [&]() {
       StackSlice slice = pop.slices.contents[0];
       AssertThat(slice.version, Equals<StackVersion>(1));
       AssertThat(slice.trees, Equals(vector<TSTree *>({ trees[4] })));
+
+      free_slice_array(&pop.slices);
+    });
+
+    it("preserves the push count of the popped version", [&]() {
+      // . <──0── A <──1── B <──2── C*
+      //          ↑
+      //          └─*
+      StackPopResult pop = ts_stack_pop_count(stack, 0, 2);
+
+      AssertThat(ts_stack_push_count(stack, 0), Equals<unsigned>(3));
+      AssertThat(ts_stack_push_count(stack, 1), Equals<unsigned>(3));
 
       free_slice_array(&pop.slices);
     });

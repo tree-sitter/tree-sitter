@@ -49,6 +49,7 @@ typedef Array(StackNode *) StackNodeArray;
 typedef struct {
   StackNode *node;
   bool is_halted;
+  unsigned push_count;
 } StackHead;
 
 struct Stack {
@@ -163,14 +164,16 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
   }
 }
 
-static StackVersion ts_stack__add_version(Stack *self, StackNode *node) {
-  if (!array_push(&self->heads, ((StackHead){ node, false })))
+static StackVersion ts_stack__add_version(Stack *self, StackNode *node,
+                                          unsigned push_count) {
+  if (!array_push(&self->heads, ((StackHead){ node, false, push_count })))
     return STACK_VERSION_NONE;
   stack_node_retain(node);
   return (StackVersion)(self->heads.size - 1);
 }
 
-static bool ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees) {
+static bool ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees,
+                                unsigned push_count) {
   for (size_t i = self->slices.size - 1; i + 1 > 0; i--) {
     StackVersion version = self->slices.contents[i].version;
     if (self->heads.contents[version].node == node) {
@@ -179,7 +182,7 @@ static bool ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees) 
     }
   }
 
-  StackVersion version = ts_stack__add_version(self, node);
+  StackVersion version = ts_stack__add_version(self, node, push_count);
   if (version == STACK_VERSION_NONE)
     return false;
   StackSlice slice = { *trees, version };
@@ -189,14 +192,15 @@ static bool ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees) 
 INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
                                   StackIterateCallback callback, void *payload) {
   array_clear(&self->slices);
+  array_clear(&self->pop_paths);
 
+  StackHead *head = array_get(&self->heads, version);
   PopPath pop_path = {
-    .node = array_get(&self->heads, version)->node,
+    .node = head->node,
     .trees = array_new(),
     .tree_count = 0,
     .is_pending = true,
   };
-  array_clear(&self->pop_paths);
   if (!array_push(&self->pop_paths, pop_path))
     goto error;
 
@@ -219,7 +223,7 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
           if (!ts_tree_array_copy(trees, &trees))
             goto error;
         array_reverse(&trees);
-        if (!ts_stack__add_slice(self, node, &trees))
+        if (!ts_stack__add_slice(self, node, &trees, head->push_count))
           goto error;
       }
 
@@ -300,7 +304,7 @@ Stack *ts_stack_new() {
   if (!self->base_node)
     goto error;
 
-  array_push(&self->heads, ((StackHead){ self->base_node, false }));
+  array_push(&self->heads, ((StackHead){ self->base_node, false, 0 }));
 
   return self;
 
@@ -349,12 +353,16 @@ TSLength ts_stack_top_position(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->position;
 }
 
+unsigned ts_stack_push_count(const Stack *self, StackVersion version) {
+  return array_get(&self->heads, version)->push_count;
+}
+
 ErrorStatus ts_stack_error_status(const Stack *self, StackVersion version) {
-  StackNode *node = array_get(&self->heads, version)->node;
+  StackHead *head = array_get(&self->heads, version);
   return (ErrorStatus){
-    .cost = node->error_cost,
-    .count = node->error_count,
-    .depth = node->error_depth,
+    .cost = head->node->error_cost,
+    .count = head->node->error_count,
+    .push_count = head->push_count,
   };
 }
 
@@ -365,16 +373,21 @@ unsigned ts_stack_error_count(const Stack *self, StackVersion version) {
 
 bool ts_stack_push(Stack *self, StackVersion version, TSTree *tree,
                    bool is_pending, TSStateId state) {
-  StackNode *node = array_get(&self->heads, version)->node;
-  TSLength position =
-    tree ? ts_length_add(node->position, ts_tree_total_size(tree))
-         : node->position;
+  StackHead *head = array_get(&self->heads, version);
+  StackNode *node = head->node;
+  TSLength position = node->position;
+  if (tree)
+    position = ts_length_add(position, ts_tree_total_size(tree));
   StackNode *new_node =
     stack_node_new(node, tree, is_pending, state, position, &self->node_pool);
   if (!new_node)
     return false;
   stack_node_release(node, &self->node_pool);
-  self->heads.contents[version].node = new_node;
+  head->node = new_node;
+  if (state == TS_STATE_ERROR)
+    head->push_count = 0;
+  else
+    head->push_count++;
   return true;
 }
 
@@ -484,8 +497,10 @@ StackVersion ts_stack_duplicate_version(Stack *self, StackVersion version) {
 }
 
 bool ts_stack_merge(Stack *self, StackVersion version, StackVersion new_version) {
-  StackNode *node = self->heads.contents[version].node;
-  StackNode *new_node = self->heads.contents[new_version].node;
+  StackHead *head = &self->heads.contents[version];
+  StackHead *new_head = &self->heads.contents[new_version];
+  StackNode *node = head->node;
+  StackNode *new_node = new_head->node;
 
   if (new_node->state == node->state &&
       new_node->position.chars == node->position.chars &&
@@ -493,6 +508,8 @@ bool ts_stack_merge(Stack *self, StackVersion version, StackVersion new_version)
       new_node->error_cost == node->error_cost) {
     for (size_t j = 0; j < new_node->link_count; j++)
       stack_node_add_link(node, new_node->links[j]);
+    if (new_head->push_count > head->push_count)
+      head->push_count = new_head->push_count;
     ts_stack_remove_version(self, new_version);
     return true;
   } else {
@@ -513,7 +530,7 @@ void ts_stack_clear(Stack *self) {
   for (size_t i = 0; i < self->heads.size; i++)
     stack_node_release(self->heads.contents[i].node, &self->node_pool);
   array_clear(&self->heads);
-  array_push(&self->heads, ((StackHead){ self->base_node, false }));
+  array_push(&self->heads, ((StackHead){ self->base_node, false, 0 }));
 }
 
 bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
@@ -529,14 +546,15 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
 
   array_clear(&self->pop_paths);
   for (size_t i = 0; i < self->heads.size; i++) {
-    if (self->heads.contents[i].is_halted)
+    StackHead *head = &self->heads.contents[i];
+    if (head->is_halted)
       continue;
-    StackNode *node = self->heads.contents[i].node;
     fprintf(f, "node_head_%lu [shape=none, label=\"\"]\n", i);
     fprintf(
-      f, "node_head_%lu -> node_%p [label=%lu, fontcolor=blue, weight=10000]\n",
-      i, node, i);
-    if (!array_push(&self->pop_paths, ((PopPath){.node = node })))
+      f, "node_head_%lu -> node_%p [label=%lu, fontcolor=blue, weight=10000, "
+      "labeltooltip=\"push_count: %u\"]\n",
+      i, head->node, i, head->push_count);
+    if (!array_push(&self->pop_paths, ((PopPath){.node = head->node })))
       goto error;
   }
 
