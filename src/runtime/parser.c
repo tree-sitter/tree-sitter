@@ -131,6 +131,7 @@ static BreakdownResult parser__breakdown_top_of_stack(Parser *self,
       LOG("breakdown_top_of_stack tree:%s", SYM_NAME(parent->symbol));
       LOG_STACK();
 
+      ts_stack_decrease_push_count(self->stack, slice.version, parent->child_count + 1);
       ts_tree_release(parent);
       array_delete(&slice.trees);
     }
@@ -748,6 +749,7 @@ static RepairResult parser__repair_error(Parser *self, StackSlice slice,
                       ts_language_symbol_metadata(self->language, symbol));
   CHECK(parent);
   CHECK(parser__push(self, slice.version, parent, next_state));
+  ts_stack_decrease_push_count(self->stack, slice.version, error->child_count);
 
   ErrorStatus error_status = ts_stack_error_status(self->stack, slice.version);
   if (parser__better_version_exists(self, slice.version, error_status)) {

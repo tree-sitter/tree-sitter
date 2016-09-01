@@ -70,6 +70,8 @@ TSStateId ts_stack_top_state(const Stack *, StackVersion);
 
 unsigned ts_stack_push_count(const Stack *, StackVersion);
 
+void ts_stack_decrease_push_count(const Stack *, StackVersion, unsigned);
+
 /*
  *  Get the position at the top of the given version of the stack. If the stack
  *  is empty, this returns zero.
