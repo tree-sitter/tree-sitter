@@ -3,44 +3,15 @@
 #include "compiler/rules/metadata.h"
 #include "compiler/rules.h"
 #include "helpers/rule_helpers.h"
+#include "helpers/stream_methods.h"
 
 using namespace rules;
 using namespace build_tables;
+typedef LexItemSet::Transition Transition;
 
 START_TEST
 
 describe("LexItem", []() {
-  describe("is_token_start()", [&]() {
-    Symbol sym(1);
-    rule_ptr token_start = make_shared<Metadata>(str("a"), map<MetadataKey, int>({
-      { START_TOKEN, 1 }
-    }));
-
-    it("returns true for rules designated as token starts", [&]() {
-      LexItem item(sym, token_start);
-      AssertThat(item.is_token_start(), IsTrue());
-    });
-
-    it("returns false for rules not designated as token starts", [&]() {
-      AssertThat(LexItem(sym, make_shared<Metadata>(str("a"), map<MetadataKey, int>({
-        { PRECEDENCE, 5 }
-      }))).is_token_start(), IsFalse());
-      AssertThat(LexItem(sym, str("a")).is_token_start(), IsFalse());
-    });
-
-    describe("when given a sequence containing a token start", [&]() {
-      it("returns true when the rule before the token start may be blank", [&]() {
-        LexItem item(sym, seq({ repeat(str("a")), token_start }));
-        AssertThat(item.is_token_start(), IsTrue());
-      });
-
-      it("returns false when the rule before the token start cannot be blank", [&]() {
-        LexItem item(sym, seq({ str("a"), token_start }));
-        AssertThat(item.is_token_start(), IsFalse());
-      });
-    });
-  });
-
   describe("completion_status()", [&]() {
     it("indicates whether the item is done, its precedence, and whether it is a string", [&]() {
       LexItem item1(Symbol(0, true), character({ 'a', 'b', 'c' }));
@@ -76,11 +47,35 @@ describe("LexItemSet::transitions()", [&]() {
       Equals(LexItemSet::TransitionMap({
         {
           CharacterSet().include('x'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), blank()),
             }),
-            PrecedenceRange()
+            PrecedenceRange(),
+            false
+          }
+        }
+      })));
+  });
+
+  it("marks transitions that are within the main token (as opposed to separators)", [&]() {
+    LexItemSet item_set({
+      LexItem(Symbol(1), metadata(character({ 'x' }), {
+        {MAIN_TOKEN, true}
+      })),
+    });
+
+    AssertThat(
+      item_set.transitions(),
+      Equals(LexItemSet::TransitionMap({
+        {
+          CharacterSet().include('x'),
+          Transition{
+            LexItemSet({
+              LexItem(Symbol(1), metadata(blank(), { {MAIN_TOKEN, true}})),
+            }),
+            PrecedenceRange(),
+            true
           }
         }
       })));
@@ -101,7 +96,7 @@ describe("LexItemSet::transitions()", [&]() {
       Equals(LexItemSet::TransitionMap({
         {
           CharacterSet().include('w'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), seq({
                 character({ 'x' }),
@@ -109,7 +104,8 @@ describe("LexItemSet::transitions()", [&]() {
                 character({ 'z' }),
               })),
             }),
-            PrecedenceRange()
+            PrecedenceRange(),
+            false
           }
         }
       })));
@@ -135,7 +131,7 @@ describe("LexItemSet::transitions()", [&]() {
       Equals(LexItemSet::TransitionMap({
         {
           CharacterSet().include('v'),
-          {
+          Transition{
             // The outer precedence is now 'active', because we are within its
             // contained rule.
             LexItemSet({
@@ -150,12 +146,13 @@ describe("LexItemSet::transitions()", [&]() {
             }),
 
             // No precedence is applied upon entering a rule.
-            PrecedenceRange()
+            PrecedenceRange(),
+            false
           }
         }
       })));
 
-    LexItemSet item_set2 = transitions[CharacterSet().include('v')].first;
+    LexItemSet item_set2 = transitions[CharacterSet().include('v')].destination;
     transitions = item_set2.transitions();
 
     AssertThat(
@@ -163,7 +160,7 @@ describe("LexItemSet::transitions()", [&]() {
       Equals(LexItemSet::TransitionMap({
         {
           CharacterSet().include('w'),
-          {
+          Transition{
             // The inner precedence is now 'active'
             LexItemSet({
               LexItem(Symbol(1), seq({
@@ -175,12 +172,13 @@ describe("LexItemSet::transitions()", [&]() {
             }),
 
             // The outer precedence is applied.
-            PrecedenceRange(3)
+            PrecedenceRange(3),
+            false
           }
         }
       })));
 
-    LexItemSet item_set3 = transitions[CharacterSet().include('w')].first;
+    LexItemSet item_set3 = transitions[CharacterSet().include('w')].destination;
     transitions = item_set3.transitions();
 
     AssertThat(
@@ -188,7 +186,7 @@ describe("LexItemSet::transitions()", [&]() {
       Equals(LexItemSet::TransitionMap({
         {
           CharacterSet().include('x'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), seq({
                 active_prec(3, character({ 'y' })),
@@ -197,12 +195,13 @@ describe("LexItemSet::transitions()", [&]() {
             }),
 
             // The inner precedence is applied.
-            PrecedenceRange(4)
+            PrecedenceRange(4),
+            false
           }
         }
       })));
 
-    LexItemSet item_set4 = transitions[CharacterSet().include('x')].first;
+    LexItemSet item_set4 = transitions[CharacterSet().include('x')].destination;
     transitions = item_set4.transitions();
 
     AssertThat(
@@ -210,11 +209,12 @@ describe("LexItemSet::transitions()", [&]() {
       Equals(LexItemSet::TransitionMap({
         {
           CharacterSet().include('y'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), character({ 'z' })),
             }),
-            PrecedenceRange(3)
+            PrecedenceRange(3),
+            false
           }
         }
       })));
@@ -237,23 +237,25 @@ describe("LexItemSet::transitions()", [&]() {
       Equals(LexItemSet::TransitionMap({
         {
           CharacterSet().include('x'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), seq({
                 character({ 'y' }),
                 character({ 'z' }),
               })),
             }),
-            PrecedenceRange()
+            PrecedenceRange(),
+            false
           }
         },
         {
           CharacterSet().include('y'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), character({ 'z' })),
             }),
-            PrecedenceRange()
+            PrecedenceRange(),
+            false
           }
         }
       })));
@@ -281,7 +283,7 @@ describe("LexItemSet::transitions()", [&]() {
       Equals(LexItemSet::TransitionMap({
         {
           CharacterSet().include('a'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), seq({
                 character({ 'b' }),
@@ -292,17 +294,19 @@ describe("LexItemSet::transitions()", [&]() {
               })),
               LexItem(Symbol(1), character({ 'b' })),
             }),
-            PrecedenceRange()
+            PrecedenceRange(),
+            false
           }
         },
         {
           CharacterSet().include('c'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(2), repeat1(character({ 'c' }))),
               LexItem(Symbol(2), blank()),
             }),
-            PrecedenceRange()
+            PrecedenceRange(),
+            false
           }
         }
       })));
@@ -318,12 +322,13 @@ describe("LexItemSet::transitions()", [&]() {
       Equals(LexItemSet::TransitionMap({
         {
           CharacterSet().include('a'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), active_prec(-1, repeat1(character({ 'a' })))),
               LexItem(Symbol(1), active_prec(-1, blank())),
             }),
-            PrecedenceRange(-1)
+            PrecedenceRange(-1),
+            false
           }
         }
       })));
@@ -348,30 +353,33 @@ describe("LexItemSet::transitions()", [&]() {
       Equals(LexItemSet::TransitionMap({
         {
           CharacterSet().include('a', 'b'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), active_prec(2, character({ 'x' }))),
             }),
-            PrecedenceRange(2)
+            PrecedenceRange(2),
+            false
           }
         },
         {
           CharacterSet().include('c', 'd'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), active_prec(2, character({ 'x' }))),
               LexItem(Symbol(1), active_prec(3, character({ 'y' }))),
             }),
-            PrecedenceRange(2, 3)
+            PrecedenceRange(2, 3),
+            false
           }
         },
         {
           CharacterSet().include('e', 'f'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), active_prec(3, character({ 'y' }))),
             }),
-            PrecedenceRange(3)
+            PrecedenceRange(3),
+            false
           }
         },
       })));
@@ -396,21 +404,23 @@ describe("LexItemSet::transitions()", [&]() {
       Equals(LexItemSet::TransitionMap({
         {
           CharacterSet().include('a').include('e', 'f'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), character({ 'y' })),
             }),
-            PrecedenceRange()
+            PrecedenceRange(),
+            false
           }
         },
         {
           CharacterSet().include('b', 'd'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), character({ 'x' })),
               LexItem(Symbol(1), character({ 'y' })),
             }),
-            PrecedenceRange()
+            PrecedenceRange(),
+            false
           }
         },
       })));
@@ -435,21 +445,23 @@ describe("LexItemSet::transitions()", [&]() {
       Equals(LexItemSet::TransitionMap({
         {
           CharacterSet().include_all().exclude('/').exclude('\\'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), character({ '/' })),
             }),
-            PrecedenceRange()
+            PrecedenceRange(),
+            false
           }
         },
         {
           CharacterSet().include('\\'),
-          {
+          Transition{
             LexItemSet({
               LexItem(Symbol(1), character({ '/' })),
               LexItem(Symbol(1), seq({ character({ '/' }), character({ '/' }) })),
             }),
-            PrecedenceRange()
+            PrecedenceRange(),
+            false
           }
         },
       })));
@@ -464,30 +476,33 @@ describe("LexItemSet::transitions()", [&]() {
     AssertThat(set1.transitions(), Equals(LexItemSet::TransitionMap({
       {
         CharacterSet().include('a', 'd'),
-        {
+        Transition{
           LexItemSet({
             LexItem(Symbol(1), blank()),
           }),
-          PrecedenceRange()
+          PrecedenceRange(),
+          false
         }
       },
       {
         CharacterSet().include('e', 'f'),
-        {
+        Transition{
           LexItemSet({
             LexItem(Symbol(1), blank()),
             LexItem(Symbol(2), blank()),
           }),
-          PrecedenceRange()
+          PrecedenceRange(),
+          false
         }
       },
       {
         CharacterSet().include('g', 'i'),
-        {
+        Transition{
           LexItemSet({
             LexItem(Symbol(2), blank()),
           }),
-          PrecedenceRange()
+          PrecedenceRange(),
+          false
         }
       },
     })));

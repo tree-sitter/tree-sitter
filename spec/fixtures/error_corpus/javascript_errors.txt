@@ -1,0 +1,78 @@
+===================================================
+one invalid token right after the viable prefix
+===================================================
+
+if (a b) {
+  c d;
+}
+e f;
+
+---
+
+(program
+  (if_statement
+    (ERROR (identifier))
+    (identifier)
+    (statement_block
+      (ERROR (identifier))
+      (expression_statement (identifier))))
+  (expression_statement (ERROR (identifier)) (identifier)))
+
+=======================================================
+multiple invalid tokens right after the viable prefix
+=======================================================
+
+if (a b c) {
+  d e f g;
+}
+h i j k;
+
+---
+
+(program
+  (if_statement
+    (ERROR (identifier) (identifier))
+    (identifier)
+    (statement_block
+      (ERROR (identifier) (identifier) (identifier))
+      (expression_statement (identifier))))
+  (expression_statement
+    (ERROR (identifier) (identifier) (identifier))
+    (identifier)))
+
+===================================================
+one invalid subtree right after the viable prefix
+===================================================
+
+if ({a: 'b'} {c: 'd'}) {
+  function(a) { b; }    function(c) { d; }
+}
+
+---
+
+(program
+  (if_statement
+    (ERROR (object (pair (identifier) (string))))
+    (object (pair (identifier) (string)))
+    (statement_block
+      (expression_statement
+        (function
+          (formal_parameters (identifier))
+          (statement_block (expression_statement (identifier))))
+        (ERROR (function
+          (formal_parameters (identifier))
+          (statement_block (expression_statement (identifier)))))))))
+
+===================================================
+one invalid token at the end of the file
+===================================================
+
+// skip the equals sign
+a.b =
+---
+
+(program
+  (comment)
+  (trailing_expression_statement
+    (member_access (identifier) (identifier)))
+  (ERROR))

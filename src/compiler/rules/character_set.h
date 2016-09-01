@@ -31,6 +31,7 @@ class CharacterSet : public Rule {
 
   void add_set(const CharacterSet &other);
   CharacterSet remove_set(const CharacterSet &other);
+  bool intersects(const CharacterSet &other) const;
   bool is_empty() const;
 
   std::vector<CharacterRange> included_ranges() const;

@@ -7,15 +7,15 @@
 namespace tree_sitter {
 namespace build_tables {
 
-template <typename StateType, typename ActionType>
-std::map<size_t, size_t> remove_duplicate_states(std::vector<StateType> *states) {
+template <typename TableType, typename ActionType>
+std::map<size_t, size_t> remove_duplicate_states(TableType *table) {
   std::map<size_t, size_t> replacements;
 
   while (true) {
     std::map<size_t, size_t> duplicates;
-    for (size_t i = 0, size = states->size(); i < size; i++)
+    for (size_t i = 0, size = table->states.size(); i < size; i++)
       for (size_t j = 0; j < i; j++)
-        if (states->at(i) == states->at(j)) {
+        if (!duplicates.count(j) && table->merge_state(j, i)) {
           duplicates.insert({ i, j });
           break;
         }
@@ -24,7 +24,7 @@ std::map<size_t, size_t> remove_duplicate_states(std::vector<StateType> *states)
       break;
 
     std::map<size_t, size_t> new_replacements;
-    for (size_t i = 0, size = states->size(); i < size; i++) {
+    for (size_t i = 0, size = table->states.size(); i < size; i++) {
       size_t new_state_index = i;
       auto duplicate = duplicates.find(i);
       if (duplicate != duplicates.end())
@@ -45,16 +45,15 @@ std::map<size_t, size_t> remove_duplicate_states(std::vector<StateType> *states)
           replacement.second = new_state_index;
     }
 
-    for (StateType &state : *states)
-      state.each_advance_action(
-        [&duplicates, &new_replacements](ActionType *action) {
-          auto new_replacement = new_replacements.find(action->state_index);
-          if (new_replacement != new_replacements.end())
-            action->state_index = new_replacement->second;
-        });
+    for (auto &state : table->states)
+      state.each_advance_action([&new_replacements](ActionType *action) {
+        auto new_replacement = new_replacements.find(action->state_index);
+        if (new_replacement != new_replacements.end())
+          action->state_index = new_replacement->second;
+      });
 
     for (auto i = duplicates.rbegin(); i != duplicates.rend(); ++i)
-      states->erase(states->begin() + i->first);
+      table->states.erase(table->states.begin() + i->first);
   }
 
   return replacements;

@@ -153,8 +153,24 @@ bool CharacterSet::is_empty() const {
 }
 
 void CharacterSet::add_set(const CharacterSet &other) {
-  for (uint32_t c : other.included_chars)
-    included_chars.insert(c);
+  if (includes_all) {
+    if (other.includes_all) {
+      excluded_chars = remove_chars(&excluded_chars, other.excluded_chars);
+    } else {
+      remove_chars(&excluded_chars, other.included_chars);
+    }
+  } else {
+    if (other.includes_all) {
+      includes_all = true;
+      for (uint32_t c : other.excluded_chars)
+        if (!included_chars.count(c))
+          excluded_chars.insert(c);
+      included_chars.clear();
+    } else {
+      for (uint32_t c : other.included_chars)
+        included_chars.insert(c);
+    }
+  }
 }
 
 CharacterSet CharacterSet::remove_set(const CharacterSet &other) {
@@ -180,6 +196,11 @@ CharacterSet CharacterSet::remove_set(const CharacterSet &other) {
     }
   }
   return result;
+}
+
+bool CharacterSet::intersects(const CharacterSet &other) const {
+  CharacterSet copy(*this);
+  return !copy.remove_set(other).is_empty();
 }
 
 vector<CharacterRange> CharacterSet::included_ranges() const {

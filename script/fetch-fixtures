@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-GRAMMARS_DIR=$(dirname $0)/../spec/fixtures
+GRAMMARS_DIR=$(dirname $0)/../spec/fixtures/grammars
 
 GRAMMARS=(
   javascript

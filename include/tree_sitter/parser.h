@@ -9,10 +9,8 @@ extern "C" {
 #include <stdbool.h>
 #include "tree_sitter/runtime.h"
 
-#define ts_lex_state_error 0
+#define TS_STATE_ERROR 0
 #define TS_DEBUG_BUFFER_SIZE 512
-
-typedef struct TSTree TSTree;
 
 typedef unsigned short TSStateId;
 
@@ -30,24 +28,30 @@ typedef struct {
   bool structural : 1;
 } TSSymbolMetadata;
 
+typedef enum {
+  TSTransitionTypeMain,
+  TSTransitionTypeSeparator,
+  TSTransitionTypeError,
+} TSTransitionType;
+
 typedef struct TSLexer {
-  void (*start_fn)(struct TSLexer *, TSStateId);
-  void (*start_token_fn)(struct TSLexer *);
-  bool (*advance_fn)(struct TSLexer *, TSStateId);
-  TSTree *(*accept_fn)(struct TSLexer *, TSSymbol, TSSymbolMetadata,
-                       const char *, bool fragile);
+  void (*advance)(struct TSLexer *, TSStateId, TSTransitionType);
+
+  TSLength current_position;
+  TSLength token_end_position;
+  TSLength token_start_position;
+  TSLength error_end_position;
 
   const char *chunk;
   size_t chunk_start;
   size_t chunk_size;
 
-  TSLength current_position;
-  TSLength token_end_position;
-  TSLength token_start_position;
-
   size_t lookahead_size;
   int32_t lookahead;
   TSStateId starting_state;
+  TSSymbol result_symbol;
+  bool result_follows_error;
+  int32_t first_unexpected_character;
 
   TSInput input;
   TSDebugger debugger;
@@ -55,10 +59,10 @@ typedef struct TSLexer {
 } TSLexer;
 
 typedef enum {
-  TSParseActionTypeError,
   TSParseActionTypeShift,
   TSParseActionTypeReduce,
   TSParseActionTypeAccept,
+  TSParseActionTypeRecover,
 } TSParseActionType;
 
 typedef struct {
@@ -68,16 +72,19 @@ typedef struct {
       TSSymbol symbol;
       unsigned short child_count;
     };
-  } data;
-  TSParseActionType type : 3;
+  };
+  TSParseActionType type : 4;
   bool extra : 1;
   bool fragile : 1;
-  bool can_hide_split : 1;
 } TSParseAction;
 
 typedef union {
   TSParseAction action;
-  unsigned int count;
+  struct {
+    unsigned short count;
+    bool reusable : 1;
+    bool depends_on_lookahead : 1;
+  };
 } TSParseActionEntry;
 
 struct TSLanguage {
@@ -87,20 +94,17 @@ struct TSLanguage {
   const unsigned short *parse_table;
   const TSParseActionEntry *parse_actions;
   const TSStateId *lex_states;
-  TSTree *(*lex_fn)(TSLexer *, TSStateId, bool);
+  bool (*lex_fn)(TSLexer *, TSStateId, bool);
 };
 
 /*
  *  Lexer Macros
  */
 
-#define START_LEXER()            \
-  lexer->start_fn(lexer, state); \
-  int32_t lookahead;             \
-  next_state:                    \
+#define START_LEXER() \
+  int32_t lookahead;  \
+  next_state:         \
   lookahead = lexer->lookahead;
-
-#define START_TOKEN() lexer->start_token_fn(lexer);
 
 #define GO_TO_STATE(state_value) \
   {                              \
@@ -108,50 +112,45 @@ struct TSLanguage {
     goto next_state;             \
   }
 
-#define ADVANCE(state_value)               \
-  {                                        \
-    lexer->advance_fn(lexer, state_value); \
-    GO_TO_STATE(state_value);              \
+#define ADVANCE(state_value)                                  \
+  {                                                           \
+    lexer->advance(lexer, state_value, TSTransitionTypeMain); \
+    GO_TO_STATE(state_value);                                 \
   }
 
-#define ACCEPT_FRAGILE_TOKEN(symbol)                                 \
-  return lexer->accept_fn(lexer, symbol, ts_symbol_metadata[symbol], \
-                          ts_symbol_names[symbol], true);
+#define SKIP(state_value)                                          \
+  {                                                                \
+    lexer->advance(lexer, state_value, TSTransitionTypeSeparator); \
+    GO_TO_STATE(state_value);                                      \
+  }
 
-#define ACCEPT_TOKEN(symbol)                                         \
-  return lexer->accept_fn(lexer, symbol, ts_symbol_metadata[symbol], \
-                          ts_symbol_names[symbol], false);
+#define ACCEPT_TOKEN(symbol_value)       \
+  {                                      \
+    lexer->result_symbol = symbol_value; \
+    return true;                         \
+  }
 
-#define LEX_ERROR()                    \
-  if (error_mode) {                    \
-    if (state == ts_lex_state_error)   \
-      lexer->advance_fn(lexer, state); \
-    GO_TO_STATE(ts_lex_state_error)    \
-  } else {                             \
-    ACCEPT_TOKEN(ts_builtin_sym_error) \
+#define LEX_ERROR()                                        \
+  if (error_mode) {                                        \
+    if (state == TS_STATE_ERROR)                           \
+      lexer->advance(lexer, state, TSTransitionTypeError); \
+    GO_TO_STATE(TS_STATE_ERROR);                           \
+  } else {                                                 \
+    return false;                                          \
   }
 
 /*
  *  Parse Table Macros
  */
 
-enum {
-  FRAGILE = 1,
-  CAN_HIDE_SPLIT = 2,
-};
-
-#define ERROR()                        \
-  {                                    \
-    { .type = TSParseActionTypeError } \
+#define SHIFT(to_state_value)                                      \
+  {                                                                \
+    { .type = TSParseActionTypeShift, .to_state = to_state_value } \
   }
 
-#define SHIFT(to_state_value, flags)                   \
-  {                                                    \
-    {                                                  \
-      .type = TSParseActionTypeShift,                  \
-      .can_hide_split = (flags & CAN_HIDE_SPLIT) != 0, \
-      .data = {.to_state = to_state_value }            \
-    }                                                  \
+#define RECOVER(to_state_value)                                      \
+  {                                                                  \
+    { .type = TSParseActionTypeRecover, .to_state = to_state_value } \
   }
 
 #define SHIFT_EXTRA()                                 \
@@ -159,21 +158,28 @@ enum {
     { .type = TSParseActionTypeShift, .extra = true } \
   }
 
-#define REDUCE_EXTRA(symbol_val)                        \
-  {                                                     \
-    {                                                   \
-      .type = TSParseActionTypeReduce, .extra = true,   \
-      .data = {.symbol = symbol_val, .child_count = 1 } \
-    }                                                   \
+#define REDUCE_EXTRA(symbol_val)                                               \
+  {                                                                            \
+    {                                                                          \
+      .type = TSParseActionTypeReduce, .symbol = symbol_val, .child_count = 1, \
+      .extra = true,                                                           \
+    }                                                                          \
   }
 
-#define REDUCE(symbol_val, child_count_val, flags)                        \
-  {                                                                       \
-    {                                                                     \
-      .type = TSParseActionTypeReduce, .fragile = (flags & FRAGILE) != 0, \
-      .can_hide_split = (flags & CAN_HIDE_SPLIT) != 0,                    \
-      .data = {.symbol = symbol_val, .child_count = child_count_val }     \
-    }                                                                     \
+#define REDUCE(symbol_val, child_count_val)                  \
+  {                                                          \
+    {                                                        \
+      .type = TSParseActionTypeReduce, .symbol = symbol_val, \
+      .child_count = child_count_val,                        \
+    }                                                        \
+  }
+
+#define REDUCE_FRAGILE(symbol_val, child_count_val)          \
+  {                                                          \
+    {                                                        \
+      .type = TSParseActionTypeReduce, .symbol = symbol_val, \
+      .child_count = child_count_val, .fragile = true,       \
+    }                                                        \
   }
 
 #define ACCEPT_INPUT()                  \

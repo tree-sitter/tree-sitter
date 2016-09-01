@@ -20,12 +20,13 @@ typedef enum {
 
 struct AdvanceAction {
   AdvanceAction();
-  AdvanceAction(size_t, PrecedenceRange);
+  AdvanceAction(size_t, PrecedenceRange, bool);
 
-  bool operator==(const AdvanceAction &action) const;
+  bool operator==(const AdvanceAction &other) const;
 
   size_t state_index;
   PrecedenceRange precedence_range;
+  bool in_main_token;
 };
 
 struct AcceptTokenAction {
@@ -38,7 +39,6 @@ struct AcceptTokenAction {
   rules::Symbol symbol;
   int precedence;
   bool is_string;
-  bool is_fragile;
 };
 
 }  // namespace tree_sitter
@@ -66,6 +66,8 @@ class LexTable {
   LexStateId add_state();
   LexState &state(LexStateId state_id);
   std::vector<LexState> states;
+
+  bool merge_state(size_t i, size_t j);
 };
 
 }  // namespace tree_sitter

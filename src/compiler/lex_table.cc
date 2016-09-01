@@ -15,8 +15,11 @@ using rules::CharacterSet;
 AdvanceAction::AdvanceAction() : state_index(-1) {}
 
 AdvanceAction::AdvanceAction(size_t state_index,
-                             PrecedenceRange precedence_range)
-    : state_index(state_index), precedence_range(precedence_range) {}
+                             PrecedenceRange precedence_range,
+                             bool in_main_token)
+    : state_index(state_index),
+      precedence_range(precedence_range),
+      in_main_token(in_main_token) {}
 
 bool AdvanceAction::operator==(const AdvanceAction &other) const {
   return (state_index == other.state_index) &&
@@ -24,14 +27,11 @@ bool AdvanceAction::operator==(const AdvanceAction &other) const {
 }
 
 AcceptTokenAction::AcceptTokenAction()
-    : symbol(rules::NONE()), precedence(0), is_string(false), is_fragile(false) {}
+    : symbol(rules::NONE()), precedence(0), is_string(false) {}
 
 AcceptTokenAction::AcceptTokenAction(Symbol symbol, int precedence,
                                      bool is_string)
-    : symbol(symbol),
-      precedence(precedence),
-      is_string(is_string),
-      is_fragile(false) {}
+    : symbol(symbol), precedence(precedence), is_string(is_string) {}
 
 bool AcceptTokenAction::is_present() const {
   return symbol != rules::NONE();
@@ -39,7 +39,7 @@ bool AcceptTokenAction::is_present() const {
 
 bool AcceptTokenAction::operator==(const AcceptTokenAction &other) const {
   return (symbol == other.symbol) && (precedence == other.precedence) &&
-         (is_string == other.is_string) && (is_fragile == other.is_fragile);
+         (is_string == other.is_string);
 }
 
 LexState::LexState() : is_token_start(false) {}
@@ -69,6 +69,10 @@ LexStateId LexTable::add_state() {
 
 LexState &LexTable::state(LexStateId id) {
   return states[id];
+}
+
+bool LexTable::merge_state(size_t i, size_t j) {
+  return states[i] == states[j];
 }
 
 }  // namespace tree_sitter

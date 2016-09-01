@@ -26,28 +26,6 @@ bool LexItem::operator==(const LexItem &other) const {
   return (other.lhs == lhs) && other.rule->operator==(*rule);
 }
 
-bool LexItem::is_token_start() const {
-  class IsTokenStart : public rules::RuleFn<bool> {
-    bool apply_to(const rules::Seq *rule) {
-      return apply(rule->left) ||
-             (rule_can_be_blank(rule->left) && apply(rule->right));
-    }
-
-    bool apply_to(const rules::Metadata *rule) {
-      return (rule->value_for(rules::START_TOKEN).second) || apply(rule->rule);
-    }
-
-    bool apply_to(const rules::Choice *rule) {
-      for (const rule_ptr &element : rule->elements)
-        if (apply(element))
-          return true;
-      return false;
-    }
-  };
-
-  return IsTokenStart().apply(rule);
-}
-
 LexItem::CompletionStatus LexItem::completion_status() const {
   class GetCompletionStatus : public rules::RuleFn<CompletionStatus> {
    protected:
@@ -116,6 +94,11 @@ LexItemSet::TransitionMap LexItemSet::transitions() const {
   for (const LexItem &item : entries)
     lex_item_transitions(&result, item);
   return result;
+}
+
+bool LexItemSet::Transition::operator==(const LexItemSet::Transition &other) const {
+  return destination == other.destination && precedence == other.precedence &&
+         in_main_token == other.in_main_token;
 }
 
 }  // namespace build_tables

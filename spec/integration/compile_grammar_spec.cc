@@ -26,14 +26,14 @@ describe("compile_grammar", []() {
     it("parses the token", [&]() {
       TSCompileResult result = ts_compile_grammar(R"JSON(
         {
-          "name": "test_language",
+          "name": "one_token_language",
           "rules": {
             "first_rule": {"type": "STRING", "value": "the-value"}
           }
         }
       )JSON");
 
-      ts_document_set_language(document, load_language("test_language", result));
+      ts_document_set_language(document, load_language("one_token_language", result));
 
       ts_document_set_input_string(document, "the-value");
       ts_document_parse(document);
@@ -45,14 +45,14 @@ describe("compile_grammar", []() {
     it("parses the empty string", [&]() {
       TSCompileResult result = ts_compile_grammar(R"JSON(
         {
-          "name": "test_language",
+          "name": "blank_language",
           "rules": {
             "first_rule": {"type": "BLANK"}
           }
         }
       )JSON");
 
-      ts_document_set_language(document, load_language("test_language", result));
+      ts_document_set_language(document, load_language("blank_language", result));
 
       ts_document_set_input_string(document, "");
       ts_document_parse(document);
@@ -64,7 +64,7 @@ describe("compile_grammar", []() {
     it("escapes the escaped characters properly in the generated parser", [&]() {
       TSCompileResult result = ts_compile_grammar(R"JSON(
         {
-          "name": "test_language",
+          "name": "escaped_char_language",
           "rules": {
             "first_rule": {
               "type": "CHOICE",
@@ -79,7 +79,7 @@ describe("compile_grammar", []() {
         }
       )JSON");
 
-      ts_document_set_language(document, load_language("test_language", result));
+      ts_document_set_language(document, load_language("escaped_char_language", result));
 
       ts_document_set_input_string(document, "1234");
       ts_document_parse(document);
@@ -96,7 +96,7 @@ describe("compile_grammar", []() {
   });
 
   describe("the grammar in the README", [&]() {
-    it("works", [&]() {
+    it("parses the input in the README", [&]() {
       TSCompileResult result = ts_compile_grammar(R"JSON(
         {
           "name": "arithmetic",

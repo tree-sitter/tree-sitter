@@ -7,25 +7,30 @@ extern "C" {
 
 #include "runtime/stack.h"
 #include "runtime/array.h"
+#include "runtime/reduce_action.h"
 
-typedef struct LookaheadState LookaheadState;
+typedef struct {
+  TSTree *tree;
+  size_t char_index;
+} ReusableNode;
 
 typedef struct {
   TSLexer lexer;
   Stack *stack;
   const TSLanguage *language;
-  Array(LookaheadState) lookahead_states;
-  Array(TSTree *) reduce_parents;
+  ReduceActionSet reduce_actions;
   TSTree *finished_tree;
   bool is_split;
   bool print_debugging_graphs;
-} TSParser;
+  TSTree scratch_tree;
+  TSTree *cached_token;
+  size_t cached_token_char_index;
+  ReusableNode reusable_node;
+} Parser;
 
-bool ts_parser_init(TSParser *);
-void ts_parser_destroy(TSParser *);
-TSDebugger ts_parser_debugger(const TSParser *);
-void ts_parser_set_debugger(TSParser *, TSDebugger);
-TSTree *ts_parser_parse(TSParser *, TSInput, TSTree *);
+bool parser_init(Parser *);
+void parser_destroy(Parser *);
+TSTree *parser_parse(Parser *, TSInput, TSTree *);
 
 #ifdef __cplusplus
 }

@@ -2,7 +2,7 @@
 #include "runtime/alloc.h"
 #include "helpers/record_alloc.h"
 #include "helpers/spy_input.h"
-#include "helpers/test_languages.h"
+#include "helpers/load_language.h"
 #include "helpers/log_debugger.h"
 #include "helpers/record_alloc.h"
 
@@ -77,9 +77,10 @@ describe("Parser", [&]() {
 
   auto assert_root_node = [&](const string &expected) {
     TSNode node = ts_document_root_node(doc);
-    char *actual = ts_node_string(node, doc);
+    char *str = ts_node_string(node, doc);
+    string actual(str);
+    ts_free(str);
     AssertThat(actual, Equals(expected));
-    ts_free(actual);
   };
 
   describe("handling errors", [&]() {
@@ -87,7 +88,13 @@ describe("Parser", [&]() {
       ts_document_set_language(doc, get_test_language("json"));
     });
 
-    describe("when the error occurs at the beginning of a token", [&]() {
+    auto get_node_text = [&](TSNode node) {
+      size_t start = ts_node_start_byte(node);
+      size_t end = ts_node_end_byte(node);
+      return input->content.substr(start, end - start);
+    };
+
+    describe("when there is an invalid substring right before a valid token", [&]() {
       it("computes the error node's size and position correctly", [&]() {
         set_text("  [123,  @@@@@,   true]");
 
@@ -95,18 +102,23 @@ describe("Parser", [&]() {
           "(array (number) (ERROR (UNEXPECTED '@')) (true))");
 
         TSNode error = ts_node_named_child(root, 1);
-        TSNode last = ts_node_named_child(root, 2);
-
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123,  ")));
-        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123,  @@@@@")));
+        AssertThat(get_node_text(error), Equals(",  @@@@@"));
+        AssertThat(ts_node_child_count(error), Equals<size_t>(2));
 
-        AssertThat(ts_node_name(last, doc), Equals("true"));
-        AssertThat(ts_node_start_byte(last), Equals(strlen("  [123,  @@@@@,   ")))
+        TSNode comma = ts_node_child(error, 0);
+        AssertThat(get_node_text(comma), Equals(","));
+
+        TSNode garbage = ts_node_child(error, 1);
+        AssertThat(get_node_text(garbage), Equals("@@@@@"));
+
+        TSNode node_after_error = ts_node_named_child(root, 2);
+        AssertThat(ts_node_name(node_after_error, doc), Equals("true"));
+        AssertThat(get_node_text(node_after_error), Equals("true"));
       });
     });
 
-    describe("when the error occurs in the middle of a token", [&]() {
+    describe("when there is an unexpected string in the middle of a token", [&]() {
       it("computes the error node's size and position correctly", [&]() {
         set_text("  [123, faaaaalse, true]");
 
@@ -114,54 +126,40 @@ describe("Parser", [&]() {
           "(array (number) (ERROR (UNEXPECTED 'a')) (true))");
 
         TSNode error = ts_node_named_child(root, 1);
-        TSNode last = ts_node_named_child(root, 2);
-
         AssertThat(ts_node_symbol(error), Equals(ts_builtin_sym_error));
-
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")))
-        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, faaaaalse")))
+        AssertThat(get_node_text(error), Equals(", faaaaalse"));
+        AssertThat(ts_node_child_count(error), Equals<size_t>(2));
 
+        TSNode comma = ts_node_child(error, 0);
+        AssertThat(ts_node_name(comma, doc), Equals(","));
+        AssertThat(get_node_text(comma), Equals(","));
+
+        TSNode garbage = ts_node_child(error, 1);
+        AssertThat(ts_node_name(garbage, doc), Equals("ERROR"));
+        AssertThat(get_node_text(garbage), Equals("faaaaalse"));
+
+        TSNode last = ts_node_named_child(root, 2);
         AssertThat(ts_node_name(last, doc), Equals("true"));
         AssertThat(ts_node_start_byte(last), Equals(strlen("  [123, faaaaalse, ")));
       });
     });
 
-    describe("when the error occurs after one or more tokens", [&]() {
+    describe("when there is one unexpected token between two valid tokens", [&]() {
       it("computes the error node's size and position correctly", [&]() {
         set_text("  [123, true false, true]");
 
         assert_root_node(
-          "(array (number) (ERROR (true) (UNEXPECTED 'f') (false)) (true))");
+          "(array (number) (true) (ERROR (false)) (true))");
 
-        TSNode error = ts_node_named_child(root, 1);
-        TSNode last = ts_node_named_child(root, 2);
-
+        TSNode error = ts_node_named_child(root, 2);
         AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")));
-        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, true false")));
+        AssertThat(get_node_text(error), Equals("false"));
+        AssertThat(ts_node_child_count(error), Equals<size_t>(1));
 
+        TSNode last = ts_node_named_child(root, 1);
         AssertThat(ts_node_name(last, doc), Equals("true"));
-        AssertThat(ts_node_start_byte(last), Equals(strlen("  [123, true false, ")));
-      });
-    });
-
-    describe("when the error is an empty string", [&]() {
-      it("computes the error node's size and position correctly", [&]() {
-        set_text("  [123, , true]");
-
-        assert_root_node(
-          "(array (number) (ERROR (UNEXPECTED ',')) (true))");
-
-        TSNode error = ts_node_named_child(root, 1);
-        TSNode last = ts_node_named_child(root, 2);
-
-        AssertThat(ts_node_name(error, doc), Equals("ERROR"));
-        AssertThat(ts_node_start_byte(error), Equals(strlen("  [123, ")));
-        AssertThat(ts_node_end_byte(error), Equals(strlen("  [123, ")))
-
-        AssertThat(ts_node_name(last, doc), Equals("true"));
-        AssertThat(ts_node_start_byte(last), Equals(strlen("  [123, , ")));
+        AssertThat(get_node_text(last), Equals("true"));
       });
     });
   });
@@ -226,14 +224,14 @@ describe("Parser", [&]() {
               "(identifier) "
               "(math_op (number) (identifier)))))");
 
-          insert_text(strlen("x ^ (100 + abc"), ".d");
+          insert_text(strlen("x * (100 + abc"), ".d");
 
           assert_root_node(
             "(program (expression_statement (math_op "
               "(identifier) "
               "(math_op (number) (member_access (identifier) (identifier))))))");
 
-          AssertThat(input->strings_read, Equals(vector<string>({ " abc.d);", "" })));
+          AssertThat(input->strings_read, Equals(vector<string>({ " + abc.d)", "" })));
         });
       });
 
@@ -274,7 +272,8 @@ describe("Parser", [&]() {
           insert_text(strlen("var x = y"), " *");
 
           assert_root_node(
-              "(program (var_declaration (ERROR (identifier) (identifier) (UNEXPECTED ';'))))");
+            "(program (var_declaration (var_assignment "
+              "(identifier) (identifier)) (ERROR)))");
 
           insert_text(strlen("var x = y *"), " z");
 
@@ -366,15 +365,19 @@ describe("Parser", [&]() {
     describe("deleting text", [&]() {
       describe("when a critical token is removed", [&]() {
         it("updates the parse tree, creating an error", [&]() {
-          set_text("123 * 456;");
+          set_text("123 * 456; 789 * 123;");
 
           assert_root_node(
-            "(program (expression_statement (math_op (number) (number))))");
+            "(program "
+              "(expression_statement (math_op (number) (number))) "
+              "(expression_statement (math_op (number) (number))))");
 
           delete_text(strlen("123 "), 2);
 
           assert_root_node(
-            "(program (expression_statement (ERROR (number) (UNEXPECTED '4') (number))))");
+            "(program "
+              "(expression_statement (number) (ERROR (number))) "
+              "(expression_statement (math_op (number) (number))))");
         });
       });
     });
@@ -485,6 +488,7 @@ describe("Parser", [&]() {
 
       assert_root_node(expected_node_string);
       ts_document_free(doc);
+      doc = nullptr;
       AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
 
       for (size_t i = 0; i < allocation_count; i++) {

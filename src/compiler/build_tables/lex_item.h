@@ -27,7 +27,6 @@ class LexItem {
   };
 
   bool operator==(const LexItem &other) const;
-  bool is_token_start() const;
   CompletionStatus completion_status() const;
 
   rules::Symbol lhs;
@@ -39,17 +38,26 @@ class LexItemSet {
   LexItemSet();
   explicit LexItemSet(const std::unordered_set<LexItem, LexItem::Hash> &);
 
-  typedef std::map<rules::CharacterSet, std::pair<LexItemSet, PrecedenceRange>>
-    TransitionMap;
+  bool operator==(const LexItemSet &) const;
 
   struct Hash {
     size_t operator()(const LexItemSet &) const;
   };
 
-  bool operator==(const LexItemSet &) const;
+  struct Transition;
+  typedef std::map<rules::CharacterSet, Transition> TransitionMap;
+
   TransitionMap transitions() const;
 
   std::unordered_set<LexItem, LexItem::Hash> entries;
+};
+
+struct LexItemSet::Transition {
+  LexItemSet destination;
+  PrecedenceRange precedence;
+  bool in_main_token;
+
+  bool operator==(const LexItemSet::Transition &) const;
 };
 
 }  // namespace build_tables

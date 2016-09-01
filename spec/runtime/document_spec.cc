@@ -6,7 +6,8 @@
 #include "helpers/tree_helpers.h"
 #include "helpers/spy_debugger.h"
 #include "helpers/spy_input.h"
-#include "helpers/test_languages.h"
+#include "helpers/load_language.h"
+#include "helpers/log_debugger.h"
 
 START_TEST
 
@@ -26,9 +27,10 @@ describe("Document", [&]() {
   });
 
   auto assert_node_string_equals = [&](TSNode node, const string &expected) {
-    char *actual = ts_node_string(node, doc);
+    char *str = ts_node_string(node, doc);
+    string actual(str);
+    ts_free(str);
     AssertThat(actual, Equals(expected));
-    ts_free(actual);
   };
 
   describe("set_input(input)", [&]() {
@@ -98,13 +100,15 @@ describe("Document", [&]() {
       ts_document_set_input_string(doc, "");
       ts_document_parse(doc);
       TSNode new_root = ts_document_root_node(doc);
+      AssertThat(ts_node_end_char(new_root), Equals<size_t>(0));
       assert_node_string_equals(
         new_root,
-        "(ERROR (UNEXPECTED <EOF>))");
+        "(ERROR)");
 
       ts_document_set_input_string(doc, "1");
       ts_document_parse(doc);
       new_root = ts_document_root_node(doc);
+      AssertThat(ts_node_end_char(new_root), Equals<size_t>(1));
       assert_node_string_equals(
         new_root,
         "(number)");
@@ -160,8 +164,7 @@ describe("Document", [&]() {
       ts_document_parse(doc);
 
       AssertThat(debugger->messages, Contains("lookahead char:'1'"));
-      AssertThat(debugger->messages, Contains("advance state:1"));
-      AssertThat(debugger->messages, Contains("accept_token sym:number"));
+      AssertThat(debugger->messages, Contains("lookahead char:'['"));
     });
 
     it("calls the debugger with a message for each parse action", [&]() {
@@ -170,7 +173,7 @@ describe("Document", [&]() {
 
       AssertThat(debugger->messages, Contains("new_parse"));
       AssertThat(debugger->messages, Contains("lookahead char:'['"));
-      AssertThat(debugger->messages, Contains("reduce sym:array, child_count:4, fragile:false"));
+      AssertThat(debugger->messages, Contains("reduce sym:array, child_count:4"));
       AssertThat(debugger->messages, Contains("accept"));
     });
 

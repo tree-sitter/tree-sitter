@@ -9,11 +9,11 @@ extern "C" {
 #include "tree_sitter/parser.h"
 #include "runtime/length.h"
 #include "runtime/array.h"
+#include <stdio.h>
 
-extern TSStateId TS_TREE_STATE_INDEPENDENT;
-extern TSStateId TS_TREE_STATE_ERROR;
+extern TSStateId TS_TREE_STATE_NONE;
 
-struct TSTree {
+typedef struct TSTree {
   struct {
     struct TSTree *parent;
     size_t index;
@@ -32,8 +32,14 @@ struct TSTree {
   TSLength size;
 
   TSSymbol symbol;
-  TSStateId lex_state;
   TSStateId parse_state;
+  unsigned error_cost;
+
+  struct {
+    TSSymbol symbol;
+    TSStateId lex_state;
+  } first_leaf;
+
   unsigned short ref_count;
   bool visible : 1;
   bool named : 1;
@@ -41,13 +47,17 @@ struct TSTree {
   bool fragile_left : 1;
   bool fragile_right : 1;
   bool has_changes : 1;
-};
+} TSTree;
 
 typedef Array(TSTree *) TreeArray;
+bool ts_tree_array_copy(TreeArray, TreeArray *);
+void ts_tree_array_delete(TreeArray *);
+size_t ts_tree_array_essential_count(const TreeArray *);
 
 TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, TSSymbolMetadata);
 TSTree *ts_tree_make_node(TSSymbol, size_t, TSTree **, TSSymbolMetadata);
 TSTree *ts_tree_make_copy(TSTree *child);
+TSTree *ts_tree_make_error_node(TreeArray *);
 TSTree *ts_tree_make_error(TSLength, TSLength, char);
 void ts_tree_retain(TSTree *tree);
 void ts_tree_release(TSTree *tree);
@@ -59,6 +69,8 @@ size_t ts_tree_end_column(const TSTree *self);
 void ts_tree_set_children(TSTree *, size_t, TSTree **);
 void ts_tree_assign_parents(TSTree *);
 void ts_tree_edit(TSTree *, TSInputEdit);
+char *ts_tree_string(const TSTree *, const TSLanguage *, bool include_all);
+void ts_tree_print_dot_graph(const TSTree *, const TSLanguage *, FILE *);
 
 static inline size_t ts_tree_total_chars(const TSTree *self) {
   return self->padding.chars + self->size.chars;

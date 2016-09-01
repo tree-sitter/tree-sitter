@@ -1,0 +1,132 @@
+========================================
+Errors inside ifdefs
+========================================
+
+#ifdef something
+int x // no semicolon
+#endif
+
+int a;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+int b;
+
+#ifdef __cplusplus
+}
+#endif
+
+int c;
+
+---
+
+(translation_unit
+  (preproc_ifdef
+    (identifier)
+    (ERROR (identifier) (identifier) (comment)))
+
+  (declaration (identifier) (identifier))
+
+  (preproc_ifdef
+    (identifier)
+    (ERROR (storage_class_specifier) (string_literal)))
+
+  (declaration (identifier) (identifier))
+
+  (preproc_ifdef
+    (identifier)
+    (ERROR))
+
+  (declaration (identifier) (identifier)))
+
+========================================
+Errors inside blocks
+========================================
+
+int main() {
+  int x;
+  int %$#@
+}
+
+---
+
+(translation_unit
+  (function_definition
+    (identifier)
+    (function_declarator (identifier))
+    (compound_statement
+      (declaration (identifier) (identifier))
+      (ERROR (identifier) (UNEXPECTED '$')))))
+
+========================================
+Errors inside expressions
+========================================
+
+int main() {
+  int x = (123 123);
+}
+
+---
+
+(translation_unit
+  (function_definition
+    (identifier)
+    (function_declarator (identifier))
+    (compound_statement
+      (declaration (identifier) (init_declarator
+        (identifier)
+        (ERROR (number_literal))
+        (number_literal))))))
+
+========================================
+Errors in declarations
+========================================
+
+float x WTF;
+int y = 5;
+
+---
+
+(translation_unit
+  (declaration (identifier) (ERROR (identifier)) (identifier))
+  (declaration (identifier) (init_declarator (identifier) (number_literal))))
+
+==========================================
+Errors at the beginnings of blocks
+==========================================
+
+int a() {
+  struct x = 1;
+  struct y = 2;
+}
+
+int b() {
+  w x y z = 3;
+  w x y z = 4;
+}
+
+---
+
+(translation_unit
+  (function_definition
+    (identifier) (function_declarator (identifier))
+    (compound_statement
+      (ERROR (struct_specifier (identifier)))
+      (expression_statement (number_literal))
+      (ERROR (struct_specifier (identifier)))
+      (expression_statement (number_literal))))
+
+  (function_definition
+    (identifier) (function_declarator (identifier))
+    (compound_statement
+      (declaration
+        (identifier)
+        (init_declarator
+          (ERROR (identifier) (identifier))
+          (identifier) (number_literal)))
+      (declaration
+        (ERROR (identifier) (identifier))
+        (identifier)
+        (init_declarator (identifier) (number_literal))))))

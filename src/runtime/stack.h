@@ -8,28 +8,44 @@ extern "C" {
 #include "tree_sitter/parser.h"
 #include "runtime/array.h"
 #include "runtime/tree.h"
+#include "runtime/error_costs.h"
+#include <stdio.h>
 
 typedef struct Stack Stack;
 
-typedef struct {
-  TSStateId state;
-  TSLength position;
-} StackEntry;
+typedef unsigned int StackVersion;
+
+#define STACK_VERSION_NONE ((StackVersion)-1)
 
 typedef struct {
   TreeArray trees;
-  int head_index;
+  StackVersion version;
+} StackSlice;
+
+typedef Array(StackSlice) StackSliceArray;
+
+typedef struct {
+  enum {
+    StackPopFailed,
+    StackPopStoppedAtError,
+    StackPopSucceeded,
+  } status;
+  StackSliceArray slices;
 } StackPopResult;
 
-typedef enum {
-  StackPushResultFailed,
-  StackPushResultMerged,
-  StackPushResultContinued,
-} StackPushResult;
+enum {
+  StackIterateNone,
+  StackIterateStop = 1 << 0,
+  StackIteratePop = 1 << 1,
+};
 
-typedef Array(StackPopResult) StackPopResultArray;
+typedef unsigned int StackIterateAction;
 
-typedef int (*TreeSelectionFunction)(void *, TSTree *, TSTree *);
+typedef StackIterateAction (*StackIterateCallback)(void *, TSStateId state,
+                                                   TreeArray *trees,
+                                                   size_t tree_count,
+                                                   bool is_done,
+                                                   bool is_pending);
 
 /*
  *  Create a parse stack.
@@ -42,78 +58,71 @@ Stack *ts_stack_new();
 void ts_stack_delete(Stack *);
 
 /*
- *  Get the stack's current number of heads.
+ *  Get the stack's current number of versions.
  */
-int ts_stack_head_count(const Stack *);
+size_t ts_stack_version_count(const Stack *);
 
 /*
- *  Get the state at given head of the stack. If the stack is empty, this
- *  returns the initial state (0).
+ *  Get the state at the top of the given version of the stack. If the stack is
+ *  empty, this returns the initial state (0).
  */
-TSStateId ts_stack_top_state(const Stack *, int head_index);
+TSStateId ts_stack_top_state(const Stack *, StackVersion);
+
+unsigned ts_stack_push_count(const Stack *, StackVersion);
+
+void ts_stack_decrease_push_count(const Stack *, StackVersion, unsigned);
 
 /*
- *  Get the position of the given head of the stack. If the stack is empty, this
- *  returns {0, 0}.
+ *  Get the position at the top of the given version of the stack. If the stack
+ *  is empty, this returns zero.
  */
-TSLength ts_stack_top_position(const Stack *, int head_index);
+TSLength ts_stack_top_position(const Stack *, StackVersion);
 
 /*
- *  Get the entry at the given head of the stack.
+ *  Push a tree and state onto the given head of the stack. This could cause
+ *  the version to merge with an existing version.
  */
-StackEntry *ts_stack_head(Stack *, int head_index);
+bool ts_stack_push(Stack *, StackVersion, TSTree *, bool, TSStateId);
 
 /*
- *  Get the number of successors for the parse stack entry.
+ *  Pop the given number of entries from the given version of the stack. This
+ *  operation can increase the number of stack versions by revealing multiple
+ *  versions which had previously been merged. It returns a struct that
+ *  indicates the index of each revealed version and the trees removed from that
+ *  version.
  */
-int ts_stack_entry_next_count(const StackEntry *);
+StackPopResult ts_stack_pop_count(Stack *, StackVersion, size_t count);
+
+StackPopResult ts_stack_iterate(Stack *, StackVersion, StackIterateCallback,
+                                void *);
+
+StackPopResult ts_stack_pop_pending(Stack *, StackVersion);
+
+StackPopResult ts_stack_pop_all(Stack *, StackVersion);
+
+ErrorStatus ts_stack_error_status(const Stack *, StackVersion);
+
+bool ts_stack_merge(Stack *, StackVersion, StackVersion);
+
+void ts_stack_halt(Stack *, StackVersion);
+
+bool ts_stack_is_halted(Stack *, StackVersion);
+
+void ts_stack_renumber_version(Stack *, StackVersion, StackVersion);
+
+StackVersion ts_stack_duplicate_version(Stack *, StackVersion);
 
 /*
- *  Get the given successor for the parse stack entry.
+ *  Remove the given version from the stack.
  */
-StackEntry *ts_stack_entry_next(const StackEntry *, int head_index);
-
-/*
- *  Push a (tree, state) pair onto the given head of the stack. This could cause
- *  the head to merge with an existing head.
- */
-StackPushResult ts_stack_push(Stack *, int head_index, TSTree *, TSStateId);
-
-/*
- *  Pop the given number of entries from the given head of the stack. This
- *  operation can increase the number of stack heads by revealing multiple heads
- *  which had previously been merged. It returns a struct that indicates the
- *  index of each revealed head and the trees removed from that head.
- */
-StackPopResultArray ts_stack_pop(Stack *, int head_index, int count,
-                                 bool count_extra);
-
-/*
- *  Remove the given number of entries from the given head of the stack.
- */
-void ts_stack_shrink(Stack *, int head_index, int count);
-
-/*
- *  Split the given stack head into two heads, so that the stack can be
- *  transformed from its current state in multiple alternative ways. Returns
- *  the index of the newly-created head.
- */
-int ts_stack_split(Stack *, int head_index);
-
-/*
- *  Remove the given head from the stack.
- */
-void ts_stack_remove_head(Stack *, int head_index);
+void ts_stack_remove_version(Stack *, StackVersion);
 
 /*
  *  Remove all entries from the stack.
  */
 void ts_stack_clear(Stack *);
 
-void ts_stack_set_tree_selection_callback(Stack *, void *,
-                                          TreeSelectionFunction);
-
-char *ts_stack_dot_graph(Stack *, const char **);
+bool ts_stack_print_dot_graph(Stack *, const char **, FILE *);
 
 #ifdef __cplusplus
 }

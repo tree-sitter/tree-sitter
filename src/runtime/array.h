@@ -21,6 +21,9 @@ extern "C" {
 #define array_init(self) \
   ((self)->size = 0, (self)->capacity = 0, (self)->contents = NULL)
 
+#define array_new() \
+  { NULL, 0, 0 }
+
 #define array_get(self, index) \
   (assert((size_t)index < (self)->size), &(self)->contents[index])
 
@@ -40,24 +43,20 @@ extern "C" {
 
 #define array_push(self, element)                                       \
   (((self)->size < (self)->capacity ||                                  \
-    array_grow((self), (self)->capacity ? (self)->capacity * 2 : 4)) && \
+    array_grow((self), (self)->capacity ? (self)->capacity * 2 : 8)) && \
    ((self)->contents[(self)->size++] = (element), true))
 
 #define array_splice(self, index, old_count, new_count, new_elements)          \
   array__splice((VoidArray *)(self), array__elem_size(self), index, old_count, \
-                new_count, new_elements)
+                new_count, (new_elements))
+
+#define array_insert(self, index, element) \
+  array_splice(self, index, 0, 1, &(element))
 
 #define array_pop(self) ((self)->contents[--(self)->size])
 
 #define array_reverse(self) \
   array__reverse((VoidArray *)(self), array__elem_size(self))
-
-#define array_copy(self)                                            \
-  {                                                                 \
-    memcpy(ts_calloc((self)->capacity, array__elem_size(self)),     \
-           (self)->contents, (self)->size *array__elem_size(self)), \
-      (self)->size, (self)->capacity,                               \
-  }
 
 // Private
 
@@ -102,15 +101,14 @@ static inline bool array__grow(VoidArray *self, size_t element_size,
 static inline bool array__splice(VoidArray *self, size_t element_size,
                                  size_t index, size_t old_count,
                                  size_t new_count, void *elements) {
-  assert(index + old_count <= self->size);
-  assert(index < self->size);
   size_t new_size = self->size + new_count - old_count;
   size_t old_end = index + old_count;
   size_t new_end = index + new_count;
-  if (new_size >= self->capacity) {
+  assert(old_end <= self->size);
+
+  if (new_size >= self->capacity)
     if (!array__grow(self, element_size, new_size))
       return false;
-  }
 
   char *contents = (char *)self->contents;
   if (self->size > old_end)

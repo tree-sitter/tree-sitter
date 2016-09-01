@@ -1,6 +1,4 @@
 #include <stdbool.h>
-#include <string.h>
-#include <stdio.h>
 #include "runtime/node.h"
 #include "runtime/tree.h"
 #include "runtime/document.h"
@@ -35,7 +33,7 @@ static inline size_t ts_node__offset_row(TSNode self) {
 
 static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
   const TSTree *tree = ts_node__tree(self);
-  return include_anonymous ? tree->visible : tree->named;
+  return include_anonymous ? tree->visible : tree->visible && tree->named;
 }
 
 static inline size_t ts_node__relevant_child_count(TSNode self,
@@ -225,64 +223,12 @@ void ts_symbol_iterator_next(TSSymbolIterator *self) {
 }
 
 const char *ts_node_name(TSNode self, const TSDocument *document) {
-  return document->parser.language->symbol_names[ts_node__tree(self)->symbol];
-}
-
-static size_t write_lookahead_to_string(char *string, size_t limit,
-                                        char lookahead) {
-  switch (lookahead) {
-    case '\0':
-      return snprintf(string, limit, "<EOF>");
-    default:
-      return snprintf(string, limit, "'%c'", lookahead);
-  }
-}
-
-static size_t ts_tree__write_to_string(const TSTree *self,
-                                       const char **symbol_names, char *string,
-                                       size_t limit, bool is_root,
-                                       bool include_anonymous) {
-  if (!self)
-    return snprintf(string, limit, "(NULL)");
-
-  char *cursor = string;
-  char **writer = (limit > 0) ? &cursor : &string;
-  bool visible =
-    is_root || (self->visible && (include_anonymous || self->named));
-
-  if (visible && !is_root)
-    cursor += snprintf(*writer, limit, " ");
-
-  if (visible) {
-    if (self->symbol == ts_builtin_sym_error && self->child_count == 0) {
-      cursor += snprintf(*writer, limit, "(UNEXPECTED ");
-      cursor += write_lookahead_to_string(*writer, limit, self->lookahead_char);
-    } else {
-      cursor += snprintf(*writer, limit, "(%s", symbol_names[self->symbol]);
-    }
-  }
-
-  for (size_t i = 0; i < self->child_count; i++) {
-    TSTree *child = self->children[i];
-    cursor += ts_tree__write_to_string(child, symbol_names, *writer, limit,
-                                       false, include_anonymous);
-  }
-
-  if (visible)
-    cursor += snprintf(*writer, limit, ")");
-
-  return cursor - string;
+  TSSymbol symbol = ts_node__tree(self)->symbol;
+  return ts_language_symbol_name(document->parser.language, symbol);
 }
 
 char *ts_node_string(TSNode self, const TSDocument *document) {
-  static char SCRATCH[1];
-  const TSTree *tree = ts_node__tree(self);
-  const char **symbol_names = document->parser.language->symbol_names;
-  size_t size =
-    ts_tree__write_to_string(tree, symbol_names, SCRATCH, 0, true, false) + 1;
-  char *result = ts_malloc(size * sizeof(char));
-  ts_tree__write_to_string(tree, symbol_names, result, size, true, false);
-  return result;
+  return ts_tree_string(ts_node__tree(self), document->parser.language, false);
 }
 
 bool ts_node_eq(TSNode self, TSNode other) {

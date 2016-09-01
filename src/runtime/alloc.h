@@ -11,6 +11,7 @@ void *ts_record_malloc(size_t);
 void *ts_record_calloc(size_t, size_t);
 void *ts_record_realloc(void *, size_t);
 void ts_record_free(void *);
+bool ts_record_allocations_toggle(bool);
 
 static inline void *ts_malloc(size_t size) {
   return ts_record_malloc(size);
@@ -28,9 +29,17 @@ static inline void ts_free(void *buffer) {
   return ts_record_free(buffer);
 }
 
+static inline bool ts_toggle_allocation_recording(bool value) {
+  return ts_record_allocations_toggle(value);
+}
+
 #else
 
 #include <stdlib.h>
+
+static inline bool ts_toggle_allocation_recording(bool value) {
+  return false;
+}
 
 static inline void *ts_malloc(size_t size) {
   return malloc(size);

@@ -41,10 +41,10 @@ class ExpandRepeats : public rules::IdentityRuleFn {
     string helper_rule_name = rule_name + "_repeat" + to_string(++repeat_count);
     Symbol repeat_symbol(offset + index);
     existing_repeats.push_back({ rule->copy(), repeat_symbol });
-    aux_rules.push_back(Variable(
-      helper_rule_name, VariableTypeAuxiliary,
-      Seq::build({ inner_rule, Choice::build({ repeat_symbol.copy(),
-                                               make_shared<Blank>() }) })));
+    aux_rules.push_back(
+      Variable(helper_rule_name, VariableTypeAuxiliary,
+               Choice::build({ Seq::build({ repeat_symbol.copy(), inner_rule }),
+                               inner_rule })));
     return repeat_symbol.copy();
   }
 

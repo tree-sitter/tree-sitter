@@ -12,6 +12,7 @@ std::ostream &operator<<(std::ostream &stream, const TSTree *tree);
 std::ostream &operator<<(std::ostream &stream, const TSNode &node);
 std::ostream &operator<<(std::ostream &stream, const TSLength &length);
 bool operator==(const TSNode &left, const TSNode &right);
+bool operator==(const TSLength &left, const TSLength &right);
 bool operator==(const std::vector<TSTree *> &right, const TreeArray &array);
 
 #endif  // HELPERS_TREE_HELPERS_H_

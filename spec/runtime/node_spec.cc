@@ -2,7 +2,7 @@
 #include "runtime/alloc.h"
 #include "helpers/tree_helpers.h"
 #include "helpers/point_helpers.h"
-#include "helpers/test_languages.h"
+#include "helpers/load_language.h"
 #include "helpers/record_alloc.h"
 #include "helpers/stream_methods.h"
 

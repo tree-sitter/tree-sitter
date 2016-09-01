@@ -78,11 +78,11 @@ ostream &operator<<(ostream &stream, const ParseAction &action) {
 ostream &operator<<(ostream &stream, const ParseState &state) {
   stream << string("#<parse_state ");
   bool started = false;
-  for (auto pair : state.actions) {
+  for (auto entry : state.entries) {
     if (started)
       stream << string(", ");
-    stream << pair.first << string(" => {");
-    for (auto &action : pair.second) {
+    stream << entry.first << string(" => {");
+    for (auto &action : entry.second.actions) {
       stream << string(" ") << action;
     }
     stream << string("}");
@@ -112,6 +112,10 @@ ostream &operator<<(ostream &stream, const LexItem &item) {
 
 ostream &operator<<(ostream &stream, const LexItemSet &item_set) {
   return stream << item_set.entries;
+}
+
+ostream &operator<<(ostream &stream, const LexItemSet::Transition &transition) {
+  return stream << "{dest: " << transition.destination << ", prec: " << transition.precedence << "}";
 }
 
 ostream &operator<<(ostream &stream, const ParseItem &item) {

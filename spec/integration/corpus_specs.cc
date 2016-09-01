@@ -1,12 +1,13 @@
 #include "spec_helper.h"
 #include "runtime/alloc.h"
-#include "helpers/test_languages.h"
+#include "helpers/load_language.h"
 #include "helpers/read_test_entries.h"
 #include "helpers/spy_input.h"
 #include "helpers/log_debugger.h"
 #include "helpers/point_helpers.h"
 #include "helpers/encoding_helpers.h"
 #include "helpers/record_alloc.h"
+#include "helpers/random_helpers.h"
 #include <set>
 
 static void expect_the_correct_tree(TSNode node, TSDocument *document, string tree_string) {
@@ -60,37 +61,6 @@ static void expect_a_consistent_tree(TSNode node, TSDocument *document) {
     AssertThat(has_changes, Equals(some_child_has_changes));
 }
 
-static string random_string(char min, char max) {
-  string result;
-  size_t length = random() % 12;
-  for (size_t i = 0; i < length; i++) {
-    char inserted_char = min + (random() % (max - min));
-    result += inserted_char;
-  }
-  return result;
-}
-
-static string random_char(string characters) {
-  size_t index = random() % characters.size();
-  return string() + characters[index];
-}
-
-static string random_words(size_t count) {
-  string result;
-  bool just_inserted_word = false;
-  for (size_t i = 0; i < count; i++) {
-    if (random() % 10 < 6) {
-      result += random_char("!(){}[]<>+-=");
-    } else {
-      if (just_inserted_word)
-        result += " ";
-      result += random_string('a', 'z');
-      just_inserted_word = true;
-    }
-  }
-  return result;
-}
-
 START_TEST
 
 describe("The Corpus", []() {
@@ -102,8 +72,6 @@ describe("The Corpus", []() {
   });
 
   for (auto &language_name : test_languages) {
-    string language_dir = string("spec/fixtures/") + language_name;
-
     describe(("the " + language_name + " language").c_str(), [&]() {
       TSDocument *document;
 
@@ -111,6 +79,7 @@ describe("The Corpus", []() {
         record_alloc::start();
         document = ts_document_make();
         ts_document_set_language(document, get_test_language(language_name));
+
         // ts_document_set_debugger(document, log_debugger_make(true));
         // ts_document_print_debugging_graphs(document, true);
       });
@@ -120,7 +89,7 @@ describe("The Corpus", []() {
         AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
       });
 
-      for (auto &entry : read_corpus_entries(language_dir + "/grammar_test")) {
+      for (auto &entry : read_corpus_entries(language_name)) {
         SpyInput *input;
 
         auto it_handles_edit_sequence = [&](string name, std::function<void()> edit_sequence){
@@ -142,13 +111,6 @@ describe("The Corpus", []() {
         std::set<std::pair<size_t, size_t>> deletions;
         std::set<std::pair<size_t, string>> insertions;
 
-        // TODO - fix these incremental parsing bugs.
-        if (language_name == "javascript" && entry.description.find("Try catch finally") != string::npos)
-          continue;
-
-        if (language_name == "c" && entry.description.find("Boolean operators") != string::npos)
-          continue;
-
         for (size_t i = 0; i < 60; i++) {
           size_t edit_position = random() % utf8_char_count(entry.input);
           size_t deletion_size = random() % (utf8_char_count(entry.input) - edit_position);
@@ -161,6 +123,8 @@ describe("The Corpus", []() {
               ts_document_edit(document, input->replace(edit_position, 0, inserted_text));
               ts_document_parse(document);
 
+              expect_a_consistent_tree(ts_document_root_node(document), document);
+
               ts_document_edit(document, input->undo());
               ts_document_parse(document);
             });
@@ -172,6 +136,8 @@ describe("The Corpus", []() {
             it_handles_edit_sequence("repairing a deletion of " + desription, [&]() {
               ts_document_edit(document, input->replace(edit_position, deletion_size, ""));
               ts_document_parse(document);
+
+              expect_a_consistent_tree(ts_document_root_node(document), document);
 
               ts_document_edit(document, input->undo());
               ts_document_parse(document);

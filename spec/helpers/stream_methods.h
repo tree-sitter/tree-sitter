@@ -9,6 +9,7 @@
 #include <vector>
 #include "compiler/grammar.h"
 #include "compiler/compile_error.h"
+#include "compiler/build_tables/lex_item.h"
 
 using std::cout;
 
@@ -122,6 +123,7 @@ class LookaheadSet;
 
 ostream &operator<<(ostream &, const LexItem &);
 ostream &operator<<(ostream &, const LexItemSet &);
+ostream &operator<<(ostream &, const LexItemSet::Transition &);
 ostream &operator<<(ostream &, const ParseItem &);
 ostream &operator<<(ostream &, const ParseItemSet &);
 ostream &operator<<(ostream &, const LookaheadSet &);

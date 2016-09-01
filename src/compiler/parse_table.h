@@ -15,12 +15,13 @@ namespace tree_sitter {
 
 typedef uint64_t ParseStateId;
 
-typedef enum {
+enum ParseActionType {
   ParseActionTypeError,
   ParseActionTypeShift,
   ParseActionTypeReduce,
   ParseActionTypeAccept,
-} ParseActionType;
+  ParseActionTypeRecover,
+};
 
 class ParseAction {
   ParseAction(ParseActionType type, ParseStateId state_index,
@@ -32,6 +33,7 @@ class ParseAction {
   static ParseAction Accept();
   static ParseAction Error();
   static ParseAction Shift(ParseStateId state_index, PrecedenceRange precedence);
+  static ParseAction Recover(ParseStateId state_index);
   static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count,
                             int precedence, rules::Associativity,
                             const Production &);
@@ -43,7 +45,6 @@ class ParseAction {
   ParseActionType type;
   bool extra;
   bool fragile;
-  bool can_hide_split;
   rules::Symbol symbol;
   ParseStateId state_index;
   size_t consumed_symbol_count;
@@ -52,43 +53,36 @@ class ParseAction {
   const Production *production;
 };
 
-}  // namespace tree_sitter
+struct ParseTableEntry {
+  std::vector<ParseAction> actions;
+  bool reusable;
+  bool depends_on_lookahead;
 
-namespace std {
+  ParseTableEntry();
+  ParseTableEntry(const std::vector<ParseAction> &, bool, bool);
+  bool operator==(const ParseTableEntry &other) const;
 
-template <>
-struct hash<tree_sitter::ParseAction> {
-  size_t operator()(const tree_sitter::ParseAction &action) const {
-    return (hash<int>()(action.type) ^
-            hash<tree_sitter::rules::Symbol>()(action.symbol) ^
-            hash<size_t>()(action.state_index) ^
-            hash<size_t>()(action.consumed_symbol_count) ^
-            hash<bool>()(action.extra) ^ hash<bool>()(action.fragile) ^
-            hash<bool>()(action.can_hide_split) ^
-            hash<int>()(action.associativity) ^
-            hash<int>()(action.precedence_range.min) ^
-            hash<int>()(action.precedence_range.max) ^
-            hash<const void *>()(&action.production));
+  inline bool operator!=(const ParseTableEntry &other) const {
+    return !operator==(other);
   }
 };
-
-}  // namespace std
-
-namespace tree_sitter {
 
 class ParseState {
  public:
   ParseState();
   std::set<rules::Symbol> expected_inputs() const;
   bool operator==(const ParseState &) const;
+  bool merge(const ParseState &);
   void each_advance_action(std::function<void(ParseAction *)>);
 
-  std::map<rules::Symbol, std::vector<ParseAction>> actions;
+  std::map<rules::Symbol, ParseTableEntry> entries;
   LexStateId lex_state_id;
 };
 
 struct ParseTableSymbolMetadata {
+  bool extra;
   bool structural;
+  std::set<rules::Symbol> compatible_symbols;
 };
 
 class ParseTable {
@@ -99,6 +93,7 @@ class ParseTable {
                           ParseAction action);
   ParseAction &add_action(ParseStateId state_id, rules::Symbol symbol,
                           ParseAction action);
+  bool merge_state(size_t i, size_t j);
 
   std::vector<ParseState> states;
   std::map<rules::Symbol, ParseTableSymbolMetadata> symbols;

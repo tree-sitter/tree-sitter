@@ -1,6 +1,7 @@
 #include "compiler/build_tables/parse_item.h"
 #include <string>
 #include "compiler/syntax_grammar.h"
+#include "compiler/rules/built_in_symbols.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -24,13 +25,13 @@ bool ParseItem::operator==(const ParseItem &other) const {
 }
 
 bool ParseItem::operator<(const ParseItem &other) const {
-  if (variable_index < other.variable_index)
-    return true;
-  if (variable_index > other.variable_index)
-    return false;
   if (step_index < other.step_index)
     return true;
   if (step_index > other.step_index)
+    return false;
+  if (variable_index < other.variable_index)
+    return true;
+  if (variable_index > other.variable_index)
     return false;
   return production < other.production;
 }
@@ -59,6 +60,13 @@ int ParseItem::precedence() const {
     return production->back().precedence;
   else
     return production->at(step_index).precedence;
+}
+
+Symbol ParseItem::next_symbol() const {
+  if (step_index >= production->size())
+    return rules::NONE();
+  else
+    return production->at(step_index).symbol;
 }
 
 rules::Associativity ParseItem::associativity() const {
@@ -118,6 +126,11 @@ ParseItemSet::TransitionMap ParseItemSet::transitions() const {
   }
 
   return result;
+}
+
+void ParseItemSet::add(const ParseItemSet &other) {
+  for (const auto &pair : other.entries)
+    entries[pair.first].insert_all(pair.second);
 }
 
 }  // namespace build_tables

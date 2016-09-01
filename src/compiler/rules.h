@@ -16,7 +16,6 @@ rule_ptr seq(const std::vector<rule_ptr> &);
 rule_ptr sym(const std::string &);
 rule_ptr pattern(const std::string &);
 rule_ptr str(const std::string &);
-rule_ptr err(const rule_ptr &);
 rule_ptr prec(int precedence, const rule_ptr &);
 rule_ptr prec_left(const rule_ptr &);
 rule_ptr prec_left(int precedence, const rule_ptr &);

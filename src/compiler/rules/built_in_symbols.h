@@ -6,7 +6,6 @@
 namespace tree_sitter {
 namespace rules {
 
-Symbol ERROR();
 Symbol END_OF_INPUT();
 Symbol START();
 Symbol NONE();
