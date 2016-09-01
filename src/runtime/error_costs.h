@@ -11,34 +11,28 @@ typedef struct {
   unsigned push_count;
 } ErrorStatus;
 
-static double error_threshold(unsigned push_count) {
-  return 6 * ERROR_COST_PER_SKIPPED_TREE / (1 + push_count / 2);
+static inline unsigned error_status_min_cost(ErrorStatus status) {
+  return status.cost +
+    ERROR_COST_PER_SKIPPED_TREE * status.count * status.count;
+}
+
+static inline unsigned error_status_max_cost(ErrorStatus status) {
+  return status.cost +
+    ERROR_COST_PER_SKIPPED_TREE * status.count * status.count +
+    (6 * ERROR_COST_PER_SKIPPED_TREE * status.count + 12 * ERROR_COST_PER_SKIPPED_TREE) /
+    (1 + status.push_count / 2);
 }
 
 static inline int error_status_compare(ErrorStatus a, ErrorStatus b) {
-  // TODO remove
-  a.cost += ERROR_COST_PER_SKIPPED_TREE * a.count;
-  b.cost += ERROR_COST_PER_SKIPPED_TREE * b.count;
-
-  if ((a.count + 1 < b.count) ||
-      (a.count < b.count && a.cost <= b.cost)) {
+  if ((a.count + 1 < b.count) || (a.count < b.count && a.cost <= b.cost))
     return -1;
-  }
-
-  if ((b.count + 1 < a.count) ||
-      (b.count < a.count && b.cost <= a.cost)) {
+  if ((a.count > b.count + 1) || (b.count < a.count && b.cost <= a.cost))
     return 1;
-  }
 
-  if (a.cost == b.cost) {
-    if (a.cost + error_threshold(a.push_count) < b.cost) {
-      return -1;
-    }
-
-    if (b.cost + error_threshold(b.push_count) < a.cost) {
-      return 1;
-    }
-  }
+  if (error_status_max_cost(a) < error_status_min_cost(b))
+    return -1;
+  if (error_status_min_cost(a) > error_status_max_cost(b))
+    return 1;
 
   return 0;
 }

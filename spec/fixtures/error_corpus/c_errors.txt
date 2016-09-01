@@ -122,9 +122,10 @@ int b() {
     (identifier) (function_declarator (identifier))
     (compound_statement
       (declaration
-        (ERROR (identifier) (identifier))
         (identifier)
-        (init_declarator (identifier) (number_literal)))
+        (init_declarator
+          (ERROR (identifier) (identifier))
+          (identifier) (number_literal)))
       (declaration
         (ERROR (identifier) (identifier))
         (identifier)

@@ -14,12 +14,9 @@ e f;
     (ERROR (identifier))
     (identifier)
     (statement_block
-      (expression_statement
-        (ERROR (identifier))
-        (identifier))))
-  (expression_statement
-    (ERROR (identifier))
-    (identifier)))
+      (ERROR (identifier))
+      (expression_statement (identifier))))
+  (expression_statement (ERROR (identifier)) (identifier)))
 
 =======================================================
 multiple invalid tokens right after the viable prefix
@@ -37,9 +34,8 @@ h i j k;
     (ERROR (identifier) (identifier))
     (identifier)
     (statement_block
-      (expression_statement
-        (ERROR (identifier) (identifier) (identifier))
-        (identifier))))
+      (ERROR (identifier) (identifier) (identifier))
+      (expression_statement (identifier))))
   (expression_statement
     (ERROR (identifier) (identifier) (identifier))
     (identifier)))
