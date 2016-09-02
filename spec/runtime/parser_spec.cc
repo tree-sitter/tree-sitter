@@ -176,7 +176,7 @@ describe("Parser", [&]() {
         set_text("fn()\n");
 
         assert_root_node(
-          "(program (expression_statement (function_call (identifier))))");
+          "(program (expression_statement (function_call (identifier) (arguments))))");
       });
     });
 
@@ -188,7 +188,10 @@ describe("Parser", [&]() {
 
         assert_root_node(
           "(program (expression_statement (function_call "
-            "(member_access (function_call (identifier)) (identifier)))))");
+            "(member_access "
+              "(function_call (identifier) (arguments)) "
+              "(identifier)) "
+            "(arguments))))");
       });
     });
 
@@ -202,9 +205,11 @@ describe("Parser", [&]() {
 
         assert_root_node(
           "(program (expression_statement (function_call "
-            "(member_access (function_call (identifier)) "
+            "(member_access "
+              "(function_call (identifier) (arguments)) "
               "(comment) "
-              "(identifier)))))");
+              "(identifier)) "
+            "(arguments))))");
       });
     });
   });

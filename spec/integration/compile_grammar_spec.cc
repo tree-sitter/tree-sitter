@@ -122,14 +122,7 @@ describe("compile_grammar", []() {
                   "type": "SEQ",
                   "members": [
                     {"type": "STRING", "value": "("},
-
-                    // Error recovery is controlled by wrapping rule subtrees
-                    // in an 'ERROR' rule.
-                    {
-                      "type": "ERROR",
-                      "content": {"type": "SYMBOL", "name": "expression"}
-                    },
-
+                    {"type": "SYMBOL", "name": "expression"},
                     {"type": "STRING", "value": ")"}
                   ]
                 }
