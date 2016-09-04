@@ -28,19 +28,11 @@ typedef struct {
   bool structural : 1;
 } TSSymbolMetadata;
 
-typedef enum {
-  TSTransitionTypeMain,
-  TSTransitionTypeSeparator,
-  TSTransitionTypeError,
-} TSTransitionType;
-
 typedef struct TSLexer {
-  void (*advance)(struct TSLexer *, TSStateId, TSTransitionType);
+  void (*advance)(struct TSLexer *, TSStateId, bool);
 
   TSLength current_position;
-  TSLength token_end_position;
   TSLength token_start_position;
-  TSLength error_end_position;
 
   const char *chunk;
   size_t chunk_start;
@@ -48,10 +40,7 @@ typedef struct TSLexer {
 
   size_t lookahead_size;
   int32_t lookahead;
-  TSStateId starting_state;
   TSSymbol result_symbol;
-  bool result_follows_error;
-  int32_t first_unexpected_character;
 
   TSInput input;
   TSDebugger debugger;
@@ -108,14 +97,14 @@ struct TSLanguage {
 
 #define ADVANCE(state_value)                                  \
   {                                                           \
-    lexer->advance(lexer, state_value, TSTransitionTypeMain); \
+    lexer->advance(lexer, state_value, false); \
     state = state_value;         \
     goto next_state;             \
   }
 
 #define SKIP(state_value)                                          \
   {                                                                \
-    lexer->advance(lexer, state_value, TSTransitionTypeSeparator); \
+    lexer->advance(lexer, state_value, true); \
     state = state_value;         \
     goto next_state;             \
   }

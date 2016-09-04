@@ -243,18 +243,23 @@ static bool parser__condense_stack(Parser *self) {
 }
 
 static TSTree *parser__lex(Parser *self, TSStateId parse_state) {
-  TSStateId state = self->language->lex_states[parse_state];
-  LOG("lex state:%d", state);
+  TSStateId start_state = self->language->lex_states[parse_state];
+  TSStateId current_state = start_state;
+  TSLength start_position = self->lexer.current_position;
+  TSLength position = start_position;
+  LOG("lex state:%d", start_state);
 
-  TSStateId current_state = state;
-  TSLength position = self->lexer.current_position;
-  ts_lexer_start(&self->lexer, state);
+  bool skipped_error = false;
+  int32_t first_error_character = 0;
+  TSLength error_start_position, error_end_position;
+
+  ts_lexer_start(&self->lexer, start_state);
 
   while (!self->language->lex_fn(&self->lexer, current_state)) {
     if (current_state != TS_STATE_ERROR) {
       LOG("retry_in_error_mode");
       ts_lexer_reset(&self->lexer, position);
-      ts_lexer_start(&self->lexer, state);
+      ts_lexer_start(&self->lexer, start_state);
       current_state = TS_STATE_ERROR;
       continue;
     }
@@ -265,30 +270,39 @@ static TSTree *parser__lex(Parser *self, TSStateId parse_state) {
     }
 
     if (self->lexer.current_position.chars == position.chars) {
-      self->lexer.advance(&self->lexer, TS_STATE_ERROR, TSTransitionTypeError);
+      if (!skipped_error) {
+        error_start_position = self->lexer.current_position;
+        first_error_character = self->lexer.lookahead;
+      }
+      skipped_error = true;
+      self->lexer.advance(&self->lexer, TS_STATE_ERROR, false);
+      error_end_position = self->lexer.current_position;
     }
 
     position = self->lexer.current_position;
   }
 
-  TSLexerResult lex_result;
-  ts_lexer_finish(&self->lexer, &lex_result);
-
   TSTree *result;
-  if (lex_result.symbol == ts_builtin_sym_error) {
-    result = ts_tree_make_error(lex_result.size, lex_result.padding,
-                                lex_result.first_unexpected_character);
+
+  if (skipped_error) {
+    error_start_position = ts_length_min(error_start_position, self->lexer.token_start_position);
+    TSLength padding = ts_length_sub(error_start_position, start_position);
+    TSLength size = ts_length_sub(error_end_position, error_start_position);
+    ts_lexer_reset(&self->lexer, error_end_position);
+    result = ts_tree_make_error(size, padding, first_error_character);
   } else {
-    result = ts_tree_make_leaf(
-      lex_result.symbol, lex_result.padding, lex_result.size,
-      ts_language_symbol_metadata(self->language, lex_result.symbol));
-    if (!result)
-      return NULL;
-    result->parse_state = parse_state;
+    TSSymbol symbol = self->lexer.result_symbol;
+    TSLength padding = ts_length_sub(self->lexer.token_start_position, start_position);
+    TSLength size = ts_length_sub(self->lexer.current_position, self->lexer.token_start_position);
+    result = ts_tree_make_leaf(symbol, padding, size,
+                               ts_language_symbol_metadata(self->language, symbol));
   }
 
-  result->first_leaf.lex_state = state;
+  if (!result)
+    return NULL;
 
+  result->parse_state = parse_state;
+  result->first_leaf.lex_state = start_state;
   return result;
 }
 

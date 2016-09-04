@@ -47,8 +47,7 @@ static void ts_lexer__get_lookahead(TSLexer *self) {
   LOG_LOOKAHEAD();
 }
 
-static void ts_lexer__advance(TSLexer *self, TSStateId state,
-                              TSTransitionType transition_type) {
+static void ts_lexer__advance(TSLexer *self, TSStateId state, bool skip) {
 
   if (self->chunk == empty_chunk)
     return;
@@ -64,25 +63,11 @@ static void ts_lexer__advance(TSLexer *self, TSStateId state,
     }
   }
 
-  switch (transition_type) {
-    case TSTransitionTypeSeparator:
-      if (self->result_follows_error) {
-        LOG("skip_error state:%d", state);
-      } else {
-        LOG("skip_separator state:%d", state);
-        self->token_start_position = self->current_position;
-      }
-      break;
-    case TSTransitionTypeError:
-      LOG("skip_error state:%d", state);
-      self->result_follows_error = true;
-      self->error_end_position = self->current_position;
-      if (!self->first_unexpected_character)
-        self->first_unexpected_character = self->lookahead;
-      break;
-    default:
-      LOG("advance state:%d", state);
-      break;
+  if (skip) {
+    LOG("skip_separator state:%d", state);
+    self->token_start_position = self->current_position;
+  } else {
+    LOG("advance state:%d", state);
   }
 
   if (self->current_position.bytes >= self->chunk_start + self->chunk_size)
@@ -108,7 +93,6 @@ void ts_lexer_init(TSLexer *self) {
 
 static inline void ts_lexer__reset(TSLexer *self, TSLength position) {
   self->token_start_position = position;
-  self->token_end_position = position;
   self->current_position = position;
 
   self->chunk = 0;
@@ -132,32 +116,11 @@ void ts_lexer_reset(TSLexer *self, TSLength position) {
 void ts_lexer_start(TSLexer *self, TSStateId lex_state) {
   LOG("start_lex state:%d, pos:%lu", lex_state, self->current_position.chars);
 
-  self->starting_state = lex_state;
   self->token_start_position = self->current_position;
-  self->result_follows_error = false;
   self->result_symbol = 0;
-  self->first_unexpected_character = 0;
 
   if (!self->chunk)
     ts_lexer__get_chunk(self);
   if (!self->lookahead_size)
     ts_lexer__get_lookahead(self);
-}
-
-void ts_lexer_finish(TSLexer *self, TSLexerResult *result) {
-  result->padding =
-    ts_length_sub(self->token_start_position, self->token_end_position);
-
-  if (self->result_follows_error) {
-    result->symbol = ts_builtin_sym_error;
-    result->size =
-      ts_length_sub(self->error_end_position, self->token_start_position);
-    result->first_unexpected_character = self->first_unexpected_character;
-    ts_lexer_reset(self, self->error_end_position);
-  } else {
-    result->symbol = self->result_symbol;
-    result->size =
-      ts_length_sub(self->current_position, self->token_start_position);
-    self->token_end_position = self->current_position;
-  }
 }

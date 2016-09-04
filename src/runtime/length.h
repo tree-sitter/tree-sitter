@@ -14,6 +14,10 @@ static inline void ts_length_set_unknown(TSLength *self) {
   self->columns = 0;
 }
 
+static inline TSLength ts_length_min(TSLength len1, TSLength len2) {
+  return (len1.chars < len2.chars) ? len1 : len2;
+}
+
 static inline TSLength ts_length_add(TSLength len1, TSLength len2) {
   TSLength result;
   result.chars = len1.chars + len2.chars;
