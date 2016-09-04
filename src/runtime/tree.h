@@ -25,7 +25,7 @@ typedef struct TSTree {
   size_t named_child_count;
   union {
     struct TSTree **children;
-    char lookahead_char;
+    int32_t lookahead_char;
   };
 
   TSLength padding;

@@ -28,19 +28,11 @@ typedef struct {
   bool structural : 1;
 } TSSymbolMetadata;
 
-typedef enum {
-  TSTransitionTypeMain,
-  TSTransitionTypeSeparator,
-  TSTransitionTypeError,
-} TSTransitionType;
-
 typedef struct TSLexer {
-  void (*advance)(struct TSLexer *, TSStateId, TSTransitionType);
+  void (*advance)(struct TSLexer *, TSStateId, bool);
 
   TSLength current_position;
-  TSLength token_end_position;
   TSLength token_start_position;
-  TSLength error_end_position;
 
   const char *chunk;
   size_t chunk_start;
@@ -48,10 +40,7 @@ typedef struct TSLexer {
 
   size_t lookahead_size;
   int32_t lookahead;
-  TSStateId starting_state;
   TSSymbol result_symbol;
-  bool result_follows_error;
-  int32_t first_unexpected_character;
 
   TSInput input;
   TSDebugger debugger;
@@ -94,7 +83,7 @@ struct TSLanguage {
   const unsigned short *parse_table;
   const TSParseActionEntry *parse_actions;
   const TSStateId *lex_states;
-  bool (*lex_fn)(TSLexer *, TSStateId, bool);
+  bool (*lex_fn)(TSLexer *, TSStateId);
 };
 
 /*
@@ -106,22 +95,18 @@ struct TSLanguage {
   next_state:         \
   lookahead = lexer->lookahead;
 
-#define GO_TO_STATE(state_value) \
-  {                              \
+#define ADVANCE(state_value)                                  \
+  {                                                           \
+    lexer->advance(lexer, state_value, false); \
     state = state_value;         \
     goto next_state;             \
   }
 
-#define ADVANCE(state_value)                                  \
-  {                                                           \
-    lexer->advance(lexer, state_value, TSTransitionTypeMain); \
-    GO_TO_STATE(state_value);                                 \
-  }
-
 #define SKIP(state_value)                                          \
   {                                                                \
-    lexer->advance(lexer, state_value, TSTransitionTypeSeparator); \
-    GO_TO_STATE(state_value);                                      \
+    lexer->advance(lexer, state_value, true); \
+    state = state_value;         \
+    goto next_state;             \
   }
 
 #define ACCEPT_TOKEN(symbol_value)       \
@@ -130,14 +115,7 @@ struct TSLanguage {
     return true;                         \
   }
 
-#define LEX_ERROR()                                        \
-  if (error_mode) {                                        \
-    if (state == TS_STATE_ERROR)                           \
-      lexer->advance(lexer, state, TSTransitionTypeError); \
-    GO_TO_STATE(TS_STATE_ERROR);                           \
-  } else {                                                 \
-    return false;                                          \
-  }
+#define LEX_ERROR() return false
 
 /*
  *  Parse Table Macros

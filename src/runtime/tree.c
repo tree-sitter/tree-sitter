@@ -369,6 +369,15 @@ void ts_tree_edit(TSTree *self, TSInputEdit edit) {
   }
 }
 
+static size_t ts_tree__write_char_to_string(char *s, size_t n, int32_t c) {
+  if (c == 0)
+    return snprintf(s, n, "EOF");
+  else if (c < 128)
+    return snprintf(s, n, "'%c'", c);
+  else
+    return snprintf(s, n, "%d", c);
+}
+
 static size_t ts_tree__write_to_string(const TSTree *self,
                                        const TSLanguage *language, char *string,
                                        size_t limit, bool is_root,
@@ -386,8 +395,8 @@ static size_t ts_tree__write_to_string(const TSTree *self,
   if (visible) {
     if (self->symbol == ts_builtin_sym_error && self->child_count == 0 &&
         self->size.chars > 0) {
-      cursor +=
-        snprintf(*writer, limit, "(UNEXPECTED '%c'", self->lookahead_char);
+      cursor += snprintf(*writer, limit, "(UNEXPECTED ");
+      cursor += ts_tree__write_char_to_string(*writer, limit, self->lookahead_char);
     } else {
       cursor += snprintf(*writer, limit, "(%s",
                          ts_language_symbol_name(language, self->symbol));
