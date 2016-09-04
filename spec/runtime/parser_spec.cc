@@ -162,6 +162,15 @@ describe("Parser", [&]() {
         AssertThat(get_node_text(last), Equals("true"));
       });
     });
+
+    describe("when there is an unterminated error", [&]() {
+      it("maintains a consistent tree", [&]() {
+        ts_document_set_language(doc, get_test_language("javascript"));
+        set_text("a; /* b");
+        assert_root_node(
+          "(ERROR (program (expression_statement (identifier))) (UNEXPECTED EOF))");
+      });
+    });
   });
 
   describe("handling extra tokens", [&]() {

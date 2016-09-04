@@ -56,7 +56,6 @@ static void ts_lexer__advance(TSLexer *self, TSStateId state,
   if (self->lookahead_size) {
     self->current_position.bytes += self->lookahead_size;
     self->current_position.chars++;
-
     if (self->lookahead == '\n') {
       self->current_position.rows++;
       self->current_position.columns = 0;
@@ -132,7 +131,6 @@ void ts_lexer_reset(TSLexer *self, TSLength position) {
 
 void ts_lexer_start(TSLexer *self, TSStateId lex_state) {
   LOG("start_lex state:%d, pos:%lu", lex_state, self->current_position.chars);
-  LOG_LOOKAHEAD();
 
   self->starting_state = lex_state;
   self->token_start_position = self->current_position;

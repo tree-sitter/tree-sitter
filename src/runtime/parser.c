@@ -242,17 +242,33 @@ static bool parser__condense_stack(Parser *self) {
   return result;
 }
 
-static TSTree *parser__lex(Parser *self, TSStateId parse_state, bool error_mode) {
+static TSTree *parser__lex(Parser *self, TSStateId parse_state) {
   TSStateId state = self->language->lex_states[parse_state];
   LOG("lex state:%d", state);
 
+  TSStateId current_state = state;
   TSLength position = self->lexer.current_position;
-
   ts_lexer_start(&self->lexer, state);
-  if (!self->language->lex_fn(&self->lexer, state, error_mode)) {
-    ts_lexer_reset(&self->lexer, position);
-    ts_lexer_start(&self->lexer, state);
-    assert(self->language->lex_fn(&self->lexer, TS_STATE_ERROR, true));
+
+  while (!self->language->lex_fn(&self->lexer, current_state)) {
+    if (current_state != TS_STATE_ERROR) {
+      LOG("retry_in_error_mode");
+      ts_lexer_reset(&self->lexer, position);
+      ts_lexer_start(&self->lexer, state);
+      current_state = TS_STATE_ERROR;
+      continue;
+    }
+
+    if (self->lexer.lookahead == 0) {
+      self->lexer.result_symbol = ts_builtin_sym_error;
+      break;
+    }
+
+    if (self->lexer.current_position.chars == position.chars) {
+      self->lexer.advance(&self->lexer, TS_STATE_ERROR, TSTransitionTypeError);
+    }
+
+    position = self->lexer.current_position;
   }
 
   TSLexerResult lex_result;
@@ -333,8 +349,7 @@ static TSTree *parser__get_lookahead(Parser *self, StackVersion version,
 
   ts_lexer_reset(&self->lexer, position);
   TSStateId parse_state = ts_stack_top_state(self->stack, version);
-  bool error_mode = parse_state == TS_STATE_ERROR;
-  return parser__lex(self, parse_state, error_mode);
+  return parser__lex(self, parse_state);
 
 error:
   return NULL;
