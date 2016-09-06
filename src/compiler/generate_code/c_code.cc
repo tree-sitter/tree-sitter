@@ -340,9 +340,7 @@ class CCodeGenerator {
               }
               break;
             case ParseActionTypeReduce:
-              if (action.extra) {
-                add("REDUCE_EXTRA(" + symbol_id(action.symbol) + ")");
-              } else if (action.fragile) {
+              if (action.fragile) {
                 add("REDUCE_FRAGILE(" + symbol_id(action.symbol) + ", " +
                     to_string(action.consumed_symbol_count) + ")");
               } else {

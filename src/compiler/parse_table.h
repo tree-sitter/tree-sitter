@@ -38,7 +38,6 @@ class ParseAction {
                             int precedence, rules::Associativity,
                             const Production &);
   static ParseAction ShiftExtra();
-  static ParseAction ReduceExtra(rules::Symbol symbol);
   bool operator==(const ParseAction &) const;
   bool operator<(const ParseAction &) const;
 
@@ -74,6 +73,7 @@ class ParseState {
   bool operator==(const ParseState &) const;
   bool merge(const ParseState &);
   void each_advance_action(std::function<void(ParseAction *)>);
+  bool has_shift_action() const;
 
   std::map<rules::Symbol, ParseTableEntry> entries;
   LexStateId lex_state_id;

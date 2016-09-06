@@ -65,15 +65,6 @@ ParseAction ParseAction::ShiftExtra() {
   return action;
 }
 
-ParseAction ParseAction::ReduceExtra(Symbol symbol) {
-  ParseAction action;
-  action.type = ParseActionTypeReduce;
-  action.extra = true;
-  action.symbol = symbol;
-  action.consumed_symbol_count = 1;
-  return action;
-}
-
 ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
                                 int precedence,
                                 rules::Associativity associativity,
@@ -132,6 +123,13 @@ bool ParseTableEntry::operator==(const ParseTableEntry &other) const {
 }
 
 ParseState::ParseState() : lex_state_id(-1) {}
+
+bool ParseState::has_shift_action() const {
+  for (const auto &pair : entries)
+    if (pair.second.actions.size() > 0 && pair.second.actions.back().type == ParseActionTypeShift)
+      return true;
+  return false;
+}
 
 set<Symbol> ParseState::expected_inputs() const {
   set<Symbol> result;

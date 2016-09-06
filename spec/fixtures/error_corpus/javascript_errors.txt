@@ -16,7 +16,8 @@ e f;
     (statement_block
       (ERROR (identifier))
       (expression_statement (identifier))))
-  (expression_statement (ERROR (identifier)) (identifier)))
+  (ERROR (identifier))
+  (expression_statement (identifier)))
 
 =======================================================
 multiple invalid tokens right after the viable prefix
@@ -52,16 +53,16 @@ if ({a: 'b'} {c: 'd'}) {
 
 (program
   (if_statement
-    (ERROR (object (pair (identifier) (string))))
     (object (pair (identifier) (string)))
+    (ERROR (object (pair (identifier) (string))))
     (statement_block
+      (ERROR (function
+        (formal_parameters (identifier))
+        (statement_block (expression_statement (identifier)))))
       (expression_statement
         (function
           (formal_parameters (identifier))
-          (statement_block (expression_statement (identifier))))
-        (ERROR (function
-          (formal_parameters (identifier))
-          (statement_block (expression_statement (identifier)))))))))
+          (statement_block (expression_statement (identifier))))))))
 
 ===================================================
 one invalid token at the end of the file
@@ -76,3 +77,24 @@ a.b =
   (trailing_expression_statement
     (member_access (identifier) (identifier)))
   (ERROR))
+
+===================================================
+Multi-line chained expressions in var declarations
+===================================================
+
+const one = two
+  .three(four)
+  .five()
+
+---
+
+(program
+  (var_declaration (var_assignment
+    (identifier)
+    (function_call
+      (member_access
+        (function_call
+          (member_access (identifier) (identifier))
+          (arguments (identifier)))
+        (identifier))
+      (arguments)))))
