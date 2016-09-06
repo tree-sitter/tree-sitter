@@ -170,7 +170,8 @@ static bool parser__breakdown_lookahead(Parser *self, TSTree **lookahead,
                                         ReusableNode *reusable_node) {
   bool result = false;
   while (reusable_node->tree->child_count > 0 &&
-         (reusable_node->tree->parse_state != state ||
+         (self->is_split ||
+          reusable_node->tree->parse_state != state ||
           reusable_node->tree->fragile_left ||
           reusable_node->tree->fragile_right)) {
     LOG("state_mismatch sym:%s", SYM_NAME(reusable_node->tree->symbol));
