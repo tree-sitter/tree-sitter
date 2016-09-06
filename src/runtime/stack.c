@@ -204,6 +204,7 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
   array_clear(&self->iterators);
 
   StackHead *head = array_get(&self->heads, version);
+  unsigned push_count = head->push_count;
   Iterator iterator = {
     .node = head->node,
     .trees = array_new(),
@@ -233,7 +234,7 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
           if (!ts_tree_array_copy(trees, &trees))
             goto error;
         array_reverse(&trees);
-        if (!ts_stack__add_slice(self, node, &trees, head->push_count + iterator->push_count))
+        if (!ts_stack__add_slice(self, node, &trees, push_count + iterator->push_count))
           goto error;
       }
 

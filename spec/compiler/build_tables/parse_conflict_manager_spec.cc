@@ -66,18 +66,6 @@ describe("ParseConflictManager", []() {
       });
     });
 
-    describe("reduce-extra actions", [&]() {
-      it("favors shift-extra actions over reduce-extra actions", [&]() {
-        result = conflict_manager->resolve(ParseAction::ShiftExtra(), ParseAction::ReduceExtra(sym1));
-        AssertThat(result.first, IsTrue());
-        AssertThat(result.second, Equals(ConflictTypeNone));
-
-        result = conflict_manager->resolve(ParseAction::ReduceExtra(sym1), ParseAction::ShiftExtra());
-        AssertThat(result.first, IsFalse());
-        AssertThat(result.second, Equals(ConflictTypeNone));
-      });
-    });
-
     describe("shift/reduce conflicts", [&]() {
       describe("when the shift has higher precedence", [&]() {
         ParseAction shift = ParseAction::Shift(2, {3, 4});

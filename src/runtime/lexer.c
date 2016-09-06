@@ -95,9 +95,12 @@ static inline void ts_lexer__reset(TSLexer *self, TSLength position) {
   self->token_start_position = position;
   self->current_position = position;
 
-  self->chunk = 0;
-  self->chunk_start = 0;
-  self->chunk_size = 0;
+  if (self->chunk && (position.bytes < self->chunk_start || position.bytes >= self->chunk_start + self->chunk_size)) {
+    self->chunk = 0;
+    self->chunk_start = 0;
+    self->chunk_size = 0;
+  }
+
   self->lookahead_size = 0;
   self->lookahead = 0;
 }

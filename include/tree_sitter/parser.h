@@ -136,14 +136,6 @@ struct TSLanguage {
     { .type = TSParseActionTypeShift, .extra = true } \
   }
 
-#define REDUCE_EXTRA(symbol_val)                                               \
-  {                                                                            \
-    {                                                                          \
-      .type = TSParseActionTypeReduce, .symbol = symbol_val, .child_count = 1, \
-      .extra = true,                                                           \
-    }                                                                          \
-  }
-
 #define REDUCE(symbol_val, child_count_val)                  \
   {                                                          \
     {                                                        \

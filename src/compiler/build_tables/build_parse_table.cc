@@ -81,9 +81,6 @@ class ParseTableBuilder {
     process_part_state_queue();
     allow_any_conflict = false;
 
-    for (ParseStateId state = 0; state < parse_table.states.size(); state++)
-      add_reduce_extra_actions(state);
-
     mark_fragile_actions();
     remove_duplicate_parse_states();
 
@@ -198,29 +195,8 @@ class ParseTableBuilder {
     ParseAction action = ParseAction::ShiftExtra();
     ParseState &state = parse_table.states[state_id];
     for (const Symbol &extra_symbol : grammar.extra_tokens)
-      if (!state.entries.count(extra_symbol) ||
-          (allow_any_conflict &&
-           state.entries[extra_symbol].actions.back().type ==
-             ParseActionTypeReduce))
+      if (!state.entries.count(extra_symbol) || state.has_shift_action() || allow_any_conflict)
         parse_table.add_action(state_id, extra_symbol, action);
-  }
-
-  void add_reduce_extra_actions(ParseStateId state_id) {
-    const ParseState &state = parse_table.states[state_id];
-
-    for (const Symbol &extra_symbol : grammar.extra_tokens) {
-      const auto &entry_for_symbol = state.entries.find(extra_symbol);
-      if (entry_for_symbol == state.entries.end())
-        continue;
-
-      for (const ParseAction &action : entry_for_symbol->second.actions)
-        if (action.type == ParseActionTypeShift && !action.extra) {
-          size_t dest_state_id = action.state_index;
-          ParseAction reduce_extra = ParseAction::ReduceExtra(extra_symbol);
-          for (const auto &pair : state.entries)
-            add_action(dest_state_id, pair.first, reduce_extra, null_item_set);
-        }
-    }
   }
 
   void mark_fragile_actions() {
