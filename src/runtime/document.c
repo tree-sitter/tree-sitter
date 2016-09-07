@@ -6,7 +6,7 @@
 #include "runtime/string_input.h"
 #include "runtime/document.h"
 
-TSDocument *ts_document_make() {
+TSDocument *ts_document_new() {
   TSDocument *self = ts_calloc(1, sizeof(TSDocument));
   if (!self)
     goto error;
@@ -44,12 +44,12 @@ void ts_document_set_language(TSDocument *self, const TSLanguage *language) {
   }
 }
 
-TSDebugger ts_document_debugger(const TSDocument *self) {
-  return self->parser.lexer.debugger;
+TSLogger ts_document_logger(const TSDocument *self) {
+  return self->parser.lexer.logger;
 }
 
-void ts_document_set_debugger(TSDocument *self, TSDebugger debugger) {
-  self->parser.lexer.debugger = debugger;
+void ts_document_set_logger(TSDocument *self, TSLogger logger) {
+  self->parser.lexer.logger = logger;
 }
 
 void ts_document_print_debugging_graphs(TSDocument *self, bool should_print) {
@@ -90,7 +90,7 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
 }
 
 int ts_document_parse(TSDocument *self) {
-  if (!self->input.read_fn || !self->parser.language)
+  if (!self->input.read || !self->parser.language)
     return -1;
 
   TSTree *reusable_tree = self->valid ? self->tree : NULL;

@@ -43,7 +43,7 @@ typedef struct TSLexer {
   TSSymbol result_symbol;
 
   TSInput input;
-  TSDebugger debugger;
+  TSLogger logger;
   char debug_buffer[TS_DEBUG_BUFFER_SIZE];
 } TSLexer;
 

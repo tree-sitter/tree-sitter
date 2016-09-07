@@ -8,7 +8,7 @@ describe("compile_grammar", []() {
   TSDocument *document;
 
   before_each([&]() {
-    document = ts_document_make();
+    document = ts_document_new();
   });
 
   after_each([&]() {

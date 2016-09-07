@@ -3,7 +3,7 @@
 #include "helpers/load_language.h"
 #include "helpers/read_test_entries.h"
 #include "helpers/spy_input.h"
-#include "helpers/log_debugger.h"
+#include "helpers/stderr_logger.h"
 #include "helpers/point_helpers.h"
 #include "helpers/encoding_helpers.h"
 #include "helpers/record_alloc.h"
@@ -77,10 +77,10 @@ describe("The Corpus", []() {
 
       before_each([&]() {
         record_alloc::start();
-        document = ts_document_make();
+        document = ts_document_new();
         ts_document_set_language(document, get_test_language(language_name));
 
-        // ts_document_set_debugger(document, log_debugger_make(true));
+        // ts_document_set_logger(document, stderr_logger_new(true));
         // ts_document_print_debugging_graphs(document, true);
       });
 

@@ -36,8 +36,8 @@ TSInput ts_string_input_make(const char *string) {
   input->length = strlen(string);
   return (TSInput){
     .payload = input,
-    .read_fn = ts_string_input_read,
-    .seek_fn = ts_string_input_seek,
+    .read = ts_string_input_read,
+    .seek = ts_string_input_seek,
     .encoding = TSInputEncodingUTF8,
   };
 

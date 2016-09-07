@@ -1,13 +1,11 @@
 #include "spec_helper.h"
 #include "runtime/alloc.h"
-#include "runtime/debugger.h"
 #include "helpers/record_alloc.h"
 #include "helpers/stream_methods.h"
 #include "helpers/tree_helpers.h"
-#include "helpers/spy_debugger.h"
+#include "helpers/spy_logger.h"
 #include "helpers/spy_input.h"
 #include "helpers/load_language.h"
-#include "helpers/log_debugger.h"
 
 START_TEST
 
@@ -17,7 +15,7 @@ describe("Document", [&]() {
 
   before_each([&]() {
     record_alloc::start();
-    doc = ts_document_make();
+    doc = ts_document_new();
   });
 
   after_each([&]() {
@@ -71,8 +69,8 @@ describe("Document", [&]() {
     it("allows the input to be retrieved later", [&]() {
       ts_document_set_input(doc, spy_input->input());
       AssertThat(ts_document_input(doc).payload, Equals<void *>(spy_input));
-      AssertThat(ts_document_input(doc).read_fn, Equals(spy_input->input().read_fn));
-      AssertThat(ts_document_input(doc).seek_fn, Equals(spy_input->input().seek_fn));
+      AssertThat(ts_document_input(doc).read, Equals(spy_input->input().read));
+      AssertThat(ts_document_input(doc).seek, Equals(spy_input->input().seek));
     });
 
     it("does not assume that the document's text has changed", [&]() {
@@ -146,51 +144,51 @@ describe("Document", [&]() {
     });
   });
 
-  describe("set_debugger(TSDebugger)", [&]() {
-    SpyDebugger *debugger;
+  describe("set_logger(TSDebugger)", [&]() {
+    SpyLogger *logger;
 
     before_each([&]() {
-      debugger = new SpyDebugger();
+      logger = new SpyLogger();
       ts_document_set_language(doc, get_test_language("json"));
       ts_document_set_input_string(doc, "[1, 2]");
     });
 
     after_each([&]() {
-      delete debugger;
+      delete logger;
     });
 
     it("calls the debugger with a message for each lex action", [&]() {
-      ts_document_set_debugger(doc, debugger->debugger());
+      ts_document_set_logger(doc, logger->logger());
       ts_document_parse(doc);
 
-      AssertThat(debugger->messages, Contains("lookahead char:'1'"));
-      AssertThat(debugger->messages, Contains("lookahead char:'['"));
+      AssertThat(logger->messages, Contains("lookahead char:'1'"));
+      AssertThat(logger->messages, Contains("lookahead char:'['"));
     });
 
     it("calls the debugger with a message for each parse action", [&]() {
-      ts_document_set_debugger(doc, debugger->debugger());
+      ts_document_set_logger(doc, logger->logger());
       ts_document_parse(doc);
 
-      AssertThat(debugger->messages, Contains("new_parse"));
-      AssertThat(debugger->messages, Contains("lookahead char:'['"));
-      AssertThat(debugger->messages, Contains("reduce sym:array, child_count:4"));
-      AssertThat(debugger->messages, Contains("accept"));
+      AssertThat(logger->messages, Contains("new_parse"));
+      AssertThat(logger->messages, Contains("lookahead char:'['"));
+      AssertThat(logger->messages, Contains("reduce sym:array, child_count:4"));
+      AssertThat(logger->messages, Contains("accept"));
     });
 
     it("allows the debugger to be retrieved later", [&]() {
-      ts_document_set_debugger(doc, debugger->debugger());
-      AssertThat(ts_document_debugger(doc).payload, Equals(debugger));
+      ts_document_set_logger(doc, logger->logger());
+      AssertThat(ts_document_logger(doc).payload, Equals(logger));
     });
 
     describe("disabling debugging", [&]() {
       before_each([&]() {
-        ts_document_set_debugger(doc, debugger->debugger());
-        ts_document_set_debugger(doc, ts_debugger_null());
+        ts_document_set_logger(doc, logger->logger());
+        ts_document_set_logger(doc, {NULL, NULL});
       });
 
       it("does not call the debugger any more", [&]() {
         ts_document_parse(doc);
-        AssertThat(debugger->messages, IsEmpty());
+        AssertThat(logger->messages, IsEmpty());
       });
     });
   });

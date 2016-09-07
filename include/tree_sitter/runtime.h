@@ -19,20 +19,20 @@ typedef enum {
 
 typedef struct {
   void *payload;
-  const char *(*read_fn)(void *payload, size_t *bytes_read);
-  int (*seek_fn)(void *payload, size_t character, size_t byte);
+  const char *(*read)(void *payload, size_t *bytes_read);
+  int (*seek)(void *payload, size_t character_index, size_t byte_index);
   TSInputEncoding encoding;
 } TSInput;
 
 typedef enum {
-  TSDebugTypeParse,
-  TSDebugTypeLex,
-} TSDebugType;
+  TSLogTypeParse,
+  TSLogTypeLex,
+} TSLogType;
 
 typedef struct {
   void *payload;
-  void (*debug_fn)(void *payload, TSDebugType, const char *);
-} TSDebugger;
+  void (*log)(void *payload, TSLogType, const char *);
+} TSLogger;
 
 typedef struct {
   size_t position;
@@ -65,7 +65,7 @@ TSPoint ts_node_end_point(TSNode);
 TSSymbol ts_node_symbol(TSNode);
 TSSymbolIterator ts_node_symbols(TSNode);
 void ts_symbol_iterator_next(TSSymbolIterator *);
-const char *ts_node_name(TSNode, const TSDocument *);
+const char *ts_node_type(TSNode, const TSDocument *);
 char *ts_node_string(TSNode, const TSDocument *);
 bool ts_node_eq(TSNode, TSNode);
 bool ts_node_is_named(TSNode);
@@ -79,18 +79,22 @@ TSNode ts_node_next_sibling(TSNode);
 TSNode ts_node_next_named_sibling(TSNode);
 TSNode ts_node_prev_sibling(TSNode);
 TSNode ts_node_prev_named_sibling(TSNode);
-TSNode ts_node_descendant_for_range(TSNode, size_t, size_t);
-TSNode ts_node_named_descendant_for_range(TSNode, size_t, size_t);
+TSNode ts_node_descendant_for_char_range(TSNode, size_t, size_t);
+TSNode ts_node_named_descendant_for_char_range(TSNode, size_t, size_t);
+TSNode ts_node_descendant_for_byte_range(TSNode, size_t, size_t);
+TSNode ts_node_named_descendant_for_byte_range(TSNode, size_t, size_t);
+TSNode ts_node_descendant_for_point_range(TSNode, TSPoint, TSPoint);
+TSNode ts_node_named_descendant_for_point_range(TSNode, TSPoint, TSPoint);
 
-TSDocument *ts_document_make();
+TSDocument *ts_document_new();
 void ts_document_free(TSDocument *);
 const TSLanguage *ts_document_language(TSDocument *);
 void ts_document_set_language(TSDocument *, const TSLanguage *);
 TSInput ts_document_input(TSDocument *);
 void ts_document_set_input(TSDocument *, TSInput);
 void ts_document_set_input_string(TSDocument *, const char *);
-TSDebugger ts_document_debugger(const TSDocument *);
-void ts_document_set_debugger(TSDocument *, TSDebugger);
+TSLogger ts_document_logger(const TSDocument *);
+void ts_document_set_logger(TSDocument *, TSLogger);
 void ts_document_print_debugging_graphs(TSDocument *, bool);
 void ts_document_edit(TSDocument *, TSInputEdit);
 int ts_document_parse(TSDocument *);

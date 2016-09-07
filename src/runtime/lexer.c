@@ -3,14 +3,13 @@
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 #include "runtime/length.h"
-#include "runtime/debugger.h"
 #include "runtime/utf16.h"
 #include "utf8proc.h"
 
 #define LOG(...)                                                     \
-  if (self->debugger.debug_fn) {                                     \
+  if (self->logger.log) {                                     \
     snprintf(self->debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__); \
-    self->debugger.debug_fn(self->debugger.payload, TSDebugTypeLex,  \
+    self->logger.log(self->logger.payload, TSLogTypeLex,  \
                             self->debug_buffer);                     \
   }
 
@@ -25,11 +24,11 @@ static void ts_lexer__get_chunk(TSLexer *self) {
   TSInput input = self->input;
   if (!self->chunk ||
       self->current_position.bytes != self->chunk_start + self->chunk_size)
-    input.seek_fn(input.payload, self->current_position.chars,
+    input.seek(input.payload, self->current_position.chars,
                   self->current_position.bytes);
 
   self->chunk_start = self->current_position.bytes;
-  self->chunk = input.read_fn(input.payload, &self->chunk_size);
+  self->chunk = input.read(input.payload, &self->chunk_size);
   if (!self->chunk_size)
     self->chunk = empty_chunk;
 }
@@ -86,7 +85,7 @@ void ts_lexer_init(TSLexer *self) {
     .advance = ts_lexer__advance,
     .chunk = NULL,
     .chunk_start = 0,
-    .debugger = ts_debugger_null(),
+    .logger = {},
   };
   ts_lexer_reset(self, ts_length_zero());
 }

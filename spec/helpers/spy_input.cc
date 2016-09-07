@@ -63,8 +63,8 @@ TSInput SpyInput::input() {
   TSInput result;
   result.payload = this;
   result.encoding = encoding;
-  result.seek_fn = seek;
-  result.read_fn = read;
+  result.seek = seek;
+  result.read = read;
   return result;
 }
 
