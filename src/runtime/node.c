@@ -281,7 +281,7 @@ void ts_symbol_iterator_next(TSSymbolIterator *self) {
   self->done = true;
 }
 
-const char *ts_node_name(TSNode self, const TSDocument *document) {
+const char *ts_node_type(TSNode self, const TSDocument *document) {
   TSSymbol symbol = ts_node__tree(self)->symbol;
   return ts_language_symbol_name(document->parser.language, symbol);
 }

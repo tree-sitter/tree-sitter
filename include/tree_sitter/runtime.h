@@ -65,7 +65,7 @@ TSPoint ts_node_end_point(TSNode);
 TSSymbol ts_node_symbol(TSNode);
 TSSymbolIterator ts_node_symbols(TSNode);
 void ts_symbol_iterator_next(TSSymbolIterator *);
-const char *ts_node_name(TSNode, const TSDocument *);
+const char *ts_node_type(TSNode, const TSDocument *);
 char *ts_node_string(TSNode, const TSDocument *);
 bool ts_node_eq(TSNode, TSNode);
 bool ts_node_is_named(TSNode);
