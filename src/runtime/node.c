@@ -169,6 +169,33 @@ static inline TSNode ts_node__descendant_for_char_range(TSNode self, size_t min,
   return last_visible_node;
 }
 
+static inline TSNode ts_node__descendant_for_byte_range(TSNode self, size_t min,
+                                                        size_t max,
+                                                        bool include_anonymous) {
+  TSNode node = self;
+  TSNode last_visible_node = self;
+
+  bool did_descend = true;
+  while (did_descend) {
+    did_descend = false;
+
+    for (size_t i = 0; i < ts_node__tree(node)->child_count; i++) {
+      TSNode child = ts_node__direct_child(node, i);
+      if (ts_node_start_byte(child) > min)
+        break;
+      if (ts_node_end_byte(child) > max) {
+        node = child;
+        if (ts_node__is_relevant(node, include_anonymous))
+          last_visible_node = node;
+        did_descend = true;
+        break;
+      }
+    }
+  }
+
+  return last_visible_node;
+}
+
 static inline TSNode ts_node__descendant_for_point_range(TSNode self,
                                                          TSPoint min,
                                                          TSPoint max,
@@ -328,6 +355,14 @@ TSNode ts_node_descendant_for_char_range(TSNode self, size_t min, size_t max) {
 
 TSNode ts_node_named_descendant_for_char_range(TSNode self, size_t min, size_t max) {
   return ts_node__descendant_for_char_range(self, min, max, false);
+}
+
+TSNode ts_node_descendant_for_byte_range(TSNode self, size_t min, size_t max) {
+  return ts_node__descendant_for_byte_range(self, min, max, true);
+}
+
+TSNode ts_node_named_descendant_for_byte_range(TSNode self, size_t min, size_t max) {
+  return ts_node__descendant_for_byte_range(self, min, max, false);
 }
 
 TSNode ts_node_descendant_for_point_range(TSNode self, TSPoint min, TSPoint max) {

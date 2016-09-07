@@ -392,7 +392,7 @@ describe("Node", []() {
   });
 
   describe("descendant_for_char_range(start, end)", [&]() {
-    it("returns the smallest concrete node that spans the given range", [&]() {
+    it("returns the smallest node that spans the given range", [&]() {
       TSNode node1 = ts_node_descendant_for_char_range(array_node, colon_index, colon_index);
       AssertThat(ts_node_name(node1, document), Equals(":"));
       AssertThat(ts_node_start_byte(node1), Equals(colon_index));
@@ -409,7 +409,23 @@ describe("Node", []() {
     });
   });
 
-  describe("named_descendant_for_point_range(start, end)", [&]() {
+  describe("descendant_for_byte_range(start, end)", [&]() {
+    it("returns the smallest concrete node that spans the given range", [&]() {
+      ts_document_set_input_string(document, "[\"αβγδ\", \"αβγδ\"]");
+      ts_document_parse(document);
+      TSNode array_node = ts_document_root_node(document);
+
+      TSNode node1 = ts_node_descendant_for_char_range(array_node, 7, 7);
+      AssertThat(ts_node_name(node1, document), Equals(","));
+
+      TSNode node2 = ts_node_descendant_for_byte_range(array_node, 6, 10);
+      AssertThat(ts_node_name(node2, document), Equals("string"));
+      AssertThat(ts_node_start_byte(node2), Equals(1));
+      AssertThat(ts_node_end_byte(node2), Equals(11));
+    });
+  });
+
+  describe("descendant_for_point_range(start, end)", [&]() {
     it("returns the smallest concrete node that spans the given range", [&]() {
       TSNode node1 = ts_node_descendant_for_point_range(array_node, {6, 7}, {6, 7});
       AssertThat(ts_node_name(node1, document), Equals(":"));
