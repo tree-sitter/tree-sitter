@@ -79,8 +79,10 @@ TSNode ts_node_next_sibling(TSNode);
 TSNode ts_node_next_named_sibling(TSNode);
 TSNode ts_node_prev_sibling(TSNode);
 TSNode ts_node_prev_named_sibling(TSNode);
-TSNode ts_node_descendant_for_range(TSNode, size_t, size_t);
-TSNode ts_node_named_descendant_for_range(TSNode, size_t, size_t);
+TSNode ts_node_descendant_for_char_range(TSNode, size_t, size_t);
+TSNode ts_node_named_descendant_for_char_range(TSNode, size_t, size_t);
+TSNode ts_node_descendant_for_point_range(TSNode, TSPoint, TSPoint);
+TSNode ts_node_named_descendant_for_point_range(TSNode, TSPoint, TSPoint);
 
 TSDocument *ts_document_new();
 void ts_document_free(TSDocument *);

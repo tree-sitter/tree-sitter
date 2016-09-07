@@ -308,7 +308,7 @@ describe("Parser", [&]() {
           assert_root_node(
             "(program (expression_statement (math_op (identifier) (number))))");
 
-          TSNode node = ts_node_named_descendant_for_range(root, 1, 1);
+          TSNode node = ts_node_named_descendant_for_char_range(root, 1, 1);
           AssertThat(ts_node_name(node, doc), Equals("identifier"));
           AssertThat(ts_node_end_byte(node), Equals(strlen("abXYZc")));
         });
@@ -326,7 +326,7 @@ describe("Parser", [&]() {
           assert_root_node(
             "(program (expression_statement (math_op (identifier) (number))))");
 
-          TSNode node = ts_node_named_descendant_for_range(root, 1, 1);
+          TSNode node = ts_node_named_descendant_for_char_range(root, 1, 1);
           AssertThat(ts_node_name(node, doc), Equals("identifier"));
           AssertThat(ts_node_end_byte(node), Equals(strlen("abcXYZ")));
         });

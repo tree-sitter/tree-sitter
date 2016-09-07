@@ -80,7 +80,7 @@ describe("The Corpus", []() {
         document = ts_document_new();
         ts_document_set_language(document, get_test_language(language_name));
 
-        ts_document_set_logger(document, stderr_logger_new(true));
+        // ts_document_set_logger(document, stderr_logger_new(true));
         // ts_document_print_debugging_graphs(document, true);
       });
 
