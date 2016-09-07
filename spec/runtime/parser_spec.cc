@@ -20,7 +20,7 @@ describe("Parser", [&]() {
     chunk_size = 3;
     input = nullptr;
 
-    doc = ts_document_make();
+    doc = ts_document_new();
   });
 
   after_each([&]() {
@@ -461,7 +461,7 @@ describe("Parser", [&]() {
     it("handles failures when allocating documents", [&]() {
       record_alloc::start();
 
-      TSDocument *document = ts_document_make();
+      TSDocument *document = ts_document_new();
       ts_document_free(document);
       AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
 
@@ -471,7 +471,7 @@ describe("Parser", [&]() {
       for (size_t i = 0; i < allocation_count; i++) {
         record_alloc::start();
         record_alloc::fail_at_allocation_index(i);
-        AssertThat(ts_document_make(), Equals<TSDocument *>(nullptr));
+        AssertThat(ts_document_new(), Equals<TSDocument *>(nullptr));
         AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
       }
 
@@ -507,7 +507,7 @@ describe("Parser", [&]() {
 
       for (size_t i = 0; i < allocation_count; i++) {
         record_alloc::stop();
-        doc = ts_document_make();
+        doc = ts_document_new();
 
         record_alloc::start();
         record_alloc::fail_at_allocation_index(i);
@@ -522,7 +522,7 @@ describe("Parser", [&]() {
       }
 
       record_alloc::stop();
-      doc = ts_document_make();
+      doc = ts_document_new();
 
       record_alloc::start();
       record_alloc::fail_at_allocation_index(allocation_count + 1);

@@ -82,7 +82,7 @@ TSNode ts_node_prev_named_sibling(TSNode);
 TSNode ts_node_descendant_for_range(TSNode, size_t, size_t);
 TSNode ts_node_named_descendant_for_range(TSNode, size_t, size_t);
 
-TSDocument *ts_document_make();
+TSDocument *ts_document_new();
 void ts_document_free(TSDocument *);
 const TSLanguage *ts_document_language(TSDocument *);
 void ts_document_set_language(TSDocument *, const TSLanguage *);

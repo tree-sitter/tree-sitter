@@ -77,7 +77,7 @@ describe("The Corpus", []() {
 
       before_each([&]() {
         record_alloc::start();
-        document = ts_document_make();
+        document = ts_document_new();
         ts_document_set_language(document, get_test_language(language_name));
 
         // ts_document_set_debugger(document, log_debugger_make(true));

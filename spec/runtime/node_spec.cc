@@ -38,7 +38,7 @@ describe("Node", []() {
   before_each([&]() {
     record_alloc::start();
 
-    document = ts_document_make();
+    document = ts_document_new();
     ts_document_set_language(document, get_test_language("json"));
     ts_document_set_input_string(document, input_string.c_str());
     ts_document_parse(document);

@@ -17,7 +17,7 @@ describe("Document", [&]() {
 
   before_each([&]() {
     record_alloc::start();
-    doc = ts_document_make();
+    doc = ts_document_new();
   });
 
   after_each([&]() {

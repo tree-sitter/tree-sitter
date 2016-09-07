@@ -6,7 +6,7 @@
 #include "runtime/string_input.h"
 #include "runtime/document.h"
 
-TSDocument *ts_document_make() {
+TSDocument *ts_document_new() {
   TSDocument *self = ts_calloc(1, sizeof(TSDocument));
   if (!self)
     goto error;
