@@ -25,14 +25,14 @@ typedef struct {
 } TSInput;
 
 typedef enum {
-  TSDebugTypeParse,
-  TSDebugTypeLex,
-} TSDebugType;
+  TSLogTypeParse,
+  TSLogTypeLex,
+} TSLogType;
 
 typedef struct {
   void *payload;
-  void (*debug_fn)(void *payload, TSDebugType, const char *);
-} TSDebugger;
+  void (*log)(void *payload, TSLogType, const char *);
+} TSLogger;
 
 typedef struct {
   size_t position;
@@ -89,8 +89,8 @@ void ts_document_set_language(TSDocument *, const TSLanguage *);
 TSInput ts_document_input(TSDocument *);
 void ts_document_set_input(TSDocument *, TSInput);
 void ts_document_set_input_string(TSDocument *, const char *);
-TSDebugger ts_document_debugger(const TSDocument *);
-void ts_document_set_debugger(TSDocument *, TSDebugger);
+TSLogger ts_document_logger(const TSDocument *);
+void ts_document_set_logger(TSDocument *, TSLogger);
 void ts_document_print_debugging_graphs(TSDocument *, bool);
 void ts_document_edit(TSDocument *, TSInputEdit);
 int ts_document_parse(TSDocument *);

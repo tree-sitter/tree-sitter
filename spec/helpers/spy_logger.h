@@ -1,14 +1,14 @@
-#ifndef HELPERS_SPY_DEBUGGER_H_
-#define HELPERS_SPY_DEBUGGER_H_
+#ifndef HELPERS_SPY_LOGGER_H_
+#define HELPERS_SPY_LOGGER_H_
 
 #include <string>
 #include <vector>
 #include "tree_sitter/runtime.h"
 
-class SpyDebugger {
+class SpyLogger {
  public:
   void clear();
-  TSDebugger debugger();
+  TSLogger logger();
   std::vector<std::string> messages;
 };
 

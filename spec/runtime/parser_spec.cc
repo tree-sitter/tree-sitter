@@ -3,7 +3,6 @@
 #include "helpers/record_alloc.h"
 #include "helpers/spy_input.h"
 #include "helpers/load_language.h"
-#include "helpers/log_debugger.h"
 #include "helpers/record_alloc.h"
 
 START_TEST

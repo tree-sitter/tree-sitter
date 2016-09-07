@@ -1,22 +1,22 @@
 #include "tree_sitter/runtime.h"
 #include <stdio.h>
 
-static void log_debug(void *payload, TSDebugType type, const char *msg) {
+static void log(void *payload, TSLogType type, const char *msg) {
   bool include_lexing = (bool)payload;
   switch (type) {
-    case TSDebugTypeParse:
+    case TSLogTypeParse:
       fprintf(stderr, "* %s\n", msg);
       break;
-    case TSDebugTypeLex:
+    case TSLogTypeLex:
       if (include_lexing)
         fprintf(stderr, "  %s\n", msg);
       break;
   }
 }
 
-TSDebugger log_debugger_make(bool include_lexing) {
-  TSDebugger result;
+TSLogger stderr_logger_new(bool include_lexing) {
+  TSLogger result;
   result.payload = (void *)include_lexing;
-  result.debug_fn = log_debug;
+  result.log = log;
   return result;
 }

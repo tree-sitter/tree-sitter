@@ -15,10 +15,10 @@
 #include "runtime/error_costs.h"
 
 #define LOG(...)                                                               \
-  if (self->lexer.debugger.debug_fn) {                                         \
+  if (self->lexer.logger.log) {                                         \
     snprintf(self->lexer.debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__);     \
-    self->lexer.debugger.debug_fn(self->lexer.debugger.payload,                \
-                                  TSDebugTypeParse, self->lexer.debug_buffer); \
+    self->lexer.logger.log(self->lexer.logger.payload,                \
+                                  TSLogTypeParse, self->lexer.debug_buffer); \
   }                                                                            \
   if (self->print_debugging_graphs) {                                          \
     fprintf(stderr, "graph {\nlabel=\"");                                      \

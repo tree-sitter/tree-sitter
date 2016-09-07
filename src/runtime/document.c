@@ -44,12 +44,12 @@ void ts_document_set_language(TSDocument *self, const TSLanguage *language) {
   }
 }
 
-TSDebugger ts_document_debugger(const TSDocument *self) {
-  return self->parser.lexer.debugger;
+TSLogger ts_document_logger(const TSDocument *self) {
+  return self->parser.lexer.logger;
 }
 
-void ts_document_set_debugger(TSDocument *self, TSDebugger debugger) {
-  self->parser.lexer.debugger = debugger;
+void ts_document_set_logger(TSDocument *self, TSLogger logger) {
+  self->parser.lexer.logger = logger;
 }
 
 void ts_document_print_debugging_graphs(TSDocument *self, bool should_print) {
