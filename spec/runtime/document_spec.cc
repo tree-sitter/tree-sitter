@@ -69,8 +69,8 @@ describe("Document", [&]() {
     it("allows the input to be retrieved later", [&]() {
       ts_document_set_input(doc, spy_input->input());
       AssertThat(ts_document_input(doc).payload, Equals<void *>(spy_input));
-      AssertThat(ts_document_input(doc).read_fn, Equals(spy_input->input().read_fn));
-      AssertThat(ts_document_input(doc).seek_fn, Equals(spy_input->input().seek_fn));
+      AssertThat(ts_document_input(doc).read, Equals(spy_input->input().read));
+      AssertThat(ts_document_input(doc).seek, Equals(spy_input->input().seek));
     });
 
     it("does not assume that the document's text has changed", [&]() {

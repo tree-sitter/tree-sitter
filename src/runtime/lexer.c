@@ -24,11 +24,11 @@ static void ts_lexer__get_chunk(TSLexer *self) {
   TSInput input = self->input;
   if (!self->chunk ||
       self->current_position.bytes != self->chunk_start + self->chunk_size)
-    input.seek_fn(input.payload, self->current_position.chars,
+    input.seek(input.payload, self->current_position.chars,
                   self->current_position.bytes);
 
   self->chunk_start = self->current_position.bytes;
-  self->chunk = input.read_fn(input.payload, &self->chunk_size);
+  self->chunk = input.read(input.payload, &self->chunk_size);
   if (!self->chunk_size)
     self->chunk = empty_chunk;
 }

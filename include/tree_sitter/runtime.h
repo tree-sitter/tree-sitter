@@ -19,8 +19,8 @@ typedef enum {
 
 typedef struct {
   void *payload;
-  const char *(*read_fn)(void *payload, size_t *bytes_read);
-  int (*seek_fn)(void *payload, size_t character, size_t byte);
+  const char *(*read)(void *payload, size_t *bytes_read);
+  int (*seek)(void *payload, size_t character_index, size_t byte_index);
   TSInputEncoding encoding;
 } TSInput;
 

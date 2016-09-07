@@ -90,7 +90,7 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
 }
 
 int ts_document_parse(TSDocument *self) {
-  if (!self->input.read_fn || !self->parser.language)
+  if (!self->input.read || !self->parser.language)
     return -1;
 
   TSTree *reusable_tree = self->valid ? self->tree : NULL;
