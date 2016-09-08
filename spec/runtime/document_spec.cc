@@ -3,6 +3,7 @@
 #include "helpers/record_alloc.h"
 #include "helpers/stream_methods.h"
 #include "helpers/tree_helpers.h"
+#include "helpers/point_helpers.h"
 #include "helpers/spy_logger.h"
 #include "helpers/spy_input.h"
 #include "helpers/load_language.h"
@@ -190,6 +191,140 @@ describe("Document", [&]() {
         ts_document_parse(doc);
         AssertThat(logger->messages, IsEmpty());
       });
+    });
+  });
+
+  describe("parse_and_diff()", [&]() {
+    SpyInput *input;
+
+    before_each([&]() {
+      ts_document_set_language(doc, get_test_language("javascript"));
+      input = new SpyInput("{a: null};", 3);
+      ts_document_set_input(doc, input->input());
+      ts_document_parse(doc);
+      assert_node_string_equals(
+        ts_document_root_node(doc),
+        "(program (expression_statement (object (pair (identifier) (null)))))");
+    });
+
+    after_each([&]() {
+      delete input;
+    });
+
+    auto get_ranges = [&](std::function<TSInputEdit()> callback) -> vector<TSRange> {
+      TSInputEdit edit = callback();
+      ts_document_edit(doc, edit);
+
+      TSRange *ranges;
+      size_t range_count = 0;
+      ts_document_parse_and_diff(doc, &ranges, &range_count);
+
+      vector<TSRange> result;
+      for (size_t i = 0; i < range_count; i++)
+        result.push_back(ranges[i]);
+      ts_free(ranges);
+
+      return result;
+    };
+
+    it("reports changes when one token has been updated", [&]() {
+      // Replace `null` with `nothing`
+      auto ranges = get_ranges([&]() {
+        return input->replace(input->content.find("ull"), 1, "othing");
+      });
+
+      AssertThat(ranges, Equals(vector<TSRange>({
+        TSRange{
+          TSPoint{0, input->content.find("nothing")},
+          TSPoint{0, input->content.find("}")}
+        },
+      })));
+
+      // Replace `nothing` with `null` again
+      ranges = get_ranges([&]() {
+        return input->undo();
+      });
+
+      AssertThat(ranges, Equals(vector<TSRange>({
+        TSRange{
+          TSPoint{0, input->content.find("null")},
+          TSPoint{0, input->content.find("}")}
+        },
+      })));
+    });
+
+    it("reports changes when tokens have been appended", [&]() {
+      // Add a second key-value pair
+      auto ranges = get_ranges([&]() {
+        return input->replace(input->content.find("}"), 0, ", b: false");
+      });
+
+      AssertThat(ranges, Equals(vector<TSRange>({
+        TSRange{
+          TSPoint{0, input->content.find(",")},
+          TSPoint{0, input->content.find("}")},
+        },
+      })));
+
+      // Add a third key-value pair in between the first two
+      ranges = get_ranges([&]() {
+        return input->replace(input->content.find(", b"), 0, ", c: 1");
+      });
+
+      assert_node_string_equals(
+        ts_document_root_node(doc),
+        "(program (expression_statement (object "
+          "(pair (identifier) (null)) "
+          "(pair (identifier) (number)) "
+          "(pair (identifier) (false)))))");
+
+      AssertThat(ranges, Equals(vector<TSRange>({
+        TSRange{
+          TSPoint{0, input->content.find(", c")},
+          TSPoint{0, input->content.find(", b")},
+        },
+      })));
+
+      // Delete the middle pair.
+      ranges = get_ranges([&]() {
+        return input->undo();
+      });
+
+      assert_node_string_equals(
+        ts_document_root_node(doc),
+        "(program (expression_statement (object "
+          "(pair (identifier) (null)) "
+          "(pair (identifier) (false)))))");
+
+      AssertThat(ranges, Equals(vector<TSRange>({
+      })));
+
+      // Delete the second pair.
+      ranges = get_ranges([&]() {
+        return input->undo();
+      });
+
+      assert_node_string_equals(
+        ts_document_root_node(doc),
+        "(program (expression_statement (object "
+          "(pair (identifier) (null)))))");
+
+      AssertThat(ranges, Equals(vector<TSRange>({
+      })));
+    });
+
+    it("reports changes when trees have been wrapped", [&]() {
+      // Wrap the object in an assignment expression.
+      auto ranges = get_ranges([&]() {
+        return input->replace(0, 0, "x.y = ");
+      });
+
+      AssertThat(ranges, Equals(vector<TSRange>({
+        TSRange{
+          TSPoint{0, 0},
+          TSPoint{0, input->content.find(";")},
+        },
+      })));
     });
   });
 });

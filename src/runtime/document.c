@@ -89,7 +89,117 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
   ts_tree_edit(self->tree, edit);
 }
 
-int ts_document_parse(TSDocument *self) {
+typedef Array(TSRange) RangeArray;
+
+#define NAME(t) ((t) ? (ts_language_symbol_name(doc->parser.language, ((TSTree *)(t))->symbol)) : "<NULL>")
+// #define PRINT(msg, ...) for (size_t k = 0; k < depth; k++) { printf("    "); } printf(msg "\n", __VA_ARGS__);
+#define PRINT(msg, ...)
+
+static bool push_diff(RangeArray *results, TSNode *node, bool *extend_last_change) {
+  TSPoint start = ts_node_start_point(*node);
+  TSPoint end = ts_node_end_point(*node);
+  if (*extend_last_change) {
+    TSRange *last_range = array_back(results);
+    last_range->end = end;
+    return true;
+  }
+  *extend_last_change = true;
+  return array_push(results, ((TSRange){start, end}));
+}
+
+static bool ts_tree_diff(TSDocument *doc, TSTree *old, TSNode *new_node,
+                         size_t depth, RangeArray *results, bool *extend_last_change) {
+  TSTree *new = (TSTree *)(new_node->data);
+
+  PRINT("At %lu, ('%s', %lu) vs ('%s', %lu) {",
+    ts_node_start_char(*new_node),
+    NAME(old), old->size.chars,
+    NAME(new), new->size.chars);
+
+  if (old->visible) {
+    if (old == new || (old->symbol == new->symbol &&
+        old->size.chars == new->size.chars && !old->has_changes)) {
+      *extend_last_change = false;
+      PRINT("}", NULL);
+      return true;
+    }
+
+    if (old->symbol != new->symbol) {
+      PRINT("}", NULL);
+      return push_diff(results, new_node, extend_last_change);
+    }
+
+    TSNode child = ts_node_child(*new_node, 0);
+    if (child.data) {
+      *new_node = child;
+    } else {
+      PRINT("}", NULL);
+      return true;
+    }
+  }
+
+  depth++;
+  size_t old_child_start;
+  size_t old_child_end = ts_node_start_char(*new_node) - old->padding.chars;
+
+  for (size_t j = 0; j < old->child_count; j++) {
+    TSTree *old_child = old->children[j];
+    if (old_child->padding.chars == 0 && old_child->size.chars == 0)
+      continue;
+
+    old_child_start = old_child_end + old_child->padding.chars;
+    old_child_end = old_child_start + old_child->size.chars;
+
+    while (true) {
+      size_t new_child_start = ts_node_start_char(*new_node);
+      if (new_child_start < old_child_start) {
+        PRINT("skip new:('%s', %lu), old:('%s', %lu), old_parent:%s",
+          NAME(new_node->data), ts_node_start_char(*new_node), NAME(old_child),
+          old_child_start, NAME(old));
+
+        if (!push_diff(results, new_node, extend_last_change))
+          return false;
+
+        TSNode next = ts_node_next_sibling(*new_node);
+        if (next.data) {
+          PRINT("advance before diff ('%s', %lu) -> ('%s', %lu)",
+            NAME(new_node->data), ts_node_start_char(*new_node), NAME(next.data),
+            ts_node_start_char(next));
+          *new_node = next;
+        }
+      } else if (new_child_start == old_child_start) {
+        if (!ts_tree_diff(doc, old_child, new_node, depth, results, extend_last_change))
+          return false;
+
+        if (old_child->visible) {
+          TSNode next = ts_node_next_sibling(*new_node);
+          if (next.data) {
+            PRINT("advance after diff ('%s', %lu) -> ('%s', %lu)",
+              NAME(new_node->data), ts_node_start_char(*new_node), NAME(next.data),
+              ts_node_start_char(next));
+            *new_node = next;
+          }
+        }
+        break;
+      } else {
+        break;
+      }
+    }
+  }
+
+  depth--;
+  if (old->visible) {
+    *new_node = ts_node_parent(*new_node);
+  }
+
+  PRINT("}", NULL);
+  return true;
+}
+
+int ts_document_parse_and_diff(TSDocument *self, TSRange **ranges, size_t *range_count) {
+  if (ranges) *ranges = NULL;
+  if (range_count) *range_count = 0;
+
   if (!self->input.read || !self->parser.language)
     return -1;
 
@@ -101,12 +211,34 @@ int ts_document_parse(TSDocument *self) {
   if (!tree)
     return -1;
 
-  if (self->tree)
-    ts_tree_release(self->tree);
+  if (self->tree) {
+    TSTree *old_tree = self->tree;
+    self->tree = tree;
+    TSNode new_root = ts_document_root_node(self);
+
+    // ts_tree_print_dot_graph(old_tree, self->parser.language, stderr);
+    // ts_tree_print_dot_graph(tree, self->parser.language, stderr);
+
+    if (ranges && range_count) {
+      bool extend_last_change = false;
+      RangeArray result = {0, 0, 0};
+      if (!ts_tree_diff(self, old_tree, &new_root, 0, &result, &extend_last_change))
+        return -1;
+      *ranges = result.contents;
+      *range_count = result.size;
+    }
+
+    ts_tree_release(old_tree);
+  }
+
   self->tree = tree;
   self->parse_count++;
   self->valid = true;
   return 0;
+}
+
+int ts_document_parse(TSDocument *self) {
+  return ts_document_parse_and_diff(self, NULL, NULL);
 }
 
 void ts_document_invalidate(TSDocument *self) {
