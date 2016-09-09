@@ -165,7 +165,10 @@ static bool ts_tree_diff(TSDocument *doc, TSTree *old, TSNode *new_node,
           PRINT("advance before diff ('%s', %lu) -> ('%s', %lu)",
             NAME(new_node->data), ts_node_start_char(*new_node), NAME(next.data),
             ts_node_start_char(next));
+
           *new_node = next;
+        } else {
+          break;
         }
       } else if (new_child_start == old_child_start) {
         if (!ts_tree_diff(doc, old_child, new_node, depth, results, extend_last_change))
@@ -196,7 +199,7 @@ static bool ts_tree_diff(TSDocument *doc, TSTree *old, TSNode *new_node,
   return true;
 }
 
-int ts_document_parse_and_diff(TSDocument *self, TSRange **ranges, size_t *range_count) {
+int ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges, size_t *range_count) {
   if (ranges) *ranges = NULL;
   if (range_count) *range_count = 0;
 
@@ -238,7 +241,7 @@ int ts_document_parse_and_diff(TSDocument *self, TSRange **ranges, size_t *range
 }
 
 int ts_document_parse(TSDocument *self) {
-  return ts_document_parse_and_diff(self, NULL, NULL);
+  return ts_document_parse_and_get_changed_ranges(self, NULL, NULL);
 }
 
 void ts_document_invalidate(TSDocument *self) {

@@ -194,7 +194,7 @@ describe("Document", [&]() {
     });
   });
 
-  describe("parse_and_diff()", [&]() {
+  describe("parse_and_get_changed_ranges()", [&]() {
     SpyInput *input;
 
     before_each([&]() {
@@ -217,7 +217,7 @@ describe("Document", [&]() {
 
       TSRange *ranges;
       size_t range_count = 0;
-      ts_document_parse_and_diff(doc, &ranges, &range_count);
+      ts_document_parse_and_get_changed_ranges(doc, &ranges, &range_count);
 
       vector<TSRange> result;
       for (size_t i = 0; i < range_count; i++)

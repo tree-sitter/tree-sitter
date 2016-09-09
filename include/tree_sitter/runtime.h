@@ -103,7 +103,7 @@ void ts_document_set_logger(TSDocument *, TSLogger);
 void ts_document_print_debugging_graphs(TSDocument *, bool);
 void ts_document_edit(TSDocument *, TSInputEdit);
 int ts_document_parse(TSDocument *);
-int ts_document_parse_and_diff(TSDocument *, TSRange **, size_t *);
+int ts_document_parse_and_get_changed_ranges(TSDocument *, TSRange **, size_t *);
 void ts_document_invalidate(TSDocument *);
 TSNode ts_document_root_node(const TSDocument *);
 size_t ts_document_parse_count(const TSDocument *);
