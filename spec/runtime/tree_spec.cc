@@ -3,6 +3,22 @@
 #include "runtime/tree.h"
 #include "runtime/length.h"
 
+void assert_consistent(const TSTree *tree) {
+  if (tree->child_count == 0)
+    return;
+  AssertThat(tree->children[0]->padding, Equals<TSLength>(tree->padding));
+
+  TSLength total_children_size = ts_length_zero();
+  for (size_t i = 0; i < tree->child_count; i++) {
+    TSTree *child = tree->children[i];
+    AssertThat(child->context.offset, Equals(total_children_size));
+    assert_consistent(child);
+    total_children_size = ts_length_add(total_children_size, ts_tree_total_size(child));
+  }
+
+  AssertThat(total_children_size, Equals<TSLength>(ts_tree_total_size(tree)));
+};
+
 START_TEST
 
 enum {
@@ -163,14 +179,6 @@ describe("Tree", []() {
       ts_tree_release(tree);
     });
 
-    auto assert_consistent = [&](const TSTree *tree) {
-      AssertThat(tree->children[0]->padding, Equals<TSLength>(tree->padding));
-
-      TSLength total_children_size = ts_length_zero();
-      for (size_t i = 0; i < tree->child_count; i++)
-        total_children_size = ts_length_add(total_children_size, ts_tree_total_size(tree->children[i]));
-      AssertThat(total_children_size, Equals<TSLength>(ts_tree_total_size(tree)));
-    };
 
     describe("edits within a tree's padding", [&]() {
       it("resizes the padding of the tree and its leftmost descendants", [&]() {

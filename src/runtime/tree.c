@@ -335,37 +335,38 @@ void ts_tree_edit(TSTree *self, TSInputEdit edit) {
 
   bool found_first_child = false;
   long remainder_to_delete = edit.chars_removed - edit.chars_inserted;
-  size_t child_left = 0, child_right = 0;
+  TSLength child_left, child_right = ts_length_zero();
   for (size_t i = 0; i < self->child_count; i++) {
     TSTree *child = self->children[i];
-    size_t child_size = ts_tree_total_chars(child);
     child_left = child_right;
-    child_right += child_size;
 
     if (!found_first_child) {
-      if (child_right >= start) {
+      child_right = ts_length_add(child_left, ts_tree_total_size(child));
+      if (child_right.chars >= start) {
         found_first_child = true;
-        size_t chars_removed = min(edit.chars_removed, child_right - start);
+        size_t chars_removed = min(edit.chars_removed, child_right.chars - start);
         remainder_to_delete -= (chars_removed - edit.chars_inserted);
         ts_tree_edit(child, (TSInputEdit){
-                              .position = start - child_left,
+                              .position = start - child_left.chars,
                               .chars_inserted = edit.chars_inserted,
                               .chars_removed = chars_removed,
                             });
+        child_right = ts_length_add(child_left, ts_tree_total_size(child));
       }
     } else {
       if (remainder_to_delete > 0) {
-        size_t chars_removed = min(remainder_to_delete, child_size);
+        size_t chars_removed = min(remainder_to_delete, ts_tree_total_chars(child));
         remainder_to_delete -= chars_removed;
         ts_tree_edit(
           child,
           (TSInputEdit){
             .position = 0, .chars_inserted = 0, .chars_removed = chars_removed,
           });
-      } else {
-        break;
       }
+      child_right = ts_length_add(child_right, ts_tree_total_size(child));
     }
+
+    child->context.offset = child_left;
   }
 }
 

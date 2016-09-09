@@ -29,8 +29,8 @@ static void expect_a_consistent_tree(TSNode node, TSDocument *document) {
   AssertThat(start_char, !IsGreaterThan(end_char));
   AssertThat(start_point, !IsGreaterThan(end_point));
 
-  size_t last_child_end_char = 0;
-  TSPoint last_child_end_point = {0, 0};
+  size_t last_child_end_char = start_char;
+  TSPoint last_child_end_point = start_point;
 
   for (size_t i = 0; i < child_count; i++) {
     TSNode child = ts_node_child(node, i);
@@ -39,17 +39,10 @@ static void expect_a_consistent_tree(TSNode node, TSDocument *document) {
     TSPoint child_start_point = ts_node_start_point(child);
     TSPoint child_end_point = ts_node_end_point(child);
 
-    if (i > 0) {
-      AssertThat(child_start_char, !IsLessThan(last_child_end_char));
-      AssertThat(child_start_point, !IsLessThan(last_child_end_point));
-      last_child_end_char = child_end_char;
-      last_child_end_point = child_end_point;
-    }
-
-    AssertThat(child_start_char, !IsLessThan(start_char));
-    AssertThat(child_end_char, !IsGreaterThan(end_char));
-    AssertThat(child_start_point, !IsLessThan(start_point));
-    AssertThat(child_end_point, !IsGreaterThan(end_point));
+    AssertThat(child_start_char, !IsLessThan(last_child_end_char));
+    AssertThat(child_start_point, !IsLessThan(last_child_end_point));
+    last_child_end_char = child_end_char;
+    last_child_end_point = child_end_point;
 
     expect_a_consistent_tree(child, document);
 
@@ -57,8 +50,14 @@ static void expect_a_consistent_tree(TSNode node, TSDocument *document) {
       some_child_has_changes = true;
   }
 
-  if (child_count > 0)
+  if (child_count > 0) {
+    AssertThat(end_char, !IsLessThan(last_child_end_char));
+
+    if (!has_changes)
+      AssertThat(end_point, !IsLessThan(last_child_end_point));
+
     AssertThat(has_changes, Equals(some_child_has_changes));
+  }
 }
 
 START_TEST
