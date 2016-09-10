@@ -17,8 +17,7 @@ typedef unsigned short TSStateId;
 typedef struct {
   size_t bytes;
   size_t chars;
-  size_t rows;
-  size_t columns;
+  TSPoint extent;
 } TSLength;
 
 typedef struct {

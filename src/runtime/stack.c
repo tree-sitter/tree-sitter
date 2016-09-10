@@ -126,7 +126,7 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
                               ERROR_COST_PER_SKIPPED_CHAR *
                                 (tree->padding.chars + tree->size.chars) +
                               ERROR_COST_PER_SKIPPED_LINE *
-                                (tree->padding.rows + tree->size.rows);
+                                (tree->padding.extent.row + tree->size.extent.row);
         }
       }
     } else {
@@ -606,7 +606,7 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
 
       fprintf(f,
               " tooltip=\"position: %lu,%lu\nerror_count: %u\nerror_cost: %u\"];\n",
-              node->position.rows, node->position.columns, node->error_count,
+              node->position.extent.row, node->position.extent.column, node->error_count,
               node->error_cost);
 
       for (int j = 0; j < node->link_count; j++) {

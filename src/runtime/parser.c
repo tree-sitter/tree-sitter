@@ -1272,8 +1272,8 @@ TSTree *parser_parse(Parser *self, TSInput input, TSTree *old_tree) {
         LOG("process version:%d, version_count:%lu, state:%d, row:%lu, col:%lu",
             version, ts_stack_version_count(self->stack),
             ts_stack_top_state(self->stack, version),
-            ts_stack_top_position(self->stack, version).rows + 1,
-            ts_stack_top_position(self->stack, version).columns + 1);
+            ts_stack_top_position(self->stack, version).extent.row + 1,
+            ts_stack_top_position(self->stack, version).extent.column + 1);
 
         CHECK(parser__advance(self, version, &reusable_node));
         LOG_STACK();

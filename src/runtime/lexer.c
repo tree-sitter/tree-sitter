@@ -55,10 +55,10 @@ static void ts_lexer__advance(TSLexer *self, TSStateId state, bool skip) {
     self->current_position.bytes += self->lookahead_size;
     self->current_position.chars++;
     if (self->lookahead == '\n') {
-      self->current_position.rows++;
-      self->current_position.columns = 0;
+      self->current_position.extent.row++;
+      self->current_position.extent.column = 0;
     } else {
-      self->current_position.columns++;
+      self->current_position.extent.column++;
     }
   }
 

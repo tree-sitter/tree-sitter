@@ -1,5 +1,6 @@
 #include "spec_helper.h"
 #include "helpers/tree_helpers.h"
+#include "helpers/point_helpers.h"
 #include "helpers/record_alloc.h"
 #include "helpers/stream_methods.h"
 #include "runtime/stack.h"
@@ -19,7 +20,7 @@ enum {
 };
 
 TSLength operator*(const TSLength &length, size_t factor) {
-  return {length.bytes * factor, length.chars * factor, 0, length.columns * factor};
+  return {length.bytes * factor, length.chars * factor, {0, length.extent.column * factor}};
 }
 
 void free_slice_array(StackSliceArray *slices) {
@@ -69,7 +70,7 @@ describe("Stack", [&]() {
   Stack *stack;
   const size_t tree_count = 11;
   TSTree *trees[tree_count];
-  TSLength tree_len = {2, 3, 0, 3};
+  TSLength tree_len = {2, 3, {0, 3}};
 
   before_each([&]() {
     record_alloc::start();

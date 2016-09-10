@@ -48,7 +48,7 @@ static inline TSNode ts_node__direct_parent(TSNode self, size_t *index) {
   return ts_node_make(tree->context.parent,
                       ts_node__offset_char(self) - tree->context.offset.chars,
                       ts_node__offset_byte(self) - tree->context.offset.bytes,
-                      ts_node__offset_row(self) - tree->context.offset.rows);
+                      ts_node__offset_row(self) - tree->context.offset.extent.row);
 }
 
 static inline TSNode ts_node__direct_child(TSNode self, size_t i) {
@@ -56,7 +56,7 @@ static inline TSNode ts_node__direct_child(TSNode self, size_t i) {
   return ts_node_make(
     child_tree, ts_node__offset_char(self) + child_tree->context.offset.chars,
     ts_node__offset_byte(self) + child_tree->context.offset.bytes,
-    ts_node__offset_row(self) + child_tree->context.offset.rows);
+    ts_node__offset_row(self) + child_tree->context.offset.extent.row);
 }
 
 static inline TSNode ts_node__child(TSNode self, size_t child_index,
@@ -246,14 +246,14 @@ size_t ts_node_end_byte(TSNode self) {
 
 TSPoint ts_node_start_point(TSNode self) {
   const TSTree *tree = ts_node__tree(self);
-  return (TSPoint){ ts_node__offset_row(self) + tree->padding.rows,
+  return (TSPoint){ ts_node__offset_row(self) + tree->padding.extent.row,
                     ts_tree_start_column(tree) };
 }
 
 TSPoint ts_node_end_point(TSNode self) {
   const TSTree *tree = ts_node__tree(self);
-  return (TSPoint){ ts_node__offset_row(self) + tree->padding.rows +
-                      tree->size.rows,
+  return (TSPoint){ ts_node__offset_row(self) + tree->padding.extent.row +
+                      tree->size.extent.row,
                     ts_tree_end_column(tree) };
 }
 

@@ -1,5 +1,6 @@
 #include "spec_helper.h"
 #include "helpers/tree_helpers.h"
+#include "helpers/point_helpers.h"
 #include "runtime/tree.h"
 #include "runtime/length.h"
 
@@ -36,8 +37,8 @@ describe("Tree", []() {
   TSSymbolMetadata invisible = {false, false, false, true};
 
   before_each([&]() {
-    tree1 = ts_tree_make_leaf(cat, {2, 1, 0, 1}, {5, 4, 0, 4}, visible);
-    tree2 = ts_tree_make_leaf(cat, {1, 1, 0, 1}, {3, 3, 0, 3}, visible);
+    tree1 = ts_tree_make_leaf(cat, {2, 1, {0, 1}}, {5, 4, {0, 4}}, visible);
+    tree2 = ts_tree_make_leaf(cat, {1, 1, {0, 1}}, {3, 3, {0, 3}}, visible);
 
     ts_tree_retain(tree1);
     ts_tree_retain(tree2);
@@ -166,13 +167,13 @@ describe("Tree", []() {
 
     before_each([&]() {
       tree = ts_tree_make_node(cat, 3, tree_array({
-        ts_tree_make_leaf(dog, {2, 2, 0, 2}, {3, 3, 0, 3}, visible),
-        ts_tree_make_leaf(eel, {2, 2, 0, 2}, {3, 3, 0, 3}, visible),
-        ts_tree_make_leaf(fox, {2, 2, 0, 2}, {3, 3, 0, 3}, visible),
+        ts_tree_make_leaf(dog, {2, 2, {0, 2}}, {3, 3, {0, 3}}, visible),
+        ts_tree_make_leaf(eel, {2, 2, {0, 2}}, {3, 3, {0, 3}}, visible),
+        ts_tree_make_leaf(fox, {2, 2, {0, 2}}, {3, 3, {0, 3}}, visible),
       }), visible);
 
-      AssertThat(tree->padding, Equals<TSLength>({2, 2, 0, 2}));
-      AssertThat(tree->size, Equals<TSLength>({13, 13, 0, 13}));
+      AssertThat(tree->padding, Equals<TSLength>({2, 2, {0, 2}}));
+      AssertThat(tree->size, Equals<TSLength>({13, 13, {0, 13}}));
     });
 
     after_each([&]() {
@@ -187,16 +188,16 @@ describe("Tree", []() {
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<TSLength>({0, 3, 0, 0}));
-        AssertThat(tree->size, Equals<TSLength>({13, 13, 0, 13}));
+        AssertThat(tree->padding, Equals<TSLength>({0, 3, {0, 0}}));
+        AssertThat(tree->size, Equals<TSLength>({13, 13, {0, 13}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 3, 0, 0}));
-        AssertThat(tree->children[0]->size, Equals<TSLength>({3, 3, 0, 3}));
+        AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 3, {0, 0}}));
+        AssertThat(tree->children[0]->size, Equals<TSLength>({3, 3, {0, 3}}));
 
         AssertThat(tree->children[1]->has_changes, IsFalse());
-        AssertThat(tree->children[1]->padding, Equals<TSLength>({2, 2, 0, 2}));
-        AssertThat(tree->children[1]->size, Equals<TSLength>({3, 3, 0, 3}));
+        AssertThat(tree->children[1]->padding, Equals<TSLength>({2, 2, {0, 2}}));
+        AssertThat(tree->children[1]->size, Equals<TSLength>({3, 3, {0, 3}}));
       });
     });
 
@@ -207,12 +208,12 @@ describe("Tree", []() {
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<TSLength>({0, 5, 0, 0}));
-        AssertThat(tree->size, Equals<TSLength>({0, 11, 0, 0}));
+        AssertThat(tree->padding, Equals<TSLength>({0, 5, {0, 0}}));
+        AssertThat(tree->size, Equals<TSLength>({0, 11, {0, 0}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 5, 0, 0}));
-        AssertThat(tree->children[0]->size, Equals<TSLength>({0, 1, 0, 0}));
+        AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 5, {0, 0}}));
+        AssertThat(tree->children[0]->size, Equals<TSLength>({0, 1, {0, 0}}));
       });
     });
 
@@ -223,12 +224,12 @@ describe("Tree", []() {
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<TSLength>({0, 4, 0, 0}));
-        AssertThat(tree->size, Equals<TSLength>({13, 13, 0, 13}));
+        AssertThat(tree->padding, Equals<TSLength>({0, 4, {0, 0}}));
+        AssertThat(tree->size, Equals<TSLength>({13, 13, {0, 13}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 4, 0, 0}));
-        AssertThat(tree->children[0]->size, Equals<TSLength>({3, 3, 0, 3}));
+        AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 4, {0, 0}}));
+        AssertThat(tree->children[0]->size, Equals<TSLength>({3, 3, {0, 3}}));
 
         AssertThat(tree->children[1]->has_changes, IsFalse());
       });
@@ -241,12 +242,12 @@ describe("Tree", []() {
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<TSLength>({2, 2, 0, 2}));
-        AssertThat(tree->size, Equals<TSLength>({0, 16, 0, 0}));
+        AssertThat(tree->padding, Equals<TSLength>({2, 2, {0, 2}}));
+        AssertThat(tree->size, Equals<TSLength>({0, 16, {0, 0}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<TSLength>({2, 2, 0, 2}));
-        AssertThat(tree->children[0]->size, Equals<TSLength>({0, 6, 0, 0}));
+        AssertThat(tree->children[0]->padding, Equals<TSLength>({2, 2, {0, 2}}));
+        AssertThat(tree->children[0]->size, Equals<TSLength>({0, 6, {0, 0}}));
 
         AssertThat(tree->children[1]->has_changes, IsFalse());
       });
@@ -259,30 +260,30 @@ describe("Tree", []() {
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<TSLength>({0, 4, 0, 0}));
-        AssertThat(tree->size, Equals<TSLength>({0, 4, 0, 0}));
+        AssertThat(tree->padding, Equals<TSLength>({0, 4, {0, 0}}));
+        AssertThat(tree->size, Equals<TSLength>({0, 4, {0, 0}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 4, 0, 0}));
-        AssertThat(tree->children[0]->size, Equals<TSLength>({0, 0, 0, 0}));
+        AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 4, {0, 0}}));
+        AssertThat(tree->children[0]->size, Equals<TSLength>({0, 0, {0, 0}}));
 
         AssertThat(tree->children[1]->has_changes, IsTrue());
-        AssertThat(tree->children[1]->padding, Equals<TSLength>({0, 0, 0, 0}));
-        AssertThat(tree->children[1]->size, Equals<TSLength>({0, 0, 0, 0}));
+        AssertThat(tree->children[1]->padding, Equals<TSLength>({0, 0, {0, 0}}));
+        AssertThat(tree->children[1]->size, Equals<TSLength>({0, 0, {0, 0}}));
 
         AssertThat(tree->children[2]->has_changes, IsTrue());
-        AssertThat(tree->children[2]->padding, Equals<TSLength>({0, 1, 0, 0}));
-        AssertThat(tree->children[2]->size, Equals<TSLength>({3, 3, 0, 3}));
+        AssertThat(tree->children[2]->padding, Equals<TSLength>({0, 1, {0, 0}}));
+        AssertThat(tree->children[2]->size, Equals<TSLength>({3, 3, {0, 3}}));
       });
     });
   });
 
   describe("equality", [&]() {
     it("returns true for identical trees", [&]() {
-      TSTree *tree1_copy = ts_tree_make_leaf(cat, {2, 1, 1, 1}, {5, 4, 1, 4}, visible);
+      TSTree *tree1_copy = ts_tree_make_leaf(cat, {2, 1, {1, 1}}, {5, 4, {1, 4}}, visible);
       AssertThat(ts_tree_eq(tree1, tree1_copy), IsTrue());
 
-      TSTree *tree2_copy = ts_tree_make_leaf(cat, {1, 1, 0, 1}, {3, 3, 0, 3}, visible);
+      TSTree *tree2_copy = ts_tree_make_leaf(cat, {1, 1, {0, 1}}, {3, 3, {0, 3}}, visible);
       AssertThat(ts_tree_eq(tree2, tree2_copy), IsTrue());
 
       TSTree *parent2 = ts_tree_make_node(dog, 2, tree_array({
@@ -313,11 +314,11 @@ describe("Tree", []() {
     });
 
     it("returns false for trees with different sizes", [&]() {
-      TSTree *tree1_copy = ts_tree_make_leaf(cat, {2, 1, 0, 1}, tree1->size, invisible);
+      TSTree *tree1_copy = ts_tree_make_leaf(cat, {2, 1, {0, 1}}, tree1->size, invisible);
       AssertThat(ts_tree_eq(tree1, tree1_copy), IsFalse());
       ts_tree_release(tree1_copy);
 
-      tree1_copy = ts_tree_make_leaf(cat, tree1->padding, {5, 4, 1, 10}, invisible);
+      tree1_copy = ts_tree_make_leaf(cat, tree1->padding, {5, 4, {1, 10}}, invisible);
       AssertThat(ts_tree_eq(tree1, tree1_copy), IsFalse());
       ts_tree_release(tree1_copy);
     });

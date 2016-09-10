@@ -152,7 +152,7 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
 
   if (self->symbol == ts_builtin_sym_error) {
     self->error_cost += ERROR_COST_PER_SKIPPED_CHAR * self->size.chars +
-                        ERROR_COST_PER_SKIPPED_LINE * self->size.rows;
+                        ERROR_COST_PER_SKIPPED_LINE * self->size.extent.row;
     for (size_t i = 0; i < child_count; i++)
       if (!self->children[i]->extra)
         self->error_cost += ERROR_COST_PER_SKIPPED_TREE;
@@ -233,20 +233,20 @@ recur:
 }
 
 size_t ts_tree_start_column(const TSTree *self) {
-  size_t column = self->padding.columns;
-  if (self->padding.rows > 0)
+  size_t column = self->padding.extent.column;
+  if (self->padding.extent.row > 0)
     return column;
   for (const TSTree *tree = self; tree != NULL; tree = tree->context.parent) {
-    column += tree->context.offset.columns;
-    if (tree->context.offset.rows > 0)
+    column += tree->context.offset.extent.column;
+    if (tree->context.offset.extent.row > 0)
       break;
   }
   return column;
 }
 
 size_t ts_tree_end_column(const TSTree *self) {
-  size_t result = self->size.columns;
-  if (self->size.rows == 0)
+  size_t result = self->size.extent.column;
+  if (self->size.extent.row == 0)
     result += ts_tree_start_column(self);
   return result;
 }
