@@ -11,7 +11,7 @@ extern "C" {
 
 typedef struct {
   TSTree *tree;
-  size_t char_index;
+  size_t byte_index;
 } ReusableNode;
 
 typedef struct {
@@ -24,7 +24,7 @@ typedef struct {
   bool print_debugging_graphs;
   TSTree scratch_tree;
   TSTree *cached_token;
-  size_t cached_token_char_index;
+  size_t cached_token_byte_index;
   ReusableNode reusable_node;
 } Parser;
 

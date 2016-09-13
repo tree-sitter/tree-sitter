@@ -307,34 +307,48 @@ static inline long min(long a, long b) {
   return a <= b ? a : b;
 }
 
-void ts_tree_edit(TSTree *self, TSInputEdit edit) {
-  size_t start = edit.position;
-  size_t new_end = edit.position + edit.chars_inserted;
-  size_t old_end = edit.position + edit.chars_removed;
-  assert(old_end <= ts_tree_total_chars(self));
+
+void ts_tree_edit(TSTree *self, const TSInputEdit *edit) {
+  size_t old_end_byte = edit->start_byte + edit->bytes_removed;
+  size_t new_end_byte = edit->start_byte + edit->bytes_added;
+  TSPoint old_end_point = ts_point_add(edit->start_point, edit->extent_removed);
+  TSPoint new_end_point = ts_point_add(edit->start_point, edit->extent_added);
+
+  assert(old_end_byte <= ts_tree_total_bytes(self));
 
   self->has_changes = true;
 
-  if (start < self->padding.chars) {
+  if (edit->start_byte < self->padding.bytes) {
     ts_length_set_unknown(&self->padding);
-    long remaining_padding = self->padding.chars - old_end;
-    if (remaining_padding >= 0) {
-      self->padding.chars = new_end + remaining_padding;
+    if (self->padding.bytes >= old_end_byte) {
+      size_t trailing_padding_bytes = self->padding.bytes - old_end_byte;
+      TSPoint trailing_padding_extent = ts_point_sub(self->padding.extent, old_end_point);
+      self->padding.bytes = new_end_byte + trailing_padding_bytes;
+      self->padding.extent = ts_point_add(new_end_point, trailing_padding_extent);
     } else {
-      self->padding.chars = new_end;
-      self->size.chars += remaining_padding;
       ts_length_set_unknown(&self->size);
+      size_t removed_content_bytes = old_end_byte - self->padding.bytes;
+      TSPoint removed_content_extent = ts_point_sub(old_end_point, self->padding.extent);
+      self->size.bytes = self->size.bytes - removed_content_bytes;
+      self->size.extent = ts_point_sub(self->size.extent, removed_content_extent);
+      self->padding.bytes = new_end_byte;
+      self->padding.extent = new_end_point;
     }
-  } else if (start == self->padding.chars && edit.chars_removed == 0) {
-    self->padding.chars += edit.chars_inserted;
+  } else if (edit->start_byte == self->padding.bytes && edit->bytes_removed == 0) {
     ts_length_set_unknown(&self->padding);
+    self->padding.bytes = self->padding.bytes + edit->bytes_added;
+    self->padding.extent = ts_point_add(self->padding.extent, edit->extent_added);
   } else {
-    self->size.chars += (edit.chars_inserted - edit.chars_removed);
     ts_length_set_unknown(&self->size);
+    size_t trailing_content_bytes = ts_tree_total_bytes(self) - old_end_byte;
+    TSPoint trailing_content_extent = ts_point_sub(ts_tree_total_extent(self), old_end_point);
+    self->size.bytes = new_end_byte + trailing_content_bytes - self->padding.bytes;
+    self->size.extent = ts_point_sub(ts_point_add(new_end_point, trailing_content_extent), self->padding.extent);
   }
 
   bool found_first_child = false;
-  long remainder_to_delete = edit.chars_removed - edit.chars_inserted;
+  long remaining_bytes_to_delete = 0;
+  TSPoint remaining_extent_to_delete = {0, 0};
   TSLength child_left, child_right = ts_length_zero();
   for (size_t i = 0; i < self->child_count; i++) {
     TSTree *child = self->children[i];
@@ -342,30 +356,41 @@ void ts_tree_edit(TSTree *self, TSInputEdit edit) {
 
     if (!found_first_child) {
       child_right = ts_length_add(child_left, ts_tree_total_size(child));
-      if (child_right.chars >= start) {
+      if (child_right.bytes >= edit->start_byte) {
         found_first_child = true;
-        size_t chars_removed = min(edit.chars_removed, child_right.chars - start);
-        remainder_to_delete -= (chars_removed - edit.chars_inserted);
-        ts_tree_edit(child, (TSInputEdit){
-                              .position = start - child_left.chars,
-                              .chars_inserted = edit.chars_inserted,
-                              .chars_removed = chars_removed,
-                            });
-        child_right = ts_length_add(child_left, ts_tree_total_size(child));
+        TSInputEdit child_edit = {
+          .start_byte = edit->start_byte - child_left.bytes,
+          .bytes_added = edit->bytes_added,
+          .bytes_removed = edit->bytes_removed,
+          .start_point = ts_point_sub(edit->start_point, child_left.extent),
+          .extent_added = edit->extent_added,
+          .extent_removed = edit->extent_removed,
+        };
+
+        if (old_end_byte > child_right.bytes) {
+          child_edit.bytes_removed = child_right.bytes - edit->start_byte;
+          child_edit.extent_removed = ts_point_sub(child_right.extent, edit->start_point);
+          remaining_bytes_to_delete = old_end_byte - child_right.bytes;
+          remaining_extent_to_delete = ts_point_sub(old_end_point, child_right.extent);
+        }
+
+        ts_tree_edit(child, &child_edit);
       }
-    } else {
-      if (remainder_to_delete > 0) {
-        size_t chars_removed = min(remainder_to_delete, ts_tree_total_chars(child));
-        remainder_to_delete -= chars_removed;
-        ts_tree_edit(
-          child,
-          (TSInputEdit){
-            .position = 0, .chars_inserted = 0, .chars_removed = chars_removed,
-          });
-      }
-      child_right = ts_length_add(child_right, ts_tree_total_size(child));
+    } else if (remaining_bytes_to_delete > 0) {
+      TSInputEdit child_edit = {
+        .start_byte = 0,
+        .bytes_added = 0,
+        .bytes_removed = min(remaining_bytes_to_delete, ts_tree_total_bytes(child)),
+        .start_point = {0, 0},
+        .extent_added = {0, 0},
+        .extent_removed = ts_point_min(remaining_extent_to_delete, ts_tree_total_size(child).extent),
+      };
+      remaining_bytes_to_delete -= child_edit.bytes_removed;
+      remaining_extent_to_delete = ts_point_sub(remaining_extent_to_delete, child_edit.extent_removed);
+      ts_tree_edit(child, &child_edit);
     }
 
+    child_right = ts_length_add(child_left, ts_tree_total_size(child));
     child->context.offset = child_left;
   }
 }

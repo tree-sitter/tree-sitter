@@ -18,13 +18,19 @@ static inline TSPoint ts_point_sub(TSPoint a, TSPoint b) {
     return (TSPoint){0, a.column - b.column};
 }
 
+static inline TSPoint ts_point_min(TSPoint a, TSPoint b) {
+  if (a.row < b.row || (a.row == b.row && a.column < b.column))
+    return a;
+  else
+    return b;
+}
+
 static inline bool ts_length_is_unknown(TSLength self) {
-  return self.chars > 0 && self.bytes == 0;
+  return self.bytes > 0 && self.chars == 0;
 }
 
 static inline void ts_length_set_unknown(TSLength *self) {
-  self->bytes = 0;
-  self->extent = (TSPoint){0, 0};
+  self->chars = 0;
 }
 
 static inline TSLength ts_length_min(TSLength len1, TSLength len2) {
@@ -34,13 +40,13 @@ static inline TSLength ts_length_min(TSLength len1, TSLength len2) {
 static inline TSLength ts_length_add(TSLength len1, TSLength len2) {
   TSLength result;
   result.chars = len1.chars + len2.chars;
+  result.bytes = len1.bytes + len2.bytes;
+  result.extent = ts_point_add(len1.extent, len2.extent);
 
   if (ts_length_is_unknown(len1) || ts_length_is_unknown(len2)) {
-    result.bytes = 0;
-    result.extent = (TSPoint){0, result.chars};
+    result.chars = 0;
   } else {
-    result.bytes = len1.bytes + len2.bytes;
-    result.extent = ts_point_add(len1.extent, len2.extent);
+    result.chars = len1.chars + len2.chars;
   }
 
   return result;
@@ -48,14 +54,13 @@ static inline TSLength ts_length_add(TSLength len1, TSLength len2) {
 
 static inline TSLength ts_length_sub(TSLength len1, TSLength len2) {
   TSLength result;
-  result.chars = len1.chars - len2.chars;
+  result.bytes = len1.bytes - len2.bytes;
+  result.extent = ts_point_sub(len1.extent, len2.extent);
 
   if (ts_length_is_unknown(len1) || ts_length_is_unknown(len2)) {
-    result.bytes = 0;
-    result.extent = (TSPoint){0, result.chars};
+    result.chars = 0;
   } else {
-    result.bytes = len1.bytes - len2.bytes;
-    result.extent = ts_point_sub(len1.extent, len2.extent);
+    result.chars = len1.chars - len2.chars;
   }
 
   return result;

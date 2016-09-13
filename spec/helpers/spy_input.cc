@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <assert.h>
 
+using std::pair;
 using std::string;
 
 static const size_t UTF8_MAX_CHAR_SIZE = 4;
@@ -68,34 +69,63 @@ TSInput SpyInput::input() {
   return result;
 }
 
-TSInputEdit SpyInput::replace(size_t start_char, size_t chars_removed, string text) {
-  string text_removed = swap_substr(start_char, chars_removed, text);
-  size_t chars_inserted = string_char_count(encoding, text);
-  undo_stack.push_back(SpyInputEdit{start_char, chars_inserted, text_removed});
-  return {start_char, chars_inserted, chars_removed};
+static TSPoint get_extent(string text) {
+  TSPoint result = {0, 0};
+  for (auto i = text.begin(); i != text.end(); i++) {
+    if (*i == '\n') {
+      result.row++;
+      result.column = 0;
+    } else {
+      result.column++;
+    }
+  }
+  return result;
+}
+
+TSInputEdit SpyInput::replace(size_t start_byte, size_t bytes_removed, string text) {
+  auto swap = swap_substr(start_byte, bytes_removed, text);
+  size_t bytes_added = text.size();
+  undo_stack.push_back(SpyInputEdit{start_byte, bytes_added, swap.first});
+  TSInputEdit result = {};
+  result.start_byte = start_byte;
+  result.bytes_added = bytes_added;
+  result.bytes_removed = bytes_removed;
+  result.start_point = swap.second;
+  result.extent_removed = get_extent(swap.first);
+  result.extent_added = get_extent(text);
+  return result;
 }
 
 TSInputEdit SpyInput::undo() {
   SpyInputEdit entry = undo_stack.back();
   undo_stack.pop_back();
-  swap_substr(entry.position, entry.chars_removed, entry.text_inserted);
-  size_t chars_inserted = string_char_count(encoding, entry.text_inserted);
-  return TSInputEdit{entry.position, chars_inserted, entry.chars_removed};
+  auto swap = swap_substr(entry.start_byte, entry.bytes_removed, entry.text_inserted);
+  TSInputEdit result;
+  result.start_byte = entry.start_byte;
+  result.bytes_removed = entry.bytes_removed;
+  result.bytes_added = entry.text_inserted.size();
+  result.start_point = swap.second;
+  result.extent_removed = get_extent(swap.first);
+  result.extent_added = get_extent(entry.text_inserted);
+  return result;
 }
 
-string SpyInput::swap_substr(size_t start_char, size_t chars_removed, string text) {
-  long start_byte = string_byte_for_character(encoding, content, 0, start_char);
-  assert(start_byte >= 0);
-
-  long bytes_removed = string_byte_for_character(encoding, content, start_byte, chars_removed);
-  if (bytes_removed < 0)
-    bytes_removed = content.size() - start_byte;
+pair<string, TSPoint> SpyInput::swap_substr(size_t start_byte, size_t bytes_removed, string text) {
+  TSPoint start_position = {0, 0};
+  for (auto i = content.begin(), n = content.begin() + start_byte; i < n; i++) {
+    if (*i == '\n') {
+      start_position.row++;
+      start_position.column = 0;
+    } else {
+      start_position.column++;
+    }
+  }
 
   string text_removed = content.substr(start_byte, bytes_removed);
   content.erase(start_byte, bytes_removed);
   content.insert(start_byte, text);
 
-  return text_removed;
+  return {text_removed, start_position};
 }
 
 void SpyInput::clear() {

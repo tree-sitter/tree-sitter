@@ -80,13 +80,13 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
   if (!self->tree)
     return;
 
-  size_t max_chars = ts_tree_total_chars(self->tree);
-  if (edit.position > max_chars)
-    edit.position = max_chars;
-  if (edit.chars_removed > max_chars - edit.position)
-    edit.chars_removed = max_chars - edit.position;
+  size_t max_bytes = ts_tree_total_bytes(self->tree);
+  if (edit.start_byte > max_bytes)
+    edit.start_byte = max_bytes;
+  if (edit.bytes_removed > max_bytes - edit.start_byte)
+    edit.bytes_removed = max_bytes - edit.start_byte;
 
-  ts_tree_edit(self->tree, edit);
+  ts_tree_edit(self->tree, &edit);
 }
 
 typedef Array(TSRange) RangeArray;
@@ -107,18 +107,19 @@ static bool push_diff(RangeArray *results, TSNode *node, bool *extend_last_chang
   return array_push(results, ((TSRange){start, end}));
 }
 
-static bool ts_tree_diff(TSDocument *doc, TSTree *old, TSNode *new_node,
-                         size_t depth, RangeArray *results, bool *extend_last_change) {
+static bool ts_tree_get_changes(TSDocument *doc, TSTree *old, TSNode *new_node,
+                                size_t depth, RangeArray *results,
+                                bool *extend_last_change) {
   TSTree *new = (TSTree *)(new_node->data);
 
   PRINT("At %lu, ('%s', %lu) vs ('%s', %lu) {",
-    ts_node_start_char(*new_node),
-    NAME(old), old->size.chars,
-    NAME(new), new->size.chars);
+    ts_node_start_byte(*new_node),
+    NAME(old), old->size.bytes,
+    NAME(new), new->size.bytes);
 
   if (old->visible) {
     if (old == new || (old->symbol == new->symbol &&
-        old->size.chars == new->size.chars && !old->has_changes)) {
+        old->size.bytes == new->size.bytes && !old->has_changes)) {
       *extend_last_change = false;
       PRINT("}", NULL);
       return true;
@@ -140,21 +141,21 @@ static bool ts_tree_diff(TSDocument *doc, TSTree *old, TSNode *new_node,
 
   depth++;
   size_t old_child_start;
-  size_t old_child_end = ts_node_start_char(*new_node) - old->padding.chars;
+  size_t old_child_end = ts_node_start_byte(*new_node) - old->padding.bytes;
 
   for (size_t j = 0; j < old->child_count; j++) {
     TSTree *old_child = old->children[j];
-    if (old_child->padding.chars == 0 && old_child->size.chars == 0)
+    if (old_child->padding.bytes == 0 && old_child->size.bytes == 0)
       continue;
 
-    old_child_start = old_child_end + old_child->padding.chars;
-    old_child_end = old_child_start + old_child->size.chars;
+    old_child_start = old_child_end + old_child->padding.bytes;
+    old_child_end = old_child_start + old_child->size.bytes;
 
     while (true) {
-      size_t new_child_start = ts_node_start_char(*new_node);
+      size_t new_child_start = ts_node_start_byte(*new_node);
       if (new_child_start < old_child_start) {
         PRINT("skip new:('%s', %lu), old:('%s', %lu), old_parent:%s",
-          NAME(new_node->data), ts_node_start_char(*new_node), NAME(old_child),
+          NAME(new_node->data), ts_node_start_byte(*new_node), NAME(old_child),
           old_child_start, NAME(old));
 
         if (!push_diff(results, new_node, extend_last_change))
@@ -163,23 +164,23 @@ static bool ts_tree_diff(TSDocument *doc, TSTree *old, TSNode *new_node,
         TSNode next = ts_node_next_sibling(*new_node);
         if (next.data) {
           PRINT("advance before diff ('%s', %lu) -> ('%s', %lu)",
-            NAME(new_node->data), ts_node_start_char(*new_node), NAME(next.data),
-            ts_node_start_char(next));
+            NAME(new_node->data), ts_node_start_byte(*new_node), NAME(next.data),
+            ts_node_start_byte(next));
 
           *new_node = next;
         } else {
           break;
         }
       } else if (new_child_start == old_child_start) {
-        if (!ts_tree_diff(doc, old_child, new_node, depth, results, extend_last_change))
+        if (!ts_tree_get_changes(doc, old_child, new_node, depth, results, extend_last_change))
           return false;
 
         if (old_child->visible) {
           TSNode next = ts_node_next_sibling(*new_node);
           if (next.data) {
             PRINT("advance after diff ('%s', %lu) -> ('%s', %lu)",
-              NAME(new_node->data), ts_node_start_char(*new_node), NAME(next.data),
-              ts_node_start_char(next));
+              NAME(new_node->data), ts_node_start_byte(*new_node), NAME(next.data),
+              ts_node_start_byte(next));
             *new_node = next;
           }
         }
@@ -225,7 +226,7 @@ int ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges,
     if (ranges && range_count) {
       bool extend_last_change = false;
       RangeArray result = {0, 0, 0};
-      if (!ts_tree_diff(self, old_tree, &new_root, 0, &result, &extend_last_change))
+      if (!ts_tree_get_changes(self, old_tree, &new_root, 0, &result, &extend_last_change))
         return -1;
       *ranges = result.contents;
       *range_count = result.size;

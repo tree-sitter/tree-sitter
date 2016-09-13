@@ -67,6 +67,18 @@ describe("Document", [&]() {
         "(array (true) (false))");
     });
 
+    it("allows columns to be measured in either bytes or characters", [&]() {
+      const char16_t content[] = u"[true, false]";
+      spy_input->content = string((const char *)content, sizeof(content));
+      spy_input->encoding = TSInputEncodingUTF16;
+      // spy_input->measure_columns_in_bytes
+
+      ts_document_set_input(doc, spy_input->input());
+      ts_document_invalidate(doc);
+      ts_document_parse(doc);
+      TSNode root_node = ts_document_root_node(doc);
+    });
+
     it("allows the input to be retrieved later", [&]() {
       ts_document_set_input(doc, spy_input->input());
       AssertThat(ts_document_input(doc).payload, Equals<void *>(spy_input));
@@ -85,7 +97,12 @@ describe("Document", [&]() {
       ts_document_set_input(doc, spy_input->input());
 
       // Insert 'null', delete '1'.
-      ts_document_edit(doc, {strlen("{\"key\": ["), 4, 1});
+      TSInputEdit edit = {};
+      edit.start_point.column = edit.start_byte = strlen("{\"key\": [");
+      edit.extent_added.column = edit.bytes_added = 4;
+      edit.extent_removed.column = edit.bytes_removed = 1;
+
+      ts_document_edit(doc, edit);
       ts_document_parse(doc);
 
       TSNode new_root = ts_document_root_node(doc);
@@ -194,7 +211,7 @@ describe("Document", [&]() {
     });
   });
 
-  describe("parse_and_get_changed_ranges()", [&]() {
+    describe("parse_and_get_changed_ranges()", [&]() {
     SpyInput *input;
 
     before_each([&]() {

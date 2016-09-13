@@ -183,16 +183,23 @@ describe("Tree", []() {
 
     describe("edits within a tree's padding", [&]() {
       it("resizes the padding of the tree and its leftmost descendants", [&]() {
-        ts_tree_edit(tree, {1, 1, 0});
-
+        TSInputEdit edit = {
+          .start_byte = 1,
+          .bytes_removed = 0,
+          .bytes_added = 1,
+          .start_point = {0, 1},
+          .extent_removed = {0, 0},
+          .extent_added = {0, 1},
+        };
+        ts_tree_edit(tree, &edit);
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<TSLength>({0, 3, {0, 0}}));
+        AssertThat(tree->padding, Equals<TSLength>({3, 0, {0, 3}}));
         AssertThat(tree->size, Equals<TSLength>({13, 13, {0, 13}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 3, {0, 0}}));
+        AssertThat(tree->children[0]->padding, Equals<TSLength>({3, 0, {0, 3}}));
         AssertThat(tree->children[0]->size, Equals<TSLength>({3, 3, {0, 3}}));
 
         AssertThat(tree->children[1]->has_changes, IsFalse());
@@ -203,32 +210,48 @@ describe("Tree", []() {
 
     describe("edits that start in a tree's padding but extend into its content", [&]() {
       it("shrinks the content to compensate for the expanded padding", [&]() {
-        ts_tree_edit(tree, {1, 4, 3});
-
+        TSInputEdit edit = {
+          .start_byte = 1,
+          .bytes_removed = 3,
+          .bytes_added = 4,
+          .start_point = {0, 1},
+          .extent_removed = {0, 3},
+          .extent_added = {0, 4},
+        };
+        ts_tree_edit(tree, &edit);
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<TSLength>({0, 5, {0, 0}}));
-        AssertThat(tree->size, Equals<TSLength>({0, 11, {0, 0}}));
+        AssertThat(tree->padding, Equals<TSLength>({5, 0, {0, 5}}));
+        AssertThat(tree->size, Equals<TSLength>({11, 0, {0, 11}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 5, {0, 0}}));
-        AssertThat(tree->children[0]->size, Equals<TSLength>({0, 1, {0, 0}}));
+        AssertThat(tree->children[0]->padding, Equals<TSLength>({5, 0, {0, 5}}));
+        AssertThat(tree->children[0]->size, Equals<TSLength>({1, 0, {0, 1}}));
       });
     });
 
     describe("insertions at the edge of a tree's padding", [&]() {
       it("expands the tree's padding", [&]() {
-        ts_tree_edit(tree, {2, 2, 0});
+        TSInputEdit edit = {
+          .start_byte = 2,
+          .bytes_removed = 0,
+          .bytes_added = 2,
+          .start_point = {0, 2},
+          .extent_removed = {0, 0},
+          .extent_added = {0, 2},
+        };
+        ts_tree_edit(tree, &edit);
+        assert_consistent(tree);
 
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<TSLength>({0, 4, {0, 0}}));
+        AssertThat(tree->padding, Equals<TSLength>({4, 0, {0, 4}}));
         AssertThat(tree->size, Equals<TSLength>({13, 13, {0, 13}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 4, {0, 0}}));
+        AssertThat(tree->children[0]->padding, Equals<TSLength>({4, 0, {0, 4}}));
         AssertThat(tree->children[0]->size, Equals<TSLength>({3, 3, {0, 3}}));
 
         AssertThat(tree->children[1]->has_changes, IsFalse());
@@ -237,17 +260,24 @@ describe("Tree", []() {
 
     describe("replacements starting at the edge of a tree's padding", [&]() {
       it("resizes the content and not the padding", [&]() {
-        ts_tree_edit(tree, {2, 5, 2});
-
+        TSInputEdit edit = {
+          .start_byte = 2,
+          .bytes_removed = 2,
+          .bytes_added = 5,
+          .start_point = {0, 2},
+          .extent_removed = {0, 2},
+          .extent_added = {0, 5},
+        };
+        ts_tree_edit(tree, &edit);
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
         AssertThat(tree->padding, Equals<TSLength>({2, 2, {0, 2}}));
-        AssertThat(tree->size, Equals<TSLength>({0, 16, {0, 0}}));
+        AssertThat(tree->size, Equals<TSLength>({16, 0, {0, 16}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
         AssertThat(tree->children[0]->padding, Equals<TSLength>({2, 2, {0, 2}}));
-        AssertThat(tree->children[0]->size, Equals<TSLength>({0, 6, {0, 0}}));
+        AssertThat(tree->children[0]->size, Equals<TSLength>({6, 0, {0, 6}}));
 
         AssertThat(tree->children[1]->has_changes, IsFalse());
       });
@@ -255,16 +285,25 @@ describe("Tree", []() {
 
     describe("deletions that span more than one child node", [&]() {
       it("shrinks subsequent child nodes", [&]() {
-        ts_tree_edit(tree, {1, 3, 10});
+        TSInputEdit edit = {
+          .start_byte = 1,
+          .bytes_removed = 10,
+          .bytes_added = 3,
+          .start_point = {0, 1},
+          .extent_removed = {0, 10},
+          .extent_added = {0, 3},
+        };
+        ts_tree_edit(tree, &edit);
+        assert_consistent(tree);
 
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<TSLength>({0, 4, {0, 0}}));
-        AssertThat(tree->size, Equals<TSLength>({0, 4, {0, 0}}));
+        AssertThat(tree->padding, Equals<TSLength>({4, 0, {0, 4}}));
+        AssertThat(tree->size, Equals<TSLength>({4, 0, {0, 4}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<TSLength>({0, 4, {0, 0}}));
+        AssertThat(tree->children[0]->padding, Equals<TSLength>({4, 0, {0, 4}}));
         AssertThat(tree->children[0]->size, Equals<TSLength>({0, 0, {0, 0}}));
 
         AssertThat(tree->children[1]->has_changes, IsTrue());
@@ -272,7 +311,7 @@ describe("Tree", []() {
         AssertThat(tree->children[1]->size, Equals<TSLength>({0, 0, {0, 0}}));
 
         AssertThat(tree->children[2]->has_changes, IsTrue());
-        AssertThat(tree->children[2]->padding, Equals<TSLength>({0, 1, {0, 0}}));
+        AssertThat(tree->children[2]->padding, Equals<TSLength>({1, 0, {0, 1}}));
         AssertThat(tree->children[2]->size, Equals<TSLength>({3, 3, {0, 3}}));
       });
     });

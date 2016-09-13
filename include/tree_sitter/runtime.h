@@ -35,15 +35,18 @@ typedef struct {
 } TSLogger;
 
 typedef struct {
-  size_t position;
-  size_t chars_inserted;
-  size_t chars_removed;
-} TSInputEdit;
-
-typedef struct {
   size_t row;
   size_t column;
 } TSPoint;
+
+typedef struct {
+  size_t start_byte;
+  size_t bytes_removed;
+  size_t bytes_added;
+  TSPoint start_point;
+  TSPoint extent_removed;
+  TSPoint extent_added;
+} TSInputEdit;
 
 typedef struct {
   TSPoint start;

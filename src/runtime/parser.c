@@ -144,7 +144,7 @@ error:
 }
 
 static void parser__pop_reusable_node(ReusableNode *reusable_node) {
-  reusable_node->char_index += ts_tree_total_chars(reusable_node->tree);
+  reusable_node->byte_index += ts_tree_total_bytes(reusable_node->tree);
   while (reusable_node->tree) {
     TSTree *parent = reusable_node->tree->context.parent;
     size_t next_index = reusable_node->tree->context.index + 1;
@@ -270,7 +270,7 @@ static TSTree *parser__lex(Parser *self, TSStateId parse_state) {
       break;
     }
 
-    if (self->lexer.current_position.chars == position.chars) {
+    if (self->lexer.current_position.bytes == position.bytes) {
       if (!skipped_error) {
         error_start_position = self->lexer.current_position;
         first_error_character = self->lexer.lookahead;
@@ -317,15 +317,15 @@ static TSTree *parser__get_lookahead(Parser *self, StackVersion version,
   TSLength position = ts_stack_top_position(self->stack, version);
 
   while (reusable_node->tree) {
-    if (reusable_node->char_index > position.chars) {
+    if (reusable_node->byte_index > position.bytes) {
       LOG("before_reusable sym:%s, pos:%lu",
-          SYM_NAME(reusable_node->tree->symbol), reusable_node->char_index);
+          SYM_NAME(reusable_node->tree->symbol), reusable_node->byte_index);
       break;
     }
 
-    if (reusable_node->char_index < position.chars) {
+    if (reusable_node->byte_index < position.bytes) {
       LOG("past_reusable sym:%s, pos:%lu",
-          SYM_NAME(reusable_node->tree->symbol), reusable_node->char_index);
+          SYM_NAME(reusable_node->tree->symbol), reusable_node->byte_index);
       parser__pop_reusable_node(reusable_node);
       continue;
     }
@@ -333,7 +333,7 @@ static TSTree *parser__get_lookahead(Parser *self, StackVersion version,
     if (reusable_node->tree->has_changes) {
       LOG("cant_reuse_changed tree:%s, size:%lu",
           SYM_NAME(reusable_node->tree->symbol),
-          reusable_node->tree->size.chars);
+          reusable_node->tree->size.bytes);
       if (!parser__breakdown_reusable_node(reusable_node)) {
         parser__pop_reusable_node(reusable_node);
         CHECK(parser__breakdown_top_of_stack(self, version));
@@ -344,7 +344,7 @@ static TSTree *parser__get_lookahead(Parser *self, StackVersion version,
     if (reusable_node->tree->symbol == ts_builtin_sym_error) {
       LOG("cant_reuse_error tree:%s, size:%lu",
           SYM_NAME(reusable_node->tree->symbol),
-          reusable_node->tree->size.chars);
+          reusable_node->tree->size.bytes);
       if (!parser__breakdown_reusable_node(reusable_node)) {
         parser__pop_reusable_node(reusable_node);
         CHECK(parser__breakdown_top_of_stack(self, version));
@@ -357,7 +357,7 @@ static TSTree *parser__get_lookahead(Parser *self, StackVersion version,
     return result;
   }
 
-  if (self->cached_token && position.chars == self->cached_token_char_index) {
+  if (self->cached_token && position.bytes == self->cached_token_byte_index) {
     ts_tree_retain(self->cached_token);
     return self->cached_token;
   }
@@ -1073,7 +1073,7 @@ static bool parser__advance(Parser *self, StackVersion version,
 
       validated_lookahead = true;
       LOG("lookahead sym:%s, size:%lu", SYM_NAME(lookahead->symbol),
-          lookahead->size.chars);
+          lookahead->size.bytes);
     }
 
     bool reduction_stopped_at_error = false;
