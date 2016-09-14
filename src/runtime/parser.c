@@ -1224,6 +1224,7 @@ bool parser_init(Parser *self) {
   self->finished_tree = NULL;
   self->stack = NULL;
   array_init(&self->reduce_actions);
+  array_init(&self->tree_stack);
 
   self->stack = ts_stack_new();
   if (!self->stack)
@@ -1249,6 +1250,8 @@ void parser_destroy(Parser *self) {
     ts_stack_delete(self->stack);
   if (self->reduce_actions.contents)
     array_delete(&self->reduce_actions);
+  if (self->tree_stack.contents)
+    array_delete(&self->tree_stack);
 }
 
 TSTree *parser_parse(Parser *self, TSInput input, TSTree *old_tree) {
@@ -1294,7 +1297,7 @@ TSTree *parser_parse(Parser *self, TSInput input, TSTree *old_tree) {
   LOG_TREE();
   ts_stack_clear(self->stack);
   parser__clear_cached_token(self);
-  ts_tree_assign_parents(self->finished_tree);
+  CHECK(ts_tree_assign_parents(self->finished_tree, &self->tree_stack));
   return self->finished_tree;
 
 error:

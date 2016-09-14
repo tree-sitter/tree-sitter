@@ -91,27 +91,28 @@ TSTree *ts_tree_make_copy(TSTree *self) {
   return result;
 }
 
-void ts_tree_assign_parents(TSTree *self) {
-  TSLength offset;
-
-recur:
-  offset = ts_length_zero();
-  for (size_t i = 0; i < self->child_count; i++) {
-    TSTree *child = self->children[i];
-    if (child->context.parent != self || child->context.index != i) {
-      child->context.parent = self;
-      child->context.index = i;
-      child->context.offset = offset;
-      if (i == self->child_count - 1) {
-        self = child;
-        goto recur;
+bool ts_tree_assign_parents(TSTree *self, TreeArray *stack) {
+  array_clear(stack);
+  if (!array_push(stack, self))
+    return false;
+  while (stack->size > 0) {
+    TSTree *tree = array_pop(stack);
+    TSLength offset = ts_length_zero();
+    for (size_t i = 0; i < tree->child_count; i++) {
+      TSTree *child = tree->children[i];
+      if (child->context.parent != tree || child->context.index != i) {
+        child->context.parent = tree;
+        child->context.index = i;
+        child->context.offset = offset;
+        if (!array_push(stack, child))
+          return false;
       }
-
-      ts_tree_assign_parents(child);
+      offset = ts_length_add(offset, ts_tree_total_size(child));
     }
-    offset = ts_length_add(offset, ts_tree_total_size(child));
   }
+  return true;
 }
+
 
 void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   if (self->child_count > 0)
