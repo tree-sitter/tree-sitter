@@ -19,6 +19,8 @@ static void expect_the_correct_tree(TSNode node, TSDocument *document, string tr
 
 static void expect_a_consistent_tree(TSNode node, TSDocument *document) {
   size_t child_count = ts_node_child_count(node);
+  size_t start_byte = ts_node_start_byte(node);
+  size_t end_byte = ts_node_end_byte(node);
   size_t start_char = ts_node_start_char(node);
   size_t end_char = ts_node_end_char(node);
   TSPoint start_point = ts_node_start_point(node);
@@ -26,21 +28,27 @@ static void expect_a_consistent_tree(TSNode node, TSDocument *document) {
   bool has_changes = ts_node_has_changes(node);
   bool some_child_has_changes = false;
 
+  AssertThat(start_byte, !IsGreaterThan(end_byte));
   AssertThat(start_char, !IsGreaterThan(end_char));
   AssertThat(start_point, !IsGreaterThan(end_point));
 
+  size_t last_child_end_byte = start_byte;
   size_t last_child_end_char = start_char;
   TSPoint last_child_end_point = start_point;
 
   for (size_t i = 0; i < child_count; i++) {
     TSNode child = ts_node_child(node, i);
+    size_t child_start_byte = ts_node_start_byte(child);
+    size_t child_end_byte = ts_node_end_byte(child);
     size_t child_start_char = ts_node_start_char(child);
     size_t child_end_char = ts_node_end_char(child);
     TSPoint child_start_point = ts_node_start_point(child);
     TSPoint child_end_point = ts_node_end_point(child);
 
+    AssertThat(child_start_byte, !IsLessThan(last_child_end_byte));
     AssertThat(child_start_char, !IsLessThan(last_child_end_char));
     AssertThat(child_start_point, !IsLessThan(last_child_end_point));
+    last_child_end_byte = child_end_byte;
     last_child_end_char = child_end_char;
     last_child_end_point = child_end_point;
 
@@ -51,10 +59,11 @@ static void expect_a_consistent_tree(TSNode node, TSDocument *document) {
   }
 
   if (child_count > 0) {
-    AssertThat(end_char, !IsLessThan(last_child_end_char));
+    AssertThat(end_byte, !IsLessThan(last_child_end_byte));
+    AssertThat(end_point, !IsLessThan(last_child_end_point));
 
     if (!has_changes)
-      AssertThat(end_point, !IsLessThan(last_child_end_point));
+      AssertThat(end_char, !IsLessThan(last_child_end_char));
 
     AssertThat(has_changes, Equals(some_child_has_changes));
   }
