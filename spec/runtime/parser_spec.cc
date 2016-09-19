@@ -127,7 +127,6 @@ describe("Parser", [&]() {
         TSNode error = ts_node_named_child(root, 1);
         AssertThat(ts_node_symbol(error), Equals(ts_builtin_sym_error));
         AssertThat(ts_node_type(error, doc), Equals("ERROR"));
-        AssertThat(get_node_text(error), Equals(", faaaaalse"));
         AssertThat(ts_node_child_count(error), Equals<size_t>(2));
 
         TSNode comma = ts_node_child(error, 0);
@@ -159,6 +158,15 @@ describe("Parser", [&]() {
         TSNode last = ts_node_named_child(root, 1);
         AssertThat(ts_node_type(last, doc), Equals("true"));
         AssertThat(get_node_text(last), Equals("true"));
+      });
+    });
+
+    describe("when there is an unexpected string at the end of a token", [&]() {
+      it("computes the error's size and position correctly", [&]() {
+        set_text("  [123, \"hi\n, true]");
+
+        assert_root_node(
+          "(array (number) (ERROR (UNEXPECTED '\\n')) (true))");
       });
     });
 
@@ -244,7 +252,7 @@ describe("Parser", [&]() {
               "(identifier) "
               "(math_op (number) (member_access (identifier) (identifier))))))");
 
-          AssertThat(input->strings_read, Equals(vector<string>({ " + abc.d)", "" })));
+          AssertThat(input->strings_read, Equals(vector<string>({ " + abc.d)" })));
         });
       });
 
@@ -268,7 +276,7 @@ describe("Parser", [&]() {
                 "(number) "
                 "(math_op (number) (math_op (number) (identifier)))))))");
 
-          AssertThat(input->strings_read, Equals(vector<string>({ "123 || 5 +", "" })));
+          AssertThat(input->strings_read, Equals(vector<string>({ "123 || 5 +" })));
         });
       });
 
@@ -517,7 +525,6 @@ describe("Parser", [&]() {
 
         ts_document_free(doc);
         doc = nullptr;
-        AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
       }
 
       record_alloc::stop();

@@ -247,7 +247,6 @@ static TSTree *parser__lex(Parser *self, TSStateId parse_state) {
   TSStateId start_state = self->language->lex_states[parse_state];
   TSStateId current_state = start_state;
   TSLength start_position = self->lexer.current_position;
-  TSLength position = start_position;
   LOG("lex state:%d", start_state);
 
   bool skipped_error = false;
@@ -259,34 +258,32 @@ static TSTree *parser__lex(Parser *self, TSStateId parse_state) {
   while (!self->language->lex_fn(&self->lexer, current_state)) {
     if (current_state != TS_STATE_ERROR) {
       LOG("retry_in_error_mode");
-      ts_lexer_reset(&self->lexer, position);
-      ts_lexer_start(&self->lexer, start_state);
       current_state = TS_STATE_ERROR;
+      ts_lexer_reset(&self->lexer, start_position);
+      ts_lexer_start(&self->lexer, current_state);
       continue;
     }
 
-    if (self->lexer.lookahead == 0) {
-      self->lexer.result_symbol = ts_builtin_sym_error;
-      break;
+    if (!skipped_error) {
+      error_start_position = self->lexer.token_start_position;
+      first_error_character = self->lexer.lookahead;
     }
 
-    if (self->lexer.current_position.bytes == position.bytes) {
-      if (!skipped_error) {
-        error_start_position = self->lexer.current_position;
-        first_error_character = self->lexer.lookahead;
+    if (self->lexer.current_position.bytes == error_end_position.bytes) {
+      if (self->lexer.lookahead == 0) {
+        self->lexer.result_symbol = ts_builtin_sym_error;
+        break;
       }
-      skipped_error = true;
       self->lexer.advance(&self->lexer, TS_STATE_ERROR, false);
-      error_end_position = self->lexer.current_position;
     }
 
-    position = self->lexer.current_position;
+    skipped_error = true;
+    error_end_position = self->lexer.current_position;
   }
 
   TSTree *result;
 
   if (skipped_error) {
-    error_start_position = ts_length_min(error_start_position, self->lexer.token_start_position);
     TSLength padding = ts_length_sub(error_start_position, start_position);
     TSLength size = ts_length_sub(error_end_position, error_start_position);
     ts_lexer_reset(&self->lexer, error_end_position);
@@ -804,7 +801,10 @@ static void parser__start(Parser *self, TSInput input, TSTree *previous_tree) {
   self->finished_tree = NULL;
 }
 
-static bool parser__accept(Parser *self, StackVersion version) {
+static bool parser__accept(Parser *self, StackVersion version, TSTree *lookahead) {
+  lookahead->extra = true;
+  assert(lookahead->symbol == ts_builtin_sym_end);
+  CHECK(ts_stack_push(self->stack, version, lookahead, false, 1));
   StackPopResult pop = ts_stack_pop_all(self->stack, version);
   CHECK(pop.status);
   CHECK(pop.slices.size);
@@ -821,7 +821,7 @@ static bool parser__accept(Parser *self, StackVersion version) {
       for (size_t j = trees.size - 1; j + 1 > 0; j--) {
         TSTree *child = trees.contents[j];
         if (!child->extra) {
-          root = ts_tree_make_copy(child);
+          CHECK(root = ts_tree_make_copy(child));
           root->child_count = 0;
           for (size_t k = 0; k < child->child_count; k++)
             ts_tree_retain(child->children[k]);
@@ -848,6 +848,8 @@ static bool parser__accept(Parser *self, StackVersion version) {
   return true;
 
 error:
+  for (size_t i = 0; i < pop.slices.size; i++)
+    ts_tree_array_delete(&pop.slices.contents[i].trees);
   return false;
 }
 
@@ -1021,7 +1023,7 @@ static bool parser__recover(Parser *self, StackVersion version, TSStateId state,
     TreeArray children = array_new();
     TSTree *parent = ts_tree_make_error_node(&children);
     CHECK(parser__push(self, version, parent, 1));
-    return parser__accept(self, version);
+    return parser__accept(self, version, lookahead);
   }
 
   LOG("recover state:%u", state);
@@ -1159,7 +1161,7 @@ static bool parser__advance(Parser *self, StackVersion version,
             continue;
 
           LOG("accept");
-          CHECK(parser__accept(self, version));
+          CHECK(parser__accept(self, version, lookahead));
 
           ts_tree_release(lookahead);
           return true;

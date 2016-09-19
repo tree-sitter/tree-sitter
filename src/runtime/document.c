@@ -82,7 +82,7 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
 
   size_t max_bytes = ts_tree_total_bytes(self->tree);
   if (edit.start_byte > max_bytes)
-    edit.start_byte = max_bytes;
+    return;
   if (edit.bytes_removed > max_bytes - edit.start_byte)
     edit.bytes_removed = max_bytes - edit.start_byte;
 

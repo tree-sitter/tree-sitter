@@ -10,63 +10,69 @@
 #include "helpers/random_helpers.h"
 #include <set>
 
-static void expect_the_correct_tree(TSNode node, TSDocument *document, string tree_string) {
-  const char *node_string = ts_node_string(node, document);
+static void assert_correct_tree_shape(const TSDocument *document, string tree_string) {
+  TSNode root_node = ts_document_root_node(document);
+  const char *node_string = ts_node_string(root_node, document);
   string result(node_string);
   ts_free((void *)node_string);
   AssertThat(result, Equals(tree_string));
 }
 
-static void expect_a_consistent_tree(TSNode node, TSDocument *document) {
+static void assert_consistent_sizes(TSNode node) {
   size_t child_count = ts_node_child_count(node);
   size_t start_byte = ts_node_start_byte(node);
   size_t end_byte = ts_node_end_byte(node);
-  size_t start_char = ts_node_start_char(node);
-  size_t end_char = ts_node_end_char(node);
   TSPoint start_point = ts_node_start_point(node);
   TSPoint end_point = ts_node_end_point(node);
-  bool has_changes = ts_node_has_changes(node);
   bool some_child_has_changes = false;
 
   AssertThat(start_byte, !IsGreaterThan(end_byte));
-  AssertThat(start_char, !IsGreaterThan(end_char));
   AssertThat(start_point, !IsGreaterThan(end_point));
 
   size_t last_child_end_byte = start_byte;
-  size_t last_child_end_char = start_char;
   TSPoint last_child_end_point = start_point;
 
   for (size_t i = 0; i < child_count; i++) {
     TSNode child = ts_node_child(node, i);
     size_t child_start_byte = ts_node_start_byte(child);
-    size_t child_end_byte = ts_node_end_byte(child);
-    size_t child_start_char = ts_node_start_char(child);
-    size_t child_end_char = ts_node_end_char(child);
     TSPoint child_start_point = ts_node_start_point(child);
-    TSPoint child_end_point = ts_node_end_point(child);
 
     AssertThat(child_start_byte, !IsLessThan(last_child_end_byte));
-    AssertThat(child_start_char, !IsLessThan(last_child_end_char));
     AssertThat(child_start_point, !IsLessThan(last_child_end_point));
-    last_child_end_byte = child_end_byte;
-    last_child_end_char = child_end_char;
-    last_child_end_point = child_end_point;
-
-    expect_a_consistent_tree(child, document);
-
+    assert_consistent_sizes(child);
     if (ts_node_has_changes(child))
       some_child_has_changes = true;
+
+    last_child_end_byte = ts_node_end_byte(child);
+    last_child_end_point = ts_node_end_point(child);
   }
 
   if (child_count > 0) {
     AssertThat(end_byte, !IsLessThan(last_child_end_byte));
     AssertThat(end_point, !IsLessThan(last_child_end_point));
-
-    if (!has_changes)
-      AssertThat(end_char, !IsLessThan(last_child_end_char));
-
-    AssertThat(has_changes, Equals(some_child_has_changes));
   }
+
+  if (some_child_has_changes) {
+    AssertThat(ts_node_has_changes(node), IsTrue());
+  }
+}
+
+static void assert_correct_tree_size(TSDocument *document, string content) {
+  TSNode root_node = ts_document_root_node(document);
+  size_t expected_size = content.size();
+
+  // In the JSON grammar, the start rule (`_value`) is hidden, so the node
+  // returned from `ts_document_root_node` (e.g. an `object` node), does not
+  // actually point to the root of the tree. In this weird case, trailing
+  // whitespace is not included in the root node's size.
+  //
+  // TODO: Fix this inconsistency. Maybe disallow the start rule being hidden?
+  if (ts_document_language(document) == get_test_language("json") &&
+      string(ts_node_type(root_node, document)) != "ERROR")
+    expected_size = content.find_last_not_of("\n ") + 1;
+
+  AssertThat(ts_node_end_byte(root_node), Equals(expected_size));
+  assert_consistent_sizes(root_node);
 }
 
 START_TEST
@@ -105,9 +111,8 @@ describe("The Corpus", []() {
             input = new SpyInput(entry.input, 3);
             ts_document_set_input(document, input->input());
             edit_sequence();
-            TSNode root_node = ts_document_root_node(document);
-            expect_the_correct_tree(root_node, document, entry.tree_string);
-            expect_a_consistent_tree(root_node, document);
+            assert_correct_tree_shape(document, entry.tree_string);
+            assert_correct_tree_size(document, input->content);
             delete input;
           });
         };
@@ -130,10 +135,10 @@ describe("The Corpus", []() {
             it_handles_edit_sequence("repairing an insertion of " + description, [&]() {
               ts_document_edit(document, input->replace(edit_position, 0, inserted_text));
               ts_document_parse(document);
-
-              expect_a_consistent_tree(ts_document_root_node(document), document);
+              assert_correct_tree_size(document, input->content);
 
               ts_document_edit(document, input->undo());
+              assert_correct_tree_size(document, input->content);
               ts_document_parse(document);
             });
           }
@@ -144,10 +149,10 @@ describe("The Corpus", []() {
             it_handles_edit_sequence("repairing a deletion of " + desription, [&]() {
               ts_document_edit(document, input->replace(edit_position, deletion_size, ""));
               ts_document_parse(document);
-
-              expect_a_consistent_tree(ts_document_root_node(document), document);
+              assert_correct_tree_size(document, input->content);
 
               ts_document_edit(document, input->undo());
+              assert_correct_tree_size(document, input->content);
               ts_document_parse(document);
             });
           }
