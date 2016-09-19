@@ -399,6 +399,12 @@ void ts_tree_edit(TSTree *self, const TSInputEdit *edit) {
 static size_t ts_tree__write_char_to_string(char *s, size_t n, int32_t c) {
   if (c == 0)
     return snprintf(s, n, "EOF");
+  else if (c == '\n')
+    return snprintf(s, n, "'\\n'");
+  else if (c == '\t')
+    return snprintf(s, n, "'\\t'");
+  else if (c == '\r')
+    return snprintf(s, n, "'\\r'");
   else if (c < 128)
     return snprintf(s, n, "'%c'", c);
   else
