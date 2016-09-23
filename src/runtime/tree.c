@@ -29,6 +29,7 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
     .visible = metadata.visible,
     .named = metadata.named,
     .first_leaf.symbol = sym,
+    .has_changes = false,
   };
 
   return result;
@@ -91,12 +92,12 @@ TSTree *ts_tree_make_copy(TSTree *self) {
   return result;
 }
 
-bool ts_tree_assign_parents(TSTree *self, TreeArray *stack) {
-  array_clear(stack);
-  if (!array_push(stack, self))
+bool ts_tree_assign_parents(TSTree *self, TreePath *path) {
+  array_clear(path);
+  if (!array_push(path, ((TreePathEntry){self, ts_length_zero(), 0})))
     return false;
-  while (stack->size > 0) {
-    TSTree *tree = array_pop(stack);
+  while (path->size > 0) {
+    TSTree *tree = array_pop(path).tree;
     TSLength offset = ts_length_zero();
     for (size_t i = 0; i < tree->child_count; i++) {
       TSTree *child = tree->children[i];
@@ -104,7 +105,7 @@ bool ts_tree_assign_parents(TSTree *self, TreeArray *stack) {
         child->context.parent = tree;
         child->context.index = i;
         child->context.offset = offset;
-        if (!array_push(stack, child))
+        if (!array_push(path, ((TreePathEntry){child, ts_length_zero(), 0})))
           return false;
       }
       offset = ts_length_add(offset, ts_tree_total_size(child));
@@ -458,7 +459,7 @@ char *ts_tree_string(const TSTree *self, const TSLanguage *language,
   return result;
 }
 
-void ts_tree__print_dot_graph(const TSTree *self, size_t offset,
+void ts_tree__print_dot_graph(const TSTree *self, size_t byte_offset,
                               const TSLanguage *language, FILE *f) {
   fprintf(f, "tree_%p [label=\"%s\"", self,
           ts_language_symbol_name(language, self->symbol));
@@ -469,13 +470,13 @@ void ts_tree__print_dot_graph(const TSTree *self, size_t offset,
     fprintf(f, ", fontcolor=gray");
 
   fprintf(f, ", tooltip=\"range:%lu - %lu\nstate:%d\nerror-cost:%u\"]\n",
-          offset, offset + ts_tree_total_chars(self), self->parse_state,
+          byte_offset, byte_offset + ts_tree_total_bytes(self), self->parse_state,
           self->error_cost);
   for (size_t i = 0; i < self->child_count; i++) {
     const TSTree *child = self->children[i];
-    ts_tree__print_dot_graph(child, offset, language, f);
+    ts_tree__print_dot_graph(child, byte_offset, language, f);
     fprintf(f, "tree_%p -> tree_%p [tooltip=%lu]\n", self, child, i);
-    offset += ts_tree_total_chars(child);
+    byte_offset += ts_tree_total_bytes(child);
   }
 }
 

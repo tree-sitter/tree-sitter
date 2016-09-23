@@ -49,7 +49,16 @@ typedef struct TSTree {
   bool has_changes : 1;
 } TSTree;
 
+typedef struct {
+  TSTree *tree;
+  TSLength position;
+  size_t child_index;
+} TreePathEntry;
+
 typedef Array(TSTree *) TreeArray;
+
+typedef Array(TreePathEntry) TreePath;
+
 bool ts_tree_array_copy(TreeArray, TreeArray *);
 void ts_tree_array_delete(TreeArray *);
 size_t ts_tree_array_essential_count(const TreeArray *);
@@ -67,7 +76,7 @@ int ts_tree_compare(const TSTree *tree1, const TSTree *tree2);
 size_t ts_tree_start_column(const TSTree *self);
 size_t ts_tree_end_column(const TSTree *self);
 void ts_tree_set_children(TSTree *, size_t, TSTree **);
-bool ts_tree_assign_parents(TSTree *, TreeArray *);
+bool ts_tree_assign_parents(TSTree *, TreePath *);
 void ts_tree_edit(TSTree *, const TSInputEdit *edit);
 char *ts_tree_string(const TSTree *, const TSLanguage *, bool include_all);
 void ts_tree_print_dot_graph(const TSTree *, const TSLanguage *, FILE *);

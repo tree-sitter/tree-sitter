@@ -23,23 +23,18 @@ static void append_to_scope_sequence(ScopeSequence *sequence,
                                      ScopeStack *current_scopes,
                                      TSNode node, TSDocument *document,
                                      const std::string &text) {
+  append_text_to_scope_sequence(sequence, current_scopes, text, ts_node_start_byte(node) - sequence->size());
+
   string scope = ts_node_type(node, document);
   current_scopes->push_back(scope);
   size_t child_count = ts_node_child_count(node);
   if (child_count > 0) {
-    size_t previous_child_end = ts_node_start_char(node);
     for (size_t i = 0; i < child_count; i++) {
       TSNode child = ts_node_child(node, i);
-      size_t child_start = ts_node_start_char(child);
-      size_t spacing = child_start - previous_child_end;
-      append_text_to_scope_sequence(sequence, current_scopes, text, spacing);
       append_to_scope_sequence(sequence, current_scopes, child, document, text);
-      previous_child_end = ts_node_end_char(child);
     }
-    size_t spacing = ts_node_end_char(node) - previous_child_end;
-    append_text_to_scope_sequence(sequence, current_scopes, text, spacing);
   } else {
-    size_t length = ts_node_end_char(node) - ts_node_start_char(node);
+    size_t length = ts_node_end_byte(node) - ts_node_start_byte(node);
     append_text_to_scope_sequence(sequence, current_scopes, text, length);
   }
   current_scopes->pop_back();
@@ -50,7 +45,6 @@ ScopeSequence build_scope_sequence(TSDocument *document, const std::string &text
   ScopeStack current_scopes;
   TSNode node = ts_document_root_node(document);
   append_to_scope_sequence(&sequence, &current_scopes, node, document, text);
-  AssertThat(sequence.size(), Equals(text.size()));
   return sequence;
 }
 
@@ -66,7 +60,7 @@ bool operator<=(const TSPoint &left, const TSPoint &right) {
 void verify_changed_ranges(const ScopeSequence &old_sequence, const ScopeSequence &new_sequence,
                            const string &text, TSRange *ranges, size_t range_count) {
   TSPoint current_position = {0, 0};
-  for (size_t i = 0; i < text.size(); i++) {
+  for (size_t i = 0; i < old_sequence.size(); i++) {
     if (text[i] == '\n') {
       current_position.row++;
       current_position.column = 0;
@@ -89,6 +83,7 @@ void verify_changed_ranges(const ScopeSequence &old_sequence, const ScopeSequenc
         std::stringstream message_stream;
         message_stream << "Found changed scope outside of any invalidated range;\n";
         message_stream << "Position: " << current_position << "\n";
+        message_stream << "Byte index: " << i << "\n";
         size_t line_start_index = i - current_position.column;
         size_t line_end_index = text.find_first_of('\n', i);
         message_stream << "Line: " << text.substr(line_start_index, line_end_index - line_start_index) << "\n";
@@ -99,7 +94,7 @@ void verify_changed_ranges(const ScopeSequence &old_sequence, const ScopeSequenc
         message_stream << "New scopes: " << new_scopes << "\n";
         message_stream << "Invalidated ranges:\n";
         for (size_t j = 0; j < range_count; j++) {
-          message_stream << "  " << ranges[i] << "\n";
+          message_stream << "  " << ranges[j] << "\n";
         }
         Assert::Failure(message_stream.str());
       }

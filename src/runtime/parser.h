@@ -26,7 +26,8 @@ typedef struct {
   TSTree *cached_token;
   size_t cached_token_byte_index;
   ReusableNode reusable_node;
-  TreeArray tree_stack;
+  TreePath tree_path1;
+  TreePath tree_path2;
 } Parser;
 
 bool parser_init(Parser *);

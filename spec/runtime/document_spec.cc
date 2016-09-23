@@ -76,7 +76,6 @@ describe("Document", [&]() {
       ts_document_set_input(doc, spy_input->input());
       ts_document_invalidate(doc);
       ts_document_parse(doc);
-      TSNode root_node = ts_document_root_node(doc);
     });
 
     it("allows the input to be retrieved later", [&]() {
@@ -211,7 +210,7 @@ describe("Document", [&]() {
     });
   });
 
-    describe("parse_and_get_changed_ranges()", [&]() {
+  describe("parse_and_get_changed_ranges()", [&]() {
     SpyInput *input;
 
     before_each([&]() {
@@ -234,6 +233,7 @@ describe("Document", [&]() {
 
       TSRange *ranges;
       size_t range_count = 0;
+
       ts_document_parse_and_get_changed_ranges(doc, &ranges, &range_count);
 
       vector<TSRange> result;
@@ -333,13 +333,18 @@ describe("Document", [&]() {
     it("reports changes when trees have been wrapped", [&]() {
       // Wrap the object in an assignment expression.
       auto ranges = get_ranges([&]() {
-        return input->replace(0, 0, "x.y = ");
+        return input->replace(input->content.find("null"), 0, "b === ");
       });
+
+      assert_node_string_equals(
+        ts_document_root_node(doc),
+        "(program (expression_statement (object "
+          "(pair (identifier) (rel_op (identifier) (null))))))");
 
       AssertThat(ranges, Equals(vector<TSRange>({
         TSRange{
-          TSPoint{0, 0},
-          TSPoint{0, input->content.find(";")},
+          TSPoint{0, input->content.find("b ===")},
+          TSPoint{0, input->content.find("}")},
         },
       })));
     });

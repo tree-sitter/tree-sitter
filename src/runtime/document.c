@@ -91,118 +91,210 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
 
 typedef Array(TSRange) RangeArray;
 
-#define NAME(t) ((t) ? (ts_language_symbol_name(doc->parser.language, ((TSTree *)(t))->symbol)) : "<NULL>")
-// #define PRINT(msg, ...) for (size_t k = 0; k < depth; k++) { printf("    "); } printf(msg "\n", __VA_ARGS__);
-#define PRINT(msg, ...)
+#define NAME(t)                                                                 \
+  ((t)                                                                          \
+     ? (ts_language_symbol_name(doc->parser.language, ((TSTree *)(t))->symbol)) \
+     : "<NULL>")
 
-static bool push_diff(RangeArray *results, TSNode *node, bool *extend_last_change) {
-  TSPoint start = ts_node_start_point(*node);
-  TSPoint end = ts_node_end_point(*node);
-  if (*extend_last_change) {
+static bool push_change(RangeArray *results, TSPoint start, TSPoint end) {
+  if (results->size > 0) {
     TSRange *last_range = array_back(results);
-    last_range->end = end;
-    return true;
-  }
-  *extend_last_change = true;
-  return array_push(results, ((TSRange){start, end}));
-}
-
-static bool ts_tree_get_changes(TSDocument *doc, TSTree *old, TSNode *new_node,
-                                size_t depth, RangeArray *results,
-                                bool *extend_last_change) {
-  TSTree *new = (TSTree *)(new_node->data);
-
-  PRINT("At %lu, ('%s', %lu) vs ('%s', %lu) {",
-    ts_node_start_byte(*new_node),
-    NAME(old), old->size.bytes,
-    NAME(new), new->size.bytes);
-
-  if (old->visible) {
-    if (old == new || (old->symbol == new->symbol &&
-        old->size.bytes == new->size.bytes && !old->has_changes)) {
-      *extend_last_change = false;
-      PRINT("}", NULL);
-      return true;
-    }
-
-    if (old->symbol != new->symbol) {
-      PRINT("}", NULL);
-      return push_diff(results, new_node, extend_last_change);
-    }
-
-    TSNode child = ts_node_child(*new_node, 0);
-    if (child.data) {
-      *new_node = child;
-    } else {
-      PRINT("}", NULL);
+    if (ts_point_lte(start, last_range->end)) {
+      last_range->end = end;
       return true;
     }
   }
 
-  depth++;
-  size_t old_child_start;
-  size_t old_child_end = ts_node_start_byte(*new_node) - old->padding.bytes;
-
-  for (size_t j = 0; j < old->child_count; j++) {
-    TSTree *old_child = old->children[j];
-    if (old_child->padding.bytes == 0 && old_child->size.bytes == 0)
-      continue;
-
-    old_child_start = old_child_end + old_child->padding.bytes;
-    old_child_end = old_child_start + old_child->size.bytes;
-
-    while (true) {
-      size_t new_child_start = ts_node_start_byte(*new_node);
-      if (new_child_start < old_child_start) {
-        PRINT("skip new:('%s', %lu), old:('%s', %lu), old_parent:%s",
-          NAME(new_node->data), ts_node_start_byte(*new_node), NAME(old_child),
-          old_child_start, NAME(old));
-
-        if (!push_diff(results, new_node, extend_last_change))
-          return false;
-
-        TSNode next = ts_node_next_sibling(*new_node);
-        if (next.data) {
-          PRINT("advance before diff ('%s', %lu) -> ('%s', %lu)",
-            NAME(new_node->data), ts_node_start_byte(*new_node), NAME(next.data),
-            ts_node_start_byte(next));
-
-          *new_node = next;
-        } else {
-          break;
-        }
-      } else if (new_child_start == old_child_start) {
-        if (!ts_tree_get_changes(doc, old_child, new_node, depth, results, extend_last_change))
-          return false;
-
-        if (old_child->visible) {
-          TSNode next = ts_node_next_sibling(*new_node);
-          if (next.data) {
-            PRINT("advance after diff ('%s', %lu) -> ('%s', %lu)",
-              NAME(new_node->data), ts_node_start_byte(*new_node), NAME(next.data),
-              ts_node_start_byte(next));
-            *new_node = next;
-          }
-        }
-        break;
-      } else {
-        break;
-      }
-    }
+  if (ts_point_lt(start, end)) {
+    TSRange range = { start, end };
+    return array_push(results, range);
   }
 
-  depth--;
-  if (old->visible) {
-    *new_node = ts_node_parent(*new_node);
-  }
-
-  PRINT("}", NULL);
   return true;
 }
 
-int ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges, size_t *range_count) {
-  if (ranges) *ranges = NULL;
-  if (range_count) *range_count = 0;
+static bool tree_path_descend(TreePath *path, TSPoint position) {
+  bool did_descend;
+  do {
+    did_descend = false;
+    TreePathEntry entry = *array_back(path);
+    TSLength child_position = entry.position;
+    for (size_t i = 0; i < entry.tree->child_count; i++) {
+      TSTree *child = entry.tree->children[i];
+      TSLength child_right_position =
+        ts_length_add(child_position, ts_tree_total_size(child));
+      if (ts_point_lt(position, child_right_position.extent)) {
+        TreePathEntry child_entry = { child, child_position, i };
+        if (child->visible) {
+          array_push(path, child_entry);
+          return true;
+        } else if (child->visible_child_count > 0) {
+          array_push(path, child_entry);
+          did_descend = true;
+          break;
+        }
+      }
+      child_position = child_right_position;
+    }
+  } while (did_descend);
+  return false;
+}
+
+static size_t tree_path_advance(TreePath *path) {
+  size_t ascend_count = 0;
+  while (path->size > 0) {
+    TreePathEntry entry = array_pop(path);
+    if (path->size == 0)
+      break;
+    TreePathEntry parent_entry = *array_back(path);
+    if (parent_entry.tree->visible) {
+      ascend_count++;
+    }
+    TSLength position =
+      ts_length_add(entry.position, ts_tree_total_size(entry.tree));
+    for (size_t i = entry.child_index + 1, n = parent_entry.tree->child_count;
+         i < n; i++) {
+      TSTree *next_child = parent_entry.tree->children[i];
+      if (next_child->visible || next_child->visible_child_count > 0) {
+        if (parent_entry.tree->visible) {
+          ascend_count--;
+        }
+        array_push(path,
+                   ((TreePathEntry){
+                     .tree = next_child, .child_index = i, .position = position,
+                   }));
+        if (!next_child->visible)
+          tree_path_descend(path, (TSPoint){ 0, 0 });
+        return ascend_count;
+      }
+      position = ts_length_add(position, ts_tree_total_size(next_child));
+    }
+  }
+  return ascend_count;
+}
+
+static void tree_path_ascend(TreePath *path, size_t count) {
+  for (size_t i = 0; i < count; i++) {
+    do {
+      array_pop(path);
+    } while (path->size > 0 && !array_back(path)->tree->visible);
+  }
+}
+
+static void tree_path_init(TreePath *path, TSTree *tree) {
+  array_clear(path);
+  array_push(path,
+             ((TreePathEntry){
+               .tree = tree, .position = { 0, 0, { 0, 0 } }, .child_index = 0,
+             }));
+  if (!tree->visible)
+    tree_path_descend(path, (TSPoint){ 0, 0 });
+}
+
+static bool ts_tree_get_changes(TSDocument *doc, TreePath *old_path,
+                                TreePath *new_path, size_t depth,
+                                RangeArray *results) {
+  TSPoint position = { 0, 0 };
+
+  while (old_path->size && new_path->size) {
+    bool is_different = false;
+    TSPoint next_position = position;
+
+    TreePathEntry old_entry = *array_back(old_path);
+    TreePathEntry new_entry = *array_back(new_path);
+    TSTree *old_tree = old_entry.tree;
+    TSTree *new_tree = new_entry.tree;
+    TSSymbol old_symbol = old_tree->symbol;
+    TSSymbol new_symbol = new_tree->symbol;
+    size_t old_start_byte = old_entry.position.bytes;
+    size_t new_start_byte = new_entry.position.bytes;
+    size_t old_end_byte = old_start_byte + ts_tree_total_bytes(old_tree);
+    size_t new_end_byte = new_start_byte + ts_tree_total_bytes(new_tree);
+    TSPoint old_start_point =
+      ts_point_add(old_entry.position.extent, old_tree->padding.extent);
+    TSPoint new_start_point =
+      ts_point_add(new_entry.position.extent, new_tree->padding.extent);
+    TSPoint old_end_point = ts_point_add(old_start_point, old_tree->size.extent);
+    TSPoint new_end_point = ts_point_add(new_start_point, new_tree->size.extent);
+
+    // printf("At [%-2lu, %-2lu] Compare (%-20s\t [%-2lu, %-2lu] - [%lu, %lu])\tvs\t(%-20s\t [%lu, %lu] - [%lu, %lu])\t",
+    //   position.row, position.column, NAME(old_tree), old_start_point.row,
+    //   old_start_point.column, old_end_point.row, old_end_point.column,
+    //   NAME(new_tree), new_start_point.row, new_start_point.column,
+    //   new_end_point.row, new_end_point.column);
+
+    if (ts_point_lt(position, old_start_point)) {
+      if (ts_point_lt(position, new_start_point)) {
+        next_position = ts_point_min(old_start_point, new_start_point);
+      } else {
+        is_different = true;
+        next_position = old_start_point;
+      }
+    } else if (ts_point_lt(position, new_start_point)) {
+      is_different = true;
+      next_position = new_start_point;
+    } else {
+      if (old_tree == new_tree ||
+          (!old_tree->has_changes && old_symbol == new_symbol &&
+           old_start_byte == new_start_byte && old_end_byte == new_end_byte &&
+           old_tree->parse_state != TS_TREE_STATE_NONE &&
+           new_tree->parse_state != TS_TREE_STATE_NONE)) {
+        next_position = old_end_point;
+      } else if (old_symbol == new_symbol) {
+        bool old_descended = tree_path_descend(old_path, position);
+        bool new_descended = tree_path_descend(new_path, position);
+        if (old_descended) {
+          if (!new_descended) {
+            tree_path_ascend(old_path, 1);
+            is_different = true;
+            next_position = new_end_point;
+          }
+        } else if (new_descended) {
+          tree_path_ascend(new_path, 1);
+          is_different = true;
+          next_position = old_end_point;
+        } else {
+          next_position = ts_point_min(old_end_point, new_end_point);
+        }
+      } else {
+        is_different = true;
+        next_position = ts_point_min(old_end_point, new_end_point);
+      }
+    }
+
+    bool advance_old = ts_point_lte(old_end_point, next_position);
+    bool advance_new = ts_point_lte(new_end_point, next_position);
+
+    if (advance_new && advance_old) {
+      size_t old_ascend_count = tree_path_advance(old_path);
+      size_t new_ascend_count = tree_path_advance(new_path);
+      if (old_ascend_count > new_ascend_count) {
+        tree_path_ascend(new_path, old_ascend_count - new_ascend_count);
+      } else if (new_ascend_count > old_ascend_count) {
+        tree_path_ascend(old_path, new_ascend_count - old_ascend_count);
+      }
+    } else if (advance_new) {
+      size_t ascend_count = tree_path_advance(new_path);
+      tree_path_ascend(old_path, ascend_count);
+    } else if (advance_old) {
+      size_t ascend_count = tree_path_advance(old_path);
+      tree_path_ascend(new_path, ascend_count);
+    }
+
+    if (is_different)
+      push_change(results, position, next_position);
+    position = next_position;
+  }
+
+  return true;
+}
+
+int ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges,
+                                             size_t *range_count) {
+  if (ranges)
+    *ranges = NULL;
+  if (range_count)
+    *range_count = 0;
 
   if (!self->input.read || !self->parser.language)
     return -1;
@@ -218,15 +310,13 @@ int ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges,
   if (self->tree) {
     TSTree *old_tree = self->tree;
     self->tree = tree;
-    TSNode new_root = ts_document_root_node(self);
-
-    // ts_tree_print_dot_graph(old_tree, self->parser.language, stderr);
-    // ts_tree_print_dot_graph(tree, self->parser.language, stderr);
 
     if (ranges && range_count) {
-      bool extend_last_change = false;
-      RangeArray result = {0, 0, 0};
-      if (!ts_tree_get_changes(self, old_tree, &new_root, 0, &result, &extend_last_change))
+      RangeArray result = { 0, 0, 0 };
+      tree_path_init(&self->parser.tree_path1, old_tree);
+      tree_path_init(&self->parser.tree_path2, tree);
+      if (!ts_tree_get_changes(self, &self->parser.tree_path1,
+                               &self->parser.tree_path2, 0, &result))
         return -1;
       *ranges = result.contents;
       *range_count = result.size;
