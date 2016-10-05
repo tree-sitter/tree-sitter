@@ -183,8 +183,7 @@ class CCodeGenerator {
   }
 
   void add_lex_function() {
-    line(
-      "static bool ts_lex(TSLexer *lexer, TSStateId state) {");
+    line("static bool ts_lex(TSLexer *lexer, TSStateId state) {");
     indent([&]() {
       line("START_LEXER();");
       _switch("state", [&]() {

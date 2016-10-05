@@ -5,7 +5,6 @@
 extern "C" {
 #endif
 
-#include "tree_sitter/parser.h"
 #include "runtime/array.h"
 #include "runtime/tree.h"
 #include "runtime/error_costs.h"

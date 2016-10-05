@@ -3,7 +3,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
-#include "tree_sitter/parser.h"
 #include "runtime/alloc.h"
 #include "runtime/tree.h"
 #include "runtime/length.h"
@@ -396,7 +395,8 @@ static size_t ts_tree__write_to_string(const TSTree *self,
     if (self->symbol == ts_builtin_sym_error && self->child_count == 0 &&
         self->size.chars > 0) {
       cursor += snprintf(*writer, limit, "(UNEXPECTED ");
-      cursor += ts_tree__write_char_to_string(*writer, limit, self->lookahead_char);
+      cursor +=
+        ts_tree__write_char_to_string(*writer, limit, self->lookahead_char);
     } else {
       cursor += snprintf(*writer, limit, "(%s",
                          ts_language_symbol_name(language, self->symbol));

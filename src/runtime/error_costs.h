@@ -1,6 +1,7 @@
 #ifndef RUNTIME_ERROR_COSTS_H_
 #define RUNTIME_ERROR_COSTS_H_
 
+#define ERROR_STATE 0
 #define ERROR_COST_PER_SKIPPED_TREE 10
 #define ERROR_COST_PER_SKIPPED_LINE 3
 #define ERROR_COST_PER_SKIPPED_CHAR 0
@@ -12,15 +13,15 @@ typedef struct {
 } ErrorStatus;
 
 static inline unsigned error_status_min_cost(ErrorStatus status) {
-  return status.cost +
-    ERROR_COST_PER_SKIPPED_TREE * status.count * status.count;
+  return status.cost + ERROR_COST_PER_SKIPPED_TREE * status.count * status.count;
 }
 
 static inline unsigned error_status_max_cost(ErrorStatus status) {
   return status.cost +
-    ERROR_COST_PER_SKIPPED_TREE * status.count * status.count +
-    (6 * ERROR_COST_PER_SKIPPED_TREE * status.count + 12 * ERROR_COST_PER_SKIPPED_TREE) /
-    (1 + status.push_count / 2);
+         ERROR_COST_PER_SKIPPED_TREE * status.count * status.count +
+         (6 * ERROR_COST_PER_SKIPPED_TREE * status.count +
+          12 * ERROR_COST_PER_SKIPPED_TREE) /
+           (1 + status.push_count / 2);
 }
 
 static inline int error_status_compare(ErrorStatus a, ErrorStatus b) {

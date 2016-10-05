@@ -1,8 +1,15 @@
 #ifndef RUNTIME_LENGTH_H_
 #define RUNTIME_LENGTH_H_
 
-#include "tree_sitter/parser.h"
+#include <stdlib.h>
 #include <stdbool.h>
+
+typedef struct {
+  size_t bytes;
+  size_t chars;
+  size_t rows;
+  size_t columns;
+} TSLength;
 
 static inline bool ts_length_is_unknown(TSLength self) {
   return self.chars > 0 && self.bytes == 0;

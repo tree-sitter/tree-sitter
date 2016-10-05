@@ -247,7 +247,7 @@ describe("Stack", [&]() {
 
     it("stops popping entries early if it reaches an error tree", [&]() {
       // . <──0── A <──1── B <──2── C <──3── ERROR <──4── D*
-      ts_stack_push(stack, 0, trees[3], false, TS_STATE_ERROR);
+      ts_stack_push(stack, 0, trees[3], false, ERROR_STATE);
       ts_stack_push(stack, 0, trees[4], false, stateD);
 
       // . <──0── A <──1── B <──2── C <──3── ERROR <──4── D*
@@ -257,7 +257,7 @@ describe("Stack", [&]() {
       AssertThat(pop.status, Equals(StackPopResult::StackPopStoppedAtError));
 
       AssertThat(ts_stack_version_count(stack), Equals<size_t>(2));
-      AssertThat(ts_stack_top_state(stack, 1), Equals(TS_STATE_ERROR));
+      AssertThat(ts_stack_top_state(stack, 1), Equals(ERROR_STATE));
 
       AssertThat(pop.slices.size, Equals<size_t>(1));
       StackSlice slice = pop.slices.contents[0];

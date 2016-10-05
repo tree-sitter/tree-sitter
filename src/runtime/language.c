@@ -1,6 +1,6 @@
-#include "tree_sitter/parser.h"
 #include "runtime/language.h"
 #include "runtime/tree.h"
+#include "runtime/error_costs.h"
 
 static const TSParseAction ERROR_SHIFT_EXTRA = {
   .type = TSParseActionTypeShift, .extra = true,
@@ -10,7 +10,7 @@ void ts_language_table_entry(const TSLanguage *self, TSStateId state,
                              TSSymbol symbol, TableEntry *result) {
   size_t action_index;
   if (symbol == ts_builtin_sym_error) {
-    if (state == TS_STATE_ERROR) {
+    if (state == ERROR_STATE) {
       result->action_count = 1;
       result->is_reusable = false;
       result->depends_on_lookahead = false;

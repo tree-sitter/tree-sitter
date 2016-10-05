@@ -1,4 +1,3 @@
-#include "tree_sitter/parser.h"
 #include "runtime/alloc.h"
 #include "runtime/node.h"
 #include "runtime/tree.h"

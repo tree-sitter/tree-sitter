@@ -7,6 +7,7 @@ extern "C" {
 
 #include "runtime/stack.h"
 #include "runtime/array.h"
+#include "runtime/lexer.h"
 #include "runtime/reduce_action.h"
 
 typedef struct {
@@ -15,7 +16,7 @@ typedef struct {
 } ReusableNode;
 
 typedef struct {
-  TSLexer lexer;
+  Lexer lexer;
   Stack *stack;
   const TSLanguage *language;
   ReduceActionSet reduce_actions;
