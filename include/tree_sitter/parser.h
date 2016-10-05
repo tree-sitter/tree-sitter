@@ -5,21 +5,16 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
 #include <stdbool.h>
-#include "tree_sitter/runtime.h"
+#include <stdint.h>
+#include <stdlib.h>
 
-#define TS_STATE_ERROR 0
-#define TS_DEBUG_BUFFER_SIZE 512
-
+typedef unsigned short TSSymbol;
 typedef unsigned short TSStateId;
 
-typedef struct {
-  size_t bytes;
-  size_t chars;
-  size_t rows;
-  size_t columns;
-} TSLength;
+#define ts_builtin_sym_error ((TSSymbol)-1)
+#define ts_builtin_sym_end 0
+#define ts_builtin_sym_start 1
 
 typedef struct {
   bool visible : 1;
@@ -28,23 +23,10 @@ typedef struct {
   bool structural : 1;
 } TSSymbolMetadata;
 
-typedef struct TSLexer {
-  void (*advance)(struct TSLexer *, TSStateId, bool);
-
-  TSLength current_position;
-  TSLength token_start_position;
-
-  const char *chunk;
-  size_t chunk_start;
-  size_t chunk_size;
-
-  size_t lookahead_size;
+typedef struct {
+  void (*advance)(void *, TSStateId, bool);
   int32_t lookahead;
   TSSymbol result_symbol;
-
-  TSInput input;
-  TSLogger logger;
-  char debug_buffer[TS_DEBUG_BUFFER_SIZE];
 } TSLexer;
 
 typedef enum {
@@ -76,7 +58,7 @@ typedef union {
   };
 } TSParseActionEntry;
 
-struct TSLanguage {
+typedef struct TSLanguage {
   size_t symbol_count;
   const char **symbol_names;
   const TSSymbolMetadata *symbol_metadata;
@@ -84,7 +66,7 @@ struct TSLanguage {
   const TSParseActionEntry *parse_actions;
   const TSStateId *lex_states;
   bool (*lex_fn)(TSLexer *, TSStateId);
-};
+} TSLanguage;
 
 /*
  *  Lexer Macros
@@ -95,18 +77,18 @@ struct TSLanguage {
   next_state:         \
   lookahead = lexer->lookahead;
 
-#define ADVANCE(state_value)                                  \
-  {                                                           \
+#define ADVANCE(state_value)                   \
+  {                                            \
     lexer->advance(lexer, state_value, false); \
-    state = state_value;         \
-    goto next_state;             \
+    state = state_value;                       \
+    goto next_state;                           \
   }
 
-#define SKIP(state_value)                                          \
-  {                                                                \
+#define SKIP(state_value)                     \
+  {                                           \
     lexer->advance(lexer, state_value, true); \
-    state = state_value;         \
-    goto next_state;             \
+    state = state_value;                      \
+    goto next_state;                          \
   }
 
 #define ACCEPT_TOKEN(symbol_value)       \
