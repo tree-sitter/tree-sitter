@@ -144,7 +144,7 @@ describe("Document", [&]() {
     });
   });
 
-  describe("set_logger(TSDebugger)", [&]() {
+  describe("set_logger(TSLogger)", [&]() {
     SpyLogger *logger;
 
     before_each([&]() {
