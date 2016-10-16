@@ -340,22 +340,6 @@ describe("Parser", [&]() {
         });
       });
 
-      describe("with non-ascii characters", [&]() {
-        it("inserts the text according to the UTF8 character index", [&]() {
-          // 'αβδ' + '1'
-          set_text("'\u03b1\u03b2\u03b4' + '1';");
-
-          assert_root_node(
-            "(program (expression_statement (math_op (string) (string))))");
-
-          // 'αβδ' + 'ψ1'
-          insert_text(strlen("'abd' + '"), "\u03c8");
-
-          assert_root_node(
-            "(program (expression_statement (math_op (string) (string))))");
-        });
-      });
-
       describe("into a node containing a extra token", [&]() {
         it("updates the parse tree", [&]() {
           set_text("123 *\n"
