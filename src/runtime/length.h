@@ -12,11 +12,11 @@ typedef struct {
   TSPoint extent;
 } TSLength;
 
-static inline bool ts_length_is_unknown(TSLength self) {
+static inline bool ts_length_has_unknown_chars(TSLength self) {
   return self.bytes > 0 && self.chars == 0;
 }
 
-static inline void ts_length_set_unknown(TSLength *self) {
+static inline void ts_length_set_unknown_chars(TSLength *self) {
   self->chars = 0;
 }
 
@@ -30,7 +30,7 @@ static inline TSLength ts_length_add(TSLength len1, TSLength len2) {
   result.bytes = len1.bytes + len2.bytes;
   result.extent = ts_point_add(len1.extent, len2.extent);
 
-  if (ts_length_is_unknown(len1) || ts_length_is_unknown(len2)) {
+  if (ts_length_has_unknown_chars(len1) || ts_length_has_unknown_chars(len2)) {
     result.chars = 0;
   } else {
     result.chars = len1.chars + len2.chars;
@@ -44,7 +44,7 @@ static inline TSLength ts_length_sub(TSLength len1, TSLength len2) {
   result.bytes = len1.bytes - len2.bytes;
   result.extent = ts_point_sub(len1.extent, len2.extent);
 
-  if (ts_length_is_unknown(len1) || ts_length_is_unknown(len2)) {
+  if (ts_length_has_unknown_chars(len1) || ts_length_has_unknown_chars(len2)) {
     result.chars = 0;
   } else {
     result.chars = len1.chars - len2.chars;
