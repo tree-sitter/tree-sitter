@@ -5,6 +5,9 @@
 extern "C" {
 #endif
 
+#include <stdlib.h>
+#include <stdbool.h>
+
 #if defined(TREE_SITTER_WRAP_MALLOC)
 
 void *ts_record_malloc(size_t);

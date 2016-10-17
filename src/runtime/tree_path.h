@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include "runtime/tree.h"
+#include "runtime/error_costs.h"
 
 typedef Array(TSRange) RangeArray;
 
@@ -107,8 +108,8 @@ static bool tree_must_eq(TSTree *old_tree, TSTree *new_tree) {
     old_tree->size.bytes == new_tree->size.bytes &&
     old_tree->parse_state != TS_TREE_STATE_NONE &&
     new_tree->parse_state != TS_TREE_STATE_NONE &&
-    (old_tree->parse_state == TS_STATE_ERROR) ==
-    (new_tree->parse_state == TS_STATE_ERROR)
+    (old_tree->parse_state == ERROR_STATE) ==
+    (new_tree->parse_state == ERROR_STATE)
   );
 }
 

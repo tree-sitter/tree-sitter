@@ -196,10 +196,8 @@ static inline TSNode ts_node__descendant_for_byte_range(TSNode self, size_t min,
   return last_visible_node;
 }
 
-static inline TSNode ts_node__descendant_for_point_range(TSNode self,
-                                                         TSPoint min,
-                                                         TSPoint max,
-                                                         bool include_anonymous) {
+static inline TSNode ts_node__descendant_for_point_range(
+  TSNode self, TSPoint min, TSPoint max, bool include_anonymous) {
   TSNode node = self;
   TSNode last_visible_node = self;
 
@@ -353,7 +351,8 @@ TSNode ts_node_descendant_for_char_range(TSNode self, size_t min, size_t max) {
   return ts_node__descendant_for_char_range(self, min, max, true);
 }
 
-TSNode ts_node_named_descendant_for_char_range(TSNode self, size_t min, size_t max) {
+TSNode ts_node_named_descendant_for_char_range(TSNode self, size_t min,
+                                               size_t max) {
   return ts_node__descendant_for_char_range(self, min, max, false);
 }
 
@@ -361,7 +360,8 @@ TSNode ts_node_descendant_for_byte_range(TSNode self, size_t min, size_t max) {
   return ts_node__descendant_for_byte_range(self, min, max, true);
 }
 
-TSNode ts_node_named_descendant_for_byte_range(TSNode self, size_t min, size_t max) {
+TSNode ts_node_named_descendant_for_byte_range(TSNode self, size_t min,
+                                               size_t max) {
   return ts_node__descendant_for_byte_range(self, min, max, false);
 }
 
@@ -369,6 +369,7 @@ TSNode ts_node_descendant_for_point_range(TSNode self, TSPoint min, TSPoint max)
   return ts_node__descendant_for_point_range(self, min, max, true);
 }
 
-TSNode ts_node_named_descendant_for_point_range(TSNode self, TSPoint min, TSPoint max) {
+TSNode ts_node_named_descendant_for_point_range(TSNode self, TSPoint min,
+                                                TSPoint max) {
   return ts_node__descendant_for_point_range(self, min, max, false);
 }

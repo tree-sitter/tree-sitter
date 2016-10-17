@@ -125,7 +125,6 @@ describe("Parser", [&]() {
           "(array (number) (ERROR (UNEXPECTED 'a')) (true))");
 
         TSNode error = ts_node_named_child(root, 1);
-        AssertThat(ts_node_symbol(error), Equals(ts_builtin_sym_error));
         AssertThat(ts_node_type(error, doc), Equals("ERROR"));
         AssertThat(ts_node_child_count(error), Equals<size_t>(2));
 

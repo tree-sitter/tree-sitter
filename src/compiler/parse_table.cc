@@ -126,7 +126,8 @@ ParseState::ParseState() : lex_state_id(-1) {}
 
 bool ParseState::has_shift_action() const {
   for (const auto &pair : entries)
-    if (pair.second.actions.size() > 0 && pair.second.actions.back().type == ParseActionTypeShift)
+    if (pair.second.actions.size() > 0 &&
+        pair.second.actions.back().type == ParseActionTypeShift)
       return true;
   return false;
 }

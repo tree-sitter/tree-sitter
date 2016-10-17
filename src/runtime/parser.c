@@ -4,7 +4,6 @@
 #include <limits.h>
 #include <stdbool.h>
 #include "tree_sitter/runtime.h"
-#include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 #include "runtime/lexer.h"
 #include "runtime/length.h"
@@ -14,16 +13,16 @@
 #include "runtime/reduce_action.h"
 #include "runtime/error_costs.h"
 
-#define LOG(...)                                                               \
-  if (self->lexer.logger.log) {                                         \
-    snprintf(self->lexer.debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__);     \
-    self->lexer.logger.log(self->lexer.logger.payload,                \
-                                  TSLogTypeParse, self->lexer.debug_buffer); \
-  }                                                                            \
-  if (self->print_debugging_graphs) {                                          \
-    fprintf(stderr, "graph {\nlabel=\"");                                      \
-    fprintf(stderr, __VA_ARGS__);                                              \
-    fprintf(stderr, "\"\n}\n\n");                                              \
+#define LOG(...)                                                           \
+  if (self->lexer.logger.log) {                                            \
+    snprintf(self->lexer.debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__); \
+    self->lexer.logger.log(self->lexer.logger.payload, TSLogTypeParse,     \
+                           self->lexer.debug_buffer);                      \
+  }                                                                        \
+  if (self->print_debugging_graphs) {                                      \
+    fprintf(stderr, "graph {\nlabel=\"");                                  \
+    fprintf(stderr, __VA_ARGS__);                                          \
+    fprintf(stderr, "\"\n}\n\n");                                          \
   }
 
 #define LOG_STACK()                                                     \
@@ -111,7 +110,7 @@ static BreakdownResult parser__breakdown_top_of_stack(Parser *self,
         pending = child->child_count > 0;
 
         if (child->symbol == ts_builtin_sym_error) {
-          state = TS_STATE_ERROR;
+          state = ERROR_STATE;
         } else if (!child->extra) {
           const TSParseAction *action =
             ts_language_last_action(self->language, state, child->symbol);
@@ -131,7 +130,8 @@ static BreakdownResult parser__breakdown_top_of_stack(Parser *self,
       LOG("breakdown_top_of_stack tree:%s", SYM_NAME(parent->symbol));
       LOG_STACK();
 
-      ts_stack_decrease_push_count(self->stack, slice.version, parent->child_count + 1);
+      ts_stack_decrease_push_count(self->stack, slice.version,
+                                   parent->child_count + 1);
       ts_tree_release(parent);
       array_delete(&slice.trees);
     }
@@ -170,8 +170,7 @@ static bool parser__breakdown_lookahead(Parser *self, TSTree **lookahead,
                                         ReusableNode *reusable_node) {
   bool result = false;
   while (reusable_node->tree->child_count > 0 &&
-         (self->is_split ||
-          reusable_node->tree->parse_state != state ||
+         (self->is_split || reusable_node->tree->parse_state != state ||
           reusable_node->tree->fragile_left ||
           reusable_node->tree->fragile_right)) {
     LOG("state_mismatch sym:%s", SYM_NAME(reusable_node->tree->symbol));
@@ -255,10 +254,10 @@ static TSTree *parser__lex(Parser *self, TSStateId parse_state) {
 
   ts_lexer_start(&self->lexer, start_state);
 
-  while (!self->language->lex_fn(&self->lexer, current_state)) {
-    if (current_state != TS_STATE_ERROR) {
+  while (!self->language->lex_fn(&self->lexer.data, current_state)) {
+    if (current_state != ERROR_STATE) {
       LOG("retry_in_error_mode");
-      current_state = TS_STATE_ERROR;
+      current_state = ERROR_STATE;
       ts_lexer_reset(&self->lexer, start_position);
       ts_lexer_start(&self->lexer, current_state);
       continue;
@@ -266,15 +265,15 @@ static TSTree *parser__lex(Parser *self, TSStateId parse_state) {
 
     if (!skipped_error) {
       error_start_position = self->lexer.token_start_position;
-      first_error_character = self->lexer.lookahead;
+      first_error_character = self->lexer.data.lookahead;
     }
 
     if (self->lexer.current_position.bytes == error_end_position.bytes) {
-      if (self->lexer.lookahead == 0) {
-        self->lexer.result_symbol = ts_builtin_sym_error;
+      if (self->lexer.data.lookahead == 0) {
+        self->lexer.data.result_symbol = ts_builtin_sym_error;
         break;
       }
-      self->lexer.advance(&self->lexer, TS_STATE_ERROR, false);
+      self->lexer.data.advance(&self->lexer, ERROR_STATE, false);
     }
 
     skipped_error = true;
@@ -289,11 +288,14 @@ static TSTree *parser__lex(Parser *self, TSStateId parse_state) {
     ts_lexer_reset(&self->lexer, error_end_position);
     result = ts_tree_make_error(size, padding, first_error_character);
   } else {
-    TSSymbol symbol = self->lexer.result_symbol;
-    TSLength padding = ts_length_sub(self->lexer.token_start_position, start_position);
-    TSLength size = ts_length_sub(self->lexer.current_position, self->lexer.token_start_position);
-    result = ts_tree_make_leaf(symbol, padding, size,
-                               ts_language_symbol_metadata(self->language, symbol));
+    TSSymbol symbol = self->lexer.data.result_symbol;
+    TSLength padding =
+      ts_length_sub(self->lexer.token_start_position, start_position);
+    TSLength size = ts_length_sub(self->lexer.current_position,
+                                  self->lexer.token_start_position);
+    result =
+      ts_tree_make_leaf(symbol, padding, size,
+                        ts_language_symbol_metadata(self->language, symbol));
   }
 
   if (!result)
@@ -470,8 +472,8 @@ static bool parser__switch_children(Parser *self, TSTree *tree,
 }
 
 static Reduction parser__reduce(Parser *self, StackVersion version,
-                                TSSymbol symbol, unsigned count,
-                                bool fragile, bool allow_skipping) {
+                                TSSymbol symbol, unsigned count, bool fragile,
+                                bool allow_skipping) {
   size_t initial_version_count = ts_stack_version_count(self->stack);
   StackPopResult pop = ts_stack_pop_count(self->stack, version, count);
   switch (pop.status) {
@@ -541,14 +543,15 @@ static Reduction parser__reduce(Parser *self, StackVersion version,
       CHECK(other_version != STACK_VERSION_NONE);
 
       CHECK(ts_stack_push(self->stack, other_version, parent, false,
-                          TS_STATE_ERROR));
+                          ERROR_STATE));
       for (size_t j = parent->child_count; j < slice.trees.size; j++) {
         TSTree *tree = slice.trees.contents[j];
         CHECK(ts_stack_push(self->stack, other_version, tree, false,
-                            TS_STATE_ERROR));
+                            ERROR_STATE));
       }
 
-      ErrorStatus error_status = ts_stack_error_status(self->stack, other_version);
+      ErrorStatus error_status =
+        ts_stack_error_status(self->stack, other_version);
       if (parser__better_version_exists(self, version, error_status))
         ts_stack_remove_version(self->stack, other_version);
     }
@@ -894,8 +897,8 @@ static PotentialReductionStatus parser__do_potential_reductions(
   bool did_reduce = false;
   for (size_t i = 0; i < self->reduce_actions.size; i++) {
     ReduceAction action = self->reduce_actions.contents[i];
-    Reduction reduction = parser__reduce(self, version, action.symbol,
-                                         action.count, true, false);
+    Reduction reduction =
+      parser__reduce(self, version, action.symbol, action.count, true, false);
     switch (reduction.status) {
       case ReduceFailed:
         goto error;
@@ -932,7 +935,7 @@ typedef struct {
 static StackIterateAction parser__repair_consumed_error_callback(
   void *payload, TSStateId state, TreeArray *trees, size_t tree_count,
   bool is_done, bool is_pending) {
-  if (tree_count > 0 && state != TS_STATE_ERROR) {
+  if (tree_count > 0 && state != ERROR_STATE) {
     SkipPrecedingTokensSession *session = payload;
     Parser *self = session->parser;
     TSSymbol lookahead_symbol = session->lookahead_symbol;
@@ -1003,10 +1006,10 @@ static bool parser__handle_error(Parser *self, StackVersion version,
     }
   }
 
-  CHECK(ts_stack_push(self->stack, version, NULL, false, TS_STATE_ERROR));
+  CHECK(ts_stack_push(self->stack, version, NULL, false, ERROR_STATE));
   while (ts_stack_version_count(self->stack) > previous_version_count) {
     CHECK(ts_stack_push(self->stack, previous_version_count, NULL, false,
-                        TS_STATE_ERROR));
+                        ERROR_STATE));
     assert(ts_stack_merge(self->stack, version, previous_version_count));
   }
 
@@ -1032,7 +1035,7 @@ static bool parser__recover(Parser *self, StackVersion version, TSStateId state,
   CHECK(new_version != STACK_VERSION_NONE);
 
   CHECK(parser__shift(
-    self, new_version, TS_STATE_ERROR, lookahead,
+    self, new_version, ERROR_STATE, lookahead,
     ts_language_symbol_metadata(self->language, lookahead->symbol).extra));
   ErrorStatus error_status = ts_stack_error_status(self->stack, new_version);
   if (parser__better_version_exists(self, version, error_status)) {
@@ -1127,9 +1130,9 @@ static bool parser__advance(Parser *self, StackVersion version,
           LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.symbol),
               action.child_count);
 
-          Reduction reduction = parser__reduce(
-            self, version, action.symbol, action.child_count,
-            (i < table_entry.action_count - 1), true);
+          Reduction reduction =
+            parser__reduce(self, version, action.symbol, action.child_count,
+                           (i < table_entry.action_count - 1), true);
 
           switch (reduction.status) {
             case ReduceFailed:
@@ -1203,8 +1206,8 @@ static bool parser__advance(Parser *self, StackVersion version,
         break;
     }
 
-    if (state == TS_STATE_ERROR) {
-      return parser__push(self, version, lookahead, TS_STATE_ERROR);
+    if (state == ERROR_STATE) {
+      return parser__push(self, version, lookahead, ERROR_STATE);
     }
 
     CHECK(parser__handle_error(self, version, lookahead->symbol));

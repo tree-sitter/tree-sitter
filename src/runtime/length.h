@@ -1,8 +1,15 @@
 #ifndef RUNTIME_LENGTH_H_
 #define RUNTIME_LENGTH_H_
 
-#include "tree_sitter/parser.h"
+#include <stdlib.h>
 #include <stdbool.h>
+#include "tree_sitter/runtime.h"
+
+typedef struct {
+  size_t bytes;
+  size_t chars;
+  TSPoint extent;
+} TSLength;
 
 static inline TSPoint ts_point_add(TSPoint a, TSPoint b) {
   if (b.row > 0)

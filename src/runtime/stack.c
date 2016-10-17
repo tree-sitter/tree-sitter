@@ -1,4 +1,3 @@
-#include "tree_sitter/parser.h"
 #include "runtime/alloc.h"
 #include "runtime/tree.h"
 #include "runtime/array.h"
@@ -107,10 +106,7 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
 
     node->link_count = 1;
     node->links[0] = (StackLink){
-      .node = next,
-      .tree = tree,
-      .is_pending = is_pending,
-      .push_count = 0,
+      .node = next, .tree = tree, .is_pending = is_pending, .push_count = 0,
     };
 
     node->error_count = next->error_count;
@@ -120,7 +116,7 @@ static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
       ts_tree_retain(tree);
       node->error_cost += tree->error_cost;
 
-      if (state == TS_STATE_ERROR) {
+      if (state == ERROR_STATE) {
         if (!tree->extra) {
           node->error_cost += ERROR_COST_PER_SKIPPED_TREE +
                               ERROR_COST_PER_SKIPPED_CHAR *
@@ -171,9 +167,7 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
 static StackVersion ts_stack__add_version(Stack *self, StackNode *node,
                                           unsigned push_count) {
   StackHead head = {
-    .node = node,
-    .is_halted = false,
-    .push_count = push_count,
+    .node = node, .is_halted = false, .push_count = push_count,
   };
   if (!array_push(&self->heads, head))
     return STACK_VERSION_NONE;
@@ -222,8 +216,8 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
       bool is_done = node == self->base_node;
 
       StackIterateAction action =
-        callback(payload, node->state, &iterator->trees, iterator->tree_count, is_done,
-                 iterator->is_pending);
+        callback(payload, node->state, &iterator->trees, iterator->tree_count,
+                 is_done, iterator->is_pending);
 
       bool should_pop = action & StackIteratePop;
       bool should_stop = action & StackIterateStop || node->link_count == 0;
@@ -234,7 +228,8 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
           if (!ts_tree_array_copy(trees, &trees))
             goto error;
         array_reverse(&trees);
-        if (!ts_stack__add_slice(self, node, &trees, push_count + iterator->push_count))
+        if (!ts_stack__add_slice(self, node, &trees,
+                                 push_count + iterator->push_count))
           goto error;
       }
 
@@ -370,7 +365,7 @@ unsigned ts_stack_push_count(const Stack *self, StackVersion version) {
 }
 
 void ts_stack_decrease_push_count(const Stack *self, StackVersion version,
-                                      unsigned decrement) {
+                                  unsigned decrement) {
   array_get(&self->heads, version)->push_count -= decrement;
 }
 
@@ -401,10 +396,10 @@ bool ts_stack_push(Stack *self, StackVersion version, TSTree *tree,
     return false;
   stack_node_release(node, &self->node_pool);
   head->node = new_node;
-  if (state == TS_STATE_ERROR) {
+  if (state == ERROR_STATE) {
     new_node->links[0].push_count = head->push_count;
     head->push_count = 0;
-  }else
+  } else
     head->push_count++;
   return true;
 }
@@ -424,7 +419,7 @@ INLINE StackIterateAction pop_count_callback(void *payload, TSStateId state,
     return StackIteratePop | StackIterateStop;
   }
 
-  if (state == TS_STATE_ERROR) {
+  if (state == ERROR_STATE) {
     if (pop_session->found_valid_path || pop_session->found_error) {
       return StackIterateStop;
     } else {
@@ -569,7 +564,8 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
       continue;
     fprintf(f, "node_head_%lu [shape=none, label=\"\"]\n", i);
     fprintf(
-      f, "node_head_%lu -> node_%p [label=%lu, fontcolor=blue, weight=10000, "
+      f,
+      "node_head_%lu -> node_%p [label=%lu, fontcolor=blue, weight=10000, "
       "labeltooltip=\"push_count: %u\"]\n",
       i, head->node, i, head->push_count);
     if (!array_push(&self->iterators, ((Iterator){.node = head->node })))
@@ -596,7 +592,7 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
       all_iterators_done = false;
 
       fprintf(f, "node_%p [", node);
-      if (node->state == TS_STATE_ERROR)
+      if (node->state == ERROR_STATE)
         fprintf(f, "label=\"?\"");
       else if (node->link_count == 1 && node->links[0].tree &&
                node->links[0].tree->extra)

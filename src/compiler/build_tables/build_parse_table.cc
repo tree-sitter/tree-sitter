@@ -195,7 +195,8 @@ class ParseTableBuilder {
     ParseAction action = ParseAction::ShiftExtra();
     ParseState &state = parse_table.states[state_id];
     for (const Symbol &extra_symbol : grammar.extra_tokens)
-      if (!state.entries.count(extra_symbol) || state.has_shift_action() || allow_any_conflict)
+      if (!state.entries.count(extra_symbol) || state.has_shift_action() ||
+          allow_any_conflict)
         parse_table.add_action(state_id, extra_symbol, action);
   }
 

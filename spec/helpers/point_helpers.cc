@@ -1,6 +1,8 @@
 #include "./point_helpers.h"
 #include <string>
 #include <ostream>
+#include "runtime/length.h"
+#include "tree_sitter/runtime.h"
 
 using namespace std;
 

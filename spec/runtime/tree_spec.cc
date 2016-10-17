@@ -183,14 +183,13 @@ describe("Tree", []() {
 
     describe("edits within a tree's padding", [&]() {
       it("resizes the padding of the tree and its leftmost descendants", [&]() {
-        TSInputEdit edit = {
-          .start_byte = 1,
-          .bytes_removed = 0,
-          .bytes_added = 1,
-          .start_point = {0, 1},
-          .extent_removed = {0, 0},
-          .extent_added = {0, 1},
-        };
+        TSInputEdit edit;
+        edit.start_byte = 1;
+        edit.bytes_removed = 0;
+        edit.bytes_added = 1;
+        edit.start_point = {0, 1};
+        edit.extent_removed = {0, 0};
+        edit.extent_added = {0, 1};
         ts_tree_edit(tree, &edit);
         assert_consistent(tree);
 
@@ -210,14 +209,13 @@ describe("Tree", []() {
 
     describe("edits that start in a tree's padding but extend into its content", [&]() {
       it("shrinks the content to compensate for the expanded padding", [&]() {
-        TSInputEdit edit = {
-          .start_byte = 1,
-          .bytes_removed = 3,
-          .bytes_added = 4,
-          .start_point = {0, 1},
-          .extent_removed = {0, 3},
-          .extent_added = {0, 4},
-        };
+        TSInputEdit edit;
+        edit.start_byte = 1;
+        edit.bytes_removed = 3;
+        edit.bytes_added = 4;
+        edit.start_point = {0, 1};
+        edit.extent_removed = {0, 3};
+        edit.extent_added = {0, 4};
         ts_tree_edit(tree, &edit);
         assert_consistent(tree);
 
@@ -233,14 +231,13 @@ describe("Tree", []() {
 
     describe("insertions at the edge of a tree's padding", [&]() {
       it("expands the tree's padding", [&]() {
-        TSInputEdit edit = {
-          .start_byte = 2,
-          .bytes_removed = 0,
-          .bytes_added = 2,
-          .start_point = {0, 2},
-          .extent_removed = {0, 0},
-          .extent_added = {0, 2},
-        };
+        TSInputEdit edit;
+        edit.start_byte = 2;
+        edit.bytes_removed = 0;
+        edit.bytes_added = 2;
+        edit.start_point = {0, 2};
+        edit.extent_removed = {0, 0};
+        edit.extent_added = {0, 2};
         ts_tree_edit(tree, &edit);
         assert_consistent(tree);
 
@@ -260,14 +257,13 @@ describe("Tree", []() {
 
     describe("replacements starting at the edge of a tree's padding", [&]() {
       it("resizes the content and not the padding", [&]() {
-        TSInputEdit edit = {
-          .start_byte = 2,
-          .bytes_removed = 2,
-          .bytes_added = 5,
-          .start_point = {0, 2},
-          .extent_removed = {0, 2},
-          .extent_added = {0, 5},
-        };
+        TSInputEdit edit;
+        edit.start_byte = 2;
+        edit.bytes_removed = 2;
+        edit.bytes_added = 5;
+        edit.start_point = {0, 2};
+        edit.extent_removed = {0, 2};
+        edit.extent_added = {0, 5};
         ts_tree_edit(tree, &edit);
         assert_consistent(tree);
 
@@ -285,14 +281,13 @@ describe("Tree", []() {
 
     describe("deletions that span more than one child node", [&]() {
       it("shrinks subsequent child nodes", [&]() {
-        TSInputEdit edit = {
-          .start_byte = 1,
-          .bytes_removed = 10,
-          .bytes_added = 3,
-          .start_point = {0, 1},
-          .extent_removed = {0, 10},
-          .extent_added = {0, 3},
-        };
+        TSInputEdit edit;
+        edit.start_byte = 1;
+        edit.bytes_removed = 10;
+        edit.bytes_added = 3;
+        edit.start_point = {0, 1};
+        edit.extent_removed = {0, 10};
+        edit.extent_added = {0, 3};
         ts_tree_edit(tree, &edit);
         assert_consistent(tree);
 
