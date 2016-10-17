@@ -1,10 +1,6 @@
 #ifndef RUNTIME_TREE_PATH_H_
 #define RUNTIME_TREE_PATH_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "runtime/tree.h"
 #include "runtime/error_costs.h"
 
@@ -202,8 +198,4 @@ static bool tree_path_get_changes(TreePath *old_path, TreePath *new_path,
   return true;
 }
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif  // RUNTIME_TREE_H_
+#endif  // RUNTIME_TREE_PATH_H_
