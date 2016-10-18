@@ -112,7 +112,11 @@ class ParseTableBuilder {
   void build_error_parse_state() {
     ParseState error_state;
 
-    for (const Symbol &symbol : recovery_tokens(lexical_grammar))
+    auto recovery_symbols = recovery_tokens(lexical_grammar);
+
+    parse_table.mergeable_symbols.insert(recovery_symbols.begin(), recovery_symbols.end());
+
+    for (const Symbol &symbol : recovery_symbols)
       add_out_of_context_parse_state(&error_state, symbol);
 
     for (const Symbol &symbol : grammar.extra_tokens)
