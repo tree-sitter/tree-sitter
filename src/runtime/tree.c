@@ -28,6 +28,7 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
     .visible = metadata.visible,
     .named = metadata.named,
     .first_leaf.symbol = sym,
+    .has_changes = false,
   };
 
   return result;
@@ -90,27 +91,28 @@ TSTree *ts_tree_make_copy(TSTree *self) {
   return result;
 }
 
-void ts_tree_assign_parents(TSTree *self) {
-  TSLength offset;
-
-recur:
-  offset = ts_length_zero();
-  for (size_t i = 0; i < self->child_count; i++) {
-    TSTree *child = self->children[i];
-    if (child->context.parent != self || child->context.index != i) {
-      child->context.parent = self;
-      child->context.index = i;
-      child->context.offset = offset;
-      if (i == self->child_count - 1) {
-        self = child;
-        goto recur;
+bool ts_tree_assign_parents(TSTree *self, TreePath *path) {
+  array_clear(path);
+  if (!array_push(path, ((TreePathEntry){self, ts_length_zero(), 0})))
+    return false;
+  while (path->size > 0) {
+    TSTree *tree = array_pop(path).tree;
+    TSLength offset = ts_length_zero();
+    for (size_t i = 0; i < tree->child_count; i++) {
+      TSTree *child = tree->children[i];
+      if (child->context.parent != tree || child->context.index != i) {
+        child->context.parent = tree;
+        child->context.index = i;
+        child->context.offset = offset;
+        if (!array_push(path, ((TreePathEntry){child, ts_length_zero(), 0})))
+          return false;
       }
-
-      ts_tree_assign_parents(child);
+      offset = ts_length_add(offset, ts_tree_total_size(child));
     }
-    offset = ts_length_add(offset, ts_tree_total_size(child));
   }
+  return true;
 }
+
 
 void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
   if (self->child_count > 0)
@@ -151,7 +153,7 @@ void ts_tree_set_children(TSTree *self, size_t child_count, TSTree **children) {
 
   if (self->symbol == ts_builtin_sym_error) {
     self->error_cost += ERROR_COST_PER_SKIPPED_CHAR * self->size.chars +
-                        ERROR_COST_PER_SKIPPED_LINE * self->size.rows;
+                        ERROR_COST_PER_SKIPPED_LINE * self->size.extent.row;
     for (size_t i = 0; i < child_count; i++)
       if (!self->children[i]->extra)
         self->error_cost += ERROR_COST_PER_SKIPPED_TREE;
@@ -232,20 +234,20 @@ recur:
 }
 
 size_t ts_tree_start_column(const TSTree *self) {
-  size_t column = self->padding.columns;
-  if (self->padding.rows > 0)
+  size_t column = self->padding.extent.column;
+  if (self->padding.extent.row > 0)
     return column;
   for (const TSTree *tree = self; tree != NULL; tree = tree->context.parent) {
-    column += tree->context.offset.columns;
-    if (tree->context.offset.rows > 0)
+    column += tree->context.offset.extent.column;
+    if (tree->context.offset.extent.row > 0)
       break;
   }
   return column;
 }
 
 size_t ts_tree_end_column(const TSTree *self) {
-  size_t result = self->size.columns;
-  if (self->size.rows == 0)
+  size_t result = self->size.extent.column;
+  if (self->size.extent.row == 0)
     result += ts_tree_start_column(self);
   return result;
 }
@@ -306,71 +308,103 @@ static inline long min(long a, long b) {
   return a <= b ? a : b;
 }
 
-void ts_tree_edit(TSTree *self, TSInputEdit edit) {
-  size_t start = edit.position;
-  size_t new_end = edit.position + edit.chars_inserted;
-  size_t old_end = edit.position + edit.chars_removed;
-  assert(old_end <= ts_tree_total_chars(self));
+
+void ts_tree_edit(TSTree *self, const TSInputEdit *edit) {
+  size_t old_end_byte = edit->start_byte + edit->bytes_removed;
+  size_t new_end_byte = edit->start_byte + edit->bytes_added;
+  TSPoint old_end_point = ts_point_add(edit->start_point, edit->extent_removed);
+  TSPoint new_end_point = ts_point_add(edit->start_point, edit->extent_added);
+
+  assert(old_end_byte <= ts_tree_total_bytes(self));
 
   self->has_changes = true;
 
-  if (start < self->padding.chars) {
-    ts_length_set_unknown(&self->padding);
-    long remaining_padding = self->padding.chars - old_end;
-    if (remaining_padding >= 0) {
-      self->padding.chars = new_end + remaining_padding;
+  if (edit->start_byte < self->padding.bytes) {
+    ts_length_set_unknown_chars(&self->padding);
+    if (self->padding.bytes >= old_end_byte) {
+      size_t trailing_padding_bytes = self->padding.bytes - old_end_byte;
+      TSPoint trailing_padding_extent = ts_point_sub(self->padding.extent, old_end_point);
+      self->padding.bytes = new_end_byte + trailing_padding_bytes;
+      self->padding.extent = ts_point_add(new_end_point, trailing_padding_extent);
     } else {
-      self->padding.chars = new_end;
-      self->size.chars += remaining_padding;
-      ts_length_set_unknown(&self->size);
+      ts_length_set_unknown_chars(&self->size);
+      size_t removed_content_bytes = old_end_byte - self->padding.bytes;
+      TSPoint removed_content_extent = ts_point_sub(old_end_point, self->padding.extent);
+      self->size.bytes = self->size.bytes - removed_content_bytes;
+      self->size.extent = ts_point_sub(self->size.extent, removed_content_extent);
+      self->padding.bytes = new_end_byte;
+      self->padding.extent = new_end_point;
     }
-  } else if (start == self->padding.chars && edit.chars_removed == 0) {
-    self->padding.chars += edit.chars_inserted;
-    ts_length_set_unknown(&self->padding);
+  } else if (edit->start_byte == self->padding.bytes && edit->bytes_removed == 0) {
+    ts_length_set_unknown_chars(&self->padding);
+    self->padding.bytes = self->padding.bytes + edit->bytes_added;
+    self->padding.extent = ts_point_add(self->padding.extent, edit->extent_added);
   } else {
-    self->size.chars += (edit.chars_inserted - edit.chars_removed);
-    ts_length_set_unknown(&self->size);
+    ts_length_set_unknown_chars(&self->size);
+    size_t trailing_content_bytes = ts_tree_total_bytes(self) - old_end_byte;
+    TSPoint trailing_content_extent = ts_point_sub(ts_tree_total_extent(self), old_end_point);
+    self->size.bytes = new_end_byte + trailing_content_bytes - self->padding.bytes;
+    self->size.extent = ts_point_sub(ts_point_add(new_end_point, trailing_content_extent), self->padding.extent);
   }
 
   bool found_first_child = false;
-  long remainder_to_delete = edit.chars_removed - edit.chars_inserted;
-  size_t child_left = 0, child_right = 0;
+  long remaining_bytes_to_delete = 0;
+  TSPoint remaining_extent_to_delete = {0, 0};
+  TSLength child_left, child_right = ts_length_zero();
   for (size_t i = 0; i < self->child_count; i++) {
     TSTree *child = self->children[i];
-    size_t child_size = ts_tree_total_chars(child);
     child_left = child_right;
-    child_right += child_size;
 
     if (!found_first_child) {
-      if (child_right >= start) {
+      child_right = ts_length_add(child_left, ts_tree_total_size(child));
+      if (child_right.bytes >= edit->start_byte) {
         found_first_child = true;
-        size_t chars_removed = min(edit.chars_removed, child_right - start);
-        remainder_to_delete -= (chars_removed - edit.chars_inserted);
-        ts_tree_edit(child, (TSInputEdit){
-                              .position = start - child_left,
-                              .chars_inserted = edit.chars_inserted,
-                              .chars_removed = chars_removed,
-                            });
+        TSInputEdit child_edit = {
+          .start_byte = edit->start_byte - child_left.bytes,
+          .bytes_added = edit->bytes_added,
+          .bytes_removed = edit->bytes_removed,
+          .start_point = ts_point_sub(edit->start_point, child_left.extent),
+          .extent_added = edit->extent_added,
+          .extent_removed = edit->extent_removed,
+        };
+
+        if (old_end_byte > child_right.bytes) {
+          child_edit.bytes_removed = child_right.bytes - edit->start_byte;
+          child_edit.extent_removed = ts_point_sub(child_right.extent, edit->start_point);
+          remaining_bytes_to_delete = old_end_byte - child_right.bytes;
+          remaining_extent_to_delete = ts_point_sub(old_end_point, child_right.extent);
+        }
+
+        ts_tree_edit(child, &child_edit);
       }
-    } else {
-      if (remainder_to_delete > 0) {
-        size_t chars_removed = min(remainder_to_delete, child_size);
-        remainder_to_delete -= chars_removed;
-        ts_tree_edit(
-          child,
-          (TSInputEdit){
-            .position = 0, .chars_inserted = 0, .chars_removed = chars_removed,
-          });
-      } else {
-        break;
-      }
+    } else if (remaining_bytes_to_delete > 0) {
+      TSInputEdit child_edit = {
+        .start_byte = 0,
+        .bytes_added = 0,
+        .bytes_removed = min(remaining_bytes_to_delete, ts_tree_total_bytes(child)),
+        .start_point = {0, 0},
+        .extent_added = {0, 0},
+        .extent_removed = ts_point_min(remaining_extent_to_delete, ts_tree_total_size(child).extent),
+      };
+      remaining_bytes_to_delete -= child_edit.bytes_removed;
+      remaining_extent_to_delete = ts_point_sub(remaining_extent_to_delete, child_edit.extent_removed);
+      ts_tree_edit(child, &child_edit);
     }
+
+    child_right = ts_length_add(child_left, ts_tree_total_size(child));
+    child->context.offset = child_left;
   }
 }
 
 static size_t ts_tree__write_char_to_string(char *s, size_t n, int32_t c) {
   if (c == 0)
     return snprintf(s, n, "EOF");
+  else if (c == '\n')
+    return snprintf(s, n, "'\\n'");
+  else if (c == '\t')
+    return snprintf(s, n, "'\\t'");
+  else if (c == '\r')
+    return snprintf(s, n, "'\\r'");
   else if (c < 128)
     return snprintf(s, n, "'%c'", c);
   else
@@ -425,7 +459,7 @@ char *ts_tree_string(const TSTree *self, const TSLanguage *language,
   return result;
 }
 
-void ts_tree__print_dot_graph(const TSTree *self, size_t offset,
+void ts_tree__print_dot_graph(const TSTree *self, size_t byte_offset,
                               const TSLanguage *language, FILE *f) {
   fprintf(f, "tree_%p [label=\"%s\"", self,
           ts_language_symbol_name(language, self->symbol));
@@ -436,13 +470,13 @@ void ts_tree__print_dot_graph(const TSTree *self, size_t offset,
     fprintf(f, ", fontcolor=gray");
 
   fprintf(f, ", tooltip=\"range:%lu - %lu\nstate:%d\nerror-cost:%u\"]\n",
-          offset, offset + ts_tree_total_chars(self), self->parse_state,
+          byte_offset, byte_offset + ts_tree_total_bytes(self), self->parse_state,
           self->error_cost);
   for (size_t i = 0; i < self->child_count; i++) {
     const TSTree *child = self->children[i];
-    ts_tree__print_dot_graph(child, offset, language, f);
+    ts_tree__print_dot_graph(child, byte_offset, language, f);
     fprintf(f, "tree_%p -> tree_%p [tooltip=%lu]\n", self, child, i);
-    offset += ts_tree_total_chars(child);
+    byte_offset += ts_tree_total_bytes(child);
   }
 }
 

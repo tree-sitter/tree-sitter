@@ -50,7 +50,16 @@ typedef struct TSTree {
   bool has_changes : 1;
 } TSTree;
 
+typedef struct {
+  TSTree *tree;
+  TSLength position;
+  size_t child_index;
+} TreePathEntry;
+
 typedef Array(TSTree *) TreeArray;
+
+typedef Array(TreePathEntry) TreePath;
+
 bool ts_tree_array_copy(TreeArray, TreeArray *);
 void ts_tree_array_delete(TreeArray *);
 size_t ts_tree_array_essential_count(const TreeArray *);
@@ -68,8 +77,8 @@ int ts_tree_compare(const TSTree *tree1, const TSTree *tree2);
 size_t ts_tree_start_column(const TSTree *self);
 size_t ts_tree_end_column(const TSTree *self);
 void ts_tree_set_children(TSTree *, size_t, TSTree **);
-void ts_tree_assign_parents(TSTree *);
-void ts_tree_edit(TSTree *, TSInputEdit);
+bool ts_tree_assign_parents(TSTree *, TreePath *);
+void ts_tree_edit(TSTree *, const TSInputEdit *edit);
 char *ts_tree_string(const TSTree *, const TSLanguage *, bool include_all);
 void ts_tree_print_dot_graph(const TSTree *, const TSLanguage *, FILE *);
 
@@ -77,8 +86,16 @@ static inline size_t ts_tree_total_chars(const TSTree *self) {
   return self->padding.chars + self->size.chars;
 }
 
+static inline size_t ts_tree_total_bytes(const TSTree *self) {
+  return self->padding.bytes + self->size.bytes;
+}
+
 static inline TSLength ts_tree_total_size(const TSTree *self) {
   return ts_length_add(self->padding, self->size);
+}
+
+static inline TSPoint ts_tree_total_extent(const TSTree *self) {
+  return ts_point_add(self->padding.extent, self->size.extent);
 }
 
 static inline bool ts_tree_is_fragile(const TSTree *tree) {

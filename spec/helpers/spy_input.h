@@ -6,8 +6,8 @@
 #include "tree_sitter/runtime.h"
 
 struct SpyInputEdit {
-  size_t position;
-  size_t chars_removed;
+  size_t start_byte;
+  size_t bytes_removed;
   std::string text_inserted;
 };
 
@@ -20,7 +20,7 @@ class SpyInput {
 
   static const char * read(void *, size_t *);
   static int seek(void *, size_t, size_t);
-  std::string swap_substr(size_t, size_t, std::string);
+  std::pair<std::string, TSPoint> swap_substr(size_t, size_t, std::string);
 
  public:
   SpyInput(std::string content, size_t chars_per_chunk);

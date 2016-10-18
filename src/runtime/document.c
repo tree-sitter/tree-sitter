@@ -4,6 +4,7 @@
 #include "runtime/parser.h"
 #include "runtime/string_input.h"
 #include "runtime/document.h"
+#include "runtime/tree_path.h"
 
 TSDocument *ts_document_new() {
   TSDocument *self = ts_calloc(1, sizeof(TSDocument));
@@ -79,16 +80,20 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
   if (!self->tree)
     return;
 
-  size_t max_chars = ts_tree_total_chars(self->tree);
-  if (edit.position > max_chars)
-    edit.position = max_chars;
-  if (edit.chars_removed > max_chars - edit.position)
-    edit.chars_removed = max_chars - edit.position;
+  size_t max_bytes = ts_tree_total_bytes(self->tree);
+  if (edit.start_byte > max_bytes)
+    return;
+  if (edit.bytes_removed > max_bytes - edit.start_byte)
+    edit.bytes_removed = max_bytes - edit.start_byte;
 
-  ts_tree_edit(self->tree, edit);
+  ts_tree_edit(self->tree, &edit);
 }
 
-int ts_document_parse(TSDocument *self) {
+int ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges,
+                                             size_t *range_count) {
+  if (ranges) *ranges = NULL;
+  if (range_count) *range_count = 0;
+
   if (!self->input.read || !self->parser.language)
     return -1;
 
@@ -100,12 +105,29 @@ int ts_document_parse(TSDocument *self) {
   if (!tree)
     return -1;
 
-  if (self->tree)
-    ts_tree_release(self->tree);
+  if (self->tree) {
+    TSTree *old_tree = self->tree;
+    self->tree = tree;
+
+    if (ranges && range_count) {
+      tree_path_init(&self->parser.tree_path1, old_tree);
+      tree_path_init(&self->parser.tree_path2, tree);
+      if (!tree_path_get_changes(&self->parser.tree_path1,
+                                 &self->parser.tree_path2, ranges, range_count))
+        return -1;
+    }
+
+    ts_tree_release(old_tree);
+  }
+
   self->tree = tree;
   self->parse_count++;
   self->valid = true;
   return 0;
+}
+
+int ts_document_parse(TSDocument *self) {
+  return ts_document_parse_and_get_changed_ranges(self, NULL, NULL);
 }
 
 void ts_document_invalidate(TSDocument *self) {

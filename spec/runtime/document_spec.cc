@@ -3,6 +3,7 @@
 #include "helpers/record_alloc.h"
 #include "helpers/stream_methods.h"
 #include "helpers/tree_helpers.h"
+#include "helpers/point_helpers.h"
 #include "helpers/spy_logger.h"
 #include "helpers/spy_input.h"
 #include "helpers/load_language.h"
@@ -66,6 +67,17 @@ describe("Document", [&]() {
         "(array (true) (false))");
     });
 
+    it("allows columns to be measured in either bytes or characters", [&]() {
+      const char16_t content[] = u"[true, false]";
+      spy_input->content = string((const char *)content, sizeof(content));
+      spy_input->encoding = TSInputEncodingUTF16;
+      // spy_input->measure_columns_in_bytes
+
+      ts_document_set_input(doc, spy_input->input());
+      ts_document_invalidate(doc);
+      ts_document_parse(doc);
+    });
+
     it("allows the input to be retrieved later", [&]() {
       ts_document_set_input(doc, spy_input->input());
       AssertThat(ts_document_input(doc).payload, Equals<void *>(spy_input));
@@ -84,14 +96,19 @@ describe("Document", [&]() {
       ts_document_set_input(doc, spy_input->input());
 
       // Insert 'null', delete '1'.
-      ts_document_edit(doc, {strlen("{\"key\": ["), 4, 1});
+      TSInputEdit edit = {};
+      edit.start_point.column = edit.start_byte = strlen("{\"key\": [");
+      edit.extent_added.column = edit.bytes_added = 4;
+      edit.extent_removed.column = edit.bytes_removed = 1;
+
+      ts_document_edit(doc, edit);
       ts_document_parse(doc);
 
       TSNode new_root = ts_document_root_node(doc);
       assert_node_string_equals(
         new_root,
         "(object (pair (string) (array (null) (number))))");
-      AssertThat(spy_input->strings_read, Equals(vector<string>({" [null, 2", ""})));
+      AssertThat(spy_input->strings_read, Equals(vector<string>({" [null, 2"})));
     });
 
     it("reads from the new input correctly when the old input was blank", [&]() {
@@ -190,6 +207,146 @@ describe("Document", [&]() {
         ts_document_parse(doc);
         AssertThat(logger->messages, IsEmpty());
       });
+    });
+  });
+
+  describe("parse_and_get_changed_ranges()", [&]() {
+    SpyInput *input;
+
+    before_each([&]() {
+      ts_document_set_language(doc, get_test_language("javascript"));
+      input = new SpyInput("{a: null};", 3);
+      ts_document_set_input(doc, input->input());
+      ts_document_parse(doc);
+      assert_node_string_equals(
+        ts_document_root_node(doc),
+        "(program (expression_statement (object (pair (identifier) (null)))))");
+    });
+
+    after_each([&]() {
+      delete input;
+    });
+
+    auto get_ranges = [&](std::function<TSInputEdit()> callback) -> vector<TSRange> {
+      TSInputEdit edit = callback();
+      ts_document_edit(doc, edit);
+
+      TSRange *ranges;
+      size_t range_count = 0;
+
+      ts_document_parse_and_get_changed_ranges(doc, &ranges, &range_count);
+
+      vector<TSRange> result;
+      for (size_t i = 0; i < range_count; i++)
+        result.push_back(ranges[i]);
+      ts_free(ranges);
+
+      return result;
+    };
+
+    it("reports changes when one token has been updated", [&]() {
+      // Replace `null` with `nothing`
+      auto ranges = get_ranges([&]() {
+        return input->replace(input->content.find("ull"), 1, "othing");
+      });
+
+      AssertThat(ranges, Equals(vector<TSRange>({
+        TSRange{
+          TSPoint{0, input->content.find("nothing")},
+          TSPoint{0, input->content.find("}")}
+        },
+      })));
+
+      // Replace `nothing` with `null` again
+      ranges = get_ranges([&]() {
+        return input->undo();
+      });
+
+      AssertThat(ranges, Equals(vector<TSRange>({
+        TSRange{
+          TSPoint{0, input->content.find("null")},
+          TSPoint{0, input->content.find("}")}
+        },
+      })));
+    });
+
+    it("reports changes when tokens have been appended", [&]() {
+      // Add a second key-value pair
+      auto ranges = get_ranges([&]() {
+        return input->replace(input->content.find("}"), 0, ", b: false");
+      });
+
+      AssertThat(ranges, Equals(vector<TSRange>({
+        TSRange{
+          TSPoint{0, input->content.find(",")},
+          TSPoint{0, input->content.find("}")},
+        },
+      })));
+
+      // Add a third key-value pair in between the first two
+      ranges = get_ranges([&]() {
+        return input->replace(input->content.find(", b"), 0, ", c: 1");
+      });
+
+      assert_node_string_equals(
+        ts_document_root_node(doc),
+        "(program (expression_statement (object "
+          "(pair (identifier) (null)) "
+          "(pair (identifier) (number)) "
+          "(pair (identifier) (false)))))");
+
+      AssertThat(ranges, Equals(vector<TSRange>({
+        TSRange{
+          TSPoint{0, input->content.find(", c")},
+          TSPoint{0, input->content.find(", b")},
+        },
+      })));
+
+      // Delete the middle pair.
+      ranges = get_ranges([&]() {
+        return input->undo();
+      });
+
+      assert_node_string_equals(
+        ts_document_root_node(doc),
+        "(program (expression_statement (object "
+          "(pair (identifier) (null)) "
+          "(pair (identifier) (false)))))");
+
+      AssertThat(ranges, Equals(vector<TSRange>({
+      })));
+
+      // Delete the second pair.
+      ranges = get_ranges([&]() {
+        return input->undo();
+      });
+
+      assert_node_string_equals(
+        ts_document_root_node(doc),
+        "(program (expression_statement (object "
+          "(pair (identifier) (null)))))");
+
+      AssertThat(ranges, Equals(vector<TSRange>({
+      })));
+    });
+
+    it("reports changes when trees have been wrapped", [&]() {
+      // Wrap the object in an assignment expression.
+      auto ranges = get_ranges([&]() {
+        return input->replace(input->content.find("null"), 0, "b === ");
+      });
+
+      assert_node_string_equals(
+        ts_document_root_node(doc),
+        "(program (expression_statement (object "
+          "(pair (identifier) (rel_op (identifier) (null))))))");
+
+      AssertThat(ranges, Equals(vector<TSRange>({
+        TSRange{
+          TSPoint{0, input->content.find("b ===")},
+          TSPoint{0, input->content.find("}")},
+        },
+      })));
     });
   });
 });

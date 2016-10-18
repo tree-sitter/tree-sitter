@@ -126,7 +126,6 @@ describe("Parser", [&]() {
 
         TSNode error = ts_node_named_child(root, 1);
         AssertThat(ts_node_type(error, doc), Equals("ERROR"));
-        AssertThat(get_node_text(error), Equals(", faaaaalse"));
         AssertThat(ts_node_child_count(error), Equals<size_t>(2));
 
         TSNode comma = ts_node_child(error, 0);
@@ -158,6 +157,15 @@ describe("Parser", [&]() {
         TSNode last = ts_node_named_child(root, 1);
         AssertThat(ts_node_type(last, doc), Equals("true"));
         AssertThat(get_node_text(last), Equals("true"));
+      });
+    });
+
+    describe("when there is an unexpected string at the end of a token", [&]() {
+      it("computes the error's size and position correctly", [&]() {
+        set_text("  [123, \"hi\n, true]");
+
+        assert_root_node(
+          "(array (number) (ERROR (UNEXPECTED '\\n')) (true))");
       });
     });
 
@@ -243,7 +251,7 @@ describe("Parser", [&]() {
               "(identifier) "
               "(math_op (number) (member_access (identifier) (identifier))))))");
 
-          AssertThat(input->strings_read, Equals(vector<string>({ " + abc.d)", "" })));
+          AssertThat(input->strings_read, Equals(vector<string>({ " + abc.d)" })));
         });
       });
 
@@ -267,7 +275,7 @@ describe("Parser", [&]() {
                 "(number) "
                 "(math_op (number) (math_op (number) (identifier)))))))");
 
-          AssertThat(input->strings_read, Equals(vector<string>({ "123 || 5 +", "" })));
+          AssertThat(input->strings_read, Equals(vector<string>({ "123 || 5 +" })));
         });
       });
 
@@ -328,22 +336,6 @@ describe("Parser", [&]() {
           TSNode node = ts_node_named_descendant_for_char_range(root, 1, 1);
           AssertThat(ts_node_type(node, doc), Equals("identifier"));
           AssertThat(ts_node_end_byte(node), Equals(strlen("abcXYZ")));
-        });
-      });
-
-      describe("with non-ascii characters", [&]() {
-        it("inserts the text according to the UTF8 character index", [&]() {
-          // 'αβδ' + '1'
-          set_text("'\u03b1\u03b2\u03b4' + '1';");
-
-          assert_root_node(
-            "(program (expression_statement (math_op (string) (string))))");
-
-          // 'αβδ' + 'ψ1'
-          insert_text(strlen("'abd' + '"), "\u03c8");
-
-          assert_root_node(
-            "(program (expression_statement (math_op (string) (string))))");
         });
       });
 
@@ -516,7 +508,6 @@ describe("Parser", [&]() {
 
         ts_document_free(doc);
         doc = nullptr;
-        AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
       }
 
       record_alloc::stop();
