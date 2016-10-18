@@ -27,7 +27,7 @@ describe("recovery_tokens(rule)", []() {
       })),
     };
 
-    AssertThat(recovery_tokens(grammar), Equals<vector<Symbol>>({
+    AssertThat(recovery_tokens(grammar), Equals<set<Symbol>>({
       Symbol(1, true),
     }));
   });
