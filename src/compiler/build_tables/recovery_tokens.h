@@ -3,7 +3,7 @@
 
 #include "compiler/rule.h"
 #include "compiler/rules/symbol.h"
-#include <vector>
+#include <set>
 
 namespace tree_sitter {
 
@@ -11,7 +11,7 @@ struct LexicalGrammar;
 
 namespace build_tables {
 
-std::vector<rules::Symbol> recovery_tokens(const LexicalGrammar &);
+std::set<rules::Symbol> recovery_tokens(const LexicalGrammar &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

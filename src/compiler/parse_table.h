@@ -97,6 +97,8 @@ class ParseTable {
 
   std::vector<ParseState> states;
   std::map<rules::Symbol, ParseTableSymbolMetadata> symbols;
+
+  std::set<rules::Symbol> mergeable_symbols;
 };
 
 }  // namespace tree_sitter

@@ -75,6 +75,8 @@ class ParseTableBuilder {
         for (const auto &pair2 : state.entries)
           parse_table.symbols[pair1.first].compatible_symbols.insert(pair2.first);
 
+    parse_table.mergeable_symbols = recovery_tokens(lexical_grammar);
+
     build_error_parse_state();
 
     allow_any_conflict = true;
@@ -112,7 +114,7 @@ class ParseTableBuilder {
   void build_error_parse_state() {
     ParseState error_state;
 
-    for (const Symbol &symbol : recovery_tokens(lexical_grammar))
+    for (auto &symbol : parse_table.mergeable_symbols)
       add_out_of_context_parse_state(&error_state, symbol);
 
     for (const Symbol &symbol : grammar.extra_tokens)

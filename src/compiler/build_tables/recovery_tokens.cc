@@ -11,7 +11,7 @@ namespace tree_sitter {
 namespace build_tables {
 
 using rules::Symbol;
-using std::vector;
+using std::set;
 
 template <bool left, bool right>
 class CharacterAggregator : public rules::RuleFn<void> {
@@ -47,8 +47,8 @@ class FirstCharacters : public CharacterAggregator<true, false> {};
 class LastCharacters : public CharacterAggregator<false, true> {};
 class AllCharacters : public CharacterAggregator<true, true> {};
 
-vector<Symbol> recovery_tokens(const LexicalGrammar &grammar) {
-  vector<Symbol> result;
+set<Symbol> recovery_tokens(const LexicalGrammar &grammar) {
+  set<Symbol> result;
 
   AllCharacters all_separator_characters;
   for (const rule_ptr &separator : grammar.separators)
@@ -79,7 +79,7 @@ vector<Symbol> recovery_tokens(const LexicalGrammar &grammar) {
       !all_characters.result.intersects(all_separator_characters.result);
 
     if ((has_distinct_start && has_distinct_end) || has_no_separators)
-      result.push_back(Symbol(i, true));
+      result.insert(Symbol(i, true));
   }
 
   return result;

@@ -206,6 +206,8 @@ bool ParseTable::merge_state(size_t i, size_t j) {
 
     const auto &other_entry = other.entries.find(symbol);
     if (other_entry == other.entries.end()) {
+      if (mergeable_symbols.count(symbol) == 0)
+        return false;
       if (actions.back().type != ParseActionTypeReduce)
         return false;
       if (!has_entry(other, entry.second))
@@ -222,6 +224,8 @@ bool ParseTable::merge_state(size_t i, size_t j) {
     const vector<ParseAction> &actions = entry.second.actions;
 
     if (!state.entries.count(symbol)) {
+      if (mergeable_symbols.count(symbol) == 0)
+        return false;
       if (actions.back().type != ParseActionTypeReduce)
         return false;
       if (!has_entry(state, entry.second))
