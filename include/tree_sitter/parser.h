@@ -43,7 +43,7 @@ typedef struct {
       TSSymbol symbol;
       unsigned short child_count;
     };
-  };
+  } params;
   TSParseActionType type : 4;
   bool extra : 1;
   bool fragile : 1;
@@ -103,14 +103,18 @@ typedef struct TSLanguage {
  *  Parse Table Macros
  */
 
-#define SHIFT(to_state_value)                                      \
-  {                                                                \
-    { .type = TSParseActionTypeShift, .to_state = to_state_value } \
+#define SHIFT(to_state_value)                                                 \
+  {                                                                           \
+    {                                                                         \
+      .type = TSParseActionTypeShift, .params = {.to_state = to_state_value } \
+    }                                                                         \
   }
 
-#define RECOVER(to_state_value)                                      \
-  {                                                                  \
-    { .type = TSParseActionTypeRecover, .to_state = to_state_value } \
+#define RECOVER(to_state_value)                                                 \
+  {                                                                             \
+    {                                                                           \
+      .type = TSParseActionTypeRecover, .params = {.to_state = to_state_value } \
+    }                                                                           \
   }
 
 #define SHIFT_EXTRA()                                 \
@@ -118,20 +122,20 @@ typedef struct TSLanguage {
     { .type = TSParseActionTypeShift, .extra = true } \
   }
 
-#define REDUCE(symbol_val, child_count_val)                  \
-  {                                                          \
-    {                                                        \
-      .type = TSParseActionTypeReduce, .symbol = symbol_val, \
-      .child_count = child_count_val,                        \
-    }                                                        \
+#define REDUCE(symbol_val, child_count_val)                             \
+  {                                                                     \
+    {                                                                   \
+      .type = TSParseActionTypeReduce,                                  \
+      .params = {.symbol = symbol_val, .child_count = child_count_val } \
+    }                                                                   \
   }
 
-#define REDUCE_FRAGILE(symbol_val, child_count_val)          \
-  {                                                          \
-    {                                                        \
-      .type = TSParseActionTypeReduce, .symbol = symbol_val, \
-      .child_count = child_count_val, .fragile = true,       \
-    }                                                        \
+#define REDUCE_FRAGILE(symbol_val, child_count_val)                     \
+  {                                                                     \
+    {                                                                   \
+      .type = TSParseActionTypeReduce, .fragile = true,                 \
+      .params = {.symbol = symbol_val, .child_count = child_count_val } \
+    }                                                                   \
   }
 
 #define ACCEPT_INPUT()                  \
