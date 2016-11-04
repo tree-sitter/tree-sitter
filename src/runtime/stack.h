@@ -24,11 +24,7 @@ typedef struct {
 typedef Array(StackSlice) StackSliceArray;
 
 typedef struct {
-  enum {
-    StackPopFailed,
-    StackPopStoppedAtError,
-    StackPopSucceeded,
-  } status;
+  bool stopped_at_error;
   StackSliceArray slices;
 } StackPopResult;
 

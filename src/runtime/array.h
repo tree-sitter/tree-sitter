@@ -42,9 +42,9 @@ extern "C" {
 #define array_delete(self) array__delete((VoidArray *)self)
 
 #define array_push(self, element)                                       \
-  (((self)->size < (self)->capacity ||                                  \
-    array_grow((self), (self)->capacity ? (self)->capacity * 2 : 8)) && \
-   ((self)->contents[(self)->size++] = (element), true))
+  ((self)->size < (self)->capacity ||                                  \
+    (array_grow((self), (self)->capacity ? (self)->capacity * 2 : 8), true), \
+    (self)->contents[(self)->size++] = (element))
 
 #define array_splice(self, index, old_count, new_count, new_elements)          \
   array__splice((VoidArray *)(self), array__elem_size(self), index, old_count, \
@@ -80,25 +80,21 @@ static inline void array__erase(VoidArray *self, size_t element_size,
   self->size--;
 }
 
-static inline bool array__grow(VoidArray *self, size_t element_size,
+static inline void array__grow(VoidArray *self, size_t element_size,
                                size_t new_capacity) {
-  if (new_capacity == 0)
-    return true;
+  if (new_capacity > self->capacity) {
+    void *new_contents;
+    if (self->contents)
+      new_contents = ts_realloc(self->contents, new_capacity * element_size);
+    else
+      new_contents = ts_calloc(new_capacity, element_size);
 
-  void *new_contents;
-  if (self->contents)
-    new_contents = ts_realloc(self->contents, new_capacity * element_size);
-  else
-    new_contents = ts_calloc(new_capacity, element_size);
-
-  if (!new_contents)
-    return false;
-  self->capacity = new_capacity;
-  self->contents = new_contents;
-  return true;
+    self->capacity = new_capacity;
+    self->contents = new_contents;
+  }
 }
 
-static inline bool array__splice(VoidArray *self, size_t element_size,
+static inline void array__splice(VoidArray *self, size_t element_size,
                                  size_t index, size_t old_count,
                                  size_t new_count, void *elements) {
   size_t new_size = self->size + new_count - old_count;
@@ -106,9 +102,7 @@ static inline bool array__splice(VoidArray *self, size_t element_size,
   size_t new_end = index + new_count;
   assert(old_end <= self->size);
 
-  if (new_size >= self->capacity)
-    if (!array__grow(self, element_size, new_size))
-      return false;
+  array__grow(self, element_size, new_size);
 
   char *contents = (char *)self->contents;
   if (self->size > old_end)
@@ -118,7 +112,6 @@ static inline bool array__splice(VoidArray *self, size_t element_size,
     memcpy((contents + index * element_size), elements,
            new_count * element_size);
   self->size += new_count - old_count;
-  return true;
 }
 
 static inline void array__reverse(VoidArray *self, size_t element_size) {

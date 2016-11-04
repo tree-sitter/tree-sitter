@@ -13,9 +13,6 @@ TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
 TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
                           TSSymbolMetadata metadata) {
   TSTree *result = ts_malloc(sizeof(TSTree));
-  if (!result)
-    return NULL;
-
   *result = (TSTree){
     .ref_count = 1,
     .symbol = sym,
@@ -30,7 +27,6 @@ TSTree *ts_tree_make_leaf(TSSymbol sym, TSLength padding, TSLength size,
     .first_leaf.symbol = sym,
     .has_changes = false,
   };
-
   return result;
 }
 
@@ -38,8 +34,6 @@ bool ts_tree_array_copy(TreeArray self, TreeArray *dest) {
   TSTree **contents = NULL;
   if (self.capacity > 0) {
     contents = ts_calloc(self.capacity, sizeof(TSTree *));
-    if (!contents)
-      return false;
     memcpy(contents, self.contents, self.size * sizeof(TSTree *));
     for (size_t i = 0; i < self.size; i++)
       ts_tree_retain(contents[i]);
@@ -72,9 +66,6 @@ TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char)
                                      (TSSymbolMetadata){
                                        .visible = true, .named = true,
                                      });
-  if (!result)
-    return NULL;
-
   result->fragile_left = true;
   result->fragile_right = true;
   result->lookahead_char = lookahead_char;
@@ -83,18 +74,14 @@ TSTree *ts_tree_make_error(TSLength size, TSLength padding, char lookahead_char)
 
 TSTree *ts_tree_make_copy(TSTree *self) {
   TSTree *result = ts_malloc(sizeof(TSTree));
-  if (!result)
-    return NULL;
-
   *result = *self;
   result->ref_count = 1;
   return result;
 }
 
-bool ts_tree_assign_parents(TSTree *self, TreePath *path) {
+void ts_tree_assign_parents(TSTree *self, TreePath *path) {
   array_clear(path);
-  if (!array_push(path, ((TreePathEntry){self, ts_length_zero(), 0})))
-    return false;
+  array_push(path, ((TreePathEntry){self, ts_length_zero(), 0}));
   while (path->size > 0) {
     TSTree *tree = array_pop(path).tree;
     TSLength offset = ts_length_zero();
@@ -104,13 +91,11 @@ bool ts_tree_assign_parents(TSTree *self, TreePath *path) {
         child->context.parent = tree;
         child->context.index = i;
         child->context.offset = offset;
-        if (!array_push(path, ((TreePathEntry){child, ts_length_zero(), 0})))
-          return false;
+        array_push(path, ((TreePathEntry){child, ts_length_zero(), 0}));
       }
       offset = ts_length_add(offset, ts_tree_total_size(child));
     }
   }
-  return true;
 }
 
 
@@ -172,9 +157,6 @@ TSTree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
                           TSTree **children, TSSymbolMetadata metadata) {
   TSTree *result =
     ts_tree_make_leaf(symbol, ts_length_zero(), ts_length_zero(), metadata);
-  if (!result)
-    return NULL;
-
   ts_tree_set_children(result, child_count, children);
   return result;
 }
@@ -183,8 +165,7 @@ TSTree *ts_tree_make_error_node(TreeArray *children) {
   for (size_t i = 0; i < children->size; i++) {
     TSTree *child = children->contents[i];
     if (child->symbol == ts_builtin_sym_error && child->child_count > 0) {
-      if (!array_splice(children, i, 1, child->child_count, child->children))
-        return NULL;
+      array_splice(children, i, 1, child->child_count, child->children);
       i += child->child_count - 1;
       for (size_t j = 0; j < child->child_count; j++)
         ts_tree_retain(child->children[j]);
@@ -195,9 +176,6 @@ TSTree *ts_tree_make_error_node(TreeArray *children) {
   TSTree *result = ts_tree_make_node(
     ts_builtin_sym_error, children->size, children->contents,
     (TSSymbolMetadata){.extra = false, .visible = true, .named = true });
-
-  if (!result)
-    return NULL;
 
   result->fragile_left = true;
   result->fragile_right = true;
