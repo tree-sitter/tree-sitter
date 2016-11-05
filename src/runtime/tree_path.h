@@ -80,7 +80,7 @@ static size_t tree_path_advance(TreePath *path) {
 static void tree_path_ascend(TreePath *path, size_t count) {
   for (size_t i = 0; i < count; i++) {
     do {
-      array_pop(path);
+      path->size--;
     } while (path->size > 0 && !array_back(path)->tree->visible);
   }
 }

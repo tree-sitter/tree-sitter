@@ -79,8 +79,11 @@ static void stack_node_release(StackNode *self, StackNodeArray *pool) {
       stack_node_release(self->links[i].node, pool);
     }
 
-    if (pool->size >= MAX_NODE_POOL_SIZE || !array_push(pool, self))
+    if (pool->size < MAX_NODE_POOL_SIZE) {
+      array_push(pool, self);
+    } else {
       ts_free(self);
+    }
   }
 }
 
@@ -602,8 +605,7 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
         }
       }
 
-      if (!array_push(&visited_nodes, node))
-        goto error;
+      array_push(&visited_nodes, node);
     }
   }
 
@@ -612,10 +614,4 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
   array_delete(&visited_nodes);
   ts_toggle_allocation_recording(was_recording_allocations);
   return true;
-
-error:
-  ts_toggle_allocation_recording(was_recording_allocations);
-  if (visited_nodes.contents)
-    array_delete(&visited_nodes);
-  return false;
 }

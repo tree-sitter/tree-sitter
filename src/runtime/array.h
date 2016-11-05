@@ -41,10 +41,9 @@ extern "C" {
 
 #define array_delete(self) array__delete((VoidArray *)self)
 
-#define array_push(self, element)                                       \
-  ((self)->size < (self)->capacity ||                                  \
-    (array_grow((self), (self)->capacity ? (self)->capacity * 2 : 8), true), \
-    (self)->contents[(self)->size++] = (element))
+#define array_push(self, element)                                    \
+  (array_grow((self), (self)->size + 1), \
+   (self)->contents[(self)->size++] = (element))
 
 #define array_splice(self, index, old_count, new_count, new_elements)          \
   array__splice((VoidArray *)(self), array__elem_size(self), index, old_count, \
@@ -83,14 +82,15 @@ static inline void array__erase(VoidArray *self, size_t element_size,
 static inline void array__grow(VoidArray *self, size_t element_size,
                                size_t new_capacity) {
   if (new_capacity > self->capacity) {
-    void *new_contents;
+    if (new_capacity < 2 * self->capacity)
+      new_capacity = 2 * self->capacity;
+    if (new_capacity < 8)
+      new_capacity = 8;
     if (self->contents)
-      new_contents = ts_realloc(self->contents, new_capacity * element_size);
+      self->contents = ts_realloc(self->contents, new_capacity * element_size);
     else
-      new_contents = ts_calloc(new_capacity, element_size);
-
+      self->contents = ts_calloc(new_capacity, element_size);
     self->capacity = new_capacity;
-    self->contents = new_contents;
   }
 }
 
