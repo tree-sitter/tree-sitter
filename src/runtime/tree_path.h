@@ -22,6 +22,7 @@ static void range_array_add(RangeArray *results, TSPoint start, TSPoint end) {
 }
 
 static bool tree_path_descend(TreePath *path, TSPoint position) {
+  size_t original_size = path->size;
   bool did_descend;
   do {
     did_descend = false;
@@ -45,6 +46,7 @@ static bool tree_path_descend(TreePath *path, TSPoint position) {
       child_position = child_right_position;
     }
   } while (did_descend);
+  path->size = original_size;
   return false;
 }
 
