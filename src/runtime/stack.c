@@ -79,8 +79,11 @@ static void stack_node_release(StackNode *self, StackNodeArray *pool) {
       stack_node_release(self->links[i].node, pool);
     }
 
-    if (pool->size >= MAX_NODE_POOL_SIZE || !array_push(pool, self))
+    if (pool->size < MAX_NODE_POOL_SIZE) {
+      array_push(pool, self);
+    } else {
       ts_free(self);
+    }
   }
 }
 
@@ -167,29 +170,29 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
 static StackVersion ts_stack__add_version(Stack *self, StackNode *node,
                                           unsigned push_count) {
   StackHead head = {
-    .node = node, .is_halted = false, .push_count = push_count,
+    .node = node,
+    .is_halted = false,
+    .push_count = push_count,
   };
-  if (!array_push(&self->heads, head))
-    return STACK_VERSION_NONE;
+  array_push(&self->heads, head);
   stack_node_retain(node);
   return (StackVersion)(self->heads.size - 1);
 }
 
-static bool ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees,
+static void ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees,
                                 unsigned push_count) {
   for (size_t i = self->slices.size - 1; i + 1 > 0; i--) {
     StackVersion version = self->slices.contents[i].version;
     if (self->heads.contents[version].node == node) {
       StackSlice slice = { *trees, version };
-      return array_insert(&self->slices, i + 1, slice);
+      array_insert(&self->slices, i + 1, slice);
+      return;
     }
   }
 
   StackVersion version = ts_stack__add_version(self, node, push_count);
-  if (version == STACK_VERSION_NONE)
-    return false;
   StackSlice slice = { *trees, version };
-  return array_push(&self->slices, slice);
+  array_push(&self->slices, slice);
 }
 
 INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
@@ -206,8 +209,7 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
     .is_pending = true,
     .push_count = 0,
   };
-  if (!array_push(&self->iterators, iterator))
-    goto error;
+  array_push(&self->iterators, iterator);
 
   while (self->iterators.size > 0) {
     for (size_t i = 0, size = self->iterators.size; i < size; i++) {
@@ -225,12 +227,9 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
       if (should_pop) {
         TreeArray trees = iterator->trees;
         if (!should_stop)
-          if (!ts_tree_array_copy(trees, &trees))
-            goto error;
+          ts_tree_array_copy(trees, &trees);
         array_reverse(&trees);
-        if (!ts_stack__add_slice(self, node, &trees,
-                                 push_count + iterator->push_count))
-          goto error;
+        ts_stack__add_slice(self, node, &trees, push_count + iterator->push_count);
       }
 
       if (should_stop) {
@@ -249,11 +248,9 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
           next_iterator = &self->iterators.contents[i];
         } else {
           link = node->links[j];
-          if (!array_push(&self->iterators, self->iterators.contents[i]))
-            goto error;
+          array_push(&self->iterators, self->iterators.contents[i]);
           next_iterator = array_back(&self->iterators);
-          if (!ts_tree_array_copy(next_iterator->trees, &next_iterator->trees))
-            goto error;
+          ts_tree_array_copy(next_iterator->trees, &next_iterator->trees);
         }
 
         next_iterator->node = link.node;
@@ -264,8 +261,7 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
             if (!link.is_pending)
               next_iterator->is_pending = false;
           }
-          if (!array_push(&next_iterator->trees, link.tree))
-            goto error;
+          array_push(&next_iterator->trees, link.tree);
           ts_tree_retain(link.tree);
         } else {
           next_iterator->is_pending = false;
@@ -274,60 +270,27 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
     }
   }
 
-  return (StackPopResult){ StackPopSucceeded, self->slices };
-
-error:
-  for (size_t i = 0; i < self->iterators.size; i++)
-    ts_tree_array_delete(&self->iterators.contents[i].trees);
-  array_clear(&self->slices);
-  return (StackPopResult){.status = StackPopFailed };
+  return (StackPopResult){ false, self->slices };
 }
 
 Stack *ts_stack_new() {
   Stack *self = ts_calloc(1, sizeof(Stack));
-  if (!self)
-    goto error;
 
   array_init(&self->heads);
   array_init(&self->slices);
   array_init(&self->iterators);
   array_init(&self->node_pool);
-
-  if (!array_grow(&self->heads, 4))
-    goto error;
-
-  if (!array_grow(&self->slices, 4))
-    goto error;
-
-  if (!array_grow(&self->iterators, 4))
-    goto error;
-
-  if (!array_grow(&self->node_pool, MAX_NODE_POOL_SIZE))
-    goto error;
+  array_grow(&self->heads, 4);
+  array_grow(&self->slices, 4);
+  array_grow(&self->iterators, 4);
+  array_grow(&self->node_pool, MAX_NODE_POOL_SIZE);
 
   self->base_node =
     stack_node_new(NULL, NULL, false, 1, ts_length_zero(), &self->node_pool);
   stack_node_retain(self->base_node);
-  if (!self->base_node)
-    goto error;
-
   array_push(&self->heads, ((StackHead){ self->base_node, false, 0 }));
 
   return self;
-
-error:
-  if (self) {
-    if (self->heads.contents)
-      array_delete(&self->heads);
-    if (self->slices.contents)
-      array_delete(&self->slices);
-    if (self->iterators.contents)
-      array_delete(&self->iterators);
-    if (self->node_pool.contents)
-      array_delete(&self->node_pool);
-    ts_free(self);
-  }
-  return NULL;
 }
 
 void ts_stack_delete(Stack *self) {
@@ -436,7 +399,7 @@ StackPopResult ts_stack_pop_count(Stack *self, StackVersion version,
     .goal_tree_count = count, .found_error = false, .found_valid_path = false,
   };
   StackPopResult pop = stack__iter(self, version, pop_count_callback, &session);
-  if (pop.status && session.found_error) {
+  if (session.found_error) {
     if (session.found_valid_path) {
       StackSlice error_slice = pop.slices.contents[0];
       ts_tree_array_delete(&error_slice.trees);
@@ -447,7 +410,7 @@ StackPopResult ts_stack_pop_count(Stack *self, StackVersion version,
           pop.slices.contents[i].version--;
       }
     } else {
-      pop.status = StackPopStoppedAtError;
+      pop.stopped_at_error = true;
     }
   }
   return pop;
@@ -503,8 +466,7 @@ void ts_stack_renumber_version(Stack *self, StackVersion v1, StackVersion v2) {
 
 StackVersion ts_stack_duplicate_version(Stack *self, StackVersion version) {
   assert(version < self->heads.size);
-  if (!array_push(&self->heads, self->heads.contents[version]))
-    return STACK_VERSION_NONE;
+  array_push(&self->heads, self->heads.contents[version]);
   stack_node_retain(array_back(&self->heads)->node);
   return self->heads.size - 1;
 }
@@ -568,8 +530,7 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
       "node_head_%lu -> node_%p [label=%lu, fontcolor=blue, weight=10000, "
       "labeltooltip=\"push_count: %u\"]\n",
       i, head->node, i, head->push_count);
-    if (!array_push(&self->iterators, ((Iterator){.node = head->node })))
-      goto error;
+    array_push(&self->iterators, ((Iterator){.node = head->node }));
   }
 
   bool all_iterators_done = false;
@@ -638,15 +599,13 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
         if (j == 0) {
           iterator->node = link.node;
         } else {
-          if (!array_push(&self->iterators, *iterator))
-            goto error;
+          array_push(&self->iterators, *iterator);
           Iterator *next_iterator = array_back(&self->iterators);
           next_iterator->node = link.node;
         }
       }
 
-      if (!array_push(&visited_nodes, node))
-        goto error;
+      array_push(&visited_nodes, node);
     }
   }
 
@@ -655,10 +614,4 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
   array_delete(&visited_nodes);
   ts_toggle_allocation_recording(was_recording_allocations);
   return true;
-
-error:
-  ts_toggle_allocation_recording(was_recording_allocations);
-  if (visited_nodes.contents)
-    array_delete(&visited_nodes);
-  return false;
 }

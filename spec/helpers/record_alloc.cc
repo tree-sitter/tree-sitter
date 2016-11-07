@@ -6,10 +6,9 @@
 using std::map;
 using std::set;
 
-bool _enabled = false;
+static bool _enabled = false;
 static size_t _allocation_count = 0;
 static map<void *, size_t> _outstanding_allocations;
-static size_t _allocation_failure_index = -1;
 
 namespace record_alloc {
 
@@ -17,15 +16,10 @@ void start() {
   _enabled = true;
   _allocation_count = 0;
   _outstanding_allocations.clear();
-  _allocation_failure_index = -1;
 }
 
 void stop() {
   _enabled = false;
-}
-
-void fail_at_allocation_index(size_t failure_index) {
-  _allocation_failure_index = failure_index;
 }
 
 set<size_t> outstanding_allocation_indices() {
@@ -42,12 +36,7 @@ size_t allocation_count() {
 
 }  // namespace record_alloc
 
-static bool can_allocate() {
-  if (!_enabled)
-    return true;
-
-  return _allocation_count < _allocation_failure_index;
-}
+extern "C" {
 
 static void *record_allocation(void *result) {
   if (!_enabled)
@@ -56,10 +45,6 @@ static void *record_allocation(void *result) {
   _outstanding_allocations[result] = _allocation_count;
   _allocation_count++;
   return result;
-}
-
-static void record_allocation_failure() {
-  _allocation_count++;
 }
 
 static void record_deallocation(void *pointer) {
@@ -72,34 +57,17 @@ static void record_deallocation(void *pointer) {
   }
 }
 
-extern "C" {
-
 void *ts_record_malloc(size_t size) {
-  if (can_allocate()) {
-    return record_allocation(malloc(size));
-  } else {
-    record_allocation_failure();
-    return NULL;
-  }
+  return record_allocation(malloc(size));
 }
 
 void *ts_record_realloc(void *pointer, size_t size) {
-  if (can_allocate()) {
-    record_deallocation(pointer);
-    return record_allocation(realloc(pointer, size));
-  } else {
-    record_allocation_failure();
-    return NULL;
-  }
+  record_deallocation(pointer);
+  return record_allocation(realloc(pointer, size));
 }
 
 void *ts_record_calloc(size_t count, size_t size) {
-  if (can_allocate()) {
-    return record_allocation(calloc(count, size));
-  } else {
-    record_allocation_failure();
-    return NULL;
-  }
+  return record_allocation(calloc(count, size));
 }
 
 void ts_record_free(void *pointer) {

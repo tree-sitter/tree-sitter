@@ -89,21 +89,19 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
   ts_tree_edit(self->tree, &edit);
 }
 
-int ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges,
+void ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges,
                                              size_t *range_count) {
   if (ranges) *ranges = NULL;
   if (range_count) *range_count = 0;
 
   if (!self->input.read || !self->parser.language)
-    return -1;
+    return;
 
   TSTree *reusable_tree = self->valid ? self->tree : NULL;
   if (reusable_tree && !reusable_tree->has_changes)
-    return 0;
+    return;
 
   TSTree *tree = parser_parse(&self->parser, self->input, reusable_tree);
-  if (!tree)
-    return -1;
 
   if (self->tree) {
     TSTree *old_tree = self->tree;
@@ -112,9 +110,8 @@ int ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges,
     if (ranges && range_count) {
       tree_path_init(&self->parser.tree_path1, old_tree);
       tree_path_init(&self->parser.tree_path2, tree);
-      if (!tree_path_get_changes(&self->parser.tree_path1,
-                                 &self->parser.tree_path2, ranges, range_count))
-        return -1;
+      tree_path_get_changes(&self->parser.tree_path1, &self->parser.tree_path2,
+                            ranges, range_count);
     }
 
     ts_tree_release(old_tree);
@@ -123,11 +120,10 @@ int ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges,
   self->tree = tree;
   self->parse_count++;
   self->valid = true;
-  return 0;
 }
 
-int ts_document_parse(TSDocument *self) {
-  return ts_document_parse_and_get_changed_ranges(self, NULL, NULL);
+void ts_document_parse(TSDocument *self) {
+  ts_document_parse_and_get_changed_ranges(self, NULL, NULL);
 }
 
 void ts_document_invalidate(TSDocument *self) {

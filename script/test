@@ -24,7 +24,7 @@ OPTIONS
 
   -s  set the seed used to control random behavior
 
-  -z  pipe tests' stderr to `dot(1)`, to render an SVG log
+  -z  pipe tests' stderr to \`dot(1)\` to render an SVG log
 
 EOF
 }

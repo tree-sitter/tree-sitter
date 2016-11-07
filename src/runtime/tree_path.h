@@ -6,24 +6,23 @@
 
 typedef Array(TSRange) RangeArray;
 
-static bool range_array_add(RangeArray *results, TSPoint start, TSPoint end) {
+static void range_array_add(RangeArray *results, TSPoint start, TSPoint end) {
   if (results->size > 0) {
     TSRange *last_range = array_back(results);
     if (ts_point_lte(start, last_range->end)) {
       last_range->end = end;
-      return true;
+      return;
     }
   }
 
   if (ts_point_lt(start, end)) {
     TSRange range = { start, end };
-    return array_push(results, range);
+    array_push(results, range);
   }
-
-  return true;
 }
 
 static bool tree_path_descend(TreePath *path, TSPoint position) {
+  size_t original_size = path->size;
   bool did_descend;
   do {
     did_descend = false;
@@ -47,6 +46,7 @@ static bool tree_path_descend(TreePath *path, TSPoint position) {
       child_position = child_right_position;
     }
   } while (did_descend);
+  path->size = original_size;
   return false;
 }
 
@@ -82,7 +82,7 @@ static size_t tree_path_advance(TreePath *path) {
 static void tree_path_ascend(TreePath *path, size_t count) {
   for (size_t i = 0; i < count; i++) {
     do {
-      array_pop(path);
+      path->size--;
     } while (path->size > 0 && !array_back(path)->tree->visible);
   }
 }
@@ -109,7 +109,7 @@ static bool tree_must_eq(TSTree *old_tree, TSTree *new_tree) {
   );
 }
 
-static bool tree_path_get_changes(TreePath *old_path, TreePath *new_path,
+static void tree_path_get_changes(TreePath *old_path, TreePath *new_path,
                                   TSRange **ranges, size_t *range_count) {
   TSPoint position = { 0, 0 };
   RangeArray results = array_new();
@@ -195,7 +195,6 @@ static bool tree_path_get_changes(TreePath *old_path, TreePath *new_path,
 
   *ranges = results.contents;
   *range_count = results.size;
-  return true;
 }
 
 #endif  // RUNTIME_TREE_PATH_H_
