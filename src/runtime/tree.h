@@ -14,23 +14,23 @@ extern "C" {
 
 extern TSStateId TS_TREE_STATE_NONE;
 
-typedef struct TSTree {
+typedef struct Tree {
   struct {
-    struct TSTree *parent;
+    struct Tree *parent;
     size_t index;
-    TSLength offset;
+    Length offset;
   } context;
 
   size_t child_count;
   size_t visible_child_count;
   size_t named_child_count;
   union {
-    struct TSTree **children;
+    struct Tree **children;
     int32_t lookahead_char;
   };
 
-  TSLength padding;
-  TSLength size;
+  Length padding;
+  Length size;
 
   TSSymbol symbol;
   TSStateId parse_state;
@@ -48,15 +48,15 @@ typedef struct TSTree {
   bool fragile_left : 1;
   bool fragile_right : 1;
   bool has_changes : 1;
-} TSTree;
+} Tree;
 
 typedef struct {
-  TSTree *tree;
-  TSLength position;
+  Tree *tree;
+  Length position;
   size_t child_index;
 } TreePathEntry;
 
-typedef Array(TSTree *) TreeArray;
+typedef Array(Tree *) TreeArray;
 
 typedef Array(TreePathEntry) TreePath;
 
@@ -64,41 +64,41 @@ bool ts_tree_array_copy(TreeArray, TreeArray *);
 void ts_tree_array_delete(TreeArray *);
 size_t ts_tree_array_essential_count(const TreeArray *);
 
-TSTree *ts_tree_make_leaf(TSSymbol, TSLength, TSLength, TSSymbolMetadata);
-TSTree *ts_tree_make_node(TSSymbol, size_t, TSTree **, TSSymbolMetadata);
-TSTree *ts_tree_make_copy(TSTree *child);
-TSTree *ts_tree_make_error_node(TreeArray *);
-TSTree *ts_tree_make_error(TSLength, TSLength, char);
-void ts_tree_retain(TSTree *tree);
-void ts_tree_release(TSTree *tree);
-bool ts_tree_eq(const TSTree *tree1, const TSTree *tree2);
-int ts_tree_compare(const TSTree *tree1, const TSTree *tree2);
+Tree *ts_tree_make_leaf(TSSymbol, Length, Length, TSSymbolMetadata);
+Tree *ts_tree_make_node(TSSymbol, size_t, Tree **, TSSymbolMetadata);
+Tree *ts_tree_make_copy(Tree *child);
+Tree *ts_tree_make_error_node(TreeArray *);
+Tree *ts_tree_make_error(Length, Length, char);
+void ts_tree_retain(Tree *tree);
+void ts_tree_release(Tree *tree);
+bool ts_tree_eq(const Tree *tree1, const Tree *tree2);
+int ts_tree_compare(const Tree *tree1, const Tree *tree2);
 
-size_t ts_tree_start_column(const TSTree *self);
-size_t ts_tree_end_column(const TSTree *self);
-void ts_tree_set_children(TSTree *, size_t, TSTree **);
-void ts_tree_assign_parents(TSTree *, TreePath *);
-void ts_tree_edit(TSTree *, const TSInputEdit *edit);
-char *ts_tree_string(const TSTree *, const TSLanguage *, bool include_all);
-void ts_tree_print_dot_graph(const TSTree *, const TSLanguage *, FILE *);
+size_t ts_tree_start_column(const Tree *self);
+size_t ts_tree_end_column(const Tree *self);
+void ts_tree_set_children(Tree *, size_t, Tree **);
+void ts_tree_assign_parents(Tree *, TreePath *);
+void ts_tree_edit(Tree *, const TSInputEdit *edit);
+char *ts_tree_string(const Tree *, const TSLanguage *, bool include_all);
+void ts_tree_print_dot_graph(const Tree *, const TSLanguage *, FILE *);
 
-static inline size_t ts_tree_total_chars(const TSTree *self) {
+static inline size_t ts_tree_total_chars(const Tree *self) {
   return self->padding.chars + self->size.chars;
 }
 
-static inline size_t ts_tree_total_bytes(const TSTree *self) {
+static inline size_t ts_tree_total_bytes(const Tree *self) {
   return self->padding.bytes + self->size.bytes;
 }
 
-static inline TSLength ts_tree_total_size(const TSTree *self) {
-  return ts_length_add(self->padding, self->size);
+static inline Length ts_tree_total_size(const Tree *self) {
+  return length_add(self->padding, self->size);
 }
 
-static inline TSPoint ts_tree_total_extent(const TSTree *self) {
-  return ts_point_add(self->padding.extent, self->size.extent);
+static inline TSPoint ts_tree_total_extent(const Tree *self) {
+  return point_add(self->padding.extent, self->size.extent);
 }
 
-static inline bool ts_tree_is_fragile(const TSTree *tree) {
+static inline bool ts_tree_is_fragile(const Tree *tree) {
   return tree->fragile_left || tree->fragile_right ||
          ts_tree_total_chars(tree) == 0;
 }

@@ -13,8 +13,8 @@ extern "C" {
 
 typedef struct {
   TSLexer data;
-  TSLength current_position;
-  TSLength token_start_position;
+  Length current_position;
+  Length token_start_position;
 
   const char *chunk;
   size_t chunk_start;
@@ -29,7 +29,7 @@ typedef struct {
 
 void ts_lexer_init(Lexer *);
 void ts_lexer_set_input(Lexer *, TSInput);
-void ts_lexer_reset(Lexer *, TSLength);
+void ts_lexer_reset(Lexer *, Length);
 void ts_lexer_start(Lexer *, TSStateId);
 
 #ifdef __cplusplus

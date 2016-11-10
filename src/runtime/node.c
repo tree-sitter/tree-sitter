@@ -3,7 +3,7 @@
 #include "runtime/tree.h"
 #include "runtime/document.h"
 
-TSNode ts_node_make(const TSTree *tree, size_t chars, size_t byte, size_t row) {
+TSNode ts_node_make(const Tree *tree, size_t chars, size_t byte, size_t row) {
   return (TSNode){.data = tree, .offset = { chars, byte, row } };
 }
 
@@ -15,7 +15,7 @@ static inline TSNode ts_node__null() {
   return ts_node_make(NULL, 0, 0, 0);
 }
 
-static inline const TSTree *ts_node__tree(TSNode self) {
+static inline const Tree *ts_node__tree(TSNode self) {
   return self.data;
 }
 
@@ -32,18 +32,18 @@ static inline size_t ts_node__offset_row(TSNode self) {
 }
 
 static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
-  const TSTree *tree = ts_node__tree(self);
+  const Tree *tree = ts_node__tree(self);
   return include_anonymous ? tree->visible : tree->visible && tree->named;
 }
 
 static inline size_t ts_node__relevant_child_count(TSNode self,
                                                    bool include_anonymous) {
-  const TSTree *tree = ts_node__tree(self);
+  const Tree *tree = ts_node__tree(self);
   return include_anonymous ? tree->visible_child_count : tree->named_child_count;
 }
 
 static inline TSNode ts_node__direct_parent(TSNode self, size_t *index) {
-  const TSTree *tree = ts_node__tree(self);
+  const Tree *tree = ts_node__tree(self);
   *index = tree->context.index;
   return ts_node_make(tree->context.parent,
                       ts_node__offset_char(self) - tree->context.offset.chars,
@@ -52,7 +52,7 @@ static inline TSNode ts_node__direct_parent(TSNode self, size_t *index) {
 }
 
 static inline TSNode ts_node__direct_child(TSNode self, size_t i) {
-  const TSTree *child_tree = ts_node__tree(self)->children[i];
+  const Tree *child_tree = ts_node__tree(self)->children[i];
   return ts_node_make(
     child_tree, ts_node__offset_char(self) + child_tree->context.offset.chars,
     ts_node__offset_byte(self) + child_tree->context.offset.bytes,
@@ -138,7 +138,7 @@ static inline TSNode ts_node__next_sibling(TSNode self, bool include_anonymous) 
   return ts_node__null();
 }
 
-static inline bool ts_point_gt(TSPoint a, TSPoint b) {
+static inline bool point_gt(TSPoint a, TSPoint b) {
   return a.row > b.row || (a.row == b.row && a.column > b.column);
 }
 
@@ -207,9 +207,9 @@ static inline TSNode ts_node__descendant_for_point_range(
 
     for (size_t i = 0; i < ts_node__tree(node)->child_count; i++) {
       TSNode child = ts_node__direct_child(node, i);
-      if (ts_point_gt(ts_node_start_point(child), min))
+      if (point_gt(ts_node_start_point(child), min))
         break;
-      if (ts_point_gt(ts_node_end_point(child), max)) {
+      if (point_gt(ts_node_end_point(child), max)) {
         node = child;
         if (ts_node__is_relevant(node, include_anonymous))
           last_visible_node = node;
@@ -243,13 +243,13 @@ size_t ts_node_end_byte(TSNode self) {
 }
 
 TSPoint ts_node_start_point(TSNode self) {
-  const TSTree *tree = ts_node__tree(self);
+  const Tree *tree = ts_node__tree(self);
   return (TSPoint){ ts_node__offset_row(self) + tree->padding.extent.row,
                     ts_tree_start_column(tree) };
 }
 
 TSPoint ts_node_end_point(TSNode self) {
-  const TSTree *tree = ts_node__tree(self);
+  const Tree *tree = ts_node__tree(self);
   return (TSPoint){ ts_node__offset_row(self) + tree->padding.extent.row +
                       tree->size.extent.row,
                     ts_tree_end_column(tree) };
@@ -260,15 +260,15 @@ TSSymbol ts_node_symbol(TSNode self) {
 }
 
 TSSymbolIterator ts_node_symbols(TSNode self) {
-  const TSTree *tree = ts_node__tree(self);
+  const Tree *tree = ts_node__tree(self);
   return (TSSymbolIterator){
     .value = tree->symbol, .done = false, .data = (void *)tree,
   };
 }
 
 void ts_symbol_iterator_next(TSSymbolIterator *self) {
-  const TSTree *tree = (const TSTree *)self->data;
-  const TSTree *parent = tree->context.parent;
+  const Tree *tree = (const Tree *)self->data;
+  const Tree *parent = tree->context.parent;
   if (!self->done && parent) {
     if (parent->child_count == 1 && !parent->visible) {
       self->value = parent->symbol;

@@ -90,10 +90,10 @@ void ts_lexer_init(Lexer *self) {
     .chunk_start = 0,
     .logger = {},
   };
-  ts_lexer_reset(self, ts_length_zero());
+  ts_lexer_reset(self, length_zero());
 }
 
-static inline void ts_lexer__reset(Lexer *self, TSLength position) {
+static inline void ts_lexer__reset(Lexer *self, Length position) {
   self->token_start_position = position;
   self->current_position = position;
 
@@ -110,11 +110,11 @@ static inline void ts_lexer__reset(Lexer *self, TSLength position) {
 
 void ts_lexer_set_input(Lexer *self, TSInput input) {
   self->input = input;
-  ts_lexer__reset(self, ts_length_zero());
+  ts_lexer__reset(self, length_zero());
 }
 
-void ts_lexer_reset(Lexer *self, TSLength position) {
-  if (!ts_length_eq(position, self->current_position))
+void ts_lexer_reset(Lexer *self, Length position) {
+  if (!length_eq(position, self->current_position))
     ts_lexer__reset(self, position);
   return;
 }

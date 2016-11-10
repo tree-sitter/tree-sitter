@@ -71,13 +71,13 @@ void ts_stack_decrease_push_count(const Stack *, StackVersion, unsigned);
  *  Get the position at the top of the given version of the stack. If the stack
  *  is empty, this returns zero.
  */
-TSLength ts_stack_top_position(const Stack *, StackVersion);
+Length ts_stack_top_position(const Stack *, StackVersion);
 
 /*
  *  Push a tree and state onto the given head of the stack. This could cause
  *  the version to merge with an existing version.
  */
-bool ts_stack_push(Stack *, StackVersion, TSTree *, bool, TSStateId);
+bool ts_stack_push(Stack *, StackVersion, Tree *, bool, TSStateId);
 
 /*
  *  Pop the given number of entries from the given version of the stack. This

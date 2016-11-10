@@ -8,7 +8,7 @@
 struct TSDocument {
   Parser parser;
   TSInput input;
-  TSTree *tree;
+  Tree *tree;
   size_t parse_count;
   bool valid;
   bool owns_input;

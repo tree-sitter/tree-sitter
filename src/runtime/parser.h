@@ -11,7 +11,7 @@ extern "C" {
 #include "runtime/reduce_action.h"
 
 typedef struct {
-  TSTree *tree;
+  Tree *tree;
   size_t byte_index;
 } ReusableNode;
 
@@ -20,11 +20,11 @@ typedef struct {
   Stack *stack;
   const TSLanguage *language;
   ReduceActionSet reduce_actions;
-  TSTree *finished_tree;
+  Tree *finished_tree;
   bool is_split;
   bool print_debugging_graphs;
-  TSTree scratch_tree;
-  TSTree *cached_token;
+  Tree scratch_tree;
+  Tree *cached_token;
   size_t cached_token_byte_index;
   ReusableNode reusable_node;
   TreePath tree_path1;
@@ -33,7 +33,7 @@ typedef struct {
 
 bool parser_init(Parser *);
 void parser_destroy(Parser *);
-TSTree *parser_parse(Parser *, TSInput, TSTree *);
+Tree *parser_parse(Parser *, TSInput, Tree *);
 
 #ifdef __cplusplus
 }

@@ -15,14 +15,14 @@ typedef struct StackNode StackNode;
 
 typedef struct {
   StackNode *node;
-  TSTree *tree;
+  Tree *tree;
   unsigned push_count;
   bool is_pending;
 } StackLink;
 
 struct StackNode {
   TSStateId state;
-  TSLength position;
+  Length position;
   StackLink links[MAX_LINK_COUNT];
   short unsigned int link_count;
   short unsigned int ref_count;
@@ -87,8 +87,8 @@ static void stack_node_release(StackNode *self, StackNodeArray *pool) {
   }
 }
 
-static StackNode *stack_node_new(StackNode *next, TSTree *tree, bool is_pending,
-                                 TSStateId state, TSLength position,
+static StackNode *stack_node_new(StackNode *next, Tree *tree, bool is_pending,
+                                 TSStateId state, Length position,
                                  StackNodeArray *pool) {
   StackNode *node;
   if (pool->size > 0)
@@ -286,7 +286,7 @@ Stack *ts_stack_new() {
   array_grow(&self->node_pool, MAX_NODE_POOL_SIZE);
 
   self->base_node =
-    stack_node_new(NULL, NULL, false, 1, ts_length_zero(), &self->node_pool);
+    stack_node_new(NULL, NULL, false, 1, length_zero(), &self->node_pool);
   stack_node_retain(self->base_node);
   array_push(&self->heads, ((StackHead){ self->base_node, false, 0 }));
 
@@ -319,7 +319,7 @@ TSStateId ts_stack_top_state(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->state;
 }
 
-TSLength ts_stack_top_position(const Stack *self, StackVersion version) {
+Length ts_stack_top_position(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->position;
 }
 
@@ -346,13 +346,13 @@ unsigned ts_stack_error_count(const Stack *self, StackVersion version) {
   return node->error_count;
 }
 
-bool ts_stack_push(Stack *self, StackVersion version, TSTree *tree,
+bool ts_stack_push(Stack *self, StackVersion version, Tree *tree,
                    bool is_pending, TSStateId state) {
   StackHead *head = array_get(&self->heads, version);
   StackNode *node = head->node;
-  TSLength position = node->position;
+  Length position = node->position;
   if (tree)
-    position = ts_length_add(position, ts_tree_total_size(tree));
+    position = length_add(position, ts_tree_total_size(tree));
   StackNode *new_node =
     stack_node_new(node, tree, is_pending, state, position, &self->node_pool);
   if (!new_node)

@@ -97,14 +97,14 @@ void ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges
   if (!self->input.read || !self->parser.language)
     return;
 
-  TSTree *reusable_tree = self->valid ? self->tree : NULL;
+  Tree *reusable_tree = self->valid ? self->tree : NULL;
   if (reusable_tree && !reusable_tree->has_changes)
     return;
 
-  TSTree *tree = parser_parse(&self->parser, self->input, reusable_tree);
+  Tree *tree = parser_parse(&self->parser, self->input, reusable_tree);
 
   if (self->tree) {
-    TSTree *old_tree = self->tree;
+    Tree *old_tree = self->tree;
     self->tree = tree;
 
     if (ranges && range_count) {
@@ -132,7 +132,7 @@ void ts_document_invalidate(TSDocument *self) {
 
 TSNode ts_document_root_node(const TSDocument *self) {
   TSNode result = ts_node_make(self->tree, 0, 0, 0);
-  while (result.data && !((TSTree *)result.data)->visible)
+  while (result.data && !((Tree *)result.data)->visible)
     result = ts_node_named_child(result, 0);
   return result;
 }
