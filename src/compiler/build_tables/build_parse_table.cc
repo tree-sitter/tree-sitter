@@ -29,6 +29,7 @@ using std::to_string;
 using std::unordered_map;
 using std::make_shared;
 using rules::Symbol;
+using rules::END_OF_INPUT;
 
 class ParseTableBuilder {
   const SyntaxGrammar grammar;
@@ -38,9 +39,8 @@ class ParseTableBuilder {
   unordered_map<ParseItemSet, ParseStateId, ParseItemSet::Hash> parse_state_ids;
   vector<pair<ParseItemSet, ParseStateId>> item_sets_to_process;
   ParseTable parse_table;
-  std::set<string> conflicts;
-  ParseItemSet null_item_set;
-  std::set<const Production *> fragile_productions;
+  set<string> conflicts;
+  set<const Production *> fragile_productions;
   bool allow_any_conflict;
 
  public:
@@ -62,18 +62,13 @@ class ParseTableBuilder {
     add_parse_state(ParseItemSet({
       {
         ParseItem(rules::START(), start_production, 0),
-        LookaheadSet({ rules::END_OF_INPUT() }),
+        LookaheadSet({ END_OF_INPUT() }),
       },
     }));
 
     CompileError error = process_part_state_queue();
     if (error.type != TSCompileErrorTypeNone)
       return { parse_table, error };
-
-    for (const ParseState &state : parse_table.states)
-      for (const auto &pair1 : state.entries)
-        for (const auto &pair2 : state.entries)
-          parse_table.symbols[pair1.first].compatible_symbols.insert(pair2.first);
 
     parse_table.mergeable_symbols = recovery_tokens(lexical_grammar);
 
@@ -114,21 +109,22 @@ class ParseTableBuilder {
   void build_error_parse_state() {
     ParseState error_state;
 
-    for (auto &symbol : parse_table.mergeable_symbols)
+    for (const Symbol &symbol : parse_table.mergeable_symbols) {
       add_out_of_context_parse_state(&error_state, symbol);
+    }
 
-    for (const Symbol &symbol : grammar.extra_tokens)
-      if (!error_state.entries.count(symbol))
+    for (const Symbol &symbol : grammar.extra_tokens) {
+      if (!error_state.entries.count(symbol)) {
         error_state.entries[symbol].actions.push_back(ParseAction::ShiftExtra());
+      }
+    }
 
     for (size_t i = 0; i < grammar.variables.size(); i++) {
       Symbol symbol(i, false);
       add_out_of_context_parse_state(&error_state, symbol);
     }
 
-    error_state.entries[rules::END_OF_INPUT()].actions.push_back(
-      ParseAction::Recover(0));
-
+    error_state.entries[END_OF_INPUT()].actions.push_back(ParseAction::Recover(0));
     parse_table.states[0] = error_state;
   }
 
@@ -409,7 +405,7 @@ class ParseTableBuilder {
 
   string symbol_name(const rules::Symbol &symbol) const {
     if (symbol.is_built_in()) {
-      if (symbol == rules::END_OF_INPUT())
+      if (symbol == END_OF_INPUT())
         return "END_OF_INPUT";
       else
         return "";

@@ -82,7 +82,6 @@ class ParseState {
 struct ParseTableSymbolMetadata {
   bool extra;
   bool structural;
-  std::set<rules::Symbol> compatible_symbols;
 };
 
 class ParseTable {
