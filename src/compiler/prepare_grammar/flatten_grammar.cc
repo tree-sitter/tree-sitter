@@ -1,5 +1,4 @@
 #include "compiler/prepare_grammar/flatten_grammar.h"
-#include <string>
 #include <vector>
 #include <algorithm>
 #include "compiler/prepare_grammar/extract_choices.h"
@@ -14,7 +13,6 @@ namespace tree_sitter {
 namespace prepare_grammar {
 
 using std::find;
-using std::string;
 using std::vector;
 
 class FlattenRule : public rules::RuleFn<void> {
@@ -81,8 +79,8 @@ SyntaxGrammar flatten_grammar(const InitialSyntaxGrammar &grammar) {
     vector<Production> productions;
     for (const rule_ptr &rule_component : extract_choices(variable.rule)) {
       Production production = FlattenRule().flatten(rule_component);
-      if (std::find(productions.begin(), productions.end(), production) ==
-          productions.end())
+      auto end = productions.end();
+      if (find(productions.begin(), end, production) == end)
         productions.push_back(production);
     }
     result.variables.push_back(

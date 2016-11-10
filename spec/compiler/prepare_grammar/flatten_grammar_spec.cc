@@ -6,9 +6,8 @@
 #include "helpers/rule_helpers.h"
 
 template<typename T, typename Func>
-std::vector<typename std::result_of<Func(T)>::type>
-collect(const std::vector<T> &v, Func f) {
-  vector<typename std::result_of<Func(T)>::type> result;
+vector<typename result_of<Func(T)>::type> collect(const vector<T> &v, Func f) {
+  vector<typename result_of<Func(T)>::type> result;
   for (const T &item : v)
     result.push_back(f(item));
   return result;
@@ -21,6 +20,30 @@ using prepare_grammar::flatten_grammar;
 using prepare_grammar::InitialSyntaxGrammar;
 
 describe("flatten_grammar", []() {
+  auto get_symbol_sequences = [&](vector<Production> productions) {
+    return collect(productions, [](Production p) {
+      return collect(p, [](ProductionStep e) {
+        return e.symbol;
+      });
+    });
+  };
+
+  auto get_precedence_sequences = [&](vector<Production> productions) {
+    return collect(productions, [](Production p) {
+      return collect(p, [](ProductionStep e) {
+        return e.precedence;
+      });
+    });
+  };
+
+  auto get_associativity_sequences = [&](vector<Production> productions) {
+    return collect(productions, [](Production p) {
+      return collect(p, [](ProductionStep e) {
+        return e.associativity;
+      });
+    });
+  };
+
   InitialSyntaxGrammar input_grammar{{
 
     // Choices within rules are extracted, resulting in multiple productions.
@@ -59,34 +82,9 @@ describe("flatten_grammar", []() {
         i_sym(4),
       })),
     }))
-
   }, {}, {}};
 
   SyntaxGrammar grammar = flatten_grammar(input_grammar);
-
-  auto get_symbol_sequences = [&](vector<Production> productions) {
-    return collect(productions, [](Production p) {
-      return collect(p, [](ProductionStep e) {
-        return e.symbol;
-      });
-    });
-  };
-
-  auto get_precedence_sequences = [&](vector<Production> productions) {
-    return collect(productions, [](Production p) {
-      return collect(p, [](ProductionStep e) {
-        return e.precedence;
-      });
-    });
-  };
-
-  auto get_associativity_sequences = [&](vector<Production> productions) {
-    return collect(productions, [](Production p) {
-      return collect(p, [](ProductionStep e) {
-        return e.associativity;
-      });
-    });
-  };
 
   it("preserves the names and types of the grammar's variables", [&]() {
     AssertThat(grammar.variables[0].name, Equals("variable0"));
@@ -142,7 +140,7 @@ describe("flatten_grammar", []() {
       })));
   });
 
-  it("associates each symbol with the correct associativity annotation", [&]() {
+  it("associates each symbol with the correct associativity", [&]() {
     Associativity none = AssociativityNone;
 
     AssertThat(
