@@ -28,6 +28,8 @@ bool LookaheadSet::contains(const Symbol &symbol) const {
 }
 
 bool LookaheadSet::insert_all(const LookaheadSet &other) {
+  if (!other.entries.get())
+    return false;
   if (!entries.get())
     entries = make_shared<set<Symbol>>();
   size_t previous_size = entries->size();

@@ -9,7 +9,7 @@
 #include "compiler/build_tables/parse_conflict_manager.h"
 #include "compiler/build_tables/remove_duplicate_states.h"
 #include "compiler/build_tables/parse_item.h"
-#include "compiler/build_tables/item_set_closure.h"
+#include "compiler/build_tables/parse_item_set_builder.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/rules/symbol.h"
@@ -40,6 +40,7 @@ class ParseTableBuilder {
   vector<pair<ParseItemSet, ParseStateId>> item_sets_to_process;
   ParseTable parse_table;
   set<string> conflicts;
+  ParseItemSetBuilder item_set_builder;
   set<const Production *> fragile_productions;
   bool allow_any_conflict;
 
@@ -48,6 +49,7 @@ class ParseTableBuilder {
                     const LexicalGrammar &lex_grammar)
       : grammar(grammar),
         lexical_grammar(lex_grammar),
+        item_set_builder(grammar),
         allow_any_conflict(false) {}
 
   pair<ParseTable, CompileError> build() {
@@ -88,11 +90,11 @@ class ParseTableBuilder {
   CompileError process_part_state_queue() {
     while (!item_sets_to_process.empty()) {
       auto pair = item_sets_to_process.back();
-      ParseItemSet item_set = item_set_closure(pair.first, grammar);
-
+      ParseItemSet &item_set = pair.first;
       ParseStateId state_id = pair.second;
       item_sets_to_process.pop_back();
 
+      item_set_builder.apply_transitive_closure(&item_set);
       add_reduce_actions(item_set, state_id);
       add_shift_actions(item_set, state_id);
       add_shift_extra_actions(state_id);
@@ -143,7 +145,7 @@ class ParseTableBuilder {
       ParseStateId state_id = parse_table.add_state();
 
       parse_state_ids[item_set] = state_id;
-      item_sets_to_process.push_back({ item_set, state_id });
+      item_sets_to_process.push_back({ std::move(item_set), state_id });
       return state_id;
     } else {
       return pair->second;

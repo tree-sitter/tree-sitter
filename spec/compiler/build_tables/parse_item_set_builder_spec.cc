@@ -1,6 +1,6 @@
 #include "spec_helper.h"
 #include "compiler/syntax_grammar.h"
-#include "compiler/build_tables/item_set_closure.h"
+#include "compiler/build_tables/parse_item_set_builder.h"
 #include "compiler/build_tables/lookahead_set.h"
 #include "compiler/rules/built_in_symbols.h"
 
@@ -9,7 +9,7 @@ using namespace rules;
 
 START_TEST
 
-describe("item_set_closure", []() {
+describe("ParseItemSetBuilder", []() {
   it("adds items at the beginnings of referenced rules", [&]() {
     SyntaxGrammar grammar{{
       SyntaxVariable("rule0", VariableTypeNamed, {
@@ -39,12 +39,15 @@ describe("item_set_closure", []() {
       return grammar.variables[variable_index].productions[production_index];
     };
 
-    ParseItemSet item_set = item_set_closure(ParseItemSet({
+    ParseItemSet item_set({
       {
         ParseItem(Symbol(0), production(0, 0), 0),
         LookaheadSet({ Symbol(10, true) }),
       }
-    }), grammar);
+    });
+
+    ParseItemSetBuilder item_set_builder(grammar);
+    item_set_builder.apply_transitive_closure(&item_set);
 
     AssertThat(item_set, Equals(ParseItemSet({
       {
@@ -87,12 +90,15 @@ describe("item_set_closure", []() {
       return grammar.variables[variable_index].productions[production_index];
     };
 
-    ParseItemSet item_set = item_set_closure(ParseItemSet({
+    ParseItemSet item_set({
       {
         ParseItem(Symbol(0), production(0, 0), 0),
         LookaheadSet({ Symbol(10, true) }),
       }
-    }), grammar);
+    });
+
+    ParseItemSetBuilder item_set_builder(grammar);
+    item_set_builder.apply_transitive_closure(&item_set);
 
     AssertThat(item_set, Equals(ParseItemSet({
       {

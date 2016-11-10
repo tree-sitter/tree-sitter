@@ -1086,7 +1086,7 @@ static void parser__advance(Parser *self, StackVersion version,
       return;
     }
 
-    parser__handle_error(self, version, lookahead->symbol);
+    parser__handle_error(self, version, lookahead->first_leaf.symbol);
 
     if (ts_stack_is_halted(self->stack, version)) {
       ts_tree_release(lookahead);
