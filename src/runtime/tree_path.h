@@ -89,10 +89,11 @@ static void tree_path_ascend(TreePath *path, size_t count) {
 
 static void tree_path_init(TreePath *path, TSTree *tree) {
   array_clear(path);
-  array_push(path,
-             ((TreePathEntry){
-               .tree = tree, .position = { 0, 0, { 0, 0 } }, .child_index = 0,
-             }));
+  array_push(path, ((TreePathEntry){
+    .tree = tree,
+    .position = { 0, 0, { 0, 0 } },
+    .child_index = 0,
+  }));
   if (!tree->visible)
     tree_path_descend(path, (TSPoint){ 0, 0 });
 }
