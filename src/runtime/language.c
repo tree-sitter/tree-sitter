@@ -19,6 +19,7 @@ void ts_language_table_entry(const TSLanguage *self, TSStateId state,
     }
     action_index = 0;
   } else {
+    assert(symbol < self->token_count);
     action_index = self->parse_table[state * self->symbol_count + symbol];
   }
 

@@ -40,6 +40,23 @@ static inline const TSParseAction *ts_language_last_action(
     return NULL;
 }
 
+static inline TSStateId ts_language_next_state(const TSLanguage *self,
+                                               TSStateId state,
+                                               TSSymbol symbol) {
+  if (symbol == ts_builtin_sym_error) {
+    return 0;
+  } else if (symbol < self->token_count) {
+    const TSParseAction *action = ts_language_last_action(self, state, symbol);
+    if (action && (action->type == TSParseActionTypeShift || action->type == TSParseActionTypeRecover)) {
+      return action->params.to_state;
+    } else {
+      return 0;
+    }
+  } else {
+    return self->parse_table[state * self->symbol_count + symbol];
+  }
+}
+
 static inline bool ts_language_is_reusable(const TSLanguage *self,
                                            TSStateId state, TSSymbol symbol) {
   TableEntry entry;

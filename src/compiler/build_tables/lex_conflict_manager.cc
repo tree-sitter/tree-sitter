@@ -14,7 +14,7 @@ bool LexConflictManager::resolve(const LexItemSet &item_set,
     return true;
   if (new_action.precedence_range.max >= old_action.precedence) {
     for (const LexItem &item : item_set.entries)
-      possible_extensions[old_action.symbol].insert(item.lhs);
+      possible_extensions[old_action.symbol.index].insert(item.lhs.index);
     return true;
   } else {
     return false;
@@ -44,9 +44,9 @@ bool LexConflictManager::resolve(const AcceptTokenAction &new_action,
     result = false;
 
   if (result)
-    possible_homonyms[old_action.symbol].insert(new_action.symbol);
+    possible_homonyms[old_action.symbol.index].insert(new_action.symbol.index);
   else
-    possible_homonyms[new_action.symbol].insert(old_action.symbol);
+    possible_homonyms[new_action.symbol.index].insert(old_action.symbol.index);
 
   return result;
 }

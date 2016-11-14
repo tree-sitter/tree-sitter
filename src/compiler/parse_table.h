@@ -1,6 +1,7 @@
 #ifndef COMPILER_PARSE_TABLE_H_
 #define COMPILER_PARSE_TABLE_H_
 
+#include <memory>
 #include <map>
 #include <set>
 #include <utility>
@@ -13,7 +14,7 @@
 
 namespace tree_sitter {
 
-typedef uint64_t ParseStateId;
+typedef int64_t ParseStateId;
 
 enum ParseActionType {
   ParseActionTypeError,
@@ -72,10 +73,11 @@ class ParseState {
   std::set<rules::Symbol> expected_inputs() const;
   bool operator==(const ParseState &) const;
   bool merge(const ParseState &);
-  void each_advance_action(std::function<void(ParseAction *)>);
+  void each_referenced_state(std::function<void(ParseStateId *)>);
   bool has_shift_action() const;
 
-  std::map<rules::Symbol, ParseTableEntry> entries;
+  std::map<int, ParseTableEntry> terminal_entries;
+  std::map<int, ParseStateId> nonterminal_entries;
   LexStateId lex_state_id;
 };
 
@@ -88,10 +90,9 @@ class ParseTable {
  public:
   std::set<rules::Symbol> all_symbols() const;
   ParseStateId add_state();
-  ParseAction &set_action(ParseStateId state_id, rules::Symbol symbol,
-                          ParseAction action);
-  ParseAction &add_action(ParseStateId state_id, rules::Symbol symbol,
-                          ParseAction action);
+  ParseAction &add_terminal_action(ParseStateId state_id, int, ParseAction);
+  ParseAction &set_terminal_action(ParseStateId state_id, int index, ParseAction);
+  void set_nonterminal_action(ParseStateId state_id, int index, ParseStateId);
   bool merge_state(size_t i, size_t j);
 
   std::vector<ParseState> states;

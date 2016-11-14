@@ -11,6 +11,8 @@
 
 namespace tree_sitter {
 
+typedef int64_t LexStateId;
+
 typedef enum {
   LexActionTypeError,
   LexActionTypeAccept,
@@ -24,7 +26,7 @@ struct AdvanceAction {
 
   bool operator==(const AdvanceAction &other) const;
 
-  size_t state_index;
+  LexStateId state_index;
   PrecedenceRange precedence_range;
   bool in_main_token;
 };
@@ -52,14 +54,12 @@ class LexState {
   LexState();
   std::set<rules::CharacterSet> expected_inputs() const;
   bool operator==(const LexState &) const;
-  void each_advance_action(std::function<void(AdvanceAction *)>);
+  void each_referenced_state(std::function<void(LexStateId *)>);
 
   std::map<rules::CharacterSet, AdvanceAction> advance_actions;
   AcceptTokenAction accept_action;
   bool is_token_start;
 };
-
-typedef int64_t LexStateId;
 
 class LexTable {
  public:

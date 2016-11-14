@@ -23,7 +23,7 @@ void assert_consistent(const Tree *tree) {
 START_TEST
 
 enum {
-  cat = ts_builtin_sym_start,
+  cat = 1,
   dog,
   eel,
   fox,

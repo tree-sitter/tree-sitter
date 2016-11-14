@@ -114,14 +114,11 @@ class LexTableBuilder {
 
   void mark_fragile_tokens() {
     for (ParseState &state : parse_table->states) {
-      for (auto &entry : state.entries) {
-        if (!entry.first.is_token)
-          continue;
-
+      for (auto &entry : state.terminal_entries) {
         auto homonyms = conflict_manager.possible_homonyms.find(entry.first);
         if (homonyms != conflict_manager.possible_homonyms.end())
-          for (const Symbol &homonym : homonyms->second)
-            if (state.entries.count(homonym)) {
+          for (int homonym : homonyms->second)
+            if (state.terminal_entries.count(homonym)) {
               entry.second.reusable = false;
               break;
             }
@@ -131,8 +128,8 @@ class LexTableBuilder {
 
         auto extensions = conflict_manager.possible_extensions.find(entry.first);
         if (extensions != conflict_manager.possible_extensions.end())
-          for (const Symbol &extension : extensions->second)
-            if (state.entries.count(extension)) {
+          for (int extension : extensions->second)
+            if (state.terminal_entries.count(extension)) {
               entry.second.depends_on_lookahead = true;
               break;
             }
@@ -147,7 +144,7 @@ class LexTableBuilder {
     }
 
     auto replacements =
-      remove_duplicate_states<LexTable, AdvanceAction>(&lex_table);
+      remove_duplicate_states<LexTable>(&lex_table);
 
     for (ParseState &parse_state : parse_table->states) {
       auto replacement = replacements.find(parse_state.lex_state_id);

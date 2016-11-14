@@ -37,9 +37,9 @@ string Symbol::to_string() const {
 }
 
 bool Symbol::operator<(const Symbol &other) const {
-  if (!is_token && other.is_token)
-    return true;
   if (is_token && !other.is_token)
+    return true;
+  if (!is_token && other.is_token)
     return false;
   return (index < other.index);
 }

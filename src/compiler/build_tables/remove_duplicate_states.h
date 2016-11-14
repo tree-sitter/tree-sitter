@@ -7,7 +7,7 @@
 namespace tree_sitter {
 namespace build_tables {
 
-template <typename TableType, typename ActionType>
+template <typename TableType>
 std::map<size_t, size_t> remove_duplicate_states(TableType *table) {
   std::map<size_t, size_t> replacements;
 
@@ -46,10 +46,10 @@ std::map<size_t, size_t> remove_duplicate_states(TableType *table) {
     }
 
     for (auto &state : table->states)
-      state.each_advance_action([&new_replacements](ActionType *action) {
-        auto new_replacement = new_replacements.find(action->state_index);
+      state.each_referenced_state([&new_replacements](int64_t *state_index) {
+        auto new_replacement = new_replacements.find(*state_index);
         if (new_replacement != new_replacements.end())
-          action->state_index = new_replacement->second;
+          *state_index = new_replacement->second;
       });
 
     for (auto i = duplicates.rbegin(); i != duplicates.rend(); ++i)

@@ -87,11 +87,7 @@ static bool parser__breakdown_top_of_stack(Parser *self, StackVersion version) {
         if (child->symbol == ts_builtin_sym_error) {
           state = ERROR_STATE;
         } else if (!child->extra) {
-          const TSParseAction *action =
-            ts_language_last_action(self->language, state, child->symbol);
-          assert(action && (action->type == TSParseActionTypeShift ||
-                            action->type == TSParseActionTypeRecover));
-          state = action->params.to_state;
+          state = ts_language_next_state(self->language, state, child->symbol);
         }
 
         ts_stack_push(self->stack, slice.version, child, pending, state);
@@ -486,13 +482,8 @@ static Reduction parser__reduce(Parser *self, StackVersion version,
       parent->parse_state = state;
     }
 
-    const TSParseAction *action =
-      ts_language_last_action(language, state, symbol);
-    assert(action->type == TSParseActionTypeShift ||
-           action->type == TSParseActionTypeRecover);
-
-    if (action->type == TSParseActionTypeRecover && child_count > 1 &&
-        allow_skipping) {
+    TSStateId next_state = ts_language_next_state(language, state, symbol);
+    if (state == ERROR_STATE && allow_skipping) {
       StackVersion other_version =
         ts_stack_duplicate_version(self->stack, slice.version);
 
@@ -508,10 +499,10 @@ static Reduction parser__reduce(Parser *self, StackVersion version,
         ts_stack_remove_version(self->stack, other_version);
     }
 
-    parser__push(self, slice.version, parent, action->params.to_state);
+    parser__push(self, slice.version, parent, next_state);
     for (size_t j = parent->child_count; j < slice.trees.size; j++) {
       Tree *tree = slice.trees.contents[j];
-      parser__push(self, slice.version, tree, action->params.to_state);
+      parser__push(self, slice.version, tree, next_state);
     }
   }
 
@@ -540,26 +531,24 @@ static inline const TSParseAction *parser__reductions_after_sequence(
     if (child_count == tree_count_below)
       break;
     Tree *tree = trees_below->contents[trees_below->size - 1 - i];
-    const TSParseAction *action =
-      ts_language_last_action(self->language, state, tree->symbol);
-    if (!action || action->type != TSParseActionTypeShift)
+    TSStateId next_state = ts_language_next_state(self->language, state, tree->symbol);
+    if (next_state == ERROR_STATE)
       return NULL;
-    if (action->extra || tree->extra)
-      continue;
-    child_count++;
-    state = action->params.to_state;
+    if (next_state != state) {
+      child_count++;
+      state = next_state;
+    }
   }
 
   for (size_t i = 0; i < trees_above->size; i++) {
     Tree *tree = trees_above->contents[i];
-    const TSParseAction *action =
-      ts_language_last_action(self->language, state, tree->symbol);
-    if (!action || action->type != TSParseActionTypeShift)
+    TSStateId next_state = ts_language_next_state(self->language, state, tree->symbol);
+    if (next_state == ERROR_STATE)
       return NULL;
-    if (action->extra || tree->extra)
-      continue;
-    child_count++;
-    state = action->params.to_state;
+    if (next_state != state) {
+      child_count++;
+      state = next_state;
+    }
   }
 
   const TSParseAction *actions =
@@ -610,15 +599,9 @@ static StackIterateAction parser__error_repair_callback(
       continue;
     }
 
-    const TSParseAction *repair_symbol_action =
-      ts_language_last_action(self->language, state, repair->symbol);
-    if (!repair_symbol_action ||
-        repair_symbol_action->type != TSParseActionTypeShift)
-      continue;
-
-    TSStateId state_after_repair = repair_symbol_action->params.to_state;
-    if (!ts_language_last_action(self->language, state_after_repair,
-                                 lookahead_symbol))
+    TSStateId state_after_repair = ts_language_next_state(self->language, state, repair->symbol);
+    if (state == ERROR_STATE || state_after_repair == ERROR_STATE ||
+        !ts_language_last_action(self->language, state_after_repair, lookahead_symbol))
       continue;
 
     if (count_needed_below_error != last_repair_count) {
@@ -795,7 +778,7 @@ static bool parser__do_potential_reductions(
   size_t previous_version_count = ts_stack_version_count(self->stack);
 
   array_clear(&self->reduce_actions);
-  for (TSSymbol symbol = 0; symbol < self->language->symbol_count; symbol++) {
+  for (TSSymbol symbol = 0; symbol < self->language->token_count; symbol++) {
     TableEntry entry;
     ts_language_table_entry(self->language, state, symbol, &entry);
     for (size_t i = 0; i < entry.action_count; i++) {
@@ -915,6 +898,9 @@ static void parser__handle_error(Parser *self, StackVersion version,
   ts_stack_push(self->stack, version, NULL, false, ERROR_STATE);
   while (ts_stack_version_count(self->stack) > previous_version_count) {
     ts_stack_push(self->stack, previous_version_count, NULL, false, ERROR_STATE);
+
+    LOG_STACK();
+
     assert(ts_stack_merge(self->stack, version, previous_version_count));
   }
 }
@@ -982,6 +968,17 @@ static void parser__advance(Parser *self, StackVersion version,
 
       switch (action.type) {
         case TSParseActionTypeShift: {
+          bool extra = action.extra;
+          TSStateId next_state;
+
+          if (action.extra) {
+            next_state = state;
+            LOG("shift_extra");
+          } else {
+            next_state = action.params.to_state;
+            LOG("shift state:%u", next_state);
+          }
+
           if (lookahead->child_count > 0) {
             if (parser__breakdown_lookahead(self, &lookahead, state,
                                             reusable_node)) {
@@ -992,20 +989,10 @@ static void parser__advance(Parser *self, StackVersion version,
               }
             }
 
-            action = *ts_language_last_action(self->language, state,
-                                              lookahead->symbol);
+            next_state = ts_language_next_state(self->language, state, lookahead->symbol);
           }
 
-          TSStateId next_state;
-          if (action.extra) {
-            next_state = state;
-            LOG("shift_extra");
-          } else {
-            next_state = action.params.to_state;
-            LOG("shift state:%u", next_state);
-          }
-
-          parser__shift(self, version, next_state, lookahead, action.extra);
+          parser__shift(self, version, next_state, lookahead, extra);
 
           if (lookahead == reusable_node->tree)
             parser__pop_reusable_node(reusable_node);

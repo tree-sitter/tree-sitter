@@ -14,7 +14,6 @@ typedef unsigned short TSStateId;
 
 #define ts_builtin_sym_error ((TSSymbol)-1)
 #define ts_builtin_sym_end 0
-#define ts_builtin_sym_start 1
 
 typedef struct {
   bool visible : 1;
@@ -60,6 +59,7 @@ typedef union {
 
 typedef struct TSLanguage {
   size_t symbol_count;
+  size_t token_count;
   const char **symbol_names;
   const TSSymbolMetadata *symbol_metadata;
   const unsigned short *parse_table;
@@ -102,6 +102,9 @@ typedef struct TSLanguage {
 /*
  *  Parse Table Macros
  */
+
+#define STATE(id) id
+#define ACTIONS(id) id
 
 #define SHIFT(to_state_value)                                                 \
   {                                                                           \
@@ -146,6 +149,7 @@ typedef struct TSLanguage {
 #define EXPORT_LANGUAGE(language_name)                     \
   static TSLanguage language = {                           \
     .symbol_count = SYMBOL_COUNT,                          \
+    .token_count = TOKEN_COUNT,                            \
     .symbol_metadata = ts_symbol_metadata,                 \
     .parse_table = (const unsigned short *)ts_parse_table, \
     .parse_actions = ts_parse_actions,                     \

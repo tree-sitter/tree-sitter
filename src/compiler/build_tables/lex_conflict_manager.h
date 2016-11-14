@@ -21,8 +21,8 @@ class LexConflictManager {
                const AcceptTokenAction &);
   bool resolve(const AcceptTokenAction &, const AcceptTokenAction &);
 
-  std::map<rules::Symbol, std::set<rules::Symbol>> possible_homonyms;
-  std::map<rules::Symbol, std::set<rules::Symbol>> possible_extensions;
+  std::map<int, std::set<int>> possible_homonyms;
+  std::map<int, std::set<int>> possible_extensions;
 };
 
 }  // namespace build_tables
