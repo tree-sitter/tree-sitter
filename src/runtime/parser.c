@@ -898,9 +898,6 @@ static void parser__handle_error(Parser *self, StackVersion version,
   ts_stack_push(self->stack, version, NULL, false, ERROR_STATE);
   while (ts_stack_version_count(self->stack) > previous_version_count) {
     ts_stack_push(self->stack, previous_version_count, NULL, false, ERROR_STATE);
-
-    LOG_STACK();
-
     assert(ts_stack_merge(self->stack, version, previous_version_count));
   }
 }
