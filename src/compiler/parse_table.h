@@ -1,7 +1,6 @@
 #ifndef COMPILER_PARSE_TABLE_H_
 #define COMPILER_PARSE_TABLE_H_
 
-#include <memory>
 #include <map>
 #include <set>
 #include <utility>
