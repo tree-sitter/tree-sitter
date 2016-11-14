@@ -167,13 +167,15 @@ ParseStateId ParseTable::add_state() {
   return states.size() - 1;
 }
 
-ParseAction &ParseTable::set_terminal_action(ParseStateId state_id, int index,
-                                     ParseAction action) {
+ParseAction &ParseTable::set_terminal_action(ParseStateId state_id,
+                                             Symbol::Index index,
+                                             ParseAction action) {
   states[state_id].terminal_entries[index].actions.clear();
   return add_terminal_action(state_id, index, action);
 }
 
-ParseAction &ParseTable::add_terminal_action(ParseStateId state_id, int index,
+ParseAction &ParseTable::add_terminal_action(ParseStateId state_id,
+                                             Symbol::Index index,
                                              ParseAction action) {
   Symbol symbol(index, true);
   if (action.type == ParseActionTypeShift && action.extra)
@@ -186,7 +188,8 @@ ParseAction &ParseTable::add_terminal_action(ParseStateId state_id, int index,
   return *entry.actions.rbegin();
 }
 
-void ParseTable::set_nonterminal_action(ParseStateId state_id, int index,
+void ParseTable::set_nonterminal_action(ParseStateId state_id,
+                                        Symbol::Index index,
                                         ParseStateId next_state_id) {
   Symbol symbol(index, false);
   symbols[symbol].structural = true;
@@ -208,12 +211,12 @@ bool ParseTable::merge_state(size_t i, size_t j) {
     return false;
 
   for (auto &entry : state.terminal_entries) {
-    Symbol symbol(entry.first, true);
+    Symbol::Index index = entry.first;
     const vector<ParseAction> &actions = entry.second.actions;
 
-    const auto &other_entry = other.terminal_entries.find(symbol.index);
+    const auto &other_entry = other.terminal_entries.find(index);
     if (other_entry == other.terminal_entries.end()) {
-      if (mergeable_symbols.count(symbol) == 0 && !symbol.is_built_in())
+      if (mergeable_symbols.count(index) == 0 && !Symbol::is_built_in(index))
         return false;
       if (actions.back().type != ParseActionTypeReduce)
         return false;
@@ -224,25 +227,25 @@ bool ParseTable::merge_state(size_t i, size_t j) {
     }
   }
 
-  set<Symbol> symbols_to_merge;
+  set<Symbol::Index> symbols_to_merge;
 
   for (auto &entry : other.terminal_entries) {
-    Symbol symbol(entry.first, true);
+    Symbol::Index index = entry.first;
     const vector<ParseAction> &actions = entry.second.actions;
 
-    if (!state.terminal_entries.count(symbol.index)) {
-      if (mergeable_symbols.count(symbol) == 0 && !symbol.is_built_in())
+    if (!state.terminal_entries.count(index)) {
+      if (mergeable_symbols.count(index) == 0 && !Symbol::is_built_in(index))
         return false;
       if (actions.back().type != ParseActionTypeReduce)
         return false;
       if (!has_entry(state, entry.second))
         return false;
-      symbols_to_merge.insert(symbol);
+      symbols_to_merge.insert(index);
     }
   }
 
-  for (const Symbol &symbol : symbols_to_merge)
-    state.terminal_entries[symbol.index] = other.terminal_entries.find(symbol.index)->second;
+  for (const Symbol::Index &index : symbols_to_merge)
+    state.terminal_entries[index] = other.terminal_entries.find(index)->second;
 
   return true;
 }

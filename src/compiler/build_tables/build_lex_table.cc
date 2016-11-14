@@ -117,7 +117,7 @@ class LexTableBuilder {
       for (auto &entry : state.terminal_entries) {
         auto homonyms = conflict_manager.possible_homonyms.find(entry.first);
         if (homonyms != conflict_manager.possible_homonyms.end())
-          for (int homonym : homonyms->second)
+          for (Symbol::Index homonym : homonyms->second)
             if (state.terminal_entries.count(homonym)) {
               entry.second.reusable = false;
               break;
@@ -128,7 +128,7 @@ class LexTableBuilder {
 
         auto extensions = conflict_manager.possible_extensions.find(entry.first);
         if (extensions != conflict_manager.possible_extensions.end())
-          for (int extension : extensions->second)
+          for (Symbol::Index extension : extensions->second)
             if (state.terminal_entries.count(extension)) {
               entry.second.depends_on_lookahead = true;
               break;

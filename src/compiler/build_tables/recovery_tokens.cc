@@ -47,8 +47,8 @@ class FirstCharacters : public CharacterAggregator<true, false> {};
 class LastCharacters : public CharacterAggregator<false, true> {};
 class AllCharacters : public CharacterAggregator<true, true> {};
 
-set<Symbol> recovery_tokens(const LexicalGrammar &grammar) {
-  set<Symbol> result;
+set<Symbol::Index> recovery_tokens(const LexicalGrammar &grammar) {
+  set<Symbol::Index> result;
 
   AllCharacters all_separator_characters;
   for (const rule_ptr &separator : grammar.separators)
@@ -79,7 +79,7 @@ set<Symbol> recovery_tokens(const LexicalGrammar &grammar) {
       !all_characters.result.intersects(all_separator_characters.result);
 
     if ((has_distinct_start && has_distinct_end) || has_no_separators)
-      result.insert(Symbol(i, true));
+      result.insert(i);
   }
 
   return result;

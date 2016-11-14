@@ -3,6 +3,7 @@
 #include <vector>
 #include <utility>
 #include "compiler/syntax_grammar.h"
+#include "compiler/lexical_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
 
 namespace tree_sitter {
@@ -19,7 +20,8 @@ using std::make_shared;
 using rules::Symbol;
 using rules::NONE;
 
-static map<Symbol, LookaheadSet> build_first_sets(const SyntaxGrammar &grammar) {
+static map<Symbol, LookaheadSet> build_first_sets(const SyntaxGrammar &grammar,
+                                                  const LexicalGrammar &lexical_grammar) {
   map<Symbol, LookaheadSet> result;
   vector<Symbol> symbol_stack;
   set<Symbol> processed_symbols;
@@ -35,7 +37,7 @@ static map<Symbol, LookaheadSet> build_first_sets(const SyntaxGrammar &grammar) 
       Symbol current_symbol = symbol_stack.back();
       symbol_stack.pop_back();
       if (current_symbol.is_token) {
-        first_set.insert(current_symbol);
+        first_set.insert(current_symbol.index);
       } else if (processed_symbols.insert(current_symbol).second) {
         for (const Production &production : grammar.productions(current_symbol)) {
           if (!production.empty()) {
@@ -48,11 +50,17 @@ static map<Symbol, LookaheadSet> build_first_sets(const SyntaxGrammar &grammar) 
     result.insert({symbol, first_set});
   }
 
+  for (int i = 0; i < lexical_grammar.variables.size(); i++) {
+    Symbol symbol(i, true);
+    result.insert({symbol, LookaheadSet({ i })});
+  }
+
   return result;
 }
 
-ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar) :
-    grammar{&grammar}, first_sets{build_first_sets(grammar)} {
+ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
+                                         const LexicalGrammar &lexical_grammar) :
+    grammar{&grammar}, first_sets{build_first_sets(grammar, lexical_grammar)} {
 }
 
 void ParseItemSetBuilder::apply_transitive_closure(ParseItemSet *item_set) {
@@ -88,11 +96,7 @@ void ParseItemSetBuilder::apply_transitive_closure(ParseItemSet *item_set) {
       next_lookahead_symbols = lookahead_symbols;
     } else {
       Symbol symbol_after_next = item.production->at(next_step).symbol;
-      if (symbol_after_next.is_token) {
-        next_lookahead_symbols.insert(symbol_after_next);
-      } else {
-        next_lookahead_symbols = first_sets.find(symbol_after_next)->second;
-      }
+      next_lookahead_symbols = first_sets.find(symbol_after_next)->second;
     }
 
     // Add each of the next symbol's productions to be processed recursively.
@@ -103,6 +107,10 @@ void ParseItemSetBuilder::apply_transitive_closure(ParseItemSet *item_set) {
         false
       ));
   }
+}
+
+LookaheadSet ParseItemSetBuilder::get_first_set(rules::Symbol &symbol) const {
+  return first_sets.find(symbol)->second;
 }
 
 }  // namespace build_tables

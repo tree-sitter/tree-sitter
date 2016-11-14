@@ -10,9 +10,9 @@ using std::string;
 using std::to_string;
 using std::hash;
 
-Symbol::Symbol(int index) : index(index), is_token(false) {}
+Symbol::Symbol(Symbol::Index index) : index(index), is_token(false) {}
 
-Symbol::Symbol(int index, bool is_token) : index(index), is_token(is_token) {}
+Symbol::Symbol(Symbol::Index index, bool is_token) : index(index), is_token(is_token) {}
 
 bool Symbol::operator==(const Symbol &other) const {
   return (other.index == index) && (other.is_token == is_token);
@@ -24,7 +24,7 @@ bool Symbol::operator==(const Rule &rule) const {
 }
 
 size_t Symbol::hash_code() const {
-  return hash<int>()(index) ^ hash<bool>()(is_token);
+  return hash<Symbol::Index>()(index) ^ hash<bool>()(is_token);
 }
 
 rule_ptr Symbol::copy() const {
@@ -44,8 +44,12 @@ bool Symbol::operator<(const Symbol &other) const {
   return (index < other.index);
 }
 
-bool Symbol::is_built_in() const {
+bool Symbol::is_built_in(Symbol::Index index) {
   return index < 0;
+}
+
+bool Symbol::is_built_in() const {
+  return is_built_in(index);
 }
 
 void Symbol::accept(Visitor *visitor) const {

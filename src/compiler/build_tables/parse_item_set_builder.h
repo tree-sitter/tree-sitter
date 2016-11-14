@@ -8,6 +8,7 @@
 namespace tree_sitter {
 
 struct SyntaxGrammar;
+struct LexicalGrammar;
 
 namespace build_tables {
 
@@ -17,8 +18,9 @@ class ParseItemSetBuilder {
   std::vector<std::tuple<ParseItem, LookaheadSet, bool>> items_to_process;
 
  public:
-  ParseItemSetBuilder(const SyntaxGrammar &);
+  ParseItemSetBuilder(const SyntaxGrammar &, const LexicalGrammar &);
   void apply_transitive_closure(ParseItemSet *);
+  LookaheadSet get_first_set(rules::Symbol &) const;
 };
 
 }  // namespace build_tables

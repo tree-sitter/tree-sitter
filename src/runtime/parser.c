@@ -840,9 +840,10 @@ static StackIterateAction parser__repair_consumed_error_callback(
     SkipPrecedingTokensSession *session = payload;
     Parser *self = session->parser;
     TSSymbol lookahead_symbol = session->lookahead_symbol;
-    const TSParseAction *action =
-      ts_language_last_action(self->language, state, lookahead_symbol);
-    if (action && action->type == TSParseActionTypeReduce) {
+    size_t action_count;
+    const TSParseAction *actions =
+      ts_language_actions(self->language, state, lookahead_symbol, &action_count);
+    if (action_count > 0 && actions[0].type == TSParseActionTypeReduce) {
       return StackIteratePop | StackIterateStop;
     }
   }
