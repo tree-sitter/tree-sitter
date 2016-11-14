@@ -600,8 +600,12 @@ static StackIterateAction parser__error_repair_callback(
     }
 
     TSStateId state_after_repair = ts_language_next_state(self->language, state, repair->symbol);
-    if (state == ERROR_STATE || state_after_repair == ERROR_STATE ||
-        !ts_language_last_action(self->language, state_after_repair, lookahead_symbol))
+    if (state == ERROR_STATE || state_after_repair == ERROR_STATE)
+      continue;
+
+    size_t action_count;
+    ts_language_actions(self->language, state_after_repair, lookahead_symbol, &action_count);
+    if (action_count == 0)
       continue;
 
     if (count_needed_below_error != last_repair_count) {
@@ -1030,7 +1034,6 @@ static void parser__advance(Parser *self, StackVersion version,
 
           LOG("accept");
           parser__accept(self, version, lookahead);
-
           ts_tree_release(lookahead);
           return;
         }
@@ -1042,14 +1045,10 @@ static void parser__advance(Parser *self, StackVersion version,
             lookahead = reusable_node->tree;
             ts_tree_retain(lookahead);
           }
-          action =
-            *ts_language_last_action(self->language, state, lookahead->symbol);
 
           parser__recover(self, version, action.params.to_state, lookahead);
-
           if (lookahead == reusable_node->tree)
             parser__pop_reusable_node(reusable_node);
-
           ts_tree_release(lookahead);
           return;
         }
