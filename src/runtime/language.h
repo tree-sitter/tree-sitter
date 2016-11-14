@@ -10,7 +10,7 @@ extern "C" {
 
 typedef struct {
   const TSParseAction *actions;
-  size_t action_count;
+  uint32_t action_count;
   bool is_reusable;
   bool depends_on_lookahead;
 } TableEntry;
@@ -22,7 +22,7 @@ TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *, TSSymbol);
 static inline const TSParseAction *ts_language_actions(const TSLanguage *self,
                                                        TSStateId state,
                                                        TSSymbol symbol,
-                                                       size_t *count) {
+                                                       uint32_t *count) {
   TableEntry entry;
   ts_language_table_entry(self, state, symbol, &entry);
   *count = entry.action_count;
@@ -35,7 +35,7 @@ static inline TSStateId ts_language_next_state(const TSLanguage *self,
   if (symbol == ts_builtin_sym_error) {
     return 0;
   } else if (symbol < self->token_count) {
-    size_t count;
+    uint32_t count;
     const TSParseAction *actions = ts_language_actions(self, state, symbol, &count);
     if (count > 0) {
       TSParseAction action = actions[count - 1];

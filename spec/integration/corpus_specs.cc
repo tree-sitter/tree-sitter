@@ -142,7 +142,7 @@ describe("The Corpus", []() {
               assert_correct_tree_size(document, input->content);
 
               TSRange *ranges;
-              size_t range_count;
+              uint32_t range_count;
               ScopeSequence old_scope_sequence = build_scope_sequence(document, input->content);
               ts_document_parse_and_get_changed_ranges(document, &ranges, &range_count);
 
@@ -165,7 +165,7 @@ describe("The Corpus", []() {
               assert_correct_tree_size(document, input->content);
 
               TSRange *ranges;
-              size_t range_count;
+              uint32_t range_count;
               ScopeSequence old_scope_sequence = build_scope_sequence(document, input->content);
               ts_document_parse_and_get_changed_ranges(document, &ranges, &range_count);
 

@@ -19,7 +19,7 @@ enum {
   symbol9, symbol10
 };
 
-Length operator*(const Length &length, size_t factor) {
+Length operator*(const Length &length, uint32_t factor) {
   return {length.bytes * factor, length.chars * factor, {0, length.extent.column * factor}};
 }
 
@@ -54,7 +54,7 @@ vector<StackEntry> get_stack_entries(Stack *stack, StackVersion version) {
   ts_stack_iterate(
     stack,
     version,
-    [](void *payload, TSStateId state, TreeArray *trees, size_t tree_count, bool is_done, bool is_pending) -> StackIterateAction {
+    [](void *payload, TSStateId state, TreeArray *trees, uint32_t tree_count, bool is_done, bool is_pending) -> StackIterateAction {
       auto entries = static_cast<vector<StackEntry> *>(payload);
       StackEntry entry = {state, tree_count};
       if (find(entries->begin(), entries->end(), entry) == entries->end())

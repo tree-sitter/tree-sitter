@@ -58,8 +58,8 @@ typedef union {
 } TSParseActionEntry;
 
 typedef struct TSLanguage {
-  size_t symbol_count;
-  size_t token_count;
+  uint32_t symbol_count;
+  uint32_t token_count;
   const char **symbol_names;
   const TSSymbolMetadata *symbol_metadata;
   const unsigned short *parse_table;

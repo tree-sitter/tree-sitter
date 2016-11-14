@@ -80,7 +80,7 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
   if (!self->tree)
     return;
 
-  size_t max_bytes = ts_tree_total_bytes(self->tree);
+  uint32_t max_bytes = ts_tree_total_bytes(self->tree);
   if (edit.start_byte > max_bytes)
     return;
   if (edit.bytes_removed > max_bytes - edit.start_byte)
@@ -90,7 +90,7 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
 }
 
 void ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges,
-                                             size_t *range_count) {
+                                              uint32_t *range_count) {
   if (ranges) *ranges = NULL;
   if (range_count) *range_count = 0;
 
@@ -137,6 +137,6 @@ TSNode ts_document_root_node(const TSDocument *self) {
   return result;
 }
 
-size_t ts_document_parse_count(const TSDocument *self) {
+uint32_t ts_document_parse_count(const TSDocument *self) {
   return self->parse_count;
 }

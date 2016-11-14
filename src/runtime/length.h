@@ -7,8 +7,8 @@
 #include "tree_sitter/runtime.h"
 
 typedef struct {
-  size_t bytes;
-  size_t chars;
+  uint32_t bytes;
+  uint32_t chars;
   TSPoint extent;
 } Length;
 
