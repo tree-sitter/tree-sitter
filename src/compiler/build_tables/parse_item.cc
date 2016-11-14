@@ -102,8 +102,8 @@ size_t ParseItemSet::Hash::operator()(const ParseItemSet &item_set) const {
 
     const LookaheadSet &lookahead_set = pair.second;
     result ^= hash<size_t>()(lookahead_set.entries->size());
-    for (auto &symbol : *pair.second.entries)
-      result ^= hash<tree_sitter::rules::Symbol>()(symbol);
+    for (Symbol::Index index : *pair.second.entries)
+      result ^= hash<Symbol::Index>()(index);
   }
   return result;
 }

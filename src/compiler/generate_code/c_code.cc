@@ -115,6 +115,7 @@ class CCodeGenerator {
   void add_state_and_symbol_counts() {
     line("#define STATE_COUNT " + to_string(parse_table.states.size()));
     line("#define SYMBOL_COUNT " + to_string(parse_table.symbols.size()));
+    line("#define TOKEN_COUNT " + to_string(lexical_grammar.variables.size() + 1));
     line();
   }
 
@@ -222,10 +223,15 @@ class CCodeGenerator {
       for (const auto &state : parse_table.states) {
         line("[" + to_string(state_id++) + "] = {");
         indent([&]() {
-          for (const auto &entry : state.entries) {
-            line("[" + symbol_id(entry.first) + "] = ");
+          for (const auto &entry : state.nonterminal_entries) {
+            line("[" + symbol_id(rules::Symbol(entry.first)) + "] = STATE(");
+            add(to_string(entry.second));
+            add("),");
+          }
+          for (const auto &entry : state.terminal_entries) {
+            line("[" + symbol_id(rules::Symbol(entry.first, true)) + "] = ACTIONS(");
             add(to_string(add_parse_action_list_id(entry.second)));
-            add(",");
+            add("),");
           }
         });
         line("},");

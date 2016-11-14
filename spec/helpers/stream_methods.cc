@@ -75,21 +75,15 @@ ostream &operator<<(ostream &stream, const ParseAction &action) {
   }
 }
 
+ostream &operator<<(ostream &stream, const ParseTableEntry &entry) {
+  return stream << entry.actions;
+}
+
 ostream &operator<<(ostream &stream, const ParseState &state) {
-  stream << string("#<parse_state ");
-  bool started = false;
-  for (auto entry : state.entries) {
-    if (started)
-      stream << string(", ");
-    stream << entry.first << string(" => {");
-    for (auto &action : entry.second.actions) {
-      stream << string(" ") << action;
-    }
-    stream << string("}");
-    started = true;
-  }
-  stream << string(">");
-  return stream;
+  stream << string("#<parse_state terminal_entries:");
+  stream << state.terminal_entries;
+  stream << " nonterminal_entries: " << state.nonterminal_entries;
+  return stream << string(">");
 }
 
 ostream &operator<<(ostream &stream, const ProductionStep &step) {

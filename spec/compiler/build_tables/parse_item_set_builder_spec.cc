@@ -1,15 +1,28 @@
 #include "spec_helper.h"
 #include "compiler/syntax_grammar.h"
-#include "compiler/build_tables/item_set_closure.h"
+#include "compiler/lexical_grammar.h"
+#include "compiler/build_tables/parse_item_set_builder.h"
 #include "compiler/build_tables/lookahead_set.h"
 #include "compiler/rules/built_in_symbols.h"
+#include "helpers/rule_helpers.h"
 
 using namespace build_tables;
 using namespace rules;
 
 START_TEST
 
-describe("item_set_closure", []() {
+describe("ParseItemSetBuilder", []() {
+  vector<Variable> lexical_variables;
+  for (size_t i = 0; i < 20; i++) {
+    lexical_variables.push_back(Variable{
+      "token_" + to_string(i),
+      VariableTypeNamed,
+      blank(),
+    });
+  }
+
+  LexicalGrammar lexical_grammar{lexical_variables, {}};
+
   it("adds items at the beginnings of referenced rules", [&]() {
     SyntaxGrammar grammar{{
       SyntaxVariable("rule0", VariableTypeNamed, {
@@ -39,29 +52,32 @@ describe("item_set_closure", []() {
       return grammar.variables[variable_index].productions[production_index];
     };
 
-    ParseItemSet item_set = item_set_closure(ParseItemSet({
+    ParseItemSet item_set({
       {
         ParseItem(Symbol(0), production(0, 0), 0),
-        LookaheadSet({ Symbol(10, true) }),
+        LookaheadSet({ 10 }),
       }
-    }), grammar);
+    });
+
+    ParseItemSetBuilder item_set_builder(grammar, lexical_grammar);
+    item_set_builder.apply_transitive_closure(&item_set);
 
     AssertThat(item_set, Equals(ParseItemSet({
       {
         ParseItem(Symbol(0), production(0, 0), 0),
-        LookaheadSet({ Symbol(10, true) })
+        LookaheadSet({ 10 })
       },
       {
         ParseItem(Symbol(1), production(1, 0), 0),
-        LookaheadSet({ Symbol(11, true) })
+        LookaheadSet({ 11 })
       },
       {
         ParseItem(Symbol(1), production(1, 1), 0),
-        LookaheadSet({ Symbol(11, true) })
+        LookaheadSet({ 11 })
       },
       {
         ParseItem(Symbol(2), production(2, 0), 0),
-        LookaheadSet({ Symbol(11, true) })
+        LookaheadSet({ 11 })
       },
     })));
   });
@@ -87,25 +103,28 @@ describe("item_set_closure", []() {
       return grammar.variables[variable_index].productions[production_index];
     };
 
-    ParseItemSet item_set = item_set_closure(ParseItemSet({
+    ParseItemSet item_set({
       {
         ParseItem(Symbol(0), production(0, 0), 0),
-        LookaheadSet({ Symbol(10, true) }),
+        LookaheadSet({ 10 }),
       }
-    }), grammar);
+    });
+
+    ParseItemSetBuilder item_set_builder(grammar, lexical_grammar);
+    item_set_builder.apply_transitive_closure(&item_set);
 
     AssertThat(item_set, Equals(ParseItemSet({
       {
         ParseItem(Symbol(0), production(0, 0), 0),
-        LookaheadSet({ Symbol(10, true) })
+        LookaheadSet({ 10 })
       },
       {
         ParseItem(Symbol(1), production(1, 0), 0),
-        LookaheadSet({ Symbol(11, true) })
+        LookaheadSet({ 11 })
       },
       {
         ParseItem(Symbol(1), production(1, 1), 0),
-        LookaheadSet({ Symbol(11, true) })
+        LookaheadSet({ 11 })
       },
     })));
   });

@@ -9,8 +9,11 @@ namespace rules {
 
 class Symbol : public Rule {
  public:
-  explicit Symbol(int index);
-  Symbol(int index, bool is_token);
+  typedef int Index;
+
+
+  explicit Symbol(Index index);
+  Symbol(Index index, bool is_token);
 
   bool operator==(const Symbol &other) const;
   bool operator==(const Rule &other) const;
@@ -21,9 +24,10 @@ class Symbol : public Rule {
   void accept(Visitor *visitor) const;
 
   bool operator<(const Symbol &other) const;
+  static bool is_built_in(Index);
   bool is_built_in() const;
 
-  int index;
+  Index index;
   bool is_token;
 };
 

@@ -91,25 +91,25 @@ describe("ParseItemSet::transitions())", [&]() {
       // Two symbols into the first production for rule_0
       {
         ParseItem(Symbol(0), production(0, 0), 2),
-        LookaheadSet({ Symbol(21, true) })
+        LookaheadSet({ 21 })
       },
 
       // Two symbols into the second production for rule_0
       {
         ParseItem(Symbol(0), production(0, 1), 2),
-        LookaheadSet({ Symbol(21, true) })
+        LookaheadSet({ 21 })
       },
 
       // At the beginning of the first production for rule_1
       {
         ParseItem(Symbol(1), production(1, 0), 0),
-        LookaheadSet({ Symbol(22, true) })
+        LookaheadSet({ 22 })
       },
 
       // At the end of the first production for rule_2
       {
         ParseItem(Symbol(2), production(2, 0), 1),
-        LookaheadSet({ Symbol(22, true) })
+        LookaheadSet({ 22 })
       }
     });
 
@@ -122,7 +122,7 @@ describe("ParseItemSet::transitions())", [&]() {
           ParseItemSet({
             {
               ParseItem(Symbol(0), production(0, 0), 3),
-              LookaheadSet({ Symbol(21, true) })
+              LookaheadSet({ 21 })
             }
           }),
           PrecedenceRange(5, 5)
@@ -137,11 +137,11 @@ describe("ParseItemSet::transitions())", [&]() {
           ParseItemSet({
             {
               ParseItem(Symbol(0), production(0, 1), 3),
-              LookaheadSet({ Symbol(21, true) })
+              LookaheadSet({ 21 })
             },
             {
               ParseItem(Symbol(1), production(1, 0), 1),
-              LookaheadSet({ Symbol(22, true) })
+              LookaheadSet({ 22 })
             },
           }),
           PrecedenceRange(6, 7)

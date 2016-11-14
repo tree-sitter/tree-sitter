@@ -125,29 +125,34 @@ bool ParseTableEntry::operator==(const ParseTableEntry &other) const {
 ParseState::ParseState() : lex_state_id(-1) {}
 
 bool ParseState::has_shift_action() const {
-  for (const auto &pair : entries)
+  for (const auto &pair : terminal_entries)
     if (pair.second.actions.size() > 0 &&
         pair.second.actions.back().type == ParseActionTypeShift)
       return true;
-  return false;
+  return (!nonterminal_entries.empty());
 }
 
 set<Symbol> ParseState::expected_inputs() const {
   set<Symbol> result;
-  for (auto &entry : entries)
-    result.insert(entry.first);
+  for (auto &entry : terminal_entries)
+    result.insert(Symbol(entry.first, true));
+  for (auto &entry : nonterminal_entries)
+    result.insert(Symbol(entry.first, false));
   return result;
 }
 
-void ParseState::each_advance_action(function<void(ParseAction *)> fn) {
-  for (auto &entry : entries)
+void ParseState::each_referenced_state(function<void(ParseStateId *)> fn) {
+  for (auto &entry : terminal_entries)
     for (ParseAction &action : entry.second.actions)
       if (action.type == ParseActionTypeShift || ParseActionTypeRecover)
-        fn(&action);
+        fn(&action.state_index);
+  for (auto &entry : nonterminal_entries)
+    fn(&entry.second);
 }
 
 bool ParseState::operator==(const ParseState &other) const {
-  return entries == other.entries;
+  return terminal_entries == other.terminal_entries &&
+    nonterminal_entries == other.nonterminal_entries;
 }
 
 set<Symbol> ParseTable::all_symbols() const {
@@ -162,35 +167,37 @@ ParseStateId ParseTable::add_state() {
   return states.size() - 1;
 }
 
-ParseAction &ParseTable::set_action(ParseStateId id, Symbol symbol,
-                                    ParseAction action) {
-  if (action.type == ParseActionTypeShift && action.extra)
-    symbols[symbol].extra = true;
-  else
-    symbols[symbol].structural = true;
-
-  states[id].entries[symbol].actions = { action };
-  return *states[id].entries[symbol].actions.begin();
+ParseAction &ParseTable::set_terminal_action(ParseStateId state_id,
+                                             Symbol::Index index,
+                                             ParseAction action) {
+  states[state_id].terminal_entries[index].actions.clear();
+  return add_terminal_action(state_id, index, action);
 }
 
-ParseAction &ParseTable::add_action(ParseStateId id, Symbol symbol,
-                                    ParseAction action) {
+ParseAction &ParseTable::add_terminal_action(ParseStateId state_id,
+                                             Symbol::Index index,
+                                             ParseAction action) {
+  Symbol symbol(index, true);
   if (action.type == ParseActionTypeShift && action.extra)
     symbols[symbol].extra = true;
   else
     symbols[symbol].structural = true;
 
-  ParseState &state = states[id];
-  for (ParseAction &existing_action : state.entries[symbol].actions)
-    if (existing_action == action)
-      return existing_action;
+  ParseTableEntry &entry = states[state_id].terminal_entries[index];
+  entry.actions.push_back(action);
+  return *entry.actions.rbegin();
+}
 
-  state.entries[symbol].actions.push_back(action);
-  return *state.entries[symbol].actions.rbegin();
+void ParseTable::set_nonterminal_action(ParseStateId state_id,
+                                        Symbol::Index index,
+                                        ParseStateId next_state_id) {
+  Symbol symbol(index, false);
+  symbols[symbol].structural = true;
+  states[state_id].nonterminal_entries[index] = next_state_id;
 }
 
 static bool has_entry(const ParseState &state, const ParseTableEntry &entry) {
-  for (const auto &pair : state.entries)
+  for (const auto &pair : state.terminal_entries)
     if (pair.second == entry)
       return true;
   return false;
@@ -200,13 +207,16 @@ bool ParseTable::merge_state(size_t i, size_t j) {
   ParseState &state = states[i];
   ParseState &other = states[j];
 
-  for (auto &entry : state.entries) {
-    const Symbol &symbol = entry.first;
+  if (state.nonterminal_entries != other.nonterminal_entries)
+    return false;
+
+  for (auto &entry : state.terminal_entries) {
+    Symbol::Index index = entry.first;
     const vector<ParseAction> &actions = entry.second.actions;
 
-    const auto &other_entry = other.entries.find(symbol);
-    if (other_entry == other.entries.end()) {
-      if (mergeable_symbols.count(symbol) == 0 && !symbol.is_built_in() && symbol.is_token)
+    const auto &other_entry = other.terminal_entries.find(index);
+    if (other_entry == other.terminal_entries.end()) {
+      if (mergeable_symbols.count(index) == 0 && !Symbol::is_built_in(index))
         return false;
       if (actions.back().type != ParseActionTypeReduce)
         return false;
@@ -217,25 +227,25 @@ bool ParseTable::merge_state(size_t i, size_t j) {
     }
   }
 
-  set<Symbol> symbols_to_merge;
+  set<Symbol::Index> symbols_to_merge;
 
-  for (auto &entry : other.entries) {
-    const Symbol &symbol = entry.first;
+  for (auto &entry : other.terminal_entries) {
+    Symbol::Index index = entry.first;
     const vector<ParseAction> &actions = entry.second.actions;
 
-    if (!state.entries.count(symbol)) {
-      if (mergeable_symbols.count(symbol) == 0 && !symbol.is_built_in() && symbol.is_token)
+    if (!state.terminal_entries.count(index)) {
+      if (mergeable_symbols.count(index) == 0 && !Symbol::is_built_in(index))
         return false;
       if (actions.back().type != ParseActionTypeReduce)
         return false;
       if (!has_entry(state, entry.second))
         return false;
-      symbols_to_merge.insert(symbol);
+      symbols_to_merge.insert(index);
     }
   }
 
-  for (const Symbol &symbol : symbols_to_merge)
-    state.entries[symbol] = other.entries.find(symbol)->second;
+  for (const Symbol::Index &index : symbols_to_merge)
+    state.terminal_entries[index] = other.terminal_entries.find(index)->second;
 
   return true;
 }

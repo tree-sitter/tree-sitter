@@ -1,5 +1,6 @@
 #include "spec_helper.h"
 #include "helpers/rule_helpers.h"
+#include "helpers/stream_methods.h"
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/lex_conflict_manager.h"
@@ -36,7 +37,7 @@ describe("LexConflictManager::resolve(new_action, old_action)", []() {
 
       it("adds the preferred token as a possible homonym for the discarded one", [&]() {
         conflict_manager.resolve(AcceptTokenAction(sym2, 1, false), AcceptTokenAction(sym1, 2, false));
-        AssertThat(conflict_manager.possible_homonyms[sym2], Contains(sym1));
+        AssertThat(conflict_manager.possible_homonyms[sym2.index], Contains(sym1.index));
       });
     });
 
@@ -78,7 +79,7 @@ describe("LexConflictManager::resolve(new_action, old_action)", []() {
 
       it("adds the in-progress tokens as possible extensions of the discarded token", [&]() {
         conflict_manager.resolve(item_set, AdvanceAction(1, { 1, 2 }, true), AcceptTokenAction(sym3, 3, true));
-        AssertThat(conflict_manager.possible_extensions[sym3], Contains(sym4));
+        AssertThat(conflict_manager.possible_extensions[sym3.index], Contains(sym4.index));
       });
     });
   });

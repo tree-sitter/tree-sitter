@@ -57,9 +57,9 @@ bool LexState::operator==(const LexState &other) const {
          is_token_start == other.is_token_start;
 }
 
-void LexState::each_advance_action(function<void(AdvanceAction *)> fn) {
+void LexState::each_referenced_state(function<void(LexStateId *)> fn) {
   for (auto &entry : advance_actions)
-    fn(&entry.second);
+    fn(&entry.second.state_index);
 }
 
 LexStateId LexTable::add_state() {

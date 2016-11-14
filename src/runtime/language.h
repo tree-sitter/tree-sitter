@@ -15,10 +15,9 @@ typedef struct {
   bool depends_on_lookahead;
 } TableEntry;
 
-void ts_language_table_entry(const TSLanguage *, TSStateId, TSSymbol,
-                             TableEntry *);
+void ts_language_table_entry(const TSLanguage *, TSStateId, TSSymbol, TableEntry *);
 
-bool ts_language_symbol_is_in_progress(const TSLanguage *, TSStateId, TSSymbol);
+TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *, TSSymbol);
 
 static inline const TSParseAction *ts_language_actions(const TSLanguage *self,
                                                        TSStateId state,
@@ -30,24 +29,25 @@ static inline const TSParseAction *ts_language_actions(const TSLanguage *self,
   return entry.actions;
 }
 
-static inline const TSParseAction *ts_language_last_action(
-  const TSLanguage *self, TSStateId state, TSSymbol symbol) {
-  TableEntry entry;
-  ts_language_table_entry(self, state, symbol, &entry);
-  if (entry.action_count)
-    return &entry.actions[entry.action_count - 1];
-  else
-    return NULL;
+static inline TSStateId ts_language_next_state(const TSLanguage *self,
+                                               TSStateId state,
+                                               TSSymbol symbol) {
+  if (symbol == ts_builtin_sym_error) {
+    return 0;
+  } else if (symbol < self->token_count) {
+    size_t count;
+    const TSParseAction *actions = ts_language_actions(self, state, symbol, &count);
+    if (count > 0) {
+      TSParseAction action = actions[count - 1];
+      if (action.type == TSParseActionTypeShift || action.type == TSParseActionTypeRecover) {
+        return action.params.to_state;
+      }
+    }
+    return 0;
+  } else {
+    return self->parse_table[state * self->symbol_count + symbol];
+  }
 }
-
-static inline bool ts_language_is_reusable(const TSLanguage *self,
-                                           TSStateId state, TSSymbol symbol) {
-  TableEntry entry;
-  ts_language_table_entry(self, state, symbol, &entry);
-  return entry.is_reusable;
-}
-
-TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *, TSSymbol);
 
 #ifdef __cplusplus
 }
