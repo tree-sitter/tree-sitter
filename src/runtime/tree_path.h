@@ -22,13 +22,13 @@ static void range_array_add(RangeArray *results, TSPoint start, TSPoint end) {
 }
 
 static bool tree_path_descend(TreePath *path, TSPoint position) {
-  size_t original_size = path->size;
+  uint32_t original_size = path->size;
   bool did_descend;
   do {
     did_descend = false;
     TreePathEntry entry = *array_back(path);
     Length child_position = entry.position;
-    for (size_t i = 0; i < entry.tree->child_count; i++) {
+    for (uint32_t i = 0; i < entry.tree->child_count; i++) {
       Tree *child = entry.tree->children[i];
       Length child_right_position =
         length_add(child_position, ts_tree_total_size(child));
@@ -50,8 +50,8 @@ static bool tree_path_descend(TreePath *path, TSPoint position) {
   return false;
 }
 
-static size_t tree_path_advance(TreePath *path) {
-  size_t ascend_count = 0;
+static uint32_t tree_path_advance(TreePath *path) {
+  uint32_t ascend_count = 0;
   while (path->size > 0) {
     TreePathEntry entry = array_pop(path);
     if (path->size == 0)
@@ -60,7 +60,7 @@ static size_t tree_path_advance(TreePath *path) {
     if (parent_entry.tree->visible) ascend_count++;
     Length position =
       length_add(entry.position, ts_tree_total_size(entry.tree));
-    for (size_t i = entry.child_index + 1; i < parent_entry.tree->child_count; i++) {
+    for (uint32_t i = entry.child_index + 1; i < parent_entry.tree->child_count; i++) {
       Tree *next_child = parent_entry.tree->children[i];
       if (next_child->visible || next_child->visible_child_count > 0) {
         if (parent_entry.tree->visible) ascend_count--;
@@ -79,8 +79,8 @@ static size_t tree_path_advance(TreePath *path) {
   return ascend_count;
 }
 
-static void tree_path_ascend(TreePath *path, size_t count) {
-  for (size_t i = 0; i < count; i++) {
+static void tree_path_ascend(TreePath *path, uint32_t count) {
+  for (uint32_t i = 0; i < count; i++) {
     do {
       path->size--;
     } while (path->size > 0 && !array_back(path)->tree->visible);
@@ -111,7 +111,7 @@ static bool tree_must_eq(Tree *old_tree, Tree *new_tree) {
 }
 
 static void tree_path_get_changes(TreePath *old_path, TreePath *new_path,
-                                  TSRange **ranges, size_t *range_count) {
+                                  TSRange **ranges, uint32_t *range_count) {
   TSPoint position = { 0, 0 };
   RangeArray results = array_new();
 
@@ -123,8 +123,8 @@ static void tree_path_get_changes(TreePath *old_path, TreePath *new_path,
     TreePathEntry new_entry = *array_back(new_path);
     Tree *old_tree = old_entry.tree;
     Tree *new_tree = new_entry.tree;
-    size_t old_start_byte = old_entry.position.bytes + old_tree->padding.bytes;
-    size_t new_start_byte = new_entry.position.bytes + new_tree->padding.bytes;
+    uint32_t old_start_byte = old_entry.position.bytes + old_tree->padding.bytes;
+    uint32_t new_start_byte = new_entry.position.bytes + new_tree->padding.bytes;
     TSPoint old_start_point =
       point_add(old_entry.position.extent, old_tree->padding.extent);
     TSPoint new_start_point =
@@ -175,18 +175,18 @@ static void tree_path_get_changes(TreePath *old_path, TreePath *new_path,
     bool at_new_end = point_lte(new_end_point, next_position);
 
     if (at_new_end && at_old_end) {
-      size_t old_ascend_count = tree_path_advance(old_path);
-      size_t new_ascend_count = tree_path_advance(new_path);
+      uint32_t old_ascend_count = tree_path_advance(old_path);
+      uint32_t new_ascend_count = tree_path_advance(new_path);
       if (old_ascend_count > new_ascend_count) {
         tree_path_ascend(new_path, old_ascend_count - new_ascend_count);
       } else if (new_ascend_count > old_ascend_count) {
         tree_path_ascend(old_path, new_ascend_count - old_ascend_count);
       }
     } else if (at_new_end) {
-      size_t ascend_count = tree_path_advance(new_path);
+      uint32_t ascend_count = tree_path_advance(new_path);
       tree_path_ascend(old_path, ascend_count);
     } else if (at_old_end) {
-      size_t ascend_count = tree_path_advance(old_path);
+      uint32_t ascend_count = tree_path_advance(old_path);
       tree_path_ascend(new_path, ascend_count);
     }
 

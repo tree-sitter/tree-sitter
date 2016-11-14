@@ -4,23 +4,23 @@
 
 typedef struct {
   const char *string;
-  size_t position;
-  size_t length;
+  uint32_t position;
+  uint32_t length;
 } TSStringInput;
 
-const char *ts_string_input_read(void *payload, size_t *bytes_read) {
+const char *ts_string_input_read(void *payload, uint32_t *bytes_read) {
   TSStringInput *input = (TSStringInput *)payload;
   if (input->position >= input->length) {
     *bytes_read = 0;
     return "";
   }
-  size_t previous_position = input->position;
+  uint32_t previous_position = input->position;
   input->position = input->length;
   *bytes_read = input->position - previous_position;
   return input->string + previous_position;
 }
 
-int ts_string_input_seek(void *payload, size_t character, size_t byte) {
+int ts_string_input_seek(void *payload, uint32_t character, uint32_t byte) {
   TSStringInput *input = (TSStringInput *)payload;
   input->position = byte;
   return (byte < input->length);

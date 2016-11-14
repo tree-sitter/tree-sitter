@@ -8,6 +8,10 @@
 #include "helpers/spy_input.h"
 #include "helpers/load_language.h"
 
+TSPoint point(size_t row, size_t column) {
+  return TSPoint{static_cast<uint32_t>(row), static_cast<uint32_t>(column)};
+}
+
 START_TEST
 
 describe("Document", [&]() {
@@ -232,7 +236,7 @@ describe("Document", [&]() {
       ts_document_edit(doc, edit);
 
       TSRange *ranges;
-      size_t range_count = 0;
+      uint32_t range_count = 0;
 
       ts_document_parse_and_get_changed_ranges(doc, &ranges, &range_count);
 
@@ -252,8 +256,8 @@ describe("Document", [&]() {
 
       AssertThat(ranges, Equals(vector<TSRange>({
         TSRange{
-          TSPoint{0, input->content.find("nothing")},
-          TSPoint{0, input->content.find("}")}
+          point(0, input->content.find("nothing")),
+          point(0, input->content.find("}"))
         },
       })));
 
@@ -264,8 +268,8 @@ describe("Document", [&]() {
 
       AssertThat(ranges, Equals(vector<TSRange>({
         TSRange{
-          TSPoint{0, input->content.find("null")},
-          TSPoint{0, input->content.find("}")}
+          point(0, input->content.find("null")),
+          point(0, input->content.find("}"))
         },
       })));
     });
@@ -278,8 +282,8 @@ describe("Document", [&]() {
 
       AssertThat(ranges, Equals(vector<TSRange>({
         TSRange{
-          TSPoint{0, input->content.find(",")},
-          TSPoint{0, input->content.find("}")},
+          point(0, input->content.find(",")),
+          point(0, input->content.find("}"))
         },
       })));
 
@@ -297,8 +301,8 @@ describe("Document", [&]() {
 
       AssertThat(ranges, Equals(vector<TSRange>({
         TSRange{
-          TSPoint{0, input->content.find(", c")},
-          TSPoint{0, input->content.find(", b")},
+          point(0, input->content.find(", c")),
+          point(0, input->content.find(", b"))
         },
       })));
 
@@ -343,8 +347,8 @@ describe("Document", [&]() {
 
       AssertThat(ranges, Equals(vector<TSRange>({
         TSRange{
-          TSPoint{0, input->content.find("b ===")},
-          TSPoint{0, input->content.find("}")},
+          point(0, input->content.find("b ===")),
+          point(0, input->content.find("}"))
         },
       })));
     });

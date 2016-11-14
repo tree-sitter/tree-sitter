@@ -12,7 +12,7 @@ extern "C" {
 
 typedef struct {
   Tree *tree;
-  size_t byte_index;
+  uint32_t byte_index;
 } ReusableNode;
 
 typedef struct {
@@ -25,7 +25,7 @@ typedef struct {
   bool print_debugging_graphs;
   Tree scratch_tree;
   Tree *cached_token;
-  size_t cached_token_byte_index;
+  uint32_t cached_token_byte_index;
   ReusableNode reusable_node;
   TreePath tree_path1;
   TreePath tree_path2;

@@ -35,7 +35,7 @@ bool ts_tree_array_copy(TreeArray self, TreeArray *dest) {
   if (self.capacity > 0) {
     contents = ts_calloc(self.capacity, sizeof(Tree *));
     memcpy(contents, self.contents, self.size * sizeof(Tree *));
-    for (size_t i = 0; i < self.size; i++)
+    for (uint32_t i = 0; i < self.size; i++)
       ts_tree_retain(contents[i]);
   }
 
@@ -46,14 +46,14 @@ bool ts_tree_array_copy(TreeArray self, TreeArray *dest) {
 }
 
 void ts_tree_array_delete(TreeArray *self) {
-  for (size_t i = 0; i < self->size; i++)
+  for (uint32_t i = 0; i < self->size; i++)
     ts_tree_release(self->contents[i]);
   array_delete(self);
 }
 
-size_t ts_tree_array_essential_count(const TreeArray *self) {
-  size_t result = 0;
-  for (size_t i = 0; i < self->size; i++) {
+uint32_t ts_tree_array_essential_count(const TreeArray *self) {
+  uint32_t result = 0;
+  for (uint32_t i = 0; i < self->size; i++) {
     Tree *tree = self->contents[i];
     if (!tree->extra && tree->symbol != ts_builtin_sym_error)
       result++;
@@ -85,7 +85,7 @@ void ts_tree_assign_parents(Tree *self, TreePath *path) {
   while (path->size > 0) {
     Tree *tree = array_pop(path).tree;
     Length offset = length_zero();
-    for (size_t i = 0; i < tree->child_count; i++) {
+    for (uint32_t i = 0; i < tree->child_count; i++) {
       Tree *child = tree->children[i];
       if (child->context.parent != tree || child->context.index != i) {
         child->context.parent = tree;
@@ -99,7 +99,7 @@ void ts_tree_assign_parents(Tree *self, TreePath *path) {
 }
 
 
-void ts_tree_set_children(Tree *self, size_t child_count, Tree **children) {
+void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children) {
   if (self->child_count > 0)
     ts_free(self->children);
 
@@ -109,7 +109,7 @@ void ts_tree_set_children(Tree *self, size_t child_count, Tree **children) {
   self->visible_child_count = 0;
   self->error_cost = 0;
 
-  for (size_t i = 0; i < child_count; i++) {
+  for (uint32_t i = 0; i < child_count; i++) {
     Tree *child = children[i];
 
     if (i == 0) {
@@ -139,7 +139,7 @@ void ts_tree_set_children(Tree *self, size_t child_count, Tree **children) {
   if (self->symbol == ts_builtin_sym_error) {
     self->error_cost += ERROR_COST_PER_SKIPPED_CHAR * self->size.chars +
                         ERROR_COST_PER_SKIPPED_LINE * self->size.extent.row;
-    for (size_t i = 0; i < child_count; i++)
+    for (uint32_t i = 0; i < child_count; i++)
       if (!self->children[i]->extra)
         self->error_cost += ERROR_COST_PER_SKIPPED_TREE;
   }
@@ -153,7 +153,7 @@ void ts_tree_set_children(Tree *self, size_t child_count, Tree **children) {
   }
 }
 
-Tree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
+Tree *ts_tree_make_node(TSSymbol symbol, uint32_t child_count,
                           Tree **children, TSSymbolMetadata metadata) {
   Tree *result =
     ts_tree_make_leaf(symbol, length_zero(), length_zero(), metadata);
@@ -162,12 +162,12 @@ Tree *ts_tree_make_node(TSSymbol symbol, size_t child_count,
 }
 
 Tree *ts_tree_make_error_node(TreeArray *children) {
-  for (size_t i = 0; i < children->size; i++) {
+  for (uint32_t i = 0; i < children->size; i++) {
     Tree *child = children->contents[i];
     if (child->symbol == ts_builtin_sym_error && child->child_count > 0) {
       array_splice(children, i, 1, child->child_count, child->children);
       i += child->child_count - 1;
-      for (size_t j = 0; j < child->child_count; j++)
+      for (uint32_t j = 0; j < child->child_count; j++)
         ts_tree_retain(child->children[j]);
       ts_tree_release(child);
     }
@@ -197,7 +197,7 @@ recur:
 
   if (self->ref_count == 0) {
     if (self->child_count > 0) {
-      for (size_t i = 0; i < self->child_count - 1; i++)
+      for (uint32_t i = 0; i < self->child_count - 1; i++)
         ts_tree_release(self->children[i]);
       Tree *last_child = self->children[self->child_count - 1];
       ts_free(self->children);
@@ -211,8 +211,8 @@ recur:
   }
 }
 
-size_t ts_tree_start_column(const Tree *self) {
-  size_t column = self->padding.extent.column;
+uint32_t ts_tree_start_column(const Tree *self) {
+  uint32_t column = self->padding.extent.column;
   if (self->padding.extent.row > 0)
     return column;
   for (const Tree *tree = self; tree != NULL; tree = tree->context.parent) {
@@ -223,8 +223,8 @@ size_t ts_tree_start_column(const Tree *self) {
   return column;
 }
 
-size_t ts_tree_end_column(const Tree *self) {
-  size_t result = self->size.extent.column;
+uint32_t ts_tree_end_column(const Tree *self) {
+  uint32_t result = self->size.extent.column;
   if (self->size.extent.row == 0)
     result += ts_tree_start_column(self);
   return result;
@@ -252,7 +252,7 @@ bool ts_tree_eq(const Tree *self, const Tree *other) {
     return false;
   if (self->named_child_count != other->named_child_count)
     return false;
-  for (size_t i = 0; i < self->child_count; i++)
+  for (uint32_t i = 0; i < self->child_count; i++)
     if (!ts_tree_eq(self->children[i], other->children[i]))
       return false;
   return true;
@@ -267,7 +267,7 @@ int ts_tree_compare(const Tree *left, const Tree *right) {
     return -1;
   if (right->child_count < left->child_count)
     return 1;
-  for (size_t i = 0; i < left->child_count; i++) {
+  for (uint32_t i = 0; i < left->child_count; i++) {
     Tree *left_child = left->children[i];
     Tree *right_child = right->children[i];
     switch (ts_tree_compare(left_child, right_child)) {
@@ -288,8 +288,8 @@ static inline long min(long a, long b) {
 
 
 void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
-  size_t old_end_byte = edit->start_byte + edit->bytes_removed;
-  size_t new_end_byte = edit->start_byte + edit->bytes_added;
+  uint32_t old_end_byte = edit->start_byte + edit->bytes_removed;
+  uint32_t new_end_byte = edit->start_byte + edit->bytes_added;
   TSPoint old_end_point = point_add(edit->start_point, edit->extent_removed);
   TSPoint new_end_point = point_add(edit->start_point, edit->extent_added);
 
@@ -300,13 +300,13 @@ void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
   if (edit->start_byte < self->padding.bytes) {
     length_set_unknown_chars(&self->padding);
     if (self->padding.bytes >= old_end_byte) {
-      size_t trailing_padding_bytes = self->padding.bytes - old_end_byte;
+      uint32_t trailing_padding_bytes = self->padding.bytes - old_end_byte;
       TSPoint trailing_padding_extent = point_sub(self->padding.extent, old_end_point);
       self->padding.bytes = new_end_byte + trailing_padding_bytes;
       self->padding.extent = point_add(new_end_point, trailing_padding_extent);
     } else {
       length_set_unknown_chars(&self->size);
-      size_t removed_content_bytes = old_end_byte - self->padding.bytes;
+      uint32_t removed_content_bytes = old_end_byte - self->padding.bytes;
       TSPoint removed_content_extent = point_sub(old_end_point, self->padding.extent);
       self->size.bytes = self->size.bytes - removed_content_bytes;
       self->size.extent = point_sub(self->size.extent, removed_content_extent);
@@ -319,7 +319,7 @@ void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
     self->padding.extent = point_add(self->padding.extent, edit->extent_added);
   } else {
     length_set_unknown_chars(&self->size);
-    size_t trailing_content_bytes = ts_tree_total_bytes(self) - old_end_byte;
+    uint32_t trailing_content_bytes = ts_tree_total_bytes(self) - old_end_byte;
     TSPoint trailing_content_extent = point_sub(ts_tree_total_extent(self), old_end_point);
     self->size.bytes = new_end_byte + trailing_content_bytes - self->padding.bytes;
     self->size.extent = point_sub(point_add(new_end_point, trailing_content_extent), self->padding.extent);
@@ -329,7 +329,7 @@ void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
   long remaining_bytes_to_delete = 0;
   TSPoint remaining_extent_to_delete = {0, 0};
   Length child_left, child_right = length_zero();
-  for (size_t i = 0; i < self->child_count; i++) {
+  for (uint32_t i = 0; i < self->child_count; i++) {
     Tree *child = self->children[i];
     child_left = child_right;
 
@@ -415,7 +415,7 @@ static size_t ts_tree__write_to_string(const Tree *self,
     }
   }
 
-  for (size_t i = 0; i < self->child_count; i++) {
+  for (uint32_t i = 0; i < self->child_count; i++) {
     Tree *child = self->children[i];
     cursor += ts_tree__write_to_string(child, language, *writer, limit, false,
                                        include_all);
@@ -437,7 +437,7 @@ char *ts_tree_string(const Tree *self, const TSLanguage *language,
   return result;
 }
 
-void ts_tree__print_dot_graph(const Tree *self, size_t byte_offset,
+void ts_tree__print_dot_graph(const Tree *self, uint32_t byte_offset,
                               const TSLanguage *language, FILE *f) {
   fprintf(f, "tree_%p [label=\"%s\"", self,
           ts_language_symbol_name(language, self->symbol));
@@ -447,13 +447,13 @@ void ts_tree__print_dot_graph(const Tree *self, size_t byte_offset,
   if (self->extra)
     fprintf(f, ", fontcolor=gray");
 
-  fprintf(f, ", tooltip=\"range:%lu - %lu\nstate:%d\nerror-cost:%u\"]\n",
+  fprintf(f, ", tooltip=\"range:%u - %u\nstate:%d\nerror-cost:%u\"]\n",
           byte_offset, byte_offset + ts_tree_total_bytes(self), self->parse_state,
           self->error_cost);
-  for (size_t i = 0; i < self->child_count; i++) {
+  for (uint32_t i = 0; i < self->child_count; i++) {
     const Tree *child = self->children[i];
     ts_tree__print_dot_graph(child, byte_offset, language, f);
-    fprintf(f, "tree_%p -> tree_%p [tooltip=%lu]\n", self, child, i);
+    fprintf(f, "tree_%p -> tree_%p [tooltip=%u]\n", self, child, i);
     byte_offset += ts_tree_total_bytes(child);
   }
 }

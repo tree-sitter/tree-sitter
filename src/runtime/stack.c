@@ -32,14 +32,14 @@ struct StackNode {
 
 typedef struct {
   TreeArray trees;
-  size_t tree_count;
+  uint32_t tree_count;
   StackNode *node;
   bool is_pending;
   unsigned push_count;
 } Iterator;
 
 typedef struct {
-  size_t goal_tree_count;
+  uint32_t goal_tree_count;
   bool found_error;
   bool found_valid_path;
 } StackPopSession;
@@ -181,7 +181,7 @@ static StackVersion ts_stack__add_version(Stack *self, StackNode *node,
 
 static void ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees,
                                 unsigned push_count) {
-  for (size_t i = self->slices.size - 1; i + 1 > 0; i--) {
+  for (uint32_t i = self->slices.size - 1; i + 1 > 0; i--) {
     StackVersion version = self->slices.contents[i].version;
     if (self->heads.contents[version].node == node) {
       StackSlice slice = { *trees, version };
@@ -212,7 +212,7 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
   array_push(&self->iterators, iterator);
 
   while (self->iterators.size > 0) {
-    for (size_t i = 0, size = self->iterators.size; i < size; i++) {
+    for (uint32_t i = 0, size = self->iterators.size; i < size; i++) {
       Iterator *iterator = &self->iterators.contents[i];
       StackNode *node = iterator->node;
       bool is_done = node == self->base_node;
@@ -240,7 +240,7 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
         continue;
       }
 
-      for (size_t j = 1; j <= node->link_count; j++) {
+      for (uint32_t j = 1; j <= node->link_count; j++) {
         Iterator *next_iterator;
         StackLink link;
         if (j == node->link_count) {
@@ -299,11 +299,11 @@ void ts_stack_delete(Stack *self) {
   if (self->iterators.contents)
     array_delete(&self->iterators);
   stack_node_release(self->base_node, &self->node_pool);
-  for (size_t i = 0; i < self->heads.size; i++)
+  for (uint32_t i = 0; i < self->heads.size; i++)
     stack_node_release(self->heads.contents[i].node, &self->node_pool);
   array_clear(&self->heads);
   if (self->node_pool.contents) {
-    for (size_t i = 0; i < self->node_pool.size; i++)
+    for (uint32_t i = 0; i < self->node_pool.size; i++)
       ts_free(self->node_pool.contents[i]);
     array_delete(&self->node_pool);
   }
@@ -311,7 +311,7 @@ void ts_stack_delete(Stack *self) {
   ts_free(self);
 }
 
-size_t ts_stack_version_count(const Stack *self) {
+uint32_t ts_stack_version_count(const Stack *self) {
   return self->heads.size;
 }
 
@@ -373,7 +373,7 @@ StackPopResult ts_stack_iterate(Stack *self, StackVersion version,
 }
 
 INLINE StackIterateAction pop_count_callback(void *payload, TSStateId state,
-                                             TreeArray *trees, size_t tree_count,
+                                             TreeArray *trees, uint32_t tree_count,
                                              bool is_done, bool is_pending) {
   StackPopSession *pop_session = (StackPopSession *)payload;
 
@@ -394,7 +394,7 @@ INLINE StackIterateAction pop_count_callback(void *payload, TSStateId state,
 }
 
 StackPopResult ts_stack_pop_count(Stack *self, StackVersion version,
-                                  size_t count) {
+                                  uint32_t count) {
   StackPopSession session = {
     .goal_tree_count = count, .found_error = false, .found_valid_path = false,
   };
@@ -418,7 +418,7 @@ StackPopResult ts_stack_pop_count(Stack *self, StackVersion version,
 
 INLINE StackIterateAction pop_pending_callback(void *payload, TSStateId state,
                                                TreeArray *trees,
-                                               size_t tree_count, bool is_done,
+                                               uint32_t tree_count, bool is_done,
                                                bool is_pending) {
   if (tree_count >= 1) {
     if (is_pending) {
@@ -441,7 +441,7 @@ StackPopResult ts_stack_pop_pending(Stack *self, StackVersion version) {
 }
 
 INLINE StackIterateAction pop_all_callback(void *payload, TSStateId state,
-                                           TreeArray *trees, size_t tree_count,
+                                           TreeArray *trees, uint32_t tree_count,
                                            bool is_done, bool is_pending) {
   return is_done ? (StackIteratePop | StackIterateStop) : StackIterateNone;
 }
@@ -458,7 +458,7 @@ void ts_stack_remove_version(Stack *self, StackVersion version) {
 
 void ts_stack_renumber_version(Stack *self, StackVersion v1, StackVersion v2) {
   assert(v2 < v1);
-  assert((size_t)v1 < self->heads.size);
+  assert((uint32_t)v1 < self->heads.size);
   stack_node_release(self->heads.contents[v2].node, &self->node_pool);
   self->heads.contents[v2] = self->heads.contents[v1];
   array_erase(&self->heads, v1);
@@ -481,7 +481,7 @@ bool ts_stack_merge(Stack *self, StackVersion version, StackVersion new_version)
       new_node->position.chars == node->position.chars &&
       new_node->error_count == node->error_count &&
       new_node->error_cost == node->error_cost) {
-    for (size_t j = 0; j < new_node->link_count; j++)
+    for (uint32_t j = 0; j < new_node->link_count; j++)
       stack_node_add_link(node, new_node->links[j]);
     if (new_head->push_count > head->push_count)
       head->push_count = new_head->push_count;
@@ -502,7 +502,7 @@ bool ts_stack_is_halted(Stack *self, StackVersion version) {
 
 void ts_stack_clear(Stack *self) {
   stack_node_retain(self->base_node);
-  for (size_t i = 0; i < self->heads.size; i++)
+  for (uint32_t i = 0; i < self->heads.size; i++)
     stack_node_release(self->heads.contents[i].node, &self->node_pool);
   array_clear(&self->heads);
   array_push(&self->heads, ((StackHead){ self->base_node, false, 0 }));
@@ -520,14 +520,14 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
   Array(StackNode *)visited_nodes = array_new();
 
   array_clear(&self->iterators);
-  for (size_t i = 0; i < self->heads.size; i++) {
+  for (uint32_t i = 0; i < self->heads.size; i++) {
     StackHead *head = &self->heads.contents[i];
     if (head->is_halted)
       continue;
-    fprintf(f, "node_head_%lu [shape=none, label=\"\"]\n", i);
+    fprintf(f, "node_head_%u [shape=none, label=\"\"]\n", i);
     fprintf(
       f,
-      "node_head_%lu -> node_%p [label=%lu, fontcolor=blue, weight=10000, "
+      "node_head_%u -> node_%p [label=%u, fontcolor=blue, weight=10000, "
       "labeltooltip=\"push_count: %u\"]\n",
       i, head->node, i, head->push_count);
     array_push(&self->iterators, ((Iterator){.node = head->node }));
@@ -537,11 +537,11 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
   while (!all_iterators_done) {
     all_iterators_done = true;
 
-    for (size_t i = 0; i < self->iterators.size; i++) {
+    for (uint32_t i = 0; i < self->iterators.size; i++) {
       Iterator *iterator = &self->iterators.contents[i];
       StackNode *node = iterator->node;
 
-      for (size_t j = 0; j < visited_nodes.size; j++) {
+      for (uint32_t j = 0; j < visited_nodes.size; j++) {
         if (visited_nodes.contents[j] == node) {
           node = NULL;
           break;
@@ -562,7 +562,7 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
         fprintf(f, "label=\"%d\"", node->state);
 
       fprintf(f,
-              " tooltip=\"position: %lu,%lu\nerror_count: %u\nerror_cost: %u\"];\n",
+              " tooltip=\"position: %u,%u\nerror_count: %u\nerror_cost: %u\"];\n",
               node->position.extent.row, node->position.extent.column, node->error_count,
               node->error_cost);
 

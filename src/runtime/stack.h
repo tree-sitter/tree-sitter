@@ -38,7 +38,7 @@ typedef unsigned int StackIterateAction;
 
 typedef StackIterateAction (*StackIterateCallback)(void *, TSStateId state,
                                                    TreeArray *trees,
-                                                   size_t tree_count,
+                                                   uint32_t tree_count,
                                                    bool is_done,
                                                    bool is_pending);
 
@@ -55,7 +55,7 @@ void ts_stack_delete(Stack *);
 /*
  *  Get the stack's current number of versions.
  */
-size_t ts_stack_version_count(const Stack *);
+uint32_t ts_stack_version_count(const Stack *);
 
 /*
  *  Get the state at the top of the given version of the stack. If the stack is
@@ -86,7 +86,7 @@ bool ts_stack_push(Stack *, StackVersion, Tree *, bool, TSStateId);
  *  indicates the index of each revealed version and the trees removed from that
  *  version.
  */
-StackPopResult ts_stack_pop_count(Stack *, StackVersion, size_t count);
+StackPopResult ts_stack_pop_count(Stack *, StackVersion, uint32_t count);
 
 StackPopResult ts_stack_iterate(Stack *, StackVersion, StackIterateCallback,
                                 void *);

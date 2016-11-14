@@ -7,6 +7,7 @@ extern "C" {
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <assert.h>
 #include <stdbool.h>
 #include "runtime/alloc.h"
@@ -14,8 +15,8 @@ extern "C" {
 #define Array(T)     \
   struct {           \
     T *contents;     \
-    size_t size;     \
-    size_t capacity; \
+    uint32_t size;     \
+    uint32_t capacity; \
   }
 
 #define array_init(self) \
@@ -25,7 +26,7 @@ extern "C" {
   { NULL, 0, 0 }
 
 #define array_get(self, index) \
-  (assert((size_t)index < (self)->size), &(self)->contents[index])
+  (assert((uint32_t)index < (self)->size), &(self)->contents[index])
 
 #define array_front(self) array_get(self, 0)
 
@@ -71,7 +72,7 @@ static inline void array__delete(VoidArray *self) {
 }
 
 static inline void array__erase(VoidArray *self, size_t element_size,
-                                size_t index) {
+                                uint32_t index) {
   assert(index < self->size);
   char *contents = (char *)self->contents;
   memmove(contents + index * element_size, contents + (index + 1) * element_size,
@@ -80,7 +81,7 @@ static inline void array__erase(VoidArray *self, size_t element_size,
 }
 
 static inline void array__grow(VoidArray *self, size_t element_size,
-                               size_t new_capacity) {
+                               uint32_t new_capacity) {
   if (new_capacity > self->capacity) {
     if (new_capacity < 2 * self->capacity)
       new_capacity = 2 * self->capacity;
@@ -95,11 +96,11 @@ static inline void array__grow(VoidArray *self, size_t element_size,
 }
 
 static inline void array__splice(VoidArray *self, size_t element_size,
-                                 size_t index, size_t old_count,
-                                 size_t new_count, void *elements) {
-  size_t new_size = self->size + new_count - old_count;
-  size_t old_end = index + old_count;
-  size_t new_end = index + new_count;
+                                 uint32_t index, uint32_t old_count,
+                                 uint32_t new_count, void *elements) {
+  uint32_t new_size = self->size + new_count - old_count;
+  uint32_t old_end = index + old_count;
+  uint32_t new_end = index + new_count;
   assert(old_end <= self->size);
 
   array__grow(self, element_size, new_size);
@@ -117,7 +118,7 @@ static inline void array__splice(VoidArray *self, size_t element_size,
 static inline void array__reverse(VoidArray *self, size_t element_size) {
   char swap[element_size];
   char *contents = (char *)self->contents;
-  for (size_t i = 0, limit = self->size / 2; i < limit; i++) {
+  for (uint32_t i = 0, limit = self->size / 2; i < limit; i++) {
     size_t offset = i * element_size;
     size_t reverse_offset = (self->size - 1 - i) * element_size;
     memcpy(&swap, contents + offset, element_size);

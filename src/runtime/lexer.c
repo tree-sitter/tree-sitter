@@ -33,9 +33,9 @@ static void ts_lexer__get_chunk(Lexer *self) {
 }
 
 static void ts_lexer__get_lookahead(Lexer *self) {
-  size_t position_in_chunk = self->current_position.bytes - self->chunk_start;
+  uint32_t position_in_chunk = self->current_position.bytes - self->chunk_start;
   const uint8_t *chunk = (const uint8_t *)self->chunk + position_in_chunk;
-  size_t size = self->chunk_size - position_in_chunk + 1;
+  uint32_t size = self->chunk_size - position_in_chunk + 1;
 
   if (self->input.encoding == TSInputEncodingUTF8)
     self->lookahead_size =
@@ -120,7 +120,7 @@ void ts_lexer_reset(Lexer *self, Length position) {
 }
 
 void ts_lexer_start(Lexer *self, TSStateId lex_state) {
-  LOG("start_lex state:%d, pos:%lu", lex_state, self->current_position.chars);
+  LOG("start_lex state:%d, pos:%u", lex_state, self->current_position.chars);
 
   self->token_start_position = self->current_position;
   self->data.result_symbol = 0;

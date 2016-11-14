@@ -8,7 +8,7 @@ static const TSParseAction ERROR_SHIFT_EXTRA = {
 
 void ts_language_table_entry(const TSLanguage *self, TSStateId state,
                              TSSymbol symbol, TableEntry *result) {
-  size_t action_index;
+  uint32_t action_index;
   if (symbol == ts_builtin_sym_error) {
     if (state == ERROR_STATE) {
       result->action_count = 1;
@@ -30,7 +30,7 @@ void ts_language_table_entry(const TSLanguage *self, TSStateId state,
   result->actions = (const TSParseAction *)(entry + 1);
 }
 
-size_t ts_language_symbol_count(const TSLanguage *language) {
+uint32_t ts_language_symbol_count(const TSLanguage *language) {
   return language->symbol_count;
 }
 
