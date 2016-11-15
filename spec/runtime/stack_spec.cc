@@ -134,7 +134,7 @@ describe("Stack", [&]() {
       //          ↑
       //          └───2─── C*
       ts_stack_push(stack, 0, trees[0], false, stateA);
-      ts_stack_duplicate_version(stack, 0);
+      ts_stack_copy_version(stack, 0);
       ts_stack_push(stack, 0, trees[1], false, stateB);
       ts_stack_push(stack, 1, trees[2], false, stateC);
     });

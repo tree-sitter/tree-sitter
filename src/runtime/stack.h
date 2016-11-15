@@ -105,7 +105,7 @@ bool ts_stack_is_halted(Stack *, StackVersion);
 
 void ts_stack_renumber_version(Stack *, StackVersion, StackVersion);
 
-StackVersion ts_stack_duplicate_version(Stack *, StackVersion);
+StackVersion ts_stack_copy_version(Stack *, StackVersion);
 
 /*
  *  Remove the given version from the stack.

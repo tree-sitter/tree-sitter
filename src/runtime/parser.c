@@ -40,8 +40,6 @@
 
 #define SYM_NAME(symbol) ts_language_symbol_name(self->language, symbol)
 
-#define BOOL_STRING(value) (value ? "true" : "false")
-
 typedef struct {
   Parser *parser;
   TSSymbol lookahead_symbol;
@@ -54,9 +52,9 @@ typedef struct {
 } ErrorRepairSession;
 
 typedef struct {
-  bool stopped_at_error;
-  StackSlice slice;
-} Reduction;
+  Parser *parser;
+  TSSymbol lookahead_symbol;
+} SkipPrecedingTreesSession;
 
 static void parser__push(Parser *self, StackVersion version, Tree *tree,
                          TSStateId state) {
@@ -431,14 +429,14 @@ static bool parser__switch_children(Parser *self, Tree *tree,
   }
 }
 
-static Reduction parser__reduce(Parser *self, StackVersion version,
-                                TSSymbol symbol, unsigned count, bool fragile,
-                                bool allow_skipping) {
+static StackPopResult parser__reduce(Parser *self, StackVersion version,
+                                     TSSymbol symbol, unsigned count,
+                                     bool fragile, bool allow_skipping) {
   uint32_t initial_version_count = ts_stack_version_count(self->stack);
+
   StackPopResult pop = ts_stack_pop_count(self->stack, version, count);
-  if (pop.stopped_at_error) {
-    return (Reduction){ true, pop.slices.contents[0] };
-  }
+  if (pop.stopped_at_error)
+    return pop;
 
   const TSLanguage *language = self->language;
   TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
@@ -446,13 +444,19 @@ static Reduction parser__reduce(Parser *self, StackVersion version,
   for (uint32_t i = 0; i < pop.slices.size; i++) {
     StackSlice slice = pop.slices.contents[i];
 
+    // Extra tokens on top of the stack should not be included in this new parent
+    // node. They will be re-pushed onto the stack after the parent node is
+    // created and pushed.
     uint32_t child_count = slice.trees.size;
     while (child_count > 0 && slice.trees.contents[child_count - 1]->extra)
       child_count--;
 
-    Tree *parent =
-      ts_tree_make_node(symbol, child_count, slice.trees.contents, metadata);
+    Tree *parent = ts_tree_make_node(symbol, child_count, slice.trees.contents, metadata);
 
+    // This pop operation may have caused multiple stack versions to collapse
+    // into one, because they all diverged from a common state. In that case,
+    // choose one of the arrays of trees to be the parent node's children, and
+    // delete the rest of the tree arrays.
     while (i + 1 < pop.slices.size) {
       StackSlice next_slice = pop.slices.contents[i + 1];
       if (next_slice.version != slice.version)
@@ -463,8 +467,7 @@ static Reduction parser__reduce(Parser *self, StackVersion version,
       while (child_count > 0 && next_slice.trees.contents[child_count - 1]->extra)
         child_count--;
 
-      if (parser__switch_children(self, parent, next_slice.trees.contents,
-                                  child_count)) {
+      if (parser__switch_children(self, parent, next_slice.trees.contents, child_count)) {
         ts_tree_array_delete(&slice.trees);
         slice = next_slice;
       } else {
@@ -473,8 +476,8 @@ static Reduction parser__reduce(Parser *self, StackVersion version,
     }
 
     TSStateId state = ts_stack_top_state(self->stack, slice.version);
-    if (fragile || self->is_split || pop.slices.size > 1 ||
-        initial_version_count > 1) {
+    TSStateId next_state = ts_language_next_state(language, state, symbol);
+    if (fragile || self->is_split || pop.slices.size > 1 || initial_version_count > 1) {
       parent->fragile_left = true;
       parent->fragile_right = true;
       parent->parse_state = TS_TREE_STATE_NONE;
@@ -482,10 +485,11 @@ static Reduction parser__reduce(Parser *self, StackVersion version,
       parent->parse_state = state;
     }
 
-    TSStateId next_state = ts_language_next_state(language, state, symbol);
+    // If this pop operation terminated at the end of an error region, then
+    // create two stack versions: one in which the parent node is interpreted
+    // normally, and one in which the parent node is skipped.
     if (state == ERROR_STATE && allow_skipping) {
-      StackVersion other_version =
-        ts_stack_duplicate_version(self->stack, slice.version);
+      StackVersion other_version = ts_stack_copy_version(self->stack, slice.version);
 
       ts_stack_push(self->stack, other_version, parent, false, ERROR_STATE);
       for (uint32_t j = parent->child_count; j < slice.trees.size; j++) {
@@ -493,12 +497,13 @@ static Reduction parser__reduce(Parser *self, StackVersion version,
         ts_stack_push(self->stack, other_version, tree, false, ERROR_STATE);
       }
 
-      ErrorStatus error_status =
-        ts_stack_error_status(self->stack, other_version);
+      ErrorStatus error_status = ts_stack_error_status(self->stack, other_version);
       if (parser__better_version_exists(self, version, error_status))
         ts_stack_remove_version(self->stack, other_version);
     }
 
+    // Push the parent node onto the stack, along with any extra tokens that
+    // were previously on top of the stack.
     parser__push(self, slice.version, parent, next_state);
     for (uint32_t j = parent->child_count; j < slice.trees.size; j++) {
       Tree *tree = slice.trees.contents[j];
@@ -506,8 +511,7 @@ static Reduction parser__reduce(Parser *self, StackVersion version,
     }
   }
 
-  for (StackVersion i = initial_version_count;
-       i < ts_stack_version_count(self->stack); i++) {
+  for (StackVersion i = initial_version_count; i < ts_stack_version_count(self->stack); i++) {
     for (StackVersion j = initial_version_count; j < i; j++) {
       if (ts_stack_merge(self->stack, j, i)) {
         i--;
@@ -516,7 +520,7 @@ static Reduction parser__reduce(Parser *self, StackVersion version,
     }
   }
 
-  return (Reduction){ false, pop.slices.contents[0] };
+  return pop;
 }
 
 static inline const TSParseAction *parser__reductions_after_sequence(
@@ -570,7 +574,7 @@ static inline const TSParseAction *parser__reductions_after_sequence(
   return actions;
 }
 
-static StackIterateAction parser__error_repair_callback(
+static StackIterateAction parser__repair_error_callback(
   void *payload, TSStateId state, TreeArray *trees, uint32_t tree_count,
   bool is_done, bool is_pending) {
 
@@ -635,9 +639,7 @@ static StackIterateAction parser__error_repair_callback(
 }
 
 static bool parser__repair_error(Parser *self, StackSlice slice,
-                                         TSSymbol lookahead_symbol,
-                                         const TSParseAction *actions,
-                                         uint32_t action_count) {
+                                 TSSymbol lookahead_symbol, TableEntry entry) {
   LOG("repair_error");
   ErrorRepairSession session = {
     .parser = self,
@@ -648,10 +650,10 @@ static bool parser__repair_error(Parser *self, StackSlice slice,
   };
 
   array_clear(&self->reduce_actions);
-  for (uint32_t i = 0; i < action_count; i++) {
-    if (actions[i].type == TSParseActionTypeReduce) {
-      TSSymbol symbol = actions[i].params.symbol;
-      uint32_t child_count = actions[i].params.child_count;
+  for (uint32_t i = 0; i < entry.action_count; i++) {
+    if (entry.actions[i].type == TSParseActionTypeReduce) {
+      TSSymbol symbol = entry.actions[i].params.symbol;
+      uint32_t child_count = entry.actions[i].params.child_count;
       if ((child_count > session.tree_count_above_error) ||
           (child_count == session.tree_count_above_error &&
            !ts_language_symbol_metadata(self->language, symbol).visible))
@@ -663,7 +665,7 @@ static bool parser__repair_error(Parser *self, StackSlice slice,
   }
 
   StackPopResult pop = ts_stack_iterate(
-    self->stack, slice.version, parser__error_repair_callback, &session);
+    self->stack, slice.version, parser__repair_error_callback, &session);
 
   if (!session.found_repair) {
     LOG("no_repair_found");
@@ -778,8 +780,7 @@ static void parser__accept(Parser *self, StackVersion version,
   ts_stack_halt(self->stack, version);
 }
 
-static bool parser__do_potential_reductions(
-  Parser *self, StackVersion version) {
+static bool parser__do_potential_reductions(Parser *self, StackVersion version) {
   bool has_shift_action = false;
   TSStateId state = ts_stack_top_state(self->stack, version);
   uint32_t previous_version_count = ts_stack_version_count(self->stack);
@@ -812,11 +813,11 @@ static bool parser__do_potential_reductions(
   bool did_reduce = false;
   for (uint32_t i = 0; i < self->reduce_actions.size; i++) {
     ReduceAction action = self->reduce_actions.contents[i];
-    Reduction reduction =
+    StackPopResult reduction =
       parser__reduce(self, version, action.symbol, action.count, true, false);
     if (reduction.stopped_at_error) {
-      ts_tree_array_delete(&reduction.slice.trees);
-      ts_stack_remove_version(self->stack, reduction.slice.version);
+      ts_tree_array_delete(&reduction.slices.contents[0].trees);
+      ts_stack_remove_version(self->stack, reduction.slices.contents[0].version);
       continue;
     } else {
       did_reduce = true;
@@ -835,16 +836,11 @@ static bool parser__do_potential_reductions(
   }
 }
 
-typedef struct {
-  Parser *parser;
-  TSSymbol lookahead_symbol;
-} SkipPrecedingTokensSession;
-
-static StackIterateAction parser__repair_consumed_error_callback(
+static StackIterateAction parser__skip_preceding_trees_callback(
   void *payload, TSStateId state, TreeArray *trees, uint32_t tree_count,
   bool is_done, bool is_pending) {
   if (tree_count > 0 && state != ERROR_STATE) {
-    SkipPrecedingTokensSession *session = payload;
+    SkipPrecedingTreesSession *session = payload;
     Parser *self = session->parser;
     TSSymbol lookahead_symbol = session->lookahead_symbol;
     uint32_t action_count;
@@ -857,30 +853,34 @@ static StackIterateAction parser__repair_consumed_error_callback(
   return StackIterateNone;
 }
 
-static void parser__repair_consumed_error(Parser *self, StackVersion version,
+static bool parser__skip_preceding_trees(Parser *self, StackVersion version,
                                           TSSymbol lookahead_symbol) {
-  SkipPrecedingTokensSession session = { self, lookahead_symbol };
+  SkipPrecedingTreesSession session = { self, lookahead_symbol };
   StackPopResult pop = ts_stack_iterate(
-    self->stack, version, parser__repair_consumed_error_callback, &session);
+    self->stack, version, parser__skip_preceding_trees_callback, &session);
 
-  StackVersion last_slice_version = STACK_VERSION_NONE;
+  StackVersion previous_version = STACK_VERSION_NONE;
   for (uint32_t i = 0; i < pop.slices.size; i++) {
     StackSlice slice = pop.slices.contents[i];
-    if (slice.version == last_slice_version) {
+    if (slice.version == previous_version) {
       ts_tree_array_delete(&slice.trees);
       continue;
     }
 
-    last_slice_version = slice.version;
+    previous_version = slice.version;
     Tree *error = ts_tree_make_error_node(&slice.trees);
     error->extra = true;
     TSStateId state = ts_stack_top_state(self->stack, slice.version);
     parser__push(self, slice.version, error, state);
   }
+
+  return pop.slices.size > 0;
 }
 
 static void parser__handle_error(Parser *self, StackVersion version,
                                  TSSymbol lookahead_symbol) {
+  // If there are other stack versions that are clearly better than this one,
+  // just halt this version.
   ErrorStatus error_status = ts_stack_error_status(self->stack, version);
   error_status.count++;
   if (parser__better_version_exists(self, version, error_status)) {
@@ -890,8 +890,17 @@ static void parser__handle_error(Parser *self, StackVersion version,
   }
 
   LOG("handle_error");
-  parser__repair_consumed_error(self, version, lookahead_symbol);
 
+  // If the current lookahead symbol would have been valid in some previous
+  // state on the stack, create one stack version that repairs the error
+  // immediately by simply skipping all of the trees that came after that state.
+  if (parser__skip_preceding_trees(self, version, lookahead_symbol)) {
+    LOG("skip_preceding_trees");
+    LOG_STACK();
+  }
+
+  // Perform any reductions that could have happened in this state, regardless
+  // of the lookahead.
   uint32_t previous_version_count = ts_stack_version_count(self->stack);
   for (StackVersion v = version; v < ts_stack_version_count(self->stack);) {
     if (parser__do_potential_reductions(self, v)) {
@@ -903,6 +912,8 @@ static void parser__handle_error(Parser *self, StackVersion version,
     }
   }
 
+  // Push a discontinuity onto the stack. Merge all of the stack versions that
+  // were created in the previous step.
   ts_stack_push(self->stack, version, NULL, false, ERROR_STATE);
   while (ts_stack_version_count(self->stack) > previous_version_count) {
     ts_stack_push(self->stack, previous_version_count, NULL, false, ERROR_STATE);
@@ -922,7 +933,7 @@ static void parser__recover(Parser *self, StackVersion version, TSStateId state,
 
   LOG("recover state:%u", state);
 
-  StackVersion new_version = ts_stack_duplicate_version(self->stack, version);
+  StackVersion new_version = ts_stack_copy_version(self->stack, version);
 
   parser__shift(
     self, new_version, ERROR_STATE, lookahead,
@@ -1010,24 +1021,23 @@ static void parser__advance(Parser *self, StackVersion version,
           if (reduction_stopped_at_error)
             continue;
 
-          LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.params.symbol),
-              action.params.child_count);
+          unsigned child_count = action.params.child_count;
+          TSSymbol symbol = action.params.symbol;
+          bool fragile = action.fragile;
 
-          Reduction reduction =
-            parser__reduce(self, version, action.params.symbol, action.params.child_count,
-                           (i < table_entry.action_count - 1), true);
+          LOG("reduce sym:%s, child_count:%u", SYM_NAME(symbol), child_count);
 
+          StackPopResult reduction =
+            parser__reduce(self, version, symbol, child_count, fragile, true);
+          StackSlice slice = *array_front(&reduction.slices);
           if (reduction.stopped_at_error) {
             reduction_stopped_at_error = true;
-            if (parser__repair_error(
-              self, reduction.slice, lookahead->first_leaf.symbol,
-              table_entry.actions, table_entry.action_count)) {
-              last_reduction_version = reduction.slice.version;
-            }
-          } else {
-            last_reduction_version = reduction.slice.version;
+            if (!parser__repair_error(self, slice, lookahead->first_leaf.symbol,
+                                      table_entry))
+              break;
           }
 
+          last_reduction_version = slice.version;
           break;
         }
 

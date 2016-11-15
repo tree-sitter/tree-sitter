@@ -464,7 +464,7 @@ void ts_stack_renumber_version(Stack *self, StackVersion v1, StackVersion v2) {
   array_erase(&self->heads, v1);
 }
 
-StackVersion ts_stack_duplicate_version(Stack *self, StackVersion version) {
+StackVersion ts_stack_copy_version(Stack *self, StackVersion version) {
   assert(version < self->heads.size);
   array_push(&self->heads, self->heads.contents[version]);
   stack_node_retain(array_back(&self->heads)->node);
