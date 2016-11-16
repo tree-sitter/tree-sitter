@@ -1,9 +1,11 @@
 #include "compiler/parse_table.h"
 #include <string>
 #include "compiler/precedence_range.h"
+#include "compiler/util/hash_combine.h"
 
 namespace tree_sitter {
 
+using std::hash;
 using std::string;
 using std::ostream;
 using std::to_string;
@@ -11,6 +13,7 @@ using std::set;
 using std::vector;
 using std::function;
 using rules::Symbol;
+using util::hash_combine;
 
 ParseAction::ParseAction(ParseActionType type, ParseStateId state_index,
                          Symbol symbol, size_t consumed_symbol_count,
@@ -148,6 +151,25 @@ void ParseState::each_referenced_state(function<void(ParseStateId *)> fn) {
         fn(&action.state_index);
   for (auto &entry : nonterminal_entries)
     fn(&entry.second);
+}
+
+void ParseState::compute_shift_actions_signature() {
+  shift_actions_signature = 0;
+  for (const auto &pair : nonterminal_entries) {
+    rules::Symbol::Index lookahead = pair.first;
+    ParseStateId next_state = pair.second;
+    hash_combine(&shift_actions_signature, lookahead);
+    hash_combine(&shift_actions_signature, next_state);
+  }
+
+  for (const auto &pair : terminal_entries) {
+    rules::Symbol::Index lookahead = pair.first;
+    const ParseTableEntry &entry = pair.second;
+    if (entry.actions.back().type == ParseActionTypeShift) {
+      hash_combine(&shift_actions_signature, lookahead);
+      hash_combine(&shift_actions_signature, entry);
+    }
+  }
 }
 
 bool ParseState::operator==(const ParseState &other) const {

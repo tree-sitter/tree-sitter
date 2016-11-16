@@ -5,6 +5,7 @@
 #include <set>
 #include <utility>
 #include <vector>
+#include "compiler/util/hash_combine.h"
 #include "compiler/lex_table.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/metadata.h"
@@ -47,6 +48,7 @@ class ParseAction {
   rules::Symbol symbol;
   ParseStateId state_index;
   size_t consumed_symbol_count;
+
   PrecedenceRange precedence_range;
   rules::Associativity associativity;
   const Production *production;
@@ -74,10 +76,12 @@ class ParseState {
   bool merge(const ParseState &);
   void each_referenced_state(std::function<void(ParseStateId *)>);
   bool has_shift_action() const;
+  void compute_shift_actions_signature();
 
   std::map<rules::Symbol::Index, ParseTableEntry> terminal_entries;
   std::map<rules::Symbol::Index, ParseStateId> nonterminal_entries;
   LexStateId lex_state_id;
+  size_t shift_actions_signature;
 };
 
 struct ParseTableSymbolMetadata {
@@ -101,5 +105,39 @@ class ParseTable {
 };
 
 }  // namespace tree_sitter
+
+namespace std {
+
+using tree_sitter::util::hash_combine;
+
+template <>
+struct hash<tree_sitter::ParseAction> {
+  size_t operator()(const tree_sitter::ParseAction &action) const {
+    size_t result = 0;
+    hash_combine<int>(&result, action.type);
+    hash_combine(&result, action.extra);
+    hash_combine(&result, action.fragile);
+    hash_combine(&result, action.symbol);
+    hash_combine(&result, action.state_index);
+    hash_combine(&result, action.consumed_symbol_count);
+    return result;
+  }
+};
+
+template <>
+struct hash<tree_sitter::ParseTableEntry> {
+  size_t operator()(const tree_sitter::ParseTableEntry &entry) const {
+    size_t result = 0;
+    hash_combine(&result, entry.actions.size());
+    for (const tree_sitter::ParseAction &action : entry.actions) {
+      hash_combine(&result, action);
+    }
+    hash_combine(&result, entry.reusable);
+    hash_combine(&result, entry.depends_on_lookahead);
+    return result;
+  }
+};
+
+}
 
 #endif  // COMPILER_PARSE_TABLE_H_

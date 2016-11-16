@@ -172,9 +172,13 @@ class ParseTableBuilder {
           new_action->state_index = add_parse_state(next_item_set);
         }
       } else {
-        parse_table.set_nonterminal_action(state_id, symbol.index, add_parse_state(next_item_set));
+        ParseStateId next_state = add_parse_state(next_item_set);
+        parse_table.set_nonterminal_action(state_id, symbol.index, next_state);
       }
     }
+
+    ParseState &state = parse_table.states[state_id];
+    state.compute_shift_actions_signature();
   }
 
   void add_reduce_actions(const ParseItemSet &item_set, ParseStateId state_id) {
@@ -250,7 +254,86 @@ class ParseTableBuilder {
   }
 
   void remove_duplicate_parse_states() {
-    remove_duplicate_states<ParseTable>(&parse_table);
+    map<size_t, set<ParseStateId>> state_indices_by_signature;
+
+    for (ParseStateId i = 0, n = parse_table.states.size(); i < n; i++) {
+      ParseState &state = parse_table.states[i];
+      state_indices_by_signature[state.shift_actions_signature].insert(i);
+    }
+
+    set<ParseStateId> deleted_states;
+
+    while (true) {
+      std::map<ParseStateId, ParseStateId> state_replacements;
+
+      for (auto &pair : state_indices_by_signature) {
+        auto &state_group = pair.second;
+
+        for (ParseStateId i : state_group) {
+          for (ParseStateId j : state_group) {
+            if (j == i) break;
+            if (!state_replacements.count(j) && parse_table.merge_state(j, i)) {
+              state_replacements.insert({ i, j });
+              deleted_states.insert(i);
+              break;
+            }
+          }
+        }
+      }
+
+      if (state_replacements.empty()) break;
+
+      for (ParseStateId i = 0, n = parse_table.states.size(); i < n; i++) {
+        ParseState &state = parse_table.states[i];
+        bool did_update_state = false;
+
+        if (state_replacements.count(i)) {
+          auto &old_group = state_indices_by_signature[state.shift_actions_signature];
+          old_group.erase(i);
+        } else {
+          state.each_referenced_state([&state_replacements, &did_update_state](int64_t *state_index) {
+            auto new_replacement = state_replacements.find(*state_index);
+            if (new_replacement != state_replacements.end()) {
+              *state_index = new_replacement->second;
+              did_update_state = true;
+            }
+          });
+
+          if (did_update_state) {
+            auto &old_group = state_indices_by_signature[state.shift_actions_signature];
+            old_group.erase(i);
+            state.compute_shift_actions_signature();
+            state_indices_by_signature[state.shift_actions_signature].insert(i);
+          }
+        }
+      }
+    }
+
+    vector<ParseStateId> new_state_ids(parse_table.states.size());
+    size_t deleted_state_count = 0;
+    auto deleted_state_iter = deleted_states.begin();
+    for (size_t i = 0; i < new_state_ids.size(); i++) {
+      while (deleted_state_iter != deleted_states.end() && *deleted_state_iter < i) {
+        deleted_state_count++;
+        deleted_state_iter++;
+      }
+      new_state_ids[i] = i - deleted_state_count;
+    }
+
+    ParseStateId original_state_index = 0;
+    auto iter = parse_table.states.begin();
+    while (iter != parse_table.states.end()) {
+      if (deleted_states.count(original_state_index)) {
+        iter = parse_table.states.erase(iter);
+      } else {
+        ParseState &state = *iter;
+        state.each_referenced_state([&new_state_ids](int64_t *state_index) {
+          *state_index = new_state_ids[*state_index];
+        });
+        ++iter;
+      }
+      original_state_index++;
+    }
   }
 
   ParseAction *add_terminal_action(ParseStateId state_id, Symbol::Index lookahead,
