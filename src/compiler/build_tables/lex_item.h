@@ -22,10 +22,6 @@ class LexItem {
     bool is_string;
   };
 
-  struct Hash {
-    size_t operator()(const LexItem &) const;
-  };
-
   bool operator==(const LexItem &other) const;
   CompletionStatus completion_status() const;
 
@@ -33,23 +29,34 @@ class LexItem {
   rule_ptr rule;
 };
 
+}  // namespace build_tables
+}  // namespace tree_sitter
+
+namespace std {
+
+template <>
+struct hash<tree_sitter::build_tables::LexItem> {
+  size_t operator()(const tree_sitter::build_tables::LexItem &) const;
+};
+
+}  // namespace std
+
+namespace tree_sitter {
+namespace build_tables {
+
 class LexItemSet {
  public:
   LexItemSet();
-  explicit LexItemSet(const std::unordered_set<LexItem, LexItem::Hash> &);
+  explicit LexItemSet(const std::unordered_set<LexItem> &);
 
   bool operator==(const LexItemSet &) const;
-
-  struct Hash {
-    size_t operator()(const LexItemSet &) const;
-  };
 
   struct Transition;
   typedef std::map<rules::CharacterSet, Transition> TransitionMap;
 
   TransitionMap transitions() const;
 
-  std::unordered_set<LexItem, LexItem::Hash> entries;
+  std::unordered_set<LexItem> entries;
 };
 
 struct LexItemSet::Transition {
@@ -62,5 +69,14 @@ struct LexItemSet::Transition {
 
 }  // namespace build_tables
 }  // namespace tree_sitter
+
+namespace std {
+
+template <>
+struct hash<tree_sitter::build_tables::LexItemSet> {
+  size_t operator()(const tree_sitter::build_tables::LexItemSet &) const;
+};
+
+}  // namespace std
 
 #endif  // COMPILER_BUILD_TABLES_LEX_ITEM_H_

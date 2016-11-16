@@ -3,14 +3,15 @@
 #include <map>
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/blank.h"
+#include "compiler/util/hash_combine.h"
 
 namespace tree_sitter {
 namespace rules {
 
-using std::hash;
 using std::make_shared;
 using std::map;
 using std::pair;
+using util::hash_combine;
 
 Metadata::Metadata(rule_ptr rule, map<MetadataKey, int> values)
     : rule(rule), value(values) {}
@@ -25,10 +26,11 @@ bool Metadata::operator==(const Rule &rule) const {
 }
 
 size_t Metadata::hash_code() const {
-  size_t result = hash<size_t>()(value.size());
+  size_t result = 0;
+  hash_combine(&result, value.size());
   for (auto &pair : value) {
-    result ^= hash<int>()(pair.first);
-    result ^= hash<int>()(pair.second);
+    hash_combine<int>(&result, pair.first);
+    hash_combine(&result, pair.second);
   }
   return result;
 }

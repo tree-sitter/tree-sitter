@@ -12,6 +12,12 @@ inline void hash_combine(std::size_t *seed, const T &new_value) {
   *seed ^= hasher(new_value) + 0x9e3779b9 + (*seed << 6) + (*seed >> 2);
 }
 
+template <class T>
+inline void symmetric_hash_combine(std::size_t *seed, const T &new_value) {
+  std::hash<T> hasher;
+  *seed ^= hasher(new_value);
+}
+
 }  // namespace util
 }  // namespace tree_sitter
 

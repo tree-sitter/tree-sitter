@@ -2,6 +2,7 @@
 #include <string>
 #include <set>
 #include "compiler/rules/visitor.h"
+#include "compiler/util/hash_combine.h"
 
 namespace tree_sitter {
 namespace rules {
@@ -10,6 +11,7 @@ using std::string;
 using std::make_shared;
 using std::vector;
 using std::set;
+using util::symmetric_hash_combine;
 
 Choice::Choice(const vector<rule_ptr> &elements) : elements(elements) {}
 
@@ -50,9 +52,10 @@ bool Choice::operator==(const Rule &rule) const {
 }
 
 size_t Choice::hash_code() const {
-  size_t result = std::hash<size_t>()(elements.size());
+  size_t result = 0;
+  symmetric_hash_combine(&result, elements.size());
   for (const auto &element : elements)
-    result ^= element->hash_code();
+    symmetric_hash_combine(&result, element);
   return result;
 }
 

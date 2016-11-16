@@ -44,7 +44,7 @@ class LexTableBuilder {
   const LexicalGrammar lex_grammar;
   vector<rule_ptr> separator_rules;
   LexConflictManager conflict_manager;
-  unordered_map<const LexItemSet, LexStateId, LexItemSet::Hash> lex_state_ids;
+  unordered_map<LexItemSet, LexStateId> lex_state_ids;
 
  public:
   LexTableBuilder(ParseTable *parse_table, const LexicalGrammar &lex_grammar)

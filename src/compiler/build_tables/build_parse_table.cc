@@ -36,7 +36,7 @@ class ParseTableBuilder {
   const LexicalGrammar lexical_grammar;
   ParseConflictManager conflict_manager;
   unordered_map<Symbol, ParseItemSet> recovery_states;
-  unordered_map<ParseItemSet, ParseStateId, ParseItemSet::Hash> parse_state_ids;
+  unordered_map<ParseItemSet, ParseStateId> parse_state_ids;
   vector<pair<ParseItemSet, ParseStateId>> item_sets_to_process;
   ParseTable parse_table;
   set<string> conflicts;

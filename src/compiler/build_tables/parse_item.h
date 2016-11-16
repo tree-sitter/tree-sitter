@@ -23,10 +23,6 @@ class ParseItem {
     rules::Associativity associativity;
   };
 
-  struct Hash {
-    size_t operator()(const ParseItem &) const;
-  };
-
   bool operator==(const ParseItem &other) const;
   bool operator<(const ParseItem &other) const;
   rules::Symbol lhs() const;
@@ -48,10 +44,6 @@ class ParseItemSet {
   typedef std::map<rules::Symbol, std::pair<ParseItemSet, PrecedenceRange>>
     TransitionMap;
 
-  struct Hash {
-    size_t operator()(const ParseItemSet &) const;
-  };
-
   TransitionMap transitions() const;
   bool operator==(const ParseItemSet &) const;
   void add(const ParseItemSet &);
@@ -62,5 +54,16 @@ class ParseItemSet {
 
 }  // namespace build_tables
 }  // namespace tree_sitter
+
+namespace std {
+
+using tree_sitter::build_tables::ParseItemSet;
+
+template <>
+struct hash<tree_sitter::build_tables::ParseItemSet> {
+  size_t operator()(const ParseItemSet &item_set) const;
+};
+
+}  // namespace std
 
 #endif  // COMPILER_BUILD_TABLES_PARSE_ITEM_H_

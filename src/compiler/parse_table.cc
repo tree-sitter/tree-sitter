@@ -4,7 +4,6 @@
 
 namespace tree_sitter {
 
-using std::hash;
 using std::string;
 using std::ostream;
 using std::to_string;
