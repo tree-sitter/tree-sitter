@@ -14,6 +14,7 @@ namespace build_tables {
 
 class ParseItem {
  public:
+  ParseItem();
   ParseItem(const rules::Symbol &, const Production &, unsigned int);
 
   struct CompletionStatus {
@@ -54,6 +55,7 @@ class ParseItemSet {
   TransitionMap transitions() const;
   bool operator==(const ParseItemSet &) const;
   void add(const ParseItemSet &);
+  size_t unfinished_item_signature() const;
 
   std::map<ParseItem, LookaheadSet> entries;
 };

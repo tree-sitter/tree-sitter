@@ -2,6 +2,7 @@
 #include <string>
 #include "compiler/syntax_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
+#include "compiler/util/hash_combine.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -12,6 +13,9 @@ using std::string;
 using std::to_string;
 using std::hash;
 using rules::Symbol;
+using util::hash_combine;
+
+ParseItem::ParseItem() : variable_index(-1), production(nullptr), step_index(0) {}
 
 ParseItem::ParseItem(const Symbol &lhs, const Production &production,
                      unsigned int step_index)
@@ -104,6 +108,23 @@ size_t ParseItemSet::Hash::operator()(const ParseItemSet &item_set) const {
     result ^= hash<size_t>()(lookahead_set.entries->size());
     for (Symbol::Index index : *pair.second.entries)
       result ^= hash<Symbol::Index>()(index);
+  }
+  return result;
+}
+
+size_t ParseItemSet::unfinished_item_signature() const {
+  size_t result = 0;
+  ParseItem previous_item;
+  for (auto &pair : entries) {
+    const ParseItem &item = pair.first;
+    if (item.step_index < item.production->size()) {
+      if (item.variable_index != previous_item.variable_index &&
+          item.step_index != previous_item.step_index) {
+        hash_combine(&result, item.variable_index);
+        hash_combine(&result, item.step_index);
+        previous_item = item;
+      }
+    }
   }
   return result;
 }

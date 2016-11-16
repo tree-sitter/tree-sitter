@@ -146,8 +146,8 @@ class ParseTableBuilder {
     auto pair = parse_state_ids.find(item_set);
     if (pair == parse_state_ids.end()) {
       ParseStateId state_id = parse_table.add_state();
-
       parse_state_ids[item_set] = state_id;
+      parse_table.states[state_id].shift_actions_signature = item_set.unfinished_item_signature();
       item_sets_to_process.push_back({ std::move(item_set), state_id });
       return state_id;
     } else {
@@ -176,9 +176,6 @@ class ParseTableBuilder {
         parse_table.set_nonterminal_action(state_id, symbol.index, next_state);
       }
     }
-
-    ParseState &state = parse_table.states[state_id];
-    state.compute_shift_actions_signature();
   }
 
   void add_reduce_actions(const ParseItemSet &item_set, ParseStateId state_id) {
@@ -285,26 +282,16 @@ class ParseTableBuilder {
 
       for (ParseStateId i = 0, n = parse_table.states.size(); i < n; i++) {
         ParseState &state = parse_table.states[i];
-        bool did_update_state = false;
 
         if (state_replacements.count(i)) {
-          auto &old_group = state_indices_by_signature[state.shift_actions_signature];
-          old_group.erase(i);
+          state_indices_by_signature[state.shift_actions_signature].erase(i);
         } else {
-          state.each_referenced_state([&state_replacements, &did_update_state](int64_t *state_index) {
-            auto new_replacement = state_replacements.find(*state_index);
-            if (new_replacement != state_replacements.end()) {
-              *state_index = new_replacement->second;
-              did_update_state = true;
+          state.each_referenced_state([&state_replacements](int64_t *state_index) {
+            auto replacement = state_replacements.find(*state_index);
+            if (replacement != state_replacements.end()) {
+              *state_index = replacement->second;
             }
           });
-
-          if (did_update_state) {
-            auto &old_group = state_indices_by_signature[state.shift_actions_signature];
-            old_group.erase(i);
-            state.compute_shift_actions_signature();
-            state_indices_by_signature[state.shift_actions_signature].insert(i);
-          }
         }
       }
     }
