@@ -3,14 +3,15 @@
 #include <utility>
 #include <vector>
 #include "compiler/rules/visitor.h"
+#include "compiler/util/hash_combine.h"
 
 namespace tree_sitter {
 namespace rules {
 
 using std::string;
-using std::hash;
 using std::set;
 using std::vector;
+using util::hash_combine;
 
 static void add_range(set<uint32_t> *characters, uint32_t min, uint32_t max) {
   for (uint32_t c = min; c <= max; c++)
@@ -83,14 +84,14 @@ bool CharacterSet::operator<(const CharacterSet &other) const {
 }
 
 size_t CharacterSet::hash_code() const {
-  size_t result = hash<bool>()(includes_all);
-  result ^= hash<size_t>()(included_chars.size());
-  for (auto &c : included_chars)
-    result ^= hash<uint32_t>()(c);
-  result <<= 1;
-  result ^= hash<size_t>()(excluded_chars.size());
-  for (auto &c : excluded_chars)
-    result ^= hash<uint32_t>()(c);
+  size_t result = 0;
+  hash_combine(&result, includes_all);
+  hash_combine(&result, included_chars.size());
+  for (uint32_t c : included_chars)
+    hash_combine(&result, c);
+  hash_combine(&result, excluded_chars.size());
+  for (uint32_t c : excluded_chars)
+    hash_combine(&result, c);
   return result;
 }
 

@@ -2,13 +2,14 @@
 #include <string>
 #include <map>
 #include "compiler/rules/visitor.h"
+#include "compiler/util/hash_combine.h"
 
 namespace tree_sitter {
 namespace rules {
 
 using std::string;
 using std::to_string;
-using std::hash;
+using util::hash_combine;
 
 Symbol::Symbol(Symbol::Index index) : index(index), is_token(false) {}
 
@@ -24,7 +25,10 @@ bool Symbol::operator==(const Rule &rule) const {
 }
 
 size_t Symbol::hash_code() const {
-  return hash<Symbol::Index>()(index) ^ hash<bool>()(is_token);
+  size_t result = 0;
+  hash_combine(&result, index);
+  hash_combine(&result, is_token);
+  return result;
 }
 
 rule_ptr Symbol::copy() const {

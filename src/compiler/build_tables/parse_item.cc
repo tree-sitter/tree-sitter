@@ -2,6 +2,7 @@
 #include <string>
 #include "compiler/syntax_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
+#include "compiler/util/hash_combine.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -10,8 +11,10 @@ using std::map;
 using std::pair;
 using std::string;
 using std::to_string;
-using std::hash;
 using rules::Symbol;
+using util::hash_combine;
+
+ParseItem::ParseItem() : variable_index(-1), production(nullptr), step_index(0) {}
 
 ParseItem::ParseItem(const Symbol &lhs, const Production &production,
                      unsigned int step_index)
@@ -78,13 +81,6 @@ rules::Associativity ParseItem::associativity() const {
     return production->at(step_index).associativity;
 }
 
-size_t ParseItem::Hash::operator()(const ParseItem &item) const {
-  size_t result = hash<int>()(item.variable_index);
-  result ^= hash<unsigned int>()(item.step_index);
-  result ^= hash<const void *>()(static_cast<const void *>(item.production));
-  return result;
-}
-
 ParseItemSet::ParseItemSet() {}
 
 ParseItemSet::ParseItemSet(const map<ParseItem, LookaheadSet> &entries)
@@ -94,16 +90,19 @@ bool ParseItemSet::operator==(const ParseItemSet &other) const {
   return entries == other.entries;
 }
 
-size_t ParseItemSet::Hash::operator()(const ParseItemSet &item_set) const {
-  size_t result = hash<size_t>()(item_set.entries.size());
-  for (auto &pair : item_set.entries) {
+size_t ParseItemSet::unfinished_item_signature() const {
+  size_t result = 0;
+  ParseItem previous_item;
+  for (auto &pair : entries) {
     const ParseItem &item = pair.first;
-    result ^= ParseItem::Hash()(item);
-
-    const LookaheadSet &lookahead_set = pair.second;
-    result ^= hash<size_t>()(lookahead_set.entries->size());
-    for (Symbol::Index index : *pair.second.entries)
-      result ^= hash<Symbol::Index>()(index);
+    if (item.step_index < item.production->size()) {
+      if (item.variable_index != previous_item.variable_index &&
+          item.step_index != previous_item.step_index) {
+        hash_combine(&result, item.variable_index);
+        hash_combine(&result, item.step_index);
+        previous_item = item;
+      }
+    }
   }
   return result;
 }
@@ -135,3 +134,37 @@ void ParseItemSet::add(const ParseItemSet &other) {
 
 }  // namespace build_tables
 }  // namespace tree_sitter
+
+namespace std {
+
+using tree_sitter::build_tables::ParseItem;
+using tree_sitter::build_tables::ParseItemSet;
+using tree_sitter::util::hash_combine;
+
+template <>
+struct hash<ParseItem> {
+  size_t operator()(const ParseItem &item) const {
+    size_t result = 0;
+    hash_combine(&result, item.variable_index);
+    hash_combine(&result, item.step_index);
+    hash_combine(&result, item.production);
+    return result;
+  }
+};
+
+size_t hash<ParseItemSet>::operator()(const ParseItemSet &item_set) const {
+  size_t result = 0;
+  hash_combine(&result, item_set.entries.size());
+  for (auto &pair : item_set.entries) {
+    const ParseItem &item = pair.first;
+    const auto &lookahead_set = pair.second;
+
+    hash_combine(&result, item);
+    hash_combine(&result, lookahead_set.entries->size());
+    for (auto index : *pair.second.entries)
+      hash_combine(&result, index);
+  }
+  return result;
+}
+
+}  // namespace std

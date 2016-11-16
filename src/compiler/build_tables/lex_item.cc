@@ -8,11 +8,11 @@
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/repeat.h"
 #include "compiler/rules/visitor.h"
+#include "compiler/util/hash_combine.h"
 
 namespace tree_sitter {
 namespace build_tables {
 
-using std::hash;
 using std::map;
 using std::string;
 using std::unordered_set;
@@ -69,20 +69,9 @@ LexItem::CompletionStatus LexItem::completion_status() const {
   return GetCompletionStatus().apply(rule);
 }
 
-size_t LexItem::Hash::operator()(const LexItem &item) const {
-  return hash<Symbol>()(item.lhs) ^ hash<rule_ptr>()(item.rule);
-}
-
-size_t LexItemSet::Hash::operator()(const LexItemSet &item_set) const {
-  size_t result = hash<size_t>()(item_set.entries.size());
-  for (const auto &item : item_set.entries)
-    result ^= LexItem::Hash()(item);
-  return result;
-}
-
 LexItemSet::LexItemSet() {}
 
-LexItemSet::LexItemSet(const unordered_set<LexItem, LexItem::Hash> &entries)
+LexItemSet::LexItemSet(const unordered_set<LexItem> &entries)
     : entries(entries) {}
 
 bool LexItemSet::operator==(const LexItemSet &other) const {
@@ -103,3 +92,27 @@ bool LexItemSet::Transition::operator==(const LexItemSet::Transition &other) con
 
 }  // namespace build_tables
 }  // namespace tree_sitter
+
+namespace std {
+
+using tree_sitter::util::hash_combine;
+using tree_sitter::util::symmetric_hash_combine;
+using tree_sitter::build_tables::LexItem;
+using tree_sitter::build_tables::LexItemSet;
+
+size_t hash<LexItem>::operator()(const LexItem &item) const {
+  size_t result = 0;
+  hash_combine(&result, item.lhs.index);
+  hash_combine(&result, item.rule);
+  return result;
+}
+
+size_t hash<LexItemSet>::operator()(const LexItemSet &item_set) const {
+  size_t result = 0;
+  hash_combine(&result, item_set.entries.size());
+  for (const auto &item : item_set.entries)
+    symmetric_hash_combine(&result, item);
+  return result;
+}
+
+}  // namespace std

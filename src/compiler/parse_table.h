@@ -47,6 +47,7 @@ class ParseAction {
   rules::Symbol symbol;
   ParseStateId state_index;
   size_t consumed_symbol_count;
+
   PrecedenceRange precedence_range;
   rules::Associativity associativity;
   const Production *production;
@@ -78,6 +79,7 @@ class ParseState {
   std::map<rules::Symbol::Index, ParseTableEntry> terminal_entries;
   std::map<rules::Symbol::Index, ParseStateId> nonterminal_entries;
   LexStateId lex_state_id;
+  size_t shift_actions_signature;
 };
 
 struct ParseTableSymbolMetadata {
