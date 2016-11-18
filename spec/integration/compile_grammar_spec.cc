@@ -83,23 +83,25 @@ describe("compile_grammar", []() {
         {"math_operation_prec_type", "PREC"}
       }).c_str());
 
-      AssertThat(result.error_message, Equals(dedent(R"MESSAGE(
-        Unresolved conflict for symbol sequence:
+      AssertThat(result.error_message, Equals(dedent(
+        R"MESSAGE(
+          Unresolved conflict for symbol sequence:
 
-          expression  '+'  expression  •  '+'  …
+            expression  '+'  expression  •  '+'  …
 
-        Possible interpretations:
+          Possible interpretations:
 
-          (math_operation  expression  '+'  expression)  •  '+'  …
+            (math_operation  expression  '+'  expression)  •  '+'  …
 
-          expression  '+'  (math_operation  expression  •  '+'  expression)
+            expression  '+'  (math_operation  expression  •  '+'  expression)
 
-        Possible resolutions:
+          Possible resolutions:
 
-          Specify left or right associativity in the rules:  math_operation
+            Specify left or right associativity in the rules:  math_operation
 
-          Add a conflict for the rules:  math_operation
-      )MESSAGE")));
+            Add a conflict for the rules:  math_operation
+        )MESSAGE"
+      )));
 
       result = ts_compile_grammar(fill_template(grammar_template, {
         {"math_operation_prec_type", "PREC_LEFT"}
@@ -194,25 +196,27 @@ describe("compile_grammar", []() {
         {"function_call_precedence", "0"}
       }).c_str());
 
-      AssertThat(result.error_message, Equals(dedent(R"MESSAGE(
-        Unresolved conflict for symbol sequence:
+      AssertThat(result.error_message, Equals(dedent(
+        R"MESSAGE(
+          Unresolved conflict for symbol sequence:
 
-          identifier  •  '{'  …
+            identifier  •  '{'  …
 
-        Possible interpretations:
+          Possible interpretations:
 
-          (expression  identifier)  •  '{'  …
+            (expression  identifier)  •  '{'  …
 
-          (function_call  identifier  •  block)
+            (function_call  identifier  •  block)
 
-        Possible resolutions:
+          Possible resolutions:
 
-          Use different precedences in the rules:  expression  function_call
+            Use different precedences in the rules:  expression  function_call
 
-          Specify left or right associativity in the rules:  expression
+            Specify left or right associativity in the rules:  expression
 
-          Add a conflict for the rules:  expression  function_call
-      )MESSAGE")));
+            Add a conflict for the rules:  expression  function_call
+        )MESSAGE"
+      )));
 
       // Giving function calls lower precedence than expressions causes `bar`
       // to be treated as an expression passed to `foo`, not as a function
