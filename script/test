@@ -32,6 +32,7 @@ EOF
 profile=
 leak_check=no
 mode=normal
+verbose=
 args=()
 target=tests
 export BUILDTYPE=Test
@@ -60,7 +61,7 @@ while getopts "df:s:gGhpvS" option; do
       args+=("--only=${OPTARG}")
       ;;
     v)
-      args+=("--reporter=spec")
+      verbose=true
       ;;
     s)
       export TREE_SITTER_SEED=${OPTARG}
@@ -70,6 +71,12 @@ while getopts "df:s:gGhpvS" option; do
       ;;
   esac
 done
+
+if [[ -n $verbose ]]; then
+  args+=("--reporter=spec")
+else
+  args+=("--reporter=singleline")
+fi
 
 make $target
 args=${args:-""}
