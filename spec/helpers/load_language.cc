@@ -190,6 +190,7 @@ const TSLanguage *get_test_language(const string &language_name) {
     parser_file.close();
   }
 
+  mkdir("out/tmp", 0777);
   string lib_filename = "out/tmp/" + language_name + ".so";
   const TSLanguage *language = load_language(parser_filename, lib_filename, language_name);
   loaded_languages[language_name] = language;
