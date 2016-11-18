@@ -14,8 +14,6 @@ using rules::Symbol;
 
 ParseAction::ParseAction(ParseActionType type, ParseStateId state_index,
                          Symbol symbol, size_t consumed_symbol_count,
-                         PrecedenceRange precedence_range,
-                         rules::Associativity associativity,
                          const Production *production)
     : type(type),
       extra(false),
@@ -23,8 +21,6 @@ ParseAction::ParseAction(ParseActionType type, ParseStateId state_index,
       symbol(symbol),
       state_index(state_index),
       consumed_symbol_count(consumed_symbol_count),
-      precedence_range(precedence_range),
-      associativity(associativity),
       production(production) {}
 
 ParseAction::ParseAction()
@@ -34,7 +30,6 @@ ParseAction::ParseAction()
       symbol(Symbol(-1)),
       state_index(-1),
       consumed_symbol_count(0),
-      associativity(rules::AssociativityNone),
       production(nullptr) {}
 
 ParseAction ParseAction::Error() {
@@ -47,15 +42,13 @@ ParseAction ParseAction::Accept() {
   return action;
 }
 
-ParseAction ParseAction::Shift(ParseStateId state_index,
-                               PrecedenceRange precedence_range) {
-  return ParseAction(ParseActionTypeShift, state_index, Symbol(-1), 0,
-                     precedence_range, rules::AssociativityNone, nullptr);
+ParseAction ParseAction::Shift(ParseStateId state_index) {
+  return ParseAction(ParseActionTypeShift, state_index, Symbol(-1), 0, nullptr);
 }
 
 ParseAction ParseAction::Recover(ParseStateId state_index) {
   return ParseAction(ParseActionTypeRecover, state_index, Symbol(-1), 0,
-                     PrecedenceRange(), rules::AssociativityNone, nullptr);
+                     nullptr);
 }
 
 ParseAction ParseAction::ShiftExtra() {
@@ -66,11 +59,33 @@ ParseAction ParseAction::ShiftExtra() {
 }
 
 ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
-                                int precedence,
-                                rules::Associativity associativity,
                                 const Production &production) {
   return ParseAction(ParseActionTypeReduce, 0, symbol, consumed_symbol_count,
-                     { precedence, precedence }, associativity, &production);
+                     &production);
+}
+
+int ParseAction::precedence() const {
+  if (consumed_symbol_count >= production->size()) {
+    if (production->empty()) {
+      return 0;
+    } else {
+      return production->back().precedence;
+    }
+  } else {
+    return production->at(consumed_symbol_count).precedence;
+  }
+}
+
+rules::Associativity ParseAction::associativity() const {
+  if (consumed_symbol_count >= production->size()) {
+    if (production->empty()) {
+      return rules::AssociativityNone;
+    } else {
+      return production->back().associativity;
+    }
+  } else {
+    return production->at(consumed_symbol_count).associativity;
+  }
 }
 
 bool ParseAction::operator==(const ParseAction &other) const {

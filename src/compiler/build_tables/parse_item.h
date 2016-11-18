@@ -29,7 +29,7 @@ class ParseItem {
   rules::Symbol next_symbol() const;
   int precedence() const;
   rules::Associativity associativity() const;
-  CompletionStatus completion_status() const;
+  bool is_done() const;
 
   int variable_index;
   const Production *production;
@@ -41,15 +41,37 @@ class ParseItemSet {
   ParseItemSet();
   explicit ParseItemSet(const std::map<ParseItem, LookaheadSet> &);
 
-  typedef std::map<rules::Symbol, std::pair<ParseItemSet, PrecedenceRange>>
-    TransitionMap;
+  struct Completion;
+  struct Action;
 
-  TransitionMap transitions() const;
+  struct ActionMap {
+    std::map<rules::Symbol::Index, Action> terminal_actions;
+    std::map<rules::Symbol::Index, ParseItemSet> nonterminal_continuations;
+  };
+
+  ActionMap actions() const;
+
   bool operator==(const ParseItemSet &) const;
   void add(const ParseItemSet &);
   size_t unfinished_item_signature() const;
 
   std::map<ParseItem, LookaheadSet> entries;
+};
+
+struct ParseItemSet::Completion {
+  const ParseItem *item;
+  int precedence;
+  rules::Associativity associativity;
+
+  bool operator<(const ParseItemSet::Completion &other) {
+    return precedence < other.precedence;
+  }
+};
+
+struct ParseItemSet::Action {
+  ParseItemSet continuation;
+  std::vector<const ParseItem *> completions;
+  int completion_precedence;
 };
 
 }  // namespace build_tables

@@ -20,7 +20,7 @@ class ParseItemSetBuilder {
  public:
   ParseItemSetBuilder(const SyntaxGrammar &, const LexicalGrammar &);
   void apply_transitive_closure(ParseItemSet *);
-  LookaheadSet get_first_set(rules::Symbol &) const;
+  LookaheadSet get_first_set(const rules::Symbol &) const;
 };
 
 }  // namespace build_tables

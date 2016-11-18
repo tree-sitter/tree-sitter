@@ -26,30 +26,30 @@ enum ParseActionType {
 class ParseAction {
   ParseAction(ParseActionType type, ParseStateId state_index,
               rules::Symbol symbol, size_t consumed_symbol_count,
-              PrecedenceRange range, rules::Associativity, const Production *);
+              const Production *);
 
  public:
   ParseAction();
   static ParseAction Accept();
   static ParseAction Error();
-  static ParseAction Shift(ParseStateId state_index, PrecedenceRange precedence);
+  static ParseAction Shift(ParseStateId state_index);
   static ParseAction Recover(ParseStateId state_index);
   static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count,
-                            int precedence, rules::Associativity,
                             const Production &);
   static ParseAction ShiftExtra();
   bool operator==(const ParseAction &) const;
   bool operator<(const ParseAction &) const;
 
+  rules::Associativity associativity() const;
+  int precedence() const;
+
   ParseActionType type;
   bool extra;
   bool fragile;
-  rules::Symbol symbol;
   ParseStateId state_index;
-  size_t consumed_symbol_count;
 
-  PrecedenceRange precedence_range;
-  rules::Associativity associativity;
+  rules::Symbol symbol;
+  size_t consumed_symbol_count;
   const Production *production;
 };
 

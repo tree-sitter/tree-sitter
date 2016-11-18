@@ -65,8 +65,7 @@ ostream &operator<<(ostream &stream, const ParseAction &action) {
     case ParseActionTypeAccept:
       return stream << string("#<accept>");
     case ParseActionTypeShift:
-      return stream << string("#<shift state:") << to_string(action.state_index) <<
-                        string(" precedence:") << action.precedence_range << ">";
+      return stream << string("#<shift state:") << to_string(action.state_index) << ">";
     case ParseActionTypeReduce:
       return stream << ("#<reduce sym" + to_string(action.symbol.index) + " " +
                         to_string(action.consumed_symbol_count) + ">");
@@ -87,7 +86,16 @@ ostream &operator<<(ostream &stream, const ParseState &state) {
 }
 
 ostream &operator<<(ostream &stream, const ProductionStep &step) {
-  return stream << string("(production_step symbol:") << step.symbol << string(" precedence:") << to_string(step.precedence) << ")";
+  stream << "(symbol: " << step.symbol << ", precedence:" << to_string(step.precedence);
+  stream << ", associativity: ";
+  switch (step.associativity) {
+    case rules::AssociativityLeft:
+      return stream << "left)";
+    case rules::AssociativityRight:
+      return stream << "right)";
+    default:
+      return stream << "none)";
+  }
 }
 
 ostream &operator<<(ostream &stream, const PrecedenceRange &range) {
