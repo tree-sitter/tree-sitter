@@ -4,25 +4,12 @@
 #include <streambuf>
 #include <dirent.h>
 
-#ifdef USE_BOOST_REGEX
-
-#include "boost/regex.hpp"
-using boost::regex;
-using boost::regex_search;
-using boost::regex_replace;
-using boost::smatch;
-using boost::regex_constants::extended;
-
-#else
-
 #include <regex>
 using std::regex;
 using std::regex_search;
 using std::regex_replace;
 using std::smatch;
 using std::regex_constants::extended;
-
-#endif
 
 using std::string;
 using std::vector;

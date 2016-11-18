@@ -44,13 +44,8 @@
       ],
       'variables': {
         'USE_LIBPROFILER%': 'true',
-        'USE_BOOST_REGEX%': 'false',
       },
       'conditions': [
-        ['USE_BOOST_REGEX != "false"', {
-          'defines': ['USE_BOOST_REGEX'],
-          'libraries': ['-lboost_regex'],
-        }],
         ['USE_LIBPROFILER != "false"', {
           'libraries': ['-lprofiler'],
         }]

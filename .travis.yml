@@ -8,10 +8,9 @@ addons:
     sources:
     - ubuntu-toolchain-r-test
     packages:
-    - libboost-regex-dev
     - g++-5
 
 install:
 - export CXX="g++-5"
-- script/configure -D USE_BOOST_REGEX=true -D USE_LIBPROFILER=false
+- script/configure -D USE_LIBPROFILER=false
 script: script/ci
