@@ -90,15 +90,13 @@ describe("compile_grammar", []() {
 
         Possible interpretations:
 
-          (math_operation  expression  '+'  expression)  •  '+'  …
-
-          expression  '+'  (math_operation  expression  •  '+'  expression)
+          1:  (math_operation  expression  '+'  expression)  •  '+'  …
+          2:  expression  '+'  (math_operation  expression  •  '+'  expression)
 
         Possible resolutions:
 
-          Specify left or right associativity in the rules:  math_operation
-
-          Add a conflict for the rules:  math_operation
+          1:  Specify a left or right associativity in `math_operation`
+          2:  Add a conflict for these rules: `math_operation`
       )MESSAGE")));
 
       result = ts_compile_grammar(fill_template(grammar_template, {
@@ -201,17 +199,15 @@ describe("compile_grammar", []() {
 
         Possible interpretations:
 
-          (expression  identifier)  •  '{'  …
-
-          (function_call  identifier  •  block)
+          1:  (expression  identifier)  •  '{'  …
+          2:  (function_call  identifier  •  block)
 
         Possible resolutions:
 
-          Use different precedences in the rules:  expression  function_call
-
-          Specify left or right associativity in the rules:  expression
-
-          Add a conflict for the rules:  expression  function_call
+          1:  Specify a higher precedence in `function_call` than in the other rules.
+          2:  Specify a higher precedence in `expression` than in the other rules.
+          3:  Specify a left or right associativity in `expression`
+          4:  Add a conflict for these rules: `expression` `function_call`
       )MESSAGE")));
 
       // Giving function calls lower precedence than expressions causes `bar`
@@ -245,6 +241,88 @@ describe("compile_grammar", []() {
         "(expression (function_call "
           "(identifier) "
           "(block (expression (identifier)))))))");
+    });
+
+    it("does not allow conflicting precedences", [&]() {
+      string grammar_template = R"JSON({
+        "name": "conflicting_precedence_example",
+
+        "rules": {
+          "expression": {
+            "type": "CHOICE",
+            "members": [
+              {"type": "SYMBOL", "name": "sum"},
+              {"type": "SYMBOL", "name": "product"},
+              {"type": "SYMBOL", "name": "other_thing"}
+            ]
+          },
+
+          "sum": {
+            "type": "PREC_LEFT",
+            "value": 0,
+            "content": {
+              "type": "SEQ",
+              "members": [
+                {"type": "SYMBOL", "name": "expression"},
+                {"type": "STRING", "value": "+"},
+                {"type": "SYMBOL", "name": "expression"}
+              ]
+            }
+          },
+
+          "product": {
+            "type": "PREC_LEFT",
+            "value": 1,
+            "content": {
+              "type": "SEQ",
+              "members": [
+                {"type": "SYMBOL", "name": "expression"},
+                {"type": "STRING", "value": "*"},
+                {"type": "SYMBOL", "name": "expression"}
+              ]
+            }
+          },
+
+          "other_thing": {
+            "type": "PREC_LEFT",
+            "value": -1,
+            "content": {
+              "type": "SEQ",
+              "members": [
+                {"type": "SYMBOL", "name": "expression"},
+                {"type": "STRING", "value": "*"},
+                {"type": "STRING", "value": "*"}
+              ]
+            }
+          },
+
+          "identifier": {
+            "type": "PATTERN",
+            "value": "[a-zA-Z]+"
+          }
+        }
+      })JSON";
+
+      TSCompileResult result = ts_compile_grammar(fill_template(grammar_template, {
+      }).c_str());
+
+      AssertThat(result.error_message, Equals(dedent(R"MESSAGE(
+        Unresolved conflict for symbol sequence:
+
+          expression  '+'  expression  •  '*'  …
+
+        Possible interpretations:
+
+          1:  (sum  expression  '+'  expression)  •  '*'  …
+          2:  expression  '+'  (product  expression  •  '*'  expression)
+          3:  expression  '+'  (other_thing  expression  •  '*'  '*')
+
+        Possible resolutions:
+
+          1:  Specify a higher precedence in `product` and `other_thing` than in the other rules.
+          2:  Specify a higher precedence in `sum` than in the other rules.
+          3:  Add a conflict for these rules: `sum` `product` `other_thing`
+      )MESSAGE")));
     });
   });
 

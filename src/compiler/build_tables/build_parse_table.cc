@@ -363,6 +363,7 @@ class ParseTableBuilder {
     ParseTableEntry &entry = parse_table.states[state_id].terminal_entries[lookahead];
     int reduction_precedence = entry.actions.front().precedence();
     set<ParseItem> shift_items;
+    bool considered_associativity = false;
 
     for (const ParseAction &action : entry.actions)
       if (action.type == ParseActionTypeReduce)
@@ -406,6 +407,7 @@ class ParseTableBuilder {
       // associative, prefer the shift.
       else if (shift_precedence.min == reduction_precedence &&
                shift_precedence.max == reduction_precedence) {
+        considered_associativity = true;
         bool has_non_associative_reductions = false;
         bool has_left_associative_reductions = false;
         bool has_right_associative_reductions = false;
@@ -435,8 +437,6 @@ class ParseTableBuilder {
             entry.actions.pop_back();
           }
         }
-      } else {
-        return "Mismatched precedence";
       }
     }
 
@@ -473,8 +473,11 @@ class ParseTableBuilder {
 
     description += "Possible interpretations:\n\n";
 
+    size_t interpretation_count = 1;
     for (const ParseAction &action : entry.actions) {
       if (action.type == ParseActionTypeReduce) {
+        description += "  " + to_string(interpretation_count++) + ":";
+
         for (size_t i = 0; i < earliest_starting_item.step_index - action.consumed_symbol_count; i++) {
           description += "  " + symbol_name(earliest_starting_item.production->at(i).symbol);
         }
@@ -485,11 +488,13 @@ class ParseTableBuilder {
         }
         description += ")";
         description += "  \u2022  " + symbol_name(Symbol(lookahead, true)) + "  \u2026";
-        description += "\n\n";
+        description += "\n";
       }
     }
 
     for (const ParseItem &shift_item : shift_items) {
+      description += "  " + to_string(interpretation_count++) + ":";
+
       for (size_t i = 0; i < earliest_starting_item.step_index - shift_item.step_index; i++) {
         description += "  " + symbol_name(earliest_starting_item.production->at(i).symbol);
       }
@@ -501,32 +506,53 @@ class ParseTableBuilder {
         description += "  " + symbol_name(shift_item.production->at(i).symbol);
       }
       description += ")";
-      description += "\n\n";
+      description += "\n";
     }
 
-    description += "Possible resolutions:\n\n";
+    description += "\nPossible resolutions:\n\n";
 
+    size_t resolution_count = 1;
     if (actual_conflict.size() > 1) {
-      description += "  Use different precedences in the rules:";
-      for (const Symbol &conflict_symbol : actual_conflict) {
-        description += "  " + symbol_name(conflict_symbol);
+      if (!shift_items.empty()) {
+        description += "  " + to_string(resolution_count++) + ":  ";
+        description += "Specify a higher precedence in";
+        bool is_first = true;
+        for (const ParseItem &shift_item : shift_items) {
+          if (!is_first) description += " and";
+          description += " `" + symbol_name(shift_item.lhs()) + "`";
+          is_first = false;
+        }
+        description += " than in the other rules.\n";
       }
-      description += "\n\n";
-    }
 
-    if (shift_items.size() > 0) {
-      description += "  Specify left or right associativity in the rules:";
       for (const ParseAction &action : entry.actions) {
         if (action.type == ParseActionTypeReduce) {
-          description += "  " + symbol_name(action.symbol);
+          description += "  " + to_string(resolution_count++) + ":  ";
+          description += "Specify a higher precedence in `";
+          description += symbol_name(action.symbol);
+          description += "` than in the other rules.\n";
         }
       }
-      description += "\n\n";
     }
 
-    description += "  Add a conflict for the rules:";
+    if (considered_associativity) {
+      description += "  " + to_string(resolution_count++) + ":  ";
+      description += "Specify a left or right associativity in";
+      for (const ParseAction &action : entry.actions) {
+        bool is_first = true;
+        if (action.type == ParseActionTypeReduce) {
+          if (!is_first) description += " and";
+          description += " `" + symbol_name(action.symbol) + "`";
+          is_first = false;
+        }
+      }
+      description += "\n";
+    }
+
+    description += "  " + to_string(resolution_count++) + ":  ";
+    description += "Add a conflict for these rules:";
     for (const Symbol &conflict_symbol : actual_conflict) {
-      description += "  " + symbol_name(conflict_symbol);
+      description += " `" + symbol_name(conflict_symbol) + "`";
     }
     description += "\n";
     return description;
