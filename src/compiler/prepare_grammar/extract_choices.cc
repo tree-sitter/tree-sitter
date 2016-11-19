@@ -10,7 +10,6 @@
 namespace tree_sitter {
 namespace prepare_grammar {
 
-using std::make_shared;
 using std::vector;
 
 class ExtractChoices : public rules::RuleFn<vector<rule_ptr>> {
@@ -29,7 +28,7 @@ class ExtractChoices : public rules::RuleFn<vector<rule_ptr>> {
   vector<rule_ptr> apply_to(const rules::Metadata *rule) {
     vector<rule_ptr> result;
     for (auto entry : apply(rule->rule))
-      result.push_back(make_shared<rules::Metadata>(entry, rule->value));
+      result.push_back(rules::Metadata::build(entry, rule->params));
     return result;
   }
 

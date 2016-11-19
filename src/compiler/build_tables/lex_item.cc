@@ -41,9 +41,9 @@ LexItem::CompletionStatus LexItem::completion_status() const {
     CompletionStatus apply_to(const rules::Metadata *rule) {
       CompletionStatus result = apply(rule->rule);
       if (result.is_done) {
-        if (result.precedence.empty && rule->value_for(rules::PRECEDENCE).second)
-          result.precedence.add(rule->value_for(rules::PRECEDENCE).first);
-        if (rule->value_for(rules::IS_STRING).second)
+        if (result.precedence.empty && rule->params.has_precedence)
+          result.precedence.add(rule->params.precedence);
+        if (rule->params.is_string)
           result.is_string = true;
       }
       return result;

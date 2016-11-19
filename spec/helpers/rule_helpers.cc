@@ -35,15 +35,16 @@ namespace tree_sitter {
     return make_shared<rules::Symbol>(index, true);
   }
 
-  rule_ptr metadata(rule_ptr rule, map<rules::MetadataKey, int> values) {
-    return make_shared<rules::Metadata>(rule, values);
+  rule_ptr metadata(rule_ptr rule, rules::MetadataParams params) {
+    return rules::Metadata::build(rule, params);
   }
 
   rule_ptr active_prec(int precedence, rule_ptr rule) {
-    return std::make_shared<rules::Metadata>(rule, map<rules::MetadataKey, int>({
-      { rules::PRECEDENCE, precedence },
-      { rules::IS_ACTIVE, true }
-    }));
+    rules::MetadataParams params;
+    params.precedence = precedence;
+    params.has_precedence = true;
+    params.is_active = true;
+    return rules::Metadata::build(rule, params);
   }
 
   bool operator==(const Variable &left, const Variable &right) {

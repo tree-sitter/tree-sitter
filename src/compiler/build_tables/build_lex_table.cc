@@ -34,9 +34,6 @@ using rules::Repeat;
 using rules::Symbol;
 using rules::Metadata;
 using rules::Seq;
-using rules::MAIN_TOKEN;
-using rules::PRECEDENCE;
-using rules::IS_ACTIVE;
 
 class LexTableBuilder {
   LexTable lex_table;
@@ -160,12 +157,10 @@ class LexTableBuilder {
         for (const rule_ptr &separator_rule : separator_rules)
           result.entries.insert(LexItem(
             symbol,
-            Metadata::build(
+            Metadata::separator(
               Seq::build({
                 separator_rule,
-                Metadata::build(rule, { { PRECEDENCE, 0 }, { MAIN_TOKEN, 1 } }),
-              }),
-              { { PRECEDENCE, INT_MIN }, { IS_ACTIVE, true } })));
+                Metadata::main_token(rule) }))));
     return result;
   }
 

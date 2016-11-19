@@ -49,10 +49,10 @@ describe("rule_can_be_blank", [&]() {
   });
 
   it("ignores metadata rules", [&]() {
-    rule = make_shared<rules::Metadata>(blank(), map<rules::MetadataKey, int>());
+    rule = make_shared<rules::Metadata>(blank(), MetadataParams());
     AssertThat(rule_can_be_blank(rule), IsTrue());
 
-    rule = make_shared<rules::Metadata>(sym("one"), map<rules::MetadataKey, int>());
+    rule = make_shared<rules::Metadata>(sym("one"), MetadataParams());
     AssertThat(rule_can_be_blank(rule), IsFalse());
   });
 });

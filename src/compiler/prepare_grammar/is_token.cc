@@ -18,7 +18,7 @@ class IsToken : public rules::RuleFn<bool> {
   }
 
   bool apply_to(const rules::Metadata *rule) {
-    return rule->value_for(rules::IS_TOKEN).second;
+    return rule->params.is_token;
   }
 };
 

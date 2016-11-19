@@ -19,8 +19,12 @@ describe("LexItem", []() {
       AssertThat(item1.completion_status().precedence, Equals(PrecedenceRange()));
       AssertThat(item1.completion_status().is_string, IsFalse());
 
+      MetadataParams params;
+      params.precedence = 3;
+      params.has_precedence = true;
+      params.is_string = 1;
       LexItem item2(Symbol(0, true), choice({
-        metadata(blank(), { {PRECEDENCE, 3}, {IS_STRING, 1} }),
+        metadata(blank(), params),
         character({ 'a', 'b', 'c' })
       }));
 
@@ -59,10 +63,11 @@ describe("LexItemSet::transitions()", [&]() {
   });
 
   it("marks transitions that are within the main token (as opposed to separators)", [&]() {
+    MetadataParams params;
+    params.is_main_token = true;
+
     LexItemSet item_set({
-      LexItem(Symbol(1), metadata(character({ 'x' }), {
-        {MAIN_TOKEN, true}
-      })),
+      LexItem(Symbol(1), metadata(character({ 'x' }), params)),
     });
 
     AssertThat(
@@ -72,7 +77,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('x'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), metadata(blank(), { {MAIN_TOKEN, true}})),
+              LexItem(Symbol(1), metadata(blank(), params)),
             }),
             PrecedenceRange(),
             true

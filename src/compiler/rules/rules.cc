@@ -22,9 +22,10 @@ using std::string;
 using std::set;
 using std::vector;
 using std::map;
+using rules::MetadataParams;
 
-static rule_ptr metadata(rule_ptr rule, map<rules::MetadataKey, int> values) {
-  return std::make_shared<rules::Metadata>(rule, values);
+static rule_ptr metadata(rule_ptr rule, MetadataParams params) {
+  return std::make_shared<rules::Metadata>(rule, params);
 }
 
 rule_ptr blank() {
@@ -60,29 +61,48 @@ rule_ptr str(const string &value) {
 }
 
 rule_ptr prec_left(const rule_ptr &rule) {
-  return metadata(rule, { { rules::ASSOCIATIVITY, rules::AssociativityLeft } });
+  MetadataParams params;
+  params.has_associativity = true;
+  params.associativity = rules::AssociativityLeft;
+  return metadata(rule, params);
 }
 
 rule_ptr prec_left(int precedence, const rule_ptr &rule) {
-  return metadata(rule, { { rules::PRECEDENCE, precedence },
-                          { rules::ASSOCIATIVITY, rules::AssociativityLeft } });
+  MetadataParams params;
+  params.has_associativity = true;
+  params.associativity = rules::AssociativityLeft;
+  params.has_precedence = true;
+  params.precedence = precedence;
+  return metadata(rule, params);
 }
 
 rule_ptr prec_right(const rule_ptr &rule) {
-  return metadata(rule, { { rules::ASSOCIATIVITY, rules::AssociativityRight } });
+  MetadataParams params;
+  params.has_associativity = true;
+  params.associativity = rules::AssociativityRight;
+  return metadata(rule, params);
 }
 
 rule_ptr prec_right(int precedence, const rule_ptr &rule) {
-  return metadata(rule, { { rules::PRECEDENCE, precedence },
-                          { rules::ASSOCIATIVITY, rules::AssociativityRight } });
+  MetadataParams params;
+  params.has_associativity = true;
+  params.associativity = rules::AssociativityRight;
+  params.has_precedence = true;
+  params.precedence = precedence;
+  return metadata(rule, params);
 }
 
 rule_ptr prec(int precedence, const rule_ptr &rule) {
-  return metadata(rule, { { rules::PRECEDENCE, precedence } });
+  MetadataParams params;
+  params.has_precedence = true;
+  params.precedence = precedence;
+  return metadata(rule, params);
 }
 
 rule_ptr token(const rule_ptr &rule) {
-  return metadata(rule, { { rules::IS_TOKEN, 1 } });
+  MetadataParams params;
+  params.is_token = true;
+  return metadata(rule, params);
 }
 
 }  // namespace tree_sitter

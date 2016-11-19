@@ -25,14 +25,10 @@ using std::vector;
 using rules::CharacterSet;
 using rules::Symbol;
 using rules::Blank;
-using rules::MetadataKey;
 using rules::Choice;
 using rules::Seq;
 using rules::Repeat;
 using rules::Metadata;
-using rules::PRECEDENCE;
-using rules::IS_ACTIVE;
-using rules::MAIN_TOKEN;
 typedef LexItemSet::Transition Transition;
 typedef LexItemSet::TransitionMap TransitionMap;
 
@@ -141,16 +137,16 @@ class TransitionBuilder : public rules::RuleFn<void> {
   }
 
   void apply_to(const Metadata *metadata) {
-    bool has_active_precedence = metadata->value_for(IS_ACTIVE).second;
+    bool has_active_precedence = metadata->params.is_active;
     if (has_active_precedence)
-      precedence_stack->push_back(metadata->value_for(PRECEDENCE).first);
+      precedence_stack->push_back(metadata->params.precedence);
 
-    if (metadata->value_for(MAIN_TOKEN).second)
+    if (metadata->params.is_main_token)
       in_main_token = true;
 
-    auto metadata_value = metadata->value;
-    if (metadata_value.count(PRECEDENCE))
-      metadata_value.insert({ IS_ACTIVE, true });
+    rules::MetadataParams params = metadata->params;
+    if (params.has_precedence)
+      params.is_active = true;
 
     TransitionMap content_transitions;
     TransitionBuilder(&content_transitions, this).apply(metadata->rule);
@@ -158,8 +154,8 @@ class TransitionBuilder : public rules::RuleFn<void> {
     for (const auto &pair : content_transitions) {
       add_transition(
         transitions, pair.first,
-        transform_transition(pair.second, [&metadata_value](rule_ptr rule) {
-          return Metadata::build(rule, metadata_value);
+        transform_transition(pair.second, [&params](rule_ptr rule) {
+          return Metadata::build(rule, params);
         }));
     }
 

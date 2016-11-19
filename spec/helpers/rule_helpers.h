@@ -8,7 +8,7 @@
 #include "compiler/variable.h"
 
 namespace tree_sitter {
-  rule_ptr metadata(rule_ptr, std::map<rules::MetadataKey, int>);
+  rule_ptr metadata(rule_ptr, rules::MetadataParams params);
   rule_ptr character(const std::set<uint32_t> &);
   rule_ptr character(const std::set<uint32_t> &, bool sign);
   rule_ptr i_sym(size_t index);

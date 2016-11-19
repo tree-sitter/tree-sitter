@@ -37,7 +37,7 @@ rule_ptr IdentityRuleFn::apply_to(const Repeat *rule) {
 }
 
 rule_ptr IdentityRuleFn::apply_to(const Metadata *rule) {
-  return std::make_shared<Metadata>(apply(rule->rule), rule->value);
+  return Metadata::build(apply(rule->rule), rule->params);
 }
 
 }  // namespace rules

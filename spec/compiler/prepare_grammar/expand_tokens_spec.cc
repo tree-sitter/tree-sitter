@@ -9,6 +9,10 @@ using namespace rules;
 using prepare_grammar::expand_tokens;
 
 describe("expand_tokens", []() {
+  MetadataParams string_token_params;
+  string_token_params.is_string = true;
+  string_token_params.is_token = true;
+
   describe("string rules", [&]() {
     it("replaces strings with sequences of character sets", [&]() {
       LexicalGrammar grammar{{
@@ -29,10 +33,7 @@ describe("expand_tokens", []() {
             character({ 'x' }),
             character({ 'y' }),
             character({ 'z' }),
-          }), {
-            {IS_STRING, 1},
-            {IS_TOKEN, 1},
-          }),
+          }), string_token_params),
           i_sym(11),
         })),
       })));
@@ -50,10 +51,7 @@ describe("expand_tokens", []() {
           character({ 945 }),
           character({ ' ' }),
           character({ 946 }),
-        }), {
-          {IS_STRING, 1},
-          {IS_TOKEN, 1},
-        })),
+        }), string_token_params)),
       })));
     });
   });

@@ -44,11 +44,11 @@ class ExpandTokens : public rules::IdentityRuleFn {
       elements.push_back(rules::CharacterSet().include(el).copy());
     }
 
-    return make_shared<rules::Metadata>(
-      rules::Seq::build(elements),
-      std::map<rules::MetadataKey, int>({
-        { rules::IS_TOKEN, 1 }, { rules::IS_STRING, 1 },
-      }));
+    rules::MetadataParams params;
+    params.is_token = true;
+    params.is_string = true;
+
+    return rules::Metadata::build(rules::Seq::build(elements), params);
   }
 
   rule_ptr apply_to(const Pattern *rule) {
