@@ -1,5 +1,4 @@
-  #include "compiler/build_tables/build_parse_table.h"
-  #include <assert.h>
+#include "compiler/build_tables/build_parse_table.h"
 #include <algorithm>
 #include <map>
 #include <set>
@@ -172,6 +171,8 @@ class ParseTableBuilder {
         for (const Symbol::Index lookahead : *lookahead_symbols.entries) {
           ParseTableEntry &entry = parse_table.states[state_id].terminal_entries[lookahead];
 
+          // Only add the highest-precedence Reduce actions to the parse table.
+          // If other lower-precedence actions are possible, ignore them.
           if (entry.actions.empty()) {
             parse_table.add_terminal_action(state_id, lookahead, action);
           } else {
@@ -185,9 +186,10 @@ class ParseTableBuilder {
                   fragile_productions.insert(old_action.production);
                 entry.actions.clear();
                 entry.actions.push_back(action);
+                lookaheads_with_conflicts.erase(lookahead);
               } else if (precedence == existing_precedence) {
-                lookaheads_with_conflicts.insert(lookahead);
                 entry.actions.push_back(action);
+                lookaheads_with_conflicts.insert(lookahead);
               } else {
                 fragile_productions.insert(item.production);
               }
@@ -209,16 +211,18 @@ class ParseTableBuilder {
       }
     }
 
+    // Add a Shift action for each possible successor state. Shift actions for
+    // terminal lookaheads can conflict with Reduce actions added previously.
     for (auto &pair : terminal_successors) {
       Symbol::Index lookahead = pair.first;
       ParseItemSet &next_item_set = pair.second;
       ParseStateId next_state_id = add_parse_state(next_item_set);
-      bool had_existing_action = !parse_table.states[state_id].terminal_entries[lookahead].actions.empty();
+      ParseState &state = parse_table.states[state_id];
+      bool had_existing_action = !state.terminal_entries[lookahead].actions.empty();
       parse_table.add_terminal_action(state_id, lookahead, ParseAction::Shift(next_state_id));
       if (!allow_any_conflict) {
-        if (had_existing_action) {
+        if (had_existing_action)
           lookaheads_with_conflicts.insert(lookahead);
-        }
         recovery_states[Symbol(lookahead, true)].add(next_item_set);
       }
     }
@@ -229,7 +233,6 @@ class ParseTableBuilder {
       ParseItemSet &next_item_set = pair.second;
       ParseStateId next_state = add_parse_state(next_item_set);
       parse_table.set_nonterminal_action(state_id, lookahead, next_state);
-
       if (!allow_any_conflict)
         recovery_states[Symbol(lookahead, false)].add(next_item_set);
     }
@@ -331,7 +334,7 @@ class ParseTableBuilder {
     vector<ParseStateId> new_state_ids(parse_table.states.size());
     size_t deleted_state_count = 0;
     auto deleted_state_iter = deleted_states.begin();
-    for (size_t i = 0; i < new_state_ids.size(); i++) {
+    for (ParseStateId i = 0; i < new_state_ids.size(); i++) {
       while (deleted_state_iter != deleted_states.end() && *deleted_state_iter < i) {
         deleted_state_count++;
         deleted_state_iter++;

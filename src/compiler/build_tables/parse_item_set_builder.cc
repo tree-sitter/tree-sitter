@@ -50,9 +50,9 @@ ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
     first_sets.insert({symbol, first_set});
   }
 
-  for (int i = 0; i < lexical_grammar.variables.size(); i++) {
+  for (size_t i = 0; i < lexical_grammar.variables.size(); i++) {
     Symbol symbol(i, true);
-    first_sets.insert({symbol, LookaheadSet({ i })});
+    first_sets.insert({symbol, LookaheadSet({ static_cast<Symbol::Index>(i) })});
   }
 }
 

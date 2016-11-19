@@ -18,8 +18,8 @@ ParseAction::ParseAction(ParseActionType type, ParseStateId state_index,
     : type(type),
       extra(false),
       fragile(false),
-      symbol(symbol),
       state_index(state_index),
+      symbol(symbol),
       consumed_symbol_count(consumed_symbol_count),
       production(production) {}
 
@@ -27,8 +27,8 @@ ParseAction::ParseAction()
     : type(ParseActionTypeError),
       extra(false),
       fragile(false),
-      symbol(Symbol(-1)),
       state_index(-1),
+      symbol(Symbol(-1)),
       consumed_symbol_count(0),
       production(nullptr) {}
 
