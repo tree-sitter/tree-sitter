@@ -20,9 +20,9 @@ using std::make_shared;
 using rules::Symbol;
 using rules::NONE;
 
-static map<Symbol, LookaheadSet> build_first_sets(const SyntaxGrammar &grammar,
-                                                  const LexicalGrammar &lexical_grammar) {
-  map<Symbol, LookaheadSet> result;
+ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
+                                         const LexicalGrammar &lexical_grammar) :
+  grammar{&grammar} {
   vector<Symbol> symbol_stack;
   set<Symbol> processed_symbols;
 
@@ -47,20 +47,13 @@ static map<Symbol, LookaheadSet> build_first_sets(const SyntaxGrammar &grammar,
       }
     }
 
-    result.insert({symbol, first_set});
+    first_sets.insert({symbol, first_set});
   }
 
-  for (int i = 0; i < lexical_grammar.variables.size(); i++) {
+  for (size_t i = 0; i < lexical_grammar.variables.size(); i++) {
     Symbol symbol(i, true);
-    result.insert({symbol, LookaheadSet({ i })});
+    first_sets.insert({symbol, LookaheadSet({ static_cast<Symbol::Index>(i) })});
   }
-
-  return result;
-}
-
-ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
-                                         const LexicalGrammar &lexical_grammar) :
-    grammar{&grammar}, first_sets{build_first_sets(grammar, lexical_grammar)} {
 }
 
 void ParseItemSetBuilder::apply_transitive_closure(ParseItemSet *item_set) {
@@ -109,7 +102,7 @@ void ParseItemSetBuilder::apply_transitive_closure(ParseItemSet *item_set) {
   }
 }
 
-LookaheadSet ParseItemSetBuilder::get_first_set(rules::Symbol &symbol) const {
+LookaheadSet ParseItemSetBuilder::get_first_set(const rules::Symbol &symbol) const {
   return first_sets.find(symbol)->second;
 }
 

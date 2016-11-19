@@ -10,6 +10,7 @@ namespace prepare_grammar {
 
 struct InitialSyntaxGrammar;
 
+SyntaxVariable flatten_rule(const Variable &variable);
 SyntaxGrammar flatten_grammar(const InitialSyntaxGrammar &);
 
 }  // namespace prepare_grammar

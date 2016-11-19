@@ -12,6 +12,7 @@ using std::pair;
 using std::string;
 using std::to_string;
 using rules::Symbol;
+using rules::Associativity;
 using util::hash_combine;
 
 ParseItem::ParseItem() : variable_index(-1), production(nullptr), step_index(0) {}
@@ -43,26 +44,32 @@ Symbol ParseItem::lhs() const {
   return Symbol(variable_index);
 }
 
-ParseItem::CompletionStatus ParseItem::completion_status() const {
-  CompletionStatus result = { false, 0, rules::AssociativityNone };
-  if (step_index == production->size()) {
-    result.is_done = true;
-    if (step_index > 0) {
-      const ProductionStep &last_step = production->at(step_index - 1);
-      result.precedence = last_step.precedence;
-      result.associativity = last_step.associativity;
-    }
-  }
-  return result;
+bool ParseItem::is_done() const {
+  return step_index >= production->size();
 }
 
 int ParseItem::precedence() const {
-  if (production->empty())
-    return 0;
-  else if (completion_status().is_done)
-    return production->back().precedence;
-  else
+  if (is_done()) {
+    if (production->empty()) {
+      return 0;
+    } else {
+      return production->back().precedence;
+    }
+  } else {
     return production->at(step_index).precedence;
+  }
+}
+
+rules::Associativity ParseItem::associativity() const {
+  if (is_done()) {
+    if (production->empty()) {
+      return rules::AssociativityNone;
+    } else {
+      return production->back().associativity;
+    }
+  } else {
+    return production->at(step_index).associativity;
+  }
 }
 
 Symbol ParseItem::next_symbol() const {
@@ -70,15 +77,6 @@ Symbol ParseItem::next_symbol() const {
     return rules::NONE();
   else
     return production->at(step_index).symbol;
-}
-
-rules::Associativity ParseItem::associativity() const {
-  if (production->empty())
-    return rules::AssociativityNone;
-  else if (completion_status().is_done)
-    return production->back().associativity;
-  else
-    return production->at(step_index).associativity;
 }
 
 ParseItemSet::ParseItemSet() {}
@@ -107,21 +105,33 @@ size_t ParseItemSet::unfinished_item_signature() const {
   return result;
 }
 
-ParseItemSet::TransitionMap ParseItemSet::transitions() const {
-  ParseItemSet::TransitionMap result;
+ParseItemSet::ActionMap ParseItemSet::actions() const {
+  ParseItemSet::ActionMap result;
+
   for (const auto &pair : entries) {
     const ParseItem &item = pair.first;
     const LookaheadSet &lookahead_symbols = pair.second;
-    if (item.step_index == item.production->size())
-      continue;
 
-    size_t step = item.step_index + 1;
-    Symbol symbol = item.production->at(item.step_index).symbol;
-    int precedence = item.production->at(item.step_index).precedence;
-    ParseItem new_item(item.lhs(), *item.production, step);
+    if (item.step_index == item.production->size()) {
+      int precedence = item.precedence();
+      for (const Symbol::Index lookahead : *lookahead_symbols.entries) {
+        Action &action = result.terminal_actions[lookahead];
+        if (precedence > action.completion_precedence) {
+          action.completions.assign({ &item });
+        } else if (precedence == action.completion_precedence) {
+          action.completions.push_back({ &item });
+        }
+      }
+    } else {
+      Symbol symbol = item.production->at(item.step_index).symbol;
+      ParseItem new_item(item.lhs(), *item.production, item.step_index + 1);
 
-    result[symbol].first.entries[new_item] = lookahead_symbols;
-    result[symbol].second.add(precedence);
+      if (symbol.is_token) {
+        result.terminal_actions[symbol.index].continuation.entries[new_item] = lookahead_symbols;
+      } else {
+        result.nonterminal_continuations[symbol.index].entries[new_item] = lookahead_symbols;
+      }
+    }
   }
 
   return result;

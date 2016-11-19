@@ -108,7 +108,7 @@ class CCodeGenerator {
 
  private:
   void add_includes() {
-    add("#include \"tree_sitter/parser.h\"");
+    add("#include <tree_sitter/parser.h>");
     line();
   }
 

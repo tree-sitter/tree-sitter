@@ -21,7 +21,6 @@
         'src/compiler/build_tables/lookahead_set.cc',
         'src/compiler/build_tables/parse_item.cc',
         'src/compiler/build_tables/parse_item_set_builder.cc',
-        'src/compiler/build_tables/parse_conflict_manager.cc',
         'src/compiler/build_tables/rule_can_be_blank.cc',
         'src/compiler/compile.cc',
         'src/compiler/generate_code/c_code.cc',

@@ -1,6 +1,26 @@
 #include "spec_helper.h"
 #include "runtime/alloc.h"
 #include "helpers/load_language.h"
+#include "compiler/util/string_helpers.h"
+#include <map>
+
+static string dedent(string input) {
+  size_t indent_level = input.find_first_not_of("\n ") - input.find_first_not_of("\n");
+  string whitespace = "\n" + string(indent_level, ' ');
+  util::str_replace(&input, whitespace, "\n");
+  return input.substr(
+    input.find_first_not_of("\n "),
+    input.find_last_not_of("\n ") + 1
+  );
+}
+
+static string fill_template(string input, map<string, string> parameters) {
+  string result = input;
+  for (const auto &pair : parameters) {
+    util::str_replace(&result, "{{" + pair.first + "}}", pair.second);
+  }
+  return result;
+}
 
 START_TEST
 
@@ -22,6 +42,290 @@ describe("compile_grammar", []() {
     ts_free(node_string);
   };
 
+  describe("conflicts", [&]() {
+    it("can resolve shift/reduce conflicts using associativities", [&]() {
+      string grammar_template = R"JSON({
+        "name": "associativity_example",
+
+        "rules": {
+          "expression": {
+            "type": "CHOICE",
+            "members": [
+              {"type": "SYMBOL", "name": "math_operation"},
+              {"type": "SYMBOL", "name": "identifier"}
+            ]
+          },
+
+          "math_operation": {
+            "type": "{{math_operation_prec_type}}",
+            "value": 0,
+            "content": {
+              "type": "SEQ",
+              "members": [
+                {"type": "SYMBOL", "name": "expression"},
+                {"type": "STRING", "value": "+"},
+                {"type": "SYMBOL", "name": "expression"}
+              ]
+            }
+          },
+
+          "identifier": {
+            "type": "PATTERN",
+            "value": "[a-zA-Z]+"
+          }
+        }
+      })JSON";
+
+      // Ambiguity, which '+' applies first?
+      ts_document_set_input_string(document, "x+y+z");
+
+      TSCompileResult result = ts_compile_grammar(fill_template(grammar_template, {
+        {"math_operation_prec_type", "PREC"}
+      }).c_str());
+
+      AssertThat(result.error_message, Equals(dedent(R"MESSAGE(
+        Unresolved conflict for symbol sequence:
+
+          expression  '+'  expression  •  '+'  …
+
+        Possible interpretations:
+
+          1:  (math_operation  expression  '+'  expression)  •  '+'  …
+          2:  expression  '+'  (math_operation  expression  •  '+'  expression)
+
+        Possible resolutions:
+
+          1:  Specify a left or right associativity in `math_operation`
+          2:  Add a conflict for these rules: `math_operation`
+      )MESSAGE")));
+
+      result = ts_compile_grammar(fill_template(grammar_template, {
+        {"math_operation_prec_type", "PREC_LEFT"}
+      }).c_str());
+
+      ts_document_set_language(document, load_compile_result("associativity_example", result));
+      ts_document_parse(document);
+      assert_root_node("(expression (math_operation "
+        "(expression (math_operation (expression (identifier)) (expression (identifier)))) "
+        "(expression (identifier))))");
+
+      result = ts_compile_grammar(fill_template(grammar_template, {
+        {"math_operation_prec_type", "PREC_RIGHT"}
+      }).c_str());
+
+      ts_document_set_language(document, load_compile_result("associativity_example", result));
+      ts_document_parse(document);
+      assert_root_node("(expression (math_operation "
+        "(expression (identifier)) "
+        "(expression (math_operation (expression (identifier)) (expression (identifier))))))");
+    });
+
+    it("can resolve shift/reduce conflicts involving single-child rules using precedence", [&]() {
+      string grammar_template = R"JSON({
+        "name": "associativity_example",
+
+        "extras": [
+          {"type": "PATTERN", "value": "\\s"}
+        ],
+
+        "rules": {
+          "expression": {
+            "type": "CHOICE",
+            "members": [
+              {"type": "SYMBOL", "name": "function_call"},
+              {"type": "SYMBOL", "name": "identifier"}
+            ]
+          },
+
+          "function_call": {
+            "type": "PREC_RIGHT",
+            "value": {{function_call_precedence}},
+            "content": {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SEQ",
+                  "members": [
+                    {"type": "SYMBOL", "name": "identifier"},
+                    {"type": "SYMBOL", "name": "expression"}
+                  ]
+                },
+                {
+                  "type": "SEQ",
+                  "members": [
+                    {"type": "SYMBOL", "name": "identifier"},
+                    {"type": "SYMBOL", "name": "block"}
+                  ]
+                },
+                {
+                  "type": "SEQ",
+                  "members": [
+                    {"type": "SYMBOL", "name": "identifier"},
+                    {"type": "SYMBOL", "name": "expression"},
+                    {"type": "SYMBOL", "name": "block"}
+                  ]
+                }
+              ]
+            }
+          },
+
+          "block": {
+            "type": "SEQ",
+            "members": [
+              {"type": "STRING", "value": "{"},
+              {"type": "SYMBOL", "name": "expression"},
+              {"type": "STRING", "value": "}"}
+            ]
+          },
+
+          "identifier": {
+            "type": "PATTERN",
+            "value": "[a-zA-Z]+"
+          }
+        }
+      })JSON";
+
+      // Ambiguity: is the trailing block associated with `bar` or `foo`?
+      ts_document_set_input_string(document, "foo bar { baz }");
+
+      TSCompileResult result = ts_compile_grammar(fill_template(grammar_template, {
+        {"function_call_precedence", "0"}
+      }).c_str());
+
+      AssertThat(result.error_message, Equals(dedent(R"MESSAGE(
+        Unresolved conflict for symbol sequence:
+
+          identifier  •  '{'  …
+
+        Possible interpretations:
+
+          1:  (expression  identifier)  •  '{'  …
+          2:  (function_call  identifier  •  block)
+
+        Possible resolutions:
+
+          1:  Specify a higher precedence in `function_call` than in the other rules.
+          2:  Specify a higher precedence in `expression` than in the other rules.
+          3:  Specify a left or right associativity in `expression`
+          4:  Add a conflict for these rules: `expression` `function_call`
+      )MESSAGE")));
+
+      // Giving function calls lower precedence than expressions causes `bar`
+      // to be treated as an expression passed to `foo`, not as a function
+      // that's being called with a block.
+      result = ts_compile_grammar(fill_template(grammar_template, {
+        {"function_call_precedence", "-1"}
+      }).c_str());
+
+      AssertThat(result.error_message, IsNull());
+      ts_document_set_language(document, load_compile_result("associativity_example", result));
+      ts_document_parse(document);
+      assert_root_node("(expression (function_call "
+        "(identifier) "
+        "(expression (identifier)) "
+        "(block (expression (identifier)))))");
+
+      // Giving function calls higher precedence than expressions causes `bar`
+      // to be treated as a function that's being called with a block, not as
+      // an expression passed to `foo`.
+      result = ts_compile_grammar(fill_template(grammar_template, {
+        {"function_call_precedence", "1"}
+      }).c_str());
+
+      AssertThat(result.error_message, IsNull());
+      ts_document_set_language(document, load_compile_result("associativity_example", result));
+      ts_document_set_input_string(document, "foo bar { baz }");
+      ts_document_parse(document);
+      assert_root_node("(expression (function_call "
+        "(identifier) "
+        "(expression (function_call "
+          "(identifier) "
+          "(block (expression (identifier)))))))");
+    });
+
+    it("does not allow conflicting precedences", [&]() {
+      string grammar_template = R"JSON({
+        "name": "conflicting_precedence_example",
+
+        "rules": {
+          "expression": {
+            "type": "CHOICE",
+            "members": [
+              {"type": "SYMBOL", "name": "sum"},
+              {"type": "SYMBOL", "name": "product"},
+              {"type": "SYMBOL", "name": "other_thing"}
+            ]
+          },
+
+          "sum": {
+            "type": "PREC_LEFT",
+            "value": 0,
+            "content": {
+              "type": "SEQ",
+              "members": [
+                {"type": "SYMBOL", "name": "expression"},
+                {"type": "STRING", "value": "+"},
+                {"type": "SYMBOL", "name": "expression"}
+              ]
+            }
+          },
+
+          "product": {
+            "type": "PREC_LEFT",
+            "value": 1,
+            "content": {
+              "type": "SEQ",
+              "members": [
+                {"type": "SYMBOL", "name": "expression"},
+                {"type": "STRING", "value": "*"},
+                {"type": "SYMBOL", "name": "expression"}
+              ]
+            }
+          },
+
+          "other_thing": {
+            "type": "PREC_LEFT",
+            "value": -1,
+            "content": {
+              "type": "SEQ",
+              "members": [
+                {"type": "SYMBOL", "name": "expression"},
+                {"type": "STRING", "value": "*"},
+                {"type": "STRING", "value": "*"}
+              ]
+            }
+          },
+
+          "identifier": {
+            "type": "PATTERN",
+            "value": "[a-zA-Z]+"
+          }
+        }
+      })JSON";
+
+      TSCompileResult result = ts_compile_grammar(fill_template(grammar_template, {
+      }).c_str());
+
+      AssertThat(result.error_message, Equals(dedent(R"MESSAGE(
+        Unresolved conflict for symbol sequence:
+
+          expression  '+'  expression  •  '*'  …
+
+        Possible interpretations:
+
+          1:  (sum  expression  '+'  expression)  •  '*'  …
+          2:  expression  '+'  (product  expression  •  '*'  expression)
+          3:  expression  '+'  (other_thing  expression  •  '*'  '*')
+
+        Possible resolutions:
+
+          1:  Specify a higher precedence in `product` and `other_thing` than in the other rules.
+          2:  Specify a higher precedence in `sum` than in the other rules.
+          3:  Add a conflict for these rules: `sum` `product` `other_thing`
+      )MESSAGE")));
+    });
+  });
+
   describe("when the grammar's start symbol is a token", [&]() {
     it("parses the token", [&]() {
       TSCompileResult result = ts_compile_grammar(R"JSON(
@@ -33,7 +337,7 @@ describe("compile_grammar", []() {
         }
       )JSON");
 
-      ts_document_set_language(document, load_language("one_token_language", result));
+      ts_document_set_language(document, load_compile_result("one_token_language", result));
 
       ts_document_set_input_string(document, "the-value");
       ts_document_parse(document);
@@ -52,7 +356,7 @@ describe("compile_grammar", []() {
         }
       )JSON");
 
-      ts_document_set_language(document, load_language("blank_language", result));
+      ts_document_set_language(document, load_compile_result("blank_language", result));
 
       ts_document_set_input_string(document, "");
       ts_document_parse(document);
@@ -79,7 +383,7 @@ describe("compile_grammar", []() {
         }
       )JSON");
 
-      ts_document_set_language(document, load_language("escaped_char_language", result));
+      ts_document_set_language(document, load_compile_result("escaped_char_language", result));
 
       ts_document_set_input_string(document, "1234");
       ts_document_parse(document);
@@ -167,7 +471,7 @@ describe("compile_grammar", []() {
         }
       )JSON");
 
-      const TSLanguage *language = load_language("arithmetic", result);
+      const TSLanguage *language = load_compile_result("arithmetic", result);
 
       ts_document_set_language(document, language);
       ts_document_set_input_string(document, "a + b * c");

@@ -8,6 +8,7 @@
 #include <string>
 #include <sys/stat.h>
 #include <fstream>
+#include <stdlib.h>
 #include "tree_sitter/compiler.h"
 
 using std::map;
@@ -18,6 +19,7 @@ using std::istreambuf_iterator;
 
 map<string, const TSLanguage *> loaded_languages;
 int libcompiler_mtime = -1;
+int compile_result_count = 0;
 
 const char *libcompiler_path =
 #if defined(__linux)
@@ -63,24 +65,17 @@ static int get_modified_time(const string &path) {
   return file_stat.st_mtime;
 }
 
-const TSLanguage *load_language(const string &name, const string &code, int timestamp) {
-  mkdir("out/tmp", 0777);
-
-  string pwd(getenv("PWD"));
-  string language_function_name = "ts_language_" + name;
-  string header_dir = pwd + "/include";
-  string source_filename = pwd + "/out/tmp/" + name + ".c";
-  string obj_filename = source_filename + ".o";
-  string lib_filename = source_filename + ".so";
-
-  int lib_mtime = get_modified_time(lib_filename);
+const TSLanguage *load_language(const string &source_filename,
+                                const string &lib_filename,
+                                const string &language_name) {
+  string language_function_name = "ts_language_" + language_name;
+  string header_dir = getenv("PWD") + string("/include");
+  int source_mtime = get_modified_time(source_filename);
   int header_mtime = get_modified_time(header_dir + "/tree_sitter/parser.h");
-  if (!timestamp || !header_mtime || lib_mtime < timestamp || lib_mtime < header_mtime) {
-    ofstream source_file;
-    source_file.open(source_filename);
-    source_file << code;
-    source_file.close();
+  int lib_mtime = get_modified_time(lib_filename);
 
+  if (!header_mtime || lib_mtime < header_mtime || lib_mtime < source_mtime) {
+    string obj_filename = lib_filename + ".o";
     const char *compiler_name = getenv("CC");
     if (!compiler_name) {
       compiler_name = "gcc";
@@ -135,13 +130,23 @@ const TSLanguage *load_language(const string &name, const string &code, int time
   return language_fn();
 }
 
-const TSLanguage *load_language(const string &name, const TSCompileResult &compile_result) {
+const TSLanguage *load_compile_result(const string &name, const TSCompileResult &compile_result) {
   if (compile_result.error_type != TSCompileErrorTypeNone) {
     Assert::Failure(string("Compilation failed ") + compile_result.error_message);
     return nullptr;
   }
 
-  const TSLanguage *language = load_language(name, compile_result.code, 0);
+  mkdir("out/tmp", 0777);
+  string source_filename = "out/tmp/compile-result-" + to_string(compile_result_count) + ".c";
+  string lib_filename = source_filename + ".so";
+  compile_result_count++;
+
+  ofstream source_file;
+  source_file.open(source_filename);
+  source_file << compile_result.code;
+  source_file.close();
+
+  const TSLanguage *language = load_language(source_filename, lib_filename, name);
   free(compile_result.code);
   return language;
 }
@@ -149,12 +154,6 @@ const TSLanguage *load_language(const string &name, const TSCompileResult &compi
 const TSLanguage *get_test_language(const string &language_name) {
   if (loaded_languages[language_name])
     return loaded_languages[language_name];
-
-  if (libcompiler_mtime == -1) {
-    libcompiler_mtime = get_modified_time(libcompiler_path);
-    if (!libcompiler_mtime)
-      return nullptr;
-  }
 
   string language_dir = string("spec/fixtures/grammars/") + language_name;
   string grammar_filename = language_dir + "/src/grammar.json";
@@ -164,19 +163,21 @@ const TSLanguage *get_test_language(const string &language_name) {
   if (!grammar_mtime)
     return nullptr;
 
+  if (libcompiler_mtime == -1) {
+    libcompiler_mtime = get_modified_time(libcompiler_path);
+    if (!libcompiler_mtime)
+      return nullptr;
+  }
+
   int parser_mtime = get_modified_time(parser_filename);
 
-  int input_mtime = (grammar_mtime > libcompiler_mtime) ?
-    grammar_mtime :
-    libcompiler_mtime;
-
-  string parser_code;
-  if (!parser_mtime || parser_mtime < input_mtime) {
+  if (parser_mtime < grammar_mtime || parser_mtime < libcompiler_mtime) {
     printf("\n" "Regenerating the %s parser...\n", language_name.c_str());
 
     ifstream grammar_file(grammar_filename);
     istreambuf_iterator<char> grammar_file_iterator(grammar_file), end_iterator;
-    std::string grammar_json(grammar_file_iterator, end_iterator);
+    string grammar_json(grammar_file_iterator, end_iterator);
+    grammar_file.close();
 
     TSCompileResult result = ts_compile_grammar(grammar_json.c_str());
     if (result.error_type != TSCompileErrorTypeNone) {
@@ -186,17 +187,12 @@ const TSLanguage *get_test_language(const string &language_name) {
 
     ofstream parser_file(parser_filename);
     parser_file << result.code;
-    parser_code = result.code;
-
-    grammar_file.close();
     parser_file.close();
-  } else {
-    ifstream parser_file(parser_filename);
-    istreambuf_iterator<char> grammar_file_iterator(parser_file), end_iterator;
-    parser_code.assign(grammar_file_iterator, end_iterator);
   }
 
-  const TSLanguage *language = load_language(language_name, parser_code, input_mtime);
+  mkdir("out/tmp", 0777);
+  string lib_filename = "out/tmp/" + language_name + ".so";
+  const TSLanguage *language = load_language(parser_filename, lib_filename, language_name);
   loaded_languages[language_name] = language;
   return language;
 };
