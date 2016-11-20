@@ -24,8 +24,11 @@ Tree *ts_tree_make_leaf(TSSymbol sym, Length padding, Length size,
     .padding = padding,
     .visible = metadata.visible,
     .named = metadata.named,
-    .first_leaf.symbol = sym,
     .has_changes = false,
+    .first_leaf = {
+      .symbol = sym,
+      .lex_state = 0
+    }
   };
   return result;
 }

@@ -82,13 +82,17 @@ static void ts_lexer__advance(void *payload, TSStateId state, bool skip) {
 
 void ts_lexer_init(Lexer *self) {
   *self = (Lexer){
-    .data =
-      {
-        .advance = ts_lexer__advance, .lookahead = 0, .result_symbol = 0,
-      },
+    .data = {
+      .advance = ts_lexer__advance,
+      .lookahead = 0,
+      .result_symbol = 0,
+    },
     .chunk = NULL,
     .chunk_start = 0,
-    .logger = {},
+    .logger = {
+      .payload = NULL,
+      .log = NULL
+    },
   };
   ts_lexer_reset(self, length_zero());
 }

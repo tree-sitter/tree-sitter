@@ -13,7 +13,7 @@
 
 namespace tree_sitter {
 
-typedef int64_t ParseStateId;
+typedef size_t ParseStateId;
 
 enum ParseActionType {
   ParseActionTypeError,

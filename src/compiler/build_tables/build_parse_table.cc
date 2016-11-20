@@ -321,7 +321,7 @@ class ParseTableBuilder {
         if (state_replacements.count(i)) {
           state_indices_by_signature[state.shift_actions_signature].erase(i);
         } else {
-          state.each_referenced_state([&state_replacements](int64_t *state_index) {
+          state.each_referenced_state([&state_replacements](ParseStateId *state_index) {
             auto replacement = state_replacements.find(*state_index);
             if (replacement != state_replacements.end()) {
               *state_index = replacement->second;
@@ -349,7 +349,7 @@ class ParseTableBuilder {
         iter = parse_table.states.erase(iter);
       } else {
         ParseState &state = *iter;
-        state.each_referenced_state([&new_state_ids](int64_t *state_index) {
+        state.each_referenced_state([&new_state_ids](ParseStateId *state_index) {
           *state_index = new_state_ids[*state_index];
         });
         ++iter;
