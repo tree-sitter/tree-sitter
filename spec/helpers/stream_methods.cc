@@ -132,7 +132,11 @@ std::ostream &operator<<(std::ostream &stream, const ParseItemSet &item_set) {
 }
 
 std::ostream &operator<<(std::ostream &stream, const LookaheadSet &set) {
-  return stream << *set.entries;
+  if (set.entries.get()) {
+    return stream << *set.entries;
+  } else {
+    return stream << "{}";
+  }
 }
 
 }  // namespace build_tables
