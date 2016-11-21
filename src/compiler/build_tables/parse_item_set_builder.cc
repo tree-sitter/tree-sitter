@@ -21,11 +21,8 @@ using std::make_shared;
 using rules::Symbol;
 using rules::NONE;
 
-static Symbol::Index PROPAGATE = -5;
-
 ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
                                          const LexicalGrammar &lexical_grammar) {
-  vector<pair<ParseItem, LookaheadSet>> items_to_process;
   vector<Symbol> symbols_to_process;
   set<Symbol::Index> processed_non_terminals;
 
@@ -59,52 +56,75 @@ ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
     first_sets.insert({symbol, first_set});
   }
 
+  vector<ParseItemSetComponent> components_to_process;
+
   for (size_t i = 0, n = grammar.variables.size(); i < n; i++) {
     Symbol symbol(i);
-    ParseItemSet item_set;
+    map<ParseItem, pair<LookaheadSet, bool>> cache_entry;
 
-    items_to_process.clear();
+    components_to_process.clear();
     for (const Production &production : grammar.productions(symbol)) {
-      items_to_process.push_back({
+      components_to_process.push_back(ParseItemSetComponent{
         ParseItem(symbol, production, 0),
-        LookaheadSet({ PROPAGATE }),
+        LookaheadSet(),
+        true
       });
     }
 
-    while (!items_to_process.empty()) {
-      ParseItem item = items_to_process.back().first;
-      LookaheadSet lookaheads = items_to_process.back().second;
-      items_to_process.pop_back();
+    while (!components_to_process.empty()) {
+      ParseItemSetComponent component = components_to_process.back();
+      ParseItem &item = component.item;
+      LookaheadSet &lookaheads = component.lookaheads;
+      components_to_process.pop_back();
 
-      if (item_set.entries[item].insert_all(lookaheads)) {
+      bool component_is_new;
+      if (component.propagates_lookaheads) {
+        component_is_new = !cache_entry[item].second;
+        cache_entry[item].second = true;
+      } else {
+        component_is_new = cache_entry[item].first.insert_all(lookaheads);
+      }
+
+      if (component_is_new) {
         Symbol next_symbol = item.next_symbol();
         if (next_symbol.is_built_in() || next_symbol.is_token)
           continue;
 
         LookaheadSet next_lookaheads;
+        bool propagates_lookaheads;
         size_t next_step = item.step_index + 1;
         if (next_step == item.production->size()) {
           next_lookaheads = lookaheads;
+          propagates_lookaheads = component.propagates_lookaheads;
         } else {
           Symbol symbol_after_next = item.production->at(next_step).symbol;
           next_lookaheads = first_sets.find(symbol_after_next)->second;
+          propagates_lookaheads = false;
         }
 
         for (const Production &production : grammar.productions(next_symbol)) {
-          items_to_process.push_back({
+          components_to_process.push_back(ParseItemSetComponent{
             ParseItem(next_symbol, production, 0),
             next_lookaheads,
+            propagates_lookaheads
           });
         }
       }
     }
 
-    cached_item_sets.insert({symbol.index, item_set});
+    for (auto &pair : cache_entry) {
+      component_cache[symbol.index].push_back(ParseItemSetComponent{
+        pair.first,
+        pair.second.first,
+        pair.second.second
+      });
+    }
   }
 }
 
 void ParseItemSetBuilder::apply_transitive_closure(ParseItemSet *item_set) {
   item_set_buffer.clear();
+
   for (const auto &pair : item_set->entries) {
     const ParseItem &item = pair.first;
     const LookaheadSet &lookaheads = pair.second;
@@ -120,26 +140,17 @@ void ParseItemSetBuilder::apply_transitive_closure(ParseItemSet *item_set) {
         next_lookaheads = first_sets.find(symbol_after_next)->second;
       }
 
-      for (const auto &cached_pair : cached_item_sets[next_symbol.index].entries) {
-        const ParseItem &cached_item = cached_pair.first;
-        const LookaheadSet &cached_lookaheads = cached_pair.second;
-
-        LookaheadSet new_lookaheads;
-        for (auto entry : *cached_lookaheads.entries) {
-          if (entry == PROPAGATE) {
-            new_lookaheads.insert_all(next_lookaheads);
-          } else {
-            new_lookaheads.insert(entry);
-          }
+      for (const ParseItemSetComponent &component : component_cache[next_symbol.index]) {
+        item_set_buffer.push_back({component.item, component.lookaheads});
+        if (component.propagates_lookaheads) {
+          item_set_buffer.push_back({component.item, next_lookaheads});
         }
-
-        item_set_buffer.push_back({cached_item, new_lookaheads});
       }
     }
   }
 
-  for (const auto &pair : item_set_buffer) {
-    item_set->entries[pair.first].insert_all(pair.second);
+  for (const auto &buffer_entry : item_set_buffer) {
+    item_set->entries[buffer_entry.first].insert_all(buffer_entry.second);
   }
 }
 
