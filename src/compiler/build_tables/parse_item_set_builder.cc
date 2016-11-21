@@ -13,6 +13,7 @@ using std::vector;
 using std::set;
 using std::map;
 using std::get;
+using std::pair;
 using std::tuple;
 using std::make_tuple;
 using std::shared_ptr;
@@ -21,27 +22,32 @@ using rules::Symbol;
 using rules::NONE;
 
 ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
-                                         const LexicalGrammar &lexical_grammar) :
-  grammar{&grammar} {
-  vector<Symbol> symbol_stack;
-  set<Symbol> processed_symbols;
+                                         const LexicalGrammar &lexical_grammar) {
+  vector<Symbol> symbols_to_process;
+  set<Symbol::Index> processed_non_terminals;
 
-  for (size_t i = 0; i < grammar.variables.size(); i++) {
+  for (size_t i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
+    Symbol symbol(i, true);
+    first_sets.insert({symbol, LookaheadSet({ static_cast<Symbol::Index>(i) })});
+  }
+
+  for (size_t i = 0, n = grammar.variables.size(); i < n; i++) {
     Symbol symbol(i);
     LookaheadSet first_set;
 
-    processed_symbols.clear();
-    symbol_stack.clear();
-    symbol_stack.push_back(symbol);
-    while (!symbol_stack.empty()) {
-      Symbol current_symbol = symbol_stack.back();
-      symbol_stack.pop_back();
+    processed_non_terminals.clear();
+    symbols_to_process.clear();
+    symbols_to_process.push_back(symbol);
+    while (!symbols_to_process.empty()) {
+      Symbol current_symbol = symbols_to_process.back();
+      symbols_to_process.pop_back();
+
       if (current_symbol.is_token) {
         first_set.insert(current_symbol.index);
-      } else if (processed_symbols.insert(current_symbol).second) {
+      } else if (processed_non_terminals.insert(current_symbol.index).second) {
         for (const Production &production : grammar.productions(current_symbol)) {
           if (!production.empty()) {
-            symbol_stack.push_back(production[0].symbol);
+            symbols_to_process.push_back(production[0].symbol);
           }
         }
       }
@@ -50,55 +56,101 @@ ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
     first_sets.insert({symbol, first_set});
   }
 
-  for (size_t i = 0; i < lexical_grammar.variables.size(); i++) {
-    Symbol symbol(i, true);
-    first_sets.insert({symbol, LookaheadSet({ static_cast<Symbol::Index>(i) })});
+  vector<ParseItemSetComponent> components_to_process;
+
+  for (size_t i = 0, n = grammar.variables.size(); i < n; i++) {
+    Symbol symbol(i);
+    map<ParseItem, pair<LookaheadSet, bool>> cache_entry;
+
+    components_to_process.clear();
+    for (const Production &production : grammar.productions(symbol)) {
+      components_to_process.push_back(ParseItemSetComponent{
+        ParseItem(symbol, production, 0),
+        LookaheadSet(),
+        true
+      });
+    }
+
+    while (!components_to_process.empty()) {
+      ParseItemSetComponent component = components_to_process.back();
+      ParseItem &item = component.item;
+      LookaheadSet &lookaheads = component.lookaheads;
+      components_to_process.pop_back();
+
+      bool component_is_new;
+      if (component.propagates_lookaheads) {
+        component_is_new = !cache_entry[item].second;
+        cache_entry[item].second = true;
+      } else {
+        component_is_new = cache_entry[item].first.insert_all(lookaheads);
+      }
+
+      if (component_is_new) {
+        Symbol next_symbol = item.next_symbol();
+        if (next_symbol.is_built_in() || next_symbol.is_token)
+          continue;
+
+        LookaheadSet next_lookaheads;
+        bool propagates_lookaheads;
+        size_t next_step = item.step_index + 1;
+        if (next_step == item.production->size()) {
+          next_lookaheads = lookaheads;
+          propagates_lookaheads = component.propagates_lookaheads;
+        } else {
+          Symbol symbol_after_next = item.production->at(next_step).symbol;
+          next_lookaheads = first_sets.find(symbol_after_next)->second;
+          propagates_lookaheads = false;
+        }
+
+        for (const Production &production : grammar.productions(next_symbol)) {
+          components_to_process.push_back(ParseItemSetComponent{
+            ParseItem(next_symbol, production, 0),
+            next_lookaheads,
+            propagates_lookaheads
+          });
+        }
+      }
+    }
+
+    for (auto &pair : cache_entry) {
+      component_cache[symbol.index].push_back(ParseItemSetComponent{
+        pair.first,
+        pair.second.first,
+        pair.second.second
+      });
+    }
   }
 }
 
 void ParseItemSetBuilder::apply_transitive_closure(ParseItemSet *item_set) {
-  items_to_process.clear();
-  for (const auto &entry : item_set->entries) {
-    items_to_process.push_back(make_tuple(entry.first, entry.second, true));
+  item_set_buffer.clear();
+
+  for (const auto &pair : item_set->entries) {
+    const ParseItem &item = pair.first;
+    const LookaheadSet &lookaheads = pair.second;
+
+    const Symbol &next_symbol = item.next_symbol();
+    if (!next_symbol.is_token && !next_symbol.is_built_in()) {
+      LookaheadSet next_lookaheads;
+      size_t next_step = item.step_index + 1;
+      if (next_step == item.production->size()) {
+        next_lookaheads = lookaheads;
+      } else {
+        Symbol symbol_after_next = item.production->at(next_step).symbol;
+        next_lookaheads = first_sets.find(symbol_after_next)->second;
+      }
+
+      for (const ParseItemSetComponent &component : component_cache[next_symbol.index]) {
+        item_set_buffer.push_back({component.item, component.lookaheads});
+        if (component.propagates_lookaheads) {
+          item_set_buffer.push_back({component.item, next_lookaheads});
+        }
+      }
+    }
   }
 
-  while (!items_to_process.empty()) {
-    ParseItem item = get<0>(items_to_process.back());
-    LookaheadSet lookahead_symbols = get<1>(items_to_process.back());
-    bool from_original_set = get<2>(items_to_process.back());
-    items_to_process.pop_back();
-
-    // Add the parse-item and lookahead symbols to the item set.
-    // If they were already present, skip to the next item.
-    if (!from_original_set && !item_set->entries[item].insert_all(lookahead_symbols))
-      continue;
-
-    // If the next symbol in the production is not a non-terminal, skip to the
-    // next item.
-    Symbol next_symbol = item.next_symbol();
-    if (next_symbol == NONE() || next_symbol.is_token ||
-        next_symbol.is_built_in())
-      continue;
-
-    // If the next symbol is the last symbol in the item's production, then the
-    // lookahead symbols for the new items are the same as for the current item.
-    // Otherwise, they are the FOLLOW set of the symbol in this production.
-    LookaheadSet next_lookahead_symbols;
-    size_t next_step = item.step_index + 1;
-    if (next_step == item.production->size()) {
-      next_lookahead_symbols = lookahead_symbols;
-    } else {
-      Symbol symbol_after_next = item.production->at(next_step).symbol;
-      next_lookahead_symbols = first_sets.find(symbol_after_next)->second;
-    }
-
-    // Add each of the next symbol's productions to be processed recursively.
-    for (const Production &production : grammar->productions(next_symbol))
-      items_to_process.push_back(make_tuple(
-        ParseItem(next_symbol, production, 0),
-        next_lookahead_symbols,
-        false
-      ));
+  for (const auto &buffer_entry : item_set_buffer) {
+    item_set->entries[buffer_entry.first].insert_all(buffer_entry.second);
   }
 }
 

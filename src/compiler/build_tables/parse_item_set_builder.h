@@ -13,9 +13,15 @@ struct LexicalGrammar;
 namespace build_tables {
 
 class ParseItemSetBuilder {
-  const SyntaxGrammar *grammar;
+  struct ParseItemSetComponent {
+    ParseItem item;
+    LookaheadSet lookaheads;
+    bool propagates_lookaheads;
+  };
+
   std::map<rules::Symbol, LookaheadSet> first_sets;
-  std::vector<std::tuple<ParseItem, LookaheadSet, bool>> items_to_process;
+  std::map<rules::Symbol::Index, std::vector<ParseItemSetComponent>> component_cache;
+  std::vector<std::pair<ParseItem, LookaheadSet>> item_set_buffer;
 
  public:
   ParseItemSetBuilder(const SyntaxGrammar &, const LexicalGrammar &);
