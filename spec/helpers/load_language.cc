@@ -75,7 +75,6 @@ const TSLanguage *load_language(const string &source_filename,
   int lib_mtime = get_modified_time(lib_filename);
 
   if (!header_mtime || lib_mtime < header_mtime || lib_mtime < source_mtime) {
-    string obj_filename = lib_filename + ".o";
     const char *compiler_name = getenv("CC");
     if (!compiler_name) {
       compiler_name = "gcc";
@@ -83,30 +82,20 @@ const TSLanguage *load_language(const string &source_filename,
 
     const char *compile_argv[] = {
       compiler_name,
+      "-shared",
       "-x", "c",
       "-fPIC",
       "-g",
       "-I", header_dir.c_str(),
-      "-c", source_filename.c_str(),
-      "-o", obj_filename.c_str(),
+      "-o", lib_filename.c_str(),
+      source_filename.c_str(),
+      external_scanner_path.empty() ? NULL : external_scanner_path.c_str(),
       NULL
     };
-    string compile_error = run_cmd("gcc", compile_argv);
+
+    string compile_error = run_cmd(compiler_name, compile_argv);
     if (!compile_error.empty()) {
       AssertThat(string(compile_error), IsEmpty());
-      return nullptr;
-    }
-
-    const char *link_argv[] = {
-      compiler_name,
-      "-shared",
-      "-Wl", obj_filename.c_str(),
-      "-o", lib_filename.c_str(),
-      NULL
-    };
-    string link_error = run_cmd("gcc", link_argv);
-    if (!link_error.empty()) {
-      AssertThat(link_error, IsEmpty());
       return nullptr;
     }
   }
