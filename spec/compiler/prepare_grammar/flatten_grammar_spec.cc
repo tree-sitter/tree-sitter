@@ -36,19 +36,19 @@ describe("flatten_grammar", []() {
     AssertThat(result.type, Equals(VariableTypeNamed));
     AssertThat(result.productions, Equals(vector<Production>({
       Production({
-        {Symbol(1), 0, AssociativityNone},
-        {Symbol(2), 101, AssociativityLeft},
-        {Symbol(3), 102, AssociativityRight},
-        {Symbol(4), 101, AssociativityLeft},
-        {Symbol(6), 0, AssociativityNone},
-        {Symbol(7), 0, AssociativityNone},
+        {Symbol(1, Symbol::NonTerminal), 0, AssociativityNone},
+        {Symbol(2, Symbol::NonTerminal), 101, AssociativityLeft},
+        {Symbol(3, Symbol::NonTerminal), 102, AssociativityRight},
+        {Symbol(4, Symbol::NonTerminal), 101, AssociativityLeft},
+        {Symbol(6, Symbol::NonTerminal), 0, AssociativityNone},
+        {Symbol(7, Symbol::NonTerminal), 0, AssociativityNone},
       }),
       Production({
-        {Symbol(1), 0, AssociativityNone},
-        {Symbol(2), 101, AssociativityLeft},
-        {Symbol(5), 101, AssociativityLeft},
-        {Symbol(6), 0, AssociativityNone},
-        {Symbol(7), 0, AssociativityNone},
+        {Symbol(1, Symbol::NonTerminal), 0, AssociativityNone},
+        {Symbol(2, Symbol::NonTerminal), 101, AssociativityLeft},
+        {Symbol(5, Symbol::NonTerminal), 101, AssociativityLeft},
+        {Symbol(6, Symbol::NonTerminal), 0, AssociativityNone},
+        {Symbol(7, Symbol::NonTerminal), 0, AssociativityNone},
       })
     })))
   });
@@ -65,8 +65,8 @@ describe("flatten_grammar", []() {
 
     AssertThat(result.productions, Equals(vector<Production>({
       Production({
-        {Symbol(1), 101, AssociativityLeft},
-        {Symbol(2), 101, AssociativityLeft},
+        {Symbol(1, Symbol::NonTerminal), 101, AssociativityLeft},
+        {Symbol(2, Symbol::NonTerminal), 101, AssociativityLeft},
       })
     })))
 
@@ -80,7 +80,7 @@ describe("flatten_grammar", []() {
 
     AssertThat(result.productions, Equals(vector<Production>({
       Production({
-        {Symbol(1), 101, AssociativityLeft},
+        {Symbol(1, Symbol::NonTerminal), 101, AssociativityLeft},
       })
     })))
   });

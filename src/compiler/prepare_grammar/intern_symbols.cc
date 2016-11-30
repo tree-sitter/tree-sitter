@@ -7,6 +7,7 @@
 #include "compiler/rules/visitor.h"
 #include "compiler/rules/blank.h"
 #include "compiler/rules/named_symbol.h"
+#include "compiler/rules/external_token.h"
 #include "compiler/rules/symbol.h"
 
 namespace tree_sitter {
@@ -17,6 +18,7 @@ using std::vector;
 using std::set;
 using std::pair;
 using std::make_shared;
+using rules::Symbol;
 
 class InternSymbols : public rules::IdentityRuleFn {
   using rules::IdentityRuleFn::apply_to;
@@ -30,17 +32,34 @@ class InternSymbols : public rules::IdentityRuleFn {
     return result;
   }
 
+  rule_ptr apply_to(const rules::ExternalToken *rule) {
+    auto result = symbol_for_external_token(rule->name);
+    if (!result.get()) {
+      missing_external_token_name = rule->name;
+      return rules::Blank::build();
+    }
+    return result;
+  }
+
  public:
   std::shared_ptr<rules::Symbol> symbol_for_rule_name(string rule_name) {
     for (size_t i = 0; i < grammar.rules.size(); i++)
       if (grammar.rules[i].first == rule_name)
-        return make_shared<rules::Symbol>(i);
+        return make_shared<Symbol>(i, Symbol::NonTerminal);
+    return nullptr;
+  }
+
+  std::shared_ptr<rules::Symbol> symbol_for_external_token(string name) {
+    for (size_t i = 0; i < grammar.external_tokens.size(); i++)
+      if (grammar.external_tokens[i] == name)
+        return make_shared<rules::Symbol>(i, Symbol::External);
     return nullptr;
   }
 
   explicit InternSymbols(const Grammar &grammar) : grammar(grammar) {}
   const Grammar grammar;
   string missing_rule_name;
+  string missing_external_token_name;
 };
 
 CompileError missing_rule_error(string rule_name) {
@@ -48,14 +67,22 @@ CompileError missing_rule_error(string rule_name) {
                       "Undefined rule '" + rule_name + "'");
 }
 
+CompileError missing_external_token_error(string token_name) {
+  return CompileError(TSCompileErrorTypeUndefinedSymbol,
+                      "Undefined external token '" + token_name + "'");
+}
+
 pair<InternedGrammar, CompileError> intern_symbols(const Grammar &grammar) {
   InternedGrammar result;
+  result.external_tokens = grammar.external_tokens;
   InternSymbols interner(grammar);
 
   for (auto &pair : grammar.rules) {
     auto new_rule = interner.apply(pair.second);
     if (!interner.missing_rule_name.empty())
       return { result, missing_rule_error(interner.missing_rule_name) };
+    if (!interner.missing_external_token_name.empty())
+      return { result, missing_external_token_error(interner.missing_external_token_name) };
 
     result.variables.push_back(Variable(
       pair.first, pair.first[0] == '_' ? VariableTypeHidden : VariableTypeNamed,
@@ -66,6 +93,8 @@ pair<InternedGrammar, CompileError> intern_symbols(const Grammar &grammar) {
     auto new_rule = interner.apply(rule);
     if (!interner.missing_rule_name.empty())
       return { result, missing_rule_error(interner.missing_rule_name) };
+    if (!interner.missing_external_token_name.empty())
+      return { result, missing_external_token_error(interner.missing_external_token_name) };
     result.extra_tokens.push_back(new_rule);
   }
 

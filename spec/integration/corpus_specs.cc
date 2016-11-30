@@ -80,10 +80,10 @@ START_TEST
 
 describe("The Corpus", []() {
   vector<string> test_languages({
-    "javascript",
+    // "javascript",
     "json",
-    "c",
-    "cpp",
+    // "c",
+    // "cpp",
   });
 
   for (auto &language_name : test_languages) {

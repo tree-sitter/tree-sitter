@@ -507,6 +507,71 @@ describe("compile_grammar", []() {
     });
   });
 
+  describe("external scanners", [&]() {
+    it("can call out to arbitrary scanner functions during parsing", [&]() {
+      string grammar = R"JSON({
+        "name": "external_scanner_example",
+
+        "externals": [
+          "percent_string",
+          "percent_string_start",
+          "percent_string_end"
+        ],
+
+        "rules": {
+          "string": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "EXTERNAL_TOKEN",
+                "name": "percent_string"
+              },
+              {
+                "type": "SEQ",
+                "members": [
+                  {
+                    "type": "EXTERNAL_TOKEN",
+                    "name": "percent_string_start"
+                  },
+                  {
+                    "type": "SYMBOL",
+                    "name": "identifier"
+                  },
+                  {
+                    "type": "EXTERNAL_TOKEN",
+                    "name": "percent_string_end"
+                  }
+                ]
+              },
+            ]
+          },
+
+          "identifier": {
+            "type": "PATTERN",
+            "value": "\\a+"
+          }
+        }
+      })JSON";
+
+      TSCompileResult result = ts_compile_grammar(grammar.c_str());
+      AssertThat(result.error_message, IsNull());
+
+      ts_document_set_language(document, load_compile_result(
+        "external_scanner_example",
+        result,
+        "spec/fixtures/external_scanners/external_scan.c"
+      ));
+
+      ts_document_set_input_string(document, "%|hi|");
+      ts_document_parse(document);
+      assert_root_node("(string)");
+
+      ts_document_set_input_string(document, "%(1 #{two} three)");
+      ts_document_parse(document);
+      assert_root_node("(string (identifier))");
+    });
+  });
+
   describe("when the grammar's start symbol is a token", [&]() {
     it("parses the token", [&]() {
       TSCompileResult result = ts_compile_grammar(R"JSON(

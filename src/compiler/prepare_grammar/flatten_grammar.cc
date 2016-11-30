@@ -92,6 +92,7 @@ pair<SyntaxGrammar, CompileError> flatten_grammar(const InitialSyntaxGrammar &gr
   SyntaxGrammar result;
   result.expected_conflicts = grammar.expected_conflicts;
   result.extra_tokens = grammar.extra_tokens;
+  result.external_tokens = grammar.external_tokens;
 
   bool is_start = true;
   for (const Variable &variable : grammar.variables) {

@@ -15,6 +15,7 @@ struct InternedGrammar {
   std::vector<Variable> variables;
   std::vector<rule_ptr> extra_tokens;
   std::set<ConflictSet> expected_conflicts;
+  std::vector<std::string> external_tokens;
 };
 
 }  // namespace prepare_grammar

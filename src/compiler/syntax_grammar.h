@@ -33,11 +33,10 @@ struct SyntaxVariable {
 typedef std::set<rules::Symbol> ConflictSet;
 
 struct SyntaxGrammar {
-  const std::vector<Production> &productions(const rules::Symbol &) const;
-
   std::vector<SyntaxVariable> variables;
   std::set<rules::Symbol> extra_tokens;
   std::set<ConflictSet> expected_conflicts;
+  std::vector<std::string> external_tokens;
 };
 
 }  // namespace tree_sitter

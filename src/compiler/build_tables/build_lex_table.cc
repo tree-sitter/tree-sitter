@@ -64,7 +64,7 @@ class LexTableBuilder {
  private:
   void add_lex_state_for_parse_state(ParseState *parse_state) {
     parse_state->lex_state_id =
-      add_lex_state(item_set_for_tokens(parse_state->expected_inputs()));
+      add_lex_state(item_set_for_terminals(parse_state->terminal_entries));
   }
 
   LexStateId add_lex_state(const LexItemSet &item_set) {
@@ -112,24 +112,27 @@ class LexTableBuilder {
   void mark_fragile_tokens() {
     for (ParseState &state : parse_table->states) {
       for (auto &entry : state.terminal_entries) {
-        auto homonyms = conflict_manager.possible_homonyms.find(entry.first);
-        if (homonyms != conflict_manager.possible_homonyms.end())
-          for (Symbol::Index homonym : homonyms->second)
-            if (state.terminal_entries.count(homonym)) {
-              entry.second.reusable = false;
-              break;
-            }
+        Symbol symbol = entry.first;
+        if (symbol.is_token()) {
+          auto homonyms = conflict_manager.possible_homonyms.find(symbol.index);
+          if (homonyms != conflict_manager.possible_homonyms.end())
+            for (Symbol::Index homonym : homonyms->second)
+              if (state.terminal_entries.count(Symbol(homonym, Symbol::Terminal))) {
+                entry.second.reusable = false;
+                break;
+              }
 
-        if (!entry.second.reusable)
-          continue;
+          if (!entry.second.reusable)
+            continue;
 
-        auto extensions = conflict_manager.possible_extensions.find(entry.first);
-        if (extensions != conflict_manager.possible_extensions.end())
-          for (Symbol::Index extension : extensions->second)
-            if (state.terminal_entries.count(extension)) {
-              entry.second.depends_on_lookahead = true;
-              break;
-            }
+          auto extensions = conflict_manager.possible_extensions.find(symbol.index);
+          if (extensions != conflict_manager.possible_extensions.end())
+            for (Symbol::Index extension : extensions->second)
+              if (state.terminal_entries.count(Symbol(extension, Symbol::Terminal))) {
+                entry.second.depends_on_lookahead = true;
+                break;
+              }
+        }
       }
     }
   }
@@ -150,24 +153,27 @@ class LexTableBuilder {
     }
   }
 
-  LexItemSet item_set_for_tokens(const set<Symbol> &symbols) {
+  LexItemSet item_set_for_terminals(const map<Symbol, ParseTableEntry> &terminals) {
     LexItemSet result;
-    for (const Symbol &symbol : symbols)
-      for (const rule_ptr &rule : rules_for_symbol(symbol))
-        for (const rule_ptr &separator_rule : separator_rules)
-          result.entries.insert(LexItem(
-            symbol,
-            Metadata::separator(
-              Seq::build({
-                separator_rule,
-                Metadata::main_token(rule) }))));
+    for (const auto &pair : terminals) {
+      Symbol symbol = pair.first;
+      if (symbol.is_token()) {
+        for (const rule_ptr &rule : rules_for_symbol(symbol)) {
+          for (const rule_ptr &separator_rule : separator_rules) {
+            result.entries.insert(LexItem(
+              symbol,
+              Metadata::separator(
+                Seq::build({
+                  separator_rule,
+                  Metadata::main_token(rule) }))));
+          }
+        }
+      }
+    }
     return result;
   }
 
   vector<rule_ptr> rules_for_symbol(const rules::Symbol &symbol) {
-    if (!symbol.is_token)
-      return {};
-
     if (symbol == rules::END_OF_INPUT())
       return { CharacterSet().include(0).copy() };
 

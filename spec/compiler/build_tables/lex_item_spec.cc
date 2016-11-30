@@ -14,7 +14,7 @@ START_TEST
 describe("LexItem", []() {
   describe("completion_status()", [&]() {
     it("indicates whether the item is done, its precedence, and whether it is a string", [&]() {
-      LexItem item1(Symbol(0, true), character({ 'a', 'b', 'c' }));
+      LexItem item1(Symbol(0, Symbol::Terminal), character({ 'a', 'b', 'c' }));
       AssertThat(item1.completion_status().is_done, IsFalse());
       AssertThat(item1.completion_status().precedence, Equals(PrecedenceRange()));
       AssertThat(item1.completion_status().is_string, IsFalse());
@@ -23,7 +23,7 @@ describe("LexItem", []() {
       params.precedence = 3;
       params.has_precedence = true;
       params.is_string = 1;
-      LexItem item2(Symbol(0, true), choice({
+      LexItem item2(Symbol(0, Symbol::Terminal), choice({
         metadata(blank(), params),
         character({ 'a', 'b', 'c' })
       }));
@@ -32,7 +32,7 @@ describe("LexItem", []() {
       AssertThat(item2.completion_status().precedence, Equals(PrecedenceRange(3)));
       AssertThat(item2.completion_status().is_string, IsTrue());
 
-      LexItem item3(Symbol(0, true), repeat(character({ ' ', '\t' })));
+      LexItem item3(Symbol(0, Symbol::Terminal), repeat(character({ ' ', '\t' })));
       AssertThat(item3.completion_status().is_done, IsTrue());
       AssertThat(item3.completion_status().precedence, Equals(PrecedenceRange()));
       AssertThat(item3.completion_status().is_string, IsFalse());
@@ -43,7 +43,7 @@ describe("LexItem", []() {
 describe("LexItemSet::transitions()", [&]() {
   it("handles single characters", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol(1), character({ 'x' })),
+      LexItem(Symbol(1, Symbol::NonTerminal), character({ 'x' })),
     });
 
     AssertThat(
@@ -53,7 +53,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('x'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), blank()),
+              LexItem(Symbol(1, Symbol::NonTerminal), blank()),
             }),
             PrecedenceRange(),
             false
@@ -67,7 +67,7 @@ describe("LexItemSet::transitions()", [&]() {
     params.is_main_token = true;
 
     LexItemSet item_set({
-      LexItem(Symbol(1), metadata(character({ 'x' }), params)),
+      LexItem(Symbol(1, Symbol::NonTerminal), metadata(character({ 'x' }), params)),
     });
 
     AssertThat(
@@ -77,7 +77,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('x'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), metadata(blank(), params)),
+              LexItem(Symbol(1, Symbol::NonTerminal), metadata(blank(), params)),
             }),
             PrecedenceRange(),
             true
@@ -88,7 +88,7 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles sequences", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol(1), seq({
+      LexItem(Symbol(1, Symbol::NonTerminal), seq({
         character({ 'w' }),
         character({ 'x' }),
         character({ 'y' }),
@@ -103,7 +103,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('w'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), seq({
+              LexItem(Symbol(1, Symbol::NonTerminal), seq({
                 character({ 'x' }),
                 character({ 'y' }),
                 character({ 'z' }),
@@ -118,7 +118,7 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles sequences with nested precedence", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol(1), seq({
+      LexItem(Symbol(1, Symbol::NonTerminal), seq({
         prec(3, seq({
           character({ 'v' }),
           prec(4, seq({
@@ -140,7 +140,7 @@ describe("LexItemSet::transitions()", [&]() {
             // The outer precedence is now 'active', because we are within its
             // contained rule.
             LexItemSet({
-              LexItem(Symbol(1), seq({
+              LexItem(Symbol(1, Symbol::NonTerminal), seq({
                 active_prec(3, seq({
                   prec(4, seq({
                     character({ 'w' }),
@@ -168,7 +168,7 @@ describe("LexItemSet::transitions()", [&]() {
           Transition{
             // The inner precedence is now 'active'
             LexItemSet({
-              LexItem(Symbol(1), seq({
+              LexItem(Symbol(1, Symbol::NonTerminal), seq({
                 active_prec(3, seq({
                   active_prec(4, character({ 'x' })),
                   character({ 'y' }) })),
@@ -193,7 +193,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('x'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), seq({
+              LexItem(Symbol(1, Symbol::NonTerminal), seq({
                 active_prec(3, character({ 'y' })),
                 character({ 'z' }),
               })),
@@ -216,7 +216,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('y'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), character({ 'z' })),
+              LexItem(Symbol(1, Symbol::NonTerminal), character({ 'z' })),
             }),
             PrecedenceRange(3),
             false
@@ -227,7 +227,7 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles sequences where the left hand side can be blank", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol(1), seq({
+      LexItem(Symbol(1, Symbol::NonTerminal), seq({
         choice({
           character({ 'x' }),
           blank(),
@@ -244,7 +244,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('x'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), seq({
+              LexItem(Symbol(1, Symbol::NonTerminal), seq({
                 character({ 'y' }),
                 character({ 'z' }),
               })),
@@ -257,7 +257,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('y'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), character({ 'z' })),
+              LexItem(Symbol(1, Symbol::NonTerminal), character({ 'z' })),
             }),
             PrecedenceRange(),
             false
@@ -268,7 +268,7 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles blanks", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol(1), blank()),
+      LexItem(Symbol(1, Symbol::NonTerminal), blank()),
     });
 
     AssertThat(item_set.transitions(), IsEmpty());
@@ -276,11 +276,11 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles repeats", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol(1), repeat1(seq({
+      LexItem(Symbol(1, Symbol::NonTerminal), repeat1(seq({
         character({ 'a' }),
         character({ 'b' }),
       }))),
-      LexItem(Symbol(2), repeat1(character({ 'c' }))),
+      LexItem(Symbol(2, Symbol::NonTerminal), repeat1(character({ 'c' }))),
     });
 
     AssertThat(
@@ -290,14 +290,14 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('a'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), seq({
+              LexItem(Symbol(1, Symbol::NonTerminal), seq({
                 character({ 'b' }),
                 repeat1(seq({
                   character({ 'a' }),
                   character({ 'b' }),
                 }))
               })),
-              LexItem(Symbol(1), character({ 'b' })),
+              LexItem(Symbol(1, Symbol::NonTerminal), character({ 'b' })),
             }),
             PrecedenceRange(),
             false
@@ -307,8 +307,8 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('c'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(2), repeat1(character({ 'c' }))),
-              LexItem(Symbol(2), blank()),
+              LexItem(Symbol(2, Symbol::NonTerminal), repeat1(character({ 'c' }))),
+              LexItem(Symbol(2, Symbol::NonTerminal), blank()),
             }),
             PrecedenceRange(),
             false
@@ -319,7 +319,7 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles repeats with precedence", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol(1), active_prec(-1, repeat1(character({ 'a' }))))
+      LexItem(Symbol(1, Symbol::NonTerminal), active_prec(-1, repeat1(character({ 'a' }))))
     });
 
     AssertThat(
@@ -329,8 +329,8 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('a'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), active_prec(-1, repeat1(character({ 'a' })))),
-              LexItem(Symbol(1), active_prec(-1, blank())),
+              LexItem(Symbol(1, Symbol::NonTerminal), active_prec(-1, repeat1(character({ 'a' })))),
+              LexItem(Symbol(1, Symbol::NonTerminal), active_prec(-1, blank())),
             }),
             PrecedenceRange(-1),
             false
@@ -341,7 +341,7 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles choices between overlapping character sets", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol(1), choice({
+      LexItem(Symbol(1, Symbol::NonTerminal), choice({
         active_prec(2, seq({
           character({ 'a', 'b', 'c', 'd'  }),
           character({ 'x' }),
@@ -360,7 +360,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('a', 'b'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), active_prec(2, character({ 'x' }))),
+              LexItem(Symbol(1, Symbol::NonTerminal), active_prec(2, character({ 'x' }))),
             }),
             PrecedenceRange(2),
             false
@@ -370,8 +370,8 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('c', 'd'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), active_prec(2, character({ 'x' }))),
-              LexItem(Symbol(1), active_prec(3, character({ 'y' }))),
+              LexItem(Symbol(1, Symbol::NonTerminal), active_prec(2, character({ 'x' }))),
+              LexItem(Symbol(1, Symbol::NonTerminal), active_prec(3, character({ 'y' }))),
             }),
             PrecedenceRange(2, 3),
             false
@@ -381,7 +381,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('e', 'f'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), active_prec(3, character({ 'y' }))),
+              LexItem(Symbol(1, Symbol::NonTerminal), active_prec(3, character({ 'y' }))),
             }),
             PrecedenceRange(3),
             false
@@ -392,7 +392,7 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles choices between a subset and a superset of characters", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol(1), choice({
+      LexItem(Symbol(1, Symbol::NonTerminal), choice({
         seq({
           character({ 'b', 'c', 'd' }),
           character({ 'x' }),
@@ -411,7 +411,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('a').include('e', 'f'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), character({ 'y' })),
+              LexItem(Symbol(1, Symbol::NonTerminal), character({ 'y' })),
             }),
             PrecedenceRange(),
             false
@@ -421,8 +421,8 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('b', 'd'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), character({ 'x' })),
-              LexItem(Symbol(1), character({ 'y' })),
+              LexItem(Symbol(1, Symbol::NonTerminal), character({ 'x' })),
+              LexItem(Symbol(1, Symbol::NonTerminal), character({ 'y' })),
             }),
             PrecedenceRange(),
             false
@@ -433,7 +433,7 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles choices between whitelisted and blacklisted character sets", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol(1), seq({
+      LexItem(Symbol(1, Symbol::NonTerminal), seq({
         choice({
           character({ '/' }, false),
           seq({
@@ -452,7 +452,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include_all().exclude('/').exclude('\\'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), character({ '/' })),
+              LexItem(Symbol(1, Symbol::NonTerminal), character({ '/' })),
             }),
             PrecedenceRange(),
             false
@@ -462,8 +462,8 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('\\'),
           Transition{
             LexItemSet({
-              LexItem(Symbol(1), character({ '/' })),
-              LexItem(Symbol(1), seq({ character({ '/' }), character({ '/' }) })),
+              LexItem(Symbol(1, Symbol::NonTerminal), character({ '/' })),
+              LexItem(Symbol(1, Symbol::NonTerminal), seq({ character({ '/' }), character({ '/' }) })),
             }),
             PrecedenceRange(),
             false
@@ -474,8 +474,8 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles different items with overlapping character sets", [&]() {
     LexItemSet set1({
-      LexItem(Symbol(1), character({ 'a', 'b', 'c', 'd', 'e', 'f' })),
-      LexItem(Symbol(2), character({ 'e', 'f', 'g', 'h', 'i' }))
+      LexItem(Symbol(1, Symbol::NonTerminal), character({ 'a', 'b', 'c', 'd', 'e', 'f' })),
+      LexItem(Symbol(2, Symbol::NonTerminal), character({ 'e', 'f', 'g', 'h', 'i' }))
     });
 
     AssertThat(set1.transitions(), Equals(LexItemSet::TransitionMap({
@@ -483,7 +483,7 @@ describe("LexItemSet::transitions()", [&]() {
         CharacterSet().include('a', 'd'),
         Transition{
           LexItemSet({
-            LexItem(Symbol(1), blank()),
+            LexItem(Symbol(1, Symbol::NonTerminal), blank()),
           }),
           PrecedenceRange(),
           false
@@ -493,8 +493,8 @@ describe("LexItemSet::transitions()", [&]() {
         CharacterSet().include('e', 'f'),
         Transition{
           LexItemSet({
-            LexItem(Symbol(1), blank()),
-            LexItem(Symbol(2), blank()),
+            LexItem(Symbol(1, Symbol::NonTerminal), blank()),
+            LexItem(Symbol(2, Symbol::NonTerminal), blank()),
           }),
           PrecedenceRange(),
           false
@@ -504,7 +504,7 @@ describe("LexItemSet::transitions()", [&]() {
         CharacterSet().include('g', 'i'),
         Transition{
           LexItemSet({
-            LexItem(Symbol(2), blank()),
+            LexItem(Symbol(2, Symbol::NonTerminal), blank()),
           }),
           PrecedenceRange(),
           false

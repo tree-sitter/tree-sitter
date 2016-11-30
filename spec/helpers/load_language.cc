@@ -67,7 +67,8 @@ static int get_modified_time(const string &path) {
 
 const TSLanguage *load_language(const string &source_filename,
                                 const string &lib_filename,
-                                const string &language_name) {
+                                const string &language_name,
+                                string external_scanner_path = "") {
   string language_function_name = "ts_language_" + language_name;
   string header_dir = getenv("PWD") + string("/include");
   int source_mtime = get_modified_time(source_filename);
@@ -119,7 +120,9 @@ const TSLanguage *load_language(const string &source_filename,
   return language_fn();
 }
 
-const TSLanguage *load_compile_result(const string &name, const TSCompileResult &compile_result) {
+const TSLanguage *load_compile_result(const string &name,
+                                      const TSCompileResult &compile_result,
+                                      string external_scanner_path) {
   if (compile_result.error_type != TSCompileErrorTypeNone) {
     Assert::Failure(string("Compilation failed ") + compile_result.error_message);
     return nullptr;
@@ -135,7 +138,7 @@ const TSLanguage *load_compile_result(const string &name, const TSCompileResult 
   source_file << compile_result.code;
   source_file.close();
 
-  const TSLanguage *language = load_language(source_filename, lib_filename, name);
+  auto language = load_language(source_filename, lib_filename, name, external_scanner_path);
   free(compile_result.code);
   return language;
 }

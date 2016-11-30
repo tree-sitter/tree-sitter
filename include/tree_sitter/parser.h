@@ -48,6 +48,11 @@ typedef struct {
   bool fragile : 1;
 } TSParseAction;
 
+typedef struct {
+  uint16_t lex_state;
+  uint16_t external_tokens;
+} TSLexMode;
+
 typedef union {
   TSParseAction action;
   struct {
@@ -64,8 +69,15 @@ typedef struct TSLanguage {
   const TSSymbolMetadata *symbol_metadata;
   const unsigned short *parse_table;
   const TSParseActionEntry *parse_actions;
-  const TSStateId *lex_states;
+  const TSLexMode *lex_modes;
   bool (*lex_fn)(TSLexer *, TSStateId);
+  const TSSymbol *external_token_symbol_map;
+  const bool *external_token_lists;
+  struct {
+    void * (*create)();
+    bool (*scan)(TSLexer *, const bool *symbol_whitelist);
+    void (*destroy)(void *);
+  } external_scanner;
 } TSLanguage;
 
 /*
@@ -146,21 +158,22 @@ typedef struct TSLanguage {
     { .type = TSParseActionTypeAccept } \
   }
 
-#define EXPORT_LANGUAGE(language_name)                     \
-  static TSLanguage language = {                           \
-    .symbol_count = SYMBOL_COUNT,                          \
-    .token_count = TOKEN_COUNT,                            \
-    .symbol_metadata = ts_symbol_metadata,                 \
-    .parse_table = (const unsigned short *)ts_parse_table, \
-    .parse_actions = ts_parse_actions,                     \
-    .lex_states = ts_lex_states,                           \
-    .symbol_names = ts_symbol_names,                       \
-    .lex_fn = ts_lex,                                      \
-  };                                                       \
-                                                           \
-  const TSLanguage *language_name() {                      \
-    return &language;                                      \
-  }
+
+#define GET_LANGUAGE(...)                                          \
+  static TSLanguage language = {                                   \
+    .symbol_count = SYMBOL_COUNT,                                  \
+    .token_count = TOKEN_COUNT,                                    \
+    .symbol_metadata = ts_symbol_metadata,                         \
+    .parse_table = (const unsigned short *)ts_parse_table,         \
+    .parse_actions = ts_parse_actions,                             \
+    .lex_modes = ts_lex_modes,                                     \
+    .symbol_names = ts_symbol_names,                               \
+    .lex_fn = ts_lex,                                              \
+    .external_token_lists = (const bool *)ts_external_token_lists, \
+    .external_token_symbol_map = ts_external_token_symbol_map,     \
+    .external_scanner = {__VA_ARGS__}                              \
+  };                                                               \
+  return &language                                                 \
 
 #ifdef __cplusplus
 }

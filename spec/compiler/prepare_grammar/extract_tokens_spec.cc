@@ -133,13 +133,13 @@ describe("extract_tokens", []() {
       Variable("rule_A", VariableTypeNamed, str("ok")),
       Variable("rule_B", VariableTypeNamed, repeat(i_sym(0))),
       Variable("rule_C", VariableTypeNamed, repeat(seq({ i_sym(0), i_sym(0) }))),
-    }, { str(" ") }, { { Symbol(1), Symbol(2) } }});
+    }, { str(" ") }, { { Symbol(1, Symbol::NonTerminal), Symbol(2, Symbol::NonTerminal) } }});
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
 
     AssertThat(syntax_grammar.variables.size(), Equals<size_t>(2));
     AssertThat(syntax_grammar.expected_conflicts, Equals(set<set<Symbol>>({
-      { Symbol(0), Symbol(1) },
+      { Symbol(0, Symbol::NonTerminal), Symbol(1, Symbol::NonTerminal) },
     })));
   });
 
@@ -171,7 +171,7 @@ describe("extract_tokens", []() {
 
       AssertThat(get<2>(result), Equals(CompileError::none()));
       AssertThat(get<1>(result).separators.size(), Equals<size_t>(0));
-      AssertThat(get<0>(result).extra_tokens, Equals(set<Symbol>({ Symbol(1, true) })));
+      AssertThat(get<0>(result).extra_tokens, Equals(set<Symbol>({ Symbol(1, Symbol::Terminal) })));
     });
 
     it("updates extra symbols according to the new symbol numbers", [&]() {
@@ -186,7 +186,7 @@ describe("extract_tokens", []() {
       AssertThat(get<2>(result), Equals(CompileError::none()));
 
       AssertThat(get<0>(result).extra_tokens, Equals(set<Symbol>({
-        { Symbol(3, true) },
+        { Symbol(3, Symbol::Terminal) },
       })));
 
       AssertThat(get<1>(result).separators, IsEmpty());

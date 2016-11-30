@@ -14,6 +14,7 @@
 
 namespace tree_sitter {
 namespace generate_code {
+
 using std::function;
 using std::map;
 using std::pair;
@@ -22,6 +23,7 @@ using std::string;
 using std::to_string;
 using std::vector;
 using util::escape_char;
+using rules::Symbol;
 
 static Variable EOF_ENTRY("end", VariableTypeNamed, rule_ptr());
 
@@ -73,9 +75,8 @@ class CCodeGenerator {
   const LexicalGrammar lexical_grammar;
   map<string, string> sanitized_names;
   vector<pair<size_t, ParseTableEntry>> parse_table_entries;
-  vector<pair<size_t, set<rules::Symbol>>> in_progress_symbols;
+  vector<set<Symbol::Index>> external_token_id_sets;
   size_t next_parse_action_list_index;
-  size_t next_in_progress_symbol_list_index;
 
  public:
   CCodeGenerator(string name, const ParseTable &parse_table,
@@ -87,19 +88,25 @@ class CCodeGenerator {
         lex_table(lex_table),
         syntax_grammar(syntax_grammar),
         lexical_grammar(lexical_grammar),
-        next_parse_action_list_index(0),
-        next_in_progress_symbol_list_index(0) {}
+        next_parse_action_list_index(0) {}
 
   string code() {
     buffer = "";
 
     add_includes();
-    add_state_and_symbol_counts();
+    add_warning_pragma();
+    add_stats();
     add_symbol_enum();
     add_symbol_names_list();
-    add_symbol_node_types_list();
+    add_symbol_metadata_list();
     add_lex_function();
-    add_lex_states_list();
+    add_lex_modes_list();
+
+    if (!syntax_grammar.external_tokens.empty())
+      add_external_token_enum();
+
+    add_external_token_symbol_map();
+    add_external_scan_modes_list();
     add_parse_table();
     add_parser_export();
 
@@ -112,10 +119,17 @@ class CCodeGenerator {
     line();
   }
 
-  void add_state_and_symbol_counts() {
+  void add_warning_pragma() {
+    line("#pragma GCC diagnostic push");
+    line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
+    line();
+  }
+
+  void add_stats() {
     line("#define STATE_COUNT " + to_string(parse_table.states.size()));
     line("#define SYMBOL_COUNT " + to_string(parse_table.symbols.size()));
     line("#define TOKEN_COUNT " + to_string(lexical_grammar.variables.size() + 1));
+    line("#define EXTERNAL_TOKEN_COUNT " + to_string(syntax_grammar.external_tokens.size()));
     line();
   }
 
@@ -124,7 +138,7 @@ class CCodeGenerator {
     indent([&]() {
       size_t i = 1;
       for (const auto &entry : parse_table.symbols) {
-        const rules::Symbol &symbol = entry.first;
+        const Symbol &symbol = entry.first;
         if (!symbol.is_built_in()) {
           line(symbol_id(symbol) + " = " + to_string(i) + ",");
           i++;
@@ -146,11 +160,11 @@ class CCodeGenerator {
     line();
   }
 
-  void add_symbol_node_types_list() {
+  void add_symbol_metadata_list() {
     line("static const TSSymbolMetadata ts_symbol_metadata[SYMBOL_COUNT] = {");
     indent([&]() {
       for (const auto &entry : parse_table.symbols) {
-        const rules::Symbol &symbol = entry.first;
+        const Symbol &symbol = entry.first;
         line("[" + symbol_id(symbol) + "] = {");
         indent([&]() {
           switch (symbol_type(symbol)) {
@@ -198,13 +212,80 @@ class CCodeGenerator {
     line();
   }
 
-  void add_lex_states_list() {
-    line("static TSStateId ts_lex_states[STATE_COUNT] = {");
+  void add_lex_modes_list() {
+    add_external_tokens_id({});
+
+    line("static TSLexMode ts_lex_modes[STATE_COUNT] = {");
     indent([&]() {
       size_t state_id = 0;
-      for (const auto &state : parse_table.states)
-        line("[" + to_string(state_id++) + "] = " +
-             to_string(state.lex_state_id) + ",");
+
+      for (const auto &state : parse_table.states) {
+        line("[" + to_string(state_id++) + "] = {.lex_state = ");
+        add(to_string(state.lex_state_id));
+
+        set<Symbol::Index> external_token_indices;
+        for (const auto &pair : state.terminal_entries) {
+          Symbol symbol = pair.first;
+          if (symbol.is_external())
+            external_token_indices.insert(symbol.index);
+        }
+
+        if (!external_token_indices.empty())
+          add(", .external_tokens = " + add_external_tokens_id(external_token_indices));
+        add("},");
+      }
+    });
+    line("};");
+    line();
+  }
+
+  string add_external_tokens_id(set<Symbol::Index> external_token_ids) {
+    for (size_t i = 0, n = external_token_id_sets.size(); i < n; i++)
+      if (external_token_id_sets[i] == external_token_ids)
+        return to_string(i);
+    external_token_id_sets.push_back(external_token_ids);
+    return to_string(external_token_id_sets.size() - 1);
+  }
+
+  void add_external_token_enum() {
+    line("enum {");
+    indent([&]() {
+      for (size_t i = 0; i < syntax_grammar.external_tokens.size(); i++)
+        line(external_token_id(i) + ",");
+    });
+    line("};");
+    line();
+  }
+
+  void add_external_token_symbol_map() {
+    line("TSSymbol ts_external_token_symbol_map[EXTERNAL_TOKEN_COUNT] = {");
+    indent([&]() {
+      for (size_t i = 0; i < syntax_grammar.external_tokens.size(); i++) {
+        line("[" + external_token_id(i) + "] = " + symbol_id(Symbol(i, Symbol::External)) + ",");
+      }
+    });
+    line("};");
+    line();
+  }
+
+  void add_external_scan_modes_list() {
+    line("static bool ts_external_token_lists[");
+    add(to_string(external_token_id_sets.size()));
+    add("][EXTERNAL_TOKEN_COUNT] = {");
+    indent([&]() {
+      size_t i = 0;
+      for (const auto &external_token_ids : external_token_id_sets) {
+        if (!external_token_ids.empty()) {
+          line("[" + to_string(i) + "] = {");
+          indent([&]() {
+            for (Symbol::Index id : external_token_ids) {
+              line("[" + external_token_id(id) + "] = true,");
+            }
+          });
+          line("},");
+        }
+        i++;
+      }
     });
     line("};");
     line();
@@ -214,9 +295,6 @@ class CCodeGenerator {
     add_parse_action_list_id(ParseTableEntry{ {}, false, false });
 
     size_t state_id = 0;
-    line("#pragma GCC diagnostic push");
-    line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
-    line();
     line("static unsigned short ts_parse_table[STATE_COUNT][SYMBOL_COUNT] = {");
 
     indent([&]() {
@@ -224,12 +302,12 @@ class CCodeGenerator {
         line("[" + to_string(state_id++) + "] = {");
         indent([&]() {
           for (const auto &entry : state.nonterminal_entries) {
-            line("[" + symbol_id(rules::Symbol(entry.first)) + "] = STATE(");
+            line("[" + symbol_id(Symbol(entry.first, Symbol::NonTerminal)) + "] = STATE(");
             add(to_string(entry.second));
             add("),");
           }
           for (const auto &entry : state.terminal_entries) {
-            line("[" + symbol_id(rules::Symbol(entry.first, true)) + "] = ACTIONS(");
+            line("[" + symbol_id(entry.first) + "] = ACTIONS(");
             add(to_string(add_parse_action_list_id(entry.second)));
             add("),");
           }
@@ -242,12 +320,37 @@ class CCodeGenerator {
     line();
     add_parse_action_list();
     line();
-    line("#pragma GCC diagnostic pop");
-    line();
   }
 
   void add_parser_export() {
-    line("EXPORT_LANGUAGE(ts_language_" + name + ");");
+    if (!syntax_grammar.external_tokens.empty()) {
+      string external_scanner_name = "ts_language_" + name + "_external_scanner";
+
+      line("void *" + external_scanner_name + "_create();");
+      line("bool " + external_scanner_name + "_scan();");
+      line("void " + external_scanner_name + "_destroy();");
+      line();
+
+      line("const TSLanguage *ts_language_" + name + "() {");
+      indent([&]() {
+        if (!syntax_grammar.external_tokens.empty()) {
+          line("GET_LANGUAGE(");
+          indent([&]() {
+            line(external_scanner_name + "_create,");
+            line(external_scanner_name + "_scan,");
+            line(external_scanner_name + "_destroy,");
+          });
+          line(");");
+        }
+      });
+      line("}");
+    } else {
+      line("const TSLanguage *ts_language_" + name + "() {");
+      indent([&]() {
+        line("GET_LANGUAGE();");
+      });
+      line("}");
+    }
     line();
   }
 
@@ -379,22 +482,13 @@ class CCodeGenerator {
     return result;
   }
 
-  size_t add_in_progress_symbol_list_id(const set<rules::Symbol> &symbols) {
-    for (const auto &pair : in_progress_symbols) {
-      if (pair.second == symbols) {
-        return pair.first;
-      }
-    }
-
-    size_t result = next_in_progress_symbol_list_index;
-    in_progress_symbols.push_back({ result, symbols });
-    next_in_progress_symbol_list_index += 1 + symbols.size();
-    return result;
-  }
-
   // Helper functions
 
-  string symbol_id(const rules::Symbol &symbol) {
+  string external_token_id(Symbol::Index index) {
+    return "ts_external_token_" + syntax_grammar.external_tokens[index];
+  }
+
+  string symbol_id(const Symbol &symbol) {
     if (symbol == rules::END_OF_INPUT())
       return "ts_builtin_sym_end";
 
@@ -411,25 +505,31 @@ class CCodeGenerator {
     }
   }
 
-  string symbol_name(const rules::Symbol &symbol) {
+  string symbol_name(const Symbol &symbol) {
     if (symbol == rules::END_OF_INPUT())
       return "END";
     return entry_for_symbol(symbol).first;
   }
 
-  VariableType symbol_type(const rules::Symbol &symbol) {
+  VariableType symbol_type(const Symbol &symbol) {
     if (symbol == rules::END_OF_INPUT())
       return VariableTypeHidden;
     return entry_for_symbol(symbol).second;
   }
 
-  pair<string, VariableType> entry_for_symbol(const rules::Symbol &symbol) {
-    if (symbol.is_token) {
-      const Variable &variable = lexical_grammar.variables[symbol.index];
-      return { variable.name, variable.type };
-    } else {
-      const SyntaxVariable &variable = syntax_grammar.variables[symbol.index];
-      return { variable.name, variable.type };
+  pair<string, VariableType> entry_for_symbol(const Symbol &symbol) {
+    switch (symbol.type) {
+      case Symbol::NonTerminal: {
+        const SyntaxVariable &variable = syntax_grammar.variables[symbol.index];
+        return { variable.name, variable.type };
+      }
+      case Symbol::Terminal: {
+        const Variable &variable = lexical_grammar.variables[symbol.index];
+        return { variable.name, variable.type };
+      }
+      case Symbol::External: {
+        return { syntax_grammar.external_tokens[symbol.index], VariableTypeAnonymous };
+      }
     }
   }
 

@@ -161,7 +161,7 @@ static void parser__pop_reusable_node_leaf(ReusableNode *reusable_node) {
 
 static bool parser__can_reuse(Parser *self, TSStateId state, Tree *tree,
                               TableEntry *table_entry) {
-  if (tree->first_leaf.lex_state == self->language->lex_states[state])
+  if (tree->first_leaf.lex_state == self->language->lex_modes[state].lex_state)
     return true;
   if (!table_entry->is_reusable)
     return false;
@@ -209,7 +209,7 @@ static bool parser__condense_stack(Parser *self) {
 }
 
 static Tree *parser__lex(Parser *self, TSStateId parse_state) {
-  TSStateId start_state = self->language->lex_states[parse_state];
+  TSStateId start_state = self->language->lex_modes[parse_state].lex_state;
   TSStateId current_state = start_state;
   Length start_position = self->lexer.current_position;
   LOG("lex state:%d", start_state);
@@ -728,6 +728,9 @@ static void parser__start(Parser *self, TSInput input, Tree *previous_tree) {
   } else {
     LOG("new_parse");
   }
+
+  if (self->language->external_scanner.create)
+    self->language->external_scanner.create();
 
   ts_lexer_set_input(&self->lexer, input);
   ts_stack_clear(self->stack);

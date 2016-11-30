@@ -11,7 +11,7 @@ struct LexicalGrammar;
 
 namespace build_tables {
 
-std::set<rules::Symbol::Index> recovery_tokens(const LexicalGrammar &);
+std::set<rules::Symbol> recovery_tokens(const LexicalGrammar &);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

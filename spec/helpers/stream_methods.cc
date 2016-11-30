@@ -10,16 +10,7 @@ namespace tree_sitter {
 
 ostream &operator<<(ostream &stream, const Grammar &grammar) {
   stream << string("#<grammar");
-  stream << string(" rules: {");
-  bool started = false;
-  for (auto pair : grammar.rules) {
-    if (started)
-      stream << string(", ");
-    stream << pair.first;
-    stream << string(" => ");
-    stream << pair.second;
-    started = true;
-  }
+  stream << " rules: " << grammar.rules;
   return stream << string("}>");
 }
 
