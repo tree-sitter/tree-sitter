@@ -59,7 +59,7 @@ if ({a: 'b'} {c: 'd'}) {
       (expression_statement
         (function
           (formal_parameters (identifier))
-          (statement_block (expression_statement (identifier))))))))
+          (statement_block (expression_statement (identifier)))))))
 
 ===================================================
 one invalid token at the end of the file
