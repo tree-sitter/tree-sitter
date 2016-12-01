@@ -377,7 +377,7 @@ class ParseTableBuilder {
           LookaheadSet first_set = item_set_builder.get_first_set(item.next_symbol());
           if (first_set.contains(lookahead)) {
             shift_items.insert(item);
-            shift_precedence.add(item.precedence());
+            shift_precedence.add(item.production->at(item.step_index - 1).precedence);
           }
         }
       }
