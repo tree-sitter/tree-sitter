@@ -19,6 +19,7 @@ This allows it to generate a fast parser for any context-free grammar.
 ```sh
 script/configure # Generate a Makefile
 make             # Build static libraries for the compiler and runtime
+script/test      # Run the tests
 ```
 
 ### Overview
