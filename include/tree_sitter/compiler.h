@@ -13,6 +13,7 @@ typedef enum {
   TSCompileErrorTypeInvalidUbiquitousToken,
   TSCompileErrorTypeLexConflict,
   TSCompileErrorTypeParseConflict,
+  TSCompileErrorTypeEpsilonRule,
 } TSCompileErrorType;
 
 typedef struct {

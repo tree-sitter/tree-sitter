@@ -326,6 +326,33 @@ describe("compile_grammar", []() {
     });
   });
 
+  describe("when the grammar contains rules that match the empty string", [&]() {
+    it("reports an error", [&]() {
+      TSCompileResult result = ts_compile_grammar(R"JSON(
+        {
+          "name": "empty_rules",
+
+          "rules": {
+            "rule_1": {"type": "SYMBOL", "name": "rule_2"},
+
+            "rule_2": {
+              "type": "CHOICE",
+              "members": [
+                {"type": "SYMBOL", "name": "rule_1"},
+                {"type": "BLANK"}
+              ]
+            }
+          }
+        }
+      )JSON");
+
+      AssertThat(result.error_message, Equals(dedent(R"MESSAGE(
+        The rule `rule_2` matches the empty string.
+        Tree-sitter currently does not support syntactic rules that match the empty string.
+      )MESSAGE")));
+    });
+  });
+
   describe("when the grammar's start symbol is a token", [&]() {
     it("parses the token", [&]() {
       TSCompileResult result = ts_compile_grammar(R"JSON(

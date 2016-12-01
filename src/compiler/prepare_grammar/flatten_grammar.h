@@ -3,6 +3,7 @@
 
 #include <string>
 #include "tree_sitter/compiler.h"
+#include "compiler/compile_error.h"
 #include "compiler/syntax_grammar.h"
 
 namespace tree_sitter {
@@ -11,7 +12,7 @@ namespace prepare_grammar {
 struct InitialSyntaxGrammar;
 
 SyntaxVariable flatten_rule(const Variable &variable);
-SyntaxGrammar flatten_grammar(const InitialSyntaxGrammar &);
+std::pair<SyntaxGrammar, CompileError> flatten_grammar(const InitialSyntaxGrammar &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter
