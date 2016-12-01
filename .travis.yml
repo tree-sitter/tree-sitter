@@ -12,5 +12,7 @@ addons:
 
 install:
 - export CXX="g++-5"
-- script/configure -D USE_LIBPROFILER=false
-script: script/ci
+- script/configure
+
+script:
+- script/ci

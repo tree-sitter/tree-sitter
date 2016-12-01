@@ -42,14 +42,6 @@
       'ldflags': [
         '-g',
       ],
-      'variables': {
-        'USE_LIBPROFILER%': 'true',
-      },
-      'conditions': [
-        ['USE_LIBPROFILER != "false"', {
-          'libraries': ['-lprofiler'],
-        }]
-      ],
       'xcode_settings': {
         'CLANG_CXX_LANGUAGE_STANDARD': 'c++11',
         'OTHER_LDFLAGS': ['-g'],
