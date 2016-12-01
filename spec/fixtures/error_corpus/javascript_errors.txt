@@ -43,7 +43,7 @@ one invalid subtree right after the viable prefix
 ===================================================
 
 if ({a: 'b'} {c: 'd'}) {
-  function(a) { b; }    function(c) { d; }
+  x = function(a) { b; } function(c) { d; }
 }
 
 ---
@@ -53,13 +53,14 @@ if ({a: 'b'} {c: 'd'}) {
     (object (pair (identifier) (string)))
     (ERROR (object (pair (identifier) (string))))
     (statement_block
-      (ERROR (function
-        (formal_parameters (identifier))
-        (statement_block (expression_statement (identifier)))))
-      (expression_statement
+      (expression_statement (assignment
+        (identifier)
+        (ERROR (function
+          (formal_parameters (identifier))
+          (statement_block (expression_statement (identifier)))))
         (function
           (formal_parameters (identifier))
-          (statement_block (expression_statement (identifier))))))))
+          (statement_block (expression_statement (identifier)))))))))
 
 ===================================================
 one invalid token at the end of the file
