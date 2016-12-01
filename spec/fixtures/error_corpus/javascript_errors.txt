@@ -53,7 +53,7 @@ if ({a: 'b'} {c: 'd'}) {
     (object (pair (identifier) (string)))
     (ERROR (object (pair (identifier) (string))))
     (statement_block
-      (ERROR (function
+      (function
         (formal_parameters (identifier))
         (statement_block (expression_statement (identifier)))))
       (expression_statement
