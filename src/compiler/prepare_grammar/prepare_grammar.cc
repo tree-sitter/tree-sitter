@@ -51,7 +51,11 @@ tuple<SyntaxGrammar, LexicalGrammar, CompileError> prepare_grammar(
   /*
    * Flatten syntax rules into lists of productions.
    */
-  SyntaxGrammar syntax_grammar = flatten_grammar(syntax_grammar1);
+  auto flatten_result = flatten_grammar(syntax_grammar1);
+  SyntaxGrammar syntax_grammar = flatten_result.first;
+  error = flatten_result.second;
+  if (error.type)
+    return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
 
   /*
    * Ensure all lexical rules are in a consistent format.

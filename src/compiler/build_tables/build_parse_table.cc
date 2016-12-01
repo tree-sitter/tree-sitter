@@ -177,7 +177,7 @@ class ParseTableBuilder {
             parse_table.add_terminal_action(state_id, lookahead, action);
           } else {
             ParseAction &existing_action = entry.actions[0];
-            if (allow_any_conflict) {
+            if (existing_action.type == ParseActionTypeAccept || allow_any_conflict) {
               entry.actions.push_back(action);
             } else {
               int existing_precedence = existing_action.precedence();

@@ -13,6 +13,7 @@ namespace tree_sitter {
 namespace prepare_grammar {
 
 using std::find;
+using std::pair;
 using std::vector;
 
 class FlattenRule : public rules::RuleFn<void> {
@@ -87,16 +88,35 @@ SyntaxVariable flatten_rule(const Variable &variable) {
   return SyntaxVariable(variable.name, variable.type, productions);
 }
 
-SyntaxGrammar flatten_grammar(const InitialSyntaxGrammar &grammar) {
+pair<SyntaxGrammar, CompileError> flatten_grammar(const InitialSyntaxGrammar &grammar) {
   SyntaxGrammar result;
   result.expected_conflicts = grammar.expected_conflicts;
   result.extra_tokens = grammar.extra_tokens;
 
+  bool is_start = true;
   for (const Variable &variable : grammar.variables) {
-    result.variables.push_back(flatten_rule(variable));
+    SyntaxVariable syntax_variable = flatten_rule(variable);
+
+    if (!is_start) {
+      for (const Production &production : syntax_variable.productions) {
+        if (production.empty()) {
+          return {
+            result,
+            CompileError(
+              TSCompileErrorTypeEpsilonRule,
+              "The rule `" + variable.name + "` matches the empty string.\n" +
+              "Tree-sitter currently does not support syntactic rules that match the empty string.\n"
+            )
+          };
+        }
+      }
+    }
+
+    result.variables.push_back(syntax_variable);
+    is_start = false;
   }
 
-  return result;
+  return {result, CompileError::none()};
 }
 
 }  // namespace prepare_grammar
