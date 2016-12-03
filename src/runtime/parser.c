@@ -209,23 +209,43 @@ static bool parser__condense_stack(Parser *self) {
 }
 
 static Tree *parser__lex(Parser *self, TSStateId parse_state) {
+  Length start_position = self->lexer.current_position;
+  ts_lexer_start(&self->lexer);
+
+  TSLexMode lex_mode = self->language->lex_modes[parse_state];
+  if (lex_mode.external_tokens) {
+    const bool *external_tokens = ts_language_enabled_external_tokens(self->language, lex_mode.external_tokens);
+    if (self->language->external_scanner.scan(
+      self->external_scanner_payload,
+      &self->lexer.data,
+      external_tokens
+    )) {
+      TSSymbol symbol = self->language->external_token_symbol_map[self->lexer.data.result_symbol];
+      Length padding = length_sub(self->lexer.token_start_position, start_position);
+      Length size = length_sub(self->lexer.current_position, self->lexer.token_start_position);
+      TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, symbol);
+      Tree *result = ts_tree_make_leaf(symbol, padding, size, metadata);
+      result->parse_state = parse_state;
+      return result;
+    } else {
+      ts_lexer_reset(&self->lexer, start_position);
+    }
+  }
+
   TSStateId start_state = self->language->lex_modes[parse_state].lex_state;
   TSStateId current_state = start_state;
-  Length start_position = self->lexer.current_position;
   LOG("lex state:%d", start_state);
 
   bool skipped_error = false;
   int32_t first_error_character = 0;
   Length error_start_position, error_end_position;
 
-  ts_lexer_start(&self->lexer, start_state);
-
   while (!self->language->lex_fn(&self->lexer.data, current_state)) {
     if (current_state != ERROR_STATE) {
       LOG("retry_in_error_mode");
       current_state = ERROR_STATE;
       ts_lexer_reset(&self->lexer, start_position);
-      ts_lexer_start(&self->lexer, current_state);
+      ts_lexer_start(&self->lexer);
       continue;
     }
 
@@ -247,7 +267,6 @@ static Tree *parser__lex(Parser *self, TSStateId parse_state) {
   }
 
   Tree *result;
-
   if (skipped_error) {
     Length padding = length_sub(error_start_position, start_position);
     Length size = length_sub(error_end_position, error_start_position);
@@ -255,17 +274,11 @@ static Tree *parser__lex(Parser *self, TSStateId parse_state) {
     result = ts_tree_make_error(size, padding, first_error_character);
   } else {
     TSSymbol symbol = self->lexer.data.result_symbol;
-    Length padding =
-      length_sub(self->lexer.token_start_position, start_position);
-    Length size = length_sub(self->lexer.current_position,
-                                  self->lexer.token_start_position);
-    result =
-      ts_tree_make_leaf(symbol, padding, size,
-                        ts_language_symbol_metadata(self->language, symbol));
+    Length padding = length_sub(self->lexer.token_start_position, start_position);
+    Length size = length_sub(self->lexer.current_position, self->lexer.token_start_position);
+    TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, symbol);
+    result = ts_tree_make_leaf(symbol, padding, size, metadata);
   }
-
-  if (!result)
-    return NULL;
 
   result->parse_state = parse_state;
   result->first_leaf.lex_state = start_state;
@@ -1104,6 +1117,15 @@ bool parser_init(Parser *self) {
   self->stack = ts_stack_new();
   self->finished_tree = NULL;
   return true;
+}
+
+void parser_set_language(Parser *self, const TSLanguage *language) {
+  self->language = language;
+  if (language->external_scanner.create) {
+    self->external_scanner_payload = language->external_scanner.create();
+  } else {
+    self->external_scanner_payload = NULL;
+  }
 }
 
 void parser_destroy(Parser *self) {

@@ -29,11 +29,13 @@ typedef struct {
   ReusableNode reusable_node;
   TreePath tree_path1;
   TreePath tree_path2;
+  void *external_scanner_payload;
 } Parser;
 
 bool parser_init(Parser *);
 void parser_destroy(Parser *);
 Tree *parser_parse(Parser *, TSInput, Tree *);
+void parser_set_language(Parser *, const TSLanguage *);
 
 #ifdef __cplusplus
 }

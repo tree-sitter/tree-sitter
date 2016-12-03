@@ -65,6 +65,7 @@ typedef union {
 typedef struct TSLanguage {
   uint32_t symbol_count;
   uint32_t token_count;
+  uint32_t external_token_count;
   const char **symbol_names;
   const TSSymbolMetadata *symbol_metadata;
   const unsigned short *parse_table;
@@ -75,7 +76,7 @@ typedef struct TSLanguage {
   const bool *external_token_lists;
   struct {
     void * (*create)();
-    bool (*scan)(TSLexer *, const bool *symbol_whitelist);
+    bool (*scan)(void *, TSLexer *, const bool *symbol_whitelist);
     void (*destroy)(void *);
   } external_scanner;
 } TSLanguage;
@@ -158,7 +159,6 @@ typedef struct TSLanguage {
     { .type = TSParseActionTypeAccept } \
   }
 
-
 #define GET_LANGUAGE(...)                                          \
   static TSLanguage language = {                                   \
     .symbol_count = SYMBOL_COUNT,                                  \
@@ -169,6 +169,7 @@ typedef struct TSLanguage {
     .lex_modes = ts_lex_modes,                                     \
     .symbol_names = ts_symbol_names,                               \
     .lex_fn = ts_lex,                                              \
+    .external_token_count = EXTERNAL_TOKEN_COUNT,                  \
     .external_token_lists = (const bool *)ts_external_token_lists, \
     .external_token_symbol_map = ts_external_token_symbol_map,     \
     .external_scanner = {__VA_ARGS__}                              \

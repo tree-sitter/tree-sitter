@@ -1,13 +1,108 @@
 #include <stdbool.h>
+#include <tree_sitter/parser.h>
+
+enum {
+  percent_string,
+  percent_string_start,
+  percent_string_end
+};
+
+typedef struct {
+  int32_t open_delimiter;
+  int32_t close_delimiter;
+  uint32_t depth;
+} Scanner;
 
 void *ts_language_external_scanner_example_external_scanner_create() {
-  puts("HELLO FROM EXTERNAL SCANNER");
-  return 0;
+  Scanner *scanner = malloc(sizeof(Scanner));
+  *scanner = (Scanner){
+    .open_delimiter = 0,
+    .close_delimiter = 0,
+    .depth = 0
+  };
+  return scanner;
 }
 
-bool ts_language_external_scanner_example_external_scanner_scan() {
-  return true;
+bool ts_language_external_scanner_example_external_scanner_scan(
+  void *payload, TSLexer *lexer, const bool *whitelist) {
+  Scanner *scanner = payload;
+
+  if (whitelist[percent_string]) {
+    while (lexer->lookahead == ' ' ||
+           lexer->lookahead == '\t' ||
+           lexer->lookahead == '\n') {
+      lexer->advance(lexer, 0, true);
+    }
+
+    if (lexer->lookahead != '%') return false;
+    lexer->advance(lexer, 0, false);
+
+    switch (lexer->lookahead) {
+      case '(':
+        scanner->open_delimiter = '(';
+        scanner->close_delimiter = ')';
+        scanner->depth = 1;
+        break;
+      case '[':
+        scanner->open_delimiter = '[';
+        scanner->close_delimiter = ']';
+        scanner->depth = 1;
+        break;
+      case '{':
+        scanner->open_delimiter = '{';
+        scanner->close_delimiter = '}';
+        scanner->depth = 1;
+        break;
+      default:
+        return false;
+    }
+
+    lexer->advance(lexer, 0, false);
+
+    for (;;) {
+      if (scanner->depth == 0) {
+        lexer->result_symbol = percent_string;
+        return true;
+      }
+
+      if (lexer->lookahead == scanner->open_delimiter) {
+        scanner->depth++;
+      } else if (lexer->lookahead == scanner->close_delimiter) {
+        scanner->depth--;
+      } else if (lexer->lookahead == '#') {
+        lexer->advance(lexer, 0, false);
+        if (lexer->lookahead == '{') {
+          lexer->advance(lexer, 0, false);
+          lexer->result_symbol = percent_string_start;
+          return true;
+        }
+      }
+
+      lexer->advance(lexer, 0, false);
+    }
+  } else if (whitelist[percent_string_end]) {
+    if (lexer->lookahead != '}') return false;
+    lexer->advance(lexer, 0, false);
+
+    for (;;) {
+      if (scanner->depth == 0) {
+        lexer->result_symbol = percent_string_end;
+        return true;
+      }
+
+      if (lexer->lookahead == scanner->open_delimiter) {
+        scanner->depth++;
+      } else if (lexer->lookahead == scanner->close_delimiter) {
+        scanner->depth--;
+      }
+
+      lexer->advance(lexer, 0, false);
+    }
+  }
+
+  return false;
 }
 
-void ts_language_external_scanner_example_external_scanner_destroy() {
+void ts_language_external_scanner_example_external_scanner_destroy(void *payload) {
+  free(payload);
 }

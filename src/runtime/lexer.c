@@ -123,9 +123,7 @@ void ts_lexer_reset(Lexer *self, Length position) {
   return;
 }
 
-void ts_lexer_start(Lexer *self, TSStateId lex_state) {
-  LOG("start_lex state:%d, pos:%u", lex_state, self->current_position.chars);
-
+void ts_lexer_start(Lexer *self) {
   self->token_start_position = self->current_position;
   self->data.result_symbol = 0;
 

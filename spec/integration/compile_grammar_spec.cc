@@ -562,7 +562,11 @@ describe("compile_grammar", []() {
         "spec/fixtures/external_scanners/external_scan.c"
       ));
 
-      ts_document_set_input_string(document, "%|hi|");
+      ts_document_set_input_string(document, "%(sup (external) scanner?)");
+      ts_document_parse(document);
+      assert_root_node("(string)");
+
+      ts_document_set_input_string(document, "%{sup {} external {} scanner?}");
       ts_document_parse(document);
       assert_root_node("(string)");
 

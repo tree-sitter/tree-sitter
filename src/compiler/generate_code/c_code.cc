@@ -128,7 +128,7 @@ class CCodeGenerator {
   void add_stats() {
     line("#define STATE_COUNT " + to_string(parse_table.states.size()));
     line("#define SYMBOL_COUNT " + to_string(parse_table.symbols.size()));
-    line("#define TOKEN_COUNT " + to_string(lexical_grammar.variables.size() + 1));
+    line("#define TOKEN_COUNT " + to_string(lexical_grammar.variables.size() + 1 + syntax_grammar.external_tokens.size()));
     line("#define EXTERNAL_TOKEN_COUNT " + to_string(syntax_grammar.external_tokens.size()));
     line();
   }
@@ -327,7 +327,7 @@ class CCodeGenerator {
       string external_scanner_name = "ts_language_" + name + "_external_scanner";
 
       line("void *" + external_scanner_name + "_create();");
-      line("bool " + external_scanner_name + "_scan();");
+      line("bool " + external_scanner_name + "_scan(void *, TSLexer *, const bool *);");
       line("void " + external_scanner_name + "_destroy();");
       line();
 

@@ -5,6 +5,7 @@
 #include "compiler/prepare_grammar/extract_tokens.h"
 #include "helpers/rule_helpers.h"
 #include "helpers/equals_pointer.h"
+#include "helpers/stream_methods.h"
 
 START_TEST
 
@@ -211,9 +212,10 @@ describe("extract_tokens", []() {
       }, { choice({ i_sym(1), blank() }) }, {}});
 
       AssertThat(get<2>(result), !Equals(CompileError::none()));
-      AssertThat(get<2>(result), Equals(
-        CompileError(TSCompileErrorTypeInvalidUbiquitousToken,
-                         "Not a token: (choice (sym 1) (blank))")));
+      AssertThat(get<2>(result), Equals(CompileError(
+        TSCompileErrorTypeInvalidUbiquitousToken,
+        "Not a token: (choice (non-terminal 1) (blank))"
+      )));
     });
   });
 });

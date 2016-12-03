@@ -49,6 +49,12 @@ static inline TSStateId ts_language_next_state(const TSLanguage *self,
   }
 }
 
+static inline const bool *
+ts_language_enabled_external_tokens(const TSLanguage *self,
+                                    unsigned external_scanner_state) {
+  return self->external_token_lists + self->external_token_count * external_scanner_state;
+}
+
 #ifdef __cplusplus
 }
 #endif

@@ -13,8 +13,8 @@ class Symbol : public Rule {
 
   typedef enum {
     Terminal,
-    NonTerminal,
     External,
+    NonTerminal,
   } Type;
 
   Symbol(Index index, Type type);

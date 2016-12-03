@@ -37,7 +37,7 @@ const TSLanguage *ts_document_language(TSDocument *self) {
 
 void ts_document_set_language(TSDocument *self, const TSLanguage *language) {
   ts_document_invalidate(self);
-  self->parser.language = language;
+  parser_set_language(&self->parser, language);
   if (self->tree) {
     ts_tree_release(self->tree);
     self->tree = NULL;
