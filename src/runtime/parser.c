@@ -1120,12 +1120,16 @@ bool parser_init(Parser *self) {
 }
 
 void parser_set_language(Parser *self, const TSLanguage *language) {
-  self->language = language;
-  if (language->external_scanner.create) {
+  if (self->external_scanner_payload)
+    if (self->language->external_scanner.destroy)
+      self->language->external_scanner.destroy(self->external_scanner_payload);
+
+  if (language->external_scanner.create)
     self->external_scanner_payload = language->external_scanner.create();
-  } else {
+  else
     self->external_scanner_payload = NULL;
-  }
+
+  self->language = language;
 }
 
 void parser_destroy(Parser *self) {
@@ -1137,6 +1141,9 @@ void parser_destroy(Parser *self) {
     array_delete(&self->tree_path1);
   if (self->tree_path2.contents)
     array_delete(&self->tree_path2);
+  if (self->external_scanner_payload)
+    if (self->language->external_scanner.destroy)
+      self->language->external_scanner.destroy(self->external_scanner_payload);
 }
 
 Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree) {
