@@ -518,29 +518,43 @@ describe("compile_grammar", []() {
           "percent_string_end"
         ],
 
+        "extras": [
+          {"type": "PATTERN", "value": "\\s"}
+        ],
+
         "rules": {
+          "expression": {
+            "type": "CHOICE",
+            "members": [
+              {"type": "SYMBOL", "name": "string"},
+              {"type": "SYMBOL", "name": "sum"},
+              {"type": "SYMBOL", "name": "identifier"}
+            ]
+          },
+
+          "sum": {
+            "type": "PREC_LEFT",
+            "value": 0,
+            "content": {
+              "type": "SEQ",
+              "members": [
+                {"type": "SYMBOL", "name": "expression"},
+                {"type": "STRING", "value": "+"},
+                {"type": "SYMBOL", "name": "expression"}
+              ]
+            }
+          },
+
           "string": {
             "type": "CHOICE",
             "members": [
-              {
-                "type": "EXTERNAL_TOKEN",
-                "name": "percent_string"
-              },
+              {"type": "EXTERNAL_TOKEN", "name": "percent_string"},
               {
                 "type": "SEQ",
                 "members": [
-                  {
-                    "type": "EXTERNAL_TOKEN",
-                    "name": "percent_string_start"
-                  },
-                  {
-                    "type": "SYMBOL",
-                    "name": "identifier"
-                  },
-                  {
-                    "type": "EXTERNAL_TOKEN",
-                    "name": "percent_string_end"
-                  }
+                  {"type": "EXTERNAL_TOKEN", "name": "percent_string_start"},
+                  {"type": "SYMBOL", "name": "expression"},
+                  {"type": "EXTERNAL_TOKEN", "name": "percent_string_end"}
                 ]
               },
             ]
@@ -562,17 +576,13 @@ describe("compile_grammar", []() {
         "spec/fixtures/external_scanners/external_scan.c"
       ));
 
-      ts_document_set_input_string(document, "%(sup (external) scanner?)");
+      ts_document_set_input_string(document, "x + %(sup (external) scanner?)");
       ts_document_parse(document);
-      assert_root_node("(string)");
+      assert_root_node("(expression (sum (expression (identifier)) (expression (string))))");
 
-      ts_document_set_input_string(document, "%{sup {} external {} scanner?}");
+      ts_document_set_input_string(document, "%{sup {} #{x + y} {} scanner?}");
       ts_document_parse(document);
-      assert_root_node("(string)");
-
-      ts_document_set_input_string(document, "%(1 #{two} three)");
-      ts_document_parse(document);
-      assert_root_node("(string (identifier))");
+      assert_root_node("(expression (string (expression (sum (expression (identifier)) (expression (identifier))))))");
     });
   });
 

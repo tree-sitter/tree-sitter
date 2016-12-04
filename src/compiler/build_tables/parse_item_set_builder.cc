@@ -31,6 +31,11 @@ ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
     first_sets.insert({symbol, LookaheadSet({ symbol })});
   }
 
+  for (size_t i = 0, n = grammar.external_tokens.size(); i < n; i++) {
+    Symbol symbol(i, Symbol::External);
+    first_sets.insert({symbol, LookaheadSet({ symbol })});
+  }
+
   for (size_t i = 0, n = grammar.variables.size(); i < n; i++) {
     Symbol symbol(i, Symbol::NonTerminal);
     LookaheadSet first_set;
