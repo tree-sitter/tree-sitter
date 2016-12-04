@@ -13,7 +13,6 @@
 #include "compiler/rules/pattern.h"
 #include "compiler/rules/character_set.h"
 #include "compiler/rules/repeat.h"
-#include "compiler/rules/external_token.h"
 #include "compiler/rules/built_in_symbols.h"
 
 namespace tree_sitter {
@@ -104,10 +103,6 @@ rule_ptr token(const rule_ptr &rule) {
   MetadataParams params;
   params.is_token = true;
   return metadata(rule, params);
-}
-
-rule_ptr external_token(const string &name) {
-  return rules::ExternalToken::build(name);
 }
 
 }  // namespace tree_sitter

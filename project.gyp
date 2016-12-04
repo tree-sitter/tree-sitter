@@ -47,7 +47,6 @@
         'src/compiler/rules/character_range.cc',
         'src/compiler/rules/character_set.cc',
         'src/compiler/rules/choice.cc',
-        'src/compiler/rules/external_token.cc',
         'src/compiler/rules/metadata.cc',
         'src/compiler/rules/named_symbol.cc',
         'src/compiler/rules/pattern.cc',

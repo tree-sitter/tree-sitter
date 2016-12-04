@@ -548,13 +548,13 @@ describe("compile_grammar", []() {
           "string": {
             "type": "CHOICE",
             "members": [
-              {"type": "EXTERNAL_TOKEN", "name": "percent_string"},
+              {"type": "SYMBOL", "name": "percent_string"},
               {
                 "type": "SEQ",
                 "members": [
-                  {"type": "EXTERNAL_TOKEN", "name": "percent_string_start"},
+                  {"type": "SYMBOL", "name": "percent_string_start"},
                   {"type": "SYMBOL", "name": "expression"},
-                  {"type": "EXTERNAL_TOKEN", "name": "percent_string_end"}
+                  {"type": "SYMBOL", "name": "percent_string_end"}
                 ]
               },
             ]

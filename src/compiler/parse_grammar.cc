@@ -119,16 +119,6 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     }
   }
 
-  if (type == "EXTERNAL_TOKEN") {
-    json_value token_name_json = rule_json->operator[]("name");
-    if (token_name_json.type != json_string) {
-      error_message = "External token name must be a string";
-      goto error;
-    }
-
-    return { external_token(token_name_json.u.string.ptr), "" };
-  }
-
   if (type == "PATTERN") {
     json_value value_json = rule_json->operator[]("value");
     if (value_json.type == json_string) {

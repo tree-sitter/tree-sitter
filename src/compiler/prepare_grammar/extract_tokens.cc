@@ -11,7 +11,6 @@
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/string.h"
 #include "compiler/rules/metadata.h"
-#include "compiler/rules/external_token.h"
 #include "compiler/rules/pattern.h"
 #include "compiler/prepare_grammar/token_description.h"
 #include "compiler/prepare_grammar/is_token.h"
@@ -76,10 +75,6 @@ class TokenExtractor : public rules::IdentityRuleFn {
   }
 
   rule_ptr apply_to(const rules::Pattern *rule) {
-    return apply_to_token(rule, VariableTypeAuxiliary);
-  }
-
-  rule_ptr apply_to(const rules::ExternalToken *rule) {
     return apply_to_token(rule, VariableTypeAuxiliary);
   }
 

@@ -22,7 +22,6 @@ rule_ptr prec_left(int precedence, const rule_ptr &);
 rule_ptr prec_right(const rule_ptr &);
 rule_ptr prec_right(int precedence, const rule_ptr &);
 rule_ptr token(const rule_ptr &rule);
-rule_ptr external_token(const std::string &);
 
 }  // namespace std
 
