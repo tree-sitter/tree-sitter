@@ -208,44 +208,54 @@ static bool parser__condense_stack(Parser *self) {
   return result;
 }
 
-static Tree *parser__lex(Parser *self, TSStateId parse_state) {
+static bool parser__try_lex(Parser *self, TSLexMode lex_mode) {
   Length start_position = self->lexer.current_position;
   ts_lexer_start(&self->lexer);
 
-  TSLexMode lex_mode = self->language->lex_modes[parse_state];
   if (lex_mode.external_tokens) {
-    const bool *external_tokens = ts_language_enabled_external_tokens(self->language, lex_mode.external_tokens);
+    const bool *external_tokens = ts_language_enabled_external_tokens(
+      self->language,
+      lex_mode.external_tokens
+    );
+
+    LOG("lex external:%d, pos:%u",
+      lex_mode.external_tokens,
+      self->lexer.current_position.chars
+    );
+
     if (self->language->external_scanner.scan(
       self->external_scanner_payload,
       &self->lexer.data,
       external_tokens
     )) {
-      TSSymbol symbol = self->language->external_token_symbol_map[self->lexer.data.result_symbol];
-      Length padding = length_sub(self->lexer.token_start_position, start_position);
-      Length size = length_sub(self->lexer.current_position, self->lexer.token_start_position);
-      TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, symbol);
-      Tree *result = ts_tree_make_leaf(symbol, padding, size, metadata);
-      result->parse_state = parse_state;
-      return result;
+      self->lexer.data.result_symbol = self->language->external_token_symbol_map[self->lexer.data.result_symbol];
+      return true;
     } else {
       ts_lexer_reset(&self->lexer, start_position);
+      ts_lexer_start(&self->lexer);
     }
   }
 
-  TSStateId start_state = self->language->lex_modes[parse_state].lex_state;
-  TSStateId current_state = start_state;
-  LOG("lex state:%d", start_state);
+  LOG("lex state:%d, pos:%u", lex_mode.lex_state, self->lexer.current_position.chars);
+  return self->language->lex_fn(&self->lexer.data, lex_mode.lex_state);
+}
 
+static Tree *parser__lex(Parser *self, TSStateId parse_state) {
+  TSLexMode lex_mode = self->language->lex_modes[parse_state];
+  TSStateId start_state = lex_mode.lex_state;
+  Length start_position = self->lexer.current_position;
+
+  bool found_error = false;
   bool skipped_error = false;
   int32_t first_error_character = 0;
   Length error_start_position, error_end_position;
 
-  while (!self->language->lex_fn(&self->lexer.data, current_state)) {
-    if (current_state != ERROR_STATE) {
+  while (!parser__try_lex(self, lex_mode)) {
+    if (!found_error) {
       LOG("retry_in_error_mode");
-      current_state = ERROR_STATE;
+      found_error = true;
+      lex_mode = self->language->lex_modes[ERROR_STATE];
       ts_lexer_reset(&self->lexer, start_position);
-      ts_lexer_start(&self->lexer);
       continue;
     }
 

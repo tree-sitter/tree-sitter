@@ -120,6 +120,10 @@ class ParseTableBuilder {
       }
     }
 
+    for (size_t i = 0; i < grammar.external_tokens.size(); i++) {
+      add_out_of_context_parse_state(&error_state, Symbol(i, Symbol::External));
+    }
+
     for (size_t i = 0; i < grammar.variables.size(); i++) {
       add_out_of_context_parse_state(&error_state, Symbol(i, Symbol::NonTerminal));
     }
