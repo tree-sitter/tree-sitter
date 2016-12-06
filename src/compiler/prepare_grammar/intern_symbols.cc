@@ -54,7 +54,14 @@ CompileError missing_rule_error(string rule_name) {
 
 pair<InternedGrammar, CompileError> intern_symbols(const Grammar &grammar) {
   InternedGrammar result;
-  result.external_tokens = grammar.external_tokens;
+
+  for (auto &external_token_name : grammar.external_tokens) {
+    result.external_tokens.push_back(ExternalToken{
+      external_token_name,
+      external_token_name[0] == '_' ? VariableTypeHidden : VariableTypeNamed
+    });
+  }
+
   InternSymbols interner(grammar);
 
   for (auto &pair : grammar.rules) {
@@ -62,9 +69,11 @@ pair<InternedGrammar, CompileError> intern_symbols(const Grammar &grammar) {
     if (!interner.missing_rule_name.empty())
       return { result, missing_rule_error(interner.missing_rule_name) };
 
-    result.variables.push_back(Variable(
-      pair.first, pair.first[0] == '_' ? VariableTypeHidden : VariableTypeNamed,
-      new_rule));
+    result.variables.push_back(Variable{
+      pair.first,
+      pair.first[0] == '_' ? VariableTypeHidden : VariableTypeNamed,
+      new_rule
+    });
   }
 
   for (auto &rule : grammar.extra_tokens) {

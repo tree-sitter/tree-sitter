@@ -584,7 +584,7 @@ class ParseTableBuilder {
         return grammar.variables[symbol.index].name;
       }
       case Symbol::External: {
-        return grammar.external_tokens[symbol.index];
+        return grammar.external_tokens[symbol.index].name;
       }
     }
   }

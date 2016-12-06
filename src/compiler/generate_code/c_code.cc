@@ -485,7 +485,7 @@ class CCodeGenerator {
   // Helper functions
 
   string external_token_id(Symbol::Index index) {
-    return "ts_external_token_" + syntax_grammar.external_tokens[index];
+    return "ts_external_token_" + syntax_grammar.external_tokens[index].name;
   }
 
   string symbol_id(const Symbol &symbol) {
@@ -528,7 +528,8 @@ class CCodeGenerator {
         return { variable.name, variable.type };
       }
       case Symbol::External: {
-        return { syntax_grammar.external_tokens[symbol.index], VariableTypeNamed };
+        const ExternalToken &token = syntax_grammar.external_tokens[symbol.index];
+        return { token.name, token.type };
       }
     }
   }

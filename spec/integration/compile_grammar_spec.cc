@@ -513,9 +513,9 @@ describe("compile_grammar", []() {
         "name": "external_scanner_example",
 
         "externals": [
-          "percent_string",
-          "percent_string_start",
-          "percent_string_end"
+          "_percent_string",
+          "_percent_string_start",
+          "_percent_string_end"
         ],
 
         "extras": [
@@ -548,13 +548,13 @@ describe("compile_grammar", []() {
           "string": {
             "type": "CHOICE",
             "members": [
-              {"type": "SYMBOL", "name": "percent_string"},
+              {"type": "SYMBOL", "name": "_percent_string"},
               {
                 "type": "SEQ",
                 "members": [
-                  {"type": "SYMBOL", "name": "percent_string_start"},
+                  {"type": "SYMBOL", "name": "_percent_string_start"},
                   {"type": "SYMBOL", "name": "expression"},
-                  {"type": "SYMBOL", "name": "percent_string_end"}
+                  {"type": "SYMBOL", "name": "_percent_string_end"}
                 ]
               },
             ]

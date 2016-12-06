@@ -15,7 +15,7 @@ struct InitialSyntaxGrammar {
   std::vector<Variable> variables;
   std::set<rules::Symbol> extra_tokens;
   std::set<ConflictSet> expected_conflicts;
-  std::vector<std::string> external_tokens;
+  std::vector<ExternalToken> external_tokens;
 };
 
 }  // namespace prepare_grammar

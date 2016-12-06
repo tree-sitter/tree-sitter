@@ -10,6 +10,11 @@
 
 namespace tree_sitter {
 
+struct ExternalToken {
+  std::string name;
+  VariableType type;
+};
+
 struct ProductionStep {
   ProductionStep(const rules::Symbol &, int, rules::Associativity);
   bool operator==(const ProductionStep &) const;
@@ -36,7 +41,7 @@ struct SyntaxGrammar {
   std::vector<SyntaxVariable> variables;
   std::set<rules::Symbol> extra_tokens;
   std::set<ConflictSet> expected_conflicts;
-  std::vector<std::string> external_tokens;
+  std::vector<ExternalToken> external_tokens;
 };
 
 }  // namespace tree_sitter
