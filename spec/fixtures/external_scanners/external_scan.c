@@ -31,11 +31,11 @@ bool ts_language_external_scanner_example_external_scanner_scan(
     while (lexer->lookahead == ' ' ||
            lexer->lookahead == '\t' ||
            lexer->lookahead == '\n') {
-      lexer->advance(lexer, 0, true);
+      lexer->advance(lexer, true);
     }
 
     if (lexer->lookahead != '%') return false;
-    lexer->advance(lexer, 0, false);
+    lexer->advance(lexer, false);
 
     switch (lexer->lookahead) {
       case '(':
@@ -57,7 +57,7 @@ bool ts_language_external_scanner_example_external_scanner_scan(
         return false;
     }
 
-    lexer->advance(lexer, 0, false);
+    lexer->advance(lexer, false);
 
     for (;;) {
       if (scanner->depth == 0) {
@@ -70,19 +70,19 @@ bool ts_language_external_scanner_example_external_scanner_scan(
       } else if (lexer->lookahead == scanner->close_delimiter) {
         scanner->depth--;
       } else if (lexer->lookahead == '#') {
-        lexer->advance(lexer, 0, false);
+        lexer->advance(lexer, false);
         if (lexer->lookahead == '{') {
-          lexer->advance(lexer, 0, false);
+          lexer->advance(lexer, false);
           lexer->result_symbol = percent_string_start;
           return true;
         }
       }
 
-      lexer->advance(lexer, 0, false);
+      lexer->advance(lexer, false);
     }
   } else if (whitelist[percent_string_end]) {
     if (lexer->lookahead != '}') return false;
-    lexer->advance(lexer, 0, false);
+    lexer->advance(lexer, false);
 
     for (;;) {
       if (scanner->depth == 0) {
@@ -96,7 +96,7 @@ bool ts_language_external_scanner_example_external_scanner_scan(
         scanner->depth--;
       }
 
-      lexer->advance(lexer, 0, false);
+      lexer->advance(lexer, false);
     }
   }
 

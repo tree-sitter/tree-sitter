@@ -23,7 +23,7 @@ typedef struct {
 } TSSymbolMetadata;
 
 typedef struct {
-  void (*advance)(void *, TSStateId, bool);
+  void (*advance)(void *, bool);
   int32_t lookahead;
   TSSymbol result_symbol;
 } TSLexer;
@@ -92,14 +92,14 @@ typedef struct TSLanguage {
 
 #define ADVANCE(state_value)                   \
   {                                            \
-    lexer->advance(lexer, state_value, false); \
+    lexer->advance(lexer, false); \
     state = state_value;                       \
     goto next_state;                           \
   }
 
 #define SKIP(state_value)                     \
   {                                           \
-    lexer->advance(lexer, state_value, true); \
+    lexer->advance(lexer, true); \
     state = state_value;                      \
     goto next_state;                          \
   }

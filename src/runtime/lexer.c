@@ -46,7 +46,7 @@ static void ts_lexer__get_lookahead(Lexer *self) {
   LOG_LOOKAHEAD();
 }
 
-static void ts_lexer__advance(void *payload, TSStateId state, bool skip) {
+static void ts_lexer__advance(void *payload, bool skip) {
   Lexer *self = (Lexer *)payload;
   if (self->chunk == empty_chunk)
     return;
@@ -63,10 +63,10 @@ static void ts_lexer__advance(void *payload, TSStateId state, bool skip) {
   }
 
   if (skip) {
-    LOG("skip_separator state:%d", state);
+    LOG("skip_separator");
     self->token_start_position = self->current_position;
   } else {
-    LOG("advance state:%d", state);
+    LOG("advance");
   }
 
   if (self->current_position.bytes >= self->chunk_start + self->chunk_size)

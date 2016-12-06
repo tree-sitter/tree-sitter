@@ -269,7 +269,7 @@ static Tree *parser__lex(Parser *self, TSStateId parse_state) {
         self->lexer.data.result_symbol = ts_builtin_sym_error;
         break;
       }
-      self->lexer.data.advance(&self->lexer, ERROR_STATE, false);
+      self->lexer.data.advance(&self->lexer, false);
     }
 
     skipped_error = true;
