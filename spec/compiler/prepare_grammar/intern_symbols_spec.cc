@@ -17,7 +17,7 @@ describe("intern_symbols", []() {
       { "x", choice({ sym("y"), sym("_z") }) },
       { "y", sym("_z") },
       { "_z", str("stuff") }
-    }, {}, {}};
+    }, {}, {}, {}};
 
     auto result = intern_symbols(grammar);
 
@@ -33,7 +33,7 @@ describe("intern_symbols", []() {
     it("returns an error", []() {
       Grammar grammar{{
         { "x", sym("y") },
-      }, {}, {}};
+      }, {}, {}, {}};
 
       auto result = intern_symbols(grammar);
 
@@ -48,7 +48,7 @@ describe("intern_symbols", []() {
       { "z", str("stuff") }
     }, {
       sym("z")
-    }, {}};
+    }, {}, {}};
 
     auto result = intern_symbols(grammar);
 

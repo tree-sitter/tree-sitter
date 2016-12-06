@@ -13,7 +13,7 @@ describe("expand_repeats", []() {
   it("replaces repeat rules with pairs of recursive rules", [&]() {
     InitialSyntaxGrammar grammar{{
       Variable("rule0", VariableTypeNamed, repeat1(i_token(0))),
-    }, {}, {}};
+    }, {}, {}, {}};
 
     auto result = expand_repeats(grammar);
 
@@ -32,7 +32,7 @@ describe("expand_repeats", []() {
         i_token(10),
         repeat1(i_token(11)),
       })),
-    }, {}, {}};
+    }, {}, {}, {}};
 
     auto result = expand_repeats(grammar);
 
@@ -54,7 +54,7 @@ describe("expand_repeats", []() {
         i_token(10),
         repeat1(i_token(11))
       })),
-    }, {}, {}};
+    }, {}, {}, {}};
 
     auto result = expand_repeats(grammar);
 
@@ -80,7 +80,7 @@ describe("expand_repeats", []() {
         i_token(3),
         repeat1(i_token(4))
       })),
-    }, {}, {}};
+    }, {}, {}, {}};
 
     auto result = expand_repeats(grammar);
 
@@ -106,7 +106,7 @@ describe("expand_repeats", []() {
         repeat1(i_token(10)),
         repeat1(i_token(11)),
       })),
-    }, {}, {}};
+    }, {}, {}, {}};
 
     auto result = expand_repeats(grammar);
 
@@ -130,7 +130,7 @@ describe("expand_repeats", []() {
     InitialSyntaxGrammar grammar{{
       Variable("rule0", VariableTypeNamed, repeat1(i_token(10))),
       Variable("rule1", VariableTypeNamed, repeat1(i_token(11))),
-    }, {}, {}};
+    }, {}, {}, {}};
 
     auto result = expand_repeats(grammar);
 

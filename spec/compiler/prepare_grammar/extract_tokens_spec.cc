@@ -29,7 +29,7 @@ describe("extract_tokens", []() {
       Variable("rule_B", VariableTypeNamed, pattern("ij+")),
       Variable("rule_C", VariableTypeNamed, choice({ str("kl"), blank() })),
       Variable("rule_D", VariableTypeNamed, repeat1(i_sym(3)))
-    }, {}, {}});
+    }, {}, {}, {}});
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
     LexicalGrammar &lexical_grammar = get<1>(result);
@@ -92,7 +92,7 @@ describe("extract_tokens", []() {
         i_sym(0),
         str("ab"),
       })),
-    }, {}, {}});
+    }, {}, {}, {}});
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
     LexicalGrammar &lexical_grammar = get<1>(result);
@@ -111,7 +111,7 @@ describe("extract_tokens", []() {
       Variable("rule_A", VariableTypeNamed, seq({ i_sym(1), str("ab") })),
       Variable("rule_B", VariableTypeNamed, str("cd")),
       Variable("rule_C", VariableTypeNamed, seq({ str("ef"), str("cd") })),
-    }, {}, {}});
+    }, {}, {}, {}});
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
     LexicalGrammar &lexical_grammar = get<1>(result);
@@ -151,7 +151,7 @@ describe("extract_tokens", []() {
       }, {
         str("y"),
         pattern("\\s+"),
-      }, {}});
+      }, {}, {}});
 
       AssertThat(get<2>(result), Equals(CompileError::none()));
 
@@ -168,7 +168,7 @@ describe("extract_tokens", []() {
         Variable("rule_B", VariableTypeNamed, str("y")),
       }, {
         str("y"),
-      }, {}});
+      }, {}, {}});
 
       AssertThat(get<2>(result), Equals(CompileError::none()));
       AssertThat(get<1>(result).separators.size(), Equals<size_t>(0));
@@ -182,7 +182,7 @@ describe("extract_tokens", []() {
         Variable("rule_C", VariableTypeNamed, str("z")),
       }, {
         i_sym(2),
-      }, {}});
+      }, {}, {}});
 
       AssertThat(get<2>(result), Equals(CompileError::none()));
 
@@ -197,7 +197,7 @@ describe("extract_tokens", []() {
       auto result = extract_tokens(InternedGrammar{{
         Variable("rule_A", VariableTypeNamed, seq({ str("x"), i_sym(1) })),
         Variable("rule_B", VariableTypeNamed, seq({ str("y"), str("z") })),
-      }, { i_sym(1) }, {}});
+      }, { i_sym(1) }, {}, {}});
 
       AssertThat(get<2>(result), !Equals(CompileError::none()));
       AssertThat(get<2>(result), Equals(
@@ -209,7 +209,7 @@ describe("extract_tokens", []() {
       auto result = extract_tokens(InternedGrammar{{
         Variable("rule_A", VariableTypeNamed, str("x")),
         Variable("rule_B", VariableTypeNamed, str("y")),
-      }, { choice({ i_sym(1), blank() }) }, {}});
+      }, { choice({ i_sym(1), blank() }) }, {}, {}});
 
       AssertThat(get<2>(result), !Equals(CompileError::none()));
       AssertThat(get<2>(result), Equals(CompileError(
