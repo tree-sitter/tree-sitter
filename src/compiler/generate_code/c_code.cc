@@ -528,7 +528,7 @@ class CCodeGenerator {
         return { variable.name, variable.type };
       }
       case Symbol::External: {
-        return { syntax_grammar.external_tokens[symbol.index], VariableTypeAnonymous };
+        return { syntax_grammar.external_tokens[symbol.index], VariableTypeNamed };
       }
     }
   }
