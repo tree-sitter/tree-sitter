@@ -1,6 +1,7 @@
 #include "spec_helper.h"
 #include "runtime/alloc.h"
 #include "helpers/load_language.h"
+#include "helpers/stderr_logger.h"
 #include "compiler/util/string_helpers.h"
 #include <map>
 
@@ -508,7 +509,7 @@ describe("compile_grammar", []() {
   });
 
   describe("external scanners", [&]() {
-    it("can call out to arbitrary scanner functions during parsing", [&]() {
+    it("can tokenize using arbitrary user-defined scanner functions", [&]() {
       string grammar = R"JSON({
         "name": "external_scanner_example",
 
@@ -573,7 +574,7 @@ describe("compile_grammar", []() {
       ts_document_set_language(document, load_compile_result(
         "external_scanner_example",
         result,
-        "spec/fixtures/external_scanners/external_scan.c"
+        "spec/fixtures/external_scanners/percent_strings.c"
       ));
 
       ts_document_set_input_string(document, "x + %(sup (external) scanner?)");
@@ -583,6 +584,71 @@ describe("compile_grammar", []() {
       ts_document_set_input_string(document, "%{sup {} #{x + y} {} scanner?}");
       ts_document_parse(document);
       assert_root_node("(expression (string (expression (sum (expression (identifier)) (expression (identifier))))))");
+    });
+
+    it("allows external scanners to refer to tokens that are defined internally", [&]() {
+      string grammar = R"JSON({
+        "name": "shared_external_tokens",
+
+        "externals": [
+          "string",
+          "line_break"
+        ],
+
+        "extras": [
+          {"type": "PATTERN", "value": "\\s"}
+        ],
+
+        "rules": {
+          "statement": {
+            "type": "SEQ",
+            "members": [
+              {"type": "SYMBOL", "name": "_expression"},
+              {"type": "SYMBOL", "name": "_expression"},
+              {"type": "SYMBOL", "name": "line_break"}
+            ]
+          },
+
+          "_expression": {
+            "type": "CHOICE",
+            "members": [
+              {"type": "SYMBOL", "name": "string"},
+              {"type": "SYMBOL", "name": "variable"},
+              {"type": "SYMBOL", "name": "number"}
+            ]
+          },
+
+          "variable": {"type": "PATTERN", "value": "\\a+"},
+          "number": {"type": "PATTERN", "value": "\\d+"},
+          "line_break": {"type": "STRING", "value": "\n"}
+        }
+      })JSON";
+
+      TSCompileResult result = ts_compile_grammar(grammar.c_str());
+      AssertThat(result.error_message, IsNull());
+
+      ts_document_set_language(document, load_compile_result(
+        "shared_external_tokens",
+        result,
+        "spec/fixtures/external_scanners/line_breaks.c"
+      ));
+
+      ts_document_set_input_string(document, "a b\n");
+      ts_document_parse(document);
+      assert_root_node("(statement (variable) (variable) (line_break))");
+
+      ts_document_set_input_string(document, "a \nb\n");
+      ts_document_parse(document);
+      assert_root_node("(statement (variable) (variable) (line_break))");
+
+
+      ts_document_set_input_string(document, "'hello' 'world'\n");
+      ts_document_parse(document);
+      assert_root_node("(statement (string) (string) (line_break))");
+
+      ts_document_set_input_string(document, "'hello' \n'world'\n");
+      ts_document_parse(document);
+      assert_root_node("(statement (string) (string) (line_break))");
     });
   });
 

@@ -19,7 +19,7 @@ using std::pair;
 using std::make_shared;
 using rules::Symbol;
 
-class InternSymbols : public rules::IdentityRuleFn {
+class SymbolInterner : public rules::IdentityRuleFn {
   using rules::IdentityRuleFn::apply_to;
 
   rule_ptr apply_to(const rules::NamedSymbol *rule) {
@@ -42,7 +42,7 @@ class InternSymbols : public rules::IdentityRuleFn {
     return nullptr;
   }
 
-  explicit InternSymbols(const Grammar &grammar) : grammar(grammar) {}
+  explicit SymbolInterner(const Grammar &grammar) : grammar(grammar) {}
   const Grammar grammar;
   string missing_rule_name;
 };
@@ -62,7 +62,7 @@ pair<InternedGrammar, CompileError> intern_symbols(const Grammar &grammar) {
     });
   }
 
-  InternSymbols interner(grammar);
+  SymbolInterner interner(grammar);
 
   for (auto &pair : grammar.rules) {
     auto new_rule = interner.apply(pair.second);
