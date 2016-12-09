@@ -11,11 +11,8 @@
     self->logger.log(self->logger.payload, TSLogTypeLex, self->debug_buffer); \
   }
 
-#define LOG_LOOKAHEAD()                                            \
-  LOG((0 < self->data.lookahead && self->data.lookahead < 256) \
-        ? "lookahead char:'%c'"                                    \
-        : "lookahead char:%d",                                     \
-      self->data.lookahead);
+#define LOG_CHARACTER(message, character) \
+  LOG(character < 255 ? message " character:'%c'" : message " character:%d", character)
 
 static const char empty_chunk[2] = { 0, 0 };
 
@@ -42,8 +39,6 @@ static void ts_lexer__get_lookahead(Lexer *self) {
       utf8proc_iterate(chunk, size, &self->data.lookahead);
   else
     self->lookahead_size = utf16_iterate(chunk, size, &self->data.lookahead);
-
-  LOG_LOOKAHEAD();
 }
 
 static void ts_lexer__advance(void *payload, bool skip) {
@@ -63,10 +58,10 @@ static void ts_lexer__advance(void *payload, bool skip) {
   }
 
   if (skip) {
-    LOG("skip_separator");
+    LOG_CHARACTER("skip", self->data.lookahead);
     self->token_start_position = self->current_position;
   } else {
-    LOG("advance");
+    LOG_CHARACTER("consume", self->data.lookahead);
   }
 
   if (self->current_position.bytes >= self->chunk_start + self->chunk_size)

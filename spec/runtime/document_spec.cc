@@ -178,20 +178,14 @@ describe("Document", [&]() {
       delete logger;
     });
 
-    it("calls the debugger with a message for each lex action", [&]() {
-      ts_document_set_logger(doc, logger->logger());
-      ts_document_parse(doc);
-
-      AssertThat(logger->messages, Contains("lookahead char:'1'"));
-      AssertThat(logger->messages, Contains("lookahead char:'['"));
-    });
-
     it("calls the debugger with a message for each parse action", [&]() {
       ts_document_set_logger(doc, logger->logger());
       ts_document_parse(doc);
 
       AssertThat(logger->messages, Contains("new_parse"));
-      AssertThat(logger->messages, Contains("lookahead char:'['"));
+      AssertThat(logger->messages, Contains("skip character:' '"));
+      AssertThat(logger->messages, Contains("consume character:'['"));
+      AssertThat(logger->messages, Contains("consume character:'1'"));
       AssertThat(logger->messages, Contains("reduce sym:array, child_count:4"));
       AssertThat(logger->messages, Contains("accept"));
     });
