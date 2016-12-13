@@ -630,7 +630,7 @@ describe("compile_grammar", []() {
       ts_document_set_language(document, load_compile_result(
         "shared_external_tokens",
         result,
-        "spec/fixtures/external_scanners/line_breaks.c"
+        "spec/fixtures/external_scanners/shared_external_tokens.c"
       ));
 
       ts_document_set_input_string(document, "a b\n");
@@ -641,7 +641,6 @@ describe("compile_grammar", []() {
       ts_document_parse(document);
       assert_root_node("(statement (variable) (variable) (line_break))");
 
-
       ts_document_set_input_string(document, "'hello' 'world'\n");
       ts_document_parse(document);
       assert_root_node("(statement (string) (string) (line_break))");
@@ -649,6 +648,47 @@ describe("compile_grammar", []() {
       ts_document_set_input_string(document, "'hello' \n'world'\n");
       ts_document_parse(document);
       assert_root_node("(statement (string) (string) (line_break))");
+    });
+
+    it("allows external tokens to be used as extras", [&]() {
+      string grammar = R"JSON({
+        "name": "extra_external_tokens",
+
+        "externals": [
+          "comment"
+        ],
+
+        "extras": [
+          {"type": "PATTERN", "value": "\\s"},
+          {"type": "SYMBOL", "name": "comment"}
+        ],
+
+        "rules": {
+          "assignment": {
+            "type": "SEQ",
+            "members": [
+              {"type": "SYMBOL", "name": "variable"},
+              {"type": "STRING", "value": "="},
+              {"type": "SYMBOL", "name": "variable"}
+            ]
+          },
+
+          "variable": {"type": "PATTERN", "value": "\\a+"}
+        }
+      })JSON";
+
+      TSCompileResult result = ts_compile_grammar(grammar.c_str());
+      AssertThat(result.error_message, IsNull());
+
+      ts_document_set_language(document, load_compile_result(
+        "extra_external_tokens",
+        result,
+        "spec/fixtures/external_scanners/extra_external_tokens.c"
+      ));
+
+      ts_document_set_input_string(document, "x = # a comment\n y");
+      ts_document_parse(document);
+      assert_root_node("(assignment (variable) (comment) (variable))");
     });
   });
 

@@ -177,7 +177,7 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
                         extra_token_error(rule->to_string()));
 
     Symbol new_symbol = symbol_replacer.replace_symbol(*symbol);
-    if (!new_symbol.is_token()) {
+    if (new_symbol.is_non_terminal()) {
       return make_tuple(
         syntax_grammar, lexical_grammar,
         extra_token_error(syntax_grammar.variables[new_symbol.index].name));
