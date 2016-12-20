@@ -39,7 +39,15 @@ static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
 static inline uint32_t ts_node__relevant_child_count(TSNode self,
                                                    bool include_anonymous) {
   const Tree *tree = ts_node__tree(self);
-  return include_anonymous ? tree->visible_child_count : tree->named_child_count;
+  if (tree->child_count > 0) {
+    if (include_anonymous) {
+      return tree->visible_child_count;
+    } else {
+      return tree->named_child_count;
+    }
+  } else {
+    return 0;
+  }
 }
 
 static inline TSNode ts_node__direct_parent(TSNode self, uint32_t *index) {
@@ -324,11 +332,21 @@ TSNode ts_node_named_child(TSNode self, uint32_t child_index) {
 }
 
 uint32_t ts_node_child_count(TSNode self) {
-  return ts_node__tree(self)->visible_child_count;
+  const Tree *tree = ts_node__tree(self);
+  if (tree->child_count > 0) {
+    return tree->visible_child_count;
+  } else {
+    return 0;
+  }
 }
 
 uint32_t ts_node_named_child_count(TSNode self) {
-  return ts_node__tree(self)->named_child_count;
+  const Tree *tree = ts_node__tree(self);
+  if (tree->child_count > 0) {
+    return tree->named_child_count;
+  } else {
+    return 0;
+  }
 }
 
 TSNode ts_node_next_sibling(TSNode self) {

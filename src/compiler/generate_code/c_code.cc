@@ -356,6 +356,9 @@ class CCodeGenerator {
 
       line("void *" + external_scanner_name + "_create();");
       line("bool " + external_scanner_name + "_scan(void *, TSLexer *, const bool *);");
+      line("void " + external_scanner_name + "_reset(void *);");
+      line("bool " + external_scanner_name + "_serialize(void *, TSExternalTokenState);");
+      line("void " + external_scanner_name + "_deserialize(void *, TSExternalTokenState);");
       line("void " + external_scanner_name + "_destroy();");
       line();
 
@@ -366,6 +369,9 @@ class CCodeGenerator {
           indent([&]() {
             line(external_scanner_name + "_create,");
             line(external_scanner_name + "_scan,");
+            line(external_scanner_name + "_reset,");
+            line(external_scanner_name + "_serialize,");
+            line(external_scanner_name + "_deserialize,");
             line(external_scanner_name + "_destroy,");
           });
           line(");");

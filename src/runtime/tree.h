@@ -22,10 +22,13 @@ typedef struct Tree {
   } context;
 
   uint32_t child_count;
-  uint32_t visible_child_count;
-  uint32_t named_child_count;
   union {
-    struct Tree **children;
+    struct {
+      uint32_t visible_child_count;
+      uint32_t named_child_count;
+      struct Tree **children;
+    };
+    TSExternalTokenState external_token_state;
     int32_t lookahead_char;
   };
 

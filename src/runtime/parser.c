@@ -752,8 +752,9 @@ static void parser__start(Parser *self, TSInput input, Tree *previous_tree) {
     LOG("new_parse");
   }
 
-  if (self->language->external_scanner.create)
-    self->language->external_scanner.create();
+  if (self->language->external_scanner.reset) {
+    self->language->external_scanner.reset(self->external_scanner_payload);
+  }
 
   ts_lexer_set_input(&self->lexer, input);
   ts_stack_clear(self->stack);

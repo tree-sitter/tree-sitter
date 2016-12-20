@@ -12,6 +12,8 @@ extern "C" {
 typedef unsigned short TSSymbol;
 typedef unsigned short TSStateId;
 
+typedef uint8_t TSExternalTokenState[16];
+
 #define ts_builtin_sym_error ((TSSymbol)-1)
 #define ts_builtin_sym_end 0
 
@@ -75,8 +77,11 @@ typedef struct TSLanguage {
   const TSSymbol *external_token_symbol_map;
   const bool *external_token_lists;
   struct {
-    void * (*create)();
+    void *(*create)();
     bool (*scan)(void *, TSLexer *, const bool *symbol_whitelist);
+    void (*reset)(void *);
+    bool (*serialize)(void *, TSExternalTokenState);
+    void (*deserialize)(void *, TSExternalTokenState);
     void (*destroy)(void *);
   } external_scanner;
 } TSLanguage;

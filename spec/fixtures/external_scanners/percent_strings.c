@@ -103,6 +103,16 @@ bool ts_language_external_scanner_example_external_scanner_scan(
   return false;
 }
 
+void ts_language_external_scanner_example_external_scanner_reset(void *payload) {
+}
+
+bool ts_language_external_scanner_example_external_scanner_serialize(void *payload, TSExternalTokenState state) {
+  return true;
+}
+
+void ts_language_external_scanner_example_external_scanner_deserialize(void *payload, TSExternalTokenState state) {
+}
+
 void ts_language_external_scanner_example_external_scanner_destroy(void *payload) {
   free(payload);
 }
