@@ -4,6 +4,8 @@
 #include "helpers/spy_input.h"
 #include "helpers/load_language.h"
 #include "helpers/record_alloc.h"
+#include "helpers/stderr_logger.h"
+#include "helpers/dedent.h"
 
 START_TEST
 
@@ -33,13 +35,13 @@ describe("Parser", [&]() {
     AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
   });
 
-  auto set_text = [&](const char *text) {
+  auto set_text = [&](string text) {
     input = new SpyInput(text, chunk_size);
     ts_document_set_input(doc, input->input());
     ts_document_parse(doc);
 
     root = ts_document_root_node(doc);
-    AssertThat(ts_node_end_byte(root), Equals(strlen(text)));
+    AssertThat(ts_node_end_byte(root), Equals(text.size()));
     input->clear();
   };
 
@@ -401,6 +403,28 @@ describe("Parser", [&]() {
         assert_root_node(
           "(program (expression_statement (object (pair "
             "(identifier) (member_access (identifier) (identifier))))))");
+      });
+    });
+
+    describe("with external tokens", [&]() {
+      before_each([&]() {
+        ts_document_set_language(doc, get_test_language("python"));
+      });
+
+      it("maintains the external scanner's state during incremental parsing", [&]() {
+        string text = dedent(R"PYTHON(
+          if a:
+              print b
+
+          return c
+        )PYTHON");
+
+        set_text(text);
+
+        assert_root_node("(module "
+          "(if_statement (identifier) "
+            "(print_statement (identifier))) "
+          "(return_statement (expression_list (identifier))))");
       });
     });
 

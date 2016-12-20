@@ -2,18 +2,9 @@
 #include "runtime/alloc.h"
 #include "helpers/load_language.h"
 #include "helpers/stderr_logger.h"
+#include "helpers/dedent.h"
 #include "compiler/util/string_helpers.h"
 #include <map>
-
-static string dedent(string input) {
-  size_t indent_level = input.find_first_not_of("\n ") - input.find_first_not_of("\n");
-  string whitespace = "\n" + string(indent_level, ' ');
-  util::str_replace(&input, whitespace, "\n");
-  return input.substr(
-    input.find_first_not_of("\n "),
-    input.find_last_not_of("\n ") + 1
-  );
-}
 
 static string fill_template(string input, map<string, string> parameters) {
   string result = input;
