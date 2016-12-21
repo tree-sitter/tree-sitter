@@ -37,7 +37,7 @@ static bool tree_path_descend(TreePath *path, TSPoint position) {
         if (child->visible) {
           array_push(path, child_entry);
           return true;
-        } else if (child->visible_child_count > 0) {
+        } else if (child->child_count > 0 && child->visible_child_count > 0) {
           array_push(path, child_entry);
           did_descend = true;
           break;
