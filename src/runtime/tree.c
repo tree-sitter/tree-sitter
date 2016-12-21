@@ -127,7 +127,7 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children) {
       self->visible_child_count++;
       if (child->named)
         self->named_child_count++;
-    } else {
+    } else if (child->child_count > 0) {
       self->visible_child_count += child->visible_child_count;
       self->named_child_count += child->named_child_count;
     }
