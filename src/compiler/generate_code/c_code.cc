@@ -361,7 +361,7 @@ class CCodeGenerator {
       line("void " + external_scanner_name + "_reset(void *);");
       line("bool " + external_scanner_name + "_scan(void *, TSLexer *, const bool *);");
       line("bool " + external_scanner_name + "_serialize(void *, TSExternalTokenState);");
-      line("void " + external_scanner_name + "_deserialize(void *, TSExternalTokenState);");
+      line("void " + external_scanner_name + "_deserialize(void *, const TSExternalTokenState);");
       line();
     }
 

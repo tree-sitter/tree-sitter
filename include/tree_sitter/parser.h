@@ -82,7 +82,7 @@ typedef struct TSLanguage {
     void (*reset)(void *);
     bool (*scan)(void *, TSLexer *, const bool *symbol_whitelist);
     bool (*serialize)(void *, TSExternalTokenState);
-    void (*deserialize)(void *, TSExternalTokenState);
+    void (*deserialize)(void *, const TSExternalTokenState);
   } external_scanner;
 } TSLanguage;
 
