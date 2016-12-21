@@ -41,7 +41,7 @@ typedef struct Tree {
 
   struct {
     TSSymbol symbol;
-    TSStateId lex_state;
+    TSLexMode lex_mode;
   } first_leaf;
 
   unsigned short ref_count;
@@ -51,6 +51,8 @@ typedef struct Tree {
   bool fragile_left : 1;
   bool fragile_right : 1;
   bool has_changes : 1;
+  bool has_external_tokens : 1;
+  bool has_external_token_state : 1;
 } Tree;
 
 typedef struct {

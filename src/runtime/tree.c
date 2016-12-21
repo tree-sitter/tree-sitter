@@ -25,10 +25,7 @@ Tree *ts_tree_make_leaf(TSSymbol sym, Length padding, Length size,
     .visible = metadata.visible,
     .named = metadata.named,
     .has_changes = false,
-    .first_leaf = {
-      .symbol = sym,
-      .lex_state = 0
-    }
+    .first_leaf.symbol = sym,
   };
   return result;
 }
@@ -111,6 +108,8 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children) {
   self->named_child_count = 0;
   self->visible_child_count = 0;
   self->error_cost = 0;
+  self->has_external_tokens = false;
+  self->has_external_token_state = false;
 
   for (uint32_t i = 0; i < child_count; i++) {
     Tree *child = children[i];
@@ -132,6 +131,9 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children) {
       self->visible_child_count += child->visible_child_count;
       self->named_child_count += child->named_child_count;
     }
+
+    if (child->has_external_tokens) self->has_external_tokens = true;
+    if (child->has_external_token_state) self->has_external_token_state = true;
 
     if (child->symbol == ts_builtin_sym_error) {
       self->fragile_left = self->fragile_right = true;

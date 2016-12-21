@@ -253,7 +253,7 @@ describe("Parser", [&]() {
               "(identifier) "
               "(math_op (number) (member_access (identifier) (identifier))))))");
 
-          AssertThat(input->strings_read, Equals(vector<string>({ " + abc.d)" })));
+          AssertThat(input->strings_read, Equals(vector<string>({ " + abc.d)", "" })));
         });
       });
 
@@ -277,7 +277,7 @@ describe("Parser", [&]() {
                 "(number) "
                 "(math_op (number) (math_op (number) (identifier)))))))");
 
-          AssertThat(input->strings_read, Equals(vector<string>({ "123 || 5 +" })));
+          AssertThat(input->strings_read, Equals(vector<string>({ "123 || 5 +", "" })));
         });
       });
 
@@ -415,16 +415,20 @@ describe("Parser", [&]() {
         string text = dedent(R"PYTHON(
           if a:
               print b
-
           return c
         )PYTHON");
 
         set_text(text);
-
         assert_root_node("(module "
           "(if_statement (identifier) "
             "(print_statement (identifier))) "
           "(return_statement (expression_list (identifier))))");
+
+        replace_text(text.find("return"), 0, "    ");
+        assert_root_node("(module "
+          "(if_statement (identifier) "
+            "(print_statement (identifier)) "
+            "(return_statement (expression_list (identifier)))))");
       });
     });
 

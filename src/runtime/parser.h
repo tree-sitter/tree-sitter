@@ -30,6 +30,7 @@ typedef struct {
   TreePath tree_path1;
   TreePath tree_path2;
   void *external_scanner_payload;
+  Tree *last_external_token;
 } Parser;
 
 bool parser_init(Parser *);

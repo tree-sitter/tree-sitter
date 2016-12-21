@@ -12,8 +12,8 @@ class Symbol : public Rule {
   typedef int Index;
 
   typedef enum {
-    Terminal,
     External,
+    Terminal,
     NonTerminal,
   } Type;
 
