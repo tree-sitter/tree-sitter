@@ -76,6 +76,11 @@ ostream &operator<<(ostream &stream, const ParseState &state) {
   return stream << string(">");
 }
 
+ostream &operator<<(ostream &stream, const ExternalToken &external_token) {
+  return stream << "{" << external_token.name << ", " << external_token.type <<
+    "," << external_token.corresponding_internal_token << "}";
+}
+
 ostream &operator<<(ostream &stream, const ProductionStep &step) {
   stream << "(symbol: " << step.symbol << ", precedence:" << to_string(step.precedence);
   stream << ", associativity: ";

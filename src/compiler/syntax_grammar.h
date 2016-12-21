@@ -13,6 +13,9 @@ namespace tree_sitter {
 struct ExternalToken {
   std::string name;
   VariableType type;
+  rules::Symbol corresponding_internal_token;
+
+  bool operator==(const ExternalToken &) const;
 };
 
 struct ProductionStep {

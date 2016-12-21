@@ -97,6 +97,7 @@ struct AdvanceAction;
 struct AcceptTokenAction;
 class ParseAction;
 class ParseState;
+struct ExternalToken;
 struct ProductionStep;
 struct PrecedenceRange;
 
@@ -110,6 +111,7 @@ ostream &operator<<(ostream &, const AdvanceAction &);
 ostream &operator<<(ostream &, const AcceptTokenAction &);
 ostream &operator<<(ostream &, const ParseAction &);
 ostream &operator<<(ostream &, const ParseState &);
+ostream &operator<<(ostream &, const ExternalToken &);
 ostream &operator<<(ostream &, const ProductionStep &);
 ostream &operator<<(ostream &, const PrecedenceRange &);
 

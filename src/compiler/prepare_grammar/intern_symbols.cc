@@ -8,6 +8,7 @@
 #include "compiler/rules/blank.h"
 #include "compiler/rules/named_symbol.h"
 #include "compiler/rules/symbol.h"
+#include "compiler/rules/built_in_symbols.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {
@@ -56,9 +57,18 @@ pair<InternedGrammar, CompileError> intern_symbols(const Grammar &grammar) {
   InternedGrammar result;
 
   for (auto &external_token_name : grammar.external_tokens) {
+    Symbol corresponding_internal_token = rules::NONE();
+    for (size_t i = 0, n = grammar.rules.size(); i < n; i++) {
+      if (grammar.rules[i].first == external_token_name) {
+        corresponding_internal_token = Symbol(i, Symbol::NonTerminal);
+        break;
+      }
+    }
+
     result.external_tokens.push_back(ExternalToken{
       external_token_name,
-      external_token_name[0] == '_' ? VariableTypeHidden : VariableTypeNamed
+      external_token_name[0] == '_' ? VariableTypeHidden : VariableTypeNamed,
+      corresponding_internal_token
     });
   }
 

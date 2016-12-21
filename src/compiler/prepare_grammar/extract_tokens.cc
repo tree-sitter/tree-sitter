@@ -186,7 +186,13 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
     syntax_grammar.extra_tokens.insert(new_symbol);
   }
 
-  syntax_grammar.external_tokens = grammar.external_tokens;
+  for (const ExternalToken &external_token : grammar.external_tokens) {
+    syntax_grammar.external_tokens.push_back({
+      external_token.name,
+      external_token.type,
+      symbol_replacer.replace_symbol(external_token.corresponding_internal_token)
+    });
+  }
 
   return make_tuple(syntax_grammar, lexical_grammar, CompileError::none());
 }

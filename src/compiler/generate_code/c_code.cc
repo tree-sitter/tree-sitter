@@ -77,7 +77,6 @@ class CCodeGenerator {
   vector<pair<size_t, ParseTableEntry>> parse_table_entries;
   vector<set<Symbol::Index>> external_token_id_sets;
   size_t next_parse_action_list_index;
-  map<Symbol::Index, Symbol::Index> shared_token_indices;
 
  public:
   CCodeGenerator(string name, const ParseTable &parse_table,
@@ -93,17 +92,6 @@ class CCodeGenerator {
 
   string code() {
     buffer = "";
-
-    for (size_t i = 0; i < lexical_grammar.variables.size(); i++) {
-      const Variable &variable = lexical_grammar.variables[i];
-      for (size_t j = 0; j < syntax_grammar.external_tokens.size(); j++) {
-        const ExternalToken &external_token = syntax_grammar.external_tokens[j];
-        if (external_token.name == variable.name) {
-          shared_token_indices.insert({i, j});
-          break;
-        }
-      }
-    }
 
     add_includes();
     add_warning_pragma();
@@ -138,16 +126,17 @@ class CCodeGenerator {
   }
 
   void add_stats() {
+    size_t token_count = 1 + lexical_grammar.variables.size();
+    for (const ExternalToken &external_token : syntax_grammar.external_tokens) {
+      if (external_token.corresponding_internal_token == rules::NONE()) {
+        token_count++;
+      }
+    }
+
     line("#define STATE_COUNT " + to_string(parse_table.states.size()));
     line("#define SYMBOL_COUNT " + to_string(parse_table.symbols.size()));
-    line("#define TOKEN_COUNT " + to_string(
-      1 +
-      lexical_grammar.variables.size() +
-      syntax_grammar.external_tokens.size() - shared_token_indices.size()
-    ));
-    line("#define EXTERNAL_TOKEN_COUNT " + to_string(
-      syntax_grammar.external_tokens.size()
-    ));
+    line("#define TOKEN_COUNT " + to_string(token_count));
+    line("#define EXTERNAL_TOKEN_COUNT " + to_string(syntax_grammar.external_tokens.size()));
     line();
   }
 
@@ -233,6 +222,17 @@ class CCodeGenerator {
   void add_lex_modes_list() {
     add_external_scanner_state({});
 
+    map<Symbol::Index, Symbol::Index> external_tokens_by_corresponding_internal_token;
+    for (size_t i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
+      for (size_t j = 0; j < syntax_grammar.external_tokens.size(); j++) {
+        const ExternalToken &external_token = syntax_grammar.external_tokens[j];
+        if (external_token.corresponding_internal_token.index == i) {
+          external_tokens_by_corresponding_internal_token.insert({i, j});
+          break;
+        }
+      }
+    }
+
     line("static TSLexMode ts_lex_modes[STATE_COUNT] = {");
     indent([&]() {
       size_t state_id = 0;
@@ -241,22 +241,23 @@ class CCodeGenerator {
         line("[" + to_string(state_id++) + "] = {.lex_state = ");
         add(to_string(state.lex_state_id));
 
-        bool has_external_tokens = false;
+        bool needs_external_scanner = false;
         set<Symbol::Index> external_token_indices;
         for (const auto &pair : state.terminal_entries) {
           Symbol symbol = pair.first;
           if (symbol.is_external()) {
-            has_external_tokens = true;
+            needs_external_scanner = true;
             external_token_indices.insert(symbol.index);
           } else if (symbol.is_token()) {
-            auto shared_token_entry = shared_token_indices.find(symbol.index);
-            if (shared_token_entry != shared_token_indices.end()) {
-              external_token_indices.insert(shared_token_entry->second);
+            auto corresponding_external_token =
+              external_tokens_by_corresponding_internal_token.find(symbol.index);
+            if (corresponding_external_token != external_tokens_by_corresponding_internal_token.end()) {
+              external_token_indices.insert(corresponding_external_token->second);
             }
           }
         }
 
-        if (has_external_tokens) {
+        if (needs_external_scanner) {
           add(", .external_tokens = " + add_external_scanner_state(external_token_indices));
         }
 

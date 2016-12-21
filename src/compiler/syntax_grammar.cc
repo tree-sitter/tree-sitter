@@ -21,6 +21,11 @@ ProductionStep::ProductionStep(const rules::Symbol &symbol, int precedence,
                                rules::Associativity associativity)
     : symbol(symbol), precedence(precedence), associativity(associativity) {}
 
+bool ExternalToken::operator==(const ExternalToken &other) const {
+  return name == other.name && type == other.type &&
+    corresponding_internal_token == other.corresponding_internal_token;
+}
+
 bool ProductionStep::operator==(const ProductionStep &other) const {
   return symbol == other.symbol && precedence == other.precedence &&
          associativity == other.associativity;
