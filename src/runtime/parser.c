@@ -164,7 +164,7 @@ static bool parser__can_reuse(Parser *self, TSStateId state, Tree *tree,
   if (ts_language_is_symbol_external(self->language, tree->first_leaf.symbol)) return false;
   if (tree->size.bytes == 0) return false;
   if (tree->first_leaf.lex_mode.lex_state == current_lex_mode.lex_state &&
-      tree->first_leaf.lex_mode.external_tokens == current_lex_mode.external_tokens)
+      tree->first_leaf.lex_mode.external_lex_state == current_lex_mode.external_lex_state)
     return true;
   if (!table_entry->is_reusable)
     return false;
@@ -249,7 +249,7 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
   TSLexMode lex_mode = self->language->lex_modes[parse_state];
   const bool *external_tokens = ts_language_enabled_external_tokens(
     self->language,
-    lex_mode.external_tokens
+    lex_mode.external_lex_state
   );
 
   bool found_external_token = false;
@@ -263,7 +263,7 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
     Length current_position = self->lexer.current_position;
 
     if (external_tokens) {
-      LOG("lex_external state:%d, row:%u, column:%u", lex_mode.external_tokens,
+      LOG("lex_external state:%d, row:%u, column:%u", lex_mode.external_lex_state,
           current_position.extent.row, current_position.extent.column);
       parser__restore_external_scanner(self, version);
       ts_lexer_start(&self->lexer);
@@ -288,7 +288,7 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
       lex_mode = self->language->lex_modes[ERROR_STATE];
       external_tokens = ts_language_enabled_external_tokens(
         self->language,
-        lex_mode.external_tokens
+        lex_mode.external_lex_state
       );
       ts_lexer_reset(&self->lexer, start_position);
       continue;
@@ -320,7 +320,7 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
     result = ts_tree_make_error(size, padding, first_error_character);
   } else {
     TSSymbol symbol = self->lexer.data.result_symbol;
-    if (found_external_token) symbol = self->language->external_token_symbol_map[symbol];
+    if (found_external_token) symbol = self->language->external_scanner.symbol_map[symbol];
 
     Length padding = length_sub(self->lexer.token_start_position, start_position);
     Length size = length_sub(self->lexer.current_position, self->lexer.token_start_position);

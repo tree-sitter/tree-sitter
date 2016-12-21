@@ -59,7 +59,7 @@ ts_language_enabled_external_tokens(const TSLanguage *self,
   if (external_scanner_state == 0) {
     return NULL;
   } else {
-    return self->external_token_lists + self->external_token_count * external_scanner_state;
+    return self->external_scanner.states + self->external_token_count * external_scanner_state;
   }
 }
 

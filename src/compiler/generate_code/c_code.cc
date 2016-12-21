@@ -75,7 +75,7 @@ class CCodeGenerator {
   const LexicalGrammar lexical_grammar;
   map<string, string> sanitized_names;
   vector<pair<size_t, ParseTableEntry>> parse_table_entries;
-  vector<set<Symbol::Index>> external_token_id_sets;
+  vector<set<Symbol::Index>> external_scanner_states;
   size_t next_parse_action_list_index;
 
  public:
@@ -102,11 +102,12 @@ class CCodeGenerator {
     add_lex_function();
     add_lex_modes_list();
 
-    if (!syntax_grammar.external_tokens.empty())
+    if (!syntax_grammar.external_tokens.empty()) {
       add_external_token_enum();
+      add_external_scanner_symbol_map();
+      add_external_scanner_states_list();
+    }
 
-    add_external_token_symbol_map();
-    add_external_scan_modes_list();
     add_parse_table();
     add_parser_export();
 
@@ -258,7 +259,7 @@ class CCodeGenerator {
         }
 
         if (needs_external_scanner) {
-          add(", .external_tokens = " + add_external_scanner_state(external_token_indices));
+          add(", .external_lex_state = " + add_external_scanner_state(external_token_indices));
         }
 
         add("},");
@@ -269,11 +270,11 @@ class CCodeGenerator {
   }
 
   string add_external_scanner_state(set<Symbol::Index> external_token_ids) {
-    for (size_t i = 0, n = external_token_id_sets.size(); i < n; i++)
-      if (external_token_id_sets[i] == external_token_ids)
+    for (size_t i = 0, n = external_scanner_states.size(); i < n; i++)
+      if (external_scanner_states[i] == external_token_ids)
         return to_string(i);
-    external_token_id_sets.push_back(external_token_ids);
-    return to_string(external_token_id_sets.size() - 1);
+    external_scanner_states.push_back(external_token_ids);
+    return to_string(external_scanner_states.size() - 1);
   }
 
   void add_external_token_enum() {
@@ -286,8 +287,8 @@ class CCodeGenerator {
     line();
   }
 
-  void add_external_token_symbol_map() {
-    line("TSSymbol ts_external_token_symbol_map[EXTERNAL_TOKEN_COUNT] = {");
+  void add_external_scanner_symbol_map() {
+    line("TSSymbol ts_external_scanner_symbol_map[EXTERNAL_TOKEN_COUNT] = {");
     indent([&]() {
       for (size_t i = 0; i < syntax_grammar.external_tokens.size(); i++) {
         line("[" + external_token_id(i) + "] = " + symbol_id(Symbol(i, Symbol::External)) + ",");
@@ -297,17 +298,17 @@ class CCodeGenerator {
     line();
   }
 
-  void add_external_scan_modes_list() {
-    line("static bool ts_external_token_lists[");
-    add(to_string(external_token_id_sets.size()));
+  void add_external_scanner_states_list() {
+    line("static bool ts_external_scanner_states[");
+    add(to_string(external_scanner_states.size()));
     add("][EXTERNAL_TOKEN_COUNT] = {");
     indent([&]() {
       size_t i = 0;
-      for (const auto &external_token_ids : external_token_id_sets) {
-        if (!external_token_ids.empty()) {
+      for (const auto &valid_external_lookaheads : external_scanner_states) {
+        if (!valid_external_lookaheads.empty()) {
           line("[" + to_string(i) + "] = {");
           indent([&]() {
-            for (Symbol::Index id : external_token_ids) {
+            for (Symbol::Index id : valid_external_lookaheads) {
               line("[" + external_token_id(id) + "] = true,");
             }
           });
@@ -352,40 +353,38 @@ class CCodeGenerator {
   }
 
   void add_parser_export() {
-    if (!syntax_grammar.external_tokens.empty()) {
-      string external_scanner_name = "ts_language_" + name + "_external_scanner";
+    string external_scanner_name = "ts_language_" + name + "_external_scanner";
 
+    if (!syntax_grammar.external_tokens.empty()) {
       line("void *" + external_scanner_name + "_create();");
-      line("bool " + external_scanner_name + "_scan(void *, TSLexer *, const bool *);");
+      line("void " + external_scanner_name + "_destroy();");
       line("void " + external_scanner_name + "_reset(void *);");
+      line("bool " + external_scanner_name + "_scan(void *, TSLexer *, const bool *);");
       line("bool " + external_scanner_name + "_serialize(void *, TSExternalTokenState);");
       line("void " + external_scanner_name + "_deserialize(void *, TSExternalTokenState);");
-      line("void " + external_scanner_name + "_destroy();");
       line();
-
-      line("const TSLanguage *ts_language_" + name + "() {");
-      indent([&]() {
-        if (!syntax_grammar.external_tokens.empty()) {
-          line("GET_LANGUAGE(");
-          indent([&]() {
-            line(external_scanner_name + "_create,");
-            line(external_scanner_name + "_scan,");
-            line(external_scanner_name + "_reset,");
-            line(external_scanner_name + "_serialize,");
-            line(external_scanner_name + "_deserialize,");
-            line(external_scanner_name + "_destroy,");
-          });
-          line(");");
-        }
-      });
-      line("}");
-    } else {
-      line("const TSLanguage *ts_language_" + name + "() {");
-      indent([&]() {
-        line("GET_LANGUAGE();");
-      });
-      line("}");
     }
+
+    line("const TSLanguage *ts_language_" + name + "() {");
+    indent([&]() {
+      line("GET_LANGUAGE(");
+      if (syntax_grammar.external_tokens.empty()) {
+        add(");");
+      } else {
+        indent([&]() {
+          line("(const bool *)ts_external_scanner_states,");
+          line("ts_external_scanner_symbol_map,");
+          line(external_scanner_name + "_create,");
+          line(external_scanner_name + "_destroy,");
+          line(external_scanner_name + "_reset,");
+          line(external_scanner_name + "_scan,");
+          line(external_scanner_name + "_serialize,");
+          line(external_scanner_name + "_deserialize,");
+        });
+        line(");");
+      }
+    });
+    line("}");
     line();
   }
 
