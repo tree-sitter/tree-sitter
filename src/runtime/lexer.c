@@ -88,6 +88,8 @@ void ts_lexer_init(Lexer *self) {
       .payload = NULL,
       .log = NULL
     },
+    .needs_to_restore_external_scanner = false,
+    .last_external_token_end_byte = 0,
   };
   ts_lexer_reset(self, length_zero());
 }
@@ -110,12 +112,22 @@ static inline void ts_lexer__reset(Lexer *self, Length position) {
 void ts_lexer_set_input(Lexer *self, TSInput input) {
   self->input = input;
   ts_lexer__reset(self, length_zero());
+  self->needs_to_restore_external_scanner = false;
+  self->last_external_token_end_byte = 0;
 }
 
 void ts_lexer_reset(Lexer *self, Length position) {
-  if (!length_eq(position, self->current_position))
+  if (position.bytes > self->current_position.bytes) {
+    self->needs_to_restore_external_scanner = true;
+    self->last_external_token_end_byte = 0;
     ts_lexer__reset(self, position);
-  return;
+  } else if (position.bytes < self->current_position.bytes) {
+    if (position.bytes < self->last_external_token_end_byte) {
+      self->needs_to_restore_external_scanner = true;
+      self->last_external_token_end_byte = 0;
+    }
+    ts_lexer__reset(self, position);
+  }
 }
 
 void ts_lexer_start(Lexer *self) {

@@ -86,6 +86,7 @@ void ts_tree_assign_parents(Tree *, TreePath *);
 void ts_tree_edit(Tree *, const TSInputEdit *edit);
 char *ts_tree_string(const Tree *, const TSLanguage *, bool include_all);
 void ts_tree_print_dot_graph(const Tree *, const TSLanguage *, FILE *);
+const TSExternalTokenState *ts_tree_last_external_token_state(const Tree *);
 
 static inline uint32_t ts_tree_total_bytes(const Tree *self) {
   return self->padding.bytes + self->size.bytes;

@@ -379,6 +379,19 @@ void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
   }
 }
 
+const TSExternalTokenState *ts_tree_last_external_token_state(const Tree *tree) {
+  while (tree->child_count > 0) {
+    for (uint32_t i = tree->child_count - 1; i + 1 > 0; i--) {
+      Tree *child = tree->children[i];
+      if (child->has_external_token_state) {
+        tree = child;
+        break;
+      }
+    }
+  }
+  return &tree->external_token_state;
+}
+
 static size_t ts_tree__write_char_to_string(char *s, size_t n, int32_t c) {
   if (c == 0)
     return snprintf(s, n, "EOF");
