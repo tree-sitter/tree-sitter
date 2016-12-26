@@ -96,6 +96,7 @@ const TSLanguage *load_language(const string &source_filename,
     };
 
     if (!external_scanner_filename.empty()) {
+      compile_args.push_back("-g");
       string extension = external_scanner_filename.substr(external_scanner_filename.rfind("."));
       if (extension == ".c") {
         compile_args.push_back("-xc");
