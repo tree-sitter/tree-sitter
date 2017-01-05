@@ -30,6 +30,9 @@ describe("Tree", []() {
     symbol4,
     symbol5,
     symbol6,
+    symbol7,
+    symbol8,
+    symbol9,
   };
 
   TSSymbolMetadata visible = {true, true, false, true};
@@ -397,6 +400,38 @@ describe("Tree", []() {
       ts_tree_release(leaf2);
       ts_tree_release(parent);
       ts_tree_release(different_parent);
+    });
+  });
+
+  describe("last_external_token_state", [&]() {
+    Length padding = {1, 1, {0, 1}};
+    Length size = {2, 2, {0, 2}};
+
+    auto make_external = [](Tree *tree) {
+      tree->has_external_tokens = true;
+      tree->has_external_token_state = true;
+      return tree;
+    };
+
+    it("returns the last serialized external token state in the given tree", [&]() {
+      Tree *tree1, *tree2, *tree3, *tree4, *tree5, *tree6, *tree7, *tree8, *tree9;
+
+      tree1 = ts_tree_make_node(symbol1, 2, tree_array({
+        (tree2 = ts_tree_make_node(symbol2, 3, tree_array({
+          (tree3 = make_external(ts_tree_make_leaf(symbol3, padding, size, visible))),
+          (tree4 = ts_tree_make_leaf(symbol4, padding, size, visible)),
+          (tree5 = ts_tree_make_leaf(symbol5, padding, size, visible)),
+        }), visible)),
+        (tree6 = ts_tree_make_node(symbol6, 2, tree_array({
+          (tree7 = ts_tree_make_node(symbol7, 1, tree_array({
+            (tree8 = ts_tree_make_leaf(symbol8, padding, size, visible)),
+          }), visible)),
+          (tree9 = ts_tree_make_leaf(symbol9, padding, size, visible)),
+        }), visible)),
+      }), visible);
+
+      auto state = ts_tree_last_external_token_state(tree1);
+      AssertThat(state, Equals(&tree3->external_token_state));
     });
   });
 });

@@ -386,6 +386,8 @@ const TSExternalTokenState *ts_tree_last_external_token_state(const Tree *tree) 
       if (child->has_external_token_state) {
         tree = child;
         break;
+      } else if (child->has_external_tokens) {
+        return NULL;
       }
     }
   }
