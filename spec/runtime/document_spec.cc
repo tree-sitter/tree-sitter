@@ -113,7 +113,7 @@ describe("Document", [&]() {
       assert_node_string_equals(
         new_root,
         "(object (pair (string) (array (null) (number))))");
-      AssertThat(spy_input->strings_read, Equals(vector<string>({" [null, 2", ""})));
+      AssertThat(spy_input->strings_read, Equals(vector<string>({" [null, 2" })));
     });
 
     it("reads from the new input correctly when the old input was blank", [&]() {

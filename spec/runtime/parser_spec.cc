@@ -230,7 +230,7 @@ describe("Parser", [&]() {
             "(identifier) "
             "(math_op (number) (member_access (identifier) (identifier))))))");
 
-        AssertThat(input->strings_read, Equals(vector<string>({ " + abc.d)", "" })));
+        AssertThat(input->strings_read, Equals(vector<string>({ " + abc.d)" })));
       });
     });
 
@@ -255,7 +255,7 @@ describe("Parser", [&]() {
               "(number) "
               "(math_op (number) (math_op (number) (identifier)))))))");
 
-        AssertThat(input->strings_read, Equals(vector<string>({ "123 || 5 +", "" })));
+        AssertThat(input->strings_read, Equals(vector<string>({ "123 || 5 +" })));
       });
     });
 

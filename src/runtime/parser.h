@@ -8,12 +8,8 @@ extern "C" {
 #include "runtime/stack.h"
 #include "runtime/array.h"
 #include "runtime/lexer.h"
+#include "runtime/reusable_node.h"
 #include "runtime/reduce_action.h"
-
-typedef struct {
-  Tree *tree;
-  uint32_t byte_index;
-} ReusableNode;
 
 typedef struct {
   Lexer lexer;
