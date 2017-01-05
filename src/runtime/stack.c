@@ -50,6 +50,7 @@ typedef struct {
   StackNode *node;
   bool is_halted;
   unsigned push_count;
+  const TSExternalTokenState *external_token_state;
 } StackHead;
 
 struct Stack {
@@ -288,7 +289,12 @@ Stack *ts_stack_new() {
   self->base_node =
     stack_node_new(NULL, NULL, false, 1, length_zero(), &self->node_pool);
   stack_node_retain(self->base_node);
-  array_push(&self->heads, ((StackHead){ self->base_node, false, 0 }));
+  array_push(&self->heads, ((StackHead){
+    self->base_node,
+    false,
+    0,
+    NULL
+  }));
 
   return self;
 }
@@ -327,9 +333,17 @@ unsigned ts_stack_push_count(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->push_count;
 }
 
-void ts_stack_decrease_push_count(const Stack *self, StackVersion version,
+void ts_stack_decrease_push_count(Stack *self, StackVersion version,
                                   unsigned decrement) {
   array_get(&self->heads, version)->push_count -= decrement;
+}
+
+const TSExternalTokenState *ts_stack_external_token_state(const Stack *self, StackVersion version) {
+  return array_get(&self->heads, version)->external_token_state;
+}
+
+void ts_stack_set_external_token_state(Stack *self, StackVersion version, const TSExternalTokenState *state) {
+  array_get(&self->heads, version)->external_token_state = state;
 }
 
 ErrorStatus ts_stack_error_status(const Stack *self, StackVersion version) {
@@ -480,7 +494,8 @@ bool ts_stack_merge(Stack *self, StackVersion version, StackVersion new_version)
   if (new_node->state == node->state &&
       new_node->position.chars == node->position.chars &&
       new_node->error_count == node->error_count &&
-      new_node->error_cost == node->error_cost) {
+      new_node->error_cost == node->error_cost &&
+      new_head->external_token_state == head->external_token_state) {
     for (uint32_t j = 0; j < new_node->link_count; j++)
       stack_node_add_link(node, new_node->links[j]);
     if (new_head->push_count > head->push_count)
@@ -505,7 +520,12 @@ void ts_stack_clear(Stack *self) {
   for (uint32_t i = 0; i < self->heads.size; i++)
     stack_node_release(self->heads.contents[i].node, &self->node_pool);
   array_clear(&self->heads);
-  array_push(&self->heads, ((StackHead){ self->base_node, false, 0 }));
+  array_push(&self->heads, ((StackHead){
+    self->base_node,
+    false,
+    0,
+    NULL
+  }));
 }
 
 bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
