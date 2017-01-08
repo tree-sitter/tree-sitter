@@ -130,13 +130,20 @@ static bool parser__breakdown_lookahead(Parser *self, Tree **lookahead,
   return result;
 }
 
+static inline bool ts_lex_mode_eq(TSLexMode self, TSLexMode other) {
+  return self.lex_state == other.lex_state &&
+    self.external_lex_state == other.external_lex_state;
+}
+
 static bool parser__can_reuse(Parser *self, TSStateId state, Tree *tree,
                               TableEntry *table_entry) {
   TSLexMode current_lex_mode = self->language->lex_modes[state];
-  if (tree->first_leaf.lex_mode.lex_state == current_lex_mode.lex_state &&
-      tree->first_leaf.lex_mode.external_lex_state == current_lex_mode.external_lex_state)
+  if (ts_lex_mode_eq(tree->first_leaf.lex_mode, current_lex_mode))
     return true;
-  if (tree->size.bytes == 0) return false;
+  if (current_lex_mode.external_lex_state != 0)
+    return false;
+  if (tree->size.bytes == 0)
+    return false;
   if (!table_entry->is_reusable)
     return false;
   if (!table_entry->depends_on_lookahead)
@@ -182,45 +189,18 @@ static bool parser__condense_stack(Parser *self) {
   return result;
 }
 
-static StackIterateAction parser__restore_external_scanner_callback(
-  void *payload, TSStateId state, TreeArray *trees, uint32_t tree_count,
-  bool is_done, bool is_pending) {
-  Parser *self = payload;
-  if (tree_count > 0) {
-    Tree *tree = *array_back(trees);
-    if (tree->has_external_token_state) {
-      const TSExternalTokenState *state = ts_tree_last_external_token_state(tree);
+static void parser__restore_external_scanner(Parser *self, StackVersion version) {
+  const TSExternalTokenState *state = ts_stack_external_token_state(self->stack, version);
+  if (self->lexer.last_external_token_state != state) {
+    LOG("restore_external_scanner");
+    if (state) {
       self->language->external_scanner.deserialize(
         self->external_scanner_payload,
         *state
       );
-      LOG("deserialized_external_scanner");
-      return StackIterateStop;
+    } else {
+      self->language->external_scanner.reset(self->external_scanner_payload);
     }
-  }
-
-  if (is_done) {
-    LOG("no_previous_external_token");
-    self->language->external_scanner.reset(self->external_scanner_payload);
-    return StackIterateStop;
-  }
-
-  return StackIterateNone;
-}
-
-static void parser__restore_external_scanner(Parser *self, StackVersion version) {
-  if (!self->lexer.needs_to_restore_external_scanner) return;
-  LOG("restore_external_scanner");
-  StackPopResult pop = ts_stack_iterate(self->stack, version, parser__restore_external_scanner_callback, self);
-  if (pop.slices.size > 0) {
-    StackSlice slice = pop.slices.contents[0];
-    for (size_t i = 1; i < slice.trees.size; i++) {
-      Tree *tree = slice.trees.contents[i];
-      if (tree->has_external_tokens) {
-        printf("RE-SCANNING TREE: %s\n", ts_tree_string(tree, self->language, true));
-      }
-    }
-    ts_tree_array_delete(&slice.trees);
   }
 }
 
@@ -228,7 +208,7 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
   TSStateId parse_state = ts_stack_top_state(self->stack, version);
   Length start_position = ts_stack_top_position(self->stack, version);
   TSLexMode lex_mode = self->language->lex_modes[parse_state];
-  const bool *external_tokens = ts_language_enabled_external_tokens(
+  const bool *valid_external_tokens = ts_language_enabled_external_tokens(
     self->language,
     lex_mode.external_lex_state
   );
@@ -243,15 +223,13 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
   for (;;) {
     Length current_position = self->lexer.current_position;
 
-    if (external_tokens) {
+    if (valid_external_tokens) {
       LOG("lex_external state:%d, row:%u, column:%u", lex_mode.external_lex_state,
           current_position.extent.row, current_position.extent.column);
       parser__restore_external_scanner(self, version);
       ts_lexer_start(&self->lexer);
       if (self->language->external_scanner.scan(self->external_scanner_payload,
-                                                &self->lexer.data, external_tokens)) {
-        self->lexer.last_external_token_end_byte = self->lexer.current_position.bytes;
-        self->lexer.needs_to_restore_external_scanner = false;
+                                                &self->lexer.data, valid_external_tokens)) {
         found_external_token = true;
         break;
       }
@@ -269,7 +247,7 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
       LOG("retry_in_error_mode");
       found_error = true;
       lex_mode = self->language->lex_modes[ERROR_STATE];
-      external_tokens = ts_language_enabled_external_tokens(
+      valid_external_tokens = ts_language_enabled_external_tokens(
         self->language,
         lex_mode.external_lex_state
       );
@@ -303,7 +281,9 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
     result = ts_tree_make_error(size, padding, first_error_character);
   } else {
     TSSymbol symbol = self->lexer.data.result_symbol;
-    if (found_external_token) symbol = self->language->external_scanner.symbol_map[symbol];
+    if (found_external_token) {
+      symbol = self->language->external_scanner.symbol_map[symbol];
+    }
 
     Length padding = length_sub(self->lexer.token_start_position, start_position);
     Length size = length_sub(self->lexer.current_position, self->lexer.token_start_position);
@@ -312,10 +292,9 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
 
     if (found_external_token) {
       result->has_external_tokens = true;
-      if (self->language->external_scanner.serialize(self->external_scanner_payload, result->external_token_state)) {
-        result->has_external_token_state = true;
-        self->last_external_token = result;
-      }
+      result->has_external_token_state = true;
+      self->language->external_scanner.serialize(self->external_scanner_payload, result->external_token_state);
+      self->lexer.last_external_token_state = &result->external_token_state;
     }
   }
 
@@ -329,6 +308,17 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
 static void parser__clear_cached_token(Parser *self) {
   ts_tree_release(self->cached_token);
   self->cached_token = NULL;
+}
+
+static inline bool ts_external_token_state_eq(const TSExternalTokenState *self,
+                                              const TSExternalTokenState *other) {
+  if (self == other) {
+    return true;
+  } else if (!self || !other) {
+    return false;
+  } else {
+    return memcmp(self, other, sizeof(TSExternalTokenState)) == 0;
+  }
 }
 
 static Tree *parser__get_lookahead(Parser *self, StackVersion version,
@@ -361,6 +351,20 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version,
 
     if (reusable_node->tree->symbol == ts_builtin_sym_error) {
       LOG("cant_reuse_error tree:%s, size:%u",
+          SYM_NAME(reusable_node->tree->symbol),
+          reusable_node->tree->size.bytes);
+      if (!reusable_node_breakdown(reusable_node)) {
+        reusable_node_pop(reusable_node);
+        parser__breakdown_top_of_stack(self, version);
+      }
+      continue;
+    }
+
+    if (reusable_node->tree->first_leaf.lex_mode.external_lex_state != 0 &&
+        !ts_external_token_state_eq(
+          reusable_node->preceding_external_token_state,
+          ts_stack_external_token_state(self->stack, version))) {
+      LOG("cant_reuse_external_tokens tree:%s, size:%u",
           SYM_NAME(reusable_node->tree->symbol),
           reusable_node->tree->size.bytes);
       if (!reusable_node_breakdown(reusable_node)) {
@@ -459,6 +463,10 @@ static void parser__shift(Parser *self, StackVersion version, TSStateId state,
 
   bool is_pending = lookahead->child_count > 0;
   ts_stack_push(self->stack, version, lookahead, is_pending, state);
+  if (lookahead->has_external_token_state) {
+    ts_stack_set_external_token_state(
+      self->stack, version, ts_tree_last_external_token_state(lookahead));
+  }
   ts_tree_release(lookahead);
 }
 

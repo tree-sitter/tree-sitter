@@ -169,11 +169,13 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
 }
 
 static StackVersion ts_stack__add_version(Stack *self, StackNode *node,
-                                          unsigned push_count) {
+                                          unsigned push_count,
+                                          const TSExternalTokenState *external_token_state) {
   StackHead head = {
     .node = node,
     .is_halted = false,
     .push_count = push_count,
+    .external_token_state = external_token_state,
   };
   array_push(&self->heads, head);
   stack_node_retain(node);
@@ -181,7 +183,8 @@ static StackVersion ts_stack__add_version(Stack *self, StackNode *node,
 }
 
 static void ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees,
-                                unsigned push_count) {
+                                unsigned push_count,
+                                const TSExternalTokenState *external_token_state) {
   for (uint32_t i = self->slices.size - 1; i + 1 > 0; i--) {
     StackVersion version = self->slices.contents[i].version;
     if (self->heads.contents[version].node == node) {
@@ -191,7 +194,7 @@ static void ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees,
     }
   }
 
-  StackVersion version = ts_stack__add_version(self, node, push_count);
+  StackVersion version = ts_stack__add_version(self, node, push_count, external_token_state);
   StackSlice slice = { *trees, version };
   array_push(&self->slices, slice);
 }
@@ -203,6 +206,7 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
 
   StackHead *head = array_get(&self->heads, version);
   unsigned push_count = head->push_count;
+  const TSExternalTokenState *external_token_state = head->external_token_state;
   Iterator iterator = {
     .node = head->node,
     .trees = array_new(),
@@ -230,7 +234,8 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
         if (!should_stop)
           ts_tree_array_copy(trees, &trees);
         array_reverse(&trees);
-        ts_stack__add_slice(self, node, &trees, push_count + iterator->push_count);
+        ts_stack__add_slice(self, node, &trees, push_count + iterator->push_count,
+                            external_token_state);
       }
 
       if (should_stop) {

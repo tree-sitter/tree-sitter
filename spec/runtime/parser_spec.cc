@@ -60,6 +60,11 @@ describe("Parser", [&]() {
     replace_text(position, length, "");
   };
 
+  auto undo = [&]() {
+    ts_document_edit(document, input->undo());
+    ts_document_parse(document);
+  };
+
   auto assert_root_node = [&](const string &expected) {
     TSNode node = ts_document_root_node(document);
     char *node_string = ts_node_string(node, document);
@@ -386,6 +391,12 @@ describe("Parser", [&]() {
           "(if_statement (identifier) "
             "(print_statement (identifier)) "
             "(return_statement (expression_list (identifier)))))");
+
+        undo();
+        assert_root_node("(module "
+          "(if_statement (identifier) "
+            "(print_statement (identifier))) "
+          "(return_statement (expression_list (identifier))))");
       });
     });
 

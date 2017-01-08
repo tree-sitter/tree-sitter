@@ -25,8 +25,7 @@ typedef struct {
   TSInput input;
   TSLogger logger;
   char debug_buffer[TS_DEBUG_BUFFER_SIZE];
-  bool needs_to_restore_external_scanner;
-  uint32_t last_external_token_end_byte;
+  const TSExternalTokenState *last_external_token_state;
 } Lexer;
 
 void ts_lexer_init(Lexer *);
