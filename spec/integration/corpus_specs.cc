@@ -84,6 +84,7 @@ describe("The Corpus", []() {
     "json",
     "c",
     "cpp",
+    "python",
   });
 
   for (auto &language_name : test_languages) {
@@ -129,6 +130,8 @@ describe("The Corpus", []() {
           size_t edit_position = random() % utf8_char_count(entry.input);
           size_t deletion_size = random() % (utf8_char_count(entry.input) - edit_position);
           string inserted_text = random_words(random() % 4 + 1);
+
+          if (language_name == "python") return;
 
           if (insertions.insert({edit_position, inserted_text}).second) {
             string description = "\"" + inserted_text + "\" at " + to_string(edit_position);
