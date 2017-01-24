@@ -21,12 +21,11 @@ static inline void length_set_unknown_chars(Length *self) {
 }
 
 static inline Length length_min(Length len1, Length len2) {
-  return (len1.chars < len2.chars) ? len1 : len2;
+  return (len1.bytes < len2.bytes) ? len1 : len2;
 }
 
 static inline Length length_add(Length len1, Length len2) {
   Length result;
-  result.chars = len1.chars + len2.chars;
   result.bytes = len1.bytes + len2.bytes;
   result.extent = point_add(len1.extent, len2.extent);
 
@@ -55,12 +54,6 @@ static inline Length length_sub(Length len1, Length len2) {
 
 static inline Length length_zero() {
   return (Length){ 0, 0, {0, 0} };
-}
-
-static inline bool length_eq(Length self, Length other) {
-  return self.bytes == other.bytes && self.chars == other.chars &&
-         self.extent.row == other.extent.row &&
-         self.extent.column == other.extent.column;
 }
 
 #endif
