@@ -192,6 +192,13 @@ class PatternParser {
       case 's':
         return CharacterSet().include(' ').include('\t').include('\n').include(
           '\r');
+      case 'S':
+        return CharacterSet()
+          .include_all()
+          .exclude(' ')
+          .exclude('\t')
+          .exclude('\n')
+          .exclude('\r');
       case 't':
         return CharacterSet().include('\t');
       case 'n':
