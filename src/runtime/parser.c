@@ -193,6 +193,7 @@ static void parser__restore_external_scanner(Parser *self, StackVersion version)
   const TSExternalTokenState *state = ts_stack_external_token_state(self->stack, version);
   if (self->lexer.last_external_token_state != state) {
     LOG("restore_external_scanner");
+    self->lexer.last_external_token_state = state;
     if (state) {
       self->language->external_scanner.deserialize(
         self->external_scanner_payload,
@@ -293,6 +294,7 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
     if (found_external_token) {
       result->has_external_tokens = true;
       result->has_external_token_state = true;
+      memset(result->external_token_state, 0, sizeof(TSExternalTokenState));
       self->language->external_scanner.serialize(self->external_scanner_payload, result->external_token_state);
       self->lexer.last_external_token_state = &result->external_token_state;
     }
@@ -360,8 +362,7 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version,
       continue;
     }
 
-    if (reusable_node->tree->first_leaf.lex_mode.external_lex_state != 0 &&
-        !ts_external_token_state_eq(
+    if (!ts_external_token_state_eq(
           reusable_node->preceding_external_token_state,
           ts_stack_external_token_state(self->stack, version))) {
       LOG("cant_reuse_external_tokens tree:%s, size:%u",
