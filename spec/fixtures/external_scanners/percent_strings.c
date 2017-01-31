@@ -13,7 +13,7 @@ typedef struct {
   uint32_t depth;
 } Scanner;
 
-void *ts_language_external_scanner_example_external_scanner_create() {
+void *tree_sitter_external_scanner_example_external_scanner_create() {
   Scanner *scanner = malloc(sizeof(Scanner));
   *scanner = (Scanner){
     .open_delimiter = 0,
@@ -23,7 +23,7 @@ void *ts_language_external_scanner_example_external_scanner_create() {
   return scanner;
 }
 
-bool ts_language_external_scanner_example_external_scanner_scan(
+bool tree_sitter_external_scanner_example_external_scanner_scan(
   void *payload, TSLexer *lexer, const bool *whitelist) {
   Scanner *scanner = payload;
 
@@ -103,16 +103,16 @@ bool ts_language_external_scanner_example_external_scanner_scan(
   return false;
 }
 
-void ts_language_external_scanner_example_external_scanner_reset(void *payload) {
+void tree_sitter_external_scanner_example_external_scanner_reset(void *payload) {
 }
 
-bool ts_language_external_scanner_example_external_scanner_serialize(void *payload, TSExternalTokenState state) {
+bool tree_sitter_external_scanner_example_external_scanner_serialize(void *payload, TSExternalTokenState state) {
   return true;
 }
 
-void ts_language_external_scanner_example_external_scanner_deserialize(void *payload, TSExternalTokenState state) {
+void tree_sitter_external_scanner_example_external_scanner_deserialize(void *payload, TSExternalTokenState state) {
 }
 
-void ts_language_external_scanner_example_external_scanner_destroy(void *payload) {
+void tree_sitter_external_scanner_example_external_scanner_destroy(void *payload) {
   free(payload);
 }

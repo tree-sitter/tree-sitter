@@ -73,7 +73,7 @@ const TSLanguage *load_language(const string &source_filename,
                                 const string &lib_filename,
                                 const string &language_name,
                                 string external_scanner_filename = "") {
-  string language_function_name = "ts_language_" + language_name;
+  string language_function_name = "tree_sitter_" + language_name;
   string header_dir = getenv("PWD") + string("/include");
   int source_mtime = get_modified_time(source_filename);
   int header_mtime = get_modified_time(header_dir + "/tree_sitter/parser.h");

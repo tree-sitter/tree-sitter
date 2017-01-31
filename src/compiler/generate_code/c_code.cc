@@ -355,7 +355,8 @@ class CCodeGenerator {
   }
 
   void add_parser_export() {
-    string external_scanner_name = "ts_language_" + name + "_external_scanner";
+    string language_function_name = "tree_sitter_" + name;
+    string external_scanner_name = language_function_name + "_external_scanner";
 
     if (!syntax_grammar.external_tokens.empty()) {
       line("void *" + external_scanner_name + "_create();");
@@ -367,7 +368,7 @@ class CCodeGenerator {
       line();
     }
 
-    line("const TSLanguage *ts_language_" + name + "() {");
+    line("const TSLanguage *" + language_function_name + "() {");
     indent([&]() {
       line("GET_LANGUAGE(");
       if (syntax_grammar.external_tokens.empty()) {

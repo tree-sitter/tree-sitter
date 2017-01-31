@@ -4,21 +4,21 @@ enum {
   COMMENT,
 };
 
-void *ts_language_extra_external_tokens_external_scanner_create() {
+void *tree_sitter_extra_external_tokens_external_scanner_create() {
   return NULL;
 }
 
-void ts_language_extra_external_tokens_external_scanner_reset(void *payload) {
+void tree_sitter_extra_external_tokens_external_scanner_reset(void *payload) {
 }
 
-bool ts_language_extra_external_tokens_external_scanner_serialize(void *payload, TSExternalTokenState state) {
+bool tree_sitter_extra_external_tokens_external_scanner_serialize(void *payload, TSExternalTokenState state) {
   return true;
 }
 
-void ts_language_extra_external_tokens_external_scanner_deserialize(void *payload, TSExternalTokenState state) {
+void tree_sitter_extra_external_tokens_external_scanner_deserialize(void *payload, TSExternalTokenState state) {
 }
 
-bool ts_language_extra_external_tokens_external_scanner_scan(
+bool tree_sitter_extra_external_tokens_external_scanner_scan(
   void *payload, TSLexer *lexer, const bool *whitelist) {
 
   while (lexer->lookahead == ' ') {
@@ -38,5 +38,5 @@ bool ts_language_extra_external_tokens_external_scanner_scan(
   return false;
 }
 
-void ts_language_extra_external_tokens_external_scanner_destroy(void *payload) {
+void tree_sitter_extra_external_tokens_external_scanner_destroy(void *payload) {
 }
