@@ -41,6 +41,8 @@ string Symbol::to_string() const {
       return "(non-terminal " + std::to_string(index) + ")";
     case Symbol::External:
       return "(external " + std::to_string(index) + ")";
+    default:
+      return "(none)";
   }
 }
 

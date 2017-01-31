@@ -564,7 +564,8 @@ class CCodeGenerator {
         const Variable &variable = lexical_grammar.variables[symbol.index];
         return { variable.name, variable.type };
       }
-      case Symbol::External: {
+      case Symbol::External:
+      default: {
         const ExternalToken &token = syntax_grammar.external_tokens[symbol.index];
         return { token.name, token.type };
       }

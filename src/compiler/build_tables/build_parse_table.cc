@@ -583,7 +583,8 @@ class ParseTableBuilder {
       case Symbol::NonTerminal: {
         return grammar.variables[symbol.index].name;
       }
-      case Symbol::External: {
+      case Symbol::External:
+      default: {
         return grammar.external_tokens[symbol.index].name;
       }
     }
