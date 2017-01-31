@@ -91,8 +91,7 @@ class TokenExtractor : public rules::IdentityRuleFn {
 };
 
 static CompileError extra_token_error(const string &message) {
-  return CompileError(TSCompileErrorTypeInvalidUbiquitousToken,
-                      "Not a token: " + message);
+  return CompileError(TSCompileErrorTypeInvalidExtraToken, "Not a token: " + message);
 }
 
 tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
@@ -187,10 +186,23 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
   }
 
   for (const ExternalToken &external_token : grammar.external_tokens) {
+    Symbol internal_token = symbol_replacer.replace_symbol(external_token.corresponding_internal_token);
+
+    if (internal_token.is_non_terminal()) {
+      return make_tuple(
+        syntax_grammar,
+        lexical_grammar,
+        CompileError(
+          TSCompileErrorTypeInvalidExternalToken,
+          "Name '" + external_token.name + "' cannot be used for both an external token and a non-terminal rule"
+        )
+      );
+    }
+
     syntax_grammar.external_tokens.push_back({
       external_token.name,
       external_token.type,
-      symbol_replacer.replace_symbol(external_token.corresponding_internal_token)
+      internal_token
     });
   }
 

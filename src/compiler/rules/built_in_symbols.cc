@@ -12,7 +12,7 @@ Symbol START() {
 }
 
 Symbol NONE() {
-  return Symbol(-3, Symbol::NonTerminal);
+  return Symbol(-3, Symbol::Type(-1));
 }
 
 }  // namespace rules

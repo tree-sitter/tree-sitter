@@ -130,11 +130,20 @@ describe("extract_tokens", []() {
   });
 
   it("renumbers the grammar's expected conflict symbols based on any moved rules", [&]() {
-    auto result = extract_tokens(InternedGrammar{{
-      Variable("rule_A", VariableTypeNamed, str("ok")),
-      Variable("rule_B", VariableTypeNamed, repeat(i_sym(0))),
-      Variable("rule_C", VariableTypeNamed, repeat(seq({ i_sym(0), i_sym(0) }))),
-    }, { str(" ") }, { { Symbol(1, Symbol::NonTerminal), Symbol(2, Symbol::NonTerminal) } }});
+    auto result = extract_tokens(InternedGrammar{
+      {
+        Variable("rule_A", VariableTypeNamed, str("ok")),
+        Variable("rule_B", VariableTypeNamed, repeat(i_sym(0))),
+        Variable("rule_C", VariableTypeNamed, repeat(seq({ i_sym(0), i_sym(0) }))),
+      },
+      {
+        str(" ")
+      },
+      {
+        { Symbol(1, Symbol::NonTerminal), Symbol(2, Symbol::NonTerminal) }
+      },
+      {}
+    });
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
 
@@ -201,7 +210,7 @@ describe("extract_tokens", []() {
 
       AssertThat(get<2>(result), !Equals(CompileError::none()));
       AssertThat(get<2>(result), Equals(
-        CompileError(TSCompileErrorTypeInvalidUbiquitousToken,
+        CompileError(TSCompileErrorTypeInvalidExtraToken,
                          "Not a token: rule_B")));
     });
 
@@ -213,10 +222,29 @@ describe("extract_tokens", []() {
 
       AssertThat(get<2>(result), !Equals(CompileError::none()));
       AssertThat(get<2>(result), Equals(CompileError(
-        TSCompileErrorTypeInvalidUbiquitousToken,
+        TSCompileErrorTypeInvalidExtraToken,
         "Not a token: (choice (non-terminal 1) (blank))"
       )));
     });
+  });
+
+  it("returns an error if an external token has the same name as a non-terminal rule", [&]() {
+    auto result = extract_tokens(InternedGrammar{
+      {
+        Variable("rule_A", VariableTypeNamed, seq({ str("x"), i_sym(1) })),
+        Variable("rule_B", VariableTypeNamed, seq({ str("y"), str("z") })),
+      },
+      {},
+      {},
+      {
+        ExternalToken {"rule_A", VariableTypeNamed, Symbol(0, Symbol::NonTerminal)}
+      }
+    });
+
+    AssertThat(get<2>(result), Equals(CompileError(
+      TSCompileErrorTypeInvalidExternalToken,
+      "Name 'rule_A' cannot be used for both an external token and a non-terminal rule"
+    )));
   });
 });
 
