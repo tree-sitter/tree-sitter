@@ -36,6 +36,7 @@ const TSLanguage *ts_document_language(TSDocument *self) {
 }
 
 void ts_document_set_language(TSDocument *self, const TSLanguage *language) {
+  if (language->version != TREE_SITTER_LANGUAGE_VERSION) return;
   ts_document_invalidate(self);
   parser_set_language(&self->parser, language);
   if (self->tree) {

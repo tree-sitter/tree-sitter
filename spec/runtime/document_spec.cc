@@ -164,6 +164,17 @@ describe("Document", [&]() {
         "(program (expression_statement "
           "(object (pair (string) (array (number) (number))))))");
     });
+
+    it("does not allow setting a language with a different version number", [&]() {
+      TSLanguage language = *get_test_language("json");
+      AssertThat(ts_language_version(&language), Equals<uint32_t>(TREE_SITTER_LANGUAGE_VERSION));
+
+      language.version++;
+      AssertThat(ts_language_version(&language), !Equals<uint32_t>(TREE_SITTER_LANGUAGE_VERSION));
+
+      ts_document_set_language(document, &language);
+      AssertThat(ts_document_language(document), IsNull());
+    });
   });
 
   describe("set_logger(TSLogger)", [&]() {

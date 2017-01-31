@@ -65,6 +65,7 @@ typedef union {
 } TSParseActionEntry;
 
 typedef struct TSLanguage {
+  uint32_t version;
   uint32_t symbol_count;
   uint32_t token_count;
   uint32_t external_token_count;
@@ -166,6 +167,7 @@ typedef struct TSLanguage {
 
 #define GET_LANGUAGE(...)                                          \
   static TSLanguage language = {                                   \
+    .version = LANGUAGE_VERSION,                                   \
     .symbol_count = SYMBOL_COUNT,                                  \
     .token_count = TOKEN_COUNT,                                    \
     .symbol_metadata = ts_symbol_metadata,                         \

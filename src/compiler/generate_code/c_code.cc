@@ -11,6 +11,7 @@
 #include "compiler/lexical_grammar.h"
 #include "compiler/rules/built_in_symbols.h"
 #include "compiler/util/string_helpers.h"
+#include "tree_sitter/runtime.h"
 
 namespace tree_sitter {
 namespace generate_code {
@@ -134,6 +135,7 @@ class CCodeGenerator {
       }
     }
 
+    line("#define LANGUAGE_VERSION " + to_string(TREE_SITTER_LANGUAGE_VERSION));
     line("#define STATE_COUNT " + to_string(parse_table.states.size()));
     line("#define SYMBOL_COUNT " + to_string(parse_table.symbols.size()));
     line("#define TOKEN_COUNT " + to_string(token_count));
@@ -227,7 +229,7 @@ class CCodeGenerator {
     for (size_t i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
       for (size_t j = 0; j < syntax_grammar.external_tokens.size(); j++) {
         const ExternalToken &external_token = syntax_grammar.external_tokens[j];
-        if (external_token.corresponding_internal_token.index == i) {
+        if (external_token.corresponding_internal_token.index == Symbol::Index(i)) {
           external_tokens_by_corresponding_internal_token.insert({i, j});
           break;
         }

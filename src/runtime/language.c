@@ -34,6 +34,10 @@ uint32_t ts_language_symbol_count(const TSLanguage *language) {
   return language->symbol_count;
 }
 
+uint32_t ts_language_version(const TSLanguage *language) {
+  return language->version;
+}
+
 TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *language,
                                              TSSymbol symbol) {
   if (symbol == ts_builtin_sym_error)
