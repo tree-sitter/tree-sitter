@@ -176,11 +176,11 @@ tokens, like `(` and `+`. This is useful when analyzing the meaning of a documen
 #include "tree_sitter/runtime.h"
 
 // Declare the language function that was generated from your grammar.
-TSLanguage *ts_language_arithmetic();
+TSLanguage *tree_sitter_arithmetic();
 
 int main() {
   TSDocument *document = ts_document_new();
-  ts_document_set_language(document, ts_language_arithmetic());
+  ts_document_set_language(document, tree_sitter_arithmetic());
   ts_document_set_input_string(document, "a + b * 5");
   ts_document_parse(document);
 
