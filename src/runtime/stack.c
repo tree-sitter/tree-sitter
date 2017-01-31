@@ -553,8 +553,20 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
     fprintf(
       f,
       "node_head_%u -> node_%p [label=%u, fontcolor=blue, weight=10000, "
-      "labeltooltip=\"push_count: %u\"]\n",
+      "labeltooltip=\"push_count: %u",
       i, head->node, i, head->push_count);
+
+    if (head->external_token_state) {
+      const TSExternalTokenState *s = head->external_token_state;
+      fprintf(f,
+        "\nexternal_token_state: "
+        "%2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X",
+        (*s)[0], (*s)[1], (*s)[2], (*s)[3], (*s)[4], (*s)[5], (*s)[6], (*s)[7],
+        (*s)[8], (*s)[9], (*s)[10], (*s)[11], (*s)[12], (*s)[13], (*s)[14], (*s)[15]
+      );
+    }
+
+    fprintf(f, "\"]\n");
     array_push(&self->iterators, ((Iterator){.node = head->node }));
   }
 
