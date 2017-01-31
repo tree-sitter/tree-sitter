@@ -30,7 +30,7 @@ describe("parse_regex", []() {
 
     {
       "character classes",
-      "\\w-\\d-\\s",
+      "\\w-\\d-\\s-\\W-\\D-\\S",
       seq({
         character({
           'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
@@ -41,7 +41,19 @@ describe("parse_regex", []() {
         character({ '-' }),
         character({ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' }),
         character({ '-' }),
-        character({ ' ', '\t', '\r', '\n' }) })
+        character({ ' ', '\t', '\r', '\n' }),
+        character({ '-' }),
+        character({
+          'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+          'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+          'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+          'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+          '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '_' }, false),
+        character({ '-' }),
+        character({ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' }, false),
+        character({ '-' }),
+        character({ ' ', '\t', '\r', '\n' }, false),
+      })
     },
 
     {

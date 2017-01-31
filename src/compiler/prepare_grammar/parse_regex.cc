@@ -187,11 +187,27 @@ class PatternParser {
           .include('A', 'Z')
           .include('0', '9')
           .include('_');
+      case 'W':
+        return CharacterSet()
+          .include_all()
+          .exclude('a', 'z')
+          .exclude('A', 'Z')
+          .exclude('0', '9')
+          .exclude('_');
       case 'd':
         return CharacterSet().include('0', '9');
+      case 'D':
+        return CharacterSet().include_all().exclude('0', '9');
       case 's':
         return CharacterSet().include(' ').include('\t').include('\n').include(
           '\r');
+      case 'S':
+        return CharacterSet()
+          .include_all()
+          .exclude(' ')
+          .exclude('\t')
+          .exclude('\n')
+          .exclude('\r');
       case 't':
         return CharacterSet().include('\t');
       case 'n':
