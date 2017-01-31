@@ -10,16 +10,7 @@ namespace tree_sitter {
 
 ostream &operator<<(ostream &stream, const Grammar &grammar) {
   stream << string("#<grammar");
-  stream << string(" rules: {");
-  bool started = false;
-  for (auto pair : grammar.rules) {
-    if (started)
-      stream << string(", ");
-    stream << pair.first;
-    stream << string(" => ");
-    stream << pair.second;
-    started = true;
-  }
+  stream << " rules: " << grammar.rules;
   return stream << string("}>");
 }
 
@@ -83,6 +74,11 @@ ostream &operator<<(ostream &stream, const ParseState &state) {
   stream << state.terminal_entries;
   stream << " nonterminal_entries: " << state.nonterminal_entries;
   return stream << string(">");
+}
+
+ostream &operator<<(ostream &stream, const ExternalToken &external_token) {
+  return stream << "{" << external_token.name << ", " << external_token.type <<
+    "," << external_token.corresponding_internal_token << "}";
 }
 
 ostream &operator<<(ostream &stream, const ProductionStep &step) {

@@ -16,6 +16,7 @@ class String;
 class Symbol;
 class Pattern;
 class Metadata;
+class ExternalToken;
 
 class Visitor {
  public:
@@ -29,6 +30,7 @@ class Visitor {
   virtual void visit(const String *rule) = 0;
   virtual void visit(const NamedSymbol *rule) = 0;
   virtual void visit(const Symbol *rule) = 0;
+  virtual void visit(const ExternalToken *rule) = 0;
   virtual ~Visitor();
 };
 
@@ -86,6 +88,10 @@ class RuleFn : private Visitor {
     return default_apply((const Rule *)rule);
   }
 
+  virtual T apply_to(const ExternalToken *rule) {
+    return default_apply((const Rule *)rule);
+  }
+
   void visit(const Blank *rule) {
     value_ = apply_to(rule);
   }
@@ -123,6 +129,10 @@ class RuleFn : private Visitor {
   }
 
   void visit(const Symbol *rule) {
+    value_ = apply_to(rule);
+  }
+
+  void visit(const ExternalToken *rule) {
     value_ = apply_to(rule);
   }
 
@@ -170,6 +180,9 @@ class RuleFn<void> : private Visitor {
   virtual void apply_to(const Symbol *rule) {
     return default_apply((const Rule *)rule);
   }
+  virtual void apply_to(const ExternalToken *rule) {
+    return default_apply((const Rule *)rule);
+  }
 
   void visit(const Blank *rule) {
     apply_to(rule);
@@ -199,6 +212,9 @@ class RuleFn<void> : private Visitor {
     apply_to(rule);
   }
   void visit(const Symbol *rule) {
+    apply_to(rule);
+  }
+  void visit(const ExternalToken *rule) {
     apply_to(rule);
   }
 };

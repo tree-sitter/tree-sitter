@@ -4,15 +4,15 @@ namespace tree_sitter {
 namespace rules {
 
 Symbol END_OF_INPUT() {
-  return Symbol(-1, true);
+  return Symbol(-1, Symbol::Terminal);
 }
 
 Symbol START() {
-  return Symbol(-2);
+  return Symbol(-2, Symbol::NonTerminal);
 }
 
 Symbol NONE() {
-  return Symbol(-3);
+  return Symbol(-3, Symbol::Type(-1));
 }
 
 }  // namespace rules

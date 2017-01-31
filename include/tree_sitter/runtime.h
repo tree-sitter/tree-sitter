@@ -9,6 +9,8 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
+#define TREE_SITTER_LANGUAGE_VERSION 1
+
 typedef unsigned short TSSymbol;
 typedef struct TSLanguage TSLanguage;
 typedef struct TSDocument TSDocument;
@@ -114,6 +116,7 @@ uint32_t ts_document_parse_count(const TSDocument *);
 
 uint32_t ts_language_symbol_count(const TSLanguage *);
 const char *ts_language_symbol_name(const TSLanguage *, TSSymbol);
+uint32_t ts_language_version(const TSLanguage *);
 
 #ifdef __cplusplus
 }

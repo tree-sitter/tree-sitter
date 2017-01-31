@@ -13,8 +13,6 @@ using std::pair;
 using std::vector;
 using std::set;
 
-static const vector<Production> NO_PRODUCTIONS;
-
 SyntaxVariable::SyntaxVariable(const string &name, VariableType type,
                                const vector<Production> &productions)
     : name(name), productions(productions), type(type) {}
@@ -23,18 +21,14 @@ ProductionStep::ProductionStep(const rules::Symbol &symbol, int precedence,
                                rules::Associativity associativity)
     : symbol(symbol), precedence(precedence), associativity(associativity) {}
 
+bool ExternalToken::operator==(const ExternalToken &other) const {
+  return name == other.name && type == other.type &&
+    corresponding_internal_token == other.corresponding_internal_token;
+}
+
 bool ProductionStep::operator==(const ProductionStep &other) const {
   return symbol == other.symbol && precedence == other.precedence &&
          associativity == other.associativity;
-}
-
-const vector<Production> &SyntaxGrammar::productions(
-  const rules::Symbol &symbol) const {
-  if (symbol.is_built_in() || symbol.is_token) {
-    return NO_PRODUCTIONS;
-  } else {
-    return variables[symbol.index].productions;
-  }
 }
 
 }  // namespace tree_sitter

@@ -12,6 +12,7 @@ struct Grammar {
   std::vector<std::pair<std::string, rule_ptr>> rules;
   std::vector<rule_ptr> extra_tokens;
   std::vector<std::vector<std::string>> expected_conflicts;
+  std::vector<std::string> external_tokens;
 };
 
 }  // namespace tree_sitter

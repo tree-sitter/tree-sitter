@@ -11,11 +11,8 @@
     self->logger.log(self->logger.payload, TSLogTypeLex, self->debug_buffer); \
   }
 
-#define LOG_LOOKAHEAD()                                            \
-  LOG((0 < self->data.lookahead && self->data.lookahead < 256) \
-        ? "lookahead char:'%c'"                                    \
-        : "lookahead char:%d",                                     \
-      self->data.lookahead);
+#define LOG_CHARACTER(message, character) \
+  LOG(character < 255 ? message " character:'%c'" : message " character:%d", character)
 
 static const char empty_chunk[2] = { 0, 0 };
 
@@ -42,11 +39,9 @@ static void ts_lexer__get_lookahead(Lexer *self) {
       utf8proc_iterate(chunk, size, &self->data.lookahead);
   else
     self->lookahead_size = utf16_iterate(chunk, size, &self->data.lookahead);
-
-  LOG_LOOKAHEAD();
 }
 
-static void ts_lexer__advance(void *payload, TSStateId state, bool skip) {
+static void ts_lexer__advance(void *payload, bool skip) {
   Lexer *self = (Lexer *)payload;
   if (self->chunk == empty_chunk)
     return;
@@ -63,10 +58,10 @@ static void ts_lexer__advance(void *payload, TSStateId state, bool skip) {
   }
 
   if (skip) {
-    LOG("skip_separator state:%d", state);
+    LOG_CHARACTER("skip", self->data.lookahead);
     self->token_start_position = self->current_position;
   } else {
-    LOG("advance state:%d", state);
+    LOG_CHARACTER("consume", self->data.lookahead);
   }
 
   if (self->current_position.bytes >= self->chunk_start + self->chunk_size)
@@ -93,6 +88,7 @@ void ts_lexer_init(Lexer *self) {
       .payload = NULL,
       .log = NULL
     },
+    .last_external_token_state = NULL,
   };
   ts_lexer_reset(self, length_zero());
 }
@@ -115,17 +111,16 @@ static inline void ts_lexer__reset(Lexer *self, Length position) {
 void ts_lexer_set_input(Lexer *self, TSInput input) {
   self->input = input;
   ts_lexer__reset(self, length_zero());
+  self->last_external_token_state = NULL;
 }
 
 void ts_lexer_reset(Lexer *self, Length position) {
-  if (!length_eq(position, self->current_position))
+  if (position.bytes != self->current_position.bytes) {
     ts_lexer__reset(self, position);
-  return;
+  }
 }
 
-void ts_lexer_start(Lexer *self, TSStateId lex_state) {
-  LOG("start_lex state:%d, pos:%u", lex_state, self->current_position.chars);
-
+void ts_lexer_start(Lexer *self) {
   self->token_start_position = self->current_position;
   self->data.result_symbol = 0;
 

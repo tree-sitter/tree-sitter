@@ -25,10 +25,7 @@ Tree *ts_tree_make_leaf(TSSymbol sym, Length padding, Length size,
     .visible = metadata.visible,
     .named = metadata.named,
     .has_changes = false,
-    .first_leaf = {
-      .symbol = sym,
-      .lex_state = 0
-    }
+    .first_leaf.symbol = sym,
   };
   return result;
 }
@@ -111,6 +108,8 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children) {
   self->named_child_count = 0;
   self->visible_child_count = 0;
   self->error_cost = 0;
+  self->has_external_tokens = false;
+  self->has_external_token_state = false;
 
   for (uint32_t i = 0; i < child_count; i++) {
     Tree *child = children[i];
@@ -128,10 +127,13 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children) {
       self->visible_child_count++;
       if (child->named)
         self->named_child_count++;
-    } else {
+    } else if (child->child_count > 0) {
       self->visible_child_count += child->visible_child_count;
       self->named_child_count += child->named_child_count;
     }
+
+    if (child->has_external_tokens) self->has_external_tokens = true;
+    if (child->has_external_token_state) self->has_external_token_state = true;
 
     if (child->symbol == ts_builtin_sym_error) {
       self->fragile_left = self->fragile_right = true;
@@ -375,6 +377,21 @@ void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
     child_right = length_add(child_left, ts_tree_total_size(child));
     child->context.offset = child_left;
   }
+}
+
+const TSExternalTokenState *ts_tree_last_external_token_state(const Tree *tree) {
+  while (tree->child_count > 0) {
+    for (uint32_t i = tree->child_count - 1; i + 1 > 0; i--) {
+      Tree *child = tree->children[i];
+      if (child->has_external_token_state) {
+        tree = child;
+        break;
+      } else if (child->has_external_tokens) {
+        return NULL;
+      }
+    }
+  }
+  return &tree->external_token_state;
 }
 
 static size_t ts_tree__write_char_to_string(char *s, size_t n, int32_t c) {

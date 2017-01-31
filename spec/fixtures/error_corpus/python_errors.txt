@@ -1,0 +1,29 @@
+==========================================
+errors in if statements
+==========================================
+
+if a is:
+    print b
+    print c
+
+---
+
+(module
+  (if_statement (identifier) (ERROR)
+    (print_statement (identifier))
+    (print_statement (identifier))))
+
+==========================================
+errors in function definitions
+==========================================
+
+def a()::
+  b
+  c
+
+---
+
+(module
+  (function_definition (identifier) (parameters) (ERROR)
+    (expression_statement (identifier))
+    (expression_statement (identifier))))

@@ -11,12 +11,10 @@ using std::string;
 using std::to_string;
 using util::hash_combine;
 
-Symbol::Symbol(Symbol::Index index) : index(index), is_token(false) {}
-
-Symbol::Symbol(Symbol::Index index, bool is_token) : index(index), is_token(is_token) {}
+Symbol::Symbol(Symbol::Index index, Symbol::Type type) : index(index), type(type) {}
 
 bool Symbol::operator==(const Symbol &other) const {
-  return (other.index == index) && (other.is_token == is_token);
+  return (other.index == index) && (other.type == type);
 }
 
 bool Symbol::operator==(const Rule &rule) const {
@@ -27,7 +25,7 @@ bool Symbol::operator==(const Rule &rule) const {
 size_t Symbol::hash_code() const {
   size_t result = 0;
   hash_combine(&result, index);
-  hash_combine(&result, is_token);
+  hash_combine<int>(&result, type);
   return result;
 }
 
@@ -36,14 +34,22 @@ rule_ptr Symbol::copy() const {
 }
 
 string Symbol::to_string() const {
-  string name = is_token ? "token" : "sym";
-  return "(" + name + " " + std::to_string(index) + ")";
+  switch (type) {
+    case Symbol::Terminal:
+      return "(terminal " + std::to_string(index) + ")";
+    case Symbol::NonTerminal:
+      return "(non-terminal " + std::to_string(index) + ")";
+    case Symbol::External:
+      return "(external " + std::to_string(index) + ")";
+    default:
+      return "(none)";
+  }
 }
 
 bool Symbol::operator<(const Symbol &other) const {
-  if (is_token && !other.is_token)
+  if (type < other.type)
     return true;
-  if (!is_token && other.is_token)
+  if (other.type < type)
     return false;
   return (index < other.index);
 }
@@ -54,6 +60,18 @@ bool Symbol::is_built_in(Symbol::Index index) {
 
 bool Symbol::is_built_in() const {
   return is_built_in(index);
+}
+
+bool Symbol::is_token() const {
+  return type == Symbol::Terminal;
+}
+
+bool Symbol::is_external() const {
+  return type == Symbol::External;
+}
+
+bool Symbol::is_non_terminal() const {
+  return type == Symbol::NonTerminal;
 }
 
 void Symbol::accept(Visitor *visitor) const {

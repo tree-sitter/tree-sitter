@@ -25,12 +25,13 @@ typedef struct {
   TSInput input;
   TSLogger logger;
   char debug_buffer[TS_DEBUG_BUFFER_SIZE];
+  const TSExternalTokenState *last_external_token_state;
 } Lexer;
 
 void ts_lexer_init(Lexer *);
 void ts_lexer_set_input(Lexer *, TSInput);
 void ts_lexer_reset(Lexer *, Length);
-void ts_lexer_start(Lexer *, TSStateId);
+void ts_lexer_start(Lexer *);
 
 #ifdef __cplusplus
 }

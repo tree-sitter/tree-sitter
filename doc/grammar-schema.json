@@ -40,6 +40,14 @@
           "pattern": "^[a-zA-Z_]\\w*$"
         }
       }
+    },
+
+    "externals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z_]\\w*$"
+      }
     }
   },
 

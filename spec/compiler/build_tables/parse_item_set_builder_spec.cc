@@ -27,26 +27,26 @@ describe("ParseItemSetBuilder", []() {
     SyntaxGrammar grammar{{
       SyntaxVariable("rule0", VariableTypeNamed, {
         Production({
-          {Symbol(1), 0, AssociativityNone},
-          {Symbol(11, true), 0, AssociativityNone},
+          {Symbol(1, Symbol::NonTerminal), 0, AssociativityNone},
+          {Symbol(11, Symbol::Terminal), 0, AssociativityNone},
         }),
       }),
       SyntaxVariable("rule1", VariableTypeNamed, {
         Production({
-          {Symbol(12, true), 0, AssociativityNone},
-          {Symbol(13, true), 0, AssociativityNone},
+          {Symbol(12, Symbol::Terminal), 0, AssociativityNone},
+          {Symbol(13, Symbol::Terminal), 0, AssociativityNone},
         }),
         Production({
-          {Symbol(2), 0, AssociativityNone},
+          {Symbol(2, Symbol::NonTerminal), 0, AssociativityNone},
         })
       }),
       SyntaxVariable("rule2", VariableTypeNamed, {
         Production({
-          {Symbol(14, true), 0, AssociativityNone},
-          {Symbol(15, true), 0, AssociativityNone},
+          {Symbol(14, Symbol::Terminal), 0, AssociativityNone},
+          {Symbol(15, Symbol::Terminal), 0, AssociativityNone},
         })
       }),
-    }, {}, {}};
+    }, {}, {}, {}};
 
     auto production = [&](int variable_index, int production_index) -> const Production & {
       return grammar.variables[variable_index].productions[production_index];
@@ -54,8 +54,8 @@ describe("ParseItemSetBuilder", []() {
 
     ParseItemSet item_set({
       {
-        ParseItem(Symbol(0), production(0, 0), 0),
-        LookaheadSet({ 10 }),
+        ParseItem(Symbol(0, Symbol::NonTerminal), production(0, 0), 0),
+        LookaheadSet({ Symbol(10, Symbol::Terminal) }),
       }
     });
 
@@ -64,20 +64,20 @@ describe("ParseItemSetBuilder", []() {
 
     AssertThat(item_set, Equals(ParseItemSet({
       {
-        ParseItem(Symbol(0), production(0, 0), 0),
-        LookaheadSet({ 10 })
+        ParseItem(Symbol(0, Symbol::NonTerminal), production(0, 0), 0),
+        LookaheadSet({ Symbol(10, Symbol::Terminal) })
+        },
+      {
+        ParseItem(Symbol(1, Symbol::NonTerminal), production(1, 0), 0),
+        LookaheadSet({ Symbol(11, Symbol::Terminal) })
       },
       {
-        ParseItem(Symbol(1), production(1, 0), 0),
-        LookaheadSet({ 11 })
+        ParseItem(Symbol(1, Symbol::NonTerminal), production(1, 1), 0),
+        LookaheadSet({ Symbol(11, Symbol::Terminal) })
       },
       {
-        ParseItem(Symbol(1), production(1, 1), 0),
-        LookaheadSet({ 11 })
-      },
-      {
-        ParseItem(Symbol(2), production(2, 0), 0),
-        LookaheadSet({ 11 })
+        ParseItem(Symbol(2, Symbol::NonTerminal), production(2, 0), 0),
+        LookaheadSet({ Symbol(11, Symbol::Terminal) })
       },
     })));
   });
@@ -86,18 +86,18 @@ describe("ParseItemSetBuilder", []() {
     SyntaxGrammar grammar{{
       SyntaxVariable("rule0", VariableTypeNamed, {
         Production({
-          {Symbol(1), 0, AssociativityNone},
-          {Symbol(11, true), 0, AssociativityNone},
+          {Symbol(1, Symbol::NonTerminal), 0, AssociativityNone},
+          {Symbol(11, Symbol::Terminal), 0, AssociativityNone},
         }),
       }),
       SyntaxVariable("rule1", VariableTypeNamed, {
         Production({
-          {Symbol(12, true), 0, AssociativityNone},
-          {Symbol(13, true), 0, AssociativityNone},
+          {Symbol(12, Symbol::Terminal), 0, AssociativityNone},
+          {Symbol(13, Symbol::Terminal), 0, AssociativityNone},
         }),
         Production({})
       }),
-    }, {}, {}};
+    }, {}, {}, {}};
 
     auto production = [&](int variable_index, int production_index) -> const Production & {
       return grammar.variables[variable_index].productions[production_index];
@@ -105,8 +105,8 @@ describe("ParseItemSetBuilder", []() {
 
     ParseItemSet item_set({
       {
-        ParseItem(Symbol(0), production(0, 0), 0),
-        LookaheadSet({ 10 }),
+        ParseItem(Symbol(0, Symbol::NonTerminal), production(0, 0), 0),
+        LookaheadSet({ Symbol(10, Symbol::Terminal) }),
       }
     });
 
@@ -115,16 +115,16 @@ describe("ParseItemSetBuilder", []() {
 
     AssertThat(item_set, Equals(ParseItemSet({
       {
-        ParseItem(Symbol(0), production(0, 0), 0),
-        LookaheadSet({ 10 })
+        ParseItem(Symbol(0, Symbol::NonTerminal), production(0, 0), 0),
+        LookaheadSet({ Symbol(10, Symbol::Terminal) })
       },
       {
-        ParseItem(Symbol(1), production(1, 0), 0),
-        LookaheadSet({ 11 })
+        ParseItem(Symbol(1, Symbol::NonTerminal), production(1, 0), 0),
+        LookaheadSet({ Symbol(11, Symbol::Terminal) })
       },
       {
-        ParseItem(Symbol(1), production(1, 1), 0),
-        LookaheadSet({ 11 })
+        ParseItem(Symbol(1, Symbol::NonTerminal), production(1, 1), 0),
+        LookaheadSet({ Symbol(11, Symbol::Terminal) })
       },
     })));
   });

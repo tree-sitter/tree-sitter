@@ -38,7 +38,7 @@ class SymbolReplacer : public rules::IdentityRuleFn {
   map<Symbol, Symbol> replacements;
 
   Symbol replace_symbol(const Symbol &symbol) {
-    if (symbol.is_built_in() || symbol.is_token)
+    if (!symbol.is_non_terminal())
       return symbol;
 
     auto replacement_pair = replacements.find(symbol);
@@ -49,7 +49,7 @@ class SymbolReplacer : public rules::IdentityRuleFn {
     for (const auto &pair : replacements)
       if (pair.first.index < symbol.index)
         new_index--;
-    return Symbol(new_index);
+    return Symbol(new_index, Symbol::NonTerminal);
   }
 };
 
@@ -60,14 +60,14 @@ class TokenExtractor : public rules::IdentityRuleFn {
     for (size_t i = 0; i < tokens.size(); i++)
       if (tokens[i].rule->operator==(*input)) {
         token_usage_counts[i]++;
-        return make_shared<Symbol>(i, true);
+        return make_shared<Symbol>(i, Symbol::Terminal);
       }
 
     rule_ptr rule = input->copy();
     size_t index = tokens.size();
     tokens.push_back(Variable(token_description(rule), entry_type, rule));
     token_usage_counts.push_back(1);
-    return make_shared<Symbol>(index, true);
+    return make_shared<Symbol>(index, Symbol::Terminal);
   }
 
   rule_ptr apply_to(const rules::String *rule) {
@@ -90,9 +90,8 @@ class TokenExtractor : public rules::IdentityRuleFn {
   vector<Variable> tokens;
 };
 
-static CompileError ubiq_token_err(const string &message) {
-  return CompileError(TSCompileErrorTypeInvalidUbiquitousToken,
-                      "Not a token: " + message);
+static CompileError extra_token_error(const string &message) {
+  return CompileError(TSCompileErrorTypeInvalidExtraToken, "Not a token: " + message);
 }
 
 tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
@@ -122,11 +121,10 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
   size_t i = 0;
   for (const Variable &variable : processed_variables) {
     auto symbol = variable.rule->as<Symbol>();
-    if (symbol && symbol->is_token && !symbol->is_built_in() &&
-        extractor.token_usage_counts[symbol->index] == 1) {
+    if (symbol && symbol->is_token() && extractor.token_usage_counts[symbol->index] == 1) {
       lexical_grammar.variables[symbol->index].type = variable.type;
       lexical_grammar.variables[symbol->index].name = variable.name;
-      symbol_replacer.replacements.insert({ Symbol(i), *symbol });
+      symbol_replacer.replacements.insert({ Symbol(i, Symbol::NonTerminal), *symbol });
     } else {
       syntax_grammar.variables.push_back(variable);
     }
@@ -158,7 +156,7 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
     bool used_elsewhere_in_grammar = false;
     for (const Variable &variable : lexical_grammar.variables) {
       if (variable.rule->operator==(*rule)) {
-        syntax_grammar.extra_tokens.insert(Symbol(i, true));
+        syntax_grammar.extra_tokens.insert(Symbol(i, Symbol::Terminal));
         used_elsewhere_in_grammar = true;
       }
       i++;
@@ -175,15 +173,37 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
     auto symbol = rule->as<Symbol>();
     if (!symbol)
       return make_tuple(syntax_grammar, lexical_grammar,
-                        ubiq_token_err(rule->to_string()));
+                        extra_token_error(rule->to_string()));
 
     Symbol new_symbol = symbol_replacer.replace_symbol(*symbol);
-    if (!new_symbol.is_token)
+    if (new_symbol.is_non_terminal()) {
       return make_tuple(
         syntax_grammar, lexical_grammar,
-        ubiq_token_err(syntax_grammar.variables[new_symbol.index].name));
+        extra_token_error(syntax_grammar.variables[new_symbol.index].name));
+    }
 
     syntax_grammar.extra_tokens.insert(new_symbol);
+  }
+
+  for (const ExternalToken &external_token : grammar.external_tokens) {
+    Symbol internal_token = symbol_replacer.replace_symbol(external_token.corresponding_internal_token);
+
+    if (internal_token.is_non_terminal()) {
+      return make_tuple(
+        syntax_grammar,
+        lexical_grammar,
+        CompileError(
+          TSCompileErrorTypeInvalidExternalToken,
+          "Name '" + external_token.name + "' cannot be used for both an external token and a non-terminal rule"
+        )
+      );
+    }
+
+    syntax_grammar.external_tokens.push_back({
+      external_token.name,
+      external_token.type,
+      internal_token
+    });
   }
 
   return make_tuple(syntax_grammar, lexical_grammar, CompileError::none());

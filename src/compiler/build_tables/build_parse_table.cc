@@ -52,7 +52,10 @@ class ParseTableBuilder {
         allow_any_conflict(false) {}
 
   pair<ParseTable, CompileError> build() {
-    Symbol start_symbol = Symbol(0, grammar.variables.empty());
+    Symbol start_symbol = grammar.variables.empty() ?
+      Symbol(0, Symbol::Terminal) :
+      Symbol(0, Symbol::NonTerminal);
+
     Production start_production({
       ProductionStep(start_symbol, 0, rules::AssociativityNone),
     });
@@ -63,7 +66,7 @@ class ParseTableBuilder {
     add_parse_state(ParseItemSet({
       {
         ParseItem(rules::START(), start_production, 0),
-        LookaheadSet({ END_OF_INPUT().index }),
+        LookaheadSet({ END_OF_INPUT() }),
       },
     }));
 
@@ -107,21 +110,25 @@ class ParseTableBuilder {
   void build_error_parse_state() {
     ParseState error_state;
 
-    for (const Symbol::Index index : parse_table.mergeable_symbols) {
-      add_out_of_context_parse_state(&error_state, Symbol(index, true));
+    for (const Symbol symbol : parse_table.mergeable_symbols) {
+      add_out_of_context_parse_state(&error_state, symbol);
     }
 
     for (const Symbol &symbol : grammar.extra_tokens) {
-      if (!error_state.terminal_entries.count(symbol.index)) {
-        error_state.terminal_entries[symbol.index].actions.push_back(ParseAction::ShiftExtra());
+      if (!error_state.terminal_entries.count(symbol)) {
+        error_state.terminal_entries[symbol].actions.push_back(ParseAction::ShiftExtra());
       }
     }
 
-    for (size_t i = 0; i < grammar.variables.size(); i++) {
-      add_out_of_context_parse_state(&error_state, Symbol(i, false));
+    for (size_t i = 0; i < grammar.external_tokens.size(); i++) {
+      add_out_of_context_parse_state(&error_state, Symbol(i, Symbol::External));
     }
 
-    error_state.terminal_entries[END_OF_INPUT().index].actions.push_back(ParseAction::Recover(0));
+    for (size_t i = 0; i < grammar.variables.size(); i++) {
+      add_out_of_context_parse_state(&error_state, Symbol(i, Symbol::NonTerminal));
+    }
+
+    error_state.terminal_entries[END_OF_INPUT()].actions.push_back(ParseAction::Recover(0));
     parse_table.states[0] = error_state;
   }
 
@@ -130,10 +137,10 @@ class ParseTableBuilder {
     const ParseItemSet &item_set = recovery_states[symbol];
     if (!item_set.entries.empty()) {
       ParseStateId state = add_parse_state(item_set);
-      if (symbol.is_token) {
-        error_state->terminal_entries[symbol.index].actions.assign({ ParseAction::Recover(state) });
-      } else {
+      if (symbol.is_non_terminal()) {
         error_state->nonterminal_entries[symbol.index] = state;
+      } else {
+        error_state->terminal_entries[symbol].actions.assign({ ParseAction::Recover(state) });
       }
     }
   }
@@ -152,9 +159,9 @@ class ParseTableBuilder {
   }
 
   string add_actions(const ParseItemSet &item_set, ParseStateId state_id) {
-    map<Symbol::Index, ParseItemSet> terminal_successors;
+    map<Symbol, ParseItemSet> terminal_successors;
     map<Symbol::Index, ParseItemSet> nonterminal_successors;
-    set<Symbol::Index> lookaheads_with_conflicts;
+    set<Symbol> lookaheads_with_conflicts;
 
     for (const auto &pair : item_set.entries) {
       const ParseItem &item = pair.first;
@@ -168,7 +175,7 @@ class ParseTableBuilder {
           ParseAction::Reduce(item.lhs(), item.step_index, *item.production);
 
         int precedence = item.precedence();
-        for (const Symbol::Index lookahead : *lookahead_symbols.entries) {
+        for (Symbol lookahead : *lookahead_symbols.entries) {
           ParseTableEntry &entry = parse_table.states[state_id].terminal_entries[lookahead];
 
           // Only add the highest-precedence Reduce actions to the parse table.
@@ -203,10 +210,10 @@ class ParseTableBuilder {
         Symbol symbol = item.production->at(item.step_index).symbol;
         ParseItem new_item(item.lhs(), *item.production, item.step_index + 1);
 
-        if (symbol.is_token) {
-          terminal_successors[symbol.index].entries[new_item] = lookahead_symbols;
-        } else {
+        if (symbol.is_non_terminal()) {
           nonterminal_successors[symbol.index].entries[new_item] = lookahead_symbols;
+        } else {
+          terminal_successors[symbol].entries[new_item] = lookahead_symbols;
         }
       }
     }
@@ -214,7 +221,7 @@ class ParseTableBuilder {
     // Add a Shift action for each possible successor state. Shift actions for
     // terminal lookaheads can conflict with Reduce actions added previously.
     for (auto &pair : terminal_successors) {
-      Symbol::Index lookahead = pair.first;
+      Symbol lookahead = pair.first;
       ParseItemSet &next_item_set = pair.second;
       ParseStateId next_state_id = add_parse_state(next_item_set);
       ParseState &state = parse_table.states[state_id];
@@ -223,7 +230,7 @@ class ParseTableBuilder {
       if (!allow_any_conflict) {
         if (had_existing_action)
           lookaheads_with_conflicts.insert(lookahead);
-        recovery_states[Symbol(lookahead, true)].add(next_item_set);
+        recovery_states[lookahead].add(next_item_set);
       }
     }
 
@@ -234,10 +241,10 @@ class ParseTableBuilder {
       ParseStateId next_state = add_parse_state(next_item_set);
       parse_table.set_nonterminal_action(state_id, lookahead, next_state);
       if (!allow_any_conflict)
-        recovery_states[Symbol(lookahead, false)].add(next_item_set);
+        recovery_states[Symbol(lookahead, Symbol::NonTerminal)].add(next_item_set);
     }
 
-    for (Symbol::Index lookahead : lookaheads_with_conflicts) {
+    for (Symbol lookahead : lookaheads_with_conflicts) {
       string conflict = handle_conflict(item_set, state_id, lookahead);
       if (!conflict.empty()) return conflict;
     }
@@ -245,9 +252,9 @@ class ParseTableBuilder {
     ParseAction shift_extra = ParseAction::ShiftExtra();
     ParseState &state = parse_table.states[state_id];
     for (const Symbol &extra_symbol : grammar.extra_tokens) {
-      if (!state.terminal_entries.count(extra_symbol.index) ||
+      if (!state.terminal_entries.count(extra_symbol) ||
           state.has_shift_action() || allow_any_conflict) {
-        parse_table.add_terminal_action(state_id, extra_symbol.index, shift_extra);
+        parse_table.add_terminal_action(state_id, extra_symbol, shift_extra);
       }
     }
 
@@ -257,7 +264,6 @@ class ParseTableBuilder {
   void mark_fragile_actions() {
     for (ParseState &state : parse_table.states) {
       for (auto &entry : state.terminal_entries) {
-        const Symbol symbol(entry.first, true);
         auto &actions = entry.second.actions;
 
         for (ParseAction &action : actions) {
@@ -359,7 +365,7 @@ class ParseTableBuilder {
   }
 
   string handle_conflict(const ParseItemSet &item_set, ParseStateId state_id,
-                         Symbol::Index lookahead) {
+                         Symbol lookahead) {
     ParseTableEntry &entry = parse_table.states[state_id].terminal_entries[lookahead];
     int reduction_precedence = entry.actions.front().precedence();
     set<ParseItem> shift_items;
@@ -468,7 +474,7 @@ class ParseTableBuilder {
       description += "  " + symbol_name(earliest_starting_item.production->at(i).symbol);
     }
 
-    description += "  \u2022  " + symbol_name(Symbol(lookahead, true)) + "  \u2026";
+    description += "  \u2022  " + symbol_name(lookahead) + "  \u2026";
     description += "\n\n";
 
     description += "Possible interpretations:\n\n";
@@ -487,7 +493,7 @@ class ParseTableBuilder {
           description += "  " + symbol_name(step.symbol);
         }
         description += ")";
-        description += "  \u2022  " + symbol_name(Symbol(lookahead, true)) + "  \u2026";
+        description += "  \u2022  " + symbol_name(lookahead) + "  \u2026";
         description += "\n";
       }
     }
@@ -564,14 +570,23 @@ class ParseTableBuilder {
         return "END_OF_INPUT";
       else
         return "";
-    } else if (symbol.is_token) {
-      const Variable &variable = lexical_grammar.variables[symbol.index];
-      if (variable.type == VariableTypeNamed)
-        return variable.name;
-      else
-        return "'" + variable.name + "'";
-    } else {
-      return grammar.variables[symbol.index].name;
+    }
+
+    switch (symbol.type) {
+      case Symbol::Terminal: {
+        const Variable &variable = lexical_grammar.variables[symbol.index];
+        if (variable.type == VariableTypeNamed)
+          return variable.name;
+        else
+          return "'" + variable.name + "'";
+      }
+      case Symbol::NonTerminal: {
+        return grammar.variables[symbol.index].name;
+      }
+      case Symbol::External:
+      default: {
+        return grammar.external_tokens[symbol.index].name;
+      }
     }
   }
 

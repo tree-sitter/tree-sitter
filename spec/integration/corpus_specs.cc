@@ -84,6 +84,7 @@ describe("The Corpus", []() {
     "json",
     "c",
     "cpp",
+    "python",
   });
 
   for (auto &language_name : test_languages) {

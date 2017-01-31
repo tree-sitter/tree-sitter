@@ -23,20 +23,21 @@ static void append_to_scope_sequence(ScopeSequence *sequence,
                                      ScopeStack *current_scopes,
                                      TSNode node, TSDocument *document,
                                      const std::string &text) {
-  append_text_to_scope_sequence(sequence, current_scopes, text, ts_node_start_byte(node) - sequence->size());
+  append_text_to_scope_sequence(
+    sequence, current_scopes, text, ts_node_start_byte(node) - sequence->size()
+  );
 
-  string scope = ts_node_type(node, document);
-  current_scopes->push_back(scope);
-  size_t child_count = ts_node_child_count(node);
-  if (child_count > 0) {
-    for (size_t i = 0; i < child_count; i++) {
-      TSNode child = ts_node_child(node, i);
-      append_to_scope_sequence(sequence, current_scopes, child, document, text);
-    }
-  } else {
-    size_t length = ts_node_end_byte(node) - ts_node_start_byte(node);
-    append_text_to_scope_sequence(sequence, current_scopes, text, length);
+  current_scopes->push_back(ts_node_type(node, document));
+
+  for (size_t i = 0, n = ts_node_child_count(node); i < n; i++) {
+    TSNode child = ts_node_child(node, i);
+    append_to_scope_sequence(sequence, current_scopes, child, document, text);
   }
+
+  append_text_to_scope_sequence(
+    sequence, current_scopes, text, ts_node_end_byte(node) - sequence->size()
+  );
+
   current_scopes->pop_back();
 }
 

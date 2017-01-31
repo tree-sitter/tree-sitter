@@ -19,6 +19,10 @@ void ts_language_table_entry(const TSLanguage *, TSStateId, TSSymbol, TableEntry
 
 TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *, TSSymbol);
 
+static inline bool ts_language_is_symbol_external(const TSLanguage *self, TSSymbol symbol) {
+  return 0 < symbol && symbol < self->external_token_count + 1;
+}
+
 static inline const TSParseAction *ts_language_actions(const TSLanguage *self,
                                                        TSStateId state,
                                                        TSSymbol symbol,
@@ -46,6 +50,16 @@ static inline TSStateId ts_language_next_state(const TSLanguage *self,
     return 0;
   } else {
     return self->parse_table[state * self->symbol_count + symbol];
+  }
+}
+
+static inline const bool *
+ts_language_enabled_external_tokens(const TSLanguage *self,
+                                    unsigned external_scanner_state) {
+  if (external_scanner_state == 0) {
+    return NULL;
+  } else {
+    return self->external_scanner.states + self->external_token_count * external_scanner_state;
   }
 }
 

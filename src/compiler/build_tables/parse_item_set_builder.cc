@@ -27,12 +27,17 @@ ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
   set<Symbol::Index> processed_non_terminals;
 
   for (size_t i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
-    Symbol symbol(i, true);
-    first_sets.insert({symbol, LookaheadSet({ static_cast<Symbol::Index>(i) })});
+    Symbol symbol(i, Symbol::Terminal);
+    first_sets.insert({symbol, LookaheadSet({ symbol })});
+  }
+
+  for (size_t i = 0, n = grammar.external_tokens.size(); i < n; i++) {
+    Symbol symbol(i, Symbol::External);
+    first_sets.insert({symbol, LookaheadSet({ symbol })});
   }
 
   for (size_t i = 0, n = grammar.variables.size(); i < n; i++) {
-    Symbol symbol(i);
+    Symbol symbol(i, Symbol::NonTerminal);
     LookaheadSet first_set;
 
     processed_non_terminals.clear();
@@ -42,10 +47,10 @@ ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
       Symbol current_symbol = symbols_to_process.back();
       symbols_to_process.pop_back();
 
-      if (current_symbol.is_token) {
-        first_set.insert(current_symbol.index);
+      if (!current_symbol.is_non_terminal()) {
+        first_set.insert(current_symbol);
       } else if (processed_non_terminals.insert(current_symbol.index).second) {
-        for (const Production &production : grammar.productions(current_symbol)) {
+        for (const Production &production : grammar.variables[current_symbol.index].productions) {
           if (!production.empty()) {
             symbols_to_process.push_back(production[0].symbol);
           }
@@ -59,11 +64,11 @@ ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
   vector<ParseItemSetComponent> components_to_process;
 
   for (size_t i = 0, n = grammar.variables.size(); i < n; i++) {
-    Symbol symbol(i);
+    Symbol symbol(i, Symbol::NonTerminal);
     map<ParseItem, pair<LookaheadSet, bool>> cache_entry;
 
     components_to_process.clear();
-    for (const Production &production : grammar.productions(symbol)) {
+    for (const Production &production : grammar.variables[i].productions) {
       components_to_process.push_back(ParseItemSetComponent{
         ParseItem(symbol, production, 0),
         LookaheadSet(),
@@ -87,7 +92,7 @@ ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
 
       if (component_is_new) {
         Symbol next_symbol = item.next_symbol();
-        if (next_symbol.is_built_in() || next_symbol.is_token)
+        if (!next_symbol.is_non_terminal() || next_symbol.is_built_in())
           continue;
 
         LookaheadSet next_lookaheads;
@@ -102,7 +107,7 @@ ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
           propagates_lookaheads = false;
         }
 
-        for (const Production &production : grammar.productions(next_symbol)) {
+        for (const Production &production : grammar.variables[next_symbol.index].productions) {
           components_to_process.push_back(ParseItemSetComponent{
             ParseItem(next_symbol, production, 0),
             next_lookaheads,
@@ -130,7 +135,7 @@ void ParseItemSetBuilder::apply_transitive_closure(ParseItemSet *item_set) {
     const LookaheadSet &lookaheads = pair.second;
 
     const Symbol &next_symbol = item.next_symbol();
-    if (!next_symbol.is_token && !next_symbol.is_built_in()) {
+    if (next_symbol.is_non_terminal() && !next_symbol.is_built_in()) {
       LookaheadSet next_lookaheads;
       size_t next_step = item.step_index + 1;
       if (next_step == item.production->size()) {

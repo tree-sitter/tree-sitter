@@ -9,7 +9,7 @@ START_TEST
 describe("Repeat", []() {
   describe("constructing repeats", [&]() {
     it("doesn't create redundant repeats", [&]() {
-      auto sym = make_shared<Symbol>(1);
+      auto sym = make_shared<Symbol>(1, Symbol::NonTerminal);
       auto repeat = Repeat::build(sym);
       auto outer_repeat = Repeat::build(repeat);
 

@@ -15,7 +15,9 @@ bool operator==(const TSRange &left, const TSRange &right) {
 }
 
 bool operator==(const Length &left, const Length &right) {
-  return length_eq(left, right);
+  return left.bytes == right.bytes &&
+    left.chars == right.chars &&
+    left.extent == right.extent;
 }
 
 bool operator<(const TSPoint &left, const TSPoint &right) {

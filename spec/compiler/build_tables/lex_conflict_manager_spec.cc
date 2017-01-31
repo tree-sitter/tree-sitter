@@ -14,10 +14,10 @@ START_TEST
 describe("LexConflictManager::resolve(new_action, old_action)", []() {
   LexConflictManager conflict_manager;
   bool update;
-  Symbol sym1(0, true);
-  Symbol sym2(1, true);
-  Symbol sym3(2, true);
-  Symbol sym4(3, true);
+  Symbol sym1(0, Symbol::Terminal);
+  Symbol sym2(1, Symbol::Terminal);
+  Symbol sym3(2, Symbol::Terminal);
+  Symbol sym4(3, Symbol::Terminal);
   LexItemSet item_set({ LexItem(sym4, blank() )});
 
   it("favors advance actions over empty accept token actions", [&]() {

@@ -50,6 +50,7 @@ typedef struct {
   StackNode *node;
   bool is_halted;
   unsigned push_count;
+  const TSExternalTokenState *external_token_state;
 } StackHead;
 
 struct Stack {
@@ -168,11 +169,13 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
 }
 
 static StackVersion ts_stack__add_version(Stack *self, StackNode *node,
-                                          unsigned push_count) {
+                                          unsigned push_count,
+                                          const TSExternalTokenState *external_token_state) {
   StackHead head = {
     .node = node,
     .is_halted = false,
     .push_count = push_count,
+    .external_token_state = external_token_state,
   };
   array_push(&self->heads, head);
   stack_node_retain(node);
@@ -180,7 +183,8 @@ static StackVersion ts_stack__add_version(Stack *self, StackNode *node,
 }
 
 static void ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees,
-                                unsigned push_count) {
+                                unsigned push_count,
+                                const TSExternalTokenState *external_token_state) {
   for (uint32_t i = self->slices.size - 1; i + 1 > 0; i--) {
     StackVersion version = self->slices.contents[i].version;
     if (self->heads.contents[version].node == node) {
@@ -190,7 +194,7 @@ static void ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees,
     }
   }
 
-  StackVersion version = ts_stack__add_version(self, node, push_count);
+  StackVersion version = ts_stack__add_version(self, node, push_count, external_token_state);
   StackSlice slice = { *trees, version };
   array_push(&self->slices, slice);
 }
@@ -202,6 +206,7 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
 
   StackHead *head = array_get(&self->heads, version);
   unsigned push_count = head->push_count;
+  const TSExternalTokenState *external_token_state = head->external_token_state;
   Iterator iterator = {
     .node = head->node,
     .trees = array_new(),
@@ -229,7 +234,8 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
         if (!should_stop)
           ts_tree_array_copy(trees, &trees);
         array_reverse(&trees);
-        ts_stack__add_slice(self, node, &trees, push_count + iterator->push_count);
+        ts_stack__add_slice(self, node, &trees, push_count + iterator->push_count,
+                            external_token_state);
       }
 
       if (should_stop) {
@@ -288,7 +294,12 @@ Stack *ts_stack_new() {
   self->base_node =
     stack_node_new(NULL, NULL, false, 1, length_zero(), &self->node_pool);
   stack_node_retain(self->base_node);
-  array_push(&self->heads, ((StackHead){ self->base_node, false, 0 }));
+  array_push(&self->heads, ((StackHead){
+    self->base_node,
+    false,
+    0,
+    NULL
+  }));
 
   return self;
 }
@@ -327,9 +338,17 @@ unsigned ts_stack_push_count(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->push_count;
 }
 
-void ts_stack_decrease_push_count(const Stack *self, StackVersion version,
+void ts_stack_decrease_push_count(Stack *self, StackVersion version,
                                   unsigned decrement) {
   array_get(&self->heads, version)->push_count -= decrement;
+}
+
+const TSExternalTokenState *ts_stack_external_token_state(const Stack *self, StackVersion version) {
+  return array_get(&self->heads, version)->external_token_state;
+}
+
+void ts_stack_set_external_token_state(Stack *self, StackVersion version, const TSExternalTokenState *state) {
+  array_get(&self->heads, version)->external_token_state = state;
 }
 
 ErrorStatus ts_stack_error_status(const Stack *self, StackVersion version) {
@@ -480,7 +499,8 @@ bool ts_stack_merge(Stack *self, StackVersion version, StackVersion new_version)
   if (new_node->state == node->state &&
       new_node->position.chars == node->position.chars &&
       new_node->error_count == node->error_count &&
-      new_node->error_cost == node->error_cost) {
+      new_node->error_cost == node->error_cost &&
+      new_head->external_token_state == head->external_token_state) {
     for (uint32_t j = 0; j < new_node->link_count; j++)
       stack_node_add_link(node, new_node->links[j]);
     if (new_head->push_count > head->push_count)
@@ -505,7 +525,12 @@ void ts_stack_clear(Stack *self) {
   for (uint32_t i = 0; i < self->heads.size; i++)
     stack_node_release(self->heads.contents[i].node, &self->node_pool);
   array_clear(&self->heads);
-  array_push(&self->heads, ((StackHead){ self->base_node, false, 0 }));
+  array_push(&self->heads, ((StackHead){
+    self->base_node,
+    false,
+    0,
+    NULL
+  }));
 }
 
 bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
@@ -528,8 +553,20 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
     fprintf(
       f,
       "node_head_%u -> node_%p [label=%u, fontcolor=blue, weight=10000, "
-      "labeltooltip=\"push_count: %u\"]\n",
+      "labeltooltip=\"push_count: %u",
       i, head->node, i, head->push_count);
+
+    if (head->external_token_state) {
+      const TSExternalTokenState *s = head->external_token_state;
+      fprintf(f,
+        "\nexternal_token_state: "
+        "%2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X",
+        (*s)[0], (*s)[1], (*s)[2], (*s)[3], (*s)[4], (*s)[5], (*s)[6], (*s)[7],
+        (*s)[8], (*s)[9], (*s)[10], (*s)[11], (*s)[12], (*s)[13], (*s)[14], (*s)[15]
+      );
+    }
+
+    fprintf(f, "\"]\n");
     array_push(&self->iterators, ((Iterator){.node = head->node }));
   }
 

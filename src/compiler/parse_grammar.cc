@@ -210,7 +210,7 @@ ParseGrammarResult parse_grammar(const string &input) {
   string error_message;
   string name;
   Grammar grammar;
-  json_value name_json, rules_json, extras_json, conflicts_json;
+  json_value name_json, rules_json, extras_json, conflicts_json, external_tokens_json;
 
   json_settings settings = { 0, json_enable_comments, 0, 0, 0, 0 };
   char parse_error[json_error_max];
@@ -299,6 +299,25 @@ ParseGrammarResult parse_grammar(const string &input) {
       }
 
       grammar.expected_conflicts.push_back(conflict);
+    }
+  }
+
+  external_tokens_json = grammar_json->operator[]("externals");
+  if (external_tokens_json.type != json_none) {
+    if (external_tokens_json.type != json_array) {
+      error_message = "External tokens must be an array";
+      goto error;
+    }
+
+    for (size_t i = 0, length = external_tokens_json.u.array.length; i < length; i++) {
+      json_value *token_name_json = external_tokens_json.u.array.values[i];
+      if (token_name_json->type != json_string) {
+        error_message = "External token values must be strings";
+        goto error;
+      }
+
+      string token_name = token_name_json->u.string.ptr;
+      grammar.external_tokens.push_back(token_name);
     }
   }
 

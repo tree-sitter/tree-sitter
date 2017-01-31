@@ -7,6 +7,7 @@ GRAMMARS=(
   json
   c
   cpp
+  python
 )
 
 for grammar in ${GRAMMARS[@]}; do
@@ -21,7 +22,7 @@ for grammar in ${GRAMMARS[@]}; do
 
   (
     cd $grammar_dir;
-    git reset --hard;
-    git pull origin master;
+    git fetch origin
+    git reset --hard origin/master;
   )
 done

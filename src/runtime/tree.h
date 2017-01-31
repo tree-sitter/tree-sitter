@@ -22,10 +22,13 @@ typedef struct Tree {
   } context;
 
   uint32_t child_count;
-  uint32_t visible_child_count;
-  uint32_t named_child_count;
   union {
-    struct Tree **children;
+    struct {
+      uint32_t visible_child_count;
+      uint32_t named_child_count;
+      struct Tree **children;
+    };
+    TSExternalTokenState external_token_state;
     int32_t lookahead_char;
   };
 
@@ -38,7 +41,7 @@ typedef struct Tree {
 
   struct {
     TSSymbol symbol;
-    TSStateId lex_state;
+    TSLexMode lex_mode;
   } first_leaf;
 
   unsigned short ref_count;
@@ -48,6 +51,8 @@ typedef struct Tree {
   bool fragile_left : 1;
   bool fragile_right : 1;
   bool has_changes : 1;
+  bool has_external_tokens : 1;
+  bool has_external_token_state : 1;
 } Tree;
 
 typedef struct {
@@ -81,6 +86,7 @@ void ts_tree_assign_parents(Tree *, TreePath *);
 void ts_tree_edit(Tree *, const TSInputEdit *edit);
 char *ts_tree_string(const Tree *, const TSLanguage *, bool include_all);
 void ts_tree_print_dot_graph(const Tree *, const TSLanguage *, FILE *);
+const TSExternalTokenState *ts_tree_last_external_token_state(const Tree *);
 
 static inline uint32_t ts_tree_total_bytes(const Tree *self) {
   return self->padding.bytes + self->size.bytes;

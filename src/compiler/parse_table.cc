@@ -1,6 +1,7 @@
 #include "compiler/parse_table.h"
 #include <string>
 #include "compiler/precedence_range.h"
+#include "compiler/rules/built_in_symbols.h"
 
 namespace tree_sitter {
 
@@ -28,7 +29,7 @@ ParseAction::ParseAction()
       extra(false),
       fragile(false),
       state_index(-1),
-      symbol(Symbol(-1)),
+      symbol(rules::NONE()),
       consumed_symbol_count(0),
       production(nullptr) {}
 
@@ -43,11 +44,11 @@ ParseAction ParseAction::Accept() {
 }
 
 ParseAction ParseAction::Shift(ParseStateId state_index) {
-  return ParseAction(ParseActionTypeShift, state_index, Symbol(-1), 0, nullptr);
+  return ParseAction(ParseActionTypeShift, state_index, rules::NONE(), 0, nullptr);
 }
 
 ParseAction ParseAction::Recover(ParseStateId state_index) {
-  return ParseAction(ParseActionTypeRecover, state_index, Symbol(-1), 0,
+  return ParseAction(ParseActionTypeRecover, state_index, rules::NONE(), 0,
                      nullptr);
 }
 
@@ -150,9 +151,7 @@ bool ParseState::has_shift_action() const {
 set<Symbol> ParseState::expected_inputs() const {
   set<Symbol> result;
   for (auto &entry : terminal_entries)
-    result.insert(Symbol(entry.first, true));
-  for (auto &entry : nonterminal_entries)
-    result.insert(Symbol(entry.first, false));
+    result.insert(entry.first);
   return result;
 }
 
@@ -182,33 +181,24 @@ ParseStateId ParseTable::add_state() {
   return states.size() - 1;
 }
 
-ParseAction &ParseTable::set_terminal_action(ParseStateId state_id,
-                                             Symbol::Index index,
-                                             ParseAction action) {
-  states[state_id].terminal_entries[index].actions.clear();
-  return add_terminal_action(state_id, index, action);
-}
-
 ParseAction &ParseTable::add_terminal_action(ParseStateId state_id,
-                                             Symbol::Index index,
+                                             Symbol lookahead,
                                              ParseAction action) {
-  Symbol symbol(index, true);
   if (action.type == ParseActionTypeShift && action.extra)
-    symbols[symbol].extra = true;
+    symbols[lookahead].extra = true;
   else
-    symbols[symbol].structural = true;
+    symbols[lookahead].structural = true;
 
-  ParseTableEntry &entry = states[state_id].terminal_entries[index];
+  ParseTableEntry &entry = states[state_id].terminal_entries[lookahead];
   entry.actions.push_back(action);
   return *entry.actions.rbegin();
 }
 
 void ParseTable::set_nonterminal_action(ParseStateId state_id,
-                                        Symbol::Index index,
+                                        Symbol::Index lookahead,
                                         ParseStateId next_state_id) {
-  Symbol symbol(index, false);
-  symbols[symbol].structural = true;
-  states[state_id].nonterminal_entries[index] = next_state_id;
+  symbols[Symbol(lookahead, Symbol::NonTerminal)].structural = true;
+  states[state_id].nonterminal_entries[lookahead] = next_state_id;
 }
 
 static bool has_entry(const ParseState &state, const ParseTableEntry &entry) {
@@ -226,12 +216,12 @@ bool ParseTable::merge_state(size_t i, size_t j) {
     return false;
 
   for (auto &entry : state.terminal_entries) {
-    Symbol::Index index = entry.first;
+    Symbol lookahead = entry.first;
     const vector<ParseAction> &actions = entry.second.actions;
 
-    const auto &other_entry = other.terminal_entries.find(index);
+    const auto &other_entry = other.terminal_entries.find(lookahead);
     if (other_entry == other.terminal_entries.end()) {
-      if (mergeable_symbols.count(index) == 0 && !Symbol::is_built_in(index))
+      if (mergeable_symbols.count(lookahead) == 0 && !lookahead.is_built_in())
         return false;
       if (actions.back().type != ParseActionTypeReduce)
         return false;
@@ -242,25 +232,25 @@ bool ParseTable::merge_state(size_t i, size_t j) {
     }
   }
 
-  set<Symbol::Index> symbols_to_merge;
+  set<Symbol> symbols_to_merge;
 
   for (auto &entry : other.terminal_entries) {
-    Symbol::Index index = entry.first;
+    Symbol lookahead = entry.first;
     const vector<ParseAction> &actions = entry.second.actions;
 
-    if (!state.terminal_entries.count(index)) {
-      if (mergeable_symbols.count(index) == 0 && !Symbol::is_built_in(index))
+    if (!state.terminal_entries.count(lookahead)) {
+      if (mergeable_symbols.count(lookahead) == 0 && !lookahead.is_built_in())
         return false;
       if (actions.back().type != ParseActionTypeReduce)
         return false;
       if (!has_entry(state, entry.second))
         return false;
-      symbols_to_merge.insert(index);
+      symbols_to_merge.insert(lookahead);
     }
   }
 
-  for (const Symbol::Index &index : symbols_to_merge)
-    state.terminal_entries[index] = other.terminal_entries.find(index)->second;
+  for (const Symbol &lookahead : symbols_to_merge)
+    state.terminal_entries[lookahead] = other.terminal_entries.find(lookahead)->second;
 
   return true;
 }

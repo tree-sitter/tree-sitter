@@ -11,9 +11,13 @@ class Symbol : public Rule {
  public:
   typedef int Index;
 
+  typedef enum {
+    External,
+    Terminal,
+    NonTerminal,
+  } Type;
 
-  explicit Symbol(Index index);
-  Symbol(Index index, bool is_token);
+  Symbol(Index index, Type type);
 
   bool operator==(const Symbol &other) const;
   bool operator==(const Rule &other) const;
@@ -26,9 +30,12 @@ class Symbol : public Rule {
   bool operator<(const Symbol &other) const;
   static bool is_built_in(Index);
   bool is_built_in() const;
+  bool is_token() const;
+  bool is_external() const;
+  bool is_non_terminal() const;
 
   Index index;
-  bool is_token;
+  Type type;
 };
 
 }  // namespace rules

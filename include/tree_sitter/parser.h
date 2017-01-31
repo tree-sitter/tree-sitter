@@ -12,6 +12,8 @@ extern "C" {
 typedef unsigned short TSSymbol;
 typedef unsigned short TSStateId;
 
+typedef uint8_t TSExternalTokenState[16];
+
 #define ts_builtin_sym_error ((TSSymbol)-1)
 #define ts_builtin_sym_end 0
 
@@ -23,7 +25,7 @@ typedef struct {
 } TSSymbolMetadata;
 
 typedef struct {
-  void (*advance)(void *, TSStateId, bool);
+  void (*advance)(void *, bool);
   int32_t lookahead;
   TSSymbol result_symbol;
 } TSLexer;
@@ -48,6 +50,11 @@ typedef struct {
   bool fragile : 1;
 } TSParseAction;
 
+typedef struct {
+  uint16_t lex_state;
+  uint16_t external_lex_state;
+} TSLexMode;
+
 typedef union {
   TSParseAction action;
   struct {
@@ -58,14 +65,26 @@ typedef union {
 } TSParseActionEntry;
 
 typedef struct TSLanguage {
+  uint32_t version;
   uint32_t symbol_count;
   uint32_t token_count;
+  uint32_t external_token_count;
   const char **symbol_names;
   const TSSymbolMetadata *symbol_metadata;
   const unsigned short *parse_table;
   const TSParseActionEntry *parse_actions;
-  const TSStateId *lex_states;
+  const TSLexMode *lex_modes;
   bool (*lex_fn)(TSLexer *, TSStateId);
+  struct {
+    const bool *states;
+    const TSSymbol *symbol_map;
+    void *(*create)();
+    void (*destroy)(void *);
+    void (*reset)(void *);
+    bool (*scan)(void *, TSLexer *, const bool *symbol_whitelist);
+    bool (*serialize)(void *, TSExternalTokenState);
+    void (*deserialize)(void *, const TSExternalTokenState);
+  } external_scanner;
 } TSLanguage;
 
 /*
@@ -79,14 +98,14 @@ typedef struct TSLanguage {
 
 #define ADVANCE(state_value)                   \
   {                                            \
-    lexer->advance(lexer, state_value, false); \
+    lexer->advance(lexer, false); \
     state = state_value;                       \
     goto next_state;                           \
   }
 
 #define SKIP(state_value)                     \
   {                                           \
-    lexer->advance(lexer, state_value, true); \
+    lexer->advance(lexer, true); \
     state = state_value;                      \
     goto next_state;                          \
   }
@@ -146,21 +165,21 @@ typedef struct TSLanguage {
     { .type = TSParseActionTypeAccept } \
   }
 
-#define EXPORT_LANGUAGE(language_name)                     \
-  static TSLanguage language = {                           \
-    .symbol_count = SYMBOL_COUNT,                          \
-    .token_count = TOKEN_COUNT,                            \
-    .symbol_metadata = ts_symbol_metadata,                 \
-    .parse_table = (const unsigned short *)ts_parse_table, \
-    .parse_actions = ts_parse_actions,                     \
-    .lex_states = ts_lex_states,                           \
-    .symbol_names = ts_symbol_names,                       \
-    .lex_fn = ts_lex,                                      \
-  };                                                       \
-                                                           \
-  const TSLanguage *language_name() {                      \
-    return &language;                                      \
-  }
+#define GET_LANGUAGE(...)                                          \
+  static TSLanguage language = {                                   \
+    .version = LANGUAGE_VERSION,                                   \
+    .symbol_count = SYMBOL_COUNT,                                  \
+    .token_count = TOKEN_COUNT,                                    \
+    .symbol_metadata = ts_symbol_metadata,                         \
+    .parse_table = (const unsigned short *)ts_parse_table,         \
+    .parse_actions = ts_parse_actions,                             \
+    .lex_modes = ts_lex_modes,                                     \
+    .symbol_names = ts_symbol_names,                               \
+    .lex_fn = ts_lex,                                              \
+    .external_token_count = EXTERNAL_TOKEN_COUNT,                  \
+    .external_scanner = {__VA_ARGS__}                              \
+  };                                                               \
+  return &language                                                 \
 
 #ifdef __cplusplus
 }

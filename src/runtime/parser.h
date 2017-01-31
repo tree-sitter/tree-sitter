@@ -8,12 +8,8 @@ extern "C" {
 #include "runtime/stack.h"
 #include "runtime/array.h"
 #include "runtime/lexer.h"
+#include "runtime/reusable_node.h"
 #include "runtime/reduce_action.h"
-
-typedef struct {
-  Tree *tree;
-  uint32_t byte_index;
-} ReusableNode;
 
 typedef struct {
   Lexer lexer;
@@ -29,11 +25,14 @@ typedef struct {
   ReusableNode reusable_node;
   TreePath tree_path1;
   TreePath tree_path2;
+  void *external_scanner_payload;
+  Tree *last_external_token;
 } Parser;
 
 bool parser_init(Parser *);
 void parser_destroy(Parser *);
 Tree *parser_parse(Parser *, TSInput, Tree *);
+void parser_set_language(Parser *, const TSLanguage *);
 
 #ifdef __cplusplus
 }

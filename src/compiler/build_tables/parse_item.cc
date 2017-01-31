@@ -41,7 +41,7 @@ bool ParseItem::operator<(const ParseItem &other) const {
 }
 
 Symbol ParseItem::lhs() const {
-  return Symbol(variable_index);
+  return Symbol(variable_index, Symbol::NonTerminal);
 }
 
 bool ParseItem::is_done() const {
@@ -102,38 +102,6 @@ size_t ParseItemSet::unfinished_item_signature() const {
       }
     }
   }
-  return result;
-}
-
-ParseItemSet::ActionMap ParseItemSet::actions() const {
-  ParseItemSet::ActionMap result;
-
-  for (const auto &pair : entries) {
-    const ParseItem &item = pair.first;
-    const LookaheadSet &lookahead_symbols = pair.second;
-
-    if (item.step_index == item.production->size()) {
-      int precedence = item.precedence();
-      for (const Symbol::Index lookahead : *lookahead_symbols.entries) {
-        Action &action = result.terminal_actions[lookahead];
-        if (precedence > action.completion_precedence) {
-          action.completions.assign({ &item });
-        } else if (precedence == action.completion_precedence) {
-          action.completions.push_back({ &item });
-        }
-      }
-    } else {
-      Symbol symbol = item.production->at(item.step_index).symbol;
-      ParseItem new_item(item.lhs(), *item.production, item.step_index + 1);
-
-      if (symbol.is_token) {
-        result.terminal_actions[symbol.index].continuation.entries[new_item] = lookahead_symbols;
-      } else {
-        result.nonterminal_continuations[symbol.index].entries[new_item] = lookahead_symbols;
-      }
-    }
-  }
-
   return result;
 }
 

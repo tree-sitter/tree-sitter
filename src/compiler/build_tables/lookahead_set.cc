@@ -12,8 +12,8 @@ using rules::Symbol;
 
 LookaheadSet::LookaheadSet() : entries(nullptr) {}
 
-LookaheadSet::LookaheadSet(const set<Symbol::Index> &symbols)
-    : entries(make_shared<set<Symbol::Index>>(symbols)) {}
+LookaheadSet::LookaheadSet(const set<Symbol> &symbols)
+    : entries(make_shared<set<Symbol>>(symbols)) {}
 
 bool LookaheadSet::empty() const {
   return !entries.get() || entries->empty();
@@ -23,7 +23,7 @@ bool LookaheadSet::operator==(const LookaheadSet &other) const {
   return *entries == *other.entries;
 }
 
-bool LookaheadSet::contains(const Symbol::Index &symbol) const {
+bool LookaheadSet::contains(const Symbol &symbol) const {
   return entries->find(symbol) != entries->end();
 }
 
@@ -31,15 +31,15 @@ bool LookaheadSet::insert_all(const LookaheadSet &other) {
   if (!other.entries.get())
     return false;
   if (!entries.get())
-    entries = make_shared<set<Symbol::Index>>();
+    entries = make_shared<set<Symbol>>();
   size_t previous_size = entries->size();
   entries->insert(other.entries->begin(), other.entries->end());
   return entries->size() > previous_size;
 }
 
-bool LookaheadSet::insert(const Symbol::Index &symbol) {
+bool LookaheadSet::insert(const Symbol &symbol) {
   if (!entries.get())
-    entries = make_shared<set<Symbol::Index>>();
+    entries = make_shared<set<Symbol>>();
   return entries->insert(symbol).second;
 }
 

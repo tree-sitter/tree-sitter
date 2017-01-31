@@ -521,6 +521,31 @@ describe("Stack", [&]() {
       free_slice_array(&pop.slices);
     });
   });
+
+  describe("setting external token state", [&]() {
+    TSExternalTokenState external_token_state1, external_token_state2;
+
+    it("allows the state to be retrieved", [&]() {
+      AssertThat(ts_stack_external_token_state(stack, 0), Equals(nullptr));
+
+      ts_stack_set_external_token_state(stack, 0, &external_token_state1);
+      AssertThat(ts_stack_external_token_state(stack, 0), Equals(&external_token_state1));
+
+      ts_stack_copy_version(stack, 0);
+      AssertThat(ts_stack_external_token_state(stack, 0), Equals(&external_token_state1));
+    });
+
+    it("does not merge stack versions with different external token states", [&]() {
+      ts_stack_copy_version(stack, 0);
+      ts_stack_push(stack, 0, trees[0], false, 5);
+      ts_stack_push(stack, 1, trees[0], false, 5);
+
+      ts_stack_set_external_token_state(stack, 0, &external_token_state1);
+      ts_stack_set_external_token_state(stack, 0, &external_token_state2);
+
+      AssertThat(ts_stack_merge(stack, 0, 1), IsFalse());
+    });
+  });
 });
 
 END_TEST

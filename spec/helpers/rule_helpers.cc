@@ -9,6 +9,7 @@ namespace tree_sitter {
   using std::ostream;
   using std::string;
   using std::to_string;
+  using rules::Symbol;
 
   rule_ptr character(const set<uint32_t> &ranges) {
     return character(ranges, true);
@@ -28,11 +29,11 @@ namespace tree_sitter {
   }
 
   rule_ptr i_sym(size_t index) {
-    return make_shared<rules::Symbol>(index);
+    return make_shared<Symbol>(index, Symbol::NonTerminal);
   }
 
   rule_ptr i_token(size_t index) {
-    return make_shared<rules::Symbol>(index, true);
+    return make_shared<Symbol>(index, Symbol::Terminal);
   }
 
   rule_ptr metadata(rule_ptr rule, rules::MetadataParams params) {
