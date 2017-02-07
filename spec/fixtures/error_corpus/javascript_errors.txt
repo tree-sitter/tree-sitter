@@ -76,6 +76,24 @@ a.b =
     (member_access (identifier) (identifier)))
   (ERROR))
 
+=================================================================
+An invalid token at the end of a construct with extra line breaks
+=================================================================
+
+a(
+  b,
+  c,,
+);
+
+---
+
+(program
+  (expression_statement
+    (function_call (identifier) (arguments
+      (identifier)
+      (identifier)
+      (ERROR)))))
+
 ===================================================
 Multi-line chained expressions in var declarations
 ===================================================

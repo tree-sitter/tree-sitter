@@ -596,6 +596,7 @@ static inline const TSParseAction *parser__reductions_after_sequence(
     if (child_count == tree_count_below)
       break;
     Tree *tree = trees_below->contents[trees_below->size - 1 - i];
+    if (tree->extra) continue;
     TSStateId next_state = ts_language_next_state(self->language, state, tree->symbol);
     if (next_state == ERROR_STATE)
       return NULL;
@@ -607,6 +608,7 @@ static inline const TSParseAction *parser__reductions_after_sequence(
 
   for (uint32_t i = 0; i < trees_above->size; i++) {
     Tree *tree = trees_above->contents[i];
+    if (tree->extra) continue;
     TSStateId next_state = ts_language_next_state(self->language, state, tree->symbol);
     if (next_state == ERROR_STATE)
       return NULL;
@@ -738,7 +740,6 @@ static bool parser__repair_error(Parser *self, StackSlice slice,
   ReduceAction repair = session.best_repair;
   TSStateId next_state = session.best_repair_next_state;
   uint32_t skip_count = session.best_repair_skip_count;
-  uint32_t count_below = repair.count - session.tree_count_above_error;
   TSSymbol symbol = repair.symbol;
 
   StackSlice new_slice = array_pop(&pop.slices);
@@ -752,13 +753,8 @@ static bool parser__repair_error(Parser *self, StackSlice slice,
       ts_stack_remove_version(self->stack, other_slice.version);
   }
 
-  TreeArray skipped_children = array_new();
-  array_grow(&skipped_children, skip_count);
-  for (uint32_t i = count_below; i < children.size; i++)
-    array_push(&skipped_children, children.contents[i]);
-
+  TreeArray skipped_children = ts_tree_array_remove_last_n(&children, skip_count);
   Tree *error = ts_tree_make_error_node(&skipped_children);
-  children.size = count_below;
   array_push(&children, error);
 
   for (uint32_t i = 0; i < slice.trees.size; i++)

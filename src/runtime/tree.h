@@ -68,6 +68,7 @@ typedef Array(TreePathEntry) TreePath;
 bool ts_tree_array_copy(TreeArray, TreeArray *);
 void ts_tree_array_delete(TreeArray *);
 uint32_t ts_tree_array_essential_count(const TreeArray *);
+TreeArray ts_tree_array_remove_last_n(TreeArray *, uint32_t);
 
 Tree *ts_tree_make_leaf(TSSymbol, Length, Length, TSSymbolMetadata);
 Tree *ts_tree_make_node(TSSymbol, uint32_t, Tree **, TSSymbolMetadata);

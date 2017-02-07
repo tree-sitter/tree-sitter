@@ -61,6 +61,29 @@ uint32_t ts_tree_array_essential_count(const TreeArray *self) {
   return result;
 }
 
+TreeArray ts_tree_array_remove_last_n(TreeArray *self, uint32_t remove_count) {
+  TreeArray result = array_new();
+  if (self->size == 0 || remove_count == 0) return result;
+
+  uint32_t count = 0;
+  uint32_t split_index = self->size - 1;
+  for (; split_index + 1 > 0; split_index--) {
+    Tree *tree = self->contents[split_index];
+    if (!tree->extra) {
+      count++;
+      if (count == remove_count) break;
+    }
+  }
+
+  array_grow(&result, self->size - split_index);
+  for (uint32_t i = split_index; i < self->size; i++) {
+    array_push(&result, self->contents[i]);
+  }
+
+  self->size = split_index;
+  return result;
+}
+
 Tree *ts_tree_make_error(Length size, Length padding, char lookahead_char) {
   Tree *result = ts_tree_make_leaf(ts_builtin_sym_error, padding, size,
                                      (TSSymbolMetadata){
