@@ -260,6 +260,7 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
       LOG("skip_unrecognized_character");
       skipped_error = true;
       error_start_position = self->lexer.token_start_position;
+      error_end_position = self->lexer.token_start_position;
       first_error_character = self->lexer.data.lookahead;
     }
 
