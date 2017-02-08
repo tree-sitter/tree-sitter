@@ -550,7 +550,7 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version,
     // If this pop operation terminated at the end of an error region, then
     // create two stack versions: one in which the parent node is interpreted
     // normally, and one in which the parent node is skipped.
-    if (state == ERROR_STATE && allow_skipping) {
+    if (state == ERROR_STATE && allow_skipping && child_count > 1) {
       StackVersion other_version = ts_stack_copy_version(self->stack, slice.version);
 
       ts_stack_push(self->stack, other_version, parent, false, ERROR_STATE);
