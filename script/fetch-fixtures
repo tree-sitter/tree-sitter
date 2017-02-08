@@ -2,19 +2,13 @@
 
 GRAMMARS_DIR=$(dirname $0)/../spec/fixtures/grammars
 
-GRAMMARS=(
-  javascript
-  json
-  c
-  cpp
-  python
-)
+fetch_grammar() {
+  local grammar=$1
+  local ref=$2
+  local grammar_dir=${GRAMMARS_DIR}/${grammar}
+  local grammar_url=https://github.com/tree-sitter/tree-sitter-${grammar}
 
-for grammar in ${GRAMMARS[@]}; do
-  echo "Fetching ${grammar} grammar..."
-
-  grammar_dir=${GRAMMARS_DIR}/${grammar}
-  grammar_url=https://github.com/tree-sitter/tree-sitter-${grammar}
+  echo "Updating ${grammar} grammar..."
 
   if [ ! -d $grammar_dir ]; then
     git clone $grammar_url $grammar_dir
@@ -23,6 +17,12 @@ for grammar in ${GRAMMARS[@]}; do
   (
     cd $grammar_dir;
     git fetch origin
-    git reset --hard origin/master;
+    git reset --hard $ref;
   )
-done
+}
+
+fetch_grammar 'javascript' '76cd7dd5eb793db21640c725e58301bde83781f7'
+fetch_grammar 'json'       'origin/master'
+fetch_grammar 'c'          'origin/master'
+fetch_grammar 'cpp'        'origin/master'
+fetch_grammar 'python'     'origin/master'
