@@ -8,6 +8,7 @@ extern "C" {
 #include "tree_sitter/runtime.h"
 
 TSInput ts_string_input_make(const char *);
+TSInput ts_string_input_make_with_length(const char *, uint32_t);
 
 #ifdef __cplusplus
 }

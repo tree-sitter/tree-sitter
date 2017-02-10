@@ -27,13 +27,23 @@ int ts_string_input_seek(void *payload, uint32_t character, uint32_t byte) {
 }
 
 TSInput ts_string_input_make(const char *string) {
+  if (!input)
+    goto error;
+
+  return ts_string_input_make_with_length(string, strlen(string))
+
+  error:
+    return (TSInput){ NULL, NULL, NULL, TSInputEncodingUTF8 };
+}
+
+TSInput ts_string_input_make_with_length(const char *string, uint32_t length) {
   TSStringInput *input = ts_malloc(sizeof(TSStringInput));
   if (!input)
     goto error;
 
   input->string = string;
   input->position = 0;
-  input->length = strlen(string);
+  input->length = length;
   return (TSInput){
     .payload = input,
     .read = ts_string_input_read,
