@@ -77,6 +77,15 @@ void ts_document_set_input_string(TSDocument *self, const char *text) {
   }
 }
 
+void ts_document_set_input_string_with_length(TSDocument *self, const char *text, uint32_t length) {
+  ts_document_invalidate(self);
+  TSInput input = ts_string_input_make_with_length(text, length);
+  ts_document_set_input(self, input);
+  if (input.payload) {
+    self->owns_input = true;
+  }
+}
+
 void ts_document_edit(TSDocument *self, TSInputEdit edit) {
   if (!self->tree)
     return;
