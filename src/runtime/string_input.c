@@ -30,7 +30,7 @@ TSInput ts_string_input_make(const char *string) {
   if (!input)
     goto error;
 
-  return ts_string_input_make_with_length(string, strlen(string))
+  return ts_string_input_make_with_length(string, strlen(string));
 
   error:
     return (TSInput){ NULL, NULL, NULL, TSInputEncodingUTF8 };
