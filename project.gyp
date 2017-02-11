@@ -110,6 +110,7 @@
         'src/runtime/lexer.c',
         'src/runtime/node.c',
         'src/runtime/stack.c',
+        'src/runtime/state_set.c',
         'src/runtime/parser.c',
         'src/runtime/string_input.c',
         'src/runtime/tree.c',
