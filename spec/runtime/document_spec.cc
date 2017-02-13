@@ -116,6 +116,17 @@ describe("Document", [&]() {
       AssertThat(spy_input->strings_read, Equals(vector<string>({" [null, 2" })));
     });
 
+    it("allows setting input string with length", [&]() {
+      const char content[] = { '1' };
+      ts_document_set_input_string_with_length(document, content, 1);
+      ts_document_parse(document);
+      TSNode new_root = ts_document_root_node(document);
+      AssertThat(ts_node_end_char(new_root), Equals<size_t>(1));
+      assert_node_string_equals(
+        new_root,
+        "(number)");
+    });
+
     it("reads from the new input correctly when the old input was blank", [&]() {
       ts_document_set_input_string(document, "");
       ts_document_parse(document);
