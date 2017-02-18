@@ -1,5 +1,5 @@
-#ifndef RUNTIME_STRING_INPUT_H_
-#define RUNTIME_STRING_INPUT_H_
+#ifndef RUNTIME_STATE_SET_H_
+#define RUNTIME_STATE_SET_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,10 +20,12 @@ typedef struct {
 StateSet ts_state_set_new(TSStateId state);
 void ts_state_set_delete(StateSet *self);
 void ts_state_set_add(StateSet *self, TSStateId state);
-TSStateId *ts_state_set_contents(StateSet *self);
+const TSStateId *ts_state_set_contents(const StateSet *self);
+bool ts_state_set_eq(const StateSet *, const StateSet *);
+bool ts_state_set_has(const StateSet *, TSStateId);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif  // RUNTIME_STRING_INPUT_H_
+#endif  // RUNTIME_STATE_SET_H_

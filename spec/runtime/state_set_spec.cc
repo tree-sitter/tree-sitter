@@ -44,6 +44,20 @@ describe("StateSet", [&]() {
 
     ts_state_set_delete(&state_set);
   });
+
+  it("can be compared to other StateSets", [&]() {
+    StateSet state_set1 = ts_state_set_new(100);
+    ts_state_set_add(&state_set1, 1);
+    ts_state_set_add(&state_set1, 2);
+    ts_state_set_add(&state_set1, 3);
+
+    StateSet state_set2 = ts_state_set_new(100);
+    ts_state_set_add(&state_set2, 3);
+    ts_state_set_add(&state_set2, 2);
+    ts_state_set_add(&state_set2, 1);
+
+    AssertThat(ts_state_set_eq(&state_set1, &state_set2), IsTrue());
+  });
 });
 
 END_TEST

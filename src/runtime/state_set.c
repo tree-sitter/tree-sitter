@@ -34,10 +34,28 @@ void ts_state_set_add(StateSet *self, TSStateId state) {
   self->length++;
 }
 
-TSStateId *ts_state_set_contents(StateSet *self) {
+const TSStateId *ts_state_set_contents(const StateSet *self) {
   if (self->length <= STATE_SET_SHORT_LENGTH) {
     return self->short_contents;
   } else {
     return self->long_contents;
   }
+}
+
+bool ts_state_set_eq(const StateSet *self, const StateSet *other) {
+  if (self->length != other->length) return false;
+  const TSStateId *contents = ts_state_set_contents(self);
+  const TSStateId *other_contents = ts_state_set_contents(other);
+  for (uint32_t i = 0; i < self->length; i++) {
+    if (contents[i] != other_contents[i]) return false;
+  }
+  return true;
+}
+
+bool ts_state_set_has(const StateSet *self, TSStateId state) {
+  const TSStateId *contents = ts_state_set_contents(self);
+  for (uint32_t i = 0; i < self->length; i++) {
+    if (contents[i] == state) return true;
+  }
+  return false;
 }
