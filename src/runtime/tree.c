@@ -84,6 +84,21 @@ TreeArray ts_tree_array_remove_last_n(TreeArray *self, uint32_t remove_count) {
   return result;
 }
 
+TreeArray ts_tree_array_remove_trailing_extras(TreeArray *self) {
+  TreeArray result = array_new();
+
+  uint32_t i = self->size - 1;
+  for (; i + 1 > 0; i--) {
+    Tree *child = self->contents[i];
+    if (!child->extra) break;
+    array_push(&result, child);
+  }
+
+  self->size = i + 1;
+  array_reverse(&result);
+  return result;
+}
+
 Tree *ts_tree_make_error(Length size, Length padding, char lookahead_char) {
   Tree *result = ts_tree_make_leaf(ts_builtin_sym_error, padding, size,
                                      (TSSymbolMetadata){

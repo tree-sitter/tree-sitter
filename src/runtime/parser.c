@@ -755,8 +755,12 @@ static bool parser__repair_error(Parser *self, StackSlice slice,
   }
 
   TreeArray skipped_children = ts_tree_array_remove_last_n(&children, skip_count);
+  TreeArray trailing_extras = ts_tree_array_remove_trailing_extras(&skipped_children);
   Tree *error = ts_tree_make_error_node(&skipped_children);
   array_push(&children, error);
+  array_push_all(&children, &trailing_extras);
+  trailing_extras.size = 0;
+  array_delete(&trailing_extras);
 
   for (uint32_t i = 0; i < slice.trees.size; i++)
     array_push(&children, slice.trees.contents[i]);

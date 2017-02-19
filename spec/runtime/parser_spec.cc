@@ -4,6 +4,7 @@
 #include "helpers/spy_input.h"
 #include "helpers/load_language.h"
 #include "helpers/record_alloc.h"
+#include "helpers/point_helpers.h"
 #include "helpers/stderr_logger.h"
 #include "helpers/dedent.h"
 
@@ -166,6 +167,24 @@ describe("Parser", [&]() {
         set_text("a; /* b");
         assert_root_node(
           "(ERROR (program (expression_statement (identifier))) (UNEXPECTED EOF))");
+      });
+    });
+
+    describe("when there are extra tokens at the end of the viable prefix", [&]() {
+      it("does not include them in the error node", [&]() {
+        ts_document_set_language(document, get_test_language("javascript"));
+        set_text(
+          "var x;\n"
+          "\n"
+          "if\n"
+          "\n"
+          "var y;"
+        );
+
+        TSNode error = ts_node_named_child(root, 1);
+        AssertThat(ts_node_type(error, document), Equals("ERROR"));
+        AssertThat(ts_node_start_point(error), Equals<TSPoint>({2, 0}));
+        AssertThat(ts_node_end_point(error), Equals<TSPoint>({2, 2}));
       });
     });
   });
