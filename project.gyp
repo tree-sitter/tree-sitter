@@ -106,6 +106,7 @@
       ],
       'sources': [
         'src/runtime/document.c',
+        'src/runtime/error_costs.c',
         'src/runtime/language.c',
         'src/runtime/lexer.c',
         'src/runtime/node.c',
