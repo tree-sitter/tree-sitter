@@ -46,6 +46,9 @@ extern "C" {
   (array_grow((self), (self)->size + 1), \
    (self)->contents[(self)->size++] = (element))
 
+#define array_push_all(self, other)                                       \
+  array_splice((self), (self)->size, 0, (other)->size, (other)->contents)
+
 #define array_splice(self, index, old_count, new_count, new_elements)          \
   array__splice((VoidArray *)(self), array__elem_size(self), index, old_count, \
                 new_count, (new_elements))

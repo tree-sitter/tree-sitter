@@ -23,20 +23,18 @@ int c;
 ---
 
 (translation_unit
-  (preproc_ifdef
-    (identifier)
-    (ERROR (identifier) (identifier) (comment)))
+  (preproc_ifdef (identifier)
+    (ERROR (identifier) (identifier))
+    (comment))
 
   (declaration (identifier) (identifier))
 
-  (preproc_ifdef
-    (identifier)
+  (preproc_ifdef (identifier)
     (ERROR (storage_class_specifier) (string_literal)))
 
   (declaration (identifier) (identifier))
 
-  (preproc_ifdef
-    (identifier)
+  (preproc_ifdef (identifier)
     (ERROR))
 
   (declaration (identifier) (identifier)))
