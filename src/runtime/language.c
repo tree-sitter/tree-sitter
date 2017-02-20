@@ -2,8 +2,8 @@
 #include "runtime/tree.h"
 #include "runtime/error_costs.h"
 
-static const TSParseAction ERROR_SHIFT_EXTRA = {
-  .type = TSParseActionTypeShift, .extra = true,
+static const TSParseAction SHIFT_ERROR = {
+  .type = TSParseActionTypeShift, .params = {.to_state = ERROR_STATE}
 };
 
 void ts_language_table_entry(const TSLanguage *self, TSStateId state,
@@ -14,7 +14,7 @@ void ts_language_table_entry(const TSLanguage *self, TSStateId state,
       result->action_count = 1;
       result->is_reusable = false;
       result->depends_on_lookahead = false;
-      result->actions = &ERROR_SHIFT_EXTRA;
+      result->actions = &SHIFT_ERROR;
       return;
     }
     action_index = 0;
