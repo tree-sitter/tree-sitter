@@ -8,6 +8,7 @@
 
 #define MAX_LINK_COUNT 8
 #define MAX_NODE_POOL_SIZE 50
+#define MAX_ITERATOR_COUNT 64
 
 #define INLINE static inline __attribute__((always_inline))
 
@@ -143,7 +144,9 @@ static StackNode *stack_node_new(StackNode *next, Tree *tree, bool is_pending,
 static void stack_node_add_link(StackNode *self, StackLink link) {
   for (int i = 0; i < self->link_count; i++) {
     StackLink existing_link = self->links[i];
-    if (existing_link.tree == link.tree) {
+    if (existing_link.tree == link.tree ||
+        (existing_link.tree && link.tree &&
+         ts_tree_tokens_eq(existing_link.tree, link.tree))) {
       if (existing_link.node == link.node)
         return;
       if (existing_link.node->state == link.node->state) {
@@ -253,6 +256,7 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
           link = node->links[0];
           next_iterator = &self->iterators.contents[i];
         } else {
+          if (self->iterators.size >= MAX_ITERATOR_COUNT) continue;
           link = node->links[j];
           array_push(&self->iterators, self->iterators.contents[i]);
           next_iterator = array_back(&self->iterators);

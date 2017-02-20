@@ -79,6 +79,7 @@ Tree *ts_tree_make_error(Length, Length, char);
 void ts_tree_retain(Tree *tree);
 void ts_tree_release(Tree *tree);
 bool ts_tree_eq(const Tree *tree1, const Tree *tree2);
+bool ts_tree_tokens_eq(const Tree *, const Tree *);
 int ts_tree_compare(const Tree *tree1, const Tree *tree2);
 
 uint32_t ts_tree_start_column(const Tree *self);
@@ -106,6 +107,8 @@ static inline bool ts_tree_is_fragile(const Tree *tree) {
   return tree->fragile_left || tree->fragile_right ||
          ts_tree_total_bytes(tree) == 0;
 }
+
+bool ts_external_token_state_eq(const TSExternalTokenState *, const TSExternalTokenState *);
 
 #ifdef __cplusplus
 }

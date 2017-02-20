@@ -301,6 +301,21 @@ bool ts_tree_eq(const Tree *self, const Tree *other) {
   return true;
 }
 
+bool ts_tree_tokens_eq(const Tree *self, const Tree *other) {
+  if (self->child_count > 0 || other->child_count > 0) return false;
+  if (self->symbol != other->symbol) return false;
+  if (self->padding.bytes != other->padding.bytes) return false;
+  if (self->size.bytes != other->size.bytes) return false;
+  if (self->extra != other->extra) return false;
+  if (self->has_external_token_state) {
+    if (!other->has_external_token_state) return false;
+    if (!ts_external_token_state_eq(&self->external_token_state, &other->external_token_state)) return false;
+  } else {
+    if (other->has_external_token_state) return false;
+  }
+  return true;
+}
+
 int ts_tree_compare(const Tree *left, const Tree *right) {
   if (left->symbol < right->symbol)
     return -1;
@@ -522,4 +537,15 @@ void ts_tree_print_dot_graph(const Tree *self, const TSLanguage *language,
   fprintf(f, "edge [arrowhead=none]\n");
   ts_tree__print_dot_graph(self, 0, language, f);
   fprintf(f, "}\n");
+}
+
+bool ts_external_token_state_eq(const TSExternalTokenState *self,
+                                const TSExternalTokenState *other) {
+  if (self == other) {
+    return true;
+  } else if (!self || !other) {
+    return false;
+  } else {
+    return memcmp(self, other, sizeof(TSExternalTokenState)) == 0;
+  }
 }
