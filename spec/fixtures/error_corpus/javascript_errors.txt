@@ -117,3 +117,41 @@ const one = two
           (arguments (identifier)))
         (identifier))
       (arguments)))))
+
+===================================================
+Errors after a sequence of function declarations
+===================================================
+
+/*
+ * The JS grammar has an ambiguity such that these functions
+ * can be parsed either as function declarations or as
+ * function expressions. This ambiguity causes a lot of
+ * splitting and merging in the parse stack. When iterating
+ * the parse stack during an error repair, there would then
+ * be a very large number (> 2^16) of paths through the parse
+ * stack.
+ */
+function a() {}
+function b() {}
+function c() {}
+function e() {}
+function f() {}
+function g() {}
+function h() {}
+function i() {}
+
+var x = !!!
+
+---
+
+(program
+  (comment)
+  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
+  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
+  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
+  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
+  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
+  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
+  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
+  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
+  (trailing_var_declaration (identifier)) (ERROR))

@@ -313,17 +313,6 @@ static void parser__clear_cached_token(Parser *self) {
   self->cached_token = NULL;
 }
 
-static inline bool ts_external_token_state_eq(const TSExternalTokenState *self,
-                                              const TSExternalTokenState *other) {
-  if (self == other) {
-    return true;
-  } else if (!self || !other) {
-    return false;
-  } else {
-    return memcmp(self, other, sizeof(TSExternalTokenState)) == 0;
-  }
-}
-
 static Tree *parser__get_lookahead(Parser *self, StackVersion version,
                                    ReusableNode *reusable_node,
                                    bool *is_fresh) {
