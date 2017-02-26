@@ -93,7 +93,6 @@ class ParseTable {
   ParseStateId add_state();
   ParseAction &add_terminal_action(ParseStateId state_id, rules::Symbol, ParseAction);
   void set_nonterminal_action(ParseStateId, rules::Symbol::Index, ParseStateId);
-  bool merge_state(size_t i, size_t j);
 
   std::vector<ParseState> states;
   std::map<rules::Symbol, ParseTableSymbolMetadata> symbols;

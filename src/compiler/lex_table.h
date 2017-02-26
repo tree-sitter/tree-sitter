@@ -54,7 +54,6 @@ class LexState {
   LexState();
   std::set<rules::CharacterSet> expected_inputs() const;
   bool operator==(const LexState &) const;
-  void each_referenced_state(std::function<void(LexStateId *)>);
 
   std::map<rules::CharacterSet, AdvanceAction> advance_actions;
   AcceptTokenAction accept_action;
@@ -66,8 +65,6 @@ class LexTable {
   LexStateId add_state();
   LexState &state(LexStateId state_id);
   std::vector<LexState> states;
-
-  bool merge_state(size_t i, size_t j);
 };
 
 }  // namespace tree_sitter

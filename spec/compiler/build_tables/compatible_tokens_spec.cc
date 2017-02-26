@@ -1,6 +1,6 @@
 #include "spec_helper.h"
 #include "compiler/rules/character_set.h"
-#include "compiler/build_tables/recovery_tokens.h"
+#include "compiler/build_tables/compatible_tokens.h"
 #include "compiler/lexical_grammar.h"
 #include "helpers/rule_helpers.h"
 #include "helpers/stream_methods.h"
@@ -27,7 +27,7 @@ describe("recovery_tokens(rule)", []() {
       })),
     };
 
-    AssertThat(recovery_tokens(grammar), Equals<set<Symbol>>({ Symbol(1, Symbol::Terminal) }));
+    AssertThat(get_compatible_tokens(grammar).recovery_tokens, Equals<set<Symbol>>({ Symbol(1, Symbol::Terminal) }));
   });
 });
 

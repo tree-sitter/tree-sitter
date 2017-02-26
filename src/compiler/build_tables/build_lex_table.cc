@@ -7,7 +7,6 @@
 #include <utility>
 #include <vector>
 #include "compiler/build_tables/lex_conflict_manager.h"
-#include "compiler/build_tables/remove_duplicate_states.h"
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/parse_table.h"
 #include "compiler/lexical_grammar.h"
@@ -143,13 +142,64 @@ class LexTableBuilder {
       state.accept_action.precedence = 0;
     }
 
-    auto replacements =
-      remove_duplicate_states<LexTable>(&lex_table);
+    map<LexStateId, LexStateId> replacements;
+
+    while (true) {
+      map<LexStateId, LexStateId> duplicates;
+      for (LexStateId i = 0, size = lex_table.states.size(); i < size; i++) {
+        for (LexStateId j = 0; j < i; j++) {
+          if (!duplicates.count(j) && lex_table.states[j] == lex_table.states[i]) {
+            duplicates.insert({ i, j });
+            break;
+          }
+        }
+      }
+
+      if (duplicates.empty()) break;
+
+      map<size_t, size_t> new_replacements;
+      for (LexStateId i = 0, size = lex_table.states.size(); i < size; i++) {
+        LexStateId new_state_index = i;
+        auto duplicate = duplicates.find(i);
+        if (duplicate != duplicates.end()) {
+          new_state_index = duplicate->second;
+        }
+
+        size_t prior_removed = 0;
+        for (const auto &duplicate : duplicates) {
+          if (duplicate.first >= new_state_index) break;
+          prior_removed++;
+        }
+
+        new_state_index -= prior_removed;
+        new_replacements.insert({ i, new_state_index });
+        replacements.insert({ i, new_state_index });
+        for (auto &replacement : replacements) {
+          if (replacement.second == i) {
+            replacement.second = new_state_index;
+          }
+        }
+      }
+
+      for (auto &state : lex_table.states) {
+        for (auto &entry : state.advance_actions) {
+          auto new_replacement = new_replacements.find(entry.second.state_index);
+          if (new_replacement != new_replacements.end()) {
+            entry.second.state_index = new_replacement->second;
+          }
+        }
+      }
+
+      for (auto i = duplicates.rbegin(); i != duplicates.rend(); ++i) {
+        lex_table.states.erase(lex_table.states.begin() + i->first);
+      }
+    }
 
     for (ParseState &parse_state : parse_table->states) {
       auto replacement = replacements.find(parse_state.lex_state_id);
-      if (replacement != replacements.end())
+      if (replacement != replacements.end()) {
         parse_state.lex_state_id = replacement->second;
+      }
     }
   }
 

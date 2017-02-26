@@ -57,11 +57,6 @@ bool LexState::operator==(const LexState &other) const {
          is_token_start == other.is_token_start;
 }
 
-void LexState::each_referenced_state(function<void(LexStateId *)> fn) {
-  for (auto &entry : advance_actions)
-    fn(&entry.second.state_index);
-}
-
 LexStateId LexTable::add_state() {
   states.push_back(LexState());
   return states.size() - 1;
@@ -69,10 +64,6 @@ LexStateId LexTable::add_state() {
 
 LexState &LexTable::state(LexStateId id) {
   return states[id];
-}
-
-bool LexTable::merge_state(size_t i, size_t j) {
-  return states[i] == states[j];
 }
 
 }  // namespace tree_sitter
