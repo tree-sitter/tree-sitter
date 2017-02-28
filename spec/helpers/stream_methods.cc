@@ -3,6 +3,7 @@
 #include "tree_sitter/compiler.h"
 #include "compiler/parse_table.h"
 #include "compiler/syntax_grammar.h"
+#include "compiler/lexical_grammar.h"
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/build_tables/lex_item.h"
 
@@ -39,6 +40,11 @@ ostream &operator<<(ostream &stream, const Variable &variable) {
 
 ostream &operator<<(ostream &stream, const SyntaxVariable &variable) {
   return stream << string("{") << variable.name << string(", ") << variable.productions << string(", ") << to_string(variable.type) << string("}");
+}
+
+ostream &operator<<(ostream &stream, const LexicalVariable &variable) {
+  return stream << "{" << variable.name << ", " << variable.rule << ", " <<
+    to_string(variable.type) << ", " << to_string(variable.is_string) << "}";
 }
 
 std::ostream &operator<<(std::ostream &stream, const AdvanceAction &action) {

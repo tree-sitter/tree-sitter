@@ -99,7 +99,8 @@ class LexTableBuilder {
       LexItem::CompletionStatus completion_status = item.completion_status();
       if (completion_status.is_done) {
         AcceptTokenAction action(item.lhs, completion_status.precedence.max,
-                                 completion_status.is_string);
+                                 item.lhs.is_built_in() ||
+                                 lex_grammar.variables[item.lhs.index].is_string);
 
         auto current_action = lex_table.state(state_id).accept_action;
         if (conflict_manager.resolve(action, current_action))

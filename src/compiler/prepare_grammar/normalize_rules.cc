@@ -8,7 +8,7 @@ namespace prepare_grammar {
 LexicalGrammar normalize_rules(const LexicalGrammar &input_grammar) {
   LexicalGrammar result(input_grammar);
 
-  for (Variable &variable : result.variables) {
+  for (LexicalVariable &variable : result.variables) {
     variable.rule = rules::Choice::build(extract_choices(variable.rule));
   }
 

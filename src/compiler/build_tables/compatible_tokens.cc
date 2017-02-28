@@ -83,6 +83,7 @@ using FirstCharactersIntersector = CharacterIntersector<true, false>;
 
 CompatibleTokensResult get_compatible_tokens(const LexicalGrammar &grammar) {
   CompatibleTokensResult result;
+  result.unmergeable_pairs.resize(grammar.variables.size());
 
   AllCharacters all_separator_characters;
   for (const rule_ptr &separator : grammar.separators)
@@ -90,7 +91,8 @@ CompatibleTokensResult get_compatible_tokens(const LexicalGrammar &grammar) {
 
   for (size_t i = 0; i < grammar.variables.size(); i++) {
     Symbol symbol(i, Symbol::Terminal);
-    rule_ptr rule = grammar.variables[i].rule;
+    const LexicalVariable &variable = grammar.variables[i];
+    rule_ptr rule = variable.rule;
 
     FirstCharacters first_characters;
     first_characters.apply(rule);
@@ -109,18 +111,20 @@ CompatibleTokensResult get_compatible_tokens(const LexicalGrammar &grammar) {
       !last_characters.result.includes_all &&
       !last_characters.result.intersects(all_separator_characters.result);
 
-    bool has_no_separators =
-      !all_characters.result.intersects(all_separator_characters.result);
+    bool has_separators =
+      all_characters.result.intersects(all_separator_characters.result);
 
-    if ((has_distinct_start && has_distinct_end) || has_no_separators)
+    if ((has_distinct_start && has_distinct_end) || !has_separators)
       result.recovery_tokens.insert(symbol);
 
-    for (size_t j = 0; j < grammar.variables.size(); j++) {
-      if (j == i) continue;
-      Symbol other_symbol(j, Symbol::Terminal);
-      FirstCharactersIntersector intersector(&first_characters.result);
-      if (intersector.apply(grammar.variables[j].rule)) {
-        result.unmergeable_pairs[symbol].insert(other_symbol);
+    for (size_t j = 0; j < i; j++) {
+      const LexicalVariable &other_variable = grammar.variables[j];
+      if (has_separators) {
+        FirstCharactersIntersector intersector(&first_characters.result);
+        if (intersector.apply(other_variable.rule)) {
+          result.unmergeable_pairs[i].insert(j);
+          result.unmergeable_pairs[j].insert(i);
+        }
       }
     }
   }

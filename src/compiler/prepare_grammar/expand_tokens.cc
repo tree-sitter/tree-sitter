@@ -67,11 +67,11 @@ pair<LexicalGrammar, CompileError> expand_tokens(const LexicalGrammar &grammar) 
   LexicalGrammar result;
   ExpandTokens expander;
 
-  for (const Variable &variable : grammar.variables) {
+  for (const LexicalVariable &variable : grammar.variables) {
     auto rule = expander.apply(variable.rule);
     if (expander.error.type)
       return { result, expander.error };
-    result.variables.push_back(Variable(variable.name, variable.type, rule));
+    result.variables.push_back({variable.name, variable.type, rule, variable.is_string});
   }
 
   for (auto &sep : grammar.separators) {

@@ -13,11 +13,10 @@ START_TEST
 
 describe("LexItem", []() {
   describe("completion_status()", [&]() {
-    it("indicates whether the item is done, its precedence, and whether it is a string", [&]() {
+    it("indicates whether the item is done and its precedence", [&]() {
       LexItem item1(Symbol(0, Symbol::Terminal), character({ 'a', 'b', 'c' }));
       AssertThat(item1.completion_status().is_done, IsFalse());
       AssertThat(item1.completion_status().precedence, Equals(PrecedenceRange()));
-      AssertThat(item1.completion_status().is_string, IsFalse());
 
       MetadataParams params;
       params.precedence = 3;
@@ -30,12 +29,10 @@ describe("LexItem", []() {
 
       AssertThat(item2.completion_status().is_done, IsTrue());
       AssertThat(item2.completion_status().precedence, Equals(PrecedenceRange(3)));
-      AssertThat(item2.completion_status().is_string, IsTrue());
 
       LexItem item3(Symbol(0, Symbol::Terminal), repeat(character({ ' ', '\t' })));
       AssertThat(item3.completion_status().is_done, IsTrue());
       AssertThat(item3.completion_status().precedence, Equals(PrecedenceRange()));
-      AssertThat(item3.completion_status().is_string, IsFalse());
     });
   });
 });

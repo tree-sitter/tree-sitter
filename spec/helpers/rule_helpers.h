@@ -15,7 +15,11 @@ namespace tree_sitter {
   rule_ptr i_token(size_t index);
   rule_ptr active_prec(int precedence, rule_ptr);
 
+  struct Variable;
+  struct LexicalVariable;
+
   bool operator==(const Variable &left, const Variable &right);
+  bool operator==(const LexicalVariable &left, const LexicalVariable &right);
 }
 
 #endif  // HELPERS_RULE_HELPERS_H_

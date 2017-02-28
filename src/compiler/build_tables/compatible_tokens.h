@@ -3,8 +3,9 @@
 
 #include "compiler/rule.h"
 #include "compiler/rules/symbol.h"
-#include <map>
+#include <vector>
 #include <set>
+#include <unordered_set>
 
 namespace tree_sitter {
 
@@ -14,7 +15,7 @@ namespace build_tables {
 
 struct CompatibleTokensResult {
   std::set<rules::Symbol> recovery_tokens;
-  std::map<rules::Symbol, std::set<rules::Symbol>> unmergeable_pairs;
+  std::vector<std::unordered_set<rules::Symbol::Index>> unmergeable_pairs;
 };
 
 CompatibleTokensResult get_compatible_tokens(const LexicalGrammar &);

@@ -8,10 +8,8 @@
 namespace tree_sitter {
 
 using std::string;
-using std::to_string;
 using std::pair;
 using std::vector;
-using std::set;
 
 SyntaxVariable::SyntaxVariable(const string &name, VariableType type,
                                const vector<Production> &productions)

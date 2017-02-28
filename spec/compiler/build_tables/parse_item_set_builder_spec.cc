@@ -12,12 +12,13 @@ using namespace rules;
 START_TEST
 
 describe("ParseItemSetBuilder", []() {
-  vector<Variable> lexical_variables;
+  vector<LexicalVariable> lexical_variables;
   for (size_t i = 0; i < 20; i++) {
-    lexical_variables.push_back(Variable{
+    lexical_variables.push_back({
       "token_" + to_string(i),
       VariableTypeNamed,
       blank(),
+      false
     });
   }
 

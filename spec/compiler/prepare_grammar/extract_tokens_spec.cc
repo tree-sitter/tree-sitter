@@ -16,20 +16,25 @@ using prepare_grammar::InitialSyntaxGrammar;
 
 describe("extract_tokens", []() {
   it("moves strings, patterns, and sub-rules marked as tokens into the lexical grammar", [&]() {
-    auto result = extract_tokens(InternedGrammar{{
-      Variable("rule_A", VariableTypeNamed, repeat1(seq({
-        str("ab"),
-        pattern("cd*"),
-        choice({
-          i_sym(1),
-          i_sym(2),
-          token(repeat1(choice({ str("ef"), str("gh") }))),
-        }),
-      }))),
-      Variable("rule_B", VariableTypeNamed, pattern("ij+")),
-      Variable("rule_C", VariableTypeNamed, choice({ str("kl"), blank() })),
-      Variable("rule_D", VariableTypeNamed, repeat1(i_sym(3)))
-    }, {}, {}, {}});
+    auto result = extract_tokens(InternedGrammar {
+      {
+        Variable("rule_A", VariableTypeNamed, repeat1(seq({
+          str("ab"),
+          pattern("cd*"),
+          choice({
+            i_sym(1),
+            i_sym(2),
+            token(repeat1(choice({ str("ef"), str("gh") }))),
+          }),
+        }))),
+        Variable("rule_B", VariableTypeNamed, pattern("ij+")),
+        Variable("rule_C", VariableTypeNamed, choice({ str("kl"), blank() })),
+        Variable("rule_D", VariableTypeNamed, repeat1(i_sym(3)))
+      },
+      {},
+      {},
+      {}
+    });
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
     LexicalGrammar &lexical_grammar = get<1>(result);
@@ -64,46 +69,51 @@ describe("extract_tokens", []() {
       Variable("rule_D", VariableTypeNamed, repeat1(i_sym(2))),
     })));
 
-    AssertThat(lexical_grammar.variables, Equals(vector<Variable>({
+    AssertThat(lexical_grammar.variables, Equals(vector<LexicalVariable>({
       // Strings become anonymous rules.
-      Variable("ab", VariableTypeAnonymous, str("ab")),
+      LexicalVariable("ab", VariableTypeAnonymous, str("ab"), true),
 
       // Patterns become hidden rules.
-      Variable("/cd*/", VariableTypeAuxiliary, pattern("cd*")),
+      LexicalVariable("/cd*/", VariableTypeAuxiliary, pattern("cd*"), false),
 
       // Rules marked as tokens become hidden rules.
-      Variable("/(ef|gh)*/", VariableTypeAuxiliary, repeat1(choice({
+      LexicalVariable("/(ef|gh)*/", VariableTypeAuxiliary, repeat1(choice({
         str("ef"),
         str("gh")
-      }))),
+      })), false),
 
       // This named rule was moved wholesale to the lexical grammar.
-      Variable("rule_B", VariableTypeNamed, pattern("ij+")),
+      LexicalVariable("rule_B", VariableTypeNamed, pattern("ij+"), false),
 
       // Strings become anonymous rules.
-      Variable("kl", VariableTypeAnonymous, str("kl")),
+      LexicalVariable("kl", VariableTypeAnonymous, str("kl"), true),
     })));
   });
 
   it("does not create duplicate tokens in the lexical grammar", [&]() {
-    auto result = extract_tokens(InternedGrammar{{
-      Variable("rule_A", VariableTypeNamed, seq({
-        str("ab"),
-        i_sym(0),
-        str("ab"),
-      })),
-    }, {}, {}, {}});
+    auto result = extract_tokens(InternedGrammar {
+      {
+        Variable("rule_A", VariableTypeNamed, seq({
+          str("ab"),
+          i_sym(0),
+          str("ab"),
+        })),
+      },
+      {},
+      {},
+      {}
+    });
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
     LexicalGrammar &lexical_grammar = get<1>(result);
 
-    AssertThat(syntax_grammar.variables, Equals(vector<Variable>({
-      Variable("rule_A", VariableTypeNamed, seq({ i_token(0), i_sym(0), i_token(0) })),
-    })));
+    AssertThat(syntax_grammar.variables, Equals(vector<Variable> {
+      Variable {"rule_A", VariableTypeNamed, seq({ i_token(0), i_sym(0), i_token(0) })},
+    }));
 
-    AssertThat(lexical_grammar.variables, Equals(vector<Variable>({
-      Variable("ab", VariableTypeAnonymous, str("ab")),
-    })))
+    AssertThat(lexical_grammar.variables, Equals(vector<LexicalVariable> {
+      LexicalVariable {"ab", VariableTypeAnonymous, str("ab"), true},
+    }))
   });
 
   it("does not move entire rules into the lexical grammar if their content is used elsewhere in the grammar", [&]() {
@@ -122,11 +132,11 @@ describe("extract_tokens", []() {
       Variable("rule_C", VariableTypeNamed, seq({ i_token(2), i_token(1) })),
     })));
 
-    AssertThat(lexical_grammar.variables, Equals(vector<Variable>({
-      Variable("ab", VariableTypeAnonymous, str("ab")),
-      Variable("cd", VariableTypeAnonymous, str("cd")),
-      Variable("ef", VariableTypeAnonymous, str("ef")),
-    })));
+    AssertThat(lexical_grammar.variables, Equals(vector<LexicalVariable> {
+      LexicalVariable {"ab", VariableTypeAnonymous, str("ab"), true},
+      LexicalVariable {"cd", VariableTypeAnonymous, str("cd"), true},
+      LexicalVariable {"ef", VariableTypeAnonymous, str("ef"), true},
+    }));
   });
 
   it("renumbers the grammar's expected conflict symbols based on any moved rules", [&]() {

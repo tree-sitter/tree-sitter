@@ -72,10 +72,11 @@ class ParseTableBuilder {
     }));
 
     CompileError error = process_part_state_queue();
-    if (error.type != TSCompileErrorTypeNone)
+    if (error.type != TSCompileErrorTypeNone) {
       return { parse_table, error };
+    }
 
-    parse_table.mergeable_symbols = compatible_tokens.recovery_tokens;
+    update_unmergable_token_pairs();
 
     build_error_parse_state();
 
@@ -111,7 +112,7 @@ class ParseTableBuilder {
   void build_error_parse_state() {
     ParseState error_state;
 
-    for (const Symbol symbol : parse_table.mergeable_symbols) {
+    for (const Symbol symbol : compatible_tokens.recovery_tokens) {
       add_out_of_context_parse_state(&error_state, symbol);
     }
 
@@ -292,6 +293,25 @@ class ParseTableBuilder {
     }
   }
 
+  void update_unmergable_token_pairs() {
+    for (const ParseState &state : parse_table.states) {
+      for (Symbol::Index token_index = 0, token_count = lexical_grammar.variables.size(); token_index < token_count; token_index++) {
+        Symbol token(token_index, Symbol::Terminal);
+        if (state.terminal_entries.count(token)) {
+          auto &incompatible_token_indices = compatible_tokens.unmergeable_pairs[token_index];
+          auto iter = incompatible_token_indices.begin();
+          while (iter != incompatible_token_indices.end()) {
+            if (state.terminal_entries.count(Symbol(*iter, Symbol::NonTerminal))) {
+              iter = incompatible_token_indices.erase(iter);
+            } else {
+              ++iter;
+            }
+          }
+        }
+      }
+    }
+  }
+
   void remove_duplicate_parse_states() {
     map<size_t, set<ParseStateId>> state_indices_by_signature;
 
@@ -382,11 +402,19 @@ class ParseTableBuilder {
     for (auto &entry : state.terminal_entries) {
       Symbol lookahead = entry.first;
       const vector<ParseAction> &actions = entry.second.actions;
+      auto &incompatible_token_indices = compatible_tokens.unmergeable_pairs[lookahead.index];
 
       const auto &other_entry = other.terminal_entries.find(lookahead);
       if (other_entry == other.terminal_entries.end()) {
-        if (compatible_tokens.recovery_tokens.count(lookahead) == 0 && !lookahead.is_built_in())
-          return false;
+        if (!lookahead.is_built_in()) {
+          if (!compatible_tokens.recovery_tokens.count(lookahead))
+            return false;
+          for (Symbol::Index incompatible_index : incompatible_token_indices) {
+            if (other.terminal_entries.count(Symbol(incompatible_index, Symbol::Terminal))) {
+              return false;
+            }
+          }
+        }
         if (actions.back().type != ParseActionTypeReduce)
           return false;
         if (!has_entry(other, entry.second))
@@ -401,10 +429,18 @@ class ParseTableBuilder {
     for (auto &entry : other.terminal_entries) {
       Symbol lookahead = entry.first;
       const vector<ParseAction> &actions = entry.second.actions;
+      auto &incompatible_token_indices = compatible_tokens.unmergeable_pairs[lookahead.index];
 
       if (!state.terminal_entries.count(lookahead)) {
-        if (compatible_tokens.recovery_tokens.count(lookahead) == 0 && !lookahead.is_built_in())
-          return false;
+        if (!lookahead.is_built_in()) {
+          if (!compatible_tokens.recovery_tokens.count(lookahead))
+            return false;
+          for (Symbol::Index incompatible_index : incompatible_token_indices) {
+            if (state.terminal_entries.count(Symbol(incompatible_index, Symbol::Terminal))) {
+              return false;
+            }
+          }
+        }
         if (actions.back().type != ParseActionTypeReduce)
           return false;
         if (!has_entry(state, entry.second))
@@ -629,7 +665,7 @@ class ParseTableBuilder {
 
     switch (symbol.type) {
       case Symbol::Terminal: {
-        const Variable &variable = lexical_grammar.variables[symbol.index];
+        const LexicalVariable &variable = lexical_grammar.variables[symbol.index];
         if (variable.type == VariableTypeNamed)
           return variable.name;
         else

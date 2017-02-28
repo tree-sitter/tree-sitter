@@ -9,8 +9,17 @@
 
 namespace tree_sitter {
 
+struct LexicalVariable {
+  LexicalVariable(const std::string &, VariableType, const rule_ptr &, bool);
+
+  std::string name;
+  rule_ptr rule;
+  VariableType type;
+  bool is_string;
+};
+
 struct LexicalGrammar {
-  std::vector<Variable> variables;
+  std::vector<LexicalVariable> variables;
   std::vector<rule_ptr> separators;
 };
 

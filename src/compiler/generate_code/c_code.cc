@@ -561,7 +561,7 @@ class CCodeGenerator {
         return { variable.name, variable.type };
       }
       case Symbol::Terminal: {
-        const Variable &variable = lexical_grammar.variables[symbol.index];
+        const LexicalVariable &variable = lexical_grammar.variables[symbol.index];
         return { variable.name, variable.type };
       }
       case Symbol::External:

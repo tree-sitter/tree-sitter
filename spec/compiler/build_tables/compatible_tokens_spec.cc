@@ -14,17 +14,18 @@ START_TEST
 describe("recovery_tokens(rule)", []() {
   it("includes rules that can only begin and end with an explicit set of characters", [&]() {
     LexicalGrammar grammar;
+
     grammar.separators = {
       character({ ' ' }),
     };
 
     grammar.variables = {
-      Variable("var0", VariableTypeNamed, character({}, false)),
-      Variable("var1", VariableTypeNamed, seq({
+      LexicalVariable("var0", VariableTypeNamed, character({}, false), false),
+      LexicalVariable("var1", VariableTypeNamed, seq({
         character({ 'a', 'b' }),
         character({}, false),
         character({ 'c', 'd' }),
-      })),
+      }), false),
     };
 
     AssertThat(get_compatible_tokens(grammar).recovery_tokens, Equals<set<Symbol>>({ Symbol(1, Symbol::Terminal) }));

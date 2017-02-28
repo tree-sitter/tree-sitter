@@ -56,7 +56,7 @@ class SymbolReplacer : public rules::IdentityRuleFn {
 class TokenExtractor : public rules::IdentityRuleFn {
   using rules::IdentityRuleFn::apply_to;
 
-  rule_ptr apply_to_token(const Rule *input, VariableType entry_type) {
+  rule_ptr apply_to_token(const Rule *input, VariableType entry_type, bool is_string) {
     for (size_t i = 0; i < tokens.size(); i++)
       if (tokens[i].rule->operator==(*input)) {
         token_usage_counts[i]++;
@@ -65,29 +65,30 @@ class TokenExtractor : public rules::IdentityRuleFn {
 
     rule_ptr rule = input->copy();
     size_t index = tokens.size();
-    tokens.push_back(Variable(token_description(rule), entry_type, rule));
+    tokens.push_back({token_description(rule), entry_type, rule, is_string});
     token_usage_counts.push_back(1);
     return make_shared<Symbol>(index, Symbol::Terminal);
   }
 
   rule_ptr apply_to(const rules::String *rule) {
-    return apply_to_token(rule, VariableTypeAnonymous);
+    return apply_to_token(rule, VariableTypeAnonymous, true);
   }
 
   rule_ptr apply_to(const rules::Pattern *rule) {
-    return apply_to_token(rule, VariableTypeAuxiliary);
+    return apply_to_token(rule, VariableTypeAuxiliary, false);
   }
 
   rule_ptr apply_to(const rules::Metadata *rule) {
-    if (rule->params.is_token)
-      return apply_to_token(rule->rule.get(), VariableTypeAuxiliary);
-    else
+    if (rule->params.is_token) {
+      return apply_to_token(rule->rule.get(), VariableTypeAuxiliary, false);
+    } else {
       return rules::IdentityRuleFn::apply_to(rule);
+    }
   }
 
  public:
   vector<size_t> token_usage_counts;
-  vector<Variable> tokens;
+  vector<LexicalVariable> tokens;
 };
 
 static CompileError extra_token_error(const string &message) {
@@ -139,8 +140,9 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
 
   for (const ConflictSet &conflict_set : grammar.expected_conflicts) {
     ConflictSet new_conflict_set;
-    for (const Symbol &symbol : conflict_set)
+    for (const Symbol &symbol : conflict_set) {
       new_conflict_set.insert(symbol_replacer.replace_symbol(symbol));
+    }
     syntax_grammar.expected_conflicts.insert(new_conflict_set);
   }
 
@@ -154,7 +156,7 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
   for (const rule_ptr &rule : grammar.extra_tokens) {
     int i = 0;
     bool used_elsewhere_in_grammar = false;
-    for (const Variable &variable : lexical_grammar.variables) {
+    for (const LexicalVariable &variable : lexical_grammar.variables) {
       if (variable.rule->operator==(*rule)) {
         syntax_grammar.extra_tokens.insert(Symbol(i, Symbol::Terminal));
         used_elsewhere_in_grammar = true;
@@ -171,9 +173,10 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
     }
 
     auto symbol = rule->as<Symbol>();
-    if (!symbol)
+    if (!symbol) {
       return make_tuple(syntax_grammar, lexical_grammar,
                         extra_token_error(rule->to_string()));
+    }
 
     Symbol new_symbol = symbol_replacer.replace_symbol(*symbol);
     if (new_symbol.is_non_terminal()) {
