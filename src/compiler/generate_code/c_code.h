@@ -7,8 +7,8 @@ namespace tree_sitter {
 
 struct LexicalGrammar;
 struct SyntaxGrammar;
-class LexTable;
-class ParseTable;
+struct LexTable;
+struct ParseTable;
 
 namespace generate_code {
 

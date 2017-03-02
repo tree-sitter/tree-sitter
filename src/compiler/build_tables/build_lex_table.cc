@@ -24,7 +24,6 @@ using std::map;
 using std::set;
 using std::string;
 using std::vector;
-using std::make_shared;
 using std::unordered_map;
 using rules::Blank;
 using rules::Choice;
@@ -62,14 +61,16 @@ class LexTableBuilder {
 
  private:
   void add_lex_state_for_parse_state(ParseState *parse_state) {
-    parse_state->lex_state_id =
-      add_lex_state(item_set_for_terminals(parse_state->terminal_entries));
+    parse_state->lex_state_id = add_lex_state(
+      item_set_for_terminals(parse_state->terminal_entries)
+    );
   }
 
   LexStateId add_lex_state(const LexItemSet &item_set) {
     const auto &pair = lex_state_ids.find(item_set);
     if (pair == lex_state_ids.end()) {
-      LexStateId state_id = lex_table.add_state();
+      LexStateId state_id = lex_table.states.size();
+      lex_table.states.push_back(LexState());
       lex_state_ids[item_set] = state_id;
       add_accept_token_actions(item_set, state_id);
       add_advance_actions(item_set, state_id);
@@ -83,13 +84,13 @@ class LexTableBuilder {
     for (const auto &pair : item_set.transitions()) {
       const CharacterSet &characters = pair.first;
       const LexItemSet::Transition &transition = pair.second;
-      AdvanceAction action(-1, transition.precedence, transition.in_main_token);
 
-      auto current_action = lex_table.state(state_id).accept_action;
+      AdvanceAction action(-1, transition.precedence, transition.in_main_token);
+      auto current_action = lex_table.states[state_id].accept_action;
       if (conflict_manager.resolve(transition.destination, action,
                                    current_action)) {
         action.state_index = add_lex_state(transition.destination);
-        lex_table.state(state_id).advance_actions[characters] = action;
+        lex_table.states[state_id].advance_actions[characters] = action;
       }
     }
   }
@@ -102,9 +103,9 @@ class LexTableBuilder {
                                  item.lhs.is_built_in() ||
                                  lex_grammar.variables[item.lhs.index].is_string);
 
-        auto current_action = lex_table.state(state_id).accept_action;
+        auto current_action = lex_table.states[state_id].accept_action;
         if (conflict_manager.resolve(action, current_action))
-          lex_table.state(state_id).accept_action = action;
+          lex_table.states[state_id].accept_action = action;
       }
     }
   }

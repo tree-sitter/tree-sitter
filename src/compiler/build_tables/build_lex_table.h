@@ -6,7 +6,7 @@
 namespace tree_sitter {
 
 struct LexicalGrammar;
-class ParseTable;
+struct ParseTable;
 
 namespace build_tables {
 

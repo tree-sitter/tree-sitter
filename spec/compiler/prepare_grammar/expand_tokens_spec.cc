@@ -15,9 +15,9 @@ describe("expand_tokens", []() {
 
   describe("string rules", [&]() {
     it("replaces strings with sequences of character sets", [&]() {
-      LexicalGrammar grammar {
+      LexicalGrammar grammar{
         {
-          LexicalVariable {
+          LexicalVariable{
             "rule_A",
             VariableTypeNamed,
             seq({
@@ -34,8 +34,8 @@ describe("expand_tokens", []() {
       auto result = expand_tokens(grammar);
 
       AssertThat(result.second, Equals(CompileError::none()));
-      AssertThat(result.first.variables, Equals(vector<LexicalVariable> {
-        LexicalVariable {
+      AssertThat(result.first.variables, Equals(vector<LexicalVariable>{
+        LexicalVariable{
           "rule_A",
           VariableTypeNamed,
           seq({
@@ -53,9 +53,9 @@ describe("expand_tokens", []() {
     });
 
     it("handles strings containing non-ASCII UTF8 characters", [&]() {
-      LexicalGrammar grammar {
+      LexicalGrammar grammar{
         {
-          LexicalVariable {
+          LexicalVariable{
             "rule_A",
             VariableTypeNamed,
             str("\u03B1 \u03B2"),
@@ -67,8 +67,8 @@ describe("expand_tokens", []() {
 
       auto result = expand_tokens(grammar);
 
-      AssertThat(result.first.variables, Equals(vector<LexicalVariable> {
-        LexicalVariable {
+      AssertThat(result.first.variables, Equals(vector<LexicalVariable>{
+        LexicalVariable{
           "rule_A",
           VariableTypeNamed,
           metadata(seq({
@@ -84,9 +84,9 @@ describe("expand_tokens", []() {
 
   describe("regexp rules", [&]() {
     it("replaces regexps with the equivalent rule tree", [&]() {
-      LexicalGrammar grammar {
+      LexicalGrammar grammar{
         {
-          LexicalVariable {
+          LexicalVariable{
             "rule_A",
             VariableTypeNamed,
             seq({
@@ -103,8 +103,8 @@ describe("expand_tokens", []() {
       auto result = expand_tokens(grammar);
 
       AssertThat(result.second, Equals(CompileError::none()));
-      AssertThat(result.first.variables, Equals(vector<LexicalVariable> {
-        LexicalVariable {
+      AssertThat(result.first.variables, Equals(vector<LexicalVariable>{
+        LexicalVariable{
           "rule_A",
           VariableTypeNamed,
           seq({
@@ -118,9 +118,9 @@ describe("expand_tokens", []() {
     });
 
     it("handles regexps containing non-ASCII UTF8 characters", [&]() {
-      LexicalGrammar grammar {
+      LexicalGrammar grammar{
         {
-          LexicalVariable {
+          LexicalVariable{
             "rule_A",
             VariableTypeNamed,
             pattern("[^\u03B1-\u03B4]*"),
@@ -132,8 +132,8 @@ describe("expand_tokens", []() {
 
       auto result = expand_tokens(grammar);
 
-      AssertThat(result.first.variables, Equals(vector<LexicalVariable> {
-        LexicalVariable {
+      AssertThat(result.first.variables, Equals(vector<LexicalVariable>{
+        LexicalVariable{
           "rule_A",
           VariableTypeNamed,
           repeat(character({ 945, 946, 947, 948 }, false)),
@@ -143,9 +143,9 @@ describe("expand_tokens", []() {
     });
 
     it("returns an error when the grammar contains an invalid regex", [&]() {
-      LexicalGrammar grammar {
+      LexicalGrammar grammar{
         {
-          LexicalVariable {
+          LexicalVariable{
             "rule_A",
             VariableTypeNamed,
             seq({

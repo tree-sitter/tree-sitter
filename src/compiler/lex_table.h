@@ -13,17 +13,9 @@ namespace tree_sitter {
 
 typedef int64_t LexStateId;
 
-typedef enum {
-  LexActionTypeError,
-  LexActionTypeAccept,
-  LexActionTypeAcceptFragile,
-  LexActionTypeAdvance
-} LexActionType;
-
 struct AdvanceAction {
   AdvanceAction();
   AdvanceAction(size_t, PrecedenceRange, bool);
-
   bool operator==(const AdvanceAction &other) const;
 
   LexStateId state_index;
@@ -34,7 +26,6 @@ struct AdvanceAction {
 struct AcceptTokenAction {
   AcceptTokenAction();
   AcceptTokenAction(rules::Symbol, int, bool);
-
   bool is_present() const;
   bool operator==(const AcceptTokenAction &action) const;
 
@@ -43,16 +34,8 @@ struct AcceptTokenAction {
   bool is_string;
 };
 
-}  // namespace tree_sitter
-
-namespace std {}  // namespace std
-
-namespace tree_sitter {
-
-class LexState {
- public:
+struct LexState {
   LexState();
-  std::set<rules::CharacterSet> expected_inputs() const;
   bool operator==(const LexState &) const;
 
   std::map<rules::CharacterSet, AdvanceAction> advance_actions;
@@ -60,10 +43,7 @@ class LexState {
   bool is_token_start;
 };
 
-class LexTable {
- public:
-  LexStateId add_state();
-  LexState &state(LexStateId state_id);
+struct LexTable {
   std::vector<LexState> states;
 };
 

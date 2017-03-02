@@ -23,13 +23,11 @@ enum ParseActionType {
   ParseActionTypeRecover,
 };
 
-class ParseAction {
+struct ParseAction {
+  ParseAction();
   ParseAction(ParseActionType type, ParseStateId state_index,
               rules::Symbol symbol, size_t consumed_symbol_count,
               const Production *);
-
- public:
-  ParseAction();
   static ParseAction Accept();
   static ParseAction Error();
   static ParseAction Shift(ParseStateId state_index);
@@ -39,7 +37,6 @@ class ParseAction {
   static ParseAction ShiftExtra();
   bool operator==(const ParseAction &) const;
   bool operator<(const ParseAction &) const;
-
   rules::Associativity associativity() const;
   int precedence() const;
 
@@ -47,30 +44,26 @@ class ParseAction {
   bool extra;
   bool fragile;
   ParseStateId state_index;
-
   rules::Symbol symbol;
   size_t consumed_symbol_count;
   const Production *production;
 };
 
 struct ParseTableEntry {
-  std::vector<ParseAction> actions;
-  bool reusable;
-  bool depends_on_lookahead;
-
   ParseTableEntry();
   ParseTableEntry(const std::vector<ParseAction> &, bool, bool);
   bool operator==(const ParseTableEntry &other) const;
-
   inline bool operator!=(const ParseTableEntry &other) const {
     return !operator==(other);
   }
+
+  std::vector<ParseAction> actions;
+  bool reusable;
+  bool depends_on_lookahead;
 };
 
-class ParseState {
- public:
+struct ParseState {
   ParseState();
-  std::set<rules::Symbol> expected_inputs() const;
   bool operator==(const ParseState &) const;
   bool merge(const ParseState &);
   void each_referenced_state(std::function<void(ParseStateId *)>);
@@ -87,10 +80,7 @@ struct ParseTableSymbolMetadata {
   bool structural;
 };
 
-class ParseTable {
- public:
-  std::set<rules::Symbol> all_symbols() const;
-  ParseStateId add_state();
+struct ParseTable {
   ParseAction &add_terminal_action(ParseStateId state_id, rules::Symbol, ParseAction);
   void set_nonterminal_action(ParseStateId, rules::Symbol::Index, ParseStateId);
 

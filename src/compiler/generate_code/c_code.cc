@@ -26,8 +26,6 @@ using std::vector;
 using util::escape_char;
 using rules::Symbol;
 
-static Variable EOF_ENTRY("end", VariableTypeNamed, rule_ptr());
-
 static const map<char, string> REPLACEMENTS({
   { '~', "TILDE" },
   { '`', "BQUOTE" },

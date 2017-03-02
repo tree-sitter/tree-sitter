@@ -15,11 +15,9 @@ enum VariableType {
 };
 
 struct Variable {
-  Variable(const std::string &, VariableType, const rule_ptr &);
-
   std::string name;
-  rule_ptr rule;
   VariableType type;
+  rule_ptr rule;
 };
 
 }  // namespace tree_sitter

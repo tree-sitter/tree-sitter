@@ -7,18 +7,6 @@
 
 namespace tree_sitter {
 
-using std::string;
-using std::pair;
-using std::vector;
-
-SyntaxVariable::SyntaxVariable(const string &name, VariableType type,
-                               const vector<Production> &productions)
-    : name(name), productions(productions), type(type) {}
-
-ProductionStep::ProductionStep(const rules::Symbol &symbol, int precedence,
-                               rules::Associativity associativity)
-    : symbol(symbol), precedence(precedence), associativity(associativity) {}
-
 bool ExternalToken::operator==(const ExternalToken &other) const {
   return name == other.name && type == other.type &&
     corresponding_internal_token == other.corresponding_internal_token;

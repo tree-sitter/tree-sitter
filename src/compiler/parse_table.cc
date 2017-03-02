@@ -148,13 +148,6 @@ bool ParseState::has_shift_action() const {
   return (!nonterminal_entries.empty());
 }
 
-set<Symbol> ParseState::expected_inputs() const {
-  set<Symbol> result;
-  for (auto &entry : terminal_entries)
-    result.insert(entry.first);
-  return result;
-}
-
 void ParseState::each_referenced_state(function<void(ParseStateId *)> fn) {
   for (auto &entry : terminal_entries)
     for (ParseAction &action : entry.second.actions)
@@ -167,18 +160,6 @@ void ParseState::each_referenced_state(function<void(ParseStateId *)> fn) {
 bool ParseState::operator==(const ParseState &other) const {
   return terminal_entries == other.terminal_entries &&
     nonterminal_entries == other.nonterminal_entries;
-}
-
-set<Symbol> ParseTable::all_symbols() const {
-  set<Symbol> result;
-  for (auto &pair : symbols)
-    result.insert(pair.first);
-  return result;
-}
-
-ParseStateId ParseTable::add_state() {
-  states.push_back(ParseState());
-  return states.size() - 1;
 }
 
 ParseAction &ParseTable::add_terminal_action(ParseStateId state_id,

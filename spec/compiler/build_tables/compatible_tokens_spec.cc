@@ -20,15 +20,18 @@ describe("recovery_tokens(rule)", []() {
     };
 
     grammar.variables = {
-      LexicalVariable("var0", VariableTypeNamed, character({}, false), false),
-      LexicalVariable("var1", VariableTypeNamed, seq({
+      LexicalVariable{"var0", VariableTypeNamed, character({}, false), false},
+      LexicalVariable{"var1", VariableTypeNamed, seq({
         character({ 'a', 'b' }),
         character({}, false),
         character({ 'c', 'd' }),
-      }), false),
+      }), false},
     };
 
-    AssertThat(get_compatible_tokens(grammar).recovery_tokens, Equals<set<Symbol>>({ Symbol(1, Symbol::Terminal) }));
+    AssertThat(
+      get_compatible_tokens(grammar).recovery_tokens,
+      Equals<set<Symbol>>({ Symbol(1, Symbol::Terminal) })
+    );
   });
 });
 

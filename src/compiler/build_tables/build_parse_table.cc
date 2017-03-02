@@ -57,9 +57,9 @@ class ParseTableBuilder {
       Symbol(0, Symbol::Terminal) :
       Symbol(0, Symbol::NonTerminal);
 
-    Production start_production({
-      ProductionStep(start_symbol, 0, rules::AssociativityNone),
-    });
+    Production start_production{
+      ProductionStep{start_symbol, 0, rules::AssociativityNone},
+    };
 
     // Placeholder for error state
     add_parse_state(ParseItemSet());
@@ -150,7 +150,8 @@ class ParseTableBuilder {
   ParseStateId add_parse_state(const ParseItemSet &item_set) {
     auto pair = parse_state_ids.find(item_set);
     if (pair == parse_state_ids.end()) {
-      ParseStateId state_id = parse_table.add_state();
+      ParseStateId state_id = parse_table.states.size();
+      parse_table.states.push_back(ParseState());
       parse_state_ids[item_set] = state_id;
       parse_table.states[state_id].shift_actions_signature = item_set.unfinished_item_signature();
       item_sets_to_process.push_back({ std::move(item_set), state_id });

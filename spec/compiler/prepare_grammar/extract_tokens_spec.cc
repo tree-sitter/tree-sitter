@@ -16,9 +16,9 @@ using prepare_grammar::InitialSyntaxGrammar;
 
 describe("extract_tokens", []() {
   it("moves strings, patterns, and sub-rules marked as tokens into the lexical grammar", [&]() {
-    auto result = extract_tokens(InternedGrammar {
+    auto result = extract_tokens(InternedGrammar{
       {
-        Variable("rule_A", VariableTypeNamed, repeat1(seq({
+        Variable{"rule_A", VariableTypeNamed, repeat1(seq({
           str("ab"),
           pattern("cd*"),
           choice({
@@ -26,10 +26,10 @@ describe("extract_tokens", []() {
             i_sym(2),
             token(repeat1(choice({ str("ef"), str("gh") }))),
           }),
-        }))),
-        Variable("rule_B", VariableTypeNamed, pattern("ij+")),
-        Variable("rule_C", VariableTypeNamed, choice({ str("kl"), blank() })),
-        Variable("rule_D", VariableTypeNamed, repeat1(i_sym(3)))
+        }))},
+        Variable{"rule_B", VariableTypeNamed, pattern("ij+")},
+        Variable{"rule_C", VariableTypeNamed, choice({ str("kl"), blank() })},
+        Variable{"rule_D", VariableTypeNamed, repeat1(i_sym(3))},
       },
       {},
       {},
@@ -42,8 +42,8 @@ describe("extract_tokens", []() {
 
     AssertThat(error, Equals(CompileError::none()));
 
-    AssertThat(syntax_grammar.variables, Equals(vector<Variable>({
-      Variable("rule_A", VariableTypeNamed, repeat1(seq({
+    AssertThat(syntax_grammar.variables, Equals(vector<Variable>{
+      Variable{"rule_A", VariableTypeNamed, repeat1(seq({
 
         // This string is now the first token in the lexical grammar.
         i_token(0),
@@ -63,41 +63,41 @@ describe("extract_tokens", []() {
           // This token rule is now the third rule in the lexical grammar.
           i_token(2),
         }),
-      }))),
+      }))},
 
-      Variable("rule_C", VariableTypeNamed, choice({ i_token(4), blank() })),
-      Variable("rule_D", VariableTypeNamed, repeat1(i_sym(2))),
-    })));
+      Variable{"rule_C", VariableTypeNamed, choice({ i_token(4), blank() })},
+      Variable{"rule_D", VariableTypeNamed, repeat1(i_sym(2))},
+    }));
 
     AssertThat(lexical_grammar.variables, Equals(vector<LexicalVariable>({
       // Strings become anonymous rules.
-      LexicalVariable("ab", VariableTypeAnonymous, str("ab"), true),
+      LexicalVariable{"ab", VariableTypeAnonymous, str("ab"), true},
 
       // Patterns become hidden rules.
-      LexicalVariable("/cd*/", VariableTypeAuxiliary, pattern("cd*"), false),
+      LexicalVariable{"/cd*/", VariableTypeAuxiliary, pattern("cd*"), false},
 
       // Rules marked as tokens become hidden rules.
-      LexicalVariable("/(ef|gh)*/", VariableTypeAuxiliary, repeat1(choice({
+      LexicalVariable{"/(ef|gh)*/", VariableTypeAuxiliary, repeat1(choice({
         str("ef"),
         str("gh")
-      })), false),
+      })), false},
 
       // This named rule was moved wholesale to the lexical grammar.
-      LexicalVariable("rule_B", VariableTypeNamed, pattern("ij+"), false),
+      LexicalVariable{"rule_B", VariableTypeNamed, pattern("ij+"), false},
 
       // Strings become anonymous rules.
-      LexicalVariable("kl", VariableTypeAnonymous, str("kl"), true),
+      LexicalVariable{"kl", VariableTypeAnonymous, str("kl"), true},
     })));
   });
 
   it("does not create duplicate tokens in the lexical grammar", [&]() {
-    auto result = extract_tokens(InternedGrammar {
+    auto result = extract_tokens(InternedGrammar{
       {
-        Variable("rule_A", VariableTypeNamed, seq({
+        Variable{"rule_A", VariableTypeNamed, seq({
           str("ab"),
           i_sym(0),
           str("ab"),
-        })),
+        })},
       },
       {},
       {},
@@ -118,18 +118,18 @@ describe("extract_tokens", []() {
 
   it("does not move entire rules into the lexical grammar if their content is used elsewhere in the grammar", [&]() {
     auto result = extract_tokens(InternedGrammar{{
-      Variable("rule_A", VariableTypeNamed, seq({ i_sym(1), str("ab") })),
-      Variable("rule_B", VariableTypeNamed, str("cd")),
-      Variable("rule_C", VariableTypeNamed, seq({ str("ef"), str("cd") })),
+      Variable{"rule_A", VariableTypeNamed, seq({ i_sym(1), str("ab") })},
+      Variable{"rule_B", VariableTypeNamed, str("cd")},
+      Variable{"rule_C", VariableTypeNamed, seq({ str("ef"), str("cd") })},
     }, {}, {}, {}});
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
     LexicalGrammar &lexical_grammar = get<1>(result);
 
     AssertThat(syntax_grammar.variables, Equals(vector<Variable>({
-      Variable("rule_A", VariableTypeNamed, seq({ i_sym(1), i_token(0) })),
-      Variable("rule_B", VariableTypeNamed, i_token(1)),
-      Variable("rule_C", VariableTypeNamed, seq({ i_token(2), i_token(1) })),
+      Variable{"rule_A", VariableTypeNamed, seq({ i_sym(1), i_token(0) })},
+      Variable{"rule_B", VariableTypeNamed, i_token(1)},
+      Variable{"rule_C", VariableTypeNamed, seq({ i_token(2), i_token(1) })},
     })));
 
     AssertThat(lexical_grammar.variables, Equals(vector<LexicalVariable> {
@@ -142,9 +142,9 @@ describe("extract_tokens", []() {
   it("renumbers the grammar's expected conflict symbols based on any moved rules", [&]() {
     auto result = extract_tokens(InternedGrammar{
       {
-        Variable("rule_A", VariableTypeNamed, str("ok")),
-        Variable("rule_B", VariableTypeNamed, repeat(i_sym(0))),
-        Variable("rule_C", VariableTypeNamed, repeat(seq({ i_sym(0), i_sym(0) }))),
+        Variable{"rule_A", VariableTypeNamed, str("ok")},
+        Variable{"rule_B", VariableTypeNamed, repeat(i_sym(0))},
+        Variable{"rule_C", VariableTypeNamed, repeat(seq({ i_sym(0), i_sym(0) }))},
       },
       {
         str(" ")
@@ -165,12 +165,17 @@ describe("extract_tokens", []() {
 
   describe("handling extra tokens", [&]() {
     it("adds inline extra tokens to the lexical grammar's separators", [&]() {
-      auto result = extract_tokens(InternedGrammar{{
-        Variable("rule_A", VariableTypeNamed, str("x")),
-      }, {
-        str("y"),
-        pattern("\\s+"),
-      }, {}, {}});
+      auto result = extract_tokens(InternedGrammar{
+        {
+          Variable{"rule_A", VariableTypeNamed, str("x")},
+        },
+        {
+          str("y"),
+          pattern("\\s+"),
+        },
+        {},
+        {}
+      });
 
       AssertThat(get<2>(result), Equals(CompileError::none()));
 
@@ -182,12 +187,17 @@ describe("extract_tokens", []() {
     });
 
     it("handles inline extra tokens that match tokens in the grammar", [&]() {
-      auto result = extract_tokens(InternedGrammar{{
-        Variable("rule_A", VariableTypeNamed, str("x")),
-        Variable("rule_B", VariableTypeNamed, str("y")),
-      }, {
-        str("y"),
-      }, {}, {}});
+      auto result = extract_tokens(InternedGrammar{
+        {
+          Variable{"rule_A", VariableTypeNamed, str("x")},
+          Variable{"rule_B", VariableTypeNamed, str("y")},
+        },
+        {
+          str("y"),
+        },
+        {},
+        {}
+      });
 
       AssertThat(get<2>(result), Equals(CompileError::none()));
       AssertThat(get<1>(result).separators.size(), Equals<size_t>(0));
@@ -195,13 +205,18 @@ describe("extract_tokens", []() {
     });
 
     it("updates extra symbols according to the new symbol numbers", [&]() {
-      auto result = extract_tokens(InternedGrammar{{
-        Variable("rule_A", VariableTypeNamed, seq({ str("w"), str("x"), i_sym(1) })),
-        Variable("rule_B", VariableTypeNamed, str("y")),
-        Variable("rule_C", VariableTypeNamed, str("z")),
-      }, {
-        i_sym(2),
-      }, {}, {}});
+      auto result = extract_tokens(InternedGrammar{
+        {
+          Variable{"rule_A", VariableTypeNamed, seq({ str("w"), str("x"), i_sym(1) })},
+          Variable{"rule_B", VariableTypeNamed, str("y")},
+          Variable{"rule_C", VariableTypeNamed, str("z")},
+        },
+        {
+          i_sym(2),
+        },
+        {},
+        {}
+      });
 
       AssertThat(get<2>(result), Equals(CompileError::none()));
 
@@ -214,8 +229,8 @@ describe("extract_tokens", []() {
 
     it("returns an error if any extra tokens are non-token symbols", [&]() {
       auto result = extract_tokens(InternedGrammar{{
-        Variable("rule_A", VariableTypeNamed, seq({ str("x"), i_sym(1) })),
-        Variable("rule_B", VariableTypeNamed, seq({ str("y"), str("z") })),
+        Variable{"rule_A", VariableTypeNamed, seq({ str("x"), i_sym(1) })},
+        Variable{"rule_B", VariableTypeNamed, seq({ str("y"), str("z") })},
       }, { i_sym(1) }, {}, {}});
 
       AssertThat(get<2>(result), !Equals(CompileError::none()));
@@ -226,8 +241,8 @@ describe("extract_tokens", []() {
 
     it("returns an error if any extra tokens are non-token rules", [&]() {
       auto result = extract_tokens(InternedGrammar{{
-        Variable("rule_A", VariableTypeNamed, str("x")),
-        Variable("rule_B", VariableTypeNamed, str("y")),
+        Variable{"rule_A", VariableTypeNamed, str("x")},
+        Variable{"rule_B", VariableTypeNamed, str("y")},
       }, { choice({ i_sym(1), blank() }) }, {}, {}});
 
       AssertThat(get<2>(result), !Equals(CompileError::none()));
@@ -241,8 +256,8 @@ describe("extract_tokens", []() {
   it("returns an error if an external token has the same name as a non-terminal rule", [&]() {
     auto result = extract_tokens(InternedGrammar{
       {
-        Variable("rule_A", VariableTypeNamed, seq({ str("x"), i_sym(1) })),
-        Variable("rule_B", VariableTypeNamed, seq({ str("y"), str("z") })),
+        Variable{"rule_A", VariableTypeNamed, seq({ str("x"), i_sym(1) })},
+        Variable{"rule_B", VariableTypeNamed, seq({ str("y"), str("z") })},
       },
       {},
       {},

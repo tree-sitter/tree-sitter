@@ -107,8 +107,11 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
    */
   vector<Variable> processed_variables;
   for (const Variable &variable : grammar.variables)
-    processed_variables.push_back(
-      Variable(variable.name, variable.type, extractor.apply(variable.rule)));
+    processed_variables.push_back(Variable{
+      variable.name,
+      variable.type,
+      extractor.apply(variable.rule)
+    });
   lexical_grammar.variables = extractor.tokens;
 
   /*

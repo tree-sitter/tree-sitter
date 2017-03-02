@@ -26,13 +26,13 @@ describe("ParseItemSetBuilder", []() {
 
   it("adds items at the beginnings of referenced rules", [&]() {
     SyntaxGrammar grammar{{
-      SyntaxVariable("rule0", VariableTypeNamed, {
+      SyntaxVariable{"rule0", VariableTypeNamed, {
         Production({
           {Symbol(1, Symbol::NonTerminal), 0, AssociativityNone},
           {Symbol(11, Symbol::Terminal), 0, AssociativityNone},
         }),
-      }),
-      SyntaxVariable("rule1", VariableTypeNamed, {
+      }},
+      SyntaxVariable{"rule1", VariableTypeNamed, {
         Production({
           {Symbol(12, Symbol::Terminal), 0, AssociativityNone},
           {Symbol(13, Symbol::Terminal), 0, AssociativityNone},
@@ -40,13 +40,13 @@ describe("ParseItemSetBuilder", []() {
         Production({
           {Symbol(2, Symbol::NonTerminal), 0, AssociativityNone},
         })
-      }),
-      SyntaxVariable("rule2", VariableTypeNamed, {
+      }},
+      SyntaxVariable{"rule2", VariableTypeNamed, {
         Production({
           {Symbol(14, Symbol::Terminal), 0, AssociativityNone},
           {Symbol(15, Symbol::Terminal), 0, AssociativityNone},
         })
-      }),
+      }},
     }, {}, {}, {}};
 
     auto production = [&](int variable_index, int production_index) -> const Production & {
@@ -85,19 +85,19 @@ describe("ParseItemSetBuilder", []() {
 
   it("handles rules with empty productions", [&]() {
     SyntaxGrammar grammar{{
-      SyntaxVariable("rule0", VariableTypeNamed, {
+      SyntaxVariable{"rule0", VariableTypeNamed, {
         Production({
           {Symbol(1, Symbol::NonTerminal), 0, AssociativityNone},
           {Symbol(11, Symbol::Terminal), 0, AssociativityNone},
         }),
-      }),
-      SyntaxVariable("rule1", VariableTypeNamed, {
+      }},
+      SyntaxVariable{"rule1", VariableTypeNamed, {
         Production({
           {Symbol(12, Symbol::Terminal), 0, AssociativityNone},
           {Symbol(13, Symbol::Terminal), 0, AssociativityNone},
         }),
         Production({})
-      }),
+      }},
     }, {}, {}, {}};
 
     auto production = [&](int variable_index, int production_index) -> const Production & {

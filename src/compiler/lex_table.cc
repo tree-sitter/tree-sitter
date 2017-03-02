@@ -44,26 +44,10 @@ bool AcceptTokenAction::operator==(const AcceptTokenAction &other) const {
 
 LexState::LexState() : is_token_start(false) {}
 
-set<CharacterSet> LexState::expected_inputs() const {
-  set<CharacterSet> result;
-  for (auto &pair : advance_actions)
-    result.insert(pair.first);
-  return result;
-}
-
 bool LexState::operator==(const LexState &other) const {
   return advance_actions == other.advance_actions &&
          accept_action == other.accept_action &&
          is_token_start == other.is_token_start;
-}
-
-LexStateId LexTable::add_state() {
-  states.push_back(LexState());
-  return states.size() - 1;
-}
-
-LexState &LexTable::state(LexStateId id) {
-  return states[id];
 }
 
 }  // namespace tree_sitter
