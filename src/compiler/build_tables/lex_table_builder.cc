@@ -1,4 +1,4 @@
-#include "compiler/build_tables/build_lex_table.h"
+#include "compiler/build_tables/lex_table_builder.h"
 #include <climits>
 #include <map>
 #include <set>
@@ -16,15 +16,18 @@
 #include "compiler/rules/repeat.h"
 #include "compiler/rules/seq.h"
 #include "compiler/rules/blank.h"
+#include "compiler/rules/visitor.h"
 
 namespace tree_sitter {
 namespace build_tables {
 
 using std::map;
+using std::pair;
 using std::set;
 using std::string;
 using std::vector;
 using std::unordered_map;
+using std::unique_ptr;
 using rules::Blank;
 using rules::Choice;
 using rules::CharacterSet;
@@ -33,37 +36,74 @@ using rules::Symbol;
 using rules::Metadata;
 using rules::Seq;
 
-class LexTableBuilder {
+class StartingCharacterAggregator : public rules::RuleFn<void> {
+  void apply_to(const rules::Seq *rule) {
+    apply(rule->left);
+  }
+
+  void apply_to(const rules::Choice *rule) {
+    for (const rule_ptr &element : rule->elements) apply(element);
+  }
+
+  void apply_to(const rules::Repeat *rule) {
+    apply(rule->content);
+  }
+
+  void apply_to(const rules::Metadata *rule) {
+    apply(rule->rule);
+  }
+
+  void apply_to(const rules::CharacterSet *rule) {
+    result.add_set(*rule);
+  }
+
+ public:
+  CharacterSet result;
+};
+
+class LexTableBuilderImpl : public LexTableBuilder {
   LexTable lex_table;
-  ParseTable *parse_table;
-  const LexicalGrammar lex_grammar;
+  const LexicalGrammar grammar;
   vector<rule_ptr> separator_rules;
+  CharacterSet first_separator_characters;
   LexConflictManager conflict_manager;
   unordered_map<LexItemSet, LexStateId> lex_state_ids;
 
  public:
-  LexTableBuilder(ParseTable *parse_table, const LexicalGrammar &lex_grammar)
-      : parse_table(parse_table), lex_grammar(lex_grammar) {
-    for (const rule_ptr &rule : lex_grammar.separators)
+  vector<bool> shadowed_token_indices;
+
+  LexTableBuilderImpl(const LexicalGrammar &grammar) : grammar(grammar) {
+    StartingCharacterAggregator starting_character_aggregator;
+    for (const rule_ptr &rule : grammar.separators) {
       separator_rules.push_back(Repeat::build(rule));
+      starting_character_aggregator.apply(rule);
+    }
     separator_rules.push_back(Blank::build());
+    first_separator_characters = starting_character_aggregator.result;
+    shadowed_token_indices.resize(grammar.variables.size());
   }
 
-  LexTable build() {
-    for (ParseState &parse_state : parse_table->states)
-      add_lex_state_for_parse_state(&parse_state);
-
-    mark_fragile_tokens();
-    remove_duplicate_lex_states();
-
+  LexTable build(ParseTable *parse_table) {
+    for (ParseState &parse_state : parse_table->states) {
+      parse_state.lex_state_id = add_lex_state(
+        item_set_for_terminals(parse_state.terminal_entries)
+      );
+    }
+    mark_fragile_tokens(parse_table);
+    remove_duplicate_lex_states(parse_table);
     return lex_table;
   }
 
- private:
-  void add_lex_state_for_parse_state(ParseState *parse_state) {
-    parse_state->lex_state_id = add_lex_state(
-      item_set_for_terminals(parse_state->terminal_entries)
-    );
+  bool detect_conflict(Symbol::Index left, Symbol::Index right) {
+    clear();
+
+    map<Symbol, ParseTableEntry> terminals;
+    terminals[Symbol(left, Symbol::Terminal)];
+    terminals[Symbol(right, Symbol::Terminal)];
+
+    add_lex_state(item_set_for_terminals(terminals));
+
+    return shadowed_token_indices[right];
   }
 
   LexStateId add_lex_state(const LexItemSet &item_set) {
@@ -80,6 +120,13 @@ class LexTableBuilder {
     }
   }
 
+  void clear() {
+    lex_table.states.clear();
+    lex_state_ids.clear();
+    shadowed_token_indices.assign(grammar.variables.size(), false);
+  }
+
+ private:
   void add_advance_actions(const LexItemSet &item_set, LexStateId state_id) {
     for (const auto &pair : item_set.transitions()) {
       const CharacterSet &characters = pair.first;
@@ -87,11 +134,28 @@ class LexTableBuilder {
 
       AdvanceAction action(-1, transition.precedence, transition.in_main_token);
       auto current_action = lex_table.states[state_id].accept_action;
-      if (conflict_manager.resolve(transition.destination, action,
-                                   current_action)) {
-        action.state_index = add_lex_state(transition.destination);
-        lex_table.states[state_id].advance_actions[characters] = action;
+      if (current_action.is_present()) {
+        bool prefer_advancing = conflict_manager.resolve(transition.destination, action, current_action);
+        bool matches_accepted_token = false;
+        for (const LexItem &item : transition.destination.entries) {
+          if (item.lhs == current_action.symbol) {
+            matches_accepted_token = true;
+          } else if (!transition.in_main_token && !item.lhs.is_built_in() && !prefer_advancing) {
+            shadowed_token_indices[item.lhs.index] = true;
+          }
+        }
+
+        if (!matches_accepted_token && characters.intersects(first_separator_characters)) {
+          shadowed_token_indices[current_action.symbol.index] = true;
+        }
+
+        if (!prefer_advancing) {
+          continue;
+        }
       }
+
+      action.state_index = add_lex_state(transition.destination);
+      lex_table.states[state_id].advance_actions[characters] = action;
     }
   }
 
@@ -101,16 +165,21 @@ class LexTableBuilder {
       if (completion_status.is_done) {
         AcceptTokenAction action(item.lhs, completion_status.precedence.max,
                                  item.lhs.is_built_in() ||
-                                 lex_grammar.variables[item.lhs.index].is_string);
+                                 grammar.variables[item.lhs.index].is_string);
 
         auto current_action = lex_table.states[state_id].accept_action;
-        if (conflict_manager.resolve(action, current_action))
-          lex_table.states[state_id].accept_action = action;
+        if (current_action.is_present()) {
+          if (!conflict_manager.resolve(action, current_action)) {
+            continue;
+          }
+        }
+
+        lex_table.states[state_id].accept_action = action;
       }
     }
   }
 
-  void mark_fragile_tokens() {
+  void mark_fragile_tokens(ParseTable *parse_table) {
     for (ParseState &state : parse_table->states) {
       for (auto &entry : state.terminal_entries) {
         Symbol symbol = entry.first;
@@ -138,7 +207,7 @@ class LexTableBuilder {
     }
   }
 
-  void remove_duplicate_lex_states() {
+  void remove_duplicate_lex_states(ParseTable *parse_table) {
     for (LexState &state : lex_table.states) {
       state.accept_action.is_string = false;
       state.accept_action.precedence = 0;
@@ -229,7 +298,7 @@ class LexTableBuilder {
     if (symbol == rules::END_OF_INPUT())
       return { CharacterSet().include(0).copy() };
 
-    rule_ptr rule = lex_grammar.variables[symbol.index].rule;
+    rule_ptr rule = grammar.variables[symbol.index].rule;
 
     auto choice = rule->as<Choice>();
     if (choice)
@@ -239,8 +308,16 @@ class LexTableBuilder {
   }
 };
 
-LexTable build_lex_table(ParseTable *table, const LexicalGrammar &grammar) {
-  return LexTableBuilder(table, grammar).build();
+unique_ptr<LexTableBuilder> LexTableBuilder::create(const LexicalGrammar &grammar) {
+  return unique_ptr<LexTableBuilder>(new LexTableBuilderImpl(grammar));
+}
+
+LexTable LexTableBuilder::build(ParseTable *parse_table) {
+  return static_cast<LexTableBuilderImpl *>(this)->build(parse_table);
+}
+
+bool LexTableBuilder::detect_conflict(Symbol::Index left, Symbol::Index right) {
+  return static_cast<LexTableBuilderImpl *>(this)->detect_conflict(left, right);
 }
 
 }  // namespace build_tables

@@ -10,11 +10,10 @@ namespace build_tables {
 bool LexConflictManager::resolve(const LexItemSet &item_set,
                                  const AdvanceAction &new_action,
                                  const AcceptTokenAction &old_action) {
-  if (!old_action.is_present())
-    return true;
   if (new_action.precedence_range.max >= old_action.precedence) {
-    for (const LexItem &item : item_set.entries)
+    for (const LexItem &item : item_set.entries) {
       possible_extensions[old_action.symbol.index].insert(item.lhs.index);
+    }
     return true;
   } else {
     return false;
@@ -23,30 +22,26 @@ bool LexConflictManager::resolve(const LexItemSet &item_set,
 
 bool LexConflictManager::resolve(const AcceptTokenAction &new_action,
                                  const AcceptTokenAction &old_action) {
-  if (!old_action.is_present())
-    return true;
-
-  int old_precedence = old_action.precedence;
-  int new_precedence = new_action.precedence;
-
   bool result;
-  if (new_precedence > old_precedence)
+  if (new_action.precedence > old_action.precedence) {
     result = true;
-  else if (new_precedence < old_precedence)
+  } else if (new_action.precedence < old_action.precedence) {
     result = false;
-  else if (new_action.is_string && !old_action.is_string)
+  } else if (new_action.is_string && !old_action.is_string) {
     result = true;
-  else if (old_action.is_string && !new_action.is_string)
+  } else if (old_action.is_string && !new_action.is_string) {
     result = false;
-  else if (new_action.symbol.index < old_action.symbol.index)
+  } else if (new_action.symbol.index < old_action.symbol.index) {
     result = true;
-  else
+  } else {
     result = false;
+  }
 
-  if (result)
+  if (result) {
     possible_homonyms[old_action.symbol.index].insert(new_action.symbol.index);
-  else
+  } else {
     possible_homonyms[new_action.symbol.index].insert(old_action.symbol.index);
+  }
 
   return result;
 }

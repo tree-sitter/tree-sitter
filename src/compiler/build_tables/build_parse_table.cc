@@ -12,7 +12,7 @@
 #include "compiler/syntax_grammar.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/built_in_symbols.h"
-#include "compiler/build_tables/compatible_tokens.h"
+#include "compiler/build_tables/lex_table_builder.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -40,7 +40,7 @@ class ParseTableBuilder {
   set<string> conflicts;
   ParseItemSetBuilder item_set_builder;
   set<const Production *> fragile_productions;
-  CompatibleTokensResult compatible_tokens;
+  vector<set<Symbol::Index>> incompatible_token_indices_by_index;
   bool allow_any_conflict;
 
  public:
@@ -49,7 +49,6 @@ class ParseTableBuilder {
       : grammar(grammar),
         lexical_grammar(lex_grammar),
         item_set_builder(grammar, lex_grammar),
-        compatible_tokens(get_compatible_tokens(lex_grammar)),
         allow_any_conflict(false) {}
 
   pair<ParseTable, CompileError> build() {
@@ -76,7 +75,7 @@ class ParseTableBuilder {
       return { parse_table, error };
     }
 
-    update_unmergable_token_pairs();
+    compute_unmergable_token_pairs();
 
     build_error_parse_state();
 
@@ -112,8 +111,18 @@ class ParseTableBuilder {
   void build_error_parse_state() {
     ParseState error_state;
 
-    for (const Symbol symbol : compatible_tokens.recovery_tokens) {
-      add_out_of_context_parse_state(&error_state, symbol);
+    for (Symbol::Index i = 0; i < lexical_grammar.variables.size(); i++) {
+      bool has_non_reciprocal_conflict = false;
+      for (Symbol::Index incompatible_index : incompatible_token_indices_by_index[i]) {
+        if (!incompatible_token_indices_by_index[incompatible_index].count(i)) {
+          has_non_reciprocal_conflict = true;
+          break;
+        }
+      }
+
+      if (!has_non_reciprocal_conflict) {
+        add_out_of_context_parse_state(&error_state, Symbol(i, Symbol::Terminal));
+      }
     }
 
     for (const Symbol &symbol : grammar.extra_tokens) {
@@ -294,20 +303,29 @@ class ParseTableBuilder {
     }
   }
 
-  void update_unmergable_token_pairs() {
-    for (const ParseState &state : parse_table.states) {
-      for (Symbol::Index token_index = 0, token_count = lexical_grammar.variables.size(); token_index < token_count; token_index++) {
-        Symbol token(token_index, Symbol::Terminal);
-        if (state.terminal_entries.count(token)) {
-          auto &incompatible_token_indices = compatible_tokens.unmergeable_pairs[token_index];
-          auto iter = incompatible_token_indices.begin();
-          while (iter != incompatible_token_indices.end()) {
-            if (state.terminal_entries.count(Symbol(*iter, Symbol::NonTerminal))) {
-              iter = incompatible_token_indices.erase(iter);
-            } else {
-              ++iter;
-            }
-          }
+  void compute_unmergable_token_pairs() {
+    incompatible_token_indices_by_index.resize(lexical_grammar.variables.size());
+
+    // First, assume that all tokens are mutually incompatible.
+    for (Symbol::Index i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
+      auto &incompatible_indices = incompatible_token_indices_by_index[i];
+      for (Symbol::Index j = 0; j < n; j++) {
+        if (j != i) incompatible_indices.insert(j);
+      }
+    }
+
+    // For the remaining possibly-incompatible pairs of tokens, check if they
+    // are actually incompatible by actually generating lexical states that
+    // contain them both.
+    auto lex_table_builder = LexTableBuilder::create(lexical_grammar);
+    for (Symbol::Index i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
+      auto &incompatible_indices = incompatible_token_indices_by_index[i];
+      auto iter = incompatible_indices.begin();
+      while (iter != incompatible_indices.end()) {
+        if (lex_table_builder->detect_conflict(i, *iter)) {
+          ++iter;
+        } else {
+          iter = incompatible_indices.erase(iter);
         }
       }
     }
@@ -403,17 +421,15 @@ class ParseTableBuilder {
     for (auto &entry : state.terminal_entries) {
       Symbol lookahead = entry.first;
       const vector<ParseAction> &actions = entry.second.actions;
-      auto &incompatible_token_indices = compatible_tokens.unmergeable_pairs[lookahead.index];
+      auto &incompatible_token_indices = incompatible_token_indices_by_index[lookahead.index];
 
       const auto &other_entry = other.terminal_entries.find(lookahead);
       if (other_entry == other.terminal_entries.end()) {
+        if (lookahead.is_external()) return false;
         if (!lookahead.is_built_in()) {
-          if (!compatible_tokens.recovery_tokens.count(lookahead))
-            return false;
           for (Symbol::Index incompatible_index : incompatible_token_indices) {
-            if (other.terminal_entries.count(Symbol(incompatible_index, Symbol::Terminal))) {
-              return false;
-            }
+            Symbol incompatible_symbol(incompatible_index, Symbol::Terminal);
+            if (other.terminal_entries.count(incompatible_symbol)) return false;
           }
         }
         if (actions.back().type != ParseActionTypeReduce)
@@ -430,16 +446,14 @@ class ParseTableBuilder {
     for (auto &entry : other.terminal_entries) {
       Symbol lookahead = entry.first;
       const vector<ParseAction> &actions = entry.second.actions;
-      auto &incompatible_token_indices = compatible_tokens.unmergeable_pairs[lookahead.index];
+      auto &incompatible_token_indices = incompatible_token_indices_by_index[lookahead.index];
 
       if (!state.terminal_entries.count(lookahead)) {
+        if (lookahead.is_external()) return false;
         if (!lookahead.is_built_in()) {
-          if (!compatible_tokens.recovery_tokens.count(lookahead))
-            return false;
           for (Symbol::Index incompatible_index : incompatible_token_indices) {
-            if (state.terminal_entries.count(Symbol(incompatible_index, Symbol::Terminal))) {
-              return false;
-            }
+            Symbol incompatible_symbol(incompatible_index, Symbol::Terminal);
+            if (state.terminal_entries.count(incompatible_symbol)) return false;
           }
         }
         if (actions.back().type != ParseActionTypeReduce)
