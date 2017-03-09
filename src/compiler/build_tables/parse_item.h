@@ -12,8 +12,7 @@
 namespace tree_sitter {
 namespace build_tables {
 
-class ParseItem {
- public:
+struct ParseItem {
   ParseItem();
   ParseItem(const rules::Symbol &, const Production &, unsigned int);
 
@@ -36,8 +35,7 @@ class ParseItem {
   unsigned int step_index;
 };
 
-class ParseItemSet {
- public:
+struct ParseItemSet {
   ParseItemSet();
   explicit ParseItemSet(const std::map<ParseItem, LookaheadSet> &);
 

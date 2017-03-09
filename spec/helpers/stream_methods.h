@@ -121,8 +121,8 @@ namespace build_tables {
 
 class LexItem;
 class LexItemSet;
-class ParseItem;
-class ParseItemSet;
+struct ParseItem;
+struct ParseItemSet;
 class LookaheadSet;
 
 ostream &operator<<(ostream &, const LexItem &);
