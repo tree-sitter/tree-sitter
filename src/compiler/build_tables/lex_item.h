@@ -19,7 +19,6 @@ class LexItem {
   struct CompletionStatus {
     bool is_done;
     PrecedenceRange precedence;
-    bool is_string;
   };
 
   bool operator==(const LexItem &other) const;

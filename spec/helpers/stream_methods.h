@@ -93,10 +93,11 @@ using std::string;
 using std::to_string;
 struct Variable;
 struct SyntaxVariable;
+struct LexicalVariable;
 struct AdvanceAction;
 struct AcceptTokenAction;
-class ParseAction;
-class ParseState;
+struct ParseAction;
+struct ParseState;
 struct ExternalToken;
 struct ProductionStep;
 struct PrecedenceRange;
@@ -107,6 +108,7 @@ ostream &operator<<(ostream &, const Rule &);
 ostream &operator<<(ostream &, const rule_ptr &);
 ostream &operator<<(ostream &, const Variable &);
 ostream &operator<<(ostream &, const SyntaxVariable &);
+ostream &operator<<(ostream &, const LexicalVariable &);
 ostream &operator<<(ostream &, const AdvanceAction &);
 ostream &operator<<(ostream &, const AcceptTokenAction &);
 ostream &operator<<(ostream &, const ParseAction &);
@@ -119,8 +121,8 @@ namespace build_tables {
 
 class LexItem;
 class LexItemSet;
-class ParseItem;
-class ParseItemSet;
+struct ParseItem;
+struct ParseItemSet;
 class LookaheadSet;
 
 ostream &operator<<(ostream &, const LexItem &);

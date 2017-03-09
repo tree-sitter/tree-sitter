@@ -25,8 +25,11 @@ class FlattenRule : public rules::RuleFn<void> {
   Production production;
 
   void apply_to(const rules::Symbol *sym) {
-    production.push_back(ProductionStep(*sym, precedence_stack.back(),
-                                        associativity_stack.back()));
+    production.push_back(ProductionStep{
+      *sym,
+      precedence_stack.back(),
+      associativity_stack.back()
+    });
   }
 
   void apply_to(const rules::Metadata *metadata) {
@@ -85,7 +88,7 @@ SyntaxVariable flatten_rule(const Variable &variable) {
     }
   }
 
-  return SyntaxVariable(variable.name, variable.type, productions);
+  return SyntaxVariable{variable.name, variable.type, productions};
 }
 
 pair<SyntaxGrammar, CompileError> flatten_grammar(const InitialSyntaxGrammar &grammar) {

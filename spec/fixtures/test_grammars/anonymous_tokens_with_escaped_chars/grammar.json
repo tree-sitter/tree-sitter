@@ -1,0 +1,14 @@
+{
+  "name": "anonymous_tokens_with_escaped_chars",
+  "rules": {
+    "first_rule": {
+      "type": "CHOICE",
+      "members": [
+        {"type": "STRING", "value": "\n"},
+        {"type": "STRING", "value": "\r"},
+        {"type": "STRING", "value": "'hello'"},
+        {"type": "PATTERN", "value": "\\d+"}
+      ]
+    }
+  }
+}

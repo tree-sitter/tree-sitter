@@ -6,14 +6,13 @@
 #include <unordered_map>
 #include <utility>
 #include "compiler/parse_table.h"
-#include "compiler/build_tables/remove_duplicate_states.h"
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/build_tables/parse_item_set_builder.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/rules/symbol.h"
 #include "compiler/rules/built_in_symbols.h"
-#include "compiler/build_tables/recovery_tokens.h"
+#include "compiler/build_tables/lex_table_builder.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -41,6 +40,7 @@ class ParseTableBuilder {
   set<string> conflicts;
   ParseItemSetBuilder item_set_builder;
   set<const Production *> fragile_productions;
+  vector<set<Symbol::Index>> incompatible_token_indices_by_index;
   bool allow_any_conflict;
 
  public:
@@ -56,9 +56,9 @@ class ParseTableBuilder {
       Symbol(0, Symbol::Terminal) :
       Symbol(0, Symbol::NonTerminal);
 
-    Production start_production({
-      ProductionStep(start_symbol, 0, rules::AssociativityNone),
-    });
+    Production start_production{
+      ProductionStep{start_symbol, 0, rules::AssociativityNone},
+    };
 
     // Placeholder for error state
     add_parse_state(ParseItemSet());
@@ -71,10 +71,11 @@ class ParseTableBuilder {
     }));
 
     CompileError error = process_part_state_queue();
-    if (error.type != TSCompileErrorTypeNone)
+    if (error.type != TSCompileErrorTypeNone) {
       return { parse_table, error };
+    }
 
-    parse_table.mergeable_symbols = recovery_tokens(lexical_grammar);
+    compute_unmergable_token_pairs();
 
     build_error_parse_state();
 
@@ -110,8 +111,18 @@ class ParseTableBuilder {
   void build_error_parse_state() {
     ParseState error_state;
 
-    for (const Symbol symbol : parse_table.mergeable_symbols) {
-      add_out_of_context_parse_state(&error_state, symbol);
+    for (Symbol::Index i = 0; i < lexical_grammar.variables.size(); i++) {
+      bool has_non_reciprocal_conflict = false;
+      for (Symbol::Index incompatible_index : incompatible_token_indices_by_index[i]) {
+        if (!incompatible_token_indices_by_index[incompatible_index].count(i)) {
+          has_non_reciprocal_conflict = true;
+          break;
+        }
+      }
+
+      if (!has_non_reciprocal_conflict) {
+        add_out_of_context_parse_state(&error_state, Symbol(i, Symbol::Terminal));
+      }
     }
 
     for (const Symbol &symbol : grammar.extra_tokens) {
@@ -148,7 +159,8 @@ class ParseTableBuilder {
   ParseStateId add_parse_state(const ParseItemSet &item_set) {
     auto pair = parse_state_ids.find(item_set);
     if (pair == parse_state_ids.end()) {
-      ParseStateId state_id = parse_table.add_state();
+      ParseStateId state_id = parse_table.states.size();
+      parse_table.states.push_back(ParseState());
       parse_state_ids[item_set] = state_id;
       parse_table.states[state_id].shift_actions_signature = item_set.unfinished_item_signature();
       item_sets_to_process.push_back({ std::move(item_set), state_id });
@@ -291,6 +303,34 @@ class ParseTableBuilder {
     }
   }
 
+  void compute_unmergable_token_pairs() {
+    incompatible_token_indices_by_index.resize(lexical_grammar.variables.size());
+
+    // First, assume that all tokens are mutually incompatible.
+    for (Symbol::Index i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
+      auto &incompatible_indices = incompatible_token_indices_by_index[i];
+      for (Symbol::Index j = 0; j < n; j++) {
+        if (j != i) incompatible_indices.insert(j);
+      }
+    }
+
+    // For the remaining possibly-incompatible pairs of tokens, check if they
+    // are actually incompatible by actually generating lexical states that
+    // contain them both.
+    auto lex_table_builder = LexTableBuilder::create(lexical_grammar);
+    for (Symbol::Index i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
+      auto &incompatible_indices = incompatible_token_indices_by_index[i];
+      auto iter = incompatible_indices.begin();
+      while (iter != incompatible_indices.end()) {
+        if (lex_table_builder->detect_conflict(i, *iter)) {
+          ++iter;
+        } else {
+          iter = incompatible_indices.erase(iter);
+        }
+      }
+    }
+  }
+
   void remove_duplicate_parse_states() {
     map<size_t, set<ParseStateId>> state_indices_by_signature;
 
@@ -302,7 +342,7 @@ class ParseTableBuilder {
     set<ParseStateId> deleted_states;
 
     while (true) {
-      std::map<ParseStateId, ParseStateId> state_replacements;
+      map<ParseStateId, ParseStateId> state_replacements;
 
       for (auto &pair : state_indices_by_signature) {
         auto &state_group = pair.second;
@@ -310,7 +350,7 @@ class ParseTableBuilder {
         for (ParseStateId i : state_group) {
           for (ParseStateId j : state_group) {
             if (j == i) break;
-            if (!state_replacements.count(j) && parse_table.merge_state(j, i)) {
+            if (!state_replacements.count(j) && merge_parse_state(j, i)) {
               state_replacements.insert({ i, j });
               deleted_states.insert(i);
               break;
@@ -362,6 +402,72 @@ class ParseTableBuilder {
       }
       original_state_index++;
     }
+  }
+
+  static bool has_entry(const ParseState &state, const ParseTableEntry &entry) {
+    for (const auto &pair : state.terminal_entries)
+      if (pair.second == entry)
+        return true;
+    return false;
+  }
+
+  bool merge_parse_state(size_t i, size_t j) {
+    ParseState &state = parse_table.states[i];
+    ParseState &other = parse_table.states[j];
+
+    if (state.nonterminal_entries != other.nonterminal_entries)
+      return false;
+
+    for (auto &entry : state.terminal_entries) {
+      Symbol lookahead = entry.first;
+      const vector<ParseAction> &actions = entry.second.actions;
+      auto &incompatible_token_indices = incompatible_token_indices_by_index[lookahead.index];
+
+      const auto &other_entry = other.terminal_entries.find(lookahead);
+      if (other_entry == other.terminal_entries.end()) {
+        if (lookahead.is_external()) return false;
+        if (!lookahead.is_built_in()) {
+          for (Symbol::Index incompatible_index : incompatible_token_indices) {
+            Symbol incompatible_symbol(incompatible_index, Symbol::Terminal);
+            if (other.terminal_entries.count(incompatible_symbol)) return false;
+          }
+        }
+        if (actions.back().type != ParseActionTypeReduce)
+          return false;
+        if (!has_entry(other, entry.second))
+          return false;
+      } else if (entry.second != other_entry->second) {
+        return false;
+      }
+    }
+
+    set<Symbol> symbols_to_merge;
+
+    for (auto &entry : other.terminal_entries) {
+      Symbol lookahead = entry.first;
+      const vector<ParseAction> &actions = entry.second.actions;
+      auto &incompatible_token_indices = incompatible_token_indices_by_index[lookahead.index];
+
+      if (!state.terminal_entries.count(lookahead)) {
+        if (lookahead.is_external()) return false;
+        if (!lookahead.is_built_in()) {
+          for (Symbol::Index incompatible_index : incompatible_token_indices) {
+            Symbol incompatible_symbol(incompatible_index, Symbol::Terminal);
+            if (state.terminal_entries.count(incompatible_symbol)) return false;
+          }
+        }
+        if (actions.back().type != ParseActionTypeReduce)
+          return false;
+        if (!has_entry(state, entry.second))
+          return false;
+        symbols_to_merge.insert(lookahead);
+      }
+    }
+
+    for (const Symbol &lookahead : symbols_to_merge)
+      state.terminal_entries[lookahead] = other.terminal_entries.find(lookahead)->second;
+
+    return true;
   }
 
   string handle_conflict(const ParseItemSet &item_set, ParseStateId state_id,
@@ -574,7 +680,7 @@ class ParseTableBuilder {
 
     switch (symbol.type) {
       case Symbol::Terminal: {
-        const Variable &variable = lexical_grammar.variables[symbol.index];
+        const LexicalVariable &variable = lexical_grammar.variables[symbol.index];
         if (variable.type == VariableTypeNamed)
           return variable.name;
         else

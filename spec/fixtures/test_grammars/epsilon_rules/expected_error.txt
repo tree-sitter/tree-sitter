@@ -1,0 +1,2 @@
+The rule `rule_2` matches the empty string.
+Tree-sitter currently does not support syntactic rules that match the empty string.

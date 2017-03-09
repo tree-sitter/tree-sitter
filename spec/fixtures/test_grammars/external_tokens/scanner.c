@@ -1,4 +1,3 @@
-#include <stdbool.h>
 #include <tree_sitter/parser.h>
 
 enum {
@@ -13,7 +12,7 @@ typedef struct {
   uint32_t depth;
 } Scanner;
 
-void *tree_sitter_external_scanner_example_external_scanner_create() {
+void *tree_sitter_external_tokens_external_scanner_create() {
   Scanner *scanner = malloc(sizeof(Scanner));
   *scanner = (Scanner){
     .open_delimiter = 0,
@@ -23,7 +22,17 @@ void *tree_sitter_external_scanner_example_external_scanner_create() {
   return scanner;
 }
 
-bool tree_sitter_external_scanner_example_external_scanner_scan(
+void tree_sitter_external_tokens_external_scanner_destroy(void *payload) {
+  free(payload);
+}
+
+void tree_sitter_external_tokens_external_scanner_reset(void *payload) {}
+
+bool tree_sitter_external_tokens_external_scanner_serialize(void *payload, TSExternalTokenState state) { return true; }
+
+void tree_sitter_external_tokens_external_scanner_deserialize(void *payload, TSExternalTokenState state) {}
+
+bool tree_sitter_external_tokens_external_scanner_scan(
   void *payload, TSLexer *lexer, const bool *whitelist) {
   Scanner *scanner = payload;
 
@@ -103,16 +112,3 @@ bool tree_sitter_external_scanner_example_external_scanner_scan(
   return false;
 }
 
-void tree_sitter_external_scanner_example_external_scanner_reset(void *payload) {
-}
-
-bool tree_sitter_external_scanner_example_external_scanner_serialize(void *payload, TSExternalTokenState state) {
-  return true;
-}
-
-void tree_sitter_external_scanner_example_external_scanner_deserialize(void *payload, TSExternalTokenState state) {
-}
-
-void tree_sitter_external_scanner_example_external_scanner_destroy(void *payload) {
-  free(payload);
-}

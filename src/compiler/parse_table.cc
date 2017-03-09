@@ -148,13 +148,6 @@ bool ParseState::has_shift_action() const {
   return (!nonterminal_entries.empty());
 }
 
-set<Symbol> ParseState::expected_inputs() const {
-  set<Symbol> result;
-  for (auto &entry : terminal_entries)
-    result.insert(entry.first);
-  return result;
-}
-
 void ParseState::each_referenced_state(function<void(ParseStateId *)> fn) {
   for (auto &entry : terminal_entries)
     for (ParseAction &action : entry.second.actions)
@@ -167,18 +160,6 @@ void ParseState::each_referenced_state(function<void(ParseStateId *)> fn) {
 bool ParseState::operator==(const ParseState &other) const {
   return terminal_entries == other.terminal_entries &&
     nonterminal_entries == other.nonterminal_entries;
-}
-
-set<Symbol> ParseTable::all_symbols() const {
-  set<Symbol> result;
-  for (auto &pair : symbols)
-    result.insert(pair.first);
-  return result;
-}
-
-ParseStateId ParseTable::add_state() {
-  states.push_back(ParseState());
-  return states.size() - 1;
 }
 
 ParseAction &ParseTable::add_terminal_action(ParseStateId state_id,
@@ -199,60 +180,6 @@ void ParseTable::set_nonterminal_action(ParseStateId state_id,
                                         ParseStateId next_state_id) {
   symbols[Symbol(lookahead, Symbol::NonTerminal)].structural = true;
   states[state_id].nonterminal_entries[lookahead] = next_state_id;
-}
-
-static bool has_entry(const ParseState &state, const ParseTableEntry &entry) {
-  for (const auto &pair : state.terminal_entries)
-    if (pair.second == entry)
-      return true;
-  return false;
-}
-
-bool ParseTable::merge_state(size_t i, size_t j) {
-  ParseState &state = states[i];
-  ParseState &other = states[j];
-
-  if (state.nonterminal_entries != other.nonterminal_entries)
-    return false;
-
-  for (auto &entry : state.terminal_entries) {
-    Symbol lookahead = entry.first;
-    const vector<ParseAction> &actions = entry.second.actions;
-
-    const auto &other_entry = other.terminal_entries.find(lookahead);
-    if (other_entry == other.terminal_entries.end()) {
-      if (mergeable_symbols.count(lookahead) == 0 && !lookahead.is_built_in())
-        return false;
-      if (actions.back().type != ParseActionTypeReduce)
-        return false;
-      if (!has_entry(other, entry.second))
-        return false;
-    } else if (entry.second != other_entry->second) {
-      return false;
-    }
-  }
-
-  set<Symbol> symbols_to_merge;
-
-  for (auto &entry : other.terminal_entries) {
-    Symbol lookahead = entry.first;
-    const vector<ParseAction> &actions = entry.second.actions;
-
-    if (!state.terminal_entries.count(lookahead)) {
-      if (mergeable_symbols.count(lookahead) == 0 && !lookahead.is_built_in())
-        return false;
-      if (actions.back().type != ParseActionTypeReduce)
-        return false;
-      if (!has_entry(state, entry.second))
-        return false;
-      symbols_to_merge.insert(lookahead);
-    }
-  }
-
-  for (const Symbol &lookahead : symbols_to_merge)
-    state.terminal_entries[lookahead] = other.terminal_entries.find(lookahead)->second;
-
-  return true;
 }
 
 }  // namespace tree_sitter

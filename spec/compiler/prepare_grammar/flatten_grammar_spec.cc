@@ -12,7 +12,7 @@ using prepare_grammar::flatten_rule;
 
 describe("flatten_grammar", []() {
   it("associates each symbol with the precedence and associativity binding it to its successor", [&]() {
-    SyntaxVariable result = flatten_rule(Variable(
+    SyntaxVariable result = flatten_rule(Variable{
       "test",
       VariableTypeNamed,
       seq({
@@ -30,7 +30,7 @@ describe("flatten_grammar", []() {
         })),
         i_sym(7),
       })
-    ));
+    });
 
     AssertThat(result.name, Equals("test"));
     AssertThat(result.type, Equals(VariableTypeNamed));
@@ -54,14 +54,14 @@ describe("flatten_grammar", []() {
   });
 
   it("uses the last assigned precedence", [&]() {
-    SyntaxVariable result = flatten_rule(Variable(
+    SyntaxVariable result = flatten_rule(Variable{
       "test1",
       VariableTypeNamed,
       prec_left(101, seq({
         i_sym(1),
         i_sym(2),
       }))
-    ));
+    });
 
     AssertThat(result.productions, Equals(vector<Production>({
       Production({
@@ -70,13 +70,13 @@ describe("flatten_grammar", []() {
       })
     })))
 
-    result = flatten_rule(Variable(
+    result = flatten_rule(Variable{
       "test2",
       VariableTypeNamed,
       prec_left(101, seq({
         i_sym(1),
       }))
-    ));
+    });
 
     AssertThat(result.productions, Equals(vector<Production>({
       Production({

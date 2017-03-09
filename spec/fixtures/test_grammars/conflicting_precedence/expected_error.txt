@@ -1,0 +1,15 @@
+Unresolved conflict for symbol sequence:
+
+  expression  '+'  expression  •  '*'  …
+
+Possible interpretations:
+
+  1:  (sum  expression  '+'  expression)  •  '*'  …
+  2:  expression  '+'  (product  expression  •  '*'  expression)
+  3:  expression  '+'  (other_thing  expression  •  '*'  '*')
+
+Possible resolutions:
+
+  1:  Specify a higher precedence in `product` and `other_thing` than in the other rules.
+  2:  Specify a higher precedence in `sum` than in the other rules.
+  3:  Add a conflict for these rules: `sum` `product` `other_thing`

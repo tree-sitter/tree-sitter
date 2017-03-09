@@ -43,7 +43,7 @@ describe("Document", [&]() {
     before_each([&]() {
       spy_input = new SpyInput("{\"key\": [null, 2]}", 3);
 
-      ts_document_set_language(document, get_test_language("json"));
+      ts_document_set_language(document, load_real_language("json"));
       ts_document_set_input_string(document, "{\"key\": [1, 2]}");
       ts_document_parse(document);
 
@@ -152,7 +152,7 @@ describe("Document", [&]() {
     });
 
     it("uses the given language for future parses", [&]() {
-      ts_document_set_language(document, get_test_language("json"));
+      ts_document_set_language(document, load_real_language("json"));
       ts_document_parse(document);
 
       root = ts_document_root_node(document);
@@ -162,10 +162,10 @@ describe("Document", [&]() {
     });
 
     it("clears out any previous tree", [&]() {
-      ts_document_set_language(document, get_test_language("json"));
+      ts_document_set_language(document, load_real_language("json"));
       ts_document_parse(document);
 
-      ts_document_set_language(document, get_test_language("javascript"));
+      ts_document_set_language(document, load_real_language("javascript"));
       AssertThat(ts_document_root_node(document).data, Equals<void *>(nullptr));
 
       ts_document_parse(document);
@@ -177,7 +177,7 @@ describe("Document", [&]() {
     });
 
     it("does not allow setting a language with a different version number", [&]() {
-      TSLanguage language = *get_test_language("json");
+      TSLanguage language = *load_real_language("json");
       AssertThat(ts_language_version(&language), Equals<uint32_t>(TREE_SITTER_LANGUAGE_VERSION));
 
       language.version++;
@@ -193,7 +193,7 @@ describe("Document", [&]() {
 
     before_each([&]() {
       logger = new SpyLogger();
-      ts_document_set_language(document, get_test_language("json"));
+      ts_document_set_language(document, load_real_language("json"));
       ts_document_set_input_string(document, "[1, 2]");
     });
 
@@ -235,7 +235,7 @@ describe("Document", [&]() {
     SpyInput *input;
 
     before_each([&]() {
-      ts_document_set_language(document, get_test_language("javascript"));
+      ts_document_set_language(document, load_real_language("javascript"));
       input = new SpyInput("{a: null};", 3);
       ts_document_set_input(document, input->input());
       ts_document_parse(document);

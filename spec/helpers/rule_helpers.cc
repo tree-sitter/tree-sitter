@@ -1,6 +1,8 @@
 #include "rule_helpers.h"
 #include <memory>
 #include "compiler/rules/symbol.h"
+#include "compiler/variable.h"
+#include "compiler/lexical_grammar.h"
 
 namespace tree_sitter {
   using std::make_shared;
@@ -51,5 +53,10 @@ namespace tree_sitter {
   bool operator==(const Variable &left, const Variable &right) {
     return left.name == right.name && left.rule->operator==(*right.rule) &&
       left.type == right.type;
+  }
+
+  bool operator==(const LexicalVariable &left, const LexicalVariable &right) {
+    return left.name == right.name && left.rule->operator==(*right.rule) &&
+      left.type == right.type && left.is_string == right.is_string;
   }
 }

@@ -15,27 +15,32 @@ using prepare_grammar::intern_symbols;
 
 describe("intern_symbols", []() {
   it("replaces named symbols with numerically-indexed symbols", [&]() {
-    Grammar grammar{{
-      { "x", choice({ sym("y"), sym("_z") }) },
-      { "y", sym("_z") },
-      { "_z", str("stuff") }
-    }, {}, {}, {}};
+    Grammar grammar{
+      {
+        {"x", choice({ sym("y"), sym("_z") })},
+        {"y", sym("_z")},
+        {"_z", str("stuff")}
+      }, {}, {}, {}
+    };
 
     auto result = intern_symbols(grammar);
 
     AssertThat(result.second, Equals(CompileError::none()));
-    AssertThat(result.first.variables, Equals(vector<Variable>({
-      Variable("x", VariableTypeNamed, choice({ i_sym(1), i_sym(2) })),
-      Variable("y", VariableTypeNamed, i_sym(2)),
-      Variable("_z", VariableTypeHidden, str("stuff")),
-    })));
+    AssertThat(result.first.variables, Equals(vector<Variable>{
+      Variable{"x", VariableTypeNamed, choice({ i_sym(1), i_sym(2) })},
+      Variable{"y", VariableTypeNamed, i_sym(2)},
+      Variable{"_z", VariableTypeHidden, str("stuff")},
+    }));
   });
 
   describe("when there are symbols that reference undefined rules", [&]() {
     it("returns an error", []() {
-      Grammar grammar{{
-        { "x", sym("y") },
-      }, {}, {}, {}};
+      Grammar grammar{
+        {
+          {"x", sym("y")},
+        },
+        {}, {}, {}
+      };
 
       auto result = intern_symbols(grammar);
 
@@ -44,13 +49,17 @@ describe("intern_symbols", []() {
   });
 
   it("translates the grammar's optional 'extra_tokens' to numerical symbols", [&]() {
-    Grammar grammar{{
-      { "x", choice({ sym("y"), sym("z") }) },
-      { "y", sym("z") },
-      { "z", str("stuff") }
-    }, {
-      sym("z")
-    }, {}, {}};
+    Grammar grammar{
+      {
+        {"x", choice({ sym("y"), sym("z") })},
+        {"y", sym("z")},
+        {"z", str("stuff")}
+      },
+      {
+        sym("z")
+      },
+      {}, {}
+    };
 
     auto result = intern_symbols(grammar);
 
@@ -60,29 +69,34 @@ describe("intern_symbols", []() {
   });
 
   it("records any rule names that match external token names", [&]() {
-    Grammar grammar{{
-      { "x", choice({ sym("y"), sym("z") }) },
-      { "y", sym("z") },
-      { "z", str("stuff") }
-    }, {}, {}, {
-      "w",
-      "z"
-    }};
+    Grammar grammar{
+      {
+        {"x", choice({ sym("y"), sym("z") })},
+        {"y", sym("z")},
+        {"z", str("stuff")},
+      },
+      {},
+      {},
+      {
+        "w",
+        "z"
+      }
+    };
 
     auto result = intern_symbols(grammar);
 
-    AssertThat(result.first.external_tokens, Equals(vector<ExternalToken>({
-      {
+    AssertThat(result.first.external_tokens, Equals(vector<ExternalToken>{
+      ExternalToken{
         "w",
         VariableTypeNamed,
         rules::NONE()
       },
-      {
+      ExternalToken{
         "z",
         VariableTypeNamed,
         Symbol(2, Symbol::NonTerminal)
-      }
-    })))
+      },
+    }))
   });
 });
 

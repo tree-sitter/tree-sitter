@@ -32,19 +32,15 @@ LexItem::CompletionStatus LexItem::completion_status() const {
     CompletionStatus apply_to(const rules::Choice *rule) {
       for (const auto &element : rule->elements) {
         CompletionStatus status = apply(element);
-        if (status.is_done)
-          return status;
+        if (status.is_done) return status;
       }
-      return { false, PrecedenceRange(), false };
+      return { false, PrecedenceRange() };
     }
 
     CompletionStatus apply_to(const rules::Metadata *rule) {
       CompletionStatus result = apply(rule->rule);
-      if (result.is_done) {
-        if (result.precedence.empty && rule->params.has_precedence)
-          result.precedence.add(rule->params.precedence);
-        if (rule->params.is_string)
-          result.is_string = true;
+      if (result.is_done && result.precedence.empty && rule->params.has_precedence) {
+        result.precedence.add(rule->params.precedence);
       }
       return result;
     }
@@ -54,15 +50,16 @@ LexItem::CompletionStatus LexItem::completion_status() const {
     }
 
     CompletionStatus apply_to(const rules::Blank *rule) {
-      return { true, PrecedenceRange(), false };
+      return { true, PrecedenceRange() };
     }
 
     CompletionStatus apply_to(const rules::Seq *rule) {
       CompletionStatus left_status = apply(rule->left);
-      if (left_status.is_done)
+      if (left_status.is_done) {
         return apply(rule->right);
-      else
-        return { false, PrecedenceRange(), false };
+      } else {
+        return { false, PrecedenceRange() };
+      }
     }
   };
 
@@ -80,8 +77,9 @@ bool LexItemSet::operator==(const LexItemSet &other) const {
 
 LexItemSet::TransitionMap LexItemSet::transitions() const {
   TransitionMap result;
-  for (const LexItem &item : entries)
+  for (const LexItem &item : entries) {
     lex_item_transitions(&result, item);
+  }
   return result;
 }
 
