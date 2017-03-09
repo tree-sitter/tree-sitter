@@ -8,6 +8,7 @@ foo bar { baz }
 ```
 
 The possible actions are:
+
 1. `reduce(expression, 1)` - `bar` is an expression being passed to the `foo` function.
 2. `shift` - `bar` is a function being called with the block `{ baz }`
 
