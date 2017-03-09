@@ -1,0 +1,25 @@
+{
+  "name": "external_extra_tokens",
+
+  "externals": [
+    "comment"
+  ],
+
+  "extras": [
+    {"type": "PATTERN", "value": "\\s"},
+    {"type": "SYMBOL", "name": "comment"}
+  ],
+
+  "rules": {
+    "assignment": {
+      "type": "SEQ",
+      "members": [
+        {"type": "SYMBOL", "name": "variable"},
+        {"type": "STRING", "value": "="},
+        {"type": "SYMBOL", "name": "variable"}
+      ]
+    },
+
+    "variable": {"type": "PATTERN", "value": "\\a+"}
+  }
+}

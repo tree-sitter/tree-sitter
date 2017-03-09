@@ -40,7 +40,7 @@ describe("Node", []() {
     record_alloc::start();
 
     document = ts_document_new();
-    ts_document_set_language(document, get_test_language("json"));
+    ts_document_set_language(document, load_real_language("json"));
     ts_document_set_input_string(document, input_string.c_str());
     ts_document_parse(document);
 

@@ -1,0 +1,63 @@
+{
+  "name": "precedence_on_single_child_missing",
+
+  "extras": [
+    {"type": "PATTERN", "value": "\\s"}
+  ],
+
+  "rules": {
+    "expression": {
+      "type": "CHOICE",
+      "members": [
+        {"type": "SYMBOL", "name": "function_call"},
+        {"type": "SYMBOL", "name": "identifier"}
+      ]
+    },
+
+    "function_call": {
+      "type": "PREC_RIGHT",
+      "value": 0,
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "SEQ",
+            "members": [
+              {"type": "SYMBOL", "name": "identifier"},
+              {"type": "SYMBOL", "name": "expression"}
+            ]
+          },
+          {
+            "type": "SEQ",
+            "members": [
+              {"type": "SYMBOL", "name": "identifier"},
+              {"type": "SYMBOL", "name": "block"}
+            ]
+          },
+          {
+            "type": "SEQ",
+            "members": [
+              {"type": "SYMBOL", "name": "identifier"},
+              {"type": "SYMBOL", "name": "expression"},
+              {"type": "SYMBOL", "name": "block"}
+            ]
+          }
+        ]
+      }
+    },
+
+    "block": {
+      "type": "SEQ",
+      "members": [
+        {"type": "STRING", "value": "{"},
+        {"type": "SYMBOL", "name": "expression"},
+        {"type": "STRING", "value": "}"}
+      ]
+    },
+
+    "identifier": {
+      "type": "PATTERN",
+      "value": "[a-zA-Z]+"
+    }
+  }
+}

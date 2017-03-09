@@ -10,6 +10,7 @@ struct TestEntry {
 	std::string tree_string;
 };
 
-std::vector<TestEntry> read_corpus_entries(std::string directory);
+std::vector<TestEntry> read_real_language_corpus(std::string name);
+std::vector<TestEntry> read_test_language_corpus(std::string name);
 
 #endif

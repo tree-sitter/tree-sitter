@@ -83,7 +83,7 @@ describe("Parser", [&]() {
   describe("handling errors", [&]() {
     describe("when there is an invalid substring right before a valid token", [&]() {
       it("computes the error node's size and position correctly", [&]() {
-        ts_document_set_language(document, get_test_language("json"));
+        ts_document_set_language(document, load_real_language("json"));
         set_text("  [123,  @@@@@,   true]");
 
         assert_root_node(
@@ -108,7 +108,7 @@ describe("Parser", [&]() {
 
     describe("when there is an unexpected string in the middle of a token", [&]() {
       it("computes the error node's size and position correctly", [&]() {
-        ts_document_set_language(document, get_test_language("json"));
+        ts_document_set_language(document, load_real_language("json"));
         set_text("  [123, faaaaalse, true]");
 
         assert_root_node(
@@ -134,7 +134,7 @@ describe("Parser", [&]() {
 
     describe("when there is one unexpected token between two valid tokens", [&]() {
       it("computes the error node's size and position correctly", [&]() {
-        ts_document_set_language(document, get_test_language("json"));
+        ts_document_set_language(document, load_real_language("json"));
         set_text("  [123, true false, true]");
 
         assert_root_node(
@@ -153,7 +153,7 @@ describe("Parser", [&]() {
 
     describe("when there is an unexpected string at the end of a token", [&]() {
       it("computes the error's size and position correctly", [&]() {
-        ts_document_set_language(document, get_test_language("json"));
+        ts_document_set_language(document, load_real_language("json"));
         set_text("  [123, \"hi\n, true]");
 
         assert_root_node(
@@ -163,7 +163,7 @@ describe("Parser", [&]() {
 
     describe("when there is an unterminated error", [&]() {
       it("maintains a consistent tree", [&]() {
-        ts_document_set_language(document, get_test_language("javascript"));
+        ts_document_set_language(document, load_real_language("javascript"));
         set_text("a; /* b");
         assert_root_node(
           "(ERROR (program (expression_statement (identifier))) (UNEXPECTED EOF))");
@@ -172,7 +172,7 @@ describe("Parser", [&]() {
 
     describe("when there are extra tokens at the end of the viable prefix", [&]() {
       it("does not include them in the error node", [&]() {
-        ts_document_set_language(document, get_test_language("javascript"));
+        ts_document_set_language(document, load_real_language("javascript"));
         set_text(
           "var x;\n"
           "\n"
@@ -192,7 +192,7 @@ describe("Parser", [&]() {
   describe("handling extra tokens", [&]() {
     describe("when the token appears as part of a grammar rule", [&]() {
       it("incorporates it into the tree", [&]() {
-        ts_document_set_language(document, get_test_language("javascript"));
+        ts_document_set_language(document, load_real_language("javascript"));
         set_text("fn()\n");
 
         assert_root_node(
@@ -202,7 +202,7 @@ describe("Parser", [&]() {
 
     describe("when the token appears somewhere else", [&]() {
       it("incorporates it into the tree", [&]() {
-        ts_document_set_language(document, get_test_language("javascript"));
+        ts_document_set_language(document, load_real_language("javascript"));
         set_text(
           "fn()\n"
           "  .otherFn();");
@@ -218,7 +218,7 @@ describe("Parser", [&]() {
 
     describe("when several extra tokens appear in a row", [&]() {
       it("incorporates them into the tree", [&]() {
-        ts_document_set_language(document, get_test_language("javascript"));
+        ts_document_set_language(document, load_real_language("javascript"));
         set_text(
           "fn()\n\n"
           "// This is a comment"
@@ -239,7 +239,7 @@ describe("Parser", [&]() {
   describe("editing", [&]() {
     describe("creating new tokens near the end of the input", [&]() {
       it("updates the parse tree and re-reads only the changed portion of the text", [&]() {
-        ts_document_set_language(document, get_test_language("javascript"));
+        ts_document_set_language(document, load_real_language("javascript"));
         set_text("x * (100 + abc);");
 
         assert_root_node(
@@ -262,7 +262,7 @@ describe("Parser", [&]() {
       it("updates the parse tree and re-reads only the changed portion of the input", [&]() {
         chunk_size = 2;
 
-        ts_document_set_language(document, get_test_language("javascript"));
+        ts_document_set_language(document, load_real_language("javascript"));
         set_text("123 + 456 * (10 + x);");
 
         assert_root_node(
@@ -285,7 +285,7 @@ describe("Parser", [&]() {
 
     describe("introducing an error", [&]() {
       it("gives the error the right size", [&]() {
-        ts_document_set_language(document, get_test_language("javascript"));
+        ts_document_set_language(document, load_real_language("javascript"));
         set_text("var x = y;");
 
         assert_root_node(
@@ -308,7 +308,7 @@ describe("Parser", [&]() {
 
     describe("into the middle of an existing token", [&]() {
       it("updates the parse tree", [&]() {
-        ts_document_set_language(document, get_test_language("javascript"));
+        ts_document_set_language(document, load_real_language("javascript"));
         set_text("abc * 123;");
 
         assert_root_node(
@@ -327,7 +327,7 @@ describe("Parser", [&]() {
 
     describe("at the end of an existing token", [&]() {
       it("updates the parse tree", [&]() {
-        ts_document_set_language(document, get_test_language("javascript"));
+        ts_document_set_language(document, load_real_language("javascript"));
         set_text("abc * 123;");
 
         assert_root_node(
@@ -346,7 +346,7 @@ describe("Parser", [&]() {
 
     describe("inserting text into a node containing a extra token", [&]() {
       it("updates the parse tree", [&]() {
-        ts_document_set_language(document, get_test_language("javascript"));
+        ts_document_set_language(document, load_real_language("javascript"));
         set_text("123 *\n"
           "// a-comment\n"
           "abc;");
@@ -373,7 +373,7 @@ describe("Parser", [&]() {
 
     describe("when a critical token is removed", [&]() {
       it("updates the parse tree, creating an error", [&]() {
-        ts_document_set_language(document, get_test_language("javascript"));
+        ts_document_set_language(document, load_real_language("javascript"));
         set_text("123 * 456; 789 * 123;");
 
         assert_root_node(
@@ -392,7 +392,7 @@ describe("Parser", [&]() {
 
     describe("with external tokens", [&]() {
       it("maintains the external scanner's state during incremental parsing", [&]() {
-        ts_document_set_language(document, get_test_language("python"));
+        ts_document_set_language(document, load_real_language("python"));
         string text = dedent(R"PYTHON(
           if a:
               print b
@@ -420,7 +420,7 @@ describe("Parser", [&]() {
     });
 
     it("does not try to re-use nodes that are within the edited region", [&]() {
-      ts_document_set_language(document, get_test_language("javascript"));
+      ts_document_set_language(document, load_real_language("javascript"));
       set_text("{ x: (b.c) };");
 
       assert_root_node(
@@ -435,7 +435,7 @@ describe("Parser", [&]() {
     });
 
     it("updates the document's parse count", [&]() {
-      ts_document_set_language(document, get_test_language("javascript"));
+      ts_document_set_language(document, load_real_language("javascript"));
       AssertThat(ts_document_parse_count(document), Equals<size_t>(0));
 
       set_text("{ x: (b.c) };");
@@ -449,7 +449,7 @@ describe("Parser", [&]() {
   describe("lexing", [&]() {
     describe("handling tokens containing wildcard patterns (e.g. comments)", [&]() {
       it("terminates them at the end of the document", [&]() {
-        ts_document_set_language(document, get_test_language("javascript"));
+        ts_document_set_language(document, load_real_language("javascript"));
         set_text("x; // this is a comment");
 
         assert_root_node(
@@ -464,7 +464,7 @@ describe("Parser", [&]() {
 
     it("recognizes UTF8 characters as single characters", [&]() {
       // 'ΩΩΩ — ΔΔ';
-      ts_document_set_language(document, get_test_language("javascript"));
+      ts_document_set_language(document, load_real_language("javascript"));
       set_text("'\u03A9\u03A9\u03A9 \u2014 \u0394\u0394';");
 
       assert_root_node(

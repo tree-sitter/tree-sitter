@@ -1,0 +1,58 @@
+{
+  "name": "conflicting_precedence",
+
+  "rules": {
+    "expression": {
+      "type": "CHOICE",
+      "members": [
+        {"type": "SYMBOL", "name": "sum"},
+        {"type": "SYMBOL", "name": "product"},
+        {"type": "SYMBOL", "name": "other_thing"}
+      ]
+    },
+
+    "sum": {
+      "type": "PREC_LEFT",
+      "value": 0,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {"type": "SYMBOL", "name": "expression"},
+          {"type": "STRING", "value": "+"},
+          {"type": "SYMBOL", "name": "expression"}
+        ]
+      }
+    },
+
+    "product": {
+      "type": "PREC_LEFT",
+      "value": 1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {"type": "SYMBOL", "name": "expression"},
+          {"type": "STRING", "value": "*"},
+          {"type": "SYMBOL", "name": "expression"}
+        ]
+      }
+    },
+
+    "other_thing": {
+      "type": "PREC_LEFT",
+      "value": -1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {"type": "SYMBOL", "name": "expression"},
+          {"type": "STRING", "value": "*"},
+          {"type": "STRING", "value": "*"}
+        ]
+      }
+    },
+
+    "identifier": {
+      "type": "PATTERN",
+      "value": "[a-zA-Z]+"
+    }
+  }
+}

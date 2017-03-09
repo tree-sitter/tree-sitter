@@ -1,0 +1,15 @@
+{
+  "name": "epsilon_rules",
+
+  "rules": {
+    "rule_1": {"type": "SYMBOL", "name": "rule_2"},
+
+    "rule_2": {
+      "type": "CHOICE",
+      "members": [
+        {"type": "SYMBOL", "name": "rule_1"},
+        {"type": "BLANK"}
+      ]
+    }
+  }
+}

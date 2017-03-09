@@ -1,4 +1,3 @@
-#include <stdbool.h>
 #include <tree_sitter/parser.h>
 
 enum {
@@ -6,21 +5,17 @@ enum {
   LINE_BREAK
 };
 
-void *tree_sitter_shared_external_tokens_external_scanner_create() {
-  return NULL;
-}
+void *tree_sitter_external_and_internal_tokens_external_scanner_create() { return NULL; }
 
-void tree_sitter_shared_external_tokens_external_scanner_reset(void *payload) {
-}
+void tree_sitter_external_and_internal_tokens_external_scanner_destroy(void *payload) {}
 
-bool tree_sitter_shared_external_tokens_external_scanner_serialize(void *payload, TSExternalTokenState state) {
-  return true;
-}
+void tree_sitter_external_and_internal_tokens_external_scanner_reset(void *payload) {}
 
-void tree_sitter_shared_external_tokens_external_scanner_deserialize(void *payload, TSExternalTokenState state) {
-}
+bool tree_sitter_external_and_internal_tokens_external_scanner_serialize(void *payload, TSExternalTokenState state) { return true; }
 
-bool tree_sitter_shared_external_tokens_external_scanner_scan(
+void tree_sitter_external_and_internal_tokens_external_scanner_deserialize(void *payload, TSExternalTokenState state) {}
+
+bool tree_sitter_external_and_internal_tokens_external_scanner_scan(
   void *payload, TSLexer *lexer, const bool *whitelist) {
 
   // If a line-break is a valid lookahead token, only skip spaces.
@@ -57,7 +52,4 @@ bool tree_sitter_shared_external_tokens_external_scanner_scan(
   }
 
   return false;
-}
-
-void tree_sitter_shared_external_tokens_external_scanner_destroy(void *payload) {
 }

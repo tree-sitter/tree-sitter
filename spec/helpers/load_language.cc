@@ -1,12 +1,12 @@
 #include "spec_helper.h"
 #include "helpers/load_language.h"
+#include "helpers/file_helpers.h"
 #include <unistd.h>
 #include <dlfcn.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <map>
 #include <string>
-#include <sys/stat.h>
 #include <fstream>
 #include <stdlib.h>
 #include "tree_sitter/compiler.h"
@@ -54,25 +54,10 @@ static std::string run_command(const char *cmd, const char *args[]) {
   }
 }
 
-static bool file_exists(const string &path) {
-  struct stat file_stat;
-  return stat(path.c_str(), &file_stat) == 0;
-}
-
-static int get_modified_time(const string &path) {
-  struct stat file_stat;
-  if (stat(path.c_str(), &file_stat) != 0) {
-    if (errno != ENOENT)
-      fprintf(stderr, "Error in stat() for path: %s\n", + path.c_str());
-    return 0;
-  }
-  return file_stat.st_mtime;
-}
-
-const TSLanguage *load_language(const string &source_filename,
-                                const string &lib_filename,
-                                const string &language_name,
-                                string external_scanner_filename = "") {
+static const TSLanguage *load_language(const string &source_filename,
+                                       const string &lib_filename,
+                                       const string &language_name,
+                                       string external_scanner_filename = "") {
   string language_function_name = "tree_sitter_" + language_name;
   string header_dir = getenv("PWD") + string("/include");
   int source_mtime = get_modified_time(source_filename);
@@ -132,9 +117,9 @@ const TSLanguage *load_language(const string &source_filename,
   return reinterpret_cast<TSLanguage *(*)()>(language_function)();
 }
 
-const TSLanguage *load_compile_result(const string &name,
-                                      const TSCompileResult &compile_result,
-                                      string external_scanner_path) {
+const TSLanguage *load_test_language(const string &name,
+                                     const TSCompileResult &compile_result,
+                                     string external_scanner_path) {
   if (compile_result.error_type != TSCompileErrorTypeNone) {
     Assert::Failure(string("Compilation failed ") + compile_result.error_message);
     return nullptr;
@@ -155,7 +140,7 @@ const TSLanguage *load_compile_result(const string &name,
   return language;
 }
 
-const TSLanguage *get_test_language(const string &language_name) {
+const TSLanguage *load_real_language(const string &language_name) {
   if (loaded_languages[language_name])
     return loaded_languages[language_name];
 
@@ -182,20 +167,14 @@ const TSLanguage *get_test_language(const string &language_name) {
   if (parser_mtime < grammar_mtime || parser_mtime < libcompiler_mtime) {
     printf("\n" "Regenerating the %s parser...\n", language_name.c_str());
 
-    ifstream grammar_file(grammar_filename);
-    istreambuf_iterator<char> grammar_file_iterator(grammar_file), end_iterator;
-    string grammar_json(grammar_file_iterator, end_iterator);
-    grammar_file.close();
-
+    string grammar_json = read_file(grammar_filename);
     TSCompileResult result = ts_compile_grammar(grammar_json.c_str());
     if (result.error_type != TSCompileErrorTypeNone) {
       fprintf(stderr, "Failed to compile %s grammar: %s\n", language_name.c_str(), result.error_message);
       return nullptr;
     }
 
-    ofstream parser_file(parser_filename);
-    parser_file << result.code;
-    parser_file.close();
+    write_file(parser_filename, result.code);
   }
 
   mkdir("out/tmp", 0777);
