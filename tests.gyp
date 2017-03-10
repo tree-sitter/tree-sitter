@@ -9,16 +9,16 @@
       ],
       'include_dirs': [
         'src',
-        'spec',
+        'test',
         'externals/bandit',
         'externals/utf8proc',
       ],
       'sources': [
-        'spec/specs.cc',
-        '<!@(find spec/compiler -name "*.cc")',
-        '<!@(find spec/runtime -name "*.cc")',
-        '<!@(find spec/integration -name "*.cc")',
-        '<!@(find spec/helpers -name "*.cc")',
+        'test/tests.cc',
+        '<!@(find test/compiler -name "*.cc")',
+        '<!@(find test/runtime -name "*.cc")',
+        '<!@(find test/integration -name "*.cc")',
+        '<!@(find test/helpers -name "*.cc")',
       ],
       'libraries': [
         '-ldl'

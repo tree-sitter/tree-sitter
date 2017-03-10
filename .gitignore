@@ -6,10 +6,10 @@ Makefile
 *.target.mk
 *.xcodeproj
 
-spec/run.out*
+test/run.out*
 externals/cpplint.py
 out
 *.pyc
 
-spec/fixtures/grammars/*
-!spec/fixtures/grammars/.gitkeep
+test/fixtures/grammars/*
+!test/fixtures/grammars/.gitkeep

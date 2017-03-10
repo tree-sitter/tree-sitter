@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-GRAMMARS_DIR=$(dirname $0)/../spec/fixtures/grammars
+GRAMMARS_DIR=$(dirname $0)/../test/fixtures/grammars
 
 fetch_grammar() {
   local grammar=$1

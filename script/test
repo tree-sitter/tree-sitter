@@ -92,7 +92,7 @@ case ${mode} in
       --dsymutil=yes                             \
       --leak-check=${leak_check}                 \
       $cmd "${args[@]}" 2>&1 |                   \
-      grep --color -E '\w+_specs?.cc:\d+|$'
+      grep --color -E '\w+_tests?.cc:\d+|$'
     ;;
 
   debug)
