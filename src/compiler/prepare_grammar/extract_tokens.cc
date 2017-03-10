@@ -96,32 +96,30 @@ static CompileError extra_token_error(const string &message) {
 }
 
 tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
-  const InternedGrammar &grammar) {
+  const InternedGrammar &grammar
+) {
   InitialSyntaxGrammar syntax_grammar;
   LexicalGrammar lexical_grammar;
   SymbolReplacer symbol_replacer;
   TokenExtractor extractor;
 
-  /*
-   *  First, extract all of the grammar's tokens into the lexical grammar.
-   */
+  // First, extract all of the grammar's tokens into the lexical grammar.
   vector<Variable> processed_variables;
-  for (const Variable &variable : grammar.variables)
+  for (const Variable &variable : grammar.variables) {
     processed_variables.push_back(Variable{
       variable.name,
       variable.type,
       extractor.apply(variable.rule)
     });
+  }
   lexical_grammar.variables = extractor.tokens;
 
-  /*
-   *  If a variable's entire rule was extracted as a token and that token didn't
-   *  appear within any other rule, then remove that variable from the syntax
-   *  grammar, giving its name to the token in the lexical grammar. Any symbols
-   *  that pointed to that variable will need to be updated to point to the
-   *  variable in the lexical grammar. Symbols that pointed to later variables
-   *  will need to have their indices decremented.
-   */
+  // If a variable's entire rule was extracted as a token and that token didn't
+  // appear within any other rule, then remove that variable from the syntax
+  // grammar, giving its name to the token in the lexical grammar. Any symbols
+  // that pointed to that variable will need to be updated to point to the
+  // variable in the lexical grammar. Symbols that pointed to later variables
+  // will need to have their indices decremented.
   size_t i = 0;
   for (const Variable &variable : processed_variables) {
     auto symbol = variable.rule->as<Symbol>();
@@ -135,11 +133,10 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
     i++;
   }
 
-  /*
-   *  Perform any replacements of symbols needed based on the previous step.
-   */
-  for (Variable &variable : syntax_grammar.variables)
+  // Perform any replacements of symbols needed based on the previous step.
+  for (Variable &variable : syntax_grammar.variables) {
     variable.rule = symbol_replacer.apply(variable.rule);
+  }
 
   for (const ConflictSet &conflict_set : grammar.expected_conflicts) {
     ConflictSet new_conflict_set;
@@ -149,13 +146,11 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
     syntax_grammar.expected_conflicts.insert(new_conflict_set);
   }
 
-  /*
-   *  The grammar's extra tokens can be either token rules or symbols
-   *  pointing to token rules. If they are symbols, then they'll be handled by
-   *  the parser; add them to the syntax grammar's ubiqutous tokens. If they
-   *  are anonymous rules, they can be handled by the lexer; add them to the
-   *  lexical grammar's separator rules.
-   */
+  // The grammar's extra tokens can be either token rules or symbols
+  // pointing to token rules. If they are symbols, then they'll be handled by
+  // the parser; add them to the syntax grammar's ubiqutous tokens. If they
+  // are anonymous rules, they can be handled by the lexer; add them to the
+  // lexical grammar's separator rules.
   for (const rule_ptr &rule : grammar.extra_tokens) {
     int i = 0;
     bool used_elsewhere_in_grammar = false;
@@ -167,8 +162,9 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
       i++;
     }
 
-    if (used_elsewhere_in_grammar)
+    if (used_elsewhere_in_grammar) {
       continue;
+    }
 
     if (is_token(rule)) {
       lexical_grammar.separators.push_back(rule);
@@ -205,7 +201,7 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
       );
     }
 
-    syntax_grammar.external_tokens.push_back({
+    syntax_grammar.external_tokens.push_back(ExternalToken{
       external_token.name,
       external_token.type,
       internal_token
