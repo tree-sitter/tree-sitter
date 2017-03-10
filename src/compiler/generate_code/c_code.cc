@@ -126,10 +126,16 @@ class CCodeGenerator {
   }
 
   void add_stats() {
-    size_t token_count = 1 + lexical_grammar.variables.size();
-    for (const ExternalToken &external_token : syntax_grammar.external_tokens) {
-      if (external_token.corresponding_internal_token == rules::NONE()) {
+    size_t token_count = 0;
+    for (const auto &entry : parse_table.symbols) {
+      const Symbol &symbol = entry.first;
+      if (symbol.is_token()) {
         token_count++;
+      } else if (symbol.is_external()) {
+        const ExternalToken &external_token = syntax_grammar.external_tokens[symbol.index];
+        if (external_token.corresponding_internal_token == rules::NONE()) {
+          token_count++;
+        }
       }
     }
 
