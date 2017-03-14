@@ -42,12 +42,9 @@ bool AcceptTokenAction::operator==(const AcceptTokenAction &other) const {
          (is_string == other.is_string);
 }
 
-LexState::LexState() : is_token_start(false) {}
-
 bool LexState::operator==(const LexState &other) const {
   return advance_actions == other.advance_actions &&
-         accept_action == other.accept_action &&
-         is_token_start == other.is_token_start;
+         accept_action == other.accept_action;
 }
 
 }  // namespace tree_sitter

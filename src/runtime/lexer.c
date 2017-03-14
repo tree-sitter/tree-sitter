@@ -16,6 +16,8 @@
 
 static const char empty_chunk[2] = { 0, 0 };
 
+static Length unknown_length = {UINT32_MAX, 0, {0, 0}};
+
 static void ts_lexer__get_chunk(Lexer *self) {
   TSInput input = self->input;
   if (!self->chunk ||
@@ -70,6 +72,11 @@ static void ts_lexer__advance(void *payload, bool skip) {
   ts_lexer__get_lookahead(self);
 }
 
+static void ts_lexer__mark_end(void *payload) {
+  Lexer *self = (Lexer *)payload;
+  self->token_end_position = self->current_position;
+}
+
 /*
  *  The lexer's advance method is stored as a struct field so that generated
  *  parsers can call it without needing to be linked against this library.
@@ -79,6 +86,7 @@ void ts_lexer_init(Lexer *self) {
   *self = (Lexer){
     .data = {
       .advance = ts_lexer__advance,
+      .mark_end = ts_lexer__mark_end,
       .lookahead = 0,
       .result_symbol = 0,
     },
@@ -95,6 +103,7 @@ void ts_lexer_init(Lexer *self) {
 
 static inline void ts_lexer__reset(Lexer *self, Length position) {
   self->token_start_position = position;
+  self->token_end_position = unknown_length;
   self->current_position = position;
 
   if (self->chunk && (position.bytes < self->chunk_start ||
@@ -122,6 +131,7 @@ void ts_lexer_reset(Lexer *self, Length position) {
 
 void ts_lexer_start(Lexer *self) {
   self->token_start_position = self->current_position;
+  self->token_end_position = unknown_length;
   self->data.result_symbol = 0;
 
   if (!self->chunk)

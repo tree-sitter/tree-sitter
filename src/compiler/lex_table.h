@@ -35,12 +35,10 @@ struct AcceptTokenAction {
 };
 
 struct LexState {
-  LexState();
   bool operator==(const LexState &) const;
 
   std::map<rules::CharacterSet, AdvanceAction> advance_actions;
   AcceptTokenAction accept_action;
-  bool is_token_start;
 };
 
 struct LexTable {
