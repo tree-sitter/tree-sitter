@@ -312,6 +312,24 @@ describe("Tree", []() {
         AssertThat(tree->children[2]->size, Equals<Length>({3, 3, {0, 3}}));
       });
     });
+
+    describe("edits within a tree's range of scanned bytes", [&]() {
+      it("marks preceding trees as changed", [&]() {
+        tree->children[0]->bytes_scanned = 7;
+
+        TSInputEdit edit;
+        edit.start_byte = 6;
+        edit.bytes_removed = 1;
+        edit.bytes_added = 1;
+        edit.start_point = {0, 6};
+        edit.extent_removed = {0, 1};
+        edit.extent_added = {0, 1};
+        ts_tree_edit(tree, &edit);
+        assert_consistent(tree);
+
+        AssertThat(tree->children[0]->has_changes, IsTrue());
+      });
+    });
   });
 
   describe("eq", [&]() {
