@@ -26,6 +26,7 @@ typedef struct {
 
 typedef struct {
   void (*advance)(void *, bool);
+  void (*mark_end)(void *);
   int32_t lookahead;
   TSSymbol result_symbol;
 } TSLexer;
@@ -91,32 +92,32 @@ typedef struct TSLanguage {
  *  Lexer Macros
  */
 
-#define START_LEXER() \
-  int32_t lookahead;  \
-  next_state:         \
+#define START_LEXER()           \
+  bool result = false;          \
+  int32_t lookahead;            \
+  next_state:                   \
   lookahead = lexer->lookahead;
 
-#define ADVANCE(state_value)                   \
-  {                                            \
+#define ADVANCE(state_value)      \
+  {                               \
     lexer->advance(lexer, false); \
-    state = state_value;                       \
-    goto next_state;                           \
+    state = state_value;          \
+    goto next_state;              \
   }
 
-#define SKIP(state_value)                     \
-  {                                           \
+#define SKIP(state_value)        \
+  {                              \
     lexer->advance(lexer, true); \
-    state = state_value;                      \
-    goto next_state;                          \
+    state = state_value;         \
+    goto next_state;             \
   }
 
-#define ACCEPT_TOKEN(symbol_value)       \
-  {                                      \
-    lexer->result_symbol = symbol_value; \
-    return true;                         \
-  }
+#define ACCEPT_TOKEN(symbol_value)     \
+  result = true;                       \
+  lexer->result_symbol = symbol_value; \
+  lexer->mark_end(lexer);
 
-#define LEX_ERROR() return false
+#define END_STATE() return result;
 
 /*
  *  Parse Table Macros

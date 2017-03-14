@@ -69,18 +69,15 @@ describe("LexConflictManager::resolve(new_action, old_action)", []() {
   describe("advance/accept-token conflicts", [&]() {
     describe("when the token to accept has higher precedence", [&]() {
       it("prefers the accept-token action", [&]() {
-        AssertThat(conflict_manager.possible_extensions, IsEmpty());
         update = conflict_manager.resolve(item_set, AdvanceAction(1, { 1, 2 }, true), AcceptTokenAction(sym3, 3, true));
         AssertThat(update, IsFalse());
-        AssertThat(conflict_manager.possible_extensions, IsEmpty());
       });
     });
 
     describe("when the token to accept does not have a higher precedence", [&]() {
-      it("favors the advance action and adds the in-progress tokens as possible extensions of the discarded token", [&]() {
+      it("favors the advance action", [&]() {
         update = conflict_manager.resolve(item_set, AdvanceAction(1, { 1, 2 }, true), AcceptTokenAction(sym3, 2, true));
         AssertThat(update, IsTrue());
-        AssertThat(conflict_manager.possible_extensions[sym3.index], Contains(sym4.index));
       });
     });
   });

@@ -34,6 +34,7 @@ typedef struct Tree {
 
   Length padding;
   Length size;
+  uint32_t bytes_scanned;
 
   TSSymbol symbol;
   TSStateId parse_state;

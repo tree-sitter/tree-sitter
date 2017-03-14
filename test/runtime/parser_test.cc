@@ -164,7 +164,7 @@ describe("Parser", [&]() {
     describe("when there is an unterminated error", [&]() {
       it("maintains a consistent tree", [&]() {
         ts_document_set_language(document, load_real_language("javascript"));
-        set_text("a; /* b");
+        set_text("a; ' this string never ends");
         assert_root_node(
           "(ERROR (program (expression_statement (identifier))) (UNEXPECTED EOF))");
       });

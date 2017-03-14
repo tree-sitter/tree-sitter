@@ -279,7 +279,6 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
   if (skipped_error) {
     Length padding = length_sub(error_start_position, start_position);
     Length size = length_sub(error_end_position, error_start_position);
-    ts_lexer_reset(&self->lexer, error_end_position);
     result = ts_tree_make_error(size, padding, first_error_character);
   } else {
     TSSymbol symbol = self->lexer.data.result_symbol;
@@ -287,8 +286,11 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
       symbol = self->language->external_scanner.symbol_map[symbol];
     }
 
+    if (length_has_unknown_chars(self->lexer.token_end_position)) {
+      self->lexer.token_end_position = self->lexer.current_position;
+    }
     Length padding = length_sub(self->lexer.token_start_position, start_position);
-    Length size = length_sub(self->lexer.current_position, self->lexer.token_start_position);
+    Length size = length_sub(self->lexer.token_end_position, self->lexer.token_start_position);
     TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, symbol);
     result = ts_tree_make_leaf(symbol, padding, size, metadata);
 
@@ -301,6 +303,7 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
     }
   }
 
+  result->bytes_scanned = self->lexer.current_position.bytes - start_position.bytes + 1;
   result->parse_state = parse_state;
   result->first_leaf.lex_mode = lex_mode;
 
