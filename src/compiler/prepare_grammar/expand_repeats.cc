@@ -2,14 +2,9 @@
 #include <vector>
 #include <string>
 #include <utility>
-#include "compiler/prepare_grammar/initial_syntax_grammar.h"
+#include <cassert>
+#include "compiler/grammar.h"
 #include "compiler/rule.h"
-#include "compiler/rules/visitor.h"
-#include "compiler/rules/seq.h"
-#include "compiler/rules/symbol.h"
-#include "compiler/rules/choice.h"
-#include "compiler/rules/blank.h"
-#include "compiler/rules/repeat.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {
@@ -18,53 +13,79 @@ using std::string;
 using std::vector;
 using std::pair;
 using std::to_string;
-using std::make_shared;
-using rules::Blank;
-using rules::Choice;
-using rules::Repeat;
-using rules::Seq;
+using rules::Rule;
 using rules::Symbol;
 
-class ExpandRepeats : public rules::IdentityRuleFn {
+class ExpandRepeats {
   string rule_name;
   size_t offset;
   size_t repeat_count;
-  vector<pair<rule_ptr, Symbol>> existing_repeats;
+  vector<pair<Rule, Symbol>> existing_repeats;
 
-  rule_ptr apply_to(const Repeat *rule) {
-    for (const auto pair : existing_repeats)
-      if (pair.first->operator==(*rule))
-        return pair.second.copy();
+  Rule apply(Rule rule) {
+    return rule.match(
+      [&](const rules::Blank &blank) -> Rule { return blank; },
+      [&](const rules::Symbol &symbol) { return symbol; },
 
-    rule_ptr inner_rule = apply(rule->content);
-    size_t index = aux_rules.size();
-    string helper_rule_name = rule_name + "_repeat" + to_string(++repeat_count);
-    Symbol repeat_symbol(offset + index, Symbol::NonTerminal);
-    existing_repeats.push_back({ rule->copy(), repeat_symbol });
-    aux_rules.push_back(Variable{
-      helper_rule_name,
-      VariableTypeAuxiliary,
-      Choice::build({
-        Seq::build({
-          repeat_symbol.copy(),
-          inner_rule,
-        }),
-        inner_rule,
-      })
-    });
-    return repeat_symbol.copy();
+      [&](const rules::Choice &choice) {
+        vector<Rule> elements;
+        for (const auto &element : choice.elements) {
+          elements.push_back(apply(element));
+        }
+        return Rule::choice(elements);
+      },
+
+      [&](const rules::Seq &sequence) {
+        return rules::Seq{
+          apply(*sequence.left),
+          apply(*sequence.right)
+        };
+      },
+
+      [&](const rules::Repeat &repeat) {
+        for (const auto pair : existing_repeats) {
+          if (pair.first == rule) {
+            return pair.second;
+          }
+        }
+
+        Rule inner_rule = apply(*repeat.rule);
+        size_t index = aux_rules.size();
+        string helper_rule_name = rule_name + "_repeat" + to_string(++repeat_count);
+        Symbol repeat_symbol = Symbol::non_terminal(offset + index);
+        existing_repeats.push_back({repeat, repeat_symbol});
+        aux_rules.push_back({
+          helper_rule_name,
+          VariableTypeAuxiliary,
+          rules::Choice{{
+            rules::Seq{repeat_symbol, inner_rule},
+            inner_rule,
+          }}
+        });
+        return repeat_symbol;
+      },
+
+      [&](const rules::Metadata &metadata) {
+        return rules::Metadata{apply(*metadata.rule), metadata.params};
+      },
+
+      [](auto) {
+        assert(!"Unexpected rule type");
+        return rules::Blank{};
+      }
+    );
   }
 
  public:
   explicit ExpandRepeats(size_t offset) : offset(offset) {}
 
-  rule_ptr expand(const rule_ptr &rule, const string &name) {
+  Rule expand(const Rule &rule, const string &name) {
     rule_name = name;
     repeat_count = 0;
     return apply(rule);
   }
 
-  vector<Variable> aux_rules;
+  vector<InitialSyntaxGrammar::Variable> aux_rules;
 };
 
 InitialSyntaxGrammar expand_repeats(const InitialSyntaxGrammar &grammar) {
@@ -75,11 +96,16 @@ InitialSyntaxGrammar expand_repeats(const InitialSyntaxGrammar &grammar) {
   result.external_tokens = grammar.external_tokens;
 
   ExpandRepeats expander(result.variables.size());
-  for (auto &variable : result.variables)
+  for (auto &variable : result.variables) {
     variable.rule = expander.expand(variable.rule, variable.name);
+  }
 
-  result.variables.insert(result.variables.end(), expander.aux_rules.begin(),
-                          expander.aux_rules.end());
+  result.variables.insert(
+    result.variables.end(),
+    expander.aux_rules.begin(),
+    expander.aux_rules.end()
+  );
+
   return result;
 }
 

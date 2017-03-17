@@ -1,6 +1,5 @@
 #include "compiler/lex_table.h"
-#include "compiler/rules/symbol.h"
-#include "compiler/rules/built_in_symbols.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 

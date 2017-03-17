@@ -4,7 +4,7 @@
 #include <utility>
 #include "compiler/syntax_grammar.h"
 #include "compiler/lexical_grammar.h"
-#include "compiler/rules/built_in_symbols.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -16,8 +16,6 @@ using std::get;
 using std::pair;
 using std::tuple;
 using std::make_tuple;
-using std::shared_ptr;
-using std::make_shared;
 using rules::Symbol;
 using rules::NONE;
 
@@ -27,17 +25,17 @@ ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
   set<Symbol::Index> processed_non_terminals;
 
   for (size_t i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
-    Symbol symbol(i, Symbol::Terminal);
+    Symbol symbol = Symbol::terminal(i);
     first_sets.insert({symbol, LookaheadSet({ symbol })});
   }
 
   for (size_t i = 0, n = grammar.external_tokens.size(); i < n; i++) {
-    Symbol symbol(i, Symbol::External);
+    Symbol symbol = Symbol::external(i);
     first_sets.insert({symbol, LookaheadSet({ symbol })});
   }
 
   for (size_t i = 0, n = grammar.variables.size(); i < n; i++) {
-    Symbol symbol(i, Symbol::NonTerminal);
+    Symbol symbol = Symbol::non_terminal(i);
     LookaheadSet first_set;
 
     processed_non_terminals.clear();
@@ -64,7 +62,7 @@ ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
   vector<ParseItemSetComponent> components_to_process;
 
   for (size_t i = 0, n = grammar.variables.size(); i < n; i++) {
-    Symbol symbol(i, Symbol::NonTerminal);
+    Symbol symbol = Symbol::non_terminal(i);
     map<ParseItem, pair<LookaheadSet, bool>> cache_entry;
 
     components_to_process.clear();

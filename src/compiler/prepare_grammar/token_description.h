@@ -7,7 +7,7 @@
 namespace tree_sitter {
 namespace prepare_grammar {
 
-std::string token_description(const rule_ptr &);
+std::string token_description(const rules::Rule &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

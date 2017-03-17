@@ -1,9 +1,7 @@
 #ifndef COMPILER_RULES_METADATA_H_
 #define COMPILER_RULES_METADATA_H_
 
-#include <string>
-#include <map>
-#include "compiler/rule.h"
+#include <memory>
 
 namespace tree_sitter {
 namespace rules {
@@ -24,25 +22,42 @@ struct MetadataParams {
   bool is_active;
   bool is_main_token;
 
-  MetadataParams();
-  bool operator==(const MetadataParams &) const;
+  inline MetadataParams() :
+    precedence{0}, associativity{AssociativityNone}, has_precedence{false},
+    has_associativity{false}, is_token{false}, is_string{false},
+    is_active{false}, is_main_token{false} {}
+
+  inline bool operator==(const MetadataParams &other) const {
+    return (
+      precedence == other.precedence &&
+      associativity == other.associativity &&
+      has_precedence == other.has_precedence &&
+      has_associativity == other.has_associativity &&
+      is_token == other.is_token &&
+      is_string == other.is_string &&
+      is_active == other.is_active &&
+      is_main_token == other.is_main_token
+    );
+  }
 };
 
-class Metadata : public Rule {
- public:
-  Metadata(rule_ptr rule, MetadataParams);
-  static rule_ptr build(rule_ptr rule, MetadataParams);
-  static rule_ptr main_token(rule_ptr rule);
-  static rule_ptr separator(rule_ptr rule);
+struct Rule;
 
-  bool operator==(const Rule &other) const;
-  size_t hash_code() const;
-  rule_ptr copy() const;
-  std::string to_string() const;
-  void accept(Visitor *visitor) const;
-
-  const rule_ptr rule;
+struct Metadata {
+  std::shared_ptr<Rule> rule;
   MetadataParams params;
+
+  Metadata(const Rule &rule, MetadataParams params);
+
+  static Metadata token(const Rule &rule);
+  static Metadata active_prec(int precedence, const Rule &rule);
+  static Metadata prec(int precedence, const Rule &rule);
+  static Metadata prec_left(int precedence, const Rule &rule);
+  static Metadata prec_right(int precedence, const Rule &rule);
+  static Metadata separator(const Rule &rule);
+  static Metadata main_token(const Rule &rule);
+
+  bool operator==(const Metadata &other) const;
 };
 
 }  // namespace rules

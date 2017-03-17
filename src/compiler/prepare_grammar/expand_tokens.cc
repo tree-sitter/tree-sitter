@@ -2,15 +2,8 @@
 #include <vector>
 #include <string>
 #include <utility>
-#include <map>
 #include "compiler/lexical_grammar.h"
-#include "compiler/rules/visitor.h"
-#include "compiler/rules/pattern.h"
-#include "compiler/rules/string.h"
-#include "compiler/rules/blank.h"
-#include "compiler/rules/seq.h"
-#include "compiler/rules/metadata.h"
-#include "compiler/rules/character_set.h"
+#include "compiler/rule.h"
 #include "compiler/prepare_grammar/parse_regex.h"
 #include "utf8proc.h"
 
@@ -19,70 +12,69 @@ namespace prepare_grammar {
 
 using std::string;
 using std::vector;
-using std::map;
-using std::pair;
-using std::make_shared;
-using rules::String;
-using rules::Pattern;
-using rules::Metadata;
+using rules::Rule;
 
-class ExpandTokens : public rules::IdentityRuleFn {
-  using rules::IdentityRuleFn::apply_to;
+ExpandTokenResult expand_token(const rules::Rule &rule) {
+  return rule.match(
+    [](const rules::Blank &blank) -> ExpandTokenResult { return Rule(blank); },
 
-  rule_ptr apply_to(const String *rule) {
-    vector<rule_ptr> elements;
-    const uint8_t *iter = reinterpret_cast<const uint8_t *>(rule->value.data());
-    const uint8_t *end = iter + rule->value.size();
+    [](const rules::String &string) {
+      vector<Rule> elements;
+      const uint8_t *iter = reinterpret_cast<const uint8_t *>(string.value.data());
+      const uint8_t *end = iter + string.value.size();
 
-    while (iter < end) {
-      int32_t el;
-      size_t size = utf8proc_iterate(iter, (end - iter), &el);
-      if (!size)
-        break;
-      iter += size;
+      while (iter < end) {
+        int32_t el;
+        size_t size = utf8proc_iterate(iter, (end - iter), &el);
+        if (!size)
+          break;
+        iter += size;
 
-      elements.push_back(rules::CharacterSet().include(el).copy());
-    }
+        elements.push_back(rules::CharacterSet().include(el));
+      }
 
-    rules::MetadataParams params;
-    params.is_token = true;
-    params.is_string = true;
+      return Rule::seq(elements);
+    },
 
-    return rules::Metadata::build(rules::Seq::build(elements), params);
-  }
+    [](const rules::Pattern &pattern) -> ExpandTokenResult {
+      auto result = parse_regex(pattern.value);
+      if (result.second) return result.second;
+      return result.first;
+    },
 
-  rule_ptr apply_to(const Pattern *rule) {
-    auto pair = parse_regex(rule->value);
-    if (!error.type)
-      error = pair.second;
-    return pair.first;
-  }
+    [](const rules::Repeat &rule) -> ExpandTokenResult {
+      auto result = expand_token(*rule.rule);
+      if (result.error) return result.error;
+      return Rule::repeat(result.rule);
+    },
 
- public:
-  CompileError error;
-  ExpandTokens() : error(CompileError::none()) {}
+    [](const rules::Metadata &rule) -> ExpandTokenResult {
+      auto result = expand_token(*rule.rule);
+      if (result.error) return result.error;
+      return Rule(rules::Metadata{result.rule, rule.params});
+    },
+
+    [](const rules::Seq &rule) -> ExpandTokenResult {
+      auto left_result = expand_token(*rule.left);
+      if (left_result.error) return left_result.error;
+      auto right_result = expand_token(*rule.right);
+      if (right_result.error) return right_result.error;
+      return Rule(rules::Seq{left_result.rule, right_result.rule});
+    },
+
+    [](const rules::Choice &rule) -> ExpandTokenResult {
+      std::vector<Rule> elements;
+      for (const auto &element : rule.elements) {
+        auto result = expand_token(element);
+        if (result.error) return result.error;
+        elements.push_back(result.rule);
+      }
+      return Rule(rules::Choice{elements});
+    },
+
+    [](auto) { return CompileError(TSCompileErrorTypeInvalidTokenContents, ""); }
+  );
 };
-
-pair<LexicalGrammar, CompileError> expand_tokens(const LexicalGrammar &grammar) {
-  LexicalGrammar result;
-  ExpandTokens expander;
-
-  for (const LexicalVariable &variable : grammar.variables) {
-    auto rule = expander.apply(variable.rule);
-    if (expander.error.type)
-      return { result, expander.error };
-    result.variables.push_back({variable.name, variable.type, rule, variable.is_string});
-  }
-
-  for (auto &sep : grammar.separators) {
-    auto rule = expander.apply(sep);
-    if (expander.error.type)
-      return { result, expander.error };
-    result.separators.push_back(rule);
-  }
-
-  return { result, CompileError::none() };
-}
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

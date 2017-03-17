@@ -1,7 +1,6 @@
 #include "test_helper.h"
-#include "helpers/rule_helpers.h"
 #include "helpers/stream_methods.h"
-#include "compiler/rules/built_in_symbols.h"
+#include "compiler/rule.h"
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/lex_conflict_manager.h"
 #include "compiler/build_tables/lex_item.h"
@@ -14,11 +13,11 @@ START_TEST
 describe("LexConflictManager::resolve(new_action, old_action)", []() {
   LexConflictManager conflict_manager;
   bool update;
-  Symbol sym1(0, Symbol::Terminal);
-  Symbol sym2(1, Symbol::Terminal);
-  Symbol sym3(2, Symbol::Terminal);
-  Symbol sym4(3, Symbol::Terminal);
-  LexItemSet item_set({ LexItem(sym4, blank() )});
+  Symbol sym1 = Symbol::terminal(0);
+  Symbol sym2 = Symbol::terminal(1);
+  Symbol sym3 = Symbol::terminal(2);
+  Symbol sym4 = Symbol::terminal(3);
+  LexItemSet item_set({ LexItem(sym4, Blank{} )});
 
   before_each([&]() {
     conflict_manager = LexConflictManager();

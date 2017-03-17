@@ -1,7 +1,7 @@
 #include "compiler/build_tables/lookahead_set.h"
 #include <set>
 #include <memory>
-#include "compiler/rules/symbol.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace build_tables {

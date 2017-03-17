@@ -6,8 +6,7 @@
 #include <utility>
 #include <vector>
 #include "compiler/lex_table.h"
-#include "compiler/rules/symbol.h"
-#include "compiler/rules/metadata.h"
+#include "compiler/rule.h"
 #include "compiler/precedence_range.h"
 #include "compiler/syntax_grammar.h"
 

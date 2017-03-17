@@ -1,7 +1,7 @@
 #include "compiler/build_tables/parse_item.h"
 #include <string>
 #include "compiler/syntax_grammar.h"
-#include "compiler/rules/built_in_symbols.h"
+#include "compiler/rule.h"
 #include "compiler/util/hash_combine.h"
 
 namespace tree_sitter {
@@ -41,7 +41,7 @@ bool ParseItem::operator<(const ParseItem &other) const {
 }
 
 Symbol ParseItem::lhs() const {
-  return Symbol(variable_index, Symbol::NonTerminal);
+  return Symbol{variable_index, Symbol::NonTerminal};
 }
 
 bool ParseItem::is_done() const {

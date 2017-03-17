@@ -4,17 +4,26 @@
 #include <set>
 #include <vector>
 #include "tree_sitter/compiler.h"
-#include "compiler/rules/symbol.h"
-#include "compiler/syntax_grammar.h"
-#include "compiler/variable.h"
+#include "compiler/grammar.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {
 
 struct InternedGrammar {
+  struct Variable {
+    std::string name;
+    VariableType type;
+    rules::Rule rule;
+
+    bool operator==(const Variable &other) const {
+      return name == other.name && type == other.type && rule == other.rule;
+    }
+  };
+
   std::vector<Variable> variables;
-  std::vector<rule_ptr> extra_tokens;
-  std::set<ConflictSet> expected_conflicts;
+  std::vector<rules::Rule> extra_tokens;
+  std::set<std::set<rules::Symbol>> expected_conflicts;
   std::vector<ExternalToken> external_tokens;
 };
 

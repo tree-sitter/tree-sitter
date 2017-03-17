@@ -8,11 +8,11 @@
 
 namespace tree_sitter {
 
-struct Grammar;
+struct InputGrammar;
 
 namespace prepare_grammar {
 
-std::pair<InternedGrammar, CompileError> intern_symbols(const Grammar &);
+std::pair<InternedGrammar, CompileError> intern_symbols(const InputGrammar &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

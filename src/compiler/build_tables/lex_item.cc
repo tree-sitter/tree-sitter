@@ -2,12 +2,7 @@
 #include <unordered_set>
 #include "compiler/build_tables/lex_item_transitions.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
-#include "compiler/rules/choice.h"
-#include "compiler/rules/metadata.h"
-#include "compiler/rules/seq.h"
-#include "compiler/rules/symbol.h"
-#include "compiler/rules/repeat.h"
-#include "compiler/rules/visitor.h"
+#include "compiler/rule.h"
 #include "compiler/util/hash_combine.h"
 
 namespace tree_sitter {
@@ -19,51 +14,63 @@ using std::unordered_set;
 using rules::CharacterSet;
 using rules::Symbol;
 
-LexItem::LexItem(const rules::Symbol &lhs, const rule_ptr rule)
+LexItem::LexItem(const rules::Symbol &lhs, const rules::Rule &rule)
     : lhs(lhs), rule(rule) {}
 
 bool LexItem::operator==(const LexItem &other) const {
-  return (other.lhs == lhs) && other.rule->operator==(*rule);
+  return lhs == other.lhs && rule == other.rule;
 }
 
-LexItem::CompletionStatus LexItem::completion_status() const {
-  class GetCompletionStatus : public rules::RuleFn<CompletionStatus> {
-   protected:
-    CompletionStatus apply_to(const rules::Choice *rule) {
-      for (const auto &element : rule->elements) {
-        CompletionStatus status = apply(element);
+using CompletionStatus = LexItem::CompletionStatus;
+
+static CompletionStatus get_completion_status(const rules::Rule &rule) {
+  return rule.match(
+    [](rules::Choice choice) {
+      for (const auto &element : choice.elements) {
+        auto status = get_completion_status(element);
         if (status.is_done) return status;
       }
-      return { false, PrecedenceRange() };
-    }
+      return CompletionStatus{false, PrecedenceRange()};
+    },
 
-    CompletionStatus apply_to(const rules::Metadata *rule) {
-      CompletionStatus result = apply(rule->rule);
-      if (result.is_done && result.precedence.empty && rule->params.has_precedence) {
-        result.precedence.add(rule->params.precedence);
+    [](rules::Metadata metadata) {
+      CompletionStatus result = get_completion_status(*metadata.rule);
+      if (result.is_done && result.precedence.empty && metadata.params.has_precedence) {
+        result.precedence.add(metadata.params.precedence);
       }
       return result;
-    }
+    },
 
-    CompletionStatus apply_to(const rules::Repeat *rule) {
-      return apply(rule->content);
-    }
+    [](rules::Repeat repeat) {
+      return get_completion_status(*repeat.rule);
+    },
 
-    CompletionStatus apply_to(const rules::Blank *rule) {
-      return { true, PrecedenceRange() };
-    }
-
-    CompletionStatus apply_to(const rules::Seq *rule) {
-      CompletionStatus left_status = apply(rule->left);
+    [](rules::Seq sequence) {
+      CompletionStatus left_status = get_completion_status(*sequence.left);
       if (left_status.is_done) {
-        return apply(rule->right);
+        return get_completion_status(*sequence.right);
       } else {
-        return { false, PrecedenceRange() };
+        return CompletionStatus{false, PrecedenceRange()};
       }
-    }
-  };
+    },
 
-  return GetCompletionStatus().apply(rule);
+    [](rules::Blank blank) {
+      return CompletionStatus{true, PrecedenceRange()};
+    },
+
+    [](rules::CharacterSet) {
+      return CompletionStatus{false, PrecedenceRange()};
+    },
+
+    [](auto) {
+      return CompletionStatus{false, PrecedenceRange()};
+    }
+  );
+}
+
+
+LexItem::CompletionStatus LexItem::completion_status() const {
+  return get_completion_status(rule);
 }
 
 LexItemSet::LexItemSet() {}

@@ -1,43 +1,42 @@
 #include "compiler/build_tables/rule_can_be_blank.h"
-#include "compiler/rules/symbol.h"
-#include "compiler/rules/visitor.h"
-#include "compiler/rules/seq.h"
-#include "compiler/rules/choice.h"
-#include "compiler/rules/blank.h"
-#include "compiler/rules/metadata.h"
-#include "compiler/rules/repeat.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace build_tables {
 
-class CanBeBlank : public rules::RuleFn<bool> {
- protected:
-  bool apply_to(const rules::Blank *) {
-    return true;
-  }
+bool rule_can_be_blank(const rules::Rule &rule) {
+  return rule.match(
+    [](rules::Blank) {
+      return true;
+    },
 
-  bool apply_to(const rules::Repeat *rule) {
-    return apply(rule->content);
-  }
+    [](rules::CharacterSet) {
+      return false;
+    },
 
-  bool apply_to(const rules::Choice *rule) {
-    for (const auto &element : rule->elements)
-      if (apply(element))
-        return true;
-    return false;
-  }
+    [](rules::Repeat repeat) {
+      return rule_can_be_blank(*repeat.rule);
+    },
 
-  bool apply_to(const rules::Seq *rule) {
-    return apply(rule->left) && apply(rule->right);
-  }
+    [](rules::Metadata metadata) {
+      return rule_can_be_blank(*metadata.rule);
+    },
 
-  bool apply_to(const rules::Metadata *rule) {
-    return apply(rule->rule);
-  }
-};
+    [](rules::Choice choice) {
+      for (const auto &element : choice.elements) {
+        if (rule_can_be_blank(element)) {
+          return true;
+        }
+      }
+      return false;
+    },
 
-bool rule_can_be_blank(const rule_ptr &rule) {
-  return CanBeBlank().apply(rule);
+    [](rules::Seq seq) {
+      return rule_can_be_blank(*seq.left) && rule_can_be_blank(*seq.right);
+    },
+
+    [](auto) { return false; }
+  );
 }
 
 }  // namespace build_tables

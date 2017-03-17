@@ -25,10 +25,10 @@ for (auto &language_name : test_languages) {
     }
 
     string grammar_json = read_file(grammar_path);
-    TSCompileResult compile_result = ts_compile_grammar(grammar_json.c_str());
 
     if (file_exists(expected_error_path)) {
       it("fails with the correct error message", [&]() {
+        TSCompileResult compile_result = ts_compile_grammar(grammar_json.c_str());
         string expected_error = read_file(expected_error_path);
         AssertThat((void *)compile_result.error_message, !IsNull());
         AssertThat(compile_result.error_message, Equals(expected_error));
@@ -41,6 +41,8 @@ for (auto &language_name : test_languages) {
 
       before_each([&]() {
         if (!language) {
+          TSCompileResult compile_result = ts_compile_grammar(grammar_json.c_str());
+
           language = load_test_language(
             language_name,
             compile_result,

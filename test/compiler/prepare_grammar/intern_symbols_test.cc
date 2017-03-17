@@ -1,11 +1,7 @@
 #include "test_helper.h"
 #include "compiler/prepare_grammar/intern_symbols.h"
 #include "compiler/grammar.h"
-#include "compiler/rules/named_symbol.h"
-#include "compiler/rules/symbol.h"
-#include "compiler/rules/built_in_symbols.h"
-#include "helpers/equals_pointer.h"
-#include "helpers/rule_helpers.h"
+#include "compiler/rule.h"
 #include "helpers/stream_methods.h"
 
 START_TEST
@@ -15,29 +11,29 @@ using prepare_grammar::intern_symbols;
 
 describe("intern_symbols", []() {
   it("replaces named symbols with numerically-indexed symbols", [&]() {
-    Grammar grammar{
+    InputGrammar grammar{
       {
-        {"x", choice({ sym("y"), sym("_z") })},
-        {"y", sym("_z")},
-        {"_z", str("stuff")}
+        {"x", VariableTypeNamed, Rule::choice({ NamedSymbol{"y"}, NamedSymbol{"_z"} })},
+        {"y", VariableTypeNamed, NamedSymbol{"_z"}},
+        {"_z", VariableTypeNamed, String{"stuff"}}
       }, {}, {}, {}
     };
 
     auto result = intern_symbols(grammar);
 
     AssertThat(result.second, Equals(CompileError::none()));
-    AssertThat(result.first.variables, Equals(vector<Variable>{
-      Variable{"x", VariableTypeNamed, choice({ i_sym(1), i_sym(2) })},
-      Variable{"y", VariableTypeNamed, i_sym(2)},
-      Variable{"_z", VariableTypeHidden, str("stuff")},
+    AssertThat(result.first.variables, Equals(vector<prepare_grammar::InternedGrammar::Variable>{
+      {"x", VariableTypeNamed, Rule::choice({ Symbol::non_terminal(1), Symbol::non_terminal(2) })},
+      {"y", VariableTypeNamed, Symbol::non_terminal(2)},
+      {"_z", VariableTypeHidden, String{"stuff"}},
     }));
   });
 
   describe("when there are symbols that reference undefined rules", [&]() {
     it("returns an error", []() {
-      Grammar grammar{
+      InputGrammar grammar{
         {
-          {"x", sym("y")},
+          {"x", VariableTypeNamed, NamedSymbol{"y"}},
         },
         {}, {}, {}
       };
@@ -49,14 +45,14 @@ describe("intern_symbols", []() {
   });
 
   it("translates the grammar's optional 'extra_tokens' to numerical symbols", [&]() {
-    Grammar grammar{
+    InputGrammar grammar{
       {
-        {"x", choice({ sym("y"), sym("z") })},
-        {"y", sym("z")},
-        {"z", str("stuff")}
+        {"x", VariableTypeNamed, Rule::choice({ NamedSymbol{"y"}, NamedSymbol{"z"} })},
+        {"y", VariableTypeNamed, NamedSymbol{"z"}},
+        {"z", VariableTypeNamed, String{"stuff"}}
       },
       {
-        sym("z")
+        NamedSymbol{"z"}
       },
       {}, {}
     };
@@ -65,21 +61,29 @@ describe("intern_symbols", []() {
 
     AssertThat(result.second, Equals(CompileError::none()));
     AssertThat(result.first.extra_tokens.size(), Equals<size_t>(1));
-    AssertThat(*result.first.extra_tokens.begin(), EqualsPointer(i_sym(2)));
+    AssertThat(result.first.extra_tokens, Equals(vector<Rule>({ Symbol::non_terminal(2) })));
   });
 
   it("records any rule names that match external token names", [&]() {
-    Grammar grammar{
+    InputGrammar grammar{
       {
-        {"x", choice({ sym("y"), sym("z") })},
-        {"y", sym("z")},
-        {"z", str("stuff")},
+        {"x", VariableTypeNamed, Rule::choice({ NamedSymbol{"y"}, NamedSymbol{"z"} })},
+        {"y", VariableTypeNamed, NamedSymbol{"z"}},
+        {"z", VariableTypeNamed, String{"stuff"}},
       },
       {},
       {},
       {
-        "w",
-        "z"
+        ExternalToken{
+          "w",
+          VariableTypeNamed,
+          NONE()
+        },
+        ExternalToken{
+          "z",
+          VariableTypeNamed,
+          NONE()
+        },
       }
     };
 
@@ -94,7 +98,7 @@ describe("intern_symbols", []() {
       ExternalToken{
         "z",
         VariableTypeNamed,
-        Symbol(2, Symbol::NonTerminal)
+        Symbol::non_terminal(2)
       },
     }))
   });

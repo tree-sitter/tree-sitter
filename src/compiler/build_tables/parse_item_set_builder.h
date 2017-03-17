@@ -2,7 +2,7 @@
 #define COMPILER_BUILD_TABLES_PARSE_ITEM_SET_BUILDER_H_
 
 #include "compiler/build_tables/parse_item.h"
-#include "compiler/rules/symbol.h"
+#include "compiler/rule.h"
 #include <map>
 
 namespace tree_sitter {

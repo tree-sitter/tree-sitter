@@ -9,7 +9,7 @@
 namespace tree_sitter {
 namespace prepare_grammar {
 
-std::pair<rule_ptr, CompileError> parse_regex(const std::string &);
+std::pair<rules::Rule, CompileError> parse_regex(const std::string &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

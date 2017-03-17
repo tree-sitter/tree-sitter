@@ -4,8 +4,7 @@
 #include <map>
 #include <utility>
 #include "compiler/build_tables/lookahead_set.h"
-#include "compiler/rules/symbol.h"
-#include "compiler/rules/metadata.h"
+#include "compiler/rule.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/precedence_range.h"
 

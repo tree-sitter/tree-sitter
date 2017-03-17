@@ -6,7 +6,7 @@
 namespace tree_sitter {
 namespace build_tables {
 
-bool rule_can_be_blank(const rule_ptr &rule);
+bool rule_can_be_blank(const rules::Rule &rule);
 
 }  // namespace build_tables
 }  // namespace tree_sitter

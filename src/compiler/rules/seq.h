@@ -1,26 +1,20 @@
 #ifndef COMPILER_RULES_SEQ_H_
 #define COMPILER_RULES_SEQ_H_
 
-#include <string>
+#include <memory>
 #include <vector>
-#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace rules {
 
-class Seq : public Rule {
- public:
-  Seq(rule_ptr left, rule_ptr right);
-  static rule_ptr build(const std::vector<rule_ptr> &rules);
+struct Rule;
 
-  bool operator==(const Rule &other) const;
-  size_t hash_code() const;
-  rule_ptr copy() const;
-  std::string to_string() const;
-  void accept(Visitor *visitor) const;
+struct Seq {
+  std::shared_ptr<Rule> left;
+  std::shared_ptr<Rule> right;
 
-  const rule_ptr left;
-  const rule_ptr right;
+  Seq(const Rule &left, const Rule &right);
+  bool operator==(const Seq &other) const;
 };
 
 }  // namespace rules

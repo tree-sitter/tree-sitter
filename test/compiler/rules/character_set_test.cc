@@ -1,5 +1,5 @@
 #include "test_helper.h"
-#include "compiler/rules/character_set.h"
+#include "compiler/rule.h"
 
 using namespace rules;
 
@@ -66,7 +66,7 @@ describe("CharacterSet", []() {
         .include('a', 'd')
         .include('f', 'm');
 
-      AssertThat(set1.hash_code(), Equals(set2.hash_code()));
+      AssertThat(hash<CharacterSet>()(set1), Equals(hash<CharacterSet>()(set2)));
     });
 
     it("returns different numbers for character sets that include different ranges", [&]() {
@@ -78,8 +78,8 @@ describe("CharacterSet", []() {
         .include('a', 'c')
         .include('f', 'm');
 
-      AssertThat(set1.hash_code(), !Equals(set2.hash_code()));
-      AssertThat(set2.hash_code(), !Equals(set1.hash_code()));
+      AssertThat(hash<CharacterSet>()(set1), !Equals(hash<CharacterSet>()(set2)));
+      AssertThat(hash<CharacterSet>()(set2), !Equals(hash<CharacterSet>()(set1)));
     });
 
     it("returns different numbers for character sets that exclude different ranges", [&]() {
@@ -93,16 +93,16 @@ describe("CharacterSet", []() {
         .exclude('a', 'c')
         .exclude('f', 'm');
 
-      AssertThat(set1.hash_code(), !Equals(set2.hash_code()));
-      AssertThat(set2.hash_code(), !Equals(set1.hash_code()));
+      AssertThat(hash<CharacterSet>()(set1), !Equals(hash<CharacterSet>()(set2)));
+      AssertThat(hash<CharacterSet>()(set2), !Equals(hash<CharacterSet>()(set1)));
     });
 
     it("returns different numbers for character sets with different sign", [&]() {
       CharacterSet set1 = CharacterSet().include_all();
       CharacterSet set2 = CharacterSet();
 
-      AssertThat(set1.hash_code(), !Equals(set2.hash_code()));
-      AssertThat(set2.hash_code(), !Equals(set1.hash_code()));
+      AssertThat(hash<CharacterSet>()(set1), !Equals(hash<CharacterSet>()(set2)));
+      AssertThat(hash<CharacterSet>()(set2), !Equals(hash<CharacterSet>()(set1)));
     });
   });
 
@@ -312,7 +312,7 @@ describe("CharacterSet", []() {
         .include('z');
 
       AssertThat(set1.included_ranges(), Equals(vector<CharacterRange>({
-        CharacterRange('a', 'c'),
+        CharacterRange{'a', 'c'},
         CharacterRange('g'),
         CharacterRange('z'),
       })));

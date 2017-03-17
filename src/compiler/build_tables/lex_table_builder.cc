@@ -10,13 +10,7 @@
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/parse_table.h"
 #include "compiler/lexical_grammar.h"
-#include "compiler/rules/built_in_symbols.h"
-#include "compiler/rules/choice.h"
-#include "compiler/rules/metadata.h"
-#include "compiler/rules/repeat.h"
-#include "compiler/rules/seq.h"
-#include "compiler/rules/blank.h"
-#include "compiler/rules/visitor.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -28,6 +22,7 @@ using std::string;
 using std::vector;
 using std::unordered_map;
 using std::unique_ptr;
+using rules::Rule;
 using rules::Blank;
 using rules::Choice;
 using rules::CharacterSet;
@@ -36,35 +31,45 @@ using rules::Symbol;
 using rules::Metadata;
 using rules::Seq;
 
-class StartingCharacterAggregator : public rules::RuleFn<void> {
-  void apply_to(const rules::Seq *rule) {
-    apply(rule->left);
-  }
-
-  void apply_to(const rules::Choice *rule) {
-    for (const rule_ptr &element : rule->elements) apply(element);
-  }
-
-  void apply_to(const rules::Repeat *rule) {
-    apply(rule->content);
-  }
-
-  void apply_to(const rules::Metadata *rule) {
-    apply(rule->rule);
-  }
-
-  void apply_to(const rules::CharacterSet *rule) {
-    result.add_set(*rule);
-  }
-
+class StartingCharacterAggregator {
  public:
+  void apply(const Rule &rule) {
+    rule.match(
+      [this](const Seq &sequence) {
+        apply(*sequence.left);
+      },
+
+      [this](const rules::Choice &rule) {
+        for (const auto &element : rule.elements) {
+          apply(element);
+        }
+      },
+
+      [this](const rules::Repeat &rule) {
+        apply(*rule.rule);
+      },
+
+      [this](const rules::Metadata &rule) {
+        apply(*rule.rule);
+      },
+
+      [this](const rules::CharacterSet &rule) {
+        result.add_set(rule);
+      },
+
+      [this](const rules::Blank) {},
+
+      [](auto) {}
+    );
+  }
+
   CharacterSet result;
 };
 
 class LexTableBuilderImpl : public LexTableBuilder {
   LexTable lex_table;
   const LexicalGrammar grammar;
-  vector<rule_ptr> separator_rules;
+  vector<Rule> separator_rules;
   CharacterSet first_separator_characters;
   LexConflictManager conflict_manager;
   unordered_map<LexItemSet, LexStateId> lex_state_ids;
@@ -74,11 +79,11 @@ class LexTableBuilderImpl : public LexTableBuilder {
 
   LexTableBuilderImpl(const LexicalGrammar &grammar) : grammar(grammar) {
     StartingCharacterAggregator starting_character_aggregator;
-    for (const rule_ptr &rule : grammar.separators) {
-      separator_rules.push_back(Repeat::build(rule));
+    for (const auto &rule : grammar.separators) {
+      separator_rules.push_back(Repeat{rule});
       starting_character_aggregator.apply(rule);
     }
-    separator_rules.push_back(Blank::build());
+    separator_rules.push_back(Blank{});
     first_separator_characters = starting_character_aggregator.result;
     shadowed_token_indices.resize(grammar.variables.size());
   }
@@ -98,8 +103,18 @@ class LexTableBuilderImpl : public LexTableBuilder {
     clear();
 
     map<Symbol, ParseTableEntry> terminals;
-    terminals[Symbol(left, Symbol::Terminal)];
-    terminals[Symbol(right, Symbol::Terminal)];
+    terminals[Symbol::terminal(left)];
+    terminals[Symbol::terminal(right)];
+
+    if (grammar.variables[left].is_string && grammar.variables[right].is_string) {
+      StartingCharacterAggregator left_starting_characters;
+      left_starting_characters.apply(grammar.variables[left].rule);
+      StartingCharacterAggregator right_starting_characters;
+      right_starting_characters.apply(grammar.variables[right].rule);
+      if (!(left_starting_characters.result == right_starting_characters.result)) {
+        return false;
+      }
+    }
 
     add_lex_state(item_set_for_terminals(terminals));
 
@@ -183,11 +198,11 @@ class LexTableBuilderImpl : public LexTableBuilder {
     for (ParseState &state : parse_table->states) {
       for (auto &entry : state.terminal_entries) {
         Symbol symbol = entry.first;
-        if (symbol.is_token()) {
+        if (symbol.is_terminal()) {
           auto homonyms = conflict_manager.possible_homonyms.find(symbol.index);
           if (homonyms != conflict_manager.possible_homonyms.end())
             for (Symbol::Index homonym : homonyms->second)
-              if (state.terminal_entries.count(Symbol(homonym, Symbol::Terminal))) {
+              if (state.terminal_entries.count(Symbol::terminal(homonym))) {
                 entry.second.reusable = false;
                 break;
               }
@@ -198,7 +213,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
           auto extensions = conflict_manager.possible_extensions.find(symbol.index);
           if (extensions != conflict_manager.possible_extensions.end())
             for (Symbol::Index extension : extensions->second)
-              if (state.terminal_entries.count(Symbol(extension, Symbol::Terminal))) {
+              if (state.terminal_entries.count(Symbol::terminal(extension))) {
                 entry.second.depends_on_lookahead = true;
                 break;
               }
@@ -278,15 +293,18 @@ class LexTableBuilderImpl : public LexTableBuilder {
     LexItemSet result;
     for (const auto &pair : terminals) {
       Symbol symbol = pair.first;
-      if (symbol.is_token()) {
-        for (const rule_ptr &rule : rules_for_symbol(symbol)) {
-          for (const rule_ptr &separator_rule : separator_rules) {
+      if (symbol.is_terminal()) {
+        for (const auto &rule : rules_for_symbol(symbol)) {
+          for (const auto &separator_rule : separator_rules) {
             result.entries.insert(LexItem(
               symbol,
               Metadata::separator(
-                Seq::build({
+                Rule::seq({
                   separator_rule,
-                  Metadata::main_token(rule) }))));
+                  Metadata::main_token(rule)
+                })
+              )
+            ));
           }
         }
       }
@@ -294,17 +312,20 @@ class LexTableBuilderImpl : public LexTableBuilder {
     return result;
   }
 
-  vector<rule_ptr> rules_for_symbol(const rules::Symbol &symbol) {
-    if (symbol == rules::END_OF_INPUT())
-      return { CharacterSet().include(0).copy() };
+  vector<Rule> rules_for_symbol(const rules::Symbol &symbol) {
+    if (symbol == rules::END_OF_INPUT()) {
+      return { CharacterSet().include(0) };
+    }
 
-    rule_ptr rule = grammar.variables[symbol.index].rule;
+    return grammar.variables[symbol.index].rule.match(
+      [](const Choice &choice) {
+        return choice.elements;
+      },
 
-    auto choice = rule->as<Choice>();
-    if (choice)
-      return choice->elements;
-    else
-      return { rule };
+      [](auto rule) {
+        return vector<Rule>{ rule };
+      }
+    );
   }
 };
 

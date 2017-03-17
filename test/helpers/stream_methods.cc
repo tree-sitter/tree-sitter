@@ -1,6 +1,7 @@
 #include "helpers/stream_methods.h"
 #include "test_helper.h"
 #include "tree_sitter/compiler.h"
+#include "compiler/util/string_helpers.h"
 #include "compiler/parse_table.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/lexical_grammar.h"
@@ -9,109 +10,177 @@
 
 namespace tree_sitter {
 
-ostream &operator<<(ostream &stream, const Grammar &grammar) {
-  stream << string("#<grammar");
-  stream << " rules: " << grammar.rules;
-  return stream << string("}>");
+ostream &operator<<(ostream &stream, const InputGrammar &grammar) {
+  return stream << "(InputGrammar variables: " << grammar.variables << ")";
 }
 
 ostream &operator<<(ostream &stream, const CompileError &error) {
-  if (error.type)
-    return stream << (string("#<compile-error '") + error.message + "'>");
-  else
-    return stream << string("#<no-compile-error>");
+  if (error.type) {
+    return stream << "(CompileError " << error.message << ")";
+  } else {
+    return stream << "(No CompileError)";
+  }
+}
+
+namespace rules {
+
+ostream &operator<<(ostream &stream, Associativity associativity) {
+  switch (associativity) {
+    case AssociativityLeft:
+      return stream << "AssociativityLeft";
+    case AssociativityRight:
+      return stream << "AssociativityRight";
+    case AssociativityNone:
+      return stream << "AssociativityNone";
+  }
+}
+
+ostream &operator<<(ostream &stream, const Blank &) {
+  return stream << "(Blank)";
+}
+
+ostream &operator<<(ostream &stream, const CharacterRange &range) {
+  if (range.min == range.max) {
+    return stream << util::escape_char(range.min);
+  } else {
+    return stream << "(" + util::escape_char(range.min) << "-" << util::escape_char(range.max) << ")";
+  }
+}
+
+ostream &operator<<(ostream &stream, const CharacterSet &rule) {
+  stream << "(CharacterSet";
+  if (rule.includes_all) {
+    if (rule.excluded_chars.empty()) {
+      stream << " all";
+    } else {
+      stream << " exclude";
+      for (const auto &range : rule.excluded_ranges()) {
+        stream << " " << range;
+      }
+    }
+  } else {
+    for (const auto &range : rule.included_ranges()) {
+      stream << " " << range;
+    }
+  }
+  return stream << ")";
+}
+
+ostream &operator<<(ostream &stream, const Symbol &rule) {
+  stream << "(Symbol ";
+  switch (rule.type) {
+    case Symbol::External:
+      stream << "external";
+      break;
+    case Symbol::Terminal:
+      stream << "terminal";
+      break;
+    case Symbol::NonTerminal:
+      stream << "non-terminal";
+      break;
+  }
+  return stream << " " << rule.index << ")";
+}
+
+ostream &operator<<(ostream &stream, const NamedSymbol &rule) {
+  return stream << "(NamedSymbol " << rule.value << ")";
+}
+
+ostream &operator<<(ostream &stream, const String &rule) {
+  return stream << "(String " << rule.value << ")";
+}
+
+ostream &operator<<(ostream &stream, const Pattern &rule) {
+  return stream << "(Pattern " << rule.value << ")";
+}
+
+ostream &operator<<(ostream &stream, const Choice &rule) {
+  stream << "(Choice";
+  for (const auto &element : rule.elements) {
+    stream << " " << element;
+  }
+  return stream << ")";
+}
+
+ostream &operator<<(ostream &stream, const Seq &rule) {
+  return stream << "(Seq " << *rule.left << " " << *rule.right << ")";
+}
+
+ostream &operator<<(ostream &stream, const Repeat &rule) {
+  return stream << "(Repeat " << *rule.rule << ")";
+}
+
+ostream &operator<<(ostream &stream, const Metadata &rule) {
+  return stream << "(Metadata " << *rule.rule << ")";
 }
 
 ostream &operator<<(ostream &stream, const Rule &rule) {
-  return stream << rule.to_string();
-}
-
-ostream &operator<<(ostream &stream, const rule_ptr &rule) {
-  if (rule.get())
-    stream << *rule;
-  else
-    stream << string("(null-rule)");
+  rule.match(
+    [&stream](Blank r) { stream << r; },
+    [&stream](NamedSymbol r) { stream << r; },
+    [&stream](Symbol r) { stream << r; },
+    [&stream](String r) { stream << r; },
+    [&stream](Pattern r) { stream << r; },
+    [&stream](CharacterSet r) { stream << r; },
+    [&stream](Choice r) { stream << r; },
+    [&stream](Seq r) { stream << r; },
+    [&stream](Repeat r) { stream << r; },
+    [&stream](Metadata r) { stream << r; }
+  );
   return stream;
 }
 
-ostream &operator<<(ostream &stream, const Variable &variable) {
-  return stream << string("{") << variable.name << string(", ") << variable.rule << string(", ") << to_string(variable.type) << string("}");
+}  // namespace rules
+
+ostream &operator<<(ostream &stream, const InputGrammar::Variable &variable) {
+  return stream << "(Variable " << variable.name << " " << variable.rule << ")";
 }
 
 ostream &operator<<(ostream &stream, const SyntaxVariable &variable) {
-  return stream << string("{") << variable.name << string(", ") << variable.productions << string(", ") << to_string(variable.type) << string("}");
+  return stream << "(Variable " << variable.name << " " << variable.productions <<
+    " " << to_string(variable.type) << "}";
 }
 
 ostream &operator<<(ostream &stream, const LexicalVariable &variable) {
-  return stream << "{" << variable.name << ", " << variable.rule << ", " <<
-    to_string(variable.type) << ", " << to_string(variable.is_string) << "}";
-}
-
-std::ostream &operator<<(std::ostream &stream, const AdvanceAction &action) {
-  return stream << string("#<advance ") + to_string(action.state_index) + ">";
-}
-
-std::ostream &operator<<(std::ostream &stream, const AcceptTokenAction &action) {
-  return stream << string("#<accept ") + to_string(action.symbol.index) + ">";
-}
-
-ostream &operator<<(ostream &stream, const ParseAction &action) {
-  switch (action.type) {
-    case ParseActionTypeError:
-      return stream << string("#<error>");
-    case ParseActionTypeAccept:
-      return stream << string("#<accept>");
-    case ParseActionTypeShift:
-      return stream << string("#<shift state:") << to_string(action.state_index) << ">";
-    case ParseActionTypeReduce:
-      return stream << ("#<reduce sym" + to_string(action.symbol.index) + " " +
-                        to_string(action.consumed_symbol_count) + ">");
-    default:
-      return stream;
-  }
-}
-
-ostream &operator<<(ostream &stream, const ParseTableEntry &entry) {
-  return stream << entry.actions;
-}
-
-ostream &operator<<(ostream &stream, const ParseState &state) {
-  stream << string("#<parse_state terminal_entries:");
-  stream << state.terminal_entries;
-  stream << " nonterminal_entries: " << state.nonterminal_entries;
-  return stream << string(">");
+  return stream << "(Variable " << variable.name << " " << to_string(variable.type) <<
+    " " << variable.rule << ")";
 }
 
 ostream &operator<<(ostream &stream, const ExternalToken &external_token) {
-  return stream << "{" << external_token.name << ", " << external_token.type <<
-    "," << external_token.corresponding_internal_token << "}";
+  return stream << "(ExternalToken " << external_token.name << " " <<
+    external_token.type << " " << external_token.corresponding_internal_token << ")";
 }
 
 ostream &operator<<(ostream &stream, const ProductionStep &step) {
-  stream << "(symbol: " << step.symbol << ", precedence:" << to_string(step.precedence);
-  stream << ", associativity: ";
-  switch (step.associativity) {
-    case rules::AssociativityLeft:
-      return stream << "left)";
-    case rules::AssociativityRight:
-      return stream << "right)";
-    default:
-      return stream << "none)";
-  }
+  return stream << "(ProductionStep " << step.symbol << " precedence:" <<
+    to_string(step.precedence) << " associativity:" << step.associativity << ")";
 }
 
 ostream &operator<<(ostream &stream, const PrecedenceRange &range) {
-  if (range.empty)
-    return stream << string("{empty}");
-  else
-    return stream << string("{") << to_string(range.min) << string(", ") << to_string(range.max) << string("}");
+  if (range.empty) {
+    return stream << "(PrecedenceRange)";
+  } else {
+    return stream << "(PrecedenceRange " << to_string(range.min) << " " <<
+      to_string(range.max) << ")";
+  }
 }
+
+namespace prepare_grammar {
+
+ostream &operator<<(ostream &stream, const prepare_grammar::InternedGrammar::Variable &variable) {
+  return stream << "(Variable " << variable.name << " " << variable.rule << ")";
+}
+
+ostream &operator<<(ostream &stream, const prepare_grammar::InitialSyntaxGrammar::Variable &variable) {
+  return stream << "(Variable " << variable.name << " " << variable.rule << ")";
+}
+
+}  // namespace prepare_grammar
 
 namespace build_tables {
 
 ostream &operator<<(ostream &stream, const LexItem &item) {
-  return stream << string("(item ") << item.lhs << string(" ") << *item.rule
-                << string(")");
+  return stream << "(LexItem " << item.lhs << " " << item.rule << ")";
 }
 
 ostream &operator<<(ostream &stream, const LexItemSet &item_set) {
@@ -119,26 +188,7 @@ ostream &operator<<(ostream &stream, const LexItemSet &item_set) {
 }
 
 ostream &operator<<(ostream &stream, const LexItemSet::Transition &transition) {
-  return stream << "{dest: " << transition.destination << ", prec: " << transition.precedence << "}";
-}
-
-ostream &operator<<(ostream &stream, const ParseItem &item) {
-  return stream << string("(item variable:") << to_string(item.variable_index)
-                << string(" production:") << to_string((size_t)item.production % 1000)
-                << string(" step:") << to_string(item.step_index)
-                << string(")");
-}
-
-std::ostream &operator<<(std::ostream &stream, const ParseItemSet &item_set) {
-  return stream << item_set.entries;
-}
-
-std::ostream &operator<<(std::ostream &stream, const LookaheadSet &set) {
-  if (set.entries.get()) {
-    return stream << *set.entries;
-  } else {
-    return stream << "{}";
-  }
+  return stream << "(Transition " << transition.destination << " prec:" << transition.precedence << ")";
 }
 
 }  // namespace build_tables

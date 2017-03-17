@@ -6,8 +6,6 @@
 namespace tree_sitter {
 namespace prepare_grammar {
 
-struct InitialSyntaxGrammar;
-
 InitialSyntaxGrammar expand_repeats(const InitialSyntaxGrammar &);
 
 }  // namespace prepare_grammar

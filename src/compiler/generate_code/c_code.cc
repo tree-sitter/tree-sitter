@@ -9,7 +9,7 @@
 #include "compiler/parse_table.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/lexical_grammar.h"
-#include "compiler/rules/built_in_symbols.h"
+#include "compiler/rule.h"
 #include "compiler/util/string_helpers.h"
 #include "tree_sitter/runtime.h"
 
@@ -129,7 +129,7 @@ class CCodeGenerator {
     size_t token_count = 0;
     for (const auto &entry : parse_table.symbols) {
       const Symbol &symbol = entry.first;
-      if (symbol.is_token()) {
+      if (symbol.is_terminal()) {
         token_count++;
       } else if (symbol.is_external()) {
         const ExternalToken &external_token = syntax_grammar.external_tokens[symbol.index];
@@ -256,7 +256,7 @@ class CCodeGenerator {
           if (symbol.is_external()) {
             needs_external_scanner = true;
             external_token_indices.insert(symbol.index);
-          } else if (symbol.is_token()) {
+          } else if (symbol.is_terminal()) {
             auto corresponding_external_token =
               external_tokens_by_corresponding_internal_token.find(symbol.index);
             if (corresponding_external_token != external_tokens_by_corresponding_internal_token.end()) {
@@ -298,7 +298,7 @@ class CCodeGenerator {
     line("TSSymbol ts_external_scanner_symbol_map[EXTERNAL_TOKEN_COUNT] = {");
     indent([&]() {
       for (size_t i = 0; i < syntax_grammar.external_tokens.size(); i++) {
-        line("[" + external_token_id(i) + "] = " + symbol_id(Symbol(i, Symbol::External)) + ",");
+        line("[" + external_token_id(i) + "] = " + symbol_id(Symbol::external(i)) + ",");
       }
     });
     line("};");
@@ -339,7 +339,7 @@ class CCodeGenerator {
         line("[" + to_string(state_id++) + "] = {");
         indent([&]() {
           for (const auto &entry : state.nonterminal_entries) {
-            line("[" + symbol_id(Symbol(entry.first, Symbol::NonTerminal)) + "] = STATE(");
+            line("[" + symbol_id(Symbol::non_terminal(entry.first)) + "] = STATE(");
             add(to_string(entry.second));
             add("),");
           }
@@ -686,9 +686,13 @@ class CCodeGenerator {
 string c_code(string name, const ParseTable &parse_table,
               const LexTable &lex_table, const SyntaxGrammar &syntax_grammar,
               const LexicalGrammar &lexical_grammar) {
-  return CCodeGenerator(name, parse_table, lex_table, syntax_grammar,
-                        lexical_grammar)
-    .code();
+  return CCodeGenerator(
+    name,
+    parse_table,
+    lex_table,
+    syntax_grammar,
+    lexical_grammar
+  ).code();
 }
 
 }  // namespace generate_code

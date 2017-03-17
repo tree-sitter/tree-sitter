@@ -17,7 +17,7 @@ using std::get;
 using std::make_tuple;
 
 tuple<SyntaxGrammar, LexicalGrammar, CompileError> prepare_grammar(
-  const Grammar &input_grammar) {
+  const InputGrammar &input_grammar) {
   /*
    * Convert all string-based `NamedSymbols` into numerical `Symbols`
    */
@@ -31,8 +31,9 @@ tuple<SyntaxGrammar, LexicalGrammar, CompileError> prepare_grammar(
    */
   auto extract_result = extract_tokens(intern_result.first);
   error = get<2>(extract_result);
-  if (error.type)
+  if (error.type) {
     return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
+  }
 
   /*
    * Replace `Repeat` rules with pairs of recursive rules
@@ -42,11 +43,12 @@ tuple<SyntaxGrammar, LexicalGrammar, CompileError> prepare_grammar(
   /*
    * Expand `String` and `Pattern` rules into full rule trees
    */
-  auto expand_tokens_result = expand_tokens(get<1>(extract_result));
-  LexicalGrammar lex_grammar = expand_tokens_result.first;
-  error = expand_tokens_result.second;
-  if (error.type)
-    return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
+  LexicalGrammar lex_grammar = get<1>(extract_result);
+  // auto expand_tokens_result = expand_tokens(get<1>(extract_result));
+  // LexicalGrammar lex_grammar = expand_tokens_result.first;
+  // error = expand_tokens_result.second;
+  // if (error.type)
+  //   return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
 
   /*
    * Flatten syntax rules into lists of productions.
