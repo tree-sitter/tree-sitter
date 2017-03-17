@@ -1,7 +1,7 @@
 #include "compiler/prepare_grammar/extract_tokens.h"
 #include <map>
 #include <vector>
-#include <assert.h>
+#include <cassert>
 #include <set>
 #include <string>
 #include <tuple>
@@ -62,7 +62,7 @@ class SymbolReplacer {
       },
 
       [](auto) {
-        assert(false);
+        assert(!"Unexpected rule type");
         return rules::Blank{};
       }
     );
@@ -152,7 +152,7 @@ class TokenExtractor {
       },
 
       [](auto) {
-        assert(false);
+        assert(!"Unexpected rule type");
         return rules::Blank{};
       }
     );

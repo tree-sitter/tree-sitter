@@ -1,5 +1,6 @@
 #include "compiler/prepare_grammar/flatten_grammar.h"
 #include <vector>
+#include <cassert>
 #include <algorithm>
 #include "compiler/prepare_grammar/extract_choices.h"
 #include "compiler/prepare_grammar/initial_syntax_grammar.h"

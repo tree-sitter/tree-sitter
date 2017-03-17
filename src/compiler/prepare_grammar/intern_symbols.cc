@@ -1,6 +1,7 @@
 #include "compiler/prepare_grammar/intern_symbols.h"
 #include <memory>
 #include <vector>
+#include <cassert>
 #include <set>
 #include "tree_sitter/compiler.h"
 #include "compiler/grammar.h"
@@ -54,7 +55,7 @@ class SymbolInterner {
       },
 
       [](auto) {
-        assert(false);
+        assert(!"Unexpected rule type");
         return rules::Blank{};
       }
     );

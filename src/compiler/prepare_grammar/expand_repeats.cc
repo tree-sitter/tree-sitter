@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <utility>
+#include <cassert>
 #include "compiler/grammar.h"
 #include "compiler/rule.h"
 
@@ -12,13 +13,8 @@ using std::string;
 using std::vector;
 using std::pair;
 using std::to_string;
-using std::make_shared;
-using rules::Blank;
-using rules::Choice;
-using rules::Repeat;
-using rules::Seq;
-using rules::Symbol;
 using rules::Rule;
+using rules::Symbol;
 
 class ExpandRepeats {
   string rule_name;
@@ -61,8 +57,8 @@ class ExpandRepeats {
         aux_rules.push_back({
           helper_rule_name,
           VariableTypeAuxiliary,
-          Choice{{
-            Seq{repeat_symbol, inner_rule},
+          rules::Choice{{
+            rules::Seq{repeat_symbol, inner_rule},
             inner_rule,
           }}
         });
@@ -74,8 +70,8 @@ class ExpandRepeats {
       },
 
       [](auto) {
-        assert(false);
-        return Blank{};
+        assert(!"Unexpected rule type");
+        return rules::Blank{};
       }
     );
   }
