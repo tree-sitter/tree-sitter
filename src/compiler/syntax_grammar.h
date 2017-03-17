@@ -4,22 +4,16 @@
 #include <vector>
 #include <string>
 #include <set>
-#include "compiler/rules/symbol.h"
-#include "compiler/rules/metadata.h"
-#include "compiler/variable.h"
+#include "compiler/rule.h"
+#include "compiler/grammar.h"
 
 namespace tree_sitter {
 
-struct ExternalToken {
-  bool operator==(const ExternalToken &) const;
-
-  std::string name;
-  VariableType type;
-  rules::Symbol corresponding_internal_token;
-};
-
 struct ProductionStep {
-  bool operator==(const ProductionStep &) const;
+  inline bool operator==(const ProductionStep &other) const {
+    return symbol == other.symbol && precedence == other.precedence &&
+           associativity == other.associativity;
+  }
 
   rules::Symbol symbol;
   int precedence;
@@ -34,7 +28,7 @@ struct SyntaxVariable {
   std::vector<Production> productions;
 };
 
-typedef std::set<rules::Symbol> ConflictSet;
+using ConflictSet = std::set<rules::Symbol>;
 
 struct SyntaxGrammar {
   std::vector<SyntaxVariable> variables;

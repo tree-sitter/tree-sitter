@@ -1,25 +1,19 @@
 #ifndef COMPILER_RULES_CHOICE_H_
 #define COMPILER_RULES_CHOICE_H_
 
-#include <string>
+#include <memory>
 #include <vector>
-#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace rules {
 
-class Choice : public Rule {
- public:
-  explicit Choice(const std::vector<rule_ptr> &elements);
-  static rule_ptr build(const std::vector<rule_ptr> &rules);
+struct Rule;
 
-  bool operator==(const Rule &other) const;
-  size_t hash_code() const;
-  rule_ptr copy() const;
-  std::string to_string() const;
-  void accept(Visitor *visitor) const;
+struct Choice {
+  std::vector<Rule> elements;
 
-  const std::vector<rule_ptr> elements;
+  static std::shared_ptr<Rule> build(const std::vector<Rule> &rules);
+  bool operator==(const Choice &other) const;
 };
 
 }  // namespace rules

@@ -3,11 +3,8 @@
 #include <algorithm>
 #include "compiler/prepare_grammar/extract_choices.h"
 #include "compiler/prepare_grammar/initial_syntax_grammar.h"
-#include "compiler/rules/visitor.h"
-#include "compiler/rules/seq.h"
-#include "compiler/rules/symbol.h"
-#include "compiler/rules/metadata.h"
-#include "compiler/rules/built_in_symbols.h"
+#include "compiler/grammar.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {
@@ -15,8 +12,9 @@ namespace prepare_grammar {
 using std::find;
 using std::pair;
 using std::vector;
+using rules::Rule;
 
-class FlattenRule : public rules::RuleFn<void> {
+class FlattenRule {
  private:
   vector<int> precedence_stack;
   vector<rules::Associativity> associativity_stack;
@@ -24,40 +22,50 @@ class FlattenRule : public rules::RuleFn<void> {
   rules::Associativity last_associativity;
   Production production;
 
-  void apply_to(const rules::Symbol *sym) {
-    production.push_back(ProductionStep{
-      *sym,
-      precedence_stack.back(),
-      associativity_stack.back()
-    });
-  }
+  void apply(const Rule &rule) {
+    rule.match(
+      [&](const rules::Symbol &symbol) {
+        production.push_back(ProductionStep{
+          symbol,
+          precedence_stack.back(),
+          associativity_stack.back()
+        });
+      },
 
-  void apply_to(const rules::Metadata *metadata) {
-    if (metadata->params.has_precedence)
-      precedence_stack.push_back(metadata->params.precedence);
-    if (metadata->params.has_associativity)
-      associativity_stack.push_back(metadata->params.associativity);
+      [&](const rules::Metadata &metadata) {
+        if (metadata.params.has_precedence)
+          precedence_stack.push_back(metadata.params.precedence);
+        if (metadata.params.has_associativity)
+          associativity_stack.push_back(metadata.params.associativity);
 
-    apply(metadata->rule);
+        apply(metadata.rule);
 
-    if (metadata->params.has_precedence) {
-      last_precedence = precedence_stack.back();
-      precedence_stack.pop_back();
-      production.back().precedence = precedence_stack.back();
-    }
+        if (metadata.params.has_precedence) {
+          last_precedence = precedence_stack.back();
+          precedence_stack.pop_back();
+          production.back().precedence = precedence_stack.back();
+        }
 
-    if (metadata->params.has_associativity) {
-      last_associativity = associativity_stack.back();
-      associativity_stack.pop_back();
-      production.back().associativity = associativity_stack.back();
-    }
-  }
+        if (metadata.params.has_associativity) {
+          last_associativity = associativity_stack.back();
+          associativity_stack.pop_back();
+          production.back().associativity = associativity_stack.back();
+        }
+      },
 
-  void apply_to(const rules::Seq *seq) {
-    apply(seq->left);
-    last_precedence = 0;
-    last_associativity = rules::AssociativityNone;
-    apply(seq->right);
+      [&](const rules::Seq &sequence) {
+        apply(sequence.left);
+        last_precedence = 0;
+        last_associativity = rules::AssociativityNone;
+        apply(sequence.right);
+      },
+
+      [&](const rules::Blank &blank) {},
+
+      [&](auto) {
+        assert(!"Unexpected rule type");
+      }
+    );
   }
 
  public:
@@ -67,7 +75,7 @@ class FlattenRule : public rules::RuleFn<void> {
         last_precedence(0),
         last_associativity(rules::AssociativityNone) {}
 
-  Production flatten(const rule_ptr &rule) {
+  Production flatten(const Rule &rule) {
     apply(rule);
     if (!production.empty()) {
       production.back().precedence = last_precedence;
@@ -77,10 +85,10 @@ class FlattenRule : public rules::RuleFn<void> {
   }
 };
 
-SyntaxVariable flatten_rule(const Variable &variable) {
+SyntaxVariable flatten_rule(const InitialSyntaxGrammar::Variable &variable) {
   vector<Production> productions;
 
-  for (const rule_ptr &rule_component : extract_choices(variable.rule)) {
+  for (const Rule &rule_component : extract_choices(variable.rule)) {
     Production production = FlattenRule().flatten(rule_component);
     auto end = productions.end();
     if (find(productions.begin(), end, production) == end) {
@@ -93,12 +101,21 @@ SyntaxVariable flatten_rule(const Variable &variable) {
 
 pair<SyntaxGrammar, CompileError> flatten_grammar(const InitialSyntaxGrammar &grammar) {
   SyntaxGrammar result;
-  result.expected_conflicts = grammar.expected_conflicts;
-  result.extra_tokens = grammar.extra_tokens;
   result.external_tokens = grammar.external_tokens;
 
+  for (const auto &expected_conflict : grammar.expected_conflicts) {
+    result.expected_conflicts.insert({
+      expected_conflict.begin(),
+      expected_conflict.end(),
+    });
+  }
+
+  for (const rules::Symbol &extra_token : grammar.extra_tokens) {
+    result.extra_tokens.insert(extra_token);
+  }
+
   bool is_start = true;
-  for (const Variable &variable : grammar.variables) {
+  for (const auto &variable : grammar.variables) {
     SyntaxVariable syntax_variable = flatten_rule(variable);
 
     if (!is_start) {

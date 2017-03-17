@@ -1,12 +1,13 @@
 #include "test_helper.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/prepare_grammar/expand_tokens.h"
-#include "helpers/rule_helpers.h"
+#include "helpers/stream_methods.h"
 
 START_TEST
 
 using namespace rules;
-using prepare_grammar::expand_tokens;
+using prepare_grammar::expand_token;
+using prepare_grammar::ExpandTokenResult;
 
 describe("expand_tokens", []() {
   MetadataParams string_token_params;
@@ -15,153 +16,72 @@ describe("expand_tokens", []() {
 
   describe("string rules", [&]() {
     it("replaces strings with sequences of character sets", [&]() {
-      LexicalGrammar grammar{
-        {
-          LexicalVariable{
-            "rule_A",
-            VariableTypeNamed,
-            seq({
-              i_sym(10),
-              str("xyz"),
-              i_sym(11),
-            }),
-            false
-          }
-        },
-        {}
-      };
-
-      auto result = expand_tokens(grammar);
-
-      AssertThat(result.second, Equals(CompileError::none()));
-      AssertThat(result.first.variables, Equals(vector<LexicalVariable>{
-        LexicalVariable{
-          "rule_A",
-          VariableTypeNamed,
-          seq({
-            i_sym(10),
-            metadata(seq({
-              character({ 'x' }),
-              character({ 'y' }),
-              character({ 'z' }),
-            }), string_token_params),
-            i_sym(11),
+      AssertThat(
+        expand_token(Seq::build({
+          String{"a"},
+          String{"bcd"},
+          String{"e"}
+        })).rule,
+        Equals(*Seq::build({
+          CharacterSet{{ 'a' }},
+          Seq::build({
+            CharacterSet{{ 'b' }},
+            CharacterSet{{ 'c' }},
+            CharacterSet{{ 'd' }},
           }),
-          false
-        }
-      }));
+          CharacterSet{{ 'e' }},
+        })));
     });
 
     it("handles strings containing non-ASCII UTF8 characters", [&]() {
-      LexicalGrammar grammar{
-        {
-          LexicalVariable{
-            "rule_A",
-            VariableTypeNamed,
-            str("\u03B1 \u03B2"),
-            false
-          },
-        },
-        {}
-      };
-
-      auto result = expand_tokens(grammar);
-
-      AssertThat(result.first.variables, Equals(vector<LexicalVariable>{
-        LexicalVariable{
-          "rule_A",
-          VariableTypeNamed,
-          metadata(seq({
-            character({ 945 }),
-            character({ ' ' }),
-            character({ 946 }),
-          }), string_token_params),
-          false
-        }
-      }));
+      AssertThat(
+        expand_token(String{"\u03B1 \u03B2"}).rule,
+        Equals(*Seq::build({
+          CharacterSet{{ 945 }},
+          CharacterSet{{ ' ' }},
+          CharacterSet{{ 946 }},
+        }))
+      );
     });
   });
 
   describe("regexp rules", [&]() {
     it("replaces regexps with the equivalent rule tree", [&]() {
-      LexicalGrammar grammar{
-        {
-          LexicalVariable{
-            "rule_A",
-            VariableTypeNamed,
-            seq({
-              i_sym(10),
-              pattern("x*"),
-              i_sym(11),
-            }),
-            false
-          }
-        },
-        {}
-      };
-
-      auto result = expand_tokens(grammar);
-
-      AssertThat(result.second, Equals(CompileError::none()));
-      AssertThat(result.first.variables, Equals(vector<LexicalVariable>{
-        LexicalVariable{
-          "rule_A",
-          VariableTypeNamed,
-          seq({
-            i_sym(10),
-            repeat(character({ 'x' })),
-            i_sym(11),
-          }),
-          false
-        }
-      }));
+      AssertThat(
+        expand_token(Seq::build({
+          String{"a"},
+          Pattern{"x+"},
+          String{"b"},
+        })).rule,
+        Equals(*Seq::build({
+          CharacterSet{{'a'}},
+          Repeat{CharacterSet{{ 'x' }}},
+          CharacterSet{{'b'}},
+        }))
+      );
     });
 
     it("handles regexps containing non-ASCII UTF8 characters", [&]() {
-      LexicalGrammar grammar{
-        {
-          LexicalVariable{
-            "rule_A",
-            VariableTypeNamed,
-            pattern("[^\u03B1-\u03B4]*"),
-            false
-          }
-        },
-        {}
-      };
-
-      auto result = expand_tokens(grammar);
-
-      AssertThat(result.first.variables, Equals(vector<LexicalVariable>{
-        LexicalVariable{
-          "rule_A",
-          VariableTypeNamed,
-          repeat(character({ 945, 946, 947, 948 }, false)),
-          false
-        }
-      }));
+      AssertThat(
+        expand_token(Pattern{"[^\u03B1-\u03B4]+"}).rule,
+        Equals(Rule(Repeat{
+          CharacterSet().include_all().exclude(945, 948)
+        }))
+      );
     });
 
     it("returns an error when the grammar contains an invalid regex", [&]() {
-      LexicalGrammar grammar{
-        {
-          LexicalVariable{
-            "rule_A",
-            VariableTypeNamed,
-            seq({
-              pattern("("),
-              str("xyz"),
-              pattern("["),
-            }),
-            false
-          },
-        },
-        {}
-      };
-
-      auto result = expand_tokens(grammar);
-
-      AssertThat(result.second, Equals(CompileError(TSCompileErrorTypeInvalidRegex, "unmatched open paren")));
+      AssertThat(
+        expand_token(Seq::build({
+          Pattern{"("},
+          String{"xyz"},
+          Pattern{"["},
+        })).error,
+        Equals(CompileError(
+          TSCompileErrorTypeInvalidRegex,
+          "unmatched open paren"
+        ))
+      );
     });
   });
 });

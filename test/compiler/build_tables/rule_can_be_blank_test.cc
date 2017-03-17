@@ -1,8 +1,6 @@
 #include "test_helper.h"
 #include "compiler/build_tables/rule_can_be_blank.h"
-#include "compiler/rules/metadata.h"
-#include "compiler/rules.h"
-#include "helpers/rule_helpers.h"
+#include "compiler/rule.h"
 
 using namespace rules;
 using build_tables::rule_can_be_blank;
@@ -10,49 +8,48 @@ using build_tables::rule_can_be_blank;
 START_TEST
 
 describe("rule_can_be_blank", [&]() {
-  rule_ptr rule;
+  Rule rule;
 
   it("returns false for basic rules", [&]() {
-    AssertThat(rule_can_be_blank(i_sym(3)), IsFalse());
-    AssertThat(rule_can_be_blank(str("x")), IsFalse());
-    AssertThat(rule_can_be_blank(pattern("x")), IsFalse());
+    AssertThat(rule_can_be_blank(CharacterSet{{'x'}}), IsFalse());
   });
 
   it("returns true for blanks", [&]() {
-    AssertThat(rule_can_be_blank(blank()), IsTrue());
+    AssertThat(rule_can_be_blank(Blank{}), IsTrue());
   });
 
-  it("returns true for repeats", [&]() {
-    AssertThat(rule_can_be_blank(repeat(str("x"))), IsTrue());
+  it("returns true for repeats iff the content can be blank", [&]() {
+    AssertThat(rule_can_be_blank(Repeat{CharacterSet{{'x'}}}), IsFalse());
+    AssertThat(rule_can_be_blank(Repeat{Blank{}}), IsTrue());
   });
 
   it("returns true for choices iff one or more sides can be blank", [&]() {
-    rule = choice({ sym("x"), blank() });
+    rule = Choice::build({ CharacterSet{{'x'}}, Blank{} });
     AssertThat(rule_can_be_blank(rule), IsTrue());
 
-    rule = choice({ blank(), sym("x") });
+    rule = Choice::build({ Blank{}, CharacterSet{{'x'}} });
     AssertThat(rule_can_be_blank(rule), IsTrue());
 
-    rule = choice({ sym("x"), sym("y") });
+    rule = Choice::build({ CharacterSet{{'x'}}, CharacterSet{{'y'}} });
     AssertThat(rule_can_be_blank(rule), IsFalse());
   });
 
   it("returns true for sequences iff both sides can be blank", [&]() {
-    rule = seq({ blank(), str("x") });
+    rule = Seq::build({ Blank{}, CharacterSet{{'x'}} });
     AssertThat(rule_can_be_blank(rule), IsFalse());
 
-    rule = seq({ str("x"), blank() });
+    rule = Seq::build({ CharacterSet{{'x'}}, Blank{} });
     AssertThat(rule_can_be_blank(rule), IsFalse());
 
-    rule = seq({ blank(), choice({ sym("x"), blank() }) });
+    rule = Seq::build({ Blank{}, Choice::build({ CharacterSet{{'x'}}, Blank{} }) });
     AssertThat(rule_can_be_blank(rule), IsTrue());
   });
 
   it("ignores metadata rules", [&]() {
-    rule = make_shared<rules::Metadata>(blank(), MetadataParams());
+    rule = Metadata::prec(1, Blank{});
     AssertThat(rule_can_be_blank(rule), IsTrue());
 
-    rule = make_shared<rules::Metadata>(sym("one"), MetadataParams());
+    rule = Metadata::prec(1, CharacterSet{{'x'}});
     AssertThat(rule_can_be_blank(rule), IsFalse());
   });
 });

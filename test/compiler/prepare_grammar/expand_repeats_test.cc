@@ -1,20 +1,24 @@
 #include "test_helper.h"
 #include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/prepare_grammar/expand_repeats.h"
-#include "helpers/rule_helpers.h"
 #include "helpers/stream_methods.h"
-
-START_TEST
 
 using namespace rules;
 using prepare_grammar::InitialSyntaxGrammar;
 using prepare_grammar::expand_repeats;
+using Variable = InitialSyntaxGrammar::Variable;
+
+bool operator==(const Variable &left, const Variable &right) {
+  return left.name == right.name && left.rule == right.rule && left.type == right.type;
+}
+
+START_TEST
 
 describe("expand_repeats", []() {
   it("replaces repeat rules with pairs of recursive rules", [&]() {
     InitialSyntaxGrammar grammar{
       {
-        Variable{"rule0", VariableTypeNamed, repeat1(i_token(0))},
+        Variable{"rule0", VariableTypeNamed, Repeat{Symbol::terminal(0)}},
       },
       {}, {}, {}
     };
@@ -22,10 +26,10 @@ describe("expand_repeats", []() {
     auto result = expand_repeats(grammar);
 
     AssertThat(result.variables, Equals(vector<Variable>{
-      Variable{"rule0", VariableTypeNamed, i_sym(1)},
-      Variable{"rule0_repeat1", VariableTypeAuxiliary, choice({
-        seq({ i_sym(1), i_token(0) }),
-        i_token(0),
+      Variable{"rule0", VariableTypeNamed, Symbol::non_terminal(1)},
+      Variable{"rule0_repeat1", VariableTypeAuxiliary, Choice::build({
+        Seq::build({ Symbol::non_terminal(1), Symbol::terminal(0) }),
+        Symbol::terminal(0),
       })},
     }));
   });
@@ -33,9 +37,9 @@ describe("expand_repeats", []() {
   it("replaces repeats inside of sequences", [&]() {
     InitialSyntaxGrammar grammar{
       {
-        Variable{"rule0", VariableTypeNamed, seq({
-          i_token(10),
-          repeat1(i_token(11)),
+        Variable{"rule0", VariableTypeNamed, Seq::build({
+          Symbol::terminal(10),
+          Repeat{Symbol::terminal(11)},
         })},
       },
       {}, {}, {}
@@ -44,13 +48,13 @@ describe("expand_repeats", []() {
     auto result = expand_repeats(grammar);
 
     AssertThat(result.variables, Equals(vector<Variable>{
-      Variable{"rule0", VariableTypeNamed, seq({
-        i_token(10),
-        i_sym(1),
+      Variable{"rule0", VariableTypeNamed, Seq::build({
+        Symbol::terminal(10),
+        Symbol::non_terminal(1),
       })},
-      Variable{"rule0_repeat1", VariableTypeAuxiliary, choice({
-        seq({ i_sym(1), i_token(11) }),
-        i_token(11)
+      Variable{"rule0_repeat1", VariableTypeAuxiliary, Choice::build({
+        Seq::build({ Symbol::non_terminal(1), Symbol::terminal(11) }),
+        Symbol::terminal(11)
       })},
     }));
   });
@@ -58,9 +62,9 @@ describe("expand_repeats", []() {
   it("replaces repeats inside of choices", [&]() {
     InitialSyntaxGrammar grammar{
       {
-        Variable{"rule0", VariableTypeNamed, choice({
-          i_token(10),
-          repeat1(i_token(11))
+        Variable{"rule0", VariableTypeNamed, Choice::build({
+          Symbol::terminal(10),
+          Repeat{Symbol::terminal(11)}
         })},
       },
       {}, {}, {}
@@ -69,13 +73,13 @@ describe("expand_repeats", []() {
     auto result = expand_repeats(grammar);
 
     AssertThat(result.variables, Equals(vector<Variable>{
-      Variable{"rule0", VariableTypeNamed, choice({
-        i_token(10),
-        i_sym(1),
+      Variable{"rule0", VariableTypeNamed, Choice::build({
+        Symbol::terminal(10),
+        Symbol::non_terminal(1),
       })},
-      Variable{"rule0_repeat1", VariableTypeAuxiliary, choice({
-        seq({ i_sym(1), i_token(11) }),
-        i_token(11),
+      Variable{"rule0_repeat1", VariableTypeAuxiliary, Choice::build({
+        Seq::build({ Symbol::non_terminal(1), Symbol::terminal(11) }),
+        Symbol::terminal(11),
       })},
     }));
   });
@@ -83,13 +87,13 @@ describe("expand_repeats", []() {
   it("does not create redundant auxiliary rules", [&]() {
     InitialSyntaxGrammar grammar{
       {
-        Variable{"rule0", VariableTypeNamed, choice({
-          seq({ i_token(1), repeat1(i_token(4)) }),
-          seq({ i_token(2), repeat1(i_token(4)) }),
+        Variable{"rule0", VariableTypeNamed, Choice::build({
+          Seq::build({ Symbol::terminal(1), Repeat{Symbol::terminal(4)} }),
+          Seq::build({ Symbol::terminal(2), Repeat{Symbol::terminal(4)} }),
         })},
-        Variable{"rule1", VariableTypeNamed, seq({
-          i_token(3),
-          repeat1(i_token(4))
+        Variable{"rule1", VariableTypeNamed, Seq::build({
+          Symbol::terminal(3),
+          Repeat{Symbol::terminal(4)}
         })},
       },
       {}, {}, {}
@@ -98,17 +102,17 @@ describe("expand_repeats", []() {
     auto result = expand_repeats(grammar);
 
     AssertThat(result.variables, Equals(vector<Variable>{
-      Variable{"rule0", VariableTypeNamed, choice({
-        seq({ i_token(1), i_sym(2) }),
-        seq({ i_token(2), i_sym(2) }),
+      Variable{"rule0", VariableTypeNamed, Choice::build({
+        Seq::build({ Symbol::terminal(1), Symbol::non_terminal(2) }),
+        Seq::build({ Symbol::terminal(2), Symbol::non_terminal(2) }),
       })},
-      Variable{"rule1", VariableTypeNamed, seq({
-        i_token(3),
-        i_sym(2),
+      Variable{"rule1", VariableTypeNamed, Seq::build({
+        Symbol::terminal(3),
+        Symbol::non_terminal(2),
       })},
-      Variable{"rule0_repeat1", VariableTypeAuxiliary, choice({
-        seq({ i_sym(2), i_token(4) }),
-        i_token(4),
+      Variable{"rule0_repeat1", VariableTypeAuxiliary, Choice::build({
+        Seq::build({ Symbol::non_terminal(2), Symbol::terminal(4) }),
+        Symbol::terminal(4),
       })},
     }));
   });
@@ -116,9 +120,9 @@ describe("expand_repeats", []() {
   it("can replace multiple repeats in the same rule", [&]() {
     InitialSyntaxGrammar grammar{
       {
-        Variable{"rule0", VariableTypeNamed, seq({
-          repeat1(i_token(10)),
-          repeat1(i_token(11)),
+        Variable{"rule0", VariableTypeNamed, Seq::build({
+          Repeat{Symbol::terminal(10)},
+          Repeat{Symbol::terminal(11)},
         })},
       },
       {}, {}, {}
@@ -127,17 +131,17 @@ describe("expand_repeats", []() {
     auto result = expand_repeats(grammar);
 
     AssertThat(result.variables, Equals(vector<Variable>{
-      Variable{"rule0", VariableTypeNamed, seq({
-        i_sym(1),
-        i_sym(2),
+      Variable{"rule0", VariableTypeNamed, Seq::build({
+        Symbol::non_terminal(1),
+        Symbol::non_terminal(2),
       })},
-      Variable{"rule0_repeat1", VariableTypeAuxiliary, choice({
-        seq({ i_sym(1), i_token(10) }),
-        i_token(10),
+      Variable{"rule0_repeat1", VariableTypeAuxiliary, Choice::build({
+        Seq::build({ Symbol::non_terminal(1), Symbol::terminal(10) }),
+        Symbol::terminal(10),
       })},
-      Variable{"rule0_repeat2", VariableTypeAuxiliary, choice({
-        seq({ i_sym(2), i_token(11) }),
-        i_token(11),
+      Variable{"rule0_repeat2", VariableTypeAuxiliary, Choice::build({
+        Seq::build({ Symbol::non_terminal(2), Symbol::terminal(11) }),
+        Symbol::terminal(11),
       })},
     }));
   });
@@ -145,8 +149,8 @@ describe("expand_repeats", []() {
   it("can replace repeats in multiple rules", [&]() {
     InitialSyntaxGrammar grammar{
       {
-        Variable{"rule0", VariableTypeNamed, repeat1(i_token(10))},
-        Variable{"rule1", VariableTypeNamed, repeat1(i_token(11))},
+        Variable{"rule0", VariableTypeNamed, Repeat{Symbol::terminal(10)}},
+        Variable{"rule1", VariableTypeNamed, Repeat{Symbol::terminal(11)}},
       },
       {}, {}, {}
     };
@@ -154,15 +158,15 @@ describe("expand_repeats", []() {
     auto result = expand_repeats(grammar);
 
     AssertThat(result.variables, Equals(vector<Variable>{
-      Variable{"rule0", VariableTypeNamed, i_sym(2)},
-      Variable{"rule1", VariableTypeNamed, i_sym(3)},
-      Variable{"rule0_repeat1", VariableTypeAuxiliary, choice({
-        seq({ i_sym(2), i_token(10) }),
-        i_token(10),
+      Variable{"rule0", VariableTypeNamed, Symbol::non_terminal(2)},
+      Variable{"rule1", VariableTypeNamed, Symbol::non_terminal(3)},
+      Variable{"rule0_repeat1", VariableTypeAuxiliary, Choice::build({
+        Seq::build({ Symbol::non_terminal(2), Symbol::terminal(10) }),
+        Symbol::terminal(10),
       })},
-      Variable{"rule1_repeat1", VariableTypeAuxiliary, choice({
-        seq({ i_sym(3), i_token(11) }),
-        i_token(11),
+      Variable{"rule1_repeat1", VariableTypeAuxiliary, Choice::build({
+        Seq::build({ Symbol::non_terminal(3), Symbol::terminal(11) }),
+        Symbol::terminal(11),
       })},
     }));
   });

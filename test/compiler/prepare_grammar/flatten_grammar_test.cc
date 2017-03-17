@@ -2,7 +2,6 @@
 #include "compiler/prepare_grammar/flatten_grammar.h"
 #include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/syntax_grammar.h"
-#include "helpers/rule_helpers.h"
 #include "helpers/stream_methods.h"
 
 START_TEST
@@ -12,23 +11,23 @@ using prepare_grammar::flatten_rule;
 
 describe("flatten_grammar", []() {
   it("associates each symbol with the precedence and associativity binding it to its successor", [&]() {
-    SyntaxVariable result = flatten_rule(Variable{
+    SyntaxVariable result = flatten_rule({
       "test",
       VariableTypeNamed,
-      seq({
-        i_sym(1),
-        prec_left(101, seq({
-          i_sym(2),
-          choice({
-            prec_right(102, seq({
-              i_sym(3),
-              i_sym(4)
+      Seq::build({
+        Symbol::non_terminal(1),
+        Metadata::prec_left(101, Seq::build({
+          Symbol::non_terminal(2),
+          Choice::build({
+            Metadata::prec_right(102, Seq::build({
+              Symbol::non_terminal(3),
+              Symbol::non_terminal(4)
             })),
-            i_sym(5),
+            Symbol::non_terminal(5),
           }),
-          i_sym(6),
+          Symbol::non_terminal(6),
         })),
-        i_sym(7),
+        Symbol::non_terminal(7),
       })
     });
 
@@ -36,51 +35,51 @@ describe("flatten_grammar", []() {
     AssertThat(result.type, Equals(VariableTypeNamed));
     AssertThat(result.productions, Equals(vector<Production>({
       Production({
-        {Symbol(1, Symbol::NonTerminal), 0, AssociativityNone},
-        {Symbol(2, Symbol::NonTerminal), 101, AssociativityLeft},
-        {Symbol(3, Symbol::NonTerminal), 102, AssociativityRight},
-        {Symbol(4, Symbol::NonTerminal), 101, AssociativityLeft},
-        {Symbol(6, Symbol::NonTerminal), 0, AssociativityNone},
-        {Symbol(7, Symbol::NonTerminal), 0, AssociativityNone},
+        {Symbol::non_terminal(1), 0, AssociativityNone},
+        {Symbol::non_terminal(2), 101, AssociativityLeft},
+        {Symbol::non_terminal(3), 102, AssociativityRight},
+        {Symbol::non_terminal(4), 101, AssociativityLeft},
+        {Symbol::non_terminal(6), 0, AssociativityNone},
+        {Symbol::non_terminal(7), 0, AssociativityNone},
       }),
       Production({
-        {Symbol(1, Symbol::NonTerminal), 0, AssociativityNone},
-        {Symbol(2, Symbol::NonTerminal), 101, AssociativityLeft},
-        {Symbol(5, Symbol::NonTerminal), 101, AssociativityLeft},
-        {Symbol(6, Symbol::NonTerminal), 0, AssociativityNone},
-        {Symbol(7, Symbol::NonTerminal), 0, AssociativityNone},
+        {Symbol::non_terminal(1), 0, AssociativityNone},
+        {Symbol::non_terminal(2), 101, AssociativityLeft},
+        {Symbol::non_terminal(5), 101, AssociativityLeft},
+        {Symbol::non_terminal(6), 0, AssociativityNone},
+        {Symbol::non_terminal(7), 0, AssociativityNone},
       })
     })))
   });
 
   it("uses the last assigned precedence", [&]() {
-    SyntaxVariable result = flatten_rule(Variable{
+    SyntaxVariable result = flatten_rule({
       "test1",
       VariableTypeNamed,
-      prec_left(101, seq({
-        i_sym(1),
-        i_sym(2),
+      Metadata::prec_left(101, Seq::build({
+        Symbol::non_terminal(1),
+        Symbol::non_terminal(2),
       }))
     });
 
     AssertThat(result.productions, Equals(vector<Production>({
       Production({
-        {Symbol(1, Symbol::NonTerminal), 101, AssociativityLeft},
-        {Symbol(2, Symbol::NonTerminal), 101, AssociativityLeft},
+        {Symbol::non_terminal(1), 101, AssociativityLeft},
+        {Symbol::non_terminal(2), 101, AssociativityLeft},
       })
     })))
 
-    result = flatten_rule(Variable{
+    result = flatten_rule({
       "test2",
       VariableTypeNamed,
-      prec_left(101, seq({
-        i_sym(1),
+      Metadata::prec_left(101, Seq::build({
+        Symbol::non_terminal(1),
       }))
     });
 
     AssertThat(result.productions, Equals(vector<Production>({
       Production({
-        {Symbol(1, Symbol::NonTerminal), 101, AssociativityLeft},
+        {Symbol::non_terminal(1), 101, AssociativityLeft},
       })
     })))
   });

@@ -4,7 +4,7 @@
 #include <map>
 #include <set>
 #include "compiler/lexical_grammar.h"
-#include "compiler/rules/symbol.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 

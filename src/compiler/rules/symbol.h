@@ -1,55 +1,76 @@
 #ifndef COMPILER_RULES_SYMBOL_H_
 #define COMPILER_RULES_SYMBOL_H_
 
-#include <string>
-#include "compiler/rule.h"
-
 namespace tree_sitter {
 namespace rules {
 
-class Symbol : public Rule {
- public:
-  typedef int Index;
-
-  typedef enum {
+struct Symbol {
+  using Index = int;
+  enum Type {
     External,
     Terminal,
     NonTerminal,
-  } Type;
+  };
 
-  Symbol(Index index, Type type);
+  inline bool operator==(const Symbol &other) const {
+    return index == other.index && type == other.type;
+  }
 
-  bool operator==(const Symbol &other) const;
-  bool operator==(const Rule &other) const;
+  inline bool operator!=(const Symbol &other) const {
+    return !operator==(other);
+  }
 
-  size_t hash_code() const;
-  rule_ptr copy() const;
-  std::string to_string() const;
-  void accept(Visitor *visitor) const;
-
-  bool operator<(const Symbol &other) const;
-  static bool is_built_in(Index);
-  bool is_built_in() const;
-  bool is_token() const;
-  bool is_external() const;
-  bool is_non_terminal() const;
+  inline bool operator<(const Symbol &other) const {
+    if (type < other.type) return true;
+    if (type > other.type) return false;
+    return index < other.index;
+  }
 
   Index index;
   Type type;
-};
 
-}  // namespace rules
-}  // namespace tree_sitter
+  static Symbol terminal(Index index) {
+    return Symbol{index, Type::Terminal};
+  }
 
-namespace std {
+  static Symbol external(Index index) {
+    return Symbol{index, Type::External};
+  }
 
-template <>
-struct hash<tree_sitter::rules::Symbol> {
-  size_t operator()(const tree_sitter::rules::Symbol &rule) const {
-    return rule.hash_code();
+  static Symbol non_terminal(Index index) {
+    return Symbol{index, Type::NonTerminal};
+  }
+
+  bool is_non_terminal() const {
+    return type == Type::NonTerminal;
+  }
+
+  bool is_terminal() const {
+    return type == Type::Terminal;
+  }
+
+  bool is_external() const {
+    return type == Type::External;
+  }
+
+  bool is_built_in() const {
+    return index < 0;
   }
 };
 
-}  // std
+inline Symbol END_OF_INPUT() {
+  return Symbol{-1, Symbol::Terminal};
+}
+
+inline Symbol START() {
+  return Symbol{-2, Symbol::NonTerminal};
+}
+
+inline Symbol NONE() {
+  return Symbol{-3, Symbol::Type(-1)};
+}
+
+}  // namespace rules
+}  // namespace tree_sitter
 
 #endif  // COMPILER_RULES_SYMBOL_H_

@@ -7,9 +7,9 @@
 
 namespace tree_sitter {
 
-struct Grammar;
+struct InputGrammar;
 
-std::pair<std::string, CompileError> compile(const Grammar &, std::string);
+std::pair<std::string, CompileError> compile(const InputGrammar &, std::string);
 
 }  // namespace tree_sitter
 

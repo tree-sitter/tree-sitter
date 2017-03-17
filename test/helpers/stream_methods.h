@@ -8,6 +8,11 @@
 #include <unordered_set>
 #include <vector>
 #include "compiler/grammar.h"
+#include "compiler/prepare_grammar/interned_grammar.h"
+#include "compiler/prepare_grammar/initial_syntax_grammar.h"
+#include "compiler/lexical_grammar.h"
+#include "compiler/syntax_grammar.h"
+#include "compiler/rule.h"
 #include "compiler/compile_error.h"
 #include "compiler/build_tables/lex_item.h"
 
@@ -91,9 +96,8 @@ namespace tree_sitter {
 using std::ostream;
 using std::string;
 using std::to_string;
-struct Variable;
-struct SyntaxVariable;
-struct LexicalVariable;
+
+struct InputGrammar;
 struct AdvanceAction;
 struct AcceptTokenAction;
 struct ParseAction;
@@ -102,20 +106,36 @@ struct ExternalToken;
 struct ProductionStep;
 struct PrecedenceRange;
 
-ostream &operator<<(ostream &, const Grammar &);
+ostream &operator<<(ostream &, const InputGrammar &);
 ostream &operator<<(ostream &, const CompileError &);
-ostream &operator<<(ostream &, const Rule &);
-ostream &operator<<(ostream &, const rule_ptr &);
-ostream &operator<<(ostream &, const Variable &);
-ostream &operator<<(ostream &, const SyntaxVariable &);
-ostream &operator<<(ostream &, const LexicalVariable &);
-ostream &operator<<(ostream &, const AdvanceAction &);
-ostream &operator<<(ostream &, const AcceptTokenAction &);
-ostream &operator<<(ostream &, const ParseAction &);
-ostream &operator<<(ostream &, const ParseState &);
 ostream &operator<<(ostream &, const ExternalToken &);
 ostream &operator<<(ostream &, const ProductionStep &);
 ostream &operator<<(ostream &, const PrecedenceRange &);
+ostream &operator<<(ostream &, const LexicalVariable &);
+
+namespace rules {
+
+ostream &operator<<(ostream &, const Blank &);
+ostream &operator<<(ostream &, const CharacterRange &);
+ostream &operator<<(ostream &, const CharacterSet &);
+ostream &operator<<(ostream &, const Symbol &);
+ostream &operator<<(ostream &, const NamedSymbol &);
+ostream &operator<<(ostream &, const String &);
+ostream &operator<<(ostream &, const Pattern &);
+ostream &operator<<(ostream &stream, const Choice &rule);
+ostream &operator<<(ostream &stream, const Seq &rule);
+ostream &operator<<(ostream &stream, const Repeat &rule);
+ostream &operator<<(ostream &stream, const Metadata &rule);
+ostream &operator<<(ostream &stream, const Rule &rule);
+
+}  // namespace rules
+
+namespace prepare_grammar {
+
+ostream &operator<<(ostream &, const InitialSyntaxGrammar::Variable &);
+ostream &operator<<(ostream &, const InternedGrammar::Variable &);
+
+}  // namespace prepare_grammar
 
 namespace build_tables {
 

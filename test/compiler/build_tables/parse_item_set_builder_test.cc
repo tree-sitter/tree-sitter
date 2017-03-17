@@ -3,8 +3,6 @@
 #include "compiler/lexical_grammar.h"
 #include "compiler/build_tables/parse_item_set_builder.h"
 #include "compiler/build_tables/lookahead_set.h"
-#include "compiler/rules/built_in_symbols.h"
-#include "helpers/rule_helpers.h"
 
 using namespace build_tables;
 using namespace rules;
@@ -17,7 +15,7 @@ describe("ParseItemSetBuilder", []() {
     lexical_variables.push_back({
       "token_" + to_string(i),
       VariableTypeNamed,
-      blank(),
+      Blank{},
       false
     });
   }
@@ -28,23 +26,23 @@ describe("ParseItemSetBuilder", []() {
     SyntaxGrammar grammar{{
       SyntaxVariable{"rule0", VariableTypeNamed, {
         Production({
-          {Symbol(1, Symbol::NonTerminal), 0, AssociativityNone},
-          {Symbol(11, Symbol::Terminal), 0, AssociativityNone},
+          {Symbol::non_terminal(1), 0, AssociativityNone},
+          {Symbol::terminal(11), 0, AssociativityNone},
         }),
       }},
       SyntaxVariable{"rule1", VariableTypeNamed, {
         Production({
-          {Symbol(12, Symbol::Terminal), 0, AssociativityNone},
-          {Symbol(13, Symbol::Terminal), 0, AssociativityNone},
+          {Symbol::terminal(12), 0, AssociativityNone},
+          {Symbol::terminal(13), 0, AssociativityNone},
         }),
         Production({
-          {Symbol(2, Symbol::NonTerminal), 0, AssociativityNone},
+          {Symbol::non_terminal(2), 0, AssociativityNone},
         })
       }},
       SyntaxVariable{"rule2", VariableTypeNamed, {
         Production({
-          {Symbol(14, Symbol::Terminal), 0, AssociativityNone},
-          {Symbol(15, Symbol::Terminal), 0, AssociativityNone},
+          {Symbol::terminal(14), 0, AssociativityNone},
+          {Symbol::terminal(15), 0, AssociativityNone},
         })
       }},
     }, {}, {}, {}};
@@ -55,8 +53,8 @@ describe("ParseItemSetBuilder", []() {
 
     ParseItemSet item_set({
       {
-        ParseItem(Symbol(0, Symbol::NonTerminal), production(0, 0), 0),
-        LookaheadSet({ Symbol(10, Symbol::Terminal) }),
+        ParseItem(Symbol::non_terminal(0), production(0, 0), 0),
+        LookaheadSet({ Symbol::terminal(10) }),
       }
     });
 
@@ -65,20 +63,20 @@ describe("ParseItemSetBuilder", []() {
 
     AssertThat(item_set, Equals(ParseItemSet({
       {
-        ParseItem(Symbol(0, Symbol::NonTerminal), production(0, 0), 0),
-        LookaheadSet({ Symbol(10, Symbol::Terminal) })
+        ParseItem(Symbol::non_terminal(0), production(0, 0), 0),
+        LookaheadSet({ Symbol::terminal(10) })
         },
       {
-        ParseItem(Symbol(1, Symbol::NonTerminal), production(1, 0), 0),
-        LookaheadSet({ Symbol(11, Symbol::Terminal) })
+        ParseItem(Symbol::non_terminal(1), production(1, 0), 0),
+        LookaheadSet({ Symbol::terminal(11) })
       },
       {
-        ParseItem(Symbol(1, Symbol::NonTerminal), production(1, 1), 0),
-        LookaheadSet({ Symbol(11, Symbol::Terminal) })
+        ParseItem(Symbol::non_terminal(1), production(1, 1), 0),
+        LookaheadSet({ Symbol::terminal(11) })
       },
       {
-        ParseItem(Symbol(2, Symbol::NonTerminal), production(2, 0), 0),
-        LookaheadSet({ Symbol(11, Symbol::Terminal) })
+        ParseItem(Symbol::non_terminal(2), production(2, 0), 0),
+        LookaheadSet({ Symbol::terminal(11) })
       },
     })));
   });
@@ -87,14 +85,14 @@ describe("ParseItemSetBuilder", []() {
     SyntaxGrammar grammar{{
       SyntaxVariable{"rule0", VariableTypeNamed, {
         Production({
-          {Symbol(1, Symbol::NonTerminal), 0, AssociativityNone},
-          {Symbol(11, Symbol::Terminal), 0, AssociativityNone},
+          {Symbol::non_terminal(1), 0, AssociativityNone},
+          {Symbol::terminal(11), 0, AssociativityNone},
         }),
       }},
       SyntaxVariable{"rule1", VariableTypeNamed, {
         Production({
-          {Symbol(12, Symbol::Terminal), 0, AssociativityNone},
-          {Symbol(13, Symbol::Terminal), 0, AssociativityNone},
+          {Symbol::terminal(12), 0, AssociativityNone},
+          {Symbol::terminal(13), 0, AssociativityNone},
         }),
         Production({})
       }},
@@ -106,8 +104,8 @@ describe("ParseItemSetBuilder", []() {
 
     ParseItemSet item_set({
       {
-        ParseItem(Symbol(0, Symbol::NonTerminal), production(0, 0), 0),
-        LookaheadSet({ Symbol(10, Symbol::Terminal) }),
+        ParseItem(Symbol::non_terminal(0), production(0, 0), 0),
+        LookaheadSet({ Symbol::terminal(10) }),
       }
     });
 
@@ -116,16 +114,16 @@ describe("ParseItemSetBuilder", []() {
 
     AssertThat(item_set, Equals(ParseItemSet({
       {
-        ParseItem(Symbol(0, Symbol::NonTerminal), production(0, 0), 0),
-        LookaheadSet({ Symbol(10, Symbol::Terminal) })
+        ParseItem(Symbol::non_terminal(0), production(0, 0), 0),
+        LookaheadSet({ Symbol::terminal(10) })
       },
       {
-        ParseItem(Symbol(1, Symbol::NonTerminal), production(1, 0), 0),
-        LookaheadSet({ Symbol(11, Symbol::Terminal) })
+        ParseItem(Symbol::non_terminal(1), production(1, 0), 0),
+        LookaheadSet({ Symbol::terminal(11) })
       },
       {
-        ParseItem(Symbol(1, Symbol::NonTerminal), production(1, 1), 0),
-        LookaheadSet({ Symbol(11, Symbol::Terminal) })
+        ParseItem(Symbol::non_terminal(1), production(1, 1), 0),
+        LookaheadSet({ Symbol::terminal(11) })
       },
     })));
   });

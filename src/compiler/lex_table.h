@@ -6,8 +6,7 @@
 #include <set>
 #include <string>
 #include "compiler/precedence_range.h"
-#include "compiler/rules/symbol.h"
-#include "compiler/rules/character_set.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 

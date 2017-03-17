@@ -7,7 +7,7 @@
 namespace tree_sitter {
 namespace prepare_grammar {
 
-std::vector<rule_ptr> extract_choices(const rule_ptr &);
+std::vector<rules::Rule> extract_choices(const rules::Rule &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

@@ -1,7 +1,7 @@
 #include "compiler/parse_table.h"
 #include <string>
 #include "compiler/precedence_range.h"
-#include "compiler/rules/built_in_symbols.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 
@@ -178,7 +178,7 @@ ParseAction &ParseTable::add_terminal_action(ParseStateId state_id,
 void ParseTable::set_nonterminal_action(ParseStateId state_id,
                                         Symbol::Index lookahead,
                                         ParseStateId next_state_id) {
-  symbols[Symbol(lookahead, Symbol::NonTerminal)].structural = true;
+  symbols[Symbol::non_terminal(lookahead)].structural = true;
   states[state_id].nonterminal_entries[lookahead] = next_state_id;
 }
 

@@ -1,7 +1,5 @@
 #include "test_helper.h"
-#include "compiler/rules/choice.h"
-#include "helpers/rule_helpers.h"
-#include "helpers/equals_pointer.h"
+#include "compiler/rule.h"
 
 using namespace rules;
 
@@ -10,42 +8,62 @@ START_TEST
 describe("Choice", []() {
   describe("constructing choices", [&]() {
     it("eliminates duplicate members", [&]() {
-      auto rule = Choice::build({
-        seq({ sym("one"), sym("two") }),
-        sym("three"),
-        seq({ sym("one"), sym("two") })
+      Rule rule = Choice::build({
+        Seq::build({ NamedSymbol{"one"}, NamedSymbol{"two"} }),
+        NamedSymbol{"three"},
+        Seq::build({ NamedSymbol{"one"}, NamedSymbol{"two"} })
       });
 
-      AssertThat(rule, EqualsPointer(choice({
-        seq({ sym("one"), sym("two") }),
-        sym("three"),
-      })));
+      AssertThat(rule, Equals(Rule(Choice{{
+        Seq::build({ NamedSymbol{"one"}, NamedSymbol{"two"} }),
+        NamedSymbol{"three"},
+      }})));
+
+      rule = Choice::build({
+        Blank{},
+        Blank{},
+        Choice::build({
+          Blank{},
+          NamedSymbol{"four"}
+        })
+      });
+
+      AssertThat(rule, Equals(*Choice::build({Blank{}, NamedSymbol{"four"}})));
     });
 
     it("eliminates duplicates within nested choices", [&]() {
-      auto rule = Choice::build({
-        seq({ sym("one"), sym("two") }),
+      Rule rule = Choice::build({
+        Seq::build({
+          NamedSymbol{"one"},
+          NamedSymbol{"two"}
+        }),
         Choice::build({
-          sym("three"),
-          seq({ sym("one"), sym("two") })
+          NamedSymbol{"three"},
+          Seq::build({
+            NamedSymbol{"one"},
+            NamedSymbol{"two"}
+          })
         })
       });
 
-      AssertThat(rule, EqualsPointer(choice({
-        seq({ sym("one"), sym("two") }),
-        sym("three"),
-      })));
+      AssertThat(rule, Equals(Rule(Choice{{
+        Seq::build({
+          NamedSymbol{"one"},
+          NamedSymbol{"two"},
+        }),
+        NamedSymbol{"three"},
+      }})));
     });
 
     it("doesn't construct a choice if there's only one unique member", [&]() {
-      auto rule = Choice::build({
-        sym("one"),
+      Rule rule = Choice::build({
+        NamedSymbol{"one"},
         Choice::build({
-          sym("one"),
+          NamedSymbol{"one"},
         })
       });
 
-      AssertThat(rule, EqualsPointer(sym("one")));
+      AssertThat(rule, Equals(Rule(NamedSymbol{"one"})));
     });
   });
 });

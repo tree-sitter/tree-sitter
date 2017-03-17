@@ -9,7 +9,7 @@ namespace tree_sitter {
 
 struct ParseGrammarResult {
   std::string name;
-  Grammar grammar;
+  InputGrammar grammar;
   std::string error_message;
 };
 

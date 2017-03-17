@@ -1,24 +1,19 @@
 #ifndef COMPILER_RULES_REPEAT_H_
 #define COMPILER_RULES_REPEAT_H_
 
-#include <string>
-#include "compiler/rule.h"
+#include <memory>
 
 namespace tree_sitter {
 namespace rules {
 
-class Repeat : public Rule {
- public:
-  explicit Repeat(rule_ptr content);
-  static rule_ptr build(const rule_ptr &rule);
+struct Rule;
 
-  bool operator==(const Rule &other) const;
-  size_t hash_code() const;
-  rule_ptr copy() const;
-  std::string to_string() const;
-  void accept(Visitor *visitor) const;
+struct Repeat {
+  std::shared_ptr<Rule> rule;
 
-  const rule_ptr content;
+  explicit Repeat(const Rule &rule);
+  static std::shared_ptr<Rule> build(const Rule &rule);
+  bool operator==(const Repeat &other) const;
 };
 
 }  // namespace rules

@@ -1,68 +1,82 @@
 #include "compiler/prepare_grammar/token_description.h"
-#include "compiler/rules/visitor.h"
-#include "compiler/rules/pattern.h"
-#include "compiler/rules/seq.h"
-#include "compiler/rules/choice.h"
-#include "compiler/rules/string.h"
-#include "compiler/rules/repeat.h"
-#include "compiler/rules/metadata.h"
+#include "compiler/rule.h"
 #include "compiler/util/string_helpers.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {
 
 using std::string;
+using rules::Rule;
 
-class TokenDescription : public rules::RuleFn<string> {
-  string apply_to(const rules::Pattern *rule) {
-    is_trivial = false;
-    return rule->value;
-  }
+class TokenDescription {
+  bool is_trivial;
 
-  string apply_to(const rules::String *rule) {
-    return rule->value;
-  }
+  string apply(const Rule &rule) {
+    return rule.match(
+      [&](const rules::Blank) -> string {
+        return "";
+      },
 
-  string apply_to(const rules::Metadata *rule) {
-    return apply(rule->rule);
-  }
+      [&](const rules::Symbol) {
+        return "";
+      },
 
-  string apply_to(const rules::Seq *rule) {
-    is_trivial = false;
-    return apply(rule->left) + apply(rule->right);
-  }
+      [&](const rules::Pattern &rule) {
+        is_trivial = false;
+        return rule.value;
+      },
 
-  string apply_to(const rules::Repeat *rule) {
-    is_trivial = false;
-    return apply(rule->content) + "*";
-  }
+      [&](const rules::String &rule) {
+        return rule.value;
+      },
 
-  string apply_to(const rules::Choice *rule) {
-    is_trivial = false;
-    string result = "(";
-    bool started = false;
-    for (auto &element : rule->elements) {
-      if (started)
-        result += "|";
-      result += apply(element);
-      started = true;
-    }
-    return result + ")";
+      [&](const rules::Metadata &rule) {
+        return apply(rule.rule);
+      },
+
+      [&](const rules::Seq &rule) {
+        is_trivial = false;
+        return apply(rule.left) + apply(rule.right);
+      },
+
+      [&](const rules::Repeat &rule) {
+        is_trivial = false;
+        return apply(rule.rule) + "+";
+      },
+
+      [&](const rules::Choice &rule) {
+        is_trivial = false;
+        string result = "(";
+        bool started = false;
+        for (auto &element : rule.elements) {
+          if (started) result += "|";
+          result += apply(element);
+          started = true;
+        }
+        return result + ")";
+      },
+
+      [](auto) {
+        return "";
+      }
+    );
   }
 
  public:
-  bool is_trivial;
+  string describe(const Rule &rule) {
+    string result = apply(rule);
+    if (is_trivial) {
+      return result;
+    } else {
+      return "/" + result + "/";
+    }
+  }
 
   TokenDescription() : is_trivial(true) {}
 };
 
-string token_description(const rule_ptr &rule) {
-  TokenDescription description;
-  string result = description.apply(rule);
-  if (description.is_trivial)
-    return result;
-  else
-    return "/" + result + "/";
+string token_description(const Rule &rule) {
+  return TokenDescription().describe(rule);
 }
 
 }  // namespace prepare_grammar

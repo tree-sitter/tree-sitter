@@ -4,11 +4,7 @@
 #include <set>
 #include "tree_sitter/compiler.h"
 #include "compiler/grammar.h"
-#include "compiler/rules/visitor.h"
-#include "compiler/rules/blank.h"
-#include "compiler/rules/named_symbol.h"
-#include "compiler/rules/symbol.h"
-#include "compiler/rules/built_in_symbols.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {
@@ -19,32 +15,64 @@ using std::set;
 using std::pair;
 using std::make_shared;
 using rules::Symbol;
+using rules::Rule;
 
-class SymbolInterner : public rules::IdentityRuleFn {
-  using rules::IdentityRuleFn::apply_to;
-
-  rule_ptr apply_to(const rules::NamedSymbol *rule) {
-    auto result = symbol_for_rule_name(rule->name);
-    if (!result.get()) {
-      missing_rule_name = rule->name;
-      return rules::Blank::build();
-    }
-    return result;
-  }
-
+class SymbolInterner {
  public:
-  std::shared_ptr<rules::Symbol> symbol_for_rule_name(string rule_name) {
-    for (size_t i = 0; i < grammar.rules.size(); i++)
-      if (grammar.rules[i].first == rule_name)
-        return make_shared<Symbol>(i, Symbol::NonTerminal);
-    for (size_t i = 0; i < grammar.external_tokens.size(); i++)
-      if (grammar.external_tokens[i] == rule_name)
-        return make_shared<rules::Symbol>(i, Symbol::External);
-    return nullptr;
+  Rule apply(const Rule &rule) {
+    return rule.match(
+      [&](const rules::Blank &blank) -> Rule { return blank; },
+
+      [&](const rules::NamedSymbol &symbol) {
+        return intern_symbol(symbol);
+      },
+
+      [&](const rules::String &string) { return string; },
+      [&](const rules::Pattern &pattern) { return pattern; },
+
+      [&](const rules::Choice &choice) {
+        vector<rules::Rule> elements;
+        for (const auto &element : choice.elements) {
+          elements.push_back(apply(element));
+        }
+        return rules::Choice{elements};
+      },
+
+      [&](const rules::Seq &sequence) {
+        return rules::Seq{
+          apply(sequence.left),
+          apply(sequence.right)
+        };
+      },
+
+      [&](const rules::Repeat &repeat) {
+        return rules::Repeat{apply(repeat.rule)};
+      },
+
+      [&](const rules::Metadata &metadata) {
+        return rules::Metadata{apply(metadata.rule), metadata.params};
+      },
+
+      [](auto) {
+        assert(false);
+        return rules::Blank{};
+      }
+    );
   }
 
-  explicit SymbolInterner(const Grammar &grammar) : grammar(grammar) {}
-  const Grammar grammar;
+  Symbol intern_symbol(rules::NamedSymbol named_symbol) {
+    for (size_t i = 0; i < grammar.variables.size(); i++)
+      if (grammar.variables[i].name == named_symbol.value)
+        return Symbol::non_terminal(i);
+    for (size_t i = 0; i < grammar.external_tokens.size(); i++)
+      if (grammar.external_tokens[i].name == named_symbol.value)
+        return Symbol::external(i);
+    missing_rule_name = named_symbol.value;
+    return rules::NONE();
+  }
+
+  explicit SymbolInterner(const InputGrammar &grammar) : grammar(grammar) {}
+  const InputGrammar &grammar;
   string missing_rule_name;
 };
 
@@ -53,52 +81,55 @@ CompileError missing_rule_error(string rule_name) {
                       "Undefined rule '" + rule_name + "'");
 }
 
-pair<InternedGrammar, CompileError> intern_symbols(const Grammar &grammar) {
+pair<InternedGrammar, CompileError> intern_symbols(const InputGrammar &grammar) {
   InternedGrammar result;
 
-  for (auto &external_token_name : grammar.external_tokens) {
+  for (auto &external_token : grammar.external_tokens) {
     Symbol corresponding_internal_token = rules::NONE();
-    for (size_t i = 0, n = grammar.rules.size(); i < n; i++) {
-      if (grammar.rules[i].first == external_token_name) {
-        corresponding_internal_token = Symbol(i, Symbol::NonTerminal);
+    for (size_t i = 0, n = grammar.variables.size(); i < n; i++) {
+      if (grammar.variables[i].name == external_token.name) {
+        corresponding_internal_token = Symbol::non_terminal(i);
         break;
       }
     }
 
     result.external_tokens.push_back(ExternalToken{
-      external_token_name,
-      external_token_name[0] == '_' ? VariableTypeHidden : VariableTypeNamed,
+      external_token.name,
+      external_token.name[0] == '_' ? VariableTypeHidden : VariableTypeNamed,
       corresponding_internal_token
     });
   }
 
   SymbolInterner interner(grammar);
 
-  for (auto &pair : grammar.rules) {
-    auto new_rule = interner.apply(pair.second);
-    if (!interner.missing_rule_name.empty())
+  for (auto &variable : grammar.variables) {
+    auto new_rule = interner.apply(variable.rule);
+    if (!interner.missing_rule_name.empty()) {
       return { result, missing_rule_error(interner.missing_rule_name) };
+    }
 
-    result.variables.push_back(Variable{
-      pair.first,
-      pair.first[0] == '_' ? VariableTypeHidden : VariableTypeNamed,
+    result.variables.push_back(InternedGrammar::Variable{
+      variable.name,
+      variable.name[0] == '_' ? VariableTypeHidden : VariableTypeNamed,
       new_rule
     });
   }
 
   for (auto &rule : grammar.extra_tokens) {
     auto new_rule = interner.apply(rule);
-    if (!interner.missing_rule_name.empty())
+    if (!interner.missing_rule_name.empty()) {
       return { result, missing_rule_error(interner.missing_rule_name) };
+    }
     result.extra_tokens.push_back(new_rule);
   }
 
-  for (auto &names : grammar.expected_conflicts) {
+  for (auto &expected_conflict : grammar.expected_conflicts) {
     set<rules::Symbol> entry;
-    for (auto &name : names) {
-      auto symbol = interner.symbol_for_rule_name(name);
-      if (symbol.get())
-        entry.insert(*symbol);
+    for (auto &named_symbol : expected_conflict) {
+      auto symbol = interner.intern_symbol(named_symbol);
+      if (symbol != rules::NONE()) {
+        entry.insert(symbol);
+      }
     }
     result.expected_conflicts.insert(entry);
   }

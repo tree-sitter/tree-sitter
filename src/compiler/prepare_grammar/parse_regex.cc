@@ -2,11 +2,7 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "compiler/rules/choice.h"
-#include "compiler/rules/seq.h"
-#include "compiler/rules/repeat.h"
-#include "compiler/rules/character_set.h"
-#include "compiler/rules/blank.h"
+#include "compiler/rule.h"
 #include "compiler/util/string_helpers.h"
 #include "utf8proc.h"
 
@@ -18,9 +14,10 @@ using std::vector;
 using std::pair;
 using std::make_shared;
 using rules::CharacterSet;
-using rules::Seq;
 using rules::Blank;
+using rules::Rule;
 using rules::Choice;
+using rules::Seq;
 using rules::Repeat;
 
 class PatternParser {
@@ -32,103 +29,121 @@ class PatternParser {
     next();
   }
 
-  pair<rule_ptr, CompileError> rule(bool nested) {
-    vector<rule_ptr> choices = {};
+  pair<Rule, CompileError> rule(bool nested) {
+    vector<Rule> choices;
     do {
       if (!choices.empty()) {
-        if (peek() == '|')
+        if (peek() == '|') {
           next();
-        else
+        } else {
           break;
+        }
       }
       auto pair = term(nested);
-      if (pair.second.type)
-        return { Blank::build(), pair.second };
+      if (pair.second.type) {
+        return {Blank{}, pair.second };
+      }
       choices.push_back(pair.first);
     } while (has_more_input());
-    auto rule =
-      (choices.size() > 1) ? make_shared<Choice>(choices) : choices.front();
-    return { rule, CompileError::none() };
+    return {Choice::build(choices), CompileError::none()};
   }
 
  private:
-  pair<rule_ptr, CompileError> term(bool nested) {
-    rule_ptr result = Blank::build();
+  pair<Rule, CompileError> term(bool nested) {
+    Rule result;
     do {
       if (peek() == '|')
         break;
       if (nested && peek() == ')')
         break;
       auto pair = factor();
-      if (pair.second.type)
-        return { Blank::build(), pair.second };
-      result = Seq::build({ result, pair.first });
+      if (pair.second) {
+        return {Blank{}, pair.second};
+      }
+      result = Seq::build({result, pair.first});
     } while (has_more_input());
     return { result, CompileError::none() };
   }
 
-  pair<rule_ptr, CompileError> factor() {
+  pair<Rule, CompileError> factor() {
     auto pair = atom();
-    if (pair.second.type)
-      return { Blank::build(), pair.second };
-    rule_ptr result = pair.first;
+    if (pair.second.type) {
+      return {Blank{}, pair.second};
+    }
+
+    Rule result = pair.first;
     if (has_more_input()) {
       switch (peek()) {
         case '*':
           next();
-          result = Choice::build({ Repeat::build(result), Blank::build() });
+          result = Choice::build({
+            Repeat{result},
+            Blank{}
+          });
           break;
         case '+':
           next();
-          result = Repeat::build(result);
+          result = Repeat{result};
           break;
         case '?':
           next();
-          result = Choice::build({ result, Blank::build() });
+          result = Choice::build({result, Blank{}});
           break;
       }
     }
-    return { result, CompileError::none() };
+
+    return {result, CompileError::none()};
   }
 
-  pair<rule_ptr, CompileError> atom() {
+  pair<Rule, CompileError> atom() {
     switch (peek()) {
       case '(': {
         next();
         auto pair = rule(true);
-        if (pair.second.type)
-          return { Blank::build(), pair.second };
-        if (peek() != ')')
+        if (pair.second.type) {
+          return {Blank{}, pair.second};
+        }
+        if (peek() != ')') {
           return error("unmatched open paren");
+        }
         next();
-        return { pair.first, CompileError::none() };
+        return {pair.first, CompileError::none()};
       }
+
       case '[': {
         next();
         auto pair = char_set();
-        if (pair.second.type)
-          return { Blank::build(), pair.second };
-        if (peek() != ']')
+        if (pair.second.type) {
+          return {Blank{}, pair.second};
+        }
+        if (peek() != ']') {
           return error("unmatched open square bracket");
+        }
         next();
-        return { pair.first.copy(), CompileError::none() };
+        return {pair.first, CompileError::none()};
       }
+
       case ')': {
         return error("unmatched close paren");
       }
+
       case ']': {
         return error("unmatched close square bracket");
       }
+
       case '.': {
         next();
-        return { CharacterSet().include_all().exclude('\n').copy(),
-                 CompileError::none() };
+        return {
+          CharacterSet().include_all().exclude('\n'),
+          CompileError::none()
+        };
       }
+
       default: {
         auto pair = single_char();
         if (pair.second.type)
-          return { Blank::build(), pair.second };
-        return { pair.first.copy(), CompileError::none() };
+          return { Blank{}, pair.second };
+        return {pair.first, CompileError::none()};
       }
     }
   }
@@ -234,8 +249,8 @@ class PatternParser {
     return lookahead && iter <= end;
   }
 
-  pair<rule_ptr, CompileError> error(string msg) {
-    return { Blank::build(), CompileError(TSCompileErrorTypeInvalidRegex, msg) };
+  pair<Rule, CompileError> error(string msg) {
+    return { Blank{}, CompileError(TSCompileErrorTypeInvalidRegex, msg) };
   }
 
   string input;
@@ -244,7 +259,7 @@ class PatternParser {
   int32_t lookahead;
 };
 
-pair<rule_ptr, CompileError> parse_regex(const std::string &input) {
+pair<Rule, CompileError> parse_regex(const std::string &input) {
   return PatternParser(input.c_str()).rule(false);
 }
 

@@ -10,8 +10,7 @@
 #include "compiler/build_tables/parse_item_set_builder.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/syntax_grammar.h"
-#include "compiler/rules/symbol.h"
-#include "compiler/rules/built_in_symbols.h"
+#include "compiler/rule.h"
 #include "compiler/build_tables/lex_table_builder.h"
 
 namespace tree_sitter {
@@ -53,8 +52,8 @@ class ParseTableBuilder {
 
   pair<ParseTable, CompileError> build() {
     Symbol start_symbol = grammar.variables.empty() ?
-      Symbol(0, Symbol::Terminal) :
-      Symbol(0, Symbol::NonTerminal);
+      Symbol::terminal(0) :
+      Symbol::non_terminal(0);
 
     Production start_production{
       ProductionStep{start_symbol, 0, rules::AssociativityNone},
@@ -121,7 +120,7 @@ class ParseTableBuilder {
       }
 
       if (!has_non_reciprocal_conflict) {
-        add_out_of_context_parse_state(&error_state, Symbol(i, Symbol::Terminal));
+        add_out_of_context_parse_state(&error_state, Symbol::terminal(i));
       }
     }
 
@@ -132,11 +131,11 @@ class ParseTableBuilder {
     }
 
     for (size_t i = 0; i < grammar.external_tokens.size(); i++) {
-      add_out_of_context_parse_state(&error_state, Symbol(i, Symbol::External));
+      add_out_of_context_parse_state(&error_state, Symbol::external(i));
     }
 
     for (size_t i = 0; i < grammar.variables.size(); i++) {
-      add_out_of_context_parse_state(&error_state, Symbol(i, Symbol::NonTerminal));
+      add_out_of_context_parse_state(&error_state, Symbol::non_terminal(i));
     }
 
     error_state.terminal_entries[END_OF_INPUT()].actions.push_back(ParseAction::Recover(0));
@@ -253,7 +252,7 @@ class ParseTableBuilder {
       ParseStateId next_state = add_parse_state(next_item_set);
       parse_table.set_nonterminal_action(state_id, lookahead, next_state);
       if (!allow_any_conflict)
-        recovery_states[Symbol(lookahead, Symbol::NonTerminal)].add(next_item_set);
+        recovery_states[Symbol::non_terminal(lookahead)].add(next_item_set);
     }
 
     for (Symbol lookahead : lookaheads_with_conflicts) {
@@ -428,7 +427,7 @@ class ParseTableBuilder {
         if (lookahead.is_external()) return false;
         if (!lookahead.is_built_in()) {
           for (Symbol::Index incompatible_index : incompatible_token_indices) {
-            Symbol incompatible_symbol(incompatible_index, Symbol::Terminal);
+            Symbol incompatible_symbol = Symbol::terminal(incompatible_index);
             if (other.terminal_entries.count(incompatible_symbol)) return false;
           }
         }
@@ -452,7 +451,7 @@ class ParseTableBuilder {
         if (lookahead.is_external()) return false;
         if (!lookahead.is_built_in()) {
           for (Symbol::Index incompatible_index : incompatible_token_indices) {
-            Symbol incompatible_symbol(incompatible_index, Symbol::Terminal);
+            Symbol incompatible_symbol = Symbol::terminal(incompatible_index);
             if (state.terminal_entries.count(incompatible_symbol)) return false;
           }
         }

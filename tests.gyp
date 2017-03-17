@@ -37,13 +37,13 @@
         '-std=c99',
       ],
       'cflags_cc': [
-        '-std=c++0x',
+        '-std=c++14',
       ],
       'ldflags': [
         '-g',
       ],
       'xcode_settings': {
-        'CLANG_CXX_LANGUAGE_STANDARD': 'c++11',
+        'CLANG_CXX_LANGUAGE_STANDARD': 'c++14',
         'OTHER_LDFLAGS': ['-g'],
         'GCC_OPTIMIZATION_LEVEL': '0',
         'ALWAYS_SEARCH_USER_PATHS': 'NO',

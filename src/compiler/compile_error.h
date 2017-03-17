@@ -8,11 +8,17 @@ namespace tree_sitter {
 
 class CompileError {
  public:
+  CompileError() : type(TSCompileErrorTypeNone) {}
+
   CompileError(TSCompileErrorType type, std::string message)
       : type(type), message(message) {}
 
   static CompileError none() {
     return CompileError(TSCompileErrorTypeNone, "");
+  }
+
+  operator bool() const {
+    return type != TSCompileErrorTypeNone;
   }
 
   bool operator==(const CompileError &other) const {

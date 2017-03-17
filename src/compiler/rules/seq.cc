@@ -1,56 +1,37 @@
 #include "compiler/rules/seq.h"
-#include <string>
-#include "compiler/rules/visitor.h"
-#include "compiler/rules/blank.h"
-#include "compiler/rules/metadata.h"
+#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace rules {
 
-using std::make_shared;
-using std::string;
-using std::vector;
+Seq::Seq(const Rule &left, const Rule &right) :
+  left(std::make_shared<Rule>(left)),
+  right(std::make_shared<Rule>(right)) {}
 
-Seq::Seq(rule_ptr left, rule_ptr right) : left(left), right(right) {}
-
-rule_ptr Seq::build(const std::vector<rule_ptr> &rules) {
-  rule_ptr result = make_shared<Blank>();
-  for (auto &rule : rules) {
-    auto blank = rule->as<Blank>();
-    if (blank)
-      continue;
-
-    auto metadata = rule->as<Metadata>();
-    if (metadata && metadata->rule->as<Blank>())
-      continue;
-
-    if (result->as<Blank>())
-      result = rule;
-    else
-      result = make_shared<Seq>(result, rule);
+std::shared_ptr<Rule> Seq::build(const std::vector<Rule> &rules) {
+  Rule result;
+  for (const auto &rule : rules) {
+    rule.match(
+      [](Blank) {},
+      [&](Metadata metadata) {
+        if (!metadata.rule->is<Blank>()) {
+          result = Seq{result, rule};
+        }
+      },
+      [&](auto) {
+        if (result.is<Blank>()) {
+          result = rule;
+        } else {
+          result = Seq{result, rule};
+        }
+      }
+    );
   }
-  return result;
+  return std::make_shared<Rule>(result);
 }
 
-bool Seq::operator==(const Rule &rule) const {
-  const Seq *other = rule.as<Seq>();
-  return other && (*other->left == *left) && (*other->right == *right);
-}
-
-size_t Seq::hash_code() const {
-  return left->hash_code() ^ right->hash_code();
-}
-
-rule_ptr Seq::copy() const {
-  return std::make_shared<Seq>(*this);
-}
-
-string Seq::to_string() const {
-  return string("(seq ") + left->to_string() + " " + right->to_string() + ")";
-}
-
-void Seq::accept(Visitor *visitor) const {
-  visitor->visit(this);
+bool Seq::operator==(const Seq &other) const {
+  return left->operator==(*other.left) && right->operator==(*other.right);
 }
 
 }  // namespace rules

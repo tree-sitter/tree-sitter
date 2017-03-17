@@ -1,43 +1,40 @@
 #include "compiler/rules/character_set.h"
-#include <string>
-#include <utility>
-#include <vector>
-#include "compiler/rules/visitor.h"
-#include "compiler/util/hash_combine.h"
+
+using std::set;
+using std::vector;
 
 namespace tree_sitter {
 namespace rules {
 
-using std::string;
-using std::set;
-using std::vector;
-using util::hash_combine;
-
 static void add_range(set<uint32_t> *characters, uint32_t min, uint32_t max) {
-  for (uint32_t c = min; c <= max; c++)
+  for (uint32_t c = min; c <= max; c++) {
     characters->insert(c);
+  }
 }
 
 static void remove_range(set<uint32_t> *characters, uint32_t min, uint32_t max) {
-  for (uint32_t c = min; c <= max; c++)
+  for (uint32_t c = min; c <= max; c++) {
     characters->erase(c);
+  }
 }
 
-static set<uint32_t> remove_chars(set<uint32_t> *left,
-                                  const set<uint32_t> &right) {
+static set<uint32_t> remove_chars(set<uint32_t> *left, const set<uint32_t> &right) {
   set<uint32_t> result;
   for (uint32_t c : right) {
-    if (left->erase(c))
+    if (left->erase(c)) {
       result.insert(c);
+    }
   }
   return result;
 }
 
 static set<uint32_t> add_chars(set<uint32_t> *left, const set<uint32_t> &right) {
   set<uint32_t> result;
-  for (uint32_t c : right)
-    if (left->insert(c).second)
+  for (uint32_t c : right) {
+    if (left->insert(c).second) {
       result.insert(c);
+    }
+  }
   return result;
 }
 
@@ -50,10 +47,11 @@ static vector<CharacterRange> consolidate_ranges(const set<uint32_t> &chars) {
       result.back().max = c;
     } else if (size >= 1) {
       CharacterRange &last = result.back();
-      if (last.min < last.max && last.max == (c - 1))
+      if (last.min < last.max && last.max == (c - 1)) {
         last.max = c;
-      else
+      } else {
         result.push_back(CharacterRange(c));
+      }
     } else {
       result.push_back(CharacterRange(c));
     }
@@ -61,14 +59,14 @@ static vector<CharacterRange> consolidate_ranges(const set<uint32_t> &chars) {
   return result;
 }
 
-CharacterSet::CharacterSet()
-    : includes_all(false), included_chars({}), excluded_chars({}) {}
+CharacterSet::CharacterSet() : includes_all(false) {}
 
-bool CharacterSet::operator==(const Rule &rule) const {
-  const CharacterSet *other = rule.as<CharacterSet>();
-  return other && (includes_all == other->includes_all) &&
-         (included_chars == other->included_chars) &&
-         (excluded_chars == other->excluded_chars);
+CharacterSet::CharacterSet(const set<uint32_t> &chars) : included_chars(chars), includes_all(false) {}
+
+bool CharacterSet::operator==(const CharacterSet &other) const {
+  return includes_all == other.includes_all &&
+         included_chars == other.included_chars &&
+         excluded_chars == other.excluded_chars;
 }
 
 bool CharacterSet::operator<(const CharacterSet &other) const {
@@ -81,41 +79,6 @@ bool CharacterSet::operator<(const CharacterSet &other) const {
   if (other.included_chars < included_chars)
     return false;
   return excluded_chars < other.excluded_chars;
-}
-
-size_t CharacterSet::hash_code() const {
-  size_t result = 0;
-  hash_combine(&result, includes_all);
-  hash_combine(&result, included_chars.size());
-  for (uint32_t c : included_chars)
-    hash_combine(&result, c);
-  hash_combine(&result, excluded_chars.size());
-  for (uint32_t c : excluded_chars)
-    hash_combine(&result, c);
-  return result;
-}
-
-rule_ptr CharacterSet::copy() const {
-  return std::make_shared<CharacterSet>(*this);
-}
-
-string CharacterSet::to_string() const {
-  string result("(char");
-  if (includes_all)
-    result += " include_all";
-  if (!included_chars.empty()) {
-    result += " (include";
-    for (auto r : included_ranges())
-      result += string(" ") + r.to_string();
-    result += ")";
-  }
-  if (!excluded_chars.empty()) {
-    result += " (exclude";
-    for (auto r : excluded_ranges())
-      result += string(" ") + r.to_string();
-    result += ")";
-  }
-  return result + ")";
 }
 
 CharacterSet &CharacterSet::include_all() {
@@ -210,10 +173,6 @@ vector<CharacterRange> CharacterSet::included_ranges() const {
 
 vector<CharacterRange> CharacterSet::excluded_ranges() const {
   return consolidate_ranges(excluded_chars);
-}
-
-void CharacterSet::accept(Visitor *visitor) const {
-  visitor->visit(this);
 }
 
 }  // namespace rules

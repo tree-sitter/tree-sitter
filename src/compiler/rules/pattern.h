@@ -2,22 +2,16 @@
 #define COMPILER_RULES_PATTERN_H_
 
 #include <string>
-#include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace rules {
 
-class Pattern : public Rule {
- public:
-  explicit Pattern(const std::string &string);
+struct Pattern {
+  std::string value;
 
-  bool operator==(const Rule &other) const;
-  size_t hash_code() const;
-  rule_ptr copy() const;
-  std::string to_string() const;
-  void accept(Visitor *visitor) const;
-
-  const std::string value;
+  inline bool operator==(const Pattern &other) const {
+    return value == other.value;
+  }
 };
 
 }  // namespace rules
