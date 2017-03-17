@@ -50,12 +50,8 @@
       'cflags_cc': [
         '-std=c++14',
       ],
-      'cflags_cc!': [
-        '-fno-rtti'
-      ],
       'xcode_settings': {
         'CLANG_CXX_LANGUAGE_STANDARD': 'c++14',
-        'GCC_ENABLE_CPP_RTTI': 'YES',
         'GCC_ENABLE_CPP_EXCEPTIONS': 'NO',
       },
       'direct_dependent_settings': {
