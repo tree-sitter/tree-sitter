@@ -89,7 +89,7 @@ class FlattenRule {
   }
 };
 
-SyntaxVariable flatten_rule(const InitialSyntaxGrammar::Variable &variable) {
+SyntaxVariable flatten_rule(const Variable &variable) {
   vector<Production> productions;
 
   for (const Rule &rule_component : extract_choices(variable.rule)) {

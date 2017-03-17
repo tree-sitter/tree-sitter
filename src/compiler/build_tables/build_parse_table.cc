@@ -38,7 +38,7 @@ class ParseTableBuilder {
   set<string> conflicts;
   ParseItemSetBuilder item_set_builder;
   set<const Production *> fragile_productions;
-  vector<set<Symbol::Index>> incompatible_token_indices_by_index;
+  vector<set<Symbol>> incompatible_tokens_by_index;
   bool allow_any_conflict;
 
  public:
@@ -109,10 +109,13 @@ class ParseTableBuilder {
   void build_error_parse_state() {
     ParseState error_state;
 
-    for (Symbol::Index i = 0; i < lexical_grammar.variables.size(); i++) {
+    for (unsigned i = 0; i < lexical_grammar.variables.size(); i++) {
+      Symbol token = Symbol::terminal(i);
       bool has_non_reciprocal_conflict = false;
-      for (Symbol::Index incompatible_index : incompatible_token_indices_by_index[i]) {
-        if (!incompatible_token_indices_by_index[incompatible_index].count(i)) {
+
+      for (Symbol incompatible_token : incompatible_tokens_by_index[i]) {
+        if (incompatible_token.is_terminal() &&
+            !incompatible_tokens_by_index[incompatible_token.index].count(token)) {
           has_non_reciprocal_conflict = true;
           break;
         }
@@ -302,28 +305,25 @@ class ParseTableBuilder {
   }
 
   void compute_unmergable_token_pairs() {
-    incompatible_token_indices_by_index.resize(lexical_grammar.variables.size());
+    incompatible_tokens_by_index.resize(lexical_grammar.variables.size());
 
-    // First, assume that all tokens are mutually incompatible.
-    for (Symbol::Index i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
-      auto &incompatible_indices = incompatible_token_indices_by_index[i];
-      for (Symbol::Index j = 0; j < n; j++) {
-        if (j != i) incompatible_indices.insert(j);
-      }
-    }
-
-    // For the remaining possibly-incompatible pairs of tokens, check if they
-    // are actually incompatible by actually generating lexical states that
-    // contain them both.
     auto lex_table_builder = LexTableBuilder::create(lexical_grammar);
-    for (Symbol::Index i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
-      auto &incompatible_indices = incompatible_token_indices_by_index[i];
-      auto iter = incompatible_indices.begin();
-      while (iter != incompatible_indices.end()) {
-        if (lex_table_builder->detect_conflict(i, *iter)) {
-          ++iter;
-        } else {
-          iter = incompatible_indices.erase(iter);
+    for (unsigned i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
+      Symbol token = Symbol::terminal(i);
+      auto &incompatible_indices = incompatible_tokens_by_index[i];
+
+      for (unsigned j = 0; j < n; j++) {
+        if (i == j) continue;
+        if (lex_table_builder->detect_conflict(i, j)) {
+          incompatible_indices.insert(Symbol::terminal(j));
+        }
+      }
+
+      for (const ExternalToken &external_token : grammar.external_tokens) {
+        if (external_token.corresponding_internal_token == token) {
+          for (unsigned j = 0; j < grammar.external_tokens.size(); j++) {
+            incompatible_indices.insert(Symbol::external(j));
+          }
         }
       }
     }
@@ -419,15 +419,14 @@ class ParseTableBuilder {
     for (auto &entry : state.terminal_entries) {
       Symbol lookahead = entry.first;
       const vector<ParseAction> &actions = entry.second.actions;
-      auto &incompatible_token_indices = incompatible_token_indices_by_index[lookahead.index];
+      auto &incompatible_tokens = incompatible_tokens_by_index[lookahead.index];
 
       const auto &other_entry = other.terminal_entries.find(lookahead);
       if (other_entry == other.terminal_entries.end()) {
         if (lookahead.is_external()) return false;
         if (!lookahead.is_built_in()) {
-          for (Symbol::Index incompatible_index : incompatible_token_indices) {
-            Symbol incompatible_symbol = Symbol::terminal(incompatible_index);
-            if (other.terminal_entries.count(incompatible_symbol)) return false;
+          for (const Symbol &incompatible_token : incompatible_tokens) {
+            if (other.terminal_entries.count(incompatible_token)) return false;
           }
         }
         if (actions.back().type != ParseActionTypeReduce)
@@ -444,14 +443,13 @@ class ParseTableBuilder {
     for (auto &entry : other.terminal_entries) {
       Symbol lookahead = entry.first;
       const vector<ParseAction> &actions = entry.second.actions;
-      auto &incompatible_token_indices = incompatible_token_indices_by_index[lookahead.index];
+      auto &incompatible_tokens = incompatible_tokens_by_index[lookahead.index];
 
       if (!state.terminal_entries.count(lookahead)) {
         if (lookahead.is_external()) return false;
         if (!lookahead.is_built_in()) {
-          for (Symbol::Index incompatible_index : incompatible_token_indices) {
-            Symbol incompatible_symbol = Symbol::terminal(incompatible_index);
-            if (state.terminal_entries.count(incompatible_symbol)) return false;
+          for (const Symbol &incompatible_token : incompatible_tokens) {
+            if (state.terminal_entries.count(incompatible_token)) return false;
           }
         }
         if (actions.back().type != ParseActionTypeReduce)

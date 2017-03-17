@@ -11,7 +11,7 @@
 namespace tree_sitter {
 namespace prepare_grammar {
 
-SyntaxVariable flatten_rule(const InitialSyntaxGrammar::Variable &variable);
+SyntaxVariable flatten_rule(const Variable &variable);
 std::pair<SyntaxGrammar, CompileError> flatten_grammar(const InitialSyntaxGrammar &);
 
 }  // namespace prepare_grammar

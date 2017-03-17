@@ -85,7 +85,7 @@ class ExpandRepeats {
     return apply(rule);
   }
 
-  vector<InitialSyntaxGrammar::Variable> aux_rules;
+  vector<Variable> aux_rules;
 };
 
 InitialSyntaxGrammar expand_repeats(const InitialSyntaxGrammar &grammar) {

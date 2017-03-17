@@ -6,11 +6,6 @@
 using namespace rules;
 using prepare_grammar::InitialSyntaxGrammar;
 using prepare_grammar::expand_repeats;
-using Variable = InitialSyntaxGrammar::Variable;
-
-bool operator==(const Variable &left, const Variable &right) {
-  return left.name == right.name && left.rule == right.rule && left.type == right.type;
-}
 
 START_TEST
 

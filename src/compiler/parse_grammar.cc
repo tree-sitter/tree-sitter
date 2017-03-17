@@ -228,7 +228,7 @@ ParseGrammarResult parse_grammar(const string &input) {
       error_message = result.error_message;
       goto error;
     }
-    grammar.variables.push_back(InputGrammar::Variable{
+    grammar.variables.push_back(Variable{
       string(entry_json.name),
       VariableTypeNamed,
       result.rule
@@ -293,18 +293,21 @@ ParseGrammarResult parse_grammar(const string &input) {
     }
 
     for (size_t i = 0, length = external_tokens_json.u.array.length; i < length; i++) {
-      json_value *token_name_json = external_tokens_json.u.array.values[i];
-      if (token_name_json->type != json_string) {
-        error_message = "External token values must be strings";
+      json_value *external_token_json = external_tokens_json.u.array.values[i];
+      auto result = parse_rule(external_token_json);
+      if (!result.error_message.empty()) {
+        error_message = "Invalid external token: " + result.error_message;
         goto error;
       }
 
-      string token_name = token_name_json->u.string.ptr;
-      grammar.external_tokens.push_back({
-        token_name,
-        VariableTypeNamed,
-        rules::NONE()
-      });
+      grammar.external_tokens.push_back(result.rule.match(
+        [](rules::NamedSymbol named_symbol) {
+          return Variable{named_symbol.value, VariableTypeNamed, named_symbol};
+        },
+        [](auto rule) {
+          return Variable{"", VariableTypeAnonymous, rule};
+        }
+      ));
     }
   }
 

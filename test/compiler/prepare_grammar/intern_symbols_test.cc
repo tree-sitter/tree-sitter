@@ -22,7 +22,7 @@ describe("intern_symbols", []() {
     auto result = intern_symbols(grammar);
 
     AssertThat(result.second, Equals(CompileError::none()));
-    AssertThat(result.first.variables, Equals(vector<prepare_grammar::InternedGrammar::Variable>{
+    AssertThat(result.first.variables, Equals(vector<Variable>{
       {"x", VariableTypeNamed, Rule::choice({ Symbol::non_terminal(1), Symbol::non_terminal(2) })},
       {"y", VariableTypeNamed, Symbol::non_terminal(2)},
       {"_z", VariableTypeHidden, String{"stuff"}},
@@ -74,28 +74,28 @@ describe("intern_symbols", []() {
       {},
       {},
       {
-        ExternalToken{
+        Variable{
           "w",
           VariableTypeNamed,
-          NONE()
+          NamedSymbol{"w"}
         },
-        ExternalToken{
+        Variable{
           "z",
           VariableTypeNamed,
-          NONE()
+          NamedSymbol{"z"}
         },
       }
     };
 
     auto result = intern_symbols(grammar);
 
-    AssertThat(result.first.external_tokens, Equals(vector<ExternalToken>{
-      ExternalToken{
+    AssertThat(result.first.external_tokens, Equals(vector<Variable>{
+      Variable{
         "w",
         VariableTypeNamed,
-        rules::NONE()
+        Symbol::external(0)
       },
-      ExternalToken{
+      Variable{
         "z",
         VariableTypeNamed,
         Symbol::non_terminal(2)

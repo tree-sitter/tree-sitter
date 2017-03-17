@@ -156,7 +156,7 @@ class TokenExtractor {
   }
 
   vector<size_t> token_usage_counts;
-  vector<InternedGrammar::Variable> tokens;
+  vector<Variable> tokens;
 };
 
 tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
@@ -167,13 +167,22 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
   SymbolReplacer symbol_replacer;
   TokenExtractor extractor;
 
-  // First, extract all of the grammar's tokens into the lexical grammar.
-  vector<InitialSyntaxGrammar::Variable> processed_variables;
+  // Extract all of the grammar's tokens into the lexical grammar.
+  vector<Variable> processed_variables;
   for (const auto &variable : grammar.variables) {
     processed_variables.push_back({
       variable.name,
       variable.type,
       extractor.apply(variable.rule)
+    });
+  }
+
+  vector<Variable> processed_external_tokens;
+  for (const auto &external_token : grammar.external_tokens) {
+    processed_external_tokens.push_back({
+      external_token.name,
+      external_token.type,
+      extractor.apply(external_token.rule)
     });
   }
 
@@ -269,12 +278,22 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
     if (error) return make_tuple(syntax_grammar, lexical_grammar, error);
   }
 
-  for (const ExternalToken &external_token : grammar.external_tokens) {
-    Symbol internal_token = symbol_replacer.replace_symbol(
-      external_token.corresponding_internal_token
-    );
+  for (const auto &external_token : processed_external_tokens) {
+    Rule new_rule = symbol_replacer.apply(external_token.rule);
 
-    if (internal_token.is_non_terminal()) {
+    if (!new_rule.is<Symbol>()) {
+      return make_tuple(
+        syntax_grammar,
+        lexical_grammar,
+        CompileError(
+          TSCompileErrorTypeInvalidExternalToken,
+          "Non-symbol rule expressions can't be used as external tokens"
+        )
+      );
+    }
+
+    Symbol symbol = new_rule.get_unchecked<Symbol>();
+    if (symbol.is_non_terminal()) {
       return make_tuple(
         syntax_grammar,
         lexical_grammar,
@@ -285,11 +304,19 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
       );
     }
 
-    syntax_grammar.external_tokens.push_back(ExternalToken{
-      external_token.name,
-      external_token.type,
-      internal_token
-    });
+    if (symbol.is_external()) {
+      syntax_grammar.external_tokens.push_back(ExternalToken{
+        external_token.name,
+        external_token.type,
+        rules::NONE()
+      });
+    } else {
+      syntax_grammar.external_tokens.push_back(ExternalToken{
+        lexical_grammar.variables[symbol.index].name,
+        external_token.type,
+        symbol
+      });
+    }
   }
 
   return make_tuple(syntax_grammar, lexical_grammar, CompileError::none());

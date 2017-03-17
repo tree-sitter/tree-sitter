@@ -132,7 +132,7 @@ ostream &operator<<(ostream &stream, const Rule &rule) {
 
 }  // namespace rules
 
-ostream &operator<<(ostream &stream, const InputGrammar::Variable &variable) {
+ostream &operator<<(ostream &stream, const Variable &variable) {
   return stream << "(Variable " << variable.name << " " << variable.rule << ")";
 }
 
@@ -164,18 +164,6 @@ ostream &operator<<(ostream &stream, const PrecedenceRange &range) {
       to_string(range.max) << ")";
   }
 }
-
-namespace prepare_grammar {
-
-ostream &operator<<(ostream &stream, const prepare_grammar::InternedGrammar::Variable &variable) {
-  return stream << "(Variable " << variable.name << " " << variable.rule << ")";
-}
-
-ostream &operator<<(ostream &stream, const prepare_grammar::InitialSyntaxGrammar::Variable &variable) {
-  return stream << "(Variable " << variable.name << " " << variable.rule << ")";
-}
-
-}  // namespace prepare_grammar
 
 namespace build_tables {
 

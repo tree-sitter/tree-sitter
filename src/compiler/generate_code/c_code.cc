@@ -526,7 +526,7 @@ class CCodeGenerator {
   // Helper functions
 
   string external_token_id(Symbol::Index index) {
-    return "ts_external_token_" + syntax_grammar.external_tokens[index].name;
+    return "ts_external_token_" + sanitize_name(syntax_grammar.external_tokens[index].name);
   }
 
   string symbol_id(const Symbol &symbol) {

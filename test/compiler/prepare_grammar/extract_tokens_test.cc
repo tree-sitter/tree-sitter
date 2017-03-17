@@ -11,14 +11,12 @@ using namespace rules;
 using prepare_grammar::extract_tokens;
 using prepare_grammar::InternedGrammar;
 using prepare_grammar::InitialSyntaxGrammar;
-using InternedVariable = InternedGrammar::Variable;
-using InitialSyntaxVariable = InitialSyntaxGrammar::Variable;
 
 describe("extract_tokens", []() {
   it("moves strings, patterns, and sub-rules marked as tokens into the lexical grammar", [&]() {
     auto result = extract_tokens(InternedGrammar{
       {
-        InternedVariable{
+        Variable{
           "rule_A",
           VariableTypeNamed,
           Repeat{Rule::seq({
@@ -34,17 +32,17 @@ describe("extract_tokens", []() {
             }),
           })}
         },
-        InternedVariable{
+        Variable{
           "rule_B",
           VariableTypeNamed,
           Pattern{"h+"}
         },
-        InternedVariable{
+        Variable{
           "rule_C",
           VariableTypeNamed,
           Rule::choice({ String{"i"}, Blank{} })
         },
-        InternedVariable{
+        Variable{
           "rule_D",
           VariableTypeNamed,
           Repeat{Symbol::non_terminal(3)}
@@ -61,8 +59,8 @@ describe("extract_tokens", []() {
 
     AssertThat(error, Equals(CompileError::none()));
 
-    AssertThat(syntax_grammar.variables, Equals(vector<InitialSyntaxVariable>{
-      InitialSyntaxVariable{
+    AssertThat(syntax_grammar.variables, Equals(vector<Variable>{
+      Variable{
         "rule_A",
         VariableTypeNamed,
         Repeat{Rule::seq({
@@ -88,13 +86,13 @@ describe("extract_tokens", []() {
         })}
       },
 
-      InitialSyntaxVariable{
+      Variable{
         "rule_C",
         VariableTypeNamed,
         Rule::choice({Symbol::terminal(4), Blank{}})
       },
 
-      InitialSyntaxVariable{
+      Variable{
         "rule_D",
         VariableTypeNamed,
         Repeat{Symbol::non_terminal(2)}
@@ -168,8 +166,8 @@ describe("extract_tokens", []() {
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
     LexicalGrammar &lexical_grammar = get<1>(result);
 
-    AssertThat(syntax_grammar.variables, Equals(vector<InitialSyntaxVariable> {
-      InitialSyntaxVariable{
+    AssertThat(syntax_grammar.variables, Equals(vector<Variable> {
+      Variable{
         "rule_A",
         VariableTypeNamed,
         Rule::seq({
@@ -192,17 +190,17 @@ describe("extract_tokens", []() {
 
   it("does not move entire rules into the lexical grammar if their content is used elsewhere in the grammar", [&]() {
     auto result = extract_tokens(InternedGrammar{{
-      InternedVariable{
+      Variable{
         "rule_A",
         VariableTypeNamed,
         Rule::seq({ Symbol::non_terminal(1), String{"ab"} })
       },
-      InternedVariable{
+      Variable{
         "rule_B",
         VariableTypeNamed,
         String{"cd"}
       },
-      InternedVariable{
+      Variable{
         "rule_C",
         VariableTypeNamed,
         Rule::seq({ String{"ef"}, String{"cd"} })
@@ -212,18 +210,18 @@ describe("extract_tokens", []() {
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
     LexicalGrammar &lexical_grammar = get<1>(result);
 
-    AssertThat(syntax_grammar.variables, Equals(vector<InitialSyntaxVariable>({
-      InitialSyntaxVariable{
+    AssertThat(syntax_grammar.variables, Equals(vector<Variable>({
+      Variable{
         "rule_A",
         VariableTypeNamed,
         Rule::seq({ Symbol::non_terminal(1), Symbol::terminal(0) })
       },
-      InitialSyntaxVariable{
+      Variable{
         "rule_B",
         VariableTypeNamed,
         Symbol::terminal(1)
       },
-      InitialSyntaxVariable{
+      Variable{
         "rule_C",
         VariableTypeNamed,
         Rule::seq({ Symbol::terminal(2), Symbol::terminal(1) })
@@ -255,17 +253,17 @@ describe("extract_tokens", []() {
   it("renumbers the grammar's expected conflict symbols based on any moved rules", [&]() {
     auto result = extract_tokens(InternedGrammar{
       {
-        InternedVariable{
+        Variable{
           "rule_A",
           VariableTypeNamed,
           String{"ok"}
         },
-        InternedVariable{
+        Variable{
           "rule_B",
           VariableTypeNamed,
           Repeat{Symbol::non_terminal(0)}
         },
-        InternedVariable{
+        Variable{
           "rule_C",
           VariableTypeNamed,
           Repeat{Seq{Symbol::non_terminal(0), Symbol::non_terminal(0)}}
@@ -292,7 +290,7 @@ describe("extract_tokens", []() {
     it("adds inline extra tokens to the lexical grammar's separators", [&]() {
       auto result = extract_tokens(InternedGrammar{
         {
-          InternedVariable{"rule_A", VariableTypeNamed, String{"x"}},
+          Variable{"rule_A", VariableTypeNamed, String{"x"}},
         },
         {
           String{"y"},
@@ -314,8 +312,8 @@ describe("extract_tokens", []() {
     it("handles inline extra tokens that match tokens in the grammar", [&]() {
       auto result = extract_tokens(InternedGrammar{
         {
-          InternedVariable{"rule_A", VariableTypeNamed, String{"x"}},
-          InternedVariable{"rule_B", VariableTypeNamed, String{"y"}},
+          Variable{"rule_A", VariableTypeNamed, String{"x"}},
+          Variable{"rule_B", VariableTypeNamed, String{"y"}},
         },
         {
           String{"y"},
@@ -332,17 +330,17 @@ describe("extract_tokens", []() {
     it("updates extra symbols according to the new symbol numbers", [&]() {
       auto result = extract_tokens(InternedGrammar{
         {
-          InternedVariable{
+          Variable{
             "rule_A",
             VariableTypeNamed,
             Rule::seq({ String{"w"}, String{"x"}, Symbol::non_terminal(1) })
           },
-          InternedVariable{
+          Variable{
             "rule_B",
             VariableTypeNamed,
             String{"y"}
           },
-          InternedVariable{
+          Variable{
             "rule_C",
             VariableTypeNamed,
             String{"z"}
@@ -367,12 +365,12 @@ describe("extract_tokens", []() {
     it("returns an error if any extra tokens are non-token symbols", [&]() {
       auto result = extract_tokens(InternedGrammar{
         {
-          InternedVariable{
+          Variable{
             "rule_A",
             VariableTypeNamed,
             Rule::seq({ String{"x"}, Symbol::non_terminal(1) })
           },
-          InternedVariable{
+          Variable{
             "rule_B",
             VariableTypeNamed,
             Rule::seq({ String{"y"}, String{"z"} })
@@ -428,7 +426,7 @@ describe("extract_tokens", []() {
       {},
       {},
       {
-        ExternalToken {"rule_A", VariableTypeNamed, Symbol::non_terminal(0)}
+        Variable{"rule_A", VariableTypeNamed, Symbol::non_terminal(0)}
       }
     });
 
