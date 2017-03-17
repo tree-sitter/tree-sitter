@@ -16,8 +16,6 @@ using std::get;
 using std::pair;
 using std::tuple;
 using std::make_tuple;
-using std::shared_ptr;
-using std::make_shared;
 using rules::Symbol;
 using rules::NONE;
 

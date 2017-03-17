@@ -41,7 +41,7 @@ static set<uint32_t> add_chars(set<uint32_t> *left, const set<uint32_t> &right) 
 static vector<CharacterRange> consolidate_ranges(const set<uint32_t> &chars) {
   vector<CharacterRange> result;
   for (uint32_t c : chars) {
-    size_t size = result.size();
+    auto size = result.size();
     if (size >= 2 && result[size - 2].max == (c - 2)) {
       result.pop_back();
       result.back().max = c;

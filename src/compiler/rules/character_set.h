@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <set>
+#include <cstdint>
 
 namespace tree_sitter {
 namespace rules {

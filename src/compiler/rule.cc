@@ -115,7 +115,6 @@ Rule::~Rule() noexcept {
 bool Rule::operator==(const Rule &other) const {
   if (type != other.type) return false;
   switch (type) {
-    case Rule::BlankType: return blank == other.blank;
     case Rule::CharacterSetType: return character_set == other.character_set;
     case Rule::StringType: return string == other.string;
     case Rule::PatternType: return pattern == other.pattern;
@@ -125,6 +124,7 @@ bool Rule::operator==(const Rule &other) const {
     case Rule::MetadataType: return metadata == other.metadata;
     case Rule::RepeatType: return repeat == other.repeat;
     case Rule::SeqType: return seq == other.seq;
+    default: return blank == other.blank;
   }
 }
 
@@ -219,7 +219,6 @@ size_t hash<Metadata>::operator()(const Metadata &metadata) const {
 size_t hash<Rule>::operator()(const Rule &rule) const {
   size_t result = hash<int>()(rule.type);
   switch (rule.type) {
-    case Rule::BlankType: return result ^ hash<Blank>()(rule.blank);
     case Rule::CharacterSetType: return result ^ hash<CharacterSet>()(rule.character_set);
     case Rule::StringType: return result ^ hash<String>()(rule.string);
     case Rule::PatternType: return result ^ hash<Pattern>()(rule.pattern);
@@ -229,6 +228,7 @@ size_t hash<Rule>::operator()(const Rule &rule) const {
     case Rule::MetadataType: return result ^ hash<Metadata>()(rule.metadata);
     case Rule::RepeatType: return result ^ hash<Repeat>()(rule.repeat);
     case Rule::SeqType: return result ^ hash<Seq>()(rule.seq);
+    default: return result ^ hash<Blank>()(rule.blank);
   }
 }
 

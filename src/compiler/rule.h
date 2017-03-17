@@ -74,7 +74,6 @@ struct Rule {
   template <typename FunctionType>
   inline auto accept(FunctionType function) const -> decltype(function(blank)) {
     switch (type) {
-      case BlankType: return function(blank);
       case CharacterSetType: return function(character_set);
       case StringType: return function(string);
       case PatternType: return function(pattern);
@@ -84,6 +83,7 @@ struct Rule {
       case MetadataType: return function(metadata);
       case RepeatType: return function(repeat);
       case SeqType: return function(seq);
+      default: return function(blank);
     }
   }
 
