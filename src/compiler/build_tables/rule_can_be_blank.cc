@@ -15,11 +15,11 @@ bool rule_can_be_blank(const rules::Rule &rule) {
     },
 
     [](rules::Repeat repeat) {
-      return rule_can_be_blank(repeat.rule);
+      return rule_can_be_blank(*repeat.rule);
     },
 
     [](rules::Metadata metadata) {
-      return rule_can_be_blank(metadata.rule);
+      return rule_can_be_blank(*metadata.rule);
     },
 
     [](rules::Choice choice) {
@@ -32,7 +32,7 @@ bool rule_can_be_blank(const rules::Rule &rule) {
     },
 
     [](rules::Seq seq) {
-      return rule_can_be_blank(seq.left) && rule_can_be_blank(seq.right);
+      return rule_can_be_blank(*seq.left) && rule_can_be_blank(*seq.right);
     },
 
     [](auto) { return false; }

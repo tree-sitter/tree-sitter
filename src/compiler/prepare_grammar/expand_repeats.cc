@@ -28,17 +28,17 @@ class ExpandRepeats {
       [&](const rules::Symbol &symbol) { return symbol; },
 
       [&](const rules::Choice &choice) {
-        vector<rules::Rule> elements;
+        vector<Rule> elements;
         for (const auto &element : choice.elements) {
           elements.push_back(apply(element));
         }
-        return rules::Choice::build(elements);
+        return Rule::choice(elements);
       },
 
       [&](const rules::Seq &sequence) {
         return rules::Seq{
-          apply(sequence.left),
-          apply(sequence.right)
+          apply(*sequence.left),
+          apply(*sequence.right)
         };
       },
 
@@ -49,7 +49,7 @@ class ExpandRepeats {
           }
         }
 
-        Rule inner_rule = apply(repeat.rule);
+        Rule inner_rule = apply(*repeat.rule);
         size_t index = aux_rules.size();
         string helper_rule_name = rule_name + "_repeat" + to_string(++repeat_count);
         Symbol repeat_symbol = Symbol::non_terminal(offset + index);
@@ -66,7 +66,7 @@ class ExpandRepeats {
       },
 
       [&](const rules::Metadata &metadata) {
-        return rules::Metadata{apply(metadata.rule), metadata.params};
+        return rules::Metadata{apply(*metadata.rule), metadata.params};
       },
 
       [](auto) {

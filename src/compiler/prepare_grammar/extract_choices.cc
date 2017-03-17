@@ -13,9 +13,9 @@ vector<Rule> extract_choices(const Rule &rule) {
   return rule.match(
     [](const rules::Seq &sequence) {
       vector<Rule> result;
-      for (auto &left_entry : extract_choices(sequence.left)) {
-        for (auto &right_entry : extract_choices(sequence.right)) {
-          result.push_back(rules::Seq::build({left_entry, right_entry}));
+      for (auto &left_entry : extract_choices(*sequence.left)) {
+        for (auto &right_entry : extract_choices(*sequence.right)) {
+          result.push_back(rules::Rule::seq({left_entry, right_entry}));
         }
       }
       return result;
@@ -23,7 +23,7 @@ vector<Rule> extract_choices(const Rule &rule) {
 
     [](const rules::Metadata &rule) {
       vector<Rule> result;
-      for (auto &entry : extract_choices(rule.rule)) {
+      for (auto &entry : extract_choices(*rule.rule)) {
         result.push_back(rules::Metadata{entry, rule.params});
       }
       return result;

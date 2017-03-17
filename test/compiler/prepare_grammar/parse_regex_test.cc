@@ -29,7 +29,7 @@ describe("parse_regex", []() {
     {
       "character classes",
       "\\w-\\d-\\s-\\W-\\D-\\S",
-      Seq::build({
+      Rule::seq({
         CharacterSet{{
           'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
           'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
@@ -60,7 +60,7 @@ describe("parse_regex", []() {
     {
       "choices",
       "ab|cd|ef",
-      Choice::build({
+      Rule::choice({
         Seq{
           CharacterSet{{'a'}},
           CharacterSet{{'b'}}
@@ -79,7 +79,7 @@ describe("parse_regex", []() {
     {
       "simple sequences",
       "abc",
-      Seq::build({
+      Rule::seq({
         CharacterSet{{'a'}},
         CharacterSet{{'b'}},
         CharacterSet{{'c'}}
@@ -113,12 +113,12 @@ describe("parse_regex", []() {
     {
       "character groups in sequences",
       "x([^x]|\\\\x)*x",
-      Seq::build({
+      Rule::seq({
         CharacterSet{{'x'}},
-        Choice::build({
-          Repeat{Choice::build({
+        Rule::choice({
+          Repeat{Rule::choice({
             CharacterSet().include_all().exclude('x'),
-            Seq::build({
+            Rule::seq({
               CharacterSet{{'\\'}},
               CharacterSet{{'x'}}
             })
@@ -132,8 +132,8 @@ describe("parse_regex", []() {
     {
       "choices in sequences",
       "(a|b)cd",
-      Seq::build({
-        Choice::build({
+      Rule::seq({
+        Rule::choice({
           CharacterSet{{'a'}},
           CharacterSet{{'b'}} }),
         CharacterSet{{'c'}},
@@ -143,7 +143,7 @@ describe("parse_regex", []() {
     {
       "escaped parentheses",
       "a\\(b",
-      Seq::build({
+      Rule::seq({
         CharacterSet{{'a'}},
         CharacterSet{{'('}},
         CharacterSet{{'b'}},
@@ -153,7 +153,7 @@ describe("parse_regex", []() {
     {
       "escaped periods",
       "a\\.",
-      Seq::build({
+      Rule::seq({
         CharacterSet{{'a'}},
         CharacterSet{{'.'}},
       })
@@ -162,7 +162,7 @@ describe("parse_regex", []() {
     {
       "escaped characters",
       "\\t\\n\\r",
-      Seq::build({
+      Rule::seq({
         CharacterSet{{'\t'}},
         CharacterSet{{'\n'}},
         CharacterSet{{'\r'}},
@@ -172,22 +172,22 @@ describe("parse_regex", []() {
     {
       "plus repeats",
       "(ab)+(cd)+",
-      Seq::build({
-        Repeat{Seq::build({ CharacterSet{{'a'}}, CharacterSet{{'b'}} })},
-        Repeat{Seq::build({ CharacterSet{{'c'}}, CharacterSet{{'d'}} })},
+      Rule::seq({
+        Repeat{Rule::seq({ CharacterSet{{'a'}}, CharacterSet{{'b'}} })},
+        Repeat{Rule::seq({ CharacterSet{{'c'}}, CharacterSet{{'d'}} })},
       })
     },
 
     {
       "asterix repeats",
       "(ab)*(cd)*",
-      Seq::build({
-        Choice::build({
-          Repeat{Seq::build({ CharacterSet{{'a'}}, CharacterSet{{'b'}} })},
+      Rule::seq({
+        Rule::choice({
+          Repeat{Rule::seq({ CharacterSet{{'a'}}, CharacterSet{{'b'}} })},
           Blank{},
         }),
-        Choice::build({
-          Repeat{Seq::build({ CharacterSet{{'c'}}, CharacterSet{{'d'}} })},
+        Rule::choice({
+          Repeat{Rule::seq({ CharacterSet{{'c'}}, CharacterSet{{'d'}} })},
           Blank{},
         }),
       })
@@ -196,10 +196,10 @@ describe("parse_regex", []() {
     {
       "optional rules",
       "a(bc)?",
-      Seq::build({
+      Rule::seq({
         CharacterSet{{'a'}},
-        Choice::build({
-          Seq::build({
+        Rule::choice({
+          Rule::seq({
             CharacterSet{{'b'}},
             CharacterSet{{'c'}},
           }),
@@ -211,11 +211,11 @@ describe("parse_regex", []() {
     {
       "choices containing negated character classes",
       "/([^/]|(\\\\/))+/",
-      Seq::build({
+      Rule::seq({
         CharacterSet{{'/'}},
-        Repeat{Choice::build({
+        Repeat{Rule::choice({
           CharacterSet().include_all().exclude('/'),
-          Seq::build({
+          Rule::seq({
             CharacterSet{{'\\'}},
             CharacterSet{{'/'}},
           }),

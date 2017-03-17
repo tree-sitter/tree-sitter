@@ -9,9 +9,9 @@ using prepare_grammar::extract_choices;
 
 describe("extract_choices", []() {
   it("expands rules containing choices into multiple rules", [&]() {
-    auto rule = Seq::build({
+    auto rule = Rule::seq({
       Symbol::terminal(1),
-      Choice::build({
+      Rule::choice({
         Symbol::terminal(2),
         Symbol::terminal(3),
         Symbol::terminal(4)
@@ -22,14 +22,14 @@ describe("extract_choices", []() {
     auto result = extract_choices(rule);
 
     AssertThat(result, Equals(vector<Rule>({
-      Seq::build({Symbol::terminal(1), Symbol::terminal(2), Symbol::terminal(5)}),
-      Seq::build({Symbol::terminal(1), Symbol::terminal(3), Symbol::terminal(5)}),
-      Seq::build({Symbol::terminal(1), Symbol::terminal(4), Symbol::terminal(5)}),
+      Rule::seq({Symbol::terminal(1), Symbol::terminal(2), Symbol::terminal(5)}),
+      Rule::seq({Symbol::terminal(1), Symbol::terminal(3), Symbol::terminal(5)}),
+      Rule::seq({Symbol::terminal(1), Symbol::terminal(4), Symbol::terminal(5)}),
     })));
   });
 
   it("handles metadata rules", [&]() {
-    auto rule = Metadata::prec(5, Choice::build({
+    auto rule = Metadata::prec(5, Rule::choice({
       Symbol::terminal(2),
       Symbol::terminal(3),
       Symbol::terminal(4)
@@ -43,9 +43,9 @@ describe("extract_choices", []() {
   });
 
   it("handles nested choices", [&]() {
-    auto rule = Choice::build({
-      Seq::build({
-        Choice::build({
+    auto rule = Rule::choice({
+      Rule::seq({
+        Rule::choice({
           Symbol::terminal(1),
           Symbol::terminal(2)
         }),
@@ -55,8 +55,8 @@ describe("extract_choices", []() {
     });
 
     AssertThat(extract_choices(rule), Equals(vector<Rule>({
-      Seq::build({Symbol::terminal(1), Symbol::terminal(3)}),
-      Seq::build({Symbol::terminal(2), Symbol::terminal(3)}),
+      Rule::seq({Symbol::terminal(1), Symbol::terminal(3)}),
+      Rule::seq({Symbol::terminal(2), Symbol::terminal(3)}),
       Symbol::terminal(4),
     })));
   });

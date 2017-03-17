@@ -14,9 +14,6 @@ using std::unordered_set;
 using std::pair;
 using rules::Rule;
 using rules::Blank;
-using rules::Choice;
-using rules::Repeat;
-using rules::Seq;
 using rules::Metadata;
 using rules::Pattern;
 using rules::String;
@@ -70,7 +67,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
       }
       members.push_back(result.rule);
     }
-    return Rule(Choice{members});
+    return Rule::choice(members);
   }
 
   if (type == "SEQ") {
@@ -88,7 +85,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
       }
       members.push_back(result.rule);
     }
-    return *Seq::build(members);
+    return Rule::seq(members);
   }
 
   if (type == "REPEAT") {
@@ -97,7 +94,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     if (!result.error_message.empty()) {
       return "Invalid repeat content: " + result.error_message;
     }
-    return Rule(Choice{{Repeat{result.rule}, Blank{}}});
+    return Rule::choice({Rule::repeat(result.rule), Blank{}});
   }
 
   if (type == "REPEAT1") {
@@ -106,7 +103,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     if (!result.error_message.empty()) {
       return "Invalid repeat content: " + result.error_message;
     }
-    return Rule(Repeat{result.rule});
+    return Rule::repeat(result.rule);
   }
 
   if (type == "TOKEN") {

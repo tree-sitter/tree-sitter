@@ -5,28 +5,29 @@ namespace tree_sitter {
 namespace rules {
 
 using std::move;
+using std::vector;
 using util::hash_combine;
 
-Rule::Rule(const Rule &other) : blank(Blank{}), type(BlankType) {
+Rule::Rule(const Rule &other) : blank_(Blank{}), type(BlankType) {
   *this = other;
 }
 
-Rule::Rule(Rule &&other) noexcept : blank(Blank{}), type(BlankType) {
+Rule::Rule(Rule &&other) noexcept : blank_(Blank{}), type(BlankType) {
   *this = move(other);
 }
 
 static void destroy_value(Rule *rule) {
   switch (rule->type) {
-    case Rule::BlankType: return rule->blank.~Blank();
-    case Rule::CharacterSetType: return rule->character_set.~CharacterSet();
-    case Rule::StringType: return rule->string .~String();
-    case Rule::PatternType: return rule->pattern .~Pattern();
-    case Rule::NamedSymbolType: return rule->named_symbol.~NamedSymbol();
-    case Rule::SymbolType: return rule->symbol .~Symbol();
-    case Rule::ChoiceType: return rule->choice .~Choice();
-    case Rule::MetadataType: return rule->metadata .~Metadata();
-    case Rule::RepeatType: return rule->repeat .~Repeat();
-    case Rule::SeqType: return rule->seq .~Seq();
+    case Rule::BlankType: return rule->blank_.~Blank();
+    case Rule::CharacterSetType: return rule->character_set_.~CharacterSet();
+    case Rule::StringType: return rule->string_ .~String();
+    case Rule::PatternType: return rule->pattern_ .~Pattern();
+    case Rule::NamedSymbolType: return rule->named_symbol_.~NamedSymbol();
+    case Rule::SymbolType: return rule->symbol_ .~Symbol();
+    case Rule::ChoiceType: return rule->choice_ .~Choice();
+    case Rule::MetadataType: return rule->metadata_ .~Metadata();
+    case Rule::RepeatType: return rule->repeat_ .~Repeat();
+    case Rule::SeqType: return rule->seq_ .~Seq();
   }
 }
 
@@ -35,34 +36,34 @@ Rule &Rule::operator=(const Rule &other) {
   type = other.type;
   switch (type) {
     case BlankType:
-      new (&blank) Blank(other.blank);
+      new (&blank_) Blank(other.blank_);
       break;
     case CharacterSetType:
-      new (&character_set) CharacterSet(other.character_set);
+      new (&character_set_) CharacterSet(other.character_set_);
       break;
     case StringType:
-      new (&string) String(other.string);
+      new (&string_) String(other.string_);
       break;
     case PatternType:
-      new (&pattern) Pattern(other.pattern);
+      new (&pattern_) Pattern(other.pattern_);
       break;
     case NamedSymbolType:
-      new (&named_symbol) NamedSymbol(other.named_symbol);
+      new (&named_symbol_) NamedSymbol(other.named_symbol_);
       break;
     case SymbolType:
-      new (&symbol) Symbol(other.symbol);
+      new (&symbol_) Symbol(other.symbol_);
       break;
     case ChoiceType:
-      new (&choice) Choice(other.choice);
+      new (&choice_) Choice(other.choice_);
       break;
     case MetadataType:
-      new (&metadata) Metadata(other.metadata);
+      new (&metadata_) Metadata(other.metadata_);
       break;
     case RepeatType:
-      new (&repeat) Repeat(other.repeat);
+      new (&repeat_) Repeat(other.repeat_);
       break;
     case SeqType:
-      new (&seq) Seq(other.seq);
+      new (&seq_) Seq(other.seq_);
       break;
   }
   return *this;
@@ -73,38 +74,38 @@ Rule &Rule::operator=(Rule &&other) noexcept {
   type = other.type;
   switch (type) {
     case BlankType:
-      new (&blank) Blank(move(other.blank));
+      new (&blank_) Blank(move(other.blank_));
       break;
     case CharacterSetType:
-      new (&character_set) CharacterSet(move(other.character_set));
+      new (&character_set_) CharacterSet(move(other.character_set_));
       break;
     case StringType:
-      new (&string) String(move(other.string));
+      new (&string_) String(move(other.string_));
       break;
     case PatternType:
-      new (&pattern) Pattern(move(other.pattern));
+      new (&pattern_) Pattern(move(other.pattern_));
       break;
     case NamedSymbolType:
-      new (&named_symbol) NamedSymbol(move(other.named_symbol));
+      new (&named_symbol_) NamedSymbol(move(other.named_symbol_));
       break;
     case SymbolType:
-      new (&symbol) Symbol(move(other.symbol));
+      new (&symbol_) Symbol(move(other.symbol_));
       break;
     case ChoiceType:
-      new (&choice) Choice(move(other.choice));
+      new (&choice_) Choice(move(other.choice_));
       break;
     case MetadataType:
-      new (&metadata) Metadata(move(other.metadata));
+      new (&metadata_) Metadata(move(other.metadata_));
       break;
     case RepeatType:
-      new (&repeat) Repeat(move(other.repeat));
+      new (&repeat_) Repeat(move(other.repeat_));
       break;
     case SeqType:
-      new (&seq) Seq(move(other.seq));
+      new (&seq_) Seq(move(other.seq_));
       break;
   }
   other.type = BlankType;
-  other.blank = Blank{};
+  other.blank_ = Blank{};
   return *this;
 }
 
@@ -115,16 +116,16 @@ Rule::~Rule() noexcept {
 bool Rule::operator==(const Rule &other) const {
   if (type != other.type) return false;
   switch (type) {
-    case Rule::CharacterSetType: return character_set == other.character_set;
-    case Rule::StringType: return string == other.string;
-    case Rule::PatternType: return pattern == other.pattern;
-    case Rule::NamedSymbolType: return named_symbol == other.named_symbol;
-    case Rule::SymbolType: return symbol == other.symbol;
-    case Rule::ChoiceType: return choice == other.choice;
-    case Rule::MetadataType: return metadata == other.metadata;
-    case Rule::RepeatType: return repeat == other.repeat;
-    case Rule::SeqType: return seq == other.seq;
-    default: return blank == other.blank;
+    case Rule::CharacterSetType: return character_set_ == other.character_set_;
+    case Rule::StringType: return string_ == other.string_;
+    case Rule::PatternType: return pattern_ == other.pattern_;
+    case Rule::NamedSymbolType: return named_symbol_ == other.named_symbol_;
+    case Rule::SymbolType: return symbol_ == other.symbol_;
+    case Rule::ChoiceType: return choice_ == other.choice_;
+    case Rule::MetadataType: return metadata_ == other.metadata_;
+    case Rule::RepeatType: return repeat_ == other.repeat_;
+    case Rule::SeqType: return seq_ == other.seq_;
+    default: return blank_ == other.blank_;
   }
 }
 
@@ -138,7 +139,58 @@ template <>
 bool Rule::is<Repeat>() const { return type == RepeatType; }
 
 template <>
-const Symbol & Rule::get_unchecked<Symbol>() const { return symbol; }
+const Symbol & Rule::get_unchecked<Symbol>() const { return symbol_; }
+
+static inline void add_choice_element(std::vector<Rule> *elements, const Rule &new_rule) {
+  new_rule.match(
+    [elements](Choice choice) {
+      for (auto &element : choice.elements) {
+        add_choice_element(elements, element);
+      }
+    },
+
+    [elements](auto rule) {
+      for (auto &element : *elements) {
+        if (element == rule) return;
+      }
+      elements->push_back(rule);
+    }
+  );
+}
+
+Rule Rule::choice(const vector<Rule> &rules) {
+  vector<Rule> elements;
+  for (auto &element : rules) {
+    add_choice_element(&elements, element);
+  }
+  return (elements.size() == 1) ? elements.front() : Choice{elements};
+}
+
+Rule Rule::repeat(const Rule &rule) {
+  return rule.is<Repeat>() ? rule : Repeat{rule};
+}
+
+Rule Rule::seq(const vector<Rule> &rules) {
+  Rule result;
+  for (const auto &rule : rules) {
+    rule.match(
+      [](Blank) {},
+      [&](Metadata metadata) {
+        if (!metadata.rule->is<Blank>()) {
+          result = Seq{result, rule};
+        }
+      },
+      [&](auto) {
+        if (result.is<Blank>()) {
+          result = rule;
+        } else {
+          result = Seq{result, rule};
+        }
+      }
+    );
+  }
+  return result;
+}
 
 }  // namespace rules
 }  // namespace tree_sitter
@@ -219,16 +271,16 @@ size_t hash<Metadata>::operator()(const Metadata &metadata) const {
 size_t hash<Rule>::operator()(const Rule &rule) const {
   size_t result = hash<int>()(rule.type);
   switch (rule.type) {
-    case Rule::CharacterSetType: return result ^ hash<CharacterSet>()(rule.character_set);
-    case Rule::StringType: return result ^ hash<String>()(rule.string);
-    case Rule::PatternType: return result ^ hash<Pattern>()(rule.pattern);
-    case Rule::NamedSymbolType: return result ^ hash<NamedSymbol>()(rule.named_symbol);
-    case Rule::SymbolType: return result ^ hash<Symbol>()(rule.symbol);
-    case Rule::ChoiceType: return result ^ hash<Choice>()(rule.choice);
-    case Rule::MetadataType: return result ^ hash<Metadata>()(rule.metadata);
-    case Rule::RepeatType: return result ^ hash<Repeat>()(rule.repeat);
-    case Rule::SeqType: return result ^ hash<Seq>()(rule.seq);
-    default: return result ^ hash<Blank>()(rule.blank);
+    case Rule::CharacterSetType: return result ^ hash<CharacterSet>()(rule.character_set_);
+    case Rule::StringType: return result ^ hash<String>()(rule.string_);
+    case Rule::PatternType: return result ^ hash<Pattern>()(rule.pattern_);
+    case Rule::NamedSymbolType: return result ^ hash<NamedSymbol>()(rule.named_symbol_);
+    case Rule::SymbolType: return result ^ hash<Symbol>()(rule.symbol_);
+    case Rule::ChoiceType: return result ^ hash<Choice>()(rule.choice_);
+    case Rule::MetadataType: return result ^ hash<Metadata>()(rule.metadata_);
+    case Rule::RepeatType: return result ^ hash<Repeat>()(rule.repeat_);
+    case Rule::SeqType: return result ^ hash<Seq>()(rule.seq_);
+    default: return result ^ hash<Blank>()(rule.blank_);
   }
 }
 

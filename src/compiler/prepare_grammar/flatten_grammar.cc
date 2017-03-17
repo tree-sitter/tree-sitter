@@ -34,12 +34,15 @@ class FlattenRule {
       },
 
       [&](const rules::Metadata &metadata) {
-        if (metadata.params.has_precedence)
+        if (metadata.params.has_precedence) {
           precedence_stack.push_back(metadata.params.precedence);
-        if (metadata.params.has_associativity)
-          associativity_stack.push_back(metadata.params.associativity);
+        }
 
-        apply(metadata.rule);
+        if (metadata.params.has_associativity) {
+          associativity_stack.push_back(metadata.params.associativity);
+        }
+
+        apply(*metadata.rule);
 
         if (metadata.params.has_precedence) {
           last_precedence = precedence_stack.back();
@@ -55,10 +58,10 @@ class FlattenRule {
       },
 
       [&](const rules::Seq &sequence) {
-        apply(sequence.left);
+        apply(*sequence.left);
         last_precedence = 0;
         last_associativity = rules::AssociativityNone;
-        apply(sequence.right);
+        apply(*sequence.right);
       },
 
       [&](const rules::Blank &blank) {},

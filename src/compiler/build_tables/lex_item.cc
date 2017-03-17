@@ -34,7 +34,7 @@ static CompletionStatus get_completion_status(const rules::Rule &rule) {
     },
 
     [](rules::Metadata metadata) {
-      CompletionStatus result = get_completion_status(metadata.rule);
+      CompletionStatus result = get_completion_status(*metadata.rule);
       if (result.is_done && result.precedence.empty && metadata.params.has_precedence) {
         result.precedence.add(metadata.params.precedence);
       }
@@ -42,13 +42,13 @@ static CompletionStatus get_completion_status(const rules::Rule &rule) {
     },
 
     [](rules::Repeat repeat) {
-      return get_completion_status(repeat.rule);
+      return get_completion_status(*repeat.rule);
     },
 
     [](rules::Seq sequence) {
-      CompletionStatus left_status = get_completion_status(sequence.left);
+      CompletionStatus left_status = get_completion_status(*sequence.left);
       if (left_status.is_done) {
-        return get_completion_status(sequence.right);
+        return get_completion_status(*sequence.right);
       } else {
         return CompletionStatus{false, PrecedenceRange()};
       }

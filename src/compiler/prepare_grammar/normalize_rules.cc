@@ -11,7 +11,7 @@ LexicalGrammar normalize_rules(const LexicalGrammar &input_grammar) {
   LexicalGrammar result(input_grammar);
 
   for (LexicalVariable &variable : result.variables) {
-    variable.rule = rules::Choice::build(extract_choices(variable.rule));
+    variable.rule = Rule::choice(extract_choices(variable.rule));
   }
 
   return result;

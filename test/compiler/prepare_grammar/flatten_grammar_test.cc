@@ -14,12 +14,12 @@ describe("flatten_grammar", []() {
     SyntaxVariable result = flatten_rule({
       "test",
       VariableTypeNamed,
-      Seq::build({
+      Rule::seq({
         Symbol::non_terminal(1),
-        Metadata::prec_left(101, Seq::build({
+        Metadata::prec_left(101, Rule::seq({
           Symbol::non_terminal(2),
-          Choice::build({
-            Metadata::prec_right(102, Seq::build({
+          Rule::choice({
+            Metadata::prec_right(102, Rule::seq({
               Symbol::non_terminal(3),
               Symbol::non_terminal(4)
             })),
@@ -56,7 +56,7 @@ describe("flatten_grammar", []() {
     SyntaxVariable result = flatten_rule({
       "test1",
       VariableTypeNamed,
-      Metadata::prec_left(101, Seq::build({
+      Metadata::prec_left(101, Rule::seq({
         Symbol::non_terminal(1),
         Symbol::non_terminal(2),
       }))
@@ -72,7 +72,7 @@ describe("flatten_grammar", []() {
     result = flatten_rule({
       "test2",
       VariableTypeNamed,
-      Metadata::prec_left(101, Seq::build({
+      Metadata::prec_left(101, Rule::seq({
         Symbol::non_terminal(1),
       }))
     });

@@ -21,13 +21,13 @@ describe("extract_tokens", []() {
         InternedVariable{
           "rule_A",
           VariableTypeNamed,
-          Repeat{Seq::build({
+          Repeat{Rule::seq({
             String{"ab"},
             Pattern{"cd+"},
-            Choice::build({
+            Rule::choice({
               Symbol::non_terminal(1),
               Symbol::non_terminal(2),
-              Metadata::token(Repeat{Choice::build({
+              Metadata::token(Repeat{Rule::choice({
                 String{"ef"},
                 String{"g"}
               })}),
@@ -42,7 +42,7 @@ describe("extract_tokens", []() {
         InternedVariable{
           "rule_C",
           VariableTypeNamed,
-          Choice::build({ String{"i"}, Blank{} })
+          Rule::choice({ String{"i"}, Blank{} })
         },
         InternedVariable{
           "rule_D",
@@ -65,7 +65,7 @@ describe("extract_tokens", []() {
       InitialSyntaxVariable{
         "rule_A",
         VariableTypeNamed,
-        Repeat{Seq::build({
+        Repeat{Rule::seq({
 
           // This string is now the first token in the lexical grammar.
           Symbol::terminal(0),
@@ -73,7 +73,7 @@ describe("extract_tokens", []() {
           // This pattern is now the second rule in the lexical grammar.
           Symbol::terminal(1),
 
-          Choice::build({
+          Rule::choice({
             // Rule 1, which this symbol pointed to, has been moved to the
             // lexical grammar.
             Symbol::terminal(3),
@@ -91,7 +91,7 @@ describe("extract_tokens", []() {
       InitialSyntaxVariable{
         "rule_C",
         VariableTypeNamed,
-        Choice::build({Symbol::terminal(4), Blank{}})
+        Rule::choice({Symbol::terminal(4), Blank{}})
       },
 
       InitialSyntaxVariable{
@@ -122,7 +122,7 @@ describe("extract_tokens", []() {
       LexicalVariable{
         "/(ef|g)+/",
         VariableTypeAuxiliary,
-        Repeat{Choice::build({
+        Repeat{Rule::choice({
           Seq{CharacterSet{{'e'}}, CharacterSet{{'f'}}},
           CharacterSet{{'g'}},
         })},
@@ -153,7 +153,7 @@ describe("extract_tokens", []() {
         {
           "rule_A",
           VariableTypeNamed,
-          Seq::build({
+          Rule::seq({
             String{"ab"},
             Symbol::non_terminal(1),
             String{"ab"},
@@ -172,7 +172,7 @@ describe("extract_tokens", []() {
       InitialSyntaxVariable{
         "rule_A",
         VariableTypeNamed,
-        Seq::build({
+        Rule::seq({
           Symbol::terminal(0),
           Symbol::non_terminal(1),
           Symbol::terminal(0)
@@ -195,7 +195,7 @@ describe("extract_tokens", []() {
       InternedVariable{
         "rule_A",
         VariableTypeNamed,
-        Seq::build({ Symbol::non_terminal(1), String{"ab"} })
+        Rule::seq({ Symbol::non_terminal(1), String{"ab"} })
       },
       InternedVariable{
         "rule_B",
@@ -205,7 +205,7 @@ describe("extract_tokens", []() {
       InternedVariable{
         "rule_C",
         VariableTypeNamed,
-        Seq::build({ String{"ef"}, String{"cd"} })
+        Rule::seq({ String{"ef"}, String{"cd"} })
       },
     }, {}, {}, {}});
 
@@ -216,7 +216,7 @@ describe("extract_tokens", []() {
       InitialSyntaxVariable{
         "rule_A",
         VariableTypeNamed,
-        Seq::build({ Symbol::non_terminal(1), Symbol::terminal(0) })
+        Rule::seq({ Symbol::non_terminal(1), Symbol::terminal(0) })
       },
       InitialSyntaxVariable{
         "rule_B",
@@ -226,7 +226,7 @@ describe("extract_tokens", []() {
       InitialSyntaxVariable{
         "rule_C",
         VariableTypeNamed,
-        Seq::build({ Symbol::terminal(2), Symbol::terminal(1) })
+        Rule::seq({ Symbol::terminal(2), Symbol::terminal(1) })
       },
     })));
 
@@ -335,7 +335,7 @@ describe("extract_tokens", []() {
           InternedVariable{
             "rule_A",
             VariableTypeNamed,
-            Seq::build({ String{"w"}, String{"x"}, Symbol::non_terminal(1) })
+            Rule::seq({ String{"w"}, String{"x"}, Symbol::non_terminal(1) })
           },
           InternedVariable{
             "rule_B",
@@ -370,12 +370,12 @@ describe("extract_tokens", []() {
           InternedVariable{
             "rule_A",
             VariableTypeNamed,
-            Seq::build({ String{"x"}, Symbol::non_terminal(1) })
+            Rule::seq({ String{"x"}, Symbol::non_terminal(1) })
           },
           InternedVariable{
             "rule_B",
             VariableTypeNamed,
-            Seq::build({ String{"y"}, String{"z"} })
+            Rule::seq({ String{"y"}, String{"z"} })
           },
         },
         {
@@ -398,7 +398,7 @@ describe("extract_tokens", []() {
           {"rule_B", VariableTypeNamed, String{"y"}},
         },
         {
-          Choice::build({ Symbol::non_terminal(1), Blank{} })
+          Rule::choice({ Symbol::non_terminal(1), Blank{} })
         },
         {},
         {}
@@ -417,12 +417,12 @@ describe("extract_tokens", []() {
         {
           "rule_A",
           VariableTypeNamed,
-          Seq::build({ String{"x"}, Symbol::non_terminal(1) })
+          Rule::seq({ String{"x"}, Symbol::non_terminal(1) })
         },
         {
           "rule_B",
           VariableTypeNamed,
-          Seq::build({ String{"y"}, String{"z"} })
+          Rule::seq({ String{"y"}, String{"z"} })
         },
       },
       {},

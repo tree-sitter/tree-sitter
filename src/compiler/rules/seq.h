@@ -14,7 +14,6 @@ struct Seq {
   std::shared_ptr<Rule> right;
 
   Seq(const Rule &left, const Rule &right);
-  static std::shared_ptr<Rule> build(const std::vector<Rule> &rules);
   bool operator==(const Seq &other) const;
 };
 

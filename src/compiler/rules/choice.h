@@ -12,7 +12,6 @@ struct Rule;
 struct Choice {
   std::vector<Rule> elements;
 
-  static std::shared_ptr<Rule> build(const std::vector<Rule> &rules);
   bool operator==(const Choice &other) const;
 };
 

@@ -12,13 +12,9 @@ namespace prepare_grammar {
 using std::string;
 using std::vector;
 using std::pair;
-using std::make_shared;
 using rules::CharacterSet;
 using rules::Blank;
 using rules::Rule;
-using rules::Choice;
-using rules::Seq;
-using rules::Repeat;
 
 class PatternParser {
  public:
@@ -45,7 +41,7 @@ class PatternParser {
       }
       choices.push_back(pair.first);
     } while (has_more_input());
-    return {Choice::build(choices), CompileError::none()};
+    return {Rule::choice(choices), CompileError::none()};
   }
 
  private:
@@ -60,7 +56,7 @@ class PatternParser {
       if (pair.second) {
         return {Blank{}, pair.second};
       }
-      result = Seq::build({result, pair.first});
+      result = Rule::seq({result, pair.first});
     } while (has_more_input());
     return { result, CompileError::none() };
   }
@@ -76,18 +72,18 @@ class PatternParser {
       switch (peek()) {
         case '*':
           next();
-          result = Choice::build({
-            Repeat{result},
+          result = Rule::choice({
+            Rule::repeat(result),
             Blank{}
           });
           break;
         case '+':
           next();
-          result = Repeat{result};
+          result = Rule::repeat(result);
           break;
         case '?':
           next();
-          result = Choice::build({result, Blank{}});
+          result = Rule::choice({result, Blank{}});
           break;
       }
     }

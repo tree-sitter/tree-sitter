@@ -13,7 +13,7 @@ describe("intern_symbols", []() {
   it("replaces named symbols with numerically-indexed symbols", [&]() {
     InputGrammar grammar{
       {
-        {"x", VariableTypeNamed, Choice::build({ NamedSymbol{"y"}, NamedSymbol{"_z"} })},
+        {"x", VariableTypeNamed, Rule::choice({ NamedSymbol{"y"}, NamedSymbol{"_z"} })},
         {"y", VariableTypeNamed, NamedSymbol{"_z"}},
         {"_z", VariableTypeNamed, String{"stuff"}}
       }, {}, {}, {}
@@ -23,7 +23,7 @@ describe("intern_symbols", []() {
 
     AssertThat(result.second, Equals(CompileError::none()));
     AssertThat(result.first.variables, Equals(vector<prepare_grammar::InternedGrammar::Variable>{
-      {"x", VariableTypeNamed, Choice::build({ Symbol::non_terminal(1), Symbol::non_terminal(2) })},
+      {"x", VariableTypeNamed, Rule::choice({ Symbol::non_terminal(1), Symbol::non_terminal(2) })},
       {"y", VariableTypeNamed, Symbol::non_terminal(2)},
       {"_z", VariableTypeHidden, String{"stuff"}},
     }));
@@ -47,7 +47,7 @@ describe("intern_symbols", []() {
   it("translates the grammar's optional 'extra_tokens' to numerical symbols", [&]() {
     InputGrammar grammar{
       {
-        {"x", VariableTypeNamed, Choice::build({ NamedSymbol{"y"}, NamedSymbol{"z"} })},
+        {"x", VariableTypeNamed, Rule::choice({ NamedSymbol{"y"}, NamedSymbol{"z"} })},
         {"y", VariableTypeNamed, NamedSymbol{"z"}},
         {"z", VariableTypeNamed, String{"stuff"}}
       },
@@ -67,7 +67,7 @@ describe("intern_symbols", []() {
   it("records any rule names that match external token names", [&]() {
     InputGrammar grammar{
       {
-        {"x", VariableTypeNamed, Choice::build({ NamedSymbol{"y"}, NamedSymbol{"z"} })},
+        {"x", VariableTypeNamed, Rule::choice({ NamedSymbol{"y"}, NamedSymbol{"z"} })},
         {"y", VariableTypeNamed, NamedSymbol{"z"}},
         {"z", VariableTypeNamed, String{"stuff"}},
       },

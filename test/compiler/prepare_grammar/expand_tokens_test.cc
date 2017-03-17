@@ -17,14 +17,14 @@ describe("expand_tokens", []() {
   describe("string rules", [&]() {
     it("replaces strings with sequences of character sets", [&]() {
       AssertThat(
-        expand_token(Seq::build({
+        expand_token(Rule::seq({
           String{"a"},
           String{"bcd"},
           String{"e"}
         })).rule,
-        Equals(*Seq::build({
+        Equals(Rule::seq({
           CharacterSet{{ 'a' }},
-          Seq::build({
+          Rule::seq({
             CharacterSet{{ 'b' }},
             CharacterSet{{ 'c' }},
             CharacterSet{{ 'd' }},
@@ -36,7 +36,7 @@ describe("expand_tokens", []() {
     it("handles strings containing non-ASCII UTF8 characters", [&]() {
       AssertThat(
         expand_token(String{"\u03B1 \u03B2"}).rule,
-        Equals(*Seq::build({
+        Equals(Rule::seq({
           CharacterSet{{ 945 }},
           CharacterSet{{ ' ' }},
           CharacterSet{{ 946 }},
@@ -48,12 +48,12 @@ describe("expand_tokens", []() {
   describe("regexp rules", [&]() {
     it("replaces regexps with the equivalent rule tree", [&]() {
       AssertThat(
-        expand_token(Seq::build({
+        expand_token(Rule::seq({
           String{"a"},
           Pattern{"x+"},
           String{"b"},
         })).rule,
-        Equals(*Seq::build({
+        Equals(Rule::seq({
           CharacterSet{{'a'}},
           Repeat{CharacterSet{{ 'x' }}},
           CharacterSet{{'b'}},
@@ -72,7 +72,7 @@ describe("expand_tokens", []() {
 
     it("returns an error when the grammar contains an invalid regex", [&]() {
       AssertThat(
-        expand_token(Seq::build({
+        expand_token(Rule::seq({
           Pattern{"("},
           String{"xyz"},
           Pattern{"["},

@@ -43,22 +43,22 @@ class SymbolReplacer {
         for (const auto &element : choice.elements) {
           elements.push_back(apply(element));
         }
-        return rules::Choice::build(elements);
+        return Rule::choice(elements);
       },
 
       [this](const rules::Seq &sequence) {
         return rules::Seq{
-          apply(sequence.left),
-          apply(sequence.right)
+          apply(*sequence.left),
+          apply(*sequence.right)
         };
       },
 
       [this](const rules::Repeat &repeat) {
-        return rules::Repeat{apply(repeat.rule)};
+        return Rule::repeat(apply(*repeat.rule));
       },
 
       [this](const rules::Metadata &metadata) {
-        return rules::Metadata{apply(metadata.rule), metadata.params};
+        return rules::Metadata{apply(*metadata.rule), metadata.params};
       },
 
       [](auto) {
@@ -114,9 +114,9 @@ class TokenExtractor {
 
       [this](const rules::Metadata &rule) -> Rule {
         if (rule.params.is_token) {
-          return extract_token(rule.rule, VariableTypeAuxiliary);
+          return extract_token(*rule.rule, VariableTypeAuxiliary);
         } else {
-          return rules::Metadata{apply(rule.rule), rule.params};
+          return rules::Metadata{apply(*rule.rule), rule.params};
         }
       },
 
@@ -129,14 +129,11 @@ class TokenExtractor {
       },
 
       [this](const rules::Repeat &rule) {
-        return rules::Repeat{apply(rule.rule)};
+        return Rule::repeat(apply(*rule.rule));
       },
 
       [this](const rules::Seq &rule) {
-        return rules::Seq{
-          apply(rule.left),
-          apply(rule.right)
-        };
+        return Rule::seq({apply(*rule.left), apply(*rule.right)});
       },
 
       [this](const rules::Choice &rule) {
@@ -144,7 +141,7 @@ class TokenExtractor {
         for (const auto &element : rule.elements) {
           elements.push_back(apply(element));
         }
-        return rules::Choice::build(elements);
+        return Rule::choice(elements);
       },
 
       [](const rules::Symbol &symbol) {

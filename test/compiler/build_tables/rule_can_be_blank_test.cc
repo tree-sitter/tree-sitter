@@ -24,24 +24,24 @@ describe("rule_can_be_blank", [&]() {
   });
 
   it("returns true for choices iff one or more sides can be blank", [&]() {
-    rule = Choice::build({ CharacterSet{{'x'}}, Blank{} });
+    rule = Rule::choice({ CharacterSet{{'x'}}, Blank{} });
     AssertThat(rule_can_be_blank(rule), IsTrue());
 
-    rule = Choice::build({ Blank{}, CharacterSet{{'x'}} });
+    rule = Rule::choice({ Blank{}, CharacterSet{{'x'}} });
     AssertThat(rule_can_be_blank(rule), IsTrue());
 
-    rule = Choice::build({ CharacterSet{{'x'}}, CharacterSet{{'y'}} });
+    rule = Rule::choice({ CharacterSet{{'x'}}, CharacterSet{{'y'}} });
     AssertThat(rule_can_be_blank(rule), IsFalse());
   });
 
   it("returns true for sequences iff both sides can be blank", [&]() {
-    rule = Seq::build({ Blank{}, CharacterSet{{'x'}} });
+    rule = Rule::seq({ Blank{}, CharacterSet{{'x'}} });
     AssertThat(rule_can_be_blank(rule), IsFalse());
 
-    rule = Seq::build({ CharacterSet{{'x'}}, Blank{} });
+    rule = Rule::seq({ CharacterSet{{'x'}}, Blank{} });
     AssertThat(rule_can_be_blank(rule), IsFalse());
 
-    rule = Seq::build({ Blank{}, Choice::build({ CharacterSet{{'x'}}, Blank{} }) });
+    rule = Rule::seq({ Blank{}, Rule::choice({ CharacterSet{{'x'}}, Blank{} }) });
     AssertThat(rule_can_be_blank(rule), IsTrue());
   });
 

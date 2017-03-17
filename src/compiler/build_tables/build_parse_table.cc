@@ -24,7 +24,6 @@ using std::map;
 using std::string;
 using std::to_string;
 using std::unordered_map;
-using std::make_shared;
 using rules::Associativity;
 using rules::Symbol;
 using rules::END_OF_INPUT;

@@ -33,7 +33,7 @@ ExpandTokenResult expand_token(const rules::Rule &rule) {
         elements.push_back(rules::CharacterSet().include(el));
       }
 
-      return *rules::Seq::build(elements);
+      return Rule::seq(elements);
     },
 
     [](const rules::Pattern &pattern) -> ExpandTokenResult {
@@ -43,21 +43,21 @@ ExpandTokenResult expand_token(const rules::Rule &rule) {
     },
 
     [](const rules::Repeat &rule) -> ExpandTokenResult {
-      auto result = expand_token(rule.rule);
+      auto result = expand_token(*rule.rule);
       if (result.error) return result.error;
-      return *rules::Repeat::build(result.rule);
+      return Rule::repeat(result.rule);
     },
 
     [](const rules::Metadata &rule) -> ExpandTokenResult {
-      auto result = expand_token(rule.rule);
+      auto result = expand_token(*rule.rule);
       if (result.error) return result.error;
       return Rule(rules::Metadata{result.rule, rule.params});
     },
 
     [](const rules::Seq &rule) -> ExpandTokenResult {
-      auto left_result = expand_token(rule.left);
+      auto left_result = expand_token(*rule.left);
       if (left_result.error) return left_result.error;
-      auto right_result = expand_token(rule.right);
+      auto right_result = expand_token(*rule.right);
       if (right_result.error) return right_result.error;
       return Rule(rules::Seq{left_result.rule, right_result.rule});
     },

@@ -86,7 +86,7 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles sequences", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol::non_terminal(1), Seq::build({
+      LexItem(Symbol::non_terminal(1), Rule::seq({
         CharacterSet{{ 'w' }},
         CharacterSet{{ 'x' }},
         CharacterSet{{ 'y' }},
@@ -101,7 +101,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('w'),
           Transition{
             LexItemSet({
-              LexItem(Symbol::non_terminal(1), Seq::build({
+              LexItem(Symbol::non_terminal(1), Rule::seq({
                 CharacterSet{{ 'x' }},
                 CharacterSet{{ 'y' }},
                 CharacterSet{{ 'z' }},
@@ -116,10 +116,10 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles sequences with nested precedence", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol::non_terminal(1), Seq::build({
-        Metadata::prec(3, Seq::build({
+      LexItem(Symbol::non_terminal(1), Rule::seq({
+        Metadata::prec(3, Rule::seq({
           CharacterSet{{ 'v' }},
-          Metadata::prec(4, Seq::build({
+          Metadata::prec(4, Rule::seq({
             CharacterSet{{ 'w' }},
             CharacterSet{{ 'x' }} })),
           CharacterSet{{ 'y' }} })),
@@ -138,9 +138,9 @@ describe("LexItemSet::transitions()", [&]() {
             // The outer precedence is now 'active', because we are within its
             // contained rule.
             LexItemSet({
-              LexItem(Symbol::non_terminal(1), Seq::build({
-                Metadata::active_prec(3, Seq::build({
-                  Metadata::prec(4, Seq::build({
+              LexItem(Symbol::non_terminal(1), Rule::seq({
+                Metadata::active_prec(3, Rule::seq({
+                  Metadata::prec(4, Rule::seq({
                     CharacterSet{{ 'w' }},
                     CharacterSet{{ 'x' }}
                   })),
@@ -168,8 +168,8 @@ describe("LexItemSet::transitions()", [&]() {
           Transition{
             // The inner precedence is now 'active'
             LexItemSet({
-              LexItem(Symbol::non_terminal(1), Seq::build({
-                Metadata::active_prec(3, Seq::build({
+              LexItem(Symbol::non_terminal(1), Rule::seq({
+                Metadata::active_prec(3, Rule::seq({
                   Metadata::active_prec(4, CharacterSet{{'x'}}),
                   CharacterSet{{'y'}}
                 })),
@@ -194,7 +194,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('x'),
           Transition{
             LexItemSet({
-              LexItem(Symbol::non_terminal(1), Seq::build({
+              LexItem(Symbol::non_terminal(1), Rule::seq({
                 Metadata::active_prec(3, CharacterSet{{'y'}}),
                 CharacterSet{{'z'}},
               })),
@@ -228,8 +228,8 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles sequences where the left hand side can be blank", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol::non_terminal(1), Seq::build({
-        Choice::build({
+      LexItem(Symbol::non_terminal(1), Rule::seq({
+        Rule::choice({
           CharacterSet{{ 'x' }},
           Blank{},
         }),
@@ -245,7 +245,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('x'),
           Transition{
             LexItemSet({
-              LexItem(Symbol::non_terminal(1), Seq::build({
+              LexItem(Symbol::non_terminal(1), Rule::seq({
                 CharacterSet{{ 'y' }},
                 CharacterSet{{ 'z' }},
               })),
@@ -277,7 +277,7 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles repeats", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol::non_terminal(1), Repeat{Seq::build({
+      LexItem(Symbol::non_terminal(1), Repeat{Rule::seq({
         CharacterSet{{ 'a' }},
         CharacterSet{{ 'b' }},
       })}),
@@ -291,9 +291,9 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet().include('a'),
           Transition{
             LexItemSet({
-              LexItem(Symbol::non_terminal(1), Seq::build({
+              LexItem(Symbol::non_terminal(1), Rule::seq({
                 CharacterSet{{ 'b' }},
-                Repeat{Seq::build({
+                Repeat{Rule::seq({
                   CharacterSet{{ 'a' }},
                   CharacterSet{{ 'b' }},
                 })}
@@ -342,12 +342,12 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles choices between overlapping character sets", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol::non_terminal(1), Choice::build({
-        Metadata::active_prec(2, Seq::build({
+      LexItem(Symbol::non_terminal(1), Rule::choice({
+        Metadata::active_prec(2, Rule::seq({
           CharacterSet{{ 'a', 'b', 'c', 'd'  }},
           CharacterSet{{ 'x' }},
         })),
-        Metadata::active_prec(3, Seq::build({
+        Metadata::active_prec(3, Rule::seq({
           CharacterSet{{ 'c', 'd', 'e', 'f' }},
           CharacterSet{{ 'y' }},
         })),
@@ -393,12 +393,12 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles choices between a subset and a superset of characters", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol::non_terminal(1), Choice::build({
-        Seq::build({
+      LexItem(Symbol::non_terminal(1), Rule::choice({
+        Rule::seq({
           CharacterSet{{ 'b', 'c', 'd' }},
           CharacterSet{{ 'x' }},
         }),
-        Seq::build({
+        Rule::seq({
           CharacterSet{{ 'a', 'b', 'c', 'd', 'e', 'f' }},
           CharacterSet{{ 'y' }},
         }),
@@ -434,10 +434,10 @@ describe("LexItemSet::transitions()", [&]() {
 
   it("handles choices between whitelisted and blacklisted character sets", [&]() {
     LexItemSet item_set({
-      LexItem(Symbol::non_terminal(1), Seq::build({
-        Choice::build({
+      LexItem(Symbol::non_terminal(1), Rule::seq({
+        Rule::choice({
           CharacterSet().include_all().exclude('/'),
-          Seq::build({
+          Rule::seq({
             CharacterSet{{ '\\' }},
             CharacterSet{{ '/' }},
           }),
@@ -464,7 +464,7 @@ describe("LexItemSet::transitions()", [&]() {
           Transition{
             LexItemSet({
               LexItem(Symbol::non_terminal(1), CharacterSet{{ '/' }}),
-              LexItem(Symbol::non_terminal(1), Seq::build({ CharacterSet{{ '/' }}, CharacterSet{{ '/' }} })),
+              LexItem(Symbol::non_terminal(1), Rule::seq({ CharacterSet{{ '/' }}, CharacterSet{{ '/' }} })),
             }),
             PrecedenceRange(),
             false

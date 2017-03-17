@@ -36,7 +36,7 @@ class StartingCharacterAggregator {
   void apply(const Rule &rule) {
     rule.match(
       [this](const Seq &sequence) {
-        apply(sequence.left);
+        apply(*sequence.left);
       },
 
       [this](const rules::Choice &rule) {
@@ -46,11 +46,11 @@ class StartingCharacterAggregator {
       },
 
       [this](const rules::Repeat &rule) {
-        apply(rule.rule);
+        apply(*rule.rule);
       },
 
       [this](const rules::Metadata &rule) {
-        apply(rule.rule);
+        apply(*rule.rule);
       },
 
       [this](const rules::CharacterSet &rule) {
@@ -299,7 +299,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
             result.entries.insert(LexItem(
               symbol,
               Metadata::separator(
-                Seq::build({
+                Rule::seq({
                   separator_rule,
                   Metadata::main_token(rule)
                 })

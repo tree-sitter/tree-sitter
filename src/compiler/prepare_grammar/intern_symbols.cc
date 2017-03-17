@@ -14,7 +14,6 @@ using std::string;
 using std::vector;
 using std::set;
 using std::pair;
-using std::make_shared;
 using rules::Symbol;
 using rules::Rule;
 
@@ -40,18 +39,15 @@ class SymbolInterner {
       },
 
       [&](const rules::Seq &sequence) {
-        return rules::Seq{
-          apply(sequence.left),
-          apply(sequence.right)
-        };
+        return rules::Seq{apply(*sequence.left), apply(*sequence.right)};
       },
 
       [&](const rules::Repeat &repeat) {
-        return rules::Repeat{apply(repeat.rule)};
+        return rules::Repeat{apply(*repeat.rule)};
       },
 
       [&](const rules::Metadata &metadata) {
-        return rules::Metadata{apply(metadata.rule), metadata.params};
+        return rules::Metadata{apply(*metadata.rule), metadata.params};
       },
 
       [](auto) {

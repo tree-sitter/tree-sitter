@@ -12,7 +12,6 @@ struct Repeat {
   std::shared_ptr<Rule> rule;
 
   explicit Repeat(const Rule &rule);
-  static std::shared_ptr<Rule> build(const Rule &rule);
   bool operator==(const Repeat &other) const;
 };
 

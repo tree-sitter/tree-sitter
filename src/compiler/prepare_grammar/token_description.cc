@@ -31,17 +31,17 @@ class TokenDescription {
       },
 
       [&](const rules::Metadata &rule) {
-        return apply(rule.rule);
+        return apply(*rule.rule);
       },
 
       [&](const rules::Seq &rule) {
         is_trivial = false;
-        return apply(rule.left) + apply(rule.right);
+        return apply(*rule.left) + apply(*rule.right);
       },
 
       [&](const rules::Repeat &rule) {
         is_trivial = false;
-        return apply(rule.rule) + "+";
+        return apply(*rule.rule) + "+";
       },
 
       [&](const rules::Choice &rule) {

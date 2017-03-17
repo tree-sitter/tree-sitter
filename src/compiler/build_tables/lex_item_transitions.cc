@@ -106,33 +106,33 @@ class TransitionBuilder {
 
       [this](const rules::Seq &sequence) {
         TransitionMap left_transitions;
-        TransitionBuilder(&left_transitions, this).apply(sequence.left);
+        TransitionBuilder(&left_transitions, this).apply(*sequence.left);
 
         for (const auto &pair : left_transitions) {
           add_transition(
             transitions,
             pair.first,
             transform_transition(pair.second, [&sequence](Rule rule) -> Rule {
-              return rules::Seq::build({ rule, sequence.right });
+              return Rule::seq({rule, *sequence.right});
             })
           );
         }
 
-        if (rule_can_be_blank(sequence.left)) {
-          apply(sequence.right);
+        if (rule_can_be_blank(*sequence.left)) {
+          apply(*sequence.right);
         }
       },
 
       [this](const rules::Repeat &repeat) {
         TransitionMap content_transitions;
-        TransitionBuilder(&content_transitions, this).apply(repeat.rule);
+        TransitionBuilder(&content_transitions, this).apply(*repeat.rule);
 
         for (const auto &pair : content_transitions) {
           add_transition(transitions, pair.first, pair.second);
           add_transition(
             transitions, pair.first,
             transform_transition(pair.second, [&repeat](Rule item_rule) {
-              return rules::Seq::build({ item_rule, repeat });
+              return Rule::seq({ item_rule, repeat });
             })
           );
         }
@@ -151,7 +151,7 @@ class TransitionBuilder {
           params.is_active = true;
 
         TransitionMap content_transitions;
-        TransitionBuilder(&content_transitions, this).apply(metadata.rule);
+        TransitionBuilder(&content_transitions, this).apply(*metadata.rule);
 
         for (const auto &pair : content_transitions) {
           add_transition(

@@ -8,38 +8,38 @@ START_TEST
 describe("Choice", []() {
   describe("constructing choices", [&]() {
     it("eliminates duplicate members", [&]() {
-      Rule rule = Choice::build({
-        Seq::build({ NamedSymbol{"one"}, NamedSymbol{"two"} }),
+      Rule rule = Rule::choice({
+        Rule::seq({ NamedSymbol{"one"}, NamedSymbol{"two"} }),
         NamedSymbol{"three"},
-        Seq::build({ NamedSymbol{"one"}, NamedSymbol{"two"} })
+        Rule::seq({ NamedSymbol{"one"}, NamedSymbol{"two"} })
       });
 
       AssertThat(rule, Equals(Rule(Choice{{
-        Seq::build({ NamedSymbol{"one"}, NamedSymbol{"two"} }),
+        Rule::seq({ NamedSymbol{"one"}, NamedSymbol{"two"} }),
         NamedSymbol{"three"},
       }})));
 
-      rule = Choice::build({
+      rule = Rule::choice({
         Blank{},
         Blank{},
-        Choice::build({
+        Rule::choice({
           Blank{},
           NamedSymbol{"four"}
         })
       });
 
-      AssertThat(rule, Equals(*Choice::build({Blank{}, NamedSymbol{"four"}})));
+      AssertThat(rule, Equals(Rule::choice({Blank{}, NamedSymbol{"four"}})));
     });
 
     it("eliminates duplicates within nested choices", [&]() {
-      Rule rule = Choice::build({
-        Seq::build({
+      Rule rule = Rule::choice({
+        Rule::seq({
           NamedSymbol{"one"},
           NamedSymbol{"two"}
         }),
-        Choice::build({
+        Rule::choice({
           NamedSymbol{"three"},
-          Seq::build({
+          Rule::seq({
             NamedSymbol{"one"},
             NamedSymbol{"two"}
           })
@@ -47,7 +47,7 @@ describe("Choice", []() {
       });
 
       AssertThat(rule, Equals(Rule(Choice{{
-        Seq::build({
+        Rule::seq({
           NamedSymbol{"one"},
           NamedSymbol{"two"},
         }),
@@ -56,9 +56,9 @@ describe("Choice", []() {
     });
 
     it("doesn't construct a choice if there's only one unique member", [&]() {
-      Rule rule = Choice::build({
+      Rule rule = Rule::choice({
         NamedSymbol{"one"},
-        Choice::build({
+        Rule::choice({
           NamedSymbol{"one"},
         })
       });
