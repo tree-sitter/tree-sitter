@@ -72,7 +72,7 @@ struct Rule {
   const RuleType & get_unchecked() const;
 
   template <typename FunctionType>
-  auto accept(FunctionType function) const -> decltype(function(blank)) {
+  inline auto accept(FunctionType function) const -> decltype(function(blank)) {
     switch (type) {
       case BlankType: return function(blank);
       case CharacterSetType: return function(character_set);
@@ -88,7 +88,7 @@ struct Rule {
   }
 
   template <typename ...FunctionTypes>
-  auto match(FunctionTypes && ...functions) const -> decltype(accept(util::make_visitor(std::forward<FunctionTypes>(functions)...))){
+  inline auto match(FunctionTypes && ...functions) const -> decltype(accept(util::make_visitor(std::forward<FunctionTypes>(functions)...))){
     return accept(util::make_visitor(std::forward<FunctionTypes>(functions)...));
   }
 
