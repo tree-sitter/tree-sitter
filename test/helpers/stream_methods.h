@@ -111,6 +111,7 @@ ostream &operator<<(ostream &, const CompileError &);
 ostream &operator<<(ostream &, const ExternalToken &);
 ostream &operator<<(ostream &, const ProductionStep &);
 ostream &operator<<(ostream &, const PrecedenceRange &);
+ostream &operator<<(ostream &, const Variable &);
 ostream &operator<<(ostream &, const LexicalVariable &);
 
 namespace rules {
@@ -129,13 +130,6 @@ ostream &operator<<(ostream &stream, const Metadata &rule);
 ostream &operator<<(ostream &stream, const Rule &rule);
 
 }  // namespace rules
-
-namespace prepare_grammar {
-
-ostream &operator<<(ostream &, const InitialSyntaxGrammar::Variable &);
-ostream &operator<<(ostream &, const InternedGrammar::Variable &);
-
-}  // namespace prepare_grammar
 
 namespace build_tables {
 

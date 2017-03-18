@@ -16,29 +16,21 @@ enum VariableType {
   VariableTypeNamed,
 };
 
-struct ExternalToken {
+struct Variable {
   std::string name;
   VariableType type;
-  rules::Symbol corresponding_internal_token;
+  rules::Rule rule;
 
-  inline bool operator==(const ExternalToken &other) const {
-    return name == other.name &&
-      type == other.type &&
-      corresponding_internal_token == other.corresponding_internal_token;
+  inline bool operator==(const Variable &other) const {
+    return name == other.name && rule == other.rule && type == other.type;
   }
 };
 
 struct InputGrammar {
-  struct Variable {
-    std::string name;
-    VariableType type;
-    rules::Rule rule;
-  };
-
   std::vector<Variable> variables;
   std::vector<rules::Rule> extra_tokens;
   std::vector<std::unordered_set<rules::NamedSymbol>> expected_conflicts;
-  std::vector<ExternalToken> external_tokens;
+  std::vector<Variable> external_tokens;
 };
 
 }  // namespace tree_sitter

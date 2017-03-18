@@ -2,7 +2,7 @@
   "name": "external_extra_tokens",
 
   "externals": [
-    "comment"
+    {"type": "SYMBOL", "name": "comment"}
   ],
 
   "extras": [

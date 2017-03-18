@@ -1,9 +1,9 @@
 {
-  "name": "external_and_internal_tokens",
+  "name": "external_and_internal_anonymous_tokens",
 
   "externals": [
     {"type": "SYMBOL", "name": "string"},
-    {"type": "SYMBOL", "name": "line_break"}
+    {"type": "STRING", "value": "\n"}
   ],
 
   "extras": [
@@ -16,7 +16,7 @@
       "members": [
         {"type": "SYMBOL", "name": "_expression"},
         {"type": "SYMBOL", "name": "_expression"},
-        {"type": "SYMBOL", "name": "line_break"}
+        {"type": "STRING", "value": "\n"}
       ]
     },
 
@@ -30,7 +30,6 @@
     },
 
     "variable": {"type": "PATTERN", "value": "\\a+"},
-    "number": {"type": "PATTERN", "value": "\\d+"},
-    "line_break": {"type": "STRING", "value": "\n"}
+    "number": {"type": "PATTERN", "value": "\\d+"}
   }
 }

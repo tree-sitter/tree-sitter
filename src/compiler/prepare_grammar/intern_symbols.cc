@@ -21,14 +21,21 @@ class SymbolInterner {
  public:
   Rule apply(const Rule &rule) {
     return rule.match(
-      [&](const rules::Blank &blank) -> Rule { return blank; },
+      [&](const rules::Blank &blank) -> Rule {
+        return blank;
+      },
 
       [&](const rules::NamedSymbol &symbol) {
         return intern_symbol(symbol);
       },
 
-      [&](const rules::String &string) { return string; },
-      [&](const rules::Pattern &pattern) { return pattern; },
+      [&](const rules::String &string) {
+        return string;
+      },
+
+      [&](const rules::Pattern &pattern) {
+        return pattern;
+      },
 
       [&](const rules::Choice &choice) {
         vector<rules::Rule> elements;
@@ -58,12 +65,18 @@ class SymbolInterner {
   }
 
   Symbol intern_symbol(rules::NamedSymbol named_symbol) {
-    for (size_t i = 0; i < grammar.variables.size(); i++)
-      if (grammar.variables[i].name == named_symbol.value)
+    for (size_t i = 0; i < grammar.variables.size(); i++) {
+      if (grammar.variables[i].name == named_symbol.value) {
         return Symbol::non_terminal(i);
-    for (size_t i = 0; i < grammar.external_tokens.size(); i++)
-      if (grammar.external_tokens[i].name == named_symbol.value)
+      }
+    }
+
+    for (size_t i = 0; i < grammar.external_tokens.size(); i++) {
+      if (grammar.external_tokens[i].name == named_symbol.value) {
         return Symbol::external(i);
+      }
+    }
+
     missing_rule_name = named_symbol.value;
     return rules::NONE();
   }
@@ -81,23 +94,21 @@ CompileError missing_rule_error(string rule_name) {
 pair<InternedGrammar, CompileError> intern_symbols(const InputGrammar &grammar) {
   InternedGrammar result;
 
+  SymbolInterner interner(grammar);
+
   for (auto &external_token : grammar.external_tokens) {
-    Symbol corresponding_internal_token = rules::NONE();
-    for (size_t i = 0, n = grammar.variables.size(); i < n; i++) {
-      if (grammar.variables[i].name == external_token.name) {
-        corresponding_internal_token = Symbol::non_terminal(i);
-        break;
-      }
+    auto new_rule = interner.apply(external_token.rule);
+    if (!interner.missing_rule_name.empty()) {
+      return { result, missing_rule_error(interner.missing_rule_name) };
     }
 
-    result.external_tokens.push_back(ExternalToken{
+    result.external_tokens.push_back(Variable{
       external_token.name,
-      external_token.name[0] == '_' ? VariableTypeHidden : VariableTypeNamed,
-      corresponding_internal_token
+      external_token.name[0] == '_' ? VariableTypeHidden : external_token.type,
+      new_rule
     });
   }
 
-  SymbolInterner interner(grammar);
 
   for (auto &variable : grammar.variables) {
     auto new_rule = interner.apply(variable.rule);
@@ -105,7 +116,7 @@ pair<InternedGrammar, CompileError> intern_symbols(const InputGrammar &grammar) 
       return { result, missing_rule_error(interner.missing_rule_name) };
     }
 
-    result.variables.push_back(InternedGrammar::Variable{
+    result.variables.push_back(Variable{
       variable.name,
       variable.name[0] == '_' ? VariableTypeHidden : VariableTypeNamed,
       new_rule
@@ -131,7 +142,7 @@ pair<InternedGrammar, CompileError> intern_symbols(const InputGrammar &grammar) 
     result.expected_conflicts.insert(entry);
   }
 
-  return { result, CompileError::none() };
+  return {result, CompileError::none()};
 }
 
 }  // namespace prepare_grammar

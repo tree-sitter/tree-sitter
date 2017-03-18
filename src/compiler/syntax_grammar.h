@@ -30,6 +30,18 @@ struct SyntaxVariable {
 
 using ConflictSet = std::set<rules::Symbol>;
 
+struct ExternalToken {
+  std::string name;
+  VariableType type;
+  rules::Symbol corresponding_internal_token;
+
+  inline bool operator==(const ExternalToken &other) const {
+    return name == other.name &&
+      type == other.type &&
+      corresponding_internal_token == other.corresponding_internal_token;
+  }
+};
+
 struct SyntaxGrammar {
   std::vector<SyntaxVariable> variables;
   std::set<rules::Symbol> extra_tokens;
