@@ -164,7 +164,7 @@ const TSLanguage *load_real_language(const string &language_name) {
 
   int parser_mtime = get_modified_time(parser_filename);
 
-  if (parser_mtime < grammar_mtime || parser_mtime < libcompiler_mtime) {
+  if (parser_mtime <= grammar_mtime || parser_mtime <= libcompiler_mtime) {
     printf("\n" "Regenerating the %s parser...\n", language_name.c_str());
 
     string grammar_json = read_file(grammar_filename);
