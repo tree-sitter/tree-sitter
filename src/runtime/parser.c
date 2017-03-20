@@ -231,8 +231,14 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
       ts_lexer_start(&self->lexer);
       if (self->language->external_scanner.scan(self->external_scanner_payload,
                                                 &self->lexer.data, valid_external_tokens)) {
-        found_external_token = true;
-        break;
+        if (length_has_unknown_chars(self->lexer.token_end_position)) {
+          self->lexer.token_end_position = self->lexer.current_position;
+        }
+        if (lex_mode.lex_state != 0 ||
+            self->lexer.token_end_position.bytes > current_position.bytes) {
+          found_external_token = true;
+          break;
+        }
       }
       ts_lexer_reset(&self->lexer, current_position);
     }
@@ -241,6 +247,9 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
         current_position.extent.row, current_position.extent.column);
     ts_lexer_start(&self->lexer);
     if (self->language->lex_fn(&self->lexer.data, lex_mode.lex_state)) {
+      if (length_has_unknown_chars(self->lexer.token_end_position)) {
+        self->lexer.token_end_position = self->lexer.current_position;
+      }
       break;
     }
 
@@ -286,9 +295,6 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
       symbol = self->language->external_scanner.symbol_map[symbol];
     }
 
-    if (length_has_unknown_chars(self->lexer.token_end_position)) {
-      self->lexer.token_end_position = self->lexer.current_position;
-    }
     Length padding = length_sub(self->lexer.token_start_position, start_position);
     Length size = length_sub(self->lexer.token_end_position, self->lexer.token_start_position);
     TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, symbol);
