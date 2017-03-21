@@ -99,7 +99,7 @@ TreeArray ts_tree_array_remove_trailing_extras(TreeArray *self) {
   return result;
 }
 
-Tree *ts_tree_make_error(Length size, Length padding, char lookahead_char) {
+Tree *ts_tree_make_error(Length size, Length padding, int32_t lookahead_char) {
   Tree *result = ts_tree_make_leaf(ts_builtin_sym_error, padding, size,
                                      (TSSymbolMetadata){
                                        .visible = true, .named = true,
