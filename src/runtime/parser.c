@@ -904,6 +904,11 @@ static StackIterateAction parser__skip_preceding_trees_callback(
   void *payload, TSStateId state, TreeArray *trees, uint32_t tree_count,
   bool is_done, bool is_pending) {
   if (tree_count > 0 && state != ERROR_STATE) {
+    uint32_t bytes_skipped = 0;
+    for (uint32_t i = 0; i < trees->size; i++) {
+      bytes_skipped += ts_tree_total_bytes(trees->contents[i]);
+    }
+    if (bytes_skipped == 0) return StackIterateNone;
     SkipPrecedingTreesSession *session = payload;
     Parser *self = session->parser;
     TSSymbol lookahead_symbol = session->lookahead_symbol;
