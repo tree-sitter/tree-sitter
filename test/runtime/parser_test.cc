@@ -475,13 +475,14 @@ describe("Parser", [&]() {
     });
 
     it("handles non-UTF8 characters", [&]() {
-      // ts_document_set_logger(document, stderr_logger_new(true));
-      ts_document_print_debugging_graphs(document, true);
+      const char *string = "cons\xeb\x00e=ls\x83l6hi');\x0a";
+
       ts_document_set_language(document, load_real_language("javascript"));
-      ts_document_set_input_string(document, "cons\xeb\x00e=ls\x83l6hi');\x0a");
+      ts_document_set_input_string(document, string);
       ts_document_parse(document);
 
-      AssertThat(ts_node_end_byte(root), Equals(strlen("cons\xeb\x00e=ls\x83l6hi');\x0a")));
+      TSNode root = ts_document_root_node(document);
+      AssertThat(ts_node_end_byte(root), Equals(strlen(string)));
     });
   });
 });
