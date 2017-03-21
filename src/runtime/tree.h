@@ -76,7 +76,7 @@ Tree *ts_tree_make_leaf(TSSymbol, Length, Length, TSSymbolMetadata);
 Tree *ts_tree_make_node(TSSymbol, uint32_t, Tree **, TSSymbolMetadata);
 Tree *ts_tree_make_copy(Tree *child);
 Tree *ts_tree_make_error_node(TreeArray *);
-Tree *ts_tree_make_error(Length, Length, char);
+Tree *ts_tree_make_error(Length, Length, int32_t);
 void ts_tree_retain(Tree *tree);
 void ts_tree_release(Tree *tree);
 bool ts_tree_eq(const Tree *tree1, const Tree *tree2);
