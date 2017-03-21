@@ -289,19 +289,19 @@ describe("Parser", [&]() {
         set_text("var x = y;");
 
         assert_root_node(
-          "(program (var_declaration (var_assignment "
+          "(program (variable_declaration (variable_declarator "
             "(identifier) (identifier))))");
 
         insert_text(strlen("var x = y"), " *");
 
         assert_root_node(
-          "(program (var_declaration (var_assignment "
+          "(program (variable_declaration (variable_declarator "
             "(identifier) (identifier)) (ERROR)))");
 
         insert_text(strlen("var x = y *"), " z");
 
         assert_root_node(
-          "(program (var_declaration (var_assignment "
+          "(program (variable_declaration (variable_declarator "
             "(identifier) (math_op (identifier) (identifier)))))");
       });
     });
