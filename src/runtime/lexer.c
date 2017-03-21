@@ -36,11 +36,17 @@ static void ts_lexer__get_lookahead(Lexer *self) {
   const uint8_t *chunk = (const uint8_t *)self->chunk + position_in_chunk;
   uint32_t size = self->chunk_size - position_in_chunk + 1;
 
-  if (self->input.encoding == TSInputEncodingUTF8)
-    self->lookahead_size =
-      utf8proc_iterate(chunk, size, &self->data.lookahead);
-  else
+  if (self->input.encoding == TSInputEncodingUTF8) {
+    int64_t lookahead_size = utf8proc_iterate(chunk, size, &self->data.lookahead);
+    if (lookahead_size < 0) {
+      self->lookahead_size = 1;
+    } else {
+      self->lookahead_size = lookahead_size;
+    }
+  }
+  else {
     self->lookahead_size = utf16_iterate(chunk, size, &self->data.lookahead);
+  }
 }
 
 static void ts_lexer__advance(void *payload, bool skip) {
