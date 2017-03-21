@@ -6,6 +6,7 @@
 
 using std::pair;
 using std::string;
+using std::vector;
 
 static const size_t UTF8_MAX_CHAR_SIZE = 4;
 
@@ -16,10 +17,23 @@ SpyInput::SpyInput(string content, size_t chars_per_chunk) :
   byte_offset(0),
   content(content),
   encoding(TSInputEncodingUTF8),
-  strings_read({""}) {}
+  ranges_read({}) {}
 
 SpyInput::~SpyInput() {
   delete[] buffer;
+}
+
+static void add_byte_range(vector<pair<uint32_t, uint32_t>> *ranges,
+                           uint32_t start, uint32_t count) {
+  uint32_t end = start + count;
+  for (auto &range : *ranges) {
+    if (range.first <= start && start <= range.second) {
+      if (start < range.first) range.first = start;
+      if (end > range.second) range.second = end;
+      return;
+    }
+  }
+  ranges->push_back({start, end});
 }
 
 const char * SpyInput::read(void *payload, uint32_t *bytes_read) {
@@ -36,7 +50,7 @@ const char * SpyInput::read(void *payload, uint32_t *bytes_read) {
 
   string result = spy->content.substr(spy->byte_offset, byte_count);
   *bytes_read = byte_count;
-  spy->strings_read.back() += result;
+  add_byte_range(&spy->ranges_read, spy->byte_offset, byte_count);
   spy->byte_offset += byte_count;
 
   /*
@@ -54,10 +68,16 @@ const char * SpyInput::read(void *payload, uint32_t *bytes_read) {
 
 int SpyInput::seek(void *payload, uint32_t character, uint32_t byte) {
   auto spy = static_cast<SpyInput *>(payload);
-  if (spy->strings_read.size() == 0 || spy->strings_read.back().size() > 0)
-    spy->strings_read.push_back("");
   spy->byte_offset = byte;
   return 0;
+}
+
+vector<string> SpyInput::strings_read() const {
+  vector<string> result;
+  for (auto &range : ranges_read) {
+    result.push_back(content.substr(range.first, range.second - range.first));
+  }
+  return result;
 }
 
 TSInput SpyInput::input() {
@@ -129,5 +149,5 @@ pair<string, TSPoint> SpyInput::swap_substr(size_t start_byte, size_t bytes_remo
 }
 
 void SpyInput::clear() {
-  strings_read.clear();
+  ranges_read.clear();
 }
