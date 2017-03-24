@@ -295,7 +295,10 @@ class CCodeGenerator {
   }
 
   void add_external_scanner_symbol_map() {
-    line("TSSymbol ts_external_scanner_symbol_map[EXTERNAL_TOKEN_COUNT] = {");
+    string language_function_name = "tree_sitter_" + name;
+    string external_scanner_name = language_function_name + "_external_scanner";
+
+    line("TSSymbol " + external_scanner_name + "_symbol_map[EXTERNAL_TOKEN_COUNT] = {");
     indent([&]() {
       for (size_t i = 0; i < syntax_grammar.external_tokens.size(); i++) {
         line("[" + external_token_id(i) + "] = " + symbol_id(Symbol::external(i)) + ",");
@@ -381,7 +384,7 @@ class CCodeGenerator {
       } else {
         indent([&]() {
           line("(const bool *)ts_external_scanner_states,");
-          line("ts_external_scanner_symbol_map,");
+          line(external_scanner_name + "_symbol_map,");
           line(external_scanner_name + "_create,");
           line(external_scanner_name + "_destroy,");
           line(external_scanner_name + "_reset,");
