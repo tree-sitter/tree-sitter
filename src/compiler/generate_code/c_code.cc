@@ -295,7 +295,7 @@ class CCodeGenerator {
   }
 
   void add_external_scanner_symbol_map() {
-    line("TSSymbol ts_external_scanner_symbol_map[EXTERNAL_TOKEN_COUNT] = {");
+    line("static TSSymbol ts_external_scanner_symbol_map[EXTERNAL_TOKEN_COUNT] = {");
     indent([&]() {
       for (size_t i = 0; i < syntax_grammar.external_tokens.size(); i++) {
         line("[" + external_token_id(i) + "] = " + symbol_id(Symbol::external(i)) + ",");
