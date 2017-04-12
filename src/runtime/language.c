@@ -54,3 +54,14 @@ const char *ts_language_symbol_name(const TSLanguage *language, TSSymbol symbol)
   else
     return language->symbol_names[symbol];
 }
+
+TSSymbolType ts_language_symbol_type(const TSLanguage *language, TSSymbol symbol) {
+  TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
+  if (metadata.named) {
+    return TSSymbolTypeRegular;
+  } else if (metadata.visible) {
+    return TSSymbolTypeAnonymous;
+  } else {
+    return TSSymbolTypeAuxiliary;
+  }
+}
