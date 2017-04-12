@@ -20,6 +20,12 @@ typedef enum {
   TSInputEncodingUTF16,
 } TSInputEncoding;
 
+typedef enum {
+  TSSymbolTypeRegular,
+  TSSymbolTypeAnonymous,
+  TSSymbolTypeAuxiliary,
+} TSSymbolType;
+
 typedef struct {
   void *payload;
   const char *(*read)(void *payload, uint32_t *bytes_read);
