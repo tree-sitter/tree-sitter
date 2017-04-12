@@ -20,6 +20,12 @@ typedef enum {
   TSInputEncodingUTF16,
 } TSInputEncoding;
 
+typedef enum {
+  TSSymbolTypeRegular,
+  TSSymbolTypeAnonymous,
+  TSSymbolTypeAuxiliary,
+} TSSymbolType;
+
 typedef struct {
   void *payload;
   const char *(*read)(void *payload, uint32_t *bytes_read);
@@ -117,6 +123,7 @@ uint32_t ts_document_parse_count(const TSDocument *);
 
 uint32_t ts_language_symbol_count(const TSLanguage *);
 const char *ts_language_symbol_name(const TSLanguage *, TSSymbol);
+TSSymbolType ts_language_symbol_type(const TSLanguage *, TSSymbol);
 uint32_t ts_language_version(const TSLanguage *);
 
 #ifdef __cplusplus
