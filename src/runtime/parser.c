@@ -194,7 +194,10 @@ static CondenseResult parser__condense_stack(Parser *self) {
     }
   }
 
-  if (!has_version_without_errors) result |= CondenseResultAllVersionsHadError;
+  if (!has_version_without_errors && ts_stack_version_count(self->stack) > 0) {
+    result |= CondenseResultAllVersionsHadError;
+  }
+
   return result;
 }
 
@@ -1225,6 +1228,7 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
     CondenseResult condense_result = parser__condense_stack(self);
     if (halt_on_error && (condense_result & CondenseResultAllVersionsHadError)) {
       LOG("halting_parse");
+      LOG_STACK();
 
       ts_lexer_advance_to_end(&self->lexer);
       Length remaining_length = length_sub(

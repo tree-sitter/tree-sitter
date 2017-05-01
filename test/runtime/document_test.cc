@@ -396,6 +396,21 @@ describe("Document", [&]() {
       AssertThat(ts_node_end_char(root), Equals(input_string.size()));
       AssertThat(ts_node_end_byte(root), Equals(input_string.size()));
     });
+
+    it("can parse valid code with the halt_on_error flag set", [&]() {
+      string input_string = "[1, null, 3]";
+      ts_document_set_language(document, load_real_language("json"));
+      ts_document_set_input_string(document, input_string.c_str());
+
+      TSParseOptions options;
+      options.changed_ranges = nullptr;
+      options.halt_on_error = true;
+      ts_document_parse_with_options(document, options);
+      root = ts_document_root_node(document);
+      assert_node_string_equals(
+        root,
+        "(array (number) (null) (number))");
+    });
   });
 });
 
