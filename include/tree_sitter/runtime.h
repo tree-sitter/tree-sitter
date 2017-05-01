@@ -117,6 +117,15 @@ void ts_document_print_debugging_graphs(TSDocument *, bool);
 void ts_document_edit(TSDocument *, TSInputEdit);
 void ts_document_parse(TSDocument *);
 void ts_document_parse_and_get_changed_ranges(TSDocument *, TSRange **, uint32_t *);
+
+typedef struct {
+  TSRange **changed_ranges;
+  uint32_t *changed_range_count;
+  bool halt_on_error;
+} TSParseOptions;
+
+void ts_document_parse_with_options(TSDocument *, TSParseOptions);
+
 void ts_document_invalidate(TSDocument *);
 TSNode ts_document_root_node(const TSDocument *);
 uint32_t ts_document_parse_count(const TSDocument *);

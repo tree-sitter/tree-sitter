@@ -367,6 +367,36 @@ describe("Document", [&]() {
       })));
     });
   });
+
+  describe("parse_with_options(options)", [&]() {
+    it("halts as soon as an error is found if the halt_on_error flag is set", [&]() {
+      string input_string = "[1, null, error, 3]";
+      ts_document_set_language(document, load_real_language("json"));
+      ts_document_set_input_string(document, input_string.c_str());
+
+      TSParseOptions options;
+      options.changed_ranges = nullptr;
+
+      options.halt_on_error = false;
+      ts_document_parse_with_options(document, options);
+      root = ts_document_root_node(document);
+      assert_node_string_equals(
+        root,
+        "(array (number) (null) (ERROR (UNEXPECTED 'e')) (number))");
+
+      ts_document_invalidate(document);
+
+      options.halt_on_error = true;
+      ts_document_parse_with_options(document, options);
+      root = ts_document_root_node(document);
+      assert_node_string_equals(
+        root,
+        "(ERROR (number) (null) (UNEXPECTED 'e'))");
+
+      AssertThat(ts_node_end_char(root), Equals(input_string.size()));
+      AssertThat(ts_node_end_byte(root), Equals(input_string.size()));
+    });
+  });
 });
 
 END_TEST
