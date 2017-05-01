@@ -991,6 +991,30 @@ static void parser__handle_error(Parser *self, StackVersion version,
   }
 }
 
+static void parser__halt_parse(Parser *self) {
+  LOG("halting_parse");
+  LOG_STACK();
+
+  ts_lexer_advance_to_end(&self->lexer);
+  Length remaining_length = length_sub(
+    self->lexer.current_position,
+    ts_stack_top_position(self->stack, 0)
+  );
+
+  Tree *filler_node = ts_tree_make_error(remaining_length, length_zero(), 0);
+  filler_node->visible = false;
+  parser__push(self, 0, filler_node, 0);
+
+  TreeArray children = array_new();
+  Tree *root_error = ts_tree_make_error_node(&children);
+  parser__push(self, 0, root_error, 0);
+
+  TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, ts_builtin_sym_end);
+  Tree *eof = ts_tree_make_leaf(ts_builtin_sym_end, length_zero(), length_zero(), metadata);
+  parser__accept(self, 0, eof);
+  ts_tree_release(eof);
+}
+
 static void parser__recover(Parser *self, StackVersion version, TSStateId state,
                             Tree *lookahead) {
   if (lookahead->symbol == ts_builtin_sym_end) {
@@ -1227,27 +1251,7 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
 
     CondenseResult condense_result = parser__condense_stack(self);
     if (halt_on_error && (condense_result & CondenseResultAllVersionsHadError)) {
-      LOG("halting_parse");
-      LOG_STACK();
-
-      ts_lexer_advance_to_end(&self->lexer);
-      Length remaining_length = length_sub(
-        self->lexer.current_position,
-        ts_stack_top_position(self->stack, 0)
-      );
-
-      Tree *filler_node = ts_tree_make_error(remaining_length, length_zero(), 0);
-      filler_node->visible = false;
-      parser__push(self, 0, filler_node, 0);
-
-      TreeArray children = array_new();
-      Tree *root_error = ts_tree_make_error_node(&children);
-      parser__push(self, 0, root_error, 0);
-
-      TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, ts_builtin_sym_end);
-      Tree *eof = ts_tree_make_leaf(ts_builtin_sym_end, length_zero(), length_zero(), metadata);
-      parser__accept(self, 0, eof);
-      ts_tree_release(eof);
+      parser__halt_parse(self);
       break;
     }
 
