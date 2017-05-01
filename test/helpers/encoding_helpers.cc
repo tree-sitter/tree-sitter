@@ -4,10 +4,16 @@
 #include "utf8proc.h"
 
 static inline int string_iterate(TSInputEncoding encoding, const uint8_t *string, size_t length, int32_t *code_point) {
-  if (encoding == TSInputEncodingUTF8)
-    return utf8proc_iterate(string, length, code_point);
-  else
+  if (encoding == TSInputEncodingUTF8) {
+    int32_t character_size = utf8proc_iterate(string, length, code_point);
+    if (character_size < 0) {
+      return 1;
+    } else {
+      return character_size;
+    }
+  } else {
     return utf16_iterate(string, length, code_point);
+  }
 }
 
 size_t string_char_count(TSInputEncoding encoding, const std::string &input) {

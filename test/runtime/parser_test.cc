@@ -473,6 +473,17 @@ describe("Parser", [&]() {
       AssertThat(ts_node_end_char(root), Equals(strlen("'OOO - DD';")));
       AssertThat(ts_node_end_byte(root), Equals(strlen("'\u03A9\u03A9\u03A9 \u2014 \u0394\u0394';")));
     });
+
+    it("handles non-UTF8 characters", [&]() {
+      const char *string = "cons\xeb\x00e=ls\x83l6hi');\x0a";
+
+      ts_document_set_language(document, load_real_language("javascript"));
+      ts_document_set_input_string(document, string);
+      ts_document_parse(document);
+
+      TSNode root = ts_document_root_node(document);
+      AssertThat(ts_node_end_byte(root), Equals(strlen(string)));
+    });
   });
 });
 
