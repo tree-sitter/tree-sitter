@@ -145,3 +145,7 @@ void ts_lexer_start(Lexer *self) {
   if (!self->lookahead_size)
     ts_lexer__get_lookahead(self);
 }
+
+void ts_lexer_advance_to_end(Lexer *self) {
+  while (self->data.lookahead != 0) ts_lexer__advance(self, false);
+}

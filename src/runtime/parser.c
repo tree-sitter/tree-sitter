@@ -151,21 +151,28 @@ static bool parser__can_reuse(Parser *self, TSStateId state, Tree *tree,
   return tree->child_count > 1 && tree->error_cost == 0;
 }
 
-static bool parser__condense_stack(Parser *self) {
-  bool result = false;
+typedef int CondenseResult;
+static int CondenseResultMadeChange = 1;
+static int CondenseResultAllVersionsHadError = 2;
+
+static CondenseResult parser__condense_stack(Parser *self) {
+  CondenseResult result = 0;
+  bool has_version_without_errors = false;
+
   for (StackVersion i = 0; i < ts_stack_version_count(self->stack); i++) {
     if (ts_stack_is_halted(self->stack, i)) {
       ts_stack_remove_version(self->stack, i);
-      result = true;
+      result |= CondenseResultMadeChange;
       i--;
       continue;
     }
 
     ErrorStatus error_status = ts_stack_error_status(self->stack, i);
+    if (error_status.count == 0) has_version_without_errors = true;
 
     for (StackVersion j = 0; j < i; j++) {
       if (ts_stack_merge(self->stack, j, i)) {
-        result = true;
+        result |= CondenseResultMadeChange;
         i--;
         break;
       }
@@ -174,18 +181,23 @@ static bool parser__condense_stack(Parser *self) {
                                    ts_stack_error_status(self->stack, j))) {
         case -1:
           ts_stack_remove_version(self->stack, j);
-          result = true;
+          result |= CondenseResultMadeChange;
           i--;
           j--;
           break;
         case 1:
           ts_stack_remove_version(self->stack, i);
-          result = true;
+          result |= CondenseResultMadeChange;
           i--;
           break;
       }
     }
   }
+
+  if (!has_version_without_errors && ts_stack_version_count(self->stack) > 0) {
+    result |= CondenseResultAllVersionsHadError;
+  }
+
   return result;
 }
 
@@ -979,6 +991,30 @@ static void parser__handle_error(Parser *self, StackVersion version,
   }
 }
 
+static void parser__halt_parse(Parser *self) {
+  LOG("halting_parse");
+  LOG_STACK();
+
+  ts_lexer_advance_to_end(&self->lexer);
+  Length remaining_length = length_sub(
+    self->lexer.current_position,
+    ts_stack_top_position(self->stack, 0)
+  );
+
+  Tree *filler_node = ts_tree_make_error(remaining_length, length_zero(), 0);
+  filler_node->visible = false;
+  parser__push(self, 0, filler_node, 0);
+
+  TreeArray children = array_new();
+  Tree *root_error = ts_tree_make_error_node(&children);
+  parser__push(self, 0, root_error, 0);
+
+  TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, ts_builtin_sym_end);
+  Tree *eof = ts_tree_make_leaf(ts_builtin_sym_end, length_zero(), length_zero(), metadata);
+  parser__accept(self, 0, eof);
+  ts_tree_release(eof);
+}
+
 static void parser__recover(Parser *self, StackVersion version, TSStateId state,
                             Tree *lookahead) {
   if (lookahead->symbol == ts_builtin_sym_end) {
@@ -1183,7 +1219,7 @@ void parser_destroy(Parser *self) {
   parser_set_language(self, NULL);
 }
 
-Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree) {
+Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_error) {
   parser__start(self, input, old_tree);
 
   StackVersion version = STACK_VERSION_NONE;
@@ -1213,7 +1249,13 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree) {
 
     self->reusable_node = reusable_node;
 
-    if (parser__condense_stack(self)) {
+    CondenseResult condense_result = parser__condense_stack(self);
+    if (halt_on_error && (condense_result & CondenseResultAllVersionsHadError)) {
+      parser__halt_parse(self);
+      break;
+    }
+
+    if (condense_result & CondenseResultMadeChange) {
       LOG("condense");
       LOG_STACK();
     }
