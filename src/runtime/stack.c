@@ -504,7 +504,7 @@ bool ts_stack_merge(Stack *self, StackVersion version, StackVersion new_version)
       new_node->position.chars == node->position.chars &&
       new_node->error_count == node->error_count &&
       new_node->error_cost == node->error_cost &&
-      new_head->external_token_state == head->external_token_state) {
+      ts_external_token_state_eq(new_head->external_token_state, head->external_token_state)) {
     for (uint32_t j = 0; j < new_node->link_count; j++)
       stack_node_add_link(node, new_node->links[j]);
     if (new_head->push_count > head->push_count)
