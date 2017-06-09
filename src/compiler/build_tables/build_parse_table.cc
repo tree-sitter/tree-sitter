@@ -394,8 +394,7 @@ class ParseTableBuilder {
       } else {
         ParseState &state = *iter;
         state.each_referenced_state([&new_state_ids](ParseStateId *state_index) {
-          if (*state_index != (ParseStateId)(-1))
-            *state_index = new_state_ids[*state_index];
+          *state_index = new_state_ids[*state_index];
         });
         ++iter;
       }
