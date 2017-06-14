@@ -646,8 +646,8 @@ class ParseTableBuilder {
     if (considered_associativity) {
       description += "  " + to_string(resolution_count++) + ":  ";
       description += "Specify a left or right associativity in";
+      bool is_first = true;
       for (const ParseAction &action : entry.actions) {
-        bool is_first = true;
         if (action.type == ParseActionTypeReduce) {
           if (!is_first) description += " and";
           description += " `" + symbol_name(action.symbol) + "`";
