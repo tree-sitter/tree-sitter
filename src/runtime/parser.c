@@ -656,7 +656,7 @@ static StackIterateAction parser__repair_error_callback(
   StackIterateAction result = StackIterateNone;
 
   uint32_t last_repair_count = -1;
-  uint32_t repair_reduction_count = -1;
+  uint32_t repair_reduction_count = 0;
   const TSParseAction *repair_reductions = NULL;
 
   for (uint32_t i = 0; i < repairs->size; i++) {
