@@ -2,6 +2,8 @@
 
 set -e
 
+. script/lib.sh
+
 function usage {
   cat <<-EOF
 USAGE
@@ -11,6 +13,8 @@ USAGE
 OPTIONS
 
   -h  print this message
+
+  -b  run make under scan-build static analyzer
 
   -d  run tests in a debugger (either lldb or gdb)
 
@@ -26,6 +30,7 @@ OPTIONS
 
   -z  pipe tests' stderr to \`dot(1)\` to render an SVG log
 
+
 EOF
 }
 
@@ -37,8 +42,9 @@ args=()
 target=tests
 export BUILDTYPE=Test
 cmd="out/${BUILDTYPE}/${target}"
+run_scan_build=
 
-while getopts "df:s:gGhpvS" option; do
+while getopts "bdf:s:gGhpvS" option; do
   case ${option} in
     h)
       usage
@@ -69,6 +75,9 @@ while getopts "df:s:gGhpvS" option; do
     S)
       mode=SVG
       ;;
+    b)
+      run_scan_build=true
+      ;;
   esac
 done
 
@@ -78,7 +87,11 @@ else
   args+=("--reporter=singleline")
 fi
 
-make $target
+if [[ ! -z "$run_scan_build" ]]; then
+	scan_build make $target
+else
+	make $target
+fi
 args=${args:-""}
 
 if [[ -n $profile ]]; then
