@@ -154,8 +154,7 @@ void ParseState::each_referenced_state(function<void(ParseStateId *)> fn) {
       if ((action.type == ParseActionTypeShift && !action.extra) || action.type == ParseActionTypeRecover)
         fn(&action.state_index);
   for (auto &entry : nonterminal_entries)
-    if (entry.second != (ParseStateId)(-1))
-      fn(&entry.second);
+    fn(&entry.second);
 }
 
 bool ParseState::operator==(const ParseState &other) const {
