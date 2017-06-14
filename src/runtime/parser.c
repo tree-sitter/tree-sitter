@@ -839,7 +839,7 @@ static void parser__accept(Parser *self, StackVersion version,
 
     if (parser__select_tree(self, self->finished_tree, root)) {
       ts_tree_release(self->finished_tree);
-      assert(root->ref_count > 0);
+      assert((root == NULL) || (root->ref_count > 0));
       self->finished_tree = root;
     } else {
       ts_tree_release(root);
