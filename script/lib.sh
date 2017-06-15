@@ -22,5 +22,5 @@ function scan_build {
     extra_args+=("--use-c++=$CXX")
   fi
 
-  scan-build "${extra_args[@]}" --status-bugs "$@"
+  scan-build "${extra_args[@]}" --status-bugs -disable-checker deadcode.DeadStores "$@"
 }
