@@ -99,10 +99,28 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
   ts_tree_edit(self->tree, &edit);
 }
 
+void ts_document_parse(TSDocument *self) {
+  return ts_document_parse_with_options(self, (TSParseOptions){
+    .halt_on_error = false,
+    .changed_ranges = NULL,
+    .changed_range_count = NULL,
+  });
+}
+
 void ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges,
                                               uint32_t *range_count) {
-  if (ranges) *ranges = NULL;
-  if (range_count) *range_count = 0;
+  return ts_document_parse_with_options(self, (TSParseOptions){
+    .halt_on_error = false,
+    .changed_ranges = ranges,
+    .changed_range_count = range_count,
+  });
+}
+
+void ts_document_parse_with_options(TSDocument *self, TSParseOptions options) {
+  if (options.changed_ranges && options.changed_range_count) {
+    *options.changed_ranges = NULL;
+    *options.changed_range_count = 0;
+  }
 
   if (!self->input.read || !self->parser.language)
     return;
@@ -111,17 +129,17 @@ void ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges
   if (reusable_tree && !reusable_tree->has_changes)
     return;
 
-  Tree *tree = parser_parse(&self->parser, self->input, reusable_tree);
+  Tree *tree = parser_parse(&self->parser, self->input, reusable_tree, options.halt_on_error);
 
   if (self->tree) {
     Tree *old_tree = self->tree;
     self->tree = tree;
 
-    if (ranges && range_count) {
+    if (options.changed_ranges && options.changed_range_count) {
       tree_path_init(&self->parser.tree_path1, old_tree);
       tree_path_init(&self->parser.tree_path2, tree);
       tree_path_get_changes(&self->parser.tree_path1, &self->parser.tree_path2,
-                            ranges, range_count);
+                            options.changed_ranges, options.changed_range_count);
     }
 
     ts_tree_release(old_tree);
@@ -130,10 +148,6 @@ void ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges
   self->tree = tree;
   self->parse_count++;
   self->valid = true;
-}
-
-void ts_document_parse(TSDocument *self) {
-  ts_document_parse_and_get_changed_ranges(self, NULL, NULL);
 }
 
 void ts_document_invalidate(TSDocument *self) {

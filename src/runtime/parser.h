@@ -31,7 +31,7 @@ typedef struct {
 
 bool parser_init(Parser *);
 void parser_destroy(Parser *);
-Tree *parser_parse(Parser *, TSInput, Tree *);
+Tree *parser_parse(Parser *, TSInput, Tree *, bool halt_on_error);
 void parser_set_language(Parser *, const TSLanguage *);
 
 #ifdef __cplusplus
