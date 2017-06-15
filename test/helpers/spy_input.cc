@@ -86,6 +86,7 @@ TSInput SpyInput::input() {
   result.encoding = encoding;
   result.seek = seek;
   result.read = read;
+  result.measure_columns_in_bytes = true;
   return result;
 }
 

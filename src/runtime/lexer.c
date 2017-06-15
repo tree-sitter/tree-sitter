@@ -60,6 +60,8 @@ static void ts_lexer__advance(void *payload, bool skip) {
     if (self->data.lookahead == '\n') {
       self->current_position.extent.row++;
       self->current_position.extent.column = 0;
+    } else if (self->input.measure_columns_in_bytes) {
+      self->current_position.extent.column += self->lookahead_size;
     } else {
       self->current_position.extent.column++;
     }

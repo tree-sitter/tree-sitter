@@ -43,8 +43,9 @@ TSInput ts_string_input_make_with_length(const char *string, uint32_t length) {
     .read = ts_string_input_read,
     .seek = ts_string_input_seek,
     .encoding = TSInputEncodingUTF8,
+    .measure_columns_in_bytes = false,
   };
 
 error:
-  return (TSInput){ NULL, NULL, NULL, TSInputEncodingUTF8 };
+  return (TSInput){ NULL, NULL, NULL, TSInputEncodingUTF8, false };
 }
