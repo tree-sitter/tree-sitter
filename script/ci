@@ -6,5 +6,5 @@ set -e
 
 script/fetch-fixtures
 script/check-mallocs
-scan_build make
+scan_build make -j2
 script/test -b

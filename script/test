@@ -88,9 +88,9 @@ else
 fi
 
 if [[ ! -z "$run_scan_build" ]]; then
-	scan_build make $target
+	scan_build make -j2 $target
 else
-	make $target
+	make -j2 $target
 fi
 args=${args:-""}
 
