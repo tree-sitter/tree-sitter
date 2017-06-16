@@ -254,7 +254,7 @@ describe("Parser", [&]() {
             "(identifier) "
             "(math_op (number) (member_access (identifier) (identifier))))))");
 
-        AssertThat(input->strings_read, Equals(vector<string>({ " + abc.d)" })));
+        AssertThat(input->strings_read(), Equals(vector<string>({ " abc.d);" })));
       });
     });
 
@@ -279,7 +279,7 @@ describe("Parser", [&]() {
               "(number) "
               "(math_op (number) (math_op (number) (identifier)))))))");
 
-        AssertThat(input->strings_read, Equals(vector<string>({ "123 || 5 +" })));
+        AssertThat(input->strings_read(), Equals(vector<string>({"123 || 5 ", ";"})));
       });
     });
 
@@ -289,19 +289,19 @@ describe("Parser", [&]() {
         set_text("var x = y;");
 
         assert_root_node(
-          "(program (var_declaration (var_assignment "
+          "(program (variable_declaration (variable_declarator "
             "(identifier) (identifier))))");
 
         insert_text(strlen("var x = y"), " *");
 
         assert_root_node(
-          "(program (var_declaration (var_assignment "
+          "(program (variable_declaration (variable_declarator "
             "(identifier) (identifier)) (ERROR)))");
 
         insert_text(strlen("var x = y *"), " z");
 
         assert_root_node(
-          "(program (var_declaration (var_assignment "
+          "(program (variable_declaration (variable_declarator "
             "(identifier) (math_op (identifier) (identifier)))))");
       });
     });

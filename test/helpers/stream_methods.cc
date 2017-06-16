@@ -30,7 +30,7 @@ ostream &operator<<(ostream &stream, Associativity associativity) {
       return stream << "AssociativityLeft";
     case AssociativityRight:
       return stream << "AssociativityRight";
-    case AssociativityNone:
+    default:
       return stream << "AssociativityNone";
   }
 }

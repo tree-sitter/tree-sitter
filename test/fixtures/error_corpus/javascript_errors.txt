@@ -14,10 +14,8 @@ e f;
     (ERROR (identifier))
     (identifier)
     (statement_block
-      (ERROR (identifier))
-      (expression_statement (identifier))))
-  (ERROR (identifier))
-  (expression_statement (identifier)))
+      (expression_statement (ERROR (identifier)) (identifier))))
+  (expression_statement (ERROR (identifier)) (identifier)))
 
 =======================================================
 multiple invalid tokens right after the viable prefix
@@ -35,10 +33,11 @@ h i j k;
     (ERROR (identifier) (identifier))
     (identifier)
     (statement_block
-      (ERROR (identifier) (identifier) (identifier))
-      (expression_statement (identifier))))
+      (expression_statement
+        (ERROR (identifier) (jsx_attribute (identifier)) (jsx_attribute (identifier)))
+        (identifier))))
   (expression_statement
-    (ERROR (identifier) (identifier) (identifier))
+    (ERROR (identifier) (jsx_attribute (identifier)) (jsx_attribute (identifier)))
     (identifier)))
 
 ===================================================
@@ -53,8 +52,8 @@ if ({a: 'b'} {c: 'd'}) {
 
 (program
   (if_statement
-    (object (pair (identifier) (string)))
     (ERROR (object (pair (identifier) (string))))
+    (object (pair (identifier) (string)))
     (statement_block
       (expression_statement (assignment
         (identifier)
@@ -75,9 +74,7 @@ a.b =
 
 (program
   (comment)
-  (trailing_expression_statement
-    (member_access (identifier) (identifier)))
-  (ERROR))
+  (ERROR (member_access (identifier) (identifier))))
 
 =================================================================
 An invalid token at the end of a construct with extra line breaks
@@ -96,27 +93,6 @@ a(
       (identifier)
       (identifier)
       (ERROR)))))
-
-===================================================
-Multi-line chained expressions in var declarations
-===================================================
-
-const one = two
-  .three(four)
-  .five()
-
----
-
-(program
-  (var_declaration (var_assignment
-    (identifier)
-    (function_call
-      (member_access
-        (function_call
-          (member_access (identifier) (identifier))
-          (arguments (identifier)))
-        (identifier))
-      (arguments)))))
 
 ===================================================
 Errors after a sequence of function declarations
@@ -146,12 +122,12 @@ var x = !!!
 
 (program
   (comment)
-  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
-  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
-  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
-  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
-  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
-  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
-  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
-  (expression_statement (function (identifier) (formal_parameters) (statement_block)))
-  (trailing_var_declaration (identifier)) (ERROR))
+  (function (identifier) (formal_parameters) (statement_block))
+  (function (identifier) (formal_parameters) (statement_block))
+  (function (identifier) (formal_parameters) (statement_block))
+  (function (identifier) (formal_parameters) (statement_block))
+  (function (identifier) (formal_parameters) (statement_block))
+  (function (identifier) (formal_parameters) (statement_block))
+  (function (identifier) (formal_parameters) (statement_block))
+  (function (identifier) (formal_parameters) (statement_block))
+  (ERROR (identifier)))

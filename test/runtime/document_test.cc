@@ -76,11 +76,22 @@ describe("Document", [&]() {
       const char16_t content[] = u"[true, false]";
       spy_input->content = string((const char *)content, sizeof(content));
       spy_input->encoding = TSInputEncodingUTF16;
-      // spy_input->measure_columns_in_bytes
+      TSInput input = spy_input->input();
 
-      ts_document_set_input(document, spy_input->input());
+      input.measure_columns_in_bytes = false;
+      ts_document_set_input(document, input);
       ts_document_invalidate(document);
       ts_document_parse(document);
+
+      TSNode root = ts_document_root_node(document);
+      AssertThat(ts_node_end_point(root), Equals<TSPoint>({0, 13}));
+
+      input.measure_columns_in_bytes = true;
+      ts_document_set_input(document, input);
+      ts_document_invalidate(document);
+      ts_document_parse(document);
+      root = ts_document_root_node(document);
+      AssertThat(ts_node_end_point(root), Equals<TSPoint>({0, 26}));
     });
 
     it("allows the input to be retrieved later", [&]() {
@@ -94,7 +105,7 @@ describe("Document", [&]() {
       ts_document_set_input(document, spy_input->input());
       AssertThat(ts_document_root_node(document), Equals<TSNode>(root));
       AssertThat(ts_node_has_changes(root), IsFalse());
-      AssertThat(spy_input->strings_read, Equals(vector<string>({ "" })));
+      AssertThat(spy_input->strings_read(), IsEmpty());
     });
 
     it("reads text from the new input for future parses", [&]() {
@@ -113,7 +124,7 @@ describe("Document", [&]() {
       assert_node_string_equals(
         new_root,
         "(object (pair (string) (array (null) (number))))");
-      AssertThat(spy_input->strings_read, Equals(vector<string>({" [null, 2" })));
+      AssertThat(spy_input->strings_read(), Equals(vector<string>({" [null, 2" })));
     });
 
     it("allows setting input string with length", [&]() {

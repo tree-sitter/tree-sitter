@@ -149,7 +149,10 @@ const TSLanguage *load_real_language(const string &language_name) {
   string parser_filename = language_dir + "/src/parser.c";
   string external_scanner_filename = language_dir + "/src/scanner.cc";
   if (!file_exists(external_scanner_filename)) {
-    external_scanner_filename = "";
+    external_scanner_filename = language_dir + "/src/scanner.c";
+    if (!file_exists(external_scanner_filename)) {
+      external_scanner_filename = "";
+    }
   }
 
   int grammar_mtime = get_modified_time(grammar_filename);

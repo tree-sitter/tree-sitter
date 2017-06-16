@@ -31,6 +31,7 @@ typedef struct {
   const char *(*read)(void *payload, uint32_t *bytes_read);
   int (*seek)(void *payload, uint32_t character_index, uint32_t byte_index);
   TSInputEncoding encoding;
+  bool measure_columns_in_bytes;
 } TSInput;
 
 typedef enum {

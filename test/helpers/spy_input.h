@@ -30,10 +30,11 @@ class SpyInput {
   void clear();
   TSInputEdit replace(size_t start_char, size_t chars_removed, std::string text);
   TSInputEdit undo();
+  std::vector<std::string> strings_read() const;
 
   std::string content;
   TSInputEncoding encoding;
-  std::vector<std::string> strings_read;
+  std::vector<std::pair<uint32_t, uint32_t>> ranges_read;
 };
 
 #endif  // HELPERS_SPY_INPUT_H_

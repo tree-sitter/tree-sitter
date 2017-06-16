@@ -16,3 +16,7 @@ install:
 
 script:
 - script/ci
+
+cache:
+  directories:
+  - test/fixtures/grammars
