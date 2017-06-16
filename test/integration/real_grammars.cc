@@ -120,8 +120,8 @@ for (auto &language_name : test_languages) {
         ts_document_parse(document);
       });
 
-      std::set<std::pair<size_t, size_t>> deletions;
-      std::set<std::pair<size_t, string>> insertions;
+      set<pair<size_t, size_t>> deletions;
+      set<pair<size_t, string>> insertions;
 
       for (size_t i = 0; i < 60; i++) {
         size_t edit_position = random() % utf8_char_count(entry.input);
