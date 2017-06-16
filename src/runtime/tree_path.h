@@ -126,6 +126,7 @@ static bool tree_must_eq(Tree *old_tree, Tree *new_tree) {
   return old_tree == new_tree || (
     !old_tree->has_changes &&
     old_tree->symbol == new_tree->symbol &&
+    old_tree->symbol != ts_builtin_sym_error &&
     old_tree->size.bytes == new_tree->size.bytes &&
     old_tree->parse_state != TS_TREE_STATE_NONE &&
     new_tree->parse_state != TS_TREE_STATE_NONE &&
