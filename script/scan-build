@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-set -e
-
-. script/lib.sh
-
-scan_build make "$@"
