@@ -87,10 +87,10 @@ else
   args+=("--reporter=singleline")
 fi
 
-if [[ ! -z "$run_scan_build" ]]; then
-	scan_build make -j2 $target
+if [[ -n "$run_scan_build" ]]; then
+  scan_build make -j2 $target
 else
-	make -j2 $target
+  make -j2 $target
 fi
 args=${args:-""}
 
