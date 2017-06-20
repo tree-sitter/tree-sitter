@@ -2,6 +2,8 @@
 
 set -e
 
+. script/lib.sh
+
 script/fetch-fixtures
 script/check-mallocs
-script/test
+script/test -b

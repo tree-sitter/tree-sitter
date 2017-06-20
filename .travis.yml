@@ -1,4 +1,5 @@
 sudo: false
+dist: trusty
 language: cpp
 compiler:
 - gcc
@@ -9,10 +10,11 @@ addons:
     - ubuntu-toolchain-r-test
     packages:
     - g++-5
+    - clang
 
 install:
 - export CXX="g++-5"
-- script/configure
+- scan-build script/configure
 
 script:
 - script/ci

@@ -385,7 +385,7 @@ describe("Document", [&]() {
       ts_document_set_language(document, load_real_language("json"));
       ts_document_set_input_string(document, input_string.c_str());
 
-      TSParseOptions options;
+      TSParseOptions options = {};
       options.changed_ranges = nullptr;
 
       options.halt_on_error = false;
@@ -413,7 +413,7 @@ describe("Document", [&]() {
       ts_document_set_language(document, load_real_language("json"));
       ts_document_set_input_string(document, input_string.c_str());
 
-      TSParseOptions options;
+      TSParseOptions options = {};
       options.changed_ranges = nullptr;
       options.halt_on_error = true;
       ts_document_parse_with_options(document, options);
