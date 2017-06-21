@@ -65,9 +65,9 @@ static vector<TestEntry> parse_test_entries(string content) {
 vector<TestEntry> read_real_language_corpus(string language_name) {
   vector<TestEntry> result;
 
-  string test_directory = fixtures_dir + "grammars/" + language_name + "/grammar_test";
-  for (string &test_filename : list_directory(test_directory)) {
-    for (TestEntry &entry : parse_test_entries(read_file(test_directory + "/" + test_filename))) {
+  string corpus_directory = fixtures_dir + "grammars/" + language_name + "/corpus";
+  for (string &test_filename : list_directory(corpus_directory)) {
+    for (TestEntry &entry : parse_test_entries(read_file(corpus_directory + "/" + test_filename))) {
       result.push_back(entry);
     }
   }
