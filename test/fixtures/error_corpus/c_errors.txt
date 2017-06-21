@@ -9,7 +9,7 @@ int x // no semicolon
 int a;
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
 #endif
 
 int b;
@@ -30,7 +30,7 @@ int c;
   (declaration (identifier) (identifier))
 
   (preproc_ifdef (identifier)
-    (ERROR (storage_class_specifier) (string_literal)))
+    (ERROR (string_literal)))
 
   (declaration (identifier) (identifier))
 
@@ -75,8 +75,9 @@ int main() {
     (compound_statement
       (declaration (identifier) (init_declarator
         (identifier)
-        (ERROR (number_literal))
-        (number_literal))))))
+        (parenthesized_expression
+          (ERROR (number_literal))
+          (number_literal)))))))
 
 ========================================
 Errors in declarations
@@ -122,9 +123,12 @@ int b() {
       (declaration
         (identifier)
         (init_declarator
+          (identifier)
           (ERROR (identifier) (identifier))
-          (identifier) (number_literal)))
+          (number_literal)))
       (declaration
-        (ERROR (identifier) (identifier))
         (identifier)
-        (init_declarator (identifier) (number_literal))))))
+        (init_declarator
+          (identifier)
+          (ERROR (identifier) (identifier))
+          (number_literal))))))
