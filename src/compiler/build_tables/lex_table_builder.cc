@@ -114,24 +114,21 @@ class LexTableBuilderImpl : public LexTableBuilder {
   }
 
   bool detect_conflict(Symbol::Index left, Symbol::Index right) {
-    clear();
+    StartingCharacterAggregator left_starting_characters;
+    StartingCharacterAggregator right_starting_characters;
+    left_starting_characters.apply(grammar.variables[left].rule);
+    right_starting_characters.apply(grammar.variables[right].rule);
+    if (!left_starting_characters.result.intersects(right_starting_characters.result) &&
+        !left_starting_characters.result.intersects(separator_start_characters) &&
+        !right_starting_characters.result.intersects(separator_start_characters)) {
+      return false;
+    }
 
+    clear();
     map<Symbol, ParseTableEntry> terminals;
     terminals[Symbol::terminal(left)];
     terminals[Symbol::terminal(right)];
-
-    if (grammar.variables[left].is_string && grammar.variables[right].is_string) {
-      StartingCharacterAggregator left_starting_characters;
-      left_starting_characters.apply(grammar.variables[left].rule);
-      StartingCharacterAggregator right_starting_characters;
-      right_starting_characters.apply(grammar.variables[right].rule);
-      if (!(left_starting_characters.result == right_starting_characters.result)) {
-        return false;
-      }
-    }
-
     add_lex_state(item_set_for_terminals(terminals));
-
     return shadowed_token_indices[right];
   }
 
