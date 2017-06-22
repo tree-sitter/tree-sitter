@@ -413,26 +413,22 @@ class ParseTableBuilder {
     ParseState &state = parse_table.states[i];
     ParseState &other = parse_table.states[j];
 
-    if (state.nonterminal_entries != other.nonterminal_entries)
-      return false;
+    if (state.nonterminal_entries != other.nonterminal_entries) return false;
 
     for (auto &entry : state.terminal_entries) {
       Symbol lookahead = entry.first;
-      const vector<ParseAction> &actions = entry.second.actions;
-      auto &incompatible_tokens = incompatible_tokens_by_index[lookahead.index];
-
       const auto &other_entry = other.terminal_entries.find(lookahead);
+
       if (other_entry == other.terminal_entries.end()) {
+        if (entry.second.actions.back().type != ParseActionTypeReduce) return false;
+        if (!has_entry(other, entry.second)) return false;
+
         if (lookahead.is_external()) return false;
         if (!lookahead.is_built_in()) {
-          for (const Symbol &incompatible_token : incompatible_tokens) {
+          for (const Symbol &incompatible_token : incompatible_tokens_by_index[lookahead.index]) {
             if (other.terminal_entries.count(incompatible_token)) return false;
           }
         }
-        if (actions.back().type != ParseActionTypeReduce)
-          return false;
-        if (!has_entry(other, entry.second))
-          return false;
       } else if (entry.second != other_entry->second) {
         return false;
       }
@@ -442,26 +438,25 @@ class ParseTableBuilder {
 
     for (auto &entry : other.terminal_entries) {
       Symbol lookahead = entry.first;
-      const vector<ParseAction> &actions = entry.second.actions;
-      auto &incompatible_tokens = incompatible_tokens_by_index[lookahead.index];
 
       if (!state.terminal_entries.count(lookahead)) {
+        if (entry.second.actions.back().type != ParseActionTypeReduce) return false;
+        if (!has_entry(state, entry.second)) return false;
+
         if (lookahead.is_external()) return false;
         if (!lookahead.is_built_in()) {
-          for (const Symbol &incompatible_token : incompatible_tokens) {
+          for (const Symbol &incompatible_token : incompatible_tokens_by_index[lookahead.index]) {
             if (state.terminal_entries.count(incompatible_token)) return false;
           }
         }
-        if (actions.back().type != ParseActionTypeReduce)
-          return false;
-        if (!has_entry(state, entry.second))
-          return false;
+
         symbols_to_merge.insert(lookahead);
       }
     }
 
-    for (const Symbol &lookahead : symbols_to_merge)
+    for (const Symbol &lookahead : symbols_to_merge) {
       state.terminal_entries[lookahead] = other.terminal_entries.find(lookahead)->second;
+    }
 
     return true;
   }
