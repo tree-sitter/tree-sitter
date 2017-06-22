@@ -194,15 +194,11 @@ class LexTableBuilderImpl : public LexTableBuilder {
         AcceptTokenAction action(item.lhs, completion_status.precedence.max,
                                  item.lhs.is_built_in() ||
                                  grammar.variables[item.lhs.index].is_string);
-
-        auto current_action = lex_table.states[state_id].accept_action;
-        if (current_action.is_present()) {
-          if (!conflict_manager.resolve(action, current_action)) {
-            continue;
-          }
+        AcceptTokenAction &existing_action = lex_table.states[state_id].accept_action;
+        if (!existing_action.is_present() ||
+            conflict_manager.resolve(action, existing_action)) {
+          lex_table.states[state_id].accept_action = action;
         }
-
-        lex_table.states[state_id].accept_action = action;
       }
     }
   }
