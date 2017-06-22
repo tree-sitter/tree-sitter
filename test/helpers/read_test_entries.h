@@ -12,5 +12,6 @@ struct TestEntry {
 
 std::vector<TestEntry> read_real_language_corpus(std::string name);
 std::vector<TestEntry> read_test_language_corpus(std::string name);
+std::vector<std::string> examples_for_language(std::string name);
 
 #endif
