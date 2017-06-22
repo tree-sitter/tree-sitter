@@ -70,7 +70,8 @@ class LexTableBuilderImpl : public LexTableBuilder {
   LexTable lex_table;
   const LexicalGrammar grammar;
   vector<Rule> separator_rules;
-  CharacterSet first_separator_characters;
+  CharacterSet separator_start_characters;
+  CharacterSet token_start_characters;
   LexConflictManager conflict_manager;
   unordered_map<LexItemSet, LexStateId> lex_state_ids;
 
@@ -78,13 +79,26 @@ class LexTableBuilderImpl : public LexTableBuilder {
   vector<bool> shadowed_token_indices;
 
   LexTableBuilderImpl(const LexicalGrammar &grammar) : grammar(grammar) {
-    StartingCharacterAggregator starting_character_aggregator;
+    StartingCharacterAggregator separator_character_aggregator;
     for (const auto &rule : grammar.separators) {
       separator_rules.push_back(Repeat{rule});
-      starting_character_aggregator.apply(rule);
+      separator_character_aggregator.apply(rule);
     }
     separator_rules.push_back(Blank{});
-    first_separator_characters = starting_character_aggregator.result;
+    separator_start_characters = separator_character_aggregator.result;
+
+    StartingCharacterAggregator token_start_character_aggregator;
+    for (const auto &variable : grammar.variables) {
+      token_start_character_aggregator.apply(variable.rule);
+    }
+    token_start_characters = token_start_character_aggregator.result;
+    token_start_characters
+      .exclude('a', 'z')
+      .exclude('A', 'Z')
+      .exclude('0', '9')
+      .exclude('_')
+      .exclude('$');
+
     shadowed_token_indices.resize(grammar.variables.size());
   }
 
@@ -148,25 +162,27 @@ class LexTableBuilderImpl : public LexTableBuilder {
       const LexItemSet::Transition &transition = pair.second;
 
       AdvanceAction action(-1, transition.precedence, transition.in_main_token);
-      auto current_action = lex_table.states[state_id].accept_action;
-      if (current_action.is_present()) {
-        bool prefer_advancing = conflict_manager.resolve(transition.destination, action, current_action);
-        bool matches_accepted_token = false;
+      AcceptTokenAction &accept_action = lex_table.states[state_id].accept_action;
+      if (accept_action.is_present()) {
+        bool prefer_advancing = conflict_manager.resolve(transition.destination, action, accept_action);
+        bool can_advance_for_accepted_token = false;
         for (const LexItem &item : transition.destination.entries) {
-          if (item.lhs == current_action.symbol) {
-            matches_accepted_token = true;
-          } else if (!transition.in_main_token && !item.lhs.is_built_in() && !prefer_advancing) {
+          if (item.lhs == accept_action.symbol) {
+            can_advance_for_accepted_token = true;
+          } else if (!prefer_advancing && !transition.in_main_token && !item.lhs.is_built_in()) {
             shadowed_token_indices[item.lhs.index] = true;
           }
         }
 
-        if (!matches_accepted_token && characters.intersects(first_separator_characters)) {
-          shadowed_token_indices[current_action.symbol.index] = true;
+        if (!can_advance_for_accepted_token) {
+          if (characters.intersects(separator_start_characters) ||
+              (grammar.variables[accept_action.symbol.index].is_string &&
+               characters.intersects(token_start_characters))) {
+            shadowed_token_indices[accept_action.symbol.index] = true;
+          }
         }
 
-        if (!prefer_advancing) {
-          continue;
-        }
+        if (!prefer_advancing) continue;
       }
 
       action.state_index = add_lex_state(transition.destination);
