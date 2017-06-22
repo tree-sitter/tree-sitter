@@ -16,6 +16,9 @@ bool LexConflictManager::resolve(const LexItemSet &item_set,
     }
     return true;
   } else {
+    for (const LexItem &item : item_set.entries) {
+      possible_homonyms[item.lhs.index].insert(old_action.symbol.index);
+    }
     return false;
   }
 }
