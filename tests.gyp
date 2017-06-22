@@ -1,6 +1,30 @@
 {
   'targets': [
     {
+      'target_name': 'benchmarks',
+      'type': 'executable',
+      'dependencies': [
+        'project.gyp:runtime',
+        'project.gyp:compiler'
+      ],
+      'include_dirs': [
+        'src',
+        'test',
+        'externals/utf8proc',
+      ],
+      'sources': [
+        'test/benchmarks.cc',
+        'test/helpers/file_helpers.cc',
+        'test/helpers/load_language.cc',
+        'test/helpers/read_test_entries.cc',
+        'test/helpers/stderr_logger.cc',
+      ],
+      'configurations': {'Test': {}, 'Release': {}},
+      'default_configuration': 'Release',
+      'xcode_settings': {'CLANG_CXX_LANGUAGE_STANDARD': 'c++11'},
+      'cflags_cc': ['-std=c++11'],
+    },
+    {
       'target_name': 'tests',
       'type': 'executable',
       'dependencies': [

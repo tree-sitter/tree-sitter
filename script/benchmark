@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -e
+
+mode=normal
+make -j2 benchmarks
+cmd=out/release/benchmarks
+
+while getopts "df:l:SL" option; do
+  case ${option} in
+    d)
+      mode=debug
+      ;;
+    f)
+      export TREE_SITTER_BENCHMARK_FILE_NAME=${OPTARG}
+      ;;
+    l)
+      export TREE_SITTER_BENCHMARK_LANGUAGE=${OPTARG}
+      ;;
+    L)
+      export TREE_SITTER_BENCHMARK_LOG=1
+      ;;
+    S)
+      mode=SVG
+      export TREE_SITTER_BENCHMARK_SVG=1
+      ;;
+  esac
+done
+
+case $mode in
+  debug)
+    lldb $cmd
+    ;;
+
+  SVG)
+    $cmd 2> >(grep -v 'Assertion failed' > test.dot)
+    ;;
+
+  normal)
+    exec $cmd
+    ;;
+esac

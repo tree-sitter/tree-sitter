@@ -1,7 +1,9 @@
 #include <string>
+#include <vector>
 #include <stdlib.h>
 
 using std::string;
+using std::vector;
 
 static string random_string(char min, char max) {
   string result;
@@ -32,4 +34,8 @@ string random_words(size_t count) {
     }
   }
   return result;
+}
+
+string select_random(const vector<string> &list) {
+  return list[random() % list.size()];
 }
