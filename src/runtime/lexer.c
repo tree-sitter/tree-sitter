@@ -34,7 +34,13 @@ static void ts_lexer__get_chunk(Lexer *self) {
 static void ts_lexer__get_lookahead(Lexer *self) {
   uint32_t position_in_chunk = self->current_position.bytes - self->chunk_start;
   const uint8_t *chunk = (const uint8_t *)self->chunk + position_in_chunk;
-  uint32_t size = self->chunk_size - position_in_chunk + 1;
+  uint32_t size = self->chunk_size - position_in_chunk;
+
+  if (size == 0) {
+    self->lookahead_size = 1;
+    self->data.lookahead = '\0';
+    return;
+  }
 
   if (self->input.encoding == TSInputEncodingUTF8) {
     int64_t lookahead_size = utf8proc_iterate(chunk, size, &self->data.lookahead);
