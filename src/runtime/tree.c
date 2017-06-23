@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <ctype.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <string.h>
@@ -468,13 +469,15 @@ const TSExternalTokenState *ts_tree_last_external_token_state(const Tree *tree) 
 static size_t ts_tree__write_char_to_string(char *s, size_t n, int32_t c) {
   if (c == 0)
     return snprintf(s, n, "EOF");
+  if (c == -1)
+    return snprintf(s, n, "INVALID");
   else if (c == '\n')
     return snprintf(s, n, "'\\n'");
   else if (c == '\t')
     return snprintf(s, n, "'\\t'");
   else if (c == '\r')
     return snprintf(s, n, "'\\r'");
-  else if (c < 128)
+  else if (0 < c && c < 128 && isprint(c))
     return snprintf(s, n, "'%c'", c);
   else
     return snprintf(s, n, "%d", c);
