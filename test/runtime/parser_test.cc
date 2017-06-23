@@ -187,6 +187,19 @@ describe("Parser", [&]() {
         AssertThat(ts_node_end_point(error), Equals<TSPoint>({2, 2}));
       });
     });
+
+    it("handles invalid UTF8 characters at EOF", [&]() {
+      char *string = (char *)malloc(1);
+      string[0] = '\xdf';
+
+      ts_document_set_language(document, load_real_language("javascript"));
+      ts_document_set_input_string_with_length(document, string, 1);
+      ts_document_parse(document);
+
+      free(string);
+
+      assert_root_node("(ERROR (UNEXPECTED INVALID))");
+    });
   });
 
   describe("handling extra tokens", [&]() {
