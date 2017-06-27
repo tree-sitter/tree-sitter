@@ -258,7 +258,8 @@ INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
         } else {
           if (self->iterators.size >= MAX_ITERATOR_COUNT) continue;
           link = node->links[j];
-          array_push(&self->iterators, self->iterators.contents[i]);
+          Iterator current_iterator = self->iterators.contents[i];
+          array_push(&self->iterators, current_iterator);
           next_iterator = array_back(&self->iterators);
           ts_tree_array_copy(next_iterator->trees, &next_iterator->trees);
         }
@@ -546,7 +547,7 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
   fprintf(f, "rankdir=\"RL\";\n");
   fprintf(f, "edge [arrowhead=none]\n");
 
-  Array(StackNode *)visited_nodes = array_new();
+  Array(StackNode *) visited_nodes = array_new();
 
   array_clear(&self->iterators);
   for (uint32_t i = 0; i < self->heads.size; i++) {
@@ -579,8 +580,8 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
     all_iterators_done = true;
 
     for (uint32_t i = 0; i < self->iterators.size; i++) {
-      Iterator *iterator = &self->iterators.contents[i];
-      StackNode *node = iterator->node;
+      Iterator iterator = self->iterators.contents[i];
+      StackNode *node = iterator.node;
 
       for (uint32_t j = 0; j < visited_nodes.size; j++) {
         if (visited_nodes.contents[j] == node) {
@@ -637,13 +638,14 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
 
         fprintf(f, "];\n");
 
+        Iterator *next_iterator;
         if (j == 0) {
-          iterator->node = link.node;
+          next_iterator = &self->iterators.contents[i];
         } else {
-          array_push(&self->iterators, *iterator);
-          Iterator *next_iterator = array_back(&self->iterators);
-          next_iterator->node = link.node;
+          array_push(&self->iterators, iterator);
+          next_iterator = array_back(&self->iterators);
         }
+        next_iterator->node = link.node;
       }
 
       array_push(&visited_nodes, node);
