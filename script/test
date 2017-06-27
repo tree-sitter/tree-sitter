@@ -44,6 +44,10 @@ export BUILDTYPE=Test
 cmd="out/${BUILDTYPE}/${target}"
 run_scan_build=
 
+if [ "$(uname -s)" == "Darwin" ]; then
+  export LINK="clang++ -fsanitize=address"
+fi
+
 while getopts "bdf:s:gGhpvS" option; do
   case ${option} in
     h)
