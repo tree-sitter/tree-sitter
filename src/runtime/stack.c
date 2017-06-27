@@ -171,6 +171,11 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
   }
 }
 
+static void stack_head_delete(StackHead *self, StackNodeArray *pool) {
+  if (self->last_external_token) ts_tree_release(self->last_external_token);
+  stack_node_release(self->node, pool);
+}
+
 static StackVersion ts_stack__add_version(Stack *self, StackNode *node,
                                           unsigned push_count,
                                           Tree *last_external_token) {
@@ -317,9 +322,7 @@ void ts_stack_delete(Stack *self) {
     array_delete(&self->iterators);
   stack_node_release(self->base_node, &self->node_pool);
   for (uint32_t i = 0; i < self->heads.size; i++) {
-    StackHead head = self->heads.contents[i];
-    stack_node_release(head.node, &self->node_pool);
-    if (head.last_external_token) ts_tree_release(head.last_external_token);
+    stack_head_delete(&self->heads.contents[i], &self->node_pool);
   }
   array_clear(&self->heads);
   if (self->node_pool.contents) {
@@ -482,18 +485,14 @@ StackPopResult ts_stack_pop_all(Stack *self, StackVersion version) {
 }
 
 void ts_stack_remove_version(Stack *self, StackVersion version) {
-  StackHead *head = array_get(&self->heads, version);
-  if (head->last_external_token) ts_tree_release(head->last_external_token);
-  stack_node_release(head->node, &self->node_pool);
+  stack_head_delete(array_get(&self->heads, version), &self->node_pool);
   array_erase(&self->heads, version);
 }
 
 void ts_stack_renumber_version(Stack *self, StackVersion v1, StackVersion v2) {
   assert(v2 < v1);
   assert((uint32_t)v1 < self->heads.size);
-  StackHead *head_to_remove = &self->heads.contents[v2];
-  stack_node_release(head_to_remove->node, &self->node_pool);
-  if (head_to_remove->last_external_token) ts_tree_release(head_to_remove->last_external_token);
+  stack_head_delete(&self->heads.contents[v2], &self->node_pool);
   self->heads.contents[v2] = self->heads.contents[v1];
   array_erase(&self->heads, v1);
 }
@@ -540,9 +539,7 @@ bool ts_stack_is_halted(Stack *self, StackVersion version) {
 void ts_stack_clear(Stack *self) {
   stack_node_retain(self->base_node);
   for (uint32_t i = 0; i < self->heads.size; i++) {
-    StackHead head = self->heads.contents[i];
-    stack_node_release(head.node, &self->node_pool);
-    if (head.last_external_token) ts_tree_release(head.last_external_token);
+    stack_head_delete(&self->heads.contents[i], &self->node_pool);
   }
   array_clear(&self->heads);
   array_push(&self->heads, ((StackHead){
