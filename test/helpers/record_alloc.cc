@@ -48,9 +48,6 @@ static void *record_allocation(void *result) {
 }
 
 static void record_deallocation(void *pointer) {
-  if (!_enabled)
-    return;
-
   auto entry = _outstanding_allocations.find(pointer);
   if (entry != _outstanding_allocations.end()) {
     _outstanding_allocations.erase(entry);
