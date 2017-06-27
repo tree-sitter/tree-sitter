@@ -53,7 +53,6 @@ typedef struct Tree {
   bool fragile_right : 1;
   bool has_changes : 1;
   bool has_external_tokens : 1;
-  bool has_external_token_state : 1;
 } Tree;
 
 typedef struct {
@@ -90,7 +89,8 @@ void ts_tree_assign_parents(Tree *, TreePath *);
 void ts_tree_edit(Tree *, const TSInputEdit *edit);
 char *ts_tree_string(const Tree *, const TSLanguage *, bool include_all);
 void ts_tree_print_dot_graph(const Tree *, const TSLanguage *, FILE *);
-const TSExternalTokenState *ts_tree_last_external_token_state(const Tree *);
+Tree *ts_tree_last_external_token(Tree *);
+bool ts_tree_external_token_state_eq(const Tree *, const Tree *);
 
 static inline uint32_t ts_tree_total_bytes(const Tree *self) {
   return self->padding.bytes + self->size.bytes;
@@ -108,8 +108,6 @@ static inline bool ts_tree_is_fragile(const Tree *tree) {
   return tree->fragile_left || tree->fragile_right ||
          ts_tree_total_bytes(tree) == 0;
 }
-
-bool ts_external_token_state_eq(const TSExternalTokenState *, const TSExternalTokenState *);
 
 #ifdef __cplusplus
 }

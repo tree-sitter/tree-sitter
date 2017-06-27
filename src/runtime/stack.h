@@ -67,9 +67,9 @@ unsigned ts_stack_push_count(const Stack *, StackVersion);
 
 void ts_stack_decrease_push_count(Stack *, StackVersion, unsigned);
 
-const TSExternalTokenState *ts_stack_external_token_state(const Stack *, StackVersion);
+Tree *ts_stack_last_external_token(const Stack *, StackVersion);
 
-void ts_stack_set_external_token_state(Stack *, StackVersion, const TSExternalTokenState *);
+void ts_stack_set_last_external_token(Stack *, StackVersion, Tree *);
 
 /*
  *  Get the position at the top of the given version of the stack. If the stack

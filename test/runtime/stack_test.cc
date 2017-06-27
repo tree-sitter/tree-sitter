@@ -523,16 +523,19 @@ describe("Stack", [&]() {
   });
 
   describe("setting external token state", [&]() {
-    TSExternalTokenState external_token_state1, external_token_state2;
+    before_each([&]() {
+      trees[1]->external_token_state[0] = 'a';
+      trees[2]->external_token_state[0] = 'b';
+    });
 
     it("allows the state to be retrieved", [&]() {
-      AssertThat(ts_stack_external_token_state(stack, 0), Equals(nullptr));
+      AssertThat(ts_stack_last_external_token(stack, 0), Equals(nullptr));
 
-      ts_stack_set_external_token_state(stack, 0, &external_token_state1);
-      AssertThat(ts_stack_external_token_state(stack, 0), Equals(&external_token_state1));
+      ts_stack_set_last_external_token(stack, 0, trees[1]);
+      AssertThat(ts_stack_last_external_token(stack, 0), Equals(trees[1]));
 
       ts_stack_copy_version(stack, 0);
-      AssertThat(ts_stack_external_token_state(stack, 0), Equals(&external_token_state1));
+      AssertThat(ts_stack_last_external_token(stack, 0), Equals(trees[1]));
     });
 
     it("does not merge stack versions with different external token states", [&]() {
@@ -540,8 +543,8 @@ describe("Stack", [&]() {
       ts_stack_push(stack, 0, trees[0], false, 5);
       ts_stack_push(stack, 1, trees[0], false, 5);
 
-      ts_stack_set_external_token_state(stack, 0, &external_token_state1);
-      ts_stack_set_external_token_state(stack, 0, &external_token_state2);
+      ts_stack_set_last_external_token(stack, 0, trees[1]);
+      ts_stack_set_last_external_token(stack, 0, trees[1]);
 
       AssertThat(ts_stack_merge(stack, 0, 1), IsFalse());
     });

@@ -3,24 +3,21 @@
 typedef struct {
   Tree *tree;
   uint32_t byte_index;
-  bool has_preceding_external_token;
-  const TSExternalTokenState *preceding_external_token_state;
+  Tree *preceding_external_token;
 } ReusableNode;
 
 static inline ReusableNode reusable_node_new(Tree *tree) {
   return (ReusableNode){
     .tree = tree,
     .byte_index = 0,
-    .has_preceding_external_token = false,
-    .preceding_external_token_state = NULL,
+    .preceding_external_token = NULL,
   };
 }
 
 static inline void reusable_node_pop(ReusableNode *self) {
   self->byte_index += ts_tree_total_bytes(self->tree);
   if (self->tree->has_external_tokens) {
-    self->has_preceding_external_token = true;
-    self->preceding_external_token_state = ts_tree_last_external_token_state(self->tree);
+    self->preceding_external_token = ts_tree_last_external_token(self->tree);
   }
 
   while (self->tree) {

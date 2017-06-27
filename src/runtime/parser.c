@@ -56,8 +56,7 @@ typedef struct {
   TSSymbol lookahead_symbol;
 } SkipPrecedingTreesSession;
 
-static void parser__push(Parser *self, StackVersion version, Tree *tree,
-                         TSStateId state) {
+static void parser__push(Parser *self, StackVersion version, Tree *tree, TSStateId state) {
   ts_stack_push(self->stack, version, tree, false, state);
   ts_tree_release(tree);
 }
@@ -201,19 +200,16 @@ static CondenseResult parser__condense_stack(Parser *self) {
   return result;
 }
 
-static void parser__restore_external_scanner(Parser *self, StackVersion version) {
-  const TSExternalTokenState *state = ts_stack_external_token_state(self->stack, version);
-  if (self->lexer.last_external_token_state != state) {
-    LOG("restore_external_scanner");
-    self->lexer.last_external_token_state = state;
-    if (state) {
-      self->language->external_scanner.deserialize(
-        self->external_scanner_payload,
-        *state
-      );
-    } else {
-      self->language->external_scanner.reset(self->external_scanner_payload);
-    }
+static void parser__restore_external_scanner(Parser *self, Tree *external_token) {
+  LOG("restore_external_scanner");
+  ts_lexer_set_last_external_token(&self->lexer, external_token);
+  if (external_token) {
+    self->language->external_scanner.deserialize(
+      self->external_scanner_payload,
+      external_token->external_token_state
+    );
+  } else {
+    self->language->external_scanner.reset(self->external_scanner_payload);
   }
 }
 
@@ -239,19 +235,33 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
     if (valid_external_tokens) {
       LOG("lex_external state:%d, row:%u, column:%u", lex_mode.external_lex_state,
           current_position.extent.row, current_position.extent.column);
-      parser__restore_external_scanner(self, version);
+
+      Tree *external_token = ts_stack_last_external_token(self->stack, version);
+      if (!ts_tree_external_token_state_eq(self->lexer.last_external_token, external_token)) {
+        parser__restore_external_scanner(self, external_token);
+      }
+
       ts_lexer_start(&self->lexer);
-      if (self->language->external_scanner.scan(self->external_scanner_payload,
-                                                &self->lexer.data, valid_external_tokens)) {
+      found_external_token = self->language->external_scanner.scan(
+        self->external_scanner_payload,
+        &self->lexer.data,
+        valid_external_tokens
+      );
+
+      if (found_external_token) {
         if (length_has_unknown_chars(self->lexer.token_end_position)) {
           self->lexer.token_end_position = self->lexer.current_position;
         }
-        if (lex_mode.lex_state != 0 ||
-            self->lexer.token_end_position.bytes > current_position.bytes) {
-          found_external_token = true;
+
+        // Don't allow zero-length external tokens durring error recovery.
+        if (lex_mode.lex_state == 0 && self->lexer.token_end_position.bytes <= current_position.bytes) {
+          parser__restore_external_scanner(self, external_token);
+          found_external_token = false;
+        } else {
           break;
         }
       }
+
       ts_lexer_reset(&self->lexer, current_position);
     }
 
@@ -314,10 +324,9 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
 
     if (found_external_token) {
       result->has_external_tokens = true;
-      result->has_external_token_state = true;
       memset(result->external_token_state, 0, sizeof(TSExternalTokenState));
       self->language->external_scanner.serialize(self->external_scanner_payload, result->external_token_state);
-      self->lexer.last_external_token_state = &result->external_token_state;
+      ts_lexer_set_last_external_token(&self->lexer, result);
     }
   }
 
@@ -330,7 +339,7 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
 }
 
 static void parser__clear_cached_token(Parser *self) {
-  ts_tree_release(self->cached_token);
+  if (self->cached_token) ts_tree_release(self->cached_token);
   self->cached_token = NULL;
 }
 
@@ -373,9 +382,9 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version,
       continue;
     }
 
-    if (!ts_external_token_state_eq(
-          reusable_node->preceding_external_token_state,
-          ts_stack_external_token_state(self->stack, version))) {
+    if (!ts_tree_external_token_state_eq(
+          reusable_node->preceding_external_token,
+          ts_stack_last_external_token(self->stack, version))) {
       LOG("cant_reuse_external_tokens tree:%s, size:%u",
           SYM_NAME(reusable_node->tree->symbol),
           reusable_node->tree->size.bytes);
@@ -475,9 +484,10 @@ static void parser__shift(Parser *self, StackVersion version, TSStateId state,
 
   bool is_pending = lookahead->child_count > 0;
   ts_stack_push(self->stack, version, lookahead, is_pending, state);
-  if (lookahead->has_external_token_state) {
-    ts_stack_set_external_token_state(
-      self->stack, version, ts_tree_last_external_token_state(lookahead));
+  if (lookahead->has_external_tokens) {
+    ts_stack_set_last_external_token(
+      self->stack, version, ts_tree_last_external_token(lookahead)
+    );
   }
   ts_tree_release(lookahead);
 }
@@ -808,7 +818,7 @@ static void parser__start(Parser *self, TSInput input, Tree *previous_tree) {
   ts_lexer_set_input(&self->lexer, input);
   ts_stack_clear(self->stack);
   self->reusable_node = reusable_node_new(previous_tree);
-  self->cached_token = NULL;
+  parser__clear_cached_token(self);
   self->finished_tree = NULL;
 }
 
@@ -843,12 +853,17 @@ static void parser__accept(Parser *self, StackVersion version,
       }
     }
 
-    if (parser__select_tree(self, self->finished_tree, root)) {
-      ts_tree_release(self->finished_tree);
-      assert(root && root->ref_count > 0);
-      self->finished_tree = root;
+    assert(root && root->ref_count > 0);
+
+    if (self->finished_tree) {
+      if (parser__select_tree(self, self->finished_tree, root)) {
+        ts_tree_release(self->finished_tree);
+        self->finished_tree = root;
+      } else {
+        ts_tree_release(root);
+      }
     } else {
-      ts_tree_release(root);
+      self->finished_tree = root;
     }
   }
 
@@ -1113,8 +1128,9 @@ static void parser__advance(Parser *self, StackVersion version,
 
           parser__shift(self, version, next_state, lookahead, extra);
 
-          if (lookahead == reusable_node->tree)
+          if (lookahead == reusable_node->tree) {
             reusable_node_pop(reusable_node);
+          }
 
           ts_tree_release(lookahead);
           return;
@@ -1163,8 +1179,9 @@ static void parser__advance(Parser *self, StackVersion version,
           }
 
           parser__recover(self, version, action.params.to_state, lookahead);
-          if (lookahead == reusable_node->tree)
+          if (lookahead == reusable_node->tree) {
             reusable_node_pop(reusable_node);
+          }
           ts_tree_release(lookahead);
           return;
         }
@@ -1227,6 +1244,7 @@ void parser_destroy(Parser *self) {
     array_delete(&self->tree_path1);
   if (self->tree_path2.contents)
     array_delete(&self->tree_path2);
+  ts_lexer_set_last_external_token(&self->lexer, NULL);
   parser_set_language(self, NULL);
 }
 

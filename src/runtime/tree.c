@@ -27,6 +27,7 @@ Tree *ts_tree_make_leaf(TSSymbol sym, Length padding, Length size,
     .named = metadata.named,
     .has_changes = false,
     .first_leaf.symbol = sym,
+    .has_external_tokens = false,
   };
   return result;
 }
@@ -47,8 +48,9 @@ bool ts_tree_array_copy(TreeArray self, TreeArray *dest) {
 }
 
 void ts_tree_array_delete(TreeArray *self) {
-  for (uint32_t i = 0; i < self->size; i++)
+  for (uint32_t i = 0; i < self->size; i++) {
     ts_tree_release(self->contents[i]);
+  }
   array_delete(self);
 }
 
@@ -148,7 +150,6 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children) {
   self->visible_child_count = 0;
   self->error_cost = 0;
   self->has_external_tokens = false;
-  self->has_external_token_state = false;
 
   for (uint32_t i = 0; i < child_count; i++) {
     Tree *child = children[i];
@@ -175,7 +176,6 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children) {
     }
 
     if (child->has_external_tokens) self->has_external_tokens = true;
-    if (child->has_external_token_state) self->has_external_token_state = true;
 
     if (child->symbol == ts_builtin_sym_error) {
       self->fragile_left = self->fragile_right = true;
@@ -235,17 +235,15 @@ void ts_tree_retain(Tree *self) {
 }
 
 void ts_tree_release(Tree *self) {
-  if (!self)
-    return;
-
 recur:
   assert(self->ref_count > 0);
   self->ref_count--;
 
   if (self->ref_count == 0) {
     if (self->child_count > 0) {
-      for (uint32_t i = 0; i < self->child_count - 1; i++)
+      for (uint32_t i = 0; i < self->child_count - 1; i++) {
         ts_tree_release(self->children[i]);
+      }
       Tree *last_child = self->children[self->child_count - 1];
       ts_free(self->children);
       ts_free(self);
@@ -311,12 +309,7 @@ bool ts_tree_tokens_eq(const Tree *self, const Tree *other) {
   if (self->padding.bytes != other->padding.bytes) return false;
   if (self->size.bytes != other->size.bytes) return false;
   if (self->extra != other->extra) return false;
-  if (self->has_external_token_state) {
-    if (!other->has_external_token_state) return false;
-    if (!ts_external_token_state_eq(&self->external_token_state, &other->external_token_state)) return false;
-  } else {
-    if (other->has_external_token_state) return false;
-  }
+  if (!ts_tree_external_token_state_eq(self, other)) return false;
   return true;
 }
 
@@ -451,19 +444,18 @@ void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
   }
 }
 
-const TSExternalTokenState *ts_tree_last_external_token_state(const Tree *tree) {
+Tree *ts_tree_last_external_token(Tree *tree) {
+  if (!tree->has_external_tokens) return NULL;
   while (tree->child_count > 0) {
     for (uint32_t i = tree->child_count - 1; i + 1 > 0; i--) {
       Tree *child = tree->children[i];
-      if (child->has_external_token_state) {
+      if (child->has_external_tokens) {
         tree = child;
         break;
-      } else if (child->has_external_tokens) {
-        return NULL;
       }
     }
   }
-  return &tree->external_token_state;
+  return tree;
 }
 
 static size_t ts_tree__write_char_to_string(char *s, size_t n, int32_t c) {
@@ -560,13 +552,13 @@ void ts_tree_print_dot_graph(const Tree *self, const TSLanguage *language,
   fprintf(f, "}\n");
 }
 
-bool ts_external_token_state_eq(const TSExternalTokenState *self,
-                                const TSExternalTokenState *other) {
-  if (self == other) {
-    return true;
-  } else if (!self || !other) {
-    return false;
-  } else {
-    return memcmp(self, other, sizeof(TSExternalTokenState)) == 0;
-  }
+bool ts_tree_external_token_state_eq(const Tree *self, const Tree *other) {
+  return self == other || (
+    self &&
+    other &&
+    self->has_external_tokens == other->has_external_tokens && (
+      !self->has_external_tokens ||
+      memcmp(&self->external_token_state, &other->external_token_state, sizeof(TSExternalTokenState)) == 0
+    )
+  );
 }
