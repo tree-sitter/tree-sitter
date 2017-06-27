@@ -45,6 +45,7 @@
       'xcode_settings': {
         'CLANG_CXX_LANGUAGE_STANDARD': 'c++14',
         'OTHER_LDFLAGS': ['-g'],
+        'OTHER_CPLUSPLUSFLAGS': ['-fsanitize=address'],
         'GCC_OPTIMIZATION_LEVEL': '0',
         'ALWAYS_SEARCH_USER_PATHS': 'NO',
         'WARNING_CFLAGS': [
