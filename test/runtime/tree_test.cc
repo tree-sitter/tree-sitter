@@ -421,13 +421,12 @@ describe("Tree", []() {
     });
   });
 
-  describe("last_external_token_state", [&]() {
+  describe("last_external_token", [&]() {
     Length padding = {1, 1, {0, 1}};
     Length size = {2, 2, {0, 2}};
 
     auto make_external = [](Tree *tree) {
       tree->has_external_tokens = true;
-      tree->has_external_token_state = true;
       return tree;
     };
 
@@ -448,8 +447,8 @@ describe("Tree", []() {
         }), visible)),
       }), visible);
 
-      auto state = ts_tree_last_external_token_state(tree1);
-      AssertThat(state, Equals(&tree3->external_token_state));
+      auto token = ts_tree_last_external_token(tree1);
+      AssertThat(token, Equals(tree3));
     });
   });
 });

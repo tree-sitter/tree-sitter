@@ -132,6 +132,7 @@
         'xcode_settings': {
           'OTHER_LDFLAGS': ['-g'],
           'GCC_OPTIMIZATION_LEVEL': '0',
+          'OTHER_CPLUSPLUSFLAGS': ['-fsanitize=address'],
         },
       },
       'Release': {
