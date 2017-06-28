@@ -553,13 +553,19 @@ void ts_tree_print_dot_graph(const Tree *self, const TSLanguage *language,
   fprintf(f, "}\n");
 }
 
+TSExternalTokenState empty_state = {
+  0, 0, 0, 0,
+  0, 0, 0, 0,
+  0, 0, 0, 0,
+  0, 0, 0, 0,
+};
+
 bool ts_tree_external_token_state_eq(const Tree *self, const Tree *other) {
-  return self == other || (
-    self &&
-    other &&
-    self->has_external_tokens == other->has_external_tokens && (
-      !self->has_external_tokens ||
-      memcmp(&self->external_token_state, &other->external_token_state, sizeof(TSExternalTokenState)) == 0
-    )
-  );
+  const TSExternalTokenState *state1 = &empty_state;
+  const TSExternalTokenState *state2 = &empty_state;
+  if (self && self->has_external_tokens) state1 = &self->external_token_state;
+  if (other && other->has_external_tokens) state2 = &other->external_token_state;
+  return
+    state1 == state2 ||
+    memcmp(state1, state2, sizeof(TSExternalTokenState)) == 0;
 }
