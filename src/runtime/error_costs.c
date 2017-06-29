@@ -1,28 +1,46 @@
 #include "runtime/error_costs.h"
-#include <math.h>
 
-static inline unsigned error_status__min_cost(ErrorStatus status) {
-  return status.cost + ERROR_COST_PER_SKIPPED_TREE * status.count * status.count;
-}
+static const unsigned MAX_COST_DIFFERENCE = 16 * ERROR_COST_PER_SKIPPED_TREE;
+static const unsigned MAX_PUSH_COUNT_WITH_COUNT_DIFFERENCE = 24;
 
-static inline unsigned error_status__max_cost(ErrorStatus status) {
-  return status.cost +
-         ERROR_COST_PER_SKIPPED_TREE * status.count * status.count +
-         (6 * ERROR_COST_PER_SKIPPED_TREE * status.count +
-          12 * ERROR_COST_PER_SKIPPED_TREE) /
-           (1 + status.push_count / 2);
-}
+ErrorComparison error_status_compare(ErrorStatus a, ErrorStatus b, bool are_mergeable) {
+  if (a.count < b.count) {
+    if (are_mergeable ||
+        a.cost <= b.cost ||
+        a.count + 1 < b.count ||
+        b.push_count > MAX_PUSH_COUNT_WITH_COUNT_DIFFERENCE) {
+      return ErrorComparisonTakeLeft;
+    } else {
+      return ErrorComparisonPreferLeft;
+    }
+  }
 
-int error_status_compare(ErrorStatus a, ErrorStatus b) {
-  if ((a.count + 1 < b.count) || (a.count < b.count && a.cost <= b.cost))
-    return -1;
-  if ((a.count > b.count + 1) || (b.count < a.count && b.cost <= a.cost))
-    return 1;
+  if (b.count < a.count) {
+    if (are_mergeable ||
+        b.cost <= a.cost ||
+        b.count + 1 < a.count ||
+        a.push_count > MAX_PUSH_COUNT_WITH_COUNT_DIFFERENCE) {
+      return ErrorComparisonTakeRight;
+    } else {
+      return ErrorComparisonPreferRight;
+    }
+  }
 
-  if (error_status__max_cost(a) < error_status__min_cost(b))
-    return -1;
-  if (error_status__min_cost(a) > error_status__max_cost(b))
-    return 1;
+  if (a.cost < b.cost) {
+    if (are_mergeable || (b.cost - a.cost) * (1 + a.push_count) > MAX_COST_DIFFERENCE) {
+      return ErrorComparisonTakeLeft;
+    } else {
+      return ErrorComparisonPreferLeft;
+    }
+  }
 
-  return 0;
+  if (b.cost < a.cost) {
+    if (are_mergeable || (a.cost - b.cost) * (1 + b.push_count) > MAX_COST_DIFFERENCE) {
+      return ErrorComparisonTakeRight;
+    } else {
+      return ErrorComparisonPreferRight;
+    }
+  }
+
+  return ErrorComparisonNone;
 }

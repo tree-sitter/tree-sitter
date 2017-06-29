@@ -79,7 +79,6 @@ Tree *ts_tree_make_error(Length, Length, int32_t);
 void ts_tree_retain(Tree *tree);
 void ts_tree_release(Tree *tree);
 bool ts_tree_eq(const Tree *tree1, const Tree *tree2);
-bool ts_tree_tokens_eq(const Tree *, const Tree *);
 int ts_tree_compare(const Tree *tree1, const Tree *tree2);
 
 uint32_t ts_tree_start_column(const Tree *self);

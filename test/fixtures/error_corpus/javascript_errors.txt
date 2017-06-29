@@ -30,15 +30,16 @@ h i j k;
 
 (program
   (if_statement
-    (ERROR (identifier) (identifier))
+    (ERROR (identifier))
     (identifier)
+    (ERROR (identifier))
     (statement_block
       (expression_statement
-        (ERROR (identifier) (jsx_attribute (identifier)) (jsx_attribute (identifier)))
-        (identifier))))
+        (identifier)
+        (ERROR (jsx_attribute (identifier)) (jsx_attribute (identifier)) (identifier)))))
   (expression_statement
-    (ERROR (identifier) (jsx_attribute (identifier)) (jsx_attribute (identifier)))
-    (identifier)))
+    (identifier)
+    (ERROR (jsx_attribute (identifier)) (jsx_attribute (identifier)) (identifier))))
 
 ===================================================
 one invalid subtree right after the viable prefix
@@ -52,8 +53,8 @@ if ({a: 'b'} {c: 'd'}) {
 
 (program
   (if_statement
-    (ERROR (object (pair (identifier) (string))))
     (object (pair (identifier) (string)))
+    (ERROR (statement_block (labeled_statement (identifier) (expression_statement (string)))))
     (statement_block
       (expression_statement (assignment
         (identifier)

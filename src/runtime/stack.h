@@ -102,11 +102,17 @@ ErrorStatus ts_stack_error_status(const Stack *, StackVersion);
 
 bool ts_stack_merge(Stack *, StackVersion, StackVersion);
 
+bool ts_stack_can_merge(Stack *, StackVersion, StackVersion);
+
+void ts_stack_force_merge(Stack *, StackVersion, StackVersion);
+
 void ts_stack_halt(Stack *, StackVersion);
 
 bool ts_stack_is_halted(Stack *, StackVersion);
 
 void ts_stack_renumber_version(Stack *, StackVersion, StackVersion);
+
+void ts_stack_swap_versions(Stack *, StackVersion, StackVersion);
 
 StackVersion ts_stack_copy_version(Stack *, StackVersion);
 

@@ -304,16 +304,6 @@ bool ts_tree_eq(const Tree *self, const Tree *other) {
   return true;
 }
 
-bool ts_tree_tokens_eq(const Tree *self, const Tree *other) {
-  if (self->child_count > 0 || other->child_count > 0) return false;
-  if (self->symbol != other->symbol) return false;
-  if (self->padding.bytes != other->padding.bytes) return false;
-  if (self->size.bytes != other->size.bytes) return false;
-  if (self->extra != other->extra) return false;
-  if (!ts_tree_external_token_state_eq(self, other)) return false;
-  return true;
-}
-
 int ts_tree_compare(const Tree *left, const Tree *right) {
   if (left->symbol < right->symbol)
     return -1;
