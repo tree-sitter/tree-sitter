@@ -26,7 +26,7 @@ struct StackNode {
   Length position;
   StackLink links[MAX_LINK_COUNT];
   short unsigned int link_count;
-  short unsigned int ref_count;
+  uint32_t ref_count;
   unsigned error_cost;
   unsigned error_count;
 };
@@ -65,8 +65,9 @@ struct Stack {
 static void stack_node_retain(StackNode *self) {
   if (!self)
     return;
-  assert(self->ref_count != 0);
+  assert(self->ref_count > 0);
   self->ref_count++;
+  assert(self->ref_count != 0);
 }
 
 static void stack_node_release(StackNode *self, StackNodeArray *pool) {

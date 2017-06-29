@@ -232,6 +232,7 @@ Tree *ts_tree_make_error_node(TreeArray *children) {
 void ts_tree_retain(Tree *self) {
   assert(self->ref_count > 0);
   self->ref_count++;
+  assert(self->ref_count != 0);
 }
 
 void ts_tree_release(Tree *self) {
