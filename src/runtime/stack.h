@@ -12,8 +12,7 @@ extern "C" {
 
 typedef struct Stack Stack;
 
-typedef unsigned int StackVersion;
-
+typedef unsigned StackVersion;
 #define STACK_VERSION_NONE ((StackVersion)-1)
 
 typedef struct {
@@ -28,19 +27,16 @@ typedef struct {
   StackSliceArray slices;
 } StackPopResult;
 
+typedef unsigned StackIterateAction;
 enum {
   StackIterateNone,
-  StackIterateStop = 1 << 0,
-  StackIteratePop = 1 << 1,
+  StackIterateStop = 1,
+  StackIteratePop = 2,
 };
 
-typedef unsigned int StackIterateAction;
-
 typedef StackIterateAction (*StackIterateCallback)(void *, TSStateId state,
-                                                   TreeArray *trees,
-                                                   uint32_t tree_count,
-                                                   bool is_done,
-                                                   bool is_pending);
+                                                   const TreeArray *trees,
+                                                   uint32_t tree_count);
 
 /*
  *  Create a parse stack.
@@ -91,8 +87,7 @@ void ts_stack_push(Stack *, StackVersion, Tree *, bool, TSStateId);
  */
 StackPopResult ts_stack_pop_count(Stack *, StackVersion, uint32_t count);
 
-StackPopResult ts_stack_iterate(Stack *, StackVersion, StackIterateCallback,
-                                void *);
+StackPopResult ts_stack_iterate(Stack *, StackVersion, StackIterateCallback, void *);
 
 StackPopResult ts_stack_pop_pending(Stack *, StackVersion);
 

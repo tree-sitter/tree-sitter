@@ -634,10 +634,15 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version,
   return pop;
 }
 
-static inline const TSParseAction *parser__reductions_after_sequence(
-  Parser *self, TSStateId start_state, const TreeArray *trees_below,
-  uint32_t tree_count_below, const TreeArray *trees_above,
-  TSSymbol lookahead_symbol, uint32_t *count) {
+static const TSParseAction *parser__reductions_after_sequence(
+  Parser *self,
+  TSStateId start_state,
+  const TreeArray *trees_below,
+  uint32_t tree_count_below,
+  const TreeArray *trees_above,
+  TSSymbol lookahead_symbol,
+  uint32_t *count
+) {
   TSStateId state = start_state;
   uint32_t child_count = 0;
   *count = 0;
@@ -687,11 +692,10 @@ static inline const TSParseAction *parser__reductions_after_sequence(
   return actions;
 }
 
-static StackIterateAction parser__repair_error_callback(
-  void *payload, TSStateId state, TreeArray *trees, uint32_t tree_count,
-  bool is_done, bool is_pending) {
-
-  ErrorRepairSession *session = (ErrorRepairSession *)payload;
+static StackIterateAction parser__repair_error_callback(void *payload, TSStateId state,
+                                                        const TreeArray *trees,
+                                                        uint32_t tree_count) {
+  ErrorRepairSession *session = payload;
   Parser *self = session->parser;
   TSSymbol lookahead_symbol = session->lookahead_symbol;
   ReduceActionSet *repairs = &self->reduce_actions;
@@ -957,8 +961,7 @@ static bool parser__do_potential_reductions(Parser *self, StackVersion version) 
 }
 
 static StackIterateAction parser__skip_preceding_trees_callback(
-  void *payload, TSStateId state, TreeArray *trees, uint32_t tree_count,
-  bool is_done, bool is_pending) {
+  void *payload, TSStateId state, const TreeArray *trees, uint32_t tree_count) {
   if (tree_count > 0 && state != ERROR_STATE) {
     uint32_t bytes_skipped = 0;
     for (uint32_t i = 0; i < trees->size; i++) {

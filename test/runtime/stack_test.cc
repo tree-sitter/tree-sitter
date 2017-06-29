@@ -54,11 +54,12 @@ vector<StackEntry> get_stack_entries(Stack *stack, StackVersion version) {
   ts_stack_iterate(
     stack,
     version,
-    [](void *payload, TSStateId state, TreeArray *trees, uint32_t tree_count, bool is_done, bool is_pending) -> StackIterateAction {
+    [](void *payload, TSStateId state, const TreeArray *trees, uint32_t tree_count) -> StackIterateAction {
       auto entries = static_cast<vector<StackEntry> *>(payload);
       StackEntry entry = {state, tree_count};
-      if (find(entries->begin(), entries->end(), entry) == entries->end())
+      if (find(entries->begin(), entries->end(), entry) == entries->end()) {
         entries->push_back(entry);
+      }
       return StackIterateNone;
     }, &result);
   return result;
