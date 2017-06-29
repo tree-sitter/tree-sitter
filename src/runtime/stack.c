@@ -90,51 +90,43 @@ static void stack_node_release(StackNode *self, StackNodeArray *pool) {
   }
 }
 
-static StackNode *stack_node_new(StackNode *next, Tree *tree, bool is_pending,
-                                 TSStateId state, Length position,
-                                 StackNodeArray *pool) {
-  StackNode *node;
-  if (pool->size > 0)
-    node = array_pop(pool);
-  else if (!(node = ts_malloc(sizeof(StackNode))))
-    return NULL;
+static StackNode *stack_node_new(StackNode *previous_node, Tree *tree, bool is_pending,
+                                 TSStateId state, StackNodeArray *pool) {
+  StackNode *node = pool->size > 0 ?
+    array_pop(pool) :
+    ts_malloc(sizeof(StackNode));
+  *node = (StackNode){.ref_count = 1, .link_count = 0, .state = state};
 
-  *node = (StackNode){
-    .ref_count = 1,
-    .link_count = 0,
-    .links = {},
-    .state = state,
-    .position = position,
-  };
-
-  if (next) {
-    stack_node_retain(next);
+  if (previous_node) {
+    stack_node_retain(previous_node);
 
     node->link_count = 1;
     node->links[0] = (StackLink){
-      .node = next, .tree = tree, .is_pending = is_pending, .push_count = 0,
+      .node = previous_node,
+      .tree = tree,
+      .is_pending = is_pending,
+      .push_count = 0,
     };
 
-    node->error_count = next->error_count;
-    node->error_cost = next->error_cost;
+    node->position = previous_node->position;
+    node->error_count = previous_node->error_count;
+    node->error_cost = previous_node->error_cost;
 
     if (tree) {
       ts_tree_retain(tree);
       node->error_cost += tree->error_cost;
-
-      if (state == ERROR_STATE) {
-        if (!tree->extra) {
-          node->error_cost += ERROR_COST_PER_SKIPPED_TREE +
-                              ERROR_COST_PER_SKIPPED_CHAR *
-                                (tree->padding.chars + tree->size.chars) +
-                              ERROR_COST_PER_SKIPPED_LINE *
-                                (tree->padding.extent.row + tree->size.extent.row);
-        }
+      node->position = length_add(node->position, ts_tree_total_size(tree));
+      if (state == ERROR_STATE && !tree->extra) {
+        node->error_cost +=
+          ERROR_COST_PER_SKIPPED_TREE +
+          ERROR_COST_PER_SKIPPED_CHAR * (tree->padding.chars + tree->size.chars) +
+          ERROR_COST_PER_SKIPPED_LINE * (tree->padding.extent.row + tree->size.extent.row);
       }
     } else {
       node->error_count++;
     }
   } else {
+    node->position = length_zero();
     node->error_count = 0;
     node->error_cost = 0;
   }
@@ -303,8 +295,7 @@ Stack *ts_stack_new() {
   array_grow(&self->iterators, 4);
   array_grow(&self->node_pool, MAX_NODE_POOL_SIZE);
 
-  self->base_node =
-    stack_node_new(NULL, NULL, false, 1, length_zero(), &self->node_pool);
+  self->base_node = stack_node_new(NULL, NULL, false, 1, &self->node_pool);
   stack_node_retain(self->base_node);
   array_push(&self->heads, ((StackHead){
     self->base_node,
@@ -381,25 +372,18 @@ unsigned ts_stack_error_count(const Stack *self, StackVersion version) {
   return node->error_count;
 }
 
-bool ts_stack_push(Stack *self, StackVersion version, Tree *tree,
+void ts_stack_push(Stack *self, StackVersion version, Tree *tree,
                    bool is_pending, TSStateId state) {
   StackHead *head = array_get(&self->heads, version);
-  StackNode *node = head->node;
-  Length position = node->position;
-  if (tree)
-    position = length_add(position, ts_tree_total_size(tree));
-  StackNode *new_node =
-    stack_node_new(node, tree, is_pending, state, position, &self->node_pool);
-  if (!new_node)
-    return false;
-  stack_node_release(node, &self->node_pool);
-  head->node = new_node;
+  StackNode *new_node = stack_node_new(head->node, tree, is_pending, state, &self->node_pool);
   if (state == ERROR_STATE) {
     new_node->links[0].push_count = head->push_count;
     head->push_count = 0;
-  } else
+  } else {
     head->push_count++;
-  return true;
+  }
+  stack_node_release(head->node, &self->node_pool);
+  head->node = new_node;
 }
 
 StackPopResult ts_stack_iterate(Stack *self, StackVersion version,

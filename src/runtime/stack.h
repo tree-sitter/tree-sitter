@@ -78,10 +78,9 @@ void ts_stack_set_last_external_token(Stack *, StackVersion, Tree *);
 Length ts_stack_top_position(const Stack *, StackVersion);
 
 /*
- *  Push a tree and state onto the given head of the stack. This could cause
- *  the version to merge with an existing version.
+ *  Push a tree and state onto the given head of the stack.
  */
-bool ts_stack_push(Stack *, StackVersion, Tree *, bool, TSStateId);
+void ts_stack_push(Stack *, StackVersion, Tree *, bool, TSStateId);
 
 /*
  *  Pop the given number of entries from the given version of the stack. This
