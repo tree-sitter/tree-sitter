@@ -10,7 +10,7 @@
 #define MAX_NODE_POOL_SIZE 50
 #define MAX_ITERATOR_COUNT 64
 
-#define INLINE static inline __attribute__((always_inline))
+#define inline static inline __attribute__((always_inline))
 
 typedef struct StackNode StackNode;
 
@@ -220,7 +220,7 @@ static void ts_stack__add_slice(Stack *self, StackNode *node, TreeArray *trees,
   array_push(&self->slices, slice);
 }
 
-INLINE StackPopResult stack__iter(Stack *self, StackVersion version,
+inline StackPopResult stack__iter(Stack *self, StackVersion version,
                                   StackIterateInternalCallback callback, void *payload) {
   array_clear(&self->slices);
   array_clear(&self->iterators);
@@ -409,7 +409,7 @@ void ts_stack_push(Stack *self, StackVersion version, Tree *tree,
   head->node = new_node;
 }
 
-INLINE StackIterateAction iterate_callback(void *payload, const Iterator *iterator) {
+inline StackIterateAction iterate_callback(void *payload, const Iterator *iterator) {
   StackIterateSession *session = payload;
   return session->callback(session->payload, iterator->node->state, &iterator->trees, iterator->tree_count);
 }
@@ -420,7 +420,7 @@ StackPopResult ts_stack_iterate(Stack *self, StackVersion version,
   return stack__iter(self, version, iterate_callback, &session);
 }
 
-INLINE StackIterateAction pop_count_callback(void *payload, const Iterator *iterator) {
+inline StackIterateAction pop_count_callback(void *payload, const Iterator *iterator) {
   StackPopSession *pop_session = (StackPopSession *)payload;
 
   if (iterator->tree_count == pop_session->goal_tree_count) {
@@ -468,7 +468,7 @@ StackPopResult ts_stack_pop_count(Stack *self, StackVersion version,
   return pop;
 }
 
-INLINE StackIterateAction pop_pending_callback(void *payload, const Iterator *iterator) {
+inline StackIterateAction pop_pending_callback(void *payload, const Iterator *iterator) {
   if (iterator->tree_count >= 1) {
     if (iterator->is_pending) {
       return StackIteratePop | StackIterateStop;
@@ -489,10 +489,8 @@ StackPopResult ts_stack_pop_pending(Stack *self, StackVersion version) {
   return pop;
 }
 
-INLINE StackIterateAction pop_all_callback(void *payload, const Iterator *iterator) {
-  return iterator->node->link_count == 0 ?
-    (StackIteratePop | StackIterateStop) :
-    StackIterateNone;
+inline StackIterateAction pop_all_callback(void *payload, const Iterator *iterator) {
+  return iterator->node->link_count == 0 ? StackIteratePop : StackIterateNone;
 }
 
 StackPopResult ts_stack_pop_all(Stack *self, StackVersion version) {
