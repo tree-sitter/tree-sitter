@@ -8,6 +8,7 @@ extern "C" {
 #include "runtime/array.h"
 #include "runtime/tree.h"
 #include "runtime/error_costs.h"
+#include "runtime/state_set.h"
 #include <stdio.h>
 
 typedef struct Stack Stack;
@@ -36,7 +37,7 @@ enum {
 
 typedef unsigned int StackIterateAction;
 
-typedef StackIterateAction (*StackIterateCallback)(void *, TSStateId state,
+typedef StackIterateAction (*StackIterateCallback)(void *, StateSet state,
                                                    TreeArray *trees,
                                                    uint32_t tree_count,
                                                    bool is_done,
@@ -61,7 +62,7 @@ uint32_t ts_stack_version_count(const Stack *);
  *  Get the state at the top of the given version of the stack. If the stack is
  *  empty, this returns the initial state (0).
  */
-TSStateId ts_stack_top_state(const Stack *, StackVersion);
+StateSet ts_stack_top_state(const Stack *, StackVersion);
 
 unsigned ts_stack_push_count(const Stack *, StackVersion);
 
@@ -81,7 +82,7 @@ Length ts_stack_top_position(const Stack *, StackVersion);
  *  Push a tree and state onto the given head of the stack. This could cause
  *  the version to merge with an existing version.
  */
-bool ts_stack_push(Stack *, StackVersion, Tree *, bool, TSStateId);
+bool ts_stack_push(Stack *, StackVersion, Tree *, bool, StateSet);
 
 /*
  *  Pop the given number of entries from the given version of the stack. This

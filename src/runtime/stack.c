@@ -22,7 +22,7 @@ typedef struct {
 } StackLink;
 
 struct StackNode {
-  TSStateId state;
+  StateSet state;
   Length position;
   StackLink links[MAX_LINK_COUNT];
   short unsigned int link_count;
@@ -91,7 +91,7 @@ static void stack_node_release(StackNode *self, StackNodeArray *pool) {
 }
 
 static StackNode *stack_node_new(StackNode *next, Tree *tree, bool is_pending,
-                                 TSStateId state, Length position,
+                                 StateSet state, Length position,
                                  StackNodeArray *pool) {
   StackNode *node;
   if (pool->size > 0)
@@ -150,7 +150,7 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
          ts_tree_tokens_eq(existing_link.tree, link.tree))) {
       if (existing_link.node == link.node)
         return;
-      if (existing_link.node->state == link.node->state) {
+      if (ts_state_set_eq(&existing_link.node->state, &link.node->state)) {
         for (int j = 0; j < link.node->link_count; j++)
           stack_node_add_link(existing_link.node, link.node->links[j]);
         return;
@@ -304,7 +304,7 @@ Stack *ts_stack_new() {
   array_grow(&self->node_pool, MAX_NODE_POOL_SIZE);
 
   self->base_node =
-    stack_node_new(NULL, NULL, false, 1, length_zero(), &self->node_pool);
+    stack_node_new(NULL, NULL, false, ts_state_set_new(1), length_zero(), &self->node_pool);
   stack_node_retain(self->base_node);
   array_push(&self->heads, ((StackHead){
     self->base_node,
@@ -339,7 +339,7 @@ uint32_t ts_stack_version_count(const Stack *self) {
   return self->heads.size;
 }
 
-TSStateId ts_stack_top_state(const Stack *self, StackVersion version) {
+StateSet ts_stack_top_state(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->state;
 }
 
@@ -382,7 +382,7 @@ unsigned ts_stack_error_count(const Stack *self, StackVersion version) {
 }
 
 bool ts_stack_push(Stack *self, StackVersion version, Tree *tree,
-                   bool is_pending, TSStateId state) {
+                   bool is_pending, StateSet state) {
   StackHead *head = array_get(&self->heads, version);
   StackNode *node = head->node;
   Length position = node->position;
@@ -394,7 +394,7 @@ bool ts_stack_push(Stack *self, StackVersion version, Tree *tree,
     return false;
   stack_node_release(node, &self->node_pool);
   head->node = new_node;
-  if (state == ERROR_STATE) {
+  if (ts_state_set_has(&state, ERROR_STATE)) {
     new_node->links[0].push_count = head->push_count;
     head->push_count = 0;
   } else
@@ -407,7 +407,7 @@ StackPopResult ts_stack_iterate(Stack *self, StackVersion version,
   return stack__iter(self, version, callback, payload);
 }
 
-INLINE StackIterateAction pop_count_callback(void *payload, TSStateId state,
+INLINE StackIterateAction pop_count_callback(void *payload, StateSet state,
                                              TreeArray *trees, uint32_t tree_count,
                                              bool is_done, bool is_pending) {
   StackPopSession *pop_session = (StackPopSession *)payload;
@@ -417,7 +417,7 @@ INLINE StackIterateAction pop_count_callback(void *payload, TSStateId state,
     return StackIteratePop | StackIterateStop;
   }
 
-  if (state == ERROR_STATE) {
+  if (ts_state_set_has(&state, ERROR_STATE)) {
     if (pop_session->found_valid_path || pop_session->found_error) {
       return StackIterateStop;
     } else {
@@ -451,7 +451,7 @@ StackPopResult ts_stack_pop_count(Stack *self, StackVersion version,
   return pop;
 }
 
-INLINE StackIterateAction pop_pending_callback(void *payload, TSStateId state,
+INLINE StackIterateAction pop_pending_callback(void *payload, StateSet state,
                                                TreeArray *trees,
                                                uint32_t tree_count, bool is_done,
                                                bool is_pending) {
@@ -475,7 +475,7 @@ StackPopResult ts_stack_pop_pending(Stack *self, StackVersion version) {
   return pop;
 }
 
-INLINE StackIterateAction pop_all_callback(void *payload, TSStateId state,
+INLINE StackIterateAction pop_all_callback(void *payload, StateSet state,
                                            TreeArray *trees, uint32_t tree_count,
                                            bool is_done, bool is_pending) {
   return is_done ? (StackIteratePop | StackIterateStop) : StackIterateNone;
@@ -513,7 +513,7 @@ bool ts_stack_merge(Stack *self, StackVersion version, StackVersion new_version)
   StackNode *node = head->node;
   StackNode *new_node = new_head->node;
 
-  if (new_node->state == node->state &&
+  if (ts_state_set_eq(&new_node->state, &node->state) &&
       new_node->position.chars == node->position.chars &&
       new_node->error_count == node->error_count &&
       new_node->error_cost == node->error_cost &&
