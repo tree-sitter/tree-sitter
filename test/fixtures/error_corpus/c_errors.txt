@@ -112,10 +112,10 @@ int b() {
   (function_definition
     (identifier) (function_declarator (identifier))
     (compound_statement
-      (ERROR (struct_specifier (identifier)))
-      (expression_statement (number_literal))
-      (ERROR (struct_specifier (identifier)))
-      (expression_statement (number_literal))))
+      (struct_specifier (identifier))
+      (ERROR (number_literal))
+      (struct_specifier (identifier))
+      (ERROR (number_literal))))
 
   (function_definition
     (identifier) (function_declarator (identifier))

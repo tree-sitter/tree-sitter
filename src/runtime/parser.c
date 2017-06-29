@@ -40,6 +40,8 @@
 
 #define SYM_NAME(symbol) ts_language_symbol_name(self->language, symbol)
 
+static const uint32_t MAX_STACK_VERSION_COUNT = 16;
+
 typedef struct {
   Parser *parser;
   TSSymbol lookahead_symbol;
@@ -166,31 +168,55 @@ static CondenseResult parser__condense_stack(Parser *self) {
       continue;
     }
 
-    ErrorStatus error_status = ts_stack_error_status(self->stack, i);
-    if (error_status.count == 0) has_version_without_errors = true;
+    StackVersion version_to_swap = STACK_VERSION_NONE;
+    ErrorStatus right_error_status = ts_stack_error_status(self->stack, i);
+    if (right_error_status.count == 0) has_version_without_errors = true;
 
     for (StackVersion j = 0; j < i; j++) {
-      if (ts_stack_merge(self->stack, j, i)) {
-        result |= CondenseResultMadeChange;
-        i--;
-        break;
-      }
+      bool can_merge = ts_stack_can_merge(self->stack, i, j);
+      ErrorStatus left_error_status = ts_stack_error_status(self->stack, j);
 
-      switch (error_status_compare(error_status,
-                                   ts_stack_error_status(self->stack, j))) {
-        case -1:
+      switch (error_status_compare(left_error_status, right_error_status, can_merge)) {
+        case ErrorComparisonTakeLeft:
+          ts_stack_remove_version(self->stack, i);
+          result |= CondenseResultMadeChange;
+          i--;
+          j = i;
+          break;
+
+        case ErrorComparisonTakeRight:
           ts_stack_remove_version(self->stack, j);
           result |= CondenseResultMadeChange;
           i--;
           j--;
           break;
-        case 1:
-          ts_stack_remove_version(self->stack, i);
+
+        case ErrorComparisonPreferRight:
+          if (version_to_swap != STACK_VERSION_NONE) version_to_swap = j;
           result |= CondenseResultMadeChange;
-          i--;
           break;
+
+        case ErrorComparisonPreferLeft:
+          break;
+
+        case ErrorComparisonNone:
+          if (can_merge) {
+            ts_stack_force_merge(self->stack, j, i);
+            result |= CondenseResultMadeChange;
+            i--;
+            break;
+          }
       }
     }
+
+    if (version_to_swap != STACK_VERSION_NONE) {
+      ts_stack_swap_versions(self->stack, i, version_to_swap);
+    }
+  }
+
+  while (ts_stack_version_count(self->stack) > MAX_STACK_VERSION_COUNT) {
+    ts_stack_remove_version(self->stack, MAX_STACK_VERSION_COUNT);
+    result |= CondenseResultMadeChange;
   }
 
   if (!has_version_without_errors && ts_stack_version_count(self->stack) > 0) {
@@ -454,13 +480,16 @@ static bool parser__better_version_exists(Parser *self, StackVersion version,
       continue;
 
     switch (error_status_compare(my_error_status,
-                                 ts_stack_error_status(self->stack, i))) {
-      case -1:
+                                 ts_stack_error_status(self->stack, i),
+                                 ts_stack_can_merge(self->stack, i, version))) {
+      case ErrorComparisonTakeLeft:
         LOG("halt_other version:%u", i);
         ts_stack_halt(self->stack, i);
         break;
-      case 1:
+      case ErrorComparisonTakeRight:
         return true;
+      default:
+        break;
     }
   }
 
@@ -605,10 +634,15 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version,
   return pop;
 }
 
-static inline const TSParseAction *parser__reductions_after_sequence(
-  Parser *self, TSStateId start_state, const TreeArray *trees_below,
-  uint32_t tree_count_below, const TreeArray *trees_above,
-  TSSymbol lookahead_symbol, uint32_t *count) {
+static const TSParseAction *parser__reductions_after_sequence(
+  Parser *self,
+  TSStateId start_state,
+  const TreeArray *trees_below,
+  uint32_t tree_count_below,
+  const TreeArray *trees_above,
+  TSSymbol lookahead_symbol,
+  uint32_t *count
+) {
   TSStateId state = start_state;
   uint32_t child_count = 0;
   *count = 0;
@@ -658,11 +692,10 @@ static inline const TSParseAction *parser__reductions_after_sequence(
   return actions;
 }
 
-static StackIterateAction parser__repair_error_callback(
-  void *payload, TSStateId state, TreeArray *trees, uint32_t tree_count,
-  bool is_done, bool is_pending) {
-
-  ErrorRepairSession *session = (ErrorRepairSession *)payload;
+static StackIterateAction parser__repair_error_callback(void *payload, TSStateId state,
+                                                        const TreeArray *trees,
+                                                        uint32_t tree_count) {
+  ErrorRepairSession *session = payload;
   Parser *self = session->parser;
   TSSymbol lookahead_symbol = session->lookahead_symbol;
   ReduceActionSet *repairs = &self->reduce_actions;
@@ -928,8 +961,7 @@ static bool parser__do_potential_reductions(Parser *self, StackVersion version) 
 }
 
 static StackIterateAction parser__skip_preceding_trees_callback(
-  void *payload, TSStateId state, TreeArray *trees, uint32_t tree_count,
-  bool is_done, bool is_pending) {
+  void *payload, TSStateId state, const TreeArray *trees, uint32_t tree_count) {
   if (tree_count > 0 && state != ERROR_STATE) {
     uint32_t bytes_skipped = 0;
     for (uint32_t i = 0; i < trees->size; i++) {
@@ -1013,7 +1045,7 @@ static void parser__handle_error(Parser *self, StackVersion version,
   ts_stack_push(self->stack, version, NULL, false, ERROR_STATE);
   while (ts_stack_version_count(self->stack) > previous_version_count) {
     ts_stack_push(self->stack, previous_version_count, NULL, false, ERROR_STATE);
-    assert(ts_stack_merge(self->stack, version, previous_version_count));
+    ts_stack_force_merge(self->stack, version, previous_version_count);
   }
 }
 
@@ -1049,21 +1081,13 @@ static void parser__recover(Parser *self, StackVersion version, TSStateId state,
     Tree *parent = ts_tree_make_error_node(&children);
     parser__push(self, version, parent, 1);
     parser__accept(self, version, lookahead);
+    return;
   }
 
   LOG("recover state:%u", state);
-
   StackVersion new_version = ts_stack_copy_version(self->stack, version);
-
-  parser__shift(
-    self, new_version, ERROR_STATE, lookahead,
-    ts_language_symbol_metadata(self->language, lookahead->symbol).extra);
-  ErrorStatus error_status = ts_stack_error_status(self->stack, new_version);
-  if (parser__better_version_exists(self, version, error_status)) {
-    ts_stack_remove_version(self->stack, new_version);
-    LOG("bail_on_recovery");
-  }
-
+  bool can_be_extra = ts_language_symbol_metadata(self->language, lookahead->symbol).extra;
+  parser__shift(self, new_version, ERROR_STATE, lookahead, can_be_extra);
   parser__shift(self, version, state, lookahead, false);
 }
 

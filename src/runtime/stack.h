@@ -12,8 +12,7 @@ extern "C" {
 
 typedef struct Stack Stack;
 
-typedef unsigned int StackVersion;
-
+typedef unsigned StackVersion;
 #define STACK_VERSION_NONE ((StackVersion)-1)
 
 typedef struct {
@@ -28,19 +27,16 @@ typedef struct {
   StackSliceArray slices;
 } StackPopResult;
 
+typedef unsigned StackIterateAction;
 enum {
   StackIterateNone,
-  StackIterateStop = 1 << 0,
-  StackIteratePop = 1 << 1,
+  StackIterateStop = 1,
+  StackIteratePop = 2,
 };
 
-typedef unsigned int StackIterateAction;
-
 typedef StackIterateAction (*StackIterateCallback)(void *, TSStateId state,
-                                                   TreeArray *trees,
-                                                   uint32_t tree_count,
-                                                   bool is_done,
-                                                   bool is_pending);
+                                                   const TreeArray *trees,
+                                                   uint32_t tree_count);
 
 /*
  *  Create a parse stack.
@@ -78,10 +74,9 @@ void ts_stack_set_last_external_token(Stack *, StackVersion, Tree *);
 Length ts_stack_top_position(const Stack *, StackVersion);
 
 /*
- *  Push a tree and state onto the given head of the stack. This could cause
- *  the version to merge with an existing version.
+ *  Push a tree and state onto the given head of the stack.
  */
-bool ts_stack_push(Stack *, StackVersion, Tree *, bool, TSStateId);
+void ts_stack_push(Stack *, StackVersion, Tree *, bool, TSStateId);
 
 /*
  *  Pop the given number of entries from the given version of the stack. This
@@ -92,8 +87,7 @@ bool ts_stack_push(Stack *, StackVersion, Tree *, bool, TSStateId);
  */
 StackPopResult ts_stack_pop_count(Stack *, StackVersion, uint32_t count);
 
-StackPopResult ts_stack_iterate(Stack *, StackVersion, StackIterateCallback,
-                                void *);
+StackPopResult ts_stack_iterate(Stack *, StackVersion, StackIterateCallback, void *);
 
 StackPopResult ts_stack_pop_pending(Stack *, StackVersion);
 
@@ -103,11 +97,17 @@ ErrorStatus ts_stack_error_status(const Stack *, StackVersion);
 
 bool ts_stack_merge(Stack *, StackVersion, StackVersion);
 
+bool ts_stack_can_merge(Stack *, StackVersion, StackVersion);
+
+void ts_stack_force_merge(Stack *, StackVersion, StackVersion);
+
 void ts_stack_halt(Stack *, StackVersion);
 
 bool ts_stack_is_halted(Stack *, StackVersion);
 
 void ts_stack_renumber_version(Stack *, StackVersion, StackVersion);
+
+void ts_stack_swap_versions(Stack *, StackVersion, StackVersion);
 
 StackVersion ts_stack_copy_version(Stack *, StackVersion);
 
