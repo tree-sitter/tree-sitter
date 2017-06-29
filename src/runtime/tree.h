@@ -45,7 +45,7 @@ typedef struct Tree {
     TSLexMode lex_mode;
   } first_leaf;
 
-  unsigned short ref_count;
+  uint32_t ref_count;
   bool visible : 1;
   bool named : 1;
   bool extra : 1;
