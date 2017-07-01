@@ -40,7 +40,8 @@
 
 #define SYM_NAME(symbol) ts_language_symbol_name(self->language, symbol)
 
-static const uint32_t MAX_STACK_VERSION_COUNT = 16;
+static const uint32_t SOFT_MAX_VERSION_COUNT = 10;
+static const uint32_t HARD_MAX_VERSION_COUNT = 18;
 
 typedef struct {
   Parser *parser;
@@ -214,8 +215,8 @@ static CondenseResult parser__condense_stack(Parser *self) {
     }
   }
 
-  while (ts_stack_version_count(self->stack) > MAX_STACK_VERSION_COUNT) {
-    ts_stack_remove_version(self->stack, MAX_STACK_VERSION_COUNT);
+  while (ts_stack_version_count(self->stack) > SOFT_MAX_VERSION_COUNT) {
+    ts_stack_remove_version(self->stack, SOFT_MAX_VERSION_COUNT);
     result |= CondenseResultMadeChange;
   }
 
@@ -1085,9 +1086,13 @@ static void parser__recover(Parser *self, StackVersion version, TSStateId state,
   }
 
   LOG("recover state:%u", state);
-  StackVersion new_version = ts_stack_copy_version(self->stack, version);
-  bool can_be_extra = ts_language_symbol_metadata(self->language, lookahead->symbol).extra;
-  parser__shift(self, new_version, ERROR_STATE, lookahead, can_be_extra);
+
+  if (ts_stack_version_count(self->stack) < HARD_MAX_VERSION_COUNT) {
+    StackVersion new_version = ts_stack_copy_version(self->stack, version);
+    bool can_be_extra = ts_language_symbol_metadata(self->language, lookahead->symbol).extra;
+    parser__shift(self, new_version, ERROR_STATE, lookahead, can_be_extra);
+  }
+
   parser__shift(self, version, state, lookahead, false);
 }
 
