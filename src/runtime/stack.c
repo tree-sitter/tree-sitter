@@ -81,22 +81,31 @@ static void stack_node_retain(StackNode *self) {
 }
 
 static void stack_node_release(StackNode *self, StackNodeArray *pool) {
-  if (!self) return;
+recur:
   assert(self->ref_count != 0);
   self->ref_count--;
-  if (self->ref_count == 0) {
-    for (int i = 0; i < self->link_count; i++) {
-      if (self->links[i].tree) {
-        ts_tree_release(self->links[i].tree);
-      }
+  if (self->ref_count > 0) return;
+
+  StackNode *last_predecessor = NULL;
+  if (self->link_count > 0) {
+    unsigned i = 0;
+    for (; i < self->link_count - 1; i++) {
+      if (self->links[i].tree) ts_tree_release(self->links[i].tree);
       stack_node_release(self->links[i].node, pool);
     }
+    if (self->links[i].tree) ts_tree_release(self->links[i].tree);
+    last_predecessor = self->links[i].node;
+  }
 
-    if (pool->size < MAX_NODE_POOL_SIZE) {
-      array_push(pool, self);
-    } else {
-      ts_free(self);
-    }
+  if (pool->size < MAX_NODE_POOL_SIZE) {
+    array_push(pool, self);
+  } else {
+    ts_free(self);
+  }
+
+  if (last_predecessor) {
+    self = last_predecessor;
+    goto recur;
   }
 }
 
