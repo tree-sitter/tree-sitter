@@ -10,3 +10,6 @@
 [submodule "externals/json-parser"]
 	path = externals/json-parser
 	url = https://github.com/udp/json-parser.git
+[submodule "externals/crypto-algorithms"]
+	path = externals/crypto-algorithms
+	url = https://github.com/B-Con/crypto-algorithms.git
