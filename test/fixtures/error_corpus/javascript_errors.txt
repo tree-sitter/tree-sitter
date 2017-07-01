@@ -30,9 +30,8 @@ h i j k;
 
 (program
   (if_statement
-    (ERROR (identifier))
+    (ERROR (identifier) (identifier))
     (identifier)
-    (ERROR (identifier))
     (statement_block
       (expression_statement
         (identifier)

@@ -384,6 +384,7 @@ ErrorStatus ts_stack_error_status(const Stack *self, StackVersion version) {
     .cost = head->node->error_cost,
     .count = head->node->error_count,
     .push_count = head->push_count,
+    .depth = head->depth,
   };
 }
 
