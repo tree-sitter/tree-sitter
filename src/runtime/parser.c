@@ -42,6 +42,7 @@
 
 static const uint32_t SOFT_MAX_VERSION_COUNT = 10;
 static const uint32_t HARD_MAX_VERSION_COUNT = 18;
+static const uint32_t MAX_PRECEDING_TREES_TO_SKIP = 32;
 
 typedef struct {
   Parser *parser;
@@ -963,6 +964,7 @@ static bool parser__do_potential_reductions(Parser *self, StackVersion version) 
 
 static StackIterateAction parser__skip_preceding_trees_callback(
   void *payload, TSStateId state, const TreeArray *trees, uint32_t tree_count) {
+  if (trees->size > MAX_PRECEDING_TREES_TO_SKIP) return StackIterateStop;
   if (tree_count > 0 && state != ERROR_STATE) {
     uint32_t bytes_skipped = 0;
     for (uint32_t i = 0; i < trees->size; i++) {
