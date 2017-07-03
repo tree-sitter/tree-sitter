@@ -571,8 +571,7 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version,
     // delete the rest of the tree arrays.
     while (i + 1 < pop.slices.size) {
       StackSlice next_slice = pop.slices.contents[i + 1];
-      if (next_slice.version != slice.version)
-        break;
+      if (next_slice.version != slice.version) break;
       i++;
 
       uint32_t child_count = next_slice.trees.size;
