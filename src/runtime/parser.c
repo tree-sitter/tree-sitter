@@ -478,8 +478,7 @@ static bool parser__better_version_exists(Parser *self, StackVersion version,
     return true;
 
   for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
-    if (i == version || ts_stack_is_halted(self->stack, i))
-      continue;
+    if (i == version || ts_stack_is_halted(self->stack, i)) continue;
 
     switch (error_status_compare(my_error_status,
                                  ts_stack_error_status(self->stack, i),
@@ -489,7 +488,7 @@ static bool parser__better_version_exists(Parser *self, StackVersion version,
         ts_stack_halt(self->stack, i);
         break;
       case ErrorComparisonTakeRight:
-        return true;
+        if (i < version) return true;
       default:
         break;
     }
@@ -611,8 +610,9 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version,
       }
 
       ErrorStatus error_status = ts_stack_error_status(self->stack, other_version);
-      if (parser__better_version_exists(self, version, error_status))
+      if (parser__better_version_exists(self, version, error_status)) {
         ts_stack_remove_version(self->stack, other_version);
+      }
     }
 
     // Push the parent node onto the stack, along with any extra tokens that
@@ -1093,6 +1093,11 @@ static void parser__recover(Parser *self, StackVersion version, TSStateId state,
     StackVersion new_version = ts_stack_copy_version(self->stack, version);
     bool can_be_extra = ts_language_symbol_metadata(self->language, lookahead->symbol).extra;
     parser__shift(self, new_version, ERROR_STATE, lookahead, can_be_extra);
+
+    ErrorStatus error_status = ts_stack_error_status(self->stack, new_version);
+    if (parser__better_version_exists(self, version, error_status)) {
+      ts_stack_remove_version(self->stack, new_version);
+    }
   }
 
   parser__shift(self, version, state, lookahead, false);
