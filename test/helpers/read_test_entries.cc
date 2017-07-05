@@ -92,3 +92,12 @@ vector<TestEntry> read_test_language_corpus(string language_name) {
 
   return result;
 }
+
+vector<string> examples_for_language(string language_name) {
+  vector<string> result;
+  string examples_directory = fixtures_dir + "grammars/" + language_name + "/examples";
+  for (string &filename : list_directory(examples_directory)) {
+    result.push_back(read_file(examples_directory + "/" + filename));
+  }
+  return result;
+}
