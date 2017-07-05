@@ -12,6 +12,7 @@
         'test',
         'externals/bandit',
         'externals/utf8proc',
+        'externals/crypto-algorithms',
       ],
       'sources': [
         'test/tests.cc',

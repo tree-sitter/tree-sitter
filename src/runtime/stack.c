@@ -81,22 +81,31 @@ static void stack_node_retain(StackNode *self) {
 }
 
 static void stack_node_release(StackNode *self, StackNodeArray *pool) {
-  if (!self) return;
+recur:
   assert(self->ref_count != 0);
   self->ref_count--;
-  if (self->ref_count == 0) {
-    for (int i = 0; i < self->link_count; i++) {
-      if (self->links[i].tree) {
-        ts_tree_release(self->links[i].tree);
-      }
+  if (self->ref_count > 0) return;
+
+  StackNode *last_predecessor = NULL;
+  if (self->link_count > 0) {
+    unsigned i = 0;
+    for (; i < self->link_count - 1; i++) {
+      if (self->links[i].tree) ts_tree_release(self->links[i].tree);
       stack_node_release(self->links[i].node, pool);
     }
+    if (self->links[i].tree) ts_tree_release(self->links[i].tree);
+    last_predecessor = self->links[i].node;
+  }
 
-    if (pool->size < MAX_NODE_POOL_SIZE) {
-      array_push(pool, self);
-    } else {
-      ts_free(self);
-    }
+  if (pool->size < MAX_NODE_POOL_SIZE) {
+    array_push(pool, self);
+  } else {
+    ts_free(self);
+  }
+
+  if (last_predecessor) {
+    self = last_predecessor;
+    goto recur;
   }
 }
 
@@ -294,8 +303,9 @@ inline StackPopResult stack__iter(Stack *self, StackVersion version,
           if (!link.tree->extra) {
             next_iterator->tree_count++;
             next_iterator->depth--;
-            if (!link.is_pending)
+            if (!link.is_pending) {
               next_iterator->is_pending = false;
+            }
           }
           array_push(&next_iterator->trees, link.tree);
           ts_tree_retain(link.tree);
@@ -384,6 +394,7 @@ ErrorStatus ts_stack_error_status(const Stack *self, StackVersion version) {
     .cost = head->node->error_cost,
     .count = head->node->error_count,
     .push_count = head->push_count,
+    .depth = head->depth,
   };
 }
 
@@ -551,9 +562,8 @@ void ts_stack_force_merge(Stack *self, StackVersion version1, StackVersion versi
   for (uint32_t i = 0; i < head2->node->link_count; i++) {
     stack_node_add_link(head1->node, head2->node->links[i]);
   }
-  if (head2->push_count > head1->push_count) {
-    head1->push_count = head2->push_count;
-  }
+  if (head2->push_count > head1->push_count) head1->push_count = head2->push_count;
+  if (head2->depth > head1->depth) head1->depth = head2->depth;
   ts_stack_remove_version(self, version2);
 }
 

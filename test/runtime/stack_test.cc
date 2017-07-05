@@ -390,7 +390,7 @@ describe("Stack", [&]() {
 
           StackSlice slice2 = pop.slices.contents[1];
           AssertThat(slice2.version, Equals<StackVersion>(1));
-          AssertThat(slice2.trees, Equals(vector<Tree *>({ trees[4], trees[5], trees[6], trees[10] })))
+          AssertThat(slice2.trees, Equals(vector<Tree *>({ trees[4], trees[5], trees[6], trees[10] })));
 
           AssertThat(ts_stack_version_count(stack), Equals<size_t>(2));
           AssertThat(ts_stack_top_state(stack, 0), Equals(stateI));
@@ -441,15 +441,15 @@ describe("Stack", [&]() {
 
           StackSlice slice1 = pop.slices.contents[0];
           AssertThat(slice1.version, Equals<StackVersion>(1));
-          AssertThat(slice1.trees, Equals(vector<Tree *>({ trees[3], trees[10] })))
+          AssertThat(slice1.trees, Equals(vector<Tree *>({ trees[3], trees[10] })));
 
           StackSlice slice2 = pop.slices.contents[1];
           AssertThat(slice2.version, Equals<StackVersion>(2));
-          AssertThat(slice2.trees, Equals(vector<Tree *>({ trees[6], trees[10] })))
+          AssertThat(slice2.trees, Equals(vector<Tree *>({ trees[6], trees[10] })));
 
           StackSlice slice3 = pop.slices.contents[2];
           AssertThat(slice3.version, Equals<StackVersion>(3));
-          AssertThat(slice3.trees, Equals(vector<Tree *>({ trees[9], trees[10] })))
+          AssertThat(slice3.trees, Equals(vector<Tree *>({ trees[9], trees[10] })));
 
           AssertThat(ts_stack_version_count(stack), Equals<size_t>(4));
           AssertThat(ts_stack_top_state(stack, 0), Equals(stateI));

@@ -16,6 +16,7 @@ typedef struct {
   unsigned count;
   unsigned cost;
   unsigned push_count;
+  unsigned depth;
 } ErrorStatus;
 
 typedef enum {

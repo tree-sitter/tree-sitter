@@ -5,3 +5,4 @@
 -Iexternals/utf8proc
 -Iexternals/json-parser
 -Iexternals/bandit
+-Iexternals/crypto-algorithms

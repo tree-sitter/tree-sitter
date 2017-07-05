@@ -9,46 +9,8 @@
 #include "helpers/record_alloc.h"
 #include "helpers/random_helpers.h"
 #include "helpers/scope_sequence.h"
+#include "helpers/tree_helpers.h"
 #include <set>
-
-static void assert_consistent_sizes(TSNode node) {
-  size_t child_count = ts_node_child_count(node);
-  size_t start_byte = ts_node_start_byte(node);
-  size_t end_byte = ts_node_end_byte(node);
-  TSPoint start_point = ts_node_start_point(node);
-  TSPoint end_point = ts_node_end_point(node);
-  bool some_child_has_changes = false;
-
-  AssertThat(start_byte, !IsGreaterThan(end_byte));
-  AssertThat(start_point, !IsGreaterThan(end_point));
-
-  size_t last_child_end_byte = start_byte;
-  TSPoint last_child_end_point = start_point;
-
-  for (size_t i = 0; i < child_count; i++) {
-    TSNode child = ts_node_child(node, i);
-    size_t child_start_byte = ts_node_start_byte(child);
-    TSPoint child_start_point = ts_node_start_point(child);
-
-    AssertThat(child_start_byte, !IsLessThan(last_child_end_byte));
-    AssertThat(child_start_point, !IsLessThan(last_child_end_point));
-    assert_consistent_sizes(child);
-    if (ts_node_has_changes(child))
-      some_child_has_changes = true;
-
-    last_child_end_byte = ts_node_end_byte(child);
-    last_child_end_point = ts_node_end_point(child);
-  }
-
-  if (child_count > 0) {
-    AssertThat(end_byte, !IsLessThan(last_child_end_byte));
-    AssertThat(end_point, !IsLessThan(last_child_end_point));
-  }
-
-  if (some_child_has_changes) {
-    AssertThat(ts_node_has_changes(node), IsTrue());
-  }
-}
 
 static void assert_correct_tree_size(TSDocument *document, string content) {
   TSNode root_node = ts_document_root_node(document);
@@ -65,7 +27,7 @@ static void assert_correct_tree_size(TSDocument *document, string content) {
     expected_size = content.find_last_not_of("\n ") + 1;
 
   AssertThat(ts_node_end_byte(root_node), Equals(expected_size));
-  assert_consistent_sizes(root_node);
+  assert_consistent_tree_sizes(root_node);
 }
 
 START_TEST

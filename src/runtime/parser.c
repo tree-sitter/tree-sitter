@@ -40,7 +40,9 @@
 
 #define SYM_NAME(symbol) ts_language_symbol_name(self->language, symbol)
 
-static const uint32_t MAX_STACK_VERSION_COUNT = 16;
+static const uint32_t SOFT_MAX_VERSION_COUNT = 10;
+static const uint32_t HARD_MAX_VERSION_COUNT = 18;
+static const uint32_t MAX_PRECEDING_TREES_TO_SKIP = 32;
 
 typedef struct {
   Parser *parser;
@@ -214,8 +216,8 @@ static CondenseResult parser__condense_stack(Parser *self) {
     }
   }
 
-  while (ts_stack_version_count(self->stack) > MAX_STACK_VERSION_COUNT) {
-    ts_stack_remove_version(self->stack, MAX_STACK_VERSION_COUNT);
+  while (ts_stack_version_count(self->stack) > SOFT_MAX_VERSION_COUNT) {
+    ts_stack_remove_version(self->stack, SOFT_MAX_VERSION_COUNT);
     result |= CondenseResultMadeChange;
   }
 
@@ -476,8 +478,7 @@ static bool parser__better_version_exists(Parser *self, StackVersion version,
     return true;
 
   for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
-    if (i == version || ts_stack_is_halted(self->stack, i))
-      continue;
+    if (i == version || ts_stack_is_halted(self->stack, i)) continue;
 
     switch (error_status_compare(my_error_status,
                                  ts_stack_error_status(self->stack, i),
@@ -487,7 +488,7 @@ static bool parser__better_version_exists(Parser *self, StackVersion version,
         ts_stack_halt(self->stack, i);
         break;
       case ErrorComparisonTakeRight:
-        return true;
+        if (i < version) return true;
       default:
         break;
     }
@@ -570,8 +571,7 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version,
     // delete the rest of the tree arrays.
     while (i + 1 < pop.slices.size) {
       StackSlice next_slice = pop.slices.contents[i + 1];
-      if (next_slice.version != slice.version)
-        break;
+      if (next_slice.version != slice.version) break;
       i++;
 
       uint32_t child_count = next_slice.trees.size;
@@ -609,8 +609,9 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version,
       }
 
       ErrorStatus error_status = ts_stack_error_status(self->stack, other_version);
-      if (parser__better_version_exists(self, version, error_status))
+      if (parser__better_version_exists(self, version, error_status)) {
         ts_stack_remove_version(self->stack, other_version);
+      }
     }
 
     // Push the parent node onto the stack, along with any extra tokens that
@@ -962,6 +963,7 @@ static bool parser__do_potential_reductions(Parser *self, StackVersion version) 
 
 static StackIterateAction parser__skip_preceding_trees_callback(
   void *payload, TSStateId state, const TreeArray *trees, uint32_t tree_count) {
+  if (trees->size > MAX_PRECEDING_TREES_TO_SKIP) return StackIterateStop;
   if (tree_count > 0 && state != ERROR_STATE) {
     uint32_t bytes_skipped = 0;
     for (uint32_t i = 0; i < trees->size; i++) {
@@ -1085,9 +1087,18 @@ static void parser__recover(Parser *self, StackVersion version, TSStateId state,
   }
 
   LOG("recover state:%u", state);
-  StackVersion new_version = ts_stack_copy_version(self->stack, version);
-  bool can_be_extra = ts_language_symbol_metadata(self->language, lookahead->symbol).extra;
-  parser__shift(self, new_version, ERROR_STATE, lookahead, can_be_extra);
+
+  if (ts_stack_version_count(self->stack) < HARD_MAX_VERSION_COUNT) {
+    StackVersion new_version = ts_stack_copy_version(self->stack, version);
+    bool can_be_extra = ts_language_symbol_metadata(self->language, lookahead->symbol).extra;
+    parser__shift(self, new_version, ERROR_STATE, lookahead, can_be_extra);
+
+    ErrorStatus error_status = ts_stack_error_status(self->stack, new_version);
+    if (parser__better_version_exists(self, version, error_status)) {
+      ts_stack_remove_version(self->stack, new_version);
+    }
+  }
+
   parser__shift(self, version, state, lookahead, false);
 }
 
