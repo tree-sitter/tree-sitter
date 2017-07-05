@@ -40,8 +40,7 @@
 
 #define SYM_NAME(symbol) ts_language_symbol_name(self->language, symbol)
 
-static const uint32_t SOFT_MAX_VERSION_COUNT = 10;
-static const uint32_t HARD_MAX_VERSION_COUNT = 18;
+static const uint32_t MAX_VERSION_COUNT = 10;
 static const uint32_t MAX_PRECEDING_TREES_TO_SKIP = 32;
 
 typedef struct {
@@ -216,8 +215,8 @@ static CondenseResult parser__condense_stack(Parser *self) {
     }
   }
 
-  while (ts_stack_version_count(self->stack) > SOFT_MAX_VERSION_COUNT) {
-    ts_stack_remove_version(self->stack, SOFT_MAX_VERSION_COUNT);
+  while (ts_stack_version_count(self->stack) > MAX_VERSION_COUNT) {
+    ts_stack_remove_version(self->stack, MAX_VERSION_COUNT);
     result |= CondenseResultMadeChange;
   }
 
@@ -1024,9 +1023,11 @@ static void parser__handle_error(Parser *self, StackVersion version,
   // If the current lookahead symbol would have been valid in some previous
   // state on the stack, create one stack version that repairs the error
   // immediately by simply skipping all of the trees that came after that state.
-  if (parser__skip_preceding_trees(self, version, lookahead_symbol)) {
-    LOG("skip_preceding_trees");
-    LOG_STACK();
+  if (ts_stack_version_count(self->stack) < MAX_VERSION_COUNT) {
+    if (parser__skip_preceding_trees(self, version, lookahead_symbol)) {
+      LOG("skip_preceding_trees");
+      LOG_STACK();
+    }
   }
 
   // Perform any reductions that could have happened in this state, regardless
@@ -1088,7 +1089,7 @@ static void parser__recover(Parser *self, StackVersion version, TSStateId state,
 
   LOG("recover state:%u", state);
 
-  if (ts_stack_version_count(self->stack) < HARD_MAX_VERSION_COUNT) {
+  if (ts_stack_version_count(self->stack) < MAX_VERSION_COUNT) {
     StackVersion new_version = ts_stack_copy_version(self->stack, version);
     bool can_be_extra = ts_language_symbol_metadata(self->language, lookahead->symbol).extra;
     parser__shift(self, new_version, ERROR_STATE, lookahead, can_be_extra);
