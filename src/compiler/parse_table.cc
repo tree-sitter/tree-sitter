@@ -13,25 +13,14 @@ using std::vector;
 using std::function;
 using rules::Symbol;
 
-ParseAction::ParseAction(ParseActionType type, ParseStateId state_index,
-                         Symbol symbol, size_t consumed_symbol_count,
-                         const Production *production)
-    : type(type),
-      extra(false),
-      fragile(false),
-      state_index(state_index),
-      symbol(symbol),
-      consumed_symbol_count(consumed_symbol_count),
-      production(production) {}
-
 ParseAction::ParseAction()
-    : type(ParseActionTypeError),
+    : production(nullptr),
+      consumed_symbol_count(0),
+      symbol(rules::NONE()),
+      type(ParseActionTypeError),
       extra(false),
       fragile(false),
-      state_index(-1),
-      symbol(rules::NONE()),
-      consumed_symbol_count(0),
-      production(nullptr) {}
+      state_index(-1) {}
 
 ParseAction ParseAction::Error() {
   return ParseAction();
@@ -44,12 +33,17 @@ ParseAction ParseAction::Accept() {
 }
 
 ParseAction ParseAction::Shift(ParseStateId state_index) {
-  return ParseAction(ParseActionTypeShift, state_index, rules::NONE(), 0, nullptr);
+  ParseAction result;
+  result.type = ParseActionTypeShift;
+  result.state_index = state_index;
+  return result;
 }
 
 ParseAction ParseAction::Recover(ParseStateId state_index) {
-  return ParseAction(ParseActionTypeRecover, state_index, rules::NONE(), 0,
-                     nullptr);
+  ParseAction result;
+  result.type = ParseActionTypeRecover;
+  result.state_index = state_index;
+  return result;
 }
 
 ParseAction ParseAction::ShiftExtra() {
@@ -61,8 +55,13 @@ ParseAction ParseAction::ShiftExtra() {
 
 ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
                                 const Production &production) {
-  return ParseAction(ParseActionTypeReduce, 0, symbol, consumed_symbol_count,
-                     &production);
+  ParseAction result;
+  result.type = ParseActionTypeReduce;
+  result.symbol = symbol;
+  result.consumed_symbol_count = consumed_symbol_count;
+  result.production = &production;
+  result.dynamic_precedence = production.dynamic_precedence;
+  return result;
 }
 
 int ParseAction::precedence() const {

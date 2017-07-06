@@ -150,6 +150,7 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children) {
   self->visible_child_count = 0;
   self->error_cost = 0;
   self->has_external_tokens = false;
+  self->dynamic_precedence = 0;
 
   for (uint32_t i = 0; i < child_count; i++) {
     Tree *child = children[i];
@@ -165,6 +166,7 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children) {
     }
 
     self->error_cost += child->error_cost;
+    self->dynamic_precedence += child->dynamic_precedence;
 
     if (child->visible) {
       self->visible_child_count++;

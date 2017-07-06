@@ -11,8 +11,9 @@ namespace tree_sitter {
 
 struct ProductionStep {
   inline bool operator==(const ProductionStep &other) const {
-    return symbol == other.symbol && precedence == other.precedence &&
-           associativity == other.associativity;
+    return symbol == other.symbol &&
+      precedence == other.precedence &&
+      associativity == other.associativity;
   }
 
   rules::Symbol symbol;
@@ -20,7 +21,21 @@ struct ProductionStep {
   rules::Associativity associativity;
 };
 
-typedef std::vector<ProductionStep> Production;
+struct Production {
+  std::vector<ProductionStep> steps;
+  int dynamic_precedence = 0;
+
+  inline bool operator==(const Production &other) const {
+    return steps == other.steps && dynamic_precedence == other.dynamic_precedence;
+  }
+
+  inline ProductionStep &back() { return steps.back(); }
+  inline const ProductionStep &back() const { return steps.back(); }
+  inline bool empty() const { return steps.empty(); }
+  inline size_t size() const { return steps.size(); }
+  inline const ProductionStep &operator[](int i) const { return steps[i]; }
+  inline const ProductionStep &at(int i) const { return steps[i]; }
+};
 
 struct SyntaxVariable {
   std::string name;

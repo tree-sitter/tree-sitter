@@ -26,7 +26,7 @@ class FlattenRule {
   void apply(const Rule &rule) {
     rule.match(
       [&](const rules::Symbol &symbol) {
-        production.push_back(ProductionStep{
+        production.steps.push_back(ProductionStep{
           symbol,
           precedence_stack.back(),
           associativity_stack.back()
@@ -40,6 +40,10 @@ class FlattenRule {
 
         if (metadata.params.has_associativity) {
           associativity_stack.push_back(metadata.params.associativity);
+        }
+
+        if (metadata.params.dynamic_precedence > production.dynamic_precedence) {
+          production.dynamic_precedence = metadata.params.dynamic_precedence;
         }
 
         apply(*metadata.rule);

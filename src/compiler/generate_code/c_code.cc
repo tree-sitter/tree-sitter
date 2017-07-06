@@ -490,12 +490,17 @@ class CCodeGenerator {
               break;
             case ParseActionTypeReduce:
               if (action.fragile) {
-                add("REDUCE_FRAGILE(" + symbol_id(action.symbol) + ", " +
-                    to_string(action.consumed_symbol_count) + ")");
+                add("REDUCE_FRAGILE");
               } else {
-                add("REDUCE(" + symbol_id(action.symbol) + ", " +
-                    to_string(action.consumed_symbol_count) + ")");
+                add("REDUCE");
               }
+
+              add("(");
+              add(symbol_id(action.symbol));
+              add(", ");
+              add(to_string(action.consumed_symbol_count));
+              add(", " + to_string(action.dynamic_precedence));
+              add(")");
               break;
             case ParseActionTypeRecover:
               add("RECOVER(" + to_string(action.state_index) + ")");

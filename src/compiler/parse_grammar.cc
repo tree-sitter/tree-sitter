@@ -184,6 +184,20 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     return Rule(Metadata::prec_right(precedence_json.u.integer, result.rule));
   }
 
+  if (type == "PREC_DYNAMIC") {
+    json_value precedence_json = rule_json->operator[]("value");
+    if (precedence_json.type != json_integer) {
+      return "Precedence value must be an integer";
+    }
+
+    json_value content_json = rule_json->operator[]("content");
+    auto result = parse_rule(&content_json);
+    if (!result.error_message.empty()) {
+      return "Invalid precedence content: " + result.error_message;
+    }
+    return Rule(Metadata::prec_dynamic(precedence_json.u.integer, result.rule));
+  }
+
   return "Unknown rule type: " + type;
 }
 

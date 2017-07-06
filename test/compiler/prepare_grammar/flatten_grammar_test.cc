@@ -34,21 +34,63 @@ describe("flatten_grammar", []() {
     AssertThat(result.name, Equals("test"));
     AssertThat(result.type, Equals(VariableTypeNamed));
     AssertThat(result.productions, Equals(vector<Production>({
-      Production({
+      Production{{
         {Symbol::non_terminal(1), 0, AssociativityNone},
         {Symbol::non_terminal(2), 101, AssociativityLeft},
         {Symbol::non_terminal(3), 102, AssociativityRight},
         {Symbol::non_terminal(4), 101, AssociativityLeft},
         {Symbol::non_terminal(6), 0, AssociativityNone},
         {Symbol::non_terminal(7), 0, AssociativityNone},
-      }),
-      Production({
+      }, 0},
+      Production{{
         {Symbol::non_terminal(1), 0, AssociativityNone},
         {Symbol::non_terminal(2), 101, AssociativityLeft},
         {Symbol::non_terminal(5), 101, AssociativityLeft},
         {Symbol::non_terminal(6), 0, AssociativityNone},
         {Symbol::non_terminal(7), 0, AssociativityNone},
+      }, 0}
+    })));
+  });
+
+  it("stores the maximum dynamic precedence specified in each production", [&]() {
+    SyntaxVariable result = flatten_rule({
+      "test",
+      VariableTypeNamed,
+      Rule::seq({
+        Symbol::non_terminal(1),
+        Metadata::prec_dynamic(101, Rule::seq({
+          Symbol::non_terminal(2),
+          Rule::choice({
+            Metadata::prec_dynamic(102, Rule::seq({
+              Symbol::non_terminal(3),
+              Symbol::non_terminal(4)
+            })),
+            Symbol::non_terminal(5),
+          }),
+          Symbol::non_terminal(6),
+        })),
+        Symbol::non_terminal(7),
       })
+    });
+
+    AssertThat(result.name, Equals("test"));
+    AssertThat(result.type, Equals(VariableTypeNamed));
+    AssertThat(result.productions, Equals(vector<Production>({
+      Production{{
+        {Symbol::non_terminal(1), 0, AssociativityNone},
+        {Symbol::non_terminal(2), 0, AssociativityNone},
+        {Symbol::non_terminal(3), 0, AssociativityNone},
+        {Symbol::non_terminal(4), 0, AssociativityNone},
+        {Symbol::non_terminal(6), 0, AssociativityNone},
+        {Symbol::non_terminal(7), 0, AssociativityNone},
+      }, 102},
+      Production{{
+        {Symbol::non_terminal(1), 0, AssociativityNone},
+        {Symbol::non_terminal(2), 0, AssociativityNone},
+        {Symbol::non_terminal(5), 0, AssociativityNone},
+        {Symbol::non_terminal(6), 0, AssociativityNone},
+        {Symbol::non_terminal(7), 0, AssociativityNone},
+      }, 101}
     })));
   });
 
@@ -63,10 +105,10 @@ describe("flatten_grammar", []() {
     });
 
     AssertThat(result.productions, Equals(vector<Production>({
-      Production({
+      Production{{
         {Symbol::non_terminal(1), 101, AssociativityLeft},
-        {Symbol::non_terminal(2), 101, AssociativityLeft},
-      })
+        {Symbol::non_terminal(2), 101,  AssociativityLeft},
+      }, 0}
     })));
 
     result = flatten_rule({
@@ -78,9 +120,9 @@ describe("flatten_grammar", []() {
     });
 
     AssertThat(result.productions, Equals(vector<Production>({
-      Production({
+      Production{{
         {Symbol::non_terminal(1), 101, AssociativityLeft},
-      })
+      }, 0}
     })));
   });
 });

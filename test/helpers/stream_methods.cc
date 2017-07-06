@@ -136,9 +136,14 @@ ostream &operator<<(ostream &stream, const Variable &variable) {
   return stream << "(Variable " << variable.name << " " << variable.rule << ")";
 }
 
+ostream &operator<<(ostream &stream, const Production &production) {
+  return stream << "(Production " << production.steps << " " <<
+    to_string(production.dynamic_precedence) << ")";
+}
+
 ostream &operator<<(ostream &stream, const SyntaxVariable &variable) {
   return stream << "(Variable " << variable.name << " " << variable.productions <<
-    " " << to_string(variable.type) << "}";
+    " " << to_string(variable.type) << ")";
 }
 
 ostream &operator<<(ostream &stream, const LexicalVariable &variable) {

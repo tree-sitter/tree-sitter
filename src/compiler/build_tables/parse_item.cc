@@ -60,6 +60,10 @@ int ParseItem::precedence() const {
   }
 }
 
+int ParseItem::dynamic_precedence() const {
+  return production->dynamic_precedence;
+}
+
 rules::Associativity ParseItem::associativity() const {
   if (is_done()) {
     if (production->empty()) {

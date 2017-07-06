@@ -437,22 +437,36 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version,
 }
 
 static bool parser__select_tree(Parser *self, Tree *left, Tree *right) {
-  if (!left)
-    return true;
-  if (!right)
-    return false;
+  if (!left) return true;
+  if (!right) return false;
+
   if (right->error_cost < left->error_cost) {
     LOG("select_smaller_error symbol:%s, over_symbol:%s",
         SYM_NAME(right->symbol), SYM_NAME(left->symbol));
     return true;
   }
+
   if (left->error_cost < right->error_cost) {
     LOG("select_smaller_error symbol:%s, over_symbol:%s",
         SYM_NAME(left->symbol), SYM_NAME(right->symbol));
     return false;
   }
 
-  if (left->error_cost > 0) return -1;
+  if (right->dynamic_precedence > left->dynamic_precedence) {
+    LOG("select_higher_precedence symbol:%s, prec:%u, over_symbol:%s, other_prec:%u",
+        SYM_NAME(right->symbol), right->dynamic_precedence, SYM_NAME(left->symbol),
+        left->dynamic_precedence);
+    return true;
+  }
+
+  if (left->dynamic_precedence > right->dynamic_precedence) {
+    LOG("select_higher_precedence symbol:%s, prec:%u, over_symbol:%s, other_prec:%u",
+        SYM_NAME(left->symbol), left->dynamic_precedence, SYM_NAME(right->symbol),
+        right->dynamic_precedence);
+    return false;
+  }
+
+  if (left->error_cost > 0) return true;
 
   int comparison = ts_tree_compare(left, right);
   switch (comparison) {
@@ -544,7 +558,8 @@ static bool parser__switch_children(Parser *self, Tree *tree,
 
 static StackPopResult parser__reduce(Parser *self, StackVersion version,
                                      TSSymbol symbol, unsigned count,
-                                     bool fragile, bool allow_skipping) {
+                                     bool fragile, int dynamic_precedence,
+                                     bool allow_skipping) {
   uint32_t initial_version_count = ts_stack_version_count(self->stack);
 
   StackPopResult pop = ts_stack_pop_count(self->stack, version, count);
@@ -586,6 +601,8 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version,
         ts_tree_array_delete(&next_slice.trees);
       }
     }
+
+    parent->dynamic_precedence += dynamic_precedence;
 
     TSStateId state = ts_stack_top_state(self->stack, slice.version);
     TSStateId next_state = ts_language_next_state(language, state, symbol);
@@ -929,6 +946,7 @@ static bool parser__do_potential_reductions(Parser *self, StackVersion version) 
             ts_reduce_action_set_add(&self->reduce_actions, (ReduceAction){
               .symbol = action.params.symbol,
               .count = action.params.child_count,
+              .dynamic_precedence = action.params.dynamic_precedence
             });
         default:
           break;
@@ -939,8 +957,10 @@ static bool parser__do_potential_reductions(Parser *self, StackVersion version) 
   bool did_reduce = false;
   for (uint32_t i = 0; i < self->reduce_actions.size; i++) {
     ReduceAction action = self->reduce_actions.contents[i];
-    StackPopResult reduction =
-      parser__reduce(self, version, action.symbol, action.count, true, false);
+    StackPopResult reduction = parser__reduce(
+      self, version, action.symbol, action.count, true,
+      action.dynamic_precedence, false
+    );
     if (reduction.stopped_at_error) {
       ts_tree_array_delete(&reduction.slices.contents[0].trees);
       ts_stack_remove_version(self->stack, reduction.slices.contents[0].version);
@@ -1180,12 +1200,13 @@ static void parser__advance(Parser *self, StackVersion version,
 
           unsigned child_count = action.params.child_count;
           TSSymbol symbol = action.params.symbol;
+          unsigned dynamic_precedence = action.params.dynamic_precedence;
           bool fragile = action.fragile;
 
           LOG("reduce sym:%s, child_count:%u", SYM_NAME(symbol), child_count);
 
           StackPopResult reduction =
-            parser__reduce(self, version, symbol, child_count, fragile, true);
+            parser__reduce(self, version, symbol, child_count, fragile, dynamic_precedence, true);
           StackSlice slice = *array_front(&reduction.slices);
           if (reduction.stopped_at_error) {
             reduction_stopped_at_error = true;

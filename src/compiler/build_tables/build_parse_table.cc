@@ -55,7 +55,8 @@ class ParseTableBuilder {
       Symbol::non_terminal(0);
 
     Production start_production{
-      ProductionStep{start_symbol, 0, rules::AssociativityNone},
+      {ProductionStep{start_symbol, 0, rules::AssociativityNone}},
+      0
     };
 
     // Placeholder for error state
@@ -281,9 +282,10 @@ class ParseTableBuilder {
 
         for (ParseAction &action : actions) {
           if (action.type == ParseActionTypeReduce) {
-            if (has_fragile_production(action.production))
+            if (has_fragile_production(action.production)) {
               action.fragile = true;
-            action.production = NULL;
+            }
+            action.production = nullptr;
           }
         }
 
@@ -586,7 +588,7 @@ class ParseTableBuilder {
         }
 
         description += "  (" + symbol_name(action.symbol);
-        for (const ProductionStep &step : *action.production) {
+        for (const ProductionStep &step : action.production->steps) {
           description += "  " + symbol_name(step.symbol);
         }
         description += ")";
