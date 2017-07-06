@@ -49,7 +49,7 @@ describe("flatten_grammar", []() {
         {Symbol::non_terminal(6), 0, AssociativityNone},
         {Symbol::non_terminal(7), 0, AssociativityNone},
       })
-    })))
+    })));
   });
 
   it("uses the last assigned precedence", [&]() {
@@ -67,7 +67,7 @@ describe("flatten_grammar", []() {
         {Symbol::non_terminal(1), 101, AssociativityLeft},
         {Symbol::non_terminal(2), 101, AssociativityLeft},
       })
-    })))
+    })));
 
     result = flatten_rule({
       "test2",
@@ -81,7 +81,7 @@ describe("flatten_grammar", []() {
       Production({
         {Symbol::non_terminal(1), 101, AssociativityLeft},
       })
-    })))
+    })));
   });
 });
 
