@@ -30,8 +30,8 @@ if [ "$(uname -s)" == "Darwin" ]; then
 fi
 
 mode=normal
-export BUILDTYPE=Test
-cmd=out/Test/benchmarks
+export BUILDTYPE=Release
+cmd=out/$BUILDTYPE/benchmarks
 run_scan_build=
 
 while getopts "bdhf:l:SL" option; do
