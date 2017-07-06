@@ -1,6 +1,6 @@
-#include "test_helper.h"
 #include "helpers/load_language.h"
 #include "helpers/file_helpers.h"
+#include <cassert>
 #include <unistd.h>
 #include <dlfcn.h>
 #include <sys/types.h>
@@ -16,6 +16,8 @@ using std::string;
 using std::ifstream;
 using std::ofstream;
 using std::istreambuf_iterator;
+using std::vector;
+using std::to_string;
 
 map<string, const TSLanguage *> loaded_languages;
 int libcompiler_mtime = -1;
@@ -95,23 +97,21 @@ static const TSLanguage *load_language(const string &source_filename,
 
     string compile_error = run_command(compiler_name, compile_args.data());
     if (!compile_error.empty()) {
-      AssertThat(string(compile_error), IsEmpty());
-      return nullptr;
+      fputs(compile_error.c_str(), stderr);
+      abort();
     }
   }
 
   void *parser_lib = dlopen(lib_filename.c_str(), RTLD_NOW);
   if (!parser_lib) {
-    std::string message(dlerror());
-    AssertThat(message, IsEmpty());
-    return nullptr;
+    fputs(dlerror(), stderr);
+    abort();
   }
 
   void *language_function = dlsym(parser_lib, language_function_name.c_str());
   if (!language_function) {
-    std::string message(dlerror());
-    AssertThat(message, IsEmpty());
-    return nullptr;
+    fputs(dlerror(), stderr);
+    abort();
   }
 
   return reinterpret_cast<TSLanguage *(*)()>(language_function)();
@@ -121,8 +121,8 @@ const TSLanguage *load_test_language(const string &name,
                                      const TSCompileResult &compile_result,
                                      string external_scanner_path) {
   if (compile_result.error_type != TSCompileErrorTypeNone) {
-    Assert::Failure(string("Compilation failed ") + compile_result.error_message);
-    return nullptr;
+    fputs((string("Compilation failed ") + compile_result.error_message).c_str(), stderr);
+    abort();
   }
 
   mkdir("out/tmp", 0777);

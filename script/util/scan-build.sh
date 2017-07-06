@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 function scan_build {
   extra_args=()
 

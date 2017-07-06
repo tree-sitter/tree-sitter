@@ -10,7 +10,13 @@ struct TestEntry {
 	std::string tree_string;
 };
 
+struct ExampleEntry {
+  std::string file_name;
+	std::string input;
+};
+
 std::vector<TestEntry> read_real_language_corpus(std::string name);
 std::vector<TestEntry> read_test_language_corpus(std::string name);
+std::vector<ExampleEntry> examples_for_language(std::string name);
 
 #endif

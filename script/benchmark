@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+set -e
+
+function usage {
+  cat <<-EOF
+USAGE
+
+  $0  [-Ld] [-l language-name] [-f example-file-name]
+
+OPTIONS
+
+  -h  print this message
+
+  -l  run only the benchmarks for the given language
+
+  -f  run only the benchmarks that parse the file with the given name
+
+  -d  run tests in a debugger (either lldb or gdb)
+
+  -L  run benchmarks with parse logging turned on
+
+  -b  run make under the scan-build static analyzer
+
+EOF
+}
+
+if [ "$(uname -s)" == "Darwin" ]; then
+  export LINK="clang++ -fsanitize=address"
+fi
+
+mode=normal
+export BUILDTYPE=Release
+cmd=out/$BUILDTYPE/benchmarks
+run_scan_build=
+
+while getopts "bdhf:l:SL" option; do
+  case ${option} in
+    h)
+      usage
+      exit
+      ;;
+    d)
+      mode=debug
+      ;;
+    f)
+      export TREE_SITTER_BENCHMARK_FILE_NAME=${OPTARG}
+      ;;
+    l)
+      export TREE_SITTER_BENCHMARK_LANGUAGE=${OPTARG}
+      ;;
+    L)
+      export TREE_SITTER_BENCHMARK_LOG=1
+      ;;
+    b)
+      run_scan_build=true
+      ;;
+  esac
+done
+
+if [[ -n "$run_scan_build" ]]; then
+  . script/util/scan-build.sh
+  scan_build make -j2 benchmarks
+else
+  make -j2 benchmarks
+fi
+
+case $mode in
+  debug)
+    lldb $cmd
+    ;;
+
+  normal)
+    exec $cmd
+    ;;
+esac

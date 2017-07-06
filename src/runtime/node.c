@@ -310,6 +310,10 @@ bool ts_node_has_changes(TSNode self) {
   return ts_node__tree(self)->has_changes;
 }
 
+bool ts_node_has_error(TSNode self) {
+  return ts_node__tree(self)->error_cost > 0;
+}
+
 TSNode ts_node_parent(TSNode self) {
   TSNode result = self;
   uint32_t index;

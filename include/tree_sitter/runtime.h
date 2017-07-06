@@ -88,6 +88,7 @@ char *ts_node_string(TSNode, const TSDocument *);
 bool ts_node_eq(TSNode, TSNode);
 bool ts_node_is_named(TSNode);
 bool ts_node_has_changes(TSNode);
+bool ts_node_has_error(TSNode);
 TSNode ts_node_parent(TSNode);
 TSNode ts_node_child(TSNode, uint32_t);
 TSNode ts_node_named_child(TSNode, uint32_t);

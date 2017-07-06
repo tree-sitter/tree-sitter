@@ -53,8 +53,8 @@ if ({a: 'b'} {c: 'd'}) {
 
 (program
   (if_statement
+    (ERROR (object (pair (identifier) (string))))
     (object (pair (identifier) (string)))
-    (ERROR (statement_block (labeled_statement (identifier) (expression_statement (string)))))
     (statement_block
       (expression_statement (assignment
         (identifier)
