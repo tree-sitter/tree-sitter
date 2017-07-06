@@ -59,6 +59,7 @@ while getopts "bdhf:l:SL" option; do
 done
 
 if [[ -n "$run_scan_build" ]]; then
+  . script/util/scan-build.sh
   scan_build make -j2 $target
 else
   make -j2 benchmarks
