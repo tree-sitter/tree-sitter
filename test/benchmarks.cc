@@ -21,17 +21,18 @@ vector<string> language_names({
 
 size_t mean(const vector<size_t> &values) {
   if (values.empty()) return 0;
-  double result = 0;
-  for (double value : values) {
+  size_t result = 0;
+  for (size_t value : values) {
     result += value;
   }
   return result / values.size();
 }
 
 size_t min(const vector<size_t> &values) {
-  double result = 0;
-  for (double value : values) {
-    if (value < result || result == 0) result = value;
+  size_t result = 0;
+  for (unsigned i = 0; i < values.size(); i++) {
+    size_t value = values[i];
+    if (i == 0 || value < result) result = value;
   }
   return result;
 }
