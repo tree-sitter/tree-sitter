@@ -452,6 +452,8 @@ static bool parser__select_tree(Parser *self, Tree *left, Tree *right) {
     return false;
   }
 
+  if (left->error_cost > 0) return -1;
+
   int comparison = ts_tree_compare(left, right);
   switch (comparison) {
     case -1:
