@@ -20,6 +20,8 @@ OPTIONS
 
   -L  run benchmarks with parse logging turned on
 
+  -b  run make under the scan-build static analyzer
+
 EOF
 }
 
@@ -30,8 +32,9 @@ fi
 mode=normal
 export BUILDTYPE=Test
 cmd=out/Test/benchmarks
+run_scan_build=
 
-while getopts "dhf:l:SL" option; do
+while getopts "bdhf:l:SL" option; do
   case ${option} in
     h)
       usage
@@ -49,10 +52,17 @@ while getopts "dhf:l:SL" option; do
     L)
       export TREE_SITTER_BENCHMARK_LOG=1
       ;;
+    b)
+      run_scan_build=true
+      ;;
   esac
 done
 
-make -j2 benchmarks
+if [[ -n "$run_scan_build" ]]; then
+  scan_build make -j2 $target
+else
+  make -j2 benchmarks
+fi
 
 case $mode in
   debug)
