@@ -60,7 +60,7 @@ done
 
 if [[ -n "$run_scan_build" ]]; then
   . script/util/scan-build.sh
-  scan_build make -j2 $target
+  scan_build make -j2 benchmarks
 else
   make -j2 benchmarks
 fi
