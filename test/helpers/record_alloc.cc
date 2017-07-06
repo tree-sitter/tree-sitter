@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <map>
 #include <set>
-#include "bandit/bandit.h"
 
 using std::map;
 using std::set;

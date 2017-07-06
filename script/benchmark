@@ -2,12 +2,41 @@
 
 set -e
 
-mode=normal
-make -j2 benchmarks
-cmd=out/release/benchmarks
+function usage {
+  cat <<-EOF
+USAGE
 
-while getopts "df:l:SL" option; do
+  $0  [-Ld] [-l language-name] [-f example-file-name]
+
+OPTIONS
+
+  -h  print this message
+
+  -l  run only the benchmarks for the given language
+
+  -f  run only the benchmarks that parse the file with the given name
+
+  -d  run tests in a debugger (either lldb or gdb)
+
+  -L  run benchmarks with parse logging turned on
+
+EOF
+}
+
+if [ "$(uname -s)" == "Darwin" ]; then
+  export LINK="clang++ -fsanitize=address"
+fi
+
+mode=normal
+export BUILDTYPE=Test
+cmd=out/Test/benchmarks
+
+while getopts "dhf:l:SL" option; do
   case ${option} in
+    h)
+      usage
+      exit
+      ;;
     d)
       mode=debug
       ;;
@@ -20,20 +49,14 @@ while getopts "df:l:SL" option; do
     L)
       export TREE_SITTER_BENCHMARK_LOG=1
       ;;
-    S)
-      mode=SVG
-      export TREE_SITTER_BENCHMARK_SVG=1
-      ;;
   esac
 done
+
+make -j2 benchmarks
 
 case $mode in
   debug)
     lldb $cmd
-    ;;
-
-  SVG)
-    $cmd 2> >(grep -v 'Assertion failed' > test.dot)
     ;;
 
   normal)
