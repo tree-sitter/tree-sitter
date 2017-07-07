@@ -39,53 +39,41 @@ class ParseTableBuilder {
   ParseItemSetBuilder item_set_builder;
   set<const Production *> fragile_productions;
   vector<set<Symbol>> incompatible_tokens_by_index;
-  bool allow_any_conflict;
+  bool processing_recovery_states;
 
  public:
-  ParseTableBuilder(const SyntaxGrammar &grammar,
-                    const LexicalGrammar &lex_grammar)
-      : grammar(grammar),
-        lexical_grammar(lex_grammar),
-        item_set_builder(grammar, lex_grammar),
-        allow_any_conflict(false) {}
+  ParseTableBuilder(const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar)
+    : grammar(grammar),
+      lexical_grammar(lex_grammar),
+      item_set_builder(grammar, lex_grammar),
+      processing_recovery_states(false) {}
 
   pair<ParseTable, CompileError> build() {
     Symbol start_symbol = grammar.variables.empty() ?
       Symbol::terminal(0) :
       Symbol::non_terminal(0);
+    Production start_production{{{start_symbol, 0, rules::AssociativityNone}}, 0};
 
-    Production start_production{
-      {ProductionStep{start_symbol, 0, rules::AssociativityNone}},
-      0
-    };
-
-    // Placeholder for error state
-    add_parse_state(ParseItemSet());
-
+    ParseStateId error_state_id = add_parse_state(ParseItemSet());
     add_parse_state(ParseItemSet({
       {
         ParseItem(rules::START(), start_production, 0),
-        LookaheadSet({ END_OF_INPUT() }),
+        LookaheadSet({END_OF_INPUT()}),
       },
     }));
 
     CompileError error = process_part_state_queue();
-    if (error.type != TSCompileErrorTypeNone) {
-      return { parse_table, error };
-    }
+    if (error.type != TSCompileErrorTypeNone) return {parse_table, error};
 
     compute_unmergable_token_pairs();
 
-    build_error_parse_state();
-
-    allow_any_conflict = true;
+    processing_recovery_states = true;
+    build_error_parse_state(error_state_id);
     process_part_state_queue();
-    allow_any_conflict = false;
 
     mark_fragile_actions();
     remove_duplicate_parse_states();
-
-    return { parse_table, CompileError::none() };
+    return {parse_table, CompileError::none()};
   }
 
  private:
@@ -107,7 +95,7 @@ class ParseTableBuilder {
     return CompileError::none();
   }
 
-  void build_error_parse_state() {
+  void build_error_parse_state(ParseStateId state_id) {
     ParseState error_state;
 
     for (unsigned i = 0; i < lexical_grammar.variables.size(); i++) {
@@ -142,7 +130,7 @@ class ParseTableBuilder {
     }
 
     error_state.terminal_entries[END_OF_INPUT()].actions.push_back(ParseAction::Recover(0));
-    parse_table.states[0] = error_state;
+    parse_table.states[state_id] = error_state;
   }
 
   void add_out_of_context_parse_state(ParseState *error_state,
@@ -198,7 +186,7 @@ class ParseTableBuilder {
             parse_table.add_terminal_action(state_id, lookahead, action);
           } else {
             ParseAction &existing_action = entry.actions[0];
-            if (existing_action.type == ParseActionTypeAccept || allow_any_conflict) {
+            if (existing_action.type == ParseActionTypeAccept || processing_recovery_states) {
               entry.actions.push_back(action);
             } else {
               int existing_precedence = existing_action.precedence();
@@ -241,9 +229,10 @@ class ParseTableBuilder {
       ParseState &state = parse_table.states[state_id];
       bool had_existing_action = !state.terminal_entries[lookahead].actions.empty();
       parse_table.add_terminal_action(state_id, lookahead, ParseAction::Shift(next_state_id));
-      if (!allow_any_conflict) {
-        if (had_existing_action)
+      if (!processing_recovery_states) {
+        if (had_existing_action) {
           lookaheads_with_conflicts.insert(lookahead);
+        }
         recovery_states[lookahead].add(next_item_set);
       }
     }
@@ -254,8 +243,9 @@ class ParseTableBuilder {
       ParseItemSet &next_item_set = pair.second;
       ParseStateId next_state = add_parse_state(next_item_set);
       parse_table.set_nonterminal_action(state_id, lookahead, next_state);
-      if (!allow_any_conflict)
+      if (!processing_recovery_states) {
         recovery_states[Symbol::non_terminal(lookahead)].add(next_item_set);
+      }
     }
 
     for (Symbol lookahead : lookaheads_with_conflicts) {
@@ -267,7 +257,7 @@ class ParseTableBuilder {
     ParseState &state = parse_table.states[state_id];
     for (const Symbol &extra_symbol : grammar.extra_tokens) {
       if (!state.terminal_entries.count(extra_symbol) ||
-          state.has_shift_action() || allow_any_conflict) {
+          state.has_shift_action() || processing_recovery_states) {
         parse_table.add_terminal_action(state_id, extra_symbol, shift_extra);
       }
     }
