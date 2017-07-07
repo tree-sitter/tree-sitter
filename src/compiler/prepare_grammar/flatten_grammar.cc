@@ -1,6 +1,7 @@
 #include "compiler/prepare_grammar/flatten_grammar.h"
 #include <vector>
 #include <cassert>
+#include <cmath>
 #include <algorithm>
 #include "compiler/prepare_grammar/extract_choices.h"
 #include "compiler/prepare_grammar/initial_syntax_grammar.h"
@@ -42,7 +43,7 @@ class FlattenRule {
           associativity_stack.push_back(metadata.params.associativity);
         }
 
-        if (metadata.params.dynamic_precedence > production.dynamic_precedence) {
+        if (abs(metadata.params.dynamic_precedence) > abs(production.dynamic_precedence)) {
           production.dynamic_precedence = metadata.params.dynamic_precedence;
         }
 
