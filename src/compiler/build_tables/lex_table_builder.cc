@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <cctype>
 #include <vector>
 #include "compiler/build_tables/lex_conflict_manager.h"
 #include "compiler/build_tables/lex_item.h"
@@ -70,14 +71,16 @@ class LexTableBuilderImpl : public LexTableBuilder {
   LexTable lex_table;
   const LexicalGrammar grammar;
   vector<Rule> separator_rules;
-  CharacterSet separator_start_characters;
-  CharacterSet token_start_characters;
   LexConflictManager conflict_manager;
   unordered_map<LexItemSet, LexStateId> lex_state_ids;
 
- public:
-  vector<bool> shadowed_token_indices;
+  map<Symbol::Index, CharacterSet> following_characters_by_token_index;
+  CharacterSet separator_start_characters;
+  CharacterSet current_conflict_detection_following_characters;
+  Symbol::Index current_conflict_detection_token_index;
+  bool current_conflict_value;
 
+ public:
   LexTableBuilderImpl(const LexicalGrammar &grammar) : grammar(grammar) {
     StartingCharacterAggregator separator_character_aggregator;
     for (const auto &rule : grammar.separators) {
@@ -86,20 +89,6 @@ class LexTableBuilderImpl : public LexTableBuilder {
     }
     separator_rules.push_back(Blank{});
     separator_start_characters = separator_character_aggregator.result;
-
-    StartingCharacterAggregator token_start_character_aggregator;
-    for (const auto &variable : grammar.variables) {
-      token_start_character_aggregator.apply(variable.rule);
-    }
-    token_start_characters = token_start_character_aggregator.result;
-    token_start_characters
-      .exclude('a', 'z')
-      .exclude('A', 'Z')
-      .exclude('0', '9')
-      .exclude('_')
-      .exclude('$');
-
-    shadowed_token_indices.resize(grammar.variables.size());
   }
 
   LexTable build(ParseTable *parse_table) {
@@ -113,7 +102,10 @@ class LexTableBuilderImpl : public LexTableBuilder {
     return lex_table;
   }
 
-  bool detect_conflict(Symbol::Index left, Symbol::Index right) {
+  bool detect_conflict(Symbol::Index left, Symbol::Index right,
+                       const vector<set<Symbol::Index>> &following_terminals_by_terminal_index) {
+    clear();
+
     StartingCharacterAggregator left_starting_characters;
     StartingCharacterAggregator right_starting_characters;
     left_starting_characters.apply(grammar.variables[left].rule);
@@ -124,12 +116,47 @@ class LexTableBuilderImpl : public LexTableBuilder {
       return false;
     }
 
-    clear();
-    map<Symbol, ParseTableEntry> terminals;
-    terminals[Symbol::terminal(left)];
-    terminals[Symbol::terminal(right)];
-    add_lex_state(item_set_for_terminals(terminals));
-    return shadowed_token_indices[right];
+    auto following_characters_entry = following_characters_by_token_index.find(right);
+    if (following_characters_entry == following_characters_by_token_index.end()) {
+      StartingCharacterAggregator aggregator;
+      for (auto following_token_index : following_terminals_by_terminal_index[right]) {
+        aggregator.apply(grammar.variables[following_token_index].rule);
+      }
+      following_characters_entry =
+        following_characters_by_token_index.insert({right, aggregator.result}).first;
+
+      // TODO - Refactor this. In general, a keyword token cannot be followed immediately by
+      // another alphanumeric character. But this requirement is currently not expressed anywhere in
+      // the grammar. So without this hack, we would be overly conservative about merging parse
+      // states because we would often consider `identifier` tokens to *conflict* with keyword
+      // tokens.
+      if (is_keyword(grammar.variables[right])) {
+        following_characters_entry->second
+          .exclude('a', 'z')
+          .exclude('A', 'Z')
+          .exclude('0', '9')
+          .exclude('_')
+          .exclude('$');
+      }
+    }
+
+    current_conflict_detection_token_index = right;
+    current_conflict_detection_following_characters = following_characters_entry->second;
+    add_lex_state(item_set_for_terminals({{Symbol::terminal(left), {}}, {Symbol::terminal(right), {}}}));
+    return current_conflict_value;
+  }
+
+  bool is_keyword(const LexicalVariable &variable) {
+    return variable.is_string && iswalpha(get_last_character(variable.rule));
+  }
+
+  static uint32_t get_last_character(const Rule &rule) {
+    return rule.match(
+      [](const Seq &sequence) { return get_last_character(*sequence.right); },
+      [](const rules::CharacterSet &rule) { return *rule.included_chars.begin(); },
+      [](const rules::Metadata &rule) { return get_last_character(*rule.rule); },
+      [](auto) { return 0; }
+    );
   }
 
   LexStateId add_lex_state(const LexItemSet &item_set) {
@@ -149,7 +176,8 @@ class LexTableBuilderImpl : public LexTableBuilder {
   void clear() {
     lex_table.states.clear();
     lex_state_ids.clear();
-    shadowed_token_indices.assign(grammar.variables.size(), false);
+    current_conflict_detection_following_characters = CharacterSet();
+    current_conflict_value = false;
   }
 
  private:
@@ -166,17 +194,18 @@ class LexTableBuilderImpl : public LexTableBuilder {
         for (const LexItem &item : transition.destination.entries) {
           if (item.lhs == accept_action.symbol) {
             can_advance_for_accepted_token = true;
-          } else if (!prefer_advancing && !transition.in_main_token && !item.lhs.is_built_in()) {
-            shadowed_token_indices[item.lhs.index] = true;
+          } else if (item.lhs.index == current_conflict_detection_token_index &&
+                     !prefer_advancing && !transition.in_main_token) {
+            current_conflict_value = true;
           }
         }
 
-        if (!can_advance_for_accepted_token) {
-          if (characters.intersects(separator_start_characters) ||
-              (grammar.variables[accept_action.symbol.index].is_string &&
-               characters.intersects(token_start_characters))) {
-            shadowed_token_indices[accept_action.symbol.index] = true;
-          }
+        if (accept_action.symbol.index == current_conflict_detection_token_index &&
+            !can_advance_for_accepted_token &&
+            (characters.intersects(separator_start_characters) ||
+             (characters.intersects(current_conflict_detection_following_characters) &&
+              grammar.variables[accept_action.symbol.index].is_string))) {
+          current_conflict_value = true;
         }
 
         if (!prefer_advancing) continue;
@@ -346,8 +375,9 @@ LexTable LexTableBuilder::build(ParseTable *parse_table) {
   return static_cast<LexTableBuilderImpl *>(this)->build(parse_table);
 }
 
-bool LexTableBuilder::detect_conflict(Symbol::Index left, Symbol::Index right) {
-  return static_cast<LexTableBuilderImpl *>(this)->detect_conflict(left, right);
+bool LexTableBuilder::detect_conflict(Symbol::Index left, Symbol::Index right,
+                                      const vector<set<Symbol::Index>> &following_terminals) {
+  return static_cast<LexTableBuilderImpl *>(this)->detect_conflict(left, right, following_terminals);
 }
 
 }  // namespace build_tables

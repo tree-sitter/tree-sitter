@@ -50,6 +50,7 @@ class ParseTableBuilder {
   ParseItemSetBuilder item_set_builder;
   set<const Production *> fragile_productions;
   vector<set<Symbol>> incompatible_tokens_by_index;
+  vector<set<Symbol::Index>> following_terminals_by_terminal_index;
   bool processing_recovery_states;
 
  public:
@@ -57,6 +58,8 @@ class ParseTableBuilder {
     : grammar(grammar),
       lexical_grammar(lex_grammar),
       item_set_builder(grammar, lex_grammar),
+      incompatible_tokens_by_index(lexical_grammar.variables.size()),
+      following_terminals_by_terminal_index(lexical_grammar.variables.size()),
       processing_recovery_states(false) {}
 
   pair<ParseTable, CompileError> build() {
@@ -314,8 +317,6 @@ class ParseTableBuilder {
   }
 
   void compute_unmergable_token_pairs() {
-    incompatible_tokens_by_index.resize(lexical_grammar.variables.size());
-
     auto lex_table_builder = LexTableBuilder::create(lexical_grammar);
     for (unsigned i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
       Symbol token = Symbol::terminal(i);
@@ -323,7 +324,7 @@ class ParseTableBuilder {
 
       for (unsigned j = 0; j < n; j++) {
         if (i == j) continue;
-        if (lex_table_builder->detect_conflict(i, j)) {
+        if (lex_table_builder->detect_conflict(i, j, following_terminals_by_terminal_index)) {
           incompatible_indices.insert(Symbol::terminal(j));
         }
       }
@@ -690,6 +691,23 @@ class ParseTableBuilder {
   }
 
   SymbolSequence append_symbol(const SymbolSequence &sequence, const Symbol &symbol) {
+    if (!sequence.empty()) {
+      const LookaheadSet &left_tokens = item_set_builder.get_last_set(sequence.back());
+      const LookaheadSet &right_tokens = item_set_builder.get_first_set(symbol);
+
+      if (!left_tokens.empty() && !right_tokens.empty()) {
+        for (const Symbol &left_symbol : *left_tokens.entries) {
+          if (left_symbol.is_terminal() && !left_symbol.is_built_in()) {
+            for (const Symbol &right_symbol : *right_tokens.entries) {
+              if (right_symbol.is_terminal() && !right_symbol.is_built_in()) {
+                following_terminals_by_terminal_index[left_symbol.index].insert(right_symbol.index);
+              }
+            }
+          }
+        }
+      }
+    }
+
     SymbolSequence result(sequence.size() + 1);
     result.assign(sequence.begin(), sequence.end());
     result.push_back(symbol);
