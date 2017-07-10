@@ -5,7 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <cctype>
+#include <cwctype>
 #include <vector>
 #include "compiler/build_tables/lex_conflict_manager.h"
 #include "compiler/build_tables/lex_item.h"
@@ -16,6 +16,7 @@
 namespace tree_sitter {
 namespace build_tables {
 
+using std::iswalpha;
 using std::map;
 using std::pair;
 using std::set;
