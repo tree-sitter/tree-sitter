@@ -401,52 +401,106 @@ class CCodeGenerator {
       add_accept_token_action(lex_state.accept_action);
     }
 
+    set<uint32_t> ruled_out_characters;
     for (const auto &pair : lex_state.advance_actions) {
-      if (!pair.first.is_empty()) {
-        _if([&]() { add_character_set_condition(pair.first); },
-            [&]() { add_advance_action(pair.second); });
+      if (pair.first.is_empty()) continue;
+
+      size_t current_length = buffer.size();
+
+      line("if (");
+      if (add_character_set_condition(pair.first, ruled_out_characters)) {
+        add(")");
+        indent([&]() { add_advance_action(pair.second); });
+        ruled_out_characters.insert(pair.first.included_chars.begin(), pair.first.included_chars.end());
+      } else {
+        buffer.resize(current_length);
+        add_advance_action(pair.second);
       }
     }
 
     line("END_STATE();");
   }
 
-  void add_character_set_condition(const rules::CharacterSet &rule) {
+  bool add_character_set_condition(const rules::CharacterSet &rule, const set<uint32_t> &ruled_out_characters) {
     if (rule.includes_all) {
-      add("!(");
-      add_character_range_conditions(rule.excluded_ranges());
-      add(")");
+      return add_character_range_conditions(rule.excluded_ranges(), ruled_out_characters, true);
     } else {
-      add_character_range_conditions(rule.included_ranges());
+      return add_character_range_conditions(rule.included_ranges(), ruled_out_characters, false);
     }
   }
 
-  void add_character_range_conditions(const vector<rules::CharacterRange> &ranges) {
-    if (ranges.size() == 1) {
-      add_character_range_condition(*ranges.begin());
-    } else {
-      bool first = true;
-      for (const auto &range : ranges) {
-        if (!first) {
-          add(" ||");
-          line("  ");
+  bool add_character_range_conditions(const vector<rules::CharacterRange> &ranges,
+                                      const set<uint32_t> &ruled_out_characters,
+                                      bool is_negated) {
+    bool first = true;
+    for (auto iter = ranges.begin(), end = ranges.end(); iter != end;) {
+      auto range = *iter;
+
+      bool range_is_ruled_out = true;
+      for (uint32_t c = range.min; c <= range.max; c++) {
+        if (!ruled_out_characters.count(c)) {
+          range_is_ruled_out = false;
+          break;
+        }
+      }
+
+      if (range_is_ruled_out) {
+        ++iter;
+        continue;
+      }
+
+      auto next_iter = iter + 1;
+      while (next_iter != end) {
+        bool can_join_ranges = true;
+        for (uint32_t character = range.max + 1; character < next_iter->min; character++) {
+          if (!ruled_out_characters.count(character)) {
+            can_join_ranges = false;
+            break;
+          }
         }
 
-        add("(");
-        add_character_range_condition(range);
-        add(")");
-
-        first = false;
+        if (can_join_ranges) {
+          range.max = next_iter->max;
+          ++next_iter;
+        } else {
+          break;
+        }
       }
+
+      if (!first) {
+        add(is_negated ? " &&" : " ||");
+        line("    ");
+      }
+
+      add_character_range_condition(range, is_negated);
+      first = false;
+      iter = next_iter;
     }
+
+    return !first;
   }
 
-  void add_character_range_condition(const rules::CharacterRange &range) {
-    if (range.min == range.max) {
-      add("lookahead == " + escape_char(range.min));
+  void add_character_range_condition(const rules::CharacterRange &range, bool is_negated) {
+    auto min = escape_char(range.min);
+    auto max = escape_char(range.max);
+    if (is_negated) {
+      if (range.max == range.min) {
+        add("lookahead != " + min);
+      } else if (range.max == range.min + 1) {
+        add("lookahead != " + min + " &&");
+        line("    lookahead != " + max);
+      } else {
+        add("(lookahead < " + min + " || lookahead > " + max + ")");
+      }
     } else {
-      add(escape_char(range.min) + string(" <= lookahead && lookahead <= ") +
-          escape_char(range.max));
+      if (range.max == range.min) {
+        add("lookahead == " + min);
+      } else if (range.max == range.min + 1) {
+        add("lookahead == " + min + " ||");
+        line("    lookahead == " + max);
+      } else {
+        add("(" + min + " <= lookahead && lookahead <= " + max + ")");
+      }
     }
   }
 
@@ -596,13 +650,6 @@ class CCodeGenerator {
 
   void _default(function<void()> body) {
     line("default:");
-    indent(body);
-  }
-
-  void _if(function<void()> condition, function<void()> body) {
-    line("if (");
-    indent(condition);
-    add(")");
     indent(body);
   }
 

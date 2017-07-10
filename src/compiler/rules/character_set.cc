@@ -38,20 +38,11 @@ static set<uint32_t> add_chars(set<uint32_t> *left, const set<uint32_t> &right) 
   return result;
 }
 
-static vector<CharacterRange> consolidate_ranges(const set<uint32_t> &chars) {
+static vector<CharacterRange> consolidate_ranges(const set<uint32_t> &characters) {
   vector<CharacterRange> result;
-  for (uint32_t c : chars) {
-    auto size = result.size();
-    if (size >= 2 && result[size - 2].max == (c - 2)) {
-      result.pop_back();
+  for (uint32_t c : characters) {
+    if (!result.empty() && result.back().max == c - 1) {
       result.back().max = c;
-    } else if (size >= 1) {
-      CharacterRange &last = result.back();
-      if (last.min < last.max && last.max == (c - 1)) {
-        last.max = c;
-      } else {
-        result.push_back(CharacterRange(c));
-      }
     } else {
       result.push_back(CharacterRange(c));
     }
@@ -70,15 +61,17 @@ bool CharacterSet::operator==(const CharacterSet &other) const {
 }
 
 bool CharacterSet::operator<(const CharacterSet &other) const {
-  if (!includes_all && other.includes_all)
-    return true;
-  if (includes_all && !other.includes_all)
-    return false;
-  if (included_chars < other.included_chars)
-    return true;
-  if (other.included_chars < included_chars)
-    return false;
-  return excluded_chars < other.excluded_chars;
+  if (!includes_all && other.includes_all) return true;
+  if (includes_all && !other.includes_all) return false;
+  if (includes_all) {
+    if (excluded_chars.size() > other.excluded_chars.size()) return true;
+    if (excluded_chars.size() < other.excluded_chars.size()) return false;
+    return excluded_chars < other.excluded_chars;
+  } else {
+    if (included_chars.size() < other.included_chars.size()) return true;
+    if (included_chars.size() > other.included_chars.size()) return false;
+    return included_chars < other.included_chars;
+  }
 }
 
 CharacterSet &CharacterSet::include_all() {
@@ -131,8 +124,7 @@ void CharacterSet::add_set(const CharacterSet &other) {
           excluded_chars.insert(c);
       included_chars.clear();
     } else {
-      for (uint32_t c : other.included_chars)
-        included_chars.insert(c);
+      included_chars.insert(other.included_chars.begin(), other.included_chars.end());
     }
   }
 }
