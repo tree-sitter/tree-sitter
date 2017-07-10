@@ -413,49 +413,48 @@ class ParseTableBuilder {
     }
   }
 
-  static bool has_entry(const ParseState &state, const ParseTableEntry &entry) {
+  static bool has_actions(const ParseState &state, const ParseTableEntry &entry) {
     for (const auto &pair : state.terminal_entries)
       if (pair.second.actions == entry.actions)
         return true;
     return false;
   }
 
-  bool merge_parse_state(size_t i, size_t j) {
-    ParseState &state = parse_table.states[i];
-    ParseState &other = parse_table.states[j];
+  bool merge_parse_state(size_t left_index, size_t right_index) {
+    ParseState &left_state = parse_table.states[left_index];
+    ParseState &right_state = parse_table.states[right_index];
+    if (left_state.nonterminal_entries != right_state.nonterminal_entries) return false;
 
-    if (state.nonterminal_entries != other.nonterminal_entries) return false;
+    set<Symbol> symbols_to_merge;
+    for (auto &left_entry : left_state.terminal_entries) {
+      Symbol lookahead = left_entry.first;
 
-    for (auto &entry : state.terminal_entries) {
-      Symbol lookahead = entry.first;
-
-      const auto &other_entry = other.terminal_entries.find(lookahead);
-      if (other_entry == other.terminal_entries.end()) {
+      const auto &right_entry = right_state.terminal_entries.find(lookahead);
+      if (right_entry == right_state.terminal_entries.end()) {
         if (lookahead.is_external()) return false;
-        if (entry.second.actions.back().type != ParseActionTypeReduce) return false;
-        if (!has_entry(other, entry.second)) return false;
+        if (left_entry.second.actions.back().type != ParseActionTypeReduce) return false;
+        if (!has_actions(right_state, left_entry.second)) return false;
         if (!lookahead.is_built_in()) {
           for (const Symbol &incompatible_token : incompatible_tokens_by_index[lookahead.index]) {
-            if (other.terminal_entries.count(incompatible_token)) return false;
+            if (right_state.terminal_entries.count(incompatible_token)) return false;
           }
         }
-      } else if (entry.second != other_entry->second) {
-        return false;
+      } else {
+        if (right_entry->second.actions != left_entry.second.actions) return false;
       }
     }
 
-    set<Symbol> symbols_to_merge;
+    for (auto &right_entry : right_state.terminal_entries) {
+      Symbol lookahead = right_entry.first;
 
-    for (auto &entry : other.terminal_entries) {
-      Symbol lookahead = entry.first;
-
-      if (!state.terminal_entries.count(lookahead)) {
+      const auto &left_entry = left_state.terminal_entries.find(lookahead);
+      if (left_entry == left_state.terminal_entries.end()) {
         if (lookahead.is_external()) return false;
-        if (entry.second.actions.back().type != ParseActionTypeReduce) return false;
-        if (!has_entry(state, entry.second)) return false;
+        if (right_entry.second.actions.back().type != ParseActionTypeReduce) return false;
+        if (!has_actions(left_state, right_entry.second)) return false;
         if (!lookahead.is_built_in()) {
           for (const Symbol &incompatible_token : incompatible_tokens_by_index[lookahead.index]) {
-            if (state.terminal_entries.count(incompatible_token)) return false;
+            if (left_state.terminal_entries.count(incompatible_token)) return false;
           }
         }
 
@@ -464,7 +463,7 @@ class ParseTableBuilder {
     }
 
     for (const Symbol &lookahead : symbols_to_merge) {
-      state.terminal_entries[lookahead] = other.terminal_entries.find(lookahead)->second;
+      left_state.terminal_entries[lookahead] = right_state.terminal_entries[lookahead];
     }
 
     return true;
