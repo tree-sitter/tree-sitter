@@ -97,13 +97,12 @@ size_t ParseItemSet::unfinished_item_signature() const {
   ParseItem previous_item;
   for (auto &pair : entries) {
     const ParseItem &item = pair.first;
-    if (item.step_index < item.production->size()) {
-      if (item.variable_index != previous_item.variable_index &&
-          item.step_index != previous_item.step_index) {
-        hash_combine(&result, item.variable_index);
-        hash_combine(&result, item.step_index);
-        previous_item = item;
-      }
+    if (item.step_index < item.production->size() &&
+        (item.variable_index != previous_item.variable_index ||
+         item.step_index != previous_item.step_index)) {
+      hash_combine(&result, item.variable_index);
+      hash_combine(&result, item.step_index);
+      previous_item = item;
     }
   }
   return result;

@@ -168,7 +168,6 @@ class ParseTableBuilder {
       ParseStateId state_id = parse_table.states.size();
       parse_table.states.push_back(ParseState());
       parse_state_ids[item_set] = state_id;
-      parse_table.states[state_id].shift_actions_signature = item_set.unfinished_item_signature();
       parse_state_queue.push_back({
         move(preceding_symbols),
         move(item_set),
@@ -340,11 +339,12 @@ class ParseTableBuilder {
   }
 
   void remove_duplicate_parse_states() {
-    map<size_t, set<ParseStateId>> state_indices_by_signature;
+    unordered_map<size_t, set<ParseStateId>> state_indices_by_signature;
 
-    for (ParseStateId i = 0, n = parse_table.states.size(); i < n; i++) {
-      ParseState &state = parse_table.states[i];
-      state_indices_by_signature[state.shift_actions_signature].insert(i);
+    for (auto &pair : parse_state_ids) {
+      const ParseItemSet &item_set = pair.first;
+      ParseStateId state_id = pair.second;
+      state_indices_by_signature[item_set.unfinished_item_signature()].insert(state_id);
     }
 
     set<ParseStateId> deleted_states;
@@ -353,14 +353,18 @@ class ParseTableBuilder {
       map<ParseStateId, ParseStateId> state_replacements;
 
       for (auto &pair : state_indices_by_signature) {
-        auto &state_group = pair.second;
+        auto &state_indices = pair.second;
 
-        for (ParseStateId i : state_group) {
-          for (ParseStateId j : state_group) {
-            if (j == i) break;
-            if (!state_replacements.count(j) && merge_parse_state(j, i)) {
-              state_replacements.insert({ i, j });
-              deleted_states.insert(i);
+        for (auto i = state_indices.begin(), end = state_indices.end(); i != end;) {
+          for (ParseStateId j : state_indices) {
+            if (j == *i) {
+              ++i;
+              break;
+            }
+            if (!state_replacements.count(j) && merge_parse_state(j, *i)) {
+              state_replacements.insert({*i, j});
+              deleted_states.insert(*i);
+              i = state_indices.erase(i);
               break;
             }
           }
@@ -370,11 +374,8 @@ class ParseTableBuilder {
       if (state_replacements.empty()) break;
 
       for (ParseStateId i = 0, n = parse_table.states.size(); i < n; i++) {
-        ParseState &state = parse_table.states[i];
-
-        if (state_replacements.count(i)) {
-          state_indices_by_signature[state.shift_actions_signature].erase(i);
-        } else {
+        if (!state_replacements.count(i)) {
+          ParseState &state = parse_table.states[i];
           state.each_referenced_state([&state_replacements](ParseStateId *state_index) {
             auto replacement = state_replacements.find(*state_index);
             if (replacement != state_replacements.end()) {
@@ -414,7 +415,7 @@ class ParseTableBuilder {
 
   static bool has_entry(const ParseState &state, const ParseTableEntry &entry) {
     for (const auto &pair : state.terminal_entries)
-      if (pair.second == entry)
+      if (pair.second.actions == entry.actions)
         return true;
     return false;
   }
@@ -427,13 +428,12 @@ class ParseTableBuilder {
 
     for (auto &entry : state.terminal_entries) {
       Symbol lookahead = entry.first;
-      const auto &other_entry = other.terminal_entries.find(lookahead);
 
+      const auto &other_entry = other.terminal_entries.find(lookahead);
       if (other_entry == other.terminal_entries.end()) {
+        if (lookahead.is_external()) return false;
         if (entry.second.actions.back().type != ParseActionTypeReduce) return false;
         if (!has_entry(other, entry.second)) return false;
-
-        if (lookahead.is_external()) return false;
         if (!lookahead.is_built_in()) {
           for (const Symbol &incompatible_token : incompatible_tokens_by_index[lookahead.index]) {
             if (other.terminal_entries.count(incompatible_token)) return false;
@@ -450,10 +450,9 @@ class ParseTableBuilder {
       Symbol lookahead = entry.first;
 
       if (!state.terminal_entries.count(lookahead)) {
+        if (lookahead.is_external()) return false;
         if (entry.second.actions.back().type != ParseActionTypeReduce) return false;
         if (!has_entry(state, entry.second)) return false;
-
-        if (lookahead.is_external()) return false;
         if (!lookahead.is_built_in()) {
           for (const Symbol &incompatible_token : incompatible_tokens_by_index[lookahead.index]) {
             if (state.terminal_entries.count(incompatible_token)) return false;

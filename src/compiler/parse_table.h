@@ -69,7 +69,6 @@ struct ParseState {
   std::map<rules::Symbol, ParseTableEntry> terminal_entries;
   std::map<rules::Symbol::Index, ParseStateId> nonterminal_entries;
   LexStateId lex_state_id;
-  size_t shift_actions_signature;
 };
 
 struct ParseTableSymbolMetadata {
