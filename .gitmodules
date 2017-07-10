@@ -12,4 +12,4 @@
 	url = https://github.com/udp/json-parser.git
 [submodule "externals/crypto-algorithms"]
 	path = externals/crypto-algorithms
-	url = https://github.com/B-Con/crypto-algorithms.git
+	url = https://github.com/maxbrunsfeld/crypto-algorithms.git
