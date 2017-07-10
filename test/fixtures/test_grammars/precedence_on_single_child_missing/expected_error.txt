@@ -1,11 +1,11 @@
 Unresolved conflict for symbol sequence:
 
-  identifier  •  '{'  …
+  identifier  identifier  •  '{'  …
 
 Possible interpretations:
 
-  1:  (expression  identifier)  •  '{'  …
-  2:  (function_call  identifier  •  block)
+  1:  identifier  (expression  identifier)  •  '{'  …
+  2:  identifier  (function_call  identifier  •  block)
 
 Possible resolutions:
 

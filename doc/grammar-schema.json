@@ -182,41 +182,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "pattern": "^PREC$"
-        },
-        "value": {
-          "type": "integer"
-        },
-        "content": {
-          "$ref": "#/definitions/rule"
-        }
-      },
-      "required": ["type", "content", "value"]
-    },
-
-    "prec-left-rule": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "pattern": "^PREC_LEFT$"
-        },
-        "value": {
-          "type": "integer"
-        },
-        "content": {
-          "$ref": "#/definitions/rule"
-        }
-      },
-      "required": ["type", "content", "value"]
-    },
-
-    "prec-right-rule": {
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "pattern": "^PREC_RIGHT$"
+          "pattern": "^(PREC|PREC_LEFT|PREC_RIGHT|PREC_DYNAMIC)$"
         },
         "value": {
           "type": "integer"
@@ -239,9 +205,7 @@
         { "$ref": "#/definitions/repeat1-rule" },
         { "$ref": "#/definitions/repeat-rule" },
         { "$ref": "#/definitions/token-rule" },
-        { "$ref": "#/definitions/prec-rule" },
-        { "$ref": "#/definitions/prec-left-rule" },
-        { "$ref": "#/definitions/prec-right-rule" }
+        { "$ref": "#/definitions/prec-rule" }
       ]
     }
   }

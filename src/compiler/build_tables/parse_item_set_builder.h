@@ -20,6 +20,7 @@ class ParseItemSetBuilder {
   };
 
   std::map<rules::Symbol, LookaheadSet> first_sets;
+  std::map<rules::Symbol, LookaheadSet> last_sets;
   std::map<rules::Symbol::Index, std::vector<ParseItemSetComponent>> component_cache;
   std::vector<std::pair<ParseItem, LookaheadSet>> item_set_buffer;
 
@@ -27,6 +28,7 @@ class ParseItemSetBuilder {
   ParseItemSetBuilder(const SyntaxGrammar &, const LexicalGrammar &);
   void apply_transitive_closure(ParseItemSet *);
   LookaheadSet get_first_set(const rules::Symbol &) const;
+  LookaheadSet get_last_set(const rules::Symbol &) const;
 };
 
 }  // namespace build_tables

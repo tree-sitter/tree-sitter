@@ -1,0 +1,25 @@
+===============================
+Declarations
+===============================
+
+int * x
+
+---
+
+(program (declaration
+  (type (identifier))
+  (declarator (identifier))))
+
+===============================
+Expressions
+===============================
+
+int * x * y
+
+---
+
+(program (expression
+  (expression
+    (expression (identifier))
+    (expression (identifier)))
+  (expression (identifier))))

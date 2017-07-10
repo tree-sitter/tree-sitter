@@ -42,6 +42,7 @@ typedef struct {
   union {
     TSStateId to_state;
     struct {
+      short dynamic_precedence;
       TSSymbol symbol;
       unsigned short child_count;
     };
@@ -145,21 +146,30 @@ typedef struct TSLanguage {
     { .type = TSParseActionTypeShift, .extra = true } \
   }
 
-#define REDUCE(symbol_val, child_count_val)                             \
+#define REDUCE(symbol_val, child_count_val, dynamic_precedence_val)     \
   {                                                                     \
     {                                                                   \
       .type = TSParseActionTypeReduce,                                  \
-      .params = {.symbol = symbol_val, .child_count = child_count_val } \
+      .params = {                                                       \
+        .symbol = symbol_val,                                           \
+        .child_count = child_count_val,                                 \
+        .dynamic_precedence = dynamic_precedence_val,                   \
+      }                                                                 \
     }                                                                   \
   }
 
-#define REDUCE_FRAGILE(symbol_val, child_count_val)                     \
-  {                                                                     \
-    {                                                                   \
-      .type = TSParseActionTypeReduce, .fragile = true,                 \
-      .params = {.symbol = symbol_val, .child_count = child_count_val } \
-    }                                                                   \
-  }
+#define REDUCE_FRAGILE(symbol_val, child_count_val, dynamic_precedence_val) \
+{                                                                           \
+  {                                                                         \
+    .type = TSParseActionTypeReduce,                                        \
+    .fragile = true,                                                        \
+    .params = {                                                             \
+      .symbol = symbol_val,                                                 \
+      .child_count = child_count_val,                                       \
+      .dynamic_precedence = dynamic_precedence_val,                         \
+    }                                                                       \
+  }                                                                         \
+}
 
 #define ACCEPT_INPUT()                  \
   {                                     \

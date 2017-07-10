@@ -24,9 +24,6 @@ enum ParseActionType {
 
 struct ParseAction {
   ParseAction();
-  ParseAction(ParseActionType type, ParseStateId state_index,
-              rules::Symbol symbol, size_t consumed_symbol_count,
-              const Production *);
   static ParseAction Accept();
   static ParseAction Error();
   static ParseAction Shift(ParseStateId state_index);
@@ -39,13 +36,14 @@ struct ParseAction {
   rules::Associativity associativity() const;
   int precedence() const;
 
+  const Production *production;
+  size_t consumed_symbol_count;
+  rules::Symbol symbol;
+  int dynamic_precedence;
   ParseActionType type;
   bool extra;
   bool fragile;
   ParseStateId state_index;
-  rules::Symbol symbol;
-  size_t consumed_symbol_count;
-  const Production *production;
 };
 
 struct ParseTableEntry {
@@ -71,7 +69,6 @@ struct ParseState {
   std::map<rules::Symbol, ParseTableEntry> terminal_entries;
   std::map<rules::Symbol::Index, ParseStateId> nonterminal_entries;
   LexStateId lex_state_id;
-  size_t shift_actions_signature;
 };
 
 struct ParseTableSymbolMetadata {

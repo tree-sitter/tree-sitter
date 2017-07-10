@@ -25,25 +25,25 @@ describe("ParseItemSetBuilder", []() {
   it("adds items at the beginnings of referenced rules", [&]() {
     SyntaxGrammar grammar{{
       SyntaxVariable{"rule0", VariableTypeNamed, {
-        Production({
+        Production{{
           {Symbol::non_terminal(1), 0, AssociativityNone},
           {Symbol::terminal(11), 0, AssociativityNone},
-        }),
+        }, 0},
       }},
       SyntaxVariable{"rule1", VariableTypeNamed, {
-        Production({
+        Production{{
           {Symbol::terminal(12), 0, AssociativityNone},
           {Symbol::terminal(13), 0, AssociativityNone},
-        }),
-        Production({
+        }, 0},
+        Production{{
           {Symbol::non_terminal(2), 0, AssociativityNone},
-        })
+        }, 0}
       }},
       SyntaxVariable{"rule2", VariableTypeNamed, {
-        Production({
+        Production{{
           {Symbol::terminal(14), 0, AssociativityNone},
           {Symbol::terminal(15), 0, AssociativityNone},
-        })
+        }, 0}
       }},
     }, {}, {}, {}};
 
@@ -84,17 +84,17 @@ describe("ParseItemSetBuilder", []() {
   it("handles rules with empty productions", [&]() {
     SyntaxGrammar grammar{{
       SyntaxVariable{"rule0", VariableTypeNamed, {
-        Production({
+        Production{{
           {Symbol::non_terminal(1), 0, AssociativityNone},
           {Symbol::terminal(11), 0, AssociativityNone},
-        }),
+        }, 0},
       }},
       SyntaxVariable{"rule1", VariableTypeNamed, {
-        Production({
+        Production{{
           {Symbol::terminal(12), 0, AssociativityNone},
           {Symbol::terminal(13), 0, AssociativityNone},
-        }),
-        Production({})
+        }, 0},
+        Production{{}, 0}
       }},
     }, {}, {}, {}};
 

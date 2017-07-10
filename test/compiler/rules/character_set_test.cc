@@ -305,29 +305,17 @@ describe("CharacterSet", []() {
   });
 
   describe("::included_ranges", [&]() {
-    it("consolidates sequences of 3 or more consecutive characters into ranges", [&]() {
+    it("consolidates consecutive sequences of characters into ranges", [&]() {
       CharacterSet set1 = CharacterSet()
         .include('a', 'c')
-        .include('g')
+        .include('e', 'j')
+        .include('m')
         .include('z');
 
       AssertThat(set1.included_ranges(), Equals(vector<CharacterRange>({
         CharacterRange{'a', 'c'},
-        CharacterRange('g'),
-        CharacterRange('z'),
-      })));
-    });
-
-    it("doesn't consolidate sequences of 2 consecutive characters", [&]() {
-      CharacterSet set1 = CharacterSet()
-        .include('a', 'b')
-        .include('g')
-        .include('z');
-
-      AssertThat(set1.included_ranges(), Equals(vector<CharacterRange>({
-        CharacterRange('a'),
-        CharacterRange('b'),
-        CharacterRange('g'),
+        CharacterRange{'e', 'j'},
+        CharacterRange('m'),
         CharacterRange('z'),
       })));
     });

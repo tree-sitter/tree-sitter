@@ -13,7 +13,7 @@ vector<string> test_languages = list_directory(grammars_dir_path);
 for (auto &language_name : test_languages) {
   if (language_name == "readme.md") continue;
 
-  describe(("test language: " + language_name).c_str(), [&]() {
+  describe(("test grammar: " + language_name).c_str(), [&]() {
     string directory_path = grammars_dir_path + "/" + language_name;
     string grammar_path = directory_path + "/grammar.json";
     string grammar_json = read_file(grammar_path);

@@ -26,6 +26,7 @@ struct ParseItem {
   rules::Symbol lhs() const;
   rules::Symbol next_symbol() const;
   int precedence() const;
+  int dynamic_precedence() const;
   rules::Associativity associativity() const;
   bool is_done() const;
 

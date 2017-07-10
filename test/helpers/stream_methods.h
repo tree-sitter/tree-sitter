@@ -110,6 +110,7 @@ ostream &operator<<(ostream &, const InputGrammar &);
 ostream &operator<<(ostream &, const CompileError &);
 ostream &operator<<(ostream &, const ExternalToken &);
 ostream &operator<<(ostream &, const ProductionStep &);
+ostream &operator<<(ostream &, const Production &);
 ostream &operator<<(ostream &, const PrecedenceRange &);
 ostream &operator<<(ostream &, const Variable &);
 ostream &operator<<(ostream &, const LexicalVariable &);

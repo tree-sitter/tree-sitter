@@ -51,6 +51,12 @@ Metadata Metadata::prec_right(int precedence, const Rule &rule) {
   return Metadata{rule, params};
 }
 
+Metadata Metadata::prec_dynamic(int dynamic_precedence, const Rule &rule) {
+  MetadataParams params;
+  params.dynamic_precedence = dynamic_precedence;
+  return Metadata{rule, params};
+}
+
 Metadata Metadata::separator(const Rule &rule) {
   MetadataParams params;
   params.has_precedence = true;

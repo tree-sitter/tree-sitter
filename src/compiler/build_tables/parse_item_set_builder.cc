@@ -1,4 +1,5 @@
 #include "compiler/build_tables/parse_item_set_builder.h"
+#include <cassert>
 #include <set>
 #include <vector>
 #include <utility>
@@ -26,18 +27,20 @@ ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
 
   for (size_t i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
     Symbol symbol = Symbol::terminal(i);
-    first_sets.insert({symbol, LookaheadSet({ symbol })});
+    first_sets.insert({symbol, LookaheadSet({symbol})});
+    last_sets.insert({symbol, LookaheadSet({symbol})});
   }
 
   for (size_t i = 0, n = grammar.external_tokens.size(); i < n; i++) {
     Symbol symbol = Symbol::external(i);
-    first_sets.insert({symbol, LookaheadSet({ symbol })});
+    first_sets.insert({symbol, LookaheadSet({symbol})});
+    last_sets.insert({symbol, LookaheadSet({symbol})});
   }
 
   for (size_t i = 0, n = grammar.variables.size(); i < n; i++) {
     Symbol symbol = Symbol::non_terminal(i);
-    LookaheadSet first_set;
 
+    LookaheadSet first_set;
     processed_non_terminals.clear();
     symbols_to_process.clear();
     symbols_to_process.push_back(symbol);
@@ -57,6 +60,26 @@ ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
     }
 
     first_sets.insert({symbol, first_set});
+
+    LookaheadSet last_set;
+    processed_non_terminals.clear();
+    symbols_to_process.clear();
+    symbols_to_process.push_back(symbol);
+    while (!symbols_to_process.empty()) {
+      Symbol current_symbol = symbols_to_process.back();
+      symbols_to_process.pop_back();
+
+      if (!current_symbol.is_non_terminal()) {
+        last_set.insert(current_symbol);
+      } else if (processed_non_terminals.insert(current_symbol.index).second) {
+        for (const Production &production : grammar.variables[current_symbol.index].productions) {
+          if (!production.empty()) {
+            symbols_to_process.push_back(production.back().symbol);
+          }
+        }
+      }
+    }
+    last_sets.insert({symbol, last_set});
   }
 
   vector<ParseItemSetComponent> components_to_process;
@@ -159,6 +182,10 @@ void ParseItemSetBuilder::apply_transitive_closure(ParseItemSet *item_set) {
 
 LookaheadSet ParseItemSetBuilder::get_first_set(const rules::Symbol &symbol) const {
   return first_sets.find(symbol)->second;
+}
+
+LookaheadSet ParseItemSetBuilder::get_last_set(const rules::Symbol &symbol) const {
+  return last_sets.find(symbol)->second;
 }
 
 }  // namespace build_tables

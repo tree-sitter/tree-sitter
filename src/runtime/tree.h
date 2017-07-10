@@ -46,6 +46,7 @@ typedef struct Tree {
   } first_leaf;
 
   uint32_t ref_count;
+  int dynamic_precedence;
   bool visible : 1;
   bool named : 1;
   bool extra : 1;

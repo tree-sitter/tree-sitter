@@ -14,6 +14,7 @@ enum Associativity {
 
 struct MetadataParams {
   int precedence;
+  int dynamic_precedence;
   Associativity associativity;
   bool has_precedence;
   bool has_associativity;
@@ -23,8 +24,8 @@ struct MetadataParams {
   bool is_main_token;
 
   inline MetadataParams() :
-    precedence{0}, associativity{AssociativityNone}, has_precedence{false},
-    has_associativity{false}, is_token{false}, is_string{false},
+    precedence{0}, dynamic_precedence{0}, associativity{AssociativityNone},
+    has_precedence{false}, has_associativity{false}, is_token{false}, is_string{false},
     is_active{false}, is_main_token{false} {}
 
   inline bool operator==(const MetadataParams &other) const {
@@ -33,6 +34,7 @@ struct MetadataParams {
       associativity == other.associativity &&
       has_precedence == other.has_precedence &&
       has_associativity == other.has_associativity &&
+      dynamic_precedence == other.dynamic_precedence &&
       is_token == other.is_token &&
       is_string == other.is_string &&
       is_active == other.is_active &&
@@ -54,6 +56,7 @@ struct Metadata {
   static Metadata prec(int precedence, const Rule &rule);
   static Metadata prec_left(int precedence, const Rule &rule);
   static Metadata prec_right(int precedence, const Rule &rule);
+  static Metadata prec_dynamic(int precedence, const Rule &rule);
   static Metadata separator(const Rule &rule);
   static Metadata main_token(const Rule &rule);
 
