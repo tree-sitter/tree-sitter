@@ -180,6 +180,35 @@ ostream &operator<<(ostream &stream, const LexItemSet &item_set) {
   return stream << item_set.entries;
 }
 
+ostream &operator<<(ostream &stream, const ParseItem &item) {
+  stream << "(ParseItem " << item.lhs() << " ->";
+  for (size_t i = 0; i < item.production->size(); i++) {
+    if (i == item.step_index) {
+      stream << " •";
+    }
+    stream << " " << item.production->at(i).symbol << " " << item.production->at(i).precedence <<
+      " " << (int)item.production->at(i).associativity;
+  }
+
+  if (item.step_index == item.production->size()) {
+    stream << " • ";
+  }
+
+  return stream << ")";
+}
+
+ostream &operator<<(ostream &stream, const ParseItemSet &item_set) {
+  return stream << item_set.entries;
+}
+
+ostream &operator<<(ostream &stream, const LookaheadSet &lookaheads) {
+  if (lookaheads.entries.get()) {
+    return stream << *lookaheads.entries;
+  } else {
+    return stream << "()";
+  }
+}
+
 ostream &operator<<(ostream &stream, const LexItemSet::Transition &transition) {
   return stream << "(Transition " << transition.destination << " prec:" << transition.precedence << ")";
 }
