@@ -10,6 +10,13 @@
   ],
 
   "rules": {
+    "program": {
+      "type": "REPEAT1",
+      "content": {
+        "type": "SYMBOL",
+        "name": "statement"
+      }
+    },
     "statement": {
       "type": "SEQ",
       "members": [
