@@ -16,6 +16,18 @@ struct ProductionStep {
       associativity == other.associativity;
   }
 
+  inline bool operator!=(const ProductionStep &other) const {
+    return !operator==(other);
+  }
+
+  inline bool operator<(const ProductionStep &other) const {
+    if (symbol < other.symbol) return true;
+    if (other.symbol < symbol) return false;
+    if (precedence < other.precedence) return true;
+    if (other.precedence < precedence) return false;
+    return associativity < other.associativity;
+  }
+
   rules::Symbol symbol;
   int precedence;
   rules::Associativity associativity;

@@ -1,4 +1,5 @@
 #include "test_helper.h"
+#include "helpers/stream_methods.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/build_tables/parse_item_set_builder.h"
@@ -53,7 +54,7 @@ describe("ParseItemSetBuilder", []() {
 
     ParseItemSet item_set({
       {
-        ParseItem(Symbol::non_terminal(0), production(0, 0), 0),
+        ParseItem(rules::START(), production(0, 0), 0),
         LookaheadSet({ Symbol::terminal(10) }),
       }
     });
@@ -63,7 +64,7 @@ describe("ParseItemSetBuilder", []() {
 
     AssertThat(item_set, Equals(ParseItemSet({
       {
-        ParseItem(Symbol::non_terminal(0), production(0, 0), 0),
+        ParseItem(rules::START(), production(0, 0), 0),
         LookaheadSet({ Symbol::terminal(10) })
         },
       {
@@ -104,7 +105,7 @@ describe("ParseItemSetBuilder", []() {
 
     ParseItemSet item_set({
       {
-        ParseItem(Symbol::non_terminal(0), production(0, 0), 0),
+        ParseItem(rules::START(), production(0, 0), 0),
         LookaheadSet({ Symbol::terminal(10) }),
       }
     });
@@ -114,7 +115,7 @@ describe("ParseItemSetBuilder", []() {
 
     AssertThat(item_set, Equals(ParseItemSet({
       {
-        ParseItem(Symbol::non_terminal(0), production(0, 0), 0),
+        ParseItem(rules::START(), production(0, 0), 0),
         LookaheadSet({ Symbol::terminal(10) })
       },
       {

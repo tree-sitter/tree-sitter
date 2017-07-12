@@ -24,20 +24,43 @@ ParseItem::ParseItem(const Symbol &lhs, const Production &production,
       step_index(step_index) {}
 
 bool ParseItem::operator==(const ParseItem &other) const {
-  return ((variable_index == other.variable_index) &&
-          (step_index == other.step_index) && (production == other.production));
+  if (step_index != other.step_index) return false;
+  if (variable_index != other.variable_index) return false;
+  if (production->size() != other.production->size()) return false;
+  if (is_done()) {
+    if (!production->empty()) {
+      if (production->back().precedence != other.production->back().precedence) return false;
+      if (production->back().associativity != other.production->back().associativity) return false;
+    }
+  } else {
+    for (size_t i = step_index, n = production->size(); i < n; i++) {
+      if (production->at(i) != other.production->at(i)) return false;
+    }
+  }
+  return true;
 }
 
 bool ParseItem::operator<(const ParseItem &other) const {
-  if (step_index < other.step_index)
-    return true;
-  if (step_index > other.step_index)
-    return false;
-  if (variable_index < other.variable_index)
-    return true;
-  if (variable_index > other.variable_index)
-    return false;
-  return production < other.production;
+  if (step_index < other.step_index) return true;
+  if (other.step_index < step_index) return false;
+  if (variable_index < other.variable_index) return true;
+  if (other.variable_index < variable_index) return false;
+  if (production->size() < other.production->size()) return true;
+  if (other.production->size() < production->size()) return false;
+  if (is_done()) {
+    if (!production->empty()) {
+      if (production->back().precedence < other.production->back().precedence) return true;
+      if (other.production->back().precedence < production->back().precedence) return false;
+      if (production->back().associativity < other.production->back().associativity) return true;
+      if (other.production->back().associativity < production->back().associativity) return false;
+    }
+  } else {
+    for (size_t i = step_index, n = production->size(); i < n; i++) {
+      if (production->at(i) < other.production->at(i)) return true;
+      if (other.production->at(i) < production->at(i)) return false;
+    }
+  }
+  return false;
 }
 
 Symbol ParseItem::lhs() const {
@@ -128,7 +151,21 @@ struct hash<ParseItem> {
     size_t result = 0;
     hash_combine(&result, item.variable_index);
     hash_combine(&result, item.step_index);
-    hash_combine(&result, item.production);
+    hash_combine(&result, item.production->dynamic_precedence);
+    hash_combine(&result, item.production->size());
+    if (item.is_done()) {
+      if (!item.production->empty()) {
+        hash_combine(&result, item.production->back().precedence);
+        hash_combine(&result, item.production->back().associativity);
+      }
+    } else {
+      for (size_t i = 0, n = item.production->size(); i < n; i++) {
+        auto &step = item.production->at(i);
+        hash_combine(&result, step.symbol);
+        hash_combine(&result, step.precedence);
+        hash_combine(&result, step.associativity);
+      }
+    }
     return result;
   }
 };
