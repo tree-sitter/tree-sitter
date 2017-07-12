@@ -202,11 +202,11 @@ ostream &operator<<(ostream &stream, const ParseItemSet &item_set) {
 }
 
 ostream &operator<<(ostream &stream, const LookaheadSet &lookaheads) {
-  if (lookaheads.entries.get()) {
-    return stream << *lookaheads.entries;
-  } else {
-    return stream << "()";
-  }
+  stream << "(LookaheadSet";
+  lookaheads.for_each([&stream](Symbol symbol) {
+    stream << " " << symbol;
+  });
+  return stream << ")";
 }
 
 ostream &operator<<(ostream &stream, const LexItemSet::Transition &transition) {

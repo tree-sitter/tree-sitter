@@ -6,41 +6,103 @@
 namespace tree_sitter {
 namespace build_tables {
 
-using std::set;
-using std::make_shared;
+using std::vector;
 using rules::Symbol;
 
-LookaheadSet::LookaheadSet() : entries(nullptr) {}
+LookaheadSet::LookaheadSet() {}
 
-LookaheadSet::LookaheadSet(const set<Symbol> &symbols)
-    : entries(make_shared<set<Symbol>>(symbols)) {}
+LookaheadSet::LookaheadSet(const vector<Symbol> &symbols) {
+  for (auto symbol : symbols) insert(symbol);
+}
 
 bool LookaheadSet::empty() const {
-  return !entries.get() || entries->empty();
+  return terminal_bits.empty() && external_bits.empty() && !eof;
 }
 
 bool LookaheadSet::operator==(const LookaheadSet &other) const {
-  return *entries == *other.entries;
+  return
+    eof == other.eof &&
+    external_bits == other.external_bits &&
+    terminal_bits == other.terminal_bits;
 }
 
 bool LookaheadSet::contains(const Symbol &symbol) const {
-  return entries->find(symbol) != entries->end();
+  if (symbol == rules::END_OF_INPUT()) return eof;
+  auto &bits = symbol.is_external() ? external_bits : terminal_bits;
+  return bits.size() > symbol.index && bits[symbol.index];
+}
+
+size_t LookaheadSet::size() const {
+  size_t result = 0;
+  for (bool bit : external_bits) if (bit) result++;
+  for (bool bit : terminal_bits) if (bit) result++;
+  if (eof) result++;
+  return result;
 }
 
 bool LookaheadSet::insert_all(const LookaheadSet &other) {
-  if (!other.entries.get())
-    return false;
-  if (!entries.get())
-    entries = make_shared<set<Symbol>>();
-  size_t previous_size = entries->size();
-  entries->insert(other.entries->begin(), other.entries->end());
-  return entries->size() > previous_size;
+  bool result = false;
+
+  if (other.eof) {
+    if (!eof) {
+      eof = true;
+      result = true;
+    }
+  }
+
+  if (other.external_bits.size() > external_bits.size()) {
+    external_bits.resize(other.external_bits.size());
+  }
+
+  auto iter = external_bits.begin();
+  auto other_iter = other.external_bits.begin();
+  auto other_end = other.external_bits.end();
+  while (other_iter != other_end) {
+    if (*other_iter && !*iter) {
+      result = true;
+      *iter = true;
+    }
+    ++iter;
+    ++other_iter;
+  }
+
+  if (other.terminal_bits.size() > terminal_bits.size()) {
+    terminal_bits.resize(other.terminal_bits.size());
+  }
+
+  iter = terminal_bits.begin();
+  other_iter = other.terminal_bits.begin();
+  other_end = other.terminal_bits.end();
+  while (other_iter != other_end) {
+    if (*other_iter && !*iter) {
+      result = true;
+      *iter = true;
+    }
+    ++iter;
+    ++other_iter;
+  }
+
+  return result;
 }
 
 bool LookaheadSet::insert(const Symbol &symbol) {
-  if (!entries.get())
-    entries = make_shared<set<Symbol>>();
-  return entries->insert(symbol).second;
+  if (symbol == rules::END_OF_INPUT()) {
+    if (!eof) {
+      eof = true;
+      return true;
+    }
+    return false;
+  }
+
+  auto &bits = symbol.is_external() ? external_bits : terminal_bits;
+  if (bits.size() <= symbol.index) {
+    bits.resize(symbol.index + 1);
+  }
+  if (!bits[symbol.index]) {
+    bits[symbol.index] = true;
+    return true;
+  }
+  return false;
 }
 
 }  // namespace build_tables
