@@ -2,6 +2,7 @@
 #define COMPILER_GRAMMAR_JSON_H_
 
 #include <string>
+#include <unordered_set>
 #include "tree_sitter/compiler.h"
 #include "compiler/grammar.h"
 

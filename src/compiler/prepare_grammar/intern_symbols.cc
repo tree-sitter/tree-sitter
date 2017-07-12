@@ -142,6 +142,13 @@ pair<InternedGrammar, CompileError> intern_symbols(const InputGrammar &grammar) 
     result.expected_conflicts.insert(entry);
   }
 
+  for (auto &named_symbol : grammar.variables_to_inline) {
+    auto symbol = interner.intern_symbol(named_symbol);
+    if (symbol != rules::NONE()) {
+      result.variables_to_inline.insert(symbol);
+    }
+  }
+
   return {result, CompileError::none()};
 }
 

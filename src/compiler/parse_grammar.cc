@@ -205,7 +205,7 @@ ParseGrammarResult parse_grammar(const string &input) {
   string error_message;
   string name;
   InputGrammar grammar;
-  json_value name_json, rules_json, extras_json, conflicts_json, external_tokens_json;
+  json_value name_json, rules_json, extras_json, conflicts_json, external_tokens_json, inline_rules_json;
 
   json_settings settings = { 0, json_enable_comments, 0, 0, 0, 0 };
   char parse_error[json_error_max];
@@ -296,6 +296,24 @@ ParseGrammarResult parse_grammar(const string &input) {
       }
 
       grammar.expected_conflicts.push_back(conflict);
+    }
+  }
+
+  inline_rules_json = grammar_json->operator[]("inline");
+  if (inline_rules_json.type != json_none) {
+    if (inline_rules_json.type != json_array) {
+      error_message = "Inline rules must be an array";
+      goto error;
+    }
+
+    for (size_t i = 0, length = inline_rules_json.u.array.length; i < length; i++) {
+      json_value *inline_rule_json = inline_rules_json.u.array.values[i];
+      if (inline_rule_json->type != json_string) {
+        error_message = "Inline rules must be an array of rule names";
+        goto error;
+      }
+
+      grammar.variables_to_inline.insert(rules::NamedSymbol{string(inline_rule_json->u.string.ptr)});
     }
   }
 

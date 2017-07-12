@@ -156,14 +156,14 @@ struct hash<ParseItem> {
     if (item.is_done()) {
       if (!item.production->empty()) {
         hash_combine(&result, item.production->back().precedence);
-        hash_combine(&result, item.production->back().associativity);
+        hash_combine<unsigned>(&result, item.production->back().associativity);
       }
     } else {
       for (size_t i = 0, n = item.production->size(); i < n; i++) {
         auto &step = item.production->at(i);
         hash_combine(&result, step.symbol);
         hash_combine(&result, step.precedence);
-        hash_combine(&result, step.associativity);
+        hash_combine<unsigned>(&result, step.associativity);
       }
     }
     return result;

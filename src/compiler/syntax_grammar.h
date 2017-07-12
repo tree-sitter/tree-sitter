@@ -74,6 +74,7 @@ struct SyntaxGrammar {
   std::set<rules::Symbol> extra_tokens;
   std::set<ConflictSet> expected_conflicts;
   std::vector<ExternalToken> external_tokens;
+  std::set<rules::Symbol> variables_to_inline;
 };
 
 }  // namespace tree_sitter

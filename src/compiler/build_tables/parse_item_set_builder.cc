@@ -1,4 +1,5 @@
 #include "compiler/build_tables/parse_item_set_builder.h"
+#include <algorithm>
 #include <cassert>
 #include <set>
 #include <unordered_map>
@@ -11,8 +12,10 @@
 namespace tree_sitter {
 namespace build_tables {
 
+using std::move;
 using std::vector;
 using std::set;
+using std::find;
 using std::get;
 using std::pair;
 using std::tuple;
@@ -21,8 +24,36 @@ using std::make_tuple;
 using rules::Symbol;
 using rules::NONE;
 
+static vector<Production> inline_production(const ParseItem &item, const SyntaxGrammar &grammar) {
+  vector<Production> result;
+  for (const Production &production_to_insert : grammar.variables[item.next_symbol().index].productions) {
+    auto begin = item.production->steps.begin();
+    auto end = item.production->steps.end();
+    auto step = begin + item.step_index;
+
+    Production production{{begin, step}, item.production->dynamic_precedence};
+    production.steps.insert(
+      production.steps.end(),
+      production_to_insert.steps.begin(),
+      production_to_insert.steps.end()
+    );
+    production.back().precedence = item.precedence();
+    production.back().associativity = item.associativity();
+    production.steps.insert(
+      production.steps.end(),
+      step + 1,
+      end
+    );
+
+    if (find(result.begin(), result.end(), production) == result.end()) {
+      result.push_back(move(production));
+    }
+  }
+  return result;
+}
+
 ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
-                                         const LexicalGrammar &lexical_grammar) {
+                                         const LexicalGrammar &lexical_grammar) : grammar{grammar} {
   vector<Symbol> symbols_to_process;
   set<Symbol::Index> processed_non_terminals;
 
@@ -145,24 +176,56 @@ ParseItemSetBuilder::ParseItemSetBuilder(const SyntaxGrammar &grammar,
 
     for (auto &pair : cached_lookaheads_by_non_terminal) {
       for (const Production &production : grammar.variables[pair.first].productions) {
-        component_cache[i].push_back({
-          ParseItem(Symbol::non_terminal(pair.first), production, 0),
-          pair.second.first,
-          pair.second.second
-        });
+        Symbol lhs = Symbol::non_terminal(pair.first);
+        ParseItem item(lhs, production, 0);
+
+        if (grammar.variables_to_inline.count(item.next_symbol())) {
+          vector<Production> &inlined_productions = inlined_productions_by_original_production[item];
+          if (inlined_productions.empty()) {
+            inlined_productions = inline_production(item, grammar);
+          }
+
+          for (const Production &inlined_production : inlined_productions) {
+            ParseItemSetComponent component{
+              ParseItem(lhs, inlined_production, 0),
+              pair.second.first,
+              pair.second.second
+            };
+
+            if (find(component_cache[i].begin(), component_cache[i].end(), component) == component_cache[i].end()) {
+              component_cache[i].push_back(component);
+            }
+          }
+        } else if (!grammar.variables_to_inline.count(lhs)) {
+          ParseItemSetComponent component{
+            ParseItem(lhs, production, 0),
+            pair.second.first,
+            pair.second.second
+          };
+
+          if (find(component_cache[i].begin(), component_cache[i].end(), component) == component_cache[i].end()) {
+            component_cache[i].push_back(component);
+          }
+        }
       }
     }
   }
 }
 
 void ParseItemSetBuilder::apply_transitive_closure(ParseItemSet *item_set) {
-  for (const auto &pair : item_set->entries) {
-    const ParseItem &item = pair.first;
-    const LookaheadSet &lookaheads = pair.second;
-    if (item.lhs() != rules::START() && item.step_index == 0) continue;
+  for (auto iter = item_set->entries.begin(), end = item_set->entries.end(); iter != end;) {
+    const ParseItem &item = iter->first;
+    const LookaheadSet &lookaheads = iter->second;
+    if (item.lhs() != rules::START() && item.step_index == 0) {
+      ++iter;
+      continue;
+    }
 
     const Symbol &next_symbol = item.next_symbol();
-    if (!next_symbol.is_non_terminal() || next_symbol.is_built_in()) continue;
+    if (!next_symbol.is_non_terminal() || next_symbol.is_built_in()) {
+      ++iter;
+      continue;
+    }
 
     LookaheadSet next_lookaheads;
     size_t next_step = item.step_index + 1;
@@ -177,6 +240,24 @@ void ParseItemSetBuilder::apply_transitive_closure(ParseItemSet *item_set) {
       LookaheadSet &current_lookaheads = item_set->entries[component.item];
       current_lookaheads.insert_all(component.lookaheads);
       if (component.propagates_lookaheads) current_lookaheads.insert_all(next_lookaheads);
+    }
+
+    if (grammar.variables_to_inline.count(next_symbol)) {
+      vector<Production> &inlined_productions = inlined_productions_by_original_production[item];
+      if (inlined_productions.empty()) {
+        inlined_productions = inline_production(item, grammar);
+      }
+
+      for (const Production &inlined_production : inlined_productions) {
+        item_set->entries.insert({
+          ParseItem(item.lhs(), inlined_production, item.step_index),
+          lookaheads
+        });
+      }
+
+      iter = item_set->entries.erase(iter);
+    } else {
+      ++iter;
     }
   }
 }

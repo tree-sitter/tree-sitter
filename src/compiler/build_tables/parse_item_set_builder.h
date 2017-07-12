@@ -4,6 +4,7 @@
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/rule.h"
 #include <map>
+#include <vector>
 
 namespace tree_sitter {
 
@@ -17,11 +18,19 @@ class ParseItemSetBuilder {
     ParseItem item;
     LookaheadSet lookaheads;
     bool propagates_lookaheads;
+
+    inline bool operator==(const ParseItemSetComponent &other) {
+      return item == other.item &&
+        lookaheads == other.lookaheads &&
+        propagates_lookaheads == other.propagates_lookaheads;
+    }
   };
 
+  const SyntaxGrammar &grammar;
   std::map<rules::Symbol, LookaheadSet> first_sets;
   std::map<rules::Symbol, LookaheadSet> last_sets;
   std::map<rules::Symbol::Index, std::vector<ParseItemSetComponent>> component_cache;
+  std::map<ParseItem, std::vector<Production>> inlined_productions_by_original_production;
 
  public:
   ParseItemSetBuilder(const SyntaxGrammar &, const LexicalGrammar &);
