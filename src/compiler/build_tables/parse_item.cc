@@ -159,7 +159,7 @@ struct hash<ParseItem> {
         hash_combine<unsigned>(&result, item.production->back().associativity);
       }
     } else {
-      for (size_t i = 0, n = item.production->size(); i < n; i++) {
+      for (size_t i = item.step_index, n = item.production->size(); i < n; i++) {
         auto &step = item.production->at(i);
         hash_combine(&result, step.symbol);
         hash_combine(&result, step.precedence);
