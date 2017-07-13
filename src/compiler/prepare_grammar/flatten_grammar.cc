@@ -20,11 +20,9 @@ class FlattenRule {
  private:
   vector<int> precedence_stack;
   vector<rules::Associativity> associativity_stack;
-  int last_precedence;
-  rules::Associativity last_associativity;
   Production production;
 
-  void apply(const Rule &rule) {
+  void apply(const Rule &rule, bool at_end) {
     rule.match(
       [&](const rules::Symbol &symbol) {
         production.steps.push_back(ProductionStep{
@@ -47,26 +45,22 @@ class FlattenRule {
           production.dynamic_precedence = metadata.params.dynamic_precedence;
         }
 
-        apply(*metadata.rule);
+        apply(*metadata.rule, at_end);
 
         if (metadata.params.has_precedence) {
-          last_precedence = precedence_stack.back();
           precedence_stack.pop_back();
-          production.back().precedence = precedence_stack.back();
+          if (!at_end) production.back().precedence = precedence_stack.back();
         }
 
         if (metadata.params.has_associativity) {
-          last_associativity = associativity_stack.back();
           associativity_stack.pop_back();
-          production.back().associativity = associativity_stack.back();
+          if (!at_end) production.back().associativity = associativity_stack.back();
         }
       },
 
       [&](const rules::Seq &sequence) {
-        apply(*sequence.left);
-        last_precedence = 0;
-        last_associativity = rules::AssociativityNone;
-        apply(*sequence.right);
+        apply(*sequence.left, false);
+        apply(*sequence.right, at_end);
       },
 
       [&](const rules::Blank &blank) {},
@@ -78,18 +72,10 @@ class FlattenRule {
   }
 
  public:
-  FlattenRule()
-      : precedence_stack({ 0 }),
-        associativity_stack({ rules::AssociativityNone }),
-        last_precedence(0),
-        last_associativity(rules::AssociativityNone) {}
+  FlattenRule() : precedence_stack({ 0 }), associativity_stack({ rules::AssociativityNone }) {}
 
   Production flatten(const Rule &rule) {
-    apply(rule);
-    if (!production.empty()) {
-      production.back().precedence = last_precedence;
-      production.back().associativity = last_associativity;
-    }
+    apply(rule, true);
     return production;
   }
 };
