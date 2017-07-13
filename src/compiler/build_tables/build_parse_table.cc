@@ -208,7 +208,7 @@ class ParseTableBuilder {
             if (existing_action.type == ParseActionTypeAccept || processing_recovery_states) {
               entry.actions.push_back(action);
             } else {
-              int existing_precedence = existing_action.precedence();
+              int existing_precedence = existing_action.production->back().precedence;
               if (precedence > existing_precedence) {
                 for (const ParseAction &old_action : entry.actions)
                   fragile_productions.insert(old_action.production);
@@ -472,7 +472,7 @@ class ParseTableBuilder {
   string handle_conflict(const ParseItemSet &item_set, const SymbolSequence &preceding_symbols,
                          ParseStateId state_id, Symbol lookahead) {
     ParseTableEntry &entry = parse_table.states[state_id].terminal_entries[lookahead];
-    int reduction_precedence = entry.actions.front().precedence();
+    int reduction_precedence = entry.actions.front().production->back().precedence;
     set<ParseItem> shift_items;
     bool considered_associativity = false;
 
@@ -524,7 +524,7 @@ class ParseTableBuilder {
         bool has_right_associative_reductions = false;
         for (const ParseAction &action : entry.actions) {
           if (action.type != ParseActionTypeReduce) break;
-          switch (action.associativity()) {
+          switch (action.production->back().associativity) {
             case rules::AssociativityLeft:
               has_left_associative_reductions = true;
               break;

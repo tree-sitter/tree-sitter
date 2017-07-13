@@ -28,13 +28,10 @@ struct ParseAction {
   static ParseAction Error();
   static ParseAction Shift(ParseStateId state_index);
   static ParseAction Recover(ParseStateId state_index);
-  static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count,
-                            const Production &);
+  static ParseAction Reduce(rules::Symbol symbol, size_t child_count, const Production &);
   static ParseAction ShiftExtra();
   bool operator==(const ParseAction &) const;
   bool operator<(const ParseAction &) const;
-  rules::Associativity associativity() const;
-  int precedence() const;
 
   const Production *production;
   size_t consumed_symbol_count;

@@ -64,30 +64,6 @@ ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
   return result;
 }
 
-int ParseAction::precedence() const {
-  if (consumed_symbol_count >= production->size()) {
-    if (production->empty()) {
-      return 0;
-    } else {
-      return production->back().precedence;
-    }
-  } else {
-    return production->at(consumed_symbol_count).precedence;
-  }
-}
-
-rules::Associativity ParseAction::associativity() const {
-  if (consumed_symbol_count >= production->size()) {
-    if (production->empty()) {
-      return rules::AssociativityNone;
-    } else {
-      return production->back().associativity;
-    }
-  } else {
-    return production->at(consumed_symbol_count).associativity;
-  }
-}
-
 bool ParseAction::operator==(const ParseAction &other) const {
   return (type == other.type && extra == other.extra &&
           fragile == other.fragile && symbol == other.symbol &&
