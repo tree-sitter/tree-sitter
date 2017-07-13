@@ -12,17 +12,14 @@
 namespace tree_sitter {
 namespace build_tables {
 
-using std::move;
-using std::vector;
-using std::set;
 using std::find;
 using std::get;
+using std::move;
 using std::pair;
-using std::tuple;
+using std::set;
 using std::unordered_map;
-using std::make_tuple;
+using std::vector;
 using rules::Symbol;
-using rules::NONE;
 
 static vector<Production> inline_production(const ParseItem &item, const SyntaxGrammar &grammar) {
   vector<Production> result;
