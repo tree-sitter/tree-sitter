@@ -156,14 +156,14 @@ struct hash<ParseItem> {
     if (item.is_done()) {
       if (!item.production->empty()) {
         hash_combine(&result, item.production->back().precedence);
-        hash_combine(&result, item.production->back().associativity);
+        hash_combine<unsigned>(&result, item.production->back().associativity);
       }
     } else {
       for (size_t i = 0, n = item.production->size(); i < n; i++) {
         auto &step = item.production->at(i);
         hash_combine(&result, step.symbol);
         hash_combine(&result, step.precedence);
-        hash_combine(&result, step.associativity);
+        hash_combine<unsigned>(&result, step.associativity);
       }
     }
     return result;
@@ -178,9 +178,10 @@ size_t hash<ParseItemSet>::operator()(const ParseItemSet &item_set) const {
     const auto &lookahead_set = pair.second;
 
     hash_combine(&result, item);
-    hash_combine(&result, lookahead_set.entries->size());
-    for (auto index : *pair.second.entries)
-      hash_combine(&result, index);
+    hash_combine(&result, lookahead_set.size());
+    lookahead_set.for_each([&result](Symbol symbol) {
+      hash_combine(&result, symbol);
+    });
   }
   return result;
 }

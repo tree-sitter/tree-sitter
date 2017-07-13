@@ -94,6 +94,7 @@ InitialSyntaxGrammar expand_repeats(const InitialSyntaxGrammar &grammar) {
   result.extra_tokens = grammar.extra_tokens;
   result.expected_conflicts = grammar.expected_conflicts;
   result.external_tokens = grammar.external_tokens;
+  result.variables_to_inline = grammar.variables_to_inline;
 
   ExpandRepeats expander(result.variables.size());
   for (auto &variable : result.variables) {

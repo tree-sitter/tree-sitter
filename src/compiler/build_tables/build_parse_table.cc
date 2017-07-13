@@ -196,7 +196,7 @@ class ParseTableBuilder {
           ParseAction::Reduce(item.lhs(), item.step_index, *item.production);
 
         int precedence = item.precedence();
-        for (Symbol lookahead : *lookahead_symbols.entries) {
+        lookahead_symbols.for_each([&](Symbol lookahead) {
           ParseTableEntry &entry = parse_table.states[state_id].terminal_entries[lookahead];
 
           // Only add the highest-precedence Reduce actions to the parse table.
@@ -223,7 +223,7 @@ class ParseTableBuilder {
               }
             }
           }
-        }
+        });
 
       // If the item is unfinished, create a new item by advancing one symbol.
       // Add that new item to a successor item set.
@@ -694,15 +694,15 @@ class ParseTableBuilder {
       const LookaheadSet &right_tokens = item_set_builder.get_first_set(symbol);
 
       if (!left_tokens.empty() && !right_tokens.empty()) {
-        for (const Symbol &left_symbol : *left_tokens.entries) {
+        left_tokens.for_each([&](Symbol left_symbol) {
           if (left_symbol.is_terminal() && !left_symbol.is_built_in()) {
-            for (const Symbol &right_symbol : *right_tokens.entries) {
+            right_tokens.for_each([&](Symbol right_symbol) {
               if (right_symbol.is_terminal() && !right_symbol.is_built_in()) {
                 following_terminals_by_terminal_index[left_symbol.index].insert(right_symbol.index);
               }
-            }
+            });
           }
-        }
+        });
       }
     }
 

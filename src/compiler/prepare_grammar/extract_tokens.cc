@@ -235,6 +235,10 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
     syntax_grammar.expected_conflicts.insert(new_conflict_set);
   }
 
+  for (const Symbol &symbol : grammar.variables_to_inline) {
+    syntax_grammar.variables_to_inline.insert(symbol_replacer.replace_symbol(symbol));
+  }
+
   // The grammar's extra tokens can be either token rules or symbols
   // pointing to token rules. If they are symbols, then they'll be handled by
   // the parser; add them to the syntax grammar's extra tokens. If they

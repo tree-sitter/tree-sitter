@@ -111,6 +111,7 @@ SyntaxVariable flatten_rule(const Variable &variable) {
 pair<SyntaxGrammar, CompileError> flatten_grammar(const InitialSyntaxGrammar &grammar) {
   SyntaxGrammar result;
   result.external_tokens = grammar.external_tokens;
+  result.variables_to_inline = grammar.variables_to_inline;
 
   for (const auto &expected_conflict : grammar.expected_conflicts) {
     result.expected_conflicts.insert({
