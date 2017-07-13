@@ -29,7 +29,7 @@ bool LookaheadSet::operator==(const LookaheadSet &other) const {
 bool LookaheadSet::contains(const Symbol &symbol) const {
   if (symbol == rules::END_OF_INPUT()) return eof;
   auto &bits = symbol.is_external() ? external_bits : terminal_bits;
-  return bits.size() > symbol.index && bits[symbol.index];
+  return bits.size() > static_cast<size_t>(symbol.index) && bits[symbol.index];
 }
 
 size_t LookaheadSet::size() const {
@@ -95,7 +95,7 @@ bool LookaheadSet::insert(const Symbol &symbol) {
   }
 
   auto &bits = symbol.is_external() ? external_bits : terminal_bits;
-  if (bits.size() <= symbol.index) {
+  if (bits.size() <= static_cast<size_t>(symbol.index)) {
     bits.resize(symbol.index + 1);
   }
   if (!bits[symbol.index]) {

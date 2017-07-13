@@ -46,7 +46,7 @@ describe("ParseItemSetBuilder", []() {
           {Symbol::terminal(15), 0, AssociativityNone},
         }, 0}
       }},
-    }, {}, {}, {}};
+    }, {}, {}, {}, {}};
 
     auto production = [&](int variable_index, int production_index) -> const Production & {
       return grammar.variables[variable_index].productions[production_index];
@@ -97,7 +97,7 @@ describe("ParseItemSetBuilder", []() {
         }, 0},
         Production{{}, 0}
       }},
-    }, {}, {}, {}};
+    }, {}, {}, {}, {}};
 
     auto production = [&](int variable_index, int production_index) -> const Production & {
       return grammar.variables[variable_index].productions[production_index];

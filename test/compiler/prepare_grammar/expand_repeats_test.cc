@@ -15,7 +15,7 @@ describe("expand_repeats", []() {
       {
         Variable{"rule0", VariableTypeNamed, Repeat{Symbol::terminal(0)}},
       },
-      {}, {}, {}
+      {}, {}, {}, {}
     };
 
     auto result = expand_repeats(grammar);
@@ -37,7 +37,7 @@ describe("expand_repeats", []() {
           Repeat{Symbol::terminal(11)},
         })},
       },
-      {}, {}, {}
+      {}, {}, {}, {}
     };
 
     auto result = expand_repeats(grammar);
@@ -62,7 +62,7 @@ describe("expand_repeats", []() {
           Repeat{Symbol::terminal(11)}
         })},
       },
-      {}, {}, {}
+      {}, {}, {}, {}
     };
 
     auto result = expand_repeats(grammar);
@@ -91,7 +91,7 @@ describe("expand_repeats", []() {
           Repeat{Symbol::terminal(4)}
         })},
       },
-      {}, {}, {}
+      {}, {}, {}, {}
     };
 
     auto result = expand_repeats(grammar);
@@ -120,7 +120,7 @@ describe("expand_repeats", []() {
           Repeat{Symbol::terminal(11)},
         })},
       },
-      {}, {}, {}
+      {}, {}, {}, {}
     };
 
     auto result = expand_repeats(grammar);
@@ -147,7 +147,7 @@ describe("expand_repeats", []() {
         Variable{"rule0", VariableTypeNamed, Repeat{Symbol::terminal(10)}},
         Variable{"rule1", VariableTypeNamed, Repeat{Symbol::terminal(11)}},
       },
-      {}, {}, {}
+      {}, {}, {}, {}
     };
 
     auto result = expand_repeats(grammar);

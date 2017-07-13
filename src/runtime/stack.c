@@ -86,15 +86,14 @@ recur:
   self->ref_count--;
   if (self->ref_count > 0) return;
 
-  StackNode *last_predecessor = NULL;
+  StackNode *first_predecessor = NULL;
   if (self->link_count > 0) {
-    unsigned i = 0;
-    for (; i < self->link_count - 1; i++) {
+    for (unsigned i = self->link_count - 1; i > 0; i--) {
       if (self->links[i].tree) ts_tree_release(self->links[i].tree);
       stack_node_release(self->links[i].node, pool);
     }
-    if (self->links[i].tree) ts_tree_release(self->links[i].tree);
-    last_predecessor = self->links[i].node;
+    if (self->links[0].tree) ts_tree_release(self->links[0].tree);
+    first_predecessor = self->links[0].node;
   }
 
   if (pool->size < MAX_NODE_POOL_SIZE) {
@@ -103,8 +102,8 @@ recur:
     ts_free(self);
   }
 
-  if (last_predecessor) {
-    self = last_predecessor;
+  if (first_predecessor) {
+    self = first_predecessor;
     goto recur;
   }
 }

@@ -16,7 +16,8 @@ describe("intern_symbols", []() {
         {"x", VariableTypeNamed, Rule::choice({ NamedSymbol{"y"}, NamedSymbol{"_z"} })},
         {"y", VariableTypeNamed, NamedSymbol{"_z"}},
         {"_z", VariableTypeNamed, String{"stuff"}}
-      }, {}, {}, {}
+      },
+      {}, {}, {}, {}
     };
 
     auto result = intern_symbols(grammar);
@@ -35,7 +36,7 @@ describe("intern_symbols", []() {
         {
           {"x", VariableTypeNamed, NamedSymbol{"y"}},
         },
-        {}, {}, {}
+        {}, {}, {}, {}
       };
 
       auto result = intern_symbols(grammar);
@@ -54,7 +55,7 @@ describe("intern_symbols", []() {
       {
         NamedSymbol{"z"}
       },
-      {}, {}
+      {}, {}, {}
     };
 
     auto result = intern_symbols(grammar);
@@ -84,7 +85,8 @@ describe("intern_symbols", []() {
           VariableTypeNamed,
           NamedSymbol{"z"}
         },
-      }
+      },
+      {}
     };
 
     auto result = intern_symbols(grammar);

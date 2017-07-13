@@ -48,9 +48,7 @@ describe("extract_tokens", []() {
           Repeat{Symbol::non_terminal(3)}
         },
       },
-      {},
-      {},
-      {}
+      {}, {}, {}, {}
     });
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
@@ -158,9 +156,7 @@ describe("extract_tokens", []() {
           })
         },
       },
-      {},
-      {},
-      {}
+      {}, {}, {}, {}
     });
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
@@ -189,23 +185,26 @@ describe("extract_tokens", []() {
   });
 
   it("does not move entire rules into the lexical grammar if their content is used elsewhere in the grammar", [&]() {
-    auto result = extract_tokens(InternedGrammar{{
-      Variable{
-        "rule_A",
-        VariableTypeNamed,
-        Rule::seq({ Symbol::non_terminal(1), String{"ab"} })
+    auto result = extract_tokens(InternedGrammar{
+      {
+        Variable{
+          "rule_A",
+          VariableTypeNamed,
+          Rule::seq({ Symbol::non_terminal(1), String{"ab"} })
+        },
+        Variable{
+          "rule_B",
+          VariableTypeNamed,
+          String{"cd"}
+        },
+        Variable{
+          "rule_C",
+          VariableTypeNamed,
+          Rule::seq({ String{"ef"}, String{"cd"} })
+        },
       },
-      Variable{
-        "rule_B",
-        VariableTypeNamed,
-        String{"cd"}
-      },
-      Variable{
-        "rule_C",
-        VariableTypeNamed,
-        Rule::seq({ String{"ef"}, String{"cd"} })
-      },
-    }, {}, {}, {}});
+      {}, {}, {}, {}
+    });
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
     LexicalGrammar &lexical_grammar = get<1>(result);
@@ -275,7 +274,7 @@ describe("extract_tokens", []() {
       {
         { Symbol::non_terminal(1), Symbol::non_terminal(2) }
       },
-      {}
+      {}, {}
     });
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
@@ -296,8 +295,7 @@ describe("extract_tokens", []() {
           String{"y"},
           Pattern{" "},
         },
-        {},
-        {}
+        {}, {}, {}
       });
 
       AssertThat(get<2>(result), Equals(CompileError::none()));
@@ -318,8 +316,7 @@ describe("extract_tokens", []() {
         {
           String{"y"},
         },
-        {},
-        {}
+        {}, {}, {}
       });
 
       AssertThat(get<2>(result), Equals(CompileError::none()));
@@ -349,8 +346,7 @@ describe("extract_tokens", []() {
         {
           Symbol::non_terminal(2),
         },
-        {},
-        {}
+        {}, {}, {}
       });
 
       AssertThat(get<2>(result), Equals(CompileError::none()));
@@ -379,8 +375,7 @@ describe("extract_tokens", []() {
         {
           Symbol::non_terminal(1)
         },
-        {},
-        {}
+        {}, {}, {}
       });
 
       AssertThat(get<2>(result), Equals(CompileError(
@@ -398,8 +393,7 @@ describe("extract_tokens", []() {
         {
           Rule::choice({ Symbol::non_terminal(1), Blank{} })
         },
-        {},
-        {}
+        {}, {}, {}
       });
 
       AssertThat(get<2>(result), Equals(CompileError(
@@ -427,7 +421,8 @@ describe("extract_tokens", []() {
       {},
       {
         Variable{"rule_A", VariableTypeNamed, Symbol::non_terminal(0)}
-      }
+      },
+      {}
     });
 
     AssertThat(get<2>(result), Equals(CompileError(
