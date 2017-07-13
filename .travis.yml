@@ -22,3 +22,7 @@ script:
 cache:
   directories:
   - test/fixtures/grammars
+
+branches:
+  only:
+  - master
