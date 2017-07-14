@@ -27,6 +27,11 @@ bool ParseItem::operator==(const ParseItem &other) const {
   if (step_index != other.step_index) return false;
   if (variable_index != other.variable_index) return false;
   if (production->size() != other.production->size()) return false;
+  for (size_t i = 0; i < step_index; i++) {
+    if (production->at(i).name_replacement != other.production->at(i).name_replacement) {
+      return false;
+    }
+  }
   if (is_done()) {
     if (!production->empty()) {
       if (production->back().precedence != other.production->back().precedence) return false;
@@ -47,6 +52,10 @@ bool ParseItem::operator<(const ParseItem &other) const {
   if (other.variable_index < variable_index) return false;
   if (production->size() < other.production->size()) return true;
   if (other.production->size() < production->size()) return false;
+  for (size_t i = 0; i < step_index; i++) {
+    if (production->at(i).name_replacement < other.production->at(i).name_replacement) return true;
+    if (other.production->at(i).name_replacement < production->at(i).name_replacement) return false;
+  }
   if (is_done()) {
     if (!production->empty()) {
       if (production->back().precedence < other.production->back().precedence) return true;
@@ -106,11 +115,6 @@ Symbol ParseItem::next_symbol() const {
     return production->at(step_index).symbol;
 }
 
-ParseItemSet::ParseItemSet() {}
-
-ParseItemSet::ParseItemSet(const map<ParseItem, LookaheadSet> &entries)
-    : entries(entries) {}
-
 bool ParseItemSet::operator==(const ParseItemSet &other) const {
   return entries == other.entries;
 }
@@ -153,13 +157,16 @@ struct hash<ParseItem> {
     hash_combine(&result, item.step_index);
     hash_combine(&result, item.production->dynamic_precedence);
     hash_combine(&result, item.production->size());
+    for (size_t i = 0; i < item.step_index; i++) {
+      hash_combine(&result, item.production->at(i).name_replacement);
+    }
     if (item.is_done()) {
       if (!item.production->empty()) {
         hash_combine(&result, item.production->back().precedence);
         hash_combine<unsigned>(&result, item.production->back().associativity);
       }
     } else {
-      for (size_t i = 0, n = item.production->size(); i < n; i++) {
+      for (size_t i = item.step_index, n = item.production->size(); i < n; i++) {
         auto &step = item.production->at(i);
         hash_combine(&result, step.symbol);
         hash_combine(&result, step.precedence);

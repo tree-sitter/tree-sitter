@@ -1,9 +1,13 @@
 #include "compiler/rules/metadata.h"
 #include <climits>
+#include <string>
 #include "compiler/rule.h"
 
 namespace tree_sitter {
 namespace rules {
+
+using std::move;
+using std::string;
 
 Metadata::Metadata(const Rule &rule, MetadataParams params) :
   rule(std::make_shared<Rule>(rule)), params(params) {}
@@ -70,6 +74,12 @@ Metadata Metadata::main_token(const Rule &rule) {
   params.has_precedence = true;
   params.precedence = 0;
   params.is_main_token = true;
+  return Metadata{rule, params};
+}
+
+Metadata Metadata::rename(string &&name, const Rule &rule) {
+  MetadataParams params;
+  params.name_replacement = move(name);
   return Metadata{rule, params};
 }
 

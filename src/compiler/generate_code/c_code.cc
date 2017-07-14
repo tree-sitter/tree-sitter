@@ -76,6 +76,7 @@ class CCodeGenerator {
   vector<pair<size_t, ParseTableEntry>> parse_table_entries;
   vector<set<Symbol::Index>> external_scanner_states;
   size_t next_parse_action_list_index;
+  set<string> unique_replacement_names;
 
  public:
   CCodeGenerator(string name, const ParseTable &parse_table,
@@ -98,6 +99,7 @@ class CCodeGenerator {
     add_symbol_enum();
     add_symbol_names_list();
     add_symbol_metadata_list();
+    add_rename_sequences();
     add_lex_function();
     add_lex_modes_list();
 
@@ -139,11 +141,22 @@ class CCodeGenerator {
       }
     }
 
+    unsigned max_rename_sequence_length = 0;
+    for (const RenameSequence &rename_sequence : parse_table.rename_sequences) {
+      if (rename_sequence.size() > max_rename_sequence_length) {
+        max_rename_sequence_length = rename_sequence.size();
+      }
+      for (const string &name_replacement : rename_sequence) {
+        unique_replacement_names.insert(name_replacement);
+      }
+    }
+
     line("#define LANGUAGE_VERSION " + to_string(TREE_SITTER_LANGUAGE_VERSION));
     line("#define STATE_COUNT " + to_string(parse_table.states.size()));
     line("#define SYMBOL_COUNT " + to_string(parse_table.symbols.size()));
     line("#define TOKEN_COUNT " + to_string(token_count));
     line("#define EXTERNAL_TOKEN_COUNT " + to_string(syntax_grammar.external_tokens.size()));
+    line("#define MAX_RENAME_SEQUENCE_LENGTH " + to_string(max_rename_sequence_length));
     line();
   }
 
@@ -158,6 +171,11 @@ class CCodeGenerator {
           i++;
         }
       }
+
+      for (const string &replacement_name : unique_replacement_names) {
+        line(rename_id(replacement_name) + " = " + to_string(i) + ",");
+        i++;
+      }
     });
     line("};");
     line();
@@ -166,9 +184,45 @@ class CCodeGenerator {
   void add_symbol_names_list() {
     line("static const char *ts_symbol_names[] = {");
     indent([&]() {
-      for (const auto &entry : parse_table.symbols)
-        line("[" + symbol_id(entry.first) + "] = \"" +
-             sanitize_name_for_string(symbol_name(entry.first)) + "\",");
+      for (const auto &entry : parse_table.symbols) {
+        line(
+          "[" + symbol_id(entry.first) + "] = \"" +
+          sanitize_name_for_string(symbol_name(entry.first)) + "\","
+        );
+      }
+
+      for (const string &replacement_name : unique_replacement_names) {
+        line(
+          "[" + rename_id(replacement_name) + "] = \"" +
+          sanitize_name_for_string(replacement_name) + "\","
+        );
+      }
+    });
+    line("};");
+    line();
+  }
+
+  void add_rename_sequences() {
+
+    line(
+      "static TSSymbol ts_rename_sequences[" +
+      to_string(parse_table.rename_sequences.size()) +
+      "][MAX_RENAME_SEQUENCE_LENGTH] = {"
+    );
+
+    indent([&]() {
+      for (unsigned i = 1, n = parse_table.rename_sequences.size(); i < n; i++) {
+        const RenameSequence &sequence = parse_table.rename_sequences[i];
+        line("[" + to_string(i) + "] = {");
+        indent([&]() {
+          for (unsigned j = 0, n = sequence.size(); j < n; j++) {
+            if (!sequence[j].empty()) {
+              line("[" + to_string(j) + "] = " + rename_id(sequence[j]) + ",");
+            }
+          }
+        });
+        line("},");
+      }
     });
     line("};");
     line();
@@ -332,7 +386,7 @@ class CCodeGenerator {
     add_parse_action_list_id(ParseTableEntry{ {}, false, false });
 
     size_t state_id = 0;
-    line("static unsigned short ts_parse_table[STATE_COUNT][SYMBOL_COUNT] = {");
+    line("static uint16_t ts_parse_table[STATE_COUNT][SYMBOL_COUNT] = {");
 
     indent([&]() {
       for (const auto &state : parse_table.states) {
@@ -543,17 +597,23 @@ class CCodeGenerator {
               }
               break;
             case ParseActionTypeReduce:
-              if (action.fragile) {
-                add("REDUCE_FRAGILE");
-              } else {
-                add("REDUCE");
-              }
-
-              add("(");
+              add("REDUCE(");
               add(symbol_id(action.symbol));
               add(", ");
               add(to_string(action.consumed_symbol_count));
-              add(", " + to_string(action.dynamic_precedence));
+
+              if (action.fragile) {
+                add(", .fragile = true");
+              }
+
+              if (action.dynamic_precedence != 0) {
+                add(", .dynamic_precedence = " + to_string(action.dynamic_precedence));
+              }
+
+              if (action.rename_sequence_id != 0) {
+                add(", .rename_sequence_id = " + to_string(action.rename_sequence_id));
+              }
+
               add(")");
               break;
             case ParseActionTypeRecover:
@@ -603,6 +663,10 @@ class CCodeGenerator {
       default:
         return "sym_" + name;
     }
+  }
+
+  string rename_id(const string &name) {
+    return "rename_sym_" + sanitize_name(name);
   }
 
   string symbol_name(const Symbol &symbol) {

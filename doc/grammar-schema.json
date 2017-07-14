@@ -38,6 +38,14 @@
       }
     },
 
+    "inline": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z_]\\w*$"
+      }
+    },
+
     "conflicts": {
       "type": "array",
       "items": {
@@ -135,6 +143,23 @@
       "required": ["type", "members"]
     },
 
+    "rename-rule": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "pattern": "^RENAME$"
+        },
+        "value": {
+          "type": "string"
+        },
+        "content": {
+          "$ref": "#/definitions/rule"
+        }
+      },
+      "required": ["type", "content", "value"]
+    },
+
     "repeat-rule": {
       "type": "object",
       "properties": {
@@ -202,6 +227,7 @@
         { "$ref": "#/definitions/symbol-rule" },
         { "$ref": "#/definitions/seq-rule" },
         { "$ref": "#/definitions/choice-rule" },
+        { "$ref": "#/definitions/rename-rule" },
         { "$ref": "#/definitions/repeat1-rule" },
         { "$ref": "#/definitions/repeat-rule" },
         { "$ref": "#/definitions/token-rule" },

@@ -3,7 +3,8 @@
 #include "runtime/error_costs.h"
 
 static const TSParseAction SHIFT_ERROR = {
-  .type = TSParseActionTypeShift, .params = {.to_state = ERROR_STATE}
+  .type = TSParseActionTypeShift,
+  .to_state = ERROR_STATE,
 };
 
 void ts_language_table_entry(const TSLanguage *self, TSStateId state,

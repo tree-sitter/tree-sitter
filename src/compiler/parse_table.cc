@@ -6,21 +6,20 @@
 namespace tree_sitter {
 
 using std::string;
-using std::ostream;
 using std::to_string;
-using std::set;
 using std::vector;
 using std::function;
 using rules::Symbol;
 
 ParseAction::ParseAction()
-    : production(nullptr),
-      consumed_symbol_count(0),
-      symbol(rules::NONE()),
-      type(ParseActionTypeError),
-      extra(false),
-      fragile(false),
-      state_index(-1) {}
+  : production(nullptr),
+    consumed_symbol_count(0),
+    symbol(rules::NONE()),
+    type(ParseActionTypeError),
+    extra(false),
+    fragile(false),
+    state_index(-1),
+    rename_sequence_id(0) {}
 
 ParseAction ParseAction::Error() {
   return ParseAction();
@@ -64,77 +63,50 @@ ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
   return result;
 }
 
-int ParseAction::precedence() const {
-  if (consumed_symbol_count >= production->size()) {
-    if (production->empty()) {
-      return 0;
-    } else {
-      return production->back().precedence;
-    }
-  } else {
-    return production->at(consumed_symbol_count).precedence;
-  }
-}
-
-rules::Associativity ParseAction::associativity() const {
-  if (consumed_symbol_count >= production->size()) {
-    if (production->empty()) {
-      return rules::AssociativityNone;
-    } else {
-      return production->back().associativity;
-    }
-  } else {
-    return production->at(consumed_symbol_count).associativity;
-  }
-}
-
 bool ParseAction::operator==(const ParseAction &other) const {
-  return (type == other.type && extra == other.extra &&
-          fragile == other.fragile && symbol == other.symbol &&
-          state_index == other.state_index && production == other.production &&
-          consumed_symbol_count == other.consumed_symbol_count);
+  return
+    type == other.type &&
+    extra == other.extra &&
+    fragile == other.fragile &&
+    symbol == other.symbol &&
+    state_index == other.state_index &&
+    production == other.production &&
+    consumed_symbol_count == other.consumed_symbol_count &&
+    rename_sequence_id == other.rename_sequence_id;
 }
 
 bool ParseAction::operator<(const ParseAction &other) const {
-  if (type < other.type)
-    return true;
-  if (other.type < type)
-    return false;
-  if (extra && !other.extra)
-    return true;
-  if (other.extra && !extra)
-    return false;
-  if (fragile && !other.fragile)
-    return true;
-  if (other.fragile && !fragile)
-    return false;
-  if (symbol < other.symbol)
-    return true;
-  if (other.symbol < symbol)
-    return false;
-  if (state_index < other.state_index)
-    return true;
-  if (other.state_index < state_index)
-    return false;
-  if (production < other.production)
-    return true;
-  if (other.production < production)
-    return false;
-  return consumed_symbol_count < other.consumed_symbol_count;
+  if (type < other.type) return true;
+  if (other.type < type) return false;
+  if (extra && !other.extra) return true;
+  if (other.extra && !extra) return false;
+  if (fragile && !other.fragile) return true;
+  if (other.fragile && !fragile) return false;
+  if (symbol < other.symbol) return true;
+  if (other.symbol < symbol) return false;
+  if (state_index < other.state_index) return true;
+  if (other.state_index < state_index) return false;
+  if (production < other.production) return true;
+  if (other.production < production) return false;
+  if (consumed_symbol_count < other.consumed_symbol_count) return true;
+  if (other.consumed_symbol_count < consumed_symbol_count) return false;
+  return rename_sequence_id < other.rename_sequence_id;
 }
 
 ParseTableEntry::ParseTableEntry()
-    : reusable(true), depends_on_lookahead(false) {}
+  : reusable(true), depends_on_lookahead(false) {}
 
 ParseTableEntry::ParseTableEntry(const vector<ParseAction> &actions,
                                  bool reusable, bool depends_on_lookahead)
-    : actions(actions),
-      reusable(reusable),
-      depends_on_lookahead(depends_on_lookahead) {}
+  : actions(actions),
+    reusable(reusable),
+    depends_on_lookahead(depends_on_lookahead) {}
 
 bool ParseTableEntry::operator==(const ParseTableEntry &other) const {
-  return actions == other.actions && reusable == other.reusable &&
-         depends_on_lookahead == other.depends_on_lookahead;
+  return
+    actions == other.actions &&
+    reusable == other.reusable &&
+    depends_on_lookahead == other.depends_on_lookahead;
 }
 
 ParseState::ParseState() : lex_state_id(-1) {}

@@ -1,0 +1,13 @@
+=========================
+OK
+=========================
+
+a.b.c
+
+---
+
+(expression (member_expression
+  (expression (member_expression
+    (expression (variable_name))
+    (property_name)))
+  (property_name)))

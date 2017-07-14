@@ -23,19 +23,22 @@ using rules::Symbol;
 
 static vector<Production> inline_production(const ParseItem &item, const SyntaxGrammar &grammar) {
   vector<Production> result;
-  for (const Production &production_to_insert : grammar.variables[item.next_symbol().index].productions) {
+  auto &inlined_step = item.production->at(item.step_index);
+  auto &productions_to_insert = grammar.variables[inlined_step.symbol.index].productions;
+  for (const Production &production_to_insert : productions_to_insert) {
     auto begin = item.production->steps.begin();
     auto end = item.production->steps.end();
     auto step = begin + item.step_index;
 
     Production production{{begin, step}, item.production->dynamic_precedence};
-    production.steps.insert(
-      production.steps.end(),
-      production_to_insert.steps.begin(),
-      production_to_insert.steps.end()
-    );
-    production.back().precedence = item.precedence();
-    production.back().associativity = item.associativity();
+    for (auto &step : production_to_insert) {
+      production.steps.push_back(step);
+      if (!inlined_step.name_replacement.empty()) {
+        production.steps.back().name_replacement = inlined_step.name_replacement;
+      }
+    }
+    production.back().precedence = inlined_step.precedence;
+    production.back().associativity = inlined_step.associativity;
     production.steps.insert(
       production.steps.end(),
       step + 1,

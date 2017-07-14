@@ -288,7 +288,8 @@ void ts_symbol_iterator_next(TSSymbolIterator *self) {
 }
 
 const char *ts_node_type(TSNode self, const TSDocument *document) {
-  TSSymbol symbol = ts_node__tree(self)->symbol;
+  const Tree *tree = ts_node__tree(self);
+  TSSymbol symbol = tree->context.rename_symbol ? tree->context.rename_symbol : tree->symbol;
   return ts_language_symbol_name(document->parser.language, symbol);
 }
 
@@ -303,7 +304,8 @@ bool ts_node_eq(TSNode self, TSNode other) {
 }
 
 bool ts_node_is_named(TSNode self) {
-  return ts_node__tree(self)->named;
+  const Tree *tree = ts_node__tree(self);
+  return tree->named || tree->context.rename_symbol != 0;
 }
 
 bool ts_node_has_changes(TSNode self) {

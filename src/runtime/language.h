@@ -44,7 +44,7 @@ static inline TSStateId ts_language_next_state(const TSLanguage *self,
     if (count > 0) {
       TSParseAction action = actions[count - 1];
       if (action.type == TSParseActionTypeShift || action.type == TSParseActionTypeRecover) {
-        return action.params.to_state;
+        return action.to_state;
       }
     }
     return 0;
@@ -61,6 +61,13 @@ ts_language_enabled_external_tokens(const TSLanguage *self,
   } else {
     return self->external_scanner.states + self->external_token_count * external_scanner_state;
   }
+}
+
+static inline const TSSymbol *
+ts_language_rename_sequence(const TSLanguage *self, unsigned id) {
+  return id > 0 ?
+    self->rename_sequences + id * self->max_rename_sequence_length :
+    NULL;
 }
 
 #ifdef __cplusplus

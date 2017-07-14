@@ -352,7 +352,10 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
     if (found_external_token) {
       result->has_external_tokens = true;
       memset(result->external_token_state, 0, sizeof(TSExternalTokenState));
-      self->language->external_scanner.serialize(self->external_scanner_payload, result->external_token_state);
+      self->language->external_scanner.serialize(
+        self->external_scanner_payload,
+        result->external_token_state
+      );
       ts_lexer_set_last_external_token(&self->lexer, result);
     }
   }
@@ -537,11 +540,15 @@ static void parser__shift(Parser *self, StackVersion version, TSStateId state,
   ts_tree_release(lookahead);
 }
 
-static bool parser__switch_children(Parser *self, Tree *tree,
-                                    Tree **children, uint32_t count) {
+static bool parser__replace_children(Parser *self, Tree *tree, Tree **children, uint32_t count) {
   self->scratch_tree.symbol = tree->symbol;
   self->scratch_tree.child_count = 0;
-  ts_tree_set_children(&self->scratch_tree, count, children);
+  ts_tree_set_children(
+    &self->scratch_tree,
+    count,
+    children,
+    ts_language_rename_sequence(self->language, tree->rename_sequence_id)
+  );
   if (parser__select_tree(self, tree, &self->scratch_tree)) {
     tree->size = self->scratch_tree.size;
     tree->padding = self->scratch_tree.padding;
@@ -557,17 +564,16 @@ static bool parser__switch_children(Parser *self, Tree *tree,
 }
 
 static StackPopResult parser__reduce(Parser *self, StackVersion version,
-                                     TSSymbol symbol, unsigned count,
-                                     bool fragile, int dynamic_precedence,
-                                     bool allow_skipping) {
+                                     TSSymbol symbol, uint32_t count,
+                                     int dynamic_precedence, uint16_t rename_sequence_id,
+                                     bool fragile, bool allow_skipping) {
   uint32_t initial_version_count = ts_stack_version_count(self->stack);
 
   StackPopResult pop = ts_stack_pop_count(self->stack, version, count);
-  if (pop.stopped_at_error)
-    return pop;
+  if (pop.stopped_at_error) return pop;
 
-  const TSLanguage *language = self->language;
-  TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
+  TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, symbol);
+  const TSSymbol *rename_sequence = ts_language_rename_sequence(self->language, rename_sequence_id);
 
   for (uint32_t i = 0; i < pop.slices.size; i++) {
     StackSlice slice = pop.slices.contents[i];
@@ -576,10 +582,13 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version,
     // node. They will be re-pushed onto the stack after the parent node is
     // created and pushed.
     uint32_t child_count = slice.trees.size;
-    while (child_count > 0 && slice.trees.contents[child_count - 1]->extra)
+    while (child_count > 0 && slice.trees.contents[child_count - 1]->extra) {
       child_count--;
+    }
 
-    Tree *parent = ts_tree_make_node(symbol, child_count, slice.trees.contents, metadata);
+    Tree *parent = ts_tree_make_node(
+      symbol, child_count, slice.trees.contents, metadata, rename_sequence
+    );
 
     // This pop operation may have caused multiple stack versions to collapse
     // into one, because they all diverged from a common state. In that case,
@@ -591,10 +600,11 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version,
       i++;
 
       uint32_t child_count = next_slice.trees.size;
-      while (child_count > 0 && next_slice.trees.contents[child_count - 1]->extra)
+      while (child_count > 0 && next_slice.trees.contents[child_count - 1]->extra) {
         child_count--;
+      }
 
-      if (parser__switch_children(self, parent, next_slice.trees.contents, child_count)) {
+      if (parser__replace_children(self, parent, next_slice.trees.contents, child_count)) {
         ts_tree_array_delete(&slice.trees);
         slice = next_slice;
       } else {
@@ -603,9 +613,10 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version,
     }
 
     parent->dynamic_precedence += dynamic_precedence;
+    parent->rename_sequence_id = rename_sequence_id;
 
     TSStateId state = ts_stack_top_state(self->stack, slice.version);
-    TSStateId next_state = ts_language_next_state(language, state, symbol);
+    TSStateId next_state = ts_language_next_state(self->language, state, symbol);
     if (fragile || self->is_split || pop.slices.size > 1 || initial_version_count > 1) {
       parent->fragile_left = true;
       parent->fragile_right = true;
@@ -699,12 +710,12 @@ static const TSParseAction *parser__reductions_after_sequence(
     (*count)--;
   }
 
-  while (*count > 0 && actions[0].params.child_count < child_count) {
+  while (*count > 0 && actions[0].child_count < child_count) {
     actions++;
     (*count)--;
   }
 
-  while (*count > 0 && actions[*count - 1].params.child_count > child_count) {
+  while (*count > 0 && actions[*count - 1].child_count > child_count) {
     (*count)--;
   }
 
@@ -756,7 +767,7 @@ static StackIterateAction parser__repair_error_callback(void *payload, TSStateId
     }
 
     for (uint32_t j = 0; j < repair_reduction_count; j++) {
-      if (repair_reductions[j].params.symbol == repair->symbol) {
+      if (repair_reductions[j].symbol == repair->symbol) {
         result |= StackIteratePop;
         session->found_repair = true;
         session->best_repair = *repair;
@@ -788,8 +799,8 @@ static bool parser__repair_error(Parser *self, StackSlice slice,
   array_clear(&self->reduce_actions);
   for (uint32_t i = 0; i < entry.action_count; i++) {
     if (entry.actions[i].type == TSParseActionTypeReduce) {
-      TSSymbol symbol = entry.actions[i].params.symbol;
-      uint32_t child_count = entry.actions[i].params.child_count;
+      TSSymbol symbol = entry.actions[i].symbol;
+      uint32_t child_count = entry.actions[i].child_count;
       if ((child_count > session.tree_count_above_error) ||
           (child_count == session.tree_count_above_error &&
            !ts_language_symbol_metadata(self->language, symbol).visible))
@@ -838,9 +849,11 @@ static bool parser__repair_error(Parser *self, StackSlice slice,
     array_push(&children, slice.trees.contents[i]);
   array_delete(&slice.trees);
 
-  Tree *parent =
-    ts_tree_make_node(symbol, children.size, children.contents,
-                      ts_language_symbol_metadata(self->language, symbol));
+  Tree *parent = ts_tree_make_node(
+    symbol, children.size, children.contents,
+    ts_language_symbol_metadata(self->language, symbol),
+    NULL
+  );
   parser__push(self, slice.version, parent, next_state);
   ts_stack_decrease_push_count(self->stack, slice.version, error->child_count);
 
@@ -898,7 +911,11 @@ static void parser__accept(Parser *self, StackVersion version,
           for (uint32_t k = 0; k < child->child_count; k++)
             ts_tree_retain(child->children[k]);
           array_splice(&trees, j, 1, child->child_count, child->children);
-          ts_tree_set_children(root, trees.size, trees.contents);
+          const TSSymbol *rename_sequence = ts_language_rename_sequence(
+            self->language,
+            root->rename_sequence_id
+          );
+          ts_tree_set_children(root, trees.size, trees.contents, rename_sequence);
           ts_tree_release(child);
           break;
         }
@@ -942,11 +959,12 @@ static bool parser__do_potential_reductions(Parser *self, StackVersion version) 
           has_shift_action = true;
           break;
         case TSParseActionTypeReduce:
-          if (action.params.child_count > 0)
+          if (action.child_count > 0)
             ts_reduce_action_set_add(&self->reduce_actions, (ReduceAction){
-              .symbol = action.params.symbol,
-              .count = action.params.child_count,
-              .dynamic_precedence = action.params.dynamic_precedence
+              .symbol = action.symbol,
+              .count = action.child_count,
+              .dynamic_precedence = action.dynamic_precedence,
+              .rename_sequence_id = action.rename_sequence_id,
             });
         default:
           break;
@@ -958,8 +976,9 @@ static bool parser__do_potential_reductions(Parser *self, StackVersion version) 
   for (uint32_t i = 0; i < self->reduce_actions.size; i++) {
     ReduceAction action = self->reduce_actions.contents[i];
     StackPopResult reduction = parser__reduce(
-      self, version, action.symbol, action.count, true,
-      action.dynamic_precedence, false
+      self, version, action.symbol, action.count,
+      action.dynamic_precedence, action.rename_sequence_id,
+      true, false
     );
     if (reduction.stopped_at_error) {
       ts_tree_array_delete(&reduction.slices.contents[0].trees);
@@ -1168,7 +1187,7 @@ static void parser__advance(Parser *self, StackVersion version,
             next_state = state;
             LOG("shift_extra");
           } else {
-            next_state = action.params.to_state;
+            next_state = action.to_state;
             LOG("shift state:%u", next_state);
           }
 
@@ -1195,18 +1214,14 @@ static void parser__advance(Parser *self, StackVersion version,
         }
 
         case TSParseActionTypeReduce: {
-          if (reduction_stopped_at_error)
-            continue;
+          if (reduction_stopped_at_error) continue;
 
-          unsigned child_count = action.params.child_count;
-          TSSymbol symbol = action.params.symbol;
-          unsigned dynamic_precedence = action.params.dynamic_precedence;
-          bool fragile = action.fragile;
-
-          LOG("reduce sym:%s, child_count:%u", SYM_NAME(symbol), child_count);
-
-          StackPopResult reduction =
-            parser__reduce(self, version, symbol, child_count, fragile, dynamic_precedence, true);
+          LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.symbol), action.child_count);
+          StackPopResult reduction = parser__reduce(
+            self, version, action.symbol, action.child_count,
+            action.dynamic_precedence, action.rename_sequence_id,
+            action.fragile, true
+          );
           StackSlice slice = *array_front(&reduction.slices);
           if (reduction.stopped_at_error) {
             reduction_stopped_at_error = true;
@@ -1237,7 +1252,7 @@ static void parser__advance(Parser *self, StackVersion version,
             ts_tree_retain(lookahead);
           }
 
-          parser__recover(self, version, action.params.to_state, lookahead);
+          parser__recover(self, version, action.to_state, lookahead);
           if (lookahead == reusable_node->tree) {
             reusable_node_pop(reusable_node);
           }
@@ -1355,6 +1370,6 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
   LOG_TREE();
   ts_stack_clear(self->stack);
   parser__clear_cached_token(self);
-  ts_tree_assign_parents(self->finished_tree, &self->tree_path1);
+  ts_tree_assign_parents(self->finished_tree, &self->tree_path1, self->language);
   return self->finished_tree;
 }

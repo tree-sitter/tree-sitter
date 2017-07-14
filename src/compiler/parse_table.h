@@ -28,13 +28,10 @@ struct ParseAction {
   static ParseAction Error();
   static ParseAction Shift(ParseStateId state_index);
   static ParseAction Recover(ParseStateId state_index);
-  static ParseAction Reduce(rules::Symbol symbol, size_t consumed_symbol_count,
-                            const Production &);
+  static ParseAction Reduce(rules::Symbol symbol, size_t child_count, const Production &);
   static ParseAction ShiftExtra();
   bool operator==(const ParseAction &) const;
   bool operator<(const ParseAction &) const;
-  rules::Associativity associativity() const;
-  int precedence() const;
 
   const Production *production;
   size_t consumed_symbol_count;
@@ -44,6 +41,7 @@ struct ParseAction {
   bool extra;
   bool fragile;
   ParseStateId state_index;
+  unsigned rename_sequence_id;
 };
 
 struct ParseTableEntry {
@@ -76,12 +74,15 @@ struct ParseTableSymbolMetadata {
   bool structural;
 };
 
+using RenameSequence = std::vector<std::string>;
+
 struct ParseTable {
   ParseAction &add_terminal_action(ParseStateId state_id, rules::Symbol, ParseAction);
   void set_nonterminal_action(ParseStateId, rules::Symbol::Index, ParseStateId);
 
   std::vector<ParseState> states;
   std::map<rules::Symbol, ParseTableSymbolMetadata> symbols;
+  std::vector<RenameSequence> rename_sequences;
 };
 
 }  // namespace tree_sitter

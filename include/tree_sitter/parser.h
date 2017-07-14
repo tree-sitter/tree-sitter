@@ -9,9 +9,8 @@ extern "C" {
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef unsigned short TSSymbol;
-typedef unsigned short TSStateId;
-
+typedef uint16_t TSSymbol;
+typedef uint16_t TSStateId;
 typedef uint8_t TSExternalTokenState[16];
 
 #define ts_builtin_sym_error ((TSSymbol)-1)
@@ -40,16 +39,19 @@ typedef enum {
 
 typedef struct {
   union {
-    TSStateId to_state;
     struct {
-      short dynamic_precedence;
-      TSSymbol symbol;
-      unsigned short child_count;
+      TSStateId to_state;
+      bool extra : 1;
     };
-  } params;
+    struct {
+      TSSymbol symbol;
+      uint16_t dynamic_precedence;
+      uint8_t child_count;
+      uint8_t rename_sequence_id : 7;
+      bool fragile : 1;
+    };
+  };
   TSParseActionType type : 4;
-  bool extra : 1;
-  bool fragile : 1;
 } TSParseAction;
 
 typedef struct {
@@ -60,7 +62,7 @@ typedef struct {
 typedef union {
   TSParseAction action;
   struct {
-    unsigned short count;
+    uint8_t count;
     bool reusable : 1;
     bool depends_on_lookahead : 1;
   };
@@ -73,9 +75,11 @@ typedef struct TSLanguage {
   uint32_t external_token_count;
   const char **symbol_names;
   const TSSymbolMetadata *symbol_metadata;
-  const unsigned short *parse_table;
+  const uint16_t *parse_table;
   const TSParseActionEntry *parse_actions;
   const TSLexMode *lex_modes;
+  const TSSymbol *rename_sequences;
+  uint16_t max_rename_sequence_length;
   bool (*lex_fn)(TSLexer *, TSStateId);
   struct {
     const bool *states;
@@ -127,70 +131,62 @@ typedef struct TSLanguage {
 #define STATE(id) id
 #define ACTIONS(id) id
 
-#define SHIFT(to_state_value)                                                 \
-  {                                                                           \
-    {                                                                         \
-      .type = TSParseActionTypeShift, .params = {.to_state = to_state_value } \
-    }                                                                         \
+#define SHIFT(to_state_value)         \
+  {                                   \
+    {                                 \
+      .type = TSParseActionTypeShift, \
+      .to_state = to_state_value,     \
+    }                                 \
   }
 
-#define RECOVER(to_state_value)                                                 \
-  {                                                                             \
-    {                                                                           \
-      .type = TSParseActionTypeRecover, .params = {.to_state = to_state_value } \
-    }                                                                           \
+#define RECOVER(to_state_value)         \
+  {                                     \
+    {                                   \
+      .type = TSParseActionTypeRecover, \
+      .to_state = to_state_value        \
+    }                                   \
   }
 
-#define SHIFT_EXTRA()                                 \
-  {                                                   \
-    { .type = TSParseActionTypeShift, .extra = true } \
+#define SHIFT_EXTRA()                 \
+  {                                   \
+    {                                 \
+      .type = TSParseActionTypeShift, \
+      .extra = true                   \
+    }                                 \
   }
 
-#define REDUCE(symbol_val, child_count_val, dynamic_precedence_val)     \
-  {                                                                     \
-    {                                                                   \
-      .type = TSParseActionTypeReduce,                                  \
-      .params = {                                                       \
-        .symbol = symbol_val,                                           \
-        .child_count = child_count_val,                                 \
-        .dynamic_precedence = dynamic_precedence_val,                   \
-      }                                                                 \
-    }                                                                   \
+#define REDUCE(symbol_val, child_count_val, ...) \
+  {                                              \
+    {                                            \
+      .type = TSParseActionTypeReduce,           \
+      .symbol = symbol_val,                      \
+      .child_count = child_count_val,            \
+      __VA_ARGS__                                \
+    }                                            \
   }
-
-#define REDUCE_FRAGILE(symbol_val, child_count_val, dynamic_precedence_val) \
-{                                                                           \
-  {                                                                         \
-    .type = TSParseActionTypeReduce,                                        \
-    .fragile = true,                                                        \
-    .params = {                                                             \
-      .symbol = symbol_val,                                                 \
-      .child_count = child_count_val,                                       \
-      .dynamic_precedence = dynamic_precedence_val,                         \
-    }                                                                       \
-  }                                                                         \
-}
 
 #define ACCEPT_INPUT()                  \
   {                                     \
     { .type = TSParseActionTypeAccept } \
   }
 
-#define GET_LANGUAGE(...)                                          \
-  static TSLanguage language = {                                   \
-    .version = LANGUAGE_VERSION,                                   \
-    .symbol_count = SYMBOL_COUNT,                                  \
-    .token_count = TOKEN_COUNT,                                    \
-    .symbol_metadata = ts_symbol_metadata,                         \
-    .parse_table = (const unsigned short *)ts_parse_table,         \
-    .parse_actions = ts_parse_actions,                             \
-    .lex_modes = ts_lex_modes,                                     \
-    .symbol_names = ts_symbol_names,                               \
-    .lex_fn = ts_lex,                                              \
-    .external_token_count = EXTERNAL_TOKEN_COUNT,                  \
-    .external_scanner = {__VA_ARGS__}                              \
-  };                                                               \
-  return &language                                                 \
+#define GET_LANGUAGE(...)                                      \
+  static TSLanguage language = {                               \
+    .version = LANGUAGE_VERSION,                               \
+    .symbol_count = SYMBOL_COUNT,                              \
+    .token_count = TOKEN_COUNT,                                \
+    .symbol_metadata = ts_symbol_metadata,                     \
+    .parse_table = (const unsigned short *)ts_parse_table,     \
+    .parse_actions = ts_parse_actions,                         \
+    .lex_modes = ts_lex_modes,                                 \
+    .symbol_names = ts_symbol_names,                           \
+    .rename_sequences = (const TSSymbol *)ts_rename_sequences, \
+    .max_rename_sequence_length = MAX_RENAME_SEQUENCE_LENGTH,  \
+    .lex_fn = ts_lex,                                          \
+    .external_token_count = EXTERNAL_TOKEN_COUNT,              \
+    .external_scanner = {__VA_ARGS__}                          \
+  };                                                           \
+  return &language                                             \
 
 #ifdef __cplusplus
 }

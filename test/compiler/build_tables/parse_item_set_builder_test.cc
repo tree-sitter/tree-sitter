@@ -12,6 +12,7 @@ START_TEST
 
 describe("ParseItemSetBuilder", []() {
   vector<LexicalVariable> lexical_variables;
+
   for (size_t i = 0; i < 20; i++) {
     lexical_variables.push_back({
       "token_" + to_string(i),
@@ -27,23 +28,23 @@ describe("ParseItemSetBuilder", []() {
     SyntaxGrammar grammar{{
       SyntaxVariable{"rule0", VariableTypeNamed, {
         Production{{
-          {Symbol::non_terminal(1), 0, AssociativityNone},
-          {Symbol::terminal(11), 0, AssociativityNone},
+          {Symbol::non_terminal(1), 0, AssociativityNone, ""},
+          {Symbol::terminal(11), 0, AssociativityNone, ""},
         }, 0},
       }},
       SyntaxVariable{"rule1", VariableTypeNamed, {
         Production{{
-          {Symbol::terminal(12), 0, AssociativityNone},
-          {Symbol::terminal(13), 0, AssociativityNone},
+          {Symbol::terminal(12), 0, AssociativityNone, ""},
+          {Symbol::terminal(13), 0, AssociativityNone, ""},
         }, 0},
         Production{{
-          {Symbol::non_terminal(2), 0, AssociativityNone},
+          {Symbol::non_terminal(2), 0, AssociativityNone, ""},
         }, 0}
       }},
       SyntaxVariable{"rule2", VariableTypeNamed, {
         Production{{
-          {Symbol::terminal(14), 0, AssociativityNone},
-          {Symbol::terminal(15), 0, AssociativityNone},
+          {Symbol::terminal(14), 0, AssociativityNone, ""},
+          {Symbol::terminal(15), 0, AssociativityNone, ""},
         }, 0}
       }},
     }, {}, {}, {}, {}};
@@ -52,21 +53,21 @@ describe("ParseItemSetBuilder", []() {
       return grammar.variables[variable_index].productions[production_index];
     };
 
-    ParseItemSet item_set({
+    ParseItemSet item_set{{
       {
         ParseItem(rules::START(), production(0, 0), 0),
         LookaheadSet({ Symbol::terminal(10) }),
       }
-    });
+    }};
 
     ParseItemSetBuilder item_set_builder(grammar, lexical_grammar);
     item_set_builder.apply_transitive_closure(&item_set);
 
-    AssertThat(item_set, Equals(ParseItemSet({
+    AssertThat(item_set, Equals(ParseItemSet{{
       {
         ParseItem(rules::START(), production(0, 0), 0),
         LookaheadSet({ Symbol::terminal(10) })
-        },
+      },
       {
         ParseItem(Symbol::non_terminal(1), production(1, 0), 0),
         LookaheadSet({ Symbol::terminal(11) })
@@ -79,21 +80,21 @@ describe("ParseItemSetBuilder", []() {
         ParseItem(Symbol::non_terminal(2), production(2, 0), 0),
         LookaheadSet({ Symbol::terminal(11) })
       },
-    })));
+    }}));
   });
 
   it("handles rules with empty productions", [&]() {
     SyntaxGrammar grammar{{
       SyntaxVariable{"rule0", VariableTypeNamed, {
         Production{{
-          {Symbol::non_terminal(1), 0, AssociativityNone},
-          {Symbol::terminal(11), 0, AssociativityNone},
+          {Symbol::non_terminal(1), 0, AssociativityNone, ""},
+          {Symbol::terminal(11), 0, AssociativityNone, ""},
         }, 0},
       }},
       SyntaxVariable{"rule1", VariableTypeNamed, {
         Production{{
-          {Symbol::terminal(12), 0, AssociativityNone},
-          {Symbol::terminal(13), 0, AssociativityNone},
+          {Symbol::terminal(12), 0, AssociativityNone, ""},
+          {Symbol::terminal(13), 0, AssociativityNone, ""},
         }, 0},
         Production{{}, 0}
       }},
@@ -103,17 +104,17 @@ describe("ParseItemSetBuilder", []() {
       return grammar.variables[variable_index].productions[production_index];
     };
 
-    ParseItemSet item_set({
+    ParseItemSet item_set{{
       {
         ParseItem(rules::START(), production(0, 0), 0),
         LookaheadSet({ Symbol::terminal(10) }),
       }
-    });
+    }};
 
     ParseItemSetBuilder item_set_builder(grammar, lexical_grammar);
     item_set_builder.apply_transitive_closure(&item_set);
 
-    AssertThat(item_set, Equals(ParseItemSet({
+    AssertThat(item_set, Equals(ParseItemSet{{
       {
         ParseItem(rules::START(), production(0, 0), 0),
         LookaheadSet({ Symbol::terminal(10) })
@@ -126,7 +127,7 @@ describe("ParseItemSetBuilder", []() {
         ParseItem(Symbol::non_terminal(1), production(1, 1), 0),
         LookaheadSet({ Symbol::terminal(11) })
       },
-    })));
+    }}));
   });
 });
 

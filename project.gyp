@@ -38,6 +38,7 @@
         'src/compiler/prepare_grammar/prepare_grammar.cc',
         'src/compiler/prepare_grammar/token_description.cc',
         'src/compiler/rule.cc',
+        'src/compiler/syntax_grammar.cc',
         'src/compiler/rules/character_set.cc',
         'src/compiler/rules/choice.cc',
         'src/compiler/rules/metadata.cc',
