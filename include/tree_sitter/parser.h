@@ -45,7 +45,7 @@ typedef struct {
     };
     struct {
       TSSymbol symbol;
-      uint16_t dynamic_precedence;
+      int16_t dynamic_precedence;
       uint8_t child_count;
       uint8_t rename_sequence_id : 7;
       bool fragile : 1;
