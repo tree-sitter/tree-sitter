@@ -36,9 +36,6 @@ struct ParseItem {
 };
 
 struct ParseItemSet {
-  ParseItemSet();
-  explicit ParseItemSet(const std::map<ParseItem, LookaheadSet> &);
-
   bool operator==(const ParseItemSet &) const;
   void add(const ParseItemSet &);
   size_t unfinished_item_signature() const;

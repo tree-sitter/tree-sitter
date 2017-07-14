@@ -1,8 +1,9 @@
 #include "compiler/prepare_grammar/flatten_grammar.h"
-#include <vector>
+#include <algorithm>
 #include <cassert>
 #include <cmath>
-#include <algorithm>
+#include <string>
+#include <vector>
 #include "compiler/prepare_grammar/extract_choices.h"
 #include "compiler/prepare_grammar/initial_syntax_grammar.h"
 #include "compiler/grammar.h"
@@ -13,6 +14,7 @@ namespace prepare_grammar {
 
 using std::find;
 using std::pair;
+using std::string;
 using std::vector;
 using rules::Rule;
 
@@ -20,6 +22,7 @@ class FlattenRule {
  private:
   vector<int> precedence_stack;
   vector<rules::Associativity> associativity_stack;
+  vector<string> name_replacement_stack;
   Production production;
 
   void apply(const Rule &rule, bool at_end) {
@@ -28,7 +31,8 @@ class FlattenRule {
         production.steps.push_back(ProductionStep{
           symbol,
           precedence_stack.back(),
-          associativity_stack.back()
+          associativity_stack.back(),
+          name_replacement_stack.back()
         });
       },
 
@@ -39,6 +43,10 @@ class FlattenRule {
 
         if (metadata.params.has_associativity) {
           associativity_stack.push_back(metadata.params.associativity);
+        }
+
+        if (!metadata.params.name_replacement.empty()) {
+          name_replacement_stack.push_back(metadata.params.name_replacement);
         }
 
         if (abs(metadata.params.dynamic_precedence) > abs(production.dynamic_precedence)) {
@@ -56,6 +64,10 @@ class FlattenRule {
           associativity_stack.pop_back();
           if (!at_end) production.back().associativity = associativity_stack.back();
         }
+
+        if (!metadata.params.name_replacement.empty()) {
+          name_replacement_stack.pop_back();
+        }
       },
 
       [&](const rules::Seq &sequence) {
@@ -72,7 +84,10 @@ class FlattenRule {
   }
 
  public:
-  FlattenRule() : precedence_stack({ 0 }), associativity_stack({ rules::AssociativityNone }) {}
+  FlattenRule() :
+    precedence_stack({0}),
+    associativity_stack({rules::AssociativityNone}),
+    name_replacement_stack({""}) {}
 
   Production flatten(const Rule &rule) {
     apply(rule, true);

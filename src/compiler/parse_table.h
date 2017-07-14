@@ -41,6 +41,7 @@ struct ParseAction {
   bool extra;
   bool fragile;
   ParseStateId state_index;
+  unsigned rename_sequence_id;
 };
 
 struct ParseTableEntry {
@@ -73,12 +74,15 @@ struct ParseTableSymbolMetadata {
   bool structural;
 };
 
+using RenameSequence = std::vector<std::string>;
+
 struct ParseTable {
   ParseAction &add_terminal_action(ParseStateId state_id, rules::Symbol, ParseAction);
   void set_nonterminal_action(ParseStateId, rules::Symbol::Index, ParseStateId);
 
   std::vector<ParseState> states;
   std::map<rules::Symbol, ParseTableSymbolMetadata> symbols;
+  std::vector<RenameSequence> rename_sequences;
 };
 
 }  // namespace tree_sitter

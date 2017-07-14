@@ -1,6 +1,7 @@
 #ifndef COMPILER_RULES_METADATA_H_
 #define COMPILER_RULES_METADATA_H_
 
+#include <string>
 #include <memory>
 
 namespace tree_sitter {
@@ -22,6 +23,7 @@ struct MetadataParams {
   bool is_string;
   bool is_active;
   bool is_main_token;
+  std::string name_replacement;
 
   inline MetadataParams() :
     precedence{0}, dynamic_precedence{0}, associativity{AssociativityNone},
@@ -38,7 +40,8 @@ struct MetadataParams {
       is_token == other.is_token &&
       is_string == other.is_string &&
       is_active == other.is_active &&
-      is_main_token == other.is_main_token
+      is_main_token == other.is_main_token &&
+      name_replacement == other.name_replacement
     );
   }
 };
@@ -59,6 +62,7 @@ struct Metadata {
   static Metadata prec_dynamic(int precedence, const Rule &rule);
   static Metadata separator(const Rule &rule);
   static Metadata main_token(const Rule &rule);
+  static Metadata rename(std::string &&name, const Rule &rule);
 
   bool operator==(const Metadata &other) const;
 };

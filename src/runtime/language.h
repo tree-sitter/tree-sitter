@@ -44,7 +44,7 @@ static inline TSStateId ts_language_next_state(const TSLanguage *self,
     if (count > 0) {
       TSParseAction action = actions[count - 1];
       if (action.type == TSParseActionTypeShift || action.type == TSParseActionTypeRecover) {
-        return action.params.to_state;
+        return action.to_state;
       }
     }
     return 0;

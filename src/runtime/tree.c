@@ -22,6 +22,7 @@ Tree *ts_tree_make_leaf(TSSymbol sym, Length padding, Length size,
     .visible_child_count = 0,
     .named_child_count = 0,
     .children = NULL,
+    .rename_sequence_id = 0,
     .padding = padding,
     .visible = metadata.visible,
     .named = metadata.named,
@@ -120,18 +121,23 @@ Tree *ts_tree_make_copy(Tree *self) {
   return result;
 }
 
-void ts_tree_assign_parents(Tree *self, TreePath *path) {
+void ts_tree_assign_parents(Tree *self, TreePath *path, const TSLanguage *language) {
   array_clear(path);
   array_push(path, ((TreePathEntry){self, length_zero(), 0}));
   while (path->size > 0) {
     Tree *tree = array_pop(path).tree;
     Length offset = length_zero();
+    const TSSymbol *rename_symbols = language->rename_sequences +
+      tree->rename_sequence_id * language->max_rename_sequence_length;
     for (uint32_t i = 0; i < tree->child_count; i++) {
       Tree *child = tree->children[i];
       if (child->context.parent != tree || child->context.index != i) {
         child->context.parent = tree;
         child->context.index = i;
         child->context.offset = offset;
+        if (tree->rename_sequence_id && rename_symbols[i] != 0) {
+          child->context.rename_symbol = rename_symbols[i];
+        }
         array_push(path, ((TreePathEntry){child, length_zero(), 0}));
       }
       offset = length_add(offset, ts_tree_total_size(child));
@@ -472,36 +478,32 @@ static size_t ts_tree__write_to_string(const Tree *self,
                                        const TSLanguage *language, char *string,
                                        size_t limit, bool is_root,
                                        bool include_all) {
-  if (!self)
-    return snprintf(string, limit, "(NULL)");
+  if (!self) return snprintf(string, limit, "(NULL)");
 
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
   bool visible = include_all || is_root || (self->visible && self->named);
 
-  if (visible && !is_root)
+  if (visible && !is_root) {
     cursor += snprintf(*writer, limit, " ");
+  }
 
   if (visible) {
-    if (self->symbol == ts_builtin_sym_error && self->child_count == 0 &&
-        self->size.chars > 0) {
+    if (self->symbol == ts_builtin_sym_error && self->child_count == 0 && self->size.chars > 0) {
       cursor += snprintf(*writer, limit, "(UNEXPECTED ");
-      cursor +=
-        ts_tree__write_char_to_string(*writer, limit, self->lookahead_char);
+      cursor += ts_tree__write_char_to_string(*writer, limit, self->lookahead_char);
     } else {
-      cursor += snprintf(*writer, limit, "(%s",
-                         ts_language_symbol_name(language, self->symbol));
+      TSSymbol symbol = self->context.rename_symbol ? self->context.rename_symbol : self->symbol;
+      cursor += snprintf(*writer, limit, "(%s", ts_language_symbol_name(language, symbol));
     }
   }
 
   for (uint32_t i = 0; i < self->child_count; i++) {
     Tree *child = self->children[i];
-    cursor += ts_tree__write_to_string(child, language, *writer, limit, false,
-                                       include_all);
+    cursor += ts_tree__write_to_string(child, language, *writer, limit, false, include_all);
   }
 
-  if (visible)
-    cursor += snprintf(*writer, limit, ")");
+  if (visible) cursor += snprintf(*writer, limit, ")");
 
   return cursor - string;
 }
@@ -518,8 +520,8 @@ char *ts_tree_string(const Tree *self, const TSLanguage *language,
 
 void ts_tree__print_dot_graph(const Tree *self, uint32_t byte_offset,
                               const TSLanguage *language, FILE *f) {
-  fprintf(f, "tree_%p [label=\"%s\"", self,
-          ts_language_symbol_name(language, self->symbol));
+  TSSymbol symbol = self->context.rename_symbol ? self->context.rename_symbol : self->symbol;
+  fprintf(f, "tree_%p [label=\"%s\"", self, ts_language_symbol_name(language, symbol));
 
   if (self->child_count == 0)
     fprintf(f, ", shape=plaintext");

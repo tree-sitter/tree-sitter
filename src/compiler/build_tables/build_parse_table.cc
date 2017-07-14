@@ -63,21 +63,26 @@ class ParseTableBuilder {
       processing_recovery_states(false) {}
 
   pair<ParseTable, CompileError> build() {
+    // Ensure that the empty rename sequence has index 0.
+    parse_table.rename_sequences.push_back({});
+
+    // Ensure that the error state has index 0.
+    ParseStateId error_state_id = add_parse_state({}, ParseItemSet{});
+
+    // Add the starting state.
     Symbol start_symbol = grammar.variables.empty() ?
       Symbol::terminal(0) :
       Symbol::non_terminal(0);
-    Production start_production{{{start_symbol, 0, rules::AssociativityNone}}, 0};
-
-    ParseStateId error_state_id = add_parse_state({}, ParseItemSet());
-    add_parse_state({}, ParseItemSet({
+    Production start_production{{{start_symbol, 0, rules::AssociativityNone, ""}}, 0};
+    add_parse_state({}, ParseItemSet{{
       {
         ParseItem(rules::START(), start_production, 0),
         LookaheadSet({END_OF_INPUT()}),
       },
-    }));
+    }});
 
     CompileError error = process_part_state_queue();
-    if (error.type != TSCompileErrorTypeNone) return {parse_table, error};
+    if (error) return {parse_table, error};
 
     compute_unmergable_token_pairs();
 
@@ -191,9 +196,14 @@ class ParseTableBuilder {
       // If the item is finished, immediately add a Reduce or Accept action to
       // the parse table for each of its lookahead terminals.
       if (item.is_done()) {
-        ParseAction action = (item.lhs() == rules::START()) ?
-          ParseAction::Accept() :
-          ParseAction::Reduce(item.lhs(), item.step_index, *item.production);
+        ParseAction action;
+
+        if (item.lhs() == rules::START()) {
+          action = ParseAction::Accept();
+        } else {
+          action = ParseAction::Reduce(item.lhs(), item.step_index, *item.production);
+          action.rename_sequence_id = get_rename_sequence_id(*item.production);
+        }
 
         int precedence = item.precedence();
         lookahead_symbols.for_each([&](Symbol lookahead) {
@@ -686,6 +696,27 @@ class ParseTableBuilder {
 
   bool has_fragile_production(const Production *production) {
     return fragile_productions.find(production) != fragile_productions.end();
+  }
+
+  unsigned get_rename_sequence_id(const Production &production) {
+    RenameSequence rename_sequence;
+    for (unsigned i = 0, n = production.size(); i < n; i++) {
+      auto &step = production.at(i);
+      if (!step.name_replacement.empty()) {
+        rename_sequence.resize(production.size());
+        rename_sequence[i] = step.name_replacement;
+      }
+    }
+
+    auto begin = parse_table.rename_sequences.begin();
+    auto end = parse_table.rename_sequences.end();
+    auto iter = find(begin, end, rename_sequence);
+    if (iter != end) {
+      return iter - begin;
+    } else {
+      parse_table.rename_sequences.push_back(move(rename_sequence));
+      return parse_table.rename_sequences.size() - 1;
+    }
   }
 
   SymbolSequence append_symbol(const SymbolSequence &sequence, const Symbol &symbol) {

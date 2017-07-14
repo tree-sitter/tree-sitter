@@ -19,6 +19,7 @@ typedef struct Tree {
     struct Tree *parent;
     uint32_t index;
     Length offset;
+    TSSymbol rename_symbol;
   } context;
 
   uint32_t child_count;
@@ -26,6 +27,7 @@ typedef struct Tree {
     struct {
       uint32_t visible_child_count;
       uint32_t named_child_count;
+      unsigned short rename_sequence_id;
       struct Tree **children;
     };
     TSExternalTokenState external_token_state;
@@ -85,7 +87,7 @@ int ts_tree_compare(const Tree *tree1, const Tree *tree2);
 uint32_t ts_tree_start_column(const Tree *self);
 uint32_t ts_tree_end_column(const Tree *self);
 void ts_tree_set_children(Tree *, uint32_t, Tree **);
-void ts_tree_assign_parents(Tree *, TreePath *);
+void ts_tree_assign_parents(Tree *, TreePath *, const TSLanguage *);
 void ts_tree_edit(Tree *, const TSInputEdit *edit);
 char *ts_tree_string(const Tree *, const TSLanguage *, bool include_all);
 void ts_tree_print_dot_graph(const Tree *, const TSLanguage *, FILE *);
