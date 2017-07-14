@@ -38,6 +38,14 @@
       }
     },
 
+    "inline": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z_]\\w*$"
+      }
+    },
+
     "conflicts": {
       "type": "array",
       "items": {
