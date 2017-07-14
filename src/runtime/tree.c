@@ -7,6 +7,7 @@
 #include "runtime/alloc.h"
 #include "runtime/tree.h"
 #include "runtime/length.h"
+#include "runtime/language.h"
 #include "runtime/error_costs.h"
 
 TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
@@ -127,16 +128,15 @@ void ts_tree_assign_parents(Tree *self, TreePath *path, const TSLanguage *langua
   while (path->size > 0) {
     Tree *tree = array_pop(path).tree;
     Length offset = length_zero();
-    const TSSymbol *rename_symbols = language->rename_sequences +
-      tree->rename_sequence_id * language->max_rename_sequence_length;
+    const TSSymbol *rename_sequence = ts_language_rename_sequence(language, tree->rename_sequence_id);
     for (uint32_t i = 0; i < tree->child_count; i++) {
       Tree *child = tree->children[i];
       if (child->context.parent != tree || child->context.index != i) {
         child->context.parent = tree;
         child->context.index = i;
         child->context.offset = offset;
-        if (tree->rename_sequence_id && rename_symbols[i] != 0) {
-          child->context.rename_symbol = rename_symbols[i];
+        if (rename_sequence && rename_sequence[i] != 0) {
+          child->context.rename_symbol = rename_sequence[i];
         }
         array_push(path, ((TreePathEntry){child, length_zero(), 0}));
       }
@@ -146,7 +146,8 @@ void ts_tree_assign_parents(Tree *self, TreePath *path, const TSLanguage *langua
 }
 
 
-void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children) {
+void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children,
+                          const TSSymbol *rename_sequence) {
   if (self->child_count > 0)
     ts_free(self->children);
 
@@ -176,8 +177,9 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children) {
 
     if (child->visible) {
       self->visible_child_count++;
-      if (child->named)
+      if (child->named || (rename_sequence && rename_sequence[i] != 0)) {
         self->named_child_count++;
+      }
     } else if (child->child_count > 0) {
       self->visible_child_count += child->visible_child_count;
       self->named_child_count += child->named_child_count;
@@ -208,11 +210,11 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children) {
   }
 }
 
-Tree *ts_tree_make_node(TSSymbol symbol, uint32_t child_count,
-                          Tree **children, TSSymbolMetadata metadata) {
+Tree *ts_tree_make_node(TSSymbol symbol, uint32_t child_count, Tree **children,
+                        TSSymbolMetadata metadata, const TSSymbol *rename_sequence) {
   Tree *result =
     ts_tree_make_leaf(symbol, length_zero(), length_zero(), metadata);
-  ts_tree_set_children(result, child_count, children);
+  ts_tree_set_children(result, child_count, children, rename_sequence);
   return result;
 }
 
@@ -230,7 +232,7 @@ Tree *ts_tree_make_error_node(TreeArray *children) {
 
   Tree *result = ts_tree_make_node(
     ts_builtin_sym_error, children->size, children->contents,
-    (TSSymbolMetadata){.extra = false, .visible = true, .named = true });
+    (TSSymbolMetadata){.extra = false, .visible = true, .named = true }, NULL);
 
   result->fragile_left = true;
   result->fragile_right = true;
@@ -482,7 +484,11 @@ static size_t ts_tree__write_to_string(const Tree *self,
 
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
-  bool visible = include_all || is_root || (self->visible && self->named);
+  bool visible =
+    include_all ||
+    is_root ||
+    (self->visible && self->named) ||
+    self->context.rename_symbol != 0;
 
   if (visible && !is_root) {
     cursor += snprintf(*writer, limit, " ");

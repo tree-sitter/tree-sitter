@@ -63,6 +63,13 @@ ts_language_enabled_external_tokens(const TSLanguage *self,
   }
 }
 
+static inline const TSSymbol *
+ts_language_rename_sequence(const TSLanguage *self, unsigned id) {
+  return id > 0 ?
+    self->rename_sequences + id * self->max_rename_sequence_length :
+    NULL;
+}
+
 #ifdef __cplusplus
 }
 #endif

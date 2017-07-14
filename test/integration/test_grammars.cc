@@ -3,6 +3,7 @@
 #include "helpers/load_language.h"
 #include "helpers/stderr_logger.h"
 #include "helpers/file_helpers.h"
+#include "helpers/tree_helpers.h"
 #include "runtime/alloc.h"
 
 START_TEST
@@ -54,6 +55,7 @@ for (auto &language_name : test_languages) {
         ts_document_parse(document);
 
         TSNode root_node = ts_document_root_node(document);
+        assert_consistent_tree_sizes(root_node);
         const char *node_string = ts_node_string(root_node, document);
         string result(node_string);
         ts_free((void *)node_string);

@@ -72,7 +72,7 @@ describe("Tree", []() {
       parent1 = ts_tree_make_node(symbol3, 2, tree_array({
         tree1,
         tree2,
-      }), visible);
+      }), visible, nullptr);
     });
 
     after_each([&]() {
@@ -103,7 +103,7 @@ describe("Tree", []() {
         parent = ts_tree_make_node(symbol3, 2, tree_array({
           tree1,
           tree2,
-        }), visible);
+        }), visible, nullptr);
       });
 
       after_each([&]() {
@@ -127,7 +127,7 @@ describe("Tree", []() {
         parent = ts_tree_make_node(symbol3, 2, tree_array({
           tree1,
           tree2,
-        }), visible);
+        }), visible, nullptr);
       });
 
       after_each([&]() {
@@ -151,7 +151,7 @@ describe("Tree", []() {
         parent = ts_tree_make_node(symbol3, 2, tree_array({
           tree1,
           tree2,
-        }), visible);
+        }), visible, nullptr);
       });
 
       after_each([&]() {
@@ -173,7 +173,7 @@ describe("Tree", []() {
         ts_tree_make_leaf(symbol2, {2, 2, {0, 2}}, {3, 3, {0, 3}}, visible),
         ts_tree_make_leaf(symbol3, {2, 2, {0, 2}}, {3, 3, {0, 3}}, visible),
         ts_tree_make_leaf(symbol4, {2, 2, {0, 2}}, {3, 3, {0, 3}}, visible),
-      }), visible);
+      }), visible, nullptr);
 
       AssertThat(tree->padding, Equals<Length>({2, 2, {0, 2}}));
       AssertThat(tree->size, Equals<Length>({13, 13, {0, 13}}));
@@ -350,14 +350,14 @@ describe("Tree", []() {
       Tree *parent = ts_tree_make_node(symbol2, 2, tree_array({
         leaf,
         leaf_copy,
-      }), visible);
+      }), visible, nullptr);
       ts_tree_retain(leaf);
       ts_tree_retain(leaf_copy);
 
       Tree *parent_copy = ts_tree_make_node(symbol2, 2, tree_array({
         leaf,
         leaf_copy,
-      }), visible);
+      }), visible, nullptr);
       ts_tree_retain(leaf);
       ts_tree_retain(leaf_copy);
 
@@ -401,14 +401,14 @@ describe("Tree", []() {
       Tree *parent = ts_tree_make_node(symbol2, 2, tree_array({
         leaf,
         leaf2,
-      }), visible);
+      }), visible, nullptr);
       ts_tree_retain(leaf);
       ts_tree_retain(leaf2);
 
       Tree *different_parent = ts_tree_make_node(symbol2, 2, tree_array({
         leaf2,
         leaf,
-      }), visible);
+      }), visible, nullptr);
       ts_tree_retain(leaf2);
       ts_tree_retain(leaf);
 
@@ -438,14 +438,14 @@ describe("Tree", []() {
           (tree3 = make_external(ts_tree_make_leaf(symbol3, padding, size, visible))),
           (tree4 = ts_tree_make_leaf(symbol4, padding, size, visible)),
           (tree5 = ts_tree_make_leaf(symbol5, padding, size, visible)),
-        }), visible)),
+        }), visible, nullptr)),
         (tree6 = ts_tree_make_node(symbol6, 2, tree_array({
           (tree7 = ts_tree_make_node(symbol7, 1, tree_array({
             (tree8 = ts_tree_make_leaf(symbol8, padding, size, visible)),
-          }), visible)),
+          }), visible, nullptr)),
           (tree9 = ts_tree_make_leaf(symbol9, padding, size, visible)),
-        }), visible)),
-      }), visible);
+        }), visible, nullptr)),
+      }), visible, nullptr);
 
       auto token = ts_tree_last_external_token(tree1);
       AssertThat(token, Equals(tree3));

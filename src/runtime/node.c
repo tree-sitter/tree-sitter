@@ -304,7 +304,8 @@ bool ts_node_eq(TSNode self, TSNode other) {
 }
 
 bool ts_node_is_named(TSNode self) {
-  return ts_node__tree(self)->named;
+  const Tree *tree = ts_node__tree(self);
+  return tree->named || tree->context.rename_symbol != 0;
 }
 
 bool ts_node_has_changes(TSNode self) {

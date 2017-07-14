@@ -75,7 +75,7 @@ TreeArray ts_tree_array_remove_last_n(TreeArray *, uint32_t);
 TreeArray ts_tree_array_remove_trailing_extras(TreeArray *);
 
 Tree *ts_tree_make_leaf(TSSymbol, Length, Length, TSSymbolMetadata);
-Tree *ts_tree_make_node(TSSymbol, uint32_t, Tree **, TSSymbolMetadata);
+Tree *ts_tree_make_node(TSSymbol, uint32_t, Tree **, TSSymbolMetadata, const TSSymbol *);
 Tree *ts_tree_make_copy(Tree *child);
 Tree *ts_tree_make_error_node(TreeArray *);
 Tree *ts_tree_make_error(Length, Length, int32_t);
@@ -86,7 +86,7 @@ int ts_tree_compare(const Tree *tree1, const Tree *tree2);
 
 uint32_t ts_tree_start_column(const Tree *self);
 uint32_t ts_tree_end_column(const Tree *self);
-void ts_tree_set_children(Tree *, uint32_t, Tree **);
+void ts_tree_set_children(Tree *, uint32_t, Tree **, const TSSymbol *);
 void ts_tree_assign_parents(Tree *, TreePath *, const TSLanguage *);
 void ts_tree_edit(Tree *, const TSInputEdit *edit);
 char *ts_tree_string(const Tree *, const TSLanguage *, bool include_all);
