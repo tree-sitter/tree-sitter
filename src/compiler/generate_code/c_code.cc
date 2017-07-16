@@ -303,12 +303,10 @@ class CCodeGenerator {
         line("[" + to_string(state_id++) + "] = {.lex_state = ");
         add(to_string(state.lex_state_id));
 
-        bool needs_external_scanner = false;
         set<Symbol::Index> external_token_indices;
         for (const auto &pair : state.terminal_entries) {
           Symbol symbol = pair.first;
           if (symbol.is_external()) {
-            needs_external_scanner = true;
             external_token_indices.insert(symbol.index);
           } else if (symbol.is_terminal()) {
             auto corresponding_external_token =
@@ -319,7 +317,7 @@ class CCodeGenerator {
           }
         }
 
-        if (needs_external_scanner) {
+        if (!external_token_indices.empty()) {
           add(", .external_lex_state = " + add_external_scanner_state(external_token_indices));
         }
 
