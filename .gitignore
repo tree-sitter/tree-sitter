@@ -1,6 +1,8 @@
 # Compiled binaries
 out
 
+fuzz-results
+
 # Generated build config files 
 gyp-mac-tool
 Makefile

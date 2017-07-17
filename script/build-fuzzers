@@ -1,0 +1,60 @@
+#!/bin/bash
+set -e
+
+if [[ "$(uname -s)" != Linux ]]; then
+  echo "Fuzzing is only supported on Linux"
+  exit 1
+fi
+
+if [[ -z "$LIB_FUZZER_PATH" ]]; then
+  echo "LIB_FUZZER_PATH not set"
+  exit 1
+fi
+
+CC=${CC:-clang}
+CXX=${CXX:-clang++}
+LINK=${LINK:-clang++}
+
+CC=$CC CXX=$CXX LINK=$LINK ./script/configure
+
+export BUILDTYPE=Fuzz
+make runtime
+
+CFLAGS="-fsanitize=address,undefined -fsanitize-coverage=trace-pc-guard"
+CXXFLAGS="-fsanitize=address,undefined -fsanitize-coverage=trace-pc-guard"
+
+if [ -z "$@" ]; then
+  languages=$(ls test/fixtures/grammars)
+else
+  languages="$@"
+fi
+
+for lang in ${languages[@]}; do
+  echo "Building $lang fuzzer..."
+  lang_dir="test/fixtures/grammars/$lang"
+
+  # The following assumes each language is implemented as src/parser.c plus an
+  # optional scanner in src/scanner.{c,cc}
+  objects=()
+
+  lang_scanner="${lang_dir}/src/scanner"
+  if [ -e "${lang_scanner}.cc" ]; then
+    $CXX $CXXFLAGS -g -O1 "-I${lang_dir}/src" -c "${lang_scanner}.cc" -o "${lang_scanner}.o"
+    objects+=("${lang_scanner}.o")
+  elif [ -e "${lang_scanner}.c" ]; then
+    $CC $CFLAGS -std=c99 -g -O1 "-I${lang_dir}/src" -c "${lang_scanner}.c" -o "${lang_scanner}.o"
+    objects+=("${lang_scanner}.o")
+  fi
+
+
+  # Compiling with -O0 speeds up the build dramatically
+  $CC $CFLAGS -g -O0 "-I${lang_dir}/src" "${lang_dir}/src/parser.c" -c -o "${lang_dir}/src/parser.o"
+  objects+=("${lang_dir}/src/parser.o")
+
+  $CXX $CXXFLAGS -std=c++11 -Iinclude -D TSLANG="tree_sitter_$lang" \
+    "test/fuzz/fuzzer.cc" "${objects[@]}" \
+    out/Fuzz/obj.target/libruntime.a "$LIB_FUZZER_PATH" \
+    -o "out/${lang}_fuzzer"
+
+  python test/fuzz/gen-dict.py "${lang_dir}/src/grammar.json" > "out/$lang.dict"
+done

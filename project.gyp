@@ -136,6 +136,10 @@
           'OTHER_CPLUSPLUSFLAGS': ['-fsanitize=address'],
         },
       },
+      'Fuzz': {
+        'cflags': [ '-g', '-fsanitize=address,undefined', '-fsanitize-coverage=trace-pc-guard' ],
+        'ldflags': [ '-g', '-fsanitize=address,undefined', '-fsanitize-coverage=trace-pc-guard' ],
+      },
       'Release': {
         'cflags': [ '-O2', '-fno-strict-aliasing' ],
         'cflags!': [ '-O3', '-fstrict-aliasing' ],

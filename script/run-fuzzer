@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -ex
+
+if [ "$#" -lt 1 ]; then
+  echo "usage: $0 <language> <libFuzzer args...>"
+  exit 1
+fi
+
+lang="$1"
+shift # Treat remainder of arguments as libFuzzer arguments
+
+# Fuzzing logs and testcases are always written to `pwd`, so `cd` there first
+mkdir -p "fuzz-results/${lang}"
+cd "fuzz-results/${lang}"
+
+# Create a corpus directory, so new discoveries are stored on disk. These will
+# then be loaded on subsequent fuzzing runs
+mkdir -p corpus
+
+out="../../out"
+ASAN_OPTIONS="quarantine_size_mb=10:detect_leaks=1" UBSAN="print_stacktrace=1:halt_on_error=1" \
+  "${out}/${lang}_fuzzer" "-dict=${out}/${lang}.dict" "-artifact_prefix=${lang}_" -max_len=128 -timeout=1 "./corpus" "$@"
