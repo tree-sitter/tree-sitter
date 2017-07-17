@@ -72,6 +72,19 @@ describe("Document", [&]() {
         "(array (true) (false))");
     });
 
+    it("handles truncated UTF16 data", [&]() {
+      char *content = reinterpret_cast<char*>(malloc(1));
+
+      spy_input->content = string((const char *)content, 1);
+      spy_input->encoding = TSInputEncodingUTF16;
+
+      ts_document_set_input(document, spy_input->input());
+      ts_document_invalidate(document);
+      ts_document_parse(document);
+
+      free(content);
+    });
+
     it("allows columns to be measured in either bytes or characters", [&]() {
       const char16_t content[] = u"[true, false]";
       spy_input->content = string((const char *)content, sizeof(content));
