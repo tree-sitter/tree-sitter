@@ -102,7 +102,7 @@
         'externals/utf8proc/utf8proc.c',
       ],
       'cflags_c': [
-        '-std=c99'
+        '-std=c99', '-U_FORTIFY_SOURCE', '-D_FORTIFY_SOURCE=1'
       ],
       'ldflags': [
         '-g',
