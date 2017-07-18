@@ -418,10 +418,9 @@ class CCodeGenerator {
     if (!syntax_grammar.external_tokens.empty()) {
       line("void *" + external_scanner_name + "_create();");
       line("void " + external_scanner_name + "_destroy();");
-      line("void " + external_scanner_name + "_reset(void *);");
       line("bool " + external_scanner_name + "_scan(void *, TSLexer *, const bool *);");
-      line("bool " + external_scanner_name + "_serialize(void *, TSExternalTokenState);");
-      line("void " + external_scanner_name + "_deserialize(void *, const TSExternalTokenState);");
+      line("unsigned " + external_scanner_name + "_serialize(void *, char *);");
+      line("void " + external_scanner_name + "_deserialize(void *, const char *, unsigned);");
       line();
     }
 
@@ -436,7 +435,6 @@ class CCodeGenerator {
           line("ts_external_scanner_symbol_map,");
           line(external_scanner_name + "_create,");
           line(external_scanner_name + "_destroy,");
-          line(external_scanner_name + "_reset,");
           line(external_scanner_name + "_scan,");
           line(external_scanner_name + "_serialize,");
           line(external_scanner_name + "_deserialize,");

@@ -21,11 +21,12 @@ fetch_grammar() {
   )
 }
 
-fetch_grammar 'javascript' 'origin/master'
+fetch_grammar 'javascript' 'origin/new-external-scanner-api'
 fetch_grammar 'json'       'origin/master'
 fetch_grammar 'c'          'origin/master'
 fetch_grammar 'cpp'        'origin/master'
-fetch_grammar 'python'     'origin/master'
+fetch_grammar 'python'     'origin/new-external-scanner-api'
 fetch_grammar 'go'         'origin/master'
 fetch_grammar 'ruby'       'origin/master'
 fetch_grammar 'typescript' 'origin/master'
+fetch_grammar 'bash'       'origin/new-external-scanner-api'

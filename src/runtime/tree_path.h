@@ -2,6 +2,7 @@
 #define RUNTIME_TREE_PATH_H_
 
 #include "runtime/tree.h"
+#include "runtime/language.h"
 #include "runtime/error_costs.h"
 
 typedef Array(TSRange) RangeArray;
@@ -122,21 +123,79 @@ Length tree_path_end_position(TreePath *self) {
   return length_add(length_add(entry.position, entry.tree->padding), entry.tree->size);
 }
 
-static bool tree_must_eq(Tree *old_tree, Tree *new_tree) {
-  return old_tree == new_tree || (
-    !old_tree->has_changes &&
-    old_tree->symbol == new_tree->symbol &&
-    old_tree->symbol != ts_builtin_sym_error &&
-    old_tree->size.bytes == new_tree->size.bytes &&
-    old_tree->parse_state != TS_TREE_STATE_NONE &&
-    new_tree->parse_state != TS_TREE_STATE_NONE &&
-    (old_tree->parse_state == ERROR_STATE) ==
-    (new_tree->parse_state == ERROR_STATE)
-  );
+typedef enum {
+  TreePathNotEq,
+  TreePathCanEq,
+  TreePathMustEq,
+} TreePathComparison;
+
+TreePathComparison tree_path_compare(const TreePath *old_path,
+                                     const TreePath *new_path,
+                                     const TSLanguage *language) {
+  Tree *old_tree = NULL;
+  TSSymbol old_rename_symbol = 0;
+  Length old_start = length_zero();
+  for (uint32_t i = old_path->size - 1; i + 1 > 0; i--) {
+    old_tree = old_path->contents[i].tree;
+    if (old_tree->visible) {
+      old_start = old_path->contents[i].position;
+      if (i > 0) {
+        const TSSymbol *rename_sequence = ts_language_rename_sequence(
+          language,
+          old_path->contents[i - 1].tree->rename_sequence_id
+        );
+        if (rename_sequence) {
+          old_rename_symbol = rename_sequence[old_path->contents[i].child_index];
+        }
+      }
+      break;
+    }
+  }
+
+  Tree *new_tree = NULL;
+  TSSymbol new_rename_symbol = 0;
+  Length new_start = length_zero();
+  for (uint32_t i = new_path->size - 1; i + 1 > 0; i--) {
+    new_tree = new_path->contents[i].tree;
+    if (new_tree->visible) {
+      new_start = old_path->contents[i].position;
+      if (i > 0) {
+        const TSSymbol *rename_sequence = ts_language_rename_sequence(
+          language,
+          new_path->contents[i - 1].tree->rename_sequence_id
+        );
+        if (rename_sequence) {
+          new_rename_symbol = rename_sequence[new_path->contents[i].child_index];
+        }
+      }
+      break;
+    }
+  }
+
+  if (old_rename_symbol == new_rename_symbol) {
+    if (old_start.bytes == new_start.bytes) {
+      if (!old_tree->has_changes &&
+          old_tree->symbol == new_tree->symbol &&
+          old_tree->symbol != ts_builtin_sym_error &&
+          old_tree->size.bytes == new_tree->size.bytes &&
+          old_tree->parse_state != TS_TREE_STATE_NONE &&
+          new_tree->parse_state != TS_TREE_STATE_NONE &&
+          (old_tree->parse_state == ERROR_STATE) == (new_tree->parse_state == ERROR_STATE)) {
+        return TreePathMustEq;
+      }
+    }
+
+    if (old_tree->symbol == new_tree->symbol) {
+      return TreePathCanEq;
+    }
+  }
+
+  return TreePathNotEq;
 }
 
 static void tree_path_get_changes(TreePath *old_path, TreePath *new_path,
-                                  TSRange **ranges, uint32_t *range_count) {
+                                  TSRange **ranges, uint32_t *range_count,
+                                  const TSLanguage *language) {
   Length position = length_zero();
   RangeArray results = array_new();
 
@@ -144,8 +203,6 @@ static void tree_path_get_changes(TreePath *old_path, TreePath *new_path,
     bool is_changed = false;
     Length next_position = position;
 
-    Tree *old_tree = tree_path_visible_tree(old_path);
-    Tree *new_tree = tree_path_visible_tree(new_path);
     Length old_start = tree_path_start_position(old_path);
     Length new_start = tree_path_start_position(new_path);
     Length old_end = tree_path_end_position(old_path);
@@ -167,25 +224,33 @@ static void tree_path_get_changes(TreePath *old_path, TreePath *new_path,
     } else if (position.bytes < new_start.bytes) {
       is_changed = true;
       next_position = new_start;
-    } else if (old_start.bytes == new_start.bytes && tree_must_eq(old_tree, new_tree)) {
-      next_position = old_end;
-    } else if (old_tree->symbol == new_tree->symbol) {
-      if (tree_path_descend(old_path, position)) {
-        if (!tree_path_descend(new_path, position)) {
-          tree_path_ascend(old_path, 1);
-          is_changed = true;
-          next_position = new_end;
-        }
-      } else if (tree_path_descend(new_path, position)) {
-        tree_path_ascend(new_path, 1);
-        is_changed = true;
-        next_position = old_end;
-      } else {
-        next_position = length_min(old_end, new_end);
-      }
     } else {
-      is_changed = true;
-      next_position = length_min(old_end, new_end);
+      switch (tree_path_compare(old_path, new_path, language)) {
+        case TreePathMustEq:
+          next_position = old_end;
+          break;
+
+        case TreePathCanEq:
+          if (tree_path_descend(old_path, position)) {
+            if (!tree_path_descend(new_path, position)) {
+              tree_path_ascend(old_path, 1);
+              is_changed = true;
+              next_position = new_end;
+            }
+          } else if (tree_path_descend(new_path, position)) {
+            tree_path_ascend(new_path, 1);
+            is_changed = true;
+            next_position = old_end;
+          } else {
+            next_position = length_min(old_end, new_end);
+          }
+          break;
+
+        case TreePathNotEq:
+          is_changed = true;
+          next_position = length_min(old_end, new_end);
+          break;
+      }
     }
 
     bool at_old_end = old_end.bytes <= next_position.bytes;

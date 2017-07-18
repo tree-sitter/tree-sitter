@@ -143,7 +143,8 @@ void ts_document_parse_with_options(TSDocument *self, TSParseOptions options) {
       tree_path_init(&self->parser.tree_path1, old_tree);
       tree_path_init(&self->parser.tree_path2, tree);
       tree_path_get_changes(&self->parser.tree_path1, &self->parser.tree_path2,
-                            options.changed_ranges, options.changed_range_count);
+                            options.changed_ranges, options.changed_range_count,
+                            self->parser.language);
     }
 
     ts_tree_release(old_tree);

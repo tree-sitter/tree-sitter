@@ -12,6 +12,36 @@
 
 TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
 
+void ts_external_token_state_init(TSExternalTokenState *self, const char *content, unsigned length) {
+  self->length = length;
+  if (length > sizeof(self->short_data)) {
+    self->long_data = ts_malloc(length);
+    memcpy(self->long_data, content, length);
+  } else {
+    memcpy(self->short_data, content, length);
+  }
+}
+
+void ts_external_token_state_delete(TSExternalTokenState *self) {
+  if (self->length > sizeof(self->short_data)) {
+    ts_free(self->long_data);
+  }
+}
+
+const char *ts_external_token_state_data(const TSExternalTokenState *self) {
+  if (self->length > sizeof(self->short_data)) {
+    return self->long_data;
+  } else {
+    return self->short_data;
+  }
+}
+
+bool ts_external_token_state_eq(const TSExternalTokenState *a, const TSExternalTokenState *b) {
+  return a == b ||
+    (a->length == b->length &&
+     memcmp(ts_external_token_state_data(a), ts_external_token_state_data(b), a->length) == 0);
+}
+
 Tree *ts_tree_make_leaf(TSSymbol sym, Length padding, Length size,
                           TSSymbolMetadata metadata) {
   Tree *result = ts_malloc(sizeof(Tree));
@@ -258,9 +288,10 @@ recur:
       Tree *last_child = self->children[self->child_count - 1];
       ts_free(self->children);
       ts_free(self);
-
       self = last_child;
       goto recur;
+    } else if (self->has_external_tokens) {
+      ts_external_token_state_delete(&self->external_token_state);
     }
 
     ts_free(self);
@@ -553,19 +584,12 @@ void ts_tree_print_dot_graph(const Tree *self, const TSLanguage *language,
   fprintf(f, "}\n");
 }
 
-TSExternalTokenState empty_state = {
-  0, 0, 0, 0,
-  0, 0, 0, 0,
-  0, 0, 0, 0,
-  0, 0, 0, 0,
-};
+TSExternalTokenState empty_state = {.length = 0, .short_data = {}};
 
 bool ts_tree_external_token_state_eq(const Tree *self, const Tree *other) {
   const TSExternalTokenState *state1 = &empty_state;
   const TSExternalTokenState *state2 = &empty_state;
   if (self && self->has_external_tokens) state1 = &self->external_token_state;
   if (other && other->has_external_tokens) state2 = &other->external_token_state;
-  return
-    state1 == state2 ||
-    memcmp(state1, state2, sizeof(TSExternalTokenState)) == 0;
+  return ts_external_token_state_eq(state1, state2);
 }

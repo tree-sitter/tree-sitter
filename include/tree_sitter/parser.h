@@ -11,10 +11,10 @@ extern "C" {
 
 typedef uint16_t TSSymbol;
 typedef uint16_t TSStateId;
-typedef uint8_t TSExternalTokenState[16];
 
 #define ts_builtin_sym_error ((TSSymbol)-1)
 #define ts_builtin_sym_end 0
+#define TREE_SITTER_SERIALIZATION_BUFFER_SIZE 1024
 
 typedef struct {
   bool visible : 1;
@@ -86,10 +86,9 @@ typedef struct TSLanguage {
     const TSSymbol *symbol_map;
     void *(*create)();
     void (*destroy)(void *);
-    void (*reset)(void *);
     bool (*scan)(void *, TSLexer *, const bool *symbol_whitelist);
-    bool (*serialize)(void *, TSExternalTokenState);
-    void (*deserialize)(void *, const TSExternalTokenState);
+    unsigned (*serialize)(void *, char *);
+    void (*deserialize)(void *, const char *, unsigned);
   } external_scanner;
 } TSLanguage;
 
