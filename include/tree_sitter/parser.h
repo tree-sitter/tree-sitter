@@ -71,6 +71,7 @@ typedef union {
 typedef struct TSLanguage {
   uint32_t version;
   uint32_t symbol_count;
+  uint32_t rename_symbol_count;
   uint32_t token_count;
   uint32_t external_token_count;
   const char **symbol_names;
@@ -173,6 +174,7 @@ typedef struct TSLanguage {
   static TSLanguage language = {                               \
     .version = LANGUAGE_VERSION,                               \
     .symbol_count = SYMBOL_COUNT,                              \
+    .rename_symbol_count = RENAME_SYMBOL_COUNT,                \
     .token_count = TOKEN_COUNT,                                \
     .symbol_metadata = ts_symbol_metadata,                     \
     .parse_table = (const unsigned short *)ts_parse_table,     \

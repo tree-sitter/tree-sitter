@@ -264,7 +264,8 @@ TSPoint ts_node_end_point(TSNode self) {
 }
 
 TSSymbol ts_node_symbol(TSNode self) {
-  return ts_node__tree(self)->symbol;
+  const Tree *tree = ts_node__tree(self);
+  return tree->context.rename_symbol ? tree->context.rename_symbol : tree->symbol;
 }
 
 TSSymbolIterator ts_node_symbols(TSNode self) {
@@ -288,9 +289,7 @@ void ts_symbol_iterator_next(TSSymbolIterator *self) {
 }
 
 const char *ts_node_type(TSNode self, const TSDocument *document) {
-  const Tree *tree = ts_node__tree(self);
-  TSSymbol symbol = tree->context.rename_symbol ? tree->context.rename_symbol : tree->symbol;
-  return ts_language_symbol_name(document->parser.language, symbol);
+  return ts_language_symbol_name(document->parser.language, ts_node_symbol(self));
 }
 
 char *ts_node_string(TSNode self, const TSDocument *document) {

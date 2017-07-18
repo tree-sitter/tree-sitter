@@ -15,6 +15,8 @@ TSPoint point(size_t row, size_t column) {
 
 START_TEST
 
+
+
 describe("Document", [&]() {
   TSDocument *document;
   TSNode root;

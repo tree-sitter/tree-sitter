@@ -32,7 +32,7 @@ void ts_language_table_entry(const TSLanguage *self, TSStateId state,
 }
 
 uint32_t ts_language_symbol_count(const TSLanguage *language) {
-  return language->symbol_count;
+  return language->symbol_count + language->rename_symbol_count;
 }
 
 uint32_t ts_language_version(const TSLanguage *language) {
@@ -41,19 +41,21 @@ uint32_t ts_language_version(const TSLanguage *language) {
 
 TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *language,
                                              TSSymbol symbol) {
-  if (symbol == ts_builtin_sym_error)
+  if (symbol == ts_builtin_sym_error) {
     return (TSSymbolMetadata){
       .visible = true, .named = true, .extra = false, .structural = true,
     };
-  else
+  } else {
     return language->symbol_metadata[symbol];
+  }
 }
 
 const char *ts_language_symbol_name(const TSLanguage *language, TSSymbol symbol) {
-  if (symbol == ts_builtin_sym_error)
+  if (symbol == ts_builtin_sym_error) {
     return "ERROR";
-  else
+  } else {
     return language->symbol_names[symbol];
+  }
 }
 
 TSSymbolType ts_language_symbol_type(const TSLanguage *language, TSSymbol symbol) {

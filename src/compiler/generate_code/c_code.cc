@@ -147,13 +147,16 @@ class CCodeGenerator {
         max_rename_sequence_length = rename_sequence.size();
       }
       for (const string &name_replacement : rename_sequence) {
-        unique_replacement_names.insert(name_replacement);
+        if (!name_replacement.empty()) {
+          unique_replacement_names.insert(name_replacement);
+        }
       }
     }
 
     line("#define LANGUAGE_VERSION " + to_string(TREE_SITTER_LANGUAGE_VERSION));
     line("#define STATE_COUNT " + to_string(parse_table.states.size()));
     line("#define SYMBOL_COUNT " + to_string(parse_table.symbols.size()));
+    line("#define RENAME_SYMBOL_COUNT " + to_string(unique_replacement_names.size()));
     line("#define TOKEN_COUNT " + to_string(token_count));
     line("#define EXTERNAL_TOKEN_COUNT " + to_string(syntax_grammar.external_tokens.size()));
     line("#define MAX_RENAME_SEQUENCE_LENGTH " + to_string(max_rename_sequence_length));
@@ -229,7 +232,7 @@ class CCodeGenerator {
   }
 
   void add_symbol_metadata_list() {
-    line("static const TSSymbolMetadata ts_symbol_metadata[SYMBOL_COUNT] = {");
+    line("static const TSSymbolMetadata ts_symbol_metadata[] = {");
     indent([&]() {
       for (const auto &entry : parse_table.symbols) {
         const Symbol &symbol = entry.first;
@@ -258,6 +261,17 @@ class CCodeGenerator {
           line(".extra = " + _boolean(entry.second.extra) + ",");
         });
 
+        line("},");
+      }
+
+      for (const string &replacement_name : unique_replacement_names) {
+        line("[" + rename_id(replacement_name) + "] = {");
+        indent([&]() {
+          line(".visible = true,");
+          line(".named = true,");
+          line(".structural = true,");
+          line(".extra = true,");
+        });
         line("},");
       }
     });
