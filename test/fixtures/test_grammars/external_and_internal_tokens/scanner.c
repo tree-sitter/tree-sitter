@@ -5,19 +5,34 @@ enum {
   LINE_BREAK
 };
 
-void *tree_sitter_external_and_internal_tokens_external_scanner_create() { return NULL; }
+void *tree_sitter_external_and_internal_tokens_external_scanner_create() {
+  return NULL;
+}
 
-void tree_sitter_external_and_internal_tokens_external_scanner_destroy(void *payload) {}
+void tree_sitter_external_and_internal_tokens_external_scanner_destroy(
+  void *payload
+) {}
 
-void tree_sitter_external_and_internal_tokens_external_scanner_reset(void *payload) {}
+void tree_sitter_external_and_internal_tokens_external_scanner_reset(
+  void *payload
+) {}
 
-bool tree_sitter_external_and_internal_tokens_external_scanner_serialize(void *payload, TSExternalTokenState state) { return true; }
+unsigned tree_sitter_external_and_internal_tokens_external_scanner_serialize(
+  void *payload,
+  char *buffer
+) { return 0; }
 
-void tree_sitter_external_and_internal_tokens_external_scanner_deserialize(void *payload, TSExternalTokenState state) {}
+void tree_sitter_external_and_internal_tokens_external_scanner_deserialize(
+  void *payload,
+  const char *buffer,
+  unsigned length
+) {}
 
 bool tree_sitter_external_and_internal_tokens_external_scanner_scan(
-  void *payload, TSLexer *lexer, const bool *whitelist) {
-
+  void *payload,
+  TSLexer *lexer,
+  const bool *whitelist
+) {
   // If a line-break is a valid lookahead token, only skip spaces.
   if (whitelist[LINE_BREAK]) {
     while (lexer->lookahead == ' ') {
