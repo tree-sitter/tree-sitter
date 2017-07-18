@@ -13,7 +13,6 @@ struct SpyInputEdit {
 
 class SpyInput {
   uint32_t chars_per_chunk;
-  uint32_t buffer_size;
   char *buffer;
   uint32_t byte_offset;
   std::vector<SpyInputEdit> undo_stack;

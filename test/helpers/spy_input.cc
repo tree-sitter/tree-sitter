@@ -12,8 +12,7 @@ static const size_t UTF8_MAX_CHAR_SIZE = 4;
 
 SpyInput::SpyInput(string content, size_t chars_per_chunk) :
   chars_per_chunk(chars_per_chunk),
-  buffer_size(UTF8_MAX_CHAR_SIZE * chars_per_chunk),
-  buffer(new char[buffer_size]),
+  buffer(nullptr),
   byte_offset(0),
   content(content),
   encoding(TSInputEncodingUTF8),
@@ -57,12 +56,19 @@ const char * SpyInput::read(void *payload, uint32_t *bytes_read) {
    * This class stores its entire `content` in a contiguous buffer, but we want
    * to ensure that the code under test cannot accidentally read more than
    * `*bytes_read` bytes past the returned pointer. To make sure that this type
-   * of error does not fly, we copy the chunk into a zeroed-out buffer and
+   * of error does not fly, we allocate a separate buffer for each request and
    * return a reference to that buffer, rather than a pointer into the main
-   * content.
+   * content. The temporary buffer only fits `*bytes_read` bytes so valgrind
+   * can detect code reading too many bytes from the buffer.
    */
-  memset(spy->buffer, 0, spy->buffer_size);
-  memcpy(spy->buffer, result.data(), byte_count);
+  delete[] spy->buffer;
+  if (byte_count) {
+    spy->buffer = new char[byte_count];
+    memcpy(spy->buffer, result.data(), byte_count);
+  } else {
+    spy->buffer = nullptr;
+  }
+
   return spy->buffer;
 }
 
