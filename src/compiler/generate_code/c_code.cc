@@ -141,11 +141,7 @@ class CCodeGenerator {
       }
     }
 
-    unsigned max_rename_sequence_length = 0;
     for (const RenameSequence &rename_sequence : parse_table.rename_sequences) {
-      if (rename_sequence.size() > max_rename_sequence_length) {
-        max_rename_sequence_length = rename_sequence.size();
-      }
       for (const string &name_replacement : rename_sequence) {
         if (!name_replacement.empty()) {
           unique_replacement_names.insert(name_replacement);
@@ -159,7 +155,7 @@ class CCodeGenerator {
     line("#define RENAME_SYMBOL_COUNT " + to_string(unique_replacement_names.size()));
     line("#define TOKEN_COUNT " + to_string(token_count));
     line("#define EXTERNAL_TOKEN_COUNT " + to_string(syntax_grammar.external_tokens.size()));
-    line("#define MAX_RENAME_SEQUENCE_LENGTH " + to_string(max_rename_sequence_length));
+    line("#define MAX_RENAME_SEQUENCE_LENGTH " + to_string(parse_table.max_rename_sequence_length));
     line();
   }
 

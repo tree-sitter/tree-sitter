@@ -699,13 +699,19 @@ class ParseTableBuilder {
   }
 
   unsigned get_rename_sequence_id(const Production &production) {
+    bool has_rename = false;
     RenameSequence rename_sequence;
     for (unsigned i = 0, n = production.size(); i < n; i++) {
       auto &step = production.at(i);
       if (!step.name_replacement.empty()) {
-        rename_sequence.resize(production.size());
+        has_rename = true;
+        rename_sequence.resize(i + 1);
         rename_sequence[i] = step.name_replacement;
       }
+    }
+
+    if (has_rename && production.size() > parse_table.max_rename_sequence_length) {
+      parse_table.max_rename_sequence_length = production.size();
     }
 
     auto begin = parse_table.rename_sequences.begin();

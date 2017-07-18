@@ -83,6 +83,7 @@ struct ParseTable {
   std::vector<ParseState> states;
   std::map<rules::Symbol, ParseTableSymbolMetadata> symbols;
   std::vector<RenameSequence> rename_sequences;
+  unsigned max_rename_sequence_length = 0;
 };
 
 }  // namespace tree_sitter
