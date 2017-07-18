@@ -545,7 +545,8 @@ describe("Stack", [&]() {
     });
 
     it("does not merge stack versions with different external token states", [&]() {
-      ts_external_token_state_init(&trees[1]->external_token_state, "ab", 2);
+      ts_external_token_state_init(&trees[1]->external_token_state, "abcd", 2);
+      ts_external_token_state_init(&trees[2]->external_token_state, "ABCD", 2);
 
       ts_stack_copy_version(stack, 0);
       ts_stack_push(stack, 0, trees[0], false, 5);
@@ -558,7 +559,8 @@ describe("Stack", [&]() {
     });
 
     it("merges stack versions with identical external token states", [&]() {
-      ts_external_token_state_init(&trees[1]->external_token_state, "aa", 2);
+      ts_external_token_state_init(&trees[1]->external_token_state, "abcd", 2);
+      ts_external_token_state_init(&trees[2]->external_token_state, "abcd", 2);
 
       ts_stack_copy_version(stack, 0);
       ts_stack_push(stack, 0, trees[0], false, 5);
