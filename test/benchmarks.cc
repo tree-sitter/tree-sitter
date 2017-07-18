@@ -17,6 +17,7 @@ vector<string> language_names({
   "cpp",
   "javascript",
   "python",
+  "bash",
 });
 
 size_t mean(const vector<size_t> &values) {
