@@ -5,9 +5,9 @@
 #include "runtime/utf16.h"
 #include "utf8proc.h"
 
-#define LOG(...)                                                              \
-  if (self->logger.log) {                                                     \
-    snprintf(self->debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__);          \
+#define LOG(...)                                                                      \
+  if (self->logger.log) {                                                             \
+    snprintf(self->debug_buffer, TREE_SITTER_SERIALIZATION_BUFFER_SIZE, __VA_ARGS__); \
     self->logger.log(self->logger.payload, TSLogTypeLex, self->debug_buffer); \
   }
 

@@ -38,6 +38,7 @@ vector<string> test_languages({
   "c",
   "cpp",
   "python",
+  "bash",
 });
 
 for (auto &language_name : test_languages) {

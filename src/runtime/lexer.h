@@ -10,8 +10,6 @@ extern "C" {
 #include "runtime/length.h"
 #include "runtime/tree.h"
 
-#define TS_DEBUG_BUFFER_SIZE 512
-
 typedef struct {
   TSLexer data;
   Length current_position;
@@ -25,7 +23,7 @@ typedef struct {
 
   TSInput input;
   TSLogger logger;
-  char debug_buffer[TS_DEBUG_BUFFER_SIZE];
+  char debug_buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE];
   Tree *last_external_token;
 } Lexer;
 

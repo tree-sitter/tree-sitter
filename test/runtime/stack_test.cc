@@ -527,8 +527,8 @@ describe("Stack", [&]() {
     before_each([&]() {
       trees[1]->has_external_tokens = true;
       trees[2]->has_external_tokens = true;
-      memset(&trees[1]->external_token_state, 0, sizeof(TSExternalTokenState));
-      memset(&trees[2]->external_token_state, 0, sizeof(TSExternalTokenState));
+      ts_external_token_state_init(&trees[1]->external_token_state, NULL, 0);
+      ts_external_token_state_init(&trees[2]->external_token_state, NULL, 0);
     });
 
     it("allows the state to be retrieved", [&]() {
@@ -545,8 +545,7 @@ describe("Stack", [&]() {
     });
 
     it("does not merge stack versions with different external token states", [&]() {
-      trees[1]->external_token_state[5] = 'a';
-      trees[2]->external_token_state[5] = 'b';
+      ts_external_token_state_init(&trees[1]->external_token_state, "ab", 2);
 
       ts_stack_copy_version(stack, 0);
       ts_stack_push(stack, 0, trees[0], false, 5);
@@ -559,8 +558,7 @@ describe("Stack", [&]() {
     });
 
     it("merges stack versions with identical external token states", [&]() {
-      trees[1]->external_token_state[5] = 'a';
-      trees[2]->external_token_state[5] = 'a';
+      ts_external_token_state_init(&trees[1]->external_token_state, "aa", 2);
 
       ts_stack_copy_version(stack, 0);
       ts_stack_push(stack, 0, trees[0], false, 5);

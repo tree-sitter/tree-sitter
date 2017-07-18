@@ -13,16 +13,16 @@
 #include "runtime/reduce_action.h"
 #include "runtime/error_costs.h"
 
-#define LOG(...)                                                           \
-  if (self->lexer.logger.log) {                                            \
-    snprintf(self->lexer.debug_buffer, TS_DEBUG_BUFFER_SIZE, __VA_ARGS__); \
-    self->lexer.logger.log(self->lexer.logger.payload, TSLogTypeParse,     \
-                           self->lexer.debug_buffer);                      \
-  }                                                                        \
-  if (self->print_debugging_graphs) {                                      \
-    fprintf(stderr, "graph {\nlabel=\"");                                  \
-    fprintf(stderr, __VA_ARGS__);                                          \
-    fprintf(stderr, "\"\n}\n\n");                                          \
+#define LOG(...)                                                                            \
+  if (self->lexer.logger.log) {                                                             \
+    snprintf(self->lexer.debug_buffer, TREE_SITTER_SERIALIZATION_BUFFER_SIZE, __VA_ARGS__); \
+    self->lexer.logger.log(self->lexer.logger.payload, TSLogTypeParse,                      \
+                           self->lexer.debug_buffer);                                       \
+  }                                                                                         \
+  if (self->print_debugging_graphs) {                                                       \
+    fprintf(stderr, "graph {\nlabel=\"");                                                   \
+    fprintf(stderr, __VA_ARGS__);                                                           \
+    fprintf(stderr, "\"\n}\n\n");                                                           \
   }
 
 #define LOG_STACK()                                                     \
@@ -233,10 +233,11 @@ static void parser__restore_external_scanner(Parser *self, Tree *external_token)
   if (external_token) {
     self->language->external_scanner.deserialize(
       self->external_scanner_payload,
-      external_token->external_token_state
+      ts_external_token_state_data(&external_token->external_token_state),
+      external_token->external_token_state.length
     );
   } else {
-    self->language->external_scanner.reset(self->external_scanner_payload);
+    self->language->external_scanner.deserialize(self->external_scanner_payload, NULL, 0);
   }
 }
 
@@ -351,11 +352,11 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
 
     if (found_external_token) {
       result->has_external_tokens = true;
-      memset(result->external_token_state, 0, sizeof(TSExternalTokenState));
-      self->language->external_scanner.serialize(
+      unsigned length = self->language->external_scanner.serialize(
         self->external_scanner_payload,
-        result->external_token_state
+        self->lexer.debug_buffer
       );
+      ts_external_token_state_init(&result->external_token_state, self->lexer.debug_buffer, length);
       ts_lexer_set_last_external_token(&self->lexer, result);
     }
   }
@@ -876,8 +877,8 @@ static void parser__start(Parser *self, TSInput input, Tree *previous_tree) {
     LOG("new_parse");
   }
 
-  if (self->language->external_scanner.reset) {
-    self->language->external_scanner.reset(self->external_scanner_payload);
+  if (self->language->external_scanner.deserialize) {
+    self->language->external_scanner.deserialize(self->external_scanner_payload, NULL, 0);
   }
 
   ts_lexer_set_input(&self->lexer, input);

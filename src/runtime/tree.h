@@ -14,6 +14,17 @@ extern "C" {
 
 extern TSStateId TS_TREE_STATE_NONE;
 
+typedef struct {
+  union {
+    char *long_data;
+    char short_data[sizeof(char *) + sizeof(unsigned)];
+  };
+  unsigned length;
+} TSExternalTokenState;
+
+void ts_external_token_state_init(TSExternalTokenState *, const char *, unsigned);
+const char *ts_external_token_state_data(const TSExternalTokenState *);
+
 typedef struct Tree {
   struct {
     struct Tree *parent;
@@ -25,10 +36,10 @@ typedef struct Tree {
   uint32_t child_count;
   union {
     struct {
+      struct Tree **children;
       uint32_t visible_child_count;
       uint32_t named_child_count;
       unsigned short rename_sequence_id;
-      struct Tree **children;
     };
     TSExternalTokenState external_token_state;
     int32_t lookahead_char;

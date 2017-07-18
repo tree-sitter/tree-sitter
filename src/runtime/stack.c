@@ -612,13 +612,10 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
       i, head->node, i, head->push_count, head->depth);
 
     if (head->last_external_token) {
-      const TSExternalTokenState *s = &head->last_external_token->external_token_state;
-      fprintf(f,
-        "\nexternal_token_state: "
-        "%2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X %2X",
-        (*s)[0], (*s)[1], (*s)[2], (*s)[3], (*s)[4], (*s)[5], (*s)[6], (*s)[7],
-        (*s)[8], (*s)[9], (*s)[10], (*s)[11], (*s)[12], (*s)[13], (*s)[14], (*s)[15]
-      );
+      TSExternalTokenState *state = &head->last_external_token->external_token_state;
+      const char *data = ts_external_token_state_data(state);
+      fprintf(f, "\nexternal_token_state:");
+      for (uint32_t j = 0; j < state->length; j++) fprintf(f, " %2X", data[j]);
     }
 
     fprintf(f, "\"]\n");
