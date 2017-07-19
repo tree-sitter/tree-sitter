@@ -1,6 +1,11 @@
 #include "runtime/utf16.h"
 
 int utf16_iterate(const uint8_t *string, size_t length, int32_t *code_point) {
+  if (length < 2) {
+    *code_point = -1;
+    return 0;
+  }
+
   uint16_t *units = (uint16_t *)string;
   uint16_t unit = units[0];
 
