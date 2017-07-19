@@ -159,18 +159,20 @@ void ts_tree_assign_parents(Tree *self, TreePath *path, const TSLanguage *langua
     Tree *tree = array_pop(path).tree;
     Length offset = length_zero();
     const TSSymbol *rename_sequence = ts_language_rename_sequence(language, tree->rename_sequence_id);
+    uint32_t non_extra_index = 0;
     for (uint32_t i = 0; i < tree->child_count; i++) {
       Tree *child = tree->children[i];
       if (child->context.parent != tree || child->context.index != i) {
         child->context.parent = tree;
         child->context.index = i;
         child->context.offset = offset;
-        if (rename_sequence && rename_sequence[i] != 0) {
-          child->context.rename_symbol = rename_sequence[i];
+        if (!child->extra && rename_sequence && rename_sequence[non_extra_index] != 0) {
+          child->context.rename_symbol = rename_sequence[non_extra_index];
         }
         array_push(path, ((TreePathEntry){child, length_zero(), 0}));
       }
       offset = length_add(offset, ts_tree_total_size(child));
+      if (!child->extra) non_extra_index++;
     }
   }
 }
@@ -188,6 +190,8 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children,
   self->error_cost = 0;
   self->has_external_tokens = false;
   self->dynamic_precedence = 0;
+
+  uint32_t non_extra_index = 0;
 
   for (uint32_t i = 0; i < child_count; i++) {
     Tree *child = children[i];
@@ -207,7 +211,7 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children,
 
     if (child->visible) {
       self->visible_child_count++;
-      if (child->named || (rename_sequence && rename_sequence[i] != 0)) {
+      if (child->named || (!child->extra && rename_sequence && rename_sequence[non_extra_index] != 0)) {
         self->named_child_count++;
       }
     } else if (child->child_count > 0) {
@@ -221,6 +225,8 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children,
       self->fragile_left = self->fragile_right = true;
       self->parse_state = TS_TREE_STATE_NONE;
     }
+
+    if (!child->extra) non_extra_index++;
   }
 
   if (self->symbol == ts_builtin_sym_error) {
