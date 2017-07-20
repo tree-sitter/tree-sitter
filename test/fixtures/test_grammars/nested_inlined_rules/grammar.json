@@ -1,0 +1,54 @@
+{
+  "name": "nested_inlined_rules",
+
+  "extras": [
+    {"type": "PATTERN", "value": "\\s"}
+  ],
+
+  "inline": [
+    "top_level_item",
+    "statement"
+  ],
+
+  "rules": {
+    "program": {
+      "type": "REPEAT1",
+      "content": {"type": "SYMBOL", "name": "top_level_item"}
+    },
+
+    "top_level_item": {
+      "type": "CHOICE",
+      "members": [
+        {"type": "SYMBOL", "name": "statement"},
+        {"type": "STRING", "value": "!"}
+      ]
+    },
+
+    "statement": {
+      "type": "CHOICE",
+      "members": [
+        {"type": "SYMBOL", "name": "expression_statement"},
+        {"type": "SYMBOL", "name": "return_statement"}
+      ]
+    },
+
+    "return_statement": {
+      "type": "SEQ",
+      "members": [
+        {"type": "STRING", "value": "return"},
+        {"type": "SYMBOL", "name": "number"},
+        {"type": "STRING", "value": ";"}
+      ]
+    },
+
+    "expression_statement": {
+      "type": "SEQ",
+      "members": [
+        {"type": "SYMBOL", "name": "number"},
+        {"type": "STRING", "value": ";"}
+      ]
+    },
+
+    "number": {"type": "PATTERN", "value": "\\d+"}
+  }
+}

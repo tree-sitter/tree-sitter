@@ -15,6 +15,7 @@ ParseAction::ParseAction()
   : production(nullptr),
     consumed_symbol_count(0),
     symbol(rules::NONE()),
+    dynamic_precedence(0),
     type(ParseActionTypeError),
     extra(false),
     fragile(false),
@@ -72,6 +73,7 @@ bool ParseAction::operator==(const ParseAction &other) const {
     state_index == other.state_index &&
     production == other.production &&
     consumed_symbol_count == other.consumed_symbol_count &&
+    dynamic_precedence == other.dynamic_precedence &&
     rename_sequence_id == other.rename_sequence_id;
 }
 
@@ -90,6 +92,8 @@ bool ParseAction::operator<(const ParseAction &other) const {
   if (other.production < production) return false;
   if (consumed_symbol_count < other.consumed_symbol_count) return true;
   if (other.consumed_symbol_count < consumed_symbol_count) return false;
+  if (dynamic_precedence < other.dynamic_precedence) return true;
+  if (other.dynamic_precedence < dynamic_precedence) return false;
   return rename_sequence_id < other.rename_sequence_id;
 }
 
