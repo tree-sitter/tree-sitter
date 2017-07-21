@@ -4,7 +4,7 @@
 
 static const TSParseAction SHIFT_ERROR = {
   .type = TSParseActionTypeShift,
-  .to_state = ERROR_STATE,
+  .params.state = ERROR_STATE,
 };
 
 void ts_language_table_entry(const TSLanguage *self, TSStateId state,

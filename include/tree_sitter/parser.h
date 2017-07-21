@@ -40,7 +40,7 @@ typedef enum {
 typedef struct {
   union {
     struct {
-      TSStateId to_state;
+      TSStateId state;
       bool extra : 1;
     };
     struct {
@@ -50,7 +50,7 @@ typedef struct {
       uint8_t rename_sequence_id : 7;
       bool fragile : 1;
     };
-  };
+  } params;
   TSParseActionType type : 4;
 } TSParseAction;
 
@@ -131,19 +131,19 @@ typedef struct TSLanguage {
 #define STATE(id) id
 #define ACTIONS(id) id
 
-#define SHIFT(to_state_value)         \
-  {                                   \
-    {                                 \
-      .type = TSParseActionTypeShift, \
-      .to_state = to_state_value,     \
-    }                                 \
+#define SHIFT(state_value)              \
+  {                                     \
+    {                                   \
+      .type = TSParseActionTypeShift,   \
+      .params = {.state = state_value}, \
+    }                                   \
   }
 
-#define RECOVER(to_state_value)         \
+#define RECOVER(state_value)            \
   {                                     \
     {                                   \
       .type = TSParseActionTypeRecover, \
-      .to_state = to_state_value        \
+      .params = {.state = state_value}  \
     }                                   \
   }
 
@@ -151,7 +151,7 @@ typedef struct TSLanguage {
   {                                   \
     {                                 \
       .type = TSParseActionTypeShift, \
-      .extra = true                   \
+      .params = {.extra = true}       \
     }                                 \
   }
 
@@ -159,9 +159,11 @@ typedef struct TSLanguage {
   {                                              \
     {                                            \
       .type = TSParseActionTypeReduce,           \
-      .symbol = symbol_val,                      \
-      .child_count = child_count_val,            \
-      __VA_ARGS__                                \
+      .params = {                                \
+        .symbol = symbol_val,                    \
+        .child_count = child_count_val,          \
+        __VA_ARGS__                              \
+      }                                          \
     }                                            \
   }
 
