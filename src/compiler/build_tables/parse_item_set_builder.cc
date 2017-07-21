@@ -195,8 +195,8 @@ const vector<Production> &ParseItemSetBuilder::inline_production(const ParseItem
 
     if (!production->empty() && grammar.variables_to_inline.count(production->steps.front().symbol)) {
       iter = productions_to_insert.erase(iter);
-      for (auto &production : inline_production(ParseItem(inlined_step.symbol, *production, 0))) {
-        iter = productions_to_insert.insert(iter, &production);
+      for (auto &inlined_production : inline_production(ParseItem(inlined_step.symbol, *production, 0))) {
+        iter = productions_to_insert.insert(iter, &inlined_production);
       }
     } else {
       ++iter;
