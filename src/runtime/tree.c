@@ -168,6 +168,8 @@ void ts_tree_assign_parents(Tree *self, TreePath *path, const TSLanguage *langua
         child->context.offset = offset;
         if (!child->extra && rename_sequence && rename_sequence[non_extra_index] != 0) {
           child->context.rename_symbol = rename_sequence[non_extra_index];
+        } else {
+          child->context.rename_symbol = 0;
         }
         array_push(path, ((TreePathEntry){child, length_zero(), 0}));
       }
