@@ -209,11 +209,12 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children,
     self->error_cost += child->error_cost;
     self->dynamic_precedence += child->dynamic_precedence;
 
-    if (child->visible) {
+    if (rename_sequence && rename_sequence[non_extra_index] != 0 && !child->extra) {
       self->visible_child_count++;
-      if (child->named || (!child->extra && rename_sequence && rename_sequence[non_extra_index] != 0)) {
-        self->named_child_count++;
-      }
+      self->named_child_count++;
+    } else if (child->visible) {
+      self->visible_child_count++;
+      if (child->named) self->named_child_count++;
     } else if (child->child_count > 0) {
       self->visible_child_count += child->visible_child_count;
       self->named_child_count += child->named_child_count;
