@@ -292,7 +292,7 @@ describe("Parser", [&]() {
               "(number) "
               "(math_op (number) (math_op (number) (identifier)))))))");
 
-        AssertThat(input->strings_read(), Equals(vector<string>({"123 || 5 ", ";"})));
+        AssertThat(input->strings_read(), Equals(vector<string>({"123 || 5 "})));
       });
     });
 

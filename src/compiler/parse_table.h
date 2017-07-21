@@ -28,20 +28,23 @@ struct ParseAction {
   static ParseAction Error();
   static ParseAction Shift(ParseStateId state_index);
   static ParseAction Recover(ParseStateId state_index);
-  static ParseAction Reduce(rules::Symbol symbol, size_t child_count, const Production &);
+  static ParseAction Reduce(rules::Symbol symbol, size_t child_count,
+                            int precedence, int dynamic_precedence, rules::Associativity,
+                            unsigned rename_sequence_id);
   static ParseAction ShiftExtra();
   bool operator==(const ParseAction &) const;
   bool operator<(const ParseAction &) const;
 
-  const Production *production;
-  size_t consumed_symbol_count;
-  rules::Symbol symbol;
-  int dynamic_precedence;
   ParseActionType type;
-  bool extra;
-  bool fragile;
   ParseStateId state_index;
+  rules::Symbol symbol;
+  unsigned consumed_symbol_count;
+  int precedence;
+  int dynamic_precedence;
+  rules::Associativity associativity;
   unsigned rename_sequence_id;
+  bool fragile;
+  bool extra;
 };
 
 struct ParseTableEntry {

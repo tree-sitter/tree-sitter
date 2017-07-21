@@ -48,7 +48,7 @@ class ParseTableBuilder {
   ParseTable parse_table;
   set<string> conflicts;
   ParseItemSetBuilder item_set_builder;
-  set<const Production *> fragile_productions;
+  set<ParseAction> fragile_reductions;
   vector<set<Symbol>> incompatible_tokens_by_index;
   vector<set<Symbol::Index>> following_terminals_by_terminal_index;
   bool processing_recovery_states;
@@ -196,16 +196,17 @@ class ParseTableBuilder {
       // If the item is finished, immediately add a Reduce or Accept action to
       // the parse table for each of its lookahead terminals.
       if (item.is_done()) {
-        ParseAction action;
+        ParseAction action = item.lhs() == rules::START() ?
+          ParseAction::Accept() :
+          ParseAction::Reduce(
+            item.lhs(),
+            item.step_index,
+            item.precedence(),
+            item.production->dynamic_precedence,
+            item.associativity(),
+            get_rename_sequence_id(*item.production)
+          );
 
-        if (item.lhs() == rules::START()) {
-          action = ParseAction::Accept();
-        } else {
-          action = ParseAction::Reduce(item.lhs(), item.step_index, *item.production);
-          action.rename_sequence_id = get_rename_sequence_id(*item.production);
-        }
-
-        int precedence = item.precedence();
         lookahead_symbols.for_each([&](Symbol lookahead) {
           ParseTableEntry &entry = parse_table.states[state_id].terminal_entries[lookahead];
 
@@ -218,18 +219,17 @@ class ParseTableBuilder {
             if (existing_action.type == ParseActionTypeAccept || processing_recovery_states) {
               entry.actions.push_back(action);
             } else {
-              int existing_precedence = existing_action.production->back().precedence;
-              if (precedence > existing_precedence) {
-                for (const ParseAction &old_action : entry.actions)
-                  fragile_productions.insert(old_action.production);
-                entry.actions.clear();
-                entry.actions.push_back(action);
+              if (action.precedence > existing_action.precedence) {
+                for (const ParseAction &old_action : entry.actions) {
+                  fragile_reductions.insert(old_action);
+                }
+                entry.actions.assign({action});
                 lookaheads_with_conflicts.erase(lookahead);
-              } else if (precedence == existing_precedence) {
+              } else if (action.precedence == existing_action.precedence) {
                 entry.actions.push_back(action);
                 lookaheads_with_conflicts.insert(lookahead);
               } else {
-                fragile_productions.insert(item.production);
+                fragile_reductions.insert(action);
               }
             }
           }
@@ -255,15 +255,15 @@ class ParseTableBuilder {
       Symbol lookahead = pair.first;
       ParseItemSet &next_item_set = pair.second;
       ParseStateId next_state_id = add_parse_state(append_symbol(sequence, lookahead), next_item_set);
-      ParseState &state = parse_table.states[state_id];
-      bool had_existing_action = !state.terminal_entries[lookahead].actions.empty();
-      parse_table.add_terminal_action(state_id, lookahead, ParseAction::Shift(next_state_id));
+
       if (!processing_recovery_states) {
-        if (had_existing_action) {
+        recovery_states[lookahead].add(next_item_set);
+        if (!parse_table.states[state_id].terminal_entries[lookahead].actions.empty()) {
           lookaheads_with_conflicts.insert(lookahead);
         }
-        recovery_states[lookahead].add(next_item_set);
       }
+
+      parse_table.add_terminal_action(state_id, lookahead, ParseAction::Shift(next_state_id));
     }
 
     // Add a Shift action for each non-terminal transition.
@@ -278,7 +278,7 @@ class ParseTableBuilder {
     }
 
     for (Symbol lookahead : lookaheads_with_conflicts) {
-      string conflict = handle_conflict(item_set, sequence, state_id, lookahead);
+      string conflict = handle_conflict(lookahead, item_set, sequence, state_id);
       if (!conflict.empty()) return conflict;
     }
 
@@ -301,10 +301,11 @@ class ParseTableBuilder {
 
         for (ParseAction &action : actions) {
           if (action.type == ParseActionTypeReduce) {
-            if (has_fragile_production(action.production)) {
+            if (action_is_fragile(action)) {
               action.fragile = true;
             }
-            action.production = nullptr;
+            action.precedence = 0;
+            action.associativity = rules::AssociativityNone;
           }
         }
 
@@ -323,6 +324,27 @@ class ParseTableBuilder {
         }
       }
     }
+  }
+
+  bool action_is_fragile(const ParseAction &action) {
+    for (auto &fragile_action : fragile_reductions) {
+      if (fragile_action.symbol == action.symbol &&
+          fragile_action.consumed_symbol_count == action.consumed_symbol_count &&
+          fragile_action.dynamic_precedence == action.dynamic_precedence) {
+        if (fragile_action.precedence > action.precedence) {
+          return true;
+        }
+
+        if (fragile_action.precedence == action.precedence &&
+            (fragile_action.associativity == action.associativity ||
+             fragile_action.associativity == rules::AssociativityLeft ||
+             action.associativity == rules::AssociativityRight)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   void compute_unmergable_token_pairs() {
@@ -479,46 +501,48 @@ class ParseTableBuilder {
     return true;
   }
 
-  string handle_conflict(const ParseItemSet &item_set, const SymbolSequence &preceding_symbols,
-                         ParseStateId state_id, Symbol lookahead) {
+  string handle_conflict(Symbol lookahead, const ParseItemSet &item_set,
+                         const SymbolSequence &preceding_symbols, ParseStateId state_id) {
     ParseTableEntry &entry = parse_table.states[state_id].terminal_entries[lookahead];
-    int reduction_precedence = entry.actions.front().production->back().precedence;
-    set<ParseItem> shift_items;
     bool considered_associativity = false;
+    int reduction_precedence = entry.actions.front().precedence;
 
-    for (const ParseAction &action : entry.actions)
-      if (action.type == ParseActionTypeReduce)
-        fragile_productions.insert(action.production);
-
-    if (entry.actions.back().type == ParseActionTypeShift) {
-      PrecedenceRange shift_precedence;
-      for (const auto &item_set_entry : item_set.entries) {
-        const ParseItem &item = item_set_entry.first;
-        if (item.step_index > 0 && !item.is_done()) {
-          LookaheadSet first_set = item_set_builder.get_first_set(item.next_symbol());
-          if (first_set.contains(lookahead)) {
-            shift_items.insert(item);
-            shift_precedence.add(item.production->at(item.step_index - 1).precedence);
-          }
+    PrecedenceRange shift_precedence;
+    set<ParseItem> conflicting_items;
+    for (auto &pair : item_set.entries) {
+      const ParseItem &item = pair.first;
+      if (item.is_done()) {
+        if (pair.second.contains(lookahead)) {
+          conflicting_items.insert(item);
+        }
+      } else if (item.step_index > 0) {
+        LookaheadSet first_set = item_set_builder.get_first_set(item.next_symbol());
+        if (first_set.contains(lookahead)) {
+          shift_precedence.add(item.production->at(item.step_index - 1).precedence);
+          conflicting_items.insert(item);
         }
       }
+    }
+
+    if (entry.actions.back().type == ParseActionTypeShift) {
 
       // If the shift action has higher precedence, prefer it over any of the
       // reduce actions.
       if (shift_precedence.min > reduction_precedence ||
           (shift_precedence.min == reduction_precedence &&
            shift_precedence.max > reduction_precedence)) {
+        entry.actions.assign({entry.actions.back()});
         for (const ParseAction &action : entry.actions) {
-          if (action.type == ParseActionTypeShift) break;
-          fragile_productions.insert(action.production);
+          if (action.type == ParseActionTypeReduce) {
+            fragile_reductions.insert(action);
+          }
         }
-        entry.actions.assign({ entry.actions.back() });
       }
 
       // If the shift action has lower precedence, prefer the reduce actions.
       else if (shift_precedence.max < reduction_precedence ||
-          (shift_precedence.max == reduction_precedence &&
-           shift_precedence.min < reduction_precedence)) {
+               (shift_precedence.max == reduction_precedence &&
+                shift_precedence.min < reduction_precedence)) {
         entry.actions.pop_back();
       }
 
@@ -534,7 +558,7 @@ class ParseTableBuilder {
         bool has_right_associative_reductions = false;
         for (const ParseAction &action : entry.actions) {
           if (action.type != ParseActionTypeReduce) break;
-          switch (action.production->back().associativity) {
+          switch (action.associativity) {
             case rules::AssociativityLeft:
               has_left_associative_reductions = true;
               break;
@@ -550,10 +574,11 @@ class ParseTableBuilder {
         if (!has_non_associative_reductions) {
           if (has_right_associative_reductions && !has_left_associative_reductions) {
             for (const ParseAction &action : entry.actions) {
-              if (action.type == ParseActionTypeShift) break;
-              fragile_productions.insert(action.production);
+              if (action.type == ParseActionTypeReduce) {
+                fragile_reductions.insert(action);
+              }
             }
-            entry.actions.assign({ entry.actions.back() });
+            entry.actions.assign({entry.actions.back()});
           } else if (has_left_associative_reductions && !has_right_associative_reductions) {
             entry.actions.pop_back();
           }
@@ -563,16 +588,20 @@ class ParseTableBuilder {
 
     if (entry.actions.size() == 1) return "";
 
-    set<Symbol> actual_conflict;
-    for (const ParseItem &item : shift_items)
-      actual_conflict.insert(item.lhs());
-    for (const ParseAction &action : entry.actions)
-      if (action.type == ParseActionTypeReduce)
-        actual_conflict.insert(action.symbol);
+    for (const ParseAction &action : entry.actions) {
+      if (action.type == ParseActionTypeReduce) {
+        fragile_reductions.insert(action);
+      }
+    }
 
-    for (const auto &expected_conflict : grammar.expected_conflicts)
-      if (expected_conflict == actual_conflict)
-        return "";
+    set<Symbol> actual_conflict;
+    for (const ParseItem &item : conflicting_items) {
+      actual_conflict.insert(item.lhs());
+    }
+
+    for (const auto &expected_conflict : grammar.expected_conflicts) {
+      if (expected_conflict == actual_conflict) return "";
+    }
 
     string description = "Unresolved conflict for symbol sequence:\n\n";
     for (auto &symbol : preceding_symbols) {
@@ -584,38 +613,26 @@ class ParseTableBuilder {
     description += "Possible interpretations:\n\n";
 
     size_t interpretation_count = 1;
-    for (const ParseAction &action : entry.actions) {
-      if (action.type == ParseActionTypeReduce) {
-        description += "  " + to_string(interpretation_count++) + ":";
-
-        for (size_t i = 0; i < preceding_symbols.size() - action.consumed_symbol_count; i++) {
-          description += "  " + symbol_name(preceding_symbols[i]);
-        }
-
-        description += "  (" + symbol_name(action.symbol);
-        for (const ProductionStep &step : action.production->steps) {
-          description += "  " + symbol_name(step.symbol);
-        }
-        description += ")";
-        description += "  \u2022  " + symbol_name(lookahead) + "  \u2026";
-        description += "\n";
-      }
-    }
-
-    for (const ParseItem &shift_item : shift_items) {
+    for (const ParseItem &item : conflicting_items) {
       description += "  " + to_string(interpretation_count++) + ":";
 
-      for (size_t i = 0; i < preceding_symbols.size() - shift_item.step_index; i++) {
+      for (size_t i = 0; i < preceding_symbols.size() - item.step_index; i++) {
         description += "  " + symbol_name(preceding_symbols[i]);
       }
 
-      description += "  (" + symbol_name(shift_item.lhs());
-      for (size_t i = 0; i < shift_item.production->size(); i++) {
-        if (i == shift_item.step_index)
+      description += "  (" + symbol_name(item.lhs());
+      for (size_t i = 0; i < item.production->size(); i++) {
+        if (i == item.step_index) {
           description += "  \u2022";
-        description += "  " + symbol_name(shift_item.production->at(i).symbol);
+        }
+        description += "  " + symbol_name(item.production->at(i).symbol);
       }
       description += ")";
+
+      if (item.is_done()) {
+        description += "  \u2022  " + symbol_name(lookahead) + "  \u2026";
+      }
+
       description += "\n";
     }
 
@@ -623,14 +640,19 @@ class ParseTableBuilder {
 
     size_t resolution_count = 1;
     if (actual_conflict.size() > 1) {
-      if (!shift_items.empty()) {
+      if (entry.actions.back().type == ParseActionTypeShift) {
         description += "  " + to_string(resolution_count++) + ":  ";
         description += "Specify a higher precedence in";
         bool is_first = true;
-        for (const ParseItem &shift_item : shift_items) {
-          if (!is_first) description += " and";
-          description += " `" + symbol_name(shift_item.lhs()) + "`";
-          is_first = false;
+        for (Symbol conflict_symbol : actual_conflict) {
+          for (const ParseItem &parse_item : conflicting_items) {
+            if (parse_item.lhs() == conflict_symbol && !parse_item.is_done()) {
+              if (!is_first) description += " and";
+              description += " `" + symbol_name(conflict_symbol) + "`";
+              is_first = false;
+              break;
+            }
+          }
         }
         description += " than in the other rules.\n";
       }
@@ -661,7 +683,7 @@ class ParseTableBuilder {
 
     description += "  " + to_string(resolution_count++) + ":  ";
     description += "Add a conflict for these rules:";
-    for (const Symbol &conflict_symbol : actual_conflict) {
+    for (Symbol conflict_symbol : actual_conflict) {
       description += " `" + symbol_name(conflict_symbol) + "`";
     }
     description += "\n";
@@ -692,10 +714,6 @@ class ParseTableBuilder {
         return grammar.external_tokens[symbol.index].name;
       }
     }
-  }
-
-  bool has_fragile_production(const Production *production) {
-    return fragile_productions.find(production) != fragile_productions.end();
   }
 
   unsigned get_rename_sequence_id(const Production &production) {

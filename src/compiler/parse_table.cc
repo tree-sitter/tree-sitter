@@ -11,16 +11,17 @@ using std::vector;
 using std::function;
 using rules::Symbol;
 
-ParseAction::ParseAction()
-  : production(nullptr),
-    consumed_symbol_count(0),
-    symbol(rules::NONE()),
-    dynamic_precedence(0),
-    type(ParseActionTypeError),
-    extra(false),
-    fragile(false),
-    state_index(-1),
-    rename_sequence_id(0) {}
+ParseAction::ParseAction() :
+  type(ParseActionTypeError),
+  state_index(-1),
+  symbol(rules::NONE()),
+  consumed_symbol_count(0),
+  precedence(0),
+  dynamic_precedence(0),
+  associativity(rules::AssociativityNone),
+  rename_sequence_id(0),
+  fragile(false),
+  extra(false) {}
 
 ParseAction ParseAction::Error() {
   return ParseAction();
@@ -54,46 +55,52 @@ ParseAction ParseAction::ShiftExtra() {
 }
 
 ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
-                                const Production &production) {
+                                int precedence, int dynamic_precedence,
+                                rules::Associativity associativity, unsigned rename_sequence_id) {
   ParseAction result;
   result.type = ParseActionTypeReduce;
   result.symbol = symbol;
   result.consumed_symbol_count = consumed_symbol_count;
-  result.production = &production;
-  result.dynamic_precedence = production.dynamic_precedence;
+  result.precedence = precedence;
+  result.dynamic_precedence = dynamic_precedence;
+  result.associativity = associativity;
+  result.rename_sequence_id = rename_sequence_id;
   return result;
 }
 
 bool ParseAction::operator==(const ParseAction &other) const {
   return
     type == other.type &&
-    extra == other.extra &&
-    fragile == other.fragile &&
-    symbol == other.symbol &&
     state_index == other.state_index &&
-    production == other.production &&
+    symbol == other.symbol &&
     consumed_symbol_count == other.consumed_symbol_count &&
+    precedence == other.precedence &&
     dynamic_precedence == other.dynamic_precedence &&
-    rename_sequence_id == other.rename_sequence_id;
+    associativity == other.associativity &&
+    rename_sequence_id == other.rename_sequence_id &&
+    extra == other.extra &&
+    fragile == other.fragile;
 }
 
 bool ParseAction::operator<(const ParseAction &other) const {
   if (type < other.type) return true;
   if (other.type < type) return false;
+  if (state_index < other.state_index) return true;
+  if (other.state_index < state_index) return false;
+  if (symbol < other.symbol) return true;
+  if (other.symbol < symbol) return false;
+  if (consumed_symbol_count < other.consumed_symbol_count) return true;
+  if (other.consumed_symbol_count < consumed_symbol_count) return false;
+  if (precedence < other.precedence) return true;
+  if (other.precedence < precedence) return false;
+  if (dynamic_precedence < other.dynamic_precedence) return true;
+  if (other.dynamic_precedence < dynamic_precedence) return false;
+  if (associativity < other.associativity) return true;
+  if (other.associativity < associativity) return false;
   if (extra && !other.extra) return true;
   if (other.extra && !extra) return false;
   if (fragile && !other.fragile) return true;
   if (other.fragile && !fragile) return false;
-  if (symbol < other.symbol) return true;
-  if (other.symbol < symbol) return false;
-  if (state_index < other.state_index) return true;
-  if (other.state_index < state_index) return false;
-  if (production < other.production) return true;
-  if (other.production < production) return false;
-  if (consumed_symbol_count < other.consumed_symbol_count) return true;
-  if (other.consumed_symbol_count < consumed_symbol_count) return false;
-  if (dynamic_precedence < other.dynamic_precedence) return true;
-  if (other.dynamic_precedence < dynamic_precedence) return false;
   return rename_sequence_id < other.rename_sequence_id;
 }
 
