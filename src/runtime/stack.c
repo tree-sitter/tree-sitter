@@ -259,7 +259,7 @@ inline StackPopResult stack__iter(Stack *self, StackVersion version,
         TreeArray trees = iterator->trees;
         if (!should_stop)
           ts_tree_array_copy(trees, &trees);
-        array_reverse(&trees);
+        ts_tree_array_reverse(&trees);
         ts_stack__add_slice(
           self,
           node,

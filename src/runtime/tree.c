@@ -133,8 +133,17 @@ TreeArray ts_tree_array_remove_trailing_extras(TreeArray *self) {
   }
 
   self->size = i + 1;
-  array_reverse(&result);
+  ts_tree_array_reverse(&result);
   return result;
+}
+
+void ts_tree_array_reverse(TreeArray *self) {
+  for (uint32_t i = 0, limit = self->size / 2; i < limit; i++) {
+    size_t reverse_index = self->size - 1 - i;
+    Tree *swap = self->contents[i];
+    self->contents[i] = self->contents[reverse_index];
+    self->contents[reverse_index] = swap;
+  }
 }
 
 Tree *ts_tree_make_error(Length size, Length padding, int32_t lookahead_char,
