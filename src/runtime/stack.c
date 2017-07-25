@@ -10,7 +10,11 @@
 #define MAX_NODE_POOL_SIZE 50
 #define MAX_ITERATOR_COUNT 64
 
+#ifdef _WIN32
+#define inline __forceinline
+#else
 #define inline static inline __attribute__((always_inline))
+#endif
 
 typedef struct StackNode StackNode;
 
