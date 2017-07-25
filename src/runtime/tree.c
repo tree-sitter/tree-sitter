@@ -389,7 +389,7 @@ int ts_tree_compare(const Tree *left, const Tree *right) {
   return 0;
 }
 
-static inline long min(long a, long b) {
+static inline long min_byte(long a, long b) {
   return a <= b ? a : b;
 }
 
@@ -479,7 +479,7 @@ void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
       TSInputEdit child_edit = {
         .start_byte = 0,
         .bytes_added = 0,
-        .bytes_removed = min(remaining_bytes_to_delete, ts_tree_total_bytes(child)),
+        .bytes_removed = min_byte(remaining_bytes_to_delete, ts_tree_total_bytes(child)),
         .start_point = {0, 0},
         .extent_added = {0, 0},
         .extent_removed = point_min(remaining_extent_to_delete, ts_tree_total_size(child).extent),
