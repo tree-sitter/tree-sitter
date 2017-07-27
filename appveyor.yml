@@ -1,0 +1,15 @@
+image: Visual Studio 2015
+
+platform:
+  - x86
+  - x64
+
+install:
+  - script\configure.cmd
+  - msbuild compiler.vcxproj
+  - msbuild runtime.vcxproj
+  - msbuild tests.vcxproj
+
+test_script:
+
+build: off
