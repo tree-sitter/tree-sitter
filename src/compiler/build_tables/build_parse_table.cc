@@ -73,7 +73,16 @@ class ParseTableBuilder {
     Symbol start_symbol = grammar.variables.empty() ?
       Symbol::terminal(0) :
       Symbol::non_terminal(0);
-    Production start_production{{{start_symbol, 0, rules::AssociativityNone, {"", false}}}, 0};
+    Production start_production{
+      vector<ProductionStep>(1, ProductionStep{
+        start_symbol,
+        0,
+        rules::AssociativityNone,
+        rules::Alias{}
+      }),
+      0
+    };
+
     add_parse_state({}, ParseItemSet{{
       {
         ParseItem(rules::START(), start_production, 0),

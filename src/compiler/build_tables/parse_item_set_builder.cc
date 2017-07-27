@@ -208,7 +208,10 @@ const vector<Production> &ParseItemSetBuilder::inline_production(const ParseItem
     auto end = item.production->steps.end();
     auto step = begin + item.step_index;
 
-    Production production{{begin, step}, item.production->dynamic_precedence};
+    Production production{
+      vector<ProductionStep>(begin, step),
+      item.production->dynamic_precedence
+    };
     for (auto &step : *production_to_insert) {
       production.steps.push_back(step);
       if (!inlined_step.alias.value.empty()) {
