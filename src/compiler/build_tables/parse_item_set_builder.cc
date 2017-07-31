@@ -211,8 +211,8 @@ const vector<Production> &ParseItemSetBuilder::inline_production(const ParseItem
     Production production{{begin, step}, item.production->dynamic_precedence};
     for (auto &step : *production_to_insert) {
       production.steps.push_back(step);
-      if (!inlined_step.name_replacement.empty()) {
-        production.steps.back().name_replacement = inlined_step.name_replacement;
+      if (!inlined_step.alias.value.empty()) {
+        production.steps.back().alias = inlined_step.alias;
       }
     }
     production.back().precedence = inlined_step.precedence;

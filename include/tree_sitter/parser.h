@@ -47,7 +47,7 @@ typedef struct {
       TSSymbol symbol;
       int16_t dynamic_precedence;
       uint8_t child_count;
-      uint8_t rename_sequence_id : 7;
+      uint8_t alias_sequence_id : 7;
       bool fragile : 1;
     };
   } params;
@@ -71,7 +71,7 @@ typedef union {
 typedef struct TSLanguage {
   uint32_t version;
   uint32_t symbol_count;
-  uint32_t rename_symbol_count;
+  uint32_t alias_count;
   uint32_t token_count;
   uint32_t external_token_count;
   const char **symbol_names;
@@ -79,8 +79,8 @@ typedef struct TSLanguage {
   const uint16_t *parse_table;
   const TSParseActionEntry *parse_actions;
   const TSLexMode *lex_modes;
-  const TSSymbol *rename_sequences;
-  uint16_t max_rename_sequence_length;
+  const TSSymbol *alias_sequences;
+  uint16_t max_alias_sequence_length;
   bool (*lex_fn)(TSLexer *, TSStateId);
   struct {
     const bool *states;
@@ -172,24 +172,24 @@ typedef struct TSLanguage {
     { .type = TSParseActionTypeAccept } \
   }
 
-#define GET_LANGUAGE(...)                                      \
-  static TSLanguage language = {                               \
-    .version = LANGUAGE_VERSION,                               \
-    .symbol_count = SYMBOL_COUNT,                              \
-    .rename_symbol_count = RENAME_SYMBOL_COUNT,                \
-    .token_count = TOKEN_COUNT,                                \
-    .symbol_metadata = ts_symbol_metadata,                     \
-    .parse_table = (const unsigned short *)ts_parse_table,     \
-    .parse_actions = ts_parse_actions,                         \
-    .lex_modes = ts_lex_modes,                                 \
-    .symbol_names = ts_symbol_names,                           \
-    .rename_sequences = (const TSSymbol *)ts_rename_sequences, \
-    .max_rename_sequence_length = MAX_RENAME_SEQUENCE_LENGTH,  \
-    .lex_fn = ts_lex,                                          \
-    .external_token_count = EXTERNAL_TOKEN_COUNT,              \
-    .external_scanner = {__VA_ARGS__}                          \
-  };                                                           \
-  return &language                                             \
+#define GET_LANGUAGE(...)                                    \
+  static TSLanguage language = {                             \
+    .version = LANGUAGE_VERSION,                             \
+    .symbol_count = SYMBOL_COUNT,                            \
+    .alias_count = ALIAS_COUNT,                              \
+    .token_count = TOKEN_COUNT,                              \
+    .symbol_metadata = ts_symbol_metadata,                   \
+    .parse_table = (const unsigned short *)ts_parse_table,   \
+    .parse_actions = ts_parse_actions,                       \
+    .lex_modes = ts_lex_modes,                               \
+    .symbol_names = ts_symbol_names,                         \
+    .alias_sequences = (const TSSymbol *)ts_alias_sequences, \
+    .max_alias_sequence_length = MAX_ALIAS_SEQUENCE_LENGTH,  \
+    .lex_fn = ts_lex,                                        \
+    .external_token_count = EXTERNAL_TOKEN_COUNT,            \
+    .external_scanner = {__VA_ARGS__}                        \
+  };                                                         \
+  return &language                                           \
 
 #ifdef __cplusplus
 }

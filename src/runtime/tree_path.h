@@ -133,19 +133,19 @@ TreePathComparison tree_path_compare(const TreePath *old_path,
                                      const TreePath *new_path,
                                      const TSLanguage *language) {
   Tree *old_tree = NULL;
-  TSSymbol old_rename_symbol = 0;
+  TSSymbol old_alias_symbol = 0;
   Length old_start = length_zero();
   for (uint32_t i = old_path->size - 1; i + 1 > 0; i--) {
     old_tree = old_path->contents[i].tree;
     if (old_tree->visible) {
       old_start = old_path->contents[i].position;
       if (i > 0) {
-        const TSSymbol *rename_sequence = ts_language_rename_sequence(
+        const TSSymbol *alias_sequence = ts_language_alias_sequence(
           language,
-          old_path->contents[i - 1].tree->rename_sequence_id
+          old_path->contents[i - 1].tree->alias_sequence_id
         );
-        if (rename_sequence) {
-          old_rename_symbol = rename_sequence[old_path->contents[i].child_index];
+        if (alias_sequence) {
+          old_alias_symbol = alias_sequence[old_path->contents[i].child_index];
         }
       }
       break;
@@ -153,26 +153,26 @@ TreePathComparison tree_path_compare(const TreePath *old_path,
   }
 
   Tree *new_tree = NULL;
-  TSSymbol new_rename_symbol = 0;
+  TSSymbol new_alias_symbol = 0;
   Length new_start = length_zero();
   for (uint32_t i = new_path->size - 1; i + 1 > 0; i--) {
     new_tree = new_path->contents[i].tree;
     if (new_tree->visible) {
       new_start = old_path->contents[i].position;
       if (i > 0) {
-        const TSSymbol *rename_sequence = ts_language_rename_sequence(
+        const TSSymbol *alias_sequence = ts_language_alias_sequence(
           language,
-          new_path->contents[i - 1].tree->rename_sequence_id
+          new_path->contents[i - 1].tree->alias_sequence_id
         );
-        if (rename_sequence) {
-          new_rename_symbol = rename_sequence[new_path->contents[i].child_index];
+        if (alias_sequence) {
+          new_alias_symbol = alias_sequence[new_path->contents[i].child_index];
         }
       }
       break;
     }
   }
 
-  if (old_rename_symbol == new_rename_symbol) {
+  if (old_alias_symbol == new_alias_symbol) {
     if (old_start.bytes == new_start.bytes) {
       if (!old_tree->has_changes &&
           old_tree->symbol == new_tree->symbol &&

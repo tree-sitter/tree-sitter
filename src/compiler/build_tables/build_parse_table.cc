@@ -64,7 +64,7 @@ class ParseTableBuilder {
 
   pair<ParseTable, CompileError> build() {
     // Ensure that the empty rename sequence has index 0.
-    parse_table.rename_sequences.push_back({});
+    parse_table.alias_sequences.push_back({});
 
     // Ensure that the error state has index 0.
     ParseStateId error_state_id = add_parse_state({}, ParseItemSet{});
@@ -73,7 +73,7 @@ class ParseTableBuilder {
     Symbol start_symbol = grammar.variables.empty() ?
       Symbol::terminal(0) :
       Symbol::non_terminal(0);
-    Production start_production{{{start_symbol, 0, rules::AssociativityNone, ""}}, 0};
+    Production start_production{{{start_symbol, 0, rules::AssociativityNone, {"", false}}}, 0};
     add_parse_state({}, ParseItemSet{{
       {
         ParseItem(rules::START(), start_production, 0),
@@ -204,7 +204,7 @@ class ParseTableBuilder {
             item.precedence(),
             item.production->dynamic_precedence,
             item.associativity(),
-            get_rename_sequence_id(*item.production)
+            get_alias_sequence_id(*item.production)
           );
 
         lookahead_symbols.for_each([&](Symbol lookahead) {
@@ -716,30 +716,30 @@ class ParseTableBuilder {
     }
   }
 
-  unsigned get_rename_sequence_id(const Production &production) {
-    bool has_rename = false;
-    RenameSequence rename_sequence;
+  unsigned get_alias_sequence_id(const Production &production) {
+    bool has_alias = false;
+    AliasSequence alias_sequence;
     for (unsigned i = 0, n = production.size(); i < n; i++) {
       auto &step = production.at(i);
-      if (!step.name_replacement.empty()) {
-        has_rename = true;
-        rename_sequence.resize(i + 1);
-        rename_sequence[i] = step.name_replacement;
+      if (!step.alias.value.empty()) {
+        has_alias = true;
+        alias_sequence.resize(i + 1);
+        alias_sequence[i] = step.alias;
       }
     }
 
-    if (has_rename && production.size() > parse_table.max_rename_sequence_length) {
-      parse_table.max_rename_sequence_length = production.size();
+    if (has_alias && production.size() > parse_table.max_alias_sequence_length) {
+      parse_table.max_alias_sequence_length = production.size();
     }
 
-    auto begin = parse_table.rename_sequences.begin();
-    auto end = parse_table.rename_sequences.end();
-    auto iter = find(begin, end, rename_sequence);
+    auto begin = parse_table.alias_sequences.begin();
+    auto end = parse_table.alias_sequences.end();
+    auto iter = find(begin, end, alias_sequence);
     if (iter != end) {
       return iter - begin;
     } else {
-      parse_table.rename_sequences.push_back(move(rename_sequence));
-      return parse_table.rename_sequences.size() - 1;
+      parse_table.alias_sequences.push_back(move(alias_sequence));
+      return parse_table.alias_sequences.size() - 1;
     }
   }
 

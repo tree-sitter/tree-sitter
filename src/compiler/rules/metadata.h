@@ -13,6 +13,14 @@ enum Associativity {
   AssociativityRight,
 };
 
+struct Alias {
+  std::string value = "";
+  bool is_named = false;
+  bool operator==(const Alias &) const;
+  bool operator!=(const Alias &) const;
+  bool operator<(const Alias &) const;
+};
+
 struct MetadataParams {
   int precedence;
   int dynamic_precedence;
@@ -23,7 +31,7 @@ struct MetadataParams {
   bool is_string;
   bool is_active;
   bool is_main_token;
-  std::string name_replacement;
+  Alias alias;
 
   inline MetadataParams() :
     precedence{0}, dynamic_precedence{0}, associativity{AssociativityNone},
@@ -41,7 +49,7 @@ struct MetadataParams {
       is_string == other.is_string &&
       is_active == other.is_active &&
       is_main_token == other.is_main_token &&
-      name_replacement == other.name_replacement
+      alias == other.alias
     );
   }
 };
@@ -62,7 +70,7 @@ struct Metadata {
   static Metadata prec_dynamic(int precedence, const Rule &rule);
   static Metadata separator(const Rule &rule);
   static Metadata main_token(const Rule &rule);
-  static Metadata rename(std::string &&name, const Rule &rule);
+  static Metadata alias(std::string &&value, bool is_named, const Rule &rule);
 
   bool operator==(const Metadata &other) const;
 };

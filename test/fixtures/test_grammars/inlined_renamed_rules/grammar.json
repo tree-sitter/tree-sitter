@@ -24,8 +24,9 @@
         {"type": "SYMBOL", "name": "call_expression"},
         {"type": "SYMBOL", "name": "member_expression"},
         {
-          "type": "RENAME",
+          "type": "ALIAS",
           "value": "variable_name",
+          "named": true,
           "content": {
             "type": "SYMBOL",
             "name": "identifier"
@@ -57,7 +58,8 @@
           {"type": "SYMBOL", "name": "expression"},
           {"type": "STRING", "value": "."},
           {
-            "type": "RENAME",
+            "type": "ALIAS",
+            "named": true,
             "value": "property_name",
             "content": {
               "type": "SYMBOL",

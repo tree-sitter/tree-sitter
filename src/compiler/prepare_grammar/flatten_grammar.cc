@@ -22,7 +22,7 @@ class FlattenRule {
  private:
   vector<int> precedence_stack;
   vector<rules::Associativity> associativity_stack;
-  vector<string> name_replacement_stack;
+  vector<rules::Alias> alias_stack;
   Production production;
 
   void apply(const Rule &rule, bool at_end) {
@@ -32,7 +32,7 @@ class FlattenRule {
           symbol,
           precedence_stack.back(),
           associativity_stack.back(),
-          name_replacement_stack.back()
+          alias_stack.back()
         });
       },
 
@@ -45,8 +45,8 @@ class FlattenRule {
           associativity_stack.push_back(metadata.params.associativity);
         }
 
-        if (!metadata.params.name_replacement.empty()) {
-          name_replacement_stack.push_back(metadata.params.name_replacement);
+        if (!metadata.params.alias.value.empty()) {
+          alias_stack.push_back(metadata.params.alias);
         }
 
         if (abs(metadata.params.dynamic_precedence) > abs(production.dynamic_precedence)) {
@@ -65,8 +65,8 @@ class FlattenRule {
           if (!at_end) production.back().associativity = associativity_stack.back();
         }
 
-        if (!metadata.params.name_replacement.empty()) {
-          name_replacement_stack.pop_back();
+        if (!metadata.params.alias.value.empty()) {
+          alias_stack.pop_back();
         }
       },
 
@@ -87,7 +87,7 @@ class FlattenRule {
   FlattenRule() :
     precedence_stack({0}),
     associativity_stack({rules::AssociativityNone}),
-    name_replacement_stack({""}) {}
+    alias_stack({rules::Alias{}}) {}
 
   Production flatten(const Rule &rule) {
     apply(rule, true);

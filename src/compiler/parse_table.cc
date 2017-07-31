@@ -19,7 +19,7 @@ ParseAction::ParseAction() :
   precedence(0),
   dynamic_precedence(0),
   associativity(rules::AssociativityNone),
-  rename_sequence_id(0),
+  alias_sequence_id(0),
   fragile(false),
   extra(false) {}
 
@@ -56,7 +56,7 @@ ParseAction ParseAction::ShiftExtra() {
 
 ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
                                 int precedence, int dynamic_precedence,
-                                rules::Associativity associativity, unsigned rename_sequence_id) {
+                                rules::Associativity associativity, unsigned alias_sequence_id) {
   ParseAction result;
   result.type = ParseActionTypeReduce;
   result.symbol = symbol;
@@ -64,7 +64,7 @@ ParseAction ParseAction::Reduce(Symbol symbol, size_t consumed_symbol_count,
   result.precedence = precedence;
   result.dynamic_precedence = dynamic_precedence;
   result.associativity = associativity;
-  result.rename_sequence_id = rename_sequence_id;
+  result.alias_sequence_id = alias_sequence_id;
   return result;
 }
 
@@ -77,7 +77,7 @@ bool ParseAction::operator==(const ParseAction &other) const {
     precedence == other.precedence &&
     dynamic_precedence == other.dynamic_precedence &&
     associativity == other.associativity &&
-    rename_sequence_id == other.rename_sequence_id &&
+    alias_sequence_id == other.alias_sequence_id &&
     extra == other.extra &&
     fragile == other.fragile;
 }
@@ -101,7 +101,7 @@ bool ParseAction::operator<(const ParseAction &other) const {
   if (other.extra && !extra) return false;
   if (fragile && !other.fragile) return true;
   if (other.fragile && !fragile) return false;
-  return rename_sequence_id < other.rename_sequence_id;
+  return alias_sequence_id < other.alias_sequence_id;
 }
 
 ParseTableEntry::ParseTableEntry()
