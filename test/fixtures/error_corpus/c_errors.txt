@@ -24,20 +24,20 @@ int c;
 
 (translation_unit
   (preproc_ifdef (identifier)
-    (ERROR (identifier) (identifier))
+    (ERROR (type_name) (variable_name))
     (comment))
 
-  (declaration (identifier) (identifier))
+  (declaration (type_name) (variable_name))
 
   (preproc_ifdef (identifier)
     (ERROR (string_literal)))
 
-  (declaration (identifier) (identifier))
+  (declaration (type_name) (variable_name))
 
   (preproc_ifdef (identifier)
     (ERROR))
 
-  (declaration (identifier) (identifier)))
+  (declaration (type_name) (variable_name)))
 
 ========================================
 Errors inside blocks
@@ -52,11 +52,11 @@ int main() {
 
 (translation_unit
   (function_definition
-    (identifier)
-    (function_declarator (identifier))
+    (type_name)
+    (function_declarator (variable_name) (parameter_list))
     (compound_statement
-      (declaration (identifier) (identifier))
-      (ERROR (identifier) (UNEXPECTED '$')))))
+      (declaration (type_name) (variable_name))
+      (ERROR (variable_name) (UNEXPECTED '$')))))
 
 ========================================
 Errors inside expressions
@@ -70,11 +70,11 @@ int main() {
 
 (translation_unit
   (function_definition
-    (identifier)
-    (function_declarator (identifier))
+    (type_name)
+    (function_declarator (variable_name) (parameter_list))
     (compound_statement
-      (declaration (identifier) (init_declarator
-        (identifier)
+      (declaration (type_name) (init_declarator
+        (variable_name)
         (parenthesized_expression
           (ERROR (number_literal))
           (number_literal)))))))
@@ -89,8 +89,8 @@ int y = 5;
 ---
 
 (translation_unit
-  (declaration (identifier) (ERROR (identifier)) (identifier))
-  (declaration (identifier) (init_declarator (identifier) (number_literal))))
+  (declaration (type_name) (ERROR (variable_name)) (variable_name))
+  (declaration (type_name) (init_declarator (variable_name) (number_literal))))
 
 ==========================================
 Errors at the beginnings of blocks
@@ -110,25 +110,27 @@ int b() {
 
 (translation_unit
   (function_definition
-    (identifier) (function_declarator (identifier))
+    (type_name)
+    (function_declarator (variable_name) (parameter_list))
     (compound_statement
-      (struct_specifier (identifier))
+      (struct_specifier (struct_name))
       (ERROR (number_literal))
-      (struct_specifier (identifier))
+      (struct_specifier (struct_name))
       (ERROR (number_literal))))
 
   (function_definition
-    (identifier) (function_declarator (identifier))
+    (type_name)
+    (function_declarator (variable_name) (parameter_list))
     (compound_statement
       (declaration
-        (identifier)
+        (type_name)
         (init_declarator
-          (identifier)
+          (variable_name)
           (ERROR (identifier) (identifier))
           (number_literal)))
       (declaration
-        (identifier)
+        (type_name)
         (init_declarator
-          (identifier)
+          (variable_name)
           (ERROR (identifier) (identifier))
           (number_literal))))))

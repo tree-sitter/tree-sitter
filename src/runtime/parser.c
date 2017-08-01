@@ -541,17 +541,11 @@ static void parser__shift(Parser *self, StackVersion version, TSStateId state,
 }
 
 static bool parser__replace_children(Parser *self, Tree *tree, Tree **children, uint32_t count) {
-  self->scratch_tree.symbol = tree->symbol;
+  self->scratch_tree = *tree;
   self->scratch_tree.child_count = 0;
   ts_tree_set_children(&self->scratch_tree, count, children, self->language);
   if (parser__select_tree(self, tree, &self->scratch_tree)) {
-    tree->size = self->scratch_tree.size;
-    tree->padding = self->scratch_tree.padding;
-    tree->error_cost = self->scratch_tree.error_cost;
-    tree->children = self->scratch_tree.children;
-    tree->child_count = self->scratch_tree.child_count;
-    tree->named_child_count = self->scratch_tree.named_child_count;
-    tree->visible_child_count = self->scratch_tree.visible_child_count;
+    *tree = self->scratch_tree;
     return true;
   } else {
     return false;
@@ -790,15 +784,17 @@ static bool parser__repair_error(Parser *self, StackSlice slice,
 
   array_clear(&self->reduce_actions);
   for (uint32_t i = 0; i < entry.action_count; i++) {
-    if (entry.actions[i].type == TSParseActionTypeReduce) {
-      TSSymbol symbol = entry.actions[i].params.symbol;
-      uint32_t child_count = entry.actions[i].params.child_count;
+    TSParseAction action = entry.actions[i];
+    if (action.type == TSParseActionTypeReduce) {
+      TSSymbol symbol = action.params.symbol;
+      uint32_t child_count = action.params.child_count;
       if ((child_count > session.tree_count_above_error) ||
           (child_count == session.tree_count_above_error &&
            !ts_language_symbol_metadata(self->language, symbol).visible))
         array_push(&self->reduce_actions, ((ReduceAction){
           .symbol = symbol,
-          .count = child_count
+          .count = child_count,
+          .alias_sequence_id = action.params.alias_sequence_id,
         }));
     }
   }
@@ -816,7 +812,6 @@ static bool parser__repair_error(Parser *self, StackSlice slice,
   ReduceAction repair = session.best_repair;
   TSStateId next_state = session.best_repair_next_state;
   uint32_t skip_count = session.best_repair_skip_count;
-  TSSymbol symbol = repair.symbol;
 
   StackSlice new_slice = array_pop(&pop.slices);
   TreeArray children = new_slice.trees;
@@ -832,6 +827,7 @@ static bool parser__repair_error(Parser *self, StackSlice slice,
   TreeArray skipped_children = ts_tree_array_remove_last_n(&children, skip_count);
   TreeArray trailing_extras = ts_tree_array_remove_trailing_extras(&skipped_children);
   Tree *error = ts_tree_make_error_node(&skipped_children, self->language);
+  error->extra = true;
   array_push(&children, error);
   array_push_all(&children, &trailing_extras);
   trailing_extras.size = 0;
@@ -842,8 +838,8 @@ static bool parser__repair_error(Parser *self, StackSlice slice,
   array_delete(&slice.trees);
 
   Tree *parent = ts_tree_make_node(
-    symbol, children.size, children.contents,
-    0, self->language
+    repair.symbol, children.size, children.contents,
+    repair.alias_sequence_id, self->language
   );
   parser__push(self, slice.version, parent, next_state);
   ts_stack_decrease_push_count(self->stack, slice.version, error->child_count);
@@ -854,7 +850,7 @@ static bool parser__repair_error(Parser *self, StackSlice slice,
     ts_stack_halt(self->stack, slice.version);
     return false;
   } else {
-    LOG("repair_found sym:%s, child_count:%u, cost:%u", SYM_NAME(symbol),
+    LOG("repair_found sym:%s, child_count:%u, cost:%u", SYM_NAME(repair.symbol),
         repair.count, parent->error_cost);
     return true;
   }

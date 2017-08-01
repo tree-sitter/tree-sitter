@@ -33,8 +33,8 @@ size_t colon_index = json_string.find(":");
 size_t null_index = json_string.find("null");
 size_t null_end_index = null_index + string("null").size();
 
-string grammar_with_renames_and_extras = R"JSON({
-  "name": "renames_and_extras",
+string grammar_with_aliases_and_extras = R"JSON({
+  "name": "aliases_and_extras",
 
   "extras": [
     {"type": "PATTERN", "value": "\\s+"},
@@ -47,8 +47,9 @@ string grammar_with_renames_and_extras = R"JSON({
       "members": [
         {"type": "SYMBOL", "name": "b"},
         {
-          "type": "RENAME",
+          "type": "ALIAS",
           "value": "B",
+          "named": true,
           "content": {"type": "SYMBOL", "name": "b"}
         },
         {"type": "SYMBOL", "name": "b"}
@@ -163,9 +164,9 @@ describe("Node", [&]() {
       AssertThat(ts_node_parent(root_node).data, Equals<void *>(nullptr));
     });
 
-    it("works correctly when the node contains renamed children and extras", [&]() {
-      TSCompileResult compile_result = ts_compile_grammar(grammar_with_renames_and_extras.c_str());
-      const TSLanguage *language =  load_test_language("renames_and_extras", compile_result);
+    it("works correctly when the node contains aliased children and extras", [&]() {
+      TSCompileResult compile_result = ts_compile_grammar(grammar_with_aliases_and_extras.c_str());
+      const TSLanguage *language =  load_test_language("aliases_and_extras", compile_result);
       ts_document_set_language(document, language);
       ts_document_set_input_string(document, "b ... b ... b");
       ts_document_parse(document);

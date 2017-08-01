@@ -1,5 +1,5 @@
 {
-  "name": "renamed_inlined_rules",
+  "name": "aliased_inlined_rules",
 
   "extras": [
     {"type": "PATTERN", "value": "\\s"}

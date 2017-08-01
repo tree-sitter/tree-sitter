@@ -1,5 +1,5 @@
 {
-  "name": "renamed_rules",
+  "name": "aliased_rules",
 
   "extras": [
     {"type": "PATTERN", "value": "\\s"}

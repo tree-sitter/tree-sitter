@@ -137,19 +137,18 @@ TreePathComparison tree_path_compare(const TreePath *old_path,
   Length old_start = length_zero();
   for (uint32_t i = old_path->size - 1; i + 1 > 0; i--) {
     old_tree = old_path->contents[i].tree;
-    if (old_tree->visible) {
-      old_start = old_path->contents[i].position;
-      if (i > 0) {
-        const TSSymbol *alias_sequence = ts_language_alias_sequence(
-          language,
-          old_path->contents[i - 1].tree->alias_sequence_id
-        );
-        if (alias_sequence) {
-          old_alias_symbol = alias_sequence[old_path->contents[i].child_index];
-        }
+    old_start = old_path->contents[i].position;
+    if (i > 0) {
+      const TSSymbol *alias_sequence = ts_language_alias_sequence(
+        language,
+        old_path->contents[i - 1].tree->alias_sequence_id
+      );
+      if (alias_sequence) {
+        old_alias_symbol = alias_sequence[old_path->contents[i].child_index];
       }
-      break;
     }
+
+    if (old_tree->visible || old_alias_symbol) break;
   }
 
   Tree *new_tree = NULL;
@@ -157,19 +156,18 @@ TreePathComparison tree_path_compare(const TreePath *old_path,
   Length new_start = length_zero();
   for (uint32_t i = new_path->size - 1; i + 1 > 0; i--) {
     new_tree = new_path->contents[i].tree;
-    if (new_tree->visible) {
-      new_start = old_path->contents[i].position;
-      if (i > 0) {
-        const TSSymbol *alias_sequence = ts_language_alias_sequence(
-          language,
-          new_path->contents[i - 1].tree->alias_sequence_id
-        );
-        if (alias_sequence) {
-          new_alias_symbol = alias_sequence[new_path->contents[i].child_index];
-        }
+    new_start = old_path->contents[i].position;
+    if (i > 0) {
+      const TSSymbol *alias_sequence = ts_language_alias_sequence(
+        language,
+        new_path->contents[i - 1].tree->alias_sequence_id
+      );
+      if (alias_sequence) {
+        new_alias_symbol = alias_sequence[new_path->contents[i].child_index];
       }
-      break;
     }
+
+    if (new_tree->visible || new_alias_symbol) break;
   }
 
   if (old_alias_symbol == new_alias_symbol) {

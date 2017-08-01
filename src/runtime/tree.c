@@ -50,15 +50,18 @@ Tree *ts_tree_make_leaf(TSSymbol symbol, Length padding, Length size, const TSLa
     .symbol = symbol,
     .size = size,
     .child_count = 0,
+    .children = NULL,
     .visible_child_count = 0,
     .named_child_count = 0,
-    .children = NULL,
     .alias_sequence_id = 0,
     .padding = padding,
     .visible = metadata.visible,
     .named = metadata.named,
     .has_changes = false,
-    .first_leaf.symbol = symbol,
+    .first_leaf = {
+      .symbol = symbol,
+      .lex_mode = {0, 0},
+    },
     .has_external_tokens = false,
   };
   return result;
@@ -170,6 +173,7 @@ void ts_tree_assign_parents(Tree *self, TreePath *path, const TSLanguage *langua
           child->context.alias_is_named = metadata.named;
         } else {
           child->context.alias_symbol = 0;
+          child->context.alias_is_named = false;
         }
         array_push(path, ((TreePathEntry){child, length_zero(), 0}));
       }
@@ -514,9 +518,8 @@ static size_t ts_tree__write_char_to_string(char *s, size_t n, int32_t c) {
     return snprintf(s, n, "%d", c);
 }
 
-static size_t ts_tree__write_to_string(const Tree *self,
-                                       const TSLanguage *language, char *string,
-                                       size_t limit, bool is_root,
+static size_t ts_tree__write_to_string(const Tree *self, const TSLanguage *language,
+                                       char *string, size_t limit, bool is_root,
                                        bool include_all) {
   if (!self) return snprintf(string, limit, "(NULL)");
 
