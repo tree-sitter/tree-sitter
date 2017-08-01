@@ -33,10 +33,10 @@ static inline uint32_t ts_node__offset_row(TSNode self) {
 
 static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
   const Tree *tree = ts_node__tree(self);
-  if (tree->context.rename_symbol > 0) {
-    return true;
+  if (include_anonymous) {
+    return tree->context.alias_symbol || tree->visible;
   } else {
-    return include_anonymous ? tree->visible : tree->visible && tree->named;
+    return tree->context.alias_is_named || (tree->visible && tree->named);
   }
 }
 
@@ -269,7 +269,7 @@ TSPoint ts_node_end_point(TSNode self) {
 
 TSSymbol ts_node_symbol(TSNode self) {
   const Tree *tree = ts_node__tree(self);
-  return tree->context.rename_symbol ? tree->context.rename_symbol : tree->symbol;
+  return tree->context.alias_symbol ? tree->context.alias_symbol : tree->symbol;
 }
 
 TSSymbolIterator ts_node_symbols(TSNode self) {
@@ -308,7 +308,7 @@ bool ts_node_eq(TSNode self, TSNode other) {
 
 bool ts_node_is_named(TSNode self) {
   const Tree *tree = ts_node__tree(self);
-  return tree->named || tree->context.rename_symbol != 0;
+  return tree->context.alias_symbol ? tree->context.alias_is_named : tree->named;
 }
 
 bool ts_node_has_changes(TSNode self) {

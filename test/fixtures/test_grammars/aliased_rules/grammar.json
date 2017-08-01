@@ -1,5 +1,5 @@
 {
-  "name": "renamed_rules",
+  "name": "aliased_rules",
 
   "extras": [
     {"type": "PATTERN", "value": "\\s"}
@@ -20,7 +20,8 @@
         {"type": "SYMBOL", "name": "call_expression"},
         {"type": "SYMBOL", "name": "member_expression"},
         {
-          "type": "RENAME",
+          "type": "ALIAS",
+          "named": true,
           "value": "variable_name",
           "content": {
             "type": "SYMBOL",
@@ -53,7 +54,8 @@
           {"type": "SYMBOL", "name": "_expression"},
           {"type": "STRING", "value": "."},
           {
-            "type": "RENAME",
+            "type": "ALIAS",
+            "named": true,
             "value": "property_name",
             "content": {
               "type": "SYMBOL",

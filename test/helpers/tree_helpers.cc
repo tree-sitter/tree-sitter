@@ -83,6 +83,10 @@ void assert_consistent_tree_sizes(TSNode node) {
     last_child_end_point = ts_node_end_point(child);
   }
 
+  if (actual_named_child_count != named_child_count) {
+    puts("UH OH");
+  }
+
   AssertThat(actual_named_child_count, Equals(named_child_count));
 
   if (child_count > 0) {

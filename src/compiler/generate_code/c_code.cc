@@ -25,6 +25,7 @@ using std::to_string;
 using std::vector;
 using util::escape_char;
 using rules::Symbol;
+using rules::Alias;
 
 static const map<char, string> REPLACEMENTS({
   { '~', "TILDE" },
@@ -76,7 +77,7 @@ class CCodeGenerator {
   vector<pair<size_t, ParseTableEntry>> parse_table_entries;
   vector<set<Symbol::Index>> external_scanner_states;
   size_t next_parse_action_list_index;
-  set<string> unique_replacement_names;
+  set<Alias> unique_aliases;
 
  public:
   CCodeGenerator(string name, const ParseTable &parse_table,
@@ -99,7 +100,7 @@ class CCodeGenerator {
     add_symbol_enum();
     add_symbol_names_list();
     add_symbol_metadata_list();
-    add_rename_sequences();
+    add_alias_sequences();
     add_lex_function();
     add_lex_modes_list();
 
@@ -141,10 +142,10 @@ class CCodeGenerator {
       }
     }
 
-    for (const RenameSequence &rename_sequence : parse_table.rename_sequences) {
-      for (const string &name_replacement : rename_sequence) {
-        if (!name_replacement.empty()) {
-          unique_replacement_names.insert(name_replacement);
+    for (const AliasSequence &alias_sequence : parse_table.alias_sequences) {
+      for (const Alias &alias : alias_sequence) {
+        if (!alias.value.empty()) {
+          unique_aliases.insert(alias);
         }
       }
     }
@@ -152,10 +153,10 @@ class CCodeGenerator {
     line("#define LANGUAGE_VERSION " + to_string(TREE_SITTER_LANGUAGE_VERSION));
     line("#define STATE_COUNT " + to_string(parse_table.states.size()));
     line("#define SYMBOL_COUNT " + to_string(parse_table.symbols.size()));
-    line("#define RENAME_SYMBOL_COUNT " + to_string(unique_replacement_names.size()));
+    line("#define ALIAS_COUNT " + to_string(unique_aliases.size()));
     line("#define TOKEN_COUNT " + to_string(token_count));
     line("#define EXTERNAL_TOKEN_COUNT " + to_string(syntax_grammar.external_tokens.size()));
-    line("#define MAX_RENAME_SEQUENCE_LENGTH " + to_string(parse_table.max_rename_sequence_length));
+    line("#define MAX_ALIAS_SEQUENCE_LENGTH " + to_string(parse_table.max_alias_sequence_length));
     line();
   }
 
@@ -171,8 +172,8 @@ class CCodeGenerator {
         }
       }
 
-      for (const string &replacement_name : unique_replacement_names) {
-        line(rename_id(replacement_name) + " = " + to_string(i) + ",");
+      for (const Alias &alias : unique_aliases) {
+        line(alias_id(alias) + " = " + to_string(i) + ",");
         i++;
       }
     });
@@ -190,10 +191,10 @@ class CCodeGenerator {
         );
       }
 
-      for (const string &replacement_name : unique_replacement_names) {
+      for (const Alias &alias : unique_aliases) {
         line(
-          "[" + rename_id(replacement_name) + "] = \"" +
-          sanitize_name_for_string(replacement_name) + "\","
+          "[" + alias_id(alias) + "] = \"" +
+          sanitize_name_for_string(alias.value) + "\","
         );
       }
     });
@@ -201,22 +202,21 @@ class CCodeGenerator {
     line();
   }
 
-  void add_rename_sequences() {
-
+  void add_alias_sequences() {
     line(
-      "static TSSymbol ts_rename_sequences[" +
-      to_string(parse_table.rename_sequences.size()) +
-      "][MAX_RENAME_SEQUENCE_LENGTH] = {"
+      "static TSSymbol ts_alias_sequences[" +
+      to_string(parse_table.alias_sequences.size()) +
+      "][MAX_ALIAS_SEQUENCE_LENGTH] = {"
     );
 
     indent([&]() {
-      for (unsigned i = 1, n = parse_table.rename_sequences.size(); i < n; i++) {
-        const RenameSequence &sequence = parse_table.rename_sequences[i];
+      for (unsigned i = 1, n = parse_table.alias_sequences.size(); i < n; i++) {
+        const AliasSequence &sequence = parse_table.alias_sequences[i];
         line("[" + to_string(i) + "] = {");
         indent([&]() {
           for (unsigned j = 0, n = sequence.size(); j < n; j++) {
-            if (!sequence[j].empty()) {
-              line("[" + to_string(j) + "] = " + rename_id(sequence[j]) + ",");
+            if (!sequence[j].value.empty()) {
+              line("[" + to_string(j) + "] = " + alias_id(sequence[j]) + ",");
             }
           }
         });
@@ -260,11 +260,11 @@ class CCodeGenerator {
         line("},");
       }
 
-      for (const string &replacement_name : unique_replacement_names) {
-        line("[" + rename_id(replacement_name) + "] = {");
+      for (const Alias &alias : unique_aliases) {
+        line("[" + alias_id(alias) + "] = {");
         indent([&]() {
           line(".visible = true,");
-          line(".named = true,");
+          line(".named = " + _boolean(alias.is_named) + ",");
           line(".structural = true,");
           line(".extra = true,");
         });
@@ -616,8 +616,8 @@ class CCodeGenerator {
                 add(", .dynamic_precedence = " + to_string(action.dynamic_precedence));
               }
 
-              if (action.rename_sequence_id != 0) {
-                add(", .rename_sequence_id = " + to_string(action.rename_sequence_id));
+              if (action.alias_sequence_id != 0) {
+                add(", .alias_sequence_id = " + to_string(action.alias_sequence_id));
               }
 
               add(")");
@@ -671,8 +671,12 @@ class CCodeGenerator {
     }
   }
 
-  string rename_id(const string &name) {
-    return "rename_sym_" + sanitize_name(name);
+  string alias_id(const Alias &alias) {
+    if (alias.is_named) {
+      return "alias_sym_" + sanitize_name(alias.value);
+    } else {
+      return "anon_alias_sym_" + sanitize_name(alias.value);
+    }
   }
 
   string symbol_name(const Symbol &symbol) {

@@ -13,7 +13,7 @@ struct ProductionStep {
   rules::Symbol symbol;
   int precedence;
   rules::Associativity associativity;
-  std::string name_replacement;
+  rules::Alias alias;
 
   bool operator==(const ProductionStep &) const;
   bool operator!=(const ProductionStep &) const;

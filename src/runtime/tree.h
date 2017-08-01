@@ -30,7 +30,8 @@ typedef struct Tree {
     struct Tree *parent;
     uint32_t index;
     Length offset;
-    TSSymbol rename_symbol;
+    TSSymbol alias_symbol : 15;
+    bool alias_is_named : 1;
   } context;
 
   uint32_t child_count;
@@ -39,7 +40,7 @@ typedef struct Tree {
       struct Tree **children;
       uint32_t visible_child_count;
       uint32_t named_child_count;
-      unsigned short rename_sequence_id;
+      unsigned short alias_sequence_id;
     };
     TSExternalTokenState external_token_state;
     int32_t lookahead_char;
@@ -85,11 +86,11 @@ uint32_t ts_tree_array_essential_count(const TreeArray *);
 TreeArray ts_tree_array_remove_last_n(TreeArray *, uint32_t);
 TreeArray ts_tree_array_remove_trailing_extras(TreeArray *);
 
-Tree *ts_tree_make_leaf(TSSymbol, Length, Length, TSSymbolMetadata);
-Tree *ts_tree_make_node(TSSymbol, uint32_t, Tree **, TSSymbolMetadata, const TSSymbol *);
+Tree *ts_tree_make_leaf(TSSymbol, Length, Length, const TSLanguage *);
+Tree *ts_tree_make_node(TSSymbol, uint32_t, Tree **, unsigned, const TSLanguage *);
 Tree *ts_tree_make_copy(Tree *child);
-Tree *ts_tree_make_error_node(TreeArray *);
-Tree *ts_tree_make_error(Length, Length, int32_t);
+Tree *ts_tree_make_error_node(TreeArray *, const TSLanguage *);
+Tree *ts_tree_make_error(Length, Length, int32_t, const TSLanguage *);
 void ts_tree_retain(Tree *tree);
 void ts_tree_release(Tree *tree);
 bool ts_tree_eq(const Tree *tree1, const Tree *tree2);
@@ -97,7 +98,7 @@ int ts_tree_compare(const Tree *tree1, const Tree *tree2);
 
 uint32_t ts_tree_start_column(const Tree *self);
 uint32_t ts_tree_end_column(const Tree *self);
-void ts_tree_set_children(Tree *, uint32_t, Tree **, const TSSymbol *);
+void ts_tree_set_children(Tree *, uint32_t, Tree **, const TSLanguage *);
 void ts_tree_assign_parents(Tree *, TreePath *, const TSLanguage *);
 void ts_tree_edit(Tree *, const TSInputEdit *edit);
 char *ts_tree_string(const Tree *, const TSLanguage *, bool include_all);

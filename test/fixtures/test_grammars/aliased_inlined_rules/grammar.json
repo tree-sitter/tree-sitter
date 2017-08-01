@@ -1,51 +1,29 @@
 {
-  "name": "inlined_renamed_rules",
+  "name": "aliased_inlined_rules",
 
   "extras": [
     {"type": "PATTERN", "value": "\\s"}
   ],
 
   "inline": [
-    "expression"
+    "identifier"
   ],
 
   "rules": {
-    "statement": {
-      "type": "SEQ",
-      "members": [
-        {"type": "SYMBOL", "name": "expression"},
-        {"type": "STRING", "value": ";"}
-      ]
-    },
-
     "expression": {
       "type": "CHOICE",
       "members": [
-        {"type": "SYMBOL", "name": "call_expression"},
         {"type": "SYMBOL", "name": "member_expression"},
         {
-          "type": "RENAME",
+          "type": "ALIAS",
           "value": "variable_name",
+          "named": true,
           "content": {
             "type": "SYMBOL",
             "name": "identifier"
           }
         }
       ]
-    },
-
-    "call_expression": {
-      "type": "PREC_LEFT",
-      "value": 0,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {"type": "SYMBOL", "name": "expression"},
-          {"type": "STRING", "value": "("},
-          {"type": "SYMBOL", "name": "expression"},
-          {"type": "STRING", "value": ")"},
-        ]
-      }
     },
 
     "member_expression": {
@@ -57,8 +35,9 @@
           {"type": "SYMBOL", "name": "expression"},
           {"type": "STRING", "value": "."},
           {
-            "type": "RENAME",
+            "type": "ALIAS",
             "value": "property_name",
+            "named": true,
             "content": {
               "type": "SYMBOL",
               "name": "identifier"
@@ -68,6 +47,13 @@
       }
     },
 
-    "identifier": {"type": "PATTERN", "value": "\\a+"}
+    "identifier": {
+      "type": "CHOICE",
+      "members": [
+        {"type": "STRING", "value": "a"},
+        {"type": "STRING", "value": "b"},
+        {"type": "STRING", "value": "c"}
+      ]
+    }
   }
 }

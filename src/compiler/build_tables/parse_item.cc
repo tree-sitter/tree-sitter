@@ -28,9 +28,7 @@ bool ParseItem::operator==(const ParseItem &other) const {
   if (variable_index != other.variable_index) return false;
   if (production->size() != other.production->size()) return false;
   for (size_t i = 0; i < step_index; i++) {
-    if (production->at(i).name_replacement != other.production->at(i).name_replacement) {
-      return false;
-    }
+    if (production->at(i).alias != other.production->at(i).alias) return false;
   }
   if (is_done()) {
     if (!production->empty()) {
@@ -53,8 +51,8 @@ bool ParseItem::operator<(const ParseItem &other) const {
   if (production->size() < other.production->size()) return true;
   if (other.production->size() < production->size()) return false;
   for (size_t i = 0; i < step_index; i++) {
-    if (production->at(i).name_replacement < other.production->at(i).name_replacement) return true;
-    if (other.production->at(i).name_replacement < production->at(i).name_replacement) return false;
+    if (production->at(i).alias < other.production->at(i).alias) return true;
+    if (other.production->at(i).alias < production->at(i).alias) return false;
   }
   if (is_done()) {
     if (!production->empty()) {
@@ -158,7 +156,8 @@ struct hash<ParseItem> {
     hash_combine(&result, item.production->dynamic_precedence);
     hash_combine(&result, item.production->size());
     for (size_t i = 0; i < item.step_index; i++) {
-      hash_combine(&result, item.production->at(i).name_replacement);
+      hash_combine(&result, item.production->at(i).alias.value);
+      hash_combine(&result, item.production->at(i).alias.is_named);
     }
     if (item.is_done()) {
       if (!item.production->empty()) {

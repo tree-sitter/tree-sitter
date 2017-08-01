@@ -32,7 +32,7 @@ void ts_language_table_entry(const TSLanguage *self, TSStateId state,
 }
 
 uint32_t ts_language_symbol_count(const TSLanguage *language) {
-  return language->symbol_count + language->rename_symbol_count;
+  return language->symbol_count + language->alias_count;
 }
 
 uint32_t ts_language_version(const TSLanguage *language) {

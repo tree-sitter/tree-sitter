@@ -78,10 +78,11 @@ describe("Stack", [&]() {
 
     stack = ts_stack_new();
 
-    for (size_t i = 0; i < tree_count; i++)
-      trees[i] = ts_tree_make_leaf(i, length_zero(), tree_len, {
-        true, true, false, true,
-      });
+    TSLanguage dummy_language;
+
+    for (size_t i = 0; i < tree_count; i++) {
+      trees[i] = ts_tree_make_leaf(i, length_zero(), tree_len, &dummy_language);
+    }
   });
 
   after_each([&]() {

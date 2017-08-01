@@ -143,21 +143,24 @@
       "required": ["type", "members"]
     },
 
-    "rename-rule": {
+    "alias-rule": {
       "type": "object",
       "properties": {
         "type": {
           "type": "string",
-          "pattern": "^RENAME$"
+          "pattern": "^ALIAS$"
         },
         "value": {
           "type": "string"
+        },
+        "named": {
+          "type": "boolean"
         },
         "content": {
           "$ref": "#/definitions/rule"
         }
       },
-      "required": ["type", "content", "value"]
+      "required": ["type", "named", "content", "value"]
     },
 
     "repeat-rule": {
@@ -221,13 +224,13 @@
 
     "rule": {
       "oneOf": [
+        { "$ref": "#/definitions/alias-rule" },
         { "$ref": "#/definitions/blank-rule" },
         { "$ref": "#/definitions/string-rule" },
         { "$ref": "#/definitions/pattern-rule" },
         { "$ref": "#/definitions/symbol-rule" },
         { "$ref": "#/definitions/seq-rule" },
         { "$ref": "#/definitions/choice-rule" },
-        { "$ref": "#/definitions/rename-rule" },
         { "$ref": "#/definitions/repeat1-rule" },
         { "$ref": "#/definitions/repeat-rule" },
         { "$ref": "#/definitions/token-rule" },

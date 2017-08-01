@@ -198,10 +198,15 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     return Rule(Metadata::prec_dynamic(precedence_json.u.integer, result.rule));
   }
 
-  if (type == "RENAME") {
-    json_value name_json = rule_json->operator[]("value");
-    if (name_json.type != json_string) {
+  if (type == "ALIAS") {
+    json_value value_json = rule_json->operator[]("value");
+    if (value_json.type != json_string) {
       return "Rename value must be a string";
+    }
+
+    json_value is_named_json = rule_json->operator[]("named");
+    if (is_named_json.type != json_boolean) {
+      return "Rename named value must be a boolean";
     }
 
     json_value content_json = rule_json->operator[]("content");
@@ -209,7 +214,11 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     if (!result.error_message.empty()) {
       return "Invalid rename content: " + result.error_message;
     }
-    return Rule(Metadata::rename(string(name_json.u.string.ptr), result.rule));
+    return Rule(Metadata::alias(
+      string(value_json.u.string.ptr),
+      is_named_json.u.boolean,
+      result.rule
+    ));
   }
 
   return "Unknown rule type: " + type;

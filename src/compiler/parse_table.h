@@ -30,7 +30,7 @@ struct ParseAction {
   static ParseAction Recover(ParseStateId state_index);
   static ParseAction Reduce(rules::Symbol symbol, size_t child_count,
                             int precedence, int dynamic_precedence, rules::Associativity,
-                            unsigned rename_sequence_id);
+                            unsigned alias_sequence_id);
   static ParseAction ShiftExtra();
   bool operator==(const ParseAction &) const;
   bool operator<(const ParseAction &) const;
@@ -42,7 +42,7 @@ struct ParseAction {
   int precedence;
   int dynamic_precedence;
   rules::Associativity associativity;
-  unsigned rename_sequence_id;
+  unsigned alias_sequence_id;
   bool fragile;
   bool extra;
 };
@@ -77,7 +77,7 @@ struct ParseTableSymbolMetadata {
   bool structural;
 };
 
-using RenameSequence = std::vector<std::string>;
+using AliasSequence = std::vector<rules::Alias>;
 
 struct ParseTable {
   ParseAction &add_terminal_action(ParseStateId state_id, rules::Symbol, ParseAction);
@@ -85,8 +85,8 @@ struct ParseTable {
 
   std::vector<ParseState> states;
   std::map<rules::Symbol, ParseTableSymbolMetadata> symbols;
-  std::vector<RenameSequence> rename_sequences;
-  unsigned max_rename_sequence_length = 0;
+  std::vector<AliasSequence> alias_sequences;
+  unsigned max_alias_sequence_length = 0;
 };
 
 }  // namespace tree_sitter

@@ -9,6 +9,20 @@ namespace rules {
 using std::move;
 using std::string;
 
+bool Alias::operator==(const Alias &other) const {
+  return value == other.value && is_named == other.is_named;
+}
+
+bool Alias::operator!=(const Alias &other) const {
+  return !operator==(other);
+}
+
+bool Alias::operator<(const Alias &other) const {
+  if (value < other.value) return true;
+  if (other.value < value) return false;
+  return is_named < other.is_named;
+}
+
 Metadata::Metadata(const Rule &rule, MetadataParams params) :
   rule(std::make_shared<Rule>(rule)), params(params) {}
 
@@ -77,9 +91,9 @@ Metadata Metadata::main_token(const Rule &rule) {
   return Metadata{rule, params};
 }
 
-Metadata Metadata::rename(string &&name, const Rule &rule) {
+Metadata Metadata::alias(string &&value, bool is_named, const Rule &rule) {
   MetadataParams params;
-  params.name_replacement = move(name);
+  params.alias = {move(value), is_named};
   return Metadata{rule, params};
 }
 
