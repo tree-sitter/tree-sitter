@@ -544,6 +544,13 @@ class ParseTableBuilder {
                (shift_precedence.max == reduction_precedence &&
                 shift_precedence.min < reduction_precedence)) {
         entry.actions.pop_back();
+        for (auto item_iter = conflicting_items.begin(); item_iter != conflicting_items.end();) {
+          if (item_iter->is_done()) {
+            ++item_iter;
+          } else {
+            item_iter = conflicting_items.erase(item_iter);
+          }
+        }
       }
 
       // If the shift action has the same precedence as the reduce actions,
