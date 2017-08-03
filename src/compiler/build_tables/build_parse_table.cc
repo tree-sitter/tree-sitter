@@ -44,6 +44,7 @@ class ParseTableBuilder {
   const LexicalGrammar lexical_grammar;
   unordered_map<Symbol, ParseItemSet> recovery_states;
   unordered_map<ParseItemSet, ParseStateId> parse_state_ids;
+  vector<const ParseItemSet *> item_sets_by_state_id;
   deque<ParseStateQueueEntry> parse_state_queue;
   ParseTable parse_table;
   set<string> conflicts;
@@ -168,19 +169,19 @@ class ParseTableBuilder {
   }
 
   ParseStateId add_parse_state(SymbolSequence &&preceding_symbols, const ParseItemSet &item_set) {
-    auto pair = parse_state_ids.find(item_set);
-    if (pair == parse_state_ids.end()) {
-      ParseStateId state_id = parse_table.states.size();
+    ParseStateId new_state_id = parse_table.states.size();
+    auto insertion = parse_state_ids.insert({move(item_set), new_state_id});
+    if (insertion.second) {
+      item_sets_by_state_id.push_back(&insertion.first->first);
       parse_table.states.push_back(ParseState());
-      parse_state_ids[item_set] = state_id;
       parse_state_queue.push_back({
         move(preceding_symbols),
-        move(item_set),
-        state_id
+        insertion.first->first,
+        new_state_id
       });
-      return state_id;
+      return new_state_id;
     } else {
-      return pair->second;
+      return insertion.first->second;
     }
   }
 
@@ -603,7 +604,25 @@ class ParseTableBuilder {
 
     set<Symbol> actual_conflict;
     for (const ParseItem &item : conflicting_items) {
-      actual_conflict.insert(item.lhs());
+      Symbol symbol = item.lhs();
+      if (grammar.variables[symbol.index].type == VariableTypeAuxiliary) {
+        ParseStateId preceding_state_id = 1;
+        for (auto &preceding_symbol : preceding_symbols) {
+          ParseState &preceding_state = parse_table.states[preceding_state_id];
+          if (preceding_state.nonterminal_entries.count(symbol.index)) break;
+          preceding_state_id = preceding_symbol.is_terminal() ?
+            preceding_state.terminal_entries[preceding_symbol].actions.back().state_index :
+            preceding_state.nonterminal_entries[preceding_symbol.index];
+        }
+        const ParseItemSet &preceding_item_set = *item_sets_by_state_id[preceding_state_id];
+        for (auto &preceding_entry : preceding_item_set.entries) {
+          if (preceding_entry.first.next_symbol() == symbol) {
+            actual_conflict.insert(preceding_entry.first.lhs());
+          }
+        }
+      } else {
+        actual_conflict.insert(symbol);
+      }
     }
 
     for (const auto &expected_conflict : grammar.expected_conflicts) {

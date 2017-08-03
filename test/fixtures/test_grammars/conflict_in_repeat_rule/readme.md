@@ -1,0 +1,1 @@
+This grammar has a conflict that involves *repeat rules*: auxiliary rules that are added by the  parser generator in order to implement repetition. There is no way of referring to these rules in the grammar DSL, so these conflicts must be resolved by referring to their parent rules.
