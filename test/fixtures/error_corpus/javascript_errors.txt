@@ -11,8 +11,9 @@ e f;
 
 (program
   (if_statement
-    (ERROR (identifier))
-    (identifier)
+    (parenthesized_expression
+      (ERROR (identifier))
+      (identifier))
     (statement_block
       (expression_statement (ERROR (identifier)) (identifier))))
   (expression_statement (ERROR (identifier)) (identifier)))
@@ -30,16 +31,17 @@ h i j k;
 
 (program
   (if_statement
-    (ERROR (identifier))
-    (identifier)
-    (ERROR (identifier))
+    (parenthesized_expression
+      (ERROR (identifier))
+      (identifier)
+      (ERROR (identifier)))
     (statement_block
       (expression_statement
         (identifier)
-        (ERROR (jsx_attribute (identifier)) (jsx_attribute (identifier)) (identifier)))))
+        (ERROR (jsx_attribute (property_identifier)) (jsx_attribute (property_identifier)) (identifier)))))
   (expression_statement
     (identifier)
-    (ERROR (jsx_attribute (identifier)) (jsx_attribute (identifier)) (identifier))))
+    (ERROR (jsx_attribute (property_identifier)) (jsx_attribute (property_identifier)) (identifier))))
 
 ===================================================
 one invalid subtree right after the viable prefix
@@ -53,10 +55,11 @@ if ({a: 'b'} {c: 'd'}) {
 
 (program
   (if_statement
-    (ERROR (object (pair (identifier) (string))))
-    (object (pair (identifier) (string)))
+    (parenthesized_expression
+      (ERROR (object (pair (property_identifier) (string))))
+      (object (pair (property_identifier) (string))))
     (statement_block
-      (expression_statement (assignment
+      (expression_statement (assignment_expression
         (identifier)
         (ERROR (function
           (formal_parameters (identifier))
@@ -75,7 +78,7 @@ a.b =
 
 (program
   (comment)
-  (ERROR (member_access (identifier) (identifier))))
+  (ERROR (member_expression (identifier) (property_identifier))))
 
 =================================================================
 An invalid token at the end of a construct with extra line breaks
@@ -83,14 +86,14 @@ An invalid token at the end of a construct with extra line breaks
 
 a(
   b,
-  c,,
+  c,.
 );
 
 ---
 
 (program
   (expression_statement
-    (function_call (identifier) (arguments
+    (call_expression (identifier) (arguments
       (identifier)
       (identifier)
       (ERROR)))))

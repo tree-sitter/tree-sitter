@@ -209,7 +209,7 @@ describe("Parser", [&]() {
         set_text("fn()\n");
 
         assert_root_node(
-          "(program (expression_statement (function_call (identifier) (arguments))))");
+          "(program (expression_statement (call_expression (identifier) (arguments))))");
       });
     });
 
@@ -221,10 +221,10 @@ describe("Parser", [&]() {
           "  .otherFn();");
 
         assert_root_node(
-          "(program (expression_statement (function_call "
-            "(member_access "
-              "(function_call (identifier) (arguments)) "
-              "(identifier)) "
+          "(program (expression_statement (call_expression "
+            "(member_expression "
+              "(call_expression (identifier) (arguments)) "
+              "(property_identifier)) "
             "(arguments))))");
       });
     });
@@ -239,11 +239,11 @@ describe("Parser", [&]() {
           ".otherFn();");
 
         assert_root_node(
-          "(program (expression_statement (function_call "
-            "(member_access "
-              "(function_call (identifier) (arguments)) "
+          "(program (expression_statement (call_expression "
+            "(member_expression "
+              "(call_expression (identifier) (arguments)) "
               "(comment) "
-              "(identifier)) "
+              "(property_identifier)) "
             "(arguments))))");
       });
     });
@@ -256,16 +256,18 @@ describe("Parser", [&]() {
         set_text("x * (100 + abc);");
 
         assert_root_node(
-          "(program (expression_statement (math_op "
+          "(program (expression_statement (binary_expression "
             "(identifier) "
-            "(math_op (number) (identifier)))))");
+            "(parenthesized_expression "
+              "(binary_expression (number) (identifier))))))");
 
         insert_text(strlen("x * (100 + abc"), ".d");
 
         assert_root_node(
-          "(program (expression_statement (math_op "
+          "(program (expression_statement (binary_expression "
             "(identifier) "
-            "(math_op (number) (member_access (identifier) (identifier))))))");
+            "(parenthesized_expression "
+              "(binary_expression (number) (member_expression (identifier) (property_identifier)))))))");
 
         AssertThat(input->strings_read(), Equals(vector<string>({ " abc.d);" })));
       });
@@ -279,18 +281,18 @@ describe("Parser", [&]() {
         set_text("123 + 456 * (10 + x);");
 
         assert_root_node(
-          "(program (expression_statement (math_op "
+          "(program (expression_statement (binary_expression "
             "(number) "
-            "(math_op (number) (math_op (number) (identifier))))))");
+            "(binary_expression (number) (parenthesized_expression (binary_expression (number) (identifier)))))))");
 
         insert_text(strlen("123"), " || 5");
 
         assert_root_node(
-          "(program (expression_statement (bool_op "
+          "(program (expression_statement (binary_expression "
             "(number) "
-            "(math_op "
+            "(binary_expression "
               "(number) "
-              "(math_op (number) (math_op (number) (identifier)))))))");
+              "(binary_expression (number) (parenthesized_expression (binary_expression (number) (identifier))))))))");
 
         AssertThat(input->strings_read(), Equals(vector<string>({"123 || 5 "})));
       });
@@ -315,7 +317,7 @@ describe("Parser", [&]() {
 
         assert_root_node(
           "(program (variable_declaration (variable_declarator "
-            "(identifier) (math_op (identifier) (identifier)))))");
+            "(identifier) (binary_expression (identifier) (identifier)))))");
       });
     });
 
@@ -325,12 +327,12 @@ describe("Parser", [&]() {
         set_text("abc * 123;");
 
         assert_root_node(
-          "(program (expression_statement (math_op (identifier) (number))))");
+          "(program (expression_statement (binary_expression (identifier) (number))))");
 
         insert_text(strlen("ab"), "XYZ");
 
         assert_root_node(
-          "(program (expression_statement (math_op (identifier) (number))))");
+          "(program (expression_statement (binary_expression (identifier) (number))))");
 
         TSNode node = ts_node_named_descendant_for_char_range(root, 1, 1);
         AssertThat(ts_node_type(node, document), Equals("identifier"));
@@ -344,12 +346,12 @@ describe("Parser", [&]() {
         set_text("abc * 123;");
 
         assert_root_node(
-          "(program (expression_statement (math_op (identifier) (number))))");
+          "(program (expression_statement (binary_expression (identifier) (number))))");
 
         insert_text(strlen("abc"), "XYZ");
 
         assert_root_node(
-          "(program (expression_statement (math_op (identifier) (number))))");
+          "(program (expression_statement (binary_expression (identifier) (number))))");
 
         TSNode node = ts_node_named_descendant_for_char_range(root, 1, 1);
         AssertThat(ts_node_type(node, document), Equals("identifier"));
@@ -365,7 +367,7 @@ describe("Parser", [&]() {
           "abc;");
 
         assert_root_node(
-          "(program (expression_statement (math_op "
+          "(program (expression_statement (binary_expression "
             "(number) "
             "(comment) "
             "(identifier))))");
@@ -377,7 +379,7 @@ describe("Parser", [&]() {
           "XYZ");
 
         assert_root_node(
-          "(program (expression_statement (math_op "
+          "(program (expression_statement (binary_expression "
             "(number) "
             "(comment) "
             "(identifier))))");
@@ -391,8 +393,8 @@ describe("Parser", [&]() {
 
         assert_root_node(
           "(program "
-            "(expression_statement (math_op (number) (number))) "
-            "(expression_statement (math_op (number) (number))))");
+            "(expression_statement (binary_expression (number) (number))) "
+            "(expression_statement (binary_expression (number) (number))))");
 
         delete_text(strlen("123 "), 2);
 
@@ -400,7 +402,7 @@ describe("Parser", [&]() {
           "(program "
             "(ERROR (number)) "
             "(expression_statement (number)) "
-            "(expression_statement (math_op (number) (number))))");
+            "(expression_statement (binary_expression (number) (number))))");
       });
     });
 
@@ -433,19 +435,19 @@ describe("Parser", [&]() {
       });
     });
 
-    it("does not try to re-use nodes that are within the edited region", [&]() {
+    it("does not try to reuse nodes that are within the edited region", [&]() {
       ts_document_set_language(document, load_real_language("javascript"));
       set_text("{ x: (b.c) };");
 
       assert_root_node(
         "(program (expression_statement (object (pair "
-          "(identifier) (member_access (identifier) (identifier))))))");
+          "(property_identifier) (parenthesized_expression (member_expression (identifier) (property_identifier)))))))");
 
       replace_text(strlen("{ x: "), strlen("(b.c)"), "b.c");
 
       assert_root_node(
         "(program (expression_statement (object (pair "
-          "(identifier) (member_access (identifier) (identifier))))))");
+          "(property_identifier) (member_expression (identifier) (property_identifier))))))");
     });
 
     it("updates the document's parse count", [&]() {

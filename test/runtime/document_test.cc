@@ -264,7 +264,7 @@ describe("Document", [&]() {
       ts_document_parse(document);
       assert_node_string_equals(
         ts_document_root_node(document),
-        "(program (expression_statement (object (pair (identifier) (null)))))");
+        "(program (expression_statement (object (pair (property_identifier) (null)))))");
     });
 
     after_each([&]() {
@@ -334,9 +334,9 @@ describe("Document", [&]() {
       assert_node_string_equals(
         ts_document_root_node(document),
         "(program (expression_statement (object "
-          "(pair (identifier) (null)) "
-          "(pair (identifier) (number)) "
-          "(pair (identifier) (false)))))");
+          "(pair (property_identifier) (null)) "
+          "(pair (property_identifier) (number)) "
+          "(pair (property_identifier) (false)))))");
 
       AssertThat(ranges, Equals(vector<TSRange>({
         TSRange{
@@ -353,8 +353,8 @@ describe("Document", [&]() {
       assert_node_string_equals(
         ts_document_root_node(document),
         "(program (expression_statement (object "
-          "(pair (identifier) (null)) "
-          "(pair (identifier) (false)))))");
+          "(pair (property_identifier) (null)) "
+          "(pair (property_identifier) (false)))))");
 
       AssertThat(ranges, IsEmpty());
 
@@ -366,7 +366,7 @@ describe("Document", [&]() {
       assert_node_string_equals(
         ts_document_root_node(document),
         "(program (expression_statement (object "
-          "(pair (identifier) (null)))))");
+          "(pair (property_identifier) (null)))))");
 
       AssertThat(ranges, IsEmpty());
     });
@@ -380,7 +380,7 @@ describe("Document", [&]() {
       assert_node_string_equals(
         ts_document_root_node(document),
         "(program (expression_statement (object "
-          "(pair (identifier) (rel_op (identifier) (null))))))");
+          "(pair (property_identifier) (binary_expression (identifier) (null))))))");
 
       AssertThat(ranges, Equals(vector<TSRange>({
         TSRange{
