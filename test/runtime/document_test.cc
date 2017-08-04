@@ -52,7 +52,7 @@ describe("Document", [&]() {
       root = ts_document_root_node(document);
       assert_node_string_equals(
         root,
-        "(object (pair (string) (array (number) (number))))");
+        "(value (object (pair (string) (array (number) (number)))))");
     });
 
     after_each([&]() {
@@ -71,7 +71,7 @@ describe("Document", [&]() {
       root = ts_document_root_node(document);
       assert_node_string_equals(
         root,
-        "(array (true) (false))");
+        "(value (array (true) (false)))");
     });
 
     it("handles truncated UTF16 data", [&]() {
@@ -96,14 +96,14 @@ describe("Document", [&]() {
       ts_document_parse(document);
 
       TSNode root = ts_document_root_node(document);
-      AssertThat(ts_node_end_point(root), Equals<TSPoint>({0, 13}));
+      AssertThat(ts_node_end_point(root), Equals<TSPoint>({0, 14}));
 
       input.measure_columns_in_bytes = true;
       ts_document_set_input(document, input);
       ts_document_invalidate(document);
       ts_document_parse(document);
       root = ts_document_root_node(document);
-      AssertThat(ts_node_end_point(root), Equals<TSPoint>({0, 26}));
+      AssertThat(ts_node_end_point(root), Equals<TSPoint>({0, 28}));
     });
 
     it("allows the input to be retrieved later", [&]() {
@@ -135,7 +135,7 @@ describe("Document", [&]() {
       TSNode new_root = ts_document_root_node(document);
       assert_node_string_equals(
         new_root,
-        "(object (pair (string) (array (null) (number))))");
+        "(value (object (pair (string) (array (null) (number)))))");
       AssertThat(spy_input->strings_read(), Equals(vector<string>({" [null, 2" })));
     });
 
@@ -147,7 +147,7 @@ describe("Document", [&]() {
       AssertThat(ts_node_end_char(new_root), Equals<size_t>(1));
       assert_node_string_equals(
         new_root,
-        "(number)");
+        "(value (number))");
     });
 
     it("reads from the new input correctly when the old input was blank", [&]() {
@@ -165,7 +165,7 @@ describe("Document", [&]() {
       AssertThat(ts_node_end_char(new_root), Equals<size_t>(1));
       assert_node_string_equals(
         new_root,
-        "(number)");
+        "(value (number))");
     });
   });
 
@@ -181,7 +181,7 @@ describe("Document", [&]() {
       root = ts_document_root_node(document);
       assert_node_string_equals(
         root,
-        "(object (pair (string) (array (number) (number))))");
+        "(value (object (pair (string) (array (number) (number)))))");
     });
 
     it("clears out any previous tree", [&]() {
@@ -405,7 +405,7 @@ describe("Document", [&]() {
       root = ts_document_root_node(document);
       assert_node_string_equals(
         root,
-        "(array (number) (null) (ERROR (UNEXPECTED 'e')) (number))");
+        "(value (array (number) (null) (ERROR (UNEXPECTED 'e')) (number)))");
 
       ts_document_invalidate(document);
 
@@ -432,7 +432,7 @@ describe("Document", [&]() {
       root = ts_document_root_node(document);
       assert_node_string_equals(
         root,
-        "(array (number) (null) (number))");
+        "(value (array (number) (null) (number)))");
     });
   });
 });

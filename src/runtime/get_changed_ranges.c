@@ -148,20 +148,11 @@ static Iterator iterator_new(TreePath *path, Tree *tree, const TSLanguage *langu
     .child_index = 0,
     .structural_child_index = 0,
   }));
-
-  Iterator self = {
+  return (Iterator) {
     .path = *path,
     .language = language,
-    .visible_depth = 0,
+    .visible_depth = 1,
   };
-
-  if (tree->visible) {
-    self.visible_depth++;
-  } else {
-    iterator_descend(&self, length_zero());
-  }
-
-  return self;
 }
 
 Length iterator_start_position(Iterator *self) {

@@ -72,7 +72,7 @@ describe("Node", [&]() {
     ts_document_set_language(document, load_real_language("json"));
     ts_document_set_input_string(document, json_string.c_str());
     ts_document_parse(document);
-    root_node = ts_document_root_node(document);
+    root_node = ts_node_child(ts_document_root_node(document), 0);
   });
 
   after_each([&]() {
@@ -161,7 +161,7 @@ describe("Node", [&]() {
       AssertThat(ts_node_parent(number_node), Equals(root_node));
       AssertThat(ts_node_parent(false_node), Equals(root_node));
       AssertThat(ts_node_parent(object_node), Equals(root_node));
-      AssertThat(ts_node_parent(root_node).data, Equals<void *>(nullptr));
+      AssertThat(ts_node_parent(ts_document_root_node(document)).data, Equals<void *>(nullptr));
     });
 
     it("works correctly when the node contains aliased children and extras", [&]() {
@@ -293,7 +293,7 @@ describe("Node", [&]() {
       AssertThat(ts_node_parent(child5), Equals(root_node));
       AssertThat(ts_node_parent(child6), Equals(root_node));
       AssertThat(ts_node_parent(child7), Equals(root_node));
-      AssertThat(ts_node_parent(root_node).data, Equals<void *>(nullptr));
+      AssertThat(ts_node_parent(ts_document_root_node(document)).data, Equals<void *>(nullptr));
     });
   });
 

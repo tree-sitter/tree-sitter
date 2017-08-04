@@ -1,0 +1,23 @@
+{
+  "name": "invisible_start_rule",
+
+  "rules": {
+    "_value": {
+      "type": "CHOICE",
+      "members": [
+        {"type": "SYMBOL", "name": "a"},
+        {"type": "SYMBOL", "name": "b"}
+      ]
+    },
+
+    "a": {
+      "type": "STRING",
+      "value": "a"
+    },
+
+    "b": {
+      "type": "STRING",
+      "value": "b"
+    }
+  }
+}

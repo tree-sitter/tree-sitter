@@ -14,19 +14,7 @@
 
 static void assert_correct_tree_size(TSDocument *document, string content) {
   TSNode root_node = ts_document_root_node(document);
-  size_t expected_size = content.size();
-
-  // In the JSON grammar, the start rule (`_value`) is hidden, so the node
-  // returned from `ts_document_root_node` (e.g. an `object` node), does not
-  // actually point to the root of the tree. In this weird case, trailing
-  // whitespace is not included in the root node's size.
-  //
-  // TODO: Fix this inconsistency. Maybe disallow the start rule being hidden?
-  if (ts_document_language(document) == load_real_language("json") &&
-      string(ts_node_type(root_node, document)) != "ERROR")
-    expected_size = content.find_last_not_of("\n ") + 1;
-
-  AssertThat(ts_node_end_byte(root_node), Equals(expected_size));
+  AssertThat(ts_node_end_byte(root_node), Equals(content.size()));
   assert_consistent_tree_sizes(root_node);
 }
 

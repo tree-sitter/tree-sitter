@@ -159,10 +159,7 @@ void ts_document_invalidate(TSDocument *self) {
 }
 
 TSNode ts_document_root_node(const TSDocument *self) {
-  TSNode result = ts_node_make(self->tree, 0, 0, 0);
-  while (result.data && !((Tree *)result.data)->visible)
-    result = ts_node_named_child(result, 0);
-  return result;
+  return ts_node_make(self->tree, 0, 0, 0);
 }
 
 uint32_t ts_document_parse_count(const TSDocument *self) {

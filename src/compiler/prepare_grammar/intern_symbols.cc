@@ -109,6 +109,9 @@ pair<InternedGrammar, CompileError> intern_symbols(const InputGrammar &grammar) 
     });
   }
 
+  if (grammar.variables[0].name[0] == '_') {
+    return {result, CompileError(TSCompileErrorTypeInvalidRuleName, "A grammar's start rule must be visible.")};
+  }
 
   for (auto &variable : grammar.variables) {
     auto new_rule = interner.apply(variable.rule);

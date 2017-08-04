@@ -25,10 +25,11 @@ errors inside arrays
 [1, , 2]
 
 ---
-(array
+
+(value (array
   (number)
   (ERROR)
-  (number))
+  (number)))
 
 ==========================================
 errors inside objects
@@ -38,7 +39,9 @@ errors inside objects
 
 ---
 
-(object (pair (string) (number)) (ERROR (UNEXPECTED 'o')))
+(value (object
+  (pair (string) (number))
+  (ERROR (UNEXPECTED 'o'))))
 
 ==========================================
 errors inside nested objects
@@ -48,9 +51,9 @@ errors inside nested objects
 
 ---
 
-(object
+(value (object
   (pair (string) (object
     (pair (string) (number))
     (ERROR (number))))
   (ERROR)
-  (pair (string) (number)))
+  (pair (string) (number))))
