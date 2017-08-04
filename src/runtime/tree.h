@@ -74,6 +74,7 @@ typedef struct {
   Tree *tree;
   Length position;
   uint32_t child_index;
+  uint32_t structural_child_index;
 } TreePathEntry;
 
 typedef Array(Tree *) TreeArray;

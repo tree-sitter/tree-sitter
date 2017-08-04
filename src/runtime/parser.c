@@ -192,12 +192,25 @@ static CondenseResult parser__condense_stack(Parser *self) {
           j--;
           break;
 
-        case ErrorComparisonPreferRight:
-          if (version_to_swap != STACK_VERSION_NONE) version_to_swap = j;
-          result |= CondenseResultMadeChange;
+        case ErrorComparisonPreferLeft:
+          if (can_merge) {
+            ts_stack_force_merge(self->stack, j, i);
+            result |= CondenseResultMadeChange;
+            i--;
+            j = i;
+          }
           break;
 
-        case ErrorComparisonPreferLeft:
+        case ErrorComparisonPreferRight:
+          if (can_merge) {
+            ts_stack_remove_version(self->stack, j);
+            result |= CondenseResultMadeChange;
+            i--;
+            j--;
+          } else if (version_to_swap != STACK_VERSION_NONE) {
+            version_to_swap = j;
+            result |= CondenseResultMadeChange;
+          }
           break;
 
         case ErrorComparisonNone:

@@ -3,7 +3,11 @@
 #include "runtime/language.h"
 #include "runtime/error_costs.h"
 
-#include <assert.h>
+typedef struct {
+  TreePath path;
+  const TSLanguage *language;
+  unsigned visible_depth;
+} Iterator;
 
 typedef Array(TSRange) RangeArray;
 
@@ -22,112 +26,147 @@ static void range_array_add(RangeArray *results, TSPoint start, TSPoint end) {
   }
 }
 
-static bool tree_is_visible(
-  const Tree *tree,
-  const Tree *parent,
-  uint32_t child_index,
-  const TSLanguage *language
-) {
-  if (tree->visible) return true;
-
-  // if (parent) {
-  //   const TSSymbol *alias_sequence = ts_language_alias_sequence(language, parent->alias_sequence_id);
-  //   return alias_sequence && alias_sequence[child_index] != 0;
-  // }
-
+static bool iterator_tree_is_visible(const Iterator *self) {
+  TreePathEntry entry = *array_back(&self->path);
+  if (entry.tree->visible) return true;
+  if (self->path.size > 1) {
+    Tree *parent = self->path.contents[self->path.size - 2].tree;
+    const TSSymbol *alias_sequence = ts_language_alias_sequence(self->language, parent->alias_sequence_id);
+    return alias_sequence && alias_sequence[entry.structural_child_index] != 0;
+  }
   return false;
 }
 
-static void tree_path_ascend(TreePath *path, uint32_t count, const TSLanguage *language) {
-  for (uint32_t i = 0; i < count; i++) {
-    while (path->size > 0) {
-      path->size--;
-      if (path->size == 0) return;
-      TreePathEntry *entry = array_back(path);
-      Tree *parent = path->size > 1 ? path->contents[path->size - 2].tree : NULL;
-      if (tree_is_visible(entry->tree, parent, entry->child_index, language)) break;
+static bool iterator_done(Iterator *self) {
+  return self->path.size == 0;
+}
+
+static void iterator_check(Iterator *self) {
+  unsigned visible_depth = 0;
+
+  if (self->path.size > 0 && self->path.contents[0].tree->visible) visible_depth++;
+  for (unsigned i = 1; i < self->path.size; i++) {
+    TreePathEntry entry = self->path.contents[i];
+    if (entry.tree->visible) {
+      visible_depth++;
+    } else {
+      Tree *parent = self->path.contents[i - 1].tree;
+      const TSSymbol *alias_sequence = ts_language_alias_sequence(self->language, parent->alias_sequence_id);
+      if (alias_sequence && alias_sequence[entry.structural_child_index] != 0) visible_depth++;
     }
+  }
+
+  assert(visible_depth == self->visible_depth);
+}
+
+static void iterator_print_state(Iterator *self) {
+  TreePathEntry entry = *array_back(&self->path);
+  TSPoint start = point_add(entry.position.extent, entry.tree->padding.extent);
+  TSPoint end = point_add(start, entry.tree->size.extent);
+  const char *name = ts_language_symbol_name(self->language, entry.tree->symbol);
+  printf("(%-25s\t depth:%u [%u, %u] - [%u, %u])", name, self->visible_depth, start.row, start.column, end.row, end.column);
+}
+
+static void iterator_ascend(Iterator *self) {
+  bool did_ascend = false;
+  for (;;) {
+    if (iterator_done(self)) break;
+    if (iterator_tree_is_visible(self)) {
+      if (did_ascend) break;
+      did_ascend = true;
+      self->visible_depth--;
+    }
+    array_pop(&self->path);
   }
 }
 
-static bool tree_path_descend(TreePath *path, Length position, const TSLanguage *language) {
-  uint32_t original_size = path->size;
+static bool iterator_descend(Iterator *self, Length position) {
+  uint32_t original_size = self->path.size;
 
   bool did_descend;
   do {
     did_descend = false;
-    TreePathEntry entry = *array_back(path);
+    TreePathEntry entry = *array_back(&self->path);
     Length child_left = entry.position;
     uint32_t structural_child_index = 0;
     for (uint32_t i = 0; i < entry.tree->child_count; i++) {
       Tree *child = entry.tree->children[i];
       Length child_right = length_add(child_left, ts_tree_total_size(child));
-      if (position.bytes < child_right.bytes) {
-        TreePathEntry child_entry = {
+
+      if (child_right.bytes > position.bytes) {
+        array_push(&self->path, ((TreePathEntry){
           .tree = child,
           .position = child_left,
           .child_index = i,
           .structural_child_index = structural_child_index,
-        };
-        if (tree_is_visible(child, entry.tree, structural_child_index, language) || child->child_count == 0) {
-          array_push(path, child_entry);
+        }));
+
+        if (iterator_tree_is_visible(self)) {
+          self->visible_depth++;
           return true;
         }
+
         if (child->visible_child_count > 0) {
-          array_push(path, child_entry);
           did_descend = true;
           break;
         }
+
+        array_pop(&self->path);
       }
+
       child_left = child_right;
       if (!child->extra) structural_child_index++;
     }
   } while (did_descend);
 
-  path->size = original_size;
+  self->path.size = original_size;
   return false;
 }
 
-static uint32_t tree_path_advance(TreePath *path, const TSLanguage *language) {
-  uint32_t ascend_count = 0;
+static void iterator_advance(Iterator *self) {
+  if (iterator_done(self)) return;
 
-  while (path->size > 0) {
-    TreePathEntry entry = array_pop(path);
-    if (path->size == 0) break;
-    TreePathEntry parent_entry = *array_back(path);
-    if (parent_entry.tree->visible) ascend_count++;
+  for (;;) {
+    if (iterator_tree_is_visible(self)) self->visible_depth--;
+    TreePathEntry entry = array_pop(&self->path);
+    if (iterator_done(self)) break;
 
+    Tree *parent = array_back(&self->path)->tree;
     Length position = length_add(entry.position, ts_tree_total_size(entry.tree));
     uint32_t structural_child_index = entry.structural_child_index;
     if (!entry.tree->extra) structural_child_index++;
 
-    for (uint32_t i = entry.child_index + 1; i < parent_entry.tree->child_count; i++) {
-      Tree *next_child = parent_entry.tree->children[i];
-      bool is_visible = tree_is_visible(next_child, entry.tree, structural_child_index, language);
-      if (is_visible ||
-          next_child->child_count == 0 ||
-          next_child->visible_child_count > 0) {
-        if (parent_entry.tree->visible) ascend_count--;
-        array_push(path, ((TreePathEntry){
-          .tree = next_child,
-          .position = position,
-          .child_index = i,
-          .structural_child_index = structural_child_index,
-        }));
-        if (!is_visible) {
-          tree_path_descend(path, length_zero(), language);
-        }
-        return ascend_count;
+    for (uint32_t i = entry.child_index + 1; i < parent->child_count; i++) {
+      Tree *next_child = parent->children[i];
+      array_push(&self->path, ((TreePathEntry){
+        .tree = next_child,
+        .position = position,
+        .child_index = i,
+        .structural_child_index = structural_child_index,
+      }));
+
+      if (iterator_tree_is_visible(self)) {
+        self->visible_depth++;
+        return;
       }
+
+      if (next_child->visible_child_count > 0) {
+        iterator_descend(self, length_zero());
+        return;
+      }
+
+      if (next_child->child_count == 0) {
+        return;
+      }
+
+      array_pop(&self->path);
       position = length_add(position, ts_tree_total_size(next_child));
       if (!next_child->extra) structural_child_index++;
     }
   }
-
-  return ascend_count;
 }
 
-static void tree_path_init(TreePath *path, Tree *tree, const TSLanguage *language) {
+static Iterator iterator_new(TreePath *path, Tree *tree, const TSLanguage *language) {
   array_clear(path);
   array_push(path, ((TreePathEntry){
     .tree = tree,
@@ -135,39 +174,50 @@ static void tree_path_init(TreePath *path, Tree *tree, const TSLanguage *languag
     .child_index = 0,
     .structural_child_index = 0,
   }));
-  if (!tree->visible) tree_path_descend(path, length_zero(), language);
+
+  Iterator self = {
+    .path = *path,
+    .language = language,
+    .visible_depth = 0,
+  };
+
+  if (tree->visible) {
+    self.visible_depth++;
+  } else {
+    iterator_descend(&self, length_zero());
+  }
+
+  return self;
 }
 
-Length tree_path_start_position(TreePath *self) {
-  TreePathEntry entry = *array_back(self);
+Length iterator_start_position(Iterator *self) {
+  TreePathEntry entry = *array_back(&self->path);
   return length_add(entry.position, entry.tree->padding);
 }
 
-Length tree_path_end_position(TreePath *self) {
-  TreePathEntry entry = *array_back(self);
+Length iterator_end_position(Iterator *self) {
+  TreePathEntry entry = *array_back(&self->path);
   return length_add(length_add(entry.position, entry.tree->padding), entry.tree->size);
 }
 
 typedef enum {
-  TreePathNotEq,
-  TreePathCanEq,
-  TreePathMustEq,
-} TreePathComparison;
+  IteratorDiffers,
+  IteratorMayDiffer,
+  IteratorMatches,
+} IteratorComparison;
 
-TreePathComparison tree_path_compare(const TreePath *old_path,
-                                     const TreePath *new_path,
-                                     const TSLanguage *language) {
+IteratorComparison iterator_compare(const Iterator *self, const Iterator *other) {
   Tree *old_tree = NULL;
   TSSymbol old_alias_symbol = 0;
   Length old_start = length_zero();
-  for (uint32_t i = old_path->size - 1; i + 1 > 0; i--) {
-    old_tree = old_path->contents[i].tree;
-    old_start = old_path->contents[i].position;
+  for (uint32_t i = self->path.size - 1; i + 1 > 0; i--) {
+    old_tree = self->path.contents[i].tree;
+    old_start = self->path.contents[i].position;
     if (i > 0) {
-      Tree *parent = old_path->contents[i - 1].tree;
-      const TSSymbol *alias_sequence = ts_language_alias_sequence(language, parent->alias_sequence_id);
+      Tree *parent = self->path.contents[i - 1].tree;
+      const TSSymbol *alias_sequence = ts_language_alias_sequence(self->language, parent->alias_sequence_id);
       if (alias_sequence) {
-        old_alias_symbol = alias_sequence[old_path->contents[i].structural_child_index];
+        old_alias_symbol = alias_sequence[self->path.contents[i].structural_child_index];
       }
     }
 
@@ -177,14 +227,14 @@ TreePathComparison tree_path_compare(const TreePath *old_path,
   Tree *new_tree = NULL;
   TSSymbol new_alias_symbol = 0;
   Length new_start = length_zero();
-  for (uint32_t i = new_path->size - 1; i + 1 > 0; i--) {
-    new_tree = new_path->contents[i].tree;
-    new_start = old_path->contents[i].position;
+  for (uint32_t i = other->path.size - 1; i + 1 > 0; i--) {
+    new_tree = other->path.contents[i].tree;
+    new_start = other->path.contents[i].position;
     if (i > 0) {
-      Tree *parent = new_path->contents[i - 1].tree;
-      const TSSymbol *alias_sequence = ts_language_alias_sequence(language, parent->alias_sequence_id);
+      Tree *parent = other->path.contents[i - 1].tree;
+      const TSSymbol *alias_sequence = ts_language_alias_sequence(self->language, parent->alias_sequence_id);
       if (alias_sequence) {
-        new_alias_symbol = alias_sequence[new_path->contents[i].structural_child_index];
+        new_alias_symbol = alias_sequence[other->path.contents[i].structural_child_index];
       }
     }
 
@@ -200,42 +250,40 @@ TreePathComparison tree_path_compare(const TreePath *old_path,
           old_tree->parse_state != TS_TREE_STATE_NONE &&
           new_tree->parse_state != TS_TREE_STATE_NONE &&
           (old_tree->parse_state == ERROR_STATE) == (new_tree->parse_state == ERROR_STATE)) {
-        return TreePathMustEq;
+        return IteratorMatches;
       }
     }
 
     if (old_tree->symbol == new_tree->symbol) {
-      return TreePathCanEq;
+      return IteratorMayDiffer;
     }
   }
 
-  return TreePathNotEq;
+  return IteratorDiffers;
 }
 
-unsigned ts_tree_get_changed_ranges(
-  Tree *old_tree, Tree *new_tree,
-  TreePath *old_path, TreePath *new_path,
-  const TSLanguage *language, TSRange **ranges
-) {
-  tree_path_init(old_path, old_tree, language);
-  tree_path_init(new_path, new_tree, language);
+unsigned ts_tree_get_changed_ranges(Tree *old_tree, Tree *new_tree,
+                                    TreePath *path1, TreePath *path2,
+                                    const TSLanguage *language, TSRange **ranges) {
+  Iterator old_iter = iterator_new(path1, old_tree, language);
+  Iterator new_iter = iterator_new(path2, new_tree, language);
   Length position = length_zero();
   RangeArray results = array_new();
 
-  while (old_path->size && new_path->size) {
+  while (!iterator_done(&old_iter) && !iterator_done(&new_iter)) {
     bool is_changed = false;
     Length next_position = position;
 
-    Length old_start = tree_path_start_position(old_path);
-    Length new_start = tree_path_start_position(new_path);
-    Length old_end = tree_path_end_position(old_path);
-    Length new_end = tree_path_end_position(new_path);
+    Length old_start = iterator_start_position(&old_iter);
+    Length new_start = iterator_start_position(&new_iter);
+    Length old_end = iterator_end_position(&old_iter);
+    Length new_end = iterator_end_position(&new_iter);
 
-    // #define NAME(tree) (ts_language_symbol_name(language, ((Tree *)(tree))->symbol))
-    // printf("At [%-2u, %-2u] Compare (%-20s\t [%u, %u] - [%u, %u])\tvs\t(%-20s\t [%u, %u] - [%u, %u])\t",
-    //   position.extent.row, position.extent.column,
-    //   NAME(array_back(old_path)->tree), old_start.extent.row, old_start.extent.column, old_end.extent.row, old_end.extent.column,
-    //   NAME(array_back(old_path)->tree), new_start.extent.row, new_start.extent.column, new_end.extent.row, new_end.extent.column);
+    // printf("At [%-2u, %-2u] Compare ", position.extent.row, position.extent.column);
+    // iterator_print_state(&old_iter);
+    // printf("\tvs\t");
+    // iterator_print_state(&new_iter);
+    // printf("\n");
 
     if (position.bytes < old_start.bytes) {
       if (position.bytes < new_start.bytes) {
@@ -248,59 +296,52 @@ unsigned ts_tree_get_changed_ranges(
       is_changed = true;
       next_position = new_start;
     } else {
-      switch (tree_path_compare(old_path, new_path, language)) {
-        case TreePathMustEq:
+      switch (iterator_compare(&old_iter, &new_iter)) {
+        case IteratorMatches:
           next_position = old_end;
           break;
 
-        case TreePathCanEq:
-          if (tree_path_descend(old_path, position, language)) {
-            if (!tree_path_descend(new_path, position, language)) {
-              tree_path_ascend(old_path, 1, language);
+        case IteratorMayDiffer:
+          next_position = length_min(old_end, new_end);
+          if (iterator_descend(&old_iter, position)) {
+            if (iterator_descend(&new_iter, position)) {
+              next_position = position;
+            } else {
+              iterator_ascend(&old_iter);
               is_changed = true;
-              next_position = new_end;
             }
-          } else if (tree_path_descend(new_path, position, language)) {
-            tree_path_ascend(new_path, 1, language);
+          } else if (iterator_descend(&new_iter, position)) {
+            iterator_ascend(&new_iter);
             is_changed = true;
-            next_position = old_end;
-          } else {
-            next_position = length_min(old_end, new_end);
           }
           break;
 
-        case TreePathNotEq:
+        case IteratorDiffers:
           is_changed = true;
           next_position = length_min(old_end, new_end);
           break;
       }
     }
 
-    bool at_old_end = old_end.bytes <= next_position.bytes;
-    bool at_new_end = new_end.bytes <= next_position.bytes;
-
-    if (at_new_end && at_old_end) {
-      uint32_t old_ascend_count = tree_path_advance(old_path, language);
-      uint32_t new_ascend_count = tree_path_advance(new_path, language);
-      if (old_ascend_count > new_ascend_count) {
-        tree_path_ascend(new_path, old_ascend_count - new_ascend_count, language);
-      } else if (new_ascend_count > old_ascend_count) {
-        tree_path_ascend(old_path, new_ascend_count - old_ascend_count, language);
-      }
-    } else if (at_new_end) {
-      uint32_t ascend_count = tree_path_advance(new_path, language);
-      tree_path_ascend(old_path, ascend_count, language);
-    } else if (at_old_end) {
-      uint32_t ascend_count = tree_path_advance(old_path, language);
-      tree_path_ascend(new_path, ascend_count, language);
-    }
+    if (old_end.bytes <= next_position.bytes) iterator_advance(&old_iter);
+    if (new_end.bytes <= next_position.bytes) iterator_advance(&new_iter);
+    while (old_iter.visible_depth > new_iter.visible_depth) iterator_ascend(&old_iter);
+    while (new_iter.visible_depth > old_iter.visible_depth) iterator_ascend(&new_iter);
 
     if (is_changed) {
+      // printf(
+      //   "add range [[%u, %u] - [%u, %u]]\n",
+      //   position.extent.row, position.extent.column,
+      //   next_position.extent.row, next_position.extent.column
+      // );
       range_array_add(&results, position.extent, next_position.extent);
     }
+
     position = next_position;
   }
 
+  *path1 = old_iter.path;
+  *path2 = new_iter.path;
   *ranges = results.contents;
   return results.size;
 }

@@ -4,7 +4,7 @@
 #include "runtime/tree.h"
 
 unsigned ts_tree_get_changed_ranges(
-  Tree *old_tree, Tree *new_tree, TreePath *tree_path1, TreePath *tree_path2,
+  Tree *old_tree, Tree *new_tree, TreePath *path1, TreePath *path2,
   const TSLanguage *language, TSRange **ranges
 );
 
