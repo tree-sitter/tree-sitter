@@ -15,7 +15,8 @@ e f;
       (ERROR (identifier))
       (identifier))
     (statement_block
-      (expression_statement (ERROR (identifier)) (identifier))))
+      (ERROR (identifier))
+      (expression_statement (identifier))))
   (expression_statement (ERROR (identifier)) (identifier)))
 
 =======================================================

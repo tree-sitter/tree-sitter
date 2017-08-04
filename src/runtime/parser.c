@@ -169,7 +169,6 @@ static CondenseResult parser__condense_stack(Parser *self) {
       continue;
     }
 
-    StackVersion version_to_swap = STACK_VERSION_NONE;
     ErrorStatus right_error_status = ts_stack_error_status(self->stack, i);
     if (right_error_status.count == 0) has_version_without_errors = true;
 
@@ -207,8 +206,9 @@ static CondenseResult parser__condense_stack(Parser *self) {
             result |= CondenseResultMadeChange;
             i--;
             j--;
-          } else if (version_to_swap != STACK_VERSION_NONE) {
-            version_to_swap = j;
+          } else {
+            ts_stack_swap_versions(self->stack, i, j);
+            j = i;
             result |= CondenseResultMadeChange;
           }
           break;
@@ -221,10 +221,6 @@ static CondenseResult parser__condense_stack(Parser *self) {
             break;
           }
       }
-    }
-
-    if (version_to_swap != STACK_VERSION_NONE) {
-      ts_stack_swap_versions(self->stack, i, version_to_swap);
     }
   }
 
