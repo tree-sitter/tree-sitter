@@ -4,7 +4,7 @@
 #include "runtime/parser.h"
 #include "runtime/string_input.h"
 #include "runtime/document.h"
-#include "runtime/tree_path.h"
+#include "runtime/get_changed_ranges.h"
 
 TSDocument *ts_document_new() {
   TSDocument *self = ts_calloc(1, sizeof(TSDocument));
@@ -140,11 +140,10 @@ void ts_document_parse_with_options(TSDocument *self, TSParseOptions options) {
     self->tree = tree;
 
     if (options.changed_ranges && options.changed_range_count) {
-      tree_path_init(&self->parser.tree_path1, old_tree);
-      tree_path_init(&self->parser.tree_path2, tree);
-      tree_path_get_changes(&self->parser.tree_path1, &self->parser.tree_path2,
-                            options.changed_ranges, options.changed_range_count,
-                            self->parser.language);
+      *options.changed_range_count = ts_tree_get_changed_ranges(
+        old_tree, tree, &self->parser.tree_path1, &self->parser.tree_path2,
+        self->parser.language, options.changed_ranges
+      );
     }
 
     ts_tree_release(old_tree);
