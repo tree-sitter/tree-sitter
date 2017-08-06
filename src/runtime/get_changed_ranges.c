@@ -26,6 +26,35 @@ typedef struct {
   unsigned visible_depth;
 } Iterator;
 
+static Iterator iterator_new(TreePath *path, Tree *tree, const TSLanguage *language) {
+  array_clear(path);
+  array_push(path, ((TreePathEntry){
+    .tree = tree,
+    .position = { 0, 0, { 0, 0 } },
+    .child_index = 0,
+    .structural_child_index = 0,
+  }));
+  return (Iterator) {
+    .path = *path,
+    .language = language,
+    .visible_depth = 1,
+  };
+}
+
+Length iterator_start_position(Iterator *self) {
+  TreePathEntry entry = *array_back(&self->path);
+  return length_add(entry.position, entry.tree->padding);
+}
+
+Length iterator_end_position(Iterator *self) {
+  TreePathEntry entry = *array_back(&self->path);
+  return length_add(length_add(entry.position, entry.tree->padding), entry.tree->size);
+}
+
+static bool iterator_done(Iterator *self) {
+  return self->path.size == 0;
+}
+
 static bool iterator_tree_is_visible(const Iterator *self) {
   TreePathEntry entry = *array_back(&self->path);
   if (entry.tree->visible) return true;
@@ -37,8 +66,12 @@ static bool iterator_tree_is_visible(const Iterator *self) {
   return false;
 }
 
-static bool iterator_done(Iterator *self) {
-  return self->path.size == 0;
+static void iterator_print_state(Iterator *self) {
+  TreePathEntry entry = *array_back(&self->path);
+  TSPoint start = point_add(entry.position.extent, entry.tree->padding.extent);
+  TSPoint end = point_add(start, entry.tree->size.extent);
+  const char *name = ts_language_symbol_name(self->language, entry.tree->symbol);
+  printf("(%-25s\t depth:%u [%u, %u] - [%u, %u])", name, self->visible_depth, start.row, start.column, end.row, end.column);
 }
 
 static void iterator_ascend(Iterator *self) {
@@ -140,31 +173,6 @@ static bool iterator_advance(Iterator *self) {
   }
 }
 
-static Iterator iterator_new(TreePath *path, Tree *tree, const TSLanguage *language) {
-  array_clear(path);
-  array_push(path, ((TreePathEntry){
-    .tree = tree,
-    .position = { 0, 0, { 0, 0 } },
-    .child_index = 0,
-    .structural_child_index = 0,
-  }));
-  return (Iterator) {
-    .path = *path,
-    .language = language,
-    .visible_depth = 1,
-  };
-}
-
-Length iterator_start_position(Iterator *self) {
-  TreePathEntry entry = *array_back(&self->path);
-  return length_add(entry.position, entry.tree->padding);
-}
-
-Length iterator_end_position(Iterator *self) {
-  TreePathEntry entry = *array_back(&self->path);
-  return length_add(length_add(entry.position, entry.tree->padding), entry.tree->size);
-}
-
 typedef enum {
   IteratorDiffers,
   IteratorMayDiffer,
@@ -225,14 +233,6 @@ IteratorComparison iterator_compare(const Iterator *self, const Iterator *other)
   }
 
   return IteratorDiffers;
-}
-
-static void iterator_print_state(Iterator *self) {
-  TreePathEntry entry = *array_back(&self->path);
-  TSPoint start = point_add(entry.position.extent, entry.tree->padding.extent);
-  TSPoint end = point_add(start, entry.tree->size.extent);
-  const char *name = ts_language_symbol_name(self->language, entry.tree->symbol);
-  printf("(%-25s\t depth:%u [%u, %u] - [%u, %u])", name, self->visible_depth, start.row, start.column, end.row, end.column);
 }
 
 unsigned ts_tree_get_changed_ranges(Tree *old_tree, Tree *new_tree,
