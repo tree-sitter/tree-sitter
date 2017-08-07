@@ -1,0 +1,1 @@
+msbuild /p:Configuration=Test tests.vcxproj
