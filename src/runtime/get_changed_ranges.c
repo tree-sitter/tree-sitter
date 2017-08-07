@@ -2,6 +2,7 @@
 #include "runtime/tree.h"
 #include "runtime/language.h"
 #include "runtime/error_costs.h"
+#include <assert.h>
 
 typedef Array(TSRange) RangeArray;
 
@@ -209,11 +210,13 @@ typedef enum {
 } IteratorComparison;
 
 IteratorComparison iterator_compare(const Iterator *old_iter, const Iterator *new_iter) {
-  Tree *old_tree, *new_tree;
-  uint32_t old_start, new_start;
-  TSSymbol old_alias_symbol, new_alias_symbol;
+  Tree *old_tree = NULL, *new_tree = NULL;
+  uint32_t old_start = 0, new_start = 0;
+  TSSymbol old_alias_symbol = 0, new_alias_symbol = 0;
   iterator_get_visible_state(old_iter, &old_tree, &old_alias_symbol, &old_start);
   iterator_get_visible_state(new_iter, &new_tree, &new_alias_symbol, &new_start);
+
+  assert(old_tree && new_tree);
 
   if (old_alias_symbol == new_alias_symbol) {
     if (old_start == new_start) {
