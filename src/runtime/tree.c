@@ -603,7 +603,7 @@ void ts_tree_print_dot_graph(const Tree *self, const TSLanguage *language,
   fprintf(f, "}\n");
 }
 
-TSExternalTokenState empty_state = {.length = 0, .short_data = {}};
+static const TSExternalTokenState empty_state = {.length = 0, .short_data = {0}};
 
 bool ts_tree_external_token_state_eq(const Tree *self, const Tree *other) {
   const TSExternalTokenState *state1 = &empty_state;
