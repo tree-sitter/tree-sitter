@@ -153,9 +153,7 @@
       '-Wno-unused-parameter'
     ],
 
-    'defines': [
-      'UTFPROC_EXPORTS',
-    ],
+    'defines': ['UTF8PROC_EXPORTS'],
 
     'xcode_settings': {
       'ALWAYS_SEARCH_USER_PATHS': 'NO',
