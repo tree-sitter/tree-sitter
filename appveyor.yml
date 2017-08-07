@@ -1,5 +1,9 @@
 image: Visual Studio 2015
 
+branches:
+  only:
+    - master
+
 platform:
   - x86
   - x64
