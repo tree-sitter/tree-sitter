@@ -10,8 +10,8 @@ platform:
 
 install:
   - script\configure.cmd
-  - msbuild compiler.vcxproj
   - msbuild runtime.vcxproj
+  - msbuild compiler.vcxproj
   - msbuild tests.vcxproj
 
 test_script:
