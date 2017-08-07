@@ -35,19 +35,19 @@ describe("flatten_grammar", []() {
     AssertThat(result.type, Equals(VariableTypeNamed));
     AssertThat(result.productions, Equals(vector<Production>({
       Production{{
-        {Symbol::non_terminal(1), 0, AssociativityNone, ""},
-        {Symbol::non_terminal(2), 101, AssociativityLeft, ""},
-        {Symbol::non_terminal(3), 102, AssociativityRight, ""},
-        {Symbol::non_terminal(4), 101, AssociativityLeft, ""},
-        {Symbol::non_terminal(6), 0, AssociativityNone, ""},
-        {Symbol::non_terminal(7), 0, AssociativityNone, ""},
+        {Symbol::non_terminal(1), 0, AssociativityNone, Alias{}},
+        {Symbol::non_terminal(2), 101, AssociativityLeft, Alias{}},
+        {Symbol::non_terminal(3), 102, AssociativityRight, Alias{}},
+        {Symbol::non_terminal(4), 101, AssociativityLeft, Alias{}},
+        {Symbol::non_terminal(6), 0, AssociativityNone, Alias{}},
+        {Symbol::non_terminal(7), 0, AssociativityNone, Alias{}},
       }, 0},
       Production{{
-        {Symbol::non_terminal(1), 0, AssociativityNone, ""},
-        {Symbol::non_terminal(2), 101, AssociativityLeft, ""},
-        {Symbol::non_terminal(5), 101, AssociativityLeft, ""},
-        {Symbol::non_terminal(6), 0, AssociativityNone, ""},
-        {Symbol::non_terminal(7), 0, AssociativityNone, ""},
+        {Symbol::non_terminal(1), 0, AssociativityNone, Alias{}},
+        {Symbol::non_terminal(2), 101, AssociativityLeft, Alias{}},
+        {Symbol::non_terminal(5), 101, AssociativityLeft, Alias{}},
+        {Symbol::non_terminal(6), 0, AssociativityNone, Alias{}},
+        {Symbol::non_terminal(7), 0, AssociativityNone, Alias{}},
       }, 0}
     })));
   });
@@ -77,19 +77,19 @@ describe("flatten_grammar", []() {
     AssertThat(result.type, Equals(VariableTypeNamed));
     AssertThat(result.productions, Equals(vector<Production>({
       Production{{
-        {Symbol::non_terminal(1), 0, AssociativityNone, ""},
-        {Symbol::non_terminal(2), 0, AssociativityNone, ""},
-        {Symbol::non_terminal(3), 0, AssociativityNone, ""},
-        {Symbol::non_terminal(4), 0, AssociativityNone, ""},
-        {Symbol::non_terminal(6), 0, AssociativityNone, ""},
-        {Symbol::non_terminal(7), 0, AssociativityNone, ""},
+        {Symbol::non_terminal(1), 0, AssociativityNone, Alias{}},
+        {Symbol::non_terminal(2), 0, AssociativityNone, Alias{}},
+        {Symbol::non_terminal(3), 0, AssociativityNone, Alias{}},
+        {Symbol::non_terminal(4), 0, AssociativityNone, Alias{}},
+        {Symbol::non_terminal(6), 0, AssociativityNone, Alias{}},
+        {Symbol::non_terminal(7), 0, AssociativityNone, Alias{}},
       }, 102},
       Production{{
-        {Symbol::non_terminal(1), 0, AssociativityNone, ""},
-        {Symbol::non_terminal(2), 0, AssociativityNone, ""},
-        {Symbol::non_terminal(5), 0, AssociativityNone, ""},
-        {Symbol::non_terminal(6), 0, AssociativityNone, ""},
-        {Symbol::non_terminal(7), 0, AssociativityNone, ""},
+        {Symbol::non_terminal(1), 0, AssociativityNone, Alias{}},
+        {Symbol::non_terminal(2), 0, AssociativityNone, Alias{}},
+        {Symbol::non_terminal(5), 0, AssociativityNone, Alias{}},
+        {Symbol::non_terminal(6), 0, AssociativityNone, Alias{}},
+        {Symbol::non_terminal(7), 0, AssociativityNone, Alias{}},
       }, 101}
     })));
   });
@@ -106,8 +106,8 @@ describe("flatten_grammar", []() {
 
     AssertThat(result.productions, Equals(vector<Production>({
       Production{{
-        {Symbol::non_terminal(1), 101, AssociativityLeft, ""},
-        {Symbol::non_terminal(2), 101,  AssociativityLeft, ""},
+        {Symbol::non_terminal(1), 101, AssociativityLeft, Alias{}},
+        {Symbol::non_terminal(2), 101,  AssociativityLeft, Alias{}},
       }, 0}
     })));
 
@@ -121,7 +121,7 @@ describe("flatten_grammar", []() {
 
     AssertThat(result.productions, Equals(vector<Production>({
       Production{{
-        {Symbol::non_terminal(1), 101, AssociativityLeft, ""},
+        {Symbol::non_terminal(1), 101, AssociativityLeft, Alias{}},
       }, 0}
     })));
   });

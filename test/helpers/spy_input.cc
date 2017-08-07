@@ -8,8 +8,6 @@ using std::pair;
 using std::string;
 using std::vector;
 
-static const size_t UTF8_MAX_CHAR_SIZE = 4;
-
 SpyInput::SpyInput(string content, size_t chars_per_chunk) :
   chars_per_chunk(chars_per_chunk),
   buffer(nullptr),
