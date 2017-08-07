@@ -155,7 +155,7 @@ Tree *ts_tree_make_copy(Tree *self) {
 
 void ts_tree_assign_parents(Tree *self, TreePath *path, const TSLanguage *language) {
   array_clear(path);
-  array_push(path, ((TreePathEntry){self, length_zero(), 0}));
+  array_push(path, ((TreePathEntry){self, length_zero(), 0, 0}));
   while (path->size > 0) {
     Tree *tree = array_pop(path).tree;
     Length offset = length_zero();
@@ -175,7 +175,7 @@ void ts_tree_assign_parents(Tree *self, TreePath *path, const TSLanguage *langua
           child->context.alias_symbol = 0;
           child->context.alias_is_named = false;
         }
-        array_push(path, ((TreePathEntry){child, length_zero(), 0}));
+        array_push(path, ((TreePathEntry){child, length_zero(), 0, 0}));
       }
       offset = length_add(offset, ts_tree_total_size(child));
       if (!child->extra) non_extra_index++;
