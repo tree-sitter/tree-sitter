@@ -105,9 +105,6 @@
       'cflags_c': [
         '-std=c99', '-U_FORTIFY_SOURCE', '-D_FORTIFY_SOURCE=1'
       ],
-      'defines': [
-        'UTFPROC_EXPORTS',
-      ],
       'ldflags': [
         '-g',
       ],
@@ -154,6 +151,10 @@
       '-Wall',
       '-Wextra',
       '-Wno-unused-parameter'
+    ],
+
+    'defines': [
+      'UTFPROC_EXPORTS',
     ],
 
     'xcode_settings': {
