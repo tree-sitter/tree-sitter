@@ -27,6 +27,12 @@ int compile_result_count = 0;
 const char *libcompiler_path = "test\\lib\\compiler.lib";
 const char *dylib_extension = ".dll";
 
+static string get_cwd() {
+  string result(255, 0);
+  result.resize(GetCurrentDirectory(result.size(), &result[0]));
+  return result;
+}
+
 static int compile_parser(
   string source_filename,
   string scanner_source_filename,
@@ -77,6 +83,10 @@ const char *dylib_extension = ".dylib";
 
 #include <unistd.h>
 #include <dlfcn.h>
+
+static string get_cwd() {
+  return string(getenv("PWD"));
+}
 
 static int compile_parser(
   string source_filename,
@@ -133,7 +143,7 @@ static const TSLanguage *load_language(const string &source_filename,
                                        const string &language_name,
                                        string external_scanner_filename = "") {
   string language_function_name = "tree_sitter_" + language_name;
-  string header_dir = join_path({getenv("PWD"), "include"});
+  string header_dir = join_path({get_cwd(), "include"});
   int source_mtime = get_modified_time(source_filename);
   int header_mtime = get_modified_time(join_path({header_dir, "tree_sitter", "parser.h"}));
   int lib_mtime = get_modified_time(lib_filename);
