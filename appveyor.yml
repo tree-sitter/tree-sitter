@@ -6,9 +6,9 @@ branches:
 
 platform:
   - x86
-  - x64
 
 install:
+  - call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86
   - script\configure.cmd
   - script\fetch-fixtures.cmd
 
