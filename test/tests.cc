@@ -1,4 +1,5 @@
 #include "test_helper.h"
+#include "helpers/random_helpers.h"
 
 int main(int argc, char *argv[]) {
   int seed;
@@ -6,11 +7,11 @@ int main(int argc, char *argv[]) {
   if (seed_env) {
     seed = atoi(seed_env);
   } else {
-    seed = time(nullptr);
+    seed = get_time_as_seed();
   }
 
   printf("Random seed: %d\n", seed);
-  srandom(seed);
+  random_reseed(seed);
 
   return bandit::run(argc, argv);
 }
