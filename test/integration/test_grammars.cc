@@ -25,7 +25,7 @@ for (auto &language_name : test_languages) {
       it("fails with the correct error message", [&]() {
         TSCompileResult compile_result = ts_compile_grammar(grammar_json.c_str());
         string expected_error = read_file(expected_error_path);
-        AssertThat((void *)compile_result.error_message, !IsNull());
+        AssertThat((void *)compile_result.error_message, !Equals<void *>(nullptr));
         AssertThat(compile_result.error_message, Equals(expected_error));
       });
       return;

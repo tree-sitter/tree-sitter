@@ -533,7 +533,7 @@ describe("Stack", [&]() {
     });
 
     it("allows the state to be retrieved", [&]() {
-      AssertThat(ts_stack_last_external_token(stack, 0), Equals(nullptr));
+      AssertThat(ts_stack_last_external_token(stack, 0), Equals<Tree *>(nullptr));
 
       ts_stack_set_last_external_token(stack, 0, trees[1]);
       AssertThat(ts_stack_last_external_token(stack, 0), Equals(trees[1]));
