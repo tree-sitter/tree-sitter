@@ -104,7 +104,7 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
 }
 
 void ts_document_parse(TSDocument *self) {
-  return ts_document_parse_with_options(self, (TSParseOptions){
+  ts_document_parse_with_options(self, (TSParseOptions){
     .halt_on_error = false,
     .changed_ranges = NULL,
     .changed_range_count = NULL,
@@ -113,7 +113,7 @@ void ts_document_parse(TSDocument *self) {
 
 void ts_document_parse_and_get_changed_ranges(TSDocument *self, TSRange **ranges,
                                               uint32_t *range_count) {
-  return ts_document_parse_with_options(self, (TSParseOptions){
+  ts_document_parse_with_options(self, (TSParseOptions){
     .halt_on_error = false,
     .changed_ranges = ranges,
     .changed_range_count = range_count,

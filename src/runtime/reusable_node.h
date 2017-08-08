@@ -7,11 +7,8 @@ typedef struct {
 } ReusableNode;
 
 static inline ReusableNode reusable_node_new(Tree *tree) {
-  return (ReusableNode){
-    .tree = tree,
-    .byte_index = 0,
-    .preceding_external_token = NULL,
-  };
+  ReusableNode result = {tree, 0, NULL};
+  return result;
 }
 
 static inline void reusable_node_pop(ReusableNode *self) {
