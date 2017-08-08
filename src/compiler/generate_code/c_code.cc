@@ -100,7 +100,11 @@ class CCodeGenerator {
     add_symbol_enum();
     add_symbol_names_list();
     add_symbol_metadata_list();
-    add_alias_sequences();
+
+    if (parse_table.alias_sequences.size() > 1) {
+      add_alias_sequences();
+    }
+
     add_lex_function();
     add_lex_modes_list();
 
@@ -427,30 +431,57 @@ class CCodeGenerator {
 
     if (!syntax_grammar.external_tokens.empty()) {
       line("void *" + external_scanner_name + "_create();");
-      line("void " + external_scanner_name + "_destroy();");
+      line("void " + external_scanner_name + "_destroy(void *);");
       line("bool " + external_scanner_name + "_scan(void *, TSLexer *, const bool *);");
       line("unsigned " + external_scanner_name + "_serialize(void *, char *);");
       line("void " + external_scanner_name + "_deserialize(void *, const char *, unsigned);");
       line();
     }
 
-    line("const TSLanguage *" + language_function_name + "() {");
+    line("#ifdef _WIN32");
+    line("#define extern __declspec(dllexport)");
+    line("#endif");
+    line();
+
+    line("extern const TSLanguage *" + language_function_name + "() {");
     indent([&]() {
-      line("GET_LANGUAGE(");
-      if (syntax_grammar.external_tokens.empty()) {
-        add(");");
-      } else {
-        indent([&]() {
-          line("(const bool *)ts_external_scanner_states,");
-          line("ts_external_scanner_symbol_map,");
-          line(external_scanner_name + "_create,");
-          line(external_scanner_name + "_destroy,");
-          line(external_scanner_name + "_scan,");
-          line(external_scanner_name + "_serialize,");
-          line(external_scanner_name + "_deserialize,");
-        });
-        line(");");
-      }
+      line("static TSLanguage language = {");
+      indent([&]() {
+        line(".version = LANGUAGE_VERSION,");
+        line(".symbol_count = SYMBOL_COUNT,");
+        line(".alias_count = ALIAS_COUNT,");
+        line(".token_count = TOKEN_COUNT,");
+        line(".symbol_metadata = ts_symbol_metadata,");
+        line(".parse_table = (const unsigned short *)ts_parse_table,");
+        line(".parse_actions = ts_parse_actions,");
+        line(".lex_modes = ts_lex_modes,");
+        line(".symbol_names = ts_symbol_names,");
+
+        if (parse_table.alias_sequences.size() > 1) {
+          line(".alias_sequences = (const TSSymbol *)ts_alias_sequences,");
+        }
+
+        line(".max_alias_sequence_length = MAX_ALIAS_SEQUENCE_LENGTH,");
+        line(".lex_fn = ts_lex,");
+        line(".external_token_count = EXTERNAL_TOKEN_COUNT,");
+
+        if (!syntax_grammar.external_tokens.empty()) {
+          line(".external_scanner = {");
+          indent([&]() {
+            line("(const bool *)ts_external_scanner_states,");
+            line("ts_external_scanner_symbol_map,");
+            line(external_scanner_name + "_create,");
+            line(external_scanner_name + "_destroy,");
+            line(external_scanner_name + "_scan,");
+            line(external_scanner_name + "_serialize,");
+            line(external_scanner_name + "_deserialize,");
+          });
+          line("},");
+        }
+      });
+
+      line("};");
+      line("return &language;");
     });
     line("}");
     line();

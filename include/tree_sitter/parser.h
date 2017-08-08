@@ -172,25 +172,6 @@ typedef struct TSLanguage {
     { .type = TSParseActionTypeAccept } \
   }
 
-#define GET_LANGUAGE(...)                                    \
-  static TSLanguage language = {                             \
-    .version = LANGUAGE_VERSION,                             \
-    .symbol_count = SYMBOL_COUNT,                            \
-    .alias_count = ALIAS_COUNT,                              \
-    .token_count = TOKEN_COUNT,                              \
-    .symbol_metadata = ts_symbol_metadata,                   \
-    .parse_table = (const unsigned short *)ts_parse_table,   \
-    .parse_actions = ts_parse_actions,                       \
-    .lex_modes = ts_lex_modes,                               \
-    .symbol_names = ts_symbol_names,                         \
-    .alias_sequences = (const TSSymbol *)ts_alias_sequences, \
-    .max_alias_sequence_length = MAX_ALIAS_SEQUENCE_LENGTH,  \
-    .lex_fn = ts_lex,                                        \
-    .external_token_count = EXTERNAL_TOKEN_COUNT,            \
-    .external_scanner = {__VA_ARGS__}                        \
-  };                                                         \
-  return &language                                           \
-
 #ifdef __cplusplus
 }
 #endif
