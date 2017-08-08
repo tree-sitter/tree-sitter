@@ -229,7 +229,7 @@ const TSLanguage *load_real_language(const string &language_name) {
     write_file(parser_filename, result.code);
   }
 
-  string lib_filename = join_path({"out", "tmp", language_name + ".so"});
+  string lib_filename = join_path({"out", "tmp", language_name + dylib_extension});
   const TSLanguage *language = load_language(parser_filename, lib_filename, language_name, external_scanner_filename);
   loaded_languages[language_name] = language;
   return language;
