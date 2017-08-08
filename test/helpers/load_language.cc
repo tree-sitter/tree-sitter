@@ -1,10 +1,7 @@
 #include "helpers/load_language.h"
 #include "helpers/file_helpers.h"
 #include <cassert>
-#include <unistd.h>
-#include <dlfcn.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <map>
 #include <string>
 #include <fstream>
@@ -23,37 +20,124 @@ map<string, const TSLanguage *> loaded_languages;
 int libcompiler_mtime = -1;
 int compile_result_count = 0;
 
-const char *libcompiler_path =
-#if defined(__linux)
-  "out/Test/obj.target/libcompiler.a";
-#else
-  "out/Test/libcompiler.a";
+#ifdef _WIN32
+
+#include <windows.h>
+
+const char *libcompiler_path = "test\\lib\\compiler.lib";
+const char *path_separator = "\\";
+const char *dylib_extension = ".dll";
+
+static int compile_parser(
+  string source_filename,
+  string scanner_source_filename,
+  string output_filename,
+  string header_dirname
+) {
+  CreateDirectory("out", nullptr);
+  CreateDirectory("out\\tmp", nullptr);
+
+  string command = "cl.exe";
+  command += " /LD";
+  command += " /I " + header_dirname;
+  command += " " + source_filename;
+  command += " " + scanner_source_filename;
+  command += " /link /out:" + output_filename;
+  return system(command.c_str());
+}
+
+static void *load_function_from_library(string library_path, string function_name) {
+  HINSTANCE library = LoadLibrary(library_path.c_str());
+  if (!library) {
+    fputs(("Could not load library " + library_path).c_str(), stderr);
+    abort();
+  }
+
+  void *function = static_cast<void *>(GetProcAddress(library, function_name.c_str()));
+  if (!function) {
+    fputs(("Could not find function + " + function_name).c_str(), stderr);
+    abort();
+  }
+
+  return function;
+}
+
+#else // POSIX
+
+#ifdef __linux
+
+const char *libcompiler_path = "out/Test/obj.target/libcompiler.a";
+const char *path_separator = "/";
+const char *dylib_extension = ".so";
+
+#else // macOS
+
+const char *libcompiler_path = "out/Test/libcompiler.a";
+const char *path_separator = "/";
+const char *dylib_extension = ".dylib";
+
 #endif
 
-static std::string run_command(const char *cmd, const char *args[]) {
-  int child_pid = fork();
-  if (child_pid < 0) {
-    return "fork failed";
+#include <unistd.h>
+#include <dlfcn.h>
+
+static int compile_parser(
+  string source_filename,
+  string scanner_source_filename,
+  string output_filename,
+  string header_dirname
+) {
+  mkdir("out", 0777);
+  mkdir("out/tmp", 0777);
+
+  const char *compiler_name = getenv("CXX");
+  if (!compiler_name) compiler_name = "c++";
+
+  string command = compiler_name;
+  command += " -shared";
+  command += " -fPIC ";
+  command += " -I " + header_dirname;
+  command += " -o " + output_filename;
+  command += " -xc " + source_filename;
+
+  if (!scanner_source_filename.empty()) {
+    command += " -g";
+    string extension = scanner_source_filename.substr(scanner_source_filename.rfind("."));
+    if (extension == ".c") {
+      command += " -xc " + scanner_source_filename;
+    } else {
+      command += " -xc++ " + scanner_source_filename;
+    }
   }
 
-  if (child_pid == 0) {
-    close(0);
-    dup2(1, 0);
-    dup2(2, 1);
-    dup2(1, 2);
-    execvp(cmd, (char * const * )args);
+  return system(command.c_str());
+}
+
+static void *load_function_from_library(string library_path, string function_name) {
+  void *parser_lib = dlopen(library_path.c_str(), RTLD_NOW);
+  if (!parser_lib) {
+    fputs(dlerror(), stderr);
+    abort();
   }
 
-  int status;
-  do {
-    waitpid(child_pid, &status, 0);
-  } while (!WIFEXITED(status));
-
-  if (WEXITSTATUS(status) == 0) {
-    return "";
-  } else {
-    return "command failed";
+  void *language_function = dlsym(parser_lib, function_name.c_str());
+  if (!language_function) {
+    fputs(dlerror(), stderr);
+    abort();
   }
+
+  return language_function;
+}
+
+#endif
+
+string join_path(const vector<string> &parts) {
+  string result;
+  for (const string &part : parts) {
+    if (!result.empty()) result += path_separator;
+    result += part;
+  }
+  return result;
 }
 
 static const TSLanguage *load_language(const string &source_filename,
@@ -61,9 +145,9 @@ static const TSLanguage *load_language(const string &source_filename,
                                        const string &language_name,
                                        string external_scanner_filename = "") {
   string language_function_name = "tree_sitter_" + language_name;
-  string header_dir = getenv("PWD") + string("/include");
+  string header_dir = join_path({getenv("PWD"), "include"});
   int source_mtime = get_modified_time(source_filename);
-  int header_mtime = get_modified_time(header_dir + "/tree_sitter/parser.h");
+  int header_mtime = get_modified_time(join_path({header_dir, "tree_sitter", "parser.h"}));
   int lib_mtime = get_modified_time(lib_filename);
   int external_scanner_mtime = get_modified_time(external_scanner_filename);
 
@@ -72,47 +156,17 @@ static const TSLanguage *load_language(const string &source_filename,
     const char *compiler_name = getenv("CXX");
     if (!compiler_name) compiler_name = "c++";
 
-    vector<const char *> compile_args = {
-      compiler_name,
-      "-shared",
-      "-fPIC",
-      "-I", header_dir.c_str(),
-      "-o", lib_filename.c_str(),
-      "-x", "c",
-      source_filename.c_str()
-    };
+    int status_code = compile_parser(
+      source_filename,
+      external_scanner_filename,
+      lib_filename,
+      header_dir
+    );
 
-    if (!external_scanner_filename.empty()) {
-      compile_args.push_back("-g");
-      string extension = external_scanner_filename.substr(external_scanner_filename.rfind("."));
-      if (extension == ".c") {
-        compile_args.push_back("-xc");
-      } else {
-        compile_args.push_back("-xc++");
-      }
-      compile_args.push_back(external_scanner_filename.c_str());
-    }
-
-    compile_args.push_back(nullptr);
-
-    string compile_error = run_command(compiler_name, compile_args.data());
-    if (!compile_error.empty()) {
-      fputs(compile_error.c_str(), stderr);
-      abort();
-    }
+    if (status_code != 0) abort();
   }
 
-  void *parser_lib = dlopen(lib_filename.c_str(), RTLD_NOW);
-  if (!parser_lib) {
-    fputs(dlerror(), stderr);
-    abort();
-  }
-
-  void *language_function = dlsym(parser_lib, language_function_name.c_str());
-  if (!language_function) {
-    fputs(dlerror(), stderr);
-    abort();
-  }
+  void *language_function = load_function_from_library(lib_filename, language_function_name);
 
   return reinterpret_cast<TSLanguage *(*)()>(language_function)();
 }
@@ -125,9 +179,8 @@ const TSLanguage *load_test_language(const string &name,
     abort();
   }
 
-  mkdir("out/tmp", 0777);
-  string source_filename = "out/tmp/compile-result-" + to_string(compile_result_count) + ".c";
-  string lib_filename = source_filename + ".so";
+  string source_filename = join_path({"out", "tmp", "compile-result-" + to_string(compile_result_count) + ".c"});
+  string lib_filename = source_filename + dylib_extension;
   compile_result_count++;
 
   ofstream source_file;
@@ -144,25 +197,23 @@ const TSLanguage *load_real_language(const string &language_name) {
   if (loaded_languages[language_name])
     return loaded_languages[language_name];
 
-  string language_dir = string("test/fixtures/grammars/") + language_name;
-  string grammar_filename = language_dir + "/src/grammar.json";
-  string parser_filename = language_dir + "/src/parser.c";
-  string external_scanner_filename = language_dir + "/src/scanner.cc";
+  string language_dir = join_path({"test", "fixtures", "grammars", language_name});
+  string grammar_filename = join_path({language_dir, "src", "grammar.json"});
+  string parser_filename = join_path({language_dir, "src", "parser.c"});
+  string external_scanner_filename = join_path({language_dir, "src", "scanner.cc"});
   if (!file_exists(external_scanner_filename)) {
-    external_scanner_filename = language_dir + "/src/scanner.c";
+    external_scanner_filename = join_path({language_dir, "src", "scanner.c"});
     if (!file_exists(external_scanner_filename)) {
       external_scanner_filename = "";
     }
   }
 
   int grammar_mtime = get_modified_time(grammar_filename);
-  if (!grammar_mtime)
-    return nullptr;
+  if (!grammar_mtime) return nullptr;
 
   if (libcompiler_mtime == -1) {
     libcompiler_mtime = get_modified_time(libcompiler_path);
-    if (!libcompiler_mtime)
-      return nullptr;
+    if (!libcompiler_mtime) return nullptr;
   }
 
   int parser_mtime = get_modified_time(parser_filename);
@@ -180,8 +231,7 @@ const TSLanguage *load_real_language(const string &language_name) {
     write_file(parser_filename, result.code);
   }
 
-  mkdir("out/tmp", 0777);
-  string lib_filename = "out/tmp/" + language_name + ".so";
+  string lib_filename = join_path({"out", "tmp", language_name + ".so"});
   const TSLanguage *language = load_language(parser_filename, lib_filename, language_name, external_scanner_filename);
   loaded_languages[language_name] = language;
   return language;

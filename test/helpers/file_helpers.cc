@@ -2,7 +2,6 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <fstream>
-#include <dirent.h>
 
 using std::string;
 using std::ifstream;
@@ -39,6 +38,28 @@ void write_file(const string &path, const string &content) {
   file.close();
 }
 
+#ifdef _WIN32
+
+#include <windows.h>
+
+vector<string> list_directory(const string &path) {
+  vector<string> result;
+
+  WIN32_FIND_DATA search_data;
+  HANDLE handle = FindFirstFile(path.c_str(), &search_data);
+  while (handle != INVALID_HANDLE_VALUE) {
+    string name(search_data.cFileName);
+    result.push_back(name);
+    if (FindNextFile(handle, &search_data) == FALSE) break;
+  }
+
+  return result;
+}
+
+#else
+
+#include <dirent.h>
+
 vector<string> list_directory(const string &path) {
   vector<string> result;
 
@@ -59,3 +80,5 @@ vector<string> list_directory(const string &path) {
   closedir(dir);
   return result;
 }
+
+#endif
