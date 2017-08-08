@@ -3,18 +3,23 @@
 
 #include "tree_sitter/runtime.h"
 
+static inline TSPoint point__new(unsigned row, unsigned column) {
+  TSPoint result = {row, column};
+  return result;
+}
+
 static inline TSPoint point_add(TSPoint a, TSPoint b) {
   if (b.row > 0)
-    return (TSPoint){a.row + b.row, b.column};
+    return point__new(a.row + b.row, b.column);
   else
-    return (TSPoint){a.row, a.column + b.column};
+    return point__new(a.row, a.column + b.column);
 }
 
 static inline TSPoint point_sub(TSPoint a, TSPoint b) {
   if (a.row > b.row)
-    return (TSPoint){a.row - b.row, a.column};
+    return point__new(a.row - b.row, a.column);
   else
-    return (TSPoint){0, a.column - b.column};
+    return point__new(0, a.column - b.column);
 }
 
 static inline bool point_lte(TSPoint a, TSPoint b) {
