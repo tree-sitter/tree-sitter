@@ -102,7 +102,11 @@
   'target_defaults': {
     'configurations': {'Test': {}, 'Release': {}},
     'cflags_cc': ['-std=c++14'],
-    'libraries': ['-ldl'],
+    'conditions': [
+      ['OS=="linux"', {
+        'libraries': ['-ldl'],
+      }]
+    ],
     'xcode_settings': {
       'CLANG_CXX_LANGUAGE_STANDARD': 'c++14',
       'ALWAYS_SEARCH_USER_PATHS': 'NO',
