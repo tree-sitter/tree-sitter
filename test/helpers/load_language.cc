@@ -25,7 +25,6 @@ int compile_result_count = 0;
 #include <windows.h>
 
 const char *libcompiler_path = "test\\lib\\compiler.lib";
-const char *path_separator = "\\";
 const char *dylib_extension = ".dll";
 
 static int compile_parser(
@@ -67,13 +66,11 @@ static void *load_function_from_library(string library_path, string function_nam
 #ifdef __linux
 
 const char *libcompiler_path = "out/Test/obj.target/libcompiler.a";
-const char *path_separator = "/";
 const char *dylib_extension = ".so";
 
 #else // macOS
 
 const char *libcompiler_path = "out/Test/libcompiler.a";
-const char *path_separator = "/";
 const char *dylib_extension = ".dylib";
 
 #endif
@@ -130,15 +127,6 @@ static void *load_function_from_library(string library_path, string function_nam
 }
 
 #endif
-
-string join_path(const vector<string> &parts) {
-  string result;
-  for (const string &part : parts) {
-    if (!result.empty()) result += path_separator;
-    result += part;
-  }
-  return result;
-}
 
 static const TSLanguage *load_language(const string &source_filename,
                                        const string &lib_filename,

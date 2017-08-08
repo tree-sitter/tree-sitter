@@ -12,8 +12,6 @@ using std::smatch;
 using std::string;
 using std::vector;
 
-string fixtures_dir = "test/fixtures/";
-
 static string trim_output(const string &input) {
   string result(input);
   result = regex_replace(result, regex("[\n\t ]+", extended), string(" "));
@@ -65,14 +63,14 @@ static vector<TestEntry> parse_test_entries(string content) {
 vector<TestEntry> read_real_language_corpus(string language_name) {
   vector<TestEntry> result;
 
-  string corpus_directory = fixtures_dir + "grammars/" + language_name + "/corpus";
+  string corpus_directory = join_path({"test", "fixtures", "grammars", language_name, "corpus"});
   for (string &test_filename : list_directory(corpus_directory)) {
     for (TestEntry &entry : parse_test_entries(read_file(corpus_directory + "/" + test_filename))) {
       result.push_back(entry);
     }
   }
 
-  string error_test_filename = fixtures_dir + "/error_corpus/" + language_name + "_errors.txt";
+  string error_test_filename = join_path({"test", "fixtures", "error_corpus", language_name + "_errors.txt"});
   for (TestEntry &entry : parse_test_entries(read_file(error_test_filename))) {
     result.push_back(entry);
   }
@@ -83,9 +81,9 @@ vector<TestEntry> read_real_language_corpus(string language_name) {
 vector<TestEntry> read_test_language_corpus(string language_name) {
   vector<TestEntry> result;
 
-  string test_directory = fixtures_dir + "test_grammars/" + language_name;
+  string test_directory = join_path({"test", "fixtures", "test_grammars", language_name});
   for (string &test_filename : list_directory(test_directory)) {
-    for (TestEntry &entry : parse_test_entries(read_file(test_directory + "/" + test_filename))) {
+    for (TestEntry &entry : parse_test_entries(read_file(join_path({test_directory, test_filename})))) {
       result.push_back(entry);
     }
   }
@@ -95,11 +93,11 @@ vector<TestEntry> read_test_language_corpus(string language_name) {
 
 vector<ExampleEntry> examples_for_language(string language_name) {
   vector<ExampleEntry> result;
-  string examples_directory = fixtures_dir + "grammars/" + language_name + "/examples";
+  string examples_directory = join_path({"test", "fixtures", "grammars", language_name, "examples"});
   for (string &filename : list_directory(examples_directory)) {
     result.push_back({
       filename,
-      read_file(examples_directory + "/" + filename)
+      read_file(join_path({examples_directory, filename}))
     });
   }
   return result;

@@ -42,6 +42,8 @@ void write_file(const string &path, const string &content) {
 
 #include <windows.h>
 
+const char *path_separator = "\\";
+
 vector<string> list_directory(const string &path) {
   vector<string> result;
 
@@ -59,6 +61,8 @@ vector<string> list_directory(const string &path) {
 #else
 
 #include <dirent.h>
+
+const char *path_separator = "/";
 
 vector<string> list_directory(const string &path) {
   vector<string> result;
@@ -82,3 +86,12 @@ vector<string> list_directory(const string &path) {
 }
 
 #endif
+
+string join_path(const vector<string> &parts) {
+  string result;
+  for (const string &part : parts) {
+    if (!result.empty()) result += path_separator;
+    result += part;
+  }
+  return result;
+}
