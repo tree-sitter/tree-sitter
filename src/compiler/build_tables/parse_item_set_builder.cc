@@ -207,10 +207,7 @@ const vector<Production> &ParseItemSetBuilder::inline_production(const ParseItem
     auto begin = item.production->steps.begin();
     auto end = item.production->steps.end();
     auto step = begin + item.step_index;
-
-    Production production;
-    production.steps.assign(begin, step);
-    production.dynamic_precedence = item.production->dynamic_precedence;
+    Production production({begin, step}, item.production->dynamic_precedence);
 
     for (auto &step : *production_to_insert) {
       production.steps.push_back(step);

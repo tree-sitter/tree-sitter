@@ -74,13 +74,7 @@ class ParseTableBuilder {
       Symbol::terminal(0) :
       Symbol::non_terminal(0);
 
-    Production start_production;
-    start_production.steps.push_back({
-      start_symbol,
-      0,
-      rules::AssociativityNone,
-      rules::Alias{}
-    });
+    Production start_production({{start_symbol, 0, rules::AssociativityNone, rules::Alias{}}}, 0);
 
     add_parse_state({}, ParseItemSet{{
       {

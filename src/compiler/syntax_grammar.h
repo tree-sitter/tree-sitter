@@ -22,7 +22,12 @@ struct ProductionStep {
 
 struct Production {
   std::vector<ProductionStep> steps;
-  int dynamic_precedence = 0;
+  int dynamic_precedence;
+
+  inline Production() : dynamic_precedence(0) {}
+
+  inline Production(std::vector<ProductionStep> &&steps, int dynamic_precedence = 0) :
+    steps(move(steps)), dynamic_precedence(dynamic_precedence) {}
 
   bool operator==(const Production &) const;
   inline ProductionStep &back() { return steps.back(); }
