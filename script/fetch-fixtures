@@ -11,22 +11,22 @@ fetch_grammar() {
   echo "Updating ${grammar} grammar..."
 
   if [ ! -d $grammar_dir ]; then
-    git clone $grammar_url $grammar_dir
+    git clone $grammar_url $grammar_dir --depth=1
   fi
 
   (
     cd $grammar_dir;
-    git fetch origin
-    git reset --hard $ref;
+    git fetch origin $ref --depth=1
+    git reset --hard origin/$ref;
   )
 }
 
-fetch_grammar 'javascript' 'origin/master'
-fetch_grammar 'json'       'origin/master'
-fetch_grammar 'c'          'origin/master'
-fetch_grammar 'cpp'        'origin/master'
-fetch_grammar 'python'     'origin/master'
-fetch_grammar 'go'         'origin/master'
-fetch_grammar 'ruby'       'origin/master'
-fetch_grammar 'typescript' 'origin/master'
-fetch_grammar 'bash'       'origin/master'
+fetch_grammar javascript master
+fetch_grammar json       master
+fetch_grammar c          master
+fetch_grammar cpp        master
+fetch_grammar python     master
+fetch_grammar go         master
+fetch_grammar ruby       master
+fetch_grammar typescript master
+fetch_grammar bash       master

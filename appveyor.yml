@@ -10,6 +10,7 @@ platform:
 
 install:
   - script\configure.cmd
+  - script\fetch-fixtures.cmd
 
 test_script:
   - script\test.cmd
