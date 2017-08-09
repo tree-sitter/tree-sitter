@@ -16,3 +16,6 @@ test_script:
   - script\test.cmd
 
 build: off
+
+cache:
+  - test\fixtures\grammars
