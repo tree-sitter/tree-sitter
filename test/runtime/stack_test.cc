@@ -79,6 +79,8 @@ describe("Stack", [&]() {
     stack = ts_stack_new();
 
     TSLanguage dummy_language;
+    TSSymbolMetadata symbol_metadata[50] = {};
+    dummy_language.symbol_metadata = symbol_metadata;
 
     for (size_t i = 0; i < tree_count; i++) {
       trees[i] = ts_tree_make_leaf(i, length_zero(), tree_len, &dummy_language);
