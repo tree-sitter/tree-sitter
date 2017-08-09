@@ -2,7 +2,6 @@
 
 static const unsigned MAX_COST_DIFFERENCE = 16 * ERROR_COST_PER_SKIPPED_TREE;
 static const unsigned MAX_PUSH_COUNT_WITH_COUNT_DIFFERENCE = 24;
-static const unsigned MAX_DEPTH_TO_ALLOW_MULTIPLE = 12;
 
 ErrorComparison error_status_compare(ErrorStatus a, ErrorStatus b, bool are_mergeable) {
   if (a.count < b.count) {
@@ -40,15 +39,6 @@ ErrorComparison error_status_compare(ErrorStatus a, ErrorStatus b, bool are_merg
       return ErrorComparisonTakeRight;
     } else {
       return ErrorComparisonPreferRight;
-    }
-  }
-
-  if (a.count > 0) {
-    if (a.depth > MAX_DEPTH_TO_ALLOW_MULTIPLE ||
-        b.depth > MAX_DEPTH_TO_ALLOW_MULTIPLE) {
-      return a.depth <= b.depth ?
-        ErrorComparisonTakeLeft :
-        ErrorComparisonTakeRight;
     }
   }
 
