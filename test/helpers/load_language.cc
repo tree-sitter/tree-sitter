@@ -45,6 +45,7 @@ static int compile_parser(
   string command = "cl.exe";
   command += " /LD";
   command += " /I " + header_dirname;
+  command += " /Od";
   command += " " + source_filename;
   command += " " + scanner_source_filename;
   command += " /link /out:" + output_filename;
@@ -105,6 +106,7 @@ static int compile_parser(
   command += " -fPIC ";
   command += " -I " + header_dirname;
   command += " -o " + output_filename;
+  command += " -O0";
   command += " -xc " + source_filename;
 
   if (!scanner_source_filename.empty()) {
