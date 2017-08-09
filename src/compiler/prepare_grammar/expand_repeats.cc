@@ -36,10 +36,9 @@ class ExpandRepeats {
       },
 
       [&](const rules::Seq &sequence) {
-        return rules::Seq{
-          apply(*sequence.left),
-          apply(*sequence.right)
-        };
+        auto left = apply(*sequence.left);
+        auto right = apply(*sequence.right);
+        return rules::Seq{left, right};
       },
 
       [&](const rules::Repeat &repeat) {
