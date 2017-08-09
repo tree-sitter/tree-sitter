@@ -25,7 +25,7 @@ int get_modified_time(const string &path) {
 }
 
 string read_file(const string &path) {
-  ifstream file(path);
+  ifstream file(path, std::ios::binary);
   istreambuf_iterator<char> file_iterator(file), end_iterator;
   string content(file_iterator, end_iterator);
   file.close();
