@@ -48,7 +48,7 @@ vector<string> list_directory(const string &path) {
   vector<string> result;
 
   WIN32_FIND_DATA search_data;
-  HANDLE handle = FindFirstFile(path.c_str(), &search_data);
+  HANDLE handle = FindFirstFile((path + "\\*").c_str(), &search_data);
   while (handle != INVALID_HANDLE_VALUE) {
     string name(search_data.cFileName);
     result.push_back(name);
