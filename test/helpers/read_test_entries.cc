@@ -65,7 +65,7 @@ vector<TestEntry> read_real_language_corpus(string language_name) {
 
   string corpus_directory = join_path({"test", "fixtures", "grammars", language_name, "corpus"});
   for (string &test_filename : list_directory(corpus_directory)) {
-    for (TestEntry &entry : parse_test_entries(read_file(corpus_directory + "/" + test_filename))) {
+    for (TestEntry &entry : parse_test_entries(read_file(join_path({corpus_directory, test_filename})))) {
       result.push_back(entry);
     }
   }
