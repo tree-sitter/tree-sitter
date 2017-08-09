@@ -73,7 +73,9 @@ class ParseTableBuilder {
     Symbol start_symbol = grammar.variables.empty() ?
       Symbol::terminal(0) :
       Symbol::non_terminal(0);
-    Production start_production{{{start_symbol, 0, rules::AssociativityNone, {"", false}}}, 0};
+
+    Production start_production({{start_symbol, 0, rules::AssociativityNone, rules::Alias{}}}, 0);
+
     add_parse_state({}, ParseItemSet{{
       {
         ParseItem(rules::START(), start_production, 0),
@@ -633,7 +635,10 @@ class ParseTableBuilder {
       description += "  " + symbol_name(symbol);
     }
 
-    description += "  \u2022  " + symbol_name(lookahead) + "  \u2026";
+    const string dot = "\xE2\x80\xA2";
+    const string ellipsis = "\xE2\x80\xA6";
+
+    description += "  " + dot + "  " + symbol_name(lookahead) + "  " + ellipsis;
     description += "\n\n";
     description += "Possible interpretations:\n\n";
 
@@ -648,14 +653,14 @@ class ParseTableBuilder {
       description += "  (" + symbol_name(item.lhs());
       for (size_t i = 0; i < item.production->size(); i++) {
         if (i == item.step_index) {
-          description += "  \u2022";
+          description += "  " + dot;
         }
         description += "  " + symbol_name(item.production->at(i).symbol);
       }
       description += ")";
 
       if (item.is_done()) {
-        description += "  \u2022  " + symbol_name(lookahead) + "  \u2026";
+        description += "  " + dot + "  " + symbol_name(lookahead) + "  " + ellipsis;
       }
 
       description += "\n";

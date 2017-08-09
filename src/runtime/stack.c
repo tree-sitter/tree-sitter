@@ -10,7 +10,11 @@
 #define MAX_NODE_POOL_SIZE 50
 #define MAX_ITERATOR_COUNT 64
 
+#ifdef _WIN32
+#define inline __forceinline
+#else
 #define inline static inline __attribute__((always_inline))
+#endif
 
 typedef struct StackNode StackNode;
 
@@ -259,7 +263,7 @@ inline StackPopResult stack__iter(Stack *self, StackVersion version,
         TreeArray trees = iterator->trees;
         if (!should_stop)
           ts_tree_array_copy(trees, &trees);
-        array_reverse(&trees);
+        ts_tree_array_reverse(&trees);
         ts_stack__add_slice(
           self,
           node,

@@ -58,9 +58,6 @@ extern "C" {
 
 #define array_pop(self) ((self)->contents[--(self)->size])
 
-#define array_reverse(self) \
-  array__reverse((VoidArray *)(self), array__elem_size(self))
-
 // Private
 
 typedef Array(void) VoidArray;
@@ -116,18 +113,6 @@ static inline void array__splice(VoidArray *self, size_t element_size,
     memcpy((contents + index * element_size), elements,
            new_count * element_size);
   self->size += new_count - old_count;
-}
-
-static inline void array__reverse(VoidArray *self, size_t element_size) {
-  char swap[element_size];
-  char *contents = (char *)self->contents;
-  for (uint32_t i = 0, limit = self->size / 2; i < limit; i++) {
-    size_t offset = i * element_size;
-    size_t reverse_offset = (self->size - 1 - i) * element_size;
-    memcpy(&swap, contents + offset, element_size);
-    memcpy(contents + offset, contents + reverse_offset, element_size);
-    memcpy(contents + reverse_offset, &swap, element_size);
-  }
 }
 
 #ifdef __cplusplus

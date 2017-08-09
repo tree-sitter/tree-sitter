@@ -53,7 +53,8 @@ static inline Length length_sub(Length len1, Length len2) {
 }
 
 static inline Length length_zero() {
-  return (Length){ 0, 0, {0, 0} };
+  Length result = {0, 0, {0, 0}};
+  return result;
 }
 
 #endif

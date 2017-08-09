@@ -282,7 +282,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
 
       if (duplicates.empty()) break;
 
-      map<size_t, size_t> new_replacements;
+      map<LexStateId, LexStateId> new_replacements;
       for (LexStateId i = 0, size = lex_table.states.size(); i < size; i++) {
         LexStateId new_state_index = i;
         auto duplicate = duplicates.find(i);
@@ -297,7 +297,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
         }
 
         new_state_index -= prior_removed;
-        new_replacements.insert({ i, new_state_index });
+        new_replacements.insert({i, new_state_index});
         replacements.insert({ i, new_state_index });
         for (auto &replacement : replacements) {
           if (replacement.second == i) {

@@ -86,6 +86,7 @@ void ts_tree_array_delete(TreeArray *);
 uint32_t ts_tree_array_essential_count(const TreeArray *);
 TreeArray ts_tree_array_remove_last_n(TreeArray *, uint32_t);
 TreeArray ts_tree_array_remove_trailing_extras(TreeArray *);
+void ts_tree_array_reverse(TreeArray *);
 
 Tree *ts_tree_make_leaf(TSSymbol, Length, Length, const TSLanguage *);
 Tree *ts_tree_make_node(TSSymbol, uint32_t, Tree **, unsigned, const TSLanguage *);

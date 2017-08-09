@@ -93,7 +93,8 @@ Metadata Metadata::main_token(const Rule &rule) {
 
 Metadata Metadata::alias(string &&value, bool is_named, const Rule &rule) {
   MetadataParams params;
-  params.alias = {move(value), is_named};
+  params.alias.value = move(value);
+  params.alias.is_named = is_named;
   return Metadata{rule, params};
 }
 

@@ -1,0 +1,24 @@
+image: Visual Studio 2017
+
+branches:
+  only:
+    - master
+
+platform:
+  - x86
+
+init:
+  - git config --global core.autocrlf false
+
+install:
+  - call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86
+  - script\configure.cmd
+  - script\fetch-fixtures.cmd
+
+test_script:
+  - script\test.cmd
+
+build: off
+
+cache:
+  - test\fixtures\grammars

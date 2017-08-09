@@ -30,7 +30,7 @@ static inline void *ts_realloc(void *buffer, size_t size) {
 }
 
 static inline void ts_free(void *buffer) {
-  return ts_record_free(buffer);
+  ts_record_free(buffer);
 }
 
 static inline bool ts_toggle_allocation_recording(bool value) {

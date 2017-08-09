@@ -8,24 +8,25 @@
 
 START_TEST
 
-string grammars_dir_path = "test/fixtures/test_grammars";
+string grammars_dir_path = join_path({"test", "fixtures", "test_grammars"});
 vector<string> test_languages = list_directory(grammars_dir_path);
 
 for (auto &language_name : test_languages) {
   if (language_name == "readme.md") continue;
 
   describe(("test grammar: " + language_name).c_str(), [&]() {
-    string directory_path = grammars_dir_path + "/" + language_name;
-    string grammar_path = directory_path + "/grammar.json";
+    string directory_path = join_path({grammars_dir_path, language_name});
+    string grammar_path = join_path({directory_path, "grammar.json"});
+    string expected_error_path = join_path({directory_path, "expected_error.txt"});
+
     string grammar_json = read_file(grammar_path);
-    string expected_error_path = directory_path + "/expected_error.txt";
     const TSLanguage *language = nullptr;
 
     if (file_exists(expected_error_path)) {
       it("fails with the correct error message", [&]() {
         TSCompileResult compile_result = ts_compile_grammar(grammar_json.c_str());
         string expected_error = read_file(expected_error_path);
-        AssertThat((void *)compile_result.error_message, !IsNull());
+        AssertThat((void *)compile_result.error_message, !Equals<void *>(nullptr));
         AssertThat(compile_result.error_message, Equals(expected_error));
       });
       return;
@@ -34,7 +35,7 @@ for (auto &language_name : test_languages) {
     for (auto &entry : read_test_language_corpus(language_name)) {
       it(("parses " + entry.description).c_str(), [&]() {
         if (!language) {
-          string external_scanner_path = directory_path + "/scanner.c";
+          string external_scanner_path = join_path({directory_path, "scanner.c"});
           if (!file_exists(external_scanner_path)) external_scanner_path = "";
 
           TSCompileResult compile_result = ts_compile_grammar(grammar_json.c_str());

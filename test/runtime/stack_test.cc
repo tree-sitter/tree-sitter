@@ -79,6 +79,8 @@ describe("Stack", [&]() {
     stack = ts_stack_new();
 
     TSLanguage dummy_language;
+    TSSymbolMetadata symbol_metadata[50] = {};
+    dummy_language.symbol_metadata = symbol_metadata;
 
     for (size_t i = 0; i < tree_count; i++) {
       trees[i] = ts_tree_make_leaf(i, length_zero(), tree_len, &dummy_language);
@@ -533,7 +535,7 @@ describe("Stack", [&]() {
     });
 
     it("allows the state to be retrieved", [&]() {
-      AssertThat(ts_stack_last_external_token(stack, 0), Equals(nullptr));
+      AssertThat(ts_stack_last_external_token(stack, 0), Equals<Tree *>(nullptr));
 
       ts_stack_set_last_external_token(stack, 0, trees[1]);
       AssertThat(ts_stack_last_external_token(stack, 0), Equals(trees[1]));

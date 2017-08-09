@@ -207,7 +207,7 @@ describe("Document", [&]() {
       AssertThat(ts_language_version(&language), !Equals<uint32_t>(TREE_SITTER_LANGUAGE_VERSION));
 
       ts_document_set_language(document, &language);
-      AssertThat(ts_document_language(document), IsNull());
+      AssertThat(ts_document_language(document), Equals<const TSLanguage *>(nullptr));
     });
   });
 

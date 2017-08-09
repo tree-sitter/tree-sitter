@@ -133,8 +133,17 @@ TreeArray ts_tree_array_remove_trailing_extras(TreeArray *self) {
   }
 
   self->size = i + 1;
-  array_reverse(&result);
+  ts_tree_array_reverse(&result);
   return result;
+}
+
+void ts_tree_array_reverse(TreeArray *self) {
+  for (uint32_t i = 0, limit = self->size / 2; i < limit; i++) {
+    size_t reverse_index = self->size - 1 - i;
+    Tree *swap = self->contents[i];
+    self->contents[i] = self->contents[reverse_index];
+    self->contents[reverse_index] = swap;
+  }
 }
 
 Tree *ts_tree_make_error(Length size, Length padding, int32_t lookahead_char,
@@ -380,7 +389,7 @@ int ts_tree_compare(const Tree *left, const Tree *right) {
   return 0;
 }
 
-static inline long min(long a, long b) {
+static inline long min_byte(long a, long b) {
   return a <= b ? a : b;
 }
 
@@ -470,7 +479,7 @@ void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
       TSInputEdit child_edit = {
         .start_byte = 0,
         .bytes_added = 0,
-        .bytes_removed = min(remaining_bytes_to_delete, ts_tree_total_bytes(child)),
+        .bytes_removed = min_byte(remaining_bytes_to_delete, ts_tree_total_bytes(child)),
         .start_point = {0, 0},
         .extent_added = {0, 0},
         .extent_removed = point_min(remaining_extent_to_delete, ts_tree_total_size(child).extent),
@@ -594,7 +603,7 @@ void ts_tree_print_dot_graph(const Tree *self, const TSLanguage *language,
   fprintf(f, "}\n");
 }
 
-TSExternalTokenState empty_state = {.length = 0, .short_data = {}};
+static const TSExternalTokenState empty_state = {.length = 0, .short_data = {0}};
 
 bool ts_tree_external_token_state_eq(const Tree *self, const Tree *other) {
   const TSExternalTokenState *state1 = &empty_state;
