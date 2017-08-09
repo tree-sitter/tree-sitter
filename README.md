@@ -1,6 +1,7 @@
 # tree-sitter
 
 [![Build Status](https://travis-ci.org/tree-sitter/tree-sitter.png?branch=master)](https://travis-ci.org/tree-sitter/tree-sitter)
+[![Build status](https://ci.appveyor.com/api/projects/status/vtmbd6i92e97l55w/branch/master?svg=true)](https://ci.appveyor.com/project/maxbrunsfeld/tree-sitter/branch/master)
 
 Tree-sitter is a C library for incremental parsing, intended to be used via
 [bindings](https://github.com/tree-sitter/node-tree-sitter) to higher-level
