@@ -35,7 +35,7 @@ describe("expand_tokens", []() {
 
     it("handles strings containing non-ASCII UTF8 characters", [&]() {
       AssertThat(
-        expand_token(String{"\u03B1 \u03B2"}).rule,
+        expand_token(String{"\xCE\xB1 \xCE\xB2"}).rule,
         Equals(Rule::seq({
           CharacterSet{{ 945 }},
           CharacterSet{{ ' ' }},
@@ -63,7 +63,7 @@ describe("expand_tokens", []() {
 
     it("handles regexps containing non-ASCII UTF8 characters", [&]() {
       AssertThat(
-        expand_token(Pattern{"[^\u03B1-\u03B4]+"}).rule,
+        expand_token(Pattern{"[^\xCE\xB1-\xCE\xB4]+"}).rule,
         Equals(Rule(Repeat{
           CharacterSet().include_all().exclude(945, 948)
         }))
