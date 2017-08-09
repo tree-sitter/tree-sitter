@@ -43,6 +43,7 @@ static int compile_parser(
   CreateDirectory("out\\tmp", nullptr);
 
   string command = "cl.exe";
+  command += " /nologo";
   command += " /LD";
   command += " /I " + header_dirname;
   command += " /Od";
