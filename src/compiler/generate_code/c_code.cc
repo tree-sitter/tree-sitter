@@ -127,8 +127,10 @@ class CCodeGenerator {
   }
 
   void add_warning_pragma() {
+    line("#if defined(__GNUC__) || defined(__clang__)");
     line("#pragma GCC diagnostic push");
     line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
+    line("#endif");
     line();
   }
 
