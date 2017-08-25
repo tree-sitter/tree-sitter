@@ -1,4 +1,4 @@
-#include "compiler/build_tables/build_parse_table.h"
+#include "compiler/build_tables/parse_table_builder.h"
 #include <algorithm>
 #include <map>
 #include <set>
@@ -26,6 +26,7 @@ using std::map;
 using std::move;
 using std::string;
 using std::to_string;
+using std::unique_ptr;
 using std::unordered_map;
 using rules::Associativity;
 using rules::Symbol;
@@ -39,7 +40,7 @@ struct ParseStateQueueEntry {
   ParseStateId state_id;
 };
 
-class ParseTableBuilder {
+class ParseTableBuilderImpl : public ParseTableBuilder {
   const SyntaxGrammar grammar;
   const LexicalGrammar lexical_grammar;
   unordered_map<Symbol, ParseItemSet> recovery_item_sets_by_lookahead;
@@ -48,16 +49,21 @@ class ParseTableBuilder {
   deque<ParseStateQueueEntry> parse_state_queue;
   ParseTable parse_table;
   ParseItemSetBuilder item_set_builder;
+  LexTableBuilder *lex_table_builder;
   set<ParseAction> fragile_reductions;
   vector<set<Symbol>> incompatible_tokens_by_token_index;
   vector<set<Symbol::Index>> following_tokens_by_token_index;
   bool processing_recovery_states;
 
  public:
-  ParseTableBuilder(const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar)
-    : grammar(grammar),
-      lexical_grammar(lex_grammar),
-      item_set_builder(grammar, lex_grammar),
+  ParseTableBuilderImpl(
+    const SyntaxGrammar &syntax_grammar,
+    const LexicalGrammar &lexical_grammar,
+    LexTableBuilder *lex_table_builder
+  ) : grammar(syntax_grammar),
+      lexical_grammar(lexical_grammar),
+      item_set_builder(syntax_grammar, lexical_grammar),
+      lex_table_builder(lex_table_builder),
       incompatible_tokens_by_token_index(lexical_grammar.variables.size()),
       following_tokens_by_token_index(lexical_grammar.variables.size()),
       processing_recovery_states(false) {}
@@ -350,7 +356,6 @@ class ParseTableBuilder {
   }
 
   void compute_unmergable_token_pairs() {
-    auto lex_table_builder = LexTableBuilder::create(lexical_grammar);
     for (unsigned i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
       Symbol token = Symbol::terminal(i);
       auto &incompatible_indices = incompatible_tokens_by_token_index[i];
@@ -798,9 +803,18 @@ class ParseTableBuilder {
   }
 };
 
-pair<ParseTable, CompileError> build_parse_table(
-  const SyntaxGrammar &grammar, const LexicalGrammar &lex_grammar) {
-  return ParseTableBuilder(grammar, lex_grammar).build();
+unique_ptr<ParseTableBuilder> ParseTableBuilder::create(
+  const SyntaxGrammar &syntax_grammar,
+  const LexicalGrammar &lexical_grammar,
+  LexTableBuilder *lex_table_builder
+) {
+  return unique_ptr<ParseTableBuilder>(
+    new ParseTableBuilderImpl(syntax_grammar, lexical_grammar, lex_table_builder)
+  );
+}
+
+pair<ParseTable, CompileError> ParseTableBuilder::build() {
+  return static_cast<ParseTableBuilderImpl *>(this)->build();
 }
 
 }  // namespace build_tables
