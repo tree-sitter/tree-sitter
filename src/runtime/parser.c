@@ -14,16 +14,10 @@
 #include "runtime/error_costs.h"
 
 #define LOG(...)                                                                            \
-  if (self->lexer.logger.log) {                                                             \
+  if (self->lexer.logger.log || self->print_debugging_graphs) {                             \
     snprintf(self->lexer.debug_buffer, TREE_SITTER_SERIALIZATION_BUFFER_SIZE, __VA_ARGS__); \
-    self->lexer.logger.log(self->lexer.logger.payload, TSLogTypeParse,                      \
-                           self->lexer.debug_buffer);                                       \
+    parser__log(self);                                                                      \
   }                                                                                         \
-  if (self->print_debugging_graphs) {                                                       \
-    fprintf(stderr, "graph {\nlabel=\"");                                                   \
-    fprintf(stderr, __VA_ARGS__);                                                           \
-    fprintf(stderr, "\"\n}\n\n");                                                           \
-  }
 
 #define LOG_STACK()                                                     \
   if (self->print_debugging_graphs) {                                   \
@@ -58,6 +52,25 @@ typedef struct {
   Parser *parser;
   TSSymbol lookahead_symbol;
 } SkipPrecedingTreesSession;
+
+static void parser__log(Parser *self) {
+  if (self->lexer.logger.log) {
+    self->lexer.logger.log(
+      self->lexer.logger.payload,
+      TSLogTypeParse,
+      self->lexer.debug_buffer
+    );
+  }
+
+  if (self->print_debugging_graphs) {
+    fprintf(stderr, "graph {\nlabel=\"");
+    for (char *c = &self->lexer.debug_buffer[0]; *c != 0; c++) {
+      if (*c == '"') fputc('\\', stderr);
+      fputc(*c, stderr);
+    }
+    fprintf(stderr, "\"\n}\n\n");
+  }
+}
 
 static void parser__push(Parser *self, StackVersion version, Tree *tree, TSStateId state) {
   ts_stack_push(self->stack, version, tree, false, state);
