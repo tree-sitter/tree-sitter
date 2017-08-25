@@ -250,16 +250,18 @@ static CondenseResult parser__condense_stack(Parser *self) {
 }
 
 static void parser__restore_external_scanner(Parser *self, Tree *external_token) {
-  LOG("restore_external_scanner");
-  ts_lexer_set_last_external_token(&self->lexer, external_token);
-  if (external_token) {
-    self->language->external_scanner.deserialize(
-      self->external_scanner_payload,
-      ts_external_token_state_data(&external_token->external_token_state),
-      external_token->external_token_state.length
-    );
-  } else {
-    self->language->external_scanner.deserialize(self->external_scanner_payload, NULL, 0);
+  if (!ts_tree_external_token_state_eq(self->lexer.last_external_token, external_token)) {
+    LOG("restore_external_scanner");
+    ts_lexer_set_last_external_token(&self->lexer, external_token);
+    if (external_token) {
+      self->language->external_scanner.deserialize(
+        self->external_scanner_payload,
+        ts_external_token_state_data(&external_token->external_token_state),
+        external_token->external_token_state.length
+      );
+    } else {
+      self->language->external_scanner.deserialize(self->external_scanner_payload, NULL, 0);
+    }
   }
 }
 
@@ -273,7 +275,6 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
   );
 
   bool found_external_token = false;
-  bool found_error = false;
   bool skipped_error = false;
   int32_t first_error_character = 0;
   Length error_start_position, error_end_position;
@@ -287,9 +288,7 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
           current_position.extent.row, current_position.extent.column);
 
       Tree *external_token = ts_stack_last_external_token(self->stack, version);
-      if (!ts_tree_external_token_state_eq(self->lexer.last_external_token, external_token)) {
-        parser__restore_external_scanner(self, external_token);
-      }
+      parser__restore_external_scanner(self, external_token);
 
       ts_lexer_start(&self->lexer);
       found_external_token = self->language->external_scanner.scan(
@@ -304,7 +303,9 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
         }
 
         // Don't allow zero-length external tokens durring error recovery.
-        if (lex_mode.lex_state == 0 && self->lexer.token_end_position.bytes <= current_position.bytes) {
+        if (lex_mode.lex_state == ERROR_STATE &&
+            self->lexer.token_end_position.bytes <= current_position.bytes) {
+          LOG("disregard_empty_token");
           parser__restore_external_scanner(self, external_token);
           found_external_token = false;
         } else {
@@ -325,9 +326,8 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
       break;
     }
 
-    if (!found_error) {
+    if (lex_mode.lex_state != self->language->lex_modes[ERROR_STATE].lex_state) {
       LOG("retry_in_error_mode");
-      found_error = true;
       lex_mode = self->language->lex_modes[ERROR_STATE];
       valid_external_tokens = ts_language_enabled_external_tokens(
         self->language,
