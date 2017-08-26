@@ -90,6 +90,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
     }
     separator_rules.push_back(Blank{});
     separator_start_characters = separator_character_aggregator.result;
+    clear();
   }
 
   LexTable build(ParseTable *parse_table) {
@@ -105,8 +106,6 @@ class LexTableBuilderImpl : public LexTableBuilder {
 
   bool detect_conflict(Symbol::Index left, Symbol::Index right,
                        const vector<set<Symbol::Index>> &following_terminals_by_terminal_index) {
-    clear();
-
     StartingCharacterAggregator left_starting_characters;
     StartingCharacterAggregator right_starting_characters;
     left_starting_characters.apply(grammar.variables[left].rule);
@@ -144,7 +143,9 @@ class LexTableBuilderImpl : public LexTableBuilder {
     current_conflict_detection_token_index = right;
     current_conflict_detection_following_characters = following_characters_entry->second;
     add_lex_state(item_set_for_terminals({{Symbol::terminal(left), {}}, {Symbol::terminal(right), {}}}));
-    return current_conflict_value;
+    bool result = current_conflict_value;
+    clear();
+    return result;
   }
 
   bool is_keyword(const LexicalVariable &variable) {
