@@ -250,18 +250,15 @@ static CondenseResult parser__condense_stack(Parser *self) {
 }
 
 static void parser__restore_external_scanner(Parser *self, Tree *external_token) {
-  if (!ts_tree_external_token_state_eq(self->lexer.last_external_token, external_token)) {
-    LOG("restore_external_scanner");
-    ts_lexer_set_last_external_token(&self->lexer, external_token);
-    if (external_token) {
-      self->language->external_scanner.deserialize(
-        self->external_scanner_payload,
-        ts_external_token_state_data(&external_token->external_token_state),
-        external_token->external_token_state.length
-      );
-    } else {
-      self->language->external_scanner.deserialize(self->external_scanner_payload, NULL, 0);
-    }
+  LOG("restore_external_scanner");
+  if (external_token) {
+    self->language->external_scanner.deserialize(
+      self->external_scanner_payload,
+      ts_external_token_state_data(&external_token->external_token_state),
+      external_token->external_token_state.length
+    );
+  } else {
+    self->language->external_scanner.deserialize(self->external_scanner_payload, NULL, 0);
   }
 }
 
@@ -378,7 +375,6 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
         self->lexer.debug_buffer
       );
       ts_external_token_state_init(&result->external_token_state, self->lexer.debug_buffer, length);
-      ts_lexer_set_last_external_token(&self->lexer, result);
     }
   }
 
@@ -1320,7 +1316,6 @@ void parser_destroy(Parser *self) {
     array_delete(&self->tree_path1);
   if (self->tree_path2.contents)
     array_delete(&self->tree_path2);
-  ts_lexer_set_last_external_token(&self->lexer, NULL);
   parser_set_language(self, NULL);
 }
 
