@@ -124,22 +124,20 @@ static bool parser__breakdown_top_of_stack(Parser *self, StackVersion version) {
   return did_break_down;
 }
 
-static bool parser__breakdown_lookahead(Parser *self, Tree **lookahead,
+static void parser__breakdown_lookahead(Parser *self, Tree **lookahead,
                                         TSStateId state,
                                         ReusableNode *reusable_node) {
-  bool result = false;
+  bool did_break_down = false;
   while (reusable_node->tree->child_count > 0 && reusable_node->tree->parse_state != state) {
     LOG("state_mismatch sym:%s", SYM_NAME(reusable_node->tree->symbol));
     reusable_node_breakdown(reusable_node);
-    result = true;
+    did_break_down = true;
   }
 
-  if (result) {
+  if (did_break_down) {
     ts_tree_release(*lookahead);
     ts_tree_retain(*lookahead = reusable_node->tree);
   }
-
-  return result;
 }
 
 static inline bool ts_lex_mode_eq(TSLexMode self, TSLexMode other) {
@@ -1193,14 +1191,7 @@ static void parser__advance(Parser *self, StackVersion version,
           }
 
           if (lookahead->child_count > 0) {
-            if (parser__breakdown_lookahead(self, &lookahead, state, reusable_node)) {
-              if (!parser__can_reuse(self, state, lookahead, &table_entry)) {
-                reusable_node_pop(reusable_node);
-                ts_tree_release(lookahead);
-                lookahead = parser__get_lookahead(self, version, reusable_node, &validated_lookahead);
-              }
-            }
-
+            parser__breakdown_lookahead(self, &lookahead, state, reusable_node);
             next_state = ts_language_next_state(self->language, state, lookahead->symbol);
           }
 
