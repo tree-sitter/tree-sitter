@@ -128,10 +128,7 @@ static bool parser__breakdown_lookahead(Parser *self, Tree **lookahead,
                                         TSStateId state,
                                         ReusableNode *reusable_node) {
   bool result = false;
-  while (reusable_node->tree->child_count > 0 &&
-         (self->is_split || reusable_node->tree->parse_state != state ||
-          reusable_node->tree->fragile_left ||
-          reusable_node->tree->fragile_right)) {
+  while (reusable_node->tree->child_count > 0 && reusable_node->tree->parse_state != state) {
     LOG("state_mismatch sym:%s", SYM_NAME(reusable_node->tree->symbol));
     reusable_node_breakdown(reusable_node);
     result = true;
@@ -408,46 +405,41 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version,
                                    bool *is_fresh) {
   Length position = ts_stack_top_position(self->stack, version);
 
-  while (reusable_node->tree) {
+  Tree *result;
+  while ((result = reusable_node->tree)) {
     if (reusable_node->byte_index > position.bytes) {
-      LOG("before_reusable_node sym:%s", SYM_NAME(reusable_node->tree->symbol));
+      LOG("before_reusable_node symbol:%s", SYM_NAME(result->symbol));
       break;
     }
 
     if (reusable_node->byte_index < position.bytes) {
-      LOG("past_reusable sym:%s", SYM_NAME(reusable_node->tree->symbol));
+      LOG("past_reusable_node symbol:%s", SYM_NAME(result->symbol));
       reusable_node_pop(reusable_node);
       continue;
     }
 
-    if (reusable_node->tree->has_changes) {
-      LOG("cant_reuse_changed tree:%s, size:%u",
-          SYM_NAME(reusable_node->tree->symbol),
-          reusable_node->tree->size.bytes);
-      if (!reusable_node_breakdown(reusable_node)) {
-        reusable_node_pop(reusable_node);
-        parser__breakdown_top_of_stack(self, version);
-      }
-      continue;
-    }
-
-    if (reusable_node->tree->symbol == ts_builtin_sym_error) {
-      LOG("cant_reuse_error tree:%s, size:%u",
-          SYM_NAME(reusable_node->tree->symbol),
-          reusable_node->tree->size.bytes);
-      if (!reusable_node_breakdown(reusable_node)) {
-        reusable_node_pop(reusable_node);
-        parser__breakdown_top_of_stack(self, version);
-      }
-      continue;
-    }
-
     if (!ts_tree_external_token_state_eq(
-          reusable_node->preceding_external_token,
-          ts_stack_last_external_token(self->stack, version))) {
-      LOG("cant_reuse_external_tokens tree:%s, size:%u",
-          SYM_NAME(reusable_node->tree->symbol),
-          reusable_node->tree->size.bytes);
+      reusable_node->preceding_external_token,
+      ts_stack_last_external_token(self->stack, version))
+    ) {
+      LOG("reusable_node_has_different_external_scanner_state symbol:%s", SYM_NAME(result->symbol));
+      reusable_node_pop(reusable_node);
+      continue;
+    }
+
+    const char *reason = NULL;
+    if (result->has_changes) {
+      reason = "has_changes";
+    } else if (result->symbol == ts_builtin_sym_error) {
+      reason = "is_error";
+    } else if (result->fragile_left || result->fragile_right) {
+      reason = "is_fragile";
+    } else if (self->is_split && result->child_count) {
+      reason = "in_ambiguity";
+    }
+
+    if (reason) {
+      LOG("cant_reuse_%s tree:%s, size:%u", reason, SYM_NAME(result->symbol), result->size.bytes);
       if (!reusable_node_breakdown(reusable_node)) {
         reusable_node_pop(reusable_node);
         parser__breakdown_top_of_stack(self, version);
@@ -455,7 +447,6 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version,
       continue;
     }
 
-    Tree *result = reusable_node->tree;
     ts_tree_retain(result);
     return result;
   }
