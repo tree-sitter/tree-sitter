@@ -488,9 +488,7 @@ static bool parser__select_tree(Parser *self, Tree *left, Tree *right) {
 
 static bool parser__better_version_exists(Parser *self, StackVersion version,
                                           ErrorStatus my_error_status) {
-  if (self->finished_tree &&
-      self->finished_tree->error_cost <= my_error_status.cost)
-    return true;
+  if (self->finished_tree && self->finished_tree->error_cost <= my_error_status.cost) return true;
 
   for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
     if (i == version || ts_stack_is_halted(self->stack, i)) continue;
@@ -649,15 +647,13 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version,
   return pop;
 }
 
-static const TSParseAction *parser__reductions_after_sequence(
-  Parser *self,
-  TSStateId start_state,
-  const TreeArray *trees_below,
-  uint32_t tree_count_below,
-  const TreeArray *trees_above,
-  TSSymbol lookahead_symbol,
-  uint32_t *count
-) {
+static const TSParseAction *parser__reductions_after_sequence(Parser *self,
+                                                              TSStateId start_state,
+                                                              const TreeArray *trees_below,
+                                                              uint32_t tree_count_below,
+                                                              const TreeArray *trees_above,
+                                                              TSSymbol lookahead_symbol,
+                                                              uint32_t *count) {
   TSStateId state = start_state;
   uint32_t child_count = 0;
   *count = 0;
@@ -870,7 +866,6 @@ static void parser__start(Parser *self, TSInput input, Tree *previous_tree) {
   ts_lexer_set_input(&self->lexer, input);
   ts_stack_clear(self->stack);
   self->reusable_node = reusable_node_new(previous_tree);
-  parser__clear_cached_token(self);
   self->finished_tree = NULL;
 }
 
@@ -1130,14 +1125,12 @@ static void parser__recover(Parser *self, StackVersion version, TSStateId state,
   parser__shift(self, version, state, lookahead, false);
 }
 
-static void parser__advance(Parser *self, StackVersion version,
-                            ReusableNode *reusable_node) {
+static void parser__advance(Parser *self, StackVersion version, ReusableNode *reusable_node) {
   bool validated_lookahead = false;
   Tree *lookahead = parser__get_lookahead(self, version, reusable_node, &validated_lookahead);
 
   for (;;) {
     TSStateId state = ts_stack_top_state(self->stack, version);
-
     TableEntry table_entry;
     ts_language_table_entry(self->language, state, lookahead->first_leaf.symbol, &table_entry);
 
@@ -1181,18 +1174,13 @@ static void parser__advance(Parser *self, StackVersion version,
           }
 
           parser__shift(self, version, next_state, lookahead, action.params.extra);
-
-          if (lookahead == reusable_node->tree) {
-            reusable_node_pop(reusable_node);
-          }
-
+          if (lookahead == reusable_node->tree) reusable_node_pop(reusable_node);
           ts_tree_release(lookahead);
           return;
         }
 
         case TSParseActionTypeReduce: {
           if (reduction_stopped_at_error) continue;
-
           LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.params.symbol), action.params.child_count);
           StackPopResult reduction = parser__reduce(
             self, version, action.params.symbol, action.params.child_count,
@@ -1202,19 +1190,16 @@ static void parser__advance(Parser *self, StackVersion version,
           StackSlice slice = *array_front(&reduction.slices);
           if (reduction.stopped_at_error) {
             reduction_stopped_at_error = true;
-            if (!parser__repair_error(self, slice, lookahead->first_leaf.symbol,
-                                      table_entry))
+            if (!parser__repair_error(self, slice, lookahead->first_leaf.symbol, table_entry)) {
               break;
+            }
           }
-
           last_reduction_version = slice.version;
           break;
         }
 
         case TSParseActionTypeAccept: {
-          if (ts_stack_error_status(self->stack, version).count > 0)
-            continue;
-
+          if (ts_stack_error_status(self->stack, version).count > 0) continue;
           LOG("accept");
           parser__accept(self, version, lookahead);
           ts_tree_release(lookahead);
@@ -1230,9 +1215,7 @@ static void parser__advance(Parser *self, StackVersion version,
           }
 
           parser__recover(self, version, action.params.state, lookahead);
-          if (lookahead == reusable_node->tree) {
-            reusable_node_pop(reusable_node);
-          }
+          if (lookahead == reusable_node->tree) reusable_node_pop(reusable_node);
           ts_tree_release(lookahead);
           return;
         }
