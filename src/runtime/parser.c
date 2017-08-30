@@ -140,25 +140,17 @@ static void parser__breakdown_lookahead(Parser *self, Tree **lookahead,
   }
 }
 
-static inline bool ts_lex_mode_eq(TSLexMode self, TSLexMode other) {
-  return self.lex_state == other.lex_state &&
-    self.external_lex_state == other.external_lex_state;
-}
-
-static bool parser__can_reuse(Parser *self, TSStateId state, Tree *tree,
-                              TableEntry *table_entry) {
+static bool parser__can_reuse_first_leaf(Parser *self, TSStateId state, Tree *tree,
+                                         TableEntry *table_entry) {
   TSLexMode current_lex_mode = self->language->lex_modes[state];
-  if (ts_lex_mode_eq(tree->first_leaf.lex_mode, current_lex_mode))
-    return true;
-  if (current_lex_mode.external_lex_state != 0)
-    return false;
-  if (tree->size.bytes == 0)
-    return false;
-  if (!table_entry->is_reusable)
-    return false;
-  if (!table_entry->depends_on_lookahead)
-    return true;
-  return tree->child_count > 1 && tree->error_cost == 0;
+  return
+    (tree->first_leaf.lex_mode.lex_state == current_lex_mode.lex_state &&
+     tree->first_leaf.lex_mode.external_lex_state == current_lex_mode.external_lex_state) ||
+    (current_lex_mode.external_lex_state == 0 &&
+     tree->size.bytes > 0 &&
+     table_entry->is_reusable &&
+     (!table_entry->depends_on_lookahead ||
+      (tree->child_count > 1 && tree->error_cost == 0)));
 }
 
 typedef int CondenseResult;
@@ -1157,7 +1149,10 @@ static void parser__advance(Parser *self, StackVersion version,
     ts_language_table_entry(self->language, state, lookahead->first_leaf.symbol, &table_entry);
 
     if (!validated_lookahead) {
-      if (!parser__can_reuse(self, state, lookahead, &table_entry)) {
+      if (parser__can_reuse_first_leaf(self, state, lookahead, &table_entry)) {
+        validated_lookahead = true;
+        LOG("reused_lookahead sym:%s, size:%u", SYM_NAME(lookahead->symbol), lookahead->size.bytes);
+      } else {
         if (lookahead == reusable_node->tree) {
           reusable_node_pop_leaf(reusable_node);
         } else {
@@ -1168,9 +1163,6 @@ static void parser__advance(Parser *self, StackVersion version,
         lookahead = parser__get_lookahead(self, version, reusable_node, &validated_lookahead);
         continue;
       }
-
-      validated_lookahead = true;
-      LOG("reused_lookahead sym:%s, size:%u", SYM_NAME(lookahead->symbol), lookahead->size.bytes);
     }
 
     bool reduction_stopped_at_error = false;
