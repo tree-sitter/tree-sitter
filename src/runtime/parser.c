@@ -153,24 +153,19 @@ static bool parser__can_reuse_first_leaf(Parser *self, TSStateId state, Tree *tr
       (tree->child_count > 1 && tree->error_cost == 0)));
 }
 
-typedef int CondenseResult;
-static int CondenseResultMadeChange = 1;
-static int CondenseResultAllVersionsHadError = 2;
-
-static CondenseResult parser__condense_stack(Parser *self) {
-  CondenseResult result = 0;
-  bool has_version_without_errors = false;
+static bool parser__condense_stack(Parser *self) {
+  bool all_versions_have_error = true;
+  unsigned old_version_count = ts_stack_version_count(self->stack);
 
   for (StackVersion i = 0; i < ts_stack_version_count(self->stack); i++) {
     if (ts_stack_is_halted(self->stack, i)) {
       ts_stack_remove_version(self->stack, i);
-      result |= CondenseResultMadeChange;
       i--;
       continue;
     }
 
     ErrorStatus right_error_status = ts_stack_error_status(self->stack, i);
-    if (right_error_status.count == 0) has_version_without_errors = true;
+    if (right_error_status.count == 0) all_versions_have_error = false;
 
     for (StackVersion j = 0; j < i; j++) {
       bool can_merge = ts_stack_can_merge(self->stack, i, j);
@@ -179,14 +174,12 @@ static CondenseResult parser__condense_stack(Parser *self) {
       switch (error_status_compare(left_error_status, right_error_status, can_merge)) {
         case ErrorComparisonTakeLeft:
           ts_stack_remove_version(self->stack, i);
-          result |= CondenseResultMadeChange;
           i--;
           j = i;
           break;
 
         case ErrorComparisonTakeRight:
           ts_stack_remove_version(self->stack, j);
-          result |= CondenseResultMadeChange;
           i--;
           j--;
           break;
@@ -194,7 +187,6 @@ static CondenseResult parser__condense_stack(Parser *self) {
         case ErrorComparisonPreferLeft:
           if (can_merge) {
             ts_stack_force_merge(self->stack, j, i);
-            result |= CondenseResultMadeChange;
             i--;
             j = i;
           }
@@ -203,37 +195,35 @@ static CondenseResult parser__condense_stack(Parser *self) {
         case ErrorComparisonPreferRight:
           if (can_merge) {
             ts_stack_remove_version(self->stack, j);
-            result |= CondenseResultMadeChange;
             i--;
             j--;
           } else {
             ts_stack_swap_versions(self->stack, i, j);
             j = i;
-            result |= CondenseResultMadeChange;
           }
           break;
 
         case ErrorComparisonNone:
           if (can_merge) {
             ts_stack_force_merge(self->stack, j, i);
-            result |= CondenseResultMadeChange;
             i--;
-            break;
           }
+          break;
       }
     }
   }
 
   while (ts_stack_version_count(self->stack) > MAX_VERSION_COUNT) {
     ts_stack_remove_version(self->stack, MAX_VERSION_COUNT);
-    result |= CondenseResultMadeChange;
   }
 
-  if (!has_version_without_errors && ts_stack_version_count(self->stack) > 0) {
-    result |= CondenseResultAllVersionsHadError;
+  unsigned new_version_count = ts_stack_version_count(self->stack);
+  if (new_version_count != old_version_count) {
+    LOG("condense");
+    LOG_STACK();
   }
 
-  return result;
+  return all_versions_have_error && new_version_count > 0;
 }
 
 static void parser__restore_external_scanner(Parser *self, Tree *external_token) {
@@ -1335,15 +1325,10 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
 
     self->reusable_node = reusable_node;
 
-    CondenseResult condense_result = parser__condense_stack(self);
-    if (halt_on_error && (condense_result & CondenseResultAllVersionsHadError)) {
+    bool all_versions_have_error = parser__condense_stack(self);
+    if (halt_on_error && all_versions_have_error) {
       parser__halt_parse(self);
       break;
-    }
-
-    if (condense_result & CondenseResultMadeChange) {
-      LOG("condense");
-      LOG_STACK();
     }
 
     self->is_split = (version > 1);
