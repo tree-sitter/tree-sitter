@@ -11,7 +11,6 @@
         'externals/json-parser',
       ],
       'sources': [
-        'src/compiler/build_tables/build_parse_table.cc',
         'src/compiler/build_tables/build_tables.cc',
         'src/compiler/build_tables/lex_item.cc',
         'src/compiler/build_tables/lex_item_transitions.cc',
@@ -20,6 +19,7 @@
         'src/compiler/build_tables/lookahead_set.cc',
         'src/compiler/build_tables/parse_item.cc',
         'src/compiler/build_tables/parse_item_set_builder.cc',
+        'src/compiler/build_tables/parse_table_builder.cc',
         'src/compiler/build_tables/rule_can_be_blank.cc',
         'src/compiler/compile.cc',
         'src/compiler/generate_code/c_code.cc',

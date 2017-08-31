@@ -110,7 +110,6 @@ void ts_lexer_init(Lexer *self) {
       .payload = NULL,
       .log = NULL
     },
-    .last_external_token = NULL,
   };
   ts_lexer_reset(self, length_zero());
 }
@@ -134,7 +133,6 @@ static inline void ts_lexer__reset(Lexer *self, Length position) {
 void ts_lexer_set_input(Lexer *self, TSInput input) {
   self->input = input;
   ts_lexer__reset(self, length_zero());
-  ts_lexer_set_last_external_token(self, NULL);
 }
 
 void ts_lexer_reset(Lexer *self, Length position) {
@@ -156,10 +154,4 @@ void ts_lexer_start(Lexer *self) {
 
 void ts_lexer_advance_to_end(Lexer *self) {
   while (self->data.lookahead != 0) ts_lexer__advance(self, false);
-}
-
-void ts_lexer_set_last_external_token(Lexer *self, Tree *token) {
-  if (token) ts_tree_retain(token);
-  if (self->last_external_token) ts_tree_release(self->last_external_token);
-  self->last_external_token = token;
 }

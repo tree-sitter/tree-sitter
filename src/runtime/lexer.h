@@ -24,7 +24,6 @@ typedef struct {
   TSInput input;
   TSLogger logger;
   char debug_buffer[TREE_SITTER_SERIALIZATION_BUFFER_SIZE];
-  Tree *last_external_token;
 } Lexer;
 
 void ts_lexer_init(Lexer *);
@@ -32,7 +31,6 @@ void ts_lexer_set_input(Lexer *, TSInput);
 void ts_lexer_reset(Lexer *, Length);
 void ts_lexer_start(Lexer *);
 void ts_lexer_advance_to_end(Lexer *);
-void ts_lexer_set_last_external_token(Lexer *, Tree *);
 
 #ifdef __cplusplus
 }
