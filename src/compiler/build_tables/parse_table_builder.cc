@@ -19,9 +19,10 @@ namespace build_tables {
 
 using std::deque;
 using std::find;
-using std::pair;
 using std::vector;
 using std::set;
+using std::tuple;
+using std::make_tuple;
 using std::map;
 using std::move;
 using std::string;
@@ -49,26 +50,20 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   deque<ParseStateQueueEntry> parse_state_queue;
   ParseTable parse_table;
   ParseItemSetBuilder item_set_builder;
-  LexTableBuilder *lex_table_builder;
+  unique_ptr<LexTableBuilder> lex_table_builder;
   set<ParseAction> fragile_reductions;
-  vector<set<Symbol>> incompatible_tokens_by_token_index;
   vector<set<Symbol::Index>> following_tokens_by_token_index;
   bool processing_recovery_states;
 
  public:
-  ParseTableBuilderImpl(
-    const SyntaxGrammar &syntax_grammar,
-    const LexicalGrammar &lexical_grammar,
-    LexTableBuilder *lex_table_builder
-  ) : grammar(syntax_grammar),
+  ParseTableBuilderImpl(const SyntaxGrammar &syntax_grammar, const LexicalGrammar &lexical_grammar)
+    : grammar(syntax_grammar),
       lexical_grammar(lexical_grammar),
       item_set_builder(syntax_grammar, lexical_grammar),
-      lex_table_builder(lex_table_builder),
-      incompatible_tokens_by_token_index(lexical_grammar.variables.size()),
       following_tokens_by_token_index(lexical_grammar.variables.size()),
       processing_recovery_states(false) {}
 
-  pair<ParseTable, CompileError> build() {
+  tuple<ParseTable, LexTable, CompileError> build() {
     // Ensure that the empty rename sequence has index 0.
     parse_table.alias_sequences.push_back({});
 
@@ -90,9 +85,13 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     }});
 
     CompileError error = process_part_state_queue();
-    if (error) return {parse_table, error};
+    if (error) return make_tuple(parse_table, LexTable(), error);
 
-    compute_unmergable_token_pairs();
+    lex_table_builder = LexTableBuilder::create(
+      grammar,
+      lexical_grammar,
+      following_tokens_by_token_index
+    );
 
     processing_recovery_states = true;
     build_error_parse_state(error_state_id);
@@ -100,7 +99,9 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
 
     mark_fragile_actions();
     remove_duplicate_parse_states();
-    return {parse_table, CompileError::none()};
+
+    auto lex_table = lex_table_builder->build(&parse_table);
+    return make_tuple(parse_table, lex_table, CompileError::none());
   }
 
  private:
@@ -131,9 +132,9 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
       Symbol token = Symbol::terminal(i);
       bool has_non_reciprocal_conflict = false;
 
-      for (Symbol incompatible_token : incompatible_tokens_by_token_index[i]) {
+      for (Symbol incompatible_token : lex_table_builder->get_incompatible_tokens(i)) {
         if (incompatible_token.is_terminal() &&
-            !incompatible_tokens_by_token_index[incompatible_token.index].count(token)) {
+            !lex_table_builder->get_incompatible_tokens(incompatible_token.index).count(token)) {
           has_non_reciprocal_conflict = true;
           break;
         }
@@ -355,28 +356,6 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     return false;
   }
 
-  void compute_unmergable_token_pairs() {
-    for (unsigned i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
-      Symbol token = Symbol::terminal(i);
-      auto &incompatible_indices = incompatible_tokens_by_token_index[i];
-
-      for (unsigned j = 0; j < n; j++) {
-        if (i == j) continue;
-        if (lex_table_builder->detect_conflict(i, j, following_tokens_by_token_index)) {
-          incompatible_indices.insert(Symbol::terminal(j));
-        }
-      }
-
-      for (const ExternalToken &external_token : grammar.external_tokens) {
-        if (external_token.corresponding_internal_token == token) {
-          for (unsigned j = 0; j < grammar.external_tokens.size(); j++) {
-            incompatible_indices.insert(Symbol::external(j));
-          }
-        }
-      }
-    }
-  }
-
   void remove_duplicate_parse_states() {
     unordered_map<size_t, set<ParseStateId>> state_indices_by_signature;
 
@@ -474,7 +453,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
         if (left_entry.second.actions.back().type != ParseActionTypeReduce) return false;
         if (!has_actions(right_state, left_entry.second)) return false;
         if (!lookahead.is_built_in()) {
-          for (const Symbol &incompatible_token : incompatible_tokens_by_token_index[lookahead.index]) {
+          for (const Symbol &incompatible_token : lex_table_builder->get_incompatible_tokens(lookahead.index)) {
             if (right_state.terminal_entries.count(incompatible_token)) return false;
           }
         }
@@ -492,7 +471,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
         if (right_entry.second.actions.back().type != ParseActionTypeReduce) return false;
         if (!has_actions(left_state, right_entry.second)) return false;
         if (!lookahead.is_built_in()) {
-          for (const Symbol &incompatible_token : incompatible_tokens_by_token_index[lookahead.index]) {
+          for (const Symbol &incompatible_token : lex_table_builder->get_incompatible_tokens(lookahead.index)) {
             if (left_state.terminal_entries.count(incompatible_token)) return false;
           }
         }
@@ -805,15 +784,12 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
 
 unique_ptr<ParseTableBuilder> ParseTableBuilder::create(
   const SyntaxGrammar &syntax_grammar,
-  const LexicalGrammar &lexical_grammar,
-  LexTableBuilder *lex_table_builder
+  const LexicalGrammar &lexical_grammar
 ) {
-  return unique_ptr<ParseTableBuilder>(
-    new ParseTableBuilderImpl(syntax_grammar, lexical_grammar, lex_table_builder)
-  );
+  return unique_ptr<ParseTableBuilder>(new ParseTableBuilderImpl(syntax_grammar, lexical_grammar));
 }
 
-pair<ParseTable, CompileError> ParseTableBuilder::build() {
+tuple<ParseTable, LexTable, CompileError> ParseTableBuilder::build() {
   return static_cast<ParseTableBuilderImpl *>(this)->build();
 }
 

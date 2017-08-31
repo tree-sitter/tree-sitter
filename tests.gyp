@@ -39,7 +39,6 @@
       'sources': [
         'test/compiler/build_tables/lex_conflict_manager_test.cc',
         'test/compiler/build_tables/lex_item_test.cc',
-        'test/compiler/build_tables/lex_table_builder_test.cc',
         'test/compiler/build_tables/parse_item_set_builder_test.cc',
         'test/compiler/build_tables/rule_can_be_blank_test.cc',
         'test/compiler/prepare_grammar/expand_repeats_test.cc',

@@ -11,7 +11,6 @@
         'externals/json-parser',
       ],
       'sources': [
-        'src/compiler/build_tables/build_tables.cc',
         'src/compiler/build_tables/lex_item.cc',
         'src/compiler/build_tables/lex_item_transitions.cc',
         'src/compiler/build_tables/lex_conflict_manager.cc',

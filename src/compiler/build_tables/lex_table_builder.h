@@ -9,19 +9,19 @@
 namespace tree_sitter {
 
 struct ParseTable;
+struct SyntaxGrammar;
 struct LexicalGrammar;
 
 namespace build_tables {
 
 class LexTableBuilder {
  public:
-  static std::unique_ptr<LexTableBuilder> create(const LexicalGrammar &);
+  static std::unique_ptr<LexTableBuilder> create(const SyntaxGrammar &,
+                                                 const LexicalGrammar &,
+                                                 const std::vector<std::set<rules::Symbol::Index>> &);
   LexTable build(ParseTable *);
-  bool detect_conflict(
-    rules::Symbol::Index,
-    rules::Symbol::Index,
-    const std::vector<std::set<rules::Symbol::Index>> &following_terminals_by_terminal_index
-  );
+  const std::set<rules::Symbol> &get_incompatible_tokens(rules::Symbol::Index) const;
+
  protected:
   LexTableBuilder() = default;
 };

@@ -9,6 +9,7 @@
 #include <vector>
 #include "compiler/build_tables/lex_conflict_manager.h"
 #include "compiler/build_tables/lex_item.h"
+#include "compiler/build_tables/lookahead_set.h"
 #include "compiler/parse_table.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/rule.h"
@@ -76,13 +77,18 @@ class LexTableBuilderImpl : public LexTableBuilder {
   unordered_map<LexItemSet, LexStateId> lex_state_ids;
 
   map<Symbol::Index, CharacterSet> following_characters_by_token_index;
+  vector<set<Symbol>> incompatible_tokens_by_token_index;
   CharacterSet separator_start_characters;
   CharacterSet current_conflict_detection_following_characters;
   Symbol::Index current_conflict_detection_token_index;
   bool current_conflict_value;
 
  public:
-  LexTableBuilderImpl(const LexicalGrammar &grammar) : grammar(grammar) {
+  LexTableBuilderImpl(const SyntaxGrammar &syntax_grammar,
+                      const LexicalGrammar &lexical_grammar,
+                      const vector<set<Symbol::Index>> &following_tokens_by_token_index) :
+    grammar(lexical_grammar),
+    incompatible_tokens_by_token_index(lexical_grammar.variables.size()) {
     StartingCharacterAggregator separator_character_aggregator;
     for (const auto &rule : grammar.separators) {
       separator_rules.push_back(Repeat{rule});
@@ -91,6 +97,26 @@ class LexTableBuilderImpl : public LexTableBuilder {
     separator_rules.push_back(Blank{});
     separator_start_characters = separator_character_aggregator.result;
     clear();
+
+    for (unsigned i = 0, n = grammar.variables.size(); i < n; i++) {
+      Symbol token = Symbol::terminal(i);
+      auto &incompatible_indices = incompatible_tokens_by_token_index[i];
+
+      for (unsigned j = 0; j < n; j++) {
+        if (i == j) continue;
+        if (detect_conflict(i, j, following_tokens_by_token_index)) {
+          incompatible_indices.insert(Symbol::terminal(j));
+        }
+      }
+
+      for (const ExternalToken &external_token : syntax_grammar.external_tokens) {
+        if (external_token.corresponding_internal_token == token) {
+          for (unsigned j = 0; j < syntax_grammar.external_tokens.size(); j++) {
+            incompatible_indices.insert(Symbol::external(j));
+          }
+        }
+      }
+    }
   }
 
   LexTable build(ParseTable *parse_table) {
@@ -104,8 +130,12 @@ class LexTableBuilderImpl : public LexTableBuilder {
     return lex_table;
   }
 
+  const set<Symbol> &get_incompatible_tokens(Symbol::Index index) const {
+    return incompatible_tokens_by_token_index[index];
+  }
+
   bool detect_conflict(Symbol::Index left, Symbol::Index right,
-                       const vector<set<Symbol::Index>> &following_terminals_by_terminal_index) {
+                       const vector<set<Symbol::Index>> &following_tokens_by_token_index) {
     StartingCharacterAggregator left_starting_characters;
     StartingCharacterAggregator right_starting_characters;
     left_starting_characters.apply(grammar.variables[left].rule);
@@ -119,7 +149,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
     auto following_characters_entry = following_characters_by_token_index.find(right);
     if (following_characters_entry == following_characters_by_token_index.end()) {
       StartingCharacterAggregator aggregator;
-      for (auto following_token_index : following_terminals_by_terminal_index[right]) {
+      for (auto following_token_index : following_tokens_by_token_index[right]) {
         aggregator.apply(grammar.variables[following_token_index].rule);
       }
       following_characters_entry =
@@ -369,17 +399,22 @@ class LexTableBuilderImpl : public LexTableBuilder {
   }
 };
 
-unique_ptr<LexTableBuilder> LexTableBuilder::create(const LexicalGrammar &grammar) {
-  return unique_ptr<LexTableBuilder>(new LexTableBuilderImpl(grammar));
+unique_ptr<LexTableBuilder> LexTableBuilder::create(const SyntaxGrammar &syntax_grammar,
+                                                    const LexicalGrammar &lexical_grammar,
+                                                    const vector<set<Symbol::Index>> &following_tokens) {
+  return unique_ptr<LexTableBuilder>(new LexTableBuilderImpl(
+    syntax_grammar,
+    lexical_grammar,
+    following_tokens
+  ));
 }
 
 LexTable LexTableBuilder::build(ParseTable *parse_table) {
   return static_cast<LexTableBuilderImpl *>(this)->build(parse_table);
 }
 
-bool LexTableBuilder::detect_conflict(Symbol::Index left, Symbol::Index right,
-                                      const vector<set<Symbol::Index>> &following_terminals) {
-  return static_cast<LexTableBuilderImpl *>(this)->detect_conflict(left, right, following_terminals);
+const set<Symbol> &LexTableBuilder::get_incompatible_tokens(Symbol::Index token) const {
+  return static_cast<const LexTableBuilderImpl *>(this)->get_incompatible_tokens(token);
 }
 
 }  // namespace build_tables
