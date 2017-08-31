@@ -12,6 +12,12 @@ extern "C" {
 #include "runtime/reduce_action.h"
 
 typedef struct {
+  Tree *token;
+  Tree *last_external_token;
+  uint32_t byte_index;
+} TokenCache;
+
+typedef struct {
   Lexer lexer;
   Stack *stack;
   const TSLanguage *language;
@@ -20,8 +26,7 @@ typedef struct {
   bool is_split;
   bool print_debugging_graphs;
   Tree scratch_tree;
-  Tree *cached_token;
-  uint32_t cached_token_byte_index;
+  TokenCache token_cache;
   ReusableNode reusable_node;
   TreePath tree_path1;
   TreePath tree_path2;
