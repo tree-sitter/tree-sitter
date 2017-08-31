@@ -23,15 +23,14 @@ typedef struct {
   const TSLanguage *language;
   ReduceActionSet reduce_actions;
   Tree *finished_tree;
-  bool is_split;
-  bool print_debugging_graphs;
   Tree scratch_tree;
   TokenCache token_cache;
   ReusableNode reusable_node;
   TreePath tree_path1;
   TreePath tree_path2;
   void *external_scanner_payload;
-  Tree *last_external_token;
+  bool in_ambiguity;
+  bool print_debugging_graphs;
 } Parser;
 
 bool parser_init(Parser *);

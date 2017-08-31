@@ -424,7 +424,7 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version, TSStateId
       reason = "is_error";
     } else if (result->fragile_left || result->fragile_right) {
       reason = "is_fragile";
-    } else if (self->is_split && result->child_count) {
+    } else if (self->in_ambiguity && result->child_count) {
       reason = "in_ambiguity";
     }
 
@@ -630,7 +630,7 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version,
 
     TSStateId state = ts_stack_top_state(self->stack, slice.version);
     TSStateId next_state = ts_language_next_state(self->language, state, symbol);
-    if (fragile || self->is_split || pop.slices.size > 1 || initial_version_count > 1) {
+    if (fragile || self->in_ambiguity || pop.slices.size > 1 || initial_version_count > 1) {
       parent->fragile_left = true;
       parent->fragile_right = true;
       parent->parse_state = TS_TREE_STATE_NONE;
@@ -1332,7 +1332,7 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
       break;
     }
 
-    self->is_split = (version > 1);
+    self->in_ambiguity = version > 1;
   } while (version != 0);
 
   LOG("done");
