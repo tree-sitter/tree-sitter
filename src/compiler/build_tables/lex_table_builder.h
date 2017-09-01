@@ -14,11 +14,14 @@ struct LexicalGrammar;
 
 namespace build_tables {
 
+class LookaheadSet;
+
 class LexTableBuilder {
  public:
   static std::unique_ptr<LexTableBuilder> create(const SyntaxGrammar &,
                                                  const LexicalGrammar &,
-                                                 const std::vector<std::set<rules::Symbol::Index>> &);
+                                                 const std::vector<LookaheadSet> &,
+                                                 const std::vector<LookaheadSet> &);
   LexTable build(ParseTable *);
   const std::set<rules::Symbol> &get_incompatible_tokens(rules::Symbol::Index) const;
 

@@ -234,6 +234,7 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
 
   bool found_external_token = false;
   bool skipped_error = false;
+  bool error_mode = parse_state == ERROR_STATE;
   int32_t first_error_character = 0;
   Length error_start_position, error_end_position;
   uint32_t last_byte_scanned = start_position.bytes;
@@ -260,8 +261,7 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
           self->lexer.token_end_position = self->lexer.current_position;
         }
 
-        if (lex_mode.lex_state == ERROR_STATE &&
-            self->lexer.token_end_position.bytes <= current_position.bytes) {
+        if (error_mode && self->lexer.token_end_position.bytes <= current_position.bytes) {
           LOG("disregard_empty_token");
         } else {
           found_external_token = true;
@@ -291,6 +291,7 @@ static Tree *parser__lex(Parser *self, StackVersion version) {
 
     if (lex_mode.lex_state != self->language->lex_modes[ERROR_STATE].lex_state) {
       LOG("retry_in_error_mode");
+      error_mode = true;
       lex_mode = self->language->lex_modes[ERROR_STATE];
       valid_external_tokens = ts_language_enabled_external_tokens(
         self->language,
