@@ -136,8 +136,8 @@
         },
       },
       'Fuzz': {
-        'cflags': [ '-g', '-fsanitize=address,undefined', '-fsanitize-coverage=trace-pc-guard' ],
-        'ldflags': [ '-g', '-fsanitize=address,undefined', '-fsanitize-coverage=trace-pc-guard' ],
+        'cflags': ['<!@(echo $CFLAGS)'],
+        'ldflags': ['<!@(echo $CXXFLAGS)'],
       },
       'Release': {
         'cflags': [ '-O2', '-fno-strict-aliasing' ],

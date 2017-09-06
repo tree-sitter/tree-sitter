@@ -15,13 +15,16 @@ CC=${CC:-clang}
 CXX=${CXX:-clang++}
 LINK=${LINK:-clang++}
 
-CC=$CC CXX=$CXX LINK=$LINK ./script/configure
+default_fuzz_flags="-fsanitize=address,undefined -fsanitize-coverage=trace-pc-guard"
+
+CFLAGS=${CFLAGS:-"$default_fuzz_flags"}
+CXXFLAGS=${CXXFLAGS:-"$default_fuzz_flags"}
+
+CC=$CC CXX=$CXX LINK=$LINK CFLAGS=$CFLAGS CXXFLAGS=$CXXFLAGS ./script/configure
 
 export BUILDTYPE=Fuzz
 make runtime
 
-CFLAGS="-fsanitize=address,undefined -fsanitize-coverage=trace-pc-guard"
-CXXFLAGS="-fsanitize=address,undefined -fsanitize-coverage=trace-pc-guard"
 
 if [ -z "$@" ]; then
   languages=$(ls test/fixtures/grammars)
