@@ -1,9 +1,9 @@
 #include <stdlib.h>
 #include <map>
-#include <set>
+#include <vector>
 
 using std::map;
-using std::set;
+using std::vector;
 
 static bool _enabled = false;
 static size_t _allocation_count = 0;
@@ -21,10 +21,10 @@ void stop() {
   _enabled = false;
 }
 
-set<size_t> outstanding_allocation_indices() {
-  set<size_t> result;
+vector<size_t> outstanding_allocation_indices() {
+  vector<size_t> result;
   for (const auto &entry : _outstanding_allocations) {
-    result.insert(entry.second);
+    result.push_back(entry.second);
   }
   return result;
 }
@@ -38,9 +38,7 @@ size_t allocation_count() {
 extern "C" {
 
 static void *record_allocation(void *result) {
-  if (!_enabled)
-    return result;
-
+  if (!_enabled) return result;
   _outstanding_allocations[result] = _allocation_count;
   _allocation_count++;
   return result;
