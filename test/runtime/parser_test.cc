@@ -166,7 +166,7 @@ describe("Parser", [&]() {
         ts_document_set_language(document, load_real_language("javascript"));
         set_text("a; ' this string never ends");
         assert_root_node(
-          "(ERROR (program (expression_statement (identifier))) (UNEXPECTED EOF))");
+          "(program (expression_statement (identifier)) (ERROR (UNEXPECTED EOF)))");
       });
     });
 
@@ -198,7 +198,7 @@ describe("Parser", [&]() {
 
       free(string);
 
-      assert_root_node("(ERROR (UNEXPECTED INVALID))");
+      assert_root_node("(program (ERROR (UNEXPECTED INVALID)))");
     });
   });
 

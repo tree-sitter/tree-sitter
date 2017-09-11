@@ -4,25 +4,21 @@ static const unsigned MAX_COST_DIFFERENCE = 16 * ERROR_COST_PER_SKIPPED_TREE;
 static const unsigned MAX_PUSH_COUNT_WITH_COUNT_DIFFERENCE = 24;
 
 ErrorComparison error_status_compare(ErrorStatus a, ErrorStatus b, bool are_mergeable) {
-  if (a.count < b.count) {
-    if (are_mergeable ||
-        a.cost <= b.cost ||
-        a.count + 1 < b.count ||
-        b.push_count > MAX_PUSH_COUNT_WITH_COUNT_DIFFERENCE) {
+  ErrorComparison result = ErrorComparisonNone;
+
+  if (!a.recovering && b.recovering) {
+    if (a.push_count > MAX_PUSH_COUNT_WITH_COUNT_DIFFERENCE) {
       return ErrorComparisonTakeLeft;
     } else {
-      return ErrorComparisonPreferLeft;
+      result = ErrorComparisonPreferLeft;
     }
   }
 
-  if (b.count < a.count) {
-    if (are_mergeable ||
-        b.cost <= a.cost ||
-        b.count + 1 < a.count ||
-        a.push_count > MAX_PUSH_COUNT_WITH_COUNT_DIFFERENCE) {
+  if (!b.recovering && a.recovering) {
+    if (b.push_count > MAX_PUSH_COUNT_WITH_COUNT_DIFFERENCE) {
       return ErrorComparisonTakeRight;
     } else {
-      return ErrorComparisonPreferRight;
+      result = ErrorComparisonPreferRight;
     }
   }
 
@@ -42,5 +38,5 @@ ErrorComparison error_status_compare(ErrorStatus a, ErrorStatus b, bool are_merg
     }
   }
 
-  return ErrorComparisonNone;
+  return result;
 }

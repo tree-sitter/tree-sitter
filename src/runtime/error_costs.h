@@ -13,10 +13,10 @@ extern "C" {
 #define ERROR_COST_PER_SKIPPED_CHAR 1
 
 typedef struct {
-  unsigned count;
   unsigned cost;
   unsigned push_count;
   unsigned depth;
+  bool recovering;
 } ErrorStatus;
 
 typedef enum {

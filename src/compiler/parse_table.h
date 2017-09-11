@@ -27,7 +27,7 @@ struct ParseAction {
   static ParseAction Accept();
   static ParseAction Error();
   static ParseAction Shift(ParseStateId state_index);
-  static ParseAction Recover(ParseStateId state_index);
+  static ParseAction Recover();
   static ParseAction Reduce(rules::Symbol symbol, size_t child_count,
                             int precedence, int dynamic_precedence, rules::Associativity,
                             unsigned alias_sequence_id);

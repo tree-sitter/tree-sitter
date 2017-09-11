@@ -23,7 +23,6 @@ typedef struct {
 typedef Array(StackSlice) StackSliceArray;
 
 typedef struct {
-  bool stopped_at_error;
   StackSliceArray slices;
 } StackPopResult;
 
@@ -33,6 +32,13 @@ enum {
   StackIterateStop = 1,
   StackIteratePop = 2,
 };
+
+typedef struct {
+  unsigned depth;
+  TSStateId state;
+} StackSummaryEntry;
+
+typedef Array(StackSummaryEntry) StackSummary;
 
 typedef StackIterateAction (*StackIterateCallback)(void *, TSStateId state,
                                                    const TreeArray *trees,
@@ -89,9 +95,17 @@ StackPopResult ts_stack_pop_count(Stack *, StackVersion, uint32_t count);
 
 StackPopResult ts_stack_iterate(Stack *, StackVersion, StackIterateCallback, void *);
 
+StackPopResult ts_stack_pop_error(Stack *, StackVersion);
+
 StackPopResult ts_stack_pop_pending(Stack *, StackVersion);
 
 StackPopResult ts_stack_pop_all(Stack *, StackVersion);
+
+unsigned ts_stack_depth_since_error(Stack *, StackVersion);
+
+void ts_stack_record_summary(Stack *, StackVersion);
+
+StackSummary *ts_stack_get_summary(Stack *, StackVersion);
 
 ErrorStatus ts_stack_error_status(const Stack *, StackVersion);
 

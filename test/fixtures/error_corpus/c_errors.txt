@@ -9,8 +9,10 @@ int x // no semicolon
 int a;
 
 #ifdef __cplusplus
-extern "C"
+extern "C" {
 #endif
+
+int c() { return 5; }
 
 int b;
 
@@ -23,20 +25,23 @@ int c;
 ---
 
 (translation_unit
-  (preproc_ifdef (identifier)
+  (preproc_ifdef
+    (identifier)
     (ERROR (type_identifier) (identifier))
     (comment))
-
   (declaration (type_identifier) (identifier))
-
-  (preproc_ifdef (identifier)
-    (ERROR (string_literal)))
-
-  (declaration (type_identifier) (identifier))
-
-  (preproc_ifdef (identifier)
-    (ERROR))
-
+  (preproc_ifdef
+    (identifier)
+    (linkage_specification
+      (string_literal)
+      (declaration_list
+        (ERROR)
+        (function_definition
+          (type_identifier)
+          (function_declarator (identifier) (parameter_list))
+          (compound_statement (return_statement (number_literal))))
+        (declaration (type_identifier) (identifier))
+        (ERROR (identifier)))))
   (declaration (type_identifier) (identifier)))
 
 ========================================
@@ -76,8 +81,8 @@ int main() {
       (declaration (type_identifier) (init_declarator
         (identifier)
         (parenthesized_expression
-          (ERROR (number_literal))
-          (number_literal)))))))
+          (number_literal)
+          (ERROR (number_literal))))))))
 
 ========================================
 Errors in declarations
@@ -124,13 +129,15 @@ int b() {
     (compound_statement
       (declaration
         (type_identifier)
+        (ERROR (identifier))
         (init_declarator
           (identifier)
-          (ERROR (identifier) (identifier))
+          (ERROR (identifier))
           (number_literal)))
       (declaration
         (type_identifier)
+        (ERROR (identifier))
         (init_declarator
           (identifier)
-          (ERROR (identifier) (identifier))
+          (ERROR (identifier))
           (number_literal))))))
