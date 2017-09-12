@@ -477,24 +477,33 @@ StackPopResult ts_stack_pop_all(Stack *self, StackVersion version) {
   return stack__iter(self, version, pop_all_callback, NULL, true);
 }
 
+typedef struct {
+  StackSummary *summary;
+  unsigned max_depth;
+} SummarizeStackSession;
+
 inline StackIterateAction summarize_stack_callback(void *payload, const Iterator *iterator) {
-  StackSummary *summary = payload;
+  SummarizeStackSession *session = payload;
   TSStateId state = iterator->node->state;
   unsigned depth = iterator->tree_count;
-  for (unsigned i = summary->size - 1; i + 1 > 0; i--) {
-    StackSummaryEntry entry = summary->contents[i];
+  if (depth > session->max_depth) return StackIterateStop;
+  for (unsigned i = session->summary->size - 1; i + 1 > 0; i--) {
+    StackSummaryEntry entry = session->summary->contents[i];
     if (entry.depth < depth) break;
     if (entry.depth == depth && entry.state == state) return StackIterateNone;
   }
-  array_push(summary, ((StackSummaryEntry){.depth = depth, .state = state}));
+  array_push(session->summary, ((StackSummaryEntry){.depth = depth, .state = state}));
   return StackIterateNone;
 }
 
-void ts_stack_record_summary(Stack *self, StackVersion version) {
-  StackSummary *result = ts_malloc(sizeof(StackSummary));
-  array_init(result);
-  stack__iter(self, version, summarize_stack_callback, result, false);
-  self->heads.contents[version].summary = result;
+void ts_stack_record_summary(Stack *self, StackVersion version, unsigned max_depth) {
+  SummarizeStackSession session = {
+    .summary = ts_malloc(sizeof(StackSummary)),
+    .max_depth = max_depth
+  };
+  array_init(session.summary);
+  stack__iter(self, version, summarize_stack_callback, &session, false);
+  self->heads.contents[version].summary = session.summary;
 }
 
 StackSummary *ts_stack_get_summary(Stack *self, StackVersion version) {
@@ -502,13 +511,7 @@ StackSummary *ts_stack_get_summary(Stack *self, StackVersion version) {
 }
 
 unsigned ts_stack_depth_since_error(Stack *self, StackVersion version) {
-  unsigned result = 0;
-  StackNode *node = array_get(&self->heads, version)->node;
-  while (node->state == 0) {
-    result++;
-    node = node->links[0].node;
-  }
-  return result - 1;
+  return array_get(&self->heads, version)->node->depth;
 }
 
 void ts_stack_remove_version(Stack *self, StackVersion version) {

@@ -34,7 +34,8 @@
 
 #define SYM_NAME(symbol) ts_language_symbol_name(self->language, symbol)
 
-static const uint32_t MAX_VERSION_COUNT = 10;
+static const unsigned MAX_VERSION_COUNT = 10;
+static const unsigned MAX_SUMMARY_DEPTH = 16;
 
 static void parser__log(Parser *self) {
   if (self->lexer.logger.log) {
@@ -797,7 +798,7 @@ static void parser__handle_error(Parser *self, StackVersion version, TSSymbol lo
     ts_stack_force_merge(self->stack, version, previous_version_count);
   }
 
-  ts_stack_record_summary(self->stack, version);
+  ts_stack_record_summary(self->stack, version, MAX_SUMMARY_DEPTH);
   LOG_STACK();
 }
 

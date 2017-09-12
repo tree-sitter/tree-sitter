@@ -103,7 +103,7 @@ StackPopResult ts_stack_pop_all(Stack *, StackVersion);
 
 unsigned ts_stack_depth_since_error(Stack *, StackVersion);
 
-void ts_stack_record_summary(Stack *, StackVersion);
+void ts_stack_record_summary(Stack *, StackVersion, unsigned max_depth);
 
 StackSummary *ts_stack_get_summary(Stack *, StackVersion);
 
