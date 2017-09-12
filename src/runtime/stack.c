@@ -556,6 +556,7 @@ bool ts_stack_can_merge(Stack *self, StackVersion version1, StackVersion version
   StackHead *head1 = &self->heads.contents[version1];
   StackHead *head2 = &self->heads.contents[version2];
   return
+    !head1->is_halted && !head2->is_halted &&
     head1->node->state == head2->node->state &&
     head1->node->position.chars == head2->node->position.chars &&
     head1->node->depth == head2->node->depth &&
