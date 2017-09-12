@@ -34,7 +34,7 @@
 
 #define SYM_NAME(symbol) ts_language_symbol_name(self->language, symbol)
 
-static const unsigned MAX_VERSION_COUNT = 10;
+static const unsigned MAX_VERSION_COUNT = 6;
 static const unsigned MAX_SUMMARY_DEPTH = 16;
 
 static void parser__log(Parser *self) {
@@ -828,6 +828,7 @@ static void parser__halt_parse(Parser *self) {
 }
 
 static void parser__recover(Parser *self, StackVersion version, Tree *lookahead) {
+  bool did_recover = false;
   unsigned previous_version_count = ts_stack_version_count(self->stack);
   StackSummary *summary = ts_stack_get_summary(self->stack, version);
   for (unsigned i = 0; i < summary->size; i++) {
@@ -880,6 +881,7 @@ static void parser__recover(Parser *self, StackVersion version, Tree *lookahead)
         }
 
         array_delete(&trailing_extras);
+        did_recover = true;
       }
       break;
     }
@@ -900,7 +902,7 @@ static void parser__recover(Parser *self, StackVersion version, Tree *lookahead)
     }
   }
 
-  if (ts_stack_version_count(self->stack) > MAX_VERSION_COUNT) {
+  if (did_recover && ts_stack_version_count(self->stack) > MAX_VERSION_COUNT) {
     ts_stack_halt(self->stack, version);
     return;
   }
