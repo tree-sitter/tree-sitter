@@ -83,7 +83,7 @@ int main(int argc, char *arg[]) {
       assert(!ts_node_has_error(ts_document_root_node(document)));
       size_t speed = static_cast<double>(example.input.size()) / duration;
       printf("  %-30s\t%u ms\t\t%lu bytes/ms\n", example.file_name.c_str(), duration, speed);
-      non_error_speeds.push_back(speed);
+      if (speed != 0) non_error_speeds.push_back(speed);
     }
 
     for (auto &other_language_name : language_names) {
@@ -102,7 +102,7 @@ int main(int argc, char *arg[]) {
         unsigned duration = (end_time - start_time) * 1000 / CLOCKS_PER_SEC;
         size_t speed = static_cast<double>(example.input.size()) / duration;
         printf("  %-30s\t%u ms\t\t%lu bytes/ms\n", example.file_name.c_str(), duration, speed);
-        error_speeds.push_back(speed);
+        if (speed != 0) error_speeds.push_back(speed);
       }
     }
 
