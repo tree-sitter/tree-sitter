@@ -492,7 +492,11 @@ inline StackIterateAction summarize_stack_callback(void *payload, const Iterator
     if (entry.depth < depth) break;
     if (entry.depth == depth && entry.state == state) return StackIterateNone;
   }
-  array_push(session->summary, ((StackSummaryEntry){.depth = depth, .state = state}));
+  array_push(session->summary, ((StackSummaryEntry){
+    .position = iterator->node->position,
+    .depth = depth,
+    .state = state,
+  }));
   return StackIterateNone;
 }
 

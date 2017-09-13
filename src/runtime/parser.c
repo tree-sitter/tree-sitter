@@ -830,11 +830,22 @@ static void parser__halt_parse(Parser *self) {
 static void parser__recover(Parser *self, StackVersion version, Tree *lookahead) {
   bool did_recover = false;
   unsigned previous_version_count = ts_stack_version_count(self->stack);
+  Length position = ts_stack_top_position(self->stack, version);
   StackSummary *summary = ts_stack_get_summary(self->stack, version);
   for (unsigned i = 0; i < summary->size; i++) {
     StackSummaryEntry entry = summary->contents[i];
     if (entry.state == ERROR_STATE) continue;
     unsigned depth = entry.depth + ts_stack_depth_since_error(self->stack, version);
+
+    ErrorStatus status = {
+      .recovering = false,
+      .push_count = 0,
+      .cost =
+        depth * ERROR_COST_PER_SKIPPED_TREE +
+        (position.chars - entry.position.chars) * ERROR_COST_PER_SKIPPED_CHAR +
+        (position.extent.row - entry.position.extent.row) * ERROR_COST_PER_SKIPPED_LINE
+    };
+    if (parser__better_version_exists(self, version, status)) break;
 
     unsigned count = 0;
     if (ts_language_actions(self->language, entry.state, lookahead->symbol, &count) && count > 0) {

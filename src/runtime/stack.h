@@ -34,6 +34,7 @@ enum {
 };
 
 typedef struct {
+  Length position;
   unsigned depth;
   TSStateId state;
 } StackSummaryEntry;
