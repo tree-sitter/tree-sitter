@@ -2,33 +2,22 @@
 #include "runtime/tree.h"
 #include "runtime/error_costs.h"
 
-static const TSParseAction SHIFT_ERROR = {
-  .type = TSParseActionTypeShift,
-  .params.state = ERROR_STATE,
-};
-
 void ts_language_table_entry(const TSLanguage *self, TSStateId state,
                              TSSymbol symbol, TableEntry *result) {
-  uint32_t action_index;
   if (symbol == ts_builtin_sym_error) {
-    if (state == ERROR_STATE) {
-      result->action_count = 1;
-      result->is_reusable = false;
-      result->depends_on_lookahead = false;
-      result->actions = &SHIFT_ERROR;
-      return;
-    }
-    action_index = 0;
+    result->action_count = 0;
+    result->is_reusable = false;
+    result->actions = NULL;
+    return;
   } else {
     assert(symbol < self->token_count);
-    action_index = self->parse_table[state * self->symbol_count + symbol];
+    uint32_t action_index = self->parse_table[state * self->symbol_count + symbol];
+    const TSParseActionEntry *entry = &self->parse_actions[action_index];
+    result->action_count = entry->count;
+    result->is_reusable = entry->reusable;
+    result->depends_on_lookahead = entry->depends_on_lookahead;
+    result->actions = (const TSParseAction *)(entry + 1);
   }
-
-  const TSParseActionEntry *entry = &self->parse_actions[action_index];
-  result->action_count = entry->count;
-  result->is_reusable = entry->reusable;
-  result->depends_on_lookahead = entry->depends_on_lookahead;
-  result->actions = (const TSParseAction *)(entry + 1);
 }
 
 uint32_t ts_language_symbol_count(const TSLanguage *language) {

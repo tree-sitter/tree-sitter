@@ -1,6 +1,6 @@
 #include "tree_sitter/compiler.h"
 #include "compiler/prepare_grammar/prepare_grammar.h"
-#include "compiler/build_tables/build_tables.h"
+#include "compiler/build_tables/parse_table_builder.h"
 #include "compiler/generate_code/c_code.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/lexical_grammar.h"
@@ -30,8 +30,8 @@ extern "C" TSCompileResult ts_compile_grammar(const char *input) {
     return { nullptr, strdup(error.message.c_str()), error.type };
   }
 
-  auto table_build_result =
-    build_tables::build_tables(syntax_grammar, lexical_grammar);
+  auto builder = build_tables::ParseTableBuilder::create(syntax_grammar, lexical_grammar);
+  auto table_build_result = builder->build();
   const ParseTable &parse_table = get<0>(table_build_result);
   const LexTable &lex_table = get<1>(table_build_result);
   error = get<2>(table_build_result);
@@ -43,27 +43,6 @@ extern "C" TSCompileResult ts_compile_grammar(const char *input) {
                                       syntax_grammar, lexical_grammar);
 
   return { strdup(code.c_str()), nullptr, TSCompileErrorTypeNone };
-}
-
-pair<string, const CompileError> compile(const InputGrammar &grammar,
-                                         std::string name) {
-  auto prepare_grammar_result = prepare_grammar::prepare_grammar(grammar);
-  const SyntaxGrammar &syntax_grammar = get<0>(prepare_grammar_result);
-  const LexicalGrammar &lexical_grammar = get<1>(prepare_grammar_result);
-  CompileError error = get<2>(prepare_grammar_result);
-  if (error.type) return { "", error };
-
-  auto table_build_result =
-    build_tables::build_tables(syntax_grammar, lexical_grammar);
-  const ParseTable &parse_table = get<0>(table_build_result);
-  const LexTable &lex_table = get<1>(table_build_result);
-  error = get<2>(table_build_result);
-  if (error.type) return { "", error };
-
-  string code = generate_code::c_code(name, parse_table, lex_table,
-                                      syntax_grammar, lexical_grammar);
-
-  return { code, CompileError::none() };
 }
 
 }  // namespace tree_sitter

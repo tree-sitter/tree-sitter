@@ -656,7 +656,7 @@ class CCodeGenerator {
               add(")");
               break;
             case ParseActionTypeRecover:
-              add("RECOVER(" + to_string(action.state_index) + ")");
+              add("RECOVER()");
               break;
             default: {}
           }

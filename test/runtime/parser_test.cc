@@ -91,14 +91,14 @@ describe("Parser", [&]() {
 
         TSNode error = ts_node_named_child(ts_node_child(root, 0), 1);
         AssertThat(ts_node_type(error, document), Equals("ERROR"));
-        AssertThat(get_node_text(error), Equals(",  @@@@@"));
+        AssertThat(get_node_text(error), Equals("@@@@@,"));
         AssertThat(ts_node_child_count(error), Equals<size_t>(2));
 
-        TSNode comma = ts_node_child(error, 0);
-        AssertThat(get_node_text(comma), Equals(","));
-
-        TSNode garbage = ts_node_child(error, 1);
+        TSNode garbage = ts_node_child(error, 0);
         AssertThat(get_node_text(garbage), Equals("@@@@@"));
+
+        TSNode comma = ts_node_child(error, 1);
+        AssertThat(get_node_text(comma), Equals(","));
 
         TSNode node_after_error = ts_node_next_named_sibling(error);
         AssertThat(ts_node_type(node_after_error, document), Equals("true"));
@@ -116,15 +116,16 @@ describe("Parser", [&]() {
 
         TSNode error = ts_node_named_child(ts_node_child(root, 0), 1);
         AssertThat(ts_node_type(error, document), Equals("ERROR"));
+        AssertThat(get_node_text(error), Equals("faaaaalse,"));
         AssertThat(ts_node_child_count(error), Equals<size_t>(2));
 
-        TSNode comma = ts_node_child(error, 0);
-        AssertThat(ts_node_type(comma, document), Equals(","));
-        AssertThat(get_node_text(comma), Equals(","));
-
-        TSNode garbage = ts_node_child(error, 1);
+        TSNode garbage = ts_node_child(error, 0);
         AssertThat(ts_node_type(garbage, document), Equals("ERROR"));
         AssertThat(get_node_text(garbage), Equals("faaaaalse"));
+
+        TSNode comma = ts_node_child(error, 1);
+        AssertThat(ts_node_type(comma, document), Equals(","));
+        AssertThat(get_node_text(comma), Equals(","));
 
         TSNode last = ts_node_next_named_sibling(error);
         AssertThat(ts_node_type(last, document), Equals("true"));
@@ -166,7 +167,7 @@ describe("Parser", [&]() {
         ts_document_set_language(document, load_real_language("javascript"));
         set_text("a; ' this string never ends");
         assert_root_node(
-          "(ERROR (program (expression_statement (identifier))) (UNEXPECTED EOF))");
+          "(program (expression_statement (identifier)) (ERROR (UNEXPECTED EOF)))");
       });
     });
 
@@ -198,7 +199,7 @@ describe("Parser", [&]() {
 
       free(string);
 
-      assert_root_node("(ERROR (UNEXPECTED INVALID))");
+      assert_root_node("(program (ERROR (UNEXPECTED INVALID)))");
     });
   });
 

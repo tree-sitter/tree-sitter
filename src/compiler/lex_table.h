@@ -16,6 +16,7 @@ struct AdvanceAction {
   AdvanceAction();
   AdvanceAction(size_t, PrecedenceRange, bool);
   bool operator==(const AdvanceAction &other) const;
+  inline bool operator!=(const AdvanceAction &other) const { return !operator==(other); }
 
   LexStateId state_index;
   PrecedenceRange precedence_range;
@@ -26,7 +27,8 @@ struct AcceptTokenAction {
   AcceptTokenAction();
   AcceptTokenAction(rules::Symbol, int, bool);
   bool is_present() const;
-  bool operator==(const AcceptTokenAction &action) const;
+  bool operator==(const AcceptTokenAction &other) const;
+  inline bool operator!=(const AcceptTokenAction &other) const { return !operator==(other); }
 
   rules::Symbol symbol;
   int precedence;

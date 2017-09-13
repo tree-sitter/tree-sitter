@@ -40,10 +40,9 @@ ParseAction ParseAction::Shift(ParseStateId state_index) {
   return result;
 }
 
-ParseAction ParseAction::Recover(ParseStateId state_index) {
+ParseAction ParseAction::Recover() {
   ParseAction result;
   result.type = ParseActionTypeRecover;
-  result.state_index = state_index;
   return result;
 }
 
@@ -133,7 +132,7 @@ bool ParseState::has_shift_action() const {
 void ParseState::each_referenced_state(function<void(ParseStateId *)> fn) {
   for (auto &entry : terminal_entries)
     for (ParseAction &action : entry.second.actions)
-      if ((action.type == ParseActionTypeShift && !action.extra) || action.type == ParseActionTypeRecover)
+      if (action.type == ParseActionTypeShift && !action.extra)
         fn(&action.state_index);
   for (auto &entry : nonterminal_entries)
     fn(&entry.second);

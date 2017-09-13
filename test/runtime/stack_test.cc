@@ -124,12 +124,6 @@ describe("Stack", [&]() {
         {1, 3},
       })));
     });
-
-    it("increments the version's push count", [&]() {
-      AssertThat(ts_stack_push_count(stack, 0), Equals<unsigned>(0));
-      ts_stack_push(stack, 0, trees[0], false, stateA);
-      AssertThat(ts_stack_push_count(stack, 0), Equals<unsigned>(1));
-    });
   });
 
   describe("merge()", [&]() {
@@ -221,7 +215,6 @@ describe("Stack", [&]() {
       //          ↑
       //          └─*
       StackPopResult pop = ts_stack_pop_count(stack, 0, 2);
-      AssertThat(pop.stopped_at_error, Equals(false));
       AssertThat(pop.slices.size, Equals<size_t>(1));
       AssertThat(ts_stack_version_count(stack), Equals<size_t>(2));
 
@@ -240,46 +233,11 @@ describe("Stack", [&]() {
       // ↑
       // └─*
       StackPopResult pop = ts_stack_pop_count(stack, 0, 2);
-      AssertThat(pop.stopped_at_error, Equals(false));
       AssertThat(pop.slices.size, Equals<size_t>(1));
 
       StackSlice slice = pop.slices.contents[0];
       AssertThat(slice.trees, Equals(vector<Tree *>({ trees[0], trees[1], trees[2] })));
       AssertThat(ts_stack_top_state(stack, 1), Equals(1));
-
-      free_slice_array(&pop.slices);
-    });
-
-    it("stops popping entries early if it reaches an error tree", [&]() {
-      // . <──0── A <──1── B <──2── C <──3── ERROR <──4── D*
-      ts_stack_push(stack, 0, trees[3], false, ERROR_STATE);
-      ts_stack_push(stack, 0, trees[4], false, stateD);
-
-      // . <──0── A <──1── B <──2── C <──3── ERROR <──4── D*
-      //                                       ↑
-      //                                       └─*
-      StackPopResult pop = ts_stack_pop_count(stack, 0, 3);
-      AssertThat(pop.stopped_at_error, Equals(true));
-
-      AssertThat(ts_stack_version_count(stack), Equals<size_t>(2));
-      AssertThat(ts_stack_top_state(stack, 1), Equals(ERROR_STATE));
-
-      AssertThat(pop.slices.size, Equals<size_t>(1));
-      StackSlice slice = pop.slices.contents[0];
-      AssertThat(slice.version, Equals<StackVersion>(1));
-      AssertThat(slice.trees, Equals(vector<Tree *>({ trees[4] })));
-
-      free_slice_array(&pop.slices);
-    });
-
-    it("preserves the push count of the popped version", [&]() {
-      // . <──0── A <──1── B <──2── C*
-      //          ↑
-      //          └─*
-      StackPopResult pop = ts_stack_pop_count(stack, 0, 2);
-
-      AssertThat(ts_stack_push_count(stack, 0), Equals<unsigned>(3));
-      AssertThat(ts_stack_push_count(stack, 1), Equals<unsigned>(3));
 
       free_slice_array(&pop.slices);
     });
@@ -475,7 +433,6 @@ describe("Stack", [&]() {
       ts_stack_push(stack, 0, trees[1], true, stateB);
 
       StackPopResult pop = ts_stack_pop_pending(stack, 0);
-      AssertThat(pop.stopped_at_error, Equals(false));
       AssertThat(pop.slices.size, Equals<size_t>(1));
 
       AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
@@ -496,7 +453,6 @@ describe("Stack", [&]() {
       ts_stack_push(stack, 0, trees[3], false, stateB);
 
       StackPopResult pop = ts_stack_pop_pending(stack, 0);
-      AssertThat(pop.stopped_at_error, Equals(false));
       AssertThat(pop.slices.size, Equals<size_t>(1));
 
       AssertThat(pop.slices.contents[0].trees, Equals(vector<Tree *>({ trees[1], trees[2], trees[3] })));
@@ -513,7 +469,6 @@ describe("Stack", [&]() {
       ts_stack_push(stack, 0, trees[1], false, stateB);
 
       StackPopResult pop = ts_stack_pop_pending(stack, 0);
-      AssertThat(pop.stopped_at_error, Equals(false));
       AssertThat(pop.slices.size, Equals<size_t>(0));
 
       AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({

@@ -12,12 +12,13 @@ e f;
 (program
   (if_statement
     (parenthesized_expression
-      (ERROR (identifier))
-      (identifier))
+      (identifier)
+      (ERROR (identifier)))
     (statement_block
       (ERROR (identifier))
       (expression_statement (identifier))))
-  (expression_statement (ERROR (identifier)) (identifier)))
+  (ERROR (identifier))
+  (expression_statement (identifier)))
 
 =======================================================
 multiple invalid tokens right after the viable prefix
@@ -33,16 +34,13 @@ h i j k;
 (program
   (if_statement
     (parenthesized_expression
-      (ERROR (identifier))
       (identifier)
-      (ERROR (identifier)))
+      (ERROR (identifier) (identifier)))
     (statement_block
-      (expression_statement
-        (identifier)
-        (ERROR (jsx_attribute (property_identifier)) (jsx_attribute (property_identifier)) (identifier)))))
-  (expression_statement
-    (identifier)
-    (ERROR (jsx_attribute (property_identifier)) (jsx_attribute (property_identifier)) (identifier))))
+      (ERROR (identifier))
+      (expression_statement (identifier) (ERROR (identifier) (identifier)))))
+  (ERROR (identifier))
+  (expression_statement (identifier) (ERROR (identifier) (identifier))))
 
 ===================================================
 one invalid subtree right after the viable prefix
@@ -136,3 +134,17 @@ var x = !!!
   (function (identifier) (formal_parameters) (statement_block))
   (function (identifier) (formal_parameters) (statement_block))
   (ERROR (identifier)))
+
+=========================================================
+Errors inside of a template string substitution
+=========================================================
+
+const a = `b c ${d +} f g`
+
+---
+
+(program
+  (lexical_declaration
+    (variable_declarator
+      (identifier)
+      (template_string (template_substitution (identifier) (ERROR))))))

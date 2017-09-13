@@ -19,9 +19,10 @@ namespace build_tables {
 
 using std::deque;
 using std::find;
-using std::pair;
 using std::vector;
 using std::set;
+using std::tuple;
+using std::make_tuple;
 using std::map;
 using std::move;
 using std::string;
@@ -43,32 +44,38 @@ struct ParseStateQueueEntry {
 class ParseTableBuilderImpl : public ParseTableBuilder {
   const SyntaxGrammar grammar;
   const LexicalGrammar lexical_grammar;
-  unordered_map<Symbol, ParseItemSet> recovery_item_sets_by_lookahead;
   unordered_map<ParseItemSet, ParseStateId> state_ids_by_item_set;
   vector<const ParseItemSet *> item_sets_by_state_id;
   deque<ParseStateQueueEntry> parse_state_queue;
   ParseTable parse_table;
   ParseItemSetBuilder item_set_builder;
-  LexTableBuilder *lex_table_builder;
+  unique_ptr<LexTableBuilder> lex_table_builder;
   set<ParseAction> fragile_reductions;
-  vector<set<Symbol>> incompatible_tokens_by_token_index;
-  vector<set<Symbol::Index>> following_tokens_by_token_index;
-  bool processing_recovery_states;
+  vector<LookaheadSet> following_tokens_by_token;
+  vector<LookaheadSet> coincident_tokens_by_token;
 
  public:
-  ParseTableBuilderImpl(
-    const SyntaxGrammar &syntax_grammar,
-    const LexicalGrammar &lexical_grammar,
-    LexTableBuilder *lex_table_builder
-  ) : grammar(syntax_grammar),
+  ParseTableBuilderImpl(const SyntaxGrammar &syntax_grammar, const LexicalGrammar &lexical_grammar)
+    : grammar(syntax_grammar),
       lexical_grammar(lexical_grammar),
       item_set_builder(syntax_grammar, lexical_grammar),
-      lex_table_builder(lex_table_builder),
-      incompatible_tokens_by_token_index(lexical_grammar.variables.size()),
-      following_tokens_by_token_index(lexical_grammar.variables.size()),
-      processing_recovery_states(false) {}
+      following_tokens_by_token(lexical_grammar.variables.size()),
+      coincident_tokens_by_token(lexical_grammar.variables.size()) {
 
-  pair<ParseTable, CompileError> build() {
+    for (unsigned i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
+      coincident_tokens_by_token[i].insert(rules::END_OF_INPUT());
+      if (lexical_grammar.variables[i].is_string) {
+        for (unsigned j = 0; j < i; j++) {
+          if (lexical_grammar.variables[j].is_string) {
+            coincident_tokens_by_token[i].insert(Symbol::terminal(j));
+            coincident_tokens_by_token[j].insert(Symbol::terminal(i));
+          }
+        }
+      }
+    }
+  }
+
+  tuple<ParseTable, LexTable, CompileError> build() {
     // Ensure that the empty rename sequence has index 0.
     parse_table.alias_sequences.push_back({});
 
@@ -90,17 +97,21 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     }});
 
     CompileError error = process_part_state_queue();
-    if (error) return {parse_table, error};
+    if (error) return make_tuple(parse_table, LexTable(), error);
 
-    compute_unmergable_token_pairs();
+    lex_table_builder = LexTableBuilder::create(
+      grammar,
+      lexical_grammar,
+      following_tokens_by_token,
+      coincident_tokens_by_token
+    );
 
-    processing_recovery_states = true;
     build_error_parse_state(error_state_id);
-    process_part_state_queue();
-
     mark_fragile_actions();
     remove_duplicate_parse_states();
-    return {parse_table, CompileError::none()};
+
+    auto lex_table = lex_table_builder->build(&parse_table);
+    return make_tuple(parse_table, lex_table, CompileError::none());
   }
 
  private:
@@ -125,54 +136,35 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   }
 
   void build_error_parse_state(ParseStateId state_id) {
-    ParseState error_state;
-
     for (unsigned i = 0; i < lexical_grammar.variables.size(); i++) {
       Symbol token = Symbol::terminal(i);
-      bool has_non_reciprocal_conflict = false;
+      const LexicalVariable &variable = lexical_grammar.variables[i];
 
-      for (Symbol incompatible_token : incompatible_tokens_by_token_index[i]) {
-        if (incompatible_token.is_terminal() &&
-            !incompatible_tokens_by_token_index[incompatible_token.index].count(token)) {
-          has_non_reciprocal_conflict = true;
+      bool exclude_from_recovery_state = false;
+      for (Symbol incompatible_token : lex_table_builder->get_incompatible_tokens(i)) {
+        if (!coincident_tokens_by_token[i].contains(incompatible_token) &&
+            ((lexical_grammar.variables[incompatible_token.index].is_string && !variable.is_string) ||
+             !lex_table_builder->get_incompatible_tokens(incompatible_token.index).count(token))) {
+          exclude_from_recovery_state = true;
           break;
         }
       }
-
-      if (!has_non_reciprocal_conflict) {
-        add_out_of_context_parse_state(&error_state, Symbol::terminal(i));
+      if (!exclude_from_recovery_state) {
+        parse_table.add_terminal_action(state_id, Symbol::terminal(i), ParseAction::Recover());
       }
     }
 
     for (const Symbol &symbol : grammar.extra_tokens) {
-      if (!error_state.terminal_entries.count(symbol)) {
-        error_state.terminal_entries[symbol].actions.push_back(ParseAction::ShiftExtra());
+      if (!parse_table.states[state_id].terminal_entries.count(symbol)) {
+        parse_table.add_terminal_action(state_id, symbol, ParseAction::ShiftExtra());
       }
     }
 
     for (size_t i = 0; i < grammar.external_tokens.size(); i++) {
-      add_out_of_context_parse_state(&error_state, Symbol::external(i));
+      parse_table.states[state_id].terminal_entries[Symbol::external(i)].actions.push_back(ParseAction::Recover());
     }
 
-    for (size_t i = 0; i < grammar.variables.size(); i++) {
-      add_out_of_context_parse_state(&error_state, Symbol::non_terminal(i));
-    }
-
-    error_state.terminal_entries[END_OF_INPUT()].actions.push_back(ParseAction::Recover(0));
-    parse_table.states[state_id] = error_state;
-  }
-
-  void add_out_of_context_parse_state(ParseState *error_state,
-                                      const rules::Symbol &symbol) {
-    const ParseItemSet &item_set = recovery_item_sets_by_lookahead[symbol];
-    if (!item_set.entries.empty()) {
-      ParseStateId state = add_parse_state({}, item_set);
-      if (symbol.is_non_terminal()) {
-        error_state->nonterminal_entries[symbol.index] = state;
-      } else {
-        error_state->terminal_entries[symbol].actions.assign({ ParseAction::Recover(state) });
-      }
-    }
+    parse_table.add_terminal_action(state_id, END_OF_INPUT(), ParseAction::Recover());
   }
 
   ParseStateId add_parse_state(SymbolSequence &&preceding_symbols, const ParseItemSet &item_set) {
@@ -224,7 +216,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
             parse_table.add_terminal_action(state_id, lookahead, action);
           } else {
             ParseAction &existing_action = entry.actions[0];
-            if (existing_action.type == ParseActionTypeAccept || processing_recovery_states) {
+            if (existing_action.type == ParseActionTypeAccept) {
               entry.actions.push_back(action);
             } else {
               if (action.precedence > existing_action.precedence) {
@@ -264,11 +256,8 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
       ParseItemSet &next_item_set = pair.second;
       ParseStateId next_state_id = add_parse_state(append_symbol(sequence, lookahead), next_item_set);
 
-      if (!processing_recovery_states) {
-        recovery_item_sets_by_lookahead[lookahead].add(next_item_set);
-        if (!parse_table.states[state_id].terminal_entries[lookahead].actions.empty()) {
-          lookaheads_with_conflicts.insert(lookahead);
-        }
+      if (!parse_table.states[state_id].terminal_entries[lookahead].actions.empty()) {
+        lookaheads_with_conflicts.insert(lookahead);
       }
 
       parse_table.add_terminal_action(state_id, lookahead, ParseAction::Shift(next_state_id));
@@ -280,9 +269,6 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
       ParseItemSet &next_item_set = pair.second;
       ParseStateId next_state_id = add_parse_state(append_symbol(sequence, lookahead), next_item_set);
       parse_table.set_nonterminal_action(state_id, lookahead.index, next_state_id);
-      if (!processing_recovery_states) {
-        recovery_item_sets_by_lookahead[lookahead].add(next_item_set);
-      }
     }
 
     for (Symbol lookahead : lookaheads_with_conflicts) {
@@ -293,9 +279,18 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     ParseAction shift_extra = ParseAction::ShiftExtra();
     ParseState &state = parse_table.states[state_id];
     for (const Symbol &extra_symbol : grammar.extra_tokens) {
-      if (!state.terminal_entries.count(extra_symbol) ||
-          state.has_shift_action() || processing_recovery_states) {
+      if (!state.terminal_entries.count(extra_symbol) || state.has_shift_action()) {
         parse_table.add_terminal_action(state_id, extra_symbol, shift_extra);
+      }
+    }
+
+    auto &terminals = state.terminal_entries;
+    for (auto iter = terminals.begin(), end = terminals.end(); iter != end; ++iter) {
+      if (iter->first.is_built_in() || iter->first.is_external()) continue;
+      for (auto other_iter = terminals.begin(); other_iter != iter; ++other_iter) {
+        if (other_iter->first.is_built_in() || other_iter->first.is_external()) continue;
+        coincident_tokens_by_token[iter->first.index].insert(other_iter->first);
+        coincident_tokens_by_token[other_iter->first.index].insert(iter->first);
       }
     }
 
@@ -353,28 +348,6 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     }
 
     return false;
-  }
-
-  void compute_unmergable_token_pairs() {
-    for (unsigned i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
-      Symbol token = Symbol::terminal(i);
-      auto &incompatible_indices = incompatible_tokens_by_token_index[i];
-
-      for (unsigned j = 0; j < n; j++) {
-        if (i == j) continue;
-        if (lex_table_builder->detect_conflict(i, j, following_tokens_by_token_index)) {
-          incompatible_indices.insert(Symbol::terminal(j));
-        }
-      }
-
-      for (const ExternalToken &external_token : grammar.external_tokens) {
-        if (external_token.corresponding_internal_token == token) {
-          for (unsigned j = 0; j < grammar.external_tokens.size(); j++) {
-            incompatible_indices.insert(Symbol::external(j));
-          }
-        }
-      }
-    }
   }
 
   void remove_duplicate_parse_states() {
@@ -474,7 +447,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
         if (left_entry.second.actions.back().type != ParseActionTypeReduce) return false;
         if (!has_actions(right_state, left_entry.second)) return false;
         if (!lookahead.is_built_in()) {
-          for (const Symbol &incompatible_token : incompatible_tokens_by_token_index[lookahead.index]) {
+          for (const Symbol &incompatible_token : lex_table_builder->get_incompatible_tokens(lookahead.index)) {
             if (right_state.terminal_entries.count(incompatible_token)) return false;
           }
         }
@@ -492,7 +465,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
         if (right_entry.second.actions.back().type != ParseActionTypeReduce) return false;
         if (!has_actions(left_state, right_entry.second)) return false;
         if (!lookahead.is_built_in()) {
-          for (const Symbol &incompatible_token : incompatible_tokens_by_token_index[lookahead.index]) {
+          for (const Symbol &incompatible_token : lex_table_builder->get_incompatible_tokens(lookahead.index)) {
             if (left_state.terminal_entries.count(incompatible_token)) return false;
           }
         }
@@ -788,7 +761,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
           if (left_symbol.is_terminal() && !left_symbol.is_built_in()) {
             right_tokens.for_each([&](Symbol right_symbol) {
               if (right_symbol.is_terminal() && !right_symbol.is_built_in()) {
-                following_tokens_by_token_index[left_symbol.index].insert(right_symbol.index);
+                following_tokens_by_token[left_symbol.index].insert(right_symbol);
               }
             });
           }
@@ -805,15 +778,12 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
 
 unique_ptr<ParseTableBuilder> ParseTableBuilder::create(
   const SyntaxGrammar &syntax_grammar,
-  const LexicalGrammar &lexical_grammar,
-  LexTableBuilder *lex_table_builder
+  const LexicalGrammar &lexical_grammar
 ) {
-  return unique_ptr<ParseTableBuilder>(
-    new ParseTableBuilderImpl(syntax_grammar, lexical_grammar, lex_table_builder)
-  );
+  return unique_ptr<ParseTableBuilder>(new ParseTableBuilderImpl(syntax_grammar, lexical_grammar));
 }
 
-pair<ParseTable, CompileError> ParseTableBuilder::build() {
+tuple<ParseTable, LexTable, CompileError> ParseTableBuilder::build() {
   return static_cast<ParseTableBuilderImpl *>(this)->build();
 }
 

@@ -139,12 +139,9 @@ typedef struct TSLanguage {
     }                                   \
   }
 
-#define RECOVER(state_value)            \
-  {                                     \
-    {                                   \
-      .type = TSParseActionTypeRecover, \
-      .params = {.state = state_value}  \
-    }                                   \
+#define RECOVER()                        \
+  {                                      \
+    { .type = TSParseActionTypeRecover } \
   }
 
 #define SHIFT_EXTRA()                 \
