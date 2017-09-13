@@ -149,15 +149,17 @@ static StackNode *stack_node_new(StackNode *previous_node, Tree *tree, bool is_p
 }
 
 static bool stack__tree_is_equivalent(const Tree *left, const Tree *right) {
-  return left == right || (
-    left &&
-    right &&
-    left->child_count == 0 && right->child_count == 0 &&
-    left->symbol == right->symbol &&
-    left->padding.bytes == right->padding.bytes &&
-    left->size.bytes == right->size.bytes &&
-    left->extra == right->extra &&
-    ts_tree_external_token_state_eq(left, right));
+  return
+    left == right ||
+    (left &&
+     right &&
+     left->symbol == right->symbol &&
+     ((left->error_cost > 0 && right->error_cost > 0) ||
+      (left->child_count == 0 && right->child_count == 0 &&
+       left->padding.bytes == right->padding.bytes &&
+       left->size.bytes == right->size.bytes &&
+       left->extra == right->extra &&
+       ts_tree_external_token_state_eq(left, right))));
 }
 
 static void stack_node_add_link(StackNode *self, StackLink link) {
