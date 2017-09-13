@@ -129,15 +129,13 @@ int b() {
     (compound_statement
       (declaration
         (type_identifier)
-        (ERROR (identifier))
+        (ERROR (identifier) (identifier))
         (init_declarator
           (identifier)
-          (ERROR (identifier))
           (number_literal)))
       (declaration
         (type_identifier)
-        (ERROR (identifier))
+        (ERROR (identifier) (identifier))
         (init_declarator
           (identifier)
-          (ERROR (identifier))
           (number_literal))))))

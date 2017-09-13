@@ -108,7 +108,7 @@ void ts_stack_record_summary(Stack *, StackVersion, unsigned max_depth);
 
 StackSummary *ts_stack_get_summary(Stack *, StackVersion);
 
-ErrorStatus ts_stack_error_status(const Stack *, StackVersion);
+unsigned ts_stack_error_cost(const Stack *, StackVersion version);
 
 bool ts_stack_merge(Stack *, StackVersion, StackVersion);
 

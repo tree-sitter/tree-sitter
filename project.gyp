@@ -89,7 +89,6 @@
       ],
       'sources': [
         'src/runtime/document.c',
-        'src/runtime/error_costs.c',
         'src/runtime/get_changed_ranges.c',
         'src/runtime/language.c',
         'src/runtime/lexer.c',

@@ -167,7 +167,8 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
     StackLink existing_link = self->links[i];
     if (stack__tree_is_equivalent(existing_link.tree, link.tree)) {
       if (existing_link.node == link.node) return;
-      if (existing_link.node->state == link.node->state) {
+      if (existing_link.node->state == link.node->state &&
+          existing_link.node->position.bytes == link.node->position.bytes) {
         for (int j = 0; j < link.node->link_count; j++) {
           stack_node_add_link(existing_link.node, link.node->links[j]);
         }
@@ -380,13 +381,9 @@ void ts_stack_set_last_external_token(Stack *self, StackVersion version, Tree *t
   head->last_external_token = token;
 }
 
-ErrorStatus ts_stack_error_status(const Stack *self, StackVersion version) {
+unsigned ts_stack_error_cost(const Stack *self, StackVersion version) {
   StackHead *head = array_get(&self->heads, version);
-  return (ErrorStatus){
-    .cost = head->node->error_cost,
-    .recovering = head->node->state == ERROR_STATE,
-    .push_count = head->push_count,
-  };
+  return head->node->error_cost;
 }
 
 void ts_stack_push(Stack *self, StackVersion version, Tree *tree, bool pending, TSStateId state) {
