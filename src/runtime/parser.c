@@ -36,7 +36,7 @@
 
 static const unsigned MAX_VERSION_COUNT = 6;
 static const unsigned MAX_SUMMARY_DEPTH = 16;
-static const int MAX_COST_DIFFERENCE = 16 * ERROR_COST_PER_SKIPPED_TREE;
+static const unsigned MAX_COST_DIFFERENCE = 16 * ERROR_COST_PER_SKIPPED_TREE;
 
 typedef struct {
   unsigned cost;
