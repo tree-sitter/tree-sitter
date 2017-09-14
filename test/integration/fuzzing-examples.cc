@@ -11,6 +11,10 @@ vector<pair<string, string>> examples({
   //   "javascript",
   //   "Bi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLXGK0i0vLS0tLS0tLS0tLS0tLS0tLS0tLS0tLXGK0i0vLS0tLS0tLS0tLS0tLS0xLS0tLTYtLfpZAA=="
   // },
+  {
+    "python",
+    "NWNvbogsKTMsLCwsY29uiCwqLDo1Y29uLA=="
+  },
 });
 
 describe("examples found via fuzzing", [&]() {
