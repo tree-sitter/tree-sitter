@@ -161,7 +161,9 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     }
 
     for (size_t i = 0; i < grammar.external_tokens.size(); i++) {
-      parse_table.states[state_id].terminal_entries[Symbol::external(i)].actions.push_back(ParseAction::Recover());
+      if (grammar.external_tokens[i].corresponding_internal_token == rules::NONE()) {
+        parse_table.states[state_id].terminal_entries[Symbol::external(i)].actions.push_back(ParseAction::Recover());
+      }
     }
 
     parse_table.add_terminal_action(state_id, END_OF_INPUT(), ParseAction::Recover());

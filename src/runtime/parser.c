@@ -19,11 +19,10 @@
     parser__log(self);                                                                      \
   }                                                                                         \
 
-#define LOG_STACK()                                                     \
-  if (self->print_debugging_graphs) {                                   \
-    ts_stack_print_dot_graph(self->stack, self->language->symbol_names, \
-                             stderr);                                   \
-    fputs("\n\n", stderr);                                              \
+#define LOG_STACK()                                                              \
+  if (self->print_debugging_graphs) {                                            \
+    ts_stack_print_dot_graph(self->stack, self->language->symbol_names, stderr); \
+    fputs("\n\n", stderr);                                                       \
   }
 
 #define LOG_TREE()                                                        \
