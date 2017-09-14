@@ -31,9 +31,7 @@ uint32_t ts_language_version(const TSLanguage *language) {
 TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *language,
                                              TSSymbol symbol) {
   if (symbol == ts_builtin_sym_error) {
-    return (TSSymbolMetadata){
-      .visible = true, .named = true, .extra = false, .structural = true,
-    };
+    return (TSSymbolMetadata){.visible = true, .named = true};
   } else {
     return language->symbol_metadata[symbol];
   }

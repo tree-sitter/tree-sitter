@@ -146,11 +146,7 @@ bool ParseState::operator==(const ParseState &other) const {
 ParseAction &ParseTable::add_terminal_action(ParseStateId state_id,
                                              Symbol lookahead,
                                              ParseAction action) {
-  if (action.type == ParseActionTypeShift && action.extra)
-    symbols[lookahead].extra = true;
-  else
-    symbols[lookahead].structural = true;
-
+  symbols.insert(lookahead);
   ParseTableEntry &entry = states[state_id].terminal_entries[lookahead];
   entry.actions.push_back(action);
   return *entry.actions.rbegin();
@@ -159,7 +155,7 @@ ParseAction &ParseTable::add_terminal_action(ParseStateId state_id,
 void ParseTable::set_nonterminal_action(ParseStateId state_id,
                                         Symbol::Index lookahead,
                                         ParseStateId next_state_id) {
-  symbols[Symbol::non_terminal(lookahead)].structural = true;
+  symbols.insert(Symbol::non_terminal(lookahead));
   states[state_id].nonterminal_entries[lookahead] = next_state_id;
 }
 

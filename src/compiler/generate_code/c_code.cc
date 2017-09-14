@@ -136,8 +136,7 @@ class CCodeGenerator {
 
   void add_stats() {
     size_t token_count = 0;
-    for (const auto &entry : parse_table.symbols) {
-      const Symbol &symbol = entry.first;
+    for (const Symbol &symbol : parse_table.symbols) {
       if (symbol.is_terminal()) {
         token_count++;
       } else if (symbol.is_external()) {
@@ -170,8 +169,7 @@ class CCodeGenerator {
     line("enum {");
     indent([&]() {
       size_t i = 1;
-      for (const auto &entry : parse_table.symbols) {
-        const Symbol &symbol = entry.first;
+      for (const Symbol &symbol : parse_table.symbols) {
         if (!symbol.is_built_in()) {
           line(symbol_id(symbol) + " = " + to_string(i) + ",");
           i++;
@@ -190,10 +188,10 @@ class CCodeGenerator {
   void add_symbol_names_list() {
     line("static const char *ts_symbol_names[] = {");
     indent([&]() {
-      for (const auto &entry : parse_table.symbols) {
+      for (const Symbol &symbol : parse_table.symbols) {
         line(
-          "[" + symbol_id(entry.first) + "] = \"" +
-          sanitize_name_for_string(symbol_name(entry.first)) + "\","
+          "[" + symbol_id(symbol) + "] = \"" +
+          sanitize_name_for_string(symbol_name(symbol)) + "\","
         );
       }
 
@@ -236,8 +234,7 @@ class CCodeGenerator {
   void add_symbol_metadata_list() {
     line("static const TSSymbolMetadata ts_symbol_metadata[] = {");
     indent([&]() {
-      for (const auto &entry : parse_table.symbols) {
-        const Symbol &symbol = entry.first;
+      for (const Symbol &symbol : parse_table.symbols) {
         line("[" + symbol_id(symbol) + "] = {");
         indent([&]() {
           switch (symbol_type(symbol)) {
@@ -258,9 +255,6 @@ class CCodeGenerator {
               line(".named = false,");
               break;
           }
-
-          line(".structural = " + _boolean(entry.second.structural) + ",");
-          line(".extra = " + _boolean(entry.second.extra) + ",");
         });
 
         line("},");
@@ -271,8 +265,6 @@ class CCodeGenerator {
         indent([&]() {
           line(".visible = true,");
           line(".named = " + _boolean(alias.is_named) + ",");
-          line(".structural = true,");
-          line(".extra = true,");
         });
         line("},");
       }
