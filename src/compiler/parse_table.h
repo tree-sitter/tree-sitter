@@ -72,11 +72,6 @@ struct ParseState {
   LexStateId lex_state_id;
 };
 
-struct ParseTableSymbolMetadata {
-  bool extra;
-  bool structural;
-};
-
 using AliasSequence = std::vector<rules::Alias>;
 
 struct ParseTable {
@@ -84,7 +79,7 @@ struct ParseTable {
   void set_nonterminal_action(ParseStateId, rules::Symbol::Index, ParseStateId);
 
   std::vector<ParseState> states;
-  std::map<rules::Symbol, ParseTableSymbolMetadata> symbols;
+  std::set<rules::Symbol> symbols;
   std::vector<AliasSequence> alias_sequences;
   unsigned max_alias_sequence_length = 0;
 };

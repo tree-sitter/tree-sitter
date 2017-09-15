@@ -19,11 +19,10 @@
     parser__log(self);                                                                      \
   }                                                                                         \
 
-#define LOG_STACK()                                                     \
-  if (self->print_debugging_graphs) {                                   \
-    ts_stack_print_dot_graph(self->stack, self->language->symbol_names, \
-                             stderr);                                   \
-    fputs("\n\n", stderr);                                              \
+#define LOG_STACK()                                                              \
+  if (self->print_debugging_graphs) {                                            \
+    ts_stack_print_dot_graph(self->stack, self->language->symbol_names, stderr); \
+    fputs("\n\n", stderr);                                                       \
   }
 
 #define LOG_TREE()                                                        \
@@ -594,9 +593,7 @@ static bool parser__select_tree(Parser *self, Tree *left, Tree *right) {
 static void parser__shift(Parser *self, StackVersion version, TSStateId state,
                           Tree *lookahead, bool extra) {
   if (extra != lookahead->extra) {
-    TSSymbolMetadata metadata =
-      ts_language_symbol_metadata(self->language, lookahead->symbol);
-    if (metadata.structural && ts_stack_version_count(self->stack) > 1) {
+    if (ts_stack_version_count(self->stack) > 1) {
       lookahead = ts_tree_make_copy(lookahead);
     } else {
       ts_tree_retain(lookahead);
@@ -989,8 +986,10 @@ static void parser__recover(Parser *self, StackVersion version, Tree *lookahead)
   }
 
   LOG("skip_token symbol:%s", SYM_NAME(lookahead->symbol));
-  bool can_be_extra = ts_language_symbol_metadata(self->language, lookahead->symbol).extra;
-  parser__shift(self, version, ERROR_STATE, lookahead, can_be_extra);
+  unsigned n;
+  const TSParseAction *actions = ts_language_actions(self->language, 1, lookahead->symbol, &n);
+  bool extra = n > 0 && actions[n - 1].type == TSParseActionTypeShift && actions[n - 1].params.extra;
+  parser__shift(self, version, ERROR_STATE, lookahead, extra);
 
   if (parser__better_version_exists(self, version, true, ts_stack_error_cost(self->stack, version))) {
     ts_stack_halt(self->stack, version);
