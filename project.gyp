@@ -137,7 +137,7 @@
       },
       'Fuzz': {
         'cflags': ['<!@(echo $CFLAGS)'],
-        'ldflags': ['<!@(echo $CXXFLAGS)'],
+        'ldflags': ['<!@(echo $CFLAGS)'],
       },
       'Release': {
         'cflags': [ '-O2', '-fno-strict-aliasing' ],
