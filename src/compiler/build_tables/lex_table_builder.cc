@@ -307,30 +307,30 @@ class LexTableBuilderImpl : public LexTableBuilder {
   bool merge_token_set(LookaheadSet *left, const LookaheadSet &right) const {
     bool is_compatible = true;
 
-    left->for_each([&](Symbol left_symbol) {
-      if (left_symbol.is_terminal() && !left_symbol.is_built_in() && !right.contains(left_symbol)) {
-        right.for_each([&](Symbol right_symbol) {
-          if (shadowed_tokens_by_token[left_symbol.index].count(right_symbol) ||
-              !coincident_tokens_by_token[left_symbol.index].contains(right_symbol)) {
-            is_compatible = false;
-            return;
-          }
-        });
+    left->for_each_difference(right, [&](bool in_left, Symbol different_symbol) {
+      if (!different_symbol.is_external() && !different_symbol.is_built_in()) {
+        if (in_left) {
+          right.for_each([&](Symbol right_symbol) {
+            if (shadowed_tokens_by_token[different_symbol.index].count(right_symbol) ||
+                !coincident_tokens_by_token[different_symbol.index].contains(right_symbol)) {
+              is_compatible = false;
+              return;
+            }
+          });
+          if (!is_compatible) return false;
+        } else {
+          left->for_each([&](Symbol left_symbol) {
+            if (shadowed_tokens_by_token[different_symbol.index].count(left_symbol) ||
+                !coincident_tokens_by_token[different_symbol.index].contains(left_symbol)) {
+              is_compatible = false;
+              return;
+            }
+          });
+          if (!is_compatible) return false;
+        }
       }
-      if (!is_compatible) return;
-    });
 
-    right.for_each([&](Symbol right_symbol) {
-      if (right_symbol.is_terminal() && !right_symbol.is_built_in() && !left->contains(right_symbol)) {
-        left->for_each([&](Symbol left_symbol) {
-          if (shadowed_tokens_by_token[right_symbol.index].count(left_symbol) ||
-              !coincident_tokens_by_token[right_symbol.index].contains(left_symbol)) {
-            is_compatible = false;
-            return;
-          }
-        });
-      }
-      if (!is_compatible) return;
+      return true;
     });
 
     if (is_compatible) left->insert_all(right);
