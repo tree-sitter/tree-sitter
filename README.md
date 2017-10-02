@@ -10,8 +10,8 @@ efficiently update the syntax tree as the program is edited. This makes it suita
 for use in text-editing programs.
 
 Tree-sitter uses a sentential-form incremental [LR parsing](https://en.wikipedia.org/wiki/LR_parser)
-algorithm, as described in the paper *[Efficient and Flexible Incremental Parsing](http://harmonia.cs.berkeley.edu/papers/twagner-parsing.ps.gz)*
-by Tim Wagner. It handles ambiguity at compile-time via [precedence annotations](https://en.wikipedia.org/wiki/Operator-precedence_parser),
+algorithm, as described in the paper *[Efficient and Flexible Incremental Parsing](https://pdfs.semanticscholar.org/4d22/fab95c78b3c23fa9dff88fb82976edc213c2.pdf)*
+by Tim Wagner & Susan Graham. It handles ambiguity at compile-time via [precedence annotations](https://en.wikipedia.org/wiki/Operator-precedence_parser),
 and at run-time via the [GLR algorithm](https://en.wikipedia.org/wiki/GLR_parser).
 This allows it to generate a fast parser for any context-free grammar.
 
