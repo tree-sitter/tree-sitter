@@ -644,8 +644,7 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
         }
       }
 
-      if (!node)
-        continue;
+      if (!node) continue;
       all_iterators_done = false;
 
       fprintf(f, "node_%p [", node);
@@ -687,8 +686,9 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
           }
           if (!link.tree->named)
             fprintf(f, "'");
-          fprintf(f, "\" labeltooltip=\"error_cost: %u\"",
-                  link.tree->error_cost);
+          fprintf(f, "\" labeltooltip=\"error_cost: %u\ndynamic_precedence: %u\"",
+                  link.tree->error_cost,
+                  link.tree->dynamic_precedence);
         }
 
         fprintf(f, "];\n");
