@@ -17,7 +17,7 @@
   if (self->lexer.logger.log || self->print_debugging_graphs) {                             \
     snprintf(self->lexer.debug_buffer, TREE_SITTER_SERIALIZATION_BUFFER_SIZE, __VA_ARGS__); \
     parser__log(self);                                                                      \
-  }                                                                                         \
+  }
 
 #define LOG_STACK()                                                              \
   if (self->print_debugging_graphs) {                                            \

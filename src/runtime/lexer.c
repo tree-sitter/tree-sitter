@@ -132,6 +132,9 @@ static inline void ts_lexer__reset(Lexer *self, Length position) {
 
 void ts_lexer_set_input(Lexer *self, TSInput input) {
   self->input = input;
+  self->chunk = 0;
+  self->chunk_start = 0;
+  self->chunk_size = 0;
   ts_lexer__reset(self, length_zero());
 }
 

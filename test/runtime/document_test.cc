@@ -15,8 +15,6 @@ TSPoint point(size_t row, size_t column) {
 
 START_TEST
 
-
-
 describe("Document", [&]() {
   TSDocument *document;
   TSNode root;
@@ -259,7 +257,7 @@ describe("Document", [&]() {
 
     before_each([&]() {
       ts_document_set_language(document, load_real_language("javascript"));
-      input = new SpyInput("{a: null};", 3);
+      input = new SpyInput("{a: null};\n", 3);
       ts_document_set_input(document, input->input());
       ts_document_parse(document);
       assert_node_string_equals(
@@ -311,6 +309,37 @@ describe("Document", [&]() {
           point(0, input->content.find("}"))
         },
       })));
+    });
+
+    it("reports no changes when leading whitespace has changed (regression)", [&]() {
+      input->chars_per_chunk = 80;
+
+      // Insert leading whitespace
+      auto ranges = get_invalidated_ranges_for_edit([&]() {
+        return input->replace(0, 0, "\n");
+      });
+      assert_node_string_equals(
+        ts_document_root_node(document),
+        "(program (expression_statement (object (pair (property_identifier) (null)))))");
+      AssertThat(ranges, Equals(vector<TSRange>({})));
+
+      // Remove leading whitespace
+      ranges = get_invalidated_ranges_for_edit([&]() {
+        return input->undo();
+      });
+      assert_node_string_equals(
+        ts_document_root_node(document),
+        "(program (expression_statement (object (pair (property_identifier) (null)))))");
+      AssertThat(ranges, Equals(vector<TSRange>({})));
+
+      // Insert leading whitespace again
+      ranges = get_invalidated_ranges_for_edit([&]() {
+        return input->replace(0, 0, "\n");
+      });
+      assert_node_string_equals(
+        ts_document_root_node(document),
+        "(program (expression_statement (object (pair (property_identifier) (null)))))");
+      AssertThat(ranges, Equals(vector<TSRange>({})));
     });
 
     it("reports changes when tokens have been appended", [&]() {

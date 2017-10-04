@@ -9,9 +9,9 @@ using std::string;
 using std::vector;
 
 SpyInput::SpyInput(string content, size_t chars_per_chunk) :
-  chars_per_chunk(chars_per_chunk),
   buffer(nullptr),
   byte_offset(0),
+  chars_per_chunk(chars_per_chunk),
   content(content),
   encoding(TSInputEncodingUTF8),
   ranges_read({}) {}

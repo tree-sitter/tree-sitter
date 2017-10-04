@@ -12,7 +12,6 @@ struct SpyInputEdit {
 };
 
 class SpyInput {
-  uint32_t chars_per_chunk;
   char *buffer;
   uint32_t byte_offset;
   std::vector<SpyInputEdit> undo_stack;
@@ -31,6 +30,7 @@ class SpyInput {
   TSInputEdit undo();
   std::vector<std::string> strings_read() const;
 
+  uint32_t chars_per_chunk;
   std::string content;
   TSInputEncoding encoding;
   std::vector<std::pair<uint32_t, uint32_t>> ranges_read;
