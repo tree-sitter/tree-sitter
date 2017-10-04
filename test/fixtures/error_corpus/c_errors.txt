@@ -27,9 +27,9 @@ int c;
 (translation_unit
   (preproc_ifdef
     (identifier)
-    (ERROR (type_identifier) (identifier))
+    (ERROR (primitive_type) (identifier))
     (comment))
-  (declaration (type_identifier) (identifier))
+  (declaration (primitive_type) (identifier))
   (preproc_ifdef
     (identifier)
     (linkage_specification
@@ -37,12 +37,12 @@ int c;
       (declaration_list
         (ERROR)
         (function_definition
-          (type_identifier)
+          (primitive_type)
           (function_declarator (identifier) (parameter_list))
           (compound_statement (return_statement (number_literal))))
-        (declaration (type_identifier) (identifier))
+        (declaration (primitive_type) (identifier))
         (ERROR (identifier)))))
-  (declaration (type_identifier) (identifier)))
+  (declaration (primitive_type) (identifier)))
 
 ========================================
 Errors inside blocks
@@ -57,11 +57,11 @@ int main() {
 
 (translation_unit
   (function_definition
-    (type_identifier)
+    (primitive_type)
     (function_declarator (identifier) (parameter_list))
     (compound_statement
-      (declaration (type_identifier) (identifier))
-      (ERROR (identifier) (UNEXPECTED '$')))))
+      (declaration (primitive_type) (identifier))
+      (ERROR (primitive_type) (UNEXPECTED '$')))))
 
 ========================================
 Errors inside expressions
@@ -75,10 +75,10 @@ int main() {
 
 (translation_unit
   (function_definition
-    (type_identifier)
+    (primitive_type)
     (function_declarator (identifier) (parameter_list))
     (compound_statement
-      (declaration (type_identifier) (init_declarator
+      (declaration (primitive_type) (init_declarator
         (identifier)
         (parenthesized_expression
           (number_literal)
@@ -94,8 +94,8 @@ int y = 5;
 ---
 
 (translation_unit
-  (declaration (type_identifier) (ERROR (identifier)) (identifier))
-  (declaration (type_identifier) (init_declarator (identifier) (number_literal))))
+  (declaration (primitive_type) (ERROR (identifier)) (identifier))
+  (declaration (primitive_type) (init_declarator (identifier) (number_literal))))
 
 ==========================================
 Errors at the beginnings of blocks
@@ -115,7 +115,7 @@ int b() {
 
 (translation_unit
   (function_definition
-    (type_identifier)
+    (primitive_type)
     (function_declarator (identifier) (parameter_list))
     (compound_statement
       (struct_specifier (type_identifier))
@@ -124,7 +124,7 @@ int b() {
       (ERROR (number_literal))))
 
   (function_definition
-    (type_identifier)
+    (primitive_type)
     (function_declarator (identifier) (parameter_list))
     (compound_statement
       (declaration
