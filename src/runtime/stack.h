@@ -48,7 +48,7 @@ typedef StackIterateAction (*StackIterateCallback)(void *, TSStateId state,
 /*
  *  Create a parse stack.
  */
-Stack *ts_stack_new();
+Stack *ts_stack_new(TreePool *);
 
 /*
  *  Release any resources reserved by a parse stack.

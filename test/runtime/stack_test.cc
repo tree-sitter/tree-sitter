@@ -23,7 +23,7 @@ Length operator*(const Length &length, uint32_t factor) {
   return {length.bytes * factor, {0, length.extent.column * factor}};
 }
 
-void free_slice_array(StackSliceArray *slices) {
+void free_slice_array(TreePool *pool, StackSliceArray *slices) {
   for (size_t i = 0; i < slices->size; i++) {
     StackSlice slice = slices->contents[i];
 
@@ -38,7 +38,7 @@ void free_slice_array(StackSliceArray *slices) {
 
     if (!matches_prior_trees) {
       for (size_t j = 0; j < slice.trees.size; j++)
-        ts_tree_release(slice.trees.contents[j]);
+        ts_tree_release(pool, slice.trees.contents[j]);
       array_delete(&slice.trees);
     }
   }
@@ -72,25 +72,29 @@ describe("Stack", [&]() {
   const size_t tree_count = 11;
   Tree *trees[tree_count];
   Length tree_len = {3, {0, 3}};
+  TreePool pool;
 
   before_each([&]() {
     record_alloc::start();
 
-    stack = ts_stack_new();
+    ts_tree_pool_init(&pool);
+    stack = ts_stack_new(&pool);
 
     TSLanguage dummy_language;
     TSSymbolMetadata symbol_metadata[50] = {};
     dummy_language.symbol_metadata = symbol_metadata;
 
     for (size_t i = 0; i < tree_count; i++) {
-      trees[i] = ts_tree_make_leaf(i, length_zero(), tree_len, &dummy_language);
+      trees[i] = ts_tree_make_leaf(&pool, i, length_zero(), tree_len, &dummy_language);
     }
   });
 
   after_each([&]() {
     ts_stack_delete(stack);
-    for (size_t i = 0; i < tree_count; i++)
-      ts_tree_release(trees[i]);
+    for (size_t i = 0; i < tree_count; i++) {
+      ts_tree_release(&pool, trees[i]);
+    }
+    ts_tree_pool_delete(&pool);
 
     record_alloc::stop();
     AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
@@ -223,7 +227,7 @@ describe("Stack", [&]() {
       AssertThat(slice.trees, Equals(vector<Tree *>({ trees[1], trees[2] })));
       AssertThat(ts_stack_top_state(stack, 1), Equals(stateA));
 
-      free_slice_array(&pop.slices);
+      free_slice_array(&pool,&pop.slices);
     });
 
     it("does not count 'extra' trees toward the given count", [&]() {
@@ -239,7 +243,7 @@ describe("Stack", [&]() {
       AssertThat(slice.trees, Equals(vector<Tree *>({ trees[0], trees[1], trees[2] })));
       AssertThat(ts_stack_top_state(stack, 1), Equals(1));
 
-      free_slice_array(&pop.slices);
+      free_slice_array(&pool,&pop.slices);
     });
 
     describe("when the version has been merged", [&]() {
@@ -249,7 +253,7 @@ describe("Stack", [&]() {
         //          └───4─── E <──5── F <──6───┘
         ts_stack_push(stack, 0, trees[3], false, stateD);
         StackPopResult pop = ts_stack_pop_count(stack, 0, 3);
-        free_slice_array(&pop.slices);
+        free_slice_array(&pool,&pop.slices);
         ts_stack_push(stack, 1, trees[4], false, stateE);
         ts_stack_push(stack, 1, trees[5], false, stateF);
         ts_stack_push(stack, 1, trees[6], false, stateD);
@@ -309,7 +313,7 @@ describe("Stack", [&]() {
             {1, 2},
           })));
 
-          free_slice_array(&pop.slices);
+          free_slice_array(&pool,&pop.slices);
         });
       });
 
@@ -331,7 +335,7 @@ describe("Stack", [&]() {
           AssertThat(ts_stack_top_state(stack, 0), Equals(stateI));
           AssertThat(ts_stack_top_state(stack, 1), Equals(stateD));
 
-          free_slice_array(&pop.slices);
+          free_slice_array(&pool,&pop.slices);
         });
       });
 
@@ -357,7 +361,7 @@ describe("Stack", [&]() {
           AssertThat(ts_stack_top_state(stack, 0), Equals(stateI));
           AssertThat(ts_stack_top_state(stack, 1), Equals(stateA));
 
-          free_slice_array(&pop.slices);
+          free_slice_array(&pool,&pop.slices);
         });
       });
 
@@ -369,7 +373,7 @@ describe("Stack", [&]() {
           //          |                          |
           //          └───7─── G <──8── H <──9───┘
           StackPopResult pop = ts_stack_pop_count(stack, 0, 4);
-          free_slice_array(&pop.slices);
+          free_slice_array(&pool,&pop.slices);
           ts_stack_push(stack, 1, trees[7], false, stateG);
           ts_stack_push(stack, 1, trees[8], false, stateH);
           ts_stack_push(stack, 1, trees[9], false, stateD);
@@ -418,7 +422,7 @@ describe("Stack", [&]() {
           AssertThat(ts_stack_top_state(stack, 2), Equals(stateF));
           AssertThat(ts_stack_top_state(stack, 3), Equals(stateH));
 
-          free_slice_array(&pop.slices);
+          free_slice_array(&pool,&pop.slices);
         });
       });
     });
@@ -440,7 +444,7 @@ describe("Stack", [&]() {
         {1, 1},
       })));
 
-      free_slice_array(&pop.slices);
+      free_slice_array(&pool,&pop.slices);
     });
 
     it("skips entries whose trees are extra", [&]() {
@@ -462,7 +466,7 @@ describe("Stack", [&]() {
         {1, 1},
       })));
 
-      free_slice_array(&pop.slices);
+      free_slice_array(&pool,&pop.slices);
     });
 
     it("does nothing if the top node was not pushed in pending mode", [&]() {
@@ -477,7 +481,7 @@ describe("Stack", [&]() {
         {1, 2},
       })));
 
-      free_slice_array(&pop.slices);
+      free_slice_array(&pool,&pop.slices);
     });
   });
 
