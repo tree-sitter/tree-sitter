@@ -40,6 +40,7 @@ static const unsigned MAX_COST_DIFFERENCE = 16 * ERROR_COST_PER_SKIPPED_TREE;
 typedef struct {
   unsigned cost;
   unsigned push_count;
+  int dynamic_precedence;
   bool is_in_error;
 } ErrorStatus;
 
@@ -167,6 +168,9 @@ static ErrorComparison parser__compare_versions(Parser *self, ErrorStatus a, Err
     }
   }
 
+  if (a.dynamic_precedence > b.dynamic_precedence) return ErrorComparisonPreferLeft;
+  if (b.dynamic_precedence > a.dynamic_precedence) return ErrorComparisonPreferRight;
+
   return ErrorComparisonNone;
 }
 
@@ -174,13 +178,19 @@ static bool parser__better_version_exists(Parser *self, StackVersion version,
                                           bool is_in_error, unsigned cost) {
   if (self->finished_tree && self->finished_tree->error_cost <= cost) return true;
 
-  ErrorStatus status = {.cost = cost, .is_in_error = is_in_error, .push_count = 0};
+  ErrorStatus status = {
+    .cost = cost,
+    .is_in_error = is_in_error,
+    .dynamic_precedence = ts_stack_dynamic_precedence(self->stack, version),
+    .push_count = 0,
+  };
 
   for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
     if (i == version || ts_stack_is_halted(self->stack, i)) continue;
     ErrorStatus status_i = {
       .cost = ts_stack_error_cost(self->stack, i),
       .is_in_error = ts_stack_top_state(self->stack, i) == ERROR_STATE,
+      .dynamic_precedence = ts_stack_dynamic_precedence(self->stack, i),
       .push_count = ts_stack_push_count(self->stack, i)
     };
     switch (parser__compare_versions(self, status, status_i)) {
@@ -210,6 +220,7 @@ static bool parser__condense_stack(Parser *self) {
     ErrorStatus status_i = {
       .cost = ts_stack_error_cost(self->stack, i),
       .push_count = ts_stack_push_count(self->stack, i),
+      .dynamic_precedence = ts_stack_dynamic_precedence(self->stack, i),
       .is_in_error = ts_stack_top_state(self->stack, i) == ERROR_STATE,
     };
     if (!status_i.is_in_error) all_versions_have_error = false;
@@ -219,6 +230,7 @@ static bool parser__condense_stack(Parser *self) {
       ErrorStatus status_j = {
         .cost = ts_stack_error_cost(self->stack, j),
         .push_count = ts_stack_push_count(self->stack, j),
+        .dynamic_precedence = ts_stack_dynamic_precedence(self->stack, j),
         .is_in_error = ts_stack_top_state(self->stack, j) == ERROR_STATE,
       };
 

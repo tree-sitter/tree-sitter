@@ -32,6 +32,7 @@ struct StackNode {
   uint32_t ref_count;
   unsigned error_cost;
   unsigned depth;
+  int dynamic_precedence;
 };
 
 typedef struct {
@@ -121,6 +122,7 @@ static StackNode *stack_node_new(StackNode *previous_node, Tree *tree, bool is_p
 
     node->position = previous_node->position;
     node->error_cost = previous_node->error_cost;
+    node->dynamic_precedence = previous_node->dynamic_precedence;
 
     if (tree) {
       node->depth = previous_node->depth;
@@ -128,6 +130,7 @@ static StackNode *stack_node_new(StackNode *previous_node, Tree *tree, bool is_p
       ts_tree_retain(tree);
       node->error_cost += tree->error_cost;
       node->position = length_add(node->position, ts_tree_total_size(tree));
+      node->dynamic_precedence += tree->dynamic_precedence;
       if (state == ERROR_STATE && !tree->extra) {
         node->error_cost +=
           ERROR_COST_PER_SKIPPED_TREE * ((tree->visible || tree->child_count == 0) ? 1 : tree->visible_child_count) +
@@ -517,6 +520,10 @@ unsigned ts_stack_depth_since_error(Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->depth;
 }
 
+int ts_stack_dynamic_precedence(Stack *self, StackVersion version) {
+  return array_get(&self->heads, version)->node->dynamic_precedence;
+}
+
 void ts_stack_remove_version(Stack *self, StackVersion version) {
   stack_head_delete(array_get(&self->heads, version), &self->node_pool);
   array_erase(&self->heads, version);
@@ -658,8 +665,11 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
 
       fprintf(
         f,
-        " tooltip=\"position: %u,%u\nerror_cost: %u\"];\n",
-        node->position.extent.row, node->position.extent.column, node->error_cost
+        " tooltip=\"position: %u,%u\nerror_cost: %u\ndynamic_precedence: %d\"];\n",
+        node->position.extent.row,
+        node->position.extent.column,
+        node->error_cost,
+        node->dynamic_precedence
       );
 
       for (int j = 0; j < node->link_count; j++) {
