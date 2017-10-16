@@ -219,7 +219,7 @@ clang \
 ### References
 
 - [Context Aware Scanning for Parsing Extensible Languages](http://www.umsec.umn.edu/publications/Context-Aware-Scanning-Parsing-Extensible)
-- [Efficient and Flexible Incremental Parsing](http://harmonia.cs.berkeley.edu/papers/twagner-parsing.ps.gz)
-- [Incremental Analysis of Real Programming Languages](http://harmonia.cs.berkeley.edu/papers/twagner-glr.pdf)
+- [Efficient and Flexible Incremental Parsing](http://ftp.cs.berkeley.edu/sggs/toplas-parsing.ps)
+- [Incremental Analysis of Real Programming Languages](https://dl.acm.org/citation.cfm?id=258920)
 - [Error Detection and Recovery in LR Parsers](http://what-when-how.com/compiler-writing/bottom-up-parsing-compiler-writing-part-13)
 - [Error Recovery for LR Parsers](http://www.dtic.mil/dtic/tr/fulltext/u2/a043470.pdf)
