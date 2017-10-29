@@ -208,7 +208,7 @@ To demo this parser's capabilities, compile this program like this:
 ```sh
 clang \
   -I tree-sitter/include \
-  -L tree-sitter/out/Debug \
+  -L tree-sitter/out/Release \
    test_parser.c arithmetic_parser.c \
   -l runtime \
   -o test_parser
