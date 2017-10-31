@@ -136,9 +136,8 @@ To create the parser, compile this file like this:
 ```sh
 clang++ -std=c++11 \
   -I tree-sitter/include \
-  -L tree-sitter/out/Release \
-  -l compiler \
   arithmetic_grammar.cc \
+  "$(find tree-sitter/out/Release -name libcompiler.a)" \
   -o arithmetic_grammar
 ```
 
@@ -208,9 +207,8 @@ To demo this parser's capabilities, compile this program like this:
 ```sh
 clang \
   -I tree-sitter/include \
-  -L tree-sitter/out/Debug \
-  -l runtime \
-  arithmetic_parser.c test_parser.c \
+   test_parser.c arithmetic_parser.c \
+  "$(find tree-sitter/out/Release -name libruntime.a)" \
   -o test_parser
 
 ./test_parser
