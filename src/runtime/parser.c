@@ -316,10 +316,11 @@ static Tree *parser__lex(Parser *self, StackVersion version, TSStateId parse_sta
   );
 
   bool found_external_token = false;
-  bool skipped_error = false;
   bool error_mode = parse_state == ERROR_STATE;
+  bool skipped_error = false;
   int32_t first_error_character = 0;
-  Length error_start_position, error_end_position;
+  Length error_start_position = length_zero();
+  Length error_end_position = length_zero();
   uint32_t last_byte_scanned = start_position.bytes;
   ts_lexer_reset(&self->lexer, start_position);
 
