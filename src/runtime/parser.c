@@ -418,6 +418,10 @@ static Tree *parser__lex(Parser *self, StackVersion version, TSStateId parse_sta
       symbol = self->language->external_scanner.symbol_map[symbol];
     }
 
+    if (self->lexer.token_end_position.bytes < self->lexer.token_start_position.bytes) {
+      self->lexer.token_start_position = self->lexer.token_end_position;
+    }
+
     Length padding = length_sub(self->lexer.token_start_position, start_position);
     Length size = length_sub(self->lexer.token_end_position, self->lexer.token_start_position);
     result = ts_tree_make_leaf(symbol, padding, size, self->language);
