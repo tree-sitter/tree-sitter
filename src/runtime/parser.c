@@ -747,22 +747,17 @@ static void parser__accept(Parser *self, StackVersion version,
     TreeArray trees = slice.trees;
 
     Tree *root = NULL;
-    if (trees.size == 1) {
-      root = trees.contents[0];
-      array_delete(&trees);
-    } else {
-      for (uint32_t j = trees.size - 1; j + 1 > 0; j--) {
-        Tree *child = trees.contents[j];
-        if (!child->extra) {
-          root = ts_tree_make_copy(child);
-          root->child_count = 0;
-          for (uint32_t k = 0; k < child->child_count; k++)
-            ts_tree_retain(child->children[k]);
-          array_splice(&trees, j, 1, child->child_count, child->children);
-          ts_tree_set_children(root, trees.size, trees.contents, self->language);
-          ts_tree_release(child);
-          break;
-        }
+    for (uint32_t j = trees.size - 1; j + 1 > 0; j--) {
+      Tree *child = trees.contents[j];
+      if (!child->extra) {
+        root = ts_tree_make_copy(child);
+        root->child_count = 0;
+        for (uint32_t k = 0; k < child->child_count; k++)
+          ts_tree_retain(child->children[k]);
+        array_splice(&trees, j, 1, child->child_count, child->children);
+        ts_tree_set_children(root, trees.size, trees.contents, self->language);
+        ts_tree_release(child);
+        break;
       }
     }
 
