@@ -210,7 +210,7 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
   size_t i = -1;
   for (const auto &variable : processed_variables) {
     i++;
-    if (variable.rule.is<Symbol>()) {
+    if (i > 0 && variable.rule.is<Symbol>()) {
       auto symbol = variable.rule.get_unchecked<Symbol>();
       if (symbol.is_terminal() && extractor.token_usage_counts[symbol.index] == 1) {
         lexical_grammar.variables[symbol.index].type = variable.type;

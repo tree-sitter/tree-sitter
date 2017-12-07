@@ -249,39 +249,63 @@ describe("extract_tokens", []() {
     }));
   });
 
+  it("does not move the start rule into the lexical grammar", [&]() {
+    auto result = extract_tokens(InternedGrammar{
+      {
+        Variable{
+          "rule_a",
+          VariableTypeNamed,
+          String{"a"}
+        },
+      },
+      {}, {}, {}, {}
+    });
+
+    InitialSyntaxGrammar &syntax_grammar = get<0>(result);
+    LexicalGrammar &lexical_grammar = get<1>(result);
+
+    AssertThat(syntax_grammar.variables.size(), Equals(1u));
+    AssertThat(lexical_grammar.variables.size(), Equals(1u));
+  });
+
   it("renumbers the grammar's expected conflict symbols based on any moved rules", [&]() {
     auto result = extract_tokens(InternedGrammar{
       {
         Variable{
-          "rule_A",
+          "rule_a",
+          VariableTypeNamed,
+          Symbol::non_terminal(2)
+        },
+        Variable{
+          "rule_b",
           VariableTypeNamed,
           String{"ok"}
         },
         Variable{
-          "rule_B",
+          "rule_c",
           VariableTypeNamed,
-          Repeat{Symbol::non_terminal(0)}
+          Repeat{Symbol::non_terminal(1)}
         },
         Variable{
-          "rule_C",
+          "rule_d",
           VariableTypeNamed,
-          Repeat{Seq{Symbol::non_terminal(0), Symbol::non_terminal(0)}}
+          Repeat{Seq{Symbol::non_terminal(1), Symbol::non_terminal(1)}}
         },
       },
       {
         String{" "}
       },
       {
-        { Symbol::non_terminal(1), Symbol::non_terminal(2) }
+        { Symbol::non_terminal(2), Symbol::non_terminal(3) }
       },
       {}, {}
     });
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
 
-    AssertThat(syntax_grammar.variables.size(), Equals<size_t>(2));
+    AssertThat(syntax_grammar.variables.size(), Equals<size_t>(3));
     AssertThat(syntax_grammar.expected_conflicts, Equals(set<set<Symbol>>({
-      { Symbol::non_terminal(0), Symbol::non_terminal(1) },
+      { Symbol::non_terminal(1), Symbol::non_terminal(2) },
     })));
   });
 

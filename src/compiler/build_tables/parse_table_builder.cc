@@ -83,10 +83,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     ParseStateId error_state_id = add_parse_state({}, ParseItemSet{});
 
     // Add the starting state.
-    Symbol start_symbol = grammar.variables.empty() ?
-      Symbol::terminal(0) :
-      Symbol::non_terminal(0);
-
+    Symbol start_symbol = Symbol::non_terminal(0);
     Production start_production({{start_symbol, 0, rules::AssociativityNone, rules::Alias{}}}, 0);
 
     add_parse_state({}, ParseItemSet{{
