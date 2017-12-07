@@ -52,10 +52,10 @@ bool operator==(const std::vector<Tree *> &vec, const TreeArray &array) {
 }
 
 void assert_consistent_tree_sizes(TSNode node) {
-  size_t child_count = ts_node_child_count(node);
-  size_t named_child_count = ts_node_named_child_count(node);
-  size_t start_byte = ts_node_start_byte(node);
-  size_t end_byte = ts_node_end_byte(node);
+  uint32_t child_count = ts_node_child_count(node);
+  uint32_t named_child_count = ts_node_named_child_count(node);
+  uint32_t start_byte = ts_node_start_byte(node);
+  uint32_t end_byte = ts_node_end_byte(node);
   TSPoint start_point = ts_node_start_point(node);
   TSPoint end_point = ts_node_end_point(node);
 
@@ -69,7 +69,7 @@ void assert_consistent_tree_sizes(TSNode node) {
   size_t actual_named_child_count = 0;
   for (size_t i = 0; i < child_count; i++) {
     TSNode child = ts_node_child(node, i);
-    size_t child_start_byte = ts_node_start_byte(child);
+    uint32_t child_start_byte = ts_node_start_byte(child);
     TSPoint child_start_point = ts_node_start_point(child);
 
     AssertThat(child_start_byte, !IsLessThan(last_child_end_byte));
@@ -81,10 +81,6 @@ void assert_consistent_tree_sizes(TSNode node) {
 
     last_child_end_byte = ts_node_end_byte(child);
     last_child_end_point = ts_node_end_point(child);
-  }
-
-  if (actual_named_child_count != named_child_count) {
-    puts("UH OH");
   }
 
   AssertThat(actual_named_child_count, Equals(named_child_count));

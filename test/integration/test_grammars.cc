@@ -5,6 +5,7 @@
 #include "helpers/file_helpers.h"
 #include "helpers/tree_helpers.h"
 #include "runtime/alloc.h"
+#include "helpers/record_alloc.h"
 
 START_TEST
 
@@ -34,6 +35,8 @@ for (auto &language_name : test_languages) {
 
     for (auto &entry : read_test_language_corpus(language_name)) {
       it(("parses " + entry.description).c_str(), [&]() {
+        record_alloc::start();
+
         if (!language) {
           string external_scanner_path = join_path({directory_path, "scanner.c"});
           if (!file_exists(external_scanner_path)) external_scanner_path = "";
@@ -56,6 +59,7 @@ for (auto &language_name : test_languages) {
         ts_document_parse(document);
 
         TSNode root_node = ts_document_root_node(document);
+        AssertThat(ts_node_end_byte(root_node), Equals(entry.input.size()));
         assert_consistent_tree_sizes(root_node);
         const char *node_string = ts_node_string(root_node, document);
         string result(node_string);
@@ -63,6 +67,7 @@ for (auto &language_name : test_languages) {
         ts_document_free(document);
 
         AssertThat(result, Equals(entry.tree_string));
+        AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
       });
     }
   });
