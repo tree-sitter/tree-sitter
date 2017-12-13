@@ -52,7 +52,7 @@
 
     "identifier": {
       "type": "PATTERN",
-      "value": "\\a+"
+      "value": "[a-z]+"
     }
   }
 }

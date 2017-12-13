@@ -29,7 +29,7 @@
       ]
     },
 
-    "variable": {"type": "PATTERN", "value": "\\a+"},
+    "variable": {"type": "PATTERN", "value": "[a-z]+"},
     "number": {"type": "PATTERN", "value": "\\d+"},
     "line_break": {"type": "STRING", "value": "\n"}
   }

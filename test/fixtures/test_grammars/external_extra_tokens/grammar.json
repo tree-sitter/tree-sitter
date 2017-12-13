@@ -20,6 +20,6 @@
       ]
     },
 
-    "variable": {"type": "PATTERN", "value": "\\a+"}
+    "variable": {"type": "PATTERN", "value": "[a-z]+"}
   }
 }
