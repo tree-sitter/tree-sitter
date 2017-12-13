@@ -190,8 +190,6 @@ class PatternParser {
 
   CharacterSet escaped_char(uint32_t value) {
     switch (value) {
-      case 'a':
-        return CharacterSet().include('a', 'z').include('A', 'Z');
       case 'w':
         return CharacterSet()
           .include('a', 'z')
@@ -210,8 +208,11 @@ class PatternParser {
       case 'D':
         return CharacterSet().include_all().exclude('0', '9');
       case 's':
-        return CharacterSet().include(' ').include('\t').include('\n').include(
-          '\r');
+        return CharacterSet()
+          .include(' ')
+          .include('\t')
+          .include('\n')
+          .include('\r');
       case 'S':
         return CharacterSet()
           .include_all()

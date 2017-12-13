@@ -71,6 +71,6 @@
       ]
     },
 
-    "identifier": {"type": "PATTERN", "value": "\\a+"}
+    "identifier": {"type": "PATTERN", "value": "[a-z]+"}
   }
 }

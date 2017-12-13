@@ -35,7 +35,7 @@ int c;
     (linkage_specification
       (string_literal)
       (declaration_list
-        (ERROR)
+        (preproc_call (preproc_directive))
         (function_definition
           (primitive_type)
           (function_declarator (identifier) (parameter_list))
