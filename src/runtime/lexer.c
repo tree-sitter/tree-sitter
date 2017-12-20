@@ -91,6 +91,11 @@ static void ts_lexer__mark_end(void *payload) {
   self->token_end_position = self->current_position;
 }
 
+static uint32_t ts_lexer__get_column(void *payload) {
+  Lexer *self = (Lexer *)payload;
+  return self->current_position.extent.column;
+}
+
 /*
  *  The lexer's advance method is stored as a struct field so that generated
  *  parsers can call it without needing to be linked against this library.
@@ -101,6 +106,7 @@ void ts_lexer_init(Lexer *self) {
     .data = {
       .advance = ts_lexer__advance,
       .mark_end = ts_lexer__mark_end,
+      .get_column = ts_lexer__get_column,
       .lookahead = 0,
       .result_symbol = 0,
     },
