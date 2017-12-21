@@ -20,7 +20,7 @@ enum {
 };
 
 Length operator*(const Length &length, uint32_t factor) {
-  return {length.bytes * factor, length.chars * factor, {0, length.extent.column * factor}};
+  return {length.bytes * factor, {0, length.extent.column * factor}};
 }
 
 void free_slice_array(StackSliceArray *slices) {
@@ -71,7 +71,7 @@ describe("Stack", [&]() {
   Stack *stack;
   const size_t tree_count = 11;
   Tree *trees[tree_count];
-  Length tree_len = {2, 3, {0, 3}};
+  Length tree_len = {3, {0, 3}};
 
   before_each([&]() {
     record_alloc::start();

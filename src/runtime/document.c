@@ -30,7 +30,6 @@ void ts_document_free(TSDocument *self) {
     NULL,
     NULL,
     TSInputEncodingUTF8,
-    false
   });
   ts_free(self);
 }
@@ -159,7 +158,7 @@ void ts_document_invalidate(TSDocument *self) {
 }
 
 TSNode ts_document_root_node(const TSDocument *self) {
-  return ts_node_make(self->tree, 0, 0, 0);
+  return ts_node_make(self->tree, 0, 0);
 }
 
 uint32_t ts_document_parse_count(const TSDocument *self) {

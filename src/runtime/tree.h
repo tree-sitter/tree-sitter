@@ -116,10 +116,6 @@ static inline Length ts_tree_total_size(const Tree *self) {
   return length_add(self->padding, self->size);
 }
 
-static inline TSPoint ts_tree_total_extent(const Tree *self) {
-  return point_add(self->padding.extent, self->size.extent);
-}
-
 static inline bool ts_tree_is_fragile(const Tree *tree) {
   return tree->fragile_left || tree->fragile_right ||
          ts_tree_total_bytes(tree) == 0;

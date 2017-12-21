@@ -29,9 +29,8 @@ typedef enum {
 typedef struct {
   void *payload;
   const char *(*read)(void *payload, uint32_t *bytes_read);
-  int (*seek)(void *payload, uint32_t character_index, uint32_t byte_index);
+  int (*seek)(void *payload, uint32_t byte_index);
   TSInputEncoding encoding;
-  bool measure_columns_in_bytes;
 } TSInput;
 
 typedef enum {
@@ -65,7 +64,7 @@ typedef struct {
 
 typedef struct {
   const void *data;
-  uint32_t offset[3];
+  uint32_t offset[2];
 } TSNode;
 
 typedef struct {
@@ -74,10 +73,8 @@ typedef struct {
   void *data;
 } TSSymbolIterator;
 
-uint32_t ts_node_start_char(TSNode);
 uint32_t ts_node_start_byte(TSNode);
 TSPoint ts_node_start_point(TSNode);
-uint32_t ts_node_end_char(TSNode);
 uint32_t ts_node_end_byte(TSNode);
 TSPoint ts_node_end_point(TSNode);
 TSSymbol ts_node_symbol(TSNode);
@@ -98,8 +95,6 @@ TSNode ts_node_next_sibling(TSNode);
 TSNode ts_node_next_named_sibling(TSNode);
 TSNode ts_node_prev_sibling(TSNode);
 TSNode ts_node_prev_named_sibling(TSNode);
-TSNode ts_node_descendant_for_char_range(TSNode, uint32_t, uint32_t);
-TSNode ts_node_named_descendant_for_char_range(TSNode, uint32_t, uint32_t);
 TSNode ts_node_descendant_for_byte_range(TSNode, uint32_t, uint32_t);
 TSNode ts_node_named_descendant_for_byte_range(TSNode, uint32_t, uint32_t);
 TSNode ts_node_descendant_for_point_range(TSNode, TSPoint, TSPoint);

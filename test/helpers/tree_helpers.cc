@@ -35,7 +35,7 @@ ostream &operator<<(std::ostream &stream, const Tree *tree) {
 
 ostream &operator<<(ostream &stream, const TSNode &node) {
   return stream << string("{") << (const Tree *)node.data <<
-    string(", ") << to_string(ts_node_start_char(node)) << string("}");
+    string(", ") << to_string(ts_node_start_byte(node)) << string("}");
 }
 
 bool operator==(const TSNode &left, const TSNode &right) {

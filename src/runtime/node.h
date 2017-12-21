@@ -3,6 +3,6 @@
 
 #include "runtime/tree.h"
 
-TSNode ts_node_make(const Tree *, uint32_t character, uint32_t byte, uint32_t row);
+TSNode ts_node_make(const Tree *, uint32_t byte, uint32_t row);
 
 #endif

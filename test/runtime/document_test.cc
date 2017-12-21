@@ -82,21 +82,12 @@ describe("Document", [&]() {
       ts_document_parse(document);
     });
 
-    it("allows columns to be measured in either bytes or characters", [&]() {
+    it("measures columns in bytes", [&]() {
       const char16_t content[] = u"[true, false]";
       spy_input->content = string((const char *)content, sizeof(content));
       spy_input->encoding = TSInputEncodingUTF16;
       TSInput input = spy_input->input();
 
-      input.measure_columns_in_bytes = false;
-      ts_document_set_input(document, input);
-      ts_document_invalidate(document);
-      ts_document_parse(document);
-
-      TSNode root = ts_document_root_node(document);
-      AssertThat(ts_node_end_point(root), Equals<TSPoint>({0, 14}));
-
-      input.measure_columns_in_bytes = true;
       ts_document_set_input(document, input);
       ts_document_invalidate(document);
       ts_document_parse(document);
@@ -142,7 +133,7 @@ describe("Document", [&]() {
       ts_document_set_input_string_with_length(document, content, 1);
       ts_document_parse(document);
       TSNode new_root = ts_document_root_node(document);
-      AssertThat(ts_node_end_char(new_root), Equals<size_t>(1));
+      AssertThat(ts_node_end_byte(new_root), Equals<size_t>(1));
       assert_node_string_equals(
         new_root,
         "(value (number))");
@@ -152,7 +143,7 @@ describe("Document", [&]() {
       ts_document_set_input_string(document, "");
       ts_document_parse(document);
       TSNode new_root = ts_document_root_node(document);
-      AssertThat(ts_node_end_char(new_root), Equals<size_t>(0));
+      AssertThat(ts_node_end_byte(new_root), Equals<size_t>(0));
       assert_node_string_equals(
         new_root,
         "(ERROR)");
@@ -160,7 +151,7 @@ describe("Document", [&]() {
       ts_document_set_input_string(document, "1");
       ts_document_parse(document);
       new_root = ts_document_root_node(document);
-      AssertThat(ts_node_end_char(new_root), Equals<size_t>(1));
+      AssertThat(ts_node_end_byte(new_root), Equals<size_t>(1));
       assert_node_string_equals(
         new_root,
         "(value (number))");
@@ -445,7 +436,6 @@ describe("Document", [&]() {
         root,
         "(ERROR (number) (null) (UNEXPECTED 'e'))");
 
-      AssertThat(ts_node_end_char(root), Equals(input_string.size()));
       AssertThat(ts_node_end_byte(root), Equals(input_string.size()));
     });
 

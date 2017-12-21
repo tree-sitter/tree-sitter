@@ -99,8 +99,6 @@ describe("Node", [&]() {
       AssertThat(ts_node_named_child_count(root_node), Equals<size_t>(3));
       AssertThat(ts_node_start_byte(root_node), Equals(array_index));
       AssertThat(ts_node_end_byte(root_node), Equals(array_end_index));
-      AssertThat(ts_node_start_char(root_node), Equals(array_index));
-      AssertThat(ts_node_end_char(root_node), Equals(array_end_index));
       AssertThat(ts_node_start_point(root_node), Equals<TSPoint>({ 2, 0 }));
       AssertThat(ts_node_end_point(root_node), Equals<TSPoint>({ 8, 1 }));
 
@@ -114,8 +112,6 @@ describe("Node", [&]() {
 
       AssertThat(ts_node_start_byte(number_node), Equals(number_index));
       AssertThat(ts_node_end_byte(number_node), Equals(number_end_index));
-      AssertThat(ts_node_start_char(number_node), Equals(number_index));
-      AssertThat(ts_node_end_char(number_node), Equals(number_end_index));
       AssertThat(ts_node_start_point(number_node), Equals<TSPoint>({ 3, 2 }));
       AssertThat(ts_node_end_point(number_node), Equals<TSPoint>({ 3, 5 }));
 
@@ -191,7 +187,7 @@ describe("Node", [&]() {
     it("returns an iterator that yields each of the node's symbols", [&]() {
       const TSLanguage *language = ts_document_language(document);
 
-      TSNode false_node = ts_node_descendant_for_char_range(root_node, false_index, false_index + 1);
+      TSNode false_node = ts_node_descendant_for_byte_range(root_node, false_index, false_index + 1);
       TSSymbolIterator iterator = ts_node_symbols(false_node);
       AssertThat(iterator.done, Equals(false));
       AssertThat(ts_language_symbol_name(language, iterator.value), Equals("false"));
@@ -203,7 +199,7 @@ describe("Node", [&]() {
       ts_symbol_iterator_next(&iterator);
       AssertThat(iterator.done, Equals(true));
 
-      TSNode comma_node = ts_node_descendant_for_char_range(root_node, number_end_index, number_end_index);
+      TSNode comma_node = ts_node_descendant_for_byte_range(root_node, number_end_index, number_end_index);
       iterator = ts_node_symbols(comma_node);
       AssertThat(iterator.done, Equals(false));
       AssertThat(ts_language_symbol_name(language, iterator.value), Equals(","));
@@ -375,17 +371,17 @@ describe("Node", [&]() {
     });
   });
 
-  describe("named_descendant_for_char_range(start, end)", [&]() {
+  describe("named_descendant_for_byte_range(start, end)", [&]() {
     describe("when there is a leaf node that spans the given range exactly", [&]() {
       it("returns that leaf node", [&]() {
-        TSNode leaf = ts_node_named_descendant_for_char_range(root_node, string_index, string_end_index - 1);
+        TSNode leaf = ts_node_named_descendant_for_byte_range(root_node, string_index, string_end_index - 1);
         AssertThat(ts_node_type(leaf, document), Equals("string"));
         AssertThat(ts_node_start_byte(leaf), Equals(string_index));
         AssertThat(ts_node_end_byte(leaf), Equals(string_end_index));
         AssertThat(ts_node_start_point(leaf), Equals<TSPoint>({ 6, 4 }));
         AssertThat(ts_node_end_point(leaf), Equals<TSPoint>({ 6, 7 }));
 
-        leaf = ts_node_named_descendant_for_char_range(root_node, number_index, number_end_index - 1);
+        leaf = ts_node_named_descendant_for_byte_range(root_node, number_index, number_end_index - 1);
         AssertThat(ts_node_type(leaf, document), Equals("number"));
         AssertThat(ts_node_start_byte(leaf), Equals(number_index));
         AssertThat(ts_node_end_byte(leaf), Equals(number_end_index));
@@ -396,14 +392,14 @@ describe("Node", [&]() {
 
     describe("when there is a leaf node that extends beyond the given range", [&]() {
       it("returns that leaf node", [&]() {
-        TSNode leaf = ts_node_named_descendant_for_char_range(root_node, string_index, string_index + 1);
+        TSNode leaf = ts_node_named_descendant_for_byte_range(root_node, string_index, string_index + 1);
         AssertThat(ts_node_type(leaf, document), Equals("string"));
         AssertThat(ts_node_start_byte(leaf), Equals(string_index));
         AssertThat(ts_node_end_byte(leaf), Equals(string_end_index));
         AssertThat(ts_node_start_point(leaf), Equals<TSPoint>({ 6, 4 }));
         AssertThat(ts_node_end_point(leaf), Equals<TSPoint>({ 6, 7 }));
 
-        leaf = ts_node_named_descendant_for_char_range(root_node, string_index + 1, string_index + 2);
+        leaf = ts_node_named_descendant_for_byte_range(root_node, string_index + 1, string_index + 2);
         AssertThat(ts_node_type(leaf, document), Equals("string"));
         AssertThat(ts_node_start_byte(leaf), Equals(string_index));
         AssertThat(ts_node_end_byte(leaf), Equals(string_end_index));
@@ -414,7 +410,7 @@ describe("Node", [&]() {
 
     describe("when there is no leaf node that spans the given range", [&]() {
       it("returns the smallest node that does span the range", [&]() {
-        TSNode pair_node = ts_node_named_descendant_for_char_range(root_node, string_index, string_index + 3);
+        TSNode pair_node = ts_node_named_descendant_for_byte_range(root_node, string_index, string_index + 3);
         AssertThat(ts_node_type(pair_node, document), Equals("pair"));
         AssertThat(ts_node_start_byte(pair_node), Equals(string_index));
         AssertThat(ts_node_end_byte(pair_node), Equals(null_end_index));
@@ -423,7 +419,7 @@ describe("Node", [&]() {
       });
 
       it("does not return invisible nodes (repeats)", [&]() {
-        TSNode node = ts_node_named_descendant_for_char_range(root_node, number_end_index, number_end_index + 1);
+        TSNode node = ts_node_named_descendant_for_byte_range(root_node, number_end_index, number_end_index + 1);
         AssertThat(ts_node_type(node, document), Equals("array"));
         AssertThat(ts_node_start_byte(node), Equals(array_index));
         AssertThat(ts_node_end_byte(node), Equals(array_end_index));
@@ -433,31 +429,31 @@ describe("Node", [&]() {
     });
   });
 
-  describe("descendant_for_char_range(start, end)", [&]() {
-    it("returns the smallest node that spans the given range", [&]() {
-      TSNode node1 = ts_node_descendant_for_char_range(root_node, colon_index, colon_index);
+  describe("descendant_for_byte_range(start, end)", [&]() {
+    it("returns the smallest node that spans the given byte offsets", [&]() {
+      TSNode node1 = ts_node_descendant_for_byte_range(root_node, colon_index, colon_index);
       AssertThat(ts_node_type(node1, document), Equals(":"));
       AssertThat(ts_node_start_byte(node1), Equals(colon_index));
       AssertThat(ts_node_end_byte(node1), Equals(colon_index + 1));
       AssertThat(ts_node_start_point(node1), Equals<TSPoint>({ 6, 7 }));
       AssertThat(ts_node_end_point(node1), Equals<TSPoint>({ 6, 8 }));
 
-      TSNode node2 = ts_node_descendant_for_char_range(root_node, string_index + 2, string_index + 4);
+      TSNode node2 = ts_node_descendant_for_byte_range(root_node, string_index + 2, string_index + 4);
       AssertThat(ts_node_type(node2, document), Equals("pair"));
       AssertThat(ts_node_start_byte(node2), Equals(string_index));
       AssertThat(ts_node_end_byte(node2), Equals(null_end_index));
       AssertThat(ts_node_start_point(node2), Equals<TSPoint>({ 6, 4 }));
       AssertThat(ts_node_end_point(node2), Equals<TSPoint>({ 6, 13 }));
     });
-  });
 
-  describe("descendant_for_byte_range(start, end)", [&]() {
-    it("returns the smallest concrete node that spans the given range", [&]() {
-      ts_document_set_input_string(document, "[\"αβγδ\", \"αβγδ\"]");
+    it("works in the presence of multi-byte characters", [&]() {
+      string input_string = "[\"αβγδ\", \"αβγδ\"]";
+      ts_document_set_input_string(document, input_string.c_str());
       ts_document_parse(document);
       TSNode root_node = ts_document_root_node(document);
 
-      TSNode node1 = ts_node_descendant_for_char_range(root_node, 7, 7);
+      uint32_t comma_position = input_string.find(",");
+      TSNode node1 = ts_node_descendant_for_byte_range(root_node, comma_position, comma_position);
       AssertThat(ts_node_type(node1, document), Equals(","));
 
       TSNode node2 = ts_node_descendant_for_byte_range(root_node, 6, 10);

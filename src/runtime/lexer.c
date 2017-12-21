@@ -16,19 +16,16 @@
 
 static const char empty_chunk[2] = { 0, 0 };
 
-static Length unknown_length = {UINT32_MAX, 0, {0, 0}};
-
 static void ts_lexer__get_chunk(Lexer *self) {
   TSInput input = self->input;
   if (!self->chunk ||
-      self->current_position.bytes != self->chunk_start + self->chunk_size)
-    input.seek(input.payload, self->current_position.chars,
-               self->current_position.bytes);
+      self->current_position.bytes != self->chunk_start + self->chunk_size) {
+    input.seek(input.payload, self->current_position.bytes);
+  }
 
   self->chunk_start = self->current_position.bytes;
   self->chunk = input.read(input.payload, &self->chunk_size);
-  if (!self->chunk_size)
-    self->chunk = empty_chunk;
+  if (!self->chunk_size) self->chunk = empty_chunk;
 }
 
 static void ts_lexer__get_lookahead(Lexer *self) {
@@ -62,14 +59,11 @@ static void ts_lexer__advance(void *payload, bool skip) {
 
   if (self->lookahead_size) {
     self->current_position.bytes += self->lookahead_size;
-    self->current_position.chars++;
     if (self->data.lookahead == '\n') {
       self->current_position.extent.row++;
       self->current_position.extent.column = 0;
-    } else if (self->input.measure_columns_in_bytes) {
-      self->current_position.extent.column += self->lookahead_size;
     } else {
-      self->current_position.extent.column++;
+      self->current_position.extent.column += self->lookahead_size;
     }
   }
 
@@ -93,7 +87,22 @@ static void ts_lexer__mark_end(void *payload) {
 
 static uint32_t ts_lexer__get_column(void *payload) {
   Lexer *self = (Lexer *)payload;
-  return self->current_position.extent.column;
+  uint32_t goal_byte = self->current_position.bytes;
+
+  self->current_position.bytes -= self->current_position.extent.column;
+  self->current_position.extent.column = 0;
+
+  if (self->current_position.bytes < self->chunk_start) {
+    ts_lexer__get_chunk(self);
+  }
+
+  uint32_t result = 0;
+  while (self->current_position.bytes < goal_byte) {
+    ts_lexer__advance(self, false);
+    result++;
+  }
+
+  return result;
 }
 
 /*
@@ -122,7 +131,7 @@ void ts_lexer_init(Lexer *self) {
 
 static inline void ts_lexer__reset(Lexer *self, Length position) {
   self->token_start_position = position;
-  self->token_end_position = unknown_length;
+  self->token_end_position = LENGTH_UNDEFINED;
   self->current_position = position;
 
   if (self->chunk && (position.bytes < self->chunk_start ||
@@ -152,7 +161,7 @@ void ts_lexer_reset(Lexer *self, Length position) {
 
 void ts_lexer_start(Lexer *self) {
   self->token_start_position = self->current_position;
-  self->token_end_position = unknown_length;
+  self->token_end_position = LENGTH_UNDEFINED;
   self->data.result_symbol = 0;
 
   if (!self->chunk)

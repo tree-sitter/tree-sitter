@@ -3,8 +3,8 @@
 #include "runtime/tree.h"
 #include "runtime/document.h"
 
-TSNode ts_node_make(const Tree *tree, uint32_t chars, uint32_t byte, uint32_t row) {
-  return (TSNode){.data = tree, .offset = { chars, byte, row } };
+TSNode ts_node_make(const Tree *tree, uint32_t byte, uint32_t row) {
+  return (TSNode){.data = tree, .offset = { byte, row } };
 }
 
 /*
@@ -12,23 +12,19 @@ TSNode ts_node_make(const Tree *tree, uint32_t chars, uint32_t byte, uint32_t ro
  */
 
 static inline TSNode ts_node__null() {
-  return ts_node_make(NULL, 0, 0, 0);
+  return ts_node_make(NULL, 0, 0);
 }
 
 static inline const Tree *ts_node__tree(TSNode self) {
   return self.data;
 }
 
-static inline uint32_t ts_node__offset_char(TSNode self) {
+static inline uint32_t ts_node__offset_byte(TSNode self) {
   return self.offset[0];
 }
 
-static inline uint32_t ts_node__offset_byte(TSNode self) {
-  return self.offset[1];
-}
-
 static inline uint32_t ts_node__offset_row(TSNode self) {
-  return self.offset[2];
+  return self.offset[1];
 }
 
 static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
@@ -57,18 +53,20 @@ static inline uint32_t ts_node__relevant_child_count(TSNode self,
 static inline TSNode ts_node__direct_parent(TSNode self, uint32_t *index) {
   const Tree *tree = ts_node__tree(self);
   *index = tree->context.index;
-  return ts_node_make(tree->context.parent,
-                      ts_node__offset_char(self) - tree->context.offset.chars,
-                      ts_node__offset_byte(self) - tree->context.offset.bytes,
-                      ts_node__offset_row(self) - tree->context.offset.extent.row);
+  return ts_node_make(
+    tree->context.parent,
+    ts_node__offset_byte(self) - tree->context.offset.bytes,
+    ts_node__offset_row(self) - tree->context.offset.extent.row
+  );
 }
 
 static inline TSNode ts_node__direct_child(TSNode self, uint32_t i) {
   const Tree *child_tree = ts_node__tree(self)->children[i];
   return ts_node_make(
-    child_tree, ts_node__offset_char(self) + child_tree->context.offset.chars,
+    child_tree,
     ts_node__offset_byte(self) + child_tree->context.offset.bytes,
-    ts_node__offset_row(self) + child_tree->context.offset.extent.row);
+    ts_node__offset_row(self) + child_tree->context.offset.extent.row
+  );
 }
 
 static inline TSNode ts_node__child(TSNode self, uint32_t child_index,
@@ -154,33 +152,6 @@ static inline bool point_gt(TSPoint a, TSPoint b) {
   return a.row > b.row || (a.row == b.row && a.column > b.column);
 }
 
-static inline TSNode ts_node__descendant_for_char_range(TSNode self, uint32_t min,
-                                                        uint32_t max,
-                                                        bool include_anonymous) {
-  TSNode node = self;
-  TSNode last_visible_node = self;
-
-  bool did_descend = true;
-  while (did_descend) {
-    did_descend = false;
-
-    for (uint32_t i = 0; i < ts_node__tree(node)->child_count; i++) {
-      TSNode child = ts_node__direct_child(node, i);
-      if (ts_node_start_char(child) > min)
-        break;
-      if (ts_node_end_char(child) > max) {
-        node = child;
-        if (ts_node__is_relevant(node, include_anonymous))
-          last_visible_node = node;
-        did_descend = true;
-        break;
-      }
-    }
-  }
-
-  return last_visible_node;
-}
-
 static inline TSNode ts_node__descendant_for_byte_range(TSNode self, uint32_t min,
                                                         uint32_t max,
                                                         bool include_anonymous) {
@@ -193,12 +164,10 @@ static inline TSNode ts_node__descendant_for_byte_range(TSNode self, uint32_t mi
 
     for (uint32_t i = 0; i < ts_node__tree(node)->child_count; i++) {
       TSNode child = ts_node__direct_child(node, i);
-      if (ts_node_start_byte(child) > min)
-        break;
       if (ts_node_end_byte(child) > max) {
+        if (ts_node_start_byte(child) > min) break;
         node = child;
-        if (ts_node__is_relevant(node, include_anonymous))
-          last_visible_node = node;
+        if (ts_node__is_relevant(node, include_anonymous)) last_visible_node = node;
         did_descend = true;
         break;
       }
@@ -208,8 +177,9 @@ static inline TSNode ts_node__descendant_for_byte_range(TSNode self, uint32_t mi
   return last_visible_node;
 }
 
-static inline TSNode ts_node__descendant_for_point_range(
-  TSNode self, TSPoint min, TSPoint max, bool include_anonymous) {
+static inline TSNode ts_node__descendant_for_point_range(TSNode self, TSPoint min,
+                                                         TSPoint max,
+                                                         bool include_anonymous) {
   TSNode node = self;
   TSNode last_visible_node = self;
 
@@ -219,12 +189,10 @@ static inline TSNode ts_node__descendant_for_point_range(
 
     for (uint32_t i = 0; i < ts_node__tree(node)->child_count; i++) {
       TSNode child = ts_node__direct_child(node, i);
-      if (point_gt(ts_node_start_point(child), min))
-        break;
       if (point_gt(ts_node_end_point(child), max)) {
+        if (point_gt(ts_node_start_point(child), min)) break;
         node = child;
-        if (ts_node__is_relevant(node, include_anonymous))
-          last_visible_node = node;
+        if (ts_node__is_relevant(node, include_anonymous)) last_visible_node = node;
         did_descend = true;
         break;
       }
@@ -237,14 +205,6 @@ static inline TSNode ts_node__descendant_for_point_range(
 /*
  *  Public
  */
-
-uint32_t ts_node_start_char(TSNode self) {
-  return ts_node__offset_char(self) + ts_node__tree(self)->padding.chars;
-}
-
-uint32_t ts_node_end_char(TSNode self) {
-  return ts_node_start_char(self) + ts_node__tree(self)->size.chars;
-}
 
 uint32_t ts_node_start_byte(TSNode self) {
   return ts_node__offset_byte(self) + ts_node__tree(self)->padding.bytes;
@@ -301,9 +261,10 @@ char *ts_node_string(TSNode self, const TSDocument *document) {
 }
 
 bool ts_node_eq(TSNode self, TSNode other) {
-  return ts_tree_eq(ts_node__tree(self), ts_node__tree(other)) &&
-         self.offset[0] == other.offset[0] &&
-         self.offset[1] == other.offset[1] && self.offset[2] == other.offset[2];
+  return
+    ts_tree_eq(ts_node__tree(self), ts_node__tree(other)) &&
+    self.offset[0] == other.offset[0] &&
+    self.offset[1] == other.offset[1];
 }
 
 bool ts_node_is_named(TSNode self) {
@@ -372,15 +333,6 @@ TSNode ts_node_prev_sibling(TSNode self) {
 
 TSNode ts_node_prev_named_sibling(TSNode self) {
   return ts_node__prev_sibling(self, false);
-}
-
-TSNode ts_node_descendant_for_char_range(TSNode self, uint32_t min, uint32_t max) {
-  return ts_node__descendant_for_char_range(self, min, max, true);
-}
-
-TSNode ts_node_named_descendant_for_char_range(TSNode self, uint32_t min,
-                                               uint32_t max) {
-  return ts_node__descendant_for_char_range(self, min, max, false);
 }
 
 TSNode ts_node_descendant_for_byte_range(TSNode self, uint32_t min, uint32_t max) {
