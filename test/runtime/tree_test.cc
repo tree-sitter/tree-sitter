@@ -42,7 +42,7 @@ describe("Tree", []() {
 
   describe("make_leaf", [&]() {
     it("does not mark the tree as fragile", [&]() {
-      Tree *tree = ts_tree_make_leaf(symbol1, {2, 1, {0, 1}}, {5, 4, {0, 4}}, &language);
+      Tree *tree = ts_tree_make_leaf(symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
       AssertThat(tree->fragile_left, IsFalse());
       AssertThat(tree->fragile_right, IsFalse());
     });
@@ -68,8 +68,8 @@ describe("Tree", []() {
     Tree *tree1, *tree2, *parent1;
 
     before_each([&]() {
-      tree1 = ts_tree_make_leaf(symbol1, {2, 1, {0, 1}}, {5, 4, {0, 4}}, &language);
-      tree2 = ts_tree_make_leaf(symbol2, {1, 1, {0, 1}}, {3, 3, {0, 3}}, &language);
+      tree1 = ts_tree_make_leaf(symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
+      tree2 = ts_tree_make_leaf(symbol2, {1, {0, 1}}, {3, {0, 3}}, &language);
 
       ts_tree_retain(tree1);
       ts_tree_retain(tree2);
@@ -87,12 +87,9 @@ describe("Tree", []() {
 
     it("computes its size and padding based on its child nodes", [&]() {
       AssertThat(parent1->size.bytes, Equals<size_t>(
-        tree1->size.bytes + tree2->padding.bytes + tree2->size.bytes));
-      AssertThat(parent1->size.chars, Equals<size_t>(
-        tree1->size.chars + tree2->padding.chars + tree2->size.chars));
-
+        tree1->size.bytes + tree2->padding.bytes + tree2->size.bytes
+      ));
       AssertThat(parent1->padding.bytes, Equals<size_t>(tree1->padding.bytes));
-      AssertThat(parent1->padding.chars, Equals<size_t>(tree1->padding.chars));
     });
 
     describe("when the first node is fragile on the left side", [&]() {
@@ -174,13 +171,13 @@ describe("Tree", []() {
 
     before_each([&]() {
       tree = ts_tree_make_node(symbol1, 3, tree_array({
-        ts_tree_make_leaf(symbol2, {2, 2, {0, 2}}, {3, 3, {0, 3}}, &language),
-        ts_tree_make_leaf(symbol3, {2, 2, {0, 2}}, {3, 3, {0, 3}}, &language),
-        ts_tree_make_leaf(symbol4, {2, 2, {0, 2}}, {3, 3, {0, 3}}, &language),
+        ts_tree_make_leaf(symbol2, {2, {0, 2}}, {3, {0, 3}}, &language),
+        ts_tree_make_leaf(symbol3, {2, {0, 2}}, {3, {0, 3}}, &language),
+        ts_tree_make_leaf(symbol4, {2, {0, 2}}, {3, {0, 3}}, &language),
       }), 0, &language);
 
-      AssertThat(tree->padding, Equals<Length>({2, 2, {0, 2}}));
-      AssertThat(tree->size, Equals<Length>({13, 13, {0, 13}}));
+      AssertThat(tree->padding, Equals<Length>({2, {0, 2}}));
+      AssertThat(tree->size, Equals<Length>({13, {0, 13}}));
     });
 
     after_each([&]() {
@@ -200,16 +197,16 @@ describe("Tree", []() {
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<Length>({3, 0, {0, 3}}));
-        AssertThat(tree->size, Equals<Length>({13, 13, {0, 13}}));
+        AssertThat(tree->padding, Equals<Length>({3, {0, 3}}));
+        AssertThat(tree->size, Equals<Length>({13, {0, 13}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<Length>({3, 0, {0, 3}}));
-        AssertThat(tree->children[0]->size, Equals<Length>({3, 3, {0, 3}}));
+        AssertThat(tree->children[0]->padding, Equals<Length>({3, {0, 3}}));
+        AssertThat(tree->children[0]->size, Equals<Length>({3, {0, 3}}));
 
         AssertThat(tree->children[1]->has_changes, IsFalse());
-        AssertThat(tree->children[1]->padding, Equals<Length>({2, 2, {0, 2}}));
-        AssertThat(tree->children[1]->size, Equals<Length>({3, 3, {0, 3}}));
+        AssertThat(tree->children[1]->padding, Equals<Length>({2, {0, 2}}));
+        AssertThat(tree->children[1]->size, Equals<Length>({3, {0, 3}}));
       });
     });
 
@@ -226,12 +223,12 @@ describe("Tree", []() {
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<Length>({5, 0, {0, 5}}));
-        AssertThat(tree->size, Equals<Length>({11, 0, {0, 11}}));
+        AssertThat(tree->padding, Equals<Length>({5, {0, 5}}));
+        AssertThat(tree->size, Equals<Length>({11, {0, 11}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<Length>({5, 0, {0, 5}}));
-        AssertThat(tree->children[0]->size, Equals<Length>({1, 0, {0, 1}}));
+        AssertThat(tree->children[0]->padding, Equals<Length>({5, {0, 5}}));
+        AssertThat(tree->children[0]->size, Equals<Length>({1, {0, 1}}));
       });
     });
 
@@ -250,12 +247,12 @@ describe("Tree", []() {
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<Length>({4, 0, {0, 4}}));
-        AssertThat(tree->size, Equals<Length>({13, 13, {0, 13}}));
+        AssertThat(tree->padding, Equals<Length>({4, {0, 4}}));
+        AssertThat(tree->size, Equals<Length>({13, {0, 13}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<Length>({4, 0, {0, 4}}));
-        AssertThat(tree->children[0]->size, Equals<Length>({3, 3, {0, 3}}));
+        AssertThat(tree->children[0]->padding, Equals<Length>({4, {0, 4}}));
+        AssertThat(tree->children[0]->size, Equals<Length>({3, {0, 3}}));
 
         AssertThat(tree->children[1]->has_changes, IsFalse());
       });
@@ -274,12 +271,12 @@ describe("Tree", []() {
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<Length>({2, 2, {0, 2}}));
-        AssertThat(tree->size, Equals<Length>({16, 0, {0, 16}}));
+        AssertThat(tree->padding, Equals<Length>({2, {0, 2}}));
+        AssertThat(tree->size, Equals<Length>({16, {0, 16}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<Length>({2, 2, {0, 2}}));
-        AssertThat(tree->children[0]->size, Equals<Length>({6, 0, {0, 6}}));
+        AssertThat(tree->children[0]->padding, Equals<Length>({2, {0, 2}}));
+        AssertThat(tree->children[0]->size, Equals<Length>({6, {0, 6}}));
 
         AssertThat(tree->children[1]->has_changes, IsFalse());
       });
@@ -300,20 +297,20 @@ describe("Tree", []() {
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<Length>({4, 0, {0, 4}}));
-        AssertThat(tree->size, Equals<Length>({4, 0, {0, 4}}));
+        AssertThat(tree->padding, Equals<Length>({4, {0, 4}}));
+        AssertThat(tree->size, Equals<Length>({4, {0, 4}}));
 
         AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<Length>({4, 0, {0, 4}}));
-        AssertThat(tree->children[0]->size, Equals<Length>({0, 0, {0, 0}}));
+        AssertThat(tree->children[0]->padding, Equals<Length>({4, {0, 4}}));
+        AssertThat(tree->children[0]->size, Equals<Length>({0, {0, 0}}));
 
         AssertThat(tree->children[1]->has_changes, IsTrue());
-        AssertThat(tree->children[1]->padding, Equals<Length>({0, 0, {0, 0}}));
-        AssertThat(tree->children[1]->size, Equals<Length>({0, 0, {0, 0}}));
+        AssertThat(tree->children[1]->padding, Equals<Length>({0, {0, 0}}));
+        AssertThat(tree->children[1]->size, Equals<Length>({0, {0, 0}}));
 
         AssertThat(tree->children[2]->has_changes, IsTrue());
-        AssertThat(tree->children[2]->padding, Equals<Length>({1, 0, {0, 1}}));
-        AssertThat(tree->children[2]->size, Equals<Length>({3, 3, {0, 3}}));
+        AssertThat(tree->children[2]->padding, Equals<Length>({1, {0, 1}}));
+        AssertThat(tree->children[2]->size, Equals<Length>({3, {0, 3}}));
       });
     });
 
@@ -340,7 +337,7 @@ describe("Tree", []() {
     Tree *leaf;
 
     before_each([&]() {
-      leaf = ts_tree_make_leaf(symbol1, {2, 1, {0, 1}}, {5, 4, {0, 4}}, &language);
+      leaf = ts_tree_make_leaf(symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
     });
 
     after_each([&]() {
@@ -348,7 +345,7 @@ describe("Tree", []() {
     });
 
     it("returns true for identical trees", [&]() {
-      Tree *leaf_copy = ts_tree_make_leaf(symbol1, {2, 1, {1, 1}}, {5, 4, {1, 4}}, &language);
+      Tree *leaf_copy = ts_tree_make_leaf(symbol1, {2, {1, 1}}, {5, {1, 4}}, &language);
       AssertThat(ts_tree_eq(leaf, leaf_copy), IsTrue());
 
       Tree *parent = ts_tree_make_node(symbol2, 2, tree_array({
@@ -402,7 +399,7 @@ describe("Tree", []() {
     });
 
     it("returns false for trees with different children", [&]() {
-      Tree *leaf2 = ts_tree_make_leaf(symbol2, {1, 1, {0, 1}}, {3, 3, {0, 3}}, &language);
+      Tree *leaf2 = ts_tree_make_leaf(symbol2, {1, {0, 1}}, {3, {0, 3}}, &language);
 
       Tree *parent = ts_tree_make_node(symbol2, 2, tree_array({
         leaf,
@@ -428,8 +425,8 @@ describe("Tree", []() {
   });
 
   describe("last_external_token", [&]() {
-    Length padding = {1, 1, {0, 1}};
-    Length size = {2, 2, {0, 2}};
+    Length padding = {1, {0, 1}};
+    Length size = {2, {0, 2}};
 
     auto make_external = [](Tree *tree) {
       tree->has_external_tokens = true;

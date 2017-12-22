@@ -134,11 +134,11 @@ static StackNode *stack_node_new(StackNode *previous_node, Tree *tree, bool is_p
       if (state == ERROR_STATE && !tree->extra) {
         node->error_cost +=
           ERROR_COST_PER_SKIPPED_TREE * ((tree->visible || tree->child_count == 0) ? 1 : tree->visible_child_count) +
-          ERROR_COST_PER_SKIPPED_CHAR * tree->size.chars +
+          ERROR_COST_PER_SKIPPED_CHAR * tree->size.bytes +
           ERROR_COST_PER_SKIPPED_LINE * tree->size.extent.row;
         if (previous_node->links[0].tree) {
           node->error_cost +=
-            ERROR_COST_PER_SKIPPED_CHAR * tree->padding.chars +
+            ERROR_COST_PER_SKIPPED_CHAR * tree->padding.bytes +
             ERROR_COST_PER_SKIPPED_LINE * tree->padding.extent.row;
         }
       }
@@ -568,7 +568,7 @@ bool ts_stack_can_merge(Stack *self, StackVersion version1, StackVersion version
   return
     !head1->is_halted && !head2->is_halted &&
     head1->node->state == head2->node->state &&
-    head1->node->position.chars == head2->node->position.chars &&
+    head1->node->position.bytes == head2->node->position.bytes &&
     head1->node->depth == head2->node->depth &&
     ts_tree_external_token_state_eq(head1->last_external_token, head2->last_external_token);
 }

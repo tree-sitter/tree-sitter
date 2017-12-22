@@ -341,7 +341,7 @@ static Tree *parser__lex(Parser *self, StackVersion version, TSStateId parse_sta
         &self->lexer.data,
         valid_external_tokens
       )) {
-        if (length_has_unknown_chars(self->lexer.token_end_position)) {
+        if (length_is_undefined(self->lexer.token_end_position)) {
           self->lexer.token_end_position = self->lexer.current_position;
         }
 
@@ -367,7 +367,7 @@ static Tree *parser__lex(Parser *self, StackVersion version, TSStateId parse_sta
     );
     ts_lexer_start(&self->lexer);
     if (self->language->lex_fn(&self->lexer.data, lex_mode.lex_state)) {
-      if (length_has_unknown_chars(self->lexer.token_end_position)) {
+      if (length_is_undefined(self->lexer.token_end_position)) {
         self->lexer.token_end_position = self->lexer.current_position;
       }
       break;
@@ -912,7 +912,7 @@ static void parser__recover(Parser *self, StackVersion version, Tree *lookahead)
 
     unsigned new_cost =
       depth * ERROR_COST_PER_SKIPPED_TREE +
-      (position.chars - entry.position.chars) * ERROR_COST_PER_SKIPPED_CHAR +
+      (position.bytes - entry.position.bytes) * ERROR_COST_PER_SKIPPED_CHAR +
       (position.extent.row - entry.position.extent.row) * ERROR_COST_PER_SKIPPED_LINE;
     if (parser__better_version_exists(self, version, false, new_cost)) break;
 

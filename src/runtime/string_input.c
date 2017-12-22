@@ -8,7 +8,7 @@ typedef struct {
   uint32_t length;
 } TSStringInput;
 
-const char *ts_string_input_read(void *payload, uint32_t *bytes_read) {
+static const char *ts_string_input__read(void *payload, uint32_t *bytes_read) {
   TSStringInput *input = (TSStringInput *)payload;
   if (input->position >= input->length) {
     *bytes_read = 0;
@@ -20,7 +20,7 @@ const char *ts_string_input_read(void *payload, uint32_t *bytes_read) {
   return input->string + previous_position;
 }
 
-int ts_string_input_seek(void *payload, uint32_t character, uint32_t byte) {
+static int ts_string_input__seek(void *payload, uint32_t byte) {
   TSStringInput *input = (TSStringInput *)payload;
   input->position = byte;
   return (byte < input->length);
@@ -40,12 +40,11 @@ TSInput ts_string_input_make_with_length(const char *string, uint32_t length) {
   input->length = length;
   return (TSInput){
     .payload = input,
-    .read = ts_string_input_read,
-    .seek = ts_string_input_seek,
+    .read = ts_string_input__read,
+    .seek = ts_string_input__seek,
     .encoding = TSInputEncodingUTF8,
-    .measure_columns_in_bytes = false,
   };
 
 error:
-  return (TSInput){ NULL, NULL, NULL, TSInputEncodingUTF8, false };
+  return (TSInput){ NULL, NULL, NULL, TSInputEncodingUTF8 };
 }

@@ -248,7 +248,7 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children,
   }
 
   if (self->symbol == ts_builtin_sym_error) {
-    self->error_cost += ERROR_COST_PER_SKIPPED_CHAR * self->size.chars +
+    self->error_cost += ERROR_COST_PER_SKIPPED_CHAR * self->size.bytes +
                         ERROR_COST_PER_SKIPPED_LINE * self->size.extent.row;
     for (uint32_t i = 0; i < child_count; i++)
       if (!self->children[i]->extra)
@@ -408,6 +408,9 @@ bool ts_tree_invalidate_lookahead(Tree *self, uint32_t edit_byte_offset) {
   return true;
 }
 
+static inline TSPoint ts_tree_total_extent(const Tree *self) {
+  return point_add(self->padding.extent, self->size.extent);
+}
 
 void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
   uint32_t old_end_byte = edit->start_byte + edit->bytes_removed;
@@ -420,14 +423,12 @@ void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
   self->has_changes = true;
 
   if (edit->start_byte < self->padding.bytes) {
-    length_set_unknown_chars(&self->padding);
     if (self->padding.bytes >= old_end_byte) {
       uint32_t trailing_padding_bytes = self->padding.bytes - old_end_byte;
       TSPoint trailing_padding_extent = point_sub(self->padding.extent, old_end_point);
       self->padding.bytes = new_end_byte + trailing_padding_bytes;
       self->padding.extent = point_add(new_end_point, trailing_padding_extent);
     } else {
-      length_set_unknown_chars(&self->size);
       uint32_t removed_content_bytes = old_end_byte - self->padding.bytes;
       TSPoint removed_content_extent = point_sub(old_end_point, self->padding.extent);
       self->size.bytes = self->size.bytes - removed_content_bytes;
@@ -436,11 +437,9 @@ void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
       self->padding.extent = new_end_point;
     }
   } else if (edit->start_byte == self->padding.bytes && edit->bytes_removed == 0) {
-    length_set_unknown_chars(&self->padding);
     self->padding.bytes = self->padding.bytes + edit->bytes_added;
     self->padding.extent = point_add(self->padding.extent, edit->extent_added);
   } else {
-    length_set_unknown_chars(&self->size);
     uint32_t trailing_content_bytes = ts_tree_total_bytes(self) - old_end_byte;
     TSPoint trailing_content_extent = point_sub(ts_tree_total_extent(self), old_end_point);
     self->size.bytes = new_end_byte + trailing_content_bytes - self->padding.bytes;
@@ -545,7 +544,7 @@ static size_t ts_tree__write_to_string(const Tree *self, const TSLanguage *langu
   }
 
   if (visible) {
-    if (self->symbol == ts_builtin_sym_error && self->child_count == 0 && self->size.chars > 0) {
+    if (self->symbol == ts_builtin_sym_error && self->child_count == 0 && self->size.bytes > 0) {
       cursor += snprintf(*writer, limit, "(UNEXPECTED ");
       cursor += ts_tree__write_char_to_string(*writer, limit, self->lookahead_char);
     } else {

@@ -70,7 +70,7 @@ const char * SpyInput::read(void *payload, uint32_t *bytes_read) {
   return spy->buffer;
 }
 
-int SpyInput::seek(void *payload, uint32_t character, uint32_t byte) {
+int SpyInput::seek(void *payload, uint32_t byte) {
   auto spy = static_cast<SpyInput *>(payload);
   spy->byte_offset = byte;
   return 0;
@@ -90,7 +90,6 @@ TSInput SpyInput::input() {
   result.encoding = encoding;
   result.seek = seek;
   result.read = read;
-  result.measure_columns_in_bytes = true;
   return result;
 }
 

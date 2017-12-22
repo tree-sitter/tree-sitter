@@ -335,7 +335,7 @@ describe("Parser", [&]() {
         assert_root_node(
           "(program (expression_statement (binary_expression (identifier) (number))))");
 
-        TSNode node = ts_node_named_descendant_for_char_range(root, 1, 1);
+        TSNode node = ts_node_named_descendant_for_byte_range(root, 1, 1);
         AssertThat(ts_node_type(node, document), Equals("identifier"));
         AssertThat(ts_node_end_byte(node), Equals(strlen("abXYZc")));
       });
@@ -354,7 +354,7 @@ describe("Parser", [&]() {
         assert_root_node(
           "(program (expression_statement (binary_expression (identifier) (number))))");
 
-        TSNode node = ts_node_named_descendant_for_char_range(root, 1, 1);
+        TSNode node = ts_node_named_descendant_for_byte_range(root, 1, 1);
         AssertThat(ts_node_type(node, document), Equals("identifier"));
         AssertThat(ts_node_end_byte(node), Equals(strlen("abcXYZ")));
       });
@@ -487,7 +487,6 @@ describe("Parser", [&]() {
       assert_root_node(
         "(program (expression_statement (string)))");
 
-      AssertThat(ts_node_end_char(root), Equals(strlen("'OOO - DD';")));
       AssertThat(ts_node_end_byte(root), Equals(strlen("'\u03A9\u03A9\u03A9 \u2014 \u0394\u0394';")));
     });
 
