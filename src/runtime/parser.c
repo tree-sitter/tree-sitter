@@ -908,6 +908,7 @@ static void parser__recover(Parser *self, StackVersion version, Tree *lookahead)
   for (unsigned i = 0; i < summary->size; i++) {
     StackSummaryEntry entry = summary->contents[i];
     if (entry.state == ERROR_STATE) continue;
+    if (entry.position.bytes == position.bytes) continue;
     unsigned depth = entry.depth + ts_stack_depth_since_error(self->stack, version);
 
     unsigned new_cost =
