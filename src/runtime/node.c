@@ -162,7 +162,7 @@ static inline TSNode ts_node__descendant_for_byte_range(TSNode self, uint32_t mi
   while (did_descend) {
     did_descend = false;
 
-    for (uint32_t i = 0; i < ts_node__tree(node)->child_count; i++) {
+    for (uint32_t i = 0, n = ts_node__tree(node)->child_count; i < n; i++) {
       TSNode child = ts_node__direct_child(node, i);
       if (ts_node_end_byte(child) > max) {
         if (ts_node_start_byte(child) > min) break;
@@ -182,20 +182,26 @@ static inline TSNode ts_node__descendant_for_point_range(TSNode self, TSPoint mi
                                                          bool include_anonymous) {
   TSNode node = self;
   TSNode last_visible_node = self;
+  TSPoint start_position = ts_node_start_point(self);
+  TSPoint end_position = ts_node_end_point(self);
 
   bool did_descend = true;
   while (did_descend) {
     did_descend = false;
 
-    for (uint32_t i = 0; i < ts_node__tree(node)->child_count; i++) {
+    for (uint32_t i = 0, n = ts_node__tree(node)->child_count; i < n; i++) {
       TSNode child = ts_node__direct_child(node, i);
-      if (point_gt(ts_node_end_point(child), max)) {
-        if (point_gt(ts_node_start_point(child), min)) break;
+      const Tree *child_tree = ts_node__tree(child);
+      if (i > 0) start_position = point_add(start_position, child_tree->padding.extent);
+      end_position = point_add(start_position, child_tree->size.extent);
+      if (point_gt(end_position, max)) {
+        if (point_gt(start_position, min)) break;
         node = child;
         if (ts_node__is_relevant(node, include_anonymous)) last_visible_node = node;
         did_descend = true;
         break;
       }
+      start_position = end_position;
     }
   }
 
