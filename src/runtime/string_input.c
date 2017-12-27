@@ -32,9 +32,6 @@ TSInput ts_string_input_make(const char *string) {
 
 TSInput ts_string_input_make_with_length(const char *string, uint32_t length) {
   TSStringInput *input = ts_malloc(sizeof(TSStringInput));
-  if (!input)
-    goto error;
-
   input->string = string;
   input->position = 0;
   input->length = length;
@@ -44,7 +41,4 @@ TSInput ts_string_input_make_with_length(const char *string, uint32_t length) {
     .seek = ts_string_input__seek,
     .encoding = TSInputEncodingUTF8,
   };
-
-error:
-  return (TSInput){ NULL, NULL, NULL, TSInputEncodingUTF8 };
 }
