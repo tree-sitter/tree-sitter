@@ -12,6 +12,8 @@
 
 TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
 
+// ExternalTokenState
+
 void ts_external_token_state_init(TSExternalTokenState *self, const char *content, unsigned length) {
   self->length = length;
   if (length > sizeof(self->short_data)) {
@@ -42,30 +44,7 @@ bool ts_external_token_state_eq(const TSExternalTokenState *a, const TSExternalT
      memcmp(ts_external_token_state_data(a), ts_external_token_state_data(b), a->length) == 0);
 }
 
-Tree *ts_tree_make_leaf(TSSymbol symbol, Length padding, Length size, const TSLanguage *language) {
-  TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
-  Tree *result = ts_malloc(sizeof(Tree));
-  *result = (Tree){
-    .ref_count = 1,
-    .symbol = symbol,
-    .size = size,
-    .child_count = 0,
-    .children = NULL,
-    .visible_child_count = 0,
-    .named_child_count = 0,
-    .alias_sequence_id = 0,
-    .padding = padding,
-    .visible = metadata.visible,
-    .named = metadata.named,
-    .has_changes = false,
-    .first_leaf = {
-      .symbol = symbol,
-      .lex_mode = {0, 0},
-    },
-    .has_external_tokens = false,
-  };
-  return result;
-}
+// TreeArray
 
 bool ts_tree_array_copy(TreeArray self, TreeArray *dest) {
   Tree **contents = NULL;
@@ -82,9 +61,9 @@ bool ts_tree_array_copy(TreeArray self, TreeArray *dest) {
   return true;
 }
 
-void ts_tree_array_delete(TreeArray *self) {
+void ts_tree_array_delete(TreePool *pool, TreeArray *self) {
   for (uint32_t i = 0; i < self->size; i++) {
-    ts_tree_release(self->contents[i]);
+    ts_tree_release(pool, self->contents[i]);
   }
   array_delete(self);
 }
@@ -146,27 +125,89 @@ void ts_tree_array_reverse(TreeArray *self) {
   }
 }
 
-Tree *ts_tree_make_error(Length size, Length padding, int32_t lookahead_char,
+// TreePool
+
+static const uint32_t MAX_TREE_POOL_SIZE = 1024;
+
+void ts_tree_pool_init(TreePool *self) {
+  array_init(&self->free_trees);
+  array_init(&self->tree_stack);
+}
+
+void ts_tree_pool_delete(TreePool *self) {
+  if (self->free_trees.contents) {
+    for (unsigned i = 0; i < self->free_trees.size; i++) {
+      ts_free(self->free_trees.contents[i]);
+    }
+    array_delete(&self->free_trees);
+  }
+  if (self->tree_stack.contents) array_delete(&self->tree_stack);
+}
+
+Tree *ts_tree_pool_allocate(TreePool *self) {
+  if (self->free_trees.size > 0) {
+    return array_pop(&self->free_trees);
+  } else {
+    return ts_malloc(sizeof(Tree));
+  }
+}
+
+void ts_tree_pool_free(TreePool *self, Tree *tree) {
+  if (self->free_trees.size < MAX_TREE_POOL_SIZE) {
+    array_push(&self->free_trees, tree);
+  } else {
+    ts_free(tree);
+  }
+}
+
+// Tree
+
+Tree *ts_tree_make_leaf(TreePool *pool, TSSymbol symbol, Length padding, Length size, const TSLanguage *language) {
+  TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
+  Tree *result = ts_tree_pool_allocate(pool);
+  *result = (Tree){
+    .ref_count = 1,
+    .symbol = symbol,
+    .size = size,
+    .child_count = 0,
+    .children = NULL,
+    .visible_child_count = 0,
+    .named_child_count = 0,
+    .alias_sequence_id = 0,
+    .padding = padding,
+    .visible = metadata.visible,
+    .named = metadata.named,
+    .has_changes = false,
+    .first_leaf = {
+      .symbol = symbol,
+      .lex_mode = {0, 0},
+    },
+    .has_external_tokens = false,
+  };
+  return result;
+}
+
+Tree *ts_tree_make_error(TreePool *pool, Length size, Length padding, int32_t lookahead_char,
                          const TSLanguage *language) {
-  Tree *result = ts_tree_make_leaf(ts_builtin_sym_error, padding, size, language);
+  Tree *result = ts_tree_make_leaf(pool, ts_builtin_sym_error, padding, size, language);
   result->fragile_left = true;
   result->fragile_right = true;
   result->lookahead_char = lookahead_char;
   return result;
 }
 
-Tree *ts_tree_make_copy(Tree *self) {
-  Tree *result = ts_malloc(sizeof(Tree));
+Tree *ts_tree_make_copy(TreePool *pool, Tree *self) {
+  Tree *result = ts_tree_pool_allocate(pool);
   *result = *self;
   result->ref_count = 1;
   return result;
 }
 
-void ts_tree_assign_parents(Tree *self, TreePath *path, const TSLanguage *language) {
-  array_clear(path);
-  array_push(path, ((TreePathEntry){self, length_zero(), 0, 0}));
-  while (path->size > 0) {
-    Tree *tree = array_pop(path).tree;
+void ts_tree_assign_parents(Tree *self, TreePool *pool, const TSLanguage *language) {
+  array_clear(&pool->tree_stack);
+  array_push(&pool->tree_stack, self);
+  while (pool->tree_stack.size > 0) {
+    Tree *tree = array_pop(&pool->tree_stack);
     Length offset = length_zero();
     const TSSymbol *alias_sequence = ts_language_alias_sequence(language, tree->alias_sequence_id);
     uint32_t non_extra_index = 0;
@@ -184,14 +225,13 @@ void ts_tree_assign_parents(Tree *self, TreePath *path, const TSLanguage *langua
           child->context.alias_symbol = 0;
           child->context.alias_is_named = false;
         }
-        array_push(path, ((TreePathEntry){child, length_zero(), 0, 0}));
+        array_push(&pool->tree_stack, child);
       }
       offset = length_add(offset, ts_tree_total_size(child));
       if (!child->extra) non_extra_index++;
     }
   }
 }
-
 
 void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children,
                           const TSLanguage *language) {
@@ -264,15 +304,15 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children,
   }
 }
 
-Tree *ts_tree_make_node(TSSymbol symbol, uint32_t child_count, Tree **children,
+Tree *ts_tree_make_node(TreePool *pool, TSSymbol symbol, uint32_t child_count, Tree **children,
                         unsigned alias_sequence_id, const TSLanguage *language) {
-  Tree *result = ts_tree_make_leaf(symbol, length_zero(), length_zero(), language);
+  Tree *result = ts_tree_make_leaf(pool, symbol, length_zero(), length_zero(), language);
   result->alias_sequence_id = alias_sequence_id;
   ts_tree_set_children(result, child_count, children, language);
   return result;
 }
 
-Tree *ts_tree_make_error_node(TreeArray *children, const TSLanguage *language) {
+Tree *ts_tree_make_error_node(TreePool *pool, TreeArray *children, const TSLanguage *language) {
   for (uint32_t i = 0; i < children->size; i++) {
     Tree *child = children->contents[i];
     if (child->symbol == ts_builtin_sym_error && child->child_count > 0) {
@@ -280,12 +320,12 @@ Tree *ts_tree_make_error_node(TreeArray *children, const TSLanguage *language) {
       i += child->child_count - 1;
       for (uint32_t j = 0; j < child->child_count; j++)
         ts_tree_retain(child->children[j]);
-      ts_tree_release(child);
+      ts_tree_release(pool, child);
     }
   }
 
   Tree *result =
-    ts_tree_make_node(ts_builtin_sym_error, children->size, children->contents, 0, language);
+    ts_tree_make_node(pool, ts_builtin_sym_error, children->size, children->contents, 0, language);
 
   result->fragile_left = true;
   result->fragile_right = true;
@@ -298,26 +338,24 @@ void ts_tree_retain(Tree *self) {
   assert(self->ref_count != 0);
 }
 
-void ts_tree_release(Tree *self) {
-recur:
-  assert(self->ref_count > 0);
-  self->ref_count--;
-
-  if (self->ref_count == 0) {
-    if (self->child_count > 0) {
-      for (uint32_t i = 0; i < self->child_count - 1; i++) {
-        ts_tree_release(self->children[i]);
+void ts_tree_release(TreePool *pool, Tree *self) {
+  array_clear(&pool->tree_stack);
+  array_push(&pool->tree_stack, self);
+  while (pool->tree_stack.size > 0) {
+    Tree *tree = array_pop(&pool->tree_stack);
+    assert(tree->ref_count > 0);
+    tree->ref_count--;
+    if (tree->ref_count == 0) {
+      if (tree->child_count > 0) {
+        for (uint32_t i = 0; i < tree->child_count; i++) {
+          array_push(&pool->tree_stack, tree->children[i]);
+        }
+        ts_free(tree->children);
+      } else if (tree->has_external_tokens) {
+        ts_external_token_state_delete(&tree->external_token_state);
       }
-      Tree *last_child = self->children[self->child_count - 1];
-      ts_free(self->children);
-      ts_free(self);
-      self = last_child;
-      goto recur;
-    } else if (self->has_external_tokens) {
-      ts_external_token_state_delete(&self->external_token_state);
+      ts_tree_pool_free(pool, tree);
     }
-
-    ts_free(self);
   }
 }
 

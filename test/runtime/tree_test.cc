@@ -40,17 +40,30 @@ describe("Tree", []() {
   TSLanguage language;
   language.symbol_metadata = metadata_list;
 
+  TreePool pool;
+
+  before_each([&]() {
+    ts_tree_pool_init(&pool);
+  });
+
+  after_each([&]() {
+    ts_tree_pool_delete(&pool);
+  });
+
   describe("make_leaf", [&]() {
     it("does not mark the tree as fragile", [&]() {
-      Tree *tree = ts_tree_make_leaf(symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
+      Tree *tree = ts_tree_make_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
       AssertThat(tree->fragile_left, IsFalse());
       AssertThat(tree->fragile_right, IsFalse());
+
+      ts_tree_release(&pool, tree);
     });
   });
 
   describe("make_error", [&]() {
     it("marks the tree as fragile", [&]() {
       Tree *error_tree = ts_tree_make_error(
+        &pool,
         length_zero(),
         length_zero(),
         'z',
@@ -60,7 +73,7 @@ describe("Tree", []() {
       AssertThat(error_tree->fragile_left, IsTrue());
       AssertThat(error_tree->fragile_right, IsTrue());
 
-      ts_tree_release(error_tree);
+      ts_tree_release(&pool, error_tree);
     });
   });
 
@@ -68,21 +81,21 @@ describe("Tree", []() {
     Tree *tree1, *tree2, *parent1;
 
     before_each([&]() {
-      tree1 = ts_tree_make_leaf(symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
-      tree2 = ts_tree_make_leaf(symbol2, {1, {0, 1}}, {3, {0, 3}}, &language);
+      tree1 = ts_tree_make_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
+      tree2 = ts_tree_make_leaf(&pool, symbol2, {1, {0, 1}}, {3, {0, 3}}, &language);
 
       ts_tree_retain(tree1);
       ts_tree_retain(tree2);
-      parent1 = ts_tree_make_node(symbol3, 2, tree_array({
+      parent1 = ts_tree_make_node(&pool, symbol3, 2, tree_array({
         tree1,
         tree2,
       }), 0, &language);
     });
 
     after_each([&]() {
-      ts_tree_release(tree1);
-      ts_tree_release(tree2);
-      ts_tree_release(parent1);
+      ts_tree_release(&pool, tree1);
+      ts_tree_release(&pool, tree2);
+      ts_tree_release(&pool, parent1);
     });
 
     it("computes its size and padding based on its child nodes", [&]() {
@@ -101,14 +114,14 @@ describe("Tree", []() {
 
         ts_tree_retain(tree1);
         ts_tree_retain(tree2);
-        parent = ts_tree_make_node(symbol3, 2, tree_array({
+        parent = ts_tree_make_node(&pool, symbol3, 2, tree_array({
           tree1,
           tree2,
         }), 0, &language);
       });
 
       after_each([&]() {
-        ts_tree_release(parent);
+        ts_tree_release(&pool, parent);
       });
 
       it("records that it is fragile on the left side", [&]() {
@@ -125,14 +138,14 @@ describe("Tree", []() {
 
         ts_tree_retain(tree1);
         ts_tree_retain(tree2);
-        parent = ts_tree_make_node(symbol3, 2, tree_array({
+        parent = ts_tree_make_node(&pool, symbol3, 2, tree_array({
           tree1,
           tree2,
         }), 0, &language);
       });
 
       after_each([&]() {
-        ts_tree_release(parent);
+        ts_tree_release(&pool, parent);
       });
 
       it("records that it is fragile on the right side", [&]() {
@@ -149,14 +162,14 @@ describe("Tree", []() {
 
         ts_tree_retain(tree1);
         ts_tree_retain(tree2);
-        parent = ts_tree_make_node(symbol3, 2, tree_array({
+        parent = ts_tree_make_node(&pool, symbol3, 2, tree_array({
           tree1,
           tree2,
         }), 0, &language);
       });
 
       after_each([&]() {
-        ts_tree_release(parent);
+        ts_tree_release(&pool, parent);
       });
 
       it("records that it is not fragile", [&]() {
@@ -170,10 +183,10 @@ describe("Tree", []() {
     Tree *tree = nullptr;
 
     before_each([&]() {
-      tree = ts_tree_make_node(symbol1, 3, tree_array({
-        ts_tree_make_leaf(symbol2, {2, {0, 2}}, {3, {0, 3}}, &language),
-        ts_tree_make_leaf(symbol3, {2, {0, 2}}, {3, {0, 3}}, &language),
-        ts_tree_make_leaf(symbol4, {2, {0, 2}}, {3, {0, 3}}, &language),
+      tree = ts_tree_make_node(&pool, symbol1, 3, tree_array({
+        ts_tree_make_leaf(&pool, symbol2, {2, {0, 2}}, {3, {0, 3}}, &language),
+        ts_tree_make_leaf(&pool, symbol3, {2, {0, 2}}, {3, {0, 3}}, &language),
+        ts_tree_make_leaf(&pool, symbol4, {2, {0, 2}}, {3, {0, 3}}, &language),
       }), 0, &language);
 
       AssertThat(tree->padding, Equals<Length>({2, {0, 2}}));
@@ -181,7 +194,7 @@ describe("Tree", []() {
     });
 
     after_each([&]() {
-      ts_tree_release(tree);
+      ts_tree_release(&pool, tree);
     });
 
     describe("edits within a tree's padding", [&]() {
@@ -337,25 +350,25 @@ describe("Tree", []() {
     Tree *leaf;
 
     before_each([&]() {
-      leaf = ts_tree_make_leaf(symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
+      leaf = ts_tree_make_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
     });
 
     after_each([&]() {
-      ts_tree_release(leaf);
+      ts_tree_release(&pool, leaf);
     });
 
     it("returns true for identical trees", [&]() {
-      Tree *leaf_copy = ts_tree_make_leaf(symbol1, {2, {1, 1}}, {5, {1, 4}}, &language);
+      Tree *leaf_copy = ts_tree_make_leaf(&pool, symbol1, {2, {1, 1}}, {5, {1, 4}}, &language);
       AssertThat(ts_tree_eq(leaf, leaf_copy), IsTrue());
 
-      Tree *parent = ts_tree_make_node(symbol2, 2, tree_array({
+      Tree *parent = ts_tree_make_node(&pool, symbol2, 2, tree_array({
         leaf,
         leaf_copy,
       }), 0, &language);
       ts_tree_retain(leaf);
       ts_tree_retain(leaf_copy);
 
-      Tree *parent_copy = ts_tree_make_node(symbol2, 2, tree_array({
+      Tree *parent_copy = ts_tree_make_node(&pool, symbol2, 2, tree_array({
         leaf,
         leaf_copy,
       }), 0, &language);
@@ -364,13 +377,14 @@ describe("Tree", []() {
 
       AssertThat(ts_tree_eq(parent, parent_copy), IsTrue());
 
-      ts_tree_release(leaf_copy);
-      ts_tree_release(parent);
-      ts_tree_release(parent_copy);
+      ts_tree_release(&pool, leaf_copy);
+      ts_tree_release(&pool, parent);
+      ts_tree_release(&pool, parent_copy);
     });
 
     it("returns false for trees with different symbols", [&]() {
       Tree *different_leaf = ts_tree_make_leaf(
+        &pool,
         leaf->symbol + 1,
         leaf->padding,
         leaf->size,
@@ -378,37 +392,37 @@ describe("Tree", []() {
       );
 
       AssertThat(ts_tree_eq(leaf, different_leaf), IsFalse());
-      ts_tree_release(different_leaf);
+      ts_tree_release(&pool, different_leaf);
     });
 
     it("returns false for trees with different options", [&]() {
-      Tree *different_leaf = ts_tree_make_leaf(leaf->symbol, leaf->padding, leaf->size, &language);
+      Tree *different_leaf = ts_tree_make_leaf(&pool, leaf->symbol, leaf->padding, leaf->size, &language);
       different_leaf->visible = !leaf->visible;
       AssertThat(ts_tree_eq(leaf, different_leaf), IsFalse());
-      ts_tree_release(different_leaf);
+      ts_tree_release(&pool, different_leaf);
     });
 
     it("returns false for trees with different paddings or sizes", [&]() {
-      Tree *different_leaf = ts_tree_make_leaf(leaf->symbol, {}, leaf->size, &language);
+      Tree *different_leaf = ts_tree_make_leaf(&pool, leaf->symbol, {}, leaf->size, &language);
       AssertThat(ts_tree_eq(leaf, different_leaf), IsFalse());
-      ts_tree_release(different_leaf);
+      ts_tree_release(&pool, different_leaf);
 
-      different_leaf = ts_tree_make_leaf(symbol1, leaf->padding, {}, &language);
+      different_leaf = ts_tree_make_leaf(&pool, symbol1, leaf->padding, {}, &language);
       AssertThat(ts_tree_eq(leaf, different_leaf), IsFalse());
-      ts_tree_release(different_leaf);
+      ts_tree_release(&pool, different_leaf);
     });
 
     it("returns false for trees with different children", [&]() {
-      Tree *leaf2 = ts_tree_make_leaf(symbol2, {1, {0, 1}}, {3, {0, 3}}, &language);
+      Tree *leaf2 = ts_tree_make_leaf(&pool, symbol2, {1, {0, 1}}, {3, {0, 3}}, &language);
 
-      Tree *parent = ts_tree_make_node(symbol2, 2, tree_array({
+      Tree *parent = ts_tree_make_node(&pool, symbol2, 2, tree_array({
         leaf,
         leaf2,
       }), 0, &language);
       ts_tree_retain(leaf);
       ts_tree_retain(leaf2);
 
-      Tree *different_parent = ts_tree_make_node(symbol2, 2, tree_array({
+      Tree *different_parent = ts_tree_make_node(&pool, symbol2, 2, tree_array({
         leaf2,
         leaf,
       }), 0, &language);
@@ -418,9 +432,9 @@ describe("Tree", []() {
       AssertThat(ts_tree_eq(different_parent, parent), IsFalse());
       AssertThat(ts_tree_eq(parent, different_parent), IsFalse());
 
-      ts_tree_release(leaf2);
-      ts_tree_release(parent);
-      ts_tree_release(different_parent);
+      ts_tree_release(&pool, leaf2);
+      ts_tree_release(&pool, parent);
+      ts_tree_release(&pool, different_parent);
     });
   });
 
@@ -436,22 +450,24 @@ describe("Tree", []() {
     it("returns the last serialized external token state in the given tree", [&]() {
       Tree *tree1, *tree2, *tree3, *tree4, *tree5, *tree6, *tree7, *tree8, *tree9;
 
-      tree1 = ts_tree_make_node(symbol1, 2, tree_array({
-        (tree2 = ts_tree_make_node(symbol2, 3, tree_array({
-          (tree3 = make_external(ts_tree_make_leaf(symbol3, padding, size, &language))),
-          (tree4 = ts_tree_make_leaf(symbol4, padding, size, &language)),
-          (tree5 = ts_tree_make_leaf(symbol5, padding, size, &language)),
+      tree1 = ts_tree_make_node(&pool, symbol1, 2, tree_array({
+        (tree2 = ts_tree_make_node(&pool, symbol2, 3, tree_array({
+          (tree3 = make_external(ts_tree_make_leaf(&pool, symbol3, padding, size, &language))),
+          (tree4 = ts_tree_make_leaf(&pool, symbol4, padding, size, &language)),
+          (tree5 = ts_tree_make_leaf(&pool, symbol5, padding, size, &language)),
         }), 0, &language)),
-        (tree6 = ts_tree_make_node(symbol6, 2, tree_array({
-          (tree7 = ts_tree_make_node(symbol7, 1, tree_array({
-            (tree8 = ts_tree_make_leaf(symbol8, padding, size, &language)),
+        (tree6 = ts_tree_make_node(&pool, symbol6, 2, tree_array({
+          (tree7 = ts_tree_make_node(&pool, symbol7, 1, tree_array({
+            (tree8 = ts_tree_make_leaf(&pool, symbol8, padding, size, &language)),
           }), 0, &language)),
-          (tree9 = ts_tree_make_leaf(symbol9, padding, size, &language)),
+          (tree9 = ts_tree_make_leaf(&pool, symbol9, padding, size, &language)),
         }), 0, &language)),
       }), 0, &language);
 
       auto token = ts_tree_last_external_token(tree1);
       AssertThat(token, Equals(tree3));
+
+      ts_tree_release(&pool, tree1);
     });
   });
 });

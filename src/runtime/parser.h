@@ -10,6 +10,7 @@ extern "C" {
 #include "runtime/lexer.h"
 #include "runtime/reusable_node.h"
 #include "runtime/reduce_action.h"
+#include "runtime/tree.h"
 
 typedef struct {
   Tree *token;
@@ -20,14 +21,13 @@ typedef struct {
 typedef struct {
   Lexer lexer;
   Stack *stack;
+  TreePool tree_pool;
   const TSLanguage *language;
   ReduceActionSet reduce_actions;
   Tree *finished_tree;
   Tree scratch_tree;
   TokenCache token_cache;
   ReusableNode reusable_node;
-  TreePath tree_path1;
-  TreePath tree_path2;
   void *external_scanner_payload;
   bool in_ambiguity;
   bool print_debugging_graphs;

@@ -22,9 +22,6 @@ typedef struct {
   unsigned length;
 } TSExternalTokenState;
 
-void ts_external_token_state_init(TSExternalTokenState *, const char *, unsigned);
-const char *ts_external_token_state_data(const TSExternalTokenState *);
-
 typedef struct Tree {
   struct {
     struct Tree *parent;
@@ -70,38 +67,41 @@ typedef struct Tree {
   bool has_external_tokens : 1;
 } Tree;
 
-typedef struct {
-  Tree *tree;
-  Length position;
-  uint32_t child_index;
-  uint32_t structural_child_index;
-} TreePathEntry;
-
 typedef Array(Tree *) TreeArray;
 
-typedef Array(TreePathEntry) TreePath;
+typedef struct {
+  TreeArray free_trees;
+  TreeArray tree_stack;
+} TreePool;
+
+void ts_external_token_state_init(TSExternalTokenState *, const char *, unsigned);
+const char *ts_external_token_state_data(const TSExternalTokenState *);
 
 bool ts_tree_array_copy(TreeArray, TreeArray *);
-void ts_tree_array_delete(TreeArray *);
+void ts_tree_array_delete(TreePool *, TreeArray *);
 uint32_t ts_tree_array_essential_count(const TreeArray *);
 TreeArray ts_tree_array_remove_last_n(TreeArray *, uint32_t);
 TreeArray ts_tree_array_remove_trailing_extras(TreeArray *);
 void ts_tree_array_reverse(TreeArray *);
 
-Tree *ts_tree_make_leaf(TSSymbol, Length, Length, const TSLanguage *);
-Tree *ts_tree_make_node(TSSymbol, uint32_t, Tree **, unsigned, const TSLanguage *);
-Tree *ts_tree_make_copy(Tree *child);
-Tree *ts_tree_make_error_node(TreeArray *, const TSLanguage *);
-Tree *ts_tree_make_error(Length, Length, int32_t, const TSLanguage *);
+void ts_tree_pool_init(TreePool *);
+void ts_tree_pool_delete(TreePool *);
+Tree *ts_tree_pool_allocate(TreePool *);
+void ts_tree_pool_free(TreePool *, Tree *);
+
+Tree *ts_tree_make_leaf(TreePool *, TSSymbol, Length, Length, const TSLanguage *);
+Tree *ts_tree_make_node(TreePool *, TSSymbol, uint32_t, Tree **, unsigned, const TSLanguage *);
+Tree *ts_tree_make_copy(TreePool *, Tree *child);
+Tree *ts_tree_make_error_node(TreePool *, TreeArray *, const TSLanguage *);
+Tree *ts_tree_make_error(TreePool *, Length, Length, int32_t, const TSLanguage *);
 void ts_tree_retain(Tree *tree);
-void ts_tree_release(Tree *tree);
+void ts_tree_release(TreePool *, Tree *tree);
 bool ts_tree_eq(const Tree *tree1, const Tree *tree2);
 int ts_tree_compare(const Tree *tree1, const Tree *tree2);
-
 uint32_t ts_tree_start_column(const Tree *self);
 uint32_t ts_tree_end_column(const Tree *self);
 void ts_tree_set_children(Tree *, uint32_t, Tree **, const TSLanguage *);
-void ts_tree_assign_parents(Tree *, TreePath *, const TSLanguage *);
+void ts_tree_assign_parents(Tree *, TreePool *, const TSLanguage *);
 void ts_tree_edit(Tree *, const TSInputEdit *edit);
 char *ts_tree_string(const Tree *, const TSLanguage *, bool include_all);
 void ts_tree_print_dot_graph(const Tree *, const TSLanguage *, FILE *);
@@ -114,11 +114,6 @@ static inline uint32_t ts_tree_total_bytes(const Tree *self) {
 
 static inline Length ts_tree_total_size(const Tree *self) {
   return length_add(self->padding, self->size);
-}
-
-static inline bool ts_tree_is_fragile(const Tree *tree) {
-  return tree->fragile_left || tree->fragile_right ||
-         ts_tree_total_bytes(tree) == 0;
 }
 
 #ifdef __cplusplus

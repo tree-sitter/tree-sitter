@@ -63,6 +63,7 @@ struct Stack {
   Array(Iterator) iterators;
   StackNodeArray node_pool;
   StackNode *base_node;
+  TreePool *tree_pool;
 };
 
 typedef StackIterateAction (*StackIterateInternalCallback)(void *, const Iterator *);
@@ -75,7 +76,7 @@ static void stack_node_retain(StackNode *self) {
   assert(self->ref_count != 0);
 }
 
-static void stack_node_release(StackNode *self, StackNodeArray *pool) {
+static void stack_node_release(StackNode *self, StackNodeArray *pool, TreePool *tree_pool) {
 recur:
   assert(self->ref_count != 0);
   self->ref_count--;
@@ -84,10 +85,10 @@ recur:
   StackNode *first_predecessor = NULL;
   if (self->link_count > 0) {
     for (unsigned i = self->link_count - 1; i > 0; i--) {
-      if (self->links[i].tree) ts_tree_release(self->links[i].tree);
-      stack_node_release(self->links[i].node, pool);
+      if (self->links[i].tree) ts_tree_release(tree_pool, self->links[i].tree);
+      stack_node_release(self->links[i].node, pool, tree_pool);
     }
-    if (self->links[0].tree) ts_tree_release(self->links[0].tree);
+    if (self->links[0].tree) ts_tree_release(tree_pool, self->links[0].tree);
     first_predecessor = self->links[0].node;
   }
 
@@ -187,16 +188,16 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
   }
 }
 
-static void stack_head_delete(StackHead *self, StackNodeArray *pool) {
+static void stack_head_delete(StackHead *self, StackNodeArray *pool, TreePool *tree_pool) {
   if (self->node) {
     if (self->last_external_token) {
-      ts_tree_release(self->last_external_token);
+      ts_tree_release(tree_pool, self->last_external_token);
     }
     if (self->summary) {
       array_delete(self->summary);
       ts_free(self->summary);
     }
-    stack_node_release(self->node, pool);
+    stack_node_release(self->node, pool, tree_pool);
   }
 }
 
@@ -271,7 +272,7 @@ inline StackPopResult stack__iter(Stack *self, StackVersion version,
 
       if (should_stop) {
         if (!should_pop)
-          ts_tree_array_delete(&iterator->trees);
+          ts_tree_array_delete(self->tree_pool, &iterator->trees);
         array_erase(&self->iterators, i);
         i--, size--;
         continue;
@@ -316,7 +317,7 @@ inline StackPopResult stack__iter(Stack *self, StackVersion version,
   return (StackPopResult){self->slices};
 }
 
-Stack *ts_stack_new() {
+Stack *ts_stack_new(TreePool *tree_pool) {
   Stack *self = ts_calloc(1, sizeof(Stack));
 
   array_init(&self->heads);
@@ -328,6 +329,7 @@ Stack *ts_stack_new() {
   array_grow(&self->iterators, 4);
   array_grow(&self->node_pool, MAX_NODE_POOL_SIZE);
 
+  self->tree_pool = tree_pool;
   self->base_node = stack_node_new(NULL, NULL, false, 1, &self->node_pool);
   ts_stack_clear(self);
 
@@ -339,9 +341,9 @@ void ts_stack_delete(Stack *self) {
     array_delete(&self->slices);
   if (self->iterators.contents)
     array_delete(&self->iterators);
-  stack_node_release(self->base_node, &self->node_pool);
+  stack_node_release(self->base_node, &self->node_pool, self->tree_pool);
   for (uint32_t i = 0; i < self->heads.size; i++) {
-    stack_head_delete(&self->heads.contents[i], &self->node_pool);
+    stack_head_delete(&self->heads.contents[i], &self->node_pool, self->tree_pool);
   }
   array_clear(&self->heads);
   if (self->node_pool.contents) {
@@ -380,7 +382,7 @@ Tree *ts_stack_last_external_token(const Stack *self, StackVersion version) {
 void ts_stack_set_last_external_token(Stack *self, StackVersion version, Tree *token) {
   StackHead *head = array_get(&self->heads, version);
   if (token) ts_tree_retain(token);
-  if (head->last_external_token) ts_tree_release(head->last_external_token);
+  if (head->last_external_token) ts_tree_release(self->tree_pool, head->last_external_token);
   head->last_external_token = token;
 }
 
@@ -397,7 +399,7 @@ void ts_stack_push(Stack *self, StackVersion version, Tree *tree, bool pending, 
   } else if (!tree->extra) {
     head->push_count++;
   }
-  stack_node_release(head->node, &self->node_pool);
+  stack_node_release(head->node, &self->node_pool, self->tree_pool);
   head->node = new_node;
 }
 
@@ -525,14 +527,14 @@ int ts_stack_dynamic_precedence(Stack *self, StackVersion version) {
 }
 
 void ts_stack_remove_version(Stack *self, StackVersion version) {
-  stack_head_delete(array_get(&self->heads, version), &self->node_pool);
+  stack_head_delete(array_get(&self->heads, version), &self->node_pool, self->tree_pool);
   array_erase(&self->heads, version);
 }
 
 void ts_stack_renumber_version(Stack *self, StackVersion v1, StackVersion v2) {
   assert(v2 < v1);
   assert((uint32_t)v1 < self->heads.size);
-  stack_head_delete(&self->heads.contents[v2], &self->node_pool);
+  stack_head_delete(&self->heads.contents[v2], &self->node_pool, self->tree_pool);
   self->heads.contents[v2] = self->heads.contents[v1];
   array_erase(&self->heads, v1);
 }
@@ -593,7 +595,7 @@ bool ts_stack_is_halted(Stack *self, StackVersion version) {
 void ts_stack_clear(Stack *self) {
   stack_node_retain(self->base_node);
   for (uint32_t i = 0; i < self->heads.size; i++) {
-    stack_head_delete(&self->heads.contents[i], &self->node_pool);
+    stack_head_delete(&self->heads.contents[i], &self->node_pool, self->tree_pool);
   }
   array_clear(&self->heads);
   array_push(&self->heads, ((StackHead){
