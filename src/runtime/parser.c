@@ -783,58 +783,59 @@ static void parser__accept(Parser *self, StackVersion version,
   ts_stack_halt(self->stack, version);
 }
 
-static bool parser__do_potential_reductions(Parser *self, StackVersion version) {
-  bool has_shift_action = false;
-  TSStateId state = ts_stack_top_state(self->stack, version);
-  uint32_t previous_version_count = ts_stack_version_count(self->stack);
+static void parser__do_potential_reductions(Parser *self, StackVersion starting_version) {
+  for (StackVersion version = starting_version;;) {
+    uint32_t version_count = ts_stack_version_count(self->stack);
+    if (version >= version_count) break;
 
-  array_clear(&self->reduce_actions);
-  for (TSSymbol symbol = 0; symbol < self->language->token_count; symbol++) {
-    TableEntry entry;
-    ts_language_table_entry(self->language, state, symbol, &entry);
-    for (uint32_t i = 0; i < entry.action_count; i++) {
-      TSParseAction action = entry.actions[i];
-      if (action.params.extra)
-        continue;
-      switch (action.type) {
-        case TSParseActionTypeShift:
-        case TSParseActionTypeRecover:
-          has_shift_action = true;
-          break;
-        case TSParseActionTypeReduce:
-          if (action.params.child_count > 0)
-            ts_reduce_action_set_add(&self->reduce_actions, (ReduceAction){
-              .symbol = action.params.symbol,
-              .count = action.params.child_count,
-              .dynamic_precedence = action.params.dynamic_precedence,
-              .alias_sequence_id = action.params.alias_sequence_id,
-            });
-        default:
-          break;
+    TSStateId state = ts_stack_top_state(self->stack, version);
+    bool has_shift_action = false;
+    array_clear(&self->reduce_actions);
+
+    for (TSSymbol symbol = 0; symbol < self->language->token_count; symbol++) {
+      TableEntry entry;
+      ts_language_table_entry(self->language, state, symbol, &entry);
+      for (uint32_t i = 0; i < entry.action_count; i++) {
+        TSParseAction action = entry.actions[i];
+        if (action.params.extra) continue;
+        switch (action.type) {
+          case TSParseActionTypeShift:
+          case TSParseActionTypeRecover:
+            has_shift_action = true;
+            break;
+          case TSParseActionTypeReduce:
+            if (action.params.child_count > 0)
+              ts_reduce_action_set_add(&self->reduce_actions, (ReduceAction){
+                .symbol = action.params.symbol,
+                .count = action.params.child_count,
+                .dynamic_precedence = action.params.dynamic_precedence,
+                .alias_sequence_id = action.params.alias_sequence_id,
+              });
+          default:
+            break;
+        }
       }
     }
-  }
 
-  bool did_reduce = false;
-  for (uint32_t i = 0; i < self->reduce_actions.size; i++) {
-    ReduceAction action = self->reduce_actions.contents[i];
-    parser__reduce(
-      self, version, action.symbol, action.count,
-      action.dynamic_precedence, action.alias_sequence_id,
-      true
-    );
-    did_reduce = true;
-  }
-
-  if (did_reduce) {
-    if (has_shift_action) {
-      return true;
-    } else {
-      ts_stack_renumber_version(self->stack, previous_version_count, version);
-      return false;
+    for (uint32_t i = 0; i < self->reduce_actions.size; i++) {
+      ReduceAction action = self->reduce_actions.contents[i];
+      parser__reduce(
+        self, version, action.symbol, action.count,
+        action.dynamic_precedence, action.alias_sequence_id,
+        true
+      );
     }
-  } else {
-    return true;
+
+    if (self->reduce_actions.size > 0 && !has_shift_action) {
+      ts_stack_renumber_version(self->stack, version_count, version);
+      continue;
+    }
+
+    if (version == starting_version) {
+      version = version_count;
+    } else {
+      version++;
+    }
   }
 }
 
@@ -853,15 +854,7 @@ static void parser__handle_error(Parser *self, StackVersion version, TSSymbol lo
   // Perform any reductions that could have happened in this state, regardless
   // of the lookahead.
   uint32_t previous_version_count = ts_stack_version_count(self->stack);
-  for (StackVersion v = version; v < ts_stack_version_count(self->stack);) {
-    if (parser__do_potential_reductions(self, v)) {
-      if (v == version) {
-        v = previous_version_count;
-      } else {
-        v++;
-      }
-    }
-  }
+  parser__do_potential_reductions(self, version);
 
   // Push a discontinuity onto the stack. Merge all of the stack versions that
   // were created in the previous step.
