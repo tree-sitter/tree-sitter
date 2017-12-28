@@ -26,8 +26,7 @@ OPTIONS
 
   -s  set the seed used to control random behavior
 
-  -z  pipe tests' stderr to \`dot(1)\` to render an SVG log
-
+  -D  pipe tests' stderr to \`dot(1)\` to render an SVG log
 
 EOF
 }
@@ -46,7 +45,7 @@ if [ "$(uname -s)" == "Darwin" ]; then
   export LINK="clang++ -fsanitize=address"
 fi
 
-while getopts "bdf:s:gGhpvS" option; do
+while getopts "bdf:s:gGhpvD" option; do
   case ${option} in
     h)
       usage
@@ -74,7 +73,8 @@ while getopts "bdf:s:gGhpvS" option; do
     s)
       export TREE_SITTER_SEED=${OPTARG}
       ;;
-    S)
+    D)
+      export TREE_SITTER_ENABLE_DEBUG_GRAPHS=1
       mode=SVG
       ;;
     b)
@@ -123,9 +123,19 @@ case ${mode} in
     ;;
 
   SVG)
-    echo "<!DOCTYPE html><style>svg { width: 100%; margin-bottom: 20px; }</style>" > index.html
-    $cmd "${args[@]}" 2> >(grep -v 'Assertion failed' | dot -Tsvg >> index.html)
-    echo "Wrote index.html"
+    function write_log_file {
+      echo "<!DOCTYPE html><style>svg { width: 100%; margin-bottom: 20px; }</style>" > log.html
+      line_count=$(grep -n '^$' log.dot | tail -1 | cut -f1 -d:)
+      head -n $line_count log.dot | dot -Tsvg >> log.html
+      echo "Wrote log.html ($line_count lines)"
+    }
+
+    function handle_sigint { echo; write_log_file; }
+    trap handle_sigint SIGINT
+
+    $cmd "${args[@]}" 2> log.dot || export status=$?
+    write_log_file
+    exit $status
     ;;
 
   normal)

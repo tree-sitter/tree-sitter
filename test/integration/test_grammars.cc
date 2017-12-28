@@ -54,8 +54,11 @@ for (auto &language_name : test_languages) {
         ts_document_set_language(document, language);
         ts_document_set_input_string_with_length(document, entry.input.c_str(), entry.input.size());
 
-        // ts_document_set_logger(document, stderr_logger_new(true));
         // ts_document_print_debugging_graphs(document, true);
+        if (getenv("TREE_SITTER_ENABLE_DEBUG_GRAPHS")) {
+          ts_document_print_debugging_graphs(document, true);
+        }
+
         ts_document_parse(document);
 
         TSNode root_node = ts_document_root_node(document);

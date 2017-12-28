@@ -39,7 +39,9 @@ for (auto &language_name : test_languages) {
       ts_document_set_language(document, load_real_language(language_name));
 
       // ts_document_set_logger(document, stderr_logger_new(true));
-      // ts_document_print_debugging_graphs(document, true);
+      if (getenv("TREE_SITTER_ENABLE_DEBUG_GRAPHS")) {
+        ts_document_print_debugging_graphs(document, true);
+      }
     });
 
     after_each([&]() {
