@@ -126,11 +126,20 @@ case ${mode} in
     function write_log_file {
       echo "<!DOCTYPE html><style>svg { width: 100%; margin-bottom: 20px; }</style>" > log.html
       line_count=$(grep -n '^$' log.dot | tail -1 | cut -f1 -d:)
-      head -n $line_count log.dot | dot -Tsvg >> log.html
-      echo "Wrote log.html ($line_count lines)"
+      if [[ -n $line_count ]]; then
+        head -n $line_count log.dot | dot -Tsvg >> log.html
+      else
+        cat log.dot | dot -Tsvg >> log.html
+      fi
+      echo "Wrote log.html - $line_count"
     }
 
-    function handle_sigint { echo; write_log_file; }
+    function handle_sigint {
+      trap '' SIGINT
+      echo
+      write_log_file
+      exit 0
+    }
     trap handle_sigint SIGINT
 
     $cmd "${args[@]}" 2> log.dot || export status=$?
