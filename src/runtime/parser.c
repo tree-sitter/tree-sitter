@@ -797,11 +797,10 @@ static void parser__do_potential_reductions(Parser *self, StackVersion starting_
       ts_language_table_entry(self->language, state, symbol, &entry);
       for (uint32_t i = 0; i < entry.action_count; i++) {
         TSParseAction action = entry.actions[i];
-        if (action.params.extra) continue;
         switch (action.type) {
           case TSParseActionTypeShift:
           case TSParseActionTypeRecover:
-            has_shift_action = true;
+            if (!action.params.extra) has_shift_action = true;
             break;
           case TSParseActionTypeReduce:
             if (action.params.child_count > 0)
