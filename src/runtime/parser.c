@@ -892,6 +892,60 @@ static void parser__halt_parse(Parser *self) {
   ts_tree_release(&self->tree_pool, eof);
 }
 
+static StackVersion parser__recover_to_state(Parser *self, StackVersion version,
+                                             unsigned depth, TSStateId goal_state) {
+  StackPopResult pop = ts_stack_pop_count(self->stack, version, depth);
+  StackVersion previous_version = STACK_VERSION_NONE;
+
+  for (unsigned i = 0; i < pop.slices.size; i++) {
+    StackSlice slice = pop.slices.contents[i];
+
+    if (slice.version == previous_version) {
+      ts_tree_array_delete(&self->tree_pool, &slice.trees);
+      array_erase(&pop.slices, i--);
+      continue;
+    }
+
+    if (ts_stack_top_state(self->stack, slice.version) != goal_state) {
+      ts_stack_halt(self->stack, slice.version);
+      ts_tree_array_delete(&self->tree_pool, &slice.trees);
+      array_erase(&pop.slices, i--);
+      continue;
+    }
+
+    StackPopResult error_pop = ts_stack_pop_error(self->stack, slice.version);
+    if (error_pop.slices.size > 0) {
+      StackSlice error_slice = error_pop.slices.contents[0];
+      array_push_all(&error_slice.trees, &slice.trees);
+      array_delete(&slice.trees);
+      slice.trees = error_slice.trees;
+      ts_stack_renumber_version(self->stack, error_slice.version, slice.version);
+    }
+
+    TreeArray trailing_extras = ts_tree_array_remove_trailing_extras(&slice.trees);
+
+    if (slice.trees.size > 0) {
+      Tree *error = ts_tree_make_error_node(&self->tree_pool, &slice.trees, self->language);
+      error->extra = true;
+      ts_stack_push(self->stack, slice.version, error, false, goal_state);
+      ts_tree_release(&self->tree_pool, error);
+    } else {
+      array_delete(&slice.trees);
+    }
+
+    for (unsigned j = 0; j < trailing_extras.size; j++) {
+      Tree *tree = trailing_extras.contents[j];
+      ts_stack_push(self->stack, slice.version, tree, false, goal_state);
+      ts_tree_release(&self->tree_pool, tree);
+    }
+
+    previous_version = slice.version;
+    array_delete(&trailing_extras);
+  }
+
+  return previous_version;
+}
+
 static void parser__recover(Parser *self, StackVersion version, Tree *lookahead) {
   bool did_recover = false;
   unsigned previous_version_count = ts_stack_version_count(self->stack);
@@ -911,52 +965,12 @@ static void parser__recover(Parser *self, StackVersion version, Tree *lookahead)
 
     unsigned count = 0;
     if (ts_language_actions(self->language, entry.state, lookahead->symbol, &count) && count > 0) {
-      LOG("recover state:%u, depth:%u", entry.state, depth);
-      StackPopResult pop = ts_stack_pop_count(self->stack, version, depth);
-      StackVersion previous_version = STACK_VERSION_NONE;
-      for (unsigned j = 0; j < pop.slices.size; j++) {
-        StackSlice slice = pop.slices.contents[j];
-        if (slice.version == previous_version) {
-          ts_tree_array_delete(&self->tree_pool, &slice.trees);
-          continue;
-        }
-
-        if (ts_stack_top_state(self->stack, slice.version) != entry.state) {
-          ts_tree_array_delete(&self->tree_pool, &slice.trees);
-          ts_stack_halt(self->stack, slice.version);
-          continue;
-        }
-
-        StackPopResult error_pop = ts_stack_pop_error(self->stack, slice.version);
-        if (error_pop.slices.size > 0) {
-          StackSlice error_slice = error_pop.slices.contents[0];
-          array_push_all(&error_slice.trees, &slice.trees);
-          array_delete(&slice.trees);
-          slice.trees = error_slice.trees;
-          ts_stack_renumber_version(self->stack, error_slice.version, slice.version);
-        }
-
-        TreeArray trailing_extras = ts_tree_array_remove_trailing_extras(&slice.trees);
-        if (slice.trees.size > 0) {
-          Tree *error = ts_tree_make_error_node(&self->tree_pool, &slice.trees, self->language);
-          error->extra = true;
-          ts_stack_push(self->stack, slice.version, error, false, entry.state);
-          ts_tree_release(&self->tree_pool, error);
-        } else {
-          array_delete(&slice.trees);
-        }
-        previous_version = slice.version;
-
-        for (unsigned k = 0; k < trailing_extras.size; k++) {
-          Tree *tree = trailing_extras.contents[k];
-          ts_stack_push(self->stack, slice.version, tree, false, entry.state);
-          ts_tree_release(&self->tree_pool, tree);
-        }
-
-        array_delete(&trailing_extras);
+      StackVersion recovered_version = parser__recover_to_state(self, version, depth, entry.state);
+      if (recovered_version != STACK_VERSION_NONE) {
         did_recover = true;
+        LOG("recover state:%u, depth:%u", entry.state, depth);
+        break;
       }
-      break;
     }
   }
 
