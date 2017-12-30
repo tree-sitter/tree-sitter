@@ -65,6 +65,7 @@ typedef struct Tree {
   bool fragile_right : 1;
   bool has_changes : 1;
   bool has_external_tokens : 1;
+  bool is_missing : 1;
 } Tree;
 
 typedef Array(Tree *) TreeArray;
@@ -94,6 +95,7 @@ Tree *ts_tree_make_node(TreePool *, TSSymbol, uint32_t, Tree **, unsigned, const
 Tree *ts_tree_make_copy(TreePool *, Tree *child);
 Tree *ts_tree_make_error_node(TreePool *, TreeArray *, const TSLanguage *);
 Tree *ts_tree_make_error(TreePool *, Length, Length, int32_t, const TSLanguage *);
+Tree *ts_tree_make_missing_leaf(TreePool *, TSSymbol, const TSLanguage *);
 void ts_tree_retain(Tree *tree);
 void ts_tree_release(TreePool *, Tree *tree);
 bool ts_tree_eq(const Tree *tree1, const Tree *tree2);

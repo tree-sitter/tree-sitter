@@ -1,52 +1,97 @@
-========================================
-Errors inside ifdefs
-========================================
+=======================================
+Statements with missing semicolons
+=======================================
 
-#ifdef something
-int x // no semicolon
-#endif
+int main() {
+  puts("hello")
+  puts("world")
+}
 
-int a;
+---
+
+(translation_unit
+  (function_definition
+    (primitive_type)
+    (function_declarator (identifier) (parameter_list))
+    (compound_statement
+      (expression_statement (call_expression (identifier) (argument_list (string_literal))) (MISSING))
+      (expression_statement (call_expression (identifier) (argument_list (string_literal))) (MISSING)))))
+
+==============================================
+Top-level declarations with missing semicolons
+==============================================
+
+int x
+static int b
+
+---
+
+(translation_unit
+  (declaration (primitive_type) (identifier) (MISSING))
+  (declaration (storage_class_specifier) (primitive_type) (identifier) (MISSING)))
+
+==========================================
+Partial declaration lists inside ifdefs
+==========================================
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int c() { return 5; }
-
+// ok
 int b;
+
+int c() {
+  return 5;
+}
 
 #ifdef __cplusplus
 }
 #endif
 
-int c;
+---
+
+(translation_unit
+  (preproc_ifdef (identifier)
+    (linkage_specification (string_literal) (declaration_list
+      (preproc_call (preproc_directive))
+      (comment)
+      (declaration (primitive_type) (identifier))
+      (function_definition (primitive_type) (function_declarator (identifier) (parameter_list)) (compound_statement (return_statement (number_literal))))
+      (preproc_ifdef (identifier) (MISSING))))))
+
+==========================================
+If statements with incomplete expressions
+==========================================
+
+int main() {
+  if (a.) {
+    b();
+    c();
+
+    if () d();
+  }
+}
 
 ---
 
 (translation_unit
-  (preproc_ifdef
-    (identifier)
-    (ERROR (primitive_type) (identifier))
-    (comment))
-  (declaration (primitive_type) (identifier))
-  (preproc_ifdef
-    (identifier)
-    (linkage_specification
-      (string_literal)
-      (declaration_list
-        (preproc_call (preproc_directive))
-        (function_definition
-          (primitive_type)
-          (function_declarator (identifier) (parameter_list))
-          (compound_statement (return_statement (number_literal))))
-        (declaration (primitive_type) (identifier))
-        (ERROR (identifier)))))
-  (declaration (primitive_type) (identifier)))
+  (function_definition
+    (primitive_type)
+    (function_declarator (identifier) (parameter_list))
+    (compound_statement
+      (if_statement
+        (field_expression (identifier) (MISSING))
+        (compound_statement
+          (expression_statement (call_expression (identifier) (argument_list)))
+          (expression_statement (call_expression (identifier) (argument_list)))
+          (if_statement
+            (MISSING)
+            (expression_statement (call_expression (identifier) (argument_list)))))))))
 
-========================================
-Errors inside blocks
-========================================
+====================================
+Invalid characters in declarations
+====================================
 
 int main() {
   int x;
@@ -63,9 +108,9 @@ int main() {
       (declaration (primitive_type) (identifier))
       (ERROR (primitive_type) (UNEXPECTED '$')))))
 
-========================================
-Errors inside expressions
-========================================
+=========================================
+Extra values in parenthesized expressions
+=========================================
 
 int main() {
   int x = (123 123);
@@ -85,7 +130,7 @@ int main() {
           (ERROR (number_literal))))))))
 
 ========================================
-Errors in declarations
+Extra identifiers in declarations
 ========================================
 
 float x WTF;
@@ -98,17 +143,12 @@ int y = 5;
   (declaration (primitive_type) (init_declarator (identifier) (number_literal))))
 
 ==========================================
-Errors at the beginnings of blocks
+Declarations with missing variable names
 ==========================================
 
 int a() {
   struct x = 1;
-  struct y = 2;
-}
-
-int b() {
-  w x y z = 3;
-  w x y z = 4;
+  int = 2;
 }
 
 ---
@@ -118,24 +158,13 @@ int b() {
     (primitive_type)
     (function_declarator (identifier) (parameter_list))
     (compound_statement
-      (struct_specifier (type_identifier))
-      (ERROR (number_literal))
-      (struct_specifier (type_identifier))
-      (ERROR (number_literal))))
-
-  (function_definition
-    (primitive_type)
-    (function_declarator (identifier) (parameter_list))
-    (compound_statement
       (declaration
-        (type_identifier)
-        (ERROR (identifier) (identifier))
+        (struct_specifier (type_identifier))
         (init_declarator
-          (identifier)
+          (MISSING)
           (number_literal)))
       (declaration
-        (type_identifier)
-        (ERROR (identifier) (identifier))
+        (primitive_type)
         (init_declarator
-          (identifier)
+          (MISSING)
           (number_literal))))))

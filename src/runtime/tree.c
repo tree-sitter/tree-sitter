@@ -324,14 +324,23 @@ Tree *ts_tree_make_error_node(TreePool *pool, TreeArray *children, const TSLangu
     }
   }
 
-  Tree *result =
-    ts_tree_make_node(pool, ts_builtin_sym_error, children->size, children->contents, 0, language);
+  Tree *result = ts_tree_make_node(
+    pool, ts_builtin_sym_error,
+    children->size, children->contents,
+    0, language
+  );
 
   result->fragile_left = true;
   result->fragile_right = true;
   return result;
 }
 
+Tree *ts_tree_make_missing_leaf(TreePool *pool, TSSymbol symbol, const TSLanguage *language) {
+  Tree *result = ts_tree_make_leaf(pool, symbol, length_zero(), length_zero(), language);
+  result->is_missing = true;
+  result->error_cost = ERROR_COST_PER_MISSING_TREE;
+  return result;
+}
 void ts_tree_retain(Tree *self) {
   assert(self->ref_count > 0);
   self->ref_count++;
@@ -574,6 +583,7 @@ static size_t ts_tree__write_to_string(const Tree *self, const TSLanguage *langu
   bool visible =
     include_all ||
     is_root ||
+    self->is_missing ||
     (self->visible && self->named) ||
     self->context.alias_is_named;
 
@@ -585,9 +595,12 @@ static size_t ts_tree__write_to_string(const Tree *self, const TSLanguage *langu
     if (self->symbol == ts_builtin_sym_error && self->child_count == 0 && self->size.bytes > 0) {
       cursor += snprintf(*writer, limit, "(UNEXPECTED ");
       cursor += ts_tree__write_char_to_string(*writer, limit, self->lookahead_char);
+    } else if (self->is_missing) {
+      cursor += snprintf(*writer, limit, "(MISSING");
     } else {
       TSSymbol symbol = self->context.alias_symbol ? self->context.alias_symbol : self->symbol;
-      cursor += snprintf(*writer, limit, "(%s", ts_language_symbol_name(language, symbol));
+      const char *symbol_name = ts_language_symbol_name(language, symbol);
+      cursor += snprintf(*writer, limit, "(%s", symbol_name);
     }
   }
 
@@ -601,11 +614,9 @@ static size_t ts_tree__write_to_string(const Tree *self, const TSLanguage *langu
   return cursor - string;
 }
 
-char *ts_tree_string(const Tree *self, const TSLanguage *language,
-                     bool include_all) {
-  static char SCRATCH[1];
-  size_t size =
-    ts_tree__write_to_string(self, language, SCRATCH, 0, true, include_all) + 1;
+char *ts_tree_string(const Tree *self, const TSLanguage *language, bool include_all) {
+  char scratch_string[1];
+  size_t size = ts_tree__write_to_string(self, language, scratch_string, 0, true, include_all) + 1;
   char *result = ts_malloc(size * sizeof(char));
   ts_tree__write_to_string(self, language, result, size, true, include_all);
   return result;

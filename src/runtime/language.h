@@ -33,6 +33,22 @@ static inline const TSParseAction *ts_language_actions(const TSLanguage *self,
   return entry.actions;
 }
 
+static inline bool ts_language_has_actions(const TSLanguage *self,
+                                           TSStateId state,
+                                           TSSymbol symbol) {
+  TableEntry entry;
+  ts_language_table_entry(self, state, symbol, &entry);
+  return entry.action_count > 0;
+}
+
+static inline bool ts_language_has_reduce_action(const TSLanguage *self,
+                                                 TSStateId state,
+                                                 TSSymbol symbol) {
+  TableEntry entry;
+  ts_language_table_entry(self, state, symbol, &entry);
+  return entry.action_count > 0 && entry.actions[0].type == TSParseActionTypeReduce;
+}
+
 static inline TSStateId ts_language_next_state(const TSLanguage *self,
                                                TSStateId state,
                                                TSSymbol symbol) {

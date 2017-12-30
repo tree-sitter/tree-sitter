@@ -278,6 +278,11 @@ bool ts_node_is_named(TSNode self) {
   return tree->context.alias_symbol ? tree->context.alias_is_named : tree->named;
 }
 
+bool ts_node_is_missing(TSNode self) {
+  const Tree *tree = ts_node__tree(self);
+  return tree->is_missing;
+}
+
 bool ts_node_has_changes(TSNode self) {
   return ts_node__tree(self)->has_changes;
 }
