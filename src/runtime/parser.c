@@ -177,6 +177,7 @@ static bool parser__better_version_exists(Parser *self, StackVersion version,
                                           bool is_in_error, unsigned cost) {
   if (self->finished_tree && self->finished_tree->error_cost <= cost) return true;
 
+  Length position = ts_stack_top_position(self->stack, version);
   ErrorStatus status = {
     .cost = cost,
     .is_in_error = is_in_error,
@@ -185,7 +186,9 @@ static bool parser__better_version_exists(Parser *self, StackVersion version,
   };
 
   for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
-    if (i == version || ts_stack_is_halted(self->stack, i)) continue;
+    if (i == version ||
+        ts_stack_is_halted(self->stack, i) ||
+        ts_stack_top_position(self->stack, i).bytes < position.bytes) continue;
     ErrorStatus status_i = {
       .cost = ts_stack_error_cost(self->stack, i),
       .is_in_error = ts_stack_top_state(self->stack, i) == ERROR_STATE,
