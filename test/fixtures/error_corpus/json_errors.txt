@@ -47,7 +47,7 @@ errors inside objects
 errors inside nested objects
 ==========================================
 
-{ "key1": { "key2": 1, 2 }, [, "key3": 3 }
+{ "key1": { "key2": 1, 2 }, "key3": 3 [ }
 
 ---
 
@@ -55,5 +55,5 @@ errors inside nested objects
   (pair (string) (object
     (pair (string) (number))
     (ERROR (number))))
-  (ERROR)
-  (pair (string) (number))))
+  (pair (string) (number))
+  (ERROR)))

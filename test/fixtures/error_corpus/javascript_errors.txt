@@ -1,5 +1,45 @@
 ===================================================
-one invalid token right after the viable prefix
+Missing default values for function parameters
+===================================================
+
+class A {
+  constructor (a, b = ) {
+    this.a = a
+  }
+
+  foo() {}
+}
+
+---
+
+(program
+  (class (identifier) (class_body
+    (method_definition
+      (property_identifier)
+      (formal_parameters (identifier) (identifier) (ERROR))
+      (statement_block (expression_statement (assignment_expression (member_expression (this) (property_identifier)) (identifier)))))
+    (method_definition
+      (property_identifier)
+      (formal_parameters)
+      (statement_block)))))
+
+===================================================
+Missing object-literal values
+===================================================
+
+{
+  a: b,
+  c:
+}
+
+---
+
+(program (expression_statement (object
+  (pair (property_identifier) (identifier))
+  (pair (property_identifier) (yield_expression (MISSING))))))
+
+===================================================
+Extra identifiers in expressions
 ===================================================
 
 if (a b) {
@@ -17,33 +57,12 @@ e f;
     (statement_block
       (ERROR (identifier))
       (expression_statement (identifier))))
-  (ERROR (identifier))
-  (expression_statement (identifier)))
-
-=======================================================
-multiple invalid tokens right after the viable prefix
-=======================================================
-
-if (a b c) {
-  d e f g;
-}
-h i j k;
-
----
-
-(program
-  (if_statement
-    (parenthesized_expression
-      (identifier)
-      (ERROR (identifier) (identifier)))
-    (statement_block
-      (ERROR (identifier))
-      (expression_statement (identifier) (ERROR (identifier) (identifier)))))
-  (ERROR (identifier))
-  (expression_statement (identifier) (ERROR (identifier) (identifier))))
+  (expression_statement
+    (identifier)
+    (ERROR (identifier))))
 
 ===================================================
-one invalid subtree right after the viable prefix
+Extra complex literals in expressions
 ===================================================
 
 if ({a: 'b'} {c: 'd'}) {
@@ -68,7 +87,7 @@ if ({a: 'b'} {c: 'd'}) {
           (statement_block (expression_statement (identifier)))))))))
 
 ===================================================
-one invalid token at the end of the file
+Extra tokens at the end of the file
 ===================================================
 
 // skip the equals sign
@@ -78,24 +97,6 @@ a.b =
 (program
   (comment)
   (ERROR (member_expression (identifier) (property_identifier))))
-
-=================================================================
-An invalid token at the end of a construct with extra line breaks
-=================================================================
-
-a(
-  b,
-  c,.
-);
-
----
-
-(program
-  (expression_statement
-    (call_expression (identifier) (arguments
-      (identifier)
-      (identifier)
-      (ERROR)))))
 
 ===================================================
 Errors after a sequence of function declarations
