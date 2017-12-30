@@ -94,6 +94,10 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
     edit.bytes_removed = max_bytes - edit.start_byte;
 
   ts_tree_edit(self->tree, &edit);
+
+  if (self->parser.print_debugging_graphs) {
+    ts_tree_print_dot_graph(self->tree, self->parser.language, stderr);
+  }
 }
 
 void ts_document_parse(TSDocument *self) {

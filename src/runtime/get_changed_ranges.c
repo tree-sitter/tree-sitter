@@ -85,7 +85,8 @@ static void iterator_get_visible_state(const Iterator *self, Tree **tree,
   uint32_t i = self->path.size - 1;
 
   if (self->in_padding) {
-    while (self->path.contents[i].child_index == 0) i--;
+    if (i == 0) return;
+    i--;
   }
 
   for (; i + 1 > 0; i--) {
@@ -218,7 +219,8 @@ IteratorComparison iterator_compare(const Iterator *old_iter, const Iterator *ne
   iterator_get_visible_state(old_iter, &old_tree, &old_alias_symbol, &old_start);
   iterator_get_visible_state(new_iter, &new_tree, &new_alias_symbol, &new_start);
 
-  assert(old_tree && new_tree);
+  if (!old_tree && !new_tree) return IteratorMatches;
+  if (!old_tree || !new_tree) return IteratorDiffers;
 
   if (old_alias_symbol == new_alias_symbol) {
     if (old_start == new_start) {
