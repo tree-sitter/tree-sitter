@@ -4,6 +4,8 @@
 #include "runtime/error_costs.h"
 #include <assert.h>
 
+// #define DEBUG_GET_CHANGED_RANGES
+
 typedef Array(TSRange) RangeArray;
 
 static void range_array_add(RangeArray *results, TSPoint start, TSPoint end) {
@@ -240,19 +242,21 @@ IteratorComparison iterator_compare(const Iterator *old_iter, const Iterator *ne
   return IteratorDiffers;
 }
 
-// static inline void iterator_print_state(Iterator *self) {
-//   TreePathEntry entry = *array_back(&self->path);
-//   TSPoint start = iterator_start_position(self).extent;
-//   TSPoint end = iterator_end_position(self).extent;
-//   const char *name = ts_language_symbol_name(self->language, entry.tree->symbol);
-//   printf(
-//     "(%-25s %s\t depth:%u [%u, %u] - [%u, %u])",
-//     name, self->in_padding ? "(p)" : "   ",
-//     self->visible_depth,
-//     start.row, start.column,
-//     end.row, end.column
-//   );
-// }
+#ifdef DEBUG_GET_CHANGED_RANGES
+static inline void iterator_print_state(Iterator *self) {
+  TreePathEntry entry = *array_back(&self->path);
+  TSPoint start = iterator_start_position(self).extent;
+  TSPoint end = iterator_end_position(self).extent;
+  const char *name = ts_language_symbol_name(self->language, entry.tree->symbol);
+  printf(
+    "(%-25s %s\t depth:%u [%u, %u] - [%u, %u])",
+    name, self->in_padding ? "(p)" : "   ",
+    self->visible_depth,
+    start.row, start.column,
+    end.row, end.column
+  );
+}
+#endif
 
 unsigned ts_tree_get_changed_ranges(Tree *old_tree, Tree *new_tree,
                                     TreePath *path1, TreePath *path2,
@@ -273,11 +277,13 @@ unsigned ts_tree_get_changed_ranges(Tree *old_tree, Tree *new_tree,
   }
 
   do {
-    // printf("At [%-2u, %-2u] Compare ", position.extent.row, position.extent.column);
-    // iterator_print_state(&old_iter);
-    // printf("\tvs\t");
-    // iterator_print_state(&new_iter);
-    // puts("");
+    #ifdef DEBUG_GET_CHANGED_RANGES
+    printf("At [%-2u, %-2u] Compare ", position.extent.row, position.extent.column);
+    iterator_print_state(&old_iter);
+    printf("\tvs\t");
+    iterator_print_state(&new_iter);
+    puts("");
+    #endif
 
     bool is_changed = false;
     switch (iterator_compare(&old_iter, &new_iter)) {
@@ -326,11 +332,13 @@ unsigned ts_tree_get_changed_ranges(Tree *old_tree, Tree *new_tree,
     while (new_iter.visible_depth > old_iter.visible_depth) iterator_ascend(&new_iter);
 
     if (is_changed) {
-      // printf(
-      //   "  change: [[%u, %u] - [%u, %u]]\n",
-      //   position.extent.row, position.extent.column,
-      //   next_position.extent.row, next_position.extent.column
-      // );
+      #ifdef DEBUG_GET_CHANGED_RANGES
+      printf(
+        "  change: [[%u, %u] - [%u, %u]]\n",
+        position.extent.row, position.extent.column,
+        next_position.extent.row, next_position.extent.column
+      );
+      #endif
 
       range_array_add(&results, position.extent, next_position.extent);
     }
