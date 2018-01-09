@@ -243,6 +243,18 @@ describe("Node", [&]() {
     });
   });
 
+  describe("child_index()", [&]() {
+    it("returns the index of the node within its parent", [&]() {
+      AssertThat(ts_node_child_index(ts_node_child(root_node, 0)), Equals(0u));
+      AssertThat(ts_node_child_index(ts_node_child(root_node, 1)), Equals(1u));
+      AssertThat(ts_node_child_index(ts_node_child(root_node, 2)), Equals(2u));
+      AssertThat(ts_node_child_index(ts_node_child(root_node, 3)), Equals(3u));
+      AssertThat(ts_node_child_index(ts_node_child(root_node, 4)), Equals(4u));
+      AssertThat(ts_node_child_index(ts_node_child(root_node, 5)), Equals(5u));
+      AssertThat(ts_node_child_index(ts_node_child(root_node, 6)), Equals(6u));
+    });
+  });
+
   describe("symbols()", [&]() {
     it("returns an iterator that yields each of the node's symbols", [&]() {
       const TSLanguage *language = ts_document_language(document);
