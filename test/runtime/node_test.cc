@@ -183,6 +183,66 @@ describe("Node", [&]() {
     });
   });
 
+  describe("first_child_for_byte(byte_offset)", [&]() {
+    it("returns the first child that extends beyond the given byte offset", [&]() {
+      TSNode child;
+
+      child = ts_node_first_child_for_byte(root_node, array_index);
+      AssertThat(ts_node_type(child, document), Equals("["));
+      child = ts_node_first_child_for_byte(root_node, number_index);
+      AssertThat(ts_node_type(child, document), Equals("number"));
+      child = ts_node_first_child_for_byte(root_node, number_end_index);
+      AssertThat(ts_node_type(child, document), Equals(","));
+      child = ts_node_first_child_for_byte(root_node, number_end_index + 1);
+      AssertThat(ts_node_type(child, document), Equals("false"));
+      child = ts_node_first_child_for_byte(root_node, false_index - 1);
+      AssertThat(ts_node_type(child, document), Equals("false"));
+      child = ts_node_first_child_for_byte(root_node, false_index);
+      AssertThat(ts_node_type(child, document), Equals("false"));
+      child = ts_node_first_child_for_byte(root_node, false_index + 1);
+      AssertThat(ts_node_type(child, document), Equals("false"));
+      child = ts_node_first_child_for_byte(root_node, false_end_index);
+      AssertThat(ts_node_type(child, document), Equals(","));
+      child = ts_node_first_child_for_byte(root_node, false_end_index);
+      AssertThat(ts_node_type(child, document), Equals(","));
+      child = ts_node_first_child_for_byte(root_node, object_index);
+      AssertThat(ts_node_type(child, document), Equals("object"));
+      child = ts_node_first_child_for_byte(root_node, object_index + 1);
+      AssertThat(ts_node_type(child, document), Equals("object"));
+      child = ts_node_first_child_for_byte(root_node, object_end_index);
+      AssertThat(ts_node_type(child, document), Equals("]"));
+    });
+  });
+
+  describe("first_named_child_for_byte(byte_offset)", [&]() {
+    it("returns the first named child that extends beyond the given byte offset", [&]() {
+      TSNode child;
+
+      child = ts_node_first_named_child_for_byte(root_node, array_index);
+      AssertThat(ts_node_type(child, document), Equals("number"));
+      child = ts_node_first_named_child_for_byte(root_node, number_index);
+      AssertThat(ts_node_type(child, document), Equals("number"));
+      child = ts_node_first_named_child_for_byte(root_node, number_end_index);
+      AssertThat(ts_node_type(child, document), Equals("false"));
+      child = ts_node_first_named_child_for_byte(root_node, number_end_index + 1);
+      AssertThat(ts_node_type(child, document), Equals("false"));
+      child = ts_node_first_named_child_for_byte(root_node, false_index - 1);
+      AssertThat(ts_node_type(child, document), Equals("false"));
+      child = ts_node_first_named_child_for_byte(root_node, false_index);
+      AssertThat(ts_node_type(child, document), Equals("false"));
+      child = ts_node_first_named_child_for_byte(root_node, false_index + 1);
+      AssertThat(ts_node_type(child, document), Equals("false"));
+      child = ts_node_first_named_child_for_byte(root_node, false_end_index);
+      AssertThat(ts_node_type(child, document), Equals("object"));
+      child = ts_node_first_named_child_for_byte(root_node, object_index);
+      AssertThat(ts_node_type(child, document), Equals("object"));
+      child = ts_node_first_named_child_for_byte(root_node, object_index + 1);
+      AssertThat(ts_node_type(child, document), Equals("object"));
+      child = ts_node_first_named_child_for_byte(root_node, object_end_index);
+      AssertThat(child.data, Equals<void *>(nullptr));
+    });
+  });
+
   describe("symbols()", [&]() {
     it("returns an iterator that yields each of the node's symbols", [&]() {
       const TSLanguage *language = ts_document_language(document);

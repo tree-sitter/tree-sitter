@@ -152,6 +152,31 @@ static inline bool point_gt(TSPoint a, TSPoint b) {
   return a.row > b.row || (a.row == b.row && a.column > b.column);
 }
 
+static inline TSNode ts_node__first_child_for_byte(TSNode self, uint32_t goal,
+                                                   bool include_anonymous) {
+  TSNode node = self;
+  bool did_descend = true;
+
+  while (did_descend) {
+    did_descend = false;
+
+    for (uint32_t i = 0; i < ts_node__tree(node)->child_count; i++) {
+      TSNode child = ts_node__direct_child(node, i);
+      if (ts_node_end_byte(child) > goal) {
+        if (ts_node__is_relevant(child, include_anonymous)) {
+          return child;
+        } else if (ts_node_child_count(child) > 0) {
+          did_descend = true;
+          node = child;
+          break;
+        }
+      }
+    }
+  }
+
+  return ts_node__null();
+}
+
 static inline TSNode ts_node__descendant_for_byte_range(TSNode self, uint32_t min,
                                                         uint32_t max,
                                                         bool include_anonymous) {
@@ -344,6 +369,14 @@ TSNode ts_node_prev_sibling(TSNode self) {
 
 TSNode ts_node_prev_named_sibling(TSNode self) {
   return ts_node__prev_sibling(self, false);
+}
+
+TSNode ts_node_first_child_for_byte(TSNode self, uint32_t byte) {
+  return ts_node__first_child_for_byte(self, byte, true);
+}
+
+TSNode ts_node_first_named_child_for_byte(TSNode self, uint32_t byte) {
+  return ts_node__first_child_for_byte(self, byte, false);
 }
 
 TSNode ts_node_descendant_for_byte_range(TSNode self, uint32_t min, uint32_t max) {
