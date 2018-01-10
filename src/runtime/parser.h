@@ -31,6 +31,7 @@ typedef struct {
   void *external_scanner_payload;
   bool in_ambiguity;
   bool print_debugging_graphs;
+  unsigned accept_count;
 } Parser;
 
 bool parser_init(Parser *);

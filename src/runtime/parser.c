@@ -741,6 +741,7 @@ static void parser__start(Parser *self, TSInput input, Tree *previous_tree) {
   ts_stack_clear(self->stack);
   self->reusable_node = reusable_node_new(previous_tree);
   self->finished_tree = NULL;
+  self->accept_count = 0;
 }
 
 static void parser__accept(Parser *self, StackVersion version,
@@ -770,6 +771,7 @@ static void parser__accept(Parser *self, StackVersion version,
     }
 
     assert(root && root->ref_count > 0);
+    self->accept_count++;
 
     if (self->finished_tree) {
       if (parser__select_tree(self, self->finished_tree, root)) {
@@ -862,7 +864,14 @@ static bool parser__do_all_potential_reductions(Parser *self, StackVersion start
 }
 
 static void parser__handle_error(Parser *self, StackVersion version, TSSymbol lookahead_symbol) {
-  // If there are other stack versions that are clearly better than this one,
+  // If enough parse versions have already completed, just halt this version.
+  if (self->accept_count > MAX_VERSION_COUNT) {
+    ts_stack_halt(self->stack, version);
+    LOG("bail_after_too_many_tries");
+    return;
+  }
+
+  // If there are other in-progress versions that are clearly better than this one,
   // just halt this version.
   unsigned new_cost = ts_stack_error_cost(self->stack, version) + ERROR_COST_PER_SKIPPED_TREE;
   if (parser__better_version_exists(self, version, true, new_cost)) {
