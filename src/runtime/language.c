@@ -10,7 +10,7 @@ void ts_language_table_entry(const TSLanguage *self, TSStateId state,
     result->actions = NULL;
     return;
   } else {
-    assert(symbol < self->token_count);
+    assert(symbol < self->symbol_count);
     uint32_t action_index = self->parse_table[state * self->symbol_count + symbol];
     const TSParseActionEntry *entry = &self->parse_actions[action_index];
     result->action_count = entry->count;
