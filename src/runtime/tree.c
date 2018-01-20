@@ -204,6 +204,7 @@ Tree *ts_tree_make_copy(TreePool *pool, Tree *self) {
 }
 
 void ts_tree_assign_parents(Tree *self, TreePool *pool, const TSLanguage *language) {
+  self->context.parent = NULL;
   array_clear(&pool->tree_stack);
   array_push(&pool->tree_stack, self);
   while (pool->tree_stack.size > 0) {
