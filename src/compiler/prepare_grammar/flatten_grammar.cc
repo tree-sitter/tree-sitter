@@ -17,6 +17,7 @@ using std::pair;
 using std::string;
 using std::vector;
 using rules::Rule;
+using rules::Symbol;
 
 class FlattenRule {
  private:
@@ -109,6 +110,19 @@ SyntaxVariable flatten_rule(const Variable &variable) {
   return SyntaxVariable{variable.name, variable.type, productions};
 }
 
+static bool variable_is_used(const SyntaxGrammar &grammar, Symbol::Index symbol_index) {
+  for (const SyntaxVariable &variable : grammar.variables) {
+    for (const Production &production : variable.productions) {
+      for (const auto &step : production) {
+        if (step.symbol == Symbol::non_terminal(symbol_index)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 pair<SyntaxGrammar, CompileError> flatten_grammar(const InitialSyntaxGrammar &grammar) {
   SyntaxGrammar result;
   result.external_tokens = grammar.external_tokens;
@@ -125,27 +139,26 @@ pair<SyntaxGrammar, CompileError> flatten_grammar(const InitialSyntaxGrammar &gr
     result.extra_tokens.insert(extra_token);
   }
 
-  bool is_start = true;
   for (const auto &variable : grammar.variables) {
-    SyntaxVariable syntax_variable = flatten_rule(variable);
+    result.variables.push_back(flatten_rule(variable));
+  }
 
-    if (!is_start) {
-      for (const Production &production : syntax_variable.productions) {
-        if (production.empty()) {
-          return {
-            result,
-            CompileError(
-              TSCompileErrorTypeEpsilonRule,
-              "The rule `" + variable.name + "` matches the empty string.\n" +
-              "Tree-sitter currently does not support syntactic rules that match the empty string.\n"
-            )
-          };
-        }
+  Symbol::Index i = 0;
+  for (const auto &variable : result.variables) {
+    for (const Production &production : variable.productions) {
+      if (production.empty() && variable_is_used(result, i)) {
+        return {
+          result,
+          CompileError(
+            TSCompileErrorTypeEpsilonRule,
+            "The rule `" + variable.name + "` matches the empty string.\n\n" +
+            "Tree-sitter does not support syntactic rules that match the empty string\n"
+            "unless they are used only as the grammar's start rule.\n"
+          )
+        };
       }
     }
-
-    result.variables.push_back(syntax_variable);
-    is_start = false;
+    i++;
   }
 
   return {result, CompileError::none()};
