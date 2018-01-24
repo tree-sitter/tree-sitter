@@ -208,10 +208,9 @@ static bool parser__better_version_exists(Parser *self, StackVersion version,
   return false;
 }
 
-static bool parser__condense_stack(Parser *self) {
+static unsigned parser__condense_stack(Parser *self) {
   bool made_changes = false;
   unsigned min_error_cost = UINT_MAX;
-  bool all_versions_have_error = true;
   for (StackVersion i = 0; i < ts_stack_version_count(self->stack); i++) {
     if (ts_stack_is_halted(self->stack, i)) {
       ts_stack_remove_version(self->stack, i);
@@ -225,8 +224,9 @@ static bool parser__condense_stack(Parser *self) {
       .dynamic_precedence = ts_stack_dynamic_precedence(self->stack, i),
       .is_in_error = ts_stack_top_state(self->stack, i) == ERROR_STATE,
     };
-    if (!status_i.is_in_error) all_versions_have_error = false;
-    if (status_i.cost < min_error_cost) min_error_cost = status_i.cost;
+    if (!status_i.is_in_error && status_i.cost < min_error_cost) {
+      min_error_cost = status_i.cost;
+    }
 
     for (StackVersion j = 0; j < i; j++) {
       ErrorStatus status_j = {
@@ -291,9 +291,7 @@ static bool parser__condense_stack(Parser *self) {
     LOG_STACK();
   }
 
-  return
-    (all_versions_have_error && ts_stack_version_count(self->stack) > 0) ||
-    (self->finished_tree && self->finished_tree->error_cost < min_error_cost);
+  return min_error_cost;
 }
 
 static void parser__restore_external_scanner(Parser *self, Tree *external_token) {
@@ -1239,14 +1237,12 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
 
     self->reusable_node = reusable_node;
 
-    bool should_halt = parser__condense_stack(self);
-    if (should_halt) {
-      if (self->finished_tree) {
-        break;
-      } else if (halt_on_error) {
-        parser__halt_parse(self);
-        break;
-      }
+    unsigned min_error_cost = parser__condense_stack(self);
+    if (self->finished_tree && self->finished_tree->error_cost < min_error_cost) {
+      break;
+    } else if (halt_on_error && min_error_cost > 0) {
+      parser__halt_parse(self);
+      break;
     }
 
     self->in_ambiguity = version > 1;
