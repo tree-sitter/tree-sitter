@@ -6,6 +6,10 @@
 #include "runtime/document.h"
 #include "runtime/get_changed_ranges.h"
 
+#define LOG(...)                                                                                                   \
+  snprintf(self->parser.lexer.debug_buffer, TREE_SITTER_SERIALIZATION_BUFFER_SIZE, __VA_ARGS__);                   \
+  self->parser.lexer.logger.log(self->parser.lexer.logger.payload, TSLogTypeLex, self->parser.lexer.debug_buffer); \
+
 TSDocument *ts_document_new() {
   TSDocument *self = ts_calloc(1, sizeof(TSDocument));
   parser_init(&self->parser);
@@ -141,6 +145,17 @@ void ts_document_parse_with_options(TSDocument *self, TSParseOptions options) {
         old_tree, tree, &self->tree_path1, &self->tree_path2,
         self->parser.language, options.changed_ranges
       );
+
+      if (self->parser.lexer.logger.log) {
+        for (unsigned i = 0; i < *options.changed_range_count; i++) {
+          TSRange range = (*options.changed_ranges)[i];
+          LOG(
+            "changed_range start:[%u %u], end:[%u %u]",
+            range.start.row, range.start.column,
+            range.end.row, range.end.column
+          );
+        }
+      }
     }
 
     ts_tree_release(&self->parser.tree_pool, old_tree);
