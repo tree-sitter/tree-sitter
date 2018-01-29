@@ -41,6 +41,7 @@ typedef struct {
     struct {
       TSStateId state;
       bool extra : 1;
+      bool repetition : 1;
     };
     struct {
       TSSymbol symbol;
@@ -136,6 +137,17 @@ typedef struct TSLanguage {
       .type = TSParseActionTypeShift,   \
       .params = {.state = state_value}, \
     }                                   \
+  }
+
+#define SHIFT_REPEAT(state_value)     \
+  {                                   \
+    {                                 \
+      .type = TSParseActionTypeShift, \
+      .params = {                     \
+        .state = state_value,         \
+        .repetition = true            \
+      },                              \
+    }                                 \
   }
 
 #define RECOVER()                        \

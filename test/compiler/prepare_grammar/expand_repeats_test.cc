@@ -23,7 +23,7 @@ describe("expand_repeats", []() {
     AssertThat(result.variables, Equals(vector<Variable>{
       Variable{"rule0", VariableTypeNamed, Symbol::non_terminal(1)},
       Variable{"rule0_repeat1", VariableTypeAuxiliary, Rule::choice({
-        Rule::seq({ Symbol::non_terminal(1), Symbol::terminal(0) }),
+        Rule::seq({ Symbol::non_terminal(1), Symbol::non_terminal(1) }),
         Symbol::terminal(0),
       })},
     }));
@@ -48,7 +48,7 @@ describe("expand_repeats", []() {
         Symbol::non_terminal(1),
       })},
       Variable{"rule0_repeat1", VariableTypeAuxiliary, Rule::choice({
-        Rule::seq({ Symbol::non_terminal(1), Symbol::terminal(11) }),
+        Rule::seq({ Symbol::non_terminal(1), Symbol::non_terminal(1) }),
         Symbol::terminal(11)
       })},
     }));
@@ -73,7 +73,7 @@ describe("expand_repeats", []() {
         Symbol::non_terminal(1),
       })},
       Variable{"rule0_repeat1", VariableTypeAuxiliary, Rule::choice({
-        Rule::seq({ Symbol::non_terminal(1), Symbol::terminal(11) }),
+        Rule::seq({ Symbol::non_terminal(1), Symbol::non_terminal(1) }),
         Symbol::terminal(11),
       })},
     }));
@@ -106,7 +106,7 @@ describe("expand_repeats", []() {
         Symbol::non_terminal(2),
       })},
       Variable{"rule0_repeat1", VariableTypeAuxiliary, Rule::choice({
-        Rule::seq({ Symbol::non_terminal(2), Symbol::terminal(4) }),
+        Rule::seq({ Symbol::non_terminal(2), Symbol::non_terminal(2) }),
         Symbol::terminal(4),
       })},
     }));
@@ -131,11 +131,11 @@ describe("expand_repeats", []() {
         Symbol::non_terminal(2),
       })},
       Variable{"rule0_repeat1", VariableTypeAuxiliary, Rule::choice({
-        Rule::seq({ Symbol::non_terminal(1), Symbol::terminal(10) }),
+        Rule::seq({ Symbol::non_terminal(1), Symbol::non_terminal(1) }),
         Symbol::terminal(10),
       })},
       Variable{"rule0_repeat2", VariableTypeAuxiliary, Rule::choice({
-        Rule::seq({ Symbol::non_terminal(2), Symbol::terminal(11) }),
+        Rule::seq({ Symbol::non_terminal(2), Symbol::non_terminal(2) }),
         Symbol::terminal(11),
       })},
     }));
@@ -156,11 +156,11 @@ describe("expand_repeats", []() {
       Variable{"rule0", VariableTypeNamed, Symbol::non_terminal(2)},
       Variable{"rule1", VariableTypeNamed, Symbol::non_terminal(3)},
       Variable{"rule0_repeat1", VariableTypeAuxiliary, Rule::choice({
-        Rule::seq({ Symbol::non_terminal(2), Symbol::terminal(10) }),
+        Rule::seq({ Symbol::non_terminal(2), Symbol::non_terminal(2) }),
         Symbol::terminal(10),
       })},
       Variable{"rule1_repeat1", VariableTypeAuxiliary, Rule::choice({
-        Rule::seq({ Symbol::non_terminal(3), Symbol::terminal(11) }),
+        Rule::seq({ Symbol::non_terminal(3), Symbol::non_terminal(3) }),
         Symbol::terminal(11),
       })},
     }));

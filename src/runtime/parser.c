@@ -1097,6 +1097,7 @@ static void parser__advance(Parser *self, StackVersion version, ReusableNode *re
 
       switch (action.type) {
         case TSParseActionTypeShift: {
+          if (action.params.repetition) break;
           TSStateId next_state;
           if (action.params.extra) {
             next_state = state;

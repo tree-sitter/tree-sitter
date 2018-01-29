@@ -57,7 +57,7 @@ class ExpandRepeats {
           helper_rule_name,
           VariableTypeAuxiliary,
           rules::Choice{{
-            rules::Seq{repeat_symbol, inner_rule},
+            rules::Seq{repeat_symbol, repeat_symbol},
             inner_rule,
           }}
         });

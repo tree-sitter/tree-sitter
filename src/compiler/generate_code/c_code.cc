@@ -623,6 +623,8 @@ class CCodeGenerator {
             case ParseActionTypeShift:
               if (action.extra) {
                 add("SHIFT_EXTRA()");
+              } else if (action.repetition) {
+                add("SHIFT_REPEAT(" + to_string(action.state_index) + ")");
               } else {
                 add("SHIFT(" + to_string(action.state_index) + ")");
               }

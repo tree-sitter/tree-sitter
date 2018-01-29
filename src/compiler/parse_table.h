@@ -45,6 +45,7 @@ struct ParseAction {
   unsigned alias_sequence_id;
   bool fragile;
   bool extra;
+  bool repetition;
 };
 
 struct ParseTableEntry {
