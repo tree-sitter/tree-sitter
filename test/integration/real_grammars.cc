@@ -96,6 +96,7 @@ for (auto &language_name : test_languages) {
             uint32_t range_count;
             ScopeSequence old_scope_sequence = build_scope_sequence(document, input->content);
             ts_document_parse_and_get_changed_ranges(document, &ranges, &range_count);
+            assert_correct_tree_size(document, input->content);
 
             ScopeSequence new_scope_sequence = build_scope_sequence(document, input->content);
             verify_changed_ranges(old_scope_sequence, new_scope_sequence,
@@ -119,6 +120,7 @@ for (auto &language_name : test_languages) {
             uint32_t range_count;
             ScopeSequence old_scope_sequence = build_scope_sequence(document, input->content);
             ts_document_parse_and_get_changed_ranges(document, &ranges, &range_count);
+            assert_correct_tree_size(document, input->content);
 
             ScopeSequence new_scope_sequence = build_scope_sequence(document, input->content);
             verify_changed_ranges(old_scope_sequence, new_scope_sequence,

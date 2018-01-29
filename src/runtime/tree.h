@@ -50,6 +50,7 @@ typedef struct Tree {
   TSSymbol symbol;
   TSStateId parse_state;
   unsigned error_cost;
+  unsigned repeat_depth;
 
   struct {
     TSSymbol symbol;

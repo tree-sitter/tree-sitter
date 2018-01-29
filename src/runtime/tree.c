@@ -203,18 +203,73 @@ Tree *ts_tree_make_copy(TreePool *pool, Tree *self) {
   return result;
 }
 
+static void ts_tree__compress(Tree *self, unsigned count, const TSLanguage *language) {
+  Tree *tree = self;
+  for (unsigned i = 0; i < count; i++) {
+    if (tree->child_count != 2) break;
+    Tree *child = tree->children[0];
+    if (child->symbol != tree->symbol || child->child_count != 2) break;
+    if (tree->ref_count > 1) break;
+    if (child->ref_count > 1) break;
+
+    Tree *grandchild = child->children[0];
+    if (grandchild->symbol != tree->symbol || grandchild->child_count != 2) break;
+    if (grandchild->ref_count > 1) break;
+
+    tree->children[0] = grandchild;
+    grandchild->context.parent = tree;
+    grandchild->context.index = -1;
+
+    child->children[0] = grandchild->children[1];
+    child->children[0]->context.parent = child;
+    child->children[0]->context.index = -1;
+
+    grandchild->children[1] = child;
+    grandchild->children[1]->context.parent = grandchild;
+    grandchild->children[1]->context.index = -1;
+
+    tree = grandchild;
+  }
+
+  while (tree != self) {
+    tree = tree->context.parent;
+    Tree *child = tree->children[0];
+    Tree *grandchild = child->children[1];
+    ts_tree_set_children(grandchild, 2, grandchild->children, language);
+    ts_tree_set_children(child, 2, child->children, language);
+    ts_tree_set_children(tree, 2, tree->children, language);
+  }
+}
+
+void ts_tree__balance(Tree *self, const TSLanguage *language) {
+  if (self->children[0]->repeat_depth > self->children[1]->repeat_depth) {
+    unsigned n = self->children[0]->repeat_depth - self->children[1]->repeat_depth;
+    for (unsigned i = n / 2; i > 0; i /= 2) {
+      ts_tree__compress(self, i, language);
+      n -= i;
+    }
+  }
+}
+
 void ts_tree_assign_parents(Tree *self, TreePool *pool, const TSLanguage *language) {
   self->context.parent = NULL;
   array_clear(&pool->tree_stack);
   array_push(&pool->tree_stack, self);
   while (pool->tree_stack.size > 0) {
     Tree *tree = array_pop(&pool->tree_stack);
+
+    if (tree->repeat_depth > 0) {
+      ts_tree__balance(tree, language);
+    }
+
     Length offset = length_zero();
     const TSSymbol *alias_sequence = ts_language_alias_sequence(language, tree->alias_sequence_id);
     uint32_t non_extra_index = 0;
+    bool earlier_child_was_changed = false;
     for (uint32_t i = 0; i < tree->child_count; i++) {
       Tree *child = tree->children[i];
-      if (child->context.parent != tree || child->context.index != i) {
+      if (earlier_child_was_changed || child->context.parent != tree || child->context.index != i) {
+        earlier_child_was_changed = true;
         child->context.parent = tree;
         child->context.index = i;
         child->context.offset = offset;
@@ -236,13 +291,14 @@ void ts_tree_assign_parents(Tree *self, TreePool *pool, const TSLanguage *langua
 
 void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children,
                           const TSLanguage *language) {
-  if (self->child_count > 0) ts_free(self->children);
+  if (self->child_count > 0 && children != self->children) ts_free(self->children);
 
   self->children = children;
   self->child_count = child_count;
   self->named_child_count = 0;
   self->visible_child_count = 0;
   self->error_cost = 0;
+  self->repeat_depth = 0;
   self->has_external_tokens = false;
   self->dynamic_precedence = 0;
 
@@ -298,10 +354,24 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children,
 
   if (child_count > 0) {
     self->first_leaf = children[0]->first_leaf;
-    if (children[0]->fragile_left)
+    if (children[0]->fragile_left) {
       self->fragile_left = true;
-    if (children[child_count - 1]->fragile_right)
+    }
+    if (children[child_count - 1]->fragile_right) {
       self->fragile_right = true;
+    }
+    if (
+      self->child_count == 2 &&
+      !self->visible && !self->named &&
+      self->children[0]->symbol == self->symbol &&
+      self->children[1]->symbol == self->symbol
+    ) {
+      if (self->children[0]->repeat_depth > self->children[1]->repeat_depth) {
+        self->repeat_depth = self->children[0]->repeat_depth + 1;
+      } else {
+        self->repeat_depth = self->children[1]->repeat_depth + 1;
+      }
+    }
   }
 }
 
@@ -342,6 +412,7 @@ Tree *ts_tree_make_missing_leaf(TreePool *pool, TSSymbol symbol, const TSLanguag
   result->error_cost = ERROR_COST_PER_MISSING_TREE;
   return result;
 }
+
 void ts_tree_retain(Tree *self) {
   assert(self->ref_count > 0);
   self->ref_count++;
@@ -633,9 +704,9 @@ void ts_tree__print_dot_graph(const Tree *self, uint32_t byte_offset,
   if (self->extra)
     fprintf(f, ", fontcolor=gray");
 
-  fprintf(f, ", tooltip=\"range:%u - %u\nstate:%d\nerror-cost:%u\"]\n",
-          byte_offset, byte_offset + ts_tree_total_bytes(self), self->parse_state,
-          self->error_cost);
+  fprintf(f, ", tooltip=\"address:%p\nrange:%u - %u\nstate:%d\nerror-cost:%u\nrepeat-depth:%u\"]\n",
+          self, byte_offset, byte_offset + ts_tree_total_bytes(self), self->parse_state,
+          self->error_cost, self->repeat_depth);
   for (uint32_t i = 0; i < self->child_count; i++) {
     const Tree *child = self->children[i];
     ts_tree__print_dot_graph(child, byte_offset, language, f);

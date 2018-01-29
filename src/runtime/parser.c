@@ -1249,10 +1249,11 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
     self->in_ambiguity = version > 1;
   } while (version != 0);
 
-  LOG("done");
-  LOG_TREE();
   ts_stack_clear(self->stack);
   parser__set_cached_token(self, 0, NULL, NULL);
   ts_tree_assign_parents(self->finished_tree, &self->tree_pool, self->language);
+
+  LOG("done");
+  LOG_TREE();
   return self->finished_tree;
 }
