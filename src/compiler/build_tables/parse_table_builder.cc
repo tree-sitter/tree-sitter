@@ -504,6 +504,20 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     }
 
     if (entry.actions.back().type == ParseActionTypeShift) {
+      Symbol symbol = conflicting_items.begin()->lhs();
+      if (symbol.is_non_terminal() && grammar.variables[symbol.index].type == VariableTypeAuxiliary) {
+        bool all_symbols_match = true;
+        for (const ParseItem &conflicting_item : conflicting_items) {
+          if (conflicting_item.lhs() != symbol) {
+            all_symbols_match = false;
+            break;
+          }
+        }
+        if (all_symbols_match) {
+          entry.actions.back().repetition = true;
+          return "";
+        }
+      }
 
       // If the shift action has higher precedence, prefer it over any of the
       // reduce actions.

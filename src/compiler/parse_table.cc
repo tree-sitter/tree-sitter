@@ -21,7 +21,8 @@ ParseAction::ParseAction() :
   associativity(rules::AssociativityNone),
   alias_sequence_id(0),
   fragile(false),
-  extra(false) {}
+  extra(false),
+  repetition(false) {}
 
 ParseAction ParseAction::Error() {
   return ParseAction();
@@ -78,7 +79,8 @@ bool ParseAction::operator==(const ParseAction &other) const {
     associativity == other.associativity &&
     alias_sequence_id == other.alias_sequence_id &&
     extra == other.extra &&
-    fragile == other.fragile;
+    fragile == other.fragile &&
+    repetition == other.repetition;
 }
 
 bool ParseAction::operator<(const ParseAction &other) const {
@@ -100,6 +102,8 @@ bool ParseAction::operator<(const ParseAction &other) const {
   if (other.extra && !extra) return false;
   if (fragile && !other.fragile) return true;
   if (other.fragile && !fragile) return false;
+  if (repetition && !other.repetition) return true;
+  if (other.repetition && !repetition) return false;
   return alias_sequence_id < other.alias_sequence_id;
 }
 
