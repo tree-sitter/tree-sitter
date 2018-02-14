@@ -27,9 +27,14 @@ typedef enum {
 } TSSymbolType;
 
 typedef struct {
+  uint32_t row;
+  uint32_t column;
+} TSPoint;
+
+typedef struct {
   void *payload;
   const char *(*read)(void *payload, uint32_t *bytes_read);
-  int (*seek)(void *payload, uint32_t byte_index);
+  int (*seek)(void *payload, uint32_t byte_index, TSPoint position);
   TSInputEncoding encoding;
 } TSInput;
 
@@ -42,11 +47,6 @@ typedef struct {
   void *payload;
   void (*log)(void *payload, TSLogType, const char *);
 } TSLogger;
-
-typedef struct {
-  uint32_t row;
-  uint32_t column;
-} TSPoint;
 
 typedef struct {
   uint32_t start_byte;

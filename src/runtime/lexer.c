@@ -20,7 +20,7 @@ static void ts_lexer__get_chunk(Lexer *self) {
   TSInput input = self->input;
   if (!self->chunk ||
       self->current_position.bytes != self->chunk_start + self->chunk_size) {
-    input.seek(input.payload, self->current_position.bytes);
+    input.seek(input.payload, self->current_position.bytes, self->current_position.extent);
   }
 
   self->chunk_start = self->current_position.bytes;

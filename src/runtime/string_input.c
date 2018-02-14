@@ -20,7 +20,7 @@ static const char *ts_string_input__read(void *payload, uint32_t *bytes_read) {
   return input->string + previous_position;
 }
 
-static int ts_string_input__seek(void *payload, uint32_t byte) {
+static int ts_string_input__seek(void *payload, uint32_t byte, TSPoint _) {
   TSStringInput *input = (TSStringInput *)payload;
   input->position = byte;
   return (byte < input->length);
