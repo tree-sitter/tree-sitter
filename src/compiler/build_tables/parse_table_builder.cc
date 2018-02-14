@@ -602,9 +602,9 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
         for (auto &preceding_symbol : preceding_symbols) {
           ParseState &preceding_state = parse_table.states[preceding_state_id];
           if (preceding_state.nonterminal_entries.count(symbol.index)) break;
-          preceding_state_id = preceding_symbol.is_terminal() ?
-            preceding_state.terminal_entries[preceding_symbol].actions.back().state_index :
-            preceding_state.nonterminal_entries[preceding_symbol.index];
+          preceding_state_id = preceding_symbol.is_non_terminal() ?
+            preceding_state.nonterminal_entries[preceding_symbol.index] :
+            preceding_state.terminal_entries[preceding_symbol].actions.back().state_index;
         }
         const ParseItemSet &preceding_item_set = *item_sets_by_state_id[preceding_state_id];
         for (auto &preceding_entry : preceding_item_set.entries) {
