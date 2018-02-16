@@ -206,13 +206,21 @@ Tree *ts_tree_make_copy(TreePool *pool, Tree *self) {
 static void ts_tree__compress(Tree *self, unsigned count, const TSLanguage *language) {
   Tree *tree = self;
   for (unsigned i = 0; i < count; i++) {
+    if (tree->ref_count > 1 || tree->child_count != 2) break;
+
     Tree *child = tree->children[0];
-    if (child->symbol != tree->symbol) break;
+    if (
+      child->ref_count > 1 ||
+      child->child_count != 2 ||
+      child->symbol != tree->symbol
+    ) break;
 
     Tree *grandchild = child->children[0];
-    if (grandchild->symbol != tree->symbol) break;
-    if (grandchild->children[0]->symbol != tree->symbol) break;
-    if (child->ref_count > 1 || grandchild->ref_count > 1) break;
+    if (
+      grandchild->ref_count > 1 ||
+      grandchild->child_count != 2 ||
+      grandchild->symbol != tree->symbol
+    ) break;
 
     tree->children[0] = grandchild;
     grandchild->context.parent = tree;
