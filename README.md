@@ -9,11 +9,11 @@ languages. It can be used to build a concrete syntax tree for a program and
 efficiently update the syntax tree as the program is edited. This makes it suitable
 for use in text-editing programs.
 
-Tree-sitter uses a sentential-form incremental [LR parsing](https://en.wikipedia.org/wiki/LR_parser)
-algorithm, as described in the paper *[Efficient and Flexible Incremental Parsing](https://pdfs.semanticscholar.org/4d22/fab95c78b3c23fa9dff88fb82976edc213c2.pdf)*
+Tree-sitter uses an incremental [LR parsing](https://en.wikipedia.org/wiki/LR_parser)
+algorithm, as described in the paper *[Incremental Analysis of Real Programming Languages](https://www.semanticscholar.org/paper/Incremental-Analysis-of-real-Programming-Languages-Wagner-Graham/163592ac3777ee396f32318fcd83b1c563f2e496)*
 by Tim Wagner & Susan Graham. It handles ambiguity at compile-time via [precedence annotations](https://en.wikipedia.org/wiki/Operator-precedence_parser),
 and at run-time via the [GLR algorithm](https://en.wikipedia.org/wiki/GLR_parser).
-This allows it to generate a fast parser for any context-free grammar.
+This allows it to generate a fast parser for any language that can be described with a context-free grammar.
 
 ### Installation
 
