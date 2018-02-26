@@ -36,7 +36,7 @@ syntax trees up-to-date as changes are made to the documents.
 
 Tree-sitter's grammars are specified as JSON strings. This format allows them
 to be easily created and manipulated in high-level languages like [JavaScript](https://github.com/tree-sitter/node-tree-sitter-compiler).
-The structure of a grammar is formally specified by [this JSON schema](./doc/grammar-schema.json).
+The structure of a grammar is formally specified by [this JSON schema](./src/compiler/grammar-schema.json).
 You can generate a parser for a grammar using the `ts_compile_grammar` function
 provided by `libcompiler`.
 
