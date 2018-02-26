@@ -4,7 +4,7 @@ Developing Tree-sitter parsers can have a difficult learning curve, but once you
 
 ## Introduction
 
-Writing a grammar requires creativity. There are an infinite number of context-free grammars that can be used to describe any given language. In order to create a good Tree-sitter parser, you need to create a grammar with two important properties:
+Writing a grammar requires creativity. There are an infinite number of context-free grammars that can be used to describe any given language. In order to produce a good Tree-sitter parser, you need to create a grammar with two important properties:
 
   1. **An intuitive structure** - Tree-sitter's output is a [concrete syntax tree][cst]; each node in the tree corresponds directly to a [terminal or non-terminal symbol][non-terminal] in the grammar. So in order to produce an easy-to-analyze tree, there should be a direct correspondence between the symbols in your grammar and the recognizable constructs in the language. This might seem obvious, but it is very different from the way that context-free grammars are often written in contexts like [language specifications][language-spec] or [Yacc][yacc] parsers.
 
@@ -14,13 +14,13 @@ It's unlikely that you'll be able to satisfy these two properties by translating
 
 ## Producing an intuitive tree
 
-Imagine that you were just starting work on the [Tree-sitter JavaScript parser][tree-sitter-javascript]. You might try to directly mirror the structure use the [ECMAScript Language Spec][ecmascript-spec]. To illustrate the problem with this approach, consider the following line of code:
+Imagine that you were just starting work on the [Tree-sitter JavaScript parser][tree-sitter-javascript]. You might try to directly mirror the structure of the [ECMAScript Language Spec][ecmascript-spec]. To illustrate the problem with this approach, consider the following line of code:
 
 ```js
 return x + y;
 ```
 
-According to the specification, this is a `ReturnStatement`, the string `x + y` is an `AdditiveExpression`, and `x` and `y` are both `IdentifierReferences`. The relationship between these constructs is captured by a complex series of production rules:  
+According to the specification, this line is a `ReturnStatement`, the fragment `x + y` is an `AdditiveExpression`, and `x` and `y` are both `IdentifierReferences`. The relationship between these constructs is captured by a complex series of production rules:  
 
 ```
 ReturnStatement          ->  'return' Expression
@@ -46,7 +46,7 @@ MemberExpression         ->  PrimaryExpression
 PrimaryExpression        ->  IdentifierReference
 ```
 
-The language spec encodes the 20 different precedence levels of JavaScript expressions using 20 different non-terminal symbols. If we were to create a concrete syntax tree representing this statement according to the language spec, it would have twenty levels of nesting, and it would contain nodes with names like `BitwiseXORExpression`, which are unrelated to the actual code.
+The language spec encodes the 20 precedence levels of JavaScript expressions using 20 different non-terminal symbols. If we were to create a concrete syntax tree representing this statement according to the language spec, it would have twenty levels of nesting and it would contain nodes with names like `BitwiseXORExpression`, which are unrelated to the actual code.
 
 ### Precedence Annotations
 
