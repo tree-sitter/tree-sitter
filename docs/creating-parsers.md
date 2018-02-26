@@ -2,17 +2,150 @@
 
 Developing Tree-sitter parsers can have a difficult learning curve, but once you get the hang of it, it can fun and even zen-like. This document should help you to build an effective mental model for parser development.
 
-## Introduction
+## Understanding the problem
 
-Writing a grammar requires creativity. There are an infinite number of context-free grammars that can be used to describe any given language. In order to produce a good Tree-sitter parser, you need to create a grammar with two important properties:
+Writing a grammar requires creativity. There are an infinite number of CFGs (context-free grammars) that can be used to describe any given language. In order to produce a good Tree-sitter parser, you need to create a grammar with two important properties:
 
   1. **An intuitive structure** - Tree-sitter's output is a [concrete syntax tree][cst]; each node in the tree corresponds directly to a [terminal or non-terminal symbol][non-terminal] in the grammar. So in order to produce an easy-to-analyze tree, there should be a direct correspondence between the symbols in your grammar and the recognizable constructs in the language. This might seem obvious, but it is very different from the way that context-free grammars are often written in contexts like [language specifications][language-spec] or [Yacc][yacc] parsers.
 
-  2. **A close adherence to LR** - Tree-sitter is based on the [GLR parsing][glr-parsing] algorithm. This means that while it can handle any context-free grammar, it works most efficiently with a class of context-free grammars called [LR Grammars][lr-grammars]. In this respect, Tree-sitter's grammars are similar to (but less restrictive than) Yacc grammars, but very different from [ANTLR grammars][antlr], [Parsing Expression Grammars][peg], or the [ambiguous grammars][ambiguous-grammar] commonly used in language specifications.
+  2. **A close adherence to LR(1)** - Tree-sitter is based on the [GLR parsing][glr-parsing] algorithm. This means that while it can handle any context-free grammar, it works most efficiently with a class of context-free grammars called [LR(1) Grammars][lr-grammars]. In this respect, Tree-sitter's grammars are similar to (but less restrictive than) Yacc grammars, but *different* from [ANTLR grammars][antlr], [Parsing Expression Grammars][peg], or the [ambiguous grammars][ambiguous-grammar] commonly used in language specifications.
 
-It's unlikely that you'll be able to satisfy these two properties by translating an existing context-free grammar directly into Tree-sitter's grammar format. There are a few kinds of adjustments that are often required. The following sections will explain these adjustments in more depth.
+It's unlikely that you'll be able to satisfy these two properties just by translating an existing context-free grammar directly into Tree-sitter's grammar format. There are a few kinds of adjustments that are often required. The following sections will explain these adjustments in more depth.
 
-## Producing an intuitive tree
+## Installing the tools
+
+The best way to create a Tree-sitter parser is with the [`Tree-sitter CLI`][tree-sitter-cli], which is distributed as [a Node.js module][node-module]. To install it, first install [`node`][node.js] and its package manager `npm` on your system. Then create a new directory for your parser, with a [`package.json` file][package-json] inside the directory. Add `tree-sitter-cli` to the `dependencies` section of `package.json` and run the command `npm install`. This will install the CLI and its dependencies into the `node_modules` folder in your directory. An executable program called `tree-sitter` will be created at the path `./node_modules/.bin/tree-sitter`. You may want to follow the Node.js convention of adding `./node_modules/.bin` to your `PATH` so that you can easily run this program when working in this directory.
+
+Once you have the CLI installed, create a file called `grammar.js` with the following skeleton:
+
+```js
+module.exports = grammar({
+  name: 'the_language_name',
+
+  rules: {
+    // the production rules of the context-free grammar
+  }
+});
+```
+
+## Starting to define the grammar
+
+It's usually a good idea to find a formal specification for the language you're trying to parse. This specification will most likely contain a context-free grammar. As you read through the rules of this CFG, you will probably discover a complex and cyclic graph of relationships. It might be unclear how you should navigate this graph as you define your grammar.
+
+Although languages have very different constructs, their constructs can often be categorized in to similar groups like *Declarations*, *Definitions*, *Statements*, *Expressions*, *Types*, and *Patterns*. In writing your grammar, a good first step is to create just enough structure to include all of these basic *groups* of rules. For an imaginary C-like language, this might look something like this:
+
+```js
+rules: $ => {
+  source_file: $ => repeat($._definition),
+
+  _definition: $ => choice(
+    $.function_definition
+    // TODO: other kinds of definitions
+  ),
+
+  function_definition: $ => seq(
+    'func',
+    $.identifier,
+    $.parameter_list,
+    $._type,
+    $.block
+  ),
+
+  parameter_list: $ => seq(
+    '(',
+     // TODO: parameters
+    ')'
+  ),
+
+  _type: $ => choice(
+    'bool'
+    // TODO: other kinds of types
+  ),
+
+  block: $ => seq(
+    '{',
+    repeat($._statement),
+    '}'
+  ),
+
+  _statement: $ => choice(
+    $.return_statement
+    // TODO: other kinds of statements
+  ),
+
+  return_statement: $ => seq(
+    'return',
+    $._expression,
+    ';'
+  ),
+
+  _expression: $ => choice(
+    $.identifier,
+    $.number
+    // TODO: other kinds of expressions
+  ),
+
+  identifier: $ => /[a-z]+/,
+
+  number: $ => /\d+/
+}
+```
+
+Some of the details of this grammar will be explained in more depth later on, but if you focus on the `TODO` comments, you can see that the overall strategy is a *breadth-first* approach. With this structure in place, you can now freely decide what part of the grammar to flesh out next.
+
+For example, you might decide to start with *types*. One-by-one, you could define the rules for writing basic types and composing them into more complex types:
+
+```js
+_type: $ => choice(
+  $.primitive_type,
+  $.array_type,
+  $.pointer_type
+),
+
+primitive_type: $ => choice(
+  'bool',
+  'int'
+),
+
+array_type: $ => seq(
+  '[',
+  ']',
+  $._type
+),
+
+pointer_type: $ => seq(
+  '*',
+  $._type
+),
+```
+
+## Unit Tests
+
+For each rule that you add to the grammar, you should first create a *test* that describes how the syntax trees should look when parsing that rule. These tests are written using specially-formatted text files in a `corpus` directory in your parser's root folder. Here is an example of how these tests should look:
+
+```
+==================
+Return statements
+==================
+
+func x() int {
+  return 1;
+}
+
+---
+
+(source_file
+  (function_definition
+    (identifier)
+    (parameter_list)
+    (primitive_type)
+    (block
+      (return_statement (number))))
+```
+
+The name of the test is written between two lines containing only `=` characters. Then the source code is written, followed by a line containing three or more `-` characters. Then, the expected syntax tree is written as an [S-expression][s-exp]. Note that the S-expression does not show syntax nodes like `func`, `(` and `;`, which are expressed as strings and regexps in the grammar. It only shows syntax nodes that have been given *names*.
+
+## Adjusting existing grammars to produce better trees
 
 Imagine that you were just starting work on the [Tree-sitter JavaScript parser][tree-sitter-javascript]. You might try to directly mirror the structure of the [ECMAScript Language Spec][ecmascript-spec]. To illustrate the problem with this approach, consider the following line of code:
 
@@ -67,3 +200,8 @@ Clearly, we need a different way of modeling JavaScript expressions.
 [ambiguous-grammar]: https://en.wikipedia.org/wiki/Ambiguous_grammar
 [tree-sitter-javascript]: https://github.com/tree-sitter/tree-sitter-javascript
 [ecmascript-spec]: https://www.ecma-international.org/ecma-262/6.0
+[tree-sitter-cli]: https://github.com/tree-sitter/tree-sitter-cli
+[node-module]: https://www.npmjs.com/package/tree-sitter-cli
+[node.js]: https://nodejs.org
+[package-json]: https://docs.npmjs.com/files/package.json
+[s-exp]: https://en.wikipedia.org/wiki/S-expression
