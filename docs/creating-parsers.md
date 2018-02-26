@@ -6,9 +6,9 @@ Developing Tree-sitter parsers can have a difficult learning curve, but once you
 
 Writing a grammar requires creativity. There are an infinite number of CFGs (context-free grammars) that can be used to describe any given language. In order to produce a good Tree-sitter parser, you need to create a grammar with two important properties:
 
-  1. **An intuitive structure** - Tree-sitter's output is a [concrete syntax tree][cst]; each node in the tree corresponds directly to a [terminal or non-terminal symbol][non-terminal] in the grammar. So in order to produce an easy-to-analyze tree, there should be a direct correspondence between the symbols in your grammar and the recognizable constructs in the language. This might seem obvious, but it is very different from the way that context-free grammars are often written in contexts like [language specifications][language-spec] or [Yacc][yacc] parsers.
+  1. **An intuitive structure** - Tree-sitter's output is a [concrete syntax tree][cst]; each node in the tree corresponds directly to a [terminal or non-terminal symbol][non-terminal] in the grammar. So in order to produce an easy-to-analyze tree, there should be a direct correspondence between the symbols in your grammar and the recognizable constructs in the language. This might seem obvious, but it is very different from the way that context-free grammars are often written in contexts like [language specifications][language-spec] or [Yacc][yacc]/[Bison][bison] parsers.
 
-  2. **A close adherence to LR(1)** - Tree-sitter is based on the [GLR parsing][glr-parsing] algorithm. This means that while it can handle any context-free grammar, it works most efficiently with a class of context-free grammars called [LR(1) Grammars][lr-grammars]. In this respect, Tree-sitter's grammars are similar to (but less restrictive than) Yacc grammars, but *different* from [ANTLR grammars][antlr], [Parsing Expression Grammars][peg], or the [ambiguous grammars][ambiguous-grammar] commonly used in language specifications.
+  2. **A close adherence to LR(1)** - Tree-sitter is based on the [GLR parsing][glr-parsing] algorithm. This means that while it can handle any context-free grammar, it works most efficiently with a class of context-free grammars called [LR(1) Grammars][lr-grammars]. In this respect, Tree-sitter's grammars are similar to (but less restrictive than) [Yacc][yacc] and [Bison][bison] grammars, but *different* from [ANTLR grammars][antlr], [Parsing Expression Grammars][peg], or the [ambiguous grammars][ambiguous-grammar] commonly used in language specifications.
 
 It's unlikely that you'll be able to satisfy these two properties just by translating an existing context-free grammar directly into Tree-sitter's grammar format. There are a few kinds of adjustments that are often required. The following sections will explain these adjustments in more depth.
 
@@ -109,9 +109,9 @@ rules: $ => {
 }
 ```
 
-Some of the details of this grammar will be explained in more depth later on, but if you focus on the `TODO` comments, you can see that the overall strategy is a *breadth-first* approach. With this structure in place, you can now freely decide what part of the grammar to flesh out next.
+Some of the details of this grammar will be explained in more depth later on, but if you focus on the `TODO` comments, you can see that the overall strategy is *breadth-first*. Notably, this initial skeleton does not need to directly match an exact subset of the context-free grammar in the language specification. It just needs to touch on the major groupings of rules in as simple and obvious a way as possible.
 
-For example, you might decide to start with *types*. One-by-one, you could define the rules for writing basic types and composing them into more complex types:
+With this structure in place, you can now freely decide what part of the grammar to flesh out next. For example, you might decide to start with *types*. One-by-one, you could define the rules for writing basic types and composing them into more complex types:
 
 ```js
 _type: $ => choice(
@@ -137,6 +137,8 @@ pointer_type: $ => seq(
 ),
 ```
 
+After developing the *type* sublanguage a bit further, you might decide to switch to working on *statements* or *expressions* instead. It's often useful to check your progress by trying to parse some real code using `tree-sitter parse`.
+
 ## Writing unit tests
 
 For each rule that you add to the grammar, you should first create a *test* that describes how the syntax trees should look when parsing that rule. These tests are written using specially-formatted text files in a `corpus` directory in your parser's root folder. Here is an example of how these tests should look:
@@ -161,7 +163,43 @@ func x() int {
       (return_statement (number))))
 ```
 
-The name of the test is written between two lines containing only `=` characters. Then the source code is written, followed by a line containing three or more `-` characters. Then, the expected syntax tree is written as an [S-expression][s-exp]. Note that the S-expression does not show syntax nodes like `func`, `(` and `;`, which are expressed as strings and regexps in the grammar. It only shows syntax nodes that have been given *names*.
+The name of the test is written between two lines containing only `=` characters. Then the source code is written, followed by a line containing three or more `-` characters. Then, the expected syntax tree is written as an [S-expression][s-exp]. Note that the S-expression does not show syntax nodes like `func`, `(` and `;`, which are expressed as strings and regexps in the grammar. It only shows syntax nodes that have been given *names*. The exact placement of whitespace in the S-expression doesn't matter, but ideally the syntax tree should be legible.
+
+These tests are important. They serve as the parser's API documentation, and they can be run every time you change the grammar to verify that everything still parses correctly. You can run these tests using this command:
+
+```sh
+$ tree-sitter test
+```
+
+To run a particular test, you can use the the `-f` flag:
+
+```sh
+tree-sitter test -f 'Return statements'
+```
+
+## Using the grammar DSL
+
+The following is a complete list of built-in functions you can use to define Tree-sitter grammars. Use-cases for some of these functions will be explained in more detail in later sections.
+
+* **Symbols (the `$` object)** - Every grammar rule is written as a JavaScript function that takes a parameter conventionally called `$`. The syntax `$.identifier` is how you refer to another grammar symbol within a rule.
+* **String and Regex literals** - The terminal symbols in a grammar are described using JavaScript strings and regular expressions. Of course during parsing, Tree-sitter does not actually use JavaScript's regex engine to evaluate these regexes; it generates its own regex-matching logic as part of each parser. Regex literals are just used as a convenient way of writing regular expressions in your grammar.
+* **Sequences : `seq(rule1, rule2, ...)`** - This creates a rule that matches any number of other rules, one after another. It is analogous to simply writing multiple symbols next to each other in [EBNF notation](enbf).
+* **Alternatives : `choice(rule1, rule2, ...)`** - This creates a rule that matches *one* of a set of possible rules. The order of the arguments does not matter. This is analogous to the `|` (pipe) operator in EBNF notation.
+* **Repetitions : `repeat(rule)`** - This creates a rule that matches *zero-or-more* occurrences of a given rule. It is analogous to the `{x}` (curly brace) syntax in EBNF notation.
+* **Repetitions : `repeat1(rule)`** - This creates a rule that matches *one-or-more* occurrences of a given rule. The previous `repeat` rule is implemented in terms of `repeat1` but is included because it is very commonly used.
+* **Options : `optional(rule)`** - This creates a rule that matches *zero or one* occurrence of a given rule it is analogous to the `[x]` (square bracket) syntax in EBNF notation.
+* **Precedence : `prec(number, rule)`** - This marks the given rule with a numerical precedence which will be used to resolve [*LR(1) Conflicts*][lr-conflict] at parser-generation time. When two rules overlap in a way that represents either a true ambiguity or a *local* ambiguity given one token of lookahead, Tree-sitter will try to resolve the conflict by matching the rule with the higher precedence. The default precedence of all rules is zero. This works similarly to the [precedence directives][yacc-prec] in Yacc grammars.
+* **Left Associativity : `prec.left([number], rule)`** - This marks the given rule as left-associative (and optionally applies a numerical precedence). When an LR(1) conflict arises in which all of the rules have the same numerical precedence, Tree-sitter will consult the rules' associativity. If there is a left-associative rule, Tree-sitter will prefer matching a rule that ends *earlier*. This works similarly to [associativity directives][yacc-prec] in Yacc grammars.
+* **Right Associativity : `prec.right([number], rule)`** - This is similar to `prec.left`, but it instructs Tree-sitter to prefer matching a rule that ends *later*.
+* **Dynamic Precedence : `prec.dynamic(number, rule)`** - This is similar to `prec`, but the given numerical precedence is applied at *runtime* instead of at parser generation time. This is only necessary when handling a conflict dynamically using the the `conflicts` field in the grammar, and when there is a genuine *ambiguity*: multiple rules correctly match a given piece of code. In that event, Tree-sitter compares the total dynamic precedence associated with each rule, and selects the one with the highest total. This is similar to [dynamic precedence directives][bison-dprec] in Bison grammars.
+* **Tokens : `token(rule)`** - This marks the given rule as producing only a single token. Tree-sitter's default is to treat each String or RegExp literal in the grammar as a separate token. Each token is matched separately by the lexer and returned as its own leaf node in the tree. The `token` function allows you to express a complex rule using the functions described above (rather than as a single regular expression) but still have Tree-sitter treat it as a single token.
+
+In addition to the `name` and `rules` fields, grammars have a few other public fields that influence the behavior of the parser.
+
+* `extras` - an array of tokens that may appear *anywhere* in the language. This is often used for whitespace and comments.
+* `inline` - an array of rule names that should be automatically *removed* from the grammar by replacing all of their usages with a copy of their definition. This is useful for rules that are used in multiple places but for which you *don't* want to create syntax tree nodes at runtime.
+* `conflicts` - an array of arrays of rule names. Each inner array represents a set of rules that's involved in an *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use the GLR algorithm to explore all of the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick the subtree rule with the highest *dynamic precedence*.
+* `externals` - an array of toen names which can be returned by an *external scanner*. External scanners allow you to write custom C code which runs during the lexing process in order to handle lexical rules (e.g. Python's indentation tokens) that cannot be described by regular expressions.
 
 ## Adjusting existing grammars to produce better trees
 
@@ -199,11 +237,90 @@ PrimaryExpression        ->  IdentifierReference
 
 The language spec encodes the 20 precedence levels of JavaScript expressions using 20 different non-terminal symbols. If we were to create a concrete syntax tree representing this statement according to the language spec, it would have twenty levels of nesting and it would contain nodes with names like `BitwiseXORExpression`, which are unrelated to the actual code.
 
-### Precedence Annotations
+### Using precedence
 
-Clearly, we need a different way of modeling JavaScript expressions.
+To produce a readable syntax tree, we'd like to model JavaScript expressions using a much flatter structure like this:
 
-...
+```js
+_expression: $ => choice(
+  $.identifier,
+  $.unary_expression,
+  $.binary_expression,
+  // ...
+),
+
+unary_expression: $ => choice(
+  seq('-', $._expression),
+  seq('!', $._expression),
+  // ...
+),
+
+binary_expression: $ => choice(
+  seq($._expression, '*', $._expression),
+  seq($._expression, '+', $._expression),
+  // ...
+),
+```
+
+Of course, this flat structure is highly ambiguous. If we try to generate a parser, Tree-sitter gives us an error message:
+
+```
+Error: Unresolved conflict for symbol sequence:
+
+  '-'  _expression  •  '*'  …
+
+Possible interpretations:
+
+  1:  '-'  (binary_expression  _expression  •  '*'  _expression)
+  2:  (unary_expression  '-'  _expression)  •  '*'  …
+
+Possible resolutions:
+
+  1:  Specify a higher precedence in `binary_expression` than in the other rules.
+  2:  Specify a higher precedence in `unary_expression` than in the other rules.
+  3:  Specify a left or right associativity in `unary_expression`
+  4:  Add a conflict for these rules: `binary_expression` `unary_expression`
+```
+
+For an expression like `-a * b`, it's not clear whether the `-` operator applies to the `a * b` or just to the `a`. This is where the `prec` function described above comes into play. By wrapping a rule with `prec`, we can indicate that certain sequence of symbols should *bind to each other more tightly* than others. For example, the `'-', $._expression` sequence in `unary_expression` should bind more tightly than the `$._expression, '+', $._expression` sequence in `binary_expression`:
+
+```js
+unary_expression: $ => prec(2, choice(
+  seq('-', $._expression),
+  seq('!', $._expression),
+  // ...
+))
+```
+
+### Using associativity
+
+Applying a higher precedence in `unary_expression` fixes that conflict, but there is still another conflict:
+
+```
+Error: Unresolved conflict for symbol sequence:
+
+  _expression  '*'  _expression  •  '*'  …
+
+Possible interpretations:
+
+  1:  _expression  '*'  (binary_expression  _expression  •  '*'  _expression)
+  2:  (binary_expression  _expression  '*'  _expression)  •  '*'  …
+
+Possible resolutions:
+
+  1:  Specify a left or right associativity in `binary_expression`
+  2:  Add a conflict for these rules: `binary_expression`
+```
+
+For an expression like `a * b * c`, it's not clear whether we mean `a * (b * c)` or `(a * b) * c`. This is where `prec.left` and `prec.right` come into use. We want to select the second interpretation, so we use `prec.left`.
+
+```js
+binary_expression: $ => choice(
+  prec.left(2, seq($._expression, '*', $._expression)),
+  prec.left(1, seq($._expression, '+', $._expression)),
+  // ...
+),
+```
 
 ## Dealing with LR conflicts
 
@@ -213,6 +330,7 @@ Clearly, we need a different way of modeling JavaScript expressions.
 [glr-parsing]: https://en.wikipedia.org/wiki/GLR_parser
 [lr-grammars]: https://en.wikipedia.org/wiki/LR_parser
 [yacc]: https://en.wikipedia.org/wiki/Yacc
+[bison]: https://en.wikipedia.org/wiki/GNU_bison
 [antlr]: http://www.antlr.org/
 [peg]: https://en.wikipedia.org/wiki/Parsing_expression_grammar
 [ambiguous-grammar]: https://en.wikipedia.org/wiki/Ambiguous_grammar
@@ -224,3 +342,7 @@ Clearly, we need a different way of modeling JavaScript expressions.
 [package-json]: https://docs.npmjs.com/files/package.json
 [s-exp]: https://en.wikipedia.org/wiki/S-expression
 [node-gyp]: https://github.com/nodejs/node-gyp
+[ebnf]: https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form
+[lr-conflict]: https://en.wikipedia.org/wiki/LR_parser#Conflicts_in_the_constructed_tables
+[yacc-prec]: https://docs.oracle.com/cd/E19504-01/802-5880/6i9k05dh3/index.html
+[bison-dprec]: https://www.gnu.org/software/bison/manual/html_node/Generalized-LR-Parsing.html
