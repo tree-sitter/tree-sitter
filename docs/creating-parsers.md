@@ -23,16 +23,34 @@ module.exports = grammar({
   name: 'the_language_name',
 
   rules: {
-    // the production rules of the context-free grammar
+    // The production rules of the context-free grammar
+    source_file: $ => 'hello'
   }
 });
 ```
+
+Then run the the following command:
+
+```sh
+$ tree-sitter generate
+$ npm install
+```
+
+This will generate the C code required to parse this trivial language, as well as all of the files needed to compile and load this native parser as a Node.js module. You can test this parser by creating a source file with the contents `hello;` and parsing it:
+
+```sh
+$ tree-sitter parse ./the-file
+
+(compilation_unit [0, 0] - [0, 5])
+```
+
+When you make changes to the grammar, you can update the parser simply by re-running `tree-sitter generate`. The best way to recompile the C-code is to run the command `node-gyp build`. You may have to install the [`node-gyp`][node-gyp] tool separately by running `npm install -g node-gyp`.
 
 ## Starting to define the grammar
 
 It's usually a good idea to find a formal specification for the language you're trying to parse. This specification will most likely contain a context-free grammar. As you read through the rules of this CFG, you will probably discover a complex and cyclic graph of relationships. It might be unclear how you should navigate this graph as you define your grammar.
 
-Although languages have very different constructs, their constructs can often be categorized in to similar groups like *Declarations*, *Definitions*, *Statements*, *Expressions*, *Types*, and *Patterns*. In writing your grammar, a good first step is to create just enough structure to include all of these basic *groups* of rules. For an imaginary C-like language, this might look something like this:
+Although languages have very different constructs, their constructs can often be categorized in to similar groups like *Declarations*, *Definitions*, *Statements*, *Expressions*, *Types*, and *Patterns*. In writing your grammar, a good first step is to create just enough structure to include all of these basic *groups* of symbols. For an imaginary C-like language, this might look something like this:
 
 ```js
 rules: $ => {
@@ -119,7 +137,7 @@ pointer_type: $ => seq(
 ),
 ```
 
-## Unit Tests
+## Writing unit tests
 
 For each rule that you add to the grammar, you should first create a *test* that describes how the syntax trees should look when parsing that rule. These tests are written using specially-formatted text files in a `corpus` directory in your parser's root folder. Here is an example of how these tests should look:
 
@@ -205,3 +223,4 @@ Clearly, we need a different way of modeling JavaScript expressions.
 [node.js]: https://nodejs.org
 [package-json]: https://docs.npmjs.com/files/package.json
 [s-exp]: https://en.wikipedia.org/wiki/S-expression
+[node-gyp]: https://github.com/nodejs/node-gyp
