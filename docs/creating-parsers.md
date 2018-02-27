@@ -1,3 +1,7 @@
+---
+layout: table-of-contents
+---
+
 # Creating parsers
 
 Developing Tree-sitter parsers can have a difficult learning curve, but once you get the hang of it, it can fun and even zen-like. This document should help you to build an effective mental model for parser development.
@@ -201,7 +205,7 @@ In addition to the `name` and `rules` fields, grammars have a few other public f
 * `conflicts` - an array of arrays of rule names. Each inner array represents a set of rules that's involved in an *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use the GLR algorithm to explore all of the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick the subtree rule with the highest *dynamic precedence*.
 * `externals` - an array of toen names which can be returned by an *external scanner*. External scanners allow you to write custom C code which runs during the lexing process in order to handle lexical rules (e.g. Python's indentation tokens) that cannot be described by regular expressions.
 
-## Adjusting existing grammars to produce better trees
+## Adjusting existing grammars
 
 Imagine that you were just starting work on the [Tree-sitter JavaScript parser][tree-sitter-javascript]. You might try to directly mirror the structure of the [ECMAScript Language Spec][ecmascript-spec]. To illustrate the problem with this approach, consider the following line of code:
 
