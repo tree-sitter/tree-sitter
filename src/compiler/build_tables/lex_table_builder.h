@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <vector>
+#include <unordered_map>
 #include <set>
 #include "compiler/lex_table.h"
 
@@ -20,7 +21,7 @@ class LexTableBuilder {
  public:
   static std::unique_ptr<LexTableBuilder> create(const SyntaxGrammar &,
                                                  const LexicalGrammar &,
-                                                 const std::vector<LookaheadSet> &,
+                                                 const std::unordered_map<rules::Symbol, LookaheadSet> &,
                                                  const std::vector<LookaheadSet> &);
   LexTable build(ParseTable *);
   const std::set<rules::Symbol> &get_incompatible_tokens(rules::Symbol::Index) const;

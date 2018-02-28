@@ -79,7 +79,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
  public:
   LexTableBuilderImpl(const SyntaxGrammar &syntax_grammar,
                       const LexicalGrammar &lexical_grammar,
-                      const vector<LookaheadSet> &following_tokens_by_token,
+                      const unordered_map<Symbol, LookaheadSet> &following_tokens_by_token,
                       const vector<LookaheadSet> &coincident_tokens)
     : grammar(lexical_grammar),
       starting_characters_by_token(lexical_grammar.variables.size()),
@@ -106,9 +106,12 @@ class LexTableBuilderImpl : public LexTableBuilder {
       starting_characters_by_token[i] = starting_character_aggregator.result;
 
       StartingCharacterAggregator following_character_aggregator;
-      following_tokens_by_token[i].for_each([&](Symbol following_token) {
-        following_character_aggregator.apply(grammar.variables[following_token.index].rule);
-      });
+      const auto &following_tokens = following_tokens_by_token.find(Symbol::terminal(i));
+      if (following_tokens != following_tokens_by_token.end()) {
+        following_tokens->second.for_each([&](Symbol following_token) {
+          following_character_aggregator.apply(grammar.variables[following_token.index].rule);
+        });
+      }
 
       // TODO - Refactor this. In general, a keyword token cannot be followed immediately by
       // another alphanumeric character. But this requirement is currently not expressed anywhere in
@@ -445,7 +448,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
 
 unique_ptr<LexTableBuilder> LexTableBuilder::create(const SyntaxGrammar &syntax_grammar,
                                                     const LexicalGrammar &lexical_grammar,
-                                                    const vector<LookaheadSet> &following_tokens,
+                                                    const unordered_map<Symbol, LookaheadSet> &following_tokens,
                                                     const vector<LookaheadSet> &coincident_tokens) {
   return unique_ptr<LexTableBuilder>(new LexTableBuilderImpl(
     syntax_grammar,

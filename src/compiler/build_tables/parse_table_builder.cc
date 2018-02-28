@@ -51,7 +51,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   ParseItemSetBuilder item_set_builder;
   unique_ptr<LexTableBuilder> lex_table_builder;
   set<ParseAction> fragile_reductions;
-  vector<LookaheadSet> following_tokens_by_token;
+  unordered_map<Symbol, LookaheadSet> following_tokens_by_token;
   vector<LookaheadSet> coincident_tokens_by_token;
 
  public:
@@ -59,7 +59,6 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     : grammar(syntax_grammar),
       lexical_grammar(lexical_grammar),
       item_set_builder(syntax_grammar, lexical_grammar),
-      following_tokens_by_token(lexical_grammar.variables.size()),
       coincident_tokens_by_token(lexical_grammar.variables.size()) {
 
     for (unsigned i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
@@ -424,6 +423,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     }
   }
 
+  // Does this parse state already have the given set of actions, for some lookahead token?
   static bool has_actions(const ParseState &state, const ParseTableEntry &entry) {
     for (const auto &pair : state.terminal_entries)
       if (pair.second.actions == entry.actions)
@@ -431,44 +431,66 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     return false;
   }
 
+  // Can we add the given entry into the given parse state without affecting
+  // the behavior of the parser for valid inputs?
+  bool can_add_entry_to_state(const ParseState &state, Symbol new_token, const ParseTableEntry &entry) {
+    // Only merge parse states by allowing existing reductions to happen
+    // with additional lookahead tokens. Do not alter parse states in ways
+    // that allow entirely new types of actions to happen.
+    if (entry.actions.back().type != ParseActionTypeReduce) return false;
+    if (!has_actions(state, entry)) return false;
+
+    // Do not add external tokens; they could conflict lexically with any
+    // of the state's existing lookahead tokens.
+    if (new_token.is_external()) return false;
+
+    if (!new_token.is_built_in()) {
+      const auto &incompatible_tokens = lex_table_builder->get_incompatible_tokens(new_token.index);
+      if (!incompatible_tokens.empty()) {
+        for (const auto &pair : state.terminal_entries) {
+          const Symbol &existing_token = pair.first;
+
+          // Do not add a token if it conflicts with any token in the follow set
+          // of an existing external token.
+          if (existing_token.is_external()) {
+            const LookaheadSet &following_tokens = following_tokens_by_token[existing_token];
+            for (auto &incompatible_token : incompatible_tokens) {
+              if (following_tokens.contains(incompatible_token)) return false;
+            }
+          }
+
+          // Do not add a token if it conflicts with an existing token.
+          if (incompatible_tokens.count(existing_token)) return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  // If the parse states at the given indices are mergeable, merge the second one
+  // into the first one.
   bool merge_parse_state(size_t left_index, size_t right_index) {
     ParseState &left_state = parse_table.states[left_index];
     ParseState &right_state = parse_table.states[right_index];
     if (left_state.nonterminal_entries != right_state.nonterminal_entries) return false;
 
-    set<Symbol> symbols_to_merge;
     for (auto &left_entry : left_state.terminal_entries) {
       Symbol lookahead = left_entry.first;
-
       const auto &right_entry = right_state.terminal_entries.find(lookahead);
       if (right_entry == right_state.terminal_entries.end()) {
-        if (lookahead.is_external()) return false;
-        if (left_entry.second.actions.back().type != ParseActionTypeReduce) return false;
-        if (!has_actions(right_state, left_entry.second)) return false;
-        if (!lookahead.is_built_in()) {
-          for (const Symbol &incompatible_token : lex_table_builder->get_incompatible_tokens(lookahead.index)) {
-            if (right_state.terminal_entries.count(incompatible_token)) return false;
-          }
-        }
+        if (!can_add_entry_to_state(right_state, lookahead, left_entry.second)) return false;
       } else {
         if (right_entry->second.actions != left_entry.second.actions) return false;
       }
     }
 
+    set<Symbol> symbols_to_merge;
     for (auto &right_entry : right_state.terminal_entries) {
       Symbol lookahead = right_entry.first;
-
       const auto &left_entry = left_state.terminal_entries.find(lookahead);
       if (left_entry == left_state.terminal_entries.end()) {
-        if (lookahead.is_external()) return false;
-        if (right_entry.second.actions.back().type != ParseActionTypeReduce) return false;
-        if (!has_actions(left_state, right_entry.second)) return false;
-        if (!lookahead.is_built_in()) {
-          for (const Symbol &incompatible_token : lex_table_builder->get_incompatible_tokens(lookahead.index)) {
-            if (left_state.terminal_entries.count(incompatible_token)) return false;
-          }
-        }
-
+        if (!can_add_entry_to_state(left_state, lookahead, right_entry.second)) return false;
         symbols_to_merge.insert(lookahead);
       }
     }
@@ -771,10 +793,10 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
 
       if (!left_tokens.empty() && !right_tokens.empty()) {
         left_tokens.for_each([&](Symbol left_symbol) {
-          if (left_symbol.is_terminal() && !left_symbol.is_built_in()) {
+          if (!left_symbol.is_non_terminal() && !left_symbol.is_built_in()) {
             right_tokens.for_each([&](Symbol right_symbol) {
               if (right_symbol.is_terminal() && !right_symbol.is_built_in()) {
-                following_tokens_by_token[left_symbol.index].insert(right_symbol);
+                following_tokens_by_token[left_symbol].insert(right_symbol);
               }
             });
           }

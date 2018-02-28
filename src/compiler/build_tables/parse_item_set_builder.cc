@@ -216,8 +216,12 @@ const vector<Production> &ParseItemSetBuilder::inline_production(const ParseItem
       }
     }
 
-    production.back().precedence = inlined_step.precedence;
-    production.back().associativity = inlined_step.associativity;
+    if (!production.back().precedence) {
+      production.back().precedence = inlined_step.precedence;
+    }
+    if (!production.back().associativity) {
+      production.back().associativity = inlined_step.associativity;
+    }
     production.steps.insert(
       production.steps.end(),
       step + 1,
