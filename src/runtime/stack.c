@@ -167,6 +167,8 @@ static bool stack__tree_is_equivalent(const Tree *left, const Tree *right) {
 }
 
 static void stack_node_add_link(StackNode *self, StackLink link) {
+  if (link.node == self) return;
+
   for (int i = 0; i < self->link_count; i++) {
     StackLink existing_link = self->links[i];
     if (stack__tree_is_equivalent(existing_link.tree, link.tree)) {

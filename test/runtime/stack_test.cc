@@ -132,19 +132,19 @@ describe("Stack", [&]() {
 
   describe("merge()", [&]() {
     before_each([&]() {
-      // . <──0── A <──1── B*
+      // . <──0── A <─*
       //          ↑
-      //          └───2─── C*
+      //          └───*
       ts_stack_push(stack, 0, trees[0], false, stateA);
       ts_stack_copy_version(stack, 0);
-      ts_stack_push(stack, 0, trees[1], false, stateB);
-      ts_stack_push(stack, 1, trees[2], false, stateC);
     });
 
     it("combines versions that have the same top states and positions", [&]() {
       // . <──0── A <──1── B <──3── D*
       //          ↑
       //          └───2─── C <──4── D*
+      ts_stack_push(stack, 0, trees[1], false, stateB);
+      ts_stack_push(stack, 1, trees[2], false, stateC);
       ts_stack_push(stack, 0, trees[3], false, stateD);
       ts_stack_push(stack, 1, trees[4], false, stateD);
 
@@ -163,6 +163,12 @@ describe("Stack", [&]() {
     });
 
     it("does not combine versions that have different states", [&]() {
+      // . <──0── A <──1── B*
+      //          ↑
+      //          └───2─── C*
+      ts_stack_push(stack, 0, trees[1], false, stateB);
+      ts_stack_push(stack, 1, trees[2], false, stateC);
+
       AssertThat(ts_stack_merge(stack, 0, 1), IsFalse());
       AssertThat(ts_stack_version_count(stack), Equals<size_t>(2));
     });
@@ -172,6 +178,8 @@ describe("Stack", [&]() {
       //          ↑
       //          └───2─── C <──4── D*
       trees[3]->size = tree_len * 3;
+      ts_stack_push(stack, 0, trees[1], false, stateB);
+      ts_stack_push(stack, 1, trees[2], false, stateC);
       ts_stack_push(stack, 0, trees[3], false, stateD);
       ts_stack_push(stack, 1, trees[4], false, stateD);
 
@@ -184,9 +192,11 @@ describe("Stack", [&]() {
         // . <──0── A <──1── B <──3── D <──5── E*
         //          ↑
         //          └───2─── C <──4── D <──5── E*
+        ts_stack_push(stack, 0, trees[1], false, stateB);
+        ts_stack_push(stack, 1, trees[2], false, stateC);
         ts_stack_push(stack, 0, trees[3], false, stateD);
-        ts_stack_push(stack, 0, trees[5], false, stateE);
         ts_stack_push(stack, 1, trees[4], false, stateD);
+        ts_stack_push(stack, 0, trees[5], false, stateE);
         ts_stack_push(stack, 1, trees[5], false, stateE);
 
         // . <──0── A <──1── B <──3── D <──5── E*
@@ -201,6 +211,29 @@ describe("Stack", [&]() {
           {stateC, 2},
           {stateA, 3},
           {1, 4},
+        })));
+      });
+    });
+
+    describe("when one of the versions contains an extra (e.g. ERROR) tree of size zero", [&]() {
+      it("does not create a loop in the stack", [&]() {
+        // . <──0── A <────1──── B*
+        //          ↑
+        //          └2─ A <──1── B*
+        trees[2]->extra = true;
+        trees[2]->size = tree_len * 0;
+
+        ts_stack_push(stack, 0, trees[1], false, stateB);
+        ts_stack_push(stack, 1, trees[2], false, stateA);
+        ts_stack_push(stack, 1, trees[1], false, stateB);
+
+        // . <──0── A <──1── B*
+        AssertThat(ts_stack_merge(stack, 0, 1), IsTrue());
+        AssertThat(ts_stack_version_count(stack), Equals<size_t>(1));
+        AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
+          {stateB, 0},
+          {stateA, 1},
+          {1, 2},
         })));
       });
     });
