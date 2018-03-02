@@ -33,7 +33,7 @@ static vector<TestEntry> parse_test_entries(string content) {
     if (!regex_search(content, matches, header_pattern) || matches.empty())
       break;
 
-    string description = matches[1].str();
+    string description = matches[2].str();
     descriptions.push_back(description);
 
     if (!bodies.empty())
