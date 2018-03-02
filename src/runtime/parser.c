@@ -740,6 +740,7 @@ static void parser__start(Parser *self, TSInput input, Tree *previous_tree) {
   self->reusable_node = reusable_node_new(previous_tree);
   self->finished_tree = NULL;
   self->accept_count = 0;
+  self->in_ambiguity = false;
 }
 
 static void parser__accept(Parser *self, StackVersion version,
