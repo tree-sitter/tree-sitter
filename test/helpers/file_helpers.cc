@@ -25,7 +25,10 @@ int get_modified_time(const string &path) {
 }
 
 string read_file(const string &path) {
+  struct stat file_stat;
+  if (stat(path.c_str(), &file_stat) != 0 || (file_stat.st_mode & S_IFMT) != S_IFREG) return "";
   ifstream file(path, std::ios::binary);
+  if (!file.good()) return "";
   istreambuf_iterator<char> file_iterator(file), end_iterator;
   string content(file_iterator, end_iterator);
   file.close();

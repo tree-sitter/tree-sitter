@@ -4,6 +4,7 @@
 #include <regex>
 #include "helpers/file_helpers.h"
 
+using std::move;
 using std::regex;
 using std::regex_search;
 using std::regex_replace;
@@ -95,10 +96,10 @@ vector<ExampleEntry> examples_for_language(string language_name) {
   vector<ExampleEntry> result;
   string examples_directory = join_path({"test", "fixtures", "grammars", language_name, "examples"});
   for (string &filename : list_directory(examples_directory)) {
-    result.push_back({
-      filename,
-      read_file(join_path({examples_directory, filename}))
-    });
+    auto content = read_file(join_path({examples_directory, filename}));
+    if (!content.empty()) {
+      result.push_back({filename, move(content)});
+    }
   }
   return result;
 }
