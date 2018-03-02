@@ -1,15 +1,1 @@
-#!/bin/bash
-
-set -ex
-
-if [ "$#" -lt 2 ]; then
-  echo "usage: $0 <language> <testcase>"
-  exit 1
-fi
-
-lang="$1"
-testcase="$2"
-
-out="out"
-ASAN_OPTIONS="quarantine_size_mb=10:detect_leaks=1" UBSAN="print_stacktrace=1:halt_on_error=1" \
-  "${out}/${lang}_fuzzer" "$testcase" -timeout=1 -runs=100
+run-fuzzer

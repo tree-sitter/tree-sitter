@@ -29,15 +29,15 @@ This will generate a separate fuzzer for each grammar defined in `test/fixtures/
 
 The `run-fuzzer` script handles running an individual fuzzer with a sensible default set of arguments:
 ```
-./script/run-fuzzer <grammar-name> <extra libFuzzer arguments...>
+./script/run-fuzzer <grammar-name> (halt|recover) <extra libFuzzer arguments...>
 ```
 
 which will log information to stdout. Failing testcases and a fuzz corpus will be saved to `fuzz-results/<grammar-name>`. The most important extra `libFuzzer` options are `-jobs` and `-workers` which allow parallel fuzzing. This is can done with, e.g.:
 ```
-./script/run-fuzzer <grammer-name> -jobs=32 -workers=32
+./script/run-fuzzer <grammer-name> halt -jobs=32 -workers=32
 ```
 
 The testcase can be used to reproduce the crash by running:
 ```
-./script/reproduce <grammar-name> <path-to-testcase>
+./script/reproduce <grammar-name> (halt|recover) <path-to-testcase>
 ```
