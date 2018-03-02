@@ -47,8 +47,7 @@ typedef struct {
       TSSymbol symbol;
       int16_t dynamic_precedence;
       uint8_t child_count;
-      uint8_t alias_sequence_id : 7;
-      bool fragile : 1;
+      uint8_t alias_sequence_id;
     };
   } params;
   TSParseActionType type : 4;

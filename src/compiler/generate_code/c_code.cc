@@ -635,10 +635,6 @@ class CCodeGenerator {
               add(", ");
               add(to_string(action.consumed_symbol_count));
 
-              if (action.fragile) {
-                add(", .fragile = true");
-              }
-
               if (action.dynamic_precedence != 0) {
                 add(", .dynamic_precedence = " + to_string(action.dynamic_precedence));
               }

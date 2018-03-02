@@ -50,7 +50,6 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   ParseTable parse_table;
   ParseItemSetBuilder item_set_builder;
   unique_ptr<LexTableBuilder> lex_table_builder;
-  set<ParseAction> fragile_reductions;
   unordered_map<Symbol, LookaheadSet> following_tokens_by_token;
   vector<LookaheadSet> coincident_tokens_by_token;
 
@@ -103,7 +102,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     );
 
     build_error_parse_state(error_state_id);
-    mark_fragile_actions();
+    remove_precedence_values();
     remove_duplicate_parse_states();
 
     auto lex_table = lex_table_builder->build(&parse_table);
@@ -218,16 +217,11 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
               entry.actions.push_back(action);
             } else {
               if (action.precedence > existing_action.precedence) {
-                for (const ParseAction &old_action : entry.actions) {
-                  fragile_reductions.insert(old_action);
-                }
                 entry.actions.assign({action});
                 lookaheads_with_conflicts.erase(lookahead);
               } else if (action.precedence == existing_action.precedence) {
                 entry.actions.push_back(action);
                 lookaheads_with_conflicts.insert(lookahead);
-              } else {
-                fragile_reductions.insert(action);
               }
             }
           }
@@ -295,19 +289,14 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     return "";
   }
 
-  void mark_fragile_actions() {
+  void remove_precedence_values() {
     for (ParseState &state : parse_table.states) {
       for (auto &entry : state.terminal_entries) {
         auto &actions = entry.second.actions;
 
         for (ParseAction &action : actions) {
-          if (action.type == ParseActionTypeReduce) {
-            if (action_is_fragile(action)) {
-              action.fragile = true;
-            }
-            action.precedence = 0;
-            action.associativity = rules::AssociativityNone;
-          }
+          action.precedence = 0;
+          action.associativity = rules::AssociativityNone;
         }
 
         for (auto i = actions.begin(); i != actions.end();) {
@@ -325,27 +314,6 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
         }
       }
     }
-  }
-
-  bool action_is_fragile(const ParseAction &action) {
-    for (auto &fragile_action : fragile_reductions) {
-      if (fragile_action.symbol == action.symbol &&
-          fragile_action.consumed_symbol_count == action.consumed_symbol_count &&
-          fragile_action.dynamic_precedence == action.dynamic_precedence) {
-        if (fragile_action.precedence > action.precedence) {
-          return true;
-        }
-
-        if (fragile_action.precedence == action.precedence &&
-            (fragile_action.associativity == action.associativity ||
-             fragile_action.associativity == rules::AssociativityLeft ||
-             action.associativity == rules::AssociativityRight)) {
-          return true;
-        }
-      }
-    }
-
-    return false;
   }
 
   void remove_duplicate_parse_states() {
@@ -547,11 +515,6 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
           (shift_precedence.min == reduction_precedence &&
            shift_precedence.max > reduction_precedence)) {
         entry.actions.assign({entry.actions.back()});
-        for (const ParseAction &action : entry.actions) {
-          if (action.type == ParseActionTypeReduce) {
-            fragile_reductions.insert(action);
-          }
-        }
       }
 
       // If the shift action has lower precedence, prefer the reduce actions.
@@ -595,11 +558,6 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
 
         if (!has_non_associative_reductions) {
           if (has_right_associative_reductions && !has_left_associative_reductions) {
-            for (const ParseAction &action : entry.actions) {
-              if (action.type == ParseActionTypeReduce) {
-                fragile_reductions.insert(action);
-              }
-            }
             entry.actions.assign({entry.actions.back()});
           } else if (has_left_associative_reductions && !has_right_associative_reductions) {
             entry.actions.pop_back();
@@ -609,12 +567,6 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     }
 
     if (entry.actions.size() == 1) return "";
-
-    for (const ParseAction &action : entry.actions) {
-      if (action.type == ParseActionTypeReduce) {
-        fragile_reductions.insert(action);
-      }
-    }
 
     set<Symbol> actual_conflict;
     for (const ParseItem &item : conflicting_items) {

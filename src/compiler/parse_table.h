@@ -43,7 +43,6 @@ struct ParseAction {
   int dynamic_precedence;
   rules::Associativity associativity;
   unsigned alias_sequence_id;
-  bool fragile;
   bool extra;
   bool repetition;
 };

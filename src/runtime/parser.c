@@ -1119,11 +1119,12 @@ static void parser__advance(Parser *self, StackVersion version, ReusableNode *re
         }
 
         case TSParseActionTypeReduce: {
+          bool is_fragile = table_entry.action_count > 1;
           LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.params.symbol), action.params.child_count);
           StackPopResult reduction = parser__reduce(
             self, version, action.params.symbol, action.params.child_count,
             action.params.dynamic_precedence, action.params.alias_sequence_id,
-            action.params.fragile
+            is_fragile
           );
           StackSlice slice = *array_front(&reduction.slices);
           last_reduction_version = slice.version;

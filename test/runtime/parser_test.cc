@@ -270,7 +270,15 @@ describe("Parser", [&]() {
             "(parenthesized_expression "
               "(binary_expression (number) (member_expression (identifier) (property_identifier)))))))");
 
-        AssertThat(input->strings_read(), Equals(vector<string>({ " abc.d);" })));
+        AssertThat(input->strings_read(), Equals(vector<string>({
+          // The '*' is not reused because the preceding `x` expression is reused, which
+          // puts the parser into a different state than when the `*` was initially tokenized.
+          // When the `*` was initially tokenized, `x` was just an identifier. In both of these
+          // states, external tokens are valid so we don't reuse tokens unless the lex states
+          // match. This could probably be improved somehow.
+          " * ",
+          " abc.d);"
+        })));
       });
     });
 
@@ -295,7 +303,10 @@ describe("Parser", [&]() {
               "(number) "
               "(binary_expression (number) (parenthesized_expression (binary_expression (number) (identifier))))))))");
 
-        AssertThat(input->strings_read(), Equals(vector<string>({"123 || 5 "})));
+        AssertThat(input->strings_read(), Equals(vector<string>({
+          "123 || 5 ",
+          ";"
+        })));
       });
     });
 
