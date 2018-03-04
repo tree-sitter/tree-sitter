@@ -123,15 +123,19 @@ case ${mode} in
     ;;
 
   SVG)
+    html_file=log.html
+    dot_file=$html_file.dot
+
     function write_log_file {
-      echo "<!DOCTYPE html><style>svg { width: 100%; margin-bottom: 20px; }</style>" > log.html
-      line_count=$(grep -n '^$' log.dot | tail -1 | cut -f1 -d:)
+      echo "<!DOCTYPE html><style>svg { width: 100%; margin-bottom: 20px; }</style>" > $html_file
+      line_count=$(grep -n '^$' $dot_file | tail -1 | cut -f1 -d:)
       if [[ -n $line_count ]]; then
-        head -n $line_count log.dot | dot -Tsvg >> log.html
+        head -n $line_count $dot_file | dot -Tsvg >> $html_file
       else
-        cat log.dot | dot -Tsvg >> log.html
+        cat $dot_file | dot -Tsvg >> $html_file
       fi
-      echo "Wrote log.html - $line_count"
+      rm $dot_file
+      echo "Wrote $html_file - $line_count"
     }
 
     function handle_sigint {
@@ -142,7 +146,7 @@ case ${mode} in
     }
     trap handle_sigint SIGINT
 
-    $cmd "${args[@]}" 2> log.dot || export status=$?
+    $cmd "${args[@]}" 2> $dot_file || export status=$?
     write_log_file
     exit $status
     ;;
