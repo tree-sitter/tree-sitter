@@ -245,13 +245,6 @@ static unsigned parser__condense_stack(Parser *self) {
           j = i;
           break;
         case ErrorComparisonPreferLeft:
-          if (can_merge) {
-            made_changes = true;
-            ts_stack_remove_version(self->stack, i);
-            i--;
-            j = i;
-          }
-          break;
         case ErrorComparisonNone:
           if (can_merge) {
             made_changes = true;
@@ -262,12 +255,10 @@ static unsigned parser__condense_stack(Parser *self) {
           break;
         case ErrorComparisonPreferRight:
           made_changes = true;
+          ts_stack_swap_versions(self->stack, i, j);
           if (can_merge) {
-            ts_stack_remove_version(self->stack, j);
+            ts_stack_force_merge(self->stack, j, i);
             i--;
-            j--;
-          } else {
-            ts_stack_swap_versions(self->stack, i, j);
             j = i;
           }
           break;
