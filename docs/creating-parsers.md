@@ -327,6 +327,10 @@ binary_expression: $ => choice(
 ),
 ```
 
+### Hiding rules
+
+You may have noticed in the above examples that some of the grammar rule name like `_expression` and `_type` began with an underscore. Starting a rule's name with an underscore causes the rule to be *hidden* in the syntax tree. This is useful for rules like `_expression` in the grammars above, which always just wrap a single child node. If these nodes were not hidden, they would add substantial depth and noise to the syntax tree without making it any easier to understand.
+
 ## Dealing with LR conflicts
 
 [cst]: https://en.wikipedia.org/wiki/Parse_tree
