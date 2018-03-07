@@ -169,21 +169,43 @@ class LexTableBuilderImpl : public LexTableBuilder {
       }
     }
 
+    // Find a 'keyword capture token' that matches all of the indentified keywords.
     for (Symbol::Index i = 0, n = grammar.variables.size(); i < n; i++) {
       Symbol symbol = Symbol::terminal(i);
-
       bool matches_all_keywords = true;
       keyword_symbols.for_each([&](Symbol keyword_symbol) {
         if (!shadowed_tokens_by_token[keyword_symbol.index].count(symbol)) {
           matches_all_keywords = false;
         }
       });
+      if (!matches_all_keywords) continue;
 
-      if (matches_all_keywords && (
-        keyword_capture_token == rules::NONE() ||
-        shadowed_tokens_by_token[symbol.index].size() <
-        shadowed_tokens_by_token[keyword_capture_token.index].size()
-      )) keyword_capture_token = symbol;
+      // Don't use a token to capture keywords if it overlaps with separator characters.
+      AllCharacterAggregator capture_aggregator;
+      capture_aggregator.apply(grammar.variables[i].rule);
+      if (capture_aggregator.result.includes_all) continue;
+      if (capture_aggregator.result.intersects(separator_start_characters)) continue;
+
+      // Don't use a token to capture keywords if it conflicts with other tokens
+      // that occur in the same state as a keyword.
+      bool shadows_other_tokens = false;
+      for (auto shadowed_token : shadowed_tokens_by_token[i]) {
+        if (!keyword_symbols.contains(shadowed_token) &&
+            keyword_symbols.intersects(coincident_tokens_by_token[shadowed_token.index])) {
+          shadows_other_tokens = true;
+          break;
+        }
+      }
+      if (shadows_other_tokens) continue;
+
+      // If multiple keyword capture tokens are found, don't bother extracting
+      // the keywords into their own function.
+      if (keyword_capture_token == rules::NONE()) {
+        keyword_capture_token = symbol;
+      } else {
+        keyword_capture_token = rules::NONE();
+        break;
+      }
     }
   }
 
