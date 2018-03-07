@@ -17,7 +17,16 @@ namespace build_tables {
 class ParseTableBuilder {
  public:
   static std::unique_ptr<ParseTableBuilder> create(const SyntaxGrammar &, const LexicalGrammar &);
-  std::tuple<ParseTable, LexTable, CompileError> build();
+
+  struct BuildResult {
+    ParseTable parse_table;
+    LexTable main_lex_table;
+    LexTable keyword_lex_table;
+    rules::Symbol keyword_capture_token;
+    CompileError error;
+  };
+
+  BuildResult build();
 
  protected:
   ParseTableBuilder() = default;

@@ -18,6 +18,7 @@ namespace generate_code {
 
 using std::function;
 using std::map;
+using std::move;
 using std::pair;
 using std::set;
 using std::string;
@@ -70,7 +71,9 @@ class CCodeGenerator {
 
   const string name;
   const ParseTable parse_table;
-  const LexTable lex_table;
+  const LexTable main_lex_table;
+  const LexTable keyword_lex_table;
+  Symbol keyword_capture_token;
   const SyntaxGrammar syntax_grammar;
   const LexicalGrammar lexical_grammar;
   map<string, string> sanitized_names;
@@ -80,15 +83,17 @@ class CCodeGenerator {
   set<Alias> unique_aliases;
 
  public:
-  CCodeGenerator(string name, const ParseTable &parse_table,
-                 const LexTable &lex_table, const SyntaxGrammar &syntax_grammar,
-                 const LexicalGrammar &lexical_grammar)
+  CCodeGenerator(string name, ParseTable &&parse_table, LexTable &&main_lex_table,
+                 LexTable &&keyword_lex_table, Symbol keyword_capture_token,
+                 SyntaxGrammar &&syntax_grammar, LexicalGrammar &&lexical_grammar)
       : indent_level(0),
         name(name),
-        parse_table(parse_table),
-        lex_table(lex_table),
-        syntax_grammar(syntax_grammar),
-        lexical_grammar(lexical_grammar),
+        parse_table(move(parse_table)),
+        main_lex_table(move(main_lex_table)),
+        keyword_lex_table(move(keyword_lex_table)),
+        keyword_capture_token(keyword_capture_token),
+        syntax_grammar(move(syntax_grammar)),
+        lexical_grammar(move(lexical_grammar)),
         next_parse_action_list_index(0) {}
 
   string code() {
@@ -105,7 +110,12 @@ class CCodeGenerator {
       add_alias_sequences();
     }
 
-    add_lex_function();
+    add_lex_function("ts_lex", main_lex_table);
+
+    if (keyword_capture_token != rules::NONE()) {
+      add_lex_function("ts_lex_keywords", keyword_lex_table);
+    }
+
     add_lex_modes_list();
 
     if (!syntax_grammar.external_tokens.empty()) {
@@ -273,8 +283,8 @@ class CCodeGenerator {
     line();
   }
 
-  void add_lex_function() {
-    line("static bool ts_lex(TSLexer *lexer, TSStateId state) {");
+  void add_lex_function(string name, const LexTable &lex_table) {
+    line("static bool " + name + "(TSLexer *lexer, TSStateId state) {");
     indent([&]() {
       line("START_LEXER();");
       _switch("state", [&]() {
@@ -457,6 +467,12 @@ class CCodeGenerator {
 
         line(".max_alias_sequence_length = MAX_ALIAS_SEQUENCE_LENGTH,");
         line(".lex_fn = ts_lex,");
+
+        if (keyword_capture_token != rules::NONE()) {
+          line(".keyword_lex_fn = ts_lex_keywords,");
+          line(".keyword_capture_token = " + symbol_id(keyword_capture_token) + ",");
+        }
+
         line(".external_token_count = EXTERNAL_TOKEN_COUNT,");
 
         if (!syntax_grammar.external_tokens.empty()) {
@@ -832,15 +848,17 @@ class CCodeGenerator {
   }
 };
 
-string c_code(string name, const ParseTable &parse_table,
-              const LexTable &lex_table, const SyntaxGrammar &syntax_grammar,
-              const LexicalGrammar &lexical_grammar) {
+string c_code(string name, ParseTable &&parse_table, LexTable &&lex_table,
+              LexTable &&keyword_lex_table, Symbol keyword_capture_token,
+              SyntaxGrammar &&syntax_grammar, LexicalGrammar &&lexical_grammar) {
   return CCodeGenerator(
     name,
-    parse_table,
-    lex_table,
-    syntax_grammar,
-    lexical_grammar
+    move(parse_table),
+    move(lex_table),
+    move(keyword_lex_table),
+    keyword_capture_token,
+    move(syntax_grammar),
+    move(lexical_grammar)
   ).code();
 }
 

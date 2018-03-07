@@ -9,6 +9,7 @@
 
 namespace tree_sitter {
 
+using std::move;
 using std::pair;
 using std::string;
 using std::vector;
@@ -23,26 +24,32 @@ extern "C" TSCompileResult ts_compile_grammar(const char *input) {
   }
 
   auto prepare_grammar_result = prepare_grammar::prepare_grammar(parse_result.grammar);
-  const SyntaxGrammar &syntax_grammar = get<0>(prepare_grammar_result);
-  const LexicalGrammar &lexical_grammar = get<1>(prepare_grammar_result);
+  SyntaxGrammar &syntax_grammar = get<0>(prepare_grammar_result);
+  LexicalGrammar &lexical_grammar = get<1>(prepare_grammar_result);
   CompileError error = get<2>(prepare_grammar_result);
   if (error.type) {
-    return { nullptr, strdup(error.message.c_str()), error.type };
+    return {nullptr, strdup(error.message.c_str()), error.type};
   }
 
   auto builder = build_tables::ParseTableBuilder::create(syntax_grammar, lexical_grammar);
-  auto table_build_result = builder->build();
-  const ParseTable &parse_table = get<0>(table_build_result);
-  const LexTable &lex_table = get<1>(table_build_result);
-  error = get<2>(table_build_result);
-  if (error.type) {
-    return { nullptr, strdup(error.message.c_str()), error.type };
+  auto build_tables_result = builder->build();
+  error = build_tables_result.error;
+  if (error.type != 0) {
+    return {nullptr, strdup(error.message.c_str()), error.type};
   }
 
-  string code = generate_code::c_code(parse_result.name, parse_table, lex_table,
-                                      syntax_grammar, lexical_grammar);
+  string code = generate_code::c_code(
+    parse_result.name,
+    move(build_tables_result.parse_table),
+    move(build_tables_result.main_lex_table),
+    move(build_tables_result.keyword_lex_table),
+    build_tables_result.keyword_capture_token,
+    move(syntax_grammar),
+    move(lexical_grammar)
+  );
 
-  return { strdup(code.c_str()), nullptr, TSCompileErrorTypeNone };
+  return {
+    strdup(code.c_str()), nullptr, TSCompileErrorTypeNone };
 }
 
 }  // namespace tree_sitter
