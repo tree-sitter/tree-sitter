@@ -110,6 +110,8 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     build_error_parse_state(error_state_id);
     remove_precedence_values();
     remove_duplicate_parse_states();
+    eliminate_unit_reductions();
+    populate_used_terminals();
 
     auto lex_table_result = lex_table_builder->build(&parse_table);
     return {
@@ -222,7 +224,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
           // Only add the highest-precedence Reduce actions to the parse table.
           // If other lower-precedence actions are possible, ignore them.
           if (entry.actions.empty()) {
-            parse_table.add_terminal_action(state_id, lookahead, action);
+            entry.actions.push_back(action);
           } else {
             ParseAction &existing_action = entry.actions[0];
             if (existing_action.type == ParseActionTypeAccept) {
@@ -376,30 +378,96 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
       }
     }
 
-    vector<ParseStateId> new_state_ids(parse_table.states.size());
-    size_t deleted_state_count = 0;
-    auto deleted_state_iter = deleted_states.begin();
-    for (ParseStateId i = 0; i < new_state_ids.size(); i++) {
-      while (deleted_state_iter != deleted_states.end() && *deleted_state_iter < i) {
-        deleted_state_count++;
-        deleted_state_iter++;
+    delete_parse_states(deleted_states);
+  }
+
+  void eliminate_unit_reductions() {
+
+    // Find all the "unit reduction states" - states whose only actions are unit reductions,
+    // all of which reduce by the same symbol. Store the symbols along with the state indices.
+    unordered_map<ParseStateId, Symbol::Index> unit_reduction_states;
+    for (ParseStateId i = 0, n = parse_table.states.size(); i < n; i++) {
+      ParseState &state  = parse_table.states[i];
+      bool only_unit_reductions = true;
+      Symbol::Index unit_reduction_symbol = -1;
+
+      for (auto &entry : state.terminal_entries) {
+        for (ParseAction &action : entry.second.actions) {
+          if (action.extra) continue;
+          if (action.type == ParseActionTypeReduce &&
+              action.consumed_symbol_count == 1 &&
+              action.alias_sequence_id == 0 &&
+              grammar.variables[action.symbol.index].type != VariableTypeNamed &&
+              (unit_reduction_symbol == -1 || unit_reduction_symbol == action.symbol.index)
+            ) {
+            unit_reduction_symbol = action.symbol.index;
+          } else {
+            only_unit_reductions = false;
+            break;
+          }
+        }
+
+        if (!only_unit_reductions) break;
       }
-      new_state_ids[i] = i - deleted_state_count;
+
+      if (only_unit_reductions) unit_reduction_states[i] = unit_reduction_symbol;
     }
 
-    ParseStateId original_state_index = 0;
-    auto iter = parse_table.states.begin();
-    while (iter != parse_table.states.end()) {
-      if (deleted_states.count(original_state_index)) {
-        iter = parse_table.states.erase(iter);
-      } else {
-        ParseState &state = *iter;
-        state.each_referenced_state([&new_state_ids](ParseStateId *state_index) {
-          *state_index = new_state_ids[*state_index];
-        });
-        ++iter;
+    // Update each parse state so that the parser never enters these "unit reduction states".
+    for (ParseState &state : parse_table.states) {
+
+      // Update all of the shift actions associated with terminals. If a shift action
+      // points to a unit reduction state, update it to point directly at the same state
+      // as the shift action that's associated with the unit reduction state's non-terminal.
+      for (auto entry = state.nonterminal_entries.begin();
+           entry != state.nonterminal_entries.end();) {
+        const auto &unit_reduction_entry = unit_reduction_states.find(entry->second);
+        if (unit_reduction_entry != unit_reduction_states.end() &&
+            unit_reduction_entry->first == entry->second) {
+          auto entry_for_reduced_symbol = state.nonterminal_entries.find(unit_reduction_entry->second);
+          if (entry_for_reduced_symbol != state.nonterminal_entries.end()) {
+            entry->second = entry_for_reduced_symbol->second;
+          } else {
+            entry = state.nonterminal_entries.erase(entry);
+            continue;
+          }
+        }
+        ++entry;
       }
-      original_state_index++;
+
+      // Update all of the shift actions associated with non-terminals in the same way.
+      for (auto entry = state.terminal_entries.begin(); entry != state.terminal_entries.end();) {
+        auto &last_action = entry->second.actions.back();
+        if (last_action.type == ParseActionTypeShift) {
+          const auto &unit_reduction_entry = unit_reduction_states.find(last_action.state_index);
+          if (unit_reduction_entry != unit_reduction_states.end() &&
+              unit_reduction_entry->first == last_action.state_index) {
+            auto entry_for_reduced_symbol = state.nonterminal_entries.find(unit_reduction_entry->second);
+            if (entry_for_reduced_symbol != state.nonterminal_entries.end()) {
+              last_action.state_index = entry_for_reduced_symbol->second;
+            } else {
+              entry = state.terminal_entries.erase(entry);
+              continue;
+            }
+          }
+        }
+        ++entry;
+      }
+    }
+
+    // Remove the unit reduction states from the parse table.
+    set<ParseStateId> states_to_delete;
+    for (auto &entry : unit_reduction_states) {
+      if (entry.first != 1) states_to_delete.insert(entry.first);
+    }
+    delete_parse_states(states_to_delete);
+  }
+
+  void populate_used_terminals() {
+    for (const ParseState &state : parse_table.states) {
+      for (auto &entry : state.terminal_entries) {
+        parse_table.symbols.insert(entry.first);
+      }
     }
   }
 
@@ -695,6 +763,34 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     }
     description += "\n";
     return description;
+  }
+
+  void delete_parse_states(const set<ParseStateId> deleted_states) {
+    vector<ParseStateId> new_state_ids(parse_table.states.size());
+    size_t deleted_state_count = 0;
+    auto deleted_state_iter = deleted_states.begin();
+    for (ParseStateId i = 0; i < new_state_ids.size(); i++) {
+      while (deleted_state_iter != deleted_states.end() && *deleted_state_iter < i) {
+        deleted_state_count++;
+        deleted_state_iter++;
+      }
+      new_state_ids[i] = i - deleted_state_count;
+    }
+
+    ParseStateId original_state_index = 0;
+    auto iter = parse_table.states.begin();
+    while (iter != parse_table.states.end()) {
+      if (deleted_states.count(original_state_index)) {
+        iter = parse_table.states.erase(iter);
+      } else {
+        ParseState &state = *iter;
+        state.each_referenced_state([&new_state_ids](ParseStateId *state_index) {
+          *state_index = new_state_ids[*state_index];
+        });
+        ++iter;
+      }
+      original_state_index++;
+    }
   }
 
   string symbol_name(const rules::Symbol &symbol) const {

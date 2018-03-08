@@ -146,7 +146,6 @@ bool ParseState::operator==(const ParseState &other) const {
 ParseAction &ParseTable::add_terminal_action(ParseStateId state_id,
                                              Symbol lookahead,
                                              ParseAction action) {
-  symbols.insert(lookahead);
   ParseTableEntry &entry = states[state_id].terminal_entries[lookahead];
   entry.actions.push_back(action);
   return *entry.actions.rbegin();
