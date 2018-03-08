@@ -22,6 +22,9 @@ describe("Parser", [&]() {
     chunk_size = 3;
     input = nullptr;
     document = ts_document_new();
+    if (getenv("TREE_SITTER_ENABLE_DEBUG_GRAPHS")) {
+      ts_document_print_debugging_graphs(document, true);
+    }
   });
 
   after_each([&]() {
@@ -277,7 +280,7 @@ describe("Parser", [&]() {
           // states, external tokens are valid so we don't reuse tokens unless the lex states
           // match. This could probably be improved somehow.
           " * ",
-          " abc.d);"
+          " abc.d)"
         })));
       });
     });
