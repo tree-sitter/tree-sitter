@@ -263,26 +263,6 @@ TSSymbol ts_node_symbol(TSNode self) {
   return tree->context.alias_symbol ? tree->context.alias_symbol : tree->symbol;
 }
 
-TSSymbolIterator ts_node_symbols(TSNode self) {
-  const Tree *tree = ts_node__tree(self);
-  return (TSSymbolIterator){
-    .value = tree->symbol, .done = false, .data = (void *)tree,
-  };
-}
-
-void ts_symbol_iterator_next(TSSymbolIterator *self) {
-  const Tree *tree = (const Tree *)self->data;
-  const Tree *parent = tree->context.parent;
-  if (!self->done && parent) {
-    if (parent->child_count == 1 && !parent->visible) {
-      self->value = parent->symbol;
-      self->data = (void *)parent;
-      return;
-    }
-  }
-  self->done = true;
-}
-
 const char *ts_node_type(TSNode self, const TSDocument *document) {
   return ts_language_symbol_name(document->parser.language, ts_node_symbol(self));
 }
