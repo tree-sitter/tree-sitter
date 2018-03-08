@@ -73,7 +73,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     }
   }
 
-  tuple<ParseTable, LexTable, CompileError> build() {
+  BuildResult build() {
     // Ensure that the empty rename sequence has index 0.
     parse_table.alias_sequences.push_back({});
 
@@ -92,7 +92,13 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     }});
 
     CompileError error = process_part_state_queue();
-    if (error) return make_tuple(parse_table, LexTable(), error);
+    if (error) return {
+      parse_table,
+      LexTable(),
+      LexTable(),
+      rules::NONE(),
+      error,
+    };
 
     lex_table_builder = LexTableBuilder::create(
       grammar,
@@ -105,8 +111,14 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     remove_precedence_values();
     remove_duplicate_parse_states();
 
-    auto lex_table = lex_table_builder->build(&parse_table);
-    return make_tuple(parse_table, lex_table, CompileError::none());
+    auto lex_table_result = lex_table_builder->build(&parse_table);
+    return {
+      parse_table,
+      lex_table_result.main_table,
+      lex_table_result.keyword_table,
+      lex_table_result.keyword_capture_token,
+      CompileError::none()
+    };
   }
 
  private:
@@ -770,7 +782,7 @@ unique_ptr<ParseTableBuilder> ParseTableBuilder::create(
   return unique_ptr<ParseTableBuilder>(new ParseTableBuilderImpl(syntax_grammar, lexical_grammar));
 }
 
-tuple<ParseTable, LexTable, CompileError> ParseTableBuilder::build() {
+ParseTableBuilder::BuildResult ParseTableBuilder::build() {
   return static_cast<ParseTableBuilderImpl *>(this)->build();
 }
 

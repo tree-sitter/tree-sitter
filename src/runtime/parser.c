@@ -358,9 +358,6 @@ static Tree *parser__lex(Parser *self, StackVersion version, TSStateId parse_sta
     );
     ts_lexer_start(&self->lexer);
     if (self->language->lex_fn(&self->lexer.data, lex_mode.lex_state)) {
-      if (length_is_undefined(self->lexer.token_end_position)) {
-        self->lexer.token_end_position = self->lexer.current_position;
-      }
       break;
     }
 
@@ -398,23 +395,39 @@ static Tree *parser__lex(Parser *self, StackVersion version, TSStateId parse_sta
     error_end_position = self->lexer.current_position;
   }
 
+  if (self->lexer.current_position.bytes > last_byte_scanned) {
+    last_byte_scanned = self->lexer.current_position.bytes;
+  }
+
   Tree *result;
   if (skipped_error) {
     Length padding = length_sub(error_start_position, start_position);
     Length size = length_sub(error_end_position, error_start_position);
     result = ts_tree_make_error(&self->tree_pool, size, padding, first_error_character, self->language);
   } else {
-    TSSymbol symbol = self->lexer.data.result_symbol;
-    if (found_external_token) {
-      symbol = self->language->external_scanner.symbol_map[symbol];
-    }
-
     if (self->lexer.token_end_position.bytes < self->lexer.token_start_position.bytes) {
       self->lexer.token_start_position = self->lexer.token_end_position;
     }
 
+    TSSymbol symbol = self->lexer.data.result_symbol;
     Length padding = length_sub(self->lexer.token_start_position, start_position);
     Length size = length_sub(self->lexer.token_end_position, self->lexer.token_start_position);
+
+    if (found_external_token) {
+      symbol = self->language->external_scanner.symbol_map[symbol];
+    } else if (symbol == self->language->keyword_capture_token && symbol != 0) {
+      uint32_t end_byte = self->lexer.token_end_position.bytes;
+      ts_lexer_reset(&self->lexer, self->lexer.token_start_position);
+      ts_lexer_start(&self->lexer);
+      if (
+        self->language->keyword_lex_fn(&self->lexer.data, 0) &&
+        self->lexer.token_end_position.bytes == end_byte &&
+        ts_language_has_actions(self->language, parse_state, self->lexer.data.result_symbol)
+      ) {
+        symbol = self->lexer.data.result_symbol;
+      }
+    }
+
     result = ts_tree_make_leaf(&self->tree_pool, symbol, padding, size, self->language);
 
     if (found_external_token) {
@@ -427,9 +440,6 @@ static Tree *parser__lex(Parser *self, StackVersion version, TSStateId parse_sta
     }
   }
 
-  if (self->lexer.current_position.bytes > last_byte_scanned) {
-    last_byte_scanned = self->lexer.current_position.bytes;
-  }
   result->bytes_scanned = last_byte_scanned - start_position.bytes + 1;
   result->parse_state = parse_state;
   result->first_leaf.lex_mode = lex_mode;
@@ -462,15 +472,31 @@ static void parser__set_cached_token(Parser *self, size_t byte_index, Tree *last
 }
 
 static bool parser__can_reuse_first_leaf(Parser *self, TSStateId state, Tree *tree,
-                                         TableEntry *table_entry) {
+                                         TableEntry *table_entry,
+                                         ReusableNode *next_reusable_node) {
   TSLexMode current_lex_mode = self->language->lex_modes[state];
-  return
-    (tree->first_leaf.lex_mode.lex_state == current_lex_mode.lex_state &&
-     tree->first_leaf.lex_mode.external_lex_state == current_lex_mode.external_lex_state) ||
-    (current_lex_mode.external_lex_state == 0 &&
-     tree->size.bytes > 0 &&
-     table_entry->is_reusable &&
-     (!table_entry->depends_on_lookahead || (tree->child_count > 1 && tree->error_cost == 0)));
+
+  // If the token was created in a state with the same set of lookaheads, it is reusable.
+  if (tree->first_leaf.lex_mode.lex_state == current_lex_mode.lex_state &&
+      tree->first_leaf.lex_mode.external_lex_state == current_lex_mode.external_lex_state &&
+      (tree->first_leaf.symbol != self->language->keyword_capture_token ||
+       tree->parse_state == state)) return true;
+
+  // Empty tokens are not reusable in states with different lookaheads.
+  if (tree->size.bytes == 0 && tree->symbol != ts_builtin_sym_end) return false;
+
+  // If the current state allows external tokens or other tokens that conflict with this
+  // token, this token is not reusable.
+  if (current_lex_mode.external_lex_state != 0 ||
+      !table_entry->is_reusable) return false;
+
+  // If the current state allows other tokens of which this token is a *prefix* and the
+  // content *after* this token has changed, this token isn't reusable.
+  if (table_entry->depends_on_lookahead &&
+      ((tree->child_count <= 1 || tree->error_cost > 0) &&
+       (next_reusable_node && reusable_node_has_leading_changes(next_reusable_node)))) return false;
+
+  return true;
 }
 
 static Tree *parser__get_lookahead(Parser *self, StackVersion version, TSStateId *state,
@@ -521,13 +547,14 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version, TSStateId
     }
 
     ts_language_table_entry(self->language, *state, result->first_leaf.symbol, table_entry);
-    if (!parser__can_reuse_first_leaf(self, *state, result, table_entry)) {
+    ReusableNode next_reusable_node = reusable_node_after_leaf(reusable_node);
+    if (!parser__can_reuse_first_leaf(self, *state, result, table_entry, &next_reusable_node)) {
       LOG(
         "cant_reuse_node symbol:%s, first_leaf_symbol:%s",
         SYM_NAME(result->symbol),
         SYM_NAME(result->first_leaf.symbol)
       );
-      reusable_node_pop_leaf(reusable_node);
+      *reusable_node = next_reusable_node;
       break;
     }
 
@@ -538,7 +565,7 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version, TSStateId
 
   if ((result = parser__get_cached_token(self, position.bytes, last_external_token))) {
     ts_language_table_entry(self->language, *state, result->first_leaf.symbol, table_entry);
-    if (parser__can_reuse_first_leaf(self, *state, result, table_entry)) {
+    if (parser__can_reuse_first_leaf(self, *state, result, table_entry, NULL)) {
       ts_tree_retain(result);
       return result;
     }

@@ -22,6 +22,7 @@ class LookaheadSet {
   bool contains(const rules::Symbol &) const;
   bool insert_all(const LookaheadSet &);
   bool insert(const rules::Symbol &);
+  bool intersects(const LookaheadSet &) const;
 
   template <typename Callback>
   void for_each(const Callback &callback) const {

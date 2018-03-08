@@ -32,6 +32,14 @@ bool LookaheadSet::contains(const Symbol &symbol) const {
   return bits.size() > static_cast<size_t>(symbol.index) && bits[symbol.index];
 }
 
+bool LookaheadSet::intersects(const LookaheadSet &other) const {
+  bool result = false;
+  for_each([&](Symbol symbol) {
+    if (other.contains(symbol)) result = true;
+  });
+  return result;
+}
+
 size_t LookaheadSet::size() const {
   size_t result = 0;
   for (bool bit : external_bits) if (bit) result++;

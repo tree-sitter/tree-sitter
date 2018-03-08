@@ -23,7 +23,14 @@ class LexTableBuilder {
                                                  const LexicalGrammar &,
                                                  const std::unordered_map<rules::Symbol, LookaheadSet> &,
                                                  const std::vector<LookaheadSet> &);
-  LexTable build(ParseTable *);
+
+  struct BuildResult {
+    LexTable main_table;
+    LexTable keyword_table;
+    rules::Symbol keyword_capture_token;
+  };
+
+  BuildResult build(ParseTable *);
   const std::set<rules::Symbol> &get_incompatible_tokens(rules::Symbol::Index) const;
 
  protected:

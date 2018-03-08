@@ -34,13 +34,14 @@ using rules::Symbol;
 using rules::Metadata;
 using rules::Seq;
 
-template <bool is_start>
+template <bool include_all>
 class StartOrEndCharacterAggregator {
  public:
   void apply(const Rule &rule) {
     rule.match(
       [this](const Seq &sequence) {
-        apply(is_start ? *sequence.left : *sequence.right);
+        apply(*sequence.left);
+        if (include_all) apply(*sequence.right);
       },
 
       [this](const rules::Choice &rule) {
@@ -59,15 +60,17 @@ class StartOrEndCharacterAggregator {
   CharacterSet result;
 };
 
-using StartingCharacterAggregator = StartOrEndCharacterAggregator<true>;
-using EndingCharacterAggregator = StartOrEndCharacterAggregator<false>;
+using StartingCharacterAggregator = StartOrEndCharacterAggregator<false>;
+using AllCharacterAggregator = StartOrEndCharacterAggregator<true>;
 
 class LexTableBuilderImpl : public LexTableBuilder {
-  LexTable lex_table;
+  LexTable main_lex_table;
+  LexTable keyword_lex_table;
   const LexicalGrammar grammar;
   vector<Rule> separator_rules;
   LexConflictManager conflict_manager;
-  unordered_map<LexItemSet, LexStateId> lex_state_ids;
+  unordered_map<LexItemSet, LexStateId> main_lex_state_ids;
+  unordered_map<LexItemSet, LexStateId> keyword_lex_state_ids;
   CharacterSet separator_start_characters;
   vector<CharacterSet> starting_characters_by_token;
   vector<CharacterSet> following_characters_by_token;
@@ -75,6 +78,8 @@ class LexTableBuilderImpl : public LexTableBuilder {
   const vector<LookaheadSet> &coincident_tokens_by_token;
   vector<bool> conflict_status_by_token;
   bool conflict_detection_mode;
+  LookaheadSet keyword_symbols;
+  Symbol keyword_capture_token;
 
  public:
   LexTableBuilderImpl(const SyntaxGrammar &syntax_grammar,
@@ -86,7 +91,8 @@ class LexTableBuilderImpl : public LexTableBuilder {
       following_characters_by_token(lexical_grammar.variables.size()),
       shadowed_tokens_by_token(lexical_grammar.variables.size()),
       coincident_tokens_by_token(coincident_tokens),
-      conflict_detection_mode(false) {
+      conflict_detection_mode(false),
+      keyword_capture_token(rules::NONE()) {
 
     // Compute the possible separator rules and the set of separator characters that can occur
     // immediately after any token.
@@ -113,18 +119,32 @@ class LexTableBuilderImpl : public LexTableBuilder {
         });
       }
 
-      // TODO - Refactor this. In general, a keyword token cannot be followed immediately by
-      // another alphanumeric character. But this requirement is currently not expressed anywhere in
-      // the grammar. So without this hack, we would be overly conservative about merging parse
-      // states because we would often consider `identifier` tokens to *conflict* with keyword
-      // tokens.
-      if (is_keyword(grammar.variables[i])) {
-        following_character_aggregator.result
-          .exclude('a', 'z')
-          .exclude('A', 'Z')
-          .exclude('0', '9')
-          .exclude('_')
-          .exclude('$');
+      if (grammar.variables[i].is_string) {
+        AllCharacterAggregator aggregator;
+        aggregator.apply(grammar.variables[i].rule);
+        bool all_alpha = true, all_lower = true;
+        for (auto character : aggregator.result.included_chars) {
+          if (!iswalpha(character)) all_alpha = true;
+          if (!iswlower(character)) all_lower = false;
+        }
+
+        if (all_lower) {
+          keyword_symbols.insert(Symbol::terminal(i));
+        }
+
+        // TODO - Refactor this. In general, a keyword token cannot be followed immediately
+        // by another alphanumeric character. But this requirement is currently not expressed
+        // anywhere in the grammar. So without this hack, we would be overly conservative about
+        // merging parse states because we would often consider `identifier` tokens to *conflict*
+        // with keyword tokens.
+        if (all_alpha) {
+          following_character_aggregator.result
+            .exclude('a', 'z')
+            .exclude('A', 'Z')
+            .exclude('0', '9')
+            .exclude('_')
+            .exclude('$');
+        }
       }
 
       following_characters_by_token[i] = following_character_aggregator.result;
@@ -139,18 +159,57 @@ class LexTableBuilderImpl : public LexTableBuilder {
             starting_characters_by_token[i].intersects(separator_start_characters) ||
             starting_characters_by_token[j].intersects(separator_start_characters)) {
           clear();
-          add_lex_state(item_set_for_terminals(LookaheadSet({
+          add_lex_state(main_lex_table, item_set_for_terminals(LookaheadSet({
             Symbol::terminal(i),
             Symbol::terminal(j)
-          })));
+          }), true));
           if (conflict_status_by_token[i]) shadowed_tokens_by_token[j].insert(Symbol::terminal(i));
           if (conflict_status_by_token[j]) shadowed_tokens_by_token[i].insert(Symbol::terminal(j));
         }
       }
     }
+
+    // Find a 'keyword capture token' that matches all of the indentified keywords.
+    for (Symbol::Index i = 0, n = grammar.variables.size(); i < n; i++) {
+      Symbol symbol = Symbol::terminal(i);
+      bool matches_all_keywords = true;
+      keyword_symbols.for_each([&](Symbol keyword_symbol) {
+        if (!shadowed_tokens_by_token[keyword_symbol.index].count(symbol)) {
+          matches_all_keywords = false;
+        }
+      });
+      if (!matches_all_keywords) continue;
+
+      // Don't use a token to capture keywords if it overlaps with separator characters.
+      AllCharacterAggregator capture_aggregator;
+      capture_aggregator.apply(grammar.variables[i].rule);
+      if (capture_aggregator.result.includes_all) continue;
+      if (capture_aggregator.result.intersects(separator_start_characters)) continue;
+
+      // Don't use a token to capture keywords if it conflicts with other tokens
+      // that occur in the same state as a keyword.
+      bool shadows_other_tokens = false;
+      for (auto shadowed_token : shadowed_tokens_by_token[i]) {
+        if (!keyword_symbols.contains(shadowed_token) &&
+            keyword_symbols.intersects(coincident_tokens_by_token[shadowed_token.index])) {
+          shadows_other_tokens = true;
+          break;
+        }
+      }
+      if (shadows_other_tokens) continue;
+
+      // If multiple keyword capture tokens are found, don't bother extracting
+      // the keywords into their own function.
+      if (keyword_capture_token == rules::NONE()) {
+        keyword_capture_token = symbol;
+      } else {
+        keyword_capture_token = rules::NONE();
+        break;
+      }
+    }
   }
 
-  LexTable build(ParseTable *parse_table) {
+  BuildResult build(ParseTable *parse_table) {
     clear();
     conflict_detection_mode = false;
     vector<pair<LookaheadSet, vector<ParseState *>>> starting_token_sets;
@@ -158,7 +217,11 @@ class LexTableBuilderImpl : public LexTableBuilder {
     for (ParseState &parse_state : parse_table->states) {
       LookaheadSet token_set;
       for (auto &entry : parse_state.terminal_entries) {
-        token_set.insert(entry.first);
+        if (keyword_capture_token.is_terminal() && keyword_symbols.contains(entry.first)) {
+          token_set.insert(keyword_capture_token);
+        } else {
+          token_set.insert(entry.first);
+        }
       }
 
       bool did_merge = false;
@@ -174,14 +237,17 @@ class LexTableBuilderImpl : public LexTableBuilder {
     }
 
     for (auto &pair : starting_token_sets) {
-      LexStateId state_id = add_lex_state(item_set_for_terminals(pair.first));
+      LexStateId state_id = add_lex_state(main_lex_table, item_set_for_terminals(pair.first, true));
       for (ParseState *parse_state : pair.second) {
         parse_state->lex_state_id = state_id;
       }
     }
+
+    add_lex_state(keyword_lex_table, item_set_for_terminals(keyword_symbols, false));
+
     mark_fragile_tokens(parse_table);
-    remove_duplicate_lex_states(parse_table);
-    return lex_table;
+    remove_duplicate_lex_states(main_lex_table, parse_table);
+    return {main_lex_table, keyword_lex_table, keyword_capture_token};
   }
 
   const set<Symbol> &get_incompatible_tokens(Symbol::Index index) const {
@@ -189,36 +255,24 @@ class LexTableBuilderImpl : public LexTableBuilder {
   }
 
  private:
-  bool is_keyword(const LexicalVariable &variable) {
-    EndingCharacterAggregator aggregator;
-    aggregator.apply(variable.rule);
-    return
-      !aggregator.result.includes_all &&
-      aggregator.result.included_chars.size() == 1 &&
-      iswalpha(*aggregator.result.included_chars.begin());
-  }
-
-  LexStateId add_lex_state(const LexItemSet &item_set) {
+  LexStateId add_lex_state(LexTable &lex_table, const LexItemSet &item_set) {
+    auto &lex_state_ids = &lex_table == &main_lex_table ?
+      main_lex_state_ids :
+      keyword_lex_state_ids;
     const auto &pair = lex_state_ids.find(item_set);
     if (pair == lex_state_ids.end()) {
       LexStateId state_id = lex_table.states.size();
       lex_table.states.push_back(LexState());
       lex_state_ids[item_set] = state_id;
-      add_accept_token_actions(item_set, state_id);
-      add_advance_actions(item_set, state_id);
+      add_accept_token_actions(lex_table, item_set, state_id);
+      add_advance_actions(lex_table, item_set, state_id);
       return state_id;
     } else {
       return pair->second;
     }
   }
 
-  void clear() {
-    lex_table.states.clear();
-    lex_state_ids.clear();
-    conflict_status_by_token = vector<bool>(grammar.variables.size(), false);
-  }
-
-  void add_advance_actions(const LexItemSet &item_set, LexStateId state_id) {
+  void add_advance_actions(LexTable &lex_table, const LexItemSet &item_set, LexStateId state_id) {
     for (const auto &pair : item_set.transitions()) {
       const CharacterSet &characters = pair.first;
       const LexItemSet::Transition &transition = pair.second;
@@ -253,12 +307,12 @@ class LexTableBuilderImpl : public LexTableBuilder {
         if (!prefer_advancing) continue;
       }
 
-      action.state_index = add_lex_state(transition.destination);
+      action.state_index = add_lex_state(lex_table, transition.destination);
       lex_table.states[state_id].advance_actions[characters] = action;
     }
   }
 
-  void add_accept_token_actions(const LexItemSet &item_set, LexStateId state_id) {
+  void add_accept_token_actions(LexTable &lex_table, const LexItemSet &item_set, LexStateId state_id) {
     for (const LexItem &item : item_set.entries) {
       LexItem::CompletionStatus completion_status = item.completion_status();
       if (completion_status.is_done) {
@@ -340,7 +394,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
     return is_compatible;
   }
 
-  void remove_duplicate_lex_states(ParseTable *parse_table) {
+  void remove_duplicate_lex_states(LexTable &lex_table, ParseTable *parse_table) {
     for (LexState &state : lex_table.states) {
       state.accept_action.is_string = false;
       state.accept_action.precedence = 0;
@@ -407,22 +461,26 @@ class LexTableBuilderImpl : public LexTableBuilder {
     }
   }
 
-  LexItemSet item_set_for_terminals(const LookaheadSet &terminals) {
+  LexItemSet item_set_for_terminals(const LookaheadSet &terminals, bool with_separators) {
     LexItemSet result;
     terminals.for_each([&](Symbol symbol) {
       if (symbol.is_terminal()) {
         for (const auto &rule : rules_for_symbol(symbol)) {
-          for (const auto &separator_rule : separator_rules) {
-            result.entries.insert(LexItem(
-              symbol,
-              Metadata::separator(
-                Rule::seq({
-                  separator_rule,
-                  Metadata::main_token(rule)
-                })
-              )
-            ));
-          }
+          if (with_separators) {
+            for (const auto &separator_rule : separator_rules) {
+              result.entries.insert(LexItem(
+                symbol,
+                Metadata::separator(
+                  Rule::seq({
+                    separator_rule,
+                    Metadata::main_token(rule)
+                  })
+                )
+              ));
+            }
+          } else {
+           result.entries.insert(LexItem(symbol, Metadata::main_token(rule)));
+         }
         }
       }
     });
@@ -444,6 +502,12 @@ class LexTableBuilderImpl : public LexTableBuilder {
       }
     );
   }
+
+  void clear() {
+    main_lex_table.states.clear();
+    main_lex_state_ids.clear();
+    conflict_status_by_token = vector<bool>(grammar.variables.size(), false);
+  }
 };
 
 unique_ptr<LexTableBuilder> LexTableBuilder::create(const SyntaxGrammar &syntax_grammar,
@@ -458,7 +522,7 @@ unique_ptr<LexTableBuilder> LexTableBuilder::create(const SyntaxGrammar &syntax_
   ));
 }
 
-LexTable LexTableBuilder::build(ParseTable *parse_table) {
+LexTableBuilder::BuildResult LexTableBuilder::build(ParseTable *parse_table) {
   return static_cast<LexTableBuilderImpl *>(this)->build(parse_table);
 }
 
