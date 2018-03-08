@@ -67,19 +67,11 @@ typedef struct {
   uint32_t offset[2];
 } TSNode;
 
-typedef struct {
-  TSSymbol value;
-  bool done;
-  void *data;
-} TSSymbolIterator;
-
 uint32_t ts_node_start_byte(TSNode);
 TSPoint ts_node_start_point(TSNode);
 uint32_t ts_node_end_byte(TSNode);
 TSPoint ts_node_end_point(TSNode);
 TSSymbol ts_node_symbol(TSNode);
-TSSymbolIterator ts_node_symbols(TSNode);
-void ts_symbol_iterator_next(TSSymbolIterator *);
 const char *ts_node_type(TSNode, const TSDocument *);
 char *ts_node_string(TSNode, const TSDocument *);
 bool ts_node_eq(TSNode, TSNode);
