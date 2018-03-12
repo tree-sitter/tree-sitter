@@ -174,7 +174,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
       Symbol symbol = Symbol::terminal(i);
       bool matches_all_keywords = true;
       keyword_symbols.for_each([&](Symbol keyword_symbol) {
-        if (!shadowed_tokens_by_token[keyword_symbol.index].count(symbol)) {
+        if (!conflict_manager.possible_homonyms[symbol.index].count(keyword_symbol.index)) {
           matches_all_keywords = false;
         }
       });
