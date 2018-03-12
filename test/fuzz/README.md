@@ -4,12 +4,12 @@ The tree-sitter fuzzing support requires 1) the `libFuzzer` runtime library and 
 
 ## libFuzzer
 
-The main fuzzing logic is implemented by `libFuzzer` which is part of the LLVM project but is not shipped by distros. It will need to be built from source but does not require building the _whole_ LLVM project. LLVM can be downloaded from llvm.org using SVN or [llvm-mirror](https://github.com/llvm-mirror/llvm) using git. `libFuzzer` can be built as, e.g.:
+The main fuzzing logic is implemented by `libFuzzer` which is part of the compiler-rt project but is not shipped by distros. `libFuzzer` will need to be built from source, e.g.:
 
 ```
 cd ~/src
-git clone https://github.com/llvm-mirror/llvm
-cd llvm/lib/Fuzzer
+git clone https://github.com/llvm-mirror/compiler-rt
+cd compiler-rt/lib/fuzzer
 ./build.sh
 ```
 
@@ -21,7 +21,7 @@ The fuzzers can then be built with:
 ```
 export CLANG_DIR=$HOME/src/third_party/llvm-build/Release+Asserts/bin
 CC="$CLANG_DIR/clang" CXX="$CLANG_DIR/clang++" LINK="$CLANG_DIR/clang++" \
-  LIB_FUZZER_PATH=$HOME/src/llvm/lib/Fuzzer/libFuzzer.a \
+  LIB_FUZZER_PATH=$HOME/src/compiler-rt/lib/fuzzer/libFuzzer.a \
   ./script/build_fuzzers
 ```
 
