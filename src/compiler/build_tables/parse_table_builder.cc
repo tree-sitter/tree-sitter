@@ -382,6 +382,16 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   }
 
   void eliminate_unit_reductions() {
+    set<Symbol::Index> aliased_symbols;
+    for (auto &variable : grammar.variables) {
+      for (auto &production : variable.productions) {
+        for (auto &step : production) {
+          if (!step.alias.value.empty()) {
+            aliased_symbols.insert(step.symbol.index);
+          }
+        }
+      }
+    }
 
     // Find all the "unit reduction states" - states whose only actions are unit reductions,
     // all of which reduce by the same symbol. Store the symbols along with the state indices.
@@ -391,12 +401,15 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
       bool only_unit_reductions = true;
       Symbol::Index unit_reduction_symbol = -1;
 
+      if (!state.nonterminal_entries.empty()) continue;
+
       for (auto &entry : state.terminal_entries) {
         for (ParseAction &action : entry.second.actions) {
           if (action.extra) continue;
           if (action.type == ParseActionTypeReduce &&
               action.consumed_symbol_count == 1 &&
               action.alias_sequence_id == 0 &&
+              !aliased_symbols.count(action.symbol.index) &&
               grammar.variables[action.symbol.index].type != VariableTypeNamed &&
               (unit_reduction_symbol == -1 || unit_reduction_symbol == action.symbol.index)
             ) {
@@ -414,44 +427,21 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     }
 
     // Update each parse state so that the parser never enters these "unit reduction states".
+    // If a shift action points to a unit reduction state, update it to point directly at
+    // the same state as the shift action that's associated with the unit reduction's
+    // non-terminal.
     for (ParseState &state : parse_table.states) {
-
-      // Update all of the shift actions associated with terminals. If a shift action
-      // points to a unit reduction state, update it to point directly at the same state
-      // as the shift action that's associated with the unit reduction state's non-terminal.
-      for (auto entry = state.nonterminal_entries.begin();
-           entry != state.nonterminal_entries.end();) {
-        const auto &unit_reduction_entry = unit_reduction_states.find(entry->second);
-        if (unit_reduction_entry != unit_reduction_states.end() &&
-            unit_reduction_entry->first == entry->second) {
-          auto entry_for_reduced_symbol = state.nonterminal_entries.find(unit_reduction_entry->second);
-          if (entry_for_reduced_symbol != state.nonterminal_entries.end()) {
-            entry->second = entry_for_reduced_symbol->second;
-          } else {
-            entry = state.nonterminal_entries.erase(entry);
-            continue;
-          }
-        }
-        ++entry;
-      }
-
-      // Update all of the shift actions associated with non-terminals in the same way.
-      for (auto entry = state.terminal_entries.begin(); entry != state.terminal_entries.end();) {
-        auto &last_action = entry->second.actions.back();
-        if (last_action.type == ParseActionTypeShift) {
-          const auto &unit_reduction_entry = unit_reduction_states.find(last_action.state_index);
-          if (unit_reduction_entry != unit_reduction_states.end() &&
-              unit_reduction_entry->first == last_action.state_index) {
+      bool done = false;
+      while (!done) {
+        done = true;
+        state.each_referenced_state([&](ParseStateId *state_id) {
+          const auto &unit_reduction_entry = unit_reduction_states.find(*state_id);
+          if (unit_reduction_entry != unit_reduction_states.end()) {
             auto entry_for_reduced_symbol = state.nonterminal_entries.find(unit_reduction_entry->second);
-            if (entry_for_reduced_symbol != state.nonterminal_entries.end()) {
-              last_action.state_index = entry_for_reduced_symbol->second;
-            } else {
-              entry = state.terminal_entries.erase(entry);
-              continue;
-            }
+            *state_id = entry_for_reduced_symbol->second;
+            done = false;
           }
-        }
-        ++entry;
+        });
       }
     }
 

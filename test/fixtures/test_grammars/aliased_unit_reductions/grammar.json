@@ -1,0 +1,70 @@
+{
+  "name": "aliased_unit_reductions",
+
+  "extras": [
+    {"type": "PATTERN", "value": "\\s"}
+  ],
+
+  "rules": {
+    "statement": {
+      "type": "SEQ",
+      "members": [
+        {"type": "SYMBOL", "name": "_a"},
+        {
+          "type": "ALIAS",
+          "named": true,
+          "value": "b_prime",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_b"
+          }
+        },
+        {
+          "type": "ALIAS",
+          "named": true,
+          "value": "c_prime",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_c"
+          }
+        },
+        {
+          "type": "STRING",
+          "value": ";"
+        }
+      ]
+    },
+
+    "_a": {
+      "type": "SYMBOL",
+      "name": "_A"
+    },
+
+    "_A": {
+      "type": "SYMBOL",
+      "name": "identifier"
+    },
+
+    "_b": {
+      "type": "SYMBOL",
+      "name": "_B"
+    },
+
+    "_B": {
+      "type": "SYMBOL",
+      "name": "identifier"
+    },
+
+    "_c": {
+      "type": "SYMBOL",
+      "name": "_B"
+    },
+
+    "_C": {
+      "type": "SYMBOL",
+      "name": "identifier"
+    },
+
+    "identifier": {"type": "PATTERN", "value": "[a-z]+"}
+  }
+}
