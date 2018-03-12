@@ -33,16 +33,20 @@ run_fuzzer() {
 }
 
 reproduce() {
-  if [ ! "$#" == 3 ]; then
-    echo "usage: $0 <language> (halt|recover) <testcase>"
+  if [ "$#" -lt 3 ]; then
+    echo "usage: $0 <language> (halt|recover) <testcase> <libFuzzer args...>"
     exit 1
   fi
 
   lang="$1"
-  mode="$2"
-  testcase="$3"
+  shift
+  mode="$1"
+  shift
+  testcase="$1"
+  shift
+  # Treat remainder of arguments as libFuzzer arguments
 
-  "${root}/out/${lang}_fuzzer_${mode}" ${mode_config[$mode]} -runs=1 "${testcase}"
+  "${root}/out/${lang}_fuzzer_${mode}" ${mode_config[$mode]} -runs=1 "${testcase}" "$@"
 }
 
 script=$(basename "$0")
