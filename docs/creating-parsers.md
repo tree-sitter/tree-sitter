@@ -181,6 +181,9 @@ To run a particular test, you can use the the `-f` flag:
 tree-sitter test -f 'Return statements'
 ```
 
+The recommendation is to be comprehensive in adding tests. If it's a visible node, add it to a test file in your `/corpus/` directory. It's typically a good idea to test as many permutations of a particular language construct as possible. This increases test coverage, but doubly acquaints readers with a way to examine expected outputs and understand the "edges" of a language.
+
+
 ## Using the grammar DSL
 
 The following is a complete list of built-in functions you can use to define Tree-sitter grammars. Use-cases for some of these functions will be explained in more detail in later sections.
