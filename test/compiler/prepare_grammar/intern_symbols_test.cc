@@ -75,16 +75,8 @@ describe("intern_symbols", []() {
       {},
       {},
       {
-        Variable{
-          "w",
-          VariableTypeNamed,
-          NamedSymbol{"w"}
-        },
-        Variable{
-          "z",
-          VariableTypeNamed,
-          NamedSymbol{"z"}
-        },
+        NamedSymbol{"w"},
+        NamedSymbol{"z"},
       },
       {}
     };
@@ -95,12 +87,12 @@ describe("intern_symbols", []() {
       Variable{
         "w",
         VariableTypeNamed,
-        Symbol::external(0)
+        Symbol::external(0),
       },
       Variable{
         "z",
         VariableTypeNamed,
-        Symbol::non_terminal(2)
+        Symbol::non_terminal(2),
       },
     }))
   });

@@ -72,7 +72,7 @@ class SymbolInterner {
     }
 
     for (size_t i = 0; i < grammar.external_tokens.size(); i++) {
-      if (grammar.external_tokens[i].name == named_symbol.value) {
+      if (grammar.external_tokens[i] == named_symbol) {
         return Symbol::external(i);
       }
     }
@@ -96,16 +96,30 @@ pair<InternedGrammar, CompileError> intern_symbols(const InputGrammar &grammar) 
 
   SymbolInterner interner(grammar);
 
-  for (auto &external_token : grammar.external_tokens) {
-    auto new_rule = interner.apply(external_token.rule);
+  for (const Rule &external_token : grammar.external_tokens) {
+    string external_token_name;
+    VariableType external_token_type = VariableTypeAnonymous;
+    external_token.match(
+      [&](rules::NamedSymbol named_symbol) {
+        external_token_name = named_symbol.value;
+        if (external_token_name[0] == '_') {
+          external_token_type = VariableTypeHidden;
+        } else {
+          external_token_type =VariableTypeNamed;
+        }
+      },
+      [](auto rule) {}
+    );
+
+    auto new_rule = interner.apply(external_token);
     if (!interner.missing_rule_name.empty()) {
       return { result, missing_rule_error(interner.missing_rule_name) };
     }
 
     result.external_tokens.push_back(Variable{
-      external_token.name,
-      external_token.name[0] == '_' ? VariableTypeHidden : external_token.type,
-      new_rule
+      external_token_name,
+      external_token_type,
+      new_rule,
     });
   }
 

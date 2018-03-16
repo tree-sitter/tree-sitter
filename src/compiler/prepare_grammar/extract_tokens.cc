@@ -179,10 +179,10 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
 
   vector<Variable> processed_external_tokens;
   for (const auto &external_token : grammar.external_tokens) {
-    processed_external_tokens.push_back({
+    processed_external_tokens.push_back(Variable{
       external_token.name,
       external_token.type,
-      extractor.apply(external_token.rule)
+      extractor.apply(external_token.rule),
     });
   }
 
@@ -312,13 +312,13 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
       syntax_grammar.external_tokens.push_back(ExternalToken{
         external_token.name,
         external_token.type,
-        rules::NONE()
+        rules::NONE(),
       });
     } else {
       syntax_grammar.external_tokens.push_back(ExternalToken{
         lexical_grammar.variables[symbol.index].name,
         external_token.type,
-        symbol
+        symbol,
       });
     }
   }
