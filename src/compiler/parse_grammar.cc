@@ -354,15 +354,7 @@ ParseGrammarResult parse_grammar(const string &input) {
         error_message = "Invalid external token: " + result.error_message;
         goto error;
       }
-
-      grammar.external_tokens.push_back(result.rule.match(
-        [](rules::NamedSymbol named_symbol) {
-          return Variable{named_symbol.value, VariableTypeNamed, named_symbol};
-        },
-        [](auto rule) {
-          return Variable{"", VariableTypeAnonymous, rule};
-        }
-      ));
+      grammar.external_tokens.push_back(result.rule);
     }
   }
 
