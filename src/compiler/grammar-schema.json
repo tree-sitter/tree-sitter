@@ -34,22 +34,7 @@
     "externals": {
       "type": "array",
       "items": {
-        "oneOf": [
-          {
-            "type": "array",
-            "items": [
-              { "$ref": "#/definitions/rule" },
-              {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "blank": { "type": "boolean" }
-                }
-              },
-            ]
-          },
-          { "$ref": "#/definitions/rule" }
-        ]
+        "$ref": "#/definitions/rule"
       }
     },
 

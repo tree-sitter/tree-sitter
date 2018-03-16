@@ -26,16 +26,11 @@ struct Variable {
   }
 };
 
-struct InputExternalToken {
-  rules::Rule rule;
-  bool can_be_blank;
-};
-
 struct InputGrammar {
   std::vector<Variable> variables;
   std::vector<rules::Rule> extra_tokens;
   std::vector<std::unordered_set<rules::NamedSymbol>> expected_conflicts;
-  std::vector<InputExternalToken> external_tokens;
+  std::vector<rules::Rule> external_tokens;
   std::unordered_set<rules::NamedSymbol> variables_to_inline;
 };
 

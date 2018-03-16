@@ -11,7 +11,6 @@ using namespace rules;
 using prepare_grammar::extract_tokens;
 using prepare_grammar::InternedGrammar;
 using prepare_grammar::InitialSyntaxGrammar;
-using prepare_grammar::InternedExternalToken;
 
 describe("extract_tokens", []() {
   it("moves strings, patterns, and sub-rules marked as tokens into the lexical grammar", [&]() {
@@ -445,7 +444,7 @@ describe("extract_tokens", []() {
       {},
       {},
       {
-        InternedExternalToken{"rule_A", VariableTypeNamed, Symbol::non_terminal(0)}
+        Variable{"rule_A", VariableTypeNamed, Symbol::non_terminal(0)}
       },
       {}
     });

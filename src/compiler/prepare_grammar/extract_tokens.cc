@@ -177,13 +177,12 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
     });
   }
 
-  vector<InternedExternalToken> processed_external_tokens;
+  vector<Variable> processed_external_tokens;
   for (const auto &external_token : grammar.external_tokens) {
-    processed_external_tokens.push_back(InternedExternalToken{
+    processed_external_tokens.push_back(Variable{
       external_token.name,
       external_token.type,
       extractor.apply(external_token.rule),
-      external_token.can_be_blank,
     });
   }
 
@@ -314,14 +313,12 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
         external_token.name,
         external_token.type,
         rules::NONE(),
-        external_token.can_be_blank,
       });
     } else {
       syntax_grammar.external_tokens.push_back(ExternalToken{
         lexical_grammar.variables[symbol.index].name,
         external_token.type,
         symbol,
-        external_token.can_be_blank,
       });
     }
   }

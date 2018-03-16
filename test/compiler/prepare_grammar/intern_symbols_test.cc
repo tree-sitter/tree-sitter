@@ -8,7 +8,6 @@ START_TEST
 
 using namespace rules;
 using prepare_grammar::intern_symbols;
-using prepare_grammar::InternedExternalToken;
 
 describe("intern_symbols", []() {
   it("replaces named symbols with numerically-indexed symbols", [&]() {
@@ -76,32 +75,24 @@ describe("intern_symbols", []() {
       {},
       {},
       {
-        InputExternalToken{
-          NamedSymbol{"w"},
-          false,
-        },
-        InputExternalToken{
-          NamedSymbol{"z"},
-          false,
-        },
+        NamedSymbol{"w"},
+        NamedSymbol{"z"},
       },
       {}
     };
 
     auto result = intern_symbols(grammar);
 
-    AssertThat(result.first.external_tokens, Equals(vector<InternedExternalToken>{
-      InternedExternalToken{
+    AssertThat(result.first.external_tokens, Equals(vector<Variable>{
+      Variable{
         "w",
         VariableTypeNamed,
         Symbol::external(0),
-        false
       },
-      InternedExternalToken{
+      Variable{
         "z",
         VariableTypeNamed,
         Symbol::non_terminal(2),
-        false
       },
     }))
   });

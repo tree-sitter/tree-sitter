@@ -478,30 +478,20 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     if (entry.actions.back().type != ParseActionTypeReduce) return false;
     if (!has_actions(state, entry)) return false;
 
-    // Do not add external tokens; they could conflict lexically with any
-    // of the state's existing lookahead tokens.
+    // Do not add external tokens; they could conflict lexically with any of the state's
+    // existing lookahead tokens.
     if (new_token.is_external()) return false;
 
+    // Do not add tokens which are both internal and external. Their validity could
+    // influence the behavior of the external scanner.
+    for (const ExternalToken &external_token : grammar.external_tokens) {
+      if (external_token.corresponding_internal_token == new_token) return false;
+    }
+
+    // Do not add a token if it conflicts with an existing token.
     if (!new_token.is_built_in()) {
-      const auto &incompatible_tokens = lex_table_builder->get_incompatible_tokens(new_token.index);
-      if (!incompatible_tokens.empty()) {
-        for (const auto &pair : state.terminal_entries) {
-          const Symbol &existing_token = pair.first;
-
-          // Do not add a token if it conflicts with any token in the follow set
-          // of an existing external token.
-          if (existing_token.is_external()) {
-            if (grammar.external_tokens[existing_token.index].can_be_blank) {
-              const LookaheadSet &following_tokens = following_tokens_by_token[existing_token];
-              for (auto &incompatible_token : incompatible_tokens) {
-                if (following_tokens.contains(incompatible_token)) return false;
-              }
-            }
-          }
-
-          // Do not add a token if it conflicts with an existing token.
-          if (incompatible_tokens.count(existing_token)) return false;
-        }
+      for (Symbol incompatible_token : lex_table_builder->get_incompatible_tokens(new_token.index)) {
+        if (state.terminal_entries.count(incompatible_token)) return false;
       }
     }
 
