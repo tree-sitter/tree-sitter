@@ -30,7 +30,8 @@ bool Production::operator==(const Production &other) const {
 bool ExternalToken::operator==(const ExternalToken &other) const {
   return name == other.name &&
     type == other.type &&
-    corresponding_internal_token == other.corresponding_internal_token;
+    corresponding_internal_token == other.corresponding_internal_token &&
+    can_be_blank == other.can_be_blank;
 }
 
 }  // namespace tree_sitter

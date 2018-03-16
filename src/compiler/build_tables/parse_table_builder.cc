@@ -491,9 +491,11 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
           // Do not add a token if it conflicts with any token in the follow set
           // of an existing external token.
           if (existing_token.is_external()) {
-            const LookaheadSet &following_tokens = following_tokens_by_token[existing_token];
-            for (auto &incompatible_token : incompatible_tokens) {
-              if (following_tokens.contains(incompatible_token)) return false;
+            if (grammar.external_tokens[existing_token.index].can_be_blank) {
+              const LookaheadSet &following_tokens = following_tokens_by_token[existing_token];
+              for (auto &incompatible_token : incompatible_tokens) {
+                if (following_tokens.contains(incompatible_token)) return false;
+              }
             }
           }
 

@@ -50,6 +50,7 @@ struct ExternalToken {
   std::string name;
   VariableType type;
   rules::Symbol corresponding_internal_token;
+  bool can_be_blank;
 
   bool operator==(const ExternalToken &) const;
 };

@@ -34,7 +34,22 @@
     "externals": {
       "type": "array",
       "items": {
-        "$ref": "#/definitions/rule"
+        "oneOf": [
+          {
+            "type": "array",
+            "items": [
+              { "$ref": "#/definitions/rule" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "blank": { "type": "boolean" }
+                }
+              },
+            ]
+          },
+          { "$ref": "#/definitions/rule" }
+        ]
       }
     },
 

@@ -348,21 +348,37 @@ ParseGrammarResult parse_grammar(const string &input) {
     }
 
     for (size_t i = 0, length = external_tokens_json.u.array.length; i < length; i++) {
-      json_value *external_token_json = external_tokens_json.u.array.values[i];
+      json_value *entry_json = external_tokens_json.u.array.values[i];
+
+      bool can_be_blank = false;
+      json_value *external_token_json;
+      if (entry_json->type == json_array) {
+        if (entry_json->u.array.length < 1) continue;
+        external_token_json = entry_json->u.array.values[0];
+        if (entry_json->u.array.length < 2) continue;
+        json_value *options_json = entry_json->u.array.values[1];
+        if (options_json->type == json_object) {
+          for (size_t j = 0; j < options_json->u.object.length; j++) {
+            json_object_entry options_entry_json = options_json->u.object.values[j];
+            if (string(options_entry_json.name) == "blank" && options_entry_json.value->type == json_boolean) {
+              can_be_blank = options_entry_json.value->u.boolean;
+            }
+          }
+        }
+      } else {
+        external_token_json = entry_json;
+      }
+
       auto result = parse_rule(external_token_json);
       if (!result.error_message.empty()) {
         error_message = "Invalid external token: " + result.error_message;
         goto error;
       }
 
-      grammar.external_tokens.push_back(result.rule.match(
-        [](rules::NamedSymbol named_symbol) {
-          return Variable{named_symbol.value, VariableTypeNamed, named_symbol};
-        },
-        [](auto rule) {
-          return Variable{"", VariableTypeAnonymous, rule};
-        }
-      ));
+      grammar.external_tokens.push_back(InputExternalToken{
+        result.rule,
+        can_be_blank,
+      });
     }
   }
 
