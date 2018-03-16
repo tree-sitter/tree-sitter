@@ -15,6 +15,7 @@ struct InternedGrammar {
   std::vector<rules::Rule> extra_tokens;
   std::set<std::set<rules::Symbol>> expected_conflicts;
   std::vector<Variable> external_tokens;
+  std::set<rules::Symbol> blank_external_tokens;
   std::set<rules::Symbol> variables_to_inline;
 };
 
