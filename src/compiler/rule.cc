@@ -139,7 +139,13 @@ template <>
 bool Rule::is<Repeat>() const { return type == RepeatType; }
 
 template <>
+bool Rule::is<Metadata>() const { return type == MetadataType; }
+
+template <>
 const Symbol & Rule::get_unchecked<Symbol>() const { return symbol_; }
+
+template <>
+const Metadata & Rule::get_unchecked<Metadata>() const { return metadata_; }
 
 static inline void add_choice_element(std::vector<Rule> *elements, const Rule &new_rule) {
   new_rule.match(

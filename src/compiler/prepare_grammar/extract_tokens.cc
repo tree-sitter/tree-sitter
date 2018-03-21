@@ -114,7 +114,13 @@ class TokenExtractor {
 
       [this](const rules::Metadata &rule) -> Rule {
         if (rule.params.is_token) {
-          return extract_token(*rule.rule, VariableTypeAuxiliary);
+          rules::Metadata metadata{*rule.rule, rule.params};
+          metadata.params.is_token = false;
+          if (metadata.params == rules::MetadataParams{}) {
+            return extract_token(*metadata.rule, VariableTypeAuxiliary);
+          } else {
+            return extract_token(metadata, VariableTypeAuxiliary);
+          }
         } else {
           return rules::Metadata{apply(*rule.rule), rule.params};
         }

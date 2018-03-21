@@ -19,6 +19,7 @@ namespace build_tables {
 
 using std::iswalpha;
 using std::map;
+using std::move;
 using std::pair;
 using std::set;
 using std::string;
@@ -465,7 +466,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
     LexItemSet result;
     terminals.for_each([&](Symbol symbol) {
       if (symbol.is_terminal()) {
-        for (const auto &rule : rules_for_symbol(symbol)) {
+        for (auto &&rule : rules_for_symbol(symbol)) {
           if (with_separators) {
             for (const auto &separator_rule : separator_rules) {
               result.entries.insert(LexItem(
@@ -473,13 +474,13 @@ class LexTableBuilderImpl : public LexTableBuilder {
                 Metadata::separator(
                   Rule::seq({
                     separator_rule,
-                    Metadata::main_token(rule)
+                    Metadata::main_token(move(rule))
                   })
                 )
               ));
             }
           } else {
-           result.entries.insert(LexItem(symbol, Metadata::main_token(rule)));
+           result.entries.insert(LexItem(symbol, Metadata::main_token(move(rule))));
          }
         }
       }

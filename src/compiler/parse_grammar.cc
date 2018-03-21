@@ -8,6 +8,7 @@
 
 namespace tree_sitter {
 
+using std::move;
 using std::string;
 using std::vector;
 using std::unordered_set;
@@ -112,7 +113,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     if (!result.error_message.empty()) {
       return "Invalid token content: " + result.error_message;
     }
-      return Rule(Metadata::token(result.rule));
+      return Rule(Metadata::token(move(result.rule)));
   }
 
   if (type == "PATTERN") {
@@ -153,7 +154,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     if (!result.error_message.empty()) {
       return "Invalid precedence content: " + result.error_message;
     }
-    return Rule(Metadata::prec(precedence_json.u.integer, result.rule));
+    return Rule(Metadata::prec(precedence_json.u.integer, move(result.rule)));
   }
 
   if (type == "PREC_LEFT") {
@@ -167,7 +168,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     if (!result.error_message.empty()) {
       return "Invalid precedence content: " + result.error_message;
     }
-    return Rule(Metadata::prec_left(precedence_json.u.integer, result.rule));
+    return Rule(Metadata::prec_left(precedence_json.u.integer, move(result.rule)));
   }
 
   if (type == "PREC_RIGHT") {
@@ -181,7 +182,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     if (!result.error_message.empty()) {
       return "Invalid precedence content: " + result.error_message;
     }
-    return Rule(Metadata::prec_right(precedence_json.u.integer, result.rule));
+    return Rule(Metadata::prec_right(precedence_json.u.integer, move(result.rule)));
   }
 
   if (type == "PREC_DYNAMIC") {
@@ -195,7 +196,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     if (!result.error_message.empty()) {
       return "Invalid precedence content: " + result.error_message;
     }
-    return Rule(Metadata::prec_dynamic(precedence_json.u.integer, result.rule));
+    return Rule(Metadata::prec_dynamic(precedence_json.u.integer, move(result.rule)));
   }
 
   if (type == "ALIAS") {
@@ -217,7 +218,7 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     return Rule(Metadata::alias(
       string(value_json.u.string.ptr),
       is_named_json.u.boolean,
-      result.rule
+      move(result.rule)
     ));
   }
 
