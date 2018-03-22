@@ -210,6 +210,7 @@ ostream &operator<<(ostream &stream, const LookaheadSet &lookaheads) {
   stream << "(LookaheadSet";
   lookaheads.for_each([&stream](Symbol symbol) {
     stream << " " << symbol;
+    return true;
   });
   return stream << ")";
 }

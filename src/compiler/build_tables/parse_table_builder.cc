@@ -239,6 +239,8 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
               }
             }
           }
+
+          return true;
         });
 
       // If the item is unfinished, create a new item by advancing one symbol.
@@ -835,13 +837,15 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
 
       if (!left_tokens.empty() && !right_tokens.empty()) {
         left_tokens.for_each([&](Symbol left_symbol) {
-          if (!left_symbol.is_non_terminal() && !left_symbol.is_built_in()) {
+          if (left_symbol.is_terminal() && !left_symbol.is_built_in()) {
             right_tokens.for_each([&](Symbol right_symbol) {
               if (right_symbol.is_terminal() && !right_symbol.is_built_in()) {
                 following_tokens_by_token[left_symbol].insert(right_symbol);
               }
+              return true;
             });
           }
+          return true;
         });
       }
     }

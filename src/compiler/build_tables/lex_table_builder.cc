@@ -117,6 +117,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
       if (following_tokens != following_tokens_by_token.end()) {
         following_tokens->second.for_each([&](Symbol following_token) {
           following_character_aggregator.apply(grammar.variables[following_token.index].rule);
+          return true;
         });
       }
 
@@ -177,7 +178,9 @@ class LexTableBuilderImpl : public LexTableBuilder {
       keyword_symbols.for_each([&](Symbol keyword_symbol) {
         if (!conflict_manager.possible_homonyms[symbol.index].count(keyword_symbol.index)) {
           matches_all_keywords = false;
+          return false;
         }
+        return true;
       });
       if (!matches_all_keywords) continue;
 
@@ -484,6 +487,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
          }
         }
       }
+      return true;
     });
     return result;
   }
