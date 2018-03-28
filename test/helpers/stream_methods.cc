@@ -111,7 +111,12 @@ ostream &operator<<(ostream &stream, const Repeat &rule) {
 }
 
 ostream &operator<<(ostream &stream, const Metadata &rule) {
-  return stream << "(Metadata " << *rule.rule << ")";
+  stream << "(Metadata";
+  if (rule.params.has_precedence) stream << " prec=" << to_string(rule.params.precedence);
+  if (rule.params.has_associativity) stream << " assoc=" << rule.params.associativity;
+  if (rule.params.is_token) stream << " token";
+  if (rule.params.is_main_token) stream << " main";
+  return stream << " " << *rule.rule << ")";
 }
 
 ostream &operator<<(ostream &stream, const Rule &rule) {
@@ -205,6 +210,7 @@ ostream &operator<<(ostream &stream, const LookaheadSet &lookaheads) {
   stream << "(LookaheadSet";
   lookaheads.for_each([&stream](Symbol symbol) {
     stream << " " << symbol;
+    return true;
   });
   return stream << ")";
 }

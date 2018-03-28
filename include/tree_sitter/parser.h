@@ -63,7 +63,6 @@ typedef union {
   struct {
     uint8_t count;
     bool reusable : 1;
-    bool depends_on_lookahead : 1;
   };
 } TSParseActionEntry;
 

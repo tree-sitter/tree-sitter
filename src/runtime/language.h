@@ -12,7 +12,6 @@ typedef struct {
   const TSParseAction *actions;
   uint32_t action_count;
   bool is_reusable;
-  bool depends_on_lookahead;
 } TableEntry;
 
 void ts_language_table_entry(const TSLanguage *, TSStateId, TSSymbol, TableEntry *);

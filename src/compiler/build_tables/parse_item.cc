@@ -187,6 +187,7 @@ size_t hash<ParseItemSet>::operator()(const ParseItemSet &item_set) const {
     hash_combine(&result, lookahead_set.size());
     lookahead_set.for_each([&result](Symbol symbol) {
       hash_combine(&result, symbol);
+      return true;
     });
   }
   return result;

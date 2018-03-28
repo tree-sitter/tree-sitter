@@ -7,7 +7,6 @@
 #include <utility>
 #include <cwctype>
 #include <vector>
-#include "compiler/build_tables/lex_conflict_manager.h"
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/build_tables/lookahead_set.h"
 #include "compiler/parse_table.h"
@@ -19,6 +18,7 @@ namespace build_tables {
 
 using std::iswalpha;
 using std::map;
+using std::move;
 using std::pair;
 using std::set;
 using std::string;
@@ -68,15 +68,13 @@ class LexTableBuilderImpl : public LexTableBuilder {
   LexTable keyword_lex_table;
   const LexicalGrammar grammar;
   vector<Rule> separator_rules;
-  LexConflictManager conflict_manager;
   unordered_map<LexItemSet, LexStateId> main_lex_state_ids;
   unordered_map<LexItemSet, LexStateId> keyword_lex_state_ids;
   CharacterSet separator_start_characters;
   vector<CharacterSet> starting_characters_by_token;
   vector<CharacterSet> following_characters_by_token;
-  vector<set<Symbol>> shadowed_tokens_by_token;
   const vector<LookaheadSet> &coincident_tokens_by_token;
-  vector<bool> conflict_status_by_token;
+  vector<ConflictStatus> conflict_matrix;
   bool conflict_detection_mode;
   LookaheadSet keyword_symbols;
   Symbol keyword_capture_token;
@@ -89,8 +87,8 @@ class LexTableBuilderImpl : public LexTableBuilder {
     : grammar(lexical_grammar),
       starting_characters_by_token(lexical_grammar.variables.size()),
       following_characters_by_token(lexical_grammar.variables.size()),
-      shadowed_tokens_by_token(lexical_grammar.variables.size()),
       coincident_tokens_by_token(coincident_tokens),
+      conflict_matrix(lexical_grammar.variables.size() * lexical_grammar.variables.size(), DoesNotMatch),
       conflict_detection_mode(false),
       keyword_capture_token(rules::NONE()) {
 
@@ -116,6 +114,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
       if (following_tokens != following_tokens_by_token.end()) {
         following_tokens->second.for_each([&](Symbol following_token) {
           following_character_aggregator.apply(grammar.variables[following_token.index].rule);
+          return true;
         });
       }
 
@@ -124,7 +123,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
         aggregator.apply(grammar.variables[i].rule);
         bool all_alpha = true, all_lower = true;
         for (auto character : aggregator.result.included_chars) {
-          if (!iswalpha(character)) all_alpha = true;
+          if (!iswalpha(character) && character != '_') all_alpha = false;
           if (!iswlower(character)) all_lower = false;
         }
 
@@ -163,8 +162,6 @@ class LexTableBuilderImpl : public LexTableBuilder {
             Symbol::terminal(i),
             Symbol::terminal(j)
           }), true));
-          if (conflict_status_by_token[i]) shadowed_tokens_by_token[j].insert(Symbol::terminal(i));
-          if (conflict_status_by_token[j]) shadowed_tokens_by_token[i].insert(Symbol::terminal(j));
         }
       }
     }
@@ -174,9 +171,11 @@ class LexTableBuilderImpl : public LexTableBuilder {
       Symbol symbol = Symbol::terminal(i);
       bool matches_all_keywords = true;
       keyword_symbols.for_each([&](Symbol keyword_symbol) {
-        if (!conflict_manager.possible_homonyms[symbol.index].count(keyword_symbol.index)) {
+        if (!(get_conflict_status(symbol, keyword_symbol) & MatchesSameString)) {
           matches_all_keywords = false;
+          return false;
         }
+        return true;
       });
       if (!matches_all_keywords) continue;
 
@@ -189,9 +188,11 @@ class LexTableBuilderImpl : public LexTableBuilder {
       // Don't use a token to capture keywords if it conflicts with other tokens
       // that occur in the same state as a keyword.
       bool shadows_other_tokens = false;
-      for (auto shadowed_token : shadowed_tokens_by_token[i]) {
-        if (!keyword_symbols.contains(shadowed_token) &&
-            keyword_symbols.intersects(coincident_tokens_by_token[shadowed_token.index])) {
+      for (Symbol::Index j = 0; j < n; j++) {
+        Symbol other_symbol = Symbol::terminal(j);
+        if ((get_conflict_status(other_symbol, symbol) & (MatchesShorterStringWithinSeparators|MatchesLongerStringWithValidNextChar)) &&
+            !keyword_symbols.contains(other_symbol) &&
+            keyword_symbols.intersects(coincident_tokens_by_token[j])) {
           shadows_other_tokens = true;
           break;
         }
@@ -250,11 +251,21 @@ class LexTableBuilderImpl : public LexTableBuilder {
     return {main_lex_table, keyword_lex_table, keyword_capture_token};
   }
 
-  const set<Symbol> &get_incompatible_tokens(Symbol::Index index) const {
-    return shadowed_tokens_by_token[index];
+  ConflictStatus get_conflict_status(Symbol shadowed_token, Symbol other_token) const {
+    if (shadowed_token.is_built_in() ||
+        other_token.is_built_in() ||
+        !shadowed_token.is_terminal() ||
+        !other_token.is_terminal()) return DoesNotMatch;
+    unsigned index = shadowed_token.index * grammar.variables.size() + other_token.index;
+    return conflict_matrix[index];
   }
 
  private:
+  void record_conflict(Symbol shadowed_token, Symbol other_token, ConflictStatus status) {
+    unsigned index = shadowed_token.index * grammar.variables.size() + other_token.index;
+    conflict_matrix[index] = static_cast<ConflictStatus>(conflict_matrix[index] | status);
+  }
+
   LexStateId add_lex_state(LexTable &lex_table, const LexItemSet &item_set) {
     auto &lex_state_ids = &lex_table == &main_lex_table ?
       main_lex_state_ids :
@@ -280,27 +291,27 @@ class LexTableBuilderImpl : public LexTableBuilder {
       AdvanceAction action(-1, transition.precedence, transition.in_main_token);
       AcceptTokenAction &accept_action = lex_table.states[state_id].accept_action;
       if (accept_action.is_present()) {
-        bool prefer_advancing = conflict_manager.resolve(
-          transition.destination,
-          action,
-          accept_action
-        );
+        bool prefer_advancing = action.precedence_range.max >= accept_action.precedence;
 
         if (conflict_detection_mode) {
           bool next_item_set_can_yield_this_token = false;
           for (const LexItem &item : transition.destination.entries) {
             if (item.lhs == accept_action.symbol) {
               next_item_set_can_yield_this_token = true;
-            } else if (!prefer_advancing && !transition.in_main_token) {
-              conflict_status_by_token[item.lhs.index] = true;
+            } else if (!prefer_advancing && item_set.has_items_in_separators()) {
+              record_conflict(item.lhs, accept_action.symbol, MatchesShorterStringWithinSeparators);
             }
           }
 
-          if (prefer_advancing &&
-              !next_item_set_can_yield_this_token &&
-              (characters.intersects(following_characters_by_token[accept_action.symbol.index]) ||
-               characters.intersects(separator_start_characters))) {
-            conflict_status_by_token[accept_action.symbol.index] = true;
+          if (prefer_advancing && !next_item_set_can_yield_this_token) {
+            auto advance_symbol = transition.destination.entries.begin()->lhs;
+            if (characters.intersects(following_characters_by_token[accept_action.symbol.index]) ||
+                characters.intersects(separator_start_characters)) {
+              record_conflict(accept_action.symbol, advance_symbol, MatchesLongerStringWithValidNextChar);
+            } else {
+              record_conflict(accept_action.symbol, advance_symbol, MatchesLongerString);
+            }
+            return;
           }
         }
 
@@ -321,10 +332,10 @@ class LexTableBuilderImpl : public LexTableBuilder {
                                  grammar.variables[item.lhs.index].is_string);
         AcceptTokenAction &existing_action = lex_table.states[state_id].accept_action;
         if (existing_action.is_present()) {
-          if (conflict_manager.resolve(action, existing_action)) {
-            conflict_status_by_token[existing_action.symbol.index] = true;
+          if (should_replace_accept_action(existing_action, action)) {
+            record_conflict(existing_action.symbol, action.symbol, MatchesSameString);
           } else {
-            conflict_status_by_token[action.symbol.index] = true;
+            record_conflict(action.symbol, existing_action.symbol, MatchesSameString);
             continue;
           }
         }
@@ -336,26 +347,16 @@ class LexTableBuilderImpl : public LexTableBuilder {
   void mark_fragile_tokens(ParseTable *parse_table) {
     for (ParseState &state : parse_table->states) {
       for (auto &entry : state.terminal_entries) {
-        Symbol symbol = entry.first;
-        if (symbol.is_terminal()) {
-          auto homonyms = conflict_manager.possible_homonyms.find(symbol.index);
-          if (homonyms != conflict_manager.possible_homonyms.end())
-            for (Symbol::Index homonym : homonyms->second)
-              if (state.terminal_entries.count(Symbol::terminal(homonym))) {
-                entry.second.reusable = false;
-                break;
-              }
-
-          if (!entry.second.reusable)
-            continue;
-
-          auto extensions = conflict_manager.possible_extensions.find(symbol.index);
-          if (extensions != conflict_manager.possible_extensions.end())
-            for (Symbol::Index extension : extensions->second)
-              if (state.terminal_entries.count(Symbol::terminal(extension))) {
-                entry.second.depends_on_lookahead = true;
-                break;
-              }
+        Symbol token = entry.first;
+        if (token.is_external() || token.is_built_in()) continue;
+        for (unsigned i = 0; i < grammar.variables.size(); i++) {
+          Symbol other_token = Symbol::terminal(i);
+          ConflictStatus status = get_conflict_status(token, other_token);
+          if (status != ConflictStatus::DoesNotMatch &&
+              state.terminal_entries.count(other_token)) {
+            entry.second.reusable = false;
+            break;
+          }
         }
       }
     }
@@ -366,25 +367,16 @@ class LexTableBuilderImpl : public LexTableBuilder {
 
     left->for_each_difference(right, [&](bool in_left, Symbol different_symbol) {
       if (!different_symbol.is_external() && !different_symbol.is_built_in()) {
-        if (in_left) {
-          right.for_each([&](Symbol right_symbol) {
-            if (shadowed_tokens_by_token[different_symbol.index].count(right_symbol) ||
-                !coincident_tokens_by_token[different_symbol.index].contains(right_symbol)) {
-              is_compatible = false;
-              return;
-            }
-          });
-          if (!is_compatible) return false;
-        } else {
-          left->for_each([&](Symbol left_symbol) {
-            if (shadowed_tokens_by_token[different_symbol.index].count(left_symbol) ||
-                !coincident_tokens_by_token[different_symbol.index].contains(left_symbol)) {
-              is_compatible = false;
-              return;
-            }
-          });
-          if (!is_compatible) return false;
-        }
+        const LookaheadSet &existing_set = in_left ? right : *left;
+        existing_set.for_each([&](Symbol existing_symbol) {
+          if ((get_conflict_status(existing_symbol, different_symbol) & CannotDistinguish) ||
+              !coincident_tokens_by_token[different_symbol.index].contains(existing_symbol)) {
+            is_compatible = false;
+            return false;
+          }
+          return true;
+        });
+        if (!is_compatible) return false;
       }
 
       return true;
@@ -465,7 +457,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
     LexItemSet result;
     terminals.for_each([&](Symbol symbol) {
       if (symbol.is_terminal()) {
-        for (const auto &rule : rules_for_symbol(symbol)) {
+        for (auto &&rule : rules_for_symbol(symbol)) {
           if (with_separators) {
             for (const auto &separator_rule : separator_rules) {
               result.entries.insert(LexItem(
@@ -473,16 +465,17 @@ class LexTableBuilderImpl : public LexTableBuilder {
                 Metadata::separator(
                   Rule::seq({
                     separator_rule,
-                    Metadata::main_token(rule)
+                    Metadata::main_token(move(rule))
                   })
                 )
               ));
             }
           } else {
-           result.entries.insert(LexItem(symbol, Metadata::main_token(rule)));
+           result.entries.insert(LexItem(symbol, Metadata::main_token(move(rule))));
          }
         }
       }
+      return true;
     });
     return result;
   }
@@ -503,10 +496,22 @@ class LexTableBuilderImpl : public LexTableBuilder {
     );
   }
 
+  bool should_replace_accept_action(const AcceptTokenAction &old_action,
+                                    const AcceptTokenAction &new_action) {
+    if (new_action.precedence > old_action.precedence) return true;
+    if (new_action.precedence < old_action.precedence) return false;
+    if (new_action.is_string && !old_action.is_string) return true;
+    if (old_action.is_string && !new_action.is_string) return false;
+    return new_action.symbol.index < old_action.symbol.index;
+  }
+
   void clear() {
     main_lex_table.states.clear();
     main_lex_state_ids.clear();
-    conflict_status_by_token = vector<bool>(grammar.variables.size(), false);
+  }
+
+  const string &token_name(rules::Symbol &symbol) {
+    return grammar.variables[symbol.index].name;
   }
 };
 
@@ -526,8 +531,8 @@ LexTableBuilder::BuildResult LexTableBuilder::build(ParseTable *parse_table) {
   return static_cast<LexTableBuilderImpl *>(this)->build(parse_table);
 }
 
-const set<Symbol> &LexTableBuilder::get_incompatible_tokens(Symbol::Index token) const {
-  return static_cast<const LexTableBuilderImpl *>(this)->get_incompatible_tokens(token);
+ConflictStatus LexTableBuilder::get_conflict_status(Symbol a, Symbol b) const {
+  return static_cast<const LexTableBuilderImpl *>(this)->get_conflict_status(a, b);
 }
 
 }  // namespace build_tables

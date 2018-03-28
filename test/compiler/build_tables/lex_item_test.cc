@@ -61,11 +61,8 @@ describe("LexItemSet::transitions()", [&]() {
   });
 
   it("marks transitions that are within the main token (as opposed to separators)", [&]() {
-    MetadataParams params;
-    params.is_main_token = true;
-
     LexItemSet item_set({
-      LexItem(Symbol::non_terminal(1), Metadata{CharacterSet{{'x'}}, params}),
+      LexItem(Symbol::non_terminal(1), Metadata::main_token(CharacterSet{{'x'}})),
     });
 
     AssertThat(
@@ -75,7 +72,7 @@ describe("LexItemSet::transitions()", [&]() {
           CharacterSet({'x'}),
           Transition{
             LexItemSet({
-              LexItem(Symbol::non_terminal(1), Metadata{Blank{}, params}),
+              LexItem(Symbol::non_terminal(1), Metadata::active_prec(0, Metadata::main_token(Blank{}))),
             }),
             PrecedenceRange(),
             true

@@ -32,12 +32,12 @@ class LookaheadSet {
          iter != end;
          ++iter) {
       if (*iter) {
-        callback(rules::Symbol::external(iter - begin));
+        if (!callback(rules::Symbol::external(iter - begin))) return;
       }
     }
 
     if (eof) {
-      callback(rules::END_OF_INPUT());
+      if (!callback(rules::END_OF_INPUT())) return;
     }
 
     for (auto begin = terminal_bits.begin(),
@@ -46,7 +46,7 @@ class LookaheadSet {
          iter != end;
          ++iter) {
       if (*iter) {
-        callback(rules::Symbol::terminal(iter - begin));
+        if (!callback(rules::Symbol::terminal(iter - begin))) return;
       }
     }
   }

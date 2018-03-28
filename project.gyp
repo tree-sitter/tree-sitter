@@ -13,7 +13,6 @@
       'sources': [
         'src/compiler/build_tables/lex_item.cc',
         'src/compiler/build_tables/lex_item_transitions.cc',
-        'src/compiler/build_tables/lex_conflict_manager.cc',
         'src/compiler/build_tables/lex_table_builder.cc',
         'src/compiler/build_tables/lookahead_set.cc',
         'src/compiler/build_tables/parse_item.cc',

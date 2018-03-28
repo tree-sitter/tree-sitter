@@ -12,6 +12,7 @@ namespace build_tables {
 
 using std::function;
 using std::map;
+using std::move;
 using std::pair;
 using std::vector;
 using rules::CharacterSet;
@@ -157,7 +158,7 @@ class TransitionBuilder {
           add_transition(
             transitions, pair.first,
             transform_transition(pair.second, [&params](Rule rule) {
-              return rules::Metadata{rule, params};
+              return rules::Metadata::merge(move(rule), params);
             })
           );
         }

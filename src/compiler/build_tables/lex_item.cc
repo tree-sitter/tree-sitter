@@ -13,6 +13,7 @@ using std::string;
 using std::unordered_set;
 using rules::CharacterSet;
 using rules::Symbol;
+using rules::Metadata;
 
 LexItem::LexItem(const rules::Symbol &lhs, const rules::Rule &rule)
     : lhs(lhs), rule(rule) {}
@@ -80,6 +81,19 @@ LexItemSet::LexItemSet(const unordered_set<LexItem> &entries)
 
 bool LexItemSet::operator==(const LexItemSet &other) const {
   return entries == other.entries;
+}
+
+bool LexItem::is_in_separators() const {
+  if (!rule.is<Metadata>()) return false;
+  auto &metadata = rule.get_unchecked<Metadata>();
+  return !metadata.params.is_main_token;
+}
+
+bool LexItemSet::has_items_in_separators() const {
+  for (const LexItem &item : entries) {
+    if (item.is_in_separators()) return true;
+  }
+  return false;
 }
 
 LexItemSet::TransitionMap LexItemSet::transitions() const {

@@ -49,7 +49,7 @@ struct ParseAction {
 
 struct ParseTableEntry {
   ParseTableEntry();
-  ParseTableEntry(const std::vector<ParseAction> &, bool, bool);
+  ParseTableEntry(const std::vector<ParseAction> &, bool);
   bool operator==(const ParseTableEntry &other) const;
   inline bool operator!=(const ParseTableEntry &other) const {
     return !operator==(other);
@@ -57,7 +57,6 @@ struct ParseTableEntry {
 
   std::vector<ParseAction> actions;
   bool reusable;
-  bool depends_on_lookahead;
 };
 
 struct ParseState {

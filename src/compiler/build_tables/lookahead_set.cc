@@ -35,7 +35,11 @@ bool LookaheadSet::contains(const Symbol &symbol) const {
 bool LookaheadSet::intersects(const LookaheadSet &other) const {
   bool result = false;
   for_each([&](Symbol symbol) {
-    if (other.contains(symbol)) result = true;
+    if (other.contains(symbol)) {
+      result = true;
+      return false;
+    }
+    return true;
   });
   return result;
 }

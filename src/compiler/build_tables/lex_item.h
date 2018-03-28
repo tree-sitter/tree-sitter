@@ -22,6 +22,7 @@ class LexItem {
 
   bool operator==(const LexItem &other) const;
   CompletionStatus completion_status() const;
+  bool is_in_separators() const;
 
   rules::Symbol lhs;
   rules::Rule rule;
@@ -47,12 +48,12 @@ class LexItemSet {
   LexItemSet();
   explicit LexItemSet(const std::unordered_set<LexItem> &);
 
-  bool operator==(const LexItemSet &) const;
-
   struct Transition;
   typedef std::map<rules::CharacterSet, Transition> TransitionMap;
 
+  bool operator==(const LexItemSet &) const;
   TransitionMap transitions() const;
+  bool has_items_in_separators() const;
 
   std::unordered_set<LexItem> entries;
 };

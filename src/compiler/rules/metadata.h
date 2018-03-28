@@ -62,15 +62,16 @@ struct Metadata {
 
   Metadata(const Rule &rule, MetadataParams params);
 
-  static Metadata token(const Rule &rule);
-  static Metadata active_prec(int precedence, const Rule &rule);
-  static Metadata prec(int precedence, const Rule &rule);
-  static Metadata prec_left(int precedence, const Rule &rule);
-  static Metadata prec_right(int precedence, const Rule &rule);
-  static Metadata prec_dynamic(int precedence, const Rule &rule);
-  static Metadata separator(const Rule &rule);
-  static Metadata main_token(const Rule &rule);
-  static Metadata alias(std::string &&value, bool is_named, const Rule &rule);
+  static Metadata merge(Rule &&rule, MetadataParams params);
+  static Metadata token(Rule &&rule);
+  static Metadata active_prec(int precedence, Rule &&rule);
+  static Metadata prec(int precedence, Rule &&rule);
+  static Metadata prec_left(int precedence, Rule &&rule);
+  static Metadata prec_right(int precedence, Rule &&rule);
+  static Metadata prec_dynamic(int precedence, Rule &&rule);
+  static Metadata separator(Rule &&rule);
+  static Metadata main_token(Rule &&rule);
+  static Metadata alias(std::string &&value, bool is_named, Rule &&rule);
 
   bool operator==(const Metadata &other) const;
 };

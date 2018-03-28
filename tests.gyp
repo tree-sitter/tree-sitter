@@ -37,7 +37,6 @@
         'externals/crypto-algorithms',
       ],
       'sources': [
-        'test/compiler/build_tables/lex_conflict_manager_test.cc',
         'test/compiler/build_tables/lex_item_test.cc',
         'test/compiler/build_tables/parse_item_set_builder_test.cc',
         'test/compiler/build_tables/rule_can_be_blank_test.cc',
@@ -49,8 +48,7 @@
         'test/compiler/prepare_grammar/intern_symbols_test.cc',
         'test/compiler/prepare_grammar/parse_regex_test.cc',
         'test/compiler/rules/character_set_test.cc',
-        'test/compiler/rules/choice_test.cc',
-        'test/compiler/rules/repeat_test.cc',
+        'test/compiler/rules/rule_test.cc',
         'test/compiler/util/string_helpers_test.cc',
         'test/helpers/encoding_helpers.cc',
         'test/helpers/file_helpers.cc',

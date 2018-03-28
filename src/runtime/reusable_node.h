@@ -36,16 +36,6 @@ static inline ReusableNode reusable_node_after_leaf(const ReusableNode *self) {
   return result;
 }
 
-static inline bool reusable_node_has_leading_changes(const ReusableNode *self) {
-  Tree *tree = self->tree;
-  while (tree->has_changes) {
-    if (tree->child_count == 0) return false;
-    tree = tree->children[0];
-    if (tree->size.bytes == 0) return false;
-  }
-  return true;
-}
-
 static inline bool reusable_node_breakdown(ReusableNode *self) {
   if (self->tree->child_count == 0) {
     return false;
