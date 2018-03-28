@@ -145,21 +145,44 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   }
 
   void build_error_parse_state(ParseStateId state_id) {
+    unsigned CannotMerge = (
+      MatchesShorterStringWithinSeparators |
+      MatchesLongerStringWithValidNextChar
+    );
+
+    // Add all the tokens that have no conflict with other tokens.
+    LookaheadSet non_conflicting_tokens;
     for (unsigned i = 0; i < lexical_grammar.variables.size(); i++) {
       Symbol token = Symbol::terminal(i);
-      const LexicalVariable &variable = lexical_grammar.variables[i];
-
-      bool exclude_from_recovery_state = false;
-      for (Symbol incompatible_token : lex_table_builder->get_incompatible_tokens(i)) {
-        if (!coincident_tokens_by_token[i].contains(incompatible_token) &&
-            ((lexical_grammar.variables[incompatible_token.index].is_string && !variable.is_string) ||
-             !lex_table_builder->get_incompatible_tokens(incompatible_token.index).count(token))) {
-          exclude_from_recovery_state = true;
+      bool conflicts_with_other_tokens = false;
+      for (unsigned j = 0; j < lexical_grammar.variables.size(); j++) {
+        Symbol other_token = Symbol::terminal(j);
+        if (j != i &&
+            !coincident_tokens_by_token[token.index].contains(other_token) &&
+            (lex_table_builder->get_conflict_status(other_token, token) & CannotMerge)) {
+          conflicts_with_other_tokens = true;
           break;
         }
       }
-      if (!exclude_from_recovery_state) {
-        parse_table.add_terminal_action(state_id, Symbol::terminal(i), ParseAction::Recover());
+      if (!conflicts_with_other_tokens) non_conflicting_tokens.insert(token);
+    }
+
+    LookaheadSet tokens;
+    for (unsigned i = 0; i < lexical_grammar.variables.size(); i++) {
+      Symbol token = Symbol::terminal(i);
+      bool conflicts_with_other_tokens = false;
+      if (!non_conflicting_tokens.contains(token)) {
+        non_conflicting_tokens.for_each([&](Symbol other_token) {
+          if (!coincident_tokens_by_token[token.index].contains(other_token) &&
+              (lex_table_builder->get_conflict_status(other_token, token) & CannotMerge)) {
+            conflicts_with_other_tokens = true;
+            return false;
+          }
+          return true;
+        });
+      }
+      if (!conflicts_with_other_tokens) {
+        parse_table.add_terminal_action(state_id, token, ParseAction::Recover());
       }
     }
 
@@ -492,8 +515,10 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
 
     // Do not add a token if it conflicts with an existing token.
     if (!new_token.is_built_in()) {
-      for (Symbol incompatible_token : lex_table_builder->get_incompatible_tokens(new_token.index)) {
-        if (state.terminal_entries.count(incompatible_token)) return false;
+      for (const auto &entry : state.terminal_entries) {
+        if (lex_table_builder->get_conflict_status(entry.first, new_token) & CannotDistinguish) {
+          return false;
+        }
       }
     }
 

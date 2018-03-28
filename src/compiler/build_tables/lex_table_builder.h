@@ -17,6 +17,19 @@ namespace build_tables {
 
 class LookaheadSet;
 
+enum ConflictStatus {
+  DoesNotMatch = 0,
+  MatchesShorterStringWithinSeparators = 1 << 0,
+  MatchesSameString = 1 << 1,
+  MatchesLongerString = 1 << 2,
+  MatchesLongerStringWithValidNextChar = 1 << 3,
+  CannotDistinguish = (
+    MatchesShorterStringWithinSeparators |
+    MatchesSameString |
+    MatchesLongerStringWithValidNextChar
+  ),
+};
+
 class LexTableBuilder {
  public:
   static std::unique_ptr<LexTableBuilder> create(const SyntaxGrammar &,
@@ -31,7 +44,8 @@ class LexTableBuilder {
   };
 
   BuildResult build(ParseTable *);
-  const std::set<rules::Symbol> &get_incompatible_tokens(rules::Symbol::Index) const;
+
+  ConflictStatus get_conflict_status(rules::Symbol, rules::Symbol) const;
 
  protected:
   LexTableBuilder() = default;
