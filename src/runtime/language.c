@@ -15,7 +15,6 @@ void ts_language_table_entry(const TSLanguage *self, TSStateId state,
     const TSParseActionEntry *entry = &self->parse_actions[action_index];
     result->action_count = entry->count;
     result->is_reusable = entry->reusable;
-    result->depends_on_lookahead = entry->depends_on_lookahead;
     result->actions = (const TSParseAction *)(entry + 1);
   }
 }

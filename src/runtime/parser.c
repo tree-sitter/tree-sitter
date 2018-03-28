@@ -487,16 +487,7 @@ static bool parser__can_reuse_first_leaf(Parser *self, TSStateId state, Tree *tr
 
   // If the current state allows external tokens or other tokens that conflict with this
   // token, this token is not reusable.
-  if (current_lex_mode.external_lex_state != 0 ||
-      !table_entry->is_reusable) return false;
-
-  // If the current state allows other tokens of which this token is a *prefix* and the
-  // content *after* this token has changed, this token isn't reusable.
-  if (table_entry->depends_on_lookahead &&
-      ((tree->child_count <= 1 || tree->error_cost > 0) &&
-       (next_reusable_node && reusable_node_has_leading_changes(next_reusable_node)))) return false;
-
-  return true;
+  return current_lex_mode.external_lex_state == 0 && table_entry->is_reusable;
 }
 
 static Tree *parser__get_lookahead(Parser *self, StackVersion version, TSStateId *state,

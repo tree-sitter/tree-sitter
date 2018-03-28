@@ -399,7 +399,7 @@ class CCodeGenerator {
   }
 
   void add_parse_table() {
-    add_parse_action_list_id(ParseTableEntry{ {}, false, false });
+    add_parse_action_list_id(ParseTableEntry{ {}, false });
 
     size_t state_id = 0;
     line("static uint16_t ts_parse_table[STATE_COUNT][SYMBOL_COUNT] = {");
@@ -623,10 +623,12 @@ class CCodeGenerator {
     indent([&]() {
       for (const auto &pair : parse_table_entries) {
         size_t index = pair.first;
-        line("[" + to_string(index) + "] = {.count = " +
-             to_string(pair.second.actions.size()) + ", .reusable = " +
-             _boolean(pair.second.reusable) + ", .depends_on_lookahead = " +
-             _boolean(pair.second.depends_on_lookahead) + "},");
+        line(
+          "[" + to_string(index) + "] = {"
+            ".count = " + to_string(pair.second.actions.size()) + ", "
+            ".reusable = " + _boolean(pair.second.reusable) +
+          "},"
+        );
 
         for (const ParseAction &action : pair.second.actions) {
           add(" ");

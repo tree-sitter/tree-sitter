@@ -103,20 +103,14 @@ bool ParseAction::operator<(const ParseAction &other) const {
   return alias_sequence_id < other.alias_sequence_id;
 }
 
-ParseTableEntry::ParseTableEntry()
-  : reusable(true), depends_on_lookahead(false) {}
+ParseTableEntry::ParseTableEntry() : reusable(true) {}
 
-ParseTableEntry::ParseTableEntry(const vector<ParseAction> &actions,
-                                 bool reusable, bool depends_on_lookahead)
+ParseTableEntry::ParseTableEntry(const vector<ParseAction> &actions, bool reusable)
   : actions(actions),
-    reusable(reusable),
-    depends_on_lookahead(depends_on_lookahead) {}
+    reusable(reusable) {}
 
 bool ParseTableEntry::operator==(const ParseTableEntry &other) const {
-  return
-    actions == other.actions &&
-    reusable == other.reusable &&
-    depends_on_lookahead == other.depends_on_lookahead;
+  return actions == other.actions && reusable == other.reusable;
 }
 
 ParseState::ParseState() : lex_state_id(-1) {}

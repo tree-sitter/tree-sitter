@@ -123,7 +123,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
         aggregator.apply(grammar.variables[i].rule);
         bool all_alpha = true, all_lower = true;
         for (auto character : aggregator.result.included_chars) {
-          if (!iswalpha(character)) all_alpha = true;
+          if (!iswalpha(character) && character != '_') all_alpha = false;
           if (!iswlower(character)) all_lower = false;
         }
 
@@ -190,7 +190,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
       bool shadows_other_tokens = false;
       for (Symbol::Index j = 0; j < n; j++) {
         Symbol other_symbol = Symbol::terminal(j);
-        if ((get_conflict_status(other_symbol, symbol) & CannotDistinguish) &&
+        if ((get_conflict_status(other_symbol, symbol) & (MatchesShorterStringWithinSeparators|MatchesLongerStringWithValidNextChar)) &&
             !keyword_symbols.contains(other_symbol) &&
             keyword_symbols.intersects(coincident_tokens_by_token[j])) {
           shadows_other_tokens = true;
