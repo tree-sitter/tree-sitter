@@ -349,7 +349,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
       for (auto &entry : state.terminal_entries) {
         Symbol token = entry.first;
         if (token.is_external() || token.is_built_in()) continue;
-        for (Symbol::Index i = 0; i < grammar.variables.size(); i++) {
+        for (unsigned i = 0; i < grammar.variables.size(); i++) {
           Symbol other_token = Symbol::terminal(i);
           ConflictStatus status = get_conflict_status(token, other_token);
           if (status != ConflictStatus::DoesNotMatch &&
