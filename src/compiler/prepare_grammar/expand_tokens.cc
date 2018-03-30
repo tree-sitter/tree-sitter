@@ -72,7 +72,7 @@ ExpandTokenResult expand_token(const rules::Rule &rule) {
       return Rule(rules::Choice{elements});
     },
 
-    [](auto) { return CompileError(TSCompileErrorTypeInvalidTokenContents, ""); }
+    [](auto) { return CompileError(TSCompileErrorTypeInvalidTokenContents, "Symbols inside tokens are not allowed."); }
   );
 };
 
