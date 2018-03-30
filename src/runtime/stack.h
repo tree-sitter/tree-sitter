@@ -28,17 +28,6 @@ typedef struct {
 } StackSummaryEntry;
 typedef Array(StackSummaryEntry) StackSummary;
 
-typedef unsigned StackIterateAction;
-enum {
-  StackIterateNone,
-  StackIterateStop = 1,
-  StackIteratePop = 2,
-};
-
-typedef StackIterateAction (*StackIterateCallback)(void *, TSStateId state,
-                                                   const TreeArray *trees,
-                                                   uint32_t tree_count);
-
 // Create a stack.
 Stack *ts_stack_new(TreePool *);
 
@@ -129,7 +118,10 @@ void ts_stack_remove_version(Stack *, StackVersion);
 void ts_stack_clear(Stack *);
 
 bool ts_stack_print_dot_graph(Stack *, const char **, FILE *);
-StackSliceArray ts_stack_iterate(Stack *, StackVersion, StackIterateCallback, void *);
+
+typedef void (*StackIterateCallback)(void *, TSStateId, uint32_t);
+
+void ts_stack_iterate(Stack *, StackVersion, StackIterateCallback, void *);
 
 #ifdef __cplusplus
 }
