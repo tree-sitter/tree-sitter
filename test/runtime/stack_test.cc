@@ -100,6 +100,11 @@ describe("Stack", [&]() {
     AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
   });
 
+  auto push = [&](StackVersion version, Tree *tree, TSStateId state) {
+    ts_tree_retain(tree);
+    ts_stack_push(stack, version, tree, false, state);
+  };
+
   describe("push(version, tree, is_pending, state)", [&]() {
     it("adds entries to the given version of the stack", [&]() {
       AssertThat(ts_stack_version_count(stack), Equals<size_t>(1));
@@ -107,17 +112,17 @@ describe("Stack", [&]() {
       AssertThat(ts_stack_top_position(stack, 0), Equals(length_zero()));
 
       // . <──0── A*
-      ts_stack_push(stack, 0, trees[0], false, stateA);
+      push(0, trees[0], stateA);
       AssertThat(ts_stack_top_state(stack, 0), Equals(stateA));
       AssertThat(ts_stack_top_position(stack, 0), Equals(tree_len));
 
       // . <──0── A <──1── B*
-      ts_stack_push(stack, 0, trees[1], false, stateB);
+      push(0, trees[1], stateB);
       AssertThat(ts_stack_top_state(stack, 0), Equals(stateB));
       AssertThat(ts_stack_top_position(stack, 0), Equals(tree_len * 2));
 
       // . <──0── A <──1── B <──2── C*
-      ts_stack_push(stack, 0, trees[2], false, stateC);
+      push(0, trees[2], stateC);
       AssertThat(ts_stack_top_state(stack, 0), Equals(stateC));
       AssertThat(ts_stack_top_position(stack, 0), Equals(tree_len * 3));
 
@@ -135,7 +140,7 @@ describe("Stack", [&]() {
       // . <──0── A <─*
       //          ↑
       //          └───*
-      ts_stack_push(stack, 0, trees[0], false, stateA);
+      push(0, trees[0], stateA);
       ts_stack_copy_version(stack, 0);
     });
 
@@ -143,10 +148,10 @@ describe("Stack", [&]() {
       // . <──0── A <──1── B <──3── D*
       //          ↑
       //          └───2─── C <──4── D*
-      ts_stack_push(stack, 0, trees[1], false, stateB);
-      ts_stack_push(stack, 1, trees[2], false, stateC);
-      ts_stack_push(stack, 0, trees[3], false, stateD);
-      ts_stack_push(stack, 1, trees[4], false, stateD);
+      push(0, trees[1], stateB);
+      push(1, trees[2], stateC);
+      push(0, trees[3], stateD);
+      push(1, trees[4], stateD);
 
       // . <──0── A <──1── B <──3── D*
       //          ↑                 |
@@ -166,8 +171,8 @@ describe("Stack", [&]() {
       // . <──0── A <──1── B*
       //          ↑
       //          └───2─── C*
-      ts_stack_push(stack, 0, trees[1], false, stateB);
-      ts_stack_push(stack, 1, trees[2], false, stateC);
+      push(0, trees[1], stateB);
+      push(1, trees[2], stateC);
 
       AssertThat(ts_stack_merge(stack, 0, 1), IsFalse());
       AssertThat(ts_stack_version_count(stack), Equals<size_t>(2));
@@ -178,10 +183,10 @@ describe("Stack", [&]() {
       //          ↑
       //          └───2─── C <──4── D*
       trees[3]->size = tree_len * 3;
-      ts_stack_push(stack, 0, trees[1], false, stateB);
-      ts_stack_push(stack, 1, trees[2], false, stateC);
-      ts_stack_push(stack, 0, trees[3], false, stateD);
-      ts_stack_push(stack, 1, trees[4], false, stateD);
+      push(0, trees[1], stateB);
+      push(1, trees[2], stateC);
+      push(0, trees[3], stateD);
+      push(1, trees[4], stateD);
 
       AssertThat(ts_stack_merge(stack, 0, 1), IsFalse());
       AssertThat(ts_stack_version_count(stack), Equals<size_t>(2));
@@ -192,12 +197,12 @@ describe("Stack", [&]() {
         // . <──0── A <──1── B <──3── D <──5── E*
         //          ↑
         //          └───2─── C <──4── D <──5── E*
-        ts_stack_push(stack, 0, trees[1], false, stateB);
-        ts_stack_push(stack, 1, trees[2], false, stateC);
-        ts_stack_push(stack, 0, trees[3], false, stateD);
-        ts_stack_push(stack, 1, trees[4], false, stateD);
-        ts_stack_push(stack, 0, trees[5], false, stateE);
-        ts_stack_push(stack, 1, trees[5], false, stateE);
+        push(0, trees[1], stateB);
+        push(1, trees[2], stateC);
+        push(0, trees[3], stateD);
+        push(1, trees[4], stateD);
+        push(0, trees[5], stateE);
+        push(1, trees[5], stateE);
 
         // . <──0── A <──1── B <──3── D <──5── E*
         //          ↑                 |
@@ -223,9 +228,9 @@ describe("Stack", [&]() {
         trees[2]->extra = true;
         trees[2]->size = tree_len * 0;
 
-        ts_stack_push(stack, 0, trees[1], false, stateB);
-        ts_stack_push(stack, 1, trees[2], false, stateA);
-        ts_stack_push(stack, 1, trees[1], false, stateB);
+        push(0, trees[1], stateB);
+        push(1, trees[2], stateA);
+        push(1, trees[1], stateB);
 
         // . <──0── A <──1── B*
         AssertThat(ts_stack_merge(stack, 0, 1), IsTrue());
@@ -242,9 +247,9 @@ describe("Stack", [&]() {
   describe("pop_count(version, count)", [&]() {
     before_each([&]() {
       // . <──0── A <──1── B <──2── C*
-      ts_stack_push(stack, 0, trees[0], false, stateA);
-      ts_stack_push(stack, 0, trees[1], false, stateB);
-      ts_stack_push(stack, 0, trees[2], false, stateC);
+      push(0, trees[0], stateA);
+      push(0, trees[1], stateB);
+      push(0, trees[2], stateC);
     });
 
     it("creates a new version with the given number of entries removed", [&]() {
@@ -284,14 +289,14 @@ describe("Stack", [&]() {
         // . <──0── A <──1── B <──2── C <──3── D <──10── I*
         //          ↑                          |
         //          └───4─── E <──5── F <──6───┘
-        ts_stack_push(stack, 0, trees[3], false, stateD);
+        push(0, trees[3], stateD);
         StackPopResult pop = ts_stack_pop_count(stack, 0, 3);
         free_slice_array(&pool,&pop.slices);
-        ts_stack_push(stack, 1, trees[4], false, stateE);
-        ts_stack_push(stack, 1, trees[5], false, stateF);
-        ts_stack_push(stack, 1, trees[6], false, stateD);
+        push(1, trees[4], stateE);
+        push(1, trees[5], stateF);
+        push(1, trees[6], stateD);
         ts_stack_merge(stack, 0, 1);
-        ts_stack_push(stack, 0, trees[10], false, stateI);
+        push(0, trees[10], stateI);
 
         AssertThat(ts_stack_version_count(stack), Equals<size_t>(1));
         AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
@@ -407,10 +412,10 @@ describe("Stack", [&]() {
           //          └───7─── G <──8── H <──9───┘
           StackPopResult pop = ts_stack_pop_count(stack, 0, 4);
           free_slice_array(&pool,&pop.slices);
-          ts_stack_push(stack, 1, trees[7], false, stateG);
-          ts_stack_push(stack, 1, trees[8], false, stateH);
-          ts_stack_push(stack, 1, trees[9], false, stateD);
-          ts_stack_push(stack, 1, trees[10], false, stateI);
+          push(1, trees[7], stateG);
+          push(1, trees[8], stateH);
+          push(1, trees[9], stateD);
+          push(1, trees[10], stateI);
           ts_stack_merge(stack, 0, 1);
 
           AssertThat(ts_stack_version_count(stack), Equals<size_t>(1));
@@ -463,11 +468,12 @@ describe("Stack", [&]() {
 
   describe("pop_pending(version)", [&]() {
     before_each([&]() {
-      ts_stack_push(stack, 0, trees[0], false, stateA);
+      push(0, trees[0], stateA);
     });
 
     it("removes the top node from the stack if it was pushed in pending mode", [&]() {
       ts_stack_push(stack, 0, trees[1], true, stateB);
+      ts_tree_retain(trees[1]);
 
       StackPopResult pop = ts_stack_pop_pending(stack, 0);
       AssertThat(pop.slices.size, Equals<size_t>(1));
@@ -482,12 +488,13 @@ describe("Stack", [&]() {
 
     it("skips entries whose trees are extra", [&]() {
       ts_stack_push(stack, 0, trees[1], true, stateB);
+      ts_tree_retain(trees[1]);
 
       trees[2]->extra = true;
       trees[3]->extra = true;
 
-      ts_stack_push(stack, 0, trees[2], false, stateB);
-      ts_stack_push(stack, 0, trees[3], false, stateB);
+      push(0, trees[2], stateB);
+      push(0, trees[3], stateB);
 
       StackPopResult pop = ts_stack_pop_pending(stack, 0);
       AssertThat(pop.slices.size, Equals<size_t>(1));
@@ -503,7 +510,7 @@ describe("Stack", [&]() {
     });
 
     it("does nothing if the top node was not pushed in pending mode", [&]() {
-      ts_stack_push(stack, 0, trees[1], false, stateB);
+      push(0, trees[1], stateB);
 
       StackPopResult pop = ts_stack_pop_pending(stack, 0);
       AssertThat(pop.slices.size, Equals<size_t>(0));
@@ -544,8 +551,8 @@ describe("Stack", [&]() {
       ts_external_token_state_init(&trees[2]->external_token_state, "ABCD", 2);
 
       ts_stack_copy_version(stack, 0);
-      ts_stack_push(stack, 0, trees[0], false, 5);
-      ts_stack_push(stack, 1, trees[0], false, 5);
+      push(0, trees[0], 5);
+      push(1, trees[0], 5);
 
       ts_stack_set_last_external_token(stack, 0, trees[1]);
       ts_stack_set_last_external_token(stack, 1, trees[2]);
@@ -558,8 +565,8 @@ describe("Stack", [&]() {
       ts_external_token_state_init(&trees[2]->external_token_state, "abcd", 2);
 
       ts_stack_copy_version(stack, 0);
-      ts_stack_push(stack, 0, trees[0], false, 5);
-      ts_stack_push(stack, 1, trees[0], false, 5);
+      push(0, trees[0], 5);
+      push(1, trees[0], 5);
 
       ts_stack_set_last_external_token(stack, 0, trees[1]);
       ts_stack_set_last_external_token(stack, 1, trees[2]);
@@ -569,8 +576,8 @@ describe("Stack", [&]() {
 
     it("does not distinguish between an *empty* external token state and *no* external token state", [&]() {
       ts_stack_copy_version(stack, 0);
-      ts_stack_push(stack, 0, trees[0], false, 5);
-      ts_stack_push(stack, 1, trees[0], false, 5);
+      push(0, trees[0], 5);
+      push(1, trees[0], 5);
 
       ts_stack_set_last_external_token(stack, 0, trees[1]);
 

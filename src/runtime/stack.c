@@ -128,7 +128,6 @@ static StackNode *stack_node_new(StackNode *previous_node, Tree *tree, bool is_p
     if (tree) {
       node->depth = previous_node->depth;
       if (!tree->extra) node->depth++;
-      ts_tree_retain(tree);
       node->error_cost += tree->error_cost;
       node->position = length_add(node->position, ts_tree_total_size(tree));
       node->dynamic_precedence += tree->dynamic_precedence;
