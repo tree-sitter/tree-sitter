@@ -76,15 +76,14 @@ static bool parser__breakdown_top_of_stack(Parser *self, StackVersion version) {
   bool pending = false;
 
   do {
-    StackPopResult pop = ts_stack_pop_pending(self->stack, version);
-    if (!pop.slices.size)
-      break;
+    StackSliceArray pop = ts_stack_pop_pending(self->stack, version);
+    if (!pop.size) break;
 
     did_break_down = true;
     pending = false;
-    for (uint32_t i = 0; i < pop.slices.size; i++) {
-      StackSlice slice = pop.slices.contents[i];
-      TSStateId state = ts_stack_top_state(self->stack, slice.version);
+    for (uint32_t i = 0; i < pop.size; i++) {
+      StackSlice slice = pop.contents[i];
+      TSStateId state = ts_stack_state(self->stack, slice.version);
       Tree *parent = *array_front(&slice.trees);
 
       for (uint32_t j = 0; j < parent->child_count; j++) {
@@ -106,13 +105,12 @@ static bool parser__breakdown_top_of_stack(Parser *self, StackVersion version) {
         ts_stack_push(self->stack, slice.version, tree, false, state);
       }
 
-      LOG("breakdown_top_of_stack tree:%s", SYM_NAME(parent->symbol));
-      LOG_STACK();
-
       ts_stack_decrease_push_count(self->stack, slice.version, parent->child_count + 1);
-
       ts_tree_release(&self->tree_pool, parent);
       array_delete(&slice.trees);
+
+      LOG("breakdown_top_of_stack tree:%s", SYM_NAME(parent->symbol));
+      LOG_STACK();
     }
   } while (pending);
 
@@ -177,7 +175,7 @@ static bool parser__better_version_exists(Parser *self, StackVersion version,
                                           bool is_in_error, unsigned cost) {
   if (self->finished_tree && self->finished_tree->error_cost <= cost) return true;
 
-  Length position = ts_stack_top_position(self->stack, version);
+  Length position = ts_stack_position(self->stack, version);
   ErrorStatus status = {
     .cost = cost,
     .is_in_error = is_in_error,
@@ -188,10 +186,10 @@ static bool parser__better_version_exists(Parser *self, StackVersion version,
   for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
     if (i == version ||
         ts_stack_is_halted(self->stack, i) ||
-        ts_stack_top_position(self->stack, i).bytes < position.bytes) continue;
+        ts_stack_position(self->stack, i).bytes < position.bytes) continue;
     ErrorStatus status_i = {
       .cost = ts_stack_error_cost(self->stack, i),
-      .is_in_error = ts_stack_top_state(self->stack, i) == ERROR_STATE,
+      .is_in_error = ts_stack_state(self->stack, i) == ERROR_STATE,
       .dynamic_precedence = ts_stack_dynamic_precedence(self->stack, i),
       .push_count = ts_stack_push_count(self->stack, i)
     };
@@ -222,7 +220,7 @@ static unsigned parser__condense_stack(Parser *self) {
       .cost = ts_stack_error_cost(self->stack, i),
       .push_count = ts_stack_push_count(self->stack, i),
       .dynamic_precedence = ts_stack_dynamic_precedence(self->stack, i),
-      .is_in_error = ts_stack_top_state(self->stack, i) == ERROR_STATE,
+      .is_in_error = ts_stack_state(self->stack, i) == ERROR_STATE,
     };
     if (!status_i.is_in_error && status_i.cost < min_error_cost) {
       min_error_cost = status_i.cost;
@@ -233,7 +231,7 @@ static unsigned parser__condense_stack(Parser *self) {
         .cost = ts_stack_error_cost(self->stack, j),
         .push_count = ts_stack_push_count(self->stack, j),
         .dynamic_precedence = ts_stack_dynamic_precedence(self->stack, j),
-        .is_in_error = ts_stack_top_state(self->stack, j) == ERROR_STATE,
+        .is_in_error = ts_stack_state(self->stack, j) == ERROR_STATE,
       };
 
       bool can_merge = ts_stack_can_merge(self->stack, j, i);
@@ -298,7 +296,7 @@ static void parser__restore_external_scanner(Parser *self, Tree *external_token)
 }
 
 static Tree *parser__lex(Parser *self, StackVersion version, TSStateId parse_state) {
-  Length start_position = ts_stack_top_position(self->stack, version);
+  Length start_position = ts_stack_position(self->stack, version);
   Tree *external_token = ts_stack_last_external_token(self->stack, version);
   TSLexMode lex_mode = self->language->lex_modes[parse_state];
   const bool *valid_external_tokens = ts_language_enabled_external_tokens(
@@ -492,7 +490,7 @@ static bool parser__can_reuse_first_leaf(Parser *self, TSStateId state, Tree *tr
 
 static Tree *parser__get_lookahead(Parser *self, StackVersion version, TSStateId *state,
                                    ReusableNode *reusable_node, TableEntry *table_entry) {
-  Length position = ts_stack_top_position(self->stack, version);
+  Length position = ts_stack_position(self->stack, version);
   Tree *last_external_token = ts_stack_last_external_token(self->stack, version);
 
   Tree *result;
@@ -532,7 +530,7 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version, TSStateId
       if (!reusable_node_breakdown(reusable_node)) {
         reusable_node_pop(reusable_node);
         parser__breakdown_top_of_stack(self, version);
-        *state = ts_stack_top_state(self->stack, version);
+        *state = ts_stack_state(self->stack, version);
       }
       continue;
     }
@@ -652,15 +650,15 @@ static bool parser__replace_children(Parser *self, Tree *tree, Tree **children, 
   }
 }
 
-static StackPopResult parser__reduce(Parser *self, StackVersion version, TSSymbol symbol,
+static StackSliceArray parser__reduce(Parser *self, StackVersion version, TSSymbol symbol,
                                      uint32_t count, int dynamic_precedence,
                                      uint16_t alias_sequence_id, bool fragile) {
   uint32_t initial_version_count = ts_stack_version_count(self->stack);
 
-  StackPopResult pop = ts_stack_pop_count(self->stack, version, count);
+  StackSliceArray pop = ts_stack_pop_count(self->stack, version, count);
 
-  for (uint32_t i = 0; i < pop.slices.size; i++) {
-    StackSlice slice = pop.slices.contents[i];
+  for (uint32_t i = 0; i < pop.size; i++) {
+    StackSlice slice = pop.contents[i];
 
     // Extra tokens on top of the stack should not be included in this new parent
     // node. They will be re-pushed onto the stack after the parent node is
@@ -678,8 +676,8 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version, TSSymbo
     // into one, because they all diverged from a common state. In that case,
     // choose one of the arrays of trees to be the parent node's children, and
     // delete the rest of the tree arrays.
-    while (i + 1 < pop.slices.size) {
-      StackSlice next_slice = pop.slices.contents[i + 1];
+    while (i + 1 < pop.size) {
+      StackSlice next_slice = pop.contents[i + 1];
       if (next_slice.version != slice.version) break;
       i++;
 
@@ -699,9 +697,9 @@ static StackPopResult parser__reduce(Parser *self, StackVersion version, TSSymbo
     parent->dynamic_precedence += dynamic_precedence;
     parent->alias_sequence_id = alias_sequence_id;
 
-    TSStateId state = ts_stack_top_state(self->stack, slice.version);
+    TSStateId state = ts_stack_state(self->stack, slice.version);
     TSStateId next_state = ts_language_next_state(self->language, state, symbol);
-    if (fragile || self->in_ambiguity || pop.slices.size > 1 || initial_version_count > 1) {
+    if (fragile || self->in_ambiguity || pop.size > 1 || initial_version_count > 1) {
       parent->fragile_left = true;
       parent->fragile_right = true;
       parent->parse_state = TS_TREE_STATE_NONE;
@@ -755,10 +753,10 @@ static void parser__accept(Parser *self, StackVersion version,
   assert(lookahead->symbol == ts_builtin_sym_end);
   ts_tree_retain(lookahead);
   ts_stack_push(self->stack, version, lookahead, false, 1);
-  StackPopResult pop = ts_stack_pop_all(self->stack, version);
+  StackSliceArray pop = ts_stack_pop_all(self->stack, version);
 
-  for (uint32_t i = 0; i < pop.slices.size; i++) {
-    StackSlice slice = pop.slices.contents[i];
+  for (uint32_t i = 0; i < pop.size; i++) {
+    StackSlice slice = pop.contents[i];
     TreeArray trees = slice.trees;
 
     Tree *root = NULL;
@@ -792,7 +790,7 @@ static void parser__accept(Parser *self, StackVersion version,
     }
   }
 
-  ts_stack_remove_version(self->stack, pop.slices.contents[0].version);
+  ts_stack_remove_version(self->stack, pop.contents[0].version);
   ts_stack_halt(self->stack, version);
 }
 
@@ -803,7 +801,7 @@ static bool parser__do_all_potential_reductions(Parser *self, StackVersion start
     uint32_t version_count = ts_stack_version_count(self->stack);
     if (version >= version_count) break;
 
-    TSStateId state = ts_stack_top_state(self->stack, version);
+    TSStateId state = ts_stack_state(self->stack, version);
     bool has_shift_action = false;
     array_clear(&self->reduce_actions);
 
@@ -898,7 +896,7 @@ static void parser__handle_error(Parser *self, StackVersion version, TSSymbol lo
   bool did_insert_missing_token = false;
   for (StackVersion v = version; v < version_count;) {
     if (!did_insert_missing_token) {
-      TSStateId state = ts_stack_top_state(self->stack, v);
+      TSStateId state = ts_stack_state(self->stack, v);
       for (TSSymbol missing_symbol = 1;
            missing_symbol < self->language->token_count;
            missing_symbol++) {
@@ -952,7 +950,7 @@ static void parser__halt_parse(Parser *self) {
   ts_lexer_advance_to_end(&self->lexer);
   Length remaining_length = length_sub(
     self->lexer.current_position,
-    ts_stack_top_position(self->stack, 0)
+    ts_stack_position(self->stack, 0)
   );
 
   Tree *filler_node = ts_tree_make_error(&self->tree_pool, remaining_length, length_zero(), 0, self->language);
@@ -970,28 +968,28 @@ static void parser__halt_parse(Parser *self) {
 
 static bool parser__recover_to_state(Parser *self, StackVersion version, unsigned depth,
                                      TSStateId goal_state) {
-  StackPopResult pop = ts_stack_pop_count(self->stack, version, depth);
+  StackSliceArray pop = ts_stack_pop_count(self->stack, version, depth);
   StackVersion previous_version = STACK_VERSION_NONE;
 
-  for (unsigned i = 0; i < pop.slices.size; i++) {
-    StackSlice slice = pop.slices.contents[i];
+  for (unsigned i = 0; i < pop.size; i++) {
+    StackSlice slice = pop.contents[i];
 
     if (slice.version == previous_version) {
       ts_tree_array_delete(&self->tree_pool, &slice.trees);
-      array_erase(&pop.slices, i--);
+      array_erase(&pop, i--);
       continue;
     }
 
-    if (ts_stack_top_state(self->stack, slice.version) != goal_state) {
+    if (ts_stack_state(self->stack, slice.version) != goal_state) {
       ts_stack_halt(self->stack, slice.version);
       ts_tree_array_delete(&self->tree_pool, &slice.trees);
-      array_erase(&pop.slices, i--);
+      array_erase(&pop, i--);
       continue;
     }
 
-    StackPopResult error_pop = ts_stack_pop_error(self->stack, slice.version);
-    if (error_pop.slices.size > 0) {
-      StackSlice error_slice = error_pop.slices.contents[0];
+    StackSliceArray error_pop = ts_stack_pop_error(self->stack, slice.version);
+    if (error_pop.size > 0) {
+      StackSlice error_slice = error_pop.contents[0];
       array_push_all(&error_slice.trees, &slice.trees);
       array_delete(&slice.trees);
       slice.trees = error_slice.trees;
@@ -1023,7 +1021,7 @@ static bool parser__recover_to_state(Parser *self, StackVersion version, unsigne
 static void parser__recover(Parser *self, StackVersion version, Tree *lookahead) {
   bool did_recover = false;
   unsigned previous_version_count = ts_stack_version_count(self->stack);
-  Length position = ts_stack_top_position(self->stack, version);
+  Length position = ts_stack_position(self->stack, version);
   StackSummary *summary = ts_stack_get_summary(self->stack, version);
 
   for (unsigned i = 0; i < summary->size; i++) {
@@ -1088,7 +1086,7 @@ static void parser__recover(Parser *self, StackVersion version, Tree *lookahead)
 }
 
 static void parser__advance(Parser *self, StackVersion version, ReusableNode *reusable_node) {
-  TSStateId state = ts_stack_top_state(self->stack, version);
+  TSStateId state = ts_stack_state(self->stack, version);
   TableEntry table_entry;
   Tree *lookahead = parser__get_lookahead(self, version, &state, reusable_node, &table_entry);
 
@@ -1124,12 +1122,12 @@ static void parser__advance(Parser *self, StackVersion version, ReusableNode *re
         case TSParseActionTypeReduce: {
           bool is_fragile = table_entry.action_count > 1;
           LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.params.symbol), action.params.child_count);
-          StackPopResult reduction = parser__reduce(
+          StackSliceArray reduction = parser__reduce(
             self, version, action.params.symbol, action.params.child_count,
             action.params.dynamic_precedence, action.params.alias_sequence_id,
             is_fragile
           );
-          StackSlice slice = *array_front(&reduction.slices);
+          StackSlice slice = *array_front(&reduction);
           last_reduction_version = slice.version;
           break;
         }
@@ -1168,12 +1166,12 @@ static void parser__advance(Parser *self, StackVersion version, ReusableNode *re
         return;
       } else if (lookahead->size.bytes == 0) {
         ts_tree_release(&self->tree_pool, lookahead);
-        state = ts_stack_top_state(self->stack, version);
+        state = ts_stack_state(self->stack, version);
         lookahead = parser__get_lookahead(self, version, &state, reusable_node, &table_entry);
       }
     }
 
-    state = ts_stack_top_state(self->stack, version);
+    state = ts_stack_state(self->stack, version);
     ts_language_table_entry(self->language, state, lookahead->first_leaf.symbol, &table_entry);
   }
 }
@@ -1222,7 +1220,7 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
       reusable_node = self->reusable_node;
 
       while (!ts_stack_is_halted(self->stack, version)) {
-        position = ts_stack_top_position(self->stack, version).bytes;
+        position = ts_stack_position(self->stack, version).bytes;
         if (position > last_position || (version > 0 && position == last_position)) {
           last_position = position;
           break;
@@ -1230,9 +1228,9 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
 
         LOG("process version:%d, version_count:%u, state:%d, row:%u, col:%u",
             version, ts_stack_version_count(self->stack),
-            ts_stack_top_state(self->stack, version),
-            ts_stack_top_position(self->stack, version).extent.row,
-            ts_stack_top_position(self->stack, version).extent.column);
+            ts_stack_state(self->stack, version),
+            ts_stack_position(self->stack, version).extent.row,
+            ts_stack_position(self->stack, version).extent.column);
 
         parser__advance(self, version, &reusable_node);
         LOG_STACK();

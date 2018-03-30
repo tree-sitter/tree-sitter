@@ -232,9 +232,9 @@ static void ts_stack__add_slice(Stack *self, StackVersion original_version, Stac
   array_push(&self->slices, slice);
 }
 
-inline StackPopResult stack__iter(Stack *self, StackVersion version,
-                                  StackIterateInternalCallback callback, void *payload,
-                                  bool include_trees) {
+inline StackSliceArray stack__iter(Stack *self, StackVersion version,
+                                   StackIterateInternalCallback callback, void *payload,
+                                   bool include_trees) {
   array_clear(&self->slices);
   array_clear(&self->iterators);
 
@@ -315,7 +315,7 @@ inline StackPopResult stack__iter(Stack *self, StackVersion version,
     }
   }
 
-  return (StackPopResult){self->slices};
+  return self->slices;
 }
 
 Stack *ts_stack_new(TreePool *tree_pool) {
@@ -360,11 +360,11 @@ uint32_t ts_stack_version_count(const Stack *self) {
   return self->heads.size;
 }
 
-TSStateId ts_stack_top_state(const Stack *self, StackVersion version) {
+TSStateId ts_stack_state(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->state;
 }
 
-Length ts_stack_top_position(const Stack *self, StackVersion version) {
+Length ts_stack_position(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->position;
 }
 
@@ -409,8 +409,8 @@ inline StackIterateAction iterate_callback(void *payload, const Iterator *iterat
   return session->callback(session->payload, iterator->node->state, &iterator->trees, iterator->tree_count);
 }
 
-StackPopResult ts_stack_iterate(Stack *self, StackVersion version,
-                                StackIterateCallback callback, void *payload) {
+StackSliceArray ts_stack_iterate(Stack *self, StackVersion version,
+                                 StackIterateCallback callback, void *payload) {
   StackIterateSession session = {payload, callback};
   return stack__iter(self, version, iterate_callback, &session, true);
 }
@@ -424,7 +424,7 @@ inline StackIterateAction pop_count_callback(void *payload, const Iterator *iter
   }
 }
 
-StackPopResult ts_stack_pop_count(Stack *self, StackVersion version, uint32_t count) {
+StackSliceArray ts_stack_pop_count(Stack *self, StackVersion version, uint32_t count) {
   return stack__iter(self, version, pop_count_callback, &count, true);
 }
 
@@ -440,11 +440,11 @@ inline StackIterateAction pop_pending_callback(void *payload, const Iterator *it
   }
 }
 
-StackPopResult ts_stack_pop_pending(Stack *self, StackVersion version) {
-  StackPopResult pop = stack__iter(self, version, pop_pending_callback, NULL, true);
-  if (pop.slices.size > 0) {
-    ts_stack_renumber_version(self, pop.slices.contents[0].version, version);
-    pop.slices.contents[0].version = version;
+StackSliceArray ts_stack_pop_pending(Stack *self, StackVersion version) {
+  StackSliceArray pop = stack__iter(self, version, pop_pending_callback, NULL, true);
+  if (pop.size > 0) {
+    ts_stack_renumber_version(self, pop.contents[0].version, version);
+    pop.contents[0].version = version;
   }
   return pop;
 }
@@ -463,7 +463,7 @@ inline StackIterateAction pop_error_callback(void *payload, const Iterator *iter
   }
 }
 
-StackPopResult ts_stack_pop_error(Stack *self, StackVersion version) {
+StackSliceArray ts_stack_pop_error(Stack *self, StackVersion version) {
   StackNode *node = array_get(&self->heads, version)->node;
   for (unsigned i = 0; i < node->link_count; i++) {
     if (node->links[i].tree && node->links[i].tree->symbol == ts_builtin_sym_error) {
@@ -471,14 +471,14 @@ StackPopResult ts_stack_pop_error(Stack *self, StackVersion version) {
       return stack__iter(self, version, pop_error_callback, &found_error, true);
     }
   }
-  return (StackPopResult){.slices = array_new()};
+  return (StackSliceArray){.size = 0};
 }
 
 inline StackIterateAction pop_all_callback(void *payload, const Iterator *iterator) {
   return iterator->node->link_count == 0 ? StackIteratePop : StackIterateNone;
 }
 
-StackPopResult ts_stack_pop_all(Stack *self, StackVersion version) {
+StackSliceArray ts_stack_pop_all(Stack *self, StackVersion version) {
   return stack__iter(self, version, pop_all_callback, NULL, true);
 }
 
