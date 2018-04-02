@@ -1142,12 +1142,12 @@ static unsigned parser__condense_stack(Parser *self) {
     bool has_unpaused_version = false;
     for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
       if (ts_stack_is_paused(self->stack, i)) {
-        if (!has_unpaused_version) {
+        if (!has_unpaused_version && self->accept_count < MAX_VERSION_COUNT) {
           LOG("resume version:%u", i);
+          min_error_cost = ts_stack_error_cost(self->stack, i);
           TSSymbol lookahead_symbol = ts_stack_resume(self->stack, i);
           parser__handle_error(self, i, lookahead_symbol);
           has_unpaused_version = true;
-          min_error_cost = ts_stack_error_cost(self->stack, i);
         } else {
           ts_stack_remove_version(self->stack, i);
           i--;
