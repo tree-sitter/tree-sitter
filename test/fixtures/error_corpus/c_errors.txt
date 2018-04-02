@@ -141,3 +141,24 @@ int y = 5;
 (translation_unit
   (declaration (primitive_type) (ERROR (identifier)) (identifier))
   (declaration (primitive_type) (init_declarator (identifier) (number_literal))))
+
+==========================================
+Declarations with missing variable names
+==========================================
+
+int a() {
+  struct x = 1;
+  int = 2;
+}
+
+---
+
+(translation_unit
+  (function_definition
+    (primitive_type)
+    (function_declarator (identifier) (parameter_list))
+    (compound_statement
+      (struct_specifier (type_identifier))
+      (ERROR (number_literal))
+      (primitive_type)
+      (ERROR (number_literal)))))

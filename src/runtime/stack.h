@@ -102,9 +102,17 @@ bool ts_stack_can_merge(Stack *, StackVersion, StackVersion);
 
 void ts_stack_force_merge(Stack *, StackVersion, StackVersion);
 
+TSSymbol ts_stack_resume(Stack *, StackVersion);
+
+void ts_stack_pause(Stack *, StackVersion, TSSymbol);
+
 void ts_stack_halt(Stack *, StackVersion);
 
-bool ts_stack_is_halted(Stack *, StackVersion);
+bool ts_stack_is_active(const Stack *, StackVersion);
+
+bool ts_stack_is_paused(const Stack *, StackVersion);
+
+bool ts_stack_is_halted(const Stack *, StackVersion);
 
 void ts_stack_renumber_version(Stack *, StackVersion, StackVersion);
 

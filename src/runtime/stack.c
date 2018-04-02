@@ -49,12 +49,19 @@ typedef struct {
 
 typedef Array(StackNode *) StackNodeArray;
 
+typedef enum {
+  StackStatusActive,
+  StackStatusPaused,
+  StackStatusHalted,
+} StackStatus;
+
 typedef struct {
   StackNode *node;
   Tree *last_external_token;
-  uint32_t push_count;
-  bool is_halted;
   StackSummary *summary;
+  uint32_t push_count;
+  TSSymbol lookahead_when_paused;
+  StackStatus status;
 } StackHead;
 
 struct Stack {
@@ -215,7 +222,8 @@ static StackVersion ts_stack__add_version(Stack *self, StackVersion original_ver
     .node = node,
     .push_count = self->heads.contents[original_version].push_count,
     .last_external_token = last_external_token,
-    .is_halted = false,
+    .status = StackStatusActive,
+    .lookahead_when_paused = 0,
   };
   array_push(&self->heads, head);
   stack_node_retain(node);
@@ -581,7 +589,8 @@ bool ts_stack_can_merge(Stack *self, StackVersion version1, StackVersion version
   StackHead *head1 = &self->heads.contents[version1];
   StackHead *head2 = &self->heads.contents[version2];
   return
-    !head1->is_halted && !head2->is_halted &&
+    head1->status == StackStatusActive &&
+    head2->status == StackStatusActive &&
     head1->node->state == head2->node->state &&
     head1->node->position.bytes == head2->node->position.bytes &&
     head1->node->depth == head2->node->depth &&
@@ -598,11 +607,34 @@ void ts_stack_force_merge(Stack *self, StackVersion version1, StackVersion versi
 }
 
 void ts_stack_halt(Stack *self, StackVersion version) {
-  array_get(&self->heads, version)->is_halted = true;
+  array_get(&self->heads, version)->status = StackStatusHalted;
 }
 
-bool ts_stack_is_halted(Stack *self, StackVersion version) {
-  return array_get(&self->heads, version)->is_halted;
+void ts_stack_pause(Stack *self, StackVersion version, TSSymbol lookahead) {
+  StackHead *head = array_get(&self->heads, version);
+  head->status = StackStatusPaused;
+  head->lookahead_when_paused = lookahead;
+}
+
+bool ts_stack_is_active(const Stack *self, StackVersion version) {
+  return array_get(&self->heads, version)->status == StackStatusActive;
+}
+
+bool ts_stack_is_halted(const Stack *self, StackVersion version) {
+  return array_get(&self->heads, version)->status == StackStatusHalted;
+}
+
+bool ts_stack_is_paused(const Stack *self, StackVersion version) {
+  return array_get(&self->heads, version)->status == StackStatusPaused;
+}
+
+TSSymbol ts_stack_resume(Stack *self, StackVersion version) {
+  StackHead *head = array_get(&self->heads, version);
+  assert(head->status == StackStatusPaused);
+  TSSymbol result = head->lookahead_when_paused;
+  head->status = StackStatusActive;
+  head->lookahead_when_paused = 0;
+  return result;
 }
 
 void ts_stack_clear(Stack *self) {
@@ -614,7 +646,8 @@ void ts_stack_clear(Stack *self) {
   array_push(&self->heads, ((StackHead){
     .node = self->base_node,
     .last_external_token = NULL,
-    .is_halted = false,
+    .status = StackStatusActive,
+    .lookahead_when_paused = 0,
   }));
 }
 
@@ -631,13 +664,18 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
 
   array_clear(&self->iterators);
   for (uint32_t i = 0; i < self->heads.size; i++) {
-    if (ts_stack_is_halted(self, i)) continue;
     StackHead *head = &self->heads.contents[i];
+    if (head->status == StackStatusHalted) continue;
+
     fprintf(f, "node_head_%u [shape=none, label=\"\"]\n", i);
-    fprintf(
-      f,
-      "node_head_%u -> node_%p [label=%u, fontcolor=blue, weight=10000, "
-      "labeltooltip=\"push_count: %u\ndepth: %u", i, head->node, i, head->push_count, head->node->depth
+    fprintf(f, "node_head_%u -> node_%p [", i, head->node);
+
+    if (head->status == StackStatusPaused) {
+      fprintf(f, "color=red ");
+    }
+    fprintf(f,
+      "label=%u, fontcolor=blue, weight=10000, labeltooltip=\"push_count: %u\ndepth: %u",
+      i, head->push_count, head->node->depth
     );
 
     if (head->last_external_token) {

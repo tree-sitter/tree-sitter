@@ -171,6 +171,18 @@ static ErrorComparison parser__compare_versions(Parser *self, ErrorStatus a, Err
   return ErrorComparisonNone;
 }
 
+static ErrorStatus parser__version_status(Parser *self, StackVersion version) {
+  unsigned cost = ts_stack_error_cost(self->stack, version);
+  bool is_paused = ts_stack_is_paused(self->stack, version);
+  if (is_paused) cost += ERROR_COST_PER_SKIPPED_TREE;
+  return (ErrorStatus) {
+    .cost = cost,
+    .push_count = ts_stack_push_count(self->stack, version),
+    .dynamic_precedence = ts_stack_dynamic_precedence(self->stack, version),
+    .is_in_error = is_paused || ts_stack_state(self->stack, version) == ERROR_STATE
+  };
+}
+
 static bool parser__better_version_exists(Parser *self, StackVersion version,
                                           bool is_in_error, unsigned cost) {
   if (self->finished_tree && self->finished_tree->error_cost <= cost) return true;
@@ -185,14 +197,9 @@ static bool parser__better_version_exists(Parser *self, StackVersion version,
 
   for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
     if (i == version ||
-        ts_stack_is_halted(self->stack, i) ||
+        !ts_stack_is_active(self->stack, i) ||
         ts_stack_position(self->stack, i).bytes < position.bytes) continue;
-    ErrorStatus status_i = {
-      .cost = ts_stack_error_cost(self->stack, i),
-      .is_in_error = ts_stack_state(self->stack, i) == ERROR_STATE,
-      .dynamic_precedence = ts_stack_dynamic_precedence(self->stack, i),
-      .push_count = ts_stack_push_count(self->stack, i)
-    };
+    ErrorStatus status_i = parser__version_status(self, i);
     switch (parser__compare_versions(self, status, status_i)) {
       case ErrorComparisonTakeRight:
         return true;
@@ -204,83 +211,6 @@ static bool parser__better_version_exists(Parser *self, StackVersion version,
   }
 
   return false;
-}
-
-static unsigned parser__condense_stack(Parser *self) {
-  bool made_changes = false;
-  unsigned min_error_cost = UINT_MAX;
-  for (StackVersion i = 0; i < ts_stack_version_count(self->stack); i++) {
-    if (ts_stack_is_halted(self->stack, i)) {
-      ts_stack_remove_version(self->stack, i);
-      i--;
-      continue;
-    }
-
-    ErrorStatus status_i = {
-      .cost = ts_stack_error_cost(self->stack, i),
-      .push_count = ts_stack_push_count(self->stack, i),
-      .dynamic_precedence = ts_stack_dynamic_precedence(self->stack, i),
-      .is_in_error = ts_stack_state(self->stack, i) == ERROR_STATE,
-    };
-    if (!status_i.is_in_error && status_i.cost < min_error_cost) {
-      min_error_cost = status_i.cost;
-    }
-
-    for (StackVersion j = 0; j < i; j++) {
-      ErrorStatus status_j = {
-        .cost = ts_stack_error_cost(self->stack, j),
-        .push_count = ts_stack_push_count(self->stack, j),
-        .dynamic_precedence = ts_stack_dynamic_precedence(self->stack, j),
-        .is_in_error = ts_stack_state(self->stack, j) == ERROR_STATE,
-      };
-
-      bool can_merge = ts_stack_can_merge(self->stack, j, i);
-      switch (parser__compare_versions(self, status_j, status_i)) {
-        case ErrorComparisonTakeLeft:
-          made_changes = true;
-          ts_stack_remove_version(self->stack, i);
-          i--;
-          j = i;
-          break;
-        case ErrorComparisonPreferLeft:
-        case ErrorComparisonNone:
-          if (can_merge) {
-            made_changes = true;
-            ts_stack_force_merge(self->stack, j, i);
-            i--;
-            j = i;
-          }
-          break;
-        case ErrorComparisonPreferRight:
-          made_changes = true;
-          ts_stack_swap_versions(self->stack, i, j);
-          if (can_merge) {
-            ts_stack_force_merge(self->stack, j, i);
-            i--;
-            j = i;
-          }
-          break;
-        case ErrorComparisonTakeRight:
-          made_changes = true;
-          ts_stack_remove_version(self->stack, j);
-          i--;
-          j--;
-          break;
-      }
-    }
-  }
-
-  while (ts_stack_version_count(self->stack) > MAX_VERSION_COUNT) {
-    ts_stack_remove_version(self->stack, MAX_VERSION_COUNT);
-    made_changes = true;
-  }
-
-  if (made_changes) {
-    LOG("condense");
-    LOG_STACK();
-  }
-
-  return min_error_cost;
 }
 
 static void parser__restore_external_scanner(Parser *self, Tree *external_token) {
@@ -334,9 +264,7 @@ static Tree *parser__lex(Parser *self, StackVersion version, TSStateId parse_sta
           self->lexer.token_end_position = self->lexer.current_position;
         }
 
-        if (error_mode && self->lexer.token_end_position.bytes <= current_position.bytes) {
-          LOG("disregard_empty_token");
-        } else {
+        if (!error_mode || self->lexer.token_end_position.bytes > current_position.bytes) {
           found_external_token = true;
           break;
         }
@@ -360,7 +288,6 @@ static Tree *parser__lex(Parser *self, StackVersion version, TSStateId parse_sta
     }
 
     if (!error_mode) {
-      LOG("retry_in_error_mode");
       error_mode = true;
       lex_mode = self->language->lex_modes[ERROR_STATE];
       valid_external_tokens = ts_language_enabled_external_tokens(
@@ -797,7 +724,8 @@ static void parser__accept(Parser *self, StackVersion version,
 static bool parser__do_all_potential_reductions(Parser *self, StackVersion starting_version,
                                                 TSSymbol lookahead_symbol) {
   bool result = false;
-  for (StackVersion version = starting_version;;) {
+  for (StackVersion version = starting_version;
+       ts_stack_version_count(self->stack) < MAX_VERSION_COUNT;) {
     uint32_t version_count = ts_stack_version_count(self->stack);
     if (version >= version_count) break;
 
@@ -869,24 +797,7 @@ static bool parser__do_all_potential_reductions(Parser *self, StackVersion start
 }
 
 static void parser__handle_error(Parser *self, StackVersion version, TSSymbol lookahead_symbol) {
-  // If enough parse versions have already completed, just halt this version.
-  if (self->accept_count > MAX_VERSION_COUNT) {
-    ts_stack_halt(self->stack, version);
-    LOG("bail_after_too_many_tries");
-    return;
-  }
-
-  // If there are other in-progress versions that are clearly better than this one,
-  // just halt this version.
-  unsigned new_cost = ts_stack_error_cost(self->stack, version) + ERROR_COST_PER_SKIPPED_TREE;
-  if (parser__better_version_exists(self, version, true, new_cost)) {
-    ts_stack_halt(self->stack, version);
-    LOG("bail_on_error");
-    return;
-  }
-
   // Perform any reductions that could have happened in this state, regardless of the lookahead.
-  LOG("handle_error");
   uint32_t previous_version_count = ts_stack_version_count(self->stack);
   parser__do_all_potential_reductions(self, version, 0);
   uint32_t version_count = ts_stack_version_count(self->stack);
@@ -923,7 +834,6 @@ static void parser__handle_error(Parser *self, StackVersion version, TSSymbol lo
             lookahead_symbol
           )) {
             LOG("recover_with_missing symbol:%s, state:%u", SYM_NAME(missing_symbol), state_after_missing_symbol);
-            LOG_STACK();
             did_insert_missing_token = true;
             break;
           }
@@ -1023,13 +933,15 @@ static void parser__recover(Parser *self, StackVersion version, Tree *lookahead)
   unsigned previous_version_count = ts_stack_version_count(self->stack);
   Length position = ts_stack_position(self->stack, version);
   StackSummary *summary = ts_stack_get_summary(self->stack, version);
+  unsigned depth_since_error = ts_stack_depth_since_error(self->stack, version);
 
   for (unsigned i = 0; i < summary->size; i++) {
     StackSummaryEntry entry = summary->contents[i];
 
     if (entry.state == ERROR_STATE) continue;
     if (entry.position.bytes == position.bytes) continue;
-    unsigned depth = entry.depth + ts_stack_depth_since_error(self->stack, version);
+    unsigned depth = entry.depth + depth_since_error;
+    if (depth > MAX_SUMMARY_DEPTH) break;
 
     unsigned new_cost =
       depth * ERROR_COST_PER_SKIPPED_TREE +
@@ -1041,21 +953,22 @@ static void parser__recover(Parser *self, StackVersion version, Tree *lookahead)
       if (parser__recover_to_state(self, version, depth, entry.state)) {
         did_recover = true;
         LOG("recover state:%u, depth:%u", entry.state, depth);
+        LOG_STACK();
         break;
       }
     }
   }
 
   for (unsigned i = previous_version_count; i < ts_stack_version_count(self->stack); i++) {
-    if (ts_stack_is_halted(self->stack, i)) {
-      ts_stack_remove_version(self->stack, i--);
-    } else {
+    if (ts_stack_is_active(self->stack, i)) {
       for (unsigned j = 0; j < i; j++) {
         if (ts_stack_can_merge(self->stack, j, i)) {
           ts_stack_remove_version(self->stack, i--);
           break;
         }
       }
+    } else {
+      ts_stack_remove_version(self->stack, i--);
     }
   }
 
@@ -1154,26 +1067,106 @@ static void parser__advance(Parser *self, StackVersion version, ReusableNode *re
     if (last_reduction_version != STACK_VERSION_NONE) {
       ts_stack_renumber_version(self->stack, last_reduction_version, version);
       LOG_STACK();
+    } else if (state == ERROR_STATE) {
+      ts_stack_push(self->stack, version, lookahead, false, ERROR_STATE);
+      return;
     } else if (!parser__breakdown_top_of_stack(self, version)) {
-      if (state == ERROR_STATE) {
-        ts_stack_push(self->stack, version, lookahead, false, ERROR_STATE);
-        return;
-      }
-
-      parser__handle_error(self, version, lookahead->first_leaf.symbol);
-      if (ts_stack_is_halted(self->stack, version)) {
-        ts_tree_release(&self->tree_pool, lookahead);
-        return;
-      } else if (lookahead->size.bytes == 0) {
-        ts_tree_release(&self->tree_pool, lookahead);
-        state = ts_stack_state(self->stack, version);
-        lookahead = parser__get_lookahead(self, version, &state, reusable_node, &table_entry);
-      }
+      LOG("detect_error");
+      ts_stack_pause(self->stack, version, lookahead->first_leaf.symbol);
+      ts_tree_release(&self->tree_pool, lookahead);
+      return;
     }
 
     state = ts_stack_state(self->stack, version);
     ts_language_table_entry(self->language, state, lookahead->first_leaf.symbol, &table_entry);
   }
+}
+
+static unsigned parser__condense_stack(Parser *self) {
+  bool made_changes = false;
+  unsigned min_error_cost = UINT_MAX;
+  for (StackVersion i = 0; i < ts_stack_version_count(self->stack); i++) {
+    if (ts_stack_is_halted(self->stack, i)) {
+      ts_stack_remove_version(self->stack, i);
+      i--;
+      continue;
+    }
+
+    ErrorStatus status_i = parser__version_status(self, i);
+    if (!status_i.is_in_error && status_i.cost < min_error_cost) {
+      min_error_cost = status_i.cost;
+    }
+
+    for (StackVersion j = 0; j < i; j++) {
+      ErrorStatus status_j = parser__version_status(self, j);
+
+      bool can_merge = ts_stack_can_merge(self->stack, j, i);
+      switch (parser__compare_versions(self, status_j, status_i)) {
+        case ErrorComparisonTakeLeft:
+          made_changes = true;
+          ts_stack_remove_version(self->stack, i);
+          i--;
+          j = i;
+          break;
+        case ErrorComparisonPreferLeft:
+        case ErrorComparisonNone:
+          if (can_merge) {
+            made_changes = true;
+            ts_stack_force_merge(self->stack, j, i);
+            i--;
+            j = i;
+          }
+          break;
+        case ErrorComparisonPreferRight:
+          made_changes = true;
+          ts_stack_swap_versions(self->stack, i, j);
+          if (can_merge) {
+            ts_stack_force_merge(self->stack, j, i);
+            i--;
+            j = i;
+          }
+          break;
+        case ErrorComparisonTakeRight:
+          made_changes = true;
+          ts_stack_remove_version(self->stack, j);
+          i--;
+          j--;
+          break;
+      }
+    }
+  }
+
+  while (ts_stack_version_count(self->stack) > MAX_VERSION_COUNT) {
+    ts_stack_remove_version(self->stack, MAX_VERSION_COUNT);
+    made_changes = true;
+  }
+
+  if (ts_stack_version_count(self->stack) > 0) {
+    bool has_unpaused_version = false;
+    for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
+      if (ts_stack_is_paused(self->stack, i)) {
+        if (!has_unpaused_version) {
+          LOG("resume version:%u", i);
+          TSSymbol lookahead_symbol = ts_stack_resume(self->stack, i);
+          parser__handle_error(self, i, lookahead_symbol);
+          has_unpaused_version = true;
+        } else {
+          ts_stack_remove_version(self->stack, i);
+          i--;
+          n--;
+        }
+      } else {
+        has_unpaused_version = true;
+      }
+    }
+  }
+
+  if (made_changes) {
+    LOG("condense");
+    LOG_STACK();
+  }
+
+  return min_error_cost;
 }
 
 bool parser_init(Parser *self) {
@@ -1219,13 +1212,7 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
     for (version = 0; version < ts_stack_version_count(self->stack); version++) {
       reusable_node = self->reusable_node;
 
-      while (!ts_stack_is_halted(self->stack, version)) {
-        position = ts_stack_position(self->stack, version).bytes;
-        if (position > last_position || (version > 0 && position == last_position)) {
-          last_position = position;
-          break;
-        }
-
+      while (ts_stack_is_active(self->stack, version)) {
         LOG("process version:%d, version_count:%u, state:%d, row:%u, col:%u",
             version, ts_stack_version_count(self->stack),
             ts_stack_state(self->stack, version),
@@ -1234,6 +1221,12 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
 
         parser__advance(self, version, &reusable_node);
         LOG_STACK();
+
+        position = ts_stack_position(self->stack, version).bytes;
+        if (position > last_position || (version > 0 && position == last_position)) {
+          last_position = position;
+          break;
+        }
       }
     }
 
