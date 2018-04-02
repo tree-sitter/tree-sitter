@@ -177,6 +177,7 @@ Tree *ts_tree_make_leaf(TreePool *pool, TSSymbol symbol, Length padding, Length 
     .padding = padding,
     .visible = metadata.visible,
     .named = metadata.named,
+    .node_count = 1,
     .has_changes = false,
     .first_leaf = {
       .symbol = symbol,
@@ -305,6 +306,7 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children,
   self->visible_child_count = 0;
   self->error_cost = 0;
   self->repeat_depth = 0;
+  self->node_count = 1;
   self->has_external_tokens = false;
   self->dynamic_precedence = 0;
 
@@ -326,6 +328,7 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children,
 
     self->error_cost += child->error_cost;
     self->dynamic_precedence += child->dynamic_precedence;
+    self->node_count += child->node_count;
 
     if (alias_sequence && alias_sequence[non_extra_index] != 0 && !child->extra) {
       self->visible_child_count++;

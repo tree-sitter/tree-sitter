@@ -41,15 +41,6 @@ uint32_t ts_stack_version_count(const Stack *);
 // empty, this returns the initial state, 0.
 TSStateId ts_stack_state(const Stack *, StackVersion);
 
-// Get the number of trees that have been pushed to a given version of
-// the stack.
-unsigned ts_stack_push_count(const Stack *, StackVersion);
-
-// In the event that trees were permanently removed from some version
-// of the stack, decrease the version's push count to account for the
-// removal.
-void ts_stack_decrease_push_count(Stack *, StackVersion, unsigned);
-
 // Get the last external token associated with a given version of the stack.
 Tree *ts_stack_last_external_token(const Stack *, StackVersion);
 
@@ -82,7 +73,8 @@ StackSliceArray ts_stack_pop_pending(Stack *, StackVersion);
 // Remove any all trees from the given version of the stack.
 StackSliceArray ts_stack_pop_all(Stack *, StackVersion);
 
-unsigned ts_stack_depth_since_error(Stack *, StackVersion);
+// Get the number of tree nodes on the stack since the most recent error.
+unsigned ts_stack_node_count_since_error(const Stack *, StackVersion);
 
 int ts_stack_dynamic_precedence(Stack *, StackVersion);
 

@@ -39,7 +39,7 @@ static const unsigned MAX_COST_DIFFERENCE = 16 * ERROR_COST_PER_SKIPPED_TREE;
 
 typedef struct {
   unsigned cost;
-  unsigned push_count;
+  unsigned node_count;
   int dynamic_precedence;
   bool is_in_error;
 } ErrorStatus;
@@ -105,7 +105,6 @@ static bool parser__breakdown_top_of_stack(Parser *self, StackVersion version) {
         ts_stack_push(self->stack, slice.version, tree, false, state);
       }
 
-      ts_stack_decrease_push_count(self->stack, slice.version, parent->child_count + 1);
       ts_tree_release(&self->tree_pool, parent);
       array_delete(&slice.trees);
 
@@ -151,7 +150,7 @@ static ErrorComparison parser__compare_versions(Parser *self, ErrorStatus a, Err
   }
 
   if (a.cost < b.cost) {
-    if ((b.cost - a.cost) * (1 + a.push_count) > MAX_COST_DIFFERENCE) {
+    if ((b.cost - a.cost) * (1 + a.node_count) > MAX_COST_DIFFERENCE) {
       return ErrorComparisonTakeLeft;
     } else {
       return ErrorComparisonPreferLeft;
@@ -159,7 +158,7 @@ static ErrorComparison parser__compare_versions(Parser *self, ErrorStatus a, Err
   }
 
   if (b.cost < a.cost) {
-    if ((a.cost - b.cost) * (1 + b.push_count) > MAX_COST_DIFFERENCE) {
+    if ((a.cost - b.cost) * (1 + b.node_count) > MAX_COST_DIFFERENCE) {
       return ErrorComparisonTakeRight;
     } else {
       return ErrorComparisonPreferRight;
@@ -177,7 +176,7 @@ static ErrorStatus parser__version_status(Parser *self, StackVersion version) {
   if (is_paused) cost += ERROR_COST_PER_SKIPPED_TREE;
   return (ErrorStatus) {
     .cost = cost,
-    .push_count = ts_stack_push_count(self->stack, version),
+    .node_count = ts_stack_node_count_since_error(self->stack, version),
     .dynamic_precedence = ts_stack_dynamic_precedence(self->stack, version),
     .is_in_error = is_paused || ts_stack_state(self->stack, version) == ERROR_STATE
   };
@@ -192,7 +191,7 @@ static bool parser__better_version_exists(Parser *self, StackVersion version,
     .cost = cost,
     .is_in_error = is_in_error,
     .dynamic_precedence = ts_stack_dynamic_precedence(self->stack, version),
-    .push_count = 0,
+    .node_count = ts_stack_node_count_since_error(self->stack, version),
   };
 
   for (StackVersion i = 0, n = ts_stack_version_count(self->stack); i < n; i++) {
@@ -933,7 +932,7 @@ static void parser__recover(Parser *self, StackVersion version, Tree *lookahead)
   unsigned previous_version_count = ts_stack_version_count(self->stack);
   Length position = ts_stack_position(self->stack, version);
   StackSummary *summary = ts_stack_get_summary(self->stack, version);
-  unsigned depth_since_error = ts_stack_depth_since_error(self->stack, version);
+  unsigned depth_since_error = ts_stack_node_count_since_error(self->stack, version);
 
   for (unsigned i = 0; i < summary->size; i++) {
     StackSummaryEntry entry = summary->contents[i];
@@ -1150,6 +1149,7 @@ static unsigned parser__condense_stack(Parser *self) {
           TSSymbol lookahead_symbol = ts_stack_resume(self->stack, i);
           parser__handle_error(self, i, lookahead_symbol);
           has_unpaused_version = true;
+          min_error_cost = ts_stack_error_cost(self->stack, i);
         } else {
           ts_stack_remove_version(self->stack, i);
           i--;

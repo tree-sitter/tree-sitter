@@ -32,6 +32,8 @@ vector<string> test_languages({
 for (auto &language_name : test_languages) {
   describe(("the " + language_name + " language").c_str(), [&]() {
     TSDocument *document;
+    const bool debug_graphs_enabled = getenv("TREE_SITTER_ENABLE_DEBUG_GRAPHS");
+
 
     before_each([&]() {
       record_alloc::start();
@@ -39,7 +41,7 @@ for (auto &language_name : test_languages) {
       ts_document_set_language(document, load_real_language(language_name));
 
       // ts_document_set_logger(document, stderr_logger_new(true));
-      if (getenv("TREE_SITTER_ENABLE_DEBUG_GRAPHS")) {
+      if (debug_graphs_enabled) {
         ts_document_print_debugging_graphs(document, true);
       }
     });
@@ -55,6 +57,7 @@ for (auto &language_name : test_languages) {
       auto it_handles_edit_sequence = [&](string name, std::function<void()> edit_sequence){
         it(("parses " + entry.description + ": " + name).c_str(), [&]() {
           input = new SpyInput(entry.input, 3);
+          if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
           ts_document_set_input(document, input->input());
           edit_sequence();
 
@@ -88,9 +91,11 @@ for (auto &language_name : test_languages) {
             ts_document_edit(document, input->replace(edit_position, 0, inserted_text));
             ts_document_parse(document);
             assert_correct_tree_size(document, input->content);
+            if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
             ts_document_edit(document, input->undo());
             assert_correct_tree_size(document, input->content);
+            if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
             TSRange *ranges;
             uint32_t range_count;
@@ -112,9 +117,11 @@ for (auto &language_name : test_languages) {
             ts_document_edit(document, input->replace(edit_position, deletion_size, ""));
             ts_document_parse(document);
             assert_correct_tree_size(document, input->content);
+            if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
             ts_document_edit(document, input->undo());
             assert_correct_tree_size(document, input->content);
+            if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
             TSRange *ranges;
             uint32_t range_count;

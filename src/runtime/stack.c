@@ -31,7 +31,7 @@ struct StackNode {
   short unsigned int link_count;
   uint32_t ref_count;
   unsigned error_cost;
-  unsigned depth;
+  unsigned node_count;
   int dynamic_precedence;
 };
 
@@ -59,7 +59,7 @@ typedef struct {
   StackNode *node;
   Tree *last_external_token;
   StackSummary *summary;
-  uint32_t push_count;
+  unsigned node_count_at_last_error;
   TSSymbol lookahead_when_paused;
   StackStatus status;
 } StackHead;
@@ -123,7 +123,7 @@ static StackNode *stack_node_new(StackNode *previous_node, Tree *tree, bool is_p
   StackNode *node = pool->size > 0 ?
     array_pop(pool) :
     ts_malloc(sizeof(StackNode));
-  *node = (StackNode){.ref_count = 1, .link_count = 0, .state = state, .depth = 0};
+  *node = (StackNode){.ref_count = 1, .link_count = 0, .state = state};
 
   if (previous_node) {
     node->link_count = 1;
@@ -136,22 +136,25 @@ static StackNode *stack_node_new(StackNode *previous_node, Tree *tree, bool is_p
     node->position = previous_node->position;
     node->error_cost = previous_node->error_cost;
     node->dynamic_precedence = previous_node->dynamic_precedence;
+    node->node_count = previous_node->node_count;
 
     if (tree) {
-      node->depth = previous_node->depth;
-      if (!tree->extra) node->depth++;
       node->error_cost += tree->error_cost;
       node->position = length_add(node->position, ts_tree_total_size(tree));
       node->dynamic_precedence += tree->dynamic_precedence;
-      if (state == ERROR_STATE && !tree->extra) {
-        node->error_cost +=
-          ERROR_COST_PER_SKIPPED_TREE * ((tree->visible || tree->child_count == 0) ? 1 : tree->visible_child_count) +
-          ERROR_COST_PER_SKIPPED_CHAR * tree->size.bytes +
-          ERROR_COST_PER_SKIPPED_LINE * tree->size.extent.row;
-        if (previous_node->links[0].tree) {
+      if (!tree->extra) {
+        node->node_count += tree->node_count;
+
+        if (state == ERROR_STATE) {
           node->error_cost +=
-            ERROR_COST_PER_SKIPPED_CHAR * tree->padding.bytes +
-            ERROR_COST_PER_SKIPPED_LINE * tree->padding.extent.row;
+            ERROR_COST_PER_SKIPPED_TREE * ((tree->visible || tree->child_count == 0) ? 1 : tree->visible_child_count) +
+            ERROR_COST_PER_SKIPPED_CHAR * tree->size.bytes +
+            ERROR_COST_PER_SKIPPED_LINE * tree->size.extent.row;
+          if (previous_node->links[0].tree) {
+            node->error_cost +=
+              ERROR_COST_PER_SKIPPED_CHAR * tree->padding.bytes +
+              ERROR_COST_PER_SKIPPED_LINE * tree->padding.extent.row;
+          }
         }
       }
     }
@@ -198,6 +201,10 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
     stack_node_retain(link.node);
     if (link.tree) ts_tree_retain(link.tree);
     self->links[self->link_count++] = link;
+
+    unsigned node_count = link.node->node_count;
+    if (link.tree) node_count += link.tree->node_count;
+    if (node_count > self->node_count) self->node_count = node_count;
   }
 }
 
@@ -215,22 +222,22 @@ static void stack_head_delete(StackHead *self, StackNodeArray *pool, TreePool *t
 }
 
 static StackVersion ts_stack__add_version(Stack *self, StackVersion original_version,
-                                          StackNode *node, Tree *last_external_token) {
+                                          StackNode *node) {
   StackHead head = {
     .node = node,
-    .push_count = self->heads.contents[original_version].push_count,
-    .last_external_token = last_external_token,
+    .node_count_at_last_error = self->heads.contents[original_version].node_count_at_last_error,
+    .last_external_token = self->heads.contents[original_version].last_external_token,
     .status = StackStatusActive,
     .lookahead_when_paused = 0,
   };
   array_push(&self->heads, head);
   stack_node_retain(node);
-  if (last_external_token) ts_tree_retain(last_external_token);
+  if (head.last_external_token) ts_tree_retain(head.last_external_token);
   return (StackVersion)(self->heads.size - 1);
 }
 
-static void ts_stack__add_slice(Stack *self, StackVersion original_version, StackNode *node,
-                                TreeArray *trees, Tree *last_external_token) {
+static void ts_stack__add_slice(Stack *self, StackVersion original_version,
+                                StackNode *node, TreeArray *trees) {
   for (uint32_t i = self->slices.size - 1; i + 1 > 0; i--) {
     StackVersion version = self->slices.contents[i].version;
     if (self->heads.contents[version].node == node) {
@@ -240,7 +247,7 @@ static void ts_stack__add_slice(Stack *self, StackVersion original_version, Stac
     }
   }
 
-  StackVersion version = ts_stack__add_version(self, original_version, node, last_external_token);
+  StackVersion version = ts_stack__add_version(self, original_version, node);
   StackSlice slice = { *trees, version };
   array_push(&self->slices, slice);
 }
@@ -252,7 +259,6 @@ inline StackSliceArray stack__iter(Stack *self, StackVersion version,
   array_clear(&self->iterators);
 
   StackHead *head = array_get(&self->heads, version);
-  Tree *last_external_token = head->last_external_token;
   Iterator iterator = {
     .node = head->node,
     .trees = array_new(),
@@ -279,8 +285,7 @@ inline StackSliceArray stack__iter(Stack *self, StackVersion version,
           self,
           version,
           node,
-          &trees,
-          last_external_token
+          &trees
         );
       }
 
@@ -381,14 +386,6 @@ Length ts_stack_position(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->position;
 }
 
-unsigned ts_stack_push_count(const Stack *self, StackVersion version) {
-  return array_get(&self->heads, version)->push_count;
-}
-
-void ts_stack_decrease_push_count(Stack *self, StackVersion version, unsigned decrement) {
-  array_get(&self->heads, version)->push_count -= decrement;
-}
-
 Tree *ts_stack_last_external_token(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->last_external_token;
 }
@@ -405,14 +402,15 @@ unsigned ts_stack_error_cost(const Stack *self, StackVersion version) {
   return head->node->error_cost;
 }
 
+unsigned ts_stack_node_count_since_error(const Stack *self, StackVersion version) {
+  StackHead *head = array_get(&self->heads, version);
+  return head->node->node_count - head->node_count_at_last_error;
+}
+
 void ts_stack_push(Stack *self, StackVersion version, Tree *tree, bool pending, TSStateId state) {
   StackHead *head = array_get(&self->heads, version);
   StackNode *new_node = stack_node_new(head->node, tree, pending, state, &self->node_pool);
-  if (state == ERROR_STATE) {
-    head->push_count = 0;
-  } else if (!tree->extra) {
-    head->push_count++;
-  }
+  if (!tree) head->node_count_at_last_error = new_node->node_count;
   head->node = new_node;
 }
 
@@ -536,10 +534,6 @@ StackSummary *ts_stack_get_summary(Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->summary;
 }
 
-unsigned ts_stack_depth_since_error(Stack *self, StackVersion version) {
-  return array_get(&self->heads, version)->node->depth;
-}
-
 int ts_stack_dynamic_precedence(Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->dynamic_precedence;
 }
@@ -590,7 +584,6 @@ bool ts_stack_can_merge(Stack *self, StackVersion version1, StackVersion version
     head2->status == StackStatusActive &&
     head1->node->state == head2->node->state &&
     head1->node->position.bytes == head2->node->position.bytes &&
-    head1->node->depth == head2->node->depth &&
     ts_tree_external_token_state_eq(head1->last_external_token, head2->last_external_token);
 }
 
@@ -599,6 +592,9 @@ void ts_stack_force_merge(Stack *self, StackVersion version1, StackVersion versi
   StackHead *head2 = &self->heads.contents[version2];
   for (uint32_t i = 0; i < head2->node->link_count; i++) {
     stack_node_add_link(head1->node, head2->node->links[i]);
+  }
+  if (head2->node_count_at_last_error > head1->node_count_at_last_error) {
+    head1->node_count_at_last_error = head2->node_count_at_last_error;
   }
   ts_stack_remove_version(self, version2);
 }
@@ -611,6 +607,7 @@ void ts_stack_pause(Stack *self, StackVersion version, TSSymbol lookahead) {
   StackHead *head = array_get(&self->heads, version);
   head->status = StackStatusPaused;
   head->lookahead_when_paused = lookahead;
+  head->node_count_at_last_error = head->node->node_count;
 }
 
 bool ts_stack_is_active(const Stack *self, StackVersion version) {
@@ -671,8 +668,8 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
       fprintf(f, "color=red ");
     }
     fprintf(f,
-      "label=%u, fontcolor=blue, weight=10000, labeltooltip=\"push_count: %u\ndepth: %u",
-      i, head->push_count, head->node->depth
+      "label=%u, fontcolor=blue, weight=10000, labeltooltip=\"node_count: %u",
+      i, head->node->node_count - head->node_count_at_last_error
     );
 
     if (head->last_external_token) {
