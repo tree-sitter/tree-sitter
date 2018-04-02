@@ -399,7 +399,9 @@ void ts_stack_set_last_external_token(Stack *self, StackVersion version, Tree *t
 
 unsigned ts_stack_error_cost(const Stack *self, StackVersion version) {
   StackHead *head = array_get(&self->heads, version);
-  return head->node->error_cost;
+  unsigned result = head->node->error_cost;
+  if (head->node->state == ERROR_STATE) result += ERROR_COST_PER_RECOVERY;
+  return result;
 }
 
 unsigned ts_stack_node_count_since_error(const Stack *self, StackVersion version) {
@@ -668,8 +670,10 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
       fprintf(f, "color=red ");
     }
     fprintf(f,
-      "label=%u, fontcolor=blue, weight=10000, labeltooltip=\"node_count: %u",
-      i, head->node->node_count - head->node_count_at_last_error
+      "label=%u, fontcolor=blue, weight=10000, labeltooltip=\"node_count: %u\nerror_cost: %u",
+      i,
+      ts_stack_node_count_since_error(self, i),
+      ts_stack_error_cost(self, i)
     );
 
     if (head->last_external_token) {

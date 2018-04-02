@@ -354,11 +354,14 @@ void ts_tree_set_children(Tree *self, uint32_t child_count, Tree **children,
   }
 
   if (self->symbol == ts_builtin_sym_error) {
-    self->error_cost += ERROR_COST_PER_SKIPPED_CHAR * self->size.bytes +
+    self->error_cost += ERROR_COST_PER_RECOVERY +
+                        ERROR_COST_PER_SKIPPED_CHAR * self->size.bytes +
                         ERROR_COST_PER_SKIPPED_LINE * self->size.extent.row;
-    for (uint32_t i = 0; i < child_count; i++)
-      if (!self->children[i]->extra)
+    for (uint32_t i = 0; i < child_count; i++) {
+      if (!self->children[i]->extra) {
         self->error_cost += ERROR_COST_PER_SKIPPED_TREE;
+      }
+    }
   }
 
   if (child_count > 0) {
@@ -418,7 +421,7 @@ Tree *ts_tree_make_error_node(TreePool *pool, TreeArray *children, const TSLangu
 Tree *ts_tree_make_missing_leaf(TreePool *pool, TSSymbol symbol, const TSLanguage *language) {
   Tree *result = ts_tree_make_leaf(pool, symbol, length_zero(), length_zero(), language);
   result->is_missing = true;
-  result->error_cost = ERROR_COST_PER_MISSING_TREE;
+  result->error_cost = ERROR_COST_PER_MISSING_TREE + ERROR_COST_PER_RECOVERY;
   return result;
 }
 
