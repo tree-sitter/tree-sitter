@@ -73,7 +73,8 @@ StackSliceArray ts_stack_pop_pending(Stack *, StackVersion);
 // Remove any all trees from the given version of the stack.
 StackSliceArray ts_stack_pop_all(Stack *, StackVersion);
 
-// Get the number of tree nodes on the stack since the most recent error.
+// Get the maximum number of tree nodes reachable from this version of the stack
+// since the last error was detected.
 unsigned ts_stack_node_count_since_error(const Stack *, StackVersion);
 
 int ts_stack_dynamic_precedence(Stack *, StackVersion);
@@ -86,13 +87,15 @@ void ts_stack_record_summary(Stack *, StackVersion, unsigned max_depth);
 // given version of the stack.
 StackSummary *ts_stack_get_summary(Stack *, StackVersion);
 
+// Get the total cost of all errors on the given version of the stack.
 unsigned ts_stack_error_cost(const Stack *, StackVersion version);
 
+// Determine whether the given two stack versions can be merged.
 bool ts_stack_merge(Stack *, StackVersion, StackVersion);
 
+// Merge the given two stack versions if possible, returning true
+// if they were successfully merged and false otherwise.
 bool ts_stack_can_merge(Stack *, StackVersion, StackVersion);
-
-void ts_stack_force_merge(Stack *, StackVersion, StackVersion);
 
 TSSymbol ts_stack_resume(Stack *, StackVersion);
 

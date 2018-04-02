@@ -197,15 +197,15 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
     }
   }
 
-  if (self->link_count < MAX_LINK_COUNT) {
-    stack_node_retain(link.node);
-    if (link.tree) ts_tree_retain(link.tree);
-    self->links[self->link_count++] = link;
+  if (self->link_count == MAX_LINK_COUNT) return;
 
-    unsigned node_count = link.node->node_count;
-    if (link.tree) node_count += link.tree->node_count;
-    if (node_count > self->node_count) self->node_count = node_count;
-  }
+  stack_node_retain(link.node);
+  if (link.tree) ts_tree_retain(link.tree);
+  self->links[self->link_count++] = link;
+
+  unsigned node_count = link.node->node_count;
+  if (link.tree) node_count += link.tree->node_count;
+  if (node_count > self->node_count) self->node_count = node_count;
 }
 
 static void stack_head_delete(StackHead *self, StackNodeArray *pool, TreePool *tree_pool) {
@@ -570,12 +570,17 @@ StackVersion ts_stack_copy_version(Stack *self, StackVersion version) {
 }
 
 bool ts_stack_merge(Stack *self, StackVersion version1, StackVersion version2) {
-  if (ts_stack_can_merge(self, version1, version2)) {
-    ts_stack_force_merge(self, version1, version2);
-    return true;
-  } else {
-    return false;
+  if (!ts_stack_can_merge(self, version1, version2)) return false;
+  StackHead *head1 = &self->heads.contents[version1];
+  StackHead *head2 = &self->heads.contents[version2];
+  for (uint32_t i = 0; i < head2->node->link_count; i++) {
+    stack_node_add_link(head1->node, head2->node->links[i]);
   }
+  if (head2->node_count_at_last_error > head1->node_count_at_last_error) {
+    head1->node_count_at_last_error = head2->node_count_at_last_error;
+  }
+  ts_stack_remove_version(self, version2);
+  return true;
 }
 
 bool ts_stack_can_merge(Stack *self, StackVersion version1, StackVersion version2) {
@@ -587,18 +592,6 @@ bool ts_stack_can_merge(Stack *self, StackVersion version1, StackVersion version
     head1->node->state == head2->node->state &&
     head1->node->position.bytes == head2->node->position.bytes &&
     ts_tree_external_token_state_eq(head1->last_external_token, head2->last_external_token);
-}
-
-void ts_stack_force_merge(Stack *self, StackVersion version1, StackVersion version2) {
-  StackHead *head1 = &self->heads.contents[version1];
-  StackHead *head2 = &self->heads.contents[version2];
-  for (uint32_t i = 0; i < head2->node->link_count; i++) {
-    stack_node_add_link(head1->node, head2->node->links[i]);
-  }
-  if (head2->node_count_at_last_error > head1->node_count_at_last_error) {
-    head1->node_count_at_last_error = head2->node_count_at_last_error;
-  }
-  ts_stack_remove_version(self, version2);
 }
 
 void ts_stack_halt(Stack *self, StackVersion version) {

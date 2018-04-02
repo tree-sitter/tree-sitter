@@ -845,7 +845,7 @@ static void parser__handle_error(Parser *self, StackVersion version, TSSymbol lo
   }
 
   for (unsigned i = previous_version_count; i < version_count; i++) {
-    ts_stack_force_merge(self->stack, version, previous_version_count);
+    assert(ts_stack_merge(self->stack, version, previous_version_count));
   }
 
   ts_stack_record_summary(self->stack, version, MAX_SUMMARY_DEPTH);
@@ -1099,7 +1099,6 @@ static unsigned parser__condense_stack(Parser *self) {
     for (StackVersion j = 0; j < i; j++) {
       ErrorStatus status_j = parser__version_status(self, j);
 
-      bool can_merge = ts_stack_can_merge(self->stack, j, i);
       switch (parser__compare_versions(self, status_j, status_i)) {
         case ErrorComparisonTakeLeft:
           made_changes = true;
@@ -1109,20 +1108,19 @@ static unsigned parser__condense_stack(Parser *self) {
           break;
         case ErrorComparisonPreferLeft:
         case ErrorComparisonNone:
-          if (can_merge) {
+          if (ts_stack_merge(self->stack, j, i)) {
             made_changes = true;
-            ts_stack_force_merge(self->stack, j, i);
             i--;
             j = i;
           }
           break;
         case ErrorComparisonPreferRight:
           made_changes = true;
-          ts_stack_swap_versions(self->stack, i, j);
-          if (can_merge) {
-            ts_stack_force_merge(self->stack, j, i);
+          if (ts_stack_merge(self->stack, j, i)) {
             i--;
             j = i;
+          } else {
+            ts_stack_swap_versions(self->stack, i, j);
           }
           break;
         case ErrorComparisonTakeRight:
