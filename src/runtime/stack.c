@@ -126,8 +126,6 @@ static StackNode *stack_node_new(StackNode *previous_node, Tree *tree, bool is_p
   *node = (StackNode){.ref_count = 1, .link_count = 0, .state = state, .depth = 0};
 
   if (previous_node) {
-    stack_node_retain(previous_node);
-
     node->link_count = 1;
     node->links[0] = (StackLink){
       .node = previous_node,
@@ -415,7 +413,6 @@ void ts_stack_push(Stack *self, StackVersion version, Tree *tree, bool pending, 
   } else if (!tree->extra) {
     head->push_count++;
   }
-  stack_node_release(head->node, &self->node_pool, self->tree_pool);
   head->node = new_node;
 }
 
