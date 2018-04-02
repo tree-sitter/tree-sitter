@@ -400,7 +400,9 @@ void ts_stack_set_last_external_token(Stack *self, StackVersion version, Tree *t
 unsigned ts_stack_error_cost(const Stack *self, StackVersion version) {
   StackHead *head = array_get(&self->heads, version);
   unsigned result = head->node->error_cost;
-  if (head->node->state == ERROR_STATE) result += ERROR_COST_PER_RECOVERY;
+  if (head->node->state == ERROR_STATE || head->status == StackStatusPaused) {
+    result += ERROR_COST_PER_RECOVERY;
+  }
   return result;
 }
 

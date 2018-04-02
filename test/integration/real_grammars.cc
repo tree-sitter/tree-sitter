@@ -34,7 +34,6 @@ for (auto &language_name : test_languages) {
     TSDocument *document;
     const bool debug_graphs_enabled = getenv("TREE_SITTER_ENABLE_DEBUG_GRAPHS");
 
-
     before_each([&]() {
       record_alloc::start();
       document = ts_document_new();

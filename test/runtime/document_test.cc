@@ -22,6 +22,10 @@ describe("Document", [&]() {
   before_each([&]() {
     record_alloc::start();
     document = ts_document_new();
+
+    if (getenv("TREE_SITTER_ENABLE_DEBUG_GRAPHS")) {
+      ts_document_print_debugging_graphs(document, true);
+    }
   });
 
   after_each([&]() {
@@ -434,7 +438,7 @@ describe("Document", [&]() {
       root = ts_document_root_node(document);
       assert_node_string_equals(
         root,
-        "(ERROR (number) (null) (UNEXPECTED 'e'))");
+        "(ERROR (number) (null))");
 
       AssertThat(ts_node_end_byte(root), Equals(input_string.size()));
     });
