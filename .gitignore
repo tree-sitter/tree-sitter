@@ -2,6 +2,7 @@
 out
 
 fuzz-results
+log.html
 
 # Generated build config files 
 gyp-mac-tool
