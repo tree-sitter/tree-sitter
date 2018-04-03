@@ -12,18 +12,18 @@ extern "C" {
 #include <stdbool.h>
 #include "runtime/alloc.h"
 
-#define Array(T)     \
-  struct {           \
-    T *contents;     \
+#define Array(T)       \
+  struct {             \
     uint32_t size;     \
     uint32_t capacity; \
+    T *contents;       \
   }
 
 #define array_init(self) \
   ((self)->size = 0, (self)->capacity = 0, (self)->contents = NULL)
 
 #define array_new() \
-  { NULL, 0, 0 }
+  { 0, 0, NULL }
 
 #define array_get(self, index) \
   (assert((uint32_t)index < (self)->size), &(self)->contents[index])

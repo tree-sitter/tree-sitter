@@ -127,8 +127,8 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
     TreePathEntry entry = *array_back(&self->path);
     Length position = entry.position;
     uint32_t structural_child_index = 0;
-    for (uint32_t i = 0; i < entry.tree->child_count; i++) {
-      Tree *child = entry.tree->children[i];
+    for (uint32_t i = 0; i < entry.tree->children.size; i++) {
+      Tree *child = entry.tree->children.contents[i];
       Length child_left = length_add(position, child->padding);
       Length child_right = length_add(child_left, child->size);
 
@@ -179,11 +179,11 @@ static void iterator_advance(Iterator *self) {
 
     Tree *parent = array_back(&self->path)->tree;
     uint32_t child_index = entry.child_index + 1;
-    if (parent->child_count > child_index) {
+    if (parent->children.size > child_index) {
       Length position = length_add(entry.position, ts_tree_total_size(entry.tree));
       uint32_t structural_child_index = entry.structural_child_index;
       if (!entry.tree->extra) structural_child_index++;
-      Tree *next_child = parent->children[child_index];
+      Tree *next_child = parent->children.contents[child_index];
 
       array_push(&self->path, ((TreePathEntry){
         .tree = next_child,

@@ -86,9 +86,9 @@ static bool parser__breakdown_top_of_stack(Parser *self, StackVersion version) {
       TSStateId state = ts_stack_state(self->stack, slice.version);
       Tree *parent = *array_front(&slice.trees);
 
-      for (uint32_t j = 0; j < parent->child_count; j++) {
-        Tree *child = parent->children[j];
-        pending = child->child_count > 0;
+      for (uint32_t j = 0; j < parent->children.size; j++) {
+        Tree *child = parent->children.contents[j];
+        pending = child->children.size > 0;
 
         if (child->symbol == ts_builtin_sym_error) {
           state = ERROR_STATE;
@@ -120,7 +120,7 @@ static void parser__breakdown_lookahead(Parser *self, Tree **lookahead,
                                         TSStateId state,
                                         ReusableNode *reusable_node) {
   bool did_break_down = false;
-  while (reusable_node->tree->child_count > 0 && reusable_node->tree->parse_state != state) {
+  while (reusable_node->tree->children.size > 0 && reusable_node->tree->parse_state != state) {
     LOG("state_mismatch sym:%s", SYM_NAME(reusable_node->tree->symbol));
     reusable_node_breakdown(reusable_node);
     did_break_down = true;
@@ -447,7 +447,7 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version, TSStateId
       reason = "is_missing";
     } else if (result->fragile_left || result->fragile_right) {
       reason = "is_fragile";
-    } else if (self->in_ambiguity && result->child_count) {
+    } else if (self->in_ambiguity && result->children.size) {
       reason = "in_ambiguity";
     }
 
@@ -555,7 +555,7 @@ static void parser__shift(Parser *self, StackVersion version, TSStateId state,
     ts_tree_retain(lookahead);
   }
 
-  bool is_pending = lookahead->child_count > 0;
+  bool is_pending = lookahead->children.size > 0;
   ts_stack_push(self->stack, version, lookahead, is_pending, state);
   if (lookahead->has_external_tokens) {
     ts_stack_set_last_external_token(
@@ -564,10 +564,10 @@ static void parser__shift(Parser *self, StackVersion version, TSStateId state,
   }
 }
 
-static bool parser__replace_children(Parser *self, Tree *tree, Tree **children, uint32_t count) {
+static bool parser__replace_children(Parser *self, Tree *tree, TreeArray *children) {
   self->scratch_tree = *tree;
-  self->scratch_tree.child_count = 0;
-  ts_tree_set_children(&self->scratch_tree, count, children, self->language);
+  self->scratch_tree.children.size = 0;
+  ts_tree_set_children(&self->scratch_tree, children, self->language);
   if (parser__select_tree(self, tree, &self->scratch_tree)) {
     *tree = self->scratch_tree;
     return true;
@@ -589,13 +589,13 @@ static StackSliceArray parser__reduce(Parser *self, StackVersion version, TSSymb
     // Extra tokens on top of the stack should not be included in this new parent
     // node. They will be re-pushed onto the stack after the parent node is
     // created and pushed.
-    uint32_t child_count = slice.trees.size;
-    while (child_count > 0 && slice.trees.contents[child_count - 1]->extra) {
-      child_count--;
+    TreeArray children = slice.trees;
+    while (children.size > 0 && children.contents[children.size - 1]->extra) {
+      children.size--;
     }
 
     Tree *parent = ts_tree_make_node(&self->tree_pool,
-      symbol, child_count, slice.trees.contents, alias_sequence_id, self->language
+      symbol, &children, alias_sequence_id, self->language
     );
 
     // This pop operation may have caused multiple stack versions to collapse
@@ -607,12 +607,12 @@ static StackSliceArray parser__reduce(Parser *self, StackVersion version, TSSymb
       if (next_slice.version != slice.version) break;
       i++;
 
-      uint32_t child_count = next_slice.trees.size;
-      while (child_count > 0 && next_slice.trees.contents[child_count - 1]->extra) {
-        child_count--;
+      TreeArray children = next_slice.trees;
+      while (children.size > 0 && children.contents[children.size - 1]->extra) {
+        children.size--;
       }
 
-      if (parser__replace_children(self, parent, next_slice.trees.contents, child_count)) {
+      if (parser__replace_children(self, parent, &children)) {
         ts_tree_array_delete(&self->tree_pool, &slice.trees);
         slice = next_slice;
       } else {
@@ -636,9 +636,8 @@ static StackSliceArray parser__reduce(Parser *self, StackVersion version, TSSymb
     // Push the parent node onto the stack, along with any extra tokens that
     // were previously on top of the stack.
     ts_stack_push(self->stack, slice.version, parent, false, next_state);
-    for (uint32_t j = parent->child_count; j < slice.trees.size; j++) {
-      Tree *tree = slice.trees.contents[j];
-      ts_stack_push(self->stack, slice.version, tree, false, next_state);
+    for (uint32_t j = parent->children.size; j < slice.trees.size; j++) {
+      ts_stack_push(self->stack, slice.version, slice.trees.contents[j], false, next_state);
     }
   }
 
@@ -690,12 +689,12 @@ static void parser__accept(Parser *self, StackVersion version,
       Tree *child = trees.contents[j];
       if (!child->extra) {
         root = ts_tree_make_copy(&self->tree_pool, child);
-        root->child_count = 0;
-        for (uint32_t k = 0; k < child->child_count; k++) {
-          ts_tree_retain(child->children[k]);
+        root->children.size = 0;
+        for (uint32_t k = 0; k < child->children.size; k++) {
+          ts_tree_retain(child->children.contents[k]);
         }
-        array_splice(&trees, j, 1, child->child_count, child->children);
-        ts_tree_set_children(root, trees.size, trees.contents, self->language);
+        array_splice(&trees, j, 1, child->children.size, child->children.contents);
+        ts_tree_set_children(root, &trees, self->language);
         ts_tree_release(&self->tree_pool, child);
         break;
       }
@@ -1020,7 +1019,7 @@ static void parser__advance(Parser *self, StackVersion version, ReusableNode *re
             LOG("shift state:%u", next_state);
           }
 
-          if (lookahead->child_count > 0) {
+          if (lookahead->children.size > 0) {
             parser__breakdown_lookahead(self, &lookahead, state, reusable_node);
             next_state = ts_language_next_state(self->language, state, lookahead->symbol);
           }
@@ -1052,7 +1051,7 @@ static void parser__advance(Parser *self, StackVersion version, ReusableNode *re
         }
 
         case TSParseActionTypeRecover: {
-          while (lookahead->child_count > 0) {
+          while (lookahead->children.size > 0) {
             parser__breakdown_lookahead(self, &lookahead, state, reusable_node);
           }
           parser__recover(self, version, lookahead);

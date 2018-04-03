@@ -147,7 +147,7 @@ static StackNode *stack_node_new(StackNode *previous_node, Tree *tree, bool is_p
 
         if (state == ERROR_STATE) {
           node->error_cost +=
-            ERROR_COST_PER_SKIPPED_TREE * ((tree->visible || tree->child_count == 0) ? 1 : tree->visible_child_count) +
+            ERROR_COST_PER_SKIPPED_TREE * ((tree->visible || tree->children.size == 0) ? 1 : tree->visible_child_count) +
             ERROR_COST_PER_SKIPPED_CHAR * tree->size.bytes +
             ERROR_COST_PER_SKIPPED_LINE * tree->size.extent.row;
           if (previous_node->links[0].tree) {
@@ -173,7 +173,7 @@ static bool stack__tree_is_equivalent(const Tree *left, const Tree *right) {
      right &&
      left->symbol == right->symbol &&
      ((left->error_cost > 0 && right->error_cost > 0) ||
-      (left->child_count == 0 && right->child_count == 0 &&
+      (left->children.size == 0 && right->children.size == 0 &&
        left->padding.bytes == right->padding.bytes &&
        left->size.bytes == right->size.bytes &&
        left->extra == right->extra &&

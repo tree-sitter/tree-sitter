@@ -20,8 +20,8 @@ static inline void reusable_node_pop(ReusableNode *self) {
   while (self->tree) {
     Tree *parent = self->tree->context.parent;
     uint32_t next_index = self->tree->context.index + 1;
-    if (parent && parent->child_count > next_index) {
-      self->tree = parent->children[next_index];
+    if (parent && parent->children.size > next_index) {
+      self->tree = parent->children.contents[next_index];
       return;
     }
     self->tree = parent;
@@ -30,17 +30,17 @@ static inline void reusable_node_pop(ReusableNode *self) {
 
 static inline ReusableNode reusable_node_after_leaf(const ReusableNode *self) {
   ReusableNode result = *self;
-  while (result.tree->child_count > 0)
-    result.tree = result.tree->children[0];
+  while (result.tree->children.size > 0)
+    result.tree = result.tree->children.contents[0];
   reusable_node_pop(&result);
   return result;
 }
 
 static inline bool reusable_node_breakdown(ReusableNode *self) {
-  if (self->tree->child_count == 0) {
+  if (self->tree->children.size == 0) {
     return false;
   } else {
-    self->tree = self->tree->children[0];
+    self->tree = self->tree->children.contents[0];
     return true;
   }
 }
