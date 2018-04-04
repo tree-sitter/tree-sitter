@@ -204,7 +204,7 @@ The following is a complete list of built-in functions you can use to define Tre
 
 In addition to the `name` and `rules` fields, grammars have a few other public fields that influence the behavior of the parser.
 
-* `extras` - an array of tokens that may appear *anywhere* in the language. This is often used for whitespace and comments.
+* `extras` - an array of tokens that may appear *anywhere* in the language. This is often used for whitespace and comments. The default for `extras` in `tree-sitter-cli` is to accept whitespace. To control whitespace explicitly, specify `extras=[]` in the grammar.
 * `inline` - an array of rule names that should be automatically *removed* from the grammar by replacing all of their usages with a copy of their definition. This is useful for rules that are used in multiple places but for which you *don't* want to create syntax tree nodes at runtime.
 * `conflicts` - an array of arrays of rule names. Each inner array represents a set of rules that's involved in an *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use the GLR algorithm to explore all of the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick the subtree rule with the highest *dynamic precedence*.
 * `externals` - an array of toen names which can be returned by an *external scanner*. External scanners allow you to write custom C code which runs during the lexing process in order to handle lexical rules (e.g. Python's indentation tokens) that cannot be described by regular expressions.
