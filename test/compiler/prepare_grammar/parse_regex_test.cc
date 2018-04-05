@@ -151,6 +151,27 @@ describe("parse_regex", []() {
     },
 
     {
+      "escaped brackets",
+      "\\[\\]",
+      Rule::seq({
+        CharacterSet{{'['}},
+        CharacterSet{{']'}},
+      })
+    },
+
+    {
+      "escaped brackets in choice",
+      "[\\[\\]]",
+      CharacterSet{{'[', ']'}}
+    },
+
+    {
+      "escaped brackets in range",
+      "[\\[-\\]]",
+      CharacterSet{{'[', '\\', ']'}}
+    },
+
+    {
       "escaped periods",
       "a\\.",
       Rule::seq({
