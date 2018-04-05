@@ -182,7 +182,6 @@ class LexTableBuilderImpl : public LexTableBuilder {
       // Don't use a token to capture keywords if it overlaps with separator characters.
       AllCharacterAggregator capture_aggregator;
       capture_aggregator.apply(grammar.variables[i].rule);
-      if (capture_aggregator.result.includes_all) continue;
       if (capture_aggregator.result.intersects(separator_start_characters)) continue;
 
       // Don't use a token to capture keywords if it conflicts with other tokens
