@@ -136,10 +136,7 @@ class PatternParser {
       }
 
       default: {
-        auto pair = single_char();
-        if (pair.second.type)
-          return { Blank{}, pair.second };
-        return {pair.first, CompileError::none()};
+        return {single_char(), CompileError::none()};
       }
     }
   }
@@ -154,38 +151,46 @@ class PatternParser {
     }
 
     while (has_more_input() && (peek() != ']')) {
-      auto pair = single_char();
-      if (pair.second.type)
-        return { CharacterSet(), pair.second };
+      auto characters = single_char();
+
+      if (peek() == '-') {
+        next();
+        if (!characters.includes_all && characters.included_chars.size() == 1 && peek() != ']') {
+          auto next_characters = single_char();
+          if (!next_characters.includes_all && next_characters.included_chars.size() == 1) {
+            characters.include(
+              *characters.included_chars.begin(),
+              *next_characters.included_chars.begin()
+            );
+          } else {
+            characters.include('-');
+            characters.add_set(next_characters);
+          }
+        } else {
+          characters.include('-');
+        }
+      }
+
       if (is_affirmative)
-        result.add_set(pair.first);
+        result.add_set(characters);
       else
-        result.remove_set(pair.first);
+        result.remove_set(characters);
     }
 
     return { result, CompileError::none() };
   }
 
-  pair<CharacterSet, CompileError> single_char() {
+  CharacterSet single_char() {
     CharacterSet value;
-    switch (peek()) {
-      case '\\':
-        next();
-        value = escaped_char(peek());
-        next();
-        break;
-      default:
-        uint32_t first_char = peek();
-        next();
-        if (peek() == '-') {
-          next();
-          value = CharacterSet().include(first_char, peek());
-          next();
-        } else {
-          value = CharacterSet().include(first_char);
-        }
+    if (peek() == '\\') {
+      next();
+      value = escaped_char(peek());
+      next();
+    } else {
+      value = CharacterSet().include(peek());
+      next();
     }
-    return { value, CompileError::none() };
+    return value;
   }
 
   CharacterSet escaped_char(uint32_t value) {
@@ -220,6 +225,8 @@ class PatternParser {
           .exclude('\t')
           .exclude('\n')
           .exclude('\r');
+      case '0':
+        return CharacterSet().include('\0');
       case 't':
         return CharacterSet().include('\t');
       case 'n':
