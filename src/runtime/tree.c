@@ -324,7 +324,9 @@ void ts_tree_set_children(Tree *self, TreeArray *children, const TSLanguage *lan
       self->size = length_add(self->size, ts_tree_total_size(child));
     }
 
-    self->error_cost += child->error_cost;
+    if (child->symbol != ts_builtin_sym_error_repeat) {
+      self->error_cost += child->error_cost;
+    }
     self->dynamic_precedence += child->dynamic_precedence;
     self->node_count += child->node_count;
 
@@ -351,13 +353,18 @@ void ts_tree_set_children(Tree *self, TreeArray *children, const TSLanguage *lan
     if (!child->extra) non_extra_index++;
   }
 
-  if (self->symbol == ts_builtin_sym_error) {
+  if (self->symbol == ts_builtin_sym_error || self->symbol == ts_builtin_sym_error_repeat) {
     self->error_cost += ERROR_COST_PER_RECOVERY +
                         ERROR_COST_PER_SKIPPED_CHAR * self->size.bytes +
                         ERROR_COST_PER_SKIPPED_LINE * self->size.extent.row;
     for (uint32_t i = 0; i < self->children.size; i++) {
-      if (!self->children.contents[i]->extra) {
+      Tree *child = self->children.contents[i];
+      if (child->extra) continue;
+      if (child->symbol == ts_builtin_sym_error && child->children.size == 0) continue;
+      if (child->visible) {
         self->error_cost += ERROR_COST_PER_SKIPPED_TREE;
+      } else {
+        self->error_cost += ERROR_COST_PER_SKIPPED_TREE * child->visible_child_count;
       }
     }
   }
@@ -387,26 +394,16 @@ Tree *ts_tree_make_node(TreePool *pool, TSSymbol symbol, TreeArray *children,
                         unsigned alias_sequence_id, const TSLanguage *language) {
   Tree *result = ts_tree_make_leaf(pool, symbol, length_zero(), length_zero(), language);
   result->alias_sequence_id = alias_sequence_id;
+  if (symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat) {
+    result->fragile_left = true;
+    result->fragile_right = true;
+  }
   ts_tree_set_children(result, children, language);
   return result;
 }
 
 Tree *ts_tree_make_error_node(TreePool *pool, TreeArray *children, const TSLanguage *language) {
-  for (uint32_t i = 0; i < children->size; i++) {
-    Tree *child = children->contents[i];
-    if (child->symbol == ts_builtin_sym_error && child->children.size > 0) {
-      array_splice(children, i, 1, &child->children);
-      i += child->children.size - 1;
-      for (uint32_t j = 0; j < child->children.size; j++)
-        ts_tree_retain(child->children.contents[j]);
-      ts_tree_release(pool, child);
-    }
-  }
-
-  Tree *result = ts_tree_make_node(pool, ts_builtin_sym_error, children, 0, language);
-  result->fragile_left = true;
-  result->fragile_right = true;
-  return result;
+  return ts_tree_make_node(pool, ts_builtin_sym_error, children, 0, language);
 }
 
 Tree *ts_tree_make_missing_leaf(TreePool *pool, TSSymbol symbol, const TSLanguage *language) {

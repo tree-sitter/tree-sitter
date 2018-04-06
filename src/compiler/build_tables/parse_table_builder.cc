@@ -150,6 +150,8 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
       MatchesLongerStringWithValidNextChar
     );
 
+    parse_table.states[state_id].terminal_entries.clear();
+
     // Add all the tokens that have no conflict with other tokens.
     LookaheadSet non_conflicting_tokens;
     for (unsigned i = 0; i < lexical_grammar.variables.size(); i++) {
@@ -183,12 +185,6 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
       }
       if (!conflicts_with_other_tokens) {
         parse_table.add_terminal_action(state_id, token, ParseAction::Recover());
-      }
-    }
-
-    for (const Symbol &symbol : grammar.extra_tokens) {
-      if (!parse_table.states[state_id].terminal_entries.count(symbol)) {
-        parse_table.add_terminal_action(state_id, symbol, ParseAction::ShiftExtra());
       }
     }
 

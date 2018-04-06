@@ -81,7 +81,9 @@ int main() {
     (function_declarator (identifier) (parameter_list))
     (compound_statement
       (if_statement
-        (field_expression (identifier) (MISSING))
+        (field_expression
+          (identifier)
+          (MISSING))
         (compound_statement
           (expression_statement (call_expression (identifier) (argument_list)))
           (expression_statement (call_expression (identifier) (argument_list)))

@@ -65,7 +65,7 @@ void ts_stack_push(Stack *, StackVersion, Tree *, bool, TSStateId);
 StackSliceArray ts_stack_pop_count(Stack *, StackVersion, uint32_t count);
 
 // Remove an error at the top of the given version of the stack.
-StackSliceArray ts_stack_pop_error(Stack *, StackVersion);
+TreeArray ts_stack_pop_error(Stack *, StackVersion);
 
 // Remove any pending trees from the top of the given version of the stack.
 StackSliceArray ts_stack_pop_pending(Stack *, StackVersion);

@@ -8,6 +8,8 @@ extern "C" {
 #include "tree_sitter/parser.h"
 #include "runtime/tree.h"
 
+#define ts_builtin_sym_error_repeat (ts_builtin_sym_error - 1)
+
 typedef struct {
   const TSParseAction *actions;
   uint32_t action_count;
@@ -51,7 +53,7 @@ static inline bool ts_language_has_reduce_action(const TSLanguage *self,
 static inline TSStateId ts_language_next_state(const TSLanguage *self,
                                                TSStateId state,
                                                TSSymbol symbol) {
-  if (symbol == ts_builtin_sym_error) {
+  if (symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat) {
     return 0;
   } else if (symbol < self->token_count) {
     uint32_t count;

@@ -77,15 +77,12 @@ if ({a: 'b'} {c: 'd'}) {
       (ERROR (object (pair (property_identifier) (string))))
       (object (pair (property_identifier) (string))))
     (statement_block
-      (expression_statement (assignment_expression
-        (identifier)
-        (call_expression
-          (function (formal_parameters (identifier)) (statement_block (expression_statement (identifier))))
-          (ERROR)
-          (arguments (identifier))))
-          (MISSING))
-      (statement_block
-        (expression_statement (identifier))))))
+      (expression_statement
+        (assignment_expression
+          (identifier)
+          (function (formal_parameters (identifier)) (statement_block (expression_statement (identifier)))))
+        (MISSING))
+      (function (formal_parameters (identifier)) (statement_block (expression_statement (identifier)))))))
 
 ===================================================
 Extra tokens at the end of the file
@@ -150,3 +147,33 @@ const a = `b c ${d +} f g`
     (variable_declarator
       (identifier)
       (template_string (template_substitution (identifier) (ERROR))))))
+
+=========================================================
+Long sequences of invalid tokens
+=========================================================
+
+function main(x) {
+  console.log('a');
+  what??????????????????????????????????????????????????
+  console.log('b');
+  return {};
+}
+
+---
+
+(program
+  (function
+    (identifier)
+    (formal_parameters (identifier))
+    (statement_block
+      (expression_statement
+        (call_expression
+          (member_expression (identifier) (property_identifier))
+          (arguments (string))))
+      (expression_statement
+        (identifier)
+        (ERROR
+          (call_expression
+            (member_expression (identifier) (property_identifier))
+            (arguments (string)))))
+      (return_statement (object)))))
