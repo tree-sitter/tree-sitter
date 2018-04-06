@@ -711,9 +711,10 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
 
       fprintf(
         f,
-        " tooltip=\"position: %u,%u\nerror_cost: %u\ndynamic_precedence: %d\"];\n",
+        " tooltip=\"position: %u,%u\nnode_count:%u\nerror_cost: %u\ndynamic_precedence: %d\"];\n",
         node->position.extent.row,
         node->position.extent.column,
+        node->node_count,
         node->error_cost,
         node->dynamic_precedence
       );
@@ -728,21 +729,21 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
 
         if (!link.tree) {
           fprintf(f, "color=red");
-        } else if (link.tree->symbol == ts_builtin_sym_error) {
-          fprintf(f, "label=\"ERROR\"");
         } else {
-          fprintf(f, "label=\"");
-          if (!link.tree->named)
-            fprintf(f, "'");
-          const char *name = symbol_names[link.tree->symbol];
-          for (const char *c = name; *c; c++) {
-            if (*c == '\"' || *c == '\\')
-              fprintf(f, "\\");
-            fprintf(f, "%c", *c);
+          if (link.tree->symbol == ts_builtin_sym_error) {
+            fprintf(f, "label=\"ERROR\"");
+          } else {
+            fprintf(f, "label=\"");
+            if (!link.tree->named) fprintf(f, "'");
+            const char *name = symbol_names[link.tree->symbol];
+            for (const char *c = name; *c; c++) {
+              if (*c == '\"' || *c == '\\') fprintf(f, "\\");
+              fprintf(f, "%c", *c);
+            }
+            if (!link.tree->named) fprintf(f, "'");
+            fprintf(f, "\"");
           }
-          if (!link.tree->named)
-            fprintf(f, "'");
-          fprintf(f, "\" labeltooltip=\"error_cost: %u\ndynamic_precedence: %u\"",
+          fprintf(f, "labeltooltip=\"error_cost: %u\ndynamic_precedence: %u\"",
                   link.tree->error_cost,
                   link.tree->dynamic_precedence);
         }
