@@ -672,29 +672,28 @@ static void parser__start(Parser *self, TSInput input, Tree *previous_tree) {
   self->in_ambiguity = false;
 }
 
-static void parser__accept(Parser *self, StackVersion version,
-                           Tree *lookahead) {
+static void parser__accept(Parser *self, StackVersion version, Tree *lookahead) {
   lookahead->extra = true;
   assert(lookahead->symbol == ts_builtin_sym_end);
   ts_tree_retain(lookahead);
   ts_stack_push(self->stack, version, lookahead, false, 1);
-  StackSliceArray pop = ts_stack_pop_all(self->stack, version);
 
+  StackSliceArray pop = ts_stack_pop_all(self->stack, version);
   for (uint32_t i = 0; i < pop.size; i++) {
-    StackSlice slice = pop.contents[i];
-    TreeArray trees = slice.trees;
+    TreeArray trees = pop.contents[i].trees;
 
     Tree *root = NULL;
     for (uint32_t j = trees.size - 1; j + 1 > 0; j--) {
       Tree *child = trees.contents[j];
       if (!child->extra) {
-        root = ts_tree_make_copy(&self->tree_pool, child);
-        root->children.size = 0;
         for (uint32_t k = 0; k < child->children.size; k++) {
           ts_tree_retain(child->children.contents[k]);
         }
-        array_splice(&trees, j, 1, child->children.size, child->children.contents);
-        ts_tree_set_children(root, &trees, self->language);
+        array_splice(&trees, j, 1, &child->children);
+        root = ts_tree_make_node(
+          &self->tree_pool, child->symbol, &trees,
+          child->alias_sequence_id, self->language
+        );
         ts_tree_release(&self->tree_pool, child);
         break;
       }

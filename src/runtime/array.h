@@ -47,14 +47,14 @@ extern "C" {
    (self)->contents[(self)->size++] = (element))
 
 #define array_push_all(self, other)                                       \
-  array_splice((self), (self)->size, 0, (other)->size, (other)->contents)
+  array_splice((self), (self)->size, 0, (other))
 
-#define array_splice(self, index, old_count, new_count, new_elements)          \
+#define array_splice(self, index, old_count, new_array)          \
   array__splice((VoidArray *)(self), array__elem_size(self), index, old_count, \
-                new_count, (new_elements))
+                (new_array)->size, (new_array)->contents)
 
 #define array_insert(self, index, element) \
-  array_splice(self, index, 0, 1, &(element))
+  array__splice((VoidArray *)(self), array__elem_size(self), index, 0, 1, &element)
 
 #define array_pop(self) ((self)->contents[--(self)->size])
 

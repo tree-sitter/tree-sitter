@@ -395,7 +395,7 @@ Tree *ts_tree_make_error_node(TreePool *pool, TreeArray *children, const TSLangu
   for (uint32_t i = 0; i < children->size; i++) {
     Tree *child = children->contents[i];
     if (child->symbol == ts_builtin_sym_error && child->children.size > 0) {
-      array_splice(children, i, 1, child->children.size, child->children.contents);
+      array_splice(children, i, 1, &child->children);
       i += child->children.size - 1;
       for (uint32_t j = 0; j < child->children.size; j++)
         ts_tree_retain(child->children.contents[j]);
