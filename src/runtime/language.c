@@ -8,7 +8,6 @@ void ts_language_table_entry(const TSLanguage *self, TSStateId state,
     result->action_count = 0;
     result->is_reusable = false;
     result->actions = NULL;
-    return;
   } else {
     assert(symbol < self->token_count);
     uint32_t action_index = self->parse_table[state * self->symbol_count + symbol];
@@ -27,8 +26,7 @@ uint32_t ts_language_version(const TSLanguage *language) {
   return language->version;
 }
 
-TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *language,
-                                             TSSymbol symbol) {
+TSSymbolMetadata ts_language_symbol_metadata(const TSLanguage *language, TSSymbol symbol) {
   if (symbol == ts_builtin_sym_error) {
     return (TSSymbolMetadata){.visible = true, .named = true};
   } else {
