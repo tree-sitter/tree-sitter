@@ -111,6 +111,30 @@ describe("parse_regex", []() {
     },
 
     {
+      "dashes",
+      "a-b",
+      Rule::seq({
+        CharacterSet{{'a'}},
+        CharacterSet{{'-'}},
+        CharacterSet{{'b'}}
+      })
+    },
+
+    {
+      "literal dashes in character classes",
+      "[a-][\\d-a][\\S-a]",
+      Rule::seq({
+        CharacterSet{{'a', '-'}},
+        CharacterSet().include('0', '9').include('-').include('a'),
+        CharacterSet().include_all()
+          .exclude(' ')
+          .exclude('\t')
+          .exclude('\r')
+          .exclude('\n')
+      })
+    },
+
+    {
       "character groups in sequences",
       "x([^x]|\\\\x)*x",
       Rule::seq({
@@ -169,6 +193,12 @@ describe("parse_regex", []() {
       "escaped brackets in range",
       "[\\[-\\]]",
       CharacterSet{{'[', '\\', ']'}}
+    },
+
+    {
+      "escaped characters in ranges",
+      "[\\0-\\n]",
+      CharacterSet().include(0, '\n')
     },
 
     {
