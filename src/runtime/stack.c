@@ -1,4 +1,5 @@
 #include "runtime/alloc.h"
+#include "runtime/language.h"
 #include "runtime/tree.h"
 #include "runtime/array.h"
 #include "runtime/stack.h"
@@ -646,7 +647,7 @@ void ts_stack_clear(Stack *self) {
   }));
 }
 
-bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
+bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) {
   bool was_recording_allocations = ts_toggle_allocation_recording(false);
   if (!f)
     f = stderr;
@@ -734,19 +735,15 @@ bool ts_stack_print_dot_graph(Stack *self, const char **symbol_names, FILE *f) {
         if (!link.tree) {
           fprintf(f, "color=red");
         } else {
-          if (link.tree->symbol == ts_builtin_sym_error) {
-            fprintf(f, "label=\"ERROR\"");
-          } else {
-            fprintf(f, "label=\"");
-            if (!link.tree->named) fprintf(f, "'");
-            const char *name = symbol_names[link.tree->symbol];
-            for (const char *c = name; *c; c++) {
-              if (*c == '\"' || *c == '\\') fprintf(f, "\\");
-              fprintf(f, "%c", *c);
-            }
-            if (!link.tree->named) fprintf(f, "'");
-            fprintf(f, "\"");
+          fprintf(f, "label=\"");
+          if (link.tree->visible && !link.tree->named) fprintf(f, "'");
+          const char *name = ts_language_symbol_name(language, link.tree->symbol);
+          for (const char *c = name; *c; c++) {
+            if (*c == '\"' || *c == '\\') fprintf(f, "\\");
+            fprintf(f, "%c", *c);
           }
+          if (link.tree->visible && !link.tree->named) fprintf(f, "'");
+          fprintf(f, "\"");
           fprintf(f, "labeltooltip=\"error_cost: %u\ndynamic_precedence: %u\"",
                   link.tree->error_cost,
                   link.tree->dynamic_precedence);

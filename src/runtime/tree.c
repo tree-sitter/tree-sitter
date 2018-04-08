@@ -715,8 +715,7 @@ void ts_tree__print_dot_graph(const Tree *self, uint32_t byte_offset,
   }
 }
 
-void ts_tree_print_dot_graph(const Tree *self, const TSLanguage *language,
-                             FILE *f) {
+void ts_tree_print_dot_graph(const Tree *self, const TSLanguage *language, FILE *f) {
   fprintf(f, "digraph tree {\n");
   fprintf(f, "edge [arrowhead=none]\n");
   ts_tree__print_dot_graph(self, 0, language, f);
