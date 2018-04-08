@@ -68,16 +68,6 @@ void ts_tree_array_delete(TreePool *pool, TreeArray *self) {
   array_delete(self);
 }
 
-uint32_t ts_tree_array_essential_count(const TreeArray *self) {
-  uint32_t result = 0;
-  for (uint32_t i = 0; i < self->size; i++) {
-    Tree *tree = self->contents[i];
-    if (!tree->extra && tree->symbol != ts_builtin_sym_error)
-      result++;
-  }
-  return result;
-}
-
 TreeArray ts_tree_array_remove_last_n(TreeArray *self, uint32_t remove_count) {
   TreeArray result = array_new();
   if (self->size == 0 || remove_count == 0) return result;

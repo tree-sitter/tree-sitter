@@ -88,7 +88,6 @@ const char *ts_external_token_state_data(const TSExternalTokenState *);
 
 bool ts_tree_array_copy(TreeArray, TreeArray *);
 void ts_tree_array_delete(TreePool *, TreeArray *);
-uint32_t ts_tree_array_essential_count(const TreeArray *);
 TreeArray ts_tree_array_remove_last_n(TreeArray *, uint32_t);
 TreeArray ts_tree_array_remove_trailing_extras(TreeArray *);
 void ts_tree_array_reverse(TreeArray *);
