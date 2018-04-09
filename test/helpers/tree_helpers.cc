@@ -16,11 +16,14 @@ const char *symbol_names[24] = {
   "twenty-two", "twenty-three"
 };
 
-Tree ** tree_array(std::vector<Tree *> trees) {
-  Tree ** result = (Tree **)calloc(trees.size(), sizeof(Tree *));
+TreeArray *tree_array(std::vector<Tree *> trees) {
+  static TreeArray result;
+  result.capacity = trees.size();
+  result.size = trees.size();
+  result.contents = (Tree **)calloc(trees.size(), sizeof(Tree *));
   for (size_t i = 0; i < trees.size(); i++)
-      result[i] = trees[i];
-  return result;
+    result.contents[i] = trees[i];
+  return &result;
 }
 
 ostream &operator<<(std::ostream &stream, const Tree *tree) {

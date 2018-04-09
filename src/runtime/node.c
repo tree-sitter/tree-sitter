@@ -39,7 +39,7 @@ static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
 static inline uint32_t ts_node__relevant_child_count(TSNode self,
                                                    bool include_anonymous) {
   const Tree *tree = ts_node__tree(self);
-  if (tree->child_count > 0) {
+  if (tree->children.size > 0) {
     if (include_anonymous) {
       return tree->visible_child_count;
     } else {
@@ -61,7 +61,7 @@ static inline TSNode ts_node__direct_parent(TSNode self, uint32_t *index) {
 }
 
 static inline TSNode ts_node__direct_child(TSNode self, uint32_t i) {
-  const Tree *child_tree = ts_node__tree(self)->children[i];
+  const Tree *child_tree = ts_node__tree(self)->children.contents[i];
   return ts_node_make(
     child_tree,
     ts_node__offset_byte(self) + child_tree->context.offset.bytes,
@@ -78,7 +78,7 @@ static inline TSNode ts_node__child(TSNode self, uint32_t child_index,
     did_descend = false;
 
     uint32_t index = 0;
-    for (uint32_t i = 0; i < ts_node__tree(result)->child_count; i++) {
+    for (uint32_t i = 0; i < ts_node__tree(result)->children.size; i++) {
       TSNode child = ts_node__direct_child(result, i);
       if (ts_node__is_relevant(child, include_anonymous)) {
         if (index == child_index)
@@ -134,7 +134,7 @@ static inline TSNode ts_node__next_sibling(TSNode self, bool include_anonymous) 
     if (!result.data)
       break;
 
-    for (uint32_t i = index + 1; i < ts_node__tree(result)->child_count; i++) {
+    for (uint32_t i = index + 1; i < ts_node__tree(result)->children.size; i++) {
       TSNode child = ts_node__direct_child(result, i);
       if (ts_node__is_relevant(child, include_anonymous))
         return child;
@@ -160,7 +160,7 @@ static inline TSNode ts_node__first_child_for_byte(TSNode self, uint32_t goal,
   while (did_descend) {
     did_descend = false;
 
-    for (uint32_t i = 0; i < ts_node__tree(node)->child_count; i++) {
+    for (uint32_t i = 0; i < ts_node__tree(node)->children.size; i++) {
       TSNode child = ts_node__direct_child(node, i);
       if (ts_node_end_byte(child) > goal) {
         if (ts_node__is_relevant(child, include_anonymous)) {
@@ -187,7 +187,7 @@ static inline TSNode ts_node__descendant_for_byte_range(TSNode self, uint32_t mi
   while (did_descend) {
     did_descend = false;
 
-    for (uint32_t i = 0, n = ts_node__tree(node)->child_count; i < n; i++) {
+    for (uint32_t i = 0, n = ts_node__tree(node)->children.size; i < n; i++) {
       TSNode child = ts_node__direct_child(node, i);
       if (ts_node_end_byte(child) > max) {
         if (ts_node_start_byte(child) > min) break;
@@ -214,7 +214,7 @@ static inline TSNode ts_node__descendant_for_point_range(TSNode self, TSPoint mi
   while (did_descend) {
     did_descend = false;
 
-    for (uint32_t i = 0, n = ts_node__tree(node)->child_count; i < n; i++) {
+    for (uint32_t i = 0, n = ts_node__tree(node)->children.size; i < n; i++) {
       TSNode child = ts_node__direct_child(node, i);
       const Tree *child_tree = ts_node__tree(child);
       if (i > 0) start_position = point_add(start_position, child_tree->padding.extent);
@@ -318,7 +318,7 @@ uint32_t ts_node_child_index(TSNode self) {
     uint32_t index = tree->context.index;
     if (!parent) return UINT32_MAX;
     for (uint32_t i = 0; i < index; i++) {
-      Tree *child = parent->children[i];
+      Tree *child = parent->children.contents[i];
       result += child->visible ? 1 : child->visible_child_count;
     }
     if (parent->visible) break;
@@ -338,7 +338,7 @@ TSNode ts_node_named_child(TSNode self, uint32_t child_index) {
 
 uint32_t ts_node_child_count(TSNode self) {
   const Tree *tree = ts_node__tree(self);
-  if (tree->child_count > 0) {
+  if (tree->children.size > 0) {
     return tree->visible_child_count;
   } else {
     return 0;
@@ -347,7 +347,7 @@ uint32_t ts_node_child_count(TSNode self) {
 
 uint32_t ts_node_named_child_count(TSNode self) {
   const Tree *tree = ts_node__tree(self);
-  if (tree->child_count > 0) {
+  if (tree->children.size > 0) {
     return tree->named_child_count;
   } else {
     return 0;

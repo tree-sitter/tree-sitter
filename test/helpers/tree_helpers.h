@@ -6,7 +6,7 @@
 #include <string>
 
 extern const char *symbol_names[24];
-Tree ** tree_array(std::vector<Tree *> trees);
+TreeArray *tree_array(std::vector<Tree *> trees);
 
 std::ostream &operator<<(std::ostream &stream, const Tree *tree);
 std::ostream &operator<<(std::ostream &stream, const TSNode &node);
