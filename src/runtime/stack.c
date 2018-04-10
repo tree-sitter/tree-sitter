@@ -241,7 +241,7 @@ static void ts_stack__add_slice(Stack *self, StackVersion original_version,
 
 inline StackSliceArray stack__iter(Stack *self, StackVersion version,
                                    StackCallback callback, void *payload,
-                                   bool include_trees) {
+                                   int goal_tree_count) {
   array_clear(&self->slices);
   array_clear(&self->iterators);
 
@@ -252,6 +252,13 @@ inline StackSliceArray stack__iter(Stack *self, StackVersion version,
     .tree_count = 0,
     .is_pending = true,
   };
+
+  bool include_trees = false;
+  if (goal_tree_count >= 0) {
+    include_trees = true;
+    array_reserve(&iterator.trees, goal_tree_count);
+  }
+
   array_push(&self->iterators, iterator);
 
   while (self->iterators.size > 0) {
@@ -330,10 +337,10 @@ Stack *ts_stack_new(TreePool *tree_pool) {
   array_init(&self->slices);
   array_init(&self->iterators);
   array_init(&self->node_pool);
-  array_grow(&self->heads, 4);
-  array_grow(&self->slices, 4);
-  array_grow(&self->iterators, 4);
-  array_grow(&self->node_pool, MAX_NODE_POOL_SIZE);
+  array_reserve(&self->heads, 4);
+  array_reserve(&self->slices, 4);
+  array_reserve(&self->iterators, 4);
+  array_reserve(&self->node_pool, MAX_NODE_POOL_SIZE);
 
   self->tree_pool = tree_pool;
   self->base_node = stack_node_new(NULL, NULL, false, 1, &self->node_pool);
@@ -423,7 +430,7 @@ inline StackAction iterate_callback(void *payload, const Iterator *iterator) {
 void ts_stack_iterate(Stack *self, StackVersion version,
                       StackIterateCallback callback, void *payload) {
   StackIterateSession session = {payload, callback};
-  stack__iter(self, version, iterate_callback, &session, true);
+  stack__iter(self, version, iterate_callback, &session, -1);
 }
 
 inline StackAction pop_count_callback(void *payload, const Iterator *iterator) {
@@ -436,7 +443,7 @@ inline StackAction pop_count_callback(void *payload, const Iterator *iterator) {
 }
 
 StackSliceArray ts_stack_pop_count(Stack *self, StackVersion version, uint32_t count) {
-  return stack__iter(self, version, pop_count_callback, &count, true);
+  return stack__iter(self, version, pop_count_callback, &count, count);
 }
 
 inline StackAction pop_pending_callback(void *payload, const Iterator *iterator) {
@@ -452,7 +459,7 @@ inline StackAction pop_pending_callback(void *payload, const Iterator *iterator)
 }
 
 StackSliceArray ts_stack_pop_pending(Stack *self, StackVersion version) {
-  StackSliceArray pop = stack__iter(self, version, pop_pending_callback, NULL, true);
+  StackSliceArray pop = stack__iter(self, version, pop_pending_callback, NULL, 0);
   if (pop.size > 0) {
     ts_stack_renumber_version(self, pop.contents[0].version, version);
     pop.contents[0].version = version;
@@ -479,7 +486,7 @@ TreeArray ts_stack_pop_error(Stack *self, StackVersion version) {
   for (unsigned i = 0; i < node->link_count; i++) {
     if (node->links[i].tree && node->links[i].tree->symbol == ts_builtin_sym_error) {
       bool found_error = false;
-      StackSliceArray pop = stack__iter(self, version, pop_error_callback, &found_error, true);
+      StackSliceArray pop = stack__iter(self, version, pop_error_callback, &found_error, 1);
       if (pop.size > 0) {
         assert(pop.size == 1);
         ts_stack_renumber_version(self, pop.contents[0].version, version);
@@ -496,7 +503,7 @@ inline StackAction pop_all_callback(void *payload, const Iterator *iterator) {
 }
 
 StackSliceArray ts_stack_pop_all(Stack *self, StackVersion version) {
-  return stack__iter(self, version, pop_all_callback, NULL, true);
+  return stack__iter(self, version, pop_all_callback, NULL, 0);
 }
 
 typedef struct {
@@ -528,7 +535,7 @@ void ts_stack_record_summary(Stack *self, StackVersion version, unsigned max_dep
     .max_depth = max_depth
   };
   array_init(session.summary);
-  stack__iter(self, version, summarize_stack_callback, &session, false);
+  stack__iter(self, version, summarize_stack_callback, &session, -1);
   self->heads.contents[version].summary = session.summary;
 }
 

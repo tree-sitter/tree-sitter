@@ -34,16 +34,16 @@ extern "C" {
 
 #define array_clear(self) ((self)->size = 0)
 
-#define array_grow(self, new_capacity) \
-  array__grow((VoidArray *)(self), array__elem_size(self), new_capacity)
+#define array_reserve(self, new_capacity) \
+  array__reserve((VoidArray *)(self), array__elem_size(self), new_capacity)
 
 #define array_erase(self, index) \
   array__erase((VoidArray *)(self), array__elem_size(self), index)
 
 #define array_delete(self) array__delete((VoidArray *)self)
 
-#define array_push(self, element)                                    \
-  (array_grow((self), (self)->size + 1), \
+#define array_push(self, element)                            \
+  (array__grow((VoidArray *)(self), array__elem_size(self)), \
    (self)->contents[(self)->size++] = (element))
 
 #define array_push_all(self, other)                                       \
@@ -80,18 +80,22 @@ static inline void array__erase(VoidArray *self, size_t element_size,
   self->size--;
 }
 
-static inline void array__grow(VoidArray *self, size_t element_size,
-                               uint32_t new_capacity) {
+static inline void array__reserve(VoidArray *self, size_t element_size, uint32_t new_capacity) {
   if (new_capacity > self->capacity) {
-    if (new_capacity < 2 * self->capacity)
-      new_capacity = 2 * self->capacity;
-    if (new_capacity < 8)
-      new_capacity = 8;
-    if (self->contents)
+    if (self->contents) {
       self->contents = ts_realloc(self->contents, new_capacity * element_size);
-    else
+    } else {
       self->contents = ts_calloc(new_capacity, element_size);
+    }
     self->capacity = new_capacity;
+  }
+}
+
+static inline void array__grow(VoidArray *self, size_t element_size) {
+  if (self->size == self->capacity) {
+    size_t new_capacity = self->capacity * 2;
+    if (new_capacity < 8) new_capacity = 8;
+    array__reserve(self, element_size, new_capacity);
   }
 }
 
@@ -103,7 +107,7 @@ static inline void array__splice(VoidArray *self, size_t element_size,
   uint32_t new_end = index + new_count;
   assert(old_end <= self->size);
 
-  array__grow(self, element_size, new_size);
+  array__reserve(self, element_size, new_size);
 
   char *contents = (char *)self->contents;
   if (self->size > old_end)

@@ -82,7 +82,7 @@ TreeArray ts_tree_array_remove_last_n(TreeArray *self, uint32_t remove_count) {
     }
   }
 
-  array_grow(&result, self->size - split_index);
+  array_reserve(&result, self->size - split_index);
   for (uint32_t i = split_index; i < self->size; i++) {
     array_push(&result, self->contents[i]);
   }

@@ -1041,7 +1041,7 @@ static void parser__recover(Parser *self, StackVersion version, Tree *lookahead)
   LOG("skip_token symbol:%s", SYM_NAME(lookahead->symbol));
   ts_tree_retain(lookahead);
   TreeArray children = array_new();
-  array_grow(&children, 1);
+  array_reserve(&children, 1);
   array_push(&children, lookahead);
   Tree *error_repeat = ts_tree_make_node(
     &self->tree_pool,
@@ -1253,7 +1253,7 @@ static unsigned parser__condense_stack(Parser *self) {
 bool parser_init(Parser *self) {
   ts_lexer_init(&self->lexer);
   array_init(&self->reduce_actions);
-  array_grow(&self->reduce_actions, 4);
+  array_reserve(&self->reduce_actions, 4);
   ts_tree_pool_init(&self->tree_pool);
   self->stack = ts_stack_new(&self->tree_pool);
   self->finished_tree = NULL;
