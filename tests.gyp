@@ -71,6 +71,7 @@
         'test/runtime/node_test.cc',
         'test/runtime/parser_test.cc',
         'test/runtime/stack_test.cc',
+        'test/runtime/syntax_tree_test.cc',
         'test/runtime/tree_test.cc',
         'test/tests.cc',
       ],

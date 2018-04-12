@@ -95,6 +95,7 @@
         'src/runtime/stack.c',
         'src/runtime/parser.c',
         'src/runtime/string_input.c',
+        'src/runtime/syntax_tree.c',
         'src/runtime/tree.c',
         'src/runtime/utf16.c',
         'externals/utf8proc/utf8proc.c',
