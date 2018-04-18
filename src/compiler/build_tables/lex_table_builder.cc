@@ -310,7 +310,6 @@ class LexTableBuilderImpl : public LexTableBuilder {
             } else {
               record_conflict(accept_action.symbol, advance_symbol, MatchesLongerString);
             }
-            return;
           }
         }
 
