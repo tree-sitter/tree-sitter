@@ -24,7 +24,6 @@ typedef struct SyntaxTree SyntaxTree;
 
 typedef struct {
   SyntaxTree *last;
-  SyntaxTree *old_tree;
   uint32_t count;
 } NodeList;
 

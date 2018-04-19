@@ -24,21 +24,21 @@ static TSLanguage test_language() {
   };
 
   static const TSSymbolMetadata symbol_metadata[] = {
-    (TSSymbolMetadata){true, true},
-    (TSSymbolMetadata){true, true},
-    (TSSymbolMetadata){true, true},
-    (TSSymbolMetadata){true, true},
-    (TSSymbolMetadata){true, true},
-    (TSSymbolMetadata){true, true},
-    (TSSymbolMetadata){true, true},
-    (TSSymbolMetadata){true, true},
-    (TSSymbolMetadata){true, true},
-    (TSSymbolMetadata){true, true},
-    (TSSymbolMetadata){true, true},
-    (TSSymbolMetadata){true, true},
-    (TSSymbolMetadata){true, true},
-    (TSSymbolMetadata){true, true},
-    (TSSymbolMetadata){true, true},
+    {true, true},
+    {true, true},
+    {true, true},
+    {true, true},
+    {true, true},
+    {true, true},
+    {true, true},
+    {true, true},
+    {true, true},
+    {true, true},
+    {true, true},
+    {true, true},
+    {true, true},
+    {true, true},
+    {true, true},
   };
 
   TSLanguage result;

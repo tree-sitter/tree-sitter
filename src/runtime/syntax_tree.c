@@ -251,32 +251,28 @@ static SyntaxTree *ts_syntax_tree_last_child(SyntaxTreeInternal *self) {
 TSNode2 ts_syntax_tree_node_at_index(const SyntaxTree *self, uint32_t goal_index) {
   const SyntaxTree *tree = self;
   uint32_t index = 0;
-  while (tree) {
-    if (tree->height == 0) {
-      const SyntaxTreeLeaf *leaf = (const SyntaxTreeLeaf *)tree;
-      uint32_t last_index = index + leaf->header.count - 1;
-      if (goal_index > last_index) goal_index = last_index;
-      return (TSNode2) {
-        .tree = self,
-        .entry = &leaf->entries[goal_index - index],
-        .index = goal_index,
-        .byte = 0,
-        .row = 0,
-      };
-    } else {
-      const SyntaxTreeInternal *internal = (const SyntaxTreeInternal *)tree;
-      for (unsigned i = 0; i < internal->header.count; i++) {
-        uint32_t next_index = index + internal->summaries[i].node_count;
-        SyntaxTree *child = internal->children[i];
-        if (next_index > goal_index || i == internal->header.count - 1) {
-          tree = child;
-          break;
-        }
-        index = next_index;
+  while (tree->height > 0) {
+    const SyntaxTreeInternal *internal = (const SyntaxTreeInternal *)tree;
+    for (unsigned i = 0; i < internal->header.count; i++) {
+      uint32_t next_index = index + internal->summaries[i].node_count;
+      SyntaxTree *child = internal->children[i];
+      if (next_index > goal_index || i == internal->header.count - 1u) {
+        tree = child;
+        break;
       }
+      index = next_index;
     }
   }
-  return (TSNode2) { .entry = NULL };
+  const SyntaxTreeLeaf *leaf = (const SyntaxTreeLeaf *)tree;
+  uint32_t last_index = index + leaf->header.count - 1;
+  if (goal_index > last_index) goal_index = last_index;
+  return (TSNode2) {
+    .tree = self,
+    .entry = &leaf->entries[goal_index - index],
+    .index = goal_index,
+    .byte = 0,
+    .row = 0,
+  };
 }
 
 TSNode2 ts_syntax_tree_root_node(const SyntaxTree *self) {
@@ -694,6 +690,8 @@ void ts_node_list_reuse(NodeList *self, TSNode2 node) {
 }
 
 SyntaxTree *ts_node_list_to_tree(NodeList *self, const TSLanguage *language, SyntaxTree *old_tree) {
+  assert(self->last && self->count > 0);
+
   Array(SyntaxTree *) parts = array_new();
   array_reserve(&parts, self->count);
   parts.size = self->count;
@@ -717,14 +715,16 @@ SyntaxTree *ts_node_list_to_tree(NodeList *self, const TSLanguage *language, Syn
       SyntaxTreeSlice *slice = (SyntaxTreeSlice *)part;
 
       ts_tree_iterator_seek(&old_tree_iterator, slice->start_index);
-      while (old_tree_iterator.index < slice->end_index) {
+      for (;;) {
         TreeIteratorItem chunk = ts_tree_iterator_advance(&old_tree_iterator, slice->end_index);
+        bool is_last = old_tree_iterator.index == slice->end_index;
         ts_tree_builder_grow(&builder, chunk.tree->height);
         ts_syntax_tree_builder_reuse_chunk(
           &builder, chunk.tree,
           chunk.start_index, chunk.end_index,
-          old_tree_iterator.index < slice->end_index
+          !is_last
         );
+        if (is_last) break;
       }
 
       ts_tree_builder_populate_reused_entry(&builder);
