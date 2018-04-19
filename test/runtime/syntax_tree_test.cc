@@ -34,6 +34,11 @@ static TSLanguage test_language() {
     (TSSymbolMetadata){true, true},
     (TSSymbolMetadata){true, true},
     (TSSymbolMetadata){true, true},
+    (TSSymbolMetadata){true, true},
+    (TSSymbolMetadata){true, true},
+    (TSSymbolMetadata){true, true},
+    (TSSymbolMetadata){true, true},
+    (TSSymbolMetadata){true, true},
   };
 
   TSLanguage result;
@@ -57,7 +62,7 @@ describe("SyntaxTree", [&]() {
     AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
   });
 
-  it("can push individual elements", [&]() {
+  it("can construct a tree out of a sequence of individual nodes", [&]() {
     TreeBuilder builder = ts_tree_builder_new();
 
     ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 1, .child_count = 0});
@@ -69,7 +74,7 @@ describe("SyntaxTree", [&]() {
     ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 7, .child_count = 0});
     ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 8, .child_count = 3});
 
-    SyntaxTree *tree = ts_tree_builder_build(&builder, &language);
+    SyntaxTree *tree = ts_tree_builder_build(&builder, &language, NULL);
 
     TSNode2 root = ts_syntax_tree_root_node(tree);
     AssertThat(ts_node2_symbol(&root), Equals(8u));
@@ -92,6 +97,40 @@ describe("SyntaxTree", [&]() {
     AssertThat(ts_node2_parent(&child3), Equals(root));
 
     ts_syntax_tree_delete(tree);
+  });
+
+  it("can construct a tree by reusing parts of an existing tree", [&]() {
+    TreeBuilder builder = ts_tree_builder_new();
+    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 1, .child_count = 0});
+    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 2, .child_count = 0});
+    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 3, .child_count = 0});
+    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 4, .child_count = 2});
+    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 5, .child_count = 0});
+    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 6, .child_count = 3});
+
+    SyntaxTree *tree1 = ts_tree_builder_build(&builder, &language, NULL);
+    TSNode2 root1 = ts_syntax_tree_root_node(tree1);
+    TSNode2 node_to_reuse = ts_node2_child(&root1, 1);
+    AssertThat(ts_node2_child_count(&node_to_reuse), Equals(2u));
+
+    builder = ts_tree_builder_new();
+    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 11, .child_count = 0});
+    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 12, .child_count = 0});
+    ts_tree_builder_reuse_node(&builder, node_to_reuse);
+    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 15, .child_count = 0});
+    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 6, .child_count = 4});
+
+    SyntaxTree *tree2 = ts_tree_builder_build(&builder, &language, tree1);
+    TSNode2 root2 = ts_syntax_tree_root_node(tree2);
+    AssertThat(ts_node2_symbol(&root2), Equals(6u));
+    AssertThat(ts_node2_child_count(&root2), Equals(4u));
+
+    TSNode2 child2 = ts_node2_child(&root2, 2);
+    AssertThat(ts_node2_symbol(&child2), Equals(4u));
+    AssertThat(ts_node2_child_count(&child2), Equals(2u));
+
+    ts_syntax_tree_delete(tree1);
+    ts_syntax_tree_delete(tree2);
   });
 
 /*

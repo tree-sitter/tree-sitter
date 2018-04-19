@@ -8,6 +8,9 @@ extern "C" {
 #include "tree_sitter/parser.h"
 #include "runtime/length.h"
 
+#define DEFAULT_TREE_BRANCHING_FACTOR 32
+extern uint32_t TREE_BRANCHING_FACTOR;
+
 typedef struct {
   Length size;
   Length padding;
@@ -21,17 +24,9 @@ typedef struct SyntaxTree SyntaxTree;
 
 typedef struct {
   SyntaxTree *last;
+  SyntaxTree *old_tree;
   uint32_t count;
 } TreeBuilder;
-
-#define DEFAULT_TREE_BRANCHING_FACTOR 32
-extern uint32_t TREE_BRANCHING_FACTOR;
-
-TreeBuilder ts_tree_builder_new();
-void ts_tree_builder_delete(TreeBuilder *);
-void ts_tree_builder_push_tree(TreeBuilder *, SyntaxTree *);
-void ts_tree_builder_push_node(TreeBuilder *, SyntaxNode);
-SyntaxTree *ts_tree_builder_build(TreeBuilder *, const TSLanguage *);
 
 typedef struct {
   const SyntaxTree *tree;
@@ -40,6 +35,12 @@ typedef struct {
   uint32_t byte;
   uint32_t row;
 } TSNode2;
+
+TreeBuilder ts_tree_builder_new();
+void ts_tree_builder_delete(TreeBuilder *);
+void ts_tree_builder_push_node(TreeBuilder *, SyntaxNode);
+void ts_tree_builder_reuse_node(TreeBuilder *, TSNode2);
+SyntaxTree *ts_tree_builder_build(TreeBuilder *, const TSLanguage *, SyntaxTree *);
 
 void ts_syntax_tree_delete(SyntaxTree *);
 TSNode2 ts_syntax_tree_root_node(const SyntaxTree *);
