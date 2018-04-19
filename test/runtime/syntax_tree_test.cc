@@ -71,17 +71,17 @@ describe("SyntaxTree", [&]() {
   it("can construct a tree out of a sequence of individual nodes", [&]() {
     TREE_BRANCHING_FACTOR = 3;
 
-    TreeBuilder builder = ts_tree_builder_new();
-    ts_tree_builder_push_node(&builder, build_node(1, 0));
-    ts_tree_builder_push_node(&builder, build_node(2, 0));
-    ts_tree_builder_push_node(&builder, build_node(3, 2));
-    ts_tree_builder_push_node(&builder, build_node(4, 0));
-    ts_tree_builder_push_node(&builder, build_node(5, 2));
-    ts_tree_builder_push_node(&builder, build_node(6, 0));
-    ts_tree_builder_push_node(&builder, build_node(7, 0));
-    ts_tree_builder_push_node(&builder, build_node(8, 3));
+    NodeList list = ts_node_list_new();
+    ts_node_list_push(&list, build_node(1, 0));
+    ts_node_list_push(&list, build_node(2, 0));
+    ts_node_list_push(&list, build_node(3, 2));
+    ts_node_list_push(&list, build_node(4, 0));
+    ts_node_list_push(&list, build_node(5, 2));
+    ts_node_list_push(&list, build_node(6, 0));
+    ts_node_list_push(&list, build_node(7, 0));
+    ts_node_list_push(&list, build_node(8, 3));
 
-    SyntaxTree *tree = ts_tree_builder_build(&builder, &language, NULL);
+    SyntaxTree *tree = ts_node_list_to_tree(&list, &language, NULL);
     TSNode2 root = ts_syntax_tree_root_node(tree);
     AssertThat(ts_node2_symbol(&root), Equals(8u));
     AssertThat(ts_node2_child_count(&root), Equals(3u));
@@ -108,27 +108,27 @@ describe("SyntaxTree", [&]() {
   it("can construct a tree by reusing parts of an existing tree", [&]() {
     TREE_BRANCHING_FACTOR = 3;
 
-    TreeBuilder builder = ts_tree_builder_new();
-    ts_tree_builder_push_node(&builder, build_node(1, 0));
-    ts_tree_builder_push_node(&builder, build_node(2, 0));
-    ts_tree_builder_push_node(&builder, build_node(3, 0));
-    ts_tree_builder_push_node(&builder, build_node(4, 2));
-    ts_tree_builder_push_node(&builder, build_node(5, 0));
-    ts_tree_builder_push_node(&builder, build_node(6, 3));
+    NodeList list = ts_node_list_new();
+    ts_node_list_push(&list, build_node(1, 0));
+    ts_node_list_push(&list, build_node(2, 0));
+    ts_node_list_push(&list, build_node(3, 0));
+    ts_node_list_push(&list, build_node(4, 2));
+    ts_node_list_push(&list, build_node(5, 0));
+    ts_node_list_push(&list, build_node(6, 3));
 
-    SyntaxTree *tree1 = ts_tree_builder_build(&builder, &language, NULL);
+    SyntaxTree *tree1 = ts_node_list_to_tree(&list, &language, NULL);
     TSNode2 root1 = ts_syntax_tree_root_node(tree1);
     TSNode2 node_to_reuse = ts_node2_child(&root1, 1);
     AssertThat(ts_node2_child_count(&node_to_reuse), Equals(2u));
 
-    builder = ts_tree_builder_new();
-    ts_tree_builder_push_node(&builder, build_node(11, 0));
-    ts_tree_builder_push_node(&builder, build_node(12, 0));
-    ts_tree_builder_reuse_node(&builder, node_to_reuse);
-    ts_tree_builder_push_node(&builder, build_node(15, 0));
-    ts_tree_builder_push_node(&builder, build_node(6, 4));
+    list = ts_node_list_new();
+    ts_node_list_push(&list, build_node(11, 0));
+    ts_node_list_push(&list, build_node(12, 0));
+    ts_node_list_reuse(&list, node_to_reuse);
+    ts_node_list_push(&list, build_node(15, 0));
+    ts_node_list_push(&list, build_node(6, 4));
 
-    SyntaxTree *tree2 = ts_tree_builder_build(&builder, &language, tree1);
+    SyntaxTree *tree2 = ts_node_list_to_tree(&list, &language, tree1);
     TSNode2 root2 = ts_syntax_tree_root_node(tree2);
     AssertThat(ts_node2_symbol(&root2), Equals(6u));
     AssertThat(ts_node2_child_count(&root2), Equals(4u));
@@ -145,16 +145,16 @@ describe("SyntaxTree", [&]() {
   it("does not mutate nodes in the existing tree when reusing them", [&]() {
     TREE_BRANCHING_FACTOR = 3;
 
-    TreeBuilder builder = ts_tree_builder_new();
-    ts_tree_builder_push_node(&builder, build_node(1, 0));
-    ts_tree_builder_push_node(&builder, build_node(2, 0));
-    ts_tree_builder_push_node(&builder, build_node(3, 2));
-    ts_tree_builder_push_node(&builder, build_node(4, 0));
-    ts_tree_builder_push_node(&builder, build_node(5, 0));
-    ts_tree_builder_push_node(&builder, build_node(6, 3));
-    ts_tree_builder_push_node(&builder, build_node(7, 1));
+    NodeList list = ts_node_list_new();
+    ts_node_list_push(&list, build_node(1, 0));
+    ts_node_list_push(&list, build_node(2, 0));
+    ts_node_list_push(&list, build_node(3, 2));
+    ts_node_list_push(&list, build_node(4, 0));
+    ts_node_list_push(&list, build_node(5, 0));
+    ts_node_list_push(&list, build_node(6, 3));
+    ts_node_list_push(&list, build_node(7, 1));
 
-    SyntaxTree *tree1 = ts_tree_builder_build(&builder, &language, NULL);
+    SyntaxTree *tree1 = ts_node_list_to_tree(&list, &language, NULL);
     TSNode2 root1 = ts_syntax_tree_root_node(tree1);
     TSNode2 child1 = ts_node2_child(&root1, 0);
     TSNode2 grandchild1 = ts_node2_child(&child1, 0);
@@ -167,16 +167,16 @@ describe("SyntaxTree", [&]() {
     // but the entire leaf cannot be reused because the reused node itself must
     // be copied so that its contextual fields like `next_sibling_node_count`
     // can be updated.
-    builder = ts_tree_builder_new();
-    ts_tree_builder_reuse_node(&builder, grandchild1);
-    ts_tree_builder_push_node(&builder, build_node(4, 0));
-    ts_tree_builder_push_node(&builder, build_node(14, 1));
-    ts_tree_builder_push_node(&builder, build_node(5, 0));
-    ts_tree_builder_push_node(&builder, build_node(15, 1));
-    ts_tree_builder_push_node(&builder, build_node(6, 3));
-    ts_tree_builder_push_node(&builder, build_node(7, 1));
+    list = ts_node_list_new();
+    ts_node_list_reuse(&list, grandchild1);
+    ts_node_list_push(&list, build_node(4, 0));
+    ts_node_list_push(&list, build_node(14, 1));
+    ts_node_list_push(&list, build_node(5, 0));
+    ts_node_list_push(&list, build_node(15, 1));
+    ts_node_list_push(&list, build_node(6, 3));
+    ts_node_list_push(&list, build_node(7, 1));
 
-    SyntaxTree *tree2 = ts_tree_builder_build(&builder, &language, tree1);
+    SyntaxTree *tree2 = ts_node_list_to_tree(&list, &language, tree1);
     TSNode2 root2 = ts_syntax_tree_root_node(tree2);
     TSNode2 child2 = ts_node2_child(&root2, 0);
     TSNode2 grandchild2 = ts_node2_child(&child2, 0);

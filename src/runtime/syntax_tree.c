@@ -523,13 +523,13 @@ TSNode2 ts_node2_parent(const TSNode2 *self) {
   return result;
 }
 
-// TreeBuilder
+// NodeList
 
-TreeBuilder ts_tree_builder_new() {
-  return (TreeBuilder) { .last = NULL };
+NodeList ts_node_list_new() {
+  return (NodeList) { .last = NULL };
 }
 
-void ts_tree_builder_delete(TreeBuilder *self) {
+void ts_node_list_delete(NodeList *self) {
   SyntaxTree *tree = self->last;
   while (tree) {
     tree->ref_count--;
@@ -543,7 +543,7 @@ void ts_tree_builder_delete(TreeBuilder *self) {
   }
 }
 
-void ts_tree_builder_push_node(TreeBuilder *self, SyntaxNode node) {
+void ts_node_list_push(NodeList *self, SyntaxNode node) {
   SyntaxTreeEntry entry = {.node = node, .node_count = 1};
   if (!self->last || self->last->height != 0 ||
       !ts_syntax_tree_leaf_push((SyntaxTreeLeaf *)self->last, &entry)) {
@@ -555,7 +555,7 @@ void ts_tree_builder_push_node(TreeBuilder *self, SyntaxNode node) {
   }
 }
 
-void ts_tree_builder_reuse_node(TreeBuilder *self, TSNode2 node) {
+void ts_node_list_reuse(NodeList *self, TSNode2 node) {
   SyntaxTreeSlice *last = ts_syntax_tree_slice_new(
     node.index + 1 - node.entry->node_count,
     node.index + 1
@@ -565,8 +565,7 @@ void ts_tree_builder_reuse_node(TreeBuilder *self, TSNode2 node) {
   self->count++;
 }
 
-SyntaxTree *ts_tree_builder_build(TreeBuilder *self, const TSLanguage *language,
-                                  SyntaxTree *old_tree) {
+SyntaxTree *ts_node_list_to_tree(NodeList *self, const TSLanguage *language, SyntaxTree *old_tree) {
   // Move the subtrees into an array so that they can be processed from left to right.
   Array(SyntaxTree *) parts = array_new();
   array_reserve(&parts, self->count);

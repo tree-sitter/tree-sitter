@@ -26,7 +26,7 @@ typedef struct {
   SyntaxTree *last;
   SyntaxTree *old_tree;
   uint32_t count;
-} TreeBuilder;
+} NodeList;
 
 typedef struct {
   const SyntaxTree *tree;
@@ -36,11 +36,11 @@ typedef struct {
   uint32_t row;
 } TSNode2;
 
-TreeBuilder ts_tree_builder_new();
-void ts_tree_builder_delete(TreeBuilder *);
-void ts_tree_builder_push_node(TreeBuilder *, SyntaxNode);
-void ts_tree_builder_reuse_node(TreeBuilder *, TSNode2);
-SyntaxTree *ts_tree_builder_build(TreeBuilder *, const TSLanguage *, SyntaxTree *);
+NodeList ts_node_list_new();
+void ts_node_list_delete(NodeList *);
+void ts_node_list_push(NodeList *, SyntaxNode);
+void ts_node_list_reuse(NodeList *, TSNode2);
+SyntaxTree *ts_node_list_to_tree(NodeList *, const TSLanguage *, SyntaxTree *);
 
 void ts_syntax_tree_delete(SyntaxTree *);
 TSNode2 ts_syntax_tree_root_node(const SyntaxTree *);
