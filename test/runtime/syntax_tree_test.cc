@@ -47,6 +47,13 @@ static TSLanguage test_language() {
   return result;
 };
 
+SyntaxNode build_node(TSSymbol symbol, uint32_t child_count) {
+  SyntaxNode node = {};
+  node.symbol = symbol;
+  node.child_count = child_count;
+  return node;
+}
+
 START_TEST
 
 describe("SyntaxTree", [&]() {
@@ -65,14 +72,14 @@ describe("SyntaxTree", [&]() {
   it("can construct a tree out of a sequence of individual nodes", [&]() {
     TreeBuilder builder = ts_tree_builder_new();
 
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 1, .child_count = 0});
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 2, .child_count = 0});
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 3, .child_count = 2});
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 4, .child_count = 0});
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 5, .child_count = 2});
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 6, .child_count = 0});
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 7, .child_count = 0});
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 8, .child_count = 3});
+    ts_tree_builder_push_node(&builder, build_node(1, 0));
+    ts_tree_builder_push_node(&builder, build_node(2, 0));
+    ts_tree_builder_push_node(&builder, build_node(3, 2));
+    ts_tree_builder_push_node(&builder, build_node(4, 0));
+    ts_tree_builder_push_node(&builder, build_node(5, 2));
+    ts_tree_builder_push_node(&builder, build_node(6, 0));
+    ts_tree_builder_push_node(&builder, build_node(7, 0));
+    ts_tree_builder_push_node(&builder, build_node(8, 3));
 
     SyntaxTree *tree = ts_tree_builder_build(&builder, &language, NULL);
 
@@ -101,12 +108,12 @@ describe("SyntaxTree", [&]() {
 
   it("can construct a tree by reusing parts of an existing tree", [&]() {
     TreeBuilder builder = ts_tree_builder_new();
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 1, .child_count = 0});
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 2, .child_count = 0});
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 3, .child_count = 0});
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 4, .child_count = 2});
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 5, .child_count = 0});
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 6, .child_count = 3});
+    ts_tree_builder_push_node(&builder, build_node(1, 0));
+    ts_tree_builder_push_node(&builder, build_node(2, 0));
+    ts_tree_builder_push_node(&builder, build_node(3, 0));
+    ts_tree_builder_push_node(&builder, build_node(4, 2));
+    ts_tree_builder_push_node(&builder, build_node(5, 0));
+    ts_tree_builder_push_node(&builder, build_node(6, 3));
 
     SyntaxTree *tree1 = ts_tree_builder_build(&builder, &language, NULL);
     TSNode2 root1 = ts_syntax_tree_root_node(tree1);
@@ -114,11 +121,11 @@ describe("SyntaxTree", [&]() {
     AssertThat(ts_node2_child_count(&node_to_reuse), Equals(2u));
 
     builder = ts_tree_builder_new();
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 11, .child_count = 0});
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 12, .child_count = 0});
+    ts_tree_builder_push_node(&builder, build_node(11, 0));
+    ts_tree_builder_push_node(&builder, build_node(12, 0));
     ts_tree_builder_reuse_node(&builder, node_to_reuse);
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 15, .child_count = 0});
-    ts_tree_builder_push_node(&builder, SyntaxNode{.symbol = 6, .child_count = 4});
+    ts_tree_builder_push_node(&builder, build_node(15, 0));
+    ts_tree_builder_push_node(&builder, build_node(6, 4));
 
     SyntaxTree *tree2 = ts_tree_builder_build(&builder, &language, tree1);
     TSNode2 root2 = ts_syntax_tree_root_node(tree2);
@@ -128,6 +135,7 @@ describe("SyntaxTree", [&]() {
     TSNode2 child2 = ts_node2_child(&root2, 2);
     AssertThat(ts_node2_symbol(&child2), Equals(4u));
     AssertThat(ts_node2_child_count(&child2), Equals(2u));
+    AssertThat(ts_node2_parent(&child2), Equals(root2));
 
     ts_syntax_tree_delete(tree1);
     ts_syntax_tree_delete(tree2);
