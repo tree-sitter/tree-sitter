@@ -354,17 +354,14 @@ static void ts_tree_iterator_prepare(TreeIterator *self) {
   }
 }
 
-static inline uint32_t min(uint32_t a, uint32_t b) {
-  return a < b ? a : b;
-}
-
 static TreeIteratorItem ts_tree_iterator_advance(TreeIterator *self, uint32_t goal_index) {
   uint32_t goal_node_count = goal_index - self->index;
 
   // If only a subset of this leaf is needed, advance to the end of this leaf.
   // Otherwise, advance within a larger subtree.
   TreeIteratorEntry *last_entry = array_back(&self->entries);
-  uint32_t node_count = min(last_entry->tree->count - last_entry->index, goal_node_count);
+  uint32_t node_count = last_entry->tree->count - last_entry->index;
+  if (node_count > goal_node_count) node_count = goal_node_count;
   if (last_entry->index > 0 || node_count >= goal_node_count) {
     uint32_t start_index = last_entry->index;
     SyntaxTree *tree = last_entry->tree;
