@@ -1,7 +1,7 @@
-#include <stdatomic.h>
 #include "tree_sitter/runtime.h"
 #include "runtime/alloc.h"
 #include "runtime/array.h"
+#include "runtime/atomic.h"
 #include "runtime/language.h"
 #include "runtime/length.h"
 #include "runtime/syntax_tree.h"
@@ -31,7 +31,7 @@ struct SyntaxTreeEntry {
 
 struct SyntaxTree {
   SyntaxTree *previous;
-  _Atomic uint32_t ref_count;
+  volatile uint32_t ref_count;
   uint16_t height;
   uint16_t count;
 };
@@ -132,12 +132,11 @@ static SyntaxTreeSlice *ts_syntax_tree_new_slice(uint32_t start_index, uint32_t 
 }
 
 static void ts_syntax_tree_retain(SyntaxTree *self) {
-  self->ref_count++;
+  atomic_inc(&self->ref_count);
 }
 
 void ts_syntax_tree_delete(SyntaxTree *self) {
-  self->ref_count--;
-  if (self->ref_count == 0) {
+  if (atomic_dec(&self->ref_count) == 0) {
     if (self->height > 0) {
       for (unsigned i = 0; i < self->count; i++) {
         ts_syntax_tree_delete(((SyntaxTreeInternal *)self)->children[i]);
@@ -277,7 +276,7 @@ TSNode2 ts_syntax_tree_node_at_index(const SyntaxTree *self, uint32_t goal_index
       }
     }
   }
-  return (TSNode2) {};
+  return (TSNode2) { .entry = NULL };
 }
 
 TSNode2 ts_syntax_tree_root_node(const SyntaxTree *self) {
@@ -578,11 +577,11 @@ static void ts_tree_builder_populate_reused_entry(TreeBuilder *self) {
 // TSNode
 
 TSPoint ts_node2_start_point(const TSNode2 *self) {
-  return (TSPoint) {};
+  return (TSPoint) { .row = 0, .column = 0 };
 }
 
 TSPoint ts_node2_end_point(const TSNode2 *self) {
-  return (TSPoint) {};
+  return (TSPoint) { .row = 0, .column = 0 };
 }
 
 TSSymbol ts_node2_symbol(const TSNode2 *self) {
@@ -608,7 +607,9 @@ static TSNode2 ts_node2__next_immediate_sibling(const TSNode2 *self) {
 }
 
 TSNode2 ts_node2_child(const TSNode2 *self, unsigned goal_index) {
-  if (goal_index >= self->entry->visible_child_count) return (TSNode2) {};
+  if (goal_index >= self->entry->visible_child_count) {
+    return (TSNode2) { .entry = NULL };
+  }
 
   unsigned child_index = 0;
   TSNode2 child = ts_node2__first_immediate_child(self);
@@ -663,8 +664,7 @@ NodeList ts_node_list_new() {
 void ts_node_list_delete(NodeList *self) {
   SyntaxTree *tree = self->last;
   while (tree) {
-    tree->ref_count--;
-    if (tree->ref_count == 0) {
+    if (atomic_dec(&tree->ref_count) == 0) {
       SyntaxTree *previous = tree->previous;
       ts_free(tree);
       tree = previous;
