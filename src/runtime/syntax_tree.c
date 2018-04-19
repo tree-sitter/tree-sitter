@@ -76,11 +76,11 @@ typedef struct {
 
 // SyntaxTree
 
-static SyntaxTreeSummary ts_syntax_tree_summary_new(const SyntaxTreeEntry *entry) {
+static SyntaxTreeSummary ts_syntax_tree_summary_new(const SyntaxNode *node) {
   return (SyntaxTreeSummary) {
     .node_count = 1,
-    .size = entry->node.child_count == 0
-      ? length_add(entry->node.padding, entry->node.size)
+    .size = node->child_count == 0
+      ? length_add(node->padding, node->size)
       : length_zero(),
   };
 }
@@ -186,7 +186,7 @@ static SyntaxTreeSummary ts_syntax_tree_summarize(const SyntaxTree *self,
   if (self->height == 0) {
     SyntaxTreeLeaf *leaf = (SyntaxTreeLeaf *)self;
     for (unsigned i = start; i < end; i++) {
-      ts_syntax_tree_summary_add(&result, ts_syntax_tree_summary_new(&leaf->entries[i]));
+      ts_syntax_tree_summary_add(&result, ts_syntax_tree_summary_new(&leaf->entries[i].node));
     }
   } else {
     SyntaxTreeInternal *internal = (SyntaxTreeInternal *)self;
@@ -197,12 +197,9 @@ static SyntaxTreeSummary ts_syntax_tree_summarize(const SyntaxTree *self,
   return result;
 }
 
-static bool ts_syntax_tree_leaf_push(SyntaxTreeLeaf *self, SyntaxNode node) {
+static bool ts_syntax_tree_leaf_push(SyntaxTreeLeaf *self, SyntaxTreeEntry *entry) {
   if (self->header.count < TREE_BRANCHING_FACTOR || self->header.ref_count > 1) {
-    self->entries[self->header.count] = (SyntaxTreeEntry) {
-      .node = node,
-      .node_count = 1,
-    };
+    self->entries[self->header.count] = *entry;
     self->header.count++;
     return true;
   } else {
@@ -270,8 +267,8 @@ static void ts_syntax_tree_internal_update_summary(SyntaxTreeInternal *self,
   ts_syntax_tree_summary_add(&self->summaries[self->header.count - 1], *summary);
 }
 
-static SyntaxTreeEntry *ts_syntax_tree_last_entry(SyntaxTree *tree) {
-  return (SyntaxTreeEntry *)ts_syntax_tree_root_node(tree).entry;
+static SyntaxTreeEntry *ts_syntax_tree_leaf_last_entry(SyntaxTreeLeaf *self) {
+  return &self->entries[self->header.count - 1];
 }
 
 TSNode2 ts_syntax_tree_node_at_index(const SyntaxTree *self, uint32_t goal_index) {
@@ -441,6 +438,12 @@ static TreeIteratorItem ts_tree_iterator_advance(TreeIterator *self, uint32_t go
   assert(!"Tried to walk tree iterator past its end");
 }
 
+static SyntaxTreeEntry *ts_tree_iterator_current_entry(TreeIterator *self) {
+  TreeIteratorEntry *leaf_entry = array_back(&self->entries);
+  SyntaxTreeLeaf *leaf = (SyntaxTreeLeaf *)leaf_entry->tree;
+  return &leaf->entries[leaf_entry->index];
+}
+
 // TSNode
 
 TSPoint ts_node2_start_point(const TSNode2 *self) {
@@ -541,11 +544,12 @@ void ts_tree_builder_delete(TreeBuilder *self) {
 }
 
 void ts_tree_builder_push_node(TreeBuilder *self, SyntaxNode node) {
+  SyntaxTreeEntry entry = {.node = node, .node_count = 1};
   if (!self->last || self->last->height != 0 ||
-      !ts_syntax_tree_leaf_push((SyntaxTreeLeaf *)self->last, node)) {
+      !ts_syntax_tree_leaf_push((SyntaxTreeLeaf *)self->last, &entry)) {
     SyntaxTreeLeaf *last = ts_syntax_tree_leaf_new();
     last->header.previous = self->last,
-    ts_syntax_tree_leaf_push(last, node);
+    ts_syntax_tree_leaf_push(last, &entry);
     self->last = &last->header;
     self->count++;
   }
@@ -633,10 +637,9 @@ SyntaxTree *ts_tree_builder_build(TreeBuilder *self, const TSLanguage *language,
     } else {
       SyntaxTreeSlice *slice = (SyntaxTreeSlice *)part;
 
-      SyntaxTree *tree_containing_reused_entry = NULL;
       ts_tree_iterator_seek(&old_tree_iterator, slice->start_index);
-      while (old_tree_iterator.index < slice->end_index) {
-        TreeIteratorItem chunk = ts_tree_iterator_advance(&old_tree_iterator, slice->end_index);
+      while (old_tree_iterator.index < slice->end_index - 1) {
+        TreeIteratorItem chunk = ts_tree_iterator_advance(&old_tree_iterator, slice->end_index - 1);
 
         // Ensure that the current tree is tall enough to contain this chunk.
         while (tree_stack.size < chunk.tree->height) {
@@ -650,15 +653,17 @@ SyntaxTree *ts_tree_builder_build(TreeBuilder *self, const TSLanguage *language,
         SyntaxTree *tree_to_push = NULL;
         SyntaxTreeSummary summary = ts_syntax_tree_summarize(chunk.tree, chunk.start_index, chunk.end_index);
 
-        SyntaxTree *existing_tree = tree_stack.contents[chunk.tree->height];
-        if (ts_syntax_tree_push_existing(
-          existing_tree, chunk.tree, chunk.start_index, chunk.end_index
-        )) {
-          tree_containing_reused_entry = existing_tree;
+        if (chunk.start_index == 0 && chunk.end_index == chunk.tree->count) {
+          ts_syntax_tree_retain(chunk.tree);
+          tree_to_push = chunk.tree;
         } else {
-          tree_to_push = ts_syntax_tree_copy_existing(chunk.tree, chunk.start_index, chunk.end_index);
-          tree_containing_reused_entry = tree_to_push;
-          tree_stack.contents[chunk.tree->height] = tree_to_push;
+          SyntaxTree *existing_tree = tree_stack.contents[chunk.tree->height];
+          if (!existing_tree || !ts_syntax_tree_push_existing(
+            existing_tree, chunk.tree, chunk.start_index, chunk.end_index
+          )) {
+            tree_to_push = ts_syntax_tree_copy_existing(chunk.tree, chunk.start_index, chunk.end_index);
+            tree_stack.contents[chunk.tree->height] = tree_to_push;
+          }
         }
 
         // TODO dedup
@@ -677,6 +682,7 @@ SyntaxTree *ts_tree_builder_build(TreeBuilder *self, const TSLanguage *language,
             ts_syntax_tree_internal_update_summary(internal, &summary);
           }
         }
+
         if (tree_to_push) {
           SyntaxTreeInternal *root = ts_syntax_tree_internal_new(tree_stack.size);
           ts_syntax_tree_internal_push(root, tree_to_push, &summary);
@@ -684,9 +690,39 @@ SyntaxTree *ts_tree_builder_build(TreeBuilder *self, const TSLanguage *language,
         }
       }
 
-      SyntaxTreeEntry *entry = ts_syntax_tree_last_entry(tree_containing_reused_entry);
-      index += entry->node_count;
-      array_push(&child_stack, ((ChildStackEntry){entry, index - 1}));
+      SyntaxTreeEntry *entry_to_push = ts_tree_iterator_current_entry(&old_tree_iterator);
+      SyntaxTreeSummary summary = ts_syntax_tree_summary_new(&entry_to_push->node);
+      SyntaxTree *tree_to_push = NULL;
+
+      SyntaxTreeLeaf *existing_leaf = (SyntaxTreeLeaf *)tree_stack.contents[0];
+      if (!existing_leaf || !ts_syntax_tree_leaf_push(existing_leaf, entry_to_push)) {
+        SyntaxTreeLeaf *leaf_to_push = ts_syntax_tree_leaf_new();
+        ts_syntax_tree_leaf_push(leaf_to_push, entry_to_push);
+        tree_to_push = &leaf_to_push->header;
+        tree_stack.contents[0] = tree_to_push;
+      }
+
+      for (unsigned height = 1; height < tree_stack.size; height++) {
+        SyntaxTreeInternal *internal = (SyntaxTreeInternal *)tree_stack.contents[height];
+        if (tree_to_push) {
+          if (ts_syntax_tree_internal_push(internal, tree_to_push, &summary)) {
+            tree_to_push = NULL;
+          } else {
+            SyntaxTreeInternal *parent = ts_syntax_tree_internal_new(height + 1);
+            ts_syntax_tree_internal_push(parent, tree_to_push, &summary);
+            tree_to_push = &parent->header;
+            tree_stack.contents[height] = tree_to_push;
+          }
+        } else {
+          ts_syntax_tree_internal_update_summary(internal, &summary);
+        }
+      }
+
+      index += slice->end_index - slice->start_index;
+      array_push(&child_stack, ((ChildStackEntry){
+        ts_syntax_tree_leaf_last_entry((SyntaxTreeLeaf *)tree_stack.contents[0]),
+        index - 1
+      }));
       ts_syntax_tree_delete(&slice->header);
     }
   }
