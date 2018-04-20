@@ -1,17 +1,18 @@
 #include "test_helper.h"
 #include "helpers/random_helpers.h"
 
+int TREE_SITTER_SEED = 0;
+
 int main(int argc, char *argv[]) {
-  int seed;
   const char *seed_env = getenv("TREE_SITTER_SEED");
   if (seed_env) {
-    seed = atoi(seed_env);
+    TREE_SITTER_SEED = atoi(seed_env);
   } else {
-    seed = get_time_as_seed();
+    TREE_SITTER_SEED = get_time_as_seed();
   }
 
-  printf("Random seed: %d\n", seed);
-  random_reseed(seed);
+  printf("Random seed: %d\n", TREE_SITTER_SEED);
+  random_reseed(TREE_SITTER_SEED);
 
   return bandit::run(argc, argv);
 }
