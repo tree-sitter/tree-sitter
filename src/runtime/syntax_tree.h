@@ -11,15 +11,7 @@ extern "C" {
 #define DEFAULT_TREE_BRANCHING_FACTOR 32
 extern uint32_t TREE_BRANCHING_FACTOR;
 
-typedef struct {
-  Length size;
-  Length padding;
-  uint32_t child_count;
-  uint32_t alias_sequence_id;
-  TSSymbol symbol;
-} SyntaxNode;
-
-typedef struct SyntaxTreeEntry SyntaxTreeEntry;
+typedef struct SyntaxNode SyntaxNode;
 typedef struct SyntaxTree SyntaxTree;
 
 typedef struct {
@@ -29,7 +21,7 @@ typedef struct {
 
 typedef struct {
   const SyntaxTree *tree;
-  const SyntaxTreeEntry *entry;
+  const SyntaxNode *node;
   uint32_t index;
   uint32_t byte;
   uint32_t row;
@@ -37,7 +29,8 @@ typedef struct {
 
 NodeList ts_node_list_new();
 void ts_node_list_delete(NodeList *);
-void ts_node_list_push(NodeList *, SyntaxNode);
+void ts_node_list_push_leaf(NodeList *, TSSymbol, Length padding, Length size);
+void ts_node_list_push_parent(NodeList *, TSSymbol, uint32_t child_count);
 void ts_node_list_reuse(NodeList *, TSNode2);
 SyntaxTree *ts_node_list_to_tree(NodeList *, const TSLanguage *, SyntaxTree *);
 
