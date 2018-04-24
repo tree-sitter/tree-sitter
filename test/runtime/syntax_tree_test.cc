@@ -186,6 +186,50 @@ describe("SyntaxTree", [&]() {
     });
   });
 
+  describe("syntax_tree_edit()", [&]() {
+    SyntaxTree *tree = nullptr;
+
+    before_each([&]() {
+      TREE_BRANCHING_FACTOR = 3;
+
+      NodeList list = ts_node_list_new();
+      ts_node_list_push_leaf(&list, 2, {2, {0, 2}}, {3, {0, 3}});
+      ts_node_list_push_leaf(&list, 3, {2, {0, 2}}, {3, {0, 3}});
+      ts_node_list_push_leaf(&list, 4, {2, {0, 2}}, {3, {0, 3}});
+      ts_node_list_push_parent(&list, 1, 3);
+      tree = ts_node_list_to_tree(&list, &language, NULL);
+    });
+
+    describe("edits within a tree's padding", [&]() {
+      it("resizes the padding of the tree and its leftmost descendants", [&]() {
+        TSInputEdit edit;
+        edit.start_byte = 1;
+        edit.bytes_removed = 0;
+        edit.bytes_added = 1;
+        edit.start_point = {0, 1};
+        edit.extent_removed = {0, 0};
+        edit.extent_added = {0, 1};
+        tree = ts_syntax_tree_edit(tree, edit);
+
+        TSNode2 root = ts_syntax_tree_root_node(tree);
+        AssertThat(ts_node2_has_changes(&root), IsTrue());
+        AssertThat(ts_node2_start_point(&root), Equals<TSPoint>({0, 3}));
+        AssertThat(ts_node2_end_point(&root), Equals<TSPoint>({0, 16}));
+
+        TSNode2 child1 = ts_node2_child(&root, 0);
+        AssertThat(ts_node2_has_changes(&child1), IsTrue());
+        AssertThat(ts_node2_start_point(&child1), Equals<TSPoint>({0, 3}));
+        AssertThat(ts_node2_end_point(&child1), Equals<TSPoint>({0, 6}));
+
+        TSNode2 child2 = ts_node2_child(&root, 1);
+        AssertThat(ts_node2_has_changes(&child2), IsFalse());
+        AssertThat(ts_node2_start_point(&child2), Equals<TSPoint>({0, 8}));
+        AssertThat(ts_node2_end_point(&child2), Equals<TSPoint>({0, 11}));
+
+        ts_syntax_tree_delete(tree);
+      });
+    });
+  });
 });
 
 END_TEST

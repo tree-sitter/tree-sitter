@@ -38,8 +38,9 @@ struct SyntaxNode {
   TSLexMode first_leaf_lex_mode;
   TSSymbol alias_symbol : 15;
   bool alias_is_named : 1;
-  bool visible : 1;
-  bool named : 1;
+  bool is_visible : 1;
+  bool is_named : 1;
+  bool has_changes : 1;
 };
 
 struct SyntaxTree {
@@ -74,6 +75,7 @@ typedef struct {
 typedef struct {
   SyntaxTree *tree;
   uint32_t index;
+  Length position;
 } TreeIteratorEntry;
 
 typedef struct {
@@ -93,6 +95,27 @@ typedef struct {
   Array(SyntaxTree *) rightmost_trees;
   uint32_t node_count;
 } TreeBuilder;
+
+typedef struct {
+  Length start;
+  Length added;
+  Length removed;
+} Edit;
+
+typedef Array(uint32_t) IndexSet;
+
+// IndexSet
+
+static void ts_index_set_insert(IndexSet *self, uint32_t value) {
+  for (unsigned i = 0; i < self->size; i++) {
+    if (self->contents[i] == value) return;
+    if (self->contents[i] > value) {
+      array_insert(self, i, value);
+      return;
+    }
+  }
+  array_push(self, value);
+}
 
 // SyntaxTreeSummary
 
@@ -144,8 +167,8 @@ static SyntaxTreeSlice *ts_syntax_tree_new_slice(uint32_t start_index, uint32_t 
   return self;
 }
 
-static void ts_syntax_tree_retain(SyntaxTree *self) {
-  atomic_inc(&self->ref_count);
+static void ts_syntax_tree_retain(const SyntaxTree *self) {
+  atomic_inc(&((SyntaxTree *)self)->ref_count);
 }
 
 void ts_syntax_tree_delete(SyntaxTree *self) {
@@ -232,24 +255,36 @@ static bool ts_syntax_tree_push_slice(SyntaxTree *self, SyntaxTree *other,
       &other_internal->summaries[start],
       (end - start) * sizeof(SyntaxTreeSummary)
     );
+    internal->base.count += end - start;
   }
   return true;
 }
 
-static SyntaxTree *ts_syntax_tree_copy(SyntaxTree *other, uint32_t start, uint32_t end) {
-  if (other->height == 0) {
+static SyntaxTree *ts_syntax_tree_copy_slice(SyntaxTree *self, uint32_t start, uint32_t end) {
+  if (self->height == 0) {
     SyntaxTreeLeaf *leaf = ts_syntax_tree_new_leaf();
     SyntaxTree *result = &leaf->base;
-    ts_syntax_tree_push_slice(result, other, start, end);
+    ts_syntax_tree_push_slice(result, self, start, end);
     return result;
   } else {
-    SyntaxTreeInternal *internal = ts_syntax_tree_new_internal(other->height);
+    SyntaxTreeInternal *internal = ts_syntax_tree_new_internal(self->height);
     SyntaxTree *result = &internal->base;
-    ts_syntax_tree_push_slice(result, other, start, end);
+    ts_syntax_tree_push_slice(result, self, start, end);
     SyntaxTree **last = &internal->children[result->count - 1];
-    *last = ts_syntax_tree_copy(*last, 0, (*last)->count);
+    *last = ts_syntax_tree_copy_slice(*last, 0, (*last)->count);
     return result;
   }
+}
+
+static SyntaxTree *ts_syntax_tree_copy(SyntaxTree *self) {
+  SyntaxTree *result;
+  if (self->height == 0) {
+    result = (SyntaxTree *)ts_syntax_tree_new_leaf();
+  } else {
+    result = (SyntaxTree *)ts_syntax_tree_new_internal(self->height);
+  }
+  ts_syntax_tree_push_slice(result, self, 0, self->count);
+  return result;
 }
 
 static void ts_syntax_tree_update_last_summary(SyntaxTreeInternal *self,
@@ -290,6 +325,146 @@ TSNode2 ts_syntax_tree_node_at_index(const SyntaxTree *self, uint32_t goal_index
 
 TSNode2 ts_syntax_tree_root_node(const SyntaxTree *self) {
   return ts_syntax_tree_node_at_index(self, UINT32_MAX);
+}
+
+static SyntaxTree *ts_syntax_tree__edit(SyntaxTree *self, const Edit *edit,
+                                 uint32_t start_index,
+                                 IndexSet *internal_node_indices,
+                                 uint32_t *edited_internal_node_count) {
+  SyntaxTree *result;
+  Length edit_old_end = edit ? length_add(edit->start, edit->removed) : length_zero();
+
+  // If we see a reference count of one here, then this tree is not being used by any other
+  // threads, so it is safe to mutate. Otherwise, we copy the tree.
+  if (self->ref_count == 1) {
+    result = self;
+  } else {
+    result = ts_syntax_tree_copy(self);
+    ts_syntax_tree_delete(self);
+  }
+
+  if (result->height == 0) {
+    SyntaxTreeLeaf *leaf = (SyntaxTreeLeaf *)result;
+    Length position = {};
+    for (unsigned i = 0; i < leaf->base.count; i++) {
+      SyntaxNode *node = &leaf->entries[i];
+
+      // Mark leafs nodes as having changes and
+      if (node->child_count == 0) {
+        Length total_size = length_add(node->padding, node->size);
+        Length end_position = length_add(position, total_size);
+
+        if (edit && end_position.bytes >= edit->start.bytes) {
+          Edit node_edit;
+          if (edit->start.bytes < position.bytes) {
+            node_edit = (Edit) {{}, {}, length_sub(edit_old_end, position)};
+          } else {
+            node_edit = (Edit) {length_sub(edit->start, position), edit->added, edit->removed};
+          }
+          Length node_edit_old_end = length_add(node_edit.start, node_edit.removed);
+          Length node_edit_new_end = length_add(node_edit.start, node_edit.added);
+
+          node->has_changes = true;
+          ts_index_set_insert(internal_node_indices, start_index + i + node->node_count_to_parent);
+          if (node_edit_old_end.bytes <= node->padding.bytes) {
+            node->padding = length_add(node_edit_new_end, length_sub(node->padding, node_edit_old_end));
+          } else if (node_edit.start.bytes < node->padding.bytes) {
+            node->padding = node_edit_new_end;
+            node->size = length_sub(node->size, length_sub(node_edit_old_end, node->padding));
+          } else if (node_edit.start.bytes == node->padding.bytes && node_edit.removed.bytes == 0) {
+            node->padding = length_add(node->padding, edit->added);
+          } else {
+            node->size = length_sub(
+              length_add(node_edit_new_end, length_sub(total_size, node_edit_old_end)),
+              node->padding
+            );
+          }
+
+          //
+          if (end_position.bytes >= edit_old_end.bytes) edit = NULL;
+        }
+
+        position = end_position;
+      }
+
+      // Mark internal nodes as having changes if they intersect the edit.
+      else if (
+        *edited_internal_node_count < internal_node_indices->size &&
+        internal_node_indices->contents[*edited_internal_node_count] == start_index + i
+      ) {
+        node->has_changes = true;
+        *edited_internal_node_count += 1;
+        ts_index_set_insert(internal_node_indices, start_index + i + node->node_count_to_parent);
+      }
+    }
+  } else {
+    SyntaxTreeInternal *internal = (SyntaxTreeInternal *)result;
+    Length position = {};
+    uint32_t index = start_index;
+    for (unsigned i = 0; i < internal->base.count; i++) {
+      SyntaxTree **child = &internal->children[i];
+      SyntaxTreeSummary *summary = &internal->summaries[i];
+      Length end_position = length_add(position, summary->size);
+      uint32_t next_index = index + summary->node_count;
+      if (position.bytes > edit_old_end.bytes) edit = NULL;
+
+      if (edit && end_position.bytes > edit->start.bytes) {
+        Edit child_edit;
+        if (edit->start.bytes < position.bytes) {
+          child_edit = (Edit) {{}, {}, length_sub(edit_old_end, position)};
+          summary->size = length_sub(summary->size, child_edit.removed);
+        } else {
+          child_edit = (Edit) {length_sub(edit->start, position), edit->added, edit->removed};
+          summary->size = length_add(
+            length_add(
+              child_edit.start,
+              child_edit.added
+            ),
+            length_sub(
+              end_position,
+              length_add(
+                child_edit.start,
+                child_edit.removed
+              )
+            )
+          );
+        }
+        *child = ts_syntax_tree__edit(
+          *child, &child_edit, index,
+          internal_node_indices, edited_internal_node_count
+        );
+      } else if (
+        *edited_internal_node_count < internal_node_indices->size &&
+        internal_node_indices->contents[*edited_internal_node_count] < next_index
+      ) {
+        *child = ts_syntax_tree__edit(
+          *child, NULL, index,
+          internal_node_indices, edited_internal_node_count
+        );
+      }
+
+      position = end_position;
+      index = next_index;
+    }
+  }
+
+  return result;
+}
+
+SyntaxTree *ts_syntax_tree_edit(SyntaxTree *self, TSInputEdit input_edit) {
+  IndexSet internal_node_indices = {};
+  uint32_t edited_internal_node_count = 0;
+  Edit edit = (Edit) {
+    .start = {input_edit.start_byte, input_edit.start_point},
+    .added = {input_edit.bytes_added, input_edit.extent_added},
+    .removed = {input_edit.bytes_removed, input_edit.extent_removed},
+  };
+  SyntaxTree *result = ts_syntax_tree__edit(
+    self, &edit, 0,
+    &internal_node_indices, &edited_internal_node_count
+  );
+  array_delete(&internal_node_indices);
+  return result;
 }
 
 // TreeIterator
@@ -345,13 +520,15 @@ static void ts_tree_iterator_seek(TreeIterator *self, uint32_t goal_index) {
   }
 }
 
-static void ts_tree_iterator_prepare(TreeIterator *self) {
+static uint32_t ts_tree_iterator_prepare(TreeIterator *self) {
   // Ensure that the iterators is not at the end of a subtree.
   TreeIteratorEntry *last_entry = array_back(&self->entries);
+  uint32_t ascend_count = 0;
   while (last_entry->index == last_entry->tree->count) {
     self->entries.size--;
     last_entry--;
     last_entry->index++;
+    ascend_count++;
   }
 
   // Descend to a leaf.
@@ -363,6 +540,8 @@ static void ts_tree_iterator_prepare(TreeIterator *self) {
     }));
     last_entry++;
   }
+
+  return ascend_count;
 }
 
 static TreeIteratorItem ts_tree_iterator_advance(TreeIterator *self, uint32_t goal_index) {
@@ -455,41 +634,44 @@ static void ts_tree_builder_grow(TreeBuilder *self, uint32_t height) {
 
 static void ts_tree_builder_populate_new_node(TreeBuilder *self, SyntaxNode *node) {
   TSSymbolMetadata metadata = ts_language_symbol_metadata(self->language, node->symbol);
-  node->visible = metadata.visible;
-  node->named = metadata.named;
-  node->node_count = 1;
+  node->is_visible = metadata.visible;
+  node->is_named = metadata.named;
 
-  assert(self->child_stack.size >= node->child_count);
+  if (node->child_count > 0) {
+    assert(self->child_stack.size >= node->child_count);
 
-  // Pop this node's children off of the child stack.
-  self->child_stack.size -= node->child_count;
-  ChildStackEntry *children = &self->child_stack.contents[self->child_stack.size];
+    // Pop this node's children off of the child stack.
+    self->child_stack.size -= node->child_count;
+    ChildStackEntry *children = &self->child_stack.contents[self->child_stack.size];
 
-  // Assign the properties of this node that derive from its children, and the properties
-  // of the children that derive from their context.
-  SyntaxNode *prev_child = NULL;
-  for (unsigned i = 0; i < node->child_count; i++) {
-    SyntaxNode *child = children[i].node;
-    uint32_t child_index = children[i].index;
+    // Assign the properties of this node that derive from its children, and the properties
+    // of the children that derive from their context.
+    node->node_count = 1;
+    SyntaxNode *prev_child = NULL;
+    for (unsigned i = 0; i < node->child_count; i++) {
+      SyntaxNode *child = children[i].node;
+      uint32_t child_index = children[i].index;
+      uint32_t child_node_count = child->child_count > 0 ? child->node_count : 1;
 
-    if (prev_child) {
-      prev_child->next_sibling_node_count = child->node_count;
-    } else {
-      node->first_child_node_count = child->node_count;
+      if (prev_child) {
+        prev_child->next_sibling_node_count = child_node_count;
+      } else {
+        node->first_child_node_count = child_node_count;
+      }
+
+      if (child->is_visible) {
+        node->visible_child_count++;
+        if (child->is_named) node->named_child_count++;
+      } else if (child->child_count > 0) {
+        node->visible_child_count += child->visible_child_count;
+        node->named_child_count += child->named_child_count;
+      }
+
+      node->node_count += child_node_count;
+
+      child->node_count_to_parent = self->node_count - child_index;
+      prev_child = child;
     }
-
-    if (child->visible) {
-      node->visible_child_count++;
-      if (child->named) node->named_child_count++;
-    } else if (child->child_count > 0) {
-      node->visible_child_count += child->visible_child_count;
-      node->named_child_count += child->named_child_count;
-    }
-
-    node->node_count += child->node_count;
-
-    child->node_count_to_parent = self->node_count - child_index;
-    prev_child = child;
   }
 
   // Add this node to the child stack.
@@ -553,7 +735,7 @@ static void ts_tree_builder_push_leaf(TreeBuilder *self, SyntaxTreeLeaf *leaf) {
   ts_tree_builder_push_tree(self, tree, tree->height, &summary);
 }
 
-static void ts_syntax_tree_builder_reuse_chunk(TreeBuilder *self, SyntaxTree *tree,
+static void ts_tree_builder_reuse_chunk(TreeBuilder *self, SyntaxTree *tree,
                                                uint32_t start_index, uint32_t end_index,
                                                bool is_last) {
   SyntaxTreeSummary summary = ts_syntax_tree_summarize(tree, start_index, end_index);
@@ -573,7 +755,7 @@ static void ts_syntax_tree_builder_reuse_chunk(TreeBuilder *self, SyntaxTree *tr
 
     // Otherwise, copy the tree so that its final entry can be mutated.
     else {
-      tree = ts_syntax_tree_copy(tree, start_index, end_index);
+      tree = ts_syntax_tree_copy_slice(tree, start_index, end_index);
       ts_tree_builder_push_tree(self, tree, tree->height, &summary);
     }
   }
@@ -589,12 +771,61 @@ static void ts_syntax_tree_builder_reuse_chunk(TreeBuilder *self, SyntaxTree *tr
 
 // TSNode
 
+Length ts_syntax_tree__position_at_index(const SyntaxTree *tree, uint32_t goal_index,
+                                         SyntaxNode *out_node) {
+  uint32_t index = 0;
+  Length result = {};
+  for (;;) {
+    if (tree->height == 0) {
+      SyntaxTreeLeaf *leaf = (SyntaxTreeLeaf *)tree;
+      SyntaxNode *node = NULL;
+      for (unsigned i = 0; i < leaf->base.count; i++) {
+        node = &leaf->entries[i];
+        if (index == goal_index) break;
+        index++;
+        if (node->child_count == 0) {
+          result = length_add(result, length_add(node->padding, node->size));
+        }
+      }
+      *out_node = *node;
+      return result;
+    } else {
+      SyntaxTreeInternal *internal = (SyntaxTreeInternal *)tree;
+      for (unsigned i = 0; i < internal->base.count; i++) {
+        uint32_t next_index = index + internal->summaries[i].node_count;
+        if (next_index > goal_index || i == internal->base.count - 1) {
+          tree = internal->children[i];
+          break;
+        }
+        index = next_index;
+        result = length_add(result, internal->summaries[i].size);
+      }
+    }
+  }
+}
+
 TSPoint ts_node2_start_point(const TSNode2 *self) {
-  return (TSPoint) { .row = 0, .column = 0 };
+  SyntaxNode node;
+  if (self->node->child_count > 0) {
+    TSPoint result = ts_syntax_tree__position_at_index(
+      self->tree,
+      self->index - self->node->node_count + 1,
+      &node
+    ).extent;
+    return point_add(result, node.padding.extent);
+  } else {
+    TSPoint result = ts_syntax_tree__position_at_index(
+      self->tree,
+      self->index,
+      &node
+    ).extent;
+    return point_add(result, node.padding.extent);
+  }
 }
 
 TSPoint ts_node2_end_point(const TSNode2 *self) {
-  return (TSPoint) { .row = 0, .column = 0 };
+  SyntaxNode node;
+  return ts_syntax_tree__position_at_index(self->tree, self->index + 1, &node).extent;
 }
 
 TSSymbol ts_node2_symbol(const TSNode2 *self) {
@@ -632,7 +863,7 @@ TSNode2 ts_node2_child(const TSNode2 *self, unsigned goal_index) {
     did_descend = false;
 
     for (;;) {
-      if (child.node->visible) {
+      if (child.node->is_visible) {
         if (child_index == goal_index) {
           return child;
         } else {
@@ -665,8 +896,12 @@ TSNode2 ts_node2_parent(const TSNode2 *self) {
       result.tree,
       result.index + result.node->node_count_to_parent
     );
-  } while (!result.node->visible);
+  } while (!result.node->is_visible);
   return result;
+}
+
+bool ts_node2_has_changes(const TSNode2 *self) {
+  return self->node->has_changes;
 }
 
 // NodeList
@@ -759,7 +994,7 @@ SyntaxTree *ts_node_list_to_tree(NodeList *self, const TSLanguage *language, Syn
         TreeIteratorItem chunk = ts_tree_iterator_advance(&old_tree_iterator, slice->end_index);
         bool is_last = old_tree_iterator.index == slice->end_index;
         ts_tree_builder_grow(&builder, chunk.tree->height);
-        ts_syntax_tree_builder_reuse_chunk(
+        ts_tree_builder_reuse_chunk(
           &builder, chunk.tree,
           chunk.start_index, chunk.end_index,
           is_last

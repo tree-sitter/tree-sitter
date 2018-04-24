@@ -36,6 +36,7 @@ SyntaxTree *ts_node_list_to_tree(NodeList *, const TSLanguage *, SyntaxTree *);
 
 void ts_syntax_tree_delete(SyntaxTree *);
 TSNode2 ts_syntax_tree_root_node(const SyntaxTree *);
+SyntaxTree *ts_syntax_tree_edit(SyntaxTree *, TSInputEdit);
 
 TSPoint ts_node2_start_point(const TSNode2 *);
 TSPoint ts_node2_end_point(const TSNode2 *);
@@ -43,6 +44,7 @@ TSSymbol ts_node2_symbol(const TSNode2 *);
 unsigned ts_node2_child_count(const TSNode2 *);
 TSNode2 ts_node2_child(const TSNode2 *, unsigned);
 TSNode2 ts_node2_parent(const TSNode2 *);
+bool ts_node2_has_changes(const TSNode2 *);
 
 #ifdef __cplusplus
 }
