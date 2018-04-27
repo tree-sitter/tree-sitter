@@ -349,7 +349,7 @@ static SyntaxTree *ts_syntax_tree__edit(SyntaxTree *self, const Edit *edit,
     for (unsigned i = 0; i < leaf->base.count; i++) {
       SyntaxNode *node = &leaf->entries[i];
 
-      // Mark leafs nodes as having changes and
+      // Mark leaf nodes intersecting the edit as having changes and resize them.
       if (node->child_count == 0) {
         Length total_size = length_add(node->padding, node->size);
         Length end_position = length_add(position, total_size);
@@ -361,6 +361,11 @@ static SyntaxTree *ts_syntax_tree__edit(SyntaxTree *self, const Edit *edit,
           } else {
             node_edit = (Edit) {length_sub(edit->start, position), edit->added, edit->removed};
           }
+
+          if (edit_old_end.bytes > end_position.bytes) {
+            node_edit.removed = length_sub(total_size, node_edit.start);
+          }
+
           Length node_edit_old_end = length_add(node_edit.start, node_edit.removed);
           Length node_edit_new_end = length_add(node_edit.start, node_edit.added);
 
@@ -369,8 +374,8 @@ static SyntaxTree *ts_syntax_tree__edit(SyntaxTree *self, const Edit *edit,
           if (node_edit_old_end.bytes <= node->padding.bytes) {
             node->padding = length_add(node_edit_new_end, length_sub(node->padding, node_edit_old_end));
           } else if (node_edit.start.bytes < node->padding.bytes) {
-            node->padding = node_edit_new_end;
             node->size = length_sub(node->size, length_sub(node_edit_old_end, node->padding));
+            node->padding = node_edit_new_end;
           } else if (node_edit.start.bytes == node->padding.bytes && node_edit.removed.bytes == 0) {
             node->padding = length_add(node->padding, edit->added);
           } else {
@@ -380,14 +385,13 @@ static SyntaxTree *ts_syntax_tree__edit(SyntaxTree *self, const Edit *edit,
             );
           }
 
-          //
           if (end_position.bytes >= edit_old_end.bytes) edit = NULL;
         }
 
         position = end_position;
       }
 
-      // Mark internal nodes as having changes if they intersect the edit.
+      // Mark internal nodes intersecting the edit as having changes.
       else if (
         *edited_internal_node_count < internal_node_indices->size &&
         internal_node_indices->contents[*edited_internal_node_count] == start_index + i
@@ -412,23 +416,28 @@ static SyntaxTree *ts_syntax_tree__edit(SyntaxTree *self, const Edit *edit,
         Edit child_edit;
         if (edit->start.bytes < position.bytes) {
           child_edit = (Edit) {{}, {}, length_sub(edit_old_end, position)};
-          summary->size = length_sub(summary->size, child_edit.removed);
         } else {
           child_edit = (Edit) {length_sub(edit->start, position), edit->added, edit->removed};
-          summary->size = length_add(
+        }
+
+        if (edit_old_end.bytes > end_position.bytes) {
+          child_edit.removed = length_sub(summary->size, child_edit.start);
+        }
+
+        summary->size = length_add(
+          length_add(
+            child_edit.start,
+            child_edit.added
+          ),
+          length_sub(
+            summary->size,
             length_add(
               child_edit.start,
-              child_edit.added
-            ),
-            length_sub(
-              end_position,
-              length_add(
-                child_edit.start,
-                child_edit.removed
-              )
+              child_edit.removed
             )
-          );
-        }
+          )
+        );
+
         *child = ts_syntax_tree__edit(
           *child, &child_edit, index,
           internal_node_indices, edited_internal_node_count

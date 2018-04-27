@@ -229,6 +229,116 @@ describe("SyntaxTree", [&]() {
         ts_syntax_tree_delete(tree);
       });
     });
+
+    describe("edits that start in a tree's padding but extend into its content", [&]() {
+      it("shrinks the content to compensate for the expanded padding", [&]() {
+        TSInputEdit edit;
+        edit.start_byte = 1;
+        edit.bytes_removed = 3;
+        edit.bytes_added = 4;
+        edit.start_point = {0, 1};
+        edit.extent_removed = {0, 3};
+        edit.extent_added = {0, 4};
+        tree = ts_syntax_tree_edit(tree, edit);
+
+        TSNode2 root = ts_syntax_tree_root_node(tree);
+        AssertThat(ts_node2_has_changes(&root), IsTrue());
+        AssertThat(ts_node2_start_point(&root), Equals<TSPoint>({0, 5}));
+        AssertThat(ts_node2_end_point(&root), Equals<TSPoint>({0, 16}));
+
+        TSNode2 child1 = ts_node2_child(&root, 0);
+        AssertThat(ts_node2_has_changes(&child1), IsTrue());
+        AssertThat(ts_node2_start_point(&child1), Equals<TSPoint>({0, 5}));
+        AssertThat(ts_node2_end_point(&child1), Equals<TSPoint>({0, 6}));
+
+        ts_syntax_tree_delete(tree);
+      });
+    });
+
+    describe("insertions at the edge of a tree's padding", [&]() {
+      it("expands the tree's padding", [&]() {
+        TSInputEdit edit;
+        edit.start_byte = 2;
+        edit.bytes_removed = 0;
+        edit.bytes_added = 2;
+        edit.start_point = {0, 2};
+        edit.extent_removed = {0, 0};
+        edit.extent_added = {0, 2};
+        tree = ts_syntax_tree_edit(tree, edit);
+
+        TSNode2 root = ts_syntax_tree_root_node(tree);
+        AssertThat(ts_node2_has_changes(&root), IsTrue());
+        AssertThat(ts_node2_start_point(&root), Equals<TSPoint>({0, 4}));
+        AssertThat(ts_node2_end_point(&root), Equals<TSPoint>({0, 17}));
+
+        TSNode2 child1 = ts_node2_child(&root, 0);
+        AssertThat(ts_node2_has_changes(&child1), IsTrue());
+        AssertThat(ts_node2_start_point(&child1), Equals<TSPoint>({0, 4}));
+        AssertThat(ts_node2_end_point(&child1), Equals<TSPoint>({0, 7}));
+
+        ts_syntax_tree_delete(tree);
+      });
+    });
+
+    describe("replacements starting at the edge of a tree's padding", [&]() {
+      it("resizes the content and not the padding", [&]() {
+        TSInputEdit edit;
+        edit.start_byte = 2;
+        edit.bytes_removed = 2;
+        edit.bytes_added = 5;
+        edit.start_point = {0, 2};
+        edit.extent_removed = {0, 2};
+        edit.extent_added = {0, 5};
+        tree = ts_syntax_tree_edit(tree, edit);
+
+        TSNode2 root = ts_syntax_tree_root_node(tree);
+        AssertThat(ts_node2_has_changes(&root), IsTrue());
+        AssertThat(ts_node2_start_point(&root), Equals<TSPoint>({0, 2}));
+        AssertThat(ts_node2_end_point(&root), Equals<TSPoint>({0, 18}));
+
+        TSNode2 child1 = ts_node2_child(&root, 0);
+        AssertThat(ts_node2_has_changes(&child1), IsTrue());
+        AssertThat(ts_node2_start_point(&child1), Equals<TSPoint>({0, 2}));
+        AssertThat(ts_node2_end_point(&child1), Equals<TSPoint>({0, 8}));
+
+        ts_syntax_tree_delete(tree);
+      });
+    });
+
+    describe("deletions that span more than one child node", [&]() {
+      it("shrinks subsequent child nodes", [&]() {
+        TSInputEdit edit;
+        edit.start_byte = 1;
+        edit.bytes_removed = 10;
+        edit.bytes_added = 3;
+        edit.start_point = {0, 1};
+        edit.extent_removed = {0, 10};
+        edit.extent_added = {0, 3};
+        tree = ts_syntax_tree_edit(tree, edit);
+
+        TSNode2 root = ts_syntax_tree_root_node(tree);
+        AssertThat(ts_node2_has_changes(&root), IsTrue());
+        AssertThat(ts_node2_start_point(&root), Equals<TSPoint>({0, 4}));
+        AssertThat(ts_node2_end_point(&root), Equals<TSPoint>({0, 8}));
+
+        TSNode2 child1 = ts_node2_child(&root, 0);
+        AssertThat(ts_node2_has_changes(&child1), IsTrue());
+        AssertThat(ts_node2_start_point(&child1), Equals<TSPoint>({0, 4}));
+        AssertThat(ts_node2_end_point(&child1), Equals<TSPoint>({0, 4}));
+
+        TSNode2 child2 = ts_node2_child(&root, 1);
+        AssertThat(ts_node2_has_changes(&child2), IsTrue());
+        AssertThat(ts_node2_start_point(&child2), Equals<TSPoint>({0, 4}));
+        AssertThat(ts_node2_end_point(&child2), Equals<TSPoint>({0, 4}));
+
+        TSNode2 child3 = ts_node2_child(&root, 2);
+        AssertThat(ts_node2_has_changes(&child3), IsTrue());
+        AssertThat(ts_node2_start_point(&child3), Equals<TSPoint>({0, 5}));
+        AssertThat(ts_node2_end_point(&child3), Equals<TSPoint>({0, 8}));
+
+        ts_syntax_tree_delete(tree);
+      });
+    });
   });
 });
 
