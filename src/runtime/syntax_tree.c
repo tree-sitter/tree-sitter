@@ -10,11 +10,6 @@
 
 uint32_t TREE_BRANCHING_FACTOR = DEFAULT_TREE_BRANCHING_FACTOR;
 
-typedef struct {
-  Length size;
-  uint32_t node_count;
-} SyntaxTreeSummary;
-
 struct SyntaxNode {
   uint32_t child_count;
   uint32_t next_sibling_node_count;
@@ -51,6 +46,11 @@ struct SyntaxTree {
 };
 
 typedef struct {
+  Length size;
+  uint32_t node_count;
+} SyntaxTreeSummary;
+
+typedef struct {
   SyntaxTree base;
   SyntaxNode entries[DEFAULT_TREE_BRANCHING_FACTOR];
 } SyntaxTreeLeaf;
@@ -68,11 +68,6 @@ typedef struct {
 } SyntaxTreeSlice;
 
 typedef struct {
-  SyntaxNode *node;
-  uint32_t index;
-} ChildStackEntry;
-
-typedef struct {
   SyntaxTree *tree;
   uint32_t index;
   Length position;
@@ -88,6 +83,11 @@ typedef struct {
   uint16_t start_index;
   uint16_t end_index;
 } TreeIteratorItem;
+
+typedef struct {
+  SyntaxNode *node;
+  uint32_t index;
+} ChildStackEntry;
 
 typedef struct {
   const TSLanguage *language;
