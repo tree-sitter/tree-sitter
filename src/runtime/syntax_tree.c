@@ -345,7 +345,7 @@ static SyntaxTree *ts_syntax_tree__edit(SyntaxTree *self, const Edit *edit,
 
   if (result->height == 0) {
     SyntaxTreeLeaf *leaf = (SyntaxTreeLeaf *)result;
-    Length position = {};
+    Length position = length_zero();
     for (unsigned i = 0; i < leaf->base.count; i++) {
       SyntaxNode *node = &leaf->entries[i];
 
@@ -357,9 +357,17 @@ static SyntaxTree *ts_syntax_tree__edit(SyntaxTree *self, const Edit *edit,
         if (edit && end_position.bytes >= edit->start.bytes) {
           Edit node_edit;
           if (edit->start.bytes < position.bytes) {
-            node_edit = (Edit) {{}, {}, length_sub(edit_old_end, position)};
+            node_edit = (Edit) {
+              length_zero(),
+              length_zero(),
+              length_sub(edit_old_end, position)
+            };
           } else {
-            node_edit = (Edit) {length_sub(edit->start, position), edit->added, edit->removed};
+            node_edit = (Edit) {
+              length_sub(edit->start, position),
+              edit->added,
+              edit->removed
+            };
           }
 
           if (edit_old_end.bytes > end_position.bytes) {
@@ -403,7 +411,7 @@ static SyntaxTree *ts_syntax_tree__edit(SyntaxTree *self, const Edit *edit,
     }
   } else {
     SyntaxTreeInternal *internal = (SyntaxTreeInternal *)result;
-    Length position = {};
+    Length position = length_zero();
     uint32_t index = start_index;
     for (unsigned i = 0; i < internal->base.count; i++) {
       SyntaxTree **child = &internal->children[i];
@@ -415,9 +423,17 @@ static SyntaxTree *ts_syntax_tree__edit(SyntaxTree *self, const Edit *edit,
       if (edit && end_position.bytes > edit->start.bytes) {
         Edit child_edit;
         if (edit->start.bytes < position.bytes) {
-          child_edit = (Edit) {{}, {}, length_sub(edit_old_end, position)};
+          child_edit = (Edit) {
+            length_zero(),
+            length_zero(),
+            length_sub(edit_old_end, position)
+          };
         } else {
-          child_edit = (Edit) {length_sub(edit->start, position), edit->added, edit->removed};
+          child_edit = (Edit) {
+            length_sub(edit->start, position),
+            edit->added,
+            edit->removed
+          };
         }
 
         if (edit_old_end.bytes > end_position.bytes) {
@@ -461,7 +477,7 @@ static SyntaxTree *ts_syntax_tree__edit(SyntaxTree *self, const Edit *edit,
 }
 
 SyntaxTree *ts_syntax_tree_edit(SyntaxTree *self, TSInputEdit input_edit) {
-  IndexSet internal_node_indices = {};
+  IndexSet internal_node_indices = array_new();
   uint32_t edited_internal_node_count = 0;
   Edit edit = (Edit) {
     .start = {input_edit.start_byte, input_edit.start_point},
@@ -783,7 +799,7 @@ static void ts_tree_builder_reuse_chunk(TreeBuilder *self, SyntaxTree *tree,
 Length ts_syntax_tree__position_at_index(const SyntaxTree *tree, uint32_t goal_index,
                                          SyntaxNode *out_node) {
   uint32_t index = 0;
-  Length result = {};
+  Length result = length_zero();
   for (;;) {
     if (tree->height == 0) {
       SyntaxTreeLeaf *leaf = (SyntaxTreeLeaf *)tree;
@@ -796,6 +812,7 @@ Length ts_syntax_tree__position_at_index(const SyntaxTree *tree, uint32_t goal_i
           result = length_add(result, length_add(node->padding, node->size));
         }
       }
+      assert(node);
       *out_node = *node;
       return result;
     } else {
