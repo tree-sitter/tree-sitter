@@ -62,7 +62,7 @@ describe("SyntaxTree", [&]() {
     AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
   });
 
-  describe("node_list_to_tree()", [&]() {
+  describe("construction", [&]() {
     it("can construct a tree out of a sequence of individual nodes", [&]() {
       TREE_BRANCHING_FACTOR = 3;
 
@@ -112,14 +112,18 @@ describe("SyntaxTree", [&]() {
       ts_node_list_push_parent(&list, 6, 3);
       SyntaxTree *tree1 = ts_node_list_to_tree(&list, &language, NULL);
 
-      TSNode2 root1 = ts_syntax_tree_root_node(tree1);
-      TSNode2 node_to_reuse = ts_node2_child(&root1, 1);
+      TreeCursor cursor = ts_tree_cursor_new(tree1);
+      ts_tree_cursor_descend(&cursor);
+      ts_tree_cursor_advance(&cursor);
+
+      TSNode2 node_to_reuse = ts_tree_cursor_current_node(&cursor);
+      AssertThat(ts_node2_symbol(&node_to_reuse), Equals(4u));
       AssertThat(ts_node2_child_count(&node_to_reuse), Equals(2u));
 
       list = ts_node_list_new();
       ts_node_list_push_leaf(&list, 11, length_zero(), {1, {0, 1}});
       ts_node_list_push_leaf(&list, 12, length_zero(), {1, {0, 1}});
-      ts_node_list_reuse(&list, node_to_reuse);
+      ts_node_list_reuse(&list, &cursor);
       ts_node_list_push_leaf(&list, 15, length_zero(), {1, {0, 1}});
       ts_node_list_push_parent(&list, 6, 4);
       SyntaxTree *tree2 = ts_node_list_to_tree(&list, &language, tree1);
@@ -133,6 +137,7 @@ describe("SyntaxTree", [&]() {
       AssertThat(ts_node2_child_count(&child2), Equals(2u));
       AssertThat(ts_node2_parent(&child2), Equals(root2));
 
+      ts_tree_cursor_delete(&cursor);
       ts_syntax_tree_delete(tree1);
       ts_syntax_tree_delete(tree2);
     });
@@ -158,12 +163,17 @@ describe("SyntaxTree", [&]() {
       AssertThat(ts_node2_child_count(&grandchild1), Equals(2u));
       AssertThat(ts_node2_parent(&grandchild1), Equals(child1));
 
+      TreeCursor cursor = ts_tree_cursor_new(tree1);
+      ts_tree_cursor_descend(&cursor);
+      ts_tree_cursor_descend(&cursor);
+      AssertThat(ts_tree_cursor_current_node(&cursor), Equals(grandchild1));
+
       // The reused node and its children occupy an entire leaf in the syntax tree,
       // but the entire leaf cannot be reused because the reused node itself must
       // be copied so that its contextual fields like `next_sibling_node_count`
       // can be updated.
       list = ts_node_list_new();
-      ts_node_list_reuse(&list, grandchild1);
+      ts_node_list_reuse(&list, &cursor);
       ts_node_list_push_leaf(&list, 4, length_zero(), {1, {0, 1}});
       ts_node_list_push_parent(&list, 14, 1);
       ts_node_list_push_leaf(&list, 5, length_zero(), {1, {0, 1}});
@@ -181,12 +191,13 @@ describe("SyntaxTree", [&]() {
       AssertThat(ts_node2_parent(&grandchild2), Equals(child2));
       AssertThat(ts_node2_parent(&grandchild1), Equals(child1));
 
+      ts_tree_cursor_delete(&cursor);
       ts_syntax_tree_delete(tree1);
       ts_syntax_tree_delete(tree2);
     });
   });
 
-  describe("syntax_tree_edit()", [&]() {
+  describe("editing", [&]() {
     SyntaxTree *tree = nullptr;
 
     before_each([&]() {
