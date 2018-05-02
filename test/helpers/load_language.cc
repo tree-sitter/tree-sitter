@@ -6,6 +6,7 @@
 #include <string>
 #include <fstream>
 #include <stdlib.h>
+#include "runtime/language.h"
 #include "tree_sitter/compiler.h"
 
 using std::map;
@@ -237,3 +238,21 @@ const TSLanguage *load_real_language(const string &language_name) {
   loaded_languages[language_name] = language;
   return language;
 };
+
+const TSLanguage *get_dummy_language() {
+  static const char *symbol_names[] = {
+    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+    "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen"
+  };
+
+  static const TSSymbolMetadata symbol_metadata[] = {
+    {true, true}, {true, true}, {true, true}, {true, true}, {true, true}, {true, true},
+    {true, true}, {true, true}, {true, true}, {true, true}, {true, true}, {true, true},
+    {true, true}, {true, true}, {true, true},
+  };
+
+  static TSLanguage result;
+  result.symbol_names = symbol_names;
+  result.symbol_metadata = symbol_metadata;
+  return &result;
+}

@@ -2,6 +2,7 @@
 #include "helpers/record_alloc.h"
 #include "runtime/alloc.h"
 #include "runtime/syntax_tree.h"
+#include "helpers/load_language.h"
 #include "helpers/random_helpers.h"
 #include "helpers/point_helpers.h"
 
@@ -10,48 +11,17 @@ ostream &operator<<(ostream &stream, const TSNode2 &node) {
   return stream;
 }
 
-static TSLanguage test_language() {
-  static const char *symbol_names[] = {
-    "one",
-    "two",
-    "three",
-    "four",
-    "five",
-    "six",
-    "seven",
-    "eight",
-    "nine",
-    "ten"
-  };
-
-  static const TSSymbolMetadata symbol_metadata[] = {
-    {true, true},
-    {true, true},
-    {true, true},
-    {true, true},
-    {true, true},
-    {true, true},
-    {true, true},
-    {true, true},
-    {true, true},
-    {true, true},
-    {true, true},
-    {true, true},
-    {true, true},
-    {true, true},
-    {true, true},
-  };
-
-  TSLanguage result;
-  result.symbol_names = symbol_names;
-  result.symbol_metadata = symbol_metadata;
+static LeafNodeParams leaf(TSSymbol symbol, Length size) {
+  LeafNodeParams result = {};
+  result.symbol = symbol;
+  result.size = size;
   return result;
-};
+}
 
 START_TEST
 
 describe("SyntaxTree", [&]() {
-  TSLanguage language = test_language();
+  const TSLanguage *language = get_dummy_language();
 
   before_each([&]() {
     record_alloc::start();
@@ -67,15 +37,15 @@ describe("SyntaxTree", [&]() {
       TREE_BRANCHING_FACTOR = 3;
 
       NodeList list = ts_node_list_new();
-      ts_node_list_push_leaf(&list, 1, length_zero(), {1, {0, 1}});
-      ts_node_list_push_leaf(&list, 2, length_zero(), {1, {0, 1}});
-      ts_node_list_push_parent(&list, 3, 2);
-      ts_node_list_push_leaf(&list, 4, length_zero(), {1, {0, 1}});
-      ts_node_list_push_parent(&list, 5, 2);
-      ts_node_list_push_leaf(&list, 6, length_zero(), {1, {0, 1}});
-      ts_node_list_push_leaf(&list, 7, length_zero(), {1, {0, 1}});
-      ts_node_list_push_parent(&list, 8, 3);
-      SyntaxTree *tree = ts_node_list_to_tree(&list, &language, NULL);
+      ts_node_list_push_leaf(&list, leaf(1u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(2u, {1, {0, 1}}));
+      ts_node_list_push_parent(&list, {3, 2});
+      ts_node_list_push_leaf(&list, leaf(4u, {1, {0, 1}}));
+      ts_node_list_push_parent(&list, {5, 2});
+      ts_node_list_push_leaf(&list, leaf(6u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(7u, {1, {0, 1}}));
+      ts_node_list_push_parent(&list, {8, 3});
+      SyntaxTree *tree = ts_node_list_to_tree(&list, language, NULL);
 
       TSNode2 root = ts_syntax_tree_root_node(tree);
       AssertThat(ts_node2_symbol(&root), Equals(8u));
@@ -104,13 +74,13 @@ describe("SyntaxTree", [&]() {
       TREE_BRANCHING_FACTOR = 3;
 
       NodeList list = ts_node_list_new();
-      ts_node_list_push_leaf(&list, 1, length_zero(), {1, {0, 1}});
-      ts_node_list_push_leaf(&list, 2, length_zero(), {1, {0, 1}});
-      ts_node_list_push_leaf(&list, 3, length_zero(), {1, {0, 1}});
-      ts_node_list_push_parent(&list, 4, 2);
-      ts_node_list_push_leaf(&list, 5, length_zero(), {1, {0, 1}});
-      ts_node_list_push_parent(&list, 6, 3);
-      SyntaxTree *tree1 = ts_node_list_to_tree(&list, &language, NULL);
+      ts_node_list_push_leaf(&list, leaf(1u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(2u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(3u, {1, {0, 1}}));
+      ts_node_list_push_parent(&list, {4, 2});
+      ts_node_list_push_leaf(&list, leaf(5u, {1, {0, 1}}));
+      ts_node_list_push_parent(&list, {6, 3});
+      SyntaxTree *tree1 = ts_node_list_to_tree(&list, language, NULL);
 
       TreeCursor cursor = ts_tree_cursor_new(tree1);
       ts_tree_cursor_descend(&cursor);
@@ -121,12 +91,12 @@ describe("SyntaxTree", [&]() {
       AssertThat(ts_node2_child_count(&node_to_reuse), Equals(2u));
 
       list = ts_node_list_new();
-      ts_node_list_push_leaf(&list, 11, length_zero(), {1, {0, 1}});
-      ts_node_list_push_leaf(&list, 12, length_zero(), {1, {0, 1}});
+      ts_node_list_push_leaf(&list, leaf(11u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(12u, {1, {0, 1}}));
       ts_node_list_reuse(&list, &cursor);
-      ts_node_list_push_leaf(&list, 15, length_zero(), {1, {0, 1}});
-      ts_node_list_push_parent(&list, 6, 4);
-      SyntaxTree *tree2 = ts_node_list_to_tree(&list, &language, tree1);
+      ts_node_list_push_leaf(&list, leaf(15u, {1, {0, 1}}));
+      ts_node_list_push_parent(&list, {6, 4});
+      SyntaxTree *tree2 = ts_node_list_to_tree(&list, language, tree1);
 
       TSNode2 root2 = ts_syntax_tree_root_node(tree2);
       AssertThat(ts_node2_symbol(&root2), Equals(6u));
@@ -146,14 +116,14 @@ describe("SyntaxTree", [&]() {
       TREE_BRANCHING_FACTOR = 3;
 
       NodeList list = ts_node_list_new();
-      ts_node_list_push_leaf(&list, 1, length_zero(), {1, {0, 1}});
-      ts_node_list_push_leaf(&list, 2, length_zero(), {1, {0, 1}});
-      ts_node_list_push_parent(&list, 3, 2);
-      ts_node_list_push_leaf(&list, 4, length_zero(), {1, {0, 1}});
-      ts_node_list_push_leaf(&list, 5, length_zero(), {1, {0, 1}});
-      ts_node_list_push_parent(&list, 6, 3);
-      ts_node_list_push_parent(&list, 7, 1);
-      SyntaxTree *tree1 = ts_node_list_to_tree(&list, &language, NULL);
+      ts_node_list_push_leaf(&list, leaf(1u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(2u, {1, {0, 1}}));
+      ts_node_list_push_parent(&list, {3, 2});
+      ts_node_list_push_leaf(&list, leaf(4u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(5u, {1, {0, 1}}));
+      ts_node_list_push_parent(&list, {6, 3});
+      ts_node_list_push_parent(&list, {7, 1});
+      SyntaxTree *tree1 = ts_node_list_to_tree(&list, language, NULL);
 
       TSNode2 root1 = ts_syntax_tree_root_node(tree1);
       TSNode2 child1 = ts_node2_child(&root1, 0);
@@ -174,13 +144,13 @@ describe("SyntaxTree", [&]() {
       // can be updated.
       list = ts_node_list_new();
       ts_node_list_reuse(&list, &cursor);
-      ts_node_list_push_leaf(&list, 4, length_zero(), {1, {0, 1}});
-      ts_node_list_push_parent(&list, 14, 1);
-      ts_node_list_push_leaf(&list, 5, length_zero(), {1, {0, 1}});
-      ts_node_list_push_parent(&list, 15, 1);
-      ts_node_list_push_parent(&list, 6, 3);
-      ts_node_list_push_parent(&list, 7, 1);
-      SyntaxTree *tree2 = ts_node_list_to_tree(&list, &language, tree1);
+      ts_node_list_push_leaf(&list, leaf(4u, {1, {0, 1}}));
+      ts_node_list_push_parent(&list, {14, 1});
+      ts_node_list_push_leaf(&list, leaf(5u, {1, {0, 1}}));
+      ts_node_list_push_parent(&list, {15, 1});
+      ts_node_list_push_parent(&list, {6, 3});
+      ts_node_list_push_parent(&list, {7, 1});
+      SyntaxTree *tree2 = ts_node_list_to_tree(&list, language, tree1);
 
       TSNode2 root2 = ts_syntax_tree_root_node(tree2);
       TSNode2 child2 = ts_node2_child(&root2, 0);
@@ -204,11 +174,11 @@ describe("SyntaxTree", [&]() {
       TREE_BRANCHING_FACTOR = 3;
 
       NodeList list = ts_node_list_new();
-      ts_node_list_push_leaf(&list, 2, {2, {0, 2}}, {3, {0, 3}});
-      ts_node_list_push_leaf(&list, 3, {2, {0, 2}}, {3, {0, 3}});
-      ts_node_list_push_leaf(&list, 4, {2, {0, 2}}, {3, {0, 3}});
-      ts_node_list_push_parent(&list, 1, 3);
-      tree = ts_node_list_to_tree(&list, &language, NULL);
+      ts_node_list_push_leaf(&list, {2, {2, {0, 2}}, {3, {0, 3}}, false});
+      ts_node_list_push_leaf(&list, {3, {2, {0, 2}}, {3, {0, 3}}, false});
+      ts_node_list_push_leaf(&list, {4, {2, {0, 2}}, {3, {0, 3}}, false});
+      ts_node_list_push_parent(&list, {1, 3});
+      tree = ts_node_list_to_tree(&list, language, NULL);
     });
 
     describe("edits within a tree's padding", [&]() {

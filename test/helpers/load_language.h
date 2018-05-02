@@ -5,6 +5,8 @@
 #include "tree_sitter/runtime.h"
 #include <string>
 
+const TSLanguage *get_dummy_language();
+
 const TSLanguage *load_real_language(const std::string &name);
 
 const TSLanguage *load_test_language(const std::string &name,

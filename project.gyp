@@ -93,6 +93,7 @@
         'src/runtime/lexer.c',
         'src/runtime/node.c',
         'src/runtime/stack.c',
+        'src/runtime/stack2.c',
         'src/runtime/parser.c',
         'src/runtime/string_input.c',
         'src/runtime/syntax_tree.c',

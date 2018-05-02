@@ -33,10 +33,23 @@ typedef struct {
   TreeCursorEntries right;
 } TreeCursor;
 
+typedef struct {
+  TSSymbol symbol;
+  Length padding;
+  Length size;
+  bool extra;
+} LeafNodeParams;
+
+typedef struct {
+  TSSymbol symbol;
+  uint32_t child_count;
+} InternalNodeParams;
+
 NodeList ts_node_list_new();
+NodeList ts_node_list_copy(NodeList *);
 void ts_node_list_delete(NodeList *);
-void ts_node_list_push_leaf(NodeList *, TSSymbol, Length padding, Length size);
-void ts_node_list_push_parent(NodeList *, TSSymbol, uint32_t child_count);
+void ts_node_list_push_leaf(NodeList *, LeafNodeParams);
+void ts_node_list_push_parent(NodeList *, InternalNodeParams);
 void ts_node_list_reuse(NodeList *, TreeCursor *);
 SyntaxTree *ts_node_list_to_tree(NodeList *, const TSLanguage *, SyntaxTree *);
 
@@ -49,6 +62,7 @@ void ts_tree_cursor_delete(TreeCursor *);
 bool ts_tree_cursor_descend(TreeCursor *);
 bool ts_tree_cursor_advance(TreeCursor *);
 TSNode2 ts_tree_cursor_current_node(TreeCursor *);
+Length ts_tree_cursor_position(TreeCursor *);
 
 TSPoint ts_node2_start_point(const TSNode2 *);
 TSPoint ts_node2_end_point(const TSNode2 *);

@@ -709,6 +709,10 @@ TSNode2 ts_tree_cursor_current_node(TreeCursor *self) {
   };
 }
 
+Length ts_tree_cursor_position(TreeCursor *self) {
+  return array_back(&self->left)->summary.size;
+}
+
 // TreeBuilder
 
 static TreeBuilder ts_tree_builder_new(const TSLanguage *language) {
@@ -1019,7 +1023,18 @@ bool ts_node2_has_changes(const TSNode2 *self) {
 // NodeList
 
 NodeList ts_node_list_new() {
-  return (NodeList) { .last = NULL };
+  return (NodeList) {
+    .last = NULL,
+    .count = 0,
+  };
+}
+
+NodeList ts_node_list_copy(NodeList *self) {
+  ts_syntax_tree_retain(self->last);
+  return (NodeList) {
+    .last = self->last,
+    .count = self->count,
+  };
 }
 
 void ts_node_list_delete(NodeList *self) {
@@ -1046,20 +1061,20 @@ void ts_node_list__push(NodeList *self, SyntaxNode *node) {
   }
 }
 
-void ts_node_list_push_leaf(NodeList *self, TSSymbol symbol, Length padding, Length size) {
+void ts_node_list_push_leaf(NodeList *self, LeafNodeParams params) {
   SyntaxNode node = {
-    .symbol = symbol,
+    .symbol = params.symbol,
     .child_count = 0,
-    .padding = padding,
-    .size = size,
+    .padding = params.padding,
+    .size = params.size,
   };
   ts_node_list__push(self, &node);
 }
 
-void ts_node_list_push_parent(NodeList *self, TSSymbol symbol, uint32_t child_count) {
+void ts_node_list_push_parent(NodeList *self, InternalNodeParams params) {
   SyntaxNode node = {
-    .symbol = symbol,
-    .child_count = child_count,
+    .symbol = params.symbol,
+    .child_count = params.child_count,
   };
   ts_node_list__push(self, &node);
 }
