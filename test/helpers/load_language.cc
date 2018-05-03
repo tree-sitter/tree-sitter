@@ -248,7 +248,8 @@ const TSLanguage *get_dummy_language() {
   static const TSSymbolMetadata symbol_metadata[] = {
     {true, true}, {true, true}, {true, true}, {true, true}, {true, true}, {true, true},
     {true, true}, {true, true}, {true, true}, {true, true}, {true, true}, {true, true},
-    {true, true}, {true, true}, {true, true},
+    {true, true}, {true, true}, {true, true}, {true, true}, {true, true}, {true, true},
+    {true, true}, {true, true}, {true, true}, {true, true}, {true, true}, {true, true},
   };
 
   static TSLanguage result;

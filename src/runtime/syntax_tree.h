@@ -52,6 +52,7 @@ void ts_node_list_push_leaf(NodeList *, LeafNodeParams);
 void ts_node_list_push_parent(NodeList *, InternalNodeParams);
 void ts_node_list_reuse(NodeList *, TreeCursor *);
 SyntaxTree *ts_node_list_to_tree(NodeList *, const TSLanguage *, SyntaxTree *);
+void ts_node_list_print_dot_graph(NodeList *, const TSLanguage *, FILE *);
 
 void ts_syntax_tree_delete(SyntaxTree *);
 TSNode2 ts_syntax_tree_root_node(const SyntaxTree *);

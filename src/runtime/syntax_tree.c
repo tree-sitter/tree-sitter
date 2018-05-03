@@ -499,35 +499,59 @@ void ts_syntax_tree_check_invariants(const SyntaxTree *self) {
   }
 }
 
-static unsigned get_color(unsigned index) {
-  return (index % 12) + 1;
+static const char *get_color(const unsigned index) {
+  static const char *colors[] = {
+    "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"
+  };
+  return colors[index % (sizeof(colors) / sizeof(colors[0]))];
 }
 
-static void ts_syntax_tree__print_dot_graph(const SyntaxTree *self, const TSLanguage *language,
-                                            FILE *f, uint32_t *node_index) {
+static const SyntaxTree *ts_syntax_tree__print_dot_graph(const SyntaxTree *self,
+                                                         const TSLanguage *language,
+                                                         FILE *f, uint32_t *node_index,
+                                                         uint32_t start_index,
+                                                         uint32_t end_index) {
   if (self->height == 0) {
-    fprintf(f, "node_%p [shape = plaintext, label = <<table cellpadding=\"4\" cellspacing=\"0\" border=\"0\"><tr>", self);
+    fprintf(
+      f,
+      "node_%p ["
+      "shape = plaintext, "
+      "label = <<table cellpadding=\"4\" cellspacing=\"0\" border=\"0\"><tr>",
+      self
+    );
     const SyntaxTreeLeaf *leaf = (const SyntaxTreeLeaf *)self;
-    for (unsigned i = 0; i < leaf->base.count; i++) {
+    for (unsigned i = start_index; i < end_index; i++) {
       const SyntaxNode *node = &leaf->entries[i];
       const char *name = ts_language_symbol_name(language, node->symbol);
-      unsigned color = get_color((*node_index)++);
-      fprintf(f, "<td bgcolor=\"%u\">%s</td>", color, name);
+      const char *color = "white";
+      if (node_index) {
+        color = get_color(*node_index);
+        *node_index += 1;
+      }
+      fprintf(f, "<td bgcolor=\"%s\">%s</td>", color, name);
       if (node->child_count > 0) fprintf(f, " %u", node->child_count);
     }
     fprintf(f, "</tr></table>>];\n");
+    return self;
   } else {
-    fprintf(f, "node_%p [label = \"", self);
+    fprintf(f, "node_%p [style=filled, fillcolor = white, label = \"", self);
     const SyntaxTreeInternal *internal = (const SyntaxTreeInternal *)self;
-    for (unsigned i = 0; i < internal->base.count; i++) {
-      if (i > 0) fprintf(f, " | ");
+    for (unsigned i = start_index; i < end_index; i++) {
+      if (i > start_index) fprintf(f, " | ");
       fprintf(f, "<child_%u> %u", i, internal->summaries[i].node_count);
     }
     fprintf(f, "\"];\n");
-    for (unsigned i = 0; i < internal->base.count; i++) {
-      fprintf(f, "node_%p:child_%u -> node_%p\n", internal, i, internal->children[i]);
-      ts_syntax_tree__print_dot_graph(internal->children[i], language, f, node_index);
+    const SyntaxTree *first_leaf;
+    assert(start_index < end_index);
+    for (unsigned i = start_index; i < end_index; i++) {
+      SyntaxTree *child = internal->children[i];
+      fprintf(f, "node_%p:child_%u -> node_%p\n", internal, i, child);
+      const SyntaxTree *leaf = ts_syntax_tree__print_dot_graph(
+        child, language, f, node_index, 0, child->count
+      );
+      if (i == start_index) first_leaf = leaf;
     }
+    return first_leaf;
   }
 }
 
@@ -539,7 +563,7 @@ void ts_syntax_tree_print_dot_graph(const SyntaxTree *self, const TSLanguage *la
   fprintf(f, "color = white\n");
   fprintf(f, "label = \"storage\";\n");
   uint32_t index = 0;
-  ts_syntax_tree__print_dot_graph(self, language, f, &index);
+  ts_syntax_tree__print_dot_graph(self, language, f, &index, 0, self->count);
   fprintf(f, "}\n");
 
   fprintf(f, "subgraph cluster_syntax {\n");
@@ -550,8 +574,8 @@ void ts_syntax_tree_print_dot_graph(const SyntaxTree *self, const TSLanguage *la
   for (;;) {
     TSNode2 node = ts_tree_cursor_current_node(&cursor);
     const char *name = ts_language_symbol_name(language, node.node->symbol);
-    unsigned color = get_color(node.index);
-    fprintf(f, "node_%u [label = \"%s\", fillcolor = %u];\n", node.index, name, color);
+    const char *color = get_color(node.index);
+    fprintf(f, "node_%u [label = \"%s\", fillcolor = %s];\n", node.index, name, color);
     if (node.node->node_count_to_parent) {
       uint32_t parent_index = node.index + node.node->node_count_to_parent;
       fprintf(f, "node_%u -> node_%u\n", parent_index, node.index);
@@ -559,7 +583,7 @@ void ts_syntax_tree_print_dot_graph(const SyntaxTree *self, const TSLanguage *la
     if (!ts_tree_cursor_descend(&cursor) && !ts_tree_cursor_advance(&cursor)) break;
   }
   ts_tree_cursor_delete(&cursor);
-  fprintf(f, "}\n");
+  fprintf(f, "}\n\n");
   fprintf(f, "}\n\n");
 }
 
@@ -1205,6 +1229,57 @@ SyntaxTree *ts_node_list_to_tree(NodeList *self, const TSLanguage *language, Syn
 
   array_delete(&parts);
   return ts_tree_builder_to_tree(&builder);
+}
+
+void ts_node_list_print_dot_graph(NodeList *self, const TSLanguage *language, FILE *f) {
+  fprintf(f, "digraph node_list {\n");
+  fprintf(f, "compound = true;\n");
+  fprintf(f, "rankdir = RL;\n");
+  fprintf(f, "node [shape = record, height = 0.1, colorscheme=spectral11];\n");
+
+  const SyntaxTree *next_tree = NULL, *next_leaf = NULL;
+  const SyntaxTree *tree = self->last;
+  while (tree) {
+    bool is_slice = false, has_root = false;
+    uint32_t start_index = 0, end_index = tree->count;
+    SyntaxTree *previous = tree->previous;
+    if (tree->height == TREE_HEIGHT_SLICE) {
+      SyntaxTreeSlice *slice = (SyntaxTreeSlice *)tree;
+      start_index = slice->start_index;
+      end_index = slice->end_index;
+      is_slice = true;
+      has_root = slice->has_root;
+      tree = slice->tree;
+    }
+
+    fprintf(f, "subgraph cluster_%p {\n", tree);
+    if (is_slice) {
+      const char *color = has_root ? "darkred" : "lightgray";
+      fprintf(f, "style = filled;\n");
+      fprintf(f, "fillcolor = %s;\n", color);
+    }
+    const SyntaxTree *leaf = ts_syntax_tree__print_dot_graph(
+      tree, language, f, NULL, start_index, end_index
+    );
+    fprintf(f, "}\n");
+    if (next_tree) {
+      fprintf(
+        f,
+        "node_%p -> node_%p ["
+        "style=dashed, "
+        "ltail=cluster_%p, "
+        "lhead=cluster_%p"
+        "];\n",
+        next_leaf, tree, next_tree, tree
+      );
+    }
+
+    next_tree = tree;
+    next_leaf = leaf;
+    tree = previous;
+  }
+
+  fprintf(f, "}\n\n");
 }
 
 #ifdef TREE_SITTER_TEST_MODE
