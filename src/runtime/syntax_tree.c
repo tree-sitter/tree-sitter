@@ -870,6 +870,8 @@ static void ts_tree_builder_populate_new_node(TreeBuilder *self, SyntaxNode *nod
 
 static void ts_tree_builder_push_tree(TreeBuilder *self, SyntaxTree *tree,
                                       uint32_t initial_height, SyntaxTreeSummary *summary) {
+  SyntaxTree *old_root = *array_back(&self->rightmost_trees);
+
   // Walk up the existing tree to find a subtree where the new tree can be inserted.
   // Continue walking upward after the insertion is complete in order to update each
   // tree's summary.
@@ -894,6 +896,10 @@ static void ts_tree_builder_push_tree(TreeBuilder *self, SyntaxTree *tree,
   // to contain the tree.
   if (tree_to_push) {
     SyntaxTreeInternal *root = ts_syntax_tree_new_internal(self->rightmost_trees.size);
+    if (old_root) {
+      SyntaxTreeSummary old_summary = ts_syntax_tree_summarize(old_root, 0, old_root->count);
+      ts_syntax_tree_push_child(root, old_root, &old_summary);
+    }
     ts_syntax_tree_push_child(root, tree_to_push, summary);
     array_push(&self->rightmost_trees, &root->base);
   }
