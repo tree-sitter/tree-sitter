@@ -56,6 +56,8 @@ SyntaxTree *ts_node_list_to_tree(NodeList *, const TSLanguage *, SyntaxTree *);
 void ts_syntax_tree_delete(SyntaxTree *);
 TSNode2 ts_syntax_tree_root_node(const SyntaxTree *);
 SyntaxTree *ts_syntax_tree_edit(SyntaxTree *, TSInputEdit);
+void ts_syntax_tree_check_invariants(const SyntaxTree *);
+void ts_syntax_tree_print_dot_graph(const SyntaxTree *, const TSLanguage *, FILE *);
 
 TreeCursor ts_tree_cursor_new(SyntaxTree *);
 void ts_tree_cursor_delete(TreeCursor *);

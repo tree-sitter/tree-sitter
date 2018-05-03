@@ -36,6 +36,12 @@ describe("SyntaxTree", [&]() {
     it("can construct a tree out of a sequence of individual nodes", [&]() {
       TREE_BRANCHING_FACTOR = 3;
 
+      // (symbol-8
+      //   (symbol-5)
+      //     (symbol-4)
+      //     (symbol-3 (symbol-1) (symbol-2)))
+      //   (symbol-6)
+      //   (symbol-7))
       NodeList list = ts_node_list_new();
       ts_node_list_push_leaf(&list, leaf(1u, {1, {0, 1}}));
       ts_node_list_push_leaf(&list, leaf(2u, {1, {0, 1}}));
@@ -46,6 +52,7 @@ describe("SyntaxTree", [&]() {
       ts_node_list_push_leaf(&list, leaf(7u, {1, {0, 1}}));
       ts_node_list_push_parent(&list, {8, 3});
       SyntaxTree *tree = ts_node_list_to_tree(&list, language, NULL);
+      ts_syntax_tree_check_invariants(tree);
 
       TSNode2 root = ts_syntax_tree_root_node(tree);
       AssertThat(ts_node2_symbol(&root), Equals(8u));
@@ -73,6 +80,10 @@ describe("SyntaxTree", [&]() {
     it("can construct a tree by reusing parts of an existing tree", [&]() {
       TREE_BRANCHING_FACTOR = 3;
 
+      // (symbol-6
+      //   (symbol-1)
+      //   (symbol-4 (symbol-2) (symbol-3))
+      //   (symbol-5))
       NodeList list = ts_node_list_new();
       ts_node_list_push_leaf(&list, leaf(1u, {1, {0, 1}}));
       ts_node_list_push_leaf(&list, leaf(2u, {1, {0, 1}}));
@@ -81,6 +92,7 @@ describe("SyntaxTree", [&]() {
       ts_node_list_push_leaf(&list, leaf(5u, {1, {0, 1}}));
       ts_node_list_push_parent(&list, {6, 3});
       SyntaxTree *tree1 = ts_node_list_to_tree(&list, language, NULL);
+      ts_syntax_tree_check_invariants(tree1);
 
       TreeCursor cursor = ts_tree_cursor_new(tree1);
       ts_tree_cursor_descend(&cursor);
@@ -90,6 +102,11 @@ describe("SyntaxTree", [&]() {
       AssertThat(ts_node2_symbol(&node_to_reuse), Equals(4u));
       AssertThat(ts_node2_child_count(&node_to_reuse), Equals(2u));
 
+      // (symbol-6
+      //   (symbol-11)
+      //   (symbol-12)
+      //   (symbol-4 (symbol-2) (symbol-3))
+      //   (symbol-15))
       list = ts_node_list_new();
       ts_node_list_push_leaf(&list, leaf(11u, {1, {0, 1}}));
       ts_node_list_push_leaf(&list, leaf(12u, {1, {0, 1}}));
@@ -97,6 +114,7 @@ describe("SyntaxTree", [&]() {
       ts_node_list_push_leaf(&list, leaf(15u, {1, {0, 1}}));
       ts_node_list_push_parent(&list, {6, 4});
       SyntaxTree *tree2 = ts_node_list_to_tree(&list, language, tree1);
+      ts_syntax_tree_check_invariants(tree2);
 
       TSNode2 root2 = ts_syntax_tree_root_node(tree2);
       AssertThat(ts_node2_symbol(&root2), Equals(6u));
@@ -115,6 +133,11 @@ describe("SyntaxTree", [&]() {
     it("does not mutate nodes in the existing tree when reusing them", [&]() {
       TREE_BRANCHING_FACTOR = 3;
 
+      // (symbol-7
+      //   (symbol-6
+      //     (symbol-3 (symbol-1) (symbol-2))
+      //     (symbol-4)
+      //     (symbol-5)))
       NodeList list = ts_node_list_new();
       ts_node_list_push_leaf(&list, leaf(1u, {1, {0, 1}}));
       ts_node_list_push_leaf(&list, leaf(2u, {1, {0, 1}}));
@@ -142,6 +165,12 @@ describe("SyntaxTree", [&]() {
       // but the entire leaf cannot be reused because the reused node itself must
       // be copied so that its contextual fields like `next_sibling_node_count`
       // can be updated.
+      //
+      // (symbol-7
+      //   (symbol-6
+      //     (symbol-3 (symbol-1) (symbol-2))
+      //     (symbol-14 (symbol-4))
+      //     (symbol-15 (symbol-5))))
       list = ts_node_list_new();
       ts_node_list_reuse(&list, &cursor);
       ts_node_list_push_leaf(&list, leaf(4u, {1, {0, 1}}));
@@ -179,6 +208,7 @@ describe("SyntaxTree", [&]() {
       ts_node_list_push_leaf(&list, {4, {2, {0, 2}}, {3, {0, 3}}, false});
       ts_node_list_push_parent(&list, {1, 3});
       tree = ts_node_list_to_tree(&list, language, NULL);
+      ts_syntax_tree_check_invariants(tree);
     });
 
     describe("edits within a tree's padding", [&]() {
@@ -191,6 +221,7 @@ describe("SyntaxTree", [&]() {
         edit.extent_removed = {0, 0};
         edit.extent_added = {0, 1};
         tree = ts_syntax_tree_edit(tree, edit);
+        ts_syntax_tree_check_invariants(tree);
 
         TSNode2 root = ts_syntax_tree_root_node(tree);
         AssertThat(ts_node2_has_changes(&root), IsTrue());
@@ -221,6 +252,7 @@ describe("SyntaxTree", [&]() {
         edit.extent_removed = {0, 3};
         edit.extent_added = {0, 4};
         tree = ts_syntax_tree_edit(tree, edit);
+        ts_syntax_tree_check_invariants(tree);
 
         TSNode2 root = ts_syntax_tree_root_node(tree);
         AssertThat(ts_node2_has_changes(&root), IsTrue());
@@ -246,6 +278,7 @@ describe("SyntaxTree", [&]() {
         edit.extent_removed = {0, 0};
         edit.extent_added = {0, 2};
         tree = ts_syntax_tree_edit(tree, edit);
+        ts_syntax_tree_check_invariants(tree);
 
         TSNode2 root = ts_syntax_tree_root_node(tree);
         AssertThat(ts_node2_has_changes(&root), IsTrue());
@@ -271,6 +304,7 @@ describe("SyntaxTree", [&]() {
         edit.extent_removed = {0, 2};
         edit.extent_added = {0, 5};
         tree = ts_syntax_tree_edit(tree, edit);
+        ts_syntax_tree_check_invariants(tree);
 
         TSNode2 root = ts_syntax_tree_root_node(tree);
         AssertThat(ts_node2_has_changes(&root), IsTrue());
@@ -296,6 +330,7 @@ describe("SyntaxTree", [&]() {
         edit.extent_removed = {0, 10};
         edit.extent_added = {0, 3};
         tree = ts_syntax_tree_edit(tree, edit);
+        ts_syntax_tree_check_invariants(tree);
 
         TSNode2 root = ts_syntax_tree_root_node(tree);
         AssertThat(ts_node2_has_changes(&root), IsTrue());
