@@ -200,13 +200,15 @@ describe("SyntaxTree", [&]() {
     it("removes the last parent node and identifies all of its children", [&]() {
       TREE_BRANCHING_FACTOR = 3;
 
-      // (symbol-14
-      //   (symbol-8
-      //     (symbol-3 (symbol-1) (symbol-2))
-      //     (symbol-6 (symbol-4) (symbol-5))
-      //     (symbol-7))
-      //   (symbol-9)
-      //   (symbol-13 (symbol-10) (symbol-11) (symbol-12)))
+      // (symbol-16
+      //   (symbol-14
+      //     (symbol-8
+      //       (symbol-3 (symbol-1) (symbol-2))
+      //       (symbol-6 (symbol-4) (symbol-5))
+      //       (symbol-7))
+      //     (symbol-9)
+      //     (symbol-13 (symbol-10) (symbol-11) (symbol-12)))
+      //   (symbol-15))
       NodeList list = ts_node_list_new();
       ts_node_list_push_leaf(&list, leaf(1u, {1, {0, 1}}));
       ts_node_list_push_leaf(&list, leaf(2u, {1, {0, 1}}));
@@ -222,18 +224,21 @@ describe("SyntaxTree", [&]() {
       ts_node_list_push_leaf(&list, leaf(12u, {1, {0, 1}}));
       ts_node_list_push_parent(&list, {13u, 3});
       ts_node_list_push_parent(&list, {14u, 3});
+      ts_node_list_push_leaf(&list, leaf(15u, {1, {0, 1}}));
+      ts_node_list_push_parent(&list, {16u, 2});
+
       SyntaxTree *tree = ts_node_list_to_tree(&list, language, NULL);
       ts_syntax_tree_check_invariants(tree);
 
       TreeCursor cursor = ts_tree_cursor_new(tree);
       ts_tree_cursor_descend(&cursor);
       TSNode2 node_to_reuse = ts_tree_cursor_current_node(&cursor);
-      AssertThat(ts_node2_symbol(&node_to_reuse), Equals(8u));
+      AssertThat(ts_node2_symbol(&node_to_reuse), Equals(14u));
       AssertThat(ts_node2_child_count(&node_to_reuse), Equals(3u));
 
       list = ts_node_list_new();
-      ts_node_list_push_leaf(&list, leaf(12u, {1, {0, 1}}));
-      ts_node_list_push_leaf(&list, leaf(13u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(21u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(22u, {1, {0, 1}}));
       ts_node_list_reuse(&list, &cursor);
 
       BreakdownResult children = array_new();
@@ -241,12 +246,12 @@ describe("SyntaxTree", [&]() {
       ts_node_list_breakdown(&list, &list_iter, &children);
 
       AssertThat(children.size, Equals(3u));
-      AssertThat(children.contents[0].symbol, Equals(3u));
-      AssertThat(children.contents[1].symbol, Equals(6u));
-      AssertThat(children.contents[2].symbol, Equals(7u));
-      AssertThat(children.contents[0].size, Equals<Length>({2, {0, 2}}));
-      AssertThat(children.contents[1].size, Equals<Length>({3, {0, 3}}));
-      AssertThat(children.contents[2].size, Equals<Length>({1, {0, 1}}));
+      AssertThat(children.contents[0].symbol, Equals(8u));
+      AssertThat(children.contents[1].symbol, Equals(9u));
+      AssertThat(children.contents[2].symbol, Equals(13u));
+      AssertThat(children.contents[0].size, Equals<Length>({6, {0, 6}}));
+      AssertThat(children.contents[1].size, Equals<Length>({1, {0, 1}}));
+      AssertThat(children.contents[2].size, Equals<Length>({3, {0, 3}}));
 
       array_delete(&children);
       ts_node_list_delete(&list);

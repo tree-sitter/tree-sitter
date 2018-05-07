@@ -230,13 +230,12 @@ static bool ts_syntax_tree_push_child(SyntaxTreeInternal *self, SyntaxTree *chil
   }
 }
 
-static bool ts_syntax_tree_push_slice(SyntaxTree *self, SyntaxTree *other,
-                                      uint32_t start, uint32_t end) {
-  if (self->count + end - start > TREE_BRANCHING_FACTOR || self->ref_count > 1) {
+static bool ts_syntax_tree_combine(SyntaxTree *self, SyntaxTree *other) {
+  if (self->count + other->count > TREE_BRANCHING_FACTOR || self->ref_count > 1) {
     return false;
   }
 
-  self->reused_children |= ((other->reused_children >> start) << self->count);
+  self->reused_children |= (other->reused_children << self->count);
 
   assert(self->height == other->height);
   if (self->height == 0) {
@@ -244,30 +243,29 @@ static bool ts_syntax_tree_push_slice(SyntaxTree *self, SyntaxTree *other,
     SyntaxTreeLeaf *other_leaf = (SyntaxTreeLeaf *)other;
     memcpy(
       &leaf->entries[leaf->base.count],
-      &other_leaf->entries[start],
-      (end - start) * sizeof(SyntaxNode)
+      &other_leaf->entries[0],
+      other->count * sizeof(SyntaxNode)
     );
-    leaf->base.count += end - start;
   } else {
     SyntaxTreeInternal *internal = (SyntaxTreeInternal *)self;
     SyntaxTreeInternal *other_internal = (SyntaxTreeInternal *)other;
-    for (unsigned i = 0; i < (end - start); i++) {
-      SyntaxTree *child = other_internal->children[start + i];
+    for (unsigned i = 0; i < other->count; i++) {
+      SyntaxTree *child = other_internal->children[i];
       ts_syntax_tree_retain(child);
       internal->children[internal->base.count + i] = child;
     }
     memcpy(
       &internal->summaries[internal->base.count],
-      &other_internal->summaries[start],
-      (end - start) * sizeof(SyntaxTreeSummary)
+      &other_internal->summaries[0],
+      other->count * sizeof(SyntaxTreeSummary)
     );
-    internal->base.count += end - start;
   }
+  self->count += other->count;
 
   return true;
 }
 
-static SyntaxTree *ts_syntax_tree_copy_slice(SyntaxTree *self, uint32_t start, uint32_t end) {
+static SyntaxTree *ts_syntax_tree_copy(SyntaxTree *self) {
   SyntaxTree *result;
   if (self->height == 0) {
     result = &ts_syntax_tree_new_leaf()->base;
@@ -275,7 +273,7 @@ static SyntaxTree *ts_syntax_tree_copy_slice(SyntaxTree *self, uint32_t start, u
     result = &ts_syntax_tree_new_internal(self->height)->base;
   }
   result->is_new = false;
-  ts_syntax_tree_push_slice(result, self, start, end);
+  ts_syntax_tree_combine(result, self);
   return result;
 }
 
@@ -288,7 +286,7 @@ static SyntaxTree *ts_syntax_tree_mark_child_reused(SyntaxTree *self, uint32_t i
   if (self->ref_count == 1) {
     result = self;
   } else {
-    result = ts_syntax_tree_copy_slice(self, 0, self->count);
+    result = ts_syntax_tree_copy(self);
     ts_syntax_tree_delete(self);
   }
 
@@ -346,7 +344,7 @@ static SyntaxTree *ts_syntax_tree__edit(SyntaxTree *self, const Edit *edit,
   if (self->ref_count == 1) {
     result = self;
   } else {
-    result = ts_syntax_tree_copy_slice(self, 0, self->count);
+    result = ts_syntax_tree_copy(self);
     ts_syntax_tree_delete(self);
   }
 
@@ -705,81 +703,6 @@ static void ts_tree_cursor__prepare(TreeCursorEntries *self) {
   }
 }
 
-static SyntaxTree *ts_tree_cursor__take_slice(TreeCursor *self) {
-  TreeCursorEntry *left_entry = array_back(&self->left);
-  TreeCursorEntry *right_entry = array_back(&self->right);
-  uint32_t goal_index = right_entry->summary.node_count + 1;
-  assert(left_entry->summary.node_count < goal_index);
-
-  // Walk up the tree to find which subtree to advance within.
-  for (uint32_t i = self->left.size - 1; i + 1 > 0; i--) {
-    TreeCursorEntry *entry = &self->left.contents[i];
-
-    // If only a subset of this subtree is needed, advance to the end of this subtree.
-    // Otherwise, advance at a higher level in the tree.
-    if (i > 0 && entry->index == 0) {
-      TreeCursorEntry *previous_entry = &self->left.contents[i - 1];
-      SyntaxTreeInternal *internal = (SyntaxTreeInternal *)previous_entry->tree;
-      SyntaxTreeSummary *summary = &internal->summaries[previous_entry->index];
-      if (previous_entry->summary.node_count + summary->node_count < goal_index) {
-        continue;
-      }
-    }
-
-    SyntaxTree *tree = entry->tree;
-    uint32_t start_index = entry->index;
-    uint32_t end_index = entry->tree->count;
-
-    // Find what span of this tree is needed.
-    if (entry->tree->height == 0) {
-      SyntaxTreeLeaf *leaf = (SyntaxTreeLeaf *)entry->tree;
-      for (unsigned j = entry->index; j < leaf->base.count; j++) {
-        SyntaxTreeSummary next_summary = entry->summary;
-        ts_syntax_tree_summary_add(&next_summary, ts_syntax_tree_summary_new(&leaf->entries[j]));
-        if (next_summary.node_count > goal_index) {
-          end_index = j;
-          break;
-        }
-        entry->summary = next_summary;
-      }
-    } else {
-      SyntaxTreeInternal *internal = (SyntaxTreeInternal *)entry->tree;
-      for (unsigned j = entry->index; j < internal->base.count; j++) {
-        SyntaxTreeSummary next_summary = entry->summary;
-        ts_syntax_tree_summary_add(&next_summary, internal->summaries[j]);
-        if (next_summary.node_count > goal_index) {
-          end_index = j;
-          break;
-        }
-        entry->summary = next_summary;
-      }
-    }
-
-    // Advance the left edge of the cursor to the end of the consumed range.
-    entry->index = end_index;
-    self->left.size = i + 1;
-    uint32_t node_count = entry->summary.node_count;
-    ts_tree_cursor__prepare(&self->left);
-
-    SyntaxTree *result = ts_syntax_tree_copy_slice(tree, start_index, end_index);
-    if (node_count == goal_index) {
-      ts_tree_cursor_advance(self);
-      result = ts_syntax_tree_mark_child_reused(result, result->count - 1);
-      tree = result;
-      while (tree->height > 0) {
-        SyntaxTreeInternal *internal = (SyntaxTreeInternal *)tree;
-        SyntaxTree **child = &internal->children[internal->base.count - 1];
-        *child = ts_syntax_tree_mark_child_reused(*child, (*child)->count - 1);
-        tree = *child;
-      }
-    }
-
-    return result;
-  }
-
-  assert(!"Tried to walk tree iterator past its end");
-}
-
 TreeCursor ts_tree_cursor_new(SyntaxTree *tree) {
   TreeCursor self = {array_new(), array_new()};
   array_reserve(&self.left, tree->height + 1);
@@ -976,7 +899,7 @@ static void ts_tree_builder_push_tree(TreeBuilder *self, SyntaxTree *tree) {
 
   SyntaxTree *tree_to_push = tree;
   SyntaxTree *existing_tree = self->rightmost_trees.contents[tree->height];
-  if (existing_tree && ts_syntax_tree_push_slice(existing_tree, tree, 0, tree->count)) {
+  if (existing_tree && ts_syntax_tree_combine(existing_tree, tree)) {
     ts_syntax_tree_delete(tree);
     tree = existing_tree;
     tree_to_push = NULL;
@@ -1206,6 +1129,12 @@ void ts_node_list_iterator_delete(NodeListIterator *self) {
   if (self->next_trees.contents) array_delete(&self->next_trees);
 }
 
+void ts_node_list__push_tree(NodeList *self, SyntaxTree *tree) {
+  tree->previous = self->last;
+  self->last = tree;
+  self->count++;
+}
+
 void ts_node_list__push(NodeList *self, SyntaxNode *node) {
   if (!self->last || self->last->height != 0 ||
       !ts_syntax_tree_push_node((SyntaxTreeLeaf *)self->last, node)) {
@@ -1236,12 +1165,69 @@ void ts_node_list_push_parent(NodeList *self, InternalNodeParams params) {
 }
 
 void ts_node_list_reuse(NodeList *self, TreeCursor *cursor) {
+  uint32_t goal_index = array_back(&cursor->right)->summary.node_count + 1;
+  bool done = false;
+
+  while (!done) {
+    // Walk up the tree to find the largest subtree that can be reused in its entirety.
+    for (uint32_t i = cursor->left.size - 1; i + 1 > 0; i--) {
+      TreeCursorEntry *entry = &cursor->left.contents[i];
+
+      if (i > 0 && entry->index == 0) {
+        TreeCursorEntry *previous_entry = &cursor->left.contents[i - 1];
+        SyntaxTreeInternal *internal = (SyntaxTreeInternal *)previous_entry->tree;
+        SyntaxTreeSummary *summary = &internal->summaries[previous_entry->index];
+        if (previous_entry->summary.node_count + summary->node_count < goal_index) {
+          continue;
+        }
+      }
+
+      // Find what span of this tree is needed.
+      if (entry->tree->height == 0) {
+        SyntaxTreeLeaf *leaf = (SyntaxTreeLeaf *)entry->tree;
+        while (entry->index < leaf->base.count) {
+          SyntaxNode *node = &leaf->entries[entry->index];
+          ts_node_list__push(self, node);
+          ts_syntax_tree_summary_add(&entry->summary, ts_syntax_tree_summary_new(node));
+          entry->index++;
+          if (entry->summary.node_count == goal_index) {
+            done = true;
+            break;
+          }
+        }
+      } else {
+        SyntaxTreeInternal *internal = (SyntaxTreeInternal *)entry->tree;
+        while (entry->index < internal->base.count) {
+          SyntaxTree *child = internal->children[entry->index];
+          SyntaxTreeSummary next_summary = entry->summary;
+          ts_syntax_tree_summary_add(&next_summary, internal->summaries[entry->index]);
+          if (next_summary.node_count > goal_index) break;
+          ts_node_list__push_tree(self, ts_syntax_tree_copy(child));
+          entry->index++;
+          entry->summary = next_summary;
+          if (entry->summary.node_count == goal_index) {
+            done = true;
+            break;
+          }
+        }
+      }
+
+      cursor->left.size = i + 1;
+      ts_tree_cursor__prepare(&cursor->left);
+      break;
+    }
+  }
+
+  ts_tree_cursor_advance(cursor);
+  SyntaxTree **tree = &self->last;
   for (;;) {
-    SyntaxTree *tree = ts_tree_cursor__take_slice(cursor);
-    tree->previous = self->last;
-    self->last = tree;
-    self->count++;
-    if (tree->reused_children != 0) break;
+    *tree = ts_syntax_tree_mark_child_reused(*tree, (*tree)->count - 1);
+    if ((*tree)->height > 0) {
+      SyntaxTreeInternal *internal = (SyntaxTreeInternal *)*tree;
+      tree = &internal->children[internal->base.count - 1];
+    } else {
+      break;
+    }
   }
 }
 
@@ -1342,7 +1328,7 @@ void ts_node_list_breakdown(NodeList *self, NodeListIterator *iterator, Breakdow
 
       ts_syntax_tree_summary_add(&summary, ts_syntax_tree_summary_new(node));
       ts_syntax_tree_summary_add(&previous_trees_summary, summary);
-      next_child_index -= previous_trees_summary.node_count;
+      next_child_index -= summary.node_count;
       array_clear(&iterator->stack);
       array_push(&iterator->stack, ((TreeCursorEntry) {
         .tree = array_pop(&iterator->next_trees),

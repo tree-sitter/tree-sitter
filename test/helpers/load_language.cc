@@ -242,10 +242,13 @@ const TSLanguage *load_real_language(const string &language_name) {
 const TSLanguage *get_dummy_language() {
   static const char *symbol_names[] = {
     "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
-    "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen"
+    "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+    "eighteen", "nineteen", "twenty", "twenty-one", "twenty-two", "twenty-three",
+    "twenty-four", "twenty-five",
   };
 
   static const TSSymbolMetadata symbol_metadata[] = {
+    {true, true}, {true, true}, {true, true}, {true, true}, {true, true}, {true, true},
     {true, true}, {true, true}, {true, true}, {true, true}, {true, true}, {true, true},
     {true, true}, {true, true}, {true, true}, {true, true}, {true, true}, {true, true},
     {true, true}, {true, true}, {true, true}, {true, true}, {true, true}, {true, true},
