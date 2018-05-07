@@ -41,9 +41,21 @@ typedef struct {
 } LeafNodeParams;
 
 typedef struct {
+  Length size;
+  TSSymbol symbol;
+} BreakdownEntry;
+
+typedef Array(BreakdownEntry) BreakdownResult;
+
+typedef struct {
   TSSymbol symbol;
   uint32_t child_count;
 } InternalNodeParams;
+
+typedef struct {
+  TreeCursorEntries stack;
+  Array(SyntaxTree *) next_trees;
+} NodeListIterator;
 
 NodeList ts_node_list_new();
 NodeList ts_node_list_copy(NodeList *);
@@ -51,10 +63,13 @@ void ts_node_list_delete(NodeList *);
 void ts_node_list_push_leaf(NodeList *, LeafNodeParams);
 void ts_node_list_push_parent(NodeList *, InternalNodeParams);
 void ts_node_list_reuse(NodeList *, TreeCursor *);
+void ts_node_list_breakdown(NodeList *, NodeListIterator *, BreakdownResult *);
 SyntaxTree *ts_node_list_to_tree(NodeList *, const TSLanguage *, SyntaxTree *);
 void ts_node_list_print_dot_graph(NodeList *, const TSLanguage *, FILE *);
+NodeListIterator ts_node_list_iterator_new();
+void ts_node_list_iterator_delete(NodeListIterator *);
 
-void ts_syntax_tree_delete(SyntaxTree *);
+bool ts_syntax_tree_delete(SyntaxTree *);
 TSNode2 ts_syntax_tree_root_node(const SyntaxTree *);
 SyntaxTree *ts_syntax_tree_edit(SyntaxTree *, TSInputEdit);
 void ts_syntax_tree_check_invariants(const SyntaxTree *);

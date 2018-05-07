@@ -196,6 +196,66 @@ describe("SyntaxTree", [&]() {
     });
   });
 
+  describe("breakdown", [&]() {
+    it("removes the last parent node and identifies all of its children", [&]() {
+      TREE_BRANCHING_FACTOR = 3;
+
+      // (symbol-14
+      //   (symbol-8
+      //     (symbol-3 (symbol-1) (symbol-2))
+      //     (symbol-6 (symbol-4) (symbol-5))
+      //     (symbol-7))
+      //   (symbol-9)
+      //   (symbol-13 (symbol-10) (symbol-11) (symbol-12)))
+      NodeList list = ts_node_list_new();
+      ts_node_list_push_leaf(&list, leaf(1u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(2u, {1, {0, 1}}));
+      ts_node_list_push_parent(&list, {3u, 2});
+      ts_node_list_push_leaf(&list, leaf(4u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(5u, {2, {0, 2}}));
+      ts_node_list_push_parent(&list, {6u, 2});
+      ts_node_list_push_leaf(&list, leaf(7u, {1, {0, 1}}));
+      ts_node_list_push_parent(&list, {8u, 3});
+      ts_node_list_push_leaf(&list, leaf(9u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(10u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(11u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(12u, {1, {0, 1}}));
+      ts_node_list_push_parent(&list, {13u, 3});
+      ts_node_list_push_parent(&list, {14u, 3});
+      SyntaxTree *tree = ts_node_list_to_tree(&list, language, NULL);
+      ts_syntax_tree_check_invariants(tree);
+
+      TreeCursor cursor = ts_tree_cursor_new(tree);
+      ts_tree_cursor_descend(&cursor);
+      TSNode2 node_to_reuse = ts_tree_cursor_current_node(&cursor);
+      AssertThat(ts_node2_symbol(&node_to_reuse), Equals(8u));
+      AssertThat(ts_node2_child_count(&node_to_reuse), Equals(3u));
+
+      list = ts_node_list_new();
+      ts_node_list_push_leaf(&list, leaf(12u, {1, {0, 1}}));
+      ts_node_list_push_leaf(&list, leaf(13u, {1, {0, 1}}));
+      ts_node_list_reuse(&list, &cursor);
+
+      BreakdownResult children = array_new();
+      NodeListIterator list_iter = ts_node_list_iterator_new();
+      ts_node_list_breakdown(&list, &list_iter, &children);
+
+      AssertThat(children.size, Equals(3u));
+      AssertThat(children.contents[0].symbol, Equals(3u));
+      AssertThat(children.contents[1].symbol, Equals(6u));
+      AssertThat(children.contents[2].symbol, Equals(7u));
+      AssertThat(children.contents[0].size, Equals<Length>({2, {0, 2}}));
+      AssertThat(children.contents[1].size, Equals<Length>({3, {0, 3}}));
+      AssertThat(children.contents[2].size, Equals<Length>({1, {0, 1}}));
+
+      array_delete(&children);
+      ts_node_list_delete(&list);
+      ts_node_list_iterator_delete(&list_iter);
+      ts_syntax_tree_delete(tree);
+      ts_tree_cursor_delete(&cursor);
+    });
+  });
+
   describe("editing", [&]() {
     SyntaxTree *tree = nullptr;
 
