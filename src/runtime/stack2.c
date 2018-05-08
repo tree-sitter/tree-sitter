@@ -75,6 +75,8 @@ typedef struct {
 struct Stack {
   Array(StackHead) heads;
   Array(Iterator) iterators;
+  BreakdownResult breakdown_result;
+  NodeListIterator node_list_iterator;
   ExtraTokensPool extra_token_array_pool;
   StackNodePool node_pool;
   StackNode *base_node;
@@ -202,9 +204,12 @@ Stack *ts_stack2_new(TreePool *tree_pool) {
   array_init(&self->heads);
   array_init(&self->iterators);
   array_init(&self->node_pool);
+  array_init(&self->breakdown_result);
   array_reserve(&self->heads, 4);
   array_reserve(&self->iterators, 4);
+  array_reserve(&self->breakdown_result, 8);
   array_reserve(&self->node_pool, MAX_NODE_POOL_SIZE);
+  self->node_list_iterator = ts_node_list_iterator_new();
 
   self->base_node = stack_node_new(&self->node_pool, NULL, false, length_zero(), 1);
   ts_stack2_clear(self);
@@ -236,6 +241,9 @@ void ts_stack2_delete(Stack *self) {
     array_delete(&self->extra_token_array_pool);
   }
 
+  if (self->breakdown_result.contents) array_delete(&self->breakdown_result);
+  ts_node_list_iterator_delete(&self->node_list_iterator);
+
   array_delete(&self->heads);
   ts_free(self);
 }
@@ -262,7 +270,7 @@ void ts_stack2_push_existing(Stack *self, StackVersion version, TSStateId state,
   Length previous_position = ts_tree_cursor_position(cursor);
   ts_node_list_reuse(&head->node_list, cursor);
   Length size = length_sub(ts_tree_cursor_position(cursor), previous_position);
-  head->node = stack_node_new(&self->node_pool, head->node, false, size, state);
+  head->node = stack_node_new(&self->node_pool, head->node, true, size, state);
 }
 
 inline void ts_stack2__add_popped_version(Stack *self, StackVersion original_version,
@@ -283,6 +291,8 @@ inline void ts_stack2__add_popped_version(Stack *self, StackVersion original_ver
     .node = iterator->node,
     .node_count_at_last_error = original_head->node_count_at_last_error,
     .status = StackStatusActive,
+    .node_list = original_head->node_list,
+    .trailing_extras = original_head->trailing_extras,
     .lookahead_when_paused = 0,
   }));
   stack_node_retain(iterator->node);
@@ -365,18 +375,19 @@ inline bool stack__iter(Stack *self, StackVersion version, StackCallback callbac
   // the first newly-created version.
   if (self->heads.size > previous_version_count) {
     StackHead *head = &self->heads.contents[version];
-    ExtraTokenArray trailing_extras = head->trailing_extras;
-    NodeList node_list = head->node_list;
+    head->node_list = ts_node_list_new();
+    head->trailing_extras = (ExtraTokenArray) array_new();
     ts_stack2_renumber_version(self, previous_version_count, version);
 
     for (unsigned i = previous_version_count; i < self->heads.size; i++) {
       StackHead *head = &self->heads.contents[i];
-      head->node_list = ts_node_list_copy(&node_list);
-      if (trailing_extras.size > 0) {
-        head->trailing_extras = self->extra_token_array_pool.size > 0
+      head->node_list = ts_node_list_copy(&head->node_list);
+      if (head->trailing_extras.size > 0) {
+        ExtraTokenArray trailing_extras = self->extra_token_array_pool.size > 0
           ? array_pop(&self->extra_token_array_pool)
           : (ExtraTokenArray) array_new();
-        array_assign(&head->trailing_extras, &trailing_extras);
+        array_assign(&trailing_extras, &head->trailing_extras);
+        head->trailing_extras = trailing_extras;
       }
     }
 
@@ -414,7 +425,7 @@ void ts_stack2_reduce(Stack *self, StackVersion version,
   }
 }
 
-inline StackAction pop_pending_callback(void *payload, const Iterator *iterator) {
+inline StackAction breakdown_callback(void *payload, const Iterator *iterator) {
   if (iterator->depth >= 1) {
     if (iterator->is_pending) {
       return StackActionPop | StackActionStop;
@@ -426,7 +437,20 @@ inline StackAction pop_pending_callback(void *payload, const Iterator *iterator)
   }
 }
 
-void ts_stack2_pop_pending(Stack *self, StackVersion version) {
+BreakdownResult *ts_stack2_breakdown(Stack *self, StackVersion version, StateArray *states) {
+  if (stack__iter(self, version, breakdown_callback, NULL)) {
+    StackHead *head = &self->heads.contents[version];
+    TSStateId state = head->node->state;
+    ts_node_list_breakdown(&head->node_list, &self->node_list_iterator, &self->breakdown_result);
+    for (unsigned i = 0; i < self->breakdown_result.size; i++) {
+      BreakdownEntry entry = self->breakdown_result.contents[i];
+      head->node = stack_node_new(&self->node_pool, head->node, false, entry.size, state);
+      array_push(states, &head->node->state);
+    }
+    return &self->breakdown_result;
+  } else {
+    return NULL;
+  }
 }
 
 // Stack - Queries
@@ -626,7 +650,8 @@ bool ts_stack2_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f)
     f = stderr;
 
   fprintf(f, "digraph stack {\n");
-  fprintf(f, "rankdir=\"RL\";\n");
+  fprintf(f, "colorscheme = x11;\n");
+  fprintf(f, "rankdir = \"RL\";\n");
   fprintf(f, "edge [arrowhead=none]\n");
 
   Array(StackNode *) visited_nodes = array_new();
@@ -711,9 +736,16 @@ bool ts_stack2_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f)
     }
   }
 
-  fprintf(f, "}\n");
+  fprintf(f, "}\n\n");
+
+  for (uint32_t i = 0; i < self->heads.size; i++) {
+    StackHead *head = &self->heads.contents[i];
+    if (head->status == StackStatusHalted) continue;
+    ts_node_list_print_dot_graph(&head->node_list, language, f);
+  }
 
   array_delete(&visited_nodes);
   ts_toggle_allocation_recording(was_recording_allocations);
+
   return true;
 }

@@ -38,7 +38,7 @@ Length ts_stack2_position(const Stack *, StackVersion);
 uint32_t ts_stack2_node_count_since_error(const Stack *, StackVersion);
 int32_t ts_stack2_dynamic_precedence(const Stack *, StackVersion);
 uint32_t ts_stack2_error_cost(const Stack *, StackVersion);
-void ts_stack2_record_summary(Stack *, StackVersion, unsigned max_depth);
+void ts_stack2_record_summary(Stack *, StackVersion, unsigned);
 StackSummary *ts_stack2_get_summary(Stack *, StackVersion);
 
 // Mutations
@@ -47,7 +47,7 @@ void ts_stack2_push_leaf(Stack *, StackVersion, TSStateId, LeafNodeParams);
 void ts_stack2_push_existing(Stack *, StackVersion, TSStateId, TreeCursor *);
 void ts_stack2_push_error(Stack *, StackVersion);
 void ts_stack2_reduce(Stack *, StackVersion, InternalNodeParams, StateArray *);
-void ts_stack2_unreduce(Stack *, StackVersion, StateArray *);
+BreakdownResult *ts_stack2_breakdown(Stack *, StackVersion, StateArray *);
 
 // Version management
 

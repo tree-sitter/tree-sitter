@@ -157,6 +157,44 @@ describe("Stack2", [&]() {
       }));
     });
   });
+
+  describe("breakdown", [&]() {
+    it("pops the last parent node and pushes each of its children", [&]() {
+      NodeList list = ts_node_list_new();
+      ts_node_list_push_leaf(&list, leaf(1u, size));
+      ts_node_list_push_leaf(&list, leaf(2u, size));
+      ts_node_list_push_parent(&list, {3u, 2});
+      ts_node_list_push_leaf(&list, leaf(4u, size));
+      ts_node_list_push_parent(&list, {5u, 2});
+      ts_node_list_push_leaf(&list, leaf(6u, size));
+      ts_node_list_push_leaf(&list, leaf(7u, size));
+      ts_node_list_push_parent(&list, {8u, 3});
+      SyntaxTree *old_tree = ts_node_list_to_tree(&list, language, NULL);
+
+      TreeCursor cursor = ts_tree_cursor_new(old_tree);
+      ts_tree_cursor_descend(&cursor);
+      ts_stack2_push_existing(stack, 0, 10u, &cursor);
+
+      BreakdownResult *result = ts_stack2_breakdown(stack, 0, &states);
+      AssertThat(result->size, Equals(2u));
+      AssertThat(result->contents[0].symbol, Equals(3u));
+      AssertThat(result->contents[1].symbol, Equals(4u));
+      *states.contents[0] = 14;
+      *states.contents[1] = 15;
+
+      AssertThat(get_stack2_entries(stack, 0), Equals<vector<StackEntry2>>({
+        {15u, 0u},
+        {14u, 1u},
+        {1u, 2u},
+      }));
+
+      AssertThat(ts_stack2_state(stack, 0), Equals(15u));
+      AssertThat(ts_stack2_position(stack, 0), Equals(size * 3u));
+
+      ts_syntax_tree_delete(old_tree);
+      ts_tree_cursor_delete(&cursor);
+    });
+  });
 });
 
 END_TEST
