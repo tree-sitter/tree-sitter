@@ -85,6 +85,7 @@ TSNode ts_node_named_child(TSNode, uint32_t);
 uint32_t ts_node_child_count(TSNode);
 uint32_t ts_node_named_child_count(TSNode);
 uint32_t ts_node_child_index(TSNode);
+uint32_t ts_node_descendant_count(TSNode);
 TSNode ts_node_next_sibling(TSNode);
 TSNode ts_node_next_named_sibling(TSNode);
 TSNode ts_node_prev_sibling(TSNode);

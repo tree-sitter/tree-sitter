@@ -93,8 +93,10 @@
         'src/runtime/lexer.c',
         'src/runtime/node.c',
         'src/runtime/stack.c',
+        'src/runtime/stack2.c',
         'src/runtime/parser.c',
         'src/runtime/string_input.c',
+        'src/runtime/syntax_tree.c',
         'src/runtime/tree.c',
         'src/runtime/utf16.c',
         'externals/utf8proc/utf8proc.c',
@@ -125,7 +127,7 @@
         },
       },
       'Test': {
-        'defines': ['TREE_SITTER_WRAP_MALLOC=true'],
+        'defines': ['TREE_SITTER_TEST_MODE=true'],
         'cflags': [ '-g' ],
         'ldflags': [ '-g' ],
         'xcode_settings': {

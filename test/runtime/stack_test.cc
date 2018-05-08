@@ -19,10 +19,6 @@ enum {
   symbol9, symbol10
 };
 
-Length operator*(const Length &length, uint32_t factor) {
-  return {length.bytes * factor, {0, length.extent.column * factor}};
-}
-
 void free_slice_array(TreePool *pool, StackSliceArray *slices) {
   for (size_t i = 0; i < slices->size; i++) {
     StackSlice slice = slices->contents[i];

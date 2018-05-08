@@ -354,6 +354,11 @@ uint32_t ts_node_named_child_count(TSNode self) {
   }
 }
 
+uint32_t ts_node_descendant_count(TSNode self) {
+  const Tree *tree = ts_node__tree(self);
+  return tree->node_count - 1;
+}
+
 TSNode ts_node_next_sibling(TSNode self) {
   return ts_node__next_sibling(self, true);
 }

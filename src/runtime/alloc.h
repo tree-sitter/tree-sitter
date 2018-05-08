@@ -9,7 +9,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stdio.h>
 
-#if defined(TREE_SITTER_WRAP_MALLOC)
+#if defined(TREE_SITTER_TEST_MODE)
 
 void *ts_record_malloc(size_t);
 void *ts_record_calloc(size_t, size_t);
