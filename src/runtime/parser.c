@@ -396,8 +396,7 @@ static void parser__set_cached_token(Parser *self, size_t byte_index, Tree *last
 }
 
 static bool parser__can_reuse_first_leaf(Parser *self, TSStateId state, Tree *tree,
-                                         TableEntry *table_entry,
-                                         ReusableNode *next_reusable_node) {
+                                         TableEntry *table_entry) {
   TSLexMode current_lex_mode = self->language->lex_modes[state];
 
   // If the token was created in a state with the same set of lookaheads, it is reusable.
@@ -462,14 +461,13 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version, TSStateId
     }
 
     ts_language_table_entry(self->language, *state, result->first_leaf.symbol, table_entry);
-    ReusableNode next_reusable_node = reusable_node_after_leaf(reusable_node);
-    if (!parser__can_reuse_first_leaf(self, *state, result, table_entry, &next_reusable_node)) {
+    if (!parser__can_reuse_first_leaf(self, *state, result, table_entry)) {
       LOG(
         "cant_reuse_node symbol:%s, first_leaf_symbol:%s",
         SYM_NAME(result->symbol),
         SYM_NAME(result->first_leaf.symbol)
       );
-      *reusable_node = next_reusable_node;
+      reusable_node_pop_leaf(reusable_node);
       break;
     }
 
@@ -480,7 +478,7 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version, TSStateId
 
   if ((result = parser__get_cached_token(self, position.bytes, last_external_token))) {
     ts_language_table_entry(self->language, *state, result->first_leaf.symbol, table_entry);
-    if (parser__can_reuse_first_leaf(self, *state, result, table_entry, NULL)) {
+    if (parser__can_reuse_first_leaf(self, *state, result, table_entry)) {
       ts_tree_retain(result);
       return result;
     }

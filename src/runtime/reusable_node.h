@@ -28,12 +28,11 @@ static inline void reusable_node_pop(ReusableNode *self) {
   }
 }
 
-static inline ReusableNode reusable_node_after_leaf(const ReusableNode *self) {
-  ReusableNode result = *self;
-  while (result.tree->children.size > 0)
-    result.tree = result.tree->children.contents[0];
-  reusable_node_pop(&result);
-  return result;
+static inline void reusable_node_pop_leaf(ReusableNode *self) {
+  while (self->tree->children.size > 0) {
+    self->tree = self->tree->children.contents[0];
+  }
+  reusable_node_pop(self);
 }
 
 static inline bool reusable_node_breakdown(ReusableNode *self) {
