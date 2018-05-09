@@ -179,27 +179,50 @@ static inline TSNode ts_node__prev_sibling(TSNode self, bool include_anonymous) 
 }
 
 static inline TSNode ts_node__next_sibling(TSNode self, bool include_anonymous) {
-  TSNode node = ts_node_parent(self);
-  if (!node.subtree) return ts_node__null();
-  uint32_t end_byte = ts_node_end_byte(self);
+  uint32_t target_end_byte = ts_node_end_byte(self);
 
-  bool did_descend = true;
-  while (did_descend) {
-    did_descend = false;
+  TSNode node = ts_node_parent(self);
+  TSNode later_node = ts_node__null();
+  bool later_node_is_relevant = false;
+
+  while (node.subtree) {
+    TSNode later_child = ts_node__null();
+    bool later_child_is_relevant = false;
+    TSNode child_containing_target = ts_node__null();
 
     TSNode child;
     NodeChildIterator iterator = ts_node_child_iterator_begin(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
-      if (iterator.position.bytes > end_byte && child.subtree != self.subtree) {
-        if (ts_node__is_relevant(child, include_anonymous)) {
-          return child;
+      if (iterator.position.bytes < target_end_byte) continue;
+      if (child.byte <= self.byte) {
+        if (child.subtree != self.subtree) {
+          child_containing_target = child;
         }
-        if (ts_node__relevant_child_count(child, include_anonymous) > 0) {
-          node = child;
-          did_descend = true;
-          break;
-        }
+      } else if (ts_node__is_relevant(child, include_anonymous)) {
+        later_child = child;
+        later_child_is_relevant = true;
+        break;
+      } else if (ts_node__relevant_child_count(child, include_anonymous) > 0) {
+        later_child = child;
+        later_child_is_relevant = false;
+        break;
       }
+    }
+
+    if (child_containing_target.subtree) {
+      if (later_child.subtree) {
+        later_node = later_child;
+        later_node_is_relevant = later_child_is_relevant;
+      }
+      node = child_containing_target;
+    } else if (later_child_is_relevant) {
+      return later_child;
+    } else if (later_child.subtree) {
+      node = later_child;
+    } else if (later_node_is_relevant) {
+      return later_node;
+    } else {
+      node = later_node;
     }
   }
 
