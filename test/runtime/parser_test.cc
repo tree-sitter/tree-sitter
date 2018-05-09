@@ -206,53 +206,6 @@ describe("Parser", [&]() {
     });
   });
 
-  describe("handling extra tokens", [&]() {
-    describe("when the token appears as part of a grammar rule", [&]() {
-      it("incorporates it into the tree", [&]() {
-        ts_document_set_language(document, load_real_language("javascript"));
-        set_text("fn()\n");
-
-        assert_root_node(
-          "(program (expression_statement (call_expression (identifier) (arguments))))");
-      });
-    });
-
-    describe("when the token appears somewhere else", [&]() {
-      it("incorporates it into the tree", [&]() {
-        ts_document_set_language(document, load_real_language("javascript"));
-        set_text(
-          "fn()\n"
-          "  .otherFn();");
-
-        assert_root_node(
-          "(program (expression_statement (call_expression "
-            "(member_expression "
-              "(call_expression (identifier) (arguments)) "
-              "(property_identifier)) "
-            "(arguments))))");
-      });
-    });
-
-    describe("when several extra tokens appear in a row", [&]() {
-      it("incorporates them into the tree", [&]() {
-        ts_document_set_language(document, load_real_language("javascript"));
-        set_text(
-          "fn()\n\n"
-          "// This is a comment"
-          "\n\n"
-          ".otherFn();");
-
-        assert_root_node(
-          "(program (expression_statement (call_expression "
-            "(member_expression "
-              "(call_expression (identifier) (arguments)) "
-              "(comment) "
-              "(property_identifier)) "
-            "(arguments))))");
-      });
-    });
-  });
-
   describe("editing", [&]() {
     describe("creating new tokens near the end of the input", [&]() {
       it("updates the parse tree and re-reads only the changed portion of the text", [&]() {
