@@ -129,54 +129,53 @@ static inline TSNode ts_node__child(TSNode self, uint32_t child_index, bool incl
   return ts_node__null();
 }
 
-static inline bool ts_node__last_child_before(TSNode self, TSNode target,
-                                              bool include_anonymous, TSNode *result) {
-  TSNode child;
-  TSNode earlier_child = ts_node__null();
-  bool earlier_child_is_relevant = false;
-  bool found_child_containing_target = false;
-  NodeChildIterator iterator = ts_node_child_iterator_begin(&self);
-  uint32_t target_end_byte = ts_node_end_byte(target);
-  while (ts_node_child_iterator_next(&iterator, &child)) {
-    if (iterator.position.bytes >= target_end_byte) {
-      found_child_containing_target = true;
-      break;
-    }
-
-    if (ts_node__is_relevant(child, include_anonymous)) {
-      earlier_child = child;
-      earlier_child_is_relevant = true;
-    } else if (ts_node__relevant_child_count(child, include_anonymous) > 0) {
-      earlier_child = child;
-      earlier_child_is_relevant = false;
-    }
-  }
-
-  if (found_child_containing_target && child.subtree != target.subtree) {
-    if (ts_node__last_child_before(child, target, include_anonymous, result)) {
-      return true;
-    }
-  }
-
-  if (earlier_child_is_relevant) {
-    *result = earlier_child;
-    return true;
-  }
-
-  if (earlier_child.subtree) {
-    return ts_node__last_child_before(earlier_child, target, include_anonymous, result);
-  }
-
-  return false;
-}
-
 static inline TSNode ts_node__prev_sibling(TSNode self, bool include_anonymous) {
-  TSNode result = ts_node__null();
-  TSNode parent = ts_node_parent(self);
-  if (parent.subtree) {
-    ts_node__last_child_before(parent, self, include_anonymous, &result);
+  uint32_t target_end_byte = ts_node_end_byte(self);
+
+  TSNode node = ts_node_parent(self);
+  TSNode earlier_node = ts_node__null();
+  bool earlier_node_is_relevant = false;
+
+  while (node.subtree) {
+    TSNode earlier_child = ts_node__null();
+    bool earlier_child_is_relevant = false;
+    bool found_child_containing_target = false;
+
+    TSNode child;
+    NodeChildIterator iterator = ts_node_child_iterator_begin(&node);
+    while (ts_node_child_iterator_next(&iterator, &child)) {
+      if (iterator.position.bytes >= target_end_byte) {
+        found_child_containing_target = child.subtree != self.subtree;
+        break;
+      }
+
+      if (ts_node__is_relevant(child, include_anonymous)) {
+        earlier_child = child;
+        earlier_child_is_relevant = true;
+      } else if (ts_node__relevant_child_count(child, include_anonymous) > 0) {
+        earlier_child = child;
+        earlier_child_is_relevant = false;
+      }
+    }
+
+    if (found_child_containing_target) {
+      if (earlier_child.subtree) {
+        earlier_node = earlier_child;
+        earlier_node_is_relevant = earlier_child_is_relevant;
+      }
+      node = child;
+    } else if (earlier_child_is_relevant) {
+      return earlier_child;
+    } else if (earlier_child.subtree) {
+      node = earlier_child;
+    } else if (earlier_node_is_relevant) {
+      return earlier_node;
+    } else {
+      node = earlier_node;
+    }
   }
-  return result;
+
+  return ts_node__null();
 }
 
 static inline TSNode ts_node__next_sibling(TSNode self, bool include_anonymous) {
