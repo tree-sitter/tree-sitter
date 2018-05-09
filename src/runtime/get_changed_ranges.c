@@ -2,6 +2,7 @@
 #include "runtime/tree.h"
 #include "runtime/language.h"
 #include "runtime/error_costs.h"
+#include "runtime/tree_cursor.h"
 #include <assert.h>
 
 // #define DEBUG_GET_CHANGED_RANGES
@@ -24,22 +25,22 @@ static void range_array_add(RangeArray *results, TSPoint start, TSPoint end) {
 }
 
 typedef struct {
-  TreePath path;
+  TSTreeCursor cursor;
   const TSLanguage *language;
   unsigned visible_depth;
   bool in_padding;
 } Iterator;
 
-static Iterator iterator_new(TreePath *path, Tree *tree, const TSLanguage *language) {
-  array_clear(path);
-  array_push(path, ((TreePathEntry){
+static Iterator iterator_new(TSTreeCursor *cursor, Tree *tree, const TSLanguage *language) {
+  array_clear(&cursor->stack);
+  array_push(&cursor->stack, ((TreeCursorEntry){
     .tree = tree,
     .position = length_zero(),
     .child_index = 0,
     .structural_child_index = 0,
   }));
   return (Iterator) {
-    .path = *path,
+    .cursor = *cursor,
     .language = language,
     .visible_depth = 1,
     .in_padding = false,
@@ -47,11 +48,11 @@ static Iterator iterator_new(TreePath *path, Tree *tree, const TSLanguage *langu
 }
 
 static bool iterator_done(Iterator *self) {
-  return self->path.size == 0;
+  return self->cursor.stack.size == 0;
 }
 
 Length iterator_start_position(Iterator *self) {
-  TreePathEntry entry = *array_back(&self->path);
+  TreeCursorEntry entry = *array_back(&self->cursor.stack);
   if (self->in_padding) {
     return entry.position;
   } else {
@@ -60,7 +61,7 @@ Length iterator_start_position(Iterator *self) {
 }
 
 Length iterator_end_position(Iterator *self) {
-  TreePathEntry entry = *array_back(&self->path);
+  TreeCursorEntry entry = *array_back(&self->cursor.stack);
   Length result = length_add(entry.position, entry.tree->padding);
   if (self->in_padding) {
     return result;
@@ -70,10 +71,10 @@ Length iterator_end_position(Iterator *self) {
 }
 
 static bool iterator_tree_is_visible(const Iterator *self) {
-  TreePathEntry entry = *array_back(&self->path);
+  TreeCursorEntry entry = *array_back(&self->cursor.stack);
   if (entry.tree->visible) return true;
-  if (self->path.size > 1) {
-    Tree *parent = self->path.contents[self->path.size - 2].tree;
+  if (self->cursor.stack.size > 1) {
+    Tree *parent = self->cursor.stack.contents[self->cursor.stack.size - 2].tree;
     const TSSymbol *alias_sequence = ts_language_alias_sequence(self->language, parent->alias_sequence_id);
     return alias_sequence && alias_sequence[entry.structural_child_index] != 0;
   }
@@ -82,7 +83,7 @@ static bool iterator_tree_is_visible(const Iterator *self) {
 
 static void iterator_get_visible_state(const Iterator *self, Tree **tree,
                                        TSSymbol *alias_symbol, uint32_t *start_byte) {
-  uint32_t i = self->path.size - 1;
+  uint32_t i = self->cursor.stack.size - 1;
 
   if (self->in_padding) {
     if (i == 0) return;
@@ -90,10 +91,10 @@ static void iterator_get_visible_state(const Iterator *self, Tree **tree,
   }
 
   for (; i + 1 > 0; i--) {
-    TreePathEntry entry = self->path.contents[i];
+    TreeCursorEntry entry = self->cursor.stack.contents[i];
 
     if (i > 0) {
-      Tree *parent = self->path.contents[i - 1].tree;
+      Tree *parent = self->cursor.stack.contents[i - 1].tree;
       const TSSymbol *alias_sequence = ts_language_alias_sequence(
         self->language,
         parent->alias_sequence_id
@@ -114,8 +115,8 @@ static void iterator_get_visible_state(const Iterator *self, Tree **tree,
 static void iterator_ascend(Iterator *self) {
   if (iterator_done(self)) return;
   if (iterator_tree_is_visible(self) && !self->in_padding) self->visible_depth--;
-  if (array_back(&self->path)->child_index > 0) self->in_padding = false;
-  self->path.size--;
+  if (array_back(&self->cursor.stack)->child_index > 0) self->in_padding = false;
+  self->cursor.stack.size--;
 }
 
 static bool iterator_descend(Iterator *self, uint32_t goal_position) {
@@ -124,7 +125,7 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
   bool did_descend;
   do {
     did_descend = false;
-    TreePathEntry entry = *array_back(&self->path);
+    TreeCursorEntry entry = *array_back(&self->cursor.stack);
     Length position = entry.position;
     uint32_t structural_child_index = 0;
     for (uint32_t i = 0; i < entry.tree->children.size; i++) {
@@ -133,7 +134,7 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
       Length child_right = length_add(child_left, child->size);
 
       if (child_right.bytes > goal_position) {
-        array_push(&self->path, ((TreePathEntry){
+        array_push(&self->cursor.stack, ((TreeCursorEntry){
           .tree = child,
           .position = position,
           .child_index = i,
@@ -174,10 +175,10 @@ static void iterator_advance(Iterator *self) {
 
   for (;;) {
     if (iterator_tree_is_visible(self)) self->visible_depth--;
-    TreePathEntry entry = array_pop(&self->path);
+    TreeCursorEntry entry = array_pop(&self->cursor.stack);
     if (iterator_done(self)) return;
 
-    Tree *parent = array_back(&self->path)->tree;
+    Tree *parent = array_back(&self->cursor.stack)->tree;
     uint32_t child_index = entry.child_index + 1;
     if (parent->children.size > child_index) {
       Length position = length_add(entry.position, ts_tree_total_size(entry.tree));
@@ -185,7 +186,7 @@ static void iterator_advance(Iterator *self) {
       if (!entry.tree->extra) structural_child_index++;
       Tree *next_child = parent->children.contents[child_index];
 
-      array_push(&self->path, ((TreePathEntry){
+      array_push(&self->cursor.stack, ((TreeCursorEntry){
         .tree = next_child,
         .position = position,
         .child_index = child_index,
@@ -246,7 +247,7 @@ IteratorComparison iterator_compare(const Iterator *old_iter, const Iterator *ne
 
 #ifdef DEBUG_GET_CHANGED_RANGES
 static inline void iterator_print_state(Iterator *self) {
-  TreePathEntry entry = *array_back(&self->path);
+  TreeCursorEntry entry = *array_back(&self->cursor.stack);
   TSPoint start = iterator_start_position(self).extent;
   TSPoint end = iterator_end_position(self).extent;
   const char *name = ts_language_symbol_name(self->language, entry.tree->symbol);
@@ -261,12 +262,12 @@ static inline void iterator_print_state(Iterator *self) {
 #endif
 
 unsigned ts_tree_get_changed_ranges(Tree *old_tree, Tree *new_tree,
-                                    TreePath *path1, TreePath *path2,
+                                    TSTreeCursor *cursor1, TSTreeCursor *cursor2,
                                     const TSLanguage *language, TSRange **ranges) {
   RangeArray results = array_new();
 
-  Iterator old_iter = iterator_new(path1, old_tree, language);
-  Iterator new_iter = iterator_new(path2, new_tree, language);
+  Iterator old_iter = iterator_new(cursor1, old_tree, language);
+  Iterator new_iter = iterator_new(cursor2, new_tree, language);
 
   Length position = iterator_start_position(&old_iter);
   Length next_position = iterator_start_position(&new_iter);
@@ -348,8 +349,8 @@ unsigned ts_tree_get_changed_ranges(Tree *old_tree, Tree *new_tree,
     position = next_position;
   } while (!iterator_done(&old_iter) && !iterator_done(&new_iter));
 
-  *path1 = old_iter.path;
-  *path2 = new_iter.path;
+  *cursor1 = old_iter.cursor;
+  *cursor2 = new_iter.cursor;
   *ranges = results.contents;
   return results.size;
 }

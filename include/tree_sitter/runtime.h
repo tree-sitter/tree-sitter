@@ -14,6 +14,7 @@ extern "C" {
 typedef unsigned short TSSymbol;
 typedef struct TSLanguage TSLanguage;
 typedef struct TSDocument TSDocument;
+typedef struct TSTreeCursor TSTreeCursor;
 
 typedef enum {
   TSInputEncodingUTF8,
@@ -70,6 +71,12 @@ typedef struct {
   TSSymbol alias_symbol;
 } TSNode;
 
+typedef struct {
+  TSRange **changed_ranges;
+  uint32_t *changed_range_count;
+  bool halt_on_error;
+} TSParseOptions;
+
 uint32_t ts_node_start_byte(TSNode);
 TSPoint ts_node_start_point(TSNode);
 uint32_t ts_node_end_byte(TSNode);
@@ -112,18 +119,17 @@ void ts_document_print_debugging_graphs(TSDocument *, bool);
 void ts_document_edit(TSDocument *, TSInputEdit);
 void ts_document_parse(TSDocument *);
 void ts_document_parse_and_get_changed_ranges(TSDocument *, TSRange **, uint32_t *);
-
-typedef struct {
-  TSRange **changed_ranges;
-  uint32_t *changed_range_count;
-  bool halt_on_error;
-} TSParseOptions;
-
 void ts_document_parse_with_options(TSDocument *, TSParseOptions);
-
 void ts_document_invalidate(TSDocument *);
 TSNode ts_document_root_node(const TSDocument *);
+TSTreeCursor *ts_document_tree_cursor(const TSDocument *);
 uint32_t ts_document_parse_count(const TSDocument *);
+
+void ts_tree_cursor_delete(TSTreeCursor *);
+bool ts_tree_cursor_goto_first_child(TSTreeCursor *);
+bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *);
+bool ts_tree_cursor_goto_parent(TSTreeCursor *);
+TSNode ts_tree_cursor_current_node(TSTreeCursor *);
 
 uint32_t ts_language_symbol_count(const TSLanguage *);
 const char *ts_language_symbol_name(const TSLanguage *, TSSymbol);

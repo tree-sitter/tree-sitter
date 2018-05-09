@@ -3,6 +3,7 @@
 #include "runtime/parser.h"
 #include "runtime/string_input.h"
 #include "runtime/document.h"
+#include "runtime/tree_cursor.h"
 #include "runtime/get_changed_ranges.h"
 
 #define LOG(...)                                                                                                   \
@@ -12,15 +13,15 @@
 TSDocument *ts_document_new() {
   TSDocument *self = ts_calloc(1, sizeof(TSDocument));
   parser_init(&self->parser);
-  array_init(&self->tree_path1);
-  array_init(&self->tree_path2);
+  array_init(&self->cursor1.stack);
+  array_init(&self->cursor2.stack);
   return self;
 }
 
 void ts_document_free(TSDocument *self) {
   if (self->tree) ts_tree_release(&self->parser.tree_pool, self->tree);
-  if (self->tree_path1.contents) array_delete(&self->tree_path1);
-  if (self->tree_path2.contents) array_delete(&self->tree_path2);
+  if (self->cursor1.stack.contents) array_delete(&self->cursor1.stack);
+  if (self->cursor2.stack.contents) array_delete(&self->cursor2.stack);
   parser_destroy(&self->parser);
   ts_document_set_input(self, (TSInput){
     NULL,
@@ -141,7 +142,7 @@ void ts_document_parse_with_options(TSDocument *self, TSParseOptions options) {
 
     if (options.changed_ranges && options.changed_range_count) {
       *options.changed_range_count = ts_tree_get_changed_ranges(
-        old_tree, tree, &self->tree_path1, &self->tree_path2,
+        old_tree, tree, &self->cursor1, &self->cursor2,
         self->parser.language, options.changed_ranges
       );
 
@@ -180,4 +181,8 @@ TSNode ts_document_root_node(const TSDocument *self) {
 
 uint32_t ts_document_parse_count(const TSDocument *self) {
   return self->parse_count;
+}
+
+TSTreeCursor *ts_document_tree_cursor(const TSDocument *self) {
+  return ts_tree_cursor_new(self);
 }
