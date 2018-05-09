@@ -66,7 +66,7 @@ for (auto &language_name : test_languages) {
         TSNode root_node = ts_document_root_node(document);
         AssertThat(ts_node_end_byte(root_node), Equals(entry.input.size()));
         assert_consistent_tree_sizes(root_node);
-        const char *node_string = ts_node_string(root_node, document);
+        const char *node_string = ts_node_string(root_node);
         string result(node_string);
         ts_free((void *)node_string);
         ts_document_free(document);

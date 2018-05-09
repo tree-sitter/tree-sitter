@@ -71,7 +71,6 @@ describe("Node", [&]() {
     document = ts_document_new();
     ts_document_set_language(document, load_real_language("json"));
     ts_document_set_input_string(document, json_string.c_str());
-    // ts_document_print_debugging_graphs(document, true);
     ts_document_parse(document);
     root_node = ts_node_child(ts_document_root_node(document), 0);
   });
@@ -84,7 +83,7 @@ describe("Node", [&]() {
   });
 
   it("parses the example as expected (precondition)", [&]() {
-    char *node_string = ts_node_string(root_node, document);
+    char *node_string = ts_node_string(root_node);
     AssertThat(node_string, Equals(
       "(array "
         "(number) "
@@ -95,7 +94,7 @@ describe("Node", [&]() {
 
   describe("named_child_count(), named_child(i)", [&]() {
     it("returns the named child node at the given index", [&]() {
-      AssertThat(ts_node_type(root_node, document), Equals("array"));
+      AssertThat(ts_node_type(root_node), Equals("array"));
 
       AssertThat(ts_node_named_child_count(root_node), Equals<size_t>(3));
       AssertThat(ts_node_start_byte(root_node), Equals(array_index));
@@ -107,9 +106,9 @@ describe("Node", [&]() {
       TSNode false_node = ts_node_named_child(root_node, 1);
       TSNode object_node = ts_node_named_child(root_node, 2);
 
-      AssertThat(ts_node_type(number_node, document), Equals("number"));
-      AssertThat(ts_node_type(false_node, document), Equals("false"));
-      AssertThat(ts_node_type(object_node, document), Equals("object"));
+      AssertThat(ts_node_type(number_node), Equals("number"));
+      AssertThat(ts_node_type(false_node), Equals("false"));
+      AssertThat(ts_node_type(object_node), Equals("object"));
 
       AssertThat(ts_node_start_byte(number_node), Equals(number_index));
       AssertThat(ts_node_end_byte(number_node), Equals(number_end_index));
@@ -129,7 +128,7 @@ describe("Node", [&]() {
 
       TSNode pair_node = ts_node_named_child(object_node, 0);
 
-      AssertThat(ts_node_type(pair_node, document), Equals("pair"));
+      AssertThat(ts_node_type(pair_node), Equals("pair"));
       AssertThat(ts_node_start_byte(pair_node), Equals(string_index));
       AssertThat(ts_node_end_byte(pair_node), Equals(null_end_index));
       AssertThat(ts_node_start_point(pair_node), Equals<TSPoint>({ 6, 4 }));
@@ -139,8 +138,8 @@ describe("Node", [&]() {
       TSNode string_node = ts_node_named_child(pair_node, 0);
       TSNode null_node = ts_node_named_child(pair_node, 1);
 
-      AssertThat(ts_node_type(string_node, document), Equals("string"));
-      AssertThat(ts_node_type(null_node, document), Equals("null"));
+      AssertThat(ts_node_type(string_node), Equals("string"));
+      AssertThat(ts_node_type(null_node), Equals("null"));
 
       AssertThat(ts_node_start_byte(string_node), Equals(string_index));
       AssertThat(ts_node_end_byte(string_node), Equals(string_end_index));
@@ -169,16 +168,16 @@ describe("Node", [&]() {
       ts_document_parse(document);
       root_node = ts_document_root_node(document);
 
-      char *node_string = ts_node_string(root_node, document);
+      char *node_string = ts_node_string(root_node);
       AssertThat(node_string, Equals("(a (b) (comment) (B) (comment) (b))"));
       ts_free(node_string);
 
       AssertThat(ts_node_named_child_count(root_node), Equals(5u));
-      AssertThat(ts_node_type(ts_node_named_child(root_node, 0), document), Equals("b"));
-      AssertThat(ts_node_type(ts_node_named_child(root_node, 1), document), Equals("comment"));
-      AssertThat(ts_node_type(ts_node_named_child(root_node, 2), document), Equals("B"));
-      AssertThat(ts_node_type(ts_node_named_child(root_node, 3), document), Equals("comment"));
-      AssertThat(ts_node_type(ts_node_named_child(root_node, 4), document), Equals("b"));
+      AssertThat(ts_node_type(ts_node_named_child(root_node, 0)), Equals("b"));
+      AssertThat(ts_node_type(ts_node_named_child(root_node, 1)), Equals("comment"));
+      AssertThat(ts_node_type(ts_node_named_child(root_node, 2)), Equals("B"));
+      AssertThat(ts_node_type(ts_node_named_child(root_node, 3)), Equals("comment"));
+      AssertThat(ts_node_type(ts_node_named_child(root_node, 4)), Equals("b"));
 
       AssertThat(ts_node_symbol(ts_node_named_child(root_node, 0)), !Equals(ts_node_symbol(ts_node_named_child(root_node, 2))));
     });
@@ -189,29 +188,29 @@ describe("Node", [&]() {
       TSNode child;
 
       child = ts_node_first_child_for_byte(root_node, array_index);
-      AssertThat(ts_node_type(child, document), Equals("["));
+      AssertThat(ts_node_type(child), Equals("["));
       child = ts_node_first_child_for_byte(root_node, number_index);
-      AssertThat(ts_node_type(child, document), Equals("number"));
+      AssertThat(ts_node_type(child), Equals("number"));
       child = ts_node_first_child_for_byte(root_node, number_end_index);
-      AssertThat(ts_node_type(child, document), Equals(","));
+      AssertThat(ts_node_type(child), Equals(","));
       child = ts_node_first_child_for_byte(root_node, number_end_index + 1);
-      AssertThat(ts_node_type(child, document), Equals("false"));
+      AssertThat(ts_node_type(child), Equals("false"));
       child = ts_node_first_child_for_byte(root_node, false_index - 1);
-      AssertThat(ts_node_type(child, document), Equals("false"));
+      AssertThat(ts_node_type(child), Equals("false"));
       child = ts_node_first_child_for_byte(root_node, false_index);
-      AssertThat(ts_node_type(child, document), Equals("false"));
+      AssertThat(ts_node_type(child), Equals("false"));
       child = ts_node_first_child_for_byte(root_node, false_index + 1);
-      AssertThat(ts_node_type(child, document), Equals("false"));
+      AssertThat(ts_node_type(child), Equals("false"));
       child = ts_node_first_child_for_byte(root_node, false_end_index);
-      AssertThat(ts_node_type(child, document), Equals(","));
+      AssertThat(ts_node_type(child), Equals(","));
       child = ts_node_first_child_for_byte(root_node, false_end_index);
-      AssertThat(ts_node_type(child, document), Equals(","));
+      AssertThat(ts_node_type(child), Equals(","));
       child = ts_node_first_child_for_byte(root_node, object_index);
-      AssertThat(ts_node_type(child, document), Equals("object"));
+      AssertThat(ts_node_type(child), Equals("object"));
       child = ts_node_first_child_for_byte(root_node, object_index + 1);
-      AssertThat(ts_node_type(child, document), Equals("object"));
+      AssertThat(ts_node_type(child), Equals("object"));
       child = ts_node_first_child_for_byte(root_node, object_end_index);
-      AssertThat(ts_node_type(child, document), Equals("]"));
+      AssertThat(ts_node_type(child), Equals("]"));
     });
   });
 
@@ -220,25 +219,25 @@ describe("Node", [&]() {
       TSNode child;
 
       child = ts_node_first_named_child_for_byte(root_node, array_index);
-      AssertThat(ts_node_type(child, document), Equals("number"));
+      AssertThat(ts_node_type(child), Equals("number"));
       child = ts_node_first_named_child_for_byte(root_node, number_index);
-      AssertThat(ts_node_type(child, document), Equals("number"));
+      AssertThat(ts_node_type(child), Equals("number"));
       child = ts_node_first_named_child_for_byte(root_node, number_end_index);
-      AssertThat(ts_node_type(child, document), Equals("false"));
+      AssertThat(ts_node_type(child), Equals("false"));
       child = ts_node_first_named_child_for_byte(root_node, number_end_index + 1);
-      AssertThat(ts_node_type(child, document), Equals("false"));
+      AssertThat(ts_node_type(child), Equals("false"));
       child = ts_node_first_named_child_for_byte(root_node, false_index - 1);
-      AssertThat(ts_node_type(child, document), Equals("false"));
+      AssertThat(ts_node_type(child), Equals("false"));
       child = ts_node_first_named_child_for_byte(root_node, false_index);
-      AssertThat(ts_node_type(child, document), Equals("false"));
+      AssertThat(ts_node_type(child), Equals("false"));
       child = ts_node_first_named_child_for_byte(root_node, false_index + 1);
-      AssertThat(ts_node_type(child, document), Equals("false"));
+      AssertThat(ts_node_type(child), Equals("false"));
       child = ts_node_first_named_child_for_byte(root_node, false_end_index);
-      AssertThat(ts_node_type(child, document), Equals("object"));
+      AssertThat(ts_node_type(child), Equals("object"));
       child = ts_node_first_named_child_for_byte(root_node, object_index);
-      AssertThat(ts_node_type(child, document), Equals("object"));
+      AssertThat(ts_node_type(child), Equals("object"));
       child = ts_node_first_named_child_for_byte(root_node, object_index + 1);
-      AssertThat(ts_node_type(child, document), Equals("object"));
+      AssertThat(ts_node_type(child), Equals("object"));
       child = ts_node_first_named_child_for_byte(root_node, object_end_index);
       AssertThat(child.subtree, Equals<void *>(nullptr));
     });
@@ -255,14 +254,14 @@ describe("Node", [&]() {
       TSNode child6 = ts_node_child(root_node, 5);
       TSNode child7 = ts_node_child(root_node, 6);
 
-      AssertThat(ts_node_type(root_node, document), Equals("array"));
-      AssertThat(ts_node_type(child1, document), Equals("["));
-      AssertThat(ts_node_type(child2, document), Equals("number"));
-      AssertThat(ts_node_type(child3, document), Equals(","));
-      AssertThat(ts_node_type(child4, document), Equals("false"));
-      AssertThat(ts_node_type(child5, document), Equals(","));
-      AssertThat(ts_node_type(child6, document), Equals("object"));
-      AssertThat(ts_node_type(child7, document), Equals("]"));
+      AssertThat(ts_node_type(root_node), Equals("array"));
+      AssertThat(ts_node_type(child1), Equals("["));
+      AssertThat(ts_node_type(child2), Equals("number"));
+      AssertThat(ts_node_type(child3), Equals(","));
+      AssertThat(ts_node_type(child4), Equals("false"));
+      AssertThat(ts_node_type(child5), Equals(","));
+      AssertThat(ts_node_type(child6), Equals("object"));
+      AssertThat(ts_node_type(child7), Equals("]"));
 
       AssertThat(ts_node_is_named(root_node), IsTrue());
       AssertThat(ts_node_is_named(child1), IsFalse());
@@ -303,13 +302,13 @@ describe("Node", [&]() {
       TSNode grandchild3 = ts_node_child(pair, 1);
       TSNode grandchild4 = ts_node_child(pair, 2);
 
-      AssertThat(ts_node_type(left_brace, document), Equals("{"));
-      AssertThat(ts_node_type(pair, document), Equals("pair"));
-      AssertThat(ts_node_type(right_brace, document), Equals("}"));
+      AssertThat(ts_node_type(left_brace), Equals("{"));
+      AssertThat(ts_node_type(pair), Equals("pair"));
+      AssertThat(ts_node_type(right_brace), Equals("}"));
 
-      AssertThat(ts_node_type(grandchild2, document), Equals("string"));
-      AssertThat(ts_node_type(grandchild3, document), Equals(":"));
-      AssertThat(ts_node_type(grandchild4, document), Equals("null"));
+      AssertThat(ts_node_type(grandchild2), Equals("string"));
+      AssertThat(ts_node_type(grandchild3), Equals(":"));
+      AssertThat(ts_node_type(grandchild4), Equals("null"));
 
       AssertThat(ts_node_parent(grandchild2), Equals(pair));
       AssertThat(ts_node_parent(grandchild3), Equals(pair));
@@ -411,14 +410,14 @@ describe("Node", [&]() {
     describe("when there is a leaf node that spans the given range exactly", [&]() {
       it("returns that leaf node", [&]() {
         TSNode leaf = ts_node_named_descendant_for_byte_range(root_node, string_index, string_end_index - 1);
-        AssertThat(ts_node_type(leaf, document), Equals("string"));
+        AssertThat(ts_node_type(leaf), Equals("string"));
         AssertThat(ts_node_start_byte(leaf), Equals(string_index));
         AssertThat(ts_node_end_byte(leaf), Equals(string_end_index));
         AssertThat(ts_node_start_point(leaf), Equals<TSPoint>({ 6, 4 }));
         AssertThat(ts_node_end_point(leaf), Equals<TSPoint>({ 6, 7 }));
 
         leaf = ts_node_named_descendant_for_byte_range(root_node, number_index, number_end_index - 1);
-        AssertThat(ts_node_type(leaf, document), Equals("number"));
+        AssertThat(ts_node_type(leaf), Equals("number"));
         AssertThat(ts_node_start_byte(leaf), Equals(number_index));
         AssertThat(ts_node_end_byte(leaf), Equals(number_end_index));
         AssertThat(ts_node_start_point(leaf), Equals<TSPoint>({ 3, 2 }));
@@ -429,14 +428,14 @@ describe("Node", [&]() {
     describe("when there is a leaf node that extends beyond the given range", [&]() {
       it("returns that leaf node", [&]() {
         TSNode leaf = ts_node_named_descendant_for_byte_range(root_node, string_index, string_index + 1);
-        AssertThat(ts_node_type(leaf, document), Equals("string"));
+        AssertThat(ts_node_type(leaf), Equals("string"));
         AssertThat(ts_node_start_byte(leaf), Equals(string_index));
         AssertThat(ts_node_end_byte(leaf), Equals(string_end_index));
         AssertThat(ts_node_start_point(leaf), Equals<TSPoint>({ 6, 4 }));
         AssertThat(ts_node_end_point(leaf), Equals<TSPoint>({ 6, 7 }));
 
         leaf = ts_node_named_descendant_for_byte_range(root_node, string_index + 1, string_index + 2);
-        AssertThat(ts_node_type(leaf, document), Equals("string"));
+        AssertThat(ts_node_type(leaf), Equals("string"));
         AssertThat(ts_node_start_byte(leaf), Equals(string_index));
         AssertThat(ts_node_end_byte(leaf), Equals(string_end_index));
         AssertThat(ts_node_start_point(leaf), Equals<TSPoint>({ 6, 4 }));
@@ -447,7 +446,7 @@ describe("Node", [&]() {
     describe("when there is no leaf node that spans the given range", [&]() {
       it("returns the smallest node that does span the range", [&]() {
         TSNode pair_node = ts_node_named_descendant_for_byte_range(root_node, string_index, string_index + 3);
-        AssertThat(ts_node_type(pair_node, document), Equals("pair"));
+        AssertThat(ts_node_type(pair_node), Equals("pair"));
         AssertThat(ts_node_start_byte(pair_node), Equals(string_index));
         AssertThat(ts_node_end_byte(pair_node), Equals(null_end_index));
         AssertThat(ts_node_start_point(pair_node), Equals<TSPoint>({ 6, 4 }));
@@ -456,7 +455,7 @@ describe("Node", [&]() {
 
       it("does not return invisible nodes (repeats)", [&]() {
         TSNode node = ts_node_named_descendant_for_byte_range(root_node, number_end_index, number_end_index + 1);
-        AssertThat(ts_node_type(node, document), Equals("array"));
+        AssertThat(ts_node_type(node), Equals("array"));
         AssertThat(ts_node_start_byte(node), Equals(array_index));
         AssertThat(ts_node_end_byte(node), Equals(array_end_index));
         AssertThat(ts_node_start_point(node), Equals<TSPoint>({ 2, 0 }));
@@ -468,14 +467,14 @@ describe("Node", [&]() {
   describe("descendant_for_byte_range(start, end)", [&]() {
     it("returns the smallest node that spans the given byte offsets", [&]() {
       TSNode node1 = ts_node_descendant_for_byte_range(root_node, colon_index, colon_index);
-      AssertThat(ts_node_type(node1, document), Equals(":"));
+      AssertThat(ts_node_type(node1), Equals(":"));
       AssertThat(ts_node_start_byte(node1), Equals(colon_index));
       AssertThat(ts_node_end_byte(node1), Equals(colon_index + 1));
       AssertThat(ts_node_start_point(node1), Equals<TSPoint>({ 6, 7 }));
       AssertThat(ts_node_end_point(node1), Equals<TSPoint>({ 6, 8 }));
 
       TSNode node2 = ts_node_descendant_for_byte_range(root_node, string_index + 2, string_index + 4);
-      AssertThat(ts_node_type(node2, document), Equals("pair"));
+      AssertThat(ts_node_type(node2), Equals("pair"));
       AssertThat(ts_node_start_byte(node2), Equals(string_index));
       AssertThat(ts_node_end_byte(node2), Equals(null_end_index));
       AssertThat(ts_node_start_point(node2), Equals<TSPoint>({ 6, 4 }));
@@ -490,10 +489,10 @@ describe("Node", [&]() {
 
       uint32_t comma_position = input_string.find(",");
       TSNode node1 = ts_node_descendant_for_byte_range(root_node, comma_position, comma_position);
-      AssertThat(ts_node_type(node1, document), Equals(","));
+      AssertThat(ts_node_type(node1), Equals(","));
 
       TSNode node2 = ts_node_descendant_for_byte_range(root_node, 6, 10);
-      AssertThat(ts_node_type(node2, document), Equals("string"));
+      AssertThat(ts_node_type(node2), Equals("string"));
       AssertThat(ts_node_start_byte(node2), Equals<size_t>(1));
       AssertThat(ts_node_end_byte(node2), Equals<size_t>(11));
     });
@@ -502,14 +501,14 @@ describe("Node", [&]() {
   describe("descendant_for_point_range(start, end)", [&]() {
     it("returns the smallest concrete node that spans the given range", [&]() {
       TSNode node1 = ts_node_descendant_for_point_range(root_node, {6, 7}, {6, 7});
-      AssertThat(ts_node_type(node1, document), Equals(":"));
+      AssertThat(ts_node_type(node1), Equals(":"));
       AssertThat(ts_node_start_byte(node1), Equals(colon_index));
       AssertThat(ts_node_end_byte(node1), Equals(colon_index + 1));
       AssertThat(ts_node_start_point(node1), Equals<TSPoint>({ 6, 7 }));
       AssertThat(ts_node_end_point(node1), Equals<TSPoint>({ 6, 8 }));
 
       TSNode node2 = ts_node_descendant_for_point_range(root_node, {6, 6}, {6, 8});
-      AssertThat(ts_node_type(node2, document), Equals("pair"));
+      AssertThat(ts_node_type(node2), Equals("pair"));
       AssertThat(ts_node_start_byte(node2), Equals(string_index));
       AssertThat(ts_node_end_byte(node2), Equals(null_end_index));
       AssertThat(ts_node_start_point(node2), Equals<TSPoint>({ 6, 4 }));

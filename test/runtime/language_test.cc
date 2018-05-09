@@ -35,11 +35,11 @@ describe("Language", []() {
       ts_document_parse(document);
 
       TSNode root_node = ts_document_root_node(document);
-      char *string = ts_node_string(root_node, document);
+      char *string = ts_node_string(root_node);
       AssertThat(string, Equals("(a (c))"));
 
       TSNode aliased_node = ts_node_child(root_node, 0);
-      AssertThat(ts_node_type(aliased_node, document), Equals("c"));
+      AssertThat(ts_node_type(aliased_node), Equals("c"));
 
       TSSymbol aliased_symbol = ts_node_symbol(aliased_node);
       AssertThat(ts_language_symbol_count(language), IsGreaterThan(aliased_symbol));

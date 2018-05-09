@@ -63,7 +63,7 @@ for (auto &language_name : test_languages) {
           edit_sequence();
 
           TSNode root_node = ts_document_root_node(document);
-          const char *node_string = ts_node_string(root_node, document);
+          const char *node_string = ts_node_string(root_node);
           string result(node_string);
           ts_free((void *)node_string);
           AssertThat(result, Equals(entry.tree_string));

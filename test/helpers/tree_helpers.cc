@@ -37,7 +37,7 @@ ostream &operator<<(std::ostream &stream, const Tree *tree) {
 
 ostream &operator<<(ostream &stream, const TSNode &node) {
   if (node.subtree) {
-    char *string = ts_node_string(node, node.document);
+    char *string = ts_node_string(node);
     stream << "{" << string << ", " << to_string(ts_node_start_byte(node)) << "}";
     ts_free(string);
     return stream;

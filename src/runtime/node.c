@@ -342,12 +342,12 @@ TSSymbol ts_node_symbol(TSNode self) {
   return self.alias_symbol ? self.alias_symbol : tree->symbol;
 }
 
-const char *ts_node_type(TSNode self, const TSDocument *document) {
-  return ts_language_symbol_name(document->parser.language, ts_node_symbol(self));
+const char *ts_node_type(TSNode self) {
+  return ts_language_symbol_name(self.document->parser.language, ts_node_symbol(self));
 }
 
-char *ts_node_string(TSNode self, const TSDocument *document) {
-  return ts_tree_string(ts_node__tree(self), document->parser.language, false);
+char *ts_node_string(TSNode self) {
+  return ts_tree_string(ts_node__tree(self), self.document->parser.language, false);
 }
 
 bool ts_node_eq(TSNode self, TSNode other) {

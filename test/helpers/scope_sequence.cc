@@ -27,7 +27,7 @@ static void append_to_scope_sequence(ScopeSequence *sequence,
     sequence, current_scopes, text, ts_node_start_byte(node) - sequence->size()
   );
 
-  current_scopes->push_back(ts_node_type(node, document));
+  current_scopes->push_back(ts_node_type(node));
 
   for (size_t i = 0, n = ts_node_child_count(node); i < n; i++) {
     TSNode child = ts_node_child(node, i);

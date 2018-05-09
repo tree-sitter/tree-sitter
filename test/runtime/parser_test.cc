@@ -71,7 +71,7 @@ describe("Parser", [&]() {
 
   auto assert_root_node = [&](const string &expected) {
     TSNode node = ts_document_root_node(document);
-    char *node_string = ts_node_string(node, document);
+    char *node_string = ts_node_string(node);
     string actual(node_string);
     ts_free(node_string);
     AssertThat(actual, Equals(expected));
@@ -93,7 +93,7 @@ describe("Parser", [&]() {
           "(value (array (number) (ERROR (UNEXPECTED '@')) (true)))");
 
         TSNode error = ts_node_named_child(ts_node_child(root, 0), 1);
-        AssertThat(ts_node_type(error, document), Equals("ERROR"));
+        AssertThat(ts_node_type(error), Equals("ERROR"));
         AssertThat(get_node_text(error), Equals("@@@@@,"));
         AssertThat(ts_node_child_count(error), Equals<size_t>(2));
 
@@ -104,7 +104,7 @@ describe("Parser", [&]() {
         AssertThat(get_node_text(comma), Equals(","));
 
         TSNode node_after_error = ts_node_next_named_sibling(error);
-        AssertThat(ts_node_type(node_after_error, document), Equals("true"));
+        AssertThat(ts_node_type(node_after_error), Equals("true"));
         AssertThat(get_node_text(node_after_error), Equals("true"));
       });
     });
@@ -118,20 +118,20 @@ describe("Parser", [&]() {
           "(value (array (number) (ERROR (UNEXPECTED 'a')) (true)))");
 
         TSNode error = ts_node_named_child(ts_node_child(root, 0), 1);
-        AssertThat(ts_node_type(error, document), Equals("ERROR"));
+        AssertThat(ts_node_type(error), Equals("ERROR"));
         AssertThat(get_node_text(error), Equals("faaaaalse,"));
         AssertThat(ts_node_child_count(error), Equals<size_t>(2));
 
         TSNode garbage = ts_node_child(error, 0);
-        AssertThat(ts_node_type(garbage, document), Equals("ERROR"));
+        AssertThat(ts_node_type(garbage), Equals("ERROR"));
         AssertThat(get_node_text(garbage), Equals("faaaaalse"));
 
         TSNode comma = ts_node_child(error, 1);
-        AssertThat(ts_node_type(comma, document), Equals(","));
+        AssertThat(ts_node_type(comma), Equals(","));
         AssertThat(get_node_text(comma), Equals(","));
 
         TSNode last = ts_node_next_named_sibling(error);
-        AssertThat(ts_node_type(last, document), Equals("true"));
+        AssertThat(ts_node_type(last), Equals("true"));
         AssertThat(ts_node_start_byte(last), Equals(strlen("  [123, faaaaalse, ")));
       });
     });
@@ -145,12 +145,12 @@ describe("Parser", [&]() {
           "(value (array (number) (true) (ERROR (false)) (true)))");
 
         TSNode error = ts_node_named_child(ts_node_child(root, 0), 2);
-        AssertThat(ts_node_type(error, document), Equals("ERROR"));
+        AssertThat(ts_node_type(error), Equals("ERROR"));
         AssertThat(get_node_text(error), Equals("false"));
         AssertThat(ts_node_child_count(error), Equals<size_t>(1));
 
         TSNode last = ts_node_next_named_sibling(error);
-        AssertThat(ts_node_type(last, document), Equals("true"));
+        AssertThat(ts_node_type(last), Equals("true"));
         AssertThat(get_node_text(last), Equals("true"));
       });
     });
@@ -186,7 +186,7 @@ describe("Parser", [&]() {
         );
 
         TSNode error = ts_node_named_child(root, 1);
-        AssertThat(ts_node_type(error, document), Equals("ERROR"));
+        AssertThat(ts_node_type(error), Equals("ERROR"));
         AssertThat(ts_node_start_point(error), Equals<TSPoint>({2, 0}));
         AssertThat(ts_node_end_point(error), Equals<TSPoint>({2, 2}));
       });
@@ -303,7 +303,7 @@ describe("Parser", [&]() {
           "(program (expression_statement (binary_expression (identifier) (number))))");
 
         TSNode node = ts_node_named_descendant_for_byte_range(root, 1, 1);
-        AssertThat(ts_node_type(node, document), Equals("identifier"));
+        AssertThat(ts_node_type(node), Equals("identifier"));
         AssertThat(ts_node_end_byte(node), Equals(strlen("abXYZc")));
       });
     });
@@ -322,7 +322,7 @@ describe("Parser", [&]() {
           "(program (expression_statement (binary_expression (identifier) (number))))");
 
         TSNode node = ts_node_named_descendant_for_byte_range(root, 1, 1);
-        AssertThat(ts_node_type(node, document), Equals("identifier"));
+        AssertThat(ts_node_type(node), Equals("identifier"));
         AssertThat(ts_node_end_byte(node), Equals(strlen("abcXYZ")));
       });
     });

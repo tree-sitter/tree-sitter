@@ -35,7 +35,7 @@ describe("Document", [&]() {
   });
 
   auto assert_node_string_equals = [&](TSNode node, const string &expected) {
-    char *str = ts_node_string(node, document);
+    char *str = ts_node_string(node);
     string actual(str);
     ts_free(str);
     AssertThat(actual, Equals(expected));
