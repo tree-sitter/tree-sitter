@@ -609,15 +609,12 @@ static size_t ts_tree__write_to_string(const Tree *self, char *string, size_t li
         0, false
       );
     } else {
+      TSSymbol alias_symbol = alias_sequence ? alias_sequence[structural_child_index] : 0;
       cursor += ts_tree__write_to_string(
         child, *writer, limit,
         language, false, include_all,
-        alias_sequence
-          ? alias_sequence[structural_child_index]
-          : 0,
-        alias_sequence
-          ? ts_language_symbol_metadata(language, alias_sequence[structural_child_index]).named
-          : false
+        alias_symbol,
+        alias_symbol ? ts_language_symbol_metadata(language, alias_symbol).named : false
       );
       structural_child_index++;
     }
