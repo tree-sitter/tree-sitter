@@ -119,16 +119,19 @@ static bool parser__breakdown_top_of_stack(Parser *self, StackVersion version) {
 static void parser__breakdown_lookahead(Parser *self, Tree **lookahead,
                                         TSStateId state,
                                         ReusableNode *reusable_node) {
-  bool did_break_down = false;
-  while (reusable_node->tree->children.size > 0 && reusable_node->tree->parse_state != state) {
-    LOG("state_mismatch sym:%s", SYM_NAME(reusable_node->tree->symbol));
-    reusable_node_breakdown(reusable_node);
-    did_break_down = true;
+  bool did_descend = false;
+  Tree *tree = reusable_node_tree(reusable_node);
+  while (tree->children.size > 0 && tree->parse_state != state) {
+    LOG("state_mismatch sym:%s", SYM_NAME(tree->symbol));
+    reusable_node_descend(reusable_node);
+    tree = reusable_node_tree(reusable_node);
+    did_descend = true;
   }
 
-  if (did_break_down) {
+  if (did_descend) {
     ts_tree_release(&self->tree_pool, *lookahead);
-    ts_tree_retain(*lookahead = reusable_node->tree);
+    *lookahead = tree;
+    ts_tree_retain(*lookahead);
   }
 }
 
@@ -419,21 +422,22 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version, TSStateId
   Tree *last_external_token = ts_stack_last_external_token(self->stack, version);
 
   Tree *result;
-  while ((result = reusable_node->tree)) {
-    if (reusable_node->byte_index > position.bytes) {
+  while ((result = reusable_node_tree(reusable_node))) {
+    uint32_t byte_offset = reusable_node_byte_offset(reusable_node);
+    if (byte_offset > position.bytes) {
       LOG("before_reusable_node symbol:%s", SYM_NAME(result->symbol));
       break;
     }
 
-    if (reusable_node->byte_index < position.bytes) {
+    if (byte_offset < position.bytes) {
       LOG("past_reusable_node symbol:%s", SYM_NAME(result->symbol));
-      reusable_node_pop(reusable_node);
+      reusable_node_advance(reusable_node);
       continue;
     }
 
     if (!ts_tree_external_token_state_eq(reusable_node->last_external_token, last_external_token)) {
       LOG("reusable_node_has_different_external_scanner_state symbol:%s", SYM_NAME(result->symbol));
-      reusable_node_pop(reusable_node);
+      reusable_node_advance(reusable_node);
       continue;
     }
 
@@ -452,8 +456,8 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version, TSStateId
 
     if (reason) {
       LOG("cant_reuse_node_%s tree:%s", reason, SYM_NAME(result->symbol));
-      if (!reusable_node_breakdown(reusable_node)) {
-        reusable_node_pop(reusable_node);
+      if (!reusable_node_descend(reusable_node)) {
+        reusable_node_advance(reusable_node);
         parser__breakdown_top_of_stack(self, version);
         *state = ts_stack_state(self->stack, version);
       }
@@ -467,7 +471,7 @@ static Tree *parser__get_lookahead(Parser *self, StackVersion version, TSStateId
         SYM_NAME(result->symbol),
         SYM_NAME(result->first_leaf.symbol)
       );
-      reusable_node_pop_leaf(reusable_node);
+      reusable_node_advance_past_leaf(reusable_node);
       break;
     }
 
@@ -678,7 +682,7 @@ static void parser__start(Parser *self, TSInput input, Tree *previous_tree) {
 
   ts_lexer_set_input(&self->lexer, input);
   ts_stack_clear(self->stack);
-  self->reusable_node = reusable_node_new(previous_tree);
+  reusable_node_reset(&self->reusable_node, previous_tree);
   self->finished_tree = NULL;
   self->accept_count = 0;
   self->in_ambiguity = false;
@@ -1106,7 +1110,9 @@ static void parser__advance(Parser *self, StackVersion version, ReusableNode *re
           }
 
           parser__shift(self, version, next_state, lookahead, action.params.extra);
-          if (lookahead == reusable_node->tree) reusable_node_pop(reusable_node);
+          if (lookahead == reusable_node_tree(reusable_node)) {
+            reusable_node_advance(reusable_node);
+          }
           ts_tree_release(&self->tree_pool, lookahead);
           return;
         }
@@ -1136,7 +1142,9 @@ static void parser__advance(Parser *self, StackVersion version, ReusableNode *re
             parser__breakdown_lookahead(self, &lookahead, state, reusable_node);
           }
           parser__recover(self, version, lookahead);
-          if (lookahead == reusable_node->tree) reusable_node_pop(reusable_node);
+          if (lookahead == reusable_node_tree(reusable_node)) {
+            reusable_node_advance(reusable_node);
+          }
           ts_tree_release(&self->tree_pool, lookahead);
           return;
         }
@@ -1255,6 +1263,7 @@ bool parser_init(Parser *self) {
   ts_tree_pool_init(&self->tree_pool);
   self->stack = ts_stack_new(&self->tree_pool);
   self->finished_tree = NULL;
+  self->reusable_node = reusable_node_new();
   parser__set_cached_token(self, 0, NULL, NULL);
   return true;
 }
@@ -1277,6 +1286,7 @@ void parser_destroy(Parser *self) {
   if (self->reduce_actions.contents)
     array_delete(&self->reduce_actions);
   ts_tree_pool_delete(&self->tree_pool);
+  reusable_node_delete(&self->reusable_node);
   parser_set_language(self, NULL);
 }
 
@@ -1285,11 +1295,12 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
 
   StackVersion version = STACK_VERSION_NONE;
   uint32_t position = 0, last_position = 0;
-  ReusableNode reusable_node;
+  ReusableNode reusable_node = reusable_node_new();
+  reusable_node_assign(&reusable_node, &self->reusable_node);
 
   do {
     for (version = 0; version < ts_stack_version_count(self->stack); version++) {
-      reusable_node = self->reusable_node;
+      reusable_node_assign(&reusable_node, &self->reusable_node);
 
       while (ts_stack_is_active(self->stack, version)) {
         LOG("process version:%d, version_count:%u, state:%d, row:%u, col:%u",
@@ -1309,7 +1320,7 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
       }
     }
 
-    self->reusable_node = reusable_node;
+    reusable_node_assign(&self->reusable_node, &reusable_node);
 
     unsigned min_error_cost = parser__condense_stack(self);
     if (self->finished_tree && self->finished_tree->error_cost < min_error_cost) {
@@ -1322,6 +1333,7 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
     self->in_ambiguity = version > 1;
   } while (version != 0);
 
+  reusable_node_delete(&reusable_node);
   ts_stack_clear(self->stack);
   parser__set_cached_token(self, 0, NULL, NULL);
   ts_tree_assign_parents(self->finished_tree, &self->tree_pool, self->language);

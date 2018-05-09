@@ -27,14 +27,6 @@ typedef struct Tree Tree;
 typedef Array(Tree *) TreeArray;
 
 struct Tree {
-  struct {
-    struct Tree *parent;
-    uint32_t index;
-    Length offset;
-    TSSymbol alias_symbol : 15;
-    bool alias_is_named : 1;
-  } context;
-
   Length padding;
   Length size;
   uint32_t ref_count;
@@ -106,8 +98,6 @@ void ts_tree_retain(Tree *tree);
 void ts_tree_release(TreePool *, Tree *tree);
 bool ts_tree_eq(const Tree *tree1, const Tree *tree2);
 int ts_tree_compare(const Tree *tree1, const Tree *tree2);
-uint32_t ts_tree_start_column(const Tree *self);
-uint32_t ts_tree_end_column(const Tree *self);
 void ts_tree_set_children(Tree *, TreeArray *, const TSLanguage *);
 void ts_tree_assign_parents(Tree *, TreePool *, const TSLanguage *);
 void ts_tree_edit(Tree *, const TSInputEdit *edit);
@@ -118,6 +108,10 @@ bool ts_tree_external_token_state_eq(const Tree *, const Tree *);
 
 static inline uint32_t ts_tree_total_bytes(const Tree *self) {
   return self->padding.bytes + self->size.bytes;
+}
+
+static inline uint32_t ts_tree_total_rows(const Tree *self) {
+  return self->padding.extent.row + self->size.extent.row;
 }
 
 static inline Length ts_tree_total_size(const Tree *self) {

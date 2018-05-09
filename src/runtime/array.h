@@ -58,6 +58,9 @@ extern "C" {
 
 #define array_pop(self) ((self)->contents[--(self)->size])
 
+#define array_assign(self, other) \
+  array__assign((VoidArray *)(self), (const VoidArray *)(other), array__elem_size(self))
+
 // Private
 
 typedef Array(void) VoidArray;
@@ -89,6 +92,12 @@ static inline void array__reserve(VoidArray *self, size_t element_size, uint32_t
     }
     self->capacity = new_capacity;
   }
+}
+
+static inline void array__assign(VoidArray *self, const VoidArray *other, size_t element_size) {
+  array__reserve(self, element_size, other->size);
+  self->size = other->size;
+  memcpy(self->contents, other->contents, self->size * element_size);
 }
 
 static inline void array__grow(VoidArray *self, size_t element_size) {

@@ -1,8 +1,7 @@
-#include "bandit/bandit.h"
+#include "test_helper.h"
 #include "helpers/tree_helpers.h"
 #include "helpers/point_helpers.h"
 #include "runtime/document.h"
-#include "runtime/node.h"
 #include <ostream>
 
 using std::string;
@@ -21,24 +20,30 @@ TreeArray *tree_array(std::vector<Tree *> trees) {
   result.capacity = trees.size();
   result.size = trees.size();
   result.contents = (Tree **)calloc(trees.size(), sizeof(Tree *));
-  for (size_t i = 0; i < trees.size(); i++)
+  for (size_t i = 0; i < trees.size(); i++) {
     result.contents[i] = trees[i];
+  }
   return &result;
 }
 
 ostream &operator<<(std::ostream &stream, const Tree *tree) {
   static TSLanguage DUMMY_LANGUAGE = {};
-  static TSDocument DUMMY_DOCUMENT = {};
-  DUMMY_DOCUMENT.parser.language = &DUMMY_LANGUAGE;
   DUMMY_LANGUAGE.symbol_names = symbol_names;
-  TSNode node;
-  node.data = tree;
-  return stream << string(ts_node_string(node, &DUMMY_DOCUMENT));
+  char *string = ts_tree_string(tree, &DUMMY_LANGUAGE, false);
+  stream << string;
+  ts_free(string);
+  return stream;
 }
 
 ostream &operator<<(ostream &stream, const TSNode &node) {
-  return stream << string("{") << (const Tree *)node.data <<
-    string(", ") << to_string(ts_node_start_byte(node)) << string("}");
+  if (node.subtree) {
+    char *string = ts_node_string(node, node.document);
+    stream << "{" << string << ", " << to_string(ts_node_start_byte(node)) << "}";
+    ts_free(string);
+    return stream;
+  } else {
+    return stream << "NULL";
+  }
 }
 
 bool operator==(const TSNode &left, const TSNode &right) {

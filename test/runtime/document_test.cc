@@ -182,7 +182,7 @@ describe("Document", [&]() {
       ts_document_parse(document);
 
       ts_document_set_language(document, load_real_language("javascript"));
-      AssertThat(ts_document_root_node(document).data, Equals<void *>(nullptr));
+      AssertThat(ts_document_root_node(document).subtree, Equals<void *>(nullptr));
 
       ts_document_parse(document);
       root = ts_document_root_node(document);

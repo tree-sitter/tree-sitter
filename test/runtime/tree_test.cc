@@ -5,14 +5,12 @@
 #include "runtime/length.h"
 
 void assert_consistent(const Tree *tree) {
-  if (tree->child_count == 0)
-    return;
+  if (tree->child_count == 0) return;
   AssertThat(tree->children.contents[0]->padding, Equals<Length>(tree->padding));
 
   Length total_children_size = length_zero();
   for (size_t i = 0; i < tree->children.size; i++) {
     Tree *child = tree->children.contents[i];
-    AssertThat(child->context.offset, Equals(total_children_size));
     assert_consistent(child);
     total_children_size = length_add(total_children_size, ts_tree_total_size(child));
   }

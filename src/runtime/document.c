@@ -1,5 +1,4 @@
 #include "runtime/alloc.h"
-#include "runtime/node.h"
 #include "runtime/tree.h"
 #include "runtime/parser.h"
 #include "runtime/string_input.h"
@@ -171,7 +170,12 @@ void ts_document_invalidate(TSDocument *self) {
 }
 
 TSNode ts_document_root_node(const TSDocument *self) {
-  return ts_node_make(self->tree, 0, 0);
+  return (TSNode) {
+    .subtree = self->tree,
+    .document = self,
+    .position = {0, 0},
+    .byte = 0,
+  };
 }
 
 uint32_t ts_document_parse_count(const TSDocument *self) {
