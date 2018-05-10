@@ -1,5 +1,5 @@
 #include "runtime/get_changed_ranges.h"
-#include "runtime/tree.h"
+#include "runtime/subtree.h"
 #include "runtime/language.h"
 #include "runtime/error_costs.h"
 #include "runtime/tree_cursor.h"
@@ -31,7 +31,7 @@ typedef struct {
   bool in_padding;
 } Iterator;
 
-static Iterator iterator_new(TSTreeCursor *cursor, Tree *tree, const TSLanguage *language) {
+static Iterator iterator_new(TSTreeCursor *cursor, Subtree *tree, const TSLanguage *language) {
   array_clear(&cursor->stack);
   array_push(&cursor->stack, ((TreeCursorEntry){
     .tree = tree,
@@ -74,14 +74,14 @@ static bool iterator_tree_is_visible(const Iterator *self) {
   TreeCursorEntry entry = *array_back(&self->cursor.stack);
   if (entry.tree->visible) return true;
   if (self->cursor.stack.size > 1) {
-    Tree *parent = self->cursor.stack.contents[self->cursor.stack.size - 2].tree;
+    Subtree *parent = self->cursor.stack.contents[self->cursor.stack.size - 2].tree;
     const TSSymbol *alias_sequence = ts_language_alias_sequence(self->language, parent->alias_sequence_id);
     return alias_sequence && alias_sequence[entry.structural_child_index] != 0;
   }
   return false;
 }
 
-static void iterator_get_visible_state(const Iterator *self, Tree **tree,
+static void iterator_get_visible_state(const Iterator *self, Subtree **tree,
                                        TSSymbol *alias_symbol, uint32_t *start_byte) {
   uint32_t i = self->cursor.stack.size - 1;
 
@@ -94,7 +94,7 @@ static void iterator_get_visible_state(const Iterator *self, Tree **tree,
     TreeCursorEntry entry = self->cursor.stack.contents[i];
 
     if (i > 0) {
-      Tree *parent = self->cursor.stack.contents[i - 1].tree;
+      Subtree *parent = self->cursor.stack.contents[i - 1].tree;
       const TSSymbol *alias_sequence = ts_language_alias_sequence(
         self->language,
         parent->alias_sequence_id
@@ -129,7 +129,7 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
     Length position = entry.position;
     uint32_t structural_child_index = 0;
     for (uint32_t i = 0; i < entry.tree->children.size; i++) {
-      Tree *child = entry.tree->children.contents[i];
+      Subtree *child = entry.tree->children.contents[i];
       Length child_left = length_add(position, child->padding);
       Length child_right = length_add(child_left, child->size);
 
@@ -178,13 +178,13 @@ static void iterator_advance(Iterator *self) {
     TreeCursorEntry entry = array_pop(&self->cursor.stack);
     if (iterator_done(self)) return;
 
-    Tree *parent = array_back(&self->cursor.stack)->tree;
+    Subtree *parent = array_back(&self->cursor.stack)->tree;
     uint32_t child_index = entry.child_index + 1;
     if (parent->children.size > child_index) {
-      Length position = length_add(entry.position, ts_tree_total_size(entry.tree));
+      Length position = length_add(entry.position, ts_subtree_total_size(entry.tree));
       uint32_t structural_child_index = entry.structural_child_index;
       if (!entry.tree->extra) structural_child_index++;
-      Tree *next_child = parent->children.contents[child_index];
+      Subtree *next_child = parent->children.contents[child_index];
 
       array_push(&self->cursor.stack, ((TreeCursorEntry){
         .tree = next_child,
@@ -214,7 +214,7 @@ typedef enum {
 } IteratorComparison;
 
 IteratorComparison iterator_compare(const Iterator *old_iter, const Iterator *new_iter) {
-  Tree *old_tree = NULL, *new_tree = NULL;
+  Subtree *old_tree = NULL, *new_tree = NULL;
   uint32_t old_start = 0, new_start = 0;
   TSSymbol old_alias_symbol = 0, new_alias_symbol = 0;
   iterator_get_visible_state(old_iter, &old_tree, &old_alias_symbol, &old_start);
@@ -261,7 +261,7 @@ static inline void iterator_print_state(Iterator *self) {
 }
 #endif
 
-unsigned ts_tree_get_changed_ranges(Tree *old_tree, Tree *new_tree,
+unsigned ts_subtree_get_changed_ranges(Subtree *old_tree, Subtree *new_tree,
                                     TSTreeCursor *cursor1, TSTreeCursor *cursor2,
                                     const TSLanguage *language, TSRange **ranges) {
   RangeArray results = array_new();

@@ -24,7 +24,7 @@ void ts_tree_cursor_delete(TSTreeCursor *self) {
 
 bool ts_tree_cursor_goto_first_child(TSTreeCursor *self) {
   TreeCursorEntry *last_entry = array_back(&self->stack);
-  Tree *tree = last_entry->tree;
+  Subtree *tree = last_entry->tree;
   Length position = last_entry->position;
 
   bool did_descend;
@@ -33,7 +33,7 @@ bool ts_tree_cursor_goto_first_child(TSTreeCursor *self) {
 
     uint32_t structural_child_index = 0;
     for (uint32_t i = 0; i < tree->children.size; i++) {
-      Tree *child = tree->children.contents[i];
+      Subtree *child = tree->children.contents[i];
       if (child->visible || child->visible_child_count > 0) {
         array_push(&self->stack, ((TreeCursorEntry) {
           .tree = child,
@@ -51,7 +51,7 @@ bool ts_tree_cursor_goto_first_child(TSTreeCursor *self) {
         }
       }
       if (!child->extra) structural_child_index++;
-      position = length_add(position, ts_tree_total_size(child));
+      position = length_add(position, ts_subtree_total_size(child));
     }
   } while (did_descend);
 
@@ -64,15 +64,15 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *self) {
   for (unsigned i = self->stack.size - 2; i + 1 > 0; i--) {
     TreeCursorEntry *parent_entry = &self->stack.contents[i];
 
-    Tree *parent = parent_entry->tree;
+    Subtree *parent = parent_entry->tree;
     uint32_t child_index = child_entry->child_index;
     uint32_t structural_child_index = child_entry->structural_child_index;
     Length position = child_entry->position;
-    Tree *child = parent->children.contents[child_index];
+    Subtree *child = parent->children.contents[child_index];
 
     while (++child_index < parent->children.size) {
       if (!child->extra) structural_child_index++;
-      position = length_add(position, ts_tree_total_size(child));
+      position = length_add(position, ts_subtree_total_size(child));
       child = parent->children.contents[child_index];
 
       if (child->visible || child->visible_child_count > 0) {

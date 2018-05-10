@@ -14,21 +14,21 @@ const char *symbol_names[24] = {
   "twenty-two", "twenty-three"
 };
 
-TreeArray *tree_array(std::vector<Tree *> trees) {
-  static TreeArray result;
+SubtreeArray *tree_array(std::vector<Subtree *> trees) {
+  static SubtreeArray result;
   result.capacity = trees.size();
   result.size = trees.size();
-  result.contents = (Tree **)calloc(trees.size(), sizeof(Tree *));
+  result.contents = (Subtree **)calloc(trees.size(), sizeof(Subtree *));
   for (size_t i = 0; i < trees.size(); i++) {
     result.contents[i] = trees[i];
   }
   return &result;
 }
 
-ostream &operator<<(std::ostream &stream, const Tree *tree) {
+ostream &operator<<(std::ostream &stream, const Subtree *tree) {
   static TSLanguage DUMMY_LANGUAGE = {};
   DUMMY_LANGUAGE.symbol_names = symbol_names;
-  char *string = ts_tree_string(tree, &DUMMY_LANGUAGE, false);
+  char *string = ts_subtree_string(tree, &DUMMY_LANGUAGE, false);
   stream << string;
   ts_free(string);
   return stream;
@@ -49,7 +49,7 @@ bool operator==(const TSNode &left, const TSNode &right) {
   return ts_node_eq(left, right);
 }
 
-bool operator==(const std::vector<Tree *> &vec, const TreeArray &array) {
+bool operator==(const std::vector<Subtree *> &vec, const SubtreeArray &array) {
   if (vec.size() != array.size)
     return false;
   for (size_t i = 0; i < array.size; i++)

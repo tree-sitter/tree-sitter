@@ -8,7 +8,7 @@ extern "C" {
 #include "tree_sitter/parser.h"
 #include "tree_sitter/runtime.h"
 #include "runtime/length.h"
-#include "runtime/tree.h"
+#include "runtime/subtree.h"
 
 typedef struct {
   TSLexer data;

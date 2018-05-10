@@ -71,7 +71,7 @@
         'test/runtime/node_test.cc',
         'test/runtime/parser_test.cc',
         'test/runtime/stack_test.cc',
-        'test/runtime/tree_test.cc',
+        'test/runtime/subtree_test.cc',
         'test/tests.cc',
       ],
       'cflags': [

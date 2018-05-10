@@ -1,21 +1,21 @@
-#include "runtime/tree.h"
+#include "runtime/subtree.h"
 
 typedef struct {
-  Tree *tree;
+  Subtree *tree;
   uint32_t child_index;
   uint32_t byte_offset;
 } StackEntry;
 
 typedef struct {
   Array(StackEntry) stack;
-  Tree *last_external_token;
+  Subtree *last_external_token;
 } ReusableNode;
 
 static inline ReusableNode reusable_node_new() {
   return (ReusableNode) {array_new(), NULL};
 }
 
-static inline void reusable_node_reset(ReusableNode *self, Tree *tree) {
+static inline void reusable_node_reset(ReusableNode *self, Subtree *tree) {
   array_clear(&self->stack);
   array_push(&self->stack, ((StackEntry) {
     .tree = tree,
@@ -24,7 +24,7 @@ static inline void reusable_node_reset(ReusableNode *self, Tree *tree) {
   }));
 }
 
-static inline Tree *reusable_node_tree(ReusableNode *self) {
+static inline Subtree *reusable_node_tree(ReusableNode *self) {
   return self->stack.size > 0
     ? self->stack.contents[self->stack.size - 1].tree
     : NULL;
@@ -46,12 +46,12 @@ static inline void reusable_node_assign(ReusableNode *self, const ReusableNode *
 
 static inline void reusable_node_advance(ReusableNode *self) {
   StackEntry last_entry = *array_back(&self->stack);
-  uint32_t byte_offset = last_entry.byte_offset + ts_tree_total_bytes(last_entry.tree);
+  uint32_t byte_offset = last_entry.byte_offset + ts_subtree_total_bytes(last_entry.tree);
   if (last_entry.tree->has_external_tokens) {
-    self->last_external_token = ts_tree_last_external_token(last_entry.tree);
+    self->last_external_token = ts_subtree_last_external_token(last_entry.tree);
   }
 
-  Tree *tree;
+  Subtree *tree;
   uint32_t next_index;
   do {
     StackEntry popped_entry = array_pop(&self->stack);

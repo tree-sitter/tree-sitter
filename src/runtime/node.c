@@ -1,12 +1,12 @@
 #include <stdbool.h>
-#include "runtime/tree.h"
+#include "runtime/subtree.h"
 #include "runtime/document.h"
 #include "runtime/language.h"
 
 // NodeChildIterator
 
 typedef struct {
-  const Tree *parent;
+  const Subtree *parent;
   const TSDocument *document;
   Length position;
   uint32_t child_index;
@@ -25,12 +25,12 @@ static inline TSNode ts_node__null() {
   };
 }
 
-static inline const Tree *ts_node__tree(TSNode self) {
+static inline const Subtree *ts_node__tree(TSNode self) {
   return self.subtree;
 }
 
 static inline NodeChildIterator ts_node_child_iterator_begin(const TSNode *node) {
-  const Tree *tree = ts_node__tree(*node);
+  const Subtree *tree = ts_node__tree(*node);
   const TSSymbol *alias_sequence = ts_language_alias_sequence(
     node->document->parser.language,
     tree->alias_sequence_id
@@ -47,7 +47,7 @@ static inline NodeChildIterator ts_node_child_iterator_begin(const TSNode *node)
 
 static inline bool ts_node_child_iterator_next(NodeChildIterator *self, TSNode *result) {
   if (self->child_index == self->parent->children.size) return false;
-  Tree *child = self->parent->children.contents[self->child_index];
+  Subtree *child = self->parent->children.contents[self->child_index];
   TSSymbol alias_symbol = 0;
   if (!child->extra) {
     if (self->alias_sequence) {
@@ -62,13 +62,13 @@ static inline bool ts_node_child_iterator_next(NodeChildIterator *self, TSNode *
     .byte = self->position.bytes,
     .alias_symbol = alias_symbol,
   };
-  self->position = length_add(self->position, ts_tree_total_size(child));
+  self->position = length_add(self->position, ts_subtree_total_size(child));
   self->child_index++;
   return true;
 }
 
 static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
-  const Tree *tree = ts_node__tree(self);
+  const Subtree *tree = ts_node__tree(self);
   if (include_anonymous) {
     return tree->visible || self.alias_symbol;
   } else {
@@ -86,7 +86,7 @@ static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
 }
 
 static inline uint32_t ts_node__relevant_child_count(TSNode self, bool include_anonymous) {
-  const Tree *tree = ts_node__tree(self);
+  const Subtree *tree = ts_node__tree(self);
   if (tree->children.size > 0) {
     if (include_anonymous) {
       return tree->visible_child_count;
@@ -300,7 +300,7 @@ static inline TSNode ts_node__descendant_for_point_range(TSNode self, TSPoint mi
     TSNode child;
     NodeChildIterator iterator = ts_node_child_iterator_begin(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
-      const Tree *child_tree = ts_node__tree(child);
+      const Subtree *child_tree = ts_node__tree(child);
       if (iterator.child_index != 1) {
         start_position = point_add(start_position, child_tree->padding.extent);
       }
@@ -338,7 +338,7 @@ TSPoint ts_node_end_point(TSNode self) {
 }
 
 TSSymbol ts_node_symbol(TSNode self) {
-  const Tree *tree = ts_node__tree(self);
+  const Subtree *tree = ts_node__tree(self);
   return self.alias_symbol ? self.alias_symbol : tree->symbol;
 }
 
@@ -347,25 +347,25 @@ const char *ts_node_type(TSNode self) {
 }
 
 char *ts_node_string(TSNode self) {
-  return ts_tree_string(ts_node__tree(self), self.document->parser.language, false);
+  return ts_subtree_string(ts_node__tree(self), self.document->parser.language, false);
 }
 
 bool ts_node_eq(TSNode self, TSNode other) {
   return (
-    ts_tree_eq(ts_node__tree(self), ts_node__tree(other)) &&
+    ts_subtree_eq(ts_node__tree(self), ts_node__tree(other)) &&
     self.byte == other.byte
   );
 }
 
 bool ts_node_is_named(TSNode self) {
-  const Tree *tree = ts_node__tree(self);
+  const Subtree *tree = ts_node__tree(self);
   return self.alias_symbol
     ? ts_language_symbol_metadata(self.document->parser.language, self.alias_symbol).named
     : tree->named;
 }
 
 bool ts_node_is_missing(TSNode self) {
-  const Tree *tree = ts_node__tree(self);
+  const Subtree *tree = ts_node__tree(self);
   return tree->is_missing;
 }
 
@@ -414,7 +414,7 @@ TSNode ts_node_named_child(TSNode self, uint32_t child_index) {
 }
 
 uint32_t ts_node_child_count(TSNode self) {
-  const Tree *tree = ts_node__tree(self);
+  const Subtree *tree = ts_node__tree(self);
   if (tree->children.size > 0) {
     return tree->visible_child_count;
   } else {
@@ -423,7 +423,7 @@ uint32_t ts_node_child_count(TSNode self) {
 }
 
 uint32_t ts_node_named_child_count(TSNode self) {
-  const Tree *tree = ts_node__tree(self);
+  const Subtree *tree = ts_node__tree(self);
   if (tree->children.size > 0) {
     return tree->named_child_count;
   } else {

@@ -1,5 +1,5 @@
 #include "runtime/alloc.h"
-#include "runtime/tree.h"
+#include "runtime/subtree.h"
 #include "runtime/parser.h"
 #include "runtime/string_input.h"
 #include "runtime/document.h"
@@ -19,7 +19,7 @@ TSDocument *ts_document_new() {
 }
 
 void ts_document_free(TSDocument *self) {
-  if (self->tree) ts_tree_release(&self->parser.tree_pool, self->tree);
+  if (self->tree) ts_subtree_release(&self->parser.tree_pool, self->tree);
   if (self->cursor1.stack.contents) array_delete(&self->cursor1.stack);
   if (self->cursor2.stack.contents) array_delete(&self->cursor2.stack);
   parser_destroy(&self->parser);
@@ -41,7 +41,7 @@ void ts_document_set_language(TSDocument *self, const TSLanguage *language) {
   ts_document_invalidate(self);
   parser_set_language(&self->parser, language);
   if (self->tree) {
-    ts_tree_release(&self->parser.tree_pool, self->tree);
+    ts_subtree_release(&self->parser.tree_pool, self->tree);
     self->tree = NULL;
   }
 }
@@ -91,16 +91,16 @@ void ts_document_edit(TSDocument *self, TSInputEdit edit) {
   if (!self->tree)
     return;
 
-  uint32_t max_bytes = ts_tree_total_bytes(self->tree);
+  uint32_t max_bytes = ts_subtree_total_bytes(self->tree);
   if (edit.start_byte > max_bytes)
     return;
   if (edit.bytes_removed > max_bytes - edit.start_byte)
     edit.bytes_removed = max_bytes - edit.start_byte;
 
-  self->tree = ts_tree_edit(self->tree, &edit, &self->parser.tree_pool);
+  self->tree = ts_subtree_edit(self->tree, &edit, &self->parser.tree_pool);
 
   if (self->parser.print_debugging_graphs) {
-    ts_tree_print_dot_graph(self->tree, self->parser.language, stderr);
+    ts_subtree_print_dot_graph(self->tree, self->parser.language, stderr);
   }
 }
 
@@ -130,18 +130,18 @@ void ts_document_parse_with_options(TSDocument *self, TSParseOptions options) {
   if (!self->input.read || !self->parser.language)
     return;
 
-  Tree *reusable_tree = self->valid ? self->tree : NULL;
+  Subtree *reusable_tree = self->valid ? self->tree : NULL;
   if (reusable_tree && !reusable_tree->has_changes)
     return;
 
-  Tree *tree = parser_parse(&self->parser, self->input, reusable_tree, options.halt_on_error);
+  Subtree *tree = parser_parse(&self->parser, self->input, reusable_tree, options.halt_on_error);
 
   if (self->tree) {
-    Tree *old_tree = self->tree;
+    Subtree *old_tree = self->tree;
     self->tree = tree;
 
     if (options.changed_ranges && options.changed_range_count) {
-      *options.changed_range_count = ts_tree_get_changed_ranges(
+      *options.changed_range_count = ts_subtree_get_changed_ranges(
         old_tree, tree, &self->cursor1, &self->cursor2,
         self->parser.language, options.changed_ranges
       );
@@ -158,7 +158,7 @@ void ts_document_parse_with_options(TSDocument *self, TSParseOptions options) {
       }
     }
 
-    ts_tree_release(&self->parser.tree_pool, old_tree);
+    ts_subtree_release(&self->parser.tree_pool, old_tree);
   }
 
   self->tree = tree;

@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 #include "runtime/array.h"
-#include "runtime/tree.h"
+#include "runtime/subtree.h"
 #include "runtime/error_costs.h"
 #include <stdio.h>
 
@@ -16,7 +16,7 @@ typedef unsigned StackVersion;
 #define STACK_VERSION_NONE ((StackVersion)-1)
 
 typedef struct {
-  TreeArray trees;
+  SubtreeArray subtrees;
   StackVersion version;
 } StackSlice;
 typedef Array(StackSlice) StackSliceArray;
@@ -29,7 +29,7 @@ typedef struct {
 typedef Array(StackSummaryEntry) StackSummary;
 
 // Create a stack.
-Stack *ts_stack_new(TreePool *);
+Stack *ts_stack_new(SubtreePool *);
 
 // Release the memory reserved for a given stack.
 void ts_stack_delete(Stack *);
@@ -42,10 +42,10 @@ uint32_t ts_stack_version_count(const Stack *);
 TSStateId ts_stack_state(const Stack *, StackVersion);
 
 // Get the last external token associated with a given version of the stack.
-Tree *ts_stack_last_external_token(const Stack *, StackVersion);
+Subtree *ts_stack_last_external_token(const Stack *, StackVersion);
 
 // Set the last external token associated with a given version of the stack.
-void ts_stack_set_last_external_token(Stack *, StackVersion, Tree *);
+void ts_stack_set_last_external_token(Stack *, StackVersion, Subtree *);
 
 // Get the position of the given version of the stack within the document.
 Length ts_stack_position(const Stack *, StackVersion);
@@ -55,7 +55,7 @@ Length ts_stack_position(const Stack *, StackVersion);
 // This transfers ownership of the tree to the Stack. Callers that
 // need to retain ownership of the tree for their own purposes should
 // first retain the tree.
-void ts_stack_push(Stack *, StackVersion, Tree *, bool, TSStateId);
+void ts_stack_push(Stack *, StackVersion, Subtree *, bool, TSStateId);
 
 // Pop the given number of entries from the given version of the stack. This
 // operation can increase the number of stack versions by revealing multiple
@@ -65,7 +65,7 @@ void ts_stack_push(Stack *, StackVersion, Tree *, bool, TSStateId);
 StackSliceArray ts_stack_pop_count(Stack *, StackVersion, uint32_t count);
 
 // Remove an error at the top of the given version of the stack.
-TreeArray ts_stack_pop_error(Stack *, StackVersion);
+SubtreeArray ts_stack_pop_error(Stack *, StackVersion);
 
 // Remove any pending trees from the top of the given version of the stack.
 StackSliceArray ts_stack_pop_pending(Stack *, StackVersion);

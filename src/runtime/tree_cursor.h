@@ -1,10 +1,10 @@
 #ifndef RUNTIME_TREE_CURSOR_H_
 #define RUNTIME_TREE_CURSOR_H_
 
-#include "runtime/tree.h"
+#include "runtime/subtree.h"
 
 typedef struct {
-  Tree *tree;
+  Subtree *tree;
   Length position;
   uint32_t child_index;
   uint32_t structural_child_index;
