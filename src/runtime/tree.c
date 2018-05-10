@@ -200,6 +200,7 @@ static void ts_tree__compress(Tree *self, unsigned count, const TSLanguage *lang
 
   while (stack->size > initial_stack_size) {
     tree = array_pop(stack);
+    assert(tree);
     Tree *child = tree->children.contents[0];
     Tree *grandchild = child->children.contents[1];
     ts_tree_set_children(grandchild, &grandchild->children, language);
