@@ -11,6 +11,12 @@
 #include "runtime/language.h"
 #include "runtime/error_costs.h"
 
+typedef struct {
+  Length start;
+  Length added;
+  Length removed;
+} Edit;
+
 TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
 
 // ExternalTokenState
@@ -432,12 +438,8 @@ int ts_tree_compare(const Tree *left, const Tree *right) {
   return 0;
 }
 
-static inline long min_byte(long a, long b) {
-  return a <= b ? a : b;
-}
-
-bool ts_tree_invalidate_lookahead(Tree *self, uint32_t edit_byte_offset) {
-  if (edit_byte_offset >= self->bytes_scanned) return false;
+void ts_tree_invalidate_lookahead(Tree *self, uint32_t edit_byte_offset) {
+  if (edit_byte_offset >= self->bytes_scanned) return;
   self->has_changes = true;
   if (self->children.size > 0) {
     uint32_t child_start_byte = 0;
@@ -448,93 +450,68 @@ bool ts_tree_invalidate_lookahead(Tree *self, uint32_t edit_byte_offset) {
       child_start_byte += ts_tree_total_bytes(child);
     }
   }
-  return true;
 }
 
-static inline TSPoint ts_tree_total_extent(const Tree *self) {
-  return point_add(self->padding.extent, self->size.extent);
-}
-
-void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
-  uint32_t old_end_byte = edit->start_byte + edit->bytes_removed;
-  uint32_t new_end_byte = edit->start_byte + edit->bytes_added;
-  TSPoint old_end_point = point_add(edit->start_point, edit->extent_removed);
-  TSPoint new_end_point = point_add(edit->start_point, edit->extent_added);
-
-  assert(old_end_byte <= ts_tree_total_bytes(self));
+void ts_tree__edit(Tree *self, Edit edit) {
+  Length new_end = length_add(edit.start, edit.added);
+  Length old_end = length_add(edit.start, edit.removed);
 
   self->has_changes = true;
 
-  if (edit->start_byte < self->padding.bytes) {
-    if (self->padding.bytes >= old_end_byte) {
-      uint32_t trailing_padding_bytes = self->padding.bytes - old_end_byte;
-      TSPoint trailing_padding_extent = point_sub(self->padding.extent, old_end_point);
-      self->padding.bytes = new_end_byte + trailing_padding_bytes;
-      self->padding.extent = point_add(new_end_point, trailing_padding_extent);
-    } else {
-      uint32_t removed_content_bytes = old_end_byte - self->padding.bytes;
-      TSPoint removed_content_extent = point_sub(old_end_point, self->padding.extent);
-      self->size.bytes = self->size.bytes - removed_content_bytes;
-      self->size.extent = point_sub(self->size.extent, removed_content_extent);
-      self->padding.bytes = new_end_byte;
-      self->padding.extent = new_end_point;
-    }
-  } else if (edit->start_byte == self->padding.bytes && edit->bytes_removed == 0) {
-    self->padding.bytes = self->padding.bytes + edit->bytes_added;
-    self->padding.extent = point_add(self->padding.extent, edit->extent_added);
+  if (old_end.bytes <= self->padding.bytes) {
+    self->padding = length_add(new_end, length_sub(self->padding, old_end));
+  } else if (edit.start.bytes < self->padding.bytes) {
+    self->size = length_sub(self->size, length_sub(old_end, self->padding));
+    self->padding = new_end;
+  } else if (edit.start.bytes == self->padding.bytes && edit.removed.bytes == 0) {
+    self->padding = length_add(self->padding, edit.added);
   } else {
-    uint32_t trailing_content_bytes = ts_tree_total_bytes(self) - old_end_byte;
-    TSPoint trailing_content_extent = point_sub(ts_tree_total_extent(self), old_end_point);
-    self->size.bytes = new_end_byte + trailing_content_bytes - self->padding.bytes;
-    self->size.extent = point_sub(point_add(new_end_point, trailing_content_extent), self->padding.extent);
+    Length new_total_size = length_add(new_end, length_sub(ts_tree_total_size(self), old_end));
+    self->size = length_sub(new_total_size, self->padding);
   }
 
-  bool found_first_child = false;
-  long remaining_bytes_to_delete = 0;
-  TSPoint remaining_extent_to_delete = {0, 0};
   Length child_left, child_right = length_zero();
   for (uint32_t i = 0; i < self->children.size; i++) {
     Tree *child = self->children.contents[i];
+    Length child_size = ts_tree_total_size(child);
     child_left = child_right;
-    child_right = length_add(child_left, ts_tree_total_size(child));
+    child_right = length_add(child_left, child_size);
 
-    if (!found_first_child && child_right.bytes >= edit->start_byte) {
-      found_first_child = true;
-      TSInputEdit child_edit = {
-        .start_byte = edit->start_byte - child_left.bytes,
-        .bytes_added = edit->bytes_added,
-        .bytes_removed = edit->bytes_removed,
-        .start_point = point_sub(edit->start_point, child_left.extent),
-        .extent_added = edit->extent_added,
-        .extent_removed = edit->extent_removed,
+    if (child_left.bytes > old_end.bytes ||
+        (child_left.bytes == old_end.bytes && child_size.bytes > 0 && i > 0)) break;
+
+    if (child_right.bytes > edit.start.bytes ||
+        (child_right.bytes == edit.start.bytes && edit.removed.bytes == 0)) {
+      Edit child_edit = {
+        .start = length_sub(edit.start, child_left),
+        .added = edit.added,
+        .removed = edit.removed,
       };
 
-      if (old_end_byte > child_right.bytes) {
-        child_edit.bytes_removed = child_right.bytes - edit->start_byte;
-        child_edit.extent_removed = point_sub(child_right.extent, edit->start_point);
-        remaining_bytes_to_delete = old_end_byte - child_right.bytes;
-        remaining_extent_to_delete = point_sub(old_end_point, child_right.extent);
+      if (edit.start.bytes < child_left.bytes) {
+        child_edit.start = length_zero();
       }
 
-      ts_tree_edit(child, &child_edit);
-    } else if (remaining_bytes_to_delete > 0) {
-      TSInputEdit child_edit = {
-        .start_byte = 0,
-        .bytes_added = 0,
-        .bytes_removed = min_byte(remaining_bytes_to_delete, ts_tree_total_bytes(child)),
-        .start_point = {0, 0},
-        .extent_added = {0, 0},
-        .extent_removed = point_min(remaining_extent_to_delete, ts_tree_total_size(child).extent),
-      };
-      remaining_bytes_to_delete -= child_edit.bytes_removed;
-      remaining_extent_to_delete = point_sub(remaining_extent_to_delete, child_edit.extent_removed);
-      ts_tree_edit(child, &child_edit);
-    } else {
-      ts_tree_invalidate_lookahead(child, edit->start_byte - child_left.bytes);
-    }
+      if (old_end.bytes > child_right.bytes) {
+        child_edit.removed = length_sub(child_size, child_edit.start);
+      }
 
-    child_right = length_add(child_left, ts_tree_total_size(child));
+      edit.added = length_zero();
+      edit.removed = length_sub(edit.removed, child_edit.removed);
+
+      ts_tree__edit(child, child_edit);
+    } else if (child_left.bytes <= edit.start.bytes) {
+      ts_tree_invalidate_lookahead(child, edit.start.bytes - child_left.bytes);
+    }
   }
+}
+
+void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
+  ts_tree__edit(self, (Edit) {
+    .start = {edit->start_byte, edit->start_point},
+    .added = {edit->bytes_added, edit->extent_added},
+    .removed = {edit->bytes_removed, edit->extent_removed},
+  });
 }
 
 Tree *ts_tree_last_external_token(Tree *tree) {
@@ -649,9 +626,20 @@ void ts_tree__print_dot_graph(const Tree *self, uint32_t byte_offset,
   if (self->extra)
     fprintf(f, ", fontcolor=gray");
 
-  fprintf(f, ", tooltip=\"address:%p\nrange:%u - %u\nstate:%d\nerror-cost:%u\nrepeat-depth:%u\"]\n",
-          self, byte_offset, byte_offset + ts_tree_total_bytes(self), self->parse_state,
-          self->error_cost, self->repeat_depth);
+  fprintf(f, ", tooltip=\""
+    "address:%p\n"
+    "range:%u - %u\n"
+    "state:%d\n"
+    "error-cost:%u\n"
+    "repeat-depth:%u\n"
+    "bytes-scanned:%u\"]\n",
+    self,
+    byte_offset, byte_offset + ts_tree_total_bytes(self),
+    self->parse_state,
+    self->error_cost,
+    self->repeat_depth,
+    self->bytes_scanned
+  );
 
   const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self->alias_sequence_id);
   uint32_t structural_child_index = 0;

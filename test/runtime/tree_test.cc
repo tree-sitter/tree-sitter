@@ -255,8 +255,6 @@ describe("Tree", []() {
         ts_tree_edit(tree, &edit);
         assert_consistent(tree);
 
-        assert_consistent(tree);
-
         AssertThat(tree->has_changes, IsTrue());
         AssertThat(tree->padding, Equals<Length>({4, {0, 4}}));
         AssertThat(tree->size, Equals<Length>({13, {0, 13}}));
@@ -303,8 +301,6 @@ describe("Tree", []() {
         edit.extent_removed = {0, 10};
         edit.extent_added = {0, 3};
         ts_tree_edit(tree, &edit);
-        assert_consistent(tree);
-
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
