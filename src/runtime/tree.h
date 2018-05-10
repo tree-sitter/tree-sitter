@@ -100,7 +100,7 @@ bool ts_tree_eq(const Tree *tree1, const Tree *tree2);
 int ts_tree_compare(const Tree *tree1, const Tree *tree2);
 void ts_tree_set_children(Tree *, TreeArray *, const TSLanguage *);
 void ts_tree_balance(Tree *, TreePool *, const TSLanguage *);
-void ts_tree_edit(Tree *, const TSInputEdit *edit);
+Tree *ts_tree_edit(Tree *, const TSInputEdit *edit, TreePool *);
 char *ts_tree_string(const Tree *, const TSLanguage *, bool include_all);
 void ts_tree_print_dot_graph(const Tree *, const TSLanguage *, FILE *);
 Tree *ts_tree_last_external_token(Tree *);

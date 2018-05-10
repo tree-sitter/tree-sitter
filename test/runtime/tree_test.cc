@@ -178,7 +178,7 @@ describe("Tree", []() {
   });
 
   describe("edit", [&]() {
-    Tree *tree = nullptr;
+    Tree *tree;
 
     before_each([&]() {
       tree = ts_tree_make_node(&pool, symbol1, tree_array({
@@ -204,7 +204,7 @@ describe("Tree", []() {
         edit.start_point = {0, 1};
         edit.extent_removed = {0, 0};
         edit.extent_added = {0, 1};
-        ts_tree_edit(tree, &edit);
+        tree = ts_tree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
@@ -230,7 +230,7 @@ describe("Tree", []() {
         edit.start_point = {0, 1};
         edit.extent_removed = {0, 3};
         edit.extent_added = {0, 4};
-        ts_tree_edit(tree, &edit);
+        tree = ts_tree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
@@ -252,7 +252,7 @@ describe("Tree", []() {
         edit.start_point = {0, 2};
         edit.extent_removed = {0, 0};
         edit.extent_added = {0, 2};
-        ts_tree_edit(tree, &edit);
+        tree = ts_tree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
@@ -276,7 +276,7 @@ describe("Tree", []() {
         edit.start_point = {0, 2};
         edit.extent_removed = {0, 2};
         edit.extent_added = {0, 5};
-        ts_tree_edit(tree, &edit);
+        tree = ts_tree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
@@ -300,7 +300,7 @@ describe("Tree", []() {
         edit.start_point = {0, 1};
         edit.extent_removed = {0, 10};
         edit.extent_added = {0, 3};
-        ts_tree_edit(tree, &edit);
+        tree = ts_tree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
         AssertThat(tree->has_changes, IsTrue());
@@ -332,7 +332,7 @@ describe("Tree", []() {
         edit.start_point = {0, 6};
         edit.extent_removed = {0, 1};
         edit.extent_added = {0, 1};
-        ts_tree_edit(tree, &edit);
+        tree = ts_tree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
         AssertThat(tree->children.contents[0]->has_changes, IsTrue());

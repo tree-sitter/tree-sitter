@@ -58,8 +58,9 @@ bool ts_tree_array_copy(TreeArray self, TreeArray *dest) {
   if (self.capacity > 0) {
     contents = ts_calloc(self.capacity, sizeof(Tree *));
     memcpy(contents, self.contents, self.size * sizeof(Tree *));
-    for (uint32_t i = 0; i < self.size; i++)
+    for (uint32_t i = 0; i < self.size; i++) {
       ts_tree_retain(contents[i]);
+    }
   }
 
   dest->size = self.size;
@@ -172,8 +173,21 @@ Tree *ts_tree_make_error(TreePool *pool, Length size, Length padding, int32_t lo
 Tree *ts_tree_make_copy(TreePool *pool, Tree *self) {
   Tree *result = ts_tree_pool_allocate(pool);
   *result = *self;
+  if (result->children.size > 0) {
+    ts_tree_array_copy(self->children, &result->children);
+  }
   result->ref_count = 1;
   return result;
+}
+
+static Tree *ts_tree_make_mut(TreePool *pool, Tree *self) {
+  if (self->ref_count == 1) {
+    return self;
+  } else {
+    Tree *result = ts_tree_make_copy(pool, self);
+    ts_tree_release(pool, self);
+    return result;
+  }
 }
 
 static void ts_tree__compress(Tree *self, unsigned count, const TSLanguage *language, TreeArray *stack) {
@@ -438,42 +452,48 @@ int ts_tree_compare(const Tree *left, const Tree *right) {
   return 0;
 }
 
-void ts_tree_invalidate_lookahead(Tree *self, uint32_t edit_byte_offset) {
-  if (edit_byte_offset >= self->bytes_scanned) return;
-  self->has_changes = true;
-  if (self->children.size > 0) {
+Tree *ts_tree_invalidate_lookahead(Tree *self, uint32_t edit_byte_offset, TreePool *pool) {
+  if (edit_byte_offset >= self->bytes_scanned) return self;
+
+  Tree *result = ts_tree_make_mut(pool, self);
+  result->has_changes = true;
+
+  if (result->children.size > 0) {
     uint32_t child_start_byte = 0;
-    for (uint32_t i = 0; i < self->children.size; i++) {
-      Tree *child = self->children.contents[i];
+    for (uint32_t i = 0; i < result->children.size; i++) {
+      Tree **child = &result->children.contents[i];
       if (child_start_byte > edit_byte_offset) break;
-      ts_tree_invalidate_lookahead(child, edit_byte_offset - child_start_byte);
-      child_start_byte += ts_tree_total_bytes(child);
+      *child = ts_tree_invalidate_lookahead(*child, edit_byte_offset - child_start_byte, pool);
+      child_start_byte += ts_tree_total_bytes(*child);
     }
   }
+
+  return result;
 }
 
-void ts_tree__edit(Tree *self, Edit edit) {
+Tree *ts_tree__edit(Tree *self, Edit edit, TreePool *pool) {
   Length new_end = length_add(edit.start, edit.added);
   Length old_end = length_add(edit.start, edit.removed);
 
-  self->has_changes = true;
+  Tree *result = ts_tree_make_mut(pool, self);
+  result->has_changes = true;
 
-  if (old_end.bytes <= self->padding.bytes) {
-    self->padding = length_add(new_end, length_sub(self->padding, old_end));
-  } else if (edit.start.bytes < self->padding.bytes) {
-    self->size = length_sub(self->size, length_sub(old_end, self->padding));
-    self->padding = new_end;
-  } else if (edit.start.bytes == self->padding.bytes && edit.removed.bytes == 0) {
-    self->padding = length_add(self->padding, edit.added);
+  if (old_end.bytes <= result->padding.bytes) {
+    result->padding = length_add(new_end, length_sub(result->padding, old_end));
+  } else if (edit.start.bytes < result->padding.bytes) {
+    result->size = length_sub(result->size, length_sub(old_end, result->padding));
+    result->padding = new_end;
+  } else if (edit.start.bytes == result->padding.bytes && edit.removed.bytes == 0) {
+    result->padding = length_add(result->padding, edit.added);
   } else {
-    Length new_total_size = length_add(new_end, length_sub(ts_tree_total_size(self), old_end));
-    self->size = length_sub(new_total_size, self->padding);
+    Length new_total_size = length_add(new_end, length_sub(ts_tree_total_size(result), old_end));
+    result->size = length_sub(new_total_size, result->padding);
   }
 
   Length child_left, child_right = length_zero();
-  for (uint32_t i = 0; i < self->children.size; i++) {
-    Tree *child = self->children.contents[i];
-    Length child_size = ts_tree_total_size(child);
+  for (uint32_t i = 0; i < result->children.size; i++) {
+    Tree **child = &result->children.contents[i];
+    Length child_size = ts_tree_total_size(*child);
     child_left = child_right;
     child_right = length_add(child_left, child_size);
 
@@ -499,19 +519,21 @@ void ts_tree__edit(Tree *self, Edit edit) {
       edit.added = length_zero();
       edit.removed = length_sub(edit.removed, child_edit.removed);
 
-      ts_tree__edit(child, child_edit);
+      *child = ts_tree__edit(*child, child_edit, pool);
     } else if (child_left.bytes <= edit.start.bytes) {
-      ts_tree_invalidate_lookahead(child, edit.start.bytes - child_left.bytes);
+      *child = ts_tree_invalidate_lookahead(*child, edit.start.bytes - child_left.bytes, pool);
     }
   }
+
+  return result;
 }
 
-void ts_tree_edit(Tree *self, const TSInputEdit *edit) {
-  ts_tree__edit(self, (Edit) {
+Tree *ts_tree_edit(Tree *self, const TSInputEdit *edit, TreePool *pool) {
+  return ts_tree__edit(self, (Edit) {
     .start = {edit->start_byte, edit->start_point},
     .added = {edit->bytes_added, edit->extent_added},
     .removed = {edit->bytes_removed, edit->extent_removed},
-  });
+  }, pool);
 }
 
 Tree *ts_tree_last_external_token(Tree *tree) {
