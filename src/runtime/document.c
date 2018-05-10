@@ -12,7 +12,7 @@
 
 TSDocument *ts_document_new() {
   TSDocument *self = ts_calloc(1, sizeof(TSDocument));
-  parser_init(&self->parser);
+  ts_parser_init(&self->parser);
   array_init(&self->cursor1.stack);
   array_init(&self->cursor2.stack);
   return self;
@@ -22,7 +22,7 @@ void ts_document_free(TSDocument *self) {
   if (self->tree) ts_subtree_release(&self->parser.tree_pool, self->tree);
   if (self->cursor1.stack.contents) array_delete(&self->cursor1.stack);
   if (self->cursor2.stack.contents) array_delete(&self->cursor2.stack);
-  parser_destroy(&self->parser);
+  ts_parser_destroy(&self->parser);
   ts_document_set_input(self, (TSInput){
     NULL,
     NULL,
@@ -39,7 +39,7 @@ const TSLanguage *ts_document_language(TSDocument *self) {
 void ts_document_set_language(TSDocument *self, const TSLanguage *language) {
   if (language->version != TREE_SITTER_LANGUAGE_VERSION) return;
   ts_document_invalidate(self);
-  parser_set_language(&self->parser, language);
+  ts_parser_set_language(&self->parser, language);
   if (self->tree) {
     ts_subtree_release(&self->parser.tree_pool, self->tree);
     self->tree = NULL;
@@ -134,7 +134,7 @@ void ts_document_parse_with_options(TSDocument *self, TSParseOptions options) {
   if (reusable_tree && !reusable_tree->has_changes)
     return;
 
-  Subtree *tree = parser_parse(&self->parser, self->input, reusable_tree, options.halt_on_error);
+  Subtree *tree = ts_parser_parse(&self->parser, self->input, reusable_tree, options.halt_on_error);
 
   if (self->tree) {
     Subtree *old_tree = self->tree;

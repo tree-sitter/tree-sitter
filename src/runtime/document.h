@@ -7,7 +7,7 @@
 #include <stdbool.h>
 
 struct TSDocument {
-  Parser parser;
+  TSParser parser;
   TSInput input;
   Subtree *tree;
   TSTreeCursor cursor1;

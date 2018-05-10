@@ -32,12 +32,12 @@ typedef struct {
   bool in_ambiguity;
   bool print_debugging_graphs;
   unsigned accept_count;
-} Parser;
+} TSParser;
 
-bool parser_init(Parser *);
-void parser_destroy(Parser *);
-Subtree *parser_parse(Parser *, TSInput, Subtree *, bool halt_on_error);
-void parser_set_language(Parser *, const TSLanguage *);
+bool ts_parser_init(TSParser *);
+void ts_parser_destroy(TSParser *);
+Subtree *ts_parser_parse(TSParser *, TSInput, Subtree *, bool halt_on_error);
+void ts_parser_set_language(TSParser *, const TSLanguage *);
 
 #ifdef __cplusplus
 }
