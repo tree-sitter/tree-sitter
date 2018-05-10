@@ -29,7 +29,7 @@ typedef Array(Tree *) TreeArray;
 struct Tree {
   Length padding;
   Length size;
-  uint32_t ref_count;
+  volatile uint32_t ref_count;
   uint32_t bytes_scanned;
   uint32_t error_cost;
   uint32_t node_count;

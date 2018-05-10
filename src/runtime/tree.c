@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "runtime/alloc.h"
+#include "runtime/atomic.h"
 #include "runtime/tree.h"
 #include "runtime/length.h"
 #include "runtime/language.h"
@@ -356,7 +357,7 @@ Tree *ts_tree_make_missing_leaf(TreePool *pool, TSSymbol symbol, const TSLanguag
 
 void ts_tree_retain(Tree *self) {
   assert(self->ref_count > 0);
-  self->ref_count++;
+  atomic_inc(&self->ref_count);
   assert(self->ref_count != 0);
 }
 
@@ -366,8 +367,7 @@ void ts_tree_release(TreePool *pool, Tree *self) {
   while (pool->tree_stack.size > 0) {
     Tree *tree = array_pop(&pool->tree_stack);
     assert(tree->ref_count > 0);
-    tree->ref_count--;
-    if (tree->ref_count == 0) {
+    if (atomic_dec(&tree->ref_count) == 0) {
       if (tree->children.size > 0) {
         for (uint32_t i = 0; i < tree->children.size; i++) {
           array_push(&pool->tree_stack, tree->children.contents[i]);
