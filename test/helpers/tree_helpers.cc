@@ -1,7 +1,6 @@
 #include "test_helper.h"
 #include "helpers/tree_helpers.h"
 #include "helpers/point_helpers.h"
-#include "runtime/document.h"
 #include <ostream>
 
 using std::string;
