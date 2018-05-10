@@ -195,6 +195,35 @@ describe("Tree", []() {
       ts_tree_release(&pool, tree);
     });
 
+    it("does not mutate the argument", [&]() {
+      TSInputEdit edit;
+      edit.start_byte = 1;
+      edit.bytes_removed = 0;
+      edit.bytes_added = 1;
+      edit.start_point = {0, 1};
+      edit.extent_removed = {0, 0};
+      edit.extent_added = {0, 1};
+
+      ts_tree_retain(tree);
+      Tree *new_tree = ts_tree_edit(tree, &edit, &pool);
+      assert_consistent(tree);
+      assert_consistent(new_tree);
+
+      AssertThat(tree->has_changes, IsFalse());
+      AssertThat(tree->padding, Equals<Length>({2, {0, 2}}));
+      AssertThat(tree->size, Equals<Length>({13, {0, 13}}));
+
+      AssertThat(tree->children.contents[0]->has_changes, IsFalse());
+      AssertThat(tree->children.contents[0]->padding, Equals<Length>({2, {0, 2}}));
+      AssertThat(tree->children.contents[0]->size, Equals<Length>({3, {0, 3}}));
+
+      AssertThat(tree->children.contents[1]->has_changes, IsFalse());
+      AssertThat(tree->children.contents[1]->padding, Equals<Length>({2, {0, 2}}));
+      AssertThat(tree->children.contents[1]->size, Equals<Length>({3, {0, 3}}));
+
+      ts_tree_release(&pool, new_tree);
+    });
+
     describe("edits within a tree's padding", [&]() {
       it("resizes the padding of the tree and its leftmost descendants", [&]() {
         TSInputEdit edit;
