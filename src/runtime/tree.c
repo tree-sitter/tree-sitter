@@ -208,11 +208,12 @@ static void ts_tree__compress(Tree *self, unsigned count, const TSLanguage *lang
   }
 }
 
-void ts_tree_assign_parents(Tree *self, TreePool *pool, const TSLanguage *language) {
+void ts_tree_balance(Tree *self, TreePool *pool, const TSLanguage *language) {
   array_clear(&pool->tree_stack);
   array_push(&pool->tree_stack, self);
   while (pool->tree_stack.size > 0) {
     Tree *tree = array_pop(&pool->tree_stack);
+    assert(tree);
 
     if (tree->repeat_depth > 0) {
       if (tree->children.contents[0]->repeat_depth > tree->children.contents[1]->repeat_depth) {

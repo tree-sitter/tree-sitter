@@ -1336,7 +1336,7 @@ Tree *parser_parse(Parser *self, TSInput input, Tree *old_tree, bool halt_on_err
   reusable_node_delete(&reusable_node);
   ts_stack_clear(self->stack);
   parser__set_cached_token(self, 0, NULL, NULL);
-  ts_tree_assign_parents(self->finished_tree, &self->tree_pool, self->language);
+  ts_tree_balance(self->finished_tree, &self->tree_pool, self->language);
 
   LOG("done");
   LOG_TREE();

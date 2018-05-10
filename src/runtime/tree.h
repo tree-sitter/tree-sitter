@@ -99,7 +99,7 @@ void ts_tree_release(TreePool *, Tree *tree);
 bool ts_tree_eq(const Tree *tree1, const Tree *tree2);
 int ts_tree_compare(const Tree *tree1, const Tree *tree2);
 void ts_tree_set_children(Tree *, TreeArray *, const TSLanguage *);
-void ts_tree_assign_parents(Tree *, TreePool *, const TSLanguage *);
+void ts_tree_balance(Tree *, TreePool *, const TSLanguage *);
 void ts_tree_edit(Tree *, const TSInputEdit *edit);
 char *ts_tree_string(const Tree *, const TSLanguage *, bool include_all);
 void ts_tree_print_dot_graph(const Tree *, const TSLanguage *, FILE *);
