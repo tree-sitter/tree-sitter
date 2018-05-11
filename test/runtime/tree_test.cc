@@ -1,4 +1,5 @@
 #include "test_helper.h"
+#include <future>
 #include "runtime/alloc.h"
 #include "helpers/record_alloc.h"
 #include "helpers/stream_methods.h"
@@ -8,6 +9,11 @@
 #include "helpers/stderr_logger.h"
 #include "helpers/spy_input.h"
 #include "helpers/load_language.h"
+#include "helpers/random_helpers.h"
+#include "helpers/read_test_entries.h"
+#include "helpers/encoding_helpers.h"
+#include "helpers/tree_helpers.h"
+#include <unistd.h>
 
 TSPoint point(uint32_t row, uint32_t column) {
   TSPoint result = {row, column};
@@ -36,6 +42,57 @@ describe("Tree", [&]() {
     ts_free(node_string);
     AssertThat(actual, Equals(expected));
   };
+
+  describe("copy()", [&]() {
+    it("returns a tree that can be safely used while the current tree is edited", [&]() {
+      const TSLanguage *language = load_real_language("javascript");
+      ts_parser_set_language(parser, language);
+      string source_code = examples_for_language("javascript")[0].input;
+
+      input = new SpyInput(source_code, 32);
+      TSTree *original_tree = ts_parser_parse(parser, nullptr, input->input());
+
+      vector<future<TSTree *>> new_trees;
+      for (unsigned i = 0; i < 8; i++) {
+        TSTree *tree_copy = ts_tree_copy(original_tree);
+        new_trees.push_back(std::async([i, tree_copy, &source_code, language]() {
+          Generator random(TREE_SITTER_SEED + i);
+
+          TSTree *tree = tree_copy;
+          TSParser *parser = ts_parser_new();
+          ts_parser_set_language(parser, language);
+          SpyInput *input = new SpyInput(source_code, 32);
+
+          for (unsigned j = 0; j < 30; j++) {
+            usleep(random(200));
+
+            size_t edit_position = random(utf8_char_count(input->content));
+            size_t deletion_size = random(utf8_char_count(input->content) - edit_position);
+            string inserted_text = random.words(random(4) + 1);
+
+            TSInputEdit edit = input->replace(edit_position, deletion_size, inserted_text);
+            ts_tree_edit(tree, &edit);
+
+            TSTree *new_tree = ts_parser_parse(parser, tree, input->input());
+            ts_tree_delete(tree);
+            tree = new_tree;
+          }
+
+          ts_parser_delete(parser);
+          delete input;
+
+          return tree;
+        }));
+      }
+
+      for (auto &future : new_trees) {
+        future.wait();
+        TSTree *new_tree = future.get();
+        assert_consistent_tree_sizes(ts_tree_root_node(new_tree));
+        ts_tree_delete(new_tree);
+      }
+    });
+  });
 
   describe("get_changed_ranges()", [&]() {
     before_each([&]() {

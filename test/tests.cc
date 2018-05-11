@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
   }
 
   printf("Random seed: %d\n", TREE_SITTER_SEED);
-  random_reseed(TREE_SITTER_SEED);
+  default_generator.reseed(TREE_SITTER_SEED);
 
   return bandit::run(argc, argv);
 }

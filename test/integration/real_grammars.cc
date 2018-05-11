@@ -76,9 +76,9 @@ for (auto &language_name : test_languages) {
       set<pair<size_t, string>> insertions;
 
       for (size_t i = 0; i < 60; i++) {
-        size_t edit_position = random_unsigned(utf8_char_count(entry.input));
-        size_t deletion_size = random_unsigned(utf8_char_count(entry.input) - edit_position);
-        string inserted_text = random_words(random_unsigned(4) + 1);
+        size_t edit_position = default_generator(utf8_char_count(entry.input));
+        size_t deletion_size = default_generator(utf8_char_count(entry.input) - edit_position);
+        string inserted_text = default_generator.words(default_generator(4) + 1);
 
         if (insertions.insert({edit_position, inserted_text}).second) {
           it(("parses " + entry.description +
