@@ -41,7 +41,7 @@ describe("Subtree", []() {
   SubtreePool pool;
 
   before_each([&]() {
-    ts_subtree_pool_init(&pool);
+    pool = ts_subtree_pool_new(10);
   });
 
   after_each([&]() {

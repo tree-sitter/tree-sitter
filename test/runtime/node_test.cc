@@ -62,21 +62,22 @@ string grammar_with_aliases_and_extras = R"JSON({
 })JSON";
 
 describe("Node", [&]() {
-  TSDocument *document;
+  TSParser *parser;
+  TSTree *tree;
   TSNode root_node;
 
   before_each([&]() {
     record_alloc::start();
 
-    document = ts_document_new();
-    ts_document_set_language(document, load_real_language("json"));
-    ts_document_set_input_string(document, json_string.c_str());
-    ts_document_parse(document);
-    root_node = ts_node_child(ts_document_root_node(document), 0);
+    parser = ts_parser_new();
+    ts_parser_set_language(parser, load_real_language("json"));
+    tree = ts_parser_parse_string(parser, nullptr, json_string.c_str(), json_string.size());
+    root_node = ts_node_child(ts_tree_root_node(tree), 0);
   });
 
   after_each([&]() {
-    ts_document_free(document);
+    ts_parser_delete(parser);
+    ts_tree_delete(tree);
 
     record_alloc::stop();
     AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
@@ -157,16 +158,17 @@ describe("Node", [&]() {
       AssertThat(ts_node_parent(number_node), Equals(root_node));
       AssertThat(ts_node_parent(false_node), Equals(root_node));
       AssertThat(ts_node_parent(object_node), Equals(root_node));
-      AssertThat(ts_node_parent(ts_document_root_node(document)).subtree, Equals<void *>(nullptr));
+      AssertThat(ts_node_parent(ts_tree_root_node(tree)).subtree, Equals<void *>(nullptr));
     });
 
     it("works correctly when the node contains aliased children and extras", [&]() {
       TSCompileResult compile_result = ts_compile_grammar(grammar_with_aliases_and_extras.c_str());
       const TSLanguage *language =  load_test_language("aliases_and_extras", compile_result);
-      ts_document_set_language(document, language);
-      ts_document_set_input_string(document, "b ... b ... b");
-      ts_document_parse(document);
-      root_node = ts_document_root_node(document);
+      ts_parser_set_language(parser, language);
+
+      ts_tree_delete(tree);
+      tree = ts_parser_parse_string(parser, nullptr, "b ... b ... b", 13);
+      root_node = ts_tree_root_node(tree);
 
       char *node_string = ts_node_string(root_node);
       AssertThat(node_string, Equals("(a (b) (comment) (B) (comment) (b))"));
@@ -179,7 +181,10 @@ describe("Node", [&]() {
       AssertThat(ts_node_type(ts_node_named_child(root_node, 3)), Equals("comment"));
       AssertThat(ts_node_type(ts_node_named_child(root_node, 4)), Equals("b"));
 
-      AssertThat(ts_node_symbol(ts_node_named_child(root_node, 0)), !Equals(ts_node_symbol(ts_node_named_child(root_node, 2))));
+      AssertThat(
+        ts_node_symbol(ts_node_named_child(root_node, 0)),
+        !Equals(ts_node_symbol(ts_node_named_child(root_node, 2)))
+      );
     });
   });
 
@@ -323,7 +328,7 @@ describe("Node", [&]() {
       AssertThat(ts_node_parent(child5), Equals(root_node));
       AssertThat(ts_node_parent(child6), Equals(root_node));
       AssertThat(ts_node_parent(child7), Equals(root_node));
-      AssertThat(ts_node_parent(ts_document_root_node(document)).subtree, Equals<void *>(nullptr));
+      AssertThat(ts_node_parent(ts_tree_root_node(tree)).subtree, Equals<void *>(nullptr));
     });
   });
 
@@ -483,9 +488,10 @@ describe("Node", [&]() {
 
     it("works in the presence of multi-byte characters", [&]() {
       string input_string = "[\"αβγδ\", \"αβγδ\"]";
-      ts_document_set_input_string(document, input_string.c_str());
-      ts_document_parse(document);
-      TSNode root_node = ts_document_root_node(document);
+
+      ts_tree_delete(tree);
+      tree = ts_parser_parse_string(parser, nullptr, input_string.c_str(), input_string.size());
+      TSNode root_node = ts_tree_root_node(tree);
 
       uint32_t comma_position = input_string.find(",");
       TSNode node1 = ts_node_descendant_for_byte_range(root_node, comma_position, comma_position);
@@ -518,23 +524,23 @@ describe("Node", [&]() {
 });
 
 describe("TreeCursor", [&]() {
-  TSDocument *document;
+  TSParser *parser;
+  TSTree *tree;
   TSTreeCursor *cursor;
 
   before_each([&]() {
     record_alloc::start();
 
-    document = ts_document_new();
-    ts_document_set_language(document, load_real_language("json"));
-    ts_document_set_input_string(document, json_string.c_str());
-    ts_document_parse(document);
-
-    cursor = ts_document_tree_cursor(document);
+    parser = ts_parser_new();
+    ts_parser_set_language(parser, load_real_language("json"));
+    tree = ts_parser_parse_string(parser, nullptr, json_string.c_str(), json_string.size());
+    cursor = ts_tree_cursor_new(tree);
   });
 
   after_each([&]() {
+    ts_tree_delete(tree);
     ts_tree_cursor_delete(cursor);
-    ts_document_free(document);
+    ts_parser_delete(parser);
 
     record_alloc::stop();
     AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());

@@ -1,20 +1,24 @@
 #include "tree_sitter/runtime.h"
 #include "runtime/alloc.h"
 #include "runtime/tree_cursor.h"
-#include "runtime/document.h"
 #include "runtime/language.h"
+#include "runtime/tree.h"
 
-TSTreeCursor *ts_tree_cursor_new(const TSDocument *document) {
+TSTreeCursor *ts_tree_cursor_new(const TSTree *tree) {
   TSTreeCursor *self = ts_malloc(sizeof(TSTreeCursor));
-  self->document = document;
+  ts_tree_cursor_init(self, tree);
+  return self;
+}
+
+void ts_tree_cursor_init(TSTreeCursor *self, const TSTree *tree) {
+  self->tree = tree;
   array_init(&self->stack);
   array_push(&self->stack, ((TreeCursorEntry) {
-    .tree = document->tree,
+    .subtree = tree->root,
     .position = length_zero(),
     .child_index = 0,
     .structural_child_index = 0,
   }));
-  return self;
 }
 
 void ts_tree_cursor_delete(TSTreeCursor *self) {
@@ -24,7 +28,7 @@ void ts_tree_cursor_delete(TSTreeCursor *self) {
 
 bool ts_tree_cursor_goto_first_child(TSTreeCursor *self) {
   TreeCursorEntry *last_entry = array_back(&self->stack);
-  Subtree *tree = last_entry->tree;
+  Subtree *tree = last_entry->subtree;
   Length position = last_entry->position;
 
   bool did_descend;
@@ -36,7 +40,7 @@ bool ts_tree_cursor_goto_first_child(TSTreeCursor *self) {
       Subtree *child = tree->children.contents[i];
       if (child->visible || child->visible_child_count > 0) {
         array_push(&self->stack, ((TreeCursorEntry) {
-          .tree = child,
+          .subtree = child,
           .child_index = i,
           .structural_child_index = structural_child_index,
           .position = position,
@@ -64,7 +68,7 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *self) {
   for (unsigned i = self->stack.size - 2; i + 1 > 0; i--) {
     TreeCursorEntry *parent_entry = &self->stack.contents[i];
 
-    Subtree *parent = parent_entry->tree;
+    Subtree *parent = parent_entry->subtree;
     uint32_t child_index = child_entry->child_index;
     uint32_t structural_child_index = child_entry->structural_child_index;
     Length position = child_entry->position;
@@ -77,7 +81,7 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *self) {
 
       if (child->visible || child->visible_child_count > 0) {
         self->stack.contents[i + 1] = (TreeCursorEntry) {
-          .tree = child,
+          .subtree = child,
           .child_index = child_index,
           .structural_child_index = structural_child_index,
           .position = position,
@@ -103,7 +107,7 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *self) {
 bool ts_tree_cursor_goto_parent(TSTreeCursor *self) {
   for (unsigned i = self->stack.size - 2; i + 1 > 0; i--) {
     TreeCursorEntry *entry = &self->stack.contents[i];
-    if (entry->tree->visible) {
+    if (entry->subtree->visible) {
       self->stack.size = i + 1;
       return true;
     }
@@ -117,16 +121,16 @@ TSNode ts_tree_cursor_current_node(TSTreeCursor *self) {
   if (self->stack.size > 1) {
     TreeCursorEntry *parent_entry = &self->stack.contents[self->stack.size - 2];
     const TSSymbol *alias_sequence = ts_language_alias_sequence(
-      self->document->parser.language,
-      parent_entry->tree->alias_sequence_id
+      self->tree->language,
+      parent_entry->subtree->alias_sequence_id
     );
     if (alias_sequence) {
       alias_symbol = alias_sequence[last_entry->structural_child_index];
     }
   }
   return (TSNode) {
-    .document = self->document,
-    .subtree = last_entry->tree,
+    .tree = self->tree,
+    .subtree = last_entry->subtree,
     .position = last_entry->position.extent,
     .byte = last_entry->position.bytes,
     .alias_symbol = alias_symbol,

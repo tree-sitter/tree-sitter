@@ -28,13 +28,12 @@ describe("Language", []() {
         }
       })JSON");
 
-      TSDocument *document = ts_document_new();
+      TSParser *parser = ts_parser_new();
       const TSLanguage *language =  load_test_language("aliased_rules", compile_result);
-      ts_document_set_language(document, language);
-      ts_document_set_input_string(document, "b");
-      ts_document_parse(document);
+      ts_parser_set_language(parser, language);
+      TSTree *tree = ts_parser_parse_string(parser, nullptr, "b", 1);
 
-      TSNode root_node = ts_document_root_node(document);
+      TSNode root_node = ts_tree_root_node(tree);
       char *string = ts_node_string(root_node);
       AssertThat(string, Equals("(a (c))"));
 
@@ -47,7 +46,8 @@ describe("Language", []() {
       AssertThat(ts_language_symbol_type(language, aliased_symbol), Equals(TSSymbolTypeRegular));
 
       ts_free(string);
-      ts_document_free(document);
+      ts_parser_delete(parser);
+      ts_tree_delete(tree);
     });
   });
 });

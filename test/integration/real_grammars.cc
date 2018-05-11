@@ -12,8 +12,8 @@
 #include "helpers/tree_helpers.h"
 #include <set>
 
-static void assert_correct_tree_size(TSDocument *document, string content) {
-  TSNode root_node = ts_document_root_node(document);
+static void assert_correct_tree_size(TSTree *tree, string content) {
+  TSNode root_node = ts_tree_root_node(tree);
   AssertThat(ts_node_end_byte(root_node), Equals(content.size()));
   assert_consistent_tree_sizes(root_node);
 }
@@ -33,48 +33,43 @@ vector<string> test_languages({
 
 for (auto &language_name : test_languages) {
   describe(("the " + language_name + " language").c_str(), [&]() {
-    TSDocument *document;
+    TSParser *parser;
     const bool debug_graphs_enabled = getenv("TREE_SITTER_ENABLE_DEBUG_GRAPHS");
 
     before_each([&]() {
       record_alloc::start();
-      document = ts_document_new();
-      ts_document_set_language(document, load_real_language(language_name));
+      parser = ts_parser_new();
+      ts_parser_set_language(parser, load_real_language(language_name));
 
-      // ts_document_set_logger(document, stderr_logger_new(true));
+      // ts_parser_set_logger(parser, stderr_logger_new(true));
       if (debug_graphs_enabled) {
-        ts_document_print_debugging_graphs(document, true);
+        ts_parser_print_debugging_graphs(parser, true);
       }
     });
 
     after_each([&]() {
-      ts_document_free(document);
+      ts_parser_delete(parser);
       AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
     });
 
     for (auto &entry : read_real_language_corpus(language_name)) {
       SpyInput *input;
 
-      auto it_handles_edit_sequence = [&](string name, std::function<void()> edit_sequence){
-        it(("parses " + entry.description + ": " + name).c_str(), [&]() {
-          input = new SpyInput(entry.input, 3);
-          if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
-          ts_document_set_input(document, input->input());
-          edit_sequence();
+      it(("parses " + entry.description + ": initial parse").c_str(), [&]() {
+        input = new SpyInput(entry.input, 3);
+        if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
-          TSNode root_node = ts_document_root_node(document);
-          const char *node_string = ts_node_string(root_node);
-          string result(node_string);
-          ts_free((void *)node_string);
-          AssertThat(result, Equals(entry.tree_string));
+        TSTree *tree = ts_parser_parse(parser, nullptr, input->input());
+        assert_correct_tree_size(tree, input->content);
 
-          assert_correct_tree_size(document, input->content);
-          delete input;
-        });
-      };
+        TSNode root_node = ts_tree_root_node(tree);
+        const char *node_string = ts_node_string(root_node);
+        string result(node_string);
+        ts_free((void *)node_string);
+        AssertThat(result, Equals(entry.tree_string));
 
-      it_handles_edit_sequence("initial parse", [&]() {
-        ts_document_parse(document);
+        ts_tree_delete(tree);
+        delete input;
       });
 
       set<pair<size_t, size_t>> deletions;
@@ -86,54 +81,88 @@ for (auto &language_name : test_languages) {
         string inserted_text = random_words(random_unsigned(4) + 1);
 
         if (insertions.insert({edit_position, inserted_text}).second) {
-          string description = "\"" + inserted_text + "\" at " + to_string(edit_position);
-
-          it_handles_edit_sequence("repairing an insertion of " + description, [&]() {
-            ts_document_edit(document, input->replace(edit_position, 0, inserted_text));
-            ts_document_parse(document);
-            assert_correct_tree_size(document, input->content);
+          it(("parses " + entry.description +
+              ": repairing an insertion of \"" + inserted_text + "\"" +
+              " at " + to_string(edit_position)).c_str(), [&]() {
+            input = new SpyInput(entry.input, 3);
             if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
-            ts_document_edit(document, input->undo());
-            assert_correct_tree_size(document, input->content);
+            input->replace(edit_position, 0, inserted_text);
+            TSTree *tree = ts_parser_parse(parser, nullptr, input->input());
+            assert_correct_tree_size(tree, input->content);
             if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
-            TSRange *ranges;
+            TSInputEdit edit = input->undo();
+            ts_tree_edit(tree, &edit);
+            assert_correct_tree_size(tree, input->content);
+            if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
+
+            TSTree *new_tree = ts_parser_parse(parser, tree, input->input());
+            assert_correct_tree_size(new_tree, input->content);
+
             uint32_t range_count;
-            ScopeSequence old_scope_sequence = build_scope_sequence(document, input->content);
-            ts_document_parse_and_get_changed_ranges(document, &ranges, &range_count);
-            assert_correct_tree_size(document, input->content);
+            TSRange *ranges = ts_tree_get_changed_ranges(tree, new_tree, &range_count);
 
-            ScopeSequence new_scope_sequence = build_scope_sequence(document, input->content);
-            verify_changed_ranges(old_scope_sequence, new_scope_sequence,
-                                  input->content, ranges, range_count);
+            ScopeSequence old_scope_sequence = build_scope_sequence(tree, input->content);
+            ScopeSequence new_scope_sequence = build_scope_sequence(new_tree, input->content);
+            verify_changed_ranges(
+              old_scope_sequence, new_scope_sequence,
+              input->content, ranges, range_count
+            );
             ts_free(ranges);
+
+            TSNode root_node = ts_tree_root_node(new_tree);
+            const char *node_string = ts_node_string(root_node);
+            string result(node_string);
+            ts_free((void *)node_string);
+            AssertThat(result, Equals(entry.tree_string));
+
+            ts_tree_delete(tree);
+            ts_tree_delete(new_tree);
+            delete input;
           });
         }
 
         if (deletions.insert({edit_position, deletion_size}).second) {
-          string desription = to_string(edit_position) + "-" + to_string(edit_position + deletion_size);
-
-          it_handles_edit_sequence("repairing a deletion of " + desription, [&]() {
-            ts_document_edit(document, input->replace(edit_position, deletion_size, ""));
-            ts_document_parse(document);
-            assert_correct_tree_size(document, input->content);
+          it(("parses " + entry.description +
+              ": repairing a deletion of " +
+              to_string(edit_position) + "-" + to_string(edit_position + deletion_size)).c_str(), [&]() {
+            input = new SpyInput(entry.input, 3);
             if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
-            ts_document_edit(document, input->undo());
-            assert_correct_tree_size(document, input->content);
+            input->replace(edit_position, deletion_size, "");
+            TSTree *tree = ts_parser_parse(parser, nullptr, input->input());
+            assert_correct_tree_size(tree, input->content);
             if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
-            TSRange *ranges;
+            TSInputEdit edit = input->undo();
+            ts_tree_edit(tree, &edit);
+            assert_correct_tree_size(tree, input->content);
+            if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
+
+            TSTree *new_tree = ts_parser_parse(parser, tree, input->input());
+            assert_correct_tree_size(new_tree, input->content);
+
             uint32_t range_count;
-            ScopeSequence old_scope_sequence = build_scope_sequence(document, input->content);
-            ts_document_parse_and_get_changed_ranges(document, &ranges, &range_count);
-            assert_correct_tree_size(document, input->content);
+            TSRange *ranges = ts_tree_get_changed_ranges(tree, new_tree, &range_count);
 
-            ScopeSequence new_scope_sequence = build_scope_sequence(document, input->content);
-            verify_changed_ranges(old_scope_sequence, new_scope_sequence,
-                                  input->content, ranges, range_count);
+            ScopeSequence old_scope_sequence = build_scope_sequence(tree, input->content);
+            ScopeSequence new_scope_sequence = build_scope_sequence(new_tree, input->content);
+            verify_changed_ranges(
+              old_scope_sequence, new_scope_sequence,
+              input->content, ranges, range_count
+            );
             ts_free(ranges);
+
+            TSNode root_node = ts_tree_root_node(new_tree);
+            const char *node_string = ts_node_string(root_node);
+            string result(node_string);
+            ts_free((void *)node_string);
+            AssertThat(result, Equals(entry.tree_string));
+
+            ts_tree_delete(tree);
+            ts_tree_delete(new_tree);
+            delete input;
           });
         }
       }

@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -13,7 +14,8 @@ extern "C" {
 
 typedef unsigned short TSSymbol;
 typedef struct TSLanguage TSLanguage;
-typedef struct TSDocument TSDocument;
+typedef struct TSParser TSParser;
+typedef struct TSTree TSTree;
 typedef struct TSTreeCursor TSTreeCursor;
 
 typedef enum {
@@ -65,17 +67,29 @@ typedef struct {
 
 typedef struct {
   const void *subtree;
-  const TSDocument *document;
+  const TSTree *tree;
   TSPoint position;
   uint32_t byte;
   TSSymbol alias_symbol;
 } TSNode;
 
-typedef struct {
-  TSRange **changed_ranges;
-  uint32_t *changed_range_count;
-  bool halt_on_error;
-} TSParseOptions;
+TSParser *ts_parser_new();
+void ts_parser_delete(TSParser *);
+const TSLanguage *ts_parser_language(const TSParser *);
+bool ts_parser_set_language(TSParser *, const TSLanguage *);
+TSLogger ts_parser_logger(const TSParser *);
+void ts_parser_set_logger(TSParser *, TSLogger);
+void ts_parser_print_debugging_graphs(TSParser *, bool);
+void ts_parser_halt_on_error(TSParser *, bool);
+TSTree *ts_parser_parse(TSParser *, const TSTree *, TSInput);
+TSTree *ts_parser_parse_string(TSParser *, const TSTree *, const char *, uint32_t);
+
+TSTree *ts_tree_copy(const TSTree *);
+void ts_tree_delete(const TSTree *);
+TSNode ts_tree_root_node(const TSTree *);
+void ts_tree_edit(TSTree *, const TSInputEdit *);
+TSRange *ts_tree_get_changed_ranges(const TSTree *, const TSTree *, uint32_t *);
+void ts_tree_print_dot_graph(const TSTree *, FILE *);
 
 uint32_t ts_node_start_byte(TSNode);
 TSPoint ts_node_start_point(TSNode);
@@ -105,26 +119,7 @@ TSNode ts_node_named_descendant_for_byte_range(TSNode, uint32_t, uint32_t);
 TSNode ts_node_descendant_for_point_range(TSNode, TSPoint, TSPoint);
 TSNode ts_node_named_descendant_for_point_range(TSNode, TSPoint, TSPoint);
 
-TSDocument *ts_document_new();
-void ts_document_free(TSDocument *);
-const TSLanguage *ts_document_language(TSDocument *);
-void ts_document_set_language(TSDocument *, const TSLanguage *);
-TSInput ts_document_input(TSDocument *);
-void ts_document_set_input(TSDocument *, TSInput);
-void ts_document_set_input_string(TSDocument *, const char *);
-void ts_document_set_input_string_with_length(TSDocument *, const char *, uint32_t);
-TSLogger ts_document_logger(const TSDocument *);
-void ts_document_set_logger(TSDocument *, TSLogger);
-void ts_document_print_debugging_graphs(TSDocument *, bool);
-void ts_document_edit(TSDocument *, TSInputEdit);
-void ts_document_parse(TSDocument *);
-void ts_document_parse_and_get_changed_ranges(TSDocument *, TSRange **, uint32_t *);
-void ts_document_parse_with_options(TSDocument *, TSParseOptions);
-void ts_document_invalidate(TSDocument *);
-TSNode ts_document_root_node(const TSDocument *);
-TSTreeCursor *ts_document_tree_cursor(const TSDocument *);
-uint32_t ts_document_parse_count(const TSDocument *);
-
+TSTreeCursor *ts_tree_cursor_new(const TSTree *);
 void ts_tree_cursor_delete(TSTreeCursor *);
 bool ts_tree_cursor_goto_first_child(TSTreeCursor *);
 bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *);

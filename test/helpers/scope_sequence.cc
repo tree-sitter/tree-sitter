@@ -21,8 +21,7 @@ static void append_text_to_scope_sequence(ScopeSequence *sequence,
 
 static void append_to_scope_sequence(ScopeSequence *sequence,
                                      ScopeStack *current_scopes,
-                                     TSNode node, TSDocument *document,
-                                     const std::string &text) {
+                                     TSNode node, const std::string &text) {
   append_text_to_scope_sequence(
     sequence, current_scopes, text, ts_node_start_byte(node) - sequence->size()
   );
@@ -31,7 +30,7 @@ static void append_to_scope_sequence(ScopeSequence *sequence,
 
   for (size_t i = 0, n = ts_node_child_count(node); i < n; i++) {
     TSNode child = ts_node_child(node, i);
-    append_to_scope_sequence(sequence, current_scopes, child, document, text);
+    append_to_scope_sequence(sequence, current_scopes, child, text);
   }
 
   append_text_to_scope_sequence(
@@ -41,11 +40,11 @@ static void append_to_scope_sequence(ScopeSequence *sequence,
   current_scopes->pop_back();
 }
 
-ScopeSequence build_scope_sequence(TSDocument *document, const std::string &text) {
+ScopeSequence build_scope_sequence(TSTree *tree, const std::string &text) {
   ScopeSequence sequence;
   ScopeStack current_scopes;
-  TSNode node = ts_document_root_node(document);
-  append_to_scope_sequence(&sequence, &current_scopes, node, document, text);
+  TSNode node = ts_tree_root_node(tree);
+  append_to_scope_sequence(&sequence, &current_scopes, node, text);
   return sequence;
 }
 

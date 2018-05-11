@@ -76,7 +76,7 @@ describe("Stack", [&]() {
   before_each([&]() {
     record_alloc::start();
 
-    ts_subtree_pool_init(&pool);
+    pool = ts_subtree_pool_new(10);
     stack = ts_stack_new(&pool);
 
     TSLanguage dummy_language;

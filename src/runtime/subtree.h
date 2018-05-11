@@ -1,5 +1,5 @@
-#ifndef RUNTIME_TREE_H_
-#define RUNTIME_TREE_H_
+#ifndef RUNTIME_SUBTREE_H_
+#define RUNTIME_SUBTREE_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -83,7 +83,7 @@ void ts_subtree_array_delete(SubtreePool *, SubtreeArray *);
 SubtreeArray ts_subtree_array_remove_trailing_extras(SubtreeArray *);
 void ts_subtree_array_reverse(SubtreeArray *);
 
-void ts_subtree_pool_init(SubtreePool *);
+SubtreePool ts_subtree_pool_new(uint32_t capacity);
 void ts_subtree_pool_delete(SubtreePool *);
 Subtree *ts_subtree_pool_allocate(SubtreePool *);
 void ts_subtree_pool_free(SubtreePool *, Subtree *);
@@ -122,4 +122,4 @@ static inline Length ts_subtree_total_size(const Subtree *self) {
 }
 #endif
 
-#endif  // RUNTIME_TREE_H_
+#endif  // RUNTIME_SUBTREE_H_

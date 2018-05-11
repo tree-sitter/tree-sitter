@@ -1,13 +1,13 @@
 #include <stdbool.h>
 #include "runtime/subtree.h"
-#include "runtime/document.h"
+#include "runtime/tree.h"
 #include "runtime/language.h"
 
 // NodeChildIterator
 
 typedef struct {
   const Subtree *parent;
-  const TSDocument *document;
+  const TSTree *tree;
   Length position;
   uint32_t child_index;
   uint32_t structural_child_index;
@@ -19,7 +19,7 @@ typedef struct {
 static inline TSNode ts_node__null() {
   return (TSNode) {
     .subtree = NULL,
-    .document = NULL,
+    .tree = NULL,
     .position = {0, 0},
     .byte = 0,
   };
@@ -32,12 +32,12 @@ static inline const Subtree *ts_node__tree(TSNode self) {
 static inline NodeChildIterator ts_node_child_iterator_begin(const TSNode *node) {
   const Subtree *tree = ts_node__tree(*node);
   const TSSymbol *alias_sequence = ts_language_alias_sequence(
-    node->document->parser.language,
+    node->tree->language,
     tree->alias_sequence_id
   );
   return (NodeChildIterator) {
     .parent = tree,
-    .document = node->document,
+    .tree = node->tree,
     .position = {node->byte, node->position},
     .child_index = 0,
     .structural_child_index = 0,
@@ -57,7 +57,7 @@ static inline bool ts_node_child_iterator_next(NodeChildIterator *self, TSNode *
   }
   *result = (TSNode) {
     .subtree = child,
-    .document = self->document,
+    .tree = self->tree,
     .position = self->position.extent,
     .byte = self->position.bytes,
     .alias_symbol = alias_symbol,
@@ -77,7 +77,7 @@ static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
       (
         self.alias_symbol &&
         ts_language_symbol_metadata(
-          self.document->parser.language,
+          self.tree->language,
           self.alias_symbol
         ).named
       )
@@ -343,11 +343,11 @@ TSSymbol ts_node_symbol(TSNode self) {
 }
 
 const char *ts_node_type(TSNode self) {
-  return ts_language_symbol_name(self.document->parser.language, ts_node_symbol(self));
+  return ts_language_symbol_name(self.tree->language, ts_node_symbol(self));
 }
 
 char *ts_node_string(TSNode self) {
-  return ts_subtree_string(ts_node__tree(self), self.document->parser.language, false);
+  return ts_subtree_string(ts_node__tree(self), self.tree->language, false);
 }
 
 bool ts_node_eq(TSNode self, TSNode other) {
@@ -360,7 +360,7 @@ bool ts_node_eq(TSNode self, TSNode other) {
 bool ts_node_is_named(TSNode self) {
   const Subtree *tree = ts_node__tree(self);
   return self.alias_symbol
-    ? ts_language_symbol_metadata(self.document->parser.language, self.alias_symbol).named
+    ? ts_language_symbol_metadata(self.tree->language, self.alias_symbol).named
     : tree->named;
 }
 
@@ -378,7 +378,7 @@ bool ts_node_has_error(TSNode self) {
 }
 
 TSNode ts_node_parent(TSNode self) {
-  TSNode node = ts_document_root_node(self.document);
+  TSNode node = ts_tree_root_node(self.tree);
   uint32_t end_byte = ts_node_end_byte(self);
   if (node.subtree == self.subtree) return ts_node__null();
 

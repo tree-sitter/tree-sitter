@@ -24,7 +24,7 @@ static inline void reusable_node_reset(ReusableNode *self, Subtree *tree) {
   }));
 }
 
-static inline Subtree *reusable_node_tree(ReusableNode *self) {
+static inline const Subtree *reusable_node_tree(ReusableNode *self) {
   return self->stack.size > 0
     ? self->stack.contents[self->stack.size - 1].tree
     : NULL;

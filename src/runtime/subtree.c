@@ -19,6 +19,10 @@ typedef struct {
 
 TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
 
+static const uint32_t MAX_TREE_POOL_SIZE = 1024;
+
+static const TSExternalTokenState empty_state = {.length = 0, .short_data = {0}};
+
 // ExternalTokenState
 
 void ts_external_token_state_init(TSExternalTokenState *self, const char *content, unsigned length) {
@@ -102,11 +106,10 @@ void ts_subtree_array_reverse(SubtreeArray *self) {
 
 // SubtreePool
 
-static const uint32_t MAX_TREE_POOL_SIZE = 1024;
-
-void ts_subtree_pool_init(SubtreePool *self) {
-  array_init(&self->free_trees);
-  array_init(&self->tree_stack);
+SubtreePool ts_subtree_pool_new(uint32_t capacity) {
+  SubtreePool self = {array_new(), array_new()};
+  array_reserve(&self.free_trees, capacity);
+  return self;
 }
 
 void ts_subtree_pool_delete(SubtreePool *self) {
@@ -128,7 +131,7 @@ Subtree *ts_subtree_pool_allocate(SubtreePool *self) {
 }
 
 void ts_subtree_pool_free(SubtreePool *self, Subtree *tree) {
-  if (self->free_trees.size < MAX_TREE_POOL_SIZE) {
+  if (self->free_trees.capacity > 0 && self->free_trees.size < MAX_TREE_POOL_SIZE) {
     array_push(&self->free_trees, tree);
   } else {
     ts_free(tree);
@@ -690,8 +693,6 @@ void ts_subtree_print_dot_graph(const Subtree *self, const TSLanguage *language,
   ts_subtree__print_dot_graph(self, 0, language, 0, f);
   fprintf(f, "}\n");
 }
-
-static const TSExternalTokenState empty_state = {.length = 0, .short_data = {0}};
 
 bool ts_subtree_external_token_state_eq(const Subtree *self, const Subtree *other) {
   const TSExternalTokenState *state1 = &empty_state;

@@ -29,14 +29,14 @@ describe("examples found via fuzzing", [&]() {
   for (unsigned i = 0, n = examples.size(); i < n; i++) {
 
     it(("parses example number " + to_string(i)).c_str(), [&]() {
-      TSDocument *document = ts_document_new();
+      TSParser *parser = ts_parser_new();
 
       if (getenv("TREE_SITTER_ENABLE_DEBUG_GRAPHS")) {
-        ts_document_print_debugging_graphs(document, true);
+        ts_parser_print_debugging_graphs(parser, true);
       }
 
       const string &language_name = examples[i].first;
-      ts_document_set_language(document, load_real_language(language_name));
+      ts_parser_set_language(parser, load_real_language(language_name));
 
       string input;
       const string &base64_input = examples[i].second;
@@ -47,18 +47,12 @@ describe("examples found via fuzzing", [&]() {
         base64_input.size()
       ));
 
-      ts_document_set_input_string_with_length(
-        document,
-        input.c_str(),
-        input.size()
-      );
-
-      ts_document_parse(document);
-
-      TSNode node = ts_document_root_node(document);
+      TSTree *tree = ts_parser_parse_string(parser, nullptr, input.c_str(), input.size());
+      TSNode node = ts_tree_root_node(tree);
       assert_consistent_tree_sizes(node);
 
-      ts_document_free(document);
+      ts_tree_delete(tree);
+      ts_parser_delete(parser);
     });
 
   }

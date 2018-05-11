@@ -1,4 +1,3 @@
-#include "runtime/parser.h"
 #include <assert.h>
 #include <stdio.h>
 #include <limits.h>
@@ -10,8 +9,12 @@
 #include "runtime/array.h"
 #include "runtime/language.h"
 #include "runtime/alloc.h"
+#include "runtime/stack.h"
+#include "runtime/reusable_node.h"
 #include "runtime/reduce_action.h"
 #include "runtime/error_costs.h"
+#include "runtime/string_input.h"
+#include "runtime/tree.h"
 
 #define LOG(...)                                                                            \
   if (self->lexer.logger.log || self->print_debugging_graphs) {                             \
@@ -38,6 +41,29 @@ static const unsigned MAX_SUMMARY_DEPTH = 16;
 static const unsigned MAX_COST_DIFFERENCE = 16 * ERROR_COST_PER_SKIPPED_TREE;
 
 typedef struct {
+  Subtree *token;
+  Subtree *last_external_token;
+  uint32_t byte_index;
+} TokenCache;
+
+struct TSParser {
+  Lexer lexer;
+  Stack *stack;
+  SubtreePool tree_pool;
+  const TSLanguage *language;
+  ReduceActionSet reduce_actions;
+  Subtree *finished_tree;
+  Subtree scratch_tree;
+  TokenCache token_cache;
+  ReusableNode reusable_node;
+  void *external_scanner_payload;
+  bool in_ambiguity;
+  bool print_debugging_graphs;
+  bool halt_on_error;
+  unsigned accept_count;
+};
+
+typedef struct {
   unsigned cost;
   unsigned node_count;
   int dynamic_precedence;
@@ -51,6 +77,8 @@ typedef enum {
   ErrorComparisonPreferRight,
   ErrorComparisonTakeRight,
 } ErrorComparison;
+
+// Parser - Private
 
 static void ts_parser__log(TSParser *self) {
   if (self->lexer.logger.log) {
@@ -670,7 +698,7 @@ static StackSliceArray ts_parser__reduce(TSParser *self, StackVersion version, T
   return pop;
 }
 
-static void ts_parser__start(TSParser *self, TSInput input, Subtree *previous_tree) {
+static void ts_parser__start(TSParser *self, TSInput input, const Subtree *previous_tree) {
   if (previous_tree) {
     LOG("parse_after_edit");
   } else {
@@ -1258,42 +1286,76 @@ static unsigned ts_parser__condense_stack(TSParser *self) {
   return min_error_cost;
 }
 
-bool ts_parser_init(TSParser *self) {
+// Parser - Public
+
+TSParser *ts_parser_new() {
+  TSParser *self = ts_calloc(1, sizeof(TSParser));
   ts_lexer_init(&self->lexer);
   array_init(&self->reduce_actions);
   array_reserve(&self->reduce_actions, 4);
-  ts_subtree_pool_init(&self->tree_pool);
+  self->tree_pool = ts_subtree_pool_new(32);
   self->stack = ts_stack_new(&self->tree_pool);
   self->finished_tree = NULL;
   self->reusable_node = reusable_node_new();
+  self->print_debugging_graphs = false;
+  self->halt_on_error = false;
   ts_parser__set_cached_token(self, 0, NULL, NULL);
-  return true;
+  return self;
 }
 
-void ts_parser_set_language(TSParser *self, const TSLanguage *language) {
-  if (self->external_scanner_payload && self->language->external_scanner.destroy)
-    self->language->external_scanner.destroy(self->external_scanner_payload);
-
-  if (language && language->external_scanner.create)
-    self->external_scanner_payload = language->external_scanner.create();
-  else
-    self->external_scanner_payload = NULL;
-
-  self->language = language;
-}
-
-void ts_parser_destroy(TSParser *self) {
-  if (self->stack)
+void ts_parser_delete(TSParser *self) {
+  if (self->stack) {
     ts_stack_delete(self->stack);
-  if (self->reduce_actions.contents)
+  }
+  if (self->reduce_actions.contents) {
     array_delete(&self->reduce_actions);
+  }
   ts_subtree_pool_delete(&self->tree_pool);
   reusable_node_delete(&self->reusable_node);
   ts_parser_set_language(self, NULL);
+  ts_free(self);
 }
 
-Subtree *ts_parser_parse(TSParser *self, TSInput input, Subtree *old_tree, bool halt_on_error) {
-  ts_parser__start(self, input, old_tree);
+const TSLanguage *ts_parser_language(const TSParser *self) {
+  return self->language;
+}
+
+bool ts_parser_set_language(TSParser *self, const TSLanguage *language) {
+  if (language && language->version != TREE_SITTER_LANGUAGE_VERSION) return false;
+
+  if (self->external_scanner_payload && self->language->external_scanner.destroy) {
+    self->language->external_scanner.destroy(self->external_scanner_payload);
+  }
+
+  if (language && language->external_scanner.create) {
+    self->external_scanner_payload = language->external_scanner.create();
+  } else {
+    self->external_scanner_payload = NULL;
+  }
+
+  self->language = language;
+  return true;
+}
+
+TSLogger ts_parser_logger(const TSParser *self) {
+  return self->lexer.logger;
+}
+
+void ts_parser_set_logger(TSParser *self, TSLogger logger) {
+  self->lexer.logger = logger;
+}
+
+void ts_parser_print_debugging_graphs(TSParser *self, bool should_print) {
+  self->print_debugging_graphs = should_print;
+}
+
+void ts_parser_halt_on_error(TSParser *self, bool should_halt_on_error) {
+  self->halt_on_error = should_halt_on_error;
+}
+
+TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
+  if (!self->language) return NULL;
+  ts_parser__start(self, input, old_tree ? old_tree->root : NULL);
 
   StackVersion version = STACK_VERSION_NONE;
   uint32_t position = 0, last_position = 0;
@@ -1327,7 +1389,7 @@ Subtree *ts_parser_parse(TSParser *self, TSInput input, Subtree *old_tree, bool 
     unsigned min_error_cost = ts_parser__condense_stack(self);
     if (self->finished_tree && self->finished_tree->error_cost < min_error_cost) {
       break;
-    } else if (halt_on_error && min_error_cost > 0) {
+    } else if (self->halt_on_error && min_error_cost > 0) {
       ts_parser__halt_parse(self);
       break;
     }
@@ -1342,5 +1404,13 @@ Subtree *ts_parser_parse(TSParser *self, TSInput input, Subtree *old_tree, bool 
 
   LOG("done");
   LOG_TREE();
-  return self->finished_tree;
+
+  return ts_tree_new(self->finished_tree, self->language);
+}
+
+TSTree *ts_parser_parse_string(TSParser *self, const TSTree *old_tree,
+                               const char *string, uint32_t length) {
+  TSStringInput input;
+  ts_string_input_init(&input, string, length);
+  return ts_parser_parse(self, old_tree, input.input);
 }

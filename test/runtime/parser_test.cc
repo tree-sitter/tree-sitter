@@ -1,17 +1,20 @@
 #include "test_helper.h"
 #include "runtime/alloc.h"
+#include "runtime/language.h"
 #include "helpers/record_alloc.h"
 #include "helpers/spy_input.h"
 #include "helpers/load_language.h"
 #include "helpers/record_alloc.h"
 #include "helpers/point_helpers.h"
+#include "helpers/spy_logger.h"
 #include "helpers/stderr_logger.h"
 #include "helpers/dedent.h"
 
 START_TEST
 
 describe("Parser", [&]() {
-  TSDocument *document;
+  TSParser *parser;
+  TSTree *tree;
   SpyInput *input;
   TSNode root;
   size_t chunk_size;
@@ -21,14 +24,16 @@ describe("Parser", [&]() {
 
     chunk_size = 3;
     input = nullptr;
-    document = ts_document_new();
+    tree = nullptr;
+    parser = ts_parser_new();
     if (getenv("TREE_SITTER_ENABLE_DEBUG_GRAPHS")) {
-      ts_document_print_debugging_graphs(document, true);
+      ts_parser_print_debugging_graphs(parser, true);
     }
   });
 
   after_each([&]() {
-    if (document) ts_document_free(document);
+    if (parser) ts_parser_delete(parser);
+    if (tree) ts_tree_delete(tree);
     if (input) delete input;
 
     record_alloc::stop();
@@ -37,10 +42,8 @@ describe("Parser", [&]() {
 
   auto set_text = [&](string text) {
     input = new SpyInput(text, chunk_size);
-    ts_document_set_input(document, input->input());
-    ts_document_parse(document);
-
-    root = ts_document_root_node(document);
+    tree = ts_parser_parse(parser, nullptr, input->input());
+    root = ts_tree_root_node(tree);
     AssertThat(ts_node_end_byte(root), Equals(text.size()));
     input->clear();
   };
@@ -48,10 +51,13 @@ describe("Parser", [&]() {
   auto replace_text = [&](size_t position, size_t length, string new_text) {
     size_t prev_size = ts_node_end_byte(root);
 
-    ts_document_edit(document, input->replace(position, length, new_text));
-    ts_document_parse(document);
+    TSInputEdit edit = input->replace(position, length, new_text);
+    ts_tree_edit(tree, &edit);
+    TSTree *new_tree = ts_parser_parse(parser, tree, input->input());
+    ts_tree_delete(tree);
+    tree = new_tree;
 
-    root = ts_document_root_node(document);
+    root = ts_tree_root_node(tree);
     size_t new_size = ts_node_end_byte(root);
     AssertThat(new_size, Equals(prev_size - length + new_text.size()));
   };
@@ -65,12 +71,15 @@ describe("Parser", [&]() {
   };
 
   auto undo = [&]() {
-    ts_document_edit(document, input->undo());
-    ts_document_parse(document);
+    TSInputEdit edit = input->undo();
+    ts_tree_edit(tree, &edit);
+    TSTree *new_tree = ts_parser_parse(parser, tree, input->input());
+    ts_tree_delete(tree);
+    tree = new_tree;
   };
 
   auto assert_root_node = [&](const string &expected) {
-    TSNode node = ts_document_root_node(document);
+    TSNode node = ts_tree_root_node(tree);
     char *node_string = ts_node_string(node);
     string actual(node_string);
     ts_free(node_string);
@@ -86,11 +95,9 @@ describe("Parser", [&]() {
   describe("handling errors", [&]() {
     describe("when there is an invalid substring right before a valid token", [&]() {
       it("computes the error node's size and position correctly", [&]() {
-        ts_document_set_language(document, load_real_language("json"));
+        ts_parser_set_language(parser, load_real_language("json"));
         set_text("  [123,  @@@@@,   true]");
-
-        assert_root_node(
-          "(value (array (number) (ERROR (UNEXPECTED '@')) (true)))");
+        assert_root_node("(value (array (number) (ERROR (UNEXPECTED '@')) (true)))");
 
         TSNode error = ts_node_named_child(ts_node_child(root, 0), 1);
         AssertThat(ts_node_type(error), Equals("ERROR"));
@@ -111,7 +118,7 @@ describe("Parser", [&]() {
 
     describe("when there is an unexpected string in the middle of a token", [&]() {
       it("computes the error node's size and position correctly", [&]() {
-        ts_document_set_language(document, load_real_language("json"));
+        ts_parser_set_language(parser, load_real_language("json"));
         set_text("  [123, faaaaalse, true]");
 
         assert_root_node(
@@ -138,11 +145,10 @@ describe("Parser", [&]() {
 
     describe("when there is one unexpected token between two valid tokens", [&]() {
       it("computes the error node's size and position correctly", [&]() {
-        ts_document_set_language(document, load_real_language("json"));
+        ts_parser_set_language(parser, load_real_language("json"));
         set_text("  [123, true false, true]");
 
-        assert_root_node(
-          "(value (array (number) (true) (ERROR (false)) (true)))");
+        assert_root_node("(value (array (number) (true) (ERROR (false)) (true)))");
 
         TSNode error = ts_node_named_child(ts_node_child(root, 0), 2);
         AssertThat(ts_node_type(error), Equals("ERROR"));
@@ -157,26 +163,23 @@ describe("Parser", [&]() {
 
     describe("when there is an unexpected string at the end of a token", [&]() {
       it("computes the error's size and position correctly", [&]() {
-        ts_document_set_language(document, load_real_language("json"));
+        ts_parser_set_language(parser, load_real_language("json"));
         set_text("  [123, \"hi\n, true]");
-
-        assert_root_node(
-          "(value (array (number) (ERROR (UNEXPECTED '\\n')) (true)))");
+        assert_root_node("(value (array (number) (ERROR (UNEXPECTED '\\n')) (true)))");
       });
     });
 
     describe("when there is an unterminated error", [&]() {
       it("maintains a consistent tree", [&]() {
-        ts_document_set_language(document, load_real_language("javascript"));
+        ts_parser_set_language(parser, load_real_language("javascript"));
         set_text("a; ' this string never ends");
-        assert_root_node(
-          "(program (expression_statement (identifier)) (ERROR (UNEXPECTED EOF)))");
+        assert_root_node("(program (expression_statement (identifier)) (ERROR (UNEXPECTED EOF)))");
       });
     });
 
     describe("when there are extra tokens at the end of the viable prefix", [&]() {
       it("does not include them in the error node", [&]() {
-        ts_document_set_language(document, load_real_language("javascript"));
+        ts_parser_set_language(parser, load_real_language("javascript"));
         set_text(
           "var x;\n"
           "\n"
@@ -196,20 +199,64 @@ describe("Parser", [&]() {
       char *string = (char *)malloc(1);
       string[0] = '\xdf';
 
-      ts_document_set_language(document, load_real_language("json"));
-      ts_document_set_input_string_with_length(document, string, 1);
-      ts_document_parse(document);
+      ts_parser_set_language(parser, load_real_language("json"));
+      tree = ts_parser_parse_string(parser, nullptr, string, 1);
 
       free(string);
-
       assert_root_node("(ERROR (UNEXPECTED INVALID))");
+    });
+
+    describe("when halt_on_error is set to true", [&]() {
+      it("halts as soon as an error is found if the halt_on_error flag is set", [&]() {
+        string input_string = "[1, null, error, 3]";
+        ts_parser_set_language(parser, load_real_language("json"));
+
+        tree = ts_parser_parse_string(parser, nullptr, input_string.c_str(), input_string.size());
+        root = ts_tree_root_node(tree);
+        assert_root_node("(value (array (number) (null) (ERROR (UNEXPECTED 'e')) (number)))");
+
+        ts_parser_halt_on_error(parser, true);
+
+        ts_tree_delete(tree);
+        tree = ts_parser_parse_string(parser, nullptr, input_string.c_str(), input_string.size());
+        root = ts_tree_root_node(tree);
+        assert_root_node("(ERROR (number) (null))");
+        AssertThat(ts_node_end_byte(root), Equals(input_string.size()));
+      });
+
+      it("does not insert missing tokens if the halt_on_error flag is set", [&]() {
+        string input_string = "[1, null, 3";
+        ts_parser_set_language(parser, load_real_language("json"));
+
+        tree = ts_parser_parse_string(parser, nullptr, input_string.c_str(), input_string.size());
+        root = ts_tree_root_node(tree);
+        assert_root_node("(value (array (number) (null) (number) (MISSING)))");
+
+        ts_parser_halt_on_error(parser, true);
+
+        ts_tree_delete(tree);
+        tree = ts_parser_parse_string(parser, nullptr, input_string.c_str(), input_string.size());
+        root = ts_tree_root_node(tree);
+        assert_root_node("(ERROR (number) (null) (number))");
+        AssertThat(ts_node_end_byte(root), Equals(input_string.size()));
+      });
+
+      it("can parse valid code with the halt_on_error flag set", [&]() {
+        string input_string = "[1, null, 3]";
+        ts_parser_set_language(parser, load_real_language("json"));
+
+        ts_parser_halt_on_error(parser, true);
+        tree = ts_parser_parse_string(parser, nullptr, input_string.c_str(), input_string.size());
+        root = ts_tree_root_node(tree);
+        assert_root_node("(value (array (number) (null) (number)))");
+      });
     });
   });
 
   describe("editing", [&]() {
     describe("creating new tokens near the end of the input", [&]() {
       it("updates the parse tree and re-reads only the changed portion of the text", [&]() {
-        ts_document_set_language(document, load_real_language("javascript"));
+        ts_parser_set_language(parser, load_real_language("javascript"));
         set_text("x * (100 + abc);");
 
         assert_root_node(
@@ -242,7 +289,7 @@ describe("Parser", [&]() {
       it("updates the parse tree and re-reads only the changed portion of the input", [&]() {
         chunk_size = 2;
 
-        ts_document_set_language(document, load_real_language("javascript"));
+        ts_parser_set_language(parser, load_real_language("javascript"));
         set_text("123 + 456 * (10 + x);");
 
         assert_root_node(
@@ -268,7 +315,7 @@ describe("Parser", [&]() {
 
     describe("introducing an error", [&]() {
       it("gives the error the right size", [&]() {
-        ts_document_set_language(document, load_real_language("javascript"));
+        ts_parser_set_language(parser, load_real_language("javascript"));
         set_text("var x = y;");
 
         assert_root_node(
@@ -291,7 +338,7 @@ describe("Parser", [&]() {
 
     describe("into the middle of an existing token", [&]() {
       it("updates the parse tree", [&]() {
-        ts_document_set_language(document, load_real_language("javascript"));
+        ts_parser_set_language(parser, load_real_language("javascript"));
         set_text("abc * 123;");
 
         assert_root_node(
@@ -310,7 +357,7 @@ describe("Parser", [&]() {
 
     describe("at the end of an existing token", [&]() {
       it("updates the parse tree", [&]() {
-        ts_document_set_language(document, load_real_language("javascript"));
+        ts_parser_set_language(parser, load_real_language("javascript"));
         set_text("abc * 123;");
 
         assert_root_node(
@@ -329,7 +376,7 @@ describe("Parser", [&]() {
 
     describe("inserting text into a node containing a extra token", [&]() {
       it("updates the parse tree", [&]() {
-        ts_document_set_language(document, load_real_language("javascript"));
+        ts_parser_set_language(parser, load_real_language("javascript"));
         set_text("123 *\n"
           "// a-comment\n"
           "abc;");
@@ -356,7 +403,7 @@ describe("Parser", [&]() {
 
     describe("when a critical token is removed", [&]() {
       it("updates the parse tree, creating an error", [&]() {
-        ts_document_set_language(document, load_real_language("javascript"));
+        ts_parser_set_language(parser, load_real_language("javascript"));
         set_text("123 * 456; 789 * 123;");
 
         assert_root_node(
@@ -376,7 +423,7 @@ describe("Parser", [&]() {
 
     describe("with external tokens", [&]() {
       it("maintains the external scanner's state during incremental parsing", [&]() {
-        ts_document_set_language(document, load_real_language("python"));
+        ts_parser_set_language(parser, load_real_language("python"));
         string text = dedent(R"PYTHON(
           if a:
               print b
@@ -404,7 +451,7 @@ describe("Parser", [&]() {
     });
 
     it("does not try to reuse nodes that are within the edited region", [&]() {
-      ts_document_set_language(document, load_real_language("javascript"));
+      ts_parser_set_language(parser, load_real_language("javascript"));
       set_text("{ x: (b.c) };");
 
       assert_root_node(
@@ -417,23 +464,12 @@ describe("Parser", [&]() {
         "(program (expression_statement (object (pair "
           "(property_identifier) (member_expression (identifier) (property_identifier))))))");
     });
-
-    it("updates the document's parse count", [&]() {
-      ts_document_set_language(document, load_real_language("javascript"));
-      AssertThat(ts_document_parse_count(document), Equals<size_t>(0));
-
-      set_text("{ x: (b.c) };");
-      AssertThat(ts_document_parse_count(document), Equals<size_t>(1));
-
-      insert_text(strlen("{ x"), "yz");
-      AssertThat(ts_document_parse_count(document), Equals<size_t>(2));
-    });
   });
 
   describe("lexing", [&]() {
     describe("handling tokens containing wildcard patterns (e.g. comments)", [&]() {
-      it("terminates them at the end of the document", [&]() {
-        ts_document_set_language(document, load_real_language("javascript"));
+      it("terminates them at the end of the string", [&]() {
+        ts_parser_set_language(parser, load_real_language("javascript"));
         set_text("x; // this is a comment");
 
         assert_root_node(
@@ -448,7 +484,7 @@ describe("Parser", [&]() {
 
     it("recognizes UTF8 characters as single characters", [&]() {
       // 'ΩΩΩ — ΔΔ';
-      ts_document_set_language(document, load_real_language("javascript"));
+      ts_parser_set_language(parser, load_real_language("javascript"));
       set_text("'\u03A9\u03A9\u03A9 \u2014 \u0394\u0394';");
 
       assert_root_node(
@@ -460,12 +496,118 @@ describe("Parser", [&]() {
     it("handles non-UTF8 characters", [&]() {
       const char *string = "cons\xeb\x00e=ls\x83l6hi');\x0a";
 
-      ts_document_set_language(document, load_real_language("javascript"));
-      ts_document_set_input_string(document, string);
-      ts_document_parse(document);
-
-      TSNode root = ts_document_root_node(document);
+      ts_parser_set_language(parser, load_real_language("javascript"));
+      tree = ts_parser_parse_string(parser, nullptr, string, strlen(string));
+      TSNode root = ts_tree_root_node(tree);
       AssertThat(ts_node_end_byte(root), Equals(strlen(string)));
+    });
+  });
+
+  describe("handling TSInputs", [&]() {
+    SpyInput *spy_input;
+
+    before_each([&]() {
+      spy_input = new SpyInput("{\"key\": [null, 2]}", 3);
+      ts_parser_set_language(parser, load_real_language("json"));
+    });
+
+    after_each([&]() {
+      delete spy_input;
+    });
+
+    it("handles UTF16 encodings", [&]() {
+      const char16_t content[] = u"[true, false]";
+      spy_input->content = string((const char *)content, sizeof(content));
+      spy_input->encoding = TSInputEncodingUTF16;
+
+      tree = ts_parser_parse(parser, nullptr, spy_input->input());
+      root = ts_tree_root_node(tree);
+      assert_root_node(
+        "(value (array (true) (false)))");
+    });
+
+    it("handles truncated UTF16 data", [&]() {
+      const char content[1] = { '\0' };
+      spy_input->content = string(content, sizeof(content));
+      spy_input->encoding = TSInputEncodingUTF16;
+
+      tree = ts_parser_parse(parser, nullptr, spy_input->input());
+    });
+
+    it("measures columns in bytes", [&]() {
+      const char16_t content[] = u"[true, false]";
+      spy_input->content = string((const char *)content, sizeof(content));
+      spy_input->encoding = TSInputEncodingUTF16;
+
+      tree = ts_parser_parse(parser, nullptr, spy_input->input());
+      root = ts_tree_root_node(tree);
+      AssertThat(ts_node_end_point(root), Equals<TSPoint>({0, 28}));
+    });
+  });
+
+  describe("set_language(language)", [&]() {
+    string input_string = "{\"key\": [1, 2]}\n";
+
+    it("uses the given language for future parses", [&]() {
+      ts_parser_set_language(parser, load_real_language("json"));
+      tree = ts_parser_parse_string(parser, nullptr, input_string.c_str(), input_string.size());
+
+      root = ts_tree_root_node(tree);
+      assert_root_node(
+        "(value (object (pair (string) (array (number) (number)))))");
+    });
+
+    it("does not allow setting a language with a different version number", [&]() {
+      TSLanguage language = *load_real_language("json");
+      AssertThat(ts_language_version(&language), Equals<uint32_t>(TREE_SITTER_LANGUAGE_VERSION));
+
+      language.version++;
+      AssertThat(ts_language_version(&language), !Equals<uint32_t>(TREE_SITTER_LANGUAGE_VERSION));
+
+      AssertThat(ts_parser_set_language(parser, &language), IsFalse());
+      AssertThat(ts_parser_language(parser), Equals<const TSLanguage *>(nullptr));
+    });
+  });
+
+  describe("set_logger(TSLogger)", [&]() {
+    SpyLogger *logger;
+
+    before_each([&]() {
+      logger = new SpyLogger();
+      ts_parser_set_language(parser, load_real_language("json"));
+    });
+
+    after_each([&]() {
+      delete logger;
+    });
+
+    it("calls the debugger with a message for each parse action", [&]() {
+      ts_parser_set_logger(parser, logger->logger());
+      tree = ts_parser_parse_string(parser, nullptr, "[ 1, 2, 3 ]", 11);
+
+      AssertThat(logger->messages, Contains("new_parse"));
+      AssertThat(logger->messages, Contains("skip character:' '"));
+      AssertThat(logger->messages, Contains("consume character:'['"));
+      AssertThat(logger->messages, Contains("consume character:'1'"));
+      AssertThat(logger->messages, Contains("reduce sym:array, child_count:4"));
+      AssertThat(logger->messages, Contains("accept"));
+    });
+
+    it("allows the debugger to be retrieved later", [&]() {
+      ts_parser_set_logger(parser, logger->logger());
+      AssertThat(ts_parser_logger(parser).payload, Equals(logger));
+    });
+
+    describe("disabling debugging", [&]() {
+      before_each([&]() {
+        ts_parser_set_logger(parser, logger->logger());
+        ts_parser_set_logger(parser, {NULL, NULL});
+      });
+
+      it("does not call the debugger any more", [&]() {
+        tree = ts_parser_parse_string(parser, nullptr, "{}", 2);
+        AssertThat(logger->messages, IsEmpty());
+      });
     });
   });
 });
