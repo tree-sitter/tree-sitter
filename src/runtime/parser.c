@@ -247,8 +247,8 @@ static void ts_parser__restore_external_scanner(TSParser *self, Subtree *externa
   if (external_token) {
     self->language->external_scanner.deserialize(
       self->external_scanner_payload,
-      ts_external_token_state_data(&external_token->external_token_state),
-      external_token->external_token_state.length
+      ts_external_scanner_state_data(&external_token->external_scanner_state),
+      external_token->external_scanner_state.length
     );
   } else {
     self->language->external_scanner.deserialize(self->external_scanner_payload, NULL, 0);
@@ -391,7 +391,7 @@ static Subtree *ts_parser__lex(TSParser *self, StackVersion version, TSStateId p
         self->external_scanner_payload,
         self->lexer.debug_buffer
       );
-      ts_external_token_state_init(&result->external_token_state, self->lexer.debug_buffer, length);
+      ts_external_scanner_state_init(&result->external_scanner_state, self->lexer.debug_buffer, length);
     }
   }
 
@@ -408,7 +408,7 @@ static Subtree *ts_parser__get_cached_token(TSParser *self, size_t byte_index,
   TokenCache *cache = &self->token_cache;
   if (cache->token &&
       cache->byte_index == byte_index &&
-      ts_subtree_external_token_state_eq(cache->last_external_token, last_external_token)) {
+      ts_subtree_external_scanner_state_eq(cache->last_external_token, last_external_token)) {
     return cache->token;
   } else {
     return NULL;
@@ -464,7 +464,7 @@ static Subtree *ts_parser__get_lookahead(TSParser *self, StackVersion version, T
       continue;
     }
 
-    if (!ts_subtree_external_token_state_eq(reusable_node->last_external_token, last_external_token)) {
+    if (!ts_subtree_external_scanner_state_eq(reusable_node->last_external_token, last_external_token)) {
       LOG("reusable_node_has_different_external_scanner_state symbol:%s", SYM_NAME(result->symbol));
       reusable_node_advance(reusable_node);
       continue;

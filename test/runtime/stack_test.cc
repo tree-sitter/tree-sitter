@@ -528,8 +528,8 @@ describe("Stack", [&]() {
     before_each([&]() {
       subtrees[1]->has_external_tokens = true;
       subtrees[2]->has_external_tokens = true;
-      ts_external_token_state_init(&subtrees[1]->external_token_state, NULL, 0);
-      ts_external_token_state_init(&subtrees[2]->external_token_state, NULL, 0);
+      ts_external_scanner_state_init(&subtrees[1]->external_scanner_state, NULL, 0);
+      ts_external_scanner_state_init(&subtrees[2]->external_scanner_state, NULL, 0);
     });
 
     it("allows the state to be retrieved", [&]() {
@@ -546,8 +546,8 @@ describe("Stack", [&]() {
     });
 
     it("does not merge stack versions with different external token states", [&]() {
-      ts_external_token_state_init(&subtrees[1]->external_token_state, "abcd", 2);
-      ts_external_token_state_init(&subtrees[2]->external_token_state, "ABCD", 2);
+      ts_external_scanner_state_init(&subtrees[1]->external_scanner_state, "abcd", 2);
+      ts_external_scanner_state_init(&subtrees[2]->external_scanner_state, "ABCD", 2);
 
       ts_stack_copy_version(stack, 0);
       push(0, subtrees[0], 5);
@@ -560,8 +560,8 @@ describe("Stack", [&]() {
     });
 
     it("merges stack versions with identical external token states", [&]() {
-      ts_external_token_state_init(&subtrees[1]->external_token_state, "abcd", 2);
-      ts_external_token_state_init(&subtrees[2]->external_token_state, "abcd", 2);
+      ts_external_scanner_state_init(&subtrees[1]->external_scanner_state, "abcd", 2);
+      ts_external_scanner_state_init(&subtrees[2]->external_scanner_state, "abcd", 2);
 
       ts_stack_copy_version(stack, 0);
       push(0, subtrees[0], 5);

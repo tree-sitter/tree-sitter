@@ -20,7 +20,7 @@ typedef struct {
     char short_data[sizeof(char *) + sizeof(uint32_t)];
   };
   uint32_t length;
-} TSExternalTokenState;
+} ExternalScannerState;
 
 typedef struct Subtree Subtree;
 
@@ -61,7 +61,7 @@ struct Subtree {
     };
     struct {
       uint32_t _2;
-      TSExternalTokenState external_token_state;
+      ExternalScannerState external_scanner_state;
     };
     struct {
       uint32_t _1;
@@ -75,8 +75,8 @@ typedef struct {
   SubtreeArray tree_stack;
 } SubtreePool;
 
-void ts_external_token_state_init(TSExternalTokenState *, const char *, unsigned);
-const char *ts_external_token_state_data(const TSExternalTokenState *);
+void ts_external_scanner_state_init(ExternalScannerState *, const char *, unsigned);
+const char *ts_external_scanner_state_data(const ExternalScannerState *);
 
 bool ts_subtree_array_copy(SubtreeArray, SubtreeArray *);
 void ts_subtree_array_delete(SubtreePool *, SubtreeArray *);
@@ -104,7 +104,7 @@ Subtree *ts_subtree_edit(Subtree *, const TSInputEdit *edit, SubtreePool *);
 char *ts_subtree_string(const Subtree *, const TSLanguage *, bool include_all);
 void ts_subtree_print_dot_graph(const Subtree *, const TSLanguage *, FILE *);
 Subtree *ts_subtree_last_external_token(Subtree *);
-bool ts_subtree_external_token_state_eq(const Subtree *, const Subtree *);
+bool ts_subtree_external_scanner_state_eq(const Subtree *, const Subtree *);
 
 static inline uint32_t ts_subtree_total_bytes(const Subtree *self) {
   return self->padding.bytes + self->size.bytes;

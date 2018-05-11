@@ -21,27 +21,27 @@ TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
 
 static const uint32_t MAX_TREE_POOL_SIZE = 1024;
 
-static const TSExternalTokenState empty_state = {.length = 0, .short_data = {0}};
+static const ExternalScannerState empty_state = {.length = 0, .short_data = {0}};
 
-// ExternalTokenState
+// ExternalScannerState
 
-void ts_external_token_state_init(TSExternalTokenState *self, const char *content, unsigned length) {
+void ts_external_scanner_state_init(ExternalScannerState *self, const char *data, unsigned length) {
   self->length = length;
   if (length > sizeof(self->short_data)) {
     self->long_data = ts_malloc(length);
-    memcpy(self->long_data, content, length);
+    memcpy(self->long_data, data, length);
   } else {
-    memcpy(self->short_data, content, length);
+    memcpy(self->short_data, data, length);
   }
 }
 
-void ts_external_token_state_delete(TSExternalTokenState *self) {
+void ts_external_scanner_state_delete(ExternalScannerState *self) {
   if (self->length > sizeof(self->short_data)) {
     ts_free(self->long_data);
   }
 }
 
-const char *ts_external_token_state_data(const TSExternalTokenState *self) {
+const char *ts_external_scanner_state_data(const ExternalScannerState *self) {
   if (self->length > sizeof(self->short_data)) {
     return self->long_data;
   } else {
@@ -49,10 +49,11 @@ const char *ts_external_token_state_data(const TSExternalTokenState *self) {
   }
 }
 
-bool ts_external_token_state_eq(const TSExternalTokenState *a, const TSExternalTokenState *b) {
-  return a == b ||
-    (a->length == b->length &&
-     memcmp(ts_external_token_state_data(a), ts_external_token_state_data(b), a->length) == 0);
+bool ts_external_scanner_state_eq(const ExternalScannerState *a, const ExternalScannerState *b) {
+  return a == b || (
+    a->length == b->length &&
+    !memcmp(ts_external_scanner_state_data(a), ts_external_scanner_state_data(b), a->length)
+  );
 }
 
 // SubtreeArray
@@ -403,7 +404,7 @@ void ts_subtree_release(SubtreePool *pool, Subtree *self) {
         }
         array_delete(&tree->children);
       } else if (tree->has_external_tokens) {
-        ts_external_token_state_delete(&tree->external_token_state);
+        ts_external_scanner_state_delete(&tree->external_scanner_state);
       }
       ts_subtree_pool_free(pool, tree);
     }
@@ -694,10 +695,10 @@ void ts_subtree_print_dot_graph(const Subtree *self, const TSLanguage *language,
   fprintf(f, "}\n");
 }
 
-bool ts_subtree_external_token_state_eq(const Subtree *self, const Subtree *other) {
-  const TSExternalTokenState *state1 = &empty_state;
-  const TSExternalTokenState *state2 = &empty_state;
-  if (self && self->has_external_tokens) state1 = &self->external_token_state;
-  if (other && other->has_external_tokens) state2 = &other->external_token_state;
-  return ts_external_token_state_eq(state1, state2);
+bool ts_subtree_external_scanner_state_eq(const Subtree *self, const Subtree *other) {
+  const ExternalScannerState *state1 = &empty_state;
+  const ExternalScannerState *state2 = &empty_state;
+  if (self && self->has_external_tokens) state1 = &self->external_scanner_state;
+  if (other && other->has_external_tokens) state2 = &other->external_scanner_state;
+  return ts_external_scanner_state_eq(state1, state2);
 }

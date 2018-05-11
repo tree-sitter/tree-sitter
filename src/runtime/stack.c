@@ -164,7 +164,7 @@ static bool stack__subtree_is_equivalent(const Subtree *left, const Subtree *rig
        left->padding.bytes == right->padding.bytes &&
        left->size.bytes == right->size.bytes &&
        left->extra == right->extra &&
-       ts_subtree_external_token_state_eq(left, right))));
+       ts_subtree_external_scanner_state_eq(left, right))));
 }
 
 static void stack_node_add_link(StackNode *self, StackLink link) {
@@ -605,7 +605,7 @@ bool ts_stack_can_merge(Stack *self, StackVersion version1, StackVersion version
     head1->node->state == head2->node->state &&
     head1->node->position.bytes == head2->node->position.bytes &&
     head1->node->error_cost == head2->node->error_cost &&
-    ts_subtree_external_token_state_eq(head1->last_external_token, head2->last_external_token);
+    ts_subtree_external_scanner_state_eq(head1->last_external_token, head2->last_external_token);
 }
 
 void ts_stack_halt(Stack *self, StackVersion version) {
@@ -684,9 +684,9 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
     );
 
     if (head->last_external_token) {
-      TSExternalTokenState *state = &head->last_external_token->external_token_state;
-      const char *data = ts_external_token_state_data(state);
-      fprintf(f, "\nexternal_token_state:");
+      ExternalScannerState *state = &head->last_external_token->external_scanner_state;
+      const char *data = ts_external_scanner_state_data(state);
+      fprintf(f, "\nexternal_scanner_state:");
       for (uint32_t j = 0; j < state->length; j++) fprintf(f, " %2X", data[j]);
     }
 

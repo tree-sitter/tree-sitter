@@ -9,12 +9,13 @@ extern "C" {
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef uint16_t TSSymbol;
-typedef uint16_t TSStateId;
-
 #define ts_builtin_sym_error ((TSSymbol)-1)
 #define ts_builtin_sym_end 0
 #define TREE_SITTER_SERIALIZATION_BUFFER_SIZE 1024
+
+typedef uint16_t TSSymbol;
+
+typedef uint16_t TSStateId;
 
 typedef struct {
   bool visible : 1;
@@ -129,6 +130,7 @@ typedef struct TSLanguage {
  */
 
 #define STATE(id) id
+
 #define ACTIONS(id) id
 
 #define SHIFT(state_value)              \
