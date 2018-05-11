@@ -141,7 +141,7 @@ void ts_subtree_pool_free(SubtreePool *self, Subtree *tree) {
 
 // Subtree
 
-Subtree *ts_subtree_make_leaf(SubtreePool *pool, TSSymbol symbol, Length padding, Length size,
+Subtree *ts_subtree_new_leaf(SubtreePool *pool, TSSymbol symbol, Length padding, Length size,
                               const TSLanguage *language) {
   TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
   Subtree *result = ts_subtree_pool_allocate(pool);
@@ -166,16 +166,16 @@ Subtree *ts_subtree_make_leaf(SubtreePool *pool, TSSymbol symbol, Length padding
   return result;
 }
 
-Subtree *ts_subtree_make_error(SubtreePool *pool, Length size, Length padding,
+Subtree *ts_subtree_new_error(SubtreePool *pool, Length size, Length padding,
                                int32_t lookahead_char, const TSLanguage *language) {
-  Subtree *result = ts_subtree_make_leaf(pool, ts_builtin_sym_error, padding, size, language);
+  Subtree *result = ts_subtree_new_leaf(pool, ts_builtin_sym_error, padding, size, language);
   result->fragile_left = true;
   result->fragile_right = true;
   result->lookahead_char = lookahead_char;
   return result;
 }
 
-Subtree *ts_subtree_make_copy(SubtreePool *pool, Subtree *self) {
+Subtree *ts_subtree_new_copy(SubtreePool *pool, Subtree *self) {
   Subtree *result = ts_subtree_pool_allocate(pool);
   *result = *self;
   if (result->children.size > 0) {
@@ -185,11 +185,11 @@ Subtree *ts_subtree_make_copy(SubtreePool *pool, Subtree *self) {
   return result;
 }
 
-static Subtree *ts_subtree_make_mut(SubtreePool *pool, Subtree *self) {
+static Subtree *ts_subtree_new_mut(SubtreePool *pool, Subtree *self) {
   if (self->ref_count == 1) {
     return self;
   } else {
-    Subtree *result = ts_subtree_make_copy(pool, self);
+    Subtree *result = ts_subtree_new_copy(pool, self);
     ts_subtree_release(pool, self);
     return result;
   }
@@ -360,9 +360,9 @@ void ts_subtree_set_children(Subtree *self, SubtreeArray *children, const TSLang
   }
 }
 
-Subtree *ts_subtree_make_node(SubtreePool *pool, TSSymbol symbol, SubtreeArray *children,
+Subtree *ts_subtree_new_node(SubtreePool *pool, TSSymbol symbol, SubtreeArray *children,
                         unsigned alias_sequence_id, const TSLanguage *language) {
-  Subtree *result = ts_subtree_make_leaf(pool, symbol, length_zero(), length_zero(), language);
+  Subtree *result = ts_subtree_new_leaf(pool, symbol, length_zero(), length_zero(), language);
   result->alias_sequence_id = alias_sequence_id;
   if (symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat) {
     result->fragile_left = true;
@@ -372,14 +372,14 @@ Subtree *ts_subtree_make_node(SubtreePool *pool, TSSymbol symbol, SubtreeArray *
   return result;
 }
 
-Subtree *ts_subtree_make_error_node(SubtreePool *pool, SubtreeArray *children,
+Subtree *ts_subtree_new_error_node(SubtreePool *pool, SubtreeArray *children,
                                     const TSLanguage *language) {
-  return ts_subtree_make_node(pool, ts_builtin_sym_error, children, 0, language);
+  return ts_subtree_new_node(pool, ts_builtin_sym_error, children, 0, language);
 }
 
-Subtree *ts_subtree_make_missing_leaf(SubtreePool *pool, TSSymbol symbol,
+Subtree *ts_subtree_new_missing_leaf(SubtreePool *pool, TSSymbol symbol,
                                       const TSLanguage *language) {
-  Subtree *result = ts_subtree_make_leaf(pool, symbol, length_zero(), length_zero(), language);
+  Subtree *result = ts_subtree_new_leaf(pool, symbol, length_zero(), length_zero(), language);
   result->is_missing = true;
   result->error_cost = ERROR_COST_PER_MISSING_TREE + ERROR_COST_PER_RECOVERY;
   return result;
@@ -464,7 +464,7 @@ Subtree *ts_subtree_invalidate_lookahead(Subtree *self, uint32_t edit_byte_offse
                                          SubtreePool *pool) {
   if (edit_byte_offset >= self->bytes_scanned) return self;
 
-  Subtree *result = ts_subtree_make_mut(pool, self);
+  Subtree *result = ts_subtree_new_mut(pool, self);
   result->has_changes = true;
 
   if (result->children.size > 0) {
@@ -484,7 +484,7 @@ Subtree *ts_subtree__edit(Subtree *self, Edit edit, SubtreePool *pool) {
   Length new_end = length_add(edit.start, edit.added);
   Length old_end = length_add(edit.start, edit.removed);
 
-  Subtree *result = ts_subtree_make_mut(pool, self);
+  Subtree *result = ts_subtree_new_mut(pool, self);
   result->has_changes = true;
 
   if (old_end.bytes <= result->padding.bytes) {

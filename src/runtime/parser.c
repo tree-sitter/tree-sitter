@@ -358,7 +358,7 @@ static Subtree *ts_parser__lex(TSParser *self, StackVersion version, TSStateId p
   if (skipped_error) {
     Length padding = length_sub(error_start_position, start_position);
     Length size = length_sub(error_end_position, error_start_position);
-    result = ts_subtree_make_error(&self->tree_pool, size, padding, first_error_character, self->language);
+    result = ts_subtree_new_error(&self->tree_pool, size, padding, first_error_character, self->language);
   } else {
     if (self->lexer.token_end_position.bytes < self->lexer.token_start_position.bytes) {
       self->lexer.token_start_position = self->lexer.token_end_position;
@@ -383,7 +383,7 @@ static Subtree *ts_parser__lex(TSParser *self, StackVersion version, TSStateId p
       }
     }
 
-    result = ts_subtree_make_leaf(&self->tree_pool, symbol, padding, size, self->language);
+    result = ts_subtree_new_leaf(&self->tree_pool, symbol, padding, size, self->language);
 
     if (found_external_token) {
       result->has_external_tokens = true;
@@ -577,7 +577,7 @@ static void ts_parser__shift(TSParser *self, StackVersion version, TSStateId sta
                           Subtree *lookahead, bool extra) {
   if (extra != lookahead->extra) {
     if (ts_stack_version_count(self->stack) > 1) {
-      lookahead = ts_subtree_make_copy(&self->tree_pool, lookahead);
+      lookahead = ts_subtree_new_copy(&self->tree_pool, lookahead);
     } else {
       ts_subtree_retain(lookahead);
     }
@@ -625,7 +625,7 @@ static StackSliceArray ts_parser__reduce(TSParser *self, StackVersion version, T
       children.size--;
     }
 
-    Subtree *parent = ts_subtree_make_node(&self->tree_pool,
+    Subtree *parent = ts_subtree_new_node(&self->tree_pool,
       symbol, &children, alias_sequence_id, self->language
     );
 
@@ -735,7 +735,7 @@ static void ts_parser__accept(TSParser *self, StackVersion version, Subtree *loo
           ts_subtree_retain(child->children.contents[k]);
         }
         array_splice(&trees, j, 1, &child->children);
-        root = ts_subtree_make_node(
+        root = ts_subtree_new_node(
           &self->tree_pool, child->symbol, &trees,
           child->alias_sequence_id, self->language
         );
@@ -875,7 +875,7 @@ static void ts_parser__handle_error(TSParser *self, StackVersion version,
           lookahead_symbol
         )) {
           StackVersion version_with_missing_tree = ts_stack_copy_version(self->stack, v);
-          Subtree *missing_tree = ts_subtree_make_missing_leaf(&self->tree_pool, missing_symbol, self->language);
+          Subtree *missing_tree = ts_subtree_new_missing_leaf(&self->tree_pool, missing_symbol, self->language);
           ts_stack_push(
             self->stack, version_with_missing_tree,
             missing_tree, false,
@@ -920,15 +920,15 @@ static void ts_parser__halt_parse(TSParser *self) {
     ts_stack_position(self->stack, 0)
   );
 
-  Subtree *filler_node = ts_subtree_make_error(&self->tree_pool, remaining_length, length_zero(), 0, self->language);
+  Subtree *filler_node = ts_subtree_new_error(&self->tree_pool, remaining_length, length_zero(), 0, self->language);
   filler_node->visible = false;
   ts_stack_push(self->stack, 0, filler_node, false, 0);
 
   SubtreeArray children = array_new();
-  Subtree *root_error = ts_subtree_make_error_node(&self->tree_pool, &children, self->language);
+  Subtree *root_error = ts_subtree_new_error_node(&self->tree_pool, &children, self->language);
   ts_stack_push(self->stack, 0, root_error, false, 0);
 
-  Subtree *eof = ts_subtree_make_leaf(&self->tree_pool, ts_builtin_sym_end, length_zero(), length_zero(), self->language);
+  Subtree *eof = ts_subtree_new_leaf(&self->tree_pool, ts_builtin_sym_end, length_zero(), length_zero(), self->language);
   ts_parser__accept(self, 0, eof);
   ts_subtree_release(&self->tree_pool, eof);
 }
@@ -967,7 +967,7 @@ static bool ts_parser__recover_to_state(TSParser *self, StackVersion version, un
     SubtreeArray trailing_extras = ts_subtree_array_remove_trailing_extras(&slice.subtrees);
 
     if (slice.subtrees.size > 0) {
-      Subtree *error = ts_subtree_make_error_node(&self->tree_pool, &slice.subtrees, self->language);
+      Subtree *error = ts_subtree_new_error_node(&self->tree_pool, &slice.subtrees, self->language);
       error->extra = true;
       ts_stack_push(self->stack, slice.version, error, false, goal_state);
     } else {
@@ -1048,7 +1048,7 @@ static void ts_parser__recover(TSParser *self, StackVersion version, Subtree *lo
   if (lookahead->symbol == ts_builtin_sym_end) {
     LOG("recover_eof");
     SubtreeArray children = array_new();
-    Subtree *parent = ts_subtree_make_error_node(&self->tree_pool, &children, self->language);
+    Subtree *parent = ts_subtree_new_error_node(&self->tree_pool, &children, self->language);
     ts_stack_push(self->stack, version, parent, false, 1);
     ts_parser__accept(self, version, lookahead);
     return;
@@ -1075,7 +1075,7 @@ static void ts_parser__recover(TSParser *self, StackVersion version, Subtree *lo
   SubtreeArray children = array_new();
   array_reserve(&children, 1);
   array_push(&children, lookahead);
-  Subtree *error_repeat = ts_subtree_make_node(
+  Subtree *error_repeat = ts_subtree_new_node(
     &self->tree_pool,
     ts_builtin_sym_error_repeat,
     &children,
@@ -1089,7 +1089,7 @@ static void ts_parser__recover(TSParser *self, StackVersion version, Subtree *lo
     assert(pop.contents[0].subtrees.size == 1);
     ts_stack_renumber_version(self->stack, pop.contents[0].version, version);
     array_push(&pop.contents[0].subtrees, error_repeat);
-    error_repeat = ts_subtree_make_node(
+    error_repeat = ts_subtree_new_node(
       &self->tree_pool,
       ts_builtin_sym_error_repeat,
       &pop.contents[0].subtrees,
