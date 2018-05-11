@@ -179,25 +179,28 @@ tokens, like `(` and `+`. This is useful when analyzing the meaning of a documen
 TSLanguage *tree_sitter_arithmetic();
 
 int main() {
-  TSDocument *document = ts_document_new();
-  ts_document_set_language(document, tree_sitter_arithmetic());
-  ts_document_set_input_string(document, "a + b * 5");
-  ts_document_parse(document);
+  TSParser *parser = ts_parser_new();
+  ts_parser_set_language(parser, tree_sitter_arithmetic());
 
-  TSNode root_node = ts_document_root_node(document);
-  assert(!strcmp(ts_node_type(root_node, document), "expression"));
+  const char *source_code = "a + b * 5";
+  TSTree *tree = ts_parser_parse(parser, NULL, source_code, strlen(source_code));
+
+  TSNode root_node = ts_tree_root_node(tree);
+  assert(!strcmp(ts_node_type(root_node), "expression"));
   assert(ts_node_named_child_count(root_node) == 1);
 
   TSNode sum_node = ts_node_named_child(root_node, 0);
-  assert(!strcmp(ts_node_type(sum_node, document), "sum"));
+  assert(!strcmp(ts_node_type(sum_node), "sum"));
   assert(ts_node_named_child_count(sum_node) == 2);
 
   TSNode product_node = ts_node_child(ts_node_named_child(sum_node, 1), 0);
-  assert(!strcmp(ts_node_type(product_node, document), "product"));
+  assert(!strcmp(ts_node_type(product_node), "product"));
   assert(ts_node_named_child_count(product_node) == 2);
 
-  printf("Syntax tree: %s\n", ts_node_string(root_node, document));
-  ts_document_free(document);
+  printf("Syntax tree: %s\n", ts_node_string(root_node));
+
+  ts_tree_delete(tree);
+  ts_parser_delete(parser);
   return 0;
 }
 ```
