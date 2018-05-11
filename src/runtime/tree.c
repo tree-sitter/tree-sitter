@@ -37,7 +37,7 @@ TSNode ts_tree_root_node(const TSTree *self) {
 void ts_tree_edit(TSTree *self, const TSInputEdit *edit) {
   SubtreePool pool = ts_subtree_pool_new(0);
   self->root = ts_subtree_edit(self->root, edit, &pool);
-  assert(pool.tree_stack.capacity == 0 && pool.free_trees.capacity == 0);
+  ts_subtree_pool_delete(&pool);
 }
 
 TSRange *ts_tree_get_changed_ranges(const TSTree *self, const TSTree *other, uint32_t *count) {

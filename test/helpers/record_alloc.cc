@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <map>
 #include <vector>
+#include <mutex>
 
 using std::map;
 using std::vector;
@@ -8,13 +9,16 @@ using std::vector;
 static bool _enabled = false;
 static size_t _allocation_count = 0;
 static map<void *, size_t> _outstanding_allocations;
+static std::mutex _outstanding_allocations_mutex;
+static bool _multi_threaded_mode = false;
 
 namespace record_alloc {
 
-void start() {
+void start(bool multi_threaded_mode) {
   _enabled = true;
   _allocation_count = 0;
   _outstanding_allocations.clear();
+  _multi_threaded_mode = multi_threaded_mode;
 }
 
 void stop() {
@@ -30,7 +34,11 @@ vector<size_t> outstanding_allocation_indices() {
 }
 
 size_t allocation_count() {
-  return _allocation_count;
+  size_t result;
+  _outstanding_allocations_mutex.lock();
+  result = _allocation_count;
+  _outstanding_allocations_mutex.unlock();
+  return result;
 }
 
 }  // namespace record_alloc
@@ -39,16 +47,20 @@ extern "C" {
 
 static void *record_allocation(void *result) {
   if (!_enabled) return result;
+  if (_multi_threaded_mode) _outstanding_allocations_mutex.lock();
   _outstanding_allocations[result] = _allocation_count;
   _allocation_count++;
+  if (_multi_threaded_mode) _outstanding_allocations_mutex.unlock();
   return result;
 }
 
 static void record_deallocation(void *pointer) {
+  if (_multi_threaded_mode) _outstanding_allocations_mutex.lock();
   auto entry = _outstanding_allocations.find(pointer);
   if (entry != _outstanding_allocations.end()) {
     _outstanding_allocations.erase(entry);
   }
+  if (_multi_threaded_mode) _outstanding_allocations_mutex.unlock();
 }
 
 void *ts_record_malloc(size_t size) {

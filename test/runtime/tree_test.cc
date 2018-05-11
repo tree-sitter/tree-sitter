@@ -28,11 +28,17 @@ describe("Tree", [&]() {
   TSTree *tree;
 
   before_each([&]() {
+    record_alloc::start(true);
     parser = ts_parser_new();
+    tree = nullptr;
+    input = nullptr;
   });
 
   after_each([&]() {
+    if (tree) ts_tree_delete(tree);
+    if (input) delete input;
     ts_parser_delete(parser);
+    AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
   });
 
   auto assert_root_node = [&](const string &expected) {
@@ -85,6 +91,8 @@ describe("Tree", [&]() {
         }));
       }
 
+      ts_tree_delete(original_tree);
+
       for (auto &future : new_trees) {
         future.wait();
         TSTree *new_tree = future.get();
@@ -103,11 +111,6 @@ describe("Tree", [&]() {
       assert_root_node(
         "(program (expression_statement (object (pair (property_identifier) (null)))))"
       );
-    });
-
-    after_each([&]() {
-      ts_tree_delete(tree);
-      delete input;
     });
 
     auto get_changed_ranges_for_edit = [&](function<TSInputEdit()> fn) -> vector<TSRange> {
