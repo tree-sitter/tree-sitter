@@ -4,7 +4,8 @@
 #include "runtime/subtree.h"
 
 unsigned ts_subtree_get_changed_ranges(
-  Subtree *old_tree, Subtree *new_tree, TSTreeCursor *cursor1, TSTreeCursor *cursor2,
+  const Subtree *old_tree, const Subtree *new_tree,
+  TSTreeCursor *cursor1, TSTreeCursor *cursor2,
   const TSLanguage *language, TSRange **ranges
 );
 

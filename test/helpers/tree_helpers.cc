@@ -14,11 +14,11 @@ const char *symbol_names[24] = {
   "twenty-two", "twenty-three"
 };
 
-SubtreeArray *tree_array(std::vector<Subtree *> trees) {
+SubtreeArray *tree_array(std::vector<const Subtree *> trees) {
   static SubtreeArray result;
   result.capacity = trees.size();
   result.size = trees.size();
-  result.contents = (Subtree **)calloc(trees.size(), sizeof(Subtree *));
+  result.contents = (const Subtree **)calloc(trees.size(), sizeof(Subtree *));
   for (size_t i = 0; i < trees.size(); i++) {
     result.contents[i] = trees[i];
   }
@@ -49,7 +49,7 @@ bool operator==(const TSNode &left, const TSNode &right) {
   return ts_node_eq(left, right);
 }
 
-bool operator==(const std::vector<Subtree *> &vec, const SubtreeArray &array) {
+bool operator==(const std::vector<const Subtree *> &vec, const SubtreeArray &array) {
   if (vec.size() != array.size)
     return false;
   for (size_t i = 0; i < array.size; i++)

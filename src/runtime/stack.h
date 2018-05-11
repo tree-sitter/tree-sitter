@@ -42,10 +42,10 @@ uint32_t ts_stack_version_count(const Stack *);
 TSStateId ts_stack_state(const Stack *, StackVersion);
 
 // Get the last external token associated with a given version of the stack.
-Subtree *ts_stack_last_external_token(const Stack *, StackVersion);
+const Subtree *ts_stack_last_external_token(const Stack *, StackVersion);
 
 // Set the last external token associated with a given version of the stack.
-void ts_stack_set_last_external_token(Stack *, StackVersion, Subtree *);
+void ts_stack_set_last_external_token(Stack *, StackVersion, const Subtree *);
 
 // Get the position of the given version of the stack within the document.
 Length ts_stack_position(const Stack *, StackVersion);
@@ -55,7 +55,7 @@ Length ts_stack_position(const Stack *, StackVersion);
 // This transfers ownership of the tree to the Stack. Callers that
 // need to retain ownership of the tree for their own purposes should
 // first retain the tree.
-void ts_stack_push(Stack *, StackVersion, Subtree *, bool, TSStateId);
+void ts_stack_push(Stack *, StackVersion, const Subtree *, bool, TSStateId);
 
 // Pop the given number of entries from the given version of the stack. This
 // operation can increase the number of stack versions by revealing multiple

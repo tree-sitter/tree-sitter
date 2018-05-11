@@ -44,6 +44,10 @@ void free_slice_array(SubtreePool *pool, StackSliceArray *slices) {
   }
 }
 
+Subtree *mutate(const Subtree *subtree) {
+  return (Subtree *)subtree;
+}
+
 struct StackEntry {
   TSStateId state;
   size_t depth;
@@ -69,7 +73,7 @@ START_TEST
 describe("Stack", [&]() {
   Stack *stack;
   const size_t subtree_count = 11;
-  Subtree *subtrees[subtree_count];
+  const Subtree *subtrees[subtree_count];
   Length tree_len = {3, {0, 3}};
   SubtreePool pool;
 
@@ -84,7 +88,7 @@ describe("Stack", [&]() {
     dummy_language.symbol_metadata = symbol_metadata;
 
     for (size_t i = 0; i < subtree_count; i++) {
-      subtrees[i] = ts_subtree_new_leaf(&pool, i, length_zero(), tree_len, &dummy_language);
+      subtrees[i] = ts_subtree_new_leaf(&pool, i + 1, length_zero(), tree_len, &dummy_language);
     }
   });
 
@@ -99,7 +103,7 @@ describe("Stack", [&]() {
     AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
   });
 
-  auto push = [&](StackVersion version, Subtree *tree, TSStateId state) {
+  auto push = [&](StackVersion version, const Subtree *tree, TSStateId state) {
     ts_subtree_retain(tree);
     ts_stack_push(stack, version, tree, false, state);
   };
@@ -181,7 +185,7 @@ describe("Stack", [&]() {
       // . <──0── A <──1── B <────3──── D*
       //          ↑
       //          └───2─── C <──4── D*
-      subtrees[3]->size = tree_len * 3;
+      mutate(subtrees[3])->size = tree_len * 3;
       push(0, subtrees[1], stateB);
       push(1, subtrees[2], stateC);
       push(0, subtrees[3], stateD);
@@ -224,8 +228,8 @@ describe("Stack", [&]() {
         // . <──0── A <────1──── B*
         //          ↑
         //          └2─ A <──1── B*
-        subtrees[2]->extra = true;
-        subtrees[2]->size = tree_len * 0;
+        mutate(subtrees[2])->extra = true;
+        mutate(subtrees[2])->size = tree_len * 0;
 
         push(0, subtrees[1], stateB);
         push(1, subtrees[2], stateA);
@@ -261,14 +265,14 @@ describe("Stack", [&]() {
 
       StackSlice slice = pop.contents[0];
       AssertThat(slice.version, Equals<StackVersion>(1));
-      AssertThat(slice.subtrees, Equals(vector<Subtree *>({ subtrees[1], subtrees[2] })));
+      AssertThat(slice.subtrees, Equals(vector<const Subtree *>({ subtrees[1], subtrees[2] })));
       AssertThat(ts_stack_state(stack, 1), Equals(stateA));
 
       free_slice_array(&pool,&pop);
     });
 
     it("does not count 'extra' subtrees toward the given count", [&]() {
-      subtrees[1]->extra = true;
+      mutate(subtrees[1])->extra = true;
 
       // . <──0── A <──1── B <──2── C*
       // ↑
@@ -277,7 +281,7 @@ describe("Stack", [&]() {
       AssertThat(pop.size, Equals<size_t>(1));
 
       StackSlice slice = pop.contents[0];
-      AssertThat(slice.subtrees, Equals(vector<Subtree *>({ subtrees[0], subtrees[1], subtrees[2] })));
+      AssertThat(slice.subtrees, Equals(vector<const Subtree *>({ subtrees[0], subtrees[1], subtrees[2] })));
       AssertThat(ts_stack_state(stack, 1), Equals(1));
 
       free_slice_array(&pool,&pop);
@@ -322,11 +326,11 @@ describe("Stack", [&]() {
 
           StackSlice slice1 = pop.contents[0];
           AssertThat(slice1.version, Equals<StackVersion>(1));
-          AssertThat(slice1.subtrees, Equals(vector<Subtree *>({ subtrees[2], subtrees[3], subtrees[10] })));
+          AssertThat(slice1.subtrees, Equals(vector<const Subtree *>({ subtrees[2], subtrees[3], subtrees[10] })));
 
           StackSlice slice2 = pop.contents[1];
           AssertThat(slice2.version, Equals<StackVersion>(2));
-          AssertThat(slice2.subtrees, Equals(vector<Subtree *>({ subtrees[5], subtrees[6], subtrees[10] })));
+          AssertThat(slice2.subtrees, Equals(vector<const Subtree *>({ subtrees[5], subtrees[6], subtrees[10] })));
 
           AssertThat(ts_stack_version_count(stack), Equals<size_t>(3));
           AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
@@ -366,7 +370,7 @@ describe("Stack", [&]() {
 
           StackSlice slice1 = pop.contents[0];
           AssertThat(slice1.version, Equals<StackVersion>(1));
-          AssertThat(slice1.subtrees, Equals(vector<Subtree *>({ subtrees[10] })));
+          AssertThat(slice1.subtrees, Equals(vector<const Subtree *>({ subtrees[10] })));
 
           AssertThat(ts_stack_version_count(stack), Equals<size_t>(2));
           AssertThat(ts_stack_state(stack, 0), Equals(stateI));
@@ -388,11 +392,11 @@ describe("Stack", [&]() {
 
           StackSlice slice1 = pop.contents[0];
           AssertThat(slice1.version, Equals<StackVersion>(1));
-          AssertThat(slice1.subtrees, Equals(vector<Subtree *>({ subtrees[1], subtrees[2], subtrees[3], subtrees[10] })));
+          AssertThat(slice1.subtrees, Equals(vector<const Subtree *>({ subtrees[1], subtrees[2], subtrees[3], subtrees[10] })));
 
           StackSlice slice2 = pop.contents[1];
           AssertThat(slice2.version, Equals<StackVersion>(1));
-          AssertThat(slice2.subtrees, Equals(vector<Subtree *>({ subtrees[4], subtrees[5], subtrees[6], subtrees[10] })));
+          AssertThat(slice2.subtrees, Equals(vector<const Subtree *>({ subtrees[4], subtrees[5], subtrees[6], subtrees[10] })));
 
           AssertThat(ts_stack_version_count(stack), Equals<size_t>(2));
           AssertThat(ts_stack_state(stack, 0), Equals(stateI));
@@ -443,15 +447,15 @@ describe("Stack", [&]() {
 
           StackSlice slice1 = pop.contents[0];
           AssertThat(slice1.version, Equals<StackVersion>(1));
-          AssertThat(slice1.subtrees, Equals(vector<Subtree *>({ subtrees[3], subtrees[10] })));
+          AssertThat(slice1.subtrees, Equals(vector<const Subtree *>({ subtrees[3], subtrees[10] })));
 
           StackSlice slice2 = pop.contents[1];
           AssertThat(slice2.version, Equals<StackVersion>(2));
-          AssertThat(slice2.subtrees, Equals(vector<Subtree *>({ subtrees[6], subtrees[10] })));
+          AssertThat(slice2.subtrees, Equals(vector<const Subtree *>({ subtrees[6], subtrees[10] })));
 
           StackSlice slice3 = pop.contents[2];
           AssertThat(slice3.version, Equals<StackVersion>(3));
-          AssertThat(slice3.subtrees, Equals(vector<Subtree *>({ subtrees[9], subtrees[10] })));
+          AssertThat(slice3.subtrees, Equals(vector<const Subtree *>({ subtrees[9], subtrees[10] })));
 
           AssertThat(ts_stack_version_count(stack), Equals<size_t>(4));
           AssertThat(ts_stack_state(stack, 0), Equals(stateI));
@@ -489,8 +493,8 @@ describe("Stack", [&]() {
       ts_stack_push(stack, 0, subtrees[1], true, stateB);
       ts_subtree_retain(subtrees[1]);
 
-      subtrees[2]->extra = true;
-      subtrees[3]->extra = true;
+      mutate(subtrees[2])->extra = true;
+      mutate(subtrees[3])->extra = true;
 
       push(0, subtrees[2], stateB);
       push(0, subtrees[3], stateB);
@@ -498,7 +502,7 @@ describe("Stack", [&]() {
       StackSliceArray pop = ts_stack_pop_pending(stack, 0);
       AssertThat(pop.size, Equals<size_t>(1));
 
-      AssertThat(pop.contents[0].subtrees, Equals(vector<Subtree *>({ subtrees[1], subtrees[2], subtrees[3] })));
+      AssertThat(pop.contents[0].subtrees, Equals(vector<const Subtree *>({ subtrees[1], subtrees[2], subtrees[3] })));
 
       AssertThat(get_stack_entries(stack, 0), Equals(vector<StackEntry>({
         {stateA, 0},
@@ -526,10 +530,10 @@ describe("Stack", [&]() {
 
   describe("setting external token state", [&]() {
     before_each([&]() {
-      subtrees[1]->has_external_tokens = true;
-      subtrees[2]->has_external_tokens = true;
-      ts_external_scanner_state_init(&subtrees[1]->external_scanner_state, NULL, 0);
-      ts_external_scanner_state_init(&subtrees[2]->external_scanner_state, NULL, 0);
+      mutate(subtrees[1])->has_external_tokens = true;
+      mutate(subtrees[2])->has_external_tokens = true;
+      ts_external_scanner_state_init(&mutate(subtrees[1])->external_scanner_state, NULL, 0);
+      ts_external_scanner_state_init(&mutate(subtrees[2])->external_scanner_state, NULL, 0);
     });
 
     it("allows the state to be retrieved", [&]() {
@@ -546,8 +550,8 @@ describe("Stack", [&]() {
     });
 
     it("does not merge stack versions with different external token states", [&]() {
-      ts_external_scanner_state_init(&subtrees[1]->external_scanner_state, "abcd", 2);
-      ts_external_scanner_state_init(&subtrees[2]->external_scanner_state, "ABCD", 2);
+      ts_external_scanner_state_init(&mutate(subtrees[1])->external_scanner_state, "abcd", 2);
+      ts_external_scanner_state_init(&mutate(subtrees[2])->external_scanner_state, "ABCD", 2);
 
       ts_stack_copy_version(stack, 0);
       push(0, subtrees[0], 5);
@@ -560,8 +564,8 @@ describe("Stack", [&]() {
     });
 
     it("merges stack versions with identical external token states", [&]() {
-      ts_external_scanner_state_init(&subtrees[1]->external_scanner_state, "abcd", 2);
-      ts_external_scanner_state_init(&subtrees[2]->external_scanner_state, "abcd", 2);
+      ts_external_scanner_state_init(&mutate(subtrees[1])->external_scanner_state, "abcd", 2);
+      ts_external_scanner_state_init(&mutate(subtrees[2])->external_scanner_state, "abcd", 2);
 
       ts_stack_copy_version(stack, 0);
       push(0, subtrees[0], 5);

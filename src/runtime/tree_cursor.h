@@ -4,7 +4,7 @@
 #include "runtime/subtree.h"
 
 typedef struct {
-  Subtree *subtree;
+  const Subtree *subtree;
   Length position;
   uint32_t child_index;
   uint32_t structural_child_index;

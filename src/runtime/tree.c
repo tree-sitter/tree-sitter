@@ -17,7 +17,7 @@ TSTree *ts_tree_copy(const TSTree *self) {
   return ts_tree_new(self->root, self->language);
 }
 
-void ts_tree_delete(const TSTree *self) {
+void ts_tree_delete(TSTree *self) {
   SubtreePool pool = ts_subtree_pool_new(0);
   ts_subtree_release(&pool, self->root);
   ts_subtree_pool_delete(&pool);

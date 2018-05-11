@@ -85,7 +85,7 @@ TSTree *ts_parser_parse(TSParser *, const TSTree *, TSInput);
 TSTree *ts_parser_parse_string(TSParser *, const TSTree *, const char *, uint32_t);
 
 TSTree *ts_tree_copy(const TSTree *);
-void ts_tree_delete(const TSTree *);
+void ts_tree_delete(TSTree *);
 TSNode ts_tree_root_node(const TSTree *);
 void ts_tree_edit(TSTree *, const TSInputEdit *);
 TSRange *ts_tree_get_changed_ranges(const TSTree *, const TSTree *, uint32_t *);

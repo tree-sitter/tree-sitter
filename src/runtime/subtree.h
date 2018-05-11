@@ -24,7 +24,8 @@ typedef struct {
 
 typedef struct Subtree Subtree;
 
-typedef Array(Subtree *) SubtreeArray;
+typedef Array(const Subtree *) SubtreeArray;
+typedef Array(Subtree *) MutableSubtreeArray;
 
 struct Subtree {
   Length padding;
@@ -71,8 +72,8 @@ struct Subtree {
 };
 
 typedef struct {
-  SubtreeArray free_trees;
-  SubtreeArray tree_stack;
+  MutableSubtreeArray free_trees;
+  MutableSubtreeArray tree_stack;
 } SubtreePool;
 
 void ts_external_scanner_state_init(ExternalScannerState *, const char *, unsigned);
@@ -90,20 +91,21 @@ void ts_subtree_pool_free(SubtreePool *, Subtree *);
 
 Subtree *ts_subtree_new_leaf(SubtreePool *, TSSymbol, Length, Length, const TSLanguage *);
 Subtree *ts_subtree_new_node(SubtreePool *, TSSymbol, SubtreeArray *, unsigned, const TSLanguage *);
-Subtree *ts_subtree_new_copy(SubtreePool *, Subtree *child);
+Subtree *ts_subtree_new_copy(SubtreePool *, const Subtree *);
 Subtree *ts_subtree_new_error_node(SubtreePool *, SubtreeArray *, const TSLanguage *);
 Subtree *ts_subtree_new_error(SubtreePool *, Length, Length, int32_t, const TSLanguage *);
 Subtree *ts_subtree_new_missing_leaf(SubtreePool *, TSSymbol, const TSLanguage *);
-void ts_subtree_retain(Subtree *tree);
-void ts_subtree_release(SubtreePool *, Subtree *tree);
+Subtree *ts_subtree_make_mut(SubtreePool *, const Subtree *);
+void ts_subtree_retain(const Subtree *tree);
+void ts_subtree_release(SubtreePool *, const Subtree *tree);
 bool ts_subtree_eq(const Subtree *tree1, const Subtree *tree2);
 int ts_subtree_compare(const Subtree *tree1, const Subtree *tree2);
 void ts_subtree_set_children(Subtree *, SubtreeArray *, const TSLanguage *);
-void ts_subtree_balance(Subtree *, SubtreePool *, const TSLanguage *);
-Subtree *ts_subtree_edit(Subtree *, const TSInputEdit *edit, SubtreePool *);
+void ts_subtree_balance(const Subtree *, SubtreePool *, const TSLanguage *);
+const Subtree *ts_subtree_edit(const Subtree *, const TSInputEdit *edit, SubtreePool *);
 char *ts_subtree_string(const Subtree *, const TSLanguage *, bool include_all);
 void ts_subtree_print_dot_graph(const Subtree *, const TSLanguage *, FILE *);
-Subtree *ts_subtree_last_external_token(Subtree *);
+const Subtree *ts_subtree_last_external_token(const Subtree *);
 bool ts_subtree_external_scanner_state_eq(const Subtree *, const Subtree *);
 
 static inline uint32_t ts_subtree_total_bytes(const Subtree *self) {

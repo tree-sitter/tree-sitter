@@ -47,7 +47,7 @@ static inline NodeChildIterator ts_node_child_iterator_begin(const TSNode *node)
 
 static inline bool ts_node_child_iterator_next(NodeChildIterator *self, TSNode *result) {
   if (self->child_index == self->parent->children.size) return false;
-  Subtree *child = self->parent->children.contents[self->child_index];
+  const Subtree *child = self->parent->children.contents[self->child_index];
   TSSymbol alias_symbol = 0;
   if (!child->extra) {
     if (self->alias_sequence) {

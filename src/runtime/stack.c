@@ -21,7 +21,7 @@ typedef struct StackNode StackNode;
 
 typedef struct {
   StackNode *node;
-  Subtree *subtree;
+  const Subtree *subtree;
   bool is_pending;
 } StackLink;
 
@@ -58,7 +58,7 @@ typedef enum {
 
 typedef struct {
   StackNode *node;
-  Subtree *last_external_token;
+  const Subtree *last_external_token;
   StackSummary *summary;
   unsigned node_count_at_last_error;
   TSSymbol lookahead_when_paused;
@@ -119,8 +119,8 @@ recur:
   }
 }
 
-static StackNode *stack_node_new(StackNode *previous_node, Subtree *subtree, bool is_pending,
-                                 TSStateId state, StackNodeArray *pool) {
+static StackNode *stack_node_new(StackNode *previous_node, const Subtree *subtree,
+                                 bool is_pending, TSStateId state, StackNodeArray *pool) {
   StackNode *node = pool->size > 0 ?
     array_pop(pool) :
     ts_malloc(sizeof(StackNode));
@@ -380,11 +380,11 @@ Length ts_stack_position(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->position;
 }
 
-Subtree *ts_stack_last_external_token(const Stack *self, StackVersion version) {
+const Subtree *ts_stack_last_external_token(const Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->last_external_token;
 }
 
-void ts_stack_set_last_external_token(Stack *self, StackVersion version, Subtree *token) {
+void ts_stack_set_last_external_token(Stack *self, StackVersion version, const Subtree *token) {
   StackHead *head = array_get(&self->heads, version);
   if (token) ts_subtree_retain(token);
   if (head->last_external_token) ts_subtree_release(self->subtree_pool, head->last_external_token);
@@ -410,7 +410,8 @@ unsigned ts_stack_node_count_since_error(const Stack *self, StackVersion version
   return head->node->node_count - head->node_count_at_last_error;
 }
 
-void ts_stack_push(Stack *self, StackVersion version, Subtree *subtree, bool pending, TSStateId state) {
+void ts_stack_push(Stack *self, StackVersion version, const Subtree *subtree,
+                   bool pending, TSStateId state) {
   StackHead *head = array_get(&self->heads, version);
   StackNode *new_node = stack_node_new(head->node, subtree, pending, state, &self->node_pool);
   if (!subtree) head->node_count_at_last_error = new_node->node_count;
@@ -684,7 +685,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
     );
 
     if (head->last_external_token) {
-      ExternalScannerState *state = &head->last_external_token->external_scanner_state;
+      const ExternalScannerState *state = &head->last_external_token->external_scanner_state;
       const char *data = ts_external_scanner_state_data(state);
       fprintf(f, "\nexternal_scanner_state:");
       for (uint32_t j = 0; j < state->length; j++) fprintf(f, " %2X", data[j]);

@@ -1,21 +1,21 @@
 #include "runtime/subtree.h"
 
 typedef struct {
-  Subtree *tree;
+  const Subtree *tree;
   uint32_t child_index;
   uint32_t byte_offset;
 } StackEntry;
 
 typedef struct {
   Array(StackEntry) stack;
-  Subtree *last_external_token;
+  const Subtree *last_external_token;
 } ReusableNode;
 
 static inline ReusableNode reusable_node_new() {
   return (ReusableNode) {array_new(), NULL};
 }
 
-static inline void reusable_node_reset(ReusableNode *self, Subtree *tree) {
+static inline void reusable_node_reset(ReusableNode *self, const Subtree *tree) {
   array_clear(&self->stack);
   array_push(&self->stack, ((StackEntry) {
     .tree = tree,
@@ -51,7 +51,7 @@ static inline void reusable_node_advance(ReusableNode *self) {
     self->last_external_token = ts_subtree_last_external_token(last_entry.tree);
   }
 
-  Subtree *tree;
+  const Subtree *tree;
   uint32_t next_index;
   do {
     StackEntry popped_entry = array_pop(&self->stack);

@@ -10,7 +10,7 @@ void assert_consistent(const Subtree *tree) {
 
   Length total_children_size = length_zero();
   for (size_t i = 0; i < tree->children.size; i++) {
-    Subtree *child = tree->children.contents[i];
+    const Subtree *child = tree->children.contents[i];
     assert_consistent(child);
     total_children_size = length_add(total_children_size, ts_subtree_total_size(child));
   }
@@ -50,7 +50,7 @@ describe("Subtree", []() {
 
   describe("make_leaf", [&]() {
     it("does not mark the tree as fragile", [&]() {
-      Subtree *tree = ts_subtree_new_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
+      const Subtree *tree = ts_subtree_new_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
       AssertThat(tree->fragile_left, IsFalse());
       AssertThat(tree->fragile_right, IsFalse());
 
@@ -60,7 +60,7 @@ describe("Subtree", []() {
 
   describe("make_error", [&]() {
     it("marks the tree as fragile", [&]() {
-      Subtree *error_tree = ts_subtree_new_error(
+      const Subtree *error_tree = ts_subtree_new_error(
         &pool,
         length_zero(),
         length_zero(),
@@ -76,7 +76,7 @@ describe("Subtree", []() {
   });
 
   describe("make_node", [&]() {
-    Subtree *tree1, *tree2, *parent1;
+    const Subtree *tree1, *tree2, *parent1;
 
     before_each([&]() {
       tree1 = ts_subtree_new_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
@@ -104,11 +104,12 @@ describe("Subtree", []() {
     });
 
     describe("when the first node is fragile on the left side", [&]() {
-      Subtree *parent;
+      const Subtree *parent;
 
       before_each([&]() {
-        tree1->fragile_left = true;
-        tree1->extra = true;
+        Subtree *mutable_tree1 = (Subtree *)tree1;
+        mutable_tree1->fragile_left = true;
+        mutable_tree1->extra = true;
 
         ts_subtree_retain(tree1);
         ts_subtree_retain(tree2);
@@ -128,11 +129,12 @@ describe("Subtree", []() {
     });
 
     describe("when the last node is fragile on the right side", [&]() {
-      Subtree *parent;
+      const Subtree *parent;
 
       before_each([&]() {
-        tree2->fragile_right = true;
-        tree2->extra = true;
+        Subtree *mutable_tree2 = (Subtree *)tree2;
+        mutable_tree2->fragile_right = true;
+        mutable_tree2->extra = true;
 
         ts_subtree_retain(tree1);
         ts_subtree_retain(tree2);
@@ -152,11 +154,13 @@ describe("Subtree", []() {
     });
 
     describe("when the outer nodes aren't fragile on their outer side", [&]() {
-      Subtree *parent;
+      const Subtree *parent;
 
       before_each([&]() {
-        tree1->fragile_right = true;
-        tree2->fragile_left = true;
+        Subtree *mutable_tree1 = (Subtree *)tree1;
+        Subtree *mutable_tree2 = (Subtree *)tree2;
+        mutable_tree1->fragile_right = true;
+        mutable_tree2->fragile_left = true;
 
         ts_subtree_retain(tree1);
         ts_subtree_retain(tree2);
@@ -178,7 +182,7 @@ describe("Subtree", []() {
   });
 
   describe("edit", [&]() {
-    Subtree *tree;
+    const Subtree *tree;
 
     before_each([&]() {
       tree = ts_subtree_new_node(&pool, symbol1, tree_array({
@@ -205,7 +209,7 @@ describe("Subtree", []() {
       edit.extent_added = {0, 1};
 
       ts_subtree_retain(tree);
-      Subtree *new_tree = ts_subtree_edit(tree, &edit, &pool);
+      const Subtree *new_tree = ts_subtree_edit(tree, &edit, &pool);
       assert_consistent(tree);
       assert_consistent(new_tree);
 
@@ -352,7 +356,8 @@ describe("Subtree", []() {
 
     describe("edits within a tree's range of scanned bytes", [&]() {
       it("marks preceding trees as changed", [&]() {
-        tree->children.contents[0]->bytes_scanned = 7;
+        Subtree *mutable_child = (Subtree *)tree->children.contents[0];
+        mutable_child->bytes_scanned = 7;
 
         TSInputEdit edit;
         edit.start_byte = 6;
@@ -370,7 +375,7 @@ describe("Subtree", []() {
   });
 
   describe("eq", [&]() {
-    Subtree *leaf;
+    const Subtree *leaf;
 
     before_each([&]() {
       leaf = ts_subtree_new_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
@@ -381,17 +386,17 @@ describe("Subtree", []() {
     });
 
     it("returns true for identical trees", [&]() {
-      Subtree *leaf_copy = ts_subtree_new_leaf(&pool, symbol1, {2, {1, 1}}, {5, {1, 4}}, &language);
+      const Subtree *leaf_copy = ts_subtree_new_leaf(&pool, symbol1, {2, {1, 1}}, {5, {1, 4}}, &language);
       AssertThat(ts_subtree_eq(leaf, leaf_copy), IsTrue());
 
-      Subtree *parent = ts_subtree_new_node(&pool, symbol2, tree_array({
+      const Subtree *parent = ts_subtree_new_node(&pool, symbol2, tree_array({
         leaf,
         leaf_copy,
       }), 0, &language);
       ts_subtree_retain(leaf);
       ts_subtree_retain(leaf_copy);
 
-      Subtree *parent_copy = ts_subtree_new_node(&pool, symbol2, tree_array({
+      const Subtree *parent_copy = ts_subtree_new_node(&pool, symbol2, tree_array({
         leaf,
         leaf_copy,
       }), 0, &language);
@@ -406,7 +411,7 @@ describe("Subtree", []() {
     });
 
     it("returns false for trees with different symbols", [&]() {
-      Subtree *different_leaf = ts_subtree_new_leaf(
+      const Subtree *different_leaf = ts_subtree_new_leaf(
         &pool,
         leaf->symbol + 1,
         leaf->padding,
@@ -419,14 +424,16 @@ describe("Subtree", []() {
     });
 
     it("returns false for trees with different options", [&]() {
-      Subtree *different_leaf = ts_subtree_new_leaf(&pool, leaf->symbol, leaf->padding, leaf->size, &language);
-      different_leaf->visible = !leaf->visible;
+      const Subtree *different_leaf = ts_subtree_new_leaf(
+        &pool, leaf->symbol, leaf->padding, leaf->size, &language
+      );
+      ((Subtree *)different_leaf)->visible = !leaf->visible;
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
       ts_subtree_release(&pool, different_leaf);
     });
 
     it("returns false for trees with different paddings or sizes", [&]() {
-      Subtree *different_leaf = ts_subtree_new_leaf(&pool, leaf->symbol, {}, leaf->size, &language);
+      const Subtree *different_leaf = ts_subtree_new_leaf(&pool, leaf->symbol, {}, leaf->size, &language);
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
       ts_subtree_release(&pool, different_leaf);
 
@@ -436,16 +443,16 @@ describe("Subtree", []() {
     });
 
     it("returns false for trees with different children", [&]() {
-      Subtree *leaf2 = ts_subtree_new_leaf(&pool, symbol2, {1, {0, 1}}, {3, {0, 3}}, &language);
+      const Subtree *leaf2 = ts_subtree_new_leaf(&pool, symbol2, {1, {0, 1}}, {3, {0, 3}}, &language);
 
-      Subtree *parent = ts_subtree_new_node(&pool, symbol2, tree_array({
+      const Subtree *parent = ts_subtree_new_node(&pool, symbol2, tree_array({
         leaf,
         leaf2,
       }), 0, &language);
       ts_subtree_retain(leaf);
       ts_subtree_retain(leaf2);
 
-      Subtree *different_parent = ts_subtree_new_node(&pool, symbol2, tree_array({
+      const Subtree *different_parent = ts_subtree_new_node(&pool, symbol2, tree_array({
         leaf2,
         leaf,
       }), 0, &language);
@@ -465,13 +472,13 @@ describe("Subtree", []() {
     Length padding = {1, {0, 1}};
     Length size = {2, {0, 2}};
 
-    auto make_external = [](Subtree *tree) {
-      tree->has_external_tokens = true;
+    auto make_external = [](const Subtree *tree) {
+      ((Subtree *)tree)->has_external_tokens = true;
       return tree;
     };
 
     it("returns the last serialized external token state in the given tree", [&]() {
-      Subtree *tree1, *tree2, *tree3, *tree4, *tree5, *tree6, *tree7, *tree8, *tree9;
+      const Subtree *tree1, *tree2, *tree3, *tree4, *tree5, *tree6, *tree7, *tree8, *tree9;
 
       tree1 = ts_subtree_new_node(&pool, symbol1,  tree_array({
         (tree2 = ts_subtree_new_node(&pool, symbol2, tree_array({

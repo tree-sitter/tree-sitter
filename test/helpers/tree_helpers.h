@@ -6,12 +6,12 @@
 #include <string>
 
 extern const char *symbol_names[24];
-SubtreeArray *tree_array(std::vector<Subtree *> trees);
+SubtreeArray *tree_array(std::vector<const Subtree *> trees);
 
 std::ostream &operator<<(std::ostream &stream, const Subtree *tree);
 std::ostream &operator<<(std::ostream &stream, const TSNode &node);
 bool operator==(const TSNode &left, const TSNode &right);
-bool operator==(const std::vector<Subtree *> &right, const SubtreeArray &array);
+bool operator==(const std::vector<const Subtree *> &right, const SubtreeArray &array);
 
 void assert_consistent_tree_sizes(TSNode node);
 
