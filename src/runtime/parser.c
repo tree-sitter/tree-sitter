@@ -17,21 +17,21 @@
 #include "runtime/tree.h"
 
 #define LOG(...)                                                                            \
-  if (self->lexer.logger.log || self->print_debugging_graphs) {                             \
+  if (self->lexer.logger.log || self->dot_graph_file) {                                     \
     snprintf(self->lexer.debug_buffer, TREE_SITTER_SERIALIZATION_BUFFER_SIZE, __VA_ARGS__); \
     ts_parser__log(self);                                                                   \
   }
 
-#define LOG_STACK()                                                \
-  if (self->print_debugging_graphs) {                              \
-    ts_stack_print_dot_graph(self->stack, self->language, stderr); \
-    fputs("\n\n", stderr);                                         \
+#define LOG_STACK()                                                              \
+  if (self->dot_graph_file) {                                                    \
+    ts_stack_print_dot_graph(self->stack, self->language, self->dot_graph_file); \
+    fputs("\n\n", self->dot_graph_file);                                         \
   }
 
-#define LOG_TREE()                                                           \
-  if (self->print_debugging_graphs) {                                        \
-    ts_subtree_print_dot_graph(self->finished_tree, self->language, stderr); \
-    fputs("\n", stderr);                                                     \
+#define LOG_TREE()                                                                         \
+  if (self->dot_graph_file) {                                                              \
+    ts_subtree_print_dot_graph(self->finished_tree, self->language, self->dot_graph_file); \
+    fputs("\n", self->dot_graph_file);                                                     \
   }
 
 #define SYM_NAME(symbol) ts_language_symbol_name(self->language, symbol)
@@ -58,7 +58,7 @@ struct TSParser {
   ReusableNode reusable_node;
   void *external_scanner_payload;
   bool in_ambiguity;
-  bool print_debugging_graphs;
+  FILE *dot_graph_file;
   bool halt_on_error;
   unsigned accept_count;
 };
@@ -89,13 +89,13 @@ static void ts_parser__log(TSParser *self) {
     );
   }
 
-  if (self->print_debugging_graphs) {
-    fprintf(stderr, "graph {\nlabel=\"");
+  if (self->dot_graph_file) {
+    fprintf(self->dot_graph_file, "graph {\nlabel=\"");
     for (char *c = &self->lexer.debug_buffer[0]; *c != 0; c++) {
-      if (*c == '"') fputc('\\', stderr);
-      fputc(*c, stderr);
+      if (*c == '"') fputc('\\', self->dot_graph_file);
+      fputc(*c, self->dot_graph_file);
     }
-    fprintf(stderr, "\"\n}\n\n");
+    fprintf(self->dot_graph_file, "\"\n}\n\n");
   }
 }
 
@@ -1297,7 +1297,7 @@ TSParser *ts_parser_new() {
   self->stack = ts_stack_new(&self->tree_pool);
   self->finished_tree = NULL;
   self->reusable_node = reusable_node_new();
-  self->print_debugging_graphs = false;
+  self->dot_graph_file = NULL;
   self->halt_on_error = false;
   ts_parser__set_cached_token(self, 0, NULL, NULL);
   return self;
@@ -1345,8 +1345,8 @@ void ts_parser_set_logger(TSParser *self, TSLogger logger) {
   self->lexer.logger = logger;
 }
 
-void ts_parser_print_debugging_graphs(TSParser *self, bool should_print) {
-  self->print_debugging_graphs = should_print;
+void ts_parser_print_dot_graphs(TSParser *self, FILE *file) {
+  self->dot_graph_file = file;
 }
 
 void ts_parser_halt_on_error(TSParser *self, bool should_halt_on_error) {

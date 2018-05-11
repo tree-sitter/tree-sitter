@@ -56,7 +56,7 @@ for (auto &language_name : test_languages) {
         ts_parser_set_language(parser, language);
 
         if (getenv("TREE_SITTER_ENABLE_DEBUG_GRAPHS")) {
-          ts_parser_print_debugging_graphs(parser, true);
+          ts_parser_print_dot_graphs(parser, stderr);
         }
 
         TSTree *tree = ts_parser_parse_string(parser, nullptr, entry.input.c_str(), entry.input.size());

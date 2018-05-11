@@ -46,7 +46,7 @@ int main(int argc, char *arg[]) {
   TSParser *parser = ts_parser_new();
 
   if (getenv("TREE_SITTER_BENCHMARK_SVG")) {
-    ts_parser_print_debugging_graphs(parser, true);
+    ts_parser_print_dot_graphs(parser, stderr);
   } else if (getenv("TREE_SITTER_BENCHMARK_LOG")) {
     ts_parser_set_logger(parser, stderr_logger_new(false));
   }

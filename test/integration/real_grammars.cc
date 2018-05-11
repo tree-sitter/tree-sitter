@@ -43,7 +43,7 @@ for (auto &language_name : test_languages) {
 
       // ts_parser_set_logger(parser, stderr_logger_new(true));
       if (debug_graphs_enabled) {
-        ts_parser_print_debugging_graphs(parser, true);
+        ts_parser_print_dot_graphs(parser, stderr);
       }
     });
 

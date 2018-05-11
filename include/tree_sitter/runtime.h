@@ -35,6 +35,11 @@ typedef struct {
 } TSPoint;
 
 typedef struct {
+  TSPoint start;
+  TSPoint end;
+} TSRange;
+
+typedef struct {
   void *payload;
   const char *(*read)(void *payload, uint32_t *bytes_read);
   int (*seek)(void *payload, uint32_t byte_index, TSPoint position);
@@ -61,11 +66,6 @@ typedef struct {
 } TSInputEdit;
 
 typedef struct {
-  TSPoint start;
-  TSPoint end;
-} TSRange;
-
-typedef struct {
   const void *subtree;
   const TSTree *tree;
   TSPoint position;
@@ -79,7 +79,7 @@ const TSLanguage *ts_parser_language(const TSParser *);
 bool ts_parser_set_language(TSParser *, const TSLanguage *);
 TSLogger ts_parser_logger(const TSParser *);
 void ts_parser_set_logger(TSParser *, TSLogger);
-void ts_parser_print_debugging_graphs(TSParser *, bool);
+void ts_parser_print_dot_graphs(TSParser *, FILE *);
 void ts_parser_halt_on_error(TSParser *, bool);
 TSTree *ts_parser_parse(TSParser *, const TSTree *, TSInput);
 TSTree *ts_parser_parse_string(TSParser *, const TSTree *, const char *, uint32_t);

@@ -32,7 +32,7 @@ describe("examples found via fuzzing", [&]() {
       TSParser *parser = ts_parser_new();
 
       if (getenv("TREE_SITTER_ENABLE_DEBUG_GRAPHS")) {
-        ts_parser_print_debugging_graphs(parser, true);
+        ts_parser_print_dot_graphs(parser, stderr);
       }
 
       const string &language_name = examples[i].first;

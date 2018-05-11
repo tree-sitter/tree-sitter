@@ -27,7 +27,7 @@ describe("Parser", [&]() {
     tree = nullptr;
     parser = ts_parser_new();
     if (getenv("TREE_SITTER_ENABLE_DEBUG_GRAPHS")) {
-      ts_parser_print_debugging_graphs(parser, true);
+      ts_parser_print_dot_graphs(parser, stderr);
     }
   });
 
