@@ -101,7 +101,7 @@
     'cflags_cc': ['-std=c++14'],
     'conditions': [
       ['OS=="linux"', {
-        'libraries': ['-ldl'],
+        'libraries': ['-ldl', '-lpthread'],
       }]
     ],
     'xcode_settings': {
