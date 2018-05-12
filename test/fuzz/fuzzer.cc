@@ -12,16 +12,15 @@ extern "C" const TSLanguage *TS_LANG();
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   const char *str = reinterpret_cast<const char *>(data);
 
-  TSDocument *document = ts_document_new();
-  ts_document_set_language(document, TS_LANG());
-  ts_document_set_input_string_with_length(document, str, size);
+  TSParser *parser = ts_parser_new();
+  ts_parser_set_language(parser, TS_LANG());
+  ts_parser_halt_on_error(parser, TS_HALT_ON_ERROR);
 
-  TSParseOptions options = {};
-  options.halt_on_error = TS_HALT_ON_ERROR;
-  ts_document_parse_with_options(document, options);
+  TSTree *tree = ts_parser_parse_string(parser, NULL, str, size);
+  TSNode root_node = ts_document_root_node(tree);
 
-  TSNode root_node = ts_document_root_node(document);
-  ts_document_free(document);
+  ts_tree_delete(tree);
+  ts_parser_delete(parser);
 
   return 0;
 }

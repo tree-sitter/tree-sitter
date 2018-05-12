@@ -9,7 +9,7 @@ typedef std::string Scope;
 typedef std::vector<Scope> ScopeStack;
 typedef std::vector<ScopeStack> ScopeSequence;
 
-ScopeSequence build_scope_sequence(TSDocument *document, const std::string &text);
+ScopeSequence build_scope_sequence(TSTree *tree, const std::string &text);
 
 void verify_changed_ranges(const ScopeSequence &old, const ScopeSequence &new_sequence, const std::string &text, TSRange *ranges, size_t range_count);
 

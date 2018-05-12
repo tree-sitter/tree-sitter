@@ -66,11 +66,11 @@
         'test/integration/fuzzing-examples.cc',
         'test/integration/real_grammars.cc',
         'test/integration/test_grammars.cc',
-        'test/runtime/document_test.cc',
         'test/runtime/language_test.cc',
         'test/runtime/node_test.cc',
         'test/runtime/parser_test.cc',
         'test/runtime/stack_test.cc',
+        'test/runtime/subtree_test.cc',
         'test/runtime/tree_test.cc',
         'test/tests.cc',
       ],
@@ -101,7 +101,7 @@
     'cflags_cc': ['-std=c++14'],
     'conditions': [
       ['OS=="linux"', {
-        'libraries': ['-ldl'],
+        'libraries': ['-ldl', '-lpthread'],
       }]
     ],
     'xcode_settings': {

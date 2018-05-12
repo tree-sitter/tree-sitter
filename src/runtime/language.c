@@ -1,5 +1,5 @@
 #include "runtime/language.h"
-#include "runtime/tree.h"
+#include "runtime/subtree.h"
 #include "runtime/error_costs.h"
 
 void ts_language_table_entry(const TSLanguage *self, TSStateId state,

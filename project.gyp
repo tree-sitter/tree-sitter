@@ -87,7 +87,6 @@
         'externals/utf8proc',
       ],
       'sources': [
-        'src/runtime/document.c',
         'src/runtime/get_changed_ranges.c',
         'src/runtime/language.c',
         'src/runtime/lexer.c',
@@ -95,7 +94,9 @@
         'src/runtime/stack.c',
         'src/runtime/parser.c',
         'src/runtime/string_input.c',
+        'src/runtime/subtree.c',
         'src/runtime/tree.c',
+        'src/runtime/tree_cursor.c',
         'src/runtime/utf16.c',
         'externals/utf8proc/utf8proc.c',
       ],
