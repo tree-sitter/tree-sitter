@@ -20,6 +20,7 @@ public:
   std::string words(size_t count);
   std::string str(char min, char max);
   std::string select(const std::vector<std::string> &);
+  void sleep_some();
 };
 
 extern Generator default_generator;

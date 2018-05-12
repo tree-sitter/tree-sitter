@@ -13,7 +13,6 @@
 #include "helpers/read_test_entries.h"
 #include "helpers/encoding_helpers.h"
 #include "helpers/tree_helpers.h"
-#include <unistd.h>
 
 TSPoint point(uint32_t row, uint32_t column) {
   TSPoint result = {row, column};
@@ -67,10 +66,10 @@ describe("Tree", [&]() {
           TSTree *tree = tree_copy;
           TSParser *parser = ts_parser_new();
           ts_parser_set_language(parser, language);
-          SpyInput *input = new SpyInput(source_code, 32);
+          SpyInput *input = new SpyInput(source_code, 1024);
 
-          for (unsigned j = 0; j < 30; j++) {
-            usleep(random(200));
+          for (unsigned j = 0; j < 10; j++) {
+            random.sleep_some();
 
             size_t edit_position = random(utf8_char_count(input->content));
             size_t deletion_size = random(utf8_char_count(input->content) - edit_position);

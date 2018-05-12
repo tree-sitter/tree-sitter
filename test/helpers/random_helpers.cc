@@ -34,13 +34,14 @@ string Generator::str(char min, char max) {
   return result;
 }
 
+static string operator_characters = "!(){}[]<>+-=";
+
 string Generator::words(size_t count) {
   string result;
   bool just_inserted_word = false;
   for (size_t i = 0; i < count; i++) {
     if (operator()(10) < 6) {
-      const char *operator_characters = "!(){}[]<>+-=";
-      result += operator_characters[operator()(strlen(operator_characters))];
+      result += operator_characters[operator()(operator_characters.size())];
     } else {
       if (just_inserted_word)
         result += " ";
@@ -54,3 +55,21 @@ string Generator::words(size_t count) {
 string Generator::select(const vector<string> &list) {
   return list[operator()(list.size())];
 }
+
+#ifdef _WIN32
+
+#include <windows.h>
+
+void Generator::sleep_some() {
+  Sleep(operator()(5));
+}
+
+#else
+
+#include <unistd.h>
+
+void Generator::sleep_some() {
+  usleep(operator()(5 * 1000));
+}
+
+#endif
