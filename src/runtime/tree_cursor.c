@@ -62,6 +62,57 @@ bool ts_tree_cursor_goto_first_child(TSTreeCursor *self) {
   return false;
 }
 
+int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *self, uint32_t goal_byte) {
+  uint32_t initial_size = self->stack.size;
+  TreeCursorEntry *last_entry = array_back(&self->stack);
+  const Subtree *tree = last_entry->subtree;
+  Length position = last_entry->position;
+  uint32_t visible_child_index = 0;
+
+  bool did_descend;
+  do {
+    did_descend = false;
+
+    uint32_t structural_child_index = 0;
+    for (uint32_t i = 0; i < tree->children.size; i++) {
+      const Subtree *child = tree->children.contents[i];
+      Length next_position = length_add(position, ts_subtree_total_size(child));
+      bool at_goal = next_position.bytes > goal_byte;
+
+      if (at_goal) {
+        if (child->visible || child->visible_child_count > 0) {
+          array_push(&self->stack, ((TreeCursorEntry) {
+            .subtree = child,
+            .child_index = i,
+            .structural_child_index = structural_child_index,
+            .position = position,
+          }));
+
+          if (child->visible) {
+            return visible_child_index;
+          } else {
+            tree = child;
+            did_descend = true;
+            break;
+          }
+        }
+      } else {
+        if (child->visible) {
+          visible_child_index++;
+        } else {
+          visible_child_index += child->visible_child_count;
+        }
+      }
+
+      if (!child->extra) structural_child_index++;
+      position = next_position;
+    }
+  } while (did_descend);
+
+  self->stack.size = initial_size;
+  return -1;
+}
+
 bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *self) {
   TreeCursorEntry *child_entry = array_back(&self->stack);
 

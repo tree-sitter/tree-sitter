@@ -649,6 +649,56 @@ describe("TreeCursor", [&]() {
     AssertThat(ts_node_type(node), Equals("value"));
     AssertThat(ts_node_start_byte(node), Equals(array_index));
   });
+
+  it("can find the first child of a given node which spans the given byte offset", [&]() {
+    int64_t child_index = ts_tree_cursor_goto_first_child_for_byte(cursor, 1);
+    TSNode node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_node_type(node), Equals("array"));
+    AssertThat(ts_node_start_byte(node), Equals(array_index));
+    AssertThat(child_index, Equals(0));
+
+    child_index = ts_tree_cursor_goto_first_child_for_byte(cursor, array_index);
+    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_node_type(node), Equals("["));
+    AssertThat(ts_node_start_byte(node), Equals(array_index));
+    AssertThat(child_index, Equals(0));
+
+    ts_tree_cursor_goto_parent(cursor);
+    child_index = ts_tree_cursor_goto_first_child_for_byte(cursor, array_index + 1);
+    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_node_type(node), Equals("number"));
+    AssertThat(ts_node_start_byte(node), Equals(number_index));
+    AssertThat(child_index, Equals(1));
+
+    ts_tree_cursor_goto_parent(cursor);
+    child_index = ts_tree_cursor_goto_first_child_for_byte(cursor, number_index + 1);
+    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_node_type(node), Equals("number"));
+    AssertThat(ts_node_start_byte(node), Equals(number_index));
+    AssertThat(child_index, Equals(1));
+
+    ts_tree_cursor_goto_parent(cursor);
+    child_index = ts_tree_cursor_goto_first_child_for_byte(cursor, false_index - 1);
+    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_node_type(node), Equals("false"));
+    AssertThat(ts_node_start_byte(node), Equals(false_index));
+    AssertThat(child_index, Equals(3));
+
+    ts_tree_cursor_goto_parent(cursor);
+    child_index = ts_tree_cursor_goto_first_child_for_byte(cursor, object_end_index - 1);
+    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_node_type(node), Equals("object"));
+    AssertThat(ts_node_start_byte(node), Equals(object_index));
+    AssertThat(child_index, Equals(5));
+
+    // There is no child past the end of the array
+    ts_tree_cursor_goto_parent(cursor);
+    child_index = ts_tree_cursor_goto_first_child_for_byte(cursor, array_end_index);
+    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_node_type(node), Equals("array"));
+    AssertThat(ts_node_start_byte(node), Equals(array_index));
+    AssertThat(child_index, Equals(-1));
+  });
 });
 
 END_TEST
