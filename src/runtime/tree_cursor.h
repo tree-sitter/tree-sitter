@@ -10,11 +10,11 @@ typedef struct {
   uint32_t structural_child_index;
 } TreeCursorEntry;
 
-struct TSTreeCursor {
-  const TSTree *tree;
+typedef struct {
   Array(TreeCursorEntry) stack;
-};
+  const TSTree *tree;
+} TreeCursor;
 
-void ts_tree_cursor_init(TSTreeCursor *, const TSTree *);
+void ts_tree_cursor_init(TreeCursor *, const TSTree *);
 
 #endif  // RUNTIME_TREE_CURSOR_H_

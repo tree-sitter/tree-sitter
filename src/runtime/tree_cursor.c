@@ -4,13 +4,13 @@
 #include "runtime/language.h"
 #include "runtime/tree.h"
 
-TSTreeCursor *ts_tree_cursor_new(const TSTree *tree) {
-  TSTreeCursor *self = ts_malloc(sizeof(TSTreeCursor));
-  ts_tree_cursor_init(self, tree);
+TSTreeCursor ts_tree_cursor_new(const TSTree *tree) {
+  TSTreeCursor self;
+  ts_tree_cursor_init((TreeCursor *)&self, tree);
   return self;
 }
 
-void ts_tree_cursor_init(TSTreeCursor *self, const TSTree *tree) {
+void ts_tree_cursor_init(TreeCursor *self, const TSTree *tree) {
   self->tree = tree;
   array_init(&self->stack);
   array_push(&self->stack, ((TreeCursorEntry) {
@@ -21,12 +21,13 @@ void ts_tree_cursor_init(TSTreeCursor *self, const TSTree *tree) {
   }));
 }
 
-void ts_tree_cursor_delete(TSTreeCursor *self) {
+void ts_tree_cursor_delete(TSTreeCursor *_self) {
+  TreeCursor *self = (TreeCursor *)_self;
   array_delete(&self->stack);
-  ts_free(self);
 }
 
-bool ts_tree_cursor_goto_first_child(TSTreeCursor *self) {
+bool ts_tree_cursor_goto_first_child(TSTreeCursor *_self) {
+  TreeCursor *self = (TreeCursor *)_self;
   TreeCursorEntry *last_entry = array_back(&self->stack);
   const Subtree *tree = last_entry->subtree;
   Length position = last_entry->position;
@@ -62,7 +63,8 @@ bool ts_tree_cursor_goto_first_child(TSTreeCursor *self) {
   return false;
 }
 
-int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *self, uint32_t goal_byte) {
+int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *_self, uint32_t goal_byte) {
+  TreeCursor *self = (TreeCursor *)_self;
   uint32_t initial_size = self->stack.size;
   TreeCursorEntry *last_entry = array_back(&self->stack);
   const Subtree *tree = last_entry->subtree;
@@ -113,7 +115,8 @@ int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *self, uint32_t go
   return -1;
 }
 
-bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *self) {
+bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *_self) {
+  TreeCursor *self = (TreeCursor *)_self;
   TreeCursorEntry *child_entry = array_back(&self->stack);
 
   for (unsigned i = self->stack.size - 2; i + 1 > 0; i--) {
@@ -142,7 +145,7 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *self) {
         if (child->visible) {
           return true;
         } else {
-          ts_tree_cursor_goto_first_child(self);
+          ts_tree_cursor_goto_first_child(_self);
           return true;
         }
       }
@@ -155,7 +158,8 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *self) {
   return false;
 }
 
-bool ts_tree_cursor_goto_parent(TSTreeCursor *self) {
+bool ts_tree_cursor_goto_parent(TSTreeCursor *_self) {
+  TreeCursor *self = (TreeCursor *)_self;
   for (unsigned i = self->stack.size - 2; i + 1 > 0; i--) {
     TreeCursorEntry *entry = &self->stack.contents[i];
     if (entry->subtree->visible) {
@@ -166,7 +170,8 @@ bool ts_tree_cursor_goto_parent(TSTreeCursor *self) {
   return false;
 }
 
-TSNode ts_tree_cursor_current_node(TSTreeCursor *self) {
+TSNode ts_tree_cursor_current_node(TSTreeCursor *_self) {
+  TreeCursor *self = (TreeCursor *)_self;
   TreeCursorEntry *last_entry = array_back(&self->stack);
   TSSymbol alias_symbol = 0;
   if (self->stack.size > 1) {

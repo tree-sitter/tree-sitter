@@ -36,7 +36,7 @@ void ts_tree_edit(TSTree *self, const TSInputEdit *edit) {
 
 TSRange *ts_tree_get_changed_ranges(const TSTree *self, const TSTree *other, uint32_t *count) {
   TSRange *result;
-  TSTreeCursor cursor1, cursor2;
+  TreeCursor cursor1, cursor2;
   ts_tree_cursor_init(&cursor1, self);
   ts_tree_cursor_init(&cursor2, self);
   *count = ts_subtree_get_changed_ranges(

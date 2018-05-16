@@ -527,7 +527,7 @@ describe("Node", [&]() {
 describe("TreeCursor", [&]() {
   TSParser *parser;
   TSTree *tree;
-  TSTreeCursor *cursor;
+  TSTreeCursor cursor;
 
   before_each([&]() {
     record_alloc::start();
@@ -540,7 +540,7 @@ describe("TreeCursor", [&]() {
 
   after_each([&]() {
     ts_tree_delete(tree);
-    ts_tree_cursor_delete(cursor);
+    ts_tree_cursor_delete(&cursor);
     ts_parser_delete(parser);
 
     record_alloc::stop();
@@ -548,154 +548,154 @@ describe("TreeCursor", [&]() {
   });
 
   it("can walk the tree", [&]() {
-    TSNode node = ts_tree_cursor_current_node(cursor);
+    TSNode node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("value"));
     AssertThat(ts_node_start_byte(node), Equals(array_index));
 
-    AssertThat(ts_tree_cursor_goto_first_child(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_first_child(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("array"));
     AssertThat(ts_node_start_byte(node), Equals(array_index));
 
-    AssertThat(ts_tree_cursor_goto_first_child(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_first_child(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("["));
     AssertThat(ts_node_start_byte(node), Equals(array_index));
 
     // Cannot descend into a node with no children
-    AssertThat(ts_tree_cursor_goto_first_child(cursor), IsFalse());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_first_child(&cursor), IsFalse());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("["));
     AssertThat(ts_node_start_byte(node), Equals(array_index));
 
-    AssertThat(ts_tree_cursor_goto_next_sibling(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_next_sibling(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("number"));
     AssertThat(ts_node_start_byte(node), Equals(number_index));
 
-    AssertThat(ts_tree_cursor_goto_next_sibling(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_next_sibling(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals(","));
     AssertThat(ts_node_start_byte(node), Equals(number_end_index));
 
-    AssertThat(ts_tree_cursor_goto_next_sibling(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_next_sibling(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("false"));
     AssertThat(ts_node_start_byte(node), Equals(false_index));
 
-    AssertThat(ts_tree_cursor_goto_next_sibling(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_next_sibling(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals(","));
     AssertThat(ts_node_start_byte(node), Equals(false_end_index));
 
-    AssertThat(ts_tree_cursor_goto_next_sibling(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_next_sibling(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("object"));
     AssertThat(ts_node_start_byte(node), Equals(object_index));
 
-    AssertThat(ts_tree_cursor_goto_first_child(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_first_child(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("{"));
     AssertThat(ts_node_start_byte(node), Equals(object_index));
 
-    AssertThat(ts_tree_cursor_goto_next_sibling(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_next_sibling(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("pair"));
     AssertThat(ts_node_start_byte(node), Equals(string_index));
 
-    AssertThat(ts_tree_cursor_goto_first_child(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_first_child(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("string"));
     AssertThat(ts_node_start_byte(node), Equals(string_index));
 
-    AssertThat(ts_tree_cursor_goto_next_sibling(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_next_sibling(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals(":"));
     AssertThat(ts_node_start_byte(node), Equals(string_end_index));
 
-    AssertThat(ts_tree_cursor_goto_next_sibling(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_next_sibling(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("null"));
     AssertThat(ts_node_start_byte(node), Equals(null_index));
 
     // Cannot move beyond a node with no next sibling
-    AssertThat(ts_tree_cursor_goto_next_sibling(cursor), IsFalse());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_next_sibling(&cursor), IsFalse());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("null"));
     AssertThat(ts_node_start_byte(node), Equals(null_index));
 
-    AssertThat(ts_tree_cursor_goto_parent(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_parent(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("pair"));
     AssertThat(ts_node_start_byte(node), Equals(string_index));
 
-    AssertThat(ts_tree_cursor_goto_parent(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_parent(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("object"));
     AssertThat(ts_node_start_byte(node), Equals(object_index));
 
-    AssertThat(ts_tree_cursor_goto_parent(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_parent(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("array"));
     AssertThat(ts_node_start_byte(node), Equals(array_index));
 
-    AssertThat(ts_tree_cursor_goto_parent(cursor), IsTrue());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_parent(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("value"));
     AssertThat(ts_node_start_byte(node), Equals(array_index));
 
     // The root node doesn't have a parent.
-    AssertThat(ts_tree_cursor_goto_parent(cursor), IsFalse());
-    node = ts_tree_cursor_current_node(cursor);
+    AssertThat(ts_tree_cursor_goto_parent(&cursor), IsFalse());
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("value"));
     AssertThat(ts_node_start_byte(node), Equals(array_index));
   });
 
   it("can find the first child of a given node which spans the given byte offset", [&]() {
-    int64_t child_index = ts_tree_cursor_goto_first_child_for_byte(cursor, 1);
-    TSNode node = ts_tree_cursor_current_node(cursor);
+    int64_t child_index = ts_tree_cursor_goto_first_child_for_byte(&cursor, 1);
+    TSNode node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("array"));
     AssertThat(ts_node_start_byte(node), Equals(array_index));
     AssertThat(child_index, Equals(0));
 
-    child_index = ts_tree_cursor_goto_first_child_for_byte(cursor, array_index);
-    node = ts_tree_cursor_current_node(cursor);
+    child_index = ts_tree_cursor_goto_first_child_for_byte(&cursor, array_index);
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("["));
     AssertThat(ts_node_start_byte(node), Equals(array_index));
     AssertThat(child_index, Equals(0));
 
-    ts_tree_cursor_goto_parent(cursor);
-    child_index = ts_tree_cursor_goto_first_child_for_byte(cursor, array_index + 1);
-    node = ts_tree_cursor_current_node(cursor);
+    ts_tree_cursor_goto_parent(&cursor);
+    child_index = ts_tree_cursor_goto_first_child_for_byte(&cursor, array_index + 1);
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("number"));
     AssertThat(ts_node_start_byte(node), Equals(number_index));
     AssertThat(child_index, Equals(1));
 
-    ts_tree_cursor_goto_parent(cursor);
-    child_index = ts_tree_cursor_goto_first_child_for_byte(cursor, number_index + 1);
-    node = ts_tree_cursor_current_node(cursor);
+    ts_tree_cursor_goto_parent(&cursor);
+    child_index = ts_tree_cursor_goto_first_child_for_byte(&cursor, number_index + 1);
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("number"));
     AssertThat(ts_node_start_byte(node), Equals(number_index));
     AssertThat(child_index, Equals(1));
 
-    ts_tree_cursor_goto_parent(cursor);
-    child_index = ts_tree_cursor_goto_first_child_for_byte(cursor, false_index - 1);
-    node = ts_tree_cursor_current_node(cursor);
+    ts_tree_cursor_goto_parent(&cursor);
+    child_index = ts_tree_cursor_goto_first_child_for_byte(&cursor, false_index - 1);
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("false"));
     AssertThat(ts_node_start_byte(node), Equals(false_index));
     AssertThat(child_index, Equals(3));
 
-    ts_tree_cursor_goto_parent(cursor);
-    child_index = ts_tree_cursor_goto_first_child_for_byte(cursor, object_end_index - 1);
-    node = ts_tree_cursor_current_node(cursor);
+    ts_tree_cursor_goto_parent(&cursor);
+    child_index = ts_tree_cursor_goto_first_child_for_byte(&cursor, object_end_index - 1);
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("object"));
     AssertThat(ts_node_start_byte(node), Equals(object_index));
     AssertThat(child_index, Equals(5));
 
     // There is no child past the end of the array
-    ts_tree_cursor_goto_parent(cursor);
-    child_index = ts_tree_cursor_goto_first_child_for_byte(cursor, array_end_index);
-    node = ts_tree_cursor_current_node(cursor);
+    ts_tree_cursor_goto_parent(&cursor);
+    child_index = ts_tree_cursor_goto_first_child_for_byte(&cursor, array_end_index);
+    node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("array"));
     AssertThat(ts_node_start_byte(node), Equals(array_index));
     AssertThat(child_index, Equals(-1));

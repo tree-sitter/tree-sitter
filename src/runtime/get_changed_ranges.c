@@ -25,13 +25,13 @@ static void range_array_add(RangeArray *results, TSPoint start, TSPoint end) {
 }
 
 typedef struct {
-  TSTreeCursor cursor;
+  TreeCursor cursor;
   const TSLanguage *language;
   unsigned visible_depth;
   bool in_padding;
 } Iterator;
 
-static Iterator iterator_new(TSTreeCursor *cursor, const Subtree *tree, const TSLanguage *language) {
+static Iterator iterator_new(TreeCursor *cursor, const Subtree *tree, const TSLanguage *language) {
   array_clear(&cursor->stack);
   array_push(&cursor->stack, ((TreeCursorEntry){
     .subtree = tree,
@@ -262,7 +262,7 @@ static inline void iterator_print_state(Iterator *self) {
 #endif
 
 unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *new_tree,
-                                       TSTreeCursor *cursor1, TSTreeCursor *cursor2,
+                                       TreeCursor *cursor1, TreeCursor *cursor2,
                                        const TSLanguage *language, TSRange **ranges) {
   RangeArray results = array_new();
 

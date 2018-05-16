@@ -16,13 +16,13 @@ typedef struct {
 
 TSNode ts_node_new(const TSTree *tree, const Subtree *subtree, Length position, TSSymbol alias) {
   return (TSNode) {
+    {position.bytes, position.extent.row, position.extent.column, alias},
     {tree, subtree},
-    {position.bytes, position.extent.row, position.extent.column, alias}
   };
 }
 
 static inline TSNode ts_node__null() {
-  return (TSNode) {{NULL, NULL}, {0, 0, 0, 0}};
+  return ts_node_new(NULL, NULL, length_zero(), 0);
 }
 
 // TSNode - accessors
