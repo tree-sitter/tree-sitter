@@ -17,7 +17,8 @@ typedef struct {
 TSNode ts_node_new(const TSTree *tree, const Subtree *subtree, Length position, TSSymbol alias) {
   return (TSNode) {
     {position.bytes, position.extent.row, position.extent.column, alias},
-    {tree, subtree},
+    subtree,
+    tree,
   };
 }
 
@@ -26,14 +27,6 @@ static inline TSNode ts_node__null() {
 }
 
 // TSNode - accessors
-
-static inline const TSTree *ts_node__tree(const TSNode *self) {
-  return self->ref[0];
-}
-
-static inline const Subtree *ts_node__subtree(TSNode self) {
-  return self.ref[1];
-}
 
 static inline uint32_t ts_node__byte(const TSNode *self) {
   return self->context[0];
@@ -45,6 +38,14 @@ static inline TSPoint ts_node__position(const TSNode *self) {
 
 static inline uint32_t ts_node__alias(const TSNode *self) {
   return self->context[3];
+}
+
+static inline const Subtree *ts_node__subtree(TSNode self) {
+  return self.id;
+}
+
+static inline const TSTree *ts_node__tree(const TSNode *self) {
+  return self->tree;
 }
 
 // NodeChildIterator
