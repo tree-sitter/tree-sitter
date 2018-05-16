@@ -66,11 +66,8 @@ typedef struct {
 } TSInputEdit;
 
 typedef struct {
-  const void *subtree;
-  const TSTree *tree;
-  TSPoint position;
-  uint32_t byte;
-  TSSymbol alias_symbol;
+  const void *ref[2];
+  uint32_t context[4];
 } TSNode;
 
 TSParser *ts_parser_new();
@@ -99,6 +96,7 @@ TSSymbol ts_node_symbol(TSNode);
 const char *ts_node_type(TSNode);
 char *ts_node_string(TSNode);
 bool ts_node_eq(TSNode, TSNode);
+bool ts_node_is_null(TSNode);
 bool ts_node_is_named(TSNode);
 bool ts_node_is_missing(TSNode);
 bool ts_node_has_changes(TSNode);

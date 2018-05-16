@@ -11,6 +11,7 @@ struct TSTree {
 };
 
 TSTree *ts_tree_new(const Subtree *root, const TSLanguage *language);
+TSNode ts_node_new(const TSTree *, const Subtree *, Length, TSSymbol);
 
 #ifdef __cplusplus
 }

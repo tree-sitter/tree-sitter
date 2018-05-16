@@ -179,11 +179,5 @@ TSNode ts_tree_cursor_current_node(TSTreeCursor *self) {
       alias_symbol = alias_sequence[last_entry->structural_child_index];
     }
   }
-  return (TSNode) {
-    .tree = self->tree,
-    .subtree = last_entry->subtree,
-    .position = last_entry->position.extent,
-    .byte = last_entry->position.bytes,
-    .alias_symbol = alias_symbol,
-  };
+  return ts_node_new(self->tree, last_entry->subtree, last_entry->position, alias_symbol);
 }

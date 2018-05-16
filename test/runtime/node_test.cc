@@ -65,6 +65,7 @@ describe("Node", [&]() {
   TSParser *parser;
   TSTree *tree;
   TSNode root_node;
+  TSNode NULL_NODE = {};
 
   before_each([&]() {
     record_alloc::start();
@@ -158,7 +159,7 @@ describe("Node", [&]() {
       AssertThat(ts_node_parent(number_node), Equals(root_node));
       AssertThat(ts_node_parent(false_node), Equals(root_node));
       AssertThat(ts_node_parent(object_node), Equals(root_node));
-      AssertThat(ts_node_parent(ts_tree_root_node(tree)).subtree, Equals<void *>(nullptr));
+      AssertThat(ts_node_parent(ts_tree_root_node(tree)), Equals(NULL_NODE));
     });
 
     it("works correctly when the node contains aliased children and extras", [&]() {
@@ -244,7 +245,7 @@ describe("Node", [&]() {
       child = ts_node_first_named_child_for_byte(root_node, object_index + 1);
       AssertThat(ts_node_type(child), Equals("object"));
       child = ts_node_first_named_child_for_byte(root_node, object_end_index);
-      AssertThat(child.subtree, Equals<void *>(nullptr));
+      AssertThat(child, Equals(NULL_NODE));
     });
   });
 
@@ -328,7 +329,7 @@ describe("Node", [&]() {
       AssertThat(ts_node_parent(child5), Equals(root_node));
       AssertThat(ts_node_parent(child6), Equals(root_node));
       AssertThat(ts_node_parent(child7), Equals(root_node));
-      AssertThat(ts_node_parent(ts_tree_root_node(tree)).subtree, Equals<void *>(nullptr));
+      AssertThat(ts_node_parent(ts_tree_root_node(tree)), Equals(NULL_NODE));
     });
   });
 
@@ -355,9 +356,9 @@ describe("Node", [&]() {
       AssertThat(ts_node_next_sibling(false_node), Equals(array_comma_node2));
       AssertThat(ts_node_next_sibling(array_comma_node2), Equals(object_node));
       AssertThat(ts_node_next_sibling(object_node), Equals(bracket_node2));
-      AssertThat(ts_node_next_sibling(bracket_node2).subtree, Equals<void *>(nullptr));
+      AssertThat(ts_node_next_sibling(bracket_node2), Equals(NULL_NODE));
 
-      AssertThat(ts_node_prev_sibling(bracket_node1).subtree, Equals<void *>(nullptr));
+      AssertThat(ts_node_prev_sibling(bracket_node1), Equals(NULL_NODE));
       AssertThat(ts_node_prev_sibling(number_node), Equals(bracket_node1));
       AssertThat(ts_node_prev_sibling(array_comma_node1), Equals(number_node));
       AssertThat(ts_node_prev_sibling(false_node), Equals(array_comma_node1));
@@ -367,24 +368,24 @@ describe("Node", [&]() {
 
       AssertThat(ts_node_next_sibling(brace_node1), Equals(pair_node));
       AssertThat(ts_node_next_sibling(pair_node), Equals(brace_node2));
-      AssertThat(ts_node_next_sibling(brace_node2).subtree, Equals<void *>(nullptr));
+      AssertThat(ts_node_next_sibling(brace_node2), Equals(NULL_NODE));
 
-      AssertThat(ts_node_prev_sibling(brace_node1).subtree, Equals<void *>(nullptr));
+      AssertThat(ts_node_prev_sibling(brace_node1), Equals(NULL_NODE));
       AssertThat(ts_node_prev_sibling(pair_node), Equals(brace_node1));
       AssertThat(ts_node_prev_sibling(brace_node2), Equals(pair_node));
 
       AssertThat(ts_node_next_sibling(string_node), Equals(colon_node));
       AssertThat(ts_node_next_sibling(colon_node), Equals(null_node));
-      AssertThat(ts_node_next_sibling(null_node).subtree, Equals<void *>(nullptr));
+      AssertThat(ts_node_next_sibling(null_node), Equals(NULL_NODE));
 
-      AssertThat(ts_node_prev_sibling(string_node).subtree, Equals<void *>(nullptr));
+      AssertThat(ts_node_prev_sibling(string_node), Equals(NULL_NODE));
       AssertThat(ts_node_prev_sibling(colon_node), Equals(string_node));
       AssertThat(ts_node_prev_sibling(null_node), Equals(colon_node));
     });
 
     it("returns null when the node has no parent", [&]() {
-      AssertThat(ts_node_next_named_sibling(root_node).subtree, Equals<void *>(nullptr));
-      AssertThat(ts_node_prev_named_sibling(root_node).subtree, Equals<void *>(nullptr));
+      AssertThat(ts_node_next_named_sibling(root_node), Equals(NULL_NODE));
+      AssertThat(ts_node_prev_named_sibling(root_node), Equals(NULL_NODE));
     });
   });
 
@@ -406,8 +407,8 @@ describe("Node", [&]() {
     });
 
     it("returns null when the node has no parent", [&]() {
-      AssertThat(ts_node_next_named_sibling(root_node).subtree, Equals<void *>(nullptr));
-      AssertThat(ts_node_prev_named_sibling(root_node).subtree, Equals<void *>(nullptr));
+      AssertThat(ts_node_next_named_sibling(root_node), Equals(NULL_NODE));
+      AssertThat(ts_node_prev_named_sibling(root_node), Equals(NULL_NODE));
     });
   });
 

@@ -35,13 +35,13 @@ ostream &operator<<(std::ostream &stream, const Subtree *tree) {
 }
 
 ostream &operator<<(ostream &stream, const TSNode &node) {
-  if (node.subtree) {
+  if (ts_node_is_null(node)) {
+    return stream << "NULL";
+  } else {
     char *string = ts_node_string(node);
     stream << "{" << string << ", " << to_string(ts_node_start_byte(node)) << "}";
     ts_free(string);
     return stream;
-  } else {
-    return stream << "NULL";
   }
 }
 
