@@ -12,7 +12,6 @@ fn main() {
       "lexer.c",
       "node.c",
       "parser.c",
-      "parser.c",
       "stack.c",
       "subtree.c",
       "tree_cursor.c",
