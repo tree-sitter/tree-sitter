@@ -24,6 +24,7 @@ fn main() {
     config.include("vendor/tree-sitter/src");
     config.include("vendor/tree-sitter/include");
     config.include("vendor/tree-sitter/externals/utf8proc");
+    config.flag_if_supported("-std=c99");
     config.flag_if_supported("-Wno-unused-parameter");
 
     for source_filename in source_filenames.iter() {
