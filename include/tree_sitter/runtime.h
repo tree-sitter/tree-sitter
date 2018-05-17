@@ -129,7 +129,7 @@ bool ts_tree_cursor_goto_first_child(TSTreeCursor *);
 int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *, uint32_t);
 bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *);
 bool ts_tree_cursor_goto_parent(TSTreeCursor *);
-TSNode ts_tree_cursor_current_node(TSTreeCursor *);
+TSNode ts_tree_cursor_current_node(const TSTreeCursor *);
 
 uint32_t ts_language_symbol_count(const TSLanguage *);
 const char *ts_language_symbol_name(const TSLanguage *, TSSymbol);

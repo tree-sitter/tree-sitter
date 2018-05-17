@@ -170,8 +170,8 @@ bool ts_tree_cursor_goto_parent(TSTreeCursor *_self) {
   return false;
 }
 
-TSNode ts_tree_cursor_current_node(TSTreeCursor *_self) {
-  TreeCursor *self = (TreeCursor *)_self;
+TSNode ts_tree_cursor_current_node(const TSTreeCursor *_self) {
+  const TreeCursor *self = (const TreeCursor *)_self;
   TreeCursorEntry *last_entry = array_back(&self->stack);
   TSSymbol alias_symbol = 0;
   if (self->stack.size > 1) {
