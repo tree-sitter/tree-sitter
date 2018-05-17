@@ -202,11 +202,11 @@ describe("Subtree", []() {
     it("does not mutate the argument", [&]() {
       TSInputEdit edit;
       edit.start_byte = 1;
-      edit.bytes_removed = 0;
-      edit.bytes_added = 1;
+      edit.old_end_byte = 1;
+      edit.new_end_byte = 2;
       edit.start_point = {0, 1};
-      edit.extent_removed = {0, 0};
-      edit.extent_added = {0, 1};
+      edit.old_end_point = {0, 1};
+      edit.new_end_point = {0, 2};
 
       ts_subtree_retain(tree);
       const Subtree *new_tree = ts_subtree_edit(tree, &edit, &pool);
@@ -232,11 +232,12 @@ describe("Subtree", []() {
       it("resizes the padding of the tree and its leftmost descendants", [&]() {
         TSInputEdit edit;
         edit.start_byte = 1;
-        edit.bytes_removed = 0;
-        edit.bytes_added = 1;
+        edit.old_end_byte = 1;
+        edit.new_end_byte = 2;
         edit.start_point = {0, 1};
-        edit.extent_removed = {0, 0};
-        edit.extent_added = {0, 1};
+        edit.old_end_point = {0, 1};
+        edit.new_end_point = {0, 2};
+
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
@@ -258,11 +259,12 @@ describe("Subtree", []() {
       it("shrinks the content to compensate for the expanded padding", [&]() {
         TSInputEdit edit;
         edit.start_byte = 1;
-        edit.bytes_removed = 3;
-        edit.bytes_added = 4;
+        edit.old_end_byte = 4;
+        edit.new_end_byte = 5;
         edit.start_point = {0, 1};
-        edit.extent_removed = {0, 3};
-        edit.extent_added = {0, 4};
+        edit.old_end_point = {0, 4};
+        edit.new_end_point = {0, 5};
+
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
@@ -280,11 +282,12 @@ describe("Subtree", []() {
       it("expands the tree's padding", [&]() {
         TSInputEdit edit;
         edit.start_byte = 2;
-        edit.bytes_removed = 0;
-        edit.bytes_added = 2;
+        edit.old_end_byte = 2;
+        edit.new_end_byte = 4;
         edit.start_point = {0, 2};
-        edit.extent_removed = {0, 0};
-        edit.extent_added = {0, 2};
+        edit.old_end_point = {0, 2};
+        edit.new_end_point = {0, 4};
+
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
@@ -304,11 +307,12 @@ describe("Subtree", []() {
       it("resizes the content and not the padding", [&]() {
         TSInputEdit edit;
         edit.start_byte = 2;
-        edit.bytes_removed = 2;
-        edit.bytes_added = 5;
+        edit.old_end_byte = 4;
+        edit.new_end_byte = 7;
         edit.start_point = {0, 2};
-        edit.extent_removed = {0, 2};
-        edit.extent_added = {0, 5};
+        edit.old_end_point = {0, 4};
+        edit.new_end_point = {0, 7};
+
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
@@ -328,11 +332,12 @@ describe("Subtree", []() {
       it("shrinks subsequent child nodes", [&]() {
         TSInputEdit edit;
         edit.start_byte = 1;
-        edit.bytes_removed = 10;
-        edit.bytes_added = 3;
+        edit.old_end_byte = 11;
+        edit.new_end_byte = 4;
         edit.start_point = {0, 1};
-        edit.extent_removed = {0, 10};
-        edit.extent_added = {0, 3};
+        edit.old_end_point = {0, 11};
+        edit.new_end_point = {0, 4};
+
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
@@ -361,11 +366,12 @@ describe("Subtree", []() {
 
         TSInputEdit edit;
         edit.start_byte = 6;
-        edit.bytes_removed = 1;
-        edit.bytes_added = 1;
+        edit.old_end_byte = 7;
+        edit.new_end_byte = 7;
         edit.start_point = {0, 6};
-        edit.extent_removed = {0, 1};
-        edit.extent_added = {0, 1};
+        edit.old_end_point = {0, 7};
+        edit.new_end_point = {0, 7};
+
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 

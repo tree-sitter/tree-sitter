@@ -13,8 +13,8 @@
 
 typedef struct {
   Length start;
-  Length added;
-  Length removed;
+  Length old_end;
+  Length new_end;
 } Edit;
 
 TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
@@ -490,22 +490,23 @@ const Subtree *ts_subtree_invalidate_lookahead(const Subtree *self, uint32_t edi
 }
 
 const Subtree *ts_subtree__edit(const Subtree *self, Edit edit, SubtreePool *pool) {
-  Length new_end = length_add(edit.start, edit.added);
-  Length old_end = length_add(edit.start, edit.removed);
-
   Subtree *result = ts_subtree_make_mut(pool, self);
   result->has_changes = true;
 
-  if (old_end.bytes <= result->padding.bytes) {
-    result->padding = length_add(new_end, length_sub(result->padding, old_end));
+  bool pure_insertion = edit.old_end.bytes == edit.start.bytes;
+
+  if (edit.old_end.bytes <= result->padding.bytes) {
+    result->padding = length_add(edit.new_end, length_sub(result->padding, edit.old_end));
   } else if (edit.start.bytes < result->padding.bytes) {
-    result->size = length_sub(result->size, length_sub(old_end, result->padding));
-    result->padding = new_end;
-  } else if (edit.start.bytes == result->padding.bytes && edit.removed.bytes == 0) {
-    result->padding = length_add(result->padding, edit.added);
+    result->size = length_sub(result->size, length_sub(edit.old_end, result->padding));
+    result->padding = edit.new_end;
+  } else if (edit.start.bytes == result->padding.bytes && pure_insertion) {
+    result->padding = edit.new_end;
   } else {
-    Length new_total_size = length_add(new_end, length_sub(ts_subtree_total_size(result), old_end));
-    result->size = length_sub(new_total_size, result->padding);
+    result->size = length_add(
+      length_sub(edit.new_end, result->padding),
+      length_sub(result->size, length_sub(edit.old_end, result->padding))
+    );
   }
 
   Length child_left, child_right = length_zero();
@@ -515,27 +516,23 @@ const Subtree *ts_subtree__edit(const Subtree *self, Edit edit, SubtreePool *poo
     child_left = child_right;
     child_right = length_add(child_left, child_size);
 
-    if (child_left.bytes > old_end.bytes ||
-        (child_left.bytes == old_end.bytes && child_size.bytes > 0 && i > 0)) break;
+    if (child_left.bytes > edit.old_end.bytes ||
+        (child_left.bytes == edit.old_end.bytes && child_size.bytes > 0 && i > 0)) break;
 
     if (child_right.bytes > edit.start.bytes ||
-        (child_right.bytes == edit.start.bytes && edit.removed.bytes == 0)) {
+        (child_right.bytes == edit.start.bytes && pure_insertion)) {
       Edit child_edit = {
         .start = length_sub(edit.start, child_left),
-        .added = edit.added,
-        .removed = edit.removed,
+        .old_end = length_sub(edit.old_end, child_left),
+        .new_end = length_sub(edit.new_end, child_left),
       };
 
-      if (edit.start.bytes < child_left.bytes) {
-        child_edit.start = length_zero();
-      }
+      if (edit.start.bytes < child_left.bytes) child_edit.start = length_zero();
+      if (edit.old_end.bytes < child_left.bytes) child_edit.old_end = length_zero();
+      if (edit.new_end.bytes < child_left.bytes) child_edit.new_end = length_zero();
+      if (edit.old_end.bytes > child_right.bytes) child_edit.old_end = child_size;
 
-      if (old_end.bytes > child_right.bytes) {
-        child_edit.removed = length_sub(child_size, child_edit.start);
-      }
-
-      edit.added = length_zero();
-      edit.removed = length_sub(edit.removed, child_edit.removed);
+      edit.new_end = edit.start;
 
       *child = ts_subtree__edit(*child, child_edit, pool);
     } else if (child_left.bytes <= edit.start.bytes) {
@@ -549,8 +546,8 @@ const Subtree *ts_subtree__edit(const Subtree *self, Edit edit, SubtreePool *poo
 const Subtree *ts_subtree_edit(const Subtree *self, const TSInputEdit *edit, SubtreePool *pool) {
   return ts_subtree__edit(self, (Edit) {
     .start = {edit->start_byte, edit->start_point},
-    .added = {edit->bytes_added, edit->extent_added},
-    .removed = {edit->bytes_removed, edit->extent_removed},
+    .old_end = {edit->old_end_byte, edit->old_end_point},
+    .new_end = {edit->new_end_byte, edit->new_end_point},
   }, pool);
 }
 

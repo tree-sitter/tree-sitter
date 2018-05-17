@@ -57,11 +57,11 @@ typedef struct {
 
 typedef struct {
   uint32_t start_byte;
-  uint32_t bytes_removed;
-  uint32_t bytes_added;
+  uint32_t old_end_byte;
+  uint32_t new_end_byte;
   TSPoint start_point;
-  TSPoint extent_removed;
-  TSPoint extent_added;
+  TSPoint old_end_point;
+  TSPoint new_end_point;
 } TSInputEdit;
 
 typedef struct {

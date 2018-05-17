@@ -1,5 +1,6 @@
 #include "helpers/spy_input.h"
 #include "helpers/encoding_helpers.h"
+#include "runtime/point.h"
 #include <string.h>
 #include <algorithm>
 #include <assert.h>
@@ -18,6 +19,14 @@ SpyInput::SpyInput(string content, size_t chars_per_chunk) :
 
 SpyInput::~SpyInput() {
   delete[] buffer;
+}
+
+static TSPoint operator+(TSPoint a, TSPoint b) {
+  if (b.row > 0) {
+    return TSPoint {a.row + b.row, b.column};
+  } else {
+    return TSPoint {a.row, a.column + b.column};
+  }
 }
 
 static void add_byte_range(vector<pair<uint32_t, uint32_t>> *ranges,
@@ -112,11 +121,11 @@ TSInputEdit SpyInput::replace(size_t start_byte, size_t bytes_removed, string te
   undo_stack.push_back(SpyInputEdit{start_byte, bytes_added, swap.first});
   TSInputEdit result = {};
   result.start_byte = start_byte;
-  result.bytes_added = bytes_added;
-  result.bytes_removed = bytes_removed;
+  result.old_end_byte = start_byte + bytes_removed;
+  result.new_end_byte = start_byte + bytes_added;
   result.start_point = swap.second;
-  result.extent_removed = get_extent(swap.first);
-  result.extent_added = get_extent(text);
+  result.old_end_point = result.start_point + get_extent(swap.first);
+  result.new_end_point = result.start_point + get_extent(text);
   return result;
 }
 
@@ -126,11 +135,11 @@ TSInputEdit SpyInput::undo() {
   auto swap = swap_substr(entry.start_byte, entry.bytes_removed, entry.text_inserted);
   TSInputEdit result;
   result.start_byte = entry.start_byte;
-  result.bytes_removed = entry.bytes_removed;
-  result.bytes_added = entry.text_inserted.size();
+  result.old_end_byte = entry.start_byte + entry.bytes_removed;
+  result.new_end_byte = entry.start_byte + entry.text_inserted.size();
   result.start_point = swap.second;
-  result.extent_removed = get_extent(swap.first);
-  result.extent_added = get_extent(entry.text_inserted);
+  result.old_end_point = result.start_point + get_extent(swap.first);
+  result.new_end_point = result.start_point + get_extent(entry.text_inserted);
   return result;
 }
 
