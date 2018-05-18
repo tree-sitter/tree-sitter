@@ -1,12 +1,10 @@
 mod ffi;
 
+use std::fmt;
 use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_int, c_void};
 use std::ptr;
-
-#[derive(Clone, Copy)]
-pub struct Symbol(ffi::TSSymbol);
 
 pub type Language = *const ffi::TSLanguage;
 
@@ -26,13 +24,13 @@ pub enum LogType {
     Lex,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Point {
     pub row: u32,
     pub column: u32,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct InputEdit {
     pub start_byte: u32,
     pub old_end_byte: u32,
@@ -63,9 +61,19 @@ impl Parser {
         }
     }
 
-    pub fn set_language(&mut self, language: Language) {
+    pub fn set_language(&mut self, language: Language) -> Result<(), String> {
         unsafe {
-            ffi::ts_parser_set_language(self.0, language);
+            let version = ffi::ts_language_version(language) as usize;
+            if version == ffi::TREE_SITTER_LANGUAGE_VERSION {
+                ffi::ts_parser_set_language(self.0, language);
+                Ok(())
+            } else {
+                Err(format!(
+                    "Incompatible language version {}. Expected {}.",
+                    version,
+                    ffi::TREE_SITTER_LANGUAGE_VERSION
+                ))
+            }
         }
     }
 
@@ -253,6 +261,10 @@ impl<'a> Node<'a> {
         }
     }
 
+    pub fn kind_id(&self) -> u16 {
+        unsafe { ffi::ts_node_symbol(self.0) }
+    }
+
     pub fn kind(&self) -> &'static str {
         unsafe { CStr::from_ptr(ffi::ts_node_type(self.0)) }.to_str().unwrap()
     }
@@ -330,6 +342,8 @@ impl<'a> Node<'a> {
     }
 
     pub fn to_sexp(&self) -> String {
+        extern "C" { fn free(pointer: *mut c_void); }
+
         let c_string = unsafe { ffi::ts_node_string(self.0) };
         let result = unsafe { CStr::from_ptr(c_string) }.to_str().unwrap().to_string();
         unsafe { free(c_string as *mut c_void) };
@@ -337,7 +351,17 @@ impl<'a> Node<'a> {
     }
 }
 
-extern "C" { fn free(pointer: *mut c_void); }
+impl<'a> PartialEq for Node<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.id == other.0.id
+    }
+}
+
+impl<'a> fmt::Debug for Node<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{{Node {} {} - {}}}", self.kind(), self.start_position(), self.end_position())
+    }
+}
 
 impl<'a> TreeCursor<'a> {
     pub fn node(&'a self) -> Node<'a> {
@@ -375,6 +399,12 @@ impl<'a> Drop for TreeCursor<'a> {
     }
 }
 
+impl fmt::Display for Point {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "({}, {})", self.row, self.column)
+    }
+}
+
 impl Into<ffi::TSPoint> for Point {
     fn into(self) -> ffi::TSPoint {
         ffi::TSPoint {
@@ -406,7 +436,7 @@ mod tests {
     #[test]
     fn test_basic_parsing() {
         let mut parser = Parser::new();
-        parser.set_language(rust());
+        parser.set_language(rust()).unwrap();
 
         let tree = parser.parse_str("
             struct Stuff {}
@@ -428,7 +458,7 @@ mod tests {
     #[test]
     fn test_logging() {
         let mut parser = Parser::new();
-        parser.set_language(rust());
+        parser.set_language(rust()).unwrap();
 
         let mut messages = Vec::new();
         parser.set_logger(Some(&mut |log_type, message| {
@@ -447,7 +477,7 @@ mod tests {
     #[test]
     fn test_tree_cursor() {
         let mut parser = Parser::new();
-        parser.set_language(rust());
+        parser.set_language(rust()).unwrap();
 
         let tree = parser.parse_str("
             struct Stuff {
@@ -502,7 +532,7 @@ mod tests {
         }
 
         let mut parser = Parser::new();
-        parser.set_language(rust());
+        parser.set_language(rust()).unwrap();
 
         let mut input = LineBasedInput {
             lines: &[
@@ -520,5 +550,17 @@ mod tests {
 
         let child = root.child(0).unwrap();
         assert_eq!(child.kind(), "function_item");
+    }
+
+    #[test]
+    fn test_node_equality() {
+        let mut parser = Parser::new();
+        parser.set_language(rust()).unwrap();
+        let tree = parser.parse_str("struct A {}", None).unwrap();
+        let node1 = tree.root_node();
+        let node2 = tree.root_node();
+        assert_eq!(node1, node2);
+        assert_eq!(node1.child(0).unwrap(), node2.child(0).unwrap());
+        assert_ne!(node1.child(0).unwrap(), node2);
     }
 }
