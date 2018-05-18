@@ -151,7 +151,7 @@
       '-Wno-unused-parameter'
     ],
 
-    'defines': ['UTF8PROC_EXPORTS'],
+    'defines': ['UTF8PROC_STATIC'],
 
     'xcode_settings': {
       'ALWAYS_SEARCH_USER_PATHS': 'NO',
