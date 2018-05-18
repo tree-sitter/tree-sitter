@@ -52,7 +52,7 @@ tree.edit(InputEdit {
   old_end_position: Point::new(0, 8),
   new_end_position: Point::new(0, 14),
 });
-let new_tree = parser.parse_str(new_source_code, Some(tree));
+let new_tree = parser.parse_str(new_source_code, Some(&tree));
 ```
 
 ### Text Input

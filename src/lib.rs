@@ -123,7 +123,7 @@ impl Parser {
         unsafe { ffi::ts_parser_set_logger(self.0, c_logger) };
     }
 
-    pub fn parse_str(&mut self, input: &str, old_tree: Option<Tree>) -> Option<Tree> {
+    pub fn parse_str(&mut self, input: &str, old_tree: Option<&Tree>) -> Option<Tree> {
         let mut input = FlatInput { bytes: input.as_bytes(), offset: 0};
         self.parse_utf8(&mut input, old_tree)
     }
@@ -131,7 +131,7 @@ impl Parser {
     pub fn parse_utf8<T: Utf8Input>(
         &mut self,
         input: &mut T,
-        old_tree: Option<Tree>,
+        old_tree: Option<&Tree>,
     ) -> Option<Tree> {
         unsafe extern "C" fn read<T: Utf8Input>(
             payload: *mut c_void,
@@ -179,7 +179,7 @@ impl Parser {
     pub fn parse_utf16<T: Utf16Input>(
         &mut self,
         input: &mut T,
-        old_tree: Option<Tree>,
+        old_tree: Option<&Tree>,
     ) -> Option<Tree> {
         unsafe extern "C" fn read<T: Utf16Input>(
             payload: *mut c_void,
@@ -266,7 +266,7 @@ impl Clone for Tree {
     }
 }
 
-impl<'a> Node<'a> {
+impl<'tree> Node<'tree> {
     fn new(node: ffi::TSNode) -> Option<Self> {
         if node.id.is_null() {
             None
@@ -319,7 +319,7 @@ impl<'a> Node<'a> {
         }
     }
 
-    pub fn child(&self, i: u32) -> Option<Node> {
+    pub fn child(&self, i: u32) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_child(self.0, i) })
     }
 
@@ -327,7 +327,7 @@ impl<'a> Node<'a> {
         unsafe { ffi::ts_node_child_count(self.0) }
     }
 
-    pub fn named_child(&self, i: u32) -> Option<Node> {
+    pub fn named_child<'a>(&'a self, i: u32) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_named_child(self.0, i) })
     }
 
@@ -335,23 +335,23 @@ impl<'a> Node<'a> {
         unsafe { ffi::ts_node_named_child_count(self.0) }
     }
 
-    pub fn parent(&self) -> Option<Node> {
+    pub fn parent(&self) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_parent(self.0) })
     }
 
-    pub fn next_sibling(&self) -> Option<Node> {
+    pub fn next_sibling(&self) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_next_sibling(self.0) })
     }
 
-    pub fn prev_sibling(&self) -> Option<Node> {
+    pub fn prev_sibling(&self) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_prev_sibling(self.0) })
     }
 
-    pub fn next_named_sibling(&self) -> Option<Node> {
+    pub fn next_named_sibling(&self) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_next_named_sibling(self.0) })
     }
 
-    pub fn prev_named_sibling(&self) -> Option<Node> {
+    pub fn prev_named_sibling(&self) -> Option<Self> {
         Self::new(unsafe { ffi::ts_node_prev_named_sibling(self.0) })
     }
 
@@ -410,6 +410,12 @@ impl<'a> TreeCursor<'a> {
 impl<'a> Drop for TreeCursor<'a> {
     fn drop(&mut self) {
         unsafe { ffi::ts_tree_cursor_delete(&mut self.0) }
+    }
+}
+
+impl Point {
+    pub fn new(row: u32, column: u32) -> Self {
+        Point { row, column }
     }
 }
 
@@ -576,5 +582,78 @@ mod tests {
         assert_eq!(node1, node2);
         assert_eq!(node1.child(0).unwrap(), node2.child(0).unwrap());
         assert_ne!(node1.child(0).unwrap(), node2);
+    }
+
+    #[test]
+    fn test_editing() {
+        struct SpyInput {
+            bytes: &'static [u8],
+            offset: usize,
+            bytes_read: Vec<u8>,
+        }
+
+        impl Utf8Input for SpyInput {
+            fn read(&mut self) -> &[u8] {
+                if self.offset < self.bytes.len() {
+                    let result = &self.bytes[self.offset..self.offset + 1];
+                    self.bytes_read.extend(result.iter());
+                    self.offset += 1;
+                    result
+                } else {
+                    &[]
+                }
+            }
+
+            fn seek(&mut self, byte: u32, _position: Point) {
+                self.offset = byte as usize;
+            }
+        }
+
+        let mut input = SpyInput {
+            bytes: "fn test(a: A, c: C) {}".as_bytes(),
+            offset: 0,
+            bytes_read: Vec::new(),
+        };
+
+        let mut parser = Parser::new();
+        parser.set_language(rust()).unwrap();
+
+        let mut tree = parser.parse_utf8(&mut input, None).unwrap();
+        let parameters_sexp = tree.root_node()
+            .named_child(0).unwrap()
+            .named_child(1).unwrap()
+            .to_sexp();
+        assert_eq!(
+            parameters_sexp,
+            "(parameters (parameter (identifier) (type_identifier)) (parameter (identifier) (type_identifier)))"
+        );
+
+        input.offset = 0;
+        input.bytes_read.clear();
+        input.bytes = "fn test(a: A, b: B, c: C) {}".as_bytes();
+        tree.edit(&InputEdit{
+            start_byte: 14,
+            old_end_byte: 14,
+            new_end_byte: 20,
+            start_position: Point::new(0, 14),
+            old_end_position: Point::new(0, 14),
+            new_end_position: Point::new(0, 20),
+        });
+
+        let tree = parser.parse_utf8(&mut input, Some(&tree)).unwrap();
+        let parameters_sexp = tree.root_node()
+            .named_child(0).unwrap()
+            .named_child(1).unwrap()
+            .to_sexp();
+        assert_eq!(
+            parameters_sexp,
+            "(parameters (parameter (identifier) (type_identifier)) (parameter (identifier) (type_identifier)) (parameter (identifier) (type_identifier)))"
+        );
+
+        let retokenized_content = String::from_utf8(input.bytes_read).unwrap();
+        assert!(retokenized_content.contains("b: B"));
+        assert!(!retokenized_content.contains("a: A"));
+        assert!(!retokenized_content.contains("c: C"));
+        assert!(!retokenized_content.contains("{}"));
     }
 }
