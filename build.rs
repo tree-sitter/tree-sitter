@@ -4,14 +4,15 @@ use std::env;
 use std::path::Path;
 
 fn main() {
+    let mut config = cc::Build::new();
     let root_path = Path::new("vendor/tree-sitter");
 
-    let mut config = cc::Build::new();
-    config.flag_if_supported("-std=c99");
-    config.flag_if_supported("-Wno-unused-parameter");
-    config.include(root_path.join(Path::new("src")));
-    config.include(root_path.join(Path::new("include")));
-    config.include(root_path.join(Path::new("externals/utf8proc")));
+    config
+        .flag("-std=c99")
+        .flag("-Wno-unused-parameter")
+        .include(root_path.join(Path::new("src")))
+        .include(root_path.join(Path::new("include")))
+        .include(root_path.join(Path::new("externals/utf8proc")));
 
     let source_filenames = [
       "get_changed_ranges.c",
@@ -36,10 +37,10 @@ fn main() {
 
     if env::var("RUST_TREE_SITTER_TEST").is_ok() {
         let parser_dir = Path::new("fixtures/tree-sitter-rust/src");
-        config.flag_if_supported("-Wno-typedef-redefinition");
-        config.file(parser_dir.join("parser.c"));
-        config.file(parser_dir.join("scanner.c"));
+        config
+            .file(parser_dir.join("parser.c"))
+            .file(parser_dir.join("scanner.c"));
     }
 
-    config.compile("treesitter")
+    config.compile("treesitter_ffi");
 }
