@@ -1,0 +1,24 @@
+environment:
+  RUST_TREE_SITTER_TEST: true
+
+build: false
+
+install:
+  - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
+  - rustup-init -yv --default-toolchain stable
+  - set PATH=%PATH%;%USERPROFILE%\.cargo\bin
+  - rustc -vV
+  - cargo -vV
+  - script\fetch-test-fixtures.cmd
+
+test_script:
+  - cargo build
+  - cargo test
+
+branches:
+  only:
+    - master
+
+cache:
+  - fixtures
+  - C:\Users\appveyor\.cargo
