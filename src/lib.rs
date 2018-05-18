@@ -253,15 +253,27 @@ impl<'a> Node<'a> {
         }
     }
 
-    pub fn name(&self) -> &'static str {
+    pub fn kind(&self) -> &'static str {
         unsafe { CStr::from_ptr(ffi::ts_node_type(self.0)) }.to_str().unwrap()
     }
 
-    pub fn start_index(&self) -> u32 {
+    pub fn is_named(&self) -> bool {
+        unsafe { ffi::ts_node_is_named(self.0) }
+    }
+
+    pub fn has_changes(&self) -> bool {
+        unsafe { ffi::ts_node_has_changes(self.0) }
+    }
+
+    pub fn has_error(&self) -> bool {
+        unsafe { ffi::ts_node_has_error(self.0) }
+    }
+
+    pub fn start_byte(&self) -> u32 {
         unsafe { ffi::ts_node_start_byte(self.0) }
     }
 
-    pub fn end_index(&self) -> u32 {
+    pub fn end_byte(&self) -> u32 {
         unsafe { ffi::ts_node_end_byte(self.0) }
     }
 
@@ -289,8 +301,32 @@ impl<'a> Node<'a> {
         unsafe { ffi::ts_node_child_count(self.0) }
     }
 
+    pub fn named_child(&self, i: u32) -> Option<Node> {
+        Self::new(unsafe { ffi::ts_node_named_child(self.0, i) })
+    }
+
+    pub fn named_child_count(&self) -> u32 {
+        unsafe { ffi::ts_node_named_child_count(self.0) }
+    }
+
     pub fn parent(&self) -> Option<Node> {
         Self::new(unsafe { ffi::ts_node_parent(self.0) })
+    }
+
+    pub fn next_sibling(&self) -> Option<Node> {
+        Self::new(unsafe { ffi::ts_node_next_sibling(self.0) })
+    }
+
+    pub fn prev_sibling(&self) -> Option<Node> {
+        Self::new(unsafe { ffi::ts_node_prev_sibling(self.0) })
+    }
+
+    pub fn next_named_sibling(&self) -> Option<Node> {
+        Self::new(unsafe { ffi::ts_node_next_named_sibling(self.0) })
+    }
+
+    pub fn prev_named_sibling(&self) -> Option<Node> {
+        Self::new(unsafe { ffi::ts_node_prev_named_sibling(self.0) })
     }
 
     pub fn to_sexp(&self) -> String {
@@ -304,26 +340,26 @@ impl<'a> Node<'a> {
 extern "C" { fn free(pointer: *mut c_void); }
 
 impl<'a> TreeCursor<'a> {
-    fn node(&'a self) -> Node<'a> {
+    pub fn node(&'a self) -> Node<'a> {
         Node(
             unsafe { ffi::ts_tree_cursor_current_node(&self.0) },
             PhantomData,
         )
     }
 
-    fn goto_first_child(&mut self) -> bool {
+    pub fn goto_first_child(&mut self) -> bool {
         return unsafe { ffi::ts_tree_cursor_goto_first_child(&mut self.0) };
     }
 
-    fn goto_parent(&mut self) -> bool {
+    pub fn goto_parent(&mut self) -> bool {
         return unsafe { ffi::ts_tree_cursor_goto_parent(&mut self.0) };
     }
 
-    fn goto_next_sibling(&mut self) -> bool {
+    pub fn goto_next_sibling(&mut self) -> bool {
         return unsafe { ffi::ts_tree_cursor_goto_next_sibling(&mut self.0) };
     }
 
-    fn goto_first_child_for_index(&mut self, index: u32) -> Option<u32> {
+    pub fn goto_first_child_for_index(&mut self, index: u32) -> Option<u32> {
         let result = unsafe { ffi::ts_tree_cursor_goto_first_child_for_byte(&mut self.0, index) };
         if result < 0 {
             None
@@ -378,7 +414,7 @@ mod tests {
         ", None).unwrap();
 
         let root_node = tree.root_node();
-        assert_eq!(root_node.name(), "source_file");
+        assert_eq!(root_node.kind(), "source_file");
 
         assert_eq!(
             root_node.to_sexp(),
@@ -386,7 +422,7 @@ mod tests {
         );
 
         let struct_node = root_node.child(0).unwrap();
-        assert_eq!(struct_node.name(), "struct_item");
+        assert_eq!(struct_node.kind(), "struct_item");
     }
 
     #[test]
@@ -406,5 +442,83 @@ mod tests {
 
         assert!(messages.contains(&(LogType::Parse, "reduce sym:struct_item, child_count:3".to_string())));
         assert!(messages.contains(&(LogType::Lex, "skip character:' '".to_string())));
+    }
+
+    #[test]
+    fn test_tree_cursor() {
+        let mut parser = Parser::new();
+        parser.set_language(rust());
+
+        let tree = parser.parse_str("
+            struct Stuff {
+                a: A;
+                b: Option<B>,
+            }
+        ", None).unwrap();
+
+        let mut cursor = tree.walk();
+        assert_eq!(cursor.node().kind(), "source_file");
+
+        assert!(cursor.goto_first_child());
+        assert_eq!(cursor.node().kind(), "struct_item");
+
+        assert!(cursor.goto_first_child());
+        assert_eq!(cursor.node().kind(), "struct");
+        assert_eq!(cursor.node().is_named(), false);
+
+        assert!(cursor.goto_next_sibling());
+        assert_eq!(cursor.node().kind(), "type_identifier");
+        assert_eq!(cursor.node().is_named(), true);
+
+        assert!(cursor.goto_next_sibling());
+        assert_eq!(cursor.node().kind(), "field_declaration_list");
+        assert_eq!(cursor.node().is_named(), true);
+    }
+
+    #[test]
+    fn test_custom_utf8_input() {
+        struct LineBasedInput {
+            lines: &'static [&'static str],
+            row: usize,
+            column: usize,
+        }
+
+        impl Utf8Input for LineBasedInput {
+            fn read(&mut self) -> &[u8] {
+                if self.row < self.lines.len() {
+                    let result = &self.lines[self.row].as_bytes()[self.column..];
+                    self.row += 1;
+                    self.column = 0;
+                    result
+                } else {
+                    &[]
+                }
+            }
+
+            fn seek(&mut self, _byte: u32, position: Point) {
+                self.row = position.row as usize;
+                self.column = position.column as usize;
+            }
+        }
+
+        let mut parser = Parser::new();
+        parser.set_language(rust());
+
+        let mut input = LineBasedInput {
+            lines: &[
+                "pub fn main() {",
+                "}",
+            ],
+            row: 0,
+            column: 0
+        };
+
+        let tree = parser.parse_utf8(&mut input, None).unwrap();
+        let root = tree.root_node();
+        assert_eq!(root.kind(), "source_file");
+        assert_eq!(root.has_error(), false);
+
+        let child = root.child(0).unwrap();
+        assert_eq!(child.kind(), "function_item");
     }
 }
