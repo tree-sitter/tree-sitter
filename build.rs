@@ -22,6 +22,7 @@ fn main() {
       "node.c",
       "parser.c",
       "stack.c",
+      "string_input.c",
       "subtree.c",
       "tree_cursor.c",
       "tree.c",
