@@ -5,7 +5,7 @@
 #include "runtime/length.h"
 
 void assert_consistent(const Subtree *tree) {
-  if (tree->child_count == 0) return;
+  if (tree->children.size == 0) return;
   AssertThat(tree->children.contents[0]->padding, Equals<Length>(tree->padding));
 
   Length total_children_size = length_zero();

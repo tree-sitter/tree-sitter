@@ -35,7 +35,6 @@ struct Subtree {
   uint32_t error_cost;
   uint32_t node_count;
   uint32_t repeat_depth;
-  uint32_t child_count;
   int32_t dynamic_precedence;
 
   bool visible : 1;
