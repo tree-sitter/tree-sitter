@@ -254,6 +254,14 @@ impl Tree {
     }
 }
 
+unsafe impl Send for Tree {}
+
+impl fmt::Debug for Tree {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{{Tree {:?}}}", self.root_node())
+    }
+}
+
 impl Drop for Tree {
     fn drop(&mut self) {
         unsafe { ffi::ts_tree_delete(self.0) }
@@ -448,6 +456,7 @@ impl<'a> Utf8Input for FlatInput<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::thread;
     use super::*;
 
     fn rust() -> Language { unsafe { tree_sitter_rust() } }
@@ -586,29 +595,6 @@ mod tests {
 
     #[test]
     fn test_editing() {
-        struct SpyInput {
-            bytes: &'static [u8],
-            offset: usize,
-            bytes_read: Vec<u8>,
-        }
-
-        impl Utf8Input for SpyInput {
-            fn read(&mut self) -> &[u8] {
-                if self.offset < self.bytes.len() {
-                    let result = &self.bytes[self.offset..self.offset + 1];
-                    self.bytes_read.extend(result.iter());
-                    self.offset += 1;
-                    result
-                } else {
-                    &[]
-                }
-            }
-
-            fn seek(&mut self, byte: u32, _position: Point) {
-                self.offset = byte as usize;
-            }
-        }
-
         let mut input = SpyInput {
             bytes: "fn test(a: A, c: C) {}".as_bytes(),
             offset: 0,
@@ -655,5 +641,80 @@ mod tests {
         assert!(!retokenized_content.contains("a: A"));
         assert!(!retokenized_content.contains("c: C"));
         assert!(!retokenized_content.contains("{}"));
+    }
+
+    #[test]
+    fn test_parallel_parsing() {
+        // Parse this source file so that each thread has a non-trivial amount of
+        // work to do.
+        let this_file_source = include_str!("lib.rs");
+
+        let mut parser = Parser::new();
+        parser.set_language(rust()).unwrap();
+        let tree = parser.parse_str(this_file_source, None).unwrap();
+
+        let mut parse_threads = Vec::new();
+        for thread_id in 1..5 {
+            let mut tree_clone = tree.clone();
+            parse_threads.push(thread::spawn(move || {
+
+                // For each thread, prepend a different number of declarations to the
+                // source code.
+                let mut prepend_line_count = 0;
+                let mut prepended_source = String::new();
+                for _ in 0..thread_id {
+                    prepend_line_count += 2;
+                    prepended_source += "struct X {}\n\n";
+                }
+
+                tree_clone.edit(&InputEdit{
+                    start_byte: 0,
+                    old_end_byte: 0,
+                    new_end_byte: prepended_source.len() as u32,
+                    start_position: Point::new(0, 0),
+                    old_end_position: Point::new(0, 0),
+                    new_end_position: Point::new(prepend_line_count, 0),
+                });
+                prepended_source += this_file_source;
+
+                // Reparse using the old tree as a starting point.
+                let mut parser = Parser::new();
+                parser.set_language(rust()).unwrap();
+                parser.parse_str(&prepended_source, Some(&tree_clone)).unwrap()
+            }));
+        }
+
+        // Check that the trees have the expected relationship to one another.
+        let trees = parse_threads
+            .into_iter()
+            .map(|thread| thread.join().unwrap());
+        let child_count_differences = trees
+            .map(|t| t.root_node().child_count() - tree.root_node().child_count())
+            .collect::<Vec<_>>();
+
+        assert_eq!(child_count_differences, &[1, 2, 3, 4]);
+    }
+
+    struct SpyInput {
+        bytes: &'static [u8],
+        offset: usize,
+        bytes_read: Vec<u8>,
+    }
+
+    impl Utf8Input for SpyInput {
+        fn read(&mut self) -> &[u8] {
+            if self.offset < self.bytes.len() {
+                let result = &self.bytes[self.offset..self.offset + 1];
+                self.bytes_read.extend(result.iter());
+                self.offset += 1;
+                result
+            } else {
+                &[]
+            }
+        }
+
+        fn seek(&mut self, byte: u32, _position: Point) {
+            self.offset = byte as usize;
+        }
     }
 }
