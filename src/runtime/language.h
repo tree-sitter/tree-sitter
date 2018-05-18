@@ -5,8 +5,8 @@
 extern "C" {
 #endif
 
-#include "tree_sitter/parser.h"
 #include "runtime/subtree.h"
+#include "tree_sitter/parser.h"
 
 #define ts_builtin_sym_error_repeat (ts_builtin_sym_error - 1)
 

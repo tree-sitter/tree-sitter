@@ -13,7 +13,10 @@ extern "C" {
 #define ts_builtin_sym_end 0
 #define TREE_SITTER_SERIALIZATION_BUFFER_SIZE 1024
 
+#ifndef TREE_SITTER_RUNTIME_H_
 typedef uint16_t TSSymbol;
+typedef struct TSLanguage TSLanguage;
+#endif
 
 typedef uint16_t TSStateId;
 
@@ -67,7 +70,7 @@ typedef union {
   };
 } TSParseActionEntry;
 
-typedef struct TSLanguage {
+struct TSLanguage {
   uint32_t version;
   uint32_t symbol_count;
   uint32_t alias_count;
@@ -92,7 +95,7 @@ typedef struct TSLanguage {
     unsigned (*serialize)(void *, char *);
     void (*deserialize)(void *, const char *, unsigned);
   } external_scanner;
-} TSLanguage;
+};
 
 /*
  *  Lexer Macros

@@ -6,11 +6,11 @@ extern "C" {
 #endif
 
 #include <stdbool.h>
-#include "tree_sitter/parser.h"
-#include "tree_sitter/runtime.h"
+#include <stdio.h>
 #include "runtime/length.h"
 #include "runtime/array.h"
-#include <stdio.h>
+#include "tree_sitter/runtime.h"
+#include "tree_sitter/parser.h"
 
 extern TSStateId TS_TREE_STATE_NONE;
 

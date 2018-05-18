@@ -12,7 +12,7 @@ extern "C" {
 
 #define TREE_SITTER_LANGUAGE_VERSION 8
 
-typedef unsigned short TSSymbol;
+typedef uint16_t TSSymbol;
 typedef struct TSLanguage TSLanguage;
 typedef struct TSParser TSParser;
 typedef struct TSTree TSTree;
