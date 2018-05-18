@@ -1,12 +1,19 @@
 [package]
 name = "tree-sitter"
+description = "Rust bindings to the Tree-sitter parsing library"
 version = "0.1.0"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 build = "build.rs"
-exclude = ["vendor/tree-sitter/**/*"]
+license = "MIT"
 include = [
-  "vendor/tree-sitter/src/runtime/*",
-  "vendor/tree-sitter/externals/utf8proc/utf8proc*"
+  "/build.rs",
+  "/Cargo.toml",
+  "/LICENSE",
+  "/README.md",
+  "/src/*",
+  "/vendor/tree-sitter/externals/utf8proc/utf8proc*",
+  "/vendor/tree-sitter/include/*",
+  "/vendor/tree-sitter/src/runtime/*",
 ]
 
 [build-dependencies]
