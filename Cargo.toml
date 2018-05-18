@@ -5,6 +5,10 @@ version = "0.1.0"
 authors = ["Max Brunsfeld <maxbrunsfeld@gmail.com>"]
 build = "build.rs"
 license = "MIT"
+readme = "README.md"
+keywords = ["incremental", "parsing"]
+categories = ["parsing", "text editors", "api bindings"]
+
 include = [
   "/build.rs",
   "/Cargo.toml",
