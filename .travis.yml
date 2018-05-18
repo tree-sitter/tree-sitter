@@ -4,20 +4,10 @@ rust:
   - stable
 
 env:
-  - CC=clang-3.6 RUST_TREE_SITTER_TEST=1
+  - RUST_TREE_SITTER_TEST=1
 
 before_install:
   - ./script/fetch-test-fixtures.sh
-
-compiler: clang-3.6
-
-addons:
-  apt:
-    sources:
-      - llvm-toolchain-precise-3.6
-      - ubuntu-toolchain-r-test
-    packages:
-      - clang-3.6
 
 branches:
   only:
