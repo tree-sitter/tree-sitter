@@ -4,11 +4,14 @@ environment:
 build: false
 
 install:
+  - git submodule update --init --recursive
+
   - appveyor DownloadFile https://win.rustup.rs/ -FileName rustup-init.exe
   - rustup-init -yv --default-toolchain stable
   - set PATH=%PATH%;%USERPROFILE%\.cargo\bin
   - rustc -vV
   - cargo -vV
+
   - script\fetch-test-fixtures.cmd
 
 test_script:
