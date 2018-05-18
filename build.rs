@@ -40,5 +40,5 @@ fn main() {
         config.file(parser_dir.join("scanner.c"));
     }
 
-    config.compile("libruntime.a")
+    config.compile("treesitter")
 }
