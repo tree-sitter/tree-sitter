@@ -10,6 +10,7 @@ fn main() {
     config
         .flag("-std=c99")
         .flag("-Wno-unused-parameter")
+        .static_flag(true)
         .include(root_path.join(Path::new("src")))
         .include(root_path.join(Path::new("include")))
         .include(root_path.join(Path::new("externals/utf8proc")));
