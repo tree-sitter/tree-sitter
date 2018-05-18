@@ -8,6 +8,7 @@ bindgen                         \
   --whitelist-type '^TS.*'      \
   --whitelist-function '^ts_.*' \
   --opaque-type FILE            \
+  --distrust-clang-mangling     \
   $header_path > $output_path
 
 echo "" >> $output_path
