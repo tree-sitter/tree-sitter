@@ -9,7 +9,5 @@ include = [
   "vendor/tree-sitter/externals/utf8proc/utf8proc*"
 ]
 
-[dependencies]
-
 [build-dependencies]
 cc = "1.0"

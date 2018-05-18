@@ -1,10 +1,17 @@
 extern crate cc;
 
+use std::env;
 use std::path::Path;
 
-
 fn main() {
-    let dir_path = Path::new("vendor/tree-sitter/src/runtime");
+    let root_path = Path::new("vendor/tree-sitter");
+
+    let mut config = cc::Build::new();
+    config.flag_if_supported("-std=c99");
+    config.flag_if_supported("-Wno-unused-parameter");
+    config.include(root_path.join(Path::new("src")));
+    config.include(root_path.join(Path::new("include")));
+    config.include(root_path.join(Path::new("externals/utf8proc")));
 
     let source_filenames = [
       "get_changed_ranges.c",
@@ -19,16 +26,18 @@ fn main() {
       "utf16.c",
     ];
 
-    let mut config = cc::Build::new();
-    config.include("vendor/tree-sitter/src");
-    config.include("vendor/tree-sitter/include");
-    config.include("vendor/tree-sitter/externals/utf8proc");
-    config.flag_if_supported("-std=c99");
-    config.flag_if_supported("-Wno-unused-parameter");
+    config.files(source_filenames.iter().map(|source_filename| {
+        root_path
+            .join(Path::new(&"src/runtime"))
+            .join(Path::new(&source_filename))
+    }));
 
-    for source_filename in source_filenames.iter() {
-        let source_path = dir_path.join(Path::new(&source_filename));
-        config.file(&source_path.to_str().unwrap());
+    config.file(root_path.join(Path::new("externals/utf8proc/utf8proc.c")));
+
+    if env::var("RUST_TREE_SITTER_TEST").is_ok() {
+        let parser_dir = Path::new("fixtures/tree-sitter-rust/src");
+        config.file(parser_dir.join("parser.c"));
+        config.file(parser_dir.join("scanner.c"));
     }
 
     config.compile("libruntime.a")

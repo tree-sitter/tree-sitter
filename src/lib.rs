@@ -8,19 +8,19 @@ use std::ptr;
 #[derive(Clone, Copy)]
 pub struct Symbol(ffi::TSSymbol);
 
-#[derive(Clone, Copy)]
-pub struct Language(*const ffi::TSLanguage);
+pub type Language = *const ffi::TSLanguage;
 
 pub trait Utf16Input {
-    fn read(&self) -> &[u16];
-    fn seek(&self, u32, Point);
+    fn read(&mut self) -> &[u16];
+    fn seek(&mut self, u32, Point);
 }
 
 pub trait Utf8Input {
-    fn read(&self) -> &[u8];
-    fn seek(&self, u32, Point);
+    fn read(&mut self) -> &[u8];
+    fn seek(&mut self, u32, Point);
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum LogType {
     Parse,
     Lex,
@@ -50,6 +50,11 @@ pub struct Tree(*mut ffi::TSTree, ffi::TSInputEncoding);
 
 pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 
+struct FlatInput<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+}
+
 impl Parser {
     pub fn new() -> Parser {
         unsafe {
@@ -60,11 +65,11 @@ impl Parser {
 
     pub fn set_language(&mut self, language: Language) {
         unsafe {
-            ffi::ts_parser_set_language(self.0, language.0);
+            ffi::ts_parser_set_language(self.0, language);
         }
     }
 
-    pub fn set_logger<F: FnMut(LogType, &str) -> ()>(&mut self, logger: &mut F) {
+    pub fn set_logger<F: FnMut(LogType, &str) -> ()>(&mut self, logger: Option<&mut F>) {
         unsafe extern "C" fn log<F: FnMut(LogType, &str) -> ()>(
             payload: *mut c_void,
             c_log_type: ffi::TSLogType,
@@ -81,12 +86,22 @@ impl Parser {
             }
         };
 
-        let c_logger = ffi::TSLogger {
-            payload: logger as *mut F as *mut c_void,
-            log: Some(log::<F>),
-        };
+        let c_logger;
+        if let Some(logger) = logger {
+            c_logger = ffi::TSLogger {
+                payload: logger as *mut F as *mut c_void,
+                log: Some(log::<F>),
+            };
+        } else {
+            c_logger = ffi::TSLogger { payload: ptr::null_mut(), log: None };
+        }
 
         unsafe { ffi::ts_parser_set_logger(self.0, c_logger) };
+    }
+
+    pub fn parse_str(&mut self, input: &str, old_tree: Option<Tree>) -> Option<Tree> {
+        let mut input = FlatInput { bytes: input.as_bytes(), offset: 0};
+        self.parse_utf8(&mut input, old_tree)
     }
 
     pub fn parse_utf8<T: Utf8Input>(
@@ -239,9 +254,7 @@ impl<'a> Node<'a> {
     }
 
     pub fn name(&self) -> &'static str {
-        unsafe { CStr::from_ptr(ffi::ts_node_type(self.0)) }
-            .to_str()
-            .unwrap()
+        unsafe { CStr::from_ptr(ffi::ts_node_type(self.0)) }.to_str().unwrap()
     }
 
     pub fn start_index(&self) -> u32 {
@@ -272,10 +285,23 @@ impl<'a> Node<'a> {
         Self::new(unsafe { ffi::ts_node_child(self.0, i) })
     }
 
+    pub fn child_count(&self) -> u32 {
+        unsafe { ffi::ts_node_child_count(self.0) }
+    }
+
     pub fn parent(&self) -> Option<Node> {
         Self::new(unsafe { ffi::ts_node_parent(self.0) })
     }
+
+    pub fn to_sexp(&self) -> String {
+        let c_string = unsafe { ffi::ts_node_string(self.0) };
+        let result = unsafe { CStr::from_ptr(c_string) }.to_str().unwrap().to_string();
+        unsafe { free(c_string as *mut c_void) };
+        result
+    }
 }
+
+extern "C" { fn free(pointer: *mut c_void); }
 
 impl<'a> TreeCursor<'a> {
     fn node(&'a self) -> Node<'a> {
@@ -322,8 +348,63 @@ impl Into<ffi::TSPoint> for Point {
     }
 }
 
+impl<'a> Utf8Input for FlatInput<'a> {
+    fn read(&mut self) -> &[u8] {
+        let result = &self.bytes[self.offset..];
+        self.offset = self.bytes.len();
+        result
+    }
+
+    fn seek(&mut self, offset: u32, _position: Point) {
+        self.offset = offset as usize;
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    fn rust() -> Language { unsafe { tree_sitter_rust() } }
+    extern "C" { fn tree_sitter_rust() -> Language; }
+
     #[test]
-    fn it_works() {}
+    fn test_basic_parsing() {
+        let mut parser = Parser::new();
+        parser.set_language(rust());
+
+        let tree = parser.parse_str("
+            struct Stuff {}
+            fn main() {}
+        ", None).unwrap();
+
+        let root_node = tree.root_node();
+        assert_eq!(root_node.name(), "source_file");
+
+        assert_eq!(
+            root_node.to_sexp(),
+            "(source_file (struct_item (type_identifier) (field_declaration_list)) (function_item (identifier) (parameters) (block)))"
+        );
+
+        let struct_node = root_node.child(0).unwrap();
+        assert_eq!(struct_node.name(), "struct_item");
+    }
+
+    #[test]
+    fn test_logging() {
+        let mut parser = Parser::new();
+        parser.set_language(rust());
+
+        let mut messages = Vec::new();
+        parser.set_logger(Some(&mut |log_type, message| {
+            messages.push((log_type, message.to_string()));
+        }));
+
+        parser.parse_str("
+            struct Stuff {}
+            fn main() {}
+        ", None).unwrap();
+
+        assert!(messages.contains(&(LogType::Parse, "reduce sym:struct_item, child_count:3".to_string())));
+        assert!(messages.contains(&(LogType::Lex, "skip character:' '".to_string())));
+    }
 }
