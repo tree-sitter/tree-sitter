@@ -36,6 +36,7 @@ fn main() {
 
     if env::var("RUST_TREE_SITTER_TEST").is_ok() {
         let parser_dir = Path::new("fixtures/tree-sitter-rust/src");
+        config.flag_if_supported("-Wno-typedef-redefinition");
         config.file(parser_dir.join("parser.c"));
         config.file(parser_dir.join("scanner.c"));
     }

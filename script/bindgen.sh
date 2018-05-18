@@ -1,6 +1,6 @@
 #!/bin/bash
 
-output_path=src/ffi.rs
+output_path=src/bindings.rs
 header_path='vendor/tree-sitter/include/tree_sitter/runtime.h'
 
 bindgen                         \
