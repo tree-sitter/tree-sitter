@@ -8,6 +8,7 @@ fn main() {
     let root_path: PathBuf = ["vendor", "tree-sitter"].iter().collect();
 
     config
+        .define("UTF8PROC_STATIC", "")
         .flag_if_supported("-std=c99")
         .flag_if_supported("-Wno-unused-parameter")
         .include(root_path.join("src"))
