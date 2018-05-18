@@ -24,6 +24,8 @@ pub enum LogType {
     Lex,
 }
 
+type Logger<'a> = Box<FnMut(LogType, &str) + 'a>;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Point {
     pub row: u32,
@@ -44,7 +46,7 @@ pub struct Node<'a>(ffi::TSNode, PhantomData<&'a ()>);
 
 pub struct Parser(*mut ffi::TSParser);
 
-pub struct Tree(*mut ffi::TSTree, ffi::TSInputEncoding);
+pub struct Tree(*mut ffi::TSTree);
 
 pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 
@@ -77,28 +79,42 @@ impl Parser {
         }
     }
 
-    pub fn set_logger<F: FnMut(LogType, &str) -> ()>(&mut self, logger: Option<&mut F>) {
-        unsafe extern "C" fn log<F: FnMut(LogType, &str) -> ()>(
-            payload: *mut c_void,
-            c_log_type: ffi::TSLogType,
-            c_message: *const c_char,
-        ) {
-            let callback = (payload as *mut F).as_mut().unwrap();
-            if let Ok(message) = CStr::from_ptr(c_message).to_str() {
-                let log_type = if c_log_type == ffi::TSLogType_TSLogTypeParse {
-                    LogType::Parse
-                } else {
-                    LogType::Lex
-                };
-                callback(log_type, message);
-            }
-        };
+    pub fn logger(&self) -> Option<&Logger> {
+        let logger = unsafe { ffi::ts_parser_logger(self.0) };
+        unsafe { (logger.payload as *mut Logger).as_ref() }
+    }
+
+    pub fn set_logger(&mut self, logger: Option<Logger>) {
+        let prev_logger = unsafe { ffi::ts_parser_logger(self.0) };
+        if !prev_logger.payload.is_null() {
+            unsafe { Box::from_raw(prev_logger.payload as *mut Logger) };
+        }
 
         let c_logger;
         if let Some(logger) = logger {
+            let container = Box::new(logger);
+
+            unsafe extern "C" fn log(
+                payload: *mut c_void,
+                c_log_type: ffi::TSLogType,
+                c_message: *const c_char,
+            ) {
+                let callback = (payload as *mut Logger).as_mut().unwrap();
+                if let Ok(message) = CStr::from_ptr(c_message).to_str() {
+                    let log_type = if c_log_type == ffi::TSLogType_TSLogTypeParse {
+                        LogType::Parse
+                    } else {
+                        LogType::Lex
+                    };
+                    callback(log_type, message);
+                }
+            };
+
+            let raw_container = Box::into_raw(container);
+
             c_logger = ffi::TSLogger {
-                payload: logger as *mut F as *mut c_void,
-                log: Some(log::<F>),
+                payload: raw_container as *mut c_void,
+                log: Some(log),
             };
         } else {
             c_logger = ffi::TSLogger { payload: ptr::null_mut(), log: None };
@@ -156,7 +172,7 @@ impl Parser {
         if new_tree_ptr.is_null() {
             None
         } else {
-            Some(Tree(new_tree_ptr, ffi::TSInputEncoding_TSInputEncodingUTF8))
+            Some(Tree(new_tree_ptr))
         }
     }
 
@@ -204,16 +220,14 @@ impl Parser {
         if new_tree_ptr.is_null() {
             None
         } else {
-            Some(Tree(
-                new_tree_ptr,
-                ffi::TSInputEncoding_TSInputEncodingUTF16,
-            ))
+            Some(Tree(new_tree_ptr))
         }
     }
 }
 
 impl Drop for Parser {
     fn drop(&mut self) {
+        self.set_logger(None);
         unsafe { ffi::ts_parser_delete(self.0) }
     }
 }
@@ -248,7 +262,7 @@ impl Drop for Tree {
 
 impl Clone for Tree {
     fn clone(&self) -> Tree {
-        unsafe { Tree(ffi::ts_tree_copy(self.0), self.1) }
+        unsafe { Tree(ffi::ts_tree_copy(self.0)) }
     }
 }
 
@@ -461,9 +475,9 @@ mod tests {
         parser.set_language(rust()).unwrap();
 
         let mut messages = Vec::new();
-        parser.set_logger(Some(&mut |log_type, message| {
+        parser.set_logger(Some(Box::new(|log_type, message| {
             messages.push((log_type, message.to_string()));
-        }));
+        })));
 
         parser.parse_str("
             struct Stuff {}
