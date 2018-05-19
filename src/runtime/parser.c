@@ -57,7 +57,6 @@ struct TSParser {
   TokenCache token_cache;
   ReusableNode reusable_node;
   void *external_scanner_payload;
-  bool in_ambiguity;
   FILE *dot_graph_file;
   bool halt_on_error;
   unsigned accept_count;
@@ -254,6 +253,24 @@ static void ts_parser__restore_external_scanner(TSParser *self, const Subtree *e
   }
 }
 
+static bool ts_parser__can_reuse_first_leaf(TSParser *self, TSStateId state, const Subtree *tree,
+                                            TableEntry *table_entry) {
+  TSLexMode current_lex_mode = self->language->lex_modes[state];
+
+  // If the token was created in a state with the same set of lookaheads, it is reusable.
+  if (tree->first_leaf.lex_mode.lex_state == current_lex_mode.lex_state &&
+      tree->first_leaf.lex_mode.external_lex_state == current_lex_mode.external_lex_state &&
+      (tree->first_leaf.symbol != self->language->keyword_capture_token ||
+       tree->parse_state == state)) return true;
+
+  // Empty tokens are not reusable in states with different lookaheads.
+  if (tree->size.bytes == 0 && tree->symbol != ts_builtin_sym_end) return false;
+
+  // If the current state allows external tokens or other tokens that conflict with this
+  // token, this token is not reusable.
+  return current_lex_mode.external_lex_state == 0 && table_entry->is_reusable;
+}
+
 static const Subtree *ts_parser__lex(TSParser *self, StackVersion version, TSStateId parse_state) {
   Length start_position = ts_stack_position(self->stack, version);
   const Subtree *external_token = ts_stack_last_external_token(self->stack, version);
@@ -402,20 +419,27 @@ static const Subtree *ts_parser__lex(TSParser *self, StackVersion version, TSSta
   return result;
 }
 
-static const Subtree *ts_parser__get_cached_token(TSParser *self, size_t byte_index,
-                                                  const Subtree *last_external_token) {
+static const Subtree *ts_parser__get_cached_token(TSParser *self, TSStateId state,
+                                                  size_t position,
+                                                  const Subtree *last_external_token,
+                                                  TableEntry *table_entry) {
   TokenCache *cache = &self->token_cache;
-  if (cache->token &&
-      cache->byte_index == byte_index &&
-      ts_subtree_external_scanner_state_eq(cache->last_external_token, last_external_token)) {
-    return cache->token;
-  } else {
-    return NULL;
+  if (
+    cache->token && cache->byte_index == position &&
+    ts_subtree_external_scanner_state_eq(cache->last_external_token, last_external_token)
+  ) {
+    ts_language_table_entry(self->language, state, cache->token->first_leaf.symbol, table_entry);
+    if (ts_parser__can_reuse_first_leaf(self, state, cache->token, table_entry)) {
+      ts_subtree_retain(cache->token);
+      return cache->token;
+    }
   }
+  return NULL;
 }
 
 static void ts_parser__set_cached_token(TSParser *self, size_t byte_index,
-                                        const Subtree *last_external_token, const Subtree *token) {
+                                        const Subtree *last_external_token,
+                                        const Subtree *token) {
   TokenCache *cache = &self->token_cache;
   if (token) ts_subtree_retain(token);
   if (last_external_token) ts_subtree_retain(last_external_token);
@@ -426,47 +450,27 @@ static void ts_parser__set_cached_token(TSParser *self, size_t byte_index,
   cache->last_external_token = last_external_token;
 }
 
-static bool ts_parser__can_reuse_first_leaf(TSParser *self, TSStateId state, const Subtree *tree,
+static const Subtree *ts_parser__reuse_node(TSParser *self, StackVersion version,
+                                            TSStateId *state, uint32_t position,
+                                            const Subtree *last_external_token,
                                             TableEntry *table_entry) {
-  TSLexMode current_lex_mode = self->language->lex_modes[state];
-
-  // If the token was created in a state with the same set of lookaheads, it is reusable.
-  if (tree->first_leaf.lex_mode.lex_state == current_lex_mode.lex_state &&
-      tree->first_leaf.lex_mode.external_lex_state == current_lex_mode.external_lex_state &&
-      (tree->first_leaf.symbol != self->language->keyword_capture_token ||
-       tree->parse_state == state)) return true;
-
-  // Empty tokens are not reusable in states with different lookaheads.
-  if (tree->size.bytes == 0 && tree->symbol != ts_builtin_sym_end) return false;
-
-  // If the current state allows external tokens or other tokens that conflict with this
-  // token, this token is not reusable.
-  return current_lex_mode.external_lex_state == 0 && table_entry->is_reusable;
-}
-
-static const Subtree *ts_parser__get_lookahead(TSParser *self, StackVersion version,
-                                               TSStateId *state, ReusableNode *reusable_node,
-                                               TableEntry *table_entry) {
-  Length position = ts_stack_position(self->stack, version);
-  const Subtree *last_external_token = ts_stack_last_external_token(self->stack, version);
-
   const Subtree *result;
-  while ((result = reusable_node_tree(reusable_node))) {
-    uint32_t byte_offset = reusable_node_byte_offset(reusable_node);
-    if (byte_offset > position.bytes) {
+  while ((result = reusable_node_tree(&self->reusable_node))) {
+    uint32_t byte_offset = reusable_node_byte_offset(&self->reusable_node);
+    if (byte_offset > position) {
       LOG("before_reusable_node symbol:%s", SYM_NAME(result->symbol));
       break;
     }
 
-    if (byte_offset < position.bytes) {
+    if (byte_offset < position) {
       LOG("past_reusable_node symbol:%s", SYM_NAME(result->symbol));
-      reusable_node_advance(reusable_node);
+      reusable_node_advance(&self->reusable_node);
       continue;
     }
 
-    if (!ts_subtree_external_scanner_state_eq(reusable_node->last_external_token, last_external_token)) {
+    if (!ts_subtree_external_scanner_state_eq(self->reusable_node.last_external_token, last_external_token)) {
       LOG("reusable_node_has_different_external_scanner_state symbol:%s", SYM_NAME(result->symbol));
-      reusable_node_advance(reusable_node);
+      reusable_node_advance(&self->reusable_node);
       continue;
     }
 
@@ -479,14 +483,12 @@ static const Subtree *ts_parser__get_lookahead(TSParser *self, StackVersion vers
       reason = "is_missing";
     } else if (result->fragile_left || result->fragile_right) {
       reason = "is_fragile";
-    } else if (self->in_ambiguity && result->children.size) {
-      reason = "in_ambiguity";
     }
 
     if (reason) {
       LOG("cant_reuse_node_%s tree:%s", reason, SYM_NAME(result->symbol));
-      if (!reusable_node_descend(reusable_node)) {
-        reusable_node_advance(reusable_node);
+      if (!reusable_node_descend(&self->reusable_node)) {
+        reusable_node_advance(&self->reusable_node);
         ts_parser__breakdown_top_of_stack(self, version);
         *state = ts_stack_state(self->stack, version);
       }
@@ -500,7 +502,7 @@ static const Subtree *ts_parser__get_lookahead(TSParser *self, StackVersion vers
         SYM_NAME(result->symbol),
         SYM_NAME(result->first_leaf.symbol)
       );
-      reusable_node_advance_past_leaf(reusable_node);
+      reusable_node_advance_past_leaf(&self->reusable_node);
       break;
     }
 
@@ -509,18 +511,7 @@ static const Subtree *ts_parser__get_lookahead(TSParser *self, StackVersion vers
     return result;
   }
 
-  if ((result = ts_parser__get_cached_token(self, position.bytes, last_external_token))) {
-    ts_language_table_entry(self->language, *state, result->first_leaf.symbol, table_entry);
-    if (ts_parser__can_reuse_first_leaf(self, *state, result, table_entry)) {
-      ts_subtree_retain(result);
-      return result;
-    }
-  }
-
-  result = ts_parser__lex(self, version, *state);
-  ts_parser__set_cached_token(self, position.bytes, last_external_token, result);
-  ts_language_table_entry(self->language, *state, result->symbol, table_entry);
-  return result;
+  return NULL;
 }
 
 static bool ts_parser__select_tree(TSParser *self, const Subtree *left, const Subtree *right) {
@@ -654,7 +645,7 @@ static StackSliceArray ts_parser__reduce(TSParser *self, StackVersion version, T
 
     TSStateId state = ts_stack_state(self->stack, slice.version);
     TSStateId next_state = ts_language_next_state(self->language, state, symbol);
-    if (fragile || self->in_ambiguity || pop.size > 1 || initial_version_count > 1) {
+    if (fragile || pop.size > 1 || initial_version_count > 1) {
       parent->fragile_left = true;
       parent->fragile_right = true;
       parent->parse_state = TS_TREE_STATE_NONE;
@@ -712,7 +703,6 @@ static void ts_parser__start(TSParser *self, TSInput input, const Subtree *previ
   reusable_node_reset(&self->reusable_node, previous_tree);
   self->finished_tree = NULL;
   self->accept_count = 0;
-  self->in_ambiguity = false;
 }
 
 static void ts_parser__accept(TSParser *self, StackVersion version, const Subtree *lookahead) {
@@ -1107,12 +1097,36 @@ static void ts_parser__recover(TSParser *self, StackVersion version, const Subtr
   }
 }
 
-static void ts_parser__advance(TSParser *self, StackVersion version, ReusableNode *reusable_node) {
+static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_node_reuse) {
   TSStateId state = ts_stack_state(self->stack, version);
+  uint32_t position = ts_stack_position(self->stack, version).bytes;
+  const Subtree *last_external_token = ts_stack_last_external_token(self->stack, version);
+
+  bool did_reuse = true;
+  const Subtree *lookahead = NULL;
   TableEntry table_entry;
-  const Subtree *lookahead = ts_parser__get_lookahead(
-    self, version, &state, reusable_node, &table_entry
-  );
+
+  // If possible, reuse a node from the previous syntax tree.
+  if (allow_node_reuse) {
+    lookahead = ts_parser__reuse_node(
+      self, version, &state, position, last_external_token, &table_entry
+    );
+  }
+
+  // Otherwise, try to reuse the token previously returned by the lexer.
+  if (!lookahead) {
+    did_reuse = false;
+    lookahead = ts_parser__get_cached_token(
+      self, state, position, last_external_token, &table_entry
+    );
+  }
+
+  // Otherwise, re-run the lexer.
+  if (!lookahead) {
+    lookahead = ts_parser__lex(self, version, state);
+    ts_parser__set_cached_token(self, position, last_external_token, lookahead);
+    ts_language_table_entry(self->language, state, lookahead->symbol, &table_entry);
+  }
 
   for (;;) {
     StackVersion last_reduction_version = STACK_VERSION_NONE;
@@ -1137,14 +1151,12 @@ static void ts_parser__advance(TSParser *self, StackVersion version, ReusableNod
           }
 
           if (lookahead->children.size > 0) {
-            ts_parser__breakdown_lookahead(self, &lookahead, state, reusable_node);
+            ts_parser__breakdown_lookahead(self, &lookahead, state, &self->reusable_node);
             next_state = ts_language_next_state(self->language, state, lookahead->symbol);
           }
 
           ts_parser__shift(self, version, next_state, lookahead, action.params.extra);
-          if (lookahead == reusable_node_tree(reusable_node)) {
-            reusable_node_advance(reusable_node);
-          }
+          if (did_reuse) reusable_node_advance(&self->reusable_node);
           return;
         }
 
@@ -1168,13 +1180,12 @@ static void ts_parser__advance(TSParser *self, StackVersion version, ReusableNod
         }
 
         case TSParseActionTypeRecover: {
-          while (lookahead->children.size > 0) {
-            ts_parser__breakdown_lookahead(self, &lookahead, state, reusable_node);
+          if (lookahead->children.size > 0) {
+            ts_parser__breakdown_lookahead(self, &lookahead, ERROR_STATE, &self->reusable_node);
           }
+
           ts_parser__recover(self, version, lookahead);
-          if (lookahead == reusable_node_tree(reusable_node)) {
-            reusable_node_advance(reusable_node);
-          }
+          if (did_reuse) reusable_node_advance(&self->reusable_node);
           return;
         }
       }
@@ -1355,15 +1366,13 @@ TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
   if (!self->language) return NULL;
   ts_parser__start(self, input, old_tree ? old_tree->root : NULL);
 
-  StackVersion version = STACK_VERSION_NONE;
-  uint32_t position = 0, last_position = 0;
-  ReusableNode reusable_node = reusable_node_new();
-  reusable_node_assign(&reusable_node, &self->reusable_node);
+  uint32_t position = 0, last_position = 0, version_count = 0;
 
   do {
-    for (version = 0; version < ts_stack_version_count(self->stack); version++) {
-      reusable_node_assign(&reusable_node, &self->reusable_node);
-
+    for (StackVersion version = 0;
+         version_count = ts_stack_version_count(self->stack), version < version_count;
+         version++) {
+      bool allow_node_reuse = version_count == 1;
       while (ts_stack_is_active(self->stack, version)) {
         LOG("process version:%d, version_count:%u, state:%d, row:%u, col:%u",
             version, ts_stack_version_count(self->stack),
@@ -1371,7 +1380,7 @@ TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
             ts_stack_position(self->stack, version).extent.row,
             ts_stack_position(self->stack, version).extent.column);
 
-        ts_parser__advance(self, version, &reusable_node);
+        ts_parser__advance(self, version, allow_node_reuse);
         LOG_STACK();
 
         position = ts_stack_position(self->stack, version).bytes;
@@ -1382,8 +1391,6 @@ TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
       }
     }
 
-    reusable_node_assign(&self->reusable_node, &reusable_node);
-
     unsigned min_error_cost = ts_parser__condense_stack(self);
     if (self->finished_tree && self->finished_tree->error_cost < min_error_cost) {
       break;
@@ -1391,11 +1398,8 @@ TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
       ts_parser__halt_parse(self);
       break;
     }
+  } while (version_count != 0);
 
-    self->in_ambiguity = version > 1;
-  } while (version != 0);
-
-  reusable_node_delete(&reusable_node);
   ts_stack_clear(self->stack);
   ts_parser__set_cached_token(self, 0, NULL, NULL);
   ts_subtree_balance(self->finished_tree, &self->tree_pool, self->language);
