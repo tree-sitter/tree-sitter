@@ -22,6 +22,7 @@ static inline void reusable_node_reset(ReusableNode *self, const Subtree *tree) 
     .child_index = 0,
     .byte_offset = 0,
   }));
+  self->last_external_token = NULL;
 }
 
 static inline const Subtree *reusable_node_tree(ReusableNode *self) {
@@ -38,10 +39,6 @@ static inline uint32_t reusable_node_byte_offset(ReusableNode *self) {
 
 static inline void reusable_node_delete(ReusableNode *self) {
   array_delete(&self->stack);
-}
-
-static inline void reusable_node_assign(ReusableNode *self, const ReusableNode *other) {
-  array_assign(&self->stack, &other->stack);
 }
 
 static inline void reusable_node_advance(ReusableNode *self) {
