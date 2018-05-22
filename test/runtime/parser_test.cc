@@ -1,4 +1,5 @@
 #include "test_helper.h"
+#include <future>
 #include "runtime/alloc.h"
 #include "runtime/language.h"
 #include "helpers/record_alloc.h"
@@ -608,6 +609,51 @@ describe("Parser", [&]() {
         tree = ts_parser_parse_string(parser, nullptr, "{}", 2);
         AssertThat(logger->messages, IsEmpty());
       });
+    });
+  });
+
+  describe("set_enabled(enabled)", [&]() {
+    it("stops the in-progress parse if false is passed", [&]() {
+      ts_parser_set_language(parser, load_real_language("json"));
+      AssertThat(ts_parser_enabled(parser), IsTrue());
+
+      auto tree_future = std::async([parser]() {
+        size_t read_count = 0;
+        TSInput infinite_input = {
+          &read_count,
+          [](void *payload, uint32_t *bytes_read) {
+            size_t *read_count = static_cast<size_t *>(payload);
+            assert((*read_count)++ < 100000);
+            *bytes_read = 1;
+            return "[";
+          },
+          [](void *payload, unsigned byte, TSPoint position) -> int {
+            return true;
+          },
+          TSInputEncodingUTF8
+        };
+
+        return ts_parser_parse(parser, nullptr, infinite_input);
+      });
+
+      auto cancel_future = std::async([parser]() {
+        ts_parser_set_enabled(parser, false);
+      });
+
+      cancel_future.wait();
+      tree_future.wait();
+      AssertThat(ts_parser_enabled(parser), IsFalse());
+      AssertThat(tree_future.get(), Equals<TSTree *>(nullptr));
+
+      TSTree *tree = ts_parser_parse_string(parser, nullptr, "[]", 2);
+      AssertThat(ts_parser_enabled(parser), IsFalse());
+      AssertThat(tree, Equals<TSTree *>(nullptr));
+
+      ts_parser_set_enabled(parser, true);
+      AssertThat(ts_parser_enabled(parser), IsTrue());
+      tree = ts_parser_parse_string(parser, nullptr, "[]", 2);
+      AssertThat(tree, !Equals<TSTree *>(nullptr));
+      ts_tree_delete(tree);
     });
   });
 });
