@@ -52,14 +52,27 @@ string grammar_with_aliases_and_extras = R"JSON({
           "named": true,
           "content": {"type": "SYMBOL", "name": "b"}
         },
-        {"type": "SYMBOL", "name": "b"}
+        {
+          "type": "ALIAS",
+          "value": "C",
+          "named": true,
+          "content": {"type": "SYMBOL", "name": "_c"}
+        }
       ]
     },
 
     "b": {"type": "STRING", "value": "b"},
+
+    "_c": {"type": "STRING", "value": "c"},
+
     "comment": {"type": "STRING", "value": "..."}
   }
 })JSON";
+
+const TSLanguage *language_with_aliases_and_extras = load_test_language(
+  "aliases_and_extras",
+  ts_compile_grammar(grammar_with_aliases_and_extras.c_str())
+);
 
 describe("Node", [&]() {
   TSParser *parser;
@@ -163,16 +176,13 @@ describe("Node", [&]() {
     });
 
     it("works correctly when the node contains aliased children and extras", [&]() {
-      TSCompileResult compile_result = ts_compile_grammar(grammar_with_aliases_and_extras.c_str());
-      const TSLanguage *language =  load_test_language("aliases_and_extras", compile_result);
-      ts_parser_set_language(parser, language);
-
+      ts_parser_set_language(parser, language_with_aliases_and_extras);
       ts_tree_delete(tree);
-      tree = ts_parser_parse_string(parser, nullptr, "b ... b ... b", 13);
+      tree = ts_parser_parse_string(parser, nullptr, "b ... b ... c", 13);
       root_node = ts_tree_root_node(tree);
 
       char *node_string = ts_node_string(root_node);
-      AssertThat(node_string, Equals("(a (b) (comment) (B) (comment) (b))"));
+      AssertThat(node_string, Equals("(a (b) (comment) (B) (comment) (C))"));
       ts_free(node_string);
 
       AssertThat(ts_node_named_child_count(root_node), Equals(5u));
@@ -180,7 +190,7 @@ describe("Node", [&]() {
       AssertThat(ts_node_type(ts_node_named_child(root_node, 1)), Equals("comment"));
       AssertThat(ts_node_type(ts_node_named_child(root_node, 2)), Equals("B"));
       AssertThat(ts_node_type(ts_node_named_child(root_node, 3)), Equals("comment"));
-      AssertThat(ts_node_type(ts_node_named_child(root_node, 4)), Equals("b"));
+      AssertThat(ts_node_type(ts_node_named_child(root_node, 4)), Equals("C"));
 
       AssertThat(
         ts_node_symbol(ts_node_named_child(root_node, 0)),
@@ -699,6 +709,42 @@ describe("TreeCursor", [&]() {
     AssertThat(ts_node_type(node), Equals("array"));
     AssertThat(ts_node_start_byte(node), Equals(array_index));
     AssertThat(child_index, Equals(-1));
+  });
+
+  it("walks the tree correctly when the node contains aliased children and extras", [&]() {
+    ts_parser_set_language(parser, language_with_aliases_and_extras);
+    ts_tree_cursor_delete(&cursor);
+    ts_tree_delete(tree);
+
+    tree = ts_parser_parse_string(parser, nullptr, "b ... b ... c", 13);
+    cursor = ts_tree_cursor_new(tree);
+
+    TSNode node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("a"));
+
+    AssertThat(ts_tree_cursor_goto_first_child(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("b"));
+
+    AssertThat(ts_tree_cursor_goto_next_sibling(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("comment"));
+
+    AssertThat(ts_tree_cursor_goto_next_sibling(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("B"));
+
+    AssertThat(ts_tree_cursor_goto_next_sibling(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("comment"));
+
+    AssertThat(ts_tree_cursor_goto_next_sibling(&cursor), IsTrue());
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("C"));
+
+    AssertThat(ts_tree_cursor_goto_next_sibling(&cursor), IsFalse());
+    AssertThat(ts_tree_cursor_goto_parent(&cursor), IsTrue());
+    AssertThat(ts_tree_cursor_goto_first_child_for_byte(&cursor, 0), Equals(0));
   });
 });
 
