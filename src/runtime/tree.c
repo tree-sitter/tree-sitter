@@ -25,7 +25,7 @@ void ts_tree_delete(TSTree *self) {
 }
 
 TSNode ts_tree_root_node(const TSTree *self) {
-  return ts_node_new(self, self->root, length_zero(), 0);
+  return ts_node_new(self, self->root, self->root->padding, 0);
 }
 
 void ts_tree_edit(TSTree *self, const TSInputEdit *edit) {
