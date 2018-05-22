@@ -1,4 +1,3 @@
-#include <string.h>
 #include <cassert>
 #include "tree_sitter/runtime.h"
 
