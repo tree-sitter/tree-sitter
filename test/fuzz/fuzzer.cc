@@ -1,12 +1,6 @@
 #include <cassert>
 #include "tree_sitter/runtime.h"
 
-void test_log(void *payload, TSLogType type, const char *string) { }
-
-TSLogger logger = {
-  .log = test_log,
-};
-
 extern "C" const TSLanguage *TS_LANG();
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
