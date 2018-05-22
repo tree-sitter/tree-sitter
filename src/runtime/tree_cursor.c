@@ -4,6 +4,56 @@
 #include "runtime/language.h"
 #include "runtime/tree.h"
 
+typedef struct {
+  const Subtree *parent;
+  const TSTree *tree;
+  Length position;
+  uint32_t child_index;
+  uint32_t structural_child_index;
+  const TSSymbol *alias_sequence;
+} ChildIterator;
+
+// ChildIterator
+
+static inline ChildIterator ts_tree_cursor_iterate_children(const TreeCursor *self) {
+  TreeCursorEntry *last_entry = array_back(&self->stack);
+  const TSSymbol *alias_sequence = ts_language_alias_sequence(
+    self->tree->language,
+    last_entry->subtree->alias_sequence_id
+  );
+  return (ChildIterator) {
+    .tree = self->tree,
+    .parent = last_entry->subtree,
+    .position = last_entry->position,
+    .child_index = 0,
+    .structural_child_index = 0,
+    .alias_sequence = alias_sequence,
+  };
+}
+
+static inline bool ts_tree_cursor_child_iterator_next(ChildIterator *self,
+                                                      TreeCursorEntry *result,
+                                                      bool *visible) {
+  if (self->child_index == self->parent->children.size) return false;
+  const Subtree *child = self->parent->children.contents[self->child_index];
+  *result = (TreeCursorEntry) {
+    .subtree = child,
+    .position = self->position,
+    .child_index = self->child_index,
+    .structural_child_index = self->structural_child_index,
+  };
+  *visible = child->visible;
+  if (!child->extra && self->alias_sequence) {
+    *visible |= self->alias_sequence[self->structural_child_index];
+  }
+  self->position = length_add(self->position, ts_subtree_total_size(child));
+  self->child_index++;
+  if (!child->extra) self->structural_child_index++;
+  return true;
+}
+
+// TSTreeCursor - lifecycle
+
 TSTreeCursor ts_tree_cursor_new(const TSTree *tree) {
   TSTreeCursor self;
   ts_tree_cursor_init((TreeCursor *)&self, tree);
@@ -26,47 +76,29 @@ void ts_tree_cursor_delete(TSTreeCursor *_self) {
   array_delete(&self->stack);
 }
 
+// TSTreeCursor - walking the tree
+
 bool ts_tree_cursor_goto_first_child(TSTreeCursor *_self) {
   TreeCursor *self = (TreeCursor *)_self;
-  TreeCursorEntry *last_entry = array_back(&self->stack);
-  const Subtree *subtree = last_entry->subtree;
-  if (subtree->children.size == 0 || subtree->visible_child_count == 0) return false;
-  Length position = last_entry->position;
 
   bool did_descend;
   do {
     did_descend = false;
 
-    const TSSymbol *alias_sequence = ts_language_alias_sequence(
-      self->tree->language,
-      subtree->alias_sequence_id
-    );
-    uint32_t structural_child_index = 0;
-    for (uint32_t i = 0; i < subtree->children.size; i++) {
-      const Subtree *child = subtree->children.contents[i];
-      bool visible = child->visible;
-      if (!child->extra) {
-        visible |= alias_sequence && alias_sequence[structural_child_index];
+    bool visible;
+    TreeCursorEntry entry;
+    ChildIterator iterator = ts_tree_cursor_iterate_children(self);
+    while (ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible)) {
+      if (visible) {
+        array_push(&self->stack, entry);
+        return true;
       }
 
-      if (visible || (child->children.size > 0 && child->visible_child_count > 0)) {
-        array_push(&self->stack, ((TreeCursorEntry) {
-          .subtree = child,
-          .child_index = i,
-          .structural_child_index = structural_child_index,
-          .position = position,
-        }));
-
-        if (visible) {
-          return true;
-        } else {
-          subtree = child;
-          did_descend = true;
-          break;
-        }
+      if (entry.subtree->children.size > 0 && entry.subtree->visible_child_count > 0) {
+        array_push(&self->stack, entry);
+        did_descend = true;
+        break;
       }
-      if (!child->extra) structural_child_index++;
-      position = length_add(position, ts_subtree_total_size(child));
     }
   } while (did_descend);
 
@@ -76,59 +108,37 @@ bool ts_tree_cursor_goto_first_child(TSTreeCursor *_self) {
 int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *_self, uint32_t goal_byte) {
   TreeCursor *self = (TreeCursor *)_self;
   uint32_t initial_size = self->stack.size;
-  TreeCursorEntry *last_entry = array_back(&self->stack);
-  const Subtree *subtree = last_entry->subtree;
-  Length position = last_entry->position;
   uint32_t visible_child_index = 0;
 
   bool did_descend;
   do {
     did_descend = false;
 
-    const TSSymbol *alias_sequence = ts_language_alias_sequence(
-      self->tree->language,
-      subtree->alias_sequence_id
-    );
-    uint32_t structural_child_index = 0;
-    for (uint32_t i = 0; i < subtree->children.size; i++) {
-      const Subtree *child = subtree->children.contents[i];
-      Length next_position = length_add(position, ts_subtree_total_size(child));
-      bool at_goal = next_position.bytes > goal_byte;
-
-      bool visible = child->visible;
-      if (!child->extra) {
-        visible |= alias_sequence && alias_sequence[structural_child_index];
-      }
-
-      uint32_t visible_child_count = child->children.size > 0 ? child->visible_child_count : 0;
+    bool visible;
+    TreeCursorEntry entry;
+    ChildIterator iterator = ts_tree_cursor_iterate_children(self);
+    while (ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible)) {
+      bool at_goal = iterator.position.bytes > goal_byte;
+      uint32_t visible_child_count = entry.subtree->children.size > 0
+        ? entry.subtree->visible_child_count
+        : 0;
 
       if (at_goal) {
-        if (visible || visible_child_count > 0) {
-          array_push(&self->stack, ((TreeCursorEntry) {
-            .subtree = child,
-            .child_index = i,
-            .structural_child_index = structural_child_index,
-            .position = position,
-          }));
-
-          if (visible) {
-            return visible_child_index;
-          } else {
-            subtree = child;
-            did_descend = true;
-            break;
-          }
-        }
-      } else {
         if (visible) {
-          visible_child_index++;
-        } else {
-          visible_child_index += visible_child_count;
+          array_push(&self->stack, entry);
+          return visible_child_index;
         }
-      }
 
-      if (!child->extra) structural_child_index++;
-      position = next_position;
+        if (visible_child_count > 0) {
+          array_push(&self->stack, entry);
+          did_descend = true;
+          break;
+        }
+      } else if (visible) {
+        visible_child_index++;
+      } else {
+        visible_child_index += visible_child_count;
+      }
     }
   } while (did_descend);
 
@@ -138,53 +148,34 @@ int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *_self, uint32_t g
 
 bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *_self) {
   TreeCursor *self = (TreeCursor *)_self;
-  TreeCursorEntry *child_entry = array_back(&self->stack);
+  uint32_t initial_size = self->stack.size;
 
-  for (unsigned i = self->stack.size - 2; i + 1 > 0; i--) {
-    TreeCursorEntry *parent_entry = &self->stack.contents[i];
+  while (self->stack.size > 1) {
+    bool visible;
+    TreeCursorEntry entry = array_pop(&self->stack);
+    ChildIterator iterator = ts_tree_cursor_iterate_children(self);
+    iterator.child_index = entry.child_index;
+    iterator.structural_child_index = entry.structural_child_index;
+    iterator.position = entry.position;
 
-    const Subtree *parent = parent_entry->subtree;
-    uint32_t child_index = child_entry->child_index;
-    uint32_t structural_child_index = child_entry->structural_child_index;
-    Length position = child_entry->position;
-    const Subtree *child = parent->children.contents[child_index];
-    const TSSymbol *alias_sequence = ts_language_alias_sequence(
-      self->tree->language,
-      parent->alias_sequence_id
-    );
+    ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible);
+    if (visible && self->stack.size + 1 < initial_size) break;
 
-    while (++child_index < parent->children.size) {
-      if (!child->extra) structural_child_index++;
-      position = length_add(position, ts_subtree_total_size(child));
-      child = parent->children.contents[child_index];
-
-      bool visible = child->visible;
-      if (!child->extra) {
-        visible |= alias_sequence && alias_sequence[structural_child_index];
+    while (ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible)) {
+      if (visible) {
+        array_push(&self->stack, entry);
+        return true;
       }
 
-      if (visible || (child->children.size > 0 && child->visible_child_count > 0)) {
-        self->stack.contents[i + 1] = (TreeCursorEntry) {
-          .subtree = child,
-          .child_index = child_index,
-          .structural_child_index = structural_child_index,
-          .position = position,
-        };
-        self->stack.size = i + 2;
-
-        if (visible) {
-          return true;
-        } else {
-          ts_tree_cursor_goto_first_child(_self);
-          return true;
-        }
+      if (entry.subtree->children.size > 0 && entry.subtree->visible_child_count > 0) {
+        array_push(&self->stack, entry);
+        ts_tree_cursor_goto_first_child(_self);
+        return true;
       }
     }
-
-    child_entry = parent_entry;
-    if (parent->visible) break;
   }
 
+  self->stack.size = initial_size;
   return false;
 }
 

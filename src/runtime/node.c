@@ -10,7 +10,7 @@ typedef struct {
   uint32_t child_index;
   uint32_t structural_child_index;
   const TSSymbol *alias_sequence;
-} NodeChildIterator;
+} ChildIterator;
 
 // TSNode - constructors
 
@@ -48,16 +48,16 @@ static inline const TSTree *ts_node__tree(const TSNode *self) {
   return self->tree;
 }
 
-// NodeChildIterator
+// ChildIterator
 
-static inline NodeChildIterator ts_node_child_iterator_begin(const TSNode *node) {
+static inline ChildIterator ts_node_iterate_children(const TSNode *node) {
   const TSTree *tree = ts_node__tree(node);
   const Subtree *subtree = ts_node__subtree(*node);
   const TSSymbol *alias_sequence = ts_language_alias_sequence(
     tree->language,
     subtree->alias_sequence_id
   );
-  return (NodeChildIterator) {
+  return (ChildIterator) {
     .tree = tree,
     .parent = subtree,
     .position = {ts_node_start_byte(*node), ts_node_start_point(*node)},
@@ -67,7 +67,7 @@ static inline NodeChildIterator ts_node_child_iterator_begin(const TSNode *node)
   };
 }
 
-static inline bool ts_node_child_iterator_next(NodeChildIterator *self, TSNode *result) {
+static inline bool ts_node_child_iterator_next(ChildIterator *self, TSNode *result) {
   if (self->child_index == self->parent->children.size) return false;
   const Subtree *child = self->parent->children.contents[self->child_index];
   TSSymbol alias_symbol = 0;
@@ -133,7 +133,7 @@ static inline TSNode ts_node__child(TSNode self, uint32_t child_index, bool incl
 
     TSNode child;
     uint32_t index = 0;
-    NodeChildIterator iterator = ts_node_child_iterator_begin(&result);
+    ChildIterator iterator = ts_node_iterate_children(&result);
     while (ts_node_child_iterator_next(&iterator, &child)) {
       if (ts_node__is_relevant(child, include_anonymous)) {
         if (index == child_index) return child;
@@ -168,7 +168,7 @@ static inline TSNode ts_node__prev_sibling(TSNode self, bool include_anonymous) 
     bool found_child_containing_target = false;
 
     TSNode child;
-    NodeChildIterator iterator = ts_node_child_iterator_begin(&node);
+    ChildIterator iterator = ts_node_iterate_children(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
       if (iterator.position.bytes >= target_end_byte) {
         found_child_containing_target = ts_node__subtree(child) != ts_node__subtree(self);
@@ -217,7 +217,7 @@ static inline TSNode ts_node__next_sibling(TSNode self, bool include_anonymous) 
     TSNode child_containing_target = ts_node__null();
 
     TSNode child;
-    NodeChildIterator iterator = ts_node_child_iterator_begin(&node);
+    ChildIterator iterator = ts_node_iterate_children(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
       if (iterator.position.bytes < target_end_byte) continue;
       if (ts_node_start_byte(child) <= ts_node_start_byte(self)) {
@@ -268,7 +268,7 @@ static inline TSNode ts_node__first_child_for_byte(TSNode self, uint32_t goal,
     did_descend = false;
 
     TSNode child;
-    NodeChildIterator iterator = ts_node_child_iterator_begin(&node);
+    ChildIterator iterator = ts_node_iterate_children(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
       if (ts_node_end_byte(child) > goal) {
         if (ts_node__is_relevant(child, include_anonymous)) {
@@ -296,7 +296,7 @@ static inline TSNode ts_node__descendant_for_byte_range(TSNode self, uint32_t mi
     did_descend = false;
 
     TSNode child;
-    NodeChildIterator iterator = ts_node_child_iterator_begin(&node);
+    ChildIterator iterator = ts_node_iterate_children(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
       if (iterator.position.bytes > max) {
         if (ts_node_start_byte(child) > min) break;
@@ -324,7 +324,7 @@ static inline TSNode ts_node__descendant_for_point_range(TSNode self, TSPoint mi
     did_descend = false;
 
     TSNode child;
-    NodeChildIterator iterator = ts_node_child_iterator_begin(&node);
+    ChildIterator iterator = ts_node_iterate_children(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
       const Subtree *child_tree = ts_node__subtree(child);
       if (iterator.child_index != 1) {
@@ -407,7 +407,7 @@ TSNode ts_node_parent(TSNode self) {
     did_descend = false;
 
     TSNode child;
-    NodeChildIterator iterator = ts_node_child_iterator_begin(&node);
+    ChildIterator iterator = ts_node_iterate_children(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
       if (
         ts_node_start_byte(child) > ts_node_start_byte(self) ||
