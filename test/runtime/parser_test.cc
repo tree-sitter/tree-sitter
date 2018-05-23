@@ -656,6 +656,64 @@ describe("Parser", [&]() {
       ts_tree_delete(tree);
     });
   });
+
+  describe("set_operation_limit(limit)", [&]() {
+    it("limits the amount of work the parser does on any given call to parse()", [&]() {
+      ts_parser_set_language(parser, load_real_language("json"));
+
+      struct InputState {
+        const char *string;
+        size_t read_count;
+      };
+
+      InputState state = {"[", 0};
+
+      // An input that repeats the given string forever, counting how many times
+      // it has been read.
+      TSInput infinite_input = {
+        &state,
+        [](void *payload, uint32_t *bytes_read) {
+          InputState *state = static_cast<InputState *>(payload);
+          assert(state->read_count++ <= 10);
+          *bytes_read = strlen(state->string);
+          return state->string;
+        },
+        [](void *payload, unsigned byte, TSPoint position) -> int {
+          return true;
+        },
+        TSInputEncodingUTF8
+      };
+
+      ts_parser_set_operation_limit(parser, 10);
+      TSTree *tree = ts_parser_parse(parser, nullptr, infinite_input);
+      AssertThat(tree, Equals<TSTree *>(nullptr));
+
+      state.read_count = 0;
+      state.string = "";
+
+      tree = ts_parser_resume(parser);
+      AssertThat(tree, !Equals<TSTree *>(nullptr));
+      ts_tree_delete(tree);
+    });
+  });
+
+  describe("resume()", [&]() {
+    it("does nothing unless parsing was previously halted", [&]() {
+      ts_parser_set_language(parser, load_real_language("json"));
+
+      TSTree *tree = ts_parser_resume(parser);
+      AssertThat(tree, Equals<TSTree *>(nullptr));
+      tree = ts_parser_resume(parser);
+      AssertThat(tree, Equals<TSTree *>(nullptr));
+
+      tree = ts_parser_parse_string(parser, nullptr, "true", 4);
+      AssertThat(tree, !Equals<TSTree *>(nullptr));
+      ts_tree_delete(tree);
+
+      tree = ts_parser_resume(parser);
+      AssertThat(tree, Equals<TSTree *>(nullptr));
+    });
+  });
 });
 
 END_TEST
