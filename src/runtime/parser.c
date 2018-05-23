@@ -1440,6 +1440,7 @@ TSTree *ts_parser_resume(TSParser *self) {
 }
 
 TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
+  if (!self->language) return NULL;
   ts_parser__start(self, input, old_tree ? old_tree->root : NULL);
   return ts_parser_resume(self);
 }

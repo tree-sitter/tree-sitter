@@ -568,6 +568,15 @@ describe("Parser", [&]() {
       AssertThat(ts_parser_set_language(parser, &language), IsFalse());
       AssertThat(ts_parser_language(parser), Equals<const TSLanguage *>(nullptr));
     });
+
+    it("does nothing when parse is called while the language is null", [&]() {
+      tree = ts_parser_parse_string(parser, nullptr, "{}", 2);
+      AssertThat(tree, Equals<TSTree *>(nullptr));
+
+      ts_parser_set_language(parser, nullptr);
+      tree = ts_parser_parse_string(parser, nullptr, "{}", 2);
+      AssertThat(tree, Equals<TSTree *>(nullptr));
+    });
   });
 
   describe("set_logger(TSLogger)", [&]() {
