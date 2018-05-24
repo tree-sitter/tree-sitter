@@ -223,7 +223,7 @@ const TSLanguage *load_real_language(const string &language_name) {
     printf("\n" "Regenerating the %s parser...\n", language_name.c_str());
 
     string grammar_json = read_file(grammar_filename);
-    TSCompileResult result = ts_compile_grammar(grammar_json.c_str());
+    TSCompileResult result = ts_compile_grammar(grammar_json.c_str(), nullptr);
     if (result.error_type != TSCompileErrorTypeNone) {
       fprintf(stderr, "Failed to compile %s grammar: %s\n", language_name.c_str(), result.error_message);
       return nullptr;

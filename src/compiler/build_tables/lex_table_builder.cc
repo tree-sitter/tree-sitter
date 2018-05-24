@@ -9,9 +9,11 @@
 #include <vector>
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/build_tables/lookahead_set.h"
-#include "compiler/parse_table.h"
 #include "compiler/lexical_grammar.h"
+#include "compiler/log.h"
+#include "compiler/parse_table.h"
 #include "compiler/rule.h"
+#include "utf8proc.h"
 
 namespace tree_sitter {
 namespace build_tables {
@@ -78,6 +80,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
   bool conflict_detection_mode;
   LookaheadSet keyword_symbols;
   Symbol keyword_capture_token;
+  char encoding_buffer[8];
 
  public:
   LexTableBuilderImpl(const SyntaxGrammar &syntax_grammar,
@@ -151,6 +154,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
 
     // For each pair of tokens, generate a lex table for just those two tokens and record what
     // conflicts arise.
+    LOG_START("detecting conflicts between tokens");
     conflict_detection_mode = true;
     for (Symbol::Index i = 0, n = grammar.variables.size(); i < n; i++) {
       for (Symbol::Index j = 0; j < i; j++) {
@@ -165,6 +169,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
         }
       }
     }
+    LOG_END();
 
     // Find a 'keyword capture token' that matches all of the indentified keywords.
     for (Symbol::Index i = 0, n = grammar.variables.size(); i < n; i++) {
@@ -304,9 +309,33 @@ class LexTableBuilderImpl : public LexTableBuilder {
 
           if (prefer_advancing && !next_item_set_can_yield_this_token) {
             auto advance_symbol = transition.destination.entries.begin()->lhs;
-            if (characters.intersects(following_characters_by_token[accept_action.symbol.index]) ||
-                characters.intersects(separator_start_characters)) {
-              record_conflict(accept_action.symbol, advance_symbol, MatchesLongerStringWithValidNextChar);
+            auto &following_chars = following_characters_by_token[accept_action.symbol.index];
+            CharacterSet conflicting_following_chars = characters.intersection(following_chars);
+            CharacterSet conflicting_sep_chars = characters.intersection(separator_start_characters);
+            if (!conflicting_following_chars.is_empty()) {
+              LOG(
+                "%s shadows %s followed by '%s'",
+                token_name(advance_symbol).c_str(),
+                token_name(accept_action.symbol).c_str(),
+                log_char(*conflicting_following_chars.included_chars.begin())
+              );
+              record_conflict(
+                accept_action.symbol,
+                advance_symbol,
+                MatchesLongerStringWithValidNextChar
+              );
+            } else if (!conflicting_sep_chars.is_empty()) {
+              LOG(
+                "%s shadows %s followed by '%s'",
+                token_name(advance_symbol).c_str(),
+                token_name(accept_action.symbol).c_str(),
+                log_char(*conflicting_sep_chars.included_chars.begin())
+              );
+              record_conflict(
+                accept_action.symbol,
+                advance_symbol,
+                MatchesLongerStringWithValidNextChar
+              );
             } else {
               record_conflict(accept_action.symbol, advance_symbol, MatchesLongerString);
             }
@@ -508,8 +537,22 @@ class LexTableBuilderImpl : public LexTableBuilder {
     main_lex_state_ids.clear();
   }
 
-  const string &token_name(rules::Symbol &symbol) {
-    return grammar.variables[symbol.index].name;
+  string token_name(rules::Symbol &symbol) {
+    const LexicalVariable &variable = grammar.variables[symbol.index];
+    if (variable.type == VariableTypeNamed) {
+      return variable.name;
+    } else {
+      return "'" + variable.name + "'";
+    }
+  }
+
+  const char *log_char(int32_t character) {
+    uint32_t count = utf8proc_encode_char(
+      character,
+      reinterpret_cast<utf8proc_uint8_t *>(encoding_buffer)
+    );
+    encoding_buffer[count] = 0;
+    return encoding_buffer;
   }
 };
 

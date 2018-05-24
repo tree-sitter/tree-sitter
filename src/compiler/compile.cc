@@ -3,6 +3,7 @@
 #include "compiler/build_tables/parse_table_builder.h"
 #include "compiler/generate_code/c_code.h"
 #include "compiler/syntax_grammar.h"
+#include "compiler/log.h"
 #include "compiler/lexical_grammar.h"
 #include "compiler/parse_grammar.h"
 #include "json.h"
@@ -16,7 +17,9 @@ using std::vector;
 using std::get;
 using std::make_tuple;
 
-extern "C" TSCompileResult ts_compile_grammar(const char *input) {
+extern "C" TSCompileResult ts_compile_grammar(const char *input, FILE *log_file) {
+  set_log_file(log_file);
+
   ParseGrammarResult parse_result = parse_grammar(string(input));
   if (!parse_result.error_message.empty()) {
     return { nullptr, strdup(parse_result.error_message.c_str()),
@@ -48,8 +51,8 @@ extern "C" TSCompileResult ts_compile_grammar(const char *input) {
     move(lexical_grammar)
   );
 
-  return {
-    strdup(code.c_str()), nullptr, TSCompileErrorTypeNone };
+  set_log_file(nullptr);
+  return { strdup(code.c_str()), nullptr, TSCompileErrorTypeNone };
 }
 
 }  // namespace tree_sitter

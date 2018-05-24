@@ -71,7 +71,7 @@ string grammar_with_aliases_and_extras = R"JSON({
 
 const TSLanguage *language_with_aliases_and_extras = load_test_language(
   "aliases_and_extras",
-  ts_compile_grammar(grammar_with_aliases_and_extras.c_str())
+  ts_compile_grammar(grammar_with_aliases_and_extras.c_str(), nullptr)
 );
 
 describe("Node", [&]() {
