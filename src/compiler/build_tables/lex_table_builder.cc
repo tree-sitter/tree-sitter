@@ -265,9 +265,11 @@ class LexTableBuilderImpl : public LexTableBuilder {
   }
 
  private:
-  void record_conflict(Symbol shadowed_token, Symbol other_token, ConflictStatus status) {
+  bool record_conflict(Symbol shadowed_token, Symbol other_token, ConflictStatus status) {
     unsigned index = shadowed_token.index * grammar.variables.size() + other_token.index;
+    bool old_value = conflict_matrix[index] & status;
     conflict_matrix[index] = static_cast<ConflictStatus>(conflict_matrix[index] | status);
+    return old_value;
   }
 
   LexStateId add_lex_state(LexTable &lex_table, const LexItemSet &item_set) {
@@ -313,29 +315,31 @@ class LexTableBuilderImpl : public LexTableBuilder {
             CharacterSet conflicting_following_chars = characters.intersection(following_chars);
             CharacterSet conflicting_sep_chars = characters.intersection(separator_start_characters);
             if (!conflicting_following_chars.is_empty()) {
-              LOG(
-                "%s shadows %s followed by '%s'",
-                token_name(advance_symbol).c_str(),
-                token_name(accept_action.symbol).c_str(),
-                log_char(*conflicting_following_chars.included_chars.begin())
-              );
-              record_conflict(
+              if (record_conflict(
                 accept_action.symbol,
                 advance_symbol,
                 MatchesLongerStringWithValidNextChar
-              );
+              )) {
+                LOG(
+                  "%s shadows %s followed by '%s'",
+                  token_name(advance_symbol).c_str(),
+                  token_name(accept_action.symbol).c_str(),
+                  log_char(*conflicting_following_chars.included_chars.begin())
+                );
+              }
             } else if (!conflicting_sep_chars.is_empty()) {
-              LOG(
-                "%s shadows %s followed by '%s'",
-                token_name(advance_symbol).c_str(),
-                token_name(accept_action.symbol).c_str(),
-                log_char(*conflicting_sep_chars.included_chars.begin())
-              );
-              record_conflict(
+              if (record_conflict(
                 accept_action.symbol,
                 advance_symbol,
                 MatchesLongerStringWithValidNextChar
-              );
+              )) {
+                LOG(
+                  "%s shadows %s followed by '%s'",
+                  token_name(advance_symbol).c_str(),
+                  token_name(accept_action.symbol).c_str(),
+                  log_char(*conflicting_sep_chars.included_chars.begin())
+                );
+              }
             } else {
               record_conflict(accept_action.symbol, advance_symbol, MatchesLongerString);
             }
