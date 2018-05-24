@@ -25,7 +25,7 @@ void _outdent_logs() {
 }
 
 void _print_indent() {
-  fwrite(SPACES, 1, _indent_level * 2, _log_file);
+  fwrite(SPACES, 1, _indent_level * 4, _log_file);
 }
 
 }

@@ -24,9 +24,12 @@ void _print_indent();
   } while (0)
 
 #define LOG(...)               \
+  LOG_IF(true, __VA_ARGS__)
+
+#define LOG_IF(condition, ...) \
   do {                         \
     FILE *f = get_log_file();  \
-    if (f) {                   \
+    if (f && condition) {      \
       _print_indent();         \
       fprintf(f, __VA_ARGS__); \
       fputs("\n", f);          \

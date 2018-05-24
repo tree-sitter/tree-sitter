@@ -53,6 +53,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   unique_ptr<LexTableBuilder> lex_table_builder;
   unordered_map<Symbol, LookaheadSet> following_tokens_by_token;
   vector<LookaheadSet> coincident_tokens_by_token;
+  set<std::pair<Symbol, Symbol>> logged_conflict_tokens;
 
  public:
   ParseTableBuilderImpl(const SyntaxGrammar &syntax_grammar, const LexicalGrammar &lexical_grammar)
@@ -367,6 +368,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   }
 
   void remove_duplicate_parse_states() {
+    LOG_START("removing duplicate parse states");
     unordered_map<size_t, set<ParseStateId>> state_indices_by_signature;
 
     for (auto &pair : state_ids_by_item_set) {
@@ -528,6 +530,12 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     if (!new_token.is_built_in()) {
       for (const auto &entry : state.terminal_entries) {
         if (lex_table_builder->get_conflict_status(entry.first, new_token) & CannotDistinguish) {
+          LOG_IF(
+            logged_conflict_tokens.insert({entry.first, new_token}).second,
+            "cannot merge parse states due to token conflict: %s and %s",
+            symbol_name(entry.first).c_str(),
+            symbol_name(new_token).c_str()
+          );
           return false;
         }
       }
