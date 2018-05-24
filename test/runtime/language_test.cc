@@ -26,7 +26,7 @@ describe("Language", []() {
             "value": "b"
           }
         }
-      })JSON");
+      })JSON", nullptr);
 
       TSParser *parser = ts_parser_new();
       const TSLanguage *language =  load_test_language("aliased_rules", compile_result);

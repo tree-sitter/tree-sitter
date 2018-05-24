@@ -22,6 +22,7 @@
         'src/compiler/compile.cc',
         'src/compiler/generate_code/c_code.cc',
         'src/compiler/lex_table.cc',
+        'src/compiler/log.cc',
         'src/compiler/parse_grammar.cc',
         'src/compiler/parse_table.cc',
         'src/compiler/precedence_range.cc',

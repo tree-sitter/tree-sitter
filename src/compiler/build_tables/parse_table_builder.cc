@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include "compiler/log.h"
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/build_tables/parse_item_set_builder.h"
@@ -52,6 +53,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   unique_ptr<LexTableBuilder> lex_table_builder;
   unordered_map<Symbol, LookaheadSet> following_tokens_by_token;
   vector<LookaheadSet> coincident_tokens_by_token;
+  set<std::pair<Symbol, Symbol>> logged_conflict_tokens;
 
  public:
   ParseTableBuilderImpl(const SyntaxGrammar &syntax_grammar, const LexicalGrammar &lexical_grammar)
@@ -152,8 +154,8 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
 
     parse_table.states[state_id].terminal_entries.clear();
 
-    // Add all the tokens that have no conflict with other tokens.
-    LookaheadSet non_conflicting_tokens;
+    // First, identify the conflict-free tokens.
+    LookaheadSet conflict_free_tokens;
     for (unsigned i = 0; i < lexical_grammar.variables.size(); i++) {
       Symbol token = Symbol::terminal(i);
       bool conflicts_with_other_tokens = false;
@@ -166,27 +168,41 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
           break;
         }
       }
-      if (!conflicts_with_other_tokens) non_conflicting_tokens.insert(token);
+      if (!conflicts_with_other_tokens) conflict_free_tokens.insert(token);
     }
 
+    // Include in the error recover state all of the tokens that are either
+    // conflict-free themselves, or have no conflicts with any conflict-free
+    // tokens.
+    LOG_START("finding non-conflicting tokens for error recovery");
     LookaheadSet tokens;
     for (unsigned i = 0; i < lexical_grammar.variables.size(); i++) {
       Symbol token = Symbol::terminal(i);
-      bool conflicts_with_other_tokens = false;
-      if (!non_conflicting_tokens.contains(token)) {
-        non_conflicting_tokens.for_each([&](Symbol other_token) {
+      if (conflict_free_tokens.contains(token)) {
+        LOG("include %s", symbol_name(token).c_str());
+        parse_table.add_terminal_action(state_id, token, ParseAction::Recover());
+      } else {
+        bool conflicts_with_other_tokens = false;
+        conflict_free_tokens.for_each([&](Symbol other_token) {
           if (!coincident_tokens_by_token[token.index].contains(other_token) &&
               (lex_table_builder->get_conflict_status(other_token, token) & CannotMerge)) {
+            LOG(
+              "exclude %s: conflicts with %s",
+              symbol_name(token).c_str(),
+              symbol_name(other_token).c_str()
+            );
             conflicts_with_other_tokens = true;
             return false;
           }
           return true;
         });
-      }
-      if (!conflicts_with_other_tokens) {
-        parse_table.add_terminal_action(state_id, token, ParseAction::Recover());
+        if (!conflicts_with_other_tokens) {
+          LOG("include %s", symbol_name(token).c_str());
+          parse_table.add_terminal_action(state_id, token, ParseAction::Recover());
+        }
       }
     }
+    LOG_END();
 
     for (size_t i = 0; i < grammar.external_tokens.size(); i++) {
       if (grammar.external_tokens[i].corresponding_internal_token == rules::NONE()) {
@@ -352,6 +368,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   }
 
   void remove_duplicate_parse_states() {
+    LOG_START("removing duplicate parse states");
     unordered_map<size_t, set<ParseStateId>> state_indices_by_signature;
 
     for (auto &pair : state_ids_by_item_set) {
@@ -513,6 +530,12 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     if (!new_token.is_built_in()) {
       for (const auto &entry : state.terminal_entries) {
         if (lex_table_builder->get_conflict_status(entry.first, new_token) & CannotDistinguish) {
+          LOG_IF(
+            logged_conflict_tokens.insert({entry.first, new_token}).second,
+            "cannot merge parse states due to token conflict: %s and %s",
+            symbol_name(entry.first).c_str(),
+            symbol_name(new_token).c_str()
+          );
           return false;
         }
       }

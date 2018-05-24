@@ -27,7 +27,7 @@ for (auto &language_name : test_languages) {
 
     if (file_exists(expected_error_path)) {
       it("fails with the correct error message", [&]() {
-        TSCompileResult compile_result = ts_compile_grammar(grammar_json.c_str());
+        TSCompileResult compile_result = ts_compile_grammar(grammar_json.c_str(), nullptr);
         string expected_error = read_file(expected_error_path);
         AssertThat((void *)compile_result.error_message, !Equals<void *>(nullptr));
         AssertThat(compile_result.error_message, Equals(expected_error));
@@ -43,7 +43,7 @@ for (auto &language_name : test_languages) {
           string external_scanner_path = join_path({directory_path, "scanner.c"});
           if (!file_exists(external_scanner_path)) external_scanner_path = "";
 
-          TSCompileResult compile_result = ts_compile_grammar(grammar_json.c_str());
+          TSCompileResult compile_result = ts_compile_grammar(grammar_json.c_str(), nullptr);
 
           language = load_test_language(
             language_name,
