@@ -20,7 +20,6 @@ void _print_indent();
 #define LOG_END(...) \
   do {               \
     _outdent_logs(); \
-    LOG("");         \
   } while (0)
 
 #define LOG(...)               \
