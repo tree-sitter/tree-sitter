@@ -138,8 +138,8 @@ class LexTableBuilderImpl : public LexTableBuilder {
     separator_start_characters = separator_character_aggregator.result;
 
     // Compute the set of characters that each token can start with and the set of non-separator
-    // characters that can follow each token. Also identify all of the tokens that consist
-    // entirely of letters, and can be considered 'keywords'.
+    // characters that can follow each token. Also identify all of the tokens that can be
+    // considered 'keywords'.
     LOG_START("characterizing tokens");
     LookaheadSet potential_keyword_symbols;
     for (unsigned i = 0, n = grammar.variables.size(); i < n; i++) {
@@ -159,18 +159,30 @@ class LexTableBuilderImpl : public LexTableBuilder {
       }
       following_characters_by_token[i] = following_character_aggregator.result;
 
-      AllCharacterAggregator aggregator;
-      aggregator.apply(grammar.variables[i].rule);
-      bool all_alpha = true;
-      for (auto character : aggregator.result.included_chars) {
-        if (!iswalpha(character) && character != '_') {
-          all_alpha = false;
+      AllCharacterAggregator all_character_aggregator;
+      all_character_aggregator.apply(grammar.variables[i].rule);
+
+      if (
+        !starting_character_aggregator.result.includes_all &&
+        !all_character_aggregator.result.includes_all
+      ) {
+        bool starts_alpha = true, all_alnum = true;
+        for (auto character : starting_character_aggregator.result.included_chars) {
+          if (!iswalpha(character) && character != '_') {
+            starts_alpha = false;
+          }
+        }
+        for (auto character : all_character_aggregator.result.included_chars) {
+          if (!iswalnum(character) && character != '_') {
+            all_alnum = false;
+          }
+        }
+        if (starts_alpha && all_alnum) {
+          LOG("potential keyword: %s", token_name(token).c_str());
+          potential_keyword_symbols.insert(token);
         }
       }
-      if (all_alpha) {
-        LOG("potential keyword: %s", token_name(token).c_str());
-        potential_keyword_symbols.insert(token);
-      }
+
     }
     LOG_END();
 
@@ -248,23 +260,22 @@ class LexTableBuilderImpl : public LexTableBuilder {
                 break;
               }
             }
+            if (candidate_was_already_present) return true;
 
-            if (!candidate_was_already_present) {
-              if (candidate_shadows_other) {
-                homonyms.remove(homonym);
-                LOG(
-                  "remove %s because candidate would shadow %s",
-                  token_name(homonym).c_str(),
-                  token_name(other_token).c_str()
-                );
-              } else if (other_shadows_candidate != other_shadows_homonym) {
-                homonyms.remove(homonym);
-                LOG(
-                  "remove %s because %s would shadow candidate",
-                  token_name(homonym).c_str(),
-                  token_name(other_token).c_str()
-                );
-              }
+            if (candidate_shadows_other) {
+              homonyms.remove(homonym);
+              LOG(
+                "remove %s because candidate would shadow %s",
+                token_name(homonym).c_str(),
+                token_name(other_token).c_str()
+              );
+            } else if (other_shadows_candidate && !other_shadows_homonym) {
+              homonyms.remove(homonym);
+              LOG(
+                "remove %s because %s would shadow candidate",
+                token_name(homonym).c_str(),
+                token_name(other_token).c_str()
+              );
             }
             return true;
           });
