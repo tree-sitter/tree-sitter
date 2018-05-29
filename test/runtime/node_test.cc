@@ -438,6 +438,13 @@ describe("Node", [&]() {
         AssertThat(ts_node_end_byte(leaf), Equals(number_end_index));
         AssertThat(ts_node_start_point(leaf), Equals<TSPoint>({ 3, 2 }));
         AssertThat(ts_node_end_point(leaf), Equals<TSPoint>({ 3, 5 }));
+
+        TSNode parent = ts_node_parent(leaf);
+        AssertThat(ts_node_type(parent), Equals("array"));
+        AssertThat(ts_node_start_byte(parent), Equals(array_index));
+        parent = ts_node_parent(parent);
+        AssertThat(ts_node_type(parent), Equals("value"));
+        AssertThat(ts_node_start_byte(parent), Equals(array_index));
       });
     });
 
@@ -495,6 +502,8 @@ describe("Node", [&]() {
       AssertThat(ts_node_end_byte(node2), Equals(null_end_index));
       AssertThat(ts_node_start_point(node2), Equals<TSPoint>({ 6, 4 }));
       AssertThat(ts_node_end_point(node2), Equals<TSPoint>({ 6, 13 }));
+
+      AssertThat(ts_node_parent(node1), Equals(node2));
     });
 
     it("works in the presence of multi-byte characters", [&]() {
@@ -530,6 +539,8 @@ describe("Node", [&]() {
       AssertThat(ts_node_end_byte(node2), Equals(null_end_index));
       AssertThat(ts_node_start_point(node2), Equals<TSPoint>({ 6, 4 }));
       AssertThat(ts_node_end_point(node2), Equals<TSPoint>({ 6, 13 }));
+
+      AssertThat(ts_node_parent(node1), Equals(node2));
     });
   });
 });
