@@ -125,6 +125,7 @@ static inline uint32_t ts_node__relevant_child_count(TSNode self, bool include_a
 }
 
 static inline TSNode ts_node__child(TSNode self, uint32_t child_index, bool include_anonymous) {
+  const TSTree *tree = ts_node__tree(&self);
   TSNode result = self;
   bool did_descend = true;
 
@@ -136,7 +137,10 @@ static inline TSNode ts_node__child(TSNode self, uint32_t child_index, bool incl
     ChildIterator iterator = ts_node_iterate_children(&result);
     while (ts_node_child_iterator_next(&iterator, &child)) {
       if (ts_node__is_relevant(child, include_anonymous)) {
-        if (index == child_index) return child;
+        if (index == child_index) {
+          ts_tree_set_cached_parent(tree, &child, &self);
+          return child;
+        }
         index++;
       } else {
         uint32_t grandchild_index = child_index - index;
@@ -290,6 +294,7 @@ static inline TSNode ts_node__descendant_for_byte_range(TSNode self, uint32_t mi
                                                         bool include_anonymous) {
   TSNode node = self;
   TSNode last_visible_node = self;
+  const TSTree *tree = ts_node__tree(&self);
 
   bool did_descend = true;
   while (did_descend) {
@@ -301,7 +306,10 @@ static inline TSNode ts_node__descendant_for_byte_range(TSNode self, uint32_t mi
       if (iterator.position.bytes > max) {
         if (ts_node_start_byte(child) > min) break;
         node = child;
-        if (ts_node__is_relevant(node, include_anonymous)) last_visible_node = node;
+        if (ts_node__is_relevant(node, include_anonymous)) {
+          ts_tree_set_cached_parent(tree, &child, &last_visible_node);
+          last_visible_node = node;
+        }
         did_descend = true;
         break;
       }
@@ -316,8 +324,7 @@ static inline TSNode ts_node__descendant_for_point_range(TSNode self, TSPoint mi
                                                          bool include_anonymous) {
   TSNode node = self;
   TSNode last_visible_node = self;
-  TSPoint start_position = ts_node_start_point(self);
-  TSPoint end_position = ts_node_end_point(self);
+  const TSTree *tree = ts_node__tree(&self);
 
   bool did_descend = true;
   while (did_descend) {
@@ -326,19 +333,16 @@ static inline TSNode ts_node__descendant_for_point_range(TSNode self, TSPoint mi
     TSNode child;
     ChildIterator iterator = ts_node_iterate_children(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
-      const Subtree *child_tree = ts_node__subtree(child);
-      if (iterator.child_index != 1) {
-        start_position = point_add(start_position, child_tree->padding.extent);
-      }
-      end_position = point_add(start_position, child_tree->size.extent);
-      if (point_gt(end_position, max)) {
-        if (point_gt(start_position, min)) break;
+      if (point_gt(iterator.position.extent, max)) {
+        if (point_gt(ts_node_start_point(child), min)) break;
         node = child;
-        if (ts_node__is_relevant(node, include_anonymous)) last_visible_node = node;
+        if (ts_node__is_relevant(node, include_anonymous)) {
+          ts_tree_set_cached_parent(tree, &child, &last_visible_node);
+          last_visible_node = node;
+        }
         did_descend = true;
         break;
       }
-      start_position = end_position;
     }
   }
 
@@ -397,7 +401,11 @@ bool ts_node_has_error(TSNode self) {
 }
 
 TSNode ts_node_parent(TSNode self) {
-  TSNode node = ts_tree_root_node(ts_node__tree(&self));
+  const TSTree *tree = ts_node__tree(&self);
+  TSNode node = ts_tree_get_cached_parent(tree, &self);
+  if (node.id) return node;
+
+  node = ts_tree_root_node(tree);
   uint32_t end_byte = ts_node_end_byte(self);
   if (ts_node__subtree(node) == ts_node__subtree(self)) return ts_node__null();
 
@@ -416,6 +424,7 @@ TSNode ts_node_parent(TSNode self) {
       if (iterator.position.bytes >= end_byte) {
         node = child;
         if (ts_node__is_relevant(child, true)) {
+          ts_tree_set_cached_parent(tree, &node, &last_visible_node);
           last_visible_node = node;
         }
         did_descend = true;
