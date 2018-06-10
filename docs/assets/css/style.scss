@@ -1,0 +1,39 @@
+---
+---
+
+@import 'jekyll-theme-cayman';
+
+#main-content, #table-of-contents {
+  padding-top: 20px;
+}
+
+#table-of-contents {
+  border-right: 1px solid #ddd;
+}
+
+.nav-link.active {
+  text-decoration: underline;
+}
+
+.logo {
+  padding: 20px;
+  padding-top: 0;
+  display: block;
+}
+
+.toc-section, .logo {
+  border-bottom: 1px solid #ccc;
+}
+
+.toc-section.active {
+  background-color: #edffcb;
+}
+
+li {
+  display: block;
+}
+
+body {
+  overflow-y: scroll;
+  padding-bottom: 100px;
+}
