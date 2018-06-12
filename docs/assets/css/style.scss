@@ -8,7 +8,8 @@
 }
 
 #table-of-contents {
-  border-right: 1px solid #ddd;
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
 }
 
 .nav-link.active {
@@ -21,7 +22,7 @@
   display: block;
 }
 
-.toc-section, .logo {
+.toc-section:not(:last-child), .logo {
   border-bottom: 1px solid #ccc;
 }
 
