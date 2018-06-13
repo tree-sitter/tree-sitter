@@ -5,6 +5,8 @@
 #include "tree_sitter/compiler.h"
 #include "tree_sitter/runtime.h"
 
+extern int TREE_SITTER_SEED;
+
 namespace tree_sitter {}
 
 using namespace std;

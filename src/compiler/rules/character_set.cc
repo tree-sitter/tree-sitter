@@ -159,6 +159,11 @@ bool CharacterSet::intersects(const CharacterSet &other) const {
   return !copy.remove_set(other).is_empty();
 }
 
+CharacterSet CharacterSet::intersection(const CharacterSet &other) const {
+  CharacterSet copy(*this);
+  return copy.remove_set(other);
+}
+
 vector<CharacterRange> CharacterSet::included_ranges() const {
   return consolidate_ranges(included_chars);
 }

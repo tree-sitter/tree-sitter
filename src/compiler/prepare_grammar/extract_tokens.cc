@@ -30,7 +30,7 @@ class SymbolReplacer {
 
   Rule apply(const Rule &rule) {
     return rule.match(
-      [this](const rules::Blank &blank) -> Rule {
+      [](const rules::Blank &blank) -> Rule {
         return blank;
       },
 
@@ -110,7 +110,7 @@ class TokenExtractor {
  public:
   Rule apply(const rules::Rule &rule) {
     return rule.match(
-      [this](const rules::Blank &blank) -> Rule { return blank; },
+      [](const rules::Blank &blank) -> Rule { return blank; },
 
       [this](const rules::Metadata &rule) -> Rule {
         if (rule.params.is_token) {

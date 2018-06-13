@@ -1,3 +1,4 @@
+#include "helpers/random_helpers.h"
 #include <string>
 #include <vector>
 #include <random>
@@ -6,54 +7,69 @@
 using std::string;
 using std::vector;
 
-static std::default_random_engine engine;
+Generator default_generator(0);
 
 unsigned get_time_as_seed() {
   return time(nullptr);
 }
 
-void random_reseed(unsigned seed) {
+void Generator::reseed(unsigned seed) {
   engine.seed(seed);
 }
 
-unsigned random_unsigned() {
-  return std::uniform_int_distribution<unsigned>()(engine);
+unsigned Generator::operator()() {
+  return distribution(engine);
 }
 
-unsigned random_unsigned(unsigned max) {
-  return std::uniform_int_distribution<unsigned>(0, max - 1)(engine);
+unsigned Generator::operator()(unsigned max) {
+  return distribution(engine) % max;
 }
 
-static string random_string(char min, char max) {
+string Generator::str(char min, char max) {
   string result;
-  size_t length = random_unsigned(12);
+  size_t length = operator()(12);
   for (size_t i = 0; i < length; i++) {
-    result += (min + random_unsigned(max - min));
+    result += (min + operator()(max - min));
   }
   return result;
 }
 
-static string random_char(string characters) {
-  size_t index = random_unsigned(characters.size());
-  return string() + characters[index];
-}
+static string operator_characters = "!(){}[]<>+-=";
 
-string random_words(size_t count) {
+string Generator::words(size_t count) {
   string result;
   bool just_inserted_word = false;
   for (size_t i = 0; i < count; i++) {
-    if (random_unsigned(10) < 6) {
-      result += random_char("!(){}[]<>+-=");
+    if (operator()(10) < 6) {
+      result += operator_characters[operator()(operator_characters.size())];
     } else {
       if (just_inserted_word)
         result += " ";
-      result += random_string('a', 'z');
+      result += str('a', 'z');
       just_inserted_word = true;
     }
   }
   return result;
 }
 
-string select_random(const vector<string> &list) {
-  return list[random_unsigned(list.size())];
+string Generator::select(const vector<string> &list) {
+  return list[operator()(list.size())];
 }
+
+#ifdef _WIN32
+
+#include <windows.h>
+
+void Generator::sleep_some() {
+  Sleep(operator()(5));
+}
+
+#else
+
+#include <unistd.h>
+
+void Generator::sleep_some() {
+  usleep(operator()(5 * 1000));
+}
+
+#endif

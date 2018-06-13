@@ -132,7 +132,7 @@ case ${mode} in
       if [[ -n $line_count ]]; then
         head -n $line_count $dot_file | dot -Tsvg >> $html_file
       else
-        cat $dot_file | dot -Tsvg >> $html_file
+        cat $dot_file | grep -v 'Assertion' | dot -Tsvg >> $html_file
       fi
       rm $dot_file
       echo "Wrote $html_file - $line_count"

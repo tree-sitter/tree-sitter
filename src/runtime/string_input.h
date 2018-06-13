@@ -7,8 +7,14 @@ extern "C" {
 
 #include "tree_sitter/runtime.h"
 
-TSInput ts_string_input_make(const char *);
-TSInput ts_string_input_make_with_length(const char *, uint32_t);
+typedef struct {
+  const char *string;
+  uint32_t position;
+  uint32_t length;
+  TSInput input;
+} TSStringInput;
+
+void ts_string_input_init(TSStringInput *, const char *, uint32_t);
 
 #ifdef __cplusplus
 }

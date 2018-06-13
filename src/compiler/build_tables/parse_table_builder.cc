@@ -6,6 +6,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include "compiler/log.h"
 #include "compiler/parse_table.h"
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/build_tables/parse_item_set_builder.h"
@@ -51,27 +52,14 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   ParseItemSetBuilder item_set_builder;
   unique_ptr<LexTableBuilder> lex_table_builder;
   unordered_map<Symbol, LookaheadSet> following_tokens_by_token;
-  vector<LookaheadSet> coincident_tokens_by_token;
+  CoincidentTokenIndex coincident_token_index;
+  set<std::pair<Symbol, Symbol>> logged_conflict_tokens;
 
  public:
   ParseTableBuilderImpl(const SyntaxGrammar &syntax_grammar, const LexicalGrammar &lexical_grammar)
     : grammar(syntax_grammar),
       lexical_grammar(lexical_grammar),
-      item_set_builder(syntax_grammar, lexical_grammar),
-      coincident_tokens_by_token(lexical_grammar.variables.size()) {
-
-    for (unsigned i = 0, n = lexical_grammar.variables.size(); i < n; i++) {
-      coincident_tokens_by_token[i].insert(rules::END_OF_INPUT());
-      if (lexical_grammar.variables[i].is_string) {
-        for (unsigned j = 0; j < i; j++) {
-          if (lexical_grammar.variables[j].is_string) {
-            coincident_tokens_by_token[i].insert(Symbol::terminal(j));
-            coincident_tokens_by_token[j].insert(Symbol::terminal(i));
-          }
-        }
-      }
-    }
-  }
+      item_set_builder(syntax_grammar, lexical_grammar) {}
 
   BuildResult build() {
     // Ensure that the empty rename sequence has index 0.
@@ -104,7 +92,8 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
       grammar,
       lexical_grammar,
       following_tokens_by_token,
-      coincident_tokens_by_token
+      coincident_token_index,
+      &parse_table
     );
 
     build_error_parse_state(error_state_id);
@@ -113,7 +102,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     eliminate_unit_reductions();
     populate_used_terminals();
 
-    auto lex_table_result = lex_table_builder->build(&parse_table);
+    auto lex_table_result = lex_table_builder->build();
     return {
       parse_table,
       lex_table_result.main_table,
@@ -150,47 +139,56 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
       MatchesLongerStringWithValidNextChar
     );
 
-    // Add all the tokens that have no conflict with other tokens.
-    LookaheadSet non_conflicting_tokens;
+    parse_table.states[state_id].terminal_entries.clear();
+
+    // First, identify the conflict-free tokens.
+    LookaheadSet conflict_free_tokens;
     for (unsigned i = 0; i < lexical_grammar.variables.size(); i++) {
       Symbol token = Symbol::terminal(i);
       bool conflicts_with_other_tokens = false;
       for (unsigned j = 0; j < lexical_grammar.variables.size(); j++) {
         Symbol other_token = Symbol::terminal(j);
-        if (j != i &&
-            !coincident_tokens_by_token[token.index].contains(other_token) &&
+        if (!coincident_token_index.contains(token, other_token) &&
             (lex_table_builder->get_conflict_status(other_token, token) & CannotMerge)) {
           conflicts_with_other_tokens = true;
           break;
         }
       }
-      if (!conflicts_with_other_tokens) non_conflicting_tokens.insert(token);
+      if (!conflicts_with_other_tokens) conflict_free_tokens.insert(token);
     }
 
+    // Include in the error recover state all of the tokens that are either
+    // conflict-free themselves, or have no conflicts with any conflict-free
+    // tokens.
+    LOG_START("finding non-conflicting tokens for error recovery");
     LookaheadSet tokens;
     for (unsigned i = 0; i < lexical_grammar.variables.size(); i++) {
       Symbol token = Symbol::terminal(i);
-      bool conflicts_with_other_tokens = false;
-      if (!non_conflicting_tokens.contains(token)) {
-        non_conflicting_tokens.for_each([&](Symbol other_token) {
-          if (!coincident_tokens_by_token[token.index].contains(other_token) &&
+      if (conflict_free_tokens.contains(token)) {
+        LOG("include %s", symbol_name(token).c_str());
+        parse_table.add_terminal_action(state_id, token, ParseAction::Recover());
+      } else {
+        bool conflicts_with_other_tokens = false;
+        conflict_free_tokens.for_each([&](Symbol other_token) {
+          if (!coincident_token_index.contains(token, other_token) &&
               (lex_table_builder->get_conflict_status(other_token, token) & CannotMerge)) {
+            LOG(
+              "exclude %s: conflicts with %s",
+              symbol_name(token).c_str(),
+              symbol_name(other_token).c_str()
+            );
             conflicts_with_other_tokens = true;
             return false;
           }
           return true;
         });
-      }
-      if (!conflicts_with_other_tokens) {
-        parse_table.add_terminal_action(state_id, token, ParseAction::Recover());
-      }
-    }
-
-    for (const Symbol &symbol : grammar.extra_tokens) {
-      if (!parse_table.states[state_id].terminal_entries.count(symbol)) {
-        parse_table.add_terminal_action(state_id, symbol, ParseAction::ShiftExtra());
+        if (!conflicts_with_other_tokens) {
+          LOG("include %s", symbol_name(token).c_str());
+          parse_table.add_terminal_action(state_id, token, ParseAction::Recover());
+        }
       }
     }
+    LOG_END();
 
     for (size_t i = 0; i < grammar.external_tokens.size(); i++) {
       if (grammar.external_tokens[i].corresponding_internal_token == rules::NONE()) {
@@ -320,8 +318,10 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
       if (iter->first.is_built_in() || iter->first.is_external()) continue;
       for (auto other_iter = terminals.begin(); other_iter != iter; ++other_iter) {
         if (other_iter->first.is_built_in() || other_iter->first.is_external()) continue;
-        coincident_tokens_by_token[iter->first.index].insert(other_iter->first);
-        coincident_tokens_by_token[other_iter->first.index].insert(iter->first);
+        coincident_token_index.entries[{
+          other_iter->first.index,
+          iter->first.index
+        }].insert(state_id);
       }
     }
 
@@ -356,6 +356,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   }
 
   void remove_duplicate_parse_states() {
+    LOG_START("removing duplicate parse states");
     unordered_map<size_t, set<ParseStateId>> state_indices_by_signature;
 
     for (auto &pair : state_ids_by_item_set) {
@@ -517,6 +518,12 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     if (!new_token.is_built_in()) {
       for (const auto &entry : state.terminal_entries) {
         if (lex_table_builder->get_conflict_status(entry.first, new_token) & CannotDistinguish) {
+          LOG_IF(
+            logged_conflict_tokens.insert({entry.first, new_token}).second,
+            "cannot merge parse states due to token conflict: %s and %s",
+            symbol_name(entry.first).c_str(),
+            symbol_name(new_token).c_str()
+          );
           return false;
         }
       }

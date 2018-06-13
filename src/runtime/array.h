@@ -12,18 +12,18 @@ extern "C" {
 #include <stdbool.h>
 #include "runtime/alloc.h"
 
-#define Array(T)     \
-  struct {           \
-    T *contents;     \
+#define Array(T)       \
+  struct {             \
     uint32_t size;     \
     uint32_t capacity; \
+    T *contents;       \
   }
 
 #define array_init(self) \
   ((self)->size = 0, (self)->capacity = 0, (self)->contents = NULL)
 
 #define array_new() \
-  { NULL, 0, 0 }
+  { 0, 0, NULL }
 
 #define array_get(self, index) \
   (assert((uint32_t)index < (self)->size), &(self)->contents[index])
@@ -34,29 +34,32 @@ extern "C" {
 
 #define array_clear(self) ((self)->size = 0)
 
-#define array_grow(self, new_capacity) \
-  array__grow((VoidArray *)(self), array__elem_size(self), new_capacity)
+#define array_reserve(self, new_capacity) \
+  array__reserve((VoidArray *)(self), array__elem_size(self), new_capacity)
 
 #define array_erase(self, index) \
   array__erase((VoidArray *)(self), array__elem_size(self), index)
 
 #define array_delete(self) array__delete((VoidArray *)self)
 
-#define array_push(self, element)                                    \
-  (array_grow((self), (self)->size + 1), \
+#define array_push(self, element)                            \
+  (array__grow((VoidArray *)(self), array__elem_size(self)), \
    (self)->contents[(self)->size++] = (element))
 
 #define array_push_all(self, other)                                       \
-  array_splice((self), (self)->size, 0, (other)->size, (other)->contents)
+  array_splice((self), (self)->size, 0, (other))
 
-#define array_splice(self, index, old_count, new_count, new_elements)          \
+#define array_splice(self, index, old_count, new_array)          \
   array__splice((VoidArray *)(self), array__elem_size(self), index, old_count, \
-                new_count, (new_elements))
+                (new_array)->size, (new_array)->contents)
 
 #define array_insert(self, index, element) \
-  array_splice(self, index, 0, 1, &(element))
+  array__splice((VoidArray *)(self), array__elem_size(self), index, 0, 1, &element)
 
 #define array_pop(self) ((self)->contents[--(self)->size])
+
+#define array_assign(self, other) \
+  array__assign((VoidArray *)(self), (const VoidArray *)(other), array__elem_size(self))
 
 // Private
 
@@ -80,18 +83,28 @@ static inline void array__erase(VoidArray *self, size_t element_size,
   self->size--;
 }
 
-static inline void array__grow(VoidArray *self, size_t element_size,
-                               uint32_t new_capacity) {
+static inline void array__reserve(VoidArray *self, size_t element_size, uint32_t new_capacity) {
   if (new_capacity > self->capacity) {
-    if (new_capacity < 2 * self->capacity)
-      new_capacity = 2 * self->capacity;
-    if (new_capacity < 8)
-      new_capacity = 8;
-    if (self->contents)
+    if (self->contents) {
       self->contents = ts_realloc(self->contents, new_capacity * element_size);
-    else
+    } else {
       self->contents = ts_calloc(new_capacity, element_size);
+    }
     self->capacity = new_capacity;
+  }
+}
+
+static inline void array__assign(VoidArray *self, const VoidArray *other, size_t element_size) {
+  array__reserve(self, element_size, other->size);
+  self->size = other->size;
+  memcpy(self->contents, other->contents, self->size * element_size);
+}
+
+static inline void array__grow(VoidArray *self, size_t element_size) {
+  if (self->size == self->capacity) {
+    size_t new_capacity = self->capacity * 2;
+    if (new_capacity < 8) new_capacity = 8;
+    array__reserve(self, element_size, new_capacity);
   }
 }
 
@@ -103,7 +116,7 @@ static inline void array__splice(VoidArray *self, size_t element_size,
   uint32_t new_end = index + new_count;
   assert(old_end <= self->size);
 
-  array__grow(self, element_size, new_size);
+  array__reserve(self, element_size, new_size);
 
   char *contents = (char *)self->contents;
   if (self->size > old_end)

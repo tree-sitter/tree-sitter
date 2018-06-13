@@ -48,7 +48,7 @@ describe("extract_tokens", []() {
           Repeat{Symbol::non_terminal(3)}
         },
       },
-      {}, {}, {}, {}
+      {}, {}, {}, {}, {}
     });
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
@@ -156,7 +156,7 @@ describe("extract_tokens", []() {
           })
         },
       },
-      {}, {}, {}, {}
+      {}, {}, {}, {}, {}
     });
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
@@ -203,7 +203,7 @@ describe("extract_tokens", []() {
           Rule::seq({ String{"ef"}, String{"cd"} })
         },
       },
-      {}, {}, {}, {}
+      {}, {}, {}, {}, {}
     });
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
@@ -258,7 +258,7 @@ describe("extract_tokens", []() {
           String{"a"}
         },
       },
-      {}, {}, {}, {}
+      {}, {}, {}, {}, {}
     });
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
@@ -298,7 +298,7 @@ describe("extract_tokens", []() {
       {
         { Symbol::non_terminal(2), Symbol::non_terminal(3) }
       },
-      {}, {}
+      {}, {}, {}
     });
 
     InitialSyntaxGrammar &syntax_grammar = get<0>(result);
@@ -319,7 +319,7 @@ describe("extract_tokens", []() {
           String{"y"},
           Pattern{" "},
         },
-        {}, {}, {}
+        {}, {}, {}, {}
       });
 
       AssertThat(get<2>(result), Equals(CompileError::none()));
@@ -340,7 +340,7 @@ describe("extract_tokens", []() {
         {
           String{"y"},
         },
-        {}, {}, {}
+        {}, {}, {}, {}
       });
 
       AssertThat(get<2>(result), Equals(CompileError::none()));
@@ -370,7 +370,7 @@ describe("extract_tokens", []() {
         {
           Symbol::non_terminal(2),
         },
-        {}, {}, {}
+        {}, {}, {}, {}
       });
 
       AssertThat(get<2>(result), Equals(CompileError::none()));
@@ -399,7 +399,7 @@ describe("extract_tokens", []() {
         {
           Symbol::non_terminal(1)
         },
-        {}, {}, {}
+        {}, {}, {}, {}
       });
 
       AssertThat(get<2>(result), Equals(CompileError(
@@ -417,7 +417,7 @@ describe("extract_tokens", []() {
         {
           Rule::choice({ Symbol::non_terminal(1), Blank{} })
         },
-        {}, {}, {}
+        {}, {}, {}, {}
       });
 
       AssertThat(get<2>(result), Equals(CompileError(
@@ -446,7 +446,7 @@ describe("extract_tokens", []() {
       {
         Variable{"rule_A", VariableTypeNamed, Symbol::non_terminal(0)}
       },
-      {}
+      {}, {}
     });
 
     AssertThat(get<2>(result), Equals(CompileError(

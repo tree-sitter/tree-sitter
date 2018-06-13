@@ -117,5 +117,31 @@ bool LookaheadSet::insert(const Symbol &symbol) {
   return false;
 }
 
+bool LookaheadSet::remove(const Symbol &symbol) {
+  if (symbol == rules::END_OF_INPUT()) {
+    if (eof) {
+      eof = false;
+      return true;
+    }
+    return false;
+  }
+
+  auto &bits = symbol.is_external() ? external_bits : terminal_bits;
+  if (bits.size() > static_cast<size_t>(symbol.index)) {
+    if (bits[symbol.index]) {
+      bits[symbol.index] = false;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void LookaheadSet::clear() {
+  eof = false;
+  terminal_bits.clear();
+  external_bits.clear();
+}
+
 }  // namespace build_tables
 }  // namespace tree_sitter

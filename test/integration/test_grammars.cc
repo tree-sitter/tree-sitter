@@ -9,6 +9,8 @@
 
 START_TEST
 
+if (TREE_SITTER_SEED == -1) return;
+
 string grammars_dir_path = join_path({"test", "fixtures", "test_grammars"});
 vector<string> test_languages = list_directory(grammars_dir_path);
 
@@ -25,7 +27,7 @@ for (auto &language_name : test_languages) {
 
     if (file_exists(expected_error_path)) {
       it("fails with the correct error message", [&]() {
-        TSCompileResult compile_result = ts_compile_grammar(grammar_json.c_str());
+        TSCompileResult compile_result = ts_compile_grammar(grammar_json.c_str(), nullptr);
         string expected_error = read_file(expected_error_path);
         AssertThat((void *)compile_result.error_message, !Equals<void *>(nullptr));
         AssertThat(compile_result.error_message, Equals(expected_error));
@@ -41,7 +43,7 @@ for (auto &language_name : test_languages) {
           string external_scanner_path = join_path({directory_path, "scanner.c"});
           if (!file_exists(external_scanner_path)) external_scanner_path = "";
 
-          TSCompileResult compile_result = ts_compile_grammar(grammar_json.c_str());
+          TSCompileResult compile_result = ts_compile_grammar(grammar_json.c_str(), nullptr);
 
           language = load_test_language(
             language_name,
@@ -50,26 +52,26 @@ for (auto &language_name : test_languages) {
           );
         }
 
-        TSDocument *document = ts_document_new();
-        ts_document_set_language(document, language);
-        ts_document_set_input_string_with_length(document, entry.input.c_str(), entry.input.size());
+        TSParser *parser = ts_parser_new();
+        ts_parser_set_language(parser, language);
 
-        // ts_document_print_debugging_graphs(document, true);
         if (getenv("TREE_SITTER_ENABLE_DEBUG_GRAPHS")) {
-          ts_document_print_debugging_graphs(document, true);
+          ts_parser_print_dot_graphs(parser, stderr);
         }
 
-        ts_document_parse(document);
+        TSTree *tree = ts_parser_parse_string(parser, nullptr, entry.input.c_str(), entry.input.size());
 
-        TSNode root_node = ts_document_root_node(document);
+        TSNode root_node = ts_tree_root_node(tree);
         AssertThat(ts_node_end_byte(root_node), Equals(entry.input.size()));
         assert_consistent_tree_sizes(root_node);
-        const char *node_string = ts_node_string(root_node, document);
+
+        const char *node_string = ts_node_string(root_node);
         string result(node_string);
         ts_free((void *)node_string);
-        ts_document_free(document);
-
         AssertThat(result, Equals(entry.tree_string));
+
+        ts_tree_delete(tree);
+        ts_parser_delete(parser);
         AssertThat(record_alloc::outstanding_allocation_indices(), IsEmpty());
       });
     }

@@ -1,8 +1,6 @@
-#include "bandit/bandit.h"
+#include "test_helper.h"
 #include "helpers/tree_helpers.h"
 #include "helpers/point_helpers.h"
-#include "runtime/document.h"
-#include "runtime/node.h"
 #include <ostream>
 
 using std::string;
@@ -16,33 +14,42 @@ const char *symbol_names[24] = {
   "twenty-two", "twenty-three"
 };
 
-Tree ** tree_array(std::vector<Tree *> trees) {
-  Tree ** result = (Tree **)calloc(trees.size(), sizeof(Tree *));
-  for (size_t i = 0; i < trees.size(); i++)
-      result[i] = trees[i];
-  return result;
+SubtreeArray *tree_array(std::vector<const Subtree *> trees) {
+  static SubtreeArray result;
+  result.capacity = trees.size();
+  result.size = trees.size();
+  result.contents = (const Subtree **)calloc(trees.size(), sizeof(Subtree *));
+  for (size_t i = 0; i < trees.size(); i++) {
+    result.contents[i] = trees[i];
+  }
+  return &result;
 }
 
-ostream &operator<<(std::ostream &stream, const Tree *tree) {
+ostream &operator<<(std::ostream &stream, const Subtree *tree) {
   static TSLanguage DUMMY_LANGUAGE = {};
-  static TSDocument DUMMY_DOCUMENT = {};
-  DUMMY_DOCUMENT.parser.language = &DUMMY_LANGUAGE;
   DUMMY_LANGUAGE.symbol_names = symbol_names;
-  TSNode node;
-  node.data = tree;
-  return stream << string(ts_node_string(node, &DUMMY_DOCUMENT));
+  char *string = ts_subtree_string(tree, &DUMMY_LANGUAGE, false);
+  stream << string;
+  ts_free(string);
+  return stream;
 }
 
 ostream &operator<<(ostream &stream, const TSNode &node) {
-  return stream << string("{") << (const Tree *)node.data <<
-    string(", ") << to_string(ts_node_start_byte(node)) << string("}");
+  if (ts_node_is_null(node)) {
+    return stream << "NULL";
+  } else {
+    char *string = ts_node_string(node);
+    stream << "{" << string << ", " << to_string(ts_node_start_byte(node)) << "}";
+    ts_free(string);
+    return stream;
+  }
 }
 
 bool operator==(const TSNode &left, const TSNode &right) {
   return ts_node_eq(left, right);
 }
 
-bool operator==(const std::vector<Tree *> &vec, const TreeArray &array) {
+bool operator==(const std::vector<const Subtree *> &vec, const SubtreeArray &array) {
   if (vec.size() != array.size)
     return false;
   for (size_t i = 0; i < array.size; i++)

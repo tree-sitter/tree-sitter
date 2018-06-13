@@ -5,10 +5,10 @@
 extern "C" {
 #endif
 
-#include "tree_sitter/parser.h"
-#include "tree_sitter/runtime.h"
 #include "runtime/length.h"
-#include "runtime/tree.h"
+#include "runtime/subtree.h"
+#include "tree_sitter/runtime.h"
+#include "tree_sitter/parser.h"
 
 typedef struct {
   TSLexer data;

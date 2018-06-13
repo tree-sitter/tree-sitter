@@ -123,6 +123,10 @@ bool ParseState::has_shift_action() const {
   return (!nonterminal_entries.empty());
 }
 
+bool ParseState::has_terminal_entry(rules::Symbol symbol) const {
+  return terminal_entries.find(symbol) != terminal_entries.end();
+}
+
 void ParseState::each_referenced_state(function<void(ParseStateId *)> fn) {
   for (auto &entry : terminal_entries)
     for (ParseAction &action : entry.second.actions)

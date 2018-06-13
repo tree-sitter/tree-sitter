@@ -80,7 +80,7 @@ class TransitionBuilder {
  public:
   void apply(const Rule &rule) {
     rule.match(
-      [this](const rules::Blank &) {},
+      [](const rules::Blank &) {},
 
       [this](const rules::CharacterSet &character_set) {
         PrecedenceRange precedence;

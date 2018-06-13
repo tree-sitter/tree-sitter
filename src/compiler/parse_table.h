@@ -65,6 +65,7 @@ struct ParseState {
   bool merge(const ParseState &);
   void each_referenced_state(std::function<void(ParseStateId *)>);
   bool has_shift_action() const;
+  bool has_terminal_entry(rules::Symbol) const;
 
   std::map<rules::Symbol, ParseTableEntry> terminal_entries;
   std::map<rules::Symbol::Index, ParseStateId> nonterminal_entries;

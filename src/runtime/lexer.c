@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include "runtime/lexer.h"
-#include "runtime/tree.h"
+#include "runtime/subtree.h"
 #include "runtime/length.h"
 #include "runtime/utf16.h"
 #include "utf8proc.h"

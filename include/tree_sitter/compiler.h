@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#include <stdio.h>
+
 typedef enum {
   TSCompileErrorTypeNone,
   TSCompileErrorTypeInvalidGrammar,
@@ -25,7 +27,7 @@ typedef struct {
   TSCompileErrorType error_type;
 } TSCompileResult;
 
-TSCompileResult ts_compile_grammar(const char *input);
+TSCompileResult ts_compile_grammar(const char *input, FILE *log_file);
 
 #ifdef __cplusplus
 }

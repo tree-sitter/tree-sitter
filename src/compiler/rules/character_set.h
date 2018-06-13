@@ -35,6 +35,7 @@ struct CharacterSet {
 
   void add_set(const CharacterSet &other);
   CharacterSet remove_set(const CharacterSet &other);
+  CharacterSet intersection(const CharacterSet &other) const;
   bool intersects(const CharacterSet &other) const;
   bool is_empty() const;
 

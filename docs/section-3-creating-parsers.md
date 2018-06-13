@@ -1,5 +1,6 @@
 ---
-layout: table-of-contents
+title: Creating Parsers
+permalink: creating-parsers
 ---
 
 # Creating parsers
@@ -57,59 +58,63 @@ It's usually a good idea to find a formal specification for the language you're 
 Although languages have very different constructs, their constructs can often be categorized in to similar groups like *Declarations*, *Definitions*, *Statements*, *Expressions*, *Types*, and *Patterns*. In writing your grammar, a good first step is to create just enough structure to include all of these basic *groups* of symbols. For an imaginary C-like language, this might look something like this:
 
 ```js
-rules: $ => {
-  source_file: $ => repeat($._definition),
+{
+  // ...
 
-  _definition: $ => choice(
-    $.function_definition
-    // TODO: other kinds of definitions
-  ),
+  rules: $ => {
+    source_file: $ => repeat($._definition),
 
-  function_definition: $ => seq(
-    'func',
-    $.identifier,
-    $.parameter_list,
-    $._type,
-    $.block
-  ),
+    _definition: $ => choice(
+      $.function_definition
+      // TODO: other kinds of definitions
+    ),
 
-  parameter_list: $ => seq(
-    '(',
-     // TODO: parameters
-    ')'
-  ),
+    function_definition: $ => seq(
+      'func',
+      $.identifier,
+      $.parameter_list,
+      $._type,
+      $.block
+    ),
 
-  _type: $ => choice(
-    'bool'
-    // TODO: other kinds of types
-  ),
+    parameter_list: $ => seq(
+      '(',
+       // TODO: parameters
+      ')'
+    ),
 
-  block: $ => seq(
-    '{',
-    repeat($._statement),
-    '}'
-  ),
+    _type: $ => choice(
+      'bool'
+      // TODO: other kinds of types
+    ),
 
-  _statement: $ => choice(
-    $.return_statement
-    // TODO: other kinds of statements
-  ),
+    block: $ => seq(
+      '{',
+      repeat($._statement),
+      '}'
+    ),
 
-  return_statement: $ => seq(
-    'return',
-    $._expression,
-    ';'
-  ),
+    _statement: $ => choice(
+      $.return_statement
+      // TODO: other kinds of statements
+    ),
 
-  _expression: $ => choice(
-    $.identifier,
-    $.number
-    // TODO: other kinds of expressions
-  ),
+    return_statement: $ => seq(
+      'return',
+      $._expression,
+      ';'
+    ),
 
-  identifier: $ => /[a-z]+/,
+    _expression: $ => choice(
+      $.identifier,
+      $.number
+      // TODO: other kinds of expressions
+    ),
 
-  number: $ => /\d+/
+    identifier: $ => /[a-z]+/,
+
+    number: $ => /\d+/
+  }
 }
 ```
 
@@ -118,27 +123,31 @@ Some of the details of this grammar will be explained in more depth later on, bu
 With this structure in place, you can now freely decide what part of the grammar to flesh out next. For example, you might decide to start with *types*. One-by-one, you could define the rules for writing basic types and composing them into more complex types:
 
 ```js
-_type: $ => choice(
-  $.primitive_type,
-  $.array_type,
-  $.pointer_type
-),
+{
+  // ...
 
-primitive_type: $ => choice(
-  'bool',
-  'int'
-),
+  _type: $ => choice(
+    $.primitive_type,
+    $.array_type,
+    $.pointer_type
+  ),
 
-array_type: $ => seq(
-  '[',
-  ']',
-  $._type
-),
+  primitive_type: $ => choice(
+    'bool',
+    'int'
+  ),
 
-pointer_type: $ => seq(
-  '*',
-  $._type
-),
+  array_type: $ => seq(
+    '[',
+    ']',
+    $._type
+  ),
+
+  pointer_type: $ => seq(
+    '*',
+    $._type
+  )
+}
 ```
 
 After developing the *type* sublanguage a bit further, you might decide to switch to working on *statements* or *expressions* instead. It's often useful to check your progress by trying to parse some real code using `tree-sitter parse`.
@@ -250,24 +259,28 @@ The language spec encodes the 20 precedence levels of JavaScript expressions usi
 To produce a readable syntax tree, we'd like to model JavaScript expressions using a much flatter structure like this:
 
 ```js
-_expression: $ => choice(
-  $.identifier,
-  $.unary_expression,
-  $.binary_expression,
+{
   // ...
-),
 
-unary_expression: $ => choice(
-  seq('-', $._expression),
-  seq('!', $._expression),
-  // ...
-),
+  _expression: $ => choice(
+    $.identifier,
+    $.unary_expression,
+    $.binary_expression,
+    // ...
+  ),
 
-binary_expression: $ => choice(
-  seq($._expression, '*', $._expression),
-  seq($._expression, '+', $._expression),
-  // ...
-),
+  unary_expression: $ => choice(
+    seq('-', $._expression),
+    seq('!', $._expression),
+    // ...
+  ),
+
+  binary_expression: $ => choice(
+    seq($._expression, '*', $._expression),
+    seq($._expression, '+', $._expression),
+    // ...
+  ),
+}
 ```
 
 Of course, this flat structure is highly ambiguous. If we try to generate a parser, Tree-sitter gives us an error message:
@@ -293,11 +306,15 @@ Possible resolutions:
 For an expression like `-a * b`, it's not clear whether the `-` operator applies to the `a * b` or just to the `a`. This is where the `prec` function described above comes into play. By wrapping a rule with `prec`, we can indicate that certain sequence of symbols should *bind to each other more tightly* than others. For example, the `'-', $._expression` sequence in `unary_expression` should bind more tightly than the `$._expression, '+', $._expression` sequence in `binary_expression`:
 
 ```js
-unary_expression: $ => prec(2, choice(
-  seq('-', $._expression),
-  seq('!', $._expression),
+{
   // ...
-))
+
+  unary_expression: $ => prec(2, choice(
+    seq('-', $._expression),
+    seq('!', $._expression),
+    // ...
+  ))
+}
 ```
 
 ### Using associativity
@@ -323,11 +340,15 @@ Possible resolutions:
 For an expression like `a * b * c`, it's not clear whether we mean `a * (b * c)` or `(a * b) * c`. This is where `prec.left` and `prec.right` come into use. We want to select the second interpretation, so we use `prec.left`.
 
 ```js
-binary_expression: $ => choice(
-  prec.left(2, seq($._expression, '*', $._expression)),
-  prec.left(1, seq($._expression, '+', $._expression)),
+{
   // ...
-),
+
+  binary_expression: $ => choice(
+    prec.left(2, seq($._expression, '*', $._expression)),
+    prec.left(1, seq($._expression, '+', $._expression)),
+    // ...
+  ),
+}
 ```
 
 ### Hiding rules
@@ -335,6 +356,8 @@ binary_expression: $ => choice(
 You may have noticed in the above examples that some of the grammar rule name like `_expression` and `_type` began with an underscore. Starting a rule's name with an underscore causes the rule to be *hidden* in the syntax tree. This is useful for rules like `_expression` in the grammars above, which always just wrap a single child node. If these nodes were not hidden, they would add substantial depth and noise to the syntax tree without making it any easier to understand.
 
 ## Dealing with LR conflicts
+
+TODO
 
 [cst]: https://en.wikipedia.org/wiki/Parse_tree
 [non-terminal]: https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols

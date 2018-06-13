@@ -5,7 +5,7 @@
 
 namespace record_alloc {
 
-void start();
+void start(bool multi_threaded_mode = false);
 void stop();
 void fail_at_allocation_index(size_t failure_index);
 std::vector<size_t> outstanding_allocation_indices();
