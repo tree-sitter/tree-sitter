@@ -9,8 +9,7 @@ $sidebar-transition: left 0.25s;
 $container-width: 1024px;
 
 body {
-  overflow-y: scroll;
-  overflow-x: hidden;
+  overflow: scroll;
 }
 
 #container {
@@ -25,6 +24,7 @@ body {
 
 #sidebar {
   position: fixed;
+  background: white;
   top: 0;
   bottom: 0;
   width: $sidebar-width;
