@@ -3,38 +3,115 @@
 
 @import 'jekyll-theme-cayman';
 
-#main-content, #table-of-contents {
-  padding-top: 20px;
+$padding: 20px;
+$sidebar-width: 300px;
+$sidebar-transition: left 0.25s;
+$container-width: 1024px;
+
+body {
+  overflow-y: scroll;
+  overflow-x: hidden;
 }
 
-#table-of-contents {
+#container {
+  position: relative;
+  max-width: $container-width;
+  margin: 0 auto;
+}
+
+#main-content, #sidebar {
+  padding: $padding 0;
+}
+
+#sidebar {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: $sidebar-width;
+  overflow-y: auto;
   border-right: 1px solid #ccc;
-  border-bottom: 1px solid #ccc;
+  z-index: 1;
+}
+
+#sidebar-toggle-link {
+  font-size: 24px;
+  position: fixed;
+  background-color: white;
+  box-shadow: 1px 1px 5px #aaa;
+  left: $sidebar-width;
+  padding: 5px 10px;
+  display: none;
+  z-index: 100;
+  text-decoration: none !important;
+  color: #aaa;
+}
+
+#main-content {
+  position: relative;
+  padding: $padding;
+  padding-left: $sidebar-width + $padding;
 }
 
 .nav-link.active {
   text-decoration: underline;
 }
 
-.logo {
-  padding: 20px;
-  padding-top: 0;
-  display: block;
-}
-
-.toc-section:not(:last-child), .logo {
+.table-of-contents-section {
   border-bottom: 1px solid #ccc;
 }
 
-.toc-section.active {
-  background-color: #edffcb;
-}
-
-li {
+.logo {
   display: block;
 }
 
-body {
-  overflow-y: scroll;
-  padding-bottom: 100px;
+.table-of-contents-section.active {
+  background-color: #edffcb;
+}
+
+.table-of-contents-section {
+  padding: 10px 20px;
+}
+
+#table-of-contents {
+  ul {
+    padding: 0;
+    margin: 0;
+  }
+
+  li {
+    display: block;
+    padding: 5px 20px;
+  }
+}
+
+@media (max-width: 900px) {
+  #sidebar {
+    left: 0;
+    transition: $sidebar-transition;
+  }
+
+  #sidebar-toggle-link {
+    display: block;
+    transition: $sidebar-transition;
+  }
+
+  #main-content {
+    left: $sidebar-width;
+    padding-left: $padding;
+    transition: $sidebar-transition;
+  }
+
+  body.sidebar-hidden {
+    #sidebar {
+      left: -$sidebar-width;
+    }
+
+    #main-content {
+      left: 0;
+    }
+
+    #sidebar-toggle-link {
+      left: 0;
+    }
+  }
 }

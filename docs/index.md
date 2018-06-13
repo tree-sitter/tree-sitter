@@ -22,12 +22,13 @@ There are currently bindings that allow Tree-sitter to be used from the followin
 
 ### Available Parsers
 
-There are fairly complete parsers for the following languages:
+Parsers for these languages are fairly complete:
 
 * [Bash](https://github.com/tree-sitter/tree-sitter-bash)
 * [C](https://github.com/tree-sitter/tree-sitter-c)
 * [C++](https://github.com/tree-sitter/tree-sitter-cpp)
 * [Go](https://github.com/tree-sitter/tree-sitter-go)
+* [HTML](https://github.com/tree-sitter/tree-sitter-html)
 * [JavaScript](https://github.com/tree-sitter/tree-sitter-javascript)
 * [PHP](https://github.com/tree-sitter/tree-sitter-php)
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
@@ -35,7 +36,7 @@ There are fairly complete parsers for the following languages:
 * [Rust](https://github.com/tree-sitter/tree-sitter-rust)
 * [TypeScript](https://github.com/tree-sitter/tree-sitter-typescript)
 
-There are parsers in development for these languages:
+Parsers for these languages are in development:
 
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [Java](https://github.com/tree-sitter/tree-sitter-java)

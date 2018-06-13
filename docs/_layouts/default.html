@@ -4,99 +4,93 @@
 <head>
   <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css" media="screen">
   <link rel="stylesheet" href="{{ '/assets/css/style.css?v=' | append: site.github.build_revision | relative_url }}" media="screen" type="text/css">
   <title>{{ page.title }}</title>
 </head>
 
-<body>
-  <div style="position: fixed; width: 100%;">
-    <div class="container" style="height: 100%;">
-      <div class="row" style="height: 0;">
-        <div class="col-md-4">
-          <nav id="table-of-contents">
-            <a class="logo" href="https://github.com/tree-sitter/tree-sitter">
-              <img src="{{ '/assets/images/tree-sitter-small.png' | relative_url }}" width=200 height=200 />
-            </a>
+<body class="sidebar-hidden">
+  <script>
+    if (localStorage.getItem('sidebar-active') === 'true') {
+      document.body.classList.remove('sidebar-hidden');
+    }
+  </script>
 
-            {% for other_page in site.html_pages %}
-              {% if page.title == other_page.title %}
-                <li class="toc-section active">
-                  <a class="nav-link" href="{{ other_page.url | relative_url }}">
-                    {{ other_page.title }}
-                  </a>
+  <div id="container">
+    <div id="sidebar">
+      <nav id="table-of-contents">
+        <a class="logo table-of-contents-section" href="https://github.com/tree-sitter/tree-sitter">
+          <img src="{{ '/assets/images/tree-sitter-small.png' | relative_url }}" width=200 height=200 />
+        </a>
 
-                  <ul id="current-page-table-of-contents" class="nav navbar">
-                    {% capture whitespace %}
-                    {% assign min_header = 2 %}
-                    {% assign nodes = content | split: "<h" %}
-                    {% assign first_header = true %}
-                    {% for node in nodes %}
-                      {% if node == "" %}
-                        {% continue %}
-                      {% endif %}
+        {% for other_page in site.html_pages %}
+          {% if page.title == other_page.title %}
+            <li class="table-of-contents-section active">
+              <a class="nav-link" href="{{ other_page.url | relative_url }}">
+                {{ other_page.title }}
+              </a>
 
-                      {% assign header_level = node | replace: '"', '' | slice: 0, 1 | times: 1 %}
+              <div id="current-page-table-of-contents">
+                {% capture whitespace %}
+                {% assign min_header = 2 %}
+                {% assign nodes = content | split: "<h" %}
+                {% assign first_header = true %}
+                {% for node in nodes %}
+                  {% if node == "" %}
+                    {% continue %}
+                  {% endif %}
 
-                      {% if header_level < min_header or header_level > maxHeader %}
-                        {% continue %}
-                      {% endif %}
+                  {% assign header_level = node | replace: '"', '' | slice: 0, 1 | times: 1 %}
 
-                      {% if first_header %}
-                        {% assign first_header = false %}
-                        {% assign min_header = header_level %}
-                      {% endif %}
+                  {% if header_level < min_header or header_level > maxHeader %}
+                    {% continue %}
+                  {% endif %}
 
-                      {% assign indent_level = header_level | minus: min_header | add: 1 %}
-                      {% assign header_content = node | split: '</h' %}
-                      {% assign header_content = header_content[0] %}
+                  {% if first_header %}
+                    {% assign first_header = false %}
+                    {% assign min_header = header_level %}
+                  {% endif %}
 
-                      {% assign html_id = header_content | split: 'id="' %}
-                      {% assign html_id = html_id[1] | split: '"' %}
-                      {% assign html_id = html_id[0] %}
+                  {% assign indent_level = header_level | minus: min_header | add: 1 %}
+                  {% assign header_content = node | split: '</h' %}
+                  {% assign header_content = header_content[0] %}
 
-                      {% capture header_attrs_to_strip %}{{ header_content | split: '>' | first }}>{% endcapture %}
-                      {% assign header = header_content | replace: header_attrs_to_strip, '' %}
+                  {% assign html_id = header_content | split: 'id="' %}
+                  {% assign html_id = html_id[1] | split: '"' %}
+                  {% assign html_id = html_id[0] %}
 
-                      {% assign space = '' %}
-                      {% for i in (1..indent_level) %}
-                        {% assign space = space | prepend: '    ' %}
-                      {% endfor %}
+                  {% capture header_attrs_to_strip %}{{ header_content | split: '>' | first }}>{% endcapture %}
+                  {% assign header = header_content | replace: header_attrs_to_strip, '' %}
+
+                  {% assign space = '' %}
+                  {% for i in (1..indent_level) %}
+                    {% assign space = space | prepend: '    ' %}
+                  {% endfor %}
 
 {% capture my_toc %}{{ my_toc }}
 {{ space }}- [{{ header }}](#{{ html_id }}){: .nav-link}{% endcapture %}
 
-                    {% endfor %}
-                    {% endcapture %}
-                    {{ my_toc | strip | markdownify | strip }}
-                  </ul>
-                </li>
-              {% else %}
-                <li class="toc-section">
-                  <a class="nav-link" href="{{ other_page.url | relative_url }}">
-                    {{ other_page.title }}
-                  </a>
-                </li>
-              {% endif %}
-            {% endfor %}
-          </nav>
-        </div>
-      </div>
+                {% endfor %}
+                {% endcapture %}
+                {{ my_toc | strip | markdownify | strip }}
+              </ul>
+            </li>
+          {% else %}
+            <li class="table-of-contents-section">
+              <a class="nav-link" href="{{ other_page.url | relative_url }}">
+                {{ other_page.title }}
+              </a>
+            </li>
+          {% endif %}
+        {% endfor %}
+      </nav>
     </div>
+
+    <a id="sidebar-toggle-link" href="#">☰</a>
+
+    <main id="main-content">
+      {{ content }}
+    </main>
   </div>
-
-  <main class="container">
-    <div class="row">
-      <div class="col-md-4" style="pointer-events: none;">
-      </div>
-
-      <div class="col-md-8 content">
-        <div id="main-content">
-          {{ content }}
-        </div>
-      </div>
-    </div>
-  </main>
 </body>
 </html>
 
@@ -110,6 +104,15 @@
 </script>
 
 <script>
+  $('#sidebar-toggle-link').click(function(e) {
+    e.preventDefault();
+    $(document.body).toggleClass('sidebar-hidden');
+    localStorage.setItem(
+      'sidebar-active',
+      localStorage.getItem('sidebar-active') === 'true' ? 'false' : 'true'
+    );
+  });
+
   if (document.body.scrollHeight > window.innerHeight) {
     $(document.body).scrollspy({
       target: '#current-page-table-of-contents',
