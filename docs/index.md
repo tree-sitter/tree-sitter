@@ -38,11 +38,12 @@ Parsers for these languages are fairly complete:
 
 Parsers for these languages are in development:
 
+* [Agda](https://github.com/tree-sitter/tree-sitter-agda)
+* [C-sharp](https://github.com/tree-sitter/tree-sitter-c-sharp)
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [Java](https://github.com/tree-sitter/tree-sitter-java)
-* [OCaml](https://github.com/tree-sitter/tree-sitter-ocaml)
-* [C-sharp](https://github.com/tree-sitter/tree-sitter-c-sharp)
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
+* [OCaml](https://github.com/tree-sitter/tree-sitter-ocaml)
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
 
 ### Talks on Tree-sitter
