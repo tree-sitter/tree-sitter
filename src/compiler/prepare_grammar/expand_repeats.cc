@@ -106,6 +106,7 @@ InitialSyntaxGrammar expand_repeats(const InitialSyntaxGrammar &grammar) {
     expander.aux_rules.end()
   );
 
+  result.word_rule = grammar.word_rule;
   return result;
 }
 

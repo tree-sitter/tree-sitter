@@ -32,6 +32,7 @@ struct InputGrammar {
   std::vector<std::unordered_set<rules::NamedSymbol>> expected_conflicts;
   std::vector<rules::Rule> external_tokens;
   std::unordered_set<rules::NamedSymbol> variables_to_inline;
+  rules::NamedSymbol word_rule;
 };
 
 }  // namespace tree_sitter

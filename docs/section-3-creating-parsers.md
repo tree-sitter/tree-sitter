@@ -217,6 +217,7 @@ In addition to the `name` and `rules` fields, grammars have a few other public f
 * `inline` - an array of rule names that should be automatically *removed* from the grammar by replacing all of their usages with a copy of their definition. This is useful for rules that are used in multiple places but for which you *don't* want to create syntax tree nodes at runtime.
 * `conflicts` - an array of arrays of rule names. Each inner array represents a set of rules that's involved in an *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use the GLR algorithm to explore all of the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick the subtree rule with the highest *dynamic precedence*.
 * `externals` - an array of toen names which can be returned by an *external scanner*. External scanners allow you to write custom C code which runs during the lexing process in order to handle lexical rules (e.g. Python's indentation tokens) that cannot be described by regular expressions.
+* `word` - the name of a token that will match keywords for the purpose of [keyword-optimization](#keyword-optimization).
 
 ## Adjusting existing grammars
 
@@ -358,6 +359,29 @@ You may have noticed in the above examples that some of the grammar rule name li
 ## Dealing with LR conflicts
 
 TODO
+
+## Keyword Optimization
+
+Many languages have a set of keywords. Typically, these aren't identifiers, but
+look like them. For example, in Algol-like languages, `if` is a keyword. It could
+be a variable name, and in some contexts (e.g. javascript object literals like
+`{if: 'something'}`) it might be interpreted as a variable, but in many contexts,
+it has special meaning.
+
+You'll know if you have them, because keywords end up in the grammar as strings
+or regexes that match a small finite set of strings.
+
+The naïve parser generated from such a grammar can be huge and take forever to
+compile. Keyword optimization is the fix. Instead of building a parser which
+looks for `choice('break', 'continue', 'async', ...etc)` wherever they
+might occur, `word: $ => $.identifier` will instruct Tree-sitter to instead try
+and parse an `identifier` where it was going to try and parse one of those keywords,
+and then check to see if the parsed `identifier` actually does match a keyword.
+
+You don't have to specify what words actually are keywords. Tree-sitter will
+identify these automatically, as the set of terminals that your word could
+match.
+
 
 [cst]: https://en.wikipedia.org/wiki/Parse_tree
 [non-terminal]: https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols

@@ -19,6 +19,7 @@ typedef enum {
   TSCompileErrorTypeEpsilonRule,
   TSCompileErrorTypeInvalidTokenContents,
   TSCompileErrorTypeInvalidRuleName,
+  TSCompileErrorTypeInvalidWordRule,
 } TSCompileErrorType;
 
 typedef struct {

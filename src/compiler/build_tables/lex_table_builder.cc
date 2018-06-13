@@ -109,7 +109,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
   vector<ConflictStatus> conflict_matrix;
   bool conflict_detection_mode;
   LookaheadSet keyword_symbols;
-  Symbol keyword_capture_token;
+  Symbol word_rule;
   char encoding_buffer[8];
 
  public:
@@ -125,7 +125,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
       parse_table(parse_table),
       conflict_matrix(lexical_grammar.variables.size() * lexical_grammar.variables.size(), DoesNotMatch),
       conflict_detection_mode(false),
-      keyword_capture_token(rules::NONE()) {
+      word_rule(syntax_grammar.word_rule) {
 
     // Compute the possible separator rules and the set of separator characters that can occur
     // immediately after any token.
@@ -182,7 +182,6 @@ class LexTableBuilderImpl : public LexTableBuilder {
           potential_keyword_symbols.insert(token);
         }
       }
-
     }
     LOG_END();
 
@@ -205,98 +204,85 @@ class LexTableBuilderImpl : public LexTableBuilder {
     }
     LOG_END();
 
-    LOG_START("finding keyword capture token");
-    for (Symbol::Index i = 0, n = grammar.variables.size(); i < n; i++) {
-      Symbol candidate = Symbol::terminal(i);
-
-      LookaheadSet homonyms;
-      potential_keyword_symbols.for_each([&](Symbol other_token) {
-        if (get_conflict_status(other_token, candidate) & MatchesShorterStringWithinSeparators) {
-          homonyms.clear();
-          return false;
-        }
-        if (get_conflict_status(candidate, other_token) == MatchesSameString) {
-          homonyms.insert(other_token);
-        }
-        return true;
-      });
-      if (homonyms.empty()) continue;
-
-      LOG_START(
-        "keyword capture token candidate: %s, homonym count: %lu",
-        token_name(candidate).c_str(),
-        homonyms.size()
-      );
-
-      homonyms.for_each([&](Symbol homonym1) {
-        homonyms.for_each([&](Symbol homonym2) {
-          if (get_conflict_status(homonym1, homonym2) & MatchesSameString) {
-            LOG(
-              "conflict between homonyms %s %s",
-              token_name(homonym1).c_str(),
-              token_name(homonym2).c_str()
-            );
-            homonyms.remove(homonym1);
-          }
-          return false;
-        });
-        return true;
-      });
-
-      for (Symbol::Index j = 0; j < n; j++) {
-        Symbol other_token = Symbol::terminal(j);
-        if (other_token == candidate || homonyms.contains(other_token)) continue;
-        bool candidate_shadows_other = get_conflict_status(other_token, candidate);
-        bool other_shadows_candidate = get_conflict_status(candidate, other_token);
-
-        if (candidate_shadows_other || other_shadows_candidate) {
-          homonyms.for_each([&](Symbol homonym) {
-            bool other_shadows_homonym = get_conflict_status(homonym, other_token);
-
-            bool candidate_was_already_present = true;
-            for (ParseStateId state_id : coincident_token_index.states_with(homonym, other_token)) {
-              if (!parse_table->states[state_id].has_terminal_entry(candidate)) {
-                candidate_was_already_present = false;
-                break;
-              }
-            }
-            if (candidate_was_already_present) return true;
-
-            if (candidate_shadows_other) {
-              homonyms.remove(homonym);
-              LOG(
-                "remove %s because candidate would shadow %s",
-                token_name(homonym).c_str(),
-                token_name(other_token).c_str()
-              );
-            } else if (other_shadows_candidate && !other_shadows_homonym) {
-              homonyms.remove(homonym);
-              LOG(
-                "remove %s because %s would shadow candidate",
-                token_name(homonym).c_str(),
-                token_name(other_token).c_str()
-              );
-            }
-            return true;
-          });
-        }
-      }
-
-      if (homonyms.size() > keyword_symbols.size()) {
-        LOG_START("found capture token. homonyms:");
-        homonyms.for_each([&](Symbol homonym) {
-          LOG("%s", token_name(homonym).c_str());
-          return true;
-        });
-        LOG_END();
-        keyword_symbols = homonyms;
-        keyword_capture_token = candidate;
-      }
-
-      LOG_END();
+    if (word_rule != rules::NONE()) {
+      identify_keywords(potential_keyword_symbols);
     }
 
     LOG_END();
+  }
+
+  void identify_keywords(const LookaheadSet &potential_keyword_symbols) {
+    LookaheadSet homonyms;
+    potential_keyword_symbols.for_each([&](Symbol other_token) {
+      if (get_conflict_status(word_rule, other_token) == MatchesSameString) {
+        homonyms.insert(other_token);
+      }
+      return true;
+    });
+
+    homonyms.for_each([&](Symbol homonym1) {
+      homonyms.for_each([&](Symbol homonym2) {
+        if (get_conflict_status(homonym1, homonym2) & MatchesSameString) {
+          LOG(
+            "conflict between homonyms %s %s",
+            token_name(homonym1).c_str(),
+            token_name(homonym2).c_str()
+          );
+          homonyms.remove(homonym1);
+        }
+        return false;
+      });
+      return true;
+    });
+
+    for (Symbol::Index j = 0, n = grammar.variables.size(); j < n; j++) {
+      Symbol other_token = Symbol::terminal(j);
+      if (other_token == word_rule || homonyms.contains(other_token)) continue;
+      bool word_rule_shadows_other = get_conflict_status(other_token, word_rule);
+      bool other_shadows_word_rule = get_conflict_status(word_rule, other_token);
+
+      if (word_rule_shadows_other || other_shadows_word_rule) {
+        homonyms.for_each([&](Symbol homonym) {
+          bool other_shadows_homonym = get_conflict_status(homonym, other_token);
+
+          bool word_rule_was_already_present = true;
+          for (ParseStateId state_id : coincident_token_index.states_with(homonym, other_token)) {
+            if (!parse_table->states[state_id].has_terminal_entry(word_rule)) {
+              word_rule_was_already_present = false;
+              break;
+            }
+          }
+          if (word_rule_was_already_present) return true;
+
+          if (word_rule_shadows_other) {
+            homonyms.remove(homonym);
+            LOG(
+              "remove %s because word_rule would shadow %s",
+              token_name(homonym).c_str(),
+              token_name(other_token).c_str()
+            );
+          } else if (other_shadows_word_rule && !other_shadows_homonym) {
+            homonyms.remove(homonym);
+            LOG(
+              "remove %s because %s would shadow word_rule",
+              token_name(homonym).c_str(),
+              token_name(other_token).c_str()
+            );
+          }
+          return true;
+        });
+      }
+    }
+
+    if (!homonyms.empty()) {
+      LOG_START("found keywords:");
+      homonyms.for_each([&](Symbol homonym) {
+        LOG("%s", token_name(homonym).c_str());
+        return true;
+      });
+      LOG_END();
+      keyword_symbols = homonyms;
+    }
   }
 
   BuildResult build() {
@@ -307,8 +293,8 @@ class LexTableBuilderImpl : public LexTableBuilder {
     for (ParseState &parse_state : parse_table->states) {
       LookaheadSet token_set;
       for (auto &entry : parse_state.terminal_entries) {
-        if (keyword_capture_token.is_terminal() && keyword_symbols.contains(entry.first)) {
-          token_set.insert(keyword_capture_token);
+        if (word_rule.is_terminal() && keyword_symbols.contains(entry.first)) {
+          token_set.insert(word_rule);
         } else {
           token_set.insert(entry.first);
         }
@@ -337,7 +323,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
 
     mark_fragile_tokens();
     remove_duplicate_lex_states(main_lex_table);
-    return {main_lex_table, keyword_lex_table, keyword_capture_token};
+    return {main_lex_table, keyword_lex_table, word_rule};
   }
 
   ConflictStatus get_conflict_status(Symbol shadowed_token, Symbol other_token) const {
@@ -411,10 +397,10 @@ class LexTableBuilderImpl : public LexTableBuilder {
                 MatchesLongerStringWithValidNextChar
               )) {
                 LOG(
-                  "%s shadows %s followed by '%s'",
+                  "%s shadows %s followed by %d",
                   token_name(advance_symbol).c_str(),
                   token_name(accept_action.symbol).c_str(),
-                  log_char(*conflicting_following_chars.included_chars.begin())
+                  *conflicting_following_chars.included_chars.begin()
                 );
               }
             }
