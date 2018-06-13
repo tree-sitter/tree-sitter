@@ -120,6 +120,13 @@
     });
   }
 
+  $(document).scroll(function() {
+    if ($(document).scrollLeft() > 0) {
+      localStorage.setItem('sidebar-active', 'false');
+      $(document.body).addClass('sidebar-hidden');
+    }
+  });
+
   $('h1, h2, h3, h4, h5, h6').filter('[id]').each(function() {
     $(this).html('<a href="#'+$(this).attr('id')+'">' + $(this).text() + '</a>');
   });
