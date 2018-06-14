@@ -11,11 +11,9 @@ START_TEST
 
 describe("expand_repeats", []() {
   it("replaces repeat rules with pairs of recursive rules", [&]() {
-    InitialSyntaxGrammar grammar{
-      {
-        Variable{"rule0", VariableTypeNamed, Repeat{Symbol::terminal(0)}},
-      },
-      {}, {}, {}, {}
+    InitialSyntaxGrammar grammar;
+    grammar.variables = {
+      Variable{"rule0", VariableTypeNamed, Repeat{Symbol::terminal(0)}},
     };
 
     auto result = expand_repeats(grammar);
@@ -30,14 +28,12 @@ describe("expand_repeats", []() {
   });
 
   it("replaces repeats inside of sequences", [&]() {
-    InitialSyntaxGrammar grammar{
-      {
-        Variable{"rule0", VariableTypeNamed, Rule::seq({
-          Symbol::terminal(10),
-          Repeat{Symbol::terminal(11)},
-        })},
-      },
-      {}, {}, {}, {}
+    InitialSyntaxGrammar grammar;
+    grammar.variables = {
+      Variable{"rule0", VariableTypeNamed, Rule::seq({
+        Symbol::terminal(10),
+        Repeat{Symbol::terminal(11)},
+      })},
     };
 
     auto result = expand_repeats(grammar);
@@ -55,14 +51,12 @@ describe("expand_repeats", []() {
   });
 
   it("replaces repeats inside of choices", [&]() {
-    InitialSyntaxGrammar grammar{
-      {
-        Variable{"rule0", VariableTypeNamed, Rule::choice({
-          Symbol::terminal(10),
-          Repeat{Symbol::terminal(11)}
-        })},
-      },
-      {}, {}, {}, {}
+    InitialSyntaxGrammar grammar;
+    grammar.variables = {
+      Variable{"rule0", VariableTypeNamed, Rule::choice({
+        Symbol::terminal(10),
+        Repeat{Symbol::terminal(11)}
+      })},
     };
 
     auto result = expand_repeats(grammar);
@@ -80,18 +74,16 @@ describe("expand_repeats", []() {
   });
 
   it("does not create redundant auxiliary rules", [&]() {
-    InitialSyntaxGrammar grammar{
-      {
-        Variable{"rule0", VariableTypeNamed, Rule::choice({
-          Rule::seq({ Symbol::terminal(1), Repeat{Symbol::terminal(4)} }),
-          Rule::seq({ Symbol::terminal(2), Repeat{Symbol::terminal(4)} }),
-        })},
-        Variable{"rule1", VariableTypeNamed, Rule::seq({
-          Symbol::terminal(3),
-          Repeat{Symbol::terminal(4)}
-        })},
-      },
-      {}, {}, {}, {}
+    InitialSyntaxGrammar grammar;
+    grammar.variables = {
+      Variable{"rule0", VariableTypeNamed, Rule::choice({
+        Rule::seq({ Symbol::terminal(1), Repeat{Symbol::terminal(4)} }),
+        Rule::seq({ Symbol::terminal(2), Repeat{Symbol::terminal(4)} }),
+      })},
+      Variable{"rule1", VariableTypeNamed, Rule::seq({
+        Symbol::terminal(3),
+        Repeat{Symbol::terminal(4)}
+      })},
     };
 
     auto result = expand_repeats(grammar);
@@ -113,14 +105,14 @@ describe("expand_repeats", []() {
   });
 
   it("can replace multiple repeats in the same rule", [&]() {
-    InitialSyntaxGrammar grammar{
+    InitialSyntaxGrammar grammar;
+    grammar.variables = {
       {
         Variable{"rule0", VariableTypeNamed, Rule::seq({
           Repeat{Symbol::terminal(10)},
           Repeat{Symbol::terminal(11)},
         })},
-      },
-      {}, {}, {}, {}
+      }
     };
 
     auto result = expand_repeats(grammar);
@@ -142,12 +134,10 @@ describe("expand_repeats", []() {
   });
 
   it("can replace repeats in multiple rules", [&]() {
-    InitialSyntaxGrammar grammar{
-      {
-        Variable{"rule0", VariableTypeNamed, Repeat{Symbol::terminal(10)}},
-        Variable{"rule1", VariableTypeNamed, Repeat{Symbol::terminal(11)}},
-      },
-      {}, {}, {}, {}
+    InitialSyntaxGrammar grammar;
+    grammar.variables = {
+      Variable{"rule0", VariableTypeNamed, Repeat{Symbol::terminal(10)}},
+      Variable{"rule1", VariableTypeNamed, Repeat{Symbol::terminal(11)}},
     };
 
     auto result = expand_repeats(grammar);

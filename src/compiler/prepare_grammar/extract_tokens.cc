@@ -329,6 +329,18 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
     }
   }
 
+  syntax_grammar.word_rule = symbol_replacer.replace_symbol(grammar.word_rule);
+  if (syntax_grammar.word_rule.is_non_terminal()) {
+    return make_tuple(
+      syntax_grammar,
+      lexical_grammar,
+      CompileError(
+        TSCompileErrorTypeInvalidWordRule,
+        "Word rules must be tokens"
+      )
+    );
+  }
+
   return make_tuple(syntax_grammar, lexical_grammar, CompileError::none());
 }
 

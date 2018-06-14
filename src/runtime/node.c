@@ -28,11 +28,11 @@ static inline TSNode ts_node__null() {
 
 // TSNode - accessors
 
-uint32_t ts_node_start_byte(const TSNode self) {
+uint32_t ts_node_start_byte(TSNode self) {
   return self.context[0];
 }
 
-TSPoint ts_node_start_point(const TSNode self) {
+TSPoint ts_node_start_point(TSNode self) {
   return (TSPoint) {self.context[1], self.context[2]};
 }
 

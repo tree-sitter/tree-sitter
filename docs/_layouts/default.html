@@ -32,6 +32,7 @@
               <div id="current-page-table-of-contents">
                 {% capture whitespace %}
                 {% assign min_header = 2 %}
+                {% assign max_header = 3 %}
                 {% assign nodes = content | split: "<h" %}
                 {% assign first_header = true %}
                 {% for node in nodes %}
@@ -41,7 +42,7 @@
 
                   {% assign header_level = node | replace: '"', '' | slice: 0, 1 | times: 1 %}
 
-                  {% if header_level < min_header or header_level > maxHeader %}
+                  {% if header_level < min_header or header_level > max_header %}
                     {% continue %}
                   {% endif %}
 
@@ -127,7 +128,7 @@
     }
   });
 
-  $('h1, h2, h3, h4, h5, h6').filter('[id]').each(function() {
+  $('h1, h2, h3').filter('[id]').each(function() {
     $(this).html('<a href="#'+$(this).attr('id')+'">' + $(this).text() + '</a>');
   });
 </script>

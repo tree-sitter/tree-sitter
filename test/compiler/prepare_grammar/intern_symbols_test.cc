@@ -11,13 +11,11 @@ using prepare_grammar::intern_symbols;
 
 describe("intern_symbols", []() {
   it("replaces named symbols with numerically-indexed symbols", [&]() {
-    InputGrammar grammar{
-      {
-        {"x", VariableTypeNamed, Rule::choice({ NamedSymbol{"y"}, NamedSymbol{"_z"} })},
-        {"y", VariableTypeNamed, NamedSymbol{"_z"}},
-        {"_z", VariableTypeNamed, String{"stuff"}}
-      },
-      {}, {}, {}, {}
+    InputGrammar grammar;
+    grammar.variables = {
+      {"x", VariableTypeNamed, Rule::choice({ NamedSymbol{"y"}, NamedSymbol{"_z"} })},
+      {"y", VariableTypeNamed, NamedSymbol{"_z"}},
+      {"_z", VariableTypeNamed, String{"stuff"}}
     };
 
     auto result = intern_symbols(grammar);
@@ -32,11 +30,9 @@ describe("intern_symbols", []() {
 
   describe("when there are symbols that reference undefined rules", [&]() {
     it("returns an error", []() {
-      InputGrammar grammar{
-        {
-          {"x", VariableTypeNamed, NamedSymbol{"y"}},
-        },
-        {}, {}, {}, {}
+      InputGrammar grammar;
+      grammar.variables = {
+        {"x", VariableTypeNamed, NamedSymbol{"y"}},
       };
 
       auto result = intern_symbols(grammar);
@@ -46,16 +42,14 @@ describe("intern_symbols", []() {
   });
 
   it("translates the grammar's optional 'extra_tokens' to numerical symbols", [&]() {
-    InputGrammar grammar{
-      {
-        {"x", VariableTypeNamed, Rule::choice({ NamedSymbol{"y"}, NamedSymbol{"z"} })},
-        {"y", VariableTypeNamed, NamedSymbol{"z"}},
-        {"z", VariableTypeNamed, String{"stuff"}}
-      },
-      {
-        NamedSymbol{"z"}
-      },
-      {}, {}, {}
+    InputGrammar grammar;
+    grammar.variables = {
+      {"x", VariableTypeNamed, Rule::choice({ NamedSymbol{"y"}, NamedSymbol{"z"} })},
+      {"y", VariableTypeNamed, NamedSymbol{"z"}},
+      {"z", VariableTypeNamed, String{"stuff"}}
+    };
+    grammar.extra_tokens = {
+      NamedSymbol{"z"}
     };
 
     auto result = intern_symbols(grammar);
@@ -66,19 +60,15 @@ describe("intern_symbols", []() {
   });
 
   it("records any rule names that match external token names", [&]() {
-    InputGrammar grammar{
-      {
-        {"x", VariableTypeNamed, Rule::choice({ NamedSymbol{"y"}, NamedSymbol{"z"} })},
-        {"y", VariableTypeNamed, NamedSymbol{"z"}},
-        {"z", VariableTypeNamed, String{"stuff"}},
-      },
-      {},
-      {},
-      {
-        NamedSymbol{"w"},
-        NamedSymbol{"z"},
-      },
-      {}
+    InputGrammar grammar;
+    grammar.variables = {
+      {"x", VariableTypeNamed, Rule::choice({ NamedSymbol{"y"}, NamedSymbol{"z"} })},
+      {"y", VariableTypeNamed, NamedSymbol{"z"}},
+      {"z", VariableTypeNamed, String{"stuff"}},
+    };
+    grammar.external_tokens = {
+      NamedSymbol{"w"},
+      NamedSymbol{"z"},
     };
 
     auto result = intern_symbols(grammar);

@@ -1,4 +1,5 @@
 #include "compiler/log.h"
+#include <cassert>
 
 static const char *SPACES = "                                                           ";
 
@@ -21,6 +22,7 @@ void _indent_logs() {
 }
 
 void _outdent_logs() {
+  assert(_indent_level > 0);
   _indent_level--;
 }
 

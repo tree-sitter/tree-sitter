@@ -211,12 +211,13 @@ The following is a complete list of built-in functions you can use to define Tre
 * **Tokens : `token(rule)`** - This function marks the given rule as producing only a single token. Tree-sitter's default is to treat each String or RegExp literal in the grammar as a separate token. Each token is matched separately by the lexer and returned as its own leaf node in the tree. The `token` function allows you to express a complex rule using the functions described above (rather than as a single regular expression) but still have Tree-sitter treat it as a single token.
 * **Aliases : `alias(rule, name)`** - This function causes the given rule to *appear* with an alternative name in the syntax tree. It is useful in cases where a language construct needs to be parsed differently in different contexts (and thus needs to be defined using multiple symbols), but should always *appear* as the same type of node.
 
-In addition to the `name` and `rules` fields, grammars have a few other public fields that influence the behavior of the parser.
+In addition to the `name` and `rules` fields, grammars have a few other optional public fields that influence the behavior of the parser.
 
 * `extras` - an array of tokens that may appear *anywhere* in the language. This is often used for whitespace and comments. The default for `extras` in `tree-sitter-cli` is to accept whitespace. To control whitespace explicitly, specify `extras=[]` in the grammar.
 * `inline` - an array of rule names that should be automatically *removed* from the grammar by replacing all of their usages with a copy of their definition. This is useful for rules that are used in multiple places but for which you *don't* want to create syntax tree nodes at runtime.
 * `conflicts` - an array of arrays of rule names. Each inner array represents a set of rules that's involved in an *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use the GLR algorithm to explore all of the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick the subtree rule with the highest *dynamic precedence*.
 * `externals` - an array of toen names which can be returned by an *external scanner*. External scanners allow you to write custom C code which runs during the lexing process in order to handle lexical rules (e.g. Python's indentation tokens) that cannot be described by regular expressions.
+* `word` - the name of a token that will match keywords for the purpose of the [keyword extraction](#keyword-extraction) optimization.
 
 ## Adjusting existing grammars
 
@@ -355,11 +356,81 @@ For an expression like `a * b * c`, it's not clear whether we mean `a * (b * c)`
 
 You may have noticed in the above examples that some of the grammar rule name like `_expression` and `_type` began with an underscore. Starting a rule's name with an underscore causes the rule to be *hidden* in the syntax tree. This is useful for rules like `_expression` in the grammars above, which always just wrap a single child node. If these nodes were not hidden, they would add substantial depth and noise to the syntax tree without making it any easier to understand.
 
-## Dealing with LR conflicts
+### Dealing with LR conflicts
 
-TODO
+...
 
+## Lexical Analysis
+
+Tree-sitter's parsing process is divided into two phases: parsing (which is described above) and [lexing](lexing) - the process of grouping individual characters into the language's fundamental *tokens*. There are a few important things to know about how Tree-sitter's lexing works.
+
+### Conflict Resolution
+
+Grammars often contain multiple tokens that can match the same characters. For example, a grammar might contain the tokens (`"if"` and `/[a-z]+/`). Tree-sitter differentiates between these conflicting tokens in a few ways:
+
+1. **Context-aware lexing** - Tree-sitter performs lexing on-demand, during the parsing process. At any given position in a source document, the lexer only tries to recognize tokens that are *valid* at that position in the document.
+
+2. **Longest-match** - If multiple valid tokens match the characters at a given position in a document, Tree-sitter will select the token that matches the [longest sequence of characters](longest-match).
+
+3. **Lexical Precedence** - When the precedence functions described [above](#using-the-grammar-dsl) are used within the `token` function, the given precedence values serve as instructions to the lexer. If there are two valid tokens that match the same sequence of characters, Tree-sitter will select the one with the higher precedence.
+
+### Keywords
+
+If your language has keywords which are matched by a rule (typically `identifier`), you can tell Tree-sitter about it with your grammar's `word` property.
+
+```js
+grammar({
+  word: $ => $.identifier,
+
+  rules: {
+    class_declaration: $ => seq(
+      'class',
+      $.identifier,
+      $.class_body
+    ),
+
+    break_statement: $ => seq('break', ';'),
+
+    continue_statement: $ => seq('continue', ';'),
+
+    identifier: $ => /[a-z]+/
+  }
+})
+```
+
+In this case, we're specifying `identifier` as our `word`. Tree-sitter will automatically find the set of terminals which are matched by `$.identifier`, and consider them keywords. Instead of generating a parser which scans for each keyword individually, Tree-sitter will generate a parser that tries to match the word rule (in this case, `identifier`), and checks to see if the matched word is the necessary keyword.
+
+This makes the set of parse states smaller, so the parser compiles faster.
+
+It *also changes behavior*. Consider this grammar:
+
+```js
+grammar({
+  rules: {
+    import: $ => seq(
+      'import',
+      $.identifier,
+      'as',
+      $.identifier
+    ),
+
+    identifier: $ => /[a-z]+/
+  }
+})
+```
+
+Without the `word` directive, the grammar matches this input:
+
+```
+import foo asbar
+```
+
+Which is probably not what you want. If we add `word: $ => $.identifier`, this will no longer parse. When we try to parse `'as'`, we will parse a word — which will be the identifier ``'asbar'``—and then compare it to `'as'`, correctly generating an error.
+
+[lexing]: https://en.wikipedia.org/wiki/Lexical_analysis
+[longest-match]: https://en.wikipedia.org/wiki/Maximal_munch
 [cst]: https://en.wikipedia.org/wiki/Parse_tree
+[dfa]: https://en.wikipedia.org/wiki/Deterministic_finite_automaton
 [non-terminal]: https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols
 [language-spec]: https://en.wikipedia.org/wiki/Programming_language_specification
 [glr-parsing]: https://en.wikipedia.org/wiki/GLR_parser

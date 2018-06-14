@@ -134,11 +134,6 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   }
 
   void build_error_parse_state(ParseStateId state_id) {
-    unsigned CannotMerge = (
-      MatchesShorterStringWithinSeparators |
-      MatchesLongerStringWithValidNextChar
-    );
-
     parse_table.states[state_id].terminal_entries.clear();
 
     // First, identify the conflict-free tokens.
@@ -149,7 +144,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
       for (unsigned j = 0; j < lexical_grammar.variables.size(); j++) {
         Symbol other_token = Symbol::terminal(j);
         if (!coincident_token_index.contains(token, other_token) &&
-            (lex_table_builder->get_conflict_status(other_token, token) & CannotMerge)) {
+            lex_table_builder->does_token_shadow_other(token, other_token)) {
           conflicts_with_other_tokens = true;
           break;
         }
@@ -171,7 +166,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
         bool conflicts_with_other_tokens = false;
         conflict_free_tokens.for_each([&](Symbol other_token) {
           if (!coincident_token_index.contains(token, other_token) &&
-              (lex_table_builder->get_conflict_status(other_token, token) & CannotMerge)) {
+              lex_table_builder->does_token_shadow_other(token, other_token)) {
             LOG(
               "exclude %s: conflicts with %s",
               symbol_name(token).c_str(),
@@ -517,7 +512,8 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     // Do not add a token if it conflicts with an existing token.
     if (!new_token.is_built_in()) {
       for (const auto &entry : state.terminal_entries) {
-        if (lex_table_builder->get_conflict_status(entry.first, new_token) & CannotDistinguish) {
+        if (lex_table_builder->does_token_shadow_other(new_token, entry.first) ||
+            lex_table_builder->does_token_match_same_string_as_other(new_token, entry.first)) {
           LOG_IF(
             logged_conflict_tokens.insert({entry.first, new_token}).second,
             "cannot merge parse states due to token conflict: %s and %s",

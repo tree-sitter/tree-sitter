@@ -161,6 +161,8 @@ pair<SyntaxGrammar, CompileError> flatten_grammar(const InitialSyntaxGrammar &gr
     i++;
   }
 
+  result.word_rule = grammar.word_rule;
+  
   return {result, CompileError::none()};
 }
 

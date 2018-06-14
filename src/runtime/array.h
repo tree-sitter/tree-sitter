@@ -110,7 +110,7 @@ static inline void array__grow(VoidArray *self, size_t element_size) {
 
 static inline void array__splice(VoidArray *self, size_t element_size,
                                  uint32_t index, uint32_t old_count,
-                                 uint32_t new_count, void *elements) {
+                                 uint32_t new_count, const void *elements) {
   uint32_t new_size = self->size + new_count - old_count;
   uint32_t old_end = index + old_count;
   uint32_t new_end = index + new_count;

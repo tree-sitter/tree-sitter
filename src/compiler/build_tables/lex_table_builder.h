@@ -30,19 +30,6 @@ namespace build_tables {
 
 class LookaheadSet;
 
-enum ConflictStatus {
-  DoesNotMatch = 0,
-  MatchesShorterStringWithinSeparators = 1 << 0,
-  MatchesSameString = 1 << 1,
-  MatchesLongerString = 1 << 2,
-  MatchesLongerStringWithValidNextChar = 1 << 3,
-  CannotDistinguish = (
-    MatchesShorterStringWithinSeparators |
-    MatchesSameString |
-    MatchesLongerStringWithValidNextChar
-  ),
-};
-
 struct CoincidentTokenIndex {
   std::unordered_map<
     std::pair<rules::Symbol::Index, rules::Symbol::Index>,
@@ -69,7 +56,8 @@ class LexTableBuilder {
 
   BuildResult build();
 
-  ConflictStatus get_conflict_status(rules::Symbol, rules::Symbol) const;
+  bool does_token_shadow_other(rules::Symbol, rules::Symbol) const;
+  bool does_token_match_same_string_as_other(rules::Symbol, rules::Symbol) const;
 
  protected:
   LexTableBuilder() = default;

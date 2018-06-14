@@ -229,7 +229,9 @@ ParseGrammarResult parse_grammar(const string &input) {
   string error_message;
   string name;
   InputGrammar grammar;
-  json_value name_json, rules_json, extras_json, conflicts_json, external_tokens_json, inline_rules_json;
+  json_value
+    name_json, rules_json, extras_json, conflicts_json, external_tokens_json,
+    inline_rules_json, word_rule_json;
 
   json_settings settings = { 0, json_enable_comments, 0, 0, 0, 0 };
   char parse_error[json_error_max];
@@ -357,6 +359,16 @@ ParseGrammarResult parse_grammar(const string &input) {
       }
       grammar.external_tokens.push_back(result.rule);
     }
+  }
+
+  word_rule_json = grammar_json->operator[]("word");
+  if (word_rule_json.type != json_none) {
+    if (word_rule_json.type != json_string) {
+      error_message = "Invalid word property";
+      goto error;
+    }
+
+    grammar.word_rule = NamedSymbol { word_rule_json.u.string.ptr };
   }
 
   json_value_free(grammar_json);
