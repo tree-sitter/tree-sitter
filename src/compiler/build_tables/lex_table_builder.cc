@@ -65,14 +65,12 @@ const std::unordered_set<ParseStateId> &CoincidentTokenIndex::states_with(Symbol
   }
 }
 
-template <bool include_all>
-class CharacterAggregator {
+class StartingCharacterAggregator {
  public:
   void apply(const Rule &rule) {
     rule.match(
       [this](const Seq &sequence) {
         apply(*sequence.left);
-        if (include_all) apply(*sequence.right);
       },
 
       [this](const rules::Choice &rule) {
@@ -90,9 +88,6 @@ class CharacterAggregator {
 
   CharacterSet result;
 };
-
-using StartingCharacterAggregator = CharacterAggregator<false>;
-using AllCharacterAggregator = CharacterAggregator<true>;
 
 class LexTableBuilderImpl : public LexTableBuilder {
   LexTable main_lex_table;
@@ -141,7 +136,6 @@ class LexTableBuilderImpl : public LexTableBuilder {
     // characters that can follow each token. Also identify all of the tokens that can be
     // considered 'keywords'.
     LOG_START("characterizing tokens");
-    LookaheadSet potential_keyword_symbols;
     for (unsigned i = 0, n = grammar.variables.size(); i < n; i++) {
       Symbol token = Symbol::terminal(i);
 
@@ -158,30 +152,6 @@ class LexTableBuilderImpl : public LexTableBuilder {
         });
       }
       following_characters_by_token[i] = following_character_aggregator.result;
-
-      AllCharacterAggregator all_character_aggregator;
-      all_character_aggregator.apply(grammar.variables[i].rule);
-
-      if (
-        !starting_character_aggregator.result.includes_all &&
-        !all_character_aggregator.result.includes_all
-      ) {
-        bool starts_alpha = true, all_alnum = true;
-        for (auto character : starting_character_aggregator.result.included_chars) {
-          if (!iswalpha(character) && character != '_') {
-            starts_alpha = false;
-          }
-        }
-        for (auto character : all_character_aggregator.result.included_chars) {
-          if (!iswalnum(character) && character != '_') {
-            all_alnum = false;
-          }
-        }
-        if (starts_alpha && all_alnum) {
-          LOG("potential keyword: %s", token_name(token).c_str());
-          potential_keyword_symbols.insert(token);
-        }
-      }
     }
     LOG_END();
 
@@ -205,20 +175,18 @@ class LexTableBuilderImpl : public LexTableBuilder {
     LOG_END();
 
     if (word_rule != rules::NONE()) {
-      identify_keywords(potential_keyword_symbols);
+      identify_keywords();
     }
-
-    LOG_END();
   }
 
-  void identify_keywords(const LookaheadSet &potential_keyword_symbols) {
+  void identify_keywords() {
     LookaheadSet homonyms;
-    potential_keyword_symbols.for_each([&](Symbol other_token) {
+    for (Symbol::Index j = 0, n = grammar.variables.size(); j < n; j++) {
+      Symbol other_token = Symbol::terminal(j);
       if (get_conflict_status(word_rule, other_token) == MatchesSameString) {
         homonyms.insert(other_token);
       }
-      return true;
-    });
+    }
 
     homonyms.for_each([&](Symbol homonym1) {
       homonyms.for_each([&](Symbol homonym2) {
@@ -396,12 +364,14 @@ class LexTableBuilderImpl : public LexTableBuilder {
                 advance_symbol,
                 MatchesLongerStringWithValidNextChar
               )) {
-                LOG(
-                  "%s shadows %s followed by %d",
-                  token_name(advance_symbol).c_str(),
-                  token_name(accept_action.symbol).c_str(),
-                  *conflicting_following_chars.included_chars.begin()
-                );
+                if (!conflicting_following_chars.included_chars.empty()) {
+                  LOG(
+                    "%s shadows %s followed by '%s'",
+                    token_name(advance_symbol).c_str(),
+                    token_name(accept_action.symbol).c_str(),
+                    log_char(*conflicting_following_chars.included_chars.begin())
+                  );
+                }
               }
             }
           }
