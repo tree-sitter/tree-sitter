@@ -362,7 +362,7 @@ You may have noticed in the above examples that some of the grammar rule name li
 
 ## Lexical Analysis
 
-Tree-sitter's parsing process is divided into two phases: parsing (which is described above) and [lexing](lexing) - the process of grouping individual characters into the language's fundamental *tokens*. There are a few important things to know about how Tree-sitter's lexing works.
+Tree-sitter's parsing process is divided into two phases: parsing (which is described above) and [lexing][lexing] - the process of grouping individual characters into the language's fundamental *tokens*. There are a few important things to know about how Tree-sitter's lexing works.
 
 ### Conflict Resolution
 
@@ -370,7 +370,7 @@ Grammars often contain multiple tokens that can match the same characters. For e
 
 1. **Context-aware lexing** - Tree-sitter performs lexing on-demand, during the parsing process. At any given position in a source document, the lexer only tries to recognize tokens that are *valid* at that position in the document.
 
-2. **Longest-match** - If multiple valid tokens match the characters at a given position in a document, Tree-sitter will select the token that matches the [longest sequence of characters](longest-match).
+2. **Longest-match** - If multiple valid tokens match the characters at a given position in a document, Tree-sitter will select the token that matches the [longest sequence of characters][longest-match].
 
 3. **Lexical Precedence** - When the precedence functions described [above](#using-the-grammar-dsl) are used within the `token` function, the given precedence values serve as instructions to the lexer. If there are two valid tokens that match the same sequence of characters, Tree-sitter will select the one with the higher precedence.
 
