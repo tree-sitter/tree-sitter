@@ -360,24 +360,23 @@ You may have noticed in the above examples that some of the grammar rule name li
 
 ...
 
-## Optimizing a Parser
+## Lexical Analysis
 
-### Keyword Extraction
+Tree-sitter's parsing process is divided into two phases: parsing (which is described above) and [lexing](lexing) - the process of grouping individual characters into the language's fundamental *tokens*. There are a few important things to know about how Tree-sitter's lexing works.
 
-#### The Problem
+### Conflict Resolution
 
-Sometimes, a Tree-sitter parser may take a long time to compile. This means that its [lexer function](lexing) has a large number of [states](dfa). Often, a majority of these states are needed in order to recognize *keywords* - tokens that match a specific sequence of several characters like `break`, `continue`, `class`, etc.
+Grammars often contain multiple tokens that can match the same characters. For example, a grammar might contain the tokens (`"if"` and `/[a-z]+/`). Tree-sitter differentiates between these conflicting tokens in a few ways:
 
-#### The Optimization
+1. **Context-aware lexing** - Tree-sitter performs lexing on-demand, during the parsing process. At any given position in a source document, the lexer only tries to recognize tokens that are *valid* at that position in the document.
 
-Tree-sitter has an optimization called *keyword extraction* that can make parsers compile faster by removing some or all of these keyword tokens from the main lexer function. To enable this optimization, you must specify a *word token* in your grammar. The word token must be a token that already exists in your grammar which can match the same character sequences as a large number of keywords. If you specify a word token, Tree-sitter will automatically identify a set of *keyword* tokens that can match the same character sequence as the word token, and *remove* those tokens from the main lexer function. Then, at runtime, Tree-sitter will match these keywords via a two-step process:
+2. **Longest-match** - If multiple valid tokens match the characters at a given position in a document, Tree-sitter will select the token that matches the [longest sequence of characters](longest-match).
 
-1. Match the word token
-2. If the word token is found, re-scan the characters to check if it is a keyword
+3. **Lexical Precedence** - When the precedence functions described [above](#using-the-grammar-dsl) are used within the `token` function, the given precedence values serve as instructions to the lexer. If there are two valid tokens that match the same sequence of characters, Tree-sitter will select the one with the higher precedence.
 
-#### Example
+### Keywords
 
-Many languages have a token called `identifier` that matches any sequence of letters. This is generally the token you should select as your grammar's *word token*.
+If your language has keywords which are matched by a rule (typically `identifier`), you can tell Tree-sitter about it with your grammar's `word` property.
 
 ```js
 grammar({
@@ -399,9 +398,37 @@ grammar({
 })
 ```
 
-In this grammar, the tokens `break`, `continue`, and `class` would be removed from the main lexer function, because they all match the `identifier` token's pattern, `/[a-z]+/`.
+In this case, we're specifying `identifier` as our `word`. Tree-sitter will automatically find the set of terminals which are matched by `$.identifier`, and consider them keywords. Instead of generating a parser which scans for each keyword individually, Tree-sitter will generate a parser that tries to match the word rule (in this case, `identifier`), and checks to see if the matched word is the necessary keyword.
+
+This makes the set of parse states smaller, so the parser compiles faster.
+
+It *also changes behavior*. Consider this grammar:
+
+```js
+grammar({
+  rules: {
+    import: $ => seq(
+      'import',
+      $.identifier,
+      'as',
+      $.identifier
+    ),
+
+    identifier: $ => /[a-z]+/
+  }
+})
+```
+
+Without the `word` directive, the grammar matches this input:
+
+```
+import foo asbar
+```
+
+Which is probably not what you want. If we add `word: $ => $.identifier`, this will no longer parse. When we try to parse `'as'`, we will parse a word — which will be the identifier ``'asbar'``—and then compare it to `'as'`, correctly generating an error.
 
 [lexing]: https://en.wikipedia.org/wiki/Lexical_analysis
+[longest-match]: https://en.wikipedia.org/wiki/Maximal_munch
 [cst]: https://en.wikipedia.org/wiki/Parse_tree
 [dfa]: https://en.wikipedia.org/wiki/Deterministic_finite_automaton
 [non-terminal]: https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols
