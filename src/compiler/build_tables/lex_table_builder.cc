@@ -49,6 +49,19 @@ using rules::Symbol;
 using rules::Metadata;
 using rules::Seq;
 
+enum ConflictStatus {
+  DoesNotMatch = 0,
+  MatchesShorterStringWithinSeparators = 1 << 0,
+  MatchesSameString = 1 << 1,
+  MatchesLongerString = 1 << 2,
+  MatchesLongerStringWithValidNextChar = 1 << 3,
+  CannotDistinguish = (
+    MatchesShorterStringWithinSeparators |
+    MatchesSameString |
+    MatchesLongerStringWithValidNextChar
+  ),
+};
+
 static const std::unordered_set<ParseStateId> EMPTY;
 
 bool CoincidentTokenIndex::contains(Symbol a, Symbol b) const {
@@ -292,6 +305,18 @@ class LexTableBuilderImpl : public LexTableBuilder {
     mark_fragile_tokens();
     remove_duplicate_lex_states(main_lex_table);
     return {main_lex_table, keyword_lex_table, word_rule};
+  }
+
+  bool does_token_shadow_other(Symbol token, Symbol shadowed_token) const {
+    if (token == word_rule && keyword_symbols.contains(shadowed_token)) return false;
+    return get_conflict_status(shadowed_token, token) & (
+      MatchesShorterStringWithinSeparators |
+      MatchesLongerStringWithValidNextChar
+    );
+  }
+
+  bool does_token_match_same_string_as_other(Symbol token, Symbol shadowed_token) const {
+    return get_conflict_status(shadowed_token, token) & MatchesSameString;
   }
 
   ConflictStatus get_conflict_status(Symbol shadowed_token, Symbol other_token) const {
@@ -621,8 +646,12 @@ LexTableBuilder::BuildResult LexTableBuilder::build() {
   return static_cast<LexTableBuilderImpl *>(this)->build();
 }
 
-ConflictStatus LexTableBuilder::get_conflict_status(Symbol a, Symbol b) const {
-  return static_cast<const LexTableBuilderImpl *>(this)->get_conflict_status(a, b);
+bool LexTableBuilder::does_token_shadow_other(Symbol a, Symbol b) const {
+  return static_cast<const LexTableBuilderImpl *>(this)->does_token_shadow_other(a, b);
+}
+
+bool LexTableBuilder::does_token_match_same_string_as_other(Symbol a, Symbol b) const {
+  return static_cast<const LexTableBuilderImpl *>(this)->does_token_match_same_string_as_other(a, b);
 }
 
 }  // namespace build_tables
