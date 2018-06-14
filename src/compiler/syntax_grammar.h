@@ -60,7 +60,7 @@ struct SyntaxGrammar {
   std::set<std::set<rules::Symbol>> expected_conflicts;
   std::vector<ExternalToken> external_tokens;
   std::set<rules::Symbol> variables_to_inline;
-  rules::Symbol word_rule = rules::NONE();
+  rules::Symbol word_rule;
 };
 
 }  // namespace tree_sitter

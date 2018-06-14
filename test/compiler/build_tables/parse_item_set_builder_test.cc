@@ -25,7 +25,8 @@ describe("ParseItemSetBuilder", []() {
   LexicalGrammar lexical_grammar{lexical_variables, {}};
 
   it("adds items at the beginnings of referenced rules", [&]() {
-    SyntaxGrammar grammar{{
+    SyntaxGrammar grammar;
+    grammar.variables = {
       SyntaxVariable{"rule0", VariableTypeNamed, {
         Production({
           {Symbol::non_terminal(1), 0, AssociativityNone, Alias{}},
@@ -47,7 +48,7 @@ describe("ParseItemSetBuilder", []() {
           {Symbol::terminal(15), 0, AssociativityNone, Alias{}},
         }, 0)
       }},
-    }, {}, {}, {}, {}};
+    };
 
     auto production = [&](int variable_index, int production_index) -> const Production & {
       return grammar.variables[variable_index].productions[production_index];
@@ -84,7 +85,8 @@ describe("ParseItemSetBuilder", []() {
   });
 
   it("handles rules with empty productions", [&]() {
-    SyntaxGrammar grammar{{
+    SyntaxGrammar grammar;
+    grammar.variables = {
       SyntaxVariable{"rule0", VariableTypeNamed, {
         Production({
           {Symbol::non_terminal(1), 0, AssociativityNone, Alias{}},
@@ -98,7 +100,7 @@ describe("ParseItemSetBuilder", []() {
         }, 0),
         Production{{}, 0}
       }},
-    }, {}, {}, {}, {}};
+    };
 
     auto production = [&](int variable_index, int production_index) -> const Production & {
       return grammar.variables[variable_index].productions[production_index];
