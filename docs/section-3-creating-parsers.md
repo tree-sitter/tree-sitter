@@ -211,13 +211,13 @@ The following is a complete list of built-in functions you can use to define Tre
 * **Tokens : `token(rule)`** - This function marks the given rule as producing only a single token. Tree-sitter's default is to treat each String or RegExp literal in the grammar as a separate token. Each token is matched separately by the lexer and returned as its own leaf node in the tree. The `token` function allows you to express a complex rule using the functions described above (rather than as a single regular expression) but still have Tree-sitter treat it as a single token.
 * **Aliases : `alias(rule, name)`** - This function causes the given rule to *appear* with an alternative name in the syntax tree. It is useful in cases where a language construct needs to be parsed differently in different contexts (and thus needs to be defined using multiple symbols), but should always *appear* as the same type of node.
 
-In addition to the `name` and `rules` fields, grammars have a few other public fields that influence the behavior of the parser.
+In addition to the `name` and `rules` fields, grammars have a few other optional public fields that influence the behavior of the parser.
 
 * `extras` - an array of tokens that may appear *anywhere* in the language. This is often used for whitespace and comments. The default for `extras` in `tree-sitter-cli` is to accept whitespace. To control whitespace explicitly, specify `extras=[]` in the grammar.
 * `inline` - an array of rule names that should be automatically *removed* from the grammar by replacing all of their usages with a copy of their definition. This is useful for rules that are used in multiple places but for which you *don't* want to create syntax tree nodes at runtime.
 * `conflicts` - an array of arrays of rule names. Each inner array represents a set of rules that's involved in an *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use the GLR algorithm to explore all of the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick the subtree rule with the highest *dynamic precedence*.
 * `externals` - an array of toen names which can be returned by an *external scanner*. External scanners allow you to write custom C code which runs during the lexing process in order to handle lexical rules (e.g. Python's indentation tokens) that cannot be described by regular expressions.
-* `word` - the name of a token that will match keywords for the purpose of [keyword-optimization](#keyword-optimization).
+* `word` - the name of a token that will match keywords for the purpose of the [keyword extraction](#keyword-extraction) optimization.
 
 ## Adjusting existing grammars
 
@@ -356,34 +356,54 @@ For an expression like `a * b * c`, it's not clear whether we mean `a * (b * c)`
 
 You may have noticed in the above examples that some of the grammar rule name like `_expression` and `_type` began with an underscore. Starting a rule's name with an underscore causes the rule to be *hidden* in the syntax tree. This is useful for rules like `_expression` in the grammars above, which always just wrap a single child node. If these nodes were not hidden, they would add substantial depth and noise to the syntax tree without making it any easier to understand.
 
-## Dealing with LR conflicts
+### Dealing with LR conflicts
 
-TODO
+...
 
-## Keyword Optimization
+## Optimizing a Parser
 
-Many languages have a set of keywords. Typically, these aren't identifiers, but
-look like them. For example, in Algol-like languages, `if` is a keyword. It could
-be a variable name, and in some contexts (e.g. javascript object literals like
-`{if: 'something'}`) it might be interpreted as a variable, but in many contexts,
-it has special meaning.
+### Keyword Extraction
 
-You'll know if you have them, because keywords end up in the grammar as strings
-or regexes that match a small finite set of strings.
+#### The Problem
 
-The naïve parser generated from such a grammar can be huge and take forever to
-compile. Keyword optimization is the fix. Instead of building a parser which
-looks for `choice('break', 'continue', 'async', ...etc)` wherever they
-might occur, `word: $ => $.identifier` will instruct Tree-sitter to instead try
-and parse an `identifier` where it was going to try and parse one of those keywords,
-and then check to see if the parsed `identifier` actually does match a keyword.
+Sometimes, a Tree-sitter parser may take a long time to compile. This means that its [lexer function](lexing) has a large number of [states](dfa). Often, a majority of these states are needed in order to recognize *keywords* - tokens that match a specific sequence of several characters like `break`, `continue`, `class`, etc.
 
-You don't have to specify what words actually are keywords. Tree-sitter will
-identify these automatically, as the set of terminals that your word could
-match.
+#### The Optimization
 
+Tree-sitter has an optimization called *keyword extraction* that can make parsers compile faster by removing some or all of these keyword tokens from the main lexer function. To enable this optimization, you must specify a *word token* in your grammar. The word token must be a token that already exists in your grammar which can match the same character sequences as a large number of keywords. If you specify a word token, Tree-sitter will automatically identify a set of *keyword* tokens that can match the same character sequence as the word token, and *remove* those tokens from the main lexer function. Then, at runtime, Tree-sitter will match these keywords via a two-step process:
 
+1. Match the word token
+2. If the word token is found, re-scan the characters to check if it is a keyword
+
+#### Example
+
+Many languages have a token called `identifier` that matches any sequence of letters. This is generally the token you should select as your grammar's *word token*.
+
+```js
+grammar({
+  word: $ => $.identifier,
+
+  rules: {
+    class_declaration: $ => seq(
+      'class',
+      $.identifier,
+      $.class_body
+    ),
+
+    break_statement: $ => seq('break', ';'),
+
+    continue_statement: $ => seq('continue', ';'),
+
+    identifier: $ => /[a-z]+/
+  }
+})
+```
+
+In this grammar, the tokens `break`, `continue`, and `class` would be removed from the main lexer function, because they all match the `identifier` token's pattern, `/[a-z]+/`.
+
+[lexing]: https://en.wikipedia.org/wiki/Lexical_analysis
 [cst]: https://en.wikipedia.org/wiki/Parse_tree
+[dfa]: https://en.wikipedia.org/wiki/Deterministic_finite_automaton
 [non-terminal]: https://en.wikipedia.org/wiki/Terminal_and_nonterminal_symbols
 [language-spec]: https://en.wikipedia.org/wiki/Programming_language_specification
 [glr-parsing]: https://en.wikipedia.org/wiki/GLR_parser
