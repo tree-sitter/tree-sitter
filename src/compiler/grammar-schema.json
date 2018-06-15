@@ -55,6 +55,11 @@
           "pattern": "^[a-zA-Z_]\\w*$"
         }
       }
+    },
+
+    "word": {
+      "type": "string",
+      "pattern": "^[a-zA-Z_]\\w*"
     }
   },
 
