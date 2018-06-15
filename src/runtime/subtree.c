@@ -59,7 +59,7 @@ bool ts_external_scanner_state_eq(const ExternalScannerState *a, const ExternalS
 // SubtreeArray
 
 bool ts_subtree_array_copy(SubtreeArray self, SubtreeArray *dest) {
-  Subtree **contents = NULL;
+  const Subtree **contents = NULL;
   if (self.capacity > 0) {
     contents = ts_calloc(self.capacity, sizeof(Subtree *));
     memcpy(contents, self.contents, self.size * sizeof(Subtree *));
