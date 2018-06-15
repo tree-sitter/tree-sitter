@@ -30,3 +30,4 @@ fetch_grammar go         master
 fetch_grammar ruby       master
 fetch_grammar typescript master
 fetch_grammar bash       master
+fetch_grammar html       master
