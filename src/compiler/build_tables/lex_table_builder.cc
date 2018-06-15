@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <cwctype>
 #include <vector>
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/build_tables/lookahead_set.h"
@@ -26,6 +27,7 @@ using std::vector;
 using std::unordered_map;
 using std::unordered_set;
 using std::unique_ptr;
+using std::iswalpha;
 using rules::Rule;
 using rules::Blank;
 using rules::Choice;
@@ -102,12 +104,11 @@ class LexTableBuilderImpl : public LexTableBuilder {
     // Compute the set of characters that each token can start with and the set of non-separator
     // characters that can follow each token. Also identify all of the tokens that can be
     // considered 'keywords'.
-    LOG_START("characterizing tokens");
+    LOG("characterizing tokens");
     for (unsigned i = 0, n = grammar.variables.size(); i < n; i++) {
       Symbol token = Symbol::terminal(i);
 
       add_starting_characters(&starting_characters_by_token[i], grammar.variables[i].rule);
-
       const auto &following_tokens = following_tokens_by_token.find(token);
       if (following_tokens != following_tokens_by_token.end()) {
         following_tokens->second.for_each([&](Symbol following_token) {
@@ -119,7 +120,6 @@ class LexTableBuilderImpl : public LexTableBuilder {
         });
       }
     }
-    LOG_END();
 
     // For each pair of tokens, generate a lex table for just those two tokens and record what
     // conflicts arise.
@@ -140,15 +140,24 @@ class LexTableBuilderImpl : public LexTableBuilder {
     }
     LOG_END();
 
-    if (word_token != rules::NONE()) {
-      identify_keywords();
-    }
+    if (word_token != rules::NONE()) identify_keywords();
   }
 
   void identify_keywords() {
     LookaheadSet homonyms;
     for (Symbol::Index j = 0, n = grammar.variables.size(); j < n; j++) {
       Symbol other_token = Symbol::terminal(j);
+
+      // For now, only consider tokens as 'keywords' if they start with letters or underscores.
+      bool starts_with_letter = !starting_characters_by_token[j].includes_all;
+      for (auto character : starting_characters_by_token[j].included_chars) {
+        if (!iswalpha(character) && character != '_') {
+          starts_with_letter = false;
+          break;
+        }
+      }
+      if (!starts_with_letter) continue;
+
       if (get_conflict_status(word_token, other_token) == MatchesSameString) {
         homonyms.insert(other_token);
       }
@@ -177,8 +186,6 @@ class LexTableBuilderImpl : public LexTableBuilder {
 
       if (word_rule_shadows_other || other_shadows_word_rule) {
         homonyms.for_each([&](Symbol homonym) {
-          bool other_shadows_homonym = get_conflict_status(homonym, other_token);
-
           bool word_rule_was_already_present = true;
           for (ParseStateId state_id : coincident_token_index.states_with(homonym, other_token)) {
             if (!parse_table->states[state_id].has_terminal_entry(word_token)) {
@@ -188,14 +195,17 @@ class LexTableBuilderImpl : public LexTableBuilder {
           }
           if (word_rule_was_already_present) return true;
 
-          if (word_rule_shadows_other) {
+          bool homonym_shadows_other = get_conflict_status(other_token, homonym);
+          bool other_shadows_homonym = get_conflict_status(homonym, other_token);
+
+          if (word_rule_shadows_other != homonym_shadows_other) {
             homonyms.remove(homonym);
             LOG(
               "remove %s because word_token would shadow %s",
               token_name(homonym).c_str(),
               token_name(other_token).c_str()
             );
-          } else if (other_shadows_word_rule && !other_shadows_homonym) {
+          } else if (other_shadows_word_rule != other_shadows_homonym) {
             homonyms.remove(homonym);
             LOG(
               "remove %s because %s would shadow word_token",
