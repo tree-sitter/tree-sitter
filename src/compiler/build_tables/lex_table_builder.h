@@ -42,11 +42,13 @@ struct CoincidentTokenIndex {
 
 class LexTableBuilder {
  public:
-  static std::unique_ptr<LexTableBuilder> create(const SyntaxGrammar &,
-                                                 const LexicalGrammar &,
-                                                 const std::unordered_map<rules::Symbol, LookaheadSet> &,
-                                                 const CoincidentTokenIndex &,
-                                                 ParseTable *);
+  static std::unique_ptr<LexTableBuilder> create(
+    const SyntaxGrammar &,
+    const LexicalGrammar &,
+    const std::unordered_map<rules::Symbol, LookaheadSet> &,
+    const CoincidentTokenIndex &,
+    ParseTable *
+  );
 
   struct BuildResult {
     LexTable main_table;
@@ -55,7 +57,6 @@ class LexTableBuilder {
   };
 
   BuildResult build();
-
   bool does_token_shadow_other(rules::Symbol, rules::Symbol) const;
   bool does_token_match_same_string_as_other(rules::Symbol, rules::Symbol) const;
 

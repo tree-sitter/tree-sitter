@@ -368,7 +368,7 @@ ParseGrammarResult parse_grammar(const string &input) {
       goto error;
     }
 
-    grammar.word_rule = NamedSymbol { word_rule_json.u.string.ptr };
+    grammar.word_token = NamedSymbol { word_rule_json.u.string.ptr };
   }
 
   json_value_free(grammar_json);

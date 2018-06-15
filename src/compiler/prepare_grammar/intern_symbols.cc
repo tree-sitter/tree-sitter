@@ -166,7 +166,7 @@ pair<InternedGrammar, CompileError> intern_symbols(const InputGrammar &grammar) 
     }
   }
 
-  result.word_rule = interner.intern_symbol(grammar.word_rule);
+  result.word_token = interner.intern_symbol(grammar.word_token);
 
   return {result, CompileError::none()};
 }

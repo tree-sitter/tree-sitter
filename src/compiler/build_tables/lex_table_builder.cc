@@ -5,7 +5,6 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
-#include <cwctype>
 #include <vector>
 #include "compiler/build_tables/lex_item.h"
 #include "compiler/build_tables/lookahead_set.h"
@@ -15,23 +14,9 @@
 #include "compiler/rule.h"
 #include "utf8proc.h"
 
-namespace std {
-
-using tree_sitter::rules::Symbol;
-
-size_t hash<pair<Symbol::Index, Symbol::Index>>::operator()(
-  const pair<Symbol::Index, Symbol::Index> &p
-) const {
-  hash<Symbol::Index> hasher;
-  return hasher(p.first) ^ hasher(p.second);
-}
-
-} // namespace std
-
 namespace tree_sitter {
 namespace build_tables {
 
-using std::iswalpha;
 using std::map;
 using std::move;
 using std::pair;
@@ -39,6 +24,7 @@ using std::set;
 using std::string;
 using std::vector;
 using std::unordered_map;
+using std::unordered_set;
 using std::unique_ptr;
 using rules::Rule;
 using rules::Blank;
@@ -49,60 +35,30 @@ using rules::Symbol;
 using rules::Metadata;
 using rules::Seq;
 
-enum ConflictStatus {
-  DoesNotMatch = 0,
-  MatchesShorterStringWithinSeparators = 1 << 0,
-  MatchesSameString = 1 << 1,
-  MatchesLongerString = 1 << 2,
-  MatchesLongerStringWithValidNextChar = 1 << 3,
-  CannotDistinguish = (
-    MatchesShorterStringWithinSeparators |
-    MatchesSameString |
-    MatchesLongerStringWithValidNextChar
-  ),
-};
-
-static const std::unordered_set<ParseStateId> EMPTY;
-
 bool CoincidentTokenIndex::contains(Symbol a, Symbol b) const {
   return a == b || !states_with(a, b).empty();
 }
 
-const std::unordered_set<ParseStateId> &CoincidentTokenIndex::states_with(Symbol a, Symbol b) const {
+const unordered_set<ParseStateId> &CoincidentTokenIndex::states_with(Symbol a, Symbol b) const {
+  static const unordered_set<ParseStateId> NO_STATES;
   if (a.index > b.index) std::swap(a, b);
   auto iter = entries.find({a.index, b.index});
   if (iter == entries.end()) {
-    return EMPTY;
+    return NO_STATES;
   } else {
     return iter->second;
   }
 }
 
-class StartingCharacterAggregator {
- public:
-  void apply(const Rule &rule) {
-    rule.match(
-      [this](const Seq &sequence) {
-        apply(*sequence.left);
-      },
-
-      [this](const rules::Choice &rule) {
-        for (const auto &element : rule.elements) {
-          apply(element);
-        }
-      },
-
-      [this](const rules::Repeat &rule) { apply(*rule.rule); },
-      [this](const rules::Metadata &rule) { apply(*rule.rule); },
-      [this](const rules::CharacterSet &rule) { result.add_set(rule); },
-      [](auto) {}
-    );
-  }
-
-  CharacterSet result;
-};
-
 class LexTableBuilderImpl : public LexTableBuilder {
+  enum ConflictStatus {
+    DoesNotMatch = 0,
+    MatchesShorterStringWithinSeparators = 1 << 0,
+    MatchesSameString = 1 << 1,
+    MatchesLongerString = 1 << 2,
+    MatchesLongerStringWithValidNextChar = 1 << 3,
+  };
+
   LexTable main_lex_table;
   LexTable keyword_lex_table;
   const LexicalGrammar grammar;
@@ -117,7 +73,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
   vector<ConflictStatus> conflict_matrix;
   bool conflict_detection_mode;
   LookaheadSet keyword_symbols;
-  Symbol word_rule;
+  Symbol word_token;
   char encoding_buffer[8];
 
  public:
@@ -133,17 +89,15 @@ class LexTableBuilderImpl : public LexTableBuilder {
       parse_table(parse_table),
       conflict_matrix(lexical_grammar.variables.size() * lexical_grammar.variables.size(), DoesNotMatch),
       conflict_detection_mode(false),
-      word_rule(syntax_grammar.word_rule) {
+      word_token(syntax_grammar.word_token) {
 
     // Compute the possible separator rules and the set of separator characters that can occur
     // immediately after any token.
-    StartingCharacterAggregator separator_character_aggregator;
     for (const auto &rule : grammar.separators) {
       separator_rules.push_back(Repeat{rule});
-      separator_character_aggregator.apply(rule);
+      add_starting_characters(&separator_start_characters, rule);
     }
     separator_rules.push_back(Blank{});
-    separator_start_characters = separator_character_aggregator.result;
 
     // Compute the set of characters that each token can start with and the set of non-separator
     // characters that can follow each token. Also identify all of the tokens that can be
@@ -152,19 +106,18 @@ class LexTableBuilderImpl : public LexTableBuilder {
     for (unsigned i = 0, n = grammar.variables.size(); i < n; i++) {
       Symbol token = Symbol::terminal(i);
 
-      StartingCharacterAggregator starting_character_aggregator;
-      starting_character_aggregator.apply(grammar.variables[i].rule);
-      starting_characters_by_token[i] = starting_character_aggregator.result;
+      add_starting_characters(&starting_characters_by_token[i], grammar.variables[i].rule);
 
-      StartingCharacterAggregator following_character_aggregator;
       const auto &following_tokens = following_tokens_by_token.find(token);
       if (following_tokens != following_tokens_by_token.end()) {
         following_tokens->second.for_each([&](Symbol following_token) {
-          following_character_aggregator.apply(grammar.variables[following_token.index].rule);
+          add_starting_characters(
+            &following_characters_by_token[i],
+            grammar.variables[following_token.index].rule
+          );
           return true;
         });
       }
-      following_characters_by_token[i] = following_character_aggregator.result;
     }
     LOG_END();
 
@@ -187,7 +140,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
     }
     LOG_END();
 
-    if (word_rule != rules::NONE()) {
+    if (word_token != rules::NONE()) {
       identify_keywords();
     }
   }
@@ -196,7 +149,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
     LookaheadSet homonyms;
     for (Symbol::Index j = 0, n = grammar.variables.size(); j < n; j++) {
       Symbol other_token = Symbol::terminal(j);
-      if (get_conflict_status(word_rule, other_token) == MatchesSameString) {
+      if (get_conflict_status(word_token, other_token) == MatchesSameString) {
         homonyms.insert(other_token);
       }
     }
@@ -218,9 +171,9 @@ class LexTableBuilderImpl : public LexTableBuilder {
 
     for (Symbol::Index j = 0, n = grammar.variables.size(); j < n; j++) {
       Symbol other_token = Symbol::terminal(j);
-      if (other_token == word_rule || homonyms.contains(other_token)) continue;
-      bool word_rule_shadows_other = get_conflict_status(other_token, word_rule);
-      bool other_shadows_word_rule = get_conflict_status(word_rule, other_token);
+      if (other_token == word_token || homonyms.contains(other_token)) continue;
+      bool word_rule_shadows_other = get_conflict_status(other_token, word_token);
+      bool other_shadows_word_rule = get_conflict_status(word_token, other_token);
 
       if (word_rule_shadows_other || other_shadows_word_rule) {
         homonyms.for_each([&](Symbol homonym) {
@@ -228,7 +181,7 @@ class LexTableBuilderImpl : public LexTableBuilder {
 
           bool word_rule_was_already_present = true;
           for (ParseStateId state_id : coincident_token_index.states_with(homonym, other_token)) {
-            if (!parse_table->states[state_id].has_terminal_entry(word_rule)) {
+            if (!parse_table->states[state_id].has_terminal_entry(word_token)) {
               word_rule_was_already_present = false;
               break;
             }
@@ -238,14 +191,14 @@ class LexTableBuilderImpl : public LexTableBuilder {
           if (word_rule_shadows_other) {
             homonyms.remove(homonym);
             LOG(
-              "remove %s because word_rule would shadow %s",
+              "remove %s because word_token would shadow %s",
               token_name(homonym).c_str(),
               token_name(other_token).c_str()
             );
           } else if (other_shadows_word_rule && !other_shadows_homonym) {
             homonyms.remove(homonym);
             LOG(
-              "remove %s because %s would shadow word_rule",
+              "remove %s because %s would shadow word_token",
               token_name(homonym).c_str(),
               token_name(other_token).c_str()
             );
@@ -274,8 +227,8 @@ class LexTableBuilderImpl : public LexTableBuilder {
     for (ParseState &parse_state : parse_table->states) {
       LookaheadSet token_set;
       for (auto &entry : parse_state.terminal_entries) {
-        if (word_rule.is_terminal() && keyword_symbols.contains(entry.first)) {
-          token_set.insert(word_rule);
+        if (word_token.is_terminal() && keyword_symbols.contains(entry.first)) {
+          token_set.insert(word_token);
         } else {
           token_set.insert(entry.first);
         }
@@ -304,11 +257,12 @@ class LexTableBuilderImpl : public LexTableBuilder {
 
     mark_fragile_tokens();
     remove_duplicate_lex_states(main_lex_table);
-    return {main_lex_table, keyword_lex_table, word_rule};
+    return {main_lex_table, keyword_lex_table, word_token};
   }
 
   bool does_token_shadow_other(Symbol token, Symbol shadowed_token) const {
-    if (token == word_rule && keyword_symbols.contains(shadowed_token)) return false;
+    if (keyword_symbols.contains(shadowed_token) &&
+        (keyword_symbols.contains(token) || token == word_token)) return false;
     return get_conflict_status(shadowed_token, token) & (
       MatchesShorterStringWithinSeparators |
       MatchesLongerStringWithValidNextChar
@@ -316,9 +270,11 @@ class LexTableBuilderImpl : public LexTableBuilder {
   }
 
   bool does_token_match_same_string_as_other(Symbol token, Symbol shadowed_token) const {
+    if (shadowed_token == word_token && keyword_symbols.contains(token)) return false;
     return get_conflict_status(shadowed_token, token) & MatchesSameString;
   }
 
+ private:
   ConflictStatus get_conflict_status(Symbol shadowed_token, Symbol other_token) const {
     if (shadowed_token.is_built_in() ||
         other_token.is_built_in() ||
@@ -328,7 +284,6 @@ class LexTableBuilderImpl : public LexTableBuilder {
     return conflict_matrix[index];
   }
 
- private:
   bool record_conflict(Symbol shadowed_token, Symbol other_token, ConflictStatus status) {
     if (!conflict_detection_mode) return false;
     unsigned index = shadowed_token.index * grammar.variables.size() + other_token.index;
@@ -462,6 +417,12 @@ class LexTableBuilderImpl : public LexTableBuilder {
   }
 
   bool merge_token_set(LookaheadSet *left, const LookaheadSet &right) const {
+    auto CannotDistinguish = (
+      MatchesShorterStringWithinSeparators |
+      MatchesSameString |
+      MatchesLongerStringWithValidNextChar
+    );
+
     bool is_compatible = true;
 
     left->for_each_difference(right, [&](bool in_left, Symbol different_symbol) {
@@ -579,6 +540,34 @@ class LexTableBuilderImpl : public LexTableBuilder {
     return result;
   }
 
+  static void add_starting_characters(CharacterSet *characters, const Rule &rule) {
+    rule.match(
+      [characters](const Seq &sequence) {
+        add_starting_characters(characters, *sequence.left);
+      },
+
+      [characters](const rules::Choice &rule) {
+        for (const auto &element : rule.elements) {
+          add_starting_characters(characters, element);
+        }
+      },
+
+      [characters](const rules::Repeat &rule) {
+        add_starting_characters(characters, *rule.rule);
+      },
+
+      [characters](const rules::Metadata &rule) {
+        add_starting_characters(characters, *rule.rule);
+      },
+
+      [characters](const rules::CharacterSet &rule) {
+        characters->add_set(rule);
+      },
+
+      [](auto) {}
+    );
+  }
+
   vector<Rule> rules_for_symbol(const rules::Symbol &symbol) {
     if (symbol == rules::END_OF_INPUT()) {
       return { CharacterSet().include(0) };
@@ -656,3 +645,16 @@ bool LexTableBuilder::does_token_match_same_string_as_other(Symbol a, Symbol b) 
 
 }  // namespace build_tables
 }  // namespace tree_sitter
+
+namespace std {
+
+using tree_sitter::rules::Symbol;
+
+size_t hash<pair<Symbol::Index, Symbol::Index>>::operator()(
+  const pair<Symbol::Index, Symbol::Index> &p
+) const {
+  hash<Symbol::Index> hasher;
+  return hasher(p.first) ^ hasher(p.second);
+}
+
+} // namespace std

@@ -329,8 +329,8 @@ tuple<InitialSyntaxGrammar, LexicalGrammar, CompileError> extract_tokens(
     }
   }
 
-  syntax_grammar.word_rule = symbol_replacer.replace_symbol(grammar.word_rule);
-  if (syntax_grammar.word_rule.is_non_terminal()) {
+  syntax_grammar.word_token = symbol_replacer.replace_symbol(grammar.word_token);
+  if (syntax_grammar.word_token.is_non_terminal()) {
     return make_tuple(
       syntax_grammar,
       lexical_grammar,
