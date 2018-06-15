@@ -35,6 +35,15 @@ void ts_external_scanner_state_init(ExternalScannerState *self, const char *data
   }
 }
 
+ExternalScannerState ts_external_scanner_state_copy(const ExternalScannerState *self) {
+  ExternalScannerState result = *self;
+  if (self->length > sizeof(self->short_data)) {
+    result.long_data = ts_malloc(self->length);
+    memcpy(result.long_data, self->long_data, self->length);
+  }
+  return result;
+}
+
 void ts_external_scanner_state_delete(ExternalScannerState *self) {
   if (self->length > sizeof(self->short_data)) {
     ts_free(self->long_data);
@@ -182,6 +191,8 @@ Subtree *ts_subtree_new_copy(SubtreePool *pool, const Subtree *self) {
   *result = *self;
   if (result->children.size > 0) {
     ts_subtree_array_copy(self->children, &result->children);
+  } else if (result->has_external_tokens) {
+    result->external_scanner_state = ts_external_scanner_state_copy(&self->external_scanner_state);
   }
   result->ref_count = 1;
   return result;
