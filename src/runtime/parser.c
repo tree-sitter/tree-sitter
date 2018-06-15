@@ -263,7 +263,7 @@ static bool ts_parser__can_reuse_first_leaf(TSParser *self, TSStateId state, con
   if (tree->first_leaf.lex_mode.lex_state == current_lex_mode.lex_state &&
       tree->first_leaf.lex_mode.external_lex_state == current_lex_mode.external_lex_state &&
       (tree->first_leaf.symbol != self->language->keyword_capture_token ||
-       tree->parse_state == state)) return true;
+       (!tree->is_keyword && tree->parse_state == state))) return true;
 
   // Empty tokens are not reusable in states with different lookaheads.
   if (tree->size.bytes == 0 && tree->symbol != ts_builtin_sym_end) return false;
@@ -382,6 +382,7 @@ static const Subtree *ts_parser__lex(TSParser *self, StackVersion version, TSSta
       self->lexer.token_start_position = self->lexer.token_end_position;
     }
 
+    bool is_keyword = false;
     TSSymbol symbol = self->lexer.data.result_symbol;
     Length padding = length_sub(self->lexer.token_start_position, start_position);
     Length size = length_sub(self->lexer.token_end_position, self->lexer.token_start_position);
@@ -397,11 +398,13 @@ static const Subtree *ts_parser__lex(TSParser *self, StackVersion version, TSSta
         self->lexer.token_end_position.bytes == end_byte &&
         ts_language_has_actions(self->language, parse_state, self->lexer.data.result_symbol)
       ) {
+        is_keyword = true;
         symbol = self->lexer.data.result_symbol;
       }
     }
 
     result = ts_subtree_new_leaf(&self->tree_pool, symbol, padding, size, self->language);
+    result->is_keyword = is_keyword;
 
     if (found_external_token) {
       result->has_external_tokens = true;
@@ -1200,18 +1203,41 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
     if (last_reduction_version != STACK_VERSION_NONE) {
       ts_stack_renumber_version(self->stack, last_reduction_version, version);
       LOG_STACK();
-    } else if (state == ERROR_STATE) {
+      state = ts_stack_state(self->stack, version);
+      ts_language_table_entry(self->language, state, lookahead->first_leaf.symbol, &table_entry);
+      continue;
+    }
+
+    if (lookahead->is_keyword && lookahead->symbol != self->language->keyword_capture_token) {
+      ts_language_table_entry(self->language, state, self->language->keyword_capture_token, &table_entry);
+      if (table_entry.action_count > 0) {
+        LOG(
+          "switch from_keyword:%s, to_word_token:%s",
+          SYM_NAME(lookahead->symbol),
+          SYM_NAME(self->language->keyword_capture_token)
+        );
+
+        Subtree *mutable_lookahead = ts_subtree_make_mut(&self->tree_pool, lookahead);
+        mutable_lookahead->symbol = self->language->keyword_capture_token;
+        mutable_lookahead->first_leaf.symbol = self->language->keyword_capture_token;
+        lookahead = mutable_lookahead;
+        continue;
+      }
+    }
+
+    if (state == ERROR_STATE) {
       ts_parser__recover(self, version, lookahead);
-      return;
-    } else if (!ts_parser__breakdown_top_of_stack(self, version)) {
-      LOG("detect_error");
-      ts_stack_pause(self->stack, version, lookahead->first_leaf.symbol);
-      ts_subtree_release(&self->tree_pool, lookahead);
       return;
     }
 
-    state = ts_stack_state(self->stack, version);
-    ts_language_table_entry(self->language, state, lookahead->first_leaf.symbol, &table_entry);
+    if (ts_parser__breakdown_top_of_stack(self, version)) {
+      continue;
+    }
+
+    LOG("detect_error");
+    ts_stack_pause(self->stack, version, lookahead->first_leaf.symbol);
+    ts_subtree_release(&self->tree_pool, lookahead);
+    return;
   }
 }
 

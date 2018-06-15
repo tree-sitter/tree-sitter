@@ -45,6 +45,7 @@ struct Subtree {
   bool has_changes : 1;
   bool has_external_tokens : 1;
   bool is_missing : 1;
+  bool is_keyword : 1;
   TSSymbol symbol;
   TSStateId parse_state;
   struct {
