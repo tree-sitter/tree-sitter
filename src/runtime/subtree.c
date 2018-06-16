@@ -67,20 +67,17 @@ bool ts_external_scanner_state_eq(const ExternalScannerState *a, const ExternalS
 
 // SubtreeArray
 
-bool ts_subtree_array_copy(SubtreeArray self, SubtreeArray *dest) {
-  const Subtree **contents = NULL;
-  if (self.capacity > 0) {
-    contents = ts_calloc(self.capacity, sizeof(Subtree *));
-    memcpy(contents, self.contents, self.size * sizeof(Subtree *));
-    for (uint32_t i = 0; i < self.size; i++) {
-      ts_subtree_retain(contents[i]);
-    }
-  }
-
+void ts_subtree_array_copy(SubtreeArray self, SubtreeArray *dest) {
   dest->size = self.size;
   dest->capacity = self.capacity;
-  dest->contents = contents;
-  return true;
+  dest->contents = self.contents;
+  if (self.capacity > 0) {
+    dest->contents = ts_calloc(self.capacity, sizeof(Subtree *));
+    memcpy(dest->contents, self.contents, self.size * sizeof(Subtree *));
+    for (uint32_t i = 0; i < self.size; i++) {
+      ts_subtree_retain(dest->contents[i]);
+    }
+  }
 }
 
 void ts_subtree_array_delete(SubtreePool *pool, SubtreeArray *self) {
