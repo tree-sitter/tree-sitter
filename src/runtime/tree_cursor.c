@@ -151,13 +151,13 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *_self) {
   uint32_t initial_size = self->stack.size;
 
   while (self->stack.size > 1) {
-    bool visible;
     TreeCursorEntry entry = array_pop(&self->stack);
     ChildIterator iterator = ts_tree_cursor_iterate_children(self);
     iterator.child_index = entry.child_index;
     iterator.structural_child_index = entry.structural_child_index;
     iterator.position = entry.position;
 
+    bool visible = false;
     ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible);
     if (visible && self->stack.size + 1 < initial_size) break;
 
