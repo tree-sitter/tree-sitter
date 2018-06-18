@@ -25,6 +25,7 @@ if (TREE_SITTER_SEED == -1) return;
 vector<string> test_languages({
   "javascript",
   "json",
+  "html",
   "c",
   "cpp",
   "python",
