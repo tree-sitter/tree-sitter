@@ -9,6 +9,7 @@ call:fetch_grammar go         master
 call:fetch_grammar ruby       master
 call:fetch_grammar typescript master
 call:fetch_grammar bash       master
+call:fetch_grammar html       master
 EXIT /B 0
 
 :fetch_grammar
