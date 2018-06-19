@@ -630,14 +630,11 @@ describe("Parser", [&]() {
         size_t read_count = 0;
         TSInput infinite_input = {
           &read_count,
-          [](void *payload, uint32_t *bytes_read) {
+          [](void *payload, uint32_t byte, TSPoint position, uint32_t *bytes_read) {
             size_t *read_count = static_cast<size_t *>(payload);
             assert((*read_count)++ < 100000);
             *bytes_read = 1;
             return "[";
-          },
-          [](void *payload, unsigned byte, TSPoint position) -> int {
-            return true;
           },
           TSInputEncodingUTF8
         };
@@ -681,14 +678,11 @@ describe("Parser", [&]() {
       // it has been read.
       TSInput infinite_input = {
         &state,
-        [](void *payload, uint32_t *bytes_read) {
+        [](void *payload, uint32_t byte, TSPoint position, uint32_t *bytes_read) {
           InputState *state = static_cast<InputState *>(payload);
           assert(state->read_count++ <= 10);
           *bytes_read = strlen(state->string);
           return state->string;
-        },
-        [](void *payload, unsigned byte, TSPoint position) -> int {
-          return true;
         },
         TSInputEncodingUTF8
       };

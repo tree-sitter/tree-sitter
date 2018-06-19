@@ -40,8 +40,7 @@ typedef struct {
 
 typedef struct {
   void *payload;
-  const char *(*read)(void *payload, uint32_t *bytes_read);
-  int (*seek)(void *payload, uint32_t byte_index, TSPoint position);
+  const char *(*read)(void *payload, uint32_t byte_index, TSPoint position, uint32_t *bytes_read);
   TSInputEncoding encoding;
 } TSInput;
 

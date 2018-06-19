@@ -11,7 +11,6 @@ using std::vector;
 
 SpyInput::SpyInput(string content, size_t chars_per_chunk) :
   buffer(nullptr),
-  byte_offset(0),
   chars_per_chunk(chars_per_chunk),
   content(content),
   encoding(TSInputEncodingUTF8),
@@ -42,22 +41,23 @@ static void add_byte_range(vector<pair<uint32_t, uint32_t>> *ranges,
   ranges->push_back({start, end});
 }
 
-const char * SpyInput::read(void *payload, uint32_t *bytes_read) {
+const char *SpyInput::read(void *payload, uint32_t byte_offset,
+                           TSPoint position, uint32_t *bytes_read) {
   auto spy = static_cast<SpyInput *>(payload);
 
-  if (spy->byte_offset > spy->content.size()) {
+  if (byte_offset >= spy->content.size()) {
     *bytes_read = 0;
     return "";
   }
 
-  long byte_count = string_byte_for_character(spy->encoding, spy->content, spy->byte_offset, spy->chars_per_chunk);
-  if (byte_count < 0)
-    byte_count = spy->content.size() - spy->byte_offset;
+  long byte_count = string_byte_for_character(spy->encoding, spy->content, byte_offset, spy->chars_per_chunk);
+  if (byte_count < 0) {
+    byte_count = spy->content.size() - byte_offset;
+  }
 
-  string result = spy->content.substr(spy->byte_offset, byte_count);
+  string result = spy->content.substr(byte_offset, byte_count);
   *bytes_read = byte_count;
-  add_byte_range(&spy->ranges_read, spy->byte_offset, byte_count);
-  spy->byte_offset += byte_count;
+  add_byte_range(&spy->ranges_read, byte_offset, byte_count);
 
   /*
    * This class stores its entire `content` in a contiguous buffer, but we want
@@ -79,12 +79,6 @@ const char * SpyInput::read(void *payload, uint32_t *bytes_read) {
   return spy->buffer;
 }
 
-int SpyInput::seek(void *payload, uint32_t byte, TSPoint position) {
-  auto spy = static_cast<SpyInput *>(payload);
-  spy->byte_offset = byte;
-  return 0;
-}
-
 vector<string> SpyInput::strings_read() const {
   vector<string> result;
   for (auto &range : ranges_read) {
@@ -97,7 +91,6 @@ TSInput SpyInput::input() {
   TSInput result;
   result.payload = this;
   result.encoding = encoding;
-  result.seek = seek;
   result.read = read;
   return result;
 }

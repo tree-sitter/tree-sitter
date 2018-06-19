@@ -62,6 +62,7 @@ struct TSParser {
   size_t operation_limit;
   volatile bool enabled;
   bool halt_on_error;
+
 };
 
 typedef struct {
@@ -1461,7 +1462,7 @@ TSTree *ts_parser_resume(TSParser *self) {
   self->finished_tree = NULL;
   ts_stack_clear(self->stack);
   ts_parser__set_cached_token(self, 0, NULL, NULL);
-  ts_lexer_set_input(&self->lexer, (TSInput) { NULL, NULL, NULL, 0 });
+  ts_lexer_set_input(&self->lexer, (TSInput) { NULL, NULL, 0 });
   return result;
 }
 
@@ -1475,5 +1476,5 @@ TSTree *ts_parser_parse_string(TSParser *self, const TSTree *old_tree,
                                const char *string, uint32_t length) {
   TSStringInput input;
   ts_string_input_init(&input, string, length);
-  return ts_parser_parse(self, old_tree, input.input);
+  return ts_parser_parse(self, old_tree, ts_string_input_get(&input));
 }

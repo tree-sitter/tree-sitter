@@ -9,12 +9,11 @@ extern "C" {
 
 typedef struct {
   const char *string;
-  uint32_t position;
   uint32_t length;
-  TSInput input;
 } TSStringInput;
 
 void ts_string_input_init(TSStringInput *, const char *, uint32_t);
+TSInput ts_string_input_get(TSStringInput *);
 
 #ifdef __cplusplus
 }
