@@ -3,20 +3,10 @@ mod ffi;
 use std::fmt;
 use std::ffi::CStr;
 use std::marker::PhantomData;
-use std::os::raw::{c_char, c_int, c_void};
+use std::os::raw::{c_char, c_void};
 use std::ptr;
 
 pub type Language = *const ffi::TSLanguage;
-
-pub trait Utf16Input {
-    fn read(&mut self) -> &[u16];
-    fn seek(&mut self, u32, Point);
-}
-
-pub trait Utf8Input {
-    fn read(&mut self) -> &[u8];
-    fn seek(&mut self, u32, Point);
-}
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum LogType {
@@ -49,11 +39,6 @@ pub struct Parser(*mut ffi::TSParser);
 pub struct Tree(*mut ffi::TSTree);
 
 pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
-
-struct FlatInput<'a> {
-    bytes: &'a [u8],
-    offset: usize,
-}
 
 impl Parser {
     pub fn new() -> Parser {
@@ -124,104 +109,85 @@ impl Parser {
     }
 
     pub fn parse_str(&mut self, input: &str, old_tree: Option<&Tree>) -> Option<Tree> {
-        let mut input = FlatInput { bytes: input.as_bytes(), offset: 0};
-        self.parse_utf8(&mut input, old_tree)
+        let bytes = input.as_bytes();
+        self.parse_utf8(&mut |offset, _| &bytes[(offset as usize)..], old_tree)
     }
 
-    pub fn parse_utf8<T: Utf8Input>(
+    pub fn parse_utf8<'a, T: 'a + FnMut(u32, Point) -> &'a [u8]>(
         &mut self,
         input: &mut T,
         old_tree: Option<&Tree>,
     ) -> Option<Tree> {
-        unsafe extern "C" fn read<T: Utf8Input>(
+        unsafe extern "C" fn read<'a, T: 'a + FnMut(u32, Point) -> &'a [u8]>(
             payload: *mut c_void,
+            byte_offset: u32,
+            position: ffi::TSPoint,
             bytes_read: *mut u32,
         ) -> *const c_char {
             let input = (payload as *mut T).as_mut().unwrap();
-            let result = input.read();
+            let result = (*input)(byte_offset, position.into());
             *bytes_read = result.len() as u32;
             return result.as_ptr() as *const c_char;
         };
 
-        unsafe extern "C" fn seek<T: Utf8Input>(
-            payload: *mut c_void,
-            byte: u32,
-            position: ffi::TSPoint,
-        ) -> c_int {
-            let input = (payload as *mut T).as_mut().unwrap();
-            input.seek(
-                byte,
-                Point {
-                    row: position.row,
-                    column: position.column,
-                },
-            );
-            return 1;
-        };
-
         let c_input = ffi::TSInput {
             payload: input as *mut T as *mut c_void,
-            read: Some(read::<T>),
-            seek: Some(seek::<T>),
+            read: Some(read::<'a, T>),
             encoding: ffi::TSInputEncoding_TSInputEncodingUTF8,
         };
 
-        let old_tree_ptr = old_tree.map_or(ptr::null_mut(), |t| t.0);
+        let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0);
 
-        let new_tree_ptr = unsafe { ffi::ts_parser_parse(self.0, old_tree_ptr, c_input) };
-        if new_tree_ptr.is_null() {
+        let c_new_tree = unsafe { ffi::ts_parser_parse(self.0, c_old_tree, c_input) };
+        if c_new_tree.is_null() {
             None
         } else {
-            Some(Tree(new_tree_ptr))
+            Some(Tree(c_new_tree))
         }
     }
 
-    pub fn parse_utf16<T: Utf16Input>(
+    pub fn parse_utf16<'a, T: 'a + FnMut(u32, Point) -> &'a [u16]>(
         &mut self,
         input: &mut T,
         old_tree: Option<&Tree>,
     ) -> Option<Tree> {
-        unsafe extern "C" fn read<T: Utf16Input>(
+        unsafe extern "C" fn read<'a, T: 'a + FnMut(u32, Point) -> &'a [u16]>(
             payload: *mut c_void,
+            byte_offset: u32,
+            position: ffi::TSPoint,
             bytes_read: *mut u32,
         ) -> *const c_char {
             let input = (payload as *mut T).as_mut().unwrap();
-            let result = input.read();
+            let result = (*input)(byte_offset, Point {
+                row: position.row,
+                column: position.column / 2,
+            });
             *bytes_read = result.len() as u32 * 2;
             return result.as_ptr() as *const c_char;
         };
 
-        unsafe extern "C" fn seek<T: Utf16Input>(
-            payload: *mut c_void,
-            byte: u32,
-            position: ffi::TSPoint,
-        ) -> c_int {
-            let input = (payload as *mut T).as_mut().unwrap();
-            input.seek(
-                byte / 2,
-                Point {
-                    row: position.row,
-                    column: position.column / 2,
-                },
-            );
-            return 1;
-        };
-
         let c_input = ffi::TSInput {
             payload: input as *mut T as *mut c_void,
-            read: Some(read::<T>),
-            seek: Some(seek::<T>),
-            encoding: ffi::TSInputEncoding_TSInputEncodingUTF8,
+            read: Some(read::<'a, T>),
+            encoding: ffi::TSInputEncoding_TSInputEncodingUTF16,
         };
 
-        let old_tree_ptr = old_tree.map_or(ptr::null_mut(), |t| t.0);
+        let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0);
 
-        let new_tree_ptr = unsafe { ffi::ts_parser_parse(self.0, old_tree_ptr, c_input) };
-        if new_tree_ptr.is_null() {
+        let c_new_tree = unsafe { ffi::ts_parser_parse(self.0, c_old_tree, c_input) };
+        if c_new_tree.is_null() {
             None
         } else {
-            Some(Tree(new_tree_ptr))
+            Some(Tree(c_new_tree))
         }
+    }
+
+    pub fn reset(&mut self) {
+        unsafe { ffi::ts_parser_reset(self.0) }
+    }
+
+    pub fn set_operation_limit(&mut self, limit: usize) {
+        unsafe { ffi::ts_parser_set_operation_limit(self.0, limit) }
     }
 }
 
@@ -442,15 +408,12 @@ impl Into<ffi::TSPoint> for Point {
     }
 }
 
-impl<'a> Utf8Input for FlatInput<'a> {
-    fn read(&mut self) -> &[u8] {
-        let result = &self.bytes[self.offset..];
-        self.offset = self.bytes.len();
-        result
-    }
-
-    fn seek(&mut self, offset: u32, _position: Point) {
-        self.offset = offset as usize;
+impl From<ffi::TSPoint> for Point {
+    fn from(point: ffi::TSPoint) -> Self {
+        Self {
+            row: point.row,
+            column: point.column,
+        }
     }
 }
 
@@ -536,49 +499,70 @@ mod tests {
 
     #[test]
     fn test_custom_utf8_input() {
-        struct LineBasedInput {
-            lines: &'static [&'static str],
-            row: usize,
-            column: usize,
-        }
-
-        impl Utf8Input for LineBasedInput {
-            fn read(&mut self) -> &[u8] {
-                if self.row < self.lines.len() {
-                    let result = &self.lines[self.row].as_bytes()[self.column..];
-                    self.row += 1;
-                    self.column = 0;
-                    result
-                } else {
-                    &[]
-                }
-            }
-
-            fn seek(&mut self, _byte: u32, position: Point) {
-                self.row = position.row as usize;
-                self.column = position.column as usize;
-            }
-        }
-
         let mut parser = Parser::new();
         parser.set_language(rust()).unwrap();
 
-        let mut input = LineBasedInput {
-            lines: &[
-                "pub fn main() {",
-                "}",
-            ],
-            row: 0,
-            column: 0
-        };
+        let lines = &[
+            "pub fn foo() {",
+            "  1",
+            "}",
+        ];
 
-        let tree = parser.parse_utf8(&mut input, None).unwrap();
+        let tree = parser.parse_utf8(&mut |_, position| {
+            let row = position.row as usize;
+            let column = position.column as usize;
+            if row < lines.len() {
+                if column < lines[row].as_bytes().len() {
+                    &lines[row].as_bytes()[column..]
+                } else {
+                    "\n".as_bytes()
+                }
+            } else {
+                &[]
+            }
+        }, None).unwrap();
+
         let root = tree.root_node();
+        assert_eq!(root.to_sexp(), "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (number_literal))))");
         assert_eq!(root.kind(), "source_file");
         assert_eq!(root.has_error(), false);
+        assert_eq!(root.child(0).unwrap().kind(), "function_item");
+    }
 
-        let child = root.child(0).unwrap();
-        assert_eq!(child.kind(), "function_item");
+    #[test]
+    fn test_custom_utf16_input() {
+        let mut parser = Parser::new();
+        parser.set_language(rust()).unwrap();
+
+        parser.set_logger(Some(Box::new(|t, message| {
+            println!("log: {:?} {}", t, message);
+        })));
+
+        let lines: Vec<Vec<u16>> = [
+            "pub fn foo() {",
+            "  1",
+            "}"
+        ].iter().map(|s| s.encode_utf16().collect()).collect();
+
+        let tree = parser.parse_utf16(&mut |_, position| {
+            let row = position.row as usize;
+            let column = position.column as usize;
+            if row < lines.len() {
+                if column < lines[row].len() {
+                    &lines[row][column..]
+                } else {
+                    &[10]
+                }
+            } else {
+                &[]
+            }
+        }, None).unwrap();
+
+        let root = tree.root_node();
+        assert_eq!(root.to_sexp(), "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (number_literal))))");
+        assert_eq!(root.kind(), "source_file");
+        assert_eq!(root.has_error(), false);
+        assert_eq!(root.child(0).unwrap().kind(), "function_item");
     }
 
     #[test]
@@ -595,16 +579,23 @@ mod tests {
 
     #[test]
     fn test_editing() {
-        let mut input = SpyInput {
-            bytes: "fn test(a: A, c: C) {}".as_bytes(),
-            offset: 0,
-            bytes_read: Vec::new(),
-        };
-
         let mut parser = Parser::new();
         parser.set_language(rust()).unwrap();
 
-        let mut tree = parser.parse_utf8(&mut input, None).unwrap();
+        let mut input_bytes = "fn test(a: A, c: C) {}".as_bytes();
+        let mut input_bytes_read = Vec::new();
+
+        let mut tree = parser.parse_utf8(&mut |offset, _| {
+            let offset = offset as usize;
+            if offset < input_bytes.len() {
+                let result = &input_bytes[offset..offset + 1];
+                input_bytes_read.extend(result.iter());
+                result
+            } else {
+                &[]
+            }
+        }, None).unwrap();
+
         let parameters_sexp = tree.root_node()
             .named_child(0).unwrap()
             .named_child(1).unwrap()
@@ -614,9 +605,8 @@ mod tests {
             "(parameters (parameter (identifier) (type_identifier)) (parameter (identifier) (type_identifier)))"
         );
 
-        input.offset = 0;
-        input.bytes_read.clear();
-        input.bytes = "fn test(a: A, b: B, c: C) {}".as_bytes();
+        input_bytes_read.clear();
+        input_bytes = "fn test(a: A, b: B, c: C) {}".as_bytes();
         tree.edit(&InputEdit{
             start_byte: 14,
             old_end_byte: 14,
@@ -626,7 +616,17 @@ mod tests {
             new_end_position: Point::new(0, 20),
         });
 
-        let tree = parser.parse_utf8(&mut input, Some(&tree)).unwrap();
+        let tree = parser.parse_utf8(&mut |offset, _| {
+            let offset = offset as usize;
+            if offset < input_bytes.len() {
+                let result = &input_bytes[offset..offset + 1];
+                input_bytes_read.extend(result.iter());
+                result
+            } else {
+                &[]
+            }
+        }, Some(&tree)).unwrap();
+
         let parameters_sexp = tree.root_node()
             .named_child(0).unwrap()
             .named_child(1).unwrap()
@@ -636,7 +636,7 @@ mod tests {
             "(parameters (parameter (identifier) (type_identifier)) (parameter (identifier) (type_identifier)) (parameter (identifier) (type_identifier)))"
         );
 
-        let retokenized_content = String::from_utf8(input.bytes_read).unwrap();
+        let retokenized_content = String::from_utf8(input_bytes_read).unwrap();
         assert!(retokenized_content.contains("b: B"));
         assert!(!retokenized_content.contains("a: A"));
         assert!(!retokenized_content.contains("c: C"));
@@ -693,28 +693,5 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(child_count_differences, &[1, 2, 3, 4]);
-    }
-
-    struct SpyInput {
-        bytes: &'static [u8],
-        offset: usize,
-        bytes_read: Vec<u8>,
-    }
-
-    impl Utf8Input for SpyInput {
-        fn read(&mut self) -> &[u8] {
-            if self.offset < self.bytes.len() {
-                let result = &self.bytes[self.offset..self.offset + 1];
-                self.bytes_read.extend(result.iter());
-                self.offset += 1;
-                result
-            } else {
-                &[]
-            }
-        }
-
-        fn seek(&mut self, byte: u32, _position: Point) {
-            self.offset = byte as usize;
-        }
     }
 }

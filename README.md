@@ -12,6 +12,10 @@ Rust bindings to the [Tree-sitter][] parsing library.
 First, create a parser:
 
 ```rust
+use tree_sitter::{Parser, Language};
+
+// ...
+
 let parser = Parser::new();
 ```
 
@@ -22,16 +26,17 @@ extern "C" fn tree_sitter_c() -> Language;
 extern "C" fn tree_sitter_rust() -> Language;
 extern "C" fn tree_sitter_javascript() -> Language;
 
-parser.set_language(unsafe { tree_sitter_rust() }).unwrap();
+let language = unsafe { tree_sitter_rust() };
+parser.set_language(language).unwrap();
 ```
 
 Now you can parse source code:
 
 ```rust
 let source_code = "fn test() {}";
-
 let tree = parser.parse_str(source_code, None);
 let root_node = tree.root_node();
+
 assert_eq!(root_node.kind(), "source_file");
 assert_eq!(root_node.start_position().column, 0);
 assert_eq!(root_node.end_position().column, 12);
@@ -39,7 +44,7 @@ assert_eq!(root_node.end_position().column, 12);
 
 ### Editing
 
-Once you have a syntax tree, you can update it when your source code changes:
+Once you have a syntax tree, you can update it when your source code changes. Passing in the previous edited tree makes `parse` run much more quickly:
 
 ```rust
 let new_source_code = "fn test(a: u32) {}"
@@ -52,49 +57,42 @@ tree.edit(InputEdit {
   old_end_position: Point::new(0, 8),
   new_end_position: Point::new(0, 14),
 });
+
 let new_tree = parser.parse_str(new_source_code, Some(&tree));
 ```
 
 ### Text Input
 
-
-The code can be provided either as a simple string or by any type that implements Tree-sitter's `Utf8Input` or `Utf16Input` traits:
+The source code to parse can be provided either as a string or as a function that returns text encoded as either UTF8 or UTF16:
 
 ```rust
-struct LineWiseInput {
-    lines: &'static [&'static str],
-    row: usize,
-    column: usize,
-}
+// Store some source code in an array of lines.
+let lines = &[
+    "pub fn foo() {",
+    "  1",
+    "}",
+];
 
-impl tree_sitter::Utf8Input for LineWiseInput {
-    fn read(&mut self) -> &[u8] {
-        if self.row < self.lines.len() {
-            let result = &self.lines[self.row].as_bytes()[self.column..];
-            self.row += 1;
-            self.column = 0;
-            result
+// Parse the source code using a custom callback. The callback is called
+// with both a byte offset and a row/column offset.
+let tree = parser.parse_utf8(&mut |_byte: u32, position: Point| -> &[u8] {
+    let row = position.row as usize;
+    let column = position.column as usize;
+    if row < lines.len() {
+        if column < lines[row].as_bytes().len() {
+            &lines[row].as_bytes()[column..]
         } else {
-            &[]
+            "\n".as_bytes()
         }
+    } else {
+        &[]
     }
+}, None).unwrap();
 
-    fn seek(&mut self, _byte: u32, position: Point) {
-        self.row = position.row as usize;
-        self.column = position.column as usize;
-    }
-}
-
-let mut input = LineBasedInput {
-    lines: &[
-        "pub fn main() {",
-        "}",
-    ],
-    row: 0,
-    column: 0
-};
-
-let tree = parser.parse_utf8(&mut input, None).unwrap();
+assert_eq!(
+  tree.root_node().to_sexp(),
+  "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (number_literal))))"
+);
 ```
 
 [tree-sitter]: https://github.com/tree-sitter/tree-sitter

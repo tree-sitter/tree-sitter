@@ -41,15 +41,12 @@ pub struct TSRange {
 pub struct TSInput {
     pub payload: *mut ::std::os::raw::c_void,
     pub read: ::std::option::Option<
-        unsafe extern "C" fn(payload: *mut ::std::os::raw::c_void, bytes_read: *mut u32)
-            -> *const ::std::os::raw::c_char,
-    >,
-    pub seek: ::std::option::Option<
         unsafe extern "C" fn(
             payload: *mut ::std::os::raw::c_void,
             byte_index: u32,
             position: TSPoint,
-        ) -> ::std::os::raw::c_int,
+            bytes_read: *mut u32,
+        ) -> *const ::std::os::raw::c_char,
     >,
     pub encoding: TSInputEncoding,
 }
@@ -126,6 +123,21 @@ extern "C" {
         arg3: *const ::std::os::raw::c_char,
         arg4: u32,
     ) -> *mut TSTree;
+}
+extern "C" {
+    pub fn ts_parser_enabled(arg1: *const TSParser) -> bool;
+}
+extern "C" {
+    pub fn ts_parser_set_enabled(arg1: *mut TSParser, arg2: bool);
+}
+extern "C" {
+    pub fn ts_parser_operation_limit(arg1: *const TSParser) -> usize;
+}
+extern "C" {
+    pub fn ts_parser_set_operation_limit(arg1: *mut TSParser, arg2: usize);
+}
+extern "C" {
+    pub fn ts_parser_reset(arg1: *mut TSParser);
 }
 extern "C" {
     pub fn ts_tree_copy(arg1: *const TSTree) -> *mut TSTree;
