@@ -680,7 +680,7 @@ describe("Parser", [&]() {
         &state,
         [](void *payload, uint32_t byte, TSPoint position, uint32_t *bytes_read) {
           InputState *state = static_cast<InputState *>(payload);
-          assert(state->read_count++ <= 10);
+          assert(state->read_count++ <= 11);
           *bytes_read = strlen(state->string);
           return state->string;
         },
@@ -694,27 +694,78 @@ describe("Parser", [&]() {
       state.read_count = 0;
       state.string = "";
 
-      tree = ts_parser_resume(parser);
+      tree = ts_parser_parse(parser, nullptr, infinite_input);
       AssertThat(tree, !Equals<TSTree *>(nullptr));
       ts_tree_delete(tree);
     });
-  });
 
-  describe("resume()", [&]() {
-    it("does nothing unless parsing was previously halted", [&]() {
+    it("retains the old tree even if the parser halts before finishing parsing", [&]() {
       ts_parser_set_language(parser, load_real_language("json"));
 
-      TSTree *tree = ts_parser_resume(parser);
-      AssertThat(tree, Equals<TSTree *>(nullptr));
-      tree = ts_parser_resume(parser);
+      SpyInput input("[1234, 5, 6, 4, 5]", 3);
+      tree = ts_parser_parse(parser, nullptr, input.input());
+      assert_root_node("(value (array (number) (number) (number) (number) (number)))");
+
+      input.clear();
+      TSInputEdit edit = input.replace(1, 4, "null");
+      ts_tree_edit(tree, &edit);
+
+      ts_parser_set_operation_limit(parser, 1);
+      TSTree *new_tree = ts_parser_parse(parser, tree, input.input());
+      AssertThat(new_tree, Equals<TSTree *>(nullptr));
+
+      ts_tree_delete(tree);
+      ts_parser_set_operation_limit(parser, SIZE_MAX);
+      tree = ts_parser_parse(parser, nullptr, input.input());
+      assert_root_node("(value (array (null) (number) (number) (number) (number)))");
+
+      AssertThat(input.strings_read(), Equals(vector<string>({
+        "[null,",
+      })));
+    });
+
+    it("does not leak the old tree if parsing halts and never finishes", [&]() {
+      ts_parser_set_language(parser, load_real_language("json"));
+
+      SpyInput input("[1234, 5, 6, 4, 5]", 3);
+      tree = ts_parser_parse(parser, nullptr, input.input());
+      assert_root_node("(value (array (number) (number) (number) (number) (number)))");
+
+      input.clear();
+      TSInputEdit edit = input.replace(1, 4, "null");
+      ts_tree_edit(tree, &edit);
+
+      ts_parser_set_operation_limit(parser, 1);
+      TSTree *new_tree = ts_parser_parse(parser, tree, input.input());
+      AssertThat(new_tree, Equals<TSTree *>(nullptr));
+    });
+  });
+
+  describe("reset()", [&]() {
+    it("causes the parser to parse from scratch on the next call to parse, instead of resuming", [&]() {
+      ts_parser_set_language(parser, load_real_language("json"));
+
+      ts_parser_set_operation_limit(parser, 3);
+      tree = ts_parser_parse_string(parser, nullptr, "[1234, 5, 6, 4, 5]", 18);
       AssertThat(tree, Equals<TSTree *>(nullptr));
 
-      tree = ts_parser_parse_string(parser, nullptr, "true", 4);
-      AssertThat(tree, !Equals<TSTree *>(nullptr));
+      // Without calling reset, the parser continues from where it left off, so
+      // it does not see the changes to the beginning of the source code.
+      ts_parser_set_operation_limit(parser, SIZE_MAX);
+      tree = ts_parser_parse_string(parser, nullptr, "[null, 5, 6, 4, 5]", 18);
+      assert_root_node("(value (array (number) (number) (number) (number) (number)))");
       ts_tree_delete(tree);
 
-      tree = ts_parser_resume(parser);
+      ts_parser_set_operation_limit(parser, 3);
+      tree = ts_parser_parse_string(parser, nullptr, "[1234, 5, 6, 4, 5]", 18);
       AssertThat(tree, Equals<TSTree *>(nullptr));
+
+      // By calling reset, we force the parser to start over from scratch so
+      // that it sees the changes to the beginning of the source code.
+      ts_parser_set_operation_limit(parser, SIZE_MAX);
+      ts_parser_reset(parser);
+      tree = ts_parser_parse_string(parser, nullptr, "[null, 5, 6, 4, 5]", 18);
+      assert_root_node("(value (array (null) (number) (number) (number) (number)))");
     });
   });
 });

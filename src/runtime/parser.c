@@ -61,7 +61,7 @@ struct TSParser {
   size_t operation_limit;
   volatile bool enabled;
   bool halt_on_error;
-
+  const Subtree *old_tree;
 };
 
 typedef struct {
@@ -710,28 +710,6 @@ static StackSliceArray ts_parser__reduce(TSParser *self, StackVersion version, T
   return pop;
 }
 
-static void ts_parser__start(TSParser *self, TSInput input, const Subtree *previous_tree) {
-  if (previous_tree) {
-    LOG("parse_after_edit");
-  } else {
-    LOG("new_parse");
-  }
-
-  if (self->language->external_scanner.deserialize) {
-    self->language->external_scanner.deserialize(self->external_scanner_payload, NULL, 0);
-  }
-
-  ts_lexer_set_input(&self->lexer, input);
-  ts_stack_clear(self->stack);
-  ts_parser__set_cached_token(self, 0, NULL, NULL);
-  reusable_node_reset(&self->reusable_node, previous_tree);
-  if (self->finished_tree) {
-    ts_subtree_release(&self->tree_pool, self->finished_tree);
-    self->finished_tree = NULL;
-  }
-  self->accept_count = 0;
-}
-
 static void ts_parser__accept(TSParser *self, StackVersion version, const Subtree *lookahead) {
   assert(lookahead->symbol == ts_builtin_sym_end);
   ts_stack_push(self->stack, version, lookahead, false, 1);
@@ -1345,6 +1323,13 @@ static unsigned ts_parser__condense_stack(TSParser *self) {
   return min_error_cost;
 }
 
+static bool ts_parser_has_outstanding_parse(TSParser *self) {
+  return (
+    self->lexer.current_position.bytes > 0 ||
+    ts_stack_state(self->stack, 0) != 1
+  );
+}
+
 // Parser - Public
 
 TSParser *ts_parser_new() {
@@ -1360,17 +1345,21 @@ TSParser *ts_parser_new() {
   self->halt_on_error = false;
   self->enabled = true;
   self->operation_limit = SIZE_MAX;
+  self->old_tree = NULL;
   ts_parser__set_cached_token(self, 0, NULL, NULL);
   return self;
 }
 
 void ts_parser_delete(TSParser *self) {
-  if (self->stack) {
-    ts_stack_delete(self->stack);
-  }
+  ts_stack_delete(self->stack);
   if (self->reduce_actions.contents) {
     array_delete(&self->reduce_actions);
   }
+  if (self->old_tree) {
+    ts_subtree_release(&self->tree_pool, self->old_tree);
+    self->old_tree = NULL;
+  }
+  ts_parser__set_cached_token(self, 0, NULL, NULL);
   ts_subtree_pool_delete(&self->tree_pool);
   reusable_node_delete(&self->reusable_node);
   ts_parser_set_language(self, NULL);
@@ -1430,8 +1419,43 @@ void ts_parser_set_operation_limit(TSParser *self, size_t limit) {
   self->operation_limit = limit;
 }
 
-TSTree *ts_parser_resume(TSParser *self) {
-  if (!self->language || !self->lexer.input.read) return NULL;
+void ts_parser_reset(TSParser *self) {
+  if (self->language->external_scanner.deserialize) {
+    self->language->external_scanner.deserialize(self->external_scanner_payload, NULL, 0);
+  }
+
+  if (self->old_tree) {
+    ts_subtree_release(&self->tree_pool, self->old_tree);
+    self->old_tree = NULL;
+  }
+
+  reusable_node_clear(&self->reusable_node);
+  ts_lexer_reset(&self->lexer, length_zero());
+  ts_stack_clear(self->stack);
+  ts_parser__set_cached_token(self, 0, NULL, NULL);
+  if (self->finished_tree) {
+    ts_subtree_release(&self->tree_pool, self->finished_tree);
+    self->finished_tree = NULL;
+  }
+  self->accept_count = 0;
+}
+
+TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
+  if (!self->language || !input.read) return NULL;
+
+  ts_lexer_set_input(&self->lexer, input);
+
+  if (ts_parser_has_outstanding_parse(self)) {
+    LOG("resume_parsing");
+  } else if (old_tree) {
+    ts_subtree_retain(old_tree->root);
+    self->old_tree = old_tree->root;
+    reusable_node_reset(&self->reusable_node, old_tree->root);
+    LOG("parse_after_edit");
+  } else {
+    reusable_node_clear(&self->reusable_node);
+    LOG("new_parse");
+  }
 
   uint32_t position = 0, last_position = 0, version_count = 0;
   size_t operation_count = 0;
@@ -1440,8 +1464,8 @@ TSTree *ts_parser_resume(TSParser *self) {
     for (StackVersion version = 0;
          version_count = ts_stack_version_count(self->stack), version < version_count;
          version++) {
-      operation_count++;
       if (operation_count > self->operation_limit || !self->enabled) return NULL;
+      operation_count++;
 
       bool allow_node_reuse = version_count == 1;
       while (ts_stack_is_active(self->stack, version)) {
@@ -1477,16 +1501,8 @@ TSTree *ts_parser_resume(TSParser *self) {
 
   TSTree *result = ts_tree_new(self->finished_tree, self->language);
   self->finished_tree = NULL;
-  ts_stack_clear(self->stack);
-  ts_parser__set_cached_token(self, 0, NULL, NULL);
-  ts_lexer_set_input(&self->lexer, (TSInput) { NULL, NULL, 0 });
+  ts_parser_reset(self);
   return result;
-}
-
-TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
-  if (!self->language) return NULL;
-  ts_parser__start(self, input, old_tree ? old_tree->root : NULL);
-  return ts_parser_resume(self);
 }
 
 TSTree *ts_parser_parse_string(TSParser *self, const TSTree *old_tree,
