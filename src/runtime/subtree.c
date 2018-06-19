@@ -19,7 +19,7 @@ typedef struct {
 
 TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
 
-static const uint32_t MAX_TREE_POOL_SIZE = 0;
+static const uint32_t MAX_TREE_POOL_SIZE = 1024;
 
 static const ExternalScannerState empty_state = {.length = 0, .short_data = {0}};
 
