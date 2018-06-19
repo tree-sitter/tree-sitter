@@ -73,7 +73,7 @@ clang                                   \
 
 ### Providing the text to parse
 
-Text input is provided to a tree-sitter parser via a `TSInput` struct, which contains function pointers for seeking to positions in the text, and for reading chunks of text. The text can be encoded in either UTF8 or UTF16. This interface allows you to efficiently parse text that is stored in your own data structure.
+Text input is provided to a tree-sitter parser via a `TSInput` struct, which specifies a function pointer for reading chunks of text. The text can be encoded in either UTF8 or UTF16. This interface allows you to efficiently parse text that is stored in your own data structure.
 
 ### Querying the syntax tree
 
