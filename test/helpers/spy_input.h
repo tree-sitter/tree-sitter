@@ -13,11 +13,9 @@ struct SpyInputEdit {
 
 class SpyInput {
   char *buffer;
-  uint32_t byte_offset;
   std::vector<SpyInputEdit> undo_stack;
 
-  static const char * read(void *, uint32_t *);
-  static int seek(void *, uint32_t, TSPoint);
+  static const char *read(void *, uint32_t, TSPoint, uint32_t *);
   std::pair<std::string, TSPoint> swap_substr(size_t, size_t, std::string);
 
  public:
