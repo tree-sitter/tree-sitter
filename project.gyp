@@ -94,7 +94,6 @@
         'src/runtime/node.c',
         'src/runtime/stack.c',
         'src/runtime/parser.c',
-        'src/runtime/string_input.c',
         'src/runtime/subtree.c',
         'src/runtime/tree.c',
         'src/runtime/tree_cursor.c',

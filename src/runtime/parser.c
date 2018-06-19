@@ -13,7 +13,6 @@
 #include "runtime/reusable_node.h"
 #include "runtime/reduce_action.h"
 #include "runtime/error_costs.h"
-#include "runtime/string_input.h"
 #include "runtime/tree.h"
 
 #define LOG(...)                                                                            \
@@ -79,6 +78,24 @@ typedef enum {
   ErrorComparisonPreferRight,
   ErrorComparisonTakeRight,
 } ErrorComparison;
+
+typedef struct {
+  const char *string;
+  uint32_t length;
+} TSStringInput;
+
+// StringInput
+
+static const char *ts_string_input_read(void *_self, uint32_t byte, TSPoint _, uint32_t *length) {
+  TSStringInput *self = (TSStringInput *)_self;
+  if (byte >= self->length) {
+    *length = 0;
+    return "";
+  } else {
+    *length = self->length - byte;
+    return self->string + byte;
+  }
+}
 
 // Parser - Private
 
@@ -1474,7 +1491,10 @@ TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
 
 TSTree *ts_parser_parse_string(TSParser *self, const TSTree *old_tree,
                                const char *string, uint32_t length) {
-  TSStringInput input;
-  ts_string_input_init(&input, string, length);
-  return ts_parser_parse(self, old_tree, ts_string_input_get(&input));
+  TSStringInput input = {string, length};
+  return ts_parser_parse(self, old_tree, (TSInput) {
+    &input,
+    ts_string_input_read,
+    TSInputEncodingUTF8,
+  });
 }
