@@ -45,8 +45,7 @@ static void ts_lexer__get_lookahead(Lexer *self) {
     } else {
       self->lookahead_size = lookahead_size;
     }
-  }
-  else {
+  } else {
     self->lookahead_size = utf16_iterate(chunk, size, &self->data.lookahead);
   }
 }
@@ -109,7 +108,7 @@ static uint32_t ts_lexer__get_column(void *payload) {
 // parsers can call them without needing to be linked against this library.
 
 void ts_lexer_init(Lexer *self) {
-  *self = (Lexer){
+  *self = (Lexer) {
     .data = {
       .advance = ts_lexer__advance,
       .mark_end = ts_lexer__mark_end,
@@ -127,33 +126,30 @@ void ts_lexer_init(Lexer *self) {
   ts_lexer_reset(self, length_zero());
 }
 
-static inline void ts_lexer__reset(Lexer *self, Length position) {
-  self->token_start_position = position;
-  self->token_end_position = LENGTH_UNDEFINED;
-  self->current_position = position;
-
-  if (self->chunk && (position.bytes < self->chunk_start ||
-                      position.bytes >= self->chunk_start + self->chunk_size)) {
-    self->chunk = 0;
-    self->chunk_start = 0;
-    self->chunk_size = 0;
-  }
-
-  self->lookahead_size = 0;
-  self->data.lookahead = 0;
-}
-
 void ts_lexer_set_input(Lexer *self, TSInput input) {
   self->input = input;
+  self->data.lookahead = 0;
+  self->lookahead_size = 0;
   self->chunk = 0;
   self->chunk_start = 0;
   self->chunk_size = 0;
-  ts_lexer__reset(self, length_zero());
 }
 
 void ts_lexer_reset(Lexer *self, Length position) {
   if (position.bytes != self->current_position.bytes) {
-    ts_lexer__reset(self, position);
+    self->token_start_position = position;
+    self->token_end_position = LENGTH_UNDEFINED;
+    self->current_position = position;
+
+    if (self->chunk && (position.bytes < self->chunk_start ||
+                        position.bytes >= self->chunk_start + self->chunk_size)) {
+      self->chunk = 0;
+      self->chunk_start = 0;
+      self->chunk_size = 0;
+    }
+
+    self->lookahead_size = 0;
+    self->data.lookahead = 0;
   }
 }
 

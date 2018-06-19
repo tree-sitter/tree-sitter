@@ -89,7 +89,7 @@ bool ts_parser_enabled(const TSParser *);
 void ts_parser_set_enabled(TSParser *, bool);
 size_t ts_parser_operation_limit(const TSParser *);
 void ts_parser_set_operation_limit(TSParser *, size_t);
-TSTree *ts_parser_resume(TSParser *);
+void ts_parser_reset(TSParser *);
 
 TSTree *ts_tree_copy(const TSTree *);
 void ts_tree_delete(TSTree *);

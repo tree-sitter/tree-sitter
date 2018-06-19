@@ -15,14 +15,18 @@ static inline ReusableNode reusable_node_new() {
   return (ReusableNode) {array_new(), NULL};
 }
 
-static inline void reusable_node_reset(ReusableNode *self, const Subtree *tree) {
+static inline void reusable_node_clear(ReusableNode *self) {
   array_clear(&self->stack);
+  self->last_external_token = NULL;
+}
+
+static inline void reusable_node_reset(ReusableNode *self, const Subtree *tree) {
+  reusable_node_clear(self);
   array_push(&self->stack, ((StackEntry) {
     .tree = tree,
     .child_index = 0,
     .byte_offset = 0,
   }));
-  self->last_external_token = NULL;
 }
 
 static inline const Subtree *reusable_node_tree(ReusableNode *self) {
