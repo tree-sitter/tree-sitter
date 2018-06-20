@@ -11,7 +11,12 @@ bool operator==(const TSPoint &left, const TSPoint &right) {
 }
 
 bool operator==(const TSRange &left, const TSRange &right) {
-  return left.start == right.start && left.end == right.end;
+  return (
+    left.start_byte == right.start_byte &&
+    left.end_byte == right.end_byte &&
+    left.start_point == right.start_point &&
+    left.end_point == right.end_point
+  );
 }
 
 bool operator==(const Length &left, const Length &right) {
@@ -34,7 +39,7 @@ std::ostream &operator<<(std::ostream &stream, const TSPoint &point) {
 }
 
 std::ostream &operator<<(std::ostream &stream, const TSRange &range) {
-  return stream << "{" << range.start << ", " << range.end << "}";
+  return stream << "{" << range.start_point << ", " << range.end_point << "}";
 }
 
 ostream &operator<<(ostream &stream, const Length &length) {

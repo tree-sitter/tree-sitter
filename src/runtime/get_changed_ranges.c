@@ -9,17 +9,18 @@
 
 typedef Array(TSRange) RangeArray;
 
-static void range_array_add(RangeArray *results, TSPoint start, TSPoint end) {
+static void range_array_add(RangeArray *results, Length start, Length end) {
   if (results->size > 0) {
     TSRange *last_range = array_back(results);
-    if (point_lte(start, last_range->end)) {
-      last_range->end = end;
+    if (start.bytes <= last_range->end_byte) {
+      last_range->end_byte = end.bytes;
+      last_range->end_point = end.extent;
       return;
     }
   }
 
-  if (point_lt(start, end)) {
-    TSRange range = { start, end };
+  if (start.bytes < end.bytes) {
+    TSRange range = { start.extent, end.extent, start.bytes, end.bytes };
     array_push(results, range);
   }
 }
@@ -272,10 +273,10 @@ unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *n
   Length position = iterator_start_position(&old_iter);
   Length next_position = iterator_start_position(&new_iter);
   if (position.bytes < next_position.bytes) {
-    range_array_add(&results, position.extent, next_position.extent);
+    range_array_add(&results, position, next_position);
     position = next_position;
   } else if (position.bytes > next_position.bytes) {
-    range_array_add(&results, next_position.extent, position.extent);
+    range_array_add(&results, next_position, position);
     next_position = position;
   }
 
@@ -343,7 +344,7 @@ unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *n
       );
       #endif
 
-      range_array_add(&results, position.extent, next_position.extent);
+      range_array_add(&results, position, next_position);
     }
 
     position = next_position;

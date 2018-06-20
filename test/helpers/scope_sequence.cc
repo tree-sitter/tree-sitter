@@ -73,7 +73,7 @@ void verify_changed_ranges(const ScopeSequence &old_sequence, const ScopeSequenc
       bool found_containing_range = false;
       for (size_t j = 0; j < range_count; j++) {
         TSRange range = ranges[j];
-        if (range.start <= current_position && current_position <= range.end) {
+        if (range.start_point <= current_position && current_position <= range.end_point) {
           found_containing_range = true;
           break;
         }

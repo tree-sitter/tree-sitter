@@ -131,16 +131,22 @@ describe("Tree", [&]() {
       return result;
     };
 
+    auto range_for_text = [&](string start_text, string end_text) {
+      return TSRange {
+        point(0, input->content.find(start_text)),
+        point(0, input->content.find(end_text)),
+        static_cast<uint32_t>(input->content.find(start_text)),
+        static_cast<uint32_t>(input->content.find(end_text)),
+      };
+    };
+
     it("reports changes when one token has been updated", [&]() {
       // Replace `null` with `nothing`
       auto ranges = get_changed_ranges_for_edit([&]() {
         return input->replace(input->content.find("ull"), 1, "othing");
       });
       AssertThat(ranges, Equals(vector<TSRange>({
-        TSRange{
-          point(0, input->content.find("nothing")),
-          point(0, input->content.find("}"))
-        },
+        range_for_text("nothing", "}"),
       })));
 
       // Replace `nothing` with `null` again
@@ -148,10 +154,7 @@ describe("Tree", [&]() {
         return input->undo();
       });
       AssertThat(ranges, Equals(vector<TSRange>({
-        TSRange{
-          point(0, input->content.find("null")),
-          point(0, input->content.find("}"))
-        },
+        range_for_text("null", "}"),
       })));
     });
 
@@ -192,10 +195,7 @@ describe("Tree", [&]() {
         return input->replace(input->content.find("}"), 0, ", b: false");
       });
       AssertThat(ranges, Equals(vector<TSRange>({
-        TSRange{
-          point(0, input->content.find(",")),
-          point(0, input->content.find("}"))
-        },
+        range_for_text(",", "}"),
       })));
 
       // Add a third key-value pair in between the first two
@@ -209,10 +209,7 @@ describe("Tree", [&]() {
           "(pair (property_identifier) (false)))))"
       );
       AssertThat(ranges, Equals(vector<TSRange>({
-        TSRange{
-          point(0, input->content.find(", c")),
-          point(0, input->content.find(", b"))
-        },
+        range_for_text(", c", ", b"),
       })));
 
       // Delete the middle pair.
@@ -247,10 +244,7 @@ describe("Tree", [&]() {
           "(pair (property_identifier) (binary_expression (identifier) (null))))))"
       );
       AssertThat(ranges, Equals(vector<TSRange>({
-        TSRange{
-          point(0, input->content.find("b ===")),
-          point(0, input->content.find("}"))
-        },
+        range_for_text("b ===", "}"),
       })));
     });
   });

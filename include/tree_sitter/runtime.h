@@ -34,8 +34,10 @@ typedef struct {
 } TSPoint;
 
 typedef struct {
-  TSPoint start;
-  TSPoint end;
+  TSPoint start_point;
+  TSPoint end_point;
+  uint32_t start_byte;
+  uint32_t end_byte;
 } TSRange;
 
 typedef struct {
