@@ -768,6 +768,113 @@ describe("Parser", [&]() {
       assert_root_node("(value (array (null) (number) (number) (number) (number)))");
     });
   });
+
+  describe("set_skipped_ranges", [&]() {
+    it("can parse code within a single range of a document", [&]() {
+      string source_code = "<span>hi</span><script>console.log('sup');</script>";
+
+      ts_parser_set_language(parser, load_real_language("html"));
+      TSTree *html_tree = ts_parser_parse_string(parser, nullptr, source_code.c_str(), source_code.size());
+      TSNode script_content_node = ts_node_child(
+        ts_node_child(ts_tree_root_node(html_tree), 1),
+        1
+      );
+      AssertThat(ts_node_type(script_content_node), Equals("raw_text"));
+      TSRange included_range = {
+        ts_node_start_point(script_content_node),
+        ts_node_end_point(script_content_node),
+        ts_node_start_byte(script_content_node),
+        ts_node_end_byte(script_content_node),
+      };
+      ts_tree_delete(html_tree);
+
+      ts_parser_set_included_ranges(parser, &included_range, 1);
+      ts_parser_set_language(parser, load_real_language("javascript"));
+      tree = ts_parser_parse_string(parser, nullptr, source_code.c_str(), source_code.size());
+
+      assert_root_node("(program (expression_statement (call_expression "
+        "(member_expression (identifier) (property_identifier)) "
+        "(arguments (string)))))");
+
+      AssertThat(
+        ts_node_start_point(ts_tree_root_node(tree)),
+        Equals<TSPoint>({0, static_cast<uint32_t>(source_code.find("console"))})
+      );
+    });
+
+    it("can parse code spread across multiple ranges in a document", [&]() {
+      string source_code =
+        "html `<div>Hello, ${name.toUpperCase()}, it's <b>${now()}</b>.</div>`";
+
+      ts_parser_set_language(parser, load_real_language("javascript"));
+      TSTree *js_tree = ts_parser_parse_string(parser, nullptr, source_code.c_str(), source_code.size());
+      TSNode root_node = ts_tree_root_node(js_tree);
+      TSNode string_node = ts_node_descendant_for_byte_range(
+        root_node,
+        source_code.find("<div>"),
+        source_code.find("Hell")
+      );
+      TSNode open_quote_node = ts_node_child(string_node, 0);
+      TSNode interpolation_node1 = ts_node_child(string_node, 1);
+      TSNode interpolation_node2 = ts_node_child(string_node, 2);
+      TSNode close_quote_node = ts_node_child(string_node, 3);
+
+      AssertThat(ts_node_type(string_node), Equals("template_string"));
+      AssertThat(ts_node_type(open_quote_node), Equals("`"));
+      AssertThat(ts_node_type(interpolation_node1), Equals("template_substitution"));
+      AssertThat(ts_node_type(interpolation_node2), Equals("template_substitution"));
+      AssertThat(ts_node_type(close_quote_node), Equals("`"));
+      ts_tree_delete(js_tree);
+
+      TSRange included_ranges[] = {
+        {
+          ts_node_end_point(open_quote_node),
+          ts_node_start_point(interpolation_node1),
+          ts_node_end_byte(open_quote_node),
+          ts_node_start_byte(interpolation_node1),
+        },
+        {
+          ts_node_end_point(interpolation_node1),
+          ts_node_start_point(interpolation_node2),
+          ts_node_end_byte(interpolation_node1),
+          ts_node_start_byte(interpolation_node2),
+        },
+        {
+          ts_node_end_point(interpolation_node2),
+          ts_node_start_point(close_quote_node),
+          ts_node_end_byte(interpolation_node2),
+          ts_node_start_byte(close_quote_node),
+        }
+      };
+
+      ts_parser_set_included_ranges(parser, included_ranges, 3);
+      ts_parser_set_language(parser, load_real_language("html"));
+      tree = ts_parser_parse_string(parser, nullptr, source_code.c_str(), source_code.size());
+
+      assert_root_node("(fragment "
+        "(element "
+          "(start_tag (tag_name)) "
+          "(text) "
+          "(element "
+            "(start_tag (tag_name)) "
+            "(end_tag (tag_name))) "
+          "(text) "
+          "(end_tag (tag_name))))");
+
+      root_node = ts_tree_root_node(tree);
+      TSNode hello_text_node = ts_node_child(ts_node_child(root_node, 0), 1);
+
+      AssertThat(ts_node_type(hello_text_node), Equals("text"));
+      AssertThat(
+        ts_node_start_point(hello_text_node),
+        Equals<TSPoint>({0, static_cast<uint32_t>(source_code.find("Hello"))})
+      );
+      AssertThat(
+        ts_node_end_point(hello_text_node),
+        Equals<TSPoint>({0, static_cast<uint32_t>(source_code.find("<b>"))})
+      );
+    });
+  });
 });
 
 END_TEST

@@ -72,6 +72,22 @@ static void ts_lexer__advance(void *payload, bool skip) {
     LOG_CHARACTER("consume", self->data.lookahead);
   }
 
+  TSRange *current_range = &self->included_ranges[self->current_included_range_index];
+  if (self->current_position.bytes == current_range->end_byte) {
+    self->current_included_range_index++;
+    if (self->current_included_range_index == self->included_range_count) {
+      self->data.lookahead = '\0';
+      self->lookahead_size = 1;
+      return;
+    } else {
+      current_range++;
+      self->current_position = (Length) {
+        current_range->start_byte,
+        current_range->start_point,
+      };
+    }
+  }
+
   if (self->current_position.bytes >= self->chunk_start + self->chunk_size) {
     ts_lexer__get_chunk(self);
   }
@@ -118,12 +134,21 @@ void ts_lexer_init(Lexer *self) {
     },
     .chunk = NULL,
     .chunk_start = 0,
+    .current_position = {UINT32_MAX, {0, 0}},
     .logger = {
       .payload = NULL,
       .log = NULL
     },
+    .current_included_range_index = 0,
   };
+
+  self->included_ranges = NULL;
+  ts_lexer_set_included_ranges(self, NULL, 0);
   ts_lexer_reset(self, length_zero());
+}
+
+void ts_lexer_delete(Lexer *self) {
+  ts_free(self->included_ranges);
 }
 
 void ts_lexer_set_input(Lexer *self, TSInput input) {
@@ -135,22 +160,52 @@ void ts_lexer_set_input(Lexer *self, TSInput input) {
   self->chunk_size = 0;
 }
 
-void ts_lexer_reset(Lexer *self, Length position) {
-  if (position.bytes != self->current_position.bytes) {
-    self->token_start_position = position;
-    self->token_end_position = LENGTH_UNDEFINED;
-    self->current_position = position;
+static void ts_lexer_goto(Lexer *self, Length position) {
+  bool found_included_range = false;
+  for (unsigned i = 0; i < self->included_range_count; i++) {
+    TSRange *included_range = &self->included_ranges[i];
+    if (included_range->end_byte > position.bytes) {
+      if (included_range->start_byte > position.bytes) {
+        position = (Length) {
+          .bytes = included_range->start_byte,
+          .extent = included_range->start_point,
+        };
+      }
 
-    if (self->chunk && (position.bytes < self->chunk_start ||
-                        position.bytes >= self->chunk_start + self->chunk_size)) {
-      self->chunk = 0;
-      self->chunk_start = 0;
-      self->chunk_size = 0;
+      self->current_included_range_index = i;
+      found_included_range = true;
+      break;
     }
-
-    self->lookahead_size = 0;
-    self->data.lookahead = 0;
   }
+
+  if (!found_included_range) {
+    TSRange *last_included_range = &self->included_ranges[self->included_range_count - 1];
+    position = (Length) {
+      .bytes = last_included_range->end_byte,
+      .extent = last_included_range->end_point,
+    };
+    self->chunk = empty_chunk;
+    self->chunk_start = position.bytes;
+    self->chunk_size = 1;
+  }
+
+  self->token_start_position = position;
+  self->token_end_position = LENGTH_UNDEFINED;
+  self->current_position = position;
+
+  if (self->chunk && (position.bytes < self->chunk_start ||
+                      position.bytes >= self->chunk_start + self->chunk_size)) {
+    self->chunk = 0;
+    self->chunk_start = 0;
+    self->chunk_size = 0;
+  }
+
+  self->lookahead_size = 0;
+  self->data.lookahead = 0;
+}
+
+void ts_lexer_reset(Lexer *self, Length position) {
+  if (position.bytes != self->current_position.bytes) ts_lexer_goto(self, position);
 }
 
 void ts_lexer_start(Lexer *self) {
@@ -163,4 +218,37 @@ void ts_lexer_start(Lexer *self) {
 
 void ts_lexer_advance_to_end(Lexer *self) {
   while (self->data.lookahead != 0) ts_lexer__advance(self, false);
+}
+
+static const TSRange DEFAULT_RANGES[] = {
+  {
+    .start_point = {
+      .row = 0,
+      .column = 0,
+    },
+    .end_point = {
+      .row = UINT32_MAX,
+      .column = UINT32_MAX,
+    },
+    .start_byte = 0,
+    .end_byte = UINT32_MAX
+  }
+};
+
+void ts_lexer_set_included_ranges(Lexer *self, const TSRange *ranges, uint32_t count) {
+  if (!ranges) {
+    ranges = DEFAULT_RANGES;
+    count = 1;
+  }
+
+  size_t sz = count * sizeof(TSRange);
+  self->included_ranges = ts_realloc(self->included_ranges, sz);
+  memcpy(self->included_ranges, ranges, sz);
+  self->included_range_count = count;
+  ts_lexer_goto(self, self->current_position);
+}
+
+TSRange *ts_lexer_included_ranges(const Lexer *self, uint32_t *count) {
+  *count = self->included_range_count;
+  return self->included_ranges;
 }
