@@ -34,8 +34,10 @@ typedef struct {
 } TSPoint;
 
 typedef struct {
-  TSPoint start;
-  TSPoint end;
+  TSPoint start_point;
+  TSPoint end_point;
+  uint32_t start_byte;
+  uint32_t end_byte;
 } TSRange;
 
 typedef struct {
@@ -90,6 +92,8 @@ void ts_parser_set_enabled(TSParser *, bool);
 size_t ts_parser_operation_limit(const TSParser *);
 void ts_parser_set_operation_limit(TSParser *, size_t);
 void ts_parser_reset(TSParser *);
+void ts_parser_set_included_ranges(TSParser *, const TSRange *, uint32_t);
+const TSRange *ts_parser_included_ranges(const TSParser *, uint32_t *);
 
 TSTree *ts_tree_copy(const TSTree *);
 void ts_tree_delete(TSTree *);

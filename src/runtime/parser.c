@@ -1359,6 +1359,7 @@ void ts_parser_delete(TSParser *self) {
     ts_subtree_release(&self->tree_pool, self->old_tree);
     self->old_tree = NULL;
   }
+  ts_lexer_delete(&self->lexer);
   ts_parser__set_cached_token(self, 0, NULL, NULL);
   ts_subtree_pool_delete(&self->tree_pool);
   reusable_node_delete(&self->reusable_node);
@@ -1417,6 +1418,14 @@ size_t ts_parser_operation_limit(const TSParser *self) {
 
 void ts_parser_set_operation_limit(TSParser *self, size_t limit) {
   self->operation_limit = limit;
+}
+
+void ts_parser_set_included_ranges(TSParser *self, const TSRange *ranges, uint32_t count) {
+  ts_lexer_set_included_ranges(&self->lexer, ranges, count);
+}
+
+const TSRange *ts_parser_included_ranges(const TSParser *self, uint32_t *count) {
+  return ts_lexer_included_ranges(&self->lexer, count);
 }
 
 void ts_parser_reset(TSParser *self) {
