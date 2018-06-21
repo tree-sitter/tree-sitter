@@ -34,6 +34,10 @@ TSNode ts_tree_root_node(const TSTree *self) {
   return ts_node_new(self, self->root, self->root->padding, 0);
 }
 
+const TSLanguage *ts_tree_language(const TSTree *self) {
+  return self->language;
+}
+
 void ts_tree_edit(TSTree *self, const TSInputEdit *edit) {
   SubtreePool pool = ts_subtree_pool_new(0);
   self->root = ts_subtree_edit(self->root, edit, &pool);

@@ -101,6 +101,7 @@ TSNode ts_tree_root_node(const TSTree *);
 void ts_tree_edit(TSTree *, const TSInputEdit *);
 TSRange *ts_tree_get_changed_ranges(const TSTree *, const TSTree *, uint32_t *);
 void ts_tree_print_dot_graph(const TSTree *, FILE *);
+const TSLanguage *ts_tree_language(const TSTree *);
 
 uint32_t ts_node_start_byte(TSNode);
 TSPoint ts_node_start_point(TSNode);
