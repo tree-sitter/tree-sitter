@@ -142,6 +142,7 @@ TSNode ts_tree_cursor_current_node(const TSTreeCursor *);
 
 uint32_t ts_language_symbol_count(const TSLanguage *);
 const char *ts_language_symbol_name(const TSLanguage *, TSSymbol);
+TSSymbol ts_language_symbol_for_name(const TSLanguage *, const char *);
 TSSymbolType ts_language_symbol_type(const TSLanguage *, TSSymbol);
 uint32_t ts_language_version(const TSLanguage *);
 
