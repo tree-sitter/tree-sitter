@@ -15,6 +15,6 @@ typedef struct {
   const TSTree *tree;
 } TreeCursor;
 
-void ts_tree_cursor_init(TreeCursor *, const TSTree *);
+void ts_tree_cursor_init(TreeCursor *, TSNode);
 
 #endif  // RUNTIME_TREE_CURSOR_H_

@@ -131,7 +131,7 @@ TSNode ts_node_named_descendant_for_byte_range(TSNode, uint32_t, uint32_t);
 TSNode ts_node_descendant_for_point_range(TSNode, TSPoint, TSPoint);
 TSNode ts_node_named_descendant_for_point_range(TSNode, TSPoint, TSPoint);
 
-TSTreeCursor ts_tree_cursor_new(const TSTree *);
+TSTreeCursor ts_tree_cursor_new(TSNode);
 void ts_tree_cursor_delete(TSTreeCursor *);
 bool ts_tree_cursor_goto_first_child(TSTreeCursor *);
 int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *, uint32_t);
