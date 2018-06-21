@@ -68,7 +68,7 @@ typedef struct {
 typedef struct {
   uint32_t context[4];
   const void *id;
-  const void *tree;
+  const TSTree *tree;
 } TSNode;
 
 typedef struct {
