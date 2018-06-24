@@ -68,7 +68,7 @@ typedef struct {
 typedef struct {
   uint32_t context[4];
   const void *id;
-  const void *tree;
+  const TSTree *tree;
 } TSNode;
 
 typedef struct {
@@ -101,6 +101,7 @@ TSNode ts_tree_root_node(const TSTree *);
 void ts_tree_edit(TSTree *, const TSInputEdit *);
 TSRange *ts_tree_get_changed_ranges(const TSTree *, const TSTree *, uint32_t *);
 void ts_tree_print_dot_graph(const TSTree *, FILE *);
+const TSLanguage *ts_tree_language(const TSTree *);
 
 uint32_t ts_node_start_byte(TSNode);
 TSPoint ts_node_start_point(TSNode);
@@ -131,7 +132,7 @@ TSNode ts_node_named_descendant_for_byte_range(TSNode, uint32_t, uint32_t);
 TSNode ts_node_descendant_for_point_range(TSNode, TSPoint, TSPoint);
 TSNode ts_node_named_descendant_for_point_range(TSNode, TSPoint, TSPoint);
 
-TSTreeCursor ts_tree_cursor_new(const TSTree *);
+TSTreeCursor ts_tree_cursor_new(TSNode);
 void ts_tree_cursor_delete(TSTreeCursor *);
 bool ts_tree_cursor_goto_first_child(TSTreeCursor *);
 int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *, uint32_t);
@@ -141,6 +142,7 @@ TSNode ts_tree_cursor_current_node(const TSTreeCursor *);
 
 uint32_t ts_language_symbol_count(const TSLanguage *);
 const char *ts_language_symbol_name(const TSLanguage *, TSSymbol);
+TSSymbol ts_language_symbol_for_name(const TSLanguage *, const char *);
 TSSymbolType ts_language_symbol_type(const TSLanguage *, TSSymbol);
 uint32_t ts_language_version(const TSLanguage *);
 

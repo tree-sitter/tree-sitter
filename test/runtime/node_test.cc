@@ -556,7 +556,7 @@ describe("TreeCursor", [&]() {
     parser = ts_parser_new();
     ts_parser_set_language(parser, load_real_language("json"));
     tree = ts_parser_parse_string(parser, nullptr, json_string.c_str(), json_string.size());
-    cursor = ts_tree_cursor_new(tree);
+    cursor = ts_tree_cursor_new(ts_tree_root_node(tree));
   });
 
   after_each([&]() {
@@ -728,7 +728,7 @@ describe("TreeCursor", [&]() {
     ts_tree_delete(tree);
 
     tree = ts_parser_parse_string(parser, nullptr, "b ... b ... c", 13);
-    cursor = ts_tree_cursor_new(tree);
+    cursor = ts_tree_cursor_new(ts_tree_root_node(tree));
 
     TSNode node = ts_tree_cursor_current_node(&cursor);
     AssertThat(ts_node_type(node), Equals("a"));

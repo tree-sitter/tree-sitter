@@ -46,26 +46,36 @@ static inline bool ts_tree_cursor_child_iterator_next(ChildIterator *self,
   if (!child->extra && self->alias_sequence) {
     *visible |= self->alias_sequence[self->structural_child_index];
   }
-  self->position = length_add(self->position, ts_subtree_total_size(child));
+
+  self->position = length_add(self->position, child->size);
   self->child_index++;
   if (!child->extra) self->structural_child_index++;
+
+  if (self->child_index < self->parent->children.size) {
+    const Subtree *child = self->parent->children.contents[self->child_index];
+    self->position = length_add(self->position, child->padding);
+  }
+
   return true;
 }
 
 // TSTreeCursor - lifecycle
 
-TSTreeCursor ts_tree_cursor_new(const TSTree *tree) {
+TSTreeCursor ts_tree_cursor_new(TSNode node) {
   TSTreeCursor self;
-  ts_tree_cursor_init((TreeCursor *)&self, tree);
+  ts_tree_cursor_init((TreeCursor *)&self, node);
   return self;
 }
 
-void ts_tree_cursor_init(TreeCursor *self, const TSTree *tree) {
-  self->tree = tree;
+void ts_tree_cursor_init(TreeCursor *self, TSNode node) {
+  self->tree = node.tree;
   array_init(&self->stack);
   array_push(&self->stack, ((TreeCursorEntry) {
-    .subtree = tree->root,
-    .position = length_zero(),
+    .subtree = (const Subtree *)node.id,
+    .position = {
+      ts_node_start_byte(node),
+      ts_node_start_point(node)
+    },
     .child_index = 0,
     .structural_child_index = 0,
   }));
@@ -118,7 +128,8 @@ int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *_self, uint32_t g
     TreeCursorEntry entry;
     ChildIterator iterator = ts_tree_cursor_iterate_children(self);
     while (ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible)) {
-      bool at_goal = iterator.position.bytes > goal_byte;
+      uint32_t end_byte = entry.position.bytes + entry.subtree->size.bytes;
+      bool at_goal = end_byte > goal_byte;
       uint32_t visible_child_count = entry.subtree->children.size > 0
         ? entry.subtree->visible_child_count
         : 0;
@@ -208,7 +219,7 @@ TSNode ts_tree_cursor_current_node(const TSTreeCursor *_self) {
   return ts_node_new(
     self->tree,
     last_entry->subtree,
-    length_add(last_entry->position, last_entry->subtree->padding),
+    last_entry->position,
     alias_symbol
   );
 }

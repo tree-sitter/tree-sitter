@@ -1,6 +1,7 @@
 #include "runtime/language.h"
 #include "runtime/subtree.h"
 #include "runtime/error_costs.h"
+#include <string.h>
 
 void ts_language_table_entry(const TSLanguage *self, TSStateId state,
                              TSSymbol symbol, TableEntry *result) {
@@ -44,6 +45,15 @@ const char *ts_language_symbol_name(const TSLanguage *language, TSSymbol symbol)
   } else {
     return language->symbol_names[symbol];
   }
+}
+
+TSSymbol ts_language_symbol_for_name(const TSLanguage *self, const char *name) {
+  for (TSSymbol i = 0; i < self->symbol_count; i++) {
+    if (!strcmp(self->symbol_names[i], name)) {
+      return i;
+    }
+  }
+  return 0;
 }
 
 TSSymbolType ts_language_symbol_type(const TSLanguage *language, TSSymbol symbol) {
