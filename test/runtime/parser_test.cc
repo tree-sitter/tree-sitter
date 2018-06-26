@@ -769,7 +769,7 @@ describe("Parser", [&]() {
     });
   });
 
-  describe("set_skipped_ranges", [&]() {
+  describe("set_included_ranges()", [&]() {
     it("can parse code within a single range of a document", [&]() {
       string source_code = "<span>hi</span><script>console.log('sup');</script>";
 
@@ -873,6 +873,28 @@ describe("Parser", [&]() {
         ts_node_end_point(hello_text_node),
         Equals<TSPoint>({0, static_cast<uint32_t>(source_code.find("<b>"))})
       );
+    });
+
+    it("can handle errors at the ends of the nested UTF16 documents (regression)", [&]() {
+      u16string source_code = u"<script>a.</script>";
+
+      TSRange included_range = {
+        {0, static_cast<uint32_t>(2u * source_code.find(u"a."))},
+        {0, static_cast<uint32_t>(2u * source_code.find(u"</script"))},
+        2u * static_cast<uint32_t>(source_code.find(u"a.")),
+        2u * static_cast<uint32_t>(source_code.find(u"</script")),
+      };
+
+      ts_parser_set_logger(parser, stderr_logger_new(true));
+      ts_parser_set_included_ranges(parser, &included_range, 1);
+      ts_parser_set_language(parser, load_real_language("javascript"));
+
+      SpyInput input("", 3);
+      input.content.assign((const char *)source_code.c_str(), source_code.size() * 2);
+      input.encoding = TSInputEncodingUTF16;
+      tree = ts_parser_parse(parser, nullptr, input.input());
+
+      assert_root_node("(program (ERROR (identifier)))");
     });
   });
 });

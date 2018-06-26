@@ -14,7 +14,7 @@
 #define LOG_CHARACTER(message, character) \
   LOG(character < 255 ? message " character:'%c'" : message " character:%d", character)
 
-static const char empty_chunk[2] = { 0, 0 };
+static const char empty_chunk[3] = { 0, 0 };
 
 static void ts_lexer__get_chunk(Lexer *self) {
   self->chunk_start = self->current_position.bytes;
@@ -186,7 +186,7 @@ static void ts_lexer_goto(Lexer *self, Length position) {
     };
     self->chunk = empty_chunk;
     self->chunk_start = position.bytes;
-    self->chunk_size = 1;
+    self->chunk_size = 2;
   }
 
   self->token_start_position = position;
