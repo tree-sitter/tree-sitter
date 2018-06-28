@@ -757,6 +757,74 @@ describe("TreeCursor", [&]() {
     AssertThat(ts_tree_cursor_goto_parent(&cursor), IsTrue());
     AssertThat(ts_tree_cursor_goto_first_child_for_byte(&cursor, 0), Equals(0));
   });
+
+  it("walks the tree correctly when there are hidden leaf nodes", [&]() {
+    ts_parser_set_language(parser, load_real_language("javascript"));
+    ts_tree_cursor_delete(&cursor);
+    ts_tree_delete(tree);
+
+    tree = ts_parser_parse_string(parser, nullptr, "`abc${1}def${2}ghi`", 19);
+    cursor = ts_tree_cursor_new(ts_tree_root_node(tree));
+    TSNode node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("program"));
+
+    ts_tree_cursor_goto_first_child(&cursor);
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("expression_statement"));
+
+    ts_tree_cursor_goto_first_child(&cursor);
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("template_string"));
+
+    int index = ts_tree_cursor_goto_first_child_for_byte(&cursor, 9);
+    AssertThat(index, Equals(2));
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("template_substitution"));
+    AssertThat(ts_node_start_byte(node), Equals(11u));
+    AssertThat(ts_node_end_byte(node), Equals(15u));
+
+    index = ts_tree_cursor_goto_first_child_for_byte(&cursor, 20);
+    AssertThat(index, Equals(-1));
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("template_substitution"));
+
+    ts_tree_cursor_goto_first_child(&cursor);
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("${"));
+
+    index = ts_tree_cursor_goto_first_child_for_byte(&cursor, 20);
+    AssertThat(index, Equals(-1));
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("${"));
+  });
+
+  it("handles parent nodes that are aliased", [&]() {
+    ts_parser_set_language(parser, load_real_language("html"));
+    ts_tree_cursor_delete(&cursor);
+    ts_tree_delete(tree);
+
+    tree = ts_parser_parse_string(parser, nullptr, "<script></script>", 18);
+
+    cursor = ts_tree_cursor_new(ts_tree_root_node(tree));
+    TSNode node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("fragment"));
+
+    ts_tree_cursor_goto_first_child(&cursor);
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("raw_element"));
+
+    ts_tree_cursor_goto_first_child(&cursor);
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("start_tag"));
+
+    ts_tree_cursor_goto_first_child(&cursor);
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("<"));
+
+    ts_tree_cursor_goto_parent(&cursor);
+    node = ts_tree_cursor_current_node(&cursor);
+    AssertThat(ts_node_type(node), Equals("start_tag"));
+  });
 });
 
 END_TEST

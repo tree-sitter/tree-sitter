@@ -153,6 +153,11 @@ int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *_self, uint32_t g
     }
   } while (did_descend);
 
+  if (self->stack.size > initial_size &&
+      ts_tree_cursor_goto_next_sibling((TSTreeCursor *)self)) {
+    return visible_child_index;
+  }
+
   self->stack.size = initial_size;
   return -1;
 }
@@ -194,7 +199,16 @@ bool ts_tree_cursor_goto_parent(TSTreeCursor *_self) {
   TreeCursor *self = (TreeCursor *)_self;
   for (unsigned i = self->stack.size - 2; i + 1 > 0; i--) {
     TreeCursorEntry *entry = &self->stack.contents[i];
-    if (entry->subtree->visible) {
+    bool is_aliased = false;
+    if (i > 0) {
+      TreeCursorEntry *parent_entry = &self->stack.contents[i - 1];
+      const TSSymbol *alias_sequence = ts_language_alias_sequence(
+        self->tree->language,
+        parent_entry->subtree->alias_sequence_id
+      );
+      is_aliased = alias_sequence && alias_sequence[entry->structural_child_index];
+    }
+    if (entry->subtree->visible || is_aliased) {
       self->stack.size = i + 1;
       return true;
     }
