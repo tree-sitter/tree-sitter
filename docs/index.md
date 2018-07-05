@@ -27,9 +27,11 @@ Parsers for these languages are fairly complete:
 * [Bash](https://github.com/tree-sitter/tree-sitter-bash)
 * [C](https://github.com/tree-sitter/tree-sitter-c)
 * [C++](https://github.com/tree-sitter/tree-sitter-cpp)
+* [ERB / EJS](https://github.com/tree-sitter/tree-sitter-embedded-template)
 * [Go](https://github.com/tree-sitter/tree-sitter-go)
 * [HTML](https://github.com/tree-sitter/tree-sitter-html)
 * [JavaScript](https://github.com/tree-sitter/tree-sitter-javascript)
+* [OCaml](https://github.com/tree-sitter/tree-sitter-ocaml)
 * [PHP](https://github.com/tree-sitter/tree-sitter-php)
 * [Python](https://github.com/tree-sitter/tree-sitter-python)
 * [Ruby](https://github.com/tree-sitter/tree-sitter-ruby)
@@ -43,7 +45,6 @@ Parsers for these languages are in development:
 * [Haskell](https://github.com/tree-sitter/tree-sitter-haskell)
 * [Java](https://github.com/tree-sitter/tree-sitter-java)
 * [Julia](https://github.com/tree-sitter/tree-sitter-julia)
-* [OCaml](https://github.com/tree-sitter/tree-sitter-ocaml)
 * [Scala](https://github.com/tree-sitter/tree-sitter-scala)
 
 ### Talks on Tree-sitter
