@@ -65,13 +65,6 @@ static void ts_lexer__advance(void *payload, bool skip) {
     }
   }
 
-  if (skip) {
-    LOG_CHARACTER("skip", self->data.lookahead);
-    self->token_start_position = self->current_position;
-  } else {
-    LOG_CHARACTER("consume", self->data.lookahead);
-  }
-
   TSRange *current_range = &self->included_ranges[self->current_included_range_index];
   if (self->current_position.bytes == current_range->end_byte) {
     self->current_included_range_index++;
@@ -86,6 +79,13 @@ static void ts_lexer__advance(void *payload, bool skip) {
         current_range->start_point,
       };
     }
+  }
+
+  if (skip) {
+    LOG_CHARACTER("skip", self->data.lookahead);
+    self->token_start_position = self->current_position;
+  } else {
+    LOG_CHARACTER("consume", self->data.lookahead);
   }
 
   if (self->current_position.bytes >= self->chunk_start + self->chunk_size) {
