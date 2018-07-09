@@ -862,8 +862,9 @@ describe("Parser", [&]() {
           "(end_tag (tag_name))))");
 
       root_node = ts_tree_root_node(tree);
-      TSNode hello_text_node = ts_node_child(ts_node_child(root_node, 0), 1);
+      TSNode div_element_node = ts_node_child(root_node, 0);
 
+      TSNode hello_text_node = ts_node_child(div_element_node, 1);
       AssertThat(ts_node_type(hello_text_node), Equals("text"));
       AssertThat(
         ts_node_start_point(hello_text_node),
@@ -872,6 +873,28 @@ describe("Parser", [&]() {
       AssertThat(
         ts_node_end_point(hello_text_node),
         Equals<TSPoint>({0, static_cast<uint32_t>(source_code.find("<b>"))})
+      );
+
+      TSNode b_start_tag_node = ts_node_child(ts_node_child(div_element_node, 2), 0);
+      AssertThat(ts_node_type(b_start_tag_node), Equals("start_tag"));
+      AssertThat(
+        ts_node_start_point(b_start_tag_node),
+        Equals<TSPoint>({0, static_cast<uint32_t>(source_code.find("<b>"))})
+      );
+      AssertThat(
+        ts_node_end_point(b_start_tag_node),
+        Equals<TSPoint>({0, static_cast<uint32_t>(source_code.find("${now()}"))})
+      );
+
+      TSNode b_end_tag_node = ts_node_child(ts_node_child(div_element_node, 2), 1);
+      AssertThat(ts_node_type(b_end_tag_node), Equals("end_tag"));
+      AssertThat(
+        ts_node_start_point(b_end_tag_node),
+        Equals<TSPoint>({0, static_cast<uint32_t>(source_code.find("</b>"))})
+      );
+      AssertThat(
+        ts_node_end_point(b_end_tag_node),
+        Equals<TSPoint>({0, static_cast<uint32_t>(source_code.find(".</div>"))})
       );
     });
 

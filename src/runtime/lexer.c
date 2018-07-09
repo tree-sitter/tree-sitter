@@ -97,7 +97,17 @@ static void ts_lexer__advance(void *payload, bool skip) {
 
 static void ts_lexer__mark_end(void *payload) {
   Lexer *self = (Lexer *)payload;
-  self->token_end_position = self->current_position;
+  TSRange *current_included_range = &self->included_ranges[self->current_included_range_index];
+  if (self->current_included_range_index > 0 &&
+      self->current_position.bytes == current_included_range->start_byte) {
+    TSRange *previous_included_range = current_included_range - 1;
+    self->token_end_position = (Length) {
+      previous_included_range->end_byte,
+      previous_included_range->end_point,
+    };
+  } else {
+    self->token_end_position = self->current_position;
+  }
 }
 
 static uint32_t ts_lexer__get_column(void *payload) {
