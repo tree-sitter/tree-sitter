@@ -41,6 +41,8 @@ const TSLanguage *ts_tree_language(const TSTree *self) {
 void ts_tree_edit(TSTree *self, const TSInputEdit *edit) {
   SubtreePool pool = ts_subtree_pool_new(0);
   self->root = ts_subtree_edit(self->root, edit, &pool);
+  self->parent_cache_start = 0;
+  self->parent_cache_size = 0;
   ts_subtree_pool_delete(&pool);
 }
 

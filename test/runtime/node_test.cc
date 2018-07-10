@@ -1,3 +1,4 @@
+
 #include "test_helper.h"
 #include "runtime/alloc.h"
 #include "helpers/tree_helpers.h"
@@ -541,6 +542,18 @@ describe("Node", [&]() {
       AssertThat(ts_node_end_point(node2), Equals<TSPoint>({ 6, 13 }));
 
       AssertThat(ts_node_parent(node1), Equals(node2));
+    });
+  });
+
+  describe("parent()", [&]() {
+    it("works after the tree has been edited (regression)", [&]() {
+      TSNode false_node = ts_node_named_child(root_node, 1);
+
+      TSInputEdit edit = {0, 0, 5, {0, 0}, {0, 0}, {5, 0}};
+      ts_tree_edit(tree, &edit);
+
+      TSNode array_node = ts_node_parent(false_node);
+      AssertThat(ts_node_start_point(array_node), Equals<TSPoint>({7, 0}));
     });
   });
 });
