@@ -7,6 +7,7 @@
 #include <map>
 #include <unordered_set>
 #include <vector>
+#include "tree_sitter/runtime.h"
 #include "compiler/grammar.h"
 #include "compiler/prepare_grammar/interned_grammar.h"
 #include "compiler/prepare_grammar/initial_syntax_grammar.h"
@@ -90,6 +91,8 @@ inline std::ostream& operator<<(std::ostream &stream, const std::pair<T1, T2> &p
 }
 
 }  // namespace std
+
+std::ostream &operator<<(std::ostream &, const TSInputEdit &);
 
 namespace tree_sitter {
 

@@ -7,6 +7,16 @@
 #include "compiler/lexical_grammar.h"
 #include "compiler/build_tables/parse_item.h"
 #include "compiler/build_tables/lex_item.h"
+#include "helpers/point_helpers.h"
+
+ostream &operator<<(ostream &stream, const TSInputEdit &edit) {
+  return stream << "{TSInputEdit start_byte: " << edit.start_byte <<
+    ", old_end_byte: " << edit.old_end_byte <<
+    ", new_end_byte: " << edit.new_end_byte <<
+    ", start_point: " << edit.start_point <<
+    ", old_end_point: " << edit.old_end_point <<
+    ", new_end_point: " << edit.new_end_point << "}";
+}
 
 namespace tree_sitter {
 

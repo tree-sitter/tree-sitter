@@ -1,4 +1,3 @@
-
 #include "test_helper.h"
 #include "runtime/alloc.h"
 #include "helpers/tree_helpers.h"
@@ -6,6 +5,8 @@
 #include "helpers/load_language.h"
 #include "helpers/record_alloc.h"
 #include "helpers/stream_methods.h"
+#include "helpers/random_helpers.h"
+#include "helpers/spy_input.h"
 
 START_TEST
 
@@ -554,6 +555,101 @@ describe("Node", [&]() {
 
       TSNode array_node = ts_node_parent(false_node);
       AssertThat(ts_node_start_point(array_node), Equals<TSPoint>({7, 0}));
+    });
+  });
+
+  describe("edit(edit)", [&]() {
+    vector<pair<string, TSInputEdit>> test_table = {
+      {
+        "insert 5 lines at the beginning",
+        {
+          0, 0, 5,
+          {0, 0}, {0, 0}, {5, 0}
+        },
+      },
+
+      {
+        "delete first 5 lines",
+        {
+          0, (uint32_t)object_index, 0,
+          {0, 0}, {5, 2}, {0, 0}
+        },
+      },
+
+      {
+        "replace entire text",
+        {
+          0, (uint32_t)json_string.size(), 5,
+          {0, 0}, {9, 0}, {0, 5}
+        }
+      }
+    };
+
+    auto get_all_nodes = [&]() {
+      vector<TSNode> result;
+      bool visited_children = false;
+      TSTreeCursor cursor = ts_tree_cursor_new(ts_tree_root_node(tree));
+      while (true) {
+        result.push_back(ts_tree_cursor_current_node(&cursor));
+        if (!visited_children && ts_tree_cursor_goto_first_child(&cursor)) continue;
+        if (ts_tree_cursor_goto_next_sibling(&cursor)) {
+          visited_children = false;
+        } else if (ts_tree_cursor_goto_parent(&cursor)) {
+          visited_children = true;
+        } else {
+          break;
+        }
+      }
+      ts_tree_cursor_delete(&cursor);
+      return result;
+    };
+
+    for (auto &entry : test_table) {
+      const string &description = entry.first;
+      const TSInputEdit &edit = entry.second;
+
+      it(("updates the node's start position according to edit - " + description).c_str(), [&]() {
+        auto nodes_before = get_all_nodes();
+
+        ts_tree_edit(tree, &edit);
+        for (TSNode &node : nodes_before) {
+          ts_node_edit(&node, &edit);
+        }
+
+        auto nodes_after = get_all_nodes();
+
+        for (unsigned i = 0; i < nodes_before.size(); i++) {
+          TSNode &node_before = nodes_before[i];
+          TSNode &node_after = nodes_after[i];
+          AssertThat(node_before, Equals(node_after));
+        }
+      });
+    }
+
+    it("updates the node's start position according to edit - random edits", [&]() {
+      SpyInput input(json_string, 3);
+
+      for (unsigned i = 0; i < 10; i++) {
+        auto nodes_before = get_all_nodes();
+
+        size_t edit_start = default_generator(input.content.size());
+        size_t deletion_size = default_generator(2) ? 0 : default_generator(input.content.size() - edit_start);
+        string inserted_text = default_generator.words(default_generator(4) + 1);
+
+        TSInputEdit edit = input.replace(edit_start, deletion_size, inserted_text);
+        ts_tree_edit(tree, &edit);
+        for (TSNode &node : nodes_before) {
+          ts_node_edit(&node, &edit);
+        }
+
+        auto nodes_after = get_all_nodes();
+
+        for (unsigned i = 0; i < nodes_before.size(); i++) {
+          TSNode &node_before = nodes_before[i];
+          TSNode &node_after = nodes_after[i];
+          AssertThat(node_before, Equals(node_after));
+        }
+      }
     });
   });
 });

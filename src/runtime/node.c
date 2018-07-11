@@ -494,3 +494,20 @@ TSNode ts_node_named_descendant_for_point_range(TSNode self, TSPoint min,
                                                 TSPoint max) {
   return ts_node__descendant_for_point_range(self, min, max, false);
 }
+
+void ts_node_edit(TSNode *self, const TSInputEdit *edit) {
+  uint32_t start_byte = ts_node_start_byte(*self);
+  TSPoint start_point = ts_node_start_point(*self);
+
+  if (start_byte >= edit->old_end_byte) {
+    start_byte = edit->new_end_byte + (start_byte - edit->old_end_byte);
+    start_point = point_add(edit->new_end_point, point_sub(start_point, edit->old_end_point));
+  } else if (start_byte > edit->start_byte) {
+    start_byte = edit->new_end_byte;
+    start_point = edit->new_end_point;
+  }
+
+  self->context[0] = start_byte;
+  self->context[1] = start_point.row;
+  self->context[2] = start_point.column;
+}

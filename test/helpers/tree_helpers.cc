@@ -46,7 +46,10 @@ ostream &operator<<(ostream &stream, const TSNode &node) {
 }
 
 bool operator==(const TSNode &left, const TSNode &right) {
-  return ts_node_eq(left, right);
+  return
+    left.id == right.id &&
+    ts_node_start_byte(left) == ts_node_start_byte(right) &&
+    ts_node_start_point(left) == ts_node_start_point(right);
 }
 
 bool operator==(const std::vector<const Subtree *> &vec, const SubtreeArray &array) {
