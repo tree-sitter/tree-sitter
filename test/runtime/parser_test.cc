@@ -908,7 +908,6 @@ describe("Parser", [&]() {
         2u * static_cast<uint32_t>(source_code.find(u"</script")),
       };
 
-      ts_parser_set_logger(parser, stderr_logger_new(true));
       ts_parser_set_included_ranges(parser, &included_range, 1);
       ts_parser_set_language(parser, load_real_language("javascript"));
 
