@@ -497,59 +497,45 @@ const Subtree *ts_subtree_edit(const Subtree *self, const TSInputEdit *edit, Sub
   while (stack.size) {
     StackEntry entry = array_pop(&stack);
     Edit edit = entry.edit;
-
-    // We use point edits to represent a subtree that may need to be marked dirty
-    // because an edit has occurred within its lookahead.
-    if (edit.old_end.bytes == edit.start.bytes && edit.new_end.bytes == edit.start.bytes) {
-      if (edit.start.bytes >= (*entry.tree)->bytes_scanned) continue;
-
-      Subtree *result = ts_subtree_make_mut(pool, *entry.tree);
-      result->has_changes = true;
-      *entry.tree = result;
-
-      Length child_start = length_zero();
-      for (uint32_t i = 0; i < result->children.size; i++) {
-        const Subtree **child = &result->children.contents[i];
-        if (child_start.bytes > edit.start.bytes) break;
-        Length child_edit_location = length_sub(edit.start, child_start);
-        array_push(&stack, ((StackEntry) {
-          .tree = child,
-          .edit = {child_edit_location, child_edit_location, child_edit_location}
-        }));
-        child_start = length_add(child_start, ts_subtree_total_size(*child));
-      }
-
-      continue;
-    }
+    bool is_noop = edit.old_end.bytes == edit.start.bytes && edit.new_end.bytes == edit.start.bytes;
+    bool is_pure_insertion = edit.old_end.bytes == edit.start.bytes;
+    if (is_noop && edit.start.bytes >= (*entry.tree)->bytes_scanned) continue;
 
     Subtree *result = ts_subtree_make_mut(pool, *entry.tree);
-    result->has_changes = true;
     *entry.tree = result;
 
-    bool pure_insertion = edit.old_end.bytes == edit.start.bytes;
-
+    // If the edit is entirely within the space before this subtree, then shift this
+    // subtree over according to the edit without changing its size.
     if (edit.old_end.bytes <= result->padding.bytes) {
-      // If the edit ends in the space before this subtree, then shift this
-      // subtree according to the edit without changing its size.
       result->padding = length_add(edit.new_end, length_sub(result->padding, edit.old_end));
-    } else if (edit.start.bytes < result->padding.bytes) {
-      // Otherwise, if the edit starts in the space before this subtree, we know
-      // it extends into this subtree, so shrink the subtree's content to compensate
-      // for the change in whitespace before it.
+    }
+
+    // If the edit starts in the space before this subtree and extends into this subtree,
+    // shrink the subtree's content to compensate for the change in the space before it.
+    else if (edit.start.bytes < result->padding.bytes) {
       result->size = length_sub(result->size, length_sub(edit.old_end, result->padding));
       result->padding = edit.new_end;
-    } else if (edit.start.bytes == result->padding.bytes && pure_insertion) {
-      // Otherwise, if we're just inserting at the start of the subtree, just
-      // shift the subtree over.
-      result->padding = edit.new_end;
-    } else {
-      // Finally, we must be editing within the subtree's content, so stretch
-      // the content to accomodate the edit.
-      result->size = length_add(
-        length_sub(edit.new_end, result->padding),
-        length_sub(result->size, length_sub(edit.old_end, result->padding))
-      );
     }
+
+    // If the edit is a pure insertion right at the start of the subtree,
+    // shift the subtree over according to the insertion.
+    else if (edit.start.bytes == result->padding.bytes && is_pure_insertion) {
+      result->padding = edit.new_end;
+    }
+
+    // If the edit is within this subtree, resize the subtree to reflect the edit.
+    else {
+      uint32_t total_bytes = ts_subtree_total_bytes(*entry.tree);
+      if (edit.start.bytes < total_bytes ||
+         (edit.start.bytes == total_bytes && is_pure_insertion)) {
+        result->size = length_add(
+          length_sub(edit.new_end, result->padding),
+          length_sub(result->size, length_sub(edit.old_end, result->padding))
+        );
+      }
+    }
+
+    result->has_changes = true;
 
     Length child_left, child_right = length_zero();
     for (uint32_t i = 0; i < result->children.size; i++) {
@@ -562,39 +548,38 @@ const Subtree *ts_subtree_edit(const Subtree *self, const TSInputEdit *edit, Sub
       if (child_left.bytes > edit.old_end.bytes ||
           (child_left.bytes == edit.old_end.bytes && child_size.bytes > 0 && i > 0)) break;
 
-      // If the child ends after the start of the edit, or we're just inserting
-      // into the end of the child's subtree, then recursively edit the child.
+      // Transform edit into the child's coordinate space.
+      Edit child_edit = {
+        .start = length_sub(edit.start, child_left),
+        .old_end = length_sub(edit.old_end, child_left),
+        .new_end = length_sub(edit.new_end, child_left),
+      };
+
+      // Clamp child_edit to the child's bounds.
+      if (edit.start.bytes < child_left.bytes) child_edit.start = length_zero();
+      if (edit.old_end.bytes < child_left.bytes) child_edit.old_end = length_zero();
+      if (edit.new_end.bytes < child_left.bytes) child_edit.new_end = length_zero();
+      if (edit.old_end.bytes > child_right.bytes) child_edit.old_end = child_size;
+
+      // Interpret all inserted text as applying to the *first* child that touches the edit.
+      // Subsequent children are only never have any text inserted into them; they are only
+      // shrunk to compensate for the edit.
       if (child_right.bytes > edit.start.bytes ||
-          (child_right.bytes == edit.start.bytes && pure_insertion)) {
-        // Transform edit into the child's coordinate space.
-        Edit child_edit = {
-          .start = length_sub(edit.start, child_left),
-          .old_end = length_sub(edit.old_end, child_left),
-          .new_end = length_sub(edit.new_end, child_left),
-        };
-
-        // Clamp child_edit to the child's bounds.
-        if (edit.start.bytes < child_left.bytes) child_edit.start = length_zero();
-        if (edit.old_end.bytes < child_left.bytes) child_edit.old_end = length_zero();
-        if (edit.new_end.bytes < child_left.bytes) child_edit.new_end = length_zero();
-        if (edit.old_end.bytes > child_right.bytes) child_edit.old_end = child_size;
-
-        // Queue processing of this child's subtree.
-        array_push(&stack, ((StackEntry) {
-          .tree = child,
-          .edit = child_edit,
-        }));
-
-        // Clear out any insertion from the edit; we interpret all inserted text as applying
-        // to one tree. Subsequent children are only shrunk to compensate for the insertion.
+          (child_right.bytes == edit.start.bytes && is_pure_insertion)) {
         edit.new_end = edit.start;
-      } else {
-        Length edit_location = length_sub(edit.start, child_left);
-        array_push(&stack, ((StackEntry) {
-          .tree = child,
-          .edit = {edit_location, edit_location, edit_location},
-        }));
       }
+
+      // Children that occur before the edit are not reshaped by the edit.
+      else {
+        child_edit.old_end = child_edit.start;
+        child_edit.new_end = child_edit.start;
+      }
+
+      // Queue processing of this child's subtree.
+      array_push(&stack, ((StackEntry) {
+        .tree = child,
+        .edit = child_edit,
+      }));
     }
   }
 

@@ -378,6 +378,43 @@ describe("Subtree", []() {
         AssertThat(tree->children.contents[0]->has_changes, IsTrue());
       });
     });
+
+    describe("insertions at the end of the tree", [&]() {
+      it("extends the tree's content", [&]() {
+        TSInputEdit edit;
+        edit.start_byte = 15;
+        edit.old_end_byte = 15;
+        edit.new_end_byte = 16;
+        edit.start_point = {0, 15};
+        edit.old_end_point = {0, 15};
+        edit.new_end_point = {0, 16};
+
+        tree = ts_subtree_edit(tree, &edit, &pool);
+        assert_consistent(tree);
+
+        AssertThat(tree->size.bytes, Equals(14u));
+        AssertThat(tree->children.contents[2]->has_changes, IsTrue());
+        AssertThat(tree->children.contents[2]->size.bytes, Equals(4u));
+      });
+    });
+
+    describe("edits beyond the end of the tree", [&]() {
+      it("does not change the tree", [&]() {
+        TSInputEdit edit;
+        edit.start_byte = 15;
+        edit.old_end_byte = 16;
+        edit.new_end_byte = 17;
+        edit.start_point = {0, 15};
+        edit.old_end_point = {0, 16};
+        edit.new_end_point = {0, 17};
+
+        tree = ts_subtree_edit(tree, &edit, &pool);
+        assert_consistent(tree);
+
+        AssertThat(tree->size.bytes, Equals(13u));
+        AssertThat(tree->children.contents[2]->size.bytes, Equals(3u));
+      });
+    });
   });
 
   describe("eq", [&]() {
