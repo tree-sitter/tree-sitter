@@ -1,5 +1,6 @@
 #include "helpers/spy_input.h"
 #include "helpers/encoding_helpers.h"
+#include "helpers/point_helpers.h"
 #include "runtime/point.h"
 #include <string.h>
 #include <algorithm>
@@ -95,19 +96,6 @@ TSInput SpyInput::input() {
   return result;
 }
 
-static TSPoint get_extent(string text) {
-  TSPoint result = {0, 0};
-  for (auto i = text.begin(); i != text.end(); i++) {
-    if (*i == '\n') {
-      result.row++;
-      result.column = 0;
-    } else {
-      result.column++;
-    }
-  }
-  return result;
-}
-
 TSInputEdit SpyInput::replace(size_t start_byte, size_t bytes_removed, string text) {
   auto swap = swap_substr(start_byte, bytes_removed, text);
   size_t bytes_added = text.size();
@@ -117,8 +105,8 @@ TSInputEdit SpyInput::replace(size_t start_byte, size_t bytes_removed, string te
   result.old_end_byte = start_byte + bytes_removed;
   result.new_end_byte = start_byte + bytes_added;
   result.start_point = swap.second;
-  result.old_end_point = result.start_point + get_extent(swap.first);
-  result.new_end_point = result.start_point + get_extent(text);
+  result.old_end_point = result.start_point + extent_for_string(swap.first);
+  result.new_end_point = result.start_point + extent_for_string(text);
   return result;
 }
 
@@ -131,8 +119,8 @@ TSInputEdit SpyInput::undo() {
   result.old_end_byte = entry.start_byte + entry.bytes_removed;
   result.new_end_byte = entry.start_byte + entry.text_inserted.size();
   result.start_point = swap.second;
-  result.old_end_point = result.start_point + get_extent(swap.first);
-  result.new_end_point = result.start_point + get_extent(entry.text_inserted);
+  result.old_end_point = result.start_point + extent_for_string(swap.first);
+  result.new_end_point = result.start_point + extent_for_string(entry.text_inserted);
   return result;
 }
 

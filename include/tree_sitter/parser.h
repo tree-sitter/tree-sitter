@@ -25,13 +25,16 @@ typedef struct {
   bool named : 1;
 } TSSymbolMetadata;
 
-typedef struct {
-  void (*advance)(void *, bool);
-  void (*mark_end)(void *);
-  uint32_t (*get_column)(void *);
+typedef struct TSLexer TSLexer;
+
+struct TSLexer {
   int32_t lookahead;
   TSSymbol result_symbol;
-} TSLexer;
+  void (*advance)(TSLexer *, bool);
+  void (*mark_end)(TSLexer *);
+  uint32_t (*get_column)(TSLexer *);
+  bool (*is_at_included_range_start)(TSLexer *);
+};
 
 typedef enum {
   TSParseActionTypeShift,
