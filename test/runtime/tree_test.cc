@@ -134,7 +134,7 @@ describe("Tree", [&]() {
     it("reports changes when one token has been updated", [&]() {
       // Replace `null` with `nothing`
       auto ranges = get_changed_ranges_for_edit([&]() {
-        return input->replace(input->content.find("ull"), 1, "othing");
+        return input->replace(input->content.find("ull"), 3, "othing");
       });
       AssertThat(ranges, Equals(vector<TSRange>({
         range_for_substring(input->content, "nothing"),
@@ -200,7 +200,7 @@ describe("Tree", [&]() {
           "(pair (property_identifier) (false)))))"
       );
       AssertThat(ranges, Equals(vector<TSRange>({
-        range_for_substring(input->content, ", c: 1, b: false"),
+        range_for_substring(input->content, ", c: 1"),
       })));
 
       // Delete the middle pair.
