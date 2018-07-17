@@ -1,6 +1,7 @@
 #include "./point_helpers.h"
 #include <string>
 #include <ostream>
+#include <cassert>
 #include "runtime/length.h"
 #include "tree_sitter/runtime.h"
 
