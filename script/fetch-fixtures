@@ -15,9 +15,9 @@ fetch_grammar() {
   fi
 
   (
-    cd $grammar_dir;
+    cd $grammar_dir
     git fetch origin $ref --depth=1
-    git reset --hard origin/$ref;
+    git reset --hard FETCH_HEAD
   )
 }
 
