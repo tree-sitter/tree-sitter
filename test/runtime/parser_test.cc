@@ -918,6 +918,29 @@ describe("Parser", [&]() {
 
       assert_root_node("(program (ERROR (identifier)))");
     });
+
+    it("allows external scanners to detect the boundaries of included ranges", [&]() {
+      string source_code = "a <%= b() %> c <% d() %>";
+
+      TSRange included_ranges[] = {
+        range_for_substring(source_code, "b()"),
+        range_for_substring(source_code, "d()"),
+      };
+
+      ts_parser_set_included_ranges(parser, included_ranges, 2);
+      ts_parser_set_language(parser, load_real_language("javascript"));
+      tree = ts_parser_parse_string(parser, nullptr, source_code.c_str(), source_code.size());
+
+      assert_root_node("(program "
+        "(expression_statement (call_expression (identifier) (arguments))) "
+        "(expression_statement (call_expression (identifier) (arguments))))");
+
+      TSNode statement_node1 = ts_node_child(ts_tree_root_node(tree), 0);
+      TSNode statement_node2 = ts_node_child(ts_tree_root_node(tree), 1);
+
+      AssertThat(ts_node_end_point(statement_node1), Equals(extent_for_string("a <%= b()")));
+      AssertThat(ts_node_end_point(statement_node2), Equals(extent_for_string("a <%= b() %> c <% d()")));
+    });
   });
 });
 

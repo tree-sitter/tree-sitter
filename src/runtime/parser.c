@@ -327,7 +327,7 @@ static const Subtree *ts_parser__lex(TSParser *self, StackVersion version, TSSta
         valid_external_tokens
       )) {
         if (length_is_undefined(self->lexer.token_end_position)) {
-          self->lexer.token_end_position = self->lexer.current_position;
+          self->lexer.data.mark_end(&self->lexer.data);
         }
 
         if (!error_mode || self->lexer.token_end_position.bytes > current_position.bytes) {
@@ -380,7 +380,7 @@ static const Subtree *ts_parser__lex(TSParser *self, StackVersion version, TSSta
         self->lexer.data.result_symbol = ts_builtin_sym_error;
         break;
       }
-      self->lexer.data.advance(&self->lexer, false);
+      self->lexer.data.advance(&self->lexer.data, false);
     }
 
     error_end_position = self->lexer.current_position;

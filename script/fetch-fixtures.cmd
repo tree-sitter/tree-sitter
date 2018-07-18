@@ -1,6 +1,6 @@
 @echo off
 
-call:fetch_grammar javascript master
+call:fetch_grammar javascript included-range-boundaries
 call:fetch_grammar json       master
 call:fetch_grammar c          master
 call:fetch_grammar cpp        master
@@ -22,6 +22,6 @@ SET grammar_branch=%~2
 )
 pushd %grammar_dir%
 git fetch origin %2 --depth=1
-git reset --hard origin/%grammar_branch%
+git reset --hard FETCH_HEAD
 popd
 EXIT /B 0

@@ -50,7 +50,7 @@ static void ts_lexer__get_lookahead(Lexer *self) {
   }
 }
 
-static void ts_lexer__advance(void *payload, bool skip) {
+static void ts_lexer__advance(TSLexer *payload, bool skip) {
   Lexer *self = (Lexer *)payload;
   if (self->chunk == empty_chunk)
     return;
@@ -95,7 +95,7 @@ static void ts_lexer__advance(void *payload, bool skip) {
   ts_lexer__get_lookahead(self);
 }
 
-static void ts_lexer__mark_end(void *payload) {
+static void ts_lexer__mark_end(TSLexer *payload) {
   Lexer *self = (Lexer *)payload;
   TSRange *current_included_range = &self->included_ranges[self->current_included_range_index];
   if (self->current_included_range_index > 0 &&
@@ -110,7 +110,7 @@ static void ts_lexer__mark_end(void *payload) {
   }
 }
 
-static uint32_t ts_lexer__get_column(void *payload) {
+static uint32_t ts_lexer__get_column(TSLexer *payload) {
   Lexer *self = (Lexer *)payload;
   uint32_t goal_byte = self->current_position.bytes;
 
@@ -123,11 +123,17 @@ static uint32_t ts_lexer__get_column(void *payload) {
 
   uint32_t result = 0;
   while (self->current_position.bytes < goal_byte) {
-    ts_lexer__advance(self, false);
+    ts_lexer__advance(payload, false);
     result++;
   }
 
   return result;
+}
+
+static bool ts_lexer__is_at_included_range_start(TSLexer *payload) {
+  const Lexer *self = (const Lexer *)payload;
+  TSRange *current_range = &self->included_ranges[self->current_included_range_index];
+  return self->current_position.bytes == current_range->start_byte;
 }
 
 // The lexer's methods are stored as a struct field so that generated
@@ -139,6 +145,7 @@ void ts_lexer_init(Lexer *self) {
       .advance = ts_lexer__advance,
       .mark_end = ts_lexer__mark_end,
       .get_column = ts_lexer__get_column,
+      .is_at_included_range_start = ts_lexer__is_at_included_range_start,
       .lookahead = 0,
       .result_symbol = 0,
     },
@@ -227,7 +234,9 @@ void ts_lexer_start(Lexer *self) {
 }
 
 void ts_lexer_advance_to_end(Lexer *self) {
-  while (self->data.lookahead != 0) ts_lexer__advance(self, false);
+  while (self->data.lookahead != 0) {
+    ts_lexer__advance((TSLexer *)self, false);
+  }
 }
 
 static const TSRange DEFAULT_RANGES[] = {

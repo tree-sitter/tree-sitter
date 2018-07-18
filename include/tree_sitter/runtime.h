@@ -10,7 +10,7 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
-#define TREE_SITTER_LANGUAGE_VERSION 8
+#define TREE_SITTER_LANGUAGE_VERSION 9
 
 typedef uint16_t TSSymbol;
 typedef struct TSLanguage TSLanguage;

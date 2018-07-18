@@ -20,4 +20,8 @@ std::ostream &operator<<(std::ostream &stream, const TSRange &range);
 
 std::ostream &operator<<(std::ostream &stream, const Length &length);
 
+TSPoint extent_for_string(const std::string &text, size_t end_index = std::string::npos);
+
+TSRange range_for_substring(const std::string &text, const std::string &substring);
+
 #endif  // HELPERS_POINT_HELPERS_H_
