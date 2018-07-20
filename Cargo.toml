@@ -7,7 +7,7 @@ build = "build.rs"
 license = "MIT"
 readme = "README.md"
 keywords = ["incremental", "parsing"]
-categories = ["parsing", "text editors", "api bindings"]
+categories = ["api-bindings", "parsing", "text-editors"]
 
 include = [
   "/build.rs",
