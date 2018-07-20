@@ -33,8 +33,10 @@ pub struct TSPoint {
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct TSRange {
-    pub start: TSPoint,
-    pub end: TSPoint,
+    pub start_point: TSPoint,
+    pub end_point: TSPoint,
+    pub start_byte: u32,
+    pub end_byte: u32,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -80,7 +82,7 @@ pub struct TSInputEdit {
 pub struct TSNode {
     pub context: [u32; 4usize],
     pub id: *const ::std::os::raw::c_void,
-    pub tree: *const ::std::os::raw::c_void,
+    pub tree: *const TSTree,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -140,6 +142,12 @@ extern "C" {
     pub fn ts_parser_reset(arg1: *mut TSParser);
 }
 extern "C" {
+    pub fn ts_parser_set_included_ranges(arg1: *mut TSParser, arg2: *const TSRange, arg3: u32);
+}
+extern "C" {
+    pub fn ts_parser_included_ranges(arg1: *const TSParser, arg2: *mut u32) -> *const TSRange;
+}
+extern "C" {
     pub fn ts_tree_copy(arg1: *const TSTree) -> *mut TSTree;
 }
 extern "C" {
@@ -160,6 +168,9 @@ extern "C" {
 }
 extern "C" {
     pub fn ts_tree_print_dot_graph(arg1: *const TSTree, arg2: *mut FILE);
+}
+extern "C" {
+    pub fn ts_tree_language(arg1: *const TSTree) -> *const TSLanguage;
 }
 extern "C" {
     pub fn ts_node_start_byte(arg1: TSNode) -> u32;
@@ -251,7 +262,10 @@ extern "C" {
     ) -> TSNode;
 }
 extern "C" {
-    pub fn ts_tree_cursor_new(arg1: *const TSTree) -> TSTreeCursor;
+    pub fn ts_node_edit(arg1: *mut TSNode, arg2: *const TSInputEdit);
+}
+extern "C" {
+    pub fn ts_tree_cursor_new(arg1: TSNode) -> TSTreeCursor;
 }
 extern "C" {
     pub fn ts_tree_cursor_delete(arg1: *mut TSTreeCursor);
@@ -281,10 +295,16 @@ extern "C" {
     ) -> *const ::std::os::raw::c_char;
 }
 extern "C" {
+    pub fn ts_language_symbol_for_name(
+        arg1: *const TSLanguage,
+        arg2: *const ::std::os::raw::c_char,
+    ) -> TSSymbol;
+}
+extern "C" {
     pub fn ts_language_symbol_type(arg1: *const TSLanguage, arg2: TSSymbol) -> TSSymbolType;
 }
 extern "C" {
     pub fn ts_language_version(arg1: *const TSLanguage) -> u32;
 }
 
-pub const TREE_SITTER_LANGUAGE_VERSION: usize = 8;
+pub const TREE_SITTER_LANGUAGE_VERSION: usize = 9;

@@ -216,7 +216,7 @@ impl Tree {
     }
 
     pub fn walk(&self) -> TreeCursor {
-        TreeCursor(unsafe { ffi::ts_tree_cursor_new(self.0) }, PhantomData)
+        self.root_node().walk()
     }
 }
 
@@ -336,6 +336,10 @@ impl<'tree> Node<'tree> {
         let result = unsafe { CStr::from_ptr(c_string) }.to_str().unwrap().to_string();
         unsafe { free(c_string as *mut c_void) };
         result
+    }
+
+    pub fn walk(&self) -> TreeCursor<'tree> {
+        TreeCursor(unsafe { ffi::ts_tree_cursor_new(self.0) }, PhantomData)
     }
 }
 
