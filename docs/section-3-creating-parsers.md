@@ -61,7 +61,7 @@ Although languages have very different constructs, their constructs can often be
 {
   // ...
 
-  rules: $ => {
+  rules: {
     source_file: $ => repeat($._definition),
 
     _definition: $ => choice(
