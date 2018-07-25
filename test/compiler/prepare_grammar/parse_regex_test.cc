@@ -274,6 +274,76 @@ describe("parse_regex", []() {
         CharacterSet{{'/'}},
       }),
     },
+
+    {
+      "characters with quantifiers",
+      "a{3}",
+      Rule::seq({
+        CharacterSet{{'a'}},
+        CharacterSet{{'a'}},
+        CharacterSet{{'a'}},
+      }),
+    },
+
+    {
+      "character classes with quantifiers",
+      "[a-f]{3}",
+      Rule::seq({
+        CharacterSet().include('a', 'f'),
+        CharacterSet().include('a', 'f'),
+        CharacterSet().include('a', 'f'),
+      }),
+    },
+
+    {
+      "characters with open range quantifiers",
+      "a{,} b{1,} c{,2}",
+      Rule::seq({
+        Rule::seq({
+          Repeat{CharacterSet{{'a'}}},
+        }),
+        CharacterSet{{' '}},
+        Rule::seq({
+          CharacterSet{{'b'}},
+          Repeat{CharacterSet{{'b'}}},
+        }),
+        CharacterSet{{' '}},
+        Rule::seq({
+          Rule::choice({CharacterSet{{'c'}}, Blank{}}),
+          Rule::choice({CharacterSet{{'c'}}, Blank{}}),
+        }),
+      }),
+    },
+
+    {
+      "characters with closed range quantifiers",
+      "a{2,4}",
+      Rule::seq({
+        CharacterSet{{'a'}},
+        CharacterSet{{'a'}},
+        Rule::choice({CharacterSet{{'a'}}, Blank{}}),
+        Rule::choice({CharacterSet{{'a'}}, Blank{}}),
+      }),
+    },
+
+    {
+      "curly braces that aren't quantifiers",
+      "a{1b} c{2,d}",
+      Rule::seq({
+        CharacterSet{{'a'}},
+        CharacterSet{{'{'}},
+        CharacterSet{{'1'}},
+        CharacterSet{{'b'}},
+        CharacterSet{{'}'}},
+        CharacterSet{{' '}},
+        CharacterSet{{'c'}},
+        CharacterSet{{'{'}},
+        CharacterSet{{'2'}},
+        CharacterSet{{','}},
+        CharacterSet{{'d'}},
+        CharacterSet{{'}'}},
+      }),
+    }
   };
 
   struct InvalidInputRow {
@@ -312,6 +382,11 @@ describe("parse_regex", []() {
       "mismatched brackets for character classes",
       "a]",
       "unmatched close square bracket",
+    },
+    {
+      "numbers out of order in range quantifiers",
+      "a{3,1}",
+      "numbers out of order in {} quantifier",
     },
   };
 
