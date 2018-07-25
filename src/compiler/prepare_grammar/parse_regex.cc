@@ -1,6 +1,7 @@
 #include "compiler/prepare_grammar/parse_regex.h"
 #include <string>
 #include <utility>
+#include <cwctype>
 #include <vector>
 #include "compiler/rule.h"
 #include "compiler/util/string_helpers.h"
@@ -12,6 +13,7 @@ namespace prepare_grammar {
 using std::string;
 using std::vector;
 using std::pair;
+using std::iswdigit;
 using rules::CharacterSet;
 using rules::Blank;
 using rules::Rule;
@@ -85,6 +87,56 @@ class PatternParser {
           next();
           result = Rule::choice({result, Blank{}});
           break;
+        case '{': {
+          Checkpoint checkpoint = get_checkpoint();
+          next();
+
+          string min_repeat_string;
+          while (iswdigit(peek())) {
+            min_repeat_string += (char)peek();
+            next();
+          }
+
+          bool has_comma = false;
+          string max_repeat_string;
+          if (peek() == ',') {
+            next();
+            has_comma = true;
+            while (iswdigit(peek())) {
+              max_repeat_string += (char)peek();
+              next();
+            }
+          }
+
+          if (peek() == '}' && (!min_repeat_string.empty() || has_comma)) {
+            next();
+            if (min_repeat_string.size()) {
+              unsigned min_count = std::stoi(min_repeat_string);
+              vector<Rule> entries(min_count, result);
+              if (max_repeat_string.size()) {
+                unsigned max_count = std::stoi(max_repeat_string);
+                if (max_count < min_count) {
+                  return error("numbers out of order in {} quantifier");
+                }
+                vector<Rule> optional_entries(max_count - min_count, Rule::choice({result, Blank{}}));
+                entries.insert(entries.end(), optional_entries.begin(), optional_entries.end());
+              } else if (has_comma) {
+                entries.push_back(Rule::repeat(result));
+              }
+              result = Rule::seq(entries);
+            } else if (max_repeat_string.size()) {
+              unsigned max_count = std::stoi(max_repeat_string);
+              vector<Rule> optional_entries(max_count, Rule::choice({result, Blank{}}));
+              result = Rule::seq(optional_entries);
+            } else {
+              result = Rule::repeat(result);
+            }
+          } else {
+            revert(checkpoint);
+          }
+
+          break;
+        }
       }
     }
 
@@ -243,6 +295,20 @@ class PatternParser {
     if (!lookahead_size)
       lookahead = 0;
     iter += lookahead_size;
+  }
+
+  struct Checkpoint {
+    const uint8_t *iter;
+    int32_t lookahead;
+  };
+
+  Checkpoint get_checkpoint() {
+    return Checkpoint{iter, lookahead};
+  }
+
+  void revert(Checkpoint checkpoint) {
+    iter = checkpoint.iter;
+    lookahead = checkpoint.lookahead;
   }
 
   uint32_t peek() {
