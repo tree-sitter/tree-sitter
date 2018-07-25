@@ -21,7 +21,7 @@ fetch_grammar() {
   )
 }
 
-fetch_grammar javascript included-range-boundaries
+fetch_grammar javascript master
 fetch_grammar json       master
 fetch_grammar c          master
 fetch_grammar cpp        master
