@@ -1,0 +1,22 @@
+==========================================
+simple strings
+==========================================
+
+"hi"
+
+---
+
+(program (string))
+
+==========================================
+strings starting with double slashes
+==========================================
+
+// comment
+"//not \t a \t comment"
+
+---
+
+(program
+  (comment)
+  (string (escape_sequence) (escape_sequence)))
