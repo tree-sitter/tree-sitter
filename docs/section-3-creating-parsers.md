@@ -5,7 +5,7 @@ permalink: creating-parsers
 
 # Creating parsers
 
-Developing Tree-sitter parsers can have a difficult learning curve, but once you get the hang of it, it can fun and even zen-like. This document should help you to build an effective mental model for parser development.
+Developing Tree-sitter parsers can have a difficult learning curve, but once you get the hang of it, it can be fun and even zen-like. This document should help you to build an effective mental model for parser development.
 
 ## Understanding the problem
 
