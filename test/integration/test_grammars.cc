@@ -9,8 +9,6 @@
 
 START_TEST
 
-if (TREE_SITTER_SEED == -1) return;
-
 string grammars_dir_path = join_path({"test", "fixtures", "test_grammars"});
 vector<string> test_languages = list_directory(grammars_dir_path);
 

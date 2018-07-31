@@ -172,9 +172,9 @@ describe("Parser", [&]() {
 
     describe("when there is an unterminated error", [&]() {
       it("maintains a consistent tree", [&]() {
-        ts_parser_set_language(parser, load_real_language("javascript"));
-        set_text("a; ' this string never ends");
-        assert_root_node("(program (expression_statement (identifier)) (ERROR (UNEXPECTED EOF)))");
+        ts_parser_set_language(parser, load_real_language("json"));
+        set_text("nul");
+        assert_root_node("(ERROR (UNEXPECTED EOF))");
       });
     });
 
