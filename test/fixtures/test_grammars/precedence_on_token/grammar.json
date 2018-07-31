@@ -10,14 +10,38 @@
     "program": {
       "type": "REPEAT",
       "content": {
-        "type": "SYMBOL",
-        "name": "string"
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "SYMBOL",
+            "name": "string"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "regex"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "identifier"
+          },
+          {
+            "type": "SYMBOL",
+            "name": "slash"
+          }
+        ]
       }
     },
 
     "comment": {
-      "type": "PATTERN",
-      "value": "//.*"
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 1,
+        "content": {
+          "type": "PATTERN",
+          "value": "//.*|/\\*[^*]*\\*/"
+        }
+      }
     },
 
     "string": {
@@ -34,7 +58,7 @@
                 "type": "TOKEN",
                 "content": {
                   "type": "PREC",
-                  "value": 1,
+                  "value": 2,
                   "content": {
                     "type": "PATTERN",
                     "value": "[^\"\n\\\\]+"
@@ -56,6 +80,21 @@
     "escape_sequence": {
       "type": "PATTERN",
       "value": "\\\\."
+    },
+
+    "regex": {
+      "type": "PATTERN",
+      "value": "/[^/\n]+/[a-z]*"
+    },
+
+    "identifier": {
+      "type": "PATTERN",
+      "value": "[a-z]\\w*"
+    },
+
+    "slash": {
+      "type": "STRING",
+      "value": "/"
     }
   }
 }
