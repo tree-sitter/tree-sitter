@@ -118,6 +118,8 @@ class TokenExtractor {
           metadata.params.is_token = false;
           if (metadata.params == rules::MetadataParams{}) {
             return extract_token(*metadata.rule, VariableTypeAuxiliary);
+          } else if (metadata.rule->is<rules::String>()) {
+            return extract_token(metadata, VariableTypeAnonymous);
           } else {
             return extract_token(metadata, VariableTypeAuxiliary);
           }

@@ -379,9 +379,14 @@ class LexTableBuilderImpl : public LexTableBuilder {
     for (const LexItem &item : item_set.entries) {
       LexItem::CompletionStatus completion_status = item.completion_status();
       if (completion_status.is_done) {
-        AcceptTokenAction action(item.lhs, completion_status.precedence.max,
-                                 item.lhs.is_built_in() ||
-                                 grammar.variables[item.lhs.index].is_string);
+        AcceptTokenAction action(item.lhs, completion_status.precedence.max);
+
+        if (!item.lhs.is_built_in()) {
+          const LexicalVariable &variable = grammar.variables[item.lhs.index];
+          if (variable.is_string) action.implicit_precedence += 2;
+          if (is_immediate_token(variable.rule)) action.implicit_precedence += 1;
+        }
+
         AcceptTokenAction &existing_action = lex_table.states[state_id].accept_action;
         if (existing_action.is_present()) {
           if (should_replace_accept_action(existing_action, action)) {
@@ -458,8 +463,8 @@ class LexTableBuilderImpl : public LexTableBuilder {
 
   void remove_duplicate_lex_states(LexTable &lex_table) {
     for (LexState &state : lex_table.states) {
-      state.accept_action.is_string = false;
       state.accept_action.precedence = 0;
+      state.accept_action.implicit_precedence = 0;
     }
 
     map<LexStateId, LexStateId> replacements;
@@ -523,12 +528,24 @@ class LexTableBuilderImpl : public LexTableBuilder {
     }
   }
 
+  bool is_immediate_token(const Rule &rule) const {
+    return rule.match(
+      [](const Metadata &metadata) {
+        return metadata.params.is_main_token;
+      },
+
+      [](auto rule) {
+        return false;
+      }
+    );
+  }
+
   LexItemSet item_set_for_terminals(const LookaheadSet &terminals, bool with_separators) {
     LexItemSet result;
     terminals.for_each([&](Symbol symbol) {
       if (symbol.is_terminal()) {
         for (auto &&rule : rules_for_symbol(symbol)) {
-          if (with_separators) {
+          if (with_separators && !is_immediate_token(rule)) {
             for (const auto &separator_rule : separator_rules) {
               result.entries.insert(LexItem(
                 symbol,
@@ -598,8 +615,8 @@ class LexTableBuilderImpl : public LexTableBuilder {
                                     const AcceptTokenAction &new_action) {
     if (new_action.precedence > old_action.precedence) return true;
     if (new_action.precedence < old_action.precedence) return false;
-    if (new_action.is_string && !old_action.is_string) return true;
-    if (old_action.is_string && !new_action.is_string) return false;
+    if (new_action.implicit_precedence > old_action.implicit_precedence) return true;
+    if (new_action.implicit_precedence < old_action.implicit_precedence) return false;
     return new_action.symbol.index < old_action.symbol.index;
   }
 

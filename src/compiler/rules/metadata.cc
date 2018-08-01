@@ -75,6 +75,13 @@ Metadata Metadata::token(Rule &&rule) {
   });
 }
 
+Metadata Metadata::immediate_token(Rule &&rule) {
+  return add_metadata(move(rule), [](MetadataParams &params) {
+    params.is_token = true;
+    params.is_main_token = true;
+  });
+}
+
 Metadata Metadata::active_prec(int precedence, Rule &&rule) {
   return add_metadata(move(rule), [&](MetadataParams &params) {
     params.has_precedence = true;

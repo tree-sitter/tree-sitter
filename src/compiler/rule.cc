@@ -136,6 +136,9 @@ template <>
 bool Rule::is<Symbol>() const { return type == SymbolType; }
 
 template <>
+bool Rule::is<String>() const { return type == StringType; }
+
+template <>
 bool Rule::is<Repeat>() const { return type == RepeatType; }
 
 template <>

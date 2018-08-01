@@ -16,9 +16,9 @@ AdvanceAction::AdvanceAction() : state_index(-1) {}
 AdvanceAction::AdvanceAction(size_t state_index,
                              PrecedenceRange precedence_range,
                              bool in_main_token)
-    : state_index(state_index),
-      precedence_range(precedence_range),
-      in_main_token(in_main_token) {}
+  : state_index(state_index),
+    precedence_range(precedence_range),
+    in_main_token(in_main_token) {}
 
 bool AdvanceAction::operator==(const AdvanceAction &other) const {
   return (state_index == other.state_index) &&
@@ -26,19 +26,21 @@ bool AdvanceAction::operator==(const AdvanceAction &other) const {
 }
 
 AcceptTokenAction::AcceptTokenAction()
-    : symbol(rules::NONE()), precedence(0), is_string(false) {}
+  : symbol(rules::NONE()), precedence(0), implicit_precedence(0) {}
 
-AcceptTokenAction::AcceptTokenAction(Symbol symbol, int precedence,
-                                     bool is_string)
-    : symbol(symbol), precedence(precedence), is_string(is_string) {}
+AcceptTokenAction::AcceptTokenAction(Symbol symbol, int precedence)
+  : symbol(symbol), precedence(precedence), implicit_precedence(0) {}
 
 bool AcceptTokenAction::is_present() const {
   return symbol != rules::NONE();
 }
 
 bool AcceptTokenAction::operator==(const AcceptTokenAction &other) const {
-  return (symbol == other.symbol) && (precedence == other.precedence) &&
-         (is_string == other.is_string);
+  return (
+    symbol == other.symbol &&
+    precedence == other.precedence &&
+    implicit_precedence == other.implicit_precedence
+  );
 }
 
 bool LexState::operator==(const LexState &other) const {

@@ -23,6 +23,7 @@ using std::pair;
 using std::set;
 using std::string;
 using std::to_string;
+using std::unordered_set;
 using std::vector;
 using util::escape_char;
 using rules::Symbol;
@@ -76,7 +77,7 @@ class CCodeGenerator {
   Symbol keyword_capture_token;
   const SyntaxGrammar syntax_grammar;
   const LexicalGrammar lexical_grammar;
-  map<string, string> sanitized_names;
+  map<Symbol, string> symbol_ids;
   vector<pair<size_t, ParseTableEntry>> parse_table_entries;
   vector<set<Symbol::Index>> external_scanner_states;
   size_t next_parse_action_list_index;
@@ -165,6 +166,24 @@ class CCodeGenerator {
       }
     }
 
+    unordered_set<string> symbol_id_values;
+    symbol_ids[rules::END_OF_INPUT()] = "ts_builtin_sym_end";
+
+    for (const Symbol &symbol : parse_table.symbols) {
+      if (!symbol.is_built_in()) {
+        assign_symbol_id(symbol, &symbol_id_values);
+      }
+    }
+
+    for (size_t i = 0; i < syntax_grammar.external_tokens.size(); i++) {
+      const ExternalToken &external_token = syntax_grammar.external_tokens[i];
+      if (external_token.corresponding_internal_token == rules::NONE()) {
+        assign_symbol_id(Symbol::external(i), &symbol_id_values);
+      } else {
+        symbol_ids[Symbol::external(i)] = symbol_ids[external_token.corresponding_internal_token];
+      }
+    }
+
     line("#define LANGUAGE_VERSION " + to_string(TREE_SITTER_LANGUAGE_VERSION));
     line("#define STATE_COUNT " + to_string(parse_table.states.size()));
     line("#define SYMBOL_COUNT " + to_string(parse_table.symbols.size()));
@@ -173,6 +192,33 @@ class CCodeGenerator {
     line("#define EXTERNAL_TOKEN_COUNT " + to_string(syntax_grammar.external_tokens.size()));
     line("#define MAX_ALIAS_SEQUENCE_LENGTH " + to_string(parse_table.max_alias_sequence_length));
     line();
+  }
+
+  void assign_symbol_id(const Symbol &symbol, unordered_set<string> *symbol_id_values) {
+    auto entry = entry_for_symbol(symbol);
+
+    string symbol_id;
+    switch (entry.second) {
+      case VariableTypeAuxiliary:
+        symbol_id = "aux_sym_" + sanitize_name(entry.first);
+        break;
+      case VariableTypeAnonymous:
+        symbol_id = "anon_sym_" + sanitize_name(entry.first);
+        break;
+      default:
+        symbol_id = "sym_" + sanitize_name(entry.first);
+        break;
+    }
+
+    unsigned suffix_number = 1;
+    string unique_symbol_id = symbol_id;
+    while (symbol_id_values->count(unique_symbol_id)) {
+      suffix_number++;
+      unique_symbol_id = symbol_id + to_string(suffix_number);
+    }
+
+    symbol_id_values->insert(unique_symbol_id);
+    symbol_ids[symbol] = unique_symbol_id;
   }
 
   void add_symbol_enum() {
@@ -696,20 +742,7 @@ class CCodeGenerator {
   }
 
   string symbol_id(const Symbol &symbol) {
-    if (symbol == rules::END_OF_INPUT())
-      return "ts_builtin_sym_end";
-
-    auto entry = entry_for_symbol(symbol);
-    string name = sanitize_name(entry.first);
-
-    switch (entry.second) {
-      case VariableTypeAuxiliary:
-        return "aux_sym_" + name;
-      case VariableTypeAnonymous:
-        return "anon_sym_" + name;
-      default:
-        return "sym_" + name;
-    }
+    return symbol_ids[symbol];
   }
 
   string alias_id(const Alias &alias) {
@@ -776,47 +809,35 @@ class CCodeGenerator {
     return name;
   }
 
-  string sanitize_name(string name) {
-    auto existing = sanitized_names.find(name);
-    if (existing != sanitized_names.end())
-      return existing->second;
-
-    string stripped_name;
+  string sanitize_name(const string &name) {
+    string result;
     for (char c : name) {
       if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') ||
           ('0' <= c && c <= '9') || (c == '_')) {
-        stripped_name += c;
+        result += c;
       } else {
         auto replacement = REPLACEMENTS.find(c);
-        size_t i = stripped_name.size();
+        size_t i = result.size();
         if (replacement != REPLACEMENTS.end()) {
-          if (i > 0 && stripped_name[i - 1] != '_')
-            stripped_name += "_";
-          stripped_name += replacement->second;
+          if (i > 0 && result[i - 1] != '_')
+            result += "_";
+          result += replacement->second;
         }
       }
     }
-
-    for (size_t extra_number = 0;; extra_number++) {
-      string suffix = extra_number ? to_string(extra_number) : "";
-      string unique_name = stripped_name + suffix;
-      if (unique_name == "")
-        continue;
-      if (!has_sanitized_name(unique_name)) {
-        sanitized_names.insert({ name, unique_name });
-        return unique_name;
-      }
-    }
+    return result;
   }
 
   string _boolean(bool value) {
     return value ? "true" : "false";
   }
 
-  bool has_sanitized_name(string name) {
-    for (const auto &pair : sanitized_names)
-      if (pair.second == name)
+  bool has_sanitized_name(const Symbol &symbol, string name) {
+    for (const auto &pair : symbol_ids) {
+      if (pair.second == name) {
         return true;
+      }
+    }
     return false;
   }
 
