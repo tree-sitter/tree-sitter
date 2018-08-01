@@ -69,7 +69,7 @@ int main() {
     b();
     c();
 
-    if () d();
+    if (*) d();
   }
 }
 
@@ -81,14 +81,14 @@ int main() {
     (function_declarator (identifier) (parameter_list))
     (compound_statement
       (if_statement
-        (field_expression
+        (parenthesized_expression (field_expression
           (identifier)
-          (MISSING))
+          (MISSING)))
         (compound_statement
           (expression_statement (call_expression (identifier) (argument_list)))
           (expression_statement (call_expression (identifier) (argument_list)))
           (if_statement
-            (MISSING)
+            (parenthesized_expression (pointer_expression (MISSING)))
             (expression_statement (call_expression (identifier) (argument_list)))))))))
 
 ====================================
