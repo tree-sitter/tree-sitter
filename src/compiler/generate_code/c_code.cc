@@ -176,11 +176,14 @@ class CCodeGenerator {
     }
 
     for (size_t i = 0; i < syntax_grammar.external_tokens.size(); i++) {
-      const ExternalToken &external_token = syntax_grammar.external_tokens[i];
-      if (external_token.corresponding_internal_token == rules::NONE()) {
-        assign_symbol_id(Symbol::external(i), &symbol_id_values);
-      } else {
-        symbol_ids[Symbol::external(i)] = symbol_ids[external_token.corresponding_internal_token];
+      Symbol symbol = Symbol::external(i);
+      if (!symbol_ids.count(symbol)) {
+        const ExternalToken &external_token = syntax_grammar.external_tokens[i];
+        if (external_token.corresponding_internal_token == rules::NONE()) {
+          assign_symbol_id(Symbol::external(i), &symbol_id_values);
+        } else {
+          symbol_ids[Symbol::external(i)] = symbol_ids[external_token.corresponding_internal_token];
+        }
       }
     }
 
