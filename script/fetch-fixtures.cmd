@@ -1,8 +1,8 @@
 @echo off
 
-call:fetch_grammar javascript immediate-tokens
+call:fetch_grammar javascript master
 call:fetch_grammar json       master
-call:fetch_grammar c          immediate-tokens
+call:fetch_grammar c          master
 call:fetch_grammar cpp        master
 call:fetch_grammar python     master
 call:fetch_grammar go         master

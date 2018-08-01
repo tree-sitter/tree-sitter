@@ -21,9 +21,9 @@ fetch_grammar() {
   )
 }
 
-fetch_grammar javascript immediate-tokens
+fetch_grammar javascript master
 fetch_grammar json       master
-fetch_grammar c          immediate-tokens
+fetch_grammar c          master
 fetch_grammar cpp        master
 fetch_grammar python     master
 fetch_grammar go         master
