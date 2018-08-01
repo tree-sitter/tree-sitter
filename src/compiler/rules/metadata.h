@@ -64,6 +64,7 @@ struct Metadata {
 
   static Metadata merge(Rule &&rule, MetadataParams params);
   static Metadata token(Rule &&rule);
+  static Metadata immediate_token(Rule &&rule);
   static Metadata active_prec(int precedence, Rule &&rule);
   static Metadata prec(int precedence, Rule &&rule);
   static Metadata prec_left(int precedence, Rule &&rule);

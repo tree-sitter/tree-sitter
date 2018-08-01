@@ -116,6 +116,15 @@ ParseRuleResult parse_rule(json_value *rule_json) {
       return Rule(Metadata::token(move(result.rule)));
   }
 
+  if (type == "IMMEDIATE_TOKEN") {
+    json_value content_json = rule_json->operator[]("content");
+    auto result = parse_rule(&content_json);
+    if (!result.error_message.empty()) {
+      return "Invalid token content: " + result.error_message;
+    }
+      return Rule(Metadata::immediate_token(move(result.rule)));
+  }
+
   if (type == "PATTERN") {
     json_value value_json = rule_json->operator[]("value");
     if (value_json.type == json_string) {

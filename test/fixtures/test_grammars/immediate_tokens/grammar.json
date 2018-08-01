@@ -1,0 +1,61 @@
+{
+  "name": "immediate_tokens",
+
+  "extras": [
+    {
+      "type": "PATTERN",
+      "value": "\\s"
+    }
+  ],
+
+  "rules": {
+    "program": {"type": "SYMBOL", "name": "_expression"},
+
+    "_expression": {
+      "type": "CHOICE",
+      "members": [
+        {"type": "SYMBOL", "name": "call"},
+        {"type": "SYMBOL", "name": "infix"},
+        {"type": "SYMBOL", "name": "prefix"},
+        {"type": "SYMBOL", "name": "identifier"}
+      ]
+    },
+
+    "call": {
+      "type": "PREC_LEFT",
+      "value": -1,
+      "content": {
+        "type": "SEQ",
+        "members": [
+          {"type": "SYMBOL", "name": "_expression"},
+          {"type": "SYMBOL", "name": "_expression"}
+        ]
+      }
+    },
+
+    "prefix": {
+      "type": "SEQ",
+      "members": [
+        {"type": "STRING", "value": "::"},
+        {"type": "SYMBOL", "name": "identifier"}
+      ]
+    },
+
+    "infix": {
+      "type": "SEQ",
+      "members": [
+        {"type": "SYMBOL", "name": "_expression"},
+        {
+          "type": "IMMEDIATE_TOKEN",
+          "content": {"type": "STRING", "value": "::"}
+        },
+        {"type": "SYMBOL", "name": "identifier"}
+      ]
+    },
+
+    "identifier": {
+      "type": "PATTERN",
+      "value": "[a-z]+"
+    }
+  }
+}

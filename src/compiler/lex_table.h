@@ -25,14 +25,14 @@ struct AdvanceAction {
 
 struct AcceptTokenAction {
   AcceptTokenAction();
-  AcceptTokenAction(rules::Symbol, int, bool);
+  AcceptTokenAction(rules::Symbol, int);
   bool is_present() const;
   bool operator==(const AcceptTokenAction &other) const;
   inline bool operator!=(const AcceptTokenAction &other) const { return !operator==(other); }
 
   rules::Symbol symbol;
   int precedence;
-  bool is_string;
+  int implicit_precedence;
 };
 
 struct LexState {

@@ -201,7 +201,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "pattern": "^TOKEN$"
+          "pattern": "^(TOKEN|IMMEDIATE_TOKEN)$"
         },
         "content": {
           "$ref": "#/definitions/rule"
