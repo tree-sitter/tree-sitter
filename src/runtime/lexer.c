@@ -8,11 +8,15 @@
 #define LOG(...)                                                                      \
   if (self->logger.log) {                                                             \
     snprintf(self->debug_buffer, TREE_SITTER_SERIALIZATION_BUFFER_SIZE, __VA_ARGS__); \
-    self->logger.log(self->logger.payload, TSLogTypeLex, self->debug_buffer); \
+    self->logger.log(self->logger.payload, TSLogTypeLex, self->debug_buffer);         \
   }
 
 #define LOG_CHARACTER(message, character) \
-  LOG(character < 255 ? message " character:'%c'" : message " character:%d", character)
+  LOG(                                    \
+    32 <= character && character < 127 ?  \
+    message " character:'%c'" :           \
+    message " character:%d", character    \
+  )
 
 static const char empty_chunk[3] = { 0, 0 };
 
@@ -27,6 +31,12 @@ static void ts_lexer__get_chunk(Lexer *self) {
   if (!self->chunk_size) self->chunk = empty_chunk;
 }
 
+typedef utf8proc_ssize_t (*DecodeFunction)(
+  const utf8proc_uint8_t *,
+  utf8proc_ssize_t,
+  utf8proc_int32_t *
+);
+
 static void ts_lexer__get_lookahead(Lexer *self) {
   uint32_t position_in_chunk = self->current_position.bytes - self->chunk_start;
   const uint8_t *chunk = (const uint8_t *)self->chunk + position_in_chunk;
@@ -38,15 +48,22 @@ static void ts_lexer__get_lookahead(Lexer *self) {
     return;
   }
 
-  if (self->input.encoding == TSInputEncodingUTF8) {
-    int64_t lookahead_size = utf8proc_iterate(chunk, size, &self->data.lookahead);
-    if (lookahead_size < 0) {
-      self->lookahead_size = 1;
-    } else {
-      self->lookahead_size = lookahead_size;
-    }
-  } else {
-    self->lookahead_size = utf16_iterate(chunk, size, &self->data.lookahead);
+  DecodeFunction decode =
+    self->input.encoding == TSInputEncodingUTF8 ? utf8proc_iterate : utf16_iterate;
+
+  self->lookahead_size = decode(chunk, size, &self->data.lookahead);
+
+  // If this chunk ended in the middle of a multi-byte character,
+  // try again with a fresh chunk.
+  if (self->data.lookahead == -1 && size < 4) {
+    ts_lexer__get_chunk(self);
+    chunk = (const uint8_t *)self->chunk;
+    size = self->chunk_size;
+    self->lookahead_size = decode(chunk, size, &self->data.lookahead);
+  }
+
+  if (self->data.lookahead == -1) {
+    self->lookahead_size = 1;
   }
 }
 

@@ -5,7 +5,6 @@
 #include "helpers/spy_input.h"
 #include "helpers/stderr_logger.h"
 #include "helpers/point_helpers.h"
-#include "helpers/encoding_helpers.h"
 #include "helpers/record_alloc.h"
 #include "helpers/random_helpers.h"
 #include "helpers/scope_sequence.h"
@@ -57,7 +56,7 @@ for (auto &language_name : test_languages) {
       SpyInput *input;
 
       it(("parses " + entry.description + ": initial parse").c_str(), [&]() {
-        input = new SpyInput(entry.input, 3);
+        input = new SpyInput(entry.input, 4);
         if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
         TSTree *tree = ts_parser_parse(parser, nullptr, input->input());
@@ -77,8 +76,8 @@ for (auto &language_name : test_languages) {
       set<pair<size_t, string>> insertions;
 
       for (size_t i = 0; i < 60; i++) {
-        size_t edit_position = default_generator(utf8_char_count(entry.input));
-        size_t deletion_size = default_generator(utf8_char_count(entry.input) - edit_position);
+        size_t edit_position = default_generator(entry.input.size());
+        size_t deletion_size = default_generator(entry.input.size() - edit_position);
         string inserted_text = default_generator.words(default_generator(4) + 1);
 
         if (insertions.insert({edit_position, inserted_text}).second) {

@@ -50,7 +50,6 @@
         'test/compiler/rules/character_set_test.cc',
         'test/compiler/rules/rule_test.cc',
         'test/compiler/util/string_helpers_test.cc',
-        'test/helpers/encoding_helpers.cc',
         'test/helpers/file_helpers.cc',
         'test/helpers/load_language.cc',
         'test/helpers/point_helpers.cc',
