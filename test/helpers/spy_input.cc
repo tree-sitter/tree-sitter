@@ -1,5 +1,4 @@
 #include "helpers/spy_input.h"
-#include "helpers/encoding_helpers.h"
 #include "helpers/point_helpers.h"
 #include "runtime/point.h"
 #include <string.h>
@@ -46,19 +45,13 @@ const char *SpyInput::read(void *payload, uint32_t byte_offset,
                            TSPoint position, uint32_t *bytes_read) {
   auto spy = static_cast<SpyInput *>(payload);
 
-  if (byte_offset >= spy->content.size()) {
-    *bytes_read = 0;
-    return "";
+  unsigned end_byte = byte_offset + spy->chars_per_chunk;
+  if (end_byte > spy->content.size()) {
+    end_byte = spy->content.size();
   }
 
-  long byte_count = string_byte_for_character(spy->encoding, spy->content, byte_offset, spy->chars_per_chunk);
-  if (byte_count < 0) {
-    byte_count = spy->content.size() - byte_offset;
-  }
-
-  string result = spy->content.substr(byte_offset, byte_count);
-  *bytes_read = byte_count;
-  add_byte_range(&spy->ranges_read, byte_offset, byte_count);
+  *bytes_read = end_byte - byte_offset;
+  add_byte_range(&spy->ranges_read, byte_offset, *bytes_read);
 
   /*
    * This class stores its entire `content` in a contiguous buffer, but we want
@@ -70,9 +63,9 @@ const char *SpyInput::read(void *payload, uint32_t byte_offset,
    * can detect code reading too many bytes from the buffer.
    */
   delete[] spy->buffer;
-  if (byte_count) {
-    spy->buffer = new char[byte_count];
-    memcpy(spy->buffer, result.data(), byte_count);
+  if (*bytes_read) {
+    spy->buffer = new char[*bytes_read]();
+    memcpy(spy->buffer, spy->content.data() + byte_offset, *bytes_read);
   } else {
     spy->buffer = nullptr;
   }

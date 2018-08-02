@@ -544,6 +544,21 @@ describe("Parser", [&]() {
       root = ts_tree_root_node(tree);
       AssertThat(ts_node_end_point(root), Equals<TSPoint>({0, 28}));
     });
+
+    it("handles input chunks that end in the middle of multi-byte characters", [&]() {
+      ts_parser_set_language(parser, load_real_language("c"));
+      spy_input->content = "A b = {'👍','👍'};";
+      spy_input->chars_per_chunk = 4;
+
+      tree = ts_parser_parse(parser, nullptr, spy_input->input());
+      root = ts_tree_root_node(tree);
+      assert_root_node(
+        "(translation_unit (declaration "
+          "(type_identifier) "
+          "(init_declarator "
+            "(identifier) "
+            "(initializer_list (char_literal) (char_literal)))))");
+    });
   });
 
   describe("set_language(language)", [&]() {

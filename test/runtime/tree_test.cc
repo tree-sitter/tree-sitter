@@ -11,7 +11,6 @@
 #include "helpers/load_language.h"
 #include "helpers/random_helpers.h"
 #include "helpers/read_test_entries.h"
-#include "helpers/encoding_helpers.h"
 #include "helpers/tree_helpers.h"
 
 TSPoint point(uint32_t row, uint32_t column) {
@@ -71,8 +70,8 @@ describe("Tree", [&]() {
           for (unsigned j = 0; j < 10; j++) {
             random.sleep_some();
 
-            size_t edit_position = random(utf8_char_count(input->content));
-            size_t deletion_size = random(utf8_char_count(input->content) - edit_position);
+            size_t edit_position = random(input->content.size());
+            size_t deletion_size = random(input->content.size() - edit_position);
             string inserted_text = random.words(random(4) + 1);
 
             TSInputEdit edit = input->replace(edit_position, deletion_size, inserted_text);
