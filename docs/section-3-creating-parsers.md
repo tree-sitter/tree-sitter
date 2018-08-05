@@ -20,11 +20,19 @@ It's unlikely that you'll be able to satisfy these two properties just by transl
 ## Installing the tools
 The best way to create a Tree-sitter parser is with the [`Tree-sitter CLI`][tree-sitter-cli], which is distributed as [a Node.js module][node-module]. 
 
-
 To use it, first install [`node`][node.js] and its package manager `npm` on your system. 
 
+### Prerequisite
+Before installing [`Tree-sitter CLI`][tree-sitter-cli], you need to install and configure [`node-gyp`][node-gyp].
+```sh
+sudo npm install -g node-gyp
 
-Then create a new directory for your parser, with a [`package.json` file][package-json] inside the directory. 
+node-gyp configure # Configure the platform (Linux/Windows/Mac, etc.)
+```
+*Note: After you run `node-gyp` configure, the `build` folder will appear, so please `gitignore` it.*
+
+### Installing tree-sitter-cli
+Create a new directory for your parser, with a [`package.json` file][package-json] inside the directory. 
 ```
 mkdir XXX
 cd XXX
@@ -85,10 +93,19 @@ tree-sitter parse ./the-file
 (compilation_unit [0, 0] - [0, 5])
 ```
 
-When you make changes to the grammar, you can update the parser simply by re-running `tree-sitter generate`. 
-The best way to recompile the C-code is to run the command `node-gyp build`. 
-You may have to install the [`node-gyp`][node-gyp] tool separately by running `npm install -g node-gyp`.
+## Regenerating the parser
+When you make changes to the grammar, you can update the parser simply by re-running:
+```sh
+./node_modules/tree-sitter-cli/cli.js generate
 
+# Or this, if you had configure the PATH to node_modules/bin
+tree-sitter generate
+```
+
+The best way to recompile the C-code is to run the command: 
+```
+node-gyp build
+```
 
 ## Starting to define the grammar
 
