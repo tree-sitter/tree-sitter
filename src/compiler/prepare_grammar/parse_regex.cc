@@ -121,7 +121,7 @@ class PatternParser {
                 vector<Rule> optional_entries(max_count - min_count, Rule::choice({result, Blank{}}));
                 entries.insert(entries.end(), optional_entries.begin(), optional_entries.end());
               } else if (has_comma) {
-                entries.push_back(Rule::repeat(result));
+                entries.push_back(Rule::choice({Rule::repeat(result), Blank{} }));
               }
               result = Rule::seq(entries);
             } else if (max_repeat_string.size()) {

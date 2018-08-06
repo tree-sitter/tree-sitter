@@ -305,7 +305,10 @@ describe("parse_regex", []() {
         CharacterSet{{' '}},
         Rule::seq({
           CharacterSet{{'b'}},
-          Repeat{CharacterSet{{'b'}}},
+          Rule::choice({
+            Repeat{CharacterSet{{'b'}}},
+            Blank{}
+          }),
         }),
         CharacterSet{{' '}},
         Rule::seq({
