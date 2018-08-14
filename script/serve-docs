@@ -1,4 +1,4 @@
 #!/bin/bash
 
 cd docs
-bundle exec jekyll serve
+bundle exec jekyll serve "$@"
