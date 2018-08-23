@@ -619,15 +619,32 @@ static bool ts_parser__replace_children(TSParser *self, Subtree *tree, SubtreeAr
   }
 }
 
-static StackSliceArray ts_parser__reduce(TSParser *self, StackVersion version, TSSymbol symbol,
-                                     uint32_t count, int dynamic_precedence,
-                                     uint16_t alias_sequence_id, bool fragile) {
+static StackVersion ts_parser__reduce(TSParser *self, StackVersion version, TSSymbol symbol,
+                                      uint32_t count, int dynamic_precedence,
+                                      uint16_t alias_sequence_id, bool fragile) {
   uint32_t initial_version_count = ts_stack_version_count(self->stack);
-
+  uint32_t removed_version_count = 0;
   StackSliceArray pop = ts_stack_pop_count(self->stack, version, count);
 
   for (uint32_t i = 0; i < pop.size; i++) {
     StackSlice slice = pop.contents[i];
+    StackVersion slice_version = slice.version - removed_version_count;
+
+    // Error recovery can sometimes cause lots of stack versions to merge,
+    // such that a single pop operation can produce a lots of slices.
+    // Avoid creating too many stack versions in that situation.
+    if (i > 0 && slice_version > MAX_VERSION_COUNT) {
+      ts_stack_remove_version(self->stack, slice_version);
+      ts_subtree_array_delete(&self->tree_pool, &slice.subtrees);
+      removed_version_count++;
+      while (i + 1 < pop.size) {
+        StackSlice next_slice = pop.contents[i + 1];
+        if (next_slice.version != slice.version) break;
+        ts_subtree_array_delete(&self->tree_pool, &next_slice.subtrees);
+        i++;
+      }
+      continue;
+    }
 
     // Extra tokens on top of the stack should not be included in this new parent
     // node. They will be re-pushed onto the stack after the parent node is
@@ -666,7 +683,7 @@ static StackSliceArray ts_parser__reduce(TSParser *self, StackVersion version, T
     parent->dynamic_precedence += dynamic_precedence;
     parent->alias_sequence_id = alias_sequence_id;
 
-    TSStateId state = ts_stack_state(self->stack, slice.version);
+    TSStateId state = ts_stack_state(self->stack, slice_version);
     TSStateId next_state = ts_language_next_state(self->language, state, symbol);
     if (fragile || pop.size > 1 || initial_version_count > 1) {
       parent->fragile_left = true;
@@ -678,36 +695,24 @@ static StackSliceArray ts_parser__reduce(TSParser *self, StackVersion version, T
 
     // Push the parent node onto the stack, along with any extra tokens that
     // were previously on top of the stack.
-    ts_stack_push(self->stack, slice.version, parent, false, next_state);
+    ts_stack_push(self->stack, slice_version, parent, false, next_state);
     for (uint32_t j = parent->children.size; j < slice.subtrees.size; j++) {
-      ts_stack_push(self->stack, slice.version, slice.subtrees.contents[j], false, next_state);
+      ts_stack_push(self->stack, slice_version, slice.subtrees.contents[j], false, next_state);
     }
 
-    if (ts_stack_version_count(self->stack) > MAX_VERSION_COUNT) {
-      i++;
-      while (i < pop.size) {
-        StackSlice slice = pop.contents[i];
-        ts_subtree_array_delete(&self->tree_pool, &slice.subtrees);
-        ts_stack_halt(self->stack, slice.version);
-        i++;
-      }
-      while (ts_stack_version_count(self->stack) > slice.version + 1) {
-        ts_stack_remove_version(self->stack, slice.version + 1);
-      }
-      break;
-    }
-  }
-
-  for (StackVersion i = initial_version_count; i < ts_stack_version_count(self->stack); i++) {
-    for (StackVersion j = initial_version_count; j < i; j++) {
-      if (ts_stack_merge(self->stack, j, i)) {
-        i--;
+    for (StackVersion j = 0; j < slice_version; j++) {
+      if (j == version) continue;
+      if (ts_stack_merge(self->stack, j, slice_version)) {
+        removed_version_count++;
         break;
       }
     }
   }
 
-  return pop;
+  // Return the first new stack version that was created.
+  return ts_stack_version_count(self->stack) > initial_version_count
+    ? initial_version_count
+    : STACK_VERSION_NONE;
 }
 
 static void ts_parser__accept(TSParser *self, StackVersion version, const Subtree *lookahead) {
@@ -754,8 +759,9 @@ static void ts_parser__accept(TSParser *self, StackVersion version, const Subtre
   ts_stack_halt(self->stack, version);
 }
 
-static bool ts_parser__do_all_potential_reductions(TSParser *self, StackVersion starting_version,
-                                                TSSymbol lookahead_symbol) {
+static bool ts_parser__do_all_potential_reductions(TSParser *self,
+                                                   StackVersion starting_version,
+                                                   TSSymbol lookahead_symbol) {
   uint32_t initial_version_count = ts_stack_version_count(self->stack);
 
   bool can_shift_lookahead_symbol = false;
@@ -810,10 +816,11 @@ static bool ts_parser__do_all_potential_reductions(TSParser *self, StackVersion 
       }
     }
 
+    StackVersion reduction_version = STACK_VERSION_NONE;
     for (uint32_t i = 0; i < self->reduce_actions.size; i++) {
       ReduceAction action = self->reduce_actions.contents[i];
 
-      ts_parser__reduce(
+      reduction_version = ts_parser__reduce(
         self, version, action.symbol, action.count,
         action.dynamic_precedence, action.alias_sequence_id,
         true
@@ -822,8 +829,8 @@ static bool ts_parser__do_all_potential_reductions(TSParser *self, StackVersion 
 
     if (has_shift_action) {
       can_shift_lookahead_symbol = true;
-    } else if (self->reduce_actions.size > 0 && i < MAX_VERSION_COUNT) {
-      ts_stack_renumber_version(self->stack, version_count, version);
+    } else if (reduction_version != STACK_VERSION_NONE && i < MAX_VERSION_COUNT) {
+      ts_stack_renumber_version(self->stack, reduction_version, version);
       continue;
     } else if (lookahead_symbol != 0) {
       ts_stack_remove_version(self->stack, version);
@@ -1168,13 +1175,14 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
         case TSParseActionTypeReduce: {
           bool is_fragile = table_entry.action_count > 1;
           LOG("reduce sym:%s, child_count:%u", SYM_NAME(action.params.symbol), action.params.child_count);
-          StackSliceArray reduction = ts_parser__reduce(
+          StackVersion reduction_version = ts_parser__reduce(
             self, version, action.params.symbol, action.params.child_count,
             action.params.dynamic_precedence, action.params.alias_sequence_id,
             is_fragile
           );
-          StackSlice slice = *array_front(&reduction);
-          last_reduction_version = slice.version;
+          if (reduction_version != STACK_VERSION_NONE) {
+            last_reduction_version = reduction_version;
+          }
           break;
         }
 

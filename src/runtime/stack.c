@@ -160,24 +160,42 @@ static bool stack__subtree_is_equivalent(const Subtree *left, const Subtree *rig
      right &&
      left->symbol == right->symbol &&
      ((left->error_cost > 0 && right->error_cost > 0) ||
-      (left->children.size == 0 && right->children.size == 0 &&
-       left->padding.bytes == right->padding.bytes &&
+      (left->padding.bytes == right->padding.bytes &&
        left->size.bytes == right->size.bytes &&
        left->extra == right->extra &&
        ts_subtree_external_scanner_state_eq(left, right))));
 }
 
-static void stack_node_add_link(StackNode *self, StackLink link) {
+static void stack_node_add_link(StackNode *self, StackLink link, SubtreePool *subtree_pool) {
   if (link.node == self) return;
 
   for (int i = 0; i < self->link_count; i++) {
-    StackLink existing_link = self->links[i];
-    if (stack__subtree_is_equivalent(existing_link.subtree, link.subtree)) {
-      if (existing_link.node == link.node) return;
-      if (existing_link.node->state == link.node->state &&
-          existing_link.node->position.bytes == link.node->position.bytes) {
+    StackLink *existing_link = &self->links[i];
+    if (stack__subtree_is_equivalent(existing_link->subtree, link.subtree)) {
+      // In general, we preserve ambiguities until they are removed from the stack
+      // during a pop operation where multiple paths lead to the same node. But in
+      // the special case where two links directly connect the same pair of nodes,
+      // we can safely remove the ambiguity ahead of time without changing behavior.
+      if (existing_link->node == link.node) {
+        if (link.subtree->dynamic_precedence > existing_link->subtree->dynamic_precedence) {
+          ts_subtree_retain(link.subtree);
+          ts_subtree_release(subtree_pool, existing_link->subtree);
+          existing_link->subtree = link.subtree;
+          self->dynamic_precedence = link.node->dynamic_precedence + link.subtree->dynamic_precedence;
+        }
+        return;
+      }
+
+      // If the previous nodes are mergeable, merge them recursively.
+      if (existing_link->node->state == link.node->state &&
+          existing_link->node->position.bytes == link.node->position.bytes) {
         for (int j = 0; j < link.node->link_count; j++) {
-          stack_node_add_link(existing_link.node, link.node->links[j]);
+          stack_node_add_link(existing_link->node, link.node->links[j], subtree_pool);
+        }
+        int dynamic_precedence = link.node->dynamic_precedence;
+        if (link.subtree) dynamic_precedence += link.subtree->dynamic_precedence;
+        if (dynamic_precedence > self->dynamic_precedence) {
+          self->dynamic_precedence = dynamic_precedence;
         }
         return;
       }
@@ -193,6 +211,10 @@ static void stack_node_add_link(StackNode *self, StackLink link) {
   unsigned node_count = link.node->node_count;
   if (link.subtree) node_count += link.subtree->node_count;
   if (node_count > self->node_count) self->node_count = node_count;
+
+  int dynamic_precedence = link.node->dynamic_precedence;
+  if (link.subtree) dynamic_precedence += link.subtree->dynamic_precedence;
+  if (dynamic_precedence > self->dynamic_precedence) self->dynamic_precedence = dynamic_precedence;
 }
 
 static void stack_head_delete(StackHead *self, StackNodeArray *pool, SubtreePool *subtree_pool) {
@@ -554,6 +576,7 @@ void ts_stack_remove_version(Stack *self, StackVersion version) {
 }
 
 void ts_stack_renumber_version(Stack *self, StackVersion v1, StackVersion v2) {
+  if (v1 == v2) return;
   assert(v2 < v1);
   assert((uint32_t)v1 < self->heads.size);
   StackHead *source_head = &self->heads.contents[v1];
@@ -588,7 +611,7 @@ bool ts_stack_merge(Stack *self, StackVersion version1, StackVersion version2) {
   StackHead *head1 = &self->heads.contents[version1];
   StackHead *head2 = &self->heads.contents[version2];
   for (uint32_t i = 0; i < head2->node->link_count; i++) {
-    stack_node_add_link(head1->node, head2->node->links[i]);
+    stack_node_add_link(head1->node, head2->node->links[i], self->subtree_pool);
   }
   if (head1->node->state == ERROR_STATE) {
     head1->node_count_at_last_error = head1->node->node_count;
