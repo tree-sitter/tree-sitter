@@ -1,7 +1,7 @@
 #ifndef COMPILER_PREPARE_GRAMMAR_PREPARE_GRAMMAR_H_
 #define COMPILER_PREPARE_GRAMMAR_PREPARE_GRAMMAR_H_
 
-#include <tuple>
+#include <unordered_map>
 #include "compiler/grammar.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/lexical_grammar.h"
@@ -10,7 +10,14 @@
 namespace tree_sitter {
 namespace prepare_grammar {
 
-std::tuple<SyntaxGrammar, LexicalGrammar, CompileError> prepare_grammar(const InputGrammar &);
+struct PrepareGrammarResult {
+  SyntaxGrammar syntax_grammar;
+  LexicalGrammar lexical_grammar;
+  std::unordered_map<rules::Symbol, rules::Alias> simple_aliases;
+  CompileError error;
+};
+
+PrepareGrammarResult prepare_grammar(const InputGrammar &);
 
 }  // namespace prepare_grammar
 }  // namespace tree_sitter

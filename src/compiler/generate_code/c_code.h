@@ -2,6 +2,7 @@
 #define COMPILER_GENERATE_CODE_C_CODE_H_
 
 #include <string>
+#include <unordered_map>
 #include "compiler/rule.h"
 
 namespace tree_sitter {
@@ -20,7 +21,8 @@ std::string c_code(
   LexTable &&,
   rules::Symbol,
   SyntaxGrammar &&,
-  LexicalGrammar &&
+  LexicalGrammar &&,
+  std::unordered_map<rules::Symbol, rules::Alias> &&
 );
 
 }  // namespace generate_code

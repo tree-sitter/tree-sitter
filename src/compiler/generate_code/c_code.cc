@@ -23,6 +23,7 @@ using std::pair;
 using std::set;
 using std::string;
 using std::to_string;
+using std::unordered_map;
 using std::unordered_set;
 using std::vector;
 using util::escape_char;
@@ -77,6 +78,7 @@ class CCodeGenerator {
   Symbol keyword_capture_token;
   const SyntaxGrammar syntax_grammar;
   const LexicalGrammar lexical_grammar;
+  unordered_map<Symbol, Alias> simple_aliases;
   map<Symbol, string> symbol_ids;
   vector<pair<size_t, ParseTableEntry>> parse_table_entries;
   vector<set<Symbol::Index>> external_scanner_states;
@@ -84,18 +86,21 @@ class CCodeGenerator {
   set<Alias> unique_aliases;
 
  public:
-  CCodeGenerator(string name, ParseTable &&parse_table, LexTable &&main_lex_table,
-                 LexTable &&keyword_lex_table, Symbol keyword_capture_token,
-                 SyntaxGrammar &&syntax_grammar, LexicalGrammar &&lexical_grammar)
-      : indent_level(0),
-        name(name),
-        parse_table(move(parse_table)),
-        main_lex_table(move(main_lex_table)),
-        keyword_lex_table(move(keyword_lex_table)),
-        keyword_capture_token(keyword_capture_token),
-        syntax_grammar(move(syntax_grammar)),
-        lexical_grammar(move(lexical_grammar)),
-        next_parse_action_list_index(0) {}
+  CCodeGenerator(
+    string name, ParseTable &&parse_table, LexTable &&main_lex_table,
+    LexTable &&keyword_lex_table, Symbol keyword_capture_token,
+    SyntaxGrammar &&syntax_grammar, LexicalGrammar &&lexical_grammar,
+    unordered_map<Symbol, Alias> &&simple_aliases
+  ) : indent_level(0),
+      name(name),
+      parse_table(move(parse_table)),
+      main_lex_table(move(main_lex_table)),
+      keyword_lex_table(move(keyword_lex_table)),
+      keyword_capture_token(keyword_capture_token),
+      syntax_grammar(move(syntax_grammar)),
+      lexical_grammar(move(lexical_grammar)),
+      simple_aliases(move(simple_aliases)),
+      next_parse_action_list_index(0) {}
 
   string code() {
     buffer = "";
@@ -757,14 +762,28 @@ class CCodeGenerator {
   }
 
   string symbol_name(const Symbol &symbol) {
-    if (symbol == rules::END_OF_INPUT())
+    if (symbol == rules::END_OF_INPUT()) {
       return "END";
+    }
+
+    auto simple_alias_entry = simple_aliases.find(symbol);
+    if (simple_alias_entry != simple_aliases.end()) {
+      return simple_alias_entry->second.value;
+    }
+
     return entry_for_symbol(symbol).first;
   }
 
   VariableType symbol_type(const Symbol &symbol) {
-    if (symbol == rules::END_OF_INPUT())
+    if (symbol == rules::END_OF_INPUT()) {
       return VariableTypeHidden;
+    }
+
+    auto simple_alias_entry = simple_aliases.find(symbol);
+    if (simple_alias_entry != simple_aliases.end()) {
+      return simple_alias_entry->second.is_named ? VariableTypeNamed : VariableTypeHidden;
+    }
+
     return entry_for_symbol(symbol).second;
   }
 
@@ -874,9 +893,12 @@ class CCodeGenerator {
   }
 };
 
-string c_code(string name, ParseTable &&parse_table, LexTable &&lex_table,
-              LexTable &&keyword_lex_table, Symbol keyword_capture_token,
-              SyntaxGrammar &&syntax_grammar, LexicalGrammar &&lexical_grammar) {
+string c_code(
+  string name, ParseTable &&parse_table, LexTable &&lex_table,
+  LexTable &&keyword_lex_table, Symbol keyword_capture_token,
+  SyntaxGrammar &&syntax_grammar, LexicalGrammar &&lexical_grammar,
+  unordered_map<Symbol, Alias> &&simple_aliases
+) {
   return CCodeGenerator(
     name,
     move(parse_table),
@@ -884,7 +906,8 @@ string c_code(string name, ParseTable &&parse_table, LexTable &&lex_table,
     move(keyword_lex_table),
     keyword_capture_token,
     move(syntax_grammar),
-    move(lexical_grammar)
+    move(lexical_grammar),
+    move(simple_aliases)
   ).code();
 }
 

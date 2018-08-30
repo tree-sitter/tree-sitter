@@ -91,7 +91,7 @@ struct Rule {
   }
 
   template <typename ...FunctionTypes>
-  inline auto match(FunctionTypes && ...functions) const -> decltype(accept(util::make_visitor(std::forward<FunctionTypes>(functions)...))){
+  inline auto match(FunctionTypes && ...functions) const -> decltype(accept(util::make_visitor(std::forward<FunctionTypes>(functions)...))) {
     return accept(util::make_visitor(std::forward<FunctionTypes>(functions)...));
   }
 

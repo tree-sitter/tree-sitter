@@ -2,69 +2,64 @@
 #include "compiler/prepare_grammar/expand_repeats.h"
 #include "compiler/prepare_grammar/expand_tokens.h"
 #include "compiler/prepare_grammar/extract_tokens.h"
+#include "compiler/prepare_grammar/extract_simple_aliases.h"
 #include "compiler/prepare_grammar/intern_symbols.h"
 #include "compiler/prepare_grammar/flatten_grammar.h"
 #include "compiler/prepare_grammar/normalize_rules.h"
-#include "compiler/lexical_grammar.h"
 #include "compiler/prepare_grammar/initial_syntax_grammar.h"
+#include "compiler/lexical_grammar.h"
 #include "compiler/syntax_grammar.h"
 
 namespace tree_sitter {
 namespace prepare_grammar {
 
-using std::tuple;
 using std::get;
-using std::make_tuple;
+using std::move;
 
-tuple<SyntaxGrammar, LexicalGrammar, CompileError> prepare_grammar(
-  const InputGrammar &input_grammar) {
-  /*
-   * Convert all string-based `NamedSymbols` into numerical `Symbols`
-   */
+PrepareGrammarResult prepare_grammar(const InputGrammar &input_grammar) {
+  PrepareGrammarResult result;
+
+  // Convert all string-based `NamedSymbols` into numerical `Symbols`
   auto intern_result = intern_symbols(input_grammar);
   CompileError error = intern_result.second;
-  if (error.type)
-    return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
+  if (error.type) {
+    result.error = error;
+    return result;
+  }
 
-  /*
-   * Separate grammar into lexical and syntactic components
-   */
+  // Separate grammar into lexical and syntactic components
   auto extract_result = extract_tokens(intern_result.first);
   error = get<2>(extract_result);
   if (error.type) {
-    return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
+    result.error = error;
+    return result;
   }
 
-  /*
-   * Replace `Repeat` rules with pairs of recursive rules
-   */
+  // Replace `Repeat` rules with pairs of recursive rules
   InitialSyntaxGrammar syntax_grammar1 = expand_repeats(get<0>(extract_result));
 
-  /*
-   * Expand `String` and `Pattern` rules into full rule trees
-   */
-  LexicalGrammar lex_grammar = get<1>(extract_result);
-  // auto expand_tokens_result = expand_tokens(get<1>(extract_result));
-  // LexicalGrammar lex_grammar = expand_tokens_result.first;
-  // error = expand_tokens_result.second;
-  // if (error.type)
-  //   return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
-
-  /*
-   * Flatten syntax rules into lists of productions.
-   */
+  // Flatten syntax rules into lists of productions.
   auto flatten_result = flatten_grammar(syntax_grammar1);
   SyntaxGrammar syntax_grammar = flatten_result.first;
   error = flatten_result.second;
-  if (error.type)
-    return make_tuple(SyntaxGrammar(), LexicalGrammar(), error);
+  if (error.type) {
+    result.error = error;
+    return result;
+  }
 
-  /*
-   * Ensure all lexical rules are in a consistent format.
-   */
-  lex_grammar = normalize_rules(lex_grammar);
+  // Ensure all lexical rules are in a consistent format.
+  LexicalGrammar lexical_grammar = normalize_rules(get<1>(extract_result));
 
-  return make_tuple(syntax_grammar, lex_grammar, CompileError::none());
+  // Find any symbols that always have the same alias applied to them.
+  // Remove those aliases since they can be applied in a simpler way.
+  auto simple_aliases = extract_simple_aliases(&syntax_grammar, &lexical_grammar);
+
+  return {
+    move(syntax_grammar),
+    move(lexical_grammar),
+    move(simple_aliases),
+    CompileError::none(),
+  };
 }
 
 }  // namespace prepare_grammar
