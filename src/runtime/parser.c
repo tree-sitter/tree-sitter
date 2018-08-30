@@ -36,6 +36,7 @@
 #define SYM_NAME(symbol) ts_language_symbol_name(self->language, symbol)
 
 static const unsigned MAX_VERSION_COUNT = 6;
+static const unsigned MAX_VERSION_COUNT_OVERFLOW = 4;
 static const unsigned MAX_SUMMARY_DEPTH = 16;
 static const unsigned MAX_COST_DIFFERENCE = 16 * ERROR_COST_PER_SKIPPED_TREE;
 
@@ -633,7 +634,7 @@ static StackVersion ts_parser__reduce(TSParser *self, StackVersion version, TSSy
     // Error recovery can sometimes cause lots of stack versions to merge,
     // such that a single pop operation can produce a lots of slices.
     // Avoid creating too many stack versions in that situation.
-    if (i > 0 && slice_version > MAX_VERSION_COUNT) {
+    if (i > 0 && slice_version > MAX_VERSION_COUNT + MAX_VERSION_COUNT_OVERFLOW) {
       ts_stack_remove_version(self->stack, slice_version);
       ts_subtree_array_delete(&self->tree_pool, &slice.subtrees);
       removed_version_count++;
