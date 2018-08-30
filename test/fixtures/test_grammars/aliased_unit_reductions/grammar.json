@@ -10,6 +10,9 @@
       "type": "SEQ",
       "members": [
         {"type": "SYMBOL", "name": "_a"},
+
+        // The `_b` rule is always aliased to `b_prime`, so it is internally treated
+        // as a simple alias.
         {
           "type": "ALIAS",
           "named": true,
@@ -19,6 +22,9 @@
             "name": "_b"
           }
         },
+
+        // The `_c` rule is used without an alias in addition to being aliased to `c_prime`,
+        // so it is not a simple alias.
         {
           "type": "ALIAS",
           "named": true,
@@ -28,6 +34,11 @@
             "name": "_c"
           }
         },
+        {
+          "type": "SYMBOL",
+          "name": "_c"
+        },
+
         {
           "type": "STRING",
           "value": ";"
@@ -57,7 +68,7 @@
 
     "_c": {
       "type": "SYMBOL",
-      "name": "_B"
+      "name": "_C"
     },
 
     "_C": {

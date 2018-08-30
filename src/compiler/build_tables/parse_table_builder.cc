@@ -45,6 +45,7 @@ struct ParseStateQueueEntry {
 class ParseTableBuilderImpl : public ParseTableBuilder {
   const SyntaxGrammar grammar;
   const LexicalGrammar lexical_grammar;
+  const std::unordered_map<rules::Symbol, rules::Alias> &simple_aliases;
   unordered_map<ParseItemSet, ParseStateId> state_ids_by_item_set;
   vector<const ParseItemSet *> item_sets_by_state_id;
   deque<ParseStateQueueEntry> parse_state_queue;
@@ -56,9 +57,13 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   set<std::pair<Symbol, Symbol>> logged_conflict_tokens;
 
  public:
-  ParseTableBuilderImpl(const SyntaxGrammar &syntax_grammar, const LexicalGrammar &lexical_grammar)
-    : grammar(syntax_grammar),
+  ParseTableBuilderImpl(
+    const SyntaxGrammar &syntax_grammar,
+    const LexicalGrammar &lexical_grammar,
+    const std::unordered_map<rules::Symbol, rules::Alias> &simple_aliases
+  ) : grammar(syntax_grammar),
       lexical_grammar(lexical_grammar),
+      simple_aliases(simple_aliases),
       item_set_builder(syntax_grammar, lexical_grammar) {}
 
   BuildResult build() {
@@ -403,12 +408,12 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
   }
 
   void eliminate_unit_reductions() {
-    set<Symbol::Index> aliased_symbols;
+    set<Symbol> aliased_symbols;
     for (auto &variable : grammar.variables) {
       for (auto &production : variable.productions) {
         for (auto &step : production) {
           if (!step.alias.value.empty()) {
-            aliased_symbols.insert(step.symbol.index);
+            aliased_symbols.insert(step.symbol);
           }
         }
       }
@@ -430,7 +435,8 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
           if (action.type == ParseActionTypeReduce &&
               action.consumed_symbol_count == 1 &&
               action.alias_sequence_id == 0 &&
-              !aliased_symbols.count(action.symbol.index) &&
+              !simple_aliases.count(action.symbol) &&
+              !aliased_symbols.count(action.symbol) &&
               grammar.variables[action.symbol.index].type != VariableTypeNamed &&
               (unit_reduction_symbol == -1 || unit_reduction_symbol == action.symbol.index)
             ) {
@@ -887,9 +893,14 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
 
 unique_ptr<ParseTableBuilder> ParseTableBuilder::create(
   const SyntaxGrammar &syntax_grammar,
-  const LexicalGrammar &lexical_grammar
+  const LexicalGrammar &lexical_grammar,
+  const std::unordered_map<rules::Symbol, rules::Alias> &simple_aliases
 ) {
-  return unique_ptr<ParseTableBuilder>(new ParseTableBuilderImpl(syntax_grammar, lexical_grammar));
+  return unique_ptr<ParseTableBuilder>(new ParseTableBuilderImpl(
+    syntax_grammar,
+    lexical_grammar,
+    simple_aliases
+  ));
 }
 
 ParseTableBuilder::BuildResult ParseTableBuilder::build() {

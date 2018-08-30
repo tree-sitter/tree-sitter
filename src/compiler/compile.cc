@@ -22,8 +22,7 @@ extern "C" TSCompileResult ts_compile_grammar(const char *input, FILE *log_file)
 
   ParseGrammarResult parse_result = parse_grammar(string(input));
   if (!parse_result.error_message.empty()) {
-    return { nullptr, strdup(parse_result.error_message.c_str()),
-             TSCompileErrorTypeInvalidGrammar };
+    return {nullptr, strdup(parse_result.error_message.c_str()), TSCompileErrorTypeInvalidGrammar};
   }
 
   auto prepare_grammar_result = prepare_grammar::prepare_grammar(parse_result.grammar);
@@ -35,7 +34,11 @@ extern "C" TSCompileResult ts_compile_grammar(const char *input, FILE *log_file)
     return {nullptr, strdup(error.message.c_str()), error.type};
   }
 
-  auto builder = build_tables::ParseTableBuilder::create(syntax_grammar, lexical_grammar);
+  auto builder = build_tables::ParseTableBuilder::create(
+    syntax_grammar,
+    lexical_grammar,
+    simple_aliases
+  );
   auto build_tables_result = builder->build();
   error = build_tables_result.error;
   if (error.type != 0) {
@@ -54,7 +57,7 @@ extern "C" TSCompileResult ts_compile_grammar(const char *input, FILE *log_file)
   );
 
   set_log_file(nullptr);
-  return { strdup(code.c_str()), nullptr, TSCompileErrorTypeNone };
+  return {strdup(code.c_str()), nullptr, TSCompileErrorTypeNone};
 }
 
 }  // namespace tree_sitter
