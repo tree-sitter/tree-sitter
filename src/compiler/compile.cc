@@ -22,19 +22,23 @@ extern "C" TSCompileResult ts_compile_grammar(const char *input, FILE *log_file)
 
   ParseGrammarResult parse_result = parse_grammar(string(input));
   if (!parse_result.error_message.empty()) {
-    return { nullptr, strdup(parse_result.error_message.c_str()),
-             TSCompileErrorTypeInvalidGrammar };
+    return {nullptr, strdup(parse_result.error_message.c_str()), TSCompileErrorTypeInvalidGrammar};
   }
 
   auto prepare_grammar_result = prepare_grammar::prepare_grammar(parse_result.grammar);
-  SyntaxGrammar &syntax_grammar = get<0>(prepare_grammar_result);
-  LexicalGrammar &lexical_grammar = get<1>(prepare_grammar_result);
-  CompileError error = get<2>(prepare_grammar_result);
+  SyntaxGrammar &syntax_grammar = prepare_grammar_result.syntax_grammar;
+  LexicalGrammar &lexical_grammar = prepare_grammar_result.lexical_grammar;
+  auto &simple_aliases = prepare_grammar_result.simple_aliases;
+  CompileError error = prepare_grammar_result.error;
   if (error.type) {
     return {nullptr, strdup(error.message.c_str()), error.type};
   }
 
-  auto builder = build_tables::ParseTableBuilder::create(syntax_grammar, lexical_grammar);
+  auto builder = build_tables::ParseTableBuilder::create(
+    syntax_grammar,
+    lexical_grammar,
+    simple_aliases
+  );
   auto build_tables_result = builder->build();
   error = build_tables_result.error;
   if (error.type != 0) {
@@ -48,11 +52,12 @@ extern "C" TSCompileResult ts_compile_grammar(const char *input, FILE *log_file)
     move(build_tables_result.keyword_lex_table),
     build_tables_result.keyword_capture_token,
     move(syntax_grammar),
-    move(lexical_grammar)
+    move(lexical_grammar),
+    move(simple_aliases)
   );
 
   set_log_file(nullptr);
-  return { strdup(code.c_str()), nullptr, TSCompileErrorTypeNone };
+  return {strdup(code.c_str()), nullptr, TSCompileErrorTypeNone};
 }
 
 }  // namespace tree_sitter

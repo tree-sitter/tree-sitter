@@ -29,6 +29,7 @@
         'src/compiler/prepare_grammar/expand_repeats.cc',
         'src/compiler/prepare_grammar/expand_tokens.cc',
         'src/compiler/prepare_grammar/extract_choices.cc',
+        'src/compiler/prepare_grammar/extract_simple_aliases.cc',
         'src/compiler/prepare_grammar/extract_tokens.cc',
         'src/compiler/prepare_grammar/flatten_grammar.cc',
         'src/compiler/prepare_grammar/intern_symbols.cc',
