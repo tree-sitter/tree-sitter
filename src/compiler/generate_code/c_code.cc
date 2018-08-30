@@ -781,7 +781,7 @@ class CCodeGenerator {
 
     auto simple_alias_entry = simple_aliases.find(symbol);
     if (simple_alias_entry != simple_aliases.end()) {
-      return simple_alias_entry->second.is_named ? VariableTypeNamed : VariableTypeHidden;
+      return simple_alias_entry->second.is_named ? VariableTypeNamed : VariableTypeAnonymous;
     }
 
     return entry_for_symbol(symbol).second;
