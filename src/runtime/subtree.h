@@ -17,15 +17,12 @@ extern TSStateId TS_TREE_STATE_NONE;
 typedef struct {
   union {
     char *long_data;
-    char short_data[sizeof(char *) + sizeof(uint32_t)];
+    char short_data[16];
   };
   uint32_t length;
 } ExternalScannerState;
 
 typedef struct Subtree Subtree;
-
-typedef Array(const Subtree *) SubtreeArray;
-typedef Array(Subtree *) MutableSubtreeArray;
 
 struct Subtree {
   Length padding;
@@ -70,6 +67,9 @@ struct Subtree {
     int32_t lookahead_char;
   };
 };
+
+typedef Array(const Subtree *) SubtreeArray;
+typedef Array(Subtree *) MutableSubtreeArray;
 
 typedef struct {
   MutableSubtreeArray free_trees;
