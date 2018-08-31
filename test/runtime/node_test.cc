@@ -399,6 +399,28 @@ describe("Node", [&]() {
       AssertThat(ts_node_next_named_sibling(root_node), Equals(NULL_NODE));
       AssertThat(ts_node_prev_named_sibling(root_node), Equals(NULL_NODE));
     });
+
+    it("works for missing nodes", [&]() {
+      ts_tree_delete(tree);
+
+      string input_string = "<div";
+      ts_parser_set_language(parser, load_real_language("html"));
+      tree = ts_parser_parse_string(parser, nullptr, input_string.c_str(), input_string.size());
+      root_node = ts_tree_root_node(tree);
+
+      char *node_string = ts_node_string(root_node);
+      AssertThat(node_string, Equals("(fragment (element (self_closing_tag (tag_name) (MISSING))))"));
+      ts_free(node_string);
+
+      TSNode tag_node = ts_node_child(ts_node_child(root_node, 0), 0);
+      TSNode missing_node = ts_node_child(tag_node, 2);
+      AssertThat(ts_node_type(missing_node), Equals("/>"));
+      AssertThat(ts_node_is_missing(missing_node), IsTrue());
+
+      TSNode tag_name_node = ts_node_prev_sibling(missing_node);
+      AssertThat(ts_node_type(tag_name_node), Equals("tag_name"));
+      AssertThat(ts_node_next_sibling(tag_name_node), Equals(missing_node));
+    });
   });
 
   describe("next_named_sibling(), prev_named_sibling()", [&]() {

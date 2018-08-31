@@ -153,7 +153,18 @@ static inline TSNode ts_node__child(TSNode self, uint32_t child_index, bool incl
   return ts_node__null();
 }
 
+static bool ts_subtree_has_trailing_empty_descendant(const Subtree *self, const Subtree *other) {
+  for (unsigned i = self->children.size - 1; i + 1 > 0; i--) {
+    const Subtree *child = self->children.contents[i];
+    if (child->size.bytes > 0 || child->padding.bytes > 0) break;
+    if (child == other || ts_subtree_has_trailing_empty_descendant(child, other)) return true;
+  }
+  return false;
+}
+
 static inline TSNode ts_node__prev_sibling(TSNode self, bool include_anonymous) {
+  const Subtree *self_subtree = ts_node__subtree(self);
+  bool self_is_empty = self_subtree->size.bytes == 0 && self_subtree->padding.bytes == 0;
   uint32_t target_end_byte = ts_node_end_byte(self);
 
   TSNode node = ts_node_parent(self);
@@ -168,8 +179,13 @@ static inline TSNode ts_node__prev_sibling(TSNode self, bool include_anonymous) 
     TSNode child;
     ChildIterator iterator = ts_node_iterate_children(&node);
     while (ts_node_child_iterator_next(&iterator, &child)) {
-      if (iterator.position.bytes >= target_end_byte) {
-        found_child_containing_target = ts_node__subtree(child) != ts_node__subtree(self);
+      if (child.id == self.id) break;
+
+      if (iterator.position.bytes > target_end_byte || (
+        iterator.position.bytes == target_end_byte && (
+          !self_is_empty ||
+          ts_subtree_has_trailing_empty_descendant(ts_node__subtree(child), self_subtree)))) {
+        found_child_containing_target = true;
         break;
       }
 
