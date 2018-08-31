@@ -55,13 +55,18 @@ struct Subtree {
   } first_leaf;
 
   union {
+    // Non-terminal subtrees (`child_count > 0`)
     struct {
       const Subtree **children;
       uint32_t visible_child_count;
       uint32_t named_child_count;
       uint16_t alias_sequence_id;
     };
+
+    // Normal terminal subtrees (`child_count == 0 && symbol != ts_builtin_sym_error`)
     ExternalScannerState external_scanner_state;
+
+    // Error terminal subtrees (`child_count == 0 && symbol == ts_builtin_sym_error`)
     int32_t lookahead_char;
   };
 };

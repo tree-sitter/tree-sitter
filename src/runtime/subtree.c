@@ -745,7 +745,11 @@ void ts_subtree_print_dot_graph(const Subtree *self, const TSLanguage *language,
 bool ts_subtree_external_scanner_state_eq(const Subtree *self, const Subtree *other) {
   const ExternalScannerState *state1 = &empty_state;
   const ExternalScannerState *state2 = &empty_state;
-  if (self && self->has_external_tokens) state1 = &self->external_scanner_state;
-  if (other && other->has_external_tokens) state2 = &other->external_scanner_state;
+  if (self && !self->child_count && self->has_external_tokens) {
+    state1 = &self->external_scanner_state;
+  }
+  if (other && !other->child_count && other->has_external_tokens) {
+    state2 = &other->external_scanner_state;
+  }
   return ts_external_scanner_state_eq(state1, state2);
 }
