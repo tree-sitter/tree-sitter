@@ -12,18 +12,18 @@ extern "C" {
 #include <stdbool.h>
 #include "runtime/alloc.h"
 
-#define Array(T)       \
-  struct {             \
+#define Array(T)     \
+  struct {           \
+    T *contents;     \
     uint32_t size;     \
     uint32_t capacity; \
-    T *contents;       \
   }
 
 #define array_init(self) \
   ((self)->size = 0, (self)->capacity = 0, (self)->contents = NULL)
 
 #define array_new() \
-  { 0, 0, NULL }
+  { NULL, 0, 0 }
 
 #define array_get(self, index) \
   (assert((uint32_t)index < (self)->size), &(self)->contents[index])
@@ -47,11 +47,11 @@ extern "C" {
    (self)->contents[(self)->size++] = (element))
 
 #define array_push_all(self, other)                                       \
-  array_splice((self), (self)->size, 0, (other))
+  array_splice((self), (self)->size, 0, (other)->size, (other)->contents)
 
-#define array_splice(self, index, old_count, new_array)          \
+#define array_splice(self, index, old_count, new_count, new_contents)          \
   array__splice((VoidArray *)(self), array__elem_size(self), index, old_count, \
-                (new_array)->size, (new_array)->contents)
+                new_count, new_contents)
 
 #define array_insert(self, index, element) \
   array__splice((VoidArray *)(self), array__elem_size(self), index, 0, 1, &element)

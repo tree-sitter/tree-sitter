@@ -63,8 +63,8 @@ static inline ChildIterator ts_node_iterate_children(const TSNode *node) {
 }
 
 static inline bool ts_node_child_iterator_next(ChildIterator *self, TSNode *result) {
-  if (self->child_index == self->parent->children.size) return false;
-  const Subtree *child = self->parent->children.contents[self->child_index];
+  if (self->child_index == self->parent->child_count) return false;
+  const Subtree *child = self->parent->children[self->child_index];
   TSSymbol alias_symbol = 0;
   if (!child->extra) {
     if (self->alias_sequence) {
@@ -108,7 +108,7 @@ static inline bool ts_node__is_relevant(TSNode self, bool include_anonymous) {
 
 static inline uint32_t ts_node__relevant_child_count(TSNode self, bool include_anonymous) {
   const Subtree *tree = ts_node__subtree(self);
-  if (tree->children.size > 0) {
+  if (tree->child_count > 0) {
     if (include_anonymous) {
       return tree->visible_child_count;
     } else {
@@ -154,8 +154,8 @@ static inline TSNode ts_node__child(TSNode self, uint32_t child_index, bool incl
 }
 
 static bool ts_subtree_has_trailing_empty_descendant(const Subtree *self, const Subtree *other) {
-  for (unsigned i = self->children.size - 1; i + 1 > 0; i--) {
-    const Subtree *child = self->children.contents[i];
+  for (unsigned i = self->child_count - 1; i + 1 > 0; i--) {
+    const Subtree *child = self->children[i];
     if (child->size.bytes > 0 || child->padding.bytes > 0) break;
     if (child == other || ts_subtree_has_trailing_empty_descendant(child, other)) return true;
   }
@@ -453,7 +453,7 @@ TSNode ts_node_named_child(TSNode self, uint32_t child_index) {
 
 uint32_t ts_node_child_count(TSNode self) {
   const Subtree *tree = ts_node__subtree(self);
-  if (tree->children.size > 0) {
+  if (tree->child_count > 0) {
     return tree->visible_child_count;
   } else {
     return 0;
@@ -462,7 +462,7 @@ uint32_t ts_node_child_count(TSNode self) {
 
 uint32_t ts_node_named_child_count(TSNode self) {
   const Subtree *tree = ts_node__subtree(self);
-  if (tree->children.size > 0) {
+  if (tree->child_count > 0) {
     return tree->named_child_count;
   } else {
     return 0;

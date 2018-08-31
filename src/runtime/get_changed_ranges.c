@@ -129,8 +129,8 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
     TreeCursorEntry entry = *array_back(&self->cursor.stack);
     Length position = entry.position;
     uint32_t structural_child_index = 0;
-    for (uint32_t i = 0; i < entry.subtree->children.size; i++) {
-      const Subtree *child = entry.subtree->children.contents[i];
+    for (uint32_t i = 0; i < entry.subtree->child_count; i++) {
+      const Subtree *child = entry.subtree->children[i];
       Length child_left = length_add(position, child->padding);
       Length child_right = length_add(child_left, child->size);
 
@@ -181,11 +181,11 @@ static void iterator_advance(Iterator *self) {
 
     const Subtree *parent = array_back(&self->cursor.stack)->subtree;
     uint32_t child_index = entry.child_index + 1;
-    if (parent->children.size > child_index) {
+    if (parent->child_count > child_index) {
       Length position = length_add(entry.position, ts_subtree_total_size(entry.subtree));
       uint32_t structural_child_index = entry.structural_child_index;
       if (!entry.subtree->extra) structural_child_index++;
-      const Subtree *next_child = parent->children.contents[child_index];
+      const Subtree *next_child = parent->children[child_index];
 
       array_push(&self->cursor.stack, ((TreeCursorEntry){
         .subtree = next_child,

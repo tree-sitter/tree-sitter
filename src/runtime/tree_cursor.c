@@ -34,8 +34,8 @@ static inline ChildIterator ts_tree_cursor_iterate_children(const TreeCursor *se
 static inline bool ts_tree_cursor_child_iterator_next(ChildIterator *self,
                                                       TreeCursorEntry *result,
                                                       bool *visible) {
-  if (self->child_index == self->parent->children.size) return false;
-  const Subtree *child = self->parent->children.contents[self->child_index];
+  if (self->child_index == self->parent->child_count) return false;
+  const Subtree *child = self->parent->children[self->child_index];
   *result = (TreeCursorEntry) {
     .subtree = child,
     .position = self->position,
@@ -51,8 +51,8 @@ static inline bool ts_tree_cursor_child_iterator_next(ChildIterator *self,
   self->child_index++;
   if (!child->extra) self->structural_child_index++;
 
-  if (self->child_index < self->parent->children.size) {
-    const Subtree *child = self->parent->children.contents[self->child_index];
+  if (self->child_index < self->parent->child_count) {
+    const Subtree *child = self->parent->children[self->child_index];
     self->position = length_add(self->position, child->padding);
   }
 
@@ -104,7 +104,7 @@ bool ts_tree_cursor_goto_first_child(TSTreeCursor *_self) {
         return true;
       }
 
-      if (entry.subtree->children.size > 0 && entry.subtree->visible_child_count > 0) {
+      if (entry.subtree->child_count > 0 && entry.subtree->visible_child_count > 0) {
         array_push(&self->stack, entry);
         did_descend = true;
         break;
@@ -130,7 +130,7 @@ int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *_self, uint32_t g
     while (ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible)) {
       uint32_t end_byte = entry.position.bytes + entry.subtree->size.bytes;
       bool at_goal = end_byte > goal_byte;
-      uint32_t visible_child_count = entry.subtree->children.size > 0
+      uint32_t visible_child_count = entry.subtree->child_count > 0
         ? entry.subtree->visible_child_count
         : 0;
 
@@ -183,7 +183,7 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *_self) {
         return true;
       }
 
-      if (entry.subtree->children.size > 0 && entry.subtree->visible_child_count > 0) {
+      if (entry.subtree->child_count > 0 && entry.subtree->visible_child_count > 0) {
         array_push(&self->stack, entry);
         ts_tree_cursor_goto_first_child(_self);
         return true;

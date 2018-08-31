@@ -59,10 +59,10 @@ static inline void reusable_node_advance(ReusableNode *self) {
     next_index = popped_entry.child_index + 1;
     if (self->stack.size == 0) return;
     tree = array_back(&self->stack)->tree;
-  } while (tree->children.size <= next_index);
+  } while (tree->child_count <= next_index);
 
   array_push(&self->stack, ((StackEntry) {
-    .tree = tree->children.contents[next_index],
+    .tree = tree->children[next_index],
     .child_index = next_index,
     .byte_offset = byte_offset,
   }));
@@ -70,9 +70,9 @@ static inline void reusable_node_advance(ReusableNode *self) {
 
 static inline bool reusable_node_descend(ReusableNode *self) {
   StackEntry last_entry = *array_back(&self->stack);
-  if (last_entry.tree->children.size > 0) {
+  if (last_entry.tree->child_count > 0) {
     array_push(&self->stack, ((StackEntry) {
-      .tree = last_entry.tree->children.contents[0],
+      .tree = last_entry.tree->children[0],
       .child_index = 0,
       .byte_offset = last_entry.byte_offset,
     }));

@@ -186,8 +186,12 @@ Subtree *ts_subtree_new_error(SubtreePool *pool, Length size, Length padding,
 Subtree *ts_subtree_new_copy(SubtreePool *pool, const Subtree *self) {
   Subtree *result = ts_subtree_pool_allocate(pool);
   *result = *self;
-  if (result->children.size > 0) {
-    ts_subtree_array_copy(self->children, &result->children);
+  if (result->child_count > 0) {
+    result->children = ts_calloc(self->child_count, sizeof(const Subtree *));
+    memcpy(result->children, self->children, self->child_count * sizeof(const Subtree *));
+    for (uint32_t i = 0; i < result->child_count; i++) {
+      ts_subtree_retain(result->children[i]);
+    }
   } else if (result->has_external_tokens) {
     result->external_scanner_state = ts_external_scanner_state_copy(&self->external_scanner_state);
   }
@@ -211,25 +215,25 @@ static void ts_subtree__compress(Subtree *self, unsigned count, const TSLanguage
 
   Subtree *tree = self;
   for (unsigned i = 0; i < count; i++) {
-    if (tree->ref_count > 1 || tree->children.size != 2) break;
+    if (tree->ref_count > 1 || tree->child_count != 2) break;
 
-    Subtree *child = (Subtree *)tree->children.contents[0];
+    Subtree *child = (Subtree *)tree->children[0];
     if (
       child->ref_count > 1 ||
-      child->children.size != 2 ||
+      child->child_count != 2 ||
       child->symbol != tree->symbol
     ) break;
 
-    Subtree *grandchild = (Subtree *)child->children.contents[0];
+    Subtree *grandchild = (Subtree *)child->children[0];
     if (
       grandchild->ref_count > 1 ||
-      grandchild->children.size != 2 ||
+      grandchild->child_count != 2 ||
       grandchild->symbol != tree->symbol
     ) break;
 
-    tree->children.contents[0] = grandchild;
-    child->children.contents[0] = grandchild->children.contents[1];
-    grandchild->children.contents[1] = child;
+    tree->children[0] = grandchild;
+    child->children[0] = grandchild->children[1];
+    grandchild->children[1] = child;
     array_push(stack, tree);
     tree = grandchild;
   }
@@ -237,11 +241,11 @@ static void ts_subtree__compress(Subtree *self, unsigned count, const TSLanguage
   while (stack->size > initial_stack_size) {
     tree = array_pop(stack);
     assert(tree);
-    Subtree *child = (Subtree *)tree->children.contents[0];
-    Subtree *grandchild = (Subtree *)child->children.contents[1];
-    ts_subtree_set_children(grandchild, &grandchild->children, language);
-    ts_subtree_set_children(child, &child->children, language);
-    ts_subtree_set_children(tree, &tree->children, language);
+    Subtree *child = (Subtree *)tree->children[0];
+    Subtree *grandchild = (Subtree *)child->children[1];
+    ts_subtree_set_children(grandchild, grandchild->children, grandchild->child_count, language);
+    ts_subtree_set_children(child, child->children, child->child_count, language);
+    ts_subtree_set_children(tree, tree->children, tree->child_count, language);
   }
 }
 
@@ -257,10 +261,10 @@ void ts_subtree_balance(const Subtree *self, SubtreePool *pool, const TSLanguage
     assert(tree);
 
     if (tree->repeat_depth > 0 &&
-        tree->children.contents[0]->repeat_depth > tree->children.contents[1]->repeat_depth) {
+        tree->children[0]->repeat_depth > tree->children[1]->repeat_depth) {
       unsigned n = (
-        tree->children.contents[0]->repeat_depth -
-        tree->children.contents[1]->repeat_depth
+        tree->children[0]->repeat_depth -
+        tree->children[1]->repeat_depth
       );
       for (unsigned i = n / 2; i > 0; i /= 2) {
         ts_subtree__compress(tree, i, language, &pool->tree_stack);
@@ -268,8 +272,8 @@ void ts_subtree_balance(const Subtree *self, SubtreePool *pool, const TSLanguage
       }
     }
 
-    for (uint32_t i = 0; i < tree->children.size; i++) {
-      const Subtree *child = tree->children.contents[i];
+    for (uint32_t i = 0; i < tree->child_count; i++) {
+      const Subtree *child = tree->children[i];
       if (child->ref_count == 1) {
         array_push(&pool->tree_stack, (Subtree *)child);
       }
@@ -277,12 +281,13 @@ void ts_subtree_balance(const Subtree *self, SubtreePool *pool, const TSLanguage
   }
 }
 
-void ts_subtree_set_children(Subtree *self, SubtreeArray *children, const TSLanguage *language) {
-  if (self->children.size > 0 && children->contents != self->children.contents) {
-    array_delete(&self->children);
+void ts_subtree_set_children(Subtree *self, const Subtree **children, uint32_t child_count, const TSLanguage *language) {
+  if (self->child_count > 0 && children != self->children) {
+    ts_free(self->children);
   }
 
-  self->children = *children;
+  self->child_count = child_count;
+  self->children = children;
   self->named_child_count = 0;
   self->visible_child_count = 0;
   self->error_cost = 0;
@@ -294,8 +299,8 @@ void ts_subtree_set_children(Subtree *self, SubtreeArray *children, const TSLang
   uint32_t non_extra_index = 0;
   const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self->alias_sequence_id);
 
-  for (uint32_t i = 0; i < self->children.size; i++) {
-    const Subtree *child = self->children.contents[i];
+  for (uint32_t i = 0; i < self->child_count; i++) {
+    const Subtree *child = self->children[i];
 
     if (i == 0) {
       self->padding = child->padding;
@@ -321,7 +326,7 @@ void ts_subtree_set_children(Subtree *self, SubtreeArray *children, const TSLang
     } else if (child->visible) {
       self->visible_child_count++;
       if (child->named) self->named_child_count++;
-    } else if (child->children.size > 0) {
+    } else if (child->child_count > 0) {
       self->visible_child_count += child->visible_child_count;
       self->named_child_count += child->named_child_count;
     }
@@ -340,10 +345,10 @@ void ts_subtree_set_children(Subtree *self, SubtreeArray *children, const TSLang
     self->error_cost += ERROR_COST_PER_RECOVERY +
                         ERROR_COST_PER_SKIPPED_CHAR * self->size.bytes +
                         ERROR_COST_PER_SKIPPED_LINE * self->size.extent.row;
-    for (uint32_t i = 0; i < self->children.size; i++) {
-      const Subtree *child = self->children.contents[i];
+    for (uint32_t i = 0; i < self->child_count; i++) {
+      const Subtree *child = self->children[i];
       if (child->extra) continue;
-      if (child->symbol == ts_builtin_sym_error && child->children.size == 0) continue;
+      if (child->symbol == ts_builtin_sym_error && child->child_count == 0) continue;
       if (child->visible) {
         self->error_cost += ERROR_COST_PER_SKIPPED_TREE;
       } else {
@@ -352,14 +357,14 @@ void ts_subtree_set_children(Subtree *self, SubtreeArray *children, const TSLang
     }
   }
 
-  if (self->children.size > 0) {
-    const Subtree *first_child = self->children.contents[0];
-    const Subtree *last_child = self->children.contents[self->children.size - 1];
+  if (self->child_count > 0) {
+    const Subtree *first_child = self->children[0];
+    const Subtree *last_child = self->children[self->child_count - 1];
     self->first_leaf = first_child->first_leaf;
     if (first_child->fragile_left) self->fragile_left = true;
     if (last_child->fragile_right) self->fragile_right = true;
     if (
-      self->children.size == 2 &&
+      self->child_count == 2 &&
       !self->visible && !self->named &&
       first_child->symbol == self->symbol &&
       last_child->symbol == self->symbol
@@ -381,7 +386,7 @@ Subtree *ts_subtree_new_node(SubtreePool *pool, TSSymbol symbol, SubtreeArray *c
     result->fragile_left = true;
     result->fragile_right = true;
   }
-  ts_subtree_set_children(result, children, language);
+  ts_subtree_set_children(result, children->contents, children->size, language);
   return result;
 }
 
@@ -414,14 +419,14 @@ void ts_subtree_release(SubtreePool *pool, const Subtree *self) {
 
   while (pool->tree_stack.size > 0) {
     Subtree *tree = array_pop(&pool->tree_stack);
-    if (tree->children.size > 0) {
-      for (uint32_t i = 0; i < tree->children.size; i++) {
-        const Subtree *child = tree->children.contents[i];
+    if (tree->child_count > 0) {
+      for (uint32_t i = 0; i < tree->child_count; i++) {
+        const Subtree *child = tree->children[i];
         if (atomic_dec((volatile uint32_t *)&child->ref_count) == 0) {
           array_push(&pool->tree_stack, (Subtree *)child);
         }
       }
-      array_delete(&tree->children);
+      ts_free(tree->children);
     } else if (tree->has_external_tokens) {
       ts_external_scanner_state_delete(&tree->external_scanner_state);
     }
@@ -442,12 +447,12 @@ bool ts_subtree_eq(const Subtree *self, const Subtree *other) {
   if (self->padding.bytes != other->padding.bytes) return false;
   if (self->size.bytes != other->size.bytes) return false;
   if (self->symbol == ts_builtin_sym_error) return self->lookahead_char == other->lookahead_char;
-  if (self->children.size != other->children.size) return false;
+  if (self->child_count != other->child_count) return false;
   if (self->visible_child_count != other->visible_child_count) return false;
   if (self->named_child_count != other->named_child_count) return false;
 
-  for (uint32_t i = 0; i < self->children.size; i++) {
-    if (!ts_subtree_eq(self->children.contents[i], other->children.contents[i])) {
+  for (uint32_t i = 0; i < self->child_count; i++) {
+    if (!ts_subtree_eq(self->children[i], other->children[i])) {
       return false;
     }
   }
@@ -459,13 +464,13 @@ int ts_subtree_compare(const Subtree *left, const Subtree *right) {
     return -1;
   if (right->symbol < left->symbol)
     return 1;
-  if (left->children.size < right->children.size)
+  if (left->child_count < right->child_count)
     return -1;
-  if (right->children.size < left->children.size)
+  if (right->child_count < left->child_count)
     return 1;
-  for (uint32_t i = 0; i < left->children.size; i++) {
-    const Subtree *left_child = left->children.contents[i];
-    const Subtree *right_child = right->children.contents[i];
+  for (uint32_t i = 0; i < left->child_count; i++) {
+    const Subtree *left_child = left->children[i];
+    const Subtree *right_child = right->children[i];
     switch (ts_subtree_compare(left_child, right_child)) {
       case -1:
         return -1;
@@ -538,8 +543,8 @@ const Subtree *ts_subtree_edit(const Subtree *self, const TSInputEdit *edit, Sub
     result->has_changes = true;
 
     Length child_left, child_right = length_zero();
-    for (uint32_t i = 0; i < result->children.size; i++) {
-      const Subtree **child = &result->children.contents[i];
+    for (uint32_t i = 0; i < result->child_count; i++) {
+      const Subtree **child = &result->children[i];
       Length child_size = ts_subtree_total_size(*child);
       child_left = child_right;
       child_right = length_add(child_left, child_size);
@@ -589,9 +594,9 @@ const Subtree *ts_subtree_edit(const Subtree *self, const TSInputEdit *edit, Sub
 
 const Subtree *ts_subtree_last_external_token(const Subtree *tree) {
   if (!tree->has_external_tokens) return NULL;
-  while (tree->children.size > 0) {
-    for (uint32_t i = tree->children.size - 1; i + 1 > 0; i--) {
-      const Subtree *child = tree->children.contents[i];
+  while (tree->child_count > 0) {
+    for (uint32_t i = tree->child_count - 1; i + 1 > 0; i--) {
+      const Subtree *child = tree->children[i];
       if (child->has_external_tokens) {
         tree = child;
         break;
@@ -638,7 +643,7 @@ static size_t ts_subtree__write_to_string(const Subtree *self, char *string, siz
   }
 
   if (visible) {
-    if (self->symbol == ts_builtin_sym_error && self->children.size == 0 && self->size.bytes > 0) {
+    if (self->symbol == ts_builtin_sym_error && self->child_count == 0 && self->size.bytes > 0) {
       cursor += snprintf(*writer, limit, "(UNEXPECTED ");
       cursor += ts_subtree__write_char_to_string(*writer, limit, self->lookahead_char);
     } else if (self->is_missing) {
@@ -652,8 +657,8 @@ static size_t ts_subtree__write_to_string(const Subtree *self, char *string, siz
 
   const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self->alias_sequence_id);
   uint32_t structural_child_index = 0;
-  for (uint32_t i = 0; i < self->children.size; i++) {
-    const Subtree *child = self->children.contents[i];
+  for (uint32_t i = 0; i < self->child_count; i++) {
+    const Subtree *child = self->children[i];
     if (child->extra) {
       cursor += ts_subtree__write_to_string(
         child, *writer, limit,
@@ -694,7 +699,7 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t byte_offset,
   TSSymbol symbol = alias_symbol ? alias_symbol : self->symbol;
   fprintf(f, "tree_%p [label=\"%s\"", self, ts_language_symbol_name(language, symbol));
 
-  if (self->children.size == 0)
+  if (self->child_count == 0)
     fprintf(f, ", shape=plaintext");
   if (self->extra)
     fprintf(f, ", fontcolor=gray");
@@ -716,8 +721,8 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t byte_offset,
 
   const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self->alias_sequence_id);
   uint32_t structural_child_index = 0;
-  for (uint32_t i = 0; i < self->children.size; i++) {
-    const Subtree *child = self->children.contents[i];
+  for (uint32_t i = 0; i < self->child_count; i++) {
+    const Subtree *child = self->children[i];
     if (child->extra) {
       ts_subtree__print_dot_graph(child, byte_offset, language, 0, f);
     } else {

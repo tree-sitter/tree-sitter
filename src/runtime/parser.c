@@ -134,9 +134,9 @@ static bool ts_parser__breakdown_top_of_stack(TSParser *self, StackVersion versi
       TSStateId state = ts_stack_state(self->stack, slice.version);
       const Subtree *parent = *array_front(&slice.subtrees);
 
-      for (uint32_t j = 0; j < parent->children.size; j++) {
-        const Subtree *child = parent->children.contents[j];
-        pending = child->children.size > 0;
+      for (uint32_t j = 0; j < parent->child_count; j++) {
+        const Subtree *child = parent->children[j];
+        pending = child->child_count > 0;
 
         if (child->symbol == ts_builtin_sym_error) {
           state = ERROR_STATE;
@@ -168,7 +168,7 @@ static void ts_parser__breakdown_lookahead(TSParser *self, const Subtree **looka
                                            TSStateId state, ReusableNode *reusable_node) {
   bool did_descend = false;
   const Subtree *tree = reusable_node_tree(reusable_node);
-  while (tree->children.size > 0 && tree->parse_state != state) {
+  while (tree->child_count > 0 && tree->parse_state != state) {
     LOG("state_mismatch sym:%s", SYM_NAME(tree->symbol));
     reusable_node_descend(reusable_node);
     tree = reusable_node_tree(reusable_node);
@@ -599,7 +599,7 @@ static void ts_parser__shift(TSParser *self, StackVersion version, TSStateId sta
     subtree_to_push = lookahead;
   }
 
-  bool is_pending = subtree_to_push->children.size > 0;
+  bool is_pending = subtree_to_push->child_count > 0;
   ts_stack_push(self->stack, version, subtree_to_push, is_pending, state);
   if (subtree_to_push->has_external_tokens) {
     ts_stack_set_last_external_token(
@@ -610,8 +610,8 @@ static void ts_parser__shift(TSParser *self, StackVersion version, TSStateId sta
 
 static bool ts_parser__replace_children(TSParser *self, Subtree *tree, SubtreeArray *children) {
   self->scratch_tree = *tree;
-  self->scratch_tree.children.size = 0;
-  ts_subtree_set_children(&self->scratch_tree, children, self->language);
+  self->scratch_tree.child_count = 0;
+  ts_subtree_set_children(&self->scratch_tree, children->contents, children->size, self->language);
   if (ts_parser__select_tree(self, tree, &self->scratch_tree)) {
     *tree = self->scratch_tree;
     return true;
@@ -697,7 +697,7 @@ static StackVersion ts_parser__reduce(TSParser *self, StackVersion version, TSSy
     // Push the parent node onto the stack, along with any extra tokens that
     // were previously on top of the stack.
     ts_stack_push(self->stack, slice_version, parent, false, next_state);
-    for (uint32_t j = parent->children.size; j < slice.subtrees.size; j++) {
+    for (uint32_t j = parent->child_count; j < slice.subtrees.size; j++) {
       ts_stack_push(self->stack, slice_version, slice.subtrees.contents[j], false, next_state);
     }
 
@@ -728,10 +728,10 @@ static void ts_parser__accept(TSParser *self, StackVersion version, const Subtre
     for (uint32_t j = trees.size - 1; j + 1 > 0; j--) {
       const Subtree *child = trees.contents[j];
       if (!child->extra) {
-        for (uint32_t k = 0; k < child->children.size; k++) {
-          ts_subtree_retain(child->children.contents[k]);
+        for (uint32_t k = 0; k < child->child_count; k++) {
+          ts_subtree_retain(child->children[k]);
         }
-        array_splice(&trees, j, 1, &child->children);
+        array_splice(&trees, j, 1, child->child_count, child->children);
         root = ts_subtree_new_node(
           &self->tree_pool, child->symbol, &trees,
           child->alias_sequence_id, self->language
@@ -957,8 +957,9 @@ static bool ts_parser__recover_to_state(TSParser *self, StackVersion version, un
     SubtreeArray error_trees = ts_stack_pop_error(self->stack, slice.version);
     if (error_trees.size > 0) {
       assert(error_trees.size == 1);
-      array_splice(&slice.subtrees, 0, 0, &error_trees.contents[0]->children);
-      for (unsigned j = 0; j < error_trees.contents[0]->children.size; j++) {
+      const Subtree *error_tree = error_trees.contents[0];
+      array_splice(&slice.subtrees, 0, 0, error_tree->child_count, error_tree->children);
+      for (unsigned j = 0; j < error_tree->child_count; j++) {
         ts_subtree_retain(slice.subtrees.contents[j]);
       }
       ts_subtree_array_delete(&self->tree_pool, &error_trees);
@@ -1163,7 +1164,7 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
             LOG("shift state:%u", next_state);
           }
 
-          if (lookahead->children.size > 0) {
+          if (lookahead->child_count > 0) {
             ts_parser__breakdown_lookahead(self, &lookahead, state, &self->reusable_node);
             next_state = ts_language_next_state(self->language, state, lookahead->symbol);
           }
@@ -1194,7 +1195,7 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
         }
 
         case TSParseActionTypeRecover: {
-          if (lookahead->children.size > 0) {
+          if (lookahead->child_count > 0) {
             ts_parser__breakdown_lookahead(self, &lookahead, ERROR_STATE, &self->reusable_node);
           }
 

@@ -36,6 +36,7 @@ struct Subtree {
   uint32_t node_count;
   uint32_t repeat_depth;
   int32_t dynamic_precedence;
+  uint32_t child_count;
 
   bool visible : 1;
   bool named : 1;
@@ -55,19 +56,13 @@ struct Subtree {
 
   union {
     struct {
-      SubtreeArray children;
+      const Subtree **children;
       uint32_t visible_child_count;
       uint32_t named_child_count;
       uint16_t alias_sequence_id;
     };
-    struct {
-      uint32_t _2;
-      ExternalScannerState external_scanner_state;
-    };
-    struct {
-      uint32_t _1;
-      int32_t lookahead_char;
-    };
+    ExternalScannerState external_scanner_state;
+    int32_t lookahead_char;
   };
 };
 
@@ -100,7 +95,7 @@ void ts_subtree_retain(const Subtree *tree);
 void ts_subtree_release(SubtreePool *, const Subtree *tree);
 bool ts_subtree_eq(const Subtree *tree1, const Subtree *tree2);
 int ts_subtree_compare(const Subtree *tree1, const Subtree *tree2);
-void ts_subtree_set_children(Subtree *, SubtreeArray *, const TSLanguage *);
+void ts_subtree_set_children(Subtree *, const Subtree **, uint32_t, const TSLanguage *);
 void ts_subtree_balance(const Subtree *, SubtreePool *, const TSLanguage *);
 const Subtree *ts_subtree_edit(const Subtree *, const TSInputEdit *edit, SubtreePool *);
 char *ts_subtree_string(const Subtree *, const TSLanguage *, bool include_all);

@@ -5,12 +5,12 @@
 #include "runtime/length.h"
 
 void assert_consistent(const Subtree *tree) {
-  if (tree->children.size == 0) return;
-  AssertThat(tree->children.contents[0]->padding, Equals<Length>(tree->padding));
+  if (tree->child_count == 0) return;
+  AssertThat(tree->children[0]->padding, Equals<Length>(tree->padding));
 
   Length total_children_size = length_zero();
-  for (size_t i = 0; i < tree->children.size; i++) {
-    const Subtree *child = tree->children.contents[i];
+  for (size_t i = 0; i < tree->child_count; i++) {
+    const Subtree *child = tree->children[i];
     assert_consistent(child);
     total_children_size = length_add(total_children_size, ts_subtree_total_size(child));
   }
@@ -217,13 +217,13 @@ describe("Subtree", []() {
       AssertThat(tree->padding, Equals<Length>({2, {0, 2}}));
       AssertThat(tree->size, Equals<Length>({13, {0, 13}}));
 
-      AssertThat(tree->children.contents[0]->has_changes, IsFalse());
-      AssertThat(tree->children.contents[0]->padding, Equals<Length>({2, {0, 2}}));
-      AssertThat(tree->children.contents[0]->size, Equals<Length>({3, {0, 3}}));
+      AssertThat(tree->children[0]->has_changes, IsFalse());
+      AssertThat(tree->children[0]->padding, Equals<Length>({2, {0, 2}}));
+      AssertThat(tree->children[0]->size, Equals<Length>({3, {0, 3}}));
 
-      AssertThat(tree->children.contents[1]->has_changes, IsFalse());
-      AssertThat(tree->children.contents[1]->padding, Equals<Length>({2, {0, 2}}));
-      AssertThat(tree->children.contents[1]->size, Equals<Length>({3, {0, 3}}));
+      AssertThat(tree->children[1]->has_changes, IsFalse());
+      AssertThat(tree->children[1]->padding, Equals<Length>({2, {0, 2}}));
+      AssertThat(tree->children[1]->size, Equals<Length>({3, {0, 3}}));
 
       ts_subtree_release(&pool, new_tree);
     });
@@ -245,13 +245,13 @@ describe("Subtree", []() {
         AssertThat(tree->padding, Equals<Length>({3, {0, 3}}));
         AssertThat(tree->size, Equals<Length>({13, {0, 13}}));
 
-        AssertThat(tree->children.contents[0]->has_changes, IsTrue());
-        AssertThat(tree->children.contents[0]->padding, Equals<Length>({3, {0, 3}}));
-        AssertThat(tree->children.contents[0]->size, Equals<Length>({3, {0, 3}}));
+        AssertThat(tree->children[0]->has_changes, IsTrue());
+        AssertThat(tree->children[0]->padding, Equals<Length>({3, {0, 3}}));
+        AssertThat(tree->children[0]->size, Equals<Length>({3, {0, 3}}));
 
-        AssertThat(tree->children.contents[1]->has_changes, IsFalse());
-        AssertThat(tree->children.contents[1]->padding, Equals<Length>({2, {0, 2}}));
-        AssertThat(tree->children.contents[1]->size, Equals<Length>({3, {0, 3}}));
+        AssertThat(tree->children[1]->has_changes, IsFalse());
+        AssertThat(tree->children[1]->padding, Equals<Length>({2, {0, 2}}));
+        AssertThat(tree->children[1]->size, Equals<Length>({3, {0, 3}}));
       });
     });
 
@@ -272,9 +272,9 @@ describe("Subtree", []() {
         AssertThat(tree->padding, Equals<Length>({5, {0, 5}}));
         AssertThat(tree->size, Equals<Length>({11, {0, 11}}));
 
-        AssertThat(tree->children.contents[0]->has_changes, IsTrue());
-        AssertThat(tree->children.contents[0]->padding, Equals<Length>({5, {0, 5}}));
-        AssertThat(tree->children.contents[0]->size, Equals<Length>({1, {0, 1}}));
+        AssertThat(tree->children[0]->has_changes, IsTrue());
+        AssertThat(tree->children[0]->padding, Equals<Length>({5, {0, 5}}));
+        AssertThat(tree->children[0]->size, Equals<Length>({1, {0, 1}}));
       });
     });
 
@@ -295,11 +295,11 @@ describe("Subtree", []() {
         AssertThat(tree->padding, Equals<Length>({4, {0, 4}}));
         AssertThat(tree->size, Equals<Length>({13, {0, 13}}));
 
-        AssertThat(tree->children.contents[0]->has_changes, IsTrue());
-        AssertThat(tree->children.contents[0]->padding, Equals<Length>({4, {0, 4}}));
-        AssertThat(tree->children.contents[0]->size, Equals<Length>({3, {0, 3}}));
+        AssertThat(tree->children[0]->has_changes, IsTrue());
+        AssertThat(tree->children[0]->padding, Equals<Length>({4, {0, 4}}));
+        AssertThat(tree->children[0]->size, Equals<Length>({3, {0, 3}}));
 
-        AssertThat(tree->children.contents[1]->has_changes, IsFalse());
+        AssertThat(tree->children[1]->has_changes, IsFalse());
       });
     });
 
@@ -320,11 +320,11 @@ describe("Subtree", []() {
         AssertThat(tree->padding, Equals<Length>({2, {0, 2}}));
         AssertThat(tree->size, Equals<Length>({16, {0, 16}}));
 
-        AssertThat(tree->children.contents[0]->has_changes, IsTrue());
-        AssertThat(tree->children.contents[0]->padding, Equals<Length>({2, {0, 2}}));
-        AssertThat(tree->children.contents[0]->size, Equals<Length>({6, {0, 6}}));
+        AssertThat(tree->children[0]->has_changes, IsTrue());
+        AssertThat(tree->children[0]->padding, Equals<Length>({2, {0, 2}}));
+        AssertThat(tree->children[0]->size, Equals<Length>({6, {0, 6}}));
 
-        AssertThat(tree->children.contents[1]->has_changes, IsFalse());
+        AssertThat(tree->children[1]->has_changes, IsFalse());
       });
     });
 
@@ -345,23 +345,23 @@ describe("Subtree", []() {
         AssertThat(tree->padding, Equals<Length>({4, {0, 4}}));
         AssertThat(tree->size, Equals<Length>({4, {0, 4}}));
 
-        AssertThat(tree->children.contents[0]->has_changes, IsTrue());
-        AssertThat(tree->children.contents[0]->padding, Equals<Length>({4, {0, 4}}));
-        AssertThat(tree->children.contents[0]->size, Equals<Length>({0, {0, 0}}));
+        AssertThat(tree->children[0]->has_changes, IsTrue());
+        AssertThat(tree->children[0]->padding, Equals<Length>({4, {0, 4}}));
+        AssertThat(tree->children[0]->size, Equals<Length>({0, {0, 0}}));
 
-        AssertThat(tree->children.contents[1]->has_changes, IsTrue());
-        AssertThat(tree->children.contents[1]->padding, Equals<Length>({0, {0, 0}}));
-        AssertThat(tree->children.contents[1]->size, Equals<Length>({0, {0, 0}}));
+        AssertThat(tree->children[1]->has_changes, IsTrue());
+        AssertThat(tree->children[1]->padding, Equals<Length>({0, {0, 0}}));
+        AssertThat(tree->children[1]->size, Equals<Length>({0, {0, 0}}));
 
-        AssertThat(tree->children.contents[2]->has_changes, IsTrue());
-        AssertThat(tree->children.contents[2]->padding, Equals<Length>({1, {0, 1}}));
-        AssertThat(tree->children.contents[2]->size, Equals<Length>({3, {0, 3}}));
+        AssertThat(tree->children[2]->has_changes, IsTrue());
+        AssertThat(tree->children[2]->padding, Equals<Length>({1, {0, 1}}));
+        AssertThat(tree->children[2]->size, Equals<Length>({3, {0, 3}}));
       });
     });
 
     describe("edits within a tree's range of scanned bytes", [&]() {
       it("marks preceding trees as changed", [&]() {
-        Subtree *mutable_child = (Subtree *)tree->children.contents[0];
+        Subtree *mutable_child = (Subtree *)tree->children[0];
         mutable_child->bytes_scanned = 7;
 
         TSInputEdit edit;
@@ -375,7 +375,7 @@ describe("Subtree", []() {
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
-        AssertThat(tree->children.contents[0]->has_changes, IsTrue());
+        AssertThat(tree->children[0]->has_changes, IsTrue());
       });
     });
 
@@ -393,8 +393,8 @@ describe("Subtree", []() {
         assert_consistent(tree);
 
         AssertThat(tree->size.bytes, Equals(14u));
-        AssertThat(tree->children.contents[2]->has_changes, IsTrue());
-        AssertThat(tree->children.contents[2]->size.bytes, Equals(4u));
+        AssertThat(tree->children[2]->has_changes, IsTrue());
+        AssertThat(tree->children[2]->size.bytes, Equals(4u));
       });
     });
 
@@ -412,7 +412,7 @@ describe("Subtree", []() {
         assert_consistent(tree);
 
         AssertThat(tree->size.bytes, Equals(13u));
-        AssertThat(tree->children.contents[2]->size.bytes, Equals(3u));
+        AssertThat(tree->children[2]->size.bytes, Equals(3u));
       });
     });
   });
