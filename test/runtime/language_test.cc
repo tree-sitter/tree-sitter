@@ -50,6 +50,27 @@ describe("Language", []() {
       ts_tree_delete(tree);
     });
   });
+
+  describe("symbol_for_name(name)", [&]() {
+    it("returns the symbol for the given name", [&]() {
+      const TSLanguage *language =  load_real_language("javascript");
+      AssertThat(
+        ts_language_symbol_name(
+          language,
+          ts_language_symbol_for_name(language, "if_statement")
+        ),
+        Equals("if_statement")
+      );
+      AssertThat(
+        ts_language_symbol_name(
+          language,
+          ts_language_symbol_for_name(language, "ERROR")
+        ),
+        Equals("ERROR")
+      );
+      AssertThat(ts_language_symbol_for_name(language, "non_existent_symbol"), Equals(0u));
+    });
+  });
 });
 
 END_TEST
