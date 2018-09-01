@@ -18,11 +18,54 @@ Writing a grammar requires creativity. There are an infinite number of CFGs (con
 It's unlikely that you'll be able to satisfy these two properties just by translating an existing context-free grammar directly into Tree-sitter's grammar format. There are a few kinds of adjustments that are often required. The following sections will explain these adjustments in more depth.
 
 ## Installing the tools
+The best way to create a Tree-sitter parser is with the [`Tree-sitter CLI`][tree-sitter-cli], which is distributed as [a Node.js module][node-module]. 
 
-The best way to create a Tree-sitter parser is with the [`Tree-sitter CLI`][tree-sitter-cli], which is distributed as [a Node.js module][node-module]. To install it, first install [`node`][node.js] and its package manager `npm` on your system. Then create a new directory for your parser, with a [`package.json` file][package-json] inside the directory. Add `tree-sitter-cli` to the `devDependencies` section of `package.json` and run the command `npm install`. This will install the CLI and its dependencies into the `node_modules` folder in your directory. An executable program called `tree-sitter` will be created at the path `./node_modules/.bin/tree-sitter`. You may want to follow the Node.js convention of adding `./node_modules/.bin` to your `PATH` so that you can easily run this program when working in this directory.
+To use it, first install [`node`][node.js] and its package manager `npm` on your system. 
 
-Once you have the CLI installed, create a file called `grammar.js` with the following skeleton:
+### Prerequisite
+Before installing [`Tree-sitter CLI`][tree-sitter-cli], you need to install and configure [`node-gyp`][node-gyp].
+```sh
+sudo npm install -g node-gyp
 
+node-gyp configure # Configure the platform (Linux/Windows/Mac, etc.)
+```
+*Note: After you run `node-gyp` configure, the `build` folder will appear, so please `gitignore` it.*
+
+### Installing tree-sitter-cli
+Create a new directory for your parser, with a [`package.json` file][package-json] inside the directory. 
+```
+mkdir XXX
+cd XXX
+touch package.json
+```
+
+Add `tree-sitter-cli` to the `devDependencies` section of `package.json` by copying the following code into `package.json`.
+```json
+{
+  "devDependencies": {
+    "tree-sitter-cli": "^0.13.5"
+  }
+}
+```
+
+Run the command `npm install`. This will install the CLI and its dependencies into the `node_modules` folder in your directory. 
+```
+npm install
+```
+
+An executable program called `tree-sitter` will be created at the path `./node_modules/.bin/tree-sitter`. 
+
+You may want to follow the Node.js convention of adding `./node_modules/.bin` to your `PATH` so that you can easily run this program when working in this directory.
+
+
+## Generating the parser
+Once you have the CLI installed, create a file called `grammar.js`.
+```
+touch grammar.js
+```
+*Note: It must be exactly named `grammar.js`*
+
+Then, copy the following code into `grammar.js`.
 ```js
 module.exports = grammar({
   name: 'the_language_name',
@@ -34,22 +77,35 @@ module.exports = grammar({
 });
 ```
 
-Then run the the following command:
-
+After that, run the the following command to generated the parser from `grammar.js`
 ```sh
-$ tree-sitter generate
-$ npm install
+./node_modules/tree-sitter-cli/cli.js generate
+npm install
 ```
+This will generate the C code required to parse this trivial language (which is stored in the `src` folder), as well as all of the files needed to compile and load this native parser as a Node.js module (which is the `binding.gyp` file).  
 
-This will generate the C code required to parse this trivial language, as well as all of the files needed to compile and load this native parser as a Node.js module. You can test this parser by creating a source file with the contents `hello;` and parsing it:
+To use the generated parser, refer **Section 2: Using parsers**.
 
+You can test this parser by creating a source file with the contents `hello;` and parsing it:
 ```sh
-$ tree-sitter parse ./the-file
+tree-sitter parse ./the-file
 
 (compilation_unit [0, 0] - [0, 5])
 ```
 
-When you make changes to the grammar, you can update the parser simply by re-running `tree-sitter generate`. The best way to recompile the C-code is to run the command `node-gyp build`. You may have to install the [`node-gyp`][node-gyp] tool separately by running `npm install -g node-gyp`.
+## Regenerating the parser
+When you make changes to the grammar, you can update the parser simply by re-running:
+```sh
+./node_modules/tree-sitter-cli/cli.js generate
+
+# Or this, if you had configure the PATH to node_modules/bin
+tree-sitter generate
+```
+
+The best way to recompile the C-code is to run the command: 
+```
+node-gyp build
+```
 
 ## Starting to define the grammar
 
