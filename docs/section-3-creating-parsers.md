@@ -19,7 +19,20 @@ It's unlikely that you'll be able to satisfy these two properties just by transl
 
 ## Installing the tools
 
-The best way to create a Tree-sitter parser is with the [`Tree-sitter CLI`][tree-sitter-cli], which is distributed as [a Node.js module][node-module]. To install it, first install [`node`][node.js] and its package manager `npm` on your system. Then create a new directory for your parser, with a [`package.json` file][package-json] inside the directory. Add `tree-sitter-cli` to the `devDependencies` section of `package.json` and run the command `npm install`. This will install the CLI and its dependencies into the `node_modules` folder in your directory. An executable program called `tree-sitter` will be created at the path `./node_modules/.bin/tree-sitter`. You may want to follow the Node.js convention of adding `./node_modules/.bin` to your `PATH` so that you can easily run this program when working in this directory.
+The best way to create a Tree-sitter parser is with the [`Tree-sitter CLI`][tree-sitter-cli], which is distributed as [a Node.js module][node-module]. To install it, first install [`node`][node.js] and its package manager [`npm`][npm] on your system. Then use `npm` to create a new node module and add `tree-sitter-cli` and [`nan`][nan] as dependencies:
+
+```sh
+mkdir tree-sitter-${YOUR_LANGUAGE_NAME}
+cd tree-sitter-${YOUR_LANGUAGE_NAME}
+
+# This will prompt you for input
+npm init
+
+npm install --save nan
+npm install --save-dev tree-sitter-cli
+```
+
+This will install the CLI and its dependencies into the `node_modules` folder in your directory. An executable program called `tree-sitter` will be created at the path `./node_modules/.bin/tree-sitter`. You may want to follow the Node.js convention of adding `./node_modules/.bin` to your `PATH` so that you can easily run this program when working in this directory.
 
 Once you have the CLI installed, create a file called `grammar.js` with the following skeleton:
 
@@ -445,7 +458,8 @@ Which is probably not what you want. If we add `word: $ => $.identifier`, this w
 [tree-sitter-cli]: https://github.com/tree-sitter/tree-sitter-cli
 [node-module]: https://www.npmjs.com/package/tree-sitter-cli
 [node.js]: https://nodejs.org
-[package-json]: https://docs.npmjs.com/files/package.json
+[npm]: https://docs.npmjs.com
+[nan]: https://github.com/nodejs/nan
 [s-exp]: https://en.wikipedia.org/wiki/S-expression
 [node-gyp]: https://github.com/nodejs/node-gyp
 [ebnf]: https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form
