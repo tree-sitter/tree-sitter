@@ -50,16 +50,19 @@ module.exports = grammar({
 Then run the the following command:
 
 ```sh
-$ tree-sitter generate
-$ npm install
+tree-sitter generate
+npm install
 ```
 
 This will generate the C code required to parse this trivial language, as well as all of the files needed to compile and load this native parser as a Node.js module. You can test this parser by creating a source file with the contents `hello;` and parsing it:
 
 ```sh
-$ tree-sitter parse ./the-file
+tree-sitter parse ./the-file
+```
 
-(compilation_unit [0, 0] - [0, 5])
+This should print:
+```
+(source_file [0, 0] - [0, 5])
 ```
 
 When you make changes to the grammar, you can update the parser simply by re-running `tree-sitter generate`. The best way to recompile the C-code is to run the command `node-gyp build`. You may have to install the [`node-gyp`][node-gyp] tool separately by running `npm install -g node-gyp`.
@@ -194,7 +197,7 @@ The name of the test is written between two lines containing only `=` characters
 These tests are important. They serve as the parser's API documentation, and they can be run every time you change the grammar to verify that everything still parses correctly. You can run these tests using this command:
 
 ```sh
-$ tree-sitter test
+tree-sitter test
 ```
 
 To run a particular test, you can use the the `-f` flag:
