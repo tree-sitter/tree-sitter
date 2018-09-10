@@ -206,7 +206,7 @@ To run a particular test, you can use the the `-f` flag:
 tree-sitter test -f 'Return statements'
 ```
 
-The recommendation is to be comprehensive in adding tests. If it's a visible node, add it to a test file in your `/corpus/` directory. It's typically a good idea to test as many permutations of a particular language construct as possible. This increases test coverage, but doubly acquaints readers with a way to examine expected outputs and understand the "edges" of a language.
+The recommendation is to be comprehensive in adding tests. If it's a visible node, add it to a test file in your `corpus` directory. It's typically a good idea to test all of the permutations of each language construct. This increases test coverage, but doubly acquaints readers with a way to examine expected outputs and understand the "edges" of a language.
 
 
 ## Using the grammar DSL
@@ -229,10 +229,10 @@ The following is a complete list of built-in functions you can use to define Tre
 
 In addition to the `name` and `rules` fields, grammars have a few other optional public fields that influence the behavior of the parser.
 
-* `extras` - an array of tokens that may appear *anywhere* in the language. This is often used for whitespace and comments. The default for `extras` in `tree-sitter-cli` is to accept whitespace. To control whitespace explicitly, specify `extras=[]` in the grammar.
+* `extras` - an array of tokens that may appear *anywhere* in the language. This is often used for whitespace and comments. The default value of `extras` is to accept whitespace. To control whitespace explicitly, specify `extras: $ => []` in your grammar.
 * `inline` - an array of rule names that should be automatically *removed* from the grammar by replacing all of their usages with a copy of their definition. This is useful for rules that are used in multiple places but for which you *don't* want to create syntax tree nodes at runtime.
-* `conflicts` - an array of arrays of rule names. Each inner array represents a set of rules that's involved in an *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use the GLR algorithm to explore all of the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick the subtree rule with the highest *dynamic precedence*.
-* `externals` - an array of toen names which can be returned by an *external scanner*. External scanners allow you to write custom C code which runs during the lexing process in order to handle lexical rules (e.g. Python's indentation tokens) that cannot be described by regular expressions.
+* `conflicts` - an array of arrays of rule names. Each inner array represents a set of rules that's involved in an *LR(1) conflict* that is *intended to exist* in the grammar. When these conflicts occur at runtime, Tree-sitter will use the GLR algorithm to explore all of the possible interpretations. If *multiple* parses end up succeeding, Tree-sitter will pick the subtree whose corresponding rule has the highest total *dynamic precedence*.
+* `externals` - an array of token names which can be returned by an *external scanner*. External scanners allow you to write custom C code which runs during the lexing process in order to handle lexical rules (e.g. Python's indentation tokens) that cannot be described by regular expressions.
 * `word` - the name of a token that will match keywords for the purpose of the [keyword extraction](#keyword-extraction) optimization.
 
 ## Adjusting existing grammars
@@ -372,7 +372,7 @@ For an expression like `a * b * c`, it's not clear whether we mean `a * (b * c)`
 
 You may have noticed in the above examples that some of the grammar rule name like `_expression` and `_type` began with an underscore. Starting a rule's name with an underscore causes the rule to be *hidden* in the syntax tree. This is useful for rules like `_expression` in the grammars above, which always just wrap a single child node. If these nodes were not hidden, they would add substantial depth and noise to the syntax tree without making it any easier to understand.
 
-### Dealing with LR conflicts
+## LR conflicts
 
 ...
 
@@ -394,56 +394,56 @@ Grammars often contain multiple tokens that can match the same characters. For e
 
 ### Keywords
 
-If your language has keywords which are matched by a rule (typically `identifier`), you can tell Tree-sitter about it with your grammar's `word` property.
+Many languages have a set of *keyword* tokens (e.g. `if`, `for`, `return`), as well as a more general token (e.g. `identifier`) that matches any word, including many of the keyword strings. For example, JavaScript has a keyword `instanceof`, which is used as a binary operator, like this:
+
+```js
+if (a instanceof Something) b();
+```
+
+The following, however, is not valid JavaScript:
+
+```js
+if (a instanceofSomething) b();
+```
+
+A keyword like `instanceof` cannot be followed immediately by another letter, because then it would be tokenized as an `identifier`, **even though an identifier is not valid at that position**. Because Tree-sitter uses context-aware lexing, as described [above](#conflicting-tokens), it would not normally impose this restriction. By default, Tree-sitter would recognize `instanceofSomething` as two separate tokens: the `instanceof` keyword followed by an `identifier`.
+
+### Keyword Extraction
+
+Fortunately, Tree-sitter has a feature that allows you to fix this, so that you can match the behavior of other standard parsers: the `word` token. If you specify a `word` token in your grammar, Tree-sitter will find the set of *keyword* tokens that match strings also matched by the `word` token. Then, during lexing, instead of matching each of these keywords individually, Tree-sitter will match the keywords via a two-step process where it *first* matches the `word` token.
+
+For example, suppose we added `identifier` as the `word` token in our JavaScript grammar:
 
 ```js
 grammar({
   word: $ => $.identifier,
 
   rules: {
-    class_declaration: $ => seq(
-      'class',
+    _expression: $ => choice(
       $.identifier,
-      $.class_body
+      $.unary_expression,
+      $.binary_expression
+      // ...
     ),
 
-    break_statement: $ => seq('break', ';'),
+    binary_expression: $ => choice(
+      prec.left(1, seq($._expression, 'instanceof', $._expression)
+      // ...
+    ),
 
-    continue_statement: $ => seq('continue', ';'),
+    unary_expression: $ => choice(
+      prec.left(2, seq('typeof', $._expression))
+      // ...
+    ),
 
-    identifier: $ => /[a-z]+/
+    identifier: $ => /[a-z_]+/
   }
 })
 ```
 
-In this case, we're specifying `identifier` as our `word`. Tree-sitter will automatically find the set of terminals which are matched by `$.identifier`, and consider them keywords. Instead of generating a parser which scans for each keyword individually, Tree-sitter will generate a parser that tries to match the word rule (in this case, `identifier`), and checks to see if the matched word is the necessary keyword.
+Tree-sitter would identify `typeof` and `instanceof` as keywords. Then, when parsing the invalid code above, rather than scanning for the `instanceof` token individually, it would scan for an `identifier` first, and find `instanceofSomething`. It would then correctly recognize the code as invalid.
 
-This makes the set of parse states smaller, so the parser compiles faster.
-
-It *also changes behavior*. Consider this grammar:
-
-```js
-grammar({
-  rules: {
-    import: $ => seq(
-      'import',
-      $.identifier,
-      'as',
-      $.identifier
-    ),
-
-    identifier: $ => /[a-z]+/
-  }
-})
-```
-
-Without the `word` directive, the grammar matches this input:
-
-```
-import foo asbar
-```
-
-Which is probably not what you want. If we add `word: $ => $.identifier`, this will no longer parse. When we try to parse `'as'`, we will parse a word — which will be the identifier ``'asbar'``—and then compare it to `'as'`, correctly generating an error.
+Aside from improving error detection, keyword extraction also has performance benefits. It allows Tree-sitter to generate a smaller, simpler lexing function, which means that **the parser will compile much more quickly**.
 
 [lexing]: https://en.wikipedia.org/wiki/Lexical_analysis
 [longest-match]: https://en.wikipedia.org/wiki/Maximal_munch
