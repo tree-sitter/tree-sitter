@@ -94,7 +94,7 @@ Subtree *ts_subtree_new_node(SubtreePool *, TSSymbol, SubtreeArray *, unsigned, 
 Subtree *ts_subtree_new_copy(SubtreePool *, const Subtree *);
 Subtree *ts_subtree_new_error_node(SubtreePool *, SubtreeArray *, const TSLanguage *);
 Subtree *ts_subtree_new_error(SubtreePool *, Length, Length, int32_t, const TSLanguage *);
-Subtree *ts_subtree_new_missing_leaf(SubtreePool *, TSSymbol, const TSLanguage *);
+Subtree *ts_subtree_new_missing_leaf(SubtreePool *, TSSymbol, Length, const TSLanguage *);
 Subtree *ts_subtree_make_mut(SubtreePool *, const Subtree *);
 void ts_subtree_retain(const Subtree *tree);
 void ts_subtree_release(SubtreePool *, const Subtree *tree);

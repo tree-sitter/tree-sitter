@@ -256,6 +256,10 @@ void ts_lexer_advance_to_end(Lexer *self) {
   }
 }
 
+void ts_lexer_mark_end(Lexer *self) {
+  ts_lexer__mark_end(&self->data);
+}
+
 static const TSRange DEFAULT_RANGES[] = {
   {
     .start_point = {

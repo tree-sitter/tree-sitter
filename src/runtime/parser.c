@@ -853,6 +853,7 @@ static void ts_parser__handle_error(TSParser *self, StackVersion version,
   uint32_t previous_version_count = ts_stack_version_count(self->stack);
   ts_parser__do_all_potential_reductions(self, version, 0);
   uint32_t version_count = ts_stack_version_count(self->stack);
+  Length position = ts_stack_position(self->stack, version);
 
   // Push a discontinuity onto the stack. Merge all of the stack versions that
   // were created in the previous step.
@@ -873,9 +874,16 @@ static void ts_parser__handle_error(TSParser *self, StackVersion version,
           state_after_missing_symbol,
           lookahead_symbol
         )) {
+          // In case the parser is currently outside of any included range, the lexer will
+          // snap to the beginning of the next included range. The missing token's padding
+          // must be assigned to position it within the next included range.
+          ts_lexer_reset(&self->lexer, position);
+          ts_lexer_mark_end(&self->lexer);
+          Length padding = length_sub(self->lexer.token_end_position, position);
+
           StackVersion version_with_missing_tree = ts_stack_copy_version(self->stack, v);
           const Subtree *missing_tree = ts_subtree_new_missing_leaf(
-            &self->tree_pool, missing_symbol, self->language
+            &self->tree_pool, missing_symbol, padding, self->language
           );
           ts_stack_push(
             self->stack, version_with_missing_tree,
