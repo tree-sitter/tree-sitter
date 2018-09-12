@@ -106,7 +106,7 @@ class CCodeGenerator {
     buffer = "";
 
     add_includes();
-    add_warning_pragma();
+    add_pragmas();
     add_stats();
     add_symbol_enum();
     add_symbol_names_list();
@@ -142,12 +142,23 @@ class CCodeGenerator {
     line();
   }
 
-  void add_warning_pragma() {
+  void add_pragmas() {
     line("#if defined(__GNUC__) || defined(__clang__)");
     line("#pragma GCC diagnostic push");
     line("#pragma GCC diagnostic ignored \"-Wmissing-field-initializers\"");
     line("#endif");
     line();
+
+    // Compiling large lexer functions can be very slow, especially when
+    // using Visual Studio on Windows. Disabling optimizations is not
+    // ideal, but only a very small fraction of overall parse time is
+    // spent lexing, so the performance impact of this is pretty small.
+    if (main_lex_table.states.size() > 500) {
+      line("#ifdef _MSC_VER");
+      line("#pragma optimize(\"\", off)");
+      line("#endif");
+      line();
+    }
   }
 
   void add_stats() {
