@@ -395,9 +395,9 @@ Subtree *ts_subtree_new_error_node(SubtreePool *pool, SubtreeArray *children,
   return ts_subtree_new_node(pool, ts_builtin_sym_error, children, 0, language);
 }
 
-Subtree *ts_subtree_new_missing_leaf(SubtreePool *pool, TSSymbol symbol,
+Subtree *ts_subtree_new_missing_leaf(SubtreePool *pool, TSSymbol symbol, Length padding,
                                      const TSLanguage *language) {
-  Subtree *result = ts_subtree_new_leaf(pool, symbol, length_zero(), length_zero(), language);
+  Subtree *result = ts_subtree_new_leaf(pool, symbol, padding, length_zero(), language);
   result->is_missing = true;
   result->error_cost = ERROR_COST_PER_MISSING_TREE + ERROR_COST_PER_RECOVERY;
   return result;

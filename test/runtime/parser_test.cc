@@ -934,6 +934,52 @@ describe("Parser", [&]() {
       assert_root_node("(program (ERROR (identifier)))");
     });
 
+    it("does not allow missing tokens to be inserted outside of included ranges", [&]() {
+      string test_grammar = R"JSON({
+        "name": "test_leading_missing_token",
+        "rules": {
+          "program": {
+            "type": "SEQ",
+            "members": [
+              {"type": "SYMBOL", "name": "A"},
+              {"type": "SYMBOL", "name": "b"},
+              {"type": "SYMBOL", "name": "c"},
+              {"type": "SYMBOL", "name": "A"},
+              {"type": "SYMBOL", "name": "b"},
+              {"type": "SYMBOL", "name": "c"}
+            ]
+          },
+          "A": {"type": "SYMBOL", "name": "a"},
+          "a": {"type": "STRING", "value": "a"},
+          "b": {"type": "STRING", "value": "b"},
+          "c": {"type": "STRING", "value": "c"}
+        }
+      })JSON";
+
+      const TSLanguage *language = load_test_language(
+        "test_leading_missing_token",
+        ts_compile_grammar(test_grammar.c_str(), nullptr)
+      );
+
+      ts_parser_set_language(parser, language);
+
+      // There's a missing `a` token at the beginning of the code. It must be inserted
+      // at the beginning of the first included range, not at {0, 0}.
+      string source_code = "__bc__bc__";
+      TSRange included_ranges[2] = {
+        {{0, 2}, {0, 4}, 2, 4},
+        {{0, 6}, {0, 8}, 6, 8},
+      };
+      ts_parser_set_included_ranges(parser, included_ranges, 2);
+      tree = ts_parser_parse_string(parser, nullptr, source_code.c_str(), source_code.size());
+      root = ts_tree_root_node(tree);
+
+
+      assert_root_node("(program (A (MISSING)) (b) (c) (A (MISSING)) (b) (c))");
+      AssertThat(ts_node_start_point(root), Equals<TSPoint>({0, 2}));
+      AssertThat(ts_node_start_point(ts_node_child(root, 3)), Equals<TSPoint>({0, 4}));
+    });
+
     it("allows external scanners to detect the boundaries of included ranges", [&]() {
       string source_code = "a <%= b() %> c <% d() %>";
 
