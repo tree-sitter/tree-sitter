@@ -267,7 +267,7 @@ For example, consider this ERB document:
 </ul>
 ```
 
-Conceptually, it can be represented by three syntax trees with overlapping ranges: an ERB syntax tree, a Ruby syntax tree, and an HTML syntax tree. You could generate these syntax trees as follows:
+Conceptually, it can be represented by three syntax trees with overlapping ranges: an ERB syntax tree, a Ruby syntax tree, and an HTML syntax tree. You could generate these syntax trees with the following code:
 
 ```c
 #include <string.h>
@@ -288,9 +288,9 @@ int main(int argc, const char **argv) {
   TSTree *erb_tree = ts_parser_parse_string(parser, NULL, text, len);
   TSNode erb_root_node = ts_tree_root_node(erb_tree);
 
-  // Find the ranges of the `content` nodes, which represent
-  // the underlying HTML, and the `code` nodes, which represent
-  // the interpolated Ruby.
+  // In the ERB syntax tree, find the ranges of the `content` nodes,
+  // which represent the underlying HTML, and the `code` nodes, which
+  // represent the interpolated Ruby.
   TSRange html_ranges[10];
   TSRange ruby_ranges[10];
   unsigned html_range_count = 0;
@@ -339,6 +339,8 @@ int main(int argc, const char **argv) {
   return 0;
 }
 ```
+
+This API allows for great flexibility in how languages can be composed. Tree-sitter is not responsible for mediating the interactions between languages. Instead, you are free to do that using arbitrary application-specific logic.
 
 ## Concurrency
 
