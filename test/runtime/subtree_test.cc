@@ -50,7 +50,7 @@ describe("Subtree", []() {
 
   describe("make_leaf", [&]() {
     it("does not mark the tree as fragile", [&]() {
-      const Subtree *tree = ts_subtree_new_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
+      const Subtree *tree = ts_subtree_new_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, false, &language);
       AssertThat(tree->fragile_left, IsFalse());
       AssertThat(tree->fragile_right, IsFalse());
 
@@ -79,8 +79,8 @@ describe("Subtree", []() {
     const Subtree *tree1, *tree2, *parent1;
 
     before_each([&]() {
-      tree1 = ts_subtree_new_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
-      tree2 = ts_subtree_new_leaf(&pool, symbol2, {1, {0, 1}}, {3, {0, 3}}, &language);
+      tree1 = ts_subtree_new_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, false, &language);
+      tree2 = ts_subtree_new_leaf(&pool, symbol2, {1, {0, 1}}, {3, {0, 3}}, false, &language);
 
       ts_subtree_retain(tree1);
       ts_subtree_retain(tree2);
@@ -186,9 +186,9 @@ describe("Subtree", []() {
 
     before_each([&]() {
       tree = ts_subtree_new_node(&pool, symbol1, tree_array({
-        ts_subtree_new_leaf(&pool, symbol2, {2, {0, 2}}, {3, {0, 3}}, &language),
-        ts_subtree_new_leaf(&pool, symbol3, {2, {0, 2}}, {3, {0, 3}}, &language),
-        ts_subtree_new_leaf(&pool, symbol4, {2, {0, 2}}, {3, {0, 3}}, &language),
+        ts_subtree_new_leaf(&pool, symbol2, {2, {0, 2}}, {3, {0, 3}}, false, &language),
+        ts_subtree_new_leaf(&pool, symbol3, {2, {0, 2}}, {3, {0, 3}}, false, &language),
+        ts_subtree_new_leaf(&pool, symbol4, {2, {0, 2}}, {3, {0, 3}}, false, &language),
       }), 0, &language);
 
       AssertThat(tree->padding, Equals<Length>({2, {0, 2}}));
@@ -421,7 +421,7 @@ describe("Subtree", []() {
     const Subtree *leaf;
 
     before_each([&]() {
-      leaf = ts_subtree_new_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, &language);
+      leaf = ts_subtree_new_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, false, &language);
     });
 
     after_each([&]() {
@@ -429,7 +429,7 @@ describe("Subtree", []() {
     });
 
     it("returns true for identical trees", [&]() {
-      const Subtree *leaf_copy = ts_subtree_new_leaf(&pool, symbol1, {2, {1, 1}}, {5, {1, 4}}, &language);
+      const Subtree *leaf_copy = ts_subtree_new_leaf(&pool, symbol1, {2, {1, 1}}, {5, {1, 4}}, false, &language);
       AssertThat(ts_subtree_eq(leaf, leaf_copy), IsTrue());
 
       const Subtree *parent = ts_subtree_new_node(&pool, symbol2, tree_array({
@@ -459,6 +459,7 @@ describe("Subtree", []() {
         leaf->symbol + 1,
         leaf->padding,
         leaf->size,
+        false,
         &language
       );
 
@@ -468,7 +469,7 @@ describe("Subtree", []() {
 
     it("returns false for trees with different options", [&]() {
       const Subtree *different_leaf = ts_subtree_new_leaf(
-        &pool, leaf->symbol, leaf->padding, leaf->size, &language
+        &pool, leaf->symbol, leaf->padding, leaf->size, false, &language
       );
       ((Subtree *)different_leaf)->visible = !leaf->visible;
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
@@ -476,17 +477,19 @@ describe("Subtree", []() {
     });
 
     it("returns false for trees with different paddings or sizes", [&]() {
-      const Subtree *different_leaf = ts_subtree_new_leaf(&pool, leaf->symbol, {}, leaf->size, &language);
+      const Subtree *different_leaf = ts_subtree_new_leaf(
+        &pool, leaf->symbol, {}, leaf->size, false, &language
+      );
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
       ts_subtree_release(&pool, different_leaf);
 
-      different_leaf = ts_subtree_new_leaf(&pool, symbol1, leaf->padding, {}, &language);
+      different_leaf = ts_subtree_new_leaf(&pool, symbol1, leaf->padding, {}, false, &language);
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
       ts_subtree_release(&pool, different_leaf);
     });
 
     it("returns false for trees with different children", [&]() {
-      const Subtree *leaf2 = ts_subtree_new_leaf(&pool, symbol2, {1, {0, 1}}, {3, {0, 3}}, &language);
+      const Subtree *leaf2 = ts_subtree_new_leaf(&pool, symbol2, {1, {0, 1}}, {3, {0, 3}}, false, &language);
 
       const Subtree *parent = ts_subtree_new_node(&pool, symbol2, tree_array({
         leaf,
@@ -515,8 +518,10 @@ describe("Subtree", []() {
     Length padding = {1, {0, 1}};
     Length size = {2, {0, 2}};
 
-    auto make_external = [](const Subtree *tree) {
-      ((Subtree *)tree)->has_external_tokens = true;
+    auto make_external = [](const Subtree *_tree) {
+      Subtree *tree = (Subtree *)_tree;
+      tree->has_external_tokens = true;
+      ts_external_scanner_state_init(&tree->external_scanner_state, NULL, 0);
       return tree;
     };
 
@@ -525,15 +530,15 @@ describe("Subtree", []() {
 
       tree1 = ts_subtree_new_node(&pool, symbol1,  tree_array({
         (tree2 = ts_subtree_new_node(&pool, symbol2, tree_array({
-          (tree3 = make_external(ts_subtree_new_leaf(&pool, symbol3, padding, size, &language))),
-          (tree4 = ts_subtree_new_leaf(&pool, symbol4, padding, size, &language)),
-          (tree5 = ts_subtree_new_leaf(&pool, symbol5, padding, size, &language)),
+          (tree3 = make_external(ts_subtree_new_leaf(&pool, symbol3, padding, size, false, &language))),
+          (tree4 = ts_subtree_new_leaf(&pool, symbol4, padding, size, false, &language)),
+          (tree5 = ts_subtree_new_leaf(&pool, symbol5, padding, size, false, &language)),
         }), 0, &language)),
         (tree6 = ts_subtree_new_node(&pool, symbol6, tree_array({
           (tree7 = ts_subtree_new_node(&pool, symbol7, tree_array({
-            (tree8 = ts_subtree_new_leaf(&pool, symbol8, padding, size, &language)),
+            (tree8 = ts_subtree_new_leaf(&pool, symbol8, padding, size, false, &language)),
           }), 0, &language)),
-          (tree9 = ts_subtree_new_leaf(&pool, symbol9, padding, size, &language)),
+          (tree9 = ts_subtree_new_leaf(&pool, symbol9, padding, size, false, &language)),
         }), 0, &language)),
       }), 0, &language);
 

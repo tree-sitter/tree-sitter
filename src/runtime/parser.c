@@ -422,7 +422,7 @@ static const Subtree *ts_parser__lex(TSParser *self, StackVersion version, TSSta
       }
     }
 
-    result = ts_subtree_new_leaf(&self->tree_pool, symbol, padding, size, self->language);
+    result = ts_subtree_new_leaf(&self->tree_pool, symbol, padding, size, !found_external_token, self->language);
     result->is_keyword = is_keyword;
 
     if (found_external_token) {
@@ -937,7 +937,7 @@ static void ts_parser__halt_parse(TSParser *self) {
   Subtree *root_error = ts_subtree_new_error_node(&self->tree_pool, &children, self->language);
   ts_stack_push(self->stack, 0, root_error, false, 0);
 
-  Subtree *eof = ts_subtree_new_leaf(&self->tree_pool, ts_builtin_sym_end, length_zero(), length_zero(), self->language);
+  Subtree *eof = ts_subtree_new_leaf(&self->tree_pool, ts_builtin_sym_end, length_zero(), length_zero(), true, self->language);
   ts_parser__accept(self, 0, eof);
 }
 
