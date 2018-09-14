@@ -171,8 +171,6 @@ Subtree *ts_subtree_new_leaf(SubtreePool *pool, TSSymbol symbol, Length padding,
   result->ref_count = 1;
   result->bytes_scanned = 0;
   result->error_cost = 0;
-  result->node_count = 0;
-  result->dynamic_precedence = 0;
   result->child_count = 0;
   result->is_small = is_small;
   result->visible = metadata.visible;
@@ -336,8 +334,13 @@ void ts_subtree_set_children(Subtree *self, const Subtree **children, uint32_t c
     if (child->symbol != ts_builtin_sym_error_repeat) {
       self->error_cost += child->error_cost;
     }
-    self->dynamic_precedence += child->dynamic_precedence;
-    self->node_count += child->node_count;
+
+    if (child->child_count > 0) {
+      self->dynamic_precedence += child->dynamic_precedence;
+      self->node_count += child->node_count;
+    } else {
+      self->node_count++;
+    }
 
     if (alias_sequence && alias_sequence[non_extra_index] != 0 && !child->extra) {
       self->visible_child_count++;
