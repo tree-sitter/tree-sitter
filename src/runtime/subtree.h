@@ -17,7 +17,7 @@ extern TSStateId TS_TREE_STATE_NONE;
 typedef struct {
   union {
     char *long_data;
-    char short_data[16];
+    char short_data[24];
   };
   uint32_t length;
 } ExternalScannerState;
@@ -25,16 +25,20 @@ typedef struct {
 typedef struct Subtree Subtree;
 
 struct Subtree {
+  volatile uint32_t ref_count;
   Length padding;
   Length size;
-  volatile uint32_t ref_count;
   uint32_t bytes_scanned;
   uint32_t error_cost;
-  uint32_t node_count;
-  uint32_t repeat_depth;
-  int32_t dynamic_precedence;
   uint32_t child_count;
+  TSSymbol symbol;
+  TSStateId parse_state;
+  struct {
+    TSSymbol symbol;
+    TSLexMode lex_mode;
+  } first_leaf;
 
+  bool is_small : 1;
   bool visible : 1;
   bool named : 1;
   bool extra : 1;
@@ -44,12 +48,6 @@ struct Subtree {
   bool has_external_tokens : 1;
   bool is_missing : 1;
   bool is_keyword : 1;
-  TSSymbol symbol;
-  TSStateId parse_state;
-  struct {
-    TSSymbol symbol;
-    TSLexMode lex_mode;
-  } first_leaf;
 
   union {
     // Non-terminal subtrees (`child_count > 0`)
@@ -57,10 +55,13 @@ struct Subtree {
       const Subtree **children;
       uint32_t visible_child_count;
       uint32_t named_child_count;
+      uint32_t node_count;
+      uint32_t repeat_depth;
+      int32_t dynamic_precedence;
       uint16_t alias_sequence_id;
     };
 
-    // Normal terminal subtrees (`child_count == 0 && symbol != ts_builtin_sym_error`)
+    // External terminal subtrees (`child_count == 0 && has_external_tokens`)
     ExternalScannerState external_scanner_state;
 
     // Error terminal subtrees (`child_count == 0 && symbol == ts_builtin_sym_error`)
@@ -73,6 +74,7 @@ typedef Array(Subtree *) MutableSubtreeArray;
 
 typedef struct {
   MutableSubtreeArray free_trees;
+  MutableSubtreeArray free_small_trees;
   MutableSubtreeArray tree_stack;
 } SubtreePool;
 
@@ -86,10 +88,10 @@ void ts_subtree_array_reverse(SubtreeArray *);
 
 SubtreePool ts_subtree_pool_new(uint32_t capacity);
 void ts_subtree_pool_delete(SubtreePool *);
-Subtree *ts_subtree_pool_allocate(SubtreePool *);
+Subtree *ts_subtree_pool_allocate(SubtreePool *, bool);
 void ts_subtree_pool_free(SubtreePool *, Subtree *);
 
-Subtree *ts_subtree_new_leaf(SubtreePool *, TSSymbol, Length, Length, const TSLanguage *);
+Subtree *ts_subtree_new_leaf(SubtreePool *, TSSymbol, Length, Length, bool, const TSLanguage *);
 Subtree *ts_subtree_new_node(SubtreePool *, TSSymbol, SubtreeArray *, unsigned, const TSLanguage *);
 Subtree *ts_subtree_new_copy(SubtreePool *, const Subtree *);
 Subtree *ts_subtree_new_error_node(SubtreePool *, SubtreeArray *, const TSLanguage *);

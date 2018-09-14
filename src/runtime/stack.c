@@ -142,8 +142,12 @@ static StackNode *stack_node_new(StackNode *previous_node, const Subtree *subtre
     if (subtree) {
       node->error_cost += subtree->error_cost;
       node->position = length_add(node->position, ts_subtree_total_size(subtree));
-      node->dynamic_precedence += subtree->dynamic_precedence;
-      if (!subtree->extra) node->node_count += subtree->node_count;
+      if (subtree->child_count) {
+        node->node_count += subtree->node_count;
+        node->dynamic_precedence += subtree->dynamic_precedence;
+      } else {
+        node->node_count++;
+      }
     }
   } else {
     node->position = length_zero();
@@ -162,6 +166,7 @@ static bool stack__subtree_is_equivalent(const Subtree *left, const Subtree *rig
      ((left->error_cost > 0 && right->error_cost > 0) ||
       (left->padding.bytes == right->padding.bytes &&
        left->size.bytes == right->size.bytes &&
+       left->child_count == right->child_count &&
        left->extra == right->extra &&
        ts_subtree_external_scanner_state_eq(left, right))));
 }
@@ -177,7 +182,10 @@ static void stack_node_add_link(StackNode *self, StackLink link, SubtreePool *su
       // the special case where two links directly connect the same pair of nodes,
       // we can safely remove the ambiguity ahead of time without changing behavior.
       if (existing_link->node == link.node) {
-        if (link.subtree->dynamic_precedence > existing_link->subtree->dynamic_precedence) {
+        if (
+          link.subtree->child_count > 0 &&
+          link.subtree->dynamic_precedence > existing_link->subtree->dynamic_precedence
+        ) {
           ts_subtree_retain(link.subtree);
           ts_subtree_release(subtree_pool, existing_link->subtree);
           existing_link->subtree = link.subtree;
@@ -205,15 +213,21 @@ static void stack_node_add_link(StackNode *self, StackLink link, SubtreePool *su
   if (self->link_count == MAX_LINK_COUNT) return;
 
   stack_node_retain(link.node);
-  if (link.subtree) ts_subtree_retain(link.subtree);
+  unsigned node_count = link.node->node_count;
+  int dynamic_precedence = link.node->dynamic_precedence;
   self->links[self->link_count++] = link;
 
-  unsigned node_count = link.node->node_count;
-  if (link.subtree) node_count += link.subtree->node_count;
-  if (node_count > self->node_count) self->node_count = node_count;
+  if (link.subtree) {
+    ts_subtree_retain(link.subtree);
+    if (link.subtree->child_count > 0) {
+      node_count += link.subtree->node_count;
+      dynamic_precedence += link.subtree->dynamic_precedence;
+    } else {
+      node_count++;
+    }
+  }
 
-  int dynamic_precedence = link.node->dynamic_precedence;
-  if (link.subtree) dynamic_precedence += link.subtree->dynamic_precedence;
+  if (node_count > self->node_count) self->node_count = node_count;
   if (dynamic_precedence > self->dynamic_precedence) self->dynamic_precedence = dynamic_precedence;
 }
 

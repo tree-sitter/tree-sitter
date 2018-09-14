@@ -88,7 +88,7 @@ describe("Stack", [&]() {
     dummy_language.symbol_metadata = symbol_metadata;
 
     for (size_t i = 0; i < subtree_count; i++) {
-      subtrees[i] = ts_subtree_new_leaf(&pool, i + 1, length_zero(), tree_len, &dummy_language);
+      subtrees[i] = ts_subtree_new_leaf(&pool, i + 1, length_zero(), tree_len, false, &dummy_language);
     }
   });
 
