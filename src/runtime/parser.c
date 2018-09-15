@@ -278,10 +278,21 @@ static bool ts_parser__can_reuse_first_leaf(TSParser *self, TSStateId state, con
                                             TableEntry *table_entry) {
   TSLexMode current_lex_mode = self->language->lex_modes[state];
 
+  TSStateId leaf_state;
+  TSSymbol leaf_symbol;
+  if (tree->child_count > 0) {
+    leaf_state = tree->first_leaf.parse_state;
+    leaf_symbol = tree->first_leaf.symbol;
+  } else {
+    leaf_state = tree->parse_state;
+    leaf_symbol = tree->symbol;
+  }
+
+  TSLexMode leaf_lex_mode = self->language->lex_modes[leaf_state];
+
   // If the token was created in a state with the same set of lookaheads, it is reusable.
-  if (tree->first_leaf.lex_mode.lex_state == current_lex_mode.lex_state &&
-      tree->first_leaf.lex_mode.external_lex_state == current_lex_mode.external_lex_state &&
-      (tree->first_leaf.symbol != self->language->keyword_capture_token ||
+  if (memcmp(&leaf_lex_mode, &current_lex_mode, sizeof(TSLexMode)) == 0 &&
+      (leaf_symbol != self->language->keyword_capture_token ||
        (!tree->is_keyword && tree->parse_state == state))) return true;
 
   // Empty tokens are not reusable in states with different lookaheads.
@@ -437,7 +448,6 @@ static const Subtree *ts_parser__lex(TSParser *self, StackVersion version, TSSta
 
   result->bytes_scanned = last_byte_scanned - start_position.bytes + 1;
   result->parse_state = parse_state;
-  result->first_leaf.lex_mode = lex_mode;
 
   LOG("lexed_lookahead sym:%s, size:%u", SYM_NAME(result->symbol), result->size.bytes);
   return result;
@@ -452,7 +462,7 @@ static const Subtree *ts_parser__get_cached_token(TSParser *self, TSStateId stat
     cache->token && cache->byte_index == position &&
     ts_subtree_external_scanner_state_eq(cache->last_external_token, last_external_token)
   ) {
-    ts_language_table_entry(self->language, state, cache->token->first_leaf.symbol, table_entry);
+    ts_language_table_entry(self->language, state, cache->token->symbol, table_entry);
     if (ts_parser__can_reuse_first_leaf(self, state, cache->token, table_entry)) {
       ts_subtree_retain(cache->token);
       return cache->token;
@@ -519,12 +529,13 @@ static const Subtree *ts_parser__reuse_node(TSParser *self, StackVersion version
       continue;
     }
 
-    ts_language_table_entry(self->language, *state, result->first_leaf.symbol, table_entry);
+    TSSymbol leaf_symbol = ts_subtree_leaf_symbol(result);
+    ts_language_table_entry(self->language, *state, leaf_symbol, table_entry);
     if (!ts_parser__can_reuse_first_leaf(self, *state, result, table_entry)) {
       LOG(
         "cant_reuse_node symbol:%s, first_leaf_symbol:%s",
         SYM_NAME(result->symbol),
-        SYM_NAME(result->first_leaf.symbol)
+        SYM_NAME(leaf_symbol)
       );
       reusable_node_advance_past_leaf(&self->reusable_node);
       break;
@@ -1218,7 +1229,12 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
       ts_stack_renumber_version(self->stack, last_reduction_version, version);
       LOG_STACK();
       state = ts_stack_state(self->stack, version);
-      ts_language_table_entry(self->language, state, lookahead->first_leaf.symbol, &table_entry);
+      ts_language_table_entry(
+        self->language,
+        state,
+        ts_subtree_leaf_symbol(lookahead),
+        &table_entry
+      );
       continue;
     }
 
@@ -1233,7 +1249,6 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
 
         Subtree *mutable_lookahead = ts_subtree_make_mut(&self->tree_pool, lookahead);
         mutable_lookahead->symbol = self->language->keyword_capture_token;
-        mutable_lookahead->first_leaf.symbol = self->language->keyword_capture_token;
         lookahead = mutable_lookahead;
         continue;
       }
@@ -1249,7 +1264,7 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
     }
 
     LOG("detect_error");
-    ts_stack_pause(self->stack, version, lookahead->first_leaf.symbol);
+    ts_stack_pause(self->stack, version, ts_subtree_leaf_symbol(lookahead));
     ts_subtree_release(&self->tree_pool, lookahead);
     return;
   }

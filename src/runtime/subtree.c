@@ -184,8 +184,6 @@ Subtree *ts_subtree_new_leaf(SubtreePool *pool, TSSymbol symbol, Length padding,
   result->is_keyword = false;
   result->symbol = symbol;
   result->parse_state = 0;
-  result->first_leaf.symbol = symbol;
-  result->first_leaf.lex_mode = (TSLexMode) {0, 0};
   return result;
 }
 
@@ -384,7 +382,12 @@ void ts_subtree_set_children(Subtree *self, const Subtree **children, uint32_t c
   if (self->child_count > 0) {
     const Subtree *first_child = self->children[0];
     const Subtree *last_child = self->children[self->child_count - 1];
-    self->first_leaf = first_child->first_leaf;
+    if (first_child->child_count > 0) {
+      self->first_leaf = first_child->first_leaf;
+    } else {
+      self->first_leaf.symbol = first_child->symbol;
+      self->first_leaf.parse_state = first_child->parse_state;
+    }
     if (first_child->fragile_left) self->fragile_left = true;
     if (last_child->fragile_right) self->fragile_right = true;
     if (

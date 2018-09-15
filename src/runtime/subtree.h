@@ -33,10 +33,6 @@ struct Subtree {
   uint32_t child_count;
   TSSymbol symbol;
   TSStateId parse_state;
-  struct {
-    TSSymbol symbol;
-    TSLexMode lex_mode;
-  } first_leaf;
 
   bool is_small : 1;
   bool visible : 1;
@@ -59,6 +55,10 @@ struct Subtree {
       uint32_t repeat_depth;
       int32_t dynamic_precedence;
       uint16_t alias_sequence_id;
+      struct {
+        TSSymbol symbol;
+        TSStateId parse_state;
+      } first_leaf;
     };
 
     // External terminal subtrees (`child_count == 0 && has_external_tokens`)
@@ -116,6 +116,10 @@ static inline uint32_t ts_subtree_total_bytes(const Subtree *self) {
 
 static inline Length ts_subtree_total_size(const Subtree *self) {
   return length_add(self->padding, self->size);
+}
+
+static inline TSSymbol ts_subtree_leaf_symbol(const Subtree *self) {
+  return self->child_count > 0 ? self->first_leaf.symbol : self->symbol;
 }
 
 #ifdef __cplusplus
