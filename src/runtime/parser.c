@@ -402,11 +402,15 @@ static const Subtree *ts_parser__lex(TSParser *self, StackVersion version, TSSta
     last_byte_scanned = self->lexer.current_position.bytes;
   }
 
+  uint32_t bytes_scanned = last_byte_scanned - start_position.bytes + 1;
+
   Subtree *result;
   if (skipped_error) {
     Length padding = length_sub(error_start_position, start_position);
     Length size = length_sub(error_end_position, error_start_position);
     result = ts_subtree_new_error(&self->tree_pool, size, padding, first_error_character, self->language);
+    result->parse_state = parse_state;
+    result->bytes_scanned = bytes_scanned;
   } else {
     if (self->lexer.token_end_position.bytes < self->lexer.token_start_position.bytes) {
       self->lexer.token_start_position = self->lexer.token_end_position;
@@ -433,21 +437,30 @@ static const Subtree *ts_parser__lex(TSParser *self, StackVersion version, TSSta
       }
     }
 
-    result = ts_subtree_new_leaf(&self->tree_pool, symbol, padding, size, !found_external_token, self->language);
-    result->is_keyword = is_keyword;
+    result = ts_subtree_new_leaf(
+      &self->tree_pool,
+      symbol,
+      padding,
+      size,
+      bytes_scanned,
+      parse_state,
+      found_external_token,
+      is_keyword,
+      self->language
+    );
 
     if (found_external_token) {
-      result->has_external_tokens = true;
       unsigned length = self->language->external_scanner.serialize(
         self->external_scanner_payload,
         self->lexer.debug_buffer
       );
-      ts_external_scanner_state_init(&result->external_scanner_state, self->lexer.debug_buffer, length);
+      ts_external_scanner_state_init(
+        &result->external_scanner_state,
+        self->lexer.debug_buffer,
+        length
+      );
     }
   }
-
-  result->bytes_scanned = last_byte_scanned - start_position.bytes + 1;
-  result->parse_state = parse_state;
 
   LOG("lexed_lookahead sym:%s, size:%u", SYM_NAME(result->symbol), result->size.bytes);
   return result;
@@ -948,7 +961,17 @@ static void ts_parser__halt_parse(TSParser *self) {
   Subtree *root_error = ts_subtree_new_error_node(&self->tree_pool, &children, self->language);
   ts_stack_push(self->stack, 0, root_error, false, 0);
 
-  Subtree *eof = ts_subtree_new_leaf(&self->tree_pool, ts_builtin_sym_end, length_zero(), length_zero(), true, self->language);
+  Subtree *eof = ts_subtree_new_leaf(
+    &self->tree_pool,
+    ts_builtin_sym_end,
+    length_zero(),
+    length_zero(),
+    0,
+    0,
+    false,
+    false,
+    self->language
+  );
   ts_parser__accept(self, 0, eof);
 }
 

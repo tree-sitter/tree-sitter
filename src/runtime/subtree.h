@@ -91,7 +91,10 @@ void ts_subtree_pool_delete(SubtreePool *);
 Subtree *ts_subtree_pool_allocate(SubtreePool *, bool);
 void ts_subtree_pool_free(SubtreePool *, Subtree *);
 
-Subtree *ts_subtree_new_leaf(SubtreePool *, TSSymbol, Length, Length, bool, const TSLanguage *);
+Subtree *ts_subtree_new_leaf(
+  SubtreePool *, TSSymbol, Length, Length, uint32_t,
+  TSStateId, bool, bool, const TSLanguage *
+);
 Subtree *ts_subtree_new_node(SubtreePool *, TSSymbol, SubtreeArray *, unsigned, const TSLanguage *);
 Subtree *ts_subtree_new_copy(SubtreePool *, const Subtree *);
 Subtree *ts_subtree_new_error_node(SubtreePool *, SubtreeArray *, const TSLanguage *);

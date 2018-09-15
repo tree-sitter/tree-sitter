@@ -162,7 +162,35 @@ void ts_subtree_pool_free(SubtreePool *self, Subtree *tree) {
 
 // Subtree
 
-Subtree *ts_subtree_new_leaf(SubtreePool *pool, TSSymbol symbol, Length padding, Length size,
+Subtree *ts_subtree_new_leaf(
+  SubtreePool *pool, TSSymbol symbol, Length padding, Length size, uint32_t bytes_scanned,
+  TSStateId parse_state, bool has_external_tokens, bool is_keyword, const TSLanguage *language
+) {
+  TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
+  bool is_small = !has_external_tokens;
+  Subtree *result = ts_subtree_pool_allocate(pool, is_small);
+  result->ref_count = 1;
+  result->padding = padding;
+  result->size = size;
+  result->bytes_scanned = bytes_scanned;
+  result->error_cost = 0;
+  result->child_count = 0;
+  result->symbol = symbol;
+  result->parse_state = parse_state;
+  result->is_small = is_small;
+  result->visible = metadata.visible;
+  result->named = metadata.named;
+  result->extra = symbol == ts_builtin_sym_end;
+  result->fragile_left = false;
+  result->fragile_right = false;
+  result->has_changes = false;
+  result->has_external_tokens = has_external_tokens;
+  result->is_missing = false;
+  result->is_keyword = is_keyword;
+  return result;
+}
+
+Subtree *ts_subtree__new(SubtreePool *pool, TSSymbol symbol, Length padding, Length size,
                              bool is_small, const TSLanguage *language) {
   TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
   Subtree *result = ts_subtree_pool_allocate(pool, is_small);
@@ -189,7 +217,7 @@ Subtree *ts_subtree_new_leaf(SubtreePool *pool, TSSymbol symbol, Length padding,
 
 Subtree *ts_subtree_new_error(SubtreePool *pool, Length size, Length padding,
                               int32_t lookahead_char, const TSLanguage *language) {
-  Subtree *result = ts_subtree_new_leaf(pool, ts_builtin_sym_error, padding, size, false, language);
+  Subtree *result = ts_subtree__new(pool, ts_builtin_sym_error, padding, size, false, language);
   result->fragile_left = true;
   result->fragile_right = true;
   result->lookahead_char = lookahead_char;
@@ -434,7 +462,7 @@ Subtree *ts_subtree_new_error_node(SubtreePool *pool, SubtreeArray *children,
 
 Subtree *ts_subtree_new_missing_leaf(SubtreePool *pool, TSSymbol symbol, Length padding,
                                      const TSLanguage *language) {
-  Subtree *result = ts_subtree_new_leaf(pool, symbol, padding, length_zero(), true, language);
+  Subtree *result = ts_subtree__new(pool, symbol, padding, length_zero(), true, language);
   result->is_missing = true;
   result->error_cost = ERROR_COST_PER_MISSING_TREE + ERROR_COST_PER_RECOVERY;
   return result;
@@ -485,12 +513,14 @@ bool ts_subtree_eq(const Subtree *self, const Subtree *other) {
   if (self->size.bytes != other->size.bytes) return false;
   if (self->symbol == ts_builtin_sym_error) return self->lookahead_char == other->lookahead_char;
   if (self->child_count != other->child_count) return false;
-  if (self->visible_child_count != other->visible_child_count) return false;
-  if (self->named_child_count != other->named_child_count) return false;
+  if (self->child_count > 0) {
+    if (self->visible_child_count != other->visible_child_count) return false;
+    if (self->named_child_count != other->named_child_count) return false;
 
-  for (uint32_t i = 0; i < self->child_count; i++) {
-    if (!ts_subtree_eq(self->children[i], other->children[i])) {
-      return false;
+    for (uint32_t i = 0; i < self->child_count; i++) {
+      if (!ts_subtree_eq(self->children[i], other->children[i])) {
+        return false;
+      }
     }
   }
   return true;

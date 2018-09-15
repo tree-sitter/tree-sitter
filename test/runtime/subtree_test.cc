@@ -48,39 +48,18 @@ describe("Subtree", []() {
     ts_subtree_pool_delete(&pool);
   });
 
-  describe("make_leaf", [&]() {
-    it("does not mark the tree as fragile", [&]() {
-      const Subtree *tree = ts_subtree_new_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, false, &language);
-      AssertThat(tree->fragile_left, IsFalse());
-      AssertThat(tree->fragile_right, IsFalse());
+  auto new_leaf = [&](TSSymbol symbol, Length padding, Length size, uint32_t bytes_scanned) {
+    return ts_subtree_new_leaf(
+      &pool, symbol, padding, size, bytes_scanned, 0, false, false, &language
+    );
+  };
 
-      ts_subtree_release(&pool, tree);
-    });
-  });
-
-  describe("make_error", [&]() {
-    it("marks the tree as fragile", [&]() {
-      const Subtree *error_tree = ts_subtree_new_error(
-        &pool,
-        length_zero(),
-        length_zero(),
-        'z',
-        &language
-      );
-
-      AssertThat(error_tree->fragile_left, IsTrue());
-      AssertThat(error_tree->fragile_right, IsTrue());
-
-      ts_subtree_release(&pool, error_tree);
-    });
-  });
-
-  describe("make_node", [&]() {
+  describe("new_node", [&]() {
     const Subtree *tree1, *tree2, *parent1;
 
     before_each([&]() {
-      tree1 = ts_subtree_new_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, false, &language);
-      tree2 = ts_subtree_new_leaf(&pool, symbol2, {1, {0, 1}}, {3, {0, 3}}, false, &language);
+      tree1 = new_leaf(symbol1, {2, {0, 1}}, {5, {0, 4}}, 0);
+      tree2 = new_leaf(symbol2, {1, {0, 1}}, {3, {0, 3}}, 0);
 
       ts_subtree_retain(tree1);
       ts_subtree_retain(tree2);
@@ -186,9 +165,9 @@ describe("Subtree", []() {
 
     before_each([&]() {
       tree = ts_subtree_new_node(&pool, symbol1, tree_array({
-        ts_subtree_new_leaf(&pool, symbol2, {2, {0, 2}}, {3, {0, 3}}, false, &language),
-        ts_subtree_new_leaf(&pool, symbol3, {2, {0, 2}}, {3, {0, 3}}, false, &language),
-        ts_subtree_new_leaf(&pool, symbol4, {2, {0, 2}}, {3, {0, 3}}, false, &language),
+        new_leaf(symbol2, {2, {0, 2}}, {3, {0, 3}}, 0),
+        new_leaf(symbol3, {2, {0, 2}}, {3, {0, 3}}, 0),
+        new_leaf(symbol4, {2, {0, 2}}, {3, {0, 3}}, 0),
       }), 0, &language);
 
       AssertThat(tree->padding, Equals<Length>({2, {0, 2}}));
@@ -421,7 +400,7 @@ describe("Subtree", []() {
     const Subtree *leaf;
 
     before_each([&]() {
-      leaf = ts_subtree_new_leaf(&pool, symbol1, {2, {0, 1}}, {5, {0, 4}}, false, &language);
+      leaf = new_leaf(symbol1, {2, {1, 1}}, {5, {1, 4}}, 0);
     });
 
     after_each([&]() {
@@ -429,7 +408,7 @@ describe("Subtree", []() {
     });
 
     it("returns true for identical trees", [&]() {
-      const Subtree *leaf_copy = ts_subtree_new_leaf(&pool, symbol1, {2, {1, 1}}, {5, {1, 4}}, false, &language);
+      const Subtree *leaf_copy = new_leaf(symbol1, {2, {1, 1}}, {5, {1, 4}}, 0);
       AssertThat(ts_subtree_eq(leaf, leaf_copy), IsTrue());
 
       const Subtree *parent = ts_subtree_new_node(&pool, symbol2, tree_array({
@@ -454,13 +433,11 @@ describe("Subtree", []() {
     });
 
     it("returns false for trees with different symbols", [&]() {
-      const Subtree *different_leaf = ts_subtree_new_leaf(
-        &pool,
+      const Subtree *different_leaf = new_leaf(
         leaf->symbol + 1,
         leaf->padding,
         leaf->size,
-        false,
-        &language
+        leaf->bytes_scanned
       );
 
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
@@ -468,8 +445,8 @@ describe("Subtree", []() {
     });
 
     it("returns false for trees with different options", [&]() {
-      const Subtree *different_leaf = ts_subtree_new_leaf(
-        &pool, leaf->symbol, leaf->padding, leaf->size, false, &language
+      const Subtree *different_leaf = new_leaf(
+        leaf->symbol, leaf->padding, leaf->size, leaf->bytes_scanned
       );
       ((Subtree *)different_leaf)->visible = !leaf->visible;
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
@@ -477,19 +454,19 @@ describe("Subtree", []() {
     });
 
     it("returns false for trees with different paddings or sizes", [&]() {
-      const Subtree *different_leaf = ts_subtree_new_leaf(
-        &pool, leaf->symbol, {}, leaf->size, false, &language
+      const Subtree *different_leaf = new_leaf(
+        leaf->symbol, {}, leaf->size, leaf->bytes_scanned
       );
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
       ts_subtree_release(&pool, different_leaf);
 
-      different_leaf = ts_subtree_new_leaf(&pool, symbol1, leaf->padding, {}, false, &language);
+      different_leaf = new_leaf(symbol1, leaf->padding, {}, leaf->bytes_scanned);
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
       ts_subtree_release(&pool, different_leaf);
     });
 
     it("returns false for trees with different children", [&]() {
-      const Subtree *leaf2 = ts_subtree_new_leaf(&pool, symbol2, {1, {0, 1}}, {3, {0, 3}}, false, &language);
+      const Subtree *leaf2 = new_leaf(symbol2, {1, {0, 1}}, {3, {0, 3}}, 0);
 
       const Subtree *parent = ts_subtree_new_node(&pool, symbol2, tree_array({
         leaf,
@@ -520,7 +497,6 @@ describe("Subtree", []() {
 
     auto make_external = [](const Subtree *_tree) {
       Subtree *tree = (Subtree *)_tree;
-      tree->has_external_tokens = true;
       ts_external_scanner_state_init(&tree->external_scanner_state, NULL, 0);
       return tree;
     };
@@ -530,15 +506,15 @@ describe("Subtree", []() {
 
       tree1 = ts_subtree_new_node(&pool, symbol1,  tree_array({
         (tree2 = ts_subtree_new_node(&pool, symbol2, tree_array({
-          (tree3 = make_external(ts_subtree_new_leaf(&pool, symbol3, padding, size, false, &language))),
-          (tree4 = ts_subtree_new_leaf(&pool, symbol4, padding, size, false, &language)),
-          (tree5 = ts_subtree_new_leaf(&pool, symbol5, padding, size, false, &language)),
+          (tree3 = make_external(ts_subtree_new_leaf(&pool, symbol3, padding, size, 0, 0, true, false, &language))),
+          (tree4 = new_leaf(symbol4, padding, size, 0)),
+          (tree5 = new_leaf(symbol5, padding, size, 0)),
         }), 0, &language)),
         (tree6 = ts_subtree_new_node(&pool, symbol6, tree_array({
           (tree7 = ts_subtree_new_node(&pool, symbol7, tree_array({
-            (tree8 = ts_subtree_new_leaf(&pool, symbol8, padding, size, false, &language)),
+            (tree8 = new_leaf(symbol8, padding, size, 0)),
           }), 0, &language)),
-          (tree9 = ts_subtree_new_leaf(&pool, symbol9, padding, size, false, &language)),
+          (tree9 = new_leaf(symbol9, padding, size, 0)),
         }), 0, &language)),
       }), 0, &language);
 
