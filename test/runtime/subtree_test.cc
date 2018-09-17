@@ -4,13 +4,13 @@
 #include "runtime/subtree.h"
 #include "runtime/length.h"
 
-void assert_consistent(const Subtree *tree) {
-  if (tree->child_count == 0) return;
-  AssertThat(tree->children[0]->padding, Equals<Length>(tree->padding));
+void assert_consistent(Subtree tree) {
+  if (ts_subtree_child_count(tree) == 0) return;
+  AssertThat(tree.ptr->children[0].ptr->padding, Equals<Length>(tree.ptr->padding));
 
   Length total_children_size = length_zero();
-  for (size_t i = 0; i < tree->child_count; i++) {
-    const Subtree *child = tree->children[i];
+  for (size_t i = 0; i < tree.ptr->child_count; i++) {
+    Subtree child = tree.ptr->children[i];
     assert_consistent(child);
     total_children_size = length_add(total_children_size, ts_subtree_total_size(child));
   }
@@ -54,124 +54,101 @@ describe("Subtree", []() {
     );
   };
 
+  auto new_node = [&](TSSymbol symbol, vector<Subtree> children) {
+    return ts_subtree_from_mut(ts_subtree_new_node(
+      &pool, symbol, tree_array(children), 0, &language
+    ));
+  };
+
   describe("new_node", [&]() {
-    const Subtree *tree1, *tree2, *parent1;
+    Subtree tree1, tree2;
 
     before_each([&]() {
       tree1 = new_leaf(symbol1, {2, {0, 1}}, {5, {0, 4}}, 0);
       tree2 = new_leaf(symbol2, {1, {0, 1}}, {3, {0, 3}}, 0);
-
-      ts_subtree_retain(tree1);
-      ts_subtree_retain(tree2);
-      parent1 = ts_subtree_new_node(&pool, symbol3, tree_array({
-        tree1,
-        tree2,
-      }), 0, &language);
     });
 
     after_each([&]() {
       ts_subtree_release(&pool, tree1);
       ts_subtree_release(&pool, tree2);
-      ts_subtree_release(&pool, parent1);
     });
 
     it("computes its size and padding based on its child nodes", [&]() {
-      AssertThat(parent1->size.bytes, Equals<size_t>(
-        tree1->size.bytes + tree2->padding.bytes + tree2->size.bytes
-      ));
-      AssertThat(parent1->padding.bytes, Equals<size_t>(tree1->padding.bytes));
+      ts_subtree_retain(tree1);
+      ts_subtree_retain(tree2);
+      Subtree parent = new_node(symbol3, {tree1, tree2});
+
+      AssertThat(
+        ts_subtree_size(parent),
+        Equals<Length>(
+          ts_subtree_size(tree1) + ts_subtree_padding(tree2) + ts_subtree_size(tree2)
+        ));
+      AssertThat(ts_subtree_padding(parent), Equals<Length>(ts_subtree_padding(tree1)));
+      ts_subtree_release(&pool, parent);
     });
 
     describe("when the first node is fragile on the left side", [&]() {
-      const Subtree *parent;
-
-      before_each([&]() {
-        Subtree *mutable_tree1 = (Subtree *)tree1;
-        mutable_tree1->fragile_left = true;
-        mutable_tree1->extra = true;
+      it("records that it is fragile on the left side", [&]() {
+        MutableSubtree mutable_tree1 = ts_subtree_to_mut_unsafe(tree1);
+        mutable_tree1.ptr->fragile_left = true;
+        mutable_tree1.ptr->extra = true;
 
         ts_subtree_retain(tree1);
         ts_subtree_retain(tree2);
-        parent = ts_subtree_new_node(&pool, symbol3, tree_array({
-          tree1,
-          tree2,
-        }), 0, &language);
-      });
+        Subtree parent = new_node(symbol3, {tree1, tree2});
 
-      after_each([&]() {
+        AssertThat(ts_subtree_fragile_left(parent), IsTrue());
+        AssertThat(ts_subtree_fragile_right(parent), IsFalse());
         ts_subtree_release(&pool, parent);
-      });
-
-      it("records that it is fragile on the left side", [&]() {
-        AssertThat(parent->fragile_left, IsTrue());
       });
     });
 
     describe("when the last node is fragile on the right side", [&]() {
-      const Subtree *parent;
-
-      before_each([&]() {
-        Subtree *mutable_tree2 = (Subtree *)tree2;
-        mutable_tree2->fragile_right = true;
-        mutable_tree2->extra = true;
+      it("records that it is fragile on the right side", [&]() {
+        MutableSubtree mutable_tree2 = ts_subtree_to_mut_unsafe(tree2);
+        mutable_tree2.ptr->fragile_right = true;
+        mutable_tree2.ptr->extra = true;
 
         ts_subtree_retain(tree1);
         ts_subtree_retain(tree2);
-        parent = ts_subtree_new_node(&pool, symbol3, tree_array({
-          tree1,
-          tree2,
-        }), 0, &language);
-      });
+        Subtree parent = new_node(symbol3, {tree1, tree2});
 
-      after_each([&]() {
+        AssertThat(ts_subtree_fragile_left(parent), IsFalse());
+        AssertThat(ts_subtree_fragile_right(parent), IsTrue());
         ts_subtree_release(&pool, parent);
-      });
-
-      it("records that it is fragile on the right side", [&]() {
-        AssertThat(parent->fragile_right, IsTrue());
       });
     });
 
     describe("when the outer nodes aren't fragile on their outer side", [&]() {
-      const Subtree *parent;
-
-      before_each([&]() {
-        Subtree *mutable_tree1 = (Subtree *)tree1;
-        Subtree *mutable_tree2 = (Subtree *)tree2;
-        mutable_tree1->fragile_right = true;
-        mutable_tree2->fragile_left = true;
+      it("records that it is not fragile", [&]() {
+        MutableSubtree mutable_tree1 = ts_subtree_to_mut_unsafe(tree1);
+        MutableSubtree mutable_tree2 = ts_subtree_to_mut_unsafe(tree2);
+        mutable_tree1.ptr->fragile_right = true;
+        mutable_tree2.ptr->fragile_left = true;
 
         ts_subtree_retain(tree1);
         ts_subtree_retain(tree2);
-        parent = ts_subtree_new_node(&pool, symbol3, tree_array({
-          tree1,
-          tree2,
-        }), 0, &language);
-      });
+        Subtree parent = new_node(symbol3, {tree1, tree2});
 
-      after_each([&]() {
+        AssertThat(ts_subtree_fragile_left(parent), IsFalse());
+        AssertThat(ts_subtree_fragile_right(parent), IsFalse());
         ts_subtree_release(&pool, parent);
-      });
-
-      it("records that it is not fragile", [&]() {
-        AssertThat(parent->fragile_left, IsFalse());
-        AssertThat(parent->fragile_right, IsFalse());
       });
     });
   });
 
   describe("edit", [&]() {
-    const Subtree *tree;
+    Subtree tree;
 
     before_each([&]() {
-      tree = ts_subtree_new_node(&pool, symbol1, tree_array({
+      tree = new_node(symbol1, {
         new_leaf(symbol2, {2, {0, 2}}, {3, {0, 3}}, 0),
         new_leaf(symbol3, {2, {0, 2}}, {3, {0, 3}}, 0),
         new_leaf(symbol4, {2, {0, 2}}, {3, {0, 3}}, 0),
-      }), 0, &language);
+      });
 
-      AssertThat(tree->padding, Equals<Length>({2, {0, 2}}));
-      AssertThat(tree->size, Equals<Length>({13, {0, 13}}));
+      AssertThat(tree.ptr->padding, Equals<Length>({2, {0, 2}}));
+      AssertThat(tree.ptr->size, Equals<Length>({13, {0, 13}}));
     });
 
     after_each([&]() {
@@ -188,21 +165,21 @@ describe("Subtree", []() {
       edit.new_end_point = {0, 2};
 
       ts_subtree_retain(tree);
-      const Subtree *new_tree = ts_subtree_edit(tree, &edit, &pool);
+      Subtree new_tree = ts_subtree_edit(tree, &edit, &pool);
       assert_consistent(tree);
       assert_consistent(new_tree);
 
-      AssertThat(tree->has_changes, IsFalse());
-      AssertThat(tree->padding, Equals<Length>({2, {0, 2}}));
-      AssertThat(tree->size, Equals<Length>({13, {0, 13}}));
+      AssertThat(ts_subtree_has_changes(tree), IsFalse());
+      AssertThat(ts_subtree_padding(tree), Equals<Length>({2, {0, 2}}));
+      AssertThat(ts_subtree_size(tree), Equals<Length>({13, {0, 13}}));
 
-      AssertThat(tree->children[0]->has_changes, IsFalse());
-      AssertThat(tree->children[0]->padding, Equals<Length>({2, {0, 2}}));
-      AssertThat(tree->children[0]->size, Equals<Length>({3, {0, 3}}));
+      AssertThat(ts_subtree_has_changes(tree.ptr->children[0]), IsFalse());
+      AssertThat(ts_subtree_padding(tree.ptr->children[0]), Equals<Length>({2, {0, 2}}));
+      AssertThat(ts_subtree_size(tree.ptr->children[0]), Equals<Length>({3, {0, 3}}));
 
-      AssertThat(tree->children[1]->has_changes, IsFalse());
-      AssertThat(tree->children[1]->padding, Equals<Length>({2, {0, 2}}));
-      AssertThat(tree->children[1]->size, Equals<Length>({3, {0, 3}}));
+      AssertThat(ts_subtree_has_changes(tree.ptr->children[1]), IsFalse());
+      AssertThat(ts_subtree_padding(tree.ptr->children[1]), Equals<Length>({2, {0, 2}}));
+      AssertThat(ts_subtree_size(tree.ptr->children[1]), Equals<Length>({3, {0, 3}}));
 
       ts_subtree_release(&pool, new_tree);
     });
@@ -220,17 +197,17 @@ describe("Subtree", []() {
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
-        AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<Length>({3, {0, 3}}));
-        AssertThat(tree->size, Equals<Length>({13, {0, 13}}));
+        AssertThat(ts_subtree_has_changes(tree), IsTrue());
+        AssertThat(ts_subtree_padding(tree), Equals<Length>({3, {0, 3}}));
+        AssertThat(ts_subtree_size(tree), Equals<Length>({13, {0, 13}}));
 
-        AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<Length>({3, {0, 3}}));
-        AssertThat(tree->children[0]->size, Equals<Length>({3, {0, 3}}));
+        AssertThat(ts_subtree_has_changes(tree.ptr->children[0]), IsTrue());
+        AssertThat(ts_subtree_padding(tree.ptr->children[0]), Equals<Length>({3, {0, 3}}));
+        AssertThat(ts_subtree_size(tree.ptr->children[0]), Equals<Length>({3, {0, 3}}));
 
-        AssertThat(tree->children[1]->has_changes, IsFalse());
-        AssertThat(tree->children[1]->padding, Equals<Length>({2, {0, 2}}));
-        AssertThat(tree->children[1]->size, Equals<Length>({3, {0, 3}}));
+        AssertThat(ts_subtree_has_changes(tree.ptr->children[1]), IsFalse());
+        AssertThat(ts_subtree_padding(tree.ptr->children[1]), Equals<Length>({2, {0, 2}}));
+        AssertThat(ts_subtree_size(tree.ptr->children[1]), Equals<Length>({3, {0, 3}}));
       });
     });
 
@@ -247,13 +224,13 @@ describe("Subtree", []() {
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
-        AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<Length>({5, {0, 5}}));
-        AssertThat(tree->size, Equals<Length>({11, {0, 11}}));
+        AssertThat(ts_subtree_has_changes(tree), IsTrue());
+        AssertThat(ts_subtree_padding(tree), Equals<Length>({5, {0, 5}}));
+        AssertThat(ts_subtree_size(tree), Equals<Length>({11, {0, 11}}));
 
-        AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<Length>({5, {0, 5}}));
-        AssertThat(tree->children[0]->size, Equals<Length>({1, {0, 1}}));
+        AssertThat(ts_subtree_has_changes(tree.ptr->children[0]), IsTrue());
+        AssertThat(ts_subtree_padding(tree.ptr->children[0]), Equals<Length>({5, {0, 5}}));
+        AssertThat(ts_subtree_size(tree.ptr->children[0]), Equals<Length>({1, {0, 1}}));
       });
     });
 
@@ -270,15 +247,15 @@ describe("Subtree", []() {
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
-        AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<Length>({4, {0, 4}}));
-        AssertThat(tree->size, Equals<Length>({13, {0, 13}}));
+        AssertThat(ts_subtree_has_changes(tree), IsTrue());
+        AssertThat(ts_subtree_padding(tree), Equals<Length>({4, {0, 4}}));
+        AssertThat(ts_subtree_size(tree), Equals<Length>({13, {0, 13}}));
 
-        AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<Length>({4, {0, 4}}));
-        AssertThat(tree->children[0]->size, Equals<Length>({3, {0, 3}}));
+        AssertThat(ts_subtree_has_changes(tree.ptr->children[0]), IsTrue());
+        AssertThat(ts_subtree_padding(tree.ptr->children[0]), Equals<Length>({4, {0, 4}}));
+        AssertThat(ts_subtree_size(tree.ptr->children[0]), Equals<Length>({3, {0, 3}}));
 
-        AssertThat(tree->children[1]->has_changes, IsFalse());
+        AssertThat(ts_subtree_has_changes(tree.ptr->children[1]), IsFalse());
       });
     });
 
@@ -295,15 +272,15 @@ describe("Subtree", []() {
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
-        AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<Length>({2, {0, 2}}));
-        AssertThat(tree->size, Equals<Length>({16, {0, 16}}));
+        AssertThat(ts_subtree_has_changes(tree), IsTrue());
+        AssertThat(ts_subtree_padding(tree), Equals<Length>({2, {0, 2}}));
+        AssertThat(ts_subtree_size(tree), Equals<Length>({16, {0, 16}}));
 
-        AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<Length>({2, {0, 2}}));
-        AssertThat(tree->children[0]->size, Equals<Length>({6, {0, 6}}));
+        AssertThat(ts_subtree_has_changes(tree.ptr->children[0]), IsTrue());
+        AssertThat(ts_subtree_padding(tree.ptr->children[0]), Equals<Length>({2, {0, 2}}));
+        AssertThat(ts_subtree_size(tree.ptr->children[0]), Equals<Length>({6, {0, 6}}));
 
-        AssertThat(tree->children[1]->has_changes, IsFalse());
+        AssertThat(ts_subtree_has_changes(tree.ptr->children[1]), IsFalse());
       });
     });
 
@@ -320,28 +297,28 @@ describe("Subtree", []() {
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
-        AssertThat(tree->has_changes, IsTrue());
-        AssertThat(tree->padding, Equals<Length>({4, {0, 4}}));
-        AssertThat(tree->size, Equals<Length>({4, {0, 4}}));
+        AssertThat(ts_subtree_has_changes(tree), IsTrue());
+        AssertThat(ts_subtree_padding(tree), Equals<Length>({4, {0, 4}}));
+        AssertThat(ts_subtree_size(tree), Equals<Length>({4, {0, 4}}));
 
-        AssertThat(tree->children[0]->has_changes, IsTrue());
-        AssertThat(tree->children[0]->padding, Equals<Length>({4, {0, 4}}));
-        AssertThat(tree->children[0]->size, Equals<Length>({0, {0, 0}}));
+        AssertThat(ts_subtree_has_changes(tree.ptr->children[0]), IsTrue());
+        AssertThat(ts_subtree_padding(tree.ptr->children[0]), Equals<Length>({4, {0, 4}}));
+        AssertThat(ts_subtree_size(tree.ptr->children[0]), Equals<Length>({0, {0, 0}}));
 
-        AssertThat(tree->children[1]->has_changes, IsTrue());
-        AssertThat(tree->children[1]->padding, Equals<Length>({0, {0, 0}}));
-        AssertThat(tree->children[1]->size, Equals<Length>({0, {0, 0}}));
+        AssertThat(ts_subtree_has_changes(tree.ptr->children[1]), IsTrue());
+        AssertThat(ts_subtree_padding(tree.ptr->children[1]), Equals<Length>({0, {0, 0}}));
+        AssertThat(ts_subtree_size(tree.ptr->children[1]), Equals<Length>({0, {0, 0}}));
 
-        AssertThat(tree->children[2]->has_changes, IsTrue());
-        AssertThat(tree->children[2]->padding, Equals<Length>({1, {0, 1}}));
-        AssertThat(tree->children[2]->size, Equals<Length>({3, {0, 3}}));
+        AssertThat(ts_subtree_has_changes(tree.ptr->children[2]), IsTrue());
+        AssertThat(ts_subtree_padding(tree.ptr->children[2]), Equals<Length>({1, {0, 1}}));
+        AssertThat(ts_subtree_size(tree.ptr->children[2]), Equals<Length>({3, {0, 3}}));
       });
     });
 
     describe("edits within a tree's range of scanned bytes", [&]() {
       it("marks preceding trees as changed", [&]() {
-        Subtree *mutable_child = (Subtree *)tree->children[0];
-        mutable_child->bytes_scanned = 7;
+        MutableSubtree mutable_child = ts_subtree_to_mut_unsafe(tree.ptr->children[0]);
+        mutable_child.ptr->bytes_scanned = 7;
 
         TSInputEdit edit;
         edit.start_byte = 6;
@@ -354,7 +331,7 @@ describe("Subtree", []() {
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
-        AssertThat(tree->children[0]->has_changes, IsTrue());
+        AssertThat(ts_subtree_has_changes(tree.ptr->children[0]), IsTrue());
       });
     });
 
@@ -371,9 +348,9 @@ describe("Subtree", []() {
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
-        AssertThat(tree->size.bytes, Equals(14u));
-        AssertThat(tree->children[2]->has_changes, IsTrue());
-        AssertThat(tree->children[2]->size.bytes, Equals(4u));
+        AssertThat(ts_subtree_size(tree).bytes, Equals(14u));
+        AssertThat(ts_subtree_has_changes(tree.ptr->children[2]), IsTrue());
+        AssertThat(ts_subtree_size(tree.ptr->children[2]).bytes, Equals(4u));
       });
     });
 
@@ -390,14 +367,14 @@ describe("Subtree", []() {
         tree = ts_subtree_edit(tree, &edit, &pool);
         assert_consistent(tree);
 
-        AssertThat(tree->size.bytes, Equals(13u));
-        AssertThat(tree->children[2]->size.bytes, Equals(3u));
+        AssertThat(ts_subtree_size(tree).bytes, Equals(13u));
+        AssertThat(ts_subtree_size(tree.ptr->children[2]).bytes, Equals(3u));
       });
     });
   });
 
   describe("eq", [&]() {
-    const Subtree *leaf;
+    Subtree leaf;
 
     before_each([&]() {
       leaf = new_leaf(symbol1, {2, {1, 1}}, {5, {1, 4}}, 0);
@@ -408,20 +385,14 @@ describe("Subtree", []() {
     });
 
     it("returns true for identical trees", [&]() {
-      const Subtree *leaf_copy = new_leaf(symbol1, {2, {1, 1}}, {5, {1, 4}}, 0);
+      Subtree leaf_copy = new_leaf(symbol1, {2, {1, 1}}, {5, {1, 4}}, 0);
       AssertThat(ts_subtree_eq(leaf, leaf_copy), IsTrue());
 
-      const Subtree *parent = ts_subtree_new_node(&pool, symbol2, tree_array({
-        leaf,
-        leaf_copy,
-      }), 0, &language);
+      Subtree parent = new_node(symbol2, {leaf, leaf_copy});
       ts_subtree_retain(leaf);
       ts_subtree_retain(leaf_copy);
 
-      const Subtree *parent_copy = ts_subtree_new_node(&pool, symbol2, tree_array({
-        leaf,
-        leaf_copy,
-      }), 0, &language);
+      Subtree parent_copy = new_node(symbol2, {leaf, leaf_copy});
       ts_subtree_retain(leaf);
       ts_subtree_retain(leaf_copy);
 
@@ -433,11 +404,11 @@ describe("Subtree", []() {
     });
 
     it("returns false for trees with different symbols", [&]() {
-      const Subtree *different_leaf = new_leaf(
-        leaf->symbol + 1,
-        leaf->padding,
-        leaf->size,
-        leaf->bytes_scanned
+      Subtree different_leaf = new_leaf(
+        ts_subtree_symbol(leaf) + 1,
+        ts_subtree_padding(leaf),
+        ts_subtree_size(leaf),
+        ts_subtree_bytes_scanned(leaf)
       );
 
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
@@ -445,40 +416,39 @@ describe("Subtree", []() {
     });
 
     it("returns false for trees with different options", [&]() {
-      const Subtree *different_leaf = new_leaf(
-        leaf->symbol, leaf->padding, leaf->size, leaf->bytes_scanned
+      Subtree different_leaf = new_leaf(
+        ts_subtree_symbol(leaf),
+        ts_subtree_padding(leaf),
+        ts_subtree_size(leaf),
+        ts_subtree_bytes_scanned(leaf)
       );
-      ((Subtree *)different_leaf)->visible = !leaf->visible;
+      ts_subtree_to_mut_unsafe(different_leaf).ptr->visible = !ts_subtree_visible(leaf);
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
       ts_subtree_release(&pool, different_leaf);
     });
 
     it("returns false for trees with different paddings or sizes", [&]() {
-      const Subtree *different_leaf = new_leaf(
-        leaf->symbol, {}, leaf->size, leaf->bytes_scanned
+      Subtree different_leaf = new_leaf(
+        ts_subtree_symbol(leaf),
+        {},
+        ts_subtree_size(leaf),
+        ts_subtree_bytes_scanned(leaf)
       );
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
       ts_subtree_release(&pool, different_leaf);
 
-      different_leaf = new_leaf(symbol1, leaf->padding, {}, leaf->bytes_scanned);
+      different_leaf = new_leaf(symbol1, ts_subtree_padding(leaf), {}, ts_subtree_bytes_scanned(leaf));
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
       ts_subtree_release(&pool, different_leaf);
     });
 
     it("returns false for trees with different children", [&]() {
-      const Subtree *leaf2 = new_leaf(symbol2, {1, {0, 1}}, {3, {0, 3}}, 0);
-
-      const Subtree *parent = ts_subtree_new_node(&pool, symbol2, tree_array({
-        leaf,
-        leaf2,
-      }), 0, &language);
+      Subtree leaf2 = new_leaf(symbol2, {1, {0, 1}}, {3, {0, 3}}, 0);
+      Subtree parent = new_node(symbol2, {leaf, leaf2});
       ts_subtree_retain(leaf);
       ts_subtree_retain(leaf2);
 
-      const Subtree *different_parent = ts_subtree_new_node(&pool, symbol2, tree_array({
-        leaf2,
-        leaf,
-      }), 0, &language);
+      Subtree different_parent = new_node(symbol2, {leaf2, leaf});
       ts_subtree_retain(leaf2);
       ts_subtree_retain(leaf);
 
@@ -495,31 +465,33 @@ describe("Subtree", []() {
     Length padding = {1, {0, 1}};
     Length size = {2, {0, 2}};
 
-    auto make_external = [](const Subtree *_tree) {
-      Subtree *tree = (Subtree *)_tree;
-      ts_external_scanner_state_init(&tree->external_scanner_state, NULL, 0);
+    auto make_external = [](Subtree tree) {
+      ts_external_scanner_state_init(
+        &ts_subtree_to_mut_unsafe(tree).ptr->external_scanner_state,
+        NULL, 0
+      );
       return tree;
     };
 
     it("returns the last serialized external token state in the given tree", [&]() {
-      const Subtree *tree1, *tree2, *tree3, *tree4, *tree5, *tree6, *tree7, *tree8, *tree9;
+      Subtree tree1, tree2, tree3, tree4, tree5, tree6, tree7, tree8, tree9;
 
-      tree1 = ts_subtree_new_node(&pool, symbol1,  tree_array({
-        (tree2 = ts_subtree_new_node(&pool, symbol2, tree_array({
+      tree1 = new_node(symbol1, {
+        (tree2 = new_node(symbol2, {
           (tree3 = make_external(ts_subtree_new_leaf(&pool, symbol3, padding, size, 0, 0, true, false, &language))),
           (tree4 = new_leaf(symbol4, padding, size, 0)),
           (tree5 = new_leaf(symbol5, padding, size, 0)),
-        }), 0, &language)),
-        (tree6 = ts_subtree_new_node(&pool, symbol6, tree_array({
-          (tree7 = ts_subtree_new_node(&pool, symbol7, tree_array({
+        })),
+        (tree6 = new_node(symbol6, {
+          (tree7 = new_node(symbol7, {
             (tree8 = new_leaf(symbol8, padding, size, 0)),
-          }), 0, &language)),
+          })),
           (tree9 = new_leaf(symbol9, padding, size, 0)),
-        }), 0, &language)),
-      }), 0, &language);
+        })),
+      });
 
       auto token = ts_subtree_last_external_token(tree1);
-      AssertThat(token, Equals(tree3));
+      AssertThat(token.ptr, Equals(tree3.ptr));
 
       ts_subtree_release(&pool, tree1);
     });

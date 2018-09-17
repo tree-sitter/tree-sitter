@@ -14,6 +14,10 @@ bool operator==(const TSRange &left, const TSRange &right);
 
 bool operator==(const Length &left, const Length &right);
 
+Length operator*(const Length &length, uint32_t factor);
+
+Length operator+(const Length &left, const Length &right);
+
 std::ostream &operator<<(std::ostream &stream, const TSPoint &point);
 
 std::ostream &operator<<(std::ostream &stream, const TSRange &range);

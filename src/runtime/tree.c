@@ -7,7 +7,7 @@
 
 static const unsigned PARENT_CACHE_CAPACITY = 32;
 
-TSTree *ts_tree_new(const Subtree *root, const TSLanguage *language) {
+TSTree *ts_tree_new(Subtree root, const TSLanguage *language) {
   TSTree *result = ts_malloc(sizeof(TSTree));
   result->root = root;
   result->language = language;
@@ -31,7 +31,7 @@ void ts_tree_delete(TSTree *self) {
 }
 
 TSNode ts_tree_root_node(const TSTree *self) {
-  return ts_node_new(self, self->root, self->root->padding, 0);
+  return ts_node_new(self, &self->root, ts_subtree_padding(self->root), 0);
 }
 
 const TSLanguage *ts_tree_language(const TSTree *self) {
@@ -53,7 +53,7 @@ TSRange *ts_tree_get_changed_ranges(const TSTree *self, const TSTree *other, uin
   ts_tree_cursor_init(&cursor1, root);
   ts_tree_cursor_init(&cursor2, root);
   *count = ts_subtree_get_changed_ranges(
-    self->root, other->root, &cursor1, &cursor2,
+    &self->root, &other->root, &cursor1, &cursor2,
     self->language, &result
   );
   array_delete(&cursor1.stack);
@@ -85,7 +85,7 @@ void ts_tree_set_cached_parent(const TSTree *_self, const TSNode *node, const TS
   uint32_t index = (self->parent_cache_start + self->parent_cache_size) % PARENT_CACHE_CAPACITY;
   self->parent_cache[index] = (ParentCacheEntry) {
     .child = node->id,
-    .parent = parent->id,
+    .parent = (const Subtree *)parent->id,
     .position = {
       parent->context[0],
       {parent->context[1], parent->context[2]}

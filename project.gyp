@@ -127,7 +127,7 @@
         },
       },
       'Test': {
-        'defines': ['TREE_SITTER_WRAP_MALLOC=true'],
+        'defines': ['TREE_SITTER_TEST=true'],
         'cflags': [ '-g' ],
         'ldflags': [ '-g' ],
         'xcode_settings': {

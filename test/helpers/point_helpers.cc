@@ -35,6 +35,14 @@ bool operator>(const TSPoint &left, const TSPoint &right) {
   return right < left;
 }
 
+Length operator*(const Length &length, uint32_t factor) {
+  return {length.bytes * factor, {0, length.extent.column * factor}};
+}
+
+Length operator+(const Length &left, const Length &right) {
+  return length_add(left, right);
+}
+
 std::ostream &operator<<(std::ostream &stream, const TSPoint &point) {
   return stream << "{" << point.row << ", " << point.column << "}";
 }
