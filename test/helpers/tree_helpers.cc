@@ -14,18 +14,18 @@ const char *symbol_names[24] = {
   "twenty-two", "twenty-three"
 };
 
-SubtreeArray *tree_array(std::vector<const Subtree *> trees) {
+SubtreeArray *tree_array(std::vector<Subtree> trees) {
   static SubtreeArray result;
   result.capacity = trees.size();
   result.size = trees.size();
-  result.contents = (const Subtree **)calloc(trees.size(), sizeof(Subtree *));
+  result.contents = (Subtree *)calloc(trees.size(), sizeof(Subtree));
   for (size_t i = 0; i < trees.size(); i++) {
     result.contents[i] = trees[i];
   }
   return &result;
 }
 
-ostream &operator<<(std::ostream &stream, const Subtree *tree) {
+ostream &operator<<(std::ostream &stream, Subtree tree) {
   static TSLanguage DUMMY_LANGUAGE = {};
   DUMMY_LANGUAGE.symbol_names = symbol_names;
   char *string = ts_subtree_string(tree, &DUMMY_LANGUAGE, false);
@@ -52,13 +52,10 @@ bool operator==(const TSNode &left, const TSNode &right) {
     ts_node_start_point(left) == ts_node_start_point(right);
 }
 
-bool operator==(const std::vector<const Subtree *> &vec, const SubtreeArray &array) {
-  if (vec.size() != array.size)
-    return false;
-  for (size_t i = 0; i < array.size; i++)
-    if (array.contents[i] != vec[i])
-      return false;
-  return true;
+bool operator==(const std::vector<Subtree> &vec, const SubtreeArray &array) {
+  return
+    vec.size() == array.size &&
+    std::memcmp(vec.data(), array.contents, array.size * sizeof(Subtree)) == 0;
 }
 
 void assert_consistent_tree_sizes(TSNode node) {

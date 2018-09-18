@@ -839,7 +839,6 @@ describe("Parser", [&]() {
       AssertThat(ts_node_type(interpolation_node1), Equals("template_substitution"));
       AssertThat(ts_node_type(interpolation_node2), Equals("template_substitution"));
       AssertThat(ts_node_type(close_quote_node), Equals("`"));
-      ts_tree_delete(js_tree);
 
       TSRange included_ranges[] = {
         {
@@ -863,6 +862,7 @@ describe("Parser", [&]() {
       };
 
       ts_parser_set_included_ranges(parser, included_ranges, 3);
+      ts_tree_delete(js_tree);
       ts_parser_set_language(parser, load_real_language("html"));
       tree = ts_parser_parse_string(parser, nullptr, source_code.c_str(), source_code.size());
 

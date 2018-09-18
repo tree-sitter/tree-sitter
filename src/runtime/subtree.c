@@ -20,9 +20,17 @@ typedef struct {
 
 TSStateId TS_TREE_STATE_NONE = USHRT_MAX;
 
-static const uint32_t MAX_TREE_POOL_SIZE = 0;
-static const uint32_t SMALL_TREE_SIZE = offsetof(Subtree, children);
-static const uint32_t LARGE_TREE_SIZE = sizeof(Subtree);
+#ifdef TREE_SITTER_TEST
+
+#define TS_MAX_INLINE_TREE_LENGTH 2
+#define TS_MAX_TREE_POOL_SIZE 0
+
+#else
+
+#define TS_MAX_INLINE_TREE_LENGTH UINT8_MAX
+#define TS_MAX_TREE_POOL_SIZE 32
+
+#endif
 
 static const ExternalScannerState empty_state = {.length = 0, .short_data = {0}};
 
@@ -75,8 +83,8 @@ void ts_subtree_array_copy(SubtreeArray self, SubtreeArray *dest) {
   dest->capacity = self.capacity;
   dest->contents = self.contents;
   if (self.capacity > 0) {
-    dest->contents = ts_calloc(self.capacity, sizeof(Subtree *));
-    memcpy(dest->contents, self.contents, self.size * sizeof(Subtree *));
+    dest->contents = ts_calloc(self.capacity, sizeof(Subtree));
+    memcpy(dest->contents, self.contents, self.size * sizeof(Subtree));
     for (uint32_t i = 0; i < self.size; i++) {
       ts_subtree_retain(dest->contents[i]);
     }
@@ -95,8 +103,8 @@ SubtreeArray ts_subtree_array_remove_trailing_extras(SubtreeArray *self) {
 
   uint32_t i = self->size - 1;
   for (; i + 1 > 0; i--) {
-    const Subtree *child = self->contents[i];
-    if (!child->extra) break;
+    Subtree child = self->contents[i];
+    if (!ts_subtree_extra(child)) break;
     array_push(&result, child);
   }
 
@@ -108,7 +116,7 @@ SubtreeArray ts_subtree_array_remove_trailing_extras(SubtreeArray *self) {
 void ts_subtree_array_reverse(SubtreeArray *self) {
   for (uint32_t i = 0, limit = self->size / 2; i < limit; i++) {
     size_t reverse_index = self->size - 1 - i;
-    const Subtree *swap = self->contents[i];
+    Subtree swap = self->contents[i];
     self->contents[i] = self->contents[reverse_index];
     self->contents[reverse_index] = swap;
   }
@@ -117,44 +125,32 @@ void ts_subtree_array_reverse(SubtreeArray *self) {
 // SubtreePool
 
 SubtreePool ts_subtree_pool_new(uint32_t capacity) {
-  SubtreePool self = {array_new(), array_new(), array_new()};
+  SubtreePool self = {array_new(), array_new()};
   array_reserve(&self.free_trees, capacity);
-  array_reserve(&self.free_small_trees, capacity);
   return self;
 }
 
 void ts_subtree_pool_delete(SubtreePool *self) {
   if (self->free_trees.contents) {
     for (unsigned i = 0; i < self->free_trees.size; i++) {
-      ts_free(self->free_trees.contents[i]);
+      ts_free(self->free_trees.contents[i].ptr);
     }
     array_delete(&self->free_trees);
-  }
-  if (self->free_small_trees.contents) {
-    for (unsigned i = 0; i < self->free_small_trees.size; i++) {
-      ts_free(self->free_small_trees.contents[i]);
-    }
-    array_delete(&self->free_small_trees);
   }
   if (self->tree_stack.contents) array_delete(&self->tree_stack);
 }
 
-Subtree *ts_subtree_pool_allocate(SubtreePool *self, bool is_small) {
-  MutableSubtreeArray *array = is_small ? &self->free_small_trees : &self->free_trees;
-  Subtree *result;
-  if (array->size > 0) {
-    result = array_pop(array);
+static SubtreeHeapData *ts_subtree_pool_allocate(SubtreePool *self) {
+  if (self->free_trees.size > 0) {
+    return array_pop(&self->free_trees).ptr;
   } else {
-    result = ts_malloc(is_small ? SMALL_TREE_SIZE : LARGE_TREE_SIZE);
+    return ts_malloc(sizeof(SubtreeHeapData));
   }
-  result->is_small = is_small;
-  return result;
 }
 
-void ts_subtree_pool_free(SubtreePool *self, Subtree *tree) {
-  MutableSubtreeArray *array = tree->is_small ? &self->free_small_trees : &self->free_trees;
-  if (array->capacity > 0 && array->size < MAX_TREE_POOL_SIZE) {
-    array_push(array, tree);
+static void ts_subtree_pool_free(SubtreePool *self, SubtreeHeapData *tree) {
+  if (self->free_trees.capacity > 0 && self->free_trees.size + 1 <= TS_MAX_TREE_POOL_SIZE) {
+    array_push(&self->free_trees, (MutableSubtree) {.ptr = tree});
   } else {
     ts_free(tree);
   }
@@ -162,364 +158,436 @@ void ts_subtree_pool_free(SubtreePool *self, Subtree *tree) {
 
 // Subtree
 
-Subtree *ts_subtree_new_leaf(SubtreePool *pool, TSSymbol symbol, Length padding, Length size,
-                             bool is_small, const TSLanguage *language) {
+static inline bool ts_subtree_can_inline(Length padding, Length size) {
+  return
+    padding.extent.row < 16 &&
+    padding.extent.column < TS_MAX_INLINE_TREE_LENGTH &&
+    size.extent.row == 0 &&
+    size.extent.column < TS_MAX_INLINE_TREE_LENGTH;
+}
+
+Subtree ts_subtree_new_leaf(
+  SubtreePool *pool, TSSymbol symbol, Length padding, Length size,
+  uint32_t bytes_scanned, TSStateId parse_state, bool has_external_tokens,
+  bool is_keyword, const TSLanguage *language
+) {
   TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
-  Subtree *result = ts_subtree_pool_allocate(pool, is_small);
-  result->padding = padding;
-  result->size = size;
-  result->ref_count = 1;
-  result->bytes_scanned = 0;
-  result->error_cost = 0;
-  result->child_count = 0;
-  result->is_small = is_small;
-  result->visible = metadata.visible;
-  result->named = metadata.named;
-  result->extra = symbol == ts_builtin_sym_end;
-  result->fragile_left = false;
-  result->fragile_right = false;
-  result->has_changes = false;
-  result->has_external_tokens = false;
-  result->is_missing = false;
-  result->is_keyword = false;
-  result->symbol = symbol;
-  result->parse_state = 0;
-  result->first_leaf.symbol = symbol;
-  result->first_leaf.lex_mode = (TSLexMode) {0, 0};
+  unsigned additional_bytes_scanned = bytes_scanned - size.bytes - padding.bytes;
+  bool extra = symbol == ts_builtin_sym_end;
+
+  bool is_inline = (
+    symbol <= UINT8_MAX &&
+    additional_bytes_scanned < 16 &&
+    !has_external_tokens &&
+    ts_subtree_can_inline(padding, size)
+  );
+
+  if (is_inline) {
+    return (Subtree) {{
+      .parse_state = parse_state,
+      .symbol = symbol,
+      .padding_bytes = padding.bytes,
+      .padding_rows = padding.extent.row,
+      .padding_columns = padding.extent.column,
+      .size_bytes = size.bytes,
+      .additional_bytes_scanned = additional_bytes_scanned,
+      .visible = metadata.visible,
+      .named = metadata.named,
+      .extra = extra,
+      .has_changes = false,
+      .is_missing = false,
+      .is_keyword = is_keyword,
+      .is_inline = true,
+    }};
+  } else {
+    SubtreeHeapData *data = ts_subtree_pool_allocate(pool);
+    *data = (SubtreeHeapData) {
+      .ref_count = 1,
+      .padding = padding,
+      .size = size,
+      .bytes_scanned = bytes_scanned,
+      .error_cost = 0,
+      .child_count = 0,
+      .symbol = symbol,
+      .parse_state = parse_state,
+      .visible = metadata.visible,
+      .named = metadata.named,
+      .extra = extra,
+      .fragile_left = false,
+      .fragile_right = false,
+      .has_changes = false,
+      .has_external_tokens = has_external_tokens,
+      .is_missing = false,
+      .is_keyword = is_keyword,
+      .first_leaf = {.symbol = 0, .parse_state = 0},
+    };
+    return (Subtree) {.ptr = data};
+  }
+}
+
+Subtree ts_subtree_new_error(
+  SubtreePool *pool, int32_t lookahead_char, Length padding, Length size,
+  uint32_t bytes_scanned, TSStateId parse_state, const TSLanguage *language
+) {
+  Subtree result = ts_subtree_new_leaf(
+    pool, ts_builtin_sym_error, padding, size, bytes_scanned,
+    parse_state, false, false, language
+  );
+  SubtreeHeapData *data = (SubtreeHeapData *)result.ptr;
+  data->fragile_left = true;
+  data->fragile_right = true;
+  data->lookahead_char = lookahead_char;
   return result;
 }
 
-Subtree *ts_subtree_new_error(SubtreePool *pool, Length size, Length padding,
-                              int32_t lookahead_char, const TSLanguage *language) {
-  Subtree *result = ts_subtree_new_leaf(pool, ts_builtin_sym_error, padding, size, false, language);
-  result->fragile_left = true;
-  result->fragile_right = true;
-  result->lookahead_char = lookahead_char;
-  return result;
-}
+MutableSubtree ts_subtree_make_mut(SubtreePool *pool, Subtree self) {
+  if (self.data.is_inline) return (MutableSubtree) {self.data};
+  if (self.ptr->ref_count == 1) return ts_subtree_to_mut_unsafe(self);
 
-Subtree *ts_subtree_new_copy(SubtreePool *pool, const Subtree *self) {
-  Subtree *result = ts_subtree_pool_allocate(pool, self->is_small);
-  memcpy(result, self, self->is_small ? SMALL_TREE_SIZE : LARGE_TREE_SIZE);
+  SubtreeHeapData *result = ts_subtree_pool_allocate(pool);
+  memcpy(result, self.ptr, sizeof(SubtreeHeapData));
   if (result->child_count > 0) {
-    result->children = ts_calloc(self->child_count, sizeof(const Subtree *));
-    memcpy(result->children, self->children, self->child_count * sizeof(const Subtree *));
+    result->children = ts_calloc(self.ptr->child_count, sizeof(Subtree));
+    memcpy(result->children, self.ptr->children, result->child_count * sizeof(Subtree));
     for (uint32_t i = 0; i < result->child_count; i++) {
       ts_subtree_retain(result->children[i]);
     }
   } else if (result->has_external_tokens) {
-    result->external_scanner_state = ts_external_scanner_state_copy(&self->external_scanner_state);
+    result->external_scanner_state = ts_external_scanner_state_copy(&self.ptr->external_scanner_state);
   }
   result->ref_count = 1;
-  return result;
+  ts_subtree_release(pool, self);
+  return (MutableSubtree) {.ptr = result};
 }
 
-Subtree *ts_subtree_make_mut(SubtreePool *pool, const Subtree *self) {
-  if (self->ref_count == 1) {
-    return (Subtree *)self;
-  } else {
-    Subtree *result = ts_subtree_new_copy(pool, self);
-    ts_subtree_release(pool, self);
-    return result;
-  }
-}
-
-static void ts_subtree__compress(Subtree *self, unsigned count, const TSLanguage *language,
+static void ts_subtree__compress(MutableSubtree self, unsigned count, const TSLanguage *language,
                                  MutableSubtreeArray *stack) {
   unsigned initial_stack_size = stack->size;
 
-  Subtree *tree = self;
+  MutableSubtree tree = self;
+  TSSymbol symbol = tree.ptr->symbol;
   for (unsigned i = 0; i < count; i++) {
-    if (tree->ref_count > 1 || tree->child_count != 2) break;
+    if (tree.ptr->ref_count > 1 || tree.ptr->child_count != 2) break;
 
-    Subtree *child = (Subtree *)tree->children[0];
+    MutableSubtree child = ts_subtree_to_mut_unsafe(tree.ptr->children[0]);
     if (
-      child->ref_count > 1 ||
-      child->child_count != 2 ||
-      child->symbol != tree->symbol
+      child.data.is_inline ||
+      child.ptr->child_count != 2 ||
+      child.ptr->ref_count > 1 ||
+      child.ptr->symbol != symbol
     ) break;
 
-    Subtree *grandchild = (Subtree *)child->children[0];
+    MutableSubtree grandchild = ts_subtree_to_mut_unsafe(child.ptr->children[0]);
     if (
-      grandchild->ref_count > 1 ||
-      grandchild->child_count != 2 ||
-      grandchild->symbol != tree->symbol
+      grandchild.data.is_inline ||
+      grandchild.ptr->child_count != 2 ||
+      grandchild.ptr->ref_count > 1 ||
+      grandchild.ptr->symbol != symbol
     ) break;
 
-    tree->children[0] = grandchild;
-    child->children[0] = grandchild->children[1];
-    grandchild->children[1] = child;
+    tree.ptr->children[0] = ts_subtree_from_mut(grandchild);
+    child.ptr->children[0] = grandchild.ptr->children[1];
+    grandchild.ptr->children[1] = ts_subtree_from_mut(child);
     array_push(stack, tree);
     tree = grandchild;
   }
 
   while (stack->size > initial_stack_size) {
     tree = array_pop(stack);
-    assert(tree);
-    Subtree *child = (Subtree *)tree->children[0];
-    Subtree *grandchild = (Subtree *)child->children[1];
-    ts_subtree_set_children(grandchild, grandchild->children, grandchild->child_count, language);
-    ts_subtree_set_children(child, child->children, child->child_count, language);
-    ts_subtree_set_children(tree, tree->children, tree->child_count, language);
+    MutableSubtree child = ts_subtree_to_mut_unsafe(tree.ptr->children[0]);
+    MutableSubtree grandchild = ts_subtree_to_mut_unsafe(child.ptr->children[1]);
+    ts_subtree_set_children(grandchild, grandchild.ptr->children, grandchild.ptr->child_count, language);
+    ts_subtree_set_children(child, child.ptr->children, child.ptr->child_count, language);
+    ts_subtree_set_children(tree, tree.ptr->children, tree.ptr->child_count, language);
   }
 }
 
-void ts_subtree_balance(const Subtree *self, SubtreePool *pool, const TSLanguage *language) {
+void ts_subtree_balance(Subtree self, SubtreePool *pool, const TSLanguage *language) {
   array_clear(&pool->tree_stack);
 
-  if (self->ref_count == 1) {
-    array_push(&pool->tree_stack, (Subtree *)self);
+  if (ts_subtree_child_count(self) > 0 && self.ptr->ref_count == 1) {
+    array_push(&pool->tree_stack, ts_subtree_to_mut_unsafe(self));
   }
 
   while (pool->tree_stack.size > 0) {
-    Subtree *tree = array_pop(&pool->tree_stack);
-    assert(tree);
+    MutableSubtree tree = array_pop(&pool->tree_stack);
 
-    if (
-      tree->child_count > 0 &&
-      tree->repeat_depth > 0 &&
-      tree->children[0]->child_count > 0 &&
-      tree->children[1]->child_count > 0 &&
-      tree->children[0]->repeat_depth > tree->children[1]->repeat_depth
-    ) {
-      unsigned n = tree->children[0]->repeat_depth - tree->children[1]->repeat_depth;
-      for (unsigned i = n / 2; i > 0; i /= 2) {
-        ts_subtree__compress(tree, i, language, &pool->tree_stack);
-        n -= i;
+    if (tree.ptr->repeat_depth > 0) {
+      Subtree child1 = tree.ptr->children[0];
+      Subtree child2 = tree.ptr->children[1];
+      if (
+        ts_subtree_child_count(child1) > 0 &&
+        ts_subtree_child_count(child2) > 0 &&
+        child1.ptr->repeat_depth > child2.ptr->repeat_depth
+      ) {
+        unsigned n = child1.ptr->repeat_depth - child2.ptr->repeat_depth;
+        for (unsigned i = n / 2; i > 0; i /= 2) {
+          ts_subtree__compress(tree, i, language, &pool->tree_stack);
+          n -= i;
+        }
       }
     }
 
-    for (uint32_t i = 0; i < tree->child_count; i++) {
-      const Subtree *child = tree->children[i];
-      if (child->ref_count == 1) {
-        array_push(&pool->tree_stack, (Subtree *)child);
+    for (uint32_t i = 0; i < tree.ptr->child_count; i++) {
+      Subtree child = tree.ptr->children[i];
+      if (ts_subtree_child_count(child) > 0 && child.ptr->ref_count == 1) {
+        array_push(&pool->tree_stack, ts_subtree_to_mut_unsafe(child));
       }
     }
   }
 }
 
-void ts_subtree_set_children(Subtree *self, const Subtree **children, uint32_t child_count, const TSLanguage *language) {
-  if (self->child_count > 0 && children != self->children) {
-    ts_free(self->children);
+void ts_subtree_set_children(
+  MutableSubtree self, Subtree *children, uint32_t child_count, const TSLanguage *language
+) {
+  assert(!self.data.is_inline);
+
+  if (self.ptr->child_count > 0 && children != self.ptr->children) {
+    ts_free(self.ptr->children);
   }
 
-  assert(!self->is_small);
-
-  self->child_count = child_count;
-  self->children = children;
-  self->named_child_count = 0;
-  self->visible_child_count = 0;
-  self->error_cost = 0;
-  self->repeat_depth = 0;
-  self->node_count = 1;
-  self->has_external_tokens = false;
-  self->dynamic_precedence = 0;
+  self.ptr->child_count = child_count;
+  self.ptr->children = children;
+  self.ptr->named_child_count = 0;
+  self.ptr->visible_child_count = 0;
+  self.ptr->error_cost = 0;
+  self.ptr->repeat_depth = 0;
+  self.ptr->node_count = 1;
+  self.ptr->has_external_tokens = false;
+  self.ptr->dynamic_precedence = 0;
 
   uint32_t non_extra_index = 0;
-  const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self->alias_sequence_id);
+  const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->alias_sequence_id);
 
-  for (uint32_t i = 0; i < self->child_count; i++) {
-    const Subtree *child = self->children[i];
+  for (uint32_t i = 0; i < self.ptr->child_count; i++) {
+    Subtree child = self.ptr->children[i];
 
     if (i == 0) {
-      self->padding = child->padding;
-      self->size = child->size;
-      self->bytes_scanned = child->bytes_scanned;
+      self.ptr->padding = ts_subtree_padding(child);
+      self.ptr->size = ts_subtree_size(child);
+      self.ptr->bytes_scanned = ts_subtree_bytes_scanned(child);
     } else {
-      uint32_t bytes_scanned = ts_subtree_total_bytes(self) + child->bytes_scanned;
-      if (bytes_scanned > self->bytes_scanned) self->bytes_scanned = bytes_scanned;
-      self->size = length_add(self->size, ts_subtree_total_size(child));
+      uint32_t bytes_scanned = self.ptr->padding.bytes + self.ptr->size.bytes + ts_subtree_bytes_scanned(child);
+      if (bytes_scanned > self.ptr->bytes_scanned) self.ptr->bytes_scanned = bytes_scanned;
+      self.ptr->size = length_add(self.ptr->size, ts_subtree_total_size(child));
     }
 
-    if (child->symbol != ts_builtin_sym_error_repeat) {
-      self->error_cost += child->error_cost;
+    if (ts_subtree_symbol(child) != ts_builtin_sym_error_repeat) {
+      self.ptr->error_cost += ts_subtree_error_cost(child);
     }
 
-    if (child->child_count > 0) {
-      self->dynamic_precedence += child->dynamic_precedence;
-      self->node_count += child->node_count;
-    } else {
-      self->node_count++;
-    }
+    self.ptr->dynamic_precedence += ts_subtree_dynamic_precedence(child);
+    self.ptr->node_count += ts_subtree_node_count(child);
 
-    if (alias_sequence && alias_sequence[non_extra_index] != 0 && !child->extra) {
-      self->visible_child_count++;
+    if (alias_sequence && alias_sequence[non_extra_index] != 0 && !ts_subtree_extra(child)) {
+      self.ptr->visible_child_count++;
       if (ts_language_symbol_metadata(language, alias_sequence[non_extra_index]).named) {
-        self->named_child_count++;
+        self.ptr->named_child_count++;
       }
-    } else if (child->visible) {
-      self->visible_child_count++;
-      if (child->named) self->named_child_count++;
-    } else if (child->child_count > 0) {
-      self->visible_child_count += child->visible_child_count;
-      self->named_child_count += child->named_child_count;
+    } else if (ts_subtree_visible(child)) {
+      self.ptr->visible_child_count++;
+      if (ts_subtree_named(child)) self.ptr->named_child_count++;
+    } else if (ts_subtree_child_count(child) > 0) {
+      self.ptr->visible_child_count += child.ptr->visible_child_count;
+      self.ptr->named_child_count += child.ptr->named_child_count;
     }
 
-    if (child->has_external_tokens) self->has_external_tokens = true;
+    if (ts_subtree_has_external_tokens(child)) self.ptr->has_external_tokens = true;
 
-    if (child->symbol == ts_builtin_sym_error) {
-      self->fragile_left = self->fragile_right = true;
-      self->parse_state = TS_TREE_STATE_NONE;
+    if (ts_subtree_is_error(child)) {
+      self.ptr->fragile_left = self.ptr->fragile_right = true;
+      self.ptr->parse_state = TS_TREE_STATE_NONE;
     }
 
-    if (!child->extra) non_extra_index++;
+    if (!ts_subtree_extra(child)) non_extra_index++;
   }
 
-  if (self->symbol == ts_builtin_sym_error || self->symbol == ts_builtin_sym_error_repeat) {
-    self->error_cost += ERROR_COST_PER_RECOVERY +
-                        ERROR_COST_PER_SKIPPED_CHAR * self->size.bytes +
-                        ERROR_COST_PER_SKIPPED_LINE * self->size.extent.row;
-    for (uint32_t i = 0; i < self->child_count; i++) {
-      const Subtree *child = self->children[i];
-      if (child->extra) continue;
-      if (child->symbol == ts_builtin_sym_error && child->child_count == 0) continue;
-      if (child->visible) {
-        self->error_cost += ERROR_COST_PER_SKIPPED_TREE;
-      } else {
-        self->error_cost += ERROR_COST_PER_SKIPPED_TREE * child->visible_child_count;
+  if (self.ptr->symbol == ts_builtin_sym_error || self.ptr->symbol == ts_builtin_sym_error_repeat) {
+    self.ptr->error_cost +=
+      ERROR_COST_PER_RECOVERY +
+      ERROR_COST_PER_SKIPPED_CHAR * self.ptr->size.bytes +
+      ERROR_COST_PER_SKIPPED_LINE * self.ptr->size.extent.row;
+    for (uint32_t i = 0; i < self.ptr->child_count; i++) {
+      Subtree child = self.ptr->children[i];
+      uint32_t grandchild_count = ts_subtree_child_count(child);
+      if (ts_subtree_extra(child)) continue;
+      if (ts_subtree_is_error(child) && grandchild_count == 0) continue;
+      if (ts_subtree_visible(child)) {
+        self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE;
+      } else if (grandchild_count > 0) {
+        self.ptr->error_cost += ERROR_COST_PER_SKIPPED_TREE * child.ptr->visible_child_count;
       }
     }
   }
 
-  if (self->child_count > 0) {
-    const Subtree *first_child = self->children[0];
-    const Subtree *last_child = self->children[self->child_count - 1];
-    self->first_leaf = first_child->first_leaf;
-    if (first_child->fragile_left) self->fragile_left = true;
-    if (last_child->fragile_right) self->fragile_right = true;
+  if (self.ptr->child_count > 0) {
+    Subtree first_child = self.ptr->children[0];
+    Subtree last_child = self.ptr->children[self.ptr->child_count - 1];
+
+    self.ptr->first_leaf.symbol = ts_subtree_leaf_symbol(first_child);
+    self.ptr->first_leaf.parse_state = ts_subtree_leaf_parse_state(first_child);
+
+    if (ts_subtree_fragile_left(first_child)) self.ptr->fragile_left = true;
+    if (ts_subtree_fragile_right(last_child)) self.ptr->fragile_right = true;
+
     if (
-      self->child_count == 2 &&
-      !self->visible && !self->named &&
-      first_child->symbol == self->symbol &&
-      last_child->symbol == self->symbol
+      self.ptr->child_count == 2 &&
+      !self.ptr->visible && !self.ptr->named &&
+      ts_subtree_symbol(first_child) == self.ptr->symbol &&
+      ts_subtree_symbol(last_child) == self.ptr->symbol
     ) {
-      if (first_child->repeat_depth > last_child->repeat_depth) {
-        self->repeat_depth = first_child->repeat_depth + 1;
+      if (first_child.ptr->repeat_depth > last_child.ptr->repeat_depth) {
+        self.ptr->repeat_depth = first_child.ptr->repeat_depth + 1;
       } else {
-        self->repeat_depth = last_child->repeat_depth + 1;
+        self.ptr->repeat_depth = last_child.ptr->repeat_depth + 1;
       }
     }
   }
 }
 
-Subtree *ts_subtree_new_node(SubtreePool *pool, TSSymbol symbol, SubtreeArray *children,
-                             unsigned alias_sequence_id, const TSLanguage *language) {
+MutableSubtree ts_subtree_new_node(SubtreePool *pool, TSSymbol symbol,
+                                   SubtreeArray *children, unsigned alias_sequence_id,
+                                   const TSLanguage *language) {
   TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
-  Subtree *result = ts_subtree_pool_allocate(pool, false);
-  *result = (Subtree){
+  bool fragile = symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat;
+  SubtreeHeapData *data = ts_subtree_pool_allocate(pool);
+  *data = (SubtreeHeapData) {
     .ref_count = 1,
     .symbol = symbol,
     .alias_sequence_id = alias_sequence_id,
     .visible = metadata.visible,
     .named = metadata.named,
     .has_changes = false,
+    .fragile_left = fragile,
+    .fragile_right = fragile,
     .is_keyword = false,
     .node_count = 0,
+    .first_leaf = {.symbol = 0, .parse_state = 0},
   };
-  if (symbol == ts_builtin_sym_error || symbol == ts_builtin_sym_error_repeat) {
-    result->fragile_left = true;
-    result->fragile_right = true;
-  }
+  MutableSubtree result = {.ptr = data};
   ts_subtree_set_children(result, children->contents, children->size, language);
   return result;
 }
 
-Subtree *ts_subtree_new_error_node(SubtreePool *pool, SubtreeArray *children,
-                                   const TSLanguage *language) {
-  return ts_subtree_new_node(pool, ts_builtin_sym_error, children, 0, language);
+Subtree ts_subtree_new_error_node(SubtreePool *pool, SubtreeArray *children,
+                                  bool extra, const TSLanguage *language) {
+  MutableSubtree result = ts_subtree_new_node(
+    pool, ts_builtin_sym_error, children, 0, language
+  );
+  result.ptr->extra = extra;
+  return ts_subtree_from_mut(result);
 }
 
-Subtree *ts_subtree_new_missing_leaf(SubtreePool *pool, TSSymbol symbol, Length padding,
-                                     const TSLanguage *language) {
-  Subtree *result = ts_subtree_new_leaf(pool, symbol, padding, length_zero(), true, language);
-  result->is_missing = true;
-  result->error_cost = ERROR_COST_PER_MISSING_TREE + ERROR_COST_PER_RECOVERY;
+Subtree ts_subtree_new_missing_leaf(SubtreePool *pool, TSSymbol symbol, Length padding,
+                                    const TSLanguage *language) {
+  Subtree result = ts_subtree_new_leaf(
+    pool, symbol, padding, length_zero(), 0,
+    0, false, false, language
+  );
+
+  if (result.data.is_inline) {
+    result.data.is_missing = true;
+  } else {
+    ((SubtreeHeapData *)result.ptr)->is_missing = true;
+  }
+
   return result;
 }
 
-void ts_subtree_retain(const Subtree *self) {
-  assert(self->ref_count > 0);
-  atomic_inc((volatile uint32_t *)&self->ref_count);
-  assert(self->ref_count != 0);
+void ts_subtree_retain(Subtree self) {
+  if (self.data.is_inline) return;
+  assert(self.ptr->ref_count > 0);
+  atomic_inc((volatile uint32_t *)&self.ptr->ref_count);
+  assert(self.ptr->ref_count != 0);
 }
 
-void ts_subtree_release(SubtreePool *pool, const Subtree *self) {
+void ts_subtree_release(SubtreePool *pool, Subtree self) {
+  if (self.data.is_inline) return;
   array_clear(&pool->tree_stack);
 
-  assert(self->ref_count > 0);
-  if (atomic_dec((volatile uint32_t *)&self->ref_count) == 0) {
-    array_push(&pool->tree_stack, (Subtree *)self);
+  assert(self.ptr->ref_count > 0);
+  if (atomic_dec((volatile uint32_t *)&self.ptr->ref_count) == 0) {
+    array_push(&pool->tree_stack, ts_subtree_to_mut_unsafe(self));
   }
 
   while (pool->tree_stack.size > 0) {
-    Subtree *tree = array_pop(&pool->tree_stack);
-    if (tree->child_count > 0) {
-      for (uint32_t i = 0; i < tree->child_count; i++) {
-        const Subtree *child = tree->children[i];
-        if (atomic_dec((volatile uint32_t *)&child->ref_count) == 0) {
-          array_push(&pool->tree_stack, (Subtree *)child);
+    MutableSubtree tree = array_pop(&pool->tree_stack);
+    if (tree.ptr->child_count > 0) {
+      for (uint32_t i = 0; i < tree.ptr->child_count; i++) {
+        Subtree child = tree.ptr->children[i];
+        if (child.data.is_inline) continue;
+        assert(child.ptr->ref_count > 0);
+        if (atomic_dec((volatile uint32_t *)&child.ptr->ref_count) == 0) {
+          array_push(&pool->tree_stack, ts_subtree_to_mut_unsafe(child));
         }
       }
-      ts_free(tree->children);
-    } else if (tree->has_external_tokens) {
-      ts_external_scanner_state_delete(&tree->external_scanner_state);
+      ts_free(tree.ptr->children);
+    } else if (tree.ptr->has_external_tokens) {
+      ts_external_scanner_state_delete(&tree.ptr->external_scanner_state);
     }
-    ts_subtree_pool_free(pool, tree);
+    ts_subtree_pool_free(pool, tree.ptr);
   }
 }
 
-bool ts_subtree_eq(const Subtree *self, const Subtree *other) {
-  if (self) {
-    if (!other) return false;
-  } else {
-    return !other;
+bool ts_subtree_eq(Subtree self, Subtree other) {
+  if (self.data.is_inline || other.data.is_inline) {
+    return memcmp(&self, &other, sizeof(SubtreeInlineData)) == 0;
   }
 
-  if (self->symbol != other->symbol) return false;
-  if (self->visible != other->visible) return false;
-  if (self->named != other->named) return false;
-  if (self->padding.bytes != other->padding.bytes) return false;
-  if (self->size.bytes != other->size.bytes) return false;
-  if (self->symbol == ts_builtin_sym_error) return self->lookahead_char == other->lookahead_char;
-  if (self->child_count != other->child_count) return false;
-  if (self->visible_child_count != other->visible_child_count) return false;
-  if (self->named_child_count != other->named_child_count) return false;
+  if (self.ptr) {
+    if (!other.ptr) return false;
+  } else {
+    return !other.ptr;
+  }
 
-  for (uint32_t i = 0; i < self->child_count; i++) {
-    if (!ts_subtree_eq(self->children[i], other->children[i])) {
-      return false;
+  if (self.ptr->symbol != other.ptr->symbol) return false;
+  if (self.ptr->visible != other.ptr->visible) return false;
+  if (self.ptr->named != other.ptr->named) return false;
+  if (self.ptr->padding.bytes != other.ptr->padding.bytes) return false;
+  if (self.ptr->size.bytes != other.ptr->size.bytes) return false;
+  if (self.ptr->symbol == ts_builtin_sym_error) return self.ptr->lookahead_char == other.ptr->lookahead_char;
+  if (self.ptr->child_count != other.ptr->child_count) return false;
+  if (self.ptr->child_count > 0) {
+    if (self.ptr->visible_child_count != other.ptr->visible_child_count) return false;
+    if (self.ptr->named_child_count != other.ptr->named_child_count) return false;
+
+    for (uint32_t i = 0; i < self.ptr->child_count; i++) {
+      if (!ts_subtree_eq(self.ptr->children[i], other.ptr->children[i])) {
+        return false;
+      }
     }
   }
   return true;
 }
 
-int ts_subtree_compare(const Subtree *left, const Subtree *right) {
-  if (left->symbol < right->symbol)
-    return -1;
-  if (right->symbol < left->symbol)
-    return 1;
-  if (left->child_count < right->child_count)
-    return -1;
-  if (right->child_count < left->child_count)
-    return 1;
-  for (uint32_t i = 0; i < left->child_count; i++) {
-    const Subtree *left_child = left->children[i];
-    const Subtree *right_child = right->children[i];
+int ts_subtree_compare(Subtree left, Subtree right) {
+  if (ts_subtree_symbol(left) < ts_subtree_symbol(right)) return -1;
+  if (ts_subtree_symbol(right) < ts_subtree_symbol(left)) return 1;
+  if (ts_subtree_child_count(left) < ts_subtree_child_count(right)) return -1;
+  if (ts_subtree_child_count(right) < ts_subtree_child_count(left)) return 1;
+  for (uint32_t i = 0, n = ts_subtree_child_count(left); i < n; i++) {
+    Subtree left_child = left.ptr->children[i];
+    Subtree right_child = right.ptr->children[i];
     switch (ts_subtree_compare(left_child, right_child)) {
-      case -1:
-        return -1;
-      case 1:
-        return 1;
-      default:
-        break;
+      case -1: return -1;
+      case 1: return 1;
+      default: break;
     }
   }
   return 0;
 }
 
-const Subtree *ts_subtree_edit(const Subtree *self, const TSInputEdit *edit, SubtreePool *pool) {
+static inline void ts_subtree_set_has_changes(MutableSubtree *self) {
+  if (self->data.is_inline) {
+    self->data.has_changes = true;
+  } else {
+    self->ptr->has_changes = true;
+  }
+}
+
+Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool) {
   typedef struct {
-    const Subtree **tree;
+    Subtree *tree;
     Edit edit;
   } StackEntry;
 
@@ -538,47 +606,83 @@ const Subtree *ts_subtree_edit(const Subtree *self, const TSInputEdit *edit, Sub
     Edit edit = entry.edit;
     bool is_noop = edit.old_end.bytes == edit.start.bytes && edit.new_end.bytes == edit.start.bytes;
     bool is_pure_insertion = edit.old_end.bytes == edit.start.bytes;
-    if (is_noop && edit.start.bytes >= (*entry.tree)->bytes_scanned) continue;
+    uint32_t bytes_scanned = ts_subtree_bytes_scanned(*entry.tree);
+    if (is_noop && edit.start.bytes >= bytes_scanned) continue;
 
-    Subtree *result = ts_subtree_make_mut(pool, *entry.tree);
-    *entry.tree = result;
+    Length size = ts_subtree_size(*entry.tree);
+    Length padding = ts_subtree_padding(*entry.tree);
 
     // If the edit is entirely within the space before this subtree, then shift this
     // subtree over according to the edit without changing its size.
-    if (edit.old_end.bytes <= result->padding.bytes) {
-      result->padding = length_add(edit.new_end, length_sub(result->padding, edit.old_end));
+    if (edit.old_end.bytes <= padding.bytes) {
+      padding = length_add(edit.new_end, length_sub(padding, edit.old_end));
     }
 
     // If the edit starts in the space before this subtree and extends into this subtree,
     // shrink the subtree's content to compensate for the change in the space before it.
-    else if (edit.start.bytes < result->padding.bytes) {
-      result->size = length_sub(result->size, length_sub(edit.old_end, result->padding));
-      result->padding = edit.new_end;
+    else if (edit.start.bytes < padding.bytes) {
+      size = length_sub(size, length_sub(edit.old_end, padding));
+      padding = edit.new_end;
     }
 
     // If the edit is a pure insertion right at the start of the subtree,
     // shift the subtree over according to the insertion.
-    else if (edit.start.bytes == result->padding.bytes && is_pure_insertion) {
-      result->padding = edit.new_end;
+    else if (edit.start.bytes == padding.bytes && is_pure_insertion) {
+      padding = edit.new_end;
     }
 
     // If the edit is within this subtree, resize the subtree to reflect the edit.
     else {
-      uint32_t total_bytes = ts_subtree_total_bytes(*entry.tree);
+      uint32_t total_bytes = padding.bytes + size.bytes;
       if (edit.start.bytes < total_bytes ||
          (edit.start.bytes == total_bytes && is_pure_insertion)) {
-        result->size = length_add(
-          length_sub(edit.new_end, result->padding),
-          length_sub(result->size, length_sub(edit.old_end, result->padding))
+        size = length_add(
+          length_sub(edit.new_end, padding),
+          length_sub(size, length_sub(edit.old_end, padding))
         );
       }
     }
 
-    result->has_changes = true;
+    MutableSubtree result = ts_subtree_make_mut(pool, *entry.tree);
+
+    if (result.data.is_inline) {
+      if (ts_subtree_can_inline(padding, size)) {
+        result.data.padding_bytes = padding.bytes;
+        result.data.padding_rows = padding.extent.row;
+        result.data.padding_columns = padding.extent.column;
+        result.data.size_bytes = size.bytes;
+      } else {
+        SubtreeHeapData *data = ts_subtree_pool_allocate(pool);
+        data->ref_count = 1;
+        data->padding = padding;
+        data->size = size;
+        data->bytes_scanned = bytes_scanned;
+        data->error_cost = 0;
+        data->child_count = 0;
+        data->symbol = result.data.symbol;
+        data->parse_state = result.data.parse_state;
+        data->visible = result.data.visible;
+        data->named = result.data.named;
+        data->extra = result.data.extra;
+        data->fragile_left = false;
+        data->fragile_right = false;
+        data->has_changes = false;
+        data->has_external_tokens = false;
+        data->is_missing = result.data.is_missing;
+        data->is_keyword = result.data.is_keyword;
+        result.ptr = data;
+      }
+    } else {
+      result.ptr->padding = padding;
+      result.ptr->size = size;
+    }
+
+    ts_subtree_set_has_changes(&result);
+    *entry.tree = ts_subtree_from_mut(result);
 
     Length child_left, child_right = length_zero();
-    for (uint32_t i = 0; i < result->child_count; i++) {
-      const Subtree **child = &result->children[i];
+    for (uint32_t i = 0, n = ts_subtree_child_count(*entry.tree); i < n; i++) {
+      Subtree *child = &result.ptr->children[i];
       Length child_size = ts_subtree_total_size(*child);
       child_left = child_right;
       child_right = length_add(child_left, child_size);
@@ -626,12 +730,12 @@ const Subtree *ts_subtree_edit(const Subtree *self, const TSInputEdit *edit, Sub
   return self;
 }
 
-const Subtree *ts_subtree_last_external_token(const Subtree *tree) {
-  if (!tree->has_external_tokens) return NULL;
-  while (tree->child_count > 0) {
-    for (uint32_t i = tree->child_count - 1; i + 1 > 0; i--) {
-      const Subtree *child = tree->children[i];
-      if (child->has_external_tokens) {
+Subtree ts_subtree_last_external_token(Subtree tree) {
+  if (!ts_subtree_has_external_tokens(tree)) return NULL_SUBTREE;
+  while (tree.ptr->child_count > 0) {
+    for (uint32_t i = tree.ptr->child_count - 1; i + 1 > 0; i--) {
+      Subtree child = tree.ptr->children[i];
+      if (ts_subtree_has_external_tokens(child)) {
         tree = child;
         break;
       }
@@ -657,19 +761,19 @@ static size_t ts_subtree__write_char_to_string(char *s, size_t n, int32_t c) {
     return snprintf(s, n, "%d", c);
 }
 
-static size_t ts_subtree__write_to_string(const Subtree *self, char *string, size_t limit,
-                                       const TSLanguage *language, bool is_root,
-                                       bool include_all, TSSymbol alias_symbol,
-                                       bool alias_is_named) {
-  if (!self) return snprintf(string, limit, "(NULL)");
+static size_t ts_subtree__write_to_string(Subtree self, char *string, size_t limit,
+                                          const TSLanguage *language, bool is_root,
+                                          bool include_all, TSSymbol alias_symbol,
+                                          bool alias_is_named) {
+  if (!self.ptr) return snprintf(string, limit, "(NULL)");
 
   char *cursor = string;
   char **writer = (limit > 0) ? &cursor : &string;
   bool visible =
     include_all ||
     is_root ||
-    self->is_missing ||
-    (self->visible && self->named) ||
+    ts_subtree_missing(self) ||
+    (ts_subtree_visible(self) && ts_subtree_named(self)) ||
     alias_is_named;
 
   if (visible && !is_root) {
@@ -677,24 +781,24 @@ static size_t ts_subtree__write_to_string(const Subtree *self, char *string, siz
   }
 
   if (visible) {
-    if (self->symbol == ts_builtin_sym_error && self->child_count == 0 && self->size.bytes > 0) {
+    if (ts_subtree_is_error(self) && ts_subtree_child_count(self) == 0 && self.ptr->size.bytes > 0) {
       cursor += snprintf(*writer, limit, "(UNEXPECTED ");
-      cursor += ts_subtree__write_char_to_string(*writer, limit, self->lookahead_char);
-    } else if (self->is_missing) {
+      cursor += ts_subtree__write_char_to_string(*writer, limit, self.ptr->lookahead_char);
+    } else if (ts_subtree_missing(self)) {
       cursor += snprintf(*writer, limit, "(MISSING");
     } else {
-      TSSymbol symbol = alias_symbol ? alias_symbol : self->symbol;
+      TSSymbol symbol = alias_symbol ? alias_symbol : ts_subtree_symbol(self);
       const char *symbol_name = ts_language_symbol_name(language, symbol);
       cursor += snprintf(*writer, limit, "(%s", symbol_name);
     }
   }
 
-  if (self->child_count) {
-    const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self->alias_sequence_id);
+  if (ts_subtree_child_count(self)) {
+    const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->alias_sequence_id);
     uint32_t structural_child_index = 0;
-    for (uint32_t i = 0; i < self->child_count; i++) {
-      const Subtree *child = self->children[i];
-      if (child->extra) {
+    for (uint32_t i = 0; i < self.ptr->child_count; i++) {
+      Subtree child = self.ptr->children[i];
+      if (ts_subtree_extra(child)) {
         cursor += ts_subtree__write_to_string(
           child, *writer, limit,
           language, false, include_all,
@@ -718,7 +822,11 @@ static size_t ts_subtree__write_to_string(const Subtree *self, char *string, siz
   return cursor - string;
 }
 
-char *ts_subtree_string(const Subtree *self, const TSLanguage *language, bool include_all) {
+static inline uint32_t ts_subtree_repeat_depth(Subtree self) {
+  return ts_subtree_child_count(self) ? self.ptr->repeat_depth : 0;
+}
+
+char *ts_subtree_string(Subtree self, const TSLanguage *language, bool include_all) {
   char scratch_string[1];
   size_t size = ts_subtree__write_to_string(
     self, scratch_string, 0,
@@ -730,62 +838,73 @@ char *ts_subtree_string(const Subtree *self, const TSLanguage *language, bool in
   return result;
 }
 
-void ts_subtree__print_dot_graph(const Subtree *self, uint32_t byte_offset,
-                              const TSLanguage *language, TSSymbol alias_symbol, FILE *f) {
-  TSSymbol symbol = alias_symbol ? alias_symbol : self->symbol;
-  fprintf(f, "tree_%p [label=\"%s\"", self, ts_language_symbol_name(language, symbol));
+void ts_subtree__print_dot_graph(Subtree self, uint32_t start_offset,
+                                 const TSLanguage *language, TSSymbol alias_symbol,
+                                 FILE *f) {
+  TSSymbol subtree_symbol = ts_subtree_symbol(self);
+  TSSymbol symbol = alias_symbol ? alias_symbol : subtree_symbol;
+  uint32_t end_offset = start_offset + ts_subtree_total_bytes(self);
+  fprintf(
+    f, "tree_%u_%u_%u [label=\"%s\"",
+    start_offset, end_offset, subtree_symbol, ts_language_symbol_name(language, symbol)
+  );
 
-  if (self->child_count == 0)
-    fprintf(f, ", shape=plaintext");
-  if (self->extra)
-    fprintf(f, ", fontcolor=gray");
+  if (ts_subtree_child_count(self) == 0) fprintf(f, ", shape=plaintext");
+  if (ts_subtree_extra(self)) fprintf(f, ", fontcolor=gray");
 
   fprintf(f, ", tooltip=\""
-    "address:%p\n"
     "range:%u - %u\n"
     "state:%d\n"
     "error-cost:%u\n"
     "repeat-depth:%u\n"
     "bytes-scanned:%u\"]\n",
-    self,
-    byte_offset, byte_offset + ts_subtree_total_bytes(self),
-    self->parse_state,
-    self->error_cost,
-    self->child_count > 0 ? self->repeat_depth : 0,
-    self->bytes_scanned
+    start_offset, end_offset,
+    ts_subtree_parse_state(self),
+    ts_subtree_error_cost(self),
+    ts_subtree_repeat_depth(self),
+    ts_subtree_bytes_scanned(self)
   );
 
-  const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self->alias_sequence_id);
+  uint32_t child_start_offset = start_offset;
   uint32_t structural_child_index = 0;
-  for (uint32_t i = 0; i < self->child_count; i++) {
-    const Subtree *child = self->children[i];
-    if (child->extra) {
-      ts_subtree__print_dot_graph(child, byte_offset, language, 0, f);
+  const TSSymbol *alias_sequence = ts_language_alias_sequence(
+    language,
+    ts_subtree_alias_sequence_id(self)
+  );
+  for (uint32_t i = 0, n = ts_subtree_child_count(self); i < n; i++) {
+    Subtree child = self.ptr->children[i];
+    uint32_t child_end_offset = child_start_offset + ts_subtree_total_bytes(child);
+    if (ts_subtree_extra(child)) {
+      ts_subtree__print_dot_graph(child, child_start_offset, language, 0, f);
     } else {
       TSSymbol alias_symbol = alias_sequence ? alias_sequence[structural_child_index] : 0;
-      ts_subtree__print_dot_graph(child, byte_offset, language, alias_symbol, f);
+      ts_subtree__print_dot_graph(child, child_start_offset, language, alias_symbol, f);
       structural_child_index++;
     }
-    fprintf(f, "tree_%p -> tree_%p [tooltip=%u]\n", self, child, i);
-    byte_offset += ts_subtree_total_bytes(child);
+    fprintf(
+      f, "tree_%u_%u_%u -> tree_%u_%u_%u [tooltip=%u]\n",
+      start_offset, end_offset, subtree_symbol,
+      child_start_offset, child_end_offset, ts_subtree_symbol(child), i
+    );
+    child_start_offset = child_end_offset;
   }
 }
 
-void ts_subtree_print_dot_graph(const Subtree *self, const TSLanguage *language, FILE *f) {
+void ts_subtree_print_dot_graph(Subtree self, const TSLanguage *language, FILE *f) {
   fprintf(f, "digraph tree {\n");
   fprintf(f, "edge [arrowhead=none]\n");
   ts_subtree__print_dot_graph(self, 0, language, 0, f);
   fprintf(f, "}\n");
 }
 
-bool ts_subtree_external_scanner_state_eq(const Subtree *self, const Subtree *other) {
+bool ts_subtree_external_scanner_state_eq(Subtree self, Subtree other) {
   const ExternalScannerState *state1 = &empty_state;
   const ExternalScannerState *state2 = &empty_state;
-  if (self && !self->child_count && self->has_external_tokens) {
-    state1 = &self->external_scanner_state;
+  if (self.ptr && ts_subtree_has_external_tokens(self) && !self.ptr->child_count) {
+    state1 = &self.ptr->external_scanner_state;
   }
-  if (other && !other->child_count && other->has_external_tokens) {
-    state2 = &other->external_scanner_state;
+  if (other.ptr && ts_subtree_has_external_tokens(other) && !other.ptr->child_count) {
+    state2 = &other.ptr->external_scanner_state;
   }
   return ts_external_scanner_state_eq(state1, state2);
 }

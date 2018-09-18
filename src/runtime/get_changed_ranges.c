@@ -57,32 +57,35 @@ Length iterator_start_position(Iterator *self) {
   if (self->in_padding) {
     return entry.position;
   } else {
-    return length_add(entry.position, entry.subtree->padding);
+    return length_add(entry.position, ts_subtree_padding(*entry.subtree));
   }
 }
 
 Length iterator_end_position(Iterator *self) {
   TreeCursorEntry entry = *array_back(&self->cursor.stack);
-  Length result = length_add(entry.position, entry.subtree->padding);
+  Length result = length_add(entry.position, ts_subtree_padding(*entry.subtree));
   if (self->in_padding) {
     return result;
   } else {
-    return length_add(result, entry.subtree->size);
+    return length_add(result, ts_subtree_size(*entry.subtree));
   }
 }
 
 static bool iterator_tree_is_visible(const Iterator *self) {
   TreeCursorEntry entry = *array_back(&self->cursor.stack);
-  if (entry.subtree->visible) return true;
+  if (ts_subtree_visible(*entry.subtree)) return true;
   if (self->cursor.stack.size > 1) {
-    const Subtree *parent = self->cursor.stack.contents[self->cursor.stack.size - 2].subtree;
-    const TSSymbol *alias_sequence = ts_language_alias_sequence(self->language, parent->alias_sequence_id);
+    Subtree parent = *self->cursor.stack.contents[self->cursor.stack.size - 2].subtree;
+    const TSSymbol *alias_sequence = ts_language_alias_sequence(
+      self->language,
+      parent.ptr->alias_sequence_id
+    );
     return alias_sequence && alias_sequence[entry.structural_child_index] != 0;
   }
   return false;
 }
 
-static void iterator_get_visible_state(const Iterator *self, const Subtree **tree,
+static void iterator_get_visible_state(const Iterator *self, Subtree *tree,
                                        TSSymbol *alias_symbol, uint32_t *start_byte) {
   uint32_t i = self->cursor.stack.size - 1;
 
@@ -98,15 +101,15 @@ static void iterator_get_visible_state(const Iterator *self, const Subtree **tre
       const Subtree *parent = self->cursor.stack.contents[i - 1].subtree;
       const TSSymbol *alias_sequence = ts_language_alias_sequence(
         self->language,
-        parent->alias_sequence_id
+        parent->ptr->alias_sequence_id
       );
       if (alias_sequence) {
         *alias_symbol = alias_sequence[entry.structural_child_index];
       }
     }
 
-    if (entry.subtree->visible || *alias_symbol) {
-      *tree = entry.subtree;
+    if (ts_subtree_visible(*entry.subtree) || *alias_symbol) {
+      *tree = *entry.subtree;
       *start_byte = entry.position.bytes;
       break;
     }
@@ -129,10 +132,10 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
     TreeCursorEntry entry = *array_back(&self->cursor.stack);
     Length position = entry.position;
     uint32_t structural_child_index = 0;
-    for (uint32_t i = 0; i < entry.subtree->child_count; i++) {
-      const Subtree *child = entry.subtree->children[i];
-      Length child_left = length_add(position, child->padding);
-      Length child_right = length_add(child_left, child->size);
+    for (uint32_t i = 0, n = ts_subtree_child_count(*entry.subtree); i < n; i++) {
+      const Subtree *child = &entry.subtree->ptr->children[i];
+      Length child_left = length_add(position, ts_subtree_padding(*child));
+      Length child_right = length_add(child_left, ts_subtree_size(*child));
 
       if (child_right.bytes > goal_position) {
         array_push(&self->cursor.stack, ((TreeCursorEntry){
@@ -156,7 +159,7 @@ static bool iterator_descend(Iterator *self, uint32_t goal_position) {
       }
 
       position = child_right;
-      if (!child->extra) structural_child_index++;
+      if (!ts_subtree_extra(*child)) structural_child_index++;
     }
   } while (did_descend);
 
@@ -181,11 +184,11 @@ static void iterator_advance(Iterator *self) {
 
     const Subtree *parent = array_back(&self->cursor.stack)->subtree;
     uint32_t child_index = entry.child_index + 1;
-    if (parent->child_count > child_index) {
-      Length position = length_add(entry.position, ts_subtree_total_size(entry.subtree));
+    if (ts_subtree_child_count(*parent) > child_index) {
+      Length position = length_add(entry.position, ts_subtree_total_size(*entry.subtree));
       uint32_t structural_child_index = entry.structural_child_index;
-      if (!entry.subtree->extra) structural_child_index++;
-      const Subtree *next_child = parent->children[child_index];
+      if (!ts_subtree_extra(*entry.subtree)) structural_child_index++;
+      const Subtree *next_child = &parent->ptr->children[child_index];
 
       array_push(&self->cursor.stack, ((TreeCursorEntry){
         .subtree = next_child,
@@ -195,7 +198,7 @@ static void iterator_advance(Iterator *self) {
       }));
 
       if (iterator_tree_is_visible(self)) {
-        if (next_child->padding.bytes > 0) {
+        if (ts_subtree_padding(*next_child).bytes > 0) {
           self->in_padding = true;
         } else {
           self->visible_depth++;
@@ -215,30 +218,30 @@ typedef enum {
 } IteratorComparison;
 
 IteratorComparison iterator_compare(const Iterator *old_iter, const Iterator *new_iter) {
-  const Subtree *old_tree = NULL, *new_tree = NULL;
+  Subtree old_tree = {.ptr = NULL}, new_tree = {.ptr = NULL};
   uint32_t old_start = 0, new_start = 0;
   TSSymbol old_alias_symbol = 0, new_alias_symbol = 0;
   iterator_get_visible_state(old_iter, &old_tree, &old_alias_symbol, &old_start);
   iterator_get_visible_state(new_iter, &new_tree, &new_alias_symbol, &new_start);
 
-  if (!old_tree && !new_tree) return IteratorMatches;
-  if (!old_tree || !new_tree) return IteratorDiffers;
+  if (!old_tree.ptr && !new_tree.ptr) return IteratorMatches;
+  if (!old_tree.ptr || !new_tree.ptr) return IteratorDiffers;
 
   if (old_alias_symbol == new_alias_symbol) {
     if (old_start == new_start) {
-      if (!old_tree->has_changes &&
-          old_tree->symbol == new_tree->symbol &&
-          old_tree->symbol != ts_builtin_sym_error &&
-          old_tree->size.bytes == new_tree->size.bytes &&
-          old_tree->parse_state != TS_TREE_STATE_NONE &&
-          new_tree->parse_state != TS_TREE_STATE_NONE &&
-          (old_tree->parse_state == ERROR_STATE) ==
-          (new_tree->parse_state == ERROR_STATE)) {
+      if (!ts_subtree_has_changes(old_tree) &&
+          ts_subtree_symbol(old_tree) == ts_subtree_symbol(new_tree) &&
+          ts_subtree_symbol(old_tree) != ts_builtin_sym_error &&
+          ts_subtree_size(old_tree).bytes == ts_subtree_size(new_tree).bytes &&
+          ts_subtree_parse_state(old_tree) != TS_TREE_STATE_NONE &&
+          ts_subtree_parse_state(new_tree) != TS_TREE_STATE_NONE &&
+          (ts_subtree_parse_state(old_tree) == ERROR_STATE) ==
+          (ts_subtree_parse_state(new_tree) == ERROR_STATE)) {
         return IteratorMatches;
       }
     }
 
-    if (old_tree->symbol == new_tree->symbol) {
+    if (ts_subtree_symbol(old_tree) == ts_subtree_symbol(new_tree)) {
       return IteratorMayDiffer;
     }
   }
