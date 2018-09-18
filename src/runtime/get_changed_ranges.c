@@ -218,7 +218,7 @@ typedef enum {
 } IteratorComparison;
 
 IteratorComparison iterator_compare(const Iterator *old_iter, const Iterator *new_iter) {
-  Subtree old_tree = {.ptr = NULL}, new_tree = {.ptr = NULL};
+  Subtree old_tree = NULL_SUBTREE, new_tree = NULL_SUBTREE;
   uint32_t old_start = 0, new_start = 0;
   TSSymbol old_alias_symbol = 0, new_alias_symbol = 0;
   iterator_get_visible_state(old_iter, &old_tree, &old_alias_symbol, &old_start);

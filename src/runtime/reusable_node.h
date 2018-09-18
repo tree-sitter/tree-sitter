@@ -12,12 +12,12 @@ typedef struct {
 } ReusableNode;
 
 static inline ReusableNode reusable_node_new() {
-  return (ReusableNode) {array_new(), (Subtree) {.ptr = NULL}};
+  return (ReusableNode) {array_new(), NULL_SUBTREE};
 }
 
 static inline void reusable_node_clear(ReusableNode *self) {
   array_clear(&self->stack);
-  self->last_external_token.ptr = NULL;
+  self->last_external_token = NULL_SUBTREE;
 }
 
 static inline void reusable_node_reset(ReusableNode *self, Subtree tree) {
@@ -32,7 +32,7 @@ static inline void reusable_node_reset(ReusableNode *self, Subtree tree) {
 static inline Subtree reusable_node_tree(ReusableNode *self) {
   return self->stack.size > 0
     ? self->stack.contents[self->stack.size - 1].tree
-    : (Subtree) { .ptr = NULL };
+    : NULL_SUBTREE;
 }
 
 static inline uint32_t reusable_node_byte_offset(ReusableNode *self) {

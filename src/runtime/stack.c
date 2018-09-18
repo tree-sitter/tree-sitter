@@ -375,7 +375,7 @@ Stack *ts_stack_new(SubtreePool *subtree_pool) {
   array_reserve(&self->node_pool, MAX_NODE_POOL_SIZE);
 
   self->subtree_pool = subtree_pool;
-  self->base_node = stack_node_new(NULL, (Subtree) {.ptr = NULL}, false, 1, &self->node_pool);
+  self->base_node = stack_node_new(NULL, NULL_SUBTREE, false, 1, &self->node_pool);
   ts_stack_clear(self);
 
   return self;
@@ -682,7 +682,7 @@ void ts_stack_clear(Stack *self) {
   array_clear(&self->heads);
   array_push(&self->heads, ((StackHead){
     .node = self->base_node,
-    .last_external_token.ptr = NULL,
+    .last_external_token = NULL_SUBTREE,
     .status = StackStatusActive,
     .lookahead_when_paused = 0,
   }));
