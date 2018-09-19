@@ -56,10 +56,10 @@ describe("Tree", [&]() {
       input = new SpyInput(source_code, 32);
       TSTree *original_tree = ts_parser_parse(parser, nullptr, input->input());
 
-      vector<future<TSTree *>> new_trees;
+      vector<future<pair<TSTree *, SpyInput *>>> new_trees;
       for (unsigned i = 0; i < 8; i++) {
         TSTree *tree_copy = ts_tree_copy(original_tree);
-        new_trees.push_back(std::async([i, tree_copy, &source_code, language]() {
+        new_trees.push_back(std::async([i, tree_copy, &source_code, language]() -> pair<TSTree *, SpyInput *> {
           Generator random(TREE_SITTER_SEED + i);
 
           TSTree *tree = tree_copy;
@@ -83,9 +83,7 @@ describe("Tree", [&]() {
           }
 
           ts_parser_delete(parser);
-          delete input;
-
-          return tree;
+          return {tree, input};
         }));
       }
 
@@ -93,9 +91,12 @@ describe("Tree", [&]() {
 
       for (auto &future : new_trees) {
         future.wait();
-        TSTree *new_tree = future.get();
-        assert_consistent_tree_sizes(ts_tree_root_node(new_tree));
+        auto result = future.get();
+        TSTree *new_tree = result.first;
+        SpyInput *new_input = result.second;
+        assert_consistent_tree_sizes(new_tree, new_input->content);
         ts_tree_delete(new_tree);
+        delete new_input;
       }
     });
   });

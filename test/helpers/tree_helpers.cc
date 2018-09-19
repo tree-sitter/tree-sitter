@@ -4,6 +4,7 @@
 #include <ostream>
 
 using std::string;
+using std::vector;
 using std::to_string;
 using std::ostream;
 
@@ -14,7 +15,7 @@ const char *symbol_names[24] = {
   "twenty-two", "twenty-three"
 };
 
-SubtreeArray *tree_array(std::vector<Subtree> trees) {
+SubtreeArray *tree_array(vector<Subtree> trees) {
   static SubtreeArray result;
   result.capacity = trees.size();
   result.size = trees.size();
@@ -52,13 +53,13 @@ bool operator==(const TSNode &left, const TSNode &right) {
     ts_node_start_point(left) == ts_node_start_point(right);
 }
 
-bool operator==(const std::vector<Subtree> &vec, const SubtreeArray &array) {
+bool operator==(const vector<Subtree> &vec, const SubtreeArray &array) {
   return
     vec.size() == array.size &&
     std::memcmp(vec.data(), array.contents, array.size * sizeof(Subtree)) == 0;
 }
 
-void assert_consistent_tree_sizes(TSNode node) {
+void assert_consistent_tree_sizes(TSNode node, const vector<uint32_t> &line_starts) {
   uint32_t child_count = ts_node_child_count(node);
   uint32_t named_child_count = ts_node_named_child_count(node);
   uint32_t start_byte = ts_node_start_byte(node);
@@ -68,6 +69,9 @@ void assert_consistent_tree_sizes(TSNode node) {
 
   AssertThat(start_byte, !IsGreaterThan(end_byte));
   AssertThat(start_point, !IsGreaterThan(end_point));
+
+  AssertThat(start_byte, Equals(line_starts[start_point.row] + start_point.column));
+  AssertThat(end_byte, Equals(line_starts[end_point.row] + end_point.column));
 
   size_t last_child_end_byte = start_byte;
   TSPoint last_child_end_point = start_point;
@@ -81,7 +85,7 @@ void assert_consistent_tree_sizes(TSNode node) {
 
     AssertThat(child_start_byte, !IsLessThan(last_child_end_byte));
     AssertThat(child_start_point, !IsLessThan(last_child_end_point));
-    assert_consistent_tree_sizes(child);
+    assert_consistent_tree_sizes(child, line_starts);
 
     if (ts_node_has_changes(child)) some_child_has_changes = true;
     if (ts_node_is_named(child)) actual_named_child_count++;
@@ -100,4 +104,18 @@ void assert_consistent_tree_sizes(TSNode node) {
   if (some_child_has_changes) {
     AssertThat(ts_node_has_changes(node), IsTrue());
   }
+}
+
+void assert_consistent_tree_sizes(const TSTree *tree, const string &text) {
+  vector<uint32_t> line_starts;
+  line_starts.push_back(0);
+  for (uint32_t i = 0, n = text.size(); i < n; i++) {
+    if (text[i] == '\n') {
+      line_starts.push_back(i + 1);
+    }
+  }
+
+  TSNode root_node = ts_tree_root_node(tree);
+  AssertThat(ts_node_end_byte(root_node), Equals(text.size()));
+  assert_consistent_tree_sizes(root_node, line_starts);
 }

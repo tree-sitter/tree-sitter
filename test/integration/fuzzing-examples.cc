@@ -48,8 +48,7 @@ describe("examples found via fuzzing", [&]() {
       ));
 
       TSTree *tree = ts_parser_parse_string(parser, nullptr, input.c_str(), input.size());
-      TSNode node = ts_tree_root_node(tree);
-      assert_consistent_tree_sizes(node);
+      assert_consistent_tree_sizes(tree, input);
 
       ts_tree_delete(tree);
       ts_parser_delete(parser);

@@ -13,6 +13,6 @@ std::ostream &operator<<(std::ostream &stream, const TSNode &node);
 bool operator==(const TSNode &left, const TSNode &right);
 bool operator==(const std::vector<Subtree> &right, const SubtreeArray &array);
 
-void assert_consistent_tree_sizes(TSNode node);
+void assert_consistent_tree_sizes(const TSTree *, const std::string &);
 
 #endif  // HELPERS_TREE_HELPERS_H_

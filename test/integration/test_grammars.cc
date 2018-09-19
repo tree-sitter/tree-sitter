@@ -58,11 +58,9 @@ for (auto &language_name : test_languages) {
         }
 
         TSTree *tree = ts_parser_parse_string(parser, nullptr, entry.input.c_str(), entry.input.size());
+        assert_consistent_tree_sizes(tree, entry.input);
 
         TSNode root_node = ts_tree_root_node(tree);
-        AssertThat(ts_node_end_byte(root_node), Equals(entry.input.size()));
-        assert_consistent_tree_sizes(root_node);
-
         const char *node_string = ts_node_string(root_node);
         string result(node_string);
         ts_free((void *)node_string);

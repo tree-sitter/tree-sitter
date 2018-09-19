@@ -11,12 +11,6 @@
 #include "helpers/tree_helpers.h"
 #include <set>
 
-static void assert_correct_tree_size(TSTree *tree, string content) {
-  TSNode root_node = ts_tree_root_node(tree);
-  AssertThat(ts_node_end_byte(root_node), Equals(content.size()));
-  assert_consistent_tree_sizes(root_node);
-}
-
 START_TEST
 
 if (TREE_SITTER_SEED == -1) return;
@@ -60,7 +54,7 @@ for (auto &language_name : test_languages) {
         if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
         TSTree *tree = ts_parser_parse(parser, nullptr, input->input());
-        assert_correct_tree_size(tree, input->content);
+        assert_consistent_tree_sizes(tree, input->content);
 
         TSNode root_node = ts_tree_root_node(tree);
         const char *node_string = ts_node_string(root_node);
@@ -89,16 +83,16 @@ for (auto &language_name : test_languages) {
 
             input->replace(edit_position, 0, inserted_text);
             TSTree *tree = ts_parser_parse(parser, nullptr, input->input());
-            assert_correct_tree_size(tree, input->content);
+            assert_consistent_tree_sizes(tree, input->content);
             if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
             TSInputEdit edit = input->undo();
             ts_tree_edit(tree, &edit);
-            assert_correct_tree_size(tree, input->content);
+            assert_consistent_tree_sizes(tree, input->content);
             if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
             TSTree *new_tree = ts_parser_parse(parser, tree, input->input());
-            assert_correct_tree_size(new_tree, input->content);
+            assert_consistent_tree_sizes(new_tree, input->content);
 
             uint32_t range_count;
             TSRange *ranges = ts_tree_get_changed_ranges(tree, new_tree, &range_count);
@@ -132,16 +126,16 @@ for (auto &language_name : test_languages) {
 
             input->replace(edit_position, deletion_size, "");
             TSTree *tree = ts_parser_parse(parser, nullptr, input->input());
-            assert_correct_tree_size(tree, input->content);
+            assert_consistent_tree_sizes(tree, input->content);
             if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
             TSInputEdit edit = input->undo();
             ts_tree_edit(tree, &edit);
-            assert_correct_tree_size(tree, input->content);
+            assert_consistent_tree_sizes(tree, input->content);
             if (debug_graphs_enabled) printf("%s\n\n", input->content.c_str());
 
             TSTree *new_tree = ts_parser_parse(parser, tree, input->input());
-            assert_correct_tree_size(new_tree, input->content);
+            assert_consistent_tree_sizes(new_tree, input->content);
 
             uint32_t range_count;
             TSRange *ranges = ts_tree_get_changed_ranges(tree, new_tree, &range_count);
