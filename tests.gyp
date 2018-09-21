@@ -21,6 +21,7 @@
         'test/helpers/stderr_logger.cc',
       ],
     },
+
     {
       'target_name': 'tests',
       'default_configuration': 'Test',
@@ -97,12 +98,21 @@
 
   'target_defaults': {
     'configurations': {'Test': {}, 'Release': {}},
+
     'cflags_cc': ['-std=c++14'],
+
     'conditions': [
       ['OS=="linux"', {
         'libraries': ['-ldl', '-lpthread'],
+      }],
+
+      # For 64-bit builds on appveyor, we need to explicitly tell gyp
+      # to generate an x64 target in the MSVS project file.
+      ['"<!(echo %PLATFORM%)" == "x64"', {
+        'msvs_configuration_platform': 'x64',
       }]
     ],
+
     'xcode_settings': {
       'CLANG_CXX_LANGUAGE_STANDARD': 'c++14',
       'ALWAYS_SEARCH_USER_PATHS': 'NO',

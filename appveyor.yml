@@ -6,12 +6,14 @@ branches:
 
 platform:
   - x86
+  - x64
 
 init:
   - git config --global core.autocrlf false
 
 install:
-  - call "C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" x86
+  - IF "%PLATFORM%" == "x86" (call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars32.bat")
+  - IF "%PLATFORM%" == "x64" (call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat")
   - script\configure.cmd
   - script\fetch-fixtures.cmd
 

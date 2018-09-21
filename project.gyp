@@ -162,5 +162,13 @@
         '-Wno-unused-parameter'
       ],
     },
+
+    # For 64-bit builds on appveyor, we need to explicitly tell gyp
+    # to generate an x64 target in the MSVS project file.
+    'conditions': [
+      ['"<!(echo %PLATFORM%)" == "x64"', {
+        'msvs_configuration_platform': 'x64',
+      }]
+    ]
   }
 }
