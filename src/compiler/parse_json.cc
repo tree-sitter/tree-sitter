@@ -1,10 +1,11 @@
-#include "compiler/parse_grammar.h"
+#include "compiler/parse_json.h"
 #include <string>
 #include <vector>
 #include <unordered_set>
 #include <utility>
 #include "json.h"
 #include "compiler/rule.h"
+#include "compiler/util/result.h"
 
 namespace tree_sitter {
 
@@ -19,17 +20,9 @@ using rules::Metadata;
 using rules::Pattern;
 using rules::String;
 using rules::NamedSymbol;
+using util::Result;
 
-struct ParseRuleResult {
-  Rule rule;
-  string error_message;
-
-  ParseRuleResult(const string &error_message) : error_message(error_message) {}
-  ParseRuleResult(const char *error_message) : error_message(error_message) {}
-  ParseRuleResult(Rule rule) : rule(rule) {}
-};
-
-ParseRuleResult parse_rule(json_value *rule_json) {
+Result<Rule> parse_rule_json(json_value *rule_json) {
   string error_message;
   json_value rule_type_json;
   string type;
@@ -62,11 +55,11 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     vector<Rule> members;
     for (size_t i = 0, length = members_json.u.array.length; i < length; i++) {
       json_value *member_json = members_json.u.array.values[i];
-      auto result = parse_rule(member_json);
-      if (!result.error_message.empty()) {
-        return "Invalid choice member: " + result.error_message;
+      auto result = parse_rule_json(member_json);
+      if (!result.ok()) {
+        return "Invalid choice member: " + result.error;
       }
-      members.push_back(result.rule);
+      members.push_back(result.value);
     }
     return Rule::choice(members);
   }
@@ -80,49 +73,49 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     vector<Rule> members;
     for (size_t i = 0, length = members_json.u.array.length; i < length; i++) {
       json_value *member_json = members_json.u.array.values[i];
-      auto result = parse_rule(member_json);
-      if (!result.error_message.empty()) {
-        return "Invalid choice member: " + result.error_message;
+      auto result = parse_rule_json(member_json);
+      if (!result.ok()) {
+        return "Invalid choice member: " + result.error;
       }
-      members.push_back(result.rule);
+      members.push_back(result.value);
     }
     return Rule::seq(members);
   }
 
   if (type == "REPEAT") {
     json_value content_json = rule_json->operator[]("content");
-    auto result = parse_rule(&content_json);
-    if (!result.error_message.empty()) {
-      return "Invalid repeat content: " + result.error_message;
+    auto result = parse_rule_json(&content_json);
+    if (!result.ok()) {
+      return "Invalid repeat content: " + result.error;
     }
-    return Rule::choice({Rule::repeat(result.rule), Blank{}});
+    return Rule::choice({Rule::repeat(result.value), Blank{}});
   }
 
   if (type == "REPEAT1") {
     json_value content_json = rule_json->operator[]("content");
-    auto result = parse_rule(&content_json);
-    if (!result.error_message.empty()) {
-      return "Invalid repeat content: " + result.error_message;
+    auto result = parse_rule_json(&content_json);
+    if (!result.ok()) {
+      return "Invalid repeat content: " + result.error;
     }
-    return Rule::repeat(result.rule);
+    return Rule::repeat(result.value);
   }
 
   if (type == "TOKEN") {
     json_value content_json = rule_json->operator[]("content");
-    auto result = parse_rule(&content_json);
-    if (!result.error_message.empty()) {
-      return "Invalid token content: " + result.error_message;
+    auto result = parse_rule_json(&content_json);
+    if (!result.ok()) {
+      return "Invalid token content: " + result.error;
     }
-      return Rule(Metadata::token(move(result.rule)));
+      return Rule(Metadata::token(move(result.value)));
   }
 
   if (type == "IMMEDIATE_TOKEN") {
     json_value content_json = rule_json->operator[]("content");
-    auto result = parse_rule(&content_json);
-    if (!result.error_message.empty()) {
-      return "Invalid token content: " + result.error_message;
+    auto result = parse_rule_json(&content_json);
+    if (!result.ok()) {
+      return "Invalid token content: " + result.error;
     }
-      return Rule(Metadata::immediate_token(move(result.rule)));
+      return Rule(Metadata::immediate_token(move(result.value)));
   }
 
   if (type == "PATTERN") {
@@ -159,11 +152,11 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     }
 
     json_value content_json = rule_json->operator[]("content");
-    auto result = parse_rule(&content_json);
-    if (!result.error_message.empty()) {
-      return "Invalid precedence content: " + result.error_message;
+    auto result = parse_rule_json(&content_json);
+    if (!result.ok()) {
+      return "Invalid precedence content: " + result.error;
     }
-    return Rule(Metadata::prec(precedence_json.u.integer, move(result.rule)));
+    return Rule(Metadata::prec(precedence_json.u.integer, move(result.value)));
   }
 
   if (type == "PREC_LEFT") {
@@ -173,11 +166,11 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     }
 
     json_value content_json = rule_json->operator[]("content");
-    auto result = parse_rule(&content_json);
-    if (!result.error_message.empty()) {
-      return "Invalid precedence content: " + result.error_message;
+    auto result = parse_rule_json(&content_json);
+    if (!result.ok()) {
+      return "Invalid precedence content: " + result.error;
     }
-    return Rule(Metadata::prec_left(precedence_json.u.integer, move(result.rule)));
+    return Rule(Metadata::prec_left(precedence_json.u.integer, move(result.value)));
   }
 
   if (type == "PREC_RIGHT") {
@@ -187,11 +180,11 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     }
 
     json_value content_json = rule_json->operator[]("content");
-    auto result = parse_rule(&content_json);
-    if (!result.error_message.empty()) {
-      return "Invalid precedence content: " + result.error_message;
+    auto result = parse_rule_json(&content_json);
+    if (!result.ok()) {
+      return "Invalid precedence content: " + result.error;
     }
-    return Rule(Metadata::prec_right(precedence_json.u.integer, move(result.rule)));
+    return Rule(Metadata::prec_right(precedence_json.u.integer, move(result.value)));
   }
 
   if (type == "PREC_DYNAMIC") {
@@ -201,11 +194,11 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     }
 
     json_value content_json = rule_json->operator[]("content");
-    auto result = parse_rule(&content_json);
-    if (!result.error_message.empty()) {
-      return "Invalid precedence content: " + result.error_message;
+    auto result = parse_rule_json(&content_json);
+    if (!result.ok()) {
+      return "Invalid precedence content: " + result.error;
     }
-    return Rule(Metadata::prec_dynamic(precedence_json.u.integer, move(result.rule)));
+    return Rule(Metadata::prec_dynamic(precedence_json.u.integer, move(result.value)));
   }
 
   if (type == "ALIAS") {
@@ -220,21 +213,21 @@ ParseRuleResult parse_rule(json_value *rule_json) {
     }
 
     json_value content_json = rule_json->operator[]("content");
-    auto result = parse_rule(&content_json);
-    if (!result.error_message.empty()) {
-      return "Invalid rename content: " + result.error_message;
+    auto result = parse_rule_json(&content_json);
+    if (!result.ok()) {
+      return "Invalid rename content: " + result.error;
     }
     return Rule(Metadata::alias(
       string(value_json.u.string.ptr),
       is_named_json.u.boolean,
-      move(result.rule)
+      move(result.value)
     ));
   }
 
   return "Unknown rule type: " + type;
 }
 
-ParseGrammarResult parse_grammar(const string &input) {
+ParseGrammarResult parse_grammar_json(const string &input) {
   string error_message;
   string name;
   InputGrammar grammar;
@@ -242,8 +235,8 @@ ParseGrammarResult parse_grammar(const string &input) {
     name_json, rules_json, extras_json, conflicts_json, external_tokens_json,
     inline_rules_json, word_rule_json;
 
-  json_settings settings = { 0, json_enable_comments, 0, 0, 0, 0 };
   char parse_error[json_error_max];
+  json_settings settings = { 0, json_enable_comments, 0, 0, 0, 0 };
   json_value *grammar_json =
     json_parse_ex(&settings, input.c_str(), input.size(), parse_error);
   if (!grammar_json) {
@@ -272,15 +265,15 @@ ParseGrammarResult parse_grammar(const string &input) {
 
   for (size_t i = 0, length = rules_json.u.object.length; i < length; i++) {
     json_object_entry entry_json = rules_json.u.object.values[i];
-    auto result = parse_rule(entry_json.value);
-    if (!result.error_message.empty()) {
-      error_message = result.error_message;
+    auto result = parse_rule_json(entry_json.value);
+    if (!result.ok()) {
+      error_message = result.error;
       goto error;
     }
     grammar.variables.push_back(Variable{
       string(entry_json.name),
       VariableTypeNamed,
-      result.rule
+      result.value
     });
   }
 
@@ -293,12 +286,12 @@ ParseGrammarResult parse_grammar(const string &input) {
 
     for (size_t i = 0, length = extras_json.u.array.length; i < length; i++) {
       json_value *extra_json = extras_json.u.array.values[i];
-      auto result = parse_rule(extra_json);
-      if (!result.error_message.empty()) {
-        error_message = "Invalid extra token: " + result.error_message;
+      auto result = parse_rule_json(extra_json);
+      if (!result.ok()) {
+        error_message = "Invalid extra token: " + result.error;
         goto error;
       }
-      grammar.extra_tokens.push_back(result.rule);
+      grammar.extra_tokens.push_back(result.value);
     }
   }
 
@@ -361,12 +354,12 @@ ParseGrammarResult parse_grammar(const string &input) {
 
     for (size_t i = 0, length = external_tokens_json.u.array.length; i < length; i++) {
       json_value *external_token_json = external_tokens_json.u.array.values[i];
-      auto result = parse_rule(external_token_json);
-      if (!result.error_message.empty()) {
-        error_message = "Invalid external token: " + result.error_message;
+      auto result = parse_rule_json(external_token_json);
+      if (!result.ok()) {
+        error_message = "Invalid external token: " + result.error;
         goto error;
       }
-      grammar.external_tokens.push_back(result.rule);
+      grammar.external_tokens.push_back(result.value);
     }
   }
 
@@ -384,11 +377,88 @@ ParseGrammarResult parse_grammar(const string &input) {
   return { name, grammar, "" };
 
 error:
-  if (grammar_json) {
-    json_value_free(grammar_json);
+  if (grammar_json) json_value_free(grammar_json);
+  return { "", InputGrammar(), error_message };
+}
+
+Result<PropertyRule> parse_property_rule_json(json_value *rule_json) {
+  PropertyRule result;
+
+  if (rule_json->type != json_object) return "Rule must be an object";
+
+  json_value selectors_json = rule_json->operator[]("selectors");
+  if (selectors_json.type != json_array) return "Selectors must be an array";
+
+  for (unsigned i = 0; i < selectors_json.u.array.length; i++) {
+    PropertySelector selector;
+    json_value *selector_json = selectors_json.u.array.values[i];
+    if (selector_json->type != json_array) return "Each selector must be an array";
+
+    for (unsigned j = 0; j < selector_json->u.array.length; j++) {
+      json_value *selector_step_json = selector_json->u.array.values[j];
+      if (selector_step_json->type != json_object) return "Each selector must be an array of objects";
+      PropertySelectorStep step;
+      step.type = selector_step_json->operator[]("type").u.string.ptr;
+      step.named = selector_step_json->operator[]("named").u.boolean;
+      step.is_immediate = selector_step_json->operator[]("immediate").u.boolean;
+
+      json_value index_json = selector_step_json->operator[]("index");
+      if (index_json.type == json_integer) {
+        step.index = index_json.u.integer;
+      } else {
+        step.index = -1;
+      }
+
+      selector.push_back(step);
+    }
+
+    result.selectors.push_back(selector);
   }
 
-  return { "", InputGrammar(), error_message };
+  json_value properties_json = rule_json->operator[]("properties");
+  if (properties_json.type != json_object) return "Properties must be an object";
+
+  for (unsigned i = 0; i < properties_json.u.object.length; i++) {
+    json_object_entry entry_json = properties_json.u.object.values[i];
+    json_value *value_json = entry_json.value;
+    if (value_json->type != json_string) return "Property values must be strings";
+    result.properties[entry_json.name] = value_json->u.string.ptr;
+  }
+
+  return result;
+}
+
+Result<PropertySheet> parse_property_sheet_json(const string &input) {
+  PropertySheet sheet;
+  string error_message;
+  char parse_error[json_error_max];
+  json_settings settings = { 0, json_enable_comments, 0, 0, 0, 0 };
+  json_value *sheet_json = json_parse_ex(&settings, input.c_str(), input.size(), parse_error);
+  if (!sheet_json) {
+    error_message = string("Invalid JSON at ") + parse_error;
+    goto error;
+  }
+
+  if (sheet_json->type != json_array) {
+    error_message = "Property sheet must be an array";
+    goto error;
+  }
+
+  for (unsigned i = 0; i < sheet_json->u.array.length; i++) {
+    json_value *rule_json = sheet_json->u.array.values[i];
+    auto result = parse_property_rule_json(rule_json);
+    if (!result.ok()) {
+      error_message = "Invalid external token: " + result.error;
+      goto error;
+    }
+    sheet.push_back(result.value);
+  }
+
+  return sheet;
+
+error:
+  if (sheet_json) json_value_free(sheet_json);
+  return error_message.c_str();
 }
 
 }  // namespace tree_sitter

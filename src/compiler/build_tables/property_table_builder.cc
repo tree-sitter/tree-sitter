@@ -1,0 +1,345 @@
+#include <vector>
+#include <deque>
+#include <algorithm>
+#include <map>
+#include <unordered_map>
+#include <set>
+#include "compiler/property_sheet.h"
+#include "compiler/property_table.h"
+#include "compiler/build_tables/property_table_builder.h"
+#include "compiler/util/hash_combine.h"
+
+using std::deque;
+using std::vector;
+using std::pair;
+using std::unordered_map;
+using std::set;
+using std::move;
+using std::map;
+
+namespace tree_sitter {
+namespace build_tables {
+
+struct PropertyItem {
+  unsigned rule_id;
+  unsigned selector_id;
+  unsigned step_id;
+
+  bool operator==(const PropertyItem &other) const {
+    return
+      rule_id == other.rule_id &&
+      selector_id == other.selector_id &&
+      step_id == other.step_id;
+  }
+
+  bool operator<(const PropertyItem &other) const {
+    if (rule_id < other.rule_id) return true;
+    if (rule_id > other.rule_id) return false;
+    if (selector_id < other.selector_id) return true;
+    if (selector_id > other.selector_id) return false;
+    return step_id < other.step_id;
+  }
+};
+
+struct PropertyItemSet {
+  set<PropertyItem> entries;
+
+  bool operator==(const PropertyItemSet &other) const {
+    return entries == other.entries;
+  }
+};
+
+}  // namespace build_tables
+}  // namespace tree_sitter
+
+namespace std {
+
+using tree_sitter::util::hash_combine;
+
+template <>
+struct hash<tree_sitter::build_tables::PropertyItemSet> {
+  size_t operator()(const tree_sitter::build_tables::PropertyItemSet &item_set) const {
+    size_t result = 0;
+    hash_combine(&result, item_set.entries.size());
+    for (const auto &item : item_set.entries) {
+      hash_combine(&result, item.rule_id);
+      hash_combine(&result, item.selector_id);
+      hash_combine(&result, item.step_id);
+    }
+    return result;
+  }
+};
+
+template <>
+struct hash<tree_sitter::PropertyTransition> {
+  size_t operator()(const tree_sitter::PropertyTransition &transition) const {
+    size_t result = 0;
+    hash_combine(&result, transition.type);
+    hash_combine(&result, transition.named);
+    hash_combine(&result, transition.index);
+    hash_combine(&result, transition.state_id);
+    return result;
+  }
+};
+
+template <>
+struct hash<tree_sitter::PropertySet> {
+  size_t operator()(const tree_sitter::PropertySet &set) const {
+    size_t result = 0;
+    hash_combine(&result, set.size());
+    for (const auto &pair : set) {
+      hash_combine(&result, pair.first);
+      hash_combine(&result, pair.second);
+    }
+    return result;
+  }
+};
+
+}  // namespace std
+
+namespace tree_sitter {
+namespace build_tables {
+
+typedef unsigned StateId;
+typedef unsigned PropertySetId;
+
+struct PropertySelectorMatch {
+  unsigned specificity;
+  unsigned rule_id;
+  unsigned selector_id;
+  const PropertySet *property_set;
+
+  bool operator<(const PropertySelectorMatch &other) const {
+    if (specificity < other.specificity) return true;
+    if (specificity > other.specificity) return false;
+    if (rule_id < other.rule_id) return true;
+    if (rule_id > other.rule_id) return false;
+    return selector_id < other.selector_id;
+  }
+};
+
+struct PropertyTableBuilder {
+  PropertySheet sheet;
+  PropertyTable result;
+  unordered_map<PropertyItemSet, StateId> ids_by_item_set;
+  unordered_map<PropertySet, PropertySetId> ids_by_property_set;
+  deque<pair<PropertyItemSet, StateId>> item_set_queue;
+
+  PropertyTableBuilder(const PropertySheet &sheet) : sheet(sheet) {}
+
+  PropertyTable build() {
+    PropertyItemSet start_item_set;
+    for (unsigned i = 0; i < sheet.size(); i++) {
+      PropertyRule &rule = sheet[i];
+      for (unsigned j = 0; j < rule.selectors.size(); j++) {
+        start_item_set.entries.insert(PropertyItem {i, j, 0});
+      }
+    }
+
+    add_state(start_item_set);
+    while (!item_set_queue.empty()) {
+      auto entry = item_set_queue.front();
+      PropertyItemSet item_set = move(entry.first);
+      StateId state_id = entry.second;
+      item_set_queue.pop_front();
+      populate_state(item_set, state_id);
+    }
+
+    remove_duplicate_states();
+
+    return result;
+  }
+
+  void remove_duplicate_states() {
+    map<StateId, StateId> replacements;
+
+    while (true) {
+      map<StateId, StateId> duplicates;
+      for (StateId i = 0, size = result.states.size(); i < size; i++) {
+        for (StateId j = 0; j < i; j++) {
+          if (!duplicates.count(j) && result.states[j] == result.states[i]) {
+            duplicates.insert({ i, j });
+            break;
+          }
+        }
+      }
+
+      if (duplicates.empty()) break;
+
+      map<StateId, StateId> new_replacements;
+      for (StateId i = 0, size = result.states.size(); i < size; i++) {
+        StateId new_state_index = i;
+        auto duplicate = duplicates.find(i);
+        if (duplicate != duplicates.end()) {
+          new_state_index = duplicate->second;
+        }
+
+        size_t prior_removed = 0;
+        for (const auto &duplicate : duplicates) {
+          if (duplicate.first >= new_state_index) break;
+          prior_removed++;
+        }
+
+        new_state_index -= prior_removed;
+        new_replacements.insert({i, new_state_index});
+        replacements.insert({ i, new_state_index });
+        for (auto &replacement : replacements) {
+          if (replacement.second == i) {
+            replacement.second = new_state_index;
+          }
+        }
+      }
+
+      for (auto &state : result.states) {
+        for (auto &transition : state.transitions) {
+          auto new_replacement = new_replacements.find(transition.state_id);
+          if (new_replacement != new_replacements.end()) {
+            transition.state_id = new_replacement->second;
+          }
+        }
+
+        auto new_replacement = new_replacements.find(state.default_next_state_id);
+        if (new_replacement != new_replacements.end()) {
+          state.default_next_state_id = new_replacement->second;
+        }
+      }
+
+      for (auto i = duplicates.rbegin(); i != duplicates.rend(); ++i) {
+        result.states.erase(result.states.begin() + i->first);
+      }
+    }
+  }
+
+  const PropertySelectorStep *next_step_for_item(const PropertyItem &item) {
+    const PropertySelector &selector = sheet[item.rule_id].selectors[item.selector_id];
+    if (item.step_id < selector.size()) {
+      return &selector[item.step_id];
+    } else {
+      return nullptr;
+    }
+  }
+
+  const PropertySelectorStep *prev_step_for_item(const PropertyItem &item) {
+    if (item.step_id > 0) {
+      return &sheet[item.rule_id].selectors[item.selector_id][item.step_id];
+    } else {
+      return nullptr;
+    }
+  }
+
+  unsigned specificity_for_selector(const PropertySelector &selector) {
+    unsigned result = selector.size();
+    for (const PropertySelectorStep &step : selector) {
+      if (step.index != -1) result++;
+    }
+    return result;
+  }
+
+  bool step_is_superset(const PropertySelectorStep &step, const PropertyTransition &transition) {
+    return
+      step.type == transition.type &&
+      step.named == transition.named &&
+      (step.index == transition.index || step.index == -1);
+  }
+
+  void populate_state(const PropertyItemSet &item_set, StateId state_id) {
+    std::unordered_map<PropertyTransition, PropertyItemSet> transitions;
+    std::vector<PropertySelectorMatch> selector_matches;
+
+    for (const PropertyItem &item : item_set.entries) {
+      const PropertySelectorStep *next_step = next_step_for_item(item);
+      if (next_step) {
+        transitions[PropertyTransition{
+          next_step->type,
+          next_step->named,
+          next_step->index,
+          0
+        }] = PropertyItemSet();
+      } else {
+        const PropertyRule &rule = sheet[item.rule_id];
+        selector_matches.push_back(PropertySelectorMatch {
+          specificity_for_selector(rule.selectors[item.selector_id]),
+          item.rule_id,
+          item.selector_id,
+          &rule.properties,
+        });
+      }
+    }
+
+    for (auto &pair : transitions) {
+      PropertyTransition transition = pair.first;
+      PropertyItemSet &next_item_set = pair.second;
+
+      for (const PropertyItem &item : item_set.entries) {
+        const PropertySelectorStep *next_step = next_step_for_item(item);
+        const PropertySelectorStep *prev_step = prev_step_for_item(item);
+        if (next_step) {
+          if (step_is_superset(*next_step, transition)) {
+            PropertyItem next_item = item;
+            next_item.step_id++;
+            next_item_set.entries.insert(next_item);
+          }
+          if (!prev_step || !prev_step->is_immediate) {
+            next_item_set.entries.insert(item);
+          }
+        }
+      }
+
+      transition.state_id = add_state(next_item_set);
+      result.states[state_id].transitions.push_back(transition);
+    }
+
+    PropertyItemSet default_next_item_set;
+    for (const PropertyItem &item : item_set.entries) {
+      const PropertySelectorStep *next_step = next_step_for_item(item);
+      const PropertySelectorStep *prev_step = prev_step_for_item(item);
+      if (next_step && (!prev_step || !prev_step->is_immediate)) {
+        default_next_item_set.entries.insert(item);
+      }
+    }
+
+    result.states[state_id].default_next_state_id = add_state(default_next_item_set);
+
+    PropertySet properties;
+    std::sort(selector_matches.begin(), selector_matches.end());
+    for (auto &match : selector_matches) {
+      for (auto &pair : *match.property_set) {
+        properties[pair.first] = pair.second;
+      }
+    }
+
+    result.states[state_id].property_set_id = add_property_set(properties);
+  }
+
+  StateId add_state(const PropertyItemSet &item_set) {
+    auto entry = ids_by_item_set.find(item_set);
+    if (entry == ids_by_item_set.end()) {
+      StateId id = result.states.size();
+      ids_by_item_set[item_set] = id;
+      result.states.push_back(PropertyState {});
+      item_set_queue.push_back({item_set, id});
+      return id;
+    } else {
+      return entry->second;
+    }
+  }
+
+  PropertySetId add_property_set(const PropertySet &property_set) {
+    auto entry = ids_by_property_set.find(property_set);
+    if (entry == ids_by_property_set.end()) {
+      PropertySetId id = result.property_sets.size();
+      ids_by_property_set[property_set] = id;
+      result.property_sets.push_back(property_set);
+      return id;
+    } else {
+      return entry->second;
+    }
+  }
+};
+
+PropertyTable build_property_table(const PropertySheet &sheet) {
+  return PropertyTableBuilder(sheet).build();
+}
+
+}  // namespace build_tables
+}  // namespace tree_sitter

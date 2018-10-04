@@ -1,11 +1,13 @@
 #include "tree_sitter/compiler.h"
 #include "compiler/prepare_grammar/prepare_grammar.h"
 #include "compiler/build_tables/parse_table_builder.h"
+#include "compiler/build_tables/property_table_builder.h"
 #include "compiler/generate_code/c_code.h"
+#include "compiler/generate_code/property_table_json.h"
 #include "compiler/syntax_grammar.h"
 #include "compiler/log.h"
 #include "compiler/lexical_grammar.h"
-#include "compiler/parse_grammar.h"
+#include "compiler/parse_json.h"
 #include "json.h"
 
 namespace tree_sitter {
@@ -20,7 +22,7 @@ using std::make_tuple;
 extern "C" TSCompileResult ts_compile_grammar(const char *input, FILE *log_file) {
   set_log_file(log_file);
 
-  ParseGrammarResult parse_result = parse_grammar(string(input));
+  ParseGrammarResult parse_result = parse_grammar_json(string(input));
   if (!parse_result.error_message.empty()) {
     return {nullptr, strdup(parse_result.error_message.c_str()), TSCompileErrorTypeInvalidGrammar};
   }
@@ -57,6 +59,17 @@ extern "C" TSCompileResult ts_compile_grammar(const char *input, FILE *log_file)
   );
 
   set_log_file(nullptr);
+  return {strdup(code.c_str()), nullptr, TSCompileErrorTypeNone};
+}
+
+extern "C" TSCompileResult ts_compile_property_sheet(const char *input, FILE *log_file) {
+  set_log_file(log_file);
+  auto parse_result = parse_property_sheet_json(string(input));
+  if (!parse_result.ok()) {
+    return {nullptr, strdup(parse_result.error.c_str()), TSCompileErrorTypeInvalidGrammar};
+  }
+  PropertyTable table = build_tables::build_property_table(parse_result.value);
+  string code = generate_code::property_table_json(table);
   return {strdup(code.c_str()), nullptr, TSCompileErrorTypeNone};
 }
 
