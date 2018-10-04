@@ -138,7 +138,8 @@ var x = !!!
 Errors inside of a template string substitution
 =========================================================
 
-const a = `b c ${d +} f g`
+const a = `b c ${d += } f g`
+const h = `i ${j(k} l`
 
 ---
 
@@ -146,7 +147,13 @@ const a = `b c ${d +} f g`
   (lexical_declaration
     (variable_declarator
       (identifier)
-      (template_string (template_substitution (identifier) (ERROR))))))
+      (template_string (template_substitution (identifier) (ERROR)))))
+  (lexical_declaration
+    (variable_declarator
+      (identifier)
+      (template_string (template_substitution (call_expression
+        (identifier)
+        (arguments (identifier) (MISSING))))))))
 
 =========================================================
 Long sequences of invalid tokens
