@@ -20,6 +20,10 @@ using std::map;
 namespace tree_sitter {
 namespace build_tables {
 
+// A position within a selector for a particular rule set.
+// For example, in a selector like `a > b`, this might
+// describe the state of having descended into an `a`,
+// but not a `b`.
 struct PropertyItem {
   unsigned rule_id;
   unsigned selector_id;
@@ -41,11 +45,32 @@ struct PropertyItem {
   }
 };
 
+// A set of possible positions within different selectors.
+// This directly represents a state of the property-matching
+// state machine.
 struct PropertyItemSet {
   set<PropertyItem> entries;
 
   bool operator==(const PropertyItemSet &other) const {
     return entries == other.entries;
+  }
+};
+
+// A set of properties that matched via a certain selector.
+// These are ordered according to the usual CSS rules:
+// specificity, falling back to the order in the original sheet.
+struct PropertySelectorMatch {
+  unsigned specificity;
+  unsigned rule_id;
+  unsigned selector_id;
+  const PropertySet *property_set;
+
+  bool operator<(const PropertySelectorMatch &other) const {
+    if (specificity < other.specificity) return true;
+    if (specificity > other.specificity) return false;
+    if (rule_id < other.rule_id) return true;
+    if (rule_id > other.rule_id) return false;
+    return selector_id < other.selector_id;
   }
 };
 
@@ -56,6 +81,9 @@ namespace std {
 
 using tree_sitter::util::hash_combine;
 
+// PropertyItemSets must be hashed because in the process of building
+// the table, we maintain a map of existing property item sets to
+// state ids.
 template <>
 struct hash<tree_sitter::build_tables::PropertyItemSet> {
   size_t operator()(const tree_sitter::build_tables::PropertyItemSet &item_set) const {
@@ -70,6 +98,8 @@ struct hash<tree_sitter::build_tables::PropertyItemSet> {
   }
 };
 
+// PropertyTransitions must be hashed because we represent state
+// transitions as a map of PropertyTransitions to successor PropertyItemSets.
 template <>
 struct hash<tree_sitter::PropertyTransition> {
   size_t operator()(const tree_sitter::PropertyTransition &transition) const {
@@ -82,6 +112,7 @@ struct hash<tree_sitter::PropertyTransition> {
   }
 };
 
+// PropertySets must be hashed so that we can use a map to dedup them.
 template <>
 struct hash<tree_sitter::PropertySet> {
   size_t operator()(const tree_sitter::PropertySet &set) const {
@@ -102,21 +133,6 @@ namespace build_tables {
 
 typedef unsigned StateId;
 typedef unsigned PropertySetId;
-
-struct PropertySelectorMatch {
-  unsigned specificity;
-  unsigned rule_id;
-  unsigned selector_id;
-  const PropertySet *property_set;
-
-  bool operator<(const PropertySelectorMatch &other) const {
-    if (specificity < other.specificity) return true;
-    if (specificity > other.specificity) return false;
-    if (rule_id < other.rule_id) return true;
-    if (rule_id > other.rule_id) return false;
-    return selector_id < other.selector_id;
-  }
-};
 
 struct PropertyTableBuilder {
   PropertySheet sheet;
@@ -150,6 +166,8 @@ struct PropertyTableBuilder {
     return result;
   }
 
+  // Different item sets can actually produce the same state, so the
+  // states need to be explicitly deduped as a post-processing step.
   void remove_duplicate_states() {
     map<StateId, StateId> replacements;
 
@@ -210,6 +228,8 @@ struct PropertyTableBuilder {
     }
   }
 
+  // Get the next part of the selector that needs to be matched for a given item.
+  // This returns null if the item has consumed its entire selector.
   const PropertySelectorStep *next_step_for_item(const PropertyItem &item) {
     const PropertySelector &selector = sheet[item.rule_id].selectors[item.selector_id];
     if (item.step_id < selector.size()) {
@@ -219,6 +239,8 @@ struct PropertyTableBuilder {
     }
   }
 
+  // Get the previous part of the selector that was matched for a given item.
+  // This returns null if the item has not consumed anything.
   const PropertySelectorStep *prev_step_for_item(const PropertyItem &item) {
     if (item.step_id > 0) {
       return &sheet[item.rule_id].selectors[item.selector_id][item.step_id];
@@ -235,7 +257,8 @@ struct PropertyTableBuilder {
     return result;
   }
 
-  bool step_is_superset(const PropertySelectorStep &step, const PropertyTransition &transition) {
+  // Check if the given state transition matches the given part of a selector.
+  bool step_matches_transition(const PropertySelectorStep &step, const PropertyTransition &transition) {
     return
       step.type == transition.type &&
       step.named == transition.named &&
@@ -243,11 +266,15 @@ struct PropertyTableBuilder {
   }
 
   void populate_state(const PropertyItemSet &item_set, StateId state_id) {
-    std::unordered_map<PropertyTransition, PropertyItemSet> transitions;
-    std::vector<PropertySelectorMatch> selector_matches;
+    unordered_map<PropertyTransition, PropertyItemSet> transitions;
+    vector<PropertySelectorMatch> selector_matches;
 
     for (const PropertyItem &item : item_set.entries) {
       const PropertySelectorStep *next_step = next_step_for_item(item);
+
+      // If this item has more elements to match for its selector, then
+      // there's a state transition for elements that match the next
+      // part of the selector.
       if (next_step) {
         transitions[PropertyTransition{
           next_step->type,
@@ -255,7 +282,11 @@ struct PropertyTableBuilder {
           next_step->index,
           0
         }] = PropertyItemSet();
-      } else {
+      }
+
+      // If the item has matched its entire selector, then the property set
+      // for the item's rule applies in this state.
+      else {
         const PropertyRule &rule = sheet[item.rule_id];
         selector_matches.push_back(PropertySelectorMatch {
           specificity_for_selector(rule.selectors[item.selector_id]),
@@ -266,6 +297,8 @@ struct PropertyTableBuilder {
       }
     }
 
+    // For each element that follows an item in this set,
+    // compute the next item set after descending through that element.
     for (auto &pair : transitions) {
       PropertyTransition transition = pair.first;
       PropertyItemSet &next_item_set = pair.second;
@@ -274,11 +307,18 @@ struct PropertyTableBuilder {
         const PropertySelectorStep *next_step = next_step_for_item(item);
         const PropertySelectorStep *prev_step = prev_step_for_item(item);
         if (next_step) {
-          if (step_is_superset(*next_step, transition)) {
+
+          // If the element matches the next part of the item, advance the
+          // item to the next part of its selector.
+          if (step_matches_transition(*next_step, transition)) {
             PropertyItem next_item = item;
             next_item.step_id++;
             next_item_set.entries.insert(next_item);
           }
+
+          // If the element does not match, and the item is in the middle
+          // of an immediate child selector, then remove it from the
+          // next item set. Otherwise, keep it unchanged.
           if (!prev_step || !prev_step->is_immediate) {
             next_item_set.entries.insert(item);
           }
@@ -289,6 +329,9 @@ struct PropertyTableBuilder {
       result.states[state_id].transitions.push_back(transition);
     }
 
+    // Compute the default successor item set - the item set that
+    // we should advance to if the next element doesn't match any
+    // of the next elements in the item set's selectors.
     PropertyItemSet default_next_item_set;
     for (const PropertyItem &item : item_set.entries) {
       const PropertySelectorStep *next_step = next_step_for_item(item);
@@ -300,6 +343,9 @@ struct PropertyTableBuilder {
 
     result.states[state_id].default_next_state_id = add_state(default_next_item_set);
 
+    // Sort the matching property sets by ascending specificity and by
+    // their order in the sheet. This way, more specific selectors and later
+    // rules will override less specific selectors and earlier rules.
     PropertySet properties;
     std::sort(selector_matches.begin(), selector_matches.end());
     for (auto &match : selector_matches) {
@@ -308,6 +354,7 @@ struct PropertyTableBuilder {
       }
     }
 
+    // Add the final property set to the deduped list.
     result.states[state_id].property_set_id = add_property_set(properties);
   }
 
