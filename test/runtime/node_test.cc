@@ -310,7 +310,7 @@ describe("Node", [&]() {
       AssertThat(ts_node_start_point(child7), Equals<TSPoint>({ 8, 0 }));
       AssertThat(ts_node_end_point(child7), Equals<TSPoint>({ 8, 1 }));
 
-      AssertThat(ts_node_child_count(child6), Equals<size_t>(3))
+      AssertThat(ts_node_child_count(child6), Equals<size_t>(3));
 
       TSNode left_brace = ts_node_child(child6, 0);
       TSNode pair = ts_node_child(child6, 1);
