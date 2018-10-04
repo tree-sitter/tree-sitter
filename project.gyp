@@ -124,6 +124,7 @@
         'cflags': [ '-g' ],
         'ldflags': [ '-g' ],
         'xcode_settings': {
+          'ARCHS': ['x86_64'],
           'OTHER_LDFLAGS': ['-g'],
           'GCC_OPTIMIZATION_LEVEL': '0',
         },
@@ -133,6 +134,7 @@
         'cflags': [ '-g' ],
         'ldflags': [ '-g' ],
         'xcode_settings': {
+          'ARCHS': ['x86_64'],
           'OTHER_LDFLAGS': ['-g'],
           'GCC_OPTIMIZATION_LEVEL': '0',
           'OTHER_CPLUSPLUSFLAGS': ['-fsanitize=address'],
@@ -145,6 +147,9 @@
       'Release': {
         'cflags': [ '-O2', '-fno-strict-aliasing' ],
         'cflags!': [ '-O3', '-fstrict-aliasing' ],
+        'xcode_settings': {
+          'ARCHS': ['x86_64'],
+        },
       },
     },
 

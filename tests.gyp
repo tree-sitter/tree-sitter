@@ -83,6 +83,7 @@
       ],
       'ldflags': ['-g'],
       'xcode_settings': {
+        'ARCHS': ['x86_64'],
         'OTHER_LDFLAGS': ['-g'],
         'OTHER_CPLUSPLUSFLAGS': ['-fsanitize=address'],
         'GCC_OPTIMIZATION_LEVEL': '0',
@@ -104,6 +105,7 @@
       }]
     ],
     'xcode_settings': {
+      'ARCHS': ['x86_64'],
       'CLANG_CXX_LANGUAGE_STANDARD': 'c++14',
       'ALWAYS_SEARCH_USER_PATHS': 'NO',
     }
