@@ -2,6 +2,7 @@
 #include "helpers/tree_helpers.h"
 #include "helpers/point_helpers.h"
 #include <ostream>
+#include <cstring>
 
 using std::string;
 using std::to_string;
