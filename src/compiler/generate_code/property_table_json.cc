@@ -78,8 +78,10 @@ class CodeGenerator {
     add(transition.type);
     add("\",\"named\":");
     add(transition.named ? "true" : "false");
-    add(",\"index\":");
-    add(transition.index == -1 ? "null" : to_string(transition.index));
+    if (transition.index != -1) {
+      add(",\"index\":");
+      add(to_string(transition.index));
+    }
     add(",\"state_id\": ");
     add(to_string(transition.state_id));
     add("}");
@@ -97,8 +99,7 @@ class CodeGenerator {
 };
 
 string property_table_json(PropertyTable table) {
-  CodeGenerator g;
-  return g.generate(table);
+  return CodeGenerator().generate(table);
 }
 
 }  // namespace generate_code
