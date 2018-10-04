@@ -12,6 +12,7 @@ struct PropertySelectorStep {
   bool named;
   bool is_immediate;
   int index;
+  std::string text_pattern;
 
   inline bool operator==(const PropertySelectorStep &other) const {
     return

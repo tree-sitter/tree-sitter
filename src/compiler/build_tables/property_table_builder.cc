@@ -107,6 +107,7 @@ struct hash<tree_sitter::PropertyTransition> {
     hash_combine(&result, transition.type);
     hash_combine(&result, transition.named);
     hash_combine(&result, transition.index);
+    hash_combine(&result, transition.text_pattern);
     hash_combine(&result, transition.state_id);
     return result;
   }
@@ -253,6 +254,7 @@ struct PropertyTableBuilder {
     unsigned result = selector.size();
     for (const PropertySelectorStep &step : selector) {
       if (step.index != -1) result++;
+      if (!step.text_pattern.empty()) result++;
     }
     return result;
   }
@@ -262,7 +264,8 @@ struct PropertyTableBuilder {
     return
       step.type == transition.type &&
       step.named == transition.named &&
-      (step.index == transition.index || step.index == -1);
+      (step.index == transition.index || step.index == -1) &&
+      (step.text_pattern == transition.text_pattern || step.text_pattern.empty());
   }
 
   void populate_state(const PropertyItemSet &item_set, StateId state_id) {
@@ -280,6 +283,7 @@ struct PropertyTableBuilder {
           next_step->type,
           next_step->named,
           next_step->index,
+          next_step->text_pattern,
           0
         }] = PropertyItemSet();
       }
@@ -328,6 +332,9 @@ struct PropertyTableBuilder {
       transition.state_id = add_state(next_item_set);
       result.states[state_id].transitions.push_back(transition);
     }
+
+    auto &transition_list = result.states[state_id].transitions;
+    std::sort(transition_list.begin(), transition_list.end());
 
     // Compute the default successor item set - the item set that
     // we should advance to if the next element doesn't match any

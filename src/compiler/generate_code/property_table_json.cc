@@ -74,13 +74,17 @@ class CodeGenerator {
 
   void add_transition(const PropertyTransition &transition) {
     add("{");
-    add("\"type\":\"");
-    add(transition.type);
-    add("\",\"named\":");
+    add("\"type\":");
+    add_string(transition.type);
+    add(",\"named\":");
     add(transition.named ? "true" : "false");
     if (transition.index != -1) {
       add(",\"index\":");
       add(to_string(transition.index));
+    }
+    if (!transition.text_pattern.empty()) {
+      add(",\"text\":");
+      add_string(transition.text_pattern);
     }
     add(",\"state_id\": ");
     add(to_string(transition.state_id));
@@ -89,12 +93,19 @@ class CodeGenerator {
 
   void add_string(const string &s) {
     add("\"");
-    add(s);
+    for (const char c : s) {
+      if (c == '"') add("\\");
+      add(c);
+    }
     add("\"");
   }
 
   void add(string input) {
     buffer += input;
+  }
+
+  void add(char c) {
+    buffer += c;
   }
 };
 

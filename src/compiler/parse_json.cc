@@ -409,6 +409,11 @@ Result<PropertyRule> parse_property_rule_json(json_value *rule_json) {
         step.index = -1;
       }
 
+      json_value text_pattern_json = selector_step_json->operator[]("text");
+      if (text_pattern_json.type == json_string) {
+        step.text_pattern = text_pattern_json.u.string.ptr;
+      }
+
       selector.push_back(step);
     }
 
