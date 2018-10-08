@@ -6,7 +6,8 @@ use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
 use std::ptr;
 
-pub type Language = *const ffi::TSLanguage;
+#[repr(transparent)]
+pub struct Language (*const ffi::TSLanguage);
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum LogType {
@@ -50,9 +51,9 @@ impl Parser {
 
     pub fn set_language(&mut self, language: Language) -> Result<(), String> {
         unsafe {
-            let version = ffi::ts_language_version(language) as usize;
+            let version = ffi::ts_language_version(language.0) as usize;
             if version == ffi::TREE_SITTER_LANGUAGE_VERSION {
-                ffi::ts_parser_set_language(self.0, language);
+                ffi::ts_parser_set_language(self.0, language.0);
                 Ok(())
             } else {
                 Err(format!(
@@ -221,6 +222,24 @@ impl Tree {
 }
 
 unsafe impl Send for Tree {}
+
+impl Language {
+    pub fn node_kind_count(&self) -> usize {
+        unsafe { ffi::ts_language_symbol_count(self.0) as usize }
+    }
+
+    pub fn node_kind_for_id(&self, id: u16) -> &'static str {
+        unsafe { CStr::from_ptr(ffi::ts_language_symbol_name(self.0, id)) }.to_str().unwrap()
+    }
+
+    pub fn node_kind_is_named(&self, id: u16) -> bool {
+        unsafe { ffi::ts_language_symbol_type(self.0, id) == ffi::TSSymbolType_TSSymbolTypeRegular }
+    }
+}
+
+unsafe impl Send for Language {}
+
+unsafe impl Sync for Language {}
 
 impl fmt::Debug for Tree {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
@@ -527,7 +546,7 @@ mod tests {
         }, None).unwrap();
 
         let root = tree.root_node();
-        assert_eq!(root.to_sexp(), "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (number_literal))))");
+        assert_eq!(root.to_sexp(), "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (integer_literal))))");
         assert_eq!(root.kind(), "source_file");
         assert_eq!(root.has_error(), false);
         assert_eq!(root.child(0).unwrap().kind(), "function_item");
@@ -563,7 +582,7 @@ mod tests {
         }, None).unwrap();
 
         let root = tree.root_node();
-        assert_eq!(root.to_sexp(), "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (number_literal))))");
+        assert_eq!(root.to_sexp(), "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (integer_literal))))");
         assert_eq!(root.kind(), "source_file");
         assert_eq!(root.has_error(), false);
         assert_eq!(root.child(0).unwrap().kind(), "function_item");
