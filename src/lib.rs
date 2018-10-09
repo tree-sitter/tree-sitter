@@ -200,6 +200,8 @@ impl Drop for Parser {
     }
 }
 
+unsafe impl Send for Parser {}
+
 impl Tree {
     pub fn root_node(&self) -> Node {
         Node::new(unsafe { ffi::ts_tree_root_node(self.0) }).unwrap()
