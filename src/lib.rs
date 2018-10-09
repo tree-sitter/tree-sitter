@@ -1,15 +1,15 @@
 mod ffi;
 
-use std::fmt;
 use std::ffi::CStr;
+use std::fmt;
+use std::io::{self, Read, Seek};
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
 use std::ptr;
-use std::io::{self, Read, Seek};
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]
-pub struct Language (*const ffi::TSLanguage);
+pub struct Language(*const ffi::TSLanguage);
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum LogType {
@@ -42,6 +42,26 @@ pub struct Parser(*mut ffi::TSParser);
 pub struct Tree(*mut ffi::TSTree);
 
 pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
+
+impl Language {
+    pub fn node_kind_count(&self) -> usize {
+        unsafe { ffi::ts_language_symbol_count(self.0) as usize }
+    }
+
+    pub fn node_kind_for_id(&self, id: u16) -> &'static str {
+        unsafe { CStr::from_ptr(ffi::ts_language_symbol_name(self.0, id)) }
+            .to_str()
+            .unwrap()
+    }
+
+    pub fn node_kind_is_named(&self, id: u16) -> bool {
+        unsafe { ffi::ts_language_symbol_type(self.0, id) == ffi::TSSymbolType_TSSymbolTypeRegular }
+    }
+}
+
+unsafe impl Send for Language {}
+
+unsafe impl Sync for Language {}
 
 impl Parser {
     pub fn new() -> Parser {
@@ -105,7 +125,10 @@ impl Parser {
                 log: Some(log),
             };
         } else {
-            c_logger = ffi::TSLogger { payload: ptr::null_mut(), log: None };
+            c_logger = ffi::TSLogger {
+                payload: ptr::null_mut(),
+                log: None,
+            };
         }
 
         unsafe { ffi::ts_parser_set_logger(self.0, c_logger) };
@@ -121,10 +144,13 @@ impl Parser {
         input: &mut T,
         old_tree: Option<&Tree>,
     ) -> Option<Tree> {
-        self.parse_utf8_ptr(&mut |byte, position| {
-            let slice = input(byte, position);
-            (slice.as_ptr(), slice.len())
-        }, old_tree)
+        self.parse_utf8_ptr(
+            &mut |byte, position| {
+                let slice = input(byte, position);
+                (slice.as_ptr(), slice.len())
+            },
+            old_tree,
+        )
     }
 
     pub fn parse_utf16<'a, T: 'a + FnMut(u32, Point) -> &'a [u16]>(
@@ -132,10 +158,13 @@ impl Parser {
         input: &mut T,
         old_tree: Option<&Tree>,
     ) -> Option<Tree> {
-        self.parse_utf16_ptr(&mut |byte, position| {
-            let slice = input(byte, position);
-            (slice.as_ptr(), slice.len())
-        }, old_tree)
+        self.parse_utf16_ptr(
+            &mut |byte, position| {
+                let slice = input(byte, position);
+                (slice.as_ptr(), slice.len())
+            },
+            old_tree,
+        )
     }
 
     pub fn parse_utf8_io(
@@ -146,29 +175,30 @@ impl Parser {
         let mut error = None;
         let mut current_offset = 0;
         let mut buffer = [0; 10 * 1024];
-        let result = self.parse_utf8_ptr(&mut |byte, _| {
-            if byte as u64 != current_offset {
-                current_offset = byte as u64;
-                if let Err(e) = input.seek(io::SeekFrom::Start(current_offset)) {
-                    error = Some(e);
-                    return (ptr::null(), 0)
+        let result = self.parse_utf8_ptr(
+            &mut |byte, _| {
+                if byte as u64 != current_offset {
+                    current_offset = byte as u64;
+                    if let Err(e) = input.seek(io::SeekFrom::Start(current_offset)) {
+                        error = Some(e);
+                        return (ptr::null(), 0);
+                    }
                 }
-            }
 
-            match input.read(&mut buffer) {
-                Err(e) => {
-                    error = Some(e);
-                    (ptr::null(), 0)
-                },
-                Ok(length) => {
-                    (buffer.as_ptr(), length)
+                match input.read(&mut buffer) {
+                    Err(e) => {
+                        error = Some(e);
+                        (ptr::null(), 0)
+                    }
+                    Ok(length) => (buffer.as_ptr(), length),
                 }
-            }
-        }, old_tree);
+            },
+            old_tree,
+        );
 
         match error {
             Some(e) => Err(e),
-            None => Ok(result)
+            None => Ok(result),
         }
     }
 
@@ -185,7 +215,7 @@ impl Parser {
         input: &mut T,
         old_tree: Option<&Tree>,
     ) -> Option<Tree> {
-        unsafe extern "C" fn read<T: FnMut(u32, Point) -> (*const u8, usize)> (
+        unsafe extern "C" fn read<T: FnMut(u32, Point) -> (*const u8, usize)>(
             payload: *mut c_void,
             byte_offset: u32,
             position: ffi::TSPoint,
@@ -224,10 +254,13 @@ impl Parser {
             bytes_read: *mut u32,
         ) -> *const c_char {
             let input = (payload as *mut T).as_mut().unwrap();
-            let (ptr, length) = (*input)(byte_offset, Point {
-                row: position.row,
-                column: position.column / 2,
-            });
+            let (ptr, length) = (*input)(
+                byte_offset,
+                Point {
+                    row: position.row,
+                    column: position.column / 2,
+                },
+            );
             *bytes_read = length as u32 * 2;
             ptr as *const c_char
         };
@@ -281,24 +314,6 @@ impl Tree {
 
 unsafe impl Send for Tree {}
 
-impl Language {
-    pub fn node_kind_count(&self) -> usize {
-        unsafe { ffi::ts_language_symbol_count(self.0) as usize }
-    }
-
-    pub fn node_kind_for_id(&self, id: u16) -> &'static str {
-        unsafe { CStr::from_ptr(ffi::ts_language_symbol_name(self.0, id)) }.to_str().unwrap()
-    }
-
-    pub fn node_kind_is_named(&self, id: u16) -> bool {
-        unsafe { ffi::ts_language_symbol_type(self.0, id) == ffi::TSSymbolType_TSSymbolTypeRegular }
-    }
-}
-
-unsafe impl Send for Language {}
-
-unsafe impl Sync for Language {}
-
 impl fmt::Debug for Tree {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(f, "{{Tree {:?}}}", self.root_node())
@@ -331,7 +346,9 @@ impl<'tree> Node<'tree> {
     }
 
     pub fn kind(&self) -> &'static str {
-        unsafe { CStr::from_ptr(ffi::ts_node_type(self.0)) }.to_str().unwrap()
+        unsafe { CStr::from_ptr(ffi::ts_node_type(self.0)) }
+            .to_str()
+            .unwrap()
     }
 
     pub fn is_named(&self) -> bool {
@@ -407,10 +424,15 @@ impl<'tree> Node<'tree> {
     }
 
     pub fn to_sexp(&self) -> String {
-        extern "C" { fn free(pointer: *mut c_void); }
+        extern "C" {
+            fn free(pointer: *mut c_void);
+        }
 
         let c_string = unsafe { ffi::ts_node_string(self.0) };
-        let result = unsafe { CStr::from_ptr(c_string) }.to_str().unwrap().to_string();
+        let result = unsafe { CStr::from_ptr(c_string) }
+            .to_str()
+            .unwrap()
+            .to_string();
         unsafe { free(c_string as *mut c_void) };
         result
     }
@@ -428,7 +450,13 @@ impl<'a> PartialEq for Node<'a> {
 
 impl<'a> fmt::Debug for Node<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "{{Node {} {} - {}}}", self.kind(), self.start_position(), self.end_position())
+        write!(
+            f,
+            "{{Node {} {} - {}}}",
+            self.kind(),
+            self.start_position(),
+            self.end_position()
+        )
     }
 }
 
@@ -500,21 +528,30 @@ impl From<ffi::TSPoint> for Point {
 
 #[cfg(test)]
 mod tests {
-    use std::thread;
     use super::*;
+    use std::thread;
 
-    fn rust() -> Language { unsafe { tree_sitter_rust() } }
-    extern "C" { fn tree_sitter_rust() -> Language; }
+    fn rust() -> Language {
+        unsafe { tree_sitter_rust() }
+    }
+    extern "C" {
+        fn tree_sitter_rust() -> Language;
+    }
 
     #[test]
     fn test_basic_parsing() {
         let mut parser = Parser::new();
         parser.set_language(rust()).unwrap();
 
-        let tree = parser.parse_str("
+        let tree = parser
+            .parse_str(
+                "
             struct Stuff {}
             fn main() {}
-        ", None).unwrap();
+        ",
+                None,
+            )
+            .unwrap();
 
         let root_node = tree.root_node();
         assert_eq!(root_node.kind(), "source_file");
@@ -538,12 +575,20 @@ mod tests {
             messages.push((log_type, message.to_string()));
         })));
 
-        parser.parse_str("
+        parser
+            .parse_str(
+                "
             struct Stuff {}
             fn main() {}
-        ", None).unwrap();
+        ",
+                None,
+            )
+            .unwrap();
 
-        assert!(messages.contains(&(LogType::Parse, "reduce sym:struct_item, child_count:3".to_string())));
+        assert!(messages.contains(&(
+            LogType::Parse,
+            "reduce sym:struct_item, child_count:3".to_string()
+        )));
         assert!(messages.contains(&(LogType::Lex, "skip character:' '".to_string())));
     }
 
@@ -552,12 +597,17 @@ mod tests {
         let mut parser = Parser::new();
         parser.set_language(rust()).unwrap();
 
-        let tree = parser.parse_str("
+        let tree = parser
+            .parse_str(
+                "
             struct Stuff {
                 a: A;
                 b: Option<B>,
             }
-        ", None).unwrap();
+        ",
+                None,
+            )
+            .unwrap();
 
         let mut cursor = tree.walk();
         assert_eq!(cursor.node().kind(), "source_file");
@@ -583,25 +633,26 @@ mod tests {
         let mut parser = Parser::new();
         parser.set_language(rust()).unwrap();
 
-        let lines = &[
-            "pub fn foo() {",
-            "  1",
-            "}",
-        ];
+        let lines = &["pub fn foo() {", "  1", "}"];
 
-        let tree = parser.parse_utf8(&mut |_, position| {
-            let row = position.row as usize;
-            let column = position.column as usize;
-            if row < lines.len() {
-                if column < lines[row].as_bytes().len() {
-                    &lines[row].as_bytes()[column..]
-                } else {
-                    "\n".as_bytes()
-                }
-            } else {
-                &[]
-            }
-        }, None).unwrap();
+        let tree = parser
+            .parse_utf8(
+                &mut |_, position| {
+                    let row = position.row as usize;
+                    let column = position.column as usize;
+                    if row < lines.len() {
+                        if column < lines[row].as_bytes().len() {
+                            &lines[row].as_bytes()[column..]
+                        } else {
+                            "\n".as_bytes()
+                        }
+                    } else {
+                        &[]
+                    }
+                },
+                None,
+            )
+            .unwrap();
 
         let root = tree.root_node();
         assert_eq!(root.to_sexp(), "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (integer_literal))))");
@@ -619,25 +670,29 @@ mod tests {
             println!("log: {:?} {}", t, message);
         })));
 
-        let lines: Vec<Vec<u16>> = [
-            "pub fn foo() {",
-            "  1",
-            "}"
-        ].iter().map(|s| s.encode_utf16().collect()).collect();
+        let lines: Vec<Vec<u16>> = ["pub fn foo() {", "  1", "}"]
+            .iter()
+            .map(|s| s.encode_utf16().collect())
+            .collect();
 
-        let tree = parser.parse_utf16(&mut |_, position| {
-            let row = position.row as usize;
-            let column = position.column as usize;
-            if row < lines.len() {
-                if column < lines[row].len() {
-                    &lines[row][column..]
-                } else {
-                    &[10]
-                }
-            } else {
-                &[]
-            }
-        }, None).unwrap();
+        let tree = parser
+            .parse_utf16(
+                &mut |_, position| {
+                    let row = position.row as usize;
+                    let column = position.column as usize;
+                    if row < lines.len() {
+                        if column < lines[row].len() {
+                            &lines[row][column..]
+                        } else {
+                            &[10]
+                        }
+                    } else {
+                        &[]
+                    }
+                },
+                None,
+            )
+            .unwrap();
 
         let root = tree.root_node();
         assert_eq!(root.to_sexp(), "(source_file (function_item (visibility_modifier) (identifier) (parameters) (block (integer_literal))))");
@@ -666,20 +721,28 @@ mod tests {
         let mut input_bytes = "fn test(a: A, c: C) {}".as_bytes();
         let mut input_bytes_read = Vec::new();
 
-        let mut tree = parser.parse_utf8(&mut |offset, _| {
-            let offset = offset as usize;
-            if offset < input_bytes.len() {
-                let result = &input_bytes[offset..offset + 1];
-                input_bytes_read.extend(result.iter());
-                result
-            } else {
-                &[]
-            }
-        }, None).unwrap();
+        let mut tree = parser
+            .parse_utf8(
+                &mut |offset, _| {
+                    let offset = offset as usize;
+                    if offset < input_bytes.len() {
+                        let result = &input_bytes[offset..offset + 1];
+                        input_bytes_read.extend(result.iter());
+                        result
+                    } else {
+                        &[]
+                    }
+                },
+                None,
+            )
+            .unwrap();
 
-        let parameters_sexp = tree.root_node()
-            .named_child(0).unwrap()
-            .named_child(1).unwrap()
+        let parameters_sexp = tree
+            .root_node()
+            .named_child(0)
+            .unwrap()
+            .named_child(1)
+            .unwrap()
             .to_sexp();
         assert_eq!(
             parameters_sexp,
@@ -688,7 +751,7 @@ mod tests {
 
         input_bytes_read.clear();
         input_bytes = "fn test(a: A, b: B, c: C) {}".as_bytes();
-        tree.edit(&InputEdit{
+        tree.edit(&InputEdit {
             start_byte: 14,
             old_end_byte: 14,
             new_end_byte: 20,
@@ -697,20 +760,28 @@ mod tests {
             new_end_position: Point::new(0, 20),
         });
 
-        let tree = parser.parse_utf8(&mut |offset, _| {
-            let offset = offset as usize;
-            if offset < input_bytes.len() {
-                let result = &input_bytes[offset..offset + 1];
-                input_bytes_read.extend(result.iter());
-                result
-            } else {
-                &[]
-            }
-        }, Some(&tree)).unwrap();
+        let tree = parser
+            .parse_utf8(
+                &mut |offset, _| {
+                    let offset = offset as usize;
+                    if offset < input_bytes.len() {
+                        let result = &input_bytes[offset..offset + 1];
+                        input_bytes_read.extend(result.iter());
+                        result
+                    } else {
+                        &[]
+                    }
+                },
+                Some(&tree),
+            )
+            .unwrap();
 
-        let parameters_sexp = tree.root_node()
-            .named_child(0).unwrap()
-            .named_child(1).unwrap()
+        let parameters_sexp = tree
+            .root_node()
+            .named_child(0)
+            .unwrap()
+            .named_child(1)
+            .unwrap()
             .to_sexp();
         assert_eq!(
             parameters_sexp,
@@ -738,7 +809,6 @@ mod tests {
         for thread_id in 1..5 {
             let mut tree_clone = tree.clone();
             parse_threads.push(thread::spawn(move || {
-
                 // For each thread, prepend a different number of declarations to the
                 // source code.
                 let mut prepend_line_count = 0;
@@ -748,7 +818,7 @@ mod tests {
                     prepended_source += "struct X {}\n\n";
                 }
 
-                tree_clone.edit(&InputEdit{
+                tree_clone.edit(&InputEdit {
                     start_byte: 0,
                     old_end_byte: 0,
                     new_end_byte: prepended_source.len() as u32,
@@ -761,7 +831,9 @@ mod tests {
                 // Reparse using the old tree as a starting point.
                 let mut parser = Parser::new();
                 parser.set_language(rust()).unwrap();
-                parser.parse_str(&prepended_source, Some(&tree_clone)).unwrap()
+                parser
+                    .parse_str(&prepended_source, Some(&tree_clone))
+                    .unwrap()
             }));
         }
 
