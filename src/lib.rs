@@ -5,6 +5,7 @@ use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
 use std::ptr;
+use std::io::{self, Read, Seek};
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]
@@ -115,37 +116,15 @@ impl Parser {
         self.parse_utf8(&mut |offset, _| &bytes[(offset as usize)..], old_tree)
     }
 
-    pub fn parse_utf8<'a, T: 'a + FnMut(u32, Point) -> &'a [u8]>(
+    pub fn parse_utf8<'a, T: FnMut(u32, Point) -> &'a [u8]>(
         &mut self,
         input: &mut T,
         old_tree: Option<&Tree>,
     ) -> Option<Tree> {
-        unsafe extern "C" fn read<'a, T: 'a + FnMut(u32, Point) -> &'a [u8]>(
-            payload: *mut c_void,
-            byte_offset: u32,
-            position: ffi::TSPoint,
-            bytes_read: *mut u32,
-        ) -> *const c_char {
-            let input = (payload as *mut T).as_mut().unwrap();
-            let result = (*input)(byte_offset, position.into());
-            *bytes_read = result.len() as u32;
-            return result.as_ptr() as *const c_char;
-        };
-
-        let c_input = ffi::TSInput {
-            payload: input as *mut T as *mut c_void,
-            read: Some(read::<'a, T>),
-            encoding: ffi::TSInputEncoding_TSInputEncodingUTF8,
-        };
-
-        let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0);
-
-        let c_new_tree = unsafe { ffi::ts_parser_parse(self.0, c_old_tree, c_input) };
-        if c_new_tree.is_null() {
-            None
-        } else {
-            Some(Tree(c_new_tree))
-        }
+        self.parse_utf8_ptr(&mut |byte, position| {
+            let slice = input(byte, position);
+            (slice.as_ptr(), slice.len())
+        }, old_tree)
     }
 
     pub fn parse_utf16<'a, T: 'a + FnMut(u32, Point) -> &'a [u16]>(
@@ -153,34 +132,43 @@ impl Parser {
         input: &mut T,
         old_tree: Option<&Tree>,
     ) -> Option<Tree> {
-        unsafe extern "C" fn read<'a, T: 'a + FnMut(u32, Point) -> &'a [u16]>(
-            payload: *mut c_void,
-            byte_offset: u32,
-            position: ffi::TSPoint,
-            bytes_read: *mut u32,
-        ) -> *const c_char {
-            let input = (payload as *mut T).as_mut().unwrap();
-            let result = (*input)(byte_offset, Point {
-                row: position.row,
-                column: position.column / 2,
-            });
-            *bytes_read = result.len() as u32 * 2;
-            return result.as_ptr() as *const c_char;
-        };
+        self.parse_utf16_ptr(&mut |byte, position| {
+            let slice = input(byte, position);
+            (slice.as_ptr(), slice.len())
+        }, old_tree)
+    }
 
-        let c_input = ffi::TSInput {
-            payload: input as *mut T as *mut c_void,
-            read: Some(read::<'a, T>),
-            encoding: ffi::TSInputEncoding_TSInputEncodingUTF16,
-        };
+    pub fn parse_utf8_io(
+        &mut self,
+        mut input: impl Read + Seek,
+        old_tree: Option<&Tree>,
+    ) -> io::Result<Option<Tree>> {
+        let mut error = None;
+        let mut current_offset = 0;
+        let mut buffer = [0; 10 * 1024];
+        let result = self.parse_utf8_ptr(&mut |byte, _| {
+            if byte as u64 != current_offset {
+                current_offset = byte as u64;
+                if let Err(e) = input.seek(io::SeekFrom::Start(current_offset)) {
+                    error = Some(e);
+                    return (ptr::null(), 0)
+                }
+            }
 
-        let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0);
+            match input.read(&mut buffer) {
+                Err(e) => {
+                    error = Some(e);
+                    (ptr::null(), 0)
+                },
+                Ok(length) => {
+                    (buffer.as_ptr(), length)
+                }
+            }
+        }, old_tree);
 
-        let c_new_tree = unsafe { ffi::ts_parser_parse(self.0, c_old_tree, c_input) };
-        if c_new_tree.is_null() {
-            None
-        } else {
-            Some(Tree(c_new_tree))
+        match error {
+            Some(e) => Err(e),
+            None => Ok(result)
         }
     }
 
@@ -190,6 +178,73 @@ impl Parser {
 
     pub fn set_operation_limit(&mut self, limit: usize) {
         unsafe { ffi::ts_parser_set_operation_limit(self.0, limit) }
+    }
+
+    fn parse_utf8_ptr<T: FnMut(u32, Point) -> (*const u8, usize)>(
+        &mut self,
+        input: &mut T,
+        old_tree: Option<&Tree>,
+    ) -> Option<Tree> {
+        unsafe extern "C" fn read<T: FnMut(u32, Point) -> (*const u8, usize)> (
+            payload: *mut c_void,
+            byte_offset: u32,
+            position: ffi::TSPoint,
+            bytes_read: *mut u32,
+        ) -> *const c_char {
+            let input = (payload as *mut T).as_mut().unwrap();
+            let (ptr, length) = (*input)(byte_offset, position.into());
+            *bytes_read = length as u32;
+            return ptr as *const c_char;
+        };
+
+        let c_input = ffi::TSInput {
+            payload: input as *mut T as *mut c_void,
+            read: Some(read::<T>),
+            encoding: ffi::TSInputEncoding_TSInputEncodingUTF8,
+        };
+
+        let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0);
+        let c_new_tree = unsafe { ffi::ts_parser_parse(self.0, c_old_tree, c_input) };
+        if c_new_tree.is_null() {
+            None
+        } else {
+            Some(Tree(c_new_tree))
+        }
+    }
+
+    fn parse_utf16_ptr<T: FnMut(u32, Point) -> (*const u16, usize)>(
+        &mut self,
+        input: &mut T,
+        old_tree: Option<&Tree>,
+    ) -> Option<Tree> {
+        unsafe extern "C" fn read<T: FnMut(u32, Point) -> (*const u16, usize)>(
+            payload: *mut c_void,
+            byte_offset: u32,
+            position: ffi::TSPoint,
+            bytes_read: *mut u32,
+        ) -> *const c_char {
+            let input = (payload as *mut T).as_mut().unwrap();
+            let (ptr, length) = (*input)(byte_offset, Point {
+                row: position.row,
+                column: position.column / 2,
+            });
+            *bytes_read = length as u32 * 2;
+            ptr as *const c_char
+        };
+
+        let c_input = ffi::TSInput {
+            payload: input as *mut T as *mut c_void,
+            read: Some(read::<T>),
+            encoding: ffi::TSInputEncoding_TSInputEncodingUTF16,
+        };
+
+        let c_old_tree = old_tree.map_or(ptr::null_mut(), |t| t.0);
+        let c_new_tree = unsafe { ffi::ts_parser_parse(self.0, c_old_tree, c_input) };
+        if c_new_tree.is_null() {
+            None
+        } else {
+            Some(Tree(c_new_tree))
+        }
     }
 }
 
