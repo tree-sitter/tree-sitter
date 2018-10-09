@@ -6,6 +6,7 @@ use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
 use std::ptr;
 
+#[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct Language (*const ffi::TSLanguage);
 
