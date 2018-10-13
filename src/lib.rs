@@ -1,11 +1,17 @@
 mod ffi;
 
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_json;
+
+use std::collections::HashMap;
 use std::ffi::CStr;
 use std::fmt;
 use std::io::{self, Read, Seek};
 use std::marker::PhantomData;
 use std::os::raw::{c_char, c_void};
 use std::ptr;
+use std::str;
 
 #[derive(Clone, Copy)]
 #[repr(transparent)]
@@ -19,7 +25,7 @@ pub enum LogType {
 
 type Logger<'a> = Box<FnMut(LogType, &str) + 'a>;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Point {
     pub row: u32,
     pub column: u32,
@@ -35,6 +41,22 @@ pub struct InputEdit {
     pub new_end_position: Point,
 }
 
+struct PropertyTransition {
+    state_id: u32,
+    child_index: Option<u32>,
+}
+
+struct PropertyState {
+    transitions: HashMap<u16, Vec<PropertyTransition>>,
+    property_set_id: u32,
+    default_next_state_id: u32,
+}
+
+pub struct PropertySheet {
+    states: Vec<PropertyState>,
+    property_sets: Vec<HashMap<String, String>>,
+}
+
 pub struct Node<'a>(ffi::TSNode, PhantomData<&'a ()>);
 
 pub struct Parser(*mut ffi::TSParser);
@@ -42,6 +64,13 @@ pub struct Parser(*mut ffi::TSParser);
 pub struct Tree(*mut ffi::TSTree);
 
 pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
+
+pub struct TreePropertyCursor<'a> {
+    cursor: TreeCursor<'a>,
+    state_stack: Vec<u32>,
+    child_index_stack: Vec<u32>,
+    property_sheet: &'a PropertySheet,
+}
 
 impl Language {
     pub fn node_kind_count(&self) -> usize {
@@ -310,6 +339,13 @@ impl Tree {
     pub fn walk(&self) -> TreeCursor {
         self.root_node().walk()
     }
+
+    pub fn walk_with_properties<'a>(
+        &'a self,
+        property_sheet: &'a PropertySheet,
+    ) -> TreePropertyCursor<'a> {
+        TreePropertyCursor::new(self, property_sheet)
+    }
 }
 
 unsafe impl Send for Tree {}
@@ -437,6 +473,14 @@ impl<'tree> Node<'tree> {
         result
     }
 
+    pub fn utf8_text<'a>(&self, source: &'a str) -> Result<&'a str, str::Utf8Error> {
+        str::from_utf8(&source.as_bytes()[self.start_byte() as usize..self.end_byte() as usize])
+    }
+
+    pub fn utf16_text<'a>(&self, source: &'a [u16]) -> &'a [u16] {
+        &source[self.start_byte() as usize..self.end_byte() as usize]
+    }
+
     pub fn walk(&self) -> TreeCursor<'tree> {
         TreeCursor(unsafe { ffi::ts_tree_cursor_new(self.0) }, PhantomData)
     }
@@ -461,7 +505,7 @@ impl<'a> fmt::Debug for Node<'a> {
 }
 
 impl<'a> TreeCursor<'a> {
-    pub fn node(&'a self) -> Node<'a> {
+    pub fn node(&self) -> Node<'a> {
         Node(
             unsafe { ffi::ts_tree_cursor_current_node(&self.0) },
             PhantomData,
@@ -496,6 +540,87 @@ impl<'a> Drop for TreeCursor<'a> {
     }
 }
 
+impl<'a> TreePropertyCursor<'a> {
+    fn new(tree: &'a Tree, property_sheet: &'a PropertySheet) -> Self {
+        Self {
+            cursor: tree.root_node().walk(),
+            child_index_stack: vec![0],
+            state_stack: vec![0],
+            property_sheet,
+        }
+    }
+
+    pub fn node(&self) -> Node<'a> {
+        self.cursor.node()
+    }
+
+    pub fn node_properties(&self) -> &'a HashMap<String, String> {
+        &self.property_sheet.property_sets[self.current_state().property_set_id as usize]
+    }
+
+    pub fn goto_first_child(&mut self) -> bool {
+        if self.cursor.goto_first_child() {
+            let child_index = 0;
+            let next_state_id = {
+                let state = &self.current_state();
+                let kind_id = self.cursor.node().kind_id();
+                self.next_state(state, kind_id, child_index)
+            };
+            self.state_stack.push(next_state_id);
+            self.child_index_stack.push(child_index);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn goto_next_sibling(&mut self) -> bool {
+        if self.cursor.goto_next_sibling() {
+            let child_index = self.child_index_stack.pop().unwrap() + 1;
+            self.state_stack.pop();
+            let next_state_id = {
+                let state = &self.current_state();
+                let kind_id = self.cursor.node().kind_id();
+                self.next_state(state, kind_id, child_index)
+            };
+            self.state_stack.push(next_state_id);
+            self.child_index_stack.push(child_index);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn goto_parent(&mut self) -> bool {
+        if self.cursor.goto_parent() {
+            self.state_stack.pop();
+            self.child_index_stack.pop();
+            true
+        } else {
+            false
+        }
+    }
+
+    fn next_state(&self, state: &PropertyState, node_kind_id: u16, node_child_index: u32) -> u32 {
+        state
+            .transitions
+            .get(&node_kind_id)
+            .and_then(|transitions| {
+                for transition in transitions.iter() {
+                    if transition.child_index == Some(node_child_index) || transition.child_index == None {
+                        return Some(transition.state_id);
+                    }
+                }
+                None
+            })
+            .unwrap_or(state.default_next_state_id)
+    }
+
+    fn current_state(&self) -> &PropertyState {
+        &self.property_sheet.states[*self.state_stack.last().unwrap() as usize]
+    }
+}
+
 impl Point {
     pub fn new(row: u32, column: u32) -> Self {
         Point { row, column }
@@ -523,6 +648,64 @@ impl From<ffi::TSPoint> for Point {
             row: point.row,
             column: point.column,
         }
+    }
+}
+
+impl PropertySheet {
+    pub fn new(language: Language, json: &str) -> Result<Self, serde_json::Error> {
+        #[derive(Deserialize, Debug)]
+        struct PropertyTransitionJSON {
+            #[serde(rename = "type")]
+            kind: String,
+            named: bool,
+            index: Option<u32>,
+            state_id: u32,
+        }
+
+        #[derive(Deserialize, Debug)]
+        struct PropertyStateJSON {
+            transitions: Vec<PropertyTransitionJSON>,
+            property_set_id: u32,
+            default_next_state_id: u32,
+        }
+
+        #[derive(Deserialize, Debug)]
+        struct PropertySheetJSON {
+            states: Vec<PropertyStateJSON>,
+            property_sets: Vec<HashMap<String, String>>,
+        }
+
+        let input: PropertySheetJSON = serde_json::from_str(json)?;
+        Ok(PropertySheet {
+            property_sets: input.property_sets,
+            states: input
+                .states
+                .iter()
+                .map(|state| {
+                    let mut transitions = HashMap::new();
+                    let node_kind_count = language.node_kind_count();
+                    for transition in state.transitions.iter() {
+                        for i in 0..node_kind_count {
+                            let i = i as u16;
+                            if language.node_kind_is_named(i) == transition.named
+                                && transition.kind == language.node_kind_for_id(i)
+                            {
+                                let entry = transitions.entry(i).or_insert(Vec::new());
+                                entry.push(PropertyTransition {
+                                    child_index: transition.index,
+                                    state_id: transition.state_id,
+                                });
+                            }
+                        }
+                    }
+                    PropertyState {
+                        transitions,
+                        default_next_state_id: state.default_next_state_id,
+                        property_set_id: state.property_set_id,
+                    }
+                })
+                .collect(),
+        })
     }
 }
 
@@ -600,11 +783,11 @@ mod tests {
         let tree = parser
             .parse_str(
                 "
-            struct Stuff {
-                a: A;
-                b: Option<B>,
-            }
-        ",
+                    struct Stuff {
+                        a: A;
+                        b: Option<B>,
+                    }
+                ",
                 None,
             )
             .unwrap();
@@ -626,6 +809,103 @@ mod tests {
         assert!(cursor.goto_next_sibling());
         assert_eq!(cursor.node().kind(), "field_declaration_list");
         assert_eq!(cursor.node().is_named(), true);
+    }
+
+    #[test]
+    fn test_tree_property_matching() {
+        let mut parser = Parser::new();
+        parser.set_language(rust()).unwrap();
+        let tree = parser.parse_str("fn f1() { f2(); }", None).unwrap();
+
+        let property_sheet = PropertySheet::new(
+            rust(),
+            r##"
+            {
+                "states": [
+                    {
+                        "transitions": [
+                            {"type": "call_expression", "named": true, "state_id": 1},
+                            {"type": "function_item", "named": true, "state_id": 2}
+                        ],
+                        "default_next_state_id": 0,
+                        "property_set_id": 0
+                    },
+                    {
+                        "transitions": [
+                            {"type": "identifier", "named": true, "state_id": 3}
+                        ],
+                        "default_next_state_id": 0,
+                        "property_set_id": 0
+                    },
+                    {
+                        "transitions": [
+                            {"type": "identifier", "named": true, "state_id": 4}
+                        ],
+                        "default_next_state_id": 0,
+                        "property_set_id": 0
+                    },
+                    {
+                        "transitions": [],
+                        "default_next_state_id": 0,
+                        "property_set_id": 1
+                    },
+                    {
+                        "transitions": [],
+                        "default_next_state_id": 0,
+                        "property_set_id": 2
+                    }
+                ],
+                "property_sets": [
+                    {},
+                    {"reference": "function"},
+                    {"define": "function"}
+                ]
+            }
+        "##,
+        )
+        .unwrap();
+
+        let mut cursor = tree.walk_with_properties(&property_sheet);
+        assert_eq!(cursor.node().kind(), "source_file");
+        assert_eq!(*cursor.node_properties(), HashMap::new());
+
+        assert!(cursor.goto_first_child());
+        assert_eq!(cursor.node().kind(), "function_item");
+        assert_eq!(*cursor.node_properties(), HashMap::new());
+
+        assert!(cursor.goto_first_child());
+        assert_eq!(cursor.node().kind(), "fn");
+        assert_eq!(*cursor.node_properties(), HashMap::new());
+        assert!(!cursor.goto_first_child());
+
+        assert!(cursor.goto_next_sibling());
+        assert_eq!(cursor.node().kind(), "identifier");
+        assert_eq!(cursor.node_properties()["define"], "function");
+        assert!(!cursor.goto_first_child());
+
+        assert!(cursor.goto_next_sibling());
+        assert_eq!(cursor.node().kind(), "parameters");
+        assert_eq!(*cursor.node_properties(), HashMap::new());
+
+        assert!(cursor.goto_first_child());
+        assert_eq!(cursor.node().kind(), "(");
+        assert!(cursor.goto_next_sibling());
+        assert_eq!(cursor.node().kind(), ")");
+        assert_eq!(*cursor.node_properties(), HashMap::new());
+
+        assert!(cursor.goto_parent());
+        assert!(cursor.goto_next_sibling());
+        assert_eq!(cursor.node().kind(), "block");
+        assert_eq!(*cursor.node_properties(), HashMap::new());
+
+        assert!(cursor.goto_first_child());
+        assert!(cursor.goto_next_sibling());
+        assert_eq!(cursor.node().kind(), "call_expression");
+        assert_eq!(*cursor.node_properties(), HashMap::new());
+
+        assert!(cursor.goto_first_child());
+        assert_eq!(cursor.node().kind(), "identifier");
+        assert_eq!(cursor.node_properties()["reference"], "function");
     }
 
     #[test]
