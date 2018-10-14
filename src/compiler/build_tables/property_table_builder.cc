@@ -348,7 +348,8 @@ struct PropertyTableBuilder {
       }
     }
 
-    result.states[state_id].default_next_state_id = add_state(default_next_item_set);
+    StateId default_next_state_id = add_state(default_next_item_set);
+    result.states[state_id].default_next_state_id = default_next_state_id;
 
     // Sort the matching property sets by ascending specificity and by
     // their order in the sheet. This way, more specific selectors and later
