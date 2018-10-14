@@ -74,6 +74,43 @@ struct PropertySelectorMatch {
   }
 };
 
+struct PropertyTransitionEntry {
+  PropertyTransition transition;
+  unsigned latest_matching_rule_id;
+
+  unsigned specificity() const {
+    return
+      (transition.index == -1 ? 0 : 1) +
+      (transition.text_pattern.empty() ? 0 : 1);
+  }
+
+  // When using the final state machine, the runtime library computes
+  // a node's property by descending from the root of the syntax
+  // tree to that node. For each ancestor node on the way, it should
+  // update its state using the *first* matching entry of the
+  // `transitions` list. Therefore, the order of the transitions
+  // must match the normal tie-breaking rules of CSS.
+  bool operator<(const PropertyTransitionEntry &other) const {
+    // If two transitions match different node types, they can't
+    // both match a given node, so their order is arbitrary.
+    if (transition.type < other.transition.type) return true;
+    if (transition.type > other.transition.type) return false;
+    if (transition.named && !other.transition.named) return true;
+    if (!transition.named && other.transition.named) return false;
+
+    // More specific transitions should be considered before less
+    // specific ones.
+    if (specificity() > other.specificity()) return true;
+    if (specificity() < other.specificity()) return false;
+
+    // If there are two transitions with a specificity tie (e.g. one
+    // with an `:nth-child` pseudo-class and a one with a `:text`
+    // pseudo-class), then the one whose matching properties appeared
+    // later in the cascade should be considered first.
+    return latest_matching_rule_id > other.latest_matching_rule_id;
+  }
+};
+
 }  // namespace build_tables
 }  // namespace tree_sitter
 
@@ -303,9 +340,11 @@ struct PropertyTableBuilder {
 
     // For each element that follows an item in this set,
     // compute the next item set after descending through that element.
+    vector<PropertyTransitionEntry> transition_list;
     for (auto &pair : transitions) {
       PropertyTransition transition = pair.first;
       PropertyItemSet &next_item_set = pair.second;
+      unsigned latest_matching_rule_id = 0;
 
       for (const PropertyItem &item : item_set.entries) {
         const PropertySelectorStep *next_step = next_step_for_item(item);
@@ -318,6 +357,12 @@ struct PropertyTableBuilder {
             PropertyItem next_item = item;
             next_item.step_id++;
             next_item_set.entries.insert(next_item);
+
+            // If the item is at the end of its selector, record its rule id
+            // so that it can be used when sorting the transitions.
+            if (!next_step_for_item(next_item) && next_item.rule_id > latest_matching_rule_id) {
+              latest_matching_rule_id = item.rule_id;
+            }
           }
 
           // If the element does not match, and the item is in the middle
@@ -330,11 +375,13 @@ struct PropertyTableBuilder {
       }
 
       transition.state_id = add_state(next_item_set);
-      result.states[state_id].transitions.push_back(transition);
+      transition_list.push_back(PropertyTransitionEntry {transition, latest_matching_rule_id});
     }
 
-    auto &transition_list = result.states[state_id].transitions;
     std::sort(transition_list.begin(), transition_list.end());
+    for (auto &entry : transition_list) {
+      result.states[state_id].transitions.push_back(entry.transition);
+    }
 
     // Compute the default successor item set - the item set that
     // we should advance to if the next element doesn't match any

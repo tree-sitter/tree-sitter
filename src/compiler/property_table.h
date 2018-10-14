@@ -23,27 +23,6 @@ struct PropertyTransition {
       text_pattern == other.text_pattern &&
       state_id == other.state_id;
   }
-
-  bool operator<(const PropertyTransition &other) const {
-    if (type < other.type) return true;
-    if (type > other.type) return false;
-    if (named && !other.named) return true;
-    if (!named && other.named) return false;
-
-    // The lack of a specific child index is represented as -1.
-    // It should be sorted *after* transitions with a specific
-    // child index.
-    if (index > other.index) return true;
-    if (index < other.index) return false;
-
-    // The lack of a text pattern is represented as the empty string.
-    // This should be sorted *after* transitions with a specific
-    // text pattern.
-    if (text_pattern.size() > other.text_pattern.size()) return true;
-    if (text_pattern.size() < other.text_pattern.size()) return false;
-
-    return state_id < other.state_id;
-  }
 };
 
 struct PropertyState {
