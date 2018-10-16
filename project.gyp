@@ -18,12 +18,14 @@
         'src/compiler/build_tables/parse_item.cc',
         'src/compiler/build_tables/parse_item_set_builder.cc',
         'src/compiler/build_tables/parse_table_builder.cc',
+        'src/compiler/build_tables/property_table_builder.cc',
         'src/compiler/build_tables/rule_can_be_blank.cc',
         'src/compiler/compile.cc',
         'src/compiler/generate_code/c_code.cc',
+        'src/compiler/generate_code/property_table_json.cc',
         'src/compiler/lex_table.cc',
         'src/compiler/log.cc',
-        'src/compiler/parse_grammar.cc',
+        'src/compiler/parse_json.cc',
         'src/compiler/parse_table.cc',
         'src/compiler/precedence_range.cc',
         'src/compiler/prepare_grammar/expand_repeats.cc',
@@ -122,6 +124,7 @@
         'cflags': [ '-g' ],
         'ldflags': [ '-g' ],
         'xcode_settings': {
+          'ARCHS': ['x86_64'],
           'OTHER_LDFLAGS': ['-g'],
           'GCC_OPTIMIZATION_LEVEL': '0',
         },
@@ -131,6 +134,7 @@
         'cflags': [ '-g' ],
         'ldflags': [ '-g' ],
         'xcode_settings': {
+          'ARCHS': ['x86_64'],
           'OTHER_LDFLAGS': ['-g'],
           'GCC_OPTIMIZATION_LEVEL': '0',
           'OTHER_CPLUSPLUSFLAGS': ['-fsanitize=address'],
@@ -143,6 +147,9 @@
       'Release': {
         'cflags': [ '-O2', '-fno-strict-aliasing' ],
         'cflags!': [ '-O3', '-fstrict-aliasing' ],
+        'xcode_settings': {
+          'ARCHS': ['x86_64'],
+        },
       },
     },
 

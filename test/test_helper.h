@@ -11,6 +11,7 @@ namespace tree_sitter {}
 
 using namespace std;
 using namespace bandit;
+using namespace snowhouse;
 using namespace tree_sitter;
 
 #define START_TEST go_bandit([]() {

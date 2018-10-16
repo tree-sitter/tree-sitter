@@ -84,7 +84,7 @@ describe("intern_symbols", []() {
         VariableTypeNamed,
         Symbol::non_terminal(2),
       },
-    }))
+    }));
   });
 });
 

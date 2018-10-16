@@ -7,6 +7,7 @@
 
 using std::string;
 using std::cout;
+using namespace snowhouse;
 
 static void append_text_to_scope_sequence(ScopeSequence *sequence,
                                           ScopeStack *current_scopes,

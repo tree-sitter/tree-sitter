@@ -29,6 +29,7 @@ typedef struct {
 } TSCompileResult;
 
 TSCompileResult ts_compile_grammar(const char *input, FILE *log_file);
+TSCompileResult ts_compile_property_sheet(const char *input, FILE *log_file);
 
 #ifdef __cplusplus
 }

@@ -181,7 +181,7 @@ describe("extract_tokens", []() {
         Seq{CharacterSet{{'a'}}, CharacterSet{{'b'}}},
         true
       },
-    }))
+    }));
   });
 
   it("does not move entire rules into the lexical grammar if their content is used elsewhere in the grammar", [&]() {
