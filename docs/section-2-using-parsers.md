@@ -63,7 +63,7 @@ int main() {
 
   // Check that the nodes have the expected child counts.
   assert(ts_node_child_count(root_node) == 1);
-  assert(ts_node_child_count(array_node) == 4);
+  assert(ts_node_child_count(array_node) == 5);
   assert(ts_node_named_child_count(array_node) == 2);
   assert(ts_node_child_count(number_node) == 0);
 
