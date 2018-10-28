@@ -97,6 +97,37 @@ describe("parse_regex", []() {
     },
 
     {
+      "hexadecimal escape sequence",
+      "\\x7E",
+      CharacterSet{{'~'}}
+    },
+
+    {
+      "hexadecimal escape sequence ranges",
+      "[\\x30-\\x39]",
+      CharacterSet{{
+        '0', '1', '2', '3', '4',
+        '5', '6', '7', '8', '9'
+      }}
+    },
+
+    {
+      "unicode escape sequence",
+      "\\u2200",
+      CharacterSet{{
+        0x2200
+      }}
+    },
+
+    {
+      "unicode escape sequence ranges",
+      "[\\u22c0-\\u22c1]",
+      CharacterSet{{
+        0x22c0, 0x22c1
+      }}
+    },
+
+    {
       "negated characters",
       "[^a\\d]",
       CharacterSet().include_all()
@@ -390,6 +421,16 @@ describe("parse_regex", []() {
       "numbers out of order in range quantifiers",
       "a{3,1}",
       "numbers out of order in {} quantifier",
+    },
+    {
+      "hex escape is not followed by two nibbles",
+      "\\x0G",
+      "expected hex digit",
+    },
+    {
+      "unicode escape is not followed by four nibbles",
+      "\\u000G",
+      "expected hex digit",
     },
   };
 

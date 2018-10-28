@@ -188,7 +188,7 @@ class PatternParser {
       }
 
       default: {
-        return {single_char(), CompileError::none()};
+        return single_char();
       }
     }
   }
@@ -203,12 +203,17 @@ class PatternParser {
     }
 
     while (has_more_input() && (peek() != ']')) {
-      auto characters = single_char();
+      auto sc_result = single_char();
+      if (sc_result.second.type) return sc_result;
+      auto characters = sc_result.first;
 
       if (peek() == '-') {
         next();
         if (!characters.includes_all && characters.included_chars.size() == 1 && peek() != ']') {
-          auto next_characters = single_char();
+          sc_result = single_char();
+          if (sc_result.second.type) return sc_result;
+          auto next_characters = sc_result.first;
+
           if (!next_characters.includes_all && next_characters.included_chars.size() == 1) {
             characters.include(
               *characters.included_chars.begin(),
@@ -232,61 +237,101 @@ class PatternParser {
     return { result, CompileError::none() };
   }
 
-  CharacterSet single_char() {
+  pair<CharacterSet, CompileError> single_char() {
     CharacterSet value;
     if (peek() == '\\') {
       next();
-      value = escaped_char(peek());
+      auto result = escaped_char(peek());
+      if (result.second.type) {
+        return { value, result.second };
+      } else {
+        value = result.first;
+      }
       next();
     } else {
       value = CharacterSet().include(peek());
       next();
     }
-    return value;
+    return { value, CompileError::none() };
   }
 
-  CharacterSet escaped_char(uint32_t value) {
+  pair<uint32_t, CompileError> nibble_val(uint32_t c) {
+    if (isxdigit(c)) {
+      return { isdigit(c) ? c - '0' : tolower(c) - 'a' + 10, CompileError::none() };
+    } else {
+      return { 0, CompileError(TSCompileErrorTypeInvalidRegex, "expected hex digit") };
+    }
+  }
+
+  pair<CharacterSet, CompileError> nibbles_to_charset(int n) {
+    uint32_t v = 0;
+    for (int i = 0; i < n; i++) {
+      next();
+      auto result = nibble_val(peek());
+      if (result.second.type) {
+        return { CharacterSet(), result.second };
+      } else {
+        v <<= 4;
+        v += result.first;
+      }
+    }
+    return { CharacterSet().include(v), CompileError::none() };
+  }
+
+  pair<CharacterSet, CompileError> escaped_char(uint32_t value) {
     switch (value) {
       case 'w':
-        return CharacterSet()
-          .include('a', 'z')
-          .include('A', 'Z')
-          .include('0', '9')
-          .include('_');
+        return {
+          CharacterSet()
+            .include('a', 'z')
+            .include('A', 'Z')
+            .include('0', '9')
+            .include('_'),
+          CompileError::none() };
       case 'W':
-        return CharacterSet()
-          .include_all()
-          .exclude('a', 'z')
-          .exclude('A', 'Z')
-          .exclude('0', '9')
-          .exclude('_');
+        return {
+          CharacterSet()
+            .include_all()
+            .exclude('a', 'z')
+            .exclude('A', 'Z')
+            .exclude('0', '9')
+            .exclude('_'),
+          CompileError::none() };
       case 'd':
-        return CharacterSet().include('0', '9');
+        return { CharacterSet().include('0', '9'), CompileError::none() };
       case 'D':
-        return CharacterSet().include_all().exclude('0', '9');
+        return { CharacterSet().include_all().exclude('0', '9'), CompileError::none() };
       case 's':
-        return CharacterSet()
-          .include(' ')
-          .include('\t')
-          .include('\n')
-          .include('\r');
+        return {
+          CharacterSet()
+            .include(' ')
+            .include('\t')
+            .include('\n')
+            .include('\r'),
+          CompileError::none() };
       case 'S':
-        return CharacterSet()
-          .include_all()
-          .exclude(' ')
-          .exclude('\t')
-          .exclude('\n')
-          .exclude('\r');
+        return {
+          CharacterSet()
+            .include_all()
+            .exclude(' ')
+            .exclude('\t')
+            .exclude('\n')
+            .exclude('\r'),
+          CompileError::none() };
       case '0':
-        return CharacterSet().include('\0');
+        return { CharacterSet().include('\0'), CompileError::none() };
       case 't':
-        return CharacterSet().include('\t');
+        return { CharacterSet().include('\t'), CompileError::none() };
       case 'n':
-        return CharacterSet().include('\n');
+        return { CharacterSet().include('\n'), CompileError::none() };
       case 'r':
-        return CharacterSet().include('\r');
+        return { CharacterSet().include('\r'), CompileError::none() };
+      case 'u':
+        return nibbles_to_charset(4);
+      case 'x':
+        return nibbles_to_charset(2);
       default:
-        return CharacterSet().include(value);
+        return { CharacterSet().include(value), CompileError::none() };
     }
   }
 
