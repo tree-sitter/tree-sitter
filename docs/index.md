@@ -27,6 +27,7 @@ Parsers for these languages are fairly complete:
 * [Bash](https://github.com/tree-sitter/tree-sitter-bash)
 * [C](https://github.com/tree-sitter/tree-sitter-c)
 * [C++](https://github.com/tree-sitter/tree-sitter-cpp)
+* [CSS](https://github.com/tree-sitter/tree-sitter-css)
 * [ERB / EJS](https://github.com/tree-sitter/tree-sitter-embedded-template)
 * [Go](https://github.com/tree-sitter/tree-sitter-go)
 * [HTML](https://github.com/tree-sitter/tree-sitter-html)
