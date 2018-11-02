@@ -398,8 +398,6 @@ static Subtree ts_parser__lex(TSParser *self, StackVersion version, TSStateId pa
     last_byte_scanned = self->lexer.current_position.bytes;
   }
 
-  uint32_t bytes_scanned = last_byte_scanned - start_position.bytes + 1;
-
   Subtree result;
   if (skipped_error) {
     Length padding = length_sub(error_start_position, start_position);
@@ -409,7 +407,7 @@ static Subtree ts_parser__lex(TSParser *self, StackVersion version, TSStateId pa
       first_error_character,
       padding,
       size,
-      bytes_scanned,
+      last_byte_scanned + 1 - error_end_position.bytes,
       parse_state,
       self->language
     );
@@ -444,7 +442,7 @@ static Subtree ts_parser__lex(TSParser *self, StackVersion version, TSStateId pa
       symbol,
       padding,
       size,
-      bytes_scanned,
+      last_byte_scanned + 1 - self->lexer.token_end_position.bytes,
       parse_state,
       found_external_token,
       is_keyword,

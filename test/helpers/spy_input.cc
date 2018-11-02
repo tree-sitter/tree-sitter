@@ -103,6 +103,10 @@ TSInputEdit SpyInput::replace(size_t start_byte, size_t bytes_removed, string te
   return result;
 }
 
+bool SpyInput::can_undo() const {
+  return !undo_stack.empty();
+}
+
 TSInputEdit SpyInput::undo() {
   SpyInputEdit entry = undo_stack.back();
   undo_stack.pop_back();

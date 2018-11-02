@@ -48,9 +48,9 @@ describe("Subtree", []() {
     ts_subtree_pool_delete(&pool);
   });
 
-  auto new_leaf = [&](TSSymbol symbol, Length padding, Length size, uint32_t bytes_scanned) {
+  auto new_leaf = [&](TSSymbol symbol, Length padding, Length size, uint32_t lookahead_bytes) {
     return ts_subtree_new_leaf(
-      &pool, symbol, padding, size, bytes_scanned, 0, false, false, &language
+      &pool, symbol, padding, size, lookahead_bytes, 0, false, false, &language
     );
   };
 
@@ -318,7 +318,7 @@ describe("Subtree", []() {
     describe("edits within a tree's range of scanned bytes", [&]() {
       it("marks preceding trees as changed", [&]() {
         MutableSubtree mutable_child = ts_subtree_to_mut_unsafe(tree.ptr->children[0]);
-        mutable_child.ptr->bytes_scanned = 7;
+        mutable_child.ptr->lookahead_bytes = 2;
 
         TSInputEdit edit;
         edit.start_byte = 6;
@@ -408,7 +408,7 @@ describe("Subtree", []() {
         ts_subtree_symbol(leaf) + 1,
         ts_subtree_padding(leaf),
         ts_subtree_size(leaf),
-        ts_subtree_bytes_scanned(leaf)
+        ts_subtree_lookahead_bytes(leaf)
       );
 
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
@@ -420,7 +420,7 @@ describe("Subtree", []() {
         ts_subtree_symbol(leaf),
         ts_subtree_padding(leaf),
         ts_subtree_size(leaf),
-        ts_subtree_bytes_scanned(leaf)
+        ts_subtree_lookahead_bytes(leaf)
       );
       ts_subtree_to_mut_unsafe(different_leaf).ptr->visible = !ts_subtree_visible(leaf);
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
@@ -432,12 +432,12 @@ describe("Subtree", []() {
         ts_subtree_symbol(leaf),
         {},
         ts_subtree_size(leaf),
-        ts_subtree_bytes_scanned(leaf)
+        ts_subtree_lookahead_bytes(leaf)
       );
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
       ts_subtree_release(&pool, different_leaf);
 
-      different_leaf = new_leaf(symbol1, ts_subtree_padding(leaf), {}, ts_subtree_bytes_scanned(leaf));
+      different_leaf = new_leaf(symbol1, ts_subtree_padding(leaf), {}, ts_subtree_lookahead_bytes(leaf));
       AssertThat(ts_subtree_eq(leaf, different_leaf), IsFalse());
       ts_subtree_release(&pool, different_leaf);
     });

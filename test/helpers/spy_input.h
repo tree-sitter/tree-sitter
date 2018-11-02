@@ -25,6 +25,7 @@ class SpyInput {
   TSInput input();
   void clear();
   TSInputEdit replace(size_t start_char, size_t chars_removed, std::string text);
+  bool can_undo() const;
   TSInputEdit undo();
   std::vector<std::string> strings_read() const;
 

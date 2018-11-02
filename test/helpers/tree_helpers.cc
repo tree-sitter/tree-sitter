@@ -120,3 +120,10 @@ void assert_consistent_tree_sizes(const TSTree *tree, const string &text) {
   AssertThat(ts_node_end_byte(root_node), Equals(text.size()));
   assert_consistent_tree_sizes(root_node, line_starts);
 }
+
+string to_string(const TSTree *tree) {
+  const char *c_string = ts_node_string(ts_tree_root_node(tree));
+  string result(c_string);
+  ts_free((void *)c_string);
+  return result;
+}

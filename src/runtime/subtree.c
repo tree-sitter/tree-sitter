@@ -158,29 +158,28 @@ static void ts_subtree_pool_free(SubtreePool *self, SubtreeHeapData *tree) {
 
 // Subtree
 
-static inline bool ts_subtree_can_inline(Length padding, Length size) {
+static inline bool ts_subtree_can_inline(Length padding, Length size, uint32_t lookahead_bytes) {
   return
     padding.bytes < TS_MAX_INLINE_TREE_LENGTH &&
     padding.extent.row < 16 &&
     padding.extent.column < TS_MAX_INLINE_TREE_LENGTH &&
     size.extent.row == 0 &&
-    size.extent.column < TS_MAX_INLINE_TREE_LENGTH;
+    size.extent.column < TS_MAX_INLINE_TREE_LENGTH &&
+    lookahead_bytes < 16;
 }
 
 Subtree ts_subtree_new_leaf(
   SubtreePool *pool, TSSymbol symbol, Length padding, Length size,
-  uint32_t bytes_scanned, TSStateId parse_state, bool has_external_tokens,
+  uint32_t lookahead_bytes, TSStateId parse_state, bool has_external_tokens,
   bool is_keyword, const TSLanguage *language
 ) {
   TSSymbolMetadata metadata = ts_language_symbol_metadata(language, symbol);
-  unsigned additional_bytes_scanned = bytes_scanned - size.bytes - padding.bytes;
   bool extra = symbol == ts_builtin_sym_end;
 
   bool is_inline = (
     symbol <= UINT8_MAX &&
-    additional_bytes_scanned < 16 &&
     !has_external_tokens &&
-    ts_subtree_can_inline(padding, size)
+    ts_subtree_can_inline(padding, size, lookahead_bytes)
   );
 
   if (is_inline) {
@@ -191,7 +190,7 @@ Subtree ts_subtree_new_leaf(
       .padding_rows = padding.extent.row,
       .padding_columns = padding.extent.column,
       .size_bytes = size.bytes,
-      .additional_bytes_scanned = additional_bytes_scanned,
+      .lookahead_bytes = lookahead_bytes,
       .visible = metadata.visible,
       .named = metadata.named,
       .extra = extra,
@@ -206,7 +205,7 @@ Subtree ts_subtree_new_leaf(
       .ref_count = 1,
       .padding = padding,
       .size = size,
-      .bytes_scanned = bytes_scanned,
+      .lookahead_bytes = lookahead_bytes,
       .error_cost = 0,
       .child_count = 0,
       .symbol = symbol,
@@ -359,6 +358,7 @@ void ts_subtree_set_children(
 
   uint32_t non_extra_index = 0;
   const TSSymbol *alias_sequence = ts_language_alias_sequence(language, self.ptr->alias_sequence_id);
+  uint32_t lookahead_end_byte = 0;
 
   for (uint32_t i = 0; i < self.ptr->child_count; i++) {
     Subtree child = self.ptr->children[i];
@@ -366,12 +366,15 @@ void ts_subtree_set_children(
     if (i == 0) {
       self.ptr->padding = ts_subtree_padding(child);
       self.ptr->size = ts_subtree_size(child);
-      self.ptr->bytes_scanned = ts_subtree_bytes_scanned(child);
     } else {
-      uint32_t bytes_scanned = self.ptr->padding.bytes + self.ptr->size.bytes + ts_subtree_bytes_scanned(child);
-      if (bytes_scanned > self.ptr->bytes_scanned) self.ptr->bytes_scanned = bytes_scanned;
       self.ptr->size = length_add(self.ptr->size, ts_subtree_total_size(child));
     }
+
+    uint32_t child_lookahead_end_byte =
+      self.ptr->padding.bytes +
+      self.ptr->size.bytes +
+      ts_subtree_lookahead_bytes(child);
+    if (child_lookahead_end_byte > lookahead_end_byte) lookahead_end_byte = child_lookahead_end_byte;
 
     if (ts_subtree_symbol(child) != ts_builtin_sym_error_repeat) {
       self.ptr->error_cost += ts_subtree_error_cost(child);
@@ -402,6 +405,8 @@ void ts_subtree_set_children(
 
     if (!ts_subtree_extra(child)) non_extra_index++;
   }
+
+  self.ptr->lookahead_bytes = lookahead_end_byte - self.ptr->size.bytes - self.ptr->padding.bytes;
 
   if (self.ptr->symbol == ts_builtin_sym_error || self.ptr->symbol == ts_builtin_sym_error_repeat) {
     self.ptr->error_cost +=
@@ -607,11 +612,11 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
     Edit edit = entry.edit;
     bool is_noop = edit.old_end.bytes == edit.start.bytes && edit.new_end.bytes == edit.start.bytes;
     bool is_pure_insertion = edit.old_end.bytes == edit.start.bytes;
-    uint32_t bytes_scanned = ts_subtree_bytes_scanned(*entry.tree);
-    if (is_noop && edit.start.bytes >= bytes_scanned) continue;
 
     Length size = ts_subtree_size(*entry.tree);
     Length padding = ts_subtree_padding(*entry.tree);
+    uint32_t lookahead_bytes = ts_subtree_lookahead_bytes(*entry.tree);
+    if (is_noop && edit.start.bytes >= padding.bytes + size.bytes + lookahead_bytes) continue;
 
     // If the edit is entirely within the space before this subtree, then shift this
     // subtree over according to the edit without changing its size.
@@ -647,7 +652,7 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
     MutableSubtree result = ts_subtree_make_mut(pool, *entry.tree);
 
     if (result.data.is_inline) {
-      if (ts_subtree_can_inline(padding, size)) {
+      if (ts_subtree_can_inline(padding, size, lookahead_bytes)) {
         result.data.padding_bytes = padding.bytes;
         result.data.padding_rows = padding.extent.row;
         result.data.padding_columns = padding.extent.column;
@@ -657,7 +662,7 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
         data->ref_count = 1;
         data->padding = padding;
         data->size = size;
-        data->bytes_scanned = bytes_scanned;
+        data->lookahead_bytes = lookahead_bytes;
         data->error_cost = 0;
         data->child_count = 0;
         data->symbol = result.data.symbol;
@@ -859,13 +864,13 @@ void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
     "error-cost: %u\n"
     "has-changes: %u\n"
     "repeat-depth: %u\n"
-    "bytes-scanned: %u\"]\n",
+    "lookahead-bytes: %u\"]\n",
     start_offset, end_offset,
     ts_subtree_parse_state(*self),
     ts_subtree_error_cost(*self),
     ts_subtree_has_changes(*self),
     ts_subtree_repeat_depth(*self),
-    ts_subtree_bytes_scanned(*self)
+    ts_subtree_lookahead_bytes(*self)
   );
 
   uint32_t child_start_offset = start_offset;

@@ -7,8 +7,6 @@
 using std::string;
 using std::vector;
 
-Generator default_generator(0);
-
 unsigned get_time_as_seed() {
   return time(nullptr);
 }

@@ -12,6 +12,7 @@ std::ostream &operator<<(std::ostream &stream, Subtree tree);
 std::ostream &operator<<(std::ostream &stream, const TSNode &node);
 bool operator==(const TSNode &left, const TSNode &right);
 bool operator==(const std::vector<Subtree> &right, const SubtreeArray &array);
+std::string to_string(const TSTree *);
 
 void assert_consistent_tree_sizes(const TSTree *, const std::string &);
 

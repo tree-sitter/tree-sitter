@@ -23,6 +23,4 @@ public:
   void sleep_some();
 };
 
-extern Generator default_generator;
-
 #endif  // HELPERS_RANDOM_HELPERS_H_

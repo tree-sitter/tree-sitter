@@ -40,7 +40,7 @@ typedef struct {
   uint8_t size_bytes;
   uint8_t padding_columns;
   uint8_t padding_rows : 4;
-  uint8_t additional_bytes_scanned : 4;
+  uint8_t lookahead_bytes : 4;
   uint16_t parse_state;
 } SubtreeInlineData;
 
@@ -48,7 +48,7 @@ typedef struct {
   volatile uint32_t ref_count;
   Length padding;
   Length size;
-  uint32_t bytes_scanned;
+  uint32_t lookahead_bytes;
   uint32_t error_cost;
   uint32_t child_count;
   TSSymbol symbol;
@@ -150,6 +150,7 @@ static inline bool ts_subtree_has_changes(Subtree self) { return SUBTREE_GET(sel
 static inline bool ts_subtree_missing(Subtree self) { return SUBTREE_GET(self, is_missing); }
 static inline bool ts_subtree_is_keyword(Subtree self) { return SUBTREE_GET(self, is_keyword); }
 static inline TSStateId ts_subtree_parse_state(Subtree self) { return SUBTREE_GET(self, parse_state); }
+static inline uint32_t ts_subtree_lookahead_bytes(Subtree self) { return SUBTREE_GET(self, lookahead_bytes); }
 
 #undef SUBTREE_GET
 
@@ -206,14 +207,6 @@ static inline Length ts_subtree_total_size(Subtree self) {
 
 static inline uint32_t ts_subtree_total_bytes(Subtree self) {
   return ts_subtree_total_size(self).bytes;
-}
-
-static inline uint32_t ts_subtree_bytes_scanned(Subtree self) {
-  return self.data.is_inline
-    ? (uint32_t)self.data.padding_bytes +
-      (uint32_t)self.data.size_bytes +
-      (uint32_t)self.data.additional_bytes_scanned
-    : self.ptr->bytes_scanned;
 }
 
 static inline uint32_t ts_subtree_child_count(Subtree self) {

@@ -650,13 +650,14 @@ describe("Node", [&]() {
 
     it("updates the node's start position according to edit - random edits", [&]() {
       SpyInput input(json_string, 3);
+      Generator random(TREE_SITTER_SEED);
 
       for (unsigned i = 0; i < 10; i++) {
         auto nodes_before = get_all_nodes();
 
-        size_t edit_start = default_generator(input.content.size());
-        size_t deletion_size = default_generator(2) ? 0 : default_generator(input.content.size() - edit_start);
-        string inserted_text = default_generator.words(default_generator(4) + 1);
+        size_t edit_start = random(input.content.size());
+        size_t deletion_size = random(2) ? 0 : random(input.content.size() - edit_start);
+        string inserted_text = random.words(random(4) + 1);
 
         TSInputEdit edit = input.replace(edit_start, deletion_size, inserted_text);
         ts_tree_edit(tree, &edit);
