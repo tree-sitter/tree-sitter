@@ -839,62 +839,59 @@ char *ts_subtree_string(Subtree self, const TSLanguage *language, bool include_a
   return result;
 }
 
-void ts_subtree__print_dot_graph(Subtree self, uint32_t start_offset,
+void ts_subtree__print_dot_graph(const Subtree *self, uint32_t start_offset,
                                  const TSLanguage *language, TSSymbol alias_symbol,
                                  FILE *f) {
-  TSSymbol subtree_symbol = ts_subtree_symbol(self);
+  TSSymbol subtree_symbol = ts_subtree_symbol(*self);
   TSSymbol symbol = alias_symbol ? alias_symbol : subtree_symbol;
-  uint32_t end_offset = start_offset + ts_subtree_total_bytes(self);
+  uint32_t end_offset = start_offset + ts_subtree_total_bytes(*self);
   fprintf(
-    f, "tree_%u_%u_%u [label=\"%s\"",
-    start_offset, end_offset, subtree_symbol, ts_language_symbol_name(language, symbol)
+    f, "tree_%p [label=\"%s\"",
+    self, ts_language_symbol_name(language, symbol)
   );
 
-  if (ts_subtree_child_count(self) == 0) fprintf(f, ", shape=plaintext");
-  if (ts_subtree_extra(self)) fprintf(f, ", fontcolor=gray");
+  if (ts_subtree_child_count(*self) == 0) fprintf(f, ", shape=plaintext");
+  if (ts_subtree_extra(*self)) fprintf(f, ", fontcolor=gray");
 
   fprintf(f, ", tooltip=\""
-    "range:%u - %u\n"
-    "state:%d\n"
-    "error-cost:%u\n"
-    "repeat-depth:%u\n"
-    "bytes-scanned:%u\"]\n",
+    "range: %u - %u\n"
+    "state: %d\n"
+    "error-cost: %u\n"
+    "has-changes: %u\n"
+    "repeat-depth: %u\n"
+    "bytes-scanned: %u\"]\n",
     start_offset, end_offset,
-    ts_subtree_parse_state(self),
-    ts_subtree_error_cost(self),
-    ts_subtree_repeat_depth(self),
-    ts_subtree_bytes_scanned(self)
+    ts_subtree_parse_state(*self),
+    ts_subtree_error_cost(*self),
+    ts_subtree_has_changes(*self),
+    ts_subtree_repeat_depth(*self),
+    ts_subtree_bytes_scanned(*self)
   );
 
   uint32_t child_start_offset = start_offset;
   uint32_t structural_child_index = 0;
   const TSSymbol *alias_sequence = ts_language_alias_sequence(
     language,
-    ts_subtree_alias_sequence_id(self)
+    ts_subtree_alias_sequence_id(*self)
   );
-  for (uint32_t i = 0, n = ts_subtree_child_count(self); i < n; i++) {
-    Subtree child = self.ptr->children[i];
-    uint32_t child_end_offset = child_start_offset + ts_subtree_total_bytes(child);
-    if (ts_subtree_extra(child)) {
+  for (uint32_t i = 0, n = ts_subtree_child_count(*self); i < n; i++) {
+    const Subtree *child = &self->ptr->children[i];
+    if (ts_subtree_extra(*child)) {
       ts_subtree__print_dot_graph(child, child_start_offset, language, 0, f);
     } else {
       TSSymbol alias_symbol = alias_sequence ? alias_sequence[structural_child_index] : 0;
       ts_subtree__print_dot_graph(child, child_start_offset, language, alias_symbol, f);
       structural_child_index++;
     }
-    fprintf(
-      f, "tree_%u_%u_%u -> tree_%u_%u_%u [tooltip=%u]\n",
-      start_offset, end_offset, subtree_symbol,
-      child_start_offset, child_end_offset, ts_subtree_symbol(child), i
-    );
-    child_start_offset = child_end_offset;
+    fprintf(f, "tree_%p -> tree_%p [tooltip=%u]\n", self, child, i);
+    child_start_offset += ts_subtree_total_bytes(*child);
   }
 }
 
 void ts_subtree_print_dot_graph(Subtree self, const TSLanguage *language, FILE *f) {
   fprintf(f, "digraph tree {\n");
   fprintf(f, "edge [arrowhead=none]\n");
-  ts_subtree__print_dot_graph(self, 0, language, 0, f);
+  ts_subtree__print_dot_graph(&self, 0, language, 0, f);
   fprintf(f, "}\n");
 }
 
