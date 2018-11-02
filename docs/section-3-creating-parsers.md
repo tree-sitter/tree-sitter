@@ -189,7 +189,7 @@ func x() int {
     (parameter_list)
     (primitive_type)
     (block
-      (return_statement (number))))
+      (return_statement (number)))))
 ```
 
 The name of the test is written between two lines containing only `=` characters. Then the source code is written, followed by a line containing three or more `-` characters. Then, the expected syntax tree is written as an [S-expression][s-exp]. The exact placement of whitespace in the S-expression doesn't matter, but ideally the syntax tree should be legible. Note that the S-expression does not show syntax nodes like `func`, `(` and `;`, which are expressed as strings and regexes in the grammar. It only shows the *named* nodes, as described in [the previous page](/using-parsers#named-vs-anonymous-nodes).
