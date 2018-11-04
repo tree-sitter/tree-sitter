@@ -20,6 +20,18 @@ map<string, const TSLanguage *> loaded_languages;
 int libcompiler_mtime = -1;
 int compile_result_count = 0;
 
+string get_language_function_name(string language_name) {
+  string result = "tree_sitter_";
+  for (auto c : language_name) {
+    if (c == '-') {
+      result += '_';
+    } else {
+      result += c;
+    }
+  }
+  return result;
+}
+
 #ifdef _WIN32
 
 #include <windows.h>
@@ -145,7 +157,7 @@ static const TSLanguage *load_language(const string &source_filename,
                                        const string &lib_filename,
                                        const string &language_name,
                                        string external_scanner_filename = "") {
-  string language_function_name = "tree_sitter_" + language_name;
+  string language_function_name = get_language_function_name(language_name);
   string header_dir = join_path({get_cwd(), "include"});
   int source_mtime = get_modified_time(source_filename);
   int header_mtime = get_modified_time(join_path({header_dir, "tree_sitter", "parser.h"}));

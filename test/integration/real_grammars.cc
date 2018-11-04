@@ -16,6 +16,7 @@ START_TEST;
 if (TREE_SITTER_SEED == -1) return;
 
 vector<string> test_languages({
+  "embedded-template",
   "javascript",
   "json",
   "html",
