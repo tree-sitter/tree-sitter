@@ -337,6 +337,10 @@ void ts_subtree_balance(Subtree self, SubtreePool *pool, const TSLanguage *langu
   }
 }
 
+static inline uint32_t ts_subtree_repeat_depth(Subtree self) {
+  return ts_subtree_child_count(self) ? self.ptr->repeat_depth : 0;
+}
+
 void ts_subtree_set_children(
   MutableSubtree self, Subtree *children, uint32_t child_count, const TSLanguage *language
 ) {
@@ -436,16 +440,11 @@ void ts_subtree_set_children(
     if (ts_subtree_fragile_left(first_child)) self.ptr->fragile_left = true;
     if (ts_subtree_fragile_right(last_child)) self.ptr->fragile_right = true;
 
-    if (
-      self.ptr->child_count == 2 &&
-      !self.ptr->visible && !self.ptr->named &&
-      ts_subtree_symbol(first_child) == self.ptr->symbol &&
-      ts_subtree_symbol(last_child) == self.ptr->symbol
-    ) {
-      if (first_child.ptr->repeat_depth > last_child.ptr->repeat_depth) {
-        self.ptr->repeat_depth = first_child.ptr->repeat_depth + 1;
+    if (self.ptr->child_count == 2 && !self.ptr->visible && !self.ptr->named) {
+      if (ts_subtree_repeat_depth(first_child) > ts_subtree_repeat_depth(last_child)) {
+        self.ptr->repeat_depth = ts_subtree_repeat_depth(first_child) + 1;
       } else {
-        self.ptr->repeat_depth = last_child.ptr->repeat_depth + 1;
+        self.ptr->repeat_depth = ts_subtree_repeat_depth(last_child) + 1;
       }
     }
   }
@@ -826,10 +825,6 @@ static size_t ts_subtree__write_to_string(Subtree self, char *string, size_t lim
   if (visible) cursor += snprintf(*writer, limit, ")");
 
   return cursor - string;
-}
-
-static inline uint32_t ts_subtree_repeat_depth(Subtree self) {
-  return ts_subtree_child_count(self) ? self.ptr->repeat_depth : 0;
 }
 
 char *ts_subtree_string(Subtree self, const TSLanguage *language, bool include_all) {
