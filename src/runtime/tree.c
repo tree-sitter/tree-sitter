@@ -81,8 +81,8 @@ void ts_tree_edit(TSTree *self, const TSInputEdit *edit) {
 
 TSRange *ts_tree_get_changed_ranges(const TSTree *self, const TSTree *other, uint32_t *count) {
   TSRange *result;
-  TreeCursor cursor1 = {array_new(), NULL};
-  TreeCursor cursor2 = {array_new(), NULL};
+  TreeCursor cursor1 = {NULL, array_new()};
+  TreeCursor cursor2 = {NULL, array_new()};
   TSNode root = ts_tree_root_node(self);
   ts_tree_cursor_init(&cursor1, root);
   ts_tree_cursor_init(&cursor2, root);
