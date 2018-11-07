@@ -13,6 +13,7 @@
 #include "runtime/reusable_node.h"
 #include "runtime/reduce_action.h"
 #include "runtime/error_costs.h"
+#include "runtime/get_changed_ranges.h"
 #include "runtime/tree.h"
 
 #define LOG(...)                                                                            \
@@ -66,6 +67,8 @@ struct TSParser {
   volatile bool enabled;
   bool halt_on_error;
   Subtree old_tree;
+  TSRangeArray included_range_differences;
+  unsigned included_range_difference_index;
 };
 
 typedef struct {
@@ -398,6 +401,8 @@ static Subtree ts_parser__lex(TSParser *self, StackVersion version, TSStateId pa
     last_byte_scanned = self->lexer.current_position.bytes;
   }
 
+  if (self->lexer.data.lookahead != 0) last_byte_scanned++;
+
   Subtree result;
   if (skipped_error) {
     Length padding = length_sub(error_start_position, start_position);
@@ -407,7 +412,7 @@ static Subtree ts_parser__lex(TSParser *self, StackVersion version, TSStateId pa
       first_error_character,
       padding,
       size,
-      last_byte_scanned + 1 - error_end_position.bytes,
+      last_byte_scanned - error_end_position.bytes,
       parse_state,
       self->language
     );
@@ -442,7 +447,7 @@ static Subtree ts_parser__lex(TSParser *self, StackVersion version, TSStateId pa
       symbol,
       padding,
       size,
-      last_byte_scanned + 1 - self->lexer.token_end_position.bytes,
+      last_byte_scanned - self->lexer.token_end_position.bytes,
       parse_state,
       found_external_token,
       is_keyword,
@@ -500,12 +505,25 @@ static void ts_parser__set_cached_token(TSParser *self, size_t byte_index,
   cache->last_external_token = last_external_token;
 }
 
+static bool ts_parser__has_included_range_difference(const TSParser *self,
+                                                     uint32_t start_position,
+                                                     uint32_t end_position) {
+  return ts_range_array_intersects(
+    &self->included_range_differences,
+    self->included_range_difference_index,
+    start_position,
+    end_position
+  );
+}
+
 static Subtree ts_parser__reuse_node(TSParser *self, StackVersion version,
                                      TSStateId *state, uint32_t position,
                                      Subtree last_external_token, TableEntry *table_entry) {
   Subtree result;
   while ((result = reusable_node_tree(&self->reusable_node)).ptr) {
     uint32_t byte_offset = reusable_node_byte_offset(&self->reusable_node);
+    uint32_t end_byte_offset = byte_offset + ts_subtree_total_bytes(result);
+
     if (byte_offset > position) {
       LOG("before_reusable_node symbol:%s", TREE_NAME(result));
       break;
@@ -513,7 +531,9 @@ static Subtree ts_parser__reuse_node(TSParser *self, StackVersion version,
 
     if (byte_offset < position) {
       LOG("past_reusable_node symbol:%s", TREE_NAME(result));
-      reusable_node_advance(&self->reusable_node);
+      if (end_byte_offset <= position || !reusable_node_descend(&self->reusable_node)) {
+        reusable_node_advance(&self->reusable_node);
+      }
       continue;
     }
 
@@ -532,6 +552,8 @@ static Subtree ts_parser__reuse_node(TSParser *self, StackVersion version,
       reason = "is_missing";
     } else if (ts_subtree_is_fragile(result)) {
       reason = "is_fragile";
+    } else if (ts_parser__has_included_range_difference(self, byte_offset, end_byte_offset)) {
+      reason = "contains_different_included_range";
     }
 
     if (reason) {
@@ -1418,6 +1440,8 @@ TSParser *ts_parser_new() {
   self->operation_limit = SIZE_MAX;
   self->old_tree = NULL_SUBTREE;
   self->scratch_tree.ptr = &self->scratch_tree_data;
+  self->included_range_differences = (TSRangeArray) array_new();
+  self->included_range_difference_index = 0;
   ts_parser__set_cached_token(self, 0, NULL_SUBTREE, NULL_SUBTREE);
   return self;
 }
@@ -1426,6 +1450,9 @@ void ts_parser_delete(TSParser *self) {
   ts_stack_delete(self->stack);
   if (self->reduce_actions.contents) {
     array_delete(&self->reduce_actions);
+  }
+  if (self->included_range_differences.contents) {
+    array_delete(&self->included_range_differences);
   }
   if (self->old_tree.ptr) {
     ts_subtree_release(&self->tree_pool, self->old_tree);
@@ -1526,13 +1553,25 @@ TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
 
   ts_lexer_set_input(&self->lexer, input);
 
+  array_clear(&self->included_range_differences);
+  self->included_range_difference_index = 0;
+
   if (ts_parser_has_outstanding_parse(self)) {
     LOG("resume_parsing");
   } else if (old_tree) {
     ts_subtree_retain(old_tree->root);
     self->old_tree = old_tree->root;
+    ts_range_array_get_changed_ranges(
+      old_tree->included_ranges, old_tree->included_range_count,
+      self->lexer.included_ranges, self->lexer.included_range_count,
+      &self->included_range_differences
+    );
     reusable_node_reset(&self->reusable_node, old_tree->root);
     LOG("parse_after_edit");
+    for (unsigned i = 0; i < self->included_range_differences.size; i++) {
+      TSRange *range = &self->included_range_differences.contents[i];
+      LOG("different_included_range %u - %u", range->start_byte, range->end_byte);
+    }
   } else {
     reusable_node_clear(&self->reusable_node);
     LOG("new_parse");
@@ -1574,13 +1613,27 @@ TSTree *ts_parser_parse(TSParser *self, const TSTree *old_tree, TSInput input) {
       ts_parser__halt_parse(self);
       break;
     }
+
+    while (self->included_range_difference_index < self->included_range_differences.size) {
+      TSRange *range = &self->included_range_differences.contents[self->included_range_difference_index];
+      if (range->end_byte <= position) {
+        self->included_range_difference_index++;
+      } else {
+        break;
+      }
+    }
   } while (version_count != 0);
 
   ts_subtree_balance(self->finished_tree, &self->tree_pool, self->language);
   LOG("done");
   LOG_TREE();
 
-  TSTree *result = ts_tree_new(self->finished_tree, self->language);
+  TSTree *result = ts_tree_new(
+    self->finished_tree,
+    self->language,
+    self->lexer.included_ranges,
+    self->lexer.included_range_count
+  );
   self->finished_tree = NULL_SUBTREE;
   ts_parser_reset(self);
   return result;

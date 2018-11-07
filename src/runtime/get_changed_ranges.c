@@ -7,11 +7,9 @@
 
 // #define DEBUG_GET_CHANGED_RANGES
 
-typedef Array(TSRange) RangeArray;
-
-static void range_array_add(RangeArray *results, Length start, Length end) {
-  if (results->size > 0) {
-    TSRange *last_range = array_back(results);
+static void ts_range_array_add(TSRangeArray *self, Length start, Length end) {
+  if (self->size > 0) {
+    TSRange *last_range = array_back(self);
     if (start.bytes <= last_range->end_byte) {
       last_range->end_byte = end.bytes;
       last_range->end_point = end.extent;
@@ -21,7 +19,79 @@ static void range_array_add(RangeArray *results, Length start, Length end) {
 
   if (start.bytes < end.bytes) {
     TSRange range = { start.extent, end.extent, start.bytes, end.bytes };
-    array_push(results, range);
+    array_push(self, range);
+  }
+}
+
+bool ts_range_array_intersects(const TSRangeArray *self, unsigned start_index,
+                               uint32_t start_byte, uint32_t end_byte) {
+  for (unsigned i = start_index; i < self->size; i++) {
+    TSRange *range = &self->contents[i];
+    if (range->end_byte > start_byte) {
+      if (range->start_byte >= end_byte) break;
+      return true;
+    }
+  }
+  return false;
+}
+
+void ts_range_array_get_changed_ranges(
+  const TSRange *old_ranges, unsigned old_range_count,
+  const TSRange *new_ranges, unsigned new_range_count,
+  TSRangeArray *differences
+) {
+  unsigned new_index = 0;
+  unsigned old_index = 0;
+  Length current_position = length_zero();
+  bool in_old_range = false;
+  bool in_new_range = false;
+
+  while (old_index < old_range_count || new_index < new_range_count) {
+    const TSRange *old_range = &old_ranges[old_index];
+    const TSRange *new_range = &new_ranges[new_index];
+
+    Length next_old_position;
+    if (in_old_range) {
+      next_old_position = (Length) {old_range->end_byte, old_range->end_point};
+    } else if (old_index < old_range_count) {
+      next_old_position = (Length) {old_range->start_byte, old_range->start_point};
+    } else {
+      next_old_position = LENGTH_MAX;
+    }
+
+    Length next_new_position;
+    if (in_new_range) {
+      next_new_position = (Length) {new_range->end_byte, new_range->end_point};
+    } else if (new_index < new_range_count) {
+      next_new_position = (Length) {new_range->start_byte, new_range->start_point};
+    } else {
+      next_new_position = LENGTH_MAX;
+    }
+
+    if (next_old_position.bytes < next_new_position.bytes) {
+      if (in_old_range != in_new_range) {
+        ts_range_array_add(differences, current_position, next_old_position);
+      }
+      if (in_old_range) old_index++;
+      current_position = next_old_position;
+      in_old_range = !in_old_range;
+    } else if (next_new_position.bytes < next_old_position.bytes) {
+      if (in_old_range != in_new_range) {
+        ts_range_array_add(differences, current_position, next_new_position);
+      }
+      if (in_new_range) new_index++;
+      current_position = next_new_position;
+      in_new_range = !in_new_range;
+    } else {
+      if (in_old_range != in_new_range) {
+        ts_range_array_add(differences, current_position, next_new_position);
+      }
+      if (in_old_range) old_index++;
+      if (in_new_range) new_index++;
+      in_old_range = !in_old_range;
+      in_new_range = !in_new_range;
+      current_position = next_new_position;
+    }
   }
 }
 
@@ -267,19 +337,23 @@ static inline void iterator_print_state(Iterator *self) {
 
 unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *new_tree,
                                        TreeCursor *cursor1, TreeCursor *cursor2,
-                                       const TSLanguage *language, TSRange **ranges) {
-  RangeArray results = array_new();
+                                       const TSLanguage *language,
+                                       const TSRangeArray *included_range_differences,
+                                       TSRange **ranges) {
+  TSRangeArray results = array_new();
 
   Iterator old_iter = iterator_new(cursor1, old_tree, language);
   Iterator new_iter = iterator_new(cursor2, new_tree, language);
 
+  unsigned included_range_difference_index = 0;
+
   Length position = iterator_start_position(&old_iter);
   Length next_position = iterator_start_position(&new_iter);
   if (position.bytes < next_position.bytes) {
-    range_array_add(&results, position, next_position);
+    ts_range_array_add(&results, position, next_position);
     position = next_position;
   } else if (position.bytes > next_position.bytes) {
-    range_array_add(&results, next_position, position);
+    ts_range_array_add(&results, next_position, position);
     next_position = position;
   }
 
@@ -296,7 +370,16 @@ unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *n
     switch (iterator_compare(&old_iter, &new_iter)) {
       case IteratorMatches:
         next_position = iterator_end_position(&old_iter);
-        break;
+        if (ts_range_array_intersects(
+          included_range_differences,
+          included_range_difference_index,
+          position.bytes, next_position.bytes
+        )) {
+          next_position = position;
+          // fall through
+        } else {
+          break;
+        }
 
       case IteratorMayDiffer:
         if (iterator_descend(&old_iter, position.bytes)) {
@@ -347,10 +430,19 @@ unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *n
       );
       #endif
 
-      range_array_add(&results, position, next_position);
+      ts_range_array_add(&results, position, next_position);
     }
 
     position = next_position;
+
+    while (included_range_difference_index < included_range_differences->size) {
+      const TSRange *range = &included_range_differences->contents[included_range_difference_index];
+      if (range->end_byte <= position.bytes) {
+        included_range_difference_index++;
+      } else {
+        break;
+      }
+    }
   } while (!iterator_done(&old_iter) && !iterator_done(&new_iter));
 
   *cursor1 = old_iter.cursor;

@@ -2,6 +2,7 @@
 #include <future>
 #include "runtime/alloc.h"
 #include "runtime/language.h"
+#include "runtime/get_changed_ranges.h"
 #include "helpers/record_alloc.h"
 #include "helpers/spy_input.h"
 #include "helpers/load_language.h"
@@ -1001,6 +1002,164 @@ describe("Parser", [&]() {
 
       AssertThat(ts_node_end_point(statement_node1), Equals(extent_for_string("a <%= b()")));
       AssertThat(ts_node_end_point(statement_node2), Equals(extent_for_string("a <%= b() %> c <% d()")));
+    });
+
+    it("does not reuse nodes that were parsed in ranges that are now excluded", [&]() {
+      string source_code = "<div><span><%= something %></span></div>";
+
+      // Parse HTML including the template directive, which will cause an error
+      ts_parser_set_language(parser, load_real_language("html"));
+      TSTree *first_tree = ts_parser_parse_string(parser, nullptr, source_code.c_str(), source_code.size());
+
+      // Insert code at the beginning of the document.
+      string prefix = "a very very long line of plain text. ";
+      unsigned prefix_length = prefix.size();
+      TSInputEdit edit = {
+        0, 0, prefix_length,
+        {0, 0}, {0, 0}, {0, prefix_length}
+      };
+      ts_tree_edit(first_tree, &edit);
+      source_code = prefix + source_code;
+
+      // Parse the HTML again, this time *excluding* the template directive
+      // (which has moved since the previous parse).
+      unsigned directive_start = source_code.find("<%=");
+      unsigned directive_end = source_code.find("</span>");
+      unsigned source_code_end = source_code.size();
+
+      TSRange included_ranges[] = {
+        {
+          {0, 0},
+          {0, directive_start},
+          0,
+          directive_start
+        },
+        {
+          {0, directive_end},
+          {0, source_code_end},
+          directive_end,
+          source_code_end
+        }
+      };
+
+      ts_parser_set_included_ranges(parser, included_ranges, 2);
+      tree = ts_parser_parse_string(parser, first_tree, source_code.c_str(), source_code.size());
+
+      // The error should not have been reused, because the included ranges were different.
+      assert_root_node("(fragment "
+        "(text) "
+        "(element "
+          "(start_tag (tag_name)) "
+          "(element "
+            "(start_tag (tag_name)) "
+            "(end_tag (tag_name))) "
+          "(end_tag (tag_name))))");
+
+      unsigned range_count;
+      const TSRange *ranges = ts_tree_get_changed_ranges(first_tree, tree, &range_count);
+
+      // The first range that's changed syntax is the range of the
+      // newly-inserted text.
+      AssertThat(range_count, Equals(2u));
+      AssertThat(ranges[0], Equals<TSRange>({
+        {0, 0}, {0, prefix_length},
+        0, prefix_length,
+      }));
+
+      // Even though no edits were applied to the outer `div` element,
+      // its contents have changed syntax because a range of text that
+      // was previously included is now excluded.
+      AssertThat(ranges[1], Equals<TSRange>({
+        {0, directive_start}, {0, directive_end},
+        directive_start, directive_end,
+      }));
+
+      ts_free((void *)ranges);
+      ts_tree_delete(first_tree);
+    });
+  });
+
+  describe("ts_range_array_get_changed_ranges()", [&]() {
+    auto get_changed_ranges = [&](
+      const vector<TSRange> &old_ranges,
+      const vector<TSRange> &new_ranges
+    ) {
+      TSRangeArray result = array_new();
+      ts_range_array_get_changed_ranges(
+        old_ranges.data(), old_ranges.size(),
+        new_ranges.data(), new_ranges.size(),
+        &result
+      );
+      vector<TSRange> result_vector;
+      for (unsigned i = 0; i < result.size; i++) {
+        result_vector.push_back(result.contents[i]);
+      }
+      array_delete(&result);
+      return result_vector;
+    };
+
+    auto range = [&](unsigned start, unsigned end) {
+      TSRange result;
+      result.start_byte = start;
+      result.end_byte = end;
+      result.start_point = {0, start};
+      if (end == UINT32_MAX) {
+        result.end_point = {UINT32_MAX, UINT32_MAX};
+      } else {
+        result.end_point = {0, end};
+      }
+      return result;
+    };
+
+    it("returns an array of ranges that are newly included excluded", [&]() {
+      AssertThat(get_changed_ranges(
+        {
+          range(0, UINT32_MAX),
+        },
+        {
+          range(0, 5),
+          range(8, UINT32_MAX),
+        }
+      ), Equals<vector<TSRange>>(
+        {
+          range(5, 8)
+        }
+      ));
+
+      AssertThat(get_changed_ranges(
+        {
+          range(0, 3),
+          range(7, 10),
+          range(13, 30),
+        },
+        {
+          range(0, 4),
+          range(8, 11),
+          range(14, 30),
+        }
+      ), Equals<vector<TSRange>>(
+        {
+          range(3, 4),
+          range(7, 8),
+          range(10, 11),
+          range(13, 14),
+        }
+      ));
+
+      AssertThat(get_changed_ranges(
+        {
+          range(0, UINT32_MAX),
+        },
+        {
+          range(0, 4),
+          range(5, 64),
+        }
+      ), Equals<vector<TSRange>>(
+        {
+          range(4, 5),
+          range(64, UINT32_MAX),
+        }
+      ));
     });
   });
 });
