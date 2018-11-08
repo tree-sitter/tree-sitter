@@ -580,6 +580,27 @@ int ts_stack_dynamic_precedence(Stack *self, StackVersion version) {
   return array_get(&self->heads, version)->node->dynamic_precedence;
 }
 
+bool ts_stack_has_advanced_since_error(const Stack *self, StackVersion version) {
+  const StackHead *head = array_get(&self->heads, version);
+  const StackNode *node = head->node;
+  if (node->error_cost == 0) return true;
+  while (node) {
+    if (node->link_count > 0) {
+      Subtree subtree = node->links[0].subtree;
+      if (subtree.ptr) {
+        if (ts_subtree_total_bytes(subtree) > 0) {
+          return true;
+        } else if (node->node_count > head->node_count_at_last_error) {
+          node = node->links[0].node;
+          continue;
+        }
+      }
+    }
+    break;
+  }
+  return false;
+}
+
 void ts_stack_remove_version(Stack *self, StackVersion version) {
   stack_head_delete(array_get(&self->heads, version), &self->node_pool, self->subtree_pool);
   array_erase(&self->heads, version);
