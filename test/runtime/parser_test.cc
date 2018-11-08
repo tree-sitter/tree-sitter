@@ -1004,7 +1004,7 @@ describe("Parser", [&]() {
       AssertThat(ts_node_end_point(statement_node2), Equals(extent_for_string("a <%= b() %> c <% d()")));
     });
 
-    it("does not reuse nodes that were parsed in ranges that are now excluded", [&]() {
+    it("handles syntax changes in ranges that were included but are now excluded", [&]() {
       string source_code = "<div><span><%= something %></span></div>";
 
       // Parse HTML including the template directive, which will cause an error
@@ -1045,7 +1045,8 @@ describe("Parser", [&]() {
       ts_parser_set_included_ranges(parser, included_ranges, 2);
       tree = ts_parser_parse_string(parser, first_tree, source_code.c_str(), source_code.size());
 
-      // The error should not have been reused, because the included ranges were different.
+      // The element node (which contained an error) should not be reused,
+      // because it contains a range which is now excluded.
       assert_root_node("(fragment "
         "(text) "
         "(element "
@@ -1072,6 +1073,55 @@ describe("Parser", [&]() {
       AssertThat(ranges[1], Equals<TSRange>({
         {0, directive_start}, {0, directive_end},
         directive_start, directive_end,
+      }));
+
+      ts_free((void *)ranges);
+      ts_tree_delete(first_tree);
+    });
+
+    it("handles syntax changes in ranges that were excluded but are now included", [&]() {
+      ts_parser_set_language(parser, load_real_language("javascript"));
+
+      string source_code = "<div><%= foo() %></div><div><%= bar() %>";
+
+      unsigned first_code_start_index = source_code.find(" foo");
+      unsigned first_code_end_index = first_code_start_index + 7;
+      unsigned second_code_start_index = source_code.find(" bar");
+      unsigned second_code_end_index = second_code_start_index + 7;
+
+      TSRange included_ranges[] = {
+        {
+          {0, first_code_start_index},
+          {0, first_code_end_index},
+          first_code_start_index,
+          first_code_end_index
+        },
+        {
+          {0, second_code_start_index},
+          {0, second_code_end_index},
+          second_code_start_index,
+          second_code_end_index
+        },
+      };
+
+      // Parse only the first code directive as JavaScript
+      ts_parser_set_included_ranges(parser, included_ranges, 1);
+      TSTree *first_tree = ts_parser_parse_string(parser, nullptr, source_code.c_str(), source_code.size());
+
+      // Parse both the code directives as JavaScript, using the old tree as a reference.
+      ts_parser_set_included_ranges(parser, included_ranges, 2);
+      tree = ts_parser_parse_string(parser, first_tree, source_code.c_str(), source_code.size());
+
+      assert_root_node("(program "
+        "(expression_statement (call_expression (identifier) (arguments))) "
+        "(expression_statement (call_expression (identifier) (arguments))))");
+
+      unsigned range_count;
+      const TSRange *ranges = ts_tree_get_changed_ranges(first_tree, tree, &range_count);
+      AssertThat(range_count, Equals(1u));
+      AssertThat(ranges[0], Equals<TSRange>({
+        {0, first_code_end_index + 1}, {0, second_code_end_index + 1},
+        first_code_end_index + 1, second_code_end_index + 1,
       }));
 
       ts_free((void *)ranges);

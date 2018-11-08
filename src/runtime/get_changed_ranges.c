@@ -445,6 +445,14 @@ unsigned ts_subtree_get_changed_ranges(const Subtree *old_tree, const Subtree *n
     }
   } while (!iterator_done(&old_iter) && !iterator_done(&new_iter));
 
+  Length old_size = ts_subtree_total_size(*old_tree);
+  Length new_size = ts_subtree_total_size(*new_tree);
+  if (old_size.bytes < new_size.bytes) {
+    ts_range_array_add(&results, old_size, new_size);
+  } else if (new_size.bytes < old_size.bytes) {
+    ts_range_array_add(&results, new_size, old_size);
+  }
+
   *cursor1 = old_iter.cursor;
   *cursor2 = new_iter.cursor;
   *ranges = results.contents;
