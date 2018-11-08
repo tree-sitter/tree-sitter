@@ -583,14 +583,16 @@ int ts_stack_dynamic_precedence(Stack *self, StackVersion version) {
 bool ts_stack_has_advanced_since_error(const Stack *self, StackVersion version) {
   const StackHead *head = array_get(&self->heads, version);
   const StackNode *node = head->node;
-  if (node->error_cost == 0) return true;
   while (node) {
     if (node->link_count > 0) {
       Subtree subtree = node->links[0].subtree;
       if (subtree.ptr) {
         if (ts_subtree_total_bytes(subtree) > 0) {
           return true;
-        } else if (node->node_count > head->node_count_at_last_error) {
+        } else if (
+          node->node_count > head->node_count_at_last_error &&
+          ts_subtree_error_cost(subtree) == 0
+        ) {
           node = node->links[0].node;
           continue;
         }
