@@ -3,6 +3,8 @@
 
 #include "tree_sitter/runtime.h"
 
+#define POINT_MAX ((TSPoint) {UINT32_MAX, UINT32_MAX})
+
 static inline TSPoint point__new(unsigned row, unsigned column) {
   TSPoint result = {row, column};
   return result;

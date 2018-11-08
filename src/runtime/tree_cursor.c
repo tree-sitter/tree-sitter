@@ -66,7 +66,7 @@ static inline bool ts_tree_cursor_child_iterator_next(ChildIterator *self,
 // TSTreeCursor - lifecycle
 
 TSTreeCursor ts_tree_cursor_new(TSNode node) {
-  TSTreeCursor self = {{0, 0}, NULL, NULL};
+  TSTreeCursor self = {NULL, NULL, {0, 0}};
   ts_tree_cursor_init((TreeCursor *)&self, node);
   return self;
 }

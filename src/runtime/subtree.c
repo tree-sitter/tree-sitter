@@ -440,7 +440,12 @@ void ts_subtree_set_children(
     if (ts_subtree_fragile_left(first_child)) self.ptr->fragile_left = true;
     if (ts_subtree_fragile_right(last_child)) self.ptr->fragile_right = true;
 
-    if (self.ptr->child_count == 2 && !self.ptr->visible && !self.ptr->named) {
+    if (
+      self.ptr->child_count == 2 &&
+      !self.ptr->visible &&
+      !self.ptr->named &&
+      ts_subtree_symbol(first_child) == self.ptr->symbol
+    ) {
       if (ts_subtree_repeat_depth(first_child) > ts_subtree_repeat_depth(last_child)) {
         self.ptr->repeat_depth = ts_subtree_repeat_depth(first_child) + 1;
       } else {

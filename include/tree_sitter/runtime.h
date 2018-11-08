@@ -72,9 +72,9 @@ typedef struct {
 } TSNode;
 
 typedef struct {
-  uint32_t context[2];
-  const void *id;
   const void *tree;
+  const void *id;
+  uint32_t context[2];
 } TSTreeCursor;
 
 TSParser *ts_parser_new();

@@ -11,8 +11,8 @@ typedef struct {
 } TreeCursorEntry;
 
 typedef struct {
-  Array(TreeCursorEntry) stack;
   const TSTree *tree;
+  Array(TreeCursorEntry) stack;
 } TreeCursor;
 
 void ts_tree_cursor_init(TreeCursor *, TSNode);
