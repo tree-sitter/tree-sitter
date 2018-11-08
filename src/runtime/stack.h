@@ -79,6 +79,8 @@ unsigned ts_stack_node_count_since_error(const Stack *, StackVersion);
 
 int ts_stack_dynamic_precedence(Stack *, StackVersion);
 
+bool ts_stack_has_advanced_since_error(const Stack *, StackVersion);
+
 // Compute a summary of all the parse states near the top of the given
 // version of the stack and store the summary for later retrieval.
 void ts_stack_record_summary(Stack *, StackVersion, unsigned max_depth);

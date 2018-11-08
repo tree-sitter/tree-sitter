@@ -341,7 +341,22 @@ static Subtree ts_parser__lex(TSParser *self, StackVersion version, TSStateId pa
           self->lexer.data.mark_end(&self->lexer.data);
         }
 
-        if (!error_mode || self->lexer.token_end_position.bytes > current_position.bytes) {
+        // Zero-length external tokens are generally allowed, but they're not
+        // allowed right after a syntax error. This is for two reasons:
+        // 1. After a syntax error, the lexer is looking for any possible token,
+        //    as opposed to the specific set of tokens that are valid in some
+        //    parse state. In this situation, it's very easy for an external
+        //    scanner to produce unwanted zero-length tokens.
+        // 2. The parser sometimes inserts *missing* tokens to recover from
+        //    errors. These tokens are also zero-length. If we allow more
+        //    zero-length tokens to be created after missing tokens, it
+        //    can lead to infinite loops. Forbidding zero-length tokens
+        //    right at the point of error recovery is a conservative strategy
+        //    for preventing this kind of infinite loop.
+        if (
+          self->lexer.token_end_position.bytes > current_position.bytes ||
+          (!error_mode && ts_stack_has_advanced_since_error(self->stack, version))
+        ) {
           found_external_token = true;
           break;
         }
@@ -470,7 +485,7 @@ static Subtree ts_parser__lex(TSParser *self, StackVersion version, TSStateId pa
   LOG(
     "lexed_lookahead sym:%s, size:%u",
     SYM_NAME(ts_subtree_symbol(result)),
-    ts_subtree_size(result).bytes
+    ts_subtree_total_size(result).bytes
   );
   return result;
 }
