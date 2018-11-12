@@ -11,6 +11,32 @@
 #include "helpers/tree_helpers.h"
 #include <set>
 
+TSInputEdit do_random_edit(Generator &random, SpyInput &input, TSTree *tree) {
+  size_t choice = random(10);
+
+  if (choice < 2) {
+    // Insert text at end
+    string inserted_text = random.words(1);
+    return input.replace(input.content.size(), 0, inserted_text);
+  } else if (choice < 5) {
+    // Delete text from end
+    size_t deletion_size = random(10);
+    if (deletion_size > input.content.size()) deletion_size = input.content.size();
+    return input.replace(input.content.size() - deletion_size, deletion_size, "");
+  } else if (choice < 8) {
+    // Insert at random position
+    size_t position = random(input.content.size() + 1);
+    string inserted_text = random.words(1 + random(3));
+    return input.replace(position, 0, inserted_text);
+  } else {
+    // Replace at random position
+    size_t position = random(input.content.size() + 1);
+    size_t deletion_size = random(input.content.size() + 1 - position);
+    string inserted_text = random.words(1 + random(4));
+    return input.replace(position, deletion_size, inserted_text);
+  }
+}
+
 START_TEST;
 
 if (TREE_SITTER_SEED == -1) return;
@@ -79,10 +105,7 @@ for (auto &language_name : test_languages) {
 
           // Perform a random series of edits.
           for (unsigned j = 0; j < edit_count; j++) {
-            size_t edit_position = random(input.content.size());
-            size_t deletion_size = random(input.content.size() - edit_position);
-            string inserted_text = random.words(1 + random(4));
-            TSInputEdit edit = input.replace(edit_position, deletion_size, inserted_text);
+            TSInputEdit edit = do_random_edit(random, input, tree);
             ts_tree_edit(tree, &edit);
             if (debug_graphs_enabled) {
               ts_tree_print_dot_graph(tree, stderr);
