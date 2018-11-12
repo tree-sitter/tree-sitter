@@ -416,7 +416,7 @@ static Subtree ts_parser__lex(TSParser *self, StackVersion version, TSStateId pa
     last_byte_scanned = self->lexer.current_position.bytes;
   }
 
-  if (self->lexer.data.lookahead != 0) last_byte_scanned++;
+  last_byte_scanned++;
 
   Subtree result;
   if (skipped_error) {

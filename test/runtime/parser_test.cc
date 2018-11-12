@@ -452,6 +452,21 @@ describe("Parser", [&]() {
       });
     });
 
+    describe("insertions at the end of the file", [&]() {
+      it("doesn't incorrectly reuse nodes at EOF", [&]() {
+        ts_parser_set_language(parser, load_real_language("javascript"));
+
+        set_text("ab");
+        assert_root_node("(program (expression_statement (identifier)))");
+
+        insert_text(input->content.size(), " ");
+        insert_text(input->content.size(), "+=");
+        insert_text(input->content.size(), " ");
+        insert_text(input->content.size(), "12");
+        assert_root_node("(program (expression_statement (augmented_assignment_expression (identifier) (number))))");
+      });
+    });
+
     it("does not try to reuse nodes that are within the edited region", [&]() {
       ts_parser_set_language(parser, load_real_language("javascript"));
       set_text("{ x: (b.c) };");
