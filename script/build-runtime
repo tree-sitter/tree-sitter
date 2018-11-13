@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # If `CC` isn't set, pick a default compiler
-if which -s clang; then
+if hash clang 2>/dev/null; then
   : ${CC:=clang}
 else
   : ${CC:=gcc}
