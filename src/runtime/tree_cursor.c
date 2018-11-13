@@ -11,20 +11,20 @@ typedef struct {
   uint32_t child_index;
   uint32_t structural_child_index;
   const TSSymbol *alias_sequence;
-} ChildIterator;
+} CursorChildIterator;
 
-// ChildIterator
+// CursorChildIterator
 
-static inline ChildIterator ts_tree_cursor_iterate_children(const TreeCursor *self) {
+static inline CursorChildIterator ts_tree_cursor_iterate_children(const TreeCursor *self) {
   TreeCursorEntry *last_entry = array_back(&self->stack);
   if (ts_subtree_child_count(*last_entry->subtree) == 0) {
-    return (ChildIterator) {NULL_SUBTREE, self->tree, length_zero(), 0, 0, NULL};
+    return (CursorChildIterator) {NULL_SUBTREE, self->tree, length_zero(), 0, 0, NULL};
   }
   const TSSymbol *alias_sequence = ts_language_alias_sequence(
     self->tree->language,
     last_entry->subtree->ptr->alias_sequence_id
   );
-  return (ChildIterator) {
+  return (CursorChildIterator) {
     .tree = self->tree,
     .parent = *last_entry->subtree,
     .position = last_entry->position,
@@ -34,7 +34,7 @@ static inline ChildIterator ts_tree_cursor_iterate_children(const TreeCursor *se
   };
 }
 
-static inline bool ts_tree_cursor_child_iterator_next(ChildIterator *self,
+static inline bool ts_tree_cursor_child_iterator_next(CursorChildIterator *self,
                                                       TreeCursorEntry *result,
                                                       bool *visible) {
   if (!self->parent.ptr || self->child_index == self->parent.ptr->child_count) return false;
@@ -105,7 +105,7 @@ bool ts_tree_cursor_goto_first_child(TSTreeCursor *_self) {
 
     bool visible;
     TreeCursorEntry entry;
-    ChildIterator iterator = ts_tree_cursor_iterate_children(self);
+    CursorChildIterator iterator = ts_tree_cursor_iterate_children(self);
     while (ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible)) {
       if (visible) {
         array_push(&self->stack, entry);
@@ -134,7 +134,7 @@ int64_t ts_tree_cursor_goto_first_child_for_byte(TSTreeCursor *_self, uint32_t g
 
     bool visible;
     TreeCursorEntry entry;
-    ChildIterator iterator = ts_tree_cursor_iterate_children(self);
+    CursorChildIterator iterator = ts_tree_cursor_iterate_children(self);
     while (ts_tree_cursor_child_iterator_next(&iterator, &entry, &visible)) {
       uint32_t end_byte = entry.position.bytes + ts_subtree_size(*entry.subtree).bytes;
       bool at_goal = end_byte > goal_byte;
@@ -174,7 +174,7 @@ bool ts_tree_cursor_goto_next_sibling(TSTreeCursor *_self) {
 
   while (self->stack.size > 1) {
     TreeCursorEntry entry = array_pop(&self->stack);
-    ChildIterator iterator = ts_tree_cursor_iterate_children(self);
+    CursorChildIterator iterator = ts_tree_cursor_iterate_children(self);
     iterator.child_index = entry.child_index;
     iterator.structural_child_index = entry.structural_child_index;
     iterator.position = entry.position;

@@ -1,10 +1,12 @@
 # Compiled binaries
 out
+*.a
+*.o
 
 fuzz-results
 log.html
 
-# Generated build config files 
+# Generated build config files
 gyp-mac-tool
 Makefile
 *.Makefile

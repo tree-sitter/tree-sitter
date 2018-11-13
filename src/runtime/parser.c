@@ -1663,3 +1663,5 @@ TSTree *ts_parser_parse_string(TSParser *self, const TSTree *old_tree,
     TSInputEncodingUTF8,
   });
 }
+
+#undef LOG

@@ -41,7 +41,7 @@ typedef struct {
   SubtreeArray subtrees;
   uint32_t subtree_count;
   bool is_pending;
-} Iterator;
+} StackIterator;
 
 typedef struct {
   void *payload;
@@ -68,7 +68,7 @@ typedef struct {
 struct Stack {
   Array(StackHead) heads;
   StackSliceArray slices;
-  Array(Iterator) iterators;
+  Array(StackIterator) iterators;
   StackNodeArray node_pool;
   StackNode *base_node;
   SubtreePool *subtree_pool;
@@ -81,7 +81,7 @@ enum {
   StackActionPop = 2,
 };
 
-typedef StackAction (*StackCallback)(void *, const Iterator *);
+typedef StackAction (*StackCallback)(void *, const StackIterator *);
 
 static void stack_node_retain(StackNode *self) {
   if (!self)
@@ -278,7 +278,7 @@ inline StackSliceArray stack__iter(Stack *self, StackVersion version,
   array_clear(&self->iterators);
 
   StackHead *head = array_get(&self->heads, version);
-  Iterator iterator = {
+  StackIterator iterator = {
     .node = head->node,
     .subtrees = array_new(),
     .subtree_count = 0,
@@ -295,7 +295,7 @@ inline StackSliceArray stack__iter(Stack *self, StackVersion version,
 
   while (self->iterators.size > 0) {
     for (uint32_t i = 0, size = self->iterators.size; i < size; i++) {
-      Iterator *iterator = &self->iterators.contents[i];
+      StackIterator *iterator = &self->iterators.contents[i];
       StackNode *node = iterator->node;
 
       StackAction action = callback(payload, iterator);
@@ -324,7 +324,7 @@ inline StackSliceArray stack__iter(Stack *self, StackVersion version,
       }
 
       for (uint32_t j = 1; j <= node->link_count; j++) {
-        Iterator *next_iterator;
+        StackIterator *next_iterator;
         StackLink link;
         if (j == node->link_count) {
           link = node->links[0];
@@ -332,7 +332,7 @@ inline StackSliceArray stack__iter(Stack *self, StackVersion version,
         } else {
           if (self->iterators.size >= MAX_ITERATOR_COUNT) continue;
           link = node->links[j];
-          Iterator current_iterator = self->iterators.contents[i];
+          StackIterator current_iterator = self->iterators.contents[i];
           array_push(&self->iterators, current_iterator);
           next_iterator = array_back(&self->iterators);
           ts_subtree_array_copy(next_iterator->subtrees, &next_iterator->subtrees);
@@ -450,7 +450,7 @@ void ts_stack_push(Stack *self, StackVersion version, Subtree subtree,
   head->node = new_node;
 }
 
-inline StackAction iterate_callback(void *payload, const Iterator *iterator) {
+inline StackAction iterate_callback(void *payload, const StackIterator *iterator) {
   StackIterateSession *session = payload;
   session->callback(
     session->payload,
@@ -466,7 +466,7 @@ void ts_stack_iterate(Stack *self, StackVersion version,
   stack__iter(self, version, iterate_callback, &session, -1);
 }
 
-inline StackAction pop_count_callback(void *payload, const Iterator *iterator) {
+inline StackAction pop_count_callback(void *payload, const StackIterator *iterator) {
   unsigned *goal_subtree_count = payload;
   if (iterator->subtree_count == *goal_subtree_count) {
     return StackActionPop | StackActionStop;
@@ -479,7 +479,7 @@ StackSliceArray ts_stack_pop_count(Stack *self, StackVersion version, uint32_t c
   return stack__iter(self, version, pop_count_callback, &count, count);
 }
 
-inline StackAction pop_pending_callback(void *payload, const Iterator *iterator) {
+inline StackAction pop_pending_callback(void *payload, const StackIterator *iterator) {
   if (iterator->subtree_count >= 1) {
     if (iterator->is_pending) {
       return StackActionPop | StackActionStop;
@@ -500,7 +500,7 @@ StackSliceArray ts_stack_pop_pending(Stack *self, StackVersion version) {
   return pop;
 }
 
-inline StackAction pop_error_callback(void *payload, const Iterator *iterator) {
+inline StackAction pop_error_callback(void *payload, const StackIterator *iterator) {
   if (iterator->subtrees.size > 0) {
     bool *found_error = payload;
     if (!*found_error && ts_subtree_is_error(iterator->subtrees.contents[0])) {
@@ -531,7 +531,7 @@ SubtreeArray ts_stack_pop_error(Stack *self, StackVersion version) {
   return (SubtreeArray){.size = 0};
 }
 
-inline StackAction pop_all_callback(void *payload, const Iterator *iterator) {
+inline StackAction pop_all_callback(void *payload, const StackIterator *iterator) {
   return iterator->node->link_count == 0 ? StackActionPop : StackActionNone;
 }
 
@@ -544,7 +544,7 @@ typedef struct {
   unsigned max_depth;
 } SummarizeStackSession;
 
-inline StackAction summarize_stack_callback(void *payload, const Iterator *iterator) {
+inline StackAction summarize_stack_callback(void *payload, const StackIterator *iterator) {
   SummarizeStackSession *session = payload;
   TSStateId state = iterator->node->state;
   unsigned depth = iterator->subtree_count;
@@ -748,7 +748,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
     }
 
     fprintf(f, "\"]\n");
-    array_push(&self->iterators, ((Iterator){.node = head->node }));
+    array_push(&self->iterators, ((StackIterator){.node = head->node }));
   }
 
   bool all_iterators_done = false;
@@ -756,7 +756,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
     all_iterators_done = true;
 
     for (uint32_t i = 0; i < self->iterators.size; i++) {
-      Iterator iterator = self->iterators.contents[i];
+      StackIterator iterator = self->iterators.contents[i];
       StackNode *node = iterator.node;
 
       for (uint32_t j = 0; j < visited_nodes.size; j++) {
@@ -821,7 +821,7 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
 
         fprintf(f, "];\n");
 
-        Iterator *next_iterator;
+        StackIterator *next_iterator;
         if (j == 0) {
           next_iterator = &self->iterators.contents[i];
         } else {
@@ -841,3 +841,5 @@ bool ts_stack_print_dot_graph(Stack *self, const TSLanguage *language, FILE *f) 
   ts_toggle_allocation_recording(was_recording_allocations);
   return true;
 }
+
+#undef inline

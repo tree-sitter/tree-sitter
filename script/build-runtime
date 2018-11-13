@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+# If `CC` isn't set, pick a default compiler
+if which -s clang; then
+  : ${CC:=clang}
+else
+  : ${CC:=gcc}
+fi
+
+${CC}                   \
+  -c                    \
+  -I src                \
+  -I include            \
+  -I externals/utf8proc \
+  src/runtime/runtime.c \
+  -o runtime.o
+
+ar rcs libruntime.a runtime.o
+rm runtime.o

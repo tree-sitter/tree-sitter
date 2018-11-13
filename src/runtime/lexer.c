@@ -292,3 +292,5 @@ TSRange *ts_lexer_included_ranges(const Lexer *self, uint32_t *count) {
   *count = self->included_range_count;
   return self->included_ranges;
 }
+
+#undef LOG

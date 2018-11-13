@@ -9,6 +9,30 @@ All of Tree-sitter's parsing functionality is exposed through C APIs. Applicatio
 
 This document will describes the general concepts of how to use Tree-sitter, which should be relevant regardless of what language you're using. It also goes into some C-specific details that are useful if you're using the C API directly or are building a new binding to a different language.
 
+## Building the Runtime Library
+
+Building the runtime library requires one git submodule: [`utf8proc`](https://github.com/JuliaStrings/utf8proc). Make sure that `utf8proc` is downloaded by running this command from the Tree-sitter directory:
+
+```sh
+git submodule update --init
+```
+
+To build the runtime library on a POSIX system, run this script, which will create a static library called `libruntime.a` in the Tree-sitter folder:
+
+```sh
+script/build-runtime
+```
+
+Alternatively, you can use the runtime library in a larger project by adding one source file to the project. This source file needs three directories to be in the include path when compiled:
+
+**source file:**
+* `tree-sitter/src/runtime/runtime.c`
+
+**include directories:**
+* `tree-sitter/src`
+* `tree-sitter/include`
+* `tree-sitter/externals/utf8proc`
+
 ## The Objects
 
 There are four main types of objects involved when using Tree-sitter: languages, parsers, syntax trees, and syntax nodes. In C, these are called `TSParser`, `TSLanguage`, `TSTree`, and `TSNode`.
@@ -86,7 +110,7 @@ clang                                   \
   -I tree-sitter/include                \
   test-json-parser.c                    \
   tree-sitter-json/src/parser.c         \
-  tree-sitter/out/Release/libruntime.a  \
+  tree-sitter/libruntime.a  \
   -o test-json-parser
 
 ./test-json-parser
