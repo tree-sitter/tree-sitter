@@ -69,6 +69,15 @@ describe("Language", []() {
         Equals("ERROR")
       );
       AssertThat(ts_language_symbol_for_name(language, "non_existent_symbol"), Equals(0u));
+
+      TSSymbol last = ts_language_symbol_count(language)-1;
+      AssertThat(
+        ts_language_symbol_for_name(
+          language,
+          ts_language_symbol_name(language, last)
+        ),
+        Equals(last)
+      );
     });
   });
 });
