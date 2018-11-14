@@ -250,6 +250,26 @@ void ts_lexer_start(Lexer *self) {
   if (!self->lookahead_size) ts_lexer__get_lookahead(self);
 }
 
+void ts_lexer_finish(Lexer *self, uint32_t *lookahead_end_byte) {
+  if (length_is_undefined(self->token_end_position)) {
+    ts_lexer__mark_end(&self->data);
+  }
+
+  uint32_t current_lookahead_end_byte = self->current_position.bytes + 1;
+
+  // In order to determine that a byte sequence is invalid UTF8 or UTF16,
+  // the character decoding algorithm may have looked at the following byte.
+  // Therefore, the next byte *after* the current (invalid) character
+  // affects the interpretation of the current character.
+  if (self->data.lookahead == -1) {
+    current_lookahead_end_byte++;
+  }
+
+  if (current_lookahead_end_byte > *lookahead_end_byte) {
+    *lookahead_end_byte = current_lookahead_end_byte;
+  }
+}
+
 void ts_lexer_advance_to_end(Lexer *self) {
   while (self->data.lookahead != 0) {
     ts_lexer__advance((TSLexer *)self, false);
