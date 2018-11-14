@@ -267,12 +267,12 @@ static void ts_subtree__compress(MutableSubtree self, unsigned count, const TSLa
   MutableSubtree tree = self;
   TSSymbol symbol = tree.ptr->symbol;
   for (unsigned i = 0; i < count; i++) {
-    if (tree.ptr->ref_count > 1 || tree.ptr->child_count != 2) break;
+    if (tree.ptr->ref_count > 1 || tree.ptr->child_count < 2) break;
 
     MutableSubtree child = ts_subtree_to_mut_unsafe(tree.ptr->children[0]);
     if (
       child.data.is_inline ||
-      child.ptr->child_count != 2 ||
+      child.ptr->child_count < 2 ||
       child.ptr->ref_count > 1 ||
       child.ptr->symbol != symbol
     ) break;
@@ -280,14 +280,14 @@ static void ts_subtree__compress(MutableSubtree self, unsigned count, const TSLa
     MutableSubtree grandchild = ts_subtree_to_mut_unsafe(child.ptr->children[0]);
     if (
       grandchild.data.is_inline ||
-      grandchild.ptr->child_count != 2 ||
+      grandchild.ptr->child_count < 2 ||
       grandchild.ptr->ref_count > 1 ||
       grandchild.ptr->symbol != symbol
     ) break;
 
     tree.ptr->children[0] = ts_subtree_from_mut(grandchild);
-    child.ptr->children[0] = grandchild.ptr->children[1];
-    grandchild.ptr->children[1] = ts_subtree_from_mut(child);
+    child.ptr->children[0] = grandchild.ptr->children[grandchild.ptr->child_count - 1];
+    grandchild.ptr->children[grandchild.ptr->child_count - 1] = ts_subtree_from_mut(child);
     array_push(stack, tree);
     tree = grandchild;
   }
@@ -295,7 +295,7 @@ static void ts_subtree__compress(MutableSubtree self, unsigned count, const TSLa
   while (stack->size > initial_stack_size) {
     tree = array_pop(stack);
     MutableSubtree child = ts_subtree_to_mut_unsafe(tree.ptr->children[0]);
-    MutableSubtree grandchild = ts_subtree_to_mut_unsafe(child.ptr->children[1]);
+    MutableSubtree grandchild = ts_subtree_to_mut_unsafe(child.ptr->children[child.ptr->child_count - 1]);
     ts_subtree_set_children(grandchild, grandchild.ptr->children, grandchild.ptr->child_count, language);
     ts_subtree_set_children(child, child.ptr->children, child.ptr->child_count, language);
     ts_subtree_set_children(tree, tree.ptr->children, tree.ptr->child_count, language);
@@ -314,7 +314,7 @@ void ts_subtree_balance(Subtree self, SubtreePool *pool, const TSLanguage *langu
 
     if (tree.ptr->repeat_depth > 0) {
       Subtree child1 = tree.ptr->children[0];
-      Subtree child2 = tree.ptr->children[1];
+      Subtree child2 = tree.ptr->children[tree.ptr->child_count - 1];
       if (
         ts_subtree_child_count(child1) > 0 &&
         ts_subtree_child_count(child2) > 0 &&
@@ -441,7 +441,7 @@ void ts_subtree_set_children(
     if (ts_subtree_fragile_right(last_child)) self.ptr->fragile_right = true;
 
     if (
-      self.ptr->child_count == 2 &&
+      self.ptr->child_count >= 2 &&
       !self.ptr->visible &&
       !self.ptr->named &&
       ts_subtree_symbol(first_child) == self.ptr->symbol
@@ -620,7 +620,8 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
     Length size = ts_subtree_size(*entry.tree);
     Length padding = ts_subtree_padding(*entry.tree);
     uint32_t lookahead_bytes = ts_subtree_lookahead_bytes(*entry.tree);
-    if (is_noop && edit.start.bytes >= padding.bytes + size.bytes + lookahead_bytes) continue;
+    uint32_t end_byte = padding.bytes + size.bytes + lookahead_bytes;
+    if (edit.start.bytes > end_byte || (is_noop && edit.start.bytes == end_byte)) continue;
 
     // If the edit is entirely within the space before this subtree, then shift this
     // subtree over according to the edit without changing its size.
@@ -696,6 +697,9 @@ Subtree ts_subtree_edit(Subtree self, const TSInputEdit *edit, SubtreePool *pool
       Length child_size = ts_subtree_total_size(*child);
       child_left = child_right;
       child_right = length_add(child_left, child_size);
+
+      // If this child ends before the edit, it is not affected.
+      if (child_right.bytes + ts_subtree_lookahead_bytes(*child) < edit.start.bytes) continue;
 
       // If this child starts after the edit, then we're done processing children.
       if (child_left.bytes > edit.old_end.bytes ||

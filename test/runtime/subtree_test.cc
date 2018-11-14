@@ -18,7 +18,7 @@ void assert_consistent(Subtree tree) {
   AssertThat(total_children_size, Equals<Length>(ts_subtree_total_size(tree)));
 };
 
-START_TEST
+START_TEST;
 
 describe("Subtree", []() {
   enum {
