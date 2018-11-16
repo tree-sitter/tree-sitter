@@ -50,7 +50,8 @@ const char *ts_language_symbol_name(const TSLanguage *language, TSSymbol symbol)
 TSSymbol ts_language_symbol_for_name(const TSLanguage *self, const char *name) {
   if (!strcmp(name, "ERROR")) return ts_builtin_sym_error;
 
-  for (TSSymbol i = 0; i < self->symbol_count; i++) {
+  uint32_t count = ts_language_symbol_count(self);
+  for (TSSymbol i = 0; i < count; i++) {
     if (!strcmp(self->symbol_names[i], name)) {
       return i;
     }
