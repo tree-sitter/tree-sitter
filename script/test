@@ -112,9 +112,9 @@ case ${mode} in
     ;;
 
   debug)
-    if which lldb; then
+    if hash lldb &> /dev/null; then
       lldb $cmd -- "${args[@]}"
-    elif which gdb; then
+    elif hash gdb &> /dev/null; then
       gdb $cmd -- "${args[@]}"
     else
       echo "No debugger found"
