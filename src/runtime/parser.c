@@ -899,8 +899,11 @@ static bool ts_parser__do_all_potential_reductions(TSParser *self,
 
 static void ts_parser__handle_error(TSParser *self, StackVersion version,
                                     TSSymbol lookahead_symbol) {
-  // Perform any reductions that could have happened in this state, regardless of the lookahead.
   uint32_t previous_version_count = ts_stack_version_count(self->stack);
+
+  // Perform any reductions that can happen in this state, regardless of the lookahead. After
+  // skipping one or more invalid tokens, the parser might find a token that would have allowed
+  // a reduction to take place.
   ts_parser__do_all_potential_reductions(self, version, 0);
   uint32_t version_count = ts_stack_version_count(self->stack);
   Length position = ts_stack_position(self->stack, version);
@@ -1073,6 +1076,18 @@ static void ts_parser__recover(TSParser *self, StackVersion version, Subtree loo
   unsigned node_count_since_error = ts_stack_node_count_since_error(self->stack, version);
   unsigned current_error_cost = ts_stack_error_cost(self->stack, version);
 
+  // When the parser is in the error state, there are two strategies for recovering with a
+  // given lookahead token:
+  // 1. Find a previous state on the stack in which that lookahead token would be valid. Then,
+  //    create a new stack version that is in that state again. This entails popping all of the
+  //    subtrees that have been pushed onto the stack since that previous state, and wrapping
+  //    them in an ERROR node.
+  // 2. Wrap the lookahead token in an ERROR node, push that ERROR node onto the stack, and
+  //    move on to the next lookahead token, remaining in the error state.
+  //
+  // First, try the strategy 1. Upon entering the error state, the parser recorded a summary
+  // of the previous parse states and their depths. Look at each state in the summary, to see
+  // if the current lookahead token would be valid in that state.
   if (summary && !ts_subtree_is_error(lookahead)) {
     for (unsigned i = 0; i < summary->size; i++) {
       StackSummaryEntry entry = summary->contents[i];
@@ -1082,6 +1097,7 @@ static void ts_parser__recover(TSParser *self, StackVersion version, Subtree loo
       unsigned depth = entry.depth;
       if (node_count_since_error > 0) depth++;
 
+      // Do not recover in ways that create redundant stack versions.
       bool would_merge = false;
       for (unsigned j = 0; j < previous_version_count; j++) {
         if (
@@ -1092,9 +1108,9 @@ static void ts_parser__recover(TSParser *self, StackVersion version, Subtree loo
           break;
         }
       }
-
       if (would_merge) continue;
 
+      // Do not recover if the result would clearly be worse than some existing stack version.
       unsigned new_cost =
         current_error_cost +
         entry.depth * ERROR_COST_PER_SKIPPED_TREE +
@@ -1102,6 +1118,8 @@ static void ts_parser__recover(TSParser *self, StackVersion version, Subtree loo
         (position.extent.row - entry.position.extent.row) * ERROR_COST_PER_SKIPPED_LINE;
       if (ts_parser__better_version_exists(self, version, false, new_cost)) break;
 
+      // If the current lookahead token is valid in some previous state, recover to that state.
+      // Then stop looking for further recoveries.
       if (ts_language_has_actions(self->language, entry.state, ts_subtree_symbol(lookahead))) {
         if (ts_parser__recover_to_state(self, version, depth, entry.state)) {
           did_recover = true;
@@ -1113,18 +1131,27 @@ static void ts_parser__recover(TSParser *self, StackVersion version, Subtree loo
     }
   }
 
+  // In the process of attemping to recover, some stack versions may have been created
+  // and subsequently halted. Remove those versions.
   for (unsigned i = previous_version_count; i < ts_stack_version_count(self->stack); i++) {
     if (!ts_stack_is_active(self->stack, i)) {
       ts_stack_remove_version(self->stack, i--);
     }
   }
 
+  // If strategy 1 succeeded, a new stack version will have been created which is able to handle
+  // the current lookahead token. Now, in addition, try strategy 2 described above: skip the
+  // current lookahead token by wrapping it in an ERROR node.
+
+  // Don't pursue this additional strategy if there are already too many stack versions.
   if (did_recover && ts_stack_version_count(self->stack) > MAX_VERSION_COUNT) {
     ts_stack_halt(self->stack, version);
     ts_subtree_release(&self->tree_pool, lookahead);
     return;
   }
 
+  // If the parser is still in the error state at the end of the file, just wrap everything
+  // in an ERROR node and terminate.
   if (ts_subtree_is_eof(lookahead)) {
     LOG("recover_eof");
     SubtreeArray children = array_new();
@@ -1134,17 +1161,19 @@ static void ts_parser__recover(TSParser *self, StackVersion version, Subtree loo
     return;
   }
 
+  // Do not recover if the result would clearly be worse than some existing stack version.
   unsigned new_cost =
     current_error_cost + ERROR_COST_PER_SKIPPED_TREE +
     ts_subtree_total_bytes(lookahead) * ERROR_COST_PER_SKIPPED_CHAR +
     ts_subtree_total_size(lookahead).extent.row * ERROR_COST_PER_SKIPPED_LINE;
-
   if (ts_parser__better_version_exists(self, version, false, new_cost)) {
     ts_stack_halt(self->stack, version);
     ts_subtree_release(&self->tree_pool, lookahead);
     return;
   }
 
+  // If the current lookahead token is an extra token, mark it as extra. This means it won't
+  // be counted in error cost calculations.
   unsigned n;
   const TSParseAction *actions = ts_language_actions(self->language, 1, ts_subtree_symbol(lookahead), &n);
   if (n > 0 && actions[n - 1].type == TSParseActionTypeShift && actions[n - 1].params.extra) {
@@ -1153,6 +1182,7 @@ static void ts_parser__recover(TSParser *self, StackVersion version, Subtree loo
     lookahead = ts_subtree_from_mut(mutable_lookahead);
   }
 
+  // Wrap the lookahead token in an ERROR.
   LOG("skip_token symbol:%s", TREE_NAME(lookahead));
   SubtreeArray children = array_new();
   array_reserve(&children, 1);
@@ -1165,10 +1195,25 @@ static void ts_parser__recover(TSParser *self, StackVersion version, Subtree loo
     self->language
   );
 
+  // If other tokens have already been skipped, so there is already an ERROR at the top of the
+  // stack, then pop that ERROR off the stack and wrap the two ERRORs together into one larger
+  // ERROR.
   if (node_count_since_error > 0) {
     StackSliceArray pop = ts_stack_pop_count(self->stack, version, 1);
-    assert(pop.size == 1);
-    assert(pop.contents[0].subtrees.size == 1);
+
+    // TODO: Figure out how to make this condition occur.
+    // See https://github.com/atom/atom/issues/18450#issuecomment-439579778
+    // If multiple stack versions have merged at this point, just pick one of the errors
+    // arbitrarily and discard the rest.
+    if (pop.size > 1) {
+      for (unsigned i = 1; i < pop.size; i++) {
+        ts_subtree_array_delete(&self->tree_pool, &pop.contents[i].subtrees);
+      }
+      while (ts_stack_version_count(self->stack) > pop.contents[0].version + 1) {
+        ts_stack_remove_version(self->stack, pop.contents[0].version + 1);
+      }
+    }
+
     ts_stack_renumber_version(self->stack, pop.contents[0].version, version);
     array_push(&pop.contents[0].subtrees, ts_subtree_from_mut(error_repeat));
     error_repeat = ts_subtree_new_node(
@@ -1180,8 +1225,8 @@ static void ts_parser__recover(TSParser *self, StackVersion version, Subtree loo
     );
   }
 
+  // Push the new ERROR onto the stack.
   ts_stack_push(self->stack, version, ts_subtree_from_mut(error_repeat), false, ERROR_STATE);
-
   if (ts_subtree_has_external_tokens(lookahead)) {
     ts_stack_set_last_external_token(
       self->stack, version, ts_subtree_last_external_token(lookahead)
@@ -1232,7 +1277,7 @@ static void ts_parser__advance(TSParser *self, StackVersion version, bool allow_
           TSStateId next_state;
           if (action.params.extra) {
 
-            // TODO remove when TREE_SITTER_LANGUAGE_VERSION 9 is out.
+            // TODO: remove when TREE_SITTER_LANGUAGE_VERSION 9 is out.
             if (state == ERROR_STATE) continue;
 
             next_state = state;
