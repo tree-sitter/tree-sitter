@@ -13,29 +13,8 @@ fn main() {
         .flag_if_supported("-Wno-unused-parameter")
         .include(root_path.join("src"))
         .include(root_path.join("include"))
-        .include(root_path.join("externals").join("utf8proc"));
-
-    let source_filenames = [
-      "get_changed_ranges.c",
-      "language.c",
-      "lexer.c",
-      "node.c",
-      "parser.c",
-      "stack.c",
-      "subtree.c",
-      "tree_cursor.c",
-      "tree.c",
-      "utf16.c",
-    ];
-
-    config.files(source_filenames.iter().map(|source_filename| {
-        root_path
-            .join("src")
-            .join("runtime")
-            .join(&source_filename)
-    }));
-
-    config.file(root_path.join("externals").join("utf8proc").join("utf8proc.c"));
+        .include(root_path.join("externals").join("utf8proc"))
+        .file(root_path.join("src").join("runtime").join("runtime.c"));
 
     if env::var("RUST_TREE_SITTER_TEST").is_ok() {
         let parser_dir: PathBuf = ["fixtures", "tree-sitter-rust", "src"].iter().collect();
