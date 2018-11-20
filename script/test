@@ -112,9 +112,9 @@ case ${mode} in
     ;;
 
   debug)
-    if which -s lldb; then
+    if which lldb; then
       lldb $cmd -- "${args[@]}"
-    elif which -s gdb; then
+    elif which gdb; then
       gdb $cmd -- "${args[@]}"
     else
       echo "No debugger found"
