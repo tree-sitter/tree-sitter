@@ -87,6 +87,7 @@ void ts_parser_print_dot_graphs(TSParser *, FILE *);
 void ts_parser_halt_on_error(TSParser *, bool);
 TSTree *ts_parser_parse(TSParser *, const TSTree *, TSInput);
 TSTree *ts_parser_parse_string(TSParser *, const TSTree *, const char *, uint32_t);
+TSTree *ts_parser_parse_string_encoding(TSParser *, const TSTree *, const void *, uint32_t, TSInputEncoding);
 bool ts_parser_enabled(const TSParser *);
 void ts_parser_set_enabled(TSParser *, bool);
 size_t ts_parser_operation_limit(const TSParser *);
