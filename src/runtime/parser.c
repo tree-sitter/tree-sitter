@@ -87,7 +87,7 @@ typedef enum {
 } ErrorComparison;
 
 typedef struct {
-  const void *string;
+  const char *string;
   uint32_t length;
 } TSStringInput;
 
@@ -1647,7 +1647,7 @@ TSTree *ts_parser_parse_string(TSParser *self, const TSTree *old_tree,
 }
 
 TSTree *ts_parser_parse_string_encoding(TSParser *self, const TSTree *old_tree,
-                                        const void *string, uint32_t length, TSInputEncoding encoding) {
+                                        const char *string, uint32_t length, TSInputEncoding encoding) {
   TSStringInput input = {string, length};
   return ts_parser_parse(self, old_tree, (TSInput) {
     &input,
