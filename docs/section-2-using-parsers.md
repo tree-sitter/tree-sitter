@@ -255,10 +255,18 @@ typedef struct {
   TSPoint new_end_point;
 } TSInputEdit;
 
-void ts_node_edit(TSNode *, const TSInputEdit *);
+void ts_tree_edit(TSTree *, const TSInputEdit *);
 ```
 
 Then, you can call `ts_parser_parse` again, passing in the old tree. This will create a new tree that internally shares structure with the old tree.
+
+When you edit a syntax tree, the positions of its nodes will change. If you have stored any `TSNode` instances outside of the `TSTree`, you must update their positions separately, using the same `TSInput` value, in order to update their cached positions.
+
+```c
+void ts_node_edit(TSNode *, const TSInputEdit *);
+```
+
+This `ts_node_edit` function is *only* needed in the case where you have retrieved `TSNode` instances *before* editing the tree, and then *after* editing the tree, you want to continue to use those specific node instances. Often, you'll just want to re-fetch nodes from the edited tree, in which case `ts_node_edit` is not needed.
 
 ## Multi-language Documents
 
