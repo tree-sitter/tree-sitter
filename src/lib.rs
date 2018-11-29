@@ -3,7 +3,9 @@ mod ffi;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
+extern crate regex;
 
+use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::CStr;
 use std::fmt;
@@ -351,8 +353,9 @@ impl Tree {
     pub fn walk_with_properties<'a>(
         &'a self,
         property_sheet: &'a PropertySheet,
+        source: &'a str,
     ) -> TreePropertyCursor<'a> {
-        TreePropertyCursor::new(self, property_sheet)
+        TreePropertyCursor::new(self, property_sheet, source)
     }
 }
 
@@ -610,9 +613,23 @@ impl<'a> TreePropertyCursor<'a> {
             .get(&node_kind_id)
             .and_then(|transitions| {
                 for transition in transitions.iter() {
-                    if transition.child_index == Some(node_child_index) || transition.child_index == None {
-                        return Some(transition.state_id);
+                    if let Some(text_regex) = transition.text_regex.as_ref() {
+                        let node = self.cursor.node();
+                        let text = &self.source.as_bytes()[node.start_byte()..node.end_byte()];
+                        if let Ok(text) = str::from_utf8(text) {
+                            if !text_regex.is_match(text) {
+                                continue;
+                            }
+                        }
                     }
+
+                    if let Some(child_index) = transition.child_index {
+                        if child_index != node_child_index {
+                            continue;
+                        }
+                    }
+
+                    return Some(transition.state_id);
                 }
                 None
             })
@@ -679,36 +696,42 @@ impl PropertySheet {
             property_sets: Vec<HashMap<String, String>>,
         }
 
-        let input: PropertySheetJSON = serde_json::from_str(json)?;
+        let input: PropertySheetJSON = serde_json::from_str(json)
+            .map_err(|e| PropertySheetError::InvalidJSON(e))?;
+        let mut states = Vec::new();
+
+        for state in input.states.iter() {
+            let mut transitions = HashMap::new();
+            let node_kind_count = language.node_kind_count();
+            for transition in state.transitions.iter() {
+                for i in 0..node_kind_count {
+                    let i = i as u16;
+                    if language.node_kind_is_named(i) == transition.named
+                        && transition.kind == language.node_kind_for_id(i)
+                    {
+                        let entry = transitions.entry(i).or_insert(Vec::new());
+                        let text_regex = if let Some(text) = transition.text.as_ref() {
+                            Some(Regex::new(&text).map_err(|e| PropertySheetError::InvalidRegex(e))?)
+                        } else {
+                            None
+                        };
+                        entry.push(PropertyTransition {
+                            child_index: transition.index,
+                            state_id: transition.state_id,
+                            text_regex
+                        });
+                    }
+                }
+            }
+            states.push(PropertyState {
+                transitions,
+                default_next_state_id: state.default_next_state_id,
+                property_set_id: state.property_set_id,
+            });
+        }
         Ok(PropertySheet {
             property_sets: input.property_sets,
-            states: input
-                .states
-                .iter()
-                .map(|state| {
-                    let mut transitions = HashMap::new();
-                    let node_kind_count = language.node_kind_count();
-                    for transition in state.transitions.iter() {
-                        for i in 0..node_kind_count {
-                            let i = i as u16;
-                            if language.node_kind_is_named(i) == transition.named
-                                && transition.kind == language.node_kind_for_id(i)
-                            {
-                                let entry = transitions.entry(i).or_insert(Vec::new());
-                                entry.push(PropertyTransition {
-                                    child_index: transition.index,
-                                    state_id: transition.state_id,
-                                });
-                            }
-                        }
-                    }
-                    PropertyState {
-                        transitions,
-                        default_next_state_id: state.default_next_state_id,
-                        property_set_id: state.property_set_id,
-                    }
-                })
-                .collect(),
+            states,
         })
     }
 }
@@ -869,7 +892,7 @@ mod tests {
         )
         .unwrap();
 
-        let mut cursor = tree.walk_with_properties(&property_sheet);
+        let mut cursor = tree.walk_with_properties(&property_sheet, "");
         assert_eq!(cursor.node().kind(), "source_file");
         assert_eq!(*cursor.node_properties(), HashMap::new());
 
