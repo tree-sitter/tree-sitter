@@ -27,29 +27,36 @@ type Logger<'a> = Box<FnMut(LogType, &str) + 'a>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Point {
-    pub row: u32,
-    pub column: u32,
+    pub row: usize,
+    pub column: usize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct InputEdit {
-    pub start_byte: u32,
-    pub old_end_byte: u32,
-    pub new_end_byte: u32,
+    pub start_byte: usize,
+    pub old_end_byte: usize,
+    pub new_end_byte: usize,
     pub start_position: Point,
     pub old_end_position: Point,
     pub new_end_position: Point,
 }
 
 struct PropertyTransition {
-    state_id: u32,
-    child_index: Option<u32>,
+    state_id: usize,
+    child_index: Option<usize>,
+    text_regex: Option<Regex>,
 }
 
 struct PropertyState {
     transitions: HashMap<u16, Vec<PropertyTransition>>,
-    property_set_id: u32,
-    default_next_state_id: u32,
+    property_set_id: usize,
+    default_next_state_id: usize,
+}
+
+#[derive(Debug)]
+pub enum PropertySheetError {
+    InvalidJSON(serde_json::Error),
+    InvalidRegex(regex::Error)
 }
 
 pub struct PropertySheet {
@@ -67,9 +74,10 @@ pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 
 pub struct TreePropertyCursor<'a> {
     cursor: TreeCursor<'a>,
-    state_stack: Vec<u32>,
-    child_index_stack: Vec<u32>,
+    state_stack: Vec<usize>,
+    child_index_stack: Vec<usize>,
     property_sheet: &'a PropertySheet,
+    source: &'a str,
 }
 
 impl Language {
@@ -165,10 +173,10 @@ impl Parser {
 
     pub fn parse_str(&mut self, input: &str, old_tree: Option<&Tree>) -> Option<Tree> {
         let bytes = input.as_bytes();
-        self.parse_utf8(&mut |offset, _| &bytes[(offset as usize)..], old_tree)
+        self.parse_utf8(&mut |offset, _| &bytes[offset..], old_tree)
     }
 
-    pub fn parse_utf8<'a, T: FnMut(u32, Point) -> &'a [u8]>(
+    pub fn parse_utf8<'a, T: FnMut(usize, Point) -> &'a [u8]>(
         &mut self,
         input: &mut T,
         old_tree: Option<&Tree>,
@@ -182,7 +190,7 @@ impl Parser {
         )
     }
 
-    pub fn parse_utf16<'a, T: 'a + FnMut(u32, Point) -> &'a [u16]>(
+    pub fn parse_utf16<'a, T: 'a + FnMut(usize, Point) -> &'a [u16]>(
         &mut self,
         input: &mut T,
         old_tree: Option<&Tree>,
@@ -239,19 +247,19 @@ impl Parser {
         unsafe { ffi::ts_parser_set_operation_limit(self.0, limit) }
     }
 
-    fn parse_utf8_ptr<T: FnMut(u32, Point) -> (*const u8, usize)>(
+    fn parse_utf8_ptr<T: FnMut(usize, Point) -> (*const u8, usize)>(
         &mut self,
         input: &mut T,
         old_tree: Option<&Tree>,
     ) -> Option<Tree> {
-        unsafe extern "C" fn read<T: FnMut(u32, Point) -> (*const u8, usize)>(
+        unsafe extern "C" fn read<T: FnMut(usize, Point) -> (*const u8, usize)>(
             payload: *mut c_void,
             byte_offset: u32,
             position: ffi::TSPoint,
             bytes_read: *mut u32,
         ) -> *const c_char {
             let input = (payload as *mut T).as_mut().unwrap();
-            let (ptr, length) = (*input)(byte_offset, position.into());
+            let (ptr, length) = (*input)(byte_offset as usize, position.into());
             *bytes_read = length as u32;
             return ptr as *const c_char;
         };
@@ -271,12 +279,12 @@ impl Parser {
         }
     }
 
-    fn parse_utf16_ptr<T: FnMut(u32, Point) -> (*const u16, usize)>(
+    fn parse_utf16_ptr<T: FnMut(usize, Point) -> (*const u16, usize)>(
         &mut self,
         input: &mut T,
         old_tree: Option<&Tree>,
     ) -> Option<Tree> {
-        unsafe extern "C" fn read<T: FnMut(u32, Point) -> (*const u16, usize)>(
+        unsafe extern "C" fn read<T: FnMut(usize, Point) -> (*const u16, usize)>(
             payload: *mut c_void,
             byte_offset: u32,
             position: ffi::TSPoint,
@@ -284,10 +292,10 @@ impl Parser {
         ) -> *const c_char {
             let input = (payload as *mut T).as_mut().unwrap();
             let (ptr, length) = (*input)(
-                byte_offset,
+                byte_offset as usize,
                 Point {
-                    row: position.row,
-                    column: position.column / 2,
+                    row: position.row as usize,
+                    column: position.column as usize / 2,
                 },
             );
             *bytes_read = length as u32 * 2;
@@ -326,9 +334,9 @@ impl Tree {
 
     pub fn edit(&mut self, edit: &InputEdit) {
         let edit = ffi::TSInputEdit {
-            start_byte: edit.start_byte,
-            old_end_byte: edit.old_end_byte,
-            new_end_byte: edit.new_end_byte,
+            start_byte: edit.start_byte as u32,
+            old_end_byte: edit.old_end_byte as u32,
+            new_end_byte: edit.new_end_byte as u32,
             start_point: edit.start_position.into(),
             old_end_point: edit.old_end_position.into(),
             new_end_point: edit.new_end_position.into(),
@@ -399,44 +407,38 @@ impl<'tree> Node<'tree> {
         unsafe { ffi::ts_node_has_error(self.0) }
     }
 
-    pub fn start_byte(&self) -> u32 {
-        unsafe { ffi::ts_node_start_byte(self.0) }
+    pub fn start_byte(&self) -> usize {
+        unsafe { ffi::ts_node_start_byte(self.0) as usize }
     }
 
-    pub fn end_byte(&self) -> u32 {
-        unsafe { ffi::ts_node_end_byte(self.0) }
+    pub fn end_byte(&self) -> usize {
+        unsafe { ffi::ts_node_end_byte(self.0) as usize }
     }
 
     pub fn start_position(&self) -> Point {
         let result = unsafe { ffi::ts_node_start_point(self.0) };
-        Point {
-            row: result.row,
-            column: result.column,
-        }
+        result.into()
     }
 
     pub fn end_position(&self) -> Point {
         let result = unsafe { ffi::ts_node_end_point(self.0) };
-        Point {
-            row: result.row,
-            column: result.column,
-        }
+        result.into()
     }
 
-    pub fn child(&self, i: u32) -> Option<Self> {
-        Self::new(unsafe { ffi::ts_node_child(self.0, i) })
+    pub fn child(&self, i: usize) -> Option<Self> {
+        Self::new(unsafe { ffi::ts_node_child(self.0, i as u32) })
     }
 
-    pub fn child_count(&self) -> u32 {
-        unsafe { ffi::ts_node_child_count(self.0) }
+    pub fn child_count(&self) -> usize {
+        unsafe { ffi::ts_node_child_count(self.0) as usize }
     }
 
-    pub fn named_child<'a>(&'a self, i: u32) -> Option<Self> {
-        Self::new(unsafe { ffi::ts_node_named_child(self.0, i) })
+    pub fn named_child<'a>(&'a self, i: usize) -> Option<Self> {
+        Self::new(unsafe { ffi::ts_node_named_child(self.0, i as u32) })
     }
 
-    pub fn named_child_count(&self) -> u32 {
-        unsafe { ffi::ts_node_named_child_count(self.0) }
+    pub fn named_child_count(&self) -> usize {
+        unsafe { ffi::ts_node_named_child_count(self.0) as usize }
     }
 
     pub fn parent(&self) -> Option<Self> {
@@ -474,11 +476,11 @@ impl<'tree> Node<'tree> {
     }
 
     pub fn utf8_text<'a>(&self, source: &'a str) -> Result<&'a str, str::Utf8Error> {
-        str::from_utf8(&source.as_bytes()[self.start_byte() as usize..self.end_byte() as usize])
+        str::from_utf8(&source.as_bytes()[self.start_byte()..self.end_byte()])
     }
 
     pub fn utf16_text<'a>(&self, source: &'a [u16]) -> &'a [u16] {
-        &source[self.start_byte() as usize..self.end_byte() as usize]
+        &source[self.start_byte()..self.end_byte()]
     }
 
     pub fn walk(&self) -> TreeCursor<'tree> {
@@ -524,12 +526,12 @@ impl<'a> TreeCursor<'a> {
         return unsafe { ffi::ts_tree_cursor_goto_next_sibling(&mut self.0) };
     }
 
-    pub fn goto_first_child_for_index(&mut self, index: u32) -> Option<u32> {
-        let result = unsafe { ffi::ts_tree_cursor_goto_first_child_for_byte(&mut self.0, index) };
+    pub fn goto_first_child_for_index(&mut self, index: usize) -> Option<usize> {
+        let result = unsafe { ffi::ts_tree_cursor_goto_first_child_for_byte(&mut self.0, index as u32) };
         if result < 0 {
             None
         } else {
-            Some(result as u32)
+            Some(result as usize)
         }
     }
 }
@@ -541,12 +543,13 @@ impl<'a> Drop for TreeCursor<'a> {
 }
 
 impl<'a> TreePropertyCursor<'a> {
-    fn new(tree: &'a Tree, property_sheet: &'a PropertySheet) -> Self {
+    fn new(tree: &'a Tree, property_sheet: &'a PropertySheet, source: &'a str) -> Self {
         Self {
             cursor: tree.root_node().walk(),
             child_index_stack: vec![0],
             state_stack: vec![0],
             property_sheet,
+            source,
         }
     }
 
@@ -555,7 +558,7 @@ impl<'a> TreePropertyCursor<'a> {
     }
 
     pub fn node_properties(&self) -> &'a HashMap<String, String> {
-        &self.property_sheet.property_sets[self.current_state().property_set_id as usize]
+        &self.property_sheet.property_sets[self.current_state().property_set_id]
     }
 
     pub fn goto_first_child(&mut self) -> bool {
@@ -601,7 +604,7 @@ impl<'a> TreePropertyCursor<'a> {
         }
     }
 
-    fn next_state(&self, state: &PropertyState, node_kind_id: u16, node_child_index: u32) -> u32 {
+    fn next_state(&self, state: &PropertyState, node_kind_id: u16, node_child_index: usize) -> usize {
         state
             .transitions
             .get(&node_kind_id)
@@ -617,12 +620,12 @@ impl<'a> TreePropertyCursor<'a> {
     }
 
     fn current_state(&self) -> &PropertyState {
-        &self.property_sheet.states[*self.state_stack.last().unwrap() as usize]
+        &self.property_sheet.states[*self.state_stack.last().unwrap()]
     }
 }
 
 impl Point {
-    pub fn new(row: u32, column: u32) -> Self {
+    pub fn new(row: usize, column: usize) -> Self {
         Point { row, column }
     }
 }
@@ -636,8 +639,8 @@ impl fmt::Display for Point {
 impl Into<ffi::TSPoint> for Point {
     fn into(self) -> ffi::TSPoint {
         ffi::TSPoint {
-            row: self.row,
-            column: self.column,
+            row: self.row as u32,
+            column: self.column as u32,
         }
     }
 }
@@ -645,28 +648,29 @@ impl Into<ffi::TSPoint> for Point {
 impl From<ffi::TSPoint> for Point {
     fn from(point: ffi::TSPoint) -> Self {
         Self {
-            row: point.row,
-            column: point.column,
+            row: point.row as usize,
+            column: point.column as usize,
         }
     }
 }
 
 impl PropertySheet {
-    pub fn new(language: Language, json: &str) -> Result<Self, serde_json::Error> {
+    pub fn new(language: Language, json: &str) -> Result<Self, PropertySheetError> {
         #[derive(Deserialize, Debug)]
         struct PropertyTransitionJSON {
             #[serde(rename = "type")]
             kind: String,
             named: bool,
-            index: Option<u32>,
-            state_id: u32,
+            index: Option<usize>,
+            text: Option<String>,
+            state_id: usize,
         }
 
         #[derive(Deserialize, Debug)]
         struct PropertyStateJSON {
             transitions: Vec<PropertyTransitionJSON>,
-            property_set_id: u32,
-            default_next_state_id: u32,
+            property_set_id: usize,
+            default_next_state_id: usize,
         }
 
         #[derive(Deserialize, Debug)]
@@ -918,8 +922,8 @@ mod tests {
         let tree = parser
             .parse_utf8(
                 &mut |_, position| {
-                    let row = position.row as usize;
-                    let column = position.column as usize;
+                    let row = position.row;
+                    let column = position.column;
                     if row < lines.len() {
                         if column < lines[row].as_bytes().len() {
                             &lines[row].as_bytes()[column..]
@@ -958,8 +962,8 @@ mod tests {
         let tree = parser
             .parse_utf16(
                 &mut |_, position| {
-                    let row = position.row as usize;
-                    let column = position.column as usize;
+                    let row = position.row;
+                    let column = position.column;
                     if row < lines.len() {
                         if column < lines[row].len() {
                             &lines[row][column..]
@@ -1004,7 +1008,7 @@ mod tests {
         let mut tree = parser
             .parse_utf8(
                 &mut |offset, _| {
-                    let offset = offset as usize;
+                    let offset = offset;
                     if offset < input_bytes.len() {
                         let result = &input_bytes[offset..offset + 1];
                         input_bytes_read.extend(result.iter());
@@ -1043,7 +1047,7 @@ mod tests {
         let tree = parser
             .parse_utf8(
                 &mut |offset, _| {
-                    let offset = offset as usize;
+                    let offset = offset;
                     if offset < input_bytes.len() {
                         let result = &input_bytes[offset..offset + 1];
                         input_bytes_read.extend(result.iter());
@@ -1101,7 +1105,7 @@ mod tests {
                 tree_clone.edit(&InputEdit {
                     start_byte: 0,
                     old_end_byte: 0,
-                    new_end_byte: prepended_source.len() as u32,
+                    new_end_byte: prepended_source.len(),
                     start_position: Point::new(0, 0),
                     old_end_position: Point::new(0, 0),
                     new_end_position: Point::new(prepend_line_count, 0),
