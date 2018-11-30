@@ -4,7 +4,9 @@ mod ffi;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate regex;
+extern crate serde;
 
+use serde::Deserialize;
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -61,9 +63,10 @@ pub enum PropertySheetError {
     InvalidRegex(regex::Error)
 }
 
-pub struct PropertySheet {
+pub struct PropertySheet<'d, P: Deserialize<'d>> {
     states: Vec<PropertyState>,
-    property_sets: Vec<HashMap<String, String>>,
+    property_sets: Vec<P>,
+    _phantom: &'d std::marker::PhantomData<()>,
 }
 
 pub struct Node<'a>(ffi::TSNode, PhantomData<&'a ()>);
@@ -74,11 +77,11 @@ pub struct Tree(*mut ffi::TSTree);
 
 pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 
-pub struct TreePropertyCursor<'a> {
+pub struct TreePropertyCursor<'a, 'd, P: Deserialize<'d>> {
     cursor: TreeCursor<'a>,
     state_stack: Vec<usize>,
     child_index_stack: Vec<usize>,
-    property_sheet: &'a PropertySheet,
+    property_sheet: &'a PropertySheet<'d, P>,
     source: &'a str,
 }
 
@@ -350,11 +353,11 @@ impl Tree {
         self.root_node().walk()
     }
 
-    pub fn walk_with_properties<'a>(
+    pub fn walk_with_properties<'a, 'd, P: Deserialize<'d>>(
         &'a self,
-        property_sheet: &'a PropertySheet,
+        property_sheet: &'a PropertySheet<'d, P>,
         source: &'a str,
-    ) -> TreePropertyCursor<'a> {
+    ) -> TreePropertyCursor<'a, 'd, P> {
         TreePropertyCursor::new(self, property_sheet, source)
     }
 }
@@ -545,8 +548,8 @@ impl<'a> Drop for TreeCursor<'a> {
     }
 }
 
-impl<'a> TreePropertyCursor<'a> {
-    fn new(tree: &'a Tree, property_sheet: &'a PropertySheet, source: &'a str) -> Self {
+impl<'a, 'd, P: Deserialize<'d>> TreePropertyCursor<'a, 'd, P> {
+    fn new(tree: &'a Tree, property_sheet: &'a PropertySheet<'d, P>, source: &'a str) -> Self {
         Self {
             cursor: tree.root_node().walk(),
             child_index_stack: vec![0],
@@ -560,7 +563,7 @@ impl<'a> TreePropertyCursor<'a> {
         self.cursor.node()
     }
 
-    pub fn node_properties(&self) -> &'a HashMap<String, String> {
+    pub fn node_properties(&self) -> &'a P {
         &self.property_sheet.property_sets[self.current_state().property_set_id]
     }
 
@@ -671,8 +674,8 @@ impl From<ffi::TSPoint> for Point {
     }
 }
 
-impl PropertySheet {
-    pub fn new(language: Language, json: &str) -> Result<Self, PropertySheetError> {
+impl<'a, P: Deserialize<'a>> PropertySheet<'a, P> {
+    pub fn new(language: Language, json: &'a str) -> Result<Self, PropertySheetError> {
         #[derive(Deserialize, Debug)]
         struct PropertyTransitionJSON {
             #[serde(rename = "type")]
@@ -691,12 +694,12 @@ impl PropertySheet {
         }
 
         #[derive(Deserialize, Debug)]
-        struct PropertySheetJSON {
+        struct PropertySheetJSON<P> {
             states: Vec<PropertyStateJSON>,
-            property_sets: Vec<HashMap<String, String>>,
+            property_sets: Vec<P>,
         }
 
-        let input: PropertySheetJSON = serde_json::from_str(json)
+        let input: PropertySheetJSON<P> = serde_json::from_str(json)
             .map_err(|e| PropertySheetError::InvalidJSON(e))?;
         let mut states = Vec::new();
 
@@ -729,9 +732,10 @@ impl PropertySheet {
                 property_set_id: state.property_set_id,
             });
         }
-        Ok(PropertySheet {
+        Ok(Self {
             property_sets: input.property_sets,
             states,
+            _phantom: &std::marker::PhantomData,
         })
     }
 }
@@ -844,7 +848,7 @@ mod tests {
         parser.set_language(rust()).unwrap();
         let tree = parser.parse_str("fn f1() { f2(); }", None).unwrap();
 
-        let property_sheet = PropertySheet::new(
+        let property_sheet = PropertySheet::<HashMap<String, String>>::new(
             rust(),
             r##"
             {
