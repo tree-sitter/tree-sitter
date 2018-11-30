@@ -6,7 +6,7 @@ extern crate serde_json;
 extern crate regex;
 extern crate serde;
 
-use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -63,10 +63,9 @@ pub enum PropertySheetError {
     InvalidRegex(regex::Error)
 }
 
-pub struct PropertySheet<'d, P: Deserialize<'d>> {
+pub struct PropertySheet<P: DeserializeOwned = HashMap<String, String>> {
     states: Vec<PropertyState>,
     property_sets: Vec<P>,
-    _phantom: &'d std::marker::PhantomData<()>,
 }
 
 pub struct Node<'a>(ffi::TSNode, PhantomData<&'a ()>);
@@ -77,11 +76,11 @@ pub struct Tree(*mut ffi::TSTree);
 
 pub struct TreeCursor<'a>(ffi::TSTreeCursor, PhantomData<&'a ()>);
 
-pub struct TreePropertyCursor<'a, 'd, P: Deserialize<'d>> {
+pub struct TreePropertyCursor<'a, P: 'a + DeserializeOwned> {
     cursor: TreeCursor<'a>,
     state_stack: Vec<usize>,
     child_index_stack: Vec<usize>,
-    property_sheet: &'a PropertySheet<'d, P>,
+    property_sheet: &'a PropertySheet<P>,
     source: &'a str,
 }
 
@@ -353,11 +352,11 @@ impl Tree {
         self.root_node().walk()
     }
 
-    pub fn walk_with_properties<'a, 'd, P: Deserialize<'d>>(
+    pub fn walk_with_properties<'a, P: DeserializeOwned>(
         &'a self,
-        property_sheet: &'a PropertySheet<'d, P>,
+        property_sheet: &'a PropertySheet<P>,
         source: &'a str,
-    ) -> TreePropertyCursor<'a, 'd, P> {
+    ) -> TreePropertyCursor<'a, P> {
         TreePropertyCursor::new(self, property_sheet, source)
     }
 }
@@ -548,8 +547,8 @@ impl<'a> Drop for TreeCursor<'a> {
     }
 }
 
-impl<'a, 'd, P: Deserialize<'d>> TreePropertyCursor<'a, 'd, P> {
-    fn new(tree: &'a Tree, property_sheet: &'a PropertySheet<'d, P>, source: &'a str) -> Self {
+impl<'a, P: DeserializeOwned> TreePropertyCursor<'a, P> {
+    fn new(tree: &'a Tree, property_sheet: &'a PropertySheet<P>, source: &'a str) -> Self {
         Self {
             cursor: tree.root_node().walk(),
             child_index_stack: vec![0],
@@ -674,8 +673,8 @@ impl From<ffi::TSPoint> for Point {
     }
 }
 
-impl<'a, P: Deserialize<'a>> PropertySheet<'a, P> {
-    pub fn new(language: Language, json: &'a str) -> Result<Self, PropertySheetError> {
+impl<P: DeserializeOwned> PropertySheet<P> {
+    pub fn new(language: Language, json: &str) -> Result<Self, PropertySheetError> {
         #[derive(Deserialize, Debug)]
         struct PropertyTransitionJSON {
             #[serde(rename = "type")]
@@ -735,7 +734,6 @@ impl<'a, P: Deserialize<'a>> PropertySheet<'a, P> {
         Ok(Self {
             property_sets: input.property_sets,
             states,
-            _phantom: &std::marker::PhantomData,
         })
     }
 }
