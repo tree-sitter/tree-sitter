@@ -166,8 +166,8 @@ describe("Parser", [&]() {
     describe("when there is an unexpected string at the end of a token", [&]() {
       it("computes the error's size and position correctly", [&]() {
         ts_parser_set_language(parser, load_real_language("json"));
-        set_text("  [123, \"hi\n, true]");
-        assert_root_node("(value (array (number) (ERROR (UNEXPECTED '\\n')) (true)))");
+        set_text("  [123, truue\n, true]");
+        assert_root_node("(value (array (number) (ERROR (UNEXPECTED 'u')) (true)))");
       });
     });
 
