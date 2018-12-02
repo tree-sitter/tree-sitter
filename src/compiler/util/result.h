@@ -12,7 +12,8 @@ struct Result {
   std::string error;
 
   inline Result() : error("Empty") {}
-  inline Result(Value &&v) : value(v) {}
+  inline Result(const Value &v) : value(v) {}
+  inline Result(Value &&v) : value(std::move(v)) {}
   inline Result(const std::string &message) : error(message) {}
   inline Result(const char *message) : error(message) {}
   inline bool ok() const { return error.empty(); }
