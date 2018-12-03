@@ -844,9 +844,18 @@ mod tests {
     fn test_tree_property_matching() {
         let mut parser = Parser::new();
         parser.set_language(rust()).unwrap();
-        let tree = parser.parse_str("fn f1() { f2(); }", None).unwrap();
+        let source_code = "fn f1() { f2(); }";
+        let tree = parser.parse_str(source_code, None).unwrap();
 
-        let property_sheet = PropertySheet::<HashMap<String, String>>::new(
+        #[derive(Debug, Deserialize, PartialEq, Eq)]
+        struct Properties {
+            reference: Option<String>,
+            define: Option<String>,
+        }
+
+        let empty_properties = Properties { reference: None, define: None };
+
+        let property_sheet = PropertySheet::<Properties>::new(
             rust(),
             r##"
             {
@@ -894,47 +903,126 @@ mod tests {
         )
         .unwrap();
 
-        let mut cursor = tree.walk_with_properties(&property_sheet, "");
+        let mut cursor = tree.walk_with_properties(&property_sheet, source_code);
         assert_eq!(cursor.node().kind(), "source_file");
-        assert_eq!(*cursor.node_properties(), HashMap::new());
+        assert_eq!(*cursor.node_properties(), empty_properties);
 
         assert!(cursor.goto_first_child());
         assert_eq!(cursor.node().kind(), "function_item");
-        assert_eq!(*cursor.node_properties(), HashMap::new());
+        assert_eq!(*cursor.node_properties(), empty_properties);
 
         assert!(cursor.goto_first_child());
         assert_eq!(cursor.node().kind(), "fn");
-        assert_eq!(*cursor.node_properties(), HashMap::new());
+        assert_eq!(*cursor.node_properties(), empty_properties);
         assert!(!cursor.goto_first_child());
 
         assert!(cursor.goto_next_sibling());
         assert_eq!(cursor.node().kind(), "identifier");
-        assert_eq!(cursor.node_properties()["define"], "function");
+        assert_eq!(cursor.node_properties().define, Some("function".to_owned()));
         assert!(!cursor.goto_first_child());
 
         assert!(cursor.goto_next_sibling());
         assert_eq!(cursor.node().kind(), "parameters");
-        assert_eq!(*cursor.node_properties(), HashMap::new());
+        assert_eq!(*cursor.node_properties(), empty_properties);
 
         assert!(cursor.goto_first_child());
         assert_eq!(cursor.node().kind(), "(");
         assert!(cursor.goto_next_sibling());
         assert_eq!(cursor.node().kind(), ")");
-        assert_eq!(*cursor.node_properties(), HashMap::new());
+        assert_eq!(*cursor.node_properties(), empty_properties);
 
         assert!(cursor.goto_parent());
         assert!(cursor.goto_next_sibling());
         assert_eq!(cursor.node().kind(), "block");
-        assert_eq!(*cursor.node_properties(), HashMap::new());
+        assert_eq!(*cursor.node_properties(), empty_properties);
 
         assert!(cursor.goto_first_child());
         assert!(cursor.goto_next_sibling());
         assert_eq!(cursor.node().kind(), "call_expression");
-        assert_eq!(*cursor.node_properties(), HashMap::new());
+        assert_eq!(*cursor.node_properties(), empty_properties);
 
         assert!(cursor.goto_first_child());
         assert_eq!(cursor.node().kind(), "identifier");
-        assert_eq!(cursor.node_properties()["reference"], "function");
+        assert_eq!(cursor.node_properties().reference, Some("function".to_owned()));
+    }
+
+    #[test]
+    fn test_tree_property_matching_with_regexes() {
+        let mut parser = Parser::new();
+        parser.set_language(rust()).unwrap();
+        let source_code = "fn f1() { None(a()) }";
+        let tree = parser.parse_str(source_code, None).unwrap();
+
+        #[derive(Debug, Deserialize, PartialEq, Eq)]
+        struct Properties {
+            scope: Option<String>,
+        }
+
+        let empty_properties = Properties { scope: None };
+
+        let property_sheet = PropertySheet::<Properties>::new(
+            rust(),
+            r##"
+            {
+                "states": [
+                    {
+                        "id": 0,
+                        "transitions": [
+                            {"type": "call_expression", "named": true, "state_id": 1}
+                        ],
+                        "default_next_state_id": 0,
+                        "property_set_id": 0
+                    },
+                    {
+                        "id": 1,
+                        "transitions": [
+                            {"type": "identifier", "named": true, "text": "^[A-Z]", "state_id": 2},
+                            {"type": "identifier", "named": true, "state_id": 3}
+                        ],
+                        "default_next_state_id": 0,
+                        "property_set_id": 0
+                    },
+                    {
+                        "transitions": [],
+                        "default_next_state_id": 0,
+                        "property_set_id": 1
+                    },
+                    {
+                        "transitions": [],
+                        "default_next_state_id": 0,
+                        "property_set_id": 2
+                    }
+                ],
+                "property_sets": [
+                    {},
+                    {"scope": "constructor"},
+                    {"scope": "function"}
+                ]
+            }
+        "##,
+        )
+        .unwrap();
+
+        let mut cursor = tree.walk_with_properties(&property_sheet, source_code);
+        assert_eq!(cursor.node().kind(), "source_file");
+        assert_eq!(*cursor.node_properties(), empty_properties);
+
+        cursor.goto_first_child();
+        assert!(cursor.goto_first_child());
+        assert!(cursor.goto_next_sibling());
+        assert!(cursor.goto_next_sibling());
+        assert!(cursor.goto_next_sibling());
+        assert_eq!(cursor.node().kind(), "block");
+        assert_eq!(*cursor.node_properties(), empty_properties);
+
+        assert!(cursor.goto_first_child());
+        assert!(cursor.goto_next_sibling());
+        assert_eq!(cursor.node().kind(), "call_expression");
+        assert_eq!(*cursor.node_properties(), empty_properties);
+
+        assert!(cursor.goto_first_child());
+        assert_eq!(cursor.node().kind(), "identifier");
+        assert_eq!(cursor.node_properties().scope, Some("constructor".to_owned()));
     }
 
     #[test]
