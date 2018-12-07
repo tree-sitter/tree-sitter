@@ -3,6 +3,7 @@
 #include <map>
 #include <set>
 #include <deque>
+#include <cassert>
 #include <string>
 #include <unordered_map>
 #include <utility>
