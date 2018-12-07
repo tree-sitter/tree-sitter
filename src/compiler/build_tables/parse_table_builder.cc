@@ -36,8 +36,17 @@ using rules::END_OF_INPUT;
 
 using SymbolSequence = vector<Symbol>;
 
+// When there are conflicts involving auxiliary nodes (repeats),
+// this structure is used to find the non-auxiliary node(s) that
+// had the auxliary node as a child.
+struct AuxiliaryNodeInfo {
+  Symbol auxiliary_node;
+  vector<Symbol> parents;
+};
+
 struct ParseStateQueueEntry {
   SymbolSequence preceding_symbols;
+  vector<AuxiliaryNodeInfo> auxiliary_node_info_list;
   ParseItemSet item_set;
   ParseStateId state_id;
 };
@@ -71,13 +80,13 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     parse_table.alias_sequences.push_back({});
 
     // Ensure that the error state has index 0.
-    ParseStateId error_state_id = add_parse_state({}, ParseItemSet{});
+    ParseStateId error_state_id = add_parse_state({}, {}, ParseItemSet{});
 
     // Add the starting state.
     Symbol start_symbol = Symbol::non_terminal(0);
     Production start_production({{start_symbol, 0, rules::AssociativityNone, rules::Alias{}}}, 0);
 
-    add_parse_state({}, ParseItemSet{{
+    add_parse_state({}, {}, ParseItemSet{{
       {
         ParseItem(rules::START(), start_production, 0),
         LookaheadSet({END_OF_INPUT()}),
@@ -126,6 +135,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
       item_set_builder.apply_transitive_closure(&entry.item_set);
       string conflict = add_actions(
         move(entry.preceding_symbols),
+        move(entry.auxiliary_node_info_list),
         move(entry.item_set),
         entry.state_id
       );
@@ -199,7 +209,11 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     parse_table.add_terminal_action(state_id, END_OF_INPUT(), ParseAction::Recover());
   }
 
-  ParseStateId add_parse_state(SymbolSequence &&preceding_symbols, const ParseItemSet &item_set) {
+  ParseStateId add_parse_state(
+    SymbolSequence &&preceding_symbols,
+    const vector<AuxiliaryNodeInfo> &auxiliary_node_info_list,
+    const ParseItemSet &item_set
+  ) {
     ParseStateId new_state_id = parse_table.states.size();
     auto insertion = state_ids_by_item_set.insert({move(item_set), new_state_id});
     if (insertion.second) {
@@ -207,6 +221,7 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
       parse_table.states.push_back(ParseState());
       parse_state_queue.push_back({
         move(preceding_symbols),
+        auxiliary_node_info_list,
         insertion.first->first,
         new_state_id
       });
@@ -216,7 +231,12 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     }
   }
 
-  string add_actions(SymbolSequence &&sequence, ParseItemSet &&item_set, ParseStateId state_id) {
+  string add_actions(
+    SymbolSequence &&sequence,
+    vector<AuxiliaryNodeInfo> &&auxiliary_node_info_list,
+    ParseItemSet &&item_set,
+    ParseStateId state_id
+  ) {
     map<Symbol, ParseItemSet> terminal_successors;
     map<Symbol::Index, ParseItemSet> nonterminal_successors;
     set<Symbol> lookaheads_with_conflicts;
@@ -271,6 +291,21 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
         ParseItem new_item(item.lhs(), *item.production, item.step_index + 1);
 
         if (symbol.is_non_terminal()) {
+          if (grammar.variables[symbol.index].type == VariableTypeAuxiliary) {
+            vector<Symbol> parents;
+            for (auto &item : item_set.entries) {
+              Symbol parent_symbol = item.first.lhs();
+              if (
+                item.first.next_symbol() == symbol &&
+                grammar.variables[parent_symbol.index].type != VariableTypeAuxiliary &&
+                !parent_symbol.is_built_in()
+              ) {
+                parents.push_back(parent_symbol);
+              }
+            }
+            auxiliary_node_info_list.push_back({symbol, parents});
+          }
+
           nonterminal_successors[symbol.index].entries[new_item] = lookahead_symbols;
         } else {
           terminal_successors[symbol].entries[new_item] = lookahead_symbols;
@@ -283,7 +318,11 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     for (auto &pair : terminal_successors) {
       Symbol lookahead = pair.first;
       ParseItemSet &next_item_set = pair.second;
-      ParseStateId next_state_id = add_parse_state(append_symbol(sequence, lookahead), next_item_set);
+      ParseStateId next_state_id = add_parse_state(
+        append_symbol(sequence, lookahead),
+        auxiliary_node_info_list,
+        next_item_set
+      );
 
       if (!parse_table.states[state_id].terminal_entries[lookahead].actions.empty()) {
         lookaheads_with_conflicts.insert(lookahead);
@@ -296,12 +335,16 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     for (auto &pair : nonterminal_successors) {
       Symbol lookahead = Symbol::non_terminal(pair.first);
       ParseItemSet &next_item_set = pair.second;
-      ParseStateId next_state_id = add_parse_state(append_symbol(sequence, lookahead), next_item_set);
+      ParseStateId next_state_id = add_parse_state(
+        append_symbol(sequence, lookahead),
+        auxiliary_node_info_list,
+        next_item_set
+      );
       parse_table.set_nonterminal_action(state_id, lookahead.index, next_state_id);
     }
 
     for (Symbol lookahead : lookaheads_with_conflicts) {
-      string conflict = handle_conflict(lookahead, item_set, sequence, state_id);
+      string conflict = handle_conflict(lookahead, item_set, sequence, auxiliary_node_info_list, state_id);
       if (!conflict.empty()) return conflict;
     }
 
@@ -568,8 +611,13 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     return true;
   }
 
-  string handle_conflict(Symbol lookahead, const ParseItemSet &item_set,
-                         const SymbolSequence &preceding_symbols, ParseStateId state_id) {
+  string handle_conflict(
+    Symbol lookahead,
+    const ParseItemSet &item_set,
+    const SymbolSequence &preceding_symbols,
+    const vector<AuxiliaryNodeInfo> &auxiliary_node_info_list,
+    ParseStateId state_id
+  ) {
     ParseTableEntry &entry = parse_table.states[state_id].terminal_entries[lookahead];
     bool considered_associativity = false;
     int reduction_precedence = entry.actions.front().precedence;
@@ -670,20 +718,20 @@ class ParseTableBuilderImpl : public ParseTableBuilder {
     for (const ParseItem &item : conflicting_items) {
       Symbol symbol = item.lhs();
       if (grammar.variables[symbol.index].type == VariableTypeAuxiliary) {
-        ParseStateId preceding_state_id = 1;
-        for (auto &preceding_symbol : preceding_symbols) {
-          ParseState &preceding_state = parse_table.states[preceding_state_id];
-          if (preceding_state.nonterminal_entries.count(symbol.index)) break;
-          preceding_state_id = preceding_symbol.is_non_terminal() ?
-            preceding_state.nonterminal_entries[preceding_symbol.index] :
-            preceding_state.terminal_entries[preceding_symbol].actions.back().state_index;
-        }
-        const ParseItemSet &preceding_item_set = *item_sets_by_state_id[preceding_state_id];
-        for (auto &preceding_entry : preceding_item_set.entries) {
-          if (preceding_entry.first.next_symbol() == symbol) {
-            actual_conflict.insert(preceding_entry.first.lhs());
+        bool found_auxiliary_node_info = false;
+        for (
+          auto iter = auxiliary_node_info_list.rbegin(),
+          end = auxiliary_node_info_list.rend();
+          iter != end;
+          ++iter
+        ) {
+          if (iter->auxiliary_node == symbol) {
+            found_auxiliary_node_info = true;
+            actual_conflict.insert(iter->parents.begin(), iter->parents.end());
+            break;
           }
         }
+        assert(found_auxiliary_node_info);
       } else {
         actual_conflict.insert(symbol);
       }
