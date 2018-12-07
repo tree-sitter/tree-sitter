@@ -1,13 +1,13 @@
 use serde_json::{Map, Value};
 use crate::error::Result;
-use crate::grammars::{InputGrammar, InputVariable, VariableType};
+use crate::grammars::{InputGrammar, Variable, VariableType};
 use crate::rules::Rule;
 use std::collections::HashMap;
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]
 #[allow(non_camel_case_types)]
-pub enum RuleJSON {
+enum RuleJSON {
     BLANK,
     STRING {
         value: String,
@@ -58,12 +58,12 @@ struct GrammarJSON {
     word: Option<String>,
 }
 
-pub fn parse_grammar(input: &str) -> Result<InputGrammar> {
+pub(crate) fn parse_grammar(input: &str) -> Result<InputGrammar> {
     let grammar_json: GrammarJSON = serde_json::from_str(&input)?;
 
     let mut variables = Vec::with_capacity(grammar_json.rules.len());
     for (name, value) in grammar_json.rules {
-        variables.push(InputVariable {
+        variables.push(Variable {
             name: name.to_owned(),
             kind: VariableType::Named,
             rule: parse_rule(serde_json::from_value(value)?),
@@ -138,12 +138,12 @@ mod tests {
 
         assert_eq!(grammar.name, "my_lang");
         assert_eq!(grammar.variables, vec![
-            InputVariable {
+            Variable {
                 name: "file".to_string(),
                 kind: VariableType::Named,
                 rule: Rule::repeat(Rule::NamedSymbol("statement".to_string()))
             },
-            InputVariable {
+            Variable {
                 name: "statement".to_string(),
                 kind: VariableType::Named,
                 rule: Rule::String("foo".to_string())

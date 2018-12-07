@@ -25,7 +25,7 @@ struct ParseTableBuilder<'a> {
     parse_table: ParseTable,
 }
 
-pub fn build_tables(
+pub(crate) fn build_tables(
     syntax_grammar: &SyntaxGrammar,
     lexical_grammar: &LexicalGrammar,
     simple_aliases: &AliasMap

@@ -2,7 +2,7 @@ use crate::rules::{Symbol, AliasMap};
 use crate::grammars::{SyntaxGrammar, LexicalGrammar};
 use crate::tables::{ParseTable, LexTable};
 
-pub fn render_c_code(
+pub(crate) fn render_c_code(
     name: &str,
     parse_table: ParseTable,
     main_lex_table: LexTable,

@@ -6,7 +6,7 @@ mod normalize_rules;
 mod extract_simple_aliases;
 
 use crate::rules::{AliasMap, Rule, Symbol};
-use crate::grammars::{InputGrammar, SyntaxGrammar, LexicalGrammar, InputVariable, ExternalToken};
+use crate::grammars::{InputGrammar, SyntaxGrammar, LexicalGrammar, Variable, ExternalToken};
 use crate::error::Result;
 use self::intern_symbols::intern_symbols;
 use self::extract_tokens::extract_tokens;
@@ -16,7 +16,7 @@ use self::normalize_rules::normalize_rules;
 use self::extract_simple_aliases::extract_simple_aliases;
 
 pub(self) struct IntermediateGrammar<T, U> {
-    variables: Vec<InputVariable>,
+    variables: Vec<Variable>,
     extra_tokens: Vec<T>,
     expected_conflicts: Vec<Vec<Symbol>>,
     external_tokens: Vec<U>,
@@ -24,10 +24,10 @@ pub(self) struct IntermediateGrammar<T, U> {
     word_token: Option<Symbol>,
 }
 
-pub(self) type InternedGrammar = IntermediateGrammar<Rule, InputVariable>;
+pub(self) type InternedGrammar = IntermediateGrammar<Rule, Variable>;
 pub(self) type ExtractedGrammar = IntermediateGrammar<Symbol, ExternalToken>;
 
-pub fn prepare_grammar(
+pub(crate) fn prepare_grammar(
     input_grammar: &InputGrammar
 ) -> Result<(SyntaxGrammar, LexicalGrammar, AliasMap)> {
     let interned_grammar = intern_symbols(input_grammar)?;

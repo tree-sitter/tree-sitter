@@ -1,5 +1,5 @@
 use crate::rules::{Rule, Symbol};
-use crate::grammars::{InputVariable, VariableType};
+use crate::grammars::{Variable, VariableType};
 use std::collections::HashMap;
 use std::mem;
 use std::rc::Rc;
@@ -9,12 +9,12 @@ struct Expander {
     variable_name: String,
     repeat_count_in_variable: usize,
     preceding_symbol_count: usize,
-    auxiliary_variables: Vec<InputVariable>,
+    auxiliary_variables: Vec<Variable>,
     existing_repeats: HashMap<Rule, Symbol>
 }
 
 impl Expander {
-    fn expand_variable(&mut self, variable: &mut InputVariable) {
+    fn expand_variable(&mut self, variable: &mut Variable) {
         self.variable_name.clear();
         self.variable_name.push_str(&variable.name);
         self.repeat_count_in_variable = 0;
@@ -48,7 +48,7 @@ impl Expander {
                 let repeat_symbol = Symbol::non_terminal(self.preceding_symbol_count + self.auxiliary_variables.len());
                 let rc_symbol = Rc::new(Rule::Symbol(repeat_symbol));
                 self.existing_repeats.insert(inner_rule.clone(), repeat_symbol);
-                self.auxiliary_variables.push(InputVariable {
+                self.auxiliary_variables.push(Variable {
                     name: rule_name,
                     kind: VariableType::Auxiliary,
                     rule: Rule::Choice {
@@ -100,7 +100,7 @@ mod tests {
     fn test_basic_repeat_expansion() {
         // Repeats nested inside of sequences and choices are expanded.
         let grammar = expand_repeats(build_grammar(vec![
-            InputVariable::named("rule0", Rule::seq(vec![
+            Variable::named("rule0", Rule::seq(vec![
                 Rule::terminal(10),
                 Rule::choice(vec![
                     Rule::repeat(Rule::terminal(11)),
@@ -111,7 +111,7 @@ mod tests {
         ]));
 
         assert_eq!(grammar.variables, vec![
-            InputVariable::named("rule0", Rule::seq(vec![
+            Variable::named("rule0", Rule::seq(vec![
                 Rule::terminal(10),
                 Rule::choice(vec![
                     Rule::non_terminal(1),
@@ -119,14 +119,14 @@ mod tests {
                 ]),
                 Rule::terminal(13),
             ])),
-            InputVariable::auxiliary("rule0_repeat1", Rule::choice(vec![
+            Variable::auxiliary("rule0_repeat1", Rule::choice(vec![
                 Rule::seq(vec![
                     Rule::non_terminal(1),
                     Rule::non_terminal(1),
                 ]),
                 Rule::terminal(11),
             ])),
-            InputVariable::auxiliary("rule0_repeat2", Rule::choice(vec![
+            Variable::auxiliary("rule0_repeat2", Rule::choice(vec![
                 Rule::seq(vec![
                     Rule::non_terminal(2),
                     Rule::non_terminal(2),
@@ -140,11 +140,11 @@ mod tests {
     fn test_repeat_deduplication() {
         // Terminal 4 appears inside of a repeat in three different places.
         let grammar = expand_repeats(build_grammar(vec![
-            InputVariable::named("rule0", Rule::choice(vec![
+            Variable::named("rule0", Rule::choice(vec![
                 Rule::seq(vec![ Rule::terminal(1), Rule::repeat(Rule::terminal(4)) ]),
                 Rule::seq(vec![ Rule::terminal(2), Rule::repeat(Rule::terminal(4)) ]),
             ])),
-            InputVariable::named("rule1", Rule::seq(vec![
+            Variable::named("rule1", Rule::seq(vec![
                 Rule::terminal(3),
                 Rule::repeat(Rule::terminal(4)),
             ])),
@@ -152,15 +152,15 @@ mod tests {
 
         // Only one auxiliary rule is created for repeating terminal 4.
         assert_eq!(grammar.variables, vec![
-            InputVariable::named("rule0", Rule::choice(vec![
+            Variable::named("rule0", Rule::choice(vec![
                 Rule::seq(vec![ Rule::terminal(1), Rule::non_terminal(2) ]),
                 Rule::seq(vec![ Rule::terminal(2), Rule::non_terminal(2) ]),
             ])),
-            InputVariable::named("rule1", Rule::seq(vec![
+            Variable::named("rule1", Rule::seq(vec![
                 Rule::terminal(3),
                 Rule::non_terminal(2),
             ])),
-            InputVariable::auxiliary("rule0_repeat1", Rule::choice(vec![
+            Variable::auxiliary("rule0_repeat1", Rule::choice(vec![
                 Rule::seq(vec![
                     Rule::non_terminal(2),
                     Rule::non_terminal(2),
@@ -173,7 +173,7 @@ mod tests {
     #[test]
     fn test_expansion_of_nested_repeats() {
         let grammar = expand_repeats(build_grammar(vec![
-            InputVariable::named("rule0", Rule::seq(vec![
+            Variable::named("rule0", Rule::seq(vec![
                 Rule::terminal(10),
                 Rule::repeat(Rule::seq(vec![
                     Rule::terminal(11),
@@ -183,18 +183,18 @@ mod tests {
         ]));
 
         assert_eq!(grammar.variables, vec![
-            InputVariable::named("rule0", Rule::seq(vec![
+            Variable::named("rule0", Rule::seq(vec![
                 Rule::terminal(10),
                 Rule::non_terminal(2),
             ])),
-            InputVariable::auxiliary("rule0_repeat1", Rule::choice(vec![
+            Variable::auxiliary("rule0_repeat1", Rule::choice(vec![
                 Rule::seq(vec![
                     Rule::non_terminal(1),
                     Rule::non_terminal(1),
                 ]),
                 Rule::terminal(12),
             ])),
-            InputVariable::auxiliary("rule0_repeat2", Rule::choice(vec![
+            Variable::auxiliary("rule0_repeat2", Rule::choice(vec![
                 Rule::seq(vec![
                     Rule::non_terminal(2),
                     Rule::non_terminal(2),
@@ -207,7 +207,7 @@ mod tests {
         ]);
     }
 
-    fn build_grammar(variables: Vec<InputVariable>) -> ExtractedGrammar {
+    fn build_grammar(variables: Vec<Variable>) -> ExtractedGrammar {
         ExtractedGrammar {
             variables,
             extra_tokens: Vec::new(),

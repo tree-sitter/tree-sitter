@@ -2,47 +2,47 @@ use std::rc::Rc;
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum SymbolType {
+pub(crate) enum SymbolType {
     External,
     Terminal,
     NonTerminal,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Associativity {
+pub(crate) enum Associativity {
     Left,
     Right
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Alias {
-    value: String,
-    is_named: bool,
+pub(crate) struct Alias {
+    pub value: String,
+    pub is_named: bool,
 }
 
-pub type AliasMap = HashMap<Symbol, Alias>;
+pub(crate) type AliasMap = HashMap<Symbol, Alias>;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub struct MetadataParams {
-    precedence: Option<i32>,
-    dynamic_precedence: i32,
-    associativity: Option<Associativity>,
-    is_token: bool,
-    is_string: bool,
-    is_active: bool,
-    is_main_token: bool,
-    is_excluded: bool,
-    alias: Option<Alias>,
+pub(crate) struct MetadataParams {
+    pub precedence: Option<i32>,
+    pub dynamic_precedence: i32,
+    pub associativity: Option<Associativity>,
+    pub is_token: bool,
+    pub is_string: bool,
+    pub is_active: bool,
+    pub is_main_token: bool,
+    pub is_excluded: bool,
+    pub alias: Option<Alias>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct Symbol {
-    kind: SymbolType,
-    index: usize,
+pub(crate) struct Symbol {
+    pub kind: SymbolType,
+    pub index: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum Rule {
+pub(crate) enum Rule {
     Blank,
     CharacterSet(Vec<char>),
     String(String),
@@ -153,9 +153,21 @@ impl Rule {
     pub fn string(value: &'static str) -> Self {
         Rule::String(value.to_string())
     }
+
+    pub fn pattern(value: &'static str) -> Self {
+        Rule::Pattern(value.to_string())
+    }
 }
 
 impl Symbol {
+    pub fn is_non_terminal(&self) -> bool {
+        return self.kind == SymbolType::NonTerminal
+    }
+
+    pub fn is_external(&self) -> bool {
+        return self.kind == SymbolType::External
+    }
+
     pub fn non_terminal(index: usize) -> Self {
         Symbol { kind: SymbolType::NonTerminal, index }
     }

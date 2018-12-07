@@ -1,6 +1,6 @@
 use crate::error::{Error, Result};
 use crate::rules::{Rule, Symbol};
-use crate::grammars::{InputGrammar, InputVariable, VariableType};
+use crate::grammars::{InputGrammar, Variable, VariableType};
 use std::rc::Rc;
 use super::InternedGrammar;
 
@@ -13,7 +13,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
 
     let mut variables = Vec::with_capacity(grammar.variables.len());
     for variable in grammar.variables.iter() {
-        variables.push(InputVariable {
+        variables.push(Variable {
             name: variable.name.clone(),
             kind: variable_type_for_name(&variable.name),
             rule: interner.intern_rule(&variable.rule)?,
@@ -28,7 +28,7 @@ pub(super) fn intern_symbols(grammar: &InputGrammar) -> Result<InternedGrammar> 
         } else {
             (String::new(), VariableType::Anonymous)
         };
-        external_tokens.push(InputVariable { name, kind, rule });
+        external_tokens.push(Variable { name, kind, rule });
     }
 
     let mut extra_tokens = Vec::with_capacity(grammar.extra_tokens.len());
@@ -154,21 +154,21 @@ mod tests {
     #[test]
     fn test_basic_repeat_expansion() {
         let grammar = intern_symbols(&build_grammar(vec![
-            InputVariable::named("x", Rule::choice(vec![
+            Variable::named("x", Rule::choice(vec![
                 Rule::named("y"),
                 Rule::named("_z"),
             ])),
-            InputVariable::named("y", Rule::named("_z")),
-            InputVariable::named("_z", Rule::string("a")),
+            Variable::named("y", Rule::named("_z")),
+            Variable::named("_z", Rule::string("a")),
         ])).unwrap();
 
         assert_eq!(grammar.variables, vec![
-            InputVariable::named("x", Rule::choice(vec![
+            Variable::named("x", Rule::choice(vec![
                 Rule::non_terminal(1),
                 Rule::non_terminal(2),
             ])),
-            InputVariable::named("y", Rule::non_terminal(2)),
-            InputVariable::hidden("_z", Rule::string("a")),
+            Variable::named("y", Rule::non_terminal(2)),
+            Variable::hidden("_z", Rule::string("a")),
         ]);
     }
 
@@ -177,13 +177,13 @@ mod tests {
         // Variable `y` is both an internal and an external token.
         // Variable `z` is just an external token.
         let mut input_grammar = build_grammar(vec![
-            InputVariable::named("w", Rule::choice(vec![
+            Variable::named("w", Rule::choice(vec![
                 Rule::named("x"),
                 Rule::named("y"),
                 Rule::named("z"),
             ])),
-            InputVariable::named("x", Rule::string("a")),
-            InputVariable::named("y", Rule::string("b")),
+            Variable::named("x", Rule::string("a")),
+            Variable::named("y", Rule::string("b")),
         ]);
         input_grammar.external_tokens.extend(vec![
             Rule::named("y"),
@@ -195,26 +195,26 @@ mod tests {
         // Variable `y` is referred to by its internal index.
         // Variable `z` is referred to by its external index.
         assert_eq!(grammar.variables, vec![
-            InputVariable::named("w", Rule::choice(vec![
+            Variable::named("w", Rule::choice(vec![
                 Rule::non_terminal(1),
                 Rule::non_terminal(2),
                 Rule::external(1),
             ])),
-            InputVariable::named("x", Rule::string("a")),
-            InputVariable::named("y", Rule::string("b")),
+            Variable::named("x", Rule::string("a")),
+            Variable::named("y", Rule::string("b")),
         ]);
 
         // The external token for `y` refers back to its internal index.
         assert_eq!(grammar.external_tokens, vec![
-            InputVariable::named("y", Rule::non_terminal(2)),
-            InputVariable::named("z", Rule::external(1)),
+            Variable::named("y", Rule::non_terminal(2)),
+            Variable::named("z", Rule::external(1)),
         ]);
     }
 
     #[test]
     fn test_grammar_with_undefined_symbols() {
         let result = intern_symbols(&build_grammar(vec![
-            InputVariable::named("x", Rule::named("y")),
+            Variable::named("x", Rule::named("y")),
         ]));
 
         match result {
@@ -223,7 +223,7 @@ mod tests {
         }
     }
 
-    fn build_grammar(variables: Vec<InputVariable>) -> InputGrammar {
+    fn build_grammar(variables: Vec<Variable>) -> InputGrammar {
         InputGrammar {
             variables,
             name: "the_language".to_string(),

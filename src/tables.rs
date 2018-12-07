@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::ops::Range;
 use crate::rules::{Associativity, Symbol, Alias};
 
-pub type AliasSequenceId = usize;
-pub type ParseStateId = usize;
-pub type LexStateId = usize;
+pub(crate) type AliasSequenceId = usize;
+pub(crate) type ParseStateId = usize;
+pub(crate) type LexStateId = usize;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ParseActionType {
+pub(crate) enum ParseActionType {
     Error,
     Shift,
     Reduce,
@@ -16,7 +16,7 @@ pub enum ParseActionType {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ParseAction {
+pub(crate) enum ParseAction {
     Accept,
     Error,
     Shift(ParseStateId),
@@ -34,44 +34,44 @@ pub enum ParseAction {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ParseTableEntry {
+pub(crate) struct ParseTableEntry {
     actions: Vec<ParseAction>,
     reusable: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ParseState {
+pub(crate) struct ParseState {
     terminal_entries: HashMap<Symbol, ParseTableEntry>,
     nonterminal_entries: HashMap<Symbol, ParseStateId>
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ParseTable {
+pub(crate) struct ParseTable {
     states: Vec<ParseState>,
     alias_sequences: Vec<Vec<Alias>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AdvanceAction {
+pub(crate) struct AdvanceAction {
     state: LexStateId,
     precedence: Range<i32>,
     in_main_token: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AcceptTokenAction {
+pub(crate) struct AcceptTokenAction {
     symbol: Symbol,
     precedence: i32,
     implicit_precedence: i32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LexState {
+pub(crate) struct LexState {
     advance_actions: HashMap<Symbol, AdvanceAction>,
     accept_action: Option<AcceptTokenAction>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct LexTable {
+pub(crate) struct LexTable {
     states: Vec<LexState>,
 }
