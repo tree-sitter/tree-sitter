@@ -1,4 +1,5 @@
 use std::rc::Rc;
+use std::char;
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -44,7 +45,6 @@ pub(crate) struct Symbol {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Rule {
     Blank,
-    CharacterSet(Vec<char>),
     String(String),
     Pattern(String),
     NamedSymbol(String),

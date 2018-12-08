@@ -7,6 +7,7 @@ mod build_tables;
 mod error;
 mod generate;
 mod grammars;
+mod nfa;
 mod parse_grammar;
 mod prepare_grammar;
 mod render;
