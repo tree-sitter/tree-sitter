@@ -1,4 +1,5 @@
 use crate::rules::{Associativity, Alias, Rule, Symbol};
+use crate::nfa::Nfa;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum VariableType {
@@ -31,9 +32,16 @@ pub(crate) struct InputGrammar {
 // Extracted lexical grammar
 
 #[derive(Debug, PartialEq, Eq)]
+pub(crate) struct LexicalVariable {
+    pub name: String,
+    pub kind: VariableType,
+    pub nfa: Nfa,
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct LexicalGrammar {
-    pub variables: Vec<Variable>,
-    pub separators: Vec<Rule>,
+    pub variables: Vec<LexicalVariable>,
+    pub separators: Vec<Nfa>,
 }
 
 // Extracted syntax grammar

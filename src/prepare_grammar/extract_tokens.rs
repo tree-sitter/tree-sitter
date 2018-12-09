@@ -3,12 +3,12 @@ use std::rc::Rc;
 use std::mem;
 use crate::error::{Error, Result};
 use crate::rules::{Rule, MetadataParams, Symbol, SymbolType};
-use crate::grammars::{Variable, VariableType, LexicalGrammar, ExternalToken};
-use super::{InternedGrammar, ExtractedGrammar};
+use crate::grammars::{Variable, ExternalToken};
+use super::{InternedGrammar, ExtractedSyntaxGrammar, ExtractedLexicalGrammar};
 
 pub(super) fn extract_tokens(
     mut grammar: InternedGrammar
-) -> Result<(ExtractedGrammar, LexicalGrammar)> {
+) -> Result<(ExtractedSyntaxGrammar, ExtractedLexicalGrammar)> {
     let mut extractor = TokenExtractor {
         current_variable_name: String::new(),
         current_variable_token_count: 0,
@@ -138,7 +138,7 @@ pub(super) fn extract_tokens(
     }
 
     Ok((
-        ExtractedGrammar {
+        ExtractedSyntaxGrammar {
             variables,
             expected_conflicts,
             extra_tokens,
@@ -146,7 +146,7 @@ pub(super) fn extract_tokens(
             external_tokens,
             word_token,
         },
-        LexicalGrammar {
+        ExtractedLexicalGrammar {
             variables: lexical_variables,
             separators,
         }
@@ -198,20 +198,19 @@ impl TokenExtractor {
                 } else {
                     Rule::Metadata {
                         params: params.clone(),
-                        rule: Rc::new(self.extract_tokens_in_rule((&rule).clone()))
+                        rule: Box::new(self.extract_tokens_in_rule((&rule).clone()))
                     }
                 }
             },
             Rule::Repeat(content) => Rule::Repeat(
-                Rc::new(self.extract_tokens_in_rule(content))
+                Box::new(self.extract_tokens_in_rule(content))
             ),
-            Rule::Seq { left, right } => Rule::Seq {
-                left: Rc::new(self.extract_tokens_in_rule(left)),
-                right: Rc::new(self.extract_tokens_in_rule(right)),
-            },
-            Rule::Choice { elements } => Rule::Choice {
-                elements: elements.iter().map(|e| self.extract_tokens_in_rule(e)).collect()
-            },
+            Rule::Seq(elements) => Rule::Seq(
+                elements.iter().map(|e| self.extract_tokens_in_rule(e)).collect()
+            ),
+            Rule::Choice(elements) => Rule::Choice(
+                elements.iter().map(|e| self.extract_tokens_in_rule(e)).collect()
+            ),
             _ => input.clone()
         }
     }
@@ -249,19 +248,18 @@ impl SymbolReplacer {
     fn replace_symbols_in_rule(&mut self, rule: &Rule) -> Rule {
         match rule {
             Rule::Symbol(symbol) => self.replace_symbol(*symbol).into(),
-            Rule::Choice { elements } => Rule::Choice {
-                elements: elements.iter().map(|e| self.replace_symbols_in_rule(e)).collect()
-            },
-            Rule::Seq { left, right } => Rule::Seq {
-                left: Rc::new(self.replace_symbols_in_rule(left)),
-                right: Rc::new(self.replace_symbols_in_rule(right)),
-            },
+            Rule::Choice(elements) => Rule::Choice(
+                elements.iter().map(|e| self.replace_symbols_in_rule(e)).collect()
+            ),
+            Rule::Seq(elements) => Rule::Seq(
+                elements.iter().map(|e| self.replace_symbols_in_rule(e)).collect()
+            ),
             Rule::Repeat(content) => Rule::Repeat(
-                Rc::new(self.replace_symbols_in_rule(content))
+                Box::new(self.replace_symbols_in_rule(content))
             ),
             Rule::Metadata { rule, params } => Rule::Metadata {
                 params: params.clone(),
-                rule: Rc::new(self.replace_symbols_in_rule(rule)),
+                rule: Box::new(self.replace_symbols_in_rule(rule)),
             },
             _ => rule.clone()
         }
@@ -290,6 +288,7 @@ impl SymbolReplacer {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::grammars::VariableType;
 
     #[test]
     fn test_extraction() {

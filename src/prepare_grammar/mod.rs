@@ -2,7 +2,7 @@ mod intern_symbols;
 mod extract_tokens;
 mod expand_repeats;
 mod flatten_grammar;
-mod normalize_rules;
+mod expand_tokens;
 mod extract_simple_aliases;
 
 use crate::rules::{AliasMap, Rule, Symbol};
@@ -12,7 +12,7 @@ use self::intern_symbols::intern_symbols;
 use self::extract_tokens::extract_tokens;
 use self::expand_repeats::expand_repeats;
 use self::flatten_grammar::flatten_grammar;
-use self::normalize_rules::normalize_rules;
+use self::expand_tokens::expand_tokens;
 use self::extract_simple_aliases::extract_simple_aliases;
 
 pub(self) struct IntermediateGrammar<T, U> {
@@ -25,7 +25,14 @@ pub(self) struct IntermediateGrammar<T, U> {
 }
 
 pub(self) type InternedGrammar = IntermediateGrammar<Rule, Variable>;
-pub(self) type ExtractedGrammar = IntermediateGrammar<Symbol, ExternalToken>;
+
+pub(self) type ExtractedSyntaxGrammar = IntermediateGrammar<Symbol, ExternalToken>;
+
+#[derive(Debug, PartialEq, Eq)]
+pub(self) struct ExtractedLexicalGrammar {
+    variables: Vec<Variable>,
+    separators: Vec<Rule>,
+}
 
 pub(crate) fn prepare_grammar(
     input_grammar: &InputGrammar
@@ -34,7 +41,7 @@ pub(crate) fn prepare_grammar(
     let (syntax_grammar, lexical_grammar) = extract_tokens(interned_grammar)?;
     let syntax_grammar = expand_repeats(syntax_grammar);
     let mut syntax_grammar = flatten_grammar(syntax_grammar)?;
-    let mut lexical_grammar = normalize_rules(lexical_grammar);
+    let mut lexical_grammar = expand_tokens(lexical_grammar)?;
     let simple_aliases = extract_simple_aliases(&mut syntax_grammar, &mut lexical_grammar);
     Ok((syntax_grammar, lexical_grammar, simple_aliases))
 }

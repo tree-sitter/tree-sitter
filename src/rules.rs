@@ -49,18 +49,13 @@ pub(crate) enum Rule {
     Pattern(String),
     NamedSymbol(String),
     Symbol(Symbol),
-    Choice {
-        elements: Vec<Rule>,
-    },
+    Choice(Vec<Rule>),
     Metadata {
         params: MetadataParams,
-        rule: Rc<Rule>,
+        rule: Box<Rule>,
     },
-    Repeat(Rc<Rule>),
-    Seq {
-        left: Rc<Rule>,
-        right: Rc<Rule>,
-    }
+    Repeat(Box<Rule>),
+    Seq(Vec<Rule>),
 }
 
 impl Rule {
@@ -98,7 +93,7 @@ impl Rule {
     }
 
     pub fn repeat(rule: Rule) -> Self {
-        Rule::Repeat(Rc::new(rule))
+        Rule::Repeat(Box::new(rule))
     }
 
     pub fn choice(rules: Vec<Rule>) -> Self {
@@ -106,32 +101,11 @@ impl Rule {
         for rule in rules {
             choice_helper(&mut elements, rule);
         }
-        Rule::Choice { elements }
+        Rule::Choice(elements)
     }
 
     pub fn seq(rules: Vec<Rule>) -> Self {
-        let mut result = Rule::Blank;
-        for rule in rules {
-            match rule {
-                Rule::Blank => continue,
-                Rule::Metadata { rule, params: _ } => {
-                    if *rule == Rule::Blank {
-                        continue;
-                    }
-                },
-                _ => {
-                    if result == Rule::Blank {
-                        result = rule;
-                    } else {
-                        result = Rule::Seq {
-                            left: Rc::new(result),
-                            right: Rc::new(rule),
-                        }
-                    }
-                }
-            }
-        }
-        result
+        Rule::Seq(rules)
     }
 
     pub fn terminal(index: usize) -> Self {
@@ -196,14 +170,14 @@ fn add_metadata<T: Fn(&mut MetadataParams)>(input: Rule, f: T) -> Rule {
         _ => {
             let mut params = MetadataParams::default();
             f(&mut params);
-            Rule::Metadata { rule: Rc::new(input), params }
+            Rule::Metadata { rule: Box::new(input), params }
         }
     }
 }
 
 fn choice_helper(result: &mut Vec<Rule>, rule: Rule) {
     match rule {
-        Rule::Choice {elements} => {
+        Rule::Choice(elements) => {
             for element in elements {
                 choice_helper(result, element);
             }

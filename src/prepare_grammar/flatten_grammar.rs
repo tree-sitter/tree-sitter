@@ -1,7 +1,7 @@
 use crate::error::Result;
 use crate::grammars::SyntaxGrammar;
-use super::ExtractedGrammar;
+use super::ExtractedSyntaxGrammar;
 
-pub(super) fn flatten_grammar(grammar: ExtractedGrammar) -> Result<SyntaxGrammar> {
+pub(super) fn flatten_grammar(grammar: ExtractedSyntaxGrammar) -> Result<SyntaxGrammar> {
     unimplemented!();
 }

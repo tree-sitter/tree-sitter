@@ -14,7 +14,7 @@ mod render;
 mod rules;
 mod tables;
 
-fn main() {
+fn main() -> error::Result<()> {
     let matches = App::new("tree-sitter")
         .version("0.1")
         .author("Max Brunsfeld <maxbrunsfeld@gmail.com>")
@@ -32,5 +32,12 @@ fn main() {
                 .arg(Arg::with_name("path").index(1).required(true))
                 .arg(Arg::with_name("line").index(2).required(true))
                 .arg(Arg::with_name("column").index(3).required(true))
-        );
+        ).get_matches();
+
+    if let Some(matches) = matches.subcommand_matches("generate") {
+        let code = generate::generate_parser_for_grammar(String::new())?;
+        println!("{}", code);
+    }
+
+    Ok(())
 }

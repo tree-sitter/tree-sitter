@@ -3,7 +3,7 @@ use crate::grammars::{Variable, VariableType};
 use std::collections::HashMap;
 use std::mem;
 use std::rc::Rc;
-use super::ExtractedGrammar;
+use super::ExtractedSyntaxGrammar;
 
 struct Expander {
     variable_name: String,
@@ -25,16 +25,11 @@ impl Expander {
 
     fn expand_rule(&mut self, rule: &Rule) -> Rule {
         match rule {
-            Rule::Choice { elements } =>
-                Rule::Choice {
-                    elements: elements.iter().map(|element| self.expand_rule(element)).collect()
-                },
+            Rule::Choice(elements) =>
+                Rule::Choice(elements.iter().map(|element| self.expand_rule(element)).collect()),
 
-            Rule::Seq { left, right } =>
-                Rule::Seq {
-                    left: Rc::new(self.expand_rule(left)),
-                    right: Rc::new(self.expand_rule(right)),
-                },
+            Rule::Seq(elements) =>
+                Rule::Seq(elements.iter().map(|element| self.expand_rule(element)).collect()),
 
             Rule::Repeat(content) => {
                 let inner_rule = self.expand_rule(content);
@@ -46,27 +41,24 @@ impl Expander {
                 self.repeat_count_in_variable += 1;
                 let rule_name = format!("{}_repeat{}", self.variable_name, self.repeat_count_in_variable);
                 let repeat_symbol = Symbol::non_terminal(self.preceding_symbol_count + self.auxiliary_variables.len());
-                let rc_symbol = Rc::new(Rule::Symbol(repeat_symbol));
                 self.existing_repeats.insert(inner_rule.clone(), repeat_symbol);
                 self.auxiliary_variables.push(Variable {
                     name: rule_name,
                     kind: VariableType::Auxiliary,
-                    rule: Rule::Choice {
-                        elements: vec![
-                            Rule::Seq {
-                                left: rc_symbol.clone(),
-                                right: rc_symbol
-                            },
-                            inner_rule
-                        ],
-                    },
+                    rule: Rule::Choice(vec![
+                        Rule::Seq(vec![
+                            Rule::Symbol(repeat_symbol),
+                            Rule::Symbol(repeat_symbol),
+                        ]),
+                        inner_rule
+                    ]),
                 });
 
                 Rule::Symbol(repeat_symbol)
             }
 
             Rule::Metadata { rule, params } => Rule::Metadata {
-                rule: Rc::new(self.expand_rule(rule)),
+                rule: Box::new(self.expand_rule(rule)),
                 params: params.clone()
             },
 
@@ -75,7 +67,7 @@ impl Expander {
     }
 }
 
-pub(super) fn expand_repeats(mut grammar: ExtractedGrammar) -> ExtractedGrammar {
+pub(super) fn expand_repeats(mut grammar: ExtractedSyntaxGrammar) -> ExtractedSyntaxGrammar {
     let mut expander = Expander {
         variable_name: String::new(),
         repeat_count_in_variable: 0,
@@ -207,8 +199,8 @@ mod tests {
         ]);
     }
 
-    fn build_grammar(variables: Vec<Variable>) -> ExtractedGrammar {
-        ExtractedGrammar {
+    fn build_grammar(variables: Vec<Variable>) -> ExtractedSyntaxGrammar {
+        ExtractedSyntaxGrammar {
             variables,
             extra_tokens: Vec::new(),
             external_tokens: Vec::new(),

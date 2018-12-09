@@ -80,26 +80,26 @@ struct Interner<'a> {
 impl<'a> Interner<'a> {
     fn intern_rule(&self, rule: &Rule) -> Result<Rule> {
         match rule {
-            Rule::Choice { elements } => {
+            Rule::Choice(elements) => {
                 let mut result = Vec::with_capacity(elements.len());
                 for element in elements {
                     result.push(self.intern_rule(element)?);
                 }
-                Ok(Rule::Choice { elements: result })
+                Ok(Rule::Choice(result))
             },
-
-            Rule::Seq { left, right } =>
-                Ok(Rule::Seq {
-                    left: Rc::new(self.intern_rule(left)?),
-                    right: Rc::new(self.intern_rule(right)?),
-                }),
-
-            Rule::Repeat(content) =>
-                Ok(Rule::Repeat(Rc::new(self.intern_rule(content)?))),
-
+            Rule::Seq(elements) => {
+                let mut result = Vec::with_capacity(elements.len());
+                for element in elements {
+                    result.push(self.intern_rule(element)?);
+                }
+                Ok(Rule::Seq(result))
+            },
+            Rule::Repeat(content) => Ok(Rule::Repeat(
+                Box::new(self.intern_rule(content)?)
+            )),
             Rule::Metadata { rule, params } =>
                 Ok(Rule::Metadata {
-                    rule: Rc::new(self.intern_rule(rule)?),
+                    rule: Box::new(self.intern_rule(rule)?),
                     params: params.clone()
                 }),
 

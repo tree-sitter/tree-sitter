@@ -7,13 +7,14 @@ pub enum CharacterSet {
     Exclude(Vec<char>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum NfaState {
     Advance(CharacterSet, u32),
     Split(u32, u32),
     Accept,
 }
 
+#[derive(PartialEq, Eq)]
 pub struct Nfa {
     pub states: Vec<NfaState>
 }
