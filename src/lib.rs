@@ -48,7 +48,7 @@ pub struct InputEdit {
 struct PropertyTransition {
     state_id: usize,
     child_index: Option<usize>,
-    text_regex: Option<Regex>,
+    text_regex_index: Option<usize>,
 }
 
 struct PropertyState {
@@ -66,6 +66,7 @@ pub enum PropertySheetError {
 pub struct PropertySheet<P: DeserializeOwned = HashMap<String, String>> {
     states: Vec<PropertyState>,
     property_sets: Vec<P>,
+    text_regexes: Vec<Regex>,
 }
 
 pub struct Node<'a>(ffi::TSNode, PhantomData<&'a ()>);
@@ -615,11 +616,11 @@ impl<'a, P: DeserializeOwned> TreePropertyCursor<'a, P> {
             .get(&node_kind_id)
             .and_then(|transitions| {
                 for transition in transitions.iter() {
-                    if let Some(text_regex) = transition.text_regex.as_ref() {
+                    if let Some(text_regex_index) = transition.text_regex_index {
                         let node = self.cursor.node();
                         let text = &self.source.as_bytes()[node.start_byte()..node.end_byte()];
                         if let Ok(text) = str::from_utf8(text) {
-                            if !text_regex.is_match(text) {
+                            if !self.property_sheet.text_regexes[text_regex_index].is_match(text) {
                                 continue;
                             }
                         }
@@ -699,28 +700,37 @@ impl<P: DeserializeOwned> PropertySheet<P> {
         }
 
         let input: PropertySheetJSON<P> = serde_json::from_str(json)
-            .map_err(|e| PropertySheetError::InvalidJSON(e))?;
+            .map_err(PropertySheetError::InvalidJSON)?;
         let mut states = Vec::new();
+        let mut text_regexes = Vec::new();
+        let mut text_regex_patterns = Vec::new();
 
         for state in input.states.iter() {
             let mut transitions = HashMap::new();
             let node_kind_count = language.node_kind_count();
             for transition in state.transitions.iter() {
-                for i in 0..node_kind_count {
-                    let i = i as u16;
-                    if language.node_kind_is_named(i) == transition.named
-                        && transition.kind == language.node_kind_for_id(i)
+                let text_regex_index = if let Some(regex_pattern) = transition.text.as_ref() {
+                    if let Some(index) = text_regex_patterns.iter().position(|r| *r == regex_pattern) {
+                        Some(index)
+                    } else {
+                        text_regex_patterns.push(regex_pattern);
+                        text_regexes.push(Regex::new(&regex_pattern).map_err(PropertySheetError::InvalidRegex)?);
+                        Some(text_regexes.len() - 1)
+                    }
+                } else {
+                    None
+                };
+
+                for i in 0..(node_kind_count as u16) {
+                    if
+                        transition.kind == language.node_kind_for_id(i) &&
+                        transition.named == language.node_kind_is_named(i)
                     {
                         let entry = transitions.entry(i).or_insert(Vec::new());
-                        let text_regex = if let Some(text) = transition.text.as_ref() {
-                            Some(Regex::new(&text).map_err(|e| PropertySheetError::InvalidRegex(e))?)
-                        } else {
-                            None
-                        };
                         entry.push(PropertyTransition {
                             child_index: transition.index,
                             state_id: transition.state_id,
-                            text_regex
+                            text_regex_index,
                         });
                     }
                 }
@@ -734,6 +744,7 @@ impl<P: DeserializeOwned> PropertySheet<P> {
         Ok(Self {
             property_sets: input.property_sets,
             states,
+            text_regexes,
         })
     }
 }
