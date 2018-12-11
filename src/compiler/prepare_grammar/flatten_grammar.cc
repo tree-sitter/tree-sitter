@@ -162,7 +162,7 @@ pair<SyntaxGrammar, CompileError> flatten_grammar(const InitialSyntaxGrammar &gr
   }
 
   result.word_token = grammar.word_token;
-  
+
   return {result, CompileError::none()};
 }
 

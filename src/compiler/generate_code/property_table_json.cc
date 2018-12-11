@@ -63,11 +63,9 @@ class CodeGenerator {
     for (const auto &pair : property_set) {
       if (!first) add(",");
       first = false;
-      add("\"");
-      add(pair.first);
-      add("\":\"");
-      add(pair.second);
-      add("\"");
+      add_string(pair.first);
+      add(":");
+      add_string(pair.second);
     }
     add("}");
   }
@@ -94,7 +92,7 @@ class CodeGenerator {
   void add_string(const string &s) {
     add("\"");
     for (const char c : s) {
-      if (c == '"') add("\\");
+      if (c == '"' || c == '\\') add("\\");
       add(c);
     }
     add("\"");
