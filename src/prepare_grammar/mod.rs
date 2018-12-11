@@ -1,19 +1,19 @@
-mod intern_symbols;
-mod extract_tokens;
 mod expand_repeats;
-mod flatten_grammar;
 mod expand_tokens;
 mod extract_simple_aliases;
+mod extract_tokens;
+mod flatten_grammar;
+mod intern_symbols;
 
-use crate::rules::{AliasMap, Rule, Symbol};
-use crate::grammars::{InputGrammar, SyntaxGrammar, LexicalGrammar, Variable, ExternalToken};
-use crate::error::Result;
-use self::intern_symbols::intern_symbols;
-use self::extract_tokens::extract_tokens;
 use self::expand_repeats::expand_repeats;
-use self::flatten_grammar::flatten_grammar;
 use self::expand_tokens::expand_tokens;
 use self::extract_simple_aliases::extract_simple_aliases;
+use self::extract_tokens::extract_tokens;
+use self::flatten_grammar::flatten_grammar;
+use self::intern_symbols::intern_symbols;
+use crate::error::Result;
+use crate::grammars::{ExternalToken, InputGrammar, LexicalGrammar, SyntaxGrammar, Variable};
+use crate::rules::{AliasMap, Rule, Symbol};
 
 pub(self) struct IntermediateGrammar<T, U> {
     variables: Vec<Variable>,
@@ -35,7 +35,7 @@ pub(self) struct ExtractedLexicalGrammar {
 }
 
 pub(crate) fn prepare_grammar(
-    input_grammar: &InputGrammar
+    input_grammar: &InputGrammar,
 ) -> Result<(SyntaxGrammar, LexicalGrammar, AliasMap)> {
     let interned_grammar = intern_symbols(input_grammar)?;
     let (syntax_grammar, lexical_grammar) = extract_tokens(interned_grammar)?;

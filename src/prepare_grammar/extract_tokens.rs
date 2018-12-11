@@ -1,13 +1,12 @@
-use std::collections::HashMap;
-use std::rc::Rc;
-use std::mem;
+use super::{ExtractedLexicalGrammar, ExtractedSyntaxGrammar, InternedGrammar};
 use crate::error::{Error, Result};
-use crate::rules::{Rule, MetadataParams, Symbol, SymbolType};
-use crate::grammars::{Variable, ExternalToken};
-use super::{InternedGrammar, ExtractedSyntaxGrammar, ExtractedLexicalGrammar};
+use crate::grammars::{ExternalToken, Variable};
+use crate::rules::{MetadataParams, Rule, Symbol, SymbolType};
+use std::collections::HashMap;
+use std::mem;
 
 pub(super) fn extract_tokens(
-    mut grammar: InternedGrammar
+    mut grammar: InternedGrammar,
 ) -> Result<(ExtractedSyntaxGrammar, ExtractedLexicalGrammar)> {
     let mut extractor = TokenExtractor {
         current_variable_name: String::new(),
@@ -40,9 +39,15 @@ pub(super) fn extract_tokens(
     // variable in the lexical grammar. Symbols that pointed to later variables
     // will need to have their indices decremented.
     let mut variables = Vec::new();
-    let mut symbol_replacer = SymbolReplacer { replacements: HashMap::new() };
+    let mut symbol_replacer = SymbolReplacer {
+        replacements: HashMap::new(),
+    };
     for (i, variable) in grammar.variables.into_iter().enumerate() {
-        if let Rule::Symbol(Symbol { kind: SymbolType::Terminal, index }) = variable.rule {
+        if let Rule::Symbol(Symbol {
+            kind: SymbolType::Terminal,
+            index,
+        }) = variable.rule
+        {
             if i > 0 && extractor.extracted_usage_counts[index] == 1 {
                 let mut lexical_variable = &mut lexical_variables[index];
                 lexical_variable.kind = variable.kind;
@@ -58,16 +63,19 @@ pub(super) fn extract_tokens(
         variable.rule = symbol_replacer.replace_symbols_in_rule(&variable.rule);
     }
 
-    let expected_conflicts = grammar.expected_conflicts
+    let expected_conflicts = grammar
+        .expected_conflicts
         .into_iter()
-        .map(|conflict|
+        .map(|conflict| {
             conflict
                 .iter()
                 .map(|symbol| symbol_replacer.replace_symbol(*symbol))
                 .collect()
-        ).collect();
+        })
+        .collect();
 
-    let variables_to_inline = grammar.variables_to_inline
+    let variables_to_inline = grammar
+        .variables_to_inline
         .into_iter()
         .map(|symbol| symbol_replacer.replace_symbol(symbol))
         .collect();
@@ -149,7 +157,7 @@ pub(super) fn extract_tokens(
         ExtractedLexicalGrammar {
             variables: lexical_variables,
             separators,
-        }
+        },
     ))
 }
 
@@ -161,7 +169,7 @@ struct TokenExtractor {
 }
 
 struct SymbolReplacer {
-    replacements: HashMap<usize, usize>
+    replacements: HashMap<usize, usize>,
 }
 
 impl TokenExtractor {
@@ -198,20 +206,24 @@ impl TokenExtractor {
                 } else {
                     Rule::Metadata {
                         params: params.clone(),
-                        rule: Box::new(self.extract_tokens_in_rule((&rule).clone()))
+                        rule: Box::new(self.extract_tokens_in_rule((&rule).clone())),
                     }
                 }
-            },
-            Rule::Repeat(content) => Rule::Repeat(
-                Box::new(self.extract_tokens_in_rule(content))
-            ),
+            }
+            Rule::Repeat(content) => Rule::Repeat(Box::new(self.extract_tokens_in_rule(content))),
             Rule::Seq(elements) => Rule::Seq(
-                elements.iter().map(|e| self.extract_tokens_in_rule(e)).collect()
+                elements
+                    .iter()
+                    .map(|e| self.extract_tokens_in_rule(e))
+                    .collect(),
             ),
             Rule::Choice(elements) => Rule::Choice(
-                elements.iter().map(|e| self.extract_tokens_in_rule(e)).collect()
+                elements
+                    .iter()
+                    .map(|e| self.extract_tokens_in_rule(e))
+                    .collect(),
             ),
-            _ => input.clone()
+            _ => input.clone(),
         }
     }
 
@@ -219,7 +231,7 @@ impl TokenExtractor {
         for (i, variable) in self.extracted_variables.iter_mut().enumerate() {
             if variable.rule == *rule {
                 self.extracted_usage_counts[i] += 1;
-                return Symbol::terminal(i)
+                return Symbol::terminal(i);
             }
         }
 
@@ -231,10 +243,9 @@ impl TokenExtractor {
             Variable::auxiliary(
                 &format!(
                     "{}_token{}",
-                    &self.current_variable_name,
-                    self.current_variable_token_count
+                    &self.current_variable_name, self.current_variable_token_count
                 ),
-                rule.clone()
+                rule.clone(),
             )
         };
 
@@ -249,25 +260,29 @@ impl SymbolReplacer {
         match rule {
             Rule::Symbol(symbol) => self.replace_symbol(*symbol).into(),
             Rule::Choice(elements) => Rule::Choice(
-                elements.iter().map(|e| self.replace_symbols_in_rule(e)).collect()
+                elements
+                    .iter()
+                    .map(|e| self.replace_symbols_in_rule(e))
+                    .collect(),
             ),
             Rule::Seq(elements) => Rule::Seq(
-                elements.iter().map(|e| self.replace_symbols_in_rule(e)).collect()
+                elements
+                    .iter()
+                    .map(|e| self.replace_symbols_in_rule(e))
+                    .collect(),
             ),
-            Rule::Repeat(content) => Rule::Repeat(
-                Box::new(self.replace_symbols_in_rule(content))
-            ),
+            Rule::Repeat(content) => Rule::Repeat(Box::new(self.replace_symbols_in_rule(content))),
             Rule::Metadata { rule, params } => Rule::Metadata {
                 params: params.clone(),
                 rule: Box::new(self.replace_symbols_in_rule(rule)),
             },
-            _ => rule.clone()
+            _ => rule.clone(),
         }
     }
 
     fn replace_symbol(&self, symbol: Symbol) -> Symbol {
         if !symbol.is_non_terminal() {
-            return symbol
+            return symbol;
         }
 
         if let Some(replacement) = self.replacements.get(&symbol.index) {
@@ -293,81 +308,95 @@ mod test {
     #[test]
     fn test_extraction() {
         let (syntax_grammar, lexical_grammar) = extract_tokens(build_grammar(vec![
-            Variable::named("rule_0", Rule::repeat(Rule::seq(vec![
-                Rule::string("a"),
-                Rule::pattern("b"),
-                Rule::choice(vec![
-                    Rule::non_terminal(1),
-                    Rule::non_terminal(2),
-                    Rule::token(Rule::repeat(Rule::choice(vec![
-                        Rule::string("c"),
-                        Rule::string("d"),
-                    ])))
-                ])
-            ]))),
+            Variable::named(
+                "rule_0",
+                Rule::repeat(Rule::seq(vec![
+                    Rule::string("a"),
+                    Rule::pattern("b"),
+                    Rule::choice(vec![
+                        Rule::non_terminal(1),
+                        Rule::non_terminal(2),
+                        Rule::token(Rule::repeat(Rule::choice(vec![
+                            Rule::string("c"),
+                            Rule::string("d"),
+                        ]))),
+                    ]),
+                ])),
+            ),
             Variable::named("rule_1", Rule::pattern("e")),
             Variable::named("rule_2", Rule::pattern("b")),
-            Variable::named("rule_3", Rule::seq(vec![
-                Rule::non_terminal(2),
-                Rule::Blank,
-            ])),
-        ])).unwrap();
+            Variable::named(
+                "rule_3",
+                Rule::seq(vec![Rule::non_terminal(2), Rule::Blank]),
+            ),
+        ]))
+        .unwrap();
 
-        assert_eq!(syntax_grammar.variables, vec![
-            Variable::named("rule_0", Rule::repeat(Rule::seq(vec![
-                // The string "a" was replaced by a symbol referencing the lexical grammar
-                Rule::terminal(0),
+        assert_eq!(
+            syntax_grammar.variables,
+            vec![
+                Variable::named(
+                    "rule_0",
+                    Rule::repeat(Rule::seq(vec![
+                        // The string "a" was replaced by a symbol referencing the lexical grammar
+                        Rule::terminal(0),
+                        // The pattern "b" was replaced by a symbol referencing the lexical grammar
+                        Rule::terminal(1),
+                        Rule::choice(vec![
+                            // The symbol referencing `rule_1` was replaced by a symbol referencing
+                            // the lexical grammar.
+                            Rule::terminal(3),
+                            // The symbol referencing `rule_2` had its index decremented because
+                            // `rule_1` was moved to the lexical grammar.
+                            Rule::non_terminal(1),
+                            // The rule wrapped in `token` was replaced by a symbol referencing
+                            // the lexical grammar.
+                            Rule::terminal(2),
+                        ])
+                    ]))
+                ),
+                // The pattern "e" was only used in once place: as the definition of `rule_1`,
+                // so that rule was moved to the lexical grammar. The pattern "b" appeared in
+                // two places, so it was not moved into the lexical grammar.
+                Variable::named("rule_2", Rule::terminal(1)),
+                Variable::named(
+                    "rule_3",
+                    Rule::seq(vec![Rule::non_terminal(1), Rule::Blank,])
+                ),
+            ]
+        );
 
-                // The pattern "b" was replaced by a symbol referencing the lexical grammar
-                Rule::terminal(1),
-                Rule::choice(vec![
-                    // The symbol referencing `rule_1` was replaced by a symbol referencing
-                    // the lexical grammar.
-                    Rule::terminal(3),
-
-                    // The symbol referencing `rule_2` had its index decremented because
-                    // `rule_1` was moved to the lexical grammar.
-                    Rule::non_terminal(1),
-
-                    // The rule wrapped in `token` was replaced by a symbol referencing
-                    // the lexical grammar.
-                    Rule::terminal(2),
-                ])
-            ]))),
-
-            // The pattern "e" was only used in once place: as the definition of `rule_1`,
-            // so that rule was moved to the lexical grammar. The pattern "b" appeared in
-            // two places, so it was not moved into the lexical grammar.
-            Variable::named("rule_2", Rule::terminal(1)),
-            Variable::named("rule_3", Rule::seq(vec![
-                Rule::non_terminal(1),
-                Rule::Blank,
-            ])),
-        ]);
-
-        assert_eq!(lexical_grammar.variables, vec![
-            Variable::anonymous("a", Rule::string("a")),
-            Variable::auxiliary("rule_0_token1", Rule::pattern("b")),
-            Variable::auxiliary("rule_0_token2", Rule::repeat(Rule::choice(vec![
-                Rule::string("c"),
-                Rule::string("d"),
-            ]))),
-            Variable::named("rule_1", Rule::pattern("e")),
-        ]);
+        assert_eq!(
+            lexical_grammar.variables,
+            vec![
+                Variable::anonymous("a", Rule::string("a")),
+                Variable::auxiliary("rule_0_token1", Rule::pattern("b")),
+                Variable::auxiliary(
+                    "rule_0_token2",
+                    Rule::repeat(Rule::choice(vec![Rule::string("c"), Rule::string("d"),]))
+                ),
+                Variable::named("rule_1", Rule::pattern("e")),
+            ]
+        );
     }
 
     #[test]
     fn test_start_rule_is_token() {
-        let (syntax_grammar, lexical_grammar) = extract_tokens(build_grammar(vec![
-            Variable::named("rule_0", Rule::string("hello")),
-        ])).unwrap();
+        let (syntax_grammar, lexical_grammar) =
+            extract_tokens(build_grammar(vec![Variable::named(
+                "rule_0",
+                Rule::string("hello"),
+            )]))
+            .unwrap();
 
-        assert_eq!(syntax_grammar.variables, vec![
-            Variable::named("rule_0", Rule::terminal(0)),
-        ]);
-        assert_eq!(lexical_grammar.variables, vec![
-            Variable::anonymous("hello", Rule::string("hello")),
-        ])
+        assert_eq!(
+            syntax_grammar.variables,
+            vec![Variable::named("rule_0", Rule::terminal(0)),]
+        );
+        assert_eq!(
+            lexical_grammar.variables,
+            vec![Variable::anonymous("hello", Rule::string("hello")),]
+        )
     }
 
     #[test]
@@ -376,29 +405,25 @@ mod test {
             Variable::named("rule_0", Rule::string("x")),
             Variable::named("comment", Rule::pattern("//.*")),
         ]);
-        grammar.extra_tokens = vec![
-            Rule::string(" "),
-            Rule::non_terminal(1),
-        ];
+        grammar.extra_tokens = vec![Rule::string(" "), Rule::non_terminal(1)];
 
         let (syntax_grammar, lexical_grammar) = extract_tokens(grammar).unwrap();
-        assert_eq!(syntax_grammar.extra_tokens, vec![
-            Symbol::terminal(1),
-        ]);
-        assert_eq!(lexical_grammar.separators, vec![
-            Rule::string(" "),
-        ]);
+        assert_eq!(syntax_grammar.extra_tokens, vec![Symbol::terminal(1),]);
+        assert_eq!(lexical_grammar.separators, vec![Rule::string(" "),]);
     }
 
     #[test]
     fn test_extract_externals() {
         let mut grammar = build_grammar(vec![
-            Variable::named("rule_0", Rule::seq(vec![
-                Rule::external(0),
-                Rule::string("a"),
-                Rule::non_terminal(1),
-                Rule::non_terminal(2),
-            ])),
+            Variable::named(
+                "rule_0",
+                Rule::seq(vec![
+                    Rule::external(0),
+                    Rule::string("a"),
+                    Rule::non_terminal(1),
+                    Rule::non_terminal(2),
+                ]),
+            ),
             Variable::named("rule_1", Rule::string("b")),
             Variable::named("rule_2", Rule::string("c")),
         ]);
@@ -410,23 +435,26 @@ mod test {
 
         let (syntax_grammar, _) = extract_tokens(grammar).unwrap();
 
-        assert_eq!(syntax_grammar.external_tokens, vec![
-            ExternalToken {
-                name: "external_0".to_string(),
-                kind: VariableType::Named,
-                corresponding_internal_token: None,
-            },
-            ExternalToken {
-                name: "a".to_string(),
-                kind: VariableType::Anonymous,
-                corresponding_internal_token: Some(Symbol::terminal(0)),
-            },
-            ExternalToken {
-                name: "rule_2".to_string(),
-                kind: VariableType::Named,
-                corresponding_internal_token: Some(Symbol::terminal(2)),
-            },
-        ]);
+        assert_eq!(
+            syntax_grammar.external_tokens,
+            vec![
+                ExternalToken {
+                    name: "external_0".to_string(),
+                    kind: VariableType::Named,
+                    corresponding_internal_token: None,
+                },
+                ExternalToken {
+                    name: "a".to_string(),
+                    kind: VariableType::Anonymous,
+                    corresponding_internal_token: Some(Symbol::terminal(0)),
+                },
+                ExternalToken {
+                    name: "rule_2".to_string(),
+                    kind: VariableType::Named,
+                    corresponding_internal_token: Some(Symbol::terminal(2)),
+                },
+            ]
+        );
     }
 
     #[test]
@@ -436,14 +464,15 @@ mod test {
             Variable::named("rule_1", Rule::non_terminal(2)),
             Variable::named("rule_2", Rule::string("x")),
         ]);
-        grammar.extra_tokens = vec![
-            Rule::non_terminal(1),
-        ];
+        grammar.extra_tokens = vec![Rule::non_terminal(1)];
 
         match extract_tokens(grammar) {
             Err(Error::GrammarError(s)) => {
-                assert_eq!(s, "Non-token symbol 'rule_1' cannot be used as an extra token");
-            },
+                assert_eq!(
+                    s,
+                    "Non-token symbol 'rule_1' cannot be used as an extra token"
+                );
+            }
             _ => {
                 panic!("Expected an error but got no error");
             }
@@ -453,24 +482,22 @@ mod test {
     #[test]
     fn test_error_on_external_with_same_name_as_non_terminal() {
         let mut grammar = build_grammar(vec![
-            Variable::named("rule_0", Rule::seq(vec![
-                Rule::non_terminal(1),
-                Rule::non_terminal(2),
-            ])),
-            Variable::named("rule_1", Rule::seq(vec![
-                Rule::non_terminal(2),
-                Rule::non_terminal(2),
-            ])),
+            Variable::named(
+                "rule_0",
+                Rule::seq(vec![Rule::non_terminal(1), Rule::non_terminal(2)]),
+            ),
+            Variable::named(
+                "rule_1",
+                Rule::seq(vec![Rule::non_terminal(2), Rule::non_terminal(2)]),
+            ),
             Variable::named("rule_2", Rule::string("a")),
         ]);
-        grammar.external_tokens = vec![
-            Variable::named("rule_1", Rule::non_terminal(1)),
-        ];
+        grammar.external_tokens = vec![Variable::named("rule_1", Rule::non_terminal(1))];
 
         match extract_tokens(grammar) {
             Err(Error::GrammarError(s)) => {
                 assert_eq!(s, "Rule 'rule_1' cannot be used as both an external token and a non-terminal rule");
-            },
+            }
             _ => {
                 panic!("Expected an error but got no error");
             }

@@ -1,5 +1,3 @@
-use std::rc::Rc;
-use std::char;
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -89,6 +87,12 @@ impl Rule {
         add_metadata(content, |params| {
             params.associativity = Some(Associativity::Right);
             params.precedence = Some(value);
+        })
+    }
+
+    pub fn prec_dynamic(value: i32, content: Rule) -> Self {
+        add_metadata(content, |params| {
+            params.dynamic_precedence = value;
         })
     }
 

@@ -52,7 +52,6 @@ pub(crate) struct ProductionStep {
   pub precedence: i32,
   pub associativity: Option<Associativity>,
   pub alias: Option<Alias>,
-  pub is_excluded: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -65,6 +64,7 @@ pub(crate) struct Production {
 pub(crate) struct SyntaxVariable {
     pub name: String,
     pub kind: VariableType,
+    pub productions: Vec<Production>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -81,7 +81,22 @@ pub(crate) struct SyntaxGrammar {
     pub expected_conflicts: Vec<Vec<Symbol>>,
     pub external_tokens: Vec<ExternalToken>,
     pub variables_to_inline: Vec<Symbol>,
-    pub word_token: Symbol,
+    pub word_token: Option<Symbol>,
+}
+
+impl ProductionStep {
+    pub(crate) fn new(symbol: Symbol) -> Self {
+        Self { symbol, precedence: 0, associativity: None, alias: None }
+    }
+
+    pub(crate) fn with_prec(self, precedence: i32, associativity: Option<Associativity>) -> Self {
+        Self {
+            symbol: self.symbol,
+            precedence,
+            associativity,
+            alias: self.alias,
+        }
+    }
 }
 
 impl Variable {
