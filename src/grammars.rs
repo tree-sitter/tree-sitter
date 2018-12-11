@@ -97,6 +97,15 @@ impl ProductionStep {
             alias: self.alias,
         }
     }
+
+    pub(crate) fn with_alias(self, value: &str, is_named: bool) -> Self {
+        Self {
+            symbol: self.symbol,
+            precedence: self.precedence,
+            associativity: self.associativity,
+            alias: Some(Alias { value: value.to_string(), is_named }),
+        }
+    }
 }
 
 impl Variable {

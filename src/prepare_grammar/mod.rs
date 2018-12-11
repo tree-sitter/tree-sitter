@@ -41,7 +41,7 @@ pub(crate) fn prepare_grammar(
     let (syntax_grammar, lexical_grammar) = extract_tokens(interned_grammar)?;
     let syntax_grammar = expand_repeats(syntax_grammar);
     let mut syntax_grammar = flatten_grammar(syntax_grammar)?;
-    let mut lexical_grammar = expand_tokens(lexical_grammar)?;
-    let simple_aliases = extract_simple_aliases(&mut syntax_grammar, &mut lexical_grammar);
+    let lexical_grammar = expand_tokens(lexical_grammar)?;
+    let simple_aliases = extract_simple_aliases(&mut syntax_grammar, &lexical_grammar);
     Ok((syntax_grammar, lexical_grammar, simple_aliases))
 }
