@@ -63,9 +63,15 @@
         ],
       },
 
-      # Mac OS has an old version of libstdc++ that doesn't support c++11.
-      # libc++ is only present on 10.7 and later.
       'conditions': [
+        # For 64-bit builds on appveyor, we need to explicitly tell gyp
+        # to generate an x64 target in the MSVS project file.
+        ['"<!(echo %PLATFORM%)" == "x64"', {
+          'msvs_configuration_platform': 'x64',
+        }],
+
+        # Mac OS has an old version of libstdc++ that doesn't support c++11.
+        # libc++ is only present on 10.7 and later.
         ['OS == "mac"', {
           'cflags_cc': [ '-stdlib=libc++' ],
           'xcode_settings': {
@@ -114,6 +120,14 @@
           'include'
         ],
       },
+
+      'conditions': [
+        # For 64-bit builds on appveyor, we need to explicitly tell gyp
+        # to generate an x64 target in the MSVS project file.
+        ['"<!(echo %PLATFORM%)" == "x64"', {
+          'msvs_configuration_platform': 'x64',
+        }],
+      ],
     },
   ],
 
@@ -168,14 +182,6 @@
         '-Wextra',
         '-Wno-unused-parameter'
       ],
-    },
-
-    # For 64-bit builds on appveyor, we need to explicitly tell gyp
-    # to generate an x64 target in the MSVS project file.
-    'conditions': [
-      ['"<!(echo %PLATFORM%)" == "x64"', {
-        'msvs_configuration_platform': 'x64',
-      }]
-    ]
+    }
   }
 }
