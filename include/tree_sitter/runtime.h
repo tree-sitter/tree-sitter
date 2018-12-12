@@ -134,7 +134,7 @@ TSNode ts_node_descendant_for_point_range(TSNode, TSPoint, TSPoint);
 TSNode ts_node_named_descendant_for_point_range(TSNode, TSPoint, TSPoint);
 void ts_node_edit(TSNode *, const TSInputEdit *);
 
-TSTreeCursor ts_tree_cursor_new(TSNode);
+TSTreeCursor *ts_tree_cursor_new(TSNode);
 void ts_tree_cursor_delete(TSTreeCursor *);
 void ts_tree_cursor_reset(TSTreeCursor *, TSNode);
 TSNode ts_tree_cursor_current_node(const TSTreeCursor *);

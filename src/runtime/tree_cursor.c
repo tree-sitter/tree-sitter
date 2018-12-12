@@ -65,10 +65,12 @@ static inline bool ts_tree_cursor_child_iterator_next(CursorChildIterator *self,
 
 // TSTreeCursor - lifecycle
 
-TSTreeCursor ts_tree_cursor_new(TSNode node) {
+TSTreeCursor *ts_tree_cursor_new(TSNode node) {
   TSTreeCursor self = {NULL, NULL, {0, 0}};
+  size_t sz = sizeof(TSTreeCursor);
+  void *mem = calloc(1, sz);
   ts_tree_cursor_init((TreeCursor *)&self, node);
-  return self;
+  return mem ? memcpy(mem, &self, sz) : NULL;
 }
 
 void ts_tree_cursor_reset(TSTreeCursor *_self, TSNode node) {
@@ -92,6 +94,7 @@ void ts_tree_cursor_init(TreeCursor *self, TSNode node) {
 void ts_tree_cursor_delete(TSTreeCursor *_self) {
   TreeCursor *self = (TreeCursor *)_self;
   array_delete(&self->stack);
+  free(_self);
 }
 
 // TSTreeCursor - walking the tree
