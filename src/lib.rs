@@ -550,13 +550,16 @@ impl<'a> Drop for TreeCursor<'a> {
 
 impl<'a, P: DeserializeOwned> TreePropertyCursor<'a, P> {
     fn new(tree: &'a Tree, property_sheet: &'a PropertySheet<P>, source: &'a str) -> Self {
-        Self {
+        let mut result = Self {
             cursor: tree.root_node().walk(),
             child_index_stack: vec![0],
             state_stack: vec![0],
             property_sheet,
             source,
-        }
+        };
+        let state = result.next_state(&result.current_state(), result.cursor.node().kind_id(), 0);
+        result.state_stack.push(state);
+        result
     }
 
     pub fn node(&self) -> Node<'a> {
