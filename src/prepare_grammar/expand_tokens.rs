@@ -39,14 +39,14 @@ fn expand_character_class(item: &ClassSetItem) -> Result<CharacterSet> {
     }
 }
 
-fn expand_regex(ast: &Ast, nfa: &mut Nfa, mut next_state_index: u32, is_sep: bool) -> Result<bool> {
+fn expand_regex(ast: &Ast, nfa: &mut Nfa, mut next_state_id: u32, is_sep: bool) -> Result<bool> {
     match ast {
         Ast::Empty(_) => Ok(false),
         Ast::Flags(_) => Err(Error::regex("Flags are not supported")),
         Ast::Literal(literal) => {
             nfa.states.push(NfaState::Advance {
                 chars: CharacterSet::Include(vec![literal.c]),
-                state: next_state_index,
+                state_id: next_state_id,
                 is_sep,
             });
             Ok(true)
@@ -54,7 +54,7 @@ fn expand_regex(ast: &Ast, nfa: &mut Nfa, mut next_state_index: u32, is_sep: boo
         Ast::Dot(_) => {
             nfa.states.push(NfaState::Advance {
                 chars: CharacterSet::Exclude(vec!['\n']),
-                state: next_state_index,
+                state_id: next_state_id,
                 is_sep,
             });
             Ok(true)
@@ -65,7 +65,7 @@ fn expand_regex(ast: &Ast, nfa: &mut Nfa, mut next_state_index: u32, is_sep: boo
             Class::Perl(class) => {
                 nfa.states.push(NfaState::Advance {
                     chars: expand_perl_character_class(&class.kind),
-                    state: next_state_index,
+                    state_id: next_state_id,
                     is_sep,
                 });
                 Ok(true)
@@ -75,7 +75,7 @@ fn expand_regex(ast: &Ast, nfa: &mut Nfa, mut next_state_index: u32, is_sep: boo
                     let character_set = expand_character_class(&item)?;
                     nfa.states.push(NfaState::Advance {
                         chars: character_set,
-                        state: next_state_index,
+                        state_id: next_state_id,
                         is_sep,
                     });
                     Ok(true)
@@ -87,8 +87,8 @@ fn expand_regex(ast: &Ast, nfa: &mut Nfa, mut next_state_index: u32, is_sep: boo
         },
         Ast::Repetition(repetition) => match repetition.op.kind {
             RepetitionKind::ZeroOrOne => {
-                if expand_regex(&repetition.ast, nfa, next_state_index, is_sep)? {
-                    nfa.prepend(|last_state| NfaState::Split(next_state_index, last_state));
+                if expand_regex(&repetition.ast, nfa, next_state_id, is_sep)? {
+                    nfa.prepend(|last_state_id| NfaState::Split(next_state_id, last_state_id));
                     Ok(true)
                 } else {
                     Ok(false)
@@ -96,10 +96,10 @@ fn expand_regex(ast: &Ast, nfa: &mut Nfa, mut next_state_index: u32, is_sep: boo
             }
             RepetitionKind::OneOrMore => {
                 nfa.states.push(NfaState::Accept(0)); // Placeholder for split
-                let split_index = nfa.last_state();
-                if expand_regex(&repetition.ast, nfa, split_index, is_sep)? {
-                    nfa.states[split_index as usize] =
-                        NfaState::Split(nfa.last_state(), next_state_index);
+                let split_state_id = nfa.last_state_id();
+                if expand_regex(&repetition.ast, nfa, split_state_id, is_sep)? {
+                    nfa.states[split_state_id as usize] =
+                        NfaState::Split(nfa.last_state_id(), next_state_id);
                     Ok(true)
                 } else {
                     nfa.states.pop();
@@ -108,11 +108,11 @@ fn expand_regex(ast: &Ast, nfa: &mut Nfa, mut next_state_index: u32, is_sep: boo
             }
             RepetitionKind::ZeroOrMore => {
                 nfa.states.push(NfaState::Accept(0)); // Placeholder for split
-                let split_index = nfa.last_state();
-                if expand_regex(&repetition.ast, nfa, split_index, is_sep)? {
-                    nfa.states[split_index as usize] =
-                        NfaState::Split(nfa.last_state(), next_state_index);
-                    nfa.prepend(|last_state| NfaState::Split(last_state, next_state_index));
+                let split_state_id = nfa.last_state_id();
+                if expand_regex(&repetition.ast, nfa, split_state_id, is_sep)? {
+                    nfa.states[split_state_id as usize] =
+                        NfaState::Split(nfa.last_state_id(), next_state_id);
+                    nfa.prepend(|last_state_id| NfaState::Split(last_state_id, next_state_id));
                     Ok(true)
                 } else {
                     Ok(false)
@@ -120,47 +120,49 @@ fn expand_regex(ast: &Ast, nfa: &mut Nfa, mut next_state_index: u32, is_sep: boo
             }
             RepetitionKind::Range(_) => unimplemented!(),
         },
-        Ast::Group(group) => expand_regex(&group.ast, nfa, nfa.last_state(), is_sep),
+        Ast::Group(group) => expand_regex(&group.ast, nfa, nfa.last_state_id(), is_sep),
         Ast::Alternation(alternation) => {
-            let mut alternative_start_indices = Vec::new();
+            let mut alternative_state_ids = Vec::new();
             for ast in alternation.asts.iter() {
-                if expand_regex(&ast, nfa, next_state_index, is_sep)? {
-                    alternative_start_indices.push(nfa.last_state());
+                if expand_regex(&ast, nfa, next_state_id, is_sep)? {
+                    alternative_state_ids.push(nfa.last_state_id());
+                } else {
+                    alternative_state_ids.push(next_state_id);
                 }
             }
-            alternative_start_indices.pop();
-            for alternative_start_index in alternative_start_indices {
-                nfa.prepend(|last_state| NfaState::Split(last_state, alternative_start_index));
+            alternative_state_ids.retain(|i| *i != nfa.last_state_id());
+            for alternative_state_id in alternative_state_ids {
+                nfa.prepend(|last_state_id| NfaState::Split(last_state_id, alternative_state_id));
             }
             Ok(true)
         }
         Ast::Concat(concat) => {
             let mut result = false;
             for ast in concat.asts.iter().rev() {
-                if expand_regex(&ast, nfa, next_state_index, is_sep)? {
+                if expand_regex(&ast, nfa, next_state_id, is_sep)? {
                     result = true;
                 }
-                next_state_index = nfa.last_state();
+                next_state_id = nfa.last_state_id();
             }
             Ok(result)
         }
     }
 }
 
-fn expand_rule(rule: &Rule, nfa: &mut Nfa, mut next_state_index: u32, is_sep: bool) -> Result<bool> {
+fn expand_rule(rule: &Rule, nfa: &mut Nfa, mut next_state_id: u32, is_sep: bool) -> Result<bool> {
     match rule {
         Rule::Pattern(s) => {
             let ast = parse::Parser::new()
                 .parse(&s)
                 .map_err(|e| Error::GrammarError(e.to_string()))?;
-            expand_regex(&ast, nfa, next_state_index, is_sep)
+            expand_regex(&ast, nfa, next_state_id, is_sep)
         }
         Rule::String(s) => {
             for c in s.chars().rev() {
-                nfa.prepend(|last_state| {
+                nfa.prepend(|last_state_id| {
                     NfaState::Advance {
                         chars: CharacterSet::empty().add_char(c),
-                        state: last_state,
+                        state_id: last_state_id,
                         is_sep,
                     }
                 });
@@ -168,33 +170,35 @@ fn expand_rule(rule: &Rule, nfa: &mut Nfa, mut next_state_index: u32, is_sep: bo
             Ok(s.len() > 0)
         }
         Rule::Choice(elements) => {
-            let mut alternative_start_indices = Vec::new();
+            let mut alternative_state_ids = Vec::new();
             for element in elements {
-                if expand_rule(element, nfa, next_state_index, is_sep)? {
-                    alternative_start_indices.push(nfa.last_state());
+                if expand_rule(element, nfa, next_state_id, is_sep)? {
+                    alternative_state_ids.push(nfa.last_state_id());
+                } else {
+                    alternative_state_ids.push(next_state_id);
                 }
             }
-            alternative_start_indices.pop();
-            for alternative_start_index in alternative_start_indices {
-                nfa.prepend(|last_state| NfaState::Split(last_state, alternative_start_index));
+            alternative_state_ids.retain(|i| *i != nfa.last_state_id());
+            for alternative_state_id in alternative_state_ids {
+                nfa.prepend(|last_state_id| NfaState::Split(last_state_id, alternative_state_id));
             }
             Ok(true)
         }
         Rule::Seq(elements) => {
             let mut result = false;
             for element in elements.into_iter().rev() {
-                if expand_rule(element, nfa, next_state_index, is_sep)? {
+                if expand_rule(element, nfa, next_state_id, is_sep)? {
                     result = true;
                 }
-                next_state_index = nfa.last_state();
+                next_state_id = nfa.last_state_id();
             }
             Ok(result)
         }
         Rule::Repeat(rule) => {
             nfa.states.push(NfaState::Accept(0)); // Placeholder for split
-            let split_index = nfa.last_state();
-            if expand_rule(rule, nfa, split_index, is_sep)? {
-                nfa.states[split_index as usize] = NfaState::Split(nfa.last_state(), next_state_index);
+            let split_state_id = nfa.last_state_id();
+            if expand_rule(rule, nfa, split_state_id, is_sep)? {
+                nfa.states[split_state_id as usize] = NfaState::Split(nfa.last_state_id(), next_state_id);
                 Ok(true)
             } else {
                 Ok(false)
@@ -205,10 +209,11 @@ fn expand_rule(rule: &Rule, nfa: &mut Nfa, mut next_state_index: u32, is_sep: bo
     }
 }
 
-pub(super) fn expand_tokens(grammar: ExtractedLexicalGrammar) -> Result<LexicalGrammar> {
+pub(super) fn expand_tokens(mut grammar: ExtractedLexicalGrammar) -> Result<LexicalGrammar> {
     let mut nfa = Nfa::new();
 
     let separator_rule = if grammar.separators.len() > 0 {
+        grammar.separators.push(Rule::Blank);
         Rule::repeat(Rule::choice(grammar.separators))
     } else {
         Rule::Blank
@@ -222,18 +227,18 @@ pub(super) fn expand_tokens(grammar: ExtractedLexicalGrammar) -> Result<LexicalG
         };
 
         nfa.states.push(NfaState::Accept(i));
-        let last_state = nfa.last_state();
-        expand_rule(&variable.rule, &mut nfa, last_state, false)?;
+        let last_state_id = nfa.last_state_id();
+        expand_rule(&variable.rule, &mut nfa, last_state_id, false)?;
 
         if !is_immediate_token {
-            let last_state = nfa.last_state();
-            expand_rule(&separator_rule, &mut nfa, last_state, true)?;
+            let last_state_id = nfa.last_state_id();
+            expand_rule(&separator_rule, &mut nfa, last_state_id, true)?;
         }
 
         variables.push(LexicalVariable {
             name: variable.name,
             kind: variable.kind,
-            start_state: nfa.last_state(),
+            start_state: nfa.last_state_id(),
         });
     }
 
@@ -246,20 +251,31 @@ mod tests {
     use crate::nfa::NfaCursor;
     use crate::grammars::Variable;
 
-    fn simulate_nfa<'a>(nfa: &'a Nfa, s: &'a str) -> Option<&'a str> {
+    fn simulate_nfa<'a>(grammar: &'a LexicalGrammar, s: &'a str) -> Option<(usize, &'a str)> {
+        let start_states = grammar.variables.iter().map(|v| v.start_state).collect();
+        let mut cursor = NfaCursor::new(&grammar.nfa, start_states);
+
         let mut result = None;
-        let mut char_count = 0;
-        let mut cursor = NfaCursor::new(nfa);
+        let mut start_char = 0;
+        let mut end_char = 0;
         for c in s.chars() {
-            if cursor.finished_ids().count() > 0 {
-                result = Some(&s[0..char_count]);
+            if let Some(id) = cursor.finished_id() {
+                result = Some((id, &s[start_char..end_char]));
             }
             if cursor.advance(c) {
-                char_count += 1;
+                end_char += 1;
+                if cursor.in_separator() {
+                    start_char = end_char;
+                }
             } else {
                 break;
             }
         }
+
+        if let Some(id) = cursor.finished_id() {
+            result = Some((id, &s[start_char..end_char]));
+        }
+
         result
     }
 
@@ -267,63 +283,74 @@ mod tests {
     fn test_rule_expansion() {
         struct Row {
             rules: Vec<Rule>,
-            examples: Vec<(&'static str, Option<&'static str>)>,
+            separators: Vec<Rule>,
+            examples: Vec<(&'static str, Option<(usize, &'static str)>)>,
         }
 
         let table = [
-            Row {
-                rules: vec![Rule::pattern("a|bc")],
-                examples: vec![
-                    ("a12", Some("a")),
-                    ("bc12", Some("bc")),
-                    ("b12", None),
-                    ("c12", None),
-                ],
-            },
+            // regex with sequences and alternatives
             Row {
                 rules: vec![Rule::pattern("(a|b|c)d(e|f|g)h?")],
+                separators: vec![],
                 examples: vec![
-                    ("ade1", Some("ade")),
-                    ("bdf1", Some("bdf")),
-                    ("bdfh1", Some("bdfh")),
+                    ("ade1", Some((0, "ade"))),
+                    ("bdf1", Some((0, "bdf"))),
+                    ("bdfh1", Some((0, "bdfh"))),
                     ("ad1", None),
                 ],
             },
+
+            // regex with repeats
             Row {
                 rules: vec![Rule::pattern("a*")],
+                separators: vec![],
                 examples: vec![
-                    ("aaa1", Some("aaa")),
-                    ("b", Some("")),
+                    ("aaa1", Some((0, "aaa"))),
+                    ("b", Some((0, ""))),
                 ],
             },
+
+            // regex with repeats in sequences
             Row {
                 rules: vec![Rule::pattern("a((bc)+|(de)*)f")],
+                separators: vec![],
                 examples: vec![
-                    ("af1", Some("af")),
-                    ("adedef1", Some("adedef")),
-                    ("abcbcbcf1", Some("abcbcbcf")),
+                    ("af1", Some((0, "af"))),
+                    ("adedef1", Some((0, "adedef"))),
+                    ("abcbcbcf1", Some((0, "abcbcbcf"))),
                     ("a", None),
                 ],
             },
+
+            // regex with character ranges
             Row {
                 rules: vec![Rule::pattern("[a-fA-F0-9]+")],
+                separators: vec![],
                 examples: vec![
-                    ("A1ff0", Some("A1ff")),
+                    ("A1ff0.", Some((0, "A1ff0"))),
                 ],
             },
+
+            // regex with perl character classes
             Row {
                 rules: vec![Rule::pattern("\\w\\d\\s")],
+                separators: vec![],
                 examples: vec![
-                    ("_0  ", Some("_0 ")),
+                    ("_0  ", Some((0, "_0 "))),
                 ],
             },
+
+            // string
             Row {
                 rules: vec![Rule::string("abc")],
+                separators: vec![],
                 examples: vec![
-                    ("abcd", Some("abc")),
+                    ("abcd", Some((0, "abc"))),
                     ("ab", None)
                 ],
             },
+
+            // complex rule containing strings and regexes
             Row {
                 rules: vec![
                     Rule::repeat(Rule::seq(vec![
@@ -332,17 +359,64 @@ mod tests {
                         Rule::string("}"),
                     ])),
                 ],
+                separators: vec![],
                 examples: vec![
-                    ("{a}{", Some("{a}")),
-                    ("{a}{d", Some("{a}")),
+                    ("{a}{", Some((0, "{a}"))),
+                    ("{a}{d", Some((0, "{a}"))),
                     ("ab", None),
+                ],
+            },
+
+            // longest match rule
+            Row {
+                rules: vec![
+                    Rule::pattern("a|bc"),
+                    Rule::pattern("aa"),
+                    Rule::pattern("bcd"),
+                ],
+                separators: vec![],
+                examples: vec![
+                    ("a.", Some((0, "a"))),
+                    ("bc.", Some((0, "bc"))),
+                    ("aa.", Some((1, "aa"))),
+                    ("bcd?", Some((2, "bcd"))),
+                    ("b.", None),
+                    ("c.", None),
+                ],
+            },
+
+            // regexes with alternatives including the empty string
+            Row {
+                rules: vec![Rule::pattern("a(b|)+c")],
+                separators: vec![],
+                examples: vec![
+                    ("ac.", Some((0, "ac"))),
+                    ("abc.", Some((0, "abc"))),
+                    ("abbc.", Some((0, "abbc"))),
+                ],
+            },
+
+            // separators
+            Row {
+                rules: vec![
+                    Rule::pattern("[a-f]+"),
+                ],
+                separators: vec![
+                    Rule::string("\\\n"),
+                    Rule::pattern("\\s"),
+                ],
+                examples: vec![
+                    ("  a", Some((0, "a"))),
+                    ("  \nb", Some((0, "b"))),
+                    ("  \\a", None),
+                    ("  \\\na", Some((0, "a"))),
                 ],
             },
         ];
 
-        for Row { rules, examples } in &table {
+        for Row { rules, separators, examples } in &table {
             let grammar = expand_tokens(ExtractedLexicalGrammar {
-                separators: vec![],
+                separators: separators.clone(),
                 variables: rules
                     .into_iter()
                     .map(|rule| Variable::named("", rule.clone()))
@@ -350,7 +424,7 @@ mod tests {
             }).unwrap();
 
             for (haystack, needle) in examples.iter() {
-                assert_eq!(simulate_nfa(&grammar.nfa, haystack), *needle);
+                assert_eq!(simulate_nfa(&grammar, haystack), *needle);
             }
         }
     }

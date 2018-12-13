@@ -11,7 +11,7 @@ pub enum CharacterSet {
 pub enum NfaState {
     Advance {
         chars: CharacterSet,
-        state: u32,
+        state_id: u32,
         is_sep: bool,
     },
     Split(u32, u32),
@@ -25,7 +25,7 @@ pub struct Nfa {
 
 #[derive(Debug)]
 pub struct NfaCursor<'a> {
-    indices: Vec<u32>,
+    pub(crate) state_ids: Vec<u32>,
     nfa: &'a Nfa,
     in_sep: bool,
 }
@@ -96,23 +96,20 @@ impl Nfa {
         Nfa { states: Vec::new() }
     }
 
-    pub fn last_state(&self) -> u32 {
+    pub fn last_state_id(&self) -> u32 {
         self.states.len() as u32 - 1
     }
 
     pub fn prepend(&mut self, f: impl Fn(u32) -> NfaState) {
-        self.states.push(f(self.last_state()));
+        self.states.push(f(self.last_state_id()));
     }
 }
 
 impl fmt::Debug for Nfa {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Nfa {{ states: {{")?;
+        write!(f, "Nfa {{ states: {{\n")?;
         for (i, state) in self.states.iter().enumerate() {
-            if i > 0 {
-                write!(f, ", ")?;
-            }
-            write!(f, "{}: {:?}", i, state)?;
+            write!(f, "  {}: {:?},\n", i, state)?;
         }
         write!(f, "}} }}")?;
         Ok(())
@@ -120,23 +117,23 @@ impl fmt::Debug for Nfa {
 }
 
 impl<'a> NfaCursor<'a> {
-    pub fn new(nfa: &'a Nfa) -> Self {
-        let mut result = Self { nfa, indices: Vec::new(), in_sep: true };
-        result.add_states(&mut vec![nfa.last_state()]);
+    pub fn new(nfa: &'a Nfa, mut states: Vec<u32>) -> Self {
+        let mut result = Self { nfa, state_ids: Vec::new(), in_sep: true };
+        result.add_states(&mut states);
         result
     }
 
     pub fn advance(&mut self, c: char) -> bool {
         let mut result = false;
-        let mut new_indices = Vec::new();
+        let mut new_state_ids = Vec::new();
         let mut any_sep_transitions = false;
-        for index in &self.indices {
-            if let NfaState::Advance { chars, state, is_sep } = &self.nfa.states[*index as usize] {
-                if *is_sep {
-                    any_sep_transitions = true;
-                }
+        for current_state_id in &self.state_ids {
+            if let NfaState::Advance { chars, state_id, is_sep } = &self.nfa.states[*current_state_id as usize] {
                 if chars.contains(c) {
-                    new_indices.push(*state);
+                    if *is_sep {
+                        any_sep_transitions = true;
+                    }
+                    new_state_ids.push(*state_id);
                     result = true;
                 }
             }
@@ -144,30 +141,58 @@ impl<'a> NfaCursor<'a> {
         if !any_sep_transitions {
             self.in_sep = false;
         }
-        self.indices.clear();
-        self.add_states(&mut new_indices);
+        self.state_ids.clear();
+        self.add_states(&mut new_state_ids);
         result
     }
 
-    pub fn finished_ids<'b>(&'b self) -> impl Iterator<Item = usize> + 'b {
-        self.indices.iter().filter_map(move |index| {
-            if let NfaState::Accept(i) = self.nfa.states[*index as usize] {
-                Some(i)
-            } else {
-                None
+    pub fn finished_id(&self) -> Option<usize> {
+        let mut result = None;
+        for state_id in self.state_ids.iter() {
+            if let NfaState::Accept(id) = self.nfa.states[*state_id as usize] {
+                match result {
+                    None => {
+                        result = Some(id)
+                    },
+                    Some(existing_id) => if id < existing_id {
+                        result = Some(id)
+                    }
+                }
             }
-        })
+        }
+        result
     }
 
-    pub fn add_states(&mut self, new_indices: &mut Vec<u32>) {
-        while let Some(index) = new_indices.pop() {
-            let state = &self.nfa.states[index as usize];
+    pub fn in_separator(&self) -> bool {
+        self.in_sep
+    }
+
+    pub fn add_states(&mut self, new_state_ids: &mut Vec<u32>) {
+        let mut i = 0;
+        while i < new_state_ids.len() {
+            let state_id = new_state_ids[i];
+            let state = &self.nfa.states[state_id as usize];
             if let NfaState::Split(left, right) = state {
-                new_indices.push(*left);
-                new_indices.push(*right);
-            } else if let Err(i) = self.indices.binary_search(&index) {
-                self.indices.insert(i, index);
+                let mut has_left = false;
+                let mut has_right = false;
+                for new_state_id in new_state_ids.iter() {
+                    if *new_state_id == *left {
+                        has_left = true;
+                    }
+                    if *new_state_id == *right {
+                        has_right = true;
+                    }
+                }
+                if !has_left {
+                    new_state_ids.push(*left);
+                }
+                if !has_right {
+                    new_state_ids.push(*right);
+                }
+            } else if let Err(i) = self.state_ids.binary_search(&state_id) {
+                self.state_ids.insert(i, state_id);
             }
+            i += 1;
         }
     }
 }
