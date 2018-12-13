@@ -77,6 +77,7 @@ pub struct PropertySheet<P: DeserializeOwned = HashMap<String, String>> {
     text_regexes: Vec<Regex>,
 }
 
+#[derive(Clone, Copy)]
 pub struct Node<'a>(ffi::TSNode, PhantomData<&'a ()>);
 
 pub struct Parser(*mut ffi::TSParser);
