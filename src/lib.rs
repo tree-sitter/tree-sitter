@@ -35,6 +35,14 @@ pub struct Point {
     pub column: usize,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Range {
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub start_point: Point,
+    pub end_point: Point,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct InputEdit {
     pub start_byte: usize,
@@ -252,6 +260,14 @@ impl Parser {
         unsafe { ffi::ts_parser_set_operation_limit(self.0, limit) }
     }
 
+    pub fn set_included_ranges(&mut self, ranges: &[Range]) {
+        let ts_ranges: Vec<ffi::TSRange> =
+            ranges.iter().cloned().map(|range| range.into()).collect();
+        unsafe {
+            ffi::ts_parser_set_included_ranges(self.0, ts_ranges.as_ptr(), ts_ranges.len() as u32)
+        };
+    }
+
     fn parse_utf8_ptr<T: FnMut(usize, Point) -> (*const u8, usize)>(
         &mut self,
         input: &mut T,
@@ -419,6 +435,15 @@ impl<'tree> Node<'tree> {
 
     pub fn end_byte(&self) -> usize {
         unsafe { ffi::ts_node_end_byte(self.0) as usize }
+    }
+
+    pub fn range(&self) -> Range {
+        Range {
+            start_byte: self.start_byte(),
+            end_byte: self.end_byte(),
+            start_point: self.start_position(),
+            end_point: self.end_position(),
+        }
     }
 
     pub fn start_position(&self) -> Point {
@@ -673,6 +698,17 @@ impl From<ffi::TSPoint> for Point {
         Self {
             row: point.row as usize,
             column: point.column as usize,
+        }
+    }
+}
+
+impl Into<ffi::TSRange> for Range {
+    fn into(self) -> ffi::TSRange {
+        ffi::TSRange {
+            start_byte: self.start_byte as u32,
+            end_byte: self.end_byte as u32,
+            start_point: self.start_point.into(),
+            end_point: self.end_point.into(),
         }
     }
 }
