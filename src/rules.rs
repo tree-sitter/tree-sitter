@@ -30,7 +30,6 @@ pub(crate) struct MetadataParams {
     pub is_string: bool,
     pub is_active: bool,
     pub is_main_token: bool,
-    pub is_excluded: bool,
     pub alias: Option<Alias>,
 }
 

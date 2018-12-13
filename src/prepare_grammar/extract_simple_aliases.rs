@@ -130,24 +130,24 @@ mod tests {
         };
 
         let lexical_grammar = LexicalGrammar {
+            nfa: Nfa::new(),
             variables: vec![
                 LexicalVariable {
                     name: "t1".to_string(),
                     kind: VariableType::Anonymous,
-                    nfa: Nfa::new(),
+                    start_state: 0,
                 },
                 LexicalVariable {
                     name: "t2".to_string(),
                     kind: VariableType::Anonymous,
-                    nfa: Nfa::new(),
+                    start_state: 0,
                 },
                 LexicalVariable {
                     name: "t3".to_string(),
                     kind: VariableType::Anonymous,
-                    nfa: Nfa::new(),
+                    start_state: 0,
                 }
             ],
-            separators: Vec::new(),
         };
 
         let simple_aliases = extract_simple_aliases(&mut syntax_grammar, &lexical_grammar);

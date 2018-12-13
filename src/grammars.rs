@@ -35,13 +35,13 @@ pub(crate) struct InputGrammar {
 pub(crate) struct LexicalVariable {
     pub name: String,
     pub kind: VariableType,
-    pub nfa: Nfa,
+    pub start_state: u32,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct LexicalGrammar {
+    pub nfa: Nfa,
     pub variables: Vec<LexicalVariable>,
-    pub separators: Vec<Nfa>,
 }
 
 // Extracted syntax grammar
